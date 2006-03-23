@@ -2,8 +2,8 @@
 #define CXX_LEXER_H
 
 typedef struct token_atrib_tag {
-	char* text;
-	int line;
+	char* token_text;
+	int token_line;
 } token_atrib_t;
 
 

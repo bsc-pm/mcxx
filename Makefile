@@ -1,9 +1,10 @@
 SOURCES=\
   cxx-parser.c \
-  cxx-lexer.c
+  cxx-lexer.c \
+  cxx-ast.c
 
 CC=gcc
-CFLAGS=-Wall
+CFLAGS=-Wall -g 
 
 BISON=${HOME}/Universitat/rofi-bison-install/bin/bison
 FLEX=flex
