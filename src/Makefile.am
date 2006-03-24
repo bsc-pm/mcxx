@@ -11,12 +11,35 @@ mcxx_SOURCES = \
   cxx-scanner.h \
   cxx-scanner.c \
   cxx-driver.c \
-  cxx-driver.h 
-
+  cxx-driver.h \
+  cxx-graphviz.h \
+  cxx-graphviz.c \
+  cxx-asttype.h \
+  cxx-asttype.c
 
 EXTRA_DIST =
 EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx03.l
+EXTRA_DIST += cxx-asttype.def
+
+cxx-asttype.h : cxx-asttype.def
+	echo "#ifndef CXX_ASTTYPE_H" > cxx-asttype.h
+	echo "#define CXX_ASTTYPE_H" >> cxx-asttype.h
+	echo "/* This file has been generated. Every time you change cxx-asttype.def it will be regenerated */" >> cxx-asttype.h
+	echo "enum node_type {" >> cxx-asttype.h
+	sed -e "s/$$/,/" < $(srcdir)/cxx-asttype.def >> cxx-asttype.h
+	echo "AST_LAST_NODE" >> cxx-asttype.h
+	echo "};" >> cxx-asttype.h
+	echo "extern char* ast_node_names[];" >> cxx-asttype.h
+	echo "typedef enum node_type node_t;" >> cxx-asttype.h
+	echo "#endif // CXX_ASTTYPE_H" >> cxx-asttype.h
+
+cxx-asttype.c : cxx-asttype.def cxx-asttype.h
+	echo "/* This file has been generated. Every time you change cxx-asttype.def it will be regenerated */" > cxx-asttype.c
+	echo "#include \"cxx-asttype.h\"" >> cxx-asttype.c
+	echo "char* ast_node_names[] = {" >> cxx-asttype.c
+	sed -e "s/^.*$$/[&] = \"&\",/" < $(srcdir)/cxx-asttype.def >> cxx-asttype.c
+	echo "};" >> cxx-asttype.c
 
 cxx-parser.c cxx-parser.h : $(srcdir)/cxx03.y
 	bison --debug --defines --report=all --output=cxx-parser.c $(srcdir)/cxx03.y
@@ -28,3 +51,4 @@ CLEANFILES =
 CLEANFILES += cxx-parser.c
 CLEANFILES += cxx-parser.h
 CLEANFILES += cxx-scanner.c
+CLEANFILES += cxx-asttype.h

@@ -135,3 +135,8 @@ static void out_of_memory_(char* fitxer, int linia)
 {
 	// running_error("Out of memory at %s:%d", fitxer, linia);
 }
+
+char* ast_print_node_type(node_t n)
+{
+	return ast_node_names[n];
+}

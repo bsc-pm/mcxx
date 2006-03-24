@@ -2,8 +2,10 @@
  #include <config.h>
 #endif
 
-#include "cxx-driver.h"
 #include <stdio.h>
+
+#include "cxx-driver.h"
+#include "cxx-graphviz.h"
 
 // Compilation options
 compilation_options_t compilation_options;
@@ -14,6 +16,8 @@ int main(int argc, char* argv[])
 	mcxx_flex_debug = yydebug = 0;
 
 	yyparse(&compilation_options.parsed_tree);
+
+	ast_dump_graphviz(compilation_options.parsed_tree, stdout);
 
 	return 0;
 }
