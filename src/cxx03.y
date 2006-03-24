@@ -17,9 +17,11 @@
 // Sometimes we need lots of memory
 #define YYMAXDEPTH (1000000)
 
-void yyerror(const char* c);
+void yyerror(AST* parsed_tree, const char* c);
 
-extern int yylex();
+#define yylex mcxxlex
+#define yytext mcxxtext
+extern int yylex(void);
 
 
 %}
@@ -34,6 +36,8 @@ extern int yylex();
 
 
 %default-merge <ambiguityHandler>
+
+%parse-param {AST* parsed_tree}
 
 %{
 static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
@@ -343,11 +347,11 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 
 translation_unit : declaration_sequence
 {
-	$$ = $1;
+	*parsed_tree = $1;
 }
 | /* empty */
 {
-	$$ = NULL;
+	*parsed_tree = NULL;
 }
 ;
 
@@ -3903,7 +3907,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 	return ASTMake2(AST_AMBIGUITY, x0.ast, x1.ast, 0, NULL);
 }
 
-void yyerror(const char* c)
+void yyerror(AST* parsed_tree, const char* c)
 {
 	// Current token
 	extern char* yytext;
@@ -3914,10 +3918,11 @@ void yyerror(const char* c)
 	exit(EXIT_FAILURE);
 }
 
-int main(int argc, char* argv[])
-{
-	yydebug = 0;
-	yyparse();
-
-	return 0;
-}
+// int main(int argc, char* argv[])
+// {
+// 	extern int mcxx_flex_debug;
+// 	mcxx_flex_debug = yydebug = 0;
+// 	yyparse();
+// 
+// 	return 0;
+// }
