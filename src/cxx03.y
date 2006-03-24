@@ -194,6 +194,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> attribute
 %type<ast> attribute_list
 %type<ast> attributes
+%type<ast> attribute_value
 %type<ast> base_clause
 %type<ast> base_specifier
 %type<ast> base_specifier_list
@@ -522,17 +523,17 @@ attribute : ATTRIBUTE '(' '(' attribute_list ')' ')'
 }
 ;
 
-attribute_list : attribute
+attribute_list : attribute_value
 {
 	$$ = ASTListLeaf($1);
 }
-| attribute_list ',' attribute
+| attribute_list ',' attribute_value
 {
 	$$ = ASTList($1, $3);
 }
 ;
 
-attribute : IDENTIFIER
+attribute_value : IDENTIFIER
 {
 	AST identif = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
 
@@ -1127,63 +1128,110 @@ elaborated_type_specifier : class_key IDENTIFIER
 }
 | class_key attributes nested_name_specifier IDENTIFIER
 {
-	$$ = NULL;
+	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
+
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_CLASS, $2, 
+			ASTMake4(AST_ELABORATED_TYPE_CLASS, $1, NULL, $3, identifier, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 | class_key attributes DOS_DOS_PUNTS IDENTIFIER
 {
-	$$ = NULL;
+	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
+
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_CLASS, $2, 
+			ASTMake4(AST_ELABORATED_TYPE_CLASS, $1, global_op, NULL, identifier, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 | class_key attributes IDENTIFIER
 {
-	$$ = NULL;
+	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
+
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_CLASS, $2, 
+			ASTMake4(AST_ELABORATED_TYPE_CLASS, $1, NULL, NULL, identifier, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 | class_key attributes template_id
 {
-	$$ = NULL;
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, NULL, $3, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 | class_key attributes DOS_DOS_PUNTS template_id
 {
-	$$ = NULL;
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
+
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, NULL, $4, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 | class_key attributes nested_name_specifier template_id
 {
-	$$ = NULL;
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, $3, $4, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 | class_key attributes DOS_DOS_PUNTS nested_name_specifier template_id
 {
-	$$ = NULL;
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
+
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, $4, $5, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 | class_key attributes TEMPLATE template_id
 {
-	$$ = NULL;
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, NULL, $4, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 | class_key attributes DOS_DOS_PUNTS TEMPLATE template_id
 {
-	$$ = NULL;
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
+
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, NULL, $5, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 | class_key attributes nested_name_specifier TEMPLATE template_id
 {
-	$$ = NULL;
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, $3, $5, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 | class_key attributes DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id
 {
-	$$ = NULL;
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
+
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, $4, $6, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 | ENUM attributes IDENTIFIER
 {
-	$$ = NULL;
+	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
+
+	$$ = ASTMake4(AST_ELABORATED_TYPE_ENUM, $2, NULL, NULL, identifier, $1.token_line, NULL);
 }
 | ENUM attributes DOS_DOS_PUNTS IDENTIFIER
 {
-	$$ = NULL;
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
+	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
+
+	$$ = ASTMake4(AST_ELABORATED_TYPE_ENUM, $2, global_op, NULL, identifier, $1.token_line, NULL);
 }
 | ENUM attributes nested_name_specifier IDENTIFIER
 {
-	$$ = NULL;
+	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
+
+	$$ = ASTMake4(AST_ELABORATED_TYPE_ENUM, $2, NULL, $3, identifier, $1.token_line, NULL);
 }
 | ENUM attributes DOS_DOS_PUNTS nested_name_specifier IDENTIFIER
 {
-	$$ = NULL;
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
+	AST identifier = ASTLeaf(AST_SYMBOL, $5.token_line, $5.token_text);
+
+	$$ = ASTMake4(AST_ELABORATED_TYPE_ENUM, $2, global_op, NULL, identifier, $1.token_line, NULL);
 }
 ;
 
@@ -1216,40 +1264,36 @@ init_declarator_list : init_declarator
 
 init_declarator : declarator 
 {
-	$$ = ASTMake2(AST_INITI_DECLARATOR, $1, NULL, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_INIT_DECLARATOR, $1, NULL, ASTLine($1), NULL);
 }
 | declarator initializer
 {
-	$$ = ASTMake2(AST_INITI_DECLARATOR, $1, $2, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_INIT_DECLARATOR, $1, $2, ASTLine($1), NULL);
 }
 // GNU Extensions
 | declarator asm_specification 
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_INIT_DECLARATOR_ASM, 0, NULL);
 }
 | declarator attributes
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_INIT_DECLARATOR, 0, NULL);
 }
 | declarator asm_specification attributes
 {
-	$$ = NULL;
-}
-| declarator initializer
-{
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_INIT_DECLARATOR_ASM, 0, NULL);
 }
 | declarator asm_specification initializer
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_INIT_DECLARATOR_ASM, 0, NULL);
 }
 | declarator attributes initializer
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_INIT_DECLARATOR, 0, NULL);
 }
 | declarator asm_specification attributes initializer
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_INIT_DECLARATOR_ASM, 0, NULL);
 }
 ;
 
@@ -1272,11 +1316,11 @@ declarator : direct_declarator
 // GNU Extensions
 | attributes direct_declarator
 {
-	$$ = NULL;
+	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ASTLine($1), NULL);
 }
 | attributes ptr_operator declarator
 {
-	$$ = NULL;
+	$$ = ASTMake3(AST_GCC_POINTER_DECL, $1, $2, $3, ASTLine($1), NULL);
 }
 ;
 
@@ -1378,7 +1422,7 @@ direct_declarator : declarator_id
 }
 ;
 
-declarator_id : id_expression 
+declarator_id : id_expression
 {
 	$$ = ASTMake1(AST_DECLARATOR_ID_EXPR, $1, ASTLine($1), NULL);
 }
@@ -1424,19 +1468,22 @@ enum_specifier : ENUM IDENTIFIER '{' enumeration_list '}'
 // GNU Extensions
 | ENUM '{' '}' attributes
 {
-	$$ = NULL;
+	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, NULL, NULL, $4, $1.token_line, NULL);
 }
 | ENUM IDENTIFIER '{' '}' attributes
 {
-	$$ = NULL;
+	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+
+	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, identifier, NULL, $5, $1.token_line, NULL);
 }
 | ENUM '{' enumeration_list '}' attributes
 {
-	$$ = NULL;
+	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, NULL, $3, $5, $1.token_line, NULL);
 }
 | ENUM IDENTIFIER '{' enumeration_list '}' attributes
 {
-	$$ = NULL;
+	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, identifier, $4, $6, $1.token_line, NULL);
 }
 ;
 
@@ -1489,15 +1536,15 @@ abstract_declarator : ptr_operator
 // GNU Extensions
 | attributes ptr_operator
 {
-	$$ = NULL;
+	$$ = ASTMake3(AST_GCC_ABSTRACT_DECLARATOR, $1, $2, NULL, ASTLine($1), NULL);
 }
 | attributes ptr_operator abstract_declarator
 {
-	$$ = NULL;
+	$$ = ASTMake3(AST_GCC_ABSTRACT_DECLARATOR, $1, $2, $3, ASTLine($1), NULL);
 }
 | attributes direct_abstract_declarator
 {
-	$$ = NULL;
+	$$ = ASTMake2(AST_GCC_DIRECT_DECLARATOR, $1, $2, ASTLine($1), NULL);
 }
 ;
 
@@ -1585,11 +1632,11 @@ parameter_declaration_list : parameter_declaration
 }
 ;
 
-parameter_declaration : decl_specifier_seq declarator
+parameter_declaration : decl_specifier_seq declarator 
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ASTLine($1), NULL);
 }
-| decl_specifier_seq declarator '=' assignment_expression
+| decl_specifier_seq declarator '=' assignment_expression 
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, $4, ASTLine($1), NULL);
 }
@@ -1597,11 +1644,11 @@ parameter_declaration : decl_specifier_seq declarator
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, NULL, ASTLine($1), NULL);
 }
-| decl_specifier_seq abstract_declarator
+| decl_specifier_seq abstract_declarator 
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ASTLine($1), NULL);
 }
-| decl_specifier_seq  '=' assignment_expression
+| decl_specifier_seq  '=' assignment_expression 
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, NULL, $3, ASTLine($1), NULL);
 }
@@ -1650,21 +1697,29 @@ initializer_list : initializer_clause
 // GNU Extensions
 | IDENTIFIER ':' initializer_clause
 {
-	$$ = NULL;
+	AST identifier = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
+
+	AST gcc_initializer_clause = ASTMake2(AST_GCC_INITIALIZER_CLAUSE, identifier, $3, $1.token_line, NULL);
+
+	$$ = ASTListLeaf(gcc_initializer_clause);
 }
 | initializer_list ',' IDENTIFIER ':' initializer_clause
 {
-	$$ = NULL;
+	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
+
+	AST gcc_initializer_clause = ASTMake2(AST_GCC_INITIALIZER_CLAUSE, identifier, $5, ASTLine($1), NULL);
+
+	$$ = ASTList($1, gcc_initializer_clause);
 }
 ;
 
-function_definition : declarator function_body 
+function_definition : declarator function_body
 {
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, NULL, NULL, $2, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, NULL, $2, ASTLine($1), NULL);
 }
 | declarator ctor_initializer function_body 
 {
-	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, NULL, $2, $3, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, $2, $3, ASTLine($1), NULL);
 }
 | decl_specifier_seq declarator function_body 
 {
@@ -1752,43 +1807,43 @@ class_head : class_key
 // GNU Extensions
 | class_key attributes
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_CLASS_HEAD, ASTLine($1), NULL);
 }
 | class_key attributes IDENTIFIER
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_CLASS_HEAD, ASTLine($1), NULL);
 }
 | class_key attributes base_clause
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_CLASS_HEAD, ASTLine($1), NULL);
 }
 | class_key attributes IDENTIFIER base_clause
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_CLASS_HEAD, ASTLine($1), NULL);
 }
 | class_key attributes nested_name_specifier IDENTIFIER
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_CLASS_HEAD, ASTLine($1), NULL);
 }
 | class_key attributes nested_name_specifier IDENTIFIER base_clause
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_CLASS_HEAD, ASTLine($1), NULL);
 }
 | class_key attributes template_id 
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_CLASS_HEAD, ASTLine($1), NULL);
 }
 | class_key attributes nested_name_specifier template_id 
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_CLASS_HEAD, ASTLine($1), NULL);
 }
 | class_key attributes template_id base_clause
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_CLASS_HEAD, ASTLine($1), NULL);
 }
 | class_key attributes nested_name_specifier template_id base_clause
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_CLASS_HEAD, ASTLine($1), NULL);
 }
 ;
 
@@ -1824,7 +1879,7 @@ member_specification : member_declaration
 }
 ;
 
-member_declaration : decl_specifier_seq member_declarator_list ';' 
+member_declaration : decl_specifier_seq member_declarator_list ';'  
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, $1, $2, ASTLine($1), NULL);
 }
@@ -1834,7 +1889,7 @@ member_declaration : decl_specifier_seq member_declarator_list ';'
 }
 | member_declarator_list ';' 
 {
-	$$ = ASTMake2(AST_MEMBER_DECLARATION, $1, NULL, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_MEMBER_DECLARATION, NULL, $1, ASTLine($1), NULL);
 }
 | function_definition ';'
 {
@@ -1914,7 +1969,7 @@ member_declarator : declarator
 // GNU Extensions
 | declarator attributes 
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_MEMBER_DECLARATOR, ASTLine($1), NULL);
 }
 // - El susbsumirem amb constant_initializer -
 // | declarator attributes pure_specifier
@@ -1922,15 +1977,15 @@ member_declarator : declarator
 // }
 | declarator attributes constant_initializer
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_MEMBER_DECLARATOR, ASTLine($1), NULL);
 }
 | IDENTIFIER attributes ':' constant_expression
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_MEMBER_DECLARATOR, $1.token_line, NULL);
 }
 | attributes ':' constant_expression
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_MEMBER_DECLARATOR, ASTLine($1), NULL);
 }
 ;
 
@@ -2240,15 +2295,15 @@ condition : expression
 // GNU Extension
 | type_specifier_seq declarator asm_specification attributes '=' assignment_expression
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_CONDITION, ASTLine($1), NULL);
 }
 | type_specifier_seq declarator attributes '=' assignment_expression
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_CONDITION, ASTLine($1), NULL);
 }
 | type_specifier_seq declarator asm_specification '=' assignment_expression
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_CONDITION, ASTLine($1), NULL);
 }
 ;
 
@@ -2664,11 +2719,11 @@ postfix_expression : primary_expression
 // GNU Extensions
 | '(' type_id ')' '{' initializer_list '}'
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_POSTFIX_EXPRESSION, $1.token_line, NULL);
 }
 | '(' type_id ')' '{' initializer_list ',' '}'
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_POSTFIX_EXPRESSION, $1.token_line, NULL);
 }
 ;
 
@@ -2763,27 +2818,29 @@ unary_expression : postfix_expression
 // GNU Extensions
 | EXTENSION cast_expression
 {
-	$$ = NULL;
+	$$ = ASTMake1(AST_GCC_EXTENSION_UNARY_EXPRESSION, $2, $1.token_line, NULL);
 }
 | ALIGNOF unary_expression
 {
-	$$ = NULL;
+	$$ = ASTMake1(AST_GCC_ALIGNOF, $2, $1.token_line, NULL);
 }
 | ALIGNOF '(' type_id ')'
 {
-	$$ = NULL;
+	$$ = ASTMake1(AST_GCC_ALIGNOF_TYPE, $3, $1.token_line, NULL);
 }
 | REAL cast_expression
 {
-	$$ = NULL;
+	$$ = ASTMake1(AST_GCC_REAL_PART, $2, $1.token_line, NULL);
 }
 | IMAG cast_expression
 {
-	$$ = NULL;
+	$$ = ASTMake1(AST_GCC_IMAG_PART, $2, $1.token_line, NULL);
 }
 | ANDAND IDENTIFIER
 {
-	$$ = NULL;
+	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+
+	$$ = ASTMake1(AST_GCC_LABEL_ADDR, identifier, $1.token_line, NULL);
 }
 ;
 
@@ -3604,27 +3661,27 @@ explicit_instantiation : TEMPLATE decl_specifier_seq declarator ';'
 // GNU Extensions
 | storage_class_specifier TEMPLATE decl_specifier_seq declarator ';'
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_EXPLICIT_INSTANTIATION, ASTLine($1), NULL);
 }
 | storage_class_specifier TEMPLATE decl_specifier_seq ';'
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_EXPLICIT_INSTANTIATION, ASTLine($1), NULL);
 }
 | storage_class_specifier TEMPLATE declarator ';'
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_EXPLICIT_INSTANTIATION, ASTLine($1), NULL);
 }
 | function_specifier TEMPLATE decl_specifier_seq declarator ';'
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_EXPLICIT_INSTANTIATION, ASTLine($1), NULL);
 }
 | function_specifier TEMPLATE decl_specifier_seq ';'
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_EXPLICIT_INSTANTIATION, ASTLine($1), NULL);
 }
 | function_specifier TEMPLATE declarator ';'
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_GCC_EXPLICIT_INSTANTIATION, ASTLine($1), NULL);
 }
 ;
 
@@ -3904,7 +3961,61 @@ int num_crides = 0;
 
 static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 {
-	return ASTMake2(AST_AMBIGUITY, x0.ast, x1.ast, 0, NULL);
+	// return ASTMake2(AST_AMBIGUITY, x0.ast, x1.ast, 0, NULL);
+	AST son0 = x0.ast;
+	AST son1 = x1.ast;
+
+	if (ASTType(son0) == AST_AMBIGUITY)
+	{
+		if (ASTType(son1) == AST_AMBIGUITY)
+		{
+			int original_sons = son0->num_ambig;
+
+			fprintf(stderr, "son0 -> %d | son1 -> %d | total : %d\n", son0->num_ambig, son1->num_ambig, son0->num_ambig + son1->num_ambig);
+
+			son0->num_ambig += son1->num_ambig;
+			fprintf(stderr, "abans %p\n", son0->ambig);
+			son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
+			fprintf(stderr, "despres %p\n", son0->ambig);
+
+			
+			int i;
+			for (i = 0; i < son1->num_ambig; i++)
+			{
+				fprintf(stderr, "son0->ambig[%d] = son1->ambig[%d];\n", original_sons + i, i);
+				son0->ambig[original_sons + i] = son1->ambig[i];
+			}
+
+			return son0;
+		}
+		else
+		{
+			son0->num_ambig++;
+			son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
+			son0->ambig[son0->num_ambig-1] = son1;
+
+			return son0;
+		}
+	}
+	else if (ASTType(son1) == AST_AMBIGUITY)
+	{
+		son1->num_ambig++;
+		son1->ambig = (AST*) realloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
+		son1->ambig[son1->num_ambig-1] = son0;
+
+		return son1;
+	}
+	else
+	{
+		AST result = ASTLeaf(AST_AMBIGUITY, 0, NULL);
+
+		result->num_ambig = 2;
+		result->ambig = calloc(sizeof(*(result->ambig)), result->num_ambig);
+		result->ambig[0] = son0;
+		result->ambig[1] = son1;
+
+		return result;
+	}
 }
 
 void yyerror(AST* parsed_tree, const char* c)

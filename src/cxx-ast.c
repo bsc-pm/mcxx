@@ -131,6 +131,26 @@ AST duplicate_ast(AST a)
 	return result;
 }
 
+AST ASTListLeaf(AST element)
+{
+	AST result = ASTLeaf(AST_NODE_LIST, 0, NULL);
+	result->num_list = 1;
+	result->list = (AST*) calloc(sizeof(*result->list), result->num_list);
+	result->list[result->num_list-1] = element;
+
+	return result;
+}
+
+AST ASTList(AST list, AST element)
+{
+	list->num_list++;
+	list->list = (AST*) realloc(list->list, sizeof(*list->list)*list->num_list);
+
+	list->list[list->num_list-1] = element;
+
+	return list;
+}
+
 static void out_of_memory_(char* fitxer, int linia)
 {
 	// running_error("Out of memory at %s:%d", fitxer, linia);

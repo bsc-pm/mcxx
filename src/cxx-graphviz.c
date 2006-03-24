@@ -18,6 +18,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
 	static char* ellipse = "ellipse";
 	static char* mdiamond = "Mdiamond";
 	static char* box = "box";
+	static int num_clusters = 0;
 	char* shape;
 
 	int node_actual = nodes_counter++;
@@ -41,15 +42,37 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
 			fprintf(f, "n%d[shape=%s,label=\"%s\\nLine: %d\"]\n", 
 					node_actual, shape, ast_print_node_type(ASTType(a)), ASTLine(a));
 		}
+
 		if (parent_node != 0)
 		{
 			fprintf(f, "n%d -> n%d [label=\"%d\"]\n", parent_node, node_actual, position);
 		}
 
-		int i;
-		for(i = 0; i < a->num_children; i++)
+
+		if (ASTType(a) != AST_AMBIGUITY && ASTType(a) != AST_NODE_LIST)
 		{
+			int i;
+			for(i = 0; i < a->num_children; i++)
+			{
 				ast_dump_graphviz_rec(ASTChild(a, i),f,  node_actual, i);
+			}
+		}
+		else if (ASTType(a) == AST_AMBIGUITY)
+		{
+			int i;
+			int n = node_actual;
+			for(i = 0; i < a->num_ambig; i++)
+			{
+				ast_dump_graphviz_rec(a->ambig[i], f, node_actual, i);
+			}
+		}
+		else if (ASTType(a) == AST_NODE_LIST)
+		{
+			int i;
+			for(i = 0; i < a->num_list; i++)
+			{
+				ast_dump_graphviz_rec(a->list[i], f, node_actual, i);
+			}
 		}
 	}
 	else
