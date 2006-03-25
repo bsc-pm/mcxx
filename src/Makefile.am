@@ -45,7 +45,7 @@ cxx-parser.c cxx-parser.h : $(srcdir)/cxx03.y
 	bison --debug --defines --report=all --output=cxx-parser.c $(srcdir)/cxx03.y
 
 cxx-scanner.c : $(srcdir)/cxx03.l $(srcdir)/cxx-ast.h cxx-parser.h
-	flex -Pmcxx -d -i -ocxx-scanner.c -8 $(srcdir)/cxx03.l
+	flex -Pmcxx -d -ocxx-scanner.c -8 $(srcdir)/cxx03.l
 
 CLEANFILES =
 CLEANFILES += cxx-parser.c
