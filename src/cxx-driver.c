@@ -22,7 +22,7 @@ int main(int argc, char* argv[])
 	yyparse(&compilation_options.parsed_tree);
 
 	// ast_dump_graphviz(compilation_options.parsed_tree, stdout);
-	// print_ambiguities(compilation_options.parsed_tree);
+	print_ambiguities(compilation_options.parsed_tree);
 
 	return 0;
 }
@@ -32,6 +32,8 @@ void print_ambiguities(AST a)
 	if (a == NULL) 
 		return;
 
+	// fprintf(stdout, "%p ", a);
+	// fprintf(stdout, "[%d] %s\n", ASTNumChildren(a), ast_print_node_type(ASTType(a)));
 	switch (ASTType(a))
 	{
 		case AST_AMBIGUITY :
@@ -42,6 +44,7 @@ void print_ambiguities(AST a)
 				{
 					fprintf(stdout, "%s ", ast_print_node_type(ASTType(a->ambig[i])));
 				}
+				fprintf(stdout, "\n");
 				break;
 			}
 		default :

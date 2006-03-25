@@ -2632,39 +2632,69 @@ postfix_expression : primary_expression
 }
 | TYPENAME nested_name_specifier IDENTIFIER '(' ')'
 {
+	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
+
+	$$ = ASTMake4(AST_TYPENAME, NULL, $2, identifier, NULL, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier IDENTIFIER '(' ')'
 {
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
+	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
+
+	$$ = ASTMake4(AST_TYPENAME, global_op, $3, identifier, NULL, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier IDENTIFIER '(' expression_list ')'
 {
+	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
+
+	$$ = ASTMake4(AST_TYPENAME, NULL, $2, identifier, $5, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier IDENTIFIER '(' expression_list ')'
 {
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
+	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
+
+	$$ = ASTMake4(AST_TYPENAME, global_op, $3, identifier, $6, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier template_id '(' ')'
 {
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, NULL, $2, $3, NULL, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier template_id '(' expression_list ')'
 {
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, NULL, $2, $3, $5, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier TEMPLATE template_id '(' ')'
 {
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, NULL, $2, $4, NULL, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier TEMPLATE template_id '(' expression_list ')'
 {
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, NULL, $2, $4, $6, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier template_id '(' ')'
 {
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
+
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, global_op, $3, $4, NULL, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier template_id '(' expression_list ')'
 {
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
+
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, global_op, $3, $4, $6, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id '(' ')'
 {
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
+
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, global_op, $3, $5, NULL, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id '(' expression_list ')'
 {
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
+
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, global_op, $3, $5, $7, $1.token_line, NULL);
 }
 | postfix_expression '.' id_expression
 {
