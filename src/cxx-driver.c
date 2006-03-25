@@ -42,7 +42,8 @@ void print_ambiguities(AST a)
 				fprintf(stdout, "%d ", a->num_ambig);
 				for (i = 0; i < a->num_ambig; i++)
 				{
-					fprintf(stdout, "%s ", ast_print_node_type(ASTType(a->ambig[i])));
+					fprintf(stdout, "%s | ", ast_print_node_type(ASTType(a->ambig[i])));
+					// fprintf(stdout, "%s (%d) | ", ast_print_node_type(ASTType(a->ambig[i])), ASTLine(a->ambig[i]));
 				}
 				fprintf(stdout, "\n");
 				break;

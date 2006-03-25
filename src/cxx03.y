@@ -2763,11 +2763,11 @@ postfix_expression : primary_expression
 }
 ;
 
-expression_list : expression 
+expression_list : assignment_expression 
 {
 	$$ = ASTListLeaf($1);
 }
-| expression_list ',' expression
+| expression_list ',' assignment_expression
 {
 	$$ = ASTList($1, $3);
 }
