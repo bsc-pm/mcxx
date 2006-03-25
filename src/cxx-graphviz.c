@@ -27,6 +27,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
 		// Select shape
 		shape = box;
 		if (ASTType(a) == AST_AMBIGUITY) shape = ellipse;
+		if (ASTType(a) == AST_NODE_LIST) shape = mdiamond;
 		// if (a->construct_type == CT_SPECIFICATION) shape = ellipse;
 		// else if (a->construct_type == CT_OMP_SPECIFICATION) shape = mdiamond;
 		// else if (a->construct_type == CT_EXECUTABLE) shape = octagon;
@@ -49,7 +50,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
 		}
 
 
-		if (ASTType(a) != AST_AMBIGUITY && ASTType(a) != AST_NODE_LIST)
+		if (ASTType(a) != AST_AMBIGUITY)
 		{
 			int i;
 			for(i = 0; i < a->num_children; i++)
@@ -64,14 +65,6 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
 			for(i = 0; i < a->num_ambig; i++)
 			{
 				ast_dump_graphviz_rec(a->ambig[i], f, node_actual, i);
-			}
-		}
-		else if (ASTType(a) == AST_NODE_LIST)
-		{
-			int i;
-			for(i = 0; i < a->num_list; i++)
-			{
-				ast_dump_graphviz_rec(a->list[i], f, node_actual, i);
 			}
 		}
 	}

@@ -21,9 +21,6 @@ struct node_ast
 
 	int num_ambig;
 	struct node_ast** ambig;
-
-	int num_list;
-	struct node_ast** list;
 };
 
 typedef struct node_ast* AST;
@@ -54,10 +51,10 @@ typedef struct node_ast* AST;
 
 #define ASTNumChildren(a) ((a)->num_children)
 
-// #define ASTListLeaf(a) ASTMake2(AST_NODE_LIST, NULL, a, 0, NULL)
-// #define ASTList(list,element) ASTMake2(AST_NODE_LIST, list, element, 0, NULL)
-AST ASTListLeaf(AST element);
-AST ASTList(AST element, AST list);
+#define ASTListLeaf(a) ASTMake2(AST_NODE_LIST, NULL, a, 0, NULL)
+#define ASTList(list,element) ASTMake2(AST_NODE_LIST, list, element, 0, NULL)
+// AST ASTListLeaf(AST element);
+// AST ASTList(AST element, AST list);
 
 #define ASTAmbiguous(a, b) ASTMake2(AST_AMBIGUITY, a, b, 0, NULL)
 

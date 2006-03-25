@@ -181,7 +181,7 @@ hexprefix   0[xX]
 "__restrict__" { parse_token_text(); return RESTRICT; }
 "__restrict" { parse_token_text(); return RESTRICT; }
 "__const" { parse_token_text(); return CONST; }
- /* "__const__" { parse_token_text(); return CONST; } */
+"__const__" { parse_token_text(); return CONST; }
 "__attribute__" { parse_token_text(); return ATTRIBUTE; }
 "__thread" { parse_token_text(); return THREAD; } 
 

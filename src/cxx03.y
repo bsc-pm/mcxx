@@ -15,7 +15,7 @@
 #define YYDEBUG 1
 #define YYERROR_VERBOSE 1
 // Sometimes we need lots of memory
-#define YYMAXDEPTH (1000000)
+#define YYMAXDEPTH (10000000)
 
 void yyerror(AST* parsed_tree, const char* c);
 
@@ -539,6 +539,12 @@ attribute_value : IDENTIFIER
 
 	$$ = ASTMake3(AST_GCC_ATTRIBUTE_EXPR, identif, NULL, NULL, $1.token_line, NULL);
 }
+| CONST
+{
+	AST identif = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
+
+	$$ = ASTMake3(AST_GCC_ATTRIBUTE_EXPR, identif, NULL, NULL, $1.token_line, NULL);
+}
 | IDENTIFIER '(' IDENTIFIER ')'
 {
 	AST identif1 = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
@@ -891,33 +897,33 @@ type_specifier_seq : type_specifier
 
 simple_type_specifier : type_name
 {
-	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, NULL, $1, NULL, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, NULL, $1, NULL, ASTLine($1), "a");
 }
 | DOS_DOS_PUNTS type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
-	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, global_op, NULL, $2, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, global_op, NULL, $2, NULL, $1.token_line, "b");
 }
 | nested_name_specifier type_name
 {
-	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, $1, $2, NULL, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, $1, $2, NULL, ASTLine($1), "c");
 }
 | DOS_DOS_PUNTS nested_name_specifier type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
-	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, global_op, $2, $3, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, global_op, $2, $3, NULL, $1.token_line, "d");
 }
 | nested_name_specifier TEMPLATE template_id
 {
-	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, $1, NULL, $3, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, $1, NULL, $3, ASTLine($1), "e");
 }
 | DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
-	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, global_op, $2, NULL, $4, $1.token_line, NULL);
+	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, global_op, $2, NULL, $4, $1.token_line, "f");
 }
 | builtin_types
 {
@@ -1618,7 +1624,7 @@ parameter_declaration_clause : parameter_declaration_list
 // No m'agrada aixo, però farem una excepció
 | /* empty */
 {
-	$$ = NULL;
+	$$ = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, 0, NULL);
 }
 ;
 
@@ -2218,7 +2224,7 @@ labeled_statement : IDENTIFIER ':' statement
 expression_statement : ';'
 {
 	// Empty statement ...
-	$$ = NULL;
+	$$ = ASTLeaf(AST_EMPTY_STATEMENT, $1.token_line, NULL);
 }
 | expression ';'
 {
@@ -3965,25 +3971,26 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 	AST son0 = x0.ast;
 	AST son1 = x1.ast;
 
+	if (son0 == son1) 
+	{
+		fprintf(stderr, "Ambiguity function received two trees that are the same!");
+		exit(EXIT_FAILURE);
+	}
+
 	if (ASTType(son0) == AST_AMBIGUITY)
 	{
 		if (ASTType(son1) == AST_AMBIGUITY)
 		{
-			int original_sons = son0->num_ambig;
+			int original_son0 = son0->num_ambig;
 
-			fprintf(stderr, "son0 -> %d | son1 -> %d | total : %d\n", son0->num_ambig, son1->num_ambig, son0->num_ambig + son1->num_ambig);
 
 			son0->num_ambig += son1->num_ambig;
-			fprintf(stderr, "abans %p\n", son0->ambig);
 			son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
-			fprintf(stderr, "despres %p\n", son0->ambig);
-
 			
 			int i;
 			for (i = 0; i < son1->num_ambig; i++)
 			{
-				fprintf(stderr, "son0->ambig[%d] = son1->ambig[%d];\n", original_sons + i, i);
-				son0->ambig[original_sons + i] = son1->ambig[i];
+				son0->ambig[original_son0 + i] = son1->ambig[i];
 			}
 
 			return son0;
@@ -4028,12 +4035,3 @@ void yyerror(AST* parsed_tree, const char* c)
     fprintf(stderr, "Token '%s'\n", yytext);
 	exit(EXIT_FAILURE);
 }
-
-// int main(int argc, char* argv[])
-// {
-// 	extern int mcxx_flex_debug;
-// 	mcxx_flex_debug = yydebug = 0;
-// 	yyparse();
-// 
-// 	return 0;
-// }

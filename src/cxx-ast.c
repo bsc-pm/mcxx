@@ -131,6 +131,7 @@ AST duplicate_ast(AST a)
 	return result;
 }
 
+/*
 AST ASTListLeaf(AST element)
 {
 	AST result = ASTLeaf(AST_NODE_LIST, 0, NULL);
@@ -150,6 +151,7 @@ AST ASTList(AST list, AST element)
 
 	return list;
 }
+*/
 
 static void out_of_memory_(char* fitxer, int linia)
 {

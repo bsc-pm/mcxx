@@ -34,15 +34,6 @@ void print_ambiguities(AST a)
 
 	switch (ASTType(a))
 	{
-		case AST_NODE_LIST :
-			{
-				int i;
-				for (i = 0; i < a->num_list; i++)
-				{
-					print_ambiguities(a->list[i]);
-				}
-				break;
-			}
 		case AST_AMBIGUITY :
 			{
 				int i;
