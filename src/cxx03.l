@@ -184,6 +184,8 @@ hexprefix   0[xX]
 "__const__" { parse_token_text(); return CONST; }
 "__attribute__" { parse_token_text(); return ATTRIBUTE; }
 "__thread" { parse_token_text(); return THREAD; } 
+"__inline"        { parse_token_text(); return INLINE; } 
+"__inline__"        { parse_token_text(); return INLINE; } 
 
 "<?" { parse_token_text(); return MIN_OPERATOR; }
 ">?" { parse_token_text(); return MIN_OPERATOR; }

@@ -23,7 +23,6 @@ void yyerror(AST* parsed_tree, const char* c);
 #define yytext mcxxtext
 extern int yylex(void);
 
-
 %}
 
 %glr-parser
@@ -221,7 +220,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> declaration_statement
 %type<ast> declarator
 %type<ast> declarator_id
-%type<ast> decl_specifier
+// %type<ast> decl_specifier
 %type<ast> decl_specifier_seq
 %type<ast> delete_expression
 %type<ast> direct_abstract_declarator
@@ -334,6 +333,8 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> unqualified_id
 %type<ast> using_declaration
 %type<ast> using_directive
+%type<ast> nontype_specifier_seq
+%type<ast> nontype_specifier
 
 %type<node_type> unary_operator
 %type<node_type> assignment_operator
@@ -671,7 +672,7 @@ namespace_alias_definition : NAMESPACE IDENTIFIER '=' qualified_namespace_specif
 }
 ;
 
-qualified_namespace_specifier : IDENTIFIER
+qualified_namespace_specifier : IDENTIFIER 
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
 
@@ -775,24 +776,57 @@ simple_declaration : decl_specifier_seq init_declarator_list ';'
 }
 ;
 
-decl_specifier_seq : decl_specifier
+// decl_specifier_seq : decl_specifier 
+// {
+// 	$$ = ASTListLeaf($1);
+// }
+// | decl_specifier_seq decl_specifier 
+// {
+// 	$$ = ASTList($1, $2);
+// }
+// ;
+
+decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_seq
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, $3, ASTLine($1), NULL);
+}
+| nontype_specifier_seq type_specifier
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, NULL, ASTLine($1), NULL);
+}
+| type_specifier nontype_specifier_seq
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, $2, ASTLine($1), NULL);
+}
+| type_specifier
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, NULL, ASTLine($1), NULL);
+}
+| nontype_specifier_seq
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, NULL, NULL, ASTLine($1), NULL);
+}
+;
+
+nontype_specifier_seq : nontype_specifier
 {
 	$$ = ASTListLeaf($1);
 }
-| decl_specifier_seq decl_specifier
+| nontype_specifier_seq nontype_specifier
 {
 	$$ = ASTList($1, $2);
 }
 ;
 
-decl_specifier : storage_class_specifier
+nontype_specifier : storage_class_specifier
 {
 	$$ = $1;
 }
-| type_specifier
-{
-	$$ = $1;
-}
+// No el volem aqui
+// | type_specifier
+// {
+// 	$$ = $1;
+// }
 | function_specifier
 {
 	$$ = $1;
@@ -804,6 +838,28 @@ decl_specifier : storage_class_specifier
 | TYPEDEF
 {
 	$$ = ASTLeaf(AST_TYPEDEF_SPEC, $1.token_line, $1.token_text);
+}
+// El posem aqui per comoditat
+| cv_qualifier
+{
+	$$ = $1;
+}
+// Els posem aqui repetits
+| SIGNED
+{
+	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_line, $1.token_text);
+}
+| UNSIGNED
+{
+	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_line, $1.token_text);
+}
+| LONG
+{
+	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_line, $1.token_text);
+}
+| SHORT
+{
+	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_line, $1.token_text);
 }
 // GNU Extension
 | attributes
@@ -869,10 +925,10 @@ type_specifier : simple_type_specifier
 {
 	$$ = $1;
 }
-| cv_qualifier
-{
-	$$ = $1;
-}
+// | cv_qualifier
+// {
+// 	$$ = $1;
+// }
 // GNU Extensions
 | COMPLEX
 {
@@ -883,6 +939,14 @@ type_specifier : simple_type_specifier
 type_specifier_seq : type_specifier 
 {
 	$$ = ASTListLeaf($1);
+}
+| cv_qualifier
+{
+	$$ = ASTListLeaf($1);
+}
+| type_specifier_seq cv_qualifier
+{
+	$$ = ASTList($1, $2);
 }
 | type_specifier_seq type_specifier 
 {
@@ -897,33 +961,33 @@ type_specifier_seq : type_specifier
 
 simple_type_specifier : type_name
 {
-	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, NULL, $1, NULL, ASTLine($1), "a");
+	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, NULL, $1, NULL, ASTLine($1), NULL);
 }
 | DOS_DOS_PUNTS type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
-	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, global_op, NULL, $2, NULL, $1.token_line, "b");
+	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, global_op, NULL, $2, NULL, $1.token_line, NULL);
 }
 | nested_name_specifier type_name
 {
-	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, $1, $2, NULL, ASTLine($1), "c");
+	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, $1, $2, NULL, ASTLine($1), NULL);
 }
 | DOS_DOS_PUNTS nested_name_specifier type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
-	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, global_op, $2, $3, NULL, $1.token_line, "d");
+	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, global_op, $2, $3, NULL, $1.token_line, NULL);
 }
 | nested_name_specifier TEMPLATE template_id
 {
-	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, $1, NULL, $3, ASTLine($1), "e");
+	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, $1, NULL, $3, ASTLine($1), NULL);
 }
 | DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
-	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, global_op, $2, NULL, $4, $1.token_line, "f");
+	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, global_op, $2, NULL, $4, $1.token_line, NULL);
 }
 | builtin_types
 {
@@ -2746,7 +2810,7 @@ postfix_expression : primary_expression
 }
 | TYPEID '(' expression ')' 
 {
-	$$ = ASTMake1(AST_TYPEID, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_TYPEID_EXPR, $3, $1.token_line, NULL);
 }
 | TYPEID '(' type_id ')' 
 {
@@ -3727,11 +3791,11 @@ explicit_specialization : TEMPLATE '<' '>' decl_specifier_seq init_declarator ';
 }
 | TEMPLATE '<' '>' init_declarator ';'
 {
-	$$ = ASTMake2(AST_EXPLICIT_SPECIALIZATION_DECL, $4, NULL, $1.token_line, NULL);
+	$$ = ASTMake2(AST_EXPLICIT_SPECIALIZATION_DECL, NULL, $4, $1.token_line, NULL);
 }
 | TEMPLATE '<' '>' decl_specifier_seq ';'
 {
-	$$ = ASTMake2(AST_EXPLICIT_SPECIALIZATION_DECL, NULL, $4, $1.token_line, NULL);
+	$$ = ASTMake2(AST_EXPLICIT_SPECIALIZATION_DECL, $4, NULL, $1.token_line, NULL);
 }
 | TEMPLATE '<' '>' function_definition 
 {
@@ -4050,6 +4114,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 		result->ambig = calloc(sizeof(*(result->ambig)), result->num_ambig);
 		result->ambig[0] = son0;
 		result->ambig[1] = son1;
+		result->line = son0->line;
 
 		return result;
 	}

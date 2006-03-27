@@ -2,6 +2,7 @@
  #include <config.h>
 #endif
 
+#include <string.h>
 #include <stdio.h>
 
 #include "cxx-driver.h"
@@ -11,7 +12,7 @@
 // Compilation options
 compilation_options_t compilation_options;
 
-void print_ambiguities(AST a);
+void print_ambiguities(AST a, char lines);
 
 int main(int argc, char* argv[])
 {
@@ -21,13 +22,24 @@ int main(int argc, char* argv[])
 
 	yyparse(&compilation_options.parsed_tree);
 
-	// ast_dump_graphviz(compilation_options.parsed_tree, stdout);
-	print_ambiguities(compilation_options.parsed_tree);
+	if (argc > 1 && (strcmp(argv[1], "-a") == 0))
+	{
+		char lines = 0;
+		if (argc > 2 && (strcmp(argv[2], "-l") == 0))
+		{
+			lines = 1;
+		}
+		print_ambiguities(compilation_options.parsed_tree, lines);
+	}
+	else
+	{
+		ast_dump_graphviz(compilation_options.parsed_tree, stdout);
+	}
 
 	return 0;
 }
 
-void print_ambiguities(AST a)
+void print_ambiguities(AST a, char lines)
 {
 	if (a == NULL) 
 		return;
@@ -39,11 +51,23 @@ void print_ambiguities(AST a)
 		case AST_AMBIGUITY :
 			{
 				int i;
+
+				for (i = 0; i < a->num_ambig; i++)
+				{
+					print_ambiguities(a->ambig[i], lines);
+				}
+				
 				fprintf(stdout, "%d ", a->num_ambig);
 				for (i = 0; i < a->num_ambig; i++)
 				{
-					fprintf(stdout, "%s | ", ast_print_node_type(ASTType(a->ambig[i])));
-					// fprintf(stdout, "%s (%d) | ", ast_print_node_type(ASTType(a->ambig[i])), ASTLine(a->ambig[i]));
+					if (!lines)
+					{
+						fprintf(stdout, "%s | ", ast_print_node_type(ASTType(a->ambig[i])));
+					}
+					else
+					{
+						fprintf(stdout, "%s (%d) | ", ast_print_node_type(ASTType(a->ambig[i])), ASTLine(a->ambig[i]));
+					}
 				}
 				fprintf(stdout, "\n");
 				break;
@@ -53,7 +77,7 @@ void print_ambiguities(AST a)
 				int i;
 				for (i = 0; i < ASTNumChildren(a); i++)
 				{
-					print_ambiguities(ASTChild(a, i));
+					print_ambiguities(ASTChild(a, i), lines);
 				}
 				break;
 			}
