@@ -1310,18 +1310,6 @@ elaborated_type_specifier : class_key IDENTIFIER
 // *********************************************************
 // A.7 - Declarators
 // *********************************************************
-
-// Això és ambigu ja que
-// A b(c) es pot entendre com
-//
-//  b -> declarator
-//  (c) -> initializer;
-//    o bé
-//  b(c) -> declarator
-//
-// la distinció es purament semàntica ja que si "c" es un type_name
-// llavors estem declarant una funció "b" que retorna un A
-// altrament b es un objecte de tipus A construït per valor.
 init_declarator_list : init_declarator
 {
 	$$ = ASTListLeaf($1);
@@ -1933,19 +1921,19 @@ class_key : CLASS
 
 member_specification : member_declaration
 {
-	$$ = ASTMake2(AST_MEMBER_SPEC, NULL, $1, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_MEMBER_SPEC, NULL, $1, NULL, ASTLine($1), NULL);
 }
 | access_specifier ':'
 {
-	$$ = ASTMake2(AST_MEMBER_SPEC, $1, NULL, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_MEMBER_SPEC, $1, NULL, NULL, ASTLine($1), NULL);
 }
 | member_declaration member_specification
 {
-	$$ = ASTMake2(AST_MEMBER_SPEC, $1, $2, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_MEMBER_SPEC, NULL, $1, $2, ASTLine($1), NULL);
 }
 | access_specifier ':' member_specification
 {
-	$$ = ASTMake2(AST_MEMBER_SPEC, $1, $3, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_MEMBER_SPEC, $1, NULL, $3, ASTLine($1), NULL);
 }
 ;
 
@@ -2624,15 +2612,15 @@ qualified_id : nested_name_specifier unqualified_id
 
 nested_name_specifier : class_or_namespace_name DOS_DOS_PUNTS 
 {
-	$$ = ASTMake3(AST_NESTED_NAME_SPECIFIER, $1, NULL, NULL, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, NULL, ASTLine($1), NULL);
 }
 | class_or_namespace_name DOS_DOS_PUNTS nested_name_specifier
 {
-	$$ = ASTMake3(AST_NESTED_NAME_SPECIFIER, $1, $3, NULL, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, $3, ASTLine($1), NULL);
 }
 | class_or_namespace_name DOS_DOS_PUNTS TEMPLATE nested_name_specifier
 {
-	$$ = ASTMake3(AST_NESTED_NAME_SPECIFIER, $1, NULL, $4, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER_TEMPLATE, $1, $4, ASTLine($1), NULL);
 }
 ;
 
@@ -3064,7 +3052,7 @@ new_type_id : type_specifier_seq
 }
 | type_specifier_seq new_declarator
 {
-	$$ = ASTMake2(AST_NEW_TYPE_ID, $1, NULL, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_NEW_TYPE_ID, $1, $2, ASTLine($1), NULL);
 }
 ;
 
@@ -3444,171 +3432,171 @@ operator_function_id : OPERATOR operator
 
 operator : NEW
 {
-	$$ = ASTLeaf(AST_NEW_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_NEW_OPERATOR, $1.token_line, NULL);
 }
 | DELETE
 {
-	$$ = ASTLeaf(AST_DELETE_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_DELETE_OPERATOR, $1.token_line, NULL);
 }
 | NEW '[' ']'
 {
-	$$ = ASTLeaf(AST_NEW_ARRAY_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_NEW_ARRAY_OPERATOR, $1.token_line, NULL);
 }
 | DELETE '[' ']'
 {
-	$$ = ASTLeaf(AST_DELETE_ARRAY_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_DELETE_ARRAY_OPERATOR, $1.token_line, NULL);
 }
 | '+'
 {
-	$$ = ASTLeaf(AST_ADD_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_ADD_OPERATOR, $1.token_line, NULL);
 }
 | '-'
 {
-	$$ = ASTLeaf(AST_MINUS_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_MINUS_OPERATOR, $1.token_line, NULL);
 }
 | '*'
 {
-	$$ = ASTLeaf(AST_MULT_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_MULT_OPERATOR, $1.token_line, NULL);
 }
 | '/'
 {
-	$$ = ASTLeaf(AST_DIV_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_DIV_OPERATOR, $1.token_line, NULL);
 }
 | '%' 
 {
-	$$ = ASTLeaf(AST_MOD_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_MOD_OPERATOR, $1.token_line, NULL);
 }
 | '^'
 {
-	$$ = ASTLeaf(AST_BITWISE_XOR_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_BITWISE_XOR_OPERATOR, $1.token_line, NULL);
 }
 | '&'
 {
-	$$ = ASTLeaf(AST_BITWISE_AND_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_BITWISE_AND_OPERATOR, $1.token_line, NULL);
 }
 | '|'
 {
-	$$ = ASTLeaf(AST_BITWISE_OR_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_BITWISE_OR_OPERATOR, $1.token_line, NULL);
 }
 | '~'
 {
-	$$ = ASTLeaf(AST_BITWISE_NEG_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_BITWISE_NEG_OPERATOR, $1.token_line, NULL);
 }
 | '!'
 {
-	$$ = ASTLeaf(AST_LOGICAL_NOT_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_LOGICAL_NOT_OPERATOR, $1.token_line, NULL);
 }
 | '='
 {
-	$$ = ASTLeaf(AST_ASSIGNMENT_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_ASSIGNMENT_OPERATOR, $1.token_line, NULL);
 }
 | '<'
 {
-	$$ = ASTLeaf(AST_LOWER_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_LOWER_OPERATOR, $1.token_line, NULL);
 }
 | '>'
 {
-	$$ = ASTLeaf(AST_GREATER_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_GREATER_OPERATOR, $1.token_line, NULL);
 }
 | ADD_ASSIGN
 {
-	$$ = ASTLeaf(AST_ADD_ASSIGN_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_ADD_ASSIGN_OPERATOR, $1.token_line, NULL);
 }
 | SUB_ASSIGN
 {
-	$$ = ASTLeaf(AST_SUB_ASSIGN_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_SUB_ASSIGN_OPERATOR, $1.token_line, NULL);
 }
 | MUL_ASSIGN
 {
-	$$ = ASTLeaf(AST_MUL_ASSIGN_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_MUL_ASSIGN_OPERATOR, $1.token_line, NULL);
 }
 | DIV_ASSIGN
 {
-	$$ = ASTLeaf(AST_DIV_ASSIGN_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_DIV_ASSIGN_OPERATOR, $1.token_line, NULL);
 }
 | MOD_ASSIGN
 {
-	$$ = ASTLeaf(AST_MOD_ASSIGN_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_MOD_ASSIGN_OPERATOR, $1.token_line, NULL);
 }
 | XOR_ASSIGN
 {
-	$$ = ASTLeaf(AST_XOR_ASSIGN_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_XOR_ASSIGN_OPERATOR, $1.token_line, NULL);
 }
 | AND_ASSIGN
 {
-	$$ = ASTLeaf(AST_AND_ASSIGN_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_AND_ASSIGN_OPERATOR, $1.token_line, NULL);
 }
 | OR_ASSIGN
 {
-	$$ = ASTLeaf(AST_OR_ASSIGN_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OR_ASSIGN_OPERATOR, $1.token_line, NULL);
 }
 | LEFT
 {
-	$$ = ASTLeaf(AST_LEFT_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_LEFT_OPERATOR, $1.token_line, NULL);
 }
 | RIGHT
 {
-	$$ = ASTLeaf(AST_RIGHT_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_RIGHT_OPERATOR, $1.token_line, NULL);
 }
 | LEFT_ASSIGN
 {
-	$$ = ASTLeaf(AST_LEFT_ASSIGN_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_LEFT_ASSIGN_OPERATOR, $1.token_line, NULL);
 }
 | RIGHT_ASSIGN
 {
-	$$ = ASTLeaf(AST_RIGHT_ASSIGN_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_RIGHT_ASSIGN_OPERATOR, $1.token_line, NULL);
 }
 | EQUAL
 {
-	$$ = ASTLeaf(AST_EQUAL_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_EQUAL_OPERATOR, $1.token_line, NULL);
 }
 | NOT_EQUAL
 {
-	$$ = ASTLeaf(AST_EQUAL_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_DIFFERENT_OPERATOR, $1.token_line, NULL);
 }
 | LESS_OR_EQUAL
 {
-	$$ = ASTLeaf(AST_LESS_OR_EQUAL_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_LESS_OR_EQUAL_OPERATOR, $1.token_line, NULL);
 }
 | GREATER_OR_EQUAL
 {
-	$$ = ASTLeaf(AST_GREATER_OR_EQUAL_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_GREATER_OR_EQUAL_OPERATOR, $1.token_line, NULL);
 }
 | ANDAND
 {
-	$$ = ASTLeaf(AST_LOGICAL_AND_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_LOGICAL_AND_OPERATOR, $1.token_line, NULL);
 }
 | OROR
 {
-	$$ = ASTLeaf(AST_LOGICAL_OR_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_LOGICAL_OR_OPERATOR, $1.token_line, NULL);
 }
 | PLUSPLUS
 {
-	$$ = ASTLeaf(AST_INCREMENT_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_INCREMENT_OPERATOR, $1.token_line, NULL);
 }
 | MINUSMINUS
 {
-	$$ = ASTLeaf(AST_DECREMENT_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_DECREMENT_OPERATOR, $1.token_line, NULL);
 }
 | ','
 {
-	$$ = ASTLeaf(AST_COMMA_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_COMMA_OPERATOR, $1.token_line, NULL);
 }
 | PTR_OP
 {
-	$$ = ASTLeaf(AST_POINTER_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_POINTER_OPERATOR, $1.token_line, NULL);
 }
 | PTR_OP_MUL
 {
-	$$ = ASTLeaf(AST_POINTER_DERREF_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_POINTER_DERREF_OPERATOR, $1.token_line, NULL);
 }
 | '(' ')'
 {
-	$$ = ASTLeaf(AST_FUNCTION_CALL_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_FUNCTION_CALL_OPERATOR, $1.token_line, NULL);
 }
 | '[' ']'
 {
-	$$ = ASTLeaf(AST_SUBSCRIPT_OP, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_SUBSCRIPT_OPERATOR, $1.token_line, NULL);
 }
 ;
 

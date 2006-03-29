@@ -8,6 +8,7 @@
 #include "cxx-driver.h"
 #include "cxx-ast.h"
 #include "cxx-graphviz.h"
+#include "cxx-prettyprint.h"
 
 // Compilation options
 compilation_options_t compilation_options;
@@ -22,18 +23,25 @@ int main(int argc, char* argv[])
 
 	yyparse(&compilation_options.parsed_tree);
 
-	if (argc > 1 && (strcmp(argv[1], "-a") == 0))
+	if (argc > 1)
 	{
-		char lines = 0;
-		if (argc > 2 && (strcmp(argv[2], "-l") == 0))
+		if (strcmp(argv[1], "-a") == 0)
 		{
-			lines = 1;
+			char lines = 0;
+			if (argc > 2 && (strcmp(argv[2], "-l") == 0))
+			{
+				lines = 1;
+			}
+			print_ambiguities(compilation_options.parsed_tree, lines);
 		}
-		print_ambiguities(compilation_options.parsed_tree, lines);
+		else if (strcmp(argv[1], "-g") == 0)
+		{
+			ast_dump_graphviz(compilation_options.parsed_tree, stdout);
+		}
 	}
 	else
 	{
-		ast_dump_graphviz(compilation_options.parsed_tree, stdout);
+		prettyprint(stdout, compilation_options.parsed_tree);
 	}
 
 	return 0;

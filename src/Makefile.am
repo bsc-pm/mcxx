@@ -15,7 +15,9 @@ mcxx_SOURCES = \
   cxx-graphviz.h \
   cxx-graphviz.c \
   cxx-asttype.h \
-  cxx-asttype.c
+  cxx-asttype.c \
+  cxx-prettyprint.c \
+  cxx-prettyprint.h
 
 EXTRA_DIST =
 EXTRA_DIST += cxx03.y
