@@ -417,7 +417,7 @@ linkage_specification : EXTERN string_literal '{' declaration_sequence '}'
 }
 | EXTERN string_literal declaration
 {
-	$$ = ASTMake2(AST_LINKAGE_SPEC, $2, $3, $1.token_line, NULL);
+	$$ = ASTMake2(AST_LINKAGE_SPEC_DECL, $2, $3, $1.token_line, NULL);
 }
 ;
 
@@ -435,11 +435,15 @@ namespace_definition : named_namespace_definition
 // que aquesta regla, per aixo més val eliminar-la
 named_namespace_definition : NAMESPACE IDENTIFIER '{' declaration_sequence '}'
 {
-	$$ = ASTMake1(AST_NAMESPACE_DEFINITION, $4, $1.token_line, $2.token_text);
+	AST identif = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+
+	$$ = ASTMake2(AST_NAMESPACE_DEFINITION, identif, $4, $1.token_line, NULL);
 }
 | NAMESPACE IDENTIFIER '{' '}'
 {
-	$$ = ASTMake1(AST_NAMESPACE_DEFINITION, NULL, $1.token_line, $2.token_text);
+	AST identif = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+
+	$$ = ASTMake2(AST_NAMESPACE_DEFINITION, identif, NULL, $1.token_line, NULL);
 }
 ;
 
@@ -3206,11 +3210,11 @@ relational_expression : shift_expression
 // GNU Extension
 | relational_expression MAX_OPERATOR shift_expression
 {
-	$$ = ASTMake2(AST_MAX_OPERATION, $1, $3, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_GCC_MAX_OPERATION, $1, $3, ASTLine($1), NULL);
 }
 | relational_expression MIN_OPERATOR shift_expression
 {
-	$$ = ASTMake2(AST_MIN_OPERATION, $1, $3, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_GCC_MIN_OPERATION, $1, $3, ASTLine($1), NULL);
 }
 ;
 
@@ -3364,11 +3368,11 @@ assignment_operator : '='
 // GNU Extensions
 | MIN_OPERATOR_ASSIGN
 {
-	$$ = AST_MIN_ASSIGMENT;
+	$$ = AST_GCC_MIN_ASSIGMENT;
 }
 | MAX_OPERATOR_ASSIGN 
 {
-	$$ = AST_MAX_ASSIGMENT;
+	$$ = AST_GCC_MAX_ASSIGMENT;
 }
 ;
 
@@ -3828,7 +3832,7 @@ template_relational_expression : shift_expression
 // GNU Extensions
 | template_relational_expression MIN_OPERATOR shift_expression
 {
-	$$ = ASTMake2(AST_MIN_OPERATION, $1, $3, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_GCC_MIN_OPERATION, $1, $3, ASTLine($1), NULL);
 }
 ;
 
