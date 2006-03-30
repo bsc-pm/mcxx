@@ -1883,7 +1883,7 @@ class_head : class_key
 }
 | class_key attributes base_clause
 {
-	$$ = ASTMake2(AST_GCC_CLASS_HEAD, 
+	$$ = ASTMake2(AST_GCC_CLASS_HEAD, $2,
 			ASTMake4(AST_CLASS_HEAD, $1, NULL, NULL, $3, ASTLine($1), NULL), 
 			ASTLine($1), NULL);
 }
@@ -1905,9 +1905,9 @@ class_head : class_key
 }
 | class_key attributes nested_name_specifier IDENTIFIER base_clause
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
+	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
 
-	$$ = ASTMake2(AST_GCC_CLASS_HEAD, 
+	$$ = ASTMake2(AST_GCC_CLASS_HEAD, $2,
 			ASTMake4(AST_CLASS_HEAD, $1, $3, identifier, $5, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
@@ -2071,13 +2071,13 @@ member_declarator : declarator
 }
 | IDENTIFIER attributes ':' constant_expression
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, $1.token_text, $1.token_line);
+	AST identifier = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
 
-	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, identifier, $2, $4, NULL);
+	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, identifier, $2, $4, $1.token_line, NULL);
 }
 | attributes ':' constant_expression
 {
-	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, NULL, $2, $4, NULL);
+	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, NULL, $1, $3, ASTLine($1), NULL);
 }
 ;
 
@@ -3797,7 +3797,7 @@ explicit_instantiation : TEMPLATE decl_specifier_seq declarator ';'
 }
 | storage_class_specifier TEMPLATE declarator ';'
 {
-	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, NULL, $3L, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, NULL, $3, ASTLine($1), NULL);
 }
 | function_specifier TEMPLATE decl_specifier_seq declarator ';'
 {

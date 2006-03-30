@@ -122,6 +122,39 @@ HANDLER_PROTOTYPE(pseudo_destructor_name_handler);
 HANDLER_PROTOTYPE(pseudo_destructor_template_handler);
 HANDLER_PROTOTYPE(pseudo_destructor_qualified_handler);
 
+// GCC Extensions
+HANDLER_PROTOTYPE(gcc_label_declaration_handler);
+HANDLER_PROTOTYPE(gcc_attribute_handler);
+HANDLER_PROTOTYPE(gcc_attribute_value_handler);
+HANDLER_PROTOTYPE(gcc_asm_definition_handler);
+HANDLER_PROTOTYPE(gcc_asm_operand_handler);
+HANDLER_PROTOTYPE(gcc_type_spec_sequence_handler);
+HANDLER_PROTOTYPE(gcc_typeof_handler);
+HANDLER_PROTOTYPE(gcc_alignof_type_handler);
+HANDLER_PROTOTYPE(gcc_elaborated_type_class_handler);
+HANDLER_PROTOTYPE(gcc_elaborated_type_template_handler);
+HANDLER_PROTOTYPE(gcc_elaborated_type_enum_handler);
+HANDLER_PROTOTYPE(gcc_init_declarator_handler);
+HANDLER_PROTOTYPE(gcc_asm_specification_handler);
+HANDLER_PROTOTYPE(gcc_declarator_handler);
+HANDLER_PROTOTYPE(gcc_pointer_declarator_handler);
+HANDLER_PROTOTYPE(gcc_reference_spec_handler);
+HANDLER_PROTOTYPE(gcc_enum_specifier_handler);
+HANDLER_PROTOTYPE(gcc_abstract_declarator_handler);
+HANDLER_PROTOTYPE(gcc_initializer_clause_handler);
+HANDLER_PROTOTYPE(gcc_class_head_handler);
+HANDLER_PROTOTYPE(gcc_member_declarator_handler);
+HANDLER_PROTOTYPE(gcc_bitfield_declarator_handler);
+HANDLER_PROTOTYPE(gcc_case_statement_handler);
+HANDLER_PROTOTYPE(gcc_condition_handler);
+HANDLER_PROTOTYPE(gcc_goto_statement_handler);
+HANDLER_PROTOTYPE(gcc_mem_initializer_handler);
+HANDLER_PROTOTYPE(gcc_builtin_va_arg_handler);
+HANDLER_PROTOTYPE(gcc_postfix_expression);
+HANDLER_PROTOTYPE(gcc_conditional_expression);
+HANDLER_PROTOTYPE(gcc_explicit_instantiation);
+
+
 prettyprint_entry_t handlers_list[] =
 {
 	NODE_HANDLER(AST_AMBIGUITY, ambiguity_handler, NULL),
@@ -1953,9 +1986,9 @@ static void gcc_asm_operand_handler(FILE* f, AST a, int level)
 
 static void gcc_type_spec_sequence_handler(FILE* f, AST a, int level)
 {
-	spaced_sequence_handler(f, ASTSon0(a));
+	spaced_sequence_handler(f, ASTSon0(a), level);
 	fprintf(f, " ");
-	prettyprint_level(f, ASTSon1(a));
+	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void gcc_typeof_handler(FILE* f, AST a, int level)
@@ -2042,6 +2075,8 @@ static void gcc_elaborated_type_template_handler(FILE* f, AST a, int level)
 
 static void gcc_init_declarator_handler(FILE* f, AST a, int level)
 {
+	AST elaborated = ASTSon1(a);
+
 	if (ASTSon0(elaborated) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(elaborated), level);
@@ -2205,7 +2240,7 @@ static void gcc_condition_handler(FILE* f, AST a, int level)
 
 	fprintf(f, "= ");
 
-	if (ASTSon2(conditional_decl) != NULL)
+	if (ASTSon2(condition_decl) != NULL)
 	{
 		prettyprint_level(f, ASTSon2(condition_decl), level);
 		fprintf(f, " ");
