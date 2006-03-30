@@ -2059,7 +2059,7 @@ member_declarator : declarator
 // GNU Extensions
 | declarator attributes 
 {
-	$$ = ASTLeaf(AST_GCC_MEMBER_DECLARATOR, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, $2, NULL, ASTLine($1), NULL);
 }
 // - El susbsumirem amb constant_initializer -
 // | declarator attributes pure_specifier
@@ -2067,15 +2067,17 @@ member_declarator : declarator
 // }
 | declarator attributes constant_initializer
 {
-	$$ = ASTLeaf(AST_GCC_MEMBER_DECLARATOR, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, $2, $3, ASTLine($1), NULL);
 }
 | IDENTIFIER attributes ':' constant_expression
 {
-	$$ = ASTLeaf(AST_GCC_MEMBER_DECLARATOR, $1.token_line, NULL);
+	AST identifier = ASTLeaf(AST_SYMBOL, $1.token_text, $1.token_line);
+
+	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, identifier, $2, $4, NULL);
 }
 | attributes ':' constant_expression
 {
-	$$ = ASTLeaf(AST_GCC_MEMBER_DECLARATOR, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, NULL, $2, $4, NULL);
 }
 ;
 
@@ -2385,15 +2387,21 @@ condition : expression
 // GNU Extension
 | type_specifier_seq declarator asm_specification attributes '=' assignment_expression
 {
-	$$ = ASTLeaf(AST_GCC_CONDITION, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_GCC_CONDITION, $4,
+			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $6, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 | type_specifier_seq declarator attributes '=' assignment_expression
 {
-	$$ = ASTLeaf(AST_GCC_CONDITION, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_GCC_CONDITION, $3,
+			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, NULL, $5, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 | type_specifier_seq declarator asm_specification '=' assignment_expression
 {
-	$$ = ASTLeaf(AST_GCC_CONDITION, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_GCC_CONDITION, NULL,
+			ASTMake4(AST_GCC_CONDITION_DECL, $1, $2, $3, $5, ASTLine($1), NULL),
+			ASTLine($1), NULL);
 }
 ;
 
@@ -2839,11 +2847,11 @@ postfix_expression : primary_expression
 // GNU Extensions
 | '(' type_id ')' '{' initializer_list '}'
 {
-	$$ = ASTLeaf(AST_GCC_POSTFIX_EXPRESSION, $1.token_line, NULL);
+	$$ = ASTMake2(AST_GCC_POSTFIX_EXPRESSION, $2, $5, $1.token_line, NULL);
 }
 | '(' type_id ')' '{' initializer_list ',' '}'
 {
-	$$ = ASTLeaf(AST_GCC_POSTFIX_EXPRESSION, $1.token_line, NULL);
+	$$ = ASTMake2(AST_GCC_POSTFIX_EXPRESSION, $2, $5, $1.token_line, NULL);
 }
 ;
 
@@ -3781,27 +3789,27 @@ explicit_instantiation : TEMPLATE decl_specifier_seq declarator ';'
 // GNU Extensions
 | storage_class_specifier TEMPLATE decl_specifier_seq declarator ';'
 {
-	$$ = ASTLeaf(AST_GCC_EXPLICIT_INSTANTIATION, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, $3, $4, ASTLine($1), NULL);
 }
 | storage_class_specifier TEMPLATE decl_specifier_seq ';'
 {
-	$$ = ASTLeaf(AST_GCC_EXPLICIT_INSTANTIATION, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, $3, NULL, ASTLine($1), NULL);
 }
 | storage_class_specifier TEMPLATE declarator ';'
 {
-	$$ = ASTLeaf(AST_GCC_EXPLICIT_INSTANTIATION, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, NULL, $3L, ASTLine($1), NULL);
 }
 | function_specifier TEMPLATE decl_specifier_seq declarator ';'
 {
-	$$ = ASTLeaf(AST_GCC_EXPLICIT_INSTANTIATION, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, $3, $4, ASTLine($1), NULL);
 }
 | function_specifier TEMPLATE decl_specifier_seq ';'
 {
-	$$ = ASTLeaf(AST_GCC_EXPLICIT_INSTANTIATION, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, $3, NULL, ASTLine($1), NULL);
 }
 | function_specifier TEMPLATE declarator ';'
 {
-	$$ = ASTLeaf(AST_GCC_EXPLICIT_INSTANTIATION, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, NULL, $3, ASTLine($1), NULL);
 }
 ;
 

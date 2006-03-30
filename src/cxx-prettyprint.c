@@ -393,12 +393,47 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_GCC_EXTENSION, prefix_with_parameter_then_son_handler, "__extension__ "),
 	NODE_HANDLER(AST_GCC_LABEL_DECL, gcc_label_declaration_handler, NULL),
 	NODE_HANDLER(AST_GCC_ATTRIBUTE, gcc_attribute_handler, NULL),
+	NODE_HANDLER(AST_GCC_ATTRIBUTE_EXPR, gcc_attribute_value_handler, NULL),
 	NODE_HANDLER(AST_GCC_ASM_DEFINITION, gcc_asm_definition_handler, NULL),
 	NODE_HANDLER(AST_GCC_ASM_OPERAND, gcc_asm_operand_handler, NULL),
 	NODE_HANDLER(AST_GCC_COMPLEX_TYPE, simple_parameter_handler, "_Complex"),
 	NODE_HANDLER(AST_GCC_TYPE_SPEC_SEQ, gcc_type_spec_sequence_handler, NULL),
 	NODE_HANDLER(AST_GCC_TYPEOF, gcc_typeof_handler, NULL),
 	NODE_HANDLER(AST_GCC_RESTRICT_SPEC, simple_parameter_handler, "__restrict"),
+	NODE_HANDLER(AST_GCC_PARENTHESIZED_EXPRESSION, parenthesized_son_handler, NULL),
+	NODE_HANDLER(AST_GCC_REAL_PART, prefix_with_parameter_then_son_handler, "__real__ "),
+	NODE_HANDLER(AST_GCC_IMAG_PART, prefix_with_parameter_then_son_handler, "__imag__ "),
+	NODE_HANDLER(AST_GCC_ALIGNOF, prefix_with_parameter_then_son_handler, "__alignof__ "),
+	NODE_HANDLER(AST_GCC_ALIGNOF_TYPE, gcc_alignof_type_handler, NULL),
+	NODE_HANDLER(AST_GCC_LABEL_ADDR, prefix_with_parameter_then_son_handler, "&&"),
+	NODE_HANDLER(AST_GCC_MAX_OPERATION, binary_operator_handler, ">?"),
+	NODE_HANDLER(AST_GCC_MIN_OPERATION, binary_operator_handler, "<?"),
+	NODE_HANDLER(AST_GCC_MAX_ASSIGMENT, simple_parameter_handler, ">?="),
+	NODE_HANDLER(AST_GCC_MIN_ASSIGMENT, simple_parameter_handler, "<?="),
+	NODE_HANDLER(AST_GCC_ELABORATED_TYPE_CLASS, gcc_elaborated_type_class_handler, NULL),
+	NODE_HANDLER(AST_GCC_ELABORATED_TYPE_TEMPLATE, gcc_elaborated_type_template_handler, NULL),
+	NODE_HANDLER(AST_GCC_ELABORATED_TYPE_ENUM, gcc_elaborated_type_enum_handler, NULL),
+	NODE_HANDLER(AST_GCC_INIT_DECLARATOR, gcc_init_declarator_handler, NULL),
+	NODE_HANDLER(AST_GCC_ASM_SPEC, gcc_asm_specification_handler, NULL),
+	NODE_HANDLER(AST_GCC_DECLARATOR, gcc_declarator_handler, NULL),
+	NODE_HANDLER(AST_GCC_POINTER_DECL, gcc_pointer_declarator_handler, NULL),
+	NODE_HANDLER(AST_GCC_REFERENCE_SPEC, gcc_reference_spec_handler, NULL),
+	NODE_HANDLER(AST_GCC_ENUM_SPECIFIER, gcc_enum_specifier_handler, NULL),
+	NODE_HANDLER(AST_GCC_ABSTRACT_DECLARATOR, gcc_abstract_declarator_handler, NULL),
+	NODE_HANDLER(AST_GCC_DIRECT_DECLARATOR, gcc_abstract_declarator_handler, NULL),
+	NODE_HANDLER(AST_GCC_INITIALIZER_CLAUSE, gcc_initializer_clause_handler, NULL),
+	NODE_HANDLER(AST_GCC_CLASS_HEAD, gcc_class_head_handler, NULL),
+	NODE_HANDLER(AST_GCC_MEMBER_DECLARATOR, gcc_member_declarator_handler, NULL),
+	NODE_HANDLER(AST_GCC_BITFIELD_DECLARATOR, gcc_bitfield_declarator_handler, NULL),
+	NODE_HANDLER(AST_GCC_CASE_STATEMENT, gcc_case_statement_handler, NULL),
+	NODE_HANDLER(AST_GCC_CONDITION, gcc_condition_handler, NULL),
+	NODE_HANDLER(AST_GCC_GOTO_STATEMENT, gcc_goto_statement_handler, NULL),
+	NODE_HANDLER(AST_GCC_MEM_INITIALIZER, gcc_mem_initializer_handler, NULL),
+	NODE_HANDLER(AST_GCC_BUILTIN_VA_ARG, gcc_builtin_va_arg_handler, NULL),
+	NODE_HANDLER(AST_GCC_POSTFIX_EXPRESSION, gcc_postfix_expression, NULL),
+	NODE_HANDLER(AST_GCC_ALIGNOF_TYPE, gcc_alignof_type_handler, NULL),
+	NODE_HANDLER(AST_GCC_CONDITIONAL_EXPRESSION, gcc_conditional_expression, NULL),
+	NODE_HANDLER(AST_GCC_EXPLICIT_INSTANTIATION, gcc_explicit_instantiation, NULL),
 };
 
 static void prettyprint_level(FILE* f, AST a, int level);
@@ -2119,4 +2154,129 @@ static void gcc_class_head_handler(FILE* f, AST a, int level)
 	{
 		prettyprint_level(f, ASTSon3(class_head), level);
 	}
+}
+
+static void gcc_member_declarator_handler(FILE* f, AST a, int level)
+{
+	prettyprint_level(f, ASTSon0(a), level);
+	fprintf(f, " ");
+	spaced_sequence_handler(f, ASTSon1(a), level);
+
+	if (ASTSon2(a) != NULL)
+	{
+		fprintf(f, " ");
+		prettyprint_level(f, ASTSon2(a), level);
+	}
+}
+
+static void gcc_bitfield_declarator_handler(FILE* f, AST a, int level)
+{
+	prettyprint_level(f, ASTSon0(a), level);
+	fprintf(f, " : ");
+	spaced_sequence_handler(f, ASTSon1(a), level);
+	fprintf(f, " ");
+	prettyprint_level(f, ASTSon2(a), level);
+}
+
+static void gcc_case_statement_handler(FILE* f, AST a, int level)
+{
+	fprintf(f, "case ");
+	prettyprint_level(f, ASTSon0(a), level);
+	fprintf(f, "...");
+	prettyprint_level(f, ASTSon1(a), level);
+	fprintf(f, " : ");
+	prettyprint_level(f, ASTSon2(a), level);
+}
+
+static void gcc_condition_handler(FILE* f, AST a, int level)
+{
+	AST condition_decl = ASTSon1(a);
+
+	prettyprint_level(f, ASTSon0(condition_decl), level);
+	fprintf(f, " ");
+	prettyprint_level(f, ASTSon1(condition_decl), level);
+	fprintf(f, " ");
+
+	if (ASTSon0(a) != NULL)
+	{
+		spaced_sequence_handler(f, ASTSon0(a), level);
+		fprintf(f, " ");
+	}
+
+	fprintf(f, "= ");
+
+	if (ASTSon2(conditional_decl) != NULL)
+	{
+		prettyprint_level(f, ASTSon2(condition_decl), level);
+		fprintf(f, " ");
+	}
+
+	prettyprint_level(f, ASTSon3(condition_decl), level);
+}
+
+static void gcc_goto_statement_handler(FILE* f, AST a, int level)
+{
+	indent_at_level(f, level);
+	fprintf(f, "goto * ");
+	prettyprint_level(f, ASTSon0(a), level);
+	fprintf(f, ";\n");
+}
+
+static void gcc_mem_initializer_handler(FILE* f, AST a, int level)
+{
+	fprintf(f, "(");
+	if (ASTSon0(a) != NULL)
+	{
+		list_handler(f, ASTSon0(a), level);
+	}
+	fprintf(f, ")");
+}
+
+static void gcc_builtin_va_arg_handler(FILE* f, AST a, int level)
+{
+	fprintf(f, "__builtin_va_arg(");
+	prettyprint_level(f, ASTSon0(a), level);
+	fprintf(f, ", ");
+	prettyprint_level(f, ASTSon1(a), level);
+	fprintf(f, ")");
+}
+
+static void gcc_postfix_expression(FILE* f, AST a, int level)
+{
+	fprintf(f, "(");
+	prettyprint_level(f, ASTSon0(a), level);
+	fprintf(f, ")");
+	fprintf(f, "{");
+	list_handler(f, ASTSon1(a), level);
+	fprintf(f, "}");
+}
+
+static void gcc_alignof_type_handler(FILE* f, AST a, int level)
+{
+	fprintf(f, "__alignof__(");
+	prettyprint_level(f, ASTSon0(a), level);
+	fprintf(f, ")");
+}
+
+static void gcc_explicit_instantiation(FILE* f, AST a, int level)
+{
+	indent_at_level(f, level);
+	prettyprint_level(f, ASTSon0(a), level);
+	fprintf(f, " template ");
+	if (ASTSon1(a) != NULL)
+	{
+		prettyprint_level(f, ASTSon1(a), level);
+	}
+	if (ASTSon2(a) != NULL)
+	{
+		prettyprint_level(f, ASTSon2(a), level);
+	}
+	fprintf(f, ";\n");
+}
+
+static void gcc_conditional_expression(FILE* f, AST a, int level)
+{
+	prettyprint_level(f, ASTSon0(a), level);
+	fprintf(f, " ? : ");
+	prettyprint_level(f, ASTSon1(a), level);
 }

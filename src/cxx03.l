@@ -188,9 +188,9 @@ hexprefix   0[xX]
 "__inline__"        { parse_token_text(); return INLINE; } 
 
 "<?" { parse_token_text(); return MIN_OPERATOR; }
-">?" { parse_token_text(); return MIN_OPERATOR; }
+">?" { parse_token_text(); return MAX_OPERATOR; }
 "<?=" { parse_token_text(); return MIN_OPERATOR_ASSIGN; }
-">?=" { parse_token_text(); return MIN_OPERATOR_ASSIGN; }
+">?=" { parse_token_text(); return MAX_OPERATOR_ASSIGN; }
 
 {idnondigit}({idnondigit}|{digit})* {parse_token_text(); return IDENTIFIER; }
 
