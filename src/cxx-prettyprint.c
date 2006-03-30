@@ -154,7 +154,6 @@ HANDLER_PROTOTYPE(gcc_postfix_expression);
 HANDLER_PROTOTYPE(gcc_conditional_expression);
 HANDLER_PROTOTYPE(gcc_explicit_instantiation);
 
-
 prettyprint_entry_t handlers_list[] =
 {
 	NODE_HANDLER(AST_AMBIGUITY, ambiguity_handler, NULL),
