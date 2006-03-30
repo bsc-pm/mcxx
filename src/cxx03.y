@@ -1099,17 +1099,17 @@ elaborated_type_specifier : class_key IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, NULL, $4, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $1, global_op, NULL, $4, ASTLine($1), NULL);
 }
 | class_key nested_name_specifier TEMPLATE template_id
 {
-	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, $2, $4, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $1, NULL, $2, $4, ASTLine($1), NULL);
 }
 | class_key DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, $3, $5, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $1, global_op, $3, $5, ASTLine($1), NULL);
 }
 | class_key template_id
 {
@@ -1255,7 +1255,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 }
 | class_key attributes TEMPLATE template_id
 {
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $2,
 			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, NULL, $4, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
@@ -1263,13 +1263,13 @@ elaborated_type_specifier : class_key IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $2,
 			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, NULL, $5, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
 | class_key attributes nested_name_specifier TEMPLATE template_id
 {
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $2,
 			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, $3, $5, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
@@ -1277,7 +1277,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $2,
 			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, $4, $6, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
@@ -2758,11 +2758,11 @@ postfix_expression : primary_expression
 }
 | TYPENAME nested_name_specifier TEMPLATE template_id '(' ')'
 {
-	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, NULL, $2, $4, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE, NULL, $2, $4, NULL, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier TEMPLATE template_id '(' expression_list ')'
 {
-	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, NULL, $2, $4, $6, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE, NULL, $2, $4, $6, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier template_id '(' ')'
 {
@@ -2780,13 +2780,13 @@ postfix_expression : primary_expression
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, global_op, $3, $5, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE, global_op, $3, $5, NULL, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id '(' expression_list ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, global_op, $3, $5, $7, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE, global_op, $3, $5, $7, $1.token_line, NULL);
 }
 | postfix_expression '.' id_expression
 {
