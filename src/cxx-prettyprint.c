@@ -157,6 +157,7 @@ HANDLER_PROTOTYPE(gcc_builtin_va_arg_handler);
 HANDLER_PROTOTYPE(gcc_postfix_expression);
 HANDLER_PROTOTYPE(gcc_conditional_expression);
 HANDLER_PROTOTYPE(gcc_explicit_instantiation);
+HANDLER_PROTOTYPE(gcc_extension_preffix_handler);
 
 prettyprint_entry_t handlers_list[] =
 {
@@ -428,7 +429,8 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_QUALIF, pseudo_destructor_qualified_handler, NULL),
 	NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_TEMPLATE, pseudo_destructor_template_handler, NULL),
 	// GCC Extensions
-	NODE_HANDLER(AST_GCC_EXTENSION, prefix_with_parameter_then_son_handler, "__extension__ "),
+	NODE_HANDLER(AST_GCC_EXTENSION, gcc_extension_preffix_handler, "__extension__ "),
+	NODE_HANDLER(AST_GCC_EXTENSION_EXPR, prefix_with_parameter_then_son_handler, "__extension__ "),
 	NODE_HANDLER(AST_GCC_LABEL_DECL, gcc_label_declaration_handler, NULL),
 	NODE_HANDLER(AST_GCC_ATTRIBUTE, gcc_attribute_handler, NULL),
 	NODE_HANDLER(AST_GCC_ATTRIBUTE_EXPR, gcc_attribute_value_handler, NULL),
@@ -1234,7 +1236,7 @@ static void type_parameter_class_or_typename_handler(FILE* f, AST a, int level)
 
 	if (ASTSon1(a) != NULL)
 	{
-		fprintf(f, "= ");
+		fprintf(f, " = ");
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 }
@@ -1243,7 +1245,7 @@ static void type_parameter_template_handler(FILE* f, AST a, int level)
 {
 	fprintf(f, "template<");
 	list_handler(f, ASTSon0(a), level);
-	fprintf(f, " > class");
+	fprintf(f, " > class ");
 
 	if (ASTSon1(a) != NULL)
 	{
@@ -1293,7 +1295,7 @@ static void member_declaration_handler(FILE* f, AST a, int level)
 
 	if (ASTSon1(a) != NULL)
 	{
-		prettyprint_level(f, ASTSon1(a), level);
+		list_handler(f, ASTSon1(a), level);
 	}
 	fprintf(f, ";\n");
 }
@@ -1336,7 +1338,6 @@ static void function_definition_handler(FILE* f, AST a, int level)
 
 	fprintf(f, "\n");
 	prettyprint_level(f, ASTSon3(a), level);
-	fprintf(f, "\n");
 }
 
 static void compound_statement_handler(FILE* f, AST a, int level)
@@ -1894,7 +1895,7 @@ static void namespace_alias_definition_handler(FILE* f, AST a, int level)
 	fprintf(f, "namespace ");
 	prettyprint_level(f, ASTSon0(a), level);
 	fprintf(f, " = ");
-	prettyprint_level(f, ASTSon0(a), level);
+	prettyprint_level(f, ASTSon1(a), level);
 	fprintf(f, ";\n");
 }
 
@@ -2218,6 +2219,7 @@ static void gcc_init_declarator_handler(FILE* f, AST a, int level)
 
 	if (ASTSon1(a) != NULL)
 	{
+		fprintf(f, " ");
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 
@@ -2451,4 +2453,12 @@ static void gcc_conditional_expression(FILE* f, AST a, int level)
 	prettyprint_level(f, ASTSon0(a), level);
 	fprintf(f, " ? : ");
 	prettyprint_level(f, ASTSon1(a), level);
+}
+
+static void gcc_extension_preffix_handler(FILE* f, AST a, int level)
+{
+	indent_at_level(f, level);
+	fprintf(f, "__extension__\n");
+
+	prettyprint_level(f, ASTSon0(a), level);
 }

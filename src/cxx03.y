@@ -866,6 +866,10 @@ nontype_specifier : storage_class_specifier
 	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_line, $1.token_text);
 }
 // GNU Extension
+| COMPLEX
+{
+	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_line, $1.token_text);
+}
 | attributes
 {
 	$$ = $1;
@@ -2946,7 +2950,7 @@ unary_expression : postfix_expression
 // GNU Extensions
 | EXTENSION cast_expression
 {
-	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_EXTENSION_EXPR, $2, $1.token_line, NULL);
 }
 | ALIGNOF unary_expression
 {

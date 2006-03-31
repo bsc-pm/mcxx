@@ -186,6 +186,7 @@ hexprefix   0[xX]
 "__thread" { parse_token_text(); return THREAD; } 
 "__inline"        { parse_token_text(); return INLINE; } 
 "__inline__"        { parse_token_text(); return INLINE; } 
+"__asm__" { parse_token_text(); return ASM; }
 
 "<?" { parse_token_text(); return MIN_OPERATOR; }
 ">?" { parse_token_text(); return MAX_OPERATOR; }
