@@ -2311,15 +2311,15 @@ labeled_statement : IDENTIFIER ':' statement
 }
 ;
 
-expression_statement : ';'
-{
-	// Empty statement ...
-	$$ = ASTLeaf(AST_EMPTY_STATEMENT, $1.token_line, NULL);
-}
-| expression ';'
+expression_statement : expression ';'
 {
 	$$ = ASTMake1(AST_EXPRESSION_STATEMENT, $1, ASTLine($1), NULL);
 }
+// | ';'
+// {
+// 	// Empty statement ...
+// 	$$ = ASTLeaf(AST_EMPTY_STATEMENT, $1.token_line, NULL);
+// }
 ;
 
 declaration_statement : block_declaration

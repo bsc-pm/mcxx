@@ -1883,7 +1883,7 @@ static void linkage_specification_decl_handler(FILE* f, AST a, int level)
 	fprintf(f, "extern ");
 	prettyprint_level(f, ASTSon0(a), level);
 
-	fprintf(f, " ");
+	fprintf(f, "\n");
 	prettyprint_level(f, ASTSon1(a), level);
 
 	fprintf(f, "\n");
@@ -2109,7 +2109,7 @@ static void gcc_type_spec_sequence_handler(FILE* f, AST a, int level)
 
 static void gcc_typeof_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "typeof ");
+	fprintf(f, "__typeof ");
 	if (ASTSon0(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(a), level);
