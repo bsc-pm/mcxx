@@ -55,3 +55,4 @@ CLEANFILES += cxx-parser.h
 CLEANFILES += cxx-scanner.c
 CLEANFILES += cxx-asttype.h
 CLEANFILES += cxx-asttype.c
+CLEANFILES += cxx-parser.output
