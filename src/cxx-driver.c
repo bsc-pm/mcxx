@@ -9,6 +9,7 @@
 #include "cxx-ast.h"
 #include "cxx-graphviz.h"
 #include "cxx-prettyprint.h"
+#include "cxx-buildsymtab.h"
 
 // Compilation options
 compilation_options_t compilation_options;
@@ -41,6 +42,7 @@ int main(int argc, char* argv[])
 	}
 	else
 	{
+		build_symtab_translation_unit(compilation_options.parsed_tree);
 		prettyprint(stdout, compilation_options.parsed_tree);
 	}
 

@@ -1,8 +1,8 @@
 bin_PROGRAMS = mcxx
 
-mcxx_CFLAGS=-Wall -g
-
 mcxx_SOURCES = \
+  cxx-asttype.h \
+  cxx-asttype.c \
   cxx-ast.c \
   cxx-ast.h \
   cxx-lexer.h \
@@ -14,17 +14,25 @@ mcxx_SOURCES = \
   cxx-driver.h \
   cxx-graphviz.h \
   cxx-graphviz.c \
-  cxx-asttype.h \
-  cxx-asttype.c \
   cxx-prettyprint.c \
-  cxx-prettyprint.h
+  cxx-prettyprint.h \
+  cxx-utils.c \
+  cxx-utils.h \
+  cxx-symtab.c \
+  cxx-symtab.h \
+  cxx-buildsymtab.c \
+  cxx-buildsymtab.h
+
+mcxx_LDFLAGS=-L../lib
+mcxx_LDADD=-lmcxx-utils 
+mcxx_CFLAGS=-Wall -g -I$(srcdir)/../lib
 
 EXTRA_DIST =
 EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx03.l
 EXTRA_DIST += cxx-asttype.def
 
-cxx-asttype.h : cxx-asttype.def
+cxx-asttype.h : $(srcdir)/cxx-asttype.def
 	echo "#ifndef CXX_ASTTYPE_H" > cxx-asttype.h
 	echo "#define CXX_ASTTYPE_H" >> cxx-asttype.h
 	echo "/* This file has been generated. Every time you change cxx-asttype.def it will be regenerated */" >> cxx-asttype.h
@@ -36,7 +44,7 @@ cxx-asttype.h : cxx-asttype.def
 	echo "typedef enum node_type node_t;" >> cxx-asttype.h
 	echo "#endif // CXX_ASTTYPE_H" >> cxx-asttype.h
 
-cxx-asttype.c : cxx-asttype.def cxx-asttype.h
+cxx-asttype.c : $(srcdir)/cxx-asttype.def cxx-asttype.h
 	echo "/* This file has been generated. Every time you change cxx-asttype.def it will be regenerated */" > cxx-asttype.c
 	echo "#include \"cxx-asttype.h\"" >> cxx-asttype.c
 	echo "char* ast_node_names[] = {" >> cxx-asttype.c

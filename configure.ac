@@ -104,5 +104,6 @@ AC_C_CONST
 dnl Escrivim els makefiles
 AC_CONFIG_FILES([Makefile 
 		   src/Makefile 
+		   lib/Makefile
 		   ])
 AC_OUTPUT
