@@ -43,7 +43,7 @@ int main(int argc, char* argv[])
 	else
 	{
 		build_symtab_translation_unit(compilation_options.parsed_tree);
-		prettyprint(stdout, compilation_options.parsed_tree);
+		// prettyprint(stdout, compilation_options.parsed_tree);
 	}
 
 	return 0;
