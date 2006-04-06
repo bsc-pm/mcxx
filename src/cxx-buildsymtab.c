@@ -14,13 +14,13 @@ static void gather_type_spec_from_simple_type_specifier(AST a, symtab_t* st, sim
 static void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* type_info);
 static void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* type_info);
 
-static void build_symtab_declarator_rec(AST a, type_t* declarator_type);
+static void build_symtab_declarator_rec(AST a, symtab_t* st, type_t* declarator_type);
 
-static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info);
+static void gather_decl_spec_information(AST a, symtab_t* st, gather_decl_spec_t* gather_info);
 static void gather_type_spec_information(AST a, symtab_t* st, simple_type_t* type_info);
 
 // Debug purposes
-static void print_declarator(type_t* printed_declarator);
+static void print_declarator(type_t* printed_declarator, symtab_t* st);
 
 // Builds symtab for the translation unit
 void build_symtab_translation_unit(AST a)
@@ -107,7 +107,7 @@ static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spe
 		for_each_element(list, iter)
 		{
 			AST spec = ASTSon1(iter);
-			gather_decl_spec_information(spec, gather_info);
+			gather_decl_spec_information(spec, st, gather_info);
 		}
 	}
 
@@ -118,7 +118,7 @@ static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spe
 		for_each_element(list, iter)
 		{
 			AST spec = ASTSon1(iter);
-			gather_decl_spec_information(spec, gather_info);
+			gather_decl_spec_information(spec, st, gather_info);
 		}
 	}
 
@@ -154,8 +154,10 @@ static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spe
 
 /*
  * This function gathers everything that is in a decl_spec and fills gather_info
+ *
+ * symtab_t* st is unused
  */
-static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info)
+static void gather_decl_spec_information(AST a, symtab_t* st, gather_decl_spec_t* gather_info)
 {
 	switch (ASTType(a))
 	{
@@ -415,12 +417,12 @@ static void build_symtab_declarator(AST a, symtab_t* st, gather_decl_spec_t* gat
 	(*declarator_type)->kind = TK_DIRECT;
 	(*declarator_type)->type = copy_simple_type(simple_type_info);
 
-	build_symtab_declarator_rec(a, *declarator_type);
+	build_symtab_declarator_rec(a, st, *declarator_type);
 
-	print_declarator(*declarator_type); fprintf(stderr, "\n");
+	print_declarator(*declarator_type, st); fprintf(stderr, "\n");
 }
 
-static void set_pointer_type(type_t* declarator_type, AST a)
+static void set_pointer_type(type_t* declarator_type, symtab_t* st, AST pointer_tree)
 {
 	// TODO - Pointer to member
 	type_t* pointee_type = copy_type(declarator_type);
@@ -434,7 +436,7 @@ static void set_pointer_type(type_t* declarator_type, AST a)
 	declarator_type->type = NULL;
 }
 
-static void set_array_type(type_t* declarator_type, AST constant_expr)
+static void set_array_type(type_t* declarator_type, symtab_t* st, AST constant_expr)
 {
 	type_t* element_type = copy_type(declarator_type);
 
@@ -448,7 +450,7 @@ static void set_array_type(type_t* declarator_type, AST constant_expr)
 	declarator_type->pointer = NULL;
 }
 
-static void set_function_parameter_clause(type_t* declarator_type, AST parameters)
+static void set_function_parameter_clause(type_t* declarator_type, symtab_t* st, AST parameters)
 {
 	declarator_type->function->num_parameters = 0;
 	declarator_type->function->parameter_list = NULL;
@@ -484,8 +486,6 @@ static void set_function_parameter_clause(type_t* declarator_type, AST parameter
 		
 		simple_type_t* simple_type_info;
 
-		// TODO - FIX THIS. This symbol table should be inherited
-		symtab_t* st = new_symtab();
 		build_symtab_decl_specifier_seq(parameter_decl_spec_seq, st, &gather_info, &simple_type_info);
 
 		if (parameter_declarator != NULL)
@@ -505,7 +505,7 @@ static void set_function_parameter_clause(type_t* declarator_type, AST parameter
 	}
 }
 
-static void set_function_type(type_t* declarator_type, AST parameter, AST cv_qualif, AST except_spec)
+static void set_function_type(type_t* declarator_type, symtab_t* st, AST parameter, AST cv_qualif, AST except_spec)
 {
 	type_t* returning_type = copy_type(declarator_type);
 
@@ -513,7 +513,7 @@ static void set_function_type(type_t* declarator_type, AST parameter, AST cv_qua
 	declarator_type->function = calloc(1, sizeof(*(declarator_type->function)));
 	declarator_type->function->return_type = returning_type;
 
-	set_function_parameter_clause(declarator_type, parameter);
+	set_function_parameter_clause(declarator_type, st, parameter);
 	
 	// TODO, cv-qualifier i exception
 	declarator_type->array = NULL;
@@ -521,7 +521,7 @@ static void set_function_type(type_t* declarator_type, AST parameter, AST cv_qua
 	declarator_type->type = NULL;
 }
 
-static void build_symtab_declarator_rec(AST a, type_t* declarator_type)
+static void build_symtab_declarator_rec(AST a, symtab_t* st, type_t* declarator_type)
 {
 	if (a == NULL)
 	{
@@ -534,52 +534,52 @@ static void build_symtab_declarator_rec(AST a, type_t* declarator_type)
 		case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
 		case AST_PARENTHESIZED_DECLARATOR :
 			{
-				build_symtab_declarator_rec(ASTSon0(a), declarator_type); 
+				build_symtab_declarator_rec(ASTSon0(a), st, declarator_type); 
 				break;
 			}
 		case AST_ABSTRACT_DECLARATOR :
 			{
-				set_pointer_type(declarator_type, ASTSon0(a));
+				set_pointer_type(declarator_type, st, ASTSon0(a));
 				if (ASTSon1(a) != NULL)
 				{
-					build_symtab_declarator_rec(ASTSon1(a), declarator_type);
+					build_symtab_declarator_rec(ASTSon1(a), st, declarator_type);
 				}
 				break;
 			}
 		case AST_POINTER_DECL :
 			{
-				set_pointer_type(declarator_type, ASTSon0(a));
-				build_symtab_declarator_rec(ASTSon1(a), declarator_type);
+				set_pointer_type(declarator_type, st, ASTSon0(a));
+				build_symtab_declarator_rec(ASTSon1(a), st, declarator_type);
 				break;
 			}
 		case AST_ABSTRACT_ARRAY :
 			{
-				set_array_type(declarator_type, ASTSon1(a));
+				set_array_type(declarator_type, st, ASTSon1(a));
 				if (ASTSon0(a) != NULL)
 				{
-					build_symtab_declarator_rec(ASTSon0(a), declarator_type);
+					build_symtab_declarator_rec(ASTSon0(a), st, declarator_type);
 				}
 				break;
 			}
 		case AST_DECLARATOR_ARRAY :
 			{
-				set_array_type(declarator_type, ASTSon1(a));
-				build_symtab_declarator_rec(ASTSon0(a), declarator_type);
+				set_array_type(declarator_type, st, ASTSon1(a));
+				build_symtab_declarator_rec(ASTSon0(a), st, declarator_type);
 				break;
 			}
 		case AST_ABSTRACT_DECLARATOR_FUNC :
 			{
-				set_function_type(declarator_type, ASTSon1(a), ASTSon2(a), ASTSon3(a));
+				set_function_type(declarator_type, st, ASTSon1(a), ASTSon2(a), ASTSon3(a));
 				if (ASTSon0(a) != NULL)
 				{
-					build_symtab_declarator_rec(ASTSon0(a), declarator_type);
+					build_symtab_declarator_rec(ASTSon0(a), st, declarator_type);
 				}
 				break;
 			}
 		case AST_DECLARATOR_FUNC :
 			{
-				set_function_type(declarator_type, ASTSon1(a), ASTSon2(a), ASTSon3(a));
-				build_symtab_declarator_rec(ASTSon0(a), declarator_type);
+				set_function_type(declarator_type, st, ASTSon1(a), ASTSon2(a), ASTSon3(a));
+				build_symtab_declarator_rec(ASTSon0(a), st, declarator_type);
 				break;
 			}
 		case AST_DECLARATOR_ID_EXPR :
@@ -594,30 +594,6 @@ static void build_symtab_declarator_rec(AST a, type_t* declarator_type)
 	}
 }
 
-
-char* name_from_id_expression(AST a)
-{
-	switch (ASTType(a))
-	{
-		case AST_QUALIFIED_ID :
-			return name_from_id_expression(ASTSon2(a));
-		case AST_SYMBOL :
-			return strdup(ASTText(a));
-		case AST_DESTRUCTOR_ID :
-			// Think about it. Maybe prepending "~" to the symbol name will be enough?
-			return NULL;
-		case AST_QUALIFIED_TEMPLATE :
-		case AST_QUALIFIED_OPERATOR_FUNCTION_ID :
-		case AST_QUALIFIED_TEMPLATE_ID :
-		case AST_OPERATOR_FUNCTION_ID :
-		case AST_CONVERSION_FUNCTION_ID :
-		case AST_TEMPLATE_ID :
-			return NULL;
-			
-		default :
-			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
-	}
-}
 
 /* Copy functions */
 
@@ -747,7 +723,7 @@ simple_type_t* copy_simple_type(simple_type_t* type_info)
 }
 
 // Gives the name of a builtin type
-static const char* get_builtin_type_name(builtin_type_t builtin_type)
+static const char* get_builtin_type_name(builtin_type_t builtin_type, symtab_t* st)
 {
 	switch (builtin_type)
 	{
@@ -783,14 +759,14 @@ static const char* get_builtin_type_name(builtin_type_t builtin_type)
 }
 
 // This prints a declarator in english. It is intended for debugging purposes
-static void print_declarator(type_t* printed_declarator)
+static void print_declarator(type_t* printed_declarator, symtab_t* st)
 {
 	do 
 	{
 		switch (printed_declarator->kind)
 		{
 			case TK_DIRECT :
-				fprintf(stderr, "%s", get_builtin_type_name(printed_declarator->type->builtin_type));
+				fprintf(stderr, "%s", get_builtin_type_name(printed_declarator->type->builtin_type, st));
 				printed_declarator = NULL;
 				break;
 			case TK_POINTER :
@@ -809,7 +785,7 @@ static void print_declarator(type_t* printed_declarator)
 					fprintf(stderr, "function (");
 					for (i = 0; i < printed_declarator->function->num_parameters; i++)
 					{
-						print_declarator(printed_declarator->function->parameter_list[i]);
+						print_declarator(printed_declarator->function->parameter_list[i], st);
 						if ((i+1) < printed_declarator->function->num_parameters)
 						{
 							fprintf(stderr, ", ");
