@@ -349,11 +349,11 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 
 translation_unit : declaration_sequence
 {
-	*parsed_tree = $1;
+	*parsed_tree = ASTMake1(AST_TRANSLATION_UNIT, $1, 0, NULL);
 }
 | /* empty */
 {
-	*parsed_tree = NULL;
+	*parsed_tree = ASTMake1(AST_TRANSLATION_UNIT, NULL, 0, NULL);
 }
 ;
 

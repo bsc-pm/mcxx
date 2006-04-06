@@ -65,8 +65,16 @@ typedef enum builtin_type_tag
 	BT_CHAR,
 	BT_WCHAR,
 	BT_VOID,
-	BT_USER_DEFINED,
 } builtin_type_t;
+
+typedef enum simple_type_kind_tag
+{
+	STK_BUILTIN_TYPE,
+	STK_CLASS,
+	STK_ENUM,
+	STK_TYPEDEF,
+	STK_USER_DEFINED,
+} simple_type_kind_t;
 
 struct symtab_entry_tag;
 
@@ -99,13 +107,21 @@ typedef struct {
 	struct type_tag* type_info;
 } member_item_t;
 
+enum class_kind_t {
+	CK_STRUCT,
+	CK_CLASS,
+	CK_UNION
+};
+
 typedef struct class_information_tag {
+	enum class_kind_t class_kind;
 	int num_members;
 	member_item_t** member_list;
 } class_info_t;
 
 // Direct type (including classes and enums)
 typedef struct simple_type_tag {
+	simple_type_kind_t kind;
 	builtin_type_t builtin_type;
 	char is_long; // This can be 0, 1 or 2
 	char is_short;
@@ -114,6 +130,9 @@ typedef struct simple_type_tag {
 
 	// Previously declared type
 	struct symtab_entry_tag* user_defined_type;
+
+	// For typedefs
+	struct type_tag* aliased_type;
 
 	// For enums
 	enum_info_t* enum_info;

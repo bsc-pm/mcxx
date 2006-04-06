@@ -33,6 +33,9 @@ symtab_entry_t* new_symbol(symtab_t* st, char* name)
 
 	result = calloc(1, sizeof(*result));
 	result->symbol_name = strdup(name);
+	result->scope = st;
+
+	hash_put(st->hash, name, result);
 
 	return result;
 }
@@ -47,14 +50,14 @@ symtab_entry_t* query_in_current_scope(symtab_t* st, char* name)
 symtab_entry_t* query_in_current_and_upper_scope(symtab_t* st, char* name)
 {
 	symtab_t* scope = st;
-	while (st != NULL)
+	while (scope != NULL)
 	{
 		symtab_entry_t* result = query_in_current_scope(scope, name);
 		if (result != NULL)
 		{
 			return result;
 		}
-		st = st->parent;
+		scope = scope->parent;
 	}
 
 	return NULL;

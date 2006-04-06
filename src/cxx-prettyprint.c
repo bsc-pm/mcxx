@@ -161,6 +161,7 @@ HANDLER_PROTOTYPE(gcc_extension_preffix_handler);
 
 prettyprint_entry_t handlers_list[] =
 {
+	NODE_HANDLER(AST_TRANSLATION_UNIT, unary_container_handler, NULL),
 	NODE_HANDLER(AST_AMBIGUITY, ambiguity_handler, NULL),
 	NODE_HANDLER(AST_NODE_LIST, sequence_handler, NULL),
 	NODE_HANDLER(AST_SIMPLE_DECLARATION, simple_declaration_handler, NULL),

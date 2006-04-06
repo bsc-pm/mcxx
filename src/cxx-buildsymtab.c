@@ -19,19 +19,25 @@ static void build_symtab_declarator_rec(AST a, symtab_t* st, type_t* declarator_
 static void gather_decl_spec_information(AST a, symtab_t* st, gather_decl_spec_t* gather_info);
 static void gather_type_spec_information(AST a, symtab_t* st, simple_type_t* type_info);
 
+static type_t* simple_type_to_type(simple_type_t* simple_type_info);
+
 // Debug purposes
 static void print_declarator(type_t* printed_declarator, symtab_t* st);
 
 // Builds symtab for the translation unit
 void build_symtab_translation_unit(AST a)
 {
-	AST list = a, iter;
+	AST list = ASTSon0(a);
+	AST iter;
+
+	if (list == NULL)
+		return;
 
 	symtab_t* st = new_symtab();
 
 	for_each_element(list, iter)
 	{
-		build_symtab_declaration(ASTSon1(a), st);
+		build_symtab_declaration(ASTSon1(iter), st);
 	}
 }
 
@@ -155,7 +161,7 @@ static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spe
 /*
  * This function gathers everything that is in a decl_spec and fills gather_info
  *
- * symtab_t* st is unused
+ * symtab_t* st is unused here
  */
 static void gather_decl_spec_information(AST a, symtab_t* st, gather_decl_spec_t* gather_info)
 {
@@ -240,40 +246,51 @@ static void gather_type_spec_information(AST a, symtab_t* st, simple_type_t* sim
 			gather_type_spec_from_class_specifier(a, st, simple_type_info);
 			break;
 		case AST_CHAR_TYPE :
+			simple_type_info->kind = STK_BUILTIN_TYPE;
 			simple_type_info->builtin_type= BT_CHAR;
 			break;
 		case AST_WCHAR_TYPE :
+			simple_type_info->kind = STK_BUILTIN_TYPE;
 			simple_type_info->builtin_type= BT_WCHAR;
 			break;
 		case AST_BOOL_TYPE :
+			simple_type_info->kind = STK_BUILTIN_TYPE;
 			simple_type_info->builtin_type= BT_BOOL;
 			break;
 		case AST_SHORT_TYPE :
+			simple_type_info->kind = STK_BUILTIN_TYPE;
 			simple_type_info->builtin_type= BT_INT;
 			simple_type_info->is_short = 1;
 			break;
 		case AST_INT_TYPE :
+			simple_type_info->kind = STK_BUILTIN_TYPE;
 			simple_type_info->builtin_type= BT_INT;
 			break;
 		case AST_LONG_TYPE :
+			simple_type_info->kind = STK_BUILTIN_TYPE;
 			simple_type_info->builtin_type= BT_INT;
 			simple_type_info->is_long = 1;
 			break;
 		case AST_SIGNED_TYPE :
+			simple_type_info->kind = STK_BUILTIN_TYPE;
 			simple_type_info->builtin_type = BT_INT;
 			simple_type_info->is_signed = 1;
 			break;
 		case AST_UNSIGNED_TYPE :
+			simple_type_info->kind = STK_BUILTIN_TYPE;
 			simple_type_info->builtin_type = BT_INT;
 			simple_type_info->is_unsigned = 1;
 			break;
 		case AST_FLOAT_TYPE :
+			simple_type_info->kind = STK_BUILTIN_TYPE;
 			simple_type_info->builtin_type = BT_FLOAT;
 			break;
 		case AST_DOUBLE_TYPE :
+			simple_type_info->kind = STK_BUILTIN_TYPE;
 			simple_type_info->builtin_type = BT_DOUBLE;
 			break;
 		case AST_VOID_TYPE :
+			simple_type_info->kind = STK_BUILTIN_TYPE;
 			simple_type_info->builtin_type = BT_VOID;
 			break;
 		default:
@@ -289,6 +306,26 @@ static void gather_type_spec_from_simple_type_specifier(AST a, symtab_t* st, sim
 	switch (ASTType(type_name))
 	{
 		case AST_SYMBOL :
+			fprintf(stderr, "Looking up for type '%s' in %p\n", ASTText(type_name), st);
+			symtab_entry_t* simple_type_entry = query_in_current_and_upper_scope(st, ASTText(type_name));
+
+			if (simple_type_entry == NULL || 
+					(simple_type_entry->kind != SK_ENUM &&
+					 simple_type_entry->kind != SK_CLASS &&
+					 simple_type_entry->kind != SK_TYPEDEF))
+			{
+				running_error("Identifier '%s' in line %d is not a type %p\n", ASTText(type_name), ASTLine(type_name), simple_type_entry);
+			}
+
+			if (simple_type_entry->type_information == NULL
+					|| simple_type_entry->type_information->kind != TK_DIRECT
+					|| simple_type_entry->type_information->type == NULL)
+			{
+				internal_error("The named type '%s' has no direct type entry in symbol table\n", ASTText(type_name));
+			}
+
+			simple_type_info->kind = STK_USER_DEFINED;
+			simple_type_info->user_defined_type = simple_type_entry;
 			break;
 		case AST_TEMPLATE_ID :
 			break;
@@ -301,29 +338,52 @@ void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* si
 {
 	simple_type_info->enum_info = (enum_info_t*) calloc(1, sizeof(*simple_type_info->enum_info));
 
+	simple_type_info->kind = STK_ENUM;
+
 	AST list, iter;
 	list = ASTSon1(a);
 
-	for_each_element(list, iter)
+	if (list != NULL)
 	{
-		AST enumeration = ASTSon1(iter);
-		AST enumeration_name = ASTSon0(enumeration);
-		AST enumeration_expr = ASTSon1(enumeration);
-		
-		enumeration_item_t* enumeration_item = calloc(1, sizeof(*enumeration_item));
+		for_each_element(list, iter)
+		{
+			AST enumeration = ASTSon1(iter);
+			AST enumeration_name = ASTSon0(enumeration);
+			AST enumeration_expr = ASTSon1(enumeration);
 
-		enumeration_item->name = strdup(ASTText(enumeration_name));
-		enumeration_item->value = enumeration_expr;
+			enumeration_item_t* enumeration_item = calloc(1, sizeof(*enumeration_item));
 
-		P_LIST_ADD(simple_type_info->enum_info->enumeration_list, 
-				simple_type_info->enum_info->num_enumeration,
-				enumeration_item);
+			enumeration_item->name = strdup(ASTText(enumeration_name));
+			enumeration_item->value = enumeration_expr;
+
+			P_LIST_ADD(simple_type_info->enum_info->enumeration_list, 
+					simple_type_info->enum_info->num_enumeration,
+					enumeration_item);
+		}
+
 	}
 
 	AST enum_name = ASTSon0(a);
 	if (enum_name != NULL)
 	{
 		// TODO - Register this enum type into the symbol table
+		fprintf(stderr, "Registering enum '%s' in %p\n", ASTText(enum_name), st);
+		symtab_entry_t* new_entry = new_symbol(st, ASTText(enum_name));
+
+		if (new_entry == NULL)
+		{
+			running_error("Symbol '%s' redefined in line %d\n", 
+					ASTText(enum_name), ASTLine(enum_name));
+		}
+
+		new_entry->kind = SK_ENUM;
+		new_entry->type_information = simple_type_to_type(simple_type_info);
+
+		// Since this type is not anonymous we'll want that simple_type_info
+		// refers to this newly created type
+		memset(simple_type_info, 0, sizeof(*simple_type_info));
+		simple_type_info->kind = STK_USER_DEFINED;
+		simple_type_info->user_defined_type = new_entry;
 	}
 }
 
@@ -479,7 +539,7 @@ static void set_function_parameter_clause(type_t* declarator_type, symtab_t* st,
 		// Declarator can be null
 		AST parameter_declarator = ASTSon1(parameter_declaration);
 		// Default value can be null
-		AST parameter_default_value = ASTSon2(parameter_declaration);
+		// AST parameter_default_value = ASTSon2(parameter_declaration);
 
 		gather_decl_spec_t gather_info;
 		memset(&gather_info, 0, sizeof(gather_info));
@@ -723,39 +783,81 @@ simple_type_t* copy_simple_type(simple_type_t* type_info)
 }
 
 // Gives the name of a builtin type
-static const char* get_builtin_type_name(builtin_type_t builtin_type, symtab_t* st)
+static const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
 {
-	switch (builtin_type)
+	static char result[256] = {0};
+	switch (simple_type_info->kind)
 	{
-		case BT_INT :
-			return "int";
-			break;
-		case BT_BOOL :
-			return "bool";
-			break;
-		case BT_FLOAT :
-			return "float";
-			break;
-		case BT_DOUBLE :
-			return "double";
-			break;
-		case BT_WCHAR :
-			return "wchar_t";
-			break;
-		case BT_CHAR :
-			return "char";
-			break;
-		case BT_VOID :
-			return "void";
-			break;
-		case BT_USER_DEFINED :
-			return "(user defined type)";
-			break;
-		case BT_UNKNOWN :
+		case STK_BUILTIN_TYPE :
+			{
+				switch (simple_type_info->builtin_type)
+				{
+					case BT_INT :
+						return "int";
+						break;
+					case BT_BOOL :
+						return "bool";
+						break;
+					case BT_FLOAT :
+						return "float";
+						break;
+					case BT_DOUBLE :
+						return "double";
+						break;
+					case BT_WCHAR :
+						return "wchar_t";
+						break;
+					case BT_CHAR :
+						return "char";
+						break;
+					case BT_VOID :
+						return "void";
+						break;
+					case BT_UNKNOWN :
+					default :
+						return "¿¿¿unknown builtin type???";
+						break;
+				}
+				break;
+			}
+		case STK_USER_DEFINED :
+			{
+				symtab_entry_t* user_defined_type = simple_type_info->user_defined_type;
+				switch (user_defined_type->kind)
+				{
+					case SK_ENUM :
+						snprintf(result, 255, "enum %s", user_defined_type->symbol_name);
+						break;
+					case SK_CLASS :
+						snprintf(result, 255, "class %s", user_defined_type->symbol_name);
+						break;
+					case SK_TYPEDEF :
+						snprintf(result, 255, "typedef %s", user_defined_type->symbol_name);
+						break;
+					default :
+						return "¿¿¿unknown user defined type???";
+				}
+
+				return result;
+			}
+		case STK_ENUM :
+			return "enum <anonymous>";
+		case STK_CLASS :
+			return "class <anonymous>";
 		default :
-			return "unknown type???";
-			break;
+			{
+			}
 	}
+	return "¿¿¿unknown type???";
+}
+
+static type_t* simple_type_to_type(simple_type_t* simple_type_info)
+{
+	type_t* result = calloc(1, sizeof(*result));
+	result->kind = TK_DIRECT;
+	result->type = copy_simple_type(simple_type_info);
+
+	return result;
 }
 
 // This prints a declarator in english. It is intended for debugging purposes
@@ -766,7 +868,7 @@ static void print_declarator(type_t* printed_declarator, symtab_t* st)
 		switch (printed_declarator->kind)
 		{
 			case TK_DIRECT :
-				fprintf(stderr, "%s", get_builtin_type_name(printed_declarator->type->builtin_type, st));
+				fprintf(stderr, "%s", get_builtin_type_name(printed_declarator->type, st));
 				printed_declarator = NULL;
 				break;
 			case TK_POINTER :
