@@ -68,4 +68,9 @@ AST duplicate_ast(AST a);
 
 char* ast_print_node_type(node_t n);
 
+// Eases iterating forward in AST_NODE_LISTs
+#define for_each_element(list, iter) \
+	iter = (list); while (ASTSon0(iter) != NULL) iter = ASTSon0(iter); \
+	for(; iter != NULL; iter = (iter != (list)) ? ASTParent(iter) : NULL)
+
 #endif // CXX_AST_H

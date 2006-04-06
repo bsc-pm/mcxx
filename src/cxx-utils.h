@@ -41,8 +41,15 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 #define HASH_SIZE 23
 int prime_hash(char* key, int hash_size);
 
-#define for_each_element(list, iter) \
-	iter = (list); while (ASTSon0(iter) != NULL) iter = ASTSon0(iter); \
-	for(; iter != NULL; iter = (iter != (list)) ? ASTParent(iter) : NULL)
+// Routine to ease adding pointers to a pointer list
+//   list is a T**
+//   size is an int
+//   elem is a T*
+#define P_LIST_ADD(list, size, elem)  \
+do { \
+	(size)++; \
+	(list) = realloc((list), sizeof(*(list))*(size)); \
+	(list)[((size)-1)] = (elem); \
+} while(0)
 
 #endif // CXX_UTILS_H

@@ -6,6 +6,20 @@
 
 #define BITMAP(x) (1 << x)
 
+/*
+ * A symbol table is represented by a symtab_t*
+ *
+ * Entries in the symbol table are symtab_entry_t*
+ *
+ * Every entry can have a non-null type_information field type_t*
+ * 
+ * A type_t* represents a full C++ type in a hierarchical way.
+ *   -> pointer
+ *   -> array
+ *   -> function
+ *   -> type (direct type including builtin's, class, enums)
+ */
+
 enum cxx_symbol_kind
 {
 	SK_UNDEFINED = 0,
@@ -29,6 +43,7 @@ typedef struct {
 	int TODO;
 } exception_spec_t;
 
+// For type_t
 enum type_kind
 {
 	TK_DIRECT,
@@ -39,6 +54,7 @@ enum type_kind
 	TK_FUNCTION
 };
 
+// For simple_type_t
 typedef enum builtin_type_tag
 {
 	BT_UNKNOWN = 0,
@@ -54,16 +70,42 @@ typedef enum builtin_type_tag
 
 struct symtab_entry_tag;
 
+typedef struct {
+	char* name;
+	AST value;
+} enumeration_item_t;
+
 typedef struct enum_information_tag {
 	int num_enumeration;
-	struct {
-		char* name;
-		AST value;
-	}* enumeration_list;
+	enumeration_item_t** enumeration_list;
 } enum_info_t;
 
-// Direct type
-typedef struct type_info_tag {
+typedef enum access_specifier_t
+{
+	AS_UNKNOWN = 0,
+	AS_PUBLIC,
+	AS_PRIVATE,
+	AS_PROTECTED
+} access_specifier_t;
+
+struct simple_type_tag;
+
+typedef struct {
+	// Access specifier
+	access_specifier_t access_spec;
+	// Member name, this will come from the declarator 
+	char* name;
+	// Type of the member
+	struct type_tag* type_info;
+} member_item_t;
+
+typedef struct class_information_tag {
+	int num_members;
+	member_item_t** member_list;
+} class_info_t;
+
+// Direct type (including classes and enums)
+typedef struct simple_type_tag {
 	builtin_type_t builtin_type;
 	char is_long; // This can be 0, 1 or 2
 	char is_short;
@@ -75,16 +117,18 @@ typedef struct type_info_tag {
 
 	// For enums
 	enum_info_t* enum_info;
+	
 	// For classes
+	class_info_t* class_info;
 
-	// A type has cv qualifier ?
 	cv_qualifier_t cv_qualifier;
-} type_info_t;
+} simple_type_t;
 
 // Function information
 typedef struct function_tag
 {
 	struct type_tag* return_type;
+	int num_parameters;
 	struct type_tag** parameter_list;
 	cv_qualifier_t cv_qualifier;
 	exception_spec_t exception_spec;
@@ -102,7 +146,7 @@ typedef struct pointer_tag
 	cv_qualifier_t cv_qualifier;
 	struct type_tag* pointee;
 	// ¿¿¿ If pointer to member ???
-	struct symtab_entry_tag* pointee_class;
+	// struct symtab_entry_tag* pointee_class;
 } pointer_info_t;
 
 // Array information
@@ -128,8 +172,8 @@ typedef struct type_tag
 	// Function
 	function_info_t* function;
 
-	// Direct type
-	type_info_t* type;
+	// "Simple" type
+	simple_type_t* type;
 } type_t;
 
 struct symtab_tag;
@@ -142,7 +186,7 @@ typedef struct symtab_entry_tag
 	// Scope of this symbol when declared
 	struct symtab_tag* scope;
 
-	type_t type_information;
+	type_t* type_information;
 } symtab_entry_t;
 
 typedef struct symtab_tag

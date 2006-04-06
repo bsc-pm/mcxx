@@ -2694,7 +2694,7 @@ unqualified_id : IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
 
-	$$ = ASTMake1(AST_DESTRUCTOR_ID, identifier, $1.token_line, $1.token_text);
+	$$ = ASTMake1(AST_DESTRUCTOR_ID, identifier, $1.token_line, NULL);
 }
 | template_id
 {
