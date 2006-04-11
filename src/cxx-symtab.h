@@ -17,7 +17,7 @@
  *   -> pointer
  *   -> array
  *   -> function
- *   -> type (direct type including builtin's, class, enums)
+ *   -> type (direct type including builtin's, class, enums, typedef)
  */
 
 enum cxx_symbol_kind
