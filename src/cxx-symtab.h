@@ -197,10 +197,14 @@ typedef struct type_tag
 
 struct symtab_tag;
 
+// This is an entry in the symbol table
 typedef struct symtab_entry_tag
 {
 	enum cxx_symbol_kind kind;
 	char* symbol_name;
+
+	// This allows us to implement one-definition-rule
+	int defined;
 
 	// Scope of this symbol when declared
 	struct symtab_tag* scope;
@@ -208,8 +212,19 @@ typedef struct symtab_entry_tag
 	type_t* type_information;
 } symtab_entry_t;
 
+// This is what the symbol table returns
+typedef struct symtab_entry_list
+{
+	// The current entry
+	symtab_entry_t* entry;
+	// Next entry under this name (last if NULL)
+	struct symtab_entry_list* next;
+} symtab_entry_list_t;
+
+// This is the symbol table
 typedef struct symtab_tag
 {
+	// Hash of symtab_entry_list
 	Hash* hash;
 
 	// Can be null 
@@ -222,7 +237,10 @@ typedef struct symtab_tag
 symtab_t* new_symtab();
 symtab_t* enter_scope(symtab_t* parent);
 symtab_entry_t* new_symbol(symtab_t* st, char* name);
-symtab_entry_t* query_in_current_scope(symtab_t* st, char* name);
-symtab_entry_t* query_in_current_and_upper_scope(symtab_t* st, char* name);
+symtab_entry_list_t* query_in_current_scope(symtab_t* st, char* name);
+symtab_entry_list_t* query_in_current_and_upper_scope(symtab_t* st, char* name);
+
+// Higher level functions when dealing with the symtab
+symtab_entry_t* filter_simple_type_specifier(symtab_entry_list_t* entry_list);
 
 #endif // CXX_SYMTAB_H
