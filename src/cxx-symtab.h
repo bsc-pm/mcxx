@@ -209,7 +209,14 @@ typedef struct symtab_entry_tag
 	// Scope of this symbol when declared
 	struct symtab_tag* scope;
 
+	// For everything related to a type
 	type_t* type_information;
+
+	// Related scope. For scopes defined within this symbol
+	// e.g. namespaces, classes, etc
+	struct symtab_tag* inner_scope;
+
+	// TODO - Related scopes included by means of using (koenig too??)
 } symtab_entry_t;
 
 // This is what the symbol table returns

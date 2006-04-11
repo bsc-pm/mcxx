@@ -10,6 +10,8 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st);
 static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spec_t* gather_info, simple_type_t** type_info);
 static void build_symtab_declarator(AST a, symtab_t* st, gather_decl_spec_t* gather_info, simple_type_t* type_info, type_t** declarator_type);
 
+static void build_symtab_namespace_definition(AST a, symtab_t* st);
+
 static void gather_type_spec_from_simple_type_specifier(AST a, symtab_t* st, simple_type_t* type_info);
 static void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* type_info);
 static void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* type_info);
@@ -53,12 +55,24 @@ void build_symtab_translation_unit(AST a)
 // Build symtab for a declaration
 static void build_symtab_declaration(AST a, symtab_t* st)
 {
-	if (ASTType(a) != AST_SIMPLE_DECLARATION)
+	switch (ASTType(a))
 	{
-		internal_error("Only simple declarations supported at the moment", 0);
+		case AST_SIMPLE_DECLARATION :
+			{
+				build_symtab_simple_declaration(a, st);
+				break;
+			}
+		case AST_NAMESPACE_DEFINITION :
+			{
+				build_symtab_namespace_definition(a, st);
+				break;
+			}
+		default :
+			{
+				internal_error("A declaration of kind '%s' is still unsupported\n", ast_print_node_type(ASTType(a)));
+				break;
+			}
 	}
-
-	build_symtab_simple_declaration(a, st);
 }
 
 // Builds symtab for a simple declaration
@@ -946,16 +960,17 @@ static void build_symtab_declarator_id_expr(AST declarator_name, type_t* declara
 		case AST_SYMBOL :
 			{
 				// A simply unqualified symbol "name"
-				fprintf(stderr, "Declared symbol '%s'\n", ASTText(declarator_id));
 
 				// We are not declaring a variable but a type
 				if (gather_info->is_typedef)
 				{
 					register_new_typedef_name(declarator_id, declarator_type, gather_info, st);
+					fprintf(stderr, "Declared new typedef '%s'\n", ASTText(declarator_id));
 				}
 				else
 				{
 					register_new_variable_name(declarator_id, declarator_type, gather_info, st);
+					fprintf(stderr, "Declared variable '%s'\n", ASTText(declarator_id));
 				}
 				break;
 			}
@@ -1043,56 +1058,83 @@ static void register_new_typedef_name(AST declarator_id, type_t* declarator_type
 	entry->type_information->kind = TK_DIRECT;
 	entry->type_information->type = calloc(1, sizeof(*(entry->type_information->type)));
 	entry->type_information->type->aliased_type = copy_type(declarator_type);
+
+	// TODO - cv qualification
 }
 
 static void register_new_variable_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, symtab_t* st)
 {
 	symtab_entry_list_t* list = query_in_current_scope(st, ASTText(declarator_id));
+	symtab_entry_t* entry = NULL;
 
 	// Only enum or classes can exist, otherwise this is an error
 	if (list != NULL)
 	{
-		if (list->next == NULL)
+		int num_types = 0, num_other = 0;
+		// Look for the first variable
+		while ((list != NULL) && 
+				(entry == NULL))
 		{
-			symtab_entry_t* entry = filter_simple_type_specifier(list);
-			// This means this was not just a type specifier 
-			if (entry == NULL)
+			if (list->entry->kind == SK_VARIABLE)
 			{
-				// It can be a redeclaration of the same variable
-				// TODO - We should check for the same type
-				// Since this is obviously ill-formed
-				//
-				//    extern float a;
-				//    int a;
-				//
-				// while on the other hand
-				//    
-				//    extern float a;
-				//    typedef float F;
-				//    F b;
-				//
-				//  is conforming
-				
-				if (list->entry->defined)
-				{
-					if (!gather_info->is_extern)
-					{
-						running_error("Redefinition of symbol '%s'\n", ASTText(declarator_id));
-					}
-					else
-					{
-						// Nothing else to do here since this is just a redeclaration
-						// and provided we have checked for the same type before 
-						return;
-					}
-				}
+				entry = list->entry;
 			}
+			else if (list->entry->kind == SK_ENUM
+					|| list->entry->kind == SK_CLASS)
+			{
+				num_types++;
+			}
+			else
+			{
+				num_other++;
+			}
+			list = list->next;
 		}
-		else
+		
+		if (num_types > 1 
+				|| num_other != 0)
 		{
-			running_error("Symbol '%s' has been redeclared as a different symbol kind", 
+			internal_error("Symbol '%s' has been redeclared as a different symbol kind.", 
 					ASTText(declarator_id));
 		}
+
+		if (entry->defined
+				&& !gather_info->is_extern
+				&& (entry->type_information->kind != TK_FUNCTION))
+		{
+			running_error("Symbol '%s' has already been defined.", ASTText(declarator_id));
+		}
 	}
+
+	if (entry == NULL)
+	{
+		fprintf(stderr, "Registering variable '%s'\n", ASTText(declarator_id));
+		entry = new_symbol(st, ASTText(declarator_id));
+		entry->kind = SK_VARIABLE;
+		entry->type_information = copy_type(declarator_type);
+
+		// TODO - cv qualification
+	}
+
+
+	// If no extern, then this is a definition, otherwise just a declaration
+	if (!gather_info->is_extern && 
+			// If this is a function it is not defined here
+			(entry->type_information->kind != TK_FUNCTION))
+	{
+		fprintf(stderr, "Symbol '%s' has been defined.\n", ASTText(declarator_id));
+		entry->defined = 1;
+	}
+}
+
+static void build_symtab_namespace_definition(AST a, symtab_t* st)
+{
+	// We register a symbol of type namespace and link to a newly created scope.
+	symtab_t* namespace_scope = enter_scope(st);
+
+	AST namespace_name = ASTSon0(a);
+	symtab_entry_t* entry = new_symbol(st, ASTText(namespace_name));
+
+	entry->kind = SK_NAMESPACE;
 }
