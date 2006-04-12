@@ -34,6 +34,7 @@ extern int yylex(void);
 };
 
 
+// This is a specific feature of rofi-bison 2.1
 %default-merge <ambiguityHandler>
 
 %parse-param {AST* parsed_tree}

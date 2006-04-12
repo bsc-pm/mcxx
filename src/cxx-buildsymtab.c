@@ -434,6 +434,7 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 
 	AST class_head_identifier = ASTSon2(class_head);
 	// AST class_head_base_clause = ASTSon3(class_head);
+	fprintf(stderr, "TODO class head", name);
 	
 	// Class head
 	if (class_head_identifier != NULL)
@@ -446,13 +447,13 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 		}
 		else if (ASTType(class_head_identifier) == AST_TEMPLATE_ID)
 		{
+			// This happens only in explicit specializations
 			name = ASTText(ASTSon0(class_head_identifier));
 		}
 		else
 		{
 			internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(class_head_identifier)));
 		}
-		fprintf(stderr, "TODO register '%s'\n", name);
 	}
 
 	// Member specification
@@ -993,6 +994,7 @@ static void build_symtab_declarator_id_expr(AST declarator_name, type_t* declara
 		case AST_DESTRUCTOR_ID :
 			{
 				// An unqualified destructor name "~name"
+				// 'name' should be a class in this scope
 				break;
 			}
 		case AST_TEMPLATE_ID :
