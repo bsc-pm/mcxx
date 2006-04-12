@@ -5,7 +5,18 @@
 #include "cxx-prettyprint.h"
 #include "cxx-utils.h"
 
+/*
+ * This file builds symbol table. If ambiguous nodes are found disambiguating
+ * routines will be called prior to filling symbolic information. Note that
+ * disambiguating routines will use the currently built symbol table.
+ *
+ * Note that some "semantic checks" performed here are intended only to verify
+ * that lookup and symbol registration are performed correctly. By no means
+ * this is a full type checking phase
+ */
+
 static void build_symtab_declaration(AST a, symtab_t* st);
+static void build_symtab_declaration_sequence(AST a, symtab_t* st);
 static void build_symtab_simple_declaration(AST a, symtab_t* st);
 static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spec_t* gather_info, simple_type_t** type_info);
 static void build_symtab_declarator(AST a, symtab_t* st, gather_decl_spec_t* gather_info, simple_type_t* type_info, type_t** declarator_type);
@@ -39,13 +50,18 @@ static void print_declarator(type_t* printed_declarator, symtab_t* st);
 void build_symtab_translation_unit(AST a)
 {
 	AST list = ASTSon0(a);
-	AST iter;
 
 	if (list == NULL)
 		return;
 
 	symtab_t* st = new_symtab();
 
+	build_symtab_declaration_sequence(list, st);
+}
+
+static void build_symtab_declaration_sequence(AST list, symtab_t* st)
+{
+	AST iter;
 	for_each_element(list, iter)
 	{
 		build_symtab_declaration(ASTSon1(iter), st);
@@ -1130,11 +1146,32 @@ static void register_new_variable_name(AST declarator_id, type_t* declarator_typ
 
 static void build_symtab_namespace_definition(AST a, symtab_t* st)
 {
-	// We register a symbol of type namespace and link to a newly created scope.
-	symtab_t* namespace_scope = enter_scope(st);
-
 	AST namespace_name = ASTSon0(a);
-	symtab_entry_t* entry = new_symbol(st, ASTText(namespace_name));
 
-	entry->kind = SK_NAMESPACE;
+	// Register this namespace if it does not exist
+	symtab_entry_list_t* list = query_in_current_scope(st, ASTText(namespace_name));
+
+	if (list != NULL 
+			&& (list->next != NULL 
+				|| list->entry->kind != SK_NAMESPACE))
+	{
+		running_error("Identifier '%s' has already been declared as another symbol kind\n", ASTText(namespace_name));
+	}
+	
+	symtab_entry_t* entry;
+	if (list != NULL && list->entry->kind == SK_NAMESPACE)
+	{
+		entry = list->entry;
+	}
+	else
+	{
+		// We register a symbol of type namespace and link to a newly created scope.
+		symtab_t* namespace_scope = enter_scope(st);
+
+		entry = new_symbol(st, ASTText(namespace_name));
+		entry->kind = SK_NAMESPACE;
+		entry->inner_scope = namespace_scope;
+	}
+
+	build_symtab_declaration_sequence(ASTSon1(a), entry->inner_scope);
 }

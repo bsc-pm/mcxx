@@ -39,11 +39,14 @@ int main(int argc, char* argv[])
 		{
 			ast_dump_graphviz(compilation_options.parsed_tree, stdout);
 		}
+		else if (strcmp(argv[1], "-y") == 0)
+		{
+			build_symtab_translation_unit(compilation_options.parsed_tree);
+		}
 	}
 	else
 	{
-		build_symtab_translation_unit(compilation_options.parsed_tree);
-		// prettyprint(stdout, compilation_options.parsed_tree);
+		prettyprint(stdout, compilation_options.parsed_tree);
 	}
 
 	return 0;
