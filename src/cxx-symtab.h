@@ -117,6 +117,11 @@ typedef struct class_information_tag {
 	enum class_kind_t class_kind;
 	int num_members;
 	member_item_t** member_list;
+
+	// Special functions
+	struct symtab_entry_tag* destructor;
+	struct symtab_entry_tag** conversion_function_list;
+	struct symtab_entry_tag** operator_function_list;
 } class_info_t;
 
 // Direct type (including classes and enums)
@@ -151,6 +156,8 @@ typedef struct function_tag
 	struct type_tag** parameter_list;
 	cv_qualifier_t cv_qualifier;
 	exception_spec_t exception_spec;
+
+	AST function_body;
 
 	int is_inline;
 	int is_virtual;
@@ -246,8 +253,12 @@ symtab_t* enter_scope(symtab_t* parent);
 symtab_entry_t* new_symbol(symtab_t* st, char* name);
 symtab_entry_list_t* query_in_current_scope(symtab_t* st, char* name);
 symtab_entry_list_t* query_in_current_and_upper_scope(symtab_t* st, char* name);
+symtab_entry_list_t* create_list_from_entry(symtab_entry_t* entry);
 
 // Higher level functions when dealing with the symtab
 symtab_entry_t* filter_simple_type_specifier(symtab_entry_list_t* entry_list);
+
+// Everything built by an id_expression can be queried with this function
+symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr);
 
 #endif // CXX_SYMTAB_H

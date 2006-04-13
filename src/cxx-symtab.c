@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "cxx-symtab.h"
+#include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "hash.h"
 
@@ -111,4 +112,161 @@ symtab_entry_t* filter_simple_type_specifier(symtab_entry_list_t* entry_list)
 		return NULL;
 	else
 		return result;
+}
+
+symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr)
+{
+	switch (ASTType(id_expr))
+	{
+		// Unqualified ones
+		case AST_SYMBOL :
+			{
+				return query_in_current_and_upper_scope(st, ASTText(id_expr));
+				break;
+			}
+		case AST_DESTRUCTOR_ID :
+			{
+				// An unqualified destructor name "~name"
+				// 'name' should be a class in this scope
+				AST symbol = ASTSon0(id_expr);
+				symtab_entry_list_t* result = query_in_current_and_upper_scope(st, ASTText(symbol));
+
+				// Look for a class with this name. Note that we are not
+				// checking for more than one identifier
+				if (result->entry->kind != SK_CLASS)
+				{
+					return NULL;
+				}
+
+				symtab_entry_t* class_entry = result->entry;
+
+				if (class_entry->type_information->type->class_info->destructor != NULL)
+				{
+					return create_list_from_entry(class_entry->type_information->type->class_info->destructor);
+				}
+
+				return NULL;
+
+				break;
+			}
+		case AST_TEMPLATE_ID :
+			{
+				// An unqualified template_id "identifier<stuff>"
+				internal_error("Unsupported template id", 0);
+				break;
+			}
+		case AST_OPERATOR_FUNCTION_ID :
+			{
+				// An unqualified operator_function_id "operator +"
+				internal_error("Unsupported operator id", 0);
+				break;
+			}
+		case AST_CONVERSION_FUNCTION_ID :
+			{
+				// An unqualified conversion_function_id "operator T"
+				// Why this has no qualified equivalent ?
+				internal_error("Unsupported conversion function id", 0);
+				break;
+			}
+			// Qualified ones
+		case AST_QUALIFIED_ID :
+			{
+				// A qualified id "a::b::c"
+				symtab_t* lookup_scope = st;
+				AST global_op = ASTSon0(id_expr);
+
+				if (global_op != NULL)
+				{
+					lookup_scope = compilation_options.global_scope;
+				}
+
+				AST nested_name = ASTSon1(id_expr);
+
+				while (nested_name != NULL)
+				{
+					AST nested_name_spec = ASTSon0(nested_name);
+					char seen_class = 0;
+
+					switch (ASTType(nested_name_spec))
+					{
+						case AST_SYMBOL :
+							{
+								symtab_entry_list_t* entry_list = 
+									query_in_current_and_upper_scope(lookup_scope, ASTText(nested_name_spec));
+
+								if (entry_list == NULL)
+									return NULL;
+
+								if (entry_list->entry->kind != SK_CLASS
+										&& entry_list->entry->kind != SK_NAMESPACE)
+								{
+									return NULL;
+								}
+
+								if (seen_class 
+										&& entry_list->entry->kind == SK_NAMESPACE)
+									return NULL;
+
+								if (entry_list->entry->kind == SK_CLASS)
+									seen_class = 1;
+
+								lookup_scope = entry_list->entry->inner_scope;
+
+								break;
+							}
+						case AST_TEMPLATE_ID :
+							{
+								internal_error("Unsupported template id", 0);
+								break;
+							}
+						default:
+							{
+								internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(nested_name_spec)));
+								break;
+							}
+					}
+
+					nested_name = ASTSon1(nested_name);
+				}
+
+				// If we reach here all the qualification went well, now query for an unqualified id
+				return query_id_expression(lookup_scope, ASTSon2(id_expr));
+				
+				break;
+			}
+		case AST_QUALIFIED_TEMPLATE :
+			{
+				// A qualified template "a::b::template c" [?]
+				internal_error("Unsupported qualified template", 0);
+				break;
+			}
+		case AST_QUALIFIED_TEMPLATE_ID :
+			{
+				// A qualified template_id "a::b::c<int>"
+				internal_error("Unsupported qualified template id", 0);
+				break;
+			}
+		case AST_QUALIFIED_OPERATOR_FUNCTION_ID :
+			{
+				// A qualified operator function_id "a::b::operator +"
+				internal_error("Unsupported qualified operator id", 0);
+				break;
+			}
+		default :
+			{
+				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(id_expr)));
+				break;
+			}
+	}
+
+	return NULL;
+}
+
+symtab_entry_list_t* create_list_from_entry(symtab_entry_t* entry)
+{
+	symtab_entry_list_t* result = calloc(1, sizeof(*result));
+	result->entry = entry;
+	result->next = NULL;
+
+	return result;
 }

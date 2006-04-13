@@ -2,12 +2,15 @@
 #define CXX_DRIVER_H
 
 #include <cxx-ast.h>
+#include <cxx-symtab.h>
 
 struct compilation_options_tag
 {
 	int debug;
 
 	AST parsed_tree;
+
+	symtab_t* global_scope;
 };
 
 typedef struct compilation_options_tag compilation_options_t;
