@@ -118,6 +118,8 @@ typedef struct class_information_tag {
 	int num_members;
 	member_item_t** member_list;
 
+	int is_template;
+
 	// Special functions
 	struct symtab_entry_tag* destructor;
 	struct symtab_entry_tag** conversion_function_list;
@@ -158,6 +160,8 @@ typedef struct function_tag
 	exception_spec_t exception_spec;
 
 	AST function_body;
+
+	int is_template;
 
 	int is_inline;
 	int is_virtual;
@@ -210,7 +214,7 @@ typedef struct symtab_entry_tag
 	enum cxx_symbol_kind kind;
 	char* symbol_name;
 
-	// This allows us to implement one-definition-rule
+	// This allows us to enforce the one-definition-rule within a translation unit
 	int defined;
 
 	// Scope of this symbol when declared
@@ -231,7 +235,8 @@ typedef struct symtab_entry_list
 {
 	// The current entry
 	symtab_entry_t* entry;
-	// Next entry under this name (last if NULL)
+	
+	// Next entry under this name (NULL if last)
 	struct symtab_entry_list* next;
 } symtab_entry_list_t;
 

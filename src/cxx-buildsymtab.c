@@ -19,8 +19,10 @@
 static void build_symtab_declaration(AST a, symtab_t* st);
 static void build_symtab_declaration_sequence(AST a, symtab_t* st);
 static void build_symtab_simple_declaration(AST a, symtab_t* st);
-static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spec_t* gather_info, simple_type_t** type_info);
-static void build_symtab_declarator(AST a, symtab_t* st, gather_decl_spec_t* gather_info, simple_type_t* type_info, type_t** declarator_type);
+static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spec_t* gather_info, 
+		simple_type_t** type_info);
+static void build_symtab_declarator(AST a, symtab_t* st, gather_decl_spec_t* gather_info, 
+		simple_type_t* type_info, type_t** declarator_type);
 
 static void build_symtab_namespace_definition(AST a, symtab_t* st);
 static void build_symtab_function_definition(AST a, symtab_t* st);
@@ -41,8 +43,10 @@ static void build_symtab_declarator_rec(AST a, symtab_t* st, type_t* declarator_
 static void gather_decl_spec_information(AST a, symtab_t* st, gather_decl_spec_t* gather_info);
 static void gather_type_spec_information(AST a, symtab_t* st, simple_type_t* type_info);
 
-static void build_symtab_declarator_name(AST declarator_name, type_t* declarator_type, gather_decl_spec_t* gather_info, symtab_t* st);
-static void build_symtab_declarator_id_expr(AST declarator_name, type_t* declarator_type, gather_decl_spec_t* gather_info, symtab_t* st);
+static void build_symtab_declarator_name(AST declarator_name, type_t* declarator_type, 
+		gather_decl_spec_t* gather_info, symtab_t* st);
+static void build_symtab_declarator_id_expr(AST declarator_name, type_t* declarator_type, 
+		gather_decl_spec_t* gather_info, symtab_t* st);
 
 static type_t* simple_type_to_type(simple_type_t* simple_type_info);
 
@@ -99,7 +103,8 @@ static void build_symtab_declaration(AST a, symtab_t* st)
 			}
 		default :
 			{
-				internal_error("A declaration of kind '%s' is still unsupported\n", ast_print_node_type(ASTType(a)));
+				internal_error("A declaration of kind '%s' is still unsupported\n", 
+						ast_print_node_type(ASTType(a)));
 				break;
 			}
 	}
@@ -135,7 +140,8 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st)
 			AST declarator = ASTSon0(init_declarator);
 
 			type_t* declarator_type;
-			build_symtab_declarator(declarator, st, &gather_info, simple_type_info, &declarator_type);
+			build_symtab_declarator(declarator, st, &gather_info, 
+					simple_type_info, &declarator_type);
 		}
 	}
 }
@@ -155,7 +161,8 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st)
  * Recall our grammar defines a decl_specifier_seq as 
  *    decl_specifier_seq -> nontype_decl_specifier_seq[opt] type_spec nontype_decl_specifier_seq[opt]
  */
-static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spec_t* gather_info, simple_type_t **simple_type_info)
+static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spec_t* gather_info, 
+		simple_type_t **simple_type_info)
 {
 	AST iter, list;
 
@@ -367,14 +374,16 @@ static void gather_type_spec_from_simple_type_specifier(AST a, symtab_t* st, sim
 
 			if (simple_type_entry == NULL)
 			{
-				running_error("Identifier '%s' in line %d is not a type %p\n", ASTText(type_name), ASTLine(type_name), simple_type_entry);
+				running_error("Identifier '%s' in line %d is not a type %p\n", ASTText(type_name), 
+						ASTLine(type_name), simple_type_entry);
 			}
 
 			if (simple_type_entry->type_information == NULL
 					|| simple_type_entry->type_information->kind != TK_DIRECT
 					|| simple_type_entry->type_information->type == NULL)
 			{
-				internal_error("The named type '%s' has no direct type entry in symbol table\n", ASTText(type_name));
+				internal_error("The named type '%s' has no direct type entry in symbol table\n", 
+						ASTText(type_name));
 			}
 
 			simple_type_info->kind = STK_USER_DEFINED;
@@ -451,6 +460,7 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 	// fprintf(stderr, "TODO class head", name);
 
 	simple_type_info->class_info = calloc(1, sizeof(*simple_type_info->class_info));
+	simple_type_info->kind = STK_CLASS;
 	
 	// Class head
 	if (class_head_identifier != NULL)
@@ -459,14 +469,22 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 		char* name;
 		if (ASTType(class_head_identifier) == AST_SYMBOL)
 		{
+			fprintf(stderr, "Registering class '%s' in %p\n", ASTText(class_head_identifier), st);
 			name = ASTText(class_head_identifier);
 
 			symtab_entry_t* entry = new_symbol(st, name);
 
 			entry->kind = SK_CLASS;
 
-			entry->type_information = calloc(1, sizeof(*(entry->type_information)));
-			entry->type_information->type = simple_type_info;
+			// entry->type_information = calloc(1, sizeof(*(entry->type_information)));
+			// entry->type_information->type = simple_type_info;
+			entry->type_information = simple_type_to_type(simple_type_info);
+
+			// Since this type is not anonymous we'll want that simple_type_info
+			// refers to this newly created type
+			memset(simple_type_info, 0, sizeof(*simple_type_info));
+			simple_type_info->kind = STK_USER_DEFINED;
+			simple_type_info->user_defined_type = entry;
 		}
 		else if (ASTType(class_head_identifier) == AST_TEMPLATE_ID)
 		{
@@ -526,8 +544,6 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 			// member_item->access_spec = current_access;
 			
 			build_symtab_member_declaration(ASTSon1(member_specification), inner_scope, current_access, simple_type_info);
-
-			fprintf(stderr, "TODO member decl!!!\n");
 		}
 
 		member_specification = ASTSon2(member_specification);
@@ -630,8 +646,10 @@ static void set_function_parameter_clause(type_t* declarator_type, symtab_t* st,
 		if (parameter_declarator != NULL)
 		{
 			type_t* type_info;
-			build_symtab_declarator(parameter_declarator, parameters_scope, &gather_info, simple_type_info, &type_info);
-			P_LIST_ADD(declarator_type->function->parameter_list, declarator_type->function->num_parameters, type_info);
+			build_symtab_declarator(parameter_declarator, parameters_scope, 
+					&gather_info, simple_type_info, &type_info);
+			P_LIST_ADD(declarator_type->function->parameter_list, 
+					declarator_type->function->num_parameters, type_info);
 		}
 		else
 		{
@@ -777,6 +795,8 @@ static AST get_declarator_name(AST a)
 				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
 			}
 	}
+
+	return NULL;
 }
 
 
@@ -1044,7 +1064,8 @@ static void build_symtab_declarator_name(AST declarator_name, type_t* declarator
 	}
 }
 
-static void build_symtab_declarator_id_expr(AST declarator_name, type_t* declarator_type, gather_decl_spec_t* gather_info, symtab_t* st)
+static void build_symtab_declarator_id_expr(AST declarator_name, type_t* declarator_type, 
+		gather_decl_spec_t* gather_info, symtab_t* st)
 {
 	AST declarator_id = ASTSon0(declarator_name);
 
@@ -1312,6 +1333,7 @@ static void build_symtab_function_definition(AST a, symtab_t* st)
 
 static void build_symtab_statement(AST a, symtab_t* st)
 {
+#warning TODO
 }
 
 static void build_symtab_member_declaration(AST a, symtab_t*  st, 
@@ -1339,8 +1361,14 @@ static void build_symtab_member_declaration(AST a, symtab_t*  st,
 static void build_symtab_simple_member_declaration(AST a, symtab_t*  st, 
 		access_specifier_t current_access, simple_type_t* class_info)
 {
+	gather_decl_spec_t gather_info;
+	simple_type_t* simple_type_info = NULL;
+
+	memset(&gather_info, 0, sizeof(gather_info));
+
 	if (ASTSon0(a) != NULL)
 	{
+		build_symtab_decl_specifier_seq(ASTSon0(a), st, &gather_info, &simple_type_info);
 	}
 
 	if (ASTSon1(a) != NULL)
@@ -1356,6 +1384,8 @@ static void build_symtab_simple_member_declaration(AST a, symtab_t*  st,
 			{
 				case AST_MEMBER_DECLARATOR :
 					{
+						type_t* declarator_type = NULL;
+						build_symtab_declarator(ASTSon0(declarator), st, &gather_info, simple_type_info, &declarator_type);
 						break;
 					}
 				default :
