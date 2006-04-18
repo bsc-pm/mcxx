@@ -38,7 +38,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, symtab_t* st, sim
 static void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* type_info);
 static void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* type_info);
 
-static void build_symtab_declarator_rec(AST a, symtab_t* st, type_t* declarator_type, AST* declarator_name);
+static void build_symtab_declarator_rec(AST a, symtab_t* st, type_t** declarator_type, AST* declarator_name);
 
 static void gather_decl_spec_information(AST a, symtab_t* st, gather_decl_spec_t* gather_info);
 static void gather_type_spec_information(AST a, symtab_t* st, simple_type_t* type_info);
@@ -67,6 +67,7 @@ void build_symtab_translation_unit(AST a)
 	if (list == NULL)
 		return;
 
+	// The global scope is created here
 	compilation_options.global_scope = new_symtab();
 
 	build_symtab_declaration_sequence(list, compilation_options.global_scope);
@@ -88,16 +89,32 @@ static void build_symtab_declaration(AST a, symtab_t* st)
 	{
 		case AST_SIMPLE_DECLARATION :
 			{
+				// Simple declarations are of the form
+				//   int a;
+				//   class A { ... } [a];
+				//   struct C { ... } [c];
+				//   enum E { ... } [e];
+				//   int f(int [k]);
 				build_symtab_simple_declaration(a, st);
 				break;
 			}
 		case AST_NAMESPACE_DEFINITION :
 			{
+				// Namespace definitions are of the form
+				//   namespace name
+				//   {
+				//      ...
+				//   }
 				build_symtab_namespace_definition(a, st);
 				break;
 			}
 		case AST_FUNCTION_DEFINITION :
 			{
+				// A function definition is of the form
+				//   [T] f(T1 t, T2 t, T3 t)
+				//   {
+				//     ...
+				//   }
 				build_symtab_function_definition(a, st);
 				break;
 			}
@@ -114,6 +131,8 @@ static void build_symtab_declaration(AST a, symtab_t* st)
 static void build_symtab_simple_declaration(AST a, symtab_t* st)
 {
 	// Empty declarations are meaningless for the symbol table
+	// They are of the form
+	//    ;
 	if (ASTType(a) == AST_EMPTY_DECL)
 		return;
 
@@ -122,6 +141,23 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st)
 	// Clear stack debris
 	memset(&gather_info, 0, sizeof(gather_info));
 
+	/* A simple declaration has two parts 
+	 *
+	 *    decl_specifier_seq declarator_list ';'
+	 *
+	 * Both are optional. decl_specifier_seq is ommited for constructors and
+	 * may be ommited for conversion functions and destructors.
+	 *
+	 * The declarator_list can be ommited only when the decl_specifier_seq
+	 * includes a class specifier, enum specifier or an elaborated type name.
+	 */
+
+	// If there are decl_specifiers gather information about them.
+	//   gather_info will have everything not related to the type.
+	//   simple_type_info will have the "base" type of every declarator 
+	//
+	// For instance 'int *f' will have "int" as a base type, but "f" will be
+	// a pointer to int.
 	if (ASTSon0(a) != NULL)
 	{
 		build_symtab_decl_specifier_seq(ASTSon0(a), st, &gather_info, &simple_type_info);
@@ -133,7 +169,8 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st)
 		AST list, iter;
 		list = ASTSon1(a);
 
-		// For every declarator create its full type
+		// For every declarator create its full type based on the type
+		// specified in the decl_specifier_seq
 		for_each_element(list, iter)
 		{
 			AST init_declarator = ASTSon1(iter);
@@ -292,6 +329,11 @@ static void gather_decl_spec_information(AST a, symtab_t* st, gather_decl_spec_t
 }
 
 
+/*
+ * This function fills simple_type_info with type information.
+ *
+ * symtab_t* st is unused here
+ */
 static void gather_type_spec_information(AST a, symtab_t* st, simple_type_t* simple_type_info)
 {
 	switch (ASTType(a))
@@ -358,6 +400,10 @@ static void gather_type_spec_information(AST a, symtab_t* st, simple_type_t* sim
 	}
 }
 
+/*
+ * This routine is called in gather_type_spec_information and its purpose is to fill the simple_type
+ * with the proper reference of the user defined type.
+ */
 static void gather_type_spec_from_simple_type_specifier(AST a, symtab_t* st, simple_type_t* simple_type_info)
 {
 	// TODO - We shall check nested namespaces and global qualifier, ignore it for now
@@ -370,6 +416,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, symtab_t* st, sim
 			symtab_entry_list_t* entry_list = query_in_current_and_upper_scope(st, ASTText(type_name));
 
 			// Filter for non types hiding this type name
+			// Fix this, it sounds a bit awkward
 			symtab_entry_t* simple_type_entry = filter_simple_type_specifier(entry_list);
 
 			if (simple_type_entry == NULL)
@@ -390,12 +437,17 @@ static void gather_type_spec_from_simple_type_specifier(AST a, symtab_t* st, sim
 			simple_type_info->user_defined_type = simple_type_entry;
 			break;
 		case AST_TEMPLATE_ID :
+			internal_error("What to do to a template id?", 0);
 			break;
 		default:
 			internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
 	};
 }
 
+/*
+ * This function is called for enum specifiers. It saves all enumerated values
+ * and if it has been given a name, it is registered in the symtab.
+ */
 void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* simple_type_info)
 {
 	simple_type_info->enum_info = (enum_info_t*) calloc(1, sizeof(*simple_type_info->enum_info));
@@ -407,6 +459,7 @@ void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* si
 
 	if (list != NULL)
 	{
+		// For every enumeration, sign them up in the symbol table
 		for_each_element(list, iter)
 		{
 			AST enumeration = ASTSon1(iter);
@@ -426,9 +479,10 @@ void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* si
 	}
 
 	AST enum_name = ASTSon0(a);
+	
+	// If it has name, we register this type name in the symbol table
 	if (enum_name != NULL)
 	{
-		// TODO - Register this enum type into the symbol table
 		fprintf(stderr, "Registering enum '%s' in %p\n", ASTText(enum_name), st);
 		symtab_entry_t* new_entry = new_symbol(st, ASTText(enum_name));
 
@@ -449,6 +503,9 @@ void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* si
 	}
 }
 
+/*
+ * This function is called for class specifiers
+ */
 void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* simple_type_info)
 {
 	// TODO - Class head
@@ -462,10 +519,9 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 	simple_type_info->class_info = calloc(1, sizeof(*simple_type_info->class_info));
 	simple_type_info->kind = STK_CLASS;
 	
-	// Class head
 	if (class_head_identifier != NULL)
 	{
-		// TODO - Register this class in the symbol table
+		// If the class has name, register it in the symbol table
 		char* name;
 		if (ASTType(class_head_identifier) == AST_SYMBOL)
 		{
@@ -488,7 +544,7 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 		}
 		else if (ASTType(class_head_identifier) == AST_TEMPLATE_ID)
 		{
-			// This happens only in explicit specializations
+			// This happens only in explicit specializations/instantiations
 			name = ASTText(ASTSon0(class_head_identifier));
 			fprintf(stderr, "Unsupported template id yet\n");
 		}
@@ -500,10 +556,12 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 
 	// Member specification
 	access_specifier_t current_access;
+	// classes have a private by default
 	if (ASTType(class_key) == AST_CLASS_KEY_CLASS)
 	{
 		current_access = AS_PRIVATE;
 	}
+	// otherwise this is public (for union and structs)
 	else
 	{
 		current_access = AS_PUBLIC;
@@ -516,6 +574,7 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 	// For every member_declaration
 	while (member_specification != NULL)
 	{
+		// If it has an access specifier, update it
 		if (ASTSon0(member_specification) != NULL)
 		{
 			switch (ASTType(ASTSon0(member_specification)))
@@ -534,15 +593,9 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 			}
 		}
 
+		// For every member declaration, sign it up in the symbol table for this class
 		if (ASTSon1(member_specification) != NULL)
 		{
-			// member_item_t* member_item = calloc(1, sizeof(*member_item));
-			// P_LIST_ADD(simple_type_info->class_info->member_list, 
-			// 		simple_type_info->class_info->num_members, 
-			// 		member_item);
-
-			// member_item->access_spec = current_access;
-			
 			build_symtab_member_declaration(ASTSon1(member_specification), inner_scope, current_access, simple_type_info);
 		}
 
@@ -551,20 +604,32 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 }
 
 
+/*
+ * This function creates a full type using the declarator tree in "a".
+ *
+ * The base type is fetched from "simple_type_info" and then
+ * build_symtab_declarator_rec will modify this type to properly represent the
+ * correct type.
+ *
+ * I.e.   int (*f)();
+ *
+ * Has as a base type "int", but after build_symtab_declarator_rec it will be
+ * "pointer to function returning int"
+ *
+ * If the declarator is not abstract, therefore it has a name,
+ * build_symtab_declarator_name is called to sign it up in the symbol table.
+ */
 static void build_symtab_declarator(AST a, symtab_t* st, gather_decl_spec_t* gather_info, 
 		simple_type_t* simple_type_info, type_t** declarator_type)
 {
-	*declarator_type = calloc(1, sizeof(**declarator_type));
-
 	fprintf(stderr, "Declarator\n");
 
 	// Set base type
-	(*declarator_type)->kind = TK_DIRECT;
-	(*declarator_type)->type = copy_simple_type(simple_type_info);
+	*declarator_type = simple_type_to_type(simple_type_info);
 
 	AST declarator_name = NULL;
 
-	build_symtab_declarator_rec(a, st, *declarator_type, &declarator_name);
+	build_symtab_declarator_rec(a, st, declarator_type, &declarator_name);
 
 	print_declarator(*declarator_type, st); fprintf(stderr, "\n");
 
@@ -574,34 +639,45 @@ static void build_symtab_declarator(AST a, symtab_t* st, gather_decl_spec_t* gat
 	}
 }
 
-static void set_pointer_type(type_t* declarator_type, symtab_t* st, AST pointer_tree)
+/*
+ * This functions converts a type "T" to a "pointer to T"
+ */
+static void set_pointer_type(type_t** declarator_type, symtab_t* st, AST pointer_tree)
 {
 	// TODO - Pointer to member
-	type_t* pointee_type = copy_type(declarator_type);
+	type_t* pointee_type = *declarator_type;
 
-	declarator_type->kind = TK_POINTER;
-	declarator_type->pointer = calloc(1, sizeof(*(declarator_type->pointer)));
-	declarator_type->pointer->pointee = pointee_type;
+	(*declarator_type) = calloc(1, sizeof(*(*declarator_type)));
+	(*declarator_type)->kind = TK_POINTER;
+	(*declarator_type)->pointer = calloc(1, sizeof(*((*declarator_type)->pointer)));
+	(*declarator_type)->pointer->pointee = pointee_type;
 
-	declarator_type->function = NULL;
-	declarator_type->array = NULL;
-	declarator_type->type = NULL;
+	(*declarator_type)->function = NULL;
+	(*declarator_type)->array = NULL;
+	(*declarator_type)->type = NULL;
 }
 
-static void set_array_type(type_t* declarator_type, symtab_t* st, AST constant_expr)
+/*
+ * This function covnerts a type "T" to a "array x of T"
+ */
+static void set_array_type(type_t** declarator_type, symtab_t* st, AST constant_expr)
 {
-	type_t* element_type = copy_type(declarator_type);
+	type_t* element_type = *declarator_type;
 
-	declarator_type->kind = TK_ARRAY;
-	declarator_type->array = calloc(1, sizeof(*(declarator_type->array)));
-	declarator_type->array->element_type = element_type;
-	declarator_type->array->array_expr = constant_expr;
+	(*declarator_type)->kind = TK_ARRAY;
+	(*declarator_type)->array = calloc(1, sizeof(*((*declarator_type)->array)));
+	(*declarator_type)->array->element_type = element_type;
+	(*declarator_type)->array->array_expr = constant_expr;
 
-	declarator_type->function = NULL;
-	declarator_type->type = NULL;
-	declarator_type->pointer = NULL;
+	(*declarator_type)->function = NULL;
+	(*declarator_type)->type = NULL;
+	(*declarator_type)->pointer = NULL;
 }
 
+/*
+ * This function fetches information for every declarator in the
+ * parameter_declaration_clause of a functional declarator
+ */
 static void set_function_parameter_clause(type_t* declarator_type, symtab_t* st, AST parameters)
 {
 	declarator_type->function->num_parameters = 0;
@@ -610,11 +686,15 @@ static void set_function_parameter_clause(type_t* declarator_type, symtab_t* st,
 	// An empty parameter declaration clause is like (void) in C++
 	if (ASTType(parameters) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
 	{
+		// Maybe this needs some kind of fixing
 		return;
 	}
 
 	AST iter, list;
 	list = parameters;
+	
+	// Do not contaminate the current symbol table
+	symtab_t* parameters_scope = enter_scope(st);
 
 	for_each_element(list, iter)
 	{
@@ -638,11 +718,17 @@ static void set_function_parameter_clause(type_t* declarator_type, symtab_t* st,
 		
 		simple_type_t* simple_type_info;
 
-		// Do not contaminate the current symbol table
-		symtab_t* parameters_scope = enter_scope(st);
-
 		build_symtab_decl_specifier_seq(parameter_decl_spec_seq, parameters_scope, &gather_info, &simple_type_info);
 
+		// It is valid in a function declaration not having a declarator at all
+		// (note this is different from having an abstract declarator).
+		//
+		// int f(int, int*);
+		//
+		// The first "int" does not contain any declarator while the second has
+		// an abstract one
+
+		// If we have a declarator compute its type
 		if (parameter_declarator != NULL)
 		{
 			type_t* type_info;
@@ -651,34 +737,43 @@ static void set_function_parameter_clause(type_t* declarator_type, symtab_t* st,
 			P_LIST_ADD(declarator_type->function->parameter_list, 
 					declarator_type->function->num_parameters, type_info);
 		}
+		// If we don't have a declarator just save the base type
 		else
 		{
-			type_t* type_info = calloc(1, sizeof(*type_info));
-			type_info->kind = TK_DIRECT;
-			// TODO - Fix this for cv-qualification
-			type_info->type = simple_type_info;
+			type_t* type_info = simple_type_to_type(simple_type_info);
 			P_LIST_ADD(declarator_type->function->parameter_list, declarator_type->function->num_parameters, type_info);
 		}
 	}
 }
 
-static void set_function_type(type_t* declarator_type, symtab_t* st, AST parameter, AST cv_qualif, AST except_spec)
+/*
+ * This function converts a type "T" into a "function (...) returning T" type
+ */
+static void set_function_type(type_t** declarator_type, symtab_t* st, AST parameter, AST cv_qualif, AST except_spec)
 {
-	type_t* returning_type = copy_type(declarator_type);
+	type_t* returning_type = *declarator_type;
 
-	declarator_type->kind = TK_FUNCTION;
-	declarator_type->function = calloc(1, sizeof(*(declarator_type->function)));
-	declarator_type->function->return_type = returning_type;
+	(*declarator_type)->kind = TK_FUNCTION;
+	(*declarator_type)->function = calloc(1, sizeof(*((*declarator_type)->function)));
+	(*declarator_type)->function->return_type = returning_type;
 
-	set_function_parameter_clause(declarator_type, st, parameter);
+	set_function_parameter_clause(*declarator_type, st, parameter);
 	
 	// TODO, cv-qualifier & exception
-	declarator_type->array = NULL;
-	declarator_type->pointer = NULL;
-	declarator_type->type = NULL;
+	(*declarator_type)->array = NULL;
+	(*declarator_type)->pointer = NULL;
+	(*declarator_type)->type = NULL;
 }
 
-static void build_symtab_declarator_rec(AST a, symtab_t* st, type_t* declarator_type, AST* declarator_name)
+/*
+ * This function builds the full type a declarator is representing.  For
+ * instance
+ *
+ *   int (*f)[3];
+ *
+ * Starts with a base type of "int" and ends being a "pointer to array 3 of int"
+ */
+static void build_symtab_declarator_rec(AST a, symtab_t* st, type_t** declarator_type, AST* declarator_name)
 {
 	if (a == NULL)
 	{
@@ -755,6 +850,10 @@ static void build_symtab_declarator_rec(AST a, symtab_t* st, type_t* declarator_
 	}
 }
 
+/*
+ * This function returns the node that holds the name for a non-abstract
+ * declarator
+ */
 static AST get_declarator_name(AST a)
 {
 	if (a == NULL)
@@ -799,6 +898,394 @@ static AST get_declarator_name(AST a)
 	return NULL;
 }
 
+
+
+/*
+ * This function fills the symbol table with the information of this declarator
+ */
+static void build_symtab_declarator_name(AST declarator_name, type_t* declarator_type, 
+		gather_decl_spec_t* gather_info, symtab_t* st)
+{
+	switch (ASTType(declarator_name))
+	{
+		case AST_DECLARATOR_ID_EXPR :
+			build_symtab_declarator_id_expr(declarator_name, declarator_type, gather_info, st);
+			break;
+		case AST_DECLARATOR_ID_TYPE_NAME :
+			break;
+		default:
+			internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
+			break;
+	}
+}
+
+/*
+ * This function fills information for a declarator_id_expr. Actually only
+ * unqualified names can be signed up since qualified names should have been
+ * declared elsewhere.
+ */
+static void build_symtab_declarator_id_expr(AST declarator_name, type_t* declarator_type, 
+		gather_decl_spec_t* gather_info, symtab_t* st)
+{
+	AST declarator_id = ASTSon0(declarator_name);
+
+	switch (ASTType(declarator_id))
+	{
+		// Unqualified ones
+		case AST_SYMBOL :
+			{
+				// A simply unqualified symbol "name"
+
+				// We are not declaring a variable but a type
+				if (gather_info->is_typedef)
+				{
+					register_new_typedef_name(declarator_id, declarator_type, gather_info, st);
+					fprintf(stderr, "Declared new typedef '%s'\n", ASTText(declarator_id));
+				}
+				else
+				{
+					register_new_variable_name(declarator_id, declarator_type, gather_info, st);
+					fprintf(stderr, "Declared variable '%s'\n", ASTText(declarator_id));
+				}
+				break;
+			}
+		case AST_DESTRUCTOR_ID :
+			{
+				// An unqualified destructor name "~name"
+				// 'name' should be a class in this scope
+				break;
+			}
+		case AST_TEMPLATE_ID :
+			{
+				// An unqualified template_id "identifier<stuff>"
+				break;
+			}
+		case AST_OPERATOR_FUNCTION_ID :
+			{
+				// An unqualified operator_function_id "operator +"
+				break;
+			}
+		case AST_CONVERSION_FUNCTION_ID :
+			{
+				// An unqualified conversion_function_id "operator T"
+				// Why this has no qualified equivalent ?
+				break;
+			}
+		// Qualified ones
+		case AST_QUALIFIED_ID :
+			{
+				// A qualified id "a::b::c"
+				break;
+			}
+		case AST_QUALIFIED_TEMPLATE :
+			{
+				// A qualified template "a::b::template c" [?]
+				break;
+			}
+		case AST_QUALIFIED_TEMPLATE_ID :
+			{
+				// A qualified template_id "a::b::c<int>"
+				break;
+			}
+		case AST_QUALIFIED_OPERATOR_FUNCTION_ID :
+			{
+				// A qualified operator function_id "a::b::operator +"
+				break;
+			}
+		default :
+			{
+				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_id)));
+				break;
+			}
+	}
+}
+
+/*
+ * This function registers a new typedef name.
+ */
+static void register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
+		gather_decl_spec_t* gather_info, symtab_t* st)
+{
+	// First query for an existing entry
+	symtab_entry_list_t* list = query_in_current_scope(st, ASTText(declarator_id));
+
+	// Only enum or classes can exist, otherwise this is an error
+	if (list != NULL)
+	{
+		if (list->next == NULL)
+		{
+			symtab_entry_t* entry = filter_simple_type_specifier(list);
+			// This means this was not just a type specifier 
+			if (entry == NULL)
+			{
+				running_error("Symbol '%s' in line %d has been redeclared as a different symbol kind.",
+						ASTText(declarator_id), ASTLine(declarator_id));
+			}
+		}
+		else // More than one symbol sounds extremely suspicious
+		{
+			running_error("Symbol '%s' in line %d has been redeclared as a different symbol kind.",
+					ASTText(declarator_id), ASTLine(declarator_id));
+		}
+	}
+
+	symtab_entry_t* entry = new_symbol(st, ASTText(declarator_id));
+
+	// Save aliased type under the type of this declaration
+	entry->kind = SK_TYPEDEF;
+	entry->type_information = calloc(1, sizeof(*(entry->type_information)));
+	entry->type_information->kind = TK_DIRECT;
+	entry->type_information->type = calloc(1, sizeof(*(entry->type_information->type)));
+	entry->type_information->type->aliased_type = declarator_type;
+
+	// TODO - cv qualification
+}
+
+/*
+ * This function registers a new "variable" (non type) name
+ */
+static void register_new_variable_name(AST declarator_id, type_t* declarator_type, 
+		gather_decl_spec_t* gather_info, symtab_t* st)
+{
+	symtab_entry_list_t* list = query_in_current_scope(st, ASTText(declarator_id));
+	symtab_entry_t* entry = NULL;
+
+	// Only enum or classes can exist, otherwise this is an error
+	if (list != NULL)
+	{
+		int num_types = 0, num_other = 0;
+		// Look for the first variable
+		while ((list != NULL) && 
+				(entry == NULL))
+		{
+			if (list->entry->kind == SK_VARIABLE)
+			{
+				entry = list->entry;
+			}
+			else if (list->entry->kind == SK_ENUM
+					|| list->entry->kind == SK_CLASS)
+			{
+				num_types++;
+			}
+			else
+			{
+				num_other++;
+			}
+			list = list->next;
+		}
+		
+		// Basically if there is something other than one elaborated type for
+		// this identifier, it is being incorrectly redeclared.
+		//
+		// Recall that:
+		//
+		//   struct A { };
+		//   A A;
+		//
+		// Is well-formed.
+		if (num_types > 1 
+				|| num_other != 0)
+		{
+			internal_error("Symbol '%s' has been redeclared as a different symbol kind.", 
+					ASTText(declarator_id));
+		}
+
+		/*
+		 * If this symbol has been already defined and it is not flagged as
+		 * extern nor is a function, then this symbol is being redefined
+		 */
+		if (entry->defined
+				&& !gather_info->is_extern
+				&& (entry->type_information->kind != TK_FUNCTION))
+		{
+			running_error("Symbol '%s' has already been defined.", ASTText(declarator_id));
+		}
+	}
+
+	if (entry == NULL)
+	{
+		fprintf(stderr, "Registering variable '%s'\n", ASTText(declarator_id));
+		entry = new_symbol(st, ASTText(declarator_id));
+		entry->kind = SK_VARIABLE;
+		// entry->type_information = copy_type(declarator_type);
+		entry->type_information = declarator_type;
+
+		// TODO - cv qualification
+	}
+
+
+	// If this symbol is not a function and it has not ben flagged as "extern"
+	// it is defined here.
+	if (!gather_info->is_extern && 
+			entry->type_information->kind != TK_FUNCTION)
+	{
+		fprintf(stderr, "Symbol '%s' has been defined.\n", ASTText(declarator_id));
+		entry->defined = 1;
+	}
+}
+
+/*
+ * This function builds symbol table information for a namespace definition
+ */
+static void build_symtab_namespace_definition(AST a, symtab_t* st)
+{
+	AST namespace_name = ASTSon0(a);
+
+	// Register this namespace if it does not exist
+	symtab_entry_list_t* list = query_in_current_scope(st, ASTText(namespace_name));
+
+	if (list != NULL 
+			&& (list->next != NULL 
+				|| list->entry->kind != SK_NAMESPACE))
+	{
+		running_error("Identifier '%s' has already been declared as another symbol kind\n", ASTText(namespace_name));
+	}
+	
+	symtab_entry_t* entry;
+	if (list != NULL && list->entry->kind == SK_NAMESPACE)
+	{
+		entry = list->entry;
+	}
+	else
+	{
+		// We register a symbol of type namespace and link to a newly created scope.
+		symtab_t* namespace_scope = enter_scope(st);
+
+		entry = new_symbol(st, ASTText(namespace_name));
+		entry->kind = SK_NAMESPACE;
+		entry->inner_scope = namespace_scope;
+	}
+
+	build_symtab_declaration_sequence(ASTSon1(a), entry->inner_scope);
+}
+
+/*
+ * This function builds symbol table information for a function definition
+ */
+static void build_symtab_function_definition(AST a, symtab_t* st)
+{
+	fprintf(stderr, "Registering function!\n");
+	// A function definition has four parts
+	//   decl_specifier_seq declarator ctor_initializer function_body
+
+	// decl_specifier_seq [optional]
+	// If there is no decl_specifier_seq this has to be a destructor, constructor or conversion function
+	gather_decl_spec_t gather_info;
+	memset(&gather_info, 0, sizeof(gather_info));
+	simple_type_t* type_info = NULL;
+
+	if (ASTSon0(a) != NULL)
+	{
+		AST decl_spec_seq = ASTSon0(a);
+
+		build_symtab_decl_specifier_seq(decl_spec_seq, st, &gather_info, &type_info);
+	}
+
+	// declarator
+	// Declarator can be a qualified one
+	// ¿¿¿TODO???
+	type_t* declarator_type;
+	
+	// If no type was given, this identifier has to exist elsewhere in a class
+	// since it can only be a constructor, destructor or conversion function
+	if (type_info != NULL)
+	{
+		build_symtab_declarator(ASTSon1(a), st, &gather_info, type_info, &declarator_type);
+	}
+
+	// Nothing will be done with ctor_initializer at the moment
+	//
+	// TODO - Handle the case when the function has already been defined. 
+	// TODO - Handle overload !!!
+	
+	// Function_body
+	AST function_body = ASTSon3(a);
+	AST statement = ASTSon0(function_body);
+
+	symtab_t* inner_scope = enter_scope(st);
+
+	build_symtab_statement(statement, inner_scope);
+
+	AST declarator_name = get_declarator_name(ASTSon1(a));
+	symtab_entry_list_t* entry_list = query_id_expression(st, declarator_name);
+
+	if (entry_list == NULL)
+	{
+		running_error("This symbol is undeclared here", 0);
+	}
+	else 
+	{
+		fprintf(stderr, "Function '%s' is defined\n", entry_list->entry->symbol_name);
+		entry_list->entry->defined = 1;
+	}
+}
+
+static void build_symtab_statement(AST a, symtab_t* st)
+{
+#warning TODO
+}
+
+static void build_symtab_member_declaration(AST a, symtab_t*  st, 
+		access_specifier_t current_access, simple_type_t* class_info)
+{
+	switch (ASTType(a))
+	{
+		case AST_MEMBER_DECLARATION :
+			{
+				build_symtab_simple_member_declaration(a, st, current_access, class_info);
+				break;
+			}
+		case AST_FUNCTION_DEFINITION :
+			{
+				break;
+			}
+		default:
+			{
+				internal_error("Unsupported node '%s'\n", ast_print_node_type(ASTType(a)));
+				break;
+			}
+	}
+}
+
+static void build_symtab_simple_member_declaration(AST a, symtab_t*  st, 
+		access_specifier_t current_access, simple_type_t* class_info)
+{
+	gather_decl_spec_t gather_info;
+	simple_type_t* simple_type_info = NULL;
+
+	memset(&gather_info, 0, sizeof(gather_info));
+
+	if (ASTSon0(a) != NULL)
+	{
+		build_symtab_decl_specifier_seq(ASTSon0(a), st, &gather_info, &simple_type_info);
+	}
+
+	if (ASTSon1(a) != NULL)
+	{
+		AST list = ASTSon1(a);
+		AST iter;
+
+		for_each_element(list, iter)
+		{
+			AST declarator = ASTSon1(iter);
+
+			switch (ASTType(declarator))
+			{
+				case AST_MEMBER_DECLARATOR :
+					{
+						type_t* declarator_type = NULL;
+						build_symtab_declarator(ASTSon0(declarator), st, &gather_info, simple_type_info, &declarator_type);
+						break;
+					}
+				default :
+					{
+						internal_error("Unhandled node '%s'", ast_print_node_type(ASTType(declarator)));
+						break;
+					}
+			}
+		}
+	}
+}
 
 /* Copy functions */
 
@@ -996,11 +1483,16 @@ static const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab
 	return "¿¿¿unknown type???";
 }
 
+/*
+ * This function just creates a full type_t from a simple_type_t.
+ * It is useful when no declarator information is available.
+ */
 static type_t* simple_type_to_type(simple_type_t* simple_type_info)
 {
 	type_t* result = calloc(1, sizeof(*result));
 	result->kind = TK_DIRECT;
-	result->type = copy_simple_type(simple_type_info);
+	// result->type = copy_simple_type(simple_type_info);
+	result->type = simple_type_info;
 
 	return result;
 }
@@ -1047,353 +1539,4 @@ static void print_declarator(type_t* printed_declarator, symtab_t* st)
 				break;
 		}
 	} while (printed_declarator != NULL);
-}
-
-static void build_symtab_declarator_name(AST declarator_name, type_t* declarator_type, gather_decl_spec_t* gather_info, symtab_t* st)
-{
-	switch (ASTType(declarator_name))
-	{
-		case AST_DECLARATOR_ID_EXPR :
-			build_symtab_declarator_id_expr(declarator_name, declarator_type, gather_info, st);
-			break;
-		case AST_DECLARATOR_ID_TYPE_NAME :
-			break;
-		default:
-			internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
-			break;
-	}
-}
-
-static void build_symtab_declarator_id_expr(AST declarator_name, type_t* declarator_type, 
-		gather_decl_spec_t* gather_info, symtab_t* st)
-{
-	AST declarator_id = ASTSon0(declarator_name);
-
-	switch (ASTType(declarator_id))
-	{
-		// Unqualified ones
-		case AST_SYMBOL :
-			{
-				// A simply unqualified symbol "name"
-
-				// We are not declaring a variable but a type
-				if (gather_info->is_typedef)
-				{
-					register_new_typedef_name(declarator_id, declarator_type, gather_info, st);
-					fprintf(stderr, "Declared new typedef '%s'\n", ASTText(declarator_id));
-				}
-				else
-				{
-					register_new_variable_name(declarator_id, declarator_type, gather_info, st);
-					fprintf(stderr, "Declared variable '%s'\n", ASTText(declarator_id));
-				}
-				break;
-			}
-		case AST_DESTRUCTOR_ID :
-			{
-				// An unqualified destructor name "~name"
-				// 'name' should be a class in this scope
-				break;
-			}
-		case AST_TEMPLATE_ID :
-			{
-				// An unqualified template_id "identifier<stuff>"
-				break;
-			}
-		case AST_OPERATOR_FUNCTION_ID :
-			{
-				// An unqualified operator_function_id "operator +"
-				break;
-			}
-		case AST_CONVERSION_FUNCTION_ID :
-			{
-				// An unqualified conversion_function_id "operator T"
-				// Why this has no qualified equivalent ?
-				break;
-			}
-		// Qualified ones
-		case AST_QUALIFIED_ID :
-			{
-				// A qualified id "a::b::c"
-				break;
-			}
-		case AST_QUALIFIED_TEMPLATE :
-			{
-				// A qualified template "a::b::template c" [?]
-				break;
-			}
-		case AST_QUALIFIED_TEMPLATE_ID :
-			{
-				// A qualified template_id "a::b::c<int>"
-				break;
-			}
-		case AST_QUALIFIED_OPERATOR_FUNCTION_ID :
-			{
-				// A qualified operator function_id "a::b::operator +"
-				break;
-			}
-		default :
-			{
-				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_id)));
-				break;
-			}
-	}
-}
-
-static void register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
-		gather_decl_spec_t* gather_info, symtab_t* st)
-{
-	// First query for an existing entry
-	symtab_entry_list_t* list = query_in_current_scope(st, ASTText(declarator_id));
-
-	// Only enum or classes can exist, otherwise this is an error
-	if (list != NULL)
-	{
-		if (list->next == NULL)
-		{
-			symtab_entry_t* entry = filter_simple_type_specifier(list);
-			// This means this was not just a type specifier 
-			if (entry == NULL)
-			{
-				running_error("Symbol '%s' in line %d has been redeclared as a different symbol kind.",
-						ASTText(declarator_id), ASTLine(declarator_id));
-			}
-		}
-		else // More than one symbol sounds extremely suspicious
-		{
-			running_error("Symbol '%s' in line %d has been redeclared as a different symbol kind.",
-					ASTText(declarator_id), ASTLine(declarator_id));
-		}
-	}
-
-	symtab_entry_t* entry = new_symbol(st, ASTText(declarator_id));
-
-	// Save aliased type under the type of this declaration
-	entry->kind = SK_TYPEDEF;
-	entry->type_information = calloc(1, sizeof(*(entry->type_information)));
-	entry->type_information->kind = TK_DIRECT;
-	entry->type_information->type = calloc(1, sizeof(*(entry->type_information->type)));
-	entry->type_information->type->aliased_type = copy_type(declarator_type);
-
-	// TODO - cv qualification
-}
-
-static void register_new_variable_name(AST declarator_id, type_t* declarator_type, 
-		gather_decl_spec_t* gather_info, symtab_t* st)
-{
-	symtab_entry_list_t* list = query_in_current_scope(st, ASTText(declarator_id));
-	symtab_entry_t* entry = NULL;
-
-	// Only enum or classes can exist, otherwise this is an error
-	if (list != NULL)
-	{
-		int num_types = 0, num_other = 0;
-		// Look for the first variable
-		while ((list != NULL) && 
-				(entry == NULL))
-		{
-			if (list->entry->kind == SK_VARIABLE)
-			{
-				entry = list->entry;
-			}
-			else if (list->entry->kind == SK_ENUM
-					|| list->entry->kind == SK_CLASS)
-			{
-				num_types++;
-			}
-			else
-			{
-				num_other++;
-			}
-			list = list->next;
-		}
-		
-		if (num_types > 1 
-				|| num_other != 0)
-		{
-			internal_error("Symbol '%s' has been redeclared as a different symbol kind.", 
-					ASTText(declarator_id));
-		}
-
-		if (entry->defined
-				&& !gather_info->is_extern
-				&& (entry->type_information->kind != TK_FUNCTION))
-		{
-			running_error("Symbol '%s' has already been defined.", ASTText(declarator_id));
-		}
-	}
-
-	if (entry == NULL)
-	{
-		fprintf(stderr, "Registering variable '%s'\n", ASTText(declarator_id));
-		entry = new_symbol(st, ASTText(declarator_id));
-		entry->kind = SK_VARIABLE;
-		entry->type_information = copy_type(declarator_type);
-
-		// TODO - cv qualification
-	}
-
-
-	// If no extern, then this is a definition, otherwise just a declaration
-	if (!gather_info->is_extern && 
-			// If this is a function it is not defined here
-			entry->type_information->kind != TK_FUNCTION)
-	{
-		fprintf(stderr, "Symbol '%s' has been defined.\n", ASTText(declarator_id));
-		entry->defined = 1;
-	}
-}
-
-static void build_symtab_namespace_definition(AST a, symtab_t* st)
-{
-	AST namespace_name = ASTSon0(a);
-
-	// Register this namespace if it does not exist
-	symtab_entry_list_t* list = query_in_current_scope(st, ASTText(namespace_name));
-
-	if (list != NULL 
-			&& (list->next != NULL 
-				|| list->entry->kind != SK_NAMESPACE))
-	{
-		running_error("Identifier '%s' has already been declared as another symbol kind\n", ASTText(namespace_name));
-	}
-	
-	symtab_entry_t* entry;
-	if (list != NULL && list->entry->kind == SK_NAMESPACE)
-	{
-		entry = list->entry;
-	}
-	else
-	{
-		// We register a symbol of type namespace and link to a newly created scope.
-		symtab_t* namespace_scope = enter_scope(st);
-
-		entry = new_symbol(st, ASTText(namespace_name));
-		entry->kind = SK_NAMESPACE;
-		entry->inner_scope = namespace_scope;
-	}
-
-	build_symtab_declaration_sequence(ASTSon1(a), entry->inner_scope);
-}
-
-static void build_symtab_function_definition(AST a, symtab_t* st)
-{
-	fprintf(stderr, "Registering function!\n");
-	// A function definition has four parts
-	//   decl_specifier_seq declarator ctor_initializer function_body
-
-	// decl_specifier_seq [optional]
-	// If there is no decl_specifier_seq this has to be a destructor, constructor or conversion function
-	gather_decl_spec_t gather_info;
-	memset(&gather_info, 0, sizeof(gather_info));
-	simple_type_t* type_info = NULL;
-
-	if (ASTSon0(a) != NULL)
-	{
-		AST decl_spec_seq = ASTSon0(a);
-
-		build_symtab_decl_specifier_seq(decl_spec_seq, st, &gather_info, &type_info);
-	}
-
-	// declarator
-	// Declarator can be a qualified one
-	// ¿¿¿TODO???
-	type_t* declarator_type;
-	
-	// If no type was given, this identifier has to exist elsewhere in a class
-	// since it can only be a constructor, destructor or conversion function
-	if (type_info != NULL)
-	{
-		build_symtab_declarator(ASTSon1(a), st, &gather_info, type_info, &declarator_type);
-	}
-
-	// Nothing will be done with ctor_initializer at the moment
-	
-	// Function_body
-	AST function_body = ASTSon3(a);
-	AST statement = ASTSon0(function_body);
-
-	symtab_t* inner_scope = enter_scope(st);
-
-	build_symtab_statement(statement, inner_scope);
-
-	AST declarator_name = get_declarator_name(ASTSon1(a));
-	symtab_entry_list_t* entry_list = query_id_expression(st, declarator_name);
-
-	if (entry_list == NULL)
-	{
-		running_error("This symbol is undeclared here", 0);
-	}
-	else 
-	{
-		fprintf(stderr, "Function '%s' is defined\n", entry_list->entry->symbol_name);
-		entry_list->entry->defined = 1;
-	}
-}
-
-static void build_symtab_statement(AST a, symtab_t* st)
-{
-#warning TODO
-}
-
-static void build_symtab_member_declaration(AST a, symtab_t*  st, 
-		access_specifier_t current_access, simple_type_t* class_info)
-{
-	switch (ASTType(a))
-	{
-		case AST_MEMBER_DECLARATION :
-			{
-				build_symtab_simple_member_declaration(a, st, current_access, class_info);
-				break;
-			}
-		case AST_FUNCTION_DEFINITION :
-			{
-				break;
-			}
-		default:
-			{
-				internal_error("Unsupported node '%s'\n", ast_print_node_type(ASTType(a)));
-				break;
-			}
-	}
-}
-
-static void build_symtab_simple_member_declaration(AST a, symtab_t*  st, 
-		access_specifier_t current_access, simple_type_t* class_info)
-{
-	gather_decl_spec_t gather_info;
-	simple_type_t* simple_type_info = NULL;
-
-	memset(&gather_info, 0, sizeof(gather_info));
-
-	if (ASTSon0(a) != NULL)
-	{
-		build_symtab_decl_specifier_seq(ASTSon0(a), st, &gather_info, &simple_type_info);
-	}
-
-	if (ASTSon1(a) != NULL)
-	{
-		AST list = ASTSon1(a);
-		AST iter;
-
-		for_each_element(list, iter)
-		{
-			AST declarator = ASTSon1(iter);
-
-			switch (ASTType(declarator))
-			{
-				case AST_MEMBER_DECLARATOR :
-					{
-						type_t* declarator_type = NULL;
-						build_symtab_declarator(ASTSon0(declarator), st, &gather_info, simple_type_info, &declarator_type);
-						break;
-					}
-				default :
-					{
-						internal_error("Unhandled node '%s'", ast_print_node_type(ASTType(declarator)));
-						break;
-					}
-			}
-		}
-	}
 }

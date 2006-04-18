@@ -135,7 +135,7 @@ typedef struct simple_type_tag {
 	char is_unsigned;
 	char is_signed;
 
-	// Previously declared type
+	// Previously declared type. should be completely "cv-unqualified"
 	struct symtab_entry_tag* user_defined_type;
 
 	// For typedefs
