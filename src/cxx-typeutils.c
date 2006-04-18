@@ -10,6 +10,7 @@ type_t* aliased_type(type_t* t);
 static char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2);
 static char equivalent_builtin_type(simple_type_t *t1, simple_type_t *t2);
 static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2);
 
 /*
  * States if two types are equivalent. This means that they are the same
@@ -41,12 +42,15 @@ char equivalent_types(type_t* t1, type_t* t2)
 			return equivalent_simple_types(t1->type, t2->type);
 			break;
 		case TK_POINTER :
+			return equivalent_pointer_type(t1->pointer, t2->pointer);
 			break;
 		case TK_REFERENCE :
+			return equivalent_pointer_type(t1->pointer, t2->pointer);
 			break;
 		case TK_POINTER_TO_MEMBER :
 			break;
 		case TK_ARRAY :
+			return equivalent_array_type(t1->array, t2->array);
 			break;
 		case TK_FUNCTION :
 			break;
@@ -141,6 +145,16 @@ static char equivalent_builtin_type(simple_type_t *t1, simple_type_t *t2)
 
 	// Ok, nothing makes us think they might be different
 	return 1;
+}
+
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2)
+{
+	if (!equivalent_types(t1->pointee, t2->pointee))
+	{
+		return 0;
+	}
+
+	return (equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier));
 }
 
 static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2)

@@ -114,6 +114,81 @@ symtab_entry_t* filter_simple_type_specifier(symtab_entry_list_t* entry_list)
 		return result;
 }
 
+/*
+ * This function queries the symbol table through a nested name specifier. If
+ * result_lookup_scope is nonnull it will hold the scope of this nested name
+ * specifier. The result is the symbol in the symtab of this nested name
+ * specification.
+ * 
+ * The value of result_lookup_scope is not reliable if the function returns
+ * NULL
+ */
+symtab_entry_list_t* query_nested_name_spec(symtab_t* st, symtab_t** result_lookup_scope, AST global_op, AST nested_name)
+{
+	if (result_lookup_scope != NULL)
+		*result_lookup_scope = NULL;
+	
+	symtab_t* lookup_scope = st;
+	symtab_entry_list_t* entry_list = NULL;
+
+	if (global_op != NULL)
+	{
+		lookup_scope = compilation_options.global_scope;
+	}
+
+	while (nested_name != NULL)
+	{
+		AST nested_name_spec = ASTSon0(nested_name);
+		char seen_class = 0;
+
+		switch (ASTType(nested_name_spec))
+		{
+			case AST_SYMBOL :
+				{
+					entry_list = 
+						query_in_current_and_upper_scope(lookup_scope, ASTText(nested_name_spec));
+
+					if (entry_list == NULL)
+						return NULL;
+
+					if (entry_list->entry->kind != SK_CLASS
+							&& entry_list->entry->kind != SK_NAMESPACE)
+					{
+						return NULL;
+					}
+
+					if (seen_class 
+							&& entry_list->entry->kind == SK_NAMESPACE)
+						return NULL;
+
+					if (entry_list->entry->kind == SK_CLASS)
+						seen_class = 1;
+
+					lookup_scope = entry_list->entry->inner_scope;
+
+					break;
+				}
+			case AST_TEMPLATE_ID :
+				{
+					internal_error("Unsupported template id", 0);
+					break;
+				}
+			default:
+				{
+					internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(nested_name_spec)));
+					break;
+				}
+		}
+
+		nested_name = ASTSon1(nested_name);
+	}
+
+	if (result_lookup_scope != NULL)
+		*result_lookup_scope = lookup_scope;
+
+	return entry_list;
+}
+
 symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr)
 {
 	switch (ASTType(id_expr))
@@ -172,66 +247,14 @@ symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr)
 		case AST_QUALIFIED_ID :
 			{
 				// A qualified id "a::b::c"
-				symtab_t* lookup_scope = st;
+				symtab_t* lookup_scope;
 				AST global_op = ASTSon0(id_expr);
-
-				if (global_op != NULL)
-				{
-					lookup_scope = compilation_options.global_scope;
-				}
-
 				AST nested_name = ASTSon1(id_expr);
 
-				while (nested_name != NULL)
-				{
-					AST nested_name_spec = ASTSon0(nested_name);
-					char seen_class = 0;
+				if (query_nested_name_spec(st, &lookup_scope, global_op, nested_name) == NULL)
+					return NULL;
 
-					switch (ASTType(nested_name_spec))
-					{
-						case AST_SYMBOL :
-							{
-								symtab_entry_list_t* entry_list = 
-									query_in_current_and_upper_scope(lookup_scope, ASTText(nested_name_spec));
-
-								if (entry_list == NULL)
-									return NULL;
-
-								if (entry_list->entry->kind != SK_CLASS
-										&& entry_list->entry->kind != SK_NAMESPACE)
-								{
-									return NULL;
-								}
-
-								if (seen_class 
-										&& entry_list->entry->kind == SK_NAMESPACE)
-									return NULL;
-
-								if (entry_list->entry->kind == SK_CLASS)
-									seen_class = 1;
-
-								lookup_scope = entry_list->entry->inner_scope;
-
-								break;
-							}
-						case AST_TEMPLATE_ID :
-							{
-								internal_error("Unsupported template id", 0);
-								break;
-							}
-						default:
-							{
-								internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(nested_name_spec)));
-								break;
-							}
-					}
-
-					nested_name = ASTSon1(nested_name);
-				}
-
-				// If we reach here all the qualification went well, now query for an unqualified id
 				return query_id_expression(lookup_scope, ASTSon2(id_expr));
-				
 				break;
 			}
 		case AST_QUALIFIED_TEMPLATE :

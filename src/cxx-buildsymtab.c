@@ -648,9 +648,37 @@ static void set_pointer_type(type_t** declarator_type, symtab_t* st, AST pointer
 	type_t* pointee_type = *declarator_type;
 
 	(*declarator_type) = calloc(1, sizeof(*(*declarator_type)));
-	(*declarator_type)->kind = TK_POINTER;
 	(*declarator_type)->pointer = calloc(1, sizeof(*((*declarator_type)->pointer)));
 	(*declarator_type)->pointer->pointee = pointee_type;
+
+	switch (ASTType(pointer_tree))
+	{
+		case AST_POINTER_SPEC :
+			if (ASTSon0(pointer_tree) == NULL
+					&& ASTSon1(pointer_tree) == NULL)
+			{
+				(*declarator_type)->kind = TK_POINTER;
+			}
+			else
+			{
+				(*declarator_type)->kind = TK_POINTER_TO_MEMBER;
+
+				symtab_entry_list_t* entry_list =
+					query_nested_name_spec(st, NULL, ASTSon0(pointer_tree), ASTSon1(pointer_tree));
+
+				if (entry_list != NULL)
+				{
+					(*declarator_type)->pointer->pointee_class = entry_list->entry;
+				}
+			}
+			break;
+		case AST_REFERENCE_SPEC :
+			(*declarator_type)->kind = TK_REFERENCE;
+			break;
+		default :
+			internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTType(pointer_tree)));
+			break;
+	}
 
 	(*declarator_type)->function = NULL;
 	(*declarator_type)->array = NULL;
@@ -1510,6 +1538,16 @@ static void print_declarator(type_t* printed_declarator, symtab_t* st)
 				break;
 			case TK_POINTER :
 				fprintf(stderr, "pointer to ");
+				printed_declarator = printed_declarator->pointer->pointee;
+				break;
+			case TK_REFERENCE :
+				fprintf(stderr, "reference to ");
+				printed_declarator = printed_declarator->pointer->pointee;
+				break;
+			case TK_POINTER_TO_MEMBER :
+				fprintf(stderr, "pointer to member of ");
+				print_declarator(printed_declarator->pointer->pointee_class->type_information, st);
+				fprintf(stderr, " to ");
 				printed_declarator = printed_declarator->pointer->pointee;
 				break;
 			case TK_ARRAY :

@@ -175,8 +175,8 @@ typedef struct pointer_tag
 {
 	cv_qualifier_t cv_qualifier;
 	struct type_tag* pointee;
-	// ¿¿¿ If pointer to member ???
-	// struct symtab_entry_tag* pointee_class;
+
+	struct symtab_entry_tag* pointee_class;
 } pointer_info_t;
 
 // Array information
@@ -265,5 +265,8 @@ symtab_entry_t* filter_simple_type_specifier(symtab_entry_list_t* entry_list);
 
 // Everything built by an id_expression can be queried with this function
 symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr);
+
+// Nested names
+symtab_entry_list_t* query_nested_name_spec(symtab_t* st, symtab_t** result_lookup_scope, AST global_op, AST nested_name);
 
 #endif // CXX_SYMTAB_H
