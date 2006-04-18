@@ -692,6 +692,7 @@ static void set_array_type(type_t** declarator_type, symtab_t* st, AST constant_
 {
 	type_t* element_type = *declarator_type;
 
+	(*declarator_type) = calloc(1, sizeof(*(*declarator_type)));
 	(*declarator_type)->kind = TK_ARRAY;
 	(*declarator_type)->array = calloc(1, sizeof(*((*declarator_type)->array)));
 	(*declarator_type)->array->element_type = element_type;
@@ -781,6 +782,7 @@ static void set_function_type(type_t** declarator_type, symtab_t* st, AST parame
 {
 	type_t* returning_type = *declarator_type;
 
+	(*declarator_type) = calloc(1, sizeof(*(*declarator_type)));
 	(*declarator_type)->kind = TK_FUNCTION;
 	(*declarator_type)->function = calloc(1, sizeof(*((*declarator_type)->function)));
 	(*declarator_type)->function->return_type = returning_type;

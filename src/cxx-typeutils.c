@@ -11,6 +11,9 @@ static char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2);
 static char equivalent_builtin_type(simple_type_t *t1, simple_type_t *t2);
 static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2);
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2);
+static char equivalent_function_type(function_info_t* t1, function_info_t* t2);
+static char compatible_parameters(function_info_t* t1, function_info_t* t2);
 
 /*
  * States if two types are equivalent. This means that they are the same
@@ -53,6 +56,7 @@ char equivalent_types(type_t* t1, type_t* t2)
 			return equivalent_array_type(t1->array, t2->array);
 			break;
 		case TK_FUNCTION :
+			return equivalent_function_type(t1->function, t2->function);
 			break;
 		default :
 			internal_error("Unknown type kind (%d)\n", t1->kind);
@@ -157,10 +161,52 @@ static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2)
 	return (equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier));
 }
 
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
+{
+	if (!equivalent_types(t1->element_type, t2->element_type))
+		return 0;
+
+	// TODO - Check that dimensions are the same
+	// But we need an evaluator of expressions
+#if 0
+	literal_value_t v1 = evaluate_constant_expression(t1->array_expr);
+	literal_value_t v2 = evaluate_constant_expression(t2->array_expr);
+
+	if (!equal_literal_values(v1, v2))
+		return 0;
+#endif
+	
+	return 1;
+}
+
+static char equivalent_function_type(function_info_t* t1, function_info_t* t2)
+{
+	if (!equivalent_types(t1->return_type, t2->return_type))
+		return 0;
+
+	if (!compatible_parameters(t1, t2))
+		return 0;
+}
+
 static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2)
 {
 	// Oh, this turned to be that easy
 	return (cv1 == cv2);
+}
+
+static char compatible_parameters(function_info_t* t1, function_info_t* t2)
+{
+	if (t1->num_parameters != t2->num_parameters)
+		return 0;
+
+	char still_compatible = 1;
+	int i;
+
+	for (i = 0; (i < t1->num_parameters) && still_compatible; i++)
+	{
+	}
+
+	return still_compatible;
 }
 
 static char is_typedef_type(type_t* t1)
