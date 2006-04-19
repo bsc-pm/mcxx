@@ -487,6 +487,7 @@ void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* si
 			AST enumeration_expr = ASTSon1(enumeration);
 
 			// Note that enums do not define an additional scope
+			fprintf(stderr, "Registering enumerator '%s'\n", ASTText(enumeration_name));
 			symtab_entry_t* enumeration_item = new_symbol(st, ASTText(enumeration_name));
 
 			enumeration_item->kind = SK_ENUMERATOR;
