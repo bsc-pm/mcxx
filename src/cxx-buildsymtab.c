@@ -57,8 +57,6 @@ static cv_qualifier_t compute_cv_qualifier(AST a);
 
 static exception_spec_t* build_exception_spec(symtab_t* st, AST a);
 
-
-
 // Builds symtab for the translation unit
 void build_symtab_translation_unit(AST a)
 {
@@ -89,7 +87,8 @@ static void build_symtab_declaration(AST a, symtab_t* st)
 	{
 		case AST_SIMPLE_DECLARATION :
 			{
-				// Simple declarations are of the form
+				// Simple declarations are of the form [optional]
+				//
 				//   int a;
 				//   class A { ... } [a];
 				//   struct C { ... } [c];
@@ -487,10 +486,10 @@ void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* si
 			AST enumeration_name = ASTSon0(enumeration);
 			AST enumeration_expr = ASTSon1(enumeration);
 
-			enumeration_item_t* enumeration_item = calloc(1, sizeof(*enumeration_item));
+			symtab_entry_t* enumeration_item = new_symbol(st, ASTText(enumeration_name));
 
-			enumeration_item->name = strdup(ASTText(enumeration_name));
-			enumeration_item->value = enumeration_expr;
+			enumeration_item->kind = SK_ENUMERATOR;
+			enumeration_item->enumerator_value = enumeration_expr;
 
 			P_LIST_ADD(simple_type_info->enum_info->enumeration_list, 
 					simple_type_info->enum_info->num_enumeration,

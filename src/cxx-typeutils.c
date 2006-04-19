@@ -173,6 +173,7 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
 
 	// TODO - Check that dimensions are the same
 	// But we need an evaluator of expressions
+#warning Lacking a constant expression evaluator
 #if 0
 	literal_value_t v1 = evaluate_constant_expression(t1->array_expr);
 	literal_value_t v2 = evaluate_constant_expression(t2->array_expr);
@@ -370,8 +371,8 @@ enum_info_t* copy_enum_info(enum_info_t* enum_info)
 	int i;
 	for (i = 0; i < result->num_enumeration; i++)
 	{
-		result->enumeration_list[i]->name = strdup(enum_info->enumeration_list[i]->name);
-		result->enumeration_list[i]->value = duplicate_ast(enum_info->enumeration_list[i]->value);
+		// Note, we copy the references here
+		result->enumeration_list[i] = enum_info->enumeration_list[i];
 	}
 
 	return result;

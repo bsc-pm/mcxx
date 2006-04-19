@@ -87,7 +87,7 @@ typedef struct {
 
 typedef struct enum_information_tag {
 	int num_enumeration;
-	enumeration_item_t** enumeration_list;
+	struct symtab_entry_tag** enumeration_list;
 } enum_info_t;
 
 typedef enum access_specifier_t
