@@ -197,6 +197,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_DECLARATOR_FUNC, abstract_declarator_function_handler, NULL),
 	NODE_HANDLER(AST_DECLARATOR_ARRAY, abstract_array_declarator_handler, NULL),
 	NODE_HANDLER(AST_DECL_SPECIFIER_SEQ, decl_specifier_sequence, NULL),
+	NODE_HANDLER(AST_TYPE_SPECIFIER_SEQ, decl_specifier_sequence, NULL),
 	NODE_HANDLER(AST_FRIEND_SPEC, simple_parameter_handler, "friend"),
 	NODE_HANDLER(AST_TYPEDEF_SPEC, simple_parameter_handler, "typedef"),
 	NODE_HANDLER(AST_SIGNED_TYPE, simple_parameter_handler, "signed"),
@@ -438,7 +439,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_GCC_ASM_DEFINITION, gcc_asm_definition_handler, NULL),
 	NODE_HANDLER(AST_GCC_ASM_OPERAND, gcc_asm_operand_handler, NULL),
 	NODE_HANDLER(AST_GCC_COMPLEX_TYPE, simple_parameter_handler, "_Complex"),
-	NODE_HANDLER(AST_GCC_TYPE_SPEC_SEQ, gcc_type_spec_sequence_handler, NULL),
+	NODE_HANDLER(AST_GCC_TYPE_SPECIFIER_SEQ, gcc_type_spec_sequence_handler, NULL),
 	NODE_HANDLER(AST_GCC_TYPEOF, gcc_typeof_handler, NULL),
 	NODE_HANDLER(AST_GCC_RESTRICT_SPEC, simple_parameter_handler, "__restrict"),
 	NODE_HANDLER(AST_GCC_PARENTHESIZED_EXPRESSION, parenthesized_son_handler, NULL),
@@ -684,7 +685,7 @@ static void template_id_handler(FILE* f, AST a, int level)
 
 static void type_id_handler(FILE* f, AST a, int level)
 {
-	spaced_sequence_handler(f, ASTSon0(a), level);
+	prettyprint_level(f, ASTSon0(a), level);
 
 	if (ASTSon1(a) != NULL)
 	{

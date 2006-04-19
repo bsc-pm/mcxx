@@ -25,6 +25,7 @@ enum cxx_symbol_kind
 	SK_UNDEFINED = 0,
 	SK_CLASS,
 	SK_ENUM,
+	SK_ENUMERATOR, // The elements an enum is made of
 	SK_FUNCTION,
 	SK_LABEL,
 	SK_NAMESPACE,
@@ -40,7 +41,8 @@ typedef enum {
 } cv_qualifier_t;
 
 typedef struct {
-	int TODO;
+	int num_exception_types;
+	struct type_tag** exception_type_seq;
 } exception_spec_t;
 
 // For type_t
@@ -157,7 +159,7 @@ typedef struct function_tag
 	int num_parameters;
 	struct type_tag** parameter_list;
 	cv_qualifier_t cv_qualifier;
-	exception_spec_t exception_spec;
+	exception_spec_t* exception_spec;
 
 	AST function_body;
 
@@ -226,8 +228,10 @@ typedef struct symtab_entry_tag
 	// Related scope. For scopes defined within this symbol
 	// e.g. namespaces, classes, etc
 	struct symtab_tag* inner_scope;
+	// TODO - Related scopes included by means of using (koenig here??)
 
-	// TODO - Related scopes included by means of using (koenig too??)
+	// TODO - For enumerator symbols, an AST with the folded value
+	AST enumerator_value;
 } symtab_entry_t;
 
 // This is what the symbol table returns

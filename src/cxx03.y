@@ -1,9 +1,11 @@
 %{
 /*
-   Parser of ISO/IEC 14882 - C++
+   Parser of ISO/IEC 14882:2003 - C++
+
+   It parses a superset of the language.
 
    Must be compiled with rofi-bison-2.1. 
-   Ask it at <rferrer@ac.upc.edu>
+   Ask for it at <rferrer@ac.upc.edu>
  */
 
 #include <stdio.h>
@@ -336,6 +338,8 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> using_directive
 %type<ast> nontype_specifier_seq
 %type<ast> nontype_specifier
+%type<ast> nontype_specifier_seq2
+%type<ast> nontype_specifier2
 
 %type<node_type> unary_operator
 %type<node_type> assignment_operator
@@ -945,28 +949,98 @@ type_specifier : simple_type_specifier
 }
 ;
 
-type_specifier_seq : type_specifier 
+/*
+type_specifier_seq has been rewritten in a similar fashion to "decl_specifier_sequence"
+
+type_specifier_seq : nontype_specifier_seq2 type_specifier nontype_specifier_seq2
+
+nontype_specifier_seq2 is a strict subset of nontype_specifier_seq that allows only
+const, volatile, long, short, unsigned, signed and __complex__
+*/
+
+type_specifier_seq : nontype_specifier_seq2 type_specifier nontype_specifier_seq2
 {
-	$$ = ASTListLeaf($1);
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTLine($1), NULL);
 }
-| cv_qualifier
+| nontype_specifier_seq2 type_specifier
 {
-	$$ = ASTListLeaf($1);
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ASTLine($1), NULL);
 }
-| type_specifier_seq cv_qualifier
+| type_specifier nontype_specifier_seq2
 {
-	$$ = ASTList($1, $2);
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTLine($1), NULL);
 }
-| type_specifier_seq type_specifier 
+| type_specifier
 {
-	$$ = ASTList($1, $2);
+	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTLine($1), NULL);
 }
-// GNU Extensions
+// GCC extension
 | attributes type_specifier_seq
 {
-	$$ = ASTMake2(AST_GCC_TYPE_SPEC_SEQ, $1, $2, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_GCC_TYPE_SPECIFIER_SEQ, $1, $2, ASTLine($1), NULL);
 }
 ;
+
+nontype_specifier_seq2 : nontype_specifier2
+{
+	$$ = ASTListLeaf($1);
+}
+| nontype_specifier_seq2 nontype_specifier2
+{
+	$$ = ASTList($1, $2);
+}
+;
+
+nontype_specifier2 : cv_qualifier
+{
+	$$ = $1;
+}
+// Els posem aqui repetits
+| SIGNED
+{
+	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_line, $1.token_text);
+}
+| UNSIGNED
+{
+	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_line, $1.token_text);
+}
+| LONG
+{
+	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_line, $1.token_text);
+}
+| SHORT
+{
+	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_line, $1.token_text);
+}
+// GNU Extension
+| COMPLEX
+{
+	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_line, $1.token_text);
+}
+;
+
+// type_specifier_seq : type_specifier 
+// {
+// 	$$ = ASTListLeaf($1);
+// }
+// | cv_qualifier
+// {
+// 	$$ = ASTListLeaf($1);
+// }
+// | type_specifier_seq cv_qualifier
+// {
+// 	$$ = ASTList($1, $2);
+// }
+// | type_specifier_seq type_specifier 
+// {
+// 	$$ = ASTList($1, $2);
+// }
+// // GNU Extensions
+// | attributes type_specifier_seq
+// {
+// 	$$ = ASTMake2(AST_GCC_TYPE_SPEC_SEQ, $1, $2, ASTLine($1), NULL);
+// }
+// ;
 
 simple_type_specifier : type_name
 {

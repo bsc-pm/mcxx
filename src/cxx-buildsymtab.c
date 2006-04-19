@@ -55,6 +55,10 @@ static void register_new_typedef_name(AST declarator_id, type_t* declarator_type
 static void register_new_variable_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, symtab_t* st);
 
+static cv_qualifier_t compute_cv_qualifier(AST a);
+
+static exception_spec_t* build_exception_spec(symtab_t* st, AST a);
+
 // Debug purposes
 static void print_declarator(type_t* printed_declarator, symtab_t* st);
 
@@ -196,7 +200,16 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st)
  * const A b;       // "const" will be in gather_info "A" in simple_type_info
  *
  * Recall our grammar defines a decl_specifier_seq as 
- *    decl_specifier_seq -> nontype_decl_specifier_seq[opt] type_spec nontype_decl_specifier_seq[opt]
+ *    decl_specifier_seq -> nontype_decl_specifier_seq[opt] type_spec[opt] nontype_decl_specifier_seq[opt]
+ *
+ * Note: type_spec can be optional due to some corner cases like the following
+ *
+ *    struct A
+ *    {
+ *       // None of the following has type_spec but a nontype_decl_specifier_seq
+ *       inline operator int(); 
+ *       virtual ~A();
+ *    };
  */
 static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spec_t* gather_info, 
 		simple_type_t **simple_type_info)
@@ -226,7 +239,7 @@ static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spe
 	}
 
 	// Now gather information of the type_spec
-	if (ASTSon1(a) != NULL)
+	if (ASTSon1(a) != NULL) 
 	{
 		*simple_type_info = calloc(1, sizeof(**simple_type_info));
 		gather_type_spec_information(ASTSon1(a), st, *simple_type_info);
@@ -251,6 +264,18 @@ static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spe
 		if (gather_info->is_signed)
 		{
 			(*simple_type_info)->is_signed = 1;
+		}
+		
+		// cv-qualification
+		(*simple_type_info)->cv_qualifier = CV_NONE;
+		if (gather_info->is_const)
+		{
+			(*simple_type_info)->cv_qualifier |= CV_CONST;
+		}
+
+		if (gather_info->is_volatile)
+		{
+			(*simple_type_info)->cv_qualifier |= CV_VOLATILE;
 		}
 	}
 }
@@ -644,7 +669,6 @@ static void build_symtab_declarator(AST a, symtab_t* st, gather_decl_spec_t* gat
  */
 static void set_pointer_type(type_t** declarator_type, symtab_t* st, AST pointer_tree)
 {
-	// TODO - Pointer to member
 	type_t* pointee_type = *declarator_type;
 
 	(*declarator_type) = calloc(1, sizeof(*(*declarator_type)));
@@ -671,6 +695,7 @@ static void set_pointer_type(type_t** declarator_type, symtab_t* st, AST pointer
 					(*declarator_type)->pointer->pointee_class = entry_list->entry;
 				}
 			}
+			(*declarator_type)->pointer->cv_qualifier = compute_cv_qualifier(ASTSon2(pointer_tree));
 			break;
 		case AST_REFERENCE_SPEC :
 			(*declarator_type)->kind = TK_REFERENCE;
@@ -788,8 +813,11 @@ static void set_function_type(type_t** declarator_type, symtab_t* st, AST parame
 	(*declarator_type)->function->return_type = returning_type;
 
 	set_function_parameter_clause(*declarator_type, st, parameter);
+
+	(*declarator_type)->function->cv_qualifier = compute_cv_qualifier(cv_qualif);
+
+	(*declarator_type)->function->exception_spec = build_exception_spec(st, except_spec);
 	
-	// TODO, cv-qualifier & exception
 	(*declarator_type)->array = NULL;
 	(*declarator_type)->pointer = NULL;
 	(*declarator_type)->type = NULL;
@@ -1523,6 +1551,102 @@ static type_t* simple_type_to_type(simple_type_t* simple_type_info)
 	result->kind = TK_DIRECT;
 	// result->type = copy_simple_type(simple_type_info);
 	result->type = simple_type_info;
+
+	return result;
+}
+
+/*
+ * This function computes a cv_qualifier_t from an AST
+ * containing a list of cv_qualifiers
+ */
+static cv_qualifier_t compute_cv_qualifier(AST a)
+{
+	cv_qualifier_t result = CV_NONE;
+
+	// Allow empty trees to ease us the use of this function
+	if (a == NULL)
+	{
+		return result;
+	}
+
+	if (ASTType(a) != AST_NODE_LIST)
+	{
+		internal_error("This function expects a list", 0);
+	}
+
+	AST list, iter;
+	list = a;
+
+	for_each_element(list, iter)
+	{
+		AST cv_qualifier = ASTSon1(iter);
+
+		switch (ASTType(cv_qualifier))
+		{
+			case AST_CONST_SPEC :
+				result |= CV_CONST;
+				break;
+			case AST_VOLATILE_SPEC :
+				result |= CV_VOLATILE;
+				break;
+			default:
+				internal_error("Unknown node type '%s'", ast_print_node_type(ASTType(cv_qualifier)));
+				break;
+		}
+	}
+
+	return result;
+}
+
+// This function fills returns an exception_spec_t* It returns NULL if no
+// exception spec has been defined. Note that 'throw ()' is an exception spec
+// and non-NULL is returned in this case.
+static exception_spec_t* build_exception_spec(symtab_t* st, AST a)
+{
+	// No exception specifier at all
+	if (a == NULL)
+		return NULL;
+
+	exception_spec_t* result = calloc(1, sizeof(*result));
+
+	AST type_id_list = ASTSon0(a);
+
+	if (type_id_list == NULL)
+		return result;
+
+	AST iter;
+
+	for_each_element(type_id_list, iter)
+	{
+		AST type_id = ASTSon1(iter);
+
+		// A type_id is a type_specifier_seq followed by an optional abstract
+		// declarator
+		AST type_specifier_seq = ASTSon0(type_id);
+		AST abstract_decl = ASTSon1(type_id);
+
+		// A type_specifier_seq is essentially a subset of a
+		// declarator_specifier_seq so we can reuse existing functions
+		simple_type_t* type_info;
+		gather_decl_spec_t gather_info;
+		memset(&gather_info, 0, sizeof(gather_info));
+	
+		build_symtab_decl_specifier_seq(type_specifier_seq, st, &gather_info, &type_info);
+
+		if (abstract_decl != NULL)
+		{
+			type_t* declarator_type;
+			build_symtab_declarator(abstract_decl, st, &gather_info, type_info, &declarator_type);
+			P_LIST_ADD(result->exception_type_seq, result->num_exception_types,
+					declarator_type);
+		}
+		else
+		{
+			type_t* declarator_type = simple_type_to_type(type_info);
+			P_LIST_ADD(result->exception_type_seq, result->num_exception_types,
+					declarator_type);
+		}
+	}
 
 	return result;
 }
