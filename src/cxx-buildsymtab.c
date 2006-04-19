@@ -3,7 +3,7 @@
 #include "cxx-driver.h"
 #include "cxx-buildsymtab.h"
 #include "cxx-symtab.h"
-#include "cxx-prettyprint.h"
+#include "cxx-typeutils.h"
 #include "cxx-utils.h"
 
 /*
@@ -48,8 +48,6 @@ static void build_symtab_declarator_name(AST declarator_name, type_t* declarator
 static void build_symtab_declarator_id_expr(AST declarator_name, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, symtab_t* st);
 
-static type_t* simple_type_to_type(simple_type_t* simple_type_info);
-
 static void register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, symtab_t* st);
 static void register_new_variable_name(AST declarator_id, type_t* declarator_type, 
@@ -59,8 +57,6 @@ static cv_qualifier_t compute_cv_qualifier(AST a);
 
 static exception_spec_t* build_exception_spec(symtab_t* st, AST a);
 
-// Debug purposes
-static void print_declarator(type_t* printed_declarator, symtab_t* st);
 
 
 // Builds symtab for the translation unit
@@ -1345,215 +1341,7 @@ static void build_symtab_simple_member_declaration(AST a, symtab_t*  st,
 	}
 }
 
-/* Copy functions */
 
-// This function copies the type information of an enum
-enum_info_t* copy_enum_info(enum_info_t* enum_info)
-{
-	enum_info_t* result = calloc(1, sizeof(*result));
-
-	*result = *enum_info;
-
-	int i;
-	for (i = 0; i < result->num_enumeration; i++)
-	{
-		result->enumeration_list[i]->name = strdup(enum_info->enumeration_list[i]->name);
-		result->enumeration_list[i]->value = duplicate_ast(enum_info->enumeration_list[i]->value);
-	}
-
-	return result;
-}
-
-// This function copies the type information of a pointer
-pointer_info_t* copy_pointer_info(pointer_info_t* pointer_info)
-{
-	pointer_info_t* result = calloc(1, sizeof(*result));
-	*result = *pointer_info;
-	
-	result->pointee = copy_type(result->pointee);
-
-	return result;
-}
-
-// This function copies the type information of an array
-array_info_t* copy_array_info(array_info_t* array_info)
-{
-	array_info_t* result = calloc(1, sizeof(*result));
-	*result = *array_info;
-	
-	result->array_expr = duplicate_ast(array_info->array_expr);
-	result->element_type = copy_type(array_info->element_type);
-	
-	return result;
-}
-
-// This function copies the type information of a function
-function_info_t* copy_function_info(function_info_t* function_info)
-{
-	function_info_t* result = calloc(1, sizeof(*result));
-	*result = *function_info;
-
-	result->return_type = copy_type(function_info->return_type);
-	
-	int i;
-	for (i = 0; i < function_info->num_parameters; i++)
-	{
-		result->parameter_list[i] = copy_type(function_info->parameter_list[i]);
-	}
-	
-	return result;
-}
-
-// This function copies a full fledged type
-type_t* copy_type(type_t* type)
-{
-	type_t* result = calloc(1, sizeof(*result));
-
-	*result = *type;
-
-	if (result->pointer != NULL)
-	{
-		result->pointer = copy_pointer_info(type->pointer);
-	}
-
-	if (result->array != NULL)
-	{
-		result->array = copy_array_info(type->array);
-	}
-
-	if (result->function != NULL)
-	{
-		result->function = copy_function_info(type->function);
-	}
-
-	if (result->type != NULL)
-	{
-		result->type = copy_simple_type(type->type);
-	}
-
-	return result;
-}
-
-// This function copies class type information
-class_info_t* copy_class_info(class_info_t* class_info)
-{
-	class_info_t* result = calloc(1, sizeof(*result));
-
-	*result = *class_info;
-
-	int i;
-	for (i = 0; i < result->num_members; i++)
-	{
-		result->member_list[i]->name = strdup(class_info->member_list[i]->name);
-		result->member_list[i]->type_info = copy_type(result->member_list[i]->type_info);
-	}
-	
-	return result;
-}
-
-// This function copies a simple type
-simple_type_t* copy_simple_type(simple_type_t* type_info)
-{
-	simple_type_t* result = calloc(1, sizeof(*result));
-
-	// Bitwise copy for every thing that can be directly copied
-	*result = *type_info;
-
-	if (result->enum_info != NULL)
-	{
-		result->enum_info = copy_enum_info(type_info->enum_info);
-	}
-
-	if (result->class_info != NULL)
-	{
-		result->class_info = copy_class_info(type_info->class_info);
-	}
-
-	return result;
-}
-
-// Gives the name of a builtin type
-static const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
-{
-	static char result[256] = {0};
-	switch (simple_type_info->kind)
-	{
-		case STK_BUILTIN_TYPE :
-			{
-				switch (simple_type_info->builtin_type)
-				{
-					case BT_INT :
-						return "int";
-						break;
-					case BT_BOOL :
-						return "bool";
-						break;
-					case BT_FLOAT :
-						return "float";
-						break;
-					case BT_DOUBLE :
-						return "double";
-						break;
-					case BT_WCHAR :
-						return "wchar_t";
-						break;
-					case BT_CHAR :
-						return "char";
-						break;
-					case BT_VOID :
-						return "void";
-						break;
-					case BT_UNKNOWN :
-					default :
-						return "¿¿¿unknown builtin type???";
-						break;
-				}
-				break;
-			}
-		case STK_USER_DEFINED :
-			{
-				symtab_entry_t* user_defined_type = simple_type_info->user_defined_type;
-				switch (user_defined_type->kind)
-				{
-					case SK_ENUM :
-						snprintf(result, 255, "enum %s", user_defined_type->symbol_name);
-						break;
-					case SK_CLASS :
-						snprintf(result, 255, "class %s", user_defined_type->symbol_name);
-						break;
-					case SK_TYPEDEF :
-						snprintf(result, 255, "typedef %s", user_defined_type->symbol_name);
-						break;
-					default :
-						return "¿¿¿unknown user defined type???";
-				}
-
-				return result;
-			}
-		case STK_ENUM :
-			return "enum <anonymous>";
-		case STK_CLASS :
-			return "class <anonymous>";
-		default :
-			{
-			}
-	}
-	return "¿¿¿unknown type???";
-}
-
-/*
- * This function just creates a full type_t from a simple_type_t.
- * It is useful when no declarator information is available.
- */
-static type_t* simple_type_to_type(simple_type_t* simple_type_info)
-{
-	type_t* result = calloc(1, sizeof(*result));
-	result->kind = TK_DIRECT;
-	// result->type = copy_simple_type(simple_type_info);
-	result->type = simple_type_info;
-
-	return result;
-}
 
 /*
  * This function computes a cv_qualifier_t from an AST
@@ -1651,56 +1439,3 @@ static exception_spec_t* build_exception_spec(symtab_t* st, AST a)
 	return result;
 }
 
-// This prints a declarator in English. It is intended for debugging purposes
-static void print_declarator(type_t* printed_declarator, symtab_t* st)
-{
-	do 
-	{
-		switch (printed_declarator->kind)
-		{
-			case TK_DIRECT :
-				fprintf(stderr, "%s", get_builtin_type_name(printed_declarator->type, st));
-				printed_declarator = NULL;
-				break;
-			case TK_POINTER :
-				fprintf(stderr, "pointer to ");
-				printed_declarator = printed_declarator->pointer->pointee;
-				break;
-			case TK_REFERENCE :
-				fprintf(stderr, "reference to ");
-				printed_declarator = printed_declarator->pointer->pointee;
-				break;
-			case TK_POINTER_TO_MEMBER :
-				fprintf(stderr, "pointer to member of ");
-				print_declarator(printed_declarator->pointer->pointee_class->type_information, st);
-				fprintf(stderr, " to ");
-				printed_declarator = printed_declarator->pointer->pointee;
-				break;
-			case TK_ARRAY :
-				fprintf(stderr, "array ");
-				prettyprint(stderr, printed_declarator->array->array_expr);
-				fprintf(stderr, " of ");
-				printed_declarator = printed_declarator->array->element_type;
-				break;
-			case TK_FUNCTION :
-				{
-					int i;
-					fprintf(stderr, "function (");
-					for (i = 0; i < printed_declarator->function->num_parameters; i++)
-					{
-						print_declarator(printed_declarator->function->parameter_list[i], st);
-						if ((i+1) < printed_declarator->function->num_parameters)
-						{
-							fprintf(stderr, ", ");
-						}
-					}
-					fprintf(stderr, ") returning ");
-					printed_declarator = printed_declarator->function->return_type;
-					break;
-				}
-			default :
-				internal_error("Unhandled type kind '%d'\n", printed_declarator->kind);
-				break;
-		}
-	} while (printed_declarator != NULL);
-}
