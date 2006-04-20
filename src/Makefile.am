@@ -23,7 +23,9 @@ mcxx_SOURCES = \
   cxx-buildsymtab.c \
   cxx-buildsymtab.h \
   cxx-typeutils.c \
-  cxx-typeutils.h
+  cxx-typeutils.h \
+  cxx-cexpr.c \
+  cxx-cexpr.h
 
 mcxx_LDFLAGS=-L../lib
 mcxx_LDADD=-lmcxx-utils 
