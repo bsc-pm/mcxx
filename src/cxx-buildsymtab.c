@@ -59,6 +59,8 @@ static cv_qualifier_t compute_cv_qualifier(AST a);
 
 static exception_spec_t* build_exception_spec(symtab_t* st, AST a);
 
+static AST get_declarator_name(AST a);
+
 // Builds symtab for the translation unit
 void build_symtab_translation_unit(AST a)
 {
@@ -180,6 +182,23 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st)
 			type_t* declarator_type;
 			build_symtab_declarator(declarator, st, &gather_info, 
 					simple_type_info, &declarator_type);
+
+			// This is a simple declaration, thus if it does not declare an
+			// extern variable or function, the symbol is already defined here
+			if (!gather_info.is_extern
+					&& declarator_type->kind != TK_FUNCTION)
+			{
+				AST declarator_name = get_declarator_name(ASTSon1(declarator));
+				symtab_entry_list_t* entry_list = query_id_expression(st, declarator_name);
+
+				if (entry_list == NULL)
+				{
+					internal_error("Symbol just declared has not been found in the symtab!", 0);
+				}
+
+				// The last entry will hold our symbol, no need to look for it in the list
+				entry_list->entry->defined = 1;
+			}
 		}
 	}
 }
@@ -918,7 +937,6 @@ static void build_symtab_declarator_rec(AST a, symtab_t* st, type_t** declarator
 				break;
 			}
 		case AST_DECLARATOR_ID_EXPR :
-		case AST_DECLARATOR_ID_TYPE_NAME :
 			{
 				if (declarator_name != NULL)
 				{
@@ -993,8 +1011,6 @@ static void build_symtab_declarator_name(AST declarator_name, type_t* declarator
 	{
 		case AST_DECLARATOR_ID_EXPR :
 			build_symtab_declarator_id_expr(declarator_name, declarator_type, gather_info, st);
-			break;
-		case AST_DECLARATOR_ID_TYPE_NAME :
 			break;
 		default:
 			internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
@@ -1119,6 +1135,7 @@ static void register_new_typedef_name(AST declarator_id, type_t* declarator_type
 	entry->type_information = calloc(1, sizeof(*(entry->type_information)));
 	entry->type_information->kind = TK_DIRECT;
 	entry->type_information->type = calloc(1, sizeof(*(entry->type_information->type)));
+	entry->type_information->type->kind = STK_TYPEDEF;
 	entry->type_information->type->aliased_type = declarator_type;
 
 	// TODO - cv qualification
@@ -1183,6 +1200,9 @@ static void register_new_variable_name(AST declarator_id, type_t* declarator_typ
 		{
 			running_error("Symbol '%s' has already been defined.", ASTText(declarator_id));
 		}
+
+		// Here we'll want the symbol to be declared
+		entry = NULL;
 	}
 
 	if (entry == NULL)
@@ -1194,16 +1214,6 @@ static void register_new_variable_name(AST declarator_id, type_t* declarator_typ
 		entry->type_information = declarator_type;
 
 		// TODO - cv qualification
-	}
-
-
-	// If this symbol is not a function and it has not ben flagged as "extern"
-	// it is defined here.
-	if (!gather_info->is_extern && 
-			entry->type_information->kind != TK_FUNCTION)
-	{
-		fprintf(stderr, "Symbol '%s' has been defined.\n", ASTText(declarator_id));
-		entry->defined = 1;
 	}
 }
 
@@ -1369,8 +1379,6 @@ static void build_symtab_simple_member_declaration(AST a, symtab_t*  st,
 		}
 	}
 }
-
-
 
 /*
  * This function computes a cv_qualifier_t from an AST
