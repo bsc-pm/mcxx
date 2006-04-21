@@ -2,6 +2,7 @@
 #include <string.h>
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
+#include "cxx-cexpr.h"
 #include "cxx-prettyprint.h"
 
 /*
@@ -11,21 +12,20 @@
 static char is_typedef_type(type_t* t);
 static type_t* aliased_type(type_t* t);
 static type_t* base_type(type_t* t);
-static char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2);
+static char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, symtab_t* st);
 static char equivalent_builtin_type(simple_type_t *t1, simple_type_t *t2);
 static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
-static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2);
-static char equivalent_array_type(array_info_t* t1, array_info_t* t2);
-static char equivalent_function_type(function_info_t* t1, function_info_t* t2);
-static char compatible_parameters(function_info_t* t1, function_info_t* t2);
-
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, symtab_t* st);
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2, symtab_t* st);
+static char equivalent_function_type(function_info_t* t1, function_info_t* t2, symtab_t* st);
+static char compatible_parameters(function_info_t* t1, function_info_t* t2, symtab_t* st);
 
 /*
  * States if two types are equivalent. This means that they are the same
  * (ignoring typedefs). Just plain comparison, no standard conversion is
  * performed. cv-qualifiers are relevant for comparison
  */
-char equivalent_types(type_t* t1, type_t* t2)
+char equivalent_types(type_t* t1, type_t* t2, symtab_t* st)
 {
 	// Advance over typedefs
 	while (is_typedef_type(t1))
@@ -47,21 +47,21 @@ char equivalent_types(type_t* t1, type_t* t2)
 	switch (t1->kind)
 	{
 		case TK_DIRECT :
-			return equivalent_simple_types(t1->type, t2->type);
+			return equivalent_simple_types(t1->type, t2->type, st);
 			break;
 		case TK_POINTER :
-			return equivalent_pointer_type(t1->pointer, t2->pointer);
+			return equivalent_pointer_type(t1->pointer, t2->pointer, st);
 			break;
 		case TK_REFERENCE :
-			return equivalent_pointer_type(t1->pointer, t2->pointer);
+			return equivalent_pointer_type(t1->pointer, t2->pointer, st);
 			break;
 		case TK_POINTER_TO_MEMBER :
 			break;
 		case TK_ARRAY :
-			return equivalent_array_type(t1->array, t2->array);
+			return equivalent_array_type(t1->array, t2->array, st);
 			break;
 		case TK_FUNCTION :
-			return equivalent_function_type(t1->function, t2->function);
+			return equivalent_function_type(t1->function, t2->function, st);
 			break;
 		default :
 			internal_error("Unknown type kind (%d)\n", t1->kind);
@@ -70,7 +70,7 @@ char equivalent_types(type_t* t1, type_t* t2)
 	return 0;
 }
 
-static char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2)
+static char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, symtab_t* st)
 {
 	if (t1->kind != t2->kind)
 	{
@@ -93,7 +93,7 @@ static char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2)
 			break;
 		case STK_USER_DEFINED :
 			return equivalent_types(t1->user_defined_type->type_information, 
-					t2->user_defined_type->type_information);
+					t2->user_defined_type->type_information, st);
 			break;
 		case STK_TYPEDEF :
 			internal_error("A typedef cannot reach here", 0);
@@ -156,9 +156,9 @@ static char equivalent_builtin_type(simple_type_t *t1, simple_type_t *t2)
 	return 1;
 }
 
-static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2)
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, symtab_t* st)
 {
-	if (!equivalent_types(t1->pointee, t2->pointee))
+	if (!equivalent_types(t1->pointee, t2->pointee, st))
 	{
 		return 0;
 	}
@@ -166,31 +166,28 @@ static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2)
 	return (equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier));
 }
 
-static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2, symtab_t* st)
 {
-	if (!equivalent_types(t1->element_type, t2->element_type))
+	if (!equivalent_types(t1->element_type, t2->element_type, st))
 		return 0;
 
 	// TODO - Check that dimensions are the same
 	// But we need an evaluator of expressions
-#warning Lacking a constant expression evaluator
-#if 0
-	literal_value_t v1 = evaluate_constant_expression(t1->array_expr);
-	literal_value_t v2 = evaluate_constant_expression(t2->array_expr);
+	literal_value_t v1 = evaluate_constant_expression(t1->array_expr, st);
+	literal_value_t v2 = evaluate_constant_expression(t2->array_expr, st);
 
-	if (!equal_literal_values(v1, v2))
+	if (!equal_literal_values(v1, v2, st))
 		return 0;
-#endif
 	
 	return 1;
 }
 
-static char equivalent_function_type(function_info_t* t1, function_info_t* t2)
+static char equivalent_function_type(function_info_t* t1, function_info_t* t2, symtab_t* st)
 {
-	if (!equivalent_types(t1->return_type, t2->return_type))
+	if (!equivalent_types(t1->return_type, t2->return_type, st))
 		return 0;
 
-	if (!compatible_parameters(t1, t2))
+	if (!compatible_parameters(t1, t2, st))
 		return 0;
 
 	return 1;
@@ -202,7 +199,7 @@ static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2)
 	return (cv1 == cv2);
 }
 
-static char compatible_parameters(function_info_t* t1, function_info_t* t2)
+static char compatible_parameters(function_info_t* t1, function_info_t* t2, symtab_t* st)
 {
 	if (t1->num_parameters != t2->num_parameters)
 		return 0;
@@ -215,7 +212,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2)
 		type_t* par1 = t1->parameter_list[i];
 		type_t* par2 = t2->parameter_list[i];
 
-		if (!equivalent_types(par1, par2))
+		if (!equivalent_types(par1, par2, st))
 		{
 			// They are not equivalent types.
 			//
@@ -237,7 +234,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2)
 				type_t* array_type = (par1->kind == TK_ARRAY) ? par1 : par2;
 				type_t* pointer_type = (par1->kind == TK_POINTER) ? par1 : par2;
 
-				if (!equivalent_types(array_type->array->element_type, pointer_type->pointer->pointee))
+				if (!equivalent_types(array_type->array->element_type, pointer_type->pointer->pointee, st))
 				{
 					still_compatible = 0;
 				}
@@ -263,7 +260,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2)
 				}
 				else
 				{
-					if (!equivalent_types(pointer_type->pointer->pointee, function_type))
+					if (!equivalent_types(pointer_type->pointer->pointee, function_type, st))
 					{
 						still_compatible = 0;
 					}
@@ -291,7 +288,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2)
 				base_t1->type->cv_qualifier = CV_NONE;
 				base_t2->type->cv_qualifier = CV_NONE;
 
-				if (!equivalent_types(par1, par2))
+				if (!equivalent_types(par1, par2, st))
 				{
 					still_compatible = 0;
 				}

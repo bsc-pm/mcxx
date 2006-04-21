@@ -625,6 +625,16 @@ AST tree_from_literal_value(literal_value_t e)
 	return result;
 }
 
+char equal_literal_values(literal_value_t v1, literal_value_t v2, symtab_t* st)
+{
+	// Promote
+	promote_values(v1, v2, &v1, &v2);
+
+	literal_value_t result = equal_op(v1, v2);
+
+	return !value_is_zero(result);
+}
+
 /* ************************* *
  *    Unary operations       *
  * ************************* */

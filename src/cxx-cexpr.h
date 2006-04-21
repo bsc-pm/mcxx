@@ -37,5 +37,6 @@ literal_value_t literal_value_zero();
 literal_value_t literal_value_minus_one();
 literal_value_t increment_literal_value(literal_value_t e);
 AST tree_from_literal_value(literal_value_t e);
+char equal_literal_values(literal_value_t v1, literal_value_t v2, symtab_t* st);
 
 #endif // CXX_CEXPR_H

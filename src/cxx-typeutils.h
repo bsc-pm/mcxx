@@ -4,8 +4,7 @@
 #include "cxx-ast.h"
 #include "cxx-symtab.h"
 
-char equivalent_types(type_t* t1, type_t* t2);
-
+char equivalent_types(type_t* t1, type_t* t2, symtab_t* st);
 
 /* Copy functions */
 class_info_t* copy_class_info(class_info_t* class_info);
