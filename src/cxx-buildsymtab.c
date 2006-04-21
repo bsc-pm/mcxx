@@ -490,8 +490,8 @@ void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* si
 		}
 
 		new_entry->kind = SK_ENUM;
-		// Copy the type because we are creating it and we will clobber it
-		// later
+		// Copy the type because we are creating it and we would clobber it
+		// otherwise
 		new_entry->type_information = copy_type(simple_type_to_type(simple_type_info));
 
 		// Since this type is not anonymous we'll want that simple_type_info
@@ -582,8 +582,8 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 
 			entry->kind = SK_CLASS;
 
-			// Copy the type because we are creating it and we will clobber it
-			// later
+			// Copy the type because we are creating it and we would clobber it
+			// otherwise
 			entry->type_information = copy_type(simple_type_to_type(simple_type_info));
 
 			// Since this type is not anonymous we'll want that simple_type_info

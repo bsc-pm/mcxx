@@ -299,9 +299,9 @@ static void gather_integer_literal_suffix(char* text, char* is_long, char* is_un
             && (toupper(*suffix) == 'U' 
                 || toupper(*suffix) == 'L'))
     {
-        if (toupper(*suffix) == 'U')
+        if (toupper(*suffix) == 'L')
         {
-            *is_long++;
+            (*is_long)++;
         }
         else // if (toupper(*suffix) == 'L')
         {
