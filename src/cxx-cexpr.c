@@ -303,7 +303,7 @@ static void gather_integer_literal_suffix(char* text, char* is_long, char* is_un
         {
             (*is_long)++;
         }
-        else // if (toupper(*suffix) == 'L')
+        else // if (toupper(*suffix) == 'U')
         {
             *is_unsigned = 1;
         }
