@@ -182,6 +182,19 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2, symtab_t* 
 	return 1;
 }
 
+char overloaded_function(function_info_t* t1, function_info_t* t2, symtab_t* st)
+{
+	if (!compatible_parameters(t1, t2, st))
+		return 0;
+
+	if (!equivalent_types(t1->return_type, t2->return_type, st))
+	{
+		internal_error("You are trying to overload a function by only modifying its return type", 0);
+	}
+
+	return 1;
+}
+
 static char equivalent_function_type(function_info_t* t1, function_info_t* t2, symtab_t* st)
 {
 	if (!equivalent_types(t1->return_type, t2->return_type, st))

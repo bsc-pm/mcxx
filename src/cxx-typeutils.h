@@ -5,6 +5,7 @@
 #include "cxx-symtab.h"
 
 char equivalent_types(type_t* t1, type_t* t2, symtab_t* st);
+char overloaded_function(function_info_t* f1, function_info_t* f2, symtab_t* st);
 
 /* Copy functions */
 class_info_t* copy_class_info(class_info_t* class_info);
