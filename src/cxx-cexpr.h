@@ -1,6 +1,8 @@
 #ifndef CXX_CEXPR_H
 #define CXX_CEXPR_H
 
+#include "cxx-symtab.h"
+
 enum literal_value_kind_t
 {
 	LVK_INVALID = 0,
@@ -9,8 +11,7 @@ enum literal_value_kind_t
 	LVK_SIGNED_LONG,
 	LVK_UNSIGNED_LONG,
 	LVK_BOOL,
-	LVK_CHARACTER,
-	LVK_WCHAR_T
+	LVK_CHARACTER
 	// TODO - Float values ?
 };
 
@@ -26,9 +27,15 @@ typedef struct
 		unsigned long int unsigned_long;
 		char boolean_value;
 		char character_value;
-		wchar_t wide_character_value;
 		// TODO - Float values ?
 	} value;
 } literal_value_t;
+
+literal_value_t evaluate_constant_expression(AST a, symtab_t* st);
+char value_is_zero(literal_value_t v);
+literal_value_t literal_value_zero();
+literal_value_t literal_value_minus_one();
+literal_value_t increment_literal_value(literal_value_t e);
+AST tree_from_literal_value(literal_value_t e);
 
 #endif // CXX_CEXPR_H

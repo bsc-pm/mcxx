@@ -231,7 +231,7 @@ typedef struct symtab_entry_tag
 	// TODO - Related scopes included by means of using (koenig here??)
 
 	// TODO - For enumerator symbols, an AST with the folded value
-	AST enumerator_value;
+	AST expression_value;
 } symtab_entry_t;
 
 // This is what the symbol table returns

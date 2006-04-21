@@ -3,8 +3,10 @@
 #include "cxx-driver.h"
 #include "cxx-buildsymtab.h"
 #include "cxx-symtab.h"
+#include "cxx-prettyprint.h"
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
+#include "cxx-cexpr.h"
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
@@ -474,34 +476,7 @@ void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* si
 
 	simple_type_info->kind = STK_ENUM;
 
-	AST list, iter;
-	list = ASTSon1(a);
-
-	if (list != NULL)
-	{
-		// For every enumeration, sign them up in the symbol table
-		for_each_element(list, iter)
-		{
-			AST enumeration = ASTSon1(iter);
-			AST enumeration_name = ASTSon0(enumeration);
-			AST enumeration_expr = ASTSon1(enumeration);
-
-			// Note that enums do not define an additional scope
-			fprintf(stderr, "Registering enumerator '%s'\n", ASTText(enumeration_name));
-			symtab_entry_t* enumeration_item = new_symbol(st, ASTText(enumeration_name));
-
-			enumeration_item->kind = SK_ENUMERATOR;
-			enumeration_item->enumerator_value = enumeration_expr;
-
-			P_LIST_ADD(simple_type_info->enum_info->enumeration_list, 
-					simple_type_info->enum_info->num_enumeration,
-					enumeration_item);
-		}
-
-	}
-
 	AST enum_name = ASTSon0(a);
-	
 	// If it has name, we register this type name in the symbol table
 	if (enum_name != NULL)
 	{
@@ -515,7 +490,9 @@ void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* si
 		}
 
 		new_entry->kind = SK_ENUM;
-		new_entry->type_information = simple_type_to_type(simple_type_info);
+		// Copy the type because we are creating it and we will clobber it
+		// later
+		new_entry->type_information = copy_type(simple_type_to_type(simple_type_info));
 
 		// Since this type is not anonymous we'll want that simple_type_info
 		// refers to this newly created type
@@ -523,6 +500,57 @@ void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* si
 		simple_type_info->kind = STK_USER_DEFINED;
 		simple_type_info->user_defined_type = new_entry;
 	}
+
+	AST list, iter;
+	list = ASTSon1(a);
+	
+	literal_value_t enum_value = literal_value_minus_one();
+
+	if (list != NULL)
+	{
+		// If the type had name, refer to the enum type
+		if (simple_type_info->kind == STK_USER_DEFINED)
+		{
+			simple_type_info = simple_type_info->user_defined_type->type_information->type;
+		}
+
+		// For every enumeration, sign them up in the symbol table
+		for_each_element(list, iter)
+		{
+			AST enumeration = ASTSon1(iter);
+			AST enumeration_name = ASTSon0(enumeration);
+			AST enumeration_expr = ASTSon1(enumeration);
+
+			// Note that enums do not define an additional scope
+			fprintf(stderr, "Registering enumerator '%s'\n", ASTText(enumeration_name));
+			symtab_entry_t* enumeration_item = new_symbol(st, ASTText(enumeration_name));
+
+			enumeration_item->kind = SK_ENUMERATOR;
+			if (enumeration_expr == NULL)
+			{
+				// If no value, take the previous and increment it
+				enum_value = increment_literal_value(enum_value);
+			}
+			else
+			{
+				enum_value = evaluate_constant_expression(enumeration_expr, st);
+			}
+
+			enumeration_item->expression_value = tree_from_literal_value(enum_value);
+
+			// DEBUG
+			fprintf(stderr, "Enumerator '%s' has value = ", ASTText(enumeration_name));
+			prettyprint(stderr, enumeration_item->expression_value);
+			fprintf(stderr, "\n");
+			// - DEBUG
+
+			P_LIST_ADD(simple_type_info->enum_info->enumeration_list, 
+					simple_type_info->enum_info->num_enumeration,
+					enumeration_item);
+		}
+
+	}
+
 }
 
 /*
@@ -554,9 +582,9 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 
 			entry->kind = SK_CLASS;
 
-			// entry->type_information = calloc(1, sizeof(*(entry->type_information)));
-			// entry->type_information->type = simple_type_info;
-			entry->type_information = simple_type_to_type(simple_type_info);
+			// Copy the type because we are creating it and we will clobber it
+			// later
+			entry->type_information = copy_type(simple_type_to_type(simple_type_info));
 
 			// Since this type is not anonymous we'll want that simple_type_info
 			// refers to this newly created type
@@ -1277,7 +1305,7 @@ static void build_symtab_function_definition(AST a, symtab_t* st)
 
 static void build_symtab_statement(AST a, symtab_t* st)
 {
-#warning TODO
+#warning TODO symtab statement
 }
 
 static void build_symtab_member_declaration(AST a, symtab_t*  st, 
