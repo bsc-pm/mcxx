@@ -50,6 +50,20 @@ static void build_symtab_declarator_name(AST declarator_name, type_t* declarator
 static void build_symtab_declarator_id_expr(AST declarator_name, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, symtab_t* st);
 
+static void build_symtab_linkage_specifier(AST a, symtab_t* st);
+static void build_symtab_linkage_specifier_declaration(AST a, symtab_t* st);
+
+static void build_symtab_template_declaration(AST a, symtab_t* st);
+
+static void build_symtab_template_parameter_list(AST a, symtab_t* st, 
+		template_parameter_t** template_param_info, int* num_parameters);
+static void build_symtab_template_parameter(AST a, symtab_t* st, 
+		template_parameter_t* template_param_info);
+static void build_symtab_nontype_template_parameter(AST a, symtab_t* st,
+		template_parameter_t* template_param_info);
+static void build_symtab_type_template_parameter(AST a, symtab_t* st,
+		template_parameter_t* template_param_info);
+
 static void register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, symtab_t* st);
 static void register_new_variable_name(AST declarator_id, type_t* declarator_type, 
@@ -62,6 +76,9 @@ static cv_qualifier_t compute_cv_qualifier(AST a);
 static exception_spec_t* build_exception_spec(symtab_t* st, AST a);
 
 static AST get_declarator_name(AST a);
+
+// Current linkage, by default C++
+static char* current_linkage = "\"C++\"";
 
 // Builds symtab for the translation unit
 void build_symtab_translation_unit(AST a)
@@ -123,6 +140,30 @@ static void build_symtab_declaration(AST a, symtab_t* st)
 				build_symtab_function_definition(a, st);
 				break;
 			}
+		case AST_LINKAGE_SPEC :
+			{
+				build_symtab_linkage_specifier(a, st);
+				break;
+			}
+		case AST_LINKAGE_SPEC_DECL :
+			{
+				build_symtab_linkage_specifier_declaration(a, st);
+				break;
+			}
+		case AST_EXPORT_TEMPLATE_DECLARATION :
+		case AST_TEMPLATE_DECLARATION :
+			{
+				build_symtab_template_declaration(a, st);
+				break;
+			}
+		case AST_EXPLICIT_INSTANTIATION :
+			{
+				break;
+			}
+		case AST_EXPLICIT_SPECIALIZATION :
+			{
+				break;
+			}
 		default :
 			{
 				internal_error("A declaration of kind '%s' is still unsupported\n", 
@@ -180,6 +221,7 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st)
 		{
 			AST init_declarator = ASTSon1(iter);
 			AST declarator = ASTSon0(init_declarator);
+			AST initializer = ASTSon1(init_declarator);
 
 			type_t* declarator_type;
 			build_symtab_declarator(declarator, st, &gather_info, 
@@ -208,6 +250,19 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st)
 				prettyprint(stderr, declarator_name);
 				fprintf(stderr, "'\n");
 				entry_list->entry->defined = 1;
+
+				if (initializer != NULL)
+				{
+					// We do not fold it here
+					entry_list->entry->expression_value = initializer;
+				}
+			}
+			else
+			{
+				if (initializer != NULL)
+				{
+					running_error("An extern symbol cannot be initialized");
+				}
 			}
 		}
 	}
@@ -474,8 +529,8 @@ static void gather_type_spec_from_simple_type_specifier(AST a, symtab_t* st, sim
 
 			if (simple_type_entry == NULL)
 			{
-				running_error("Identifier '%s' in line %d is not a type %p\n", ASTText(type_name), 
-						ASTLine(type_name), simple_type_entry);
+				running_error("Identifier '%s' in line %d is not a type\n", ASTText(type_name), 
+						ASTLine(type_name));
 			}
 
 			if (simple_type_entry->type_information == NULL
@@ -1164,16 +1219,19 @@ static void register_new_variable_name(AST declarator_id, type_t* declarator_typ
 		symtab_entry_list_t* entry_list = query_in_current_scope(st, ASTText(declarator_id));
 		if (entry_list != NULL)
 		{
-#warning "Check for type-names"
+			if ((entry_list->entry->kind != SK_CLASS &&
+						entry_list->entry->kind != SK_ENUM) ||
+					entry_list->next != NULL)
+			{
+				running_error("Symbol '%s' has been redefined as another symbol kind", 
+						ASTText(declarator_id), entry_list->entry->kind);
+			}
 		}
-		else
-		{
-			fprintf(stderr, "Registering variable '%s'\n", ASTText(declarator_id));
-			symtab_entry_t* entry = new_symbol(st, ASTText(declarator_id));
-			entry->kind = SK_VARIABLE;
-			// entry->type_information = copy_type(declarator_type);
-			entry->type_information = declarator_type;
-		}
+
+		fprintf(stderr, "Registering variable '%s'\n", ASTText(declarator_id));
+		symtab_entry_t* entry = new_symbol(st, ASTText(declarator_id));
+		entry->kind = SK_VARIABLE;
+		entry->type_information = declarator_type;
 	}
 	else
 	{
@@ -1219,6 +1277,204 @@ static void register_function(AST declarator_id, type_t* declarator_type,
 			
 			entry_list = entry_list->next;
 		}
+	}
+}
+
+/*
+ * This function saves the current linkage, sets the new and restores it back.
+ */
+static void build_symtab_linkage_specifier(AST a, symtab_t* st)
+{
+	AST declaration_sequence = ASTSon1(a);
+
+	if (declaration_sequence == NULL)
+		return;
+
+	char* previous_linkage = current_linkage;
+
+	AST linkage_spec = ASTSon0(a);
+	current_linkage = ASTText(linkage_spec);
+
+	build_symtab_declaration_sequence(declaration_sequence, st);
+
+	current_linkage = previous_linkage;
+}
+
+/*
+ * Similar to build_symtab_linkage_specifier but for just one declaration
+ */
+static void build_symtab_linkage_specifier_declaration(AST a, symtab_t* st)
+{
+	AST declaration = ASTSon1(a);
+
+	char* previous_linkage = current_linkage;
+
+	AST linkage_spec = ASTSon0(a);
+	current_linkage = ASTText(linkage_spec);
+
+	build_symtab_declaration(declaration, st);
+
+	current_linkage = previous_linkage;
+}
+
+/*
+ * This function registers a template declaration
+ */
+static void build_symtab_template_declaration(AST a, symtab_t* st)
+{
+	/*
+	 * The declaration after the template parameter list can be
+	 * a simple declaration or a function definition.
+	 *
+	 * For the case of a simple_declaration, the following are examples
+	 * of what can appear there
+	 *
+	 *   template <class P, class Q>
+	 *   class A                 // A primary template class
+	 *   {
+	 *   };
+	 *
+	 *   template <class P>
+	 *   class A<P, int>         // A partial specialized class
+	 *   {
+	 *   };
+	 *
+	 *   template <class P>
+	 *   T A<P>::d = expr;       // For static member initialization
+	 *   
+	 *   template <class P>           
+	 *   void f(..., P q, ...);  // Function declaration
+	 *
+	 * Template classes are saved in a special form since the may be
+	 * specialized in several ways.
+	 *
+	 */
+
+	/*
+	 * Template parameter information is constructed first
+	 */
+	symtab_t* template_scope = enter_scope(st);
+	template_parameter_t** template_param_info = calloc(1, sizeof(*template_param_info));
+	int num_parameters = 0;
+	
+	build_symtab_template_parameter_list(ASTSon0(a), template_scope, template_param_info, &num_parameters);
+}
+
+/*
+ * This function register templates parameters in a given scope
+ */
+static void build_symtab_template_parameter_list(AST a, symtab_t* st, 
+		template_parameter_t** template_param_info, int* num_parameters)
+{
+	AST iter;
+	AST list = a;
+
+	for_each_element(list, iter)
+	{
+		AST template_parameter = ASTSon1(iter);
+
+		template_parameter_t* new_template_param = calloc(1, sizeof(*new_template_param));
+
+		build_symtab_template_parameter(template_parameter, st, new_template_param);
+
+		P_LIST_ADD(template_param_info, *num_parameters, new_template_param);
+	}
+}
+
+/*
+ * This function register one template parameter in a given scope
+ */
+static void build_symtab_template_parameter(AST a, symtab_t* st, 
+		template_parameter_t* template_param_info)
+{
+	switch (ASTType(a))
+	{
+		case AST_PARAMETER_DECL :
+			build_symtab_nontype_template_parameter(a, st, template_param_info);
+			break;
+		case AST_TYPE_PARAMETER_CLASS :
+		case AST_TYPE_PARAMETER_TYPENAME :
+			build_symtab_type_template_parameter(a, st, template_param_info);
+			break;
+		case AST_TYPE_PARAMETER_TEMPLATE :
+			break;
+		default :
+			internal_error("Unknown node type '%s'", ast_print_node_type(ASTType(a)));
+	}
+}
+
+static void build_symtab_type_template_parameter(AST a, symtab_t* st,
+		template_parameter_t* template_param_info)
+{
+	// This parameters have the form
+	//    CLASS [name] [ = type_id]
+	//    TYPENAME [name] [ = type_id]
+	//
+	// The trick here is create a simple_type that will be of type
+	// STK_TYPE_TEMPLATE_PARAMETER. If it is named, register it in the symbol
+	// table
+	//
+	// Create the type
+	type_t* new_type = calloc(1, sizeof(*new_type));
+	new_type->kind = TK_DIRECT;
+	new_type->type = calloc(1, sizeof(*(new_type->type)));
+	new_type->type->kind = STK_TEMPLATE_CLASS;
+
+	// Save the info
+	template_param_info->type_info = new_type;
+
+	AST name = ASTSon0(a);
+	AST type_id = ASTSon1(a);
+	
+	if (name != NULL)
+	{
+		// This is a named type parameter. Register it in the symbol table
+		fprintf(stderr, "Registering type template-parameter '%s'\n", ASTText(name));
+		symtab_entry_t* new_entry = new_symbol(st, ASTText(name));
+		new_entry->type_information = new_type;
+	}
+	
+	template_param_info->default_argument = type_id;
+}
+
+static void build_symtab_nontype_template_parameter(AST a, symtab_t* st,
+		template_parameter_t* template_param_info)
+{
+	// As usual there are three parts
+	//     decl_specifier_seq [declarator] [ = expression ]
+	simple_type_t* simple_type_info;
+	gather_decl_spec_t gather_info;
+	memset(&gather_info, 0, sizeof(gather_info));
+
+	AST decl_specifier_seq = ASTSon0(a);
+	AST parameter_declarator = ASTSon1(a);
+
+	build_symtab_decl_specifier_seq(decl_specifier_seq, st, &gather_info, &simple_type_info);
+
+	if (parameter_declarator != NULL)
+	{
+		// This will add into the symbol table if it has a name
+		build_symtab_declarator(parameter_declarator, st, 
+				&gather_info, simple_type_info, &template_param_info->type_info);
+
+		AST declarator_name = get_declarator_name(parameter_declarator);
+		if (declarator_name != NULL)
+		{
+			symtab_entry_list_t* entry_list = query_id_expression(st, declarator_name);
+			if (entry_list == NULL)
+			{
+				internal_error("Where is the declarated symbol ?", 0);
+			}
+
+			fprintf(stderr, "Remembering '%s' as a non-type template parameter\n", ASTText(declarator_name));
+			// This is not a variable, but a template parameter
+			entry_list->entry->kind = SK_TEMPLATE_PARAMETER;
+		}
+	}
+	// If we don't have a declarator just save the base type
+	else
+	{
+		template_param_info->type_info = simple_type_to_type(simple_type_info);
 	}
 }
 

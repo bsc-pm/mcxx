@@ -30,7 +30,11 @@ enum cxx_symbol_kind
 	SK_LABEL,
 	SK_NAMESPACE,
 	SK_VARIABLE,
-	SK_TYPEDEF
+	SK_TYPEDEF,
+	// Lots of stuff related to the C++ "template madness"
+	SK_TEMPLATE_CLASS,
+	SK_TEMPLATE_FUNCTION,
+	SK_TEMPLATE_PARAMETER
 };
 
 typedef enum {
@@ -76,6 +80,9 @@ typedef enum simple_type_kind_tag
 	STK_ENUM,
 	STK_TYPEDEF,
 	STK_USER_DEFINED,
+	// Templates stuff
+	STK_TEMPLATE_CLASS,
+	STK_TYPE_TEMPLATE_PARAMETER
 } simple_type_kind_t;
 
 struct symtab_entry_tag;
@@ -89,6 +96,22 @@ typedef struct enum_information_tag {
 	int num_enumeration;
 	struct symtab_entry_tag** enumeration_list;
 } enum_info_t;
+
+enum template_parameter_kind
+{
+	TPK_UNKNOWN = 0,
+	TPK_NONTYPE,
+	TPK_TYPE,
+	TPK_TEMPLATE
+};
+
+typedef struct template_parameter {
+	enum template_parameter_kind kind;
+
+	struct type_tag* type_info;
+
+	AST default_argument;
+} template_parameter_t;
 
 typedef enum access_specifier_t
 {
@@ -138,6 +161,9 @@ typedef struct simple_type_tag {
 	char is_signed;
 
 	// Previously declared type. should be completely "cv-unqualified"
+	//
+	// If this is a STK_TYPE_TEMPLATE_PARAMETER this will be NULL since there
+	// is no "real type" backing this
 	struct symtab_entry_tag* user_defined_type;
 
 	// For typedefs
@@ -148,6 +174,8 @@ typedef struct simple_type_tag {
 	
 	// For classes
 	class_info_t* class_info;
+
+	// For template classes
 
 	cv_qualifier_t cv_qualifier;
 } simple_type_t;
@@ -228,10 +256,18 @@ typedef struct symtab_entry_tag
 	// Related scope. For scopes defined within this symbol
 	// e.g. namespaces, classes, etc
 	struct symtab_tag* inner_scope;
-	// TODO - Related scopes included by means of using (koenig here??)
 
-	// TODO - For enumerator symbols, an AST with the folded value
+	// Initializations of several kind are saved here
+	//   - initialization of const objects
+	//   - enumerator values
 	AST expression_value;
+
+	// For template parameters
+	int num_template_parameters;
+	template_parameter_t** template_parameter_info;
+
+	// Linkage
+	char* linkage_spec;
 } symtab_entry_t;
 
 // This is what the symbol table returns

@@ -1,0 +1,4 @@
+#ifndef CXX_AMBIGUITY
+#define CXX_AMBIGUITY
+
+#endif // CXX_AMBIGUITY
