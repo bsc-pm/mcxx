@@ -1398,6 +1398,8 @@ static void build_symtab_template_parameter(AST a, symtab_t* st,
 			build_symtab_type_template_parameter(a, st, template_param_info);
 			break;
 		case AST_TYPE_PARAMETER_TEMPLATE :
+			// Think about it
+			internal_error("Node template template-parameters still not supported", 0);
 			break;
 		case AST_AMBIGUITY :
 			// The ambiguity here is parameter_class vs parameter_decl
