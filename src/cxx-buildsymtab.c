@@ -54,6 +54,8 @@ static void register_new_typedef_name(AST declarator_id, type_t* declarator_type
 		gather_decl_spec_t* gather_info, symtab_t* st);
 static void register_new_variable_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, symtab_t* st);
+static void register_function(AST declarator_id, type_t* declarator_type, 
+		gather_decl_spec_t* gather_info, symtab_t* st);
 
 static cv_qualifier_t compute_cv_qualifier(AST a);
 
@@ -188,7 +190,7 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st)
 			if (!gather_info.is_extern
 					&& declarator_type->kind != TK_FUNCTION)
 			{
-				AST declarator_name = get_declarator_name(ASTSon1(declarator));
+				AST declarator_name = get_declarator_name(declarator);
 				symtab_entry_list_t* entry_list = query_id_expression(st, declarator_name);
 
 				if (entry_list == NULL)
@@ -197,6 +199,14 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st)
 				}
 
 				// The last entry will hold our symbol, no need to look for it in the list
+				if (entry_list->entry->defined)
+				{
+					running_error("This symbol has already been defined", 0);
+				}
+
+				fprintf(stderr, "Defining symbol '");
+				prettyprint(stderr, declarator_name);
+				fprintf(stderr, "'\n");
 				entry_list->entry->defined = 1;
 			}
 		}
@@ -214,6 +224,8 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st)
  * unsigned int a;  // "unsigned" will be in gather_info and "int" in simple_type_info
  * unsigned b;      // "unsigned" will be considered directly simple_type_info
  * const A b;       // "const" will be in gather_info "A" in simple_type_info
+ * unsigned long b; // There is an ambiguity in this case that should be solved favouring
+ *                  // the option where there is a type_spec (either unsigned or long)
  *
  * Recall our grammar defines a decl_specifier_seq as 
  *    decl_specifier_seq -> nontype_decl_specifier_seq[opt] type_spec[opt] nontype_decl_specifier_seq[opt]
@@ -691,8 +703,6 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 static void build_symtab_declarator(AST a, symtab_t* st, gather_decl_spec_t* gather_info, 
 		simple_type_t* simple_type_info, type_t** declarator_type)
 {
-	fprintf(stderr, "Declarator\n");
-
 	// Set base type
 	*declarator_type = simple_type_to_type(simple_type_info);
 
@@ -700,12 +710,15 @@ static void build_symtab_declarator(AST a, symtab_t* st, gather_decl_spec_t* gat
 
 	build_symtab_declarator_rec(a, st, declarator_type, &declarator_name);
 
-	print_declarator(*declarator_type, st); fprintf(stderr, "\n");
-
 	if (declarator_name != NULL)
 	{
 		build_symtab_declarator_name(declarator_name, *declarator_type, gather_info, st);
+
+		fprintf(stderr, "declaring ");
+		prettyprint(stderr, declarator_name);
+		fprintf(stderr, " as ");
 	}
+	print_declarator(*declarator_type, st); fprintf(stderr, "\n");
 }
 
 /*
@@ -982,7 +995,7 @@ static AST get_declarator_name(AST a)
 			}
 		case AST_DECLARATOR_FUNC :
 			{
-				get_declarator_name(ASTSon0(a));
+				return get_declarator_name(ASTSon0(a));
 				break;
 			}
 		case AST_DECLARATOR_ID_EXPR :
@@ -995,8 +1008,6 @@ static AST get_declarator_name(AST a)
 				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
 			}
 	}
-
-	return NULL;
 }
 
 
@@ -1039,12 +1050,10 @@ static void build_symtab_declarator_id_expr(AST declarator_name, type_t* declara
 				if (gather_info->is_typedef)
 				{
 					register_new_typedef_name(declarator_id, declarator_type, gather_info, st);
-					fprintf(stderr, "Declared new typedef '%s'\n", ASTText(declarator_id));
 				}
 				else
 				{
 					register_new_variable_name(declarator_id, declarator_type, gather_info, st);
-					fprintf(stderr, "Declared variable '%s'\n", ASTText(declarator_id));
 				}
 				break;
 			}
@@ -1130,6 +1139,8 @@ static void register_new_typedef_name(AST declarator_id, type_t* declarator_type
 
 	symtab_entry_t* entry = new_symbol(st, ASTText(declarator_id));
 
+	fprintf(stderr, "Registering typedef '%s'\n", ASTText(declarator_id));
+
 	// Save aliased type under the type of this declaration
 	entry->kind = SK_TYPEDEF;
 	entry->type_information = calloc(1, sizeof(*(entry->type_information)));
@@ -1147,73 +1158,67 @@ static void register_new_typedef_name(AST declarator_id, type_t* declarator_type
 static void register_new_variable_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, symtab_t* st)
 {
-	symtab_entry_list_t* list = query_in_current_scope(st, ASTText(declarator_id));
-	symtab_entry_t* entry = NULL;
-
-	// Only enum or classes can exist, otherwise this is an error
-	if (list != NULL)
+	if (declarator_type->kind != TK_FUNCTION)
 	{
-		int num_types = 0, num_other = 0;
-		// Look for the first variable
-		while ((list != NULL) && 
-				(entry == NULL))
+		// Check for existence of this symbol
+		symtab_entry_list_t* entry_list = query_in_current_scope(st, ASTText(declarator_id));
+		if (entry_list != NULL)
 		{
-			if (list->entry->kind == SK_VARIABLE)
-			{
-				entry = list->entry;
-			}
-			else if (list->entry->kind == SK_ENUM
-					|| list->entry->kind == SK_CLASS)
-			{
-				num_types++;
-			}
-			else
-			{
-				num_other++;
-			}
-			list = list->next;
+#warning "Check for type-names"
 		}
-		
-		// Basically if there is something other than one elaborated type for
-		// this identifier, it is being incorrectly redeclared.
-		//
-		// Recall that:
-		//
-		//   struct A { };
-		//   A A;
-		//
-		// Is well-formed.
-		if (num_types > 1 
-				|| num_other != 0)
+		else
 		{
-			internal_error("Symbol '%s' has been redeclared as a different symbol kind.", 
-					ASTText(declarator_id));
+			fprintf(stderr, "Registering variable '%s'\n", ASTText(declarator_id));
+			symtab_entry_t* entry = new_symbol(st, ASTText(declarator_id));
+			entry->kind = SK_VARIABLE;
+			// entry->type_information = copy_type(declarator_type);
+			entry->type_information = declarator_type;
 		}
-
-		/*
-		 * If this symbol has been already defined and it is not flagged as
-		 * extern nor is a function, then this symbol is being redefined
-		 */
-		if (entry->defined
-				&& !gather_info->is_extern
-				&& (entry->type_information->kind != TK_FUNCTION))
-		{
-			running_error("Symbol '%s' has already been defined.", ASTText(declarator_id));
-		}
-
-		// Here we'll want the symbol to be declared
-		entry = NULL;
 	}
-
-	if (entry == NULL)
+	else
 	{
-		fprintf(stderr, "Registering variable '%s'\n", ASTText(declarator_id));
-		entry = new_symbol(st, ASTText(declarator_id));
-		entry->kind = SK_VARIABLE;
-		// entry->type_information = copy_type(declarator_type);
-		entry->type_information = declarator_type;
+		register_function(declarator_id, declarator_type, gather_info, st);
+	}
+}
 
-		// TODO - cv qualification
+static void register_function(AST declarator_id, type_t* declarator_type, 
+		gather_decl_spec_t* gather_info, symtab_t* st)
+{
+	symtab_entry_list_t* entry_list = query_in_current_scope(st, ASTText(declarator_id));
+
+	if (entry_list == NULL)
+	{
+			fprintf(stderr, "Registering function '%s'\n", ASTText(declarator_id));
+			symtab_entry_t* new_entry = new_symbol(st, ASTText(declarator_id));
+			new_entry->kind = SK_FUNCTION;
+			new_entry->type_information = declarator_type;
+	}
+	else
+	{
+		function_info_t* function_being_declared = declarator_type->function;
+		while (entry_list != NULL)
+		{
+			symtab_entry_t* entry = entry_list->entry;
+
+			if (entry->kind != SK_FUNCTION)
+			{
+				running_error("Symbol '%s' already declared as a different symbol type", ASTText(declarator_id), entry->kind);
+			}
+
+			function_info_t* current_function = entry->type_information->function;
+
+			if (overloaded_function(function_being_declared, current_function, st))
+			{
+				fprintf(stderr, "Registering overload for function '%s'\n", ASTText(declarator_id));
+				symtab_entry_t* new_entry = new_symbol(st, ASTText(declarator_id));
+				new_entry->kind = SK_FUNCTION;
+				new_entry->type_information = declarator_type;
+
+				break;
+			}
+			
+			entry_list = entry_list->next;
+		}
 	}
 }
 

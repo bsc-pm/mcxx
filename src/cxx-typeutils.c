@@ -185,14 +185,14 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2, symtab_t* 
 char overloaded_function(function_info_t* t1, function_info_t* t2, symtab_t* st)
 {
 	if (!compatible_parameters(t1, t2, st))
-		return 0;
+		return 1;
 
 	if (!equivalent_types(t1->return_type, t2->return_type, st))
 	{
-		internal_error("You are trying to overload a function by only modifying its return type", 0);
+		running_error("You are trying to overload a function by only modifying its return type", 0);
 	}
 
-	return 1;
+	return 0;
 }
 
 static char equivalent_function_type(function_info_t* t1, function_info_t* t2, symtab_t* st)
@@ -347,8 +347,9 @@ static type_t* base_type(type_t* t1)
 				break;
 			case TK_ARRAY :
 				t1 = t1->array->element_type;
+				break;
 			default:
-				internal_error("Unknown type kind", 0);
+				internal_error("Unknown type kind %d", t1->kind);
 		}
 	}
 
