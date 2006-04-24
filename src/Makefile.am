@@ -1,10 +1,10 @@
 bin_PROGRAMS = mcxx
 
 mcxx_SOURCES = \
-  cxx-asttype.h \
-  cxx-asttype.c \
   cxx-ast.c \
   cxx-ast.h \
+  cxx-asttype.h \
+  cxx-asttype.c \
   cxx-lexer.h \
   cxx-parser.h \
   cxx-parser.c \
@@ -25,7 +25,9 @@ mcxx_SOURCES = \
   cxx-typeutils.c \
   cxx-typeutils.h \
   cxx-cexpr.c \
-  cxx-cexpr.h
+  cxx-cexpr.h \
+  cxx-ambiguity.c \
+  cxx-ambiguity.h
 
 mcxx_LDFLAGS=-L../lib
 mcxx_LDADD=-lmcxx-utils 
@@ -35,6 +37,8 @@ EXTRA_DIST =
 EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx03.l
 EXTRA_DIST += cxx-asttype.def
+
+cxx-ast.h : cxx-asttype.h
 
 cxx-asttype.h : $(srcdir)/cxx-asttype.def
 	echo "#ifndef CXX_ASTTYPE_H" > cxx-asttype.h
