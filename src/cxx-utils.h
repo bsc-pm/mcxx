@@ -1,6 +1,8 @@
 #ifndef CXX_UTILS_H
 #define CXX_UTILS_H
 
+#include <stdlib.h>
+
 // Some useful macros
 #ifndef __GNUC__
     #define __attribute__(x)

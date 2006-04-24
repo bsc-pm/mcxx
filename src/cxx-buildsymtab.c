@@ -7,6 +7,7 @@
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
+#include "cxx-ambiguity.h"
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
@@ -1397,6 +1398,12 @@ static void build_symtab_template_parameter(AST a, symtab_t* st,
 			build_symtab_type_template_parameter(a, st, template_param_info);
 			break;
 		case AST_TYPE_PARAMETER_TEMPLATE :
+			break;
+		case AST_AMBIGUITY :
+			// The ambiguity here is parameter_class vs parameter_decl
+			solve_parameter_declaration_vs_type_parameter_class(a);
+			// Restart this routine
+			build_symtab_template_parameter(a, st, template_param_info);
 			break;
 		default :
 			internal_error("Unknown node type '%s'", ast_print_node_type(ASTType(a)));
