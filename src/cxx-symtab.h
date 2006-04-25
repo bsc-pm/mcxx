@@ -176,6 +176,8 @@ typedef struct simple_type_tag {
 	class_info_t* class_info;
 
 	// For template classes
+	// Template arguments for specializations and instantiations
+	AST template_arguments;
 
 	cv_qualifier_t cv_qualifier;
 } simple_type_t;
@@ -241,8 +243,8 @@ struct symtab_tag;
 // This is an entry in the symbol table
 typedef struct symtab_entry_tag
 {
-	enum cxx_symbol_kind kind;
 	char* symbol_name;
+	enum cxx_symbol_kind kind;
 
 	// This allows us to enforce the one-definition-rule within a translation unit
 	int defined;
@@ -299,6 +301,7 @@ symtab_entry_t* new_symbol(symtab_t* st, char* name);
 symtab_entry_list_t* query_in_current_scope(symtab_t* st, char* name);
 symtab_entry_list_t* query_in_current_and_upper_scope(symtab_t* st, char* name);
 symtab_entry_list_t* create_list_from_entry(symtab_entry_t* entry);
+void insert_entry(symtab_t* st, symtab_entry_t* entry);
 
 // Higher level functions when dealing with the symtab
 symtab_entry_t* filter_simple_type_specifier(symtab_entry_list_t* entry_list);

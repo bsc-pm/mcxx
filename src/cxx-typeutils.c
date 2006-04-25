@@ -500,7 +500,19 @@ simple_type_t* copy_simple_type(simple_type_t* type_info)
 // Gives the name of a builtin type
 const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
 {
-	static char result[256] = {0};
+	static char result[256];
+
+	memset(result, 0, 255);
+	if ((simple_type_info->cv_qualifier & CV_CONST) == CV_CONST)
+	{
+		strcat(result, "const ");
+	}
+
+	if ((simple_type_info->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+	{
+		strcat(result, "volatile ");
+	}
+
 	switch (simple_type_info->kind)
 	{
 		case STK_BUILTIN_TYPE :
@@ -508,29 +520,29 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
 				switch (simple_type_info->builtin_type)
 				{
 					case BT_INT :
-						return "int";
+						strcat(result, "int");
 						break;
 					case BT_BOOL :
-						return "bool";
+						strcat(result, "bool");
 						break;
 					case BT_FLOAT :
-						return "float";
+						strcat(result, "float");
 						break;
 					case BT_DOUBLE :
-						return "double";
+						strcat(result, "double");
 						break;
 					case BT_WCHAR :
-						return "wchar_t";
+						strcat(result, "wchar_t");
 						break;
 					case BT_CHAR :
-						return "char";
+						strcat(result, "char");
 						break;
 					case BT_VOID :
-						return "void";
+						strcat(result, "void");
 						break;
 					case BT_UNKNOWN :
 					default :
-						return "¿¿¿unknown builtin type???";
+						strcat(result, "¿¿¿unknown builtin type???");
 						break;
 				}
 				break;
@@ -550,20 +562,24 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
 						snprintf(result, 255, "typedef %s", user_defined_type->symbol_name);
 						break;
 					default :
-						return "¿¿¿unknown user defined type???";
+						strcat(result, "¿¿¿unknown user defined type???");
 				}
-
-				return result;
+				break;
 			}
 		case STK_ENUM :
-			return "enum <anonymous>";
+			strcat(result, "enum <anonymous>");
+			break;
 		case STK_CLASS :
-			return "class <anonymous>";
+			strcat(result, "class <anonymous>");
+			break;
 		default :
 			{
+				break;
 			}
 	}
-	return "¿¿¿unknown type???";
+
+
+	return result;
 }
 
 // This prints a declarator in English. It is intended for debugging purposes
@@ -578,6 +594,14 @@ void print_declarator(type_t* printed_declarator, symtab_t* st)
 				printed_declarator = NULL;
 				break;
 			case TK_POINTER :
+				if ((printed_declarator->pointer->cv_qualifier & CV_CONST) == CV_CONST)
+				{
+					fprintf(stderr, "const ");
+				}
+				if ((printed_declarator->pointer->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+				{
+					fprintf(stderr, "volatile ");
+				}
 				fprintf(stderr, "pointer to ");
 				printed_declarator = printed_declarator->pointer->pointee;
 				break;

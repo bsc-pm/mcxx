@@ -27,7 +27,9 @@ mcxx_SOURCES = \
   cxx-cexpr.c \
   cxx-cexpr.h \
   cxx-ambiguity.c \
-  cxx-ambiguity.h
+  cxx-ambiguity.h \
+  cxx-printsymtab.c \
+  cxx-printsymtab.h
 
 mcxx_LDFLAGS=-L../lib
 mcxx_LDADD=-lmcxx-utils 

@@ -81,6 +81,39 @@ symtab_entry_list_t* query_in_current_and_upper_scope(symtab_t* st, char* name)
 }
 
 /*
+ * Insert entry in the symtab
+ */
+void insert_entry(symtab_t* st, symtab_entry_t* entry)
+{
+	if (entry->symbol_name == NULL)
+	{
+		internal_error("Inserting an symbol entry without name!", 0);
+	}
+	
+	symtab_entry_list_t* result_set = (symtab_entry_list_t*) hash_get(st->hash, entry->symbol_name);
+
+
+	if (result_set != NULL)
+	{
+		symtab_entry_list_t* new_set = (symtab_entry_list_t*) calloc(1, sizeof(*new_set));
+
+		// Put the new entry in front of the previous
+		*new_set = *result_set;
+
+		result_set->next = new_set;
+		result_set->entry = entry;
+	}
+	else
+	{
+		result_set = (symtab_entry_list_t*) calloc(1, sizeof(*result_set));
+		result_set->entry = entry;
+		result_set->next = NULL; // redundant, though
+
+		hash_put(st->hash, entry->symbol_name, result_set);
+	}
+}
+
+/*
  * Returns a type if and only if this entry_list contains just one type
  * specifier. If another identifier is found it returns NULL
  */
