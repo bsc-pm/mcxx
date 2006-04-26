@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "cxx-symtab.h"
+#include "cxx-buildsymtab.h"
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "hash.h"
@@ -205,7 +206,25 @@ symtab_entry_list_t* query_nested_name_spec(symtab_t* st, symtab_t** result_look
 				}
 			case AST_TEMPLATE_ID :
 				{
-					internal_error("Unsupported template id", 0);
+#warning "Template resolution has to be done here"
+					// TODO - Here we have to do template resolution !
+					AST symbol = ASTSon0(nested_name_spec);
+					entry_list = 
+						query_in_current_and_upper_scope(lookup_scope, ASTText(symbol));
+
+					if (entry_list == NULL)
+						return NULL;
+
+					if (entry_list->entry->kind != SK_TEMPLATE_PRIMARY_CLASS &&
+							entry_list->entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS)
+					{
+						return NULL;
+					}
+
+					seen_class = 1;
+
+					lookup_scope = entry_list->entry->inner_scope;
+
 					break;
 				}
 			default:
@@ -254,7 +273,11 @@ symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr)
 		case AST_OPERATOR_FUNCTION_ID :
 			{
 				// An unqualified operator_function_id "operator +"
-				internal_error("Unsupported operator id", 0);
+				char* operator_function_name = get_operator_function_name(id_expr);
+
+				symtab_entry_list_t* result = query_in_current_and_upper_scope(st, operator_function_name);
+
+				return result;
 				break;
 			}
 		case AST_CONVERSION_FUNCTION_ID :

@@ -27,4 +27,6 @@ typedef struct gather_decl_spec_tag {
 	char is_explicit;
 } gather_decl_spec_t;
 
+char* get_operator_function_name(AST declarator_id);
+
 #endif // CXX_BUILDSYMTAB_H

@@ -1160,6 +1160,9 @@ static symtab_entry_t* build_symtab_declarator_id_expr(AST declarator_name, type
 		case AST_OPERATOR_FUNCTION_ID :
 			{
 				// An unqualified operator_function_id "operator +"
+				char* operator_function_name = get_operator_function_name(declarator_id);
+				AST operator_id = ASTLeaf(AST_SYMBOL, 0, operator_function_name);
+				return register_new_variable_name(operator_id, declarator_type, gather_info, st);
 				break;
 			}
 		case AST_CONVERSION_FUNCTION_ID :
@@ -1321,10 +1324,12 @@ static symtab_entry_t* register_function(AST declarator_id, type_t* declarator_t
 
 static symtab_entry_t* find_function_declaration(symtab_t* st, AST declarator_id, type_t* declarator_type, char* is_overload)
 {
+	// This function is a mess and should be rewritten
 	symtab_entry_list_t* entry_list = query_id_expression(st, declarator_id);
 
 	function_info_t* function_being_declared = declarator_type->function;
 	symtab_entry_t* equal_entry = NULL;
+
 	char found_equal = 0;
 	*is_overload = 0;
 
@@ -1334,6 +1339,7 @@ static symtab_entry_t* find_function_declaration(symtab_t* st, AST declarator_id
 
 		if (entry->kind != SK_FUNCTION)
 		{
+			// Ignore it for now, constructors clash with symbol name
 			// running_error("Symbol '%s' already declared as a different symbol type", ASTText(declarator_id), entry->kind);
 			entry_list = entry_list->next;
 			continue;
@@ -1346,14 +1352,16 @@ static symtab_entry_t* find_function_declaration(symtab_t* st, AST declarator_id
 		{
 			equal_entry = entry;
 		}
+		else
+		{
+			*is_overload = 1;
+		}
 
 		entry_list = entry_list->next;
 	}
 
-	// This is bad programming
 	if (!found_equal)
 	{
-		*is_overload = 1;
 		return NULL;
 	}
 	else
@@ -1746,14 +1754,12 @@ static symtab_entry_t* build_symtab_function_definition(AST a, symtab_t* st)
 	type_t* declarator_type;
 	
 	symtab_entry_t* entry = NULL;
-	// if (type_info != NULL)
-	// {
-		entry = build_symtab_declarator(ASTSon1(a), st, &gather_info, type_info, &declarator_type);
-		if (entry == NULL)
-		{
-			internal_error("This function does not exist!", 0);
-		}
-	// }
+
+	entry = build_symtab_declarator(ASTSon1(a), st, &gather_info, type_info, &declarator_type);
+	if (entry == NULL)
+	{
+		internal_error("This function does not exist!", 0);
+	}
 
 	// Nothing will be done with ctor_initializer at the moment
 	// Function_body
@@ -1844,6 +1850,9 @@ static void build_symtab_member_function_definition(AST a, symtab_t*  st,
 			}
 		case AST_OPERATOR_FUNCTION_ID :
 			{
+				symtab_entry_t* entry = build_symtab_function_definition(a, st);
+
+				P_LIST_ADD(class_type->operator_function_list, class_type->num_operator_functions, entry);
 				break;
 			}
 		case AST_CONVERSION_FUNCTION_ID :
@@ -1994,3 +2003,102 @@ static exception_spec_t* build_exception_spec(symtab_t* st, AST a)
 	return result;
 }
 
+char* get_operator_function_name(AST declarator_id)
+{
+	if (ASTType(declarator_id) != AST_OPERATOR_FUNCTION_ID)
+	{
+		internal_error("This node is not valid here '%s'", ast_print_node_type(ASTType(declarator_id)));
+	}
+
+	AST operator  = ASTSon0(declarator_id);
+
+	switch (ASTType(operator))
+	{
+		case AST_NEW_OPERATOR :
+			return "operator new";
+		case AST_DELETE_OPERATOR :
+			return "operator delete";
+		case AST_NEW_ARRAY_OPERATOR :
+			return "operator new[]";
+		case AST_DELETE_ARRAY_OPERATOR :
+			return "operator delete[]";
+		case AST_ADD_OPERATOR :
+			return "operator +";
+		case AST_MINUS_OPERATOR :
+			return "operator -";
+		case AST_MULT_OPERATOR :
+			return "operator *";
+		case AST_DIV_OPERATOR :
+			return "operator /";
+		case AST_MOD_OPERATOR :
+			return "operator %";
+		case AST_BITWISE_XOR_OPERATOR :
+			return "operator ^";
+		case AST_BITWISE_AND_OPERATOR :
+			return "operator &";
+		case AST_BITWISE_OR_OPERATOR :
+			return "operator |";
+		case AST_BITWISE_NEG_OPERATOR :
+			return "operator ~";
+		case AST_LOGICAL_NOT_OPERATOR :
+			return "operator !";
+		case AST_ASSIGNMENT_OPERATOR :
+			return "operator =";
+		case AST_LOWER_OPERATOR :
+			return "operator <";
+		case AST_GREATER_OPERATOR :
+			return "operator >";
+		case AST_ADD_ASSIGN_OPERATOR :
+			return "operator +=";
+		case AST_SUB_ASSIGN_OPERATOR :
+			return "operator -=";
+		case AST_MUL_ASSIGN_OPERATOR :
+			return "operator *=";
+		case AST_DIV_ASSIGN_OPERATOR :
+			return "operator /=";
+		case AST_MOD_ASSIGN_OPERATOR :
+			return "operator %=";
+		case AST_XOR_ASSIGN_OPERATOR :
+			return "operator ^=";
+		case AST_AND_ASSIGN_OPERATOR :
+			return "operator &=";
+		case AST_OR_ASSIGN_OPERATOR :
+			return "operator |=";
+		case AST_LEFT_OPERATOR :
+			return "operator <<";
+		case AST_RIGHT_OPERATOR :
+			return "operator >>";
+		case AST_LEFT_ASSIGN_OPERATOR :
+			return "operator <<=";
+		case AST_RIGHT_ASSIGN_OPERATOR :
+			return "operator >>=";
+		case AST_EQUAL_OPERATOR :
+			return "operator ==";
+		case AST_DIFFERENT_OPERATOR :
+			return "operator !=";
+		case AST_LESS_OR_EQUAL_OPERATOR :
+			return "operator <=";
+		case AST_GREATER_OR_EQUAL_OPERATOR :
+			return "operator >=";
+		case AST_LOGICAL_AND_OPERATOR :
+			return "operator &&";
+		case AST_LOGICAL_OR_OPERATOR :
+			return "operator ||";
+		case AST_INCREMENT_OPERATOR :
+			return "operator ++";
+		case AST_DECREMENT_OPERATOR :
+			return "operator --";
+		case AST_COMMA_OPERATOR :
+			return "operator ,";
+		case AST_POINTER_OPERATOR :
+			return "operator ->";
+		case AST_POINTER_DERREF_OPERATOR :
+			return "operator ->*";
+		case AST_FUNCTION_CALL_OPERATOR :
+			return "operator ()";
+		case AST_SUBSCRIPT_OPERATOR :
+			return "operator []";
+		default :
+			internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(declarator_id)));
+	}
+}

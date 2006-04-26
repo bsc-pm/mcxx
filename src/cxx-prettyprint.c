@@ -418,7 +418,6 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_ENUM_SPECIFIER, enum_specifier_handler, NULL),
 	NODE_HANDLER(AST_ENUM_DEF, enum_def_handler, NULL),
 	NODE_HANDLER(AST_EXPLICIT_INSTANTIATION, explicit_instantiation_handler, NULL),
-	NODE_HANDLER(AST_EXPLICIT_SPECIALIZATION_DECL, explicit_specialization_decl_handler, NULL),
 	NODE_HANDLER(AST_EXPLICIT_SPECIALIZATION, explicit_specialization_handler, NULL),
 	NODE_HANDLER(AST_LINKAGE_SPEC, linkage_specification_handler, NULL),
 	NODE_HANDLER(AST_LINKAGE_SPEC_DECL, linkage_specification_decl_handler, NULL),
@@ -1813,21 +1812,8 @@ static void explicit_instantiation_handler(FILE* f, AST a, int level)
 {
 	indent_at_level(f, level);
 	fprintf(f, "template ");
-	if (ASTSon0(a) != NULL)
-	{
-		prettyprint_level(f, ASTSon0(a), level);
-		if (ASTSon1(a) != NULL)
-		{
-			fprintf(f, " ");
-		}
-	}
 
-	if (ASTSon1(a) != NULL)
-	{
-		prettyprint_level(f, ASTSon1(a), level);
-	}
-
-	fprintf(f, ";\n");
+	prettyprint_level(f, ASTSon0(a), level);
 }
 
 static void explicit_specialization_decl_handler(FILE* f, AST a, int level)

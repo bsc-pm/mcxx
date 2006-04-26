@@ -312,6 +312,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> template_assignment_expression
 %type<ast> template_conditional_expression
 %type<ast> template_declaration
+%type<ast> templated_declaration
 %type<ast> template_equality_expression
 %type<ast> template_exclusive_or_expression
 %type<ast> template_expression
@@ -3773,11 +3774,11 @@ template_argument : template_assignment_expression
 }
 ;
 
-template_declaration : TEMPLATE '<' template_parameter_list '>' declaration
+template_declaration : TEMPLATE '<' template_parameter_list '>' templated_declaration
 {
 	$$ = ASTMake2(AST_TEMPLATE_DECLARATION, $3, $5, $1.token_line, NULL);
 }
-| EXPORT TEMPLATE '<' template_parameter_list '>' declaration
+| EXPORT TEMPLATE '<' template_parameter_list '>' templated_declaration
 {
 	$$ = ASTMake2(AST_EXPORT_TEMPLATE_DECLARATION, $4, $6, $1.token_line, NULL);
 }
@@ -3867,15 +3868,21 @@ type_parameter : CLASS
 
 explicit_instantiation : TEMPLATE decl_specifier_seq declarator ';'
 {
-	$$ = ASTMake2(AST_EXPLICIT_INSTANTIATION, $2, $3, $1.token_line, NULL);
+	AST simple_decl = ASTMake2(AST_SIMPLE_DECLARATION, $2, ASTListLeaf($3), ASTLine($2), NULL);
+
+	$$ = ASTMake1(AST_EXPLICIT_INSTANTIATION, simple_decl, $1.token_line, NULL);
 }
 | TEMPLATE decl_specifier_seq ';'
 {
-	$$ = ASTMake2(AST_EXPLICIT_INSTANTIATION, $2, NULL, $1.token_line, NULL);
+	AST simple_decl = ASTMake2(AST_SIMPLE_DECLARATION, $2, NULL, ASTLine($2), NULL);
+
+	$$ = ASTMake1(AST_EXPLICIT_INSTANTIATION, simple_decl, $1.token_line, NULL);
 }
 | TEMPLATE declarator ';'
 {
-	$$ = ASTMake2(AST_EXPLICIT_INSTANTIATION, NULL, $2, $1.token_line, NULL);
+	AST simple_decl = ASTMake2(AST_SIMPLE_DECLARATION, NULL, ASTListLeaf($2), ASTLine($2), NULL);
+
+	$$ = ASTMake1(AST_EXPLICIT_INSTANTIATION, simple_decl, $1.token_line, NULL);
 }
 // GNU Extensions
 | storage_class_specifier TEMPLATE decl_specifier_seq declarator ';'
@@ -3904,19 +3911,7 @@ explicit_instantiation : TEMPLATE decl_specifier_seq declarator ';'
 }
 ;
 
-explicit_specialization : TEMPLATE '<' '>' decl_specifier_seq init_declarator ';'
-{
-	$$ = ASTMake2(AST_EXPLICIT_SPECIALIZATION_DECL, $4, $5, $1.token_line, NULL);
-}
-| TEMPLATE '<' '>' init_declarator ';'
-{
-	$$ = ASTMake2(AST_EXPLICIT_SPECIALIZATION_DECL, NULL, $4, $1.token_line, NULL);
-}
-| TEMPLATE '<' '>' decl_specifier_seq ';'
-{
-	$$ = ASTMake2(AST_EXPLICIT_SPECIALIZATION_DECL, $4, NULL, $1.token_line, NULL);
-}
-| TEMPLATE '<' '>' function_definition 
+explicit_specialization : TEMPLATE '<' '>' templated_declaration
 {
 	$$ = ASTMake1(AST_EXPLICIT_SPECIALIZATION, $4, $1.token_line, NULL);
 }
@@ -3930,6 +3925,31 @@ explicit_specialization : TEMPLATE '<' '>' decl_specifier_seq init_declarator ';
 }
 ;
 
+
+// These are the declarations that can follow a template preffix
+// We give them known forms to ease semantic analysis
+templated_declaration : decl_specifier_seq init_declarator ';'
+{
+	// Crafted form of simple declaration
+	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, ASTListLeaf($2), ASTLine($1), NULL);
+}
+| init_declarator ';'
+{
+	$$ = ASTMake2(AST_SIMPLE_DECLARATION, NULL, ASTListLeaf($1), ASTLine($1), NULL);
+}
+| decl_specifier_seq ';'
+{
+	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, NULL, ASTLine($1), NULL);
+}
+| function_definition
+{
+	$$ = $1;
+}
+| template_declaration
+{
+	$$ = $1;
+}
+;
 
 // *********************************************************
 // A.12.1 - Template Expressions
