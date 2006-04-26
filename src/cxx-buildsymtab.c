@@ -47,6 +47,9 @@ static void gather_type_spec_from_simple_type_specifier(AST a, symtab_t* st, sim
 static void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* type_info);
 static void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* type_info);
 
+static void gather_type_spec_from_elaborated_class_specifier(AST a, symtab_t* st, simple_type_t* type_info);
+static void gather_type_spec_from_elaborated_enum_specifier(AST a, symtab_t* st, simple_type_t* type_info);
+
 static void build_symtab_declarator_rec(AST a, symtab_t* st, type_t** declarator_type, AST* declarator_name);
 
 static void gather_decl_spec_information(AST a, symtab_t* st, gather_decl_spec_t* gather_info);
@@ -61,6 +64,7 @@ static void build_symtab_linkage_specifier(AST a, symtab_t* st);
 static void build_symtab_linkage_specifier_declaration(AST a, symtab_t* st);
 
 static void build_symtab_template_declaration(AST a, symtab_t* st);
+static void build_symtab_explicit_template_specialization(AST a, symtab_t* st);
 
 static void build_symtab_template_parameter_list(AST a, symtab_t* st, 
 		template_parameter_t** template_param_info, int* num_parameters);
@@ -175,10 +179,12 @@ static void build_symtab_declaration(AST a, symtab_t* st)
 			}
 		case AST_EXPLICIT_INSTANTIATION :
 			{
+				// Should we construct something on this ?
 				break;
 			}
 		case AST_EXPLICIT_SPECIALIZATION :
 			{
+				build_symtab_explicit_template_specialization(a, st);
 				break;
 			}
 		default :
@@ -475,6 +481,18 @@ static void gather_type_spec_information(AST a, symtab_t* st, simple_type_t* sim
 		case AST_CLASS_SPECIFIER :
 			gather_type_spec_from_class_specifier(a, st, simple_type_info);
 			break;
+		case AST_ELABORATED_TYPE_ENUM :
+			gather_type_spec_from_elaborated_enum_specifier(a, st, simple_type_info);
+			break;
+		case AST_ELABORATED_TYPE_CLASS :
+			gather_type_spec_from_elaborated_class_specifier(a, st, simple_type_info);
+			break;
+		case AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE :
+			internal_error("Still not supported AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE", 0);
+			break;
+		case AST_ELABORATED_TYPE_TEMPLATE :
+			internal_error("Still not supported AST_ELABORATED_TYPE_TEMPLATE", 0);
+			break;
 		case AST_CHAR_TYPE :
 			simple_type_info->kind = STK_BUILTIN_TYPE;
 			simple_type_info->builtin_type= BT_CHAR;
@@ -525,6 +543,150 @@ static void gather_type_spec_information(AST a, symtab_t* st, simple_type_t* sim
 			break;
 		default:
 			internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
+	}
+}
+
+static void gather_type_spec_from_elaborated_class_specifier(AST a, symtab_t* st, simple_type_t* type_info)
+{
+	// AST class_key = ASTSon0(a);
+	AST global_scope = ASTSon1(a);
+	AST nested_name_specifier = ASTSon2(a);
+	AST symbol = ASTSon3(a);
+
+	symtab_t* lookup_scope;
+	symtab_entry_list_t* result_list = NULL;
+
+	if (nested_name_specifier != NULL)
+	{
+		symtab_entry_list_t* lexical_scope = query_nested_name_spec(st, &lookup_scope, global_scope, nested_name_specifier);
+
+		if (lexical_scope != NULL)
+		{
+			result_list = query_in_current_scope(lookup_scope, ASTText(symbol));
+		}
+	}
+	else if (global_scope != NULL)
+	{
+		result_list = query_in_current_scope(compilation_options.global_scope, ASTText(symbol));
+	}
+	else
+	{
+		result_list = query_in_current_and_upper_scope(st, ASTText(symbol));
+	}
+
+	// Now look for a type
+	symtab_entry_t* entry = NULL;
+	while (result_list != NULL 
+			&& entry == NULL)
+	{
+#warning "Implement template class resolution"
+		if (result_list->entry->kind == SK_CLASS
+				|| result_list->entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+				|| result_list->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+		{
+			entry = result_list->entry;
+		}
+
+		result_list = result_list->next;
+	}
+
+	if (entry == NULL)
+	{
+		// Create a stub but only if it is unqualified, otherwise it should exist anywhere
+		if (nested_name_specifier == NULL
+				&& global_scope == NULL)
+		{
+			fprintf(stderr, "Type not found, creating a stub for this scope\n");
+			symtab_entry_t* new_class = new_symbol(st, ASTText(symbol));
+			new_class->kind = SK_CLASS;
+			new_class->type_information = calloc(1, sizeof(*(new_class->type_information)));
+			new_class->type_information->kind = TK_DIRECT;
+			new_class->type_information->type = calloc(1, sizeof(*(new_class->type_information->type)));
+			new_class->type_information->type->kind = STK_CLASS;
+
+			type_info->kind = STK_USER_DEFINED;
+			type_info->user_defined_type = new_class;
+		}
+		else
+		{
+			fprintf(stderr, "Type not found but not creating it because it belongs to another scope\n");
+		}
+	}
+	else
+	{
+		fprintf(stderr, "Class type found, using it\n");
+		type_info->kind = STK_USER_DEFINED;
+		type_info->user_defined_type = entry;
+	}
+}
+
+static void gather_type_spec_from_elaborated_enum_specifier(AST a, symtab_t* st, simple_type_t* type_info)
+{
+	AST global_scope = ASTSon0(a);
+	AST nested_name_specifier = ASTSon1(a);
+	AST symbol = ASTSon2(a);
+
+	symtab_t* lookup_scope;
+	symtab_entry_list_t* result_list = NULL;
+
+	if (nested_name_specifier != NULL)
+	{
+		symtab_entry_list_t* lexical_scope = query_nested_name_spec(st, &lookup_scope, global_scope, nested_name_specifier);
+
+		if (lexical_scope != NULL)
+		{
+			result_list = query_in_current_scope(lookup_scope, ASTText(symbol));
+		}
+	}
+	else if (global_scope != NULL)
+	{
+		result_list = query_in_current_scope(compilation_options.global_scope, ASTText(symbol));
+	}
+	else
+	{
+		result_list = query_in_current_and_upper_scope(st, ASTText(symbol));
+	}
+
+	// Now look for a type
+	symtab_entry_t* entry = NULL;
+	while (result_list != NULL 
+			&& entry == NULL)
+	{
+		if (result_list->entry->kind == SK_ENUM)
+		{
+			entry = result_list->entry;
+		}
+
+		result_list = result_list->next;
+	}
+
+	if (entry == NULL)
+	{
+		// Create a stub but only if it is unqualified, otherwise it should exist anywhere
+		if (nested_name_specifier == NULL
+				&& global_scope == NULL)
+		{
+			fprintf(stderr, "Enum type not found, creating a stub for this scope\n");
+			symtab_entry_t* new_class = new_symbol(st, ASTText(symbol));
+			new_class->kind = SK_ENUM;
+			new_class->type_information = calloc(1, sizeof(*(new_class->type_information)));
+			new_class->type_information->kind = TK_DIRECT;
+			new_class->type_information->type = calloc(1, sizeof(*(new_class->type_information->type)));
+			new_class->type_information->type->kind = STK_ENUM;
+
+			type_info->kind = STK_USER_DEFINED;
+			type_info->user_defined_type = new_class;
+		}
+		else
+		{
+			fprintf(stderr, "Enum type not found but not creating it because it belongs to another scope\n");
+		}
+	}
+	else
+	{
+		fprintf(stderr, "Enum type found, using it\n");
+		type_info->kind = STK_USER_DEFINED;
+		type_info->user_defined_type = entry;
 	}
 }
 
@@ -599,6 +761,7 @@ void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* si
 		// Copy the type because we are creating it and we would clobber it
 		// otherwise
 		new_entry->type_information = copy_type(simple_type_to_type(simple_type_info));
+		new_entry->defined = 1;
 
 		// Since this type is not anonymous we'll want that simple_type_info
 		// refers to this newly created type
@@ -702,6 +865,7 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 
 			// Copy the type because we are creating it and we would clobber it
 			// otherwise
+			entry->defined = 1;
 			entry->type_information = copy_type(simple_type_to_type(simple_type_info));
 
 			entry->inner_scope = inner_scope;
@@ -1461,6 +1625,27 @@ static void build_symtab_template_declaration(AST a, symtab_t* st)
 	}
 }
 
+/*
+ * This function registers an explicit template specialization
+ */
+static void build_symtab_explicit_template_specialization(AST a, symtab_t* st)
+{
+	symtab_t* template_scope = enter_scope(st);
+	template_parameter_t** template_param_info = calloc(1, sizeof(*template_param_info));
+	int num_parameters = 0;
+
+	switch (ASTType(ASTSon0(a)))
+	{
+		case AST_FUNCTION_DEFINITION :
+			break;
+		case AST_SIMPLE_DECLARATION :
+			build_symtab_template_simple_declaration(ASTSon0(a), st, template_scope, num_parameters, template_param_info);
+			break;
+		default :
+			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
+	}
+}
+
 static void build_symtab_template_simple_declaration(AST a, symtab_t* st, symtab_t* template_scope, 
 		int num_parameters, template_parameter_t** template_param_info)
 {
@@ -1560,11 +1745,16 @@ static void build_symtab_template_simple_declaration(AST a, symtab_t* st, symtab
 			running_error("In template declarations only one declarator is valid", 0);
 		}
 
-		AST declarator = ASTSon1(init_declarator_list);
+		AST init_declarator = ASTSon1(init_declarator_list);
+		AST declarator = ASTSon0(init_declarator);
 
 		type_t* declarator_type = NULL;
 		symtab_entry_t* entry = build_symtab_declarator(declarator, template_scope, &gather_info, simple_type_info, &declarator_type);
-		
+
+		if (entry->kind == SK_FUNCTION)
+		{
+			entry->kind = SK_TEMPLATE_FUNCTION;
+		}
 		// TODO - Think about this
 		// Now embed this entry in the outer symbol table
 		insert_entry(st, entry);
