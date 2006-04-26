@@ -27,6 +27,9 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, symt
  */
 char equivalent_types(type_t* t1, type_t* t2, symtab_t* st)
 {
+	if (t1 == NULL || t2 == NULL)
+		return 1;
+
 	// Advance over typedefs
 	while (is_typedef_type(t1))
 	{
@@ -187,6 +190,12 @@ char overloaded_function(function_info_t* t1, function_info_t* t2, symtab_t* st)
 	if (!compatible_parameters(t1, t2, st))
 		return 1;
 
+	// Destructors, constructors, operator functions and conversion functions
+	// will not have a full direct type
+	if ((t1->return_type->kind == TK_DIRECT && t1->return_type->type == NULL)
+			&& (t2->return_type->kind == TK_DIRECT && t2->return_type->type == NULL))
+		return 0;
+
 	if (!equivalent_types(t1->return_type, t2->return_type, st))
 	{
 		running_error("You are trying to overload a function by only modifying its return type", 0);
@@ -319,8 +328,26 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, symt
 
 static char is_typedef_type(type_t* t1)
 {
-	return (t1->kind == TK_DIRECT 
-			&& t1->type->kind == STK_TYPEDEF);
+	if ((t1->kind == TK_DIRECT 
+			&& t1->type->kind == STK_TYPEDEF))
+	{
+		return 1;
+	}
+
+	if (t1->kind == TK_DIRECT
+			&& t1->type->kind == STK_USER_DEFINED)
+	{
+		symtab_entry_t* user_defined_entry = t1->type->user_defined_type;
+		type_t* user_defined_type = user_defined_entry->type_information;
+
+		if (user_defined_type->kind == TK_DIRECT &&
+				user_defined_type->type->kind == STK_TYPEDEF)
+		{
+			return 1;
+		}
+	}
+
+	return 0;
 }
 
 static type_t* aliased_type(type_t* t1)
@@ -328,7 +355,17 @@ static type_t* aliased_type(type_t* t1)
 	if (!is_typedef_type(t1))
 		internal_error("This is not a 'typedef' type", 0);
 
-	return (t1->type->aliased_type);
+	if (t1->kind == TK_DIRECT && t1->type->kind == STK_TYPEDEF)
+	{
+		return (t1->type->aliased_type);
+	}
+	else
+	{
+		symtab_entry_t* user_defined_entry = t1->type->user_defined_type;
+		type_t* user_defined_type = user_defined_entry->type_information;
+
+		return user_defined_type->type->aliased_type;
+	}
 }
 
 static type_t* base_type(type_t* t1)

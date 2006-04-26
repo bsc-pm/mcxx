@@ -241,21 +241,7 @@ symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr)
 				AST symbol = ASTSon0(id_expr);
 				symtab_entry_list_t* result = query_in_current_and_upper_scope(st, ASTText(symbol));
 
-				// Look for a class with this name. Note that we are not
-				// checking for more than one identifier
-				if (result->entry->kind != SK_CLASS)
-				{
-					return NULL;
-				}
-
-				symtab_entry_t* class_entry = result->entry;
-
-				if (class_entry->type_information->type->class_info->destructor != NULL)
-				{
-					return create_list_from_entry(class_entry->type_information->type->class_info->destructor);
-				}
-
-				return NULL;
+				return result;
 
 				break;
 			}
@@ -327,4 +313,19 @@ symtab_entry_list_t* create_list_from_entry(symtab_entry_t* entry)
 	result->next = NULL;
 
 	return result;
+}
+
+char incompatible_symbol_exists(symtab_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind)
+{
+	symtab_entry_list_t* entry_list = query_id_expression(st, id_expr);
+	char found_incompatible = 0;
+
+	while (!found_incompatible && entry_list != NULL)
+	{
+		found_incompatible = (entry_list->entry->kind != symbol_kind);
+
+		entry_list = entry_list->next;
+	}
+
+	return found_incompatible;
 }

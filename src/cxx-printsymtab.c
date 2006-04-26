@@ -69,7 +69,14 @@ static void print_symtab_entry(symtab_entry_t* entry, symtab_t* st)
 {
 	int indent_level = global_indent;
 
-	PRINT_INDENTED_LINE(stderr, "\"%s\" %s\n", entry->symbol_name, symbol_kind_names[entry->kind]);
+	PRINT_INDENTED_LINE(stderr, "\"%s\" %s", entry->symbol_name, symbol_kind_names[entry->kind]);
+
+	if (entry->defined)
+	{
+		fprintf(stderr, " [DEFINED]");
+	}
+
+	fprintf(stderr, "\n");
 
 	if (entry->kind == SK_VARIABLE)
 	{

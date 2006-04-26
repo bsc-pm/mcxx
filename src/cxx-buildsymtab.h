@@ -27,6 +27,4 @@ typedef struct gather_decl_spec_tag {
 	char is_explicit;
 } gather_decl_spec_t;
 
-char* name_from_id_expression(AST a);
-
 #endif // CXX_BUILDSYMTAB_H

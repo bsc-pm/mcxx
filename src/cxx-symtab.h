@@ -308,5 +308,6 @@ symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr);
 
 // Nested names
 symtab_entry_list_t* query_nested_name_spec(symtab_t* st, symtab_t** result_lookup_scope, AST global_op, AST nested_name);
+char incompatible_symbol_exists(symtab_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
 
 #endif // CXX_SYMTAB_H

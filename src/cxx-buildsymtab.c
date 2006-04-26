@@ -11,6 +11,8 @@
 #include "cxx-printsymtab.h"
 #include "hash_iterator.h"
 
+#include <signal.h>
+
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
  * routines will be called prior to filling symbolic information. Note that
@@ -85,7 +87,8 @@ static exception_spec_t* build_exception_spec(symtab_t* st, AST a);
 
 static AST get_declarator_name(AST a);
 
-static symtab_entry_t* find_function_declaration(symtab_t* st, AST declarator_id, type_t* declarator_type);
+static symtab_entry_t* find_function_declaration(symtab_t* st, AST declarator_id, 
+		type_t* declarator_type, char* is_overload);
 
 // Current linkage, by default C++
 static char* current_linkage = "\"C++\"";
@@ -1169,8 +1172,17 @@ static symtab_entry_t* build_symtab_declarator_id_expr(AST declarator_name, type
 		case AST_QUALIFIED_ID :
 			{
 				// A qualified id "a::b::c"
-				symtab_entry_list_t* entry_list = query_id_expression(st, declarator_id);
-				return entry_list->entry;
+				if (declarator_type->kind != TK_FUNCTION)
+				{
+					symtab_entry_list_t* entry_list = query_id_expression(st, declarator_id);
+					return entry_list->entry;
+				}
+				else
+				{
+					char is_overload;
+					symtab_entry_t* entry = find_function_declaration(st, declarator_id, declarator_type, &is_overload);
+					return entry;
+				}
 				break;
 			}
 		case AST_QUALIFIED_TEMPLATE :
@@ -1282,16 +1294,24 @@ static symtab_entry_t* register_function(AST declarator_id, type_t* declarator_t
 {
 	symtab_entry_t* entry;
 
-	entry = find_function_declaration(st, declarator_id, declarator_type);
+	char is_overload;
+	entry = find_function_declaration(st, declarator_id, declarator_type, &is_overload);
 
 	if (entry == NULL)
 	{
+		if (!is_overload)
+		{
 			fprintf(stderr, "Registering function '%s'\n", ASTText(declarator_id));
-			symtab_entry_t* new_entry = new_symbol(st, ASTText(declarator_id));
-			new_entry->kind = SK_FUNCTION;
-			new_entry->type_information = declarator_type;
+		}
+		else
+		{
+			fprintf(stderr, "Registering overload for function '%s'\n", ASTText(declarator_id));
+		}
+		symtab_entry_t* new_entry = new_symbol(st, ASTText(declarator_id));
+		new_entry->kind = SK_FUNCTION;
+		new_entry->type_information = declarator_type;
 
-			return new_entry;
+		return new_entry;
 	}
 	else
 	{
@@ -1299,20 +1319,24 @@ static symtab_entry_t* register_function(AST declarator_id, type_t* declarator_t
 	}
 }
 
-static symtab_entry_t* find_function_declaration(symtab_t* st, AST declarator_id, type_t* declarator_type)
+static symtab_entry_t* find_function_declaration(symtab_t* st, AST declarator_id, type_t* declarator_type, char* is_overload)
 {
-	symtab_entry_list_t* entry_list = query_in_current_scope(st, ASTText(declarator_id));
+	symtab_entry_list_t* entry_list = query_id_expression(st, declarator_id);
 
 	function_info_t* function_being_declared = declarator_type->function;
 	symtab_entry_t* equal_entry = NULL;
 	char found_equal = 0;
+	*is_overload = 0;
+
 	while (entry_list != NULL && !found_equal)
 	{
 		symtab_entry_t* entry = entry_list->entry;
 
 		if (entry->kind != SK_FUNCTION)
 		{
-			running_error("Symbol '%s' already declared as a different symbol type", ASTText(declarator_id), entry->kind);
+			// running_error("Symbol '%s' already declared as a different symbol type", ASTText(declarator_id), entry->kind);
+			entry_list = entry_list->next;
+			continue;
 		}
 
 		function_info_t* current_function = entry->type_information->function;
@@ -1329,12 +1353,8 @@ static symtab_entry_t* find_function_declaration(symtab_t* st, AST declarator_id
 	// This is bad programming
 	if (!found_equal)
 	{
-		fprintf(stderr, "Registering overload for function '%s'\n", ASTText(declarator_id));
-		symtab_entry_t* new_entry = new_symbol(st, ASTText(declarator_id));
-		new_entry->kind = SK_FUNCTION;
-		new_entry->type_information = declarator_type;
-
-		return new_entry;
+		*is_overload = 1;
+		return NULL;
 	}
 	else
 	{
@@ -1725,13 +1745,15 @@ static symtab_entry_t* build_symtab_function_definition(AST a, symtab_t* st)
 	// ¿¿¿TODO???
 	type_t* declarator_type;
 	
-	// If no type was given, this identifier has to exist elsewhere in a class
-	// since it can only be a constructor, destructor or conversion function
 	symtab_entry_t* entry = NULL;
-	if (type_info != NULL)
-	{
+	// if (type_info != NULL)
+	// {
 		entry = build_symtab_declarator(ASTSon1(a), st, &gather_info, type_info, &declarator_type);
-	}
+		if (entry == NULL)
+		{
+			internal_error("This function does not exist!", 0);
+		}
+	// }
 
 	// Nothing will be done with ctor_initializer at the moment
 	// Function_body
