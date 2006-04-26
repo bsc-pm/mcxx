@@ -466,13 +466,6 @@ class_info_t* copy_class_info(class_info_t* class_info)
 
 	*result = *class_info;
 
-	int i;
-	for (i = 0; i < result->num_members; i++)
-	{
-		result->member_list[i]->name = strdup(class_info->member_list[i]->name);
-		result->member_list[i]->type_info = copy_type(result->member_list[i]->type_info);
-	}
-	
 	return result;
 }
 
@@ -502,7 +495,7 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
 {
 	static char result[256];
 
-	memset(result, 0, 255);
+	memset(result, 0, sizeof(char)*255);
 	if ((simple_type_info->cv_qualifier & CV_CONST) == CV_CONST)
 	{
 		strcat(result, "const ");
@@ -561,6 +554,9 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
 					case SK_TYPEDEF :
 						snprintf(result, 255, "typedef %s", user_defined_type->symbol_name);
 						break;
+					case SK_TEMPLATE_PARAMETER :
+						snprintf(result, 255, "type template parameter %s", user_defined_type->symbol_name);
+						break;
 					default :
 						strcat(result, "¿¿¿unknown user defined type???");
 				}
@@ -571,6 +567,9 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
 			break;
 		case STK_CLASS :
 			strcat(result, "class <anonymous>");
+			break;
+		case STK_TEMPLATE_CLASS :
+			strcat(result, "template type parameter T");
 			break;
 		default :
 			{
@@ -590,7 +589,14 @@ void print_declarator(type_t* printed_declarator, symtab_t* st)
 		switch (printed_declarator->kind)
 		{
 			case TK_DIRECT :
-				fprintf(stderr, "%s", get_builtin_type_name(printed_declarator->type, st));
+				if (printed_declarator->type != NULL)
+				{
+					fprintf(stderr, "%s", get_builtin_type_name(printed_declarator->type, st));
+				}
+				else
+				{
+					fprintf(stderr, "(nothing)");
+				}
 				printed_declarator = NULL;
 				break;
 			case TK_POINTER :
@@ -606,10 +612,26 @@ void print_declarator(type_t* printed_declarator, symtab_t* st)
 				printed_declarator = printed_declarator->pointer->pointee;
 				break;
 			case TK_REFERENCE :
+				if ((printed_declarator->pointer->cv_qualifier & CV_CONST) == CV_CONST)
+				{
+					fprintf(stderr, "const ");
+				}
+				if ((printed_declarator->pointer->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+				{
+					fprintf(stderr, "volatile ");
+				}
 				fprintf(stderr, "reference to ");
 				printed_declarator = printed_declarator->pointer->pointee;
 				break;
 			case TK_POINTER_TO_MEMBER :
+				if ((printed_declarator->pointer->cv_qualifier & CV_CONST) == CV_CONST)
+				{
+					fprintf(stderr, "const ");
+				}
+				if ((printed_declarator->pointer->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+				{
+					fprintf(stderr, "volatile ");
+				}
 				fprintf(stderr, "pointer to member of ");
 				print_declarator(printed_declarator->pointer->pointee_class->type_information, st);
 				fprintf(stderr, " to ");
@@ -633,7 +655,16 @@ void print_declarator(type_t* printed_declarator, symtab_t* st)
 							fprintf(stderr, ", ");
 						}
 					}
-					fprintf(stderr, ") returning ");
+					fprintf(stderr, ")");
+					if ((printed_declarator->function->cv_qualifier & CV_CONST) == CV_CONST)
+					{
+						fprintf(stderr, " const");
+					}
+					if ((printed_declarator->function->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+					{
+						fprintf(stderr, " volatile");
+					}
+					fprintf(stderr, " returning ");
 					printed_declarator = printed_declarator->function->return_type;
 					break;
 				}

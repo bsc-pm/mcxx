@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include "cxx-symtab.h"
 #include "cxx-driver.h"
@@ -128,7 +129,8 @@ symtab_entry_t* filter_simple_type_specifier(symtab_entry_list_t* entry_list)
 
 		if (simple_type_entry->kind != SK_ENUM &&
 				simple_type_entry->kind != SK_CLASS &&
-				simple_type_entry->kind != SK_TYPEDEF)
+				simple_type_entry->kind != SK_TYPEDEF &&
+				simple_type_entry->kind != SK_TEMPLATE_PARAMETER)
 		{
 			non_type_name++;
 		}

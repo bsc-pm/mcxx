@@ -32,7 +32,8 @@ enum cxx_symbol_kind
 	SK_VARIABLE,
 	SK_TYPEDEF,
 	// Lots of stuff related to the C++ "template madness"
-	SK_TEMPLATE_CLASS,
+	SK_TEMPLATE_PRIMARY_CLASS,
+	SK_TEMPLATE_SPECIALIZED_CLASS,
 	SK_TEMPLATE_FUNCTION,
 	SK_TEMPLATE_PARAMETER
 };
@@ -123,15 +124,6 @@ typedef enum access_specifier_t
 
 struct simple_type_tag;
 
-typedef struct {
-	// Access specifier
-	access_specifier_t access_spec;
-	// Member name, this will come from the declarator 
-	char* name;
-	// Type of the member
-	struct type_tag* type_info;
-} member_item_t;
-
 enum class_kind_t {
 	CK_STRUCT,
 	CK_CLASS,
@@ -140,15 +132,20 @@ enum class_kind_t {
 
 typedef struct class_information_tag {
 	enum class_kind_t class_kind;
-	int num_members;
-	member_item_t** member_list;
 
 	int is_template;
 
 	// Special functions
 	struct symtab_entry_tag* destructor;
+
+	int num_conversion_functions;
 	struct symtab_entry_tag** conversion_function_list;
+
+	int num_operator_functions;
 	struct symtab_entry_tag** operator_function_list;
+
+	int num_constructors;
+	struct symtab_entry_tag** constructor_list;
 } class_info_t;
 
 // Direct type (including classes and enums)
@@ -256,7 +253,7 @@ typedef struct symtab_entry_tag
 	type_t* type_information;
 
 	// Related scope. For scopes defined within this symbol
-	// e.g. namespaces, classes, etc
+	// e.g. namespaces, classes, functions, etc
 	struct symtab_tag* inner_scope;
 
 	// Initializations of several kind are saved here

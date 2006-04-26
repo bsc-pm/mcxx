@@ -300,7 +300,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_QUALIFIED_TEMPLATE, qualified_template_handler, NULL),
 	NODE_HANDLER(AST_QUALIFIED_TEMPLATE_ID, qualified_template_id_handler, NULL),
 	NODE_HANDLER(AST_QUALIFIED_OPERATOR_FUNCTION_ID, qualified_operator_function_id_handler, NULL),
-	NODE_HANDLER(AST_DESTRUCTOR_ID, prefix_with_parameter_then_son_handler, "~"),
+	NODE_HANDLER(AST_DESTRUCTOR_ID, unary_container_handler, NULL),
 	NODE_HANDLER(AST_CONVERSION_FUNCTION_ID, prefix_with_parameter_then_son_handler, "operator "),
 	NODE_HANDLER(AST_CONVERSION_TYPE_ID, conversion_type_id_handler, NULL),
 	NODE_HANDLER(AST_CONVERSION_DECLARATOR, conversion_declarator_handler, NULL),

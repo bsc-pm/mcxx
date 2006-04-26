@@ -2772,7 +2772,14 @@ unqualified_id : IDENTIFIER
 }
 | '~' IDENTIFIER
 {
-	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+	// Construct an artificial name for it
+	char* c = calloc(sizeof(char), strlen($2.token_text) + 2);
+	strcat(c, "~");
+	strcat(c, $2.token_text);
+
+	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, c);
+
+	free(c);
 
 	$$ = ASTMake1(AST_DESTRUCTOR_ID, identifier, $1.token_line, NULL);
 }

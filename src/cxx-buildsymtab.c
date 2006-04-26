@@ -9,6 +9,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-ambiguity.h"
 #include "cxx-printsymtab.h"
+#include "hash_iterator.h"
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
@@ -29,12 +30,14 @@ static symtab_entry_t* build_symtab_declarator(AST a, symtab_t* st, gather_decl_
 		simple_type_t* type_info, type_t** declarator_type);
 
 static void build_symtab_namespace_definition(AST a, symtab_t* st);
-static void build_symtab_function_definition(AST a, symtab_t* st);
+static symtab_entry_t* build_symtab_function_definition(AST a, symtab_t* st);
 
 static void build_symtab_member_declaration(AST a, symtab_t*  st, 
 		access_specifier_t current_access, simple_type_t* simple_type_info);
 static void build_symtab_simple_member_declaration(AST a, symtab_t*  st, 
 		access_specifier_t current_access, simple_type_t* simple_type_info);
+static void build_symtab_member_function_definition(AST a, symtab_t*  st, 
+		access_specifier_t current_access, simple_type_t* class_info);
 
 static void build_symtab_statement(AST statement, symtab_t* st);
 
@@ -81,6 +84,8 @@ static cv_qualifier_t compute_cv_qualifier(AST a);
 static exception_spec_t* build_exception_spec(symtab_t* st, AST a);
 
 static AST get_declarator_name(AST a);
+
+static symtab_entry_t* find_function_declaration(symtab_t* st, AST declarator_id, type_t* declarator_type);
 
 // Current linkage, by default C++
 static char* current_linkage = "\"C++\"";
@@ -215,6 +220,7 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st)
 	// a pointer to int.
 	if (ASTSon0(a) != NULL)
 	{
+		// This can declare a type if it is a class specifier or enum specifier
 		build_symtab_decl_specifier_seq(ASTSon0(a), st, &gather_info, &simple_type_info);
 	}
 
@@ -233,6 +239,8 @@ static void build_symtab_simple_declaration(AST a, symtab_t* st)
 			AST initializer = ASTSon1(init_declarator);
 
 			type_t* declarator_type;
+
+			// This will create the symbol if it is unqualified
 			build_symtab_declarator(declarator, st, &gather_info, 
 					simple_type_info, &declarator_type);
 
@@ -673,7 +681,6 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 		if (ASTType(class_head_identifier) == AST_SYMBOL
 				|| ASTType(class_head_identifier) == AST_TEMPLATE_ID)
 		{
-			fprintf(stderr, "Registering class '%s' in %p\n", ASTText(class_head_identifier), st);
 			if (ASTType(class_head_identifier) == AST_SYMBOL)
 			{
 				name = ASTText(class_head_identifier);
@@ -684,6 +691,7 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 
 				simple_type_info->template_arguments = ASTSon1(class_head_identifier);
 			}
+			fprintf(stderr, "Registering class '%s' in %p\n", name, st);
 
 			symtab_entry_t* entry = new_symbol(st, name);
 
@@ -1137,6 +1145,8 @@ static symtab_entry_t* build_symtab_declarator_id_expr(AST declarator_name, type
 			{
 				// An unqualified destructor name "~name"
 				// 'name' should be a class in this scope
+				AST destructor_id = ASTSon0(declarator_id);
+				return register_new_variable_name(destructor_id, declarator_type, gather_info, st);
 				break;
 			}
 		case AST_TEMPLATE_ID :
@@ -1159,6 +1169,8 @@ static symtab_entry_t* build_symtab_declarator_id_expr(AST declarator_name, type
 		case AST_QUALIFIED_ID :
 			{
 				// A qualified id "a::b::c"
+				symtab_entry_list_t* entry_list = query_id_expression(st, declarator_id);
+				return entry_list->entry;
 				break;
 			}
 		case AST_QUALIFIED_TEMPLATE :
@@ -1268,9 +1280,11 @@ static symtab_entry_t* register_new_variable_name(AST declarator_id, type_t* dec
 static symtab_entry_t* register_function(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, symtab_t* st)
 {
-	symtab_entry_list_t* entry_list = query_in_current_scope(st, ASTText(declarator_id));
+	symtab_entry_t* entry;
 
-	if (entry_list == NULL)
+	entry = find_function_declaration(st, declarator_id, declarator_type);
+
+	if (entry == NULL)
 	{
 			fprintf(stderr, "Registering function '%s'\n", ASTText(declarator_id));
 			symtab_entry_t* new_entry = new_symbol(st, ASTText(declarator_id));
@@ -1281,43 +1295,50 @@ static symtab_entry_t* register_function(AST declarator_id, type_t* declarator_t
 	}
 	else
 	{
-		function_info_t* function_being_declared = declarator_type->function;
-		symtab_entry_t* equal_entry = NULL;
-		char found_equal = 0;
-		while (entry_list != NULL && !found_equal)
+		return entry;
+	}
+}
+
+static symtab_entry_t* find_function_declaration(symtab_t* st, AST declarator_id, type_t* declarator_type)
+{
+	symtab_entry_list_t* entry_list = query_in_current_scope(st, ASTText(declarator_id));
+
+	function_info_t* function_being_declared = declarator_type->function;
+	symtab_entry_t* equal_entry = NULL;
+	char found_equal = 0;
+	while (entry_list != NULL && !found_equal)
+	{
+		symtab_entry_t* entry = entry_list->entry;
+
+		if (entry->kind != SK_FUNCTION)
 		{
-			symtab_entry_t* entry = entry_list->entry;
-
-			if (entry->kind != SK_FUNCTION)
-			{
-				running_error("Symbol '%s' already declared as a different symbol type", ASTText(declarator_id), entry->kind);
-			}
-
-			function_info_t* current_function = entry->type_information->function;
-
-			found_equal = !overloaded_function(function_being_declared, current_function, st);
-			if (found_equal)
-			{
-				equal_entry = entry;
-			}
-
-			entry_list = entry_list->next;
+			running_error("Symbol '%s' already declared as a different symbol type", ASTText(declarator_id), entry->kind);
 		}
 
-		// This is bad programming
-		if (!found_equal)
-		{
-			fprintf(stderr, "Registering overload for function '%s'\n", ASTText(declarator_id));
-			symtab_entry_t* new_entry = new_symbol(st, ASTText(declarator_id));
-			new_entry->kind = SK_FUNCTION;
-			new_entry->type_information = declarator_type;
+		function_info_t* current_function = entry->type_information->function;
 
-			return new_entry;
-		}
-		else
+		found_equal = !overloaded_function(function_being_declared, current_function, st);
+		if (found_equal)
 		{
-			return equal_entry;
+			equal_entry = entry;
 		}
+
+		entry_list = entry_list->next;
+	}
+
+	// This is bad programming
+	if (!found_equal)
+	{
+		fprintf(stderr, "Registering overload for function '%s'\n", ASTText(declarator_id));
+		symtab_entry_t* new_entry = new_symbol(st, ASTText(declarator_id));
+		new_entry->kind = SK_FUNCTION;
+		new_entry->type_information = declarator_type;
+
+		return new_entry;
+	}
+	else
+	{
+		return equal_entry;
 	}
 }
 
@@ -1453,39 +1474,73 @@ static void build_symtab_template_simple_declaration(AST a, symtab_t* st, symtab
 		build_symtab_decl_specifier_seq(decl_specifier_seq, template_scope, &gather_info, &simple_type_info);
 	}
 
+	// Let's see what has got declared here
+	if (simple_type_info->kind == STK_USER_DEFINED)
+	{
+		symtab_entry_t* entry = simple_type_info->user_defined_type;
+		if (entry->kind == SK_CLASS)
+		{
+			// This is a primary template class if its template arguments are null
+			if (entry->type_information->type->template_arguments == NULL)
+			{
+				entry->kind = SK_TEMPLATE_PRIMARY_CLASS;
+			}
+			else
+			{
+				// Otherwise this is a specialization (either partial or 'total')
+				entry->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
+			}
+
+			// Correct scoping
+		}
+
+		// Export this symbol in the outermost symbol table
+		insert_entry(st, entry);
+
+		// Fix scope. This is awkward. Due to the way symbol table is built,
+		// there are two scopes involved here
+		//
+		//     <template_parameter_scope>
+		//      + -- parameters
+		//      + -- class name
+		//      + -- <class scope>
+		//            + -- members of the class
+		//            
+		// We have just pulled out the class name from the template parameter scope but we also want
+		// parameters to be in class scope. To be correct we should remove them from the template parameter
+		// scope but this is harmless. (I think)
+		Iterator* it = (Iterator*) hash_iterator_create(template_scope->hash);
+		for (iterator_first(it); !iterator_finished(it); iterator_next(it))
+		{
+			symtab_entry_list_t* entry_list = (symtab_entry_list_t*) iterator_item(it);
+			
+			// Technically here will not appear repeated things, so only export
+			// the first one
+			// Do not readd the class symbol!
+			if (entry != entry_list->entry)
+			{
+				insert_entry(entry->inner_scope, entry_list->entry);
+			}
+		}
+	}
+
 	// There can be just one declarator here
-	if (ASTSon0(init_declarator_list) != NULL)
+	if (init_declarator_list != NULL)
 	{
-		running_error("In template declarations only one declarator is valid", 0);
+		if (ASTSon0(init_declarator_list) != NULL)
+		{
+			running_error("In template declarations only one declarator is valid", 0);
+		}
+
+		AST declarator = ASTSon1(init_declarator_list);
+
+		type_t* declarator_type = NULL;
+		symtab_entry_t* entry = build_symtab_declarator(declarator, template_scope, &gather_info, simple_type_info, &declarator_type);
+		
+		// TODO - Think about this
+		// Now embed this entry in the outer symbol table
+		insert_entry(st, entry);
 	}
-
-	AST declarator = ASTSon1(init_declarator_list);
-
-	type_t* declarator_type = NULL;
-	symtab_entry_t* entry = build_symtab_declarator(declarator, template_scope, &gather_info, simple_type_info, &declarator_type);
-
-	// Fix the node type
-	switch (entry->kind)
-	{
-		case SK_VARIABLE :
-			// Do nothing with it
-			// Shall we update the information
-			break;
-		case SK_CLASS :
-			// Update it to a template one
-			entry->kind = SK_TEMPLATE_CLASS;
-			break;
-		case SK_FUNCTION :
-			// Update it to a template one
-			entry->kind = SK_TEMPLATE_FUNCTION;
-			break;
-		default :
-			internal_error("Unknown symbol type %d", entry->kind);
-			break;
-	}
-
-	// Now embed this entry in the outer symbol table
-	insert_entry(st, entry);
 }
 
 /*
@@ -1568,6 +1623,7 @@ static void build_symtab_type_template_parameter(AST a, symtab_t* st,
 		fprintf(stderr, "Registering type template-parameter '%s'\n", ASTText(name));
 		symtab_entry_t* new_entry = new_symbol(st, ASTText(name));
 		new_entry->type_information = new_type;
+		new_entry->kind = SK_TEMPLATE_PARAMETER;
 	}
 	
 	template_param_info->default_argument = type_id;
@@ -1645,7 +1701,7 @@ static void build_symtab_namespace_definition(AST a, symtab_t* st)
 /*
  * This function builds symbol table information for a function definition
  */
-static void build_symtab_function_definition(AST a, symtab_t* st)
+static symtab_entry_t* build_symtab_function_definition(AST a, symtab_t* st)
 {
 	fprintf(stderr, "Registering function!\n");
 	// A function definition has four parts
@@ -1697,6 +1753,8 @@ static void build_symtab_function_definition(AST a, symtab_t* st)
 		fprintf(stderr, "Function '%s' is defined\n", entry->symbol_name);
 		entry->defined = 1;
 	}
+
+	return entry;
 }
 
 static void build_symtab_statement(AST a, symtab_t* st)
@@ -1716,11 +1774,63 @@ static void build_symtab_member_declaration(AST a, symtab_t*  st,
 			}
 		case AST_FUNCTION_DEFINITION :
 			{
+				build_symtab_member_function_definition(a, st, current_access, class_info);
 				break;
 			}
 		default:
 			{
 				internal_error("Unsupported node '%s'\n", ast_print_node_type(ASTType(a)));
+				break;
+			}
+	}
+}
+
+static void build_symtab_member_function_definition(AST a, symtab_t*  st, 
+		access_specifier_t current_access, simple_type_t* class_info)
+{
+	char* class_name = "";
+	class_info_t* class_type = NULL;
+	if (class_info->kind == STK_USER_DEFINED)
+	{
+		class_name = class_info->user_defined_type->symbol_name;
+		class_type = class_info->user_defined_type->type_information->type->class_info;
+	}
+
+	AST declarator = ASTSon1(a);
+
+	AST declarator_name = get_declarator_name(declarator);
+
+	// Get the declarator name
+	switch (ASTType(declarator_name))
+	{
+		case AST_SYMBOL :
+			{
+				symtab_entry_t* entry = build_symtab_function_definition(a, st);
+				if (strcmp(ASTText(declarator_name), class_name) == 0)
+				{
+					// This is a constructor
+					P_LIST_ADD(class_type->constructor_list, class_type->num_constructors, entry);
+				}
+				break;
+			}
+		case AST_DESTRUCTOR_ID :
+			{
+				symtab_entry_t* entry = build_symtab_function_definition(a, st);
+				// This is the destructor
+				class_type->destructor = entry;
+				break;
+			}
+		case AST_OPERATOR_FUNCTION_ID :
+			{
+				break;
+			}
+		case AST_CONVERSION_FUNCTION_ID :
+			{
+				break;
+			}
+		default :
+			{
+				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
 				break;
 			}
 	}
