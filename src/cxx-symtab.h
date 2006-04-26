@@ -175,6 +175,9 @@ typedef struct simple_type_tag {
 	// For template classes
 	// Template arguments for specializations and instantiations
 	AST template_arguments;
+	// For template parameters, the positional number of this argument
+	// in the template
+	int template_parameter_num;
 
 	cv_qualifier_t cv_qualifier;
 } simple_type_t;

@@ -69,11 +69,11 @@ static void build_symtab_explicit_template_specialization(AST a, symtab_t* st);
 static void build_symtab_template_parameter_list(AST a, symtab_t* st, 
 		template_parameter_t** template_param_info, int* num_parameters);
 static void build_symtab_template_parameter(AST a, symtab_t* st, 
-		template_parameter_t* template_param_info);
+		template_parameter_t* template_param_info, int num_parameter);
 static void build_symtab_nontype_template_parameter(AST a, symtab_t* st,
-		template_parameter_t* template_param_info);
+		template_parameter_t* template_param_info, int num_parameter);
 static void build_symtab_type_template_parameter(AST a, symtab_t* st,
-		template_parameter_t* template_param_info);
+		template_parameter_t* template_param_info, int num_parameter);
 
 static symtab_entry_t* register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, symtab_t* st);
@@ -839,6 +839,8 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 	simple_type_info->kind = STK_CLASS;
 
 	symtab_t* inner_scope = enter_scope(st);
+
+	symtab_entry_t* class_entry = NULL;
 	
 	if (class_head_identifier != NULL)
 	{
@@ -859,22 +861,21 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 			}
 			fprintf(stderr, "Registering class '%s' in %p\n", name, st);
 
-			symtab_entry_t* entry = new_symbol(st, name);
+			class_entry = new_symbol(st, name);
 
-			entry->kind = SK_CLASS;
+			class_entry->kind = SK_CLASS;
 
 			// Copy the type because we are creating it and we would clobber it
 			// otherwise
-			entry->defined = 1;
-			entry->type_information = copy_type(simple_type_to_type(simple_type_info));
+			class_entry->type_information = copy_type(simple_type_to_type(simple_type_info));
 
-			entry->inner_scope = inner_scope;
+			class_entry->inner_scope = inner_scope;
 
 			// Since this type is not anonymous we'll want that simple_type_info
 			// refers to this newly created type
 			memset(simple_type_info, 0, sizeof(*simple_type_info));
 			simple_type_info->kind = STK_USER_DEFINED;
-			simple_type_info->user_defined_type = entry;
+			simple_type_info->user_defined_type = class_entry;
 		}
 		else
 		{
@@ -927,6 +928,12 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 		}
 
 		member_specification = ASTSon2(member_specification);
+	}
+
+	if (class_entry != NULL)
+	{
+		// If the class had a name, it is completely defined here
+		class_entry->defined = 1;
 	}
 }
 
@@ -1776,7 +1783,7 @@ static void build_symtab_template_parameter_list(AST a, symtab_t* st,
 
 		template_parameter_t* new_template_param = calloc(1, sizeof(*new_template_param));
 
-		build_symtab_template_parameter(template_parameter, st, new_template_param);
+		build_symtab_template_parameter(template_parameter, st, new_template_param, *num_parameters);
 
 		P_LIST_ADD(template_param_info, *num_parameters, new_template_param);
 	}
@@ -1786,16 +1793,16 @@ static void build_symtab_template_parameter_list(AST a, symtab_t* st,
  * This function register one template parameter in a given scope
  */
 static void build_symtab_template_parameter(AST a, symtab_t* st, 
-		template_parameter_t* template_param_info)
+		template_parameter_t* template_param_info, int num_parameter)
 {
 	switch (ASTType(a))
 	{
 		case AST_PARAMETER_DECL :
-			build_symtab_nontype_template_parameter(a, st, template_param_info);
+			build_symtab_nontype_template_parameter(a, st, template_param_info, num_parameter);
 			break;
 		case AST_TYPE_PARAMETER_CLASS :
 		case AST_TYPE_PARAMETER_TYPENAME :
-			build_symtab_type_template_parameter(a, st, template_param_info);
+			build_symtab_type_template_parameter(a, st, template_param_info, num_parameter);
 			break;
 		case AST_TYPE_PARAMETER_TEMPLATE :
 			// Think about it
@@ -1805,7 +1812,7 @@ static void build_symtab_template_parameter(AST a, symtab_t* st,
 			// The ambiguity here is parameter_class vs parameter_decl
 			solve_parameter_declaration_vs_type_parameter_class(a);
 			// Restart this routine
-			build_symtab_template_parameter(a, st, template_param_info);
+			build_symtab_template_parameter(a, st, template_param_info, num_parameter);
 			break;
 		default :
 			internal_error("Unknown node type '%s'", ast_print_node_type(ASTType(a)));
@@ -1813,7 +1820,7 @@ static void build_symtab_template_parameter(AST a, symtab_t* st,
 }
 
 static void build_symtab_type_template_parameter(AST a, symtab_t* st,
-		template_parameter_t* template_param_info)
+		template_parameter_t* template_param_info, int num_parameter)
 {
 	// This parameters have the form
 	//    CLASS [name] [ = type_id]
@@ -1828,6 +1835,7 @@ static void build_symtab_type_template_parameter(AST a, symtab_t* st,
 	new_type->kind = TK_DIRECT;
 	new_type->type = calloc(1, sizeof(*(new_type->type)));
 	new_type->type->kind = STK_TEMPLATE_CLASS;
+	new_type->type->template_parameter_num = num_parameter;
 
 	// Save the info
 	template_param_info->type_info = new_type;
@@ -1848,7 +1856,7 @@ static void build_symtab_type_template_parameter(AST a, symtab_t* st,
 }
 
 static void build_symtab_nontype_template_parameter(AST a, symtab_t* st,
-		template_parameter_t* template_param_info)
+		template_parameter_t* template_param_info, int num_parameter)
 {
 	// As usual there are three parts
 	//     decl_specifier_seq [declarator] [ = expression ]
@@ -1860,6 +1868,8 @@ static void build_symtab_nontype_template_parameter(AST a, symtab_t* st,
 	AST parameter_declarator = ASTSon1(a);
 
 	build_symtab_decl_specifier_seq(decl_specifier_seq, st, &gather_info, &simple_type_info);
+
+	simple_type_info->template_parameter_num = num_parameter;
 
 	if (parameter_declarator != NULL)
 	{

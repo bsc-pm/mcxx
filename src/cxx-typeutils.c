@@ -592,7 +592,9 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
 						snprintf(result, 255, "typedef %s", user_defined_type->symbol_name);
 						break;
 					case SK_TEMPLATE_PARAMETER :
-						snprintf(result, 255, "type template parameter %s", user_defined_type->symbol_name);
+						snprintf(result, 255, "type template parameter #%d %s", 
+								user_defined_type->type_information->type->template_parameter_num,
+								user_defined_type->symbol_name);
 						break;
 					default :
 						strcat(result, "¿¿¿unknown user defined type???");

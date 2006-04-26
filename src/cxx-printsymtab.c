@@ -98,7 +98,8 @@ static void print_symtab_entry(symtab_entry_t* entry, symtab_t* st)
 		global_indent++;
 		print_scope(entry->inner_scope);
 	}
-	if (entry->kind == SK_FUNCTION)
+	if (entry->kind == SK_FUNCTION
+			|| entry->kind == SK_TEMPLATE_FUNCTION)
 	{
 		PRINT_INDENTED_LINE(stderr, "%s", "\tPrototype: ");
 		print_declarator(entry->type_information, st);
