@@ -1,5 +1,8 @@
 bin_PROGRAMS = mcxx
 
+BUILT_SOURCES = \
+  cxx-asttype.h
+
 mcxx_SOURCES = \
   cxx-ast.c \
   cxx-ast.h \
