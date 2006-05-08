@@ -1,17 +1,13 @@
 bin_PROGRAMS = mcxx
 
-BUILT_SOURCES = \
-  cxx-asttype.h
-
 mcxx_SOURCES = \
-  cxx-ast.c \
-  cxx-ast.h \
   cxx-asttype.h \
   cxx-asttype.c \
+  cxx-ast.c \
+  cxx-ast.h \
   cxx-lexer.h \
   cxx-parser.h \
   cxx-parser.c \
-  cxx-scanner.h \
   cxx-scanner.c \
   cxx-driver.c \
   cxx-driver.h \
