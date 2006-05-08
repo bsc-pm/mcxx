@@ -78,7 +78,8 @@ static void print_symtab_entry(symtab_entry_t* entry, symtab_t* st)
 
 	fprintf(stderr, "\n");
 
-	if (entry->kind == SK_VARIABLE)
+	if (entry->kind == SK_VARIABLE
+			|| entry->kind == SK_TEMPLATE_PARAMETER)
 	{
 		PRINT_INDENTED_LINE(stderr, "%s", "\tType: ");
 		print_declarator(entry->type_information, st);

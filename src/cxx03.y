@@ -455,11 +455,11 @@ named_namespace_definition : NAMESPACE IDENTIFIER '{' declaration_sequence '}'
 
 unnamed_namespace_definition : NAMESPACE '{' declaration_sequence '}'
 {
-	$$ = ASTMake1(AST_NAMESPACE_DEFINITION, $3, $1.token_line, NULL);
+	$$ = ASTMake2(AST_NAMESPACE_DEFINITION, NULL, $3, $1.token_line, NULL);
 }
 | NAMESPACE '{' '}'
 {
-	$$ = ASTMake1(AST_NAMESPACE_DEFINITION, NULL, $1.token_line, NULL);
+	$$ = ASTMake2(AST_NAMESPACE_DEFINITION, NULL, NULL, $1.token_line, NULL);
 }
 ;
 

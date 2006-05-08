@@ -131,20 +131,22 @@ static void build_symtab_declaration(AST a, symtab_t* st)
 	{
 		case AST_SIMPLE_DECLARATION :
 			{
-				// Simple declarations are of the form [optional]
+				// Simple declarations are of the form.
 				//
 				//   int a;
 				//   class A { ... } [a];
 				//   struct C { ... } [c];
 				//   enum E { ... } [e];
 				//   int f(int [k]);
+				//
+				// [thing] means that thing is optional
 				build_symtab_simple_declaration(a, st);
 				break;
 			}
 		case AST_NAMESPACE_DEFINITION :
 			{
 				// Namespace definitions are of the form
-				//   namespace name
+				//   namespace [name]
 				//   {
 				//      ...
 				//   }
@@ -592,7 +594,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, symtab_t* st
 
 	if (entry == NULL)
 	{
-		// Create a stub but only if it is unqualified, otherwise it should exist anywhere
+		// Create a stub but only if it is unqualified, otherwise it should exist elsewhere
 		if (nested_name_specifier == NULL
 				&& global_scope == NULL)
 		{
@@ -746,18 +748,27 @@ void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* si
 
 	AST enum_name = ASTSon0(a);
 	// If it has name, we register this type name in the symbol table
+	// but only if it has not been declared previously
 	if (enum_name != NULL)
 	{
-		fprintf(stderr, "Registering enum '%s' in %p\n", ASTText(enum_name), st);
-		symtab_entry_t* new_entry = new_symbol(st, ASTText(enum_name));
+		symtab_entry_list_t* enum_entry_list = query_in_current_scope(st, ASTText(enum_name));
 
-		if (new_entry == NULL)
+		symtab_entry_t* new_entry;
+			
+		if (enum_entry_list != NULL 
+				&& enum_entry_list->entry->kind == SK_ENUM 
+				&& enum_entry_list->next == NULL)
 		{
-			running_error("Symbol '%s' redefined in line %d\n", 
-					ASTText(enum_name), ASTLine(enum_name));
+			fprintf(stderr, "Enum '%s' already declared in %p\n", ASTText(enum_name), st);
+			new_entry = enum_entry_list->entry;
+		}
+		else
+		{
+			fprintf(stderr, "Registering enum '%s' in %p\n", ASTText(enum_name), st);
+			new_entry = new_symbol(st, ASTText(enum_name));
+			new_entry->kind = SK_ENUM;
 		}
 
-		new_entry->kind = SK_ENUM;
 		// Copy the type because we are creating it and we would clobber it
 		// otherwise
 		new_entry->type_information = copy_type(simple_type_to_type(simple_type_info));
@@ -844,7 +855,8 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 	
 	if (class_head_identifier != NULL)
 	{
-		// If the class has name, register it in the symbol table
+		// If the class has name, register it in the symbol table but only if
+		// it does not exist
 		char* name;
 		if (ASTType(class_head_identifier) == AST_SYMBOL
 				|| ASTType(class_head_identifier) == AST_TEMPLATE_ID)
@@ -859,11 +871,24 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 
 				simple_type_info->template_arguments = ASTSon1(class_head_identifier);
 			}
-			fprintf(stderr, "Registering class '%s' in %p\n", name, st);
 
-			class_entry = new_symbol(st, name);
+			// Check if it exists
+			symtab_entry_list_t* class_entry_list = query_in_current_scope(st, name);
 
-			class_entry->kind = SK_CLASS;
+			if (class_entry_list != NULL 
+					&& class_entry_list->entry->kind == SK_CLASS
+					&& class_entry_list->next == NULL)
+			{
+				fprintf(stderr, "Class '%s' already declared in %p\n", name, st);
+				class_entry = class_entry_list->entry;
+			}
+			
+			if (class_entry == NULL)
+			{
+				fprintf(stderr, "Registering class '%s' in %p\n", name, st);
+				class_entry = new_symbol(st, name);
+				class_entry->kind = SK_CLASS;
+			}
 
 			// Copy the type because we are creating it and we would clobber it
 			// otherwise
@@ -1898,32 +1923,40 @@ static void build_symtab_namespace_definition(AST a, symtab_t* st)
 {
 	AST namespace_name = ASTSon0(a);
 
-	// Register this namespace if it does not exist
-	symtab_entry_list_t* list = query_in_current_scope(st, ASTText(namespace_name));
+	if (namespace_name != NULL)
+	{
+		// Register this namespace if it does not exist
+		symtab_entry_list_t* list = query_in_current_scope(st, ASTText(namespace_name));
 
-	if (list != NULL 
-			&& (list->next != NULL 
-				|| list->entry->kind != SK_NAMESPACE))
-	{
-		running_error("Identifier '%s' has already been declared as another symbol kind\n", ASTText(namespace_name));
-	}
-	
-	symtab_entry_t* entry;
-	if (list != NULL && list->entry->kind == SK_NAMESPACE)
-	{
-		entry = list->entry;
+		if (list != NULL 
+				&& (list->next != NULL 
+					|| list->entry->kind != SK_NAMESPACE))
+		{
+			running_error("Identifier '%s' has already been declared as another symbol kind\n", ASTText(namespace_name));
+		}
+
+		symtab_entry_t* entry;
+		if (list != NULL && list->entry->kind == SK_NAMESPACE)
+		{
+			entry = list->entry;
+		}
+		else
+		{
+			// We register a symbol of type namespace and link to a newly created scope.
+			symtab_t* namespace_scope = enter_scope(st);
+
+			entry = new_symbol(st, ASTText(namespace_name));
+			entry->kind = SK_NAMESPACE;
+			entry->inner_scope = namespace_scope;
+		}
+
+
+		build_symtab_declaration_sequence(ASTSon1(a), entry->inner_scope);
 	}
 	else
 	{
-		// We register a symbol of type namespace and link to a newly created scope.
-		symtab_t* namespace_scope = enter_scope(st);
-
-		entry = new_symbol(st, ASTText(namespace_name));
-		entry->kind = SK_NAMESPACE;
-		entry->inner_scope = namespace_scope;
+		build_symtab_declaration_sequence(ASTSon1(a), compilation_options.global_scope);
 	}
-
-	build_symtab_declaration_sequence(ASTSon1(a), entry->inner_scope);
 }
 
 /*
