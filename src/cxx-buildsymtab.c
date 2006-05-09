@@ -1475,7 +1475,7 @@ static symtab_entry_t* register_new_variable_name(AST declarator_id, type_t* dec
 			}
 		}
 
-		fprintf(stderr, "Registering variable '%s'\n", ASTText(declarator_id));
+		fprintf(stderr, "Registering variable '%s' in %p\n", ASTText(declarator_id), st);
 		symtab_entry_t* entry = new_symbol(st, ASTText(declarator_id));
 		entry->kind = SK_VARIABLE;
 		entry->type_information = declarator_type;
@@ -1695,7 +1695,7 @@ static void build_symtab_template_simple_declaration(AST a, symtab_t* st, symtab
 	 *   };
 	 *
 	 *   template <class P>
-	 *   T A<P>::d = expr;       // For static member initialization
+	 *   T A<P>::d = expr;       // For const member initialization
 	 *
 	 * For the last case we won't do anything at the moment.
 	 *
@@ -1736,40 +1736,38 @@ static void build_symtab_template_simple_declaration(AST a, symtab_t* st, symtab
 				entry->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
 			}
 
-			// Correct scoping
-		}
-
-		// Export this symbol in the outermost symbol table
-		insert_entry(st, entry);
-
-		// Fix scope. This is awkward. Due to the way symbol table is built,
-		// there are two scopes involved here
-		//
-		//     <template_parameter_scope>
-		//      + -- parameters
-		//      + -- class name
-		//      + -- <class scope>
-		//            + -- members of the class
-		//            
-		// We have just pulled out the class name from the template parameter scope but we also want
-		// parameters to be in class scope. To be correct we should remove them from the template parameter
-		// scope but this is harmless. (I think)
-		Iterator* it = (Iterator*) hash_iterator_create(template_scope->hash);
-		for (iterator_first(it); !iterator_finished(it); iterator_next(it))
-		{
-			symtab_entry_list_t* entry_list = (symtab_entry_list_t*) iterator_item(it);
-			
-			// Technically here will not appear repeated things, so only export
-			// the first one
-			// Do not readd the class symbol!
-			if (entry != entry_list->entry)
+			// Export this symbol in the outermost symbol table
+			insert_entry(st, entry);
+			// Fix scope. This is awkward. Due to the way symbol table is built,
+			// there are two scopes involved here
+			//
+			//     <template_parameter_scope>
+			//      + -- parameters
+			//      + -- class name
+			//      + -- <class scope>
+			//            + -- members of the class
+			//            
+			// We have just pulled out the class name from the template parameter scope but we also want
+			// parameters to be in class scope. To be correct we should remove them from the template parameter
+			// scope but this is harmless. (I think)
+			Iterator* it = (Iterator*) hash_iterator_create(template_scope->hash);
+			for (iterator_first(it); !iterator_finished(it); iterator_next(it))
 			{
-				insert_entry(entry->inner_scope, entry_list->entry);
+				symtab_entry_list_t* entry_list = (symtab_entry_list_t*) iterator_item(it);
+
+				// Technically here will not appear repeated things, so only export
+				// the first one
+				// Do not re-add the class symbol!
+				if (entry != entry_list->entry)
+				{
+					insert_entry(entry->inner_scope, entry_list->entry);
+				}
 			}
 		}
 	}
 
-	// There can be just one declarator here
+	// There can be just one declarator here if this is not a class specifier nor a function declaration
+	// otherwise no declarator can appear
 	if (init_declarator_list != NULL)
 	{
 		if (ASTSon0(init_declarator_list) != NULL)
@@ -1781,15 +1779,52 @@ static void build_symtab_template_simple_declaration(AST a, symtab_t* st, symtab
 		AST declarator = ASTSon0(init_declarator);
 
 		type_t* declarator_type = NULL;
-		symtab_entry_t* entry = build_symtab_declarator(declarator, template_scope, &gather_info, simple_type_info, &declarator_type);
+		symtab_entry_t* entry = build_symtab_declarator(declarator, template_scope, 
+				&gather_info, simple_type_info, &declarator_type);
 
 		if (entry->kind == SK_FUNCTION)
 		{
 			entry->kind = SK_TEMPLATE_FUNCTION;
 		}
-		// TODO - Think about this
-		// Now embed this entry in the outer symbol table
-		insert_entry(st, entry);
+
+		// This is a simple declaration, thus if it does not declare an
+		// extern variable or function, the symbol is already defined here
+		if (!gather_info.is_extern
+				&& declarator_type->kind != TK_FUNCTION)
+		{
+			AST declarator_name = get_declarator_name(declarator);
+			symtab_entry_list_t* entry_list = query_id_expression(st, declarator_name);
+
+			if (entry_list == NULL)
+			{
+				internal_error("Symbol just declared has not been found in the symtab!", 0);
+			}
+
+			// The last entry will hold our symbol, no need to look for it in the list
+			if (entry_list->entry->defined)
+			{
+				running_error("This symbol has already been defined", 0);
+			}
+
+			fprintf(stderr, "Defining symbol '");
+			prettyprint(stderr, declarator_name);
+			fprintf(stderr, "'\n");
+			entry_list->entry->defined = 1;
+
+
+			// if (initializer != NULL)
+			// {
+			// 	// We do not fold it here
+			// 	entry_list->entry->expression_value = initializer;
+			// }
+		}
+
+		// Export this symbol if the scope of the entry is the same
+		// as the template
+		if (entry->scope == template_scope)
+		{
+			insert_entry(st, entry);
+		}
 	}
 }
 
@@ -1859,7 +1894,7 @@ static void build_symtab_type_template_parameter(AST a, symtab_t* st,
 	type_t* new_type = calloc(1, sizeof(*new_type));
 	new_type->kind = TK_DIRECT;
 	new_type->type = calloc(1, sizeof(*(new_type->type)));
-	new_type->type->kind = STK_TEMPLATE_CLASS;
+	new_type->type->kind = STK_TYPE_TEMPLATE_PARAMETER;
 	new_type->type->template_parameter_num = num_parameter;
 
 	// Save the info

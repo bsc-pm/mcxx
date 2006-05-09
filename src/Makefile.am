@@ -23,6 +23,8 @@ mcxx_SOURCES = \
   cxx-buildsymtab.h \
   cxx-typeutils.c \
   cxx-typeutils.h \
+  cxx-typeunif.c \
+  cxx-typeunif.h \
   cxx-cexpr.c \
   cxx-cexpr.h \
   cxx-ambiguity.c \

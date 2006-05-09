@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <libgen.h>
+#include <signal.h>
 
 #include "cxx-utils.h"
 

@@ -82,7 +82,6 @@ typedef enum simple_type_kind_tag
 	STK_TYPEDEF,
 	STK_USER_DEFINED,
 	// Templates stuff
-	STK_TEMPLATE_CLASS,
 	STK_TYPE_TEMPLATE_PARAMETER
 } simple_type_kind_t;
 
@@ -159,7 +158,7 @@ typedef struct simple_type_tag {
 
 	// Previously declared type. should be completely "cv-unqualified"
 	//
-	// If this is a STK_TYPE_TEMPLATE_PARAMETER this will be NULL since there
+	// If this is a STK_TEMPLATE_CLASS this will be NULL since there
 	// is no "real type" backing this
 	struct symtab_entry_tag* user_defined_type;
 
@@ -175,6 +174,7 @@ typedef struct simple_type_tag {
 	// For template classes
 	// Template arguments for specializations and instantiations
 	AST template_arguments;
+	
 	// For template parameters, the positional number of this argument
 	// in the template
 	int template_parameter_num;

@@ -12,8 +12,6 @@
 static char is_typedef_type(type_t* t);
 static type_t* aliased_type(type_t* t);
 static type_t* base_type(type_t* t);
-static char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, symtab_t* st);
-static char equivalent_builtin_type(simple_type_t *t1, simple_type_t *t2);
 static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, symtab_t* st);
 static char equivalent_array_type(array_info_t* t1, array_info_t* t2, symtab_t* st);
@@ -73,7 +71,7 @@ char equivalent_types(type_t* t1, type_t* t2, symtab_t* st)
 	return 0;
 }
 
-static char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, symtab_t* st)
+char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, symtab_t* st)
 {
 	if (t1->kind != t2->kind)
 	{
@@ -109,7 +107,7 @@ static char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, symtab
 	return 0;
 }
 
-static char equivalent_builtin_type(simple_type_t *t1, simple_type_t *t2)
+char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
 {
 	if (t1->builtin_type != t2->builtin_type)
 	{
@@ -174,8 +172,6 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2, symtab_t* 
 	if (!equivalent_types(t1->element_type, t2->element_type, st))
 		return 0;
 
-	// TODO - Check that dimensions are the same
-	// But we need an evaluator of expressions
 	literal_value_t v1 = evaluate_constant_expression(t1->array_expr, st);
 	literal_value_t v2 = evaluate_constant_expression(t2->array_expr, st);
 
@@ -607,7 +603,7 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
 		case STK_CLASS :
 			strcat(result, "class <anonymous>");
 			break;
-		case STK_TEMPLATE_CLASS :
+		case STK_TYPE_TEMPLATE_PARAMETER :
 			strcat(result, "template type parameter T");
 			break;
 		default :

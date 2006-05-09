@@ -2,6 +2,7 @@
 #define CXX_UTILS_H
 
 #include <stdlib.h>
+#include <signal.h>
 
 // Some useful macros
 #ifndef __GNUC__
@@ -25,7 +26,7 @@
 void running_error(char* message, ...) NORETURN;
 
 #define internal_error(message, ...) \
-   { debug_message(message, "Internal compiler error. Please report bug:\n", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); exit(EXIT_FAILURE);  }
+   { debug_message(message, "Internal compiler error. Please report bug:\n", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); raise(SIGABRT); exit(EXIT_FAILURE);  }
 
 void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...);
 

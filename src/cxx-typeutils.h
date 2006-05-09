@@ -16,8 +16,12 @@ array_info_t* copy_array_info(array_info_t* array_info);
 pointer_info_t* copy_pointer_info(pointer_info_t* pointer_info);
 enum_info_t* copy_enum_info(enum_info_t* enum_info);
 
+// Equality functions
+char equivalent_builtin_type(simple_type_t *t1, simple_type_t *t2);
+
 // Conversion functions
 type_t* simple_type_to_type(simple_type_t* simple_type_info);
+char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, symtab_t* st);
 
 // Query functions
 const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st);
