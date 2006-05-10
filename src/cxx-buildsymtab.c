@@ -113,7 +113,7 @@ void build_symtab_translation_unit(AST a)
 	build_symtab_declaration_sequence(list, compilation_options.global_scope);
 
 	fprintf(stderr, "============ SYMBOL TABLE ===============\n");
-	print_scope(compilation_options.global_scope);
+	print_scope(compilation_options.global_scope, 0);
 	fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
 }
 

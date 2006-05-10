@@ -593,10 +593,10 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
 								user_defined_type->symbol_name);
 						break;
 					case SK_TEMPLATE_PRIMARY_CLASS :
-						snprintf(result, 255, "primary template class %s", user_defined_type->symbol_name);
+						snprintf(result, 255, "primary template class %s (%p)", user_defined_type->symbol_name, user_defined_type);
 						break;
 					case SK_TEMPLATE_SPECIALIZED_CLASS :
-						snprintf(result, 255, "specialized template class %s", user_defined_type->symbol_name);
+						snprintf(result, 255, "specialized template class %s (%p)", user_defined_type->symbol_name, user_defined_type);
 						break;
 					default :
 						strcat(result, "¿¿¿unknown user defined type???");

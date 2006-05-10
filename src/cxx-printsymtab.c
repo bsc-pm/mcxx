@@ -6,12 +6,10 @@
 /*
  * Building a symbol table for C++ is such a hard thing that we need ways to debug it.
  */
-static void print_symtab_entry_list(symtab_entry_list_t* entry_list, symtab_t* st);
-static void print_symtab_entry(symtab_entry_t* entry, symtab_t* st);
+static void print_symtab_entry_list(symtab_entry_list_t* entry_list, symtab_t* st, int global_indent);
+static void print_symtab_entry(symtab_entry_t* entry, symtab_t* st, int global_indent);
 
-static int global_indent = 0;
-
-void print_scope(symtab_t* st)
+void print_scope(symtab_t* st, int global_indent)
 {
 	if (st == NULL)
 		return;
@@ -25,15 +23,15 @@ void print_scope(symtab_t* st)
 	{
 		symtab_entry_list_t* entry_list = (symtab_entry_list_t*) iterator_item(it);
 
-		print_symtab_entry_list(entry_list, st);
+		print_symtab_entry_list(entry_list, st, global_indent);
 	}
 }
 
-static void print_symtab_entry_list(symtab_entry_list_t* entry_list, symtab_t* st)
+static void print_symtab_entry_list(symtab_entry_list_t* entry_list, symtab_t* st, int global_indent)
 {
 	while (entry_list != NULL)
 	{
-		print_symtab_entry(entry_list->entry, st);
+		print_symtab_entry(entry_list->entry, st, global_indent);
 		entry_list = entry_list->next;
 	}
 }
@@ -55,21 +53,24 @@ static char* symbol_kind_names[] =
 	[SK_TEMPLATE_PARAMETER] = "SK_TEMPLATE_PARAMETER", 
 };
 
-#define PRINT_INDENTED_LINE(f, fmt, ...) \
+static void indent_at_level(FILE* f, int n)
+{
+	int i;
+	for (i = 0; i < 4*n; i++) 
+	{ 
+		fprintf(f, " "); 
+	} 
+}
+
+#define PRINT_INDENTED_LINE(f, n, fmt, ...) \
 	do { \
-		int i; \
-		for (i = 0; i < 4*global_indent; i++) \
-		{ \
-			fprintf(f, " "); \
-		} \
+		indent_at_level(f, n); \
 		fprintf(f, fmt, __VA_ARGS__ ); \
 	} while (0);
 
-static void print_symtab_entry(symtab_entry_t* entry, symtab_t* st)
+static void print_symtab_entry(symtab_entry_t* entry, symtab_t* st, int global_indent)
 {
-	int indent_level = global_indent;
-
-	PRINT_INDENTED_LINE(stderr, "[%p] \"%s\" %s",st, entry->symbol_name, symbol_kind_names[entry->kind]);
+	PRINT_INDENTED_LINE(stderr, global_indent, "[%p] \"%s\" %s",st, entry->symbol_name, symbol_kind_names[entry->kind]);
 
 	if (entry->defined)
 	{
@@ -81,38 +82,37 @@ static void print_symtab_entry(symtab_entry_t* entry, symtab_t* st)
 	if (entry->kind == SK_VARIABLE
 			|| entry->kind == SK_TEMPLATE_PARAMETER)
 	{
-		PRINT_INDENTED_LINE(stderr, "%s", "\tType: ");
+		PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Type: ");
 		print_declarator(entry->type_information, st);
 		fprintf(stderr, "\n");
 	}
 	if (entry->kind == SK_TYPEDEF)
 	{
-		PRINT_INDENTED_LINE(stderr, "%s", "\tAliased type: ");
+		PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Aliased type: ");
 		print_declarator(entry->type_information->type->aliased_type, st);
 		fprintf(stderr, "\n");
 	}
+
+	if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
+			|| entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
+	{
+		PRINT_INDENTED_LINE(stderr, global_indent+1, "Template: %p\n", entry);
+	}
+
 	if (entry->kind == SK_NAMESPACE
 			|| entry->kind == SK_CLASS
 			|| entry->kind == SK_TEMPLATE_PRIMARY_CLASS
 			|| entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
 	{
-		global_indent++;
-		print_scope(entry->inner_scope);
-	}
-
-	if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-	{
+		print_scope(entry->inner_scope, global_indent+1);
 	}
 
 	if (entry->kind == SK_FUNCTION
 			|| entry->kind == SK_TEMPLATE_FUNCTION)
 	{
-		PRINT_INDENTED_LINE(stderr, "%s", "\tPrototype: ");
+		PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Prototype: ");
 		print_declarator(entry->type_information, st);
 		fprintf(stderr, "\n");
-		global_indent++;
-		print_scope(entry->inner_scope);
+		print_scope(entry->inner_scope, global_indent+1);
 	}
-
-	global_indent = indent_level;
 }

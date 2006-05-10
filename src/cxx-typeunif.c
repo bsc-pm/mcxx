@@ -13,74 +13,81 @@ static type_t* get_template_parameter_unification(unification_set_t* unif_set, i
 //
 char unificate_two_types(type_t* t1, type_t* t2, symtab_t* st, unification_set_t** unif_set)
 {
-	if (t1->kind != t2->kind)
+	// Check first if t1 is a template parameter
+	type_t* user_defined_type = NULL;
+	
+	// If the user defined type points to a template parameter, we will use the
+	// template parameter
+	if (t1->kind == TK_DIRECT && 
+			t1->type->kind == STK_USER_DEFINED)
 	{
-		return 0;
+		user_defined_type = t1->type->user_defined_type->type_information;
+		if (user_defined_type->kind != TK_DIRECT
+				|| user_defined_type->type->kind != STK_TYPE_TEMPLATE_PARAMETER)
+		{
+			user_defined_type = NULL;
+		}
 	}
+
+	// If it is a template parameter (or a user defined type pointing to it)
+	// then perform unification
+	//
+	// First check if this parameter has not been already unified
+	if ((t1->kind == TK_DIRECT
+			&& t1->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
+			|| user_defined_type != NULL )
+	{
+		if (user_defined_type != NULL)
+		{
+			t1 = user_defined_type;
+		}
+
+		type_t* previous_unif = get_template_parameter_unification(*unif_set, t1->type->template_parameter_num);
+		if (previous_unif == NULL)
+		{
+			unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
+
+			// This number will be the position of the argument
+			// within the specialization ! Not of the whole template
+			unif_item->parameter = t1->type->template_parameter_num;
+			unif_item->value = t2;
+
+			P_LIST_ADD((*unif_set)->unif_list, (*unif_set)->num_elems, unif_item);
+		}
+		else
+		{
+			// Check is the same unification we are going to do
+			if (!equivalent_types(previous_unif, t2, st))
+			{
+				// They're not equivalent, thus not unificable
+				return 0;
+			}
+		}
+
+		// They have been unified
+		return 1;
+	}
+
+	// t1 is not a template parameter, so to be unificable they have to be of
+	// same shape
+	if (t1->kind != t2->kind)
+		return 0;
 
 	// t1->kind == t2->kind
 	switch (t1->kind)
 	{
 		case TK_DIRECT :
 			{
-				type_t* user_defined_type = NULL;
-
-				if (t1->type->kind == STK_USER_DEFINED)
-				{
-					user_defined_type = t1->type->user_defined_type->type_information;
-
-					// If the user defined type points to a template parameter, use the template
-					// parameter
-					if (user_defined_type->kind != TK_DIRECT
-							|| user_defined_type->type->kind != STK_TYPE_TEMPLATE_PARAMETER)
-					{
-						user_defined_type = NULL;
-					}
-				}
-				
-				if (t1->type->kind != STK_TYPE_TEMPLATE_PARAMETER
-						&& t1->type->kind != STK_USER_DEFINED
-						&& user_defined_type == NULL )
-				{
-					return equivalent_simple_types(t1->type, t2->type, st);
-				}
-				else
-				{
-					if (user_defined_type != NULL)
-					{
-						t1 = user_defined_type;
-					}
-					// Perform unification !!!
-					//
-					// First check if this parameter has not been already unified
-					type_t* previous_unif = get_template_parameter_unification(*unif_set, t1->type->template_parameter_num);
-					if (previous_unif == NULL)
-					{
-						unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
-
-						// This number will be the position of the argument
-						// within the specialization ! Not of the whole template
-						unif_item->parameter = t1->type->template_parameter_num;
-						unif_item->value = t2;
-
-						P_LIST_ADD((*unif_set)->unif_list, (*unif_set)->num_elems, unif_item);
-					}
-					else
-					{
-						// Check is the same unification we are going to do
-						if (!equivalent_types(previous_unif, t2, st))
-						{
-							// They're not equivalent, thus not unificable
-							return 0;
-						}
-					}
-				}
+				// If they were unificable they would have been unified before
+				return equivalent_simple_types(t1->type, t2->type, st);
 				break;
 			}
 		case TK_REFERENCE :
 		case TK_POINTER :
-			return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, st, unif_set);
-			break;
+			{
+				return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, st, unif_set);
+				break;
+			}
 		case TK_POINTER_TO_MEMBER :
 			// TODO - What to do here ?
 			break;
