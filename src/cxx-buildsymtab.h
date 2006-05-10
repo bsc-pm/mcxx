@@ -28,5 +28,6 @@ typedef struct gather_decl_spec_tag {
 } gather_decl_spec_t;
 
 char* get_operator_function_name(AST declarator_id);
+void build_symtab_template_arguments(AST a, symtab_t* st, template_argument_list_t** template_arguments);
 
 #endif // CXX_BUILDSYMTAB_H

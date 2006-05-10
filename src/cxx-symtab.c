@@ -5,6 +5,7 @@
 #include "cxx-buildsymtab.h"
 #include "cxx-driver.h"
 #include "cxx-utils.h"
+#include "cxx-solvetemplate.h"
 #include "hash.h"
 
 
@@ -181,8 +182,7 @@ symtab_entry_list_t* query_nested_name_spec(symtab_t* st, symtab_t** result_look
 		{
 			case AST_SYMBOL :
 				{
-					entry_list = 
-						query_in_current_and_upper_scope(lookup_scope, ASTText(nested_name_spec));
+					entry_list = query_in_current_and_upper_scope(lookup_scope, ASTText(nested_name_spec));
 
 					if (entry_list == NULL)
 						return NULL;
@@ -205,28 +205,12 @@ symtab_entry_list_t* query_nested_name_spec(symtab_t* st, symtab_t** result_look
 					break;
 				}
 			case AST_TEMPLATE_ID :
-				{
-#warning "Template resolution has to be done here"
-					// TODO - Here we have to do template resolution !
-					AST symbol = ASTSon0(nested_name_spec);
-					entry_list = 
-						query_in_current_and_upper_scope(lookup_scope, ASTText(symbol));
-
-					if (entry_list == NULL)
-						return NULL;
-
-					if (entry_list->entry->kind != SK_TEMPLATE_PRIMARY_CLASS &&
-							entry_list->entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS)
-					{
-						return NULL;
-					}
-
-					seen_class = 1;
-
-					lookup_scope = entry_list->entry->inner_scope;
-
-					break;
-				}
+				 {
+					 entry_list = query_template_id(nested_name_spec, st, lookup_scope);
+					 lookup_scope = entry_list->entry->inner_scope;
+					 seen_class = 1;
+					 break;
+				 }
 			default:
 				{
 					internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(nested_name_spec)));
@@ -241,6 +225,47 @@ symtab_entry_list_t* query_nested_name_spec(symtab_t* st, symtab_t** result_look
 		*result_lookup_scope = lookup_scope;
 
 	return entry_list;
+}
+
+symtab_entry_list_t* query_template_id(AST template_id, symtab_t* st, symtab_t* lookup_scope)
+{
+	AST symbol = ASTSon0(template_id);
+	fprintf(stderr, "Trying to resolve template '%s'\n", ASTText(symbol));
+
+	symtab_entry_list_t* entry_list = query_in_current_and_upper_scope(lookup_scope, ASTText(symbol));
+
+	symtab_entry_list_t* iter = entry_list;
+
+	// Look for specializations
+	char has_specializations = 0;
+	while (iter != NULL)
+	{
+		if (iter->entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS
+				&& iter->entry->kind != SK_TEMPLATE_PRIMARY_CLASS)
+		{
+			internal_error("Expecting a template symbol but symbol kind %d found\n", iter->entry->kind);
+		}
+
+		has_specializations |= (iter->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS);
+
+		iter = iter->next;
+	}
+
+	if (!has_specializations)
+	{
+		fprintf(stderr, "This template was not specialized. Choosing primary template\n");
+		return entry_list;
+	}
+	else
+	{
+		// Get the template_arguments
+		template_argument_list_t* current_template_arguments = NULL;
+
+		build_symtab_template_arguments(ASTSon1(template_id), st, &current_template_arguments);
+		symtab_entry_t* matched_template = solve_template(entry_list, current_template_arguments, st);
+
+		return create_list_from_entry(matched_template);
+	}
 }
 
 symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr)

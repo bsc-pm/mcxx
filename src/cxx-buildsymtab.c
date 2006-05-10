@@ -63,6 +63,8 @@ static symtab_entry_t* build_symtab_declarator_id_expr(AST declarator_name, type
 static void build_symtab_linkage_specifier(AST a, symtab_t* st);
 static void build_symtab_linkage_specifier_declaration(AST a, symtab_t* st);
 
+void build_symtab_template_arguments(AST a, symtab_t* st, template_argument_list_t** template_arguments);
+
 static void build_symtab_template_declaration(AST a, symtab_t* st);
 static void build_symtab_explicit_template_specialization(AST a, symtab_t* st);
 
@@ -704,33 +706,39 @@ static void gather_type_spec_from_simple_type_specifier(AST a, symtab_t* st, sim
 	switch (ASTType(type_name))
 	{
 		case AST_SYMBOL :
-			fprintf(stderr, "Looking up for type '%s' in %p\n", ASTText(type_name), st);
-			symtab_entry_list_t* entry_list = query_in_current_and_upper_scope(st, ASTText(type_name));
-
-			// Filter for non types hiding this type name
-			// Fix this, it sounds a bit awkward
-			symtab_entry_t* simple_type_entry = filter_simple_type_specifier(entry_list);
-
-			if (simple_type_entry == NULL)
 			{
-				running_error("Identifier '%s' in line %d is not a type\n", ASTText(type_name), 
-						ASTLine(type_name));
-			}
+				fprintf(stderr, "Looking up for type '%s' in %p\n", ASTText(type_name), st);
+				symtab_entry_list_t* entry_list = query_in_current_and_upper_scope(st, ASTText(type_name));
 
-			if (simple_type_entry->type_information == NULL
-					|| simple_type_entry->type_information->kind != TK_DIRECT
-					|| simple_type_entry->type_information->type == NULL)
-			{
-				internal_error("The named type '%s' has no direct type entry in symbol table\n", 
-						ASTText(type_name));
-			}
+				// Filter for non types hiding this type name
+				// Fix this, it sounds a bit awkward
+				symtab_entry_t* simple_type_entry = filter_simple_type_specifier(entry_list);
 
-			simple_type_info->kind = STK_USER_DEFINED;
-			simple_type_info->user_defined_type = simple_type_entry;
-			break;
+				if (simple_type_entry == NULL)
+				{
+					running_error("Identifier '%s' in line %d is not a type\n", ASTText(type_name), 
+							ASTLine(type_name));
+				}
+
+				if (simple_type_entry->type_information == NULL
+						|| simple_type_entry->type_information->kind != TK_DIRECT
+						|| simple_type_entry->type_information->type == NULL)
+				{
+					internal_error("The named type '%s' has no direct type entry in symbol table\n", 
+							ASTText(type_name));
+				}
+
+				simple_type_info->kind = STK_USER_DEFINED;
+				simple_type_info->user_defined_type = simple_type_entry;
+				break;
+			}
 		case AST_TEMPLATE_ID :
-			internal_error("What to do to a template id?", 0);
-			break;
+			{
+				symtab_entry_list_t* entry_list = query_template_id(type_name, st, st);
+				simple_type_info->kind = STK_USER_DEFINED;
+				simple_type_info->user_defined_type = entry_list->entry;
+				break;
+			}
 		default:
 			internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
 	};
@@ -869,7 +877,7 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 			{
 				name = ASTText(ASTSon0(class_head_identifier));
 
-				simple_type_info->template_arguments = ASTSon1(class_head_identifier);
+				build_symtab_template_arguments(ASTSon1(class_head_identifier), st, &(simple_type_info->template_arguments));
 			}
 
 			// Check if it exists
@@ -1829,7 +1837,7 @@ static void build_symtab_template_simple_declaration(AST a, symtab_t* st, symtab
 }
 
 /*
- * This function register templates parameters in a given scope
+ * This function registers templates parameters in a given scope
  */
 static void build_symtab_template_parameter_list(AST a, symtab_t* st, 
 		template_parameter_t** template_param_info, int* num_parameters)
@@ -1850,7 +1858,7 @@ static void build_symtab_template_parameter_list(AST a, symtab_t* st,
 }
 
 /*
- * This function register one template parameter in a given scope
+ * This function registers one template parameter in a given scope
  */
 static void build_symtab_template_parameter(AST a, symtab_t* st, 
 		template_parameter_t* template_param_info, int num_parameter)
@@ -2271,6 +2279,65 @@ static exception_spec_t* build_exception_spec(symtab_t* st, AST a)
 	return result;
 }
 
+void build_symtab_template_arguments(AST a, symtab_t* st, template_argument_list_t** template_arguments)
+{
+	AST list, iter;
+	*template_arguments = calloc(sizeof(1), sizeof(*(*template_arguments)));
+
+	(*template_arguments)->num_arguments = 0;
+
+	list = a;
+
+	for_each_element(list, iter)
+	{
+		AST template_argument = ASTSon1(iter);
+
+		// We should check if this names a type
+		// There is an ambiguity around here that will have to handled
+		switch (ASTType(template_argument))
+		{
+			case AST_TYPE_ID :
+				{
+					template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
+					new_template_argument->kind = TAK_TYPE;
+					// Create the type_spec
+					// A type_id is a type_specifier_seq followed by an optional abstract
+					// declarator
+					AST type_specifier_seq = ASTSon0(template_argument);
+					AST abstract_decl = ASTSon1(template_argument);
+
+					// A type_specifier_seq is essentially a subset of a
+					// declarator_specifier_seq so we can reuse existing functions
+					simple_type_t* type_info;
+					gather_decl_spec_t gather_info;
+					memset(&gather_info, 0, sizeof(gather_info));
+
+					build_symtab_decl_specifier_seq(type_specifier_seq, st, &gather_info, &type_info);
+
+					type_t* declarator_type;
+					if (abstract_decl != NULL)
+					{
+						build_symtab_declarator(abstract_decl, st, &gather_info, type_info, &declarator_type);
+					}
+					else
+					{
+						declarator_type = simple_type_to_type(type_info);
+					}
+					new_template_argument->type = declarator_type;
+					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
+					break;
+				}
+			case AST_AMBIGUITY :
+				internal_error("Ambiguous node\n", 0);
+				break;
+			default :
+				internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(template_argument)));
+				break;
+		}
+	}
+}
+
+// Gives a name to an operator
 char* get_operator_function_name(AST declarator_id)
 {
 	if (ASTType(declarator_id) != AST_OPERATOR_FUNCTION_ID)

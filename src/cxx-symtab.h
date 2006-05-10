@@ -147,6 +147,29 @@ typedef struct class_information_tag {
 	struct symtab_entry_tag** constructor_list;
 } class_info_t;
 
+enum template_argument_kind
+{
+	TAK_UNDEFINED = 0,
+	TAK_NONTYPE,
+	TAK_TYPE
+};
+
+typedef struct template_argument_tag
+{
+	enum template_argument_kind kind;
+
+	// If TAK_NONTYPE this is the constant expression
+	AST expression;
+
+	// Otherwise we should have type_t here
+	struct type_tag* type;
+} template_argument_t;
+
+typedef struct template_argument_list_tag {
+	int num_arguments;
+	template_argument_t** argument_list;
+} template_argument_list_t;
+
 // Direct type (including classes and enums)
 typedef struct simple_type_tag {
 	simple_type_kind_t kind;
@@ -173,7 +196,7 @@ typedef struct simple_type_tag {
 
 	// For template classes
 	// Template arguments for specializations and instantiations
-	AST template_arguments;
+	template_argument_list_t* template_arguments;
 	
 	// For template parameters, the positional number of this argument
 	// in the template
@@ -310,6 +333,7 @@ symtab_entry_t* filter_simple_type_specifier(symtab_entry_list_t* entry_list);
 symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr);
 
 // Nested names
+symtab_entry_list_t* query_template_id(AST nested_name_spec, symtab_t* st, symtab_t* lookup_scope);
 symtab_entry_list_t* query_nested_name_spec(symtab_t* st, symtab_t** result_lookup_scope, AST global_op, AST nested_name);
 char incompatible_symbol_exists(symtab_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
 

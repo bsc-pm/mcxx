@@ -29,6 +29,8 @@ mcxx_SOURCES = \
   cxx-cexpr.h \
   cxx-ambiguity.c \
   cxx-ambiguity.h \
+  cxx-solvetemplate.h \
+  cxx-solvetemplate.c \
   cxx-printsymtab.c \
   cxx-printsymtab.h
 
