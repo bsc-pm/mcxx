@@ -877,7 +877,7 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 			{
 				name = ASTText(ASTSon0(class_head_identifier));
 
-				build_symtab_template_arguments(ASTSon1(class_head_identifier), st, &(simple_type_info->template_arguments));
+				build_symtab_template_arguments(class_head_identifier, st, &(simple_type_info->template_arguments));
 			}
 
 			// Check if it exists
@@ -1703,7 +1703,7 @@ static void build_symtab_template_simple_declaration(AST a, symtab_t* st, symtab
 	 *   };
 	 *
 	 *   template <class P>
-	 *   T A<P>::d = expr;       // For const member initialization
+	 *   const T A<P>::d = expr;       // For static const member initialization
 	 *
 	 * For the last case we won't do anything at the moment.
 	 *
@@ -1771,6 +1771,10 @@ static void build_symtab_template_simple_declaration(AST a, symtab_t* st, symtab
 					insert_entry(entry->inner_scope, entry_list->entry);
 				}
 			}
+
+			// Save the template parameters
+			entry->num_template_parameters = num_parameters;
+			entry->template_parameter_info = template_param_info;
 		}
 	}
 
@@ -2279,21 +2283,79 @@ static exception_spec_t* build_exception_spec(symtab_t* st, AST a)
 	return result;
 }
 
-void build_symtab_template_arguments(AST a, symtab_t* st, template_argument_list_t** template_arguments)
+void build_symtab_template_arguments(AST class_head_id, symtab_t* st, template_argument_list_t** template_arguments)
 {
 	AST list, iter;
 	*template_arguments = calloc(sizeof(1), sizeof(*(*template_arguments)));
 
 	(*template_arguments)->num_arguments = 0;
 
-	list = a;
+	int num_arguments = 0;
 
+
+	list = ASTSon1(class_head_id);
+	// Count the arguments
+	for_each_element(list, iter)
+	{
+		num_arguments++;
+	}
+	
+	// Complete arguments with default ones
+	// First search primary template
+	AST template_name = ASTSon0(class_head_id);
+	symtab_entry_list_t* templates_list = query_in_current_and_upper_scope(st, ASTText(template_name));
+	
+	symtab_entry_t* primary_template = NULL;
+
+	while ((templates_list != NULL) 
+			&& (primary_template == NULL))
+	{
+		if (templates_list->entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
+		{
+			primary_template = templates_list->entry;
+		}
+		
+		templates_list = templates_list->next;
+	}
+
+	if (primary_template == NULL)
+	{
+		internal_error("Primary template for '%s' not found", ASTText(template_name));
+	}
+
+	if (primary_template->num_template_parameters > num_arguments)
+	{
+		// We have to complete with default arguments
+		fprintf(stderr, "Completing template arguments with default arguments\n");
+		
+		AST default_arg_list = ASTSon1(class_head_id);
+		int k;
+		for (k = num_arguments; 
+				k < (primary_template->num_template_parameters);
+				k++)
+		{
+			if (primary_template->template_parameter_info[k]->default_argument == NULL)
+			{
+				internal_error("Parameter '%d' of template '%s' has no default argument", 
+						k, ASTText(template_name));
+			}
+
+			default_arg_list = ASTMake2(AST_NODE_LIST, default_arg_list, 
+					primary_template->template_parameter_info[k]->default_argument, 0, NULL);
+		}
+
+		// Relink correctly
+		ASTParent(default_arg_list) = class_head_id;
+		ASTSon1(class_head_id) = default_arg_list;
+	}
+
+	list = ASTSon1(class_head_id);
 	for_each_element(list, iter)
 	{
 		AST template_argument = ASTSon1(iter);
 
 		// We should check if this names a type
-		// There is an ambiguity around here that will have to handled
+		// There is an ambiguity around here that will have to be handled
 		switch (ASTType(template_argument))
 		{
 			case AST_TYPE_ID :
@@ -2335,6 +2397,7 @@ void build_symtab_template_arguments(AST a, symtab_t* st, template_argument_list
 				break;
 		}
 	}
+
 }
 
 // Gives a name to an operator
