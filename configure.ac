@@ -45,15 +45,15 @@ else
   AC_MSG_CHECKING([flex version])
   flex_ver=`flex --version | head -n 1 | sed -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
   case x${flex_ver} in
-    x2.5.4)
-	   AC_MSG_RESULT([2.5.4, ok])
+    x2.5.4 | x2.5.33)
+	   AC_MSG_RESULT([$flex_ver, ok])
 	   flex_good=yes
 	   ;;
 	x)
 	   AC_MSG_RESULT([error, could not guess flex version])
 	   ;;
 	x*)
-	   AC_MSG_RESULT(${flex_ver}[, warning unsupported version])
+	   AC_MSG_RESULT([${flex_ver}, warning unsupported version])
 	   ;;
   esac
 fi
@@ -76,14 +76,14 @@ else
   bison_ver=`bison --version | head -n 1 | sed -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
   case x${bison_ver} in
      x2.@<:@01@:>@)
-	    AC_MSG_RESULT(${bison_ver}[, ok])
+	    AC_MSG_RESULT([${bison_ver}, ok])
 		bison_good=yes
 	    ;;
 	 x)
 	    AC_MSG_RESULT([error, could not guess bison version])
 	    ;;
 	 x*)
-	    AC_MSG_RESULT(${bison_ver}[, warning unsupported version])
+	    AC_MSG_RESULT([${bison_ver} warning unsupported version])
 	    ;;
   esac
 fi
