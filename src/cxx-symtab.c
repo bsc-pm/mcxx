@@ -261,7 +261,6 @@ symtab_entry_list_t* query_template_id(AST template_id, symtab_t* st, symtab_t* 
 		// Get the template_arguments
 		template_argument_list_t* current_template_arguments = NULL;
 
-		fprintf(stderr, "-> %s\n", ast_print_node_type(ASTType(template_id)));
 		build_symtab_template_arguments(template_id, st, &current_template_arguments);
 		symtab_entry_t* matched_template = solve_template(entry_list, current_template_arguments, st);
 
