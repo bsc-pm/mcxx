@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <gc.h>
 #include "cxx-lexer.h"
 #include "cxx-ast.h"
 #include "cxx-parser.h"
@@ -13,7 +14,9 @@ void parse_token_text();
 int no_line=1;
 int first = 0;
 
+// For Garbage collection support
 #define free(x)
+#define malloc(x) GC_MALLOC(x)
 
 %}
 

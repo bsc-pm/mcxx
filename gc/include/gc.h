@@ -997,7 +997,7 @@ extern void GC_thr_init();	/* Needed for Solaris/X86	*/
 #endif
 
 /* rofi */
-#define GC_CALLOC(n, x) GC_MALLOC(n*x)
+#define GC_CALLOC(n, x) GC_MALLOC((n)*(x))
 /* end rofi */
 
 #ifdef __cplusplus
