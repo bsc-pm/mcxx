@@ -250,8 +250,8 @@ AC_SUBST(CXXINCLUDES)
 
 # Configuration of shared libraries
 #
-AC_MSG_CHECKING(whether to build shared libraries)
-AC_ENABLE_SHARED
+dnl AC_MSG_CHECKING(whether to build shared libraries)
+dnl AC_ENABLE_SHARED
 
 case "$host" in
  alpha-*-openbsd*)
