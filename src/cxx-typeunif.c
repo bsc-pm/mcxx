@@ -1,3 +1,4 @@
+#include <gc.h>
 #include "cxx-typeunif.h"
 #include "cxx-typeutils.h"
 #include "cxx-cexpr.h"
@@ -45,7 +46,7 @@ char unificate_two_types(type_t* t1, type_t* t2, symtab_t* st, unification_set_t
 		type_t* previous_unif = get_template_parameter_unification(*unif_set, t1->type->template_parameter_num);
 		if (previous_unif == NULL)
 		{
-			unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
+			unification_item_t* unif_item = GC_CALLOC(1, sizeof(*unif_item));
 
 			// This number will be the position of the argument
 			// within the specialization ! Not of the whole template

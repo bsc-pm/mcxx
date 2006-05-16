@@ -24,6 +24,10 @@ AC_LANG([C])
 dnl Comprovem install
 AC_PROG_INSTALL
 
+dnl Comprovem libtool
+AC_DISABLE_SHARED
+AC_PROG_LIBTOOL
+
 dnl Comprovem que hi ha compilador
 AC_PROG_CC
 
@@ -31,7 +35,7 @@ dnl Comprovem que hi ha preprocessador
 AC_PROG_CPP
 
 dnl Ranlib, imperatiu per a libs
-AC_PROG_RANLIB
+dnl AC_PROG_RANLIB
 
 dnl Comprovem programes
 
@@ -100,6 +104,9 @@ AC_CHECK_HEADERS(string.h)
 
 AC_FUNC_ALLOCA
 AC_C_CONST
+
+dnl Configurem gc
+AC_CONFIG_SUBDIRS(gc)
 
 dnl Escrivim els makefiles
 AC_CONFIG_FILES([Makefile 

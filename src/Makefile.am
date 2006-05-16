@@ -34,9 +34,10 @@ mcxx_SOURCES = \
   cxx-printsymtab.c \
   cxx-printsymtab.h
 
-mcxx_LDFLAGS=-L../lib
-mcxx_LDADD=-lmcxx-utils 
-mcxx_CFLAGS=-Wall -g -I$(srcdir)/../lib
+mcxx_LDFLAGS=-L../lib -L../gc
+mcxx_LDADD=../lib/libmcxx-utils.la ../gc/libgc.la
+mcxx_CFLAGS=-Wall -g -I$(srcdir)/../lib -I$(srcdir)/../gc/include
+
 
 EXTRA_DIST =
 EXTRA_DIST += cxx03.y

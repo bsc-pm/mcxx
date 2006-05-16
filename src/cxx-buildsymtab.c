@@ -12,6 +12,7 @@
 #include "hash_iterator.h"
 
 #include <signal.h>
+#include <gc.h>
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
@@ -354,7 +355,7 @@ static void build_symtab_decl_specifier_seq(AST a, symtab_t* st, gather_decl_spe
 	// Now gather information of the type_spec
 	if (ASTSon1(a) != NULL) 
 	{
-		*simple_type_info = calloc(1, sizeof(**simple_type_info));
+		*simple_type_info = GC_CALLOC(1, sizeof(**simple_type_info));
 		gather_type_spec_information(ASTSon1(a), st, *simple_type_info);
 		
 		// Now update the type_spec with type information that was caught in the decl_specifier_seq
@@ -603,9 +604,9 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, symtab_t* st
 			fprintf(stderr, "Type not found, creating a stub for this scope\n");
 			symtab_entry_t* new_class = new_symbol(st, ASTText(symbol));
 			new_class->kind = SK_CLASS;
-			new_class->type_information = calloc(1, sizeof(*(new_class->type_information)));
+			new_class->type_information = GC_CALLOC(1, sizeof(*(new_class->type_information)));
 			new_class->type_information->kind = TK_DIRECT;
-			new_class->type_information->type = calloc(1, sizeof(*(new_class->type_information->type)));
+			new_class->type_information->type = GC_CALLOC(1, sizeof(*(new_class->type_information->type)));
 			new_class->type_information->type->kind = STK_CLASS;
 
 			type_info->kind = STK_USER_DEFINED;
@@ -673,9 +674,9 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, symtab_t* st,
 			fprintf(stderr, "Enum type not found, creating a stub for this scope\n");
 			symtab_entry_t* new_class = new_symbol(st, ASTText(symbol));
 			new_class->kind = SK_ENUM;
-			new_class->type_information = calloc(1, sizeof(*(new_class->type_information)));
+			new_class->type_information = GC_CALLOC(1, sizeof(*(new_class->type_information)));
 			new_class->type_information->kind = TK_DIRECT;
-			new_class->type_information->type = calloc(1, sizeof(*(new_class->type_information->type)));
+			new_class->type_information->type = GC_CALLOC(1, sizeof(*(new_class->type_information->type)));
 			new_class->type_information->type->kind = STK_ENUM;
 
 			type_info->kind = STK_USER_DEFINED;
@@ -750,7 +751,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, symtab_t* st, sim
  */
 void gather_type_spec_from_enum_specifier(AST a, symtab_t* st, simple_type_t* simple_type_info)
 {
-	simple_type_info->enum_info = (enum_info_t*) calloc(1, sizeof(*simple_type_info->enum_info));
+	simple_type_info->enum_info = (enum_info_t*) GC_CALLOC(1, sizeof(*simple_type_info->enum_info));
 
 	simple_type_info->kind = STK_ENUM;
 
@@ -854,7 +855,7 @@ void gather_type_spec_from_class_specifier(AST a, symtab_t* st, simple_type_t* s
 	// AST class_head_base_clause = ASTSon3(class_head);
 	// fprintf(stderr, "TODO class head", name);
 
-	simple_type_info->class_info = calloc(1, sizeof(*simple_type_info->class_info));
+	simple_type_info->class_info = GC_CALLOC(1, sizeof(*simple_type_info->class_info));
 	simple_type_info->kind = STK_CLASS;
 
 	symtab_t* inner_scope = enter_scope(st);
@@ -1017,8 +1018,8 @@ static void set_pointer_type(type_t** declarator_type, symtab_t* st, AST pointer
 {
 	type_t* pointee_type = *declarator_type;
 
-	(*declarator_type) = calloc(1, sizeof(*(*declarator_type)));
-	(*declarator_type)->pointer = calloc(1, sizeof(*((*declarator_type)->pointer)));
+	(*declarator_type) = GC_CALLOC(1, sizeof(*(*declarator_type)));
+	(*declarator_type)->pointer = GC_CALLOC(1, sizeof(*((*declarator_type)->pointer)));
 	(*declarator_type)->pointer->pointee = pointee_type;
 
 	switch (ASTType(pointer_tree))
@@ -1063,9 +1064,9 @@ static void set_array_type(type_t** declarator_type, symtab_t* st, AST constant_
 {
 	type_t* element_type = *declarator_type;
 
-	(*declarator_type) = calloc(1, sizeof(*(*declarator_type)));
+	(*declarator_type) = GC_CALLOC(1, sizeof(*(*declarator_type)));
 	(*declarator_type)->kind = TK_ARRAY;
-	(*declarator_type)->array = calloc(1, sizeof(*((*declarator_type)->array)));
+	(*declarator_type)->array = GC_CALLOC(1, sizeof(*((*declarator_type)->array)));
 	(*declarator_type)->array->element_type = element_type;
 	(*declarator_type)->array->array_expr = constant_expr;
 
@@ -1153,9 +1154,9 @@ static void set_function_type(type_t** declarator_type, symtab_t* st, AST parame
 {
 	type_t* returning_type = *declarator_type;
 
-	(*declarator_type) = calloc(1, sizeof(*(*declarator_type)));
+	(*declarator_type) = GC_CALLOC(1, sizeof(*(*declarator_type)));
 	(*declarator_type)->kind = TK_FUNCTION;
-	(*declarator_type)->function = calloc(1, sizeof(*((*declarator_type)->function)));
+	(*declarator_type)->function = GC_CALLOC(1, sizeof(*((*declarator_type)->function)));
 	(*declarator_type)->function->return_type = returning_type;
 
 	set_function_parameter_clause(*declarator_type, st, parameter);
@@ -1452,9 +1453,9 @@ static symtab_entry_t* register_new_typedef_name(AST declarator_id, type_t* decl
 
 	// Save aliased type under the type of this declaration
 	entry->kind = SK_TYPEDEF;
-	entry->type_information = calloc(1, sizeof(*(entry->type_information)));
+	entry->type_information = GC_CALLOC(1, sizeof(*(entry->type_information)));
 	entry->type_information->kind = TK_DIRECT;
-	entry->type_information->type = calloc(1, sizeof(*(entry->type_information->type)));
+	entry->type_information->type = GC_CALLOC(1, sizeof(*(entry->type_information->type)));
 	entry->type_information->type->kind = STK_TYPEDEF;
 	entry->type_information->type->aliased_type = declarator_type;
 
@@ -1648,7 +1649,7 @@ static void build_symtab_template_declaration(AST a, symtab_t* st)
 	 * Template parameter information is constructed first
 	 */
 	symtab_t* template_scope = enter_scope(st);
-	template_parameter_t** template_param_info = calloc(1, sizeof(*template_param_info));
+	template_parameter_t** template_param_info = GC_CALLOC(1, sizeof(*template_param_info));
 	int num_parameters = 0;
 	
 	build_symtab_template_parameter_list(ASTSon0(a), template_scope, template_param_info, &num_parameters);
@@ -1671,7 +1672,7 @@ static void build_symtab_template_declaration(AST a, symtab_t* st)
 static void build_symtab_explicit_template_specialization(AST a, symtab_t* st)
 {
 	symtab_t* template_scope = enter_scope(st);
-	template_parameter_t** template_param_info = calloc(1, sizeof(*template_param_info));
+	template_parameter_t** template_param_info = GC_CALLOC(1, sizeof(*template_param_info));
 	int num_parameters = 0;
 
 	switch (ASTType(ASTSon0(a)))
@@ -1853,7 +1854,7 @@ static void build_symtab_template_parameter_list(AST a, symtab_t* st,
 	{
 		AST template_parameter = ASTSon1(iter);
 
-		template_parameter_t* new_template_param = calloc(1, sizeof(*new_template_param));
+		template_parameter_t* new_template_param = GC_CALLOC(1, sizeof(*new_template_param));
 
 		build_symtab_template_parameter(template_parameter, st, new_template_param, *num_parameters);
 
@@ -1903,9 +1904,9 @@ static void build_symtab_type_template_parameter(AST a, symtab_t* st,
 	// table
 	//
 	// Create the type
-	type_t* new_type = calloc(1, sizeof(*new_type));
+	type_t* new_type = GC_CALLOC(1, sizeof(*new_type));
 	new_type->kind = TK_DIRECT;
-	new_type->type = calloc(1, sizeof(*(new_type->type)));
+	new_type->type = GC_CALLOC(1, sizeof(*(new_type->type)));
 	new_type->type->kind = STK_TYPE_TEMPLATE_PARAMETER;
 	new_type->type->template_parameter_num = num_parameter;
 
@@ -2239,7 +2240,7 @@ static exception_spec_t* build_exception_spec(symtab_t* st, AST a)
 	if (a == NULL)
 		return NULL;
 
-	exception_spec_t* result = calloc(1, sizeof(*result));
+	exception_spec_t* result = GC_CALLOC(1, sizeof(*result));
 
 	AST type_id_list = ASTSon0(a);
 
@@ -2286,7 +2287,7 @@ static exception_spec_t* build_exception_spec(symtab_t* st, AST a)
 void build_symtab_template_arguments(AST class_head_id, symtab_t* st, template_argument_list_t** template_arguments)
 {
 	AST list, iter;
-	*template_arguments = calloc(sizeof(1), sizeof(*(*template_arguments)));
+	*template_arguments = GC_CALLOC(sizeof(1), sizeof(*(*template_arguments)));
 
 	(*template_arguments)->num_arguments = 0;
 
@@ -2360,7 +2361,7 @@ void build_symtab_template_arguments(AST class_head_id, symtab_t* st, template_a
 		{
 			case AST_TYPE_ID :
 				{
-					template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
+					template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
 					new_template_argument->kind = TAK_TYPE;
 					// Create the type_spec
 					// A type_id is a type_specifier_seq followed by an optional abstract

@@ -13,6 +13,8 @@ void parse_token_text();
 int no_line=1;
 int first = 0;
 
+#define free(x)
+
 %}
 
 %option stack

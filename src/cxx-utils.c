@@ -30,9 +30,6 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 	vfprintf(stderr, sanitized_message, ap);
 	va_end(ap);
 	fprintf(stderr, "\n");
-
-	free(sanitized_message);
-	free(source_file_copy);
 }
 
 void running_error(char* message, ...)

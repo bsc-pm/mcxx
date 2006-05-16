@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <signal.h>
 
+#include <gc.h>
+
 // Some useful macros
 #ifndef __GNUC__
     #define __attribute__(x)
@@ -51,7 +53,7 @@ int prime_hash(char* key, int hash_size);
 #define P_LIST_ADD(list, size, elem)  \
 do { \
 	(size)++; \
-	(list) = realloc((list), sizeof(*(list))*(size)); \
+	(list) = GC_REALLOC((list), sizeof(*(list))*(size)); \
 	(list)[((size)-1)] = (elem); \
 } while(0)
 

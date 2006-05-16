@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <gc.h>
 #include "cxx-lexer.h"
 #include "cxx-ast.h"
 
@@ -18,6 +19,10 @@
 #define YYERROR_VERBOSE 1
 // Sometimes we need lots of memory
 #define YYMAXDEPTH (10000000)
+
+#define YYMALLOC GC_MALLOC
+#define YYREALLOC GC_REALLOC
+#define YYFREE(x)
 
 void yyerror(AST* parsed_tree, const char* c);
 
@@ -2774,13 +2779,11 @@ unqualified_id : IDENTIFIER
 | '~' IDENTIFIER
 {
 	// Construct an artificial name for it
-	char* c = calloc(sizeof(char), strlen($2.token_text) + 2);
+	char* c = GC_CALLOC(sizeof(char), strlen($2.token_text) + 2);
 	strcat(c, "~");
 	strcat(c, $2.token_text);
 
 	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, c);
-
-	free(c);
 
 	$$ = ASTMake1(AST_DESTRUCTOR_ID, identifier, $1.token_line, NULL);
 }
@@ -4172,7 +4175,7 @@ string_literal : STRING_LITERAL
 
 	char* str1 = ASTText($1);
 	char* str2 = $2.token_text;
-	char* text = calloc(strlen(str1) + strlen(str2) + 1, sizeof(*text));
+	char* text = GC_CALLOC(strlen(str1) + strlen(str2) + 1, sizeof(*text));
 
 	strcat(text, str1);
 
@@ -4188,9 +4191,6 @@ string_literal : STRING_LITERAL
 	strcat(text, str2);
 
 	$$ = ASTLeaf(AST_STRING_LITERAL, ASTLine($1), text);
-	
-	// ASTMake always duplicates its input string
-	free(text);
 }
 ;
 
@@ -4218,7 +4218,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 
 
 			son0->num_ambig += son1->num_ambig;
-			son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
+			son0->ambig = (AST*) GC_REALLOC(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
 			
 			int i;
 			for (i = 0; i < son1->num_ambig; i++)
@@ -4231,7 +4231,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 		else
 		{
 			son0->num_ambig++;
-			son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
+			son0->ambig = (AST*) GC_REALLOC(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
 			son0->ambig[son0->num_ambig-1] = son1;
 
 			return son0;
@@ -4240,7 +4240,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 	else if (ASTType(son1) == AST_AMBIGUITY)
 	{
 		son1->num_ambig++;
-		son1->ambig = (AST*) realloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
+		son1->ambig = (AST*) GC_REALLOC(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
 		son1->ambig[son1->num_ambig-1] = son0;
 
 		return son1;
@@ -4250,7 +4250,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 		AST result = ASTLeaf(AST_AMBIGUITY, 0, NULL);
 
 		result->num_ambig = 2;
-		result->ambig = calloc(sizeof(*(result->ambig)), result->num_ambig);
+		result->ambig = GC_CALLOC(sizeof(*(result->ambig)), result->num_ambig);
 		result->ambig[0] = son0;
 		result->ambig[1] = son1;
 		result->line = son0->line;

@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <gc.h>
 #include "cxx-utils.h"
 #include "cxx-symtab.h"
 #include "cxx-solvetemplate.h"
@@ -118,7 +119,7 @@ char match_one_template(template_argument_list_t* arguments,
 			{
 				case TAK_TYPE :
 					{
-						unification_set_t* unif_set = calloc(1, sizeof(*unif_set));
+						unification_set_t* unif_set = GC_CALLOC(1, sizeof(*unif_set));
 						if (!unificate_two_types(spec_arg->type, arg->type, st, &unif_set))
 						{
 							return 0;

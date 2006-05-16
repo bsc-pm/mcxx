@@ -1,16 +1,16 @@
-noinst_LIBRARIES = libmcxx-utils.a
-EXTRA_LIBRARIES=libmcxx-getopt.a
+noinst_LTLIBRARIES = libmcxx-utils.la
+EXTRA_LTLIBRARIES=libmcxx-getopt.la
 
 #
 # CFLAGS=-ggdb -g3 -Wall
 #
 CFLAGS=-O2 -Wall
 
-libmcxx_getopt_a_SOURCES = getopt.c \
+libmcxx_getopt_la_SOURCES = getopt.c \
 						   getopt1.c \
 						   getopt.h
 
-libmcxx_utils_a_SOURCES = iterator.c \
+libmcxx_utils_la_SOURCES = iterator.c \
                           iterator.h \
                           list.c \
                           list.h \

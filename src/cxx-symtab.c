@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <gc.h>
 #include "cxx-symtab.h"
 #include "cxx-buildsymtab.h"
 #include "cxx-driver.h"
@@ -11,7 +12,7 @@
 
 symtab_t* new_symtab()
 {
-	symtab_t* st = calloc(1, sizeof(*st));
+	symtab_t* st = GC_CALLOC(1, sizeof(*st));
 	st->hash = hash_create(HASH_SIZE, HASHFUNC(prime_hash), KEYCMPFUNC(strcmp));
 	st->parent = NULL;
 
@@ -32,13 +33,13 @@ symtab_entry_t* new_symbol(symtab_t* st, char* name)
 
 	symtab_entry_t* result;
 
-	result = calloc(1, sizeof(*result));
+	result = GC_CALLOC(1, sizeof(*result));
 	result->symbol_name = strdup(name);
 	result->scope = st;
 
 	if (result_set != NULL)
 	{
-		symtab_entry_list_t* new_set = (symtab_entry_list_t*) calloc(1, sizeof(*new_set));
+		symtab_entry_list_t* new_set = (symtab_entry_list_t*) GC_CALLOC(1, sizeof(*new_set));
 
 		// Put the new entry in front of the previous
 		*new_set = *result_set;
@@ -48,7 +49,7 @@ symtab_entry_t* new_symbol(symtab_t* st, char* name)
 	}
 	else
 	{
-		result_set = (symtab_entry_list_t*) calloc(1, sizeof(*result_set));
+		result_set = (symtab_entry_list_t*) GC_CALLOC(1, sizeof(*result_set));
 		result_set->entry = result;
 		result_set->next = NULL; // redundant, though
 
@@ -98,7 +99,7 @@ void insert_entry(symtab_t* st, symtab_entry_t* entry)
 
 	if (result_set != NULL)
 	{
-		symtab_entry_list_t* new_set = (symtab_entry_list_t*) calloc(1, sizeof(*new_set));
+		symtab_entry_list_t* new_set = (symtab_entry_list_t*) GC_CALLOC(1, sizeof(*new_set));
 
 		// Put the new entry in front of the previous
 		*new_set = *result_set;
@@ -108,7 +109,7 @@ void insert_entry(symtab_t* st, symtab_entry_t* entry)
 	}
 	else
 	{
-		result_set = (symtab_entry_list_t*) calloc(1, sizeof(*result_set));
+		result_set = (symtab_entry_list_t*) GC_CALLOC(1, sizeof(*result_set));
 		result_set->entry = entry;
 		result_set->next = NULL; // redundant, though
 
@@ -356,7 +357,7 @@ symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr)
 
 symtab_entry_list_t* create_list_from_entry(symtab_entry_t* entry)
 {
-	symtab_entry_list_t* result = calloc(1, sizeof(*result));
+	symtab_entry_list_t* result = GC_CALLOC(1, sizeof(*result));
 	result->entry = entry;
 	result->next = NULL;
 
