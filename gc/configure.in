@@ -320,6 +320,7 @@ AC_SUBST(addincludes)
 AC_SUBST(addlibs)
 AC_SUBST(addtests)
 
+AC_DISABLE_SHARED
 AC_PROG_LIBTOOL
 
 #

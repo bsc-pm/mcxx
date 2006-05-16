@@ -2,12 +2,12 @@
 #define MEM_CTL_H
 
 #include <stdlib.h>
+#include <gc.h>
 
-#define NEW(type)    			(type *) malloc(sizeof(type))
-#define NEW0(type)				(type *) calloc(sizeof(type))
-#define NEWSTR(str)				strdup((str))
-#define FREESTR(str)			free((str))
-#define NEW_ARRAY(type,size) 	(type *)malloc(sizeof(type)*size)
-#define FREE(ptr) 				if (ptr) free(ptr)
+#define NEW(type)    			(type *) GC_MALLOC(sizeof(type))
+#define NEW_ARRAY(type,size) 	(type *)GC_CALLOC(size, sizeof(type))
+#define FREE(ptr) 				
+
+void noop_free(void* v);
 
 #endif

@@ -1,4 +1,5 @@
 #include "list_iterator.h"
+#include "mem_ctl.h"
 
 /* Forward iterator functions */
 
@@ -126,7 +127,7 @@ IteratorOps list_riterator_ops = {
     (void (*)(Iterator *)) list_riterator_next,
     (void (*)(Iterator *)) list_iterator_remove,
     (void (*)(Iterator *)) list_iterator_end,
-    (void (*)(Iterator *)) free
+    (void (*)(Iterator *)) noop_free
 };
 
 void list_riterator_init(ListIterator * i, List * l)

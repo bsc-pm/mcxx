@@ -10,6 +10,7 @@
 ***************************************************************************/
 
 #include "hash_iterator.h"
+#include "mem_ctl.h"
 
 static void
 hash_iterator_end (HashIterator * i)
@@ -63,7 +64,7 @@ IteratorOps hash_iterator_ops = {
   (void (*)(Iterator *)) hash_iterator_next,
   (void (*)(Iterator *)) hash_iterator_remove,
   (void (*)(Iterator *)) hash_iterator_end,
-  (void (*)(Iterator *)) free
+  (void (*)(Iterator *)) noop_free
 };
 
 void

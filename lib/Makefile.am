@@ -17,6 +17,7 @@ libmcxx_utils_la_SOURCES = iterator.c \
                           list_iterator.c \
                           list_iterator.h \
 						  mem_ctl.h \
+						  mem_ctl.c \
 						  s_types.h \
 						  hash.c \
 						  hash.h \
@@ -24,3 +25,4 @@ libmcxx_utils_la_SOURCES = iterator.c \
 						  hash_iterator.c \
 						  stack.h
 
+libmcxx_utils_la_CFLAGS = -I $(srcdir)/../gc/include
