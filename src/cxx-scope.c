@@ -96,7 +96,7 @@ scope_t* new_class_scope(scope_t* enclosing_scope)
 
 scope_t* new_template_scope(scope_t* enclosing_scope)
 {
-	scope_t* result = new_scope;
+	scope_t* result = new_scope();
 
 	result->kind = TEMPLATE_SCOPE;
 	result->contained_in = enclosing_scope;
@@ -139,7 +139,7 @@ scope_entry_t* new_symbol(scope_t* sc, char* name)
 	return result;
 }
 
-scope_entry_list_t* query_in_current_scope(scope_t* sc, char* name)
+static scope_entry_list_t* query_in_symbols_of_scope(scope_t* sc, char* name)
 {
 	scope_entry_list_t* result = (scope_entry_list_t*) hash_get(sc->hash, name);
 
@@ -245,7 +245,7 @@ scope_entry_list_t* query_nested_name_spec(scope_t* sc, scope_t** result_lookup_
 		{
 			case AST_SYMBOL :
 				{
-					entry_list = query_in_current_scope(lookup_scope, ASTText(nested_name_spec));
+					entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(nested_name_spec));
 
 					if (entry_list == NULL)
 						return NULL;
@@ -295,7 +295,7 @@ scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* loo
 	AST symbol = ASTSon0(template_id);
 	fprintf(stderr, "Trying to resolve template '%s'\n", ASTText(symbol));
 
-	scope_entry_list_t* entry_list = query_in_current_scope(lookup_scope, ASTText(symbol));
+	scope_entry_list_t* entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(symbol));
 
 	scope_entry_list_t* iter = entry_list;
 
@@ -338,7 +338,7 @@ scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr)
 		// Unqualified ones
 		case AST_SYMBOL :
 			{
-				return query_in_current_scope(sc, ASTText(id_expr));
+				return query_unqualified_name(sc, ASTText(id_expr));
 				break;
 			}
 		case AST_DESTRUCTOR_ID :
@@ -346,7 +346,7 @@ scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr)
 				// An unqualified destructor name "~name"
 				// 'name' should be a class in this scope
 				AST symbol = ASTSon0(id_expr);
-				scope_entry_list_t* result = query_in_current_scope(sc, ASTText(symbol));
+				scope_entry_list_t* result = query_in_symbols_of_scope(sc, ASTText(symbol));
 
 				return result;
 
@@ -363,7 +363,7 @@ scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr)
 				// An unqualified operator_function_id "operator +"
 				char* operator_function_name = get_operator_function_name(id_expr);
 
-				scope_entry_list_t* result = query_in_current_scope(sc, operator_function_name);
+				scope_entry_list_t* result = query_in_symbols_of_scope(sc, operator_function_name);
 
 				return result;
 				break;
@@ -426,6 +426,285 @@ scope_entry_list_t* create_list_from_entry(scope_entry_t* entry)
 	return result;
 }
 
+static scope_entry_list_t* lookup_block_scope(scope_t* st, char* unqualified_name)
+{
+	// First check the scope
+	scope_entry_list_t* result = NULL;
+	fprintf(stderr, "Looking up '%s' in block...", unqualified_name);
+	result = query_in_symbols_of_scope(st, unqualified_name);
+
+	if (result != NULL)
+	{
+		return result;
+	}
+
+	// TODO - This should consider transitively used namespaces
+	// Search in the namespaces
+	fprintf(stderr, "not found.\n Looking up '%s' in used namespaces...", unqualified_name);
+	int i;
+	for (i = 0; i < st->num_used_namespaces; i++)
+	{
+		result = query_in_symbols_of_scope(st->use_namespace[i], unqualified_name);
+		if (result != NULL)
+		{
+			return result;
+		}
+	}
+
+	// Search in the scope of labels
+	if (st->function_scope != NULL)
+	{
+		fprintf(stderr, "not found.\nLooking up '%s' in labels...", unqualified_name);
+		result = query_in_symbols_of_scope(st->function_scope, unqualified_name);
+		if (result != NULL)
+		{
+			return result;
+		}
+	}
+	
+	// Search in the scope of parameters
+	if (st->prototype_scope != NULL)
+	{
+		fprintf(stderr, "not found.\nLooking up '%s' in parameters...", unqualified_name);
+		result = query_in_symbols_of_scope(st->prototype_scope, unqualified_name);
+		if (result != NULL)
+		{
+			return result;
+		}
+	}
+
+	// Otherwise, if template scoping is available, check in the template scope
+	if (st->template_scope != NULL)
+	{
+		fprintf(stderr, "not found.\nLooking up '%s' in template parameters...", unqualified_name);
+		result = query_in_symbols_of_scope(st->template_scope, unqualified_name);
+		if (result != NULL)
+		{
+			return result;
+		}
+	}
+
+	// Otherwise try to find anything in the enclosing scope
+	if (st->contained_in != NULL)
+	{
+		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
+		result = query_unqualified_name(st, unqualified_name);
+	}
+
+	if (!result)
+	{
+		fprintf(stderr, "not found definitively.\n");
+	}
+
+	return result;
+}
+
+static scope_entry_list_t* lookup_prototype_scope(scope_t* st, char* unqualified_name)
+{
+	scope_entry_list_t* result = NULL;
+
+	// Otherwise try to find anything in the enclosing scope
+	if (st->contained_in != NULL)
+	{
+		fprintf(stderr, "Looking up '%s' in the prototype enclosing scope...", unqualified_name);
+		result = query_unqualified_name(st, unqualified_name);
+	}
+
+	if (!result)
+	{
+		fprintf(stderr, "not found definitively.\n");
+	}
+
+	return result;
+}
+
+static scope_entry_list_t* lookup_namespace_scope(scope_t* st, char* unqualified_name)
+{
+	// First check the scope
+	scope_entry_list_t* result = NULL;
+	fprintf(stderr, "Looking up '%s' within namespace...", unqualified_name);
+	result = query_in_symbols_of_scope(st, unqualified_name);
+
+	if (result != NULL)
+	{
+		return result;
+	}
+
+	// TODO - This should consider transitively used namespaces
+	// Search in the namespaces
+	fprintf(stderr, "not found.\n Looking up '%s' in used namespaces...", unqualified_name);
+	int i;
+	for (i = 0; i < st->num_used_namespaces; i++)
+	{
+		result = query_in_symbols_of_scope(st->use_namespace[i], unqualified_name);
+		if (result != NULL)
+		{
+			return result;
+		}
+	}
+
+	// Otherwise try to find anything in the enclosing scope
+	if (st->contained_in != NULL)
+	{
+		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
+		result = query_unqualified_name(st, unqualified_name);
+	}
+
+	if (!result)
+	{
+		fprintf(stderr, "not found definitively.\n");
+	}
+
+	return result;
+}
+
+static scope_entry_list_t* lookup_function_scope(scope_t* st, char* unqualified_name)
+{
+	// First check the scope
+	scope_entry_list_t* result = NULL;
+	fprintf(stderr, "Looking up '%s' in function scope...", unqualified_name);
+	result = query_in_symbols_of_scope(st, unqualified_name);
+
+	if (!result)
+	{
+		fprintf(stderr, "not found definitively.\n");
+	}
+
+	return result;
+}
+
+static scope_entry_list_t* lookup_class_scope(scope_t* st, char* unqualified_name)
+{
+	// First check the scope
+	scope_entry_list_t* result = NULL;
+	fprintf(stderr, "Looking up '%s' in block...", unqualified_name);
+	result = query_in_symbols_of_scope(st, unqualified_name);
+
+	if (result != NULL)
+	{
+		return result;
+	}
+
+	// TODO - This should consider transitively used namespaces
+	// Search in the namespaces
+	fprintf(stderr, "not found.\nLooking up '%s' in used namespaces...", unqualified_name);
+	int i;
+	for (i = 0; i < st->num_used_namespaces; i++)
+	{
+		result = query_in_symbols_of_scope(st->use_namespace[i], unqualified_name);
+		if (result != NULL)
+		{
+			return result;
+		}
+	}
+	
+	// Search in the bases
+	fprintf(stderr, "not found.\nLooking up '%s' in bases...", unqualified_name);
+	for (i = 0; i < st->num_used_namespaces; i++)
+	{
+		result = query_unqualified_name(st->use_namespace[i], unqualified_name);
+		if (result != NULL)
+		{
+			return result;
+		}
+	}
+
+	// Otherwise, if template scoping is available, check in the template scope
+	if (st->template_scope != NULL)
+	{
+		fprintf(stderr, "not found.\nLooking up '%s' in template parameters...", unqualified_name);
+		result = query_in_symbols_of_scope(st->template_scope, unqualified_name);
+		if (result != NULL)
+		{
+			return result;
+		}
+	}
+
+	// Otherwise try to find anything in the enclosing scope
+	if (st->contained_in != NULL)
+	{
+		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
+		result = query_unqualified_name(st, unqualified_name);
+	}
+
+	if (!result)
+	{
+		fprintf(stderr, "not found definitively.\n");
+	}
+
+	return result;
+}
+
+static scope_entry_list_t* lookup_template_scope(scope_t* st, char* unqualified_name)
+{
+	// First check the scope
+	scope_entry_list_t* result = NULL;
+	fprintf(stderr, "Looking up '%s' in template scope...", unqualified_name);
+	result = query_in_symbols_of_scope(st, unqualified_name);
+
+	if (result != NULL)
+	{
+		return result;
+	}
+
+	// Otherwise, if template scoping is available, check in the template scope
+	if (st->template_scope != NULL)
+	{
+		fprintf(stderr, "not found.\nLooking up '%s' in template parameters...", unqualified_name);
+		result = query_in_symbols_of_scope(st->template_scope, unqualified_name);
+		if (result != NULL)
+		{
+			return result;
+		}
+	}
+
+	// Otherwise try to find anything in the enclosing scope
+	if (st->contained_in != NULL)
+	{
+		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
+		result = query_unqualified_name(st, unqualified_name);
+	}
+
+	if (!result)
+	{
+		fprintf(stderr, "not found definitively.\n");
+	}
+
+	return result;
+}
+
+scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name)
+{
+	scope_entry_list_t* result = NULL;
+
+	switch (st->kind)
+	{
+		case PROTOTYPE_SCOPE :
+			result = lookup_prototype_scope(st, unqualified_name);
+			break;
+		case NAMESPACE_SCOPE :
+			result = lookup_namespace_scope(st, unqualified_name);
+			break;
+		case FUNCTION_SCOPE :
+			result = lookup_function_scope(st, unqualified_name);
+			break;
+		case BLOCK_SCOPE :
+			result = lookup_block_scope(st, unqualified_name);
+			break;
+		case CLASS_SCOPE :
+			result = lookup_class_scope(st, unqualified_name);
+			break;
+		case TEMPLATE_SCOPE :
+			result = lookup_template_scope(st, unqualified_name);
+			break;
+		case UNDEFINED_SCOPE :
+		default :
+			internal_error("Invalid scope kind=%d!\n", st->kind);
+	}
+
+	return result;
+}
+
 char incompatible_symbol_exists(scope_t* sc, AST id_expr, enum cxx_symbol_kind symbol_kind)
 {
 	scope_entry_list_t* entry_list = query_id_expression(sc, id_expr);
@@ -440,3 +719,4 @@ char incompatible_symbol_exists(scope_t* sc, AST id_expr, enum cxx_symbol_kind s
 
 	return found_incompatible;
 }
+

@@ -563,13 +563,16 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 	scope_t* lookup_scope;
 	scope_entry_list_t* result_list = NULL;
 
+	// This is a kludge and has to be rewritten
+#warning Rewrite this part because it does not work
+#if 0
 	if (nested_name_specifier != NULL)
 	{
 		scope_entry_list_t* lexical_scope = query_nested_name_spec(st, &lookup_scope, global_scope, nested_name_specifier);
 
 		if (lexical_scope != NULL)
 		{
-			result_list = query_in_current_scope(lookup_scope, ASTText(symbol));
+			result_list = query_unqualified_name(lookup_scope, ASTText(symbol));
 		}
 	}
 	else if (global_scope != NULL)
@@ -580,6 +583,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 	{
 		result_list = query_in_current_scope(st, ASTText(symbol));
 	}
+#endif
 
 	// Now look for a type
 	scope_entry_t* entry = NULL;
@@ -636,6 +640,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 	scope_t* lookup_scope;
 	scope_entry_list_t* result_list = NULL;
 
+#warning Rewrite this part because it does not work
+#if 0
 	if (nested_name_specifier != NULL)
 	{
 		scope_entry_list_t* lexical_scope = query_nested_name_spec(st, &lookup_scope, global_scope, nested_name_specifier);
@@ -653,6 +659,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 	{
 		result_list = query_in_current_scope(st, ASTText(symbol));
 	}
+#endif
 
 	// Now look for a type
 	scope_entry_t* entry = NULL;
@@ -706,12 +713,13 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simp
 	// TODO - We shall check nested namespaces and global qualifier, ignore it for now
 	AST type_name = ASTSon2(a);
 
+#warning Rewrite this
 	switch (ASTType(type_name))
 	{
 		case AST_SYMBOL :
 			{
 				fprintf(stderr, "Looking up for type '%s' in %p\n", ASTText(type_name), st);
-				scope_entry_list_t* entry_list = query_in_current_scope(st, ASTText(type_name));
+				scope_entry_list_t* entry_list = query_unqualified_name(st, ASTText(type_name));
 
 				// Filter for non types hiding this type name
 				// Fix this, it sounds a bit awkward
@@ -762,7 +770,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 	// but only if it has not been declared previously
 	if (enum_name != NULL)
 	{
-		scope_entry_list_t* enum_entry_list = query_in_current_scope(st, ASTText(enum_name));
+		scope_entry_list_t* enum_entry_list = query_unqualified_name(st, ASTText(enum_name));
 
 		scope_entry_t* new_entry;
 			
@@ -884,7 +892,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 			}
 
 			// Check if it exists
-			scope_entry_list_t* class_entry_list = query_in_current_scope(st, name);
+			scope_entry_list_t* class_entry_list = query_unqualified_name(st, name);
 
 			if (class_entry_list != NULL 
 					&& class_entry_list->entry->kind == SK_CLASS
@@ -1445,8 +1453,9 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 		gather_decl_spec_t* gather_info, scope_t* st)
 {
 	// First query for an existing entry
-	scope_entry_list_t* list = query_in_current_scope(st, ASTText(declarator_id));
+	scope_entry_list_t* list = query_unqualified_name(st, ASTText(declarator_id));
 
+#warning Rewrite this, provide higher level primitives
 	// Only enum or classes can exist, otherwise this is an error
 	if (list != NULL)
 	{
@@ -1489,10 +1498,11 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, scope_t* st)
 {
+#warning Rewrite this
 	if (declarator_type->kind != TK_FUNCTION)
 	{
 		// Check for existence of this symbol
-		scope_entry_list_t* entry_list = query_in_current_scope(st, ASTText(declarator_id));
+		scope_entry_list_t* entry_list = query_unqualified_name(st, ASTText(declarator_id));
 		if (entry_list != NULL)
 		{
 			if ((entry_list->entry->kind != SK_CLASS &&
@@ -1994,7 +2004,8 @@ static void build_scope_namespace_definition(AST a, scope_t* st)
 	if (namespace_name != NULL)
 	{
 		// Register this namespace if it does not exist
-		scope_entry_list_t* list = query_in_current_scope(st, ASTText(namespace_name));
+#warning Rewrite this
+		scope_entry_list_t* list = query_unqualified_name(st, ASTText(namespace_name));
 
 		if (list != NULL 
 				&& (list->next != NULL 
@@ -2318,7 +2329,7 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 	// Complete arguments with default ones
 	// First search primary template
 	AST template_name = ASTSon0(class_head_id);
-	scope_entry_list_t* templates_list = query_in_current_scope(st, ASTText(template_name));
+	scope_entry_list_t* templates_list = query_unqualified_name(st, ASTText(template_name));
 	
 	scope_entry_t* primary_template = NULL;
 
@@ -2524,11 +2535,13 @@ typedef void (*stmt_scope_handler_t)(AST a, scope_t* st);
 
 static void build_scope_compound_statement(AST a, scope_t* st)
 {
+	scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
+
 	AST list = ASTSon0(a);
 	AST iter;
 	for_each_element(list, iter)
 	{
-		build_scope_statement(ASTSon1(iter), st);
+		build_scope_statement(ASTSon1(iter), block_scope);
 	}
 }
 

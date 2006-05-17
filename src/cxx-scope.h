@@ -333,10 +333,6 @@ typedef struct scope_tag
 	int num_used_namespaces;
 	struct scope_tag** use_namespace;
 
-	// using declarations to qualified symbols will fill this
-	int num_used_declarations;
-	struct scope_tag** use_declaration;
-
 	// Base scopes
 	int num_base_scopes;
 	struct scope_tag** base_scope;
@@ -365,13 +361,12 @@ scope_entry_t* new_symbol(scope_t* st, char* name);
 scope_entry_list_t* create_list_from_entry(scope_entry_t* entry);
 void insert_entry(scope_t* st, scope_entry_t* entry);
 
-scope_entry_list_t* query_in_current_scope(scope_t* sc, char* name);
-
 // Higher level functions when dealing with the scope
 scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list);
 
 // Everything built by an id_expression can be queried with this function
 scope_entry_list_t* query_id_expression(scope_t* st, AST id_expr);
+scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name);
 
 // Nested names
 scope_entry_list_t* query_template_id(AST nested_name_spec, scope_t* st, scope_t* lookup_scope);
