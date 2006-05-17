@@ -7,9 +7,9 @@
 #define BITMAP(x) (1 << x)
 
 /*
- * A symbol table is represented by a scope_t*
+ * A scope is represented by a scope_t*
  *
- * Entries in the symbol table are scope_entry_t*
+ * Entries in the scope are scope_entry_t*
  *
  * Every entry can have a non-null type_information field type_t*
  * 
@@ -263,7 +263,7 @@ typedef struct type_tag
 
 struct scope_tag;
 
-// This is an entry in the symbol table
+// This is an entry in the scope
 typedef struct scope_entry_tag
 {
 	char* symbol_name;
@@ -272,15 +272,15 @@ typedef struct scope_entry_tag
 	// This allows us to enforce the one-definition-rule within a translation unit
 	int defined;
 
-	// Scope of this symbol when declared
+	// Scope of this entry when declared
 	struct scope_tag* scope;
 
 	// For everything related to a type
 	type_t* type_information;
 
-	// Related scope. For scopes defined within this symbol
-	// e.g. namespaces, classes, functions, etc
-	struct scope_tag* inner_scope;
+	// Related scope. For the scope defined after this name
+	// namespaces, classes and functions
+	struct scope_tag* related_scope;
 
 	// Initializations of several kind are saved here
 	//   - initialization of const objects
@@ -295,7 +295,7 @@ typedef struct scope_entry_tag
 	char* linkage_spec;
 } scope_entry_t;
 
-// This is what the symbol table returns
+// This is what the scope returns
 typedef struct scope_entry_list
 {
 	// The current entry
@@ -305,26 +305,67 @@ typedef struct scope_entry_list
 	struct scope_entry_list* next;
 } scope_entry_list_t;
 
-// This is the symbol table
+enum scope_kind
+{
+	UNDEFINED_SCOPE = 0, // Undefined scope, to early catch errors
+	NAMESPACE_SCOPE, // Scope of a namespace
+	FUNCTION_SCOPE, // Label declarations and gotos 
+	PROTOTYPE_SCOPE, // Scope of a prototype
+	BLOCK_SCOPE, // Corresponds to the scope of a compound statement
+	CLASS_SCOPE, // Class scope
+	TEMPLATE_SCOPE // Template scope, will get inherited everywhere if necessary
+};
+
+// This is the scope
 typedef struct scope_tag
 {
+	// Kind of this scope
+	enum scope_kind kind;
+	
 	// Hash of scope_entry_list
 	Hash* hash;
 
-	// Can be null 
-	struct scope_tag* parent;
+	// Relationships with other scopes
+	// Nesting relationship is expressed by "contained_in"
+	struct scope_tag* contained_in; 
+
+	// using namespace statements (using directives) will fill this
+	int num_used_namespaces;
+	struct scope_tag** use_namespace;
+
+	// using declarations to qualified symbols will fill this
+	int num_used_declarations;
+	struct scope_tag** use_declaration;
+
+	// Base scopes
+	int num_base_scopes;
+	struct scope_tag** base_scope;
+
+	// Prototype scope
+	struct scope_tag* prototype_scope;
+	
+	// Function scope
+	struct scope_tag* function_scope;
+
+	// Template scope
+	struct scope_tag* template_scope;
 } scope_t;
 
 #undef BITMAP
 
-// Functions to handle symbol table
-scope_t* new_scope();
-scope_t* enter_scope(scope_t* parent);
+scope_t* new_namespace_scope(scope_t* enclosing_scope);
+scope_t* new_prototype_scope(scope_t* enclosing_scope);
+scope_t* new_block_scope(scope_t* enclosing_scope, scope_t* prototype_scope, scope_t* function_scope);
+scope_t* new_function_scope(scope_t* enclosing_scope, scope_t* prototype_scope);
+scope_t* new_class_scope(scope_t* enclosing_scope);
+scope_t* new_template_scope(scope_t* enclosing_scope);
+
+// Functions to handle scope
 scope_entry_t* new_symbol(scope_t* st, char* name);
-scope_entry_list_t* query_in_current_scope(scope_t* st, char* name);
-scope_entry_list_t* query_in_current_and_upper_scope(scope_t* st, char* name);
 scope_entry_list_t* create_list_from_entry(scope_entry_t* entry);
 void insert_entry(scope_t* st, scope_entry_t* entry);
+
+scope_entry_list_t* query_in_current_scope(scope_t* sc, char* name);
 
 // Higher level functions when dealing with the scope
 scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list);

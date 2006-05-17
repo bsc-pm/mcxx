@@ -30,6 +30,8 @@ static void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_
 		simple_type_t** type_info);
 static scope_entry_t* build_scope_declarator(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
 		simple_type_t* type_info, type_t** declarator_type);
+static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t* st, scope_t** parameters_scope, 
+		gather_decl_spec_t* gather_info, simple_type_t* simple_type_info, type_t** declarator_type);
 
 static void build_scope_namespace_definition(AST a, scope_t* st);
 static scope_entry_t* build_scope_function_definition(AST a, scope_t* st);
@@ -50,7 +52,7 @@ static void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_typ
 static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st, simple_type_t* type_info);
 static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, simple_type_t* type_info);
 
-static void build_scope_declarator_rec(AST a, scope_t* st, type_t** declarator_type, AST* declarator_name);
+static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_scope, type_t** declarator_type, AST* declarator_name);
 
 static void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather_info);
 static void gather_type_spec_information(AST a, scope_t* st, simple_type_t* type_info);
@@ -108,7 +110,7 @@ void build_scope_translation_unit(AST a)
 		return;
 
 	// The global scope is created here
-	compilation_options.global_scope = new_scope();
+	compilation_options.global_scope = new_namespace_scope(NULL);
 
 	build_scope_declaration_sequence(list, compilation_options.global_scope);
 
@@ -254,8 +256,9 @@ static void build_scope_simple_declaration(AST a, scope_t* st)
 			type_t* declarator_type;
 
 			// This will create the symbol if it is unqualified
-			build_scope_declarator(declarator, st, &gather_info, 
-					simple_type_info, &declarator_type);
+			scope_t* parameters_scope = NULL;
+			build_scope_declarator_with_parameter_scope(declarator, st, &parameters_scope, 
+					&gather_info, simple_type_info, &declarator_type);
 
 			// This is a simple declaration, thus if it does not declare an
 			// extern variable or function, the symbol is already defined here
@@ -575,7 +578,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 	}
 	else
 	{
-		result_list = query_in_current_and_upper_scope(st, ASTText(symbol));
+		result_list = query_in_current_scope(st, ASTText(symbol));
 	}
 
 	// Now look for a type
@@ -648,7 +651,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 	}
 	else
 	{
-		result_list = query_in_current_and_upper_scope(st, ASTText(symbol));
+		result_list = query_in_current_scope(st, ASTText(symbol));
 	}
 
 	// Now look for a type
@@ -708,7 +711,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simp
 		case AST_SYMBOL :
 			{
 				fprintf(stderr, "Looking up for type '%s' in %p\n", ASTText(type_name), st);
-				scope_entry_list_t* entry_list = query_in_current_and_upper_scope(st, ASTText(type_name));
+				scope_entry_list_t* entry_list = query_in_current_scope(st, ASTText(type_name));
 
 				// Filter for non types hiding this type name
 				// Fix this, it sounds a bit awkward
@@ -857,7 +860,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 	simple_type_info->class_info = GC_CALLOC(1, sizeof(*simple_type_info->class_info));
 	simple_type_info->kind = STK_CLASS;
 
-	scope_t* inner_scope = enter_scope(st);
+	scope_t* inner_scope = new_class_scope(st);
 
 	scope_entry_t* class_entry = NULL;
 	
@@ -902,7 +905,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 			// otherwise
 			class_entry->type_information = copy_type(simple_type_to_type(simple_type_info));
 
-			class_entry->inner_scope = inner_scope;
+			class_entry->related_scope = inner_scope;
 
 			// Since this type is not anonymous we'll want that simple_type_info
 			// refers to this newly created type
@@ -986,8 +989,17 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
  * If the declarator is not abstract, therefore it has a name,
  * build_scope_declarator_name is called to sign it up in the symbol table.
  */
-static scope_entry_t* build_scope_declarator(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
-		simple_type_t* simple_type_info, type_t** declarator_type)
+static scope_entry_t* build_scope_declarator(AST a, scope_t* st, 
+		gather_decl_spec_t* gather_info, simple_type_t* simple_type_info, type_t** declarator_type)
+{
+	scope_entry_t* entry = build_scope_declarator_with_parameter_scope(a, 
+			st, NULL, gather_info, simple_type_info, declarator_type);
+
+	return entry;
+}
+
+static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t* st, scope_t** parameters_scope, 
+		gather_decl_spec_t* gather_info, simple_type_t* simple_type_info, type_t** declarator_type)
 {
 	scope_entry_t* entry = NULL;
 	// Set base type
@@ -995,7 +1007,7 @@ static scope_entry_t* build_scope_declarator(AST a, scope_t* st, gather_decl_spe
 
 	AST declarator_name = NULL;
 
-	build_scope_declarator_rec(a, st, declarator_type, &declarator_name);
+	build_scope_declarator_rec(a, st, parameters_scope, declarator_type, &declarator_name);
 
 	if (declarator_name != NULL)
 	{
@@ -1078,7 +1090,8 @@ static void set_array_type(type_t** declarator_type, scope_t* st, AST constant_e
  * This function fetches information for every declarator in the
  * parameter_declaration_clause of a functional declarator
  */
-static void set_function_parameter_clause(type_t* declarator_type, scope_t* st, AST parameters)
+static void set_function_parameter_clause(type_t* declarator_type, scope_t* st, 
+		scope_t** parameter_sc, AST parameters)
 {
 	declarator_type->function->num_parameters = 0;
 	declarator_type->function->parameter_list = NULL;
@@ -1094,7 +1107,14 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st, 
 	list = parameters;
 	
 	// Do not contaminate the current symbol table
-	scope_t* parameters_scope = enter_scope(st);
+	scope_t* parameters_scope;
+	parameters_scope = new_prototype_scope(st);
+
+	// Save this parameter scope
+	if (parameter_sc != NULL)
+	{
+		*parameter_sc = parameters_scope;
+	}
 
 	for_each_element(list, iter)
 	{
@@ -1149,7 +1169,8 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st, 
 /*
  * This function converts a type "T" into a "function (...) returning T" type
  */
-static void set_function_type(type_t** declarator_type, scope_t* st, AST parameter, AST cv_qualif, AST except_spec)
+static void set_function_type(type_t** declarator_type, scope_t* st, scope_t** parameters_scope, 
+		AST parameter, AST cv_qualif, AST except_spec)
 {
 	type_t* returning_type = *declarator_type;
 
@@ -1158,7 +1179,7 @@ static void set_function_type(type_t** declarator_type, scope_t* st, AST paramet
 	(*declarator_type)->function = GC_CALLOC(1, sizeof(*((*declarator_type)->function)));
 	(*declarator_type)->function->return_type = returning_type;
 
-	set_function_parameter_clause(*declarator_type, st, parameter);
+	set_function_parameter_clause(*declarator_type, st, parameters_scope, parameter);
 
 	(*declarator_type)->function->cv_qualifier = compute_cv_qualifier(cv_qualif);
 
@@ -1177,7 +1198,7 @@ static void set_function_type(type_t** declarator_type, scope_t* st, AST paramet
  *
  * Starts with a base type of "int" and ends being a "pointer to array 3 of int"
  */
-static void build_scope_declarator_rec(AST a, scope_t* st, type_t** declarator_type, AST* declarator_name)
+static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_scope, type_t** declarator_type, AST* declarator_name)
 {
 	if (a == NULL)
 	{
@@ -1190,7 +1211,7 @@ static void build_scope_declarator_rec(AST a, scope_t* st, type_t** declarator_t
 		case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
 		case AST_PARENTHESIZED_DECLARATOR :
 			{
-				build_scope_declarator_rec(ASTSon0(a), st, declarator_type, declarator_name); 
+				build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name); 
 				break;
 			}
 		case AST_ABSTRACT_DECLARATOR :
@@ -1198,14 +1219,14 @@ static void build_scope_declarator_rec(AST a, scope_t* st, type_t** declarator_t
 				set_pointer_type(declarator_type, st, ASTSon0(a));
 				if (ASTSon1(a) != NULL)
 				{
-					build_scope_declarator_rec(ASTSon1(a), st, declarator_type, declarator_name);
+					build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, declarator_name);
 				}
 				break;
 			}
 		case AST_POINTER_DECL :
 			{
 				set_pointer_type(declarator_type, st, ASTSon0(a));
-				build_scope_declarator_rec(ASTSon1(a), st, declarator_type, declarator_name);
+				build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, declarator_name);
 				break;
 			}
 		case AST_ABSTRACT_ARRAY :
@@ -1213,29 +1234,29 @@ static void build_scope_declarator_rec(AST a, scope_t* st, type_t** declarator_t
 				set_array_type(declarator_type, st, ASTSon1(a));
 				if (ASTSon0(a) != NULL)
 				{
-					build_scope_declarator_rec(ASTSon0(a), st, declarator_type, declarator_name);
+					build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name);
 				}
 				break;
 			}
 		case AST_DECLARATOR_ARRAY :
 			{
 				set_array_type(declarator_type, st, ASTSon1(a));
-				build_scope_declarator_rec(ASTSon0(a), st, declarator_type, declarator_name);
+				build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name);
 				break;
 			}
 		case AST_ABSTRACT_DECLARATOR_FUNC :
 			{
-				set_function_type(declarator_type, st, ASTSon1(a), ASTSon2(a), ASTSon3(a));
+				set_function_type(declarator_type, st, parameters_scope, ASTSon1(a), ASTSon2(a), ASTSon3(a));
 				if (ASTSon0(a) != NULL)
 				{
-					build_scope_declarator_rec(ASTSon0(a), st, declarator_type, declarator_name);
+					build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name);
 				}
 				break;
 			}
 		case AST_DECLARATOR_FUNC :
 			{
-				set_function_type(declarator_type, st, ASTSon1(a), ASTSon2(a), ASTSon3(a));
-				build_scope_declarator_rec(ASTSon0(a), st, declarator_type, declarator_name);
+				set_function_type(declarator_type, st, parameters_scope, ASTSon1(a), ASTSon2(a), ASTSon3(a));
+				build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name);
 				break;
 			}
 		case AST_DECLARATOR_ID_EXPR :
@@ -1647,7 +1668,7 @@ static void build_scope_template_declaration(AST a, scope_t* st)
 	/*
 	 * Template parameter information is constructed first
 	 */
-	scope_t* template_scope = enter_scope(st);
+	scope_t* template_scope = new_template_scope(st);
 	template_parameter_t** template_param_info = GC_CALLOC(1, sizeof(*template_param_info));
 	int num_parameters = 0;
 	
@@ -1670,7 +1691,7 @@ static void build_scope_template_declaration(AST a, scope_t* st)
  */
 static void build_scope_explicit_template_specialization(AST a, scope_t* st)
 {
-	scope_t* template_scope = enter_scope(st);
+	scope_t* template_scope = new_template_scope(st);
 	template_parameter_t** template_param_info = GC_CALLOC(1, sizeof(*template_param_info));
 	int num_parameters = 0;
 
@@ -1758,19 +1779,19 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 			// We have just pulled out the class name from the template parameter scope but we also want
 			// parameters to be in class scope. To be correct we should remove them from the template parameter
 			// scope but this is harmless. (I think)
-			Iterator* it = (Iterator*) hash_iterator_create(template_scope->hash);
-			for (iterator_first(it); !iterator_finished(it); iterator_next(it))
-			{
-				scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
-
-				// Technically here will not appear repeated things, so only export
-				// the first one
-				// Do not re-add the class symbol!
-				if (entry != entry_list->entry)
-				{
-					insert_entry(entry->inner_scope, entry_list->entry);
-				}
-			}
+			
+			// Iterator* it = (Iterator*) hash_iterator_create(template_scope->hash);
+			// for (iterator_first(it); !iterator_finished(it); iterator_next(it))
+			// {
+			// 	scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
+			// 	// Technically here will not appear repeated things, so only export
+			// 	// the first one
+			// 	// Do not re-add the class symbol!
+			// 	if (entry != entry_list->entry)
+			// 	{
+			// 		insert_entry(entry->related_scope, entry_list->entry);
+			// 	}
+			// }
 
 			// Save the template parameters
 			entry->num_template_parameters = num_parameters;
@@ -1990,15 +2011,15 @@ static void build_scope_namespace_definition(AST a, scope_t* st)
 		else
 		{
 			// We register a symbol of type namespace and link to a newly created scope.
-			scope_t* namespace_scope = enter_scope(st);
+			scope_t* namespace_scope = new_namespace_scope(st);
 
 			entry = new_symbol(st, ASTText(namespace_name));
 			entry->kind = SK_NAMESPACE;
-			entry->inner_scope = namespace_scope;
+			entry->related_scope = namespace_scope;
 		}
 
 
-		build_scope_declaration_sequence(ASTSon1(a), entry->inner_scope);
+		build_scope_declaration_sequence(ASTSon1(a), entry->related_scope);
 	}
 	else
 	{
@@ -2031,7 +2052,9 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 	// declarator
 	type_t* declarator_type;
 	scope_entry_t* entry = NULL;
-	entry = build_scope_declarator(ASTSon1(a), st, &gather_info, type_info, &declarator_type);
+	scope_t* parameter_scope;
+	entry = build_scope_declarator_with_parameter_scope(ASTSon1(a), st, &parameter_scope,
+			&gather_info, type_info, &declarator_type);
 	if (entry == NULL)
 	{
 		internal_error("This function does not exist!", 0);
@@ -2042,9 +2065,9 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 	AST function_body = ASTSon3(a);
 	AST statement = ASTSon0(function_body);
 
-	scope_t* inner_scope = enter_scope(st);
+	scope_t* inner_scope = new_function_scope(st, parameter_scope);
 
-	entry->inner_scope = inner_scope;
+	entry->related_scope = inner_scope;
 
 	build_scope_statement(statement, inner_scope);
 
@@ -2295,7 +2318,7 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 	// Complete arguments with default ones
 	// First search primary template
 	AST template_name = ASTSon0(class_head_id);
-	scope_entry_list_t* templates_list = query_in_current_and_upper_scope(st, ASTText(template_name));
+	scope_entry_list_t* templates_list = query_in_current_scope(st, ASTText(template_name));
 	
 	scope_entry_t* primary_template = NULL;
 

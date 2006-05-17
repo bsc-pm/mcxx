@@ -104,7 +104,7 @@ static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_inde
 			|| entry->kind == SK_TEMPLATE_PRIMARY_CLASS
 			|| entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
 	{
-		print_scope(entry->inner_scope, global_indent+1);
+		print_scope(entry->related_scope, global_indent+1);
 	}
 
 	if (entry->kind == SK_FUNCTION
@@ -113,6 +113,6 @@ static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_inde
 		PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Prototype: ");
 		print_declarator(entry->type_information, st);
 		fprintf(stderr, "\n");
-		print_scope(entry->inner_scope, global_indent+1);
+		print_scope(entry->related_scope, global_indent+1);
 	}
 }

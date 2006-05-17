@@ -9,22 +9,102 @@
 #include "cxx-solvetemplate.h"
 #include "hash.h"
 
-
-scope_t* new_scope()
+static scope_t* new_scope()
 {
 	scope_t* sc = GC_CALLOC(1, sizeof(*sc));
 	sc->hash = hash_create(HASH_SIZE, HASHFUNC(prime_hash), KEYCMPFUNC(strcmp));
-	sc->parent = NULL;
 
 	return sc;
 }
 
-scope_t* enter_scope(scope_t* parent)
+// Creates a new namespace scope, a new global scope is created by just
+// passing a NULL enclosing namespace
+scope_t* new_namespace_scope(scope_t* enclosing_scope)
 {
-	scope_t* sc = new_scope();
-	sc->parent = parent;
+	scope_t* result = new_scope();
 
-	return sc;
+	result->kind = NAMESPACE_SCOPE;
+	result->contained_in = enclosing_scope;
+
+	// Template scope gets inherited automatically
+	if (enclosing_scope != NULL)
+	{
+		result->template_scope = enclosing_scope->template_scope;
+	}
+
+	return result;
+}
+
+// Creates a new prototype scope
+scope_t* new_prototype_scope(scope_t* enclosing_scope)
+{
+	scope_t* result = new_scope();
+	result->kind = PROTOTYPE_SCOPE;
+	result->contained_in = enclosing_scope;
+	
+	// Template scope gets inherited automatically
+	result->template_scope = enclosing_scope->template_scope;
+
+	return result;
+}
+
+// Creates a new block scope
+scope_t* new_block_scope(scope_t* enclosing_scope, scope_t* prototype_scope, scope_t* function_scope)
+{
+	scope_t* result = new_scope();
+
+	result->kind = BLOCK_SCOPE;
+	result->prototype_scope = prototype_scope;
+	result->function_scope = function_scope;
+	result->contained_in = enclosing_scope;
+	
+	// Template scope gets inherited automatically
+	result->template_scope = enclosing_scope->template_scope;
+	
+	return result;
+}
+
+// Creates a new function scope
+scope_t* new_function_scope(scope_t* enclosing_scope, scope_t* prototype_scope)
+{
+	scope_t* result = new_scope();
+	
+	result->kind = FUNCTION_SCOPE;
+	result->prototype_scope = prototype_scope;
+	result->contained_in = enclosing_scope;
+	
+	// Template scope gets inherited automatically
+	result->template_scope = enclosing_scope->template_scope;
+
+	return result;
+}
+
+// Creates a new class scope
+scope_t* new_class_scope(scope_t* enclosing_scope)
+{
+	scope_t* result = new_scope();
+
+	result->kind = CLASS_SCOPE;
+
+	result->contained_in = enclosing_scope;
+	
+	// Template scope gets inherited automatically
+	result->template_scope = enclosing_scope->template_scope;
+
+	return result;
+}
+
+scope_t* new_template_scope(scope_t* enclosing_scope)
+{
+	scope_t* result = new_scope;
+
+	result->kind = TEMPLATE_SCOPE;
+	result->contained_in = enclosing_scope;
+
+	// This might sound odd but will enable the inheritance
+	// result->template_scope = result;
+
+	return result;
 }
 
 scope_entry_t* new_symbol(scope_t* sc, char* name)
@@ -64,24 +144,6 @@ scope_entry_list_t* query_in_current_scope(scope_t* sc, char* name)
 	scope_entry_list_t* result = (scope_entry_list_t*) hash_get(sc->hash, name);
 
 	return result;
-}
-
-// Note that the resulting list is not a merge of all the scopes but the first
-// scope that yields a non-null result
-scope_entry_list_t* query_in_current_and_upper_scope(scope_t* sc, char* name)
-{
-	scope_t* scope = sc;
-	while (scope != NULL)
-	{
-		scope_entry_list_t* result = query_in_current_scope(scope, name);
-		if (result != NULL)
-		{
-			return result;
-		}
-		scope = scope->parent;
-	}
-
-	return NULL;
 }
 
 /*
@@ -183,7 +245,7 @@ scope_entry_list_t* query_nested_name_spec(scope_t* sc, scope_t** result_lookup_
 		{
 			case AST_SYMBOL :
 				{
-					entry_list = query_in_current_and_upper_scope(lookup_scope, ASTText(nested_name_spec));
+					entry_list = query_in_current_scope(lookup_scope, ASTText(nested_name_spec));
 
 					if (entry_list == NULL)
 						return NULL;
@@ -201,14 +263,14 @@ scope_entry_list_t* query_nested_name_spec(scope_t* sc, scope_t** result_lookup_
 					if (entry_list->entry->kind == SK_CLASS)
 						seen_class = 1;
 
-					lookup_scope = entry_list->entry->inner_scope;
+					lookup_scope = entry_list->entry->related_scope;
 
 					break;
 				}
 			case AST_TEMPLATE_ID :
 				 {
 					 entry_list = query_template_id(nested_name_spec, sc, lookup_scope);
-					 lookup_scope = entry_list->entry->inner_scope;
+					 lookup_scope = entry_list->entry->related_scope;
 					 seen_class = 1;
 					 break;
 				 }
@@ -233,7 +295,7 @@ scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* loo
 	AST symbol = ASTSon0(template_id);
 	fprintf(stderr, "Trying to resolve template '%s'\n", ASTText(symbol));
 
-	scope_entry_list_t* entry_list = query_in_current_and_upper_scope(lookup_scope, ASTText(symbol));
+	scope_entry_list_t* entry_list = query_in_current_scope(lookup_scope, ASTText(symbol));
 
 	scope_entry_list_t* iter = entry_list;
 
@@ -276,7 +338,7 @@ scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr)
 		// Unqualified ones
 		case AST_SYMBOL :
 			{
-				return query_in_current_and_upper_scope(sc, ASTText(id_expr));
+				return query_in_current_scope(sc, ASTText(id_expr));
 				break;
 			}
 		case AST_DESTRUCTOR_ID :
@@ -284,7 +346,7 @@ scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr)
 				// An unqualified destructor name "~name"
 				// 'name' should be a class in this scope
 				AST symbol = ASTSon0(id_expr);
-				scope_entry_list_t* result = query_in_current_and_upper_scope(sc, ASTText(symbol));
+				scope_entry_list_t* result = query_in_current_scope(sc, ASTText(symbol));
 
 				return result;
 
@@ -301,7 +363,7 @@ scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr)
 				// An unqualified operator_function_id "operator +"
 				char* operator_function_name = get_operator_function_name(id_expr);
 
-				scope_entry_list_t* result = query_in_current_and_upper_scope(sc, operator_function_name);
+				scope_entry_list_t* result = query_in_current_scope(sc, operator_function_name);
 
 				return result;
 				break;
