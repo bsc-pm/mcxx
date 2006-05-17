@@ -14,17 +14,17 @@ static char is_typedef_type(type_t* t);
 static type_t* aliased_type(type_t* t);
 static type_t* base_type(type_t* t);
 static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
-static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, symtab_t* st);
-static char equivalent_array_type(array_info_t* t1, array_info_t* t2, symtab_t* st);
-static char equivalent_function_type(function_info_t* t1, function_info_t* t2, symtab_t* st);
-static char compatible_parameters(function_info_t* t1, function_info_t* t2, symtab_t* st);
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scope_t* st);
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st);
+static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st);
+static char compatible_parameters(function_info_t* t1, function_info_t* t2, scope_t* st);
 
 /*
  * States if two types are equivalent. This means that they are the same
  * (ignoring typedefs). Just plain comparison, no standard conversion is
  * performed. cv-qualifiers are relevant for comparison
  */
-char equivalent_types(type_t* t1, type_t* t2, symtab_t* st)
+char equivalent_types(type_t* t1, type_t* t2, scope_t* st)
 {
 	if (t1 == NULL || t2 == NULL)
 		return 1;
@@ -72,7 +72,7 @@ char equivalent_types(type_t* t1, type_t* t2, symtab_t* st)
 	return 0;
 }
 
-char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, symtab_t* st)
+char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
 {
 	if (t1->kind != t2->kind)
 	{
@@ -158,7 +158,7 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
 	return 1;
 }
 
-static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, symtab_t* st)
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scope_t* st)
 {
 	if (!equivalent_types(t1->pointee, t2->pointee, st))
 	{
@@ -168,7 +168,7 @@ static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, symt
 	return (equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier));
 }
 
-static char equivalent_array_type(array_info_t* t1, array_info_t* t2, symtab_t* st)
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st)
 {
 	if (!equivalent_types(t1->element_type, t2->element_type, st))
 		return 0;
@@ -182,7 +182,7 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2, symtab_t* 
 	return 1;
 }
 
-char overloaded_function(function_info_t* t1, function_info_t* t2, symtab_t* st)
+char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
 {
 	if (!compatible_parameters(t1, t2, st))
 		return 1;
@@ -201,7 +201,7 @@ char overloaded_function(function_info_t* t1, function_info_t* t2, symtab_t* st)
 	return 0;
 }
 
-static char equivalent_function_type(function_info_t* t1, function_info_t* t2, symtab_t* st)
+static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st)
 {
 	if (!equivalent_types(t1->return_type, t2->return_type, st))
 		return 0;
@@ -218,7 +218,7 @@ static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2)
 	return (cv1 == cv2);
 }
 
-static char compatible_parameters(function_info_t* t1, function_info_t* t2, symtab_t* st)
+static char compatible_parameters(function_info_t* t1, function_info_t* t2, scope_t* st)
 {
 	if (t1->num_parameters != t2->num_parameters)
 		return 0;
@@ -334,7 +334,7 @@ static char is_typedef_type(type_t* t1)
 	if (t1->kind == TK_DIRECT
 			&& t1->type->kind == STK_USER_DEFINED)
 	{
-		symtab_entry_t* user_defined_entry = t1->type->user_defined_type;
+		scope_entry_t* user_defined_entry = t1->type->user_defined_type;
 		type_t* user_defined_type = user_defined_entry->type_information;
 
 		if (user_defined_type->kind == TK_DIRECT &&
@@ -358,7 +358,7 @@ static type_t* aliased_type(type_t* t1)
 	}
 	else
 	{
-		symtab_entry_t* user_defined_entry = t1->type->user_defined_type;
+		scope_entry_t* user_defined_entry = t1->type->user_defined_type;
 		type_t* user_defined_type = user_defined_entry->type_information;
 
 		return user_defined_type->type->aliased_type;
@@ -525,7 +525,7 @@ simple_type_t* copy_simple_type(simple_type_t* type_info)
 }
 
 // Gives the name of a builtin type
-const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
+const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
 {
 	static char result[256];
 
@@ -576,7 +576,7 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
 			}
 		case STK_USER_DEFINED :
 			{
-				symtab_entry_t* user_defined_type = simple_type_info->user_defined_type;
+				scope_entry_t* user_defined_type = simple_type_info->user_defined_type;
 				switch (user_defined_type->kind)
 				{
 					case SK_ENUM :
@@ -624,7 +624,7 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st)
 }
 
 // This prints a declarator in English. It is intended for debugging purposes
-void print_declarator(type_t* printed_declarator, symtab_t* st)
+void print_declarator(type_t* printed_declarator, scope_t* st)
 {
 	do 
 	{

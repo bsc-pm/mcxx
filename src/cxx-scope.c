@@ -2,44 +2,44 @@
 #include <stdio.h>
 #include <string.h>
 #include <gc.h>
-#include "cxx-symtab.h"
-#include "cxx-buildsymtab.h"
+#include "cxx-scope.h"
+#include "cxx-buildscope.h"
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-solvetemplate.h"
 #include "hash.h"
 
 
-symtab_t* new_symtab()
+scope_t* new_scope()
 {
-	symtab_t* st = GC_CALLOC(1, sizeof(*st));
-	st->hash = hash_create(HASH_SIZE, HASHFUNC(prime_hash), KEYCMPFUNC(strcmp));
-	st->parent = NULL;
+	scope_t* sc = GC_CALLOC(1, sizeof(*sc));
+	sc->hash = hash_create(HASH_SIZE, HASHFUNC(prime_hash), KEYCMPFUNC(strcmp));
+	sc->parent = NULL;
 
-	return st;
+	return sc;
 }
 
-symtab_t* enter_scope(symtab_t* parent)
+scope_t* enter_scope(scope_t* parent)
 {
-	symtab_t* st = new_symtab();
-	st->parent = parent;
+	scope_t* sc = new_scope();
+	sc->parent = parent;
 
-	return st;
+	return sc;
 }
 
-symtab_entry_t* new_symbol(symtab_t* st, char* name)
+scope_entry_t* new_symbol(scope_t* sc, char* name)
 {
-	symtab_entry_list_t* result_set = (symtab_entry_list_t*) hash_get(st->hash, name);
+	scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, name);
 
-	symtab_entry_t* result;
+	scope_entry_t* result;
 
 	result = GC_CALLOC(1, sizeof(*result));
 	result->symbol_name = strdup(name);
-	result->scope = st;
+	result->scope = sc;
 
 	if (result_set != NULL)
 	{
-		symtab_entry_list_t* new_set = (symtab_entry_list_t*) GC_CALLOC(1, sizeof(*new_set));
+		scope_entry_list_t* new_set = (scope_entry_list_t*) GC_CALLOC(1, sizeof(*new_set));
 
 		// Put the new entry in front of the previous
 		*new_set = *result_set;
@@ -49,31 +49,31 @@ symtab_entry_t* new_symbol(symtab_t* st, char* name)
 	}
 	else
 	{
-		result_set = (symtab_entry_list_t*) GC_CALLOC(1, sizeof(*result_set));
+		result_set = (scope_entry_list_t*) GC_CALLOC(1, sizeof(*result_set));
 		result_set->entry = result;
 		result_set->next = NULL; // redundant, though
 
-		hash_put(st->hash, name, result_set);
+		hash_put(sc->hash, name, result_set);
 	}
 
 	return result;
 }
 
-symtab_entry_list_t* query_in_current_scope(symtab_t* st, char* name)
+scope_entry_list_t* query_in_current_scope(scope_t* sc, char* name)
 {
-	symtab_entry_list_t* result = (symtab_entry_list_t*) hash_get(st->hash, name);
+	scope_entry_list_t* result = (scope_entry_list_t*) hash_get(sc->hash, name);
 
 	return result;
 }
 
 // Note that the resulting list is not a merge of all the scopes but the first
 // scope that yields a non-null result
-symtab_entry_list_t* query_in_current_and_upper_scope(symtab_t* st, char* name)
+scope_entry_list_t* query_in_current_and_upper_scope(scope_t* sc, char* name)
 {
-	symtab_t* scope = st;
+	scope_t* scope = sc;
 	while (scope != NULL)
 	{
-		symtab_entry_list_t* result = query_in_current_scope(scope, name);
+		scope_entry_list_t* result = query_in_current_scope(scope, name);
 		if (result != NULL)
 		{
 			return result;
@@ -85,21 +85,21 @@ symtab_entry_list_t* query_in_current_and_upper_scope(symtab_t* st, char* name)
 }
 
 /*
- * Insert entry in the symtab
+ * Insert entry in the scope
  */
-void insert_entry(symtab_t* st, symtab_entry_t* entry)
+void insert_entry(scope_t* sc, scope_entry_t* entry)
 {
 	if (entry->symbol_name == NULL)
 	{
 		internal_error("Inserting an symbol entry without name!", 0);
 	}
 	
-	symtab_entry_list_t* result_set = (symtab_entry_list_t*) hash_get(st->hash, entry->symbol_name);
+	scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, entry->symbol_name);
 
 
 	if (result_set != NULL)
 	{
-		symtab_entry_list_t* new_set = (symtab_entry_list_t*) GC_CALLOC(1, sizeof(*new_set));
+		scope_entry_list_t* new_set = (scope_entry_list_t*) GC_CALLOC(1, sizeof(*new_set));
 
 		// Put the new entry in front of the previous
 		*new_set = *result_set;
@@ -109,11 +109,11 @@ void insert_entry(symtab_t* st, symtab_entry_t* entry)
 	}
 	else
 	{
-		result_set = (symtab_entry_list_t*) GC_CALLOC(1, sizeof(*result_set));
+		result_set = (scope_entry_list_t*) GC_CALLOC(1, sizeof(*result_set));
 		result_set->entry = entry;
 		result_set->next = NULL; // redundant, though
 
-		hash_put(st->hash, entry->symbol_name, result_set);
+		hash_put(sc->hash, entry->symbol_name, result_set);
 	}
 }
 
@@ -121,14 +121,14 @@ void insert_entry(symtab_t* st, symtab_entry_t* entry)
  * Returns a type if and only if this entry_list contains just one type
  * specifier. If another identifier is found it returns NULL
  */
-symtab_entry_t* filter_simple_type_specifier(symtab_entry_list_t* entry_list)
+scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list)
 {
 	int non_type_name = 0;
-	symtab_entry_t* result = NULL;
+	scope_entry_t* result = NULL;
 
 	while (entry_list != NULL)
 	{
-		symtab_entry_t* simple_type_entry = entry_list->entry;
+		scope_entry_t* simple_type_entry = entry_list->entry;
 
 		if (simple_type_entry->kind != SK_ENUM &&
 				simple_type_entry->kind != SK_CLASS &&
@@ -155,19 +155,19 @@ symtab_entry_t* filter_simple_type_specifier(symtab_entry_list_t* entry_list)
 /*
  * This function queries the symbol table through a nested name specifier. If
  * result_lookup_scope is nonnull it will hold the scope of this nested name
- * specifier. The result is the symbol in the symtab of this nested name
+ * specifier. The result is the symbol in the scope of this nested name
  * specification.
  * 
  * The value of result_lookup_scope is not reliable if the function returns
  * NULL
  */
-symtab_entry_list_t* query_nested_name_spec(symtab_t* st, symtab_t** result_lookup_scope, AST global_op, AST nested_name)
+scope_entry_list_t* query_nested_name_spec(scope_t* sc, scope_t** result_lookup_scope, AST global_op, AST nested_name)
 {
 	if (result_lookup_scope != NULL)
 		*result_lookup_scope = NULL;
 	
-	symtab_t* lookup_scope = st;
-	symtab_entry_list_t* entry_list = NULL;
+	scope_t* lookup_scope = sc;
+	scope_entry_list_t* entry_list = NULL;
 
 	if (global_op != NULL)
 	{
@@ -207,7 +207,7 @@ symtab_entry_list_t* query_nested_name_spec(symtab_t* st, symtab_t** result_look
 				}
 			case AST_TEMPLATE_ID :
 				 {
-					 entry_list = query_template_id(nested_name_spec, st, lookup_scope);
+					 entry_list = query_template_id(nested_name_spec, sc, lookup_scope);
 					 lookup_scope = entry_list->entry->inner_scope;
 					 seen_class = 1;
 					 break;
@@ -228,14 +228,14 @@ symtab_entry_list_t* query_nested_name_spec(symtab_t* st, symtab_t** result_look
 	return entry_list;
 }
 
-symtab_entry_list_t* query_template_id(AST template_id, symtab_t* st, symtab_t* lookup_scope)
+scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope)
 {
 	AST symbol = ASTSon0(template_id);
 	fprintf(stderr, "Trying to resolve template '%s'\n", ASTText(symbol));
 
-	symtab_entry_list_t* entry_list = query_in_current_and_upper_scope(lookup_scope, ASTText(symbol));
+	scope_entry_list_t* entry_list = query_in_current_and_upper_scope(lookup_scope, ASTText(symbol));
 
-	symtab_entry_list_t* iter = entry_list;
+	scope_entry_list_t* iter = entry_list;
 
 	// Look for specializations
 	char has_specializations = 0;
@@ -262,21 +262,21 @@ symtab_entry_list_t* query_template_id(AST template_id, symtab_t* st, symtab_t* 
 		// Get the template_arguments
 		template_argument_list_t* current_template_arguments = NULL;
 
-		build_symtab_template_arguments(template_id, st, &current_template_arguments);
-		symtab_entry_t* matched_template = solve_template(entry_list, current_template_arguments, st);
+		build_scope_template_arguments(template_id, sc, &current_template_arguments);
+		scope_entry_t* matched_template = solve_template(entry_list, current_template_arguments, sc);
 
 		return create_list_from_entry(matched_template);
 	}
 }
 
-symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr)
+scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr)
 {
 	switch (ASTType(id_expr))
 	{
 		// Unqualified ones
 		case AST_SYMBOL :
 			{
-				return query_in_current_and_upper_scope(st, ASTText(id_expr));
+				return query_in_current_and_upper_scope(sc, ASTText(id_expr));
 				break;
 			}
 		case AST_DESTRUCTOR_ID :
@@ -284,7 +284,7 @@ symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr)
 				// An unqualified destructor name "~name"
 				// 'name' should be a class in this scope
 				AST symbol = ASTSon0(id_expr);
-				symtab_entry_list_t* result = query_in_current_and_upper_scope(st, ASTText(symbol));
+				scope_entry_list_t* result = query_in_current_and_upper_scope(sc, ASTText(symbol));
 
 				return result;
 
@@ -301,7 +301,7 @@ symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr)
 				// An unqualified operator_function_id "operator +"
 				char* operator_function_name = get_operator_function_name(id_expr);
 
-				symtab_entry_list_t* result = query_in_current_and_upper_scope(st, operator_function_name);
+				scope_entry_list_t* result = query_in_current_and_upper_scope(sc, operator_function_name);
 
 				return result;
 				break;
@@ -317,11 +317,11 @@ symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr)
 		case AST_QUALIFIED_ID :
 			{
 				// A qualified id "a::b::c"
-				symtab_t* lookup_scope;
+				scope_t* lookup_scope;
 				AST global_op = ASTSon0(id_expr);
 				AST nested_name = ASTSon1(id_expr);
 
-				if (query_nested_name_spec(st, &lookup_scope, global_op, nested_name) == NULL)
+				if (query_nested_name_spec(sc, &lookup_scope, global_op, nested_name) == NULL)
 					return NULL;
 
 				return query_id_expression(lookup_scope, ASTSon2(id_expr));
@@ -355,18 +355,18 @@ symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr)
 	return NULL;
 }
 
-symtab_entry_list_t* create_list_from_entry(symtab_entry_t* entry)
+scope_entry_list_t* create_list_from_entry(scope_entry_t* entry)
 {
-	symtab_entry_list_t* result = GC_CALLOC(1, sizeof(*result));
+	scope_entry_list_t* result = GC_CALLOC(1, sizeof(*result));
 	result->entry = entry;
 	result->next = NULL;
 
 	return result;
 }
 
-char incompatible_symbol_exists(symtab_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind)
+char incompatible_symbol_exists(scope_t* sc, AST id_expr, enum cxx_symbol_kind symbol_kind)
 {
-	symtab_entry_list_t* entry_list = query_id_expression(st, id_expr);
+	scope_entry_list_t* entry_list = query_id_expression(sc, id_expr);
 	char found_incompatible = 0;
 
 	while (!found_incompatible && entry_list != NULL)

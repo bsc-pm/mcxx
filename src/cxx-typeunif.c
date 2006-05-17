@@ -2,7 +2,7 @@
 #include "cxx-typeunif.h"
 #include "cxx-typeutils.h"
 #include "cxx-cexpr.h"
-#include "cxx-symtab.h"
+#include "cxx-scope.h"
 #include "cxx-utils.h"
 
 static type_t* get_template_parameter_unification(unification_set_t* unif_set, int n);
@@ -12,7 +12,7 @@ static type_t* get_template_parameter_unification(unification_set_t* unif_set, i
 // e.g.   Q*    can    be unificated to   T**    with   [Q <- T*]
 //        T**   cannot be unificated to   Q*
 //
-char unificate_two_types(type_t* t1, type_t* t2, symtab_t* st, unification_set_t** unif_set)
+char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t** unif_set)
 {
 	// Check first if t1 is a template parameter
 	type_t* user_defined_type = NULL;

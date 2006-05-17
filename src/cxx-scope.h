@@ -7,9 +7,9 @@
 #define BITMAP(x) (1 << x)
 
 /*
- * A symbol table is represented by a symtab_t*
+ * A symbol table is represented by a scope_t*
  *
- * Entries in the symbol table are symtab_entry_t*
+ * Entries in the symbol table are scope_entry_t*
  *
  * Every entry can have a non-null type_information field type_t*
  * 
@@ -85,7 +85,7 @@ typedef enum simple_type_kind_tag
 	STK_TYPE_TEMPLATE_PARAMETER
 } simple_type_kind_t;
 
-struct symtab_entry_tag;
+struct scope_entry_tag;
 
 typedef struct {
 	char* name;
@@ -94,7 +94,7 @@ typedef struct {
 
 typedef struct enum_information_tag {
 	int num_enumeration;
-	struct symtab_entry_tag** enumeration_list;
+	struct scope_entry_tag** enumeration_list;
 } enum_info_t;
 
 enum template_parameter_kind
@@ -135,16 +135,16 @@ typedef struct class_information_tag {
 	int is_template;
 
 	// Special functions
-	struct symtab_entry_tag* destructor;
+	struct scope_entry_tag* destructor;
 
 	int num_conversion_functions;
-	struct symtab_entry_tag** conversion_function_list;
+	struct scope_entry_tag** conversion_function_list;
 
 	int num_operator_functions;
-	struct symtab_entry_tag** operator_function_list;
+	struct scope_entry_tag** operator_function_list;
 
 	int num_constructors;
-	struct symtab_entry_tag** constructor_list;
+	struct scope_entry_tag** constructor_list;
 } class_info_t;
 
 enum template_argument_kind
@@ -183,7 +183,7 @@ typedef struct simple_type_tag {
 	//
 	// If this is a STK_TEMPLATE_CLASS this will be NULL since there
 	// is no "real type" backing this
-	struct symtab_entry_tag* user_defined_type;
+	struct scope_entry_tag* user_defined_type;
 
 	// For typedefs
 	struct type_tag* aliased_type;
@@ -231,7 +231,7 @@ typedef struct pointer_tag
 	cv_qualifier_t cv_qualifier;
 	struct type_tag* pointee;
 
-	struct symtab_entry_tag* pointee_class;
+	struct scope_entry_tag* pointee_class;
 } pointer_info_t;
 
 // Array information
@@ -261,10 +261,10 @@ typedef struct type_tag
 	simple_type_t* type;
 } type_t;
 
-struct symtab_tag;
+struct scope_tag;
 
 // This is an entry in the symbol table
-typedef struct symtab_entry_tag
+typedef struct scope_entry_tag
 {
 	char* symbol_name;
 	enum cxx_symbol_kind kind;
@@ -273,14 +273,14 @@ typedef struct symtab_entry_tag
 	int defined;
 
 	// Scope of this symbol when declared
-	struct symtab_tag* scope;
+	struct scope_tag* scope;
 
 	// For everything related to a type
 	type_t* type_information;
 
 	// Related scope. For scopes defined within this symbol
 	// e.g. namespaces, classes, functions, etc
-	struct symtab_tag* inner_scope;
+	struct scope_tag* inner_scope;
 
 	// Initializations of several kind are saved here
 	//   - initialization of const objects
@@ -293,48 +293,48 @@ typedef struct symtab_entry_tag
 
 	// Linkage
 	char* linkage_spec;
-} symtab_entry_t;
+} scope_entry_t;
 
 // This is what the symbol table returns
-typedef struct symtab_entry_list
+typedef struct scope_entry_list
 {
 	// The current entry
-	symtab_entry_t* entry;
+	scope_entry_t* entry;
 	
 	// Next entry under this name (NULL if last)
-	struct symtab_entry_list* next;
-} symtab_entry_list_t;
+	struct scope_entry_list* next;
+} scope_entry_list_t;
 
 // This is the symbol table
-typedef struct symtab_tag
+typedef struct scope_tag
 {
-	// Hash of symtab_entry_list
+	// Hash of scope_entry_list
 	Hash* hash;
 
 	// Can be null 
-	struct symtab_tag* parent;
-} symtab_t;
+	struct scope_tag* parent;
+} scope_t;
 
 #undef BITMAP
 
 // Functions to handle symbol table
-symtab_t* new_symtab();
-symtab_t* enter_scope(symtab_t* parent);
-symtab_entry_t* new_symbol(symtab_t* st, char* name);
-symtab_entry_list_t* query_in_current_scope(symtab_t* st, char* name);
-symtab_entry_list_t* query_in_current_and_upper_scope(symtab_t* st, char* name);
-symtab_entry_list_t* create_list_from_entry(symtab_entry_t* entry);
-void insert_entry(symtab_t* st, symtab_entry_t* entry);
+scope_t* new_scope();
+scope_t* enter_scope(scope_t* parent);
+scope_entry_t* new_symbol(scope_t* st, char* name);
+scope_entry_list_t* query_in_current_scope(scope_t* st, char* name);
+scope_entry_list_t* query_in_current_and_upper_scope(scope_t* st, char* name);
+scope_entry_list_t* create_list_from_entry(scope_entry_t* entry);
+void insert_entry(scope_t* st, scope_entry_t* entry);
 
-// Higher level functions when dealing with the symtab
-symtab_entry_t* filter_simple_type_specifier(symtab_entry_list_t* entry_list);
+// Higher level functions when dealing with the scope
+scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list);
 
 // Everything built by an id_expression can be queried with this function
-symtab_entry_list_t* query_id_expression(symtab_t* st, AST id_expr);
+scope_entry_list_t* query_id_expression(scope_t* st, AST id_expr);
 
 // Nested names
-symtab_entry_list_t* query_template_id(AST nested_name_spec, symtab_t* st, symtab_t* lookup_scope);
-symtab_entry_list_t* query_nested_name_spec(symtab_t* st, symtab_t** result_lookup_scope, AST global_op, AST nested_name);
-char incompatible_symbol_exists(symtab_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
+scope_entry_list_t* query_template_id(AST nested_name_spec, scope_t* st, scope_t* lookup_scope);
+scope_entry_list_t* query_nested_name_spec(scope_t* st, scope_t** result_lookup_scope, AST global_op, AST nested_name);
+char incompatible_symbol_exists(scope_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
 
 #endif // CXX_SYMTAB_H

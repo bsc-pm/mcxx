@@ -17,10 +17,10 @@ mcxx_SOURCES = \
   cxx-prettyprint.h \
   cxx-utils.c \
   cxx-utils.h \
-  cxx-symtab.c \
-  cxx-symtab.h \
-  cxx-buildsymtab.c \
-  cxx-buildsymtab.h \
+  cxx-scope.c \
+  cxx-scope.h \
+  cxx-buildscope.c \
+  cxx-buildscope.h \
   cxx-typeutils.c \
   cxx-typeutils.h \
   cxx-typeunif.c \
@@ -31,8 +31,8 @@ mcxx_SOURCES = \
   cxx-ambiguity.h \
   cxx-solvetemplate.h \
   cxx-solvetemplate.c \
-  cxx-printsymtab.c \
-  cxx-printsymtab.h
+  cxx-printscope.c \
+  cxx-printscope.h
 
 mcxx_LDFLAGS=-L../lib -L../gc
 mcxx_LDADD=../lib/libmcxx-utils.la ../gc/libgc.la

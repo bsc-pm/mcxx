@@ -2,10 +2,10 @@
 #define CXX_TYPEUTILS_H
 
 #include "cxx-ast.h"
-#include "cxx-symtab.h"
+#include "cxx-scope.h"
 
-char equivalent_types(type_t* t1, type_t* t2, symtab_t* st);
-char overloaded_function(function_info_t* f1, function_info_t* f2, symtab_t* st);
+char equivalent_types(type_t* t1, type_t* t2, scope_t* st);
+char overloaded_function(function_info_t* f1, function_info_t* f2, scope_t* st);
 
 /* Copy functions */
 class_info_t* copy_class_info(class_info_t* class_info);
@@ -21,12 +21,12 @@ char equivalent_builtin_type(simple_type_t *t1, simple_type_t *t2);
 
 // Conversion functions
 type_t* simple_type_to_type(simple_type_t* simple_type_info);
-char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, symtab_t* st);
+char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st);
 
 // Query functions
-const char* get_builtin_type_name(simple_type_t* simple_type_info, symtab_t* st);
+const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st);
 
 // Debug purpose functions
-void print_declarator(type_t* printed_declarator, symtab_t* st);
+void print_declarator(type_t* printed_declarator, scope_t* st);
 
 #endif // CXX_TYPEUTILS_H

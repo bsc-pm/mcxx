@@ -14,10 +14,10 @@ static void gather_integer_literal_suffix(char* text, char* is_long, char* is_un
 static void promote_values(literal_value_t v1, literal_value_t v2, 
         literal_value_t* out_v1, literal_value_t* out_v2);
 static literal_value_t evaluate_conditional_expression(AST condition, 
-        AST value_if_true, AST value_if_false, symtab_t* st);
-static literal_value_t cast_expression(AST type_spec, AST expression, symtab_t* st);
-static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, symtab_t* st);
-static literal_value_t evaluate_symbol(AST symbol, symtab_t* st);
+        AST value_if_true, AST value_if_false, scope_t* st);
+static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* st);
+static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st);
+static literal_value_t evaluate_symbol(AST symbol, scope_t* st);
 static literal_value_t create_value_from_literal(AST a);
 
 
@@ -54,9 +54,9 @@ BINARY_FUNCTION(division);
 BINARY_FUNCTION(multiplication);
 BINARY_FUNCTION(module);
 
-literal_value_t not_operation(AST a, symtab_t* st);
-literal_value_t negate_operation(AST a, symtab_t* st);
-literal_value_t complement_operation(AST a, symtab_t* st);
+literal_value_t not_operation(AST a, scope_t* st);
+literal_value_t negate_operation(AST a, scope_t* st);
+literal_value_t complement_operation(AST a, scope_t* st);
 
 binary_operation_t binary_ops[] =
 {
@@ -81,7 +81,7 @@ binary_operation_t binary_ops[] =
 };
 
 
-literal_value_t evaluate_constant_expression(AST a, symtab_t* st)
+literal_value_t evaluate_constant_expression(AST a, scope_t* st)
 {
     switch (ASTType(a))
 	{
@@ -135,7 +135,7 @@ literal_value_t evaluate_constant_expression(AST a, symtab_t* st)
 }
 
 
-static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, symtab_t* st)
+static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st)
 {
     literal_value_t val_lhs;
     literal_value_t val_rhs;
@@ -178,7 +178,7 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, symtab_t* s
 }
 
 
-static literal_value_t evaluate_conditional_expression(AST condition, AST value_if_true, AST value_if_false, symtab_t* st)
+static literal_value_t evaluate_conditional_expression(AST condition, AST value_if_true, AST value_if_false, scope_t* st)
 {
     literal_value_t condition_value = evaluate_constant_expression(condition, st);
 
@@ -492,15 +492,15 @@ static void promote_values(literal_value_t v1, literal_value_t v2,
     }
 }
 
-static literal_value_t cast_expression(AST type_spec, AST expression, symtab_t* st)
+static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* st)
 {
 #warning TODO This has to cast !
 	return evaluate_constant_expression(expression, st);
 }
 
-static literal_value_t evaluate_symbol(AST symbol, symtab_t* st)
+static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 {
-	symtab_entry_list_t* result = query_id_expression(st, symbol);
+	scope_entry_list_t* result = query_id_expression(st, symbol);
 
 	if (result == NULL)
 	{
@@ -625,7 +625,7 @@ AST tree_from_literal_value(literal_value_t e)
 	return result;
 }
 
-char equal_literal_values(literal_value_t v1, literal_value_t v2, symtab_t* st)
+char equal_literal_values(literal_value_t v1, literal_value_t v2, scope_t* st)
 {
 	// Promote
 	promote_values(v1, v2, &v1, &v2);
@@ -640,7 +640,7 @@ char equal_literal_values(literal_value_t v1, literal_value_t v2, symtab_t* st)
  * ************************* */
 
 
-literal_value_t not_operation(AST a, symtab_t* st)
+literal_value_t not_operation(AST a, scope_t* st)
 {
     literal_value_t result = evaluate_constant_expression(a, st);
     switch (result.kind)
@@ -670,7 +670,7 @@ literal_value_t not_operation(AST a, symtab_t* st)
     return result;
 }
 
-literal_value_t negate_operation(AST a, symtab_t* st)
+literal_value_t negate_operation(AST a, scope_t* st)
 {
     literal_value_t result = evaluate_constant_expression(a, st);
     switch (result.kind)
@@ -700,7 +700,7 @@ literal_value_t negate_operation(AST a, symtab_t* st)
     return result;
 }
 
-literal_value_t complement_operation(AST a, symtab_t* st)
+literal_value_t complement_operation(AST a, scope_t* st)
 {
     literal_value_t result = evaluate_constant_expression(a, st);
     switch (result.kind)

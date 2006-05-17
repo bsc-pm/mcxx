@@ -2,20 +2,20 @@
 #include <stdlib.h>
 #include <gc.h>
 #include "cxx-utils.h"
-#include "cxx-symtab.h"
+#include "cxx-scope.h"
 #include "cxx-solvetemplate.h"
 #include "cxx-typeunif.h"
 
-char match_one_template(template_argument_list_t* arguments, template_argument_list_t* specialized, symtab_t* st);
+char match_one_template(template_argument_list_t* arguments, template_argument_list_t* specialized, scope_t* st);
 
-static symtab_entry_t* determine_more_specialized(int num_matching_set, symtab_entry_t** matching_set, symtab_t* st);
+static scope_entry_t* determine_more_specialized(int num_matching_set, scope_entry_t** matching_set, scope_t* st);
 
-symtab_entry_t* solve_template(symtab_entry_list_t* candidate_templates, template_argument_list_t* arguments, symtab_t* st)
+scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_argument_list_t* arguments, scope_t* st)
 {
-	symtab_entry_t* result = NULL;
+	scope_entry_t* result = NULL;
 
 	// In the worst of the cases the chosen template will be the primary one
-	symtab_entry_list_t* iter = candidate_templates;
+	scope_entry_list_t* iter = candidate_templates;
 
 	while (iter != NULL)
 	{
@@ -38,13 +38,13 @@ symtab_entry_t* solve_template(symtab_entry_list_t* candidate_templates, templat
 	iter = candidate_templates;
 
 	int num_matching_set = 0;
-	symtab_entry_t** matching_set = NULL;
+	scope_entry_t** matching_set = NULL;
 
 	while (iter != NULL)
 	{
 		if (iter->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
 		{
-			symtab_entry_t* entry = iter->entry;
+			scope_entry_t* entry = iter->entry;
 
 			template_argument_list_t* specialized = entry->type_information->type->template_arguments;
 
@@ -78,14 +78,14 @@ symtab_entry_t* solve_template(symtab_entry_list_t* candidate_templates, templat
 }
 
 // This function assumes that only one minimum will exist
-static symtab_entry_t* determine_more_specialized(int num_matching_set, symtab_entry_t** matching_set, symtab_t* st)
+static scope_entry_t* determine_more_specialized(int num_matching_set, scope_entry_t** matching_set, scope_t* st)
 {
-	symtab_entry_t* min = matching_set[0];
+	scope_entry_t* min = matching_set[0];
 
 	int i;
 	for (i = 1; i < num_matching_set; i++)
 	{
-		symtab_entry_t* current_entry = matching_set[i];
+		scope_entry_t* current_entry = matching_set[i];
 
 		template_argument_list_t* min_args = min->type_information->type->template_arguments;
 		template_argument_list_t* current_args = current_entry->type_information->type->template_arguments;
@@ -105,7 +105,7 @@ static symtab_entry_t* determine_more_specialized(int num_matching_set, symtab_e
 }
 
 char match_one_template(template_argument_list_t* arguments, 
-		template_argument_list_t* specialized, symtab_t* st)
+		template_argument_list_t* specialized, scope_t* st)
 {
 	int i;
 	for (i = 0; i < arguments->num_arguments; i++)

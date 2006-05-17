@@ -9,7 +9,7 @@
 #include "cxx-ast.h"
 #include "cxx-graphviz.h"
 #include "cxx-prettyprint.h"
-#include "cxx-buildsymtab.h"
+#include "cxx-buildscope.h"
 
 // Compilation options
 compilation_options_t compilation_options;
@@ -41,7 +41,7 @@ int main(int argc, char* argv[])
 		}
 		else if (strcmp(argv[1], "-y") == 0)
 		{
-			build_symtab_translation_unit(compilation_options.parsed_tree);
+			build_scope_translation_unit(compilation_options.parsed_tree);
 		}
 	}
 	else

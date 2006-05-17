@@ -1,15 +1,15 @@
 #include <stdio.h>
-#include "cxx-printsymtab.h"
+#include "cxx-printscope.h"
 #include "hash_iterator.h"
 #include "cxx-typeutils.h"
 
 /*
  * Building a symbol table for C++ is such a hard thing that we need ways to debug it.
  */
-static void print_symtab_entry_list(symtab_entry_list_t* entry_list, symtab_t* st, int global_indent);
-static void print_symtab_entry(symtab_entry_t* entry, symtab_t* st, int global_indent);
+static void print_scope_entry_list(scope_entry_list_t* entry_list, scope_t* st, int global_indent);
+static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_indent);
 
-void print_scope(symtab_t* st, int global_indent)
+void print_scope(scope_t* st, int global_indent)
 {
 	if (st == NULL)
 		return;
@@ -21,17 +21,17 @@ void print_scope(symtab_t* st, int global_indent)
 			!iterator_finished(it); 
 			iterator_next(it))
 	{
-		symtab_entry_list_t* entry_list = (symtab_entry_list_t*) iterator_item(it);
+		scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
 
-		print_symtab_entry_list(entry_list, st, global_indent);
+		print_scope_entry_list(entry_list, st, global_indent);
 	}
 }
 
-static void print_symtab_entry_list(symtab_entry_list_t* entry_list, symtab_t* st, int global_indent)
+static void print_scope_entry_list(scope_entry_list_t* entry_list, scope_t* st, int global_indent)
 {
 	while (entry_list != NULL)
 	{
-		print_symtab_entry(entry_list->entry, st, global_indent);
+		print_scope_entry(entry_list->entry, st, global_indent);
 		entry_list = entry_list->next;
 	}
 }
@@ -68,7 +68,7 @@ static void indent_at_level(FILE* f, int n)
 		fprintf(f, fmt, __VA_ARGS__ ); \
 	} while (0);
 
-static void print_symtab_entry(symtab_entry_t* entry, symtab_t* st, int global_indent)
+static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_indent)
 {
 	PRINT_INDENTED_LINE(stderr, global_indent, "[%p] \"%s\" %s",st, entry->symbol_name, symbol_kind_names[entry->kind]);
 
