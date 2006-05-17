@@ -1,5 +1,5 @@
-#ifndef CXX_BUILDSYMTAB_H
-#define CXX_BUILDSYMTAB_H
+#ifndef CXX_BUILDSCOPE_H
+#define CXX_BUILDSCOPE_H
 
 #include <stdlib.h>
 #include "cxx-ast.h"
@@ -30,4 +30,4 @@ typedef struct gather_decl_spec_tag {
 char* get_operator_function_name(AST declarator_id);
 void build_scope_template_arguments(AST a, scope_t* st, template_argument_list_t** template_arguments);
 
-#endif // CXX_BUILDSYMTAB_H
+#endif // CXX_BUILDSCOPE_H

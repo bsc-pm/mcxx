@@ -1,5 +1,5 @@
-#ifndef CXX_SYMTAB_H
-#define CXX_SYMTAB_H
+#ifndef CXX_SCOPE_H
+#define CXX_SCOPE_H
 
 #include "cxx-ast.h"
 #include "hash.h"
@@ -337,4 +337,4 @@ scope_entry_list_t* query_template_id(AST nested_name_spec, scope_t* st, scope_t
 scope_entry_list_t* query_nested_name_spec(scope_t* st, scope_t** result_lookup_scope, AST global_op, AST nested_name);
 char incompatible_symbol_exists(scope_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
 
-#endif // CXX_SYMTAB_H
+#endif // CXX_SCOPE_H
