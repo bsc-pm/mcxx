@@ -79,6 +79,8 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 static void build_scope_type_template_parameter(AST a, scope_t* st,
 		template_parameter_t* template_param_info, int num_parameter);
 
+static void build_scope_using_directive(AST a, scope_t* st);
+
 static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, scope_t* st);
 static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* declarator_type, 
@@ -86,6 +88,8 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
 static scope_entry_t* register_function(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, scope_t* st);
 
+static void build_scope_template_function_definition(AST a, scope_t* st, scope_t* template_scope, 
+		int num_parameters, template_parameter_t** template_param_info);
 static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
 		int num_parameters, template_parameter_t** template_param_info);
 
@@ -193,12 +197,69 @@ static void build_scope_declaration(AST a, scope_t* st)
 				build_scope_explicit_template_specialization(a, st);
 				break;
 			}
+		case AST_USING_DIRECTIVE :
+			{
+				build_scope_using_directive(a, st);
+				break;
+			}
 		default :
 			{
 				internal_error("A declaration of kind '%s' is still unsupported\n", 
 						ast_print_node_type(ASTType(a)));
 				break;
 			}
+	}
+}
+
+static void build_scope_using_directive(AST a, scope_t* st)
+{
+	int i, j;
+	// First get the involved namespace
+	AST global_op = ASTSon0(a);
+	AST nested_name = ASTSon1(a);
+	AST name = ASTSon2(a);
+
+	scope_entry_list_t* result_list = query_nested_name(st, global_op, nested_name, name);
+
+	if (result_list == NULL)
+	{
+		internal_error("Namespace '%s' not found\n", ASTText(name));
+	}
+
+	if (result_list->next != NULL || result_list->entry->kind != SK_NAMESPACE)
+	{
+		internal_error("Symbol '%s' is not a namespace\n", ASTText(name));
+	}
+
+	scope_entry_t* entry = result_list->entry;
+
+	// Now add this namespace to the used namespaces of this scope
+	char already_used = 0;
+	// Search
+	for (i = 0; (i < st->num_used_namespaces) && !already_used; i++)
+	{
+		already_used = (st->use_namespace[i] == entry->related_scope);
+	}
+
+	if (!already_used)
+	{
+		P_LIST_ADD(st->use_namespace, st->num_used_namespaces, entry->related_scope);
+	}
+
+	// Transitively add related scopes but avoid repeating them
+	for (j = 0; j < entry->related_scope->num_used_namespaces; j++)
+	{
+		already_used = 0;
+		// Search
+		for (i = 0; (i < st->num_used_namespaces) && !already_used; i++)
+		{
+			already_used = (st->use_namespace[i] == entry->related_scope->use_namespace[j]);
+		}
+
+		if (!already_used)
+		{
+			P_LIST_ADD(st->use_namespace, st->num_used_namespaces, entry->related_scope->use_namespace[j]);
+		}
 	}
 }
 
@@ -569,7 +630,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 	while (result_list != NULL 
 			&& entry == NULL)
 	{
-#warning "Implement template class resolution"
 		if (result_list->entry->kind == SK_CLASS
 				|| result_list->entry->kind == SK_TEMPLATE_PRIMARY_CLASS
 				|| result_list->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
@@ -997,8 +1057,8 @@ static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_
 			{
 				(*declarator_type)->kind = TK_POINTER_TO_MEMBER;
 
-				scope_entry_list_t* entry_list =
-					query_nested_name_spec(st, NULL, ASTSon0(pointer_tree), ASTSon1(pointer_tree));
+				scope_entry_list_t* entry_list = NULL;
+				query_nested_name_spec(st, ASTSon0(pointer_tree), ASTSon1(pointer_tree), &entry_list);
 
 				if (entry_list != NULL)
 				{
@@ -1021,7 +1081,7 @@ static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_
 }
 
 /*
- * This function covnerts a type "T" to a "array x of T"
+ * This function converts a type "T" to a "array x of T"
  */
 static void set_array_type(type_t** declarator_type, scope_t* st, AST constant_expr)
 {
@@ -1083,6 +1143,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 		// Declarator can be null
 		AST parameter_declarator = ASTSon1(parameter_declaration);
 		// Default value can be null
+		// The scope of this parameter declaration should be "st" and not parameters_scope
 		// AST parameter_default_value = ASTSon2(parameter_declaration);
 
 		gather_decl_spec_t gather_info;
@@ -1331,7 +1392,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 			}
 		case AST_TEMPLATE_ID :
 			{
-				// An unqualified template_id "identifier<stuff>"
+				// This can only happen in an explicit template function instantiation.
 				break;
 			}
 		case AST_OPERATOR_FUNCTION_ID :
@@ -1355,6 +1416,10 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 				if (declarator_type->kind != TK_FUNCTION)
 				{
 					scope_entry_list_t* entry_list = query_id_expression(st, declarator_id);
+					if (entry_list == NULL)
+					{
+						internal_error("Qualified id name not found", 0);
+					}
 					return entry_list->entry;
 				}
 				else
@@ -1399,7 +1464,6 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 	// First query for an existing entry
 	scope_entry_list_t* list = query_unqualified_name(st, ASTText(declarator_id));
 
-#warning Rewrite this, provide higher level primitives
 	// Only enum or classes can exist, otherwise this is an error
 	if (list != NULL)
 	{
@@ -1442,20 +1506,17 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, scope_t* st)
 {
-#warning Rewrite this
 	if (declarator_type->kind != TK_FUNCTION)
 	{
 		// Check for existence of this symbol
 		scope_entry_list_t* entry_list = query_unqualified_name(st, ASTText(declarator_id));
-		if (entry_list != NULL)
+
+		enum cxx_symbol_kind valid_kind[2] = {SK_CLASS, SK_ENUM};
+		scope_entry_list_t* check_list = filter_symbol_non_kind_set(entry_list, 2, valid_kind);
+		if (check_list != NULL)
 		{
-			if ((entry_list->entry->kind != SK_CLASS &&
-						entry_list->entry->kind != SK_ENUM) ||
-					entry_list->next != NULL)
-			{
-				running_error("Symbol '%s' has been redefined as another symbol kind", 
-						ASTText(declarator_id), entry_list->entry->kind);
-			}
+			running_error("Symbol '%s' has been redefined as another symbol kind", 
+					ASTText(declarator_id), entry_list->entry->kind);
 		}
 
 		fprintf(stderr, "Registering variable '%s' in %p\n", ASTText(declarator_id), st);
@@ -1632,6 +1693,7 @@ static void build_scope_template_declaration(AST a, scope_t* st)
 	switch (ASTType(ASTSon1(a)))
 	{
 		case AST_FUNCTION_DEFINITION :
+			build_scope_template_function_definition(ASTSon1(a), st, template_scope, num_parameters, template_param_info);
 			break;
 		case AST_SIMPLE_DECLARATION :
 			build_scope_template_simple_declaration(ASTSon1(a), st, template_scope, num_parameters, template_param_info);
@@ -1653,6 +1715,7 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st)
 	switch (ASTType(ASTSon0(a)))
 	{
 		case AST_FUNCTION_DEFINITION :
+			build_scope_template_function_definition(ASTSon1(a), st, template_scope, num_parameters, template_param_info);
 			break;
 		case AST_SIMPLE_DECLARATION :
 			build_scope_template_simple_declaration(ASTSon0(a), st, template_scope, num_parameters, template_param_info);
@@ -1660,6 +1723,19 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st)
 		default :
 			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
 	}
+}
+
+static void build_scope_template_function_definition(AST a, scope_t* st, scope_t* template_scope, 
+		int num_parameters, template_parameter_t** template_param_info)
+{
+	template_scope->template_scope = st->template_scope;
+	st->template_scope = template_scope;
+
+	// Define the function within st scope but being visible template_scope
+	scope_entry_t* entry = build_scope_function_definition(a, st);
+
+	st->template_scope = template_scope->template_scope;
+	template_scope->template_scope = NULL;
 }
 
 static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
@@ -1942,14 +2018,12 @@ static void build_scope_namespace_definition(AST a, scope_t* st)
 	if (namespace_name != NULL)
 	{
 		// Register this namespace if it does not exist
-#warning Rewrite this
 		scope_entry_list_t* list = query_unqualified_name(st, ASTText(namespace_name));
 
-		if (list != NULL 
-				&& (list->next != NULL 
-					|| list->entry->kind != SK_NAMESPACE))
+		scope_entry_list_t* check_list = filter_symbol_non_kind(list, SK_NAMESPACE);
+		if (check_list != NULL)
 		{
-			running_error("Identifier '%s' has already been declared as another symbol kind\n", ASTText(namespace_name));
+		 	running_error("Identifier '%s' has already been declared as another symbol kind\n", ASTText(namespace_name));
 		}
 
 		scope_entry_t* entry;
@@ -2476,10 +2550,13 @@ static void build_scope_compound_statement(AST a, scope_t* st)
 	scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
 	AST list = ASTSon0(a);
-	AST iter;
-	for_each_element(list, iter)
+	if (list != NULL)
 	{
-		build_scope_statement(ASTSon1(iter), block_scope);
+		AST iter;
+		for_each_element(list, iter)
+		{
+			build_scope_statement(ASTSon1(iter), block_scope);
+		}
 	}
 }
 

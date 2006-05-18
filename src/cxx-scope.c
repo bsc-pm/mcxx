@@ -9,7 +9,7 @@
 #include "cxx-solvetemplate.h"
 #include "hash.h"
 
-static scope_t* new_scope()
+static scope_t* new_scope(void)
 {
 	scope_t* sc = GC_CALLOC(1, sizeof(*sc));
 	sc->hash = hash_create(HASH_SIZE, HASHFUNC(prime_hash), KEYCMPFUNC(strcmp));
@@ -40,9 +40,7 @@ scope_t* new_prototype_scope(scope_t* enclosing_scope)
 {
 	scope_t* result = new_scope();
 	result->kind = PROTOTYPE_SCOPE;
-	result->contained_in = enclosing_scope;
-	
-	// Template scope gets inherited automatically
+
 	result->template_scope = enclosing_scope->template_scope;
 
 	return result;
@@ -179,57 +177,12 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
 	}
 }
 
-/*
- * Returns a type if and only if this entry_list contains just one type
- * specifier. If another identifier is found it returns NULL
- */
-scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list)
-{
-	int non_type_name = 0;
-	scope_entry_t* result = NULL;
-
-	while (entry_list != NULL)
-	{
-		scope_entry_t* simple_type_entry = entry_list->entry;
-
-		if (simple_type_entry->kind != SK_ENUM 
-				&& simple_type_entry->kind != SK_CLASS 
-				&& simple_type_entry->kind != SK_TYPEDEF 
-				&& simple_type_entry->kind != SK_TEMPLATE_PARAMETER
-				&& simple_type_entry->kind != SK_TEMPLATE_PRIMARY_CLASS
-				&& simple_type_entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS)
-		{
-			non_type_name++;
-		}
-		else
-		{
-			result = simple_type_entry;
-		}
-
-		entry_list = entry_list->next;
-	}
-
-	// There is something that is not a type name here and hides this simple type spec
-	if (non_type_name != 0)
-		return NULL;
-	else
-		return result;
-}
 
 /*
- * This function queries the symbol table through a nested name specifier. If
- * result_lookup_scope is nonnull it will hold the scope of this nested name
- * specifier. The result is the symbol in the scope of this nested name
- * specification.
- * 
- * The value of result_lookup_scope is not reliable if the function returns
- * NULL
+ * Returns the scope of this nested name specification
  */
-scope_entry_list_t* query_nested_name_spec(scope_t* sc, scope_t** result_lookup_scope, AST global_op, AST nested_name)
+scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list)
 {
-	if (result_lookup_scope != NULL)
-		*result_lookup_scope = NULL;
-	
 	// We'll start the search in "sc"
 	scope_t* lookup_scope = sc;
 	scope_entry_list_t* entry_list = NULL;
@@ -299,10 +252,12 @@ scope_entry_list_t* query_nested_name_spec(scope_t* sc, scope_t** result_lookup_
 		nested_name = ASTSon1(nested_name);
 	}
 
-	if (result_lookup_scope != NULL)
-		*result_lookup_scope = lookup_scope;
+	if (result_entry_list != NULL)
+	{
+		*result_entry_list = entry_list;
+	}
 
-	return entry_list;
+	return lookup_scope;
 }
 
 // Similar to query_nested_name_spec but searches the name
@@ -311,18 +266,37 @@ scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_nam
 	scope_entry_list_t* result = NULL;
 	scope_t* lookup_scope;
 
-	if (query_nested_name_spec(sc, &lookup_scope, global_op, nested_name) != NULL)
+	if (global_op == NULL && nested_name == NULL)
 	{
+		// This is an unqualified identifier
 		switch (ASTType(name))
 		{
 			case AST_SYMBOL :
-				result = query_in_symbols_of_scope(lookup_scope, ASTText(name));
+				result = query_unqualified_name(sc, ASTText(name));
 				break;
 			case AST_TEMPLATE_ID:
-				result = query_template_id(name, sc, lookup_scope);
+				// ??? There should be a query_unqualified_template_id ?
+				result = query_template_id(name, sc, sc);
 				break;
 			default :
 				internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(name)));
+		}
+	}
+	else
+	{
+		if ((lookup_scope = query_nested_name_spec(sc, global_op, nested_name, NULL)) != NULL)
+		{
+			switch (ASTType(name))
+			{
+				case AST_SYMBOL :
+					result = query_in_symbols_of_scope(lookup_scope, ASTText(name));
+					break;
+				case AST_TEMPLATE_ID:
+					result = query_template_id(name, sc, lookup_scope);
+					break;
+				default :
+					internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(name)));
+			}
 		}
 	}
 
@@ -418,14 +392,13 @@ scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr)
 		case AST_QUALIFIED_ID :
 			{
 				// A qualified id "a::b::c"
-				scope_t* lookup_scope;
 				AST global_op = ASTSon0(id_expr);
 				AST nested_name = ASTSon1(id_expr);
+				AST symbol = ASTSon2(id_expr);
 
-				if (query_nested_name_spec(sc, &lookup_scope, global_op, nested_name) == NULL)
-					return NULL;
+				scope_entry_list_t* result = query_nested_name(sc, global_op, nested_name, symbol);
 
-				return query_id_expression(lookup_scope, ASTSon2(id_expr));
+				return result;
 				break;
 			}
 		case AST_QUALIFIED_TEMPLATE :
@@ -527,7 +500,7 @@ static scope_entry_list_t* lookup_block_scope(scope_t* st, char* unqualified_nam
 	if (st->contained_in != NULL)
 	{
 		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
-		result = query_unqualified_name(st, unqualified_name);
+		result = query_unqualified_name(st->contained_in, unqualified_name);
 	}
 
 	if (!result)
@@ -541,12 +514,16 @@ static scope_entry_list_t* lookup_block_scope(scope_t* st, char* unqualified_nam
 static scope_entry_list_t* lookup_prototype_scope(scope_t* st, char* unqualified_name)
 {
 	scope_entry_list_t* result = NULL;
-
-	// Otherwise try to find anything in the enclosing scope
-	if (st->contained_in != NULL)
+	
+	// Otherwise, if template scoping is available, check in the template scope
+	if (st->template_scope != NULL)
 	{
-		fprintf(stderr, "Looking up '%s' in the prototype enclosing scope...", unqualified_name);
-		result = query_unqualified_name(st, unqualified_name);
+		fprintf(stderr, "Looking up '%s' in template parameters...", unqualified_name);
+		result = query_in_symbols_of_scope(st->template_scope, unqualified_name);
+		if (result != NULL)
+		{
+			return result;
+		}
 	}
 
 	if (!result)
@@ -571,7 +548,7 @@ static scope_entry_list_t* lookup_namespace_scope(scope_t* st, char* unqualified
 
 	// TODO - This should consider transitively used namespaces
 	// Search in the namespaces
-	fprintf(stderr, "not found.\nLooking up '%s' in used namespaces...", unqualified_name);
+	fprintf(stderr, "not found.\nLooking up '%s' in used namespaces (%d)...", unqualified_name, st->num_used_namespaces);
 	int i;
 	for (i = 0; i < st->num_used_namespaces; i++)
 	{
@@ -586,7 +563,7 @@ static scope_entry_list_t* lookup_namespace_scope(scope_t* st, char* unqualified
 	if (st->contained_in != NULL)
 	{
 		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
-		result = query_unqualified_name(st, unqualified_name);
+		result = query_unqualified_name(st->contained_in, unqualified_name);
 	}
 
 	if (!result)
@@ -638,10 +615,10 @@ static scope_entry_list_t* lookup_class_scope(scope_t* st, char* unqualified_nam
 	}
 	
 	// Search in the bases
-	fprintf(stderr, "not found.\nLooking up '%s' in bases...", unqualified_name);
-	for (i = 0; i < st->num_used_namespaces; i++)
+	fprintf(stderr, "not found.\nLooking up '%s' in bases (%d)...", unqualified_name, st->num_base_scopes);
+	for (i = 0; i < st->num_base_scopes; i++)
 	{
-		result = query_unqualified_name(st->use_namespace[i], unqualified_name);
+		result = query_unqualified_name(st->base_scope[i], unqualified_name);
 		if (result != NULL)
 		{
 			return result;
@@ -663,7 +640,7 @@ static scope_entry_list_t* lookup_class_scope(scope_t* st, char* unqualified_nam
 	if (st->contained_in != NULL)
 	{
 		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
-		result = query_unqualified_name(st, unqualified_name);
+		result = query_unqualified_name(st->contained_in, unqualified_name);
 	}
 
 	if (!result)
@@ -701,7 +678,7 @@ static scope_entry_list_t* lookup_template_scope(scope_t* st, char* unqualified_
 	if (st->contained_in != NULL)
 	{
 		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
-		result = query_unqualified_name(st, unqualified_name);
+		result = query_unqualified_name(st->contained_in, unqualified_name);
 	}
 
 	if (!result)
@@ -719,21 +696,27 @@ scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name)
 	switch (st->kind)
 	{
 		case PROTOTYPE_SCOPE :
+			fprintf(stderr, "Starting lookup in prototype scope\n");
 			result = lookup_prototype_scope(st, unqualified_name);
 			break;
 		case NAMESPACE_SCOPE :
+			fprintf(stderr, "Starting lookup in namespace scope\n");
 			result = lookup_namespace_scope(st, unqualified_name);
 			break;
 		case FUNCTION_SCOPE :
+			fprintf(stderr, "Starting lookup in function scope\n");
 			result = lookup_function_scope(st, unqualified_name);
 			break;
 		case BLOCK_SCOPE :
+			fprintf(stderr, "Starting lookup in block scope\n");
 			result = lookup_block_scope(st, unqualified_name);
 			break;
 		case CLASS_SCOPE :
+			fprintf(stderr, "Starting lookup in class scope\n");
 			result = lookup_class_scope(st, unqualified_name);
 			break;
 		case TEMPLATE_SCOPE :
+			fprintf(stderr, "Starting lookup in template scope\n");
 			result = lookup_template_scope(st, unqualified_name);
 			break;
 		case UNDEFINED_SCOPE :
@@ -831,4 +814,42 @@ scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum 
 	result = filter_symbol_non_kind_set(entry_list, 1, &symbol_kind);
 
 	return result;
+}
+
+/*
+ * Returns a type if and only if this entry_list contains just one type
+ * specifier. If another identifier is found it returns NULL
+ */
+scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list)
+{
+	int non_type_name = 0;
+	scope_entry_t* result = NULL;
+
+	while (entry_list != NULL)
+	{
+		scope_entry_t* simple_type_entry = entry_list->entry;
+
+		if (simple_type_entry->kind != SK_ENUM 
+				&& simple_type_entry->kind != SK_CLASS 
+				&& simple_type_entry->kind != SK_TYPEDEF 
+				&& simple_type_entry->kind != SK_TEMPLATE_PARAMETER
+				&& simple_type_entry->kind != SK_TEMPLATE_PRIMARY_CLASS
+				&& simple_type_entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS)
+		{
+			fprintf(stderr, "Found a '%d'\n", simple_type_entry->kind);
+			non_type_name++;
+		}
+		else
+		{
+			result = simple_type_entry;
+		}
+
+		entry_list = entry_list->next;
+	}
+
+	// There is something that is not a type name here and hides this simple type spec
+	if (non_type_name != 0)
+		return NULL;
+	else
+		return result;
 }

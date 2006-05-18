@@ -381,7 +381,7 @@ scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name);
 //    This one should be enough for most cases
 scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name);
 //    These are here for the purpose of flexibility but should be rarely needed
-scope_entry_list_t* query_nested_name_spec(scope_t* st, scope_t** result_lookup_scope, AST global_op, AST nested_name);
+scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list);
 char incompatible_symbol_exists(scope_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
 scope_entry_list_t* query_template_id(AST nested_name_spec, scope_t* st, scope_t* lookup_scope);
 
