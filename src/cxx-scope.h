@@ -369,6 +369,10 @@ scope_entry_list_t* filter_symbol_kind(scope_entry_list_t* entry_list, enum cxx_
 // Similar but can be used to filter based on a kind set
 scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set);
 
+// Opposite filtering
+scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum cxx_symbol_kind symbol_kind);
+scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set);
+
 // Everything built by an id_expression can be queried with this function
 scope_entry_list_t* query_id_expression(scope_t* st, AST id_expr);
 scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name);

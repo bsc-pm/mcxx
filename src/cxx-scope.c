@@ -759,14 +759,6 @@ char incompatible_symbol_exists(scope_t* sc, AST id_expr, enum cxx_symbol_kind s
 	return found_incompatible;
 }
 
-scope_entry_list_t* filter_symbol_kind(scope_entry_list_t* entry_list, enum cxx_symbol_kind symbol_kind)
-{
-	scope_entry_t* result = NULL;
-
-	result = filter_symbol_kind_set(entry_list, 1, &symbol_kind);
-
-	return result;
-}
 
 scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set)
 {
@@ -791,6 +783,52 @@ scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int n
 
 		iter = iter->next;
 	}
+
+	return result;
+}
+
+scope_entry_list_t* filter_symbol_kind(scope_entry_list_t* entry_list, enum cxx_symbol_kind symbol_kind)
+{
+	scope_entry_list_t* result = NULL;
+
+	result = filter_symbol_kind_set(entry_list, 1, &symbol_kind);
+
+	return result;
+}
+
+
+scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set)
+{
+	scope_entry_list_t* result = NULL;
+	scope_entry_list_t* iter = entry_list;
+	
+	while (iter != NULL)
+	{
+		int i;
+		char found = 0;
+		for (i = 0; (i < num_kinds) && !found; i++)
+		{
+			if (iter->entry->kind != symbol_kind_set[i])
+			{
+				scope_entry_list_t* new_item = GC_CALLOC(1, sizeof(*new_item));
+				new_item->entry = iter->entry;
+				new_item->next = result;
+				result = new_item;
+				found = 1;
+			}
+		}
+
+		iter = iter->next;
+	}
+
+	return result;
+}
+
+scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum cxx_symbol_kind symbol_kind)
+{
+	scope_entry_list_t* result = NULL;
+
+	result = filter_symbol_non_kind_set(entry_list, 1, &symbol_kind);
 
 	return result;
 }
