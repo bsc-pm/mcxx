@@ -560,30 +560,9 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 	AST nested_name_specifier = ASTSon2(a);
 	AST symbol = ASTSon3(a);
 
-	scope_t* lookup_scope;
 	scope_entry_list_t* result_list = NULL;
 
-	// This is a kludge and has to be rewritten
-#warning Rewrite this part because it does not work
-#if 0
-	if (nested_name_specifier != NULL)
-	{
-		scope_entry_list_t* lexical_scope = query_nested_name_spec(st, &lookup_scope, global_scope, nested_name_specifier);
-
-		if (lexical_scope != NULL)
-		{
-			result_list = query_unqualified_name(lookup_scope, ASTText(symbol));
-		}
-	}
-	else if (global_scope != NULL)
-	{
-		result_list = query_in_current_scope(compilation_options.global_scope, ASTText(symbol));
-	}
-	else
-	{
-		result_list = query_in_current_scope(st, ASTText(symbol));
-	}
-#endif
+	result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol);
 
 	// Now look for a type
 	scope_entry_t* entry = NULL;
@@ -637,29 +616,9 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 	AST nested_name_specifier = ASTSon1(a);
 	AST symbol = ASTSon2(a);
 
-	scope_t* lookup_scope;
 	scope_entry_list_t* result_list = NULL;
 
-#warning Rewrite this part because it does not work
-#if 0
-	if (nested_name_specifier != NULL)
-	{
-		scope_entry_list_t* lexical_scope = query_nested_name_spec(st, &lookup_scope, global_scope, nested_name_specifier);
-
-		if (lexical_scope != NULL)
-		{
-			result_list = query_in_current_scope(lookup_scope, ASTText(symbol));
-		}
-	}
-	else if (global_scope != NULL)
-	{
-		result_list = query_in_current_scope(compilation_options.global_scope, ASTText(symbol));
-	}
-	else
-	{
-		result_list = query_in_current_scope(st, ASTText(symbol));
-	}
-#endif
+	result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol);
 
 	// Now look for a type
 	scope_entry_t* entry = NULL;
@@ -711,48 +670,33 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simple_type_t* simple_type_info)
 {
 	// TODO - We shall check nested namespaces and global qualifier, ignore it for now
+	fprintf(stderr, "-> %s <-\n", ast_print_node_type(ASTType(a)));
+	AST global_op = ASTSon0(a);
+	AST nested_name_spec = ASTSon1(a);
 	AST type_name = ASTSon2(a);
 
-#warning Rewrite this
-	switch (ASTType(type_name))
+	scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, type_name);
+
+	// Filter for non types hiding this type name
+	// Fix this, it sounds a bit awkward
+	scope_entry_t* simple_type_entry = filter_simple_type_specifier(entry_list);
+
+	if (simple_type_entry == NULL)
 	{
-		case AST_SYMBOL :
-			{
-				fprintf(stderr, "Looking up for type '%s' in %p\n", ASTText(type_name), st);
-				scope_entry_list_t* entry_list = query_unqualified_name(st, ASTText(type_name));
+		running_error("Identifier '%s' in line %d is not a type\n", ASTText(type_name), 
+				ASTLine(type_name));
+	}
 
-				// Filter for non types hiding this type name
-				// Fix this, it sounds a bit awkward
-				scope_entry_t* simple_type_entry = filter_simple_type_specifier(entry_list);
+	if (simple_type_entry->type_information == NULL
+			|| simple_type_entry->type_information->kind != TK_DIRECT
+			|| simple_type_entry->type_information->type == NULL)
+	{
+		internal_error("The named type '%s' has no direct type entry in symbol table\n", 
+				ASTText(type_name));
+	}
 
-				if (simple_type_entry == NULL)
-				{
-					running_error("Identifier '%s' in line %d is not a type\n", ASTText(type_name), 
-							ASTLine(type_name));
-				}
-
-				if (simple_type_entry->type_information == NULL
-						|| simple_type_entry->type_information->kind != TK_DIRECT
-						|| simple_type_entry->type_information->type == NULL)
-				{
-					internal_error("The named type '%s' has no direct type entry in symbol table\n", 
-							ASTText(type_name));
-				}
-
-				simple_type_info->kind = STK_USER_DEFINED;
-				simple_type_info->user_defined_type = simple_type_entry;
-				break;
-			}
-		case AST_TEMPLATE_ID :
-			{
-				scope_entry_list_t* entry_list = query_template_id(type_name, st, st);
-				simple_type_info->kind = STK_USER_DEFINED;
-				simple_type_info->user_defined_type = entry_list->entry;
-				break;
-			}
-		default:
-			internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
-	};
+	simple_type_info->kind = STK_USER_DEFINED;
+	simple_type_info->user_defined_type = simple_type_entry;
 }
 
 /*
@@ -1682,6 +1626,7 @@ static void build_scope_template_declaration(AST a, scope_t* st)
 	template_parameter_t** template_param_info = GC_CALLOC(1, sizeof(*template_param_info));
 	int num_parameters = 0;
 	
+	// Construct parameter information
 	build_scope_template_parameter_list(ASTSon0(a), template_scope, template_param_info, &num_parameters);
 
 	switch (ASTType(ASTSon1(a)))
@@ -1755,7 +1700,18 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 
 	if (decl_specifier_seq != NULL)
 	{
-		build_scope_decl_specifier_seq(decl_specifier_seq, template_scope, &gather_info, &simple_type_info);
+		// Save the previous template scope in the current one
+		// and set the template scope of the current scope 
+		template_scope->template_scope = st->template_scope;
+		st->template_scope = template_scope;
+
+		// If a class specifier appears here it will be properly declarated in the scope (not within
+		// in the template one)
+		build_scope_decl_specifier_seq(decl_specifier_seq, st, &gather_info, &simple_type_info);
+
+		// Restore the original template scope
+		st->template_scope = template_scope->template_scope;
+		template_scope->template_scope = NULL;
 	}
 
 	// Let's see what has got declared here
@@ -1775,34 +1731,6 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 				entry->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
 			}
 
-			// Export this symbol in the outermost symbol table
-			insert_entry(st, entry);
-			// Fix scope. This is awkward. Due to the way symbol table is built,
-			// there are two scopes involved here
-			//
-			//     <template_parameter_scope>
-			//      + -- parameters
-			//      + -- class name
-			//      + -- <class scope>
-			//            + -- members of the class
-			//            
-			// We have just pulled out the class name from the template parameter scope but we also want
-			// parameters to be in class scope. To be correct we should remove them from the template parameter
-			// scope but this is harmless. (I think)
-			
-			// Iterator* it = (Iterator*) hash_iterator_create(template_scope->hash);
-			// for (iterator_first(it); !iterator_finished(it); iterator_next(it))
-			// {
-			// 	scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
-			// 	// Technically here will not appear repeated things, so only export
-			// 	// the first one
-			// 	// Do not re-add the class symbol!
-			// 	if (entry != entry_list->entry)
-			// 	{
-			// 		insert_entry(entry->related_scope, entry_list->entry);
-			// 	}
-			// }
-
 			// Save the template parameters
 			entry->num_template_parameters = num_parameters;
 			entry->template_parameter_info = template_param_info;
@@ -1811,6 +1739,11 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 
 	// There can be just one declarator here if this is not a class specifier nor a function declaration
 	// otherwise no declarator can appear
+	//
+	//    template <class P>
+	//    const T A<P>::d = expr;       // For static const member initialization
+	//            ^^^^^^^^^^^^^^
+	//            we are handling this
 	if (init_declarator_list != NULL)
 	{
 		if (ASTSon0(init_declarator_list) != NULL)
@@ -1821,9 +1754,22 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 		AST init_declarator = ASTSon1(init_declarator_list);
 		AST declarator = ASTSon0(init_declarator);
 
+		// Save the previous template scope in the current one
+		// and set the template scope of the current scope 
+		template_scope->template_scope = st->template_scope;
+		st->template_scope = template_scope;
+
+		// Note that the scope where this declarator will be declared includes
+		// the template parameters, since the symbol will have to be qualified
+		// it will not create a symbol in "st" but will fetch the previously
+		// declared one within the class.
 		type_t* declarator_type = NULL;
-		scope_entry_t* entry = build_scope_declarator(declarator, template_scope, 
+		scope_entry_t* entry = build_scope_declarator(declarator, st, 
 				&gather_info, simple_type_info, &declarator_type);
+		
+		// Restore the original template scope
+		st->template_scope = template_scope->template_scope;
+		template_scope->template_scope = NULL;
 
 		if (entry->kind == SK_FUNCTION)
 		{
@@ -1854,19 +1800,11 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 			fprintf(stderr, "'\n");
 			entry_list->entry->defined = 1;
 
-
 			// if (initializer != NULL)
 			// {
 			// 	// We do not fold it here
 			// 	entry_list->entry->expression_value = initializer;
 			// }
-		}
-
-		// Export this symbol if the scope of the entry is the same
-		// as the template
-		if (entry->scope == template_scope)
-		{
-			insert_entry(st, entry);
 		}
 	}
 }

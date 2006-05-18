@@ -192,10 +192,12 @@ scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list)
 	{
 		scope_entry_t* simple_type_entry = entry_list->entry;
 
-		if (simple_type_entry->kind != SK_ENUM &&
-				simple_type_entry->kind != SK_CLASS &&
-				simple_type_entry->kind != SK_TYPEDEF &&
-				simple_type_entry->kind != SK_TEMPLATE_PARAMETER)
+		if (simple_type_entry->kind != SK_ENUM 
+				&& simple_type_entry->kind != SK_CLASS 
+				&& simple_type_entry->kind != SK_TYPEDEF 
+				&& simple_type_entry->kind != SK_TEMPLATE_PARAMETER
+				&& simple_type_entry->kind != SK_TEMPLATE_PRIMARY_CLASS
+				&& simple_type_entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS)
 		{
 			non_type_name++;
 		}
@@ -228,14 +230,17 @@ scope_entry_list_t* query_nested_name_spec(scope_t* sc, scope_t** result_lookup_
 	if (result_lookup_scope != NULL)
 		*result_lookup_scope = NULL;
 	
+	// We'll start the search in "sc"
 	scope_t* lookup_scope = sc;
 	scope_entry_list_t* entry_list = NULL;
 
+	// unless we are told to start in the global scope
 	if (global_op != NULL)
 	{
 		lookup_scope = compilation_options.global_scope;
 	}
 
+	// Traverse the qualification tree
 	while (nested_name != NULL)
 	{
 		AST nested_name_spec = ASTSon0(nested_name);
@@ -245,30 +250,40 @@ scope_entry_list_t* query_nested_name_spec(scope_t* sc, scope_t** result_lookup_
 		{
 			case AST_SYMBOL :
 				{
+					// If this is a symbol then simply query in this scope
 					entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(nested_name_spec));
 
+					// If not found, null
 					if (entry_list == NULL)
 						return NULL;
 
+					// If found something not a class or a namespace
+					// null
 					if (entry_list->entry->kind != SK_CLASS
 							&& entry_list->entry->kind != SK_NAMESPACE)
 					{
 						return NULL;
 					}
 
-					if (seen_class 
-							&& entry_list->entry->kind == SK_NAMESPACE)
+					// Classes do not have namespaces within them
+					if (seen_class && entry_list->entry->kind == SK_NAMESPACE)
+					{
 						return NULL;
+					}
 
+					// Once seen a class no more namespaces can appear
 					if (entry_list->entry->kind == SK_CLASS)
+					{
 						seen_class = 1;
+					}
 
+					// It looks fine, update the scope
 					lookup_scope = entry_list->entry->related_scope;
-
 					break;
 				}
 			case AST_TEMPLATE_ID :
 				 {
+					 // TODO - Review this
 					 entry_list = query_template_id(nested_name_spec, sc, lookup_scope);
 					 lookup_scope = entry_list->entry->related_scope;
 					 seen_class = 1;
@@ -288,6 +303,30 @@ scope_entry_list_t* query_nested_name_spec(scope_t* sc, scope_t** result_lookup_
 		*result_lookup_scope = lookup_scope;
 
 	return entry_list;
+}
+
+// Similar to query_nested_name_spec but searches the name
+scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name)
+{
+	scope_entry_list_t* result = NULL;
+	scope_t* lookup_scope;
+
+	if (query_nested_name_spec(sc, &lookup_scope, global_op, nested_name) != NULL)
+	{
+		switch (ASTType(name))
+		{
+			case AST_SYMBOL :
+				result = query_in_symbols_of_scope(lookup_scope, ASTText(name));
+				break;
+			case AST_TEMPLATE_ID:
+				result = query_template_id(name, sc, lookup_scope);
+				break;
+			default :
+				internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(name)));
+		}
+	}
+
+	return result;
 }
 
 scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope)
@@ -440,7 +479,7 @@ static scope_entry_list_t* lookup_block_scope(scope_t* st, char* unqualified_nam
 
 	// TODO - This should consider transitively used namespaces
 	// Search in the namespaces
-	fprintf(stderr, "not found.\n Looking up '%s' in used namespaces...", unqualified_name);
+	fprintf(stderr, "not found.\nLooking up '%s' in used namespaces...", unqualified_name);
 	int i;
 	for (i = 0; i < st->num_used_namespaces; i++)
 	{
@@ -532,7 +571,7 @@ static scope_entry_list_t* lookup_namespace_scope(scope_t* st, char* unqualified
 
 	// TODO - This should consider transitively used namespaces
 	// Search in the namespaces
-	fprintf(stderr, "not found.\n Looking up '%s' in used namespaces...", unqualified_name);
+	fprintf(stderr, "not found.\nLooking up '%s' in used namespaces...", unqualified_name);
 	int i;
 	for (i = 0; i < st->num_used_namespaces; i++)
 	{
@@ -720,3 +759,38 @@ char incompatible_symbol_exists(scope_t* sc, AST id_expr, enum cxx_symbol_kind s
 	return found_incompatible;
 }
 
+scope_entry_list_t* filter_symbol_kind(scope_entry_list_t* entry_list, enum cxx_symbol_kind symbol_kind)
+{
+	scope_entry_t* result = NULL;
+
+	result = filter_symbol_kind_set(entry_list, 1, &symbol_kind);
+
+	return result;
+}
+
+scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set)
+{
+	scope_entry_list_t* result = NULL;
+	scope_entry_list_t* iter = entry_list;
+	
+	while (iter != NULL)
+	{
+		int i;
+		char found = 0;
+		for (i = 0; (i < num_kinds) && !found; i++)
+		{
+			if (iter->entry->kind == symbol_kind_set[i])
+			{
+				scope_entry_list_t* new_item = GC_CALLOC(1, sizeof(*new_item));
+				new_item->entry = iter->entry;
+				new_item->next = result;
+				result = new_item;
+				found = 1;
+			}
+		}
+
+		iter = iter->next;
+	}
+
+	return result;
+}
