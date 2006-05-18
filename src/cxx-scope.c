@@ -137,7 +137,7 @@ scope_entry_t* new_symbol(scope_t* sc, char* name)
 	return result;
 }
 
-static scope_entry_list_t* query_in_symbols_of_scope(scope_t* sc, char* name)
+scope_entry_list_t* query_in_symbols_of_scope(scope_t* sc, char* name)
 {
 	scope_entry_list_t* result = (scope_entry_list_t*) hash_get(sc->hash, name);
 
@@ -261,7 +261,7 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 }
 
 // Similar to query_nested_name_spec but searches the name
-scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name)
+scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name, char unqualified_lookup)
 {
 	scope_entry_list_t* result = NULL;
 	scope_t* lookup_scope;
@@ -272,7 +272,14 @@ scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_nam
 		switch (ASTType(name))
 		{
 			case AST_SYMBOL :
-				result = query_unqualified_name(sc, ASTText(name));
+                if (unqualified_lookup)
+                {
+                    result = query_unqualified_name(sc, ASTText(name));
+                }
+                else
+                {
+                    result = query_in_symbols_of_scope(sc, ASTText(name));
+                }
 				break;
 			case AST_TEMPLATE_ID:
 				// ??? There should be a query_unqualified_template_id ?
@@ -344,14 +351,21 @@ scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* loo
 	}
 }
 
-scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr)
+scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr, char unqualified_lookup)
 {
 	switch (ASTType(id_expr))
 	{
 		// Unqualified ones
 		case AST_SYMBOL :
 			{
-				return query_unqualified_name(sc, ASTText(id_expr));
+                if (unqualified_lookup)
+                {
+                    return query_unqualified_name(sc, ASTText(id_expr));
+                }
+                else
+                {
+                    return query_in_symbols_of_scope(sc, ASTText(id_expr));
+                }
 				break;
 			}
 		case AST_DESTRUCTOR_ID :
@@ -396,7 +410,8 @@ scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr)
 				AST nested_name = ASTSon1(id_expr);
 				AST symbol = ASTSon2(id_expr);
 
-				scope_entry_list_t* result = query_nested_name(sc, global_op, nested_name, symbol);
+				scope_entry_list_t* result = query_nested_name(sc, global_op, nested_name, 
+                        symbol, /*unqualified_lookup=*/1);
 
 				return result;
 				break;
@@ -727,20 +742,20 @@ scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name)
 	return result;
 }
 
-char incompatible_symbol_exists(scope_t* sc, AST id_expr, enum cxx_symbol_kind symbol_kind)
-{
-	scope_entry_list_t* entry_list = query_id_expression(sc, id_expr);
-	char found_incompatible = 0;
-
-	while (!found_incompatible && entry_list != NULL)
-	{
-		found_incompatible = (entry_list->entry->kind != symbol_kind);
-
-		entry_list = entry_list->next;
-	}
-
-	return found_incompatible;
-}
+// char incompatible_symbol_exists(scope_t* sc, AST id_expr, enum cxx_symbol_kind symbol_kind)
+// {
+// 	scope_entry_list_t* entry_list = query_id_expression(sc, id_expr);
+// 	char found_incompatible = 0;
+// 
+// 	while (!found_incompatible && entry_list != NULL)
+// 	{
+// 		found_incompatible = (entry_list->entry->kind != symbol_kind);
+// 
+// 		entry_list = entry_list->next;
+// 	}
+// 
+// 	return found_incompatible;
+// }
 
 
 scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set)

@@ -374,15 +374,19 @@ scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum 
 scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set);
 
 // Everything built by an id_expression can be queried with this function
-scope_entry_list_t* query_id_expression(scope_t* st, AST id_expr);
+scope_entry_list_t* query_id_expression(scope_t* st, AST id_expr, char unqualified_lookup);
+
+// Performs a full unqualified lookup
 scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name);
 
 // Nested names
 //    This one should be enough for most cases
-scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name);
+scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name, 
+        char unqualified_lookup);
 //    These are here for the purpose of flexibility but should be rarely needed
 scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list);
-char incompatible_symbol_exists(scope_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
+// char incompatible_symbol_exists(scope_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
 scope_entry_list_t* query_template_id(AST nested_name_spec, scope_t* st, scope_t* lookup_scope);
+scope_entry_list_t* query_in_symbols_of_scope(scope_t* sc, char* name);
 
 #endif // CXX_SCOPE_H

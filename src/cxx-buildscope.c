@@ -219,7 +219,8 @@ static void build_scope_using_directive(AST a, scope_t* st)
 	AST nested_name = ASTSon1(a);
 	AST name = ASTSon2(a);
 
-	scope_entry_list_t* result_list = query_nested_name(st, global_op, nested_name, name);
+	scope_entry_list_t* result_list = query_nested_name(st, global_op, 
+            nested_name, name, /*unqualified_lookup=*/ 1);
 
 	if (result_list == NULL)
 	{
@@ -327,7 +328,8 @@ static void build_scope_simple_declaration(AST a, scope_t* st)
 					&& declarator_type->kind != TK_FUNCTION)
 			{
 				AST declarator_name = get_declarator_name(declarator);
-				scope_entry_list_t* entry_list = query_id_expression(st, declarator_name);
+				scope_entry_list_t* entry_list = query_id_expression(st, declarator_name, 
+                        /*unqualified_lookup=*/ 0);
 
 				if (entry_list == NULL)
 				{
@@ -623,7 +625,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
 	scope_entry_list_t* result_list = NULL;
 
-	result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol);
+	result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
+            /*unqualified_lookup=*/1);
 
 	// Now look for a type
 	scope_entry_t* entry = NULL;
@@ -678,7 +681,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 
 	scope_entry_list_t* result_list = NULL;
 
-	result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol);
+	result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
+            /*unqualified_lookup=*/1);
 
 	// Now look for a type
 	scope_entry_t* entry = NULL;
@@ -735,7 +739,8 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simp
 	AST nested_name_spec = ASTSon1(a);
 	AST type_name = ASTSon2(a);
 
-	scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, type_name);
+	scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, 
+            type_name, /*unqualified_lookup=*/1);
 
 	// Filter for non types hiding this type name
 	// Fix this, it sounds a bit awkward
@@ -1415,7 +1420,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 				// A qualified id "a::b::c"
 				if (declarator_type->kind != TK_FUNCTION)
 				{
-					scope_entry_list_t* entry_list = query_id_expression(st, declarator_id);
+					scope_entry_list_t* entry_list = query_id_expression(st, declarator_id, /*unqualified_lookup=*/1);
 					if (entry_list == NULL)
 					{
 						internal_error("Qualified id name not found", 0);
@@ -1508,8 +1513,8 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
 {
 	if (declarator_type->kind != TK_FUNCTION)
 	{
-		// Check for existence of this symbol
-		scope_entry_list_t* entry_list = query_unqualified_name(st, ASTText(declarator_id));
+		// Check for existence of this symbol in this scope
+		scope_entry_list_t* entry_list = query_id_expression(st, declarator_id, /*unqualified_lookup=*/0);
 
 		enum cxx_symbol_kind valid_kind[2] = {SK_CLASS, SK_ENUM};
 		scope_entry_list_t* check_list = filter_symbol_non_kind_set(entry_list, 2, valid_kind);
@@ -1565,7 +1570,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, type_t* declarator_type, char* is_overload)
 {
 	// This function is a mess and should be rewritten
-	scope_entry_list_t* entry_list = query_id_expression(st, declarator_id);
+	scope_entry_list_t* entry_list = query_id_expression(st, declarator_id, /*unqualified_lookup=*/0);
 
 	function_info_t* function_being_declared = declarator_type->function;
 	scope_entry_t* equal_entry = NULL;
@@ -1733,6 +1738,7 @@ static void build_scope_template_function_definition(AST a, scope_t* st, scope_t
 
 	// Define the function within st scope but being visible template_scope
 	scope_entry_t* entry = build_scope_function_definition(a, st);
+    entry = NULL;
 
 	st->template_scope = template_scope->template_scope;
 	template_scope->template_scope = NULL;
@@ -1858,7 +1864,7 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 				&& declarator_type->kind != TK_FUNCTION)
 		{
 			AST declarator_name = get_declarator_name(declarator);
-			scope_entry_list_t* entry_list = query_id_expression(st, declarator_name);
+			scope_entry_list_t* entry_list = query_id_expression(st, declarator_name, /*unqualified_lookup=*/0);
 
 			if (entry_list == NULL)
 			{

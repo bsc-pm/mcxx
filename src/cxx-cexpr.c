@@ -500,7 +500,7 @@ static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* s
 
 static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 {
-	scope_entry_list_t* result = query_id_expression(st, symbol);
+	scope_entry_list_t* result = query_id_expression(st, symbol, /*unqualified_lookup=*/1);
 
 	if (result == NULL)
 	{
