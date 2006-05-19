@@ -210,12 +210,15 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 
 					// If not found, null
 					if (entry_list == NULL)
+					{
 						return NULL;
+					}
 
-					// If found something not a class or a namespace
-					// null
-					if (entry_list->entry->kind != SK_CLASS
-							&& entry_list->entry->kind != SK_NAMESPACE)
+					// Now filter for SK_CLASS or SK_NAMESPACE
+					enum cxx_symbol_kind filter[2] = {SK_CLASS, SK_NAMESPACE};
+					entry_list = filter_symbol_kind_set(entry_list, 2, filter);
+
+					if (entry_list == NULL)
 					{
 						return NULL;
 					}

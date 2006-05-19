@@ -187,6 +187,15 @@ char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
 	if (!compatible_parameters(t1, t2, st))
 		return 1;
 
+	// If one has return type but the other does not this is an overload
+	// (technically this is ill-formed)
+	if (((t1->return_type->kind == TK_DIRECT && t1->return_type->type == NULL)
+				&& (t2->return_type->kind == TK_DIRECT && t2->return_type->type != NULL))
+			|| ((t2->return_type->kind == TK_DIRECT && t2->return_type->type == NULL)
+				&& (t1->return_type->kind == TK_DIRECT && t1->return_type->type != NULL)))
+		return 1;
+			
+
 	// Destructors, constructors, operator functions and conversion functions
 	// will not have a full direct type
 	if ((t1->return_type->kind == TK_DIRECT && t1->return_type->type == NULL)
