@@ -67,6 +67,8 @@ static void build_scope_linkage_specifier_declaration(AST a, scope_t* st);
 
 void build_scope_template_arguments(AST a, scope_t* st, template_argument_list_t** template_arguments);
 
+static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope);
+
 static void build_scope_template_declaration(AST a, scope_t* st);
 static void build_scope_explicit_template_specialization(AST a, scope_t* st);
 
@@ -734,7 +736,6 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simple_type_t* simple_type_info)
 {
 	// TODO - We shall check nested namespaces and global qualifier, ignore it for now
-	fprintf(stderr, "-> %s <-\n", ast_print_node_type(ASTType(a)));
 	AST global_op = ASTSon0(a);
 	AST nested_name_spec = ASTSon1(a);
 	AST type_name = ASTSon2(a);
@@ -861,23 +862,77 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 
 }
 
+static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope)
+{
+	AST list = ASTSon0(base_clause);
+	AST iter;
+	for_each_element(list, iter)
+	{
+		AST base_specifier = ASTSon1(iter);
+
+		AST access_spec = NULL;
+		AST global_op; 
+		AST nested_name_specifier; 
+		AST name;
+
+		switch (ASTType(base_specifier))
+		{
+			case AST_BASE_SPECIFIER :
+				{
+					global_op = ASTSon0(base_specifier);
+					nested_name_specifier = ASTSon1(base_specifier);
+					name = ASTSon2(base_specifier);
+					break;
+				}
+			case AST_BASE_SPECIFIER_ACCESS :
+			case AST_BASE_SPECIFIER_VIRTUAL :
+			case AST_BASE_SPECIFIER_ACCESS_VIRTUAL :
+				{
+					access_spec = ASTSon0(base_specifier);
+					global_op = ASTSon1(base_specifier);
+					nested_name_specifier = ASTSon2(base_specifier);
+					name = ASTSon3(base_specifier);
+					break;
+				}
+			default :
+				internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(base_specifier)));
+		}
+
+		scope_entry_list_t* result_list = query_nested_name(st, global_op, nested_name_specifier, name, FULL_UNQUALIFIED_LOOKUP);
+
+		enum cxx_symbol_kind filter[3] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
+		result_list = filter_symbol_kind_set(result_list, 3, filter);
+
+		if (result_list == NULL)
+		{
+			internal_error("Base class not found!\n", 0);
+		}
+
+		P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, result_list->entry->related_scope);
+	}
+}
+
 /*
  * This function is called for class specifiers
  */
 void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* simple_type_info)
 {
-	// TODO - Class head
 	AST class_head = ASTSon0(a);
 	AST class_key = ASTSon0(class_head);
+	AST base_clause = ASTSon3(class_head);
 
 	AST class_head_identifier = ASTSon2(class_head);
-	// AST class_head_base_clause = ASTSon3(class_head);
-	// fprintf(stderr, "TODO class head", name);
 
 	simple_type_info->class_info = GC_CALLOC(1, sizeof(*simple_type_info->class_info));
 	simple_type_info->kind = STK_CLASS;
 
 	scope_t* inner_scope = new_class_scope(st);
+	
+	// Now add the bases
+	if (base_clause != NULL)
+	{
+		build_scope_base_clause(base_clause, st, inner_scope);
+	}
 
 	scope_entry_t* class_entry = NULL;
 	

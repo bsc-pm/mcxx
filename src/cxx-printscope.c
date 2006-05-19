@@ -53,6 +53,17 @@ static char* symbol_kind_names[] =
 	[SK_TEMPLATE_PARAMETER] = "SK_TEMPLATE_PARAMETER", 
 };
 
+static char* scope_names[] =
+{
+	[UNDEFINED_SCOPE] = "UNDEFINED_SCOPE",
+	[NAMESPACE_SCOPE] = "NAMESPACE_SCOPE",
+	[FUNCTION_SCOPE] = "FUNCTION_SCOPE",
+	[PROTOTYPE_SCOPE] = "PROTOTYPE_SCOPE",
+	[BLOCK_SCOPE] = "BLOCK_SCOPE",
+	[CLASS_SCOPE] = "CLASS_SCOPE",
+	[TEMPLATE_SCOPE] = "TEMPLATE_SCOPE",
+};
+
 static void indent_at_level(FILE* f, int n)
 {
 	int i;
@@ -70,7 +81,8 @@ static void indent_at_level(FILE* f, int n)
 
 static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_indent)
 {
-	PRINT_INDENTED_LINE(stderr, global_indent, "[%p] \"%s\" %s",st, entry->symbol_name, symbol_kind_names[entry->kind]);
+	PRINT_INDENTED_LINE(stderr, global_indent, "[scope=%p - %s] \"%s\" %s",st, scope_names[st->kind], 
+			entry->symbol_name, symbol_kind_names[entry->kind]);
 
 	if (entry->defined)
 	{

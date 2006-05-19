@@ -2204,6 +2204,7 @@ base_specifier_list : base_specifier
 ;
 
 base_specifier : type_name
+// without access_specifier
 {
 	$$ = ASTMake3(AST_BASE_SPECIFIER, NULL, NULL, $1, ASTLine($1), NULL);
 }
@@ -2223,7 +2224,7 @@ base_specifier : type_name
 {
 	$$ = ASTMake3(AST_BASE_SPECIFIER, NULL, $1, $2, ASTLine($1), NULL);
 }
-// Sense virtual
+// without virtual but with access_specifier
 | access_specifier type_name
 {
 	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS, $1, NULL, NULL, $2, ASTLine($1), NULL);
@@ -2244,7 +2245,7 @@ base_specifier : type_name
 
 	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS, $1, global_op, $3, $4, ASTLine($1), NULL);
 }
-// Amb virtual abans
+// with virtual and optionally access_specifier
 | VIRTUAL type_name
 {
 	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, NULL, NULL, NULL, $2, $1.token_line, NULL);
@@ -2285,7 +2286,7 @@ base_specifier : type_name
 
 	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, $2, global_op, $4, $5, $1.token_line, NULL);
 }
-// Amb el virtual després de l'accés
+// with access_specifier and then virtual
 | access_specifier VIRTUAL type_name
 {
 	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_VIRTUAL, $1, NULL, NULL, $3, ASTLine($1), NULL);

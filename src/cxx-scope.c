@@ -592,6 +592,17 @@ static scope_entry_list_t* lookup_namespace_scope(scope_t* st, char* unqualified
 	{
 		return result;
 	}
+	
+	// Otherwise, if template scoping is available, check in the template scope
+	if (st->template_scope != NULL)
+	{
+		fprintf(stderr, "Looking up '%s' in template parameters...", unqualified_name);
+		result = query_in_symbols_of_scope(st->template_scope, unqualified_name);
+		if (result != NULL)
+		{
+			return result;
+		}
+	}
 
 	// TODO - This should consider transitively used namespaces
 	// Search in the namespaces
@@ -640,7 +651,7 @@ static scope_entry_list_t* lookup_class_scope(scope_t* st, char* unqualified_nam
 {
 	// First check the scope
 	scope_entry_list_t* result = NULL;
-	fprintf(stderr, "Looking up '%s' in block...", unqualified_name);
+	fprintf(stderr, "Looking up '%s' in class...", unqualified_name);
 	result = query_in_symbols_of_scope(st, unqualified_name);
 
 	if (result != NULL)
