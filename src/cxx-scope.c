@@ -41,6 +41,8 @@ scope_t* new_prototype_scope(scope_t* enclosing_scope)
 	scope_t* result = new_scope();
 	result->kind = PROTOTYPE_SCOPE;
 
+	result->contained_in = enclosing_scope;
+
 	result->template_scope = enclosing_scope->template_scope;
 
 	return result;
@@ -261,7 +263,7 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 }
 
 // Similar to query_nested_name_spec but searches the name
-scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name, char unqualified_lookup)
+scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name, unqualified_lookup_behaviour_t unqualified_lookup)
 {
 	scope_entry_list_t* result = NULL;
 	scope_t* lookup_scope;
@@ -272,14 +274,23 @@ scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_nam
 		switch (ASTType(name))
 		{
 			case AST_SYMBOL :
-                if (unqualified_lookup)
-                {
-                    result = query_unqualified_name(sc, ASTText(name));
-                }
-                else
-                {
-                    result = query_in_symbols_of_scope(sc, ASTText(name));
-                }
+                switch (unqualified_lookup)
+				{
+					case FULL_UNQUALIFIED_LOOKUP :
+						{
+							result = query_unqualified_name(sc, ASTText(name));
+							break;
+						}
+					case NOFULL_UNQUALIFIED_LOOKUP :
+						{
+							result = query_in_symbols_of_scope(sc, ASTText(name));
+							break;
+						}
+					default :
+						{
+							internal_error("Invalid lookup behaviour", 0);
+						}
+				}
 				break;
 			case AST_TEMPLATE_ID:
 				// ??? There should be a query_unqualified_template_id ?
@@ -351,21 +362,32 @@ scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* loo
 	}
 }
 
-scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr, char unqualified_lookup)
+scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr, unqualified_lookup_behaviour_t unqualified_lookup)
 {
 	switch (ASTType(id_expr))
 	{
 		// Unqualified ones
 		case AST_SYMBOL :
 			{
-                if (unqualified_lookup)
-                {
-                    return query_unqualified_name(sc, ASTText(id_expr));
-                }
-                else
-                {
-                    return query_in_symbols_of_scope(sc, ASTText(id_expr));
-                }
+				scope_entry_list_t* result = NULL;
+                switch (unqualified_lookup)
+				{
+					case FULL_UNQUALIFIED_LOOKUP :
+						{
+							result = query_unqualified_name(sc, ASTText(id_expr));
+							break;
+						}
+					case NOFULL_UNQUALIFIED_LOOKUP :
+						{
+							result = query_in_symbols_of_scope(sc, ASTText(id_expr));
+							break;
+						}
+					default :
+						{
+							internal_error("Invalid lookup behaviour", 0);
+						}
+				}
+				return result;
 				break;
 			}
 		case AST_DESTRUCTOR_ID :
@@ -411,7 +433,7 @@ scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr, char unqualifi
 				AST symbol = ASTSon2(id_expr);
 
 				scope_entry_list_t* result = query_nested_name(sc, global_op, nested_name, 
-                        symbol, /*unqualified_lookup=*/1);
+                        symbol, FULL_UNQUALIFIED_LOOKUP);
 
 				return result;
 				break;
@@ -539,6 +561,13 @@ static scope_entry_list_t* lookup_prototype_scope(scope_t* st, char* unqualified
 		{
 			return result;
 		}
+	}
+
+	// Otherwise try to find anything in the enclosing scope
+	if (st->contained_in != NULL)
+	{
+		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
+		result = query_unqualified_name(st->contained_in, unqualified_name);
 	}
 
 	if (!result)

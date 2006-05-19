@@ -361,6 +361,12 @@ scope_entry_t* new_symbol(scope_t* st, char* name);
 scope_entry_list_t* create_list_from_entry(scope_entry_t* entry);
 void insert_entry(scope_t* st, scope_entry_t* entry);
 
+typedef enum unqualified_lookup_behaviour_tag
+{
+	NOFULL_UNQUALIFIED_LOOKUP = 0,
+	FULL_UNQUALIFIED_LOOKUP = 1
+} unqualified_lookup_behaviour_t;
+
 // Higher level functions when dealing with the scope
 scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list);
 
@@ -374,7 +380,7 @@ scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum 
 scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set);
 
 // Everything built by an id_expression can be queried with this function
-scope_entry_list_t* query_id_expression(scope_t* st, AST id_expr, char unqualified_lookup);
+scope_entry_list_t* query_id_expression(scope_t* st, AST id_expr, unqualified_lookup_behaviour_t unqualified_lookup);
 
 // Performs a full unqualified lookup
 scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name);
@@ -382,7 +388,7 @@ scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name);
 // Nested names
 //    This one should be enough for most cases
 scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name, 
-        char unqualified_lookup);
+        unqualified_lookup_behaviour_t unqualified_lookup);
 //    These are here for the purpose of flexibility but should be rarely needed
 scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list);
 // char incompatible_symbol_exists(scope_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
