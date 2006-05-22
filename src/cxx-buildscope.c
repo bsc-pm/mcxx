@@ -204,6 +204,13 @@ static void build_scope_declaration(AST a, scope_t* st)
 				build_scope_using_directive(a, st);
 				break;
 			}
+		case AST_AMBIGUITY :
+			{
+				solve_ambiguous_declaration(a, st);
+				// Restart function
+				build_scope_declaration(a, st);
+				break;
+			}
 		default :
 			{
 				internal_error("A declaration of kind '%s' is still unsupported\n", 
@@ -1340,6 +1347,13 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
 				}
 				break;
 			}
+		case AST_AMBIGUITY :
+			{
+				solve_ambiguous_declarator(a, st);
+				// Restart function
+				build_scope_declarator_rec(a, st, parameters_scope, declarator_type, declarator_name);
+				break;
+			}
 		default:
 			{
 				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
@@ -1453,6 +1467,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 		case AST_TEMPLATE_ID :
 			{
 				// This can only happen in an explicit template function instantiation.
+				WARNING_MESSAGE("Template id not supported. Skipping it", 0);
 				break;
 			}
 		case AST_OPERATOR_FUNCTION_ID :
@@ -1467,6 +1482,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 			{
 				// An unqualified conversion_function_id "operator T"
 				// Why this has no qualified equivalent ?
+				WARNING_MESSAGE("Conversion functions declaration unsupported. Skipping it", 0);
 				break;
 			}
 		// Qualified ones
@@ -2236,6 +2252,7 @@ static void build_scope_member_function_definition(AST a, scope_t*  st,
 			}
 		case AST_CONVERSION_FUNCTION_ID :
 			{
+				WARNING_MESSAGE("Function definition of conversion function is not supported. Skipping it", 0);
 				break;
 			}
 		default :

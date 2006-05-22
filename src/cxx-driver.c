@@ -42,6 +42,11 @@ int main(int argc, char* argv[])
 		else if (strcmp(argv[1], "-y") == 0)
 		{
 			build_scope_translation_unit(compilation_options.parsed_tree);
+
+			if (argc > 2 && (strcmp(argv[2], "-g") == 0))
+			{
+				ast_dump_graphviz(compilation_options.parsed_tree, stdout);
+			}
 		}
 	}
 	else
