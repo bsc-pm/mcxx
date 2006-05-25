@@ -2508,6 +2508,10 @@ iteration_statement : WHILE '(' condition ')' statement
 {
 	$$ = ASTMake4(AST_FOR_STATEMENT, $3, $4, NULL, $7, $1.token_line, NULL);
 }
+| FOR '(' for_init_statement ';' expression ')' statement
+{
+	$$ = ASTMake4(AST_FOR_STATEMENT, $3, NULL, $5, $7, $1.token_line, NULL);
+}
 | FOR '(' for_init_statement condition ';' expression ')' statement
 {
 	$$ = ASTMake4(AST_FOR_STATEMENT, $3, $4, $6, $8, $1.token_line, NULL);
