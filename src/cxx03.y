@@ -944,10 +944,6 @@ type_specifier : simple_type_specifier
 {
 	$$ = $1;
 }
-// | cv_qualifier
-// {
-// 	$$ = $1;
-// }
 // GNU Extensions
 | COMPLEX
 {

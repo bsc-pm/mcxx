@@ -321,6 +321,12 @@ static void build_scope_simple_declaration(AST a, scope_t* st)
 		for_each_element(list, iter)
 		{
 			AST init_declarator = ASTSon1(iter);
+
+			if (ASTType(init_declarator) == AST_AMBIGUITY)
+			{
+				solve_ambiguous_init_declarator(init_declarator, st);
+			}
+
 			AST declarator = ASTSon0(init_declarator);
 			AST initializer = ASTSon1(init_declarator);
 
@@ -551,7 +557,7 @@ static void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simp
 {
 	switch (ASTType(a))
 	{
-		case AST_SIMPLE_TYPE_SPECIFIER:
+		case AST_SIMPLE_TYPE_SPECIFIER :
 			gather_type_spec_from_simple_type_specifier(a, st, simple_type_info);
 			break;
 		case AST_ENUM_SPECIFIER :
@@ -742,10 +748,9 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
  */
 static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simple_type_t* simple_type_info)
 {
-	// TODO - We shall check nested namespaces and global qualifier, ignore it for now
 	AST global_op = ASTSon0(a);
 	AST nested_name_spec = ASTSon1(a);
-	AST type_name = ASTSon2(a);
+	AST type_name = ASTSon2(a) != NULL ? ASTSon2(a) : ASTSon3(a);
 
 	scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, 
             type_name, FULL_UNQUALIFIED_LOOKUP);
@@ -2152,7 +2157,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 	// declarator
 	type_t* declarator_type;
 	scope_entry_t* entry = NULL;
-	scope_t* parameter_scope;
+	scope_t* parameter_scope = NULL;
 	entry = build_scope_declarator_with_parameter_scope(ASTSon1(a), st, &parameter_scope,
 			&gather_info, type_info, &declarator_type);
 	if (entry == NULL)
@@ -2644,11 +2649,26 @@ static void build_scope_while_statement(AST a, scope_t* st)
 	build_scope_statement(ASTSon1(a), st);
 }
 
+static void build_scope_ambiguity_handler(AST a, scope_t* st)
+{
+	solve_ambiguous_statement(a, st);
+	// Restart
+	build_scope_statement(a, st);
+}
+
+static void build_scope_declaration_statement(AST a, scope_t* st)
+{
+	AST declaration = ASTSon0(a);
+
+	build_scope_declaration(declaration, st);
+}
+
 #define STMT_HANDLER(type, hndl) [type] = hndl
 
 static stmt_scope_handler_t stmt_scope_handlers[] =
 {
-	STMT_HANDLER(AST_AMBIGUITY, NULL),
+	STMT_HANDLER(AST_AMBIGUITY, build_scope_ambiguity_handler),
+	STMT_HANDLER(AST_DECLARATION_STATEMENT, build_scope_declaration_statement),
 	STMT_HANDLER(AST_COMPOUND_STATEMENT, build_scope_compound_statement),
 	STMT_HANDLER(AST_WHILE_STATEMENT, build_scope_while_statement),
 };

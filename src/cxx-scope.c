@@ -215,28 +215,57 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 					}
 
 					// Now filter for SK_CLASS or SK_NAMESPACE
-					enum cxx_symbol_kind filter[2] = {SK_CLASS, SK_NAMESPACE};
-					entry_list = filter_symbol_kind_set(entry_list, 2, filter);
+					enum cxx_symbol_kind filter[3] = {SK_CLASS, SK_NAMESPACE, SK_TYPEDEF};
+					entry_list = filter_symbol_kind_set(entry_list, 3, filter);
 
 					if (entry_list == NULL)
 					{
 						return NULL;
 					}
 
+					scope_entry_t* entry = entry_list->entry;
+
+					if (entry->kind == SK_TYPEDEF)
+					{
+						// Advance over typedefs
+						type_t* aliased_type = entry->type_information;
+
+						while (aliased_type->kind == TK_DIRECT
+								&& aliased_type->type->kind == STK_TYPEDEF)
+						{
+							aliased_type = aliased_type->type->aliased_type;
+						}
+
+						// Now get the entry_t*
+						// If this is a typedef it can only be a typedef against a type
+						// that should be a class
+						if (aliased_type->kind != TK_DIRECT
+								|| aliased_type->type->kind != STK_USER_DEFINED)
+						{
+							return NULL;
+						}
+						entry = aliased_type->type->user_defined_type;
+
+						if (entry == NULL)
+						{
+							return NULL;
+						}
+					}
+
 					// Classes do not have namespaces within them
-					if (seen_class && entry_list->entry->kind == SK_NAMESPACE)
+					if (seen_class && entry->kind == SK_NAMESPACE)
 					{
 						return NULL;
 					}
 
 					// Once seen a class no more namespaces can appear
-					if (entry_list->entry->kind == SK_CLASS)
+					if (entry->kind == SK_CLASS)
 					{
 						seen_class = 1;
 					}
 
 					// It looks fine, update the scope
-					lookup_scope = entry_list->entry->related_scope;
+					lookup_scope = entry->related_scope;
 					break;
 				}
 			case AST_TEMPLATE_ID :
@@ -543,11 +572,6 @@ static scope_entry_list_t* lookup_block_scope(scope_t* st, char* unqualified_nam
 		result = query_unqualified_name(st->contained_in, unqualified_name);
 	}
 
-	if (!result)
-	{
-		fprintf(stderr, "not found definitively.\n");
-	}
-
 	return result;
 }
 
@@ -571,11 +595,6 @@ static scope_entry_list_t* lookup_prototype_scope(scope_t* st, char* unqualified
 	{
 		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
 		result = query_unqualified_name(st->contained_in, unqualified_name);
-	}
-
-	if (!result)
-	{
-		fprintf(stderr, "not found definitively.\n");
 	}
 
 	return result;
@@ -604,7 +623,6 @@ static scope_entry_list_t* lookup_namespace_scope(scope_t* st, char* unqualified
 		}
 	}
 
-	// TODO - This should consider transitively used namespaces
 	// Search in the namespaces
 	fprintf(stderr, "not found.\nLooking up '%s' in used namespaces (%d)...", unqualified_name, st->num_used_namespaces);
 	int i;
@@ -624,11 +642,6 @@ static scope_entry_list_t* lookup_namespace_scope(scope_t* st, char* unqualified
 		result = query_unqualified_name(st->contained_in, unqualified_name);
 	}
 
-	if (!result)
-	{
-		fprintf(stderr, "not found definitively.\n");
-	}
-
 	return result;
 }
 
@@ -638,10 +651,12 @@ static scope_entry_list_t* lookup_function_scope(scope_t* st, char* unqualified_
 	scope_entry_list_t* result = NULL;
 	fprintf(stderr, "Looking up '%s' in function scope...", unqualified_name);
 	result = query_in_symbols_of_scope(st, unqualified_name);
-
-	if (!result)
+	//
+	// Otherwise try to find anything in the enclosing scope
+	if (st->contained_in != NULL)
 	{
-		fprintf(stderr, "not found definitively.\n");
+		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
+		result = query_unqualified_name(st->contained_in, unqualified_name);
 	}
 
 	return result;
@@ -701,11 +716,6 @@ static scope_entry_list_t* lookup_class_scope(scope_t* st, char* unqualified_nam
 		result = query_unqualified_name(st->contained_in, unqualified_name);
 	}
 
-	if (!result)
-	{
-		fprintf(stderr, "not found definitively.\n");
-	}
-
 	return result;
 }
 
@@ -737,11 +747,6 @@ static scope_entry_list_t* lookup_template_scope(scope_t* st, char* unqualified_
 	{
 		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
 		result = query_unqualified_name(st->contained_in, unqualified_name);
-	}
-
-	if (!result)
-	{
-		fprintf(stderr, "not found definitively.\n");
 	}
 
 	return result;
@@ -780,6 +785,15 @@ scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name)
 		case UNDEFINED_SCOPE :
 		default :
 			internal_error("Invalid scope kind=%d!\n", st->kind);
+	}
+
+	if (result != NULL)
+	{
+		fprintf(stderr, "found\n");
+	}
+	else
+	{
+		fprintf(stderr, "not found.\n");
 	}
 
 	return result;
