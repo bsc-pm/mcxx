@@ -835,6 +835,7 @@ static char check_for_qualified_id(AST expr, scope_t* st)
 
 	return (result_list != NULL
 			&& (result_list->entry->kind == SK_VARIABLE
+				|| result_list->entry->kind == SK_ENUMERATOR
 				|| result_list->entry->kind == SK_FUNCTION));
 }
 
@@ -845,6 +846,7 @@ static char check_for_symbol(AST expr, scope_t* st)
 
 	return (result != NULL 
 			&& (result->entry->kind == SK_VARIABLE
+				|| result->entry->kind == SK_ENUMERATOR
 				|| result->entry->kind == SK_FUNCTION));
 }
 
