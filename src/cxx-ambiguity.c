@@ -84,6 +84,7 @@ void solve_parameter_declaration_vs_type_parameter_class(AST a)
  */
 void solve_ambiguous_declaration(AST a, scope_t* st)
 {
+#warning TODO - Refactorize this with the code that makes the same with a single decl_specifier_seq/type_specifier_seq
 	char valid;
 	int i;
 	int j;
@@ -300,6 +301,74 @@ void solve_ambiguous_statement(AST a, scope_t* st)
 	}
 }
 
+static char check_for_simple_declaration(AST a, scope_t* st)
+{
+	// And it will be invalid if it does not have type and it is not a
+	// conversion function id nor a class constructor/destructor
+	AST type_specifier = ASTSon0(a);
+
+	if (type_specifier != NULL)
+	{
+		return 1;
+	}
+
+	// Ok, check these are conversion functions, constructors or destructors
+	//
+	// Note that something like the following is perfectly valid
+	//
+	//  struct A {
+	//      (A)(), (A)(const A& a), ~A(), operator int();
+	//  };
+	AST init_declarator_list = ASTSon1(a);
+	AST iter;
+	for_each_element(init_declarator_list, iter)
+	{
+		AST init_declarator = ASTSon1(iter);
+		AST declarator = ASTSon0(init_declarator);
+
+		if (ASTType(init_declarator) == AST_AMBIGUITY)
+		{
+			int correct_choice = -1;
+			int i;
+			for (i = 0; i < init_declarator->num_ambig; i++)
+			{
+				AST opt_declarator = ASTSon0(init_declarator->ambig[i]);
+
+				if (check_for_typeless_declarator(opt_declarator, st))
+				{
+					if (correct_choice < 0)
+					{
+						correct_choice = i;
+					}
+					else
+					{
+						internal_error("More than one valid choice", 0);
+					}
+				}
+			}
+
+			// No choice was possible
+			if (correct_choice < 0)
+			{
+				return 0;
+			}
+			else
+			{
+				choose_option(init_declarator, correct_choice);
+			}
+		}
+		else
+		{
+			if (!check_for_typeless_declarator(declarator, st))
+			{
+				return 0;
+			}
+		}
+	}
+
+	return 0;
+}
+
 static char check_for_declaration_statement(AST declaration_statement, scope_t* st)
 {
 	// TODO - This function is a mess. Rework it.
@@ -308,73 +377,13 @@ static char check_for_declaration_statement(AST declaration_statement, scope_t* 
 	// In general only AST_SIMPLE_DECLARATION gets ambiguous here
 	if (ASTType(a) == AST_SIMPLE_DECLARATION)
 	{
-		// And it will be invalid if it does not have type and it is not a
-		// conversion function id nor a class constructor/destructor
-		AST type_specifier = ASTSon0(a);
-
-		if (type_specifier != NULL)
-		{
-			return 1;
-		}
-
-		// Ok, check these are conversion functions, constructors or destructors
-		//
-		// Note that something like the following is perfectly valid
-		//
-		//  struct A {
-		//      (A)(), (A)(const A& a), ~A(), operator int();
-		//  };
-		AST init_declarator_list = ASTSon1(a);
-		AST iter;
-		for_each_element(init_declarator_list, iter)
-		{
-			AST init_declarator = ASTSon1(iter);
-			AST declarator = ASTSon0(init_declarator);
-
-			if (ASTType(init_declarator) == AST_AMBIGUITY)
-			{
-				int correct_choice = -1;
-				int i;
-				for (i = 0; i < init_declarator->num_ambig; i++)
-				{
-					AST opt_declarator = ASTSon0(init_declarator->ambig[i]);
-
-					if (check_for_typeless_declarator(opt_declarator, st))
-					{
-						if (correct_choice < 0)
-						{
-							correct_choice = i;
-						}
-						else
-						{
-							internal_error("More than one valid choice", 0);
-						}
-					}
-				}
-
-				// No choice was possible
-				if (correct_choice < 0)
-				{
-					return 0;
-				}
-				else
-				{
-					choose_option(init_declarator, correct_choice);
-				}
-			}
-			else
-			{
-				if (!check_for_typeless_declarator(declarator, st))
-				{
-					return 0;
-				}
-			}
-		}
+		return check_for_simple_declaration(a, st);
 	}
 	else
 	{
 		internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
 	}
+
 	return 1;
 }
 
@@ -810,6 +819,11 @@ static char check_for_expression(AST expression, scope_t* st)
 	}
 }
 
+void solve_possibly_ambiguous_expression(AST a, scope_t* st)
+{
+	check_for_expression_statement(a, st);
+}
+
 static char check_for_expression_statement(AST a, scope_t* st)
 {
 	AST expression = ASTSon0(a);
@@ -1186,7 +1200,7 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 		if (ASTType(decl_specifier_seq) == AST_AMBIGUITY)
 		{
 			// Ensure that this is the unique ambiguity than can appear here
-			solve_integral_specification_ambig(decl_specifier_seq);
+			solve_ambiguous_type_spec_seq(decl_specifier_seq, st);
 		}
 
 		AST type_specifier = ASTSon1(decl_specifier_seq);
@@ -1198,6 +1212,117 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 	}
 
 	return 1;
+}
+
+void solve_ambiguous_type_spec_seq(AST type_spec_seq, scope_t* st)
+{
+	// What makes different a type_specifier_seq from a decl_specifier_seq
+	// is the fact that a type_specifier always has a type_spec while
+	// a decl_specifier_seq might not.
+	//
+	// The unique ambiguity that can appear in a type_spec_seq is the 
+	//
+	//     unsigned long a; 
+	//
+	// ambiguity
+
+	int i;
+	char integral_ambiguity = 1;
+
+	for (i = 0; i < type_spec_seq->num_ambig; i++)
+	{
+		AST type_specifier_seq = type_spec_seq->ambig[i];
+
+		if (ASTType(type_specifier_seq) != AST_TYPE_SPECIFIER_SEQ
+				&& ASTType(type_specifier_seq) != AST_DECL_SPECIFIER_SEQ)
+		{
+			internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(type_specifier_seq)));
+		}
+
+		AST type_specifier = ASTSon1(type_specifier_seq);
+
+		if (type_specifier != NULL)
+		{
+			if (ASTType(type_specifier) != AST_SIGNED_TYPE
+					&& ASTType(type_specifier) != AST_UNSIGNED_TYPE
+					&& ASTType(type_specifier) != AST_LONG_TYPE
+					&& ASTType(type_specifier) != AST_SHORT_TYPE)
+			{
+				integral_ambiguity = 0;
+				break;
+			}
+		}
+	}
+
+	if (!integral_ambiguity)
+	{
+		internal_error("Unknown ambiguity\n", 0);
+	}
+	else
+	{
+		// Choose the first one that has type_specifier
+		for (i = 0; i < type_spec_seq->num_ambig; i++)
+		{
+			AST type_specifier_seq = type_spec_seq->ambig[i];
+			
+			if (ASTSon1(type_specifier_seq) != NULL)
+			{
+				choose_option(type_spec_seq, i);
+				break;
+			}
+		}
+	}
+}
+
+void solve_ambiguous_for_init_statement(AST a, scope_t* st)
+{
+	int correct_choice = -1;
+	int i;
+	for (i = 0; i < a->num_ambig; i++)
+	{
+		int current = 0;
+		AST for_init_statement = a->ambig[i];
+
+		switch (ASTType(for_init_statement))
+		{
+			case AST_SIMPLE_DECLARATION :
+				if (check_for_simple_declaration(for_init_statement, st))
+				{
+					current = 1;
+				}
+				break;
+			case AST_EXPRESSION_STATEMENT :
+				if (check_for_expression(for_init_statement, st))
+				{
+					current = 1;
+				}
+				break;
+			default :
+				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(for_init_statement)));
+		}
+
+		if (current)
+		{
+			if (correct_choice < 0)
+			{
+				correct_choice = i;
+			}
+			else
+			{
+				internal_error("More than one valid choice! %s vs %s\n", ast_print_node_type(ASTType(a->ambig[i])),
+						ast_print_node_type(ASTType(a->ambig[correct_choice])));
+			}
+		}
+	}
+
+	if (correct_choice < 0)
+	{
+		internal_error("Ambiguity not solved !", 0);
+	}
+	else
+	{
+		choose_option(a, correct_choice);
+	}
 }
 
 /*

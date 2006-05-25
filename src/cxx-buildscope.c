@@ -2380,7 +2380,7 @@ static exception_spec_t* build_exception_spec(scope_t* st, AST a)
 
 		// A type_specifier_seq is essentially a subset of a
 		// declarator_specifier_seq so we can reuse existing functions
-		simple_type_t* type_info;
+		simple_type_t* type_info = NULL;
 		gather_decl_spec_t gather_info;
 		memset(&gather_info, 0, sizeof(gather_info));
 	
@@ -2643,10 +2643,55 @@ static void build_scope_compound_statement(AST a, scope_t* st)
 	}
 }
 
+static void build_scope_condition(AST a, scope_t* st)
+{
+	if (ASTSon0(a) != NULL 
+			&& ASTSon1(a) != NULL)
+	{
+		// This condition declares something in this scope
+		AST type_specifier_seq = ASTSon0(a);
+		AST declarator = ASTSon1(a);
+
+		if (ASTType(type_specifier_seq) == AST_AMBIGUITY)
+		{
+			solve_ambiguous_type_spec_seq(type_specifier_seq, st);
+		}
+		
+		if (ASTType(declarator) == AST_AMBIGUITY)
+		{
+			internal_error("Unexpected ambiguity", 0);
+		}
+
+		// A type_specifier_seq is essentially a subset of a
+		// declarator_specifier_seq so we can reuse existing functions
+		simple_type_t* type_info = NULL;
+		gather_decl_spec_t gather_info;
+		memset(&gather_info, 0, sizeof(gather_info));
+	
+		build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &type_info);
+
+		type_t* declarator_type = NULL;
+		scope_entry_t* entry = build_scope_declarator(declarator, st, &gather_info, type_info, &declarator_type);
+
+		solve_possibly_ambiguous_expression(ASTSon2(a), st);
+		
+		entry->expression_value = ASTSon2(a);
+	}
+	else
+	{
+		solve_possibly_ambiguous_expression(ASTSon2(a), st);
+	}
+}
+
 static void build_scope_while_statement(AST a, scope_t* st)
 {
-	// build_scope_condition(ASTSon0(a), st);
-	build_scope_statement(ASTSon1(a), st);
+	scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
+	build_scope_condition(ASTSon0(a), block_scope);
+
+	if (ASTSon1(a) != NULL)
+	{
+		build_scope_statement(ASTSon1(a), block_scope);
+	}
 }
 
 static void build_scope_ambiguity_handler(AST a, scope_t* st)
@@ -2663,14 +2708,172 @@ static void build_scope_declaration_statement(AST a, scope_t* st)
 	build_scope_declaration(declaration, st);
 }
 
+static void solve_expression_ambiguities(AST a, scope_t* st)
+{
+	solve_possibly_ambiguous_expression(ASTSon0(a), st);
+}
+
+static void build_scope_if_else_statement(AST a, scope_t* st)
+{
+	scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
+
+	AST condition = ASTSon0(a);
+	build_scope_condition(condition, block_scope);
+
+	AST then_branch = ASTSon1(a);
+	build_scope_statement(then_branch, block_scope);
+
+	AST else_branch = ASTSon2(a);
+	if (else_branch != NULL)
+	{
+		build_scope_statement(else_branch, block_scope);
+	}
+}
+
+static void build_scope_for_statement(AST a, scope_t* st)
+{
+	AST for_init_statement = ASTSon0(a);
+	AST condition = ASTSon1(a);
+	AST expression = ASTSon2(a);
+	AST statement = ASTSon3(a);
+
+	if (ASTType(for_init_statement) == AST_AMBIGUITY)
+	{
+		solve_ambiguous_for_init_statement(for_init_statement, st);
+	}
+
+	scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
+
+	if (condition != NULL)
+	{
+		build_scope_condition(condition, block_scope);
+	}
+
+	if (expression != NULL)
+	{
+		solve_possibly_ambiguous_expression(expression, block_scope);
+	}
+	
+	build_scope_statement(statement, block_scope);
+}
+
+static void build_scope_switch_statement(AST a, scope_t* st)
+{
+	scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
+	AST condition = ASTSon0(a);
+	AST statement = ASTSon1(a);
+
+	build_scope_condition(condition, block_scope);
+	build_scope_statement(statement, block_scope);
+}
+
+static void build_scope_labeled_statement(AST a, scope_t* st)
+{
+	AST statement = ASTSon0(a);
+	build_scope_statement(statement, st);
+}
+
+static void build_scope_default_statement(AST a, scope_t* st)
+{
+	AST statement = ASTSon0(a);
+	build_scope_statement(statement, st);
+}
+
+static void build_scope_case_statement(AST a, scope_t* st)
+{
+	AST constant_expression = ASTSon0(a);
+	AST statement = ASTSon1(a);
+	solve_possibly_ambiguous_expression(constant_expression, st);
+
+	build_scope_statement(statement, st);
+}
+
+static void build_scope_return_statement(AST a, scope_t* st)
+{
+	AST expression = ASTSon0(a);
+	if (expression != NULL)
+	{
+		solve_possibly_ambiguous_expression(expression, st);
+	}
+}
+
+static void build_scope_try_block(AST a, scope_t* st)
+{
+	AST compound_statement = ASTSon0(a);
+
+	build_scope_statement(compound_statement, st);
+
+	AST handler_seq = ASTSon1(a);
+	AST iter;
+
+	for_each_element(handler_seq, iter)
+	{
+		AST handler = ASTSon1(iter);
+
+		if (ASTType(handler) == AST_ANY_EXCEPTION)
+		{
+			continue;
+		}
+
+		AST exception_declaration = ASTSon0(handler);
+		AST compound_statement = ASTSon1(handler);
+
+		scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
+
+		AST type_specifier_seq = ASTSon0(exception_declaration);
+		// This declarator can be null
+		AST declarator = ASTSon1(exception_declaration);
+
+		simple_type_t* type_info = NULL;
+		gather_decl_spec_t gather_info;
+		memset(&gather_info, 0, sizeof(gather_info));
+
+		build_scope_decl_specifier_seq(type_specifier_seq, block_scope, &gather_info, &type_info);
+
+		if (declarator != NULL)
+		{
+			type_t* declarator_type = NULL;
+			build_scope_declarator(declarator, block_scope, &gather_info, type_info, &declarator_type);
+		}
+	}
+}
+
+static void build_scope_do_statement(AST a, scope_t* st)
+{
+	AST statement = ASTSon0(a);
+	AST expression = ASTSon1(a);
+
+	build_scope_statement(statement, st);
+	solve_possibly_ambiguous_expression(expression, st);
+}
+
+static void build_scope_null(AST a, scope_t* st)
+{
+	// Do nothing
+}
+
 #define STMT_HANDLER(type, hndl) [type] = hndl
 
 static stmt_scope_handler_t stmt_scope_handlers[] =
 {
 	STMT_HANDLER(AST_AMBIGUITY, build_scope_ambiguity_handler),
+	STMT_HANDLER(AST_EXPRESSION_STATEMENT, solve_expression_ambiguities),
 	STMT_HANDLER(AST_DECLARATION_STATEMENT, build_scope_declaration_statement),
 	STMT_HANDLER(AST_COMPOUND_STATEMENT, build_scope_compound_statement),
+	STMT_HANDLER(AST_DO_STATEMENT, build_scope_do_statement),
 	STMT_HANDLER(AST_WHILE_STATEMENT, build_scope_while_statement),
+	STMT_HANDLER(AST_IF_ELSE_STATEMENT, build_scope_if_else_statement),
+	STMT_HANDLER(AST_FOR_STATEMENT, build_scope_for_statement),
+	STMT_HANDLER(AST_LABELED_STATEMENT, build_scope_labeled_statement),
+	STMT_HANDLER(AST_DEFAULT_STATEMENT, build_scope_default_statement),
+	STMT_HANDLER(AST_CASE_STATEMENT, build_scope_case_statement),
+	STMT_HANDLER(AST_RETURN_STATEMENT, build_scope_return_statement),
+	STMT_HANDLER(AST_TRY_BLOCK, build_scope_try_block),
+	STMT_HANDLER(AST_SWITCH_STATEMENT, build_scope_switch_statement),
+	STMT_HANDLER(AST_EMPTY_STATEMENT, build_scope_null),
+	STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_null),
+	STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_null),
+	STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_null),
 };
 
 
