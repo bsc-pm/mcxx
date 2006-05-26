@@ -32,9 +32,6 @@ scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_
 	}
 
 	// Now, for every specialization try to unificate its template_argument_list with ours
-	// TODO - Consider the case several specializations matching -> we have to sort them
-	// at least finding the more defined specialization
-	
 	iter = candidate_templates;
 
 	int num_matching_set = 0;
@@ -128,7 +125,24 @@ char match_one_template(template_argument_list_t* arguments,
 					}
 				case TAK_NONTYPE :
 					{
-						internal_error("Nontype parameter matching not implemented yet!\n", 0);
+						// The key here is evaluating both expressions and checking they are the same
+						if (spec_arg->expression == NULL)
+						{
+							internal_error("Expected an expression value for specialized argument", 0);
+						}
+						literal_value_t spec_arg_value = evaluate_constant_expression(spec_arg->expression, st);
+
+						if (arg->expression == NULL)
+						{
+							internal_error("Expected an expression value for argument", 0);
+						}
+
+						literal_value_t arg_value = evaluate_constant_expression(arg->expression, st);
+
+						if (!equal_literal_values(spec_arg, arg_value, st))
+						{
+							return 0;
+						}
 						break;
 					}
 				default :
