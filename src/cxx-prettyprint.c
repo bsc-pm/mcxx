@@ -177,6 +177,8 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_NESTED_NAME_SPECIFIER_TEMPLATE, nested_name_handler, NULL),
 	NODE_HANDLER(AST_SYMBOL, simple_text_handler, NULL),
 	NODE_HANDLER(AST_TEMPLATE_ID, template_id_handler, NULL),
+	NODE_HANDLER(AST_TEMPLATE_EXPRESSION_ARGUMENT, unary_container_handler, NULL),
+	NODE_HANDLER(AST_TEMPLATE_TYPE_ARGUMENT, unary_container_handler, NULL),
 	NODE_HANDLER(AST_TYPE_ID, type_id_handler, NULL),
 	NODE_HANDLER(AST_ABSTRACT_DECLARATOR, abstract_declarator_handler, NULL),
 	NODE_HANDLER(AST_PARENTHESIZED_ABSTRACT_DECLARATOR, parenthesized_son_handler, NULL),

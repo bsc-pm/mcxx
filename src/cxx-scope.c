@@ -405,6 +405,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		build_scope_template_arguments(template_id, sc, &current_template_arguments);
 		scope_entry_t* matched_template = solve_template(entry_list, current_template_arguments, sc);
 
+		fprintf(stderr, "Selected template '%p'\n", matched_template);
 		return create_list_from_entry(matched_template);
 	}
 }

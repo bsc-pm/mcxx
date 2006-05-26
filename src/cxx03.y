@@ -328,6 +328,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> template_parameter
 %type<ast> template_parameter_list
 %type<ast> template_relational_expression
+%type<ast> template_shift_expression
 %type<ast> throw_expression
 %type<ast> translation_unit
 %type<ast> try_block
@@ -3766,16 +3767,17 @@ template_argument_list : template_argument
 
 template_argument : template_assignment_expression 
 {
-	$$ = $1;
+	$$ = ASTMake1(AST_TEMPLATE_EXPRESSION_ARGUMENT, $1, ASTLine($1), NULL);
 }
 | type_id 
 {
-	$$ = $1;
+	$$ = ASTMake1(AST_TEMPLATE_TYPE_ARGUMENT, $1, ASTLine($1), NULL);
 }
-| id_expression 
-{
-	$$ = $1;
-}
+// A template_assignment_expression can generate one of these
+// | id_expression 
+// {
+// 	$$ = $1;
+// }
 ;
 
 template_declaration : TEMPLATE '<' template_parameter_list '>' templated_declaration
@@ -3960,23 +3962,38 @@ templated_declaration : decl_specifier_seq init_declarator ';'
 // *********************************************************
 // Les expressions tenen restriccions amb ">" al nivell mes extern
 
-template_relational_expression : shift_expression
+template_shift_expression : additive_expression
 {
 	$$ = $1;
 }
-| template_relational_expression '<' shift_expression
+| template_shift_expression LEFT additive_expression
+{
+	$$ = ASTMake2(AST_SHL_OP, $1, $3, ASTLine($1), NULL);
+}
+// AQUI NO
+// | template_shift_expression RIGHT additive_expression
+// {
+// 	$$ = ASTMake2(AST_SHR_OP, $1, $3, ASTLine($1), NULL);
+// }
+;
+
+template_relational_expression : template_shift_expression
+{
+	$$ = $1;
+}
+| template_relational_expression '<' template_shift_expression
 {
 	$$ = ASTMake2(AST_LOWER_THAN, $1, $3, ASTLine($1), NULL);
 }
 // AQUI NO
-// | relational_expression '>' shift_expression
+// | template_relational_expression '>' shift_expression
 // {
 // }
 // AQUI NO
 // | template_relational_expression GREATER_OR_EQUAL shift_expression
 // {
 // }
-| relational_expression LESS_OR_EQUAL shift_expression
+| template_relational_expression LESS_OR_EQUAL template_shift_expression
 {
 	$$ = ASTMake2(AST_LOWER_OR_EQUAL_THAN, $1, $3, ASTLine($1), NULL);
 }

@@ -2483,15 +2483,16 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 		// There is an ambiguity around here that will have to be handled
 		switch (ASTType(template_argument))
 		{
-			case AST_TYPE_ID :
+			case AST_TEMPLATE_TYPE_ARGUMENT:
 				{
 					template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
 					new_template_argument->kind = TAK_TYPE;
 					// Create the type_spec
 					// A type_id is a type_specifier_seq followed by an optional abstract
 					// declarator
-					AST type_specifier_seq = ASTSon0(template_argument);
-					AST abstract_decl = ASTSon1(template_argument);
+					AST type_template_argument = ASTSon0(template_argument);
+					AST type_specifier_seq = ASTSon0(type_template_argument);
+					AST abstract_decl = ASTSon1(type_template_argument);
 
 					// A type_specifier_seq is essentially a subset of a
 					// declarator_specifier_seq so we can reuse existing functions
@@ -2514,11 +2515,27 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 					break;
 				}
+			case AST_TEMPLATE_EXPRESSION_ARGUMENT :
+				{
+					template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
+					new_template_argument->kind = TAK_NONTYPE;
+
+					AST expr_template_argument = ASTSon0(template_argument);
+					// Fold the expression and save it folded
+					literal_value_t constant_expr = evaluate_constant_expression(expr_template_argument, st);
+
+					new_template_argument->expression = tree_from_literal_value(constant_expr);
+
+					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
+					break;
+				}
 			case AST_AMBIGUITY :
-				internal_error("Ambiguous node\n", 0);
-				break;
+				{
+					internal_error("Ambiguous node\n", 0);
+					break;
+				}
 			default :
-				WARNING_MESSAGE("Unexpected node '%s' (it can be an expression though)\n", ast_print_node_type(ASTType(template_argument)));
+				internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(template_argument)));
 				break;
 		}
 	}

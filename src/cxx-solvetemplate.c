@@ -142,7 +142,12 @@ char match_one_template(template_argument_list_t* arguments,
 
 						if (!equal_literal_values(spec_arg_value, arg_value, st))
 						{
+							fprintf(stderr, "==> They are different\n");
 							return 0;
+						}
+						else
+						{
+							fprintf(stderr, "==> They are the same!\n");
 						}
 						break;
 					}
