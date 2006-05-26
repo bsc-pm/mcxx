@@ -38,5 +38,7 @@ literal_value_t literal_value_minus_one();
 literal_value_t increment_literal_value(literal_value_t e);
 AST tree_from_literal_value(literal_value_t e);
 char equal_literal_values(literal_value_t v1, literal_value_t v2, scope_t* st);
+void gather_integer_literal_suffix(char* text, char* is_long, char* is_unsigned);
+void gather_float_literal_suffix(char* text, char* is_float, char* is_long_double);
 
 #endif // CXX_CEXPR_H

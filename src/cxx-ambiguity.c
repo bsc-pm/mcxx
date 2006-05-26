@@ -910,8 +910,13 @@ static char check_for_function_call(AST expr, scope_t* st)
 	//   f ( e );
 	//
 	// f has to yield a valid value
+	if (!check_for_expression(ASTSon0(expr), st))
+	{
+		return 0;
+	}
 	
-	return check_for_expression(ASTSon0(expr), st);
+	// The function call is semantically feasible according to its parameters.
+	// Let's look up the exact function being called.
 }
 
 static char check_for_explicit_type_conversion(AST expr, scope_t* st)

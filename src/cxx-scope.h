@@ -241,6 +241,14 @@ typedef struct array_tag
 	struct type_tag* element_type;
 } array_info_t;
 
+// States the "temporarieness" of a type
+typedef enum 
+{
+	UNDEFINED_TEMPORARY = 0,
+	NOT_TEMPORARY,
+	IS_TEMPORARY
+} temporary_status_t;
+
 // This structure is able to hold type information for a given symbol
 // note it being decoupled from its declarator 
 typedef struct type_tag
@@ -259,6 +267,9 @@ typedef struct type_tag
 
 	// "Simple" type
 	simple_type_t* type;
+
+	// Used only in type calculus (states if a type is a temporary)
+	temporary_status_t temporary_status;
 } type_t;
 
 struct scope_tag;

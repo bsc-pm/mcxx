@@ -10,7 +10,6 @@
 /*
  * This file implements an evaluator of constant expressions in C++
  */
-static void gather_integer_literal_suffix(char* text, char* is_long, char* is_unsigned);
 static void promote_values(literal_value_t v1, literal_value_t v2, 
         literal_value_t* out_v1, literal_value_t* out_v2);
 static literal_value_t evaluate_conditional_expression(AST condition, 
@@ -291,7 +290,7 @@ static literal_value_t create_value_from_literal(AST a)
     return result;
 }
 
-static void gather_integer_literal_suffix(char* text, char* is_long, char* is_unsigned)
+void gather_integer_literal_suffix(char* text, char* is_long, char* is_unsigned)
 {
     int i = 0;
     char* suffix = &text[strlen(text) - 1];
@@ -314,6 +313,23 @@ static void gather_integer_literal_suffix(char* text, char* is_long, char* is_un
         suffix--;
         i++;
     }
+}
+
+void gather_float_literal_suffix(char* text, char* is_float, char* is_long_double)
+{
+	char suffix = text[strlen(text)-1];
+
+	*is_float = 0;
+	*is_long_double = 0;
+
+	if (toupper(suffix) == 'F')
+	{
+		*is_float = 1;
+	}
+	else if (toupper(suffix) == 'L')
+	{
+		*is_long_double = 1;
+	}
 }
 
 // This implements "usual arithmetic conversions" as defined in clause 5 paragraph 9
