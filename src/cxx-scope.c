@@ -270,7 +270,6 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 				}
 			case AST_TEMPLATE_ID :
 				 {
-					 // TODO - Review this
 					 entry_list = query_template_id(nested_name_spec, sc, lookup_scope);
 					 lookup_scope = entry_list->entry->related_scope;
 					 seen_class = 1;
@@ -326,7 +325,7 @@ scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_nam
 				break;
 			case AST_TEMPLATE_ID:
 				// ??? There should be a query_unqualified_template_id ?
-				result = query_template_id(name, sc, sc);
+				result = query_unqualified_template_id(name, sc, sc);
 				break;
 			default :
 				internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(name)));
@@ -353,14 +352,30 @@ scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_nam
 	return result;
 }
 
-scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope)
+
+static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* sc, scope_t* lookup_scope, 
+		unqualified_lookup_behaviour_t unqualified_lookup)
 {
 	AST symbol = ASTSon0(template_id);
 	fprintf(stderr, "Trying to resolve template '%s'\n", ASTText(symbol));
 
-	scope_entry_list_t* entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(symbol));
+	scope_entry_list_t* entry_list; 
+	
+	if (unqualified_lookup == FULL_UNQUALIFIED_LOOKUP)
+	{
+		entry_list = query_unqualified_name(lookup_scope, ASTText(symbol));
+	}
+	else
+	{
+		entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(symbol));
+	}
 
 	scope_entry_list_t* iter = entry_list;
+
+	if (iter == NULL)
+	{
+		internal_error("Template not found!\n", 0);
+	}
 
 	// Look for specializations
 	char has_specializations = 0;
@@ -392,6 +407,16 @@ scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* loo
 
 		return create_list_from_entry(matched_template);
 	}
+}
+
+scope_entry_list_t* query_unqualified_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope)
+{
+	return query_template_id_internal(template_id, sc, lookup_scope, FULL_UNQUALIFIED_LOOKUP);
+}
+
+scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope)
+{
+	return query_template_id_internal(template_id, sc, lookup_scope, NOFULL_UNQUALIFIED_LOOKUP);
 }
 
 scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr, unqualified_lookup_behaviour_t unqualified_lookup)
@@ -754,6 +779,10 @@ static scope_entry_list_t* lookup_template_scope(scope_t* st, char* unqualified_
 
 scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name)
 {
+	static int nesting_level = 0;
+
+	nesting_level++;
+
 	scope_entry_list_t* result = NULL;
 
 	switch (st->kind)
@@ -787,13 +816,18 @@ scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name)
 			internal_error("Invalid scope kind=%d!\n", st->kind);
 	}
 
-	if (result != NULL)
+	nesting_level--;
+
+	if (nesting_level == 0)
 	{
-		fprintf(stderr, "found\n");
-	}
-	else
-	{
-		fprintf(stderr, "not found.\n");
+		if (result != NULL)
+		{
+			fprintf(stderr, "found\n");
+		}
+		else
+		{
+			fprintf(stderr, "not found.\n");
+		}
 	}
 
 	return result;

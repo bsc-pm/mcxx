@@ -393,6 +393,7 @@ scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_nam
 scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list);
 // char incompatible_symbol_exists(scope_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
 scope_entry_list_t* query_template_id(AST nested_name_spec, scope_t* st, scope_t* lookup_scope);
+scope_entry_list_t* query_unqualified_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope);
 scope_entry_list_t* query_in_symbols_of_scope(scope_t* sc, char* name);
 
 #endif // CXX_SCOPE_H

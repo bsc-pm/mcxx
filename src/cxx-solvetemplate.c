@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <gc.h>
 #include "cxx-utils.h"
+#include "cxx-cexpr.h"
 #include "cxx-scope.h"
 #include "cxx-solvetemplate.h"
 #include "cxx-typeunif.h"
@@ -139,7 +140,7 @@ char match_one_template(template_argument_list_t* arguments,
 
 						literal_value_t arg_value = evaluate_constant_expression(arg->expression, st);
 
-						if (!equal_literal_values(spec_arg, arg_value, st))
+						if (!equal_literal_values(spec_arg_value, arg_value, st))
 						{
 							return 0;
 						}

@@ -757,11 +757,15 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simp
 
 	// Filter for non types hiding this type name
 	// Fix this, it sounds a bit awkward
+	if (entry_list == NULL)
+	{
+		internal_error("The list of types is already empty!\n", 0);
+	}
 	scope_entry_t* simple_type_entry = filter_simple_type_specifier(entry_list);
 
 	if (simple_type_entry == NULL)
 	{
-		running_error("Identifier '%s' in line %d is not a type\n", ASTText(type_name), 
+		internal_error("Identifier '%s' in line %d is not a type\n", ASTText(type_name), 
 				ASTLine(type_name));
 	}
 
@@ -2514,7 +2518,7 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 				internal_error("Ambiguous node\n", 0);
 				break;
 			default :
-				internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(template_argument)));
+				WARNING_MESSAGE("Unexpected node '%s' (it can be an expression though)\n", ast_print_node_type(ASTType(template_argument)));
 				break;
 		}
 	}
