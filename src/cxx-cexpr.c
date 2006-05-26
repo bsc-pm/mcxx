@@ -129,6 +129,10 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
 			return negate_operation(ASTSon0(a), st);
 		case AST_COMPLEMENT_OP :
 			return complement_operation(ASTSon0(a), st);
+		case AST_SIZEOF :
+		case AST_SIZEOF_TYPEID :
+			WARNING_MESSAGE("Found a sizeof expression while evaluating a constant expression. Assuming zero.\n", 0);
+			return literal_value_zero();
 		default :
 			internal_error("Unsupported node '%s' when evaluating constant expression", ast_print_node_type(ASTType(a)));
 	}
@@ -500,7 +504,7 @@ static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* s
 
 static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 {
-	scope_entry_list_t* result = query_id_expression(st, symbol, /*unqualified_lookup=*/1);
+	scope_entry_list_t* result = query_id_expression(st, symbol, FULL_UNQUALIFIED_LOOKUP);
 
 	if (result == NULL)
 	{
