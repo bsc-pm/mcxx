@@ -26,15 +26,11 @@
 static void build_scope_declaration(AST a, scope_t* st);
 static void build_scope_declaration_sequence(AST a, scope_t* st);
 static void build_scope_simple_declaration(AST a, scope_t* st);
-static void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
-		simple_type_t** type_info);
-static scope_entry_t* build_scope_declarator(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
-		simple_type_t* type_info, type_t** declarator_type);
-static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t* st, scope_t** parameters_scope, 
-		gather_decl_spec_t* gather_info, simple_type_t* simple_type_info, type_t** declarator_type);
 
 static void build_scope_namespace_definition(AST a, scope_t* st);
 static scope_entry_t* build_scope_function_definition(AST a, scope_t* st);
+static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t* st, scope_t** parameters_scope, 
+		gather_decl_spec_t* gather_info, simple_type_t* simple_type_info, type_t** declarator_type);
 
 static void build_scope_member_declaration(AST a, scope_t*  st, 
 		access_specifier_t current_access, simple_type_t* simple_type_info);
@@ -405,7 +401,7 @@ static void build_scope_simple_declaration(AST a, scope_t* st)
  *       virtual ~A();
  *    };
  */
-static void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
+void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
 		simple_type_t **simple_type_info)
 {
 	AST iter, list;
@@ -943,6 +939,22 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 	simple_type_info->kind = STK_CLASS;
 
 	scope_t* inner_scope = new_class_scope(st);
+
+	// Save the inner scope in the class type
+	// (it is used when checking member acesses)
+	simple_type_info->class_info->inner_scope = inner_scope;
+
+	// Introducing pseudo variable 'this'
+	type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
+	this_type->kind = TK_POINTER;
+	this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
+	this_type->pointer->pointee = simple_type_to_type(simple_type_info);
+	this_type->pointer->cv_qualifier = CV_CONST;
+
+	scope_entry_t* this_symbol = new_symbol(inner_scope, "this");
+
+	this_symbol->kind = SK_VARIABLE;
+	this_symbol->type_information = this_type;
 	
 	// Now add the bases
 	if (base_clause != NULL)
@@ -1077,7 +1089,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
  * If the declarator is not abstract, therefore it has a name,
  * build_scope_declarator_name is called to sign it up in the symbol table.
  */
-static scope_entry_t* build_scope_declarator(AST a, scope_t* st, 
+scope_entry_t* build_scope_declarator(AST a, scope_t* st, 
 		gather_decl_spec_t* gather_info, simple_type_t* simple_type_info, type_t** declarator_type)
 {
 	scope_entry_t* entry = build_scope_declarator_with_parameter_scope(a, 
@@ -1321,6 +1333,24 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
 		case AST_ABSTRACT_ARRAY :
 			{
 				set_array_type(declarator_type, st, ASTSon1(a));
+				if (ASTSon0(a) != NULL)
+				{
+					build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name);
+				}
+				break;
+			}
+		case AST_DIRECT_NEW_DECLARATOR :
+			{
+				set_array_type(declarator_type, st, ASTSon1(a));
+				if (ASTSon0(a) != NULL)
+				{
+					build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name);
+				}
+				break;
+			}
+		case AST_NEW_DECLARATOR :
+			{
+				set_pointer_type(declarator_type, st, ASTSon0(a));
 				if (ASTSon0(a) != NULL)
 				{
 					build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name);
@@ -2856,6 +2886,8 @@ static void build_scope_try_block(AST a, scope_t* st)
 			type_t* declarator_type = NULL;
 			build_scope_declarator(declarator, block_scope, &gather_info, type_info, &declarator_type);
 		}
+
+		build_scope_statement(compound_statement, st);
 	}
 }
 

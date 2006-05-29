@@ -11,14 +11,14 @@ typedef struct {
 
 type_set_t* calculate_expression_type(AST a, scope_t* st);
 
-type_t* new_fundamental_type(temporary_status_t temporary_status);
-type_t* new_bool_type(temporary_status_t temporary_status);
-type_t* new_float_type(temporary_status_t temporary_status);
-type_t* new_char_type(temporary_status_t temporary_status);
-type_t* new_wchar_type(temporary_status_t temporary_status);
-type_t* new_const_char_pointer_type(temporary_status_t temporary_status);
-type_t* new_const_wchar_pointer_type(temporary_status_t temporary_status);
-type_t* new_int_type(temporary_status_t temporary_status);
+type_t* new_fundamental_type(void);
+type_t* new_bool_type(void);
+type_t* new_float_type(void);
+type_t* new_char_type(void);
+type_t* new_wchar_type(void);
+type_t* new_const_char_pointer_type(void);
+type_t* new_const_wchar_pointer_type(void);
+type_t* new_int_type(void);
 
 char is_fundamental_type(type_t* t);
 

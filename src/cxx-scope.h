@@ -20,6 +20,8 @@
  *   -> type (direct type including builtin's, class, enums, typedef)
  */
 
+struct scope_tag;
+
 enum cxx_symbol_kind
 {
 	SK_UNDEFINED = 0,
@@ -133,6 +135,9 @@ typedef struct class_information_tag {
 	enum class_kind_t class_kind;
 
 	int is_template;
+
+	// Related inner scope to this class
+	struct scope_tag* inner_scope;
 
 	// Special functions
 	struct scope_entry_tag* destructor;
@@ -271,8 +276,6 @@ typedef struct type_tag
 	// Used only in type calculus (states if a type is a temporary)
 	temporary_status_t temporary_status;
 } type_t;
-
-struct scope_tag;
 
 // This is an entry in the scope
 typedef struct scope_entry_tag

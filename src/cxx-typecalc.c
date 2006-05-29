@@ -1,6 +1,9 @@
+#include <stdlib.h>
+#include <string.h>
 #include "cxx-typecalc.h"
 #include "cxx-ast.h"
 #include "cxx-scope.h"
+#include "cxx-buildscope.h"
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
@@ -11,7 +14,7 @@
 static type_set_t* create_type_set(type_t* t);
 static type_t* usual_arithmetic_conversions(type_t* t1, type_t* t2, scope_t* st);
 
-type_t* new_fundamental_type(temporary_status_t temporary_status)
+type_t* new_fundamental_type(void)
 {
 	type_t* result = GC_CALLOC(1, sizeof(*result));
 
@@ -20,59 +23,57 @@ type_t* new_fundamental_type(temporary_status_t temporary_status)
 
 	result->type->kind = STK_BUILTIN_TYPE;
 
-	result->temporary_status = temporary_status;
-
 	return result;
 }
 
-type_t* new_bool_type(temporary_status_t temporary_status)
+type_t* new_bool_type(void)
 {
-	type_t* result = new_fundamental_type(temporary_status);
+	type_t* result = new_fundamental_type();
 
 	result->type->builtin_type = BT_BOOL;
 
 	return result;
 }
 
-type_t* new_double_type(temporary_status_t temporary_status)
+type_t* new_double_type(void)
 {
-	type_t* result = new_fundamental_type(temporary_status);
+	type_t* result = new_fundamental_type();
 
 	result->type->builtin_type = BT_DOUBLE;
 
 	return result;
 }
 
-type_t* new_float_type(temporary_status_t temporary_status)
+type_t* new_float_type(void)
 {
-	type_t* result = new_fundamental_type(temporary_status);
+	type_t* result = new_fundamental_type();
 
 	result->type->builtin_type = BT_FLOAT;
 
 	return result;
 }
 
-type_t* new_char_type(temporary_status_t temporary_status)
+type_t* new_char_type(void)
 {
-	type_t* result = new_fundamental_type(temporary_status);
+	type_t* result = new_fundamental_type();
 	
 	result->type->builtin_type = BT_CHAR;
 
 	return result;
 }
 
-type_t* new_wchar_type(temporary_status_t temporary_status)
+type_t* new_wchar_type(void)
 {
-	type_t* result = new_fundamental_type(temporary_status);
+	type_t* result = new_fundamental_type();
 	
 	result->type->builtin_type = BT_WCHAR;
 
 	return result;
 }
 
-type_t* new_const_wchar_pointer_type(temporary_status_t temporary_status)
+type_t* new_const_wchar_pointer_type(void)
 {
-	type_t* const_char = new_wchar_type(temporary_status);
+	type_t* const_char = new_wchar_type();
 	
 	const_char->type->cv_qualifier |= CV_CONST;
 
@@ -84,9 +85,9 @@ type_t* new_const_wchar_pointer_type(temporary_status_t temporary_status)
 	return pointer;
 }
 
-type_t* new_const_char_pointer_type(temporary_status_t temporary_status)
+type_t* new_const_char_pointer_type(void)
 {
-	type_t* const_char = new_char_type(temporary_status);
+	type_t* const_char = new_char_type();
 	
 	const_char->type->cv_qualifier |= CV_CONST;
 
@@ -98,9 +99,9 @@ type_t* new_const_char_pointer_type(temporary_status_t temporary_status)
 	return pointer;
 }
 
-type_t* new_int_type(temporary_status_t temporary_status)
+type_t* new_int_type(void)
 {
-	type_t* result = new_fundamental_type(temporary_status);
+	type_t* result = new_fundamental_type();
 
 	result->type->builtin_type = BT_INT;
 
@@ -109,6 +110,13 @@ type_t* new_int_type(temporary_status_t temporary_status)
 
 char is_fundamental_type(type_t* t)
 {
+	// Advance over typedefs
+	while (t->kind == TK_DIRECT
+			&& t->type->kind == STK_TYPEDEF)
+	{
+		t = t->type->aliased_type;
+	}
+
 	return (t->kind == TK_DIRECT
 			&& t->type->kind == STK_BUILTIN_TYPE);
 }
@@ -120,8 +128,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 		// Primaries
 		case AST_BOOLEAN_LITERAL :
 			{
-				return create_type_set(new_bool_type(IS_TEMPORARY));
-				break;
+				return create_type_set(new_bool_type());
 			}
 		case AST_OCTAL_LITERAL :
 		case AST_HEXADECIMAL_LITERAL :
@@ -133,13 +140,12 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 
 				gather_integer_literal_suffix(text, &is_long, &is_unsigned);
 
-				type_t* result = new_int_type(IS_TEMPORARY);
+				type_t* result = new_int_type();
 
 				result->type->is_unsigned = is_unsigned;
 				result->type->is_long = is_long;
 
 				return create_type_set(result);
-				break;
 			}
 		case AST_FLOATING_LITERAL :
 			{
@@ -151,7 +157,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 				type_t* result = NULL;
 				if (!is_float)
 				{
-					result = new_double_type(IS_TEMPORARY);
+					result = new_double_type();
 					
 					if (is_long_double)
 					{
@@ -160,16 +166,18 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 				}
 				else 
 				{
-					result = new_float_type(IS_TEMPORARY);
+					result = new_float_type();
 				}
 
 				return create_type_set(result);
-				break;
 			}
 		case AST_THIS_VARIABLE :
 			{
-#warning We need a way to fetch "this" symbol
-				return NULL;
+				scope_entry_list_t* this_symbol;
+
+				this_symbol = query_in_symbols_of_scope(st, "this");
+
+				return create_type_set(this_symbol->entry->type_information);
 			}
 		case AST_PARENTHESIZED_EXPRESSION :
 			{
@@ -209,8 +217,8 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 				}
 
 				return result;
-				break;
 			}
+			// Postfix expressions
 		case AST_ARRAY_SUBSCRIPT :
 			{
 				type_set_t* array_type_set = calculate_expression_type(ASTSon0(a), st);
@@ -228,31 +236,147 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 				}
 
 				return create_type_set(array_type->array->element_type);
-				break;
 			}
+		case AST_POINTER_CLASS_MEMBER_ACCESS :
 		case AST_CLASS_MEMBER_ACCESS :
 			{
-				break;
+				type_set_t* class_type_set = calculate_expression_type(ASTSon0(a), st);
+
+				if (class_type_set->num_types != 1)
+				{
+					internal_error("Unsupported set of types for this member access", 0);
+				}
+
+				type_t* class_type = class_type_set->types[0];
+				
+				// Jump over one pointer type
+				if (ASTType(a) == AST_POINTER_CLASS_MEMBER_ACCESS)
+				{
+					// Advance over typedefs
+					while (class_type->kind == TK_DIRECT
+							&& class_type->type->kind == STK_TYPEDEF)
+					{
+						class_type = class_type->type->aliased_type;
+					}
+
+					if (class_type->kind != TK_POINTER)
+					{
+						internal_error("Postfix expression does not denote a pointer", 0);
+					}
+
+					class_type = class_type->pointer->pointee;
+				}
+				
+				// Advance over typedefs
+				while (class_type->kind == TK_DIRECT
+						&& class_type->type->kind == STK_TYPEDEF)
+				{
+					class_type = class_type->type->aliased_type;
+				}
+
+				// If this names a user defined type get the original type
+				if (class_type->kind == TK_DIRECT
+						&& class_type->type->kind == STK_USER_DEFINED)
+				{
+					class_type = class_type->type->user_defined_type->type_information;
+				}
+
+				if (class_type->kind != TK_DIRECT
+						|| class_type->type->kind != STK_CLASS)
+				{
+					internal_error("This expression does not denote a class", 0);
+				}
+
+				scope_t* inner_scope = class_type->type->class_info->inner_scope;
+
+				AST id_expression = ASTSon1(a);
+				scope_entry_list_t* result_list = query_id_expression(inner_scope, id_expression, NOFULL_UNQUALIFIED_LOOKUP);
+
+				type_set_t* result = NULL;
+
+				// If this is a function name return all types associated with it
+				if (result_list->entry->kind == SK_FUNCTION)
+				{
+					result = GC_CALLOC(1, sizeof(*result));
+					scope_entry_list_t* iter = result_list;
+
+					while (iter != NULL)
+					{
+						P_LIST_ADD(result->types, result->num_types, iter->entry->type_information);
+						iter = iter->next;
+					}
+				}
+				else
+				{
+					// Otherwise this should have only one type
+					result = create_type_set(result_list->entry->type_information);
+				}
+
+				return result;
 			}
-			// Binary operators
-		case AST_LOGICAL_OR :
-		case AST_LOGICAL_AND :
-		case AST_BITWISE_OR :
-		case AST_BITWISE_XOR :
-		case AST_BITWISE_AND :
+		case AST_FUNCTION_CALL : 
+			{
+				AST function_expr = ASTSon0(a);
+				// AST argument_list = ASTSon1(a);
+
+				type_set_t* function_expr_type = calculate_expression_type(function_expr, st);
+
+				if (function_expr_type->num_types > 1)
+				{
+					internal_error("Overload resolution still not implemented", 0);
+				}
+
+				type_t* function_type = function_expr_type->types[0];
+
+				if (function_type->kind != TK_FUNCTION)
+				{
+					internal_error("Expression does not denote a function\n", 0);
+				}
+
+				return create_type_set(function_type->function->return_type);
+			}
+		case AST_DYNAMIC_CAST :
+		case AST_STATIC_CAST :
+		case AST_REINTERPRET_CAST :
+		case AST_CONST_CAST :
+		case AST_CAST_EXPRESSION :
+			{
+				AST type_id = ASTSon0(a);
+
+				// A type_id is a type_specifier_seq followed by an optional abstract
+				// declarator
+				AST type_specifier_seq = ASTSon0(type_id);
+				AST abstract_decl = ASTSon1(type_id);
+
+				// A type_specifier_seq is essentially a subset of a
+				// declarator_specifier_seq so we can reuse existing functions
+				simple_type_t* type_info = NULL;
+				gather_decl_spec_t gather_info;
+				memset(&gather_info, 0, sizeof(gather_info));
+
+				build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &type_info);
+
+				type_t* declarator_type;
+				if (abstract_decl != NULL)
+				{
+					build_scope_declarator(abstract_decl, st, &gather_info, type_info, &declarator_type);
+				}
+				else
+				{
+					declarator_type = simple_type_to_type(type_info);
+				}
+
+				return create_type_set(declarator_type);
+			}
+			// Binary operators that by default return bool values
 		case AST_DIFFERENT_OP :
 		case AST_EQUAL_OP :
 		case AST_LOWER_THAN :
 		case AST_GREATER_THAN :
 		case AST_GREATER_OR_EQUAL_THAN :
 		case AST_LOWER_OR_EQUAL_THAN :
-		case AST_SHL_OP :
-		case AST_SHR_OP :
-		case AST_ADD_OP :
-		case AST_MINUS_OP :
-		case AST_MULT_OP :
-		case AST_MOD_OP :
-		case AST_DIV_OP :
+		case AST_LOGICAL_OR :
+		case AST_LOGICAL_AND :
 			{
 				type_set_t* type_left = calculate_expression_type(ASTSon0(a), st);
 				type_set_t* type_right = calculate_expression_type(ASTSon1(a), st);
@@ -263,53 +387,199 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 					type_t* t1 = type_left->types[0];
 					type_t* t2 = type_right->types[0];
 					// Check if this may be a builtin operator invocation
-					if (t1->kind == TK_DIRECT
-							&& t1->type->kind == STK_BUILTIN_TYPE
-							&& t2->kind == TK_DIRECT
-							&& t2->type->kind == STK_BUILTIN_TYPE)
+					if (is_fundamental_type(t1)
+							&& is_fundamental_type(t2))
 					{
 						// This is a simple builtin invocation
-						return usual_arithmetic_conversions(t1, t2, st);
+						return create_type_set(new_bool_type());
 					}
+
+					internal_error("Unsupported overloading of binary operators", 0);
 				}
-#warning Missing overload support here
+
 				internal_error("Unsupported overloading of binary operators", 0);
 			}
-		case AST_CAST_EXPRESSION :
+		case AST_NEW_EXPRESSION :
+		case AST_NEW_TYPE_ID :
 			{
-				internal_error("TODO", 0);
+				AST type_id = ASTSon2(a);
+
+				// A type_id is a type_specifier_seq followed by an optional abstract
+				// declarator
+				AST type_specifier_seq = ASTSon0(type_id);
+				AST abstract_decl = ASTSon1(type_id);
+
+				// A type_specifier_seq is essentially a subset of a
+				// declarator_specifier_seq so we can reuse existing functions
+				simple_type_t* type_info = NULL;
+				gather_decl_spec_t gather_info;
+				memset(&gather_info, 0, sizeof(gather_info));
+
+				build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &type_info);
+
+				type_t* declarator_type;
+				if (abstract_decl != NULL)
+				{
+					build_scope_declarator(abstract_decl, st, &gather_info, type_info, &declarator_type);
+				}
+				else
+				{
+					declarator_type = simple_type_to_type(type_info);
+				}
+
+				// If innermost type is an array, do not convert it, otherwise
+				// create a pointer to the declared type
+				if (declarator_type->kind == TK_ARRAY)
+				{
+					return create_type_set(declarator_type);
+				}
+				else
+				{
+					type_t* pointer_to = GC_CALLOC(1, sizeof(*pointer_to));
+					pointer_to->kind = TK_POINTER;
+					pointer_to->pointer = GC_CALLOC(1, sizeof(*(pointer_to->pointer)));
+					pointer_to->pointer->pointee = declarator_type;
+
+					return create_type_set(pointer_to);
+				}
+				break;
+			}
+			// Binary operators
+		case AST_BITWISE_OR :
+		case AST_BITWISE_XOR :
+		case AST_BITWISE_AND :
+		case AST_SHL_OP :
+		case AST_SHR_OP :
+		case AST_ADD_OP :
+		case AST_MINUS_OP :
+		case AST_MULT_OP :
+		case AST_MOD_OP :
+		case AST_DIV_OP :
+			{
+#warning Missing overload support here
+				type_set_t* type_left = calculate_expression_type(ASTSon0(a), st);
+				type_set_t* type_right = calculate_expression_type(ASTSon1(a), st);
+
+				if (type_left->num_types == 1
+						&& type_right->num_types == 1)
+				{
+					type_t* t1 = type_left->types[0];
+					type_t* t2 = type_right->types[0];
+					// Check if this may be a builtin operator invocation
+					if (is_fundamental_type(t1)
+							&& is_fundamental_type(t2))
+					{
+						// This is a simple builtin invocation
+						return create_type_set(usual_arithmetic_conversions(t1, t2, st));
+					}
+
+					internal_error("Unsupported overloading of binary operators", 0);
+				}
+				internal_error("Unsupported overloading of binary operators", 0);
+			}
+		case AST_ASSIGNMENT :
+		case AST_MUL_ASSIGNMENT :
+		case AST_DIV_ASSIGNMENT :
+		case AST_ADD_ASSIGNMENT :
+		case AST_SUB_ASSIGNMENT :
+		case AST_SHL_ASSIGNMENT :
+		case AST_SHR_ASSIGNMENT :
+		case AST_AND_ASSIGNMENT :
+		case AST_OR_ASSIGNMENT :
+		case AST_XOR_ASSIGNMENT :
+		case AST_MOD_ASSIGNMENT :
+			{
+#warning Missing overload support here
+				type_set_t* type_left = calculate_expression_type(ASTSon0(a), st);
+				type_set_t* type_right = calculate_expression_type(ASTSon1(a), st);
+
+				if (type_left->num_types == 1
+						&& type_right->num_types == 1)
+				{
+					type_t* t1 = type_left->types[0];
+					type_t* t2 = type_right->types[0];
+					// Check if this may be a builtin operator invocation
+					if (is_fundamental_type(t1)
+							&& is_fundamental_type(t2))
+					{
+						return create_type_set(usual_arithmetic_conversions(t1, t2, st));
+					}
+
+					internal_error("Unsupported overloading of assignment expressions", 0);
+				}
+
+				internal_error("Unsupported overloading of assignment expressions", 0);
+			}
+		case AST_PREINCREMENT :
+		case AST_POSTINCREMENT :
+		case AST_PREDECREMENT :
+		case AST_POSTDECREMENT :
+			{
+#warning Missing overload support here
+				type_set_t* result = calculate_expression_type(ASTSon0(a), st);
+
+				if (result->num_types == 1)
+				{
+					if (is_fundamental_type(result->types[0]))
+					{
+						return result;
+					}
+					else
+					{
+						internal_error("Unsupported overloading of ++ or --", 0);
+					}
+				}
+
+				internal_error("Unsupported overloading of ++ or --", 0);
 			}
 		case AST_CONDITIONAL_EXPRESSION :
 			{
-				internal_error("TODO", 0);
+				// Assume ASTSon1 and ASTSon2 will yield the same type
+#warning Add support for standard conversions
+				type_set_t* result = calculate_expression_type(ASTSon1(a), st);
+				return result;
 			}
 			// unary operators
+		case AST_COMPLEMENT_OP :
+		case AST_NEG_OP :
+		case AST_NOT_OP :
 		case AST_PLUS_OP :
 			{
-				internal_error("TODO", 0);
+#warning Missing overload support here
+				type_set_t* result = calculate_expression_type(ASTSon0(a), st);
+
+				if (result->num_types == 1)
+				{
+					if (is_fundamental_type(result->types[0]))
+					{
+						return result;
+					}
+					else
+					{
+						internal_error("Unsupported overloading of unary operators", 0);
+					}
+				}
+
+				internal_error("Unsupported overloading of unary operators", 0);
 			}
-		case AST_NOT_OP :
+		case AST_TYPEID_EXPR :
+		case AST_TYPEID_TYPE :
 			{
-				internal_error("TODO", 0);
-			}
-		case AST_NEG_OP :
-			{
-				internal_error("TODO", 0);
-			}
-		case AST_COMPLEMENT_OP :
-			{
+				// TODO - This can be used only when #include <typeinfo> has been specified
 				internal_error("TODO", 0);
 			}
 		case AST_SIZEOF :
 		case AST_SIZEOF_TYPEID :
 			{
-				internal_error("TODO", 0);
+				return create_type_set(new_int_type());
 			}
 		default :
 			{
 				internal_error("Unknown node '%s' in expression", ast_print_node_type(ASTType(a)));
 			}
 	}
+
+	internal_error("Unreachable code", 0);
 }
 
 static type_set_t* create_type_set(type_t* t)
@@ -329,6 +599,19 @@ static type_set_t* create_type_set(type_t* t)
  */
 static type_t* usual_arithmetic_conversions(type_t* t1, type_t* t2, scope_t* st)
 {
+	// ADvance over typedefs
+	while (t1->kind == TK_DIRECT
+			&& t1->type->kind == STK_TYPEDEF)
+	{
+		t1 = t1->type->aliased_type;
+	}
+
+	while (t2->kind == TK_DIRECT
+			&& t2->type->kind == STK_TYPEDEF)
+	{
+		t2 = t2->type->aliased_type;
+	}
+
 	if (t1->kind != TK_DIRECT
 			|| t2->kind != TK_DIRECT)
 	{
@@ -459,6 +742,6 @@ static type_t* usual_arithmetic_conversions(type_t* t1, type_t* t2, scope_t* st)
 	}
 
 	// - the remaining case is when both operands are of type int
-	return new_int_type(IS_TEMPORARY);
+	return new_int_type();
 }
 

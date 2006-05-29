@@ -29,5 +29,9 @@ typedef struct gather_decl_spec_tag {
 
 char* get_operator_function_name(AST declarator_id);
 void build_scope_template_arguments(AST a, scope_t* st, template_argument_list_t** template_arguments);
+void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
+		simple_type_t** type_info);
+scope_entry_t* build_scope_declarator(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
+		simple_type_t* type_info, type_t** declarator_type);
 
 #endif // CXX_BUILDSCOPE_H
