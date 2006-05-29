@@ -589,7 +589,7 @@ asm_definition : ASM '(' string_literal ')' ';'
 {
 	$$ = ASTMake1(AST_ASM_DEFINITION, $3, $1.token_line, NULL);
 }
-// GNU EXtensions
+// GNU Extensions
 | ASM VOLATILE '(' string_literal ')' ';'
 {
 	AST ast_volatile = ASTLeaf(AST_VOLATILE_SPEC, $2.token_line, $2.token_text);
@@ -2823,27 +2823,27 @@ postfix_expression : primary_expression
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
 
-	$$ = ASTMake4(AST_TYPENAME, NULL, $2, identifier, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_FUNCTION_CALL, NULL, $2, identifier, NULL, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier IDENTIFIER '(' ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
 
-	$$ = ASTMake4(AST_TYPENAME, global_op, $3, identifier, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_FUNCTION_CALL, global_op, $3, identifier, NULL, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier IDENTIFIER '(' expression_list ')'
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
 
-	$$ = ASTMake4(AST_TYPENAME, NULL, $2, identifier, $5, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_FUNCTION_CALL, NULL, $2, identifier, $5, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier IDENTIFIER '(' expression_list ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
 
-	$$ = ASTMake4(AST_TYPENAME, global_op, $3, identifier, $6, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_FUNCTION_CALL, global_op, $3, identifier, $6, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier template_id '(' ')'
 {
@@ -2939,7 +2939,7 @@ postfix_expression : primary_expression
 }
 | TYPEID '(' type_id ')' 
 {
-	$$ = ASTMake1(AST_TYPEID, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_TYPEID_TYPE, $3, $1.token_line, NULL);
 }
 // GNU Extensions
 | '(' type_id ')' '{' initializer_list '}'

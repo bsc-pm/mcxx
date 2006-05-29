@@ -678,7 +678,11 @@ static char check_for_expression(AST expression, scope_t* st)
 			{
 				return check_for_explicit_type_conversion(expression, st);
 			}
-		case AST_TYPENAME :
+		case AST_TYPENAME_FUNCTION_CALL :
+			{
+				// This yields a type
+				return 1;
+			}
 		case AST_TYPENAME_TEMPLATE :
 		case AST_TYPENAME_TEMPLATE_TEMPLATE :
 			{
@@ -711,7 +715,7 @@ static char check_for_expression(AST expression, scope_t* st)
 				// This should not yield a type
 				return 1;
 			}
-		case AST_TYPEID :
+		case AST_TYPEID_TYPE :
 			{
 				return check_for_typeid(expression, st);
 			}

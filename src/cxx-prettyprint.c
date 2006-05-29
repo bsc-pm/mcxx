@@ -51,7 +51,7 @@ HANDLER_PROTOTYPE(delete_expression_handler);
 HANDLER_PROTOTYPE(array_subscript_handler);
 HANDLER_PROTOTYPE(function_call_handler);
 HANDLER_PROTOTYPE(function_call_handler);
-HANDLER_PROTOTYPE(typename_handler);
+HANDLER_PROTOTYPE(typename_function_call_handler);
 HANDLER_PROTOTYPE(typename_template_handler);
 HANDLER_PROTOTYPE(typename_template_template_handler);
 HANDLER_PROTOTYPE(infix_parameter_handler);
@@ -279,7 +279,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_ARRAY_SUBSCRIPT, array_subscript_handler, NULL),
 	NODE_HANDLER(AST_FUNCTION_CALL, function_call_handler, NULL),
 	NODE_HANDLER(AST_EXPLICIT_TYPE_CONVERSION, function_call_handler, NULL),
-	NODE_HANDLER(AST_TYPENAME, typename_handler, NULL),
+	NODE_HANDLER(AST_TYPENAME_FUNCTION_CALL, typename_function_call_handler, NULL),
 	NODE_HANDLER(AST_TYPENAME_TEMPLATE, typename_template_handler, NULL),
 	NODE_HANDLER(AST_TYPENAME_TEMPLATE_TEMPLATE, typename_template_template_handler, NULL),
 	NODE_HANDLER(AST_CLASS_MEMBER_ACCESS, infix_parameter_handler, "."),
@@ -295,7 +295,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_REINTERPRET_CAST, templated_cast_handler, "reinterpret_cast"),
 	NODE_HANDLER(AST_CONST_CAST, templated_cast_handler, "const_cast"),
 	NODE_HANDLER(AST_TYPEID_EXPR, sizeof_typeid_handler, "typeid"),
-	NODE_HANDLER(AST_TYPEID, sizeof_typeid_handler, "typeid"),
+	NODE_HANDLER(AST_TYPEID_TYPE, sizeof_typeid_handler, "typeid"),
 	NODE_HANDLER(AST_THIS_VARIABLE, simple_parameter_handler, "this"),
 	NODE_HANDLER(AST_PARENTHESIZED_EXPRESSION, parenthesized_son_handler, NULL),
 	NODE_HANDLER(AST_QUALIFIED_ID, qualified_id_handler, NULL),
@@ -954,7 +954,7 @@ static void function_call_handler(FILE* f, AST a, int level)
 	fprintf(f, ")");
 }
 
-static void typename_handler(FILE* f, AST a, int level)
+static void typename_function_call_handler(FILE* f, AST a, int level)
 {
 	fprintf(f, "typename ");
 

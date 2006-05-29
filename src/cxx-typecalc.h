@@ -4,10 +4,15 @@
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 
-type_t* calculate_expression_type(AST a, scope_t* st);
+typedef struct {
+	int num_types;
+	type_t** types;
+} type_set_t;
+
+type_set_t* calculate_expression_type(AST a, scope_t* st);
 
 type_t* new_fundamental_type(temporary_status_t temporary_status);
-type_t* new_boolean_type(temporary_status_t temporary_status);
+type_t* new_bool_type(temporary_status_t temporary_status);
 type_t* new_float_type(temporary_status_t temporary_status);
 type_t* new_char_type(temporary_status_t temporary_status);
 type_t* new_wchar_type(temporary_status_t temporary_status);
