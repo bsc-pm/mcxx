@@ -676,7 +676,7 @@ static type_t* usual_arithmetic_conversions(type_t* t1, type_t* t2, scope_t* st)
 		return t1;
 	}
 
-#warning TODO - What about references to builtin types ?
+#warning What about references to builtin types ?
 	simple_type_t* st1 = t1->type;
 	simple_type_t* st2 = t2->type;
 
