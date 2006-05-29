@@ -539,7 +539,60 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 				type_set_t* result = calculate_expression_type(ASTSon1(a), st);
 				return result;
 			}
-			// unary operators
+			// Special unary operators
+		case AST_DERREFERENCE :
+			{
+#warning Missing overload support here
+				AST cast_expr = ASTSon1(a);
+
+				type_set_t* cast_expr_set = calculate_expression_type(cast_expr, st);
+
+				if (cast_expr_set->num_types != 1)
+				{
+					internal_error("Overloaded function pointer derreference unsupported", 0);
+				}
+
+				type_t* pointer_type = cast_expr_set->types[0];
+
+				if (pointer_type->kind != TK_POINTER)
+				{
+					internal_error("Overloading of operator* still unsupported", 0);
+				}
+				else
+				{
+					return create_type_set(pointer_type->pointer->pointee);
+				}
+				break;
+			}
+		case AST_REFERENCE :
+			{
+#warning Missing overload support here
+#warning Handle the case where a function is "over-referenced"
+				AST cast_expr = ASTSon1(a);
+
+				type_set_t* cast_expr_set = calculate_expression_type(cast_expr, st);
+
+				if (cast_expr_set->num_types != 1)
+				{
+					internal_error("Overloaded function pointer reference unsupported", 0);
+				}
+
+				type_t* object_type = cast_expr_set->types[0];
+
+				if (is_fundamental_type(object_type))
+				{
+					type_t* pointer_to = GC_CALLOC(1, sizeof(*pointer_to));
+					pointer_to->kind = TK_POINTER;
+					pointer_to->pointer = GC_CALLOC(1, sizeof(*(pointer_to->pointer)));
+					pointer_to->pointer->pointee = object_type;
+
+					return create_type_set(pointer_to);
+				}
+				
+				internal_error("Overloading of operator& unsupported", 0);
+				break;
+			}
+			// Unary operators
 		case AST_COMPLEMENT_OP :
 		case AST_NEG_OP :
 		case AST_NOT_OP :
