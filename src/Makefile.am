@@ -36,7 +36,9 @@ mcxx_SOURCES = \
   cxx-koenig.c \
   cxx-koenig.h \
   cxx-typecalc.c \
-  cxx-typecalc.h
+  cxx-typecalc.h \
+  cxx-overload.c \
+  cxx-overload.h
 
 mcxx_LDFLAGS=-L../lib -L../gc
 mcxx_LDADD=../lib/libmcxx-utils.la ../gc/libgc.la

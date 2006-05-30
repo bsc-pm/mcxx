@@ -210,12 +210,18 @@ typedef struct simple_type_tag {
 	cv_qualifier_t cv_qualifier;
 } simple_type_t;
 
+typedef struct parameter_info_tag
+{
+	struct type_tag* type_info;
+	AST default_argument;
+} parameter_info_t;
+
 // Function information
 typedef struct function_tag
 {
 	struct type_tag* return_type;
 	int num_parameters;
-	struct type_tag** parameter_list;
+	parameter_info_t** parameter_list;
 	cv_qualifier_t cv_qualifier;
 	exception_spec_t* exception_spec;
 
@@ -226,7 +232,7 @@ typedef struct function_tag
 	int is_inline;
 	int is_virtual;
 	int is_pure; // is_pure implies is_virtual
-	int is_static; // local linkage
+	int is_static; // local linkage or class-static
 	int is_explicit;
 } function_info_t;
 

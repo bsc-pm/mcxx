@@ -237,8 +237,8 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, scop
 
 	for (i = 0; (i < t1->num_parameters) && still_compatible; i++)
 	{
-		type_t* par1 = t1->parameter_list[i];
-		type_t* par2 = t2->parameter_list[i];
+		type_t* par1 = t1->parameter_list[i]->type_info;
+		type_t* par2 = t2->parameter_list[i]->type_info;
 
 		if (!equivalent_types(par1, par2, st))
 		{
@@ -466,7 +466,11 @@ function_info_t* copy_function_info(function_info_t* function_info)
 	int i;
 	for (i = 0; i < function_info->num_parameters; i++)
 	{
-		result->parameter_list[i] = copy_type(function_info->parameter_list[i]);
+		result->parameter_list[i]->type_info = copy_type(function_info->parameter_list[i]->type_info);
+		if (function_info->parameter_list[i]->default_argument != NULL)
+		{
+			result->parameter_list[i]->default_argument = duplicate_ast(function_info->parameter_list[i]->default_argument);
+		}
 	}
 	
 	return result;
@@ -700,7 +704,7 @@ void print_declarator(type_t* printed_declarator, scope_t* st)
 					fprintf(stderr, "function (");
 					for (i = 0; i < printed_declarator->function->num_parameters; i++)
 					{
-						print_declarator(printed_declarator->function->parameter_list[i], st);
+						print_declarator(printed_declarator->function->parameter_list[i]->type_info, st);
 						if ((i+1) < printed_declarator->function->num_parameters)
 						{
 							fprintf(stderr, ", ");

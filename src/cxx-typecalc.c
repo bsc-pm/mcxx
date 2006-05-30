@@ -686,7 +686,6 @@ static type_t* usual_arithmetic_conversions(type_t* t1, type_t* t2, scope_t* st)
 #warning Deal the case for enumerators
 		internal_error("Types in arithmetic conversions should be of builtin type", 0);
 	}
-			
 
 	// - If either operand is of type long double, the other shall be converted to long double
 	// Thus the result is of long double type

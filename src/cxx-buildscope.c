@@ -1232,7 +1232,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 		AST parameter_declarator = ASTSon1(parameter_declaration);
 		// Default value can be null
 		// The scope of this parameter declaration should be "st" and not parameters_scope
-		// AST parameter_default_value = ASTSon2(parameter_declaration);
+		AST default_argument = ASTSon2(parameter_declaration);
 
 		gather_decl_spec_t gather_info;
 		memset(&gather_info, 0, sizeof(gather_info));
@@ -1255,14 +1255,24 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 			type_t* type_info;
 			build_scope_declarator(parameter_declarator, parameters_scope, 
 					&gather_info, simple_type_info, &type_info);
+
+			parameter_info_t* new_parameter = GC_CALLOC(1, sizeof(*new_parameter));
+			new_parameter->type_info = type_info;
+			new_parameter->default_argument = default_argument;
+
 			P_LIST_ADD(declarator_type->function->parameter_list, 
-					declarator_type->function->num_parameters, type_info);
+					declarator_type->function->num_parameters, new_parameter);
 		}
 		// If we don't have a declarator just save the base type
 		else
 		{
 			type_t* type_info = simple_type_to_type(simple_type_info);
-			P_LIST_ADD(declarator_type->function->parameter_list, declarator_type->function->num_parameters, type_info);
+
+			parameter_info_t* new_parameter = GC_CALLOC(1, sizeof(*new_parameter));
+			new_parameter->type_info = type_info;
+			new_parameter->default_argument = default_argument;
+
+			P_LIST_ADD(declarator_type->function->parameter_list, declarator_type->function->num_parameters, new_parameter);
 		}
 	}
 }
@@ -2162,7 +2172,8 @@ static void build_scope_namespace_definition(AST a, scope_t* st)
 	}
 	else
 	{
-		build_scope_declaration_sequence(ASTSon1(a), compilation_options.global_scope);
+		// build_scope_declaration_sequence(ASTSon1(a), compilation_options.global_scope);
+#warning Unnamed namespace support is missing
 	}
 }
 
