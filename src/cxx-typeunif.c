@@ -58,7 +58,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 		else
 		{
 			// Check is the same unification we are going to do
-			if (!equivalent_types(previous_unif, t2, st))
+			if (!equivalent_types(previous_unif, t2, st, CVE_CONSIDER))
 			{
 				// They're not equivalent, thus not unificable
 				return 0;
@@ -80,7 +80,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 		case TK_DIRECT :
 			{
 				// If they were unificable they would have been unified before
-				return equivalent_simple_types(t1->type, t2->type, st);
+				return equivalent_simple_types(t1->type, t2->type, st, CVE_CONSIDER);
 				break;
 			}
 		case TK_REFERENCE :
@@ -121,8 +121,8 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 				int i;
 				for (i = 0; i < t1->function->num_parameters; i++)
 				{
-					type_t* par1 = t1->function->parameter_list[i];
-					type_t* par2 = t2->function->parameter_list[i];
+					type_t* par1 = t1->function->parameter_list[i]->type_info;
+					type_t* par2 = t2->function->parameter_list[i]->type_info;
 
 					if (!unificate_two_types(par1, par2, st, unif_set))
 					{

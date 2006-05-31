@@ -134,8 +134,6 @@ enum class_kind_t {
 typedef struct class_information_tag {
 	enum class_kind_t class_kind;
 
-	int is_template;
-
 	// Related inner scope to this class
 	struct scope_tag* inner_scope;
 
@@ -184,6 +182,8 @@ typedef struct simple_type_tag {
 	char is_unsigned;
 	char is_signed;
 
+	int is_static; // local linkage or class-static
+
 	// Previously declared type. should be completely "cv-unqualified"
 	//
 	// If this is a STK_TEMPLATE_CLASS this will be NULL since there
@@ -212,6 +212,7 @@ typedef struct simple_type_tag {
 
 typedef struct parameter_info_tag
 {
+	char is_ellipsis;
 	struct type_tag* type_info;
 	AST default_argument;
 } parameter_info_t;
@@ -227,12 +228,10 @@ typedef struct function_tag
 
 	AST function_body;
 
-	int is_template;
-
+	int is_static; // local linkage or class-static
 	int is_inline;
 	int is_virtual;
 	int is_pure; // is_pure implies is_virtual
-	int is_static; // local linkage or class-static
 	int is_explicit;
 } function_info_t;
 

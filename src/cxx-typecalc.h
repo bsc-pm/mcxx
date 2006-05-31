@@ -20,6 +20,5 @@ type_t* new_const_char_pointer_type(void);
 type_t* new_const_wchar_pointer_type(void);
 type_t* new_int_type(void);
 
-char is_fundamental_type(type_t* t);
 
 #endif // CXX_TYPECALC_H

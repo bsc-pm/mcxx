@@ -944,17 +944,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 	// (it is used when checking member acesses)
 	simple_type_info->class_info->inner_scope = inner_scope;
 
-	// Introducing pseudo variable 'this'
-	type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
-	this_type->kind = TK_POINTER;
-	this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
-	this_type->pointer->pointee = simple_type_to_type(simple_type_info);
-	this_type->pointer->cv_qualifier = CV_CONST;
-
-	scope_entry_t* this_symbol = new_symbol(inner_scope, "this");
-
-	this_symbol->kind = SK_VARIABLE;
-	this_symbol->type_information = this_type;
 	
 	// Now add the bases
 	if (base_clause != NULL)
@@ -1222,7 +1211,10 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 
 		if (ASTType(parameter_declaration) == AST_VARIADIC_ARG)
 		{
-			// TODO - Fix this, we shall remember this last parameter is a variadic
+			parameter_info_t* new_parameter = GC_CALLOC(1, sizeof(*new_parameter));
+			new_parameter->is_ellipsis = 1;
+
+			P_LIST_ADD(declarator_type->function->parameter_list, declarator_type->function->num_parameters, new_parameter);
 			continue;
 		}
 
@@ -1712,7 +1704,7 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 
 		function_info_t* current_function = entry->type_information->function;
 
-		found_equal = !overloaded_function(function_being_declared, current_function, st);
+		found_equal = !overloaded_function(function_being_declared, current_function, st, CVE_CONSIDER);
 		if (found_equal)
 		{
 			equal_entry = entry;
@@ -2217,6 +2209,11 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 
 	scope_t* inner_scope = new_function_scope(st, parameter_scope);
 
+	entry->type_information->function->is_static = gather_info.is_static;
+	entry->type_information->function->is_explicit = gather_info.is_explicit;
+	entry->type_information->function->is_inline = gather_info.is_inline;
+	entry->type_information->function->is_virtual = gather_info.is_virtual;
+
 	entry->related_scope = inner_scope;
 
 	build_scope_statement(statement, inner_scope);
@@ -2274,11 +2271,11 @@ static void build_scope_member_function_definition(AST a, scope_t*  st,
 	AST declarator_name = get_declarator_name(declarator);
 
 	// Get the declarator name
+	scope_entry_t* entry = build_scope_function_definition(a, st);
 	switch (ASTType(declarator_name))
 	{
 		case AST_SYMBOL :
 			{
-				scope_entry_t* entry = build_scope_function_definition(a, st);
 				if (strcmp(ASTText(declarator_name), class_name) == 0)
 				{
 					// This is a constructor
@@ -2288,15 +2285,12 @@ static void build_scope_member_function_definition(AST a, scope_t*  st,
 			}
 		case AST_DESTRUCTOR_ID :
 			{
-				scope_entry_t* entry = build_scope_function_definition(a, st);
 				// This is the destructor
 				class_type->destructor = entry;
 				break;
 			}
 		case AST_OPERATOR_FUNCTION_ID :
 			{
-				scope_entry_t* entry = build_scope_function_definition(a, st);
-
 				P_LIST_ADD(class_type->operator_function_list, class_type->num_operator_functions, entry);
 				break;
 			}
@@ -2310,6 +2304,24 @@ static void build_scope_member_function_definition(AST a, scope_t*  st,
 				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
 				break;
 			}
+	}
+	
+	// Introduce pseudo variable 'this' to the routine unless it is static
+	if (!entry->type_information->function->is_static)
+	{
+		type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
+		this_type->kind = TK_POINTER;
+		this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
+		this_type->pointer->pointee = simple_type_to_type(class_info);
+
+		// "this" pseudovariable has the same cv-qualification of this method
+		this_type->pointer->cv_qualifier = entry->type_information->function->cv_qualifier;
+
+		// This will put the symbol in the parameter scope, but this is fine
+		scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
+
+		this_symbol->kind = SK_VARIABLE;
+		this_symbol->type_information = this_type;
 	}
 }
 

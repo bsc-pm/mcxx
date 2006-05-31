@@ -13,18 +13,18 @@
 static char is_typedef_type(type_t* t);
 static type_t* aliased_type(type_t* t);
 static type_t* base_type(type_t* t);
-static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
-static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scope_t* st);
-static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st);
-static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st);
-static char compatible_parameters(function_info_t* t1, function_info_t* t2, scope_t* st);
+static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2, enum cv_equivalence_t cv_equiv);
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
+static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
+static char compatible_parameters(function_info_t* t1, function_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
 
 /*
  * States if two types are equivalent. This means that they are the same
  * (ignoring typedefs). Just plain comparison, no standard conversion is
  * performed. cv-qualifiers are relevant for comparison
  */
-char equivalent_types(type_t* t1, type_t* t2, scope_t* st)
+char equivalent_types(type_t* t1, type_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv)
 {
 	if (t1 == NULL || t2 == NULL)
 		return 1;
@@ -49,21 +49,21 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st)
 	switch (t1->kind)
 	{
 		case TK_DIRECT :
-			return equivalent_simple_types(t1->type, t2->type, st);
+			return equivalent_simple_types(t1->type, t2->type, st, cv_equiv);
 			break;
 		case TK_POINTER :
-			return equivalent_pointer_type(t1->pointer, t2->pointer, st);
+			return equivalent_pointer_type(t1->pointer, t2->pointer, st, cv_equiv);
 			break;
 		case TK_REFERENCE :
-			return equivalent_pointer_type(t1->pointer, t2->pointer, st);
+			return equivalent_pointer_type(t1->pointer, t2->pointer, st, cv_equiv);
 			break;
 		case TK_POINTER_TO_MEMBER :
 			break;
 		case TK_ARRAY :
-			return equivalent_array_type(t1->array, t2->array, st);
+			return equivalent_array_type(t1->array, t2->array, st, cv_equiv);
 			break;
 		case TK_FUNCTION :
-			return equivalent_function_type(t1->function, t2->function, st);
+			return equivalent_function_type(t1->function, t2->function, st, cv_equiv);
 			break;
 		default :
 			internal_error("Unknown type kind (%d)\n", t1->kind);
@@ -72,7 +72,7 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st)
 	return 0;
 }
 
-char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
+char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st, enum cv_equivalence_t cv_equiv)
 {
 	if (t1->kind != t2->kind)
 	{
@@ -84,7 +84,7 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
 	switch (t1->kind)
 	{
 		case STK_BUILTIN_TYPE :
-			return equivalent_builtin_type(t1, t2);
+			return equivalent_builtin_type(t1, t2, cv_equiv);
 			break;
 		case STK_CLASS :
 			/* Fall-through */
@@ -95,7 +95,7 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
 			break;
 		case STK_USER_DEFINED :
 			return equivalent_types(t1->user_defined_type->type_information, 
-					t2->user_defined_type->type_information, st);
+					t2->user_defined_type->type_information, st, cv_equiv);
 			break;
 		case STK_TYPEDEF :
 			internal_error("A typedef cannot reach here", 0);
@@ -108,7 +108,7 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
 	return 0;
 }
 
-char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
+char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2, enum cv_equivalence_t cv_equiv)
 {
 	if (t1->builtin_type != t2->builtin_type)
 	{
@@ -149,7 +149,7 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
 			return 0;
 	}
 	
-	if (!equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier))
+	if (!equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier, cv_equiv))
 	{
 		return 0;
 	}
@@ -158,19 +158,19 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
 	return 1;
 }
 
-static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scope_t* st)
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv)
 {
-	if (!equivalent_types(t1->pointee, t2->pointee, st))
+	if (!equivalent_types(t1->pointee, t2->pointee, st, cv_equiv))
 	{
 		return 0;
 	}
 
-	return (equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier));
+	return (equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier, cv_equiv));
 }
 
-static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st)
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv)
 {
-	if (!equivalent_types(t1->element_type, t2->element_type, st))
+	if (!equivalent_types(t1->element_type, t2->element_type, st, cv_equiv))
 		return 0;
 
 	literal_value_t v1 = evaluate_constant_expression(t1->array_expr, st);
@@ -182,9 +182,9 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* s
 	return 1;
 }
 
-char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
+char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv)
 {
-	if (!compatible_parameters(t1, t2, st))
+	if (!compatible_parameters(t1, t2, st, cv_equiv))
 		return 1;
 
 	// If one has return type but the other does not this is an overload
@@ -202,7 +202,7 @@ char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
 			&& (t2->return_type->kind == TK_DIRECT && t2->return_type->type == NULL))
 		return 0;
 
-	if (!equivalent_types(t1->return_type, t2->return_type, st))
+	if (!equivalent_types(t1->return_type, t2->return_type, st, cv_equiv))
 	{
 		running_error("You are trying to overload a function by only modifying its return type", 0);
 	}
@@ -210,24 +210,31 @@ char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
 	return 0;
 }
 
-static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st)
+static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv)
 {
-	if (!equivalent_types(t1->return_type, t2->return_type, st))
+	if (!equivalent_types(t1->return_type, t2->return_type, st, cv_equiv))
 		return 0;
 
-	if (!compatible_parameters(t1, t2, st))
+	if (!compatible_parameters(t1, t2, st, cv_equiv))
 		return 0;
 
 	return 1;
 }
 
-static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2)
+static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2, enum cv_equivalence_t cv_equiv)
 {
 	// Oh, this turned to be that easy
-	return (cv1 == cv2);
+	if (cv_equiv == CVE_CONSIDER)
+	{
+		return (cv1 == cv2);
+	}
+	else
+	{
+		return 1;
+	}
 }
 
-static char compatible_parameters(function_info_t* t1, function_info_t* t2, scope_t* st)
+static char compatible_parameters(function_info_t* t1, function_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv)
 {
 	if (t1->num_parameters != t2->num_parameters)
 		return 0;
@@ -240,7 +247,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, scop
 		type_t* par1 = t1->parameter_list[i]->type_info;
 		type_t* par2 = t2->parameter_list[i]->type_info;
 
-		if (!equivalent_types(par1, par2, st))
+		if (!equivalent_types(par1, par2, st, cv_equiv))
 		{
 			// They are not equivalent types.
 			//
@@ -262,7 +269,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, scop
 				type_t* array_type = (par1->kind == TK_ARRAY) ? par1 : par2;
 				type_t* pointer_type = (par1->kind == TK_POINTER) ? par1 : par2;
 
-				if (!equivalent_types(array_type->array->element_type, pointer_type->pointer->pointee, st))
+				if (!equivalent_types(array_type->array->element_type, pointer_type->pointer->pointee, st, cv_equiv))
 				{
 					still_compatible = 0;
 				}
@@ -288,7 +295,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, scop
 				}
 				else
 				{
-					if (!equivalent_types(pointer_type->pointer->pointee, function_type, st))
+					if (!equivalent_types(pointer_type->pointer->pointee, function_type, st, cv_equiv))
 					{
 						still_compatible = 0;
 					}
@@ -316,7 +323,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, scop
 				base_t1->type->cv_qualifier = CV_NONE;
 				base_t2->type->cv_qualifier = CV_NONE;
 
-				if (!equivalent_types(par1, par2, st))
+				if (!equivalent_types(par1, par2, st, cv_equiv))
 				{
 					still_compatible = 0;
 				}
@@ -397,6 +404,181 @@ static type_t* base_type(type_t* t1)
 	}
 
 	return t1;
+}
+
+char is_fundamental_type(type_t* t)
+{
+	// Advance over typedefs
+	while (t->kind == TK_DIRECT
+			&& t->type->kind == STK_TYPEDEF)
+	{
+		t = t->type->aliased_type;
+	}
+
+	return (t->kind == TK_DIRECT
+			&& t->type->kind == STK_BUILTIN_TYPE);
+}
+
+char is_integral_type(type_t* t)
+{
+	// Advance over typedefs
+	while (t->kind == TK_DIRECT
+			&& t->type->kind == STK_TYPEDEF)
+	{
+		t = t->type->aliased_type;
+	}
+
+	return (t->kind == TK_DIRECT
+			&& t->type->kind == STK_BUILTIN_TYPE
+			&& t->type->builtin_type == BT_INT);
+}
+
+char is_floating_type(type_t* t)
+{
+	// Advance over typedefs
+	while (t->kind == TK_DIRECT
+			&& t->type->kind == STK_TYPEDEF)
+	{
+		t = t->type->aliased_type;
+	}
+
+	return (t->kind == TK_DIRECT
+			&& t->type->kind == STK_BUILTIN_TYPE
+			&& (t->type->builtin_type == BT_FLOAT
+				|| t->type->builtin_type == BT_DOUBLE));
+}
+
+char can_be_promoted_to_dest(type_t* orig, type_t* dest)
+{
+	simple_type_t* orig_simple_type = orig->type;
+	simple_type_t* dest_simple_type = dest->type;
+
+	// A float always can be promoted to double
+	if (orig_simple_type->builtin_type == BT_FLOAT
+			&& dest_simple_type->builtin_type == BT_DOUBLE)
+	{
+		return 1;
+	}
+
+	// A wchar_t can be promoted to a plain int
+#warning "This depends on the exact environment"
+	if (orig_simple_type->builtin_type == BT_WCHAR
+			&& dest_simple_type->builtin_type == BT_INT
+			&& !dest_simple_type->is_short
+			&& !dest_simple_type->is_long
+			&& !dest_simple_type->is_unsigned)
+	{
+		return 1;
+	}
+
+	// A bool can be promoted to a plain int
+#warning "This depends on the exact environment"
+	if (orig_simple_type->builtin_type == BT_BOOL
+			&& dest_simple_type->builtin_type == BT_INT
+			&& !dest_simple_type->is_short
+			&& !dest_simple_type->is_long
+			&& !dest_simple_type->is_unsigned)
+	{
+		return 1;
+	}
+
+	// A short, either signed or unsigned, can be promoted to a plain int
+#warning "This depends on the exact environment"
+	if (orig_simple_type->builtin_type == BT_INT
+			&& orig_simple_type->is_short
+			&& dest_simple_type->builtin_type == BT_INT
+			&& !dest_simple_type->is_short
+			&& !dest_simple_type->is_long
+			&& !dest_simple_type->is_unsigned)
+	{
+		return 1;
+	}
+
+	// A char, either signed or unsigned, can be promoted to a plain int
+#warning "This depends on the exact environment"
+	if (orig_simple_type->builtin_type == BT_CHAR
+			&& dest_simple_type->builtin_type == BT_INT
+			&& !dest_simple_type->is_short
+			&& !dest_simple_type->is_long
+			&& !dest_simple_type->is_unsigned)
+	{
+		return 1;
+	}
+
+#warning Missing the case for bitfields
+
+	// Doesn't look promotionable to me
+	return 0;
+}
+
+char can_be_converted_to_dest(type_t* orig, type_t* dest)
+{
+	simple_type_t* orig_simple_type = orig->type;
+	simple_type_t* dest_simple_type = dest->type;
+
+	// Anything can be converted to anything fundamental (except for void
+	// types, that in general should not appear in the code as rvalues ...)
+	if (orig_simple_type->builtin_type != BT_VOID
+			&& dest_simple_type->builtin_type != BT_VOID)
+	{
+		return 1;
+	}
+
+	// Does not look convertible
+	return 0;
+}
+
+
+char pointer_can_be_converted_to_dest_rec(type_t* orig, type_t* dest, scope_t* st, char* all_previous_are_const)
+{
+	if (orig->kind != dest->kind)
+	{
+		return 0;
+	}
+	// orig->kind == dest->kind
+
+	if (orig->kind != TK_POINTER) 
+	{
+		return equivalent_types(orig, dest, st, CVE_CONSIDER);
+	}
+
+	// orig->kind == dest->kind == TK_POINTER
+	// Example:
+	//    orig : int * const * const a;
+	//    dest:  int * const *       a;
+	//
+	//  (orig can be converted to dest)
+
+	// If the dest pointer is qualified, so does have to the orig one
+	if (dest->pointer->cv_qualifier != CV_NONE 
+			&& dest->pointer->cv_qualifier != orig->pointer->cv_qualifier)
+	{
+		return 0;
+	}
+
+	// If the origin pointer is const-qualified every previous pointer
+	// should have been const-qualified
+	if (dest->pointer->cv_qualifier == CV_CONST)
+	{
+		if (!(*all_previous_are_const))
+		{
+			return 0;
+		}
+	}
+	else
+	{
+		*all_previous_are_const = 0;
+	}
+
+	return pointer_can_be_converted_to_dest_rec(orig->pointer->pointee, dest->pointer->pointee, st, all_previous_are_const);
+}
+
+char pointer_can_be_converted_to_dest(type_t* orig, type_t* dest, scope_t* st)
+{
+	// This holds for the first pointer
+	char all_previous_are_const = 1;
+
+	return pointer_can_be_converted_to_dest_rec(orig, dest, st, &all_previous_are_const);
 }
 
 /*

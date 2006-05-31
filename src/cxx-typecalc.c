@@ -108,18 +108,6 @@ type_t* new_int_type(void)
 	return result;
 }
 
-char is_fundamental_type(type_t* t)
-{
-	// Advance over typedefs
-	while (t->kind == TK_DIRECT
-			&& t->type->kind == STK_TYPEDEF)
-	{
-		t = t->type->aliased_type;
-	}
-
-	return (t->kind == TK_DIRECT
-			&& t->type->kind == STK_BUILTIN_TYPE);
-}
 
 type_set_t* calculate_expression_type(AST a, scope_t* st)
 {
@@ -671,7 +659,7 @@ static type_t* usual_arithmetic_conversions(type_t* t1, type_t* t2, scope_t* st)
 		internal_error("Types in arithmetic conversions should be direct ones", 0);
 	}
 
-	if (equivalent_types(t1, t2, st))
+	if (equivalent_types(t1, t2, st, CVE_IGNORE))
 	{
 		return t1;
 	}
