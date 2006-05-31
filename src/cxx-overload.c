@@ -225,13 +225,12 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 	implicit_conversion_sequence_t* result = GC_CALLOC(1, sizeof(*result));
 
 	// Consider "this" pseudoargument and its associated pseudo parameter
-
 	// If the considered function is member
 	if (entry->type_information->function->is_member)
 	{
 		// Search "this"
 		scope_entry_list_t* this_query = query_unqualified_name(st, "this");
-		if (this_query = NULL)
+		if (this_query == NULL)
 		{
 			if (!entry->type_information->function->is_static)
 			{
@@ -248,9 +247,27 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 		else
 		{
 			scope_entry_t* this_variable = this_query->entry;
+			type_t* this_variable_type = this_variable->type_information;
+			type_t* this_value_type = this_variable_type->pointer->pointee;
+			type_t* considered_function_type = entry->type_information;
 			// This is a pointer
 			// If it points to a const object then the function should be const too,
 			// otherwise it is not viable
+			if ((this_value_type->type->cv_qualifier & CV_CONST) == CV_CONST)
+			{
+				if ((considered_function_type->function->cv_qualifier & CV_CONST) != CV_CONST)
+				{
+					return NULL;
+				}
+			}
+
+			if ((this_value_type->type->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+			{
+				if ((considered_function_type->function->cv_qualifier & CV_VOLATILE) != CV_VOLATILE)
+				{
+					return NULL;
+				}
+			}
 		}
 	}
 

@@ -558,7 +558,7 @@ char pointer_can_be_converted_to_dest_rec(type_t* orig, type_t* dest, scope_t* s
 
 	// If the origin pointer is const-qualified every previous pointer
 	// should have been const-qualified
-	if (dest->pointer->cv_qualifier == CV_CONST)
+	if ((dest->pointer->cv_qualifier & CV_CONST) == CV_CONST)
 	{
 		if (!(*all_previous_are_const))
 		{
