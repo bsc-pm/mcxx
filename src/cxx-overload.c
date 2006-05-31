@@ -206,7 +206,7 @@ build_one_implicit_conversion_sequence(scope_entry_t* entry, int n_arg, AST argu
 	type_t* argument_type = type_result_set->types[0];
 	type_t* parameter_type = entry->type_information->function->parameter_list[n_arg]->type_info;
 
-	// Copy the types since this functio will modify them
+	// Copy the types since this function will modify them
 	build_standard_conversion_sequence(copy_type(argument_type), 
 			copy_type(parameter_type), result, st);
 
@@ -223,6 +223,36 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 	int i;
 
 	implicit_conversion_sequence_t* result = GC_CALLOC(1, sizeof(*result));
+
+	// Consider "this" pseudoargument and its associated pseudo parameter
+
+	// If the considered function is member
+	if (entry->type_information->function->is_member)
+	{
+		// Search "this"
+		scope_entry_list_t* this_query = query_unqualified_name(st, "this");
+		if (this_query = NULL)
+		{
+			if (!entry->type_information->function->is_static)
+			{
+				// The function we are trying to call is a non static member
+				// that cannot be called in this context
+				return NULL;
+			}
+			else
+			{
+				// Otherwise we are trying to call a static member, this is fine
+				// implicit argument is ignored here
+			}
+		}
+		else
+		{
+			scope_entry_t* this_variable = this_query->entry;
+			// This is a pointer
+			// If it points to a const object then the function should be const too,
+			// otherwise it is not viable
+		}
+	}
 
 	for (i = 0; i < num_args; i++)
 	{

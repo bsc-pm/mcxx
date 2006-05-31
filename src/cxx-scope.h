@@ -233,6 +233,11 @@ typedef struct function_tag
 	int is_virtual;
 	int is_pure; // is_pure implies is_virtual
 	int is_explicit;
+
+	int is_member; // States if this function is a member function
+
+	// Related class type
+	simple_type_t* class_type;
 } function_info_t;
 
 // Pointers, references and pointers to members

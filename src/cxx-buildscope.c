@@ -48,7 +48,8 @@ static void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_typ
 static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st, simple_type_t* type_info);
 static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, simple_type_t* type_info);
 
-static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_scope, type_t** declarator_type, AST* declarator_name);
+static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_scope, type_t** declarator_type, 
+		gather_decl_spec_t* gather_info, AST* declarator_name);
 
 static void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather_info);
 static void gather_type_spec_information(AST a, scope_t* st, simple_type_t* type_info);
@@ -1096,7 +1097,7 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 
 	AST declarator_name = NULL;
 
-	build_scope_declarator_rec(a, st, parameters_scope, declarator_type, &declarator_name);
+	build_scope_declarator_rec(a, st, parameters_scope, declarator_type, gather_info, &declarator_name);
 
 	if (declarator_name != NULL)
 	{
@@ -1273,7 +1274,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
  * This function converts a type "T" into a "function (...) returning T" type
  */
 static void set_function_type(type_t** declarator_type, scope_t* st, scope_t** parameters_scope, 
-		AST parameter, AST cv_qualif, AST except_spec)
+		gather_decl_spec_t* gather_info, AST parameter, AST cv_qualif, AST except_spec)
 {
 	type_t* returning_type = *declarator_type;
 
@@ -1287,6 +1288,11 @@ static void set_function_type(type_t** declarator_type, scope_t* st, scope_t** p
 	(*declarator_type)->function->cv_qualifier = compute_cv_qualifier(cv_qualif);
 
 	(*declarator_type)->function->exception_spec = build_exception_spec(st, except_spec);
+
+	(*declarator_type)->function->is_static = gather_info->is_static;
+	(*declarator_type)->function->is_inline = gather_info->is_inline;
+	(*declarator_type)->function->is_virtual = gather_info->is_virtual;
+	(*declarator_type)->function->is_explicit = gather_info->is_explicit;
 	
 	(*declarator_type)->array = NULL;
 	(*declarator_type)->pointer = NULL;
@@ -1301,7 +1307,8 @@ static void set_function_type(type_t** declarator_type, scope_t* st, scope_t** p
  *
  * Starts with a base type of "int" and ends being a "pointer to array 3 of int"
  */
-static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_scope, type_t** declarator_type, AST* declarator_name)
+static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_scope, type_t** declarator_type, 
+		gather_decl_spec_t* gather_info, AST* declarator_name)
 {
 	if (a == NULL)
 	{
@@ -1314,7 +1321,7 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
 		case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
 		case AST_PARENTHESIZED_DECLARATOR :
 			{
-				build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name); 
+				build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name); 
 				break;
 			}
 		case AST_ABSTRACT_DECLARATOR :
@@ -1322,14 +1329,14 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
 				set_pointer_type(declarator_type, st, ASTSon0(a));
 				if (ASTSon1(a) != NULL)
 				{
-					build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, declarator_name);
+					build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
 				}
 				break;
 			}
 		case AST_POINTER_DECL :
 			{
 				set_pointer_type(declarator_type, st, ASTSon0(a));
-				build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, declarator_name);
+				build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
 				break;
 			}
 		case AST_ABSTRACT_ARRAY :
@@ -1337,7 +1344,7 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
 				set_array_type(declarator_type, st, ASTSon1(a));
 				if (ASTSon0(a) != NULL)
 				{
-					build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name);
+					build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
 				}
 				break;
 			}
@@ -1346,7 +1353,7 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
 				set_array_type(declarator_type, st, ASTSon1(a));
 				if (ASTSon0(a) != NULL)
 				{
-					build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name);
+					build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
 				}
 				break;
 			}
@@ -1355,29 +1362,29 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
 				set_pointer_type(declarator_type, st, ASTSon0(a));
 				if (ASTSon0(a) != NULL)
 				{
-					build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name);
+					build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
 				}
 				break;
 			}
 		case AST_DECLARATOR_ARRAY :
 			{
 				set_array_type(declarator_type, st, ASTSon1(a));
-				build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name);
+				build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
 				break;
 			}
 		case AST_ABSTRACT_DECLARATOR_FUNC :
 			{
-				set_function_type(declarator_type, st, parameters_scope, ASTSon1(a), ASTSon2(a), ASTSon3(a));
+				set_function_type(declarator_type, st, parameters_scope, gather_info, ASTSon1(a), ASTSon2(a), ASTSon3(a));
 				if (ASTSon0(a) != NULL)
 				{
-					build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name);
+					build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
 				}
 				break;
 			}
 		case AST_DECLARATOR_FUNC :
 			{
-				set_function_type(declarator_type, st, parameters_scope, ASTSon1(a), ASTSon2(a), ASTSon3(a));
-				build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, declarator_name);
+				set_function_type(declarator_type, st, parameters_scope, gather_info, ASTSon1(a), ASTSon2(a), ASTSon3(a));
+				build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
 				break;
 			}
 		case AST_DECLARATOR_ID_EXPR :
@@ -1392,7 +1399,7 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
 			{
 				solve_ambiguous_declarator(a, st);
 				// Restart function
-				build_scope_declarator_rec(a, st, parameters_scope, declarator_type, declarator_name);
+				build_scope_declarator_rec(a, st, parameters_scope, declarator_type, gather_info, declarator_name);
 				break;
 			}
 		default:
@@ -2192,7 +2199,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 	}
 
 	// declarator
-	type_t* declarator_type;
+	type_t* declarator_type = NULL;
 	scope_entry_t* entry = NULL;
 	scope_t* parameter_scope = NULL;
 	entry = build_scope_declarator_with_parameter_scope(ASTSon1(a), st, &parameter_scope,
@@ -2202,6 +2209,12 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 		internal_error("This function does not exist!", 0);
 	}
 
+	if (entry->kind != SK_FUNCTION)
+	{
+		internal_error("This is not a function!!!", 0);
+	}
+
+
 	// Nothing will be done with ctor_initializer at the moment
 	// Function_body
 	AST function_body = ASTSon3(a);
@@ -2209,12 +2222,33 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 
 	scope_t* inner_scope = new_function_scope(st, parameter_scope);
 
-	entry->type_information->function->is_static = gather_info.is_static;
-	entry->type_information->function->is_explicit = gather_info.is_explicit;
-	entry->type_information->function->is_inline = gather_info.is_inline;
-	entry->type_information->function->is_virtual = gather_info.is_virtual;
-
 	entry->related_scope = inner_scope;
+
+	// If is a member function add this.
+	// Note: When this function is being defined within the class is_member
+	// will be false, and build_scope_member_definition will be the one that
+	// will add "this"
+	if (entry->type_information->function->is_member)
+	{
+		// Introduce "this" if needed
+		if (!entry->type_information->function->is_static)
+		{
+			type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
+			this_type->kind = TK_POINTER;
+			this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
+			this_type->pointer->pointee = simple_type_to_type(entry->type_information->function->class_type);
+
+			// "this" pseudovariable has the same cv-qualification of this member
+			this_type->pointer->pointee->type->cv_qualifier = 
+				entry->type_information->function->cv_qualifier;
+
+			// This will put the symbol in the parameter scope, but this is fine
+			scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
+
+			this_symbol->kind = SK_VARIABLE;
+			this_symbol->type_information = this_type;
+		}
+	}
 
 	build_scope_statement(statement, inner_scope);
 
@@ -2305,7 +2339,9 @@ static void build_scope_member_function_definition(AST a, scope_t*  st,
 				break;
 			}
 	}
-	
+
+	entry->type_information->function->is_member = 1;
+	entry->type_information->function->class_type = class_info;
 	// Introduce pseudo variable 'this' to the routine unless it is static
 	if (!entry->type_information->function->is_static)
 	{
@@ -2314,8 +2350,9 @@ static void build_scope_member_function_definition(AST a, scope_t*  st,
 		this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
 		this_type->pointer->pointee = simple_type_to_type(class_info);
 
-		// "this" pseudovariable has the same cv-qualification of this method
-		this_type->pointer->cv_qualifier = entry->type_information->function->cv_qualifier;
+		// "this" pseudovariable has the same cv-qualification of this member
+		this_type->pointer->pointee->type->cv_qualifier = 
+			entry->type_information->function->cv_qualifier;
 
 		// This will put the symbol in the parameter scope, but this is fine
 		scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
@@ -2352,7 +2389,17 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 				case AST_MEMBER_DECLARATOR :
 					{
 						type_t* declarator_type = NULL;
-						build_scope_declarator(ASTSon0(declarator), st, &gather_info, simple_type_info, &declarator_type);
+						scope_entry_t* entry = build_scope_declarator(ASTSon0(declarator), st, &gather_info, simple_type_info, &declarator_type);
+
+						// If we are declaring a function, state it is a member and
+						// save its class_type
+						//
+						// This will be used further when defining this function.
+						if (entry->type_information->kind == SK_FUNCTION)
+						{
+							entry->type_information->function->is_member = 1;
+							entry->type_information->function->class_type = class_info;
+						}
 						break;
 					}
 				default :
