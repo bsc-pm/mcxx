@@ -32,10 +32,10 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st, 
 
 // Query functions
 const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st);
+type_t* base_type(type_t* t);
 
 // Debug purpose functions
 void print_declarator(type_t* printed_declarator, scope_t* st);
-
 
 // Query functions
 char is_fundamental_type(type_t* t);
@@ -46,5 +46,8 @@ char can_be_promoted_to_dest(type_t* orig, type_t* dest);
 char can_be_converted_to_dest(type_t* orig, type_t* dest);
 
 char pointer_can_be_converted_to_dest(type_t* orig, type_t* dest, scope_t* st);
+
+char* give_type_spec_name(AST type_spec, scope_t* st);
+char* give_conversion_function_name(AST conversion_function_id, scope_t* st, type_t** result_conversion_type);
 
 #endif // CXX_TYPEUTILS_H

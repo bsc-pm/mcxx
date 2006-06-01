@@ -34,4 +34,7 @@ void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gath
 scope_entry_t* build_scope_declarator(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
 		simple_type_t* type_info, type_t** declarator_type);
 
+void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather_info);
+void gather_type_spec_information(AST a, scope_t* st, simple_type_t* type_info);
+
 #endif // CXX_BUILDSCOPE_H

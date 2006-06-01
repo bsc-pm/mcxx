@@ -5,6 +5,7 @@
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
 #include "cxx-driver.h"
+#include "cxx-typeutils.h"
 #include "cxx-utils.h"
 #include "cxx-solvetemplate.h"
 #include "hash.h"
@@ -141,7 +142,17 @@ scope_entry_t* new_symbol(scope_t* sc, char* name)
 
 scope_entry_list_t* query_in_symbols_of_scope(scope_t* sc, char* name)
 {
+	fprintf(stderr, "Looking in symbols of scope %p -> '%s'...", sc, name);
 	scope_entry_list_t* result = (scope_entry_list_t*) hash_get(sc->hash, name);
+
+	if (result == NULL)
+	{
+		fprintf(stderr, "not found\n");
+	}
+	else
+	{
+		fprintf(stderr, "found\n");
+	}
 
 	return result;
 }
@@ -343,6 +354,12 @@ scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_nam
 				case AST_TEMPLATE_ID:
 					result = query_template_id(name, sc, lookup_scope);
 					break;
+				case AST_CONVERSION_FUNCTION_ID :
+					{
+						char* conversion_function_name = give_conversion_function_name(name, lookup_scope, NULL);
+						result = query_in_symbols_of_scope(lookup_scope, conversion_function_name);
+						break;
+					}
 				default :
 					internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(name)));
 			}

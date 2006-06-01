@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <gc.h>
+#include "cxx-buildscope.h"
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
@@ -12,7 +13,6 @@
  */
 static char is_typedef_type(type_t* t);
 static type_t* aliased_type(type_t* t);
-static type_t* base_type(type_t* t);
 static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2, enum cv_equivalence_t cv_equiv);
 static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
 static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
@@ -381,7 +381,7 @@ static type_t* aliased_type(type_t* t1)
 	}
 }
 
-static type_t* base_type(type_t* t1)
+type_t* base_type(type_t* t1)
 {
 	while (t1->kind != TK_DIRECT)
 	{
@@ -718,6 +718,210 @@ simple_type_t* copy_simple_type(simple_type_t* type_info)
 
 	return result;
 }
+
+char* give_type_spec_name(AST type_spec, scope_t* st)
+{
+#warning Improve this function
+	char* result = "";
+	switch (ASTType(type_spec))
+	{
+		case AST_SIMPLE_TYPE_SPECIFIER :
+			{
+				AST global_op = ASTSon0(type_spec);
+				AST nested_name = ASTSon1(type_spec);
+				AST type_name = ASTSon2(type_spec);
+
+				if (global_op != NULL)
+				{
+					result = strappend(result, "::");
+				}
+
+				while (nested_name != NULL)
+				{
+					AST class_or_namespace = ASTSon0(nested_name);
+					if (ASTType(class_or_namespace) == AST_SYMBOL)
+					{
+#warning Check for template parameters symbols
+						result = strappend(result, ASTText(class_or_namespace));
+					}
+					else // template-id
+					{
+						AST template_name = ASTSon0(class_or_namespace);
+						result = strappend(result, ASTText(template_name));
+						result = strappend(result, "<");
+#warning Add support for template parameters
+						result = strappend(result, ">");
+					}
+					result = strappend(result, "::");
+
+					nested_name = ASTSon1(nested_name);
+				}
+
+				if (ASTType(type_name) == AST_SYMBOL)
+				{
+#warning Check for template parameters symbols
+					result = strappend(result, ASTText(type_name));
+				}
+				else // template-id
+				{
+					AST template_name = ASTSon0(type_name);
+					result = strappend(result, ASTText(template_name));
+					result = strappend(result, "<");
+#warning Add support for template parameters
+					result = strappend(result, ">");
+				}
+				break;
+			}
+		default:
+			{
+				internal_error("Unsupported node type '%s'", ast_print_node_type(ASTType(type_spec)));
+			}
+	}
+
+	return result;
+}
+
+char* give_conversion_function_name(AST conversion_function_id, scope_t* st, type_t** result_conversion_type)
+{
+	if (ASTType(conversion_function_id) != AST_CONVERSION_FUNCTION_ID)
+	{
+		internal_error("This node '%s' is not valid for this function", 
+				ast_print_node_type(ASTType(conversion_function_id)));
+	}
+
+	AST conversion_type_id = ASTSon0(conversion_function_id);
+
+	AST type_specifier = ASTSon0(conversion_type_id);
+	AST conversion_declarator = ASTSon1(conversion_type_id);
+
+	gather_decl_spec_t gather_info;
+	memset(&gather_info, 0, sizeof(gather_info));
+	simple_type_t* simple_type_info = NULL;
+
+	build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info);
+
+	type_t* type_info = NULL;
+
+	if (conversion_declarator != NULL)
+	{
+		build_scope_declarator(conversion_declarator, st, &gather_info, simple_type_info, &type_info);
+	}
+	else
+	{
+		type_info = simple_type_to_type(simple_type_info);
+	}
+
+	if (result_conversion_type != NULL)
+	{
+		*result_conversion_type = type_info;
+	}
+
+	char* result = "";
+
+	result = strappend(result, "operator ");
+
+
+	type_t* type_iter = type_info;
+
+	char* conversion_declarator_name = "";
+	while (type_iter->kind == TK_POINTER)
+	{
+		char* current_conversion_declarator = "";
+		current_conversion_declarator = strappend(current_conversion_declarator, "* ");
+		if ((type_iter->pointer->cv_qualifier & CV_CONST) == CV_CONST)
+		{
+			current_conversion_declarator = strappend(current_conversion_declarator, "const ");
+		}
+
+		if ((type_iter->pointer->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+		{
+			current_conversion_declarator = strappend(current_conversion_declarator, "volatile ");
+		}
+
+		conversion_declarator_name = strprepend(conversion_declarator_name, current_conversion_declarator);
+
+		type_iter = type_iter->pointer->pointee;
+	}
+
+
+	if (type_iter->kind != TK_DIRECT)
+	{
+		internal_error("Expecting simple type", 0);
+	}
+
+	simple_type_info = type_iter->type;
+
+	if ((simple_type_info->cv_qualifier & CV_CONST) == CV_CONST)
+	{
+		result = strappend(result, "const ");
+	}
+
+	if ((simple_type_info->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+	{
+		result = strappend(result, "volatile ");
+	}
+
+	if (simple_type_info->is_long)
+	{
+		result = strappend(result, "long ");
+	}
+
+	if (simple_type_info->is_short)
+	{
+		result = strappend(result, "short ");
+	}
+
+	if (simple_type_info->is_unsigned)
+	{
+		result = strappend(result, "unsigned ");
+	}
+
+	switch (simple_type_info->kind)
+	{
+		case STK_BUILTIN_TYPE :
+			{
+				switch (simple_type_info->builtin_type)
+				{
+					case BT_INT :
+						result = strappend(result, "int");
+						break;
+					case BT_BOOL :
+						result = strappend(result, "bool");
+						break;
+					case BT_FLOAT :
+						result = strappend(result, "float");
+						break;
+					case BT_DOUBLE :
+						result = strappend(result, "double");
+						break;
+					case BT_WCHAR :
+						result = strappend(result, "wchar_t");
+						break;
+					case BT_CHAR :
+						result = strappend(result, "char");
+						break;
+					default:
+						internal_error("Invalid type", 0);
+				}
+				break;
+			}
+		case STK_USER_DEFINED :
+			{
+				result = strappend(result, simple_type_info->user_defined_type->symbol_name);
+				break;
+			}
+		default :
+			internal_error("Unexpected simple type kind", 0);
+	}
+
+	result = strappend(result, conversion_declarator_name);
+
+	return result;
+}
+
+/** 
+ * Debugging functions
+ * **/
 
 // Gives the name of a builtin type
 const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)

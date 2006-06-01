@@ -640,7 +640,7 @@ static type_set_t* create_type_set(type_t* t)
  */
 static type_t* usual_arithmetic_conversions(type_t* t1, type_t* t2, scope_t* st)
 {
-	// ADvance over typedefs
+	// Advance over typedefs
 	while (t1->kind == TK_DIRECT
 			&& t1->type->kind == STK_TYPEDEF)
 	{

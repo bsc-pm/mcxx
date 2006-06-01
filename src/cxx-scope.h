@@ -131,6 +131,13 @@ enum class_kind_t {
 	CK_UNION
 };
 
+typedef struct conversion_function_info_tag
+{
+	struct type_tag* conversion_type;
+	cv_qualifier_t cv_qualifier;
+} conversion_function_t;
+
+
 typedef struct class_information_tag {
 	enum class_kind_t class_kind;
 
@@ -141,7 +148,7 @@ typedef struct class_information_tag {
 	struct scope_entry_tag* destructor;
 
 	int num_conversion_functions;
-	struct scope_entry_tag** conversion_function_list;
+	struct conversion_function_info_tag** conversion_function_list;
 
 	int num_operator_functions;
 	struct scope_entry_tag** operator_function_list;

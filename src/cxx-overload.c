@@ -87,15 +87,30 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 {
 	sequence->kind = ICS_STANDARD;
 
-	// Do not consider cv-qualification
-	if (equivalent_types(argument_type, parameter_type, st, CVE_IGNORE))
+	// Outermost cv-qualification should be disregarded
+	type_t* base_argument_type = base_type(argument_type);
+	type_t* base_parameter_type = base_type(parameter_type);
+	cv_qualifier_t cv_qualif_argument = base_argument_type->type->cv_qualifier;
+	cv_qualifier_t cv_qualif_parameter = base_parameter_type->type->cv_qualifier;
+
+	// If the outermost cv-qualification of arg is contained in outermost
+	// cv-qualification of parameter it can be disregarded
+	if (((cv_qualif_argument & CV_CONST) == (cv_qualif_parameter & CV_CONST))
+			&& ((cv_qualif_argument & CV_VOLATILE) == (cv_qualif_parameter & CV_VOLATILE)))
+	{
+		base_argument_type->type->cv_qualifier = CV_NONE;
+		base_parameter_type->type->cv_qualifier = CV_NONE;
+	}
+
+	if (equivalent_types(argument_type, parameter_type, st, CVE_CONSIDER))
 	{
 		sequence->scs_category |= SCS_IDENTITY;
 		return;
 	}
 
-	// type_t* argument_basic_type = base_type(argument_type);
-	// type_t* parameter_basic_type = base_type(parameter_type);
+	// Restore the cv_qualifiers
+	base_argument_type->type->cv_qualifier = cv_qualif_argument;
+	base_parameter_type->type->cv_qualifier = cv_qualif_parameter;
 
 	if ((sequence->scs_category & SCS_LVALUE_TRANSFORMATION) != SCS_LVALUE_TRANSFORMATION)
 	{
@@ -226,6 +241,7 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 
 	// Consider "this" pseudoargument and its associated pseudo parameter
 	// If the considered function is member
+#if 0
 	if (entry->type_information->function->is_member)
 	{
 		// Search "this"
@@ -270,6 +286,7 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 			}
 		}
 	}
+#endif
 
 	for (i = 0; i < num_args; i++)
 	{

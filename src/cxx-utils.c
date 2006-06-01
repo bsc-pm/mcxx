@@ -4,6 +4,7 @@
 #include <string.h>
 #include <libgen.h>
 #include <signal.h>
+#include <gc.h>
 
 #include "cxx-utils.h"
 
@@ -57,4 +58,28 @@ int prime_hash(char* key, int hash_size)
 	}
 
 	return (result % hash_size);
+}
+
+char* strappend(char* orig, char* appended)
+{
+	int total = strlen(orig) + strlen(appended) + 1;
+
+	char* result = GC_CALLOC(total, sizeof(*result));
+
+	strcat(result, orig);
+	strcat(result, appended);
+	
+	return result;
+}
+
+char* strprepend(char* orig, char* prepended)
+{
+	int total = strlen(orig) + strlen(prepended) + 1;
+
+	char* result = GC_CALLOC(total, sizeof(*result));
+
+	strcat(result, prepended);
+	strcat(result, orig);
+
+	return result;
 }

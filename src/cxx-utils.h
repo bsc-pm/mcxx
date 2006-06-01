@@ -46,6 +46,10 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 #define HASH_SIZE 23
 int prime_hash(char* key, int hash_size);
 
+
+char* strappend(char* orig, char* appended);
+char* strprepend(char* orig, char* prepended);
+
 // Routine to ease adding pointers to a pointer list
 //   list is a T**
 //   size is an int

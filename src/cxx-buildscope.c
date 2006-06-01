@@ -51,8 +51,6 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_scope, type_t** declarator_type, 
 		gather_decl_spec_t* gather_info, AST* declarator_name);
 
-static void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather_info);
-static void gather_type_spec_information(AST a, scope_t* st, simple_type_t* type_info);
 
 static scope_entry_t* build_scope_declarator_name(AST declarator_name, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, scope_t* st);
@@ -476,7 +474,7 @@ void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gath
  *
  * scope_t* sc is unused here
  */
-static void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather_info)
+void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather_info)
 {
 	switch (ASTType(a))
 	{
@@ -550,7 +548,7 @@ static void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t*
  *
  * scope_t* sc is unused here
  */
-static void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type_info)
+void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type_info)
 {
 	switch (ASTType(a))
 	{
@@ -1098,9 +1096,40 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 	AST declarator_name = NULL;
 
 	build_scope_declarator_rec(a, st, parameters_scope, declarator_type, gather_info, &declarator_name);
-
+	
 	if (declarator_name != NULL)
 	{
+		// Special case for conversion function ids
+		// We fix the return type according to the standard
+		if ((*declarator_type)->kind == TK_FUNCTION
+				&& (*declarator_type)->function->return_type->type == NULL)
+		{
+			// This looks like a conversion function id
+			AST id_expression = ASTSon0(declarator_name);
+
+			AST conversion_function_id = NULL;
+			if (ASTType(id_expression) == AST_QUALIFIED_ID)
+			{
+				if (ASTType(ASTSon2(id_expression)) == AST_CONVERSION_FUNCTION_ID)
+				{
+					conversion_function_id = ASTSon2(id_expression);
+				}
+			}
+
+			if (ASTType(id_expression) == AST_CONVERSION_FUNCTION_ID)
+			{
+				conversion_function_id = id_expression;
+			}
+
+			if (conversion_function_id != NULL)
+			{
+				type_t* conversion_function_type;
+				give_conversion_function_name(conversion_function_id, st, &conversion_function_type);
+
+				(*declarator_type)->function->return_type = conversion_function_type;
+			}
+		}
+
 		entry = build_scope_declarator_name(declarator_name, *declarator_type, gather_info, st);
 
 		fprintf(stderr, "declaring ");
@@ -1324,6 +1353,7 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
 				build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name); 
 				break;
 			}
+		case AST_CONVERSION_DECLARATOR :
 		case AST_ABSTRACT_DECLARATOR :
 			{
 				set_pointer_type(declarator_type, st, ASTSon0(a));
@@ -1393,6 +1423,7 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
 				{
 					*declarator_name = a;
 				}
+
 				break;
 			}
 		case AST_AMBIGUITY :
@@ -1528,15 +1559,27 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 			}
 		case AST_CONVERSION_FUNCTION_ID :
 			{
-				// An unqualified conversion_function_id "operator T"
-				// Why this has no qualified equivalent ?
-				WARNING_MESSAGE("Conversion functions declaration unsupported. Skipping it", 0);
+				fprintf(stderr, "Registering a conversion function ID !!!\n");
+				// Ok, according to the standard, this function returns the
+				// type defined in the conversion function id
+				type_t* conversion_type_info = NULL;
+
+				// Get the type and its name
+				char* conversion_function_name = give_conversion_function_name(declarator_id,  st, &conversion_type_info);
+
+				scope_entry_t* entry = new_symbol(st, conversion_function_name);
+
+				entry->kind = SK_FUNCTION;
+				entry->type_information = declarator_type;
+
+				return entry;
 				break;
 			}
 		// Qualified ones
 		case AST_QUALIFIED_ID :
 			{
 				// A qualified id "a::b::c"
+				fprintf(stderr, "--> JANDERKLANDER\n");
 				if (declarator_type->kind != TK_FUNCTION)
 				{
 					scope_entry_list_t* entry_list = query_id_expression(st, declarator_id, FULL_UNQUALIFIED_LOOKUP);
@@ -2181,7 +2224,7 @@ static void build_scope_namespace_definition(AST a, scope_t* st)
  */
 static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 {
-	fprintf(stderr, "Registering function!\n");
+	fprintf(stderr, "Function definition!\n");
 	// A function definition has four parts
 	//   decl_specifier_seq declarator ctor_initializer function_body
 
@@ -2742,6 +2785,7 @@ char* get_operator_function_name(AST declarator_id)
 			internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(declarator_id)));
 	}
 }
+
 
 /*
  * Building scope for statements
