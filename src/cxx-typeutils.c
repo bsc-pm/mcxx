@@ -528,6 +528,52 @@ char can_be_converted_to_dest(type_t* orig, type_t* dest)
 	return 0;
 }
 
+char is_named_class_type(type_t* possible_class)
+{
+	return ((possible_class->kind == TK_DIRECT
+				&& possible_class->type->kind == STK_USER_DEFINED
+				&& possible_class->type->user_defined_type != NULL
+				&& possible_class->type->user_defined_type->type_information->kind == TK_DIRECT
+				&& possible_class->type->user_defined_type->type_information->type->kind == STK_CLASS));
+}
+
+char is_base_class_of(type_t* possible_base, type_t* possible_derived)
+{
+	if (!is_named_class_type(possible_base)
+			|| !is_named_class_type(possible_derived))
+	{
+		internal_error("This function expects named class types", 0);
+	}
+
+	simple_type_t* derived_class_info = possible_derived->type->user_defined_type->type_information->type;
+
+	int i;
+	for (i = 0; i < derived_class_info->class_info->num_bases; i++)
+	{
+		type_t* current_base = derived_class_info->class_info->base_classes_list[i]->class_type;
+		type_t* base_class_info = current_base->type->user_defined_type->type_information;
+		
+		if (base_class_info == possible_base)
+		{
+			return 1;
+		}
+	}
+
+	for (i = 0; i < derived_class_info->class_info->num_bases; i++)
+	{
+		type_t* current_base = derived_class_info->class_info->base_classes_list[i]->class_type;
+		type_t* base_class_info = current_base;
+		
+		// Now search recursively in the bases of this base
+		if (is_base_class_of(possible_base, base_class_info))
+		{
+			return 1;
+		}
+	}
+
+	// Not found
+	return 0;
+}
 
 char pointer_can_be_converted_to_dest_rec(type_t* orig, type_t* dest, scope_t* st, char* all_previous_are_const)
 {
@@ -539,7 +585,20 @@ char pointer_can_be_converted_to_dest_rec(type_t* orig, type_t* dest, scope_t* s
 
 	if (orig->kind != TK_POINTER) 
 	{
-		return equivalent_types(orig, dest, st, CVE_CONSIDER);
+#warning Ensure that cv-qualification is well handled here
+		if (equivalent_types(orig, dest, st, CVE_IGNORE))
+		{
+			return 1;
+		}
+		else
+		{
+			// If both are classes check if dest is a base of orig
+			// B* can be pointer qualified to A* if A is a base of B
+			if (is_named_class_type(orig) && is_named_class_type(dest))
+			{
+				return is_base_class_of(dest, orig);
+			}
+		}
 	}
 
 	// orig->kind == dest->kind == TK_POINTER

@@ -137,6 +137,11 @@ typedef struct conversion_function_info_tag
 	cv_qualifier_t cv_qualifier;
 } conversion_function_t;
 
+typedef struct base_class_info_tag
+{
+	struct type_tag* class_type;
+	access_specifier_t access_specifier;
+} base_class_info_t;
 
 typedef struct class_information_tag {
 	enum class_kind_t class_kind;
@@ -155,6 +160,9 @@ typedef struct class_information_tag {
 
 	int num_constructors;
 	struct scope_entry_tag** constructor_list;
+
+	int num_bases;
+	base_class_info_t** base_classes_list;
 } class_info_t;
 
 enum template_argument_kind
@@ -252,7 +260,6 @@ typedef struct pointer_tag
 {
 	cv_qualifier_t cv_qualifier;
 	struct type_tag* pointee;
-
 	struct scope_entry_tag* pointee_class;
 } pointer_info_t;
 

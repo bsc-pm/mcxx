@@ -62,7 +62,7 @@ static void build_scope_linkage_specifier_declaration(AST a, scope_t* st);
 
 void build_scope_template_arguments(AST a, scope_t* st, template_argument_list_t** template_arguments);
 
-static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope);
+static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope, class_info_t* class_info);
 
 static void build_scope_template_declaration(AST a, scope_t* st);
 static void build_scope_explicit_template_specialization(AST a, scope_t* st);
@@ -873,7 +873,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 
 }
 
-static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope)
+static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope, class_info_t* class_info)
 {
 	AST list = ASTSon0(base_clause);
 	AST iter;
@@ -920,6 +920,12 @@ static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class
 		}
 
 		P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, result_list->entry->related_scope);
+
+		base_class_info_t* base_class = GC_CALLOC(1, sizeof(*base_class));
+		base_class->class_type = result_list->entry->type_information;
+#warning Missing access specifier for bases
+
+		P_LIST_ADD(class_info->base_classes_list, class_info->num_bases, base_class);
 	}
 }
 
@@ -947,7 +953,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 	// Now add the bases
 	if (base_clause != NULL)
 	{
-		build_scope_base_clause(base_clause, st, inner_scope);
+		build_scope_base_clause(base_clause, st, inner_scope, simple_type_info->class_info);
 	}
 
 	scope_entry_t* class_entry = NULL;
@@ -2267,12 +2273,12 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 
 	entry->related_scope = inner_scope;
 
-	// If is a member function add this.
-	// Note: When this function is being defined within the class is_member
-	// will be false, and build_scope_member_definition will be the one that
-	// will add "this"
 	if (entry->type_information->function->is_member)
 	{
+		// If is a member function sign up additional information
+		// Note: When this function is being defined within the class is_member
+		// will be false, and build_scope_member_definition will be the one that
+		// will add "this"
 		// Introduce "this" if needed
 		if (!entry->type_information->function->is_static)
 		{
@@ -2291,6 +2297,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 			this_symbol->kind = SK_VARIABLE;
 			this_symbol->type_information = this_type;
 		}
+
 	}
 
 	build_scope_statement(statement, inner_scope);
@@ -2373,7 +2380,13 @@ static void build_scope_member_function_definition(AST a, scope_t*  st,
 			}
 		case AST_CONVERSION_FUNCTION_ID :
 			{
-				WARNING_MESSAGE("Function definition of conversion function is not supported. Skipping it", 0);
+				conversion_function_t* new_conversion = GC_CALLOC(1, sizeof(*new_conversion));
+				
+				// The conversion type is the return of the conversion function id
+				new_conversion->conversion_type = entry->type_information->function->return_type;
+				new_conversion->cv_qualifier = entry->type_information->function->cv_qualifier;
+
+				P_LIST_ADD(class_type->conversion_function_list, class_type->num_conversion_functions, new_conversion);
 				break;
 			}
 		default :
@@ -2442,6 +2455,57 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 						{
 							entry->type_information->function->is_member = 1;
 							entry->type_information->function->class_type = class_info;
+
+							// Also add additional information about this member function
+							char* class_name = "";
+							class_info_t* class_type = NULL;
+							if (class_info->kind == STK_USER_DEFINED)
+							{
+								class_name = class_info->user_defined_type->symbol_name;
+								class_type = class_info->user_defined_type->type_information->type->class_info;
+							}
+
+							// Update information in the class about this member function
+							AST declarator_name = get_declarator_name(ASTSon1(a));
+							switch (ASTType(declarator_name))
+							{
+								case AST_SYMBOL :
+									{
+										if (strcmp(ASTText(declarator_name), class_name) == 0)
+										{
+											// This is a constructor
+											P_LIST_ADD(class_type->constructor_list, class_type->num_constructors, entry);
+										}
+										break;
+									}
+								case AST_DESTRUCTOR_ID :
+									{
+										// This is the destructor
+										class_type->destructor = entry;
+										break;
+									}
+								case AST_OPERATOR_FUNCTION_ID :
+									{
+										P_LIST_ADD(class_type->operator_function_list, class_type->num_operator_functions, entry);
+										break;
+									}
+								case AST_CONVERSION_FUNCTION_ID :
+									{
+										conversion_function_t* new_conversion = GC_CALLOC(1, sizeof(*new_conversion));
+
+										// The conversion type is the return of the conversion function id
+										new_conversion->conversion_type = entry->type_information->function->return_type;
+										new_conversion->cv_qualifier = entry->type_information->function->cv_qualifier;
+
+										P_LIST_ADD(class_type->conversion_function_list, class_type->num_conversion_functions, new_conversion);
+										break;
+									}
+								default :
+									{
+										internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
+										break;
+									}
+							}
 						}
 						break;
 					}

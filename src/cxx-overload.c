@@ -95,8 +95,10 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 
 	// If the outermost cv-qualification of arg is contained in outermost
 	// cv-qualification of parameter it can be disregarded
-	if (((cv_qualif_argument & CV_CONST) == (cv_qualif_parameter & CV_CONST))
-			&& ((cv_qualif_argument & CV_VOLATILE) == (cv_qualif_parameter & CV_VOLATILE)))
+	if ((((cv_qualif_argument & CV_CONST) != CV_CONST) 
+				|| ((cv_qualif_parameter & CV_CONST) == CV_CONST))
+			&& (((cv_qualif_argument & CV_VOLATILE) != CV_VOLATILE) 
+				|| ((cv_qualif_parameter & CV_VOLATILE) == CV_VOLATILE)))
 	{
 		base_argument_type->type->cv_qualifier = CV_NONE;
 		base_parameter_type->type->cv_qualifier = CV_NONE;
@@ -184,7 +186,14 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 			return;
 		}
 
-		// Check for pointer conversion
+		/*
+		 * T1 *a;
+		 * T2 *b;
+		 *
+		 *   a = b;
+		 *
+		 * is valid (provided T1 and T2 are different types) only if T1 is a base class of T2
+		 */
 		if (argument_type->kind == TK_POINTER
 				&& parameter_type->kind == TK_POINTER)
 		{
@@ -194,6 +203,34 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 			}
 
 			return;
+		}
+
+		/*
+		 * T A::* p1;
+		 * T B::* p2;
+		 *
+		 *   p2 = p1;
+		 *
+		 * is valid if A is a base class of B (just the opposite of the previous case)
+		 */
+		if (argument_type->kind == TK_POINTER_TO_MEMBER
+				&& parameter_type->kind == TK_POINTER_TO_MEMBER)
+		{
+#warning Check that outermost cv-qualifiers are right here
+			if (equivalent_types(argument_type->pointer->pointee, 
+						parameter_type->pointer->pointee,
+						st, CVE_CONSIDER))
+			{
+				if (argument_type->pointer->pointee_class != 
+						parameter_type->pointer->pointee_class)
+				{
+					if (is_base_class_of(argument_type->pointer->pointee_class->type_information,
+								parameter_type->pointer->pointee_class->type_information))
+					{
+						sequence->scs_category |= SCS_CONVERSION;
+					}
+				}
+			}
 		}
 	}
 
