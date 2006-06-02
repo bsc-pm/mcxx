@@ -1,3 +1,4 @@
+#include <string.h>
 #include "cxx-overload.h"
 #include "cxx-utils.h"
 #include "cxx-typecalc.h"
@@ -238,13 +239,118 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 	sequence->scs_category = SCS_UNKNOWN;
 }
 
+void build_user_defined_conversion_sequence(type_t* argument_type, type_t* parameter_type,
+		one_implicit_conversion_sequence_t* sequence, scope_t* st)
+{
+	sequence->kind = ICS_USER_DEFINED;
+	// First case,
+	//
+	// a) argument is of type class and has an operator that yields a value that can be
+	//    SCS converted to parameter type
+	
+	if (is_class_type(argument_type))
+	{
+		// Check for conversion functions
+#warning TODO - At the moment assume this operator can be called now (if the \
+		 object where it is applied is const it is not feasible to call \
+		 non-const operator).
+#warning TODO - Check that parameter_type is not a base of argument_type
+		//
+		type_t* class_type = give_class_type(argument_type);
+
+		one_implicit_conversion_sequence_t attempt_scs;
+
+		int i;
+		for (i = 0; i < class_type->type->class_info->num_conversion_functions; i++)
+		{
+			conversion_function_t* conv_funct = class_type->type->class_info->conversion_function_list[i];
+
+			// Clear this attempt SCS
+			memset(&attempt_scs, 0, sizeof(attempt_scs));
+
+			// It is possible to build a SCS from the converted type to the parameter type ?
+			build_standard_conversion_sequence(conv_funct->conversion_type, parameter_type, 
+					&attempt_scs, st);
+
+			if (attempt_scs.scs_category != SCS_UNKNOWN)
+			{
+				// It is possible
+				if (sequence->udc_kind != UDC_VALID)
+				{
+					sequence->udc_kind = UDC_VALID;
+					sequence->scs_category = attempt_scs.scs_category;
+				}
+				else
+				{
+					// There is more than one conversion possible (it is a bit
+					// strange this could happen with just conversion operators
+					// but let's consider this case anyway)
+					sequence->udc_kind = UDC_AMBIGUOUS;
+					sequence->scs_category = SCS_UNKNOWN;
+				}
+			}
+		}
+	}
+
+	// Second case, it is possible to convert via a SCS the argument to the
+	// parameter of a constructor of the parameter type (provided the parameter
+	// is of class type) ?
+	if (is_named_class_type(parameter_type))
+	{
+		type_t* class_type = give_class_type(parameter_type);
+		one_implicit_conversion_sequence_t attempt_scs;
+
+		int i;
+		for (i = 0; i < class_type->type->class_info->num_constructors; i++)
+		{
+			scope_entry_t* constructor = class_type->type->class_info->constructor_list[i];
+			type_t* constructor_type = constructor->type_information;
+			
+			// Clear this attempt SCS
+			memset(&attempt_scs, 0, sizeof(attempt_scs));
+
+			if (constructor_type->kind != TK_FUNCTION)
+			{
+				internal_error("The constructor has no functional type", 0);
+			}
+
+			// If this is a conversor constructor try to convert the argument to its
+			// argument
+			if (constructor_type->function->num_parameters == 1
+					&& !constructor_type->function->is_explicit)
+			{
+				// It is possible to build a SCS from the converted type to the parameter type ?
+				build_standard_conversion_sequence(argument_type, 
+						constructor_type->function->parameter_list[0]->type_info, 
+						&attempt_scs, st);
+
+				if (attempt_scs.scs_category != SCS_UNKNOWN)
+				{
+					// It is possible an SCS to this parameter
+					if (sequence->udc_kind != UDC_VALID)
+					{
+						sequence->udc_kind = UDC_VALID;
+						sequence->scs_category = attempt_scs.scs_category;
+					}
+					else
+					{
+						// There is more than one conversion possible
+						sequence->udc_kind = UDC_AMBIGUOUS;
+						sequence->scs_category = SCS_UNKNOWN;
+					}
+				}
+			}
+		}
+	}
+}
+
 static one_implicit_conversion_sequence_t* 
 build_one_implicit_conversion_sequence(scope_entry_t* entry, int n_arg, AST argument_list, scope_t* st)
 {
 	// Now compute an ICS for this argument.
 	// First get the type of the argument expression
 	AST argument = get_argument_i(argument_list, n_arg);
-	
+
 	type_set_t* type_result_set = calculate_expression_type(argument, st);
 
 	if (type_result_set->num_types != 1)
@@ -262,10 +368,75 @@ build_one_implicit_conversion_sequence(scope_entry_t* entry, int n_arg, AST argu
 	build_standard_conversion_sequence(copy_type(argument_type), 
 			copy_type(parameter_type), result, st);
 
-	if (result->scs_category == SCS_UNKNOWN)
+	if (result->scs_category != SCS_UNKNOWN)
 	{
-		// It looks that a standard conversion sequence is not possible
+		return result;
 	}
+
+	// There might be a user defined conversion sequence provided that
+	//
+	//  a) the argument is of class type and has an operator that yields a type
+	//     that can be SCS converted to the parameter type.
+	//
+	//     struct A
+	//     {
+	//        operator T&();
+	//     };
+	//
+	//     void f(T k);
+	//     void f(char* d);
+	//
+	//     void g()
+	//     {
+	//        A b;
+	//        f(b); <-- Will call f(T);
+	//     }
+	//
+	//  b) or otherwise, the parameter is of class type that and has am implicit constructor that 
+	//     has an argument of a type that can be converted to with a SCS from the argument
+	//
+	//     struct A
+	//     {
+	//        A(const char* c);
+	//     };
+	//
+	//     void f(A a);
+	//     void f(double d);
+	//
+	//     void g()
+	//     {
+	//        char* c;
+	//        f(c); <-- Will call f(A);
+	//     }
+	//
+	//  It is possible to find an ambiguous user defined conversions in the
+	//  case where is possible to convert a type to T1 and T2 and there are
+	//  f(T1) and f(T2)
+	//
+	//     struct A
+	//     {
+	//        operator T1();
+	//     };
+	//
+	//     struct T2
+	//     {
+	//        T2(A a);
+	//     };
+	//
+	//     void f(T1 t1);
+	//     void f(T2 t2);
+	//
+	//     void g()
+	//     {
+	//        A a;
+	//        f(a); <-- f(T1) or f(T2) ?
+	//     }
+
+	// Clear the result
+	memset(result, 0, sizeof(*result));
+
+	build_user_defined_conversion_sequence(copy_type(argument_type), 
+			copy_type(parameter_type), result, st);
 }
 
 static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_entry_t* entry, int num_args, 

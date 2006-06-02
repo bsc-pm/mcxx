@@ -26,10 +26,19 @@ enum scs_category_t
 
 #undef BITMAP
 
+enum udc_category_t
+{
+	UDC_UNKNOWN = 0,
+	UDC_VALID,
+	UDC_AMBIGUOUS
+};
+
 typedef struct one_implicit_conversion_sequence_tag
 {
 	enum ics_kind kind;
 	enum scs_category_t scs_category;
+	enum udc_category_t udc_kind;
+
 } one_implicit_conversion_sequence_t;
 
 // Represents a whole ICS for all arguments

@@ -528,13 +528,40 @@ char can_be_converted_to_dest(type_t* orig, type_t* dest)
 	return 0;
 }
 
+type_t* give_class_type(type_t* class_type)
+{
+	if (is_named_class_type(class_type))
+	{
+		return class_type->type->user_defined_type->type_information;
+	}
+	else if (is_unnamed_class_type(class_type))
+	{
+		return class_type;
+	}
+	else
+	{
+		internal_error("This is not a class type!", 0);
+	}
+}
+
+char is_class_type(type_t* possible_class)
+{
+	return (is_named_class_type(possible_class) || is_unnamed_class_type(possible_class));
+}
+
+char is_unnamed_class_type(type_t* possible_class)
+{
+	return (possible_class->kind == TK_DIRECT
+			&& possible_class->type->kind == STK_CLASS);
+}
+
 char is_named_class_type(type_t* possible_class)
 {
-	return ((possible_class->kind == TK_DIRECT
-				&& possible_class->type->kind == STK_USER_DEFINED
-				&& possible_class->type->user_defined_type != NULL
-				&& possible_class->type->user_defined_type->type_information->kind == TK_DIRECT
-				&& possible_class->type->user_defined_type->type_information->type->kind == STK_CLASS));
+	return (possible_class->kind == TK_DIRECT
+			&& possible_class->type->kind == STK_USER_DEFINED
+			&& possible_class->type->user_defined_type != NULL
+			&& possible_class->type->user_defined_type->type_information->kind == TK_DIRECT
+			&& possible_class->type->user_defined_type->type_information->type->kind == STK_CLASS);
 }
 
 char is_base_class_of(type_t* possible_base, type_t* possible_derived)
