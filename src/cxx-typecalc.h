@@ -7,9 +7,10 @@
 typedef struct {
 	int num_types;
 	type_t** types;
-} type_set_t;
+	value_type_t value_type;
+} calculated_type_t;
 
-type_set_t* calculate_expression_type(AST a, scope_t* st);
+calculated_type_t* calculate_expression_type(AST a, scope_t* st);
 
 type_t* new_fundamental_type(void);
 type_t* new_bool_type(void);

@@ -273,10 +273,10 @@ typedef struct array_tag
 // States the "temporarieness" of a type
 typedef enum 
 {
-	UNDEFINED_TEMPORARY = 0,
-	NOT_TEMPORARY,
-	IS_TEMPORARY
-} temporary_status_t;
+	VT_UNDEFINED = 0,
+	VT_LVALUE,
+	VT_RVALUE
+} value_type_t;
 
 // This structure is able to hold type information for a given symbol
 // note it being decoupled from its declarator 
@@ -296,9 +296,6 @@ typedef struct type_tag
 
 	// "Simple" type
 	simple_type_t* type;
-
-	// Used only in type calculus (states if a type is a temporary)
-	temporary_status_t temporary_status;
 } type_t;
 
 // This is an entry in the scope

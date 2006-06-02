@@ -1130,7 +1130,7 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 			if (conversion_function_id != NULL)
 			{
 				type_t* conversion_function_type;
-				give_conversion_function_name(conversion_function_id, st, &conversion_function_type);
+				get_conversion_function_name(conversion_function_id, st, &conversion_function_type);
 
 				(*declarator_type)->function->return_type = conversion_function_type;
 			}
@@ -1571,7 +1571,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 				type_t* conversion_type_info = NULL;
 
 				// Get the type and its name
-				char* conversion_function_name = give_conversion_function_name(declarator_id,  st, &conversion_type_info);
+				char* conversion_function_name = get_conversion_function_name(declarator_id,  st, &conversion_type_info);
 
 				scope_entry_t* entry = new_symbol(st, conversion_function_name);
 

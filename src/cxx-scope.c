@@ -356,7 +356,7 @@ scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_nam
 					break;
 				case AST_CONVERSION_FUNCTION_ID :
 					{
-						char* conversion_function_name = give_conversion_function_name(name, lookup_scope, NULL);
+						char* conversion_function_name = get_conversion_function_name(name, lookup_scope, NULL);
 						result = query_in_symbols_of_scope(lookup_scope, conversion_function_name);
 						break;
 					}

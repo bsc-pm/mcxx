@@ -256,7 +256,7 @@ void build_user_defined_conversion_sequence(type_t* argument_type, type_t* param
 		 non-const operator).
 #warning TODO - Check that parameter_type is not a base of argument_type
 		//
-		type_t* class_type = give_class_type(argument_type);
+		type_t* class_type = get_class_type(argument_type);
 
 		one_implicit_conversion_sequence_t attempt_scs;
 
@@ -297,7 +297,7 @@ void build_user_defined_conversion_sequence(type_t* argument_type, type_t* param
 	// is of class type) ?
 	if (is_named_class_type(parameter_type))
 	{
-		type_t* class_type = give_class_type(parameter_type);
+		type_t* class_type = get_class_type(parameter_type);
 		one_implicit_conversion_sequence_t attempt_scs;
 
 		int i;
@@ -351,7 +351,7 @@ build_one_implicit_conversion_sequence(scope_entry_t* entry, int n_arg, AST argu
 	// First get the type of the argument expression
 	AST argument = get_argument_i(argument_list, n_arg);
 
-	type_set_t* type_result_set = calculate_expression_type(argument, st);
+	calculated_type_t* type_result_set = calculate_expression_type(argument, st);
 
 	if (type_result_set->num_types != 1)
 	{

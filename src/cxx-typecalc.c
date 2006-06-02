@@ -11,7 +11,7 @@
 /*
  * Calculates the type of an expression
  */
-static type_set_t* create_type_set(type_t* t);
+static calculated_type_t* create_type_set(type_t* t, value_type_t value_type);
 static type_t* usual_arithmetic_conversions(type_t* t1, type_t* t2, scope_t* st);
 
 type_t* new_fundamental_type(void)
@@ -109,14 +109,16 @@ type_t* new_int_type(void)
 }
 
 
-type_set_t* calculate_expression_type(AST a, scope_t* st)
+calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 {
 	switch (ASTType(a))
 	{
 		// Primaries
 		case AST_BOOLEAN_LITERAL :
 			{
-				return create_type_set(new_bool_type());
+				type_t* result = new_bool_type();
+
+				return create_type_set(result, VT_RVALUE);
 			}
 		case AST_OCTAL_LITERAL :
 		case AST_HEXADECIMAL_LITERAL :
@@ -133,7 +135,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 				result->type->is_unsigned = is_unsigned;
 				result->type->is_long = is_long;
 
-				return create_type_set(result);
+				return create_type_set(result, VT_RVALUE);
 			}
 		case AST_FLOATING_LITERAL :
 			{
@@ -157,7 +159,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 					result = new_float_type();
 				}
 
-				return create_type_set(result);
+				return create_type_set(result, VT_RVALUE);
 			}
 		case AST_THIS_VARIABLE :
 			{
@@ -165,7 +167,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 
 				this_symbol = query_in_symbols_of_scope(st, "this");
 
-				return create_type_set(this_symbol->entry->type_information);
+				return create_type_set(this_symbol->entry->type_information, VT_RVALUE);
 			}
 		case AST_PARENTHESIZED_EXPRESSION :
 			{
@@ -184,7 +186,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 					internal_error("Unknown symbol", 0);
 				}
 
-				type_set_t* result = NULL;
+				calculated_type_t* result = NULL;
 
 				// If this is a function name return all types associated with it
 				if (result_list->entry->kind == SK_FUNCTION)
@@ -198,10 +200,34 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 						iter = iter->next;
 					}
 				}
-				else
+				else // This is not a function
 				{
+					scope_entry_t* entry = result_list->entry;
+					value_type_t value_type = VT_UNDEFINED;
 					// Otherwise this should have only one type
-					result = create_type_set(result_list->entry->type_information);
+					if (entry->kind == SK_VARIABLE)
+					{
+						cv_qualifier_t cv_qualifier = get_cv_qualifier(result_list->entry->type_information);
+
+						if ((cv_qualifier & CV_CONST) == CV_CONST)
+						{
+							value_type = VT_RVALUE;
+						}
+						else
+						{
+							value_type = VT_LVALUE;
+						}
+					}
+					else if (entry->kind == SK_ENUMERATOR)
+					{
+						value_type = VT_RVALUE;
+					}
+					else
+					{
+						internal_error("Unexpected symbol kind '%d'", entry->kind);
+					}
+
+					result = create_type_set(entry->type_information, value_type);
 				}
 
 				return result;
@@ -209,7 +235,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 			// Postfix expressions
 		case AST_ARRAY_SUBSCRIPT :
 			{
-				type_set_t* array_type_set = calculate_expression_type(ASTSon0(a), st);
+				calculated_type_t* array_type_set = calculate_expression_type(ASTSon0(a), st);
 
 				if (array_type_set->num_types != 1)
 				{
@@ -218,17 +244,27 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 
 				type_t* array_type = array_type_set->types[0];
 
+				value_type_t value_type = VT_LVALUE;
 				if (array_type->kind != TK_ARRAY)
 				{
 					internal_error("Expected an array type at the left of the array subscript!\n", 0);
 				}
 
-				return create_type_set(array_type->array->element_type);
+				cv_qualifier_t cv_qualifier = get_cv_qualifier(array_type->array->element_type);
+
+				if ((cv_qualifier & CV_CONST) == CV_CONST)
+				{
+					value_type = VT_RVALUE;
+				}
+
+				return create_type_set(array_type->array->element_type, value_type);
 			}
 		case AST_POINTER_CLASS_MEMBER_ACCESS :
 		case AST_CLASS_MEMBER_ACCESS :
 			{
-				type_set_t* class_type_set = calculate_expression_type(ASTSon0(a), st);
+				cv_qualifier_t cv_qualifier = CV_NONE;
+				value_type_t value_type = VT_RVALUE;
+				calculated_type_t* class_type_set = calculate_expression_type(ASTSon0(a), st);
 
 				if (class_type_set->num_types != 1)
 				{
@@ -259,6 +295,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 				while (class_type->kind == TK_DIRECT
 						&& class_type->type->kind == STK_TYPEDEF)
 				{
+					cv_qualifier |= get_cv_qualifier(class_type);
 					class_type = class_type->type->aliased_type;
 				}
 
@@ -266,7 +303,16 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 				if (class_type->kind == TK_DIRECT
 						&& class_type->type->kind == STK_USER_DEFINED)
 				{
+					cv_qualifier |= get_cv_qualifier(class_type);
 					class_type = class_type->type->user_defined_type->type_information;
+				}
+				else if (class_type->kind == TK_DIRECT
+						&& class_type->type->kind == STK_CLASS)
+				{
+					// This is an unnamed class, the cv_qualifier will be in
+					// the class itself (this is a very odd case, exercise for
+					// the reader to understand why)
+					cv_qualifier |= get_cv_qualifier(class_type);
 				}
 
 				if (class_type->kind != TK_DIRECT
@@ -280,7 +326,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 				AST id_expression = ASTSon1(a);
 				scope_entry_list_t* result_list = query_id_expression(inner_scope, id_expression, NOFULL_UNQUALIFIED_LOOKUP);
 
-				type_set_t* result = NULL;
+				calculated_type_t* result = NULL;
 
 				// If this is a function name return all types associated with it
 				if (result_list->entry->kind == SK_FUNCTION)
@@ -297,7 +343,11 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 				else
 				{
 					// Otherwise this should have only one type
-					result = create_type_set(result_list->entry->type_information);
+					if ((cv_qualifier & CV_CONST) == CV_CONST)
+					{
+						value_type = VT_RVALUE;
+					}
+					result = create_type_set(result_list->entry->type_information, value_type);
 				}
 
 				return result;
@@ -307,7 +357,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 				AST function_expr = ASTSon0(a);
 				// AST argument_list = ASTSon1(a);
 
-				type_set_t* function_expr_type = calculate_expression_type(function_expr, st);
+				calculated_type_t* function_expr_type = calculate_expression_type(function_expr, st);
 
 				if (function_expr_type->num_types > 1)
 				{
@@ -321,7 +371,14 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 					internal_error("Expression does not denote a function\n", 0);
 				}
 
-				return create_type_set(function_type->function->return_type);
+				value_type_t value_type = VT_RVALUE;
+
+				if (function_type->function->return_type->kind == TK_REFERENCE)
+				{
+					value_type = VT_LVALUE;
+				}
+
+				return create_type_set(function_type->function->return_type, value_type);
 			}
 		case AST_DYNAMIC_CAST :
 		case AST_STATIC_CAST :
@@ -354,7 +411,11 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 					declarator_type = simple_type_to_type(type_info);
 				}
 
-				return create_type_set(declarator_type);
+				calculated_type_t* casted_expr_type = calculate_expression_type(ASTSon1(a), st);
+
+				value_type_t value_type = casted_expr_type->value_type;
+
+				return create_type_set(declarator_type, value_type);
 			}
 			// Binary operators that by default return bool values
 		case AST_DIFFERENT_OP :
@@ -366,8 +427,8 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 		case AST_LOGICAL_OR :
 		case AST_LOGICAL_AND :
 			{
-				type_set_t* type_left = calculate_expression_type(ASTSon0(a), st);
-				type_set_t* type_right = calculate_expression_type(ASTSon1(a), st);
+				calculated_type_t* type_left = calculate_expression_type(ASTSon0(a), st);
+				calculated_type_t* type_right = calculate_expression_type(ASTSon1(a), st);
 
 				if (type_left->num_types == 1
 						&& type_right->num_types == 1)
@@ -379,7 +440,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 							&& is_fundamental_type(t2))
 					{
 						// This is a simple builtin invocation
-						return create_type_set(new_bool_type());
+						return create_type_set(new_bool_type(), VT_RVALUE);
 					}
 
 					internal_error("Unsupported overloading of binary operators", 0);
@@ -419,7 +480,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 				// create a pointer to the declared type
 				if (declarator_type->kind == TK_ARRAY)
 				{
-					return create_type_set(declarator_type);
+					return create_type_set(declarator_type, VT_RVALUE);
 				}
 				else
 				{
@@ -428,7 +489,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 					pointer_to->pointer = GC_CALLOC(1, sizeof(*(pointer_to->pointer)));
 					pointer_to->pointer->pointee = declarator_type;
 
-					return create_type_set(pointer_to);
+					return create_type_set(pointer_to, VT_RVALUE);
 				}
 				break;
 			}
@@ -445,8 +506,8 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 		case AST_DIV_OP :
 			{
 #warning Missing overload support here
-				type_set_t* type_left = calculate_expression_type(ASTSon0(a), st);
-				type_set_t* type_right = calculate_expression_type(ASTSon1(a), st);
+				calculated_type_t* type_left = calculate_expression_type(ASTSon0(a), st);
+				calculated_type_t* type_right = calculate_expression_type(ASTSon1(a), st);
 
 				if (type_left->num_types == 1
 						&& type_right->num_types == 1)
@@ -458,7 +519,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 							&& is_fundamental_type(t2))
 					{
 						// This is a simple builtin invocation
-						return create_type_set(usual_arithmetic_conversions(t1, t2, st));
+						return create_type_set(usual_arithmetic_conversions(t1, t2, st), VT_RVALUE);
 					}
 
 					internal_error("Unsupported overloading of binary operators", 0);
@@ -478,8 +539,8 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 		case AST_MOD_ASSIGNMENT :
 			{
 #warning Missing overload support here
-				type_set_t* type_left = calculate_expression_type(ASTSon0(a), st);
-				type_set_t* type_right = calculate_expression_type(ASTSon1(a), st);
+				calculated_type_t* type_left = calculate_expression_type(ASTSon0(a), st);
+				calculated_type_t* type_right = calculate_expression_type(ASTSon1(a), st);
 
 				if (type_left->num_types == 1
 						&& type_right->num_types == 1)
@@ -490,7 +551,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 					if (is_fundamental_type(t1)
 							&& is_fundamental_type(t2))
 					{
-						return create_type_set(usual_arithmetic_conversions(t1, t2, st));
+						return create_type_set(usual_arithmetic_conversions(t1, t2, st), VT_RVALUE);
 					}
 
 					internal_error("Unsupported overloading of assignment expressions", 0);
@@ -504,7 +565,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 		case AST_POSTDECREMENT :
 			{
 #warning Missing overload support here
-				type_set_t* result = calculate_expression_type(ASTSon0(a), st);
+				calculated_type_t* result = calculate_expression_type(ASTSon0(a), st);
 
 				if (result->num_types == 1)
 				{
@@ -524,7 +585,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 			{
 				// Assume ASTSon1 and ASTSon2 will yield the same type
 #warning Add support for standard conversions
-				type_set_t* result = calculate_expression_type(ASTSon1(a), st);
+				calculated_type_t* result = calculate_expression_type(ASTSon1(a), st);
 				return result;
 			}
 			// Special unary operators
@@ -533,7 +594,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 #warning Missing overload support here
 				AST cast_expr = ASTSon1(a);
 
-				type_set_t* cast_expr_set = calculate_expression_type(cast_expr, st);
+				calculated_type_t* cast_expr_set = calculate_expression_type(cast_expr, st);
 
 				if (cast_expr_set->num_types != 1)
 				{
@@ -548,7 +609,14 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 				}
 				else
 				{
-					return create_type_set(pointer_type->pointer->pointee);
+					cv_qualifier_t cv_qualifier = get_cv_qualifier(pointer_type->pointer->pointee);
+					value_type_t value_type = VT_LVALUE;
+
+					if ((cv_qualifier & CV_CONST) == CV_CONST)
+					{
+						value_type = VT_RVALUE;
+					}
+					return create_type_set(pointer_type->pointer->pointee, value_type);
 				}
 				break;
 			}
@@ -558,7 +626,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 #warning Handle the case where a function is "over-referenced"
 				AST cast_expr = ASTSon1(a);
 
-				type_set_t* cast_expr_set = calculate_expression_type(cast_expr, st);
+				calculated_type_t* cast_expr_set = calculate_expression_type(cast_expr, st);
 
 				if (cast_expr_set->num_types != 1)
 				{
@@ -574,7 +642,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 					pointer_to->pointer = GC_CALLOC(1, sizeof(*(pointer_to->pointer)));
 					pointer_to->pointer->pointee = object_type;
 
-					return create_type_set(pointer_to);
+					return create_type_set(pointer_to, VT_RVALUE);
 				}
 				
 				internal_error("Overloading of operator& unsupported", 0);
@@ -587,7 +655,7 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 		case AST_PLUS_OP :
 			{
 #warning Missing overload support here
-				type_set_t* result = calculate_expression_type(ASTSon0(a), st);
+				calculated_type_t* result = calculate_expression_type(ASTSon0(a), st);
 
 				if (result->num_types == 1)
 				{
@@ -607,12 +675,12 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 		case AST_TYPEID_TYPE :
 			{
 				// TODO - This can be used only when #include <typeinfo> has been specified
-				internal_error("TODO", 0);
+				internal_error("TODO - typeid not really supported", 0);
 			}
 		case AST_SIZEOF :
 		case AST_SIZEOF_TYPEID :
 			{
-				return create_type_set(new_int_type());
+				return create_type_set(new_int_type(), VT_RVALUE);
 			}
 		default :
 			{
@@ -623,14 +691,16 @@ type_set_t* calculate_expression_type(AST a, scope_t* st)
 	internal_error("Unreachable code", 0);
 }
 
-static type_set_t* create_type_set(type_t* t)
+static calculated_type_t* create_type_set(type_t* t, value_type_t value_type)
 {
-	type_set_t* result = GC_CALLOC(1, sizeof(*result));
+	calculated_type_t* result = GC_CALLOC(1, sizeof(*result));
 
 	result->num_types = 1;
 
 	result->types = GC_CALLOC(1, sizeof(*result));
 	result->types[0] = t;
+
+	result->value_type = value_type;
 
 	return result;
 }

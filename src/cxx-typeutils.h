@@ -47,12 +47,15 @@ char can_be_converted_to_dest(type_t* orig, type_t* dest);
 
 char pointer_can_be_converted_to_dest(type_t* orig, type_t* dest, scope_t* st);
 
-char* give_type_spec_name(AST type_spec, scope_t* st);
-char* give_conversion_function_name(AST conversion_function_id, scope_t* st, type_t** result_conversion_type);
+char* get_type_spec_name(AST type_spec, scope_t* st);
+char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type_t** result_conversion_type);
 
 char is_class_type(type_t* possible_class);
 char is_unnamed_class_type(type_t* possible_class);
 char is_named_class_type(type_t* possible_class);
 char is_base_class_of(type_t* possible_base, type_t* possible_derived);
+type_t* get_class_type(type_t* class_type);
+
+cv_qualifier_t get_cv_qualifier(type_t* type_info);
 
 #endif // CXX_TYPEUTILS_H

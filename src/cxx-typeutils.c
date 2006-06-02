@@ -528,7 +528,7 @@ char can_be_converted_to_dest(type_t* orig, type_t* dest)
 	return 0;
 }
 
-type_t* give_class_type(type_t* class_type)
+type_t* get_class_type(type_t* class_type)
 {
 	if (is_named_class_type(class_type))
 	{
@@ -805,7 +805,7 @@ simple_type_t* copy_simple_type(simple_type_t* type_info)
 	return result;
 }
 
-char* give_type_spec_name(AST type_spec, scope_t* st)
+char* get_type_spec_name(AST type_spec, scope_t* st)
 {
 #warning Improve this function
 	char* result = "";
@@ -867,7 +867,7 @@ char* give_type_spec_name(AST type_spec, scope_t* st)
 	return result;
 }
 
-char* give_conversion_function_name(AST conversion_function_id, scope_t* st, type_t** result_conversion_type)
+char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type_t** result_conversion_type)
 {
 	if (ASTType(conversion_function_id) != AST_CONVERSION_FUNCTION_ID)
 	{
@@ -1003,6 +1003,42 @@ char* give_conversion_function_name(AST conversion_function_id, scope_t* st, typ
 	result = strappend(result, conversion_declarator_name);
 
 	return result;
+}
+
+cv_qualifier_t get_cv_qualifier(type_t* type_info)
+{
+	switch (type_info->kind)
+	{
+		case TK_DIRECT: 
+			{
+				return type_info->type->cv_qualifier;
+			}
+		case TK_FUNCTION :
+			{
+				// ??? - TODO - Not clear. At the moment assume not.
+				return CV_NONE;
+			}
+		case TK_ARRAY :
+			{
+				// const int a[10];
+				//
+				//   a[x] is "const int"
+				//   a    is "const int *", but is not const
+				return CV_NONE;
+			}
+		case TK_POINTER :
+			{
+				return type_info->pointer->cv_qualifier;
+			}
+		case TK_REFERENCE :
+			{
+				return get_cv_qualifier(type_info->pointer->pointee);
+			}
+		default:
+			{
+				internal_error("Unkown type kind", 0);
+			}
+	}
 }
 
 /** 
