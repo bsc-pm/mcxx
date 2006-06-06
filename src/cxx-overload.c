@@ -94,6 +94,7 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 	cv_qualifier_t cv_qualif_argument = base_argument_type->type->cv_qualifier;
 	cv_qualifier_t cv_qualif_parameter = base_parameter_type->type->cv_qualifier;
 
+#warning Consider references to const binding to const
 	// If the outermost cv-qualification of arg is contained in outermost
 	// cv-qualification of parameter it can be disregarded
 	if ((((cv_qualif_argument & CV_CONST) != CV_CONST) 
@@ -251,11 +252,10 @@ void build_user_defined_conversion_sequence(type_t* argument_type, type_t* param
 	if (is_class_type(argument_type))
 	{
 		// Check for conversion functions
-#warning TODO - At the moment assume this operator can be called now (if the \
+#warning TODO - At the moment assume this conversion operator can be called now (if the \
 		 object where it is applied is const it is not feasible to call \
 		 non-const operator).
 #warning TODO - Check that parameter_type is not a base of argument_type
-		//
 		type_t* class_type = get_class_type(argument_type);
 
 		one_implicit_conversion_sequence_t attempt_scs;
@@ -275,18 +275,21 @@ void build_user_defined_conversion_sequence(type_t* argument_type, type_t* param
 			if (attempt_scs.scs_category != SCS_UNKNOWN)
 			{
 				// It is possible
-				if (sequence->udc_kind != UDC_VALID)
+				if (sequence->udc_category != UDC_VALID)
 				{
-					sequence->udc_kind = UDC_VALID;
+					sequence->udc_category = UDC_VALID;
 					sequence->scs_category = attempt_scs.scs_category;
+					sequence->udc_conv_funct = conv_funct;
 				}
 				else
 				{
 					// There is more than one conversion possible (it is a bit
 					// strange this could happen with just conversion operators
 					// but let's consider this case anyway)
-					sequence->udc_kind = UDC_AMBIGUOUS;
+					sequence->udc_category = UDC_AMBIGUOUS;
 					sequence->scs_category = SCS_UNKNOWN;
+					sequence->udc_constr_funct = NULL;
+					sequence->udc_conv_funct = NULL;
 				}
 			}
 		}
@@ -327,16 +330,19 @@ void build_user_defined_conversion_sequence(type_t* argument_type, type_t* param
 				if (attempt_scs.scs_category != SCS_UNKNOWN)
 				{
 					// It is possible an SCS to this parameter
-					if (sequence->udc_kind != UDC_VALID)
+					if (sequence->udc_category != UDC_VALID)
 					{
-						sequence->udc_kind = UDC_VALID;
+						sequence->udc_category = UDC_VALID;
 						sequence->scs_category = attempt_scs.scs_category;
+						sequence->udc_constr_funct = constructor;
 					}
 					else
 					{
 						// There is more than one conversion possible
-						sequence->udc_kind = UDC_AMBIGUOUS;
+						sequence->udc_category = UDC_AMBIGUOUS;
 						sequence->scs_category = SCS_UNKNOWN;
+						sequence->udc_constr_funct = NULL;
+						sequence->udc_conv_funct = NULL;
 					}
 				}
 			}
@@ -437,6 +443,16 @@ build_one_implicit_conversion_sequence(scope_entry_t* entry, int n_arg, AST argu
 
 	build_user_defined_conversion_sequence(copy_type(argument_type), 
 			copy_type(parameter_type), result, st);
+
+	if (result->udc_category == UDC_UNKNOWN)
+	{
+		// There is no valid UDC nor SCS
+		return NULL;
+	}
+	else
+	{
+		return result;
+	}
 }
 
 static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_entry_t* entry, int num_args, 
@@ -518,6 +534,118 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 			P_LIST_ADD(result->conversion, result->num_arg, one_ics);
 		}
 	}
+
+	return result;
+}
+
+static char is_better_standard_conversion_sequence(one_implicit_conversion_sequence_t* s1,
+		one_implicit_conversion_sequence_t* s2)
+{
+	if (s1->kind != ICS_STANDARD
+			|| s2->kind != ICS_STANDARD)
+	{
+		internal_error("This function only operates on standard sequences", 0);
+	}
+
+	// If s1 is a proper subsequence of s2 then s1 is better
+	if (s1->scs_category != s2->scs_category)
+	{
+		// The identity always is a subset of any non-identity standard
+		// conversion
+		if (s1->scs_category == SCS_IDENTITY)
+		{
+			return 1;
+		}
+
+		// Every conversion in s2 is in s1. Thus s1 is better
+		if ((s1->scs_category & s2->scs_category) == s1->scs_category)
+		{
+			return 1;
+		}
+
+		// The rank of s1 is better than s2 one
+		// if s2 has conversion rank
+		if ((s2->scs_category & SCS_CONVERSION) == SCS_CONVERSION)
+		{
+			// If s1 does not have conversion rank, it is better
+			if ((s1->scs_category & SCS_CONVERSION) != SCS_CONVERSION)
+			{
+				return 1;
+			}
+		}
+		// if s2 has promotion rank
+		else if ((s2->scs_category & SCS_PROMOTION) == SCS_PROMOTION)
+		{
+			// If s1 is an exact match, it is better
+			if (((s1->scs_category & SCS_IDENTITY) == SCS_IDENTITY)
+					|| ((s1->scs_category & SCS_LVALUE_TRANSFORMATION) == SCS_LVALUE_TRANSFORMATION)
+					|| ((s1->scs_category & SCS_QUALIFICATION_ADJUSTMENT) == SCS_QUALIFICATION_ADJUSTMENT))
+			{
+				return 1;
+			}
+		}
+#warning Missing case for less cv-qualified priority in references? [13.3.3.2/3]
+	}
+#warning Missing case for standard conversion sequences [13.3.3.2/4]
+
+	return 0;
+}
+
+static char is_better_conversion_sequence(one_implicit_conversion_sequence_t* s1,
+		one_implicit_conversion_sequence_t* s2)
+{
+	// A standard conversions equence is a better conversion sequence than an
+	// ellipsis conversion
+	if (s1->kind == ICS_STANDARD
+			&& (s2->kind == ICS_USER_DEFINED
+				|| s2->kind == ICS_ELLIPSIS))
+	{
+		return 1;
+	}
+
+	// A user-defined conversion sequence is a better conversion sequence than
+	// an ellipsis conversion sequence
+	if (s1->kind == ICS_USER_DEFINED
+			&& s2->kind == ICS_ELLIPSIS)
+	{
+		return 1;
+	}
+
+	if (s1->kind == s2->kind)
+	{
+		if (s1->kind == ICS_STANDARD)
+		{
+			return is_better_standard_conversion_sequence(s1, s2);
+		}
+		else if (s1->kind == ICS_USER_DEFINED)
+		{
+			
+			if (s1->udc_category != UDC_AMBIGUOUS
+					&& s2->udc_category != UDC_AMBIGUOUS)
+			{
+				// A user defined conversion is better than another user defined
+				// conversion if they contain the same user-defined conversion
+				// function or constructor and if the second standard conversion
+				// sequence of U1 is better than the second standard conversion
+				// sequence.
+				if ((s1->udc_conv_funct != NULL && s2->udc_conv_funct != NULL
+							&& s1->udc_conv_funct == s2->udc_conv_funct)
+						|| (s1->udc_constr_funct != NULL && s2->udc_constr_funct != NULL
+							&& s1->udc_constr_funct == s2->udc_constr_funct))
+				{
+					one_implicit_conversion_sequence_t scs1 = *s1;
+					one_implicit_conversion_sequence_t scs2 = *s2;
+
+					scs1.kind = ICS_STANDARD;
+					scs2.kind = ICS_STANDARD;
+
+					return is_better_standard_conversion_sequence(&scs1, &scs2);
+				}
+			}
+		}
+	}
+
+	return 0;
 }
 
 static viable_function_list_t* calculate_viable_functions(scope_entry_list_t* candidate_functions, 
@@ -536,10 +664,15 @@ static viable_function_list_t* calculate_viable_functions(scope_entry_list_t* ca
 			implicit_conversion_sequence_t* ics = 
 				build_implicit_conversion_sequence(iter->entry, num_args, argument_list, st);
 			
-			// viable_function_list_t* current_funct = GC_CALLOC(1, sizeof(*current_funct));
-			// current_funct->entry = iter->entry;
-			// current_funct->next = result;
-			// result = current_funct;
+			if (ics != NULL)
+			{
+				viable_function_list_t* current_funct = GC_CALLOC(1, sizeof(*current_funct));
+				current_funct->entry = iter->entry;
+				current_funct->ics_num_args = num_args;
+				current_funct->ics = ics;
+				current_funct->next = result;
+				result = current_funct;
+			}
 		}
 		iter = iter->next;
 	}
@@ -547,6 +680,155 @@ static viable_function_list_t* calculate_viable_functions(scope_entry_list_t* ca
 	return result;
 }
 
+
+static char is_better_viable_function(viable_function_list_t* f1,
+		viable_function_list_t* f2)
+{
+	/*
+	 * A viable function f1 is defined to be a better function than another viable
+	 * function f2 if for all arguments "i", ics[i](f1) is not a worse conversion
+	 * sequence than ics[i](f2) and
+	 *
+	 * a) for some argument j, ics[j](f1) is better than ics[j](f2), or if not
+	 * that
+	 *
+	 * b) f1 is a non template function and f2 is a function template
+	 * specialization, or if not that
+	 *
+	 * c) f1 and f2 are function template specializations, and the function
+	 * template for f1 is more specialized than the template for f2, according
+	 * to the partial ordering rules described in 14.5.5.2, or if not that
+	 *
+	 * d) the context is an initialization by user-defined conversion and the
+	 * standard conversion sequence from the return type of F1 to the
+	 * destination type (the entity being initialized) is a better conversion
+	 * sequence than the standard conversion sequence from the return type of
+	 * f2 to the destination type. (rofi: I think this one is subsumed by the
+	 * order of a user defined conversion)
+	 *
+	 */
+
+	char some_is_worse = 0;
+	char some_is_better = 0;
+	int i;
+	for (i = 0; i < f1->ics_num_args; i++)
+	{
+		if (is_better_conversion_sequence(f1->ics->conversion[i], f2->ics->conversion[i]))
+		{
+			some_is_better = 1;
+		}
+		else
+		{
+			some_is_worse = 1;
+		}
+	}
+
+	if (some_is_worse)
+	{
+		// Should be no worse for any of the arguments
+		return 0;
+	}
+
+	// This is a)
+	if (some_is_better)
+	{
+		return 1;
+	}
+
+	// This is b)
+	if (f1->entry->kind == SK_FUNCTION
+			&& f2->entry->kind == SK_TEMPLATE_FUNCTION)
+	{
+		return 1;
+	}
+
+	// This is c)
+#warning Missing partial template specialization ordering [13.3.3/1 and 14.5.5.2]
+#if 0
+	if (f1->entry->kind == SK_TEMPLATE_FUNCTION
+			&& f2->entry->kind == SK_TEMPLATE_FUNCTION
+			&& is_function_template_more_specialized(f1, f2))
+	{
+		return 1;
+	}
+#endif 
+
+	// This is d)
+	/*
+	    struct A {
+	      A();
+	      operator int();
+	      operator double();
+	    };
+	    
+	    A a
+	    
+	    int i = a; // A::operator int() will be used to convert "a" to int since A::operator double()
+	               // would imply a conversion from double to int and A::operator int() does not
+	               // requires this conversion
+	    float x = a; // Ambiguity, both A::operator int() and A::operator double() can be
+	                 // applied to yield a value that will be further converted to float.
+	 */
+#warning Missing ICS best viable definition in the context of an initialization [13.3.3/1]
+
+	// Otherwise, this is not better
+	return 0;
+}
+
+static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable_functions)
+{
+	/*
+	 * The algorithm is as follows.
+	 * a) Find a candidate to be the best one. This is a classical maximum search.
+	 * b) Recheck this candidate is really the best with all functions.
+	 *
+	 * According to the standard a) will yield a F function that might be the best one
+	 * but we have to ensure that there is no G that will be better than G, otherwise
+	 * no best viable function exists
+	 */
+	if (viable_functions == NULL)
+	{
+		return NULL;
+	}
+
+	viable_function_list_t* result = viable_functions;
+	viable_function_list_t* iter = viable_functions->next;
+
+	while (iter != NULL)
+	{
+		if (is_better_viable_function(result, iter))
+		{
+			iter = result;
+		}
+
+		iter = iter->next;
+	}
+
+	// Now check is really the best
+	iter = viable_functions;
+	char is_still_the_best = 1;
+	while ((iter != NULL) && is_still_the_best)
+	{
+		if (iter != result)
+		{
+			is_still_the_best = is_better_viable_function(result, iter);
+		}
+
+		iter = iter->next;
+	}
+
+	if (!is_still_the_best)
+	{
+		return NULL;
+	}
+	else
+	{
+		return result->entry;
+	}
+}
+
+// This function returns the unique overload or NULL if it is unavailable or it
+// is ambiguous
 scope_entry_t* resolve_overload(scope_t* st, AST argument_list, 
 		scope_entry_list_t* candidate_functions)
 {
@@ -562,5 +844,9 @@ scope_entry_t* resolve_overload(scope_t* st, AST argument_list,
 	viable_function_list_t* viable_functions;
 
 	viable_functions = calculate_viable_functions(candidate_functions, num_args, argument_list, st);
+
+	scope_entry_t* best_viable_function = choose_best_viable_function(viable_functions);
+
+	return best_viable_function;
 }
 

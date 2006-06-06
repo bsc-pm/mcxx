@@ -37,7 +37,10 @@ typedef struct one_implicit_conversion_sequence_tag
 {
 	enum ics_kind kind;
 	enum scs_category_t scs_category;
-	enum udc_category_t udc_kind;
+	enum udc_category_t udc_category;
+
+	conversion_function_t* udc_conv_funct;
+	scope_entry_t* udc_constr_funct;
 
 } one_implicit_conversion_sequence_t;
 
