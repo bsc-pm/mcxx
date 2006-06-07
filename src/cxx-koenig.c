@@ -19,7 +19,6 @@ static void compute_associated_namespaces_and_classes_of_type(scope_t* st,
 		scope_t** associated_namespaces, int* num_associated_namespaces,
 		scope_t** associated_classes, int* num_associated_classes);
 
-
 scope_entry_list_t* lookup_unqualified_function(scope_t* st, char* name, AST arguments)
 {
 	scope_entry_list_t* ordinary_lookup = query_unqualified_name(st, name);
@@ -53,7 +52,7 @@ scope_entry_list_t* lookup_unqualified_function(scope_t* st, char* name, AST arg
 	{
 		scope_entry_list_t* current_symbols;
 		scope_t* associated = associated_namespaces[i];
-		current_symbols = query_in_symbols_of_scope(st, name);
+		current_symbols = query_in_symbols_of_scope(associated, name);
 
 		result = append_scope_entry_lists(result, current_symbols);
 	}
@@ -62,7 +61,7 @@ scope_entry_list_t* lookup_unqualified_function(scope_t* st, char* name, AST arg
 	{
 		scope_entry_list_t* current_symbols;
 		scope_t* associated = associated_classes[i];
-		current_symbols = query_in_symbols_of_scope(st, name);
+		current_symbols = query_in_symbols_of_scope(associated, name);
 
 		result = append_scope_entry_lists(result, current_symbols);
 	}
@@ -326,7 +325,7 @@ static void compute_associated_namespaces_and_classes_of_type(scope_t* st,
 	}
 }
 
-void compute_associated_namespaces_and_classes(scope_t* st, AST arguments, 
+static void compute_associated_namespaces_and_classes(scope_t* st, AST arguments, 
 		scope_t** associated_namespaces, int* num_associated_namespaces,
 		scope_t** associated_classes, int* num_associated_classes)
 {
