@@ -977,3 +977,25 @@ scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list)
 	else
 		return result;
 }
+
+scope_entry_list_t* append_scope_entry_lists(scope_entry_list_t* a, scope_entry_list_t* b)
+{
+	if (a == NULL)
+	{
+		return b;
+	}
+	else if (b == NULL)
+	{
+		return a;
+	}
+	else
+	{
+		while (a->next != NULL)
+		{
+			a = a->next;
+		}
+
+		a->next = b;
+		return a;
+	}
+}

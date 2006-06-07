@@ -7,6 +7,7 @@
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
+#include "cxx-overload.h"
 
 /*
  * Calculates the type of an expression
@@ -194,11 +195,14 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 					result = GC_CALLOC(1, sizeof(*result));
 					scope_entry_list_t* iter = result_list;
 
+					// This is rather ugly
 					while (iter != NULL)
 					{
-						P_LIST_ADD(result->types, result->num_types, iter->entry->type_information);
+						result->num_types++;
 						iter = iter->next;
 					}
+
+					result->overloaded_functions = result_list;
 				}
 				else // This is not a function
 				{
@@ -268,7 +272,7 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 
 				if (class_type_set->num_types != 1)
 				{
-					internal_error("Unsupported set of types for this member access", 0);
+					internal_error("Unsupported set of types for this member access (%d)", class_type_set->num_types);
 				}
 
 				type_t* class_type = class_type_set->types[0];
@@ -310,13 +314,12 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 						&& class_type->type->kind == STK_CLASS)
 				{
 					// This is an unnamed class, the cv_qualifier will be in
-					// the class itself (this is a very odd case, exercise for
-					// the reader to understand why)
+					// the class itself (this is a very odd case, left as
+					// exercise for the reader to understand why)
 					cv_qualifier |= get_cv_qualifier(class_type);
 				}
 
-				if (class_type->kind != TK_DIRECT
-						|| class_type->type->kind != STK_CLASS)
+				if (!is_class_type(class_type))
 				{
 					internal_error("This expression does not denote a class", 0);
 				}
@@ -334,11 +337,15 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 					result = GC_CALLOC(1, sizeof(*result));
 					scope_entry_list_t* iter = result_list;
 
+					// This is rather ugly
 					while (iter != NULL)
 					{
-						P_LIST_ADD(result->types, result->num_types, iter->entry->type_information);
+						result->num_types++;
 						iter = iter->next;
 					}
+
+					result->overloaded_functions = result_list;
+					result->object_type = class_type;
 				}
 				else
 				{
@@ -348,6 +355,7 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 						value_type = VT_RVALUE;
 					}
 					result = create_type_set(result_list->entry->type_information, value_type);
+					result->object_type = class_type;
 				}
 
 				return result;
@@ -355,16 +363,21 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 		case AST_FUNCTION_CALL : 
 			{
 				AST function_expr = ASTSon0(a);
-				// AST argument_list = ASTSon1(a);
+				AST argument_list = ASTSon1(a);
 
 				calculated_type_t* function_expr_type = calculate_expression_type(function_expr, st);
 
+				type_t* function_type;
 				if (function_expr_type->num_types > 1)
 				{
-					internal_error("Overload resolution still not implemented", 0);
+					scope_entry_t* overloaded_funct = resolve_overload(st, argument_list, function_expr_type->overloaded_functions, 
+							function_expr_type->object_type);
+					function_type = overloaded_funct->type_information;
 				}
-
-				type_t* function_type = function_expr_type->types[0];
+				else
+				{
+					function_type = function_expr_type->types[0];
+				}
 
 				if (function_type->kind != TK_FUNCTION)
 				{

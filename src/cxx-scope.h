@@ -223,6 +223,9 @@ typedef struct simple_type_tag {
 	int template_parameter_num;
 
 	cv_qualifier_t cv_qualifier;
+	
+	// Scope where this type was declared if not builtin
+	struct scope_tag* type_scope;
 } simple_type_t;
 
 typedef struct parameter_info_tag
@@ -253,6 +256,7 @@ typedef struct function_tag
 
 	// Related class type
 	simple_type_t* class_type;
+	
 } function_info_t;
 
 // Pointers, references and pointers to members
@@ -296,6 +300,7 @@ typedef struct type_tag
 
 	// "Simple" type
 	simple_type_t* type;
+
 } type_t;
 
 // This is an entry in the scope
@@ -318,8 +323,8 @@ typedef struct scope_entry_tag
 	struct scope_tag* related_scope;
 
 	// Initializations of several kind are saved here
-	//   - initialization of const objects
-	//   - enumerator values
+	//  - initialization of const objects
+	//  - enumerator values
 	AST expression_value;
 
 	// For template parameters
@@ -393,7 +398,6 @@ scope_t* new_template_scope(scope_t* enclosing_scope);
 
 // Functions to handle scope
 scope_entry_t* new_symbol(scope_t* st, char* name);
-scope_entry_list_t* create_list_from_entry(scope_entry_t* entry);
 void insert_entry(scope_t* st, scope_entry_t* entry);
 
 typedef enum unqualified_lookup_behaviour_tag
@@ -430,5 +434,9 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 scope_entry_list_t* query_template_id(AST nested_name_spec, scope_t* st, scope_t* lookup_scope);
 scope_entry_list_t* query_unqualified_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope);
 scope_entry_list_t* query_in_symbols_of_scope(scope_t* sc, char* name);
+
+// Manipulators
+scope_entry_list_t* create_list_from_entry(scope_entry_t* entry);
+scope_entry_list_t* append_scope_entry_lists(scope_entry_list_t* a, scope_entry_list_t* b);
 
 #endif // CXX_SCOPE_H

@@ -649,7 +649,7 @@ static char is_better_conversion_sequence(one_implicit_conversion_sequence_t* s1
 }
 
 static viable_function_list_t* calculate_viable_functions(scope_entry_list_t* candidate_functions, 
-		int num_args, AST argument_list, scope_t* st)
+		int num_args, AST argument_list, scope_t* st, type_t* object_type)
 {
 	scope_entry_list_t* iter = candidate_functions;
 
@@ -830,7 +830,7 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
 // This function returns the unique overload or NULL if it is unavailable or it
 // is ambiguous
 scope_entry_t* resolve_overload(scope_t* st, AST argument_list, 
-		scope_entry_list_t* candidate_functions)
+		scope_entry_list_t* candidate_functions, type_t* object_type)
 {
 	// Early out for common cases
 	if (candidate_functions == NULL
@@ -840,11 +840,14 @@ scope_entry_t* resolve_overload(scope_t* st, AST argument_list,
 	}
 
 	int num_args = count_argument_list(argument_list);
+	DEBUG_MESSAGE("Counted %d arguments", num_args);
 
 	viable_function_list_t* viable_functions;
 
-	viable_functions = calculate_viable_functions(candidate_functions, num_args, argument_list, st);
+	DEBUG_MESSAGE("Calculating viable functions", 0);
+	viable_functions = calculate_viable_functions(candidate_functions, num_args, argument_list, st, object_type);
 
+	DEBUG_MESSAGE("Choosing best viable function", 0);
 	scope_entry_t* best_viable_function = choose_best_viable_function(viable_functions);
 
 	return best_viable_function;

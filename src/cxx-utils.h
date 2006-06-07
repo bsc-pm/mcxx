@@ -33,7 +33,11 @@ void running_error(char* message, ...) NORETURN;
 void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...);
 
 #define DEBUG_MESSAGE(message, ...) \
+   { debug_message(message, "Debug: ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); }
+#if 0
+#define DEBUG_MESSAGE(message, ...) \
    { if (compilation_options.debugging) debug_message(message, "Debug: ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); }
+#endif
 
 #define WARNING_MESSAGE(message, ...) \
    { debug_message(message, "Warning: ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); }
@@ -60,5 +64,20 @@ do { \
 	(list) = GC_REALLOC((list), sizeof(*(list))*(size)); \
 	(list)[((size)-1)] = (elem); \
 } while(0)
+
+// This is a bit inefficient. Should not be used for large lists
+#define P_LIST_ADD_ONCE(list, size, elem) \
+do { \
+	int _i; \
+	char _found = 0; \
+	for (_i = 0; (_i < (size)) && !_found; _i++) \
+	{ \
+		 _found = ((list)[_i] == (elem)); \
+	} \
+	if (!_found) \
+	{ \
+		P_LIST_ADD((list), (size), (elem)); \
+	} \
+} while (0)
 
 #endif // CXX_UTILS_H

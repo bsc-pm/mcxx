@@ -206,6 +206,11 @@ static void build_scope_declaration(AST a, scope_t* st)
 				build_scope_declaration(a, st);
 				break;
 			}
+		case AST_EMPTY_DECL :
+			{
+				// Do nothing
+				break;
+			}
 		default :
 			{
 				internal_error("A declaration of kind '%s' is still unsupported\n", 
@@ -239,32 +244,13 @@ static void build_scope_using_directive(AST a, scope_t* st)
 	scope_entry_t* entry = result_list->entry;
 
 	// Now add this namespace to the used namespaces of this scope
-	char already_used = 0;
-	// Search
-	for (i = 0; (i < st->num_used_namespaces) && !already_used; i++)
-	{
-		already_used = (st->use_namespace[i] == entry->related_scope);
-	}
-
-	if (!already_used)
-	{
-		P_LIST_ADD(st->use_namespace, st->num_used_namespaces, entry->related_scope);
-	}
+	// Add it once
+	P_LIST_ADD_ONCE(st->use_namespace, st->num_used_namespaces, entry->related_scope);
 
 	// Transitively add related scopes but avoid repeating them
 	for (j = 0; j < entry->related_scope->num_used_namespaces; j++)
 	{
-		already_used = 0;
-		// Search
-		for (i = 0; (i < st->num_used_namespaces) && !already_used; i++)
-		{
-			already_used = (st->use_namespace[i] == entry->related_scope->use_namespace[j]);
-		}
-
-		if (!already_used)
-		{
-			P_LIST_ADD(st->use_namespace, st->num_used_namespaces, entry->related_scope->use_namespace[j]);
-		}
+		P_LIST_ADD_ONCE(st->use_namespace, st->num_used_namespaces, entry->related_scope->use_namespace[j]);
 	}
 }
 
@@ -666,6 +652,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 			new_class->type_information->kind = TK_DIRECT;
 			new_class->type_information->type = GC_CALLOC(1, sizeof(*(new_class->type_information->type)));
 			new_class->type_information->type->kind = STK_CLASS;
+			new_class->type_information->type->type_scope = st;
 
 			type_info->kind = STK_USER_DEFINED;
 			type_info->user_defined_type = new_class;
@@ -720,6 +707,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 			new_class->type_information->kind = TK_DIRECT;
 			new_class->type_information->type = GC_CALLOC(1, sizeof(*(new_class->type_information->type)));
 			new_class->type_information->type->kind = STK_ENUM;
+			new_class->type_information->type->type_scope = st;
 
 			type_info->kind = STK_USER_DEFINED;
 			type_info->user_defined_type = new_class;
@@ -1668,6 +1656,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 	entry->type_information->type = GC_CALLOC(1, sizeof(*(entry->type_information->type)));
 	entry->type_information->type->kind = STK_TYPEDEF;
 	entry->type_information->type->aliased_type = declarator_type;
+	entry->type_information->type->type_scope = st;
 
 	// TODO - cv qualification
 	return entry;

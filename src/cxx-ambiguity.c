@@ -306,11 +306,20 @@ static char check_for_simple_declaration(AST a, scope_t* st)
 {
 	// And it will be invalid if it does not have type and it is not a
 	// conversion function id nor a class constructor/destructor
-	AST type_specifier = ASTSon0(a);
+	AST decl_specifier_seq = ASTSon0(a);
 
-	if (type_specifier != NULL)
+	if (decl_specifier_seq != NULL)
 	{
-		return 1;
+		// We should check that this type specifier is really a type specifier
+		//
+		//    A(t);
+		//
+		// is a declaration if "A" names a type. Otherwise this is not a valid
+		// simple declaration
+
+		AST type_spec = ASTSon1(decl_specifier_seq);
+
+		return check_for_type_specifier(type_spec, st);
 	}
 
 	// Ok, check these are conversion functions, constructors or destructors
@@ -372,7 +381,6 @@ static char check_for_simple_declaration(AST a, scope_t* st)
 
 static char check_for_declaration_statement(AST declaration_statement, scope_t* st)
 {
-	// TODO - This function is a mess. Rework it.
 	AST a = ASTSon0(declaration_statement);
 
 	// In general only AST_SIMPLE_DECLARATION gets ambiguous here
@@ -826,7 +834,7 @@ static char check_for_expression(AST expression, scope_t* st)
 
 void solve_possibly_ambiguous_expression(AST a, scope_t* st)
 {
-	check_for_expression_statement(a, st);
+	check_for_expression(a, st);
 }
 
 static char check_for_expression_statement(AST a, scope_t* st)
@@ -915,13 +923,12 @@ static char check_for_function_call(AST expr, scope_t* st)
 	//   f ( e );
 	//
 	// f has to yield a valid value
-	if (!check_for_expression(ASTSon0(expr), st))
-	{
-		return 0;
-	}
+	// if (!check_for_expression(ASTSon0(expr), st))
+	// {
+	// 	return 0;
+	// }
 	
-	// The function call is semantically feasible according to its parameters.
-	// Let's look up the exact function being called.
+	// OK - f yields a valid value
 }
 
 static char check_for_explicit_type_conversion(AST expr, scope_t* st)
