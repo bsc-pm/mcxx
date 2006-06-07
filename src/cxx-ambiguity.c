@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include "cxx-ambiguity.h"
 #include "cxx-utils.h"
+#include "cxx-koenig.h"
 
 /*
  * This file performs disambiguation. If a symbol table is passed along the
@@ -915,6 +916,41 @@ static char check_for_destructor_id(AST expr, scope_t* st)
 				|| type_result->type->kind == STK_TYPE_TEMPLATE_PARAMETER));
 }
 
+static char check_for_functional_expression(AST expr, AST arguments, scope_t* st)
+{
+	switch(ASTType(expr))
+	{
+		case AST_SYMBOL :
+			{
+				// Koenig lookup here!
+				scope_entry_list_t* function_lookup = NULL;
+				function_lookup = lookup_unqualified_function(st, ASTText(expr), arguments);
+
+				enum cxx_symbol_kind filter_funct[] =
+				{ 
+					SK_FUNCTION,
+					SK_TEMPLATE_FUNCTION
+				};
+				function_lookup = filter_symbol_kind_set(function_lookup, 2, filter_funct);
+
+				if (function_lookup != NULL)
+				{
+					return 1;
+				}
+				break;
+			}
+		case AST_PARENTHESIZED_EXPRESSION :
+			{
+				return check_for_function_call(ASTSon0(expr), st);
+				break;
+			}
+		default :
+			{
+				return check_for_expression(expr, st);
+			}
+	}
+}
+
 static char check_for_function_call(AST expr, scope_t* st)
 {
 	ENSURE_TYPE(expr, AST_FUNCTION_CALL);
@@ -922,13 +958,8 @@ static char check_for_function_call(AST expr, scope_t* st)
 	// A function call is of the form
 	//   f ( e );
 	//
-	// f has to yield a valid value
-	// if (!check_for_expression(ASTSon0(expr), st))
-	// {
-	// 	return 0;
-	// }
-	
-	// OK - f yields a valid value
+	// f has to yield a valid value or functional
+	return check_for_functional_expression(ASTSon0(expr), ASTSon1(expr), st);
 }
 
 static char check_for_explicit_type_conversion(AST expr, scope_t* st)

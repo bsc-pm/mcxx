@@ -109,6 +109,7 @@ static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_inde
 			|| entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
 	{
 		PRINT_INDENTED_LINE(stderr, global_indent+1, "Template: %p\n", entry);
+		print_scope(entry->related_scope->template_scope, global_indent+1);
 	}
 
 	if (entry->kind == SK_NAMESPACE

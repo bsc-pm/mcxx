@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "cxx-typecalc.h"
@@ -706,6 +707,11 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 
 static calculated_type_t* create_type_set(type_t* t, value_type_t value_type)
 {
+	if (t == NULL)
+	{
+		internal_error("Should not be creating a type set from a null type", 0);
+	}
+
 	calculated_type_t* result = GC_CALLOC(1, sizeof(*result));
 
 	result->num_types = 1;

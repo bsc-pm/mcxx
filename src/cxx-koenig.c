@@ -6,18 +6,20 @@
 #include "cxx-driver.h"
 #include "hash_iterator.h"
 
+#include <stdio.h>
+
 /*
  * This file implements Koenig lookup, technically named "argument dependent lookup"
  */
 
 static void compute_associated_namespaces_and_classes(scope_t* st, AST arguments, 
-		scope_t** associated_namespaces, int* num_associated_namespaces,
-		scope_t** associated_classes, int* num_associated_classes);
+		scope_t*** associated_namespaces, int* num_associated_namespaces,
+		scope_t*** associated_classes, int* num_associated_classes);
 
 static void compute_associated_namespaces_and_classes_of_type(scope_t* st, 
 		type_t* type_info, 
-		scope_t** associated_namespaces, int* num_associated_namespaces,
-		scope_t** associated_classes, int* num_associated_classes);
+		scope_t*** associated_namespaces, int* num_associated_namespaces,
+		scope_t*** associated_classes, int* num_associated_classes);
 
 scope_entry_list_t* lookup_unqualified_function(scope_t* st, char* name, AST arguments)
 {
@@ -44,8 +46,8 @@ scope_entry_list_t* lookup_unqualified_function(scope_t* st, char* name, AST arg
 	scope_t** associated_namespaces = NULL;
 	int num_associated_classes = 0;
 	scope_t** associated_classes = NULL;
-	compute_associated_namespaces_and_classes(st, arguments, associated_namespaces, &num_associated_namespaces,
-			associated_classes, &num_associated_classes);
+	compute_associated_namespaces_and_classes(st, arguments, &associated_namespaces, &num_associated_namespaces,
+			&associated_classes, &num_associated_classes);
 
 	int i;
 	for (i = 0; i < num_associated_namespaces; i++)
@@ -72,8 +74,8 @@ scope_entry_list_t* lookup_unqualified_function(scope_t* st, char* name, AST arg
 static void compute_associated_classes_and_namespaces_of_template_scope(
 		scope_t* st,
 		scope_t* template_scope,
-		scope_t** associated_namespaces, int* num_associated_namespaces,
-		scope_t** associated_classes, int* num_associated_classes)
+		scope_t*** associated_namespaces, int* num_associated_namespaces,
+		scope_t*** associated_classes, int* num_associated_classes)
 {
 	// This is a bit ugly, but must be made this way
 	//
@@ -101,7 +103,7 @@ static void compute_associated_classes_and_namespaces_of_template_scope(
 
 static void compute_associated_classes_of_bases(
 		int num_bases, base_class_info_t** base_class_list,
-	    scope_t** associated_classes, int* num_associated_classes)
+	    scope_t*** associated_classes, int* num_associated_classes)
 {
 	int i;
 	for (i = 0; i < num_bases; i++)
@@ -125,7 +127,7 @@ static void compute_associated_classes_of_bases(
 		simple_type_t* base_simple_class_type = base_class_type->type;
 
 		// The class itself
-		P_LIST_ADD_ONCE(associated_classes, *num_associated_classes, base_simple_class_type->class_info->inner_scope);
+		P_LIST_ADD_ONCE(*associated_classes, *num_associated_classes, base_simple_class_type->class_info->inner_scope);
 
 		// And its bases
 		compute_associated_classes_of_bases(
@@ -138,8 +140,8 @@ static void compute_associated_classes_of_bases(
 static void compute_associated_namespaces_and_classes_of_direct_type(
 		scope_t* st,
 		type_t* direct_type,
-		scope_t** associated_namespaces, int* num_associated_namespaces,
-		scope_t** associated_classes, int* num_associated_classes)
+		scope_t*** associated_namespaces, int* num_associated_namespaces,
+		scope_t*** associated_classes, int* num_associated_classes)
 {
 	if (direct_type->kind != TK_DIRECT)
 	{
@@ -179,7 +181,7 @@ static void compute_associated_namespaces_and_classes_of_direct_type(
 				scope_t* definition_scope = simple_type->type_scope;
 				if (definition_scope->kind == CLASS_SCOPE)
 				{
-					P_LIST_ADD_ONCE(associated_classes, *num_associated_classes, definition_scope);
+					P_LIST_ADD_ONCE(*associated_classes, *num_associated_classes, definition_scope);
 
 					// Now move the scope to the first enclosing namespace scope (jump over
 					// template scopes and classes)
@@ -205,7 +207,7 @@ static void compute_associated_namespaces_and_classes_of_direct_type(
 				{
 					if (definition_scope != compilation_options.global_scope)
 					{
-						P_LIST_ADD_ONCE(associated_namespaces, *num_associated_namespaces, definition_scope);
+						P_LIST_ADD_ONCE(*associated_namespaces, *num_associated_namespaces, definition_scope);
 					}
 				}
 				else
@@ -217,7 +219,7 @@ static void compute_associated_namespaces_and_classes_of_direct_type(
 		case STK_CLASS :
 			{
 				// The class itself
-				P_LIST_ADD_ONCE(associated_classes, *num_associated_classes, simple_type->class_info->inner_scope);
+				P_LIST_ADD_ONCE(*associated_classes, *num_associated_classes, simple_type->class_info->inner_scope);
 
 				scope_t** base_associated_classes = NULL;
 				int num_base_associated_classes = 0;
@@ -225,10 +227,17 @@ static void compute_associated_namespaces_and_classes_of_direct_type(
 				// Direct and indirect bases
 				compute_associated_classes_of_bases(
 						simple_type->class_info->num_bases, simple_type->class_info->base_classes_list,
-						base_associated_classes, &num_base_associated_classes);
+						&base_associated_classes, &num_base_associated_classes);
+
+				int i;
+
+				// Add these associated classes into the current associated classes
+				for (i = 0; i < num_base_associated_classes; i++)
+				{
+					P_LIST_ADD_ONCE(*associated_classes, *num_associated_classes, base_associated_classes[i]);
+				}
 
 				// For every associated class compute the namespaces where they are defined
-				int i;
 				for (i = 0; i < num_base_associated_classes; i++)
 				{
 					scope_t* base_associated_class = base_associated_classes[i];
@@ -254,7 +263,7 @@ static void compute_associated_namespaces_and_classes_of_direct_type(
 					{
 						if (base_associated_namespace != compilation_options.global_scope)
 						{
-							P_LIST_ADD_ONCE(associated_namespaces, *num_associated_namespaces, base_associated_namespace);
+							P_LIST_ADD_ONCE(*associated_namespaces, *num_associated_namespaces, base_associated_namespace);
 						}
 					}
 					else
@@ -274,8 +283,8 @@ static void compute_associated_namespaces_and_classes_of_direct_type(
 
 static void compute_associated_namespaces_and_classes_of_type(scope_t* st, 
 		type_t* type_info, 
-		scope_t** associated_namespaces, int* num_associated_namespaces,
-		scope_t** associated_classes, int* num_associated_classes)
+		scope_t*** associated_namespaces, int* num_associated_namespaces,
+		scope_t*** associated_classes, int* num_associated_classes)
 {
 	switch (type_info->kind)
 	{
@@ -326,8 +335,8 @@ static void compute_associated_namespaces_and_classes_of_type(scope_t* st,
 }
 
 static void compute_associated_namespaces_and_classes(scope_t* st, AST arguments, 
-		scope_t** associated_namespaces, int* num_associated_namespaces,
-		scope_t** associated_classes, int* num_associated_classes)
+		scope_t*** associated_namespaces, int* num_associated_namespaces,
+		scope_t*** associated_classes, int* num_associated_classes)
 {
 	AST iter;
 	for_each_element(arguments, iter)
@@ -340,6 +349,8 @@ static void compute_associated_namespaces_and_classes(scope_t* st, AST arguments
 		{
 			internal_error("Unsupported overloading in argument %d", calc_type->num_types);
 		}
+
+		fprintf(stderr, "expr type --> %p\n", calc_type->types[0]);
 
 		compute_associated_namespaces_and_classes_of_type(st, calc_type->types[0],
 				associated_namespaces, num_associated_namespaces,

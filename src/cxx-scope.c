@@ -216,8 +216,7 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 		{
 			case AST_SYMBOL :
 				{
-					// If this is a symbol then simply query in this scope
-					entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(nested_name_spec));
+					entry_list = query_unqualified_name(lookup_scope, ASTText(nested_name_spec));
 
 					// If not found, null
 					if (entry_list == NULL)
@@ -562,7 +561,6 @@ static scope_entry_list_t* lookup_block_scope(scope_t* st, char* unqualified_nam
 		return result;
 	}
 
-	// TODO - This should consider transitively used namespaces
 	// Search in the namespaces
 	fprintf(stderr, "not found.\nLooking up '%s' in used namespaces...", unqualified_name);
 	int i;
@@ -717,7 +715,6 @@ static scope_entry_list_t* lookup_class_scope(scope_t* st, char* unqualified_nam
 		return result;
 	}
 
-	// TODO - This should consider transitively used namespaces
 	// Search in the namespaces
 	fprintf(stderr, "not found.\nLooking up '%s' in used namespaces...", unqualified_name);
 	int i;

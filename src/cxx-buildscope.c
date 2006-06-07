@@ -222,7 +222,7 @@ static void build_scope_declaration(AST a, scope_t* st)
 
 static void build_scope_using_directive(AST a, scope_t* st)
 {
-	int i, j;
+	int j;
 	// First get the involved namespace
 	AST global_op = ASTSon0(a);
 	AST nested_name = ASTSon1(a);
@@ -774,6 +774,8 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 
 	simple_type_info->kind = STK_ENUM;
 
+	simple_type_info->type_scope = st;
+
 	AST enum_name = ASTSon0(a);
 	// If it has name, we register this type name in the symbol table
 	// but only if it has not been declared previously
@@ -822,6 +824,8 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 			simple_type_info = simple_type_info->user_defined_type->type_information->type;
 		}
 
+		type_t* enumerator_type = simple_type_to_type(simple_type_info);
+
 		// For every enumeration, sign them up in the symbol table
 		for_each_element(list, iter)
 		{
@@ -845,6 +849,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 			}
 
 			enumeration_item->expression_value = tree_from_literal_value(enum_value);
+			enumeration_item->type_information = enumerator_type;
 
 			// DEBUG
 			fprintf(stderr, "Enumerator '%s' has value = ", ASTText(enumeration_name));
