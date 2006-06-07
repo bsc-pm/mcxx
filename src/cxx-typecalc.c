@@ -9,6 +9,7 @@
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
 #include "cxx-overload.h"
+#include "cxx-ambiguity.h"
 
 /*
  * Calculates the type of an expression
@@ -115,6 +116,17 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 {
 	switch (ASTType(a))
 	{
+		case AST_AMBIGUITY :
+			{
+				solve_possibly_ambiguous_expression(a, st);
+				if (ASTType(a) == AST_AMBIGUITY)
+				{
+					internal_error("Still ambiguous", 0);
+				}
+				// Restart 
+				return calculate_expression_type(a, st);
+				break;
+			}
 		// Primaries
 		case AST_BOOLEAN_LITERAL :
 			{
@@ -377,7 +389,7 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 				}
 				else
 				{
-					function_type = function_expr_type->types[0];
+					function_type = function_expr_type->overloaded_functions->entry->type_information;
 				}
 
 				if (function_type->kind != TK_FUNCTION)

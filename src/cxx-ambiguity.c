@@ -926,7 +926,7 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 				scope_entry_list_t* function_lookup = NULL;
 				function_lookup = lookup_unqualified_function(st, ASTText(expr), arguments);
 
-				enum cxx_symbol_kind filter_funct[] =
+				enum cxx_symbol_kind filter_funct[2] =
 				{ 
 					SK_FUNCTION,
 					SK_TEMPLATE_FUNCTION
@@ -936,6 +936,10 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 				if (function_lookup != NULL)
 				{
 					return 1;
+				}
+				else
+				{
+					return 0;
 				}
 				break;
 			}

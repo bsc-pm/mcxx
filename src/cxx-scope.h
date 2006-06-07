@@ -37,7 +37,10 @@ enum cxx_symbol_kind
 	SK_TEMPLATE_PRIMARY_CLASS,
 	SK_TEMPLATE_SPECIALIZED_CLASS,
 	SK_TEMPLATE_FUNCTION,
-	SK_TEMPLATE_PARAMETER
+	SK_TEMPLATE_PARAMETER,
+	// Artificial symbol representing scopes - used only for debugging purposes
+	// should not be considered as a symbol
+	SK_SCOPE
 };
 
 typedef enum {

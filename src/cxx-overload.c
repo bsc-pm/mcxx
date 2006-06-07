@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 #include "cxx-overload.h"
 #include "cxx-utils.h"
@@ -6,7 +7,7 @@
 
 static int count_argument_list(AST argument_list)
 {
-	if (argument_list == NULL)
+	if (ASTType(argument_list) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
 	{
 		return 0;
 	}
@@ -16,7 +17,12 @@ static int count_argument_list(AST argument_list)
 		AST iter;
 		for_each_element(argument_list, iter)
 		{
-			i++;
+			AST par = ASTSon1(iter);
+
+			if (ASTType(par) != AST_VARIADIC_ARG)
+			{
+				i++;
+			}
 		}
 		return i;
 	}
@@ -512,10 +518,12 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 	}
 #endif
 
+	DEBUG_MESSAGE("Number of arguments = %d | Number of parameters = %d", num_args, num_pars);
+
 	for (i = 0; i < num_args; i++)
 	{
 		one_implicit_conversion_sequence_t* one_ics;
-		if (num_args >= num_pars)
+		if (num_args > num_pars)
 		{
 			one_ics = GC_CALLOC(1, sizeof(*one_ics));
 			// This can only be by ellipsis nature
@@ -788,6 +796,7 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
 	 */
 	if (viable_functions == NULL)
 	{
+		DEBUG_MESSAGE("No viable functions available!", 0);
 		return NULL;
 	}
 
@@ -796,9 +805,26 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
 
 	while (iter != NULL)
 	{
-		if (is_better_viable_function(result, iter))
+		fprintf(stderr, "iter > result? %d\n", is_better_viable_function(iter, result));
+		fprintf(stderr, "iter < result? %d\n", is_better_viable_function(result, iter));
+
+		if (is_better_viable_function(iter, result))
 		{
-			iter = result;
+			fprintf(stderr, "Choosing function '");
+			print_declarator(iter->entry->type_information, result->entry->scope);
+			fprintf(stderr, "' because is better than '");
+			print_declarator(result->entry->type_information, result->entry->scope);
+			fprintf(stderr, "'\n");
+
+			result = iter;
+		}
+		else
+		{
+			fprintf(stderr, "Function '");
+			print_declarator(iter->entry->type_information, result->entry->scope);
+			fprintf(stderr, "' is still better than '");
+			print_declarator(result->entry->type_information, result->entry->scope);
+			fprintf(stderr, "'\n");
 		}
 
 		iter = iter->next;
@@ -812,6 +838,14 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
 		if (iter != result)
 		{
 			is_still_the_best = is_better_viable_function(result, iter);
+			if (!is_still_the_best)
+			{
+				fprintf(stderr, "Function '");
+				print_declarator(result->entry->type_information, result->entry->scope);
+				fprintf(stderr, "' is not better than '");
+				print_declarator(iter->entry->type_information, result->entry->scope);
+				fprintf(stderr, "'\n");
+			}
 		}
 
 		iter = iter->next;
@@ -819,10 +853,12 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
 
 	if (!is_still_the_best)
 	{
+		DEBUG_MESSAGE("There was no best viable function", 0);
 		return NULL;
 	}
 	else
 	{
+		DEBUG_MESSAGE("Determined the best viable function", 0);
 		return result->entry;
 	}
 }
@@ -846,6 +882,15 @@ scope_entry_t* resolve_overload(scope_t* st, AST argument_list,
 
 	DEBUG_MESSAGE("Calculating viable functions", 0);
 	viable_functions = calculate_viable_functions(candidate_functions, num_args, argument_list, st, object_type);
+
+	int viable_functions_count = 0;
+	viable_function_list_t* iter = viable_functions;
+	while (iter != NULL)
+	{
+		viable_functions_count++;
+		iter = iter->next;
+	}
+	DEBUG_MESSAGE("Determined %d viable functions", viable_functions_count);
 
 	DEBUG_MESSAGE("Choosing best viable function", 0);
 	scope_entry_t* best_viable_function = choose_best_viable_function(viable_functions);

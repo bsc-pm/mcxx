@@ -1202,8 +1202,15 @@ void print_declarator(type_t* printed_declarator, scope_t* st)
 				break;
 			case TK_ARRAY :
 				fprintf(stderr, "array ");
-				prettyprint(stderr, printed_declarator->array->array_expr);
-				fprintf(stderr, " of ");
+				if (printed_declarator->array->array_expr != NULL)
+				{
+					prettyprint(stderr, printed_declarator->array->array_expr);
+					fprintf(stderr, " of ");
+				}
+				else
+				{
+					fprintf(stderr, "of ");
+				}
 				printed_declarator = printed_declarator->array->element_type;
 				break;
 			case TK_FUNCTION :

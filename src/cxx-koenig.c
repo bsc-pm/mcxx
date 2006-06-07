@@ -350,8 +350,6 @@ static void compute_associated_namespaces_and_classes(scope_t* st, AST arguments
 			internal_error("Unsupported overloading in argument %d", calc_type->num_types);
 		}
 
-		fprintf(stderr, "expr type --> %p\n", calc_type->types[0]);
-
 		compute_associated_namespaces_and_classes_of_type(st, calc_type->types[0],
 				associated_namespaces, num_associated_namespaces,
 				associated_classes, num_associated_classes);

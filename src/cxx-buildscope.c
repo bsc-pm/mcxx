@@ -818,13 +818,13 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 
 	if (list != NULL)
 	{
+		type_t* enumerator_type = simple_type_to_type(simple_type_info);
+
 		// If the type had name, refer to the enum type
 		if (simple_type_info->kind == STK_USER_DEFINED)
 		{
 			simple_type_info = simple_type_info->user_defined_type->type_information->type;
 		}
-
-		type_t* enumerator_type = simple_type_to_type(simple_type_info);
 
 		// For every enumeration, sign them up in the symbol table
 		for_each_element(list, iter)

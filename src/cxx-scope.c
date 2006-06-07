@@ -61,6 +61,17 @@ scope_t* new_block_scope(scope_t* enclosing_scope, scope_t* prototype_scope, sco
 	
 	// Template scope gets inherited automatically
 	result->template_scope = enclosing_scope->template_scope;
+
+	// Create artificial entry for the block scope
+	static int scope_number = 1000;
+	char* c = GC_CALLOC(256, sizeof(char));
+	sprintf(c, "(block scope #%05d)", scope_number);
+	scope_number++;
+
+	scope_entry_t* new_block_scope_entry = new_symbol(enclosing_scope, c);
+	new_block_scope_entry->kind = SK_SCOPE;
+
+	new_block_scope_entry->related_scope = result;
 	
 	return result;
 }
@@ -977,22 +988,34 @@ scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list)
 
 scope_entry_list_t* append_scope_entry_lists(scope_entry_list_t* a, scope_entry_list_t* b)
 {
-	if (a == NULL)
-	{
-		return b;
-	}
-	else if (b == NULL)
-	{
-		return a;
-	}
-	else
-	{
-		while (a->next != NULL)
-		{
-			a = a->next;
-		}
+	scope_entry_list_t* result = NULL;
+	scope_entry_list_t* iter;
 
-		a->next = b;
-		return a;
+	iter = a;
+	while (iter != NULL)
+	{
+		scope_entry_list_t* new_entry = GC_CALLOC(1, sizeof(*new_entry));
+
+		new_entry->entry = iter->entry;
+		new_entry->next = result;
+
+		result = new_entry;
+
+		iter = iter->next;
 	}
+
+	iter = b;
+	while (iter != NULL)
+	{
+		scope_entry_list_t* new_entry = GC_CALLOC(1, sizeof(*new_entry));
+
+		new_entry->entry = iter->entry;
+		new_entry->next = result;
+
+		result = new_entry;
+
+		iter = iter->next;
+	}
+
+	return result;
 }
