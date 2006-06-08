@@ -13,11 +13,11 @@
  */
 static char is_typedef_type(type_t* t);
 static type_t* aliased_type(type_t* t);
-static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2, enum cv_equivalence_t cv_equiv);
-static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
-static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
-static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
-static char compatible_parameters(function_info_t* t1, function_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
+static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scope_t* st);
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st);
+static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st);
+static char compatible_parameters(function_info_t* t1, function_info_t* t2, scope_t* st);
 
 /*
  * States if two types are equivalent. This means that they are the same
@@ -46,33 +46,49 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st, enum cv_equivalence_t
 		return 0;
 	}
 
+	cv_qualifier_t qualif_t1 = *(get_outermost_cv_qualifier(t1));
+	cv_qualifier_t qualif_t2 = *(get_outermost_cv_qualifier(t2));
+	if (cv_equiv == CVE_IGNORE_OUTERMOST)
+	{
+		*(get_outermost_cv_qualifier(t1)) = CV_NONE;
+		*(get_outermost_cv_qualifier(t2)) = CV_NONE;
+	}
+
+	char result = 0;
+
 	switch (t1->kind)
 	{
 		case TK_DIRECT :
-			return equivalent_simple_types(t1->type, t2->type, st, cv_equiv);
+			result = equivalent_simple_types(t1->type, t2->type, st);
 			break;
 		case TK_POINTER :
-			return equivalent_pointer_type(t1->pointer, t2->pointer, st, cv_equiv);
+			result = equivalent_pointer_type(t1->pointer, t2->pointer, st);
 			break;
 		case TK_REFERENCE :
-			return equivalent_pointer_type(t1->pointer, t2->pointer, st, cv_equiv);
+			result = equivalent_pointer_type(t1->pointer, t2->pointer, st);
 			break;
 		case TK_POINTER_TO_MEMBER :
 			break;
 		case TK_ARRAY :
-			return equivalent_array_type(t1->array, t2->array, st, cv_equiv);
+			result = equivalent_array_type(t1->array, t2->array, st);
 			break;
 		case TK_FUNCTION :
-			return equivalent_function_type(t1->function, t2->function, st, cv_equiv);
+			result = equivalent_function_type(t1->function, t2->function, st);
 			break;
 		default :
 			internal_error("Unknown type kind (%d)\n", t1->kind);
 	}
 
-	return 0;
+	if (cv_equiv == CVE_IGNORE_OUTERMOST)
+	{
+		*(get_outermost_cv_qualifier(t1)) = qualif_t1;
+		*(get_outermost_cv_qualifier(t2)) = qualif_t2;
+	}
+
+	return result;
 }
 
-char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st, enum cv_equivalence_t cv_equiv)
+char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
 {
 	if (t1->kind != t2->kind)
 	{
@@ -84,7 +100,7 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st, 
 	switch (t1->kind)
 	{
 		case STK_BUILTIN_TYPE :
-			return equivalent_builtin_type(t1, t2, cv_equiv);
+			return equivalent_builtin_type(t1, t2);
 			break;
 		case STK_CLASS :
 			/* Fall-through */
@@ -95,7 +111,7 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st, 
 			break;
 		case STK_USER_DEFINED :
 			return equivalent_types(t1->user_defined_type->type_information, 
-					t2->user_defined_type->type_information, st, cv_equiv);
+					t2->user_defined_type->type_information, st, CVE_CONSIDER);
 			break;
 		case STK_TYPEDEF :
 			internal_error("A typedef cannot reach here", 0);
@@ -108,7 +124,7 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st, 
 	return 0;
 }
 
-char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2, enum cv_equivalence_t cv_equiv)
+char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
 {
 	if (t1->builtin_type != t2->builtin_type)
 	{
@@ -149,7 +165,7 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2, enum cv_equiv
 			return 0;
 	}
 	
-	if (!equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier, cv_equiv))
+	if (!equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier))
 	{
 		return 0;
 	}
@@ -158,19 +174,19 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2, enum cv_equiv
 	return 1;
 }
 
-static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv)
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scope_t* st)
 {
-	if (!equivalent_types(t1->pointee, t2->pointee, st, cv_equiv))
+	if (!equivalent_types(t1->pointee, t2->pointee, st, CVE_CONSIDER))
 	{
 		return 0;
 	}
 
-	return (equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier, cv_equiv));
+	return (equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier));
 }
 
-static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv)
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st)
 {
-	if (!equivalent_types(t1->element_type, t2->element_type, st, cv_equiv))
+	if (!equivalent_types(t1->element_type, t2->element_type, st, CVE_CONSIDER))
 		return 0;
 
 	literal_value_t v1 = evaluate_constant_expression(t1->array_expr, st);
@@ -182,9 +198,53 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* s
 	return 1;
 }
 
-char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv)
+cv_qualifier_t* get_outermost_cv_qualifier(type_t* t)
 {
-	if (!compatible_parameters(t1, t2, st, cv_equiv))
+	// For types that do not have a cv qualifier on their own
+	static cv_qualifier_t dummy_cv_qualif = CV_NONE;
+
+	// This will avoid accidental modifications from outside
+	dummy_cv_qualif = CV_NONE;
+
+	switch (t->kind)
+	{
+		case TK_DIRECT :
+			{
+				if (t->type->kind == STK_TYPEDEF)
+				{
+					return get_outermost_cv_qualifier(t->type->aliased_type);
+				}
+
+				return &(t->type->cv_qualifier);
+				break;
+			}
+		case TK_ARRAY :
+			{
+				return (&dummy_cv_qualif);
+			}
+		case TK_POINTER :
+		case TK_POINTER_TO_MEMBER :
+			{
+				return (&(t->pointer->cv_qualifier));
+			}
+		case TK_REFERENCE :
+			{
+				return (&dummy_cv_qualif);
+			}
+		case TK_FUNCTION :
+			{
+				return (&(t->function->cv_qualifier));
+			}
+		default:
+			{
+				internal_error("Unexpected node type %d\n", t->kind);
+			}
+	}
+}
+
+char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
+{
+	if (!compatible_parameters(t1, t2, st))
 		return 1;
 
 	// If one has return type but the other does not this is an overload
@@ -202,7 +262,7 @@ char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st, 
 			&& (t2->return_type->kind == TK_DIRECT && t2->return_type->type == NULL))
 		return 0;
 
-	if (!equivalent_types(t1->return_type, t2->return_type, st, cv_equiv))
+	if (!equivalent_types(t1->return_type, t2->return_type, st, CVE_CONSIDER))
 	{
 		running_error("You are trying to overload a function by only modifying its return type", 0);
 	}
@@ -210,31 +270,24 @@ char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st, 
 	return 0;
 }
 
-static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv)
+static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st)
 {
-	if (!equivalent_types(t1->return_type, t2->return_type, st, cv_equiv))
+	if (!equivalent_types(t1->return_type, t2->return_type, st, CVE_CONSIDER))
 		return 0;
 
-	if (!compatible_parameters(t1, t2, st, cv_equiv))
+	if (!compatible_parameters(t1, t2, st))
 		return 0;
 
 	return 1;
 }
 
-static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2, enum cv_equivalence_t cv_equiv)
+static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2)
 {
 	// Oh, this turned to be that easy
-	if (cv_equiv == CVE_CONSIDER)
-	{
-		return (cv1 == cv2);
-	}
-	else
-	{
-		return 1;
-	}
+	return (cv1 == cv2);
 }
 
-static char compatible_parameters(function_info_t* t1, function_info_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv)
+static char compatible_parameters(function_info_t* t1, function_info_t* t2, scope_t* st)
 {
 	if (t1->num_parameters != t2->num_parameters)
 		return 0;
@@ -247,7 +300,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, scop
 		type_t* par1 = t1->parameter_list[i]->type_info;
 		type_t* par2 = t2->parameter_list[i]->type_info;
 
-		if (!equivalent_types(par1, par2, st, cv_equiv))
+		if (!equivalent_types(par1, par2, st, CVE_IGNORE_OUTERMOST))
 		{
 			// They are not equivalent types.
 			//
@@ -269,7 +322,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, scop
 				type_t* array_type = (par1->kind == TK_ARRAY) ? par1 : par2;
 				type_t* pointer_type = (par1->kind == TK_POINTER) ? par1 : par2;
 
-				if (!equivalent_types(array_type->array->element_type, pointer_type->pointer->pointee, st, cv_equiv))
+				if (!equivalent_types(array_type->array->element_type, pointer_type->pointer->pointee, st, CVE_CONSIDER))
 				{
 					still_compatible = 0;
 				}
@@ -295,44 +348,12 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, scop
 				}
 				else
 				{
-					if (!equivalent_types(pointer_type->pointer->pointee, function_type, st, cv_equiv))
+					if (!equivalent_types(pointer_type->pointer->pointee, function_type, st, CVE_CONSIDER))
 					{
 						still_compatible = 0;
 					}
 				}
 			}
-			/*
-			 * Compatibility between cv-qualified and non cv-qualified parameters
-			 * in the outermost level of the parameter type specification
-			 *
-			 * i.e.
-			 *    'void f(const int k)' is compatible with 'void g(int k)'
-			 * 
-			 * The outermost level is the same as the base type cv-qualification
-			 */
-			else 
-			{
-				type_t* base_t1 = base_type(par1);
-				type_t* base_t2 = base_type(par2);
-				cv_qualifier_t cv_qualif1 = base_t1->type->cv_qualifier;
-				cv_qualifier_t cv_qualif2 = base_t2->type->cv_qualifier;
-
-				// Save the cv_qualification for both types and try to match
-				// them with an empty qualification (This can be improved, I
-				// know)
-				base_t1->type->cv_qualifier = CV_NONE;
-				base_t2->type->cv_qualifier = CV_NONE;
-
-				if (!equivalent_types(par1, par2, st, cv_equiv))
-				{
-					still_compatible = 0;
-				}
-
-				// Restore the cv_qualifiers
-				base_t1->type->cv_qualifier = cv_qualif1;
-				base_t2->type->cv_qualifier = cv_qualif2;
-			}
-
 		}
 	}
 
@@ -696,8 +717,7 @@ char pointer_can_be_converted_to_dest_rec(type_t* orig, type_t* dest, scope_t* s
 
 	if (orig->kind != TK_POINTER) 
 	{
-#warning Ensure that cv-qualification is well handled here
-		if (equivalent_types(orig, dest, st, CVE_IGNORE))
+		if (equivalent_types(orig, dest, st, CVE_IGNORE_OUTERMOST))
 		{
 			return 1;
 		}

@@ -1754,7 +1754,7 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 
 		function_info_t* current_function = entry->type_information->function;
 
-		found_equal = !overloaded_function(function_being_declared, current_function, st, CVE_CONSIDER);
+		found_equal = !overloaded_function(function_being_declared, current_function, st);
 		if (found_equal)
 		{
 			equal_entry = entry;

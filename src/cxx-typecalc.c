@@ -812,7 +812,7 @@ static type_t* usual_arithmetic_conversions(type_t* t1, type_t* t2, scope_t* st)
 		internal_error("Types in arithmetic conversions should be direct ones", 0);
 	}
 
-	if (equivalent_types(t1, t2, st, CVE_IGNORE))
+	if (equivalent_types(t1, t2, st, CVE_IGNORE_OUTERMOST))
 	{
 		return t1;
 	}

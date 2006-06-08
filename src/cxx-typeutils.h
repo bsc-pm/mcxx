@@ -7,12 +7,12 @@
 enum cv_equivalence_t
 {
 	CVE_UNKNOWN = 0,
-	CVE_IGNORE,
+	CVE_IGNORE_OUTERMOST,
 	CVE_CONSIDER
 };
 
 char equivalent_types(type_t* t1, type_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
-char overloaded_function(function_info_t* f1, function_info_t* f2, scope_t* st, enum cv_equivalence_t cv_equiv);
+char overloaded_function(function_info_t* f1, function_info_t* f2, scope_t* st);
 
 /* Copy functions */
 class_info_t* copy_class_info(class_info_t* class_info);
@@ -24,11 +24,13 @@ pointer_info_t* copy_pointer_info(pointer_info_t* pointer_info);
 enum_info_t* copy_enum_info(enum_info_t* enum_info);
 
 // Equality functions
-char equivalent_builtin_type(simple_type_t *t1, simple_type_t *t2, enum cv_equivalence_t cv_equiv);
+char equivalent_builtin_type(simple_type_t *t1, simple_type_t *t2);
 
 // Conversion functions
 type_t* simple_type_to_type(simple_type_t* simple_type_info);
-char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st, enum cv_equivalence_t cv_equiv);
+char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st);
+
+cv_qualifier_t* get_outermost_cv_qualifier(type_t* t);
 
 // Query functions
 const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st);
