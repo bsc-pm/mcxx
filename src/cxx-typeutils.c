@@ -354,6 +354,10 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, scop
 					}
 				}
 			}
+			else // No other applies
+			{
+				still_compatible = 0;
+			}
 		}
 	}
 

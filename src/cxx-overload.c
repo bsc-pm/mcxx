@@ -89,45 +89,27 @@ static AST get_argument_i(AST argument_list, int i)
 	return NULL;
 }
 
-void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter_type,
-		one_implicit_conversion_sequence_t* sequence, scope_t* st)
+void build_standard_conversion_sequence(type_t* argument_type, value_type_t argument_value_type, 
+		type_t* parameter_type, one_implicit_conversion_sequence_t* sequence, scope_t* st)
 {
 	sequence->kind = ICS_STANDARD;
 
-	// Outermost cv-qualification should be disregarded
-	type_t* base_argument_type = base_type(argument_type);
-	type_t* base_parameter_type = base_type(parameter_type);
-	cv_qualifier_t cv_qualif_argument = base_argument_type->type->cv_qualifier;
-	cv_qualifier_t cv_qualif_parameter = base_parameter_type->type->cv_qualifier;
+	// Innermost cv-qualification will be used for references
+	cv_qualifier_t cv_qualif_argument = base_type(argument_type)->type->cv_qualifier;
+	cv_qualifier_t cv_qualif_parameter = base_type(parameter_type)->type->cv_qualifier;
 
-	// If the outermost cv-qualification of arg is contained in outermost
-	// cv-qualification of parameter it can be disregarded
-	if ((cv_qualif_argument | cv_qualif_parameter) == cv_qualif_parameter)
-	{
-		base_argument_type->type->cv_qualifier = CV_NONE;
-		base_parameter_type->type->cv_qualifier = CV_NONE;
-	}
-
-	if (equivalent_types(argument_type, parameter_type, st, CVE_CONSIDER))
+	if (equivalent_types(argument_type, parameter_type, st, CVE_IGNORE_OUTERMOST))
 	{
 		sequence->scs_category |= SCS_IDENTITY;
 		return;
 	}
 
-	// Restore the cv_qualifiers
-	base_argument_type->type->cv_qualifier = cv_qualif_argument;
-	base_parameter_type->type->cv_qualifier = cv_qualif_parameter;
-
 	// Now consider the case where the parameter is a reference
 	if (is_reference_type(parameter_type))
 	{
-		if (is_reference_compatible(argument_type, parameter_type, st))
+		if (is_reference_compatible(parameter_type->pointer->pointee, argument_type, st))
 		{
 			// If argument_type is an lvalue parameter_type should be a non-volatile const type
-#warning We need the LVALUENESS information here!
-			// Dummy
-			value_type_t argument_value_type = VT_LVALUE;
-
 			if (argument_value_type == VT_LVALUE
 					|| (argument_value_type == VT_RVALUE
 						&& (cv_qualif_parameter == CV_CONST)))
@@ -142,6 +124,8 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 				}
 
 				if (((sequence->scs_category & SCS_CONVERSION) != SCS_CONVERSION)
+						&& is_class_type(parameter_type->pointer->pointee)
+						&& is_class_type(argument_type)
 						&& is_base_class_of(parameter_type->pointer->pointee, argument_type))
 				{
 					// This is a conversion
@@ -175,7 +159,7 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 			}
 
 			// And construct the proper conversion
-			build_standard_conversion_sequence(argument_type, parameter_type, sequence, st);
+			build_standard_conversion_sequence(argument_type, argument_value_type, parameter_type, sequence, st);
 			sequence->scs_category |= SCS_LVALUE_TRANSFORMATION;
 			return;
 		}
@@ -200,7 +184,7 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 
 			sequence->scs_category |= SCS_LVALUE_TRANSFORMATION;
 			// Construct the proper conversion
-			build_standard_conversion_sequence(argument_type, parameter_type, sequence, st);
+			build_standard_conversion_sequence(argument_type, argument_value_type, parameter_type, sequence, st);
 			return;
 		}
 	}
@@ -260,7 +244,6 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 		if (argument_type->kind == TK_POINTER_TO_MEMBER
 				&& parameter_type->kind == TK_POINTER_TO_MEMBER)
 		{
-#warning Check that outermost cv-qualifiers are right here
 			if (equivalent_types(argument_type->pointer->pointee, 
 						parameter_type->pointer->pointee,
 						st, CVE_CONSIDER))
@@ -282,7 +265,7 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 	sequence->scs_category = SCS_UNKNOWN;
 }
 
-void build_user_defined_conversion_sequence(type_t* argument_type, type_t* parameter_type,
+void build_user_defined_conversion_sequence(type_t* argument_type, value_type_t argument_value_type, type_t* parameter_type,
 		one_implicit_conversion_sequence_t* sequence, scope_t* st)
 {
 	sequence->kind = ICS_USER_DEFINED;
@@ -311,8 +294,8 @@ void build_user_defined_conversion_sequence(type_t* argument_type, type_t* param
 			memset(&attempt_scs, 0, sizeof(attempt_scs));
 
 			// It is possible to build a SCS from the converted type to the parameter type ?
-			build_standard_conversion_sequence(conv_funct->conversion_type, parameter_type, 
-					&attempt_scs, st);
+			build_standard_conversion_sequence(conv_funct->conversion_type, argument_value_type, 
+					parameter_type, &attempt_scs, st);
 
 			if (attempt_scs.scs_category != SCS_UNKNOWN)
 			{
@@ -365,7 +348,7 @@ void build_user_defined_conversion_sequence(type_t* argument_type, type_t* param
 					&& !constructor_type->function->is_explicit)
 			{
 				// It is possible to build a SCS from the converted type to the parameter type ?
-				build_standard_conversion_sequence(argument_type, 
+				build_standard_conversion_sequence(argument_type, argument_value_type,
 						constructor_type->function->parameter_list[0]->type_info, 
 						&attempt_scs, st);
 
@@ -413,7 +396,7 @@ build_one_implicit_conversion_sequence(scope_entry_t* entry, int n_arg, AST argu
 	type_t* parameter_type = entry->type_information->function->parameter_list[n_arg]->type_info;
 
 	// Copy the types since this function will modify them
-	build_standard_conversion_sequence(copy_type(argument_type), 
+	build_standard_conversion_sequence(copy_type(argument_type), type_result_set->value_type,
 			copy_type(parameter_type), result, st);
 
 	if (result->scs_category != SCS_UNKNOWN)
@@ -483,7 +466,7 @@ build_one_implicit_conversion_sequence(scope_entry_t* entry, int n_arg, AST argu
 	// Clear the result
 	memset(result, 0, sizeof(*result));
 
-	build_user_defined_conversion_sequence(copy_type(argument_type), 
+	build_user_defined_conversion_sequence(copy_type(argument_type), type_result_set->value_type,
 			copy_type(parameter_type), result, st);
 
 	if (result->udc_category == UDC_UNKNOWN)
