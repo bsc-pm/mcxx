@@ -41,9 +41,14 @@ void print_declarator(type_t* printed_declarator, scope_t* st);
 char is_fundamental_type(type_t* t);
 char is_integral_type(type_t* t);
 char is_floating_type(type_t* t);
+char is_enumerated_type(type_t* t);
 
 char can_be_promoted_to_dest(type_t* orig, type_t* dest);
 char can_be_converted_to_dest(type_t* orig, type_t* dest);
+
+char is_reference_type(type_t* t1);
+char is_reference_related(type_t* rt1, type_t* rt2, scope_t* st);
+char is_reference_compatible(type_t* t1, type_t* t2, scope_t* st);
 
 char pointer_can_be_converted_to_dest(type_t* orig, type_t* dest, scope_t* st);
 

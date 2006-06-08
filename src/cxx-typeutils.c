@@ -433,6 +433,23 @@ char is_integral_type(type_t* t)
 			&& t->type->builtin_type == BT_INT);
 }
 
+char is_enumerated_type(type_t* t)
+{
+	// Advance over typedefs
+	while (t->kind == TK_DIRECT
+			&& t->type->kind == STK_TYPEDEF)
+	{
+		t = t->type->aliased_type;
+	}
+
+	return (t->kind == TK_DIRECT
+			&& ((t->type->kind == STK_USER_DEFINED
+					&& t->type->user_defined_type != NULL
+					&& t->type->user_defined_type->type_information->kind == TK_DIRECT
+					&& t->type->user_defined_type->type_information->type->kind == STK_ENUM)
+				|| (t->type->kind == STK_ENUM)));
+}
+
 char is_floating_type(type_t* t)
 {
 	// Advance over typedefs
@@ -509,6 +526,73 @@ char can_be_promoted_to_dest(type_t* orig, type_t* dest)
 
 	// Doesn't look promotionable to me
 	return 0;
+}
+
+char is_reference_type(type_t* t1)
+{
+	return (t1->kind == TK_REFERENCE);
+}
+
+char is_reference_related(type_t* t1, type_t* t2, scope_t* st)
+{
+	// cv1 t1 and cv2 t2 are reference related if
+	//
+	// a) t1 == t2, or if not
+	// b) t1 belongs to base(t2), provided t1 and t2 are of class type
+	
+	cv_qualifier_t cv1 = base_type(t1)->type->cv_qualifier;
+	cv_qualifier_t cv2 = base_type(t2)->type->cv_qualifier;
+
+	// Ignore outermost
+	base_type(t1)->type->cv_qualifier = CV_NONE;
+	base_type(t2)->type->cv_qualifier = CV_NONE;
+	
+	if (equivalent_types(t1, t2, st, CVE_CONSIDER))
+	{
+		return 1;
+	}
+	else if (is_class_type(t1)
+			&& is_class_type(t2))
+	{
+		if (is_base_class_of(t1, t2))
+		{
+			return 1;
+		}
+	}
+
+	base_type(t1)->type->cv_qualifier = cv1;
+	base_type(t2)->type->cv_qualifier = cv2;
+
+	return 0;
+}
+
+char is_reference_compatible(type_t* t1, type_t* t2, scope_t* st)
+{
+	// cv1 t1 and cv2 t2 are reference compatible if
+	//
+	// a) cv1 t1 and cv2 t2 are reference related
+	// b) and cv1 is greater or equal to cv2
+	
+	if (is_reference_related(t1, t2, st))
+	{
+		// They are references
+		cv_qualifier_t cv1 = base_type(t1)->type->cv_qualifier;
+		cv_qualifier_t cv2 = base_type(t2)->type->cv_qualifier;
+
+		// cv1 is more qualified if everything in cv2 is also in cv1
+		if ((cv1 | cv2) == cv1)
+		{
+			return 1;
+		}
+		else
+		{
+			return 0;
+		}
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 char can_be_converted_to_dest(type_t* orig, type_t* dest)

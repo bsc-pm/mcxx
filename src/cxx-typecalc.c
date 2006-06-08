@@ -10,6 +10,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-overload.h"
 #include "cxx-ambiguity.h"
+#include "cxx-koenig.h"
 
 /*
  * Calculates the type of an expression
@@ -111,6 +112,57 @@ type_t* new_int_type(void)
 	return result;
 }
 
+calculated_type_t* calculate_functional_expression_type(AST a, AST arguments, scope_t* st)
+{
+	switch (ASTType(a))
+	{
+		case AST_PARENTHESIZED_EXPRESSION :
+			{
+				return calculate_functional_expression_type(ASTSon0(a), arguments, st);
+			}
+		case AST_SYMBOL :
+			{
+				calculated_type_t* result = NULL;
+				
+				// Koenig lookup here!
+				scope_entry_list_t* function_lookup = NULL;
+				function_lookup = lookup_unqualified_function(st, ASTText(a), arguments);
+
+				enum cxx_symbol_kind filter_funct[2] =
+				{ 
+					SK_FUNCTION,
+					SK_TEMPLATE_FUNCTION
+				};
+				function_lookup = filter_symbol_kind_set(function_lookup, 2, filter_funct);
+
+				if (function_lookup == NULL)
+				{
+					internal_error("Function '%s' not found\n", ASTText(a));
+				}
+
+				if (function_lookup->entry->kind == SK_FUNCTION)
+				{
+					result = GC_CALLOC(1, sizeof(*result));
+					scope_entry_list_t* iter = function_lookup;
+
+					// This is rather ugly
+					while (iter != NULL)
+					{
+						result->num_types++;
+						iter = iter->next;
+					}
+
+					result->overloaded_functions = function_lookup;
+
+				}
+
+				return result;
+				break;
+			}
+		default :
+			return calculate_expression_type(a, st);
+	}
+}
 
 calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 {
@@ -378,7 +430,7 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 				AST function_expr = ASTSon0(a);
 				AST argument_list = ASTSon1(a);
 
-				calculated_type_t* function_expr_type = calculate_expression_type(function_expr, st);
+				calculated_type_t* function_expr_type = calculate_functional_expression_type(function_expr, argument_list, st);
 
 				type_t* function_type;
 				if (function_expr_type->num_types > 1)

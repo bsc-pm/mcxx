@@ -81,26 +81,31 @@ static void print_scope_entry_list(scope_entry_list_t* entry_list, scope_t* st, 
 		{
 			if (entry_list->entry->related_scope->template_scope != NULL)
 			{
-				PRINT_INDENTED_LINE(stderr, global_indent+1, "[TEMPLATE_SCOPE]\n");
+				PRINT_INDENTED_LINE(stderr, global_indent+1, "[TEMPLATE_SCOPE - %p]\n", 
+						entry_list->entry->related_scope->template_scope);
 				print_scope(entry_list->entry->related_scope->template_scope, global_indent+2);
 			}
 			if (entry_list->entry->related_scope->kind == FUNCTION_SCOPE)
 			{
 				if (entry_list->entry->related_scope->prototype_scope != NULL)
 				{
-					PRINT_INDENTED_LINE(stderr, global_indent+1, "[PROTOTYPE_SCOPE]\n");
+					PRINT_INDENTED_LINE(stderr, global_indent+1, "[PROTOTYPE_SCOPE - %p]\n",
+							entry_list->entry->related_scope->prototype_scope);
 					print_scope(entry_list->entry->related_scope->prototype_scope, global_indent+2);
 				}
 				if (entry_list->entry->related_scope->function_scope != NULL)
 				{
-					PRINT_INDENTED_LINE(stderr, global_indent+1, "[FUNCTION_SCOPE]\n");
+					PRINT_INDENTED_LINE(stderr, global_indent+1, "[FUNCTION_SCOPE - %p]\n",
+							entry_list->entry->related_scope->function_scope);
 					print_scope(entry_list->entry->related_scope->function_scope, global_indent+2);
 				}
 			}
 
 			if (entry_list->entry->related_scope != NULL)
 			{
-				PRINT_INDENTED_LINE(stderr, global_indent+1, "[%s]\n", scope_names[entry_list->entry->related_scope->kind]);
+				PRINT_INDENTED_LINE(stderr, global_indent+1, "[%s - %p]\n", 
+						scope_names[entry_list->entry->related_scope->kind],
+						entry_list->entry->related_scope);
 				print_scope(entry_list->entry->related_scope, global_indent+2);
 			}
 		}

@@ -100,13 +100,9 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 	cv_qualifier_t cv_qualif_argument = base_argument_type->type->cv_qualifier;
 	cv_qualifier_t cv_qualif_parameter = base_parameter_type->type->cv_qualifier;
 
-#warning Consider references to const binding to const
 	// If the outermost cv-qualification of arg is contained in outermost
 	// cv-qualification of parameter it can be disregarded
-	if ((((cv_qualif_argument & CV_CONST) != CV_CONST) 
-				|| ((cv_qualif_parameter & CV_CONST) == CV_CONST))
-			&& (((cv_qualif_argument & CV_VOLATILE) != CV_VOLATILE) 
-				|| ((cv_qualif_parameter & CV_VOLATILE) == CV_VOLATILE)))
+	if ((cv_qualif_argument | cv_qualif_parameter) == cv_qualif_parameter)
 	{
 		base_argument_type->type->cv_qualifier = CV_NONE;
 		base_parameter_type->type->cv_qualifier = CV_NONE;
@@ -121,6 +117,40 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 	// Restore the cv_qualifiers
 	base_argument_type->type->cv_qualifier = cv_qualif_argument;
 	base_parameter_type->type->cv_qualifier = cv_qualif_parameter;
+
+	// Now consider the case where the parameter is a reference
+	if (is_reference_type(parameter_type))
+	{
+		if (is_reference_compatible(argument_type, parameter_type, st))
+		{
+			// If argument_type is an lvalue parameter_type should be a non-volatile const type
+#warning We need the LVALUENESS information here!
+			// Dummy
+			value_type_t argument_value_type = VT_LVALUE;
+
+			if (argument_value_type == VT_LVALUE
+					|| (argument_value_type == VT_RVALUE
+						&& (cv_qualif_parameter == CV_CONST)))
+			{
+				sequence->scs_category |= SCS_IDENTITY;
+
+				if (cv_qualif_argument != cv_qualif_parameter
+						&& ((cv_qualif_argument | cv_qualif_parameter) == cv_qualif_parameter))
+				{
+					// The argument is less cv-qualified than the parameter
+					sequence->scs_category |= SCS_QUALIFICATION_ADJUSTMENT;
+				}
+
+				if (((sequence->scs_category & SCS_CONVERSION) != SCS_CONVERSION)
+						&& is_base_class_of(parameter_type->pointer->pointee, argument_type))
+				{
+					// This is a conversion
+					sequence->scs_category |= SCS_CONVERSION;
+				}
+				return;
+			}
+		}
+	}
 
 	if ((sequence->scs_category & SCS_LVALUE_TRANSFORMATION) != SCS_LVALUE_TRANSFORMATION)
 	{
@@ -185,13 +215,19 @@ void build_standard_conversion_sequence(type_t* argument_type, type_t* parameter
 			if (can_be_promoted_to_dest(argument_type, parameter_type))
 			{
 				sequence->scs_category |= SCS_PROMOTION;
+				return;
 			}
 			else if (can_be_converted_to_dest(argument_type, parameter_type))
 			{
 				sequence->scs_category |= SCS_CONVERSION;
+				return;
 			}
-
-			return;
+		}
+		else if (is_enumerated_type(argument_type) 
+				&& is_fundamental_type(parameter_type))
+		{
+				sequence->scs_category |= SCS_CONVERSION;
+				return;
 		}
 
 		/*
@@ -469,55 +505,10 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 
 	implicit_conversion_sequence_t* result = GC_CALLOC(1, sizeof(*result));
 
-	// Consider "this" pseudoargument and its associated pseudo parameter
-	// If the considered function is member
-#if 0
-	if (entry->type_information->function->is_member)
-	{
-		// Search "this"
-		scope_entry_list_t* this_query = query_unqualified_name(st, "this");
-		if (this_query == NULL)
-		{
-			if (!entry->type_information->function->is_static)
-			{
-				// The function we are trying to call is a non static member
-				// that cannot be called in this context
-				return NULL;
-			}
-			else
-			{
-				// Otherwise we are trying to call a static member, this is fine
-				// implicit argument is ignored here
-			}
-		}
-		else
-		{
-			scope_entry_t* this_variable = this_query->entry;
-			type_t* this_variable_type = this_variable->type_information;
-			type_t* this_value_type = this_variable_type->pointer->pointee;
-			type_t* considered_function_type = entry->type_information;
-			// This is a pointer
-			// If it points to a const object then the function should be const too,
-			// otherwise it is not viable
-			if ((this_value_type->type->cv_qualifier & CV_CONST) == CV_CONST)
-			{
-				if ((considered_function_type->function->cv_qualifier & CV_CONST) != CV_CONST)
-				{
-					return NULL;
-				}
-			}
-
-			if ((this_value_type->type->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
-			{
-				if ((considered_function_type->function->cv_qualifier & CV_VOLATILE) != CV_VOLATILE)
-				{
-					return NULL;
-				}
-			}
-		}
-	}
-#endif
-
+#warning Non const member functions are not viable if the object where invoked is not const too
+	fprintf(stderr, "Building ICS for function '");
+	print_declarator(entry->type_information, st);
+	fprintf(stderr, "'\n");
 	DEBUG_MESSAGE("Number of arguments = %d | Number of parameters = %d", num_args, num_pars);
 
 	for (i = 0; i < num_args; i++)
@@ -536,12 +527,19 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 
 			if (one_ics == NULL)
 			{
+				fprintf(stderr, "Function '");
+				print_declarator(entry->type_information, st);
+				fprintf(stderr, "' does not have an ICS\n");
 				return NULL;
 			}
 
 			P_LIST_ADD(result->conversion, result->num_arg, one_ics);
 		}
 	}
+
+	fprintf(stderr, "Built an ICS for function '");
+	print_declarator(entry->type_information, st);
+	fprintf(stderr, "'\n");
 
 	return result;
 }
@@ -566,7 +564,7 @@ static char is_better_standard_conversion_sequence(one_implicit_conversion_seque
 		}
 
 		// Every conversion in s2 is in s1. Thus s1 is better
-		if ((s1->scs_category & s2->scs_category) == s1->scs_category)
+		if ((s1->scs_category | s2->scs_category) == s1->scs_category)
 		{
 			return 1;
 		}
@@ -859,6 +857,9 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
 	else
 	{
 		DEBUG_MESSAGE("Determined the best viable function", 0);
+		fprintf(stderr, "Best viable function is '");
+		print_declarator(result->entry->type_information, result->entry->scope);
+		fprintf(stderr, "'\n");
 		return result->entry;
 	}
 }
