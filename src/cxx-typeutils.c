@@ -19,6 +19,17 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* s
 static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st);
 static char compatible_parameters(function_info_t* t1, function_info_t* t2, scope_t* st);
 
+type_t* advance_over_typedefs(type_t* t1)
+{
+	// Advance over typedefs
+	while (is_typedef_type(t1))
+	{
+		t1 = aliased_type(t1);
+	}
+
+	return t1;
+}
+
 /*
  * States if two types are equivalent. This means that they are the same
  * (ignoring typedefs). Just plain comparison, no standard conversion is
@@ -30,15 +41,8 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st, enum cv_equivalence_t
 		return 1;
 
 	// Advance over typedefs
-	while (is_typedef_type(t1))
-	{
-		t1 = aliased_type(t1);
-	}
-
-	while (is_typedef_type(t2))
-	{
-		t2 = aliased_type(t2);
-	}
+	t1 = advance_over_typedefs(t1);
+	t2 = advance_over_typedefs(t2);
 
 	if (t1->kind != t2->kind)
 	{
@@ -434,11 +438,7 @@ type_t* base_type(type_t* t1)
 char is_fundamental_type(type_t* t)
 {
 	// Advance over typedefs
-	while (t->kind == TK_DIRECT
-			&& t->type->kind == STK_TYPEDEF)
-	{
-		t = t->type->aliased_type;
-	}
+	t = advance_over_typedefs(t);
 
 	return (t->kind == TK_DIRECT
 			&& t->type->kind == STK_BUILTIN_TYPE);
@@ -447,25 +447,62 @@ char is_fundamental_type(type_t* t)
 char is_integral_type(type_t* t)
 {
 	// Advance over typedefs
-	while (t->kind == TK_DIRECT
-			&& t->type->kind == STK_TYPEDEF)
-	{
-		t = t->type->aliased_type;
-	}
+	t = advance_over_typedefs(t);
 
 	return (t->kind == TK_DIRECT
 			&& t->type->kind == STK_BUILTIN_TYPE
 			&& t->type->builtin_type == BT_INT);
 }
 
+char is_pointer_type(type_t* t)
+{
+	// Advance over typedefs
+	t = advance_over_typedefs(t);
+
+	return (t->kind == TK_POINTER);
+}
+
+char is_array_type(type_t* t)
+{
+	// Advance over typedefs
+	t = advance_over_typedefs(t);
+
+	return (t->kind == TK_ARRAY);
+}
+
+char is_pointer_to_class_type(type_t* t1)
+{
+	return (is_pointer_type(t1) && is_class_type(t1->pointer->pointee));
+}
+
+char is_reference_to_class_type(type_t* t1)
+{
+	return (is_reference_type(t1) && is_class_type(t1->pointer->pointee));
+}
+
+char is_void_pointer_type(type_t* t)
+{
+	// Advance over typedefs
+	t = advance_over_typedefs(t);
+
+	if (t->kind == TK_POINTER
+			&& t->pointer->pointee->kind == TK_DIRECT
+			&& t->pointer->pointee->type->kind == STK_BUILTIN_TYPE
+			&& t->pointer->pointee->type->builtin_type == BT_VOID);
+}
+
+char is_pointer_to_member_type(type_t* t)
+{
+	// Advance over typedefs
+	t = advance_over_typedefs(t);
+
+	return (t->kind == TK_POINTER_TO_MEMBER);
+}
+
 char is_enumerated_type(type_t* t)
 {
 	// Advance over typedefs
-	while (t->kind == TK_DIRECT
-			&& t->type->kind == STK_TYPEDEF)
-	{
-		t = t->type->aliased_type;
-	}
+	t = advance_over_typedefs(t);
 
 	return (t->kind == TK_DIRECT
 			&& ((t->type->kind == STK_USER_DEFINED
@@ -478,11 +515,7 @@ char is_enumerated_type(type_t* t)
 char is_floating_type(type_t* t)
 {
 	// Advance over typedefs
-	while (t->kind == TK_DIRECT
-			&& t->type->kind == STK_TYPEDEF)
-	{
-		t = t->type->aliased_type;
-	}
+	t = advance_over_typedefs(t);
 
 	return (t->kind == TK_DIRECT
 			&& t->type->kind == STK_BUILTIN_TYPE
@@ -620,6 +653,16 @@ char is_reference_compatible(type_t* t1, type_t* t2, scope_t* st)
 	}
 }
 
+char is_bool_type(type_t* t1)
+{
+	// Advance over typedefs
+	t1 = advance_over_typedefs(t1);
+
+	return (t1->kind == TK_DIRECT
+			&& t1->type->kind == STK_BUILTIN_TYPE
+			&& t1->type->builtin_type == BT_BOOL);
+}
+
 char can_be_converted_to_dest(type_t* orig, type_t* dest)
 {
 	simple_type_t* orig_simple_type = orig->type;
@@ -711,46 +754,87 @@ char is_base_class_of(type_t* possible_base, type_t* possible_derived)
 	return 0;
 }
 
-char pointer_can_be_converted_to_dest_rec(type_t* orig, type_t* dest, scope_t* st, char* all_previous_are_const)
+char pointer_can_be_converted_to_dest_rec(type_t* orig, type_t* dest, scope_t* st, 
+		char* all_previous_are_const, char* to_void, char* derived_to_base, char* cv_adjustment)
 {
+	/*
+	 * orig is the original pointer type
+	 *
+	 *   int * * b;
+	 *
+	 * and dest is the destination pointer type
+	 *
+	 *   int * * const c;
+	 *
+	 * Example:
+	 *
+	 *   void f(int * * const c);
+	 *   void g()
+	 *   {
+	 *      int * * b;
+	 *      f(b); <-- Valid
+	 *   }
+	 *
+	 * dest has to be more cv-qualified in general than b
+	 */
+
+	orig = advance_over_typedefs(orig);
+	dest = advance_over_typedefs(dest);
+
 	if (orig->kind != dest->kind)
 	{
 		return 0;
 	}
-	// orig->kind == dest->kind
 
 	if (orig->kind != TK_POINTER) 
 	{
-		if (equivalent_types(orig, dest, st, CVE_IGNORE_OUTERMOST))
+		if (equivalent_types(orig, dest, st, CVE_IGNORE_OUTERMOST)
+				|| (dest->type->kind == STK_BUILTIN_TYPE
+					&& dest->type->builtin_type == BT_VOID))
 		{
-			return 1;
+			// We should ensure that dest is equal or more cv-qualified
+			cv_qualifier_t cv_qualif_dest = *(get_outermost_cv_qualifier(dest));
+			cv_qualifier_t cv_qualif_orig = *(get_outermost_cv_qualifier(orig));
+
+			*to_void = (dest->type->kind == STK_BUILTIN_TYPE 
+					&& dest->type->builtin_type == BT_VOID);
+
+			if ((cv_qualif_dest | cv_qualif_orig) == cv_qualif_dest)
+			{
+				return 1;
+			}
+			else
+			{
+				return 0;
+			}
 		}
-		else
+		else if (is_named_class_type(orig) && is_named_class_type(dest))
 		{
 			// If both are classes check if dest is a base of orig
 			// B* can be pointer qualified to A* if A is a base of B
-			if (is_named_class_type(orig) && is_named_class_type(dest))
+			if (is_base_class_of(dest, orig))
 			{
-				return is_base_class_of(dest, orig);
+				*derived_to_base = 1;
+				return 1;
 			}
 		}
 	}
 
 	// orig->kind == dest->kind == TK_POINTER
 	// Example:
-	//    orig : int * const * const a;
-	//    dest:  int * const *       a;
+	//    orig:  int * * const * *       a;
+	//    dest:  int * * const * const * const a;
 	//
 	//  (orig can be converted to dest)
 
-	// If the dest pointer is qualified, so does have to the orig one
-	if (dest->pointer->cv_qualifier != CV_NONE 
-			&& dest->pointer->cv_qualifier != orig->pointer->cv_qualifier)
+	// If the orig pointer is qualified, so does have to the dest one
+	if ((orig->pointer->cv_qualifier | dest->pointer->cv_qualifier) != 
+			orig->pointer->cv_qualifier)
 	{
 		return 0;
 	}
 
-	// If the origin pointer is const-qualified every previous pointer
+	// If the dest pointer is const-qualified every previous pointer
 	// should have been const-qualified
 	if ((dest->pointer->cv_qualifier & CV_CONST) == CV_CONST)
 	{
@@ -758,21 +842,29 @@ char pointer_can_be_converted_to_dest_rec(type_t* orig, type_t* dest, scope_t* s
 		{
 			return 0;
 		}
+		*cv_adjustment = 1;
 	}
 	else
 	{
 		*all_previous_are_const = 0;
 	}
 
-	return pointer_can_be_converted_to_dest_rec(orig->pointer->pointee, dest->pointer->pointee, st, all_previous_are_const);
+	return pointer_can_be_converted_to_dest_rec(orig->pointer->pointee, dest->pointer->pointee, st, 
+			all_previous_are_const, to_void, derived_to_base, cv_adjustment);
 }
 
-char pointer_can_be_converted_to_dest(type_t* orig, type_t* dest, scope_t* st)
+char pointer_can_be_converted_to_dest(type_t* orig, type_t* dest, scope_t* st, 
+		char* to_void, char* derived_to_base, char* cv_adjust)
 {
 	// This holds for the first pointer
 	char all_previous_are_const = 1;
 
-	return pointer_can_be_converted_to_dest_rec(orig, dest, st, &all_previous_are_const);
+	*to_void = 0;
+	*derived_to_base = 0;
+	*cv_adjust = 0;
+
+	return pointer_can_be_converted_to_dest_rec(orig, dest, st,
+			&all_previous_are_const, to_void, derived_to_base, cv_adjust);
 }
 
 /*
@@ -1119,12 +1211,12 @@ cv_qualifier_t get_cv_qualifier(type_t* type_info)
 	{
 		case TK_DIRECT: 
 			{
+				type_info = advance_over_typedefs(type_info);
 				return type_info->type->cv_qualifier;
 			}
 		case TK_FUNCTION :
 			{
-				// ??? - TODO - Not clear. At the moment assume not.
-				return CV_NONE;
+				return type_info->function->cv_qualifier;
 			}
 		case TK_ARRAY :
 			{
@@ -1140,7 +1232,7 @@ cv_qualifier_t get_cv_qualifier(type_t* type_info)
 			}
 		case TK_REFERENCE :
 			{
-				return get_cv_qualifier(type_info->pointer->pointee);
+				return CV_NONE;
 			}
 		default:
 			{

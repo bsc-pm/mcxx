@@ -900,10 +900,7 @@ static char check_for_destructor_id(AST expr, scope_t* st)
 	}
 
 	// Advance over typedefs
-	while (type_result->type->kind == STK_TYPEDEF)
-	{
-		type_result = type_result->type->aliased_type;
-	}
+	type_result = advance_over_typedefs(type_result);
 
 	if (type_result->type->kind == STK_USER_DEFINED)
 	{

@@ -89,24 +89,32 @@ static AST get_argument_i(AST argument_list, int i)
 	return NULL;
 }
 
-void build_standard_conversion_sequence(type_t* argument_type, value_type_t argument_value_type, 
-		type_t* parameter_type, one_implicit_conversion_sequence_t* sequence, scope_t* st)
+static void build_standard_conversion_sequence(type_t* argument_type, value_type_t argument_value_type, 
+		type_t* parameter_type, standard_conversion_sequence_t* sequence, scope_t* st)
 {
-	sequence->kind = ICS_STANDARD;
+	// Advance over typedefs
+	argument_type = advance_over_typedefs(argument_type);
+	parameter_type = advance_over_typedefs(parameter_type);
 
-	// Innermost cv-qualification will be used for references
-	cv_qualifier_t cv_qualif_argument = base_type(argument_type)->type->cv_qualifier;
-	cv_qualifier_t cv_qualif_parameter = base_type(parameter_type)->type->cv_qualifier;
-
+	// If the types are the same except for top level cv_qualifier, then this
+	// is a standard conversion sequence of identity conversion
 	if (equivalent_types(argument_type, parameter_type, st, CVE_IGNORE_OUTERMOST))
 	{
 		sequence->scs_category |= SCS_IDENTITY;
 		return;
 	}
-
-	// Now consider the case where the parameter is a reference
+	
+	// A plenty of cases for reference binding
 	if (is_reference_type(parameter_type))
 	{
+		cv_qualifier_t cv_qualif_parameter = *(get_outermost_cv_qualifier(parameter_type->pointer->pointee));
+		cv_qualifier_t cv_qualif_argument = *(get_outermost_cv_qualifier(argument_type));
+
+		if (is_reference_type(argument_type))
+		{
+			cv_qualif_argument = *(get_outermost_cv_qualifier(argument_type->pointer->pointee));
+		}
+
 		if (is_reference_compatible(parameter_type->pointer->pointee, argument_type, st))
 		{
 			// If argument_type is an lvalue parameter_type should be a non-volatile const type
@@ -114,28 +122,57 @@ void build_standard_conversion_sequence(type_t* argument_type, value_type_t argu
 					|| (argument_value_type == VT_RVALUE
 						&& (cv_qualif_parameter == CV_CONST)))
 			{
-				sequence->scs_category |= SCS_IDENTITY;
+				char is_valid = 1;
+				char is_cv_qualif_adjust = 0;
+				char is_conversion = 0;
 
 				if (cv_qualif_argument != cv_qualif_parameter
 						&& ((cv_qualif_argument | cv_qualif_parameter) == cv_qualif_parameter))
 				{
-					// The argument is less cv-qualified than the parameter
-					sequence->scs_category |= SCS_QUALIFICATION_ADJUSTMENT;
+					if ((sequence->scs_category & SCS_QUALIFICATION_ADJUSTMENT) 
+							!= SCS_QUALIFICATION_ADJUSTMENT)
+					{
+						// The argument is less cv-qualified than the parameter
+						is_cv_qualif_adjust = 1;
+					}
+					else
+					{
+						is_valid = 0;
+					}
 				}
 
-				if (((sequence->scs_category & SCS_CONVERSION) != SCS_CONVERSION)
-						&& is_class_type(parameter_type->pointer->pointee)
+				if (is_class_type(parameter_type->pointer->pointee)
 						&& is_class_type(argument_type)
 						&& is_base_class_of(parameter_type->pointer->pointee, argument_type))
 				{
-					// This is a conversion
-					sequence->scs_category |= SCS_CONVERSION;
+					if ((sequence->scs_category & SCS_CONVERSION) != SCS_CONVERSION)
+					{
+						is_conversion = 1;
+					}
+					else
+					{
+						is_valid = 0;
+					}
 				}
-				return;
+
+				if (is_valid)
+				{
+					sequence->scs_category |= SCS_IDENTITY;
+					if (is_cv_qualif_adjust)
+					{
+						sequence->scs_category |= SCS_QUALIFICATION_ADJUSTMENT;
+					}
+					if (is_conversion)
+					{
+						sequence->scs_category |= SCS_CONVERSION;
+					}
+					return;
+				}
 			}
 		}
 	}
 
+	// Lvalue conversions
 	if ((sequence->scs_category & SCS_LVALUE_TRANSFORMATION) != SCS_LVALUE_TRANSFORMATION)
 	{
 		// Check array to pointer
@@ -158,9 +195,9 @@ void build_standard_conversion_sequence(type_t* argument_type, value_type_t argu
 				parameter_type->pointer->pointee = parameter_type->array->element_type;
 			}
 
+			sequence->scs_category |= SCS_LVALUE_TRANSFORMATION;
 			// And construct the proper conversion
 			build_standard_conversion_sequence(argument_type, argument_value_type, parameter_type, sequence, st);
-			sequence->scs_category |= SCS_LVALUE_TRANSFORMATION;
 			return;
 		}
 
@@ -213,6 +250,13 @@ void build_standard_conversion_sequence(type_t* argument_type, value_type_t argu
 				sequence->scs_category |= SCS_CONVERSION;
 				return;
 		}
+		else if (is_class_type(argument_type)
+				&& is_class_type(parameter_type)
+				&& is_base_class_of(parameter_type, argument_type))
+		{
+			sequence->scs_category |= SCS_CONVERSION;
+			return;
+		}
 
 		/*
 		 * T1 *a;
@@ -221,16 +265,54 @@ void build_standard_conversion_sequence(type_t* argument_type, value_type_t argu
 		 *   a = b;
 		 *
 		 * is valid (provided T1 and T2 are different types) only if T1 is a base class of T2
+		 * or if T1 is a void type
 		 */
-		if (argument_type->kind == TK_POINTER
-				&& parameter_type->kind == TK_POINTER)
+		if (is_pointer_type(argument_type)
+				&& is_pointer_type(parameter_type))
 		{
-			if (pointer_can_be_converted_to_dest(argument_type, parameter_type, st))
+			char to_void = 0;
+			char derived_to_base = 0;
+			char cv_adjust = 0;
+			if (pointer_can_be_converted_to_dest(argument_type, parameter_type, st, &to_void, 
+						&derived_to_base, &cv_adjust))
 			{
-				sequence->scs_category |= SCS_CONVERSION;
-			}
+				char valid = 1;
 
-			return;
+				if (to_void || derived_to_base)
+				{
+					if ((sequence->scs_category & SCS_CONVERSION) == SCS_CONVERSION)
+					{
+						valid = 0;
+					}
+				}
+
+				if (cv_adjust)
+				{
+					if (valid || ((sequence->scs_category & SCS_QUALIFICATION_ADJUSTMENT) 
+								== SCS_QUALIFICATION_ADJUSTMENT))
+					{
+						valid = 0;
+					}
+				}
+
+				if (valid)
+				{
+					if (to_void)
+					{
+						sequence->is_nonvoid_pointer_to_void = 1;
+					}
+					if (derived_to_base || to_void)
+					{
+						sequence->scs_category |= SCS_CONVERSION;
+					}
+
+					if (cv_adjust)
+					{
+						sequence->scs_category |= SCS_QUALIFICATION_ADJUSTMENT;
+					}
+					return;
+				}
+			}
 		}
 
 		/*
@@ -241,8 +323,8 @@ void build_standard_conversion_sequence(type_t* argument_type, value_type_t argu
 		 *
 		 * is valid if A is a base class of B (just the opposite of the previous case)
 		 */
-		if (argument_type->kind == TK_POINTER_TO_MEMBER
-				&& parameter_type->kind == TK_POINTER_TO_MEMBER)
+		if (is_pointer_to_member_type(argument_type)
+				&& is_pointer_to_member_type(parameter_type))
 		{
 			if (equivalent_types(argument_type->pointer->pointee, 
 						parameter_type->pointer->pointee,
@@ -255,12 +337,26 @@ void build_standard_conversion_sequence(type_t* argument_type, value_type_t argu
 								parameter_type->pointer->pointee_class->type_information))
 					{
 						sequence->scs_category |= SCS_CONVERSION;
+						return;
 					}
 				}
 			}
 		}
 	}
 
+	// Boolean conversions
+	if (is_bool_type(parameter_type))
+	{
+		if (is_integral_type(argument_type)
+				|| is_pointer_type(argument_type)
+				|| is_enumerated_type(argument_type))
+		{
+			sequence->scs_category |= SCS_CONVERSION;
+			sequence->is_pointer_to_bool = 1;
+			return;
+		}
+	}
+	
 	// No valid SCS found
 	sequence->scs_category = SCS_UNKNOWN;
 }
@@ -273,48 +369,63 @@ void build_user_defined_conversion_sequence(type_t* argument_type, value_type_t 
 	//
 	// a) argument is of type class and has an operator that yields a value that can be
 	//    SCS converted to parameter type
-	
+	//
+	// Advance over typedefs
+	argument_type = advance_over_typedefs(argument_type);
+	parameter_type = advance_over_typedefs(parameter_type);
+
 	if (is_class_type(argument_type))
 	{
 		// Check for conversion functions
 #warning TODO - At the moment assume this conversion operator can be called now (if the \
-		 object where it is applied is const it is not feasible to call \
-		 non-const operator).
-#warning TODO - Check that parameter_type is not a base of argument_type
+		object where it is applied is const it is not feasible to call \
+		non-const operator).
+
 		type_t* class_type = get_class_type(argument_type);
 
 		one_implicit_conversion_sequence_t attempt_scs;
-
 		int i;
 		for (i = 0; i < class_type->type->class_info->num_conversion_functions; i++)
 		{
-			conversion_function_t* conv_funct = class_type->type->class_info->conversion_function_list[i];
-
 			// Clear this attempt SCS
 			memset(&attempt_scs, 0, sizeof(attempt_scs));
+			// It is possible to build a SCS from the original argument expression type to the class type ?
+			build_standard_conversion_sequence(argument_type, argument_value_type, 
+					class_type, &(attempt_scs.standard_conversion[0]), st);
 
-			// It is possible to build a SCS from the converted type to the parameter type ?
-			build_standard_conversion_sequence(conv_funct->conversion_type, argument_value_type, 
-					parameter_type, &attempt_scs, st);
-
-			if (attempt_scs.scs_category != SCS_UNKNOWN)
+			if (attempt_scs.standard_conversion[0].scs_category != SCS_UNKNOWN)
 			{
-				// It is possible
-				if (sequence->udc_category != UDC_VALID)
+				conversion_function_t* conv_funct = class_type->type->class_info->conversion_function_list[i];
+
+				// It is possible to build a SCS from the converted type to the parameter type ?
+				build_standard_conversion_sequence(conv_funct->conversion_type, argument_value_type, 
+						parameter_type, &(attempt_scs.standard_conversion[1]), st);
+
+				if (attempt_scs.standard_conversion[1].scs_category != SCS_UNKNOWN)
 				{
-					sequence->udc_category = UDC_VALID;
-					sequence->scs_category = attempt_scs.scs_category;
-					sequence->udc_conv_funct = conv_funct;
-				}
-				else
-				{
-					// There is more than one conversion possible (it is a bit
-					// strange this could happen with just conversion operators
-					// but let's consider this case anyway)
-					sequence->udc_category = UDC_AMBIGUOUS;
-					sequence->scs_category = SCS_UNKNOWN;
-					sequence->udc_constr_funct = NULL;
-					sequence->udc_conv_funct = NULL;
+					// It is possible
+					if (sequence->user_defined.udc_category != UDC_VALID
+							&& sequence->user_defined.udc_category != UDC_AMBIGUOUS)
+					{
+						sequence->user_defined.udc_category = UDC_VALID;
+						sequence->standard_conversion[0] = attempt_scs.standard_conversion[0];
+						sequence->standard_conversion[0].orig_type = argument_type;
+						sequence->standard_conversion[0].dest_type = class_type;
+
+						sequence->standard_conversion[1] = attempt_scs.standard_conversion[1];
+						sequence->standard_conversion[1].orig_type = conv_funct->conversion_type;
+						sequence->standard_conversion[1].dest_type = parameter_type;
+
+						sequence->user_defined.udc_conv_funct = conv_funct;
+					}
+					else
+					{
+						// There is more than one conversion possible (it is a bit
+						// strange this could happen with just conversion operators
+						// but let's consider this case anyway)
+						memset(sequence, 0, sizeof(sequence));
+						sequence->user_defined.udc_category = UDC_AMBIGUOUS;
+					}
 				}
 			}
 		}
@@ -331,43 +442,55 @@ void build_user_defined_conversion_sequence(type_t* argument_type, value_type_t 
 		int i;
 		for (i = 0; i < class_type->type->class_info->num_constructors; i++)
 		{
-			scope_entry_t* constructor = class_type->type->class_info->constructor_list[i];
-			type_t* constructor_type = constructor->type_information;
-			
 			// Clear this attempt SCS
 			memset(&attempt_scs, 0, sizeof(attempt_scs));
+
+			scope_entry_t* constructor = class_type->type->class_info->constructor_list[i];
+			type_t* constructor_type = constructor->type_information;
 
 			if (constructor_type->kind != TK_FUNCTION)
 			{
 				internal_error("The constructor has no functional type", 0);
 			}
 
-			// If this is a conversor constructor try to convert the argument to its
-			// argument
 			if (constructor_type->function->num_parameters == 1
 					&& !constructor_type->function->is_explicit)
 			{
-				// It is possible to build a SCS from the converted type to the parameter type ?
-				build_standard_conversion_sequence(argument_type, argument_value_type,
+				// It is possible to build a SCS from the original argument expression type to the parameter
+				// of the converting constructor ?
+				build_standard_conversion_sequence(argument_type, argument_value_type, 
 						constructor_type->function->parameter_list[0]->type_info, 
-						&attempt_scs, st);
+						&(attempt_scs.standard_conversion[0]), st);
 
-				if (attempt_scs.scs_category != SCS_UNKNOWN)
+				if (attempt_scs.standard_conversion[0].scs_category != SCS_UNKNOWN)
 				{
-					// It is possible an SCS to this parameter
-					if (sequence->udc_category != UDC_VALID)
+
+					// It is possible to build a SCS from the converted type to the parameter type ?
+					build_standard_conversion_sequence(class_type, VT_RVALUE,
+							parameter_type, &(attempt_scs.standard_conversion[1]), st);
+
+					if (attempt_scs.standard_conversion[1].scs_category != SCS_UNKNOWN)
 					{
-						sequence->udc_category = UDC_VALID;
-						sequence->scs_category = attempt_scs.scs_category;
-						sequence->udc_constr_funct = constructor;
-					}
-					else
-					{
-						// There is more than one conversion possible
-						sequence->udc_category = UDC_AMBIGUOUS;
-						sequence->scs_category = SCS_UNKNOWN;
-						sequence->udc_constr_funct = NULL;
-						sequence->udc_conv_funct = NULL;
+						// It is possible an SCS to this parameter
+						if (sequence->user_defined.udc_category != UDC_VALID
+								&& sequence->user_defined.udc_category != UDC_AMBIGUOUS)
+						{
+							sequence->user_defined.udc_category = UDC_VALID;
+							sequence->user_defined.udc_constr_funct = constructor;
+							sequence->standard_conversion[0] = attempt_scs.standard_conversion[0];
+							sequence->standard_conversion[0].orig_type = argument_type;
+							sequence->standard_conversion[0].dest_type = constructor_type->function->parameter_list[0]->type_info;
+
+							sequence->standard_conversion[1] = attempt_scs.standard_conversion[1];
+							sequence->standard_conversion[1].orig_type = class_type;
+							sequence->standard_conversion[1].dest_type = parameter_type;
+						}
+						else
+						{
+							// There is more than one conversion possible
+							memset(sequence, 0, sizeof(sequence));
+							sequence->user_defined.udc_category = UDC_AMBIGUOUS;
+						}
 					}
 				}
 			}
@@ -397,10 +520,13 @@ build_one_implicit_conversion_sequence(scope_entry_t* entry, int n_arg, AST argu
 
 	// Copy the types since this function will modify them
 	build_standard_conversion_sequence(copy_type(argument_type), type_result_set->value_type,
-			copy_type(parameter_type), result, st);
+			copy_type(parameter_type), &(result->standard_conversion[0]), st);
 
-	if (result->scs_category != SCS_UNKNOWN)
+	if (result->standard_conversion[0].scs_category != SCS_UNKNOWN)
 	{
+		result->kind = ICS_STANDARD;
+		result->standard_conversion[0].orig_type = advance_over_typedefs(argument_type);
+		result->standard_conversion[0].dest_type = advance_over_typedefs(parameter_type);
 		return result;
 	}
 
@@ -469,7 +595,7 @@ build_one_implicit_conversion_sequence(scope_entry_t* entry, int n_arg, AST argu
 	build_user_defined_conversion_sequence(copy_type(argument_type), type_result_set->value_type,
 			copy_type(parameter_type), result, st);
 
-	if (result->udc_category == UDC_UNKNOWN)
+	if (result->user_defined.udc_category == UDC_UNKNOWN)
 	{
 		// There is no valid UDC nor SCS
 		return NULL;
@@ -527,14 +653,14 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 	return result;
 }
 
-static char is_better_standard_conversion_sequence(one_implicit_conversion_sequence_t* s1,
-		one_implicit_conversion_sequence_t* s2)
+static char is_better_standard_conversion_sequence(standard_conversion_sequence_t* s1,
+		standard_conversion_sequence_t* s2, scope_t* st)
 {
-	if (s1->kind != ICS_STANDARD
-			|| s2->kind != ICS_STANDARD)
-	{
-		internal_error("This function only operates on standard sequences", 0);
-	}
+	// if (s1->kind != ICS_STANDARD
+	// 		|| s2->kind != ICS_STANDARD)
+	// {
+	// 	internal_error("This function only operates on standard sequences", 0);
+	// }
 
 	// If s1 is a proper subsequence of s2 then s1 is better
 	if (s1->scs_category != s2->scs_category)
@@ -543,6 +669,7 @@ static char is_better_standard_conversion_sequence(one_implicit_conversion_seque
 		// conversion
 		if (s1->scs_category == SCS_IDENTITY)
 		{
+			// s1 only is the identity
 			return 1;
 		}
 
@@ -552,20 +679,21 @@ static char is_better_standard_conversion_sequence(one_implicit_conversion_seque
 			return 1;
 		}
 
-		// The rank of s1 is better than s2 one
-		// if s2 has conversion rank
+		// Compare ranks
+		//
+		// If s2 is a conversion...
 		if ((s2->scs_category & SCS_CONVERSION) == SCS_CONVERSION)
 		{
-			// If s1 does not have conversion rank, it is better
+			// ... but s1 it is not, then s1 is bettern scs than s2
 			if ((s1->scs_category & SCS_CONVERSION) != SCS_CONVERSION)
 			{
 				return 1;
 			}
 		}
-		// if s2 has promotion rank
+		// otherwise, if s2 is a promotion...
 		else if ((s2->scs_category & SCS_PROMOTION) == SCS_PROMOTION)
 		{
-			// If s1 is an exact match, it is better
+			// ... and s1 is an exact match, then s1 is better
 			if (((s1->scs_category & SCS_IDENTITY) == SCS_IDENTITY)
 					|| ((s1->scs_category & SCS_LVALUE_TRANSFORMATION) == SCS_LVALUE_TRANSFORMATION)
 					|| ((s1->scs_category & SCS_QUALIFICATION_ADJUSTMENT) == SCS_QUALIFICATION_ADJUSTMENT))
@@ -573,18 +701,209 @@ static char is_better_standard_conversion_sequence(one_implicit_conversion_seque
 				return 1;
 			}
 		}
-#warning Missing case for less cv-qualified priority in references? [13.3.3.2/3]
+
+		// Now both s1 and s2 have the same rank, let's apply 13.3.3.2/4 to further distinguish them
+
+		// A conversion that is not a conversion of a pointer (or pointer to
+		// member) to too bool, is better than another conversion that is such
+		// a conversion
+		if (s2->is_pointer_to_bool && !s1->is_pointer_to_bool)
+		{
+			return 1;
+		}
+
+		// If class B is derived from class A, conversion from B* to A* is better than conversion
+		// of B* to void* 
+		//
+		// s1: B* -> A*
+		// s2: B* -> void*
+		//
+		// where A is base of B*
+		if (is_pointer_to_class_type(s1->orig_type) // s1: B_1* -> ?
+				&& is_pointer_to_class_type(s2->orig_type) // s2: B_2* -> ?
+				&& equivalent_types(s1->orig_type, s2->orig_type, st, CVE_IGNORE_OUTERMOST) // B_1* = B_2* = B*
+				&& is_pointer_to_class_type(s1->dest_type) // s1: B* -> A*
+				&& is_base_class_of(s1->dest_type->pointer->pointee, 
+					s1->orig_type->pointer->pointee) // A* is base of B*
+				&& is_void_pointer_type(s2->dest_type)) // s2: B* -> void*
+		{
+			return 1;
+		}
+
+		// If class A is base of class B, conversion from A* to void is better than B* to void
+		// s1: A* -> void*
+		// s2: B* -> void*
+		if (is_pointer_to_class_type(s1->orig_type) // s1: A* -> ?
+				&& is_void_pointer_type(s1->dest_type) // s1: A* -> void*
+				&& is_pointer_to_class_type(s2->orig_type) // s2: B* -> ?
+				&& is_void_pointer_type(s2->dest_type) // s2: B* -> void*
+				&& is_base_class_of(s1->orig_type->pointer->pointee,
+					s2->orig_type->pointer->pointee)) // A is base class of B
+		{
+			return 1;
+		}
+
+		// If class A is base of class B and class B is base of class C
+		// Conversion from C* to B* is better than conversion from C* to A*
+		if (is_pointer_to_class_type(s1->orig_type) // s1: C_1* -> ?
+				&& is_pointer_to_class_type(s1->dest_type) // s2: C_1* -> B*
+				&& is_pointer_to_class_type(s2->orig_type) // s2: C_2* -> ?
+				&& is_pointer_to_class_type(s2->dest_type) // s2: C_2* -> A*
+				&& equivalent_types(s1->orig_type, s2->orig_type, st,
+					CVE_IGNORE_OUTERMOST) // C_1* = C_2* = C*
+				&& is_base_class_of(s2->dest_type->pointer->pointee, 
+					s1->dest_type->pointer->pointee) // A is base class of B
+				&& is_base_class_of(s1->dest_type->pointer->pointee, // B is base class of C
+					s2->orig_type->pointer->pointee)) 
+		{
+			return 1;
+		}
+
+		// This is an additional one
+		// If class A is base of class B and class B is base of class C
+		// Conversion from C& to B& is better than conversion from C& to A&
+		if (is_reference_to_class_type(s1->orig_type) // s1: C_1& -> ?
+				&& is_reference_to_class_type(s1->dest_type) // s2: C_1& -> B&
+				&& is_reference_to_class_type(s2->orig_type) // s2: C_2& -> ?
+				&& is_reference_to_class_type(s2->dest_type) // s2: C_2& -> A&
+				&& equivalent_types(s1->orig_type, s2->orig_type, st,
+					CVE_IGNORE_OUTERMOST) // C_1& = C_2& = C
+				&& is_base_class_of(s2->dest_type->pointer->pointee, 
+					s1->dest_type->pointer->pointee) // A is base class of B
+				&& is_base_class_of(s1->dest_type->pointer->pointee, // B is base class of C
+					s2->orig_type->pointer->pointee)) 
+		{
+			return 1;
+		}
+
+		// If class A is base of class B and class B is base of class C
+		// Conversion from C to B& is better than conversion from C to A&
+		if (is_class_type(s1->orig_type) // s1: C_1 -> ?
+				&& is_reference_to_class_type(s1->dest_type) // s2: C_1 -> B&
+				&& is_class_type(s2->orig_type) // s2: C_2 -> ?
+				&& is_reference_to_class_type(s2->dest_type) // s2: C_2 -> A&
+				&& equivalent_types(s1->orig_type, s2->orig_type, st,
+					CVE_IGNORE_OUTERMOST) // C_1 = C_2 = C
+				&& is_base_class_of(s2->dest_type->pointer->pointee, 
+					s1->dest_type->pointer->pointee) // A is base class of B
+				&& is_base_class_of(s1->dest_type->pointer->pointee, // B is base class of C
+					s2->orig_type)) 
+		{
+			return 1;
+		}
+
+		// If class A is base of class B and class B is base of class C
+		// Conversion of A::* to B::* is better than conversion of A::* to C::*
+		if (is_pointer_to_member_type(s1->orig_type) // s1: C_1::* -> ?
+				&& is_pointer_to_member_type(s1->dest_type) // s2: C_1::* -> B::*
+				&& is_pointer_to_member_type(s2->orig_type) // s2: C_2::* -> ?
+				&& is_pointer_to_member_type(s2->dest_type) // s2: C_2::* -> A::*
+				&& equivalent_types(s1->orig_type, s2->orig_type, st,
+					CVE_IGNORE_OUTERMOST) // C_1::* = C_2::* = C::*
+				&& is_base_class_of(s2->dest_type->pointer->pointee_class->type_information, 
+					s1->dest_type->pointer->pointee_class->type_information) // A is base class of B
+				&& is_base_class_of(s1->dest_type->pointer->pointee_class->type_information, // B is base class of C
+					s2->orig_type->pointer->pointee_class->type_information)) 
+		{
+			return 1;
+		}
+
+		// If class A is base of class B and class B is base of class C
+		// Conversion of C to B is better than conversion of C to A
+		if (is_class_type(s1->orig_type) // s1: C_1 -> ?
+				&& is_class_type(s2->orig_type) // s2: C_2 -> ?
+				&& equivalent_types(s1->orig_type, s2->orig_type, st, CVE_IGNORE_OUTERMOST) // C_1 = C_2 = C
+				&& is_class_type(s1->dest_type) // s1: C -> B
+				&& is_class_type(s2->dest_type) // s2: C -> A
+				&& is_base_class_of(s2->dest_type, s1->dest_type) // A is base of B
+				&& is_base_class_of(s1->dest_type, s1->orig_type)) // B is base of C
+		{
+			return 1;
+		}
+
+		// If class A is base of class B and class B is base of class C
+		// Conversion of B* to A* is better than conversion of C* to A*
+		if (is_pointer_to_class_type(s1->orig_type) // s1: B* -> ?
+				&& is_pointer_to_class_type(s1->dest_type) // s1: B* -> A_1*
+				&& is_pointer_to_class_type(s2->orig_type) // s2: C* -> ?
+				&& is_pointer_to_class_type(s2->dest_type) // s2: C* -> A_2*
+				&& equivalent_types(s1->dest_type, s2->dest_type, st, CVE_IGNORE_OUTERMOST) // A_1 = A_2 = A
+				&& is_base_class_of(s1->dest_type->pointer->pointee,
+					s1->orig_type->pointer->pointee) // A is base of B
+				&& is_base_class_of(s1->orig_type->pointer->pointee, // B is base of C
+					s2->orig_type->pointer->pointee))
+		{
+			return 1;
+		}
+		
+		// If class A is base of class B and class B is base of class C
+		// Conversion of B& to A& is better than conversion of C& to A&
+		if (is_reference_to_class_type(s1->orig_type) // s1: B& -> ?
+				&& is_reference_to_class_type(s1->dest_type) // s1: B& -> A_1&
+				&& is_reference_to_class_type(s2->orig_type) // s2: C& -> ?
+				&& is_reference_to_class_type(s2->dest_type) // s2: C& -> A_2&
+				&& equivalent_types(s1->dest_type, s2->dest_type, st, CVE_IGNORE_OUTERMOST) // A_1 = A_2 = A
+				&& is_base_class_of(s1->dest_type->pointer->pointee,
+					s1->orig_type->pointer->pointee) // A is base of B
+				&& is_base_class_of(s1->orig_type->pointer->pointee, // B is base of C
+					s2->orig_type->pointer->pointee))
+		{
+			return 1;
+		}
+		
+		// If class A is base of class B and class B is base of class C
+		// Conversion of B to A& is better than conversion of C to A&
+		if (is_reference_to_class_type(s1->orig_type) // s1: B& -> ?
+				&& is_reference_to_class_type(s1->dest_type) // s1: B& -> A_1&
+				&& is_class_type(s2->orig_type) // s2: C -> ?
+				&& is_reference_to_class_type(s2->dest_type) // s2: C -> A_2&
+				&& equivalent_types(s1->dest_type, s2->dest_type, st, CVE_IGNORE_OUTERMOST) // A_1 = A_2 = A
+				&& is_base_class_of(s1->dest_type->pointer->pointee,
+					s1->orig_type->pointer->pointee) // A is base of B
+				&& is_base_class_of(s1->orig_type->pointer->pointee, // B is base of C
+					s2->orig_type))
+		{
+			return 1;
+		}
+		
+		// If class A is base of class B and class B is base of class C
+		// Conversion of B::* to C::* is better than conversion of A::* to C::*
+		if (is_pointer_to_member_type(s1->orig_type) // s1: B::* -> ?
+				&& is_pointer_to_member_type(s1->dest_type) // s1: B::* -> C_1::*
+				&& is_pointer_to_member_type(s2->orig_type) // s2: A::* -> ?
+				&& is_pointer_to_member_type(s2->dest_type) // s2: A::* -> C_2::*
+				&& equivalent_types(s1->dest_type, s2->dest_type, st,
+					CVE_IGNORE_OUTERMOST) // C_1 = C_2 = C
+				&& is_base_class_of(s2->orig_type->pointer->pointee_class->type_information,
+					s1->orig_type->pointer->pointee_class->type_information) // A is base of B
+				&& is_base_class_of(s1->orig_type->pointer->pointee_class->type_information,
+					s1->dest_type->pointer->pointee_class->type_information)) // B is base of C
+		{
+			return 1;
+		}
+		
+		// If class A is base of class B and class B is base of class C
+		// Conversion of B to A is better than conversion of C to A
+		if (is_reference_to_class_type(s1->orig_type) // s1: B -> ?
+				&& is_class_type(s1->dest_type) // s1: B -> A_1
+				&& is_class_type(s2->orig_type) // s2: C -> ?
+				&& is_class_type(s2->dest_type) // s2: C -> A_2
+				&& equivalent_types(s1->dest_type, s2->dest_type, st, CVE_IGNORE_OUTERMOST) // A_1 = A_2 = A
+				&& is_base_class_of(s1->dest_type, s1->orig_type) // A is base of B
+				&& is_base_class_of(s1->orig_type, s2->orig_type))// B is base of C
+		{
+			return 1;
+		}
 	}
-#warning Missing case for standard conversion sequences [13.3.3.2/4]
 
 	return 0;
 }
 
 static char is_better_conversion_sequence(one_implicit_conversion_sequence_t* s1,
-		one_implicit_conversion_sequence_t* s2)
+		one_implicit_conversion_sequence_t* s2, scope_t* st)
 {
 	// A standard conversions equence is a better conversion sequence than an
-	// ellipsis conversion
+	// ellipsis conversion or user defined conversion
 	if (s1->kind == ICS_STANDARD
 			&& (s2->kind == ICS_USER_DEFINED
 				|| s2->kind == ICS_ELLIPSIS))
@@ -604,31 +923,27 @@ static char is_better_conversion_sequence(one_implicit_conversion_sequence_t* s1
 	{
 		if (s1->kind == ICS_STANDARD)
 		{
-			return is_better_standard_conversion_sequence(s1, s2);
+			return is_better_standard_conversion_sequence(&(s1->standard_conversion[0]), 
+					&(s2->standard_conversion[0]), st);
 		}
 		else if (s1->kind == ICS_USER_DEFINED)
 		{
 			
-			if (s1->udc_category != UDC_AMBIGUOUS
-					&& s2->udc_category != UDC_AMBIGUOUS)
+			if (s1->user_defined.udc_category != UDC_AMBIGUOUS
+					&& s2->user_defined.udc_category != UDC_AMBIGUOUS)
 			{
 				// A user defined conversion is better than another user defined
 				// conversion if they contain the same user-defined conversion
 				// function or constructor and if the second standard conversion
 				// sequence of U1 is better than the second standard conversion
 				// sequence.
-				if ((s1->udc_conv_funct != NULL && s2->udc_conv_funct != NULL
-							&& s1->udc_conv_funct == s2->udc_conv_funct)
-						|| (s1->udc_constr_funct != NULL && s2->udc_constr_funct != NULL
-							&& s1->udc_constr_funct == s2->udc_constr_funct))
+				if ((s1->user_defined.udc_conv_funct != NULL && s2->user_defined.udc_conv_funct != NULL
+							&& s1->user_defined.udc_conv_funct == s2->user_defined.udc_conv_funct)
+						|| (s1->user_defined.udc_constr_funct != NULL && s2->user_defined.udc_constr_funct != NULL
+							&& s1->user_defined.udc_constr_funct == s2->user_defined.udc_constr_funct))
 				{
-					one_implicit_conversion_sequence_t scs1 = *s1;
-					one_implicit_conversion_sequence_t scs2 = *s2;
-
-					scs1.kind = ICS_STANDARD;
-					scs2.kind = ICS_STANDARD;
-
-					return is_better_standard_conversion_sequence(&scs1, &scs2);
+					return is_better_standard_conversion_sequence(&(s1->standard_conversion[1]), 
+							&(s2->standard_conversion[1]), st);
 				}
 			}
 		}
@@ -671,7 +986,7 @@ static viable_function_list_t* calculate_viable_functions(scope_entry_list_t* ca
 
 
 static char is_better_viable_function(viable_function_list_t* f1,
-		viable_function_list_t* f2)
+		viable_function_list_t* f2, scope_t* st)
 {
 	/*
 	 * A viable function f1 is defined to be a better function than another viable
@@ -702,7 +1017,7 @@ static char is_better_viable_function(viable_function_list_t* f1,
 	int i;
 	for (i = 0; i < f1->ics_num_args; i++)
 	{
-		if (is_better_conversion_sequence(f1->ics->conversion[i], f2->ics->conversion[i]))
+		if (is_better_conversion_sequence(f1->ics->conversion[i], f2->ics->conversion[i], st))
 		{
 			some_is_better = 1;
 		}
@@ -764,7 +1079,8 @@ static char is_better_viable_function(viable_function_list_t* f1,
 	return 0;
 }
 
-static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable_functions)
+static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable_functions,
+		scope_t* st)
 {
 	/*
 	 * The algorithm is as follows.
@@ -786,10 +1102,10 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
 
 	while (iter != NULL)
 	{
-		fprintf(stderr, "iter > result? %d\n", is_better_viable_function(iter, result));
-		fprintf(stderr, "iter < result? %d\n", is_better_viable_function(result, iter));
+		fprintf(stderr, "iter > result? %d\n", is_better_viable_function(iter, result, st));
+		fprintf(stderr, "iter < result? %d\n", is_better_viable_function(result, iter, st));
 
-		if (is_better_viable_function(iter, result))
+		if (is_better_viable_function(iter, result, st))
 		{
 			fprintf(stderr, "Choosing function '");
 			print_declarator(iter->entry->type_information, result->entry->scope);
@@ -818,7 +1134,7 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
 	{
 		if (iter != result)
 		{
-			is_still_the_best = is_better_viable_function(result, iter);
+			is_still_the_best = is_better_viable_function(result, iter, st);
 			if (!is_still_the_best)
 			{
 				fprintf(stderr, "Function '");
@@ -877,7 +1193,12 @@ scope_entry_t* resolve_overload(scope_t* st, AST argument_list,
 	DEBUG_MESSAGE("Determined %d viable functions", viable_functions_count);
 
 	DEBUG_MESSAGE("Choosing best viable function", 0);
-	scope_entry_t* best_viable_function = choose_best_viable_function(viable_functions);
+	scope_entry_t* best_viable_function = choose_best_viable_function(viable_functions, st);
+
+	if (best_viable_function == NULL)
+	{
+		internal_error("No viable function found !\n", 0);
+	}
 
 	return best_viable_function;
 }

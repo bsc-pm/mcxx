@@ -250,12 +250,7 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 					{
 						// Advance over typedefs
 						type_t* aliased_type = entry->type_information;
-
-						while (aliased_type->kind == TK_DIRECT
-								&& aliased_type->type->kind == STK_TYPEDEF)
-						{
-							aliased_type = aliased_type->type->aliased_type;
-						}
+						aliased_type = advance_over_typedefs(aliased_type);
 
 						// Now get the entry_t*
 						// If this is a typedef it can only be a typedef against a type

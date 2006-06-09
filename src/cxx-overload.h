@@ -33,15 +33,31 @@ enum udc_category_t
 	UDC_AMBIGUOUS
 };
 
-typedef struct one_implicit_conversion_sequence_tag
+typedef struct standard_conversion_sequence_tag
 {
-	enum ics_kind kind;
 	enum scs_category_t scs_category;
+
+	type_t* orig_type;
+	type_t* dest_type;
+
+	char is_pointer_to_bool;
+	char is_nonvoid_pointer_to_void;
+} standard_conversion_sequence_t;
+
+typedef struct user_defined_conversion_tag
+{
 	enum udc_category_t udc_category;
 
 	conversion_function_t* udc_conv_funct;
 	scope_entry_t* udc_constr_funct;
+} user_defined_conversion_t;
 
+typedef struct one_implicit_conversion_sequence_tag
+{
+	enum ics_kind kind;
+
+	standard_conversion_sequence_t standard_conversion[2];
+	user_defined_conversion_t user_defined;
 } one_implicit_conversion_sequence_t;
 
 // Represents a whole ICS for all arguments

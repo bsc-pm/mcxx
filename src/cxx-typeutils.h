@@ -36,6 +36,8 @@ cv_qualifier_t* get_outermost_cv_qualifier(type_t* t);
 const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st);
 type_t* base_type(type_t* t);
 
+type_t* advance_over_typedefs(type_t* t);
+
 // Debug purpose functions
 void print_declarator(type_t* printed_declarator, scope_t* st);
 
@@ -52,7 +54,8 @@ char is_reference_type(type_t* t1);
 char is_reference_related(type_t* rt1, type_t* rt2, scope_t* st);
 char is_reference_compatible(type_t* t1, type_t* t2, scope_t* st);
 
-char pointer_can_be_converted_to_dest(type_t* orig, type_t* dest, scope_t* st);
+char pointer_can_be_converted_to_dest(type_t* orig, type_t* dest, scope_t* st, 
+		char* to_void, char* derived_to_base, char* cv_adjust);
 
 char* get_type_spec_name(AST type_spec, scope_t* st);
 char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type_t** result_conversion_type);
@@ -64,5 +67,14 @@ char is_base_class_of(type_t* possible_base, type_t* possible_derived);
 type_t* get_class_type(type_t* class_type);
 
 cv_qualifier_t get_cv_qualifier(type_t* type_info);
+
+char is_bool_type(type_t* t1);
+char is_pointer_type(type_t* t1);
+char is_pointer_to_member_type(type_t* t);
+char is_array_type(type_t* t1);
+
+char is_void_pointer_type(type_t* t1);
+char is_pointer_to_class_type(type_t* t1);
+char is_reference_to_class_type(type_t* t1);
 
 #endif // CXX_TYPEUTILS_H

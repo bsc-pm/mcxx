@@ -346,11 +346,7 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 				if (ASTType(a) == AST_POINTER_CLASS_MEMBER_ACCESS)
 				{
 					// Advance over typedefs
-					while (class_type->kind == TK_DIRECT
-							&& class_type->type->kind == STK_TYPEDEF)
-					{
-						class_type = class_type->type->aliased_type;
-					}
+					class_type = advance_over_typedefs(class_type);
 
 					if (class_type->kind != TK_POINTER)
 					{
@@ -360,11 +356,14 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 					class_type = class_type->pointer->pointee;
 				}
 				
-				// Advance over typedefs
+				// Advance over typedefs but gathering al cv qualifications
+				// struct A { };
+				// typedef const A B;
+				// typedef const B C;
 				while (class_type->kind == TK_DIRECT
 						&& class_type->type->kind == STK_TYPEDEF)
 				{
-					cv_qualifier |= get_cv_qualifier(class_type);
+					cv_qualifier |= get_cv_qualifier(class_type); 
 					class_type = class_type->type->aliased_type;
 				}
 
@@ -681,7 +680,10 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 
 				type_t* pointer_type = cast_expr_set->types[0];
 
-				if (pointer_type->kind != TK_POINTER)
+				pointer_type = advance_over_typedefs(pointer_type);
+				if (pointer_type->kind != TK_POINTER
+						|| (pointer_type->kind == TK_REFERENCE
+							&& advance_over_typedefs(pointer_type->pointer->pointee)->kind != TK_POINTER))
 				{
 					internal_error("Overloading of operator* still unsupported", 0);
 				}
@@ -694,6 +696,13 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 					{
 						value_type = VT_RVALUE;
 					}
+
+					pointer_type = advance_over_typedefs(pointer_type);
+					if (is_reference_type(pointer_type))
+					{
+						pointer_type = pointer_type->pointer->pointee;
+					}
+
 					return create_type_set(pointer_type->pointer->pointee, value_type);
 				}
 				break;
@@ -794,17 +803,8 @@ static calculated_type_t* create_type_set(type_t* t, value_type_t value_type)
 static type_t* usual_arithmetic_conversions(type_t* t1, type_t* t2, scope_t* st)
 {
 	// Advance over typedefs
-	while (t1->kind == TK_DIRECT
-			&& t1->type->kind == STK_TYPEDEF)
-	{
-		t1 = t1->type->aliased_type;
-	}
-
-	while (t2->kind == TK_DIRECT
-			&& t2->type->kind == STK_TYPEDEF)
-	{
-		t2 = t2->type->aliased_type;
-	}
+	t1 = advance_over_typedefs(t1);
+	t2 = advance_over_typedefs(t2);
 
 	if (t1->kind != TK_DIRECT
 			|| t2->kind != TK_DIRECT)
