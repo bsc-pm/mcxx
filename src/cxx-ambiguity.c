@@ -100,7 +100,8 @@ void solve_ambiguous_declaration(AST a, scope_t* st)
 	{
 		AST option = a->ambig[i];
 
-		if (ASTType(option) != AST_SIMPLE_DECLARATION)
+		if (ASTType(option) != AST_SIMPLE_DECLARATION
+				&& ASTType(option) != AST_MEMBER_DECLARATION)
 		{
 			// It is not this case
 			valid = 0;
@@ -139,7 +140,7 @@ void solve_ambiguous_declaration(AST a, scope_t* st)
 		return;
 	}
 
-	internal_error("Don't know how to handle this ambiguity", 0);
+	internal_error("Don't know how to handle this ambiguity. Line %d", ASTLine(a));
 }
 
 // Solves this case
@@ -584,6 +585,10 @@ static char check_for_expression(AST expression, scope_t* st)
 {
 	switch (ASTType(expression))
 	{
+		case AST_CONSTANT_EXPRESSION : 
+			{
+				return check_for_expression(ASTSon0(expression), st);
+			}
 		case AST_AMBIGUITY :
 			{
 				char correct_choice = -1;
@@ -1142,8 +1147,11 @@ static char check_for_init_declarator(AST init_declarator, scope_t* st)
 		return 0;
 
 	// Is this needed ?
-	if (!check_for_initialization(initializer, st))
-		return 0;
+	if (initializer != NULL)
+	{
+		if (!check_for_initialization(initializer, st))
+			return 0;
+	}
 
 	return 1;
 }
@@ -1281,7 +1289,7 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 		if (ASTType(decl_specifier_seq) == AST_AMBIGUITY)
 		{
 			// Ensure that this is the unique ambiguity than can appear here
-			solve_ambiguous_type_spec_seq(decl_specifier_seq, st);
+			solve_ambiguous_decl_specifier_seq(decl_specifier_seq, st);
 		}
 
 		AST type_specifier = ASTSon1(decl_specifier_seq);
@@ -1295,7 +1303,50 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 	return 1;
 }
 
-void solve_ambiguous_type_spec_seq(AST type_spec_seq, scope_t* st)
+void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st)
+{
+	int current_choice = -1;
+	int i;
+	for (i = 0; i < parameter_declaration->num_ambig; i++)
+	{
+		AST parameter_decl = parameter_declaration->ambig[i];
+
+		AST decl_specifier_seq = ASTSon0(parameter_decl);
+
+		if (ASTType(decl_specifier_seq) == AST_AMBIGUITY)
+		{
+			solve_ambiguous_decl_specifier_seq(decl_specifier_seq, st);
+		}
+
+		AST type_specifier = ASTSon1(decl_specifier_seq);
+
+		if (type_specifier != NULL)
+		{
+			if (check_for_type_specifier(type_specifier, st))
+			{
+				if (current_choice < 0)
+				{
+					current_choice = i;
+				}
+				else
+				{
+					internal_error("More than one option is possible", 0);
+				}
+			}
+		}
+	}
+
+	if (current_choice < 0)
+	{
+		internal_error("Ambiguity not solved", 0);
+	}
+	else
+	{
+		choose_option(parameter_declaration, current_choice);
+	}
+}
+
+void solve_ambiguous_decl_specifier_seq(AST type_spec_seq, scope_t* st)
 {
 	// What makes different a type_specifier_seq from a decl_specifier_seq
 	// is the fact that a type_specifier always has a type_spec while
@@ -1403,6 +1454,73 @@ void solve_ambiguous_for_init_statement(AST a, scope_t* st)
 	else
 	{
 		choose_option(a, correct_choice);
+	}
+}
+
+void solve_ambiguous_type_specifier(AST ambig_type, scope_t* st)
+{
+	// The unique ambiguity that should happen here is the one below
+	//
+	//   __typeof(foo) bar;
+	//
+	// We don't know if foo is a type or an expression
+	
+	char is_typeof_ambiguity = 1;
+	int i;
+	for (i = 0; (i < ambig_type->num_ambig) && is_typeof_ambiguity; i++)
+	{
+		AST type_specifier = ambig_type->ambig[i];
+
+		is_typeof_ambiguity = (ASTType(type_specifier) == AST_GCC_TYPEOF);
+	}
+
+	if (!is_typeof_ambiguity)
+	{
+		internal_error("Unknown ambiguity!\n", 0);
+	}
+
+	// Solve typeof ambiguity
+	int current_choice = -1;
+	for (i = 0; i < ambig_type->num_ambig; i++)
+	{
+		int current_typeof = -1;
+		AST type_specifier = ambig_type->ambig[i];
+
+		if (ASTType(ASTSon0(type_specifier)) == AST_TYPE_ID)
+		{
+			if (check_for_type_id_tree(ASTSon0(type_specifier), st))
+			{
+				current_typeof = i;
+			}
+		}
+		else
+		{
+			if (check_for_expression(ASTSon0(type_specifier), st))
+			{
+				current_typeof = i;
+			}
+		}
+
+		if (current_typeof >= 0)
+		{
+			if (current_choice < 0)
+			{
+				current_choice = i;
+			}
+			else
+			{
+				internal_error("More than one possibility", 0);
+			}
+		}
+	}
+
+	if (current_choice < 0)
+	{
+		internal_error("Ambiguity not solved", 0);
+	}
+	else
+	{
+		choose_option(ambig_type, current_choice);
 	}
 }
 

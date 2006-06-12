@@ -9,6 +9,8 @@
 #include <string.h>
 #include <gc.h>
 
+#include "cxx-utils.h"
+
 #define out_of_memory() out_of_memory_(__FILE__, __LINE__)
 static void out_of_memory_(char* fitxer, int linia);
 
@@ -48,7 +50,7 @@ AST ASTMake(node_t type, int num_children, const AST child0, const AST child1, c
 	ASTText(result) = NULL;
 	if (text != NULL)
 	{
-		ASTText(result) = strdup(text);
+		ASTText(result) = GC_STRDUP(text);
 
 		if (ASTText(result) == NULL) // unlikely
 		{
@@ -123,7 +125,7 @@ AST duplicate_ast(AST a)
 
 	if (ASTText(a) != NULL)
 	{
-		ASTText(result) = strdup(ASTText(a));
+		ASTText(result) = GC_STRDUP(ASTText(a));
 	}
 	ASTParent(result) = NULL;
 

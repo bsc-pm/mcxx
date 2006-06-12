@@ -11,7 +11,7 @@
 void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...)
 {
 	va_list ap;
-	char* sanitized_message = strdup(message);
+	char* sanitized_message = GC_STRDUP(message);
 
 	// Remove annoying \n at the end. This will make this function
 	// interchangeable with fprintf(stderr, 
@@ -24,7 +24,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 		length--;
 	}
 	
-	char* source_file_copy = strdup(source_file);
+	char* source_file_copy = GC_STRDUP(source_file);
 	
 	fprintf(stderr, "%s%s:%d %s: ", kind, basename(source_file_copy), line, function_name);
 	va_start(ap, function_name);
@@ -83,3 +83,13 @@ char* strprepend(char* orig, char* prepended)
 
 	return result;
 }
+
+char* GC_STRDUP(char* str)
+{
+	char* result = GC_CALLOC(strlen(str) + 1, sizeof(char));
+
+	strcpy(result, str);
+
+	return result;
+}
+

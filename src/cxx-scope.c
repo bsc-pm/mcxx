@@ -126,7 +126,7 @@ scope_entry_t* new_symbol(scope_t* sc, char* name)
 	scope_entry_t* result;
 
 	result = GC_CALLOC(1, sizeof(*result));
-	result->symbol_name = strdup(name);
+	result->symbol_name = GC_STRDUP(name);
 	result->scope = sc;
 
 	if (result_set != NULL)
@@ -961,7 +961,8 @@ scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list)
 				&& simple_type_entry->kind != SK_TYPEDEF 
 				&& simple_type_entry->kind != SK_TEMPLATE_PARAMETER
 				&& simple_type_entry->kind != SK_TEMPLATE_PRIMARY_CLASS
-				&& simple_type_entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS)
+				&& simple_type_entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS
+				&& simple_type_entry->kind != SK_GCC_BUILTIN_TYPE)
 		{
 			fprintf(stderr, "Found a '%d'\n", simple_type_entry->kind);
 			non_type_name++;

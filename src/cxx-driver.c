@@ -15,6 +15,7 @@
 compilation_options_t compilation_options;
 
 void print_ambiguities(AST a, char lines);
+char check_for_ambiguities(AST a);
 
 int main(int argc, char* argv[])
 {
@@ -47,6 +48,13 @@ int main(int argc, char* argv[])
 			{
 				ast_dump_graphviz(compilation_options.parsed_tree, stdout);
 			}
+
+			if (!check_for_ambiguities(compilation_options.parsed_tree))
+			{
+				fprintf(stderr, "***** THERE ARE AMBIGUITIES UNRESOLVED !!! *****\n");
+				print_ambiguities(compilation_options.parsed_tree, 1);
+				return 1;
+			}
 		}
 	}
 	else
@@ -55,6 +63,24 @@ int main(int argc, char* argv[])
 	}
 
 	return 0;
+}
+
+char check_for_ambiguities(AST a)
+{
+	if (a == NULL)
+		return 1;
+
+	if (ASTType(a) == AST_AMBIGUITY)
+	{
+		return 0;
+	}
+	else
+	{
+		return check_for_ambiguities(ASTSon0(a))
+			&& check_for_ambiguities(ASTSon1(a))
+			&& check_for_ambiguities(ASTSon2(a))
+			&& check_for_ambiguities(ASTSon3(a));
+	}
 }
 
 void print_ambiguities(AST a, char lines)

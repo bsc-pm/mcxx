@@ -1272,6 +1272,21 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
 
 	result = strappend("", cv_qualifier_str);
 
+	if (simple_type_info->is_long)
+	{
+		result = strappend(result, "long ");
+	}
+
+	if (simple_type_info->is_short)
+	{
+		result = strappend(result, "short ");
+	}
+
+	if (simple_type_info->is_unsigned)
+	{
+		result = strappend(result, "unsigned ");
+	}
+
 	switch (simple_type_info->kind)
 	{
 		case STK_BUILTIN_TYPE :
@@ -1332,6 +1347,9 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
 					case SK_TEMPLATE_SPECIALIZED_CLASS :
 						snprintf(user_defined_str, 255, "specialized template class %s (%p)", user_defined_type->symbol_name, user_defined_type);
 						break;
+					case SK_GCC_BUILTIN_TYPE :
+						snprintf(user_defined_str, 255, "__builtin_va_list");
+						break;
 					default :
 						strcat(user_defined_str, "¿¿¿unknown user defined type???");
 				}
@@ -1346,6 +1364,9 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
 			break;
 		case STK_TYPE_TEMPLATE_PARAMETER :
 			result = strappend(result, "template type parameter T");
+			break;
+		case STK_VA_LIST :
+			result = strappend(result, "__builtin_va_list");
 			break;
 		default :
 			{
@@ -1431,7 +1452,14 @@ void print_declarator(type_t* printed_declarator, scope_t* st)
 					fprintf(stderr, "function (");
 					for (i = 0; i < printed_declarator->function->num_parameters; i++)
 					{
-						print_declarator(printed_declarator->function->parameter_list[i]->type_info, st);
+						if (!printed_declarator->function->parameter_list[i]->is_ellipsis)
+						{
+							print_declarator(printed_declarator->function->parameter_list[i]->type_info, st);
+						}
+						else
+						{
+							fprintf(stderr, "...");
+						}
 						if ((i+1) < printed_declarator->function->num_parameters)
 						{
 							fprintf(stderr, ", ");
@@ -1450,6 +1478,7 @@ void print_declarator(type_t* printed_declarator, scope_t* st)
 					printed_declarator = printed_declarator->function->return_type;
 					break;
 				}
+				// GCC Extension
 			default :
 				internal_error("Unhandled type kind '%d'\n", printed_declarator->kind);
 				break;

@@ -40,7 +40,9 @@ enum cxx_symbol_kind
 	SK_TEMPLATE_PARAMETER,
 	// Artificial symbol representing scopes - used only for debugging purposes
 	// should not be considered as a symbol
-	SK_SCOPE
+	SK_SCOPE,
+	// GCC Extension for builtin types
+	SK_GCC_BUILTIN_TYPE
 };
 
 typedef enum {
@@ -63,7 +65,7 @@ enum type_kind
 	TK_REFERENCE,
 	TK_POINTER_TO_MEMBER,
 	TK_ARRAY,
-	TK_FUNCTION
+	TK_FUNCTION,
 };
 
 // For simple_type_t
@@ -87,7 +89,9 @@ typedef enum simple_type_kind_tag
 	STK_TYPEDEF,
 	STK_USER_DEFINED,
 	// Templates stuff
-	STK_TYPE_TEMPLATE_PARAMETER
+	STK_TYPE_TEMPLATE_PARAMETER,
+	// GCC Extension
+	STK_VA_LIST
 } simple_type_kind_t;
 
 struct scope_entry_tag;

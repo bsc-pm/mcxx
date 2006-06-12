@@ -77,6 +77,7 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 		template_parameter_t* template_param_info, int num_parameter);
 
 static void build_scope_using_directive(AST a, scope_t* st);
+static void build_scope_using_declaration(AST a, scope_t* st);
 
 static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, scope_t* st);
@@ -102,6 +103,8 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id,
 // Current linkage, by default C++
 static char* current_linkage = "\"C++\"";
 
+static void initialize_builtin_symbols();
+
 // Builds scope for the translation unit
 void build_scope_translation_unit(AST a)
 {
@@ -113,11 +116,29 @@ void build_scope_translation_unit(AST a)
 	// The global scope is created here
 	compilation_options.global_scope = new_namespace_scope(NULL);
 
+	initialize_builtin_symbols();
+
 	build_scope_declaration_sequence(list, compilation_options.global_scope);
 
 	fprintf(stderr, "============ SYMBOL TABLE ===============\n");
 	print_scope(compilation_options.global_scope, 0);
 	fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
+}
+
+// This function initialize global symbols that exist in every translation unit
+// prior to its translation
+static void initialize_builtin_symbols()
+{
+	// __builtin_va_list is a very special type in GCC
+	scope_entry_t* builtin_va_list;
+
+	builtin_va_list = new_symbol(compilation_options.global_scope, "__builtin_va_list");
+	builtin_va_list->kind = SK_GCC_BUILTIN_TYPE;
+	builtin_va_list->type_information = GC_CALLOC(1, sizeof(*(builtin_va_list->type_information)));
+
+	builtin_va_list->type_information->kind = TK_DIRECT;
+	builtin_va_list->type_information->type = GC_CALLOC(1, sizeof(*(builtin_va_list->type_information->type)));
+	builtin_va_list->type_information->type->kind = STK_VA_LIST;
 }
 
 static void build_scope_declaration_sequence(AST list, scope_t* st)
@@ -199,11 +220,22 @@ static void build_scope_declaration(AST a, scope_t* st)
 				build_scope_using_directive(a, st);
 				break;
 			}
+		case AST_USING_DECL :
+		case AST_USING_DECL_TYPENAME :
+			{
+				build_scope_using_declaration(a, st);
+				break;
+			}
 		case AST_AMBIGUITY :
 			{
 				solve_ambiguous_declaration(a, st);
 				// Restart function
 				build_scope_declaration(a, st);
+				break;
+			}
+		case AST_GCC_EXTENSION :
+			{
+				build_scope_declaration(ASTSon0(a), st);
 				break;
 			}
 		case AST_EMPTY_DECL :
@@ -251,6 +283,27 @@ static void build_scope_using_directive(AST a, scope_t* st)
 	for (j = 0; j < entry->related_scope->num_used_namespaces; j++)
 	{
 		P_LIST_ADD_ONCE(st->use_namespace, st->num_used_namespaces, entry->related_scope->use_namespace[j]);
+	}
+}
+
+static void build_scope_using_declaration(AST a, scope_t* st)
+{
+	AST global_op = ASTSon0(a);
+	AST nested_name_specifier = ASTSon1(a);
+	AST unqualified_id = ASTSon2(a);
+
+	scope_entry_list_t* used_entity = query_nested_name(st, global_op, nested_name_specifier, unqualified_id, FULL_UNQUALIFIED_LOOKUP);
+
+	if (used_entity == NULL)
+	{
+		internal_error("Entity not found\n", 0);
+	}
+
+	while (used_entity != NULL)
+	{
+		insert_entry(st, used_entity->entry);
+
+		used_entity = used_entity->next;
 	}
 }
 
@@ -390,6 +443,15 @@ void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gath
 		simple_type_t **simple_type_info)
 {
 	AST iter, list;
+
+	if (ASTType(a) == AST_AMBIGUITY)
+	{
+		solve_ambiguous_decl_specifier_seq(a, st);
+		if (ASTType(a) == AST_AMBIGUITY)
+		{
+			internal_error("Ambiguity not solved", 0);
+		}
+	}
 
 	// Gather decl specifier sequence information previous to type_spec
 	list = ASTSon0(a);
@@ -607,6 +669,11 @@ void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type
 			simple_type_info->kind = STK_BUILTIN_TYPE;
 			simple_type_info->builtin_type = BT_VOID;
 			break;
+		case AST_AMBIGUITY :
+			solve_ambiguous_type_specifier(a, st);
+			// Restart function
+			gather_type_spec_information(a, st, simple_type_info);
+			break;
 		default:
 			internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
 	}
@@ -742,7 +809,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simp
 	// Fix this, it sounds a bit awkward
 	if (entry_list == NULL)
 	{
-		internal_error("The list of types is already empty!\n", 0);
+		internal_error("The list of types is already empty! (line=%d)\n", ASTLine(a));
 	}
 	scope_entry_t* simple_type_entry = filter_simple_type_specifier(entry_list);
 
@@ -1193,6 +1260,11 @@ static void set_array_type(type_t** declarator_type, scope_t* st, AST constant_e
 {
 	type_t* element_type = *declarator_type;
 
+	if (constant_expr != NULL)
+	{
+		solve_possibly_ambiguous_expression(constant_expr, st);
+	}
+
 	(*declarator_type) = GC_CALLOC(1, sizeof(*(*declarator_type)));
 	(*declarator_type)->kind = TK_ARRAY;
 	(*declarator_type)->array = GC_CALLOC(1, sizeof(*((*declarator_type)->array)));
@@ -1237,6 +1309,15 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 	for_each_element(list, iter)
 	{
 		AST parameter_declaration = ASTSon1(iter);
+
+		if (ASTType(parameter_declaration) == AST_AMBIGUITY)
+		{
+			solve_ambiguous_parameter_decl(parameter_declaration, st);
+			if (ASTType(parameter_declaration) == AST_AMBIGUITY)
+			{
+				internal_error("Ambiguity not solved %d", ASTLine(parameter_declaration));
+			}
+		}
 
 		if (ASTType(parameter_declaration) == AST_VARIADIC_ARG)
 		{
@@ -2209,8 +2290,10 @@ static void build_scope_namespace_definition(AST a, scope_t* st)
 			entry->related_scope = namespace_scope;
 		}
 
-
-		build_scope_declaration_sequence(ASTSon1(a), entry->related_scope);
+		if (ASTSon1(a) != NULL)
+		{
+			build_scope_declaration_sequence(ASTSon1(a), entry->related_scope);
+		}
 	}
 	else
 	{
@@ -2326,9 +2409,22 @@ static void build_scope_member_declaration(AST a, scope_t*  st,
 				build_scope_member_function_definition(a, st, current_access, class_info);
 				break;
 			}
+		case AST_GCC_EXTENSION :
+			{
+				build_scope_member_declaration(ASTSon0(a), st, current_access, class_info);
+				break;
+			}
+		case AST_AMBIGUITY :
+			{
+				solve_ambiguous_declaration(a, st);
+				// Restart
+				build_scope_member_declaration(a, st, current_access, class_info);
+				break;
+			}
 		default:
 			{
-				internal_error("Unsupported node '%s'\n", ast_print_node_type(ASTType(a)));
+				internal_error("Unsupported node '%s' (line=%d)\n", ast_print_node_type(ASTType(a)),
+						ASTLine(a));
 				break;
 			}
 	}
@@ -2437,6 +2533,10 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 
 			switch (ASTType(declarator))
 			{
+				case AST_BITFIELD_DECLARATOR :
+					{
+						break;
+					}
 				case AST_MEMBER_DECLARATOR :
 					{
 						type_t* declarator_type = NULL;
@@ -2506,7 +2606,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 					}
 				default :
 					{
-						internal_error("Unhandled node '%s'", ast_print_node_type(ASTType(declarator)));
+						internal_error("Unhandled node '%s' (line=%d)", ast_print_node_type(ASTType(declarator)), ASTLine(declarator));
 						break;
 					}
 			}
@@ -2547,6 +2647,9 @@ static cv_qualifier_t compute_cv_qualifier(AST a)
 				break;
 			case AST_VOLATILE_SPEC :
 				result |= CV_VOLATILE;
+				break;
+			case AST_GCC_RESTRICT_SPEC :
+				result |= CV_RESTRICT;
 				break;
 			default:
 				internal_error("Unknown node type '%s'", ast_print_node_type(ASTType(cv_qualifier)));
@@ -2878,7 +2981,7 @@ static void build_scope_condition(AST a, scope_t* st)
 
 		if (ASTType(type_specifier_seq) == AST_AMBIGUITY)
 		{
-			solve_ambiguous_type_spec_seq(type_specifier_seq, st);
+			solve_ambiguous_decl_specifier_seq(type_specifier_seq, st);
 		}
 		
 		if (ASTType(declarator) == AST_AMBIGUITY)

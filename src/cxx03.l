@@ -4,6 +4,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <gc.h>
+#include "cxx-utils.h"
 #include "cxx-lexer.h"
 #include "cxx-ast.h"
 #include "cxx-parser.h"
@@ -299,5 +300,5 @@ int yywrap()
 void parse_token_text()
 {
     yylval.token_atrib.token_line = no_line;
-    yylval.token_atrib.token_text = strdup(yytext);
+    yylval.token_atrib.token_text = GC_STRDUP(yytext);
 }

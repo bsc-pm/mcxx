@@ -490,10 +490,10 @@ block_declaration : simple_declaration
 	$$ = $1;
 }
 // GNU Extension
-| EXTENSION block_declaration
-{
-	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, NULL);
-}
+// | EXTENSION block_declaration
+// {
+// 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, NULL);
+// }
 | label_declaration 
 {
 	$$ = $1;
@@ -562,20 +562,20 @@ attribute_value : IDENTIFIER
 
 	$$ = ASTMake3(AST_GCC_ATTRIBUTE_EXPR, identif, NULL, NULL, $1.token_line, NULL);
 }
-| IDENTIFIER '(' IDENTIFIER ')'
-{
-	AST identif1 = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
-	AST identif2 = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
-	
-	$$ = ASTMake3(AST_GCC_ATTRIBUTE_EXPR, identif1, identif2, NULL, $1.token_line, NULL);
-}
-| IDENTIFIER '(' IDENTIFIER ',' expression_list ')'
-{
-	AST identif1 = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
-	AST identif2 = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
-	
-	$$ = ASTMake3(AST_GCC_ATTRIBUTE_EXPR, identif1, identif2, $5, $1.token_line, NULL);
-}
+// | IDENTIFIER '(' IDENTIFIER ')'
+// {
+// 	AST identif1 = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
+// 	AST identif2 = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
+// 	
+// 	$$ = ASTMake3(AST_GCC_ATTRIBUTE_EXPR, identif1, identif2, NULL, $1.token_line, NULL);
+// }
+// | IDENTIFIER '(' IDENTIFIER ',' expression_list ')'
+// {
+// 	AST identif1 = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
+// 	AST identif2 = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
+// 	
+// 	$$ = ASTMake3(AST_GCC_ATTRIBUTE_EXPR, identif1, identif2, $5, $1.token_line, NULL);
+// }
 | IDENTIFIER '(' expression_list ')'
 {
 	AST identif1 = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
@@ -1879,10 +1879,10 @@ function_definition : declarator function_body
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, $3, $4, ASTLine($1), NULL);
 }
 // GNU Extensions
-| EXTENSION function_definition
-{
-	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, NULL);
-}
+// | EXTENSION function_definition
+// {
+// 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, NULL);
+// }
 ;
 
 function_body : compound_statement

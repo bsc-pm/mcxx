@@ -40,6 +40,8 @@ static char* symbol_kind_names[] =
 	[SK_TEMPLATE_FUNCTION] = "SK_TEMPLATE_FUNCTION",
 	[SK_TEMPLATE_PARAMETER] = "SK_TEMPLATE_PARAMETER", 
 	[SK_SCOPE] = "SK_SCOPE",
+	// GCC EXtension for builtin types
+	[SK_GCC_BUILTIN_TYPE] = "SK_GCC_BUILTIN_TYPE",
 };
 
 static char* scope_names[] =
@@ -139,6 +141,11 @@ static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_inde
 		PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Aliased type: ");
 		print_declarator(entry->type_information->type->aliased_type, st);
 		fprintf(stderr, "\n");
+	}
+
+	if (entry->kind == SK_GCC_BUILTIN_TYPE)
+	{
+		PRINT_INDENTED_LINE(stderr, global_indent+1, "(builtin type)\n");
 	}
 
 	if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
