@@ -17,6 +17,4 @@ void solve_ambiguous_for_init_statement(AST for_init_statement, scope_t* st);
 
 void solve_possibly_ambiguous_expression(AST a, scope_t* st);
 
-void choose_option(AST a, int n);
-
 #endif // CXX_AMBIGUITY
