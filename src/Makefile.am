@@ -32,13 +32,13 @@ mcxx_SOURCES = \
   cxx-solvetemplate.h \
   cxx-solvetemplate.c \
   cxx-printscope.c \
-  cxx-printscope.h \
-  cxx-koenig.c \
-  cxx-koenig.h \
-  cxx-typecalc.c \
-  cxx-typecalc.h \
-  cxx-overload.c \
-  cxx-overload.h
+  cxx-printscope.h 
+#  cxx-koenig.c \
+#  cxx-koenig.h \
+#  cxx-typecalc.c \
+#  cxx-typecalc.h \
+#  cxx-overload.c \
+#  cxx-overload.h
 
 mcxx_LDFLAGS=-L../lib -L../gc
 mcxx_LDADD=../lib/libmcxx-utils.la ../gc/libgc.la
