@@ -12,13 +12,24 @@
 #include "cxx-ambiguity.h"
 #include "cxx-koenig.h"
 
+static calculated_type_t* calculate_expression_type(AST a, scope_t* st);
+
+static type_t* new_fundamental_type(void);
+static type_t* new_bool_type(void);
+static type_t* new_float_type(void);
+static type_t* new_char_type(void);
+static type_t* new_wchar_type(void);
+static type_t* new_const_char_pointer_type(void);
+static type_t* new_const_wchar_pointer_type(void);
+static type_t* new_int_type(void);
+
 /*
  * Calculates the type of an expression
  */
 static calculated_type_t* create_type_set(type_t* t, value_type_t value_type);
 static type_t* usual_arithmetic_conversions(type_t* t1, type_t* t2, scope_t* st);
 
-type_t* new_fundamental_type(void)
+static type_t* new_fundamental_type(void)
 {
 	type_t* result = GC_CALLOC(1, sizeof(*result));
 
@@ -30,7 +41,7 @@ type_t* new_fundamental_type(void)
 	return result;
 }
 
-type_t* new_bool_type(void)
+static type_t* new_bool_type(void)
 {
 	type_t* result = new_fundamental_type();
 
@@ -39,7 +50,7 @@ type_t* new_bool_type(void)
 	return result;
 }
 
-type_t* new_double_type(void)
+static type_t* new_double_type(void)
 {
 	type_t* result = new_fundamental_type();
 
@@ -48,7 +59,7 @@ type_t* new_double_type(void)
 	return result;
 }
 
-type_t* new_float_type(void)
+static type_t* new_float_type(void)
 {
 	type_t* result = new_fundamental_type();
 
@@ -57,7 +68,7 @@ type_t* new_float_type(void)
 	return result;
 }
 
-type_t* new_char_type(void)
+static type_t* new_char_type(void)
 {
 	type_t* result = new_fundamental_type();
 	
@@ -66,7 +77,7 @@ type_t* new_char_type(void)
 	return result;
 }
 
-type_t* new_wchar_type(void)
+static type_t* new_wchar_type(void)
 {
 	type_t* result = new_fundamental_type();
 	
@@ -75,7 +86,7 @@ type_t* new_wchar_type(void)
 	return result;
 }
 
-type_t* new_const_wchar_pointer_type(void)
+static type_t* new_const_wchar_pointer_type(void)
 {
 	type_t* const_char = new_wchar_type();
 	
@@ -89,7 +100,7 @@ type_t* new_const_wchar_pointer_type(void)
 	return pointer;
 }
 
-type_t* new_const_char_pointer_type(void)
+static type_t* new_const_char_pointer_type(void)
 {
 	type_t* const_char = new_char_type();
 	
@@ -103,7 +114,7 @@ type_t* new_const_char_pointer_type(void)
 	return pointer;
 }
 
-type_t* new_int_type(void)
+static type_t* new_int_type(void)
 {
 	type_t* result = new_fundamental_type();
 
@@ -112,7 +123,7 @@ type_t* new_int_type(void)
 	return result;
 }
 
-calculated_type_t* calculate_functional_expression_type(AST a, AST arguments, scope_t* st)
+static calculated_type_t* calculate_functional_expression_type(AST a, AST arguments, scope_t* st)
 {
 	switch (ASTType(a))
 	{
@@ -164,7 +175,7 @@ calculated_type_t* calculate_functional_expression_type(AST a, AST arguments, sc
 	}
 }
 
-calculated_type_t* calculate_expression_type(AST a, scope_t* st)
+static calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 {
 	switch (ASTType(a))
 	{
@@ -434,8 +445,12 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 				type_t* function_type;
 				if (function_expr_type->num_types > 1)
 				{
+#warning Restore this when overload works
+					scope_entry_t* overloaded_funct = NULL;
+#if 0
 					scope_entry_t* overloaded_funct = resolve_overload(st, argument_list, function_expr_type->overloaded_functions, 
 							function_expr_type->object_type);
+#endif
 					function_type = overloaded_funct->type_information;
 				}
 				else

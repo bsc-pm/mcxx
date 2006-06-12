@@ -921,9 +921,10 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 		case AST_SYMBOL :
 			{
 #warning Koenig lookup should be performed here
-				// The technique here relies on finding something that is a function.
-				// If nothing is found, assume also that is a function that would need
-				// Koenig lookup for correct lookup
+				// The technique here relies on finding something that is a
+				// function.  If nothing is found, assume also that is a
+				// function that would need full Koenig lookup for correct
+				// lookup
 				scope_entry_list_t* function_lookup = NULL;
 				function_lookup = query_unqualified_name(st, ASTText(expr));
 

@@ -5,6 +5,9 @@
 #include "cxx-typecalc.h"
 #include "cxx-typeutils.h"
 
+static scope_entry_t* resolve_overload(scope_t* st, AST argument_list, scope_entry_list_t* candidate_functions, 
+		type_t* object_type);
+
 static int count_argument_list(AST argument_list)
 {
 	if (ASTType(argument_list) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
@@ -505,7 +508,12 @@ build_one_implicit_conversion_sequence(scope_entry_t* entry, int n_arg, AST argu
 	// First get the type of the argument expression
 	AST argument = get_argument_i(argument_list, n_arg);
 
+#warning Reenable when full overload works
+#if 0
 	calculated_type_t* type_result_set = calculate_expression_type(argument, st);
+#else
+	calculated_type_t* type_result_set = NULL;
+#endif
 
 	if (type_result_set->num_types != 1)
 	{

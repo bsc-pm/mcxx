@@ -75,7 +75,5 @@ typedef struct viable_function_list_tag
 	struct viable_function_list_tag* next;
 } viable_function_list_t;
 
-scope_entry_t* resolve_overload(scope_t* st, AST argument_list, scope_entry_list_t* candidate_functions, 
-		type_t* object_type);
 
 #endif // CXX_OVERLOAD

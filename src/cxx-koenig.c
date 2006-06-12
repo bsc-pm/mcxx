@@ -343,7 +343,12 @@ static void compute_associated_namespaces_and_classes(scope_t* st, AST arguments
 	{
 		AST arg_expr = ASTSon1(iter);
 
+#warning Reenable when Koenig works again
+#if 0
 		calculated_type_t* calc_type = calculate_expression_type(arg_expr, st);
+#else
+		calculated_type_t* calc_type = NULL;
+#endif 
 
 		if (calc_type->num_types != 1)
 		{
