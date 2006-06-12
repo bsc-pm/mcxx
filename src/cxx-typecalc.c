@@ -137,7 +137,7 @@ calculated_type_t* calculate_functional_expression_type(AST a, AST arguments, sc
 
 				if (function_lookup == NULL)
 				{
-					internal_error("Function '%s' not found\n", ASTText(a));
+					return NULL;
 				}
 
 				if (function_lookup->entry->kind == SK_FUNCTION)
@@ -331,6 +331,11 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 			{
 				calculated_type_t* array_type_set = calculate_expression_type(ASTSon0(a), st);
 
+				if (array_type_set == NULL)
+				{
+					return NULL;
+				}
+
 				if (array_type_set->num_types != 1)
 				{
 					internal_error("Unsupported set of types for this array subscript", 0);
@@ -360,6 +365,11 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 				cv_qualifier_t cv_qualifier = CV_NONE;
 				value_type_t value_type = VT_RVALUE;
 				calculated_type_t* class_type_set = calculate_expression_type(ASTSon0(a), st);
+
+				if (class_type_set == NULL)
+				{
+					return NULL;
+				}
 
 				if (class_type_set->num_types != 1)
 				{
@@ -519,6 +529,11 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 
 				calculated_type_t* casted_expr_type = calculate_expression_type(ASTSon1(a), st);
 
+				if (casted_expr_type == NULL)
+				{
+					return NULL;
+				}
+
 				value_type_t value_type = casted_expr_type->value_type;
 
 				return create_type_set(declarator_type, value_type);
@@ -536,6 +551,12 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 #warning Missing overload support here
 				calculated_type_t* type_left = calculate_expression_type(ASTSon0(a), st);
 				calculated_type_t* type_right = calculate_expression_type(ASTSon1(a), st);
+
+				if (type_left == NULL
+						|| type_right == NULL)
+				{
+					return NULL;
+				}
 
 				if (type_left->num_types == 1
 						&& type_right->num_types == 1)
@@ -616,6 +637,12 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 				calculated_type_t* type_left = calculate_expression_type(ASTSon0(a), st);
 				calculated_type_t* type_right = calculate_expression_type(ASTSon1(a), st);
 
+				if (type_left == NULL
+						|| type_right == NULL)
+				{
+					return NULL;
+				}
+
 				if (type_left->num_types == 1
 						&& type_right->num_types == 1)
 				{
@@ -649,6 +676,12 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 				calculated_type_t* type_left = calculate_expression_type(ASTSon0(a), st);
 				calculated_type_t* type_right = calculate_expression_type(ASTSon1(a), st);
 
+				if (type_left == NULL
+						|| type_right == NULL)
+				{
+					return NULL;
+				}
+
 				if (type_left->num_types == 1
 						&& type_right->num_types == 1)
 				{
@@ -674,6 +707,11 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 #warning Missing overload support here
 				calculated_type_t* result = calculate_expression_type(ASTSon0(a), st);
 
+				if (result == NULL)
+				{
+					return NULL;
+				}
+
 				if (result->num_types == 1)
 				{
 					if (is_fundamental_type(result->types[0]))
@@ -693,6 +731,10 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 				// Assume ASTSon1 and ASTSon2 will yield the same type
 #warning Add support for standard conversions
 				calculated_type_t* result = calculate_expression_type(ASTSon1(a), st);
+				if (result == NULL)
+				{
+					return NULL;
+				}
 				return result;
 			}
 			// Special unary operators
@@ -702,6 +744,11 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 				AST cast_expr = ASTSon1(a);
 
 				calculated_type_t* cast_expr_set = calculate_expression_type(cast_expr, st);
+
+				if (cast_expr_set == NULL)
+				{
+					return NULL;
+				}
 
 				if (cast_expr_set->num_types != 1)
 				{
@@ -745,6 +792,11 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 
 				calculated_type_t* cast_expr_set = calculate_expression_type(cast_expr, st);
 
+				if (cast_expr_set == NULL)
+				{
+					return NULL;
+				}
+
 				if (cast_expr_set->num_types != 1)
 				{
 					internal_error("Overloaded function pointer reference unsupported", 0);
@@ -773,6 +825,11 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 			{
 #warning Missing overload support here
 				calculated_type_t* result = calculate_expression_type(ASTSon0(a), st);
+
+				if (result == NULL)
+				{
+					return NULL;
+				}
 
 				if (result->num_types == 1)
 				{
