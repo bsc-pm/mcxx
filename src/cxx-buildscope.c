@@ -1452,6 +1452,7 @@ static AST get_declarator_name(AST a)
 
 	switch(ASTType(a))
 	{
+		case AST_MEMBER_DECLARATOR :
 		case AST_DECLARATOR :
 		case AST_PARENTHESIZED_DECLARATOR :
 			{
@@ -1578,7 +1579,6 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 		case AST_QUALIFIED_ID :
 			{
 				// A qualified id "a::b::c"
-				fprintf(stderr, "--> JANDERKLANDER\n");
 				if (declarator_type->kind != TK_FUNCTION)
 				{
 					scope_entry_list_t* entry_list = query_id_expression(st, declarator_id, FULL_UNQUALIFIED_LOOKUP);
@@ -2279,13 +2279,14 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 			type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
 			this_type->kind = TK_POINTER;
 			this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
-			this_type->pointer->pointee = simple_type_to_type(entry->type_information->function->class_type);
+			this_type->pointer->pointee = simple_type_to_type(
+					copy_simple_type(entry->type_information->function->class_type));
 
 			// "this" pseudovariable has the same cv-qualification of this member
 			this_type->pointer->pointee->type->cv_qualifier = 
 				entry->type_information->function->cv_qualifier;
 
-			// This will put the symbol in the parameter scope, but this is fine
+			// This will put the symbol in the function scope, but this is fine
 			scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
 
 			this_symbol->kind = SK_VARIABLE;
@@ -2398,13 +2399,13 @@ static void build_scope_member_function_definition(AST a, scope_t*  st,
 		type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
 		this_type->kind = TK_POINTER;
 		this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
-		this_type->pointer->pointee = simple_type_to_type(class_info);
+		this_type->pointer->pointee = simple_type_to_type(copy_simple_type(class_info));
 
 		// "this" pseudovariable has the same cv-qualification of this member
 		this_type->pointer->pointee->type->cv_qualifier = 
 			entry->type_information->function->cv_qualifier;
 
-		// This will put the symbol in the parameter scope, but this is fine
+		// This will put the symbol in the function scope, but this is fine
 		scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
 
 		this_symbol->kind = SK_VARIABLE;
@@ -2445,7 +2446,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 						// save its class_type
 						//
 						// This will be used further when defining this function.
-						if (entry->type_information->kind == SK_FUNCTION)
+						if (entry->kind == SK_FUNCTION)
 						{
 							entry->type_information->function->is_member = 1;
 							entry->type_information->function->class_type = class_info;
@@ -2460,7 +2461,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 							}
 
 							// Update information in the class about this member function
-							AST declarator_name = get_declarator_name(ASTSon1(a));
+							AST declarator_name = get_declarator_name(declarator);
 							switch (ASTType(declarator_name))
 							{
 								case AST_SYMBOL :

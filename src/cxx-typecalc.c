@@ -170,13 +170,35 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 	{
 		case AST_AMBIGUITY :
 			{
-				solve_possibly_ambiguous_expression(a, st);
-				if (ASTType(a) == AST_AMBIGUITY)
+				calculated_type_t* current_type = NULL;
+				int current_valid = -1;
+				int i;
+				for (i = 0; i < a->num_ambig; i++)
 				{
-					internal_error("Still ambiguous", 0);
+					calculated_type_t* temp;
+					if ((temp = calculate_expression_type(a->ambig[i], st)) != NULL)
+					{
+						if (current_valid < 0)
+						{
+							current_type = temp;
+							current_valid = i;
+						}
+						else
+						{
+							internal_error("More than one valid expression!\n", 0);
+						}
+					}
 				}
-				// Restart 
-				return calculate_expression_type(a, st);
+
+				if (current_valid < 0)
+				{
+					return NULL;
+				}
+				else
+				{
+					choose_option(a, current_valid);
+					return current_type;
+				}
 				break;
 			}
 		// Primaries
@@ -231,6 +253,7 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 			{
 				scope_entry_list_t* this_symbol;
 
+#warning Ensure "this" lookup works
 				this_symbol = query_in_symbols_of_scope(st, "this");
 
 				return create_type_set(this_symbol->entry->type_information, VT_RVALUE);
@@ -249,7 +272,8 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 
 				if (result_list == NULL)
 				{
-					internal_error("Unknown symbol", 0);
+					// internal_error("Unknown symbol", 0);
+					return NULL;
 				}
 
 				calculated_type_t* result = NULL;
@@ -293,7 +317,8 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 					}
 					else
 					{
-						internal_error("Unexpected symbol kind '%d'", entry->kind);
+						// This is not an object symbol
+						return NULL;
 					}
 
 					result = create_type_set(entry->type_information, value_type);
@@ -316,6 +341,7 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 				value_type_t value_type = VT_LVALUE;
 				if (array_type->kind != TK_ARRAY)
 				{
+#warning Handle overload of "operator[]"
 					internal_error("Expected an array type at the left of the array subscript!\n", 0);
 				}
 
@@ -350,13 +376,14 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 
 					if (class_type->kind != TK_POINTER)
 					{
-						internal_error("Postfix expression does not denote a pointer", 0);
+						// internal_error("Postfix expression does not denote a pointer", 0);
+						return NULL;
 					}
 
 					class_type = class_type->pointer->pointee;
 				}
 				
-				// Advance over typedefs but gathering al cv qualifications
+				// Advance over typedefs but gathering all cv qualifications
 				// struct A { };
 				// typedef const A B;
 				// typedef const B C;
@@ -385,7 +412,8 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 
 				if (!is_class_type(class_type))
 				{
-					internal_error("This expression does not denote a class", 0);
+					// internal_error("This expression does not denote a class", 0);
+					return NULL;
 				}
 
 				scope_t* inner_scope = class_type->type->class_info->inner_scope;
@@ -445,6 +473,7 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 
 				if (function_type->kind != TK_FUNCTION)
 				{
+#warning Handle overload of "operator()"
 					internal_error("Expression does not denote a function\n", 0);
 				}
 
@@ -504,6 +533,7 @@ calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 		case AST_LOGICAL_OR :
 		case AST_LOGICAL_AND :
 			{
+#warning Missing overload support here
 				calculated_type_t* type_left = calculate_expression_type(ASTSon0(a), st);
 				calculated_type_t* type_right = calculate_expression_type(ASTSon1(a), st);
 

@@ -1,6 +1,9 @@
 #include <stdio.h>
 #include "cxx-ambiguity.h"
+#include "cxx-typeutils.h"
+#include "cxx-typecalc.h"
 #include "cxx-utils.h"
+#include "cxx-overload.h"
 #include "cxx-koenig.h"
 
 /*
@@ -10,28 +13,15 @@
  *
  */
 
-static void choose_option(AST a, int n);
 static int select_node_type(AST a, node_t type);
 static AST recursive_search(AST a, node_t type);
 static AST look_for_node_type_within_ambig(AST a, node_t type, int n);
 static void solve_integral_specification_ambig(AST a);
 
 static char check_for_declaration_statement(AST a, scope_t* st);
-static char check_for_expression(AST expression, scope_t* st);
 static char check_for_expression_statement(AST a, scope_t* st);
-static char check_for_qualified_id(AST expr, scope_t* st);
-static char check_for_symbol(AST expr, scope_t* st);
-static char check_for_destructor_id(AST expr, scope_t* st);
-static char check_for_function_call(AST expr, scope_t* st);
-static char check_for_explicit_type_conversion(AST expr, scope_t* st);
-static char check_for_typeid(AST expr, scope_t* st);
-static char check_for_typeid_expr(AST expr, scope_t* st);
-static char check_for_sizeof_expr(AST expr, scope_t* st);
-static char check_for_sizeof_typeid(AST expr, scope_t* st);
-static char check_for_cast(AST expr, scope_t* st);
 
 static char check_for_simple_type_spec(AST type_spec, scope_t* st);
-static char check_for_type_id_tree(AST type_id, scope_t* st);
 static char check_for_type_specifier(AST type_id, scope_t* st);
 
 static char check_for_typeless_declarator(AST declarator, scope_t* st);
@@ -133,6 +123,7 @@ void solve_ambiguous_declaration(AST a, scope_t* st)
 			}
 		}
 	}
+
 	if (valid)
 	{
 		solve_integral_specification_ambig(a);
@@ -573,275 +564,22 @@ static char check_for_typeless_declarator(AST declarator, scope_t* st)
 //
 //   void f()
 //   {
-//      int C, D;
+//      typedef int C;
 //      B < C > D;
 //   }
 //
 // "(B < C) > D" intepretation is not feasible because B names
 // a type and thus does not yield a value
-//
-static char check_for_expression(AST expression, scope_t* st)
-{
-	switch (ASTType(expression))
-	{
-		case AST_AMBIGUITY :
-			{
-				char correct_choice = -1;
-				int i;
-				for (i = 0; i < expression->num_ambig; i++)
-				{
-					if (check_for_expression(expression->ambig[i], st))
-					{
-						if (correct_choice < 0)
-						{
-							correct_choice = i;
-						}
-						else
-						{
-							internal_error("More than one valid choice for expression statement\n", 0);
-						}
-					}
-				}
-
-				if (correct_choice < 0)
-				{
-					// No ambiguity is valid
-					return 0;
-				}
-				else
-				{
-					// Choose the option and state that this can be valid
-					choose_option(expression, correct_choice);
-					return 1;
-				}
-				break;
-			}
-			// Primaries
-		case AST_DECIMAL_LITERAL :
-		case AST_OCTAL_LITERAL :
-		case AST_HEXADECIMAL_LITERAL :
-		case AST_FLOATING_LITERAL :
-		case AST_BOOLEAN_LITERAL :
-		case AST_CHARACTER_LITERAL :
-		case AST_STRING_LITERAL :
-		case AST_THIS_VARIABLE :
-			{
-				return 1;
-			}
-		case AST_QUALIFIED_ID :
-			{
-				return check_for_qualified_id(expression, st);
-			}
-		case AST_QUALIFIED_TEMPLATE :
-			{
-				// TODO - This can yield a value ?
-				return 0;
-			}
-		case AST_QUALIFIED_OPERATOR_FUNCTION_ID :
-			{
-				// This always yields a value, does not it?
-				return 1;
-			}
-		case AST_QUALIFIED_TEMPLATE_ID :
-			{
-				// This is never a value
-				return 0;
-			}
-		case AST_PARENTHESIZED_EXPRESSION :
-			{
-				return check_for_expression(ASTSon0(expression), st);
-			}
-		case AST_SYMBOL :
-			{
-				return check_for_symbol(expression, st);
-			}
-		case AST_DESTRUCTOR_ID :
-			{
-				return check_for_destructor_id(expression, st);
-			}
-		case AST_OPERATOR_FUNCTION_ID :
-			{
-				// This should yield a value, should not ?
-				return 1;
-			}
-		case AST_CONVERSION_FUNCTION_ID :
-			{
-				// This should yield a value, should not ?
-				return 1;
-			}
-		case AST_TEMPLATE_ID :
-			{
-				// This is never a value
-				return 0;
-			}
-			// Postfix expressions
-		case AST_ARRAY_SUBSCRIPT :
-			{
-				// It depends only on the postfix expression
-				return check_for_expression(ASTSon0(expression), st);
-			}
-		case AST_FUNCTION_CALL :
-			{
-				return check_for_function_call(expression, st);
-			}
-		case AST_EXPLICIT_TYPE_CONVERSION :
-			{
-				return check_for_explicit_type_conversion(expression, st);
-			}
-		case AST_TYPENAME_FUNCTION_CALL :
-			{
-				// This yields a type
-				return 1;
-			}
-		case AST_TYPENAME_TEMPLATE :
-		case AST_TYPENAME_TEMPLATE_TEMPLATE :
-			{
-				// This is never a value
-				return 0;
-			}
-		case AST_CLASS_MEMBER_ACCESS :
-		case AST_POINTER_CLASS_MEMBER_ACCESS :
-			{
-				// This should always yield a value
-				return 1;
-			}
-		case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
-		case AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS :
-			{
-				// Think on this. Can this yield something that is not a value ?
-				return 1;
-			}
-		case AST_POSTINCREMENT :
-		case AST_POSTDECREMENT :
-			{
-				// This cannot yield a type
-				return 1;
-			}
-		case AST_DYNAMIC_CAST :
-		case AST_STATIC_CAST :
-		case AST_REINTERPRET_CAST :
-		case AST_CONST_CAST :
-			{
-				// This should not yield a type
-				return 1;
-			}
-		case AST_TYPEID_TYPE :
-			{
-				return check_for_typeid(expression, st);
-			}
-		case AST_TYPEID_EXPR :
-			{
-				return check_for_typeid_expr(expression, st);
-			}
-		// Unary expressions
-		case AST_PREINCREMENT :
-		case AST_PREDECREMENT :
-			{
-				return 1;
-			}
-		case AST_SIZEOF :
-			{
-				return check_for_sizeof_expr(expression, st);
-			}
-		case AST_SIZEOF_TYPEID :
-			{
-				return check_for_sizeof_typeid(expression, st);
-			}
-		case AST_DERREFERENCE :
-		case AST_REFERENCE :
-		case AST_PLUS_OP :
-		case AST_NEG_OP :
-		case AST_NOT_OP :
-		case AST_COMPLEMENT_OP :
-			{
-				return check_for_expression(ASTSon0(expression), st);
-			}
-			// Cast expression
-		case AST_CAST_EXPRESSION :
-			{
-				return check_for_cast(expression, st);
-			}
-		// Pointer to method expressions 
-		case AST_POINTER_TO_POINTER_MEMBER :
-		case AST_POINTER_TO_MEMBER :
-			{
-				// This should always yield a value
-				return 1;
-			}
-		case AST_MULT_OP :
-		case AST_DIV_OP :
-		case AST_MOD_OP :
-		case AST_ADD_OP :
-		case AST_MINUS_OP :
-		case AST_SHL_OP :
-		case AST_SHR_OP :
-		case AST_LOWER_THAN :
-		case AST_GREATER_THAN :
-		case AST_GREATER_OR_EQUAL_THAN :
-		case AST_LOWER_OR_EQUAL_THAN :
-		case AST_EQUAL_OP :
-		case AST_DIFFERENT_OP :
-		case AST_BITWISE_AND :
-		case AST_BITWISE_XOR :
-		case AST_BITWISE_OR :
-		case AST_LOGICAL_AND :
-		case AST_LOGICAL_OR :
-			{
-				return check_for_expression(ASTSon0(expression), st)
-					&& check_for_expression(ASTSon1(expression), st);
-			}
-		case AST_CONDITIONAL_EXPRESSION :
-			{
-				return check_for_expression(ASTSon0(expression), st)
-					&& check_for_expression(ASTSon1(expression), st)
-					&& check_for_expression(ASTSon2(expression), st);
-			}
-		case AST_ASSIGNMENT :
-		case AST_MUL_ASSIGNMENT :
-		case AST_DIV_ASSIGNMENT :
-		case AST_ADD_ASSIGNMENT :
-		case AST_SUB_ASSIGNMENT :
-		case AST_SHL_ASSIGNMENT :
-		case AST_SHR_ASSIGNMENT :
-		case AST_AND_ASSIGNMENT :
-		case AST_OR_ASSIGNMENT :
-		case AST_XOR_ASSIGNMENT :
-		case AST_MOD_ASSIGNMENT :
-			{
-				return check_for_expression(ASTSon0(expression), st)
-					&& check_for_expression(ASTSon1(expression), st);
-			}
-		case AST_THROW_EXPRESSION :
-			{
-				if (ASTSon0(expression) != NULL)
-				{
-					return check_for_expression(ASTSon0(expression), st);
-				}
-				else 
-					return 1;
-			}
-		case AST_COMMA_OP :
-			{
-				return check_for_expression(ASTSon0(expression), st)
-					&& check_for_expression(ASTSon1(expression), st);
-			}
-		default :
-			{
-				internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(expression)));
-				break;
-			}
-	}
-}
-
 void solve_possibly_ambiguous_expression(AST a, scope_t* st)
 {
-	check_for_expression(a, st);
+	calculate_expression_type(a, st);
 }
 
 static char check_for_expression_statement(AST a, scope_t* st)
 {
 	AST expression = ASTSon0(a);
-	return check_for_expression(expression, st);
+
+	return (calculate_expression_type(expression, st) != NULL);
 }
 
 #define ENSURE_TYPE(expr, type) \
@@ -852,128 +590,6 @@ do { \
 	} \
 } \
 while (0);
-
-static char check_for_qualified_id(AST expr, scope_t* st)
-{
-	AST global_scope = ASTSon0(expr);
-	AST nested_name_spec = ASTSon1(expr);
-	AST unqualified_object = ASTSon2(expr);
-
-	scope_entry_list_t* result_list = query_nested_name(st, global_scope, nested_name_spec, unqualified_object, FULL_UNQUALIFIED_LOOKUP);
-
-	return (result_list != NULL
-			&& (result_list->entry->kind == SK_VARIABLE
-				|| result_list->entry->kind == SK_ENUMERATOR
-				|| result_list->entry->kind == SK_FUNCTION));
-}
-
-static char check_for_symbol(AST expr, scope_t* st)
-{
-	ENSURE_TYPE(expr, AST_SYMBOL);
-	scope_entry_list_t* result = query_unqualified_name(st, ASTText(expr)); 
-
-	return (result != NULL 
-			&& (result->entry->kind == SK_VARIABLE
-				|| result->entry->kind == SK_ENUMERATOR
-				|| result->entry->kind == SK_FUNCTION));
-}
-
-static char check_for_destructor_id(AST expr, scope_t* st)
-{
-	ENSURE_TYPE(expr, AST_DESTRUCTOR_ID);
-
-	char* class_name = ASTText(expr);
-	// Spring ~
-	class_name++;
-	scope_entry_list_t* result_list = query_unqualified_name(st, class_name);
-
-	if (result_list == NULL)
-	{
-		return 0;
-	}
-
-	type_t* type_result = result_list->entry->type_information;
-
-	if (type_result->kind != TK_DIRECT)
-	{
-		return 0;
-	}
-
-	// Advance over typedefs
-	type_result = advance_over_typedefs(type_result);
-
-	if (type_result->type->kind == STK_USER_DEFINED)
-	{
-		type_result = type_result->type->user_defined_type->type_information;
-	}
-
-	return (type_result->kind == TK_DIRECT
-			&& (type_result->type->kind == STK_CLASS
-				// Dubious without exact instantiation
-				|| type_result->type->kind == STK_TYPE_TEMPLATE_PARAMETER));
-}
-
-static char check_for_functional_expression(AST expr, AST arguments, scope_t* st)
-{
-	switch(ASTType(expr))
-	{
-		case AST_SYMBOL :
-			{
-				// Koenig lookup here!
-				scope_entry_list_t* function_lookup = NULL;
-				function_lookup = lookup_unqualified_function(st, ASTText(expr), arguments);
-
-				enum cxx_symbol_kind filter_funct[2] =
-				{ 
-					SK_FUNCTION,
-					SK_TEMPLATE_FUNCTION
-				};
-				function_lookup = filter_symbol_kind_set(function_lookup, 2, filter_funct);
-
-				if (function_lookup != NULL)
-				{
-					return 1;
-				}
-				else
-				{
-					return 0;
-				}
-				break;
-			}
-		case AST_PARENTHESIZED_EXPRESSION :
-			{
-				return check_for_function_call(ASTSon0(expr), st);
-				break;
-			}
-		default :
-			{
-				return check_for_expression(expr, st);
-			}
-	}
-}
-
-static char check_for_function_call(AST expr, scope_t* st)
-{
-	ENSURE_TYPE(expr, AST_FUNCTION_CALL);
-	
-	// A function call is of the form
-	//   f ( e );
-	//
-	// f has to yield a valid value or functional
-	return check_for_functional_expression(ASTSon0(expr), ASTSon1(expr), st);
-}
-
-static char check_for_explicit_type_conversion(AST expr, scope_t* st)
-{
-	// An explicit type conversion is of the form
-	//
-	//   T ( e );
-	//
-	// T has to be a valid typename
-	AST simple_type_spec = ASTSon0(expr);
-
-	return check_for_simple_type_spec(simple_type_spec, st);
-}
 
 static char check_for_simple_type_spec(AST type_spec, scope_t* st)
 {
@@ -994,28 +610,6 @@ static char check_for_simple_type_spec(AST type_spec, scope_t* st)
 			|| entry_list->entry->kind == SK_CLASS
 			|| entry_list->entry->kind == SK_TEMPLATE_PRIMARY_CLASS
 			|| entry_list->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS);
-}
-
-static char check_for_typeid(AST expr, scope_t* st)
-{
-	return check_for_type_id_tree(ASTSon0(expr), st);
-}
-
-static char check_for_type_id_tree(AST type_id, scope_t* st)
-{
-	AST type_specifier_seq = ASTSon0(type_id);
-	// AST abstract_declarator = ASTSon1(type_id);
-	
-	// This is never NULL
-	AST type_specifier = ASTSon1(type_specifier_seq);
-
-	return check_for_type_specifier(type_specifier, st);
-}
-
-static char check_for_typeid_expr(AST expr, scope_t* st)
-{
-	AST expression = ASTSon0(expr);
-	return check_for_expression(expression, st);
 }
 
 static char check_for_type_specifier(AST type_id, scope_t* st)
@@ -1049,24 +643,6 @@ static char check_for_type_specifier(AST type_id, scope_t* st)
 				internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(type_id)));
 			}
 	}
-}
-
-static char check_for_sizeof_expr(AST expr, scope_t* st)
-{
-	AST sizeof_expression = ASTSon0(expr);
-	return check_for_expression(sizeof_expression, st);
-}
-
-static char check_for_sizeof_typeid(AST expr, scope_t* st)
-{
-	AST type_id = ASTSon0(expr);
-	return check_for_type_id_tree(type_id, st);
-}
-
-static char check_for_cast(AST expr, scope_t* st)
-{
-	AST type_id = ASTSon0(expr);
-	return check_for_type_id_tree(type_id, st);
 }
 
 void solve_ambiguous_init_declarator(AST a, scope_t* st)
@@ -1134,7 +710,7 @@ static char check_for_initialization(AST initializer, scope_t* st)
 					case AST_INITIALIZER_EXPR :
 						{
 							AST expression = ASTSon0(initializer_clause);
-							return check_for_expression(expression, st);
+							return (calculate_expression_type(expression, st) != NULL);
 							break;
 						}
 					default :
@@ -1153,7 +729,7 @@ static char check_for_initialization(AST initializer, scope_t* st)
 				{
 					AST expression = ASTSon1(iter);
 
-					if (!check_for_expression(expression, st))
+					if (calculate_expression_type(expression, st) == NULL)
 					{
 						return 0;
 					}
@@ -1341,7 +917,7 @@ void solve_ambiguous_for_init_statement(AST a, scope_t* st)
 				}
 				break;
 			case AST_EXPRESSION_STATEMENT :
-				if (check_for_expression(for_init_statement, st))
+				if (calculate_expression_type(for_init_statement, st) != NULL)
 				{
 					current = 1;
 				}
@@ -1381,7 +957,7 @@ void solve_ambiguous_for_init_statement(AST a, scope_t* st)
  * This function discards all but the n-option of this ambiguity. The node is
  * converted to one of its options.
  */
-static void choose_option(AST a, int n)
+void choose_option(AST a, int n)
 {
 	if (n >= a->num_ambig)
 	{

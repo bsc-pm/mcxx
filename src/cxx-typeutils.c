@@ -258,6 +258,10 @@ char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
 			|| ((t2->return_type->kind == TK_DIRECT && t2->return_type->type == NULL)
 				&& (t1->return_type->kind == TK_DIRECT && t1->return_type->type != NULL)))
 		return 1;
+
+	if (!equivalent_cv_qualification(t1->cv_qualifier, 
+				t2->cv_qualifier))
+		return 1;
 			
 
 	// Destructors, constructors, operator functions and conversion functions
@@ -1248,18 +1252,25 @@ cv_qualifier_t get_cv_qualifier(type_t* type_info)
 // Gives the name of a builtin type
 const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
 {
-	static char result[256];
+	static char* cv_qualifier_str;
 
-	memset(result, 0, sizeof(char)*255);
+	char* result = NULL;
+
+	cv_qualifier_str = "";
 	if ((simple_type_info->cv_qualifier & CV_CONST) == CV_CONST)
 	{
-		strcat(result, "const ");
+		cv_qualifier_str = "const ";
+		if ((simple_type_info->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+		{
+			cv_qualifier_str = "const volatile ";
+		}
+	}
+	else if ((simple_type_info->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+	{
+		cv_qualifier_str = "volatile ";
 	}
 
-	if ((simple_type_info->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
-	{
-		strcat(result, "volatile ");
-	}
+	result = strappend("", cv_qualifier_str);
 
 	switch (simple_type_info->kind)
 	{
@@ -1268,78 +1279,79 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
 				switch (simple_type_info->builtin_type)
 				{
 					case BT_INT :
-						strcat(result, "int");
+						result = strappend(result, "int");
 						break;
 					case BT_BOOL :
-						strcat(result, "bool");
+						result = strappend(result, "bool");
 						break;
 					case BT_FLOAT :
-						strcat(result, "float");
+						result = strappend(result, "float");
 						break;
 					case BT_DOUBLE :
-						strcat(result, "double");
+						result = strappend(result, "double");
 						break;
 					case BT_WCHAR :
-						strcat(result, "wchar_t");
+						result = strappend(result, "wchar_t");
 						break;
 					case BT_CHAR :
-						strcat(result, "char");
+						result = strappend(result, "char");
 						break;
 					case BT_VOID :
-						strcat(result, "void");
+						result = strappend(result, "void");
 						break;
 					case BT_UNKNOWN :
 					default :
-						strcat(result, "¿¿¿unknown builtin type???");
+						result = strappend(result, "¿¿¿unknown builtin type???");
 						break;
 				}
 				break;
 			}
 		case STK_USER_DEFINED :
 			{
+				char* user_defined_str = GC_CALLOC(256, sizeof(char));
 				scope_entry_t* user_defined_type = simple_type_info->user_defined_type;
 				switch (user_defined_type->kind)
 				{
 					case SK_ENUM :
-						snprintf(result, 255, "enum %s", user_defined_type->symbol_name);
+						snprintf(user_defined_str, 255, "enum %s", user_defined_type->symbol_name);
 						break;
 					case SK_CLASS :
-						snprintf(result, 255, "class %s", user_defined_type->symbol_name);
+						snprintf(user_defined_str, 255, "class %s", user_defined_type->symbol_name);
 						break;
 					case SK_TYPEDEF :
-						snprintf(result, 255, "typedef %s", user_defined_type->symbol_name);
+						snprintf(user_defined_str, 255, "typedef %s", user_defined_type->symbol_name);
 						break;
 					case SK_TEMPLATE_PARAMETER :
-						snprintf(result, 255, "type template parameter #%d %s", 
+						snprintf(user_defined_str, 255, "type template parameter #%d %s", 
 								user_defined_type->type_information->type->template_parameter_num,
 								user_defined_type->symbol_name);
 						break;
 					case SK_TEMPLATE_PRIMARY_CLASS :
-						snprintf(result, 255, "primary template class %s (%p)", user_defined_type->symbol_name, user_defined_type);
+						snprintf(user_defined_str, 255, "primary template class %s (%p)", user_defined_type->symbol_name, user_defined_type);
 						break;
 					case SK_TEMPLATE_SPECIALIZED_CLASS :
-						snprintf(result, 255, "specialized template class %s (%p)", user_defined_type->symbol_name, user_defined_type);
+						snprintf(user_defined_str, 255, "specialized template class %s (%p)", user_defined_type->symbol_name, user_defined_type);
 						break;
 					default :
-						strcat(result, "¿¿¿unknown user defined type???");
+						strcat(user_defined_str, "¿¿¿unknown user defined type???");
 				}
+				result = strappend(result, user_defined_str);
 				break;
 			}
 		case STK_ENUM :
-			strcat(result, "enum <anonymous>");
+			result = strappend(result, "enum <anonymous>");
 			break;
 		case STK_CLASS :
-			strcat(result, "class <anonymous>");
+			result = strappend(result, "class <anonymous>");
 			break;
 		case STK_TYPE_TEMPLATE_PARAMETER :
-			strcat(result, "template type parameter T");
+			result = strappend(result, "template type parameter T");
 			break;
 		default :
 			{
 				break;
 			}
 	}
-
 
 	return result;
 }
