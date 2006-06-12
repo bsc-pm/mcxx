@@ -2,7 +2,6 @@
 #include "cxx-ambiguity.h"
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
-#include "cxx-koenig.h"
 
 /*
  * This file performs disambiguation. If a symbol table is passed along the
