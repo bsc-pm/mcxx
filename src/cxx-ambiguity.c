@@ -1471,7 +1471,8 @@ void solve_ambiguous_type_specifier(AST ambig_type, scope_t* st)
 	{
 		AST type_specifier = ambig_type->ambig[i];
 
-		is_typeof_ambiguity = (ASTType(type_specifier) == AST_GCC_TYPEOF);
+		is_typeof_ambiguity = ((ASTType(type_specifier) == AST_GCC_TYPEOF)
+				|| (ASTType(type_specifier) == AST_GCC_TYPEOF_EXPR));
 	}
 
 	if (!is_typeof_ambiguity)
@@ -1480,32 +1481,37 @@ void solve_ambiguous_type_specifier(AST ambig_type, scope_t* st)
 	}
 
 	// Solve typeof ambiguity
-	int current_choice = -1;
+	int typeof_choice = -1;
 	for (i = 0; i < ambig_type->num_ambig; i++)
 	{
 		int current_typeof = -1;
 		AST type_specifier = ambig_type->ambig[i];
+		AST typeof_argument = ASTSon0(type_specifier);
 
-		if (ASTType(ASTSon0(type_specifier)) == AST_TYPE_ID)
+		if (ASTType(type_specifier) == AST_GCC_TYPEOF)
 		{
 			if (check_for_type_id_tree(ASTSon0(type_specifier), st))
 			{
 				current_typeof = i;
 			}
 		}
-		else
+		else if (ASTType(type_specifier) == AST_GCC_TYPEOF_EXPR)
 		{
 			if (check_for_expression(ASTSon0(type_specifier), st))
 			{
 				current_typeof = i;
 			}
 		}
+		else
+		{
+			internal_error("Unexpected node type %s\n", ast_print_node_type(ASTType(type_specifier)));
+		}
 
 		if (current_typeof >= 0)
 		{
-			if (current_choice < 0)
+			if (typeof_choice < 0)
 			{
-				current_choice = i;
+				typeof_choice = i;
 			}
 			else
 			{
@@ -1514,13 +1520,13 @@ void solve_ambiguous_type_specifier(AST ambig_type, scope_t* st)
 		}
 	}
 
-	if (current_choice < 0)
+	if (typeof_choice < 0)
 	{
 		internal_error("Ambiguity not solved", 0);
 	}
 	else
 	{
-		choose_option(ambig_type, current_choice);
+		choose_option(ambig_type, typeof_choice);
 	}
 }
 

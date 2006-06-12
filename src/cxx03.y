@@ -1082,11 +1082,11 @@ simple_type_specifier : type_name
 // GNU Extension
 | TYPEOF unary_expression
 {
-	$$ = ASTMake2(AST_GCC_TYPEOF, $2, NULL, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_TYPEOF_EXPR, $2, $1.token_line, NULL);
 }
 | TYPEOF '(' type_id ')'
 {
-	$$ = ASTMake2(AST_GCC_TYPEOF, NULL, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_TYPEOF, $3, $1.token_line, NULL);
 }
 ;
 

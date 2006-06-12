@@ -133,6 +133,7 @@ HANDLER_PROTOTYPE(gcc_asm_definition_handler);
 HANDLER_PROTOTYPE(gcc_asm_operand_handler);
 HANDLER_PROTOTYPE(gcc_type_spec_sequence_handler);
 HANDLER_PROTOTYPE(gcc_typeof_handler);
+HANDLER_PROTOTYPE(gcc_typeof_expr_handler);
 HANDLER_PROTOTYPE(gcc_alignof_type_handler);
 HANDLER_PROTOTYPE(gcc_elaborated_type_class_handler);
 HANDLER_PROTOTYPE(gcc_elaborated_type_template_handler);
@@ -442,6 +443,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_GCC_COMPLEX_TYPE, simple_parameter_handler, "_Complex"),
 	NODE_HANDLER(AST_GCC_TYPE_SPECIFIER_SEQ, gcc_type_spec_sequence_handler, NULL),
 	NODE_HANDLER(AST_GCC_TYPEOF, gcc_typeof_handler, NULL),
+	NODE_HANDLER(AST_GCC_TYPEOF_EXPR, gcc_typeof_expr_handler, NULL),
 	NODE_HANDLER(AST_GCC_RESTRICT_SPEC, simple_parameter_handler, "__restrict"),
 	NODE_HANDLER(AST_GCC_PARENTHESIZED_EXPRESSION, parenthesized_son_handler, NULL),
 	NODE_HANDLER(AST_GCC_REAL_PART, prefix_with_parameter_then_son_handler, "__real__ "),
@@ -2100,16 +2102,15 @@ static void gcc_type_spec_sequence_handler(FILE* f, AST a, int level)
 static void gcc_typeof_handler(FILE* f, AST a, int level)
 {
 	fprintf(f, "__typeof ");
-	if (ASTSon0(a) != NULL)
-	{
-		prettyprint_level(f, ASTSon0(a), level);
-	}
-	else
-	{
-		fprintf(f, "(");
-		prettyprint_level(f, ASTSon1(a), level);
-		fprintf(f, ")");
-	}
+	fprintf(f, "(");
+	prettyprint_level(f, ASTSon1(a), level);
+	fprintf(f, ")");
+}
+
+static void gcc_typeof_expr_handler(FILE* f, AST a, int level)
+{
+	fprintf(f, "__typeof ");
+	prettyprint_level(f, ASTSon0(a), level);
 }
 
 static void gcc_elaborated_type_enum_handler(FILE* f, AST a, int level)

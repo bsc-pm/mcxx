@@ -80,6 +80,6 @@ do { \
 	} \
 } while (0)
 
-char* GC_STRDUP(char* str);
+char* GC_STRDUP(const char* str);
 
 #endif // CXX_UTILS_H

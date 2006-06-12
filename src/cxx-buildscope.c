@@ -674,6 +674,11 @@ void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type
 			// Restart function
 			gather_type_spec_information(a, st, simple_type_info);
 			break;
+			// GCC Extensions
+		case AST_GCC_TYPEOF :
+			break;
+		case AST_GCC_TYPEOF_EXPR :
+			break;
 		default:
 			internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
 	}

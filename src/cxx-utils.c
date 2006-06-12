@@ -84,7 +84,7 @@ char* strprepend(char* orig, char* prepended)
 	return result;
 }
 
-char* GC_STRDUP(char* str)
+char* GC_STRDUP(const char* str)
 {
 	char* result = GC_CALLOC(strlen(str) + 1, sizeof(char));
 
