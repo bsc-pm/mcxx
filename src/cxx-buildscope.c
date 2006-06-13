@@ -33,11 +33,12 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 		gather_decl_spec_t* gather_info, simple_type_t* simple_type_info, type_t** declarator_type);
 
 static void build_scope_member_declaration(AST a, scope_t*  st, 
-		access_specifier_t current_access, simple_type_t* simple_type_info);
+		access_specifier_t current_access, simple_type_t* simple_type_info,
+		int step);
 static void build_scope_simple_member_declaration(AST a, scope_t*  st, 
 		access_specifier_t current_access, simple_type_t* simple_type_info);
 static void build_scope_member_function_definition(AST a, scope_t*  st, 
-		access_specifier_t current_access, simple_type_t* class_info);
+		access_specifier_t current_access, simple_type_t* class_info, int step);
 
 static void build_scope_statement(AST statement, scope_t* st);
 
@@ -1094,7 +1095,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 	AST member_specification = ASTSon1(a);
 
 
-	// For every member_declaration
+	// First step, sign up only prototypes and simple declarations
 	while (member_specification != NULL)
 	{
 		// If it has an access specifier, update it
@@ -1119,7 +1120,51 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 		// For every member declaration, sign it up in the symbol table for this class
 		if (ASTSon1(member_specification) != NULL)
 		{
-			build_scope_member_declaration(ASTSon1(member_specification), inner_scope, current_access, simple_type_info);
+			build_scope_member_declaration(ASTSon1(member_specification), inner_scope, 
+					current_access, simple_type_info, /* step= */ 0);
+		}
+
+		member_specification = ASTSon2(member_specification);
+	}
+
+	// Second step, sign up everything
+	if (ASTType(class_key) == AST_CLASS_KEY_CLASS)
+	{
+		current_access = AS_PRIVATE;
+	}
+	else
+	{
+		current_access = AS_PUBLIC;
+	}
+
+	member_specification = ASTSon1(a);
+
+	while (member_specification != NULL)
+	{
+		// If it has an access specifier, update it
+		if (ASTSon0(member_specification) != NULL)
+		{
+			switch (ASTType(ASTSon0(member_specification)))
+			{
+				case AST_PRIVATE_SPEC : 
+					current_access = AS_PRIVATE;
+					break;
+				case AST_PUBLIC_SPEC :
+					current_access = AS_PUBLIC;
+					break;
+				case AST_PROTECTED_SPEC :
+					current_access = AS_PROTECTED;
+					break;
+				default :
+					internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(a))));
+			}
+		}
+
+		// For every member declaration, sign it up in the symbol table for this class
+		if (ASTSon1(member_specification) != NULL)
+		{
+			build_scope_member_declaration(ASTSon1(member_specification), inner_scope, 
+					current_access, simple_type_info, /* step = */ 1);
 		}
 
 		member_specification = ASTSon2(member_specification);
@@ -2358,10 +2403,6 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 	if (entry->type_information->function->is_member)
 	{
 		// If is a member function sign up additional information
-		// Note: When this function is being defined within the class is_member
-		// will be false, and build_scope_member_definition will be the one that
-		// will add "this"
-		// Introduce "this" if needed
 		if (!entry->type_information->function->is_static)
 		{
 			type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
@@ -2380,7 +2421,6 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 			this_symbol->kind = SK_VARIABLE;
 			this_symbol->type_information = this_type;
 		}
-
 	}
 
 	build_scope_statement(statement, inner_scope);
@@ -2400,30 +2440,34 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 
 
 static void build_scope_member_declaration(AST a, scope_t*  st, 
-		access_specifier_t current_access, simple_type_t* class_info)
+		access_specifier_t current_access, simple_type_t* class_info,
+		int step)
 {
 	switch (ASTType(a))
 	{
 		case AST_MEMBER_DECLARATION :
 			{
-				build_scope_simple_member_declaration(a, st, current_access, class_info);
+				if (step != 0)
+				{
+					build_scope_simple_member_declaration(a, st, current_access, class_info);
+				}
 				break;
 			}
 		case AST_FUNCTION_DEFINITION :
 			{
-				build_scope_member_function_definition(a, st, current_access, class_info);
+				build_scope_member_function_definition(a, st, current_access, class_info, step);
 				break;
 			}
 		case AST_GCC_EXTENSION :
 			{
-				build_scope_member_declaration(ASTSon0(a), st, current_access, class_info);
+				build_scope_member_declaration(ASTSon0(a), st, current_access, class_info, step);
 				break;
 			}
 		case AST_AMBIGUITY :
 			{
 				solve_ambiguous_declaration(a, st);
 				// Restart
-				build_scope_member_declaration(a, st, current_access, class_info);
+				build_scope_member_declaration(a, st, current_access, class_info, step);
 				break;
 			}
 		default:
@@ -2436,7 +2480,8 @@ static void build_scope_member_declaration(AST a, scope_t*  st,
 }
 
 static void build_scope_member_function_definition(AST a, scope_t*  st, 
-		access_specifier_t current_access, simple_type_t* class_info)
+		access_specifier_t current_access, simple_type_t* class_info,
+		int step)
 {
 	char* class_name = "";
 	class_info_t* class_type = NULL;
@@ -2446,71 +2491,79 @@ static void build_scope_member_function_definition(AST a, scope_t*  st,
 		class_type = class_info->user_defined_type->type_information->type->class_info;
 	}
 
-	AST declarator = ASTSon1(a);
-
-	AST declarator_name = get_declarator_name(declarator);
-
-	// Get the declarator name
-	scope_entry_t* entry = build_scope_function_definition(a, st);
-	switch (ASTType(declarator_name))
+	scope_entry_t* entry = NULL;
+	if (step == 0)
 	{
-		case AST_SYMBOL :
-			{
-				if (strcmp(ASTText(declarator_name), class_name) == 0)
+		// Handle this as if it was a plain declaration
+		// decl_specifier_seq [optional]
+		// If there is no decl_specifier_seq this has to be a destructor, constructor or conversion function
+		gather_decl_spec_t gather_info;
+		memset(&gather_info, 0, sizeof(gather_info));
+		simple_type_t* type_info = NULL;
+
+		if (ASTSon0(a) != NULL)
+		{
+			AST decl_spec_seq = ASTSon0(a);
+
+			build_scope_decl_specifier_seq(decl_spec_seq, st, &gather_info, &type_info);
+		}
+
+		// declarator
+		type_t* declarator_type = NULL;
+		scope_t* parameter_scope = NULL;
+		entry = build_scope_declarator_with_parameter_scope(ASTSon1(a), st, &parameter_scope,
+				&gather_info, type_info, &declarator_type);
+
+		AST declarator = ASTSon1(a);
+		// Get the declarator name
+		AST declarator_name = get_declarator_name(declarator);
+		switch (ASTType(declarator_name))
+		{
+			case AST_SYMBOL :
 				{
-					// This is a constructor
-					P_LIST_ADD(class_type->constructor_list, class_type->num_constructors, entry);
+					if (strcmp(ASTText(declarator_name), class_name) == 0)
+					{
+						// This is a constructor
+						P_LIST_ADD(class_type->constructor_list, class_type->num_constructors, entry);
+					}
+					break;
 				}
-				break;
-			}
-		case AST_DESTRUCTOR_ID :
-			{
-				// This is the destructor
-				class_type->destructor = entry;
-				break;
-			}
-		case AST_OPERATOR_FUNCTION_ID :
-			{
-				P_LIST_ADD(class_type->operator_function_list, class_type->num_operator_functions, entry);
-				break;
-			}
-		case AST_CONVERSION_FUNCTION_ID :
-			{
-				conversion_function_t* new_conversion = GC_CALLOC(1, sizeof(*new_conversion));
-				
-				// The conversion type is the return of the conversion function id
-				new_conversion->conversion_type = entry->type_information->function->return_type;
-				new_conversion->cv_qualifier = entry->type_information->function->cv_qualifier;
+			case AST_DESTRUCTOR_ID :
+				{
+					// This is the destructor
+					class_type->destructor = entry;
+					break;
+				}
+			case AST_OPERATOR_FUNCTION_ID :
+				{
+					P_LIST_ADD(class_type->operator_function_list, class_type->num_operator_functions, entry);
+					break;
+				}
+			case AST_CONVERSION_FUNCTION_ID :
+				{
+					conversion_function_t* new_conversion = GC_CALLOC(1, sizeof(*new_conversion));
 
-				P_LIST_ADD(class_type->conversion_function_list, class_type->num_conversion_functions, new_conversion);
-				break;
-			}
-		default :
-			{
-				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
-				break;
-			}
+					// The conversion type is the return of the conversion function id
+					new_conversion->conversion_type = entry->type_information->function->return_type;
+					new_conversion->cv_qualifier = entry->type_information->function->cv_qualifier;
+
+					P_LIST_ADD(class_type->conversion_function_list, class_type->num_conversion_functions, new_conversion);
+					break;
+				}
+			default :
+				{
+					internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
+					break;
+				}
+		}
+
+		entry->type_information->function->is_member = 1;
+		entry->type_information->function->class_type = class_info;
 	}
-
-	entry->type_information->function->is_member = 1;
-	entry->type_information->function->class_type = class_info;
-	// Introduce pseudo variable 'this' to the routine unless it is static
-	if (!entry->type_information->function->is_static)
+	else
 	{
-		type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
-		this_type->kind = TK_POINTER;
-		this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
-		this_type->pointer->pointee = simple_type_to_type(copy_simple_type(class_info));
-
-		// "this" pseudovariable has the same cv-qualification of this member
-		this_type->pointer->pointee->type->cv_qualifier = 
-			entry->type_information->function->cv_qualifier;
-
-		// This will put the symbol in the function scope, but this is fine
-		scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
-
-		this_symbol->kind = SK_VARIABLE;
-		this_symbol->type_information = this_type;
+		// Build the function definition
+		entry = build_scope_function_definition(a, st);
 	}
 }
 
