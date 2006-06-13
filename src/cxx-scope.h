@@ -85,6 +85,7 @@ typedef enum builtin_type_tag
 
 typedef enum simple_type_kind_tag
 {
+	STK_UNDEFINED = 0,
 	STK_BUILTIN_TYPE,
 	STK_CLASS,
 	STK_ENUM,
@@ -266,6 +267,8 @@ typedef struct function_tag
 	int is_explicit;
 
 	int is_member; // States if this function is a member function
+
+	int is_constructor; // States if this functions is a constructor
 
 	// Related class type
 	simple_type_t* class_type;

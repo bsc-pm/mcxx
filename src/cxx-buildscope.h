@@ -30,11 +30,11 @@ typedef struct gather_decl_spec_tag {
 char* get_operator_function_name(AST declarator_id);
 void build_scope_template_arguments(AST a, scope_t* st, template_argument_list_t** template_arguments);
 void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
-		simple_type_t** type_info);
+		simple_type_t** type_info, char is_template);
 scope_entry_t* build_scope_declarator(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
-		simple_type_t* type_info, type_t** declarator_type);
+		simple_type_t* type_info, type_t** declarator_type, char is_template);
 
 void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather_info);
-void gather_type_spec_information(AST a, scope_t* st, simple_type_t* type_info);
+void gather_type_spec_information(AST a, scope_t* st, simple_type_t* type_info, char is_template);
 
 #endif // CXX_BUILDSCOPE_H

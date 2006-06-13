@@ -405,9 +405,11 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 	{
 		if (iter->entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS
 				&& iter->entry->kind != SK_TEMPLATE_PRIMARY_CLASS
-				&& iter->entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
+				&& iter->entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
+				&& iter->entry->kind != SK_TEMPLATE_FUNCTION)
 		{
-			internal_error("Expecting a template symbol but symbol kind %d found\n", iter->entry->kind);
+			internal_error("Expecting a template symbol but symbol kind %d found (line = %d)\n", 
+					iter->entry->kind, ASTLine(template_id));
 		}
 
 		has_specializations |= (iter->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS);
@@ -953,6 +955,9 @@ scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list)
 	int non_type_name = 0;
 	scope_entry_t* result = NULL;
 
+	char seen_class_name = 0;
+	char seen_function_name = 0;
+
 	while (entry_list != NULL)
 	{
 		scope_entry_t* simple_type_entry = entry_list->entry;
@@ -966,11 +971,15 @@ scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list)
 				&& simple_type_entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS
 				&& simple_type_entry->kind != SK_GCC_BUILTIN_TYPE)
 		{
-			fprintf(stderr, "Found a '%d'\n", simple_type_entry->kind);
+			// Functions with name of a class are constructors and do not hide
+			// the class symbol
+			seen_function_name |= (simple_type_entry->kind == SK_FUNCTION);
+			fprintf(stderr, "Found a '%d' that is non type\n", simple_type_entry->kind);
 			non_type_name++;
 		}
 		else
 		{
+			seen_class_name |= simple_type_entry->kind == SK_CLASS;
 			result = simple_type_entry;
 		}
 
@@ -978,10 +987,16 @@ scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list)
 	}
 
 	// There is something that is not a type name here and hides this simple type spec
-	if (non_type_name != 0)
+	if (non_type_name != 0 
+			&& !seen_class_name 
+			&& !seen_function_name)
+	{
 		return NULL;
+	}
 	else
+	{
 		return result;
+	}
 }
 
 scope_entry_list_t* append_scope_entry_lists(scope_entry_list_t* a, scope_entry_list_t* b)
