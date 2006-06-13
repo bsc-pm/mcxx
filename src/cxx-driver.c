@@ -88,8 +88,8 @@ void print_ambiguities(AST a, char lines)
 	if (a == NULL) 
 		return;
 
-	// fprintf(stdout, "%p ", a);
-	// fprintf(stdout, "[%d] %s\n", ASTNumChildren(a), ast_print_node_type(ASTType(a)));
+	// fprintf(stderr, "%p ", a);
+	// fprintf(stderr, "[%d] %s\n", ASTNumChildren(a), ast_print_node_type(ASTType(a)));
 	switch (ASTType(a))
 	{
 		case AST_AMBIGUITY :
@@ -101,19 +101,19 @@ void print_ambiguities(AST a, char lines)
 					print_ambiguities(a->ambig[i], lines);
 				}
 				
-				fprintf(stdout, "%d ", a->num_ambig);
+				fprintf(stderr, "%d ", a->num_ambig);
 				for (i = 0; i < a->num_ambig; i++)
 				{
 					if (!lines)
 					{
-						fprintf(stdout, "%s | ", ast_print_node_type(ASTType(a->ambig[i])));
+						fprintf(stderr, "%s | ", ast_print_node_type(ASTType(a->ambig[i])));
 					}
 					else
 					{
-						fprintf(stdout, "%s (%d) | ", ast_print_node_type(ASTType(a->ambig[i])), ASTLine(a->ambig[i]));
+						fprintf(stderr, "%s (%d) | ", ast_print_node_type(ASTType(a->ambig[i])), ASTLine(a->ambig[i]));
 					}
 				}
-				fprintf(stdout, "\n");
+				fprintf(stderr, "\n");
 				break;
 			}
 		default :

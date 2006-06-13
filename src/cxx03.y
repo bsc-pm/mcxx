@@ -1175,7 +1175,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 }
 | class_key TEMPLATE template_id
 {
-	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, NULL, $3, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $1, NULL, NULL, $3, ASTLine($1), NULL);
 }
 | class_key DOS_DOS_PUNTS TEMPLATE template_id
 {

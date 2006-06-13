@@ -489,7 +489,7 @@ char is_void_pointer_type(type_t* t)
 	// Advance over typedefs
 	t = advance_over_typedefs(t);
 
-	if (t->kind == TK_POINTER
+	return (t->kind == TK_POINTER
 			&& t->pointer->pointee->kind == TK_DIRECT
 			&& t->pointer->pointee->type->kind == STK_BUILTIN_TYPE
 			&& t->pointer->pointee->type->builtin_type == BT_VOID);
@@ -1336,8 +1336,18 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
 					case SK_TYPEDEF :
 						snprintf(user_defined_str, 255, "typedef %s", user_defined_type->symbol_name);
 						break;
-					case SK_TEMPLATE_PARAMETER :
+					case SK_TEMPLATE_TYPE_PARAMETER :
 						snprintf(user_defined_str, 255, "type template parameter #%d %s", 
+								user_defined_type->type_information->type->template_parameter_num,
+								user_defined_type->symbol_name);
+						break;
+					case SK_TEMPLATE_TEMPLATE_PARAMETER :
+						snprintf(user_defined_str, 255, "template template parameter #%d %s",
+								user_defined_type->type_information->type->template_parameter_num,
+								user_defined_type->symbol_name);
+						break;
+					case SK_TEMPLATE_PARAMETER :
+						snprintf(user_defined_str, 255, "nontype template parameter #%d %s", 
 								user_defined_type->type_information->type->template_parameter_num,
 								user_defined_type->symbol_name);
 						break;
@@ -1367,6 +1377,9 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
 			break;
 		case STK_VA_LIST :
 			result = strappend(result, "__builtin_va_list");
+			break;
+		case STK_TYPEOF :
+			result = strappend(result, "__typeof");
 			break;
 		default :
 			{

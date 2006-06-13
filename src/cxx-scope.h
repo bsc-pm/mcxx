@@ -25,24 +25,26 @@ struct scope_tag;
 enum cxx_symbol_kind
 {
 	SK_UNDEFINED = 0,
-	SK_CLASS,
-	SK_ENUM,
-	SK_ENUMERATOR, // The elements an enum is made of
-	SK_FUNCTION,
-	SK_LABEL,
-	SK_NAMESPACE,
-	SK_VARIABLE,
-	SK_TYPEDEF,
+	SK_CLASS, // this names a plain class
+	SK_ENUM, // this names an enum
+	SK_ENUMERATOR, // this names an enumerator (the elements an enum is made of)
+	SK_FUNCTION,  // this names a plain function
+	SK_LABEL, // this names a label (currently unused)
+	SK_NAMESPACE, // this names a namespace
+	SK_VARIABLE, // this names an object
+	SK_TYPEDEF, // this names a typedef
 	// Lots of stuff related to the C++ "template madness"
-	SK_TEMPLATE_PRIMARY_CLASS,
-	SK_TEMPLATE_SPECIALIZED_CLASS,
-	SK_TEMPLATE_FUNCTION,
-	SK_TEMPLATE_PARAMETER,
+	SK_TEMPLATE_PRIMARY_CLASS, // this names a primary template
+	SK_TEMPLATE_SPECIALIZED_CLASS, // this names a specialized template class
+	SK_TEMPLATE_FUNCTION, // this names a template function
+	SK_TEMPLATE_PARAMETER, // nontype parameters like N in "template<int N>"
+	SK_TEMPLATE_TYPE_PARAMETER, // plain type parameters like T in "template <class T>"
+	SK_TEMPLATE_TEMPLATE_PARAMETER, // template template parameters like Q in "template<template<class P> Q>"
 	// Artificial symbol representing scopes - used only for debugging purposes
 	// should not be considered as a symbol
 	SK_SCOPE,
 	// GCC Extension for builtin types
-	SK_GCC_BUILTIN_TYPE
+	SK_GCC_BUILTIN_TYPE 
 };
 
 typedef enum {
@@ -90,8 +92,9 @@ typedef enum simple_type_kind_tag
 	STK_USER_DEFINED,
 	// Templates stuff
 	STK_TYPE_TEMPLATE_PARAMETER,
-	// GCC Extension
-	STK_VA_LIST
+	// GCC Extensions
+	STK_VA_LIST,
+	STK_TYPEOF
 } simple_type_kind_t;
 
 struct scope_entry_tag;
@@ -233,6 +236,9 @@ typedef struct simple_type_tag {
 	
 	// Scope where this type was declared if not builtin
 	struct scope_tag* type_scope;
+
+	// For typeof
+	AST typeof_expr;
 } simple_type_t;
 
 typedef struct parameter_info_tag

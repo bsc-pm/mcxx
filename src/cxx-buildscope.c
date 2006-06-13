@@ -76,6 +76,8 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 		template_parameter_t* template_param_info, int num_parameter);
 static void build_scope_type_template_parameter(AST a, scope_t* st,
 		template_parameter_t* template_param_info, int num_parameter);
+static void build_scope_template_template_parameter(AST a, scope_t* st,
+		template_parameter_t* template_param_info, int num_parameter);
 
 static void build_scope_using_directive(AST a, scope_t* st);
 static void build_scope_using_declaration(AST a, scope_t* st);
@@ -367,6 +369,31 @@ static void build_scope_simple_declaration(AST a, scope_t* st)
 
 			type_t* declarator_type;
 
+			// This is done here because the declarator it is not in scope in the initializer expression
+			if (initializer != NULL)
+			{
+				switch (ASTType(initializer))
+				{
+					case AST_INITIALIZER :
+						{
+							AST initializer_clause = ASTSon0(initializer);
+
+							if (ASTType(initializer_clause) == AST_INITIALIZER_EXPR)
+							{
+								AST initializer_expr = ASTSon0(initializer_clause);
+								solve_possibly_ambiguous_expression(initializer_expr, st);
+							}
+							break;
+						}
+					case AST_PARENTHESIZED_INITIALIZER :
+						{
+							break;
+						}
+					default:
+						internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(initializer)));
+				}
+			}
+
 			// This will create the symbol if it is unqualified
 			scope_t* parameters_scope = NULL;
 			build_scope_declarator_with_parameter_scope(declarator, st, &parameters_scope, 
@@ -617,10 +644,8 @@ void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type
 			gather_type_spec_from_elaborated_class_specifier(a, st, simple_type_info);
 			break;
 		case AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE :
-			internal_error("Still not supported AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE", 0);
-			break;
 		case AST_ELABORATED_TYPE_TEMPLATE :
-			internal_error("Still not supported AST_ELABORATED_TYPE_TEMPLATE", 0);
+			gather_type_spec_from_elaborated_class_specifier(a, st, simple_type_info);
 			break;
 		case AST_CHAR_TYPE :
 			simple_type_info->kind = STK_BUILTIN_TYPE;
@@ -677,8 +702,9 @@ void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type
 			break;
 			// GCC Extensions
 		case AST_GCC_TYPEOF :
-			break;
 		case AST_GCC_TYPEOF_EXPR :
+			simple_type_info->kind = STK_TYPEOF;
+			simple_type_info->typeof_expr = ASTSon0(a);
 			break;
 		default:
 			internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
@@ -2221,8 +2247,7 @@ static void build_scope_template_parameter(AST a, scope_t* st,
 			build_scope_type_template_parameter(a, st, template_param_info, num_parameter);
 			break;
 		case AST_TYPE_PARAMETER_TEMPLATE :
-			// Think about it
-			internal_error("Node template template-parameters still not supported", 0);
+			build_scope_template_template_parameter(a, st, template_param_info, num_parameter);
 			break;
 		case AST_AMBIGUITY :
 			// The ambiguity here is parameter_class vs parameter_decl
@@ -2235,10 +2260,64 @@ static void build_scope_template_parameter(AST a, scope_t* st,
 	}
 }
 
+static void build_scope_template_template_parameter(AST a, scope_t* st,
+		template_parameter_t* template_param_info, int num_parameter)
+{
+	// These parameters have the form
+	//
+	//    TEMPLATE < templat_param_list > CLASS identifier
+	//
+	// "identifier" is then a template-name
+	//
+	// Construct parameter information
+	scope_t* parm_template_scope = new_template_scope(st);
+	template_parameter_t** parm_template_param_info = GC_CALLOC(1, sizeof(*parm_template_param_info));
+	int parm_num_parameters = 0;
+	
+	build_scope_template_parameter_list(ASTSon0(a), parm_template_scope, parm_template_param_info, &parm_num_parameters);
+
+	// Now create a STK_CLASS
+	type_t* new_type = GC_CALLOC(1, sizeof(*new_type));
+	new_type->kind = TK_DIRECT;
+	new_type->type = GC_CALLOC(1, sizeof(*(new_type->type)));
+	new_type->type->kind = STK_CLASS;
+	new_type->type->template_parameter_num = num_parameter;
+	
+	// Save the info
+	template_param_info->type_info = new_type;
+
+	if (ASTSon1(a) != NULL)
+	{
+		AST symbol = ASTSon1(a);
+		char* name = ASTText(symbol);
+
+		scope_entry_t* new_entry = new_symbol(st, name);
+
+		new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
+		new_entry->type_information = new_type;
+	}
+
+	AST type_id = ASTSon2(a);
+	if (type_id != NULL)
+	{
+		// This might be ambiguous
+		AST def_arg_type_specifier = ASTSon0(type_id);
+		AST def_arg_simple_type_spec = ASTSon1(def_arg_type_specifier);
+
+		if (ASTSon2(def_arg_simple_type_spec) != NULL
+				&& ASTType(ASTSon2(def_arg_simple_type_spec)) == AST_TEMPLATE_ID)
+		{
+			solve_possibly_ambiguous_template_id(ASTSon2(def_arg_simple_type_spec), st);
+		}
+
+		template_param_info->default_argument = type_id;
+	}
+}
+
 static void build_scope_type_template_parameter(AST a, scope_t* st,
 		template_parameter_t* template_param_info, int num_parameter)
 {
-	// This parameters have the form
+	// These parameters have the form
 	//    CLASS [name] [ = type_id]
 	//    TYPENAME [name] [ = type_id]
 	//
@@ -2265,10 +2344,23 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 		fprintf(stderr, "Registering type template-parameter '%s'\n", ASTText(name));
 		scope_entry_t* new_entry = new_symbol(st, ASTText(name));
 		new_entry->type_information = new_type;
-		new_entry->kind = SK_TEMPLATE_PARAMETER;
+		new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
 	}
-	
-	template_param_info->default_argument = type_id;
+
+	if (type_id != NULL)
+	{
+		// This might be ambiguous
+		AST def_arg_type_specifier = ASTSon0(type_id);
+		AST def_arg_simple_type_spec = ASTSon1(def_arg_type_specifier);
+
+		if (ASTSon2(def_arg_simple_type_spec) != NULL
+				&& ASTType(ASTSon2(def_arg_simple_type_spec)) == AST_TEMPLATE_ID)
+		{
+			solve_possibly_ambiguous_template_id(ASTSon2(def_arg_simple_type_spec), st);
+		}
+
+		template_param_info->default_argument = type_id;
+	}
 }
 
 static void build_scope_nontype_template_parameter(AST a, scope_t* st,

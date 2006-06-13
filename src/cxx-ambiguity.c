@@ -677,6 +677,7 @@ static char check_for_expression(AST expression, scope_t* st)
 		case AST_TEMPLATE_ID :
 			{
 				// This is never a value
+				solve_possibly_ambiguous_template_id(expression, st);
 				return 0;
 			}
 			// Postfix expressions
@@ -829,6 +830,30 @@ static char check_for_expression(AST expression, scope_t* st)
 			{
 				return check_for_expression(ASTSon0(expression), st)
 					&& check_for_expression(ASTSon1(expression), st);
+			}
+			// GCC Extension
+		case AST_GCC_LABEL_ADDR :
+			{
+				// Let's assume this is correct
+				return 1;
+			}
+		case AST_GCC_REAL_PART :
+		case AST_GCC_IMAG_PART :
+		case AST_GCC_EXTENSION_EXPR :
+			{
+				return check_for_expression(ASTSon0(expression), st);
+			}
+		case AST_GCC_ALIGNOF :
+			{
+				// Reuse the sizeof code
+				return check_for_sizeof_expr(expression, st);
+				break;
+			}
+		case AST_GCC_ALIGNOF_TYPE :
+			{
+				// Reuse the sizeof code
+				return check_for_sizeof_typeid(expression, st);
+				break;
 			}
 		default :
 			{
@@ -1012,11 +1037,102 @@ static char check_for_explicit_type_conversion(AST expr, scope_t* st)
 	return check_for_simple_type_spec(simple_type_spec, st);
 }
 
+void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st)
+{
+	int i;
+
+	char selected_option = -1;
+	for (i = 0; i < ambig_template_argument->num_ambig; i++)
+	{
+		char current_option = 0;
+		AST current_template_argument = ambig_template_argument->ambig[i];
+
+		switch (ASTType(current_template_argument))
+		{
+			case AST_TEMPLATE_TYPE_ARGUMENT :
+				{
+					AST type_id = ASTSon0(current_template_argument);
+
+					// Recursively fix if needed
+					AST type_id_type_spec = ASTSon0(type_id);
+					AST type_id_simple_type_spec = ASTSon1(type_id_type_spec);
+					
+					if (ASTSon2(type_id_simple_type_spec) != NULL
+							&& ASTType(ASTSon2(type_id_simple_type_spec)) == AST_TEMPLATE_ID)
+					{
+						solve_possibly_ambiguous_template_id(ASTSon2(type_id_simple_type_spec), st);
+					}
+
+					current_option = check_for_type_id_tree(type_id, st);
+					break;
+				}
+			case AST_TEMPLATE_EXPRESSION_ARGUMENT :
+				{
+					AST expression_arg = ASTSon0(current_template_argument);
+					current_option = check_for_expression(expression_arg, st);
+					break;
+				}
+			default :
+				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(current_template_argument)));
+		}
+		
+		if (current_option)
+		{
+			if (selected_option < 0)
+			{
+				selected_option = i;
+			}
+			else
+			{
+				internal_error("Two valid ambiguities", 0);
+			}
+		}
+	}
+
+	if (selected_option < 0)
+	{
+		internal_error("No valid choice found!", 0);
+	}
+	else
+	{
+		choose_option(ambig_template_argument, selected_option);
+	}
+}
+
+void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st)
+{
+	if (ASTType(type_name) != AST_TEMPLATE_ID)
+	{
+		internal_error("Unexpected node '%s' only AST_TEMPLATE_ID allowed", 0);
+	}
+
+	// For every argument solve its possible ambiguities
+	AST argument_list = ASTSon1(type_name);
+	if (argument_list != NULL)
+	{
+		AST iter;
+		for_each_element(argument_list, iter)
+		{
+			AST template_argument = ASTSon1(iter);
+
+			if (ASTType(template_argument) == AST_AMBIGUITY)
+			{
+				solve_ambiguous_template_argument(template_argument, st);
+			}
+		}
+	}
+}
+
 static char check_for_simple_type_spec(AST type_spec, scope_t* st)
 {
 	AST global_op = ASTSon0(type_spec);
 	AST nested_name_spec = ASTSon1(type_spec);
 	AST type_name = ASTSon2(type_spec) != NULL ? ASTSon2(type_spec) : ASTSon3(type_spec);
+
+	if (ASTType(type_name) == AST_TEMPLATE_ID)
+	{
+		solve_possibly_ambiguous_template_id(type_name, st);
+	}
 
 	scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, 
             type_name, FULL_UNQUALIFIED_LOOKUP);
@@ -1030,7 +1146,8 @@ static char check_for_simple_type_spec(AST type_spec, scope_t* st)
 			|| entry_list->entry->kind == SK_ENUM
 			|| entry_list->entry->kind == SK_CLASS
 			|| entry_list->entry->kind == SK_TEMPLATE_PRIMARY_CLASS
-			|| entry_list->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS);
+			|| entry_list->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
+			|| entry_list->entry->kind == SK_TEMPLATE_TYPE_PARAMETER);
 }
 
 static char check_for_typeid(AST expr, scope_t* st)
@@ -1484,30 +1601,24 @@ void solve_ambiguous_type_specifier(AST ambig_type, scope_t* st)
 	int typeof_choice = -1;
 	for (i = 0; i < ambig_type->num_ambig; i++)
 	{
-		int current_typeof = -1;
+		char current_typeof = 0;
 		AST type_specifier = ambig_type->ambig[i];
 		AST typeof_argument = ASTSon0(type_specifier);
 
 		if (ASTType(type_specifier) == AST_GCC_TYPEOF)
 		{
-			if (check_for_type_id_tree(ASTSon0(type_specifier), st))
-			{
-				current_typeof = i;
-			}
+			current_typeof = check_for_type_id_tree(typeof_argument, st);
 		}
 		else if (ASTType(type_specifier) == AST_GCC_TYPEOF_EXPR)
 		{
-			if (check_for_expression(ASTSon0(type_specifier), st))
-			{
-				current_typeof = i;
-			}
+			current_typeof = check_for_expression(typeof_argument, st);
 		}
 		else
 		{
 			internal_error("Unexpected node type %s\n", ast_print_node_type(ASTType(type_specifier)));
 		}
 
-		if (current_typeof >= 0)
+		if (current_typeof)
 		{
 			if (typeof_choice < 0)
 			{

@@ -404,7 +404,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 	while (iter != NULL)
 	{
 		if (iter->entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS
-				&& iter->entry->kind != SK_TEMPLATE_PRIMARY_CLASS)
+				&& iter->entry->kind != SK_TEMPLATE_PRIMARY_CLASS
+				&& iter->entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
 		{
 			internal_error("Expecting a template symbol but symbol kind %d found\n", iter->entry->kind);
 		}
@@ -959,7 +960,8 @@ scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list)
 		if (simple_type_entry->kind != SK_ENUM 
 				&& simple_type_entry->kind != SK_CLASS 
 				&& simple_type_entry->kind != SK_TYPEDEF 
-				&& simple_type_entry->kind != SK_TEMPLATE_PARAMETER
+				&& simple_type_entry->kind != SK_TEMPLATE_TYPE_PARAMETER
+				&& simple_type_entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
 				&& simple_type_entry->kind != SK_TEMPLATE_PRIMARY_CLASS
 				&& simple_type_entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS
 				&& simple_type_entry->kind != SK_GCC_BUILTIN_TYPE)
