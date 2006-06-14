@@ -1093,14 +1093,14 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type
 	simple_type_t* simple_type_info = NULL;
 
 	build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info,
-			/*is_template=*/0);
+			DF_NONE);
 
 	type_t* type_info = NULL;
 
 	if (conversion_declarator != NULL)
 	{
 		build_scope_declarator(conversion_declarator, st, &gather_info, simple_type_info, &type_info,
-				/*is_template=*/0);
+				DF_NONE);
 	}
 	else
 	{

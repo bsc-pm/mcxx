@@ -82,4 +82,6 @@ do { \
 
 char* GC_STRDUP(const char* str);
 
+#define BITMAP_TEST(x, b) (((x) & (b)) == (b))
+
 #endif // CXX_UTILS_H

@@ -309,14 +309,27 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 	return lookup_scope;
 }
 
+scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name, 
+		unqualified_lookup_behaviour_t unqualified_lookup)
+{
+	return query_nested_name_flags(sc, global_op, nested_name, name, unqualified_lookup, LF_NONE);
+}
+
 // Similar to query_nested_name_spec but searches the name
-scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name, unqualified_lookup_behaviour_t unqualified_lookup)
+scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nested_name, AST name, 
+		unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags)
 {
 	scope_entry_list_t* result = NULL;
 	scope_t* lookup_scope;
 
 	if (global_op == NULL && nested_name == NULL)
 	{
+		char* symbol_name = ASTText(name);
+
+		if (BITMAP_TEST(lookup_flags, LF_CONSTRUCTOR))
+		{
+			symbol_name = strprepend(symbol_name, "constructor ");
+		}
 		// This is an unqualified identifier
 		switch (ASTType(name))
 		{
@@ -325,12 +338,12 @@ scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_nam
 				{
 					case FULL_UNQUALIFIED_LOOKUP :
 						{
-							result = query_unqualified_name(sc, ASTText(name));
+							result = query_unqualified_name(sc, symbol_name);
 							break;
 						}
 					case NOFULL_UNQUALIFIED_LOOKUP :
 						{
-							result = query_in_symbols_of_scope(sc, ASTText(name));
+							result = query_in_symbols_of_scope(sc, symbol_name);
 							break;
 						}
 					default :
@@ -354,7 +367,16 @@ scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_nam
 			switch (ASTType(name))
 			{
 				case AST_SYMBOL :
-					result = query_in_symbols_of_scope(lookup_scope, ASTText(name));
+					{
+						char* symbol_name = ASTText(name);
+
+						if (BITMAP_TEST(lookup_flags, LF_CONSTRUCTOR))
+						{
+							symbol_name = strprepend(symbol_name, "constructor ");
+						}
+
+						result = query_in_symbols_of_scope(lookup_scope, symbol_name);
+					}
 					break;
 				case AST_TEMPLATE_ID:
 					result = query_template_id(name, sc, lookup_scope);
@@ -447,22 +469,35 @@ scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* loo
 
 scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr, unqualified_lookup_behaviour_t unqualified_lookup)
 {
+	return query_id_expression_flags(sc, id_expr, unqualified_lookup, LF_NONE);
+}
+
+scope_entry_list_t* query_id_expression_flags(scope_t* sc, AST id_expr, 
+		unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags)
+{
 	switch (ASTType(id_expr))
 	{
 		// Unqualified ones
 		case AST_SYMBOL :
 			{
+				char* id_expr_name = ASTText(id_expr);
+
+				if (BITMAP_TEST(lookup_flags, LF_CONSTRUCTOR))
+				{
+					id_expr_name = strprepend(id_expr_name, "constructor ");
+				}
+
 				scope_entry_list_t* result = NULL;
                 switch (unqualified_lookup)
 				{
 					case FULL_UNQUALIFIED_LOOKUP :
 						{
-							result = query_unqualified_name(sc, ASTText(id_expr));
+							result = query_unqualified_name(sc, id_expr_name);
 							break;
 						}
 					case NOFULL_UNQUALIFIED_LOOKUP :
 						{
-							result = query_in_symbols_of_scope(sc, ASTText(id_expr));
+							result = query_in_symbols_of_scope(sc, id_expr_name);
 							break;
 						}
 					default :
@@ -515,8 +550,8 @@ scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr, unqualified_lo
 				AST nested_name = ASTSon1(id_expr);
 				AST symbol = ASTSon2(id_expr);
 
-				scope_entry_list_t* result = query_nested_name(sc, global_op, nested_name, 
-                        symbol, FULL_UNQUALIFIED_LOOKUP);
+				scope_entry_list_t* result = query_nested_name_flags(sc, global_op, nested_name, 
+                        symbol, FULL_UNQUALIFIED_LOOKUP, lookup_flags);
 
 				return result;
 				break;

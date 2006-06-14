@@ -403,7 +403,6 @@ typedef struct scope_tag
 	struct scope_tag* template_scope;
 } scope_t;
 
-#undef BITMAP
 
 scope_t* new_namespace_scope(scope_t* enclosing_scope);
 scope_t* new_prototype_scope(scope_t* enclosing_scope);
@@ -422,6 +421,12 @@ typedef enum unqualified_lookup_behaviour_tag
 	FULL_UNQUALIFIED_LOOKUP = 1
 } unqualified_lookup_behaviour_t;
 
+typedef enum lookup_flags_tag
+{
+	LF_NONE = 0,
+	LF_CONSTRUCTOR = BITMAP(1)
+} lookup_flags_t ;
+
 // Higher level functions when dealing with the scope
 scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list);
 
@@ -437,6 +442,9 @@ scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, i
 // Everything built by an id_expression can be queried with this function
 scope_entry_list_t* query_id_expression(scope_t* st, AST id_expr, unqualified_lookup_behaviour_t unqualified_lookup);
 
+scope_entry_list_t* query_id_expression_flags(scope_t* st, AST id_expr, 
+		unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags);
+
 // Performs a full unqualified lookup
 scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name);
 
@@ -444,6 +452,9 @@ scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name);
 //    This one should be enough for most cases
 scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name, 
         unqualified_lookup_behaviour_t unqualified_lookup);
+
+scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nested_name, AST name, 
+        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags);
 //    These are here for the purpose of flexibility but should be rarely needed
 scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list);
 // char incompatible_symbol_exists(scope_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
@@ -454,5 +465,7 @@ scope_entry_list_t* query_in_symbols_of_scope(scope_t* sc, char* name);
 // Manipulators
 scope_entry_list_t* create_list_from_entry(scope_entry_t* entry);
 scope_entry_list_t* append_scope_entry_lists(scope_entry_list_t* a, scope_entry_list_t* b);
+
+#undef BITMAP
 
 #endif // CXX_SCOPE_H

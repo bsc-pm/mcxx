@@ -51,10 +51,12 @@ int main(int argc, char* argv[])
 
 			if (!check_for_ambiguities(compilation_options.parsed_tree))
 			{
-				fprintf(stderr, "***** THERE ARE AMBIGUITIES UNRESOLVED !!! *****\n");
+				fprintf(stderr, "***** THERE ARE UNRESOLVED AMBIGUITIES !!! *****\n");
 				print_ambiguities(compilation_options.parsed_tree, 1);
 				return 1;
 			}
+
+			prettyprint(stderr, compilation_options.parsed_tree);
 		}
 	}
 	else
