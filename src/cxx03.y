@@ -1243,34 +1243,34 @@ elaborated_type_specifier : class_key IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
 
-	$$ = ASTMake4(AST_ELABORATED_TYPENAME, NULL, $2, identifier, NULL, $1.token_line, NULL);
+	$$ = ASTMake3(AST_ELABORATED_TYPENAME, NULL, $2, identifier, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_ELABORATED_TYPENAME, global_op, $3, identifier, NULL, $1.token_line, NULL);
+	$$ = ASTMake3(AST_ELABORATED_TYPENAME, global_op, $3, identifier, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier template_id
 {
-	$$ = ASTMake4(AST_ELABORATED_TYPENAME, NULL, $2, NULL, $3, $1.token_line, NULL);
+	$$ = ASTMake3(AST_ELABORATED_TYPENAME_TEMPLATE, NULL, $2, $3, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_ELABORATED_TYPENAME, global_op, $3, NULL, $4, $1.token_line, NULL);
+	$$ = ASTMake3(AST_ELABORATED_TYPENAME_TEMPLATE, global_op, $3, $4, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier TEMPLATE template_id
 {
-	$$ = ASTMake4(AST_ELABORATED_TYPENAME, NULL, $2, NULL, $4, $1.token_line, NULL);
+	$$ = ASTMake3(AST_ELABORATED_TYPENAME_TEMPLATE, NULL, $2, $4, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_ELABORATED_TYPENAME, global_op, $3, NULL, $5, $1.token_line, NULL);
+	$$ = ASTMake3(AST_ELABORATED_TYPENAME_TEMPLATE, global_op, $3, $5, $1.token_line, NULL);
 }
 // GNU Extensions
 | class_key attributes DOS_DOS_PUNTS nested_name_specifier IDENTIFIER

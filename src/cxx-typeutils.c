@@ -276,7 +276,7 @@ char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
 
 	if (!equivalent_types(t1->return_type, t2->return_type, st, CVE_CONSIDER))
 	{
-		running_error("You are trying to overload a function by only modifying its return type", 0);
+		internal_error("You are trying to overload a function by only modifying its return type", 0);
 	}
 
 	return 0;
@@ -309,6 +309,13 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, scop
 
 	for (i = 0; (i < t1->num_parameters) && still_compatible; i++)
 	{
+		if (t1->parameter_list[i]->is_ellipsis
+				|| t2->parameter_list[i]->is_ellipsis)
+		{
+			still_compatible = (t1->parameter_list[i]->is_ellipsis && t2->parameter_list[i]->is_ellipsis);
+			continue;
+		}
+
 		type_t* par1 = t1->parameter_list[i]->type_info;
 		type_t* par2 = t2->parameter_list[i]->type_info;
 

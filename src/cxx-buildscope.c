@@ -645,6 +645,8 @@ void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type
 	switch (ASTType(a))
 	{
 		case AST_SIMPLE_TYPE_SPECIFIER :
+		case AST_ELABORATED_TYPENAME : 
+		case AST_ELABORATED_TYPENAME_TEMPLATE : 
 			gather_type_spec_from_simple_type_specifier(a, st, simple_type_info, decl_flags);
 			break;
 		case AST_ENUM_SPECIFIER :
@@ -733,12 +735,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 	// AST class_key = ASTSon0(a);
 	AST global_scope = ASTSon1(a);
 	AST nested_name_specifier = ASTSon2(a);
-	AST symbol = ASTSon3(a);
+	AST class_symbol = ASTSon3(a);
 
 	scope_entry_list_t* result_list = NULL;
 
-	result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
-            FULL_UNQUALIFIED_LOOKUP);
+	result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
+            FULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
 
 	// Now look for a type
 	scope_entry_t* entry = NULL;
@@ -755,6 +757,17 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 		result_list = result_list->next;
 	}
 
+	if (entry != NULL)
+	{
+		if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+				&& ASTType(class_symbol) == AST_TEMPLATE_ID)
+		{
+			// A primary template has been chosen but we are declarating
+			// an specialization
+			entry = NULL;
+		}
+	}
+
 	if (entry == NULL)
 	{
 		// Create a stub but only if it is unqualified, otherwise it should exist elsewhere
@@ -762,13 +775,44 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 				&& global_scope == NULL)
 		{
 			fprintf(stderr, "Type not found, creating a stub for this scope\n");
-			scope_entry_t* new_class = new_symbol(st, ASTText(symbol));
-			new_class->kind = SK_CLASS;
+			scope_entry_t* new_class = NULL;
+			char* class_name = NULL;
+			if (ASTType(class_symbol) == AST_SYMBOL)
+			{
+				class_name = ASTText(class_symbol);
+			}
+			else // AST_TEMPLATE_ID
+			{
+				class_name = ASTText(ASTSon0(class_symbol));
+			}
+			new_class = new_symbol(st, class_name);
+
 			new_class->type_information = GC_CALLOC(1, sizeof(*(new_class->type_information)));
 			new_class->type_information->kind = TK_DIRECT;
 			new_class->type_information->type = GC_CALLOC(1, sizeof(*(new_class->type_information->type)));
 			new_class->type_information->type->kind = STK_CLASS;
 			new_class->type_information->type->type_scope = st;
+
+			if (ASTType(class_symbol) == AST_TEMPLATE_ID)
+			{
+				build_scope_template_arguments(class_symbol, st, &(new_class->type_information->type->template_arguments));
+			}
+
+			if ((decl_flags & DF_TEMPLATE) != DF_TEMPLATE)
+			{
+				new_class->kind = SK_CLASS;
+			}
+			else
+			{
+				if (ASTType(class_symbol) != AST_TEMPLATE_ID)
+				{
+					new_class->kind = SK_TEMPLATE_PRIMARY_CLASS;
+				}
+				else
+				{
+					new_class->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
+				}
+			}
 
 			type_info->kind = STK_USER_DEFINED;
 			type_info->user_defined_type = new_class;
@@ -1344,6 +1388,7 @@ static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_
 			}
 			else
 			{
+				fprintf(stderr, "---> POINTER TO MEMBER <---\n");
 				(*declarator_type)->kind = TK_POINTER_TO_MEMBER;
 
 				scope_entry_list_t* entry_list = NULL;
@@ -1352,6 +1397,10 @@ static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_
 				if (entry_list != NULL)
 				{
 					(*declarator_type)->pointer->pointee_class = entry_list->entry;
+				}
+				else
+				{
+					// Ok, this might be a type template parameter or template template parameter
 				}
 			}
 			(*declarator_type)->pointer->cv_qualifier = compute_cv_qualifier(ASTSon2(pointer_tree));
@@ -2258,7 +2307,6 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 	//            ^^^^^^^^^^^^^^
 	//            we are handling this
 
-	fprintf(stderr, "--> %p <--\n", init_declarator_list);
 	if (init_declarator_list != NULL)
 	{
 		if (ASTSon0(init_declarator_list) != NULL)
@@ -2610,7 +2658,8 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 		internal_error("This function does not exist!", 0);
 	}
 
-	if (entry->kind != SK_FUNCTION)
+	if (entry->kind != SK_FUNCTION
+			&& entry->kind != SK_TEMPLATE_FUNCTION)
 	{
 		internal_error("This is not a function!!!", 0);
 	}
@@ -3135,13 +3184,14 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 
 	int num_arguments = 0;
 
-
 	list = ASTSon1(class_head_id);
 	// Count the arguments
 	for_each_element(list, iter)
 	{
 		num_arguments++;
 	}
+
+	solve_possibly_ambiguous_template_id(class_head_id, st);
 	
 	// Complete arguments with default ones
 	// First search primary template

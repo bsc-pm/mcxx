@@ -696,7 +696,7 @@ static char check_for_expression(AST expression, scope_t* st)
 			}
 		case AST_TYPENAME_FUNCTION_CALL :
 			{
-				// This yields a type
+				// This yields a value
 				return 1;
 			}
 		case AST_TYPENAME_TEMPLATE :
@@ -894,7 +894,8 @@ static char check_for_qualified_id(AST expr, scope_t* st)
 	return (result_list != NULL
 			&& (result_list->entry->kind == SK_VARIABLE
 				|| result_list->entry->kind == SK_ENUMERATOR
-				|| result_list->entry->kind == SK_FUNCTION));
+				|| result_list->entry->kind == SK_FUNCTION
+				|| result_list->entry->kind == SK_TEMPLATE_FUNCTION));
 }
 
 static char check_for_symbol(AST expr, scope_t* st)
@@ -905,7 +906,8 @@ static char check_for_symbol(AST expr, scope_t* st)
 	return (result != NULL 
 			&& (result->entry->kind == SK_VARIABLE
 				|| result->entry->kind == SK_ENUMERATOR
-				|| result->entry->kind == SK_FUNCTION));
+				|| result->entry->kind == SK_FUNCTION
+				|| result->entry->kind == SK_TEMPLATE_FUNCTION));
 }
 
 static char check_for_destructor_id(AST expr, scope_t* st)

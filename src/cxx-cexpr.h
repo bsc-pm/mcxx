@@ -19,6 +19,8 @@ typedef struct
 {
 	enum literal_value_kind_t kind;
 
+	char template_dependent;
+
 	union 
 	{
 		signed int signed_int;

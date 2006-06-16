@@ -207,6 +207,13 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
  */
 scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list)
 {
+	return query_nested_name_spec_flags(sc, global_op, nested_name, result_entry_list, LF_NONE);
+}
+
+scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list,
+		lookup_flags_t lookup_flags)
+{
+	int qualif_level = 0;
 	// We'll start the search in "sc"
 	scope_t* lookup_scope = sc;
 	scope_entry_list_t* entry_list = NULL;
@@ -227,7 +234,14 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 		{
 			case AST_SYMBOL :
 				{
-					entry_list = query_unqualified_name(lookup_scope, ASTText(nested_name_spec));
+					if (qualif_level == 0)
+					{
+						entry_list = query_unqualified_name(lookup_scope, ASTText(nested_name_spec));
+					}
+					else
+					{
+						entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(nested_name_spec));
+					}
 
 					// If not found, null
 					if (entry_list == NULL)
@@ -236,8 +250,9 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 					}
 
 					// Now filter for SK_CLASS or SK_NAMESPACE
-					enum cxx_symbol_kind filter[3] = {SK_CLASS, SK_NAMESPACE, SK_TYPEDEF};
-					entry_list = filter_symbol_kind_set(entry_list, 3, filter);
+					enum cxx_symbol_kind filter[5] = {SK_CLASS, SK_NAMESPACE, SK_TYPEDEF, 
+						SK_TEMPLATE_TYPE_PARAMETER, SK_TEMPLATE_TEMPLATE_PARAMETER};
+					entry_list = filter_symbol_kind_set(entry_list, 5, filter);
 
 					if (entry_list == NULL)
 					{
@@ -269,7 +284,7 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 					}
 
 					// Classes do not have namespaces within them
-					if (seen_class && entry->kind == SK_NAMESPACE)
+					if (seen_class && (entry->kind == SK_NAMESPACE))
 					{
 						return NULL;
 					}
@@ -285,12 +300,19 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 					break;
 				}
 			case AST_TEMPLATE_ID :
-				 {
-					 entry_list = query_template_id(nested_name_spec, sc, lookup_scope);
-					 lookup_scope = entry_list->entry->related_scope;
-					 seen_class = 1;
-					 break;
-				 }
+				{
+					if (qualif_level == 0)
+					{
+						entry_list = query_unqualified_template_id(nested_name_spec, sc, lookup_scope);
+					}
+					else
+					{
+						entry_list = query_template_id(nested_name_spec, sc, lookup_scope);
+					}
+					lookup_scope = entry_list->entry->related_scope;
+					seen_class = 1;
+					break;
+				}
 			default:
 				{
 					internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(nested_name_spec)));
@@ -298,6 +320,7 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, sco
 				}
 		}
 
+		qualif_level++;
 		nested_name = ASTSon1(nested_name);
 	}
 
@@ -353,8 +376,7 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 				}
 				break;
 			case AST_TEMPLATE_ID:
-				// ??? There should be a query_unqualified_template_id ?
-				result = query_unqualified_template_id(name, sc, sc);
+				result = query_unqualified_template_id_flags(name, sc, sc, lookup_flags);
 				break;
 			default :
 				internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(name)));
@@ -379,7 +401,7 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 					}
 					break;
 				case AST_TEMPLATE_ID:
-					result = query_template_id(name, sc, lookup_scope);
+					result = query_template_id_flags(name, sc, lookup_scope, lookup_flags);
 					break;
 				case AST_CONVERSION_FUNCTION_ID :
 					{
@@ -398,7 +420,7 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 
 
 static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* sc, scope_t* lookup_scope, 
-		unqualified_lookup_behaviour_t unqualified_lookup)
+		unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags)
 {
 	AST symbol = ASTSon0(template_id);
 	fprintf(stderr, "Trying to resolve template '%s'\n", ASTText(symbol));
@@ -450,21 +472,50 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		template_argument_list_t* current_template_arguments = NULL;
 
 		build_scope_template_arguments(template_id, sc, &current_template_arguments);
-		scope_entry_t* matched_template = solve_template(entry_list, current_template_arguments, sc);
 
-		fprintf(stderr, "Selected template '%p'\n", matched_template);
-		return create_list_from_entry(matched_template);
+		char give_exact_match = 0;
+
+		if (BITMAP_TEST(lookup_flags, LF_EXACT_TEMPLATE_MATCH))
+		{
+			give_exact_match = 1;
+		}
+
+		scope_entry_t* matched_template = solve_template(entry_list, current_template_arguments, 
+				sc, give_exact_match);
+
+		if (matched_template != NULL)
+		{
+			fprintf(stderr, "Selected template '%p'\n", matched_template);
+			return create_list_from_entry(matched_template);
+		}
+		else
+		{
+			fprintf(stderr, "No template selected\n");
+			return NULL;
+		}
 	}
 }
 
 scope_entry_list_t* query_unqualified_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope)
 {
-	return query_template_id_internal(template_id, sc, lookup_scope, FULL_UNQUALIFIED_LOOKUP);
+	return query_template_id_internal(template_id, sc, lookup_scope, FULL_UNQUALIFIED_LOOKUP, LF_NONE);
+}
+
+scope_entry_list_t* query_unqualified_template_id_flags(AST template_id, scope_t* sc, scope_t* lookup_scope,
+		lookup_flags_t lookup_flags)
+{
+	return query_template_id_internal(template_id, sc, lookup_scope, FULL_UNQUALIFIED_LOOKUP, lookup_flags);
 }
 
 scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope)
 {
-	return query_template_id_internal(template_id, sc, lookup_scope, NOFULL_UNQUALIFIED_LOOKUP);
+	return query_template_id_internal(template_id, sc, lookup_scope, NOFULL_UNQUALIFIED_LOOKUP, LF_NONE);
+}
+
+scope_entry_list_t* query_template_id_flags(AST template_id, scope_t* sc, 
+		scope_t* lookup_scope, lookup_flags_t lookup_flags)
+{
+	return query_template_id_internal(template_id, sc, lookup_scope, NOFULL_UNQUALIFIED_LOOKUP, lookup_flags);
 }
 
 scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr, unqualified_lookup_behaviour_t unqualified_lookup)

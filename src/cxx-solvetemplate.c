@@ -6,12 +6,14 @@
 #include "cxx-scope.h"
 #include "cxx-solvetemplate.h"
 #include "cxx-typeunif.h"
+#include "cxx-typeutils.h"
 
 char match_one_template(template_argument_list_t* arguments, template_argument_list_t* specialized, scope_t* st);
 
 static scope_entry_t* determine_more_specialized(int num_matching_set, scope_entry_t** matching_set, scope_t* st);
 
-scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_argument_list_t* arguments, scope_t* st)
+scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_argument_list_t* arguments, scope_t* st,
+		char give_exact_match)
 {
 	scope_entry_t* result = NULL;
 
@@ -68,8 +70,31 @@ scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_
 	}
 	else if (num_matching_set > 0)
 	{
-		// internal_error("Partial ordering of matching specializations not done yet", 0);
 		result = determine_more_specialized(num_matching_set, matching_set, st);
+	}
+
+	if (give_exact_match 
+			&& result != NULL)
+	{
+		// Result will be an exact match if it can be unified with the original
+		if (result->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+		{
+
+			template_argument_list_t* specialized = result->type_information->type->template_arguments;
+
+			fprintf(stderr, "Checking match %p %p\n", specialized, arguments);
+
+			if (!match_one_template(specialized, arguments, st))
+			{
+				return NULL;
+			}
+		}
+		else
+		{
+			// A primary template cannot be exactly matched to something that
+			// has invoked a template-id selection
+			return NULL;
+		}
 	}
 
 	return result;
@@ -106,6 +131,8 @@ char match_one_template(template_argument_list_t* arguments,
 		template_argument_list_t* specialized, scope_t* st)
 {
 	int i;
+	unification_set_t* unif_set = GC_CALLOC(1, sizeof(*unif_set));
+
 	for (i = 0; i < arguments->num_arguments; i++)
 	{
 		template_argument_t* spec_arg = specialized->argument_list[i];
@@ -117,7 +144,7 @@ char match_one_template(template_argument_list_t* arguments,
 			{
 				case TAK_TYPE :
 					{
-						unification_set_t* unif_set = GC_CALLOC(1, sizeof(*unif_set));
+						// unification_set_t* unif_set = GC_CALLOC(1, sizeof(*unif_set));
 						if (!unificate_two_types(spec_arg->type, arg->type, st, &unif_set))
 						{
 							return 0;

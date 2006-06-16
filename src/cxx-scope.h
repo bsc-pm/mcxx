@@ -424,7 +424,9 @@ typedef enum unqualified_lookup_behaviour_tag
 typedef enum lookup_flags_tag
 {
 	LF_NONE = 0,
-	LF_CONSTRUCTOR = BITMAP(1)
+	LF_CONSTRUCTOR = BITMAP(1),
+	LF_EXACT_TEMPLATE_MATCH = BITMAP(2),
+	LF_ALLOW_TEMPLATE_TYPES = BITMAP(3)
 } lookup_flags_t ;
 
 // Higher level functions when dealing with the scope
@@ -457,9 +459,15 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
         unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags);
 //    These are here for the purpose of flexibility but should be rarely needed
 scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list);
+scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list,
+		lookup_flags_t lookup_flags);
 // char incompatible_symbol_exists(scope_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
 scope_entry_list_t* query_template_id(AST nested_name_spec, scope_t* st, scope_t* lookup_scope);
+scope_entry_list_t* query_template_id_flags(AST nested_name_spec, scope_t* st, scope_t* lookup_scope,
+		lookup_flags_t lookup_flags);
 scope_entry_list_t* query_unqualified_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope);
+scope_entry_list_t* query_unqualified_template_id_flags(AST template_id, scope_t* sc, scope_t* lookup_scope, 
+		lookup_flags_t lookup_flags);
 scope_entry_list_t* query_in_symbols_of_scope(scope_t* sc, char* name);
 
 // Manipulators
