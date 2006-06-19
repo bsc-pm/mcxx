@@ -1012,6 +1012,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 			fprintf(stderr, "Registering enumerator '%s'\n", ASTText(enumeration_name));
 			scope_entry_t* enumeration_item = new_symbol(st, ASTText(enumeration_name));
 			enumeration_item->kind = SK_ENUMERATOR;
+			enumeration_item->type_information = enumerator_type;
 
 			if (!BITMAP_TEST(decl_flags, DF_TEMPLATE))
 			{
@@ -1026,19 +1027,17 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 				}
 
 				enumeration_item->expression_value = tree_from_literal_value(enum_value);
+				
+				// DEBUG
+				fprintf(stderr, "Enumerator '%s' has value = ", ASTText(enumeration_name));
+				prettyprint(stderr, enumeration_item->expression_value);
+				fprintf(stderr, "\n");
+				// - DEBUG
 			}
 			else
 			{
 				enumeration_item->expression_value = enumeration_expr;
 			}
-
-			enumeration_item->type_information = enumerator_type;
-
-			// DEBUG
-			fprintf(stderr, "Enumerator '%s' has value = ", ASTText(enumeration_name));
-			prettyprint(stderr, enumeration_item->expression_value);
-			fprintf(stderr, "\n");
-			// - DEBUG
 
 			P_LIST_ADD(simple_type_info->enum_info->enumeration_list, 
 					simple_type_info->enum_info->num_enumeration,
