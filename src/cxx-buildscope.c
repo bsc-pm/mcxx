@@ -23,29 +23,30 @@
  * this is a full type checking phase
  */
 
-static void build_scope_declaration(AST a, scope_t* st);
-static void build_scope_declaration_sequence(AST a, scope_t* st);
-static void build_scope_simple_declaration(AST a, scope_t* st);
+static void build_scope_declaration(AST a, scope_t* st, decl_flags_t decl_flags);
+static void build_scope_declaration_sequence(AST a, scope_t* st, decl_flags_t decl_flags);
+static void build_scope_simple_declaration(AST a, scope_t* st, decl_flags_t decl_flags);
 
-static void build_scope_namespace_definition(AST a, scope_t* st);
-static scope_entry_t* build_scope_function_definition(AST a, scope_t* st);
+static void build_scope_namespace_definition(AST a, scope_t* st, decl_flags_t decl_flags);
+static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_flags_t decl_flags);
 static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t* st, scope_t** parameters_scope, 
 		gather_decl_spec_t* gather_info, simple_type_t* simple_type_info, type_t** declarator_type,
 		decl_flags_t decl_flags);
 
 static void build_scope_member_declaration(AST a, scope_t*  st, 
 		access_specifier_t current_access, simple_type_t* simple_type_info,
-		int step);
+		int step, decl_flags_t decl_flags);
 static void build_scope_simple_member_declaration(AST a, scope_t*  st, 
 		access_specifier_t current_access, simple_type_t* simple_type_info, decl_flags_t decl_flags);
 static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st, 
-		access_specifier_t current_access, simple_type_t* class_info, int step);
+		access_specifier_t current_access, simple_type_t* class_info, int step, decl_flags_t decl_flags);
 
-static void build_scope_statement(AST statement, scope_t* st);
+static void build_scope_statement(AST statement, scope_t* st, decl_flags_t decl_flags);
 
 static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simple_type_t* type_info,
 		decl_flags_t decl_flags);
-static void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* type_info);
+static void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* type_info, 
+		decl_flags_t decl_flags);
 static void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* type_info,
 		decl_flags_t decl_flags);
 
@@ -62,50 +63,57 @@ static scope_entry_t* build_scope_declarator_name(AST declarator_name, type_t* d
 static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, scope_t* st, decl_flags_t decl_flags);
 
-static void build_scope_linkage_specifier(AST a, scope_t* st);
-static void build_scope_linkage_specifier_declaration(AST a, scope_t* st);
+static void build_scope_linkage_specifier(AST a, scope_t* st, decl_flags_t decl_flags);
+static void build_scope_linkage_specifier_declaration(AST a, scope_t* st, decl_flags_t decl_flags);
 
 void build_scope_template_arguments(AST a, scope_t* st, template_argument_list_t** template_arguments);
 
 static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope, class_info_t* class_info);
 
-static void build_scope_template_declaration(AST a, scope_t* st);
-static void build_scope_explicit_template_specialization(AST a, scope_t* st);
+static void build_scope_template_declaration(AST a, scope_t* st, decl_flags_t decl_flags);
+static void build_scope_explicit_template_specialization(AST a, scope_t* st, decl_flags_t decl_flags);
 
 static void build_scope_template_parameter_list(AST a, scope_t* st, 
-		template_parameter_t** template_param_info, int* num_parameters);
+		template_parameter_t** template_param_info, int* num_parameters,
+		decl_flags_t decl_flags);
 static void build_scope_template_parameter(AST a, scope_t* st, 
-		template_parameter_t* template_param_info, int num_parameter);
+		template_parameter_t* template_param_info, int num_parameter,
+		decl_flags_t decl_flags);
 static void build_scope_nontype_template_parameter(AST a, scope_t* st,
-		template_parameter_t* template_param_info, int num_parameter);
+		template_parameter_t* template_param_info, int num_parameter,
+		decl_flags_t decl_flags);
 static void build_scope_type_template_parameter(AST a, scope_t* st,
-		template_parameter_t* template_param_info, int num_parameter);
+		template_parameter_t* template_param_info, int num_parameter,
+		decl_flags_t decl_flags);
 static void build_scope_template_template_parameter(AST a, scope_t* st,
-		template_parameter_t* template_param_info, int num_parameter);
+		template_parameter_t* template_param_info, int num_parameter, 
+		decl_flags_t decl_flags);
 
 static void build_scope_member_template_declaration(AST a, scope_t* st, 
-		access_specifier_t current_access, simple_type_t* class_info, int step);
+		access_specifier_t current_access, simple_type_t* class_info, int step, 
+		decl_flags_t decl_flags);
 static void build_scope_member_template_function_definition(AST a, scope_t* st, scope_t* template_scope, 
 		int num_parameters, template_parameter_t** template_param_info,
-		access_specifier_t current_access, simple_type_t* class_info, int step);
+		access_specifier_t current_access, simple_type_t* class_info, int step,
+		decl_flags_t decl_flags);
 static void build_scope_member_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
 		int num_parameters, template_parameter_t** template_param_info,
-		access_specifier_t current_access, simple_type_t* class_info);
+		access_specifier_t current_access, simple_type_t* class_info, decl_flags_t decl_flags);
 
-static void build_scope_using_directive(AST a, scope_t* st);
-static void build_scope_using_declaration(AST a, scope_t* st);
+static void build_scope_using_directive(AST a, scope_t* st, decl_flags_t decl_flags);
+static void build_scope_using_declaration(AST a, scope_t* st, decl_flags_t decl_flags);
 
 static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
-		gather_decl_spec_t* gather_info, scope_t* st);
+		gather_decl_spec_t* gather_info, scope_t* st, decl_flags_t decl_flags);
 static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, scope_t* st, decl_flags_t decl_flags);
 static scope_entry_t* register_function(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, scope_t* st, decl_flags_t decl_flags);
 
 static void build_scope_template_function_definition(AST a, scope_t* st, scope_t* template_scope, 
-		int num_parameters, template_parameter_t** template_param_info);
+		int num_parameters, template_parameter_t** template_param_info, decl_flags_t decl_flags);
 static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
-		int num_parameters, template_parameter_t** template_param_info);
+		int num_parameters, template_parameter_t** template_param_info, decl_flags_t decl_flags);
 
 static cv_qualifier_t compute_cv_qualifier(AST a);
 
@@ -135,7 +143,7 @@ void build_scope_translation_unit(AST a)
 
 	initialize_builtin_symbols();
 
-	build_scope_declaration_sequence(list, compilation_options.global_scope);
+	build_scope_declaration_sequence(list, compilation_options.global_scope, DF_NONE);
 
 	fprintf(stderr, "============ SYMBOL TABLE ===============\n");
 	print_scope(compilation_options.global_scope, 0);
@@ -158,17 +166,17 @@ static void initialize_builtin_symbols()
 	builtin_va_list->type_information->type->kind = STK_VA_LIST;
 }
 
-static void build_scope_declaration_sequence(AST list, scope_t* st)
+static void build_scope_declaration_sequence(AST list, scope_t* st, decl_flags_t decl_flags)
 {
 	AST iter;
 	for_each_element(list, iter)
 	{
-		build_scope_declaration(ASTSon1(iter), st);
+		build_scope_declaration(ASTSon1(iter), st, decl_flags);
 	}
 }
 
 // Build scope for a declaration
-static void build_scope_declaration(AST a, scope_t* st)
+static void build_scope_declaration(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	switch (ASTType(a))
 	{
@@ -183,7 +191,7 @@ static void build_scope_declaration(AST a, scope_t* st)
 				//   int f(int [k]);
 				//
 				// [thing] means that thing is optional
-				build_scope_simple_declaration(a, st);
+				build_scope_simple_declaration(a, st, decl_flags);
 				break;
 			}
 		case AST_NAMESPACE_DEFINITION :
@@ -193,7 +201,7 @@ static void build_scope_declaration(AST a, scope_t* st)
 				//   {
 				//      ...
 				//   }
-				build_scope_namespace_definition(a, st);
+				build_scope_namespace_definition(a, st, decl_flags);
 				break;
 			}
 		case AST_FUNCTION_DEFINITION :
@@ -203,23 +211,23 @@ static void build_scope_declaration(AST a, scope_t* st)
 				//   {
 				//     ...
 				//   }
-				build_scope_function_definition(a, st);
+				build_scope_function_definition(a, st, decl_flags);
 				break;
 			}
 		case AST_LINKAGE_SPEC :
 			{
-				build_scope_linkage_specifier(a, st);
+				build_scope_linkage_specifier(a, st, decl_flags);
 				break;
 			}
 		case AST_LINKAGE_SPEC_DECL :
 			{
-				build_scope_linkage_specifier_declaration(a, st);
+				build_scope_linkage_specifier_declaration(a, st, decl_flags);
 				break;
 			}
 		case AST_EXPORT_TEMPLATE_DECLARATION :
 		case AST_TEMPLATE_DECLARATION :
 			{
-				build_scope_template_declaration(a, st);
+				build_scope_template_declaration(a, st, decl_flags);
 				break;
 			}
 		case AST_EXPLICIT_INSTANTIATION :
@@ -229,30 +237,30 @@ static void build_scope_declaration(AST a, scope_t* st)
 			}
 		case AST_EXPLICIT_SPECIALIZATION :
 			{
-				build_scope_explicit_template_specialization(a, st);
+				build_scope_explicit_template_specialization(a, st, decl_flags);
 				break;
 			}
 		case AST_USING_DIRECTIVE :
 			{
-				build_scope_using_directive(a, st);
+				build_scope_using_directive(a, st, decl_flags);
 				break;
 			}
 		case AST_USING_DECL :
 		case AST_USING_DECL_TYPENAME :
 			{
-				build_scope_using_declaration(a, st);
+				build_scope_using_declaration(a, st, decl_flags);
 				break;
 			}
 		case AST_AMBIGUITY :
 			{
 				solve_ambiguous_declaration(a, st);
 				// Restart function
-				build_scope_declaration(a, st);
+				build_scope_declaration(a, st, decl_flags);
 				break;
 			}
 		case AST_GCC_EXTENSION :
 			{
-				build_scope_declaration(ASTSon0(a), st);
+				build_scope_declaration(ASTSon0(a), st, decl_flags);
 				break;
 			}
 		case AST_EMPTY_DECL :
@@ -269,7 +277,7 @@ static void build_scope_declaration(AST a, scope_t* st)
 	}
 }
 
-static void build_scope_using_directive(AST a, scope_t* st)
+static void build_scope_using_directive(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	int j;
 	// First get the involved namespace
@@ -303,7 +311,7 @@ static void build_scope_using_directive(AST a, scope_t* st)
 	}
 }
 
-static void build_scope_using_declaration(AST a, scope_t* st)
+static void build_scope_using_declaration(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	AST global_op = ASTSon0(a);
 	AST nested_name_specifier = ASTSon1(a);
@@ -325,7 +333,7 @@ static void build_scope_using_declaration(AST a, scope_t* st)
 }
 
 // Builds scope for a simple declaration
-static void build_scope_simple_declaration(AST a, scope_t* st)
+static void build_scope_simple_declaration(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	// Empty declarations are meaningless for the symbol table
 	// They are of the form
@@ -359,7 +367,7 @@ static void build_scope_simple_declaration(AST a, scope_t* st)
 	{
 		// This can declare a type if it is a class specifier or enum specifier
 		build_scope_decl_specifier_seq(ASTSon0(a), st, &gather_info, &simple_type_info,
-				DF_NONE);
+				decl_flags);
 	}
 
 	// A type has been specified and there are declarators ahead
@@ -412,7 +420,7 @@ static void build_scope_simple_declaration(AST a, scope_t* st)
 			// This will create the symbol if it is unqualified
 			scope_t* parameters_scope = NULL;
 			build_scope_declarator_with_parameter_scope(declarator, st, &parameters_scope, 
-					&gather_info, simple_type_info, &declarator_type, DF_NONE);
+					&gather_info, simple_type_info, &declarator_type, decl_flags);
 
 			// This is a simple declaration, thus if it does not declare an
 			// extern variable or function, the symbol is already defined here
@@ -650,7 +658,7 @@ void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type
 			gather_type_spec_from_simple_type_specifier(a, st, simple_type_info, decl_flags);
 			break;
 		case AST_ENUM_SPECIFIER :
-			gather_type_spec_from_enum_specifier(a, st, simple_type_info);
+			gather_type_spec_from_enum_specifier(a, st, simple_type_info, decl_flags);
 			break;
 		case AST_CLASS_SPECIFIER :
 			gather_type_spec_from_class_specifier(a, st, simple_type_info, decl_flags);
@@ -798,7 +806,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 				build_scope_template_arguments(class_symbol, st, &(new_class->type_information->type->template_arguments));
 			}
 
-			if ((decl_flags & DF_TEMPLATE) != DF_TEMPLATE)
+			if (!BITMAP_TEST(decl_flags, DF_TEMPLATE))
 			{
 				new_class->kind = SK_CLASS;
 			}
@@ -934,7 +942,8 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simp
  * This function is called for enum specifiers. It saves all enumerated values
  * and if it has been given a name, it is registered in the scope.
  */
-void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* simple_type_info)
+void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* simple_type_info,
+		decl_flags_t decl_flags)
 {
 	simple_type_info->enum_info = (enum_info_t*) GC_CALLOC(1, sizeof(*simple_type_info->enum_info));
 
@@ -1002,19 +1011,27 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 			// Note that enums do not define an additional scope
 			fprintf(stderr, "Registering enumerator '%s'\n", ASTText(enumeration_name));
 			scope_entry_t* enumeration_item = new_symbol(st, ASTText(enumeration_name));
-
 			enumeration_item->kind = SK_ENUMERATOR;
-			if (enumeration_expr == NULL)
+
+			if (!BITMAP_TEST(decl_flags, DF_TEMPLATE))
 			{
-				// If no value, take the previous and increment it
-				enum_value = increment_literal_value(enum_value);
+				if (enumeration_expr == NULL)
+				{
+					// If no value, take the previous and increment it
+					enum_value = increment_literal_value(enum_value);
+				}
+				else
+				{
+					enum_value = evaluate_constant_expression(enumeration_expr, st);
+				}
+
+				enumeration_item->expression_value = tree_from_literal_value(enum_value);
 			}
 			else
 			{
-				enum_value = evaluate_constant_expression(enumeration_expr, st);
+				enumeration_item->expression_value = enumeration_expr;
 			}
 
-			enumeration_item->expression_value = tree_from_literal_value(enum_value);
 			enumeration_item->type_information = enumerator_type;
 
 			// DEBUG
@@ -1152,7 +1169,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 			{
 				fprintf(stderr, "Registering class '%s' in %p\n", name, st);
 				class_entry = new_symbol(st, name);
-				if ((decl_flags & DF_TEMPLATE) != DF_TEMPLATE)
+				if (!BITMAP_TEST(decl_flags, DF_TEMPLATE))
 				{
 					class_entry->kind = SK_CLASS;
 				}
@@ -1229,7 +1246,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 		if (ASTSon1(member_specification) != NULL)
 		{
 			build_scope_member_declaration(ASTSon1(member_specification), inner_scope, 
-					current_access, simple_type_info, /* step= */ 0);
+					current_access, simple_type_info, /* step= */ 0, decl_flags);
 		}
 
 		member_specification = ASTSon2(member_specification);
@@ -1272,7 +1289,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 		if (ASTSon1(member_specification) != NULL)
 		{
 			build_scope_member_declaration(ASTSon1(member_specification), inner_scope, 
-					current_access, simple_type_info, /* step = */ 1);
+					current_access, simple_type_info, /* step = */ 1, decl_flags);
 		}
 
 		member_specification = ASTSon2(member_specification);
@@ -1457,6 +1474,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 		// Maybe this needs some kind of fixing
 		return;
 	}
+#warning Properly handle (void)
 
 	AST iter, list;
 	list = parameters;
@@ -1541,6 +1559,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 			new_parameter->default_argument = default_argument;
 
 			P_LIST_ADD(declarator_type->function->parameter_list, declarator_type->function->num_parameters, new_parameter);
+
 		}
 	}
 }
@@ -1837,7 +1856,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 				// We are not declaring a variable but a type
 				if (gather_info->is_typedef)
 				{
-					return register_new_typedef_name(declarator_id, declarator_type, gather_info, st);
+					return register_new_typedef_name(declarator_id, declarator_type, gather_info, st, decl_flags);
 				}
 				else
 				{
@@ -1850,7 +1869,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 				// An unqualified destructor name "~name"
 				// 'name' should be a class in this scope
 				AST destructor_id = ASTSon0(declarator_id);
-				return register_new_variable_name(destructor_id, declarator_type, gather_info, st, DF_NONE);
+				return register_new_variable_name(destructor_id, declarator_type, gather_info, st, decl_flags);
 				break;
 			}
 		case AST_TEMPLATE_ID :
@@ -1934,7 +1953,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
  * This function registers a new typedef name.
  */
 static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
-		gather_decl_spec_t* gather_info, scope_t* st)
+		gather_decl_spec_t* gather_info, scope_t* st, decl_flags_t decl_flags)
 {
 	// First query for an existing entry
 	scope_entry_list_t* list = query_unqualified_name(st, ASTText(declarator_id));
@@ -2029,13 +2048,13 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
 		char* function_name = ASTText(declarator_id);
 
-		if ((decl_flags & DF_CONSTRUCTOR) == DF_CONSTRUCTOR)
+		if (BITMAP_TEST(decl_flags, DF_CONSTRUCTOR))
 		{
 			function_name = strprepend(function_name, "constructor ");
 		}
 		scope_entry_t* new_entry = new_symbol(st, function_name);
 	
-		if ((decl_flags & DF_TEMPLATE) != DF_TEMPLATE)
+		if (!BITMAP_TEST(decl_flags, DF_TEMPLATE))
 		{
 			new_entry->kind = SK_FUNCTION;
 		}
@@ -2108,7 +2127,7 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 /*
  * This function saves the current linkage, sets the new and restores it back.
  */
-static void build_scope_linkage_specifier(AST a, scope_t* st)
+static void build_scope_linkage_specifier(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	AST declaration_sequence = ASTSon1(a);
 
@@ -2120,7 +2139,7 @@ static void build_scope_linkage_specifier(AST a, scope_t* st)
 	AST linkage_spec = ASTSon0(a);
 	current_linkage = ASTText(linkage_spec);
 
-	build_scope_declaration_sequence(declaration_sequence, st);
+	build_scope_declaration_sequence(declaration_sequence, st, decl_flags);
 
 	current_linkage = previous_linkage;
 }
@@ -2128,7 +2147,7 @@ static void build_scope_linkage_specifier(AST a, scope_t* st)
 /*
  * Similar to build_scope_linkage_specifier but for just one declaration
  */
-static void build_scope_linkage_specifier_declaration(AST a, scope_t* st)
+static void build_scope_linkage_specifier_declaration(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	AST declaration = ASTSon1(a);
 
@@ -2137,7 +2156,7 @@ static void build_scope_linkage_specifier_declaration(AST a, scope_t* st)
 	AST linkage_spec = ASTSon0(a);
 	current_linkage = ASTText(linkage_spec);
 
-	build_scope_declaration(declaration, st);
+	build_scope_declaration(declaration, st, decl_flags);
 
 	current_linkage = previous_linkage;
 }
@@ -2145,7 +2164,7 @@ static void build_scope_linkage_specifier_declaration(AST a, scope_t* st)
 /*
  * This function registers a template declaration
  */
-static void build_scope_template_declaration(AST a, scope_t* st)
+static void build_scope_template_declaration(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	/*
 	 * The declaration after the template parameter list can be
@@ -2183,15 +2202,18 @@ static void build_scope_template_declaration(AST a, scope_t* st)
 	int num_parameters = 0;
 	
 	// Construct parameter information
-	build_scope_template_parameter_list(ASTSon0(a), template_scope, template_param_info, &num_parameters);
+	build_scope_template_parameter_list(ASTSon0(a), template_scope, template_param_info, 
+			&num_parameters, decl_flags);
 
 	switch (ASTType(ASTSon1(a)))
 	{
 		case AST_FUNCTION_DEFINITION :
-			build_scope_template_function_definition(ASTSon1(a), st, template_scope, num_parameters, template_param_info);
+			build_scope_template_function_definition(ASTSon1(a), st, template_scope, num_parameters, 
+					template_param_info, decl_flags | DF_TEMPLATE);
 			break;
 		case AST_SIMPLE_DECLARATION :
-			build_scope_template_simple_declaration(ASTSon1(a), st, template_scope, num_parameters, template_param_info);
+			build_scope_template_simple_declaration(ASTSon1(a), st, template_scope, num_parameters, 
+					template_param_info, decl_flags | DF_TEMPLATE);
 			break;
 		default :
 			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
@@ -2201,7 +2223,7 @@ static void build_scope_template_declaration(AST a, scope_t* st)
 /*
  * This function registers an explicit template specialization
  */
-static void build_scope_explicit_template_specialization(AST a, scope_t* st)
+static void build_scope_explicit_template_specialization(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	scope_t* template_scope = new_template_scope(st);
 	template_parameter_t** template_param_info = GC_CALLOC(1, sizeof(*template_param_info));
@@ -2210,10 +2232,12 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st)
 	switch (ASTType(ASTSon0(a)))
 	{
 		case AST_FUNCTION_DEFINITION :
-			build_scope_template_function_definition(ASTSon1(a), st, template_scope, num_parameters, template_param_info);
+			build_scope_template_function_definition(ASTSon1(a), st, template_scope, num_parameters, 
+					template_param_info, decl_flags);
 			break;
 		case AST_SIMPLE_DECLARATION :
-			build_scope_template_simple_declaration(ASTSon0(a), st, template_scope, num_parameters, template_param_info);
+			build_scope_template_simple_declaration(ASTSon0(a), st, template_scope, num_parameters, 
+					template_param_info, decl_flags);
 			break;
 		default :
 			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
@@ -2221,13 +2245,13 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st)
 }
 
 static void build_scope_template_function_definition(AST a, scope_t* st, scope_t* template_scope, 
-		int num_parameters, template_parameter_t** template_param_info)
+		int num_parameters, template_parameter_t** template_param_info, decl_flags_t decl_flags)
 {
 	template_scope->template_scope = st->template_scope;
 	st->template_scope = template_scope;
 
-	// Define the function within st scope but being visible template_scope
-	scope_entry_t* entry = build_scope_function_definition(a, st);
+	// This cannot be done yet because we have to instantiate this function
+	scope_entry_t* entry = build_scope_function_definition(a, st, decl_flags);
 	entry->kind = SK_TEMPLATE_FUNCTION;
 
 	st->template_scope = template_scope->template_scope;
@@ -2235,7 +2259,7 @@ static void build_scope_template_function_definition(AST a, scope_t* st, scope_t
 }
 
 static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
-		int num_parameters, template_parameter_t** template_param_info)
+		int num_parameters, template_parameter_t** template_param_info, decl_flags_t decl_flags)
 {
 	/*
 	 * A templated simple declaration can be 
@@ -2279,8 +2303,7 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 
 		// If a class specifier appears here it will be properly declarated in the scope (not within
 		// in the template one)
-		build_scope_decl_specifier_seq(decl_specifier_seq, st, &gather_info, &simple_type_info,
-				DF_TEMPLATE);
+		build_scope_decl_specifier_seq(decl_specifier_seq, st, &gather_info, &simple_type_info, decl_flags);
 
 		// Restore the original template scope
 		st->template_scope = template_scope->template_scope;
@@ -2335,7 +2358,7 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 		type_t* declarator_type = NULL;
 		scope_entry_t* entry = build_scope_declarator(declarator, st, 
 				&gather_info, simple_type_info, &declarator_type,
-				DF_TEMPLATE);
+				decl_flags);
 		
 		// Restore the original template scope
 		st->template_scope = template_scope->template_scope;
@@ -2383,7 +2406,8 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
  * This function registers templates parameters in a given scope
  */
 static void build_scope_template_parameter_list(AST a, scope_t* st, 
-		template_parameter_t** template_param_info, int* num_parameters)
+		template_parameter_t** template_param_info, int* num_parameters,
+		decl_flags_t decl_flags)
 {
 	AST iter;
 	AST list = a;
@@ -2394,7 +2418,7 @@ static void build_scope_template_parameter_list(AST a, scope_t* st,
 
 		template_parameter_t* new_template_param = GC_CALLOC(1, sizeof(*new_template_param));
 
-		build_scope_template_parameter(template_parameter, st, new_template_param, *num_parameters);
+		build_scope_template_parameter(template_parameter, st, new_template_param, *num_parameters, decl_flags);
 
 		P_LIST_ADD(template_param_info, *num_parameters, new_template_param);
 	}
@@ -2404,25 +2428,26 @@ static void build_scope_template_parameter_list(AST a, scope_t* st,
  * This function registers one template parameter in a given scope
  */
 static void build_scope_template_parameter(AST a, scope_t* st, 
-		template_parameter_t* template_param_info, int num_parameter)
+		template_parameter_t* template_param_info, int num_parameter,
+		decl_flags_t decl_flags)
 {
 	switch (ASTType(a))
 	{
 		case AST_PARAMETER_DECL :
-			build_scope_nontype_template_parameter(a, st, template_param_info, num_parameter);
+			build_scope_nontype_template_parameter(a, st, template_param_info, num_parameter, decl_flags);
 			break;
 		case AST_TYPE_PARAMETER_CLASS :
 		case AST_TYPE_PARAMETER_TYPENAME :
-			build_scope_type_template_parameter(a, st, template_param_info, num_parameter);
+			build_scope_type_template_parameter(a, st, template_param_info, num_parameter, decl_flags);
 			break;
 		case AST_TYPE_PARAMETER_TEMPLATE :
-			build_scope_template_template_parameter(a, st, template_param_info, num_parameter);
+			build_scope_template_template_parameter(a, st, template_param_info, num_parameter, decl_flags);
 			break;
 		case AST_AMBIGUITY :
 			// The ambiguity here is parameter_class vs parameter_decl
 			solve_parameter_declaration_vs_type_parameter_class(a);
 			// Restart this routine
-			build_scope_template_parameter(a, st, template_param_info, num_parameter);
+			build_scope_template_parameter(a, st, template_param_info, num_parameter, decl_flags);
 			break;
 		default :
 			internal_error("Unknown node type '%s'", ast_print_node_type(ASTType(a)));
@@ -2430,7 +2455,8 @@ static void build_scope_template_parameter(AST a, scope_t* st,
 }
 
 static void build_scope_template_template_parameter(AST a, scope_t* st,
-		template_parameter_t* template_param_info, int num_parameter)
+		template_parameter_t* template_param_info, int num_parameter,
+		decl_flags_t decl_flags)
 {
 	// These parameters have the form
 	//
@@ -2443,7 +2469,8 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 	template_parameter_t** parm_template_param_info = GC_CALLOC(1, sizeof(*parm_template_param_info));
 	int parm_num_parameters = 0;
 	
-	build_scope_template_parameter_list(ASTSon0(a), parm_template_scope, parm_template_param_info, &parm_num_parameters);
+	build_scope_template_parameter_list(ASTSon0(a), parm_template_scope, parm_template_param_info, 
+			&parm_num_parameters, decl_flags);
 
 	// Now create a STK_CLASS
 	type_t* new_type = GC_CALLOC(1, sizeof(*new_type));
@@ -2484,7 +2511,8 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 }
 
 static void build_scope_type_template_parameter(AST a, scope_t* st,
-		template_parameter_t* template_param_info, int num_parameter)
+		template_parameter_t* template_param_info, int num_parameter,
+		decl_flags_t decl_flags)
 {
 	// These parameters have the form
 	//    CLASS [name] [ = type_id]
@@ -2533,7 +2561,8 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 }
 
 static void build_scope_nontype_template_parameter(AST a, scope_t* st,
-		template_parameter_t* template_param_info, int num_parameter)
+		template_parameter_t* template_param_info, int num_parameter,
+		decl_flags_t decl_flags)
 {
 	// As usual there are three parts
 	//     decl_specifier_seq [declarator] [ = expression ]
@@ -2573,7 +2602,7 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 /*
  * This function builds symbol table information for a namespace definition
  */
-static void build_scope_namespace_definition(AST a, scope_t* st)
+static void build_scope_namespace_definition(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	AST namespace_name = ASTSon0(a);
 
@@ -2605,7 +2634,7 @@ static void build_scope_namespace_definition(AST a, scope_t* st)
 
 		if (ASTSon1(a) != NULL)
 		{
-			build_scope_declaration_sequence(ASTSon1(a), entry->related_scope);
+			build_scope_declaration_sequence(ASTSon1(a), entry->related_scope, decl_flags);
 		}
 	}
 	else
@@ -2618,7 +2647,7 @@ static void build_scope_namespace_definition(AST a, scope_t* st)
 /*
  * This function builds symbol table information for a function definition
  */
-static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
+static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	fprintf(stderr, "Function definition!\n");
 	// A function definition has four parts
@@ -2665,57 +2694,64 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st)
 	}
 
 	// Nothing will be done with ctor_initializer at the moment
+
 	// Function_body
 	AST function_body = ASTSon3(a);
-	AST statement = ASTSon0(function_body);
-
-	scope_t* inner_scope = new_function_scope(st, parameter_scope);
-
-	entry->related_scope = inner_scope;
-
-	if (entry->type_information->function->is_member)
+	if (!BITMAP_TEST(decl_flags, DF_TEMPLATE))
 	{
-		// If is a member function sign up additional information
-		if (!entry->type_information->function->is_static
-				&& !entry->type_information->function->is_constructor)
+		AST statement = ASTSon0(function_body);
+
+		scope_t* inner_scope = new_function_scope(st, parameter_scope);
+
+		entry->related_scope = inner_scope;
+
+		if (entry->type_information->function->is_member)
 		{
-			type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
-			this_type->kind = TK_POINTER;
-			this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
-			this_type->pointer->pointee = simple_type_to_type(
-					copy_simple_type(entry->type_information->function->class_type));
+			// If is a member function sign up additional information
+			if (!entry->type_information->function->is_static
+					&& !entry->type_information->function->is_constructor)
+			{
+				type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
+				this_type->kind = TK_POINTER;
+				this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
+				this_type->pointer->pointee = simple_type_to_type(
+						copy_simple_type(entry->type_information->function->class_type));
 
-			// "this" pseudovariable has the same cv-qualification of this member
-			this_type->pointer->pointee->type->cv_qualifier = 
-				entry->type_information->function->cv_qualifier;
+				// "this" pseudovariable has the same cv-qualification of this member
+				this_type->pointer->pointee->type->cv_qualifier = 
+					entry->type_information->function->cv_qualifier;
 
-			// This will put the symbol in the function scope, but this is fine
-			scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
+				// This will put the symbol in the function scope, but this is fine
+				scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
 
-			this_symbol->kind = SK_VARIABLE;
-			this_symbol->type_information = this_type;
+				this_symbol->kind = SK_VARIABLE;
+				this_symbol->type_information = this_type;
+			}
+		}
+
+		build_scope_statement(statement, inner_scope, decl_flags);
+
+		if (entry == NULL)
+		{
+			running_error("This symbol is undeclared here", 0);
+		}
+		else 
+		{
+			fprintf(stderr, "Function '%s' is defined\n", entry->symbol_name);
+			entry->defined = 1;
 		}
 	}
-
-	build_scope_statement(statement, inner_scope);
-
-	if (entry == NULL)
+	else
 	{
-		running_error("This symbol is undeclared here", 0);
+		entry->type_information->function->function_body = function_body;
 	}
-	else 
-	{
-		fprintf(stderr, "Function '%s' is defined\n", entry->symbol_name);
-		entry->defined = 1;
-	}
-
 	return entry;
 }
 
 
 static void build_scope_member_declaration(AST a, scope_t*  st, 
 		access_specifier_t current_access, simple_type_t* class_info,
-		int step)
+		int step, decl_flags_t decl_flags)
 {
 	switch (ASTType(a))
 	{
@@ -2723,31 +2759,30 @@ static void build_scope_member_declaration(AST a, scope_t*  st,
 			{
 				if (step == 0)
 				{
-					build_scope_simple_member_declaration(a, st, current_access, class_info, 
-							DF_NONE);
+					build_scope_simple_member_declaration(a, st, current_access, class_info, decl_flags);
 				}
 				break;
 			}
 		case AST_FUNCTION_DEFINITION :
 			{
-				build_scope_member_function_definition(a, st, current_access, class_info, step);
+				build_scope_member_function_definition(a, st, current_access, class_info, step, decl_flags);
 				break;
 			}
 		case AST_GCC_EXTENSION :
 			{
-				build_scope_member_declaration(ASTSon0(a), st, current_access, class_info, step);
+				build_scope_member_declaration(ASTSon0(a), st, current_access, class_info, step, decl_flags);
 				break;
 			}
 		case AST_TEMPLATE_DECLARATION :
 			{
-				build_scope_member_template_declaration(a, st, current_access, class_info, step);
+				build_scope_member_template_declaration(a, st, current_access, class_info, step, decl_flags);
 				break;
 			}
 		case AST_AMBIGUITY :
 			{
 				solve_ambiguous_declaration(a, st);
 				// Restart
-				build_scope_member_declaration(a, st, current_access, class_info, step);
+				build_scope_member_declaration(a, st, current_access, class_info, step, decl_flags);
 				break;
 			}
 		default:
@@ -2763,7 +2798,8 @@ static void build_scope_member_declaration(AST a, scope_t*  st,
  * This function registers a member template declaration
  */
 static void build_scope_member_template_declaration(AST a, scope_t* st, 
-		access_specifier_t current_access, simple_type_t* class_info, int step)
+		access_specifier_t current_access, simple_type_t* class_info, int step,
+		decl_flags_t decl_flags)
 {
 	/*
 	 * The declaration after the template parameter list can be
@@ -2801,17 +2837,17 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
 	int num_parameters = 0;
 	
 	// Construct parameter information
-	build_scope_template_parameter_list(ASTSon0(a), template_scope, template_param_info, &num_parameters);
+	build_scope_template_parameter_list(ASTSon0(a), template_scope, template_param_info, &num_parameters, decl_flags);
 
 	switch (ASTType(ASTSon1(a)))
 	{
 		case AST_FUNCTION_DEFINITION :
 			build_scope_member_template_function_definition(ASTSon1(a), st, template_scope, num_parameters, template_param_info,
-					current_access, class_info, step);
+					current_access, class_info, step, decl_flags);
 			break;
 		case AST_SIMPLE_DECLARATION :
 			build_scope_member_template_simple_declaration(ASTSon1(a), st, template_scope, num_parameters, template_param_info,
-					current_access, class_info);
+					current_access, class_info, decl_flags);
 			break;
 		default :
 			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
@@ -2820,13 +2856,15 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
 
 static void build_scope_member_template_function_definition(AST a, scope_t* st, scope_t* template_scope, 
 		int num_parameters, template_parameter_t** template_param_info,
-		access_specifier_t current_access, simple_type_t* class_info, int step)
+		access_specifier_t current_access, simple_type_t* class_info, int step,
+		decl_flags_t decl_flags)
 {
 	template_scope->template_scope = st->template_scope;
 	st->template_scope = template_scope;
 
 	// Define the function within st scope but being visible template_scope
-	scope_entry_t* entry = build_scope_member_function_definition(a, st, current_access, class_info, step);
+	scope_entry_t* entry = build_scope_member_function_definition(a, st, current_access, class_info, step, 
+			decl_flags | DF_TEMPLATE);
 	entry->kind = SK_TEMPLATE_FUNCTION;
 
 	st->template_scope = template_scope->template_scope;
@@ -2835,14 +2873,15 @@ static void build_scope_member_template_function_definition(AST a, scope_t* st, 
 
 static void build_scope_member_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
 		int num_parameters, template_parameter_t** template_param_info,
-		access_specifier_t current_access, simple_type_t* class_info)
+		access_specifier_t current_access, simple_type_t* class_info,
+		decl_flags_t decl_flags)
 {
 	template_scope->template_scope = st->template_scope;
 	st->template_scope = template_scope;
 
 	// Define the function within st scope but being visible template_scope
 	build_scope_simple_member_declaration(a, st, current_access, class_info, 
-			DF_TEMPLATE);
+			decl_flags | DF_TEMPLATE);
 
 	st->template_scope = template_scope->template_scope;
 	template_scope->template_scope = NULL;
@@ -2850,7 +2889,7 @@ static void build_scope_member_template_simple_declaration(AST a, scope_t* st, s
 
 static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st, 
 		access_specifier_t current_access, simple_type_t* class_info,
-		int step)
+		int step, decl_flags_t decl_flags)
 {
 	char* class_name = "";
 	class_info_t* class_type = NULL;
@@ -2944,7 +2983,7 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
 	else
 	{
 		// Build the function definition
-		entry = build_scope_function_definition(a, st);
+		entry = build_scope_function_definition(a, st, decl_flags);
 	}
 
 	return entry;
@@ -2969,8 +3008,8 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 
 	if (ASTSon0(a) != NULL)
 	{
-		build_scope_decl_specifier_seq(ASTSon0(a), st, &gather_info, &simple_type_info,
-				DF_NONE);
+		build_scope_decl_specifier_seq(ASTSon0(a), st, &gather_info,
+				&simple_type_info, decl_flags);
 	}
 
 	if (ASTSon1(a) != NULL)
@@ -3418,9 +3457,9 @@ char* get_operator_function_name(AST declarator_id)
  * Building scope for statements
  */
 
-typedef void (*stmt_scope_handler_t)(AST a, scope_t* st);
+typedef void (*stmt_scope_handler_t)(AST a, scope_t* st, decl_flags_t decl_flags);
 
-static void build_scope_compound_statement(AST a, scope_t* st)
+static void build_scope_compound_statement(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
@@ -3430,12 +3469,12 @@ static void build_scope_compound_statement(AST a, scope_t* st)
 		AST iter;
 		for_each_element(list, iter)
 		{
-			build_scope_statement(ASTSon1(iter), block_scope);
+			build_scope_statement(ASTSon1(iter), block_scope, decl_flags);
 		}
 	}
 }
 
-static void build_scope_condition(AST a, scope_t* st)
+static void build_scope_condition(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	if (ASTSon0(a) != NULL 
 			&& ASTSon1(a) != NULL)
@@ -3477,54 +3516,54 @@ static void build_scope_condition(AST a, scope_t* st)
 	}
 }
 
-static void build_scope_while_statement(AST a, scope_t* st)
+static void build_scope_while_statement(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
-	build_scope_condition(ASTSon0(a), block_scope);
+	build_scope_condition(ASTSon0(a), block_scope, decl_flags);
 
 	if (ASTSon1(a) != NULL)
 	{
-		build_scope_statement(ASTSon1(a), block_scope);
+		build_scope_statement(ASTSon1(a), block_scope, decl_flags);
 	}
 }
 
-static void build_scope_ambiguity_handler(AST a, scope_t* st)
+static void build_scope_ambiguity_handler(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	solve_ambiguous_statement(a, st);
 	// Restart
-	build_scope_statement(a, st);
+	build_scope_statement(a, st, decl_flags);
 }
 
-static void build_scope_declaration_statement(AST a, scope_t* st)
+static void build_scope_declaration_statement(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	AST declaration = ASTSon0(a);
 
-	build_scope_declaration(declaration, st);
+	build_scope_declaration(declaration, st, decl_flags);
 }
 
-static void solve_expression_ambiguities(AST a, scope_t* st)
+static void solve_expression_ambiguities(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	solve_possibly_ambiguous_expression(ASTSon0(a), st);
 }
 
-static void build_scope_if_else_statement(AST a, scope_t* st)
+static void build_scope_if_else_statement(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
 	AST condition = ASTSon0(a);
-	build_scope_condition(condition, block_scope);
+	build_scope_condition(condition, block_scope, decl_flags);
 
 	AST then_branch = ASTSon1(a);
-	build_scope_statement(then_branch, block_scope);
+	build_scope_statement(then_branch, block_scope, decl_flags);
 
 	AST else_branch = ASTSon2(a);
 	if (else_branch != NULL)
 	{
-		build_scope_statement(else_branch, block_scope);
+		build_scope_statement(else_branch, block_scope, decl_flags);
 	}
 }
 
-static void build_scope_for_statement(AST a, scope_t* st)
+static void build_scope_for_statement(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	AST for_init_statement = ASTSon0(a);
 	AST condition = ASTSon1(a);
@@ -3540,7 +3579,7 @@ static void build_scope_for_statement(AST a, scope_t* st)
 
 	if (condition != NULL)
 	{
-		build_scope_condition(condition, block_scope);
+		build_scope_condition(condition, block_scope, decl_flags);
 	}
 
 	if (expression != NULL)
@@ -3548,41 +3587,41 @@ static void build_scope_for_statement(AST a, scope_t* st)
 		solve_possibly_ambiguous_expression(expression, block_scope);
 	}
 	
-	build_scope_statement(statement, block_scope);
+	build_scope_statement(statement, block_scope, decl_flags);
 }
 
-static void build_scope_switch_statement(AST a, scope_t* st)
+static void build_scope_switch_statement(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 	AST condition = ASTSon0(a);
 	AST statement = ASTSon1(a);
 
-	build_scope_condition(condition, block_scope);
-	build_scope_statement(statement, block_scope);
+	build_scope_condition(condition, block_scope, decl_flags);
+	build_scope_statement(statement, block_scope, decl_flags);
 }
 
-static void build_scope_labeled_statement(AST a, scope_t* st)
+static void build_scope_labeled_statement(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	AST statement = ASTSon0(a);
-	build_scope_statement(statement, st);
+	build_scope_statement(statement, st, decl_flags);
 }
 
-static void build_scope_default_statement(AST a, scope_t* st)
+static void build_scope_default_statement(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	AST statement = ASTSon0(a);
-	build_scope_statement(statement, st);
+	build_scope_statement(statement, st, decl_flags);
 }
 
-static void build_scope_case_statement(AST a, scope_t* st)
+static void build_scope_case_statement(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	AST constant_expression = ASTSon0(a);
 	AST statement = ASTSon1(a);
 	solve_possibly_ambiguous_expression(constant_expression, st);
 
-	build_scope_statement(statement, st);
+	build_scope_statement(statement, st, decl_flags);
 }
 
-static void build_scope_return_statement(AST a, scope_t* st)
+static void build_scope_return_statement(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	AST expression = ASTSon0(a);
 	if (expression != NULL)
@@ -3591,11 +3630,11 @@ static void build_scope_return_statement(AST a, scope_t* st)
 	}
 }
 
-static void build_scope_try_block(AST a, scope_t* st)
+static void build_scope_try_block(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	AST compound_statement = ASTSon0(a);
 
-	build_scope_statement(compound_statement, st);
+	build_scope_statement(compound_statement, st, decl_flags);
 
 	AST handler_seq = ASTSon1(a);
 	AST iter;
@@ -3632,20 +3671,20 @@ static void build_scope_try_block(AST a, scope_t* st)
 					DF_NONE);
 		}
 
-		build_scope_statement(compound_statement, st);
+		build_scope_statement(compound_statement, st, decl_flags);
 	}
 }
 
-static void build_scope_do_statement(AST a, scope_t* st)
+static void build_scope_do_statement(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	AST statement = ASTSon0(a);
 	AST expression = ASTSon1(a);
 
-	build_scope_statement(statement, st);
+	build_scope_statement(statement, st, decl_flags);
 	solve_possibly_ambiguous_expression(expression, st);
 }
 
-static void build_scope_null(AST a, scope_t* st)
+static void build_scope_null(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	// Do nothing
 }
@@ -3675,13 +3714,13 @@ static stmt_scope_handler_t stmt_scope_handlers[] =
 };
 
 
-static void build_scope_statement(AST a, scope_t* st)
+static void build_scope_statement(AST a, scope_t* st, decl_flags_t decl_flags)
 {
 	stmt_scope_handler_t f = stmt_scope_handlers[ASTType(a)];
 
 	if (f != NULL)
 	{
-		f(a, st);
+		f(a, st, decl_flags);
 	}
 	else
 	{

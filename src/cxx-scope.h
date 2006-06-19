@@ -258,6 +258,7 @@ typedef struct function_tag
 	cv_qualifier_t cv_qualifier;
 	exception_spec_t* exception_spec;
 
+	// For instantiating template function purposes
 	AST function_body;
 
 	int is_static; // local linkage or class-static
