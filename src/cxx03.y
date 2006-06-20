@@ -294,6 +294,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> operator_function_id
 %type<ast> parameter_declaration
 %type<ast> parameter_declaration_clause
+%type<ast> parameter_declaration_clause_nonempty
 %type<ast> parameter_declaration_list
 %type<ast> pm_expression
 %type<ast> postfix_expression
@@ -1751,15 +1752,15 @@ direct_abstract_declarator : '(' abstract_declarator ')'
 }
 ;
 
-parameter_declaration_clause : parameter_declaration_list 
+parameter_declaration_clause : parameter_declaration_clause_nonempty
 {
 	$$ = $1;
 }
-| parameter_declaration_clause ',' TRES_PUNTS
+| parameter_declaration_clause_nonempty ',' TRES_PUNTS
 {
 	$$ = ASTList($1, ASTLeaf(AST_VARIADIC_ARG, $3.token_line, $3.token_text));
 } 
-| parameter_declaration_clause TRES_PUNTS
+| parameter_declaration_clause_nonempty TRES_PUNTS
 {
 	$$ = ASTList($1, ASTLeaf(AST_VARIADIC_ARG, $2.token_line, $2.token_text));
 } 
@@ -1772,6 +1773,12 @@ parameter_declaration_clause : parameter_declaration_list
 | /* empty */
 {
 	$$ = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, 0, NULL);
+}
+;
+
+parameter_declaration_clause_nonempty : parameter_declaration_list
+{
+	$$ = $1;
 }
 ;
 

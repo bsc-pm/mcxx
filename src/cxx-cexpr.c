@@ -616,16 +616,23 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 		fprintf(stderr, "Unknown symbol '");
 		prettyprint(stderr, symbol);
 		fprintf(stderr, "'\n");
-		internal_error("Cannot evaluate unknown symbol", 0);
+		internal_error("Cannot evaluate unknown symbol line=%d", ASTLine(symbol));
 	}
 
 	if (result->entry->kind != SK_ENUMERATOR
-			&& result->entry->kind != SK_VARIABLE)
+			&& result->entry->kind != SK_VARIABLE
+			&& result->entry->kind != SK_TEMPLATE_PARAMETER)
 	{
 		fprintf(stderr, "Invalid symbol '");
 		prettyprint(stderr, symbol);
 		fprintf(stderr, "'\n");
 		internal_error("This symbol is not an expression", 0);
+	}
+
+#warning Fix this V_V
+	if (result->entry->kind == SK_TEMPLATE_PARAMETER)
+	{
+		return literal_value_zero();
 	}
 
 	if (result->entry->expression_value == NULL)

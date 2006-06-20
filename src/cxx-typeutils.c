@@ -122,6 +122,10 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
 				((t1->template_parameter_num == t2->template_parameter_num)
 				 && (t1->template_parameter_nesting == t2->template_parameter_nesting));
 			break;
+		case STK_TEMPLATE_DEPENDENT_TYPE :
+#warning How to handle this ?
+				return (t1->typeof_expr == t2->typeof_expr);
+				break;
 		case STK_TYPEDEF :
 			internal_error("A typedef cannot reach here", 0);
 			break;
@@ -1394,6 +1398,9 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
 			break;
 		case STK_TYPEOF :
 			result = strappend(result, "__typeof");
+			break;
+		case STK_TEMPLATE_DEPENDENT_TYPE :
+			result = strappend(result, "template dependent parameter");
 			break;
 		default :
 			{

@@ -49,6 +49,8 @@ static void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type
 		decl_context_t decl_context);
 static void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* type_info,
 		decl_context_t decl_context);
+static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, simple_type_t* simple_type_info,
+		decl_context_t decl_context);
 
 static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st, simple_type_t* type_info,
 		decl_context_t decl_context);
@@ -234,6 +236,7 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
 				break;
 			}
 		case AST_EXPLICIT_INSTANTIATION :
+		case AST_GCC_EXPLICIT_INSTANTIATION :
 			{
 				// Should we construct something on this ?
 				break;
@@ -273,8 +276,8 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
 			}
 		default :
 			{
-				internal_error("A declaration of kind '%s' is still unsupported\n", 
-						ast_print_node_type(ASTType(a)));
+				internal_error("A declaration of kind '%s' is still unsupported (line=%d)\n", 
+						ast_print_node_type(ASTType(a)), ASTLine(a));
 				break;
 			}
 	}
@@ -324,7 +327,10 @@ static void build_scope_using_declaration(AST a, scope_t* st, decl_context_t dec
 
 	if (used_entity == NULL)
 	{
-		internal_error("Entity not found\n", 0);
+		fprintf(stderr, "Not found '");
+		prettyprint(stderr, a);
+		fprintf(stderr, "'\n");
+		internal_error("Entity not found (line=%d)\n", ASTLine(a));
 	}
 
 	while (used_entity != NULL)
@@ -615,7 +621,7 @@ void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather
 			gather_info->is_unsigned = 1;
 			break;
 		case AST_LONG_TYPE :
-			gather_info->is_long = 1;
+			gather_info->is_long++;
 			break;
 		case AST_SHORT_TYPE :
 			gather_info->is_short = 1;
@@ -656,9 +662,11 @@ void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type
 	switch (ASTType(a))
 	{
 		case AST_SIMPLE_TYPE_SPECIFIER :
+			gather_type_spec_from_simple_type_specifier(a, st, simple_type_info, decl_context);
+			break;
 		case AST_ELABORATED_TYPENAME : 
 		case AST_ELABORATED_TYPENAME_TEMPLATE : 
-			gather_type_spec_from_simple_type_specifier(a, st, simple_type_info, decl_context);
+			gather_type_spec_from_dependent_typename(a, st, simple_type_info, decl_context);
 			break;
 		case AST_ENUM_SPECIFIER :
 			gather_type_spec_from_enum_specifier(a, st, simple_type_info, decl_context);
@@ -896,6 +904,14 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 	}
 }
 
+static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, simple_type_t* simple_type_info,
+		decl_context_t decl_context)
+{
+	simple_type_info->kind = STK_TEMPLATE_DEPENDENT_TYPE;
+	simple_type_info->typeof_expr = a;
+	simple_type_info->typeof_scope = st;
+}
+
 /*
  * This routine is called in gather_type_spec_information and its purpose is to fill the simple_type
  * with the proper reference of the user defined type.
@@ -1017,30 +1033,8 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 			enumeration_item->kind = SK_ENUMERATOR;
 			enumeration_item->type_information = enumerator_type;
 
-			if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
-			{
-				if (enumeration_expr == NULL)
-				{
-					// If no value, take the previous and increment it
-					enum_value = increment_literal_value(enum_value);
-				}
-				else
-				{
-					enum_value = evaluate_constant_expression(enumeration_expr, st);
-				}
-
-				enumeration_item->expression_value = tree_from_literal_value(enum_value);
-				
-				// DEBUG
-				fprintf(stderr, "Enumerator '%s' has value = ", ASTText(enumeration_name));
-				prettyprint(stderr, enumeration_item->expression_value);
-				fprintf(stderr, "\n");
-				// - DEBUG
-			}
-			else
-			{
-				enumeration_item->expression_value = enumeration_expr;
-			}
+			// Never evaluate
+			enumeration_item->expression_value = enumeration_expr;
 
 			P_LIST_ADD(simple_type_info->enum_info->enumeration_list, 
 					simple_type_info->enum_info->num_enumeration,
@@ -1222,6 +1216,9 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 	AST member_specification = ASTSon1(a);
 
 
+	decl_context_t new_decl_context = decl_context;
+	new_decl_context.decl_flags &= ~(DF_TEMPLATE);
+
 	// First step, sign up only prototypes and simple declarations
 	while (member_specification != NULL)
 	{
@@ -1248,7 +1245,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 		if (ASTSon1(member_specification) != NULL)
 		{
 			build_scope_member_declaration(ASTSon1(member_specification), inner_scope, 
-					current_access, simple_type_info, /* step= */ 0, decl_context);
+					current_access, simple_type_info, /* step= */ 0, new_decl_context);
 		}
 
 		member_specification = ASTSon2(member_specification);
@@ -1291,7 +1288,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 		if (ASTSon1(member_specification) != NULL)
 		{
 			build_scope_member_declaration(ASTSon1(member_specification), inner_scope, 
-					current_access, simple_type_info, /* step = */ 1, decl_context);
+					current_access, simple_type_info, /* step = */ 1, new_decl_context);
 		}
 
 		member_specification = ASTSon2(member_specification);
@@ -1338,9 +1335,30 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 	// Set base type
 	*declarator_type = simple_type_to_type(simple_type_info);
 
-	AST declarator_name = NULL;
+	AST declarator_name = get_declarator_name(a);
 
-	build_scope_declarator_rec(a, st, parameters_scope, declarator_type, gather_info, &declarator_name);
+	scope_t* decl_st = st;
+	if (declarator_name != NULL)
+	{
+		if (ASTType(declarator_name) == AST_QUALIFIED_ID
+				|| ASTType(declarator_name) == AST_QUALIFIED_TEMPLATE)
+		{
+			decl_st = query_nested_name_spec(st, ASTSon0(declarator_name), ASTSon1(declarator_name), NULL);
+
+			if (decl_st == NULL)
+			{
+				WARNING_MESSAGE("Scope of the qualified declarator not found, falling back to current scope", 0);
+				decl_st = st;
+			}
+		}
+		else if(ASTType(declarator_name) == AST_QUALIFIED_TEMPLATE_ID
+				|| ASTType(declarator_name) == AST_QUALIFIED_OPERATOR_FUNCTION_ID)
+		{
+			decl_st = compilation_options.global_scope;
+		}
+	}
+
+	build_scope_declarator_rec(a, decl_st, parameters_scope, declarator_type, gather_info, &declarator_name);
 	
 	if (declarator_name != NULL)
 	{
@@ -2243,15 +2261,19 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
 	template_parameter_t** template_param_info = GC_CALLOC(1, sizeof(*template_param_info));
 	int num_parameters = 0;
 
+	decl_context_t new_decl_context = decl_context;
+
+	new_decl_context.decl_flags |= DF_TEMPLATE;
+
 	switch (ASTType(ASTSon0(a)))
 	{
 		case AST_FUNCTION_DEFINITION :
 			build_scope_template_function_definition(ASTSon1(a), st, template_scope, num_parameters, 
-					template_param_info, decl_context);
+					template_param_info, new_decl_context);
 			break;
 		case AST_SIMPLE_DECLARATION :
 			build_scope_template_simple_declaration(ASTSon0(a), st, template_scope, num_parameters, 
-					template_param_info, decl_context);
+					template_param_info, new_decl_context);
 			break;
 		default :
 			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
@@ -2675,10 +2697,12 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 	memset(&gather_info, 0, sizeof(gather_info));
 	simple_type_t* type_info = NULL;
 
+	AST decl_spec_seq = ASTSon0(a);
 	char is_constructor = 0;
-	if (ASTSon0(a) != NULL)
+	if (decl_spec_seq != NULL 
+			&& ((ASTType(decl_spec_seq) != AST_AMBIGUITY && ASTSon1(decl_spec_seq) != NULL)
+			 || (ASTType(decl_spec_seq) == AST_AMBIGUITY)))
 	{
-		AST decl_spec_seq = ASTSon0(a);
 
 		build_scope_decl_specifier_seq(decl_spec_seq, st, &gather_info, &type_info, decl_context);
 	}
@@ -2707,6 +2731,10 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 	{
 		internal_error("This function does not exist!", 0);
 	}
+
+	// Change scope to the function one
+	fprintf(stderr, "Changing scope from %p to %p\n", st, entry->scope);
+	st = entry->scope;
 
 	if (entry->kind != SK_FUNCTION
 			&& entry->kind != SK_TEMPLATE_FUNCTION)
@@ -2941,9 +2969,14 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
 		AST declarator_name = get_declarator_name(declarator);
 
 		char is_constructor = 0;
-		if (ASTSon0(a) != NULL)
+		AST decl_spec_seq = ASTSon0(a);
+
+		// If ambiguous is due because we don't know how to "lay" the type_specifier
+		// but it has type_specifier
+		if (decl_spec_seq != NULL 
+				&& ((ASTType(decl_spec_seq) != AST_AMBIGUITY && ASTSon1(decl_spec_seq) != NULL)
+					|| (ASTType(decl_spec_seq) == AST_AMBIGUITY)))
 		{
-			AST decl_spec_seq = ASTSon0(a);
 
 			build_scope_decl_specifier_seq(decl_spec_seq, st, &gather_info, &type_info,
 					default_decl_context);
@@ -3066,7 +3099,14 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 					{
 						AST declarator_name = get_declarator_name(declarator);
 						// Change name of constructors
-						if (ASTSon0(a) == NULL)
+						AST decl_spec_seq = ASTSon0(a);
+						if (decl_spec_seq != NULL 
+								&& ((ASTType(decl_spec_seq) != AST_AMBIGUITY && ASTSon1(decl_spec_seq) != NULL)
+									|| (ASTType(decl_spec_seq) == AST_AMBIGUITY)))
+						{
+							// It is not a constructor
+						}
+						else
 						{
 							if (is_constructor_declarator(declarator))
 							{

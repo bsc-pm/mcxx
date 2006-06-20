@@ -2,6 +2,7 @@
 #include "cxx-ambiguity.h"
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
+#include "cxx-prettyprint.h"
 
 /*
  * This file performs disambiguation. If a symbol table is passed along the
@@ -591,7 +592,7 @@ static char check_for_expression(AST expression, scope_t* st)
 			}
 		case AST_AMBIGUITY :
 			{
-				char correct_choice = -1;
+				int correct_choice = -1;
 				int i;
 				for (i = 0; i < expression->num_ambig; i++)
 				{
@@ -603,7 +604,9 @@ static char check_for_expression(AST expression, scope_t* st)
 						}
 						else
 						{
-							internal_error("More than one valid choice for expression statement\n", 0);
+							internal_error("More than one valid choice for expression statement (line %d)\n'%s' vs '%s'\n", 
+									ASTLine(expression), ast_print_node_type(ASTType(expression->ambig[i])), 
+									ast_print_node_type(ASTType(expression->ambig[correct_choice])));
 						}
 					}
 				}
@@ -662,7 +665,9 @@ static char check_for_expression(AST expression, scope_t* st)
 			}
 		case AST_DESTRUCTOR_ID :
 			{
-				return check_for_destructor_id(expression, st);
+				// This is never a value since it must be invoked via pseudo destructor call
+				return 0;
+				// return check_for_destructor_id(expression, st);
 			}
 		case AST_OPERATOR_FUNCTION_ID :
 			{
@@ -708,13 +713,23 @@ static char check_for_expression(AST expression, scope_t* st)
 		case AST_CLASS_MEMBER_ACCESS :
 		case AST_POINTER_CLASS_MEMBER_ACCESS :
 			{
-				// This should always yield a value
+				// This should always yield a value unless the right hand is shit
+				if (ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_ID)
+				{
+					return 0;
+				}
+				
 				return 1;
 			}
 		case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
 		case AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS :
 			{
 				// Think on this. Can this yield something that is not a value ?
+				if (ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_ID)
+				{
+					return 0;
+				}
+
 				return 1;
 			}
 		case AST_POSTINCREMENT :
@@ -855,9 +870,28 @@ static char check_for_expression(AST expression, scope_t* st)
 				return check_for_sizeof_typeid(expression, st);
 				break;
 			}
+		case AST_NEW_EXPRESSION :
+			{
+				// This is always a value, never a type
+				return 1;
+				break;
+			}
+		case AST_DELETE_EXPR :
+			{
+				// This is always a value, never a type
+				return 1;
+				break;
+			}
+		case AST_PSEUDO_DESTRUCTOR_CALL :
+		case AST_POINTER_PSEUDO_DESTRUCTOR_CALL :
+			{
+				// This is never a type
+				return 1;
+				break;
+			}
 		default :
 			{
-				internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(expression)));
+				internal_error("Unexpected node '%s' line=%d\n", ast_print_node_type(ASTType(expression)), ASTLine(expression));
 				break;
 			}
 	}
@@ -907,7 +941,8 @@ static char check_for_symbol(AST expr, scope_t* st)
 			&& (result->entry->kind == SK_VARIABLE
 				|| result->entry->kind == SK_ENUMERATOR
 				|| result->entry->kind == SK_FUNCTION
-				|| result->entry->kind == SK_TEMPLATE_FUNCTION));
+				|| result->entry->kind == SK_TEMPLATE_FUNCTION
+				|| result->entry->kind == SK_TEMPLATE_PARAMETER));
 }
 
 static char check_for_destructor_id(AST expr, scope_t* st)
@@ -1093,7 +1128,10 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st)
 
 	if (selected_option < 0)
 	{
-		internal_error("No valid choice found!", 0);
+		fprintf(stderr, "Template argument '");
+		prettyprint(stderr, ambig_template_argument);
+		fprintf(stderr, "'\n");
+		internal_error("No valid choice found! line=%d", ASTLine(ambig_template_argument));
 	}
 	else
 	{
@@ -1127,6 +1165,27 @@ void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st)
 
 static char check_for_simple_type_spec(AST type_spec, scope_t* st)
 {
+	if (ASTType(type_spec) != AST_SIMPLE_TYPE_SPECIFIER)
+	{
+		switch (ASTType(type_spec))
+		{
+			case AST_CHAR_TYPE :
+			case AST_INT_TYPE:
+			case AST_FLOAT_TYPE :
+			case AST_DOUBLE_TYPE :
+			case AST_LONG_TYPE :
+			case AST_SHORT_TYPE :
+			case AST_SIGNED_TYPE :
+			case AST_UNSIGNED_TYPE :
+			case AST_WCHAR_TYPE :
+			case AST_VOID_TYPE :
+				return 1;
+				break;
+			default :
+				internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(type_spec)));
+		}
+	}
+
 	AST global_op = ASTSon0(type_spec);
 	AST nested_name_spec = ASTSon1(type_spec);
 	AST type_name = ASTSon2(type_spec) != NULL ? ASTSon2(type_spec) : ASTSon3(type_spec);

@@ -93,6 +93,7 @@ typedef enum simple_type_kind_tag
 	STK_USER_DEFINED,
 	// Templates stuff
 	STK_TYPE_TEMPLATE_PARAMETER,
+	STK_TEMPLATE_DEPENDENT_TYPE,
 	// GCC Extensions
 	STK_VA_LIST,
 	STK_TYPEOF
@@ -240,8 +241,9 @@ typedef struct simple_type_tag {
 	// Scope where this type was declared if not builtin
 	struct scope_tag* type_scope;
 
-	// For typeof
+	// For typeof and template dependent types
 	AST typeof_expr;
+	struct scope_tag* typeof_scope;
 } simple_type_t;
 
 typedef struct parameter_info_tag
