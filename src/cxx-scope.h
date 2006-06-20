@@ -229,8 +229,10 @@ typedef struct simple_type_tag {
 	// Template arguments for specializations and instantiations
 	template_argument_list_t* template_arguments;
 	
-	// For template parameters, the positional number of this argument
-	// in the template
+	// For template parameters, the positional number of this argument in the
+	// template and its nesting level (this should be enough to define
+	// completely a template parameter in a "nameless" way)
+	int template_parameter_nesting;
 	int template_parameter_num;
 
 	cv_qualifier_t cv_qualifier;

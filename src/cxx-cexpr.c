@@ -542,7 +542,7 @@ static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* s
 	simple_type_t simple_type_info;
 	memset(&simple_type_info, 0, sizeof(simple_type_info));
 
-	gather_type_spec_information(type_spec, st, &simple_type_info, DF_NONE);
+	gather_type_spec_information(type_spec, st, &simple_type_info, default_decl_context);
 
 	if (simple_type_info.kind != STK_BUILTIN_TYPE)
 	{

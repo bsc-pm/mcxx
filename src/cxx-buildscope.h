@@ -36,16 +36,28 @@ typedef enum decl_flags_tag
 	DF_CONSTRUCTOR = BITMAP(1)
 } decl_flags_t;
 
+// Inherited attributes
+typedef struct decl_context_tag
+{
+	// Several declaration flags
+	decl_flags_t decl_flags;
+
+	// Template nesting level
+	int template_nesting;
+} decl_context_t;
+
 #undef BITMAP
 
 char* get_operator_function_name(AST declarator_id);
 void build_scope_template_arguments(AST a, scope_t* st, template_argument_list_t** template_arguments);
 void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
-		simple_type_t** type_info, decl_flags_t decl_flags);
+		simple_type_t** type_info, decl_context_t dctx);
 scope_entry_t* build_scope_declarator(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
-		simple_type_t* type_info, type_t** declarator_type, decl_flags_t decl_flags);
+		simple_type_t* type_info, type_t** declarator_type, decl_context_t dctx);
 
 void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather_info);
-void gather_type_spec_information(AST a, scope_t* st, simple_type_t* type_info, decl_flags_t decl_flags);
+void gather_type_spec_information(AST a, scope_t* st, simple_type_t* type_info, decl_context_t dctx);
+
+extern const decl_context_t default_decl_context;
 
 #endif // CXX_BUILDSCOPE_H

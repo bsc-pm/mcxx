@@ -118,8 +118,9 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
 					t2->user_defined_type->type_information, st, CVE_CONSIDER);
 			break;
 		case STK_TYPE_TEMPLATE_PARAMETER :
-			// This should work, or something is broken
-			return t1 == t2;
+			return (t1 == t2) || 
+				((t1->template_parameter_num == t2->template_parameter_num)
+				 && (t1->template_parameter_nesting == t2->template_parameter_nesting));
 			break;
 		case STK_TYPEDEF :
 			internal_error("A typedef cannot reach here", 0);
@@ -1100,14 +1101,14 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type
 	simple_type_t* simple_type_info = NULL;
 
 	build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info,
-			DF_NONE);
+			default_decl_context);
 
 	type_t* type_info = NULL;
 
 	if (conversion_declarator != NULL)
 	{
 		build_scope_declarator(conversion_declarator, st, &gather_info, simple_type_info, &type_info,
-				DF_NONE);
+				default_decl_context);
 	}
 	else
 	{
