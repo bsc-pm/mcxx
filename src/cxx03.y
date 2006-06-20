@@ -1759,6 +1759,10 @@ parameter_declaration_clause : parameter_declaration_list
 {
 	$$ = ASTList($1, ASTLeaf(AST_VARIADIC_ARG, $3.token_line, $3.token_text));
 } 
+| parameter_declaration_clause TRES_PUNTS
+{
+	$$ = ASTList($1, ASTLeaf(AST_VARIADIC_ARG, $2.token_line, $2.token_text));
+} 
 // Com funciona aixo ?
 | TRES_PUNTS
 {
