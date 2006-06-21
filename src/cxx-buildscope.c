@@ -1130,30 +1130,25 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 {
 	AST class_head = ASTSon0(a);
 	AST class_key = ASTSon0(class_head);
+	AST class_head_nested_name = ASTSon1(class_head);
 	AST base_clause = ASTSon3(class_head);
-
 	AST class_head_identifier = ASTSon2(class_head);
 
 	simple_type_info->class_info = GC_CALLOC(1, sizeof(*simple_type_info->class_info));
 	simple_type_info->kind = STK_CLASS;
 
-	scope_t* inner_scope = new_class_scope(st);
+	scope_t* inner_scope;
 
 	// Save the inner scope in the class type
 	// (it is used when checking member acesses)
-	simple_type_info->class_info->inner_scope = inner_scope;
-
-	
-	// Now add the bases
-	if (base_clause != NULL)
-	{
-		build_scope_base_clause(base_clause, st, inner_scope, simple_type_info->class_info);
-	}
 
 	scope_entry_t* class_entry = NULL;
 	
-	if (class_head_identifier != NULL)
+	if (class_head_nested_name == NULL && 
+			class_head_identifier != NULL)
 	{
+		inner_scope = new_class_scope(st);
+		simple_type_info->class_info->inner_scope = inner_scope;
 		// If the class has name, register it in the symbol table but only if
 		// it does not exist
 		char* name;
@@ -1219,6 +1214,34 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 		{
 			internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(class_head_identifier)));
 		}
+	}
+	else if (class_head_nested_name != NULL 
+			&& class_head_identifier != NULL)
+	{
+		scope_entry_list_t* result = query_nested_name(st, NULL, class_head_nested_name, class_head_identifier,
+				FULL_UNQUALIFIED_LOOKUP);
+
+		enum cxx_symbol_kind filter_class[3] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
+
+		result = filter_symbol_kind_set(result, 3, filter_class);
+
+		if (result == NULL)
+		{
+			internal_error("Class not found", 0);
+		}
+
+		scope_entry_t* entry = result->entry;
+
+		entry->type_information->type->class_info = GC_CALLOC(1, sizeof(*(entry->type_information->type->class_info)));
+
+		inner_scope = new_class_scope(entry->scope);
+		entry->type_information->type->class_info->inner_scope = inner_scope;
+	}
+	
+	// Now add the bases
+	if (base_clause != NULL)
+	{
+		build_scope_base_clause(base_clause, st, inner_scope, simple_type_info->class_info);
 	}
 
 	// Member specification
