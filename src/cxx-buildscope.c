@@ -3777,32 +3777,30 @@ static void build_scope_try_block(AST a, scope_t* st, decl_context_t decl_contex
 	{
 		AST handler = ASTSon1(iter);
 
-		if (ASTType(handler) == AST_ANY_EXCEPTION)
-		{
-			continue;
-		}
-
 		AST exception_declaration = ASTSon0(handler);
 		AST compound_statement = ASTSon1(handler);
 
-		scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
-
-		AST type_specifier_seq = ASTSon0(exception_declaration);
-		// This declarator can be null
-		AST declarator = ASTSon1(exception_declaration);
-
-		simple_type_t* type_info = NULL;
-		gather_decl_spec_t gather_info;
-		memset(&gather_info, 0, sizeof(gather_info));
-
-		build_scope_decl_specifier_seq(type_specifier_seq, block_scope, &gather_info, &type_info,
-				decl_context);
-
-		if (declarator != NULL)
+		if (ASTType(exception_declaration) != AST_ANY_EXCEPTION)
 		{
-			type_t* declarator_type = NULL;
-			build_scope_declarator(declarator, block_scope, &gather_info, type_info, &declarator_type,
+			scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
+
+			AST type_specifier_seq = ASTSon0(exception_declaration);
+			// This declarator can be null
+			AST declarator = ASTSon1(exception_declaration);
+
+			simple_type_t* type_info = NULL;
+			gather_decl_spec_t gather_info;
+			memset(&gather_info, 0, sizeof(gather_info));
+
+			build_scope_decl_specifier_seq(type_specifier_seq, block_scope, &gather_info, &type_info,
 					decl_context);
+
+			if (declarator != NULL)
+			{
+				type_t* declarator_type = NULL;
+				build_scope_declarator(declarator, block_scope, &gather_info, type_info, &declarator_type,
+						decl_context);
+			}
 		}
 
 		build_scope_statement(compound_statement, st, decl_context);

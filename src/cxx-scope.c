@@ -27,12 +27,6 @@ scope_t* new_namespace_scope(scope_t* enclosing_scope)
 	result->kind = NAMESPACE_SCOPE;
 	result->contained_in = enclosing_scope;
 
-	// Template scope gets inherited automatically
-	if (enclosing_scope != NULL)
-	{
-		result->template_scope = enclosing_scope->template_scope;
-	}
-
 	return result;
 }
 
@@ -43,8 +37,6 @@ scope_t* new_prototype_scope(scope_t* enclosing_scope)
 	result->kind = PROTOTYPE_SCOPE;
 
 	result->contained_in = enclosing_scope;
-
-	result->template_scope = enclosing_scope->template_scope;
 
 	return result;
 }
@@ -59,9 +51,6 @@ scope_t* new_block_scope(scope_t* enclosing_scope, scope_t* prototype_scope, sco
 	result->function_scope = function_scope;
 	result->contained_in = enclosing_scope;
 	
-	// Template scope gets inherited automatically
-	result->template_scope = enclosing_scope->template_scope;
-
 	// Create artificial entry for the block scope
 	static int scope_number = 1000;
 	char* c = GC_CALLOC(256, sizeof(char));
@@ -85,9 +74,6 @@ scope_t* new_function_scope(scope_t* enclosing_scope, scope_t* prototype_scope)
 	result->prototype_scope = prototype_scope;
 	result->contained_in = enclosing_scope;
 	
-	// Template scope gets inherited automatically
-	result->template_scope = enclosing_scope->template_scope;
-
 	return result;
 }
 
@@ -100,9 +86,6 @@ scope_t* new_class_scope(scope_t* enclosing_scope)
 
 	result->contained_in = enclosing_scope;
 	
-	// Template scope gets inherited automatically
-	result->template_scope = enclosing_scope->template_scope;
-
 	return result;
 }
 
@@ -112,9 +95,6 @@ scope_t* new_template_scope(scope_t* enclosing_scope)
 
 	result->kind = TEMPLATE_SCOPE;
 	result->contained_in = enclosing_scope;
-
-	// This might sound odd but will enable the inheritance
-	// result->template_scope = result;
 
 	return result;
 }
@@ -457,7 +437,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
 	if (iter == NULL)
 	{
-		internal_error("Template not found!\n", 0);
+		internal_error("Template not found! (line=%d)\n", ASTLine(template_id));
 	}
 
 	// Look for specializations
@@ -661,6 +641,19 @@ scope_entry_list_t* create_list_from_entry(scope_entry_t* entry)
 	return result;
 }
 
+static scope_entry_list_t* query_in_template_nesting(scope_t* st, char* unqualified_name)
+{
+	scope_entry_list_t* result = NULL;
+
+	while (st != NULL && result == NULL)
+	{
+		result = query_in_symbols_of_scope(st, unqualified_name);
+		st = st->template_scope;
+	}
+
+	return result;
+}
+
 static scope_entry_list_t* lookup_block_scope(scope_t* st, char* unqualified_name)
 {
 	// First check the scope
@@ -711,7 +704,7 @@ static scope_entry_list_t* lookup_block_scope(scope_t* st, char* unqualified_nam
 	if (st->template_scope != NULL)
 	{
 		fprintf(stderr, "not found.\nLooking up '%s' in template parameters...", unqualified_name);
-		result = query_unqualified_name(st->template_scope, unqualified_name);
+		result = query_in_template_nesting(st->template_scope, unqualified_name);
 		if (result != NULL)
 		{
 			return result;
@@ -736,7 +729,7 @@ static scope_entry_list_t* lookup_prototype_scope(scope_t* st, char* unqualified
 	if (st->template_scope != NULL)
 	{
 		fprintf(stderr, "Looking up '%s' in template parameters...", unqualified_name);
-		result = query_unqualified_name(st->template_scope, unqualified_name);
+		result = query_in_template_nesting(st->template_scope, unqualified_name);
 		if (result != NULL)
 		{
 			return result;
@@ -769,7 +762,7 @@ static scope_entry_list_t* lookup_namespace_scope(scope_t* st, char* unqualified
 	if (st->template_scope != NULL)
 	{
 		fprintf(stderr, "Looking up '%s' in template parameters...", unqualified_name);
-		result = query_unqualified_name(st->template_scope, unqualified_name);
+		result = query_in_template_nesting(st->template_scope, unqualified_name);
 		if (result != NULL)
 		{
 			return result;
@@ -854,7 +847,7 @@ static scope_entry_list_t* lookup_class_scope(scope_t* st, char* unqualified_nam
 	if (st->template_scope != NULL)
 	{
 		fprintf(stderr, "not found.\nLooking up '%s' in template parameters...", unqualified_name);
-		result = query_unqualified_name(st->template_scope, unqualified_name);
+		result = query_in_template_nesting(st->template_scope, unqualified_name);
 		if (result != NULL)
 		{
 			return result;
@@ -887,23 +880,19 @@ static scope_entry_list_t* lookup_template_scope(scope_t* st, char* unqualified_
 	if (st->template_scope != NULL)
 	{
 		fprintf(stderr, "not found.\nLooking up '%s' in template parameters...", unqualified_name);
-		result = query_unqualified_name(st->template_scope, unqualified_name);
+		result = query_in_template_nesting(st->template_scope, unqualified_name);
 		if (result != NULL)
 		{
 			return result;
 		}
 	}
-	else
-	{
-		fprintf(stderr, "Template scope of this template scope is empty\n");
-	}
 
-	// 	// Otherwise try to find anything in the enclosing scope
-	// 	if (st->contained_in != NULL)
-	// 	{
-	// 		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
-	// 		result = query_unqualified_name(st->contained_in, unqualified_name);
-	// 	}
+	// Otherwise try to find anything in the enclosing scope
+	if (st->contained_in != NULL)
+	{
+		fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
+		result = query_unqualified_name(st->contained_in, unqualified_name);
+	}
 
 	return result;
 }
