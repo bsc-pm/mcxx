@@ -94,6 +94,7 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st, enum cv_equivalence_t
 
 char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
 {
+	char result = 0;
 	if (t1->kind != t2->kind)
 	{
 		// typedefs have been handled in an earlier place, so 
@@ -104,28 +105,28 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
 	switch (t1->kind)
 	{
 		case STK_BUILTIN_TYPE :
-			return equivalent_builtin_type(t1, t2);
+			result = equivalent_builtin_type(t1, t2);
 			break;
 		case STK_CLASS :
 			/* Fall-through */
 		case STK_ENUM :
 			// Pointer comparison MUST work
 			// (if not, something is broken)
-			return t1 == t2;
+			result = (t1 == t2);
 			break;
 		case STK_USER_DEFINED :
-			return equivalent_types(t1->user_defined_type->type_information, 
+			result = equivalent_types(t1->user_defined_type->type_information, 
 					t2->user_defined_type->type_information, st, CVE_CONSIDER);
 			break;
 		case STK_TYPE_TEMPLATE_PARAMETER :
-			return (t1 == t2) || 
-				((t1->template_parameter_num == t2->template_parameter_num)
-				 && (t1->template_parameter_nesting == t2->template_parameter_nesting));
+			result = ((t1 == t2) || 
+					((t1->template_parameter_num == t2->template_parameter_num)
+					 && (t1->template_parameter_nesting == t2->template_parameter_nesting)));
 			break;
 		case STK_TEMPLATE_DEPENDENT_TYPE :
 #warning How to handle this ?
-				return (t1->typeof_expr == t2->typeof_expr);
-				break;
+			result = (t1->typeof_expr == t2->typeof_expr);
+			break;
 		case STK_TYPEDEF :
 			internal_error("A typedef cannot reach here", 0);
 			break;
@@ -134,7 +135,12 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
 			return 0;
 	}
 
-	return 0;
+	if (result)
+	{
+		result = equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier);
+	}
+
+	return result;
 }
 
 char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
@@ -295,6 +301,9 @@ static char equivalent_function_type(function_info_t* t1, function_info_t* t2, s
 	if (!compatible_parameters(t1, t2, st))
 		return 0;
 
+	if (!equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier))
+		return 0;
+
 	return 1;
 }
 
@@ -402,8 +411,10 @@ static char is_typedef_type(type_t* t1)
 		scope_entry_t* user_defined_entry = t1->type->user_defined_type;
 		type_t* user_defined_type = user_defined_entry->type_information;
 
-		if (user_defined_type->kind == TK_DIRECT &&
-				user_defined_type->type->kind == STK_TYPEDEF)
+		if (user_defined_type != NULL 
+				&& user_defined_type->kind == TK_DIRECT 
+				&& user_defined_type->type != NULL 
+				&& user_defined_type->type->kind == STK_TYPEDEF)
 		{
 			return 1;
 		}
@@ -1378,8 +1389,11 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
 					case SK_GCC_BUILTIN_TYPE :
 						snprintf(user_defined_str, 255, "__builtin_va_list");
 						break;
+					case SK_DEPENDENT_ENTITY :
+						snprintf(user_defined_str, 255, "dependent entity");
+						break;
 					default :
-						strcat(user_defined_str, "¿¿¿unknown user defined type???");
+						snprintf(user_defined_str, 255, "¿¿¿unknown user defined type??? (kind=%d)", user_defined_type->kind);
 				}
 				result = strappend(result, user_defined_str);
 				break;
@@ -1463,7 +1477,14 @@ void print_declarator(type_t* printed_declarator, scope_t* st)
 					fprintf(stderr, "volatile ");
 				}
 				fprintf(stderr, "pointer to member of ");
-				print_declarator(printed_declarator->pointer->pointee_class->type_information, st);
+				if (printed_declarator->pointer->pointee_class != NULL)
+				{
+					print_declarator(printed_declarator->pointer->pointee_class->type_information, st);
+				}
+				else
+				{
+					fprintf(stderr, "(unknown class)");
+				}
 				fprintf(stderr, " to ");
 				printed_declarator = printed_declarator->pointer->pointee;
 				break;

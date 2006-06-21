@@ -44,7 +44,9 @@ enum cxx_symbol_kind
 	// should not be considered as a symbol
 	SK_SCOPE,
 	// GCC Extension for builtin types
-	SK_GCC_BUILTIN_TYPE 
+	SK_GCC_BUILTIN_TYPE,
+	// Dependent entity that is named but nothing is known at the moment
+	SK_DEPENDENT_ENTITY
 };
 
 typedef enum {
@@ -463,9 +465,10 @@ scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_nam
 scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nested_name, AST name, 
         unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags);
 //    These are here for the purpose of flexibility but should be rarely needed
-scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list);
+scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list, 
+		char* is_dependent);
 scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list,
-		lookup_flags_t lookup_flags);
+		char* is_dependent, lookup_flags_t lookup_flags);
 // char incompatible_symbol_exists(scope_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
 scope_entry_list_t* query_template_id(AST nested_name_spec, scope_t* st, scope_t* lookup_scope);
 scope_entry_list_t* query_template_id_flags(AST nested_name_spec, scope_t* st, scope_t* lookup_scope,

@@ -883,7 +883,7 @@ nontype_specifier : storage_class_specifier
 {
 	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_line, $1.token_text);
 }
-| attributes
+| attribute
 {
 	$$ = $1;
 }
@@ -979,10 +979,10 @@ type_specifier_seq : nontype_specifier_seq2 type_specifier nontype_specifier_seq
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTLine($1), NULL);
 }
 // GCC extension
-| attributes type_specifier_seq
-{
-	$$ = ASTMake2(AST_GCC_TYPE_SPECIFIER_SEQ, $1, $2, ASTLine($1), NULL);
-}
+// | attributes type_specifier_seq
+// {
+// 	$$ = ASTMake2(AST_GCC_TYPE_SPECIFIER_SEQ, $1, $2, ASTLine($1), NULL);
+// }
 ;
 
 nontype_specifier_seq2 : nontype_specifier2
@@ -1459,14 +1459,14 @@ declarator : direct_declarator
 	$$ = ASTMake2(AST_POINTER_DECL, $1, $2, ASTLine($1), NULL);
 }
 // GNU Extensions
-| attributes direct_declarator
-{
-	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ASTLine($1), NULL);
-}
-| attributes ptr_operator declarator
-{
-	$$ = ASTMake3(AST_GCC_POINTER_DECL, $1, $2, $3, ASTLine($1), NULL);
-}
+// | attributes direct_declarator
+// {
+// 	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ASTLine($1), NULL);
+// }
+// | attributes ptr_operator declarator
+// {
+// 	$$ = ASTMake3(AST_GCC_POINTER_DECL, $1, $2, $3, ASTLine($1), NULL);
+// }
 ;
 
 ptr_operator : '*'
@@ -1616,25 +1616,25 @@ enum_specifier : ENUM IDENTIFIER '{' enumeration_list '}'
 	$$ = ASTMake2(AST_ENUM_SPECIFIER, NULL, NULL, $1.token_line, NULL);
 }
 // GNU Extensions
-| ENUM '{' '}' attributes
-{
-	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, NULL, NULL, $4, $1.token_line, NULL);
-}
-| ENUM IDENTIFIER '{' '}' attributes
-{
-	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
-
-	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, identifier, NULL, $5, $1.token_line, NULL);
-}
-| ENUM '{' enumeration_list '}' attributes
-{
-	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, NULL, $3, $5, $1.token_line, NULL);
-}
-| ENUM IDENTIFIER '{' enumeration_list '}' attributes
-{
-	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
-	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, identifier, $4, $6, $1.token_line, NULL);
-}
+// | ENUM '{' '}' attributes
+// {
+// 	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, NULL, NULL, $4, $1.token_line, NULL);
+// }
+// | ENUM IDENTIFIER '{' '}' attributes
+// {
+// 	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+// 
+// 	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, identifier, NULL, $5, $1.token_line, NULL);
+// }
+// | ENUM '{' enumeration_list '}' attributes
+// {
+// 	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, NULL, $3, $5, $1.token_line, NULL);
+// }
+// | ENUM IDENTIFIER '{' enumeration_list '}' attributes
+// {
+// 	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+// 	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, identifier, $4, $6, $1.token_line, NULL);
+// }
 ;
 
 enumeration_list : enumeration_list ',' enumeration_definition
@@ -1684,18 +1684,18 @@ abstract_declarator : ptr_operator
 	$$ = $1;
 }
 // GNU Extensions
-| attributes ptr_operator
-{
-	$$ = ASTMake3(AST_GCC_ABSTRACT_DECLARATOR, $1, $2, NULL, ASTLine($1), NULL);
-}
-| attributes ptr_operator abstract_declarator
-{
-	$$ = ASTMake3(AST_GCC_ABSTRACT_DECLARATOR, $1, $2, $3, ASTLine($1), NULL);
-}
-| attributes direct_abstract_declarator
-{
-	$$ = ASTMake2(AST_GCC_DIRECT_DECLARATOR, $1, $2, ASTLine($1), NULL);
-}
+// | attributes ptr_operator
+// {
+// 	$$ = ASTMake3(AST_GCC_ABSTRACT_DECLARATOR, $1, $2, NULL, ASTLine($1), NULL);
+// }
+// | attributes ptr_operator abstract_declarator
+// {
+// 	$$ = ASTMake3(AST_GCC_ABSTRACT_DECLARATOR, $1, $2, $3, ASTLine($1), NULL);
+// }
+// | attributes direct_abstract_declarator
+// {
+// 	$$ = ASTMake2(AST_GCC_DIRECT_DECLARATOR, $1, $2, ASTLine($1), NULL);
+// }
 ;
 
 direct_abstract_declarator : '(' abstract_declarator ')'

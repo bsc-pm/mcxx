@@ -6,6 +6,7 @@
 enum literal_value_kind_t
 {
 	LVK_INVALID = 0,
+	LVK_DEPENDENT_EXPR,
 	LVK_SIGNED_INT,
 	LVK_UNSIGNED_INT,
 	LVK_SIGNED_LONG,

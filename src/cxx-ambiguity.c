@@ -391,9 +391,38 @@ static char check_for_declaration_statement(AST declaration_statement, scope_t* 
 	{
 		return check_for_simple_declaration(a, st);
 	}
-	else
+	else if (ASTType(a) == AST_AMBIGUITY)
 	{
-		internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
+		// internal_error("Unknown node type '%s' (line=%d)\n", ast_print_node_type(ASTType(a)),
+		// 		ASTLine(a));
+		//
+		// In general only AST_SIMPLE_DECLARATION gets ambiguous here
+
+		int correct_choice = -1;
+		int i;
+		for (i = 0; i < a->num_ambig; i++)
+		{
+			if (check_for_simple_declaration(a->ambig[i], st))
+			{
+				if (correct_choice < 0)
+				{
+					correct_choice = i;
+				}
+				else
+				{
+					internal_error("More than one valid alternative", 0);
+				}
+			}
+		}
+
+		if (correct_choice < 0)
+		{
+			return 0;
+		}
+		else
+		{
+			choose_option(a, i);
+		}
 	}
 
 	return 1;
@@ -456,7 +485,8 @@ static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, int n
 				AST nested_name_spec = ASTSon1(id_expression);
 				AST symbol = ASTSon2(id_expression);
 
-				scope_t* nested_scope = query_nested_name_spec(st, global_scope, nested_name_spec, NULL);
+				char is_dependent = 0;
+				scope_t* nested_scope = query_nested_name_spec(st, global_scope, nested_name_spec, NULL, &is_dependent);
 
 				if (nested_scope == NULL)
 				{
@@ -929,7 +959,8 @@ static char check_for_qualified_id(AST expr, scope_t* st)
 			&& (result_list->entry->kind == SK_VARIABLE
 				|| result_list->entry->kind == SK_ENUMERATOR
 				|| result_list->entry->kind == SK_FUNCTION
-				|| result_list->entry->kind == SK_TEMPLATE_FUNCTION));
+				|| result_list->entry->kind == SK_TEMPLATE_FUNCTION
+				|| result_list->entry->kind == SK_DEPENDENT_ENTITY));
 }
 
 static char check_for_symbol(AST expr, scope_t* st)
@@ -1041,7 +1072,7 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 			}
 		case AST_PARENTHESIZED_EXPRESSION :
 			{
-				return check_for_function_call(ASTSon0(expr), st);
+				return check_for_functional_expression(ASTSon0(expr), arguments, st);
 				break;
 			}
 		default :
@@ -1334,6 +1365,66 @@ static char check_for_init_declarator(AST init_declarator, scope_t* st)
 	return 1;
 }
 
+static char check_for_initializer_list(AST initializer_list, scope_t* st)
+{
+	if (ASTType(initializer_list) == AST_AMBIGUITY)
+	{
+		int current_choice = -1;
+		int i;
+
+		for (i = 0; i < initializer_list->num_ambig; i++)
+		{
+			if (check_for_initializer_list(initializer_list->ambig[i], st))
+			{
+				if (current_choice < 0)
+				{
+					current_choice = i;
+				}
+				else
+				{
+					internal_error("More than one valid alternative", 0);
+				}
+			}
+		}
+
+		if (current_choice < 0)
+		{
+			return 0;
+		}
+		else
+		{
+			choose_option(initializer_list, current_choice);
+			return 1;
+		}
+	}
+	else if (ASTType(initializer_list) == AST_NODE_LIST)
+	{
+		AST expression = ASTSon1(initializer_list);
+
+		if (!check_for_expression(expression, st))
+		{
+			return 0;
+		}
+
+		// Recurse, because there may be additional ambiguities lying around here
+		if (ASTSon0(initializer_list) != NULL)
+		{
+			return check_for_initializer_list(ASTSon0(initializer_list), st);
+		}
+		else
+		{
+			return 1;
+		}
+	}
+	else
+	{
+		internal_error("Unknown node '%s' (line=%d)", 
+				ast_print_node_type(ASTType(initializer_list)), ASTLine(initializer_list));
+
+		return 0;
+	}
+}
+
 static char check_for_initialization(AST initializer, scope_t* st)
 {
 	switch (ASTType(initializer))
@@ -1364,19 +1455,7 @@ static char check_for_initialization(AST initializer, scope_t* st)
 			}
 		case AST_PARENTHESIZED_INITIALIZER :
 			{
-				AST list = ASTSon0(initializer);
-				AST iter;
-
-				for_each_element(list, iter)
-				{
-					AST expression = ASTSon1(iter);
-
-					if (!check_for_expression(expression, st))
-					{
-						return 0;
-					}
-				}
-				return 1;
+				return check_for_initializer_list(ASTSon0(initializer), st);
 				break;
 			}
 		default :

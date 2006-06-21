@@ -643,9 +643,12 @@ void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather
 		case AST_EXPLICIT_SPEC :
 			gather_info->is_explicit = 1;
 			break;
+			// GCC Extensions
+		case AST_GCC_ATTRIBUTE :
+			break;
 		// Unknown node
 		default:
-			internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
+			internal_error("Unknown node '%s' (line=%d)", ast_print_node_type(ASTType(a)), ASTLine(a));
 			break;
 	}
 }
@@ -907,9 +910,24 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, simple_type_t* simple_type_info,
 		decl_context_t decl_context)
 {
-	simple_type_info->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-	simple_type_info->typeof_expr = a;
-	simple_type_info->typeof_scope = st;
+	AST global_scope = ASTSon0(a);
+	AST nested_name_spec = ASTSon1(a);
+	AST name = ASTSon2(a);
+
+	scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
+			LF_EXACT_TEMPLATE_MATCH);
+	if (result == NULL
+			|| result->entry->kind == SK_DEPENDENT_ENTITY)
+	{
+		simple_type_info->kind = STK_TEMPLATE_DEPENDENT_TYPE;
+		simple_type_info->typeof_expr = a;
+		simple_type_info->typeof_scope = st;
+	}
+	else
+	{
+		simple_type_info->kind = STK_USER_DEFINED;
+		simple_type_info->user_defined_type = result->entry;
+	}
 }
 
 /*
@@ -1033,7 +1051,6 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 			enumeration_item->kind = SK_ENUMERATOR;
 			enumeration_item->type_information = enumerator_type;
 
-			// Never evaluate
 			enumeration_item->expression_value = enumeration_expr;
 
 			P_LIST_ADD(simple_type_info->enum_info->enumeration_list, 
@@ -1083,15 +1100,19 @@ static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class
 
 		scope_entry_list_t* result_list = query_nested_name(st, global_op, nested_name_specifier, name, FULL_UNQUALIFIED_LOOKUP);
 
-		enum cxx_symbol_kind filter[3] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
-		result_list = filter_symbol_kind_set(result_list, 3, filter);
+		enum cxx_symbol_kind filter[5] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS, 
+			SK_TEMPLATE_TYPE_PARAMETER, SK_TEMPLATE_TEMPLATE_PARAMETER};
+		result_list = filter_symbol_kind_set(result_list, 5, filter);
 
 		if (result_list == NULL)
 		{
 			internal_error("Base class not found!\n", 0);
 		}
 
-		P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, result_list->entry->related_scope);
+		if (result_list->entry->related_scope != NULL)
+		{
+			P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, result_list->entry->related_scope);
+		}
 
 		base_class_info_t* base_class = GC_CALLOC(1, sizeof(*base_class));
 		base_class->class_type = result_list->entry->type_information;
@@ -1343,7 +1364,8 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 		if (ASTType(declarator_name) == AST_QUALIFIED_ID
 				|| ASTType(declarator_name) == AST_QUALIFIED_TEMPLATE)
 		{
-			decl_st = query_nested_name_spec(st, ASTSon0(declarator_name), ASTSon1(declarator_name), NULL);
+			char is_dependent = 0;
+			decl_st = query_nested_name_spec(st, ASTSon0(declarator_name), ASTSon1(declarator_name), NULL, &is_dependent);
 
 			if (decl_st == NULL)
 			{
@@ -1429,7 +1451,8 @@ static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_
 				(*declarator_type)->kind = TK_POINTER_TO_MEMBER;
 
 				scope_entry_list_t* entry_list = NULL;
-				query_nested_name_spec(st, ASTSon0(pointer_tree), ASTSon1(pointer_tree), &entry_list);
+				char is_dependent = 0;
+				query_nested_name_spec(st, ASTSon0(pointer_tree), ASTSon1(pointer_tree), &entry_list, &is_dependent);
 
 				if (entry_list != NULL)
 				{
@@ -1738,6 +1761,7 @@ static AST get_declarator_name(AST a)
 
 	switch(ASTType(a))
 	{
+		case AST_INIT_DECLARATOR :
 		case AST_MEMBER_DECLARATOR :
 		case AST_DECLARATOR :
 		case AST_PARENTHESIZED_DECLARATOR :
@@ -1765,6 +1789,21 @@ static AST get_declarator_name(AST a)
 				return ASTSon0(a);
 				break;
 			}
+		case AST_ABSTRACT_DECLARATOR :
+		case AST_GCC_ABSTRACT_DECLARATOR :
+		case AST_PARENTHESIZED_ABSTRACT_DECLARATOR:
+		case AST_ABSTRACT_DECLARATOR_FUNC:
+		case AST_ABSTRACT_ARRAY :
+			{
+				return NULL;
+			}
+		case AST_AMBIGUITY :
+			{
+				// A scope null is valid here since this is purely syntactic
+				solve_ambiguous_declarator(a, NULL);
+				// Restart function
+				return get_declarator_name(a);
+			}
 		default:
 			{
 				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
@@ -1781,6 +1820,7 @@ static char is_constructor_declarator_rec(AST a, char seen_decl_func)
 
 	switch(ASTType(a))
 	{
+		case AST_INIT_DECLARATOR :
 		case AST_MEMBER_DECLARATOR :
 		case AST_DECLARATOR :
 		case AST_PARENTHESIZED_DECLARATOR :
@@ -2247,8 +2287,19 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 						template_param_info, decl_new_context);
 				break;
 			}
+		case AST_TEMPLATE_DECLARATION :
+			{
+				template_scope->template_scope = st->template_scope;
+				st->template_scope = template_scope;
+
+				build_scope_template_declaration(ASTSon1(a), st, decl_context);
+
+				st->template_scope = template_scope->template_scope;
+				template_scope->template_scope = NULL;
+				break;
+			}
 		default :
-			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
+			internal_error("Unknown node type '%s' (line=%d)\n", ast_print_node_type(ASTType(a)), ASTLine(a));
 	}
 }
 
@@ -2576,7 +2627,7 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 	if (name != NULL)
 	{
 		// This is a named type parameter. Register it in the symbol table
-		fprintf(stderr, "Registering type template-parameter '%s'\n", ASTText(name));
+		fprintf(stderr, "Registering type template-parameter '%s' in scope %p\n", ASTText(name), st);
 		scope_entry_t* new_entry = new_symbol(st, ASTText(name));
 		new_entry->type_information = new_type;
 		new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
@@ -2898,6 +2949,9 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
 			build_scope_member_template_simple_declaration(ASTSon1(a), st, template_scope, num_parameters, template_param_info,
 					current_access, class_info, decl_context);
 			break;
+//		case AST_TEMPLATE_DECLARATION :
+//			build_scope_member_template_declaration(ASTSon1(a), st, current_access, class_info, step, decl_context);
+//			break;
 		default :
 			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
 	}
@@ -3095,6 +3149,8 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 					{
 						break;
 					}
+					// init declarator may appear here because of templates
+				case AST_INIT_DECLARATOR :
 				case AST_MEMBER_DECLARATOR :
 					{
 						AST declarator_name = get_declarator_name(declarator);
@@ -3410,10 +3466,8 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 					new_template_argument->kind = TAK_NONTYPE;
 
 					AST expr_template_argument = ASTSon0(template_argument);
-					// Fold the expression and save it folded
-					literal_value_t constant_expr = evaluate_constant_expression(expr_template_argument, st);
 
-					new_template_argument->expression = tree_from_literal_value(constant_expr);
+					new_template_argument->expression = expr_template_argument;
 
 					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 					break;

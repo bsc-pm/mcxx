@@ -169,6 +169,11 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st
 
     val_lhs = evaluate_constant_expression(lhs, st);
 
+	if (val_lhs.kind == LVK_DEPENDENT_EXPR)
+	{
+		return val_lhs;
+	}
+
     bop = binary_ops[op];
 
     if (bop.is_non_strict)
@@ -178,6 +183,11 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st
             if (value_is_zero(val_lhs))
             {
                 val_rhs = evaluate_constant_expression(rhs, st);
+
+				if (val_rhs.kind == LVK_DEPENDENT_EXPR)
+				{
+					return val_rhs;
+				}
             }
         }
         else
@@ -186,6 +196,11 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st
             {
                 val_rhs = evaluate_constant_expression(rhs, st);
             }
+
+			if (val_rhs.kind == LVK_DEPENDENT_EXPR)
+			{
+				return val_rhs;
+			}
         }
     }
     else
@@ -539,6 +554,11 @@ static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* s
 {
 	literal_value_t before_cast = evaluate_constant_expression(expression, st);
 
+	if (before_cast.kind == LVK_DEPENDENT_EXPR)
+	{
+		return before_cast;
+	}
+
 	simple_type_t simple_type_info;
 	memset(&simple_type_info, 0, sizeof(simple_type_info));
 
@@ -617,6 +637,16 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 		prettyprint(stderr, symbol);
 		fprintf(stderr, "'\n");
 		internal_error("Cannot evaluate unknown symbol line=%d", ASTLine(symbol));
+	}
+
+	if (result->entry->kind == SK_DEPENDENT_ENTITY)
+	{
+		literal_value_t dependent_entity;
+		memset(&dependent_entity, 0, sizeof(dependent_entity));
+
+		dependent_entity.kind = LVK_DEPENDENT_EXPR;
+
+		return dependent_entity;
 	}
 
 	if (result->entry->kind != SK_ENUMERATOR
@@ -779,6 +809,8 @@ literal_value_t not_operation(AST a, scope_t* st)
         case LVK_BOOL :
             result.value.boolean_value = ! result.value.boolean_value;
             break;
+		case LVK_DEPENDENT_EXPR :
+			break;
         default:
             internal_error("Unknown value kind %d", result.kind);
     }
@@ -809,6 +841,8 @@ literal_value_t negate_operation(AST a, scope_t* st)
         case LVK_BOOL :
             result.value.boolean_value = - result.value.boolean_value;
             break;
+		case LVK_DEPENDENT_EXPR :
+			break;
         default:
             internal_error("Unknown value kind %d", result.kind);
     }
@@ -839,6 +873,8 @@ literal_value_t complement_operation(AST a, scope_t* st)
         case LVK_BOOL :
             result.value.boolean_value = ~ result.value.boolean_value;
             break;
+		case LVK_DEPENDENT_EXPR :
+			break;
         default:
             internal_error("Unknown value kind %d", result.kind);
     }
