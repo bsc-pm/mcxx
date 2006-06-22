@@ -33,7 +33,9 @@ typedef enum decl_flags_tag
 {
 	DF_NONE = 0,
 	DF_TEMPLATE = BITMAP(0),
-	DF_CONSTRUCTOR = BITMAP(1)
+	DF_CONSTRUCTOR = BITMAP(1),
+	DF_NO_DECLARATORS = BITMAP(2),
+	DF_FRIEND = BITMAP(3)
 } decl_flags_t;
 
 // Inherited attributes

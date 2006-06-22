@@ -193,6 +193,9 @@ typedef struct template_argument_tag
 	// If TAK_NONTYPE this is the constant expression
 	AST expression;
 
+	// Scope for the expression
+	struct scope_tag* scope;
+
 	// Otherwise we should have type_t here
 	struct type_tag* type;
 } template_argument_t;

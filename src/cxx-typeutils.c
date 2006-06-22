@@ -13,7 +13,6 @@
  */
 static char is_typedef_type(type_t* t);
 static type_t* aliased_type(type_t* t);
-static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scope_t* st);
 static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st);
 static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st);
@@ -307,7 +306,7 @@ static char equivalent_function_type(function_info_t* t1, function_info_t* t2, s
 	return 1;
 }
 
-static char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2)
+char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2)
 {
 	// Oh, this turned to be that easy
 	return (cv1 == cv2);

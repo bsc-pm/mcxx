@@ -27,6 +27,8 @@ scope_t* new_namespace_scope(scope_t* enclosing_scope)
 	result->kind = NAMESPACE_SCOPE;
 	result->contained_in = enclosing_scope;
 
+	result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
+
 	return result;
 }
 
@@ -37,6 +39,8 @@ scope_t* new_prototype_scope(scope_t* enclosing_scope)
 	result->kind = PROTOTYPE_SCOPE;
 
 	result->contained_in = enclosing_scope;
+
+	result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
 
 	return result;
 }
@@ -50,6 +54,8 @@ scope_t* new_block_scope(scope_t* enclosing_scope, scope_t* prototype_scope, sco
 	result->prototype_scope = prototype_scope;
 	result->function_scope = function_scope;
 	result->contained_in = enclosing_scope;
+
+	result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
 	
 	// Create artificial entry for the block scope
 	static int scope_number = 1000;
@@ -73,6 +79,8 @@ scope_t* new_function_scope(scope_t* enclosing_scope, scope_t* prototype_scope)
 	result->kind = FUNCTION_SCOPE;
 	result->prototype_scope = prototype_scope;
 	result->contained_in = enclosing_scope;
+
+	result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
 	
 	return result;
 }
@@ -85,6 +93,8 @@ scope_t* new_class_scope(scope_t* enclosing_scope)
 	result->kind = CLASS_SCOPE;
 
 	result->contained_in = enclosing_scope;
+
+	result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
 	
 	return result;
 }
@@ -95,6 +105,8 @@ scope_t* new_template_scope(scope_t* enclosing_scope)
 
 	result->kind = TEMPLATE_SCOPE;
 	result->contained_in = enclosing_scope;
+
+	// result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
 
 	return result;
 }
@@ -570,7 +582,11 @@ scope_entry_list_t* query_id_expression_flags(scope_t* sc, AST id_expr,
 		case AST_TEMPLATE_ID :
 			{
 				// An unqualified template_id "identifier<stuff>"
-				internal_error("Unsupported template id", 0);
+				AST symbol = ASTSon0(id_expr);
+
+				scope_entry_list_t* result = query_unqualified_name(sc, ASTText(symbol));
+
+				return result;
 				break;
 			}
 		case AST_OPERATOR_FUNCTION_ID :

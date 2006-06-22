@@ -8,7 +8,8 @@
 #include "cxx-typeunif.h"
 #include "cxx-typeutils.h"
 
-char match_one_template(template_argument_list_t* arguments, template_argument_list_t* specialized, scope_t* st);
+char match_one_template(template_argument_list_t* arguments, 
+		template_argument_list_t* specialized, scope_t* scope);
 
 static scope_entry_t* determine_more_specialized(int num_matching_set, scope_entry_t** matching_set, scope_t* st);
 
@@ -66,7 +67,31 @@ scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_
 	// There is no more than one candidate
 	if (num_matching_set == 1)
 	{
-		result = matching_set[0];
+		if (give_exact_match)
+		{
+			// Result will be an exact match if it can be unified with the original
+			if (result->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+			{
+				template_argument_list_t* specialized = result->type_information->type->template_arguments;
+
+				fprintf(stderr, "Checking match with the unique %p %p\n", specialized, arguments);
+
+				if (!match_one_template(specialized, arguments, st))
+				{
+					return NULL;
+				}
+			}
+			else
+			{
+				// A primary template cannot be exactly matched to something that
+				// has invoked a template-id selection
+				return NULL;
+			}
+		}
+		else
+		{
+			result = matching_set[0];
+		}
 	}
 	else if (num_matching_set > 0)
 	{
@@ -158,7 +183,7 @@ char match_one_template(template_argument_list_t* arguments,
 						{
 							internal_error("Expected an expression value for specialized argument", 0);
 						}
-						literal_value_t spec_arg_value = evaluate_constant_expression(spec_arg->expression, st);
+						literal_value_t spec_arg_value = evaluate_constant_expression(spec_arg->expression, spec_arg->scope);
 
 						if (arg->expression == NULL)
 						{

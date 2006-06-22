@@ -77,4 +77,6 @@ char is_void_pointer_type(type_t* t1);
 char is_pointer_to_class_type(type_t* t1);
 char is_reference_to_class_type(type_t* t1);
 
+char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
+
 #endif // CXX_TYPEUTILS_H

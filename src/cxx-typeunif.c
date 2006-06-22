@@ -86,11 +86,13 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 		case TK_REFERENCE :
 		case TK_POINTER :
 			{
-				return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, st, unif_set);
+				return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, st, unif_set)
+					&& equivalent_cv_qualification(t1->pointer->cv_qualifier, t2->pointer->cv_qualifier);
 				break;
 			}
 		case TK_POINTER_TO_MEMBER :
 			// TODO - What to do here ?
+			internal_error("How to unificate a pointer to member?", 0);
 			break;
 		case TK_ARRAY :
 			{
@@ -104,7 +106,6 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 				break;
 			}
 		case TK_FUNCTION :
-			// TODO - think on this
 			// A function will be unified by steps. First unify the return
 			// then the parameters
 			{
@@ -121,6 +122,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 				int i;
 				for (i = 0; i < t1->function->num_parameters; i++)
 				{
+					// Fix this should ignore outermost cv qualifier
 					type_t* par1 = t1->function->parameter_list[i]->type_info;
 					type_t* par2 = t2->function->parameter_list[i]->type_info;
 
