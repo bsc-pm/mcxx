@@ -410,6 +410,12 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 						result = query_in_symbols_of_scope(lookup_scope, conversion_function_name);
 						break;
 					}
+				case AST_DESTRUCTOR_ID :
+					{
+						char* symbol_name = ASTText(ASTSon0(name));
+						result = query_in_symbols_of_scope(lookup_scope, symbol_name);
+						break;
+					}
 				default :
 					internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(name)));
 			}
