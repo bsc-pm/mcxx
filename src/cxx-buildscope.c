@@ -183,6 +183,8 @@ static void build_scope_declaration_sequence(AST list, scope_t* st, decl_context
 // Build scope for a declaration
 static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_context)
 {
+	fprintf(stderr, "==== Declaration line [%08d] ====\n", ASTLine(a));
+
 	switch (ASTType(a))
 	{
 		case AST_SIMPLE_DECLARATION :
@@ -2331,6 +2333,10 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 	build_scope_template_parameter_list(ASTSon0(a), template_scope, template_param_info, 
 			&num_parameters, temp_param_decl_context);
 
+	// Save template scope
+	template_scope->template_scope = st->template_scope;
+	st->template_scope = template_scope;
+
 	switch (ASTType(ASTSon1(a)))
 	{
 		case AST_FUNCTION_DEFINITION :
@@ -2353,18 +2359,18 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 			}
 		case AST_TEMPLATE_DECLARATION :
 			{
-				template_scope->template_scope = st->template_scope;
-				st->template_scope = template_scope;
 
 				build_scope_template_declaration(ASTSon1(a), st, decl_context);
 
-				st->template_scope = template_scope->template_scope;
-				template_scope->template_scope = NULL;
 				break;
 			}
 		default :
 			internal_error("Unknown node type '%s' (line=%d)\n", ast_print_node_type(ASTType(a)), ASTLine(a));
 	}
+
+	// Restore template scope
+	st->template_scope = template_scope->template_scope;
+	template_scope->template_scope = NULL;
 }
 
 /*
@@ -2379,6 +2385,10 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
 	decl_context_t new_decl_context = decl_context;
 
 	new_decl_context.decl_flags |= DF_TEMPLATE;
+	
+	// Save template scope
+	template_scope->template_scope = st->template_scope;
+	st->template_scope = template_scope;
 
 	switch (ASTType(ASTSon0(a)))
 	{
@@ -2393,20 +2403,17 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
 		default :
 			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
 	}
+	
+	// Restore template scope
+	st->template_scope = template_scope->template_scope;
+	template_scope->template_scope = NULL;
 }
 
 static void build_scope_template_function_definition(AST a, scope_t* st, scope_t* template_scope, 
 		int num_parameters, template_parameter_t** template_param_info, decl_context_t decl_context)
 {
-	template_scope->template_scope = st->template_scope;
-	st->template_scope = template_scope;
-
-	// This cannot be done yet because we have to instantiate this function
 	scope_entry_t* entry = build_scope_function_definition(a, st, decl_context);
 	entry->kind = SK_TEMPLATE_FUNCTION;
-
-	st->template_scope = template_scope->template_scope;
-	template_scope->template_scope = NULL;
 }
 
 static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
@@ -2445,13 +2452,10 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 	gather_decl_spec_t gather_info;
 	memset(&gather_info, 0, sizeof(gather_info));
 
+	char is_constructor = 0;
+	
 	if (decl_specifier_seq != NULL)
 	{
-		// Save the previous template scope in the current one
-		// and set the template scope of the current scope 
-		template_scope->template_scope = st->template_scope;
-		st->template_scope = template_scope;
-
 		// If a class specifier appears here it will be properly declarated in the scope (not within
 		// in the template one)
 		decl_context_t new_decl_context = decl_context;
@@ -2462,13 +2466,11 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 
 		build_scope_decl_specifier_seq(decl_specifier_seq, st, &gather_info, &simple_type_info, new_decl_context);
 
-		// Restore the original template scope
-		st->template_scope = template_scope->template_scope;
-		template_scope->template_scope = NULL;
 	}
 
 	// Let's see what has got declared here
-	if (simple_type_info->kind == STK_USER_DEFINED)
+	if (simple_type_info != NULL 
+			&& simple_type_info->kind == STK_USER_DEFINED)
 	{
 		scope_entry_t* entry = simple_type_info->user_defined_type;
 		if (entry->kind == SK_CLASS)
@@ -2498,29 +2500,42 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 
 		if (ASTType(init_declarator) == AST_AMBIGUITY)
 		{
-			solve_ambiguous_init_declarator(init_declarator, template_scope);
+			solve_ambiguous_init_declarator(init_declarator, st);
 		}
 
 		AST declarator = ASTSon0(init_declarator);
 
-		// Save the previous template scope in the current one
-		// and set the template scope of the current scope 
-		template_scope->template_scope = st->template_scope;
-		st->template_scope = template_scope;
+		if (decl_specifier_seq != NULL 
+				&& ((ASTType(decl_specifier_seq) != AST_AMBIGUITY && ASTSon1(decl_specifier_seq) != NULL)
+					|| (ASTType(decl_specifier_seq) == AST_AMBIGUITY)))
+		{
+			// This is not a constructor
+			is_constructor = 0;
+		}
+		else
+		{
+			if (is_constructor_declarator(declarator))
+			{
+				is_constructor = 1;
+			}
+		}
 
 		// Note that the scope where this declarator will be declared includes
 		// the template parameters, since the symbol will have to be qualified
 		// it will not create a symbol in "st" but will fetch the previously
 		// declared one within the class.
 		type_t* declarator_type = NULL;
+
+		decl_context_t new_decl_context = decl_context;
+		if (is_constructor)
+		{
+			new_decl_context.decl_flags |= DF_CONSTRUCTOR;
+		}
+
 		scope_entry_t* entry = build_scope_declarator(declarator, st, 
 				&gather_info, simple_type_info, &declarator_type,
-				decl_context);
+				new_decl_context);
 		
-		// Restore the original template scope
-		st->template_scope = template_scope->template_scope;
-		template_scope->template_scope = NULL;
-
 		if (entry->kind == SK_FUNCTION)
 		{
 			entry->kind = SK_TEMPLATE_FUNCTION;
@@ -3008,6 +3023,10 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
 	
 	// Construct parameter information
 	build_scope_template_parameter_list(ASTSon0(a), template_scope, template_param_info, &num_parameters, decl_context);
+	
+	// Save template scope
+	template_scope->template_scope = st->template_scope;
+	st->template_scope = template_scope;
 
 	switch (ASTType(ASTSon1(a)))
 	{
@@ -3019,12 +3038,19 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
 			build_scope_member_template_simple_declaration(ASTSon1(a), st, template_scope, num_parameters, template_param_info,
 					current_access, class_info, decl_context);
 			break;
-//		case AST_TEMPLATE_DECLARATION :
-//			build_scope_member_template_declaration(ASTSon1(a), st, current_access, class_info, step, decl_context);
-//			break;
+			//		I think this is not possible
+#if 0
+		case AST_TEMPLATE_DECLARATION :
+			build_scope_member_template_declaration(ASTSon1(a), st, current_access, class_info, step, decl_context);
+			break;
+#endif
 		default :
 			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
 	}
+	
+	// Restore template scope
+	st->template_scope = template_scope->template_scope;
+	template_scope->template_scope = NULL;
 }
 
 static void build_scope_member_template_function_definition(AST a, scope_t* st, scope_t* template_scope, 
@@ -3032,9 +3058,6 @@ static void build_scope_member_template_function_definition(AST a, scope_t* st, 
 		access_specifier_t current_access, simple_type_t* class_info, int step,
 		decl_context_t decl_context)
 {
-	template_scope->template_scope = st->template_scope;
-	st->template_scope = template_scope;
-
 	decl_context_t new_decl_context = decl_context;
 	new_decl_context.decl_flags |= DF_TEMPLATE;
 
@@ -3042,9 +3065,6 @@ static void build_scope_member_template_function_definition(AST a, scope_t* st, 
 	scope_entry_t* entry = build_scope_member_function_definition(a, st, current_access, class_info, step, 
 			new_decl_context);
 	entry->kind = SK_TEMPLATE_FUNCTION;
-
-	st->template_scope = template_scope->template_scope;
-	template_scope->template_scope = NULL;
 }
 
 static void build_scope_member_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
@@ -3052,18 +3072,12 @@ static void build_scope_member_template_simple_declaration(AST a, scope_t* st, s
 		access_specifier_t current_access, simple_type_t* class_info,
 		decl_context_t decl_context)
 {
-	template_scope->template_scope = st->template_scope;
-	st->template_scope = template_scope;
-
 	decl_context_t new_decl_context = decl_context;
 	new_decl_context.decl_flags |= DF_TEMPLATE;
 
 	// Define the function within st scope but being visible template_scope
 	build_scope_simple_member_declaration(a, st, current_access, class_info, 
 			new_decl_context);
-
-	st->template_scope = template_scope->template_scope;
-	template_scope->template_scope = NULL;
 }
 
 static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st, 
@@ -3807,6 +3821,11 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
 	}
 
 	scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
+
+	if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
+	{
+		build_scope_simple_declaration(for_init_statement, block_scope, decl_context);
+	}
 
 	if (condition != NULL)
 	{

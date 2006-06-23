@@ -104,8 +104,7 @@ scope_t* new_template_scope(scope_t* enclosing_scope)
 	scope_t* result = new_scope();
 
 	result->kind = TEMPLATE_SCOPE;
-	result->contained_in = enclosing_scope;
-
+	// result->contained_in = enclosing_scope;
 	// result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
 
 	return result;
@@ -663,6 +662,7 @@ static scope_entry_list_t* query_in_template_nesting(scope_t* st, char* unqualif
 
 	while (st != NULL && result == NULL)
 	{
+		fprintf(stderr, "template lookup: ");
 		result = query_in_symbols_of_scope(st, unqualified_name);
 		st = st->template_scope;
 	}

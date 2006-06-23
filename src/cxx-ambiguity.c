@@ -1681,7 +1681,7 @@ void solve_ambiguous_for_init_statement(AST a, scope_t* st)
 				}
 				break;
 			case AST_EXPRESSION_STATEMENT :
-				if (check_for_expression(for_init_statement, st))
+				if (check_for_expression(ASTSon0(for_init_statement), st))
 				{
 					current = 1;
 				}
