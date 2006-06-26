@@ -218,7 +218,7 @@ typedef struct simple_type_tag {
 
 	// Previously declared type. should be completely "cv-unqualified"
 	//
-	// If this is a STK_TEMPLATE_CLASS this will be NULL since there
+	// If this is a template-class this will be NULL since there
 	// is no "real type" backing this
 	struct scope_entry_tag* user_defined_type;
 
@@ -234,12 +234,18 @@ typedef struct simple_type_tag {
 	// For template classes
 	// Template arguments for specializations and instantiations
 	template_argument_list_t* template_arguments;
+
+	// Used when instantiating a template class
+	AST template_class_body;
 	
 	// For template parameters, the positional number of this argument in the
 	// template and its nesting level (this should be enough to define
 	// completely a template parameter in a "nameless" way)
 	int template_parameter_nesting;
 	int template_parameter_num;
+
+	// The name of this template parameter, for instantiation purposes
+	char* template_parameter_name;
 
 	cv_qualifier_t cv_qualifier;
 	
@@ -282,7 +288,7 @@ typedef struct function_tag
 
 	// Related class type
 	simple_type_t* class_type;
-	
+
 } function_info_t;
 
 // Pointers, references and pointers to members

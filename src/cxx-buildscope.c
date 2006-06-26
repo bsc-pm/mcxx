@@ -1251,6 +1251,9 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 						class_entry->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
 						build_scope_template_arguments(class_head_identifier, st, &(simple_type_info->template_arguments));
 					}
+
+					// Save the decl that will be instantiated
+					simple_type_info->template_class_body = a;
 				}
 
 			}
@@ -1263,7 +1266,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 			// otherwise
 			class_entry->type_information = copy_type(simple_type_to_type(simple_type_info));
 			class_entry->related_scope = inner_scope;
-
 
 			// Since this type is not anonymous we'll want that simple_type_info
 			// refers to this newly created type
@@ -2664,6 +2666,9 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 
 		new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
 		new_entry->type_information = new_type;
+		
+		// And save it in the type
+		new_type->type->template_parameter_name = GC_STRDUP(name);
 	}
 
 	AST type_id = ASTSon2(a);
@@ -2716,6 +2721,9 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 		scope_entry_t* new_entry = new_symbol(st, ASTText(name));
 		new_entry->type_information = new_type;
 		new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
+
+		// And save it in the type
+		new_type->type->template_parameter_name = GC_STRDUP(ASTText(name));
 	}
 
 	if (type_id != NULL)
@@ -2764,6 +2772,9 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 			fprintf(stderr, "Remembering '%s' as a non-type template parameter in %p\n", entry->symbol_name, st);
 			// This is not a variable, but a template parameter
 			entry->kind = SK_TEMPLATE_PARAMETER;
+
+			// And in the type
+			simple_type_info->template_parameter_name = GC_STRDUP(entry->symbol_name);
 		}
 	}
 	// If we don't have a declarator just save the base type

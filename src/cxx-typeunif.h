@@ -6,7 +6,8 @@
 typedef struct unification_item_tag
 {
 	// parameter type <- value
-	int parameter;
+	int parameter_num;
+	int parameter_nesting;
 	type_t* value;
 } unification_item_t;
 

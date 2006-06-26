@@ -8,6 +8,7 @@
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
 #include "cxx-solvetemplate.h"
+#include "cxx-instantiation.h"
 #include "hash.h"
 
 static scope_t* new_scope(void)
@@ -475,38 +476,45 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		iter = iter->next;
 	}
 
-	if (!has_specializations)
+	// First try to match exactly an existing template
+	// because this is a parameterized template-id
+	template_argument_list_t* current_template_arguments = NULL;
+
+	build_scope_template_arguments(template_id, sc, &current_template_arguments);
+
+	char give_exact_match = 0;
+
+	// if (BITMAP_TEST(lookup_flags, LF_EXACT_TEMPLATE_MATCH))
+	// {
+	// 	give_exact_match = 1;
+	// }
+	
+	unification_set_t* result_unification;
+
+	scope_entry_t* matched_template = solve_template(entry_list, current_template_arguments, 
+			sc, &result_unification, 1);
+
+	if (matched_template != NULL)
 	{
-		fprintf(stderr, "This template was not specialized. Choosing primary template\n");
-		return entry_list;
+		fprintf(stderr, "Selected exact template '%p'\n", matched_template);
+		return create_list_from_entry(matched_template);
+	}
+
+	// If we are here there is no exact match thus we may have to instantiate
+	// the template
+	matched_template = solve_template(entry_list, current_template_arguments, sc, &result_unification, 0);
+
+	if (matched_template != NULL)
+	{
+		// We have to instantiate the template
+		scope_entry_t* instantiated_template = instantiate_template(matched_template, current_template_arguments, result_unification, sc);
+
+		return create_list_from_entry(instantiated_template);
 	}
 	else
 	{
-		// Get the template_arguments
-		template_argument_list_t* current_template_arguments = NULL;
-
-		build_scope_template_arguments(template_id, sc, &current_template_arguments);
-
-		char give_exact_match = 0;
-
-		if (BITMAP_TEST(lookup_flags, LF_EXACT_TEMPLATE_MATCH))
-		{
-			give_exact_match = 1;
-		}
-
-		scope_entry_t* matched_template = solve_template(entry_list, current_template_arguments, 
-				sc, give_exact_match);
-
-		if (matched_template != NULL)
-		{
-			fprintf(stderr, "Selected template '%p'\n", matched_template);
-			return create_list_from_entry(matched_template);
-		}
-		else
-		{
-			fprintf(stderr, "No template selected\n");
-			return NULL;
-		}
+		fprintf(stderr, "No template selected\n");
+		return NULL;
 	}
 }
 

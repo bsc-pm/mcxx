@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <gc.h>
 #include "cxx-typeunif.h"
 #include "cxx-typeutils.h"
@@ -5,7 +6,7 @@
 #include "cxx-scope.h"
 #include "cxx-utils.h"
 
-static type_t* get_template_parameter_unification(unification_set_t* unif_set, int n);
+static type_t* get_template_parameter_unification(unification_set_t* unif_set, int num, int nesting);
 
 // Will try to find a substitution to unificate t1 to t2
 //
@@ -43,20 +44,24 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 			t1 = user_defined_type;
 		}
 
-		type_t* previous_unif = get_template_parameter_unification(*unif_set, t1->type->template_parameter_num);
+		type_t* previous_unif = get_template_parameter_unification(*unif_set, t1->type->template_parameter_num,
+				t1->type->template_parameter_nesting);
 		if (previous_unif == NULL)
 		{
 			unification_item_t* unif_item = GC_CALLOC(1, sizeof(*unif_item));
 
 			// This number will be the position of the argument
 			// within the specialization ! Not of the whole template
-			unif_item->parameter = t1->type->template_parameter_num;
+			fprintf(stderr, "UNIFICATION -> parameter = %d\n", t1->type->template_parameter_num);
+			unif_item->parameter_num = t1->type->template_parameter_num;
+			unif_item->parameter_nesting = t1->type->template_parameter_nesting;
 			unif_item->value = t2;
 
 			P_LIST_ADD((*unif_set)->unif_list, (*unif_set)->num_elems, unif_item);
 		}
 		else
 		{
+			fprintf(stderr, "ALREADY UNIFICATED -> parameter = %d\n", t1->type->template_parameter_num);
 			// Check is the same unification we are going to do
 			if (!equivalent_types(previous_unif, t2, st, CVE_CONSIDER))
 			{
@@ -139,12 +144,13 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 	return 1;
 }
 
-static type_t* get_template_parameter_unification(unification_set_t* unif_set, int n)
+static type_t* get_template_parameter_unification(unification_set_t* unif_set, int num, int nesting)
 {
 	int i;
 	for (i = 0; i < unif_set->num_elems; i++)
 	{
-		if (unif_set->unif_list[i]->parameter == n)
+		if (unif_set->unif_list[i]->parameter_num == num
+				&& unif_set->unif_list[i]->parameter_nesting == nesting)
 		{
 			return unif_set->unif_list[i]->value;
 		}

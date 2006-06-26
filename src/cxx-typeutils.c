@@ -1404,7 +1404,13 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
 			result = strappend(result, "class <anonymous>");
 			break;
 		case STK_TYPE_TEMPLATE_PARAMETER :
-			result = strappend(result, "template type parameter");
+			{
+				char temp[256];
+				snprintf(temp, 255, "template type parameter #%d nesting=%d", 
+						simple_type_info->template_parameter_num, simple_type_info->template_parameter_nesting);
+
+				result = strappend(result, temp);
+			}
 			break;
 		case STK_VA_LIST :
 			result = strappend(result, "__builtin_va_list");

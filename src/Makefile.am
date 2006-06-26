@@ -32,7 +32,9 @@ mcxx_SOURCES = \
   cxx-solvetemplate.h \
   cxx-solvetemplate.c \
   cxx-printscope.c \
-  cxx-printscope.h 
+  cxx-printscope.h \
+  cxx-instantiation.h \
+  cxx-instantiation.c
 #  cxx-koenig.c \
 #  cxx-koenig.h \
 #  cxx-typecalc.c \
