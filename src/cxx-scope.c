@@ -482,14 +482,14 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
 	build_scope_template_arguments(template_id, sc, &current_template_arguments);
 
-	char give_exact_match = 0;
-
 	// if (BITMAP_TEST(lookup_flags, LF_EXACT_TEMPLATE_MATCH))
 	// {
 	// 	give_exact_match = 1;
 	// }
 	
 	unification_set_t* result_unification;
+
+	fprintf(stderr, "-> Looking for exact match templates\n");
 
 	scope_entry_t* matched_template = solve_template(entry_list, current_template_arguments, 
 			sc, &result_unification, 1);
@@ -502,6 +502,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
 	// If we are here there is no exact match thus we may have to instantiate
 	// the template
+	fprintf(stderr, "-> Looking for instantiable templates\n");
 	matched_template = solve_template(entry_list, current_template_arguments, sc, &result_unification, 0);
 
 	if (matched_template != NULL)

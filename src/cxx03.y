@@ -490,11 +490,6 @@ block_declaration : simple_declaration
 {
 	$$ = $1;
 }
-// GNU Extension
-// | EXTENSION block_declaration
-// {
-// 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, NULL);
-// }
 | label_declaration 
 {
 	$$ = $1;
@@ -978,11 +973,6 @@ type_specifier_seq : nontype_specifier_seq2 type_specifier nontype_specifier_seq
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTLine($1), NULL);
 }
-// GCC extension
-// | attributes type_specifier_seq
-// {
-// 	$$ = ASTMake2(AST_GCC_TYPE_SPECIFIER_SEQ, $1, $2, ASTLine($1), NULL);
-// }
 ;
 
 nontype_specifier_seq2 : nontype_specifier2
@@ -1022,29 +1012,6 @@ nontype_specifier2 : cv_qualifier
 	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_line, $1.token_text);
 }
 ;
-
-// type_specifier_seq : type_specifier 
-// {
-// 	$$ = ASTListLeaf($1);
-// }
-// | cv_qualifier
-// {
-// 	$$ = ASTListLeaf($1);
-// }
-// | type_specifier_seq cv_qualifier
-// {
-// 	$$ = ASTList($1, $2);
-// }
-// | type_specifier_seq type_specifier 
-// {
-// 	$$ = ASTList($1, $2);
-// }
-// // GNU Extensions
-// | attributes type_specifier_seq
-// {
-// 	$$ = ASTMake2(AST_GCC_TYPE_SPEC_SEQ, $1, $2, ASTLine($1), NULL);
-// }
-// ;
 
 simple_type_specifier : type_name
 {
@@ -1458,15 +1425,6 @@ declarator : direct_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECL, $1, $2, ASTLine($1), NULL);
 }
-// GNU Extensions
-// | attributes direct_declarator
-// {
-// 	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ASTLine($1), NULL);
-// }
-// | attributes ptr_operator declarator
-// {
-// 	$$ = ASTMake3(AST_GCC_POINTER_DECL, $1, $2, $3, ASTLine($1), NULL);
-// }
 ;
 
 ptr_operator : '*'
@@ -1615,26 +1573,6 @@ enum_specifier : ENUM IDENTIFIER '{' enumeration_list '}'
 {
 	$$ = ASTMake2(AST_ENUM_SPECIFIER, NULL, NULL, $1.token_line, NULL);
 }
-// GNU Extensions
-// | ENUM '{' '}' attributes
-// {
-// 	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, NULL, NULL, $4, $1.token_line, NULL);
-// }
-// | ENUM IDENTIFIER '{' '}' attributes
-// {
-// 	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
-// 
-// 	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, identifier, NULL, $5, $1.token_line, NULL);
-// }
-// | ENUM '{' enumeration_list '}' attributes
-// {
-// 	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, NULL, $3, $5, $1.token_line, NULL);
-// }
-// | ENUM IDENTIFIER '{' enumeration_list '}' attributes
-// {
-// 	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
-// 	$$ = ASTMake3(AST_GCC_ENUM_SPECIFIER, identifier, $4, $6, $1.token_line, NULL);
-// }
 ;
 
 enumeration_list : enumeration_list ',' enumeration_definition
@@ -1683,19 +1621,6 @@ abstract_declarator : ptr_operator
 {
 	$$ = $1;
 }
-// GNU Extensions
-// | attributes ptr_operator
-// {
-// 	$$ = ASTMake3(AST_GCC_ABSTRACT_DECLARATOR, $1, $2, NULL, ASTLine($1), NULL);
-// }
-// | attributes ptr_operator abstract_declarator
-// {
-// 	$$ = ASTMake3(AST_GCC_ABSTRACT_DECLARATOR, $1, $2, $3, ASTLine($1), NULL);
-// }
-// | attributes direct_abstract_declarator
-// {
-// 	$$ = ASTMake2(AST_GCC_DIRECT_DECLARATOR, $1, $2, ASTLine($1), NULL);
-// }
 ;
 
 direct_abstract_declarator : '(' abstract_declarator ')'
@@ -1889,11 +1814,6 @@ function_definition : declarator function_body
 {
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, $3, $4, ASTLine($1), NULL);
 }
-// GNU Extensions
-// | EXTENSION function_definition
-// {
-// 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, NULL);
-// }
 ;
 
 function_body : compound_statement
@@ -3148,43 +3068,43 @@ new_expression : NEW new_type_id
 }
 | NEW '(' type_id ')' 
 {
-	$$ = ASTMake4(AST_NEW_TYPE_ID, NULL, NULL, $3, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, NULL, $3, NULL, $1.token_line, NULL);
 }
 | NEW '(' type_id ')' new_initializer
 {
-	$$ = ASTMake4(AST_NEW_TYPE_ID, NULL, NULL, $3, $5, $1.token_line, NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, NULL, $3, $5, $1.token_line, NULL);
 }
 | NEW new_placement '(' type_id ')' 
 {
-	$$ = ASTMake4(AST_NEW_TYPE_ID, NULL, $2, $4, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, $2, $4, NULL, $1.token_line, NULL);
 }
 | NEW new_placement '(' type_id ')' new_initializer
 {
-	$$ = ASTMake4(AST_NEW_TYPE_ID, NULL, $2, $4, $6, $1.token_line, NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, $2, $4, $6, $1.token_line, NULL);
 }
 | DOS_DOS_PUNTS NEW '(' type_id ')' 
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
-	$$ = ASTMake4(AST_NEW_TYPE_ID, global_op, NULL, $4, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, NULL, $4, NULL, $1.token_line, NULL);
 }
 | DOS_DOS_PUNTS NEW '(' type_id ')' new_initializer
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
-	$$ = ASTMake4(AST_NEW_TYPE_ID, global_op, NULL, $4, $6, $1.token_line, NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, NULL, $4, $6, $1.token_line, NULL);
 }
 | DOS_DOS_PUNTS NEW new_placement '(' type_id ')' 
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
-	$$ = ASTMake4(AST_NEW_TYPE_ID, global_op, $3, $5, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, $3, $5, NULL, $1.token_line, NULL);
 }
 | DOS_DOS_PUNTS NEW new_placement '(' type_id ')' new_initializer
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
-	$$ = ASTMake4(AST_NEW_TYPE_ID, global_op, $3, $5, $7, $1.token_line, NULL);
+	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, $3, $5, $7, $1.token_line, NULL);
 }
 ;
 
@@ -3457,11 +3377,13 @@ assignment_expression : conditional_expression
 
 expression : assignment_expression
 {
-	$$ = $1;
+	$$ = ASTMake1(AST_EXPRESSION, $1, ASTLine($1), NULL);
 }
 | expression ',' assignment_expression
 {
-	$$ = ASTMake2(AST_COMMA_OP, $1, $3, ASTLine($1), NULL);
+	AST comma_expression = ASTMake2(AST_COMMA_OP, $1, $3, ASTLine($1), NULL);
+
+	$$ = ASTMake1(AST_EXPRESSION, comma_expression, ASTLine(comma_expression), NULL);
 }
 ;
 

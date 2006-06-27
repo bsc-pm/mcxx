@@ -123,6 +123,7 @@ enum template_parameter_kind
 
 typedef struct template_parameter {
 	enum template_parameter_kind kind;
+	char* template_parameter_name;
 
 	struct type_tag* type_info;
 
@@ -190,8 +191,7 @@ typedef struct template_argument_tag
 {
 	enum template_argument_kind kind;
 
-	// If TAK_NONTYPE this is the constant expression
-	AST expression;
+	AST argument_tree;
 
 	// Scope for the expression
 	struct scope_tag* scope;
@@ -231,9 +231,13 @@ typedef struct simple_type_tag {
 	// For classes
 	class_info_t* class_info;
 
+
 	// For template classes
 	// Template arguments for specializations and instantiations
 	template_argument_list_t* template_arguments;
+
+	// Used in unification
+	char* template_parameter_name;
 
 	// Used when instantiating a template class
 	AST template_class_body;
@@ -243,9 +247,6 @@ typedef struct simple_type_tag {
 	// completely a template parameter in a "nameless" way)
 	int template_parameter_nesting;
 	int template_parameter_num;
-
-	// The name of this template parameter, for instantiation purposes
-	char* template_parameter_name;
 
 	cv_qualifier_t cv_qualifier;
 	

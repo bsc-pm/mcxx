@@ -66,6 +66,8 @@ void ASTFree(AST node);
 
 AST duplicate_ast(AST a);
 
+int get_children_num(AST parent, AST children);
+
 char* ast_print_node_type(node_t n);
 
 // Eases iterating forward in AST_NODE_LISTs

@@ -46,6 +46,7 @@ HANDLER_PROTOTYPE(cast_expression_handler);
 HANDLER_PROTOTYPE(sizeof_typeid_handler);
 HANDLER_PROTOTYPE(new_expression_handler);
 HANDLER_PROTOTYPE(new_type_id_handler);
+HANDLER_PROTOTYPE(new_type_id_expr_handler);
 HANDLER_PROTOTYPE(new_initializer_handler);
 HANDLER_PROTOTYPE(delete_expression_handler);
 HANDLER_PROTOTYPE(array_subscript_handler);
@@ -225,6 +226,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_CHARACTER_LITERAL, simple_text_handler, NULL),
 	NODE_HANDLER(AST_STRING_LITERAL, simple_text_handler, NULL),
 	NODE_HANDLER(AST_CONSTANT_EXPRESSION, unary_container_handler, NULL),
+	NODE_HANDLER(AST_EXPRESSION, unary_container_handler, NULL),
 	NODE_HANDLER(AST_COMMA_OP, binary_operator_handler, ","),
 	NODE_HANDLER(AST_CONDITIONAL_EXPRESSION, conditional_expression_handler, NULL),
 	NODE_HANDLER(AST_ASSIGNMENT, binary_operator_handler, "="),
@@ -272,6 +274,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_SIZEOF_TYPEID, sizeof_typeid_handler, "sizeof"),
 	NODE_HANDLER(AST_NEW_EXPRESSION, new_expression_handler, NULL),
 	NODE_HANDLER(AST_NEW_TYPE_ID, new_type_id_handler, NULL),
+	NODE_HANDLER(AST_NEW_TYPE_ID_EXPR, new_type_id_expr_handler, NULL),
 	NODE_HANDLER(AST_NEW_DECLARATOR, new_type_id_handler, NULL),
 	NODE_HANDLER(AST_DIRECT_NEW_DECLARATOR, abstract_array_declarator_handler, NULL),
 	NODE_HANDLER(AST_NEW_INITIALIZER, new_initializer_handler, NULL),
@@ -895,6 +898,30 @@ static void new_expression_handler(FILE* f, AST a, int level)
 	if (ASTSon3(a) != NULL)
 	{
 		fprintf(f, " ");
+		prettyprint_level(f, ASTSon3(a), level);
+	}
+}
+
+static void new_type_id_expr_handler(FILE* f, AST a, int level)
+{
+	if (ASTSon0(a) != NULL)
+	{
+		prettyprint_level(f, ASTSon0(a), level);
+	}
+
+	fprintf(f, "new");
+
+	if (ASTSon1(a) != NULL)
+	{
+		fprintf(f, " ");
+		prettyprint_level(f, ASTSon1(a), level);
+	}
+	fprintf(f, "(");
+	prettyprint_level(f, ASTSon2(a), level);
+	fprintf(f, ")");
+
+	if (ASTSon3(a) != NULL)
+	{
 		prettyprint_level(f, ASTSon3(a), level);
 	}
 }

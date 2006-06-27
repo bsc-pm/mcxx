@@ -1,6 +1,7 @@
 #ifndef CXX_TYPEUNIF_H
 #define CXX_TYPEUNIF_H
 
+#include "cxx-ast.h"
 #include "cxx-scope.h"
 
 typedef struct unification_item_tag
@@ -8,6 +9,8 @@ typedef struct unification_item_tag
 	// parameter type <- value
 	int parameter_num;
 	int parameter_nesting;
+	char* parameter_name;
+	
 	type_t* value;
 } unification_item_t;
 

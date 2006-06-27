@@ -163,3 +163,16 @@ char* ast_print_node_type(node_t n)
 {
 	return ast_node_names[n];
 }
+
+int get_children_num(AST parent, AST children)
+{
+	int i;
+	for (i = 0; i < 4; i++)
+	{
+		if (ASTChild(parent, i) == children)
+			return i;
+	}
+
+	return -1;
+}
+

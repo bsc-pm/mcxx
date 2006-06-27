@@ -2667,7 +2667,8 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 		new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
 		new_entry->type_information = new_type;
 		
-		// And save it in the type
+		// And save its name
+		template_param_info->template_parameter_name = GC_STRDUP(name);
 		new_type->type->template_parameter_name = GC_STRDUP(name);
 	}
 
@@ -2723,6 +2724,7 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 		new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
 
 		// And save it in the type
+		template_param_info->template_parameter_name = GC_STRDUP(ASTText(name));
 		new_type->type->template_parameter_name = GC_STRDUP(ASTText(name));
 	}
 
@@ -2773,7 +2775,8 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 			// This is not a variable, but a template parameter
 			entry->kind = SK_TEMPLATE_PARAMETER;
 
-			// And in the type
+			// Save its name
+			template_param_info->template_parameter_name = GC_STRDUP(entry->symbol_name);
 			simple_type_info->template_parameter_name = GC_STRDUP(entry->symbol_name);
 		}
 	}
@@ -3570,6 +3573,7 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 						declarator_type = simple_type_to_type(type_info);
 					}
 					new_template_argument->type = declarator_type;
+					new_template_argument->argument_tree = template_argument;
 					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 					break;
 				}
@@ -3580,7 +3584,7 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 
 					AST expr_template_argument = ASTSon0(template_argument);
 
-					new_template_argument->expression = expr_template_argument;
+					new_template_argument->argument_tree = expr_template_argument;
 					// Save the scope
 					if (st->template_scope != NULL)
 					{

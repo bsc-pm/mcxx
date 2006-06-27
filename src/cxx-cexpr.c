@@ -91,6 +91,7 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
 {
     switch (ASTType(a))
 	{
+		case AST_EXPRESSION :
 		case AST_CONSTANT_EXPRESSION :
 		case AST_PARENTHESIZED_EXPRESSION :
 			return evaluate_constant_expression(ASTSon0(a), st);
@@ -659,10 +660,14 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 		internal_error("This symbol is not an expression", 0);
 	}
 
-#warning Fix this V_V
 	if (result->entry->kind == SK_TEMPLATE_PARAMETER)
 	{
-		return literal_value_zero();
+		literal_value_t dependent_entity;
+		memset(&dependent_entity, 0, sizeof(dependent_entity));
+
+		dependent_entity.kind = LVK_TEMPLATE_PARAMETER;
+
+		return dependent_entity;
 	}
 
 	if (result->entry->expression_value == NULL)

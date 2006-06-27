@@ -616,6 +616,7 @@ static char check_for_expression(AST expression, scope_t* st)
 {
 	switch (ASTType(expression))
 	{
+		case AST_EXPRESSION : 
 		case AST_CONSTANT_EXPRESSION : 
 			{
 				return check_for_expression(ASTSon0(expression), st);
