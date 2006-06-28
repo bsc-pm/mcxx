@@ -240,9 +240,27 @@ char match_one_template(template_argument_list_t* arguments,
 						}
 						else
 						{
-							// This shall be unified but expressions here are
-							// of limited nature so it is not necessary to
-							// unificate it
+							unification_item_t* unif_item = GC_CALLOC(1, sizeof(*unif_item));
+							// Get the name. This assumes that the expression
+							// will be solely AST_EXPRESSION -> AST_SYMBOL
+							
+							if (ASTType(spec_arg->argument_tree) == AST_EXPRESSION)
+							{
+								AST symbol = ASTSon0(spec_arg->argument_tree);
+								if (ASTType(symbol) == AST_SYMBOL)
+								{
+									char* name = ASTText(symbol);
+
+									unification_item_t* unif_item = GC_CALLOC(1, sizeof(*unif_item));
+									unif_item->parameter_name = name;
+									unif_item->expression = arg->argument_tree;
+									// Set to -1 to early detect errors
+									unif_item->parameter_num = -1;
+									unif_item->parameter_nesting = -1;
+
+									P_LIST_ADD(unif_set->unif_list, unif_set->num_elems, unif_item);
+								}
+							}
 						}
 						break;
 					}

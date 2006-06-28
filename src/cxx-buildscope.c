@@ -2687,6 +2687,8 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 
 		template_param_info->default_argument = type_id;
 	}
+
+	template_param_info->kind = TPK_TEMPLATE;
 }
 
 static void build_scope_type_template_parameter(AST a, scope_t* st,
@@ -2742,6 +2744,8 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 
 		template_param_info->default_argument = type_id;
 	}
+
+	template_param_info->kind = TPK_TYPE;
 }
 
 static void build_scope_nontype_template_parameter(AST a, scope_t* st,
@@ -2785,6 +2789,8 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 	{
 		template_param_info->type_info = simple_type_to_type(simple_type_info);
 	}
+
+	template_param_info->kind = TPK_NONTYPE;
 }
 
 /*

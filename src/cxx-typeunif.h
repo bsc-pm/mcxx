@@ -12,6 +12,7 @@ typedef struct unification_item_tag
 	char* parameter_name;
 	
 	type_t* value;
+	AST expression;
 } unification_item_t;
 
 typedef struct 
