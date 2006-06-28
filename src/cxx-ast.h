@@ -30,6 +30,7 @@ typedef struct node_ast* AST;
 #define ASTParent(a) ((a)->parent)
 // ASTLine hardened to avoid problems (not a lvalue)
 #define ASTLine(a) (((a) != NULL) ? ((a)->line) : 0)
+#define ASTLineLval(a) ((a)->line)
 #define ASTText(a) ((a)->text)
 #define ASTSon0(a) ASTChild(a, 0)
 #define ASTSon1(a) ASTChild(a, 1)

@@ -174,6 +174,14 @@ static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_inde
 		fprintf(stderr, "\n");
 	}
 
+	if ((entry->kind == SK_VARIABLE || entry->kind == SK_ENUMERATOR)
+			&& entry->expression_value != NULL)
+	{
+		PRINT_INDENTED_LINE(stderr, global_indent+1, "Expression value: ");
+		prettyprint(stderr, entry->expression_value);
+		fprintf(stderr, "\n");
+	}
+
 	if (entry->kind == SK_FUNCTION
 			|| entry->kind == SK_TEMPLATE_FUNCTION)
 	{

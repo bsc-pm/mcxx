@@ -76,7 +76,7 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 static void build_scope_explicit_template_specialization(AST a, scope_t* st, decl_context_t decl_context);
 
 static void build_scope_template_parameter_list(AST a, scope_t* st, 
-		template_parameter_t** template_param_info, int* num_parameters,
+		template_parameter_t*** template_param_info, int* num_parameters,
 		decl_context_t decl_context);
 static void build_scope_template_parameter(AST a, scope_t* st, 
 		template_parameter_t* template_param_info, int num_parameter,
@@ -786,7 +786,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 	scope_entry_list_t* result_list = NULL;
 
 	result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-            FULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+            NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
 
 	// Now look for a type
 	scope_entry_t* entry = NULL;
@@ -887,7 +887,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 	scope_entry_list_t* result_list = NULL;
 
 	result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
-            FULL_UNQUALIFIED_LOOKUP);
+            NOFULL_UNQUALIFIED_LOOKUP);
 
 	// Now look for a type
 	scope_entry_t* entry = NULL;
@@ -1186,7 +1186,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 		{
 			scope_entry_list_t* class_entry_list = query_nested_name_flags(st, NULL, 
 					class_head_nested_name, class_head_identifier,
-					FULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+					NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
 
 			enum cxx_symbol_kind filter_classes[3] = 
 			{
@@ -2326,13 +2326,14 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 	 * Template parameter information is constructed first
 	 */
 	scope_t* template_scope = new_template_scope(st);
-	template_parameter_t** template_param_info = GC_CALLOC(1, sizeof(*template_param_info));
+	template_parameter_t** template_param_info = NULL;
 	int num_parameters = 0;
 	
 	// Construct parameter information
 	decl_context_t temp_param_decl_context = decl_context;
 	decl_context.template_nesting++;
-	build_scope_template_parameter_list(ASTSon0(a), template_scope, template_param_info, 
+
+	build_scope_template_parameter_list(ASTSon0(a), template_scope, &template_param_info, 
 			&num_parameters, temp_param_decl_context);
 
 	// Save template scope
@@ -2475,10 +2476,12 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 			&& simple_type_info->kind == STK_USER_DEFINED)
 	{
 		scope_entry_t* entry = simple_type_info->user_defined_type;
-		if (entry->kind == SK_CLASS)
+		if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+				|| entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
 		{
 			// Save the template parameters
 			entry->num_template_parameters = num_parameters;
+			fprintf(stderr, "Saving template parameter info %p\n", template_param_info);
 			entry->template_parameter_info = template_param_info;
 		}
 	}
@@ -2580,7 +2583,7 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
  * This function registers templates parameters in a given scope
  */
 static void build_scope_template_parameter_list(AST a, scope_t* st, 
-		template_parameter_t** template_param_info, int* num_parameters,
+		template_parameter_t*** template_param_info, int* num_parameters,
 		decl_context_t decl_context)
 {
 	AST iter;
@@ -2592,9 +2595,11 @@ static void build_scope_template_parameter_list(AST a, scope_t* st,
 
 		template_parameter_t* new_template_param = GC_CALLOC(1, sizeof(*new_template_param));
 
+		fprintf(stderr, "New template parameter -> %p\n", new_template_param);
+
 		build_scope_template_parameter(template_parameter, st, new_template_param, *num_parameters, decl_context);
 
-		P_LIST_ADD(template_param_info, *num_parameters, new_template_param);
+		P_LIST_ADD(*template_param_info, *num_parameters, new_template_param);
 	}
 }
 
@@ -2640,10 +2645,10 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 	//
 	// Construct parameter information
 	scope_t* parm_template_scope = new_template_scope(st);
-	template_parameter_t** parm_template_param_info = GC_CALLOC(1, sizeof(*parm_template_param_info));
+	template_parameter_t** parm_template_param_info = NULL;
 	int parm_num_parameters = 0;
 	
-	build_scope_template_parameter_list(ASTSon0(a), parm_template_scope, parm_template_param_info, 
+	build_scope_template_parameter_list(ASTSon0(a), parm_template_scope, &parm_template_param_info, 
 			&parm_num_parameters, decl_context);
 
 	// Now create a STK_CLASS
@@ -3038,11 +3043,11 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
 	 * Template parameter information is constructed first
 	 */
 	scope_t* template_scope = new_template_scope(st);
-	template_parameter_t** template_param_info = GC_CALLOC(1, sizeof(*template_param_info));
+	template_parameter_t** template_param_info = NULL;
 	int num_parameters = 0;
 	
 	// Construct parameter information
-	build_scope_template_parameter_list(ASTSon0(a), template_scope, template_param_info, &num_parameters, decl_context);
+	build_scope_template_parameter_list(ASTSon0(a), template_scope, &template_param_info, &num_parameters, decl_context);
 	
 	// Save template scope
 	template_scope->template_scope = st->template_scope;
@@ -3592,14 +3597,15 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 
 					new_template_argument->argument_tree = expr_template_argument;
 					// Save the scope
-					if (st->template_scope != NULL)
-					{
-						new_template_argument->scope = st->template_scope;
-					}
-					else
-					{
-						internal_error("Template scope is null!", 0);
-					}
+					// if (st->template_scope != NULL)
+					// {
+					// 	new_template_argument->scope = st->template_scope;
+					// }
+					// else
+					// {
+					// 	internal_error("Template scope is null!", 0);
+					// }
+					new_template_argument->scope = st;
 
 					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 					break;
