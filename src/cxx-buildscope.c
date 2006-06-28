@@ -786,7 +786,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 	scope_entry_list_t* result_list = NULL;
 
 	result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-            NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+            FULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
 
 	// Now look for a type
 	scope_entry_t* entry = NULL;
@@ -887,7 +887,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 	scope_entry_list_t* result_list = NULL;
 
 	result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
-            NOFULL_UNQUALIFIED_LOOKUP);
+            FULL_UNQUALIFIED_LOOKUP);
 
 	// Now look for a type
 	scope_entry_t* entry = NULL;
@@ -1184,9 +1184,20 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 		if (ASTType(class_head_identifier) == AST_SYMBOL
 				|| ASTType(class_head_identifier) == AST_TEMPLATE_ID)
 		{
-			scope_entry_list_t* class_entry_list = query_nested_name_flags(st, NULL, 
-					class_head_nested_name, class_head_identifier,
-					NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+			scope_entry_list_t* class_entry_list = NULL;
+			
+			if (!BITMAP_TEST(decl_context.decl_flags, DF_INSTANTIATION))
+			{
+				class_entry_list = query_nested_name_flags(st, NULL, 
+						class_head_nested_name, class_head_identifier,
+						FULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+			}
+			else
+			{
+				class_entry_list = query_nested_name_flags(st, NULL, 
+						class_head_nested_name, class_head_identifier,
+						NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+			}
 
 			enum cxx_symbol_kind filter_classes[3] = 
 			{
