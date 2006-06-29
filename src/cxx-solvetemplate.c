@@ -110,28 +110,18 @@ scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_
 			&& result != NULL)
 	{
 		// Result will be an exact match if it can be unified with the original
-		if (result->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+		template_argument_list_t* specialized = result->type_information->type->template_arguments;
+
+		fprintf(stderr, "Checking match %p %p\n", specialized, arguments);
+
+		unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
+		if (!match_one_template(specialized, arguments, NULL, st, unification_set))
 		{
-			template_argument_list_t* specialized = result->type_information->type->template_arguments;
-
-			fprintf(stderr, "Checking match %p %p\n", specialized, arguments);
-
-			unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
-			if (!match_one_template(specialized, arguments, NULL, st, unification_set))
-			{
-				*result_unification_set = NULL;
-				return NULL;
-			}
-
-			*result_unification_set = unification_set;
-		}
-		else
-		{
-			// A primary template cannot be exactly matched to something that
-			// has invoked a template-id selection
 			*result_unification_set = NULL;
 			return NULL;
 		}
+
+		*result_unification_set = unification_set;
 	}
 
 	if (result == NULL)

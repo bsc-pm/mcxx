@@ -25,28 +25,28 @@ struct scope_tag;
 enum cxx_symbol_kind
 {
 	SK_UNDEFINED = 0,
-	SK_CLASS, // this names a plain class
-	SK_ENUM, // this names an enum
-	SK_ENUMERATOR, // this names an enumerator (the elements an enum is made of)
-	SK_FUNCTION,  // this names a plain function
-	SK_LABEL, // this names a label (currently unused)
-	SK_NAMESPACE, // this names a namespace
-	SK_VARIABLE, // this names an object
-	SK_TYPEDEF, // this names a typedef
+	SK_CLASS, // [1] this names a plain class
+	SK_ENUM, // [2] this names an enum
+	SK_ENUMERATOR, // [3] this names an enumerator (the elements an enum is made of)
+	SK_FUNCTION,  // [4] this names a plain function
+	SK_LABEL, // [5] this names a label (currently unused)
+	SK_NAMESPACE, // [6] this names a namespace
+	SK_VARIABLE, // [7] this names an object
+	SK_TYPEDEF, // [8] this names a typedef
 	// Lots of stuff related to the C++ "template madness"
-	SK_TEMPLATE_PRIMARY_CLASS, // this names a primary template
-	SK_TEMPLATE_SPECIALIZED_CLASS, // this names a specialized template class
-	SK_TEMPLATE_FUNCTION, // this names a template function
-	SK_TEMPLATE_PARAMETER, // nontype parameters like N in "template<int N>"
-	SK_TEMPLATE_TYPE_PARAMETER, // plain type parameters like T in "template <class T>"
-	SK_TEMPLATE_TEMPLATE_PARAMETER, // template template parameters like Q in "template<template<class P> Q>"
+	SK_TEMPLATE_PRIMARY_CLASS, // [9] this names a primary template
+	SK_TEMPLATE_SPECIALIZED_CLASS, // [10] this names a specialized template class
+	SK_TEMPLATE_FUNCTION, // [11] this names a template function
+	SK_TEMPLATE_PARAMETER, // [12] nontype parameters like N in "template<int N>"
+	SK_TEMPLATE_TYPE_PARAMETER, // [13] plain type parameters like T in "template <class T>"
+	SK_TEMPLATE_TEMPLATE_PARAMETER, // [14] template template parameters like Q in "template<template<class P> Q>"
 	// Artificial symbol representing scopes - used only for debugging purposes
 	// should not be considered as a symbol
-	SK_SCOPE,
+	SK_SCOPE, // [15]
 	// GCC Extension for builtin types
-	SK_GCC_BUILTIN_TYPE,
+	SK_GCC_BUILTIN_TYPE, // [16]
 	// Dependent entity that is named but nothing is known at the moment
-	SK_DEPENDENT_ENTITY
+	SK_DEPENDENT_ENTITY // [17]
 };
 
 typedef enum {

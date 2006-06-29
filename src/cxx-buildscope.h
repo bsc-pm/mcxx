@@ -47,6 +47,10 @@ typedef struct decl_context_tag
 
 	// Template nesting level
 	int template_nesting;
+
+	// Template parameter information
+	template_parameter_t** template_param_info;
+	int num_template_parameters;
 } decl_context_t;
 
 #undef BITMAP
