@@ -4032,11 +4032,13 @@ template_assignment_expression : template_conditional_expression
 
 template_expression : template_assignment_expression
 {
-	$$ = $1;
+	$$ = ASTMake1(AST_EXPRESSION, $1, ASTLine($1), NULL);
 }
 | template_expression ',' template_assignment_expression
 {
-	$$ = ASTMake2(AST_COMMA_OP, $1, $3, ASTLine($1), NULL);
+	AST comma_expression = ASTMake2(AST_COMMA_OP, $1, $3, ASTLine($1), NULL);
+
+	$$ = ASTMake1(AST_EXPRESSION, comma_expression, ASTLine(comma_expression), NULL);
 }
 ;
 

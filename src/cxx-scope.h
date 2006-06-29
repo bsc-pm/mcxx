@@ -127,7 +127,10 @@ typedef struct template_parameter {
 
 	struct type_tag* type_info;
 
-	AST default_argument;
+	struct type_tag* default_type;
+
+	AST default_expression;
+	struct scope_tag* default_expression_scope;
 } template_parameter_t;
 
 typedef enum access_specifier_t

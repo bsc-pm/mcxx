@@ -1191,6 +1191,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 				class_entry_list = query_nested_name_flags(st, NULL, 
 						class_head_nested_name, class_head_identifier,
 						FULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+				decl_context.decl_flags &= (~DF_INSTANTIATION);
 			}
 			else
 			{
@@ -2344,8 +2345,10 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 	decl_context_t temp_param_decl_context = decl_context;
 	decl_context.template_nesting++;
 
+	template_scope->contained_in = st;
 	build_scope_template_parameter_list(ASTSon0(a), template_scope, &template_param_info, 
 			&num_parameters, temp_param_decl_context);
+	template_scope->contained_in = NULL;
 
 	// Save template scope
 	template_scope->template_scope = st->template_scope;
@@ -2650,7 +2653,7 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 {
 	// These parameters have the form
 	//
-	//    TEMPLATE < templat_param_list > CLASS identifier
+	//    TEMPLATE < template_param_list > CLASS [identifier] [= id_expr]
 	//
 	// "identifier" is then a template-name
 	//
@@ -2659,8 +2662,10 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 	template_parameter_t** parm_template_param_info = NULL;
 	int parm_num_parameters = 0;
 	
+	parm_template_scope->contained_in = st;
 	build_scope_template_parameter_list(ASTSon0(a), parm_template_scope, &parm_template_param_info, 
 			&parm_num_parameters, decl_context);
+	parm_template_scope->contained_in = NULL;
 
 	// Now create a STK_CLASS
 	type_t* new_type = GC_CALLOC(1, sizeof(*new_type));
@@ -2688,11 +2693,11 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 		new_type->type->template_parameter_name = GC_STRDUP(name);
 	}
 
-	AST type_id = ASTSon2(a);
-	if (type_id != NULL)
+	AST id_expr = ASTSon2(a);
+	if (id_expr != NULL)
 	{
 		// This might be ambiguous
-		AST def_arg_type_specifier = ASTSon0(type_id);
+		AST def_arg_type_specifier = ASTSon0(id_expr);
 		AST def_arg_simple_type_spec = ASTSon1(def_arg_type_specifier);
 
 		if (ASTSon2(def_arg_simple_type_spec) != NULL
@@ -2701,7 +2706,26 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 			solve_possibly_ambiguous_template_id(ASTSon2(def_arg_simple_type_spec), st);
 		}
 
-		template_param_info->default_argument = type_id;
+		scope_entry_list_t* entry_list = query_id_expression(st, id_expr, FULL_UNQUALIFIED_LOOKUP);
+
+		if (entry_list == NULL)
+		{
+			internal_error("Default argument expression id not found\n", 0);
+		}
+
+		enum cxx_symbol_kind filter_templates[2] = {
+			SK_TEMPLATE_PRIMARY_CLASS,
+			SK_TEMPLATE_SPECIALIZED_CLASS
+		};
+
+		entry_list = filter_symbol_kind_set(entry_list, 2, filter_templates);
+
+		if (entry_list == NULL)
+		{
+			internal_error("No template name found", 0);
+		}
+
+		template_param_info->default_type = entry_list->entry->type_information;
 	}
 
 	template_param_info->kind = TPK_TEMPLATE;
@@ -2758,7 +2782,30 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 			solve_possibly_ambiguous_template_id(ASTSon2(def_arg_simple_type_spec), st);
 		}
 
-		template_param_info->default_argument = type_id;
+
+		// Construct the type
+		AST default_arg_type_spec_seq = ASTSon0(type_id);
+		// This declarator can be null
+		AST default_arg_declarator = ASTSon1(type_id);
+
+		simple_type_t* type_info = NULL;
+		gather_decl_spec_t gather_info;
+		memset(&gather_info, 0, sizeof(gather_info));
+
+		build_scope_decl_specifier_seq(default_arg_type_spec_seq, st, &gather_info, &type_info,
+				decl_context);
+
+		if (default_arg_declarator != NULL)
+		{
+			type_t* declarator_type = NULL;
+			build_scope_declarator(default_arg_declarator, st, &gather_info, type_info, &declarator_type,
+					decl_context);
+			template_param_info->default_type = declarator_type;
+		}
+		else
+		{
+			template_param_info->default_type = simple_type_to_type(type_info);
+		}
 	}
 
 	template_param_info->kind = TPK_TYPE;
@@ -2776,6 +2823,7 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 
 	AST decl_specifier_seq = ASTSon0(a);
 	AST parameter_declarator = ASTSon1(a);
+	AST default_expression = ASTSon2(a);
 
 	build_scope_decl_specifier_seq(decl_specifier_seq, st, &gather_info, &simple_type_info, decl_context);
 
@@ -2805,6 +2853,9 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 	{
 		template_param_info->type_info = simple_type_to_type(simple_type_info);
 	}
+
+	template_param_info->default_expression_scope = st;
+	template_param_info->default_expression = default_expression;
 
 	template_param_info->kind = TPK_NONTYPE;
 }
@@ -3058,7 +3109,9 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
 	int num_parameters = 0;
 	
 	// Construct parameter information
+	template_scope->contained_in = st;
 	build_scope_template_parameter_list(ASTSon0(a), template_scope, &template_param_info, &num_parameters, decl_context);
+	template_scope->contained_in = NULL;
 	
 	// Save template scope
 	template_scope->template_scope = st->template_scope;
@@ -3529,31 +3582,6 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 		internal_error("Primary template for '%s' not found", ASTText(template_name));
 	}
 
-	if (primary_template->num_template_parameters > num_arguments)
-	{
-		// We have to complete with default arguments
-		fprintf(stderr, "Completing template arguments with default arguments\n");
-		
-		AST default_arg_list = ASTSon1(class_head_id);
-		int k;
-		for (k = num_arguments; 
-				k < (primary_template->num_template_parameters);
-				k++)
-		{
-			if (primary_template->template_parameter_info[k]->default_argument == NULL)
-			{
-				internal_error("Parameter '%d' of template '%s' has no default argument", 
-						k, ASTText(template_name));
-			}
-
-			default_arg_list = ASTMake2(AST_NODE_LIST, default_arg_list, 
-					primary_template->template_parameter_info[k]->default_argument, 0, NULL);
-		}
-
-		// Relink correctly
-		ASTParent(default_arg_list) = class_head_id;
-		ASTSon1(class_head_id) = default_arg_list;
-	}
 
 	list = ASTSon1(class_head_id);
 	for_each_element(list, iter)
@@ -3629,6 +3657,55 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 			default :
 				internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(template_argument)));
 				break;
+		}
+	}
+
+	if (primary_template->num_template_parameters > num_arguments)
+	{
+		// We have to complete with default arguments
+		fprintf(stderr, "Completing template arguments with default arguments\n");
+		
+		AST default_arg_list = ASTSon1(class_head_id);
+		int k;
+		for (k = num_arguments; 
+				k < (primary_template->num_template_parameters);
+				k++)
+		{
+			template_parameter_t* curr_template_parameter = primary_template->template_parameter_info[k];
+
+			template_argument_t* curr_template_arg = GC_CALLOC(1, sizeof(*curr_template_arg));
+
+			switch (curr_template_parameter->kind)
+			{
+				case TPK_TYPE :
+				case TPK_TEMPLATE :
+					{
+						if (curr_template_parameter->default_type == NULL)
+						{
+							internal_error("Missing default argument type for type template parameter", 0);
+						}
+
+						curr_template_arg->kind = TAK_TYPE;
+						curr_template_arg->type = curr_template_parameter->default_type;
+						break;
+					}
+				case TPK_NONTYPE :
+					{
+						if (curr_template_parameter->default_expression == NULL)
+						{
+							internal_error("Missing default expression for nontype template parameter", 0);
+						}
+
+						curr_template_arg->kind = TAK_NONTYPE;
+						curr_template_arg->argument_tree = curr_template_parameter->default_expression;
+						curr_template_arg->scope = curr_template_parameter->default_expression_scope;
+						break;
+					}
+				default:
+					internal_error("Unknown template parameter kind %d\n", curr_template_parameter->kind);
+			}
+
+			P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, curr_template_arg);
 		}
 	}
 

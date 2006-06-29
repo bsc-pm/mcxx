@@ -1810,8 +1810,28 @@ static void choose_option(AST a, int n)
 		}
 	}
 
+	AST parent = ASTParent(a);
+	// int num_children = get_children_num(parent, a);
+
+	// if (num_children < 0)
+	// {
+	// 	internal_error("Children not found in the parent!\n", 0);
+	// }
+
+	fprintf(stderr, "*** Choosing '%s' in the ambiguity tree (line=%d)\n", ast_print_node_type(ASTType(a->ambig[n])),
+			ASTLine(a->ambig[n]));
+	
 	// This will work, trust on me :)
 	*a = *(a->ambig[n]);
+
+	// Correctly relink to the parent
+	ASTParent(a) = parent;
+
+	// This is not needed
+	// if (parent != NULL)
+	// {
+	// 	ASTChild(parent, num_children) = a;
+	// }
 }
 
 // Returns the index of the first node of type "type"
