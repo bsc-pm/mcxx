@@ -93,3 +93,14 @@ char* GC_STRDUP(const char* str)
 	return result;
 }
 
+char* get_unique_name(void)
+{
+	static int num_var = 100;
+	char* result = GC_CALLOC(15, sizeof(char));
+
+	snprintf(result, 14, "$.anon%05d", num_var);
+
+	num_var++;
+
+	return result;
+}

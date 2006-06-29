@@ -105,6 +105,7 @@ HANDLER_PROTOTYPE(elaborated_type_template_handler);
 HANDLER_PROTOTYPE(elaborated_type_template_template_handler);
 HANDLER_PROTOTYPE(elaborated_type_enum_handler);
 HANDLER_PROTOTYPE(elaborated_typename_handler);
+HANDLER_PROTOTYPE(elaborated_typename_template_handler);
 HANDLER_PROTOTYPE(if_else_statement_handler);
 HANDLER_PROTOTYPE(exception_specification_handler);
 HANDLER_PROTOTYPE(operator_function_id_handler);
@@ -131,6 +132,7 @@ HANDLER_PROTOTYPE(gcc_label_declaration_handler);
 HANDLER_PROTOTYPE(gcc_attribute_handler);
 HANDLER_PROTOTYPE(gcc_attribute_value_handler);
 HANDLER_PROTOTYPE(gcc_asm_definition_handler);
+HANDLER_PROTOTYPE(gcc_asm_def_parameters);
 HANDLER_PROTOTYPE(gcc_asm_operand_handler);
 HANDLER_PROTOTYPE(gcc_type_spec_sequence_handler);
 HANDLER_PROTOTYPE(gcc_typeof_handler);
@@ -307,6 +309,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_QUALIFIED_TEMPLATE_ID, qualified_template_id_handler, NULL),
 	NODE_HANDLER(AST_QUALIFIED_OPERATOR_FUNCTION_ID, qualified_operator_function_id_handler, NULL),
 	NODE_HANDLER(AST_DESTRUCTOR_ID, unary_container_handler, NULL),
+	NODE_HANDLER(AST_DESTRUCTOR_TEMPLATE_ID, prefix_with_parameter_then_son_handler, "~"),
 	NODE_HANDLER(AST_CONVERSION_FUNCTION_ID, prefix_with_parameter_then_son_handler, "operator "),
 	NODE_HANDLER(AST_CONVERSION_TYPE_ID, conversion_type_id_handler, NULL),
 	NODE_HANDLER(AST_CONVERSION_DECLARATOR, conversion_declarator_handler, NULL),
@@ -367,6 +370,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE, elaborated_type_template_template_handler, NULL),
 	NODE_HANDLER(AST_ELABORATED_TYPE_ENUM, elaborated_type_enum_handler, NULL),
 	NODE_HANDLER(AST_ELABORATED_TYPENAME, elaborated_typename_handler, NULL),
+	NODE_HANDLER(AST_ELABORATED_TYPENAME_TEMPLATE, elaborated_typename_template_handler, NULL),
 	NODE_HANDLER(AST_STATIC_SPEC, simple_parameter_handler, "static"),
 	NODE_HANDLER(AST_IF_ELSE_STATEMENT, if_else_statement_handler, NULL),
 	NODE_HANDLER(AST_EXCEPTION_SPECIFICATION, exception_specification_handler, NULL),
@@ -442,6 +446,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_GCC_ATTRIBUTE, gcc_attribute_handler, NULL),
 	NODE_HANDLER(AST_GCC_ATTRIBUTE_EXPR, gcc_attribute_value_handler, NULL),
 	NODE_HANDLER(AST_GCC_ASM_DEFINITION, gcc_asm_definition_handler, NULL),
+	NODE_HANDLER(AST_GCC_ASM_DEF_PARMS, gcc_asm_def_parameters, NULL),
 	NODE_HANDLER(AST_GCC_ASM_OPERAND, gcc_asm_operand_handler, NULL),
 	NODE_HANDLER(AST_GCC_COMPLEX_TYPE, simple_parameter_handler, "_Complex"),
 	NODE_HANDLER(AST_GCC_TYPE_SPECIFIER_SEQ, gcc_type_spec_sequence_handler, NULL),
@@ -1718,15 +1723,25 @@ static void elaborated_typename_handler(FILE* f, AST a, int level)
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 
-	if (ASTSon2(a) != NULL)
+	prettyprint_level(f, ASTSon2(a), level);
+}
+
+static void elaborated_typename_template_handler(FILE* f, AST a, int level)
+{
+	fprintf(f, "typename ");
+
+	if (ASTSon0(a) != NULL)
 	{
-		prettyprint_level(f, ASTSon2(a), level);
+		prettyprint_level(f, ASTSon0(a), level);
 	}
-	else if (ASTSon3(a) != NULL)
+
+	if (ASTSon1(a) != NULL)
 	{
-		fprintf(f, "template ");
-		prettyprint_level(f, ASTSon3(a), level);
+		prettyprint_level(f, ASTSon1(a), level);
 	}
+
+	fprintf(f, "template ");
+	prettyprint_level(f, ASTSon2(a), level);
 }
 
 static void if_else_statement_handler(FILE* f, AST a, int level)
@@ -2074,34 +2089,40 @@ static void gcc_asm_definition_handler(FILE* f, AST a, int level)
 {
 	indent_at_level(f, level);
 	fprintf(f, "asm ");
+
 	if (ASTSon0(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(a), level);
-		fprintf(f, " ");
 	}
 
 	fprintf(f, "(");
 
+	prettyprint_level(f, ASTSon1(a), level);
+
+	fprintf(f, ");\n");
+}
+
+static void gcc_asm_def_parameters(FILE* f, AST a, int level)
+{
+	prettyprint_level(f, ASTSon0(a), level);
+	fprintf(f, ": ");
+
 	if (ASTSon1(a) != NULL)
 	{
-		prettyprint_level(f, ASTSon1(a), level);
+		list_handler(f, ASTSon1(a), level);
+		fprintf(f, ": ");
 	}
-
-	fprintf(f, ":");
 
 	if (ASTSon2(a) != NULL)
 	{
 		list_handler(f, ASTSon2(a), level);
+		fprintf(f, ": ");
 	}
-
-	fprintf(f, ":");
 
 	if (ASTSon3(a) != NULL)
 	{
 		list_handler(f, ASTSon3(a), level);
 	}
-
-	fprintf(f, ");\n");
 }
 
 static void gcc_asm_operand_handler(FILE* f, AST a, int level)

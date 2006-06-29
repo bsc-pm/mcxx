@@ -84,4 +84,6 @@ char* GC_STRDUP(const char* str);
 
 #define BITMAP_TEST(x, b) (((x) & (b)) == (b))
 
+char* get_unique_name(void);
+
 #endif // CXX_UTILS_H

@@ -196,6 +196,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> asm_definition
 %type<ast> asm_operand
 %type<ast> asm_operand_list
+%type<ast> asm_operand_list_nonempty
 %type<ast> asm_specification
 %type<ast> assignment_expression
 %type<ast> attribute
@@ -237,6 +238,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> elaborated_type_specifier
 %type<ast> enumeration_definition
 %type<ast> enumeration_list
+%type<ast> enumeration_list_proper
 %type<ast> enum_specifier
 %type<ast> equality_expression
 %type<ast> exception_declaration
@@ -348,6 +350,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> nontype_specifier
 %type<ast> nontype_specifier_seq2
 %type<ast> nontype_specifier2
+%type<ast> volatile_optional
 
 %type<node_type> unary_operator
 %type<node_type> assignment_operator
@@ -586,80 +589,58 @@ asm_definition : ASM '(' string_literal ')' ';'
 	$$ = ASTMake1(AST_ASM_DEFINITION, $3, $1.token_line, NULL);
 }
 // GNU Extensions
-| ASM VOLATILE '(' string_literal ')' ';'
+| ASM volatile_optional '(' string_literal ')' ';'
 {
-	AST ast_volatile = ASTLeaf(AST_VOLATILE_SPEC, $2.token_line, $2.token_text);
-
-	$$ = ASTMake4(AST_GCC_ASM_DEFINITION, ast_volatile, $4, NULL, NULL, $1.token_line, NULL);
+	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
+			$4, NULL, NULL, NULL, ASTLine($4), NULL);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, NULL);
 }
-| ASM '(' string_literal ':' ')' ';'
+| ASM volatile_optional '(' string_literal ':' asm_operand_list ')' ';'
 {
-	$$ = ASTMake4(AST_GCC_ASM_DEFINITION, NULL, $3, NULL, NULL, $1.token_line, NULL);
+	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
+			$4, $6, NULL, NULL, ASTLine($4), NULL);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, NULL);
 }
-| ASM VOLATILE '(' string_literal ':' ')' ';'
+| ASM volatile_optional '(' string_literal ':' asm_operand_list ':' asm_operand_list ')' ';'
 {
-	AST ast_volatile = ASTLeaf(AST_VOLATILE_SPEC, $2.token_line, $2.token_text);
-
-	$$ = ASTMake4(AST_GCC_ASM_DEFINITION, ast_volatile, $4, NULL, NULL, $1.token_line, NULL);
+	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
+			$4, $6, $8, NULL, ASTLine($4), NULL);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, NULL);
 }
-| ASM '(' string_literal ':' asm_operand_list ')' ';'
+| ASM volatile_optional '(' string_literal ':' asm_operand_list ':' asm_operand_list ':' asm_operand_list ')' ';'
 {
-	$$ = ASTMake4(AST_GCC_ASM_DEFINITION, NULL, $3, $5, NULL, $1.token_line, NULL);
-}
-| ASM VOLATILE '(' string_literal ':' asm_operand_list ')' ';'
-{
-	AST ast_volatile = ASTLeaf(AST_VOLATILE_SPEC, $2.token_line, $2.token_text);
-
-	$$ = ASTMake4(AST_GCC_ASM_DEFINITION, ast_volatile, $4, $6, NULL, $1.token_line, NULL);
-}
-| ASM '(' string_literal ':' ':' ')' ';'
-{
-	$$ = ASTMake4(AST_GCC_ASM_DEFINITION, NULL, $3, NULL, NULL, $1.token_line, NULL);
-}
-| ASM VOLATILE '(' string_literal ':' ':' ')' ';'
-{
-	AST ast_volatile = ASTLeaf(AST_VOLATILE_SPEC, $2.token_line, $2.token_text);
-
-	$$ = ASTMake4(AST_GCC_ASM_DEFINITION, ast_volatile, $4, NULL, NULL, $1.token_line, NULL);
-}
-| ASM '(' string_literal ':' asm_operand_list ':' ')' ';'
-{
-	$$ = ASTMake4(AST_GCC_ASM_DEFINITION, NULL, $3, $5, NULL, $1.token_line, NULL);
-}
-| ASM VOLATILE '(' string_literal ':' asm_operand_list ':' ')' ';'
-{
-	AST ast_volatile = ASTLeaf(AST_VOLATILE_SPEC, $2.token_line, $2.token_text);
-
-	$$ = ASTMake4(AST_GCC_ASM_DEFINITION, ast_volatile, $4, $6, NULL, $1.token_line, NULL);
-}
-| ASM '(' string_literal ':' ':' asm_operand_list ')' ';'
-{
-	$$ = ASTMake4(AST_GCC_ASM_DEFINITION, NULL, $3, NULL, $6, $1.token_line, NULL);
-}
-| ASM VOLATILE '(' string_literal ':' ':' asm_operand_list ')' ';'
-{
-	AST ast_volatile = ASTLeaf(AST_VOLATILE_SPEC, $2.token_line, $2.token_text);
-
-	$$ = ASTMake4(AST_GCC_ASM_DEFINITION, ast_volatile, $4, NULL, $7, $1.token_line, NULL);
-}
-| ASM '(' string_literal ':' asm_operand_list ':' asm_operand_list ')' ';'
-{
-	$$ = ASTMake4(AST_GCC_ASM_DEFINITION, NULL, $3, $5, $7, $1.token_line, NULL);
-}
-| ASM VOLATILE '(' string_literal ':' asm_operand_list ':' asm_operand_list ')' ';'
-{
-	AST ast_volatile = ASTLeaf(AST_VOLATILE_SPEC, $2.token_line, $2.token_text);
-
-	$$ = ASTMake4(AST_GCC_ASM_DEFINITION, ast_volatile, $4, $6, $8, $1.token_line, NULL);
+	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
+			$4, $6, $8, $10, ASTLine($4), NULL);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, NULL);
 }
 ;
 
+volatile_optional : /* empty */
+{
+	$$ = NULL;
+}
+| VOLATILE
+{
+	$$ = ASTLeaf(AST_VOLATILE_SPEC, $1.token_line, $1.token_text);
+}
+;
+
+asm_operand_list : asm_operand_list_nonempty
+{
+	$$ = $1;
+}
+| /* empty */
+{
+	$$ = NULL;
+};
+
+
 /* GNU Extensions */
-asm_operand_list : asm_operand
+asm_operand_list_nonempty : asm_operand
 {
 	$$ = ASTListLeaf($1);
 }
-| asm_operand_list ',' asm_operand
+| asm_operand_list_nonempty ',' asm_operand
 {
 	$$ = ASTList($1, $3);
 }
@@ -672,6 +653,10 @@ asm_operand : string_literal '(' expression ')'
 | '[' string_literal ']' string_literal '(' expression ')'
 {
 	$$ = ASTMake3(AST_GCC_ASM_OPERAND, $2, $4, $6, $1.token_line, NULL);
+}
+| string_literal
+{
+	$$ = $1;
 }
 ;
 /* End of GNU extensions */
@@ -1575,7 +1560,18 @@ enum_specifier : ENUM IDENTIFIER '{' enumeration_list '}'
 }
 ;
 
-enumeration_list : enumeration_list ',' enumeration_definition
+enumeration_list : enumeration_list_proper
+{
+	$$ = $1;
+}
+// This is a running comma that many people forgets here. It is of non
+// standard nature
+| enumeration_list_proper ','
+{
+	$$ = $1;
+};
+
+enumeration_list_proper : enumeration_list ',' enumeration_definition
 {
 	$$ = ASTList($1, $3);
 }
@@ -2034,6 +2030,11 @@ member_declaration : decl_specifier_seq member_declarator_list ';'
 | template_declaration
 {
 	$$ = $1;
+}
+// This is a common tolerated error
+| ';' 
+{
+	$$ = ASTLeaf(AST_EMPTY_DECL, $1.token_line, NULL);
 }
 // GNU Extension
 | EXTENSION member_declaration
@@ -2719,6 +2720,10 @@ unqualified_id : IDENTIFIER
 	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, c);
 
 	$$ = ASTMake1(AST_DESTRUCTOR_ID, identifier, $1.token_line, NULL);
+}
+| '~' template_id
+{
+	$$ = ASTMake1(AST_DESTRUCTOR_TEMPLATE_ID, $2, $1.token_line, NULL);
 }
 | template_id
 {

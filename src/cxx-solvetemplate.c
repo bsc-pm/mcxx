@@ -250,6 +250,15 @@ char match_one_template(template_argument_list_t* arguments,
 
 									P_LIST_ADD(unif_set->unif_list, unif_set->num_elems, unif_item);
 								}
+								else
+								{
+									internal_error("Expecting an AST_SYMBOL and found '%s'\n", ast_print_node_type(ASTType(symbol)));
+								}
+							}
+							else
+							{
+								internal_error("Expecting an AST_EXPRESSION and found '%s'\n", 
+										ast_print_node_type(ASTType(spec_arg->argument_tree)));
 							}
 						}
 						break;

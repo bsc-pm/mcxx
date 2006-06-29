@@ -177,6 +177,7 @@ hexprefix   0[xX]
 "__builtin_va_arg" { parse_token_text(); return BUILTIN_VA_ARG; }
 "__extension__" { parse_token_text(); return EXTENSION; }
 "__alignof__" { parse_token_text(); return ALIGNOF; }
+"__ALIGNOF__" { parse_token_text(); return ALIGNOF; }
 "__real__" { parse_token_text(); return REAL; }
 "__imag__" { parse_token_text(); return IMAG; }
 "__label__" { parse_token_text(); return LABEL; }
@@ -192,6 +193,8 @@ hexprefix   0[xX]
 "__thread" { parse_token_text(); return THREAD; } 
 "__inline"        { parse_token_text(); return INLINE; } 
 "__inline__"        { parse_token_text(); return INLINE; } 
+"__volatile"        { parse_token_text(); return VOLATILE; } 
+"__volatile__"        { parse_token_text(); return VOLATILE; } 
 "__asm__" { parse_token_text(); return ASM; }
 
 "<?" { parse_token_text(); return MIN_OPERATOR; }

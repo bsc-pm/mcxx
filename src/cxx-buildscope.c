@@ -844,10 +844,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 			new_class->type_information->type->type_scope = st;
 
 
-			if (ASTType(class_symbol) == AST_TEMPLATE_ID)
-			{
-				build_scope_template_arguments(class_symbol, st, &(new_class->type_information->type->template_arguments));
-			}
 
 			if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
 			{
@@ -855,19 +851,22 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 			}
 			else
 			{
-				if (ASTType(class_symbol) != AST_TEMPLATE_ID)
-				{
-					new_class->kind = SK_TEMPLATE_PRIMARY_CLASS;
-				}
-				else
-				{
-					new_class->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
-				}
-
 				if (decl_context.template_param_info != NULL)
 				{
 					new_class->template_parameter_info = decl_context.template_param_info;
 					new_class->num_template_parameters = decl_context.num_template_parameters;
+				}
+
+				if (ASTType(class_symbol) != AST_TEMPLATE_ID)
+				{
+					new_class->kind = SK_TEMPLATE_PRIMARY_CLASS;
+					build_scope_template_arguments_for_primary_template(st, new_class->template_parameter_info,
+							new_class->num_template_parameters, &(new_class->type_information->type->template_arguments));
+				}
+				else
+				{
+					new_class->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
+					build_scope_template_arguments(class_symbol, st, &(new_class->type_information->type->template_arguments));
 				}
 			}
 
@@ -2724,14 +2723,7 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 	if (id_expr != NULL)
 	{
 		// This might be ambiguous
-		AST def_arg_type_specifier = ASTSon0(id_expr);
-		AST def_arg_simple_type_spec = ASTSon1(def_arg_type_specifier);
-
-		if (ASTSon2(def_arg_simple_type_spec) != NULL
-				&& ASTType(ASTSon2(def_arg_simple_type_spec)) == AST_TEMPLATE_ID)
-		{
-			solve_possibly_ambiguous_template_id(ASTSon2(def_arg_simple_type_spec), st);
-		}
+		solve_possibly_ambiguous_expression(id_expr, st);
 
 		scope_entry_list_t* entry_list = query_id_expression(st, id_expr, FULL_UNQUALIFIED_LOOKUP);
 
@@ -3603,7 +3595,22 @@ void build_scope_template_arguments_for_primary_template(scope_t* st, template_p
 					new_template_argument->kind = TAK_NONTYPE;
 					new_template_argument->type = template_parameter->type_info;
 
-#warning Put an artificial name with a nontype template type here
+					char* param_name = template_parameter->template_parameter_name;
+					if (param_name == NULL)
+					{
+						param_name = get_unique_name();
+
+						// Sign up this artificial identifier used only
+						// for evaluation purposes
+						scope_entry_t* new_entry = new_symbol(st, param_name); 
+						new_entry->kind = SK_VARIABLE;
+						new_entry->type_information = template_parameter->type_info;
+					}
+
+					AST symbol_tree = ASTLeaf(AST_SYMBOL, 0, param_name);
+					AST expression_tree = ASTMake1(AST_EXPRESSION, symbol_tree, 0, NULL);
+
+					new_template_argument->argument_tree = expression_tree;
 
 					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 					break;
