@@ -1476,7 +1476,7 @@ static char check_for_declarator_rec(AST declarator, scope_t* st)
 {
 	switch (ASTType(declarator))
 	{
-		case AST_PARENTHESIZED_EXPRESSION :
+		case AST_PARENTHESIZED_DECLARATOR :
 		case AST_DECLARATOR :
 			{
 				return check_for_declarator_rec(ASTSon0(declarator), st);
