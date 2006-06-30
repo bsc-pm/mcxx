@@ -9,6 +9,8 @@
 #include "cxx-utils.h"
 #include "cxx-solvetemplate.h"
 #include "cxx-instantiation.h"
+#include "cxx-prettyprint.h"
+#include "cxx-cexpr.h"
 #include "hash.h"
 
 static scope_t* new_scope(void)
@@ -346,6 +348,8 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 	scope_entry_list_t* result = NULL;
 	scope_t* lookup_scope;
 
+	scope_t* template_scope = sc->template_scope;
+
 	if (global_op == NULL && nested_name == NULL)
 	{
 		char* symbol_name = ASTText(name);
@@ -388,6 +392,10 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 		char is_dependent = 0;
 		if ((lookup_scope = query_nested_name_spec(sc, global_op, nested_name, NULL, &is_dependent)) != NULL)
 		{
+			// We have to inherit the template_scope
+			scope_t* saved_scope = lookup_scope->template_scope;
+			lookup_scope->template_scope = template_scope;
+
 			switch (ASTType(name))
 			{
 				case AST_SYMBOL :
@@ -421,6 +429,8 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 				default :
 					internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(name)));
 			}
+
+			lookup_scope->template_scope = saved_scope;
 		}
 		else if (is_dependent)
 		{
@@ -459,34 +469,40 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		internal_error("Template not found! (line=%d)\n", ASTLine(template_id));
 	}
 
-	// Look for specializations
-	// char has_specializations = 0;
-	// while (iter != NULL)
-	// {
-	// 	if (iter->entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS
-	// 			&& iter->entry->kind != SK_TEMPLATE_PRIMARY_CLASS
-	// 			&& iter->entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
-	// 			&& iter->entry->kind != SK_TEMPLATE_FUNCTION)
-	// 	{
-	// 		internal_error("Expecting a template symbol but symbol kind %d found (line = %d)\n", 
-	// 				iter->entry->kind, ASTLine(template_id));
-	// 	}
-
-	// 	has_specializations |= (iter->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS);
-
-	// 	iter = iter->next;
-	// }
-
 	// First try to match exactly an existing template
 	// because this is a parameterized template-id
 	template_argument_list_t* current_template_arguments = NULL;
 
-	build_scope_template_arguments(template_id, sc, &current_template_arguments);
+	build_scope_template_arguments(template_id, lookup_scope, &current_template_arguments);
 
 	char give_exact_match = 0;
 	if (BITMAP_TEST(lookup_flags, LF_EXACT_TEMPLATE_MATCH))
 	{
 		give_exact_match = 1;
+	}
+
+	int i;
+	for (i = 0; i < current_template_arguments->num_arguments; i++)
+	{
+		template_argument_t* argument = current_template_arguments->argument_list[i];
+		if (argument->kind == TAK_TYPE)
+		{
+			if (argument->type->kind == TK_DIRECT
+					&& (argument->type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
+						|| argument->type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE))
+			{
+				give_exact_match = 1;
+			}
+		}
+		else if (argument->kind == TAK_NONTYPE)
+		{
+			literal_value_t value = evaluate_constant_expression(argument->argument_tree, argument->scope);
+
+			if (value.kind == LVK_DEPENDENT_EXPR)
+			{
+				give_exact_match = 1;
+			}
+		}
 	}
 	
 	unification_set_t* result_unification;
@@ -516,12 +532,26 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		{
 			int i;
 			fprintf(stderr, "=== Unification details for selected template %p\n", matched_template);
+
 			for (i = 0; i < matched_template->unif_set->num_elems; i++)
 			{
 				unification_item_t* unif_item = matched_template->unif_set->unif_list[i];
 				fprintf(stderr, "Parameter num: %d || Parameter nesting: %d || Parameter name: %s <- ",
 						unif_item->parameter_num, unif_item->parameter_nesting, unif_item->parameter_name);
-				print_declarator(unif_item->value, sc);
+				if (unif_item->value != NULL)
+				{
+					fprintf(stderr, "[type] ");
+					print_declarator(unif_item->value, sc);
+				}
+				else if (unif_item->expression != NULL)
+				{
+					fprintf(stderr, "[expr] ");
+					prettyprint(stderr, unif_item->expression);
+				}
+				else
+				{
+					fprintf(stderr, "(unknown)");
+				}
 				fprintf(stderr, "\n");
 			}
 			fprintf(stderr, "=== End of unification details for selected template\n");

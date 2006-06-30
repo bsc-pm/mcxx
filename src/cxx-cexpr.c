@@ -164,59 +164,66 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
 
 static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st)
 {
-    literal_value_t val_lhs;
-    literal_value_t val_rhs;
-    binary_operation_t bop;
+	literal_value_t val_lhs;
+	literal_value_t val_rhs;
+	binary_operation_t bop;
 
-    val_lhs = evaluate_constant_expression(lhs, st);
+	val_lhs = evaluate_constant_expression(lhs, st);
 
 	if (val_lhs.kind == LVK_DEPENDENT_EXPR)
 	{
 		return val_lhs;
 	}
 
-    bop = binary_ops[op];
+	bop = binary_ops[op];
 
-    if (bop.is_non_strict)
-    {
-        if (bop.if_lhs_zero_eval_rhs)
-        {
-            if (value_is_zero(val_lhs))
-            {
-                val_rhs = evaluate_constant_expression(rhs, st);
-
-				if (val_rhs.kind == LVK_DEPENDENT_EXPR)
-				{
-					return val_rhs;
-				}
-            }
-        }
-        else
-        {
-            if (!value_is_zero(val_lhs))
-            {
-                val_rhs = evaluate_constant_expression(rhs, st);
-            }
-
-			if (val_rhs.kind == LVK_DEPENDENT_EXPR)
+	if (bop.is_non_strict)
+	{
+		if (bop.if_lhs_zero_eval_rhs)
+		{
+			if (value_is_zero(val_lhs))
 			{
+				val_rhs = evaluate_constant_expression(rhs, st);
 				return val_rhs;
 			}
-        }
-    }
-    else
-    {
-        val_rhs = evaluate_constant_expression(rhs, st);
-    }
+			else
+			{
+				return val_lhs;
+			}
+		}
+		else
+		{
+			if (!value_is_zero(val_lhs))
+			{
+				val_rhs = evaluate_constant_expression(rhs, st);
+				return val_rhs;
+			}
+			else
+			{
+				return val_lhs;
+			}
+		}
+	}
+	else
+	{
+		val_rhs = evaluate_constant_expression(rhs, st);
+	}
 
-    promote_values(val_lhs, val_rhs, &val_lhs, &val_rhs);
+	if (val_rhs.kind == LVK_DEPENDENT_EXPR)
+	{
+		return val_rhs;
+	}
 
-    if (val_lhs.kind != val_rhs.kind)
-    {
-        internal_error("Both types should be the same (%d != %d)", val_lhs.kind, val_rhs.kind);
-    }
+	fprintf(stderr, "(1) val_lhs.kind=%d || val_rhs.kind=%d\n", val_lhs.kind, val_rhs.kind);
+	promote_values(val_lhs, val_rhs, &val_lhs, &val_rhs);
+	fprintf(stderr, "(2) val_lhs.kind=%d || val_rhs.kind=%d\n", val_lhs.kind, val_rhs.kind);
 
-    return bop.fun(val_lhs, val_rhs);
+	if (val_lhs.kind != val_rhs.kind)
+	{
+		internal_error("Both types should be the same (%d != %d)", val_lhs.kind, val_rhs.kind);
+	}
+
+	return bop.fun(val_lhs, val_rhs);
 }
 
 
@@ -640,7 +647,8 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 		internal_error("Cannot evaluate unknown symbol line=%d", ASTLine(symbol));
 	}
 
-	if (result->entry->kind == SK_DEPENDENT_ENTITY)
+	if (result->entry->kind == SK_DEPENDENT_ENTITY
+			|| result->entry->kind == SK_TEMPLATE_PARAMETER)
 	{
 		literal_value_t dependent_entity;
 		memset(&dependent_entity, 0, sizeof(dependent_entity));
@@ -658,16 +666,6 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 		prettyprint(stderr, symbol);
 		fprintf(stderr, "'\n");
 		internal_error("This symbol is not an expression", 0);
-	}
-
-	if (result->entry->kind == SK_TEMPLATE_PARAMETER)
-	{
-		literal_value_t dependent_entity;
-		memset(&dependent_entity, 0, sizeof(dependent_entity));
-
-		dependent_entity.kind = LVK_TEMPLATE_PARAMETER;
-
-		return dependent_entity;
 	}
 
 	if (result->entry->expression_value == NULL)
@@ -780,6 +778,11 @@ char equal_literal_values(literal_value_t v1, literal_value_t v2, scope_t* st)
 {
 	// Promote
 	promote_values(v1, v2, &v1, &v2);
+
+	if (v1.kind == LVK_DEPENDENT_EXPR
+			|| v2.kind == LVK_DEPENDENT_EXPR)
+		return 0;
+
 
 	literal_value_t result = equal_op(v1, v2);
 

@@ -3635,7 +3635,7 @@ void build_scope_template_arguments_for_primary_template(scope_t* st, template_p
 						// Sign up this artificial identifier used only
 						// for evaluation purposes
 						scope_entry_t* new_entry = new_symbol(st, param_name); 
-						new_entry->kind = SK_VARIABLE;
+						new_entry->kind = SK_TEMPLATE_PARAMETER;
 						new_entry->type_information = template_parameter->type_info;
 					}
 
@@ -3643,6 +3643,7 @@ void build_scope_template_arguments_for_primary_template(scope_t* st, template_p
 					AST expression_tree = ASTMake1(AST_EXPRESSION, symbol_tree, 0, NULL);
 
 					new_template_argument->argument_tree = expression_tree;
+					new_template_argument->scope = st;
 
 					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 					break;
@@ -3752,15 +3753,6 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 					AST expr_template_argument = ASTSon0(template_argument);
 
 					new_template_argument->argument_tree = expr_template_argument;
-					// Save the scope
-					// if (st->template_scope != NULL)
-					// {
-					// 	new_template_argument->scope = st->template_scope;
-					// }
-					// else
-					// {
-					// 	internal_error("Template scope is null!", 0);
-					// }
 					new_template_argument->scope = st;
 
 					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);

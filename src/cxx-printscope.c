@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include "cxx-prettyprint.h"
 #include "cxx-printscope.h"
 #include "hash_iterator.h"
 #include "cxx-typeutils.h"

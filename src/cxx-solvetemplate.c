@@ -7,6 +7,7 @@
 #include "cxx-solvetemplate.h"
 #include "cxx-typeunif.h"
 #include "cxx-typeutils.h"
+#include "cxx-prettyprint.h"
 
 char match_one_template(template_argument_list_t* arguments, 
 		template_argument_list_t* specialized, scope_entry_t* specialized_entry, 
@@ -268,7 +269,20 @@ char match_one_template(template_argument_list_t* arguments,
 		unification_item_t* unif_item = unif_set->unif_list[i];
 		fprintf(stderr, "Parameter num: %d || Parameter nesting: %d || Parameter name: %s <- ",
 				unif_item->parameter_num, unif_item->parameter_nesting, unif_item->parameter_name);
-		print_declarator(unif_item->value, st);
+		if (unif_item->value != NULL)
+		{
+			fprintf(stderr, "[type] ");
+			print_declarator(unif_item->value, st);
+		}
+		else if (unif_item->expression != NULL)
+		{
+			fprintf(stderr, "[expr] ");
+			prettyprint(stderr, unif_item->expression);
+		}
+		else
+		{
+			fprintf(stderr, "(unknown)");
+		}
 		fprintf(stderr, "\n");
 	}
 	fprintf(stderr, "=== End of unification details\n");
