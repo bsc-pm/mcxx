@@ -843,7 +843,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 			new_class->type_information->type->kind = STK_CLASS;
 			new_class->type_information->type->type_scope = st;
 
-
+			new_class->type_information->type->class_info = GC_CALLOC(1, 
+					sizeof(*(new_class->type_information->type->class_info)));
 
 			if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
 			{
@@ -862,6 +863,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 					new_class->kind = SK_TEMPLATE_PRIMARY_CLASS;
 					build_scope_template_arguments_for_primary_template(st, new_class->template_parameter_info,
 							new_class->num_template_parameters, &(new_class->type_information->type->template_arguments));
+					fprintf(stderr, "--1 Building template arguments for primary template %p\n",
+							new_class->type_information->type->template_arguments);
 				}
 				else
 				{
@@ -1232,11 +1235,14 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 				prettyprint(stderr, class_head_identifier);
 				fprintf(stderr, "' already declared in %p\n", st);
 
+				// Get the class entry
 				class_entry = class_entry_list->entry;
-				st = class_entry->scope;
 
-				// Adjust the scopes
+				st = class_entry->scope;
 				inner_scope = new_class_scope(st);
+
+				// Get its simple type info and adjust its scope
+				simple_type_info = class_entry->type_information->type;
 				simple_type_info->class_info->inner_scope = inner_scope;
 			}
 			else if (class_entry_list == NULL
@@ -1262,35 +1268,56 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 				}
 				else
 				{
-					if (decl_context.template_param_info != NULL)
-					{
-						class_entry->template_parameter_info = decl_context.template_param_info;
-						class_entry->num_template_parameters = decl_context.num_template_parameters;
-					}
 
 					if (ASTType(class_head_identifier) == AST_SYMBOL)
 					{
 						class_entry->kind = SK_TEMPLATE_PRIMARY_CLASS;
-						build_scope_template_arguments_for_primary_template(st, class_entry->template_parameter_info, 
-								class_entry->num_template_parameters,
-								&(simple_type_info->template_arguments));
 					}
 					else // AST_TEMPLATE_ID
 					{
 						class_entry->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
-						build_scope_template_arguments(class_head_identifier, st, &(simple_type_info->template_arguments));
 					}
-
-					// Save the decl that will be instantiated
-					simple_type_info->template_class_body = a;
-
 				}
 			}
 			else
 			{
 				internal_error("Unreachable code", 0);
 			}
+
+			if (decl_context.template_param_info != NULL)
+			{
+				class_entry->template_parameter_info = decl_context.template_param_info;
+				class_entry->num_template_parameters = decl_context.num_template_parameters;
+			}
+
+			// Gather template argument information
+			switch (class_entry->kind)
+			{
+				case SK_TEMPLATE_PRIMARY_CLASS :
+					{
+						build_scope_template_arguments_for_primary_template(st, class_entry->template_parameter_info, 
+								class_entry->num_template_parameters,
+								&(simple_type_info->template_arguments));
+						break;
+					}
+				case SK_TEMPLATE_SPECIALIZED_CLASS :
+					{
+						build_scope_template_arguments(class_head_identifier, st, &(simple_type_info->template_arguments));
+						break;
+					}
+				case SK_CLASS :
+					{
+						break;
+					}
+				default :
+					{
+						internal_error("Unexpected symbol kind for class %d\n", class_entry->kind);
+					}
+			}
 			
+			// Save the decl that will be instantiated
+			simple_type_info->template_class_body = a;
+
 			// Copy the type because we are creating it and we would clobber it
 			// otherwise
 			class_entry->type_information = copy_type(simple_type_to_type(simple_type_info));

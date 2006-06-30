@@ -45,24 +45,21 @@ scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_
 
 	while (iter != NULL)
 	{
-		if (iter->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+		scope_entry_t* entry = iter->entry;
+
+		template_argument_list_t* specialized = entry->type_information->type->template_arguments;
+
+		// It is supposed that this will hold in correct code
+		if (arguments->num_arguments != specialized->num_arguments)
 		{
-			scope_entry_t* entry = iter->entry;
+			internal_error("Template argument lists are not of equal length", 0);
+		}
 
-			template_argument_list_t* specialized = entry->type_information->type->template_arguments;
-
-			// It is supposed that this will hold in correct code
-			if (arguments->num_arguments != specialized->num_arguments)
-			{
-				internal_error("Template argument lists are not of equal length", 0);
-			}
-
-			unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
-			if (match_one_template(arguments, specialized, entry, st, unification_set))
-			{
-				*result_unification_set = unification_set;
-				P_LIST_ADD(matching_set, num_matching_set, entry);
-			}
+		unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
+		if (match_one_template(arguments, specialized, entry, st, unification_set))
+		{
+			*result_unification_set = unification_set;
+			P_LIST_ADD(matching_set, num_matching_set, entry);
 		}
 
 		iter = iter->next;
@@ -71,30 +68,20 @@ scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_
 	// There is no more than one candidate
 	if (num_matching_set == 1)
 	{
+		result = matching_set[0];
 		if (give_exact_match)
 		{
-			// Result will be an exact match if it can be unified with the original
-			if (result->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-			{
-				template_argument_list_t* specialized = result->type_information->type->template_arguments;
+			template_argument_list_t* specialized = result->type_information->type->template_arguments;
 
-				fprintf(stderr, "Checking match with the unique %p %p\n", specialized, arguments);
+			fprintf(stderr, "Checking match with the unique %p %p\n", specialized, arguments);
 
-				unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
-				if (!match_one_template(specialized, arguments, NULL, st, unification_set))
-				{
-					*result_unification_set = NULL;
-					return NULL;
-				}
-				*result_unification_set = unification_set;
-			}
-			else
+			unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
+			if (!match_one_template(specialized, arguments, NULL, st, unification_set))
 			{
-				// A primary template cannot be exactly matched to something that
-				// has invoked a template-id selection
 				*result_unification_set = NULL;
 				return NULL;
 			}
+			*result_unification_set = unification_set;
 		}
 		else
 		{
@@ -286,6 +273,7 @@ char match_one_template(template_argument_list_t* arguments,
 		print_declarator(unif_item->value, st);
 		fprintf(stderr, "\n");
 	}
+	fprintf(stderr, "=== End of unification details\n");
 
 	return 1;
 }

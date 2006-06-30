@@ -31,6 +31,7 @@ scope_entry_t* instantiate_primary_template(scope_entry_t* matched_template,
 	if (instantiate_tree == NULL)
 	{
 		// internal_error("Cannot instantiate an incomplete type\n", 0);
+		fprintf(stderr, "This is an incomplete type, cannot instantiate it\n");
 		return matched_template;
 	}
 
@@ -139,6 +140,7 @@ scope_entry_t* instantiate_specialized_template(scope_entry_t* matched_template,
 	if (instantiate_tree == NULL)
 	{
 		// internal_error("Cannot instantiate an incomplete type\n", 0);
+		fprintf(stderr, "This is an incomplete type, cannot instantiate it\n");
 		return matched_template;
 	}
 
@@ -155,18 +157,16 @@ scope_entry_t* instantiate_specialized_template(scope_entry_t* matched_template,
 
 	// class_name should be a template-id
 	AST class_name = ASTSon2(class_head);
-	if (ASTType(class_name) != AST_TEMPLATE_ID)
+	if (ASTType(class_name) == AST_TEMPLATE_ID)
 	{
-		internal_error("Expecting a template-id here!\n", 0);
+		// Convert it into a symbol
+		ASTType(class_name) = AST_SYMBOL;
+		ASTText(class_name) = ASTText(ASTSon0(class_name));
+		ASTLineLval(class_name) = ASTLine(ASTSon0(class_name));
+		ASTNumChildren(class_name) = 0;
+		ASTSon0(class_name) = NULL;
+		ASTSon1(class_name) = NULL;
 	}
-
-	// Convert it into a symbol
-	ASTType(class_name) = AST_SYMBOL;
-	ASTText(class_name) = ASTText(ASTSon0(class_name));
-	ASTLineLval(class_name) = ASTLine(ASTSon0(class_name));
-	ASTNumChildren(class_name) = 0;
-	ASTSon0(class_name) = NULL;
-	ASTSon1(class_name) = NULL;
 
 	// Wrap the tree
 	instantiate_tree = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, 

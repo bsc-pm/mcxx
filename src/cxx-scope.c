@@ -460,22 +460,22 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 	}
 
 	// Look for specializations
-	char has_specializations = 0;
-	while (iter != NULL)
-	{
-		if (iter->entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS
-				&& iter->entry->kind != SK_TEMPLATE_PRIMARY_CLASS
-				&& iter->entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
-				&& iter->entry->kind != SK_TEMPLATE_FUNCTION)
-		{
-			internal_error("Expecting a template symbol but symbol kind %d found (line = %d)\n", 
-					iter->entry->kind, ASTLine(template_id));
-		}
+	// char has_specializations = 0;
+	// while (iter != NULL)
+	// {
+	// 	if (iter->entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS
+	// 			&& iter->entry->kind != SK_TEMPLATE_PRIMARY_CLASS
+	// 			&& iter->entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
+	// 			&& iter->entry->kind != SK_TEMPLATE_FUNCTION)
+	// 	{
+	// 		internal_error("Expecting a template symbol but symbol kind %d found (line = %d)\n", 
+	// 				iter->entry->kind, ASTLine(template_id));
+	// 	}
 
-		has_specializations |= (iter->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS);
+	// 	has_specializations |= (iter->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS);
 
-		iter = iter->next;
-	}
+	// 	iter = iter->next;
+	// }
 
 	// First try to match exactly an existing template
 	// because this is a parameterized template-id
@@ -500,6 +500,10 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 	{
 		fprintf(stderr, "Selected exact template '%p'\n", matched_template);
 		return create_list_from_entry(matched_template);
+	}
+	else
+	{
+		fprintf(stderr, "-> Not selected an exact template\n");
 	}
 
 	// If we are here there is no exact match thus we may have to instantiate
