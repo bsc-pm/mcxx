@@ -283,9 +283,10 @@ scope_entry_t* instantiate_specialized_template(scope_entry_t* matched_template,
 	return instantiated_template;
 }
 
-scope_entry_t* instantiate_template(scope_entry_t* matched_template, template_argument_list_t* arguments, 
-		unification_set_t* unification_set, scope_t* st)
+scope_entry_t* instantiate_template(matching_pair_t* match_pair, template_argument_list_t* arguments, scope_t* st)
 {
+	scope_entry_t* matched_template = match_pair->entry;
+	unification_set_t* unification_set = match_pair->unif_set;
 	switch (matched_template->kind)
 	{
 		case SK_TEMPLATE_PRIMARY_CLASS :

@@ -12,27 +12,24 @@ char match_one_template(template_argument_list_t* arguments,
 		template_argument_list_t* specialized, scope_entry_t* specialized_entry, 
 		scope_t* st, unification_set_t* unif_set);
 
-static scope_entry_t* determine_more_specialized(int num_matching_set, scope_entry_t** matching_set, scope_t* st,
-		unification_set_t** result_unification_set);
+static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, scope_t* st);
 
-scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_argument_list_t* arguments, scope_t* st,
-		unification_set_t** result_unification_set, char give_exact_match)
+matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, template_argument_list_t* arguments, scope_t* st, 
+		char give_exact_match)
 {
-	scope_entry_t* result = NULL;
+	matching_pair_t* result = NULL;
 
 	// In the worst of the cases the chosen template will be the primary one
 	scope_entry_list_t* iter = candidate_templates;
 
-	while (iter != NULL)
+	char seen_primary_template = 0;
+	while (iter != NULL && !seen_primary_template)
 	{
-		if (iter->entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
-		{
-			result = iter->entry;
-		}
+		seen_primary_template |= (iter->entry->kind == SK_TEMPLATE_PRIMARY_CLASS);
 		iter = iter->next;
 	}
 
-	if (result == NULL)
+	if (!seen_primary_template)
 	{
 		internal_error("No primary template was found", 0);
 	}
@@ -41,7 +38,8 @@ scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_
 	iter = candidate_templates;
 
 	int num_matching_set = 0;
-	scope_entry_t** matching_set = NULL;
+
+	matching_pair_t** matching_set = NULL;
 
 	while (iter != NULL)
 	{
@@ -58,8 +56,12 @@ scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_
 		unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
 		if (match_one_template(arguments, specialized, entry, st, unification_set))
 		{
-			*result_unification_set = unification_set;
-			P_LIST_ADD(matching_set, num_matching_set, entry);
+			matching_pair_t* match_pair = GC_CALLOC(1, sizeof(*match_pair));
+
+			match_pair->entry = entry;
+			match_pair->unif_set = unification_set;
+
+			P_LIST_ADD(matching_set, num_matching_set, match_pair);
 		}
 
 		iter = iter->next;
@@ -71,17 +73,15 @@ scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_
 		result = matching_set[0];
 		if (give_exact_match)
 		{
-			template_argument_list_t* specialized = result->type_information->type->template_arguments;
+			template_argument_list_t* specialized = result->entry->type_information->type->template_arguments;
 
 			fprintf(stderr, "Checking match with the unique %p %p\n", specialized, arguments);
 
 			unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
 			if (!match_one_template(specialized, arguments, NULL, st, unification_set))
 			{
-				*result_unification_set = NULL;
 				return NULL;
 			}
-			*result_unification_set = unification_set;
 		}
 		else
 		{
@@ -90,63 +90,61 @@ scope_entry_t* solve_template(scope_entry_list_t* candidate_templates, template_
 	}
 	else if (num_matching_set > 0)
 	{
-		result = determine_more_specialized(num_matching_set, matching_set, st, result_unification_set);
+		fprintf(stderr, "More than one template can be selected, determining more specialized\n");
+		result = determine_more_specialized(num_matching_set, matching_set, st);
+		fprintf(stderr, "More specialized determined result=%p\n", result);
 	}
 
 	if (give_exact_match 
 			&& result != NULL)
 	{
 		// Result will be an exact match if it can be unified with the original
-		template_argument_list_t* specialized = result->type_information->type->template_arguments;
+		template_argument_list_t* specialized = result->entry->type_information->type->template_arguments;
 
 		fprintf(stderr, "Checking match %p %p\n", specialized, arguments);
 
 		unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
 		if (!match_one_template(specialized, arguments, NULL, st, unification_set))
 		{
-			*result_unification_set = NULL;
 			return NULL;
 		}
-
-		*result_unification_set = unification_set;
-	}
-
-	if (result == NULL)
-	{
-		*result_unification_set = NULL;
 	}
 
 	return result;
 }
 
 // This function assumes that only one minimum will exist
-static scope_entry_t* determine_more_specialized(int num_matching_set, scope_entry_t** matching_set, scope_t* st,
-		unification_set_t** result_unification_set)
+static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, scope_t* st)
 {
-	scope_entry_t* min = matching_set[0];
+	matching_pair_t* min = matching_set[0];
+
+	fprintf(stderr, "Have to select the best template among %d templates\n", num_matching_set);
 
 	int i;
 	for (i = 1; i < num_matching_set; i++)
 	{
-		scope_entry_t* current_entry = matching_set[i];
+		matching_pair_t* current_entry = matching_set[i];
 
-		template_argument_list_t* min_args = min->type_information->type->template_arguments;
-		template_argument_list_t* current_args = current_entry->type_information->type->template_arguments;
+		template_argument_list_t* min_args =
+			min->entry->type_information->type->template_arguments;
+		template_argument_list_t* current_args =
+			current_entry->entry->type_information->type->template_arguments;
 
 		unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
 
-		if (!match_one_template(min_args, current_args, current_entry, st, unification_set))
+		if (!match_one_template(min_args, current_args, current_entry->entry, st, unification_set))
 		{
 			min = current_entry;
-			*result_unification_set = unification_set;
 
 			unification_set_t* unification_set_check = GC_CALLOC(1, sizeof(*unification_set_check));
-			if (!match_one_template(current_args, min_args, min, st, unification_set))
+			if (!match_one_template(current_args, min_args, min->entry, st, unification_set))
 			{
 				internal_error("Ambiguous specialization instantiation\n", 0);
 			}
 		}
 	}
+
+	fprintf(stderr, "Best template selected\n");
 
 	return min;
 }

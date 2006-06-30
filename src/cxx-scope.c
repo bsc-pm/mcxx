@@ -493,13 +493,13 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
 	fprintf(stderr, "-> Looking for exact match templates\n");
 
-	scope_entry_t* matched_template = solve_template(entry_list, current_template_arguments, 
-			sc, &result_unification, 1);
+	matching_pair_t* matched_template = solve_template(entry_list,
+			current_template_arguments, sc, 1);
 
 	if (matched_template != NULL)
 	{
 		fprintf(stderr, "Selected exact template '%p'\n", matched_template);
-		return create_list_from_entry(matched_template);
+		return create_list_from_entry(matched_template->entry);
 	}
 	else
 	{
@@ -511,12 +511,27 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 	if (!give_exact_match)
 	{
 		fprintf(stderr, "-> Looking for instantiable templates\n");
-		matched_template = solve_template(entry_list, current_template_arguments, sc, &result_unification, 0);
+		matched_template = solve_template(entry_list, current_template_arguments, sc, 0);
+
+		{
+			int i;
+			fprintf(stderr, "=== Unification details for selected template %p\n", matched_template);
+			for (i = 0; i < matched_template->unif_set->num_elems; i++)
+			{
+				unification_item_t* unif_item = matched_template->unif_set->unif_list[i];
+				fprintf(stderr, "Parameter num: %d || Parameter nesting: %d || Parameter name: %s <- ",
+						unif_item->parameter_num, unif_item->parameter_nesting, unif_item->parameter_name);
+				print_declarator(unif_item->value, sc);
+				fprintf(stderr, "\n");
+			}
+			fprintf(stderr, "=== End of unification details for selected template\n");
+		}
+
 
 		if (matched_template != NULL)
 		{
 			// We have to instantiate the template
-			scope_entry_t* instantiated_template = instantiate_template(matched_template, current_template_arguments, result_unification, sc);
+			scope_entry_t* instantiated_template = instantiate_template(matched_template, current_template_arguments, sc);
 
 			return create_list_from_entry(instantiated_template);
 		}
