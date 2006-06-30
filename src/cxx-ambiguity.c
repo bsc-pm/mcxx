@@ -501,7 +501,8 @@ static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, int n
 
 				char* class_name = ASTText(symbol);
 
-				if (ASTType(symbol) == AST_DESTRUCTOR_ID)
+				if (ASTType(symbol) == AST_DESTRUCTOR_ID
+						|| ASTType(symbol) == AST_DESTRUCTOR_TEMPLATE_ID)
 				{
 					// Spring '~'
 					class_name++;
@@ -531,6 +532,7 @@ static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, int n
 				break;
 			}
 		case AST_DESTRUCTOR_ID :
+		case AST_DESTRUCTOR_TEMPLATE_ID :
 		case AST_SYMBOL :
 			{
 				char* class_name = ASTText(id_expression);
@@ -541,7 +543,8 @@ static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, int n
 					return 0;
 				}
 
-				if (ASTType(id_expression) == AST_DESTRUCTOR_ID)
+				if (ASTType(id_expression) == AST_DESTRUCTOR_ID ||
+						ASTType(id_expression) == AST_DESTRUCTOR_TEMPLATE_ID)
 				{
 					// Spring '~'
 					class_name++;
@@ -695,6 +698,7 @@ static char check_for_expression(AST expression, scope_t* st)
 				return check_for_symbol(expression, st);
 			}
 		case AST_DESTRUCTOR_ID :
+		case AST_DESTRUCTOR_TEMPLATE_ID :
 			{
 				// This is never a value since it must be invoked via pseudo destructor call
 				return 0;
@@ -745,7 +749,8 @@ static char check_for_expression(AST expression, scope_t* st)
 		case AST_POINTER_CLASS_MEMBER_ACCESS :
 			{
 				// This should always yield a value unless the right hand is shit
-				if (ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_ID)
+				if (ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_ID
+						|| ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_TEMPLATE_ID)
 				{
 					return 0;
 				}
@@ -756,7 +761,8 @@ static char check_for_expression(AST expression, scope_t* st)
 		case AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS :
 			{
 				// Think on this. Can this yield something that is not a value ?
-				if (ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_ID)
+				if (ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_ID
+						|| ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_TEMPLATE_ID)
 				{
 					return 0;
 				}
@@ -979,7 +985,12 @@ static char check_for_symbol(AST expr, scope_t* st)
 
 static char check_for_destructor_id(AST expr, scope_t* st)
 {
-	ENSURE_TYPE(expr, AST_DESTRUCTOR_ID);
+	// ENSURE_TYPE(expr, AST_DESTRUCTOR_ID);
+	if (ASTType(expr) != AST_DESTRUCTOR_ID
+			&& ASTType(expr) != AST_DESTRUCTOR_TEMPLATE_ID)
+	{
+		internal_error("Expecting node of AST_DESTRUCTOR_{ID|TEMPLATE_ID} but got '%s'\n", ast_print_node_type(ASTType(expr)));
+	}
 
 	char* class_name = ASTText(expr);
 	// Spring ~

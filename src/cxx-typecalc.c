@@ -252,6 +252,7 @@ static calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 			}
 		case AST_SYMBOL :
 		case AST_QUALIFIED_ID :
+		case AST_DESTRUCTOR_TEMPLATE_ID :
 		case AST_DESTRUCTOR_ID :
 		case AST_OPERATOR_FUNCTION_ID :
 		case AST_QUALIFIED_OPERATOR_FUNCTION_ID :

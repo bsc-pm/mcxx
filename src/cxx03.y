@@ -2723,7 +2723,13 @@ unqualified_id : IDENTIFIER
 }
 | '~' template_id
 {
-	$$ = ASTMake1(AST_DESTRUCTOR_TEMPLATE_ID, $2, $1.token_line, NULL);
+	AST symbol = ASTSon0($2);
+
+	char* c = GC_CALLOC(sizeof(char), strlen(ASTText(symbol)) + 2);
+	strcat(c, "~");
+	strcat(c, ASTText(symbol));
+
+	$$ = ASTMake1(AST_DESTRUCTOR_TEMPLATE_ID, $2, $1.token_line, c);
 }
 | template_id
 {

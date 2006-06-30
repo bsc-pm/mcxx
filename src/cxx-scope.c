@@ -411,6 +411,7 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 						result = query_in_symbols_of_scope(lookup_scope, conversion_function_name);
 						break;
 					}
+				case AST_DESTRUCTOR_TEMPLATE_ID :
 				case AST_DESTRUCTOR_ID :
 					{
 						char* symbol_name = ASTText(ASTSon0(name));
@@ -590,6 +591,7 @@ scope_entry_list_t* query_id_expression_flags(scope_t* sc, AST id_expr,
 				return result;
 				break;
 			}
+		case AST_DESTRUCTOR_TEMPLATE_ID :
 		case AST_DESTRUCTOR_ID :
 			{
 				// An unqualified destructor name "~name"

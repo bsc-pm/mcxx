@@ -2011,6 +2011,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 				}
 				break;
 			}
+			// It should not appear here
+			// case AST_DESTRUCTOR_TEMPLATE_ID : 
 		case AST_DESTRUCTOR_ID :
 			{
 				// An unqualified destructor name "~name"
@@ -3268,6 +3270,8 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
 					}
 					break;
 				}
+				// This should not appear here
+				// case AST_DESTRUCTOR_TEMPLATE_ID : 
 			case AST_DESTRUCTOR_ID :
 				{
 					// This is the destructor
@@ -3417,6 +3421,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 										}
 										break;
 									}
+								case AST_DESTRUCTOR_TEMPLATE_ID : // This can appear here
 								case AST_DESTRUCTOR_ID :
 									{
 										// This is the destructor
