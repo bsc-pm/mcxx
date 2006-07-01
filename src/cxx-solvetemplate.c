@@ -201,7 +201,7 @@ char match_one_template(template_argument_list_t* arguments,
 
 						literal_value_t arg_value = evaluate_constant_expression(arg->argument_tree, st);
 
-						if (spec_arg_value.kind != LVK_TEMPLATE_PARAMETER)
+						if (spec_arg_value.kind != LVK_DEPENDENT_EXPR)
 						{
 							if (!equal_literal_values(spec_arg_value, arg_value, st))
 							{

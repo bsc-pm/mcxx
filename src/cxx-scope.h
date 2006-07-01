@@ -130,7 +130,7 @@ typedef struct template_parameter {
 	struct type_tag* default_type;
 
 	AST default_expression;
-	struct scope_tag* default_expression_scope;
+	struct scope_tag* default_argument_scope;
 } template_parameter_t;
 
 typedef enum access_specifier_t
@@ -446,7 +446,7 @@ typedef enum lookup_flags_tag
 	LF_NONE = 0,
 	LF_CONSTRUCTOR = BITMAP(1),
 	LF_EXACT_TEMPLATE_MATCH = BITMAP(2),
-	LF_ALLOW_TEMPLATE_TYPES = BITMAP(3)
+	LF_EXPRESSION = BITMAP(3),
 } lookup_flags_t ;
 
 // Higher level functions when dealing with the scope

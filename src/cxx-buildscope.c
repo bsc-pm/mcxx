@@ -366,8 +366,9 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 	 * Both are optional. decl_specifier_seq is ommited for constructors and
 	 * may be ommited for conversion functions and destructors.
 	 *
-	 * The declarator_list can be ommited only when the decl_specifier_seq
-	 * includes a class specifier, enum specifier or an elaborated type name.
+     * The declarator_list can be ommited only when the decl_specifier_seq
+     * includes a class specifier, enum specifier or an elaborated type name
+     * and declares something.
 	 */
 
 	// If there are decl_specifiers gather information about them.
@@ -1133,27 +1134,32 @@ static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class
 				internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(base_specifier)));
 		}
 
+
 		scope_entry_list_t* result_list = query_nested_name(st, global_op, nested_name_specifier, name, FULL_UNQUALIFIED_LOOKUP);
 
 		enum cxx_symbol_kind filter[5] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS, 
 			SK_TEMPLATE_TYPE_PARAMETER, SK_TEMPLATE_TEMPLATE_PARAMETER};
 		result_list = filter_symbol_kind_set(result_list, 5, filter);
 
-		if (result_list == NULL)
-		{
-			internal_error("Base class not found!\n", 0);
-		}
+        if (!is_dependent_tree(nested_name_specifier, st)
+                && !is_dependent_tree(name, st))
+        {
+            if (result_list == NULL)
+            {
+                internal_error("Base class not found!\n", 0);
+            }
 
-		if (result_list->entry->related_scope != NULL)
-		{
-			P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, result_list->entry->related_scope);
-		}
+            if (result_list->entry->related_scope != NULL)
+            {
+                P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, result_list->entry->related_scope);
+            }
 
-		base_class_info_t* base_class = GC_CALLOC(1, sizeof(*base_class));
-		base_class->class_type = result_list->entry->type_information;
+            base_class_info_t* base_class = GC_CALLOC(1, sizeof(*base_class));
+            base_class->class_type = result_list->entry->type_information;
 #warning Missing access specifier for bases
 
-		P_LIST_ADD(class_info->base_classes_list, class_info->num_bases, base_class);
+            P_LIST_ADD(class_info->base_classes_list, class_info->num_bases, base_class);
+        }
 	}
 }
 
@@ -2902,7 +2908,7 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 		template_param_info->type_info = simple_type_to_type(simple_type_info);
 	}
 
-	template_param_info->default_expression_scope = st;
+	template_param_info->default_argument_scope = st;
 	template_param_info->default_expression = default_expression;
 
 	template_param_info->kind = TPK_NONTYPE;
@@ -3615,6 +3621,10 @@ void build_scope_template_arguments_for_primary_template(scope_t* st, template_p
 
 					new_template_argument->kind = TAK_TYPE;
 					new_template_argument->type = template_parameter->type_info;
+					new_template_argument->scope = st;
+
+                    // Note that argument_tree will remain NULL here, there is
+                    // no need to create a fake tree here
 
 					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 
@@ -3742,6 +3752,7 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 					}
 					new_template_argument->type = declarator_type;
 					new_template_argument->argument_tree = template_argument;
+					new_template_argument->scope = st;
 					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 					break;
 				}
@@ -3794,6 +3805,7 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 
 						curr_template_arg->kind = TAK_TYPE;
 						curr_template_arg->type = curr_template_parameter->default_type;
+                        curr_template_arg->scope = curr_template_parameter->default_argument_scope;
 						break;
 					}
 				case TPK_NONTYPE :
@@ -3805,7 +3817,7 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 
 						curr_template_arg->kind = TAK_NONTYPE;
 						curr_template_arg->argument_tree = curr_template_parameter->default_expression;
-						curr_template_arg->scope = curr_template_parameter->default_expression_scope;
+						curr_template_arg->scope = curr_template_parameter->default_argument_scope;
 						break;
 					}
 				default:

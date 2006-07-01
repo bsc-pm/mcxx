@@ -1545,3 +1545,40 @@ void print_declarator(type_t* printed_declarator, scope_t* st)
 		}
 	} while (printed_declarator != NULL);
 }
+
+char is_dependent_tree(AST tree, scope_t* st)
+{
+    if (tree == NULL)
+    {
+        return 0;
+    }
+
+    if (ASTType(tree) == AST_SYMBOL)
+    {
+        char* name = ASTText(tree);
+
+        scope_entry_list_t* result_list = query_unqualified_name(st, name);
+
+        // Ignore things not found
+        if (result_list == NULL)
+        {
+            return 0;
+        }
+
+        scope_entry_t* result = result_list->entry;
+
+        if (result->kind == SK_TEMPLATE_TYPE_PARAMETER
+                || result->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                || result->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+        {
+            return 1;
+        }
+    }
+    else
+    {
+        return is_dependent_tree(ASTSon0(tree), st)
+            || is_dependent_tree(ASTSon1(tree), st)
+            || is_dependent_tree(ASTSon2(tree), st)
+            || is_dependent_tree(ASTSon3(tree), st);
+    }
+}

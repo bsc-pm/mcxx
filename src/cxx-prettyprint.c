@@ -52,7 +52,7 @@ HANDLER_PROTOTYPE(delete_expression_handler);
 HANDLER_PROTOTYPE(array_subscript_handler);
 HANDLER_PROTOTYPE(function_call_handler);
 HANDLER_PROTOTYPE(function_call_handler);
-HANDLER_PROTOTYPE(typename_function_call_handler);
+HANDLER_PROTOTYPE(typename_explicit_type_conversion);
 HANDLER_PROTOTYPE(typename_template_handler);
 HANDLER_PROTOTYPE(typename_template_template_handler);
 HANDLER_PROTOTYPE(infix_parameter_handler);
@@ -285,7 +285,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_ARRAY_SUBSCRIPT, array_subscript_handler, NULL),
 	NODE_HANDLER(AST_FUNCTION_CALL, function_call_handler, NULL),
 	NODE_HANDLER(AST_EXPLICIT_TYPE_CONVERSION, function_call_handler, NULL),
-	NODE_HANDLER(AST_TYPENAME_FUNCTION_CALL, typename_function_call_handler, NULL),
+	NODE_HANDLER(AST_TYPENAME_EXPLICIT_TYPE_CONVERSION, typename_explicit_type_conversion, NULL),
 	NODE_HANDLER(AST_TYPENAME_TEMPLATE, typename_template_handler, NULL),
 	NODE_HANDLER(AST_TYPENAME_TEMPLATE_TEMPLATE, typename_template_template_handler, NULL),
 	NODE_HANDLER(AST_CLASS_MEMBER_ACCESS, infix_parameter_handler, "."),
@@ -988,7 +988,7 @@ static void function_call_handler(FILE* f, AST a, int level)
 	fprintf(f, ")");
 }
 
-static void typename_function_call_handler(FILE* f, AST a, int level)
+static void typename_explicit_type_conversion(FILE* f, AST a, int level)
 {
 	fprintf(f, "typename ");
 

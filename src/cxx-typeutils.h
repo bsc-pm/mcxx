@@ -79,4 +79,6 @@ char is_reference_to_class_type(type_t* t1);
 
 char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 
+char is_dependent_tree(AST tree, scope_t* st);
+
 #endif // CXX_TYPEUTILS_H

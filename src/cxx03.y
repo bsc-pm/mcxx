@@ -1517,7 +1517,7 @@ declarator_id : id_expression
 /* 
 This looks to me very "uselessly" ambiguous since everything generated here can
 be generated with a plain id_expression and there is no point in remembering
-here that this can name a type.
+here that this can name a type. -rferrer
 */
 // | nested_name_specifier type_name 
 // {
@@ -2765,27 +2765,27 @@ postfix_expression : primary_expression
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
 
-	$$ = ASTMake4(AST_TYPENAME_FUNCTION_CALL, NULL, $2, identifier, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_EXPLICIT_TYPE_CONVERSION, NULL, $2, identifier, NULL, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier IDENTIFIER '(' ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
 
-	$$ = ASTMake4(AST_TYPENAME_FUNCTION_CALL, global_op, $3, identifier, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_EXPLICIT_TYPE_CONVERSION, global_op, $3, identifier, NULL, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier IDENTIFIER '(' expression_list ')'
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
 
-	$$ = ASTMake4(AST_TYPENAME_FUNCTION_CALL, NULL, $2, identifier, $5, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_EXPLICIT_TYPE_CONVERSION, NULL, $2, identifier, $5, $1.token_line, NULL);
 }
 | TYPENAME DOS_DOS_PUNTS nested_name_specifier IDENTIFIER '(' expression_list ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
 
-	$$ = ASTMake4(AST_TYPENAME_FUNCTION_CALL, global_op, $3, identifier, $6, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_EXPLICIT_TYPE_CONVERSION, global_op, $3, identifier, $6, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier template_id '(' ')'
 {

@@ -199,13 +199,15 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
 /*
  * Returns the scope of this nested name specification
  */
-scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list, char* is_dependent)
+scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name,
+        scope_entry_list_t** result_entry_list, char* is_dependent)
 {
 	return query_nested_name_spec_flags(sc, global_op, nested_name, result_entry_list, is_dependent, LF_NONE);
 }
 
-scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list, char* is_dependent,
-		lookup_flags_t lookup_flags)
+scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
+        nested_name, scope_entry_list_t** result_entry_list, char*
+        is_dependent, lookup_flags_t lookup_flags)
 {
 	int qualif_level = 0;
 	// We'll start the search in "sc"
@@ -432,13 +434,13 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 
 			lookup_scope->template_scope = saved_scope;
 		}
-		else if (is_dependent)
-		{
-			scope_entry_t* dependent_entity = GC_CALLOC(1, sizeof(*dependent_entity));
-			dependent_entity->kind = SK_DEPENDENT_ENTITY;
+        else if (is_dependent)
+        {
+            scope_entry_t* dependent_entity = GC_CALLOC(1, sizeof(*dependent_entity));
+            dependent_entity->kind = SK_DEPENDENT_ENTITY;
 
-			return create_list_from_entry(dependent_entity);
-		}
+            return create_list_from_entry(dependent_entity);
+        }
 	}
 
 	return result;
@@ -482,17 +484,22 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 	}
 
 	int i;
+    char seen_dependent_args = 0;
 	for (i = 0; i < current_template_arguments->num_arguments; i++)
 	{
 		template_argument_t* argument = current_template_arguments->argument_list[i];
 		if (argument->kind == TAK_TYPE)
 		{
-			if (argument->type->kind == TK_DIRECT
-					&& (argument->type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
-						|| argument->type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE))
+			if (is_dependent_tree(argument->argument_tree, argument->scope))
 			{
-				give_exact_match = 1;
+				seen_dependent_args = 1;
 			}
+
+            {
+                fprintf(stderr, "TAK_TYPE -> ");
+                print_declarator(argument->type, lookup_scope);
+                fprintf(stderr, "\n");
+            }
 		}
 		else if (argument->kind == TAK_NONTYPE)
 		{
@@ -500,13 +507,23 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
 			if (value.kind == LVK_DEPENDENT_EXPR)
 			{
-				give_exact_match = 1;
+				seen_dependent_args = 1;
 			}
 		}
 	}
-	
-	unification_set_t* result_unification;
 
+    if (BITMAP_TEST(lookup_flags, LF_EXPRESSION) 
+            && seen_dependent_args)
+    {
+        fprintf(stderr, "This is a dependent template-id\n");
+        scope_entry_t* dependent_entity = GC_CALLOC(1, sizeof(*dependent_entity));
+        dependent_entity->kind = SK_DEPENDENT_ENTITY;
+
+        return create_list_from_entry(dependent_entity);
+    }
+
+    give_exact_match |= seen_dependent_args;
+	
 	fprintf(stderr, "-> Looking for exact match templates\n");
 
 	matching_pair_t* matched_template = solve_template(entry_list,
@@ -1218,3 +1235,4 @@ scope_entry_list_t* append_scope_entry_lists(scope_entry_list_t* a, scope_entry_
 
 	return result;
 }
+

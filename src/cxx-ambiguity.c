@@ -22,7 +22,9 @@ static char check_for_expression(AST expression, scope_t* st);
 static char check_for_expression_statement(AST a, scope_t* st);
 static char check_for_qualified_id(AST expr, scope_t* st);
 static char check_for_symbol(AST expr, scope_t* st);
+#if 0
 static char check_for_destructor_id(AST expr, scope_t* st);
+#endif
 static char check_for_function_call(AST expr, scope_t* st);
 static char check_for_explicit_type_conversion(AST expr, scope_t* st);
 static char check_for_typeid(AST expr, scope_t* st);
@@ -734,10 +736,10 @@ static char check_for_expression(AST expression, scope_t* st)
 			{
 				return check_for_explicit_type_conversion(expression, st);
 			}
-		case AST_TYPENAME_FUNCTION_CALL :
+		case AST_TYPENAME_EXPLICIT_TYPE_CONVERSION :
 			{
-				// This yields a value
-				return 1;
+				// This does not yields a value
+				return 0;
 			}
 		case AST_TYPENAME_TEMPLATE :
 		case AST_TYPENAME_TEMPLATE_TEMPLATE :
@@ -983,6 +985,7 @@ static char check_for_symbol(AST expr, scope_t* st)
 				|| result->entry->kind == SK_TEMPLATE_PARAMETER));
 }
 
+#if 0
 static char check_for_destructor_id(AST expr, scope_t* st)
 {
 	// ENSURE_TYPE(expr, AST_DESTRUCTOR_ID);
@@ -1022,6 +1025,7 @@ static char check_for_destructor_id(AST expr, scope_t* st)
 				// Dubious without exact instantiation
 				|| type_result->type->kind == STK_TYPE_TEMPLATE_PARAMETER));
 }
+#endif
 
 static char check_for_functional_expression(AST expr, AST arguments, scope_t* st)
 {
@@ -1285,6 +1289,8 @@ static char check_for_type_specifier(AST type_id, scope_t* st)
 			break;
 		case AST_CLASS_SPECIFIER :
 		case AST_ENUM_SPECIFIER :
+        case AST_ELABORATED_TYPENAME :
+        case AST_ELABORATED_TYPENAME_TEMPLATE :
 		case AST_ELABORATED_TYPE_ENUM :
 		case AST_ELABORATED_TYPE_CLASS :
 		case AST_ELABORATED_TYPE_TEMPLATE :
