@@ -1267,12 +1267,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 	// (it is used when checking member acesses)
 	simple_type_info->class_info->inner_scope = inner_scope;
 
-	
-	// Now add the bases
-	if (base_clause != NULL)
-	{
-		build_scope_base_clause(base_clause, st, inner_scope, simple_type_info->class_info);
-	}
 
 	scope_entry_t* class_entry = NULL;
 	
@@ -1323,8 +1317,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 				// Get its simple type info and adjust its scope
 				simple_type_info = class_entry->type_information->type;
 				simple_type_info->class_info->inner_scope = inner_scope;
-
-				fprintf(stderr, "scope=%p || inner_scope=%p\n", st, inner_scope);
+                
 			}
 			else if (class_entry_list == NULL
 					&& class_head_nested_name == NULL)
@@ -1368,6 +1361,12 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 			{
 				internal_error("Unreachable code", 0);
 			}
+            
+            // Now add the bases
+            if (base_clause != NULL)
+            {
+                build_scope_base_clause(base_clause, st, inner_scope, simple_type_info->class_info);
+            }
 
 			if (decl_context.template_param_info != NULL)
 			{
@@ -1472,9 +1471,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 			// otherwise
 			class_entry->type_information = copy_type(simple_type_to_type(simple_type_info));
 			class_entry->related_scope = inner_scope;
-
-			fprintf(stderr, "related_scope=%p\n", class_entry->related_scope);
-
+            
 			// Since this type is not anonymous we'll want that simple_type_info
 			// refers to this newly created type
 			memset(simple_type_info, 0, sizeof(*simple_type_info));
@@ -1486,6 +1483,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 			internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(class_head_identifier)));
 		}
 	}
+    
 
 	// Member specification
 	access_specifier_t current_access;
