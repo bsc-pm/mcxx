@@ -383,6 +383,7 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 				}
 				break;
 			case AST_TEMPLATE_ID:
+				// result = query_unqualified_template_id_flags(name, sc, sc, lookup_flags);
 				result = query_unqualified_template_id_flags(name, sc, sc, lookup_flags);
 				break;
 			default :
@@ -464,20 +465,40 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(symbol));
 	}
 
-	scope_entry_list_t* iter = entry_list;
+	enum cxx_symbol_kind filter_template_classes[3] = {
+		SK_TEMPLATE_PRIMARY_CLASS, 
+		SK_TEMPLATE_SPECIALIZED_CLASS,
+		SK_TEMPLATE_FUNCTION
+	};
 
-	if (iter == NULL)
+	entry_list = filter_symbol_kind_set(entry_list, 3, filter_template_classes);
+
+	if (entry_list == NULL)
 	{
 		internal_error("Template not found! (line=%d)\n", ASTLine(template_id));
 	}
 
+	scope_entry_list_t* template_functions = filter_symbol_kind(entry_list, SK_TEMPLATE_FUNCTION);
+	if (template_functions != NULL)
+	{
+		// This is naming a template function
+		// Just return them, do not instantiate
+		return template_functions;
+	}
+	
 	// First try to match exactly an existing template
 	// because this is a parameterized template-id
 	template_argument_list_t* current_template_arguments = NULL;
 
-	build_scope_template_arguments(template_id, lookup_scope, &current_template_arguments);
+	// Note the scope being different here
+	build_scope_template_arguments(template_id, lookup_scope, sc, sc, &current_template_arguments);
 
 	char give_exact_match = 0;
+	char will_not_instantiate = 0;
+
+
+	will_not_instantiate |= BITMAP_TEST(lookup_flags, LF_NO_INSTANTIATE);
+
 	if (BITMAP_TEST(lookup_flags, LF_EXACT_TEMPLATE_MATCH))
 	{
 		give_exact_match = 1;
@@ -485,7 +506,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
 	int i;
     char seen_dependent_args = 0;
-	for (i = 0; i < current_template_arguments->num_arguments; i++)
+	for (i = 0; (i < current_template_arguments->num_arguments)
+			&& !seen_dependent_args; i++)
 	{
 		template_argument_t* argument = current_template_arguments->argument_list[i];
 		if (argument->kind == TAK_TYPE)
@@ -494,12 +516,6 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 			{
 				seen_dependent_args = 1;
 			}
-
-            {
-                fprintf(stderr, "TAK_TYPE -> ");
-                print_declarator(argument->type, lookup_scope);
-                fprintf(stderr, "\n");
-            }
 		}
 		else if (argument->kind == TAK_NONTYPE)
 		{
@@ -512,17 +528,24 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		}
 	}
 
+	// If this is considered in the context of an expression and dependent args
+	// have been seen, create a dependent entity
     if (BITMAP_TEST(lookup_flags, LF_EXPRESSION) 
             && seen_dependent_args)
     {
-        fprintf(stderr, "This is a dependent template-id\n");
+        fprintf(stderr, "This is a dependent template-id used in an expression\n");
         scope_entry_t* dependent_entity = GC_CALLOC(1, sizeof(*dependent_entity));
         dependent_entity->kind = SK_DEPENDENT_ENTITY;
 
         return create_list_from_entry(dependent_entity);
     }
 
-    give_exact_match |= seen_dependent_args;
+	// If we have seen dependent arguments, we will not instantiate
+	if (seen_dependent_args)
+	{
+		will_not_instantiate |= seen_dependent_args;
+		fprintf(stderr, "This template-id has dependent arguments and will not be instantiated here\n");
+	}
 	
 	fprintf(stderr, "-> Looking for exact match templates\n");
 
@@ -543,7 +566,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 	// the template
 	if (!give_exact_match)
 	{
-		fprintf(stderr, "-> Looking for instantiable templates\n");
+		fprintf(stderr, "-> Solving the template without exact match\n");
 		matched_template = solve_template(entry_list, current_template_arguments, sc, 0);
 
 		{
@@ -577,10 +600,21 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
 		if (matched_template != NULL)
 		{
-			// We have to instantiate the template
-			scope_entry_t* instantiated_template = instantiate_template(matched_template, current_template_arguments, sc);
+			if (will_not_instantiate)
+			{
+				fprintf(stderr, "-> Just returning the matched template\n");
+				return create_list_from_entry(matched_template->entry);
+			}
+			else
+			{
+				fprintf(stderr, "-> Instantiating the template\n");
+				// We have to instantiate the template
+				instantiate_template(matched_template, current_template_arguments, sc);
 
-			return create_list_from_entry(instantiated_template);
+				// And now restart this function but now we want an exact match
+				return query_template_id_internal(template_id, sc, lookup_scope, unqualified_lookup, 
+						lookup_flags | LF_NO_INSTANTIATE);
+			}
 		}
 		else
 		{

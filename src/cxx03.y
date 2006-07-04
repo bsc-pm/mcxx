@@ -3711,7 +3711,9 @@ template_argument_list : template_argument
 
 template_argument : template_assignment_expression 
 {
-	$$ = ASTMake1(AST_TEMPLATE_EXPRESSION_ARGUMENT, $1, ASTLine($1), NULL);
+	$$ = ASTMake1(AST_TEMPLATE_EXPRESSION_ARGUMENT, 
+			ASTMake1(AST_EXPRESSION, $1, ASTLine($1), NULL), 
+			ASTLine($1), NULL);
 }
 | type_id 
 {

@@ -68,9 +68,10 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 static void build_scope_linkage_specifier(AST a, scope_t* st, decl_context_t decl_context);
 static void build_scope_linkage_specifier_declaration(AST a, scope_t* st, decl_context_t decl_context);
 
-void build_scope_template_arguments(AST a, scope_t* st, template_argument_list_t** template_arguments);
-void build_scope_template_arguments_for_primary_template(scope_t* st, template_parameter_t** template_parameter_info, 
-		int num_template_parameters, template_argument_list_t** template_arguments);
+static void build_scope_template_arguments_for_primary_template(scope_t* st, 
+		scope_t* template_scope,
+		template_parameter_t** template_parameter_info, int num_template_parameters, 
+		template_argument_list_t** template_arguments);
 
 static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope, class_info_t* class_info);
 
@@ -475,6 +476,11 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 				{
 					// We do not fold it here
 					entry_list->entry->expression_value = initializer;
+
+					if (ASTType(initializer) == AST_INITIALIZER)
+					{
+						entry_list->entry->expression_value = ASTSon0(initializer);
+					}
 				}
 			}
 			else
@@ -789,23 +795,15 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 	scope_entry_list_t* result_list = NULL;
 
 	result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-            FULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+            NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
 
 	// Now look for a type
-	scope_entry_t* entry = NULL;
-	while (result_list != NULL 
-			&& entry == NULL)
-	{
-		if (result_list->entry->kind == SK_CLASS
-				|| result_list->entry->kind == SK_TEMPLATE_PRIMARY_CLASS
-				|| result_list->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-		{
-			entry = result_list->entry;
-		}
+	enum cxx_symbol_kind filter_classes[3] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
 
-		result_list = result_list->next;
-	}
+	scope_entry_list_t* entry_list = filter_symbol_kind_set(result_list, 3, filter_classes);
 
+	scope_entry_t* entry = (entry_list != NULL) ? entry_list->entry : NULL;
+	
 	if (entry != NULL)
 	{
 		if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS
@@ -813,8 +811,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 				&& BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS)
 				&& !BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
 		{
-			// A primary template has been chosen but we are declarating
-			// an specialization
+			// A primary template has been chosen but we are declarating one
+			// specialization
 			entry = NULL;
 		}
 	}
@@ -862,15 +860,17 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 				if (ASTType(class_symbol) != AST_TEMPLATE_ID)
 				{
 					new_class->kind = SK_TEMPLATE_PRIMARY_CLASS;
-					build_scope_template_arguments_for_primary_template(st, new_class->template_parameter_info,
-							new_class->num_template_parameters, &(new_class->type_information->type->template_arguments));
-					fprintf(stderr, "--1 Building template arguments for primary template %p\n",
-							new_class->type_information->type->template_arguments);
+					build_scope_template_arguments_for_primary_template(st, 
+							st->template_scope, 
+							new_class->template_parameter_info,
+							new_class->num_template_parameters, 
+							&(new_class->type_information->type->template_arguments));
 				}
 				else
 				{
 					new_class->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
-					build_scope_template_arguments(class_symbol, st, &(new_class->type_information->type->template_arguments));
+					build_scope_template_arguments(class_symbol, st, st, st->template_scope,
+							&(new_class->type_information->type->template_arguments));
 				}
 			}
 
@@ -899,7 +899,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 	scope_entry_list_t* result_list = NULL;
 
 	result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
-            FULL_UNQUALIFIED_LOOKUP);
+            NOFULL_UNQUALIFIED_LOOKUP);
 
 	// Now look for a type
 	scope_entry_t* entry = NULL;
@@ -1203,19 +1203,9 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 		{
 			scope_entry_list_t* class_entry_list = NULL;
 			
-			if (!BITMAP_TEST(decl_context.decl_flags, DF_INSTANTIATION))
-			{
-				class_entry_list = query_nested_name_flags(st, NULL, 
-						class_head_nested_name, class_head_identifier,
-						FULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
-				decl_context.decl_flags &= (~DF_INSTANTIATION);
-			}
-			else
-			{
-				class_entry_list = query_nested_name_flags(st, NULL, 
-						class_head_nested_name, class_head_identifier,
-						NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
-			}
+			class_entry_list = query_nested_name_flags(st, NULL, 
+					class_head_nested_name, class_head_identifier,
+					NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
 
 			enum cxx_symbol_kind filter_classes[3] = 
 			{
@@ -1227,8 +1217,9 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 			class_entry_list = filter_symbol_kind_set(class_entry_list, 3, filter_classes);
 
 			if (class_entry_list != NULL 
-					&& class_entry_list->entry->kind == SK_TEMPLATE_PRIMARY_CLASS
-					&& ASTType(class_head_identifier) == AST_TEMPLATE_ID)
+					&& ((class_entry_list->entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+							&& ASTType(class_head_identifier) == AST_TEMPLATE_ID)
+						|| BITMAP_TEST(decl_context.decl_flags, DF_INSTANTIATION)))
 			{
 				// We have found a primary template but we are specializing
 				class_entry_list = NULL;
@@ -1268,11 +1259,15 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 					class_entry = new_symbol(st, ASTText(ASTSon0(class_head_identifier)));
 				}
 
-				if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+				if (BITMAP_TEST(decl_context.decl_flags, DF_INSTANTIATION))
+				{
+					class_entry->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
+				}
+				else if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
 				{
 					class_entry->kind = SK_CLASS;
 				}
-				else
+				else // (BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
 				{
 
 					if (ASTType(class_head_identifier) == AST_SYMBOL)
@@ -1301,14 +1296,26 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 			{
 				case SK_TEMPLATE_PRIMARY_CLASS :
 					{
-						build_scope_template_arguments_for_primary_template(st, class_entry->template_parameter_info, 
+						build_scope_template_arguments_for_primary_template(st, 
+								st->template_scope,
+								class_entry->template_parameter_info, 
 								class_entry->num_template_parameters,
 								&(simple_type_info->template_arguments));
 						break;
 					}
 				case SK_TEMPLATE_SPECIALIZED_CLASS :
 					{
-						build_scope_template_arguments(class_head_identifier, st, &(simple_type_info->template_arguments));
+						if (!BITMAP_TEST(decl_context.decl_flags, DF_INSTANTIATION))
+						{
+							build_scope_template_arguments(class_head_identifier, st, st, st->template_scope,
+									&(simple_type_info->template_arguments));
+						}
+						else
+						{
+							simple_type_info->template_arguments = decl_context.template_argument_list;
+							// Remove the instantiation flag, is not needed anymore
+							decl_context.decl_flags &= (~DF_INSTANTIATION);
+						}
 						break;
 					}
 				case SK_CLASS :
@@ -1363,6 +1370,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 	// First step, sign up only prototypes and simple declarations
 	while (member_specification != NULL)
 	{
+		fprintf(stderr, "==== Member declaration [%08d] ====\n", ASTLine(member_specification));
 		// If it has an access specifier, update it
 		if (ASTSon0(member_specification) != NULL)
 		{
@@ -2147,8 +2155,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, scope_t* st, decl_context_t decl_context)
 {
-	// First query for an existing entry
-	scope_entry_list_t* list = query_unqualified_name(st, ASTText(declarator_id));
+	// First query for an existing entry in this scope
+	scope_entry_list_t* list = query_id_expression(st, declarator_id, NOFULL_UNQUALIFIED_LOOKUP);
 
 	// Only enum or classes can exist, otherwise this is an error
 	if (list != NULL)
@@ -3602,7 +3610,9 @@ static exception_spec_t* build_exception_spec(scope_t* st, AST a)
 	return result;
 }
 
-void build_scope_template_arguments_for_primary_template(scope_t* st, template_parameter_t** template_parameter_info, 
+static void build_scope_template_arguments_for_primary_template(scope_t* st, 
+		scope_t* template_scope,
+		template_parameter_t** template_parameter_info, 
 		int num_template_parameters, template_argument_list_t** template_arguments)
 {
 	*template_arguments = GC_CALLOC(sizeof(1), sizeof(*(*template_arguments)));
@@ -3621,7 +3631,7 @@ void build_scope_template_arguments_for_primary_template(scope_t* st, template_p
 
 					new_template_argument->kind = TAK_TYPE;
 					new_template_argument->type = template_parameter->type_info;
-					new_template_argument->scope = st;
+					new_template_argument->scope = template_scope; 
 
                     // Note that argument_tree will remain NULL here, there is
                     // no need to create a fake tree here
@@ -3644,7 +3654,7 @@ void build_scope_template_arguments_for_primary_template(scope_t* st, template_p
 
 						// Sign up this artificial identifier used only
 						// for evaluation purposes
-						scope_entry_t* new_entry = new_symbol(st, param_name); 
+						scope_entry_t* new_entry = new_symbol(template_scope, param_name); 
 						new_entry->kind = SK_TEMPLATE_PARAMETER;
 						new_entry->type_information = template_parameter->type_info;
 					}
@@ -3653,8 +3663,8 @@ void build_scope_template_arguments_for_primary_template(scope_t* st, template_p
 					AST expression_tree = ASTMake1(AST_EXPRESSION, symbol_tree, 0, NULL);
 
 					new_template_argument->argument_tree = expression_tree;
-					new_template_argument->scope = st;
-
+					new_template_argument->scope = template_scope;
+					
 					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 					break;
 				}
@@ -3666,7 +3676,12 @@ void build_scope_template_arguments_for_primary_template(scope_t* st, template_p
 	}
 }
 
-void build_scope_template_arguments(AST class_head_id, scope_t* st, template_argument_list_t** template_arguments)
+void build_scope_template_arguments(AST class_head_id, 
+		scope_t* primary_template_scope, // Where the primary template id is looked up 
+		                                 // (A::B<int>, the primary template is searched in A::)
+		scope_t* arguments_scope,        // Where the arguments are looked up (in the point of the declaration)
+		scope_t* template_scope,         // Arguments that are expressions and might involve template symbols
+		template_argument_list_t** template_arguments)
 {
 	AST list, iter;
 	*template_arguments = GC_CALLOC(sizeof(1), sizeof(*(*template_arguments)));
@@ -3682,34 +3697,28 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 		num_arguments++;
 	}
 
-	solve_possibly_ambiguous_template_id(class_head_id, st);
+	solve_possibly_ambiguous_template_id(class_head_id, primary_template_scope);
 	
 	// Complete arguments with default ones
 	// First search primary template
 	AST template_name = ASTSon0(class_head_id);
 
-	fprintf(stderr, "Looking for primary template '%s' in '%p'\n", ASTText(template_name), st);
+	fprintf(stderr, "Looking for primary template '%s' in '%p'\n", ASTText(template_name), primary_template_scope);
 
-	scope_entry_list_t* templates_list = query_unqualified_name(st, ASTText(template_name));
+	scope_entry_list_t* templates_list = query_unqualified_name(primary_template_scope, ASTText(template_name));
 	
-	scope_entry_t* primary_template = NULL;
+	enum cxx_symbol_kind filter_template_classes[2] = {SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
+	templates_list = filter_symbol_kind_set(templates_list, 2, filter_template_classes);
 
-	while ((templates_list != NULL) 
-			&& (primary_template == NULL))
-	{
-		if (templates_list->entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
-		{
-			primary_template = templates_list->entry;
-		}
-		
-		templates_list = templates_list->next;
-	}
+	scope_entry_list_t* primary_template_list = filter_symbol_kind(templates_list, SK_TEMPLATE_PRIMARY_CLASS);
 
-	if (primary_template == NULL)
+	if (primary_template_list == NULL)
 	{
 		internal_error("Primary template for '%s' not found", ASTText(template_name));
 	}
 
+	scope_entry_t* primary_template = NULL;
+	primary_template = primary_template_list->entry;
 
 	list = ASTSon1(class_head_id);
 	for_each_element(list, iter)
@@ -3737,13 +3746,13 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 					gather_decl_spec_t gather_info;
 					memset(&gather_info, 0, sizeof(gather_info));
 
-					build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &type_info,
+					build_scope_decl_specifier_seq(type_specifier_seq, arguments_scope, &gather_info, &type_info,
 							default_decl_context);
 
 					type_t* declarator_type;
 					if (abstract_decl != NULL)
 					{
-						build_scope_declarator(abstract_decl, st, &gather_info, type_info, &declarator_type,
+						build_scope_declarator(abstract_decl, arguments_scope, &gather_info, type_info, &declarator_type,
 								default_decl_context);
 					}
 					else
@@ -3752,19 +3761,20 @@ void build_scope_template_arguments(AST class_head_id, scope_t* st, template_arg
 					}
 					new_template_argument->type = declarator_type;
 					new_template_argument->argument_tree = template_argument;
-					new_template_argument->scope = st;
+					new_template_argument->scope = arguments_scope;
 					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 					break;
 				}
 			case AST_TEMPLATE_EXPRESSION_ARGUMENT :
 				{
+					// This expression is of limited nature
 					template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
 					new_template_argument->kind = TAK_NONTYPE;
 
 					AST expr_template_argument = ASTSon0(template_argument);
 
 					new_template_argument->argument_tree = expr_template_argument;
-					new_template_argument->scope = st;
+					new_template_argument->scope = template_scope;
 
 					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 					break;

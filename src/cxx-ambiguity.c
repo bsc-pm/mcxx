@@ -307,10 +307,60 @@ void solve_ambiguous_statement(AST a, scope_t* st)
 	}
 }
 
+
+static char check_for_init_declarator_list(AST init_declarator_list, scope_t* st)
+{
+	AST list = init_declarator_list;
+	AST iter;
+
+	for_each_element(list, iter)
+	{
+		AST init_declarator = ASTSon1(iter);
+
+		if (ASTType(init_declarator) == AST_AMBIGUITY)
+		{
+			int current_choice = -1;
+			int i;
+			for (i = 0; i < init_declarator->num_ambig; i++)
+			{
+				AST one_init_decl = init_declarator->ambig[i];
+
+				if (check_for_init_declarator(one_init_decl, st))
+				{
+					if (current_choice < 0)
+					{
+						current_choice = i;
+					}
+					else
+					{
+						internal_error("More than one valid option", 0);
+					}
+				}
+			}
+
+			if (current_choice < 0)
+			{
+				return 0;
+			}
+			else
+			{
+				choose_option(init_declarator, current_choice);
+			}
+		}
+		else
+		{
+			if (!check_for_init_declarator(init_declarator, st))
+			{
+				return 0;
+			}
+		}
+	}
+
+	return 1;
+}
+
 static char check_for_simple_declaration(AST a, scope_t* st)
 {
-	// And it will be invalid if it does not have type and it is not a
-	// conversion function id nor a class constructor/destructor
 	AST decl_specifier_seq = ASTSon0(a);
 
 	if (decl_specifier_seq != NULL)
@@ -324,7 +374,14 @@ static char check_for_simple_declaration(AST a, scope_t* st)
 
 		AST type_spec = ASTSon1(decl_specifier_seq);
 
-		return check_for_type_specifier(type_spec, st);
+		if (!check_for_type_specifier(type_spec, st))
+		{
+			return 0;
+		}
+
+		AST init_declarator_list = ASTSon1(a);
+
+		check_for_init_declarator_list(init_declarator_list, st);
 	}
 
 	// Ok, check these are conversion functions, constructors or destructors
@@ -508,6 +565,13 @@ static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, int n
 				{
 					// Spring '~'
 					class_name++;
+				}
+				
+				// A template-id always will have an associated type
+				if (ASTType(symbol) == AST_TEMPLATE_ID
+						|| ASTType(symbol) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+				{
+					return 0;
 				}
 				
 				// Now look for the class symbol
@@ -1032,6 +1096,7 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 	switch(ASTType(expr))
 	{
 		case AST_SYMBOL :
+		case AST_TEMPLATE_ID :
 			{
 #warning Koenig lookup should be performed here
 				// The technique here relies on finding something that is a
@@ -1039,7 +1104,17 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 				// function that would need full Koenig lookup for correct
 				// lookup
 				scope_entry_list_t* function_lookup = NULL;
-				function_lookup = query_unqualified_name(st, ASTText(expr));
+				char* name;
+				if (ASTType(expr) == AST_SYMBOL)
+				{
+					name = ASTText(expr);
+				}
+				else
+				{
+					name = ASTText(ASTSon0(expr));
+				}
+
+				function_lookup = query_unqualified_name(st, name);
 
 				if (function_lookup == NULL)
 				{

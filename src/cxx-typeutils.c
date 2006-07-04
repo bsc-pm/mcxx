@@ -1557,6 +1557,8 @@ char is_dependent_tree(AST tree, scope_t* st)
     {
         char* name = ASTText(tree);
 
+		fprintf(stderr, "Checking if '%s' is dependent\n", name);
+
         scope_entry_list_t* result_list = query_unqualified_name(st, name);
 
         // Ignore things not found
@@ -1571,8 +1573,29 @@ char is_dependent_tree(AST tree, scope_t* st)
                 || result->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
                 || result->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
         {
+			fprintf(stderr, "Name '%s' is dependent\n", name);
             return 1;
         }
+		else
+		{
+			type_t* t = result->type_information;
+
+			// Some entities do not have type information (like namespaces)
+			if (t != NULL)
+			{
+				t = advance_over_typedefs(t);
+
+				if (t->kind == TK_DIRECT
+						&& (t->type->kind == STK_TEMPLATE_DEPENDENT_TYPE
+							|| t->type->kind == STK_TYPE_TEMPLATE_PARAMETER))
+				{
+					fprintf(stderr, "Type of name '%s' is dependent\n", name);
+					return 1;
+				}
+			}
+		}
+
+		fprintf(stderr, "Name '%s' is not dependent\n", name);
     }
     else
     {

@@ -91,6 +91,7 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
 {
     switch (ASTType(a))
 	{
+		case AST_INITIALIZER_EXPR :
 		case AST_EXPRESSION :
 		case AST_CONSTANT_EXPRESSION :
 		case AST_PARENTHESIZED_EXPRESSION :

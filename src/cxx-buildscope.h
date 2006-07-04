@@ -51,12 +51,19 @@ typedef struct decl_context_tag
 	// Template parameter information
 	template_parameter_t** template_param_info;
 	int num_template_parameters;
+
+	// Template argument information (for instantiation purposes)
+	template_argument_list_t* template_argument_list;
 } decl_context_t;
 
 #undef BITMAP
 
 char* get_operator_function_name(AST declarator_id);
-void build_scope_template_arguments(AST a, scope_t* st, template_argument_list_t** template_arguments);
+void build_scope_template_arguments(AST class_head_id, 
+		scope_t* primary_template_scope,
+		scope_t* arguments_scope, 
+		scope_t* template_scope, 
+		template_argument_list_t** template_arguments);
 void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
 		simple_type_t** type_info, decl_context_t dctx);
 scope_entry_t* build_scope_declarator(AST a, scope_t* st, gather_decl_spec_t* gather_info, 

@@ -244,7 +244,7 @@ typedef struct simple_type_tag {
 
 	// Used when instantiating a template class
 	AST template_class_body;
-	
+
 	// For template parameters, the positional number of this argument in the
 	// template and its nesting level (this should be enough to define
 	// completely a template parameter in a "nameless" way)
@@ -447,6 +447,7 @@ typedef enum lookup_flags_tag
 	LF_CONSTRUCTOR = BITMAP(1),
 	LF_EXACT_TEMPLATE_MATCH = BITMAP(2),
 	LF_EXPRESSION = BITMAP(3),
+	LF_NO_INSTANTIATE = BITMAP(4),
 } lookup_flags_t ;
 
 // Higher level functions when dealing with the scope

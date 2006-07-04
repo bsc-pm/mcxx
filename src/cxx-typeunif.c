@@ -17,13 +17,16 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 {
 	// Check first if t1 is a template parameter
 	type_t* user_defined_type = NULL;
+
+	t1 = advance_over_typedefs(t1);
+	t2 = advance_over_typedefs(t2);
 	
 	// If the user defined type points to a template parameter, we will use the
 	// template parameter
 	if (t1->kind == TK_DIRECT && 
 			t1->type->kind == STK_USER_DEFINED)
 	{
-		user_defined_type = t1->type->user_defined_type->type_information;
+		user_defined_type = advance_over_typedefs(t1->type->user_defined_type->type_information);
 		if (user_defined_type->kind != TK_DIRECT
 				|| user_defined_type->type->kind != STK_TYPE_TEMPLATE_PARAMETER)
 		{

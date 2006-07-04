@@ -199,7 +199,7 @@ char match_one_template(template_argument_list_t* arguments,
 							internal_error("Expected an expression value for argument", 0);
 						}
 
-						literal_value_t arg_value = evaluate_constant_expression(arg->argument_tree, st);
+						literal_value_t arg_value = evaluate_constant_expression(arg->argument_tree, arg->scope);
 
 						if (spec_arg_value.kind != LVK_DEPENDENT_EXPR)
 						{
@@ -243,6 +243,8 @@ char match_one_template(template_argument_list_t* arguments,
 							}
 							else
 							{
+								prettyprint(stderr, spec_arg->argument_tree);
+								fprintf(stderr, "\n");
 								internal_error("Expecting an AST_EXPRESSION and found '%s'\n", 
 										ast_print_node_type(ASTType(spec_arg->argument_tree)));
 							}

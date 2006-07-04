@@ -8,7 +8,7 @@
 
 #include "cxx-printscope.h"
 
-scope_entry_t* instantiate_primary_template(scope_entry_t* matched_template,
+void instantiate_primary_template(scope_entry_t* matched_template,
 		template_argument_list_t* template_argument_list, scope_t* st)
 {
 	if (matched_template->kind != SK_TEMPLATE_PRIMARY_CLASS)
@@ -32,16 +32,15 @@ scope_entry_t* instantiate_primary_template(scope_entry_t* matched_template,
 	{
 		// internal_error("Cannot instantiate an incomplete type\n", 0);
 		fprintf(stderr, "This is an incomplete type, cannot instantiate it\n");
-		return matched_template;
+		return;
 	}
 
 	// Wrap the tree
 	instantiate_tree = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, 
 			duplicate_ast(instantiate_tree), NULL, ASTLine(instantiate_tree), NULL);
 
-
 	// Now create a new scope and inject template parameters with its argument value
-	scope_t* instantiate_scope = new_namespace_scope(st);
+	scope_t* instantiate_scope = new_template_scope(matched_template->scope);
 
 	for (i = 0; i < num_template_parameters; i++)
 	{
@@ -96,34 +95,20 @@ scope_entry_t* instantiate_primary_template(scope_entry_t* matched_template,
 	memset(&decl_context, 0, sizeof(decl_context));
 
 	decl_context.decl_flags |= DF_INSTANTIATION;
+	decl_context.template_argument_list = template_argument_list;
 
+	instantiate_scope->template_scope = matched_template->scope->template_scope;
+	matched_template->scope->template_scope = instantiate_scope;
 	fprintf(stderr, "--------> Building scope of instantiated template\n");
-
-	build_scope_decl_specifier_seq(instantiate_tree, instantiate_scope, &gather_info, &simple_type_info, decl_context);
-
 	print_scope(instantiate_scope, 0);
+	build_scope_decl_specifier_seq(instantiate_tree, matched_template->scope, &gather_info, &simple_type_info, decl_context);
+	matched_template->scope->template_scope = instantiate_scope->template_scope;
+	instantiate_scope->template_scope = NULL;
 
-	// Get the newly declarated symbol
-	scope_entry_list_t* instantiated_template_list = query_in_symbols_of_scope(instantiate_scope, matched_template->symbol_name);
-
-	if (instantiated_template_list == NULL)
-	{
-		internal_error("The instantiated template does not appear in the instantiate scope\n", 0);
-	}
-
-	scope_entry_t* instantiated_template = instantiated_template_list->entry;
-
-	// Make it look like a specialized template
-	instantiated_template->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
-	instantiated_template->type_information->type->template_arguments = template_argument_list;
-
-	// And inject in the scope of the original template class
-	insert_entry(matched_template->scope, instantiated_template);
-
-	return instantiated_template;
+	fprintf(stderr, "--------> Instantiation ended\n");
 }
 
-scope_entry_t* instantiate_specialized_template(scope_entry_t* matched_template, template_argument_list_t* template_argument_list, 
+void instantiate_specialized_template(scope_entry_t* matched_template, template_argument_list_t* template_argument_list, 
 		unification_set_t* unification_set, scope_t* st)
 {
 	if (matched_template->kind != SK_TEMPLATE_SPECIALIZED_CLASS)
@@ -141,7 +126,7 @@ scope_entry_t* instantiate_specialized_template(scope_entry_t* matched_template,
 	{
 		// internal_error("Cannot instantiate an incomplete type\n", 0);
 		fprintf(stderr, "This is an incomplete type, cannot instantiate it\n");
-		return matched_template;
+		return;
 	}
 
 	// Remove template-id from the class-name
@@ -173,7 +158,7 @@ scope_entry_t* instantiate_specialized_template(scope_entry_t* matched_template,
 			instantiate_tree, NULL, ASTLine(instantiate_tree), NULL);
 
 	// Now create a new scope and inject template parameters with its argument value
-	scope_t* instantiate_scope = new_namespace_scope(st);
+	scope_t* instantiate_scope = new_template_scope(matched_template->scope);
 
 	for (i = 0; i < num_template_parameters; i++)
 	{
@@ -256,34 +241,21 @@ scope_entry_t* instantiate_specialized_template(scope_entry_t* matched_template,
 	memset(&decl_context, 0, sizeof(decl_context));
 
 	decl_context.decl_flags |= DF_INSTANTIATION;
+	decl_context.template_argument_list = template_argument_list;
 
 	fprintf(stderr, "--------> Building scope of instantiated template\n");
-
-	build_scope_decl_specifier_seq(instantiate_tree, instantiate_scope, &gather_info, &simple_type_info, decl_context);
-
 	print_scope(instantiate_scope, 0);
 
-	// Get the newly declarated symbol
-	scope_entry_list_t* instantiated_template_list = query_in_symbols_of_scope(instantiate_scope, matched_template->symbol_name);
+	instantiate_scope->template_scope = matched_template->scope->template_scope;
+	matched_template->scope->template_scope = instantiate_scope;
+	build_scope_decl_specifier_seq(instantiate_tree, matched_template->scope, &gather_info, &simple_type_info, decl_context);
+	matched_template->scope->template_scope = instantiate_scope->template_scope;
+	instantiate_scope->template_scope = NULL;
 
-	if (instantiated_template_list == NULL)
-	{
-		internal_error("The instantiated template does not appear in the instantiate scope\n", 0);
-	}
-
-	scope_entry_t* instantiated_template = instantiated_template_list->entry;
-
-	// Make it look like a specialized template
-	instantiated_template->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
-	instantiated_template->type_information->type->template_arguments = template_argument_list;
-
-	// And inject in the scope of the original template class
-	insert_entry(matched_template->scope, instantiated_template);
-
-	return instantiated_template;
+	fprintf(stderr, "--------> Instantiation ended\n");
 }
 
-scope_entry_t* instantiate_template(matching_pair_t* match_pair, template_argument_list_t* arguments, scope_t* st)
+void instantiate_template(matching_pair_t* match_pair, template_argument_list_t* arguments, scope_t* st)
 {
 	scope_entry_t* matched_template = match_pair->entry;
 	unification_set_t* unification_set = match_pair->unif_set;
@@ -291,11 +263,13 @@ scope_entry_t* instantiate_template(matching_pair_t* match_pair, template_argume
 	{
 		case SK_TEMPLATE_PRIMARY_CLASS :
 			{
-				return instantiate_primary_template(matched_template, arguments, st);
+				/* return */ instantiate_primary_template(matched_template, arguments, st);
+				break;
 			}
 		case SK_TEMPLATE_SPECIALIZED_CLASS :
 			{
-				return instantiate_specialized_template(matched_template, arguments, unification_set, st);
+				/* return */ instantiate_specialized_template(matched_template, arguments, unification_set, st);
+				break;
 			}
 		default :
 			{
