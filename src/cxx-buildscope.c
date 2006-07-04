@@ -54,7 +54,8 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, simple_
 
 static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st, simple_type_t* type_info,
 		decl_context_t decl_context);
-static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, simple_type_t* type_info);
+static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, simple_type_t* type_info,
+		decl_context_t decl_context);
 
 static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_scope, type_t** declarator_type, 
 		gather_decl_spec_t* gather_info, AST* declarator_name);
@@ -711,7 +712,7 @@ void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type
 			gather_type_spec_from_class_specifier(a, st, simple_type_info, decl_context);
 			break;
 		case AST_ELABORATED_TYPE_ENUM :
-			gather_type_spec_from_elaborated_enum_specifier(a, st, simple_type_info);
+			gather_type_spec_from_elaborated_enum_specifier(a, st, simple_type_info, decl_context);
 			break;
 		case AST_ELABORATED_TYPE_CLASS :
 			gather_type_spec_from_elaborated_class_specifier(a, st, simple_type_info, decl_context);
@@ -794,8 +795,17 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
 	scope_entry_list_t* result_list = NULL;
 
-	result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-            NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+	if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+	{
+		result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
+				NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+	}
+	else
+	{
+		fprintf(stderr, "friend lookup\n");
+		result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
+				FULL_UNQUALIFIED_LOOKUP, LF_NO_INSTANTIATE);
+	}
 
 	// Now look for a type
 	enum cxx_symbol_kind filter_classes[3] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
@@ -813,6 +823,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 		{
 			// A primary template has been chosen but we are declarating one
 			// specialization
+			fprintf(stderr, "Even if a symbol has been found we will not consider it\n");
 			entry = NULL;
 		}
 	}
@@ -943,7 +954,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 	}
 }
 
-static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, simple_type_t* type_info)
+static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, simple_type_t* type_info, decl_context_t decl_context)
 {
 	AST global_scope = ASTSon0(a);
 	AST nested_name_specifier = ASTSon1(a);
@@ -951,20 +962,24 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 
 	scope_entry_list_t* result_list = NULL;
 
-	result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
-            NOFULL_UNQUALIFIED_LOOKUP);
-
-	// Now look for a type
-	scope_entry_t* entry = NULL;
-	while (result_list != NULL 
-			&& entry == NULL)
+	if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
 	{
-		if (result_list->entry->kind == SK_ENUM)
-		{
-			entry = result_list->entry;
-		}
+		result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
+				NOFULL_UNQUALIFIED_LOOKUP);
+	}
+	else
+	{
+		result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
+				FULL_UNQUALIFIED_LOOKUP);
+	}
 
-		result_list = result_list->next;
+	// Look for an enum name
+	scope_entry_t* entry = NULL;
+	result_list = filter_symbol_kind(result_list, SK_ENUM);
+
+	if (result_list != NULL)
+	{
+		entry = result_list->entry;
 	}
 
 	if (entry == NULL)
@@ -1190,9 +1205,9 @@ static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class
 
 		scope_entry_list_t* result_list = query_nested_name(st, global_op, nested_name_specifier, name, FULL_UNQUALIFIED_LOOKUP);
 
-		enum cxx_symbol_kind filter[5] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS, 
-			SK_TEMPLATE_TYPE_PARAMETER, SK_TEMPLATE_TEMPLATE_PARAMETER};
-		result_list = filter_symbol_kind_set(result_list, 5, filter);
+		enum cxx_symbol_kind filter[6] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS, 
+			SK_TEMPLATE_TYPE_PARAMETER, SK_TEMPLATE_TEMPLATE_PARAMETER, SK_TYPEDEF};
+		result_list = filter_symbol_kind_set(result_list, 6, filter);
 
         if (!is_dependent_tree(nested_name_specifier, st)
                 && !is_dependent_tree(name, st))
@@ -1202,9 +1217,13 @@ static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class
                 internal_error("Base class not found!\n", 0);
             }
 
-            if (result_list->entry->related_scope != NULL)
+			scope_entry_t* result = result_list->entry;
+
+			result = give_real_entry(result);
+
+            if (result->related_scope != NULL)
             {
-                P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, result_list->entry->related_scope);
+                P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, result->related_scope);
             }
 
             base_class_info_t* base_class = GC_CALLOC(1, sizeof(*base_class));
@@ -1294,6 +1313,8 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 				// Get its simple type info and adjust its scope
 				simple_type_info = class_entry->type_information->type;
 				simple_type_info->class_info->inner_scope = inner_scope;
+
+				fprintf(stderr, "scope=%p || inner_scope=%p\n", st, inner_scope);
 			}
 			else if (class_entry_list == NULL
 					&& class_head_nested_name == NULL)
@@ -1441,6 +1462,8 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 			// otherwise
 			class_entry->type_information = copy_type(simple_type_to_type(simple_type_info));
 			class_entry->related_scope = inner_scope;
+
+			fprintf(stderr, "related_scope=%p\n", class_entry->related_scope);
 
 			// Since this type is not anonymous we'll want that simple_type_info
 			// refers to this newly created type

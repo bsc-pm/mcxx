@@ -1585,6 +1585,14 @@ char is_dependent_tree(AST tree, scope_t* st)
 			{
 				t = advance_over_typedefs(t);
 
+				if (t->kind == TK_DIRECT 
+						&& t->type->kind == STK_USER_DEFINED)
+				{
+					t = t->type->user_defined_type->type_information;
+				}
+
+				t = advance_over_typedefs(t);
+
 				if (t->kind == TK_DIRECT
 						&& (t->type->kind == STK_TEMPLATE_DEPENDENT_TYPE
 							|| t->type->kind == STK_TYPE_TEMPLATE_PARAMETER))
@@ -1604,4 +1612,27 @@ char is_dependent_tree(AST tree, scope_t* st)
             || is_dependent_tree(ASTSon2(tree), st)
             || is_dependent_tree(ASTSon3(tree), st);
     }
+}
+
+// This jumps over user defined types and typedefs
+scope_entry_t* give_real_entry(scope_entry_t* entry)
+{
+	scope_entry_t* result = entry;
+
+	type_t* t = entry->type_information;
+	t = advance_over_typedefs(t);
+
+	while (t != NULL 
+			&& t->kind == TK_DIRECT
+			&& t->type->kind == STK_USER_DEFINED)
+	{
+		result = t->type->user_defined_type;
+		t = result->type_information;
+		if (t != NULL)
+		{
+			t = advance_over_typedefs(t);
+		}
+	}
+
+	return result;
 }
