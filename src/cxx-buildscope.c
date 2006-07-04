@@ -830,6 +830,11 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
 	if (entry == NULL)
 	{
+        if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+        {
+            internal_error("Friend declaration refers to a type not found\n", 0);
+        }
+
 		// Create a stub but only if it is unqualified, otherwise it should exist elsewhere
 		if (nested_name_specifier == NULL
 				&& global_scope == NULL)
@@ -984,6 +989,11 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 
 	if (entry == NULL)
 	{
+        if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+        {
+            internal_error("Friend declaration refers to a type not found\n", 0);
+        }
+
 		// Create a stub but only if it is unqualified, otherwise it should exist anywhere
 		if (nested_name_specifier == NULL
 				&& global_scope == NULL)

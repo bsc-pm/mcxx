@@ -1092,16 +1092,24 @@ static void qualified_id_handler(FILE* f, AST a, int level)
 		prettyprint_level(f, ASTSon0(a), level);
 	}
 
-	prettyprint_level(f, ASTSon1(a), level);
+    if (ASTSon1(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon1(a), level);
+    }
+
 	prettyprint_level(f, ASTSon2(a), level);
 }
 
 static void qualified_template_handler(FILE* f, AST a, int level)
 {
-	prettyprint_level(f, ASTSon0(a), level);
-	prettyprint_level(f, ASTSon1(a), level);
-	fprintf(f, "template ");
-	prettyprint_level(f, ASTSon2(a), level);
+    if (ASTSon0(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon0(a), level);
+    }
+
+    prettyprint_level(f, ASTSon1(a), level);
+    fprintf(f, "template ");
+    prettyprint_level(f, ASTSon2(a), level);
 }
 
 static void qualified_operator_function_id_handler(FILE* f, AST a, int level)

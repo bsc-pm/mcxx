@@ -2654,6 +2654,17 @@ qualified_id : nested_name_specifier unqualified_id
 
 	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, $1.token_line, NULL);
 }
+| DOS_DOS_PUNTS IDENTIFIER
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
+	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, identifier, $1.token_line, NULL);
+}
+| nested_name_specifier TEMPLATE unqualified_id
+{
+	$$ = ASTMake3(AST_QUALIFIED_TEMPLATE, NULL, $1, $3, ASTLine($1), NULL);
+}
 | DOS_DOS_PUNTS nested_name_specifier TEMPLATE unqualified_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
