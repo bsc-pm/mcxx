@@ -381,64 +381,69 @@ static char check_for_simple_declaration(AST a, scope_t* st)
 
 		AST init_declarator_list = ASTSon1(a);
 
-		check_for_init_declarator_list(init_declarator_list, st);
-	}
-
-	// Ok, check these are conversion functions, constructors or destructors
-	//
-	// Note that something like the following is perfectly valid
-	//
-	//  struct A {
-	//      (A)(), (A)(const A& a), ~A(), operator int();
-	//  };
-	AST init_declarator_list = ASTSon1(a);
-	AST iter;
-	for_each_element(init_declarator_list, iter)
-	{
-		AST init_declarator = ASTSon1(iter);
-		AST declarator = ASTSon0(init_declarator);
-
-		if (ASTType(init_declarator) == AST_AMBIGUITY)
+		if (!check_for_init_declarator_list(init_declarator_list, st))
 		{
-			int correct_choice = -1;
-			int i;
-			for (i = 0; i < init_declarator->num_ambig; i++)
-			{
-				AST opt_declarator = ASTSon0(init_declarator->ambig[i]);
+			return 0;
+		}
+	}
+	else
+	{
+		// Ok, check these are conversion functions, constructors or destructors
+		//
+		// Note that something like the following is perfectly valid
+		//
+		//  struct A {
+		//      (A)(), (A)(const A& a), ~A(), operator int();
+		//  };
+		AST init_declarator_list = ASTSon1(a);
+		AST iter;
+		for_each_element(init_declarator_list, iter)
+		{
+			AST init_declarator = ASTSon1(iter);
+			AST declarator = ASTSon0(init_declarator);
 
-				if (check_for_typeless_declarator(opt_declarator, st))
+			if (ASTType(init_declarator) == AST_AMBIGUITY)
+			{
+				int correct_choice = -1;
+				int i;
+				for (i = 0; i < init_declarator->num_ambig; i++)
 				{
-					if (correct_choice < 0)
+					AST opt_declarator = ASTSon0(init_declarator->ambig[i]);
+
+					if (check_for_typeless_declarator(opt_declarator, st))
 					{
-						correct_choice = i;
-					}
-					else
-					{
-						internal_error("More than one valid choice", 0);
+						if (correct_choice < 0)
+						{
+							correct_choice = i;
+						}
+						else
+						{
+							internal_error("More than one valid choice", 0);
+						}
 					}
 				}
-			}
 
-			// No choice was possible
-			if (correct_choice < 0)
-			{
-				return 0;
+				// No choice was possible
+				if (correct_choice < 0)
+				{
+					return 0;
+				}
+				else
+				{
+					choose_option(init_declarator, correct_choice);
+				}
 			}
 			else
 			{
-				choose_option(init_declarator, correct_choice);
-			}
-		}
-		else
-		{
-			if (!check_for_typeless_declarator(declarator, st))
-			{
-				return 0;
+				if (!check_for_typeless_declarator(declarator, st))
+				{
+					return 0;
+				}
 			}
 		}
 	}
 
-	return 0;
+	return 1;
 }
 
 static char check_for_declaration_statement(AST declaration_statement, scope_t* st)

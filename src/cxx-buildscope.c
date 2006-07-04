@@ -853,8 +853,61 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 			{
 				if (decl_context.template_param_info != NULL)
 				{
-					new_class->template_parameter_info = decl_context.template_param_info;
-					new_class->num_template_parameters = decl_context.num_template_parameters;
+					if (new_class->template_parameter_info == NULL)
+					{
+						// Just overwrite
+						new_class->template_parameter_info = decl_context.template_param_info;
+						new_class->num_template_parameters = decl_context.num_template_parameters;
+					}
+					else // Otherwise first mix them
+					{
+						if (new_class->num_template_parameters != decl_context.num_template_parameters)
+						{
+							internal_error("The number of template parameters declared here does not match with a previous declaration\n", 0);
+						}
+
+						int i;
+						for (i = 0; i < decl_context.num_template_parameters; i++)
+						{
+							switch (new_class->template_parameter_info[i]->kind)
+							{
+								case TPK_TYPE :
+								case TPK_TEMPLATE :
+									{
+										if (new_class->template_parameter_info[i]->default_type != NULL
+												&& decl_context.template_param_info[i]->default_type == NULL)
+										{
+											decl_context.template_param_info[i]->default_type = 
+												new_class->template_parameter_info[i]->default_type;
+											decl_context.template_param_info[i]->default_argument_scope = 
+												new_class->template_parameter_info[i]->default_argument_scope;
+										}
+										break;
+									}
+								case TPK_NONTYPE :
+									{
+										if (new_class->template_parameter_info[i]->default_expression != NULL
+												&& decl_context.template_param_info[i]->default_expression == NULL)
+										{
+											decl_context.template_param_info[i]->default_expression = 
+												new_class->template_parameter_info[i]->default_expression;
+											decl_context.template_param_info[i]->default_argument_scope = 
+												new_class->template_parameter_info[i]->default_argument_scope;
+										}
+										break;
+									}
+								default :
+									{
+										internal_error("Unexpected template parameter type %d\n", 
+												new_class->template_parameter_info[i]->kind);
+									}
+							}
+						}
+						
+						// Just overwrite
+						new_class->template_parameter_info = decl_context.template_param_info;
+						new_class->num_template_parameters = decl_context.num_template_parameters;
+					}
 				}
 
 				if (ASTType(class_symbol) != AST_TEMPLATE_ID)
@@ -1287,8 +1340,61 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 
 			if (decl_context.template_param_info != NULL)
 			{
-				class_entry->template_parameter_info = decl_context.template_param_info;
-				class_entry->num_template_parameters = decl_context.num_template_parameters;
+				if (class_entry->template_parameter_info == NULL)
+				{
+					// Just overwrite
+					class_entry->template_parameter_info = decl_context.template_param_info;
+					class_entry->num_template_parameters = decl_context.num_template_parameters;
+				}
+				else // Otherwise first mix them
+				{
+					if (class_entry->num_template_parameters != decl_context.num_template_parameters)
+					{
+						internal_error("The number of template parameters declared here does not match with a previous declaration\n", 0);
+					}
+
+					int i;
+					for (i = 0; i < decl_context.num_template_parameters; i++)
+					{
+						switch (class_entry->template_parameter_info[i]->kind)
+						{
+							case TPK_TYPE :
+							case TPK_TEMPLATE :
+								{
+									if (class_entry->template_parameter_info[i]->default_type != NULL
+											&& decl_context.template_param_info[i]->default_type == NULL)
+									{
+										decl_context.template_param_info[i]->default_type = 
+											class_entry->template_parameter_info[i]->default_type;
+										decl_context.template_param_info[i]->default_argument_scope = 
+											class_entry->template_parameter_info[i]->default_argument_scope;
+									}
+									break;
+								}
+							case TPK_NONTYPE :
+								{
+									if (class_entry->template_parameter_info[i]->default_expression != NULL
+											&& decl_context.template_param_info[i]->default_expression == NULL)
+									{
+										decl_context.template_param_info[i]->default_expression = 
+											class_entry->template_parameter_info[i]->default_expression;
+										decl_context.template_param_info[i]->default_argument_scope = 
+											class_entry->template_parameter_info[i]->default_argument_scope;
+									}
+									break;
+								}
+							default :
+								{
+									internal_error("Unexpected template parameter type %d\n", 
+											class_entry->template_parameter_info[i]->kind);
+								}
+						}
+					}
+
+					// Just overwrite
+					class_entry->template_parameter_info = decl_context.template_param_info;
+					class_entry->num_template_parameters = decl_context.num_template_parameters;
+				}
 			}
 
 			// Gather template argument information
