@@ -101,8 +101,8 @@ HANDLER_PROTOTYPE(base_specifier_access_handler);
 HANDLER_PROTOTYPE(base_specifier_virtual_handler);
 HANDLER_PROTOTYPE(base_specifier_access_virtual_handler);
 HANDLER_PROTOTYPE(elaborated_type_class_handler);
-HANDLER_PROTOTYPE(elaborated_type_template_handler);
-HANDLER_PROTOTYPE(elaborated_type_template_template_handler);
+HANDLER_PROTOTYPE(elaborated_type_template_class_handler);
+HANDLER_PROTOTYPE(elaborated_type_template_template_class_handler);
 HANDLER_PROTOTYPE(elaborated_type_enum_handler);
 HANDLER_PROTOTYPE(elaborated_typename_handler);
 HANDLER_PROTOTYPE(elaborated_typename_template_handler);
@@ -366,8 +366,8 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_BASE_SPECIFIER_VIRTUAL, base_specifier_virtual_handler, NULL),
 	NODE_HANDLER(AST_BASE_SPECIFIER_ACCESS_VIRTUAL, base_specifier_access_virtual_handler, NULL),
 	NODE_HANDLER(AST_ELABORATED_TYPE_CLASS, elaborated_type_class_handler, NULL),
-	NODE_HANDLER(AST_ELABORATED_TYPE_TEMPLATE, elaborated_type_template_handler, NULL),
-	NODE_HANDLER(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE, elaborated_type_template_template_handler, NULL),
+	NODE_HANDLER(AST_ELABORATED_TYPE_TEMPLATE_CLASS, elaborated_type_template_class_handler, NULL),
+	NODE_HANDLER(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, elaborated_type_template_template_class_handler, NULL),
 	NODE_HANDLER(AST_ELABORATED_TYPE_ENUM, elaborated_type_enum_handler, NULL),
 	NODE_HANDLER(AST_ELABORATED_TYPENAME, elaborated_typename_handler, NULL),
 	NODE_HANDLER(AST_ELABORATED_TYPENAME_TEMPLATE, elaborated_typename_template_handler, NULL),
@@ -464,8 +464,8 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_GCC_MAX_ASSIGMENT, simple_parameter_handler, ">?="),
 	NODE_HANDLER(AST_GCC_MIN_ASSIGMENT, simple_parameter_handler, "<?="),
 	NODE_HANDLER(AST_GCC_ELABORATED_TYPE_CLASS, gcc_elaborated_type_class_handler, NULL),
-	NODE_HANDLER(AST_GCC_ELABORATED_TYPE_TEMPLATE, gcc_elaborated_type_template_handler, NULL),
-	NODE_HANDLER(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE, gcc_elaborated_type_template_template_handler, NULL),
+	NODE_HANDLER(AST_GCC_ELABORATED_TYPE_TEMPLATE_CLASS, gcc_elaborated_type_template_handler, NULL),
+	NODE_HANDLER(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, gcc_elaborated_type_template_template_handler, NULL),
 	NODE_HANDLER(AST_GCC_ELABORATED_TYPE_ENUM, gcc_elaborated_type_enum_handler, NULL),
 	NODE_HANDLER(AST_GCC_INIT_DECLARATOR, gcc_init_declarator_handler, NULL),
 	NODE_HANDLER(AST_GCC_ASM_SPEC, gcc_asm_specification_handler, NULL),
@@ -1663,7 +1663,7 @@ static void elaborated_type_class_handler(FILE* f, AST a, int level)
 	prettyprint_level(f, ASTSon3(a), level);
 }
 
-static void elaborated_type_template_handler(FILE* f, AST a, int level)
+static void elaborated_type_template_class_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
 	fprintf(f, " ");
@@ -1681,7 +1681,7 @@ static void elaborated_type_template_handler(FILE* f, AST a, int level)
 	prettyprint_level(f, ASTSon3(a), level);
 }
 
-static void elaborated_type_template_template_handler(FILE* f, AST a, int level)
+static void elaborated_type_template_template_class_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
 	fprintf(f, " ");

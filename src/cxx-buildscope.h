@@ -74,4 +74,7 @@ void gather_type_spec_information(AST a, scope_t* st, simple_type_t* type_info, 
 
 extern const decl_context_t default_decl_context;
 
+AST get_declarator_name(AST a);
+AST get_leftmost_declarator_name(AST a);
+
 #endif // CXX_BUILDSCOPE_H

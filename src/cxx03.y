@@ -1128,43 +1128,43 @@ elaborated_type_specifier : class_key IDENTIFIER
 }
 | class_key TEMPLATE template_id
 {
-	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $1, NULL, NULL, $3, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, $1, NULL, NULL, $3, ASTLine($1), NULL);
 }
 | class_key DOS_DOS_PUNTS TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $1, global_op, NULL, $4, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, $1, global_op, NULL, $4, ASTLine($1), NULL);
 }
 | class_key nested_name_specifier TEMPLATE template_id
 {
-	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $1, NULL, $2, $4, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, $1, NULL, $2, $4, ASTLine($1), NULL);
 }
 | class_key DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $1, global_op, $3, $5, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, $1, global_op, $3, $5, ASTLine($1), NULL);
 }
 | class_key template_id
 {
-	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, NULL, $2, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, NULL, NULL, $2, ASTLine($1), NULL);
 }
 | class_key DOS_DOS_PUNTS template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, NULL, $3, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, global_op, NULL, $3, ASTLine($1), NULL);
 }
 | class_key nested_name_specifier template_id
 {
-	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, $2, $3, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, NULL, $2, $3, ASTLine($1), NULL);
 }
 | class_key DOS_DOS_PUNTS nested_name_specifier template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, $3, $4, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, global_op, $3, $4, ASTLine($1), NULL);
 }
 | ENUM IDENTIFIER
 {
@@ -1262,58 +1262,58 @@ elaborated_type_specifier : class_key IDENTIFIER
 }
 | class_key attributes template_id
 {
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
-			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, NULL, $3, ASTLine($1), NULL),
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_CLASS, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, NULL, NULL, $3, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
 | class_key attributes DOS_DOS_PUNTS template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
-			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, NULL, $4, ASTLine($1), NULL),
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_CLASS, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, global_op, NULL, $4, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
 | class_key attributes nested_name_specifier template_id
 {
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
-			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, $3, $4, ASTLine($1), NULL),
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_CLASS, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, NULL, $3, $4, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
 | class_key attributes DOS_DOS_PUNTS nested_name_specifier template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE, $2,
-			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, $4, $5, ASTLine($1), NULL),
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_CLASS, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, global_op, $4, $5, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
 | class_key attributes TEMPLATE template_id
 {
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $2,
-			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, NULL, $4, ASTLine($1), NULL),
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, NULL, NULL, $4, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
 | class_key attributes DOS_DOS_PUNTS TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $2,
-			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, NULL, $5, ASTLine($1), NULL),
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, global_op, NULL, $5, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
 | class_key attributes nested_name_specifier TEMPLATE template_id
 {
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $2,
-			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, NULL, $3, $5, ASTLine($1), NULL),
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, NULL, $3, $5, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
 | class_key attributes DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
-	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE, $2,
-			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE, $1, global_op, $4, $6, ASTLine($1), NULL),
+	$$ = ASTMake2(AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, $2,
+			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, global_op, $4, $6, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
 | ENUM attributes IDENTIFIER

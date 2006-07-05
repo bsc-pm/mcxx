@@ -1604,6 +1604,7 @@ char is_dependent_tree(AST tree, scope_t* st)
 		}
 
 		fprintf(stderr, "Name '%s' is not dependent\n", name);
+		return 0;
     }
     else
     {
@@ -1636,3 +1637,4 @@ scope_entry_t* give_real_entry(scope_entry_t* entry)
 
 	return result;
 }
+

@@ -125,7 +125,6 @@ static cv_qualifier_t compute_cv_qualifier(AST a);
 
 static exception_spec_t* build_exception_spec(scope_t* st, AST a);
 
-static AST get_declarator_name(AST a);
 static char is_constructor_declarator(AST a);
 
 static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
@@ -717,8 +716,8 @@ void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type
 		case AST_ELABORATED_TYPE_CLASS :
 			gather_type_spec_from_elaborated_class_specifier(a, st, simple_type_info, decl_context);
 			break;
-		case AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE :
-		case AST_ELABORATED_TYPE_TEMPLATE :
+		case AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS :
+		case AST_ELABORATED_TYPE_TEMPLATE_CLASS :
 			gather_type_spec_from_elaborated_class_specifier(a, st, simple_type_info, decl_context);
 			break;
 		case AST_CHAR_TYPE :
@@ -795,17 +794,29 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
 	scope_entry_list_t* result_list = NULL;
 
-	if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+	scope_t* current_template_scope = NULL;
+	scope_t* old_template_scope = NULL;
+	
+	if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
 	{
-		result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-				NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+		// Adjust to the enclosing scope
+		if (st->contained_in != NULL)
+		{
+			// Save the previous template scope
+			current_template_scope = st->template_scope;
+			old_template_scope = st->contained_in->template_scope;
+
+			st = st->contained_in;
+			st->template_scope = current_template_scope;
+		}
+		else
+		{
+			internal_error("Friend declaration in global scope\n", 0);
+		}
 	}
-	else
-	{
-		fprintf(stderr, "friend lookup\n");
-		result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-				FULL_UNQUALIFIED_LOOKUP, LF_NO_INSTANTIATE);
-	}
+
+	result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
+			NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
 
 	// Now look for a type
 	enum cxx_symbol_kind filter_classes[3] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
@@ -830,10 +841,10 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
 	if (entry == NULL)
 	{
-        if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
-        {
-            internal_error("Friend declaration refers to a type not found\n", 0);
-        }
+        // if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+        // {
+        //     internal_error("Friend declaration refers to a type not found\n", 0);
+        // }
 
 		// Create a stub but only if it is unqualified, otherwise it should exist elsewhere
 		if (nested_name_specifier == NULL
@@ -957,6 +968,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 		type_info->kind = STK_USER_DEFINED;
 		type_info->user_defined_type = entry;
 	}
+
+	if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+	{
+		// Restore the previous template scope
+		st->template_scope = old_template_scope;
+	}
 }
 
 static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, simple_type_t* type_info, decl_context_t decl_context)
@@ -967,16 +984,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 
 	scope_entry_list_t* result_list = NULL;
 
-	if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
-	{
-		result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
-				NOFULL_UNQUALIFIED_LOOKUP);
-	}
-	else
-	{
-		result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
-				FULL_UNQUALIFIED_LOOKUP);
-	}
+	result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
+			NOFULL_UNQUALIFIED_LOOKUP);
 
 	// Look for an enum name
 	scope_entry_t* entry = NULL;
@@ -989,11 +998,6 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 
 	if (entry == NULL)
 	{
-        if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
-        {
-            internal_error("Friend declaration refers to a type not found\n", 0);
-        }
-
 		// Create a stub but only if it is unqualified, otherwise it should exist anywhere
 		if (nested_name_specifier == NULL
 				&& global_scope == NULL)
@@ -1585,6 +1589,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 		// If the class had a name, it is completely defined here
 		class_entry->defined = 1;
 	}
+
 }
 
 
@@ -2005,69 +2010,6 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
 				// Restart function
 				build_scope_declarator_rec(a, st, parameters_scope, declarator_type, gather_info, declarator_name);
 				break;
-			}
-		default:
-			{
-				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
-			}
-	}
-}
-
-/*
- * This function returns the node that holds the name for a non-abstract
- * declarator
- */
-static AST get_declarator_name(AST a)
-{
-	if (a == NULL)
-	{
-		internal_error("This function does not admit NULL trees", 0);
-	}
-
-	switch(ASTType(a))
-	{
-		case AST_INIT_DECLARATOR :
-		case AST_MEMBER_DECLARATOR :
-		case AST_DECLARATOR :
-		case AST_PARENTHESIZED_DECLARATOR :
-			{
-				return get_declarator_name(ASTSon0(a)); 
-				break;
-			}
-		case AST_POINTER_DECL :
-			{
-				return get_declarator_name(ASTSon1(a));
-				break;
-			}
-		case AST_DECLARATOR_ARRAY :
-			{
-				return get_declarator_name(ASTSon0(a));
-				break;
-			}
-		case AST_DECLARATOR_FUNC :
-			{
-				return get_declarator_name(ASTSon0(a));
-				break;
-			}
-		case AST_DECLARATOR_ID_EXPR :
-			{
-				return ASTSon0(a);
-				break;
-			}
-		case AST_ABSTRACT_DECLARATOR :
-		case AST_GCC_ABSTRACT_DECLARATOR :
-		case AST_PARENTHESIZED_ABSTRACT_DECLARATOR:
-		case AST_ABSTRACT_DECLARATOR_FUNC:
-		case AST_ABSTRACT_ARRAY :
-			{
-				return NULL;
-			}
-		case AST_AMBIGUITY :
-			{
-				// A scope null is valid here since this is purely syntactic
-				solve_ambiguous_declarator(a, NULL);
-				// Restart function
-				return get_declarator_name(a);
 			}
 		default:
 			{
@@ -4358,5 +4300,135 @@ static void build_scope_statement(AST a, scope_t* st, decl_context_t decl_contex
 	else
 	{
 		WARNING_MESSAGE("Statement node type '%s' doesn't have handler", ast_print_node_type(ASTType(a)));
+	}
+}
+
+/*
+ * This function returns the node that holds the name for a non-abstract
+ * declarator
+ */
+AST get_declarator_name(AST a)
+{
+	if (a == NULL)
+	{
+		internal_error("This function does not admit NULL trees", 0);
+	}
+
+	switch(ASTType(a))
+	{
+		case AST_INIT_DECLARATOR :
+		case AST_MEMBER_DECLARATOR :
+		case AST_DECLARATOR :
+		case AST_PARENTHESIZED_DECLARATOR :
+			{
+				return get_declarator_name(ASTSon0(a)); 
+				break;
+			}
+		case AST_POINTER_DECL :
+			{
+				return get_declarator_name(ASTSon1(a));
+				break;
+			}
+		case AST_DECLARATOR_ARRAY :
+			{
+				return get_declarator_name(ASTSon0(a));
+				break;
+			}
+		case AST_DECLARATOR_FUNC :
+			{
+				return get_declarator_name(ASTSon0(a));
+				break;
+			}
+		case AST_DECLARATOR_ID_EXPR :
+			{
+				return ASTSon0(a);
+				break;
+			}
+		case AST_ABSTRACT_DECLARATOR :
+		case AST_GCC_ABSTRACT_DECLARATOR :
+		case AST_PARENTHESIZED_ABSTRACT_DECLARATOR:
+		case AST_ABSTRACT_DECLARATOR_FUNC:
+		case AST_ABSTRACT_ARRAY :
+			{
+				return NULL;
+			}
+		case AST_AMBIGUITY :
+			{
+				// A scope null is valid here since this is purely syntactic
+				solve_ambiguous_declarator(a, NULL);
+				// Restart function
+				return get_declarator_name(a);
+			}
+		default:
+			{
+				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
+			}
+	}
+}
+
+// Returns non-null tree with the leftmost declarator
+// that is not preceded by any other sign 
+//
+//   int f(); // Returns the tree holding 'f'
+//   int (f()); // Returns null
+//   int a[10]; // Returns the tree holding 'a'
+AST get_leftmost_declarator_name(AST a)
+{
+	if (a == NULL)
+	{
+		internal_error("This function does not admit NULL trees", 0);
+	}
+
+	switch(ASTType(a))
+	{
+		case AST_DECLARATOR :
+		case AST_MEMBER_DECLARATOR :
+		case AST_INIT_DECLARATOR :
+			{
+				return get_leftmost_declarator_name(ASTSon0(a)); 
+				break;
+			}
+		case AST_PARENTHESIZED_DECLARATOR :
+			{
+				return NULL;
+			}
+		case AST_POINTER_DECL :
+			{
+				return NULL;
+			}
+		case AST_DECLARATOR_ARRAY :
+			{
+				return get_leftmost_declarator_name(ASTSon0(a));
+				break;
+			}
+		case AST_DECLARATOR_FUNC :
+			{
+				return get_leftmost_declarator_name(ASTSon0(a));
+				break;
+			}
+		case AST_DECLARATOR_ID_EXPR :
+			{
+				return ASTSon0(a);
+				break;
+			}
+		case AST_ABSTRACT_DECLARATOR :
+		case AST_GCC_ABSTRACT_DECLARATOR :
+		case AST_PARENTHESIZED_ABSTRACT_DECLARATOR:
+		case AST_ABSTRACT_DECLARATOR_FUNC:
+		case AST_ABSTRACT_ARRAY :
+			{
+				return NULL;
+			}
+		case AST_AMBIGUITY :
+			{
+				// A scope null is valid here since this is purely syntactic
+				solve_ambiguous_declarator(a, NULL);
+				// Restart function
+				return get_leftmost_declarator_name(a);
+			}
+		default:
+			{
+				internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
+			}
 	}
 }

@@ -3,6 +3,7 @@
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
 #include "cxx-prettyprint.h"
+#include "cxx-buildscope.h"
 
 /*
  * This file performs disambiguation. If a symbol table is passed along the
@@ -17,6 +18,7 @@ static AST recursive_search(AST a, node_t type);
 static AST look_for_node_type_within_ambig(AST a, node_t type, int n);
 static void solve_integral_specification_ambig(AST a);
 static void solve_nested_name_with_no_type(AST a);
+static void solve_ambiguous_simple_declaration(AST a, scope_t* st);
 
 static char check_for_declaration_statement(AST a, scope_t* st);
 static char check_for_expression(AST expression, scope_t* st);
@@ -45,6 +47,8 @@ static char check_for_declarator(AST declarator, scope_t* st);
 static char check_for_declarator_rec(AST declarator, scope_t* st);
 static char check_for_function_declarator_parameters(AST parameter_declaration_clause, scope_t* st);
 static char check_for_initialization(AST initializer, scope_t* st);
+
+static char check_for_simple_declaration(AST a, scope_t* st);
 
 #define EXPECT_OPTIONS(a, n) \
 do \
@@ -148,7 +152,7 @@ void solve_ambiguous_declaration(AST a, scope_t* st)
 	 * Ambiguous declaration for a nested name
 	 * referring to a constructor
 	 */
-	char there_is_empty_decl_spec = 0;
+	char there_is_empty_type_spec = 0;
 	valid = 1;
 	for (i = 0; (i < a->num_ambig) && valid; i++)
 	{
@@ -165,13 +169,14 @@ void solve_ambiguous_declaration(AST a, scope_t* st)
 
 		AST decl_specifier_seq = ASTSon0(option);
 
-		if (decl_specifier_seq == NULL)
+		if (decl_specifier_seq == NULL
+				|| ASTSon1(decl_specifier_seq) == NULL)
 		{
-			there_is_empty_decl_spec = 1;
+			there_is_empty_type_spec = 1;
 		}
 	}
 	
-	if (!there_is_empty_decl_spec)
+	if (!there_is_empty_type_spec)
 	{
 		valid = 0;
 	}
@@ -182,8 +187,61 @@ void solve_ambiguous_declaration(AST a, scope_t* st)
 		return;
 	}
 
+	/*
+	 * running nested name ambiguity
+	 *
+	 *  class A::B;
+	 *
+	 * does not have to be understood as class A  ::B;
+	 */
+	valid = 1;
+	for (i = 0; (i < a->num_ambig) && valid; i++)
+	{
+		AST option = a->ambig[i];
+
+		valid &= (ASTType(option) == AST_SIMPLE_DECLARATION);
+	}
+
+	if (valid)
+	{
+		solve_ambiguous_simple_declaration(a, st);
+		return;
+	}
+
 	internal_error("Don't know how to handle this ambiguity. Line %d", ASTLine(a));
 }
+
+static void solve_ambiguous_simple_declaration(AST a, scope_t* st)
+{
+	int correct_option = -1;
+	int i;
+	for (i = 0; i < a->num_ambig; i++)
+	{
+		AST option = a->ambig[i];
+
+		if (check_for_simple_declaration(option, st))
+		{
+			if (correct_option < 0)
+			{
+				correct_option = i;
+			}
+			else
+			{
+				internal_error("More than one valid alternative!\n", 0);
+			}
+		}
+	}
+
+	if (correct_option < 0)
+	{
+		internal_error("Ambiguity not solved\n", 0);
+	}
+	else
+	{
+		choose_option(a, correct_option);
+	}
+}
+
 
 static void solve_nested_name_with_no_type(AST a)
 {
@@ -194,7 +252,8 @@ static void solve_nested_name_with_no_type(AST a)
 
 		AST decl_specifier_seq = ASTSon0(option);
 
-		if (decl_specifier_seq == NULL)
+		if (decl_specifier_seq == NULL || 
+				ASTSon1(decl_specifier_seq) == NULL)
 		{
 			choose_option(a, i);
 			return;
@@ -344,9 +403,10 @@ void solve_ambiguous_statement(AST a, scope_t* st)
 				}
 				else
 				{
-					internal_error("More than one valid choice! '%s' vs '%s'", 
+					internal_error("More than one valid choice! '%s' vs '%s' line=%d", 
 							ast_print_node_type(ASTType(first_option)),
-								ast_print_node_type(ASTType(second_option)));
+								ast_print_node_type(ASTType(second_option)),
+								ASTLine(second_option));
 				}
 			}
 		}
@@ -436,9 +496,93 @@ static char check_for_simple_declaration(AST a, scope_t* st)
 
 		AST init_declarator_list = ASTSon1(a);
 
-		if (!check_for_init_declarator_list(init_declarator_list, st))
+		if (init_declarator_list != NULL)
 		{
-			return 0;
+			if (!check_for_init_declarator_list(init_declarator_list, st))
+			{
+				return 0;
+			}
+		}
+
+		// Additional check
+		//
+		// A::f(c) has to be interpreted as A::f(c) and never as A   ::f(c)
+		// (if you want the latest you must use A(::f(c))
+		if (ASTSon2(decl_specifier_seq) == NULL
+				&& (ASTType(type_spec) == AST_SIMPLE_TYPE_SPECIFIER
+					|| ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS
+					|| ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM
+					|| ASTType(type_spec) == AST_ELABORATED_TYPENAME
+					|| ASTType(type_spec) == AST_ELABORATED_TYPENAME_TEMPLATE
+					|| ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_CLASS
+					|| ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS))
+		{
+			AST first_init_declarator = NULL;
+			AST list = ASTSon1(a);
+			AST iter;
+
+			if (list != NULL)
+			{
+
+				for_each_element(list, iter)
+				{
+					first_init_declarator = ASTSon1(iter);
+					break;
+				}
+
+				AST first_declarator = ASTSon0(first_init_declarator);
+				AST first_declarator_name = get_leftmost_declarator_name(first_declarator);
+
+				if (first_declarator_name != NULL)
+				{
+					if (ASTType(first_declarator_name) == AST_QUALIFIED_ID
+							|| ASTType(first_declarator_name) == AST_QUALIFIED_OPERATOR_FUNCTION_ID
+							|| ASTType(first_declarator_name) == AST_QUALIFIED_TEMPLATE_ID)
+					{
+						AST global_op = ASTSon0(first_declarator_name);
+						if (global_op != NULL)
+						{
+							if (ASTType(global_op) != AST_GLOBAL_SCOPE)
+							{
+								internal_error("Expecting a global scope operator\n", 0);
+							}
+
+							// At this point, this simple declaration looks like one of the following
+							//
+							//  [AST_SIMPLE_TYPE_SPECIFIER]
+							//   A::B ::C;
+							//   ::A::B ::C;
+							//   A::B<int> ::C;
+							//   ::A::B<int> ::C;
+							//   A::template B<int> ::C;
+							//   ::A::template B<int> ::C;
+							//  [AST_ELABORATED_TYPE_CLASS]
+							//   class A::B ::C;
+							//   class ::A::B ::C;
+							//  [AST_ELABORATED_TYPE_ENUM]
+							//   enum A::B ::C;
+							//   enum ::A::B ::C;
+							//  [AST_ELABORATED_TYPENAME]
+							//   typename A::B ::C;
+							//   typename ::A::B ::C;
+							//  [AST_ELABORATED_TYPENAME_TEMPLATE]
+							//   typename A::B<int> ::C;
+							//   typename ::A::B<int> ::C;
+							//  [AST_ELABORATED_TYPE_TEMPLATE]
+							//   class A::B<int> ::C;
+							//   class ::A::B<int> ::C;
+							//  [AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE]
+							//   class template B<int> ::C;
+							//   class A::template B<int> ::C;
+							//
+							// which it is not intended to be a correct
+							// declaration because the nested name spec has to
+							// be as long as possible
+							return 0;
+						}
+					}
+				}
+			}
 		}
 	}
 	else
@@ -540,7 +684,7 @@ static char check_for_declaration_statement(AST declaration_statement, scope_t* 
 		}
 		else
 		{
-			choose_option(a, i);
+			choose_option(a, correct_choice);
 		}
 	}
 
@@ -1428,8 +1572,8 @@ static char check_for_type_specifier(AST type_id, scope_t* st)
         case AST_ELABORATED_TYPENAME_TEMPLATE :
 		case AST_ELABORATED_TYPE_ENUM :
 		case AST_ELABORATED_TYPE_CLASS :
-		case AST_ELABORATED_TYPE_TEMPLATE :
-		case AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE :
+		case AST_ELABORATED_TYPE_TEMPLATE_CLASS :
+		case AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS :
 		case AST_CHAR_TYPE :
 		case AST_WCHAR_TYPE :
 		case AST_BOOL_TYPE :

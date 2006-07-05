@@ -83,4 +83,5 @@ char is_dependent_tree(AST tree, scope_t* st);
 
 scope_entry_t* give_real_entry(scope_entry_t* entry);
 
+
 #endif // CXX_TYPEUTILS_H
