@@ -2285,12 +2285,20 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
 		// Check for existence of this symbol in this scope
 		scope_entry_list_t* entry_list = query_id_expression(st, declarator_id, NOFULL_UNQUALIFIED_LOOKUP);
 
-		enum cxx_symbol_kind valid_kind[2] = {SK_CLASS, SK_ENUM};
-		scope_entry_list_t* check_list = filter_symbol_non_kind_set(entry_list, 2, valid_kind);
+		scope_entry_list_t* check_list = filter_symbol_kind(entry_list, SK_VARIABLE);
+
 		if (check_list != NULL)
 		{
-			running_error("Symbol '%s' has been redefined as another symbol kind", 
-					ASTText(declarator_id), entry_list->entry->kind);
+			scope_entry_t* entry = check_list->entry;
+			return entry;
+		}
+
+		enum cxx_symbol_kind valid_symbols[2] = {SK_CLASS, SK_ENUM};
+		check_list = filter_symbol_non_kind_set(entry_list, 2, valid_symbols);
+
+		if (check_list != NULL)
+		{
+			internal_error("The symbol has already been defined as another symbol kind %d", check_list->entry->kind);
 		}
 
 		fprintf(stderr, "Registering variable '%s' in %p\n", ASTText(declarator_id), st);

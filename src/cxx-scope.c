@@ -1158,14 +1158,18 @@ scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, i
 		char found = 0;
 		for (i = 0; (i < num_kinds) && !found; i++)
 		{
-			if (iter->entry->kind != symbol_kind_set[i])
+			if (iter->entry->kind == symbol_kind_set[i])
 			{
-				scope_entry_list_t* new_item = GC_CALLOC(1, sizeof(*new_item));
-				new_item->entry = iter->entry;
-				new_item->next = result;
-				result = new_item;
 				found = 1;
 			}
+		}
+
+		if (!found)
+		{
+			scope_entry_list_t* new_item = GC_CALLOC(1, sizeof(*new_item));
+			new_item->entry = iter->entry;
+			new_item->next = result;
+			result = new_item;
 		}
 
 		iter = iter->next;
