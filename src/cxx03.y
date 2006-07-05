@@ -228,12 +228,15 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> declaration_sequence
 %type<ast> declaration_statement
 %type<ast> declarator
+%type<ast> functional_declarator
 %type<ast> declarator_id
+%type<ast> functional_declarator_id
 // %type<ast> decl_specifier
 %type<ast> decl_specifier_seq
 %type<ast> delete_expression
 %type<ast> direct_abstract_declarator
 %type<ast> direct_declarator
+%type<ast> functional_direct_declarator
 %type<ast> direct_new_declarator
 %type<ast> elaborated_type_specifier
 %type<ast> enumeration_definition
@@ -1451,6 +1454,72 @@ ptr_operator : '*'
 }
 ;
 
+/*
+   A functional declarator is a syntactic enforced declarator that will have
+   a functional nature
+ */
+functional_declarator : functional_direct_declarator
+{
+	$$ = ASTMake1(AST_DECLARATOR, $1, ASTLine($1), NULL);
+}
+| ptr_operator functional_declarator
+{
+	$$ = ASTMake2(AST_POINTER_DECL, $1, $2, ASTLine($1), NULL);
+}
+;
+
+functional_direct_declarator : functional_declarator_id
+{
+	$$ = $1;
+}
+| functional_direct_declarator '(' parameter_declaration_clause ')'
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTLine($1), NULL);
+}
+| functional_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ASTLine($1), NULL);
+}
+| functional_direct_declarator '(' parameter_declaration_clause ')' exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ASTLine($1), NULL);
+}
+| functional_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' constant_expression ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ASTLine($1), NULL);
+}
+| '(' functional_declarator ')'
+{
+	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_line, NULL);
+}
+;
+
+functional_declarator_id : declarator_id '(' parameter_declaration_clause ')'
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTLine($1), NULL);
+}
+| declarator_id '(' parameter_declaration_clause ')' cv_qualifier_seq
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ASTLine($1), NULL);
+}
+| declarator_id '(' parameter_declaration_clause ')' exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ASTLine($1), NULL);
+}
+| declarator_id '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ASTLine($1), NULL);
+}
+;
+
 cv_qualifier_seq : cv_qualifier
 {
 	$$ = ASTListLeaf($1);
@@ -1794,19 +1863,19 @@ initializer_list : initializer_clause
 }
 ;
 
-function_definition : declarator function_body
+function_definition : functional_declarator function_body
 {
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, NULL, $2, ASTLine($1), NULL);
 }
-| declarator ctor_initializer function_body 
+| functional_declarator ctor_initializer function_body 
 {
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, $2, $3, ASTLine($1), NULL);
 }
-| decl_specifier_seq declarator function_body 
+| decl_specifier_seq functional_declarator function_body 
 {
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, NULL, $3, ASTLine($1), NULL);
 }
-| decl_specifier_seq declarator ctor_initializer function_body 
+| decl_specifier_seq functional_declarator ctor_initializer function_body 
 {
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, $3, $4, ASTLine($1), NULL);
 }

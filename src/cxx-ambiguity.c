@@ -199,7 +199,8 @@ void solve_ambiguous_declaration(AST a, scope_t* st)
 	{
 		AST option = a->ambig[i];
 
-		valid &= (ASTType(option) == AST_SIMPLE_DECLARATION);
+		valid &= (ASTType(option) == AST_SIMPLE_DECLARATION
+				|| ASTType(option) == AST_MEMBER_DECLARATION);
 	}
 
 	if (valid)
