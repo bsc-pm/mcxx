@@ -2318,6 +2318,26 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 		gather_decl_spec_t* gather_info, scope_t* st, decl_context_t decl_context)
 {
 	scope_entry_t* entry;
+	
+	scope_t* old_template_scope = NULL;
+	scope_t* current_template_scope = NULL;
+
+	if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+	{
+		fprintf(stderr, "Friend function register\n");
+		if (st->contained_in != NULL)
+		{
+			old_template_scope = st->contained_in->template_scope;
+			current_template_scope = st->template_scope;
+
+			st = st->contained_in;
+			st->template_scope = current_template_scope;
+		}
+		else
+		{
+			internal_error("Friend function declaration in the global scope", 0);
+		}
+	}
 
 	char is_overload;
 	entry = find_function_declaration(st, declarator_id, declarator_type, &is_overload, decl_context);
@@ -2352,10 +2372,18 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
 		new_entry->type_information = declarator_type;
 
+		if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+		{
+			st->template_scope = old_template_scope;
+		}
 		return new_entry;
 	}
 	else
 	{
+		if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+		{
+			st->template_scope = old_template_scope;
+		}
 		return entry;
 	}
 }
@@ -3101,6 +3129,15 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 		new_decl_context.decl_flags |= DF_CONSTRUCTOR;
 	}
 
+	if (gather_info.is_friend)
+	{
+		new_decl_context.decl_flags |= DF_FRIEND;
+	}
+	else
+	{
+		new_decl_context.decl_flags &= (~DF_FRIEND);
+	}
+
 	entry = build_scope_declarator_with_parameter_scope(ASTSon1(a), st, &parameter_scope,
 			&gather_info, type_info, &declarator_type, new_decl_context);
 	if (entry == NULL)
@@ -3364,9 +3401,9 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
 				&& ((ASTType(decl_spec_seq) != AST_AMBIGUITY && ASTSon1(decl_spec_seq) != NULL)
 					|| (ASTType(decl_spec_seq) == AST_AMBIGUITY)))
 		{
-
 			build_scope_decl_specifier_seq(decl_spec_seq, st, &gather_info, &type_info,
 					default_decl_context);
+
 		}
 		else
 		{
@@ -3385,6 +3422,15 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
 		if (is_constructor)
 		{
 			new_decl_context.decl_flags |= DF_CONSTRUCTOR;
+		}
+
+		if (gather_info.is_friend)
+		{
+			new_decl_context.decl_flags |= DF_FRIEND;
+		}
+		else
+		{
+			new_decl_context.decl_flags &= (~DF_FRIEND);
 		}
 
 		entry = build_scope_declarator_with_parameter_scope(ASTSon1(a), st, &parameter_scope,
@@ -3476,6 +3522,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 
 		build_scope_decl_specifier_seq(ASTSon0(a), st, &gather_info,
 				&simple_type_info, new_decl_context);
+
 	}
 
 	if (ASTSon1(a) != NULL)
@@ -3524,6 +3571,15 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 							new_decl_context.decl_flags |= DF_CONSTRUCTOR;
 						}
 
+						if (gather_info.is_friend)
+						{
+							new_decl_context.decl_flags |= DF_FRIEND;
+						}
+						else
+						{
+							new_decl_context.decl_flags &= (~DF_FRIEND);
+						}
+
 						type_t* declarator_type = NULL;
 						scope_entry_t* entry = build_scope_declarator(ASTSon0(declarator), st, &gather_info, 
 								simple_type_info, &declarator_type, 
@@ -3538,7 +3594,6 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 						{
 							entry->type_information->function->is_member = 1;
 							entry->type_information->function->class_type = class_info;
-
 
 							// Update information in the class about this member function
 							switch (ASTType(declarator_name))
