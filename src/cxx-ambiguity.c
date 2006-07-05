@@ -16,6 +16,7 @@ static int select_node_type(AST a, node_t type);
 static AST recursive_search(AST a, node_t type);
 static AST look_for_node_type_within_ambig(AST a, node_t type, int n);
 static void solve_integral_specification_ambig(AST a);
+static void solve_nested_name_with_no_type(AST a);
 
 static char check_for_declaration_statement(AST a, scope_t* st);
 static char check_for_expression(AST expression, scope_t* st);
@@ -143,9 +144,63 @@ void solve_ambiguous_declaration(AST a, scope_t* st)
 		return;
 	}
 
+	/*
+	 * Ambiguous declaration for a nested name
+	 * referring to a constructor
+	 */
+	char there_is_empty_decl_spec = 0;
+	valid = 1;
+	for (i = 0; (i < a->num_ambig) && valid; i++)
+	{
+		AST option = a->ambig[i];
+
+		// This should only happen with declarators referring to constructors
+		// and since they cannot appear as just plain declarations this must be
+		// a function definition
+		if (ASTType(option) != AST_FUNCTION_DEFINITION)
+		{
+			valid = 0;
+			break;
+		}
+
+		AST decl_specifier_seq = ASTSon0(option);
+
+		if (decl_specifier_seq == NULL)
+		{
+			there_is_empty_decl_spec = 1;
+		}
+	}
+	
+	if (!there_is_empty_decl_spec)
+	{
+		valid = 0;
+	}
+
+	if (valid)
+	{
+	    solve_nested_name_with_no_type(a);
+		return;
+	}
+
 	internal_error("Don't know how to handle this ambiguity. Line %d", ASTLine(a));
 }
 
+static void solve_nested_name_with_no_type(AST a)
+{
+	int i;
+	for (i = 0; i < a->num_ambig; i++)
+	{
+		AST option = a->ambig[i];
+
+		AST decl_specifier_seq = ASTSon0(option);
+
+		if (decl_specifier_seq == NULL)
+		{
+			choose_option(a, i);
+			return;
+		}
+	}
+}
 // Solves this case
 //
 //    unsigned long A;
@@ -1747,6 +1802,7 @@ void solve_ambiguous_decl_specifier_seq(AST type_spec_seq, scope_t* st)
 	}
 	else
 	{
+		// This is a bit different from solve_integral_specification_ambig
 		// Choose the first one that has type_specifier
 		for (i = 0; i < type_spec_seq->num_ambig; i++)
 		{

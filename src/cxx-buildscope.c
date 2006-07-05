@@ -2551,14 +2551,21 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 	template_scope->template_scope = st->template_scope;
 	st->template_scope = template_scope;
 
-	switch (ASTType(ASTSon1(a)))
+	AST templated_decl = ASTSon1(a);
+
+	if (ASTType(templated_decl) == AST_AMBIGUITY)
+	{
+		solve_ambiguous_declaration(templated_decl, st);
+	}
+
+	switch (ASTType(templated_decl))
 	{
 		case AST_FUNCTION_DEFINITION :
 			{
 				decl_context_t decl_new_context = decl_context;
 
 				decl_new_context.decl_flags |= DF_TEMPLATE;
-				build_scope_template_function_definition(ASTSon1(a), st, template_scope, num_parameters, 
+				build_scope_template_function_definition(templated_decl, st, template_scope, num_parameters, 
 						template_param_info, decl_new_context);
 				break;
 			}
@@ -2571,19 +2578,17 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 				decl_new_context.template_param_info = template_param_info;
 
 				decl_new_context.decl_flags |= DF_TEMPLATE;
-				build_scope_template_simple_declaration(ASTSon1(a), st, template_scope, num_parameters, 
+				build_scope_template_simple_declaration(templated_decl, st, template_scope, num_parameters, 
 						template_param_info, decl_new_context);
 				break;
 			}
 		case AST_TEMPLATE_DECLARATION :
 			{
-
-				build_scope_template_declaration(ASTSon1(a), st, decl_context);
-
+				build_scope_template_declaration(templated_decl, st, decl_context);
 				break;
 			}
 		default :
-			internal_error("Unknown node type '%s' (line=%d)\n", ast_print_node_type(ASTType(a)), ASTLine(a));
+			internal_error("Unknown node type '%s' (line=%d)\n", ast_print_node_type(ASTType(templated_decl)), ASTLine(templated_decl));
 	}
 
 	// Restore template scope
@@ -3125,7 +3130,6 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 			&& ((ASTType(decl_spec_seq) != AST_AMBIGUITY && ASTSon1(decl_spec_seq) != NULL)
 			 || (ASTType(decl_spec_seq) == AST_AMBIGUITY)))
 	{
-
 		build_scope_decl_specifier_seq(decl_spec_seq, st, &gather_info, &type_info, decl_context);
 	}
 	else
