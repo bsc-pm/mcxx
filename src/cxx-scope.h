@@ -448,6 +448,7 @@ typedef enum lookup_flags_tag
 	LF_EXACT_TEMPLATE_MATCH = BITMAP(2),
 	LF_EXPRESSION = BITMAP(3),
 	LF_NO_INSTANTIATE = BITMAP(4),
+	LF_IN_NAMESPACE_SCOPE = BITMAP(5)
 } lookup_flags_t ;
 
 // Higher level functions when dealing with the scope
@@ -495,6 +496,9 @@ scope_entry_list_t* query_in_symbols_of_scope(scope_t* sc, char* name);
 // Manipulators
 scope_entry_list_t* create_list_from_entry(scope_entry_t* entry);
 scope_entry_list_t* append_scope_entry_lists(scope_entry_list_t* a, scope_entry_list_t* b);
+
+// Looking for scopes
+scope_t* enclosing_namespace_scope(scope_t* st);
 
 #undef BITMAP
 

@@ -123,8 +123,7 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
 					 && (t1->template_parameter_nesting == t2->template_parameter_nesting)));
 			break;
 		case STK_TEMPLATE_DEPENDENT_TYPE :
-#warning How to handle this ?
-			result = (t1->typeof_expr == t2->typeof_expr);
+			result = compare_template_dependent_types(t1, t2, st);
 			break;
 		case STK_TYPEDEF :
 			internal_error("A typedef cannot reach here", 0);
@@ -394,6 +393,121 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, scop
 	}
 
 	return still_compatible;
+}
+
+static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t2, scope_t* st)
+{
+	AST t1_expr = t1->typeof_expr;
+	AST t2_expr = t2->typeof_expr;
+
+	scope_t* t1_scope = t1->typeof_scope;
+	scope_t* t2_scope = t2->typeof_scope;
+
+	AST t1_global_op = ASTSon0(t1_expr);
+	AST t2_global_op = ASTSon0(t2_expr);
+
+	// One has :: and the other not
+	if ((t1_global_op == NULL && t2_global_op != NULL)
+			|| (t1_global_op != NULL && t2_global_op == NULL))
+	{
+		return 0;
+	}
+
+	if (t1_global_op != NULL) // t2_global_op != NULL too
+	{
+		st = compilation_options.global_scope;
+	}
+
+	AST t1_nested_name_spec = ASTSon1(t1_expr);
+	AST t2_nested_name_spec = ASTSon1(t2_expr);
+
+	while (t1_nested_name_spec != NULL
+			&& t2_nested_name_spec != NULL)
+	{
+		AST t1_class_or_namespace = ASTSon0(t1_nested_name_spec);
+		AST t2_class_or_namespace = ASTSon0(t2_nested_name_spec);
+
+		if (ASTType(t1_class_or_namespace) != ASTType(t2_class_or_namespace))
+		{
+			return 0;
+		}
+
+		if (ASTType(t1_class_or_namespace) == AST_SYMBOL)
+		{
+			enum cxx_symbol_kind filter_class_or_namespace[2] = {SK_NAMESPACE, SK_CLASS};
+
+			scope_entry_list_t* t1_name_list = 
+				filter_symbol_kind_set(query_unqualified_name(st, ASTText(t1_class_or_namespace)),
+						2, filter_class_or_namespace);
+			scope_entry_list_t* t2_name_list = 
+				filter_symbol_kind_set(query_unqualified_name(st, ASTText(t2_class_or_namespace)),
+						2, filter_class_or_namespace);
+
+			if (t1_name_list == NULL || t2_name_list == NULL)
+			{
+				internal_error("When comparing template dependent types one or both names were not found t1=%p t2=%p\n",
+						t1_name_list, t2_name_list);
+			}
+
+			scope_entry_t* t1_name = t1_name_list->entry;
+			scope_entry_t* t2_name = t2_name_list->entry;
+
+			if (t1_name->kind != t2_name->kind)
+			{
+				return 0;
+			}
+
+			if (t1_name->kind == SK_TEMPLATE_TYPE_PARAMETER)
+			{
+				// Compare template type parameters
+			}
+
+			// They should be the same class or namespace
+			if (t1_name != t2_name)
+			{
+				return 0;
+			}
+
+			t1_scope = t1_name->related_scope;
+			t2_scope = t2_name->related_scope;
+		}
+		else if (ASTType(t1_class_or_namespace) == AST_TEMPLATE_ID)
+		{
+			enum cxx_symbol_kind template_filter[2] = {SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
+			scope_entry_list_t* t1_template_name_list = 
+				filter_symbol_kind_set(query_template_id_flags(t1_scope, t1_class_or_namespace, FULL_UNQUALIFIED_LOOKUP),
+						2, template_filter);
+			scope_entry_list_t* t2_template_name_list = 
+				filter_symbol_kind_set(query_template_id(t2_scope, t2_class_or_namespace, FULL_UNQUALIFIED_LOOKUP),
+						2, template_filter);
+
+			if (t1_template_name_list == NULL || t2_template_name_list == NULL)
+			{
+				internal_error("When comparing template dependent types one or both names were not found t1=%p t2=%p\n",
+						t1_template_name_list, t2_template_name_list);
+			}
+
+			scope_entry_t* t1_template_name = t1_template_name_list->entry;
+			scope_entry_t* t2_template_name = t2_template_name_list->entry;
+
+			// TODO - Check this because i'm unsure this is totally true
+			if (t1_template_name != t2_template_name)
+			{
+				return 0;
+			}
+		}
+
+		t1_nested_name_spec = ASTSon1(t1_nested_name_spec);
+		t2_nested_name_spec = ASTSon1(t2_nested_name_spec);
+	}
+
+	if ((t1_nested_name_spec == NULL && t2_nested_name_spec != NULL) 
+			|| (t1_nested_name_spec != NULL && t2_nested_name_spec == NULL))
+	{
+		return 0;
+	}
+
+	return 1;
 }
 
 static char is_typedef_type(type_t* t1)

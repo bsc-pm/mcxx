@@ -216,6 +216,17 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 
 	*is_dependent = 0;
 
+	// We've been told to look up in the first enclosing namespace scope
+	if (BITMAP_TEST(lookup_flags, LF_IN_NAMESPACE_SCOPE))
+	{
+		lookup_scope = enclosing_namespace_scope(lookup_scope);
+
+		if (lookup_scope == NULL)
+		{
+			internal_error("Namespace scope not found!\n", 0);
+		}
+	}
+
 	// unless we are told to start in the global scope
 	if (global_op != NULL)
 	{
@@ -356,10 +367,22 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 	{
 		char* symbol_name = ASTText(name);
 
+		lookup_scope = sc;
+
 		if (BITMAP_TEST(lookup_flags, LF_CONSTRUCTOR))
 		{
 			symbol_name = strprepend(symbol_name, "constructor ");
 		}
+
+		if (BITMAP_TEST(lookup_flags, LF_IN_NAMESPACE_SCOPE))
+		{
+			lookup_scope = enclosing_namespace_scope(sc);
+			if (lookup_scope == NULL)
+			{
+				internal_error("Enclosing namespace not found\n", 0);
+			}
+		}
+
 		// This is an unqualified identifier
 		switch (ASTType(name))
 		{
@@ -368,12 +391,12 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 				{
 					case FULL_UNQUALIFIED_LOOKUP :
 						{
-							result = query_unqualified_name(sc, symbol_name);
+							result = query_unqualified_name(lookup_scope, symbol_name);
 							break;
 						}
 					case NOFULL_UNQUALIFIED_LOOKUP :
 						{
-							result = query_in_symbols_of_scope(sc, symbol_name);
+							result = query_in_symbols_of_scope(lookup_scope, symbol_name);
 							break;
 						}
 					default :
@@ -384,7 +407,7 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 				break;
 			case AST_TEMPLATE_ID:
 				// result = query_unqualified_template_id_flags(name, sc, sc, lookup_flags);
-				result = query_unqualified_template_id_flags(name, sc, sc, lookup_flags);
+				result = query_unqualified_template_id_flags(name, sc, lookup_scope, lookup_flags);
 				break;
 			default :
 				internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(name)));
@@ -393,7 +416,8 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 	else
 	{
 		char is_dependent = 0;
-		if ((lookup_scope = query_nested_name_spec(sc, global_op, nested_name, NULL, &is_dependent)) != NULL)
+		if ((lookup_scope = query_nested_name_spec_flags(sc, global_op, nested_name, 
+						NULL, &is_dependent, lookup_flags)) != NULL)
 		{
 			// We have to inherit the template_scope
 			scope_t* saved_scope = lookup_scope->template_scope;
@@ -554,6 +578,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
 	if (matched_template != NULL)
 	{
+		// If the template we are selecting is not incomplete or we are not
+		// willing to instantiate
 		fprintf(stderr, "Selected exact template '%p'\n", matched_template);
 		return create_list_from_entry(matched_template->entry);
 	}
@@ -1274,3 +1300,21 @@ scope_entry_list_t* append_scope_entry_lists(scope_entry_list_t* a, scope_entry_
 	return result;
 }
 
+scope_t* enclosing_namespace_scope(scope_t* st)
+{
+	if (st == NULL)
+		return NULL;
+
+	if (st->contained_in == NULL)
+	{
+		return NULL;
+	}
+
+	while (st != NULL
+			&& st->kind != NAMESPACE_SCOPE)
+	{
+		st = st->contained_in;
+	}
+
+	return st;
+}

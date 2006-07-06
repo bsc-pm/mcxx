@@ -794,29 +794,27 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
 	scope_entry_list_t* result_list = NULL;
 
-	scope_t* current_template_scope = NULL;
-	scope_t* old_template_scope = NULL;
+	scope_t* declarating_scope = st;
+
+	lookup_flags_t lookup_flags = LF_NONE;
 	
 	if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
 	{
-		// Adjust to the enclosing scope
-		if (st->contained_in != NULL)
-		{
-			// Save the previous template scope
-			current_template_scope = st->template_scope;
-			old_template_scope = st->contained_in->template_scope;
+		lookup_flags |= LF_IN_NAMESPACE_SCOPE;
+	}
 
-			st = st->contained_in;
-			st->template_scope = current_template_scope;
-		}
-		else
+	if (ASTType(class_symbol) == AST_TEMPLATE_ID)
+	{
+		AST template_args = ASTSon1(class_symbol);
+
+		if (is_dependent_tree(template_args, st))
 		{
-			internal_error("Friend declaration in global scope\n", 0);
+			lookup_flags |= LF_EXACT_TEMPLATE_MATCH;
 		}
 	}
 
 	result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-			NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+			NOFULL_UNQUALIFIED_LOOKUP, lookup_flags);
 
 	// Now look for a type
 	enum cxx_symbol_kind filter_classes[3] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
@@ -872,11 +870,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 			new_class->type_information->type->class_info = GC_CALLOC(1, 
 					sizeof(*(new_class->type_information->type->class_info)));
 
-			if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+			if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE) 
+					&& ASTType(class_symbol) != AST_TEMPLATE_ID)
 			{
 				new_class->kind = SK_CLASS;
 			}
-			else
+			else // BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE) || ASTType(class_symbol) == AST_TEMPLATE_ID
 			{
 				if (decl_context.template_param_info != NULL)
 				{
@@ -949,7 +948,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 				else
 				{
 					new_class->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
-					build_scope_template_arguments(class_symbol, st, st, st->template_scope,
+					build_scope_template_arguments(class_symbol, st, declarating_scope, st->template_scope,
 							&(new_class->type_information->type->template_arguments));
 				}
 			}
@@ -967,12 +966,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 		fprintf(stderr, "Class type found, using it\n");
 		type_info->kind = STK_USER_DEFINED;
 		type_info->user_defined_type = entry;
-	}
-
-	if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
-	{
-		// Restore the previous template scope
-		st->template_scope = old_template_scope;
 	}
 }
 
@@ -2319,25 +2312,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 {
 	scope_entry_t* entry;
 	
-	scope_t* old_template_scope = NULL;
-	scope_t* current_template_scope = NULL;
-
-	if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
-	{
-		fprintf(stderr, "Friend function register\n");
-		if (st->contained_in != NULL)
-		{
-			old_template_scope = st->contained_in->template_scope;
-			current_template_scope = st->template_scope;
-
-			st = st->contained_in;
-			st->template_scope = current_template_scope;
-		}
-		else
-		{
-			internal_error("Friend function declaration in the global scope", 0);
-		}
-	}
 
 	char is_overload;
 	entry = find_function_declaration(st, declarator_id, declarator_type, &is_overload, decl_context);
@@ -2372,18 +2346,10 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
 		new_entry->type_information = declarator_type;
 
-		if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
-		{
-			st->template_scope = old_template_scope;
-		}
 		return new_entry;
 	}
 	else
 	{
-		if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
-		{
-			st->template_scope = old_template_scope;
-		}
 		return entry;
 	}
 }
@@ -2392,9 +2358,20 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 		char* is_overload, decl_context_t decl_context)
 {
 	// This function is a mess and should be rewritten
+	lookup_flags_t lookup_flags = LF_NONE;
+
+	if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
+	{
+		lookup_flags |= LF_CONSTRUCTOR;
+	}
+
+	if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+	{
+		lookup_flags |= LF_IN_NAMESPACE_SCOPE;
+	}
+
 	scope_entry_list_t* entry_list = query_id_expression_flags(st, declarator_id, 
-			NOFULL_UNQUALIFIED_LOOKUP, 
-			BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR) ? LF_CONSTRUCTOR : LF_NONE);
+			NOFULL_UNQUALIFIED_LOOKUP, lookup_flags);
 
 	function_info_t* function_being_declared = declarator_type->function;
 	scope_entry_t* equal_entry = NULL;
@@ -2590,11 +2567,16 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
 	// Save template scope
 	template_scope->template_scope = st->template_scope;
 	st->template_scope = template_scope;
+	
+	if (ASTType(ASTSon0(a)) == AST_AMBIGUITY)
+	{
+		solve_ambiguous_declaration(ASTSon0(a), st);
+	}
 
 	switch (ASTType(ASTSon0(a)))
 	{
 		case AST_FUNCTION_DEFINITION :
-			build_scope_template_function_definition(ASTSon1(a), st, template_scope, num_parameters, 
+			build_scope_template_function_definition(ASTSon0(a), st, template_scope, num_parameters, 
 					template_param_info, new_decl_context);
 			break;
 		case AST_SIMPLE_DECLARATION :
@@ -2607,7 +2589,9 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
 				break;
 			}
 		default :
-			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
+			prettyprint(stderr, a);
+			fprintf(stderr, "\n");
+			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(a))));
 	}
 	
 	// Restore template scope
@@ -2619,7 +2603,6 @@ static void build_scope_template_function_definition(AST a, scope_t* st, scope_t
 		int num_parameters, template_parameter_t** template_param_info, decl_context_t decl_context)
 {
 	scope_entry_t* entry = build_scope_function_definition(a, st, decl_context);
-	entry->kind = SK_TEMPLATE_FUNCTION;
 }
 
 static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
@@ -2744,11 +2727,6 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 				&gather_info, simple_type_info, &declarator_type,
 				new_decl_context);
 		
-		if (entry->kind == SK_FUNCTION)
-		{
-			entry->kind = SK_TEMPLATE_FUNCTION;
-		}
-
 		// This is a simple declaration, thus if it does not declare an
 		// extern variable or function, the symbol is already defined here
 		if (!gather_info.is_extern
@@ -3350,7 +3328,6 @@ static void build_scope_member_template_function_definition(AST a, scope_t* st, 
 	// Define the function within st scope but being visible template_scope
 	scope_entry_t* entry = build_scope_member_function_definition(a, st, current_access, class_info, step, 
 			new_decl_context);
-	entry->kind = SK_TEMPLATE_FUNCTION;
 }
 
 static void build_scope_member_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
@@ -3843,7 +3820,7 @@ void build_scope_template_arguments(AST class_head_id,
 		num_arguments++;
 	}
 
-	solve_possibly_ambiguous_template_id(class_head_id, primary_template_scope);
+	solve_possibly_ambiguous_template_id(class_head_id, arguments_scope);
 	
 	// Complete arguments with default ones
 	// First search primary template

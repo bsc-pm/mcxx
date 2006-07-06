@@ -119,26 +119,30 @@ void solve_ambiguous_declaration(AST a, scope_t* st)
 			AST decl_specifier = ASTSon0(option);
 
 			// Check that the type_spec only is null or holds a SUSL type
-			if (ASTType(decl_specifier) == AST_AMBIGUITY)
+			if (decl_specifier != NULL)
 			{
-				// It can be ambiguous
-				for (j = 0; (j < decl_specifier->num_ambig) && valid; j++)
+				if (ASTType(decl_specifier) == AST_AMBIGUITY)
 				{
-					AST true_decl_specifier = decl_specifier->ambig[j];
+					// It can be ambiguous
+					for (j = 0; (j < decl_specifier->num_ambig) && valid; j++)
+					{
+						AST true_decl_specifier = decl_specifier->ambig[j];
 
-					AST type_specifier = ASTSon1(true_decl_specifier);
-					valid = (type_specifier == NULL)
+						AST type_specifier = ASTSon1(true_decl_specifier);
+						valid = (type_specifier == NULL)
 							|| (ASTType(type_specifier) == AST_LONG_TYPE)
 							|| (ASTType(type_specifier) == AST_SHORT_TYPE)
 							|| (ASTType(type_specifier) == AST_UNSIGNED_TYPE)
 							|| (ASTType(type_specifier) == AST_SIGNED_TYPE);
+					}
 				}
-			}
-			else
-			{
-				// If it is not ambiguous, then it cannot have declarators at all
-				AST init_declarator_list = ASTSon1(option);
-				valid = (init_declarator_list == NULL);
+				else
+				{
+					// ??
+					// If it is not ambiguous, then it cannot have declarators at all
+					AST init_declarator_list = ASTSon1(option);
+					valid = (init_declarator_list == NULL);
+				}
 			}
 		}
 	}
@@ -475,6 +479,76 @@ static char check_for_init_declarator_list(AST init_declarator_list, scope_t* st
 	return 1;
 }
 
+static char check_for_decl_spec_seq_followed_by_declarator(AST decl_specifier_seq, AST declarator)
+{
+	// A::f(c) has to be interpreted as A::f(c) and never as A   ::f(c)
+	// (if you want the latest you must use A(::f(c))
+	AST type_spec = ASTSon1(decl_specifier_seq);
+	if (ASTSon2(decl_specifier_seq) == NULL
+			&& (ASTType(type_spec) == AST_SIMPLE_TYPE_SPECIFIER
+				|| ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS
+				|| ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM
+				|| ASTType(type_spec) == AST_ELABORATED_TYPENAME
+				|| ASTType(type_spec) == AST_ELABORATED_TYPENAME_TEMPLATE
+				|| ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_CLASS
+				|| ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS))
+	{
+		AST declarator_name = get_leftmost_declarator_name(declarator);
+
+		if (declarator_name != NULL)
+		{
+			if (ASTType(declarator_name) == AST_QUALIFIED_ID
+					|| ASTType(declarator_name) == AST_QUALIFIED_OPERATOR_FUNCTION_ID
+					|| ASTType(declarator_name) == AST_QUALIFIED_TEMPLATE_ID)
+			{
+				AST global_op = ASTSon0(declarator_name);
+				if (global_op != NULL)
+				{
+					if (ASTType(global_op) != AST_GLOBAL_SCOPE)
+					{
+						internal_error("Expecting a global scope operator\n", 0);
+					}
+
+					// At this point, this sequence of decl_spec and declarator looks like one of the following
+					//
+					//  [AST_SIMPLE_TYPE_SPECIFIER]
+					//   A::B ::C;
+					//   ::A::B ::C;
+					//   A::B<int> ::C;
+					//   ::A::B<int> ::C;
+					//   A::template B<int> ::C;
+					//   ::A::template B<int> ::C;
+					//  [AST_ELABORATED_TYPE_CLASS]
+					//   class A::B ::C;
+					//   class ::A::B ::C;
+					//  [AST_ELABORATED_TYPE_ENUM]
+					//   enum A::B ::C;
+					//   enum ::A::B ::C;
+					//  [AST_ELABORATED_TYPENAME]
+					//   typename A::B ::C;
+					//   typename ::A::B ::C;
+					//  [AST_ELABORATED_TYPENAME_TEMPLATE]
+					//   typename A::B<int> ::C;
+					//   typename ::A::B<int> ::C;
+					//  [AST_ELABORATED_TYPE_TEMPLATE]
+					//   class A::B<int> ::C;
+					//   class ::A::B<int> ::C;
+					//  [AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE]
+					//   class template B<int> ::C;
+					//   class A::template B<int> ::C;
+					//
+					// which it is not intended to be a correct
+					// declaration because the nested name spec has to
+					// be as long as possible
+					return 0;
+				}
+			}
+		}
+	}
+
+	return 1;
+}
+
 static char check_for_simple_declaration(AST a, scope_t* st)
 {
 	AST decl_specifier_seq = ASTSon0(a);
@@ -505,86 +579,30 @@ static char check_for_simple_declaration(AST a, scope_t* st)
 			}
 		}
 
-		// Additional check
+		// Additional check. Ensure we are using the longest possible nested name seq
 		//
-		// A::f(c) has to be interpreted as A::f(c) and never as A   ::f(c)
-		// (if you want the latest you must use A(::f(c))
-		if (ASTSon2(decl_specifier_seq) == NULL
-				&& (ASTType(type_spec) == AST_SIMPLE_TYPE_SPECIFIER
-					|| ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS
-					|| ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM
-					|| ASTType(type_spec) == AST_ELABORATED_TYPENAME
-					|| ASTType(type_spec) == AST_ELABORATED_TYPENAME_TEMPLATE
-					|| ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_CLASS
-					|| ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS))
+		AST first_init_declarator = NULL;
+		AST list = ASTSon1(a);
+		AST iter;
+
+		if (list != NULL)
 		{
-			AST first_init_declarator = NULL;
-			AST list = ASTSon1(a);
-			AST iter;
 
-			if (list != NULL)
+			for_each_element(list, iter)
 			{
+				first_init_declarator = ASTSon1(iter);
+				break;
+			}
 
-				for_each_element(list, iter)
-				{
-					first_init_declarator = ASTSon1(iter);
-					break;
-				}
+			AST first_declarator = ASTSon0(first_init_declarator);
 
-				AST first_declarator = ASTSon0(first_init_declarator);
-				AST first_declarator_name = get_leftmost_declarator_name(first_declarator);
-
-				if (first_declarator_name != NULL)
-				{
-					if (ASTType(first_declarator_name) == AST_QUALIFIED_ID
-							|| ASTType(first_declarator_name) == AST_QUALIFIED_OPERATOR_FUNCTION_ID
-							|| ASTType(first_declarator_name) == AST_QUALIFIED_TEMPLATE_ID)
-					{
-						AST global_op = ASTSon0(first_declarator_name);
-						if (global_op != NULL)
-						{
-							if (ASTType(global_op) != AST_GLOBAL_SCOPE)
-							{
-								internal_error("Expecting a global scope operator\n", 0);
-							}
-
-							// At this point, this simple declaration looks like one of the following
-							//
-							//  [AST_SIMPLE_TYPE_SPECIFIER]
-							//   A::B ::C;
-							//   ::A::B ::C;
-							//   A::B<int> ::C;
-							//   ::A::B<int> ::C;
-							//   A::template B<int> ::C;
-							//   ::A::template B<int> ::C;
-							//  [AST_ELABORATED_TYPE_CLASS]
-							//   class A::B ::C;
-							//   class ::A::B ::C;
-							//  [AST_ELABORATED_TYPE_ENUM]
-							//   enum A::B ::C;
-							//   enum ::A::B ::C;
-							//  [AST_ELABORATED_TYPENAME]
-							//   typename A::B ::C;
-							//   typename ::A::B ::C;
-							//  [AST_ELABORATED_TYPENAME_TEMPLATE]
-							//   typename A::B<int> ::C;
-							//   typename ::A::B<int> ::C;
-							//  [AST_ELABORATED_TYPE_TEMPLATE]
-							//   class A::B<int> ::C;
-							//   class ::A::B<int> ::C;
-							//  [AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE]
-							//   class template B<int> ::C;
-							//   class A::template B<int> ::C;
-							//
-							// which it is not intended to be a correct
-							// declaration because the nested name spec has to
-							// be as long as possible
-							return 0;
-						}
-					}
-				}
+			if (!check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, first_declarator))
+			{
+				return 0;
 			}
 		}
+
+		
 	}
 	else
 	{
@@ -789,10 +807,15 @@ static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, int n
 				}
 
 				// This is somewhat strict
-				scope_entry_list_t* result = query_in_symbols_of_scope(nested_scope, class_name);
+				scope_entry_list_t* result_list = query_in_symbols_of_scope(nested_scope, class_name);
+				enum cxx_symbol_kind filter_classes[3] = {
+					SK_CLASS, 
+					SK_TEMPLATE_PRIMARY_CLASS, 
+					SK_TEMPLATE_SPECIALIZED_CLASS
+				};
+				scope_entry_list_t* classes_list = filter_symbol_kind_set(result_list, 3, filter_classes);
 
-				if (result == NULL
-						|| result->entry->kind != SK_CLASS)
+				if (classes_list == NULL)
 				{
 					// This is not a class name
 					return 0;
@@ -1864,6 +1887,7 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st)
 	int i;
 	for (i = 0; i < parameter_declaration->num_ambig; i++)
 	{
+		char current_valid = 1;
 		AST parameter_decl = parameter_declaration->ambig[i];
 
 		AST decl_specifier_seq = ASTSon0(parameter_decl);
@@ -1877,16 +1901,25 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st)
 
 		if (type_specifier != NULL)
 		{
-			if (check_for_type_specifier(type_specifier, st))
+			current_valid &= check_for_type_specifier(type_specifier, st);
+		}
+
+		AST declarator = ASTSon1(parameter_decl);
+
+		if (declarator != NULL)
+		{
+			current_valid &= check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, declarator);
+		}
+
+		if (current_valid)
+		{
+			if (current_choice < 0)
 			{
-				if (current_choice < 0)
-				{
-					current_choice = i;
-				}
-				else
-				{
-					internal_error("More than one option is possible", 0);
-				}
+				current_choice = i;
+			}
+			else
+			{
+				internal_error("More than one option is possible", 0);
 			}
 		}
 	}
