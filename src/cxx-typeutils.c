@@ -6,6 +6,7 @@
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
 #include "cxx-prettyprint.h"
+#include "cxx-driver.h"
 
 /*
  * This file contains routines destined to work with types.  Comparing two
@@ -17,6 +18,7 @@ static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scop
 static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st);
 static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st);
 static char compatible_parameters(function_info_t* t1, function_info_t* t2, scope_t* st);
+static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t2, scope_t* st);
 
 type_t* advance_over_typedefs(type_t* t1)
 {
@@ -434,19 +436,15 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 
 		if (ASTType(t1_class_or_namespace) == AST_SYMBOL)
 		{
-			enum cxx_symbol_kind filter_class_or_namespace[2] = {SK_NAMESPACE, SK_CLASS};
+			enum cxx_symbol_kind filter_class_or_namespace[3] = {SK_NAMESPACE, SK_CLASS, SK_TEMPLATE_TYPE_PARAMETER};
 
-			scope_entry_list_t* t1_name_list = 
-				filter_symbol_kind_set(query_unqualified_name(st, ASTText(t1_class_or_namespace)),
-						2, filter_class_or_namespace);
-			scope_entry_list_t* t2_name_list = 
-				filter_symbol_kind_set(query_unqualified_name(st, ASTText(t2_class_or_namespace)),
-						2, filter_class_or_namespace);
+			scope_entry_list_t* t1_name_list = query_unqualified_name(t1_scope, ASTText(t1_class_or_namespace));
+			scope_entry_list_t* t2_name_list = query_unqualified_name(t2_scope, ASTText(t2_class_or_namespace));
 
 			if (t1_name_list == NULL || t2_name_list == NULL)
 			{
-				internal_error("When comparing template dependent types one or both names were not found t1=%p t2=%p\n",
-						t1_name_list, t2_name_list);
+				internal_error("When comparing template dependent types one or both names were not found t1=%p scope_t1=%p t2=%p scope_t2=%p\n",
+						t1_name_list, t1_scope, t2_name_list, t2_scope);
 			}
 
 			scope_entry_t* t1_name = t1_name_list->entry;
@@ -460,12 +458,21 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 			if (t1_name->kind == SK_TEMPLATE_TYPE_PARAMETER)
 			{
 				// Compare template type parameters
+				if ((t1_name->type_information->type->template_parameter_num != 
+							t2_name->type_information->type->template_parameter_num)
+						|| (t1_name->type_information->type->template_parameter_nesting != 
+							t2_name->type_information->type->template_parameter_nesting))
+				{
+					return 0;
+				}
 			}
-
-			// They should be the same class or namespace
-			if (t1_name != t2_name)
+			else
 			{
-				return 0;
+				// They should be the same class or namespace
+				if (t1_name != t2_name)
+				{
+					return 0;
+				}
 			}
 
 			t1_scope = t1_name->related_scope;
@@ -473,13 +480,8 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 		}
 		else if (ASTType(t1_class_or_namespace) == AST_TEMPLATE_ID)
 		{
-			enum cxx_symbol_kind template_filter[2] = {SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
-			scope_entry_list_t* t1_template_name_list = 
-				filter_symbol_kind_set(query_template_id_flags(t1_scope, t1_class_or_namespace, FULL_UNQUALIFIED_LOOKUP),
-						2, template_filter);
-			scope_entry_list_t* t2_template_name_list = 
-				filter_symbol_kind_set(query_template_id(t2_scope, t2_class_or_namespace, FULL_UNQUALIFIED_LOOKUP),
-						2, template_filter);
+			scope_entry_list_t* t1_template_name_list = query_template_id(t1_class_or_namespace, st, t1_scope);
+			scope_entry_list_t* t2_template_name_list = query_template_id(t2_class_or_namespace, st, t2_scope);
 
 			if (t1_template_name_list == NULL || t2_template_name_list == NULL)
 			{

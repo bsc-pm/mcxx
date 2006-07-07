@@ -1041,6 +1041,27 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, simple_
 		simple_type_info->kind = STK_USER_DEFINED;
 		simple_type_info->user_defined_type = result->entry;
 	}
+
+	// Remove additional ambiguities that might appear in things of the form 
+	// T::template A<B>
+	//
+	
+	while (nested_name_spec != NULL)
+	{
+		AST class_name = ASTSon0(nested_name_spec);
+
+		if (ASTType(class_name) == AST_TEMPLATE_ID)
+		{
+			solve_possibly_ambiguous_template_id(class_name, st);
+		}
+
+		nested_name_spec = ASTSon1(nested_name_spec);
+	}
+
+	if (ASTType(name) == AST_TEMPLATE_ID)
+	{
+		solve_possibly_ambiguous_template_id(name, st);
+	}
 }
 
 /*
