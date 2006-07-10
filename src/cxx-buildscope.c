@@ -172,6 +172,7 @@ static void initialize_builtin_symbols()
 	builtin_va_list->type_information->kind = TK_DIRECT;
 	builtin_va_list->type_information->type = GC_CALLOC(1, sizeof(*(builtin_va_list->type_information->type)));
 	builtin_va_list->type_information->type->kind = STK_VA_LIST;
+	builtin_va_list->defined = 1;
 
 	// __null is a magic NULL in g++
 	scope_entry_t* null_keyword;
@@ -184,6 +185,7 @@ static void initialize_builtin_symbols()
 	null_keyword->type_information->type->kind = STK_BUILTIN_TYPE;
 	null_keyword->type_information->type->builtin_type = BT_INT;
 	null_keyword->expression_value = ASTLeaf(AST_OCTAL_LITERAL, 0, "0");
+	null_keyword->defined = 1;
 }
 
 static void build_scope_declaration_sequence(AST list, scope_t* st, decl_context_t decl_context)
@@ -476,7 +478,7 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 				// The last entry will hold our symbol, no need to look for it in the list
 				if (entry_list->entry->defined)
 				{
-					running_error("This symbol has already been defined", 0);
+					internal_error("This symbol has already been defined", 0);
 				}
 
 				fprintf(stderr, "Defining symbol '");
@@ -499,7 +501,7 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 			{
 				if (initializer != NULL)
 				{
-					running_error("An extern symbol cannot be initialized");
+					internal_error("An extern symbol cannot be initialized", 0);
 				}
 			}
 		}
@@ -611,14 +613,15 @@ void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gath
 		
 		// cv-qualification
 		// (*simple_type_info)->type->cv_qualifier = CV_NONE;
+		cv_qualifier_t* cv_qualifier = get_innermost_cv_qualifier(*simple_type_info);
 		if (gather_info->is_const)
 		{
-			(*simple_type_info)->type->cv_qualifier |= CV_CONST;
+			*cv_qualifier |= CV_CONST;
 		}
 
 		if (gather_info->is_volatile)
 		{
-			(*simple_type_info)->type->cv_qualifier |= CV_VOLATILE;
+			*cv_qualifier |= CV_VOLATILE;
 		}
 	}
 }
@@ -1127,7 +1130,9 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
 	}
 	else
 	{
-		*simple_type_info = *simple_type_entry->type_information->type->aliased_type;
+		// Copy the type, we do not want to clobber it, but avoid having an
+		// unnecessary indirection
+		*simple_type_info = *(copy_type(simple_type_entry->type_information->type->aliased_type));
 	}
 }
 
@@ -1174,7 +1179,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 
 		// Since this type is not anonymous we'll want that simple_type_info
 		// refers to this newly created type
-		memset(simple_type_info, 0, sizeof(*simple_type_info));
+		memset(simple_type_info->type, 0, sizeof(*(simple_type_info->type)));
 		simple_type_info->type->kind = STK_USER_DEFINED;
 		simple_type_info->type->user_defined_type = new_entry;
 	}
@@ -1187,7 +1192,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 		type_t* enumerator_type = simple_type_info;
 
 		// If the type had name, refer to the enum type
-		if (simple_type_info->kind == STK_USER_DEFINED)
+		if (simple_type_info->type->kind == STK_USER_DEFINED)
 		{
 			simple_type_info->type = simple_type_info->type->user_defined_type->type_information->type;
 		}
@@ -1514,7 +1519,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
             
 			// Since this type is not anonymous we'll want that simple_type_info
 			// refers to this newly created type
-			memset(simple_type_info, 0, sizeof(*simple_type_info));
+			memset(simple_type_info->type, 0, sizeof(*(simple_type_info->type)));
 			simple_type_info->type->kind = STK_USER_DEFINED;
 			simple_type_info->type->user_defined_type = class_entry;
 		}
@@ -1693,7 +1698,7 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 		// Special case for conversion function ids
 		// We fix the return type according to the standard
 		if ((*declarator_type)->kind == TK_FUNCTION
-				&& (*declarator_type)->function->return_type->type == NULL)
+				&& (*declarator_type)->function->return_type == NULL)
 		{
 			// This looks like a conversion function id
 			AST id_expression = ASTSon0(declarator_name);
@@ -2282,13 +2287,13 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 			// This means this was not just a type specifier 
 			if (entry == NULL)
 			{
-				running_error("Symbol '%s' in line %d has been redeclared as a different symbol kind.",
+				internal_error("Symbol '%s' in line %d has been redeclared as a different symbol kind.",
 						ASTText(declarator_id), ASTLine(declarator_id));
 			}
 		}
 		else // More than one symbol sounds extremely suspicious
 		{
-			running_error("Symbol '%s' in line %d has been redeclared as a different symbol kind.",
+			internal_error("Symbol '%s' in line %d has been redeclared as a different symbol kind.",
 					ASTText(declarator_id), ASTLine(declarator_id));
 		}
 	}
@@ -2429,7 +2434,7 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 		if (entry->kind != SK_FUNCTION
 				&& entry->kind != SK_TEMPLATE_FUNCTION)
 		{
-			running_error("Symbol '%s' already declared as a different symbol type", ASTText(declarator_id), entry->kind);
+			internal_error("Symbol '%s' already declared as a different symbol type", ASTText(declarator_id), entry->kind);
 			entry_list = entry_list->next;
 			continue;
 		}
@@ -2702,7 +2707,7 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 
 	// Let's see what has got declared here
 	// if (simple_type_info != NULL 
-	// 		&& simple_type_info->kind == STK_USER_DEFINED)
+	// 		&& simple_type_info->type->kind == STK_USER_DEFINED)
 	// {
 	// 	scope_entry_t* entry = simple_type_info->user_defined_type;
 	// 	// if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS
@@ -2727,7 +2732,7 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 	{
 		if (ASTSon0(init_declarator_list) != NULL)
 		{
-			running_error("In template declarations only one declarator is valid", 0);
+			internal_error("In template declarations only one declarator is valid", 0);
 		}
 
 		AST init_declarator = ASTSon1(init_declarator_list);
@@ -2786,7 +2791,7 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 			// The last entry will hold our symbol, no need to look for it in the list
 			if (entry_list->entry->defined)
 			{
-				running_error("This symbol has already been defined", 0);
+				internal_error("This symbol has already been defined", 0);
 			}
 
 			fprintf(stderr, "Defining symbol '");
@@ -3078,7 +3083,7 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
 		scope_entry_list_t* check_list = filter_symbol_non_kind(list, SK_NAMESPACE);
 		if (check_list != NULL)
 		{
-		 	running_error("Identifier '%s' has already been declared as another symbol kind\n", ASTText(namespace_name));
+		 	internal_error("Identifier '%s' has already been declared as another symbol kind\n", ASTText(namespace_name));
 		}
 
 		scope_entry_t* entry;
@@ -3215,7 +3220,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 
 		if (entry == NULL)
 		{
-			running_error("This symbol is undeclared here", 0);
+			internal_error("This symbol is undeclared here", 0);
 		}
 		else 
 		{
@@ -3391,7 +3396,7 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
 {
 	char* class_name = "";
 	class_info_t* class_type = NULL;
-	if (class_info->kind == STK_USER_DEFINED)
+	if (class_info->type->kind == STK_USER_DEFINED)
 	{
 		class_name = class_info->type->user_defined_type->symbol_name;
 		class_type = class_info->type->user_defined_type->type_information->type->class_info;
@@ -3521,7 +3526,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 	// Also add additional information about this member function
 	char* class_name = "";
 	class_info_t* class_type = NULL;
-	if (class_info->kind == STK_USER_DEFINED)
+	if (class_info->type->kind == STK_USER_DEFINED)
 	{
 		class_name = class_info->type->user_defined_type->symbol_name;
 		class_type = class_info->type->user_defined_type->type_information->type->class_info;

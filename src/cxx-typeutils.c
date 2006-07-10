@@ -261,6 +261,47 @@ cv_qualifier_t* get_outermost_cv_qualifier(type_t* t)
 	}
 }
 
+cv_qualifier_t* get_innermost_cv_qualifier(type_t* t)
+{
+	// For types that do not have a cv qualifier on their own
+	static cv_qualifier_t dummy_cv_qualif = CV_NONE;
+
+	// This will avoid accidental modifications from outside
+	dummy_cv_qualif = CV_NONE;
+
+	switch (t->kind)
+	{
+		case TK_DIRECT :
+			{
+				if (t->type->kind == STK_TYPEDEF)
+				{
+					return get_outermost_cv_qualifier(t->type->aliased_type);
+				}
+
+				return &(t->type->cv_qualifier);
+				break;
+			}
+		case TK_ARRAY :
+			{
+				return get_innermost_cv_qualifier(t->array->element_type);
+			}
+		case TK_POINTER :
+		case TK_POINTER_TO_MEMBER :
+		case TK_REFERENCE :
+			{
+				return get_innermost_cv_qualifier(t->pointer->pointee);
+			}
+		case TK_FUNCTION :
+			{
+				return get_innermost_cv_qualifier(t->function->return_type);
+			}
+		default:
+			{
+				internal_error("Unexpected node type %d\n", t->kind);
+			}
+	}
+}
+
 char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
 {
 	if (!compatible_parameters(t1, t2, st))
@@ -268,10 +309,10 @@ char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
 
 	// If one has return type but the other does not this is an overload
 	// (technically this is ill-formed)
-	if (((t1->return_type->kind == TK_DIRECT && t1->return_type->type == NULL)
-				&& (t2->return_type->kind == TK_DIRECT && t2->return_type->type != NULL))
-			|| ((t2->return_type->kind == TK_DIRECT && t2->return_type->type == NULL)
-				&& (t1->return_type->kind == TK_DIRECT && t1->return_type->type != NULL)))
+	if (((t1->return_type == NULL)
+				&& (t2->return_type != NULL))
+			|| ((t2->return_type == NULL)
+				&& (t1->return_type != NULL)))
 		return 1;
 
 	if (!equivalent_cv_qualification(t1->cv_qualifier, 
@@ -281,8 +322,8 @@ char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
 
 	// Destructors, constructors, operator functions and conversion functions
 	// will not have a full direct type
-	if ((t1->return_type->kind == TK_DIRECT && t1->return_type->type == NULL)
-			&& (t2->return_type->kind == TK_DIRECT && t2->return_type->type == NULL))
+	if (t1->return_type == NULL 
+			&& t2->return_type == NULL)
 		return 0;
 
 	if (!equivalent_types(t1->return_type, t2->return_type, st, CVE_CONSIDER))
