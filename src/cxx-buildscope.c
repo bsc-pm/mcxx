@@ -610,7 +610,7 @@ void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gath
 		}
 		
 		// cv-qualification
-		(*simple_type_info)->type->cv_qualifier = CV_NONE;
+		// (*simple_type_info)->type->cv_qualifier = CV_NONE;
 		if (gather_info->is_const)
 		{
 			(*simple_type_info)->type->cv_qualifier |= CV_CONST;
