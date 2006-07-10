@@ -89,7 +89,7 @@ void instantiate_primary_template(scope_entry_t* matched_template,
 	gather_decl_spec_t gather_info;
 	memset(&gather_info, 0, sizeof(gather_info));
 
-	simple_type_t* simple_type_info = NULL;
+	type_t* simple_type_info = NULL;
 
 	decl_context_t decl_context;
 	memset(&decl_context, 0, sizeof(decl_context));
@@ -235,7 +235,7 @@ void instantiate_specialized_template(scope_entry_t* matched_template, template_
 	gather_decl_spec_t gather_info;
 	memset(&gather_info, 0, sizeof(gather_info));
 
-	simple_type_t* simple_type_info = NULL;
+	type_t* simple_type_info = NULL;
 
 	decl_context_t decl_context;
 	memset(&decl_context, 0, sizeof(decl_context));

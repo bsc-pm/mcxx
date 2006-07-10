@@ -568,12 +568,12 @@ static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* s
 		return before_cast;
 	}
 
-	simple_type_t simple_type_info;
+	type_t simple_type_info;
 	memset(&simple_type_info, 0, sizeof(simple_type_info));
 
 	gather_type_spec_information(type_spec, st, &simple_type_info, default_decl_context);
 
-	if (simple_type_info.kind != STK_BUILTIN_TYPE)
+	if (simple_type_info.type->kind != STK_BUILTIN_TYPE)
 	{
 		literal_value_t invalid_type;
 		memset(&invalid_type, 0, sizeof(invalid_type));
@@ -584,13 +584,13 @@ static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* s
 	{
 		literal_value_t after_cast;
 
-		switch (simple_type_info.builtin_type)
+		switch (simple_type_info.type->builtin_type)
 		{
 			case BT_INT :
 				{
-					if (simple_type_info.is_unsigned)
+					if (simple_type_info.type->is_unsigned)
 					{
-						if (simple_type_info.is_long)
+						if (simple_type_info.type->is_long)
 						{
 							after_cast = convert_to_unsigned_long(before_cast);
 						}
@@ -601,7 +601,7 @@ static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* s
 					}
 					else
 					{
-						if (simple_type_info.is_long)
+						if (simple_type_info.type->is_long)
 						{
 							after_cast = convert_to_signed_long(before_cast);
 						}

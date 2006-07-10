@@ -65,12 +65,12 @@ void build_scope_template_arguments(AST class_head_id,
 		scope_t* template_scope, 
 		template_argument_list_t** template_arguments);
 void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
-		simple_type_t** type_info, decl_context_t dctx);
+		type_t** type_info, decl_context_t dctx);
 scope_entry_t* build_scope_declarator(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
-		simple_type_t* type_info, type_t** declarator_type, decl_context_t dctx);
+		type_t* type_info, type_t** declarator_type, decl_context_t dctx);
 
 void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather_info);
-void gather_type_spec_information(AST a, scope_t* st, simple_type_t* type_info, decl_context_t dctx);
+void gather_type_spec_information(AST a, scope_t* st, type_t* type_info, decl_context_t dctx);
 
 extern const decl_context_t default_decl_context;
 

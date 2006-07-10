@@ -1228,7 +1228,7 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type
 
 	gather_decl_spec_t gather_info;
 	memset(&gather_info, 0, sizeof(gather_info));
-	simple_type_t* simple_type_info = NULL;
+	type_t* simple_type_info = NULL;
 
 	build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info,
 			default_decl_context);
@@ -1242,7 +1242,7 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type
 	}
 	else
 	{
-		type_info = simple_type_to_type(simple_type_info);
+		type_info = simple_type_info;
 	}
 
 	if (result_conversion_type != NULL)
@@ -1283,38 +1283,38 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type
 		internal_error("Expecting simple type", 0);
 	}
 
-	simple_type_info = type_iter->type;
+	simple_type_info->type = type_iter->type;
 
-	if ((simple_type_info->cv_qualifier & CV_CONST) == CV_CONST)
+	if ((simple_type_info->type->cv_qualifier & CV_CONST) == CV_CONST)
 	{
 		result = strappend(result, "const ");
 	}
 
-	if ((simple_type_info->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+	if ((simple_type_info->type->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
 	{
 		result = strappend(result, "volatile ");
 	}
 
-	if (simple_type_info->is_long)
+	if (simple_type_info->type->is_long)
 	{
 		result = strappend(result, "long ");
 	}
 
-	if (simple_type_info->is_short)
+	if (simple_type_info->type->is_short)
 	{
 		result = strappend(result, "short ");
 	}
 
-	if (simple_type_info->is_unsigned)
+	if (simple_type_info->type->is_unsigned)
 	{
 		result = strappend(result, "unsigned ");
 	}
 
-	switch (simple_type_info->kind)
+	switch (simple_type_info->type->kind)
 	{
 		case STK_BUILTIN_TYPE :
 			{
-				switch (simple_type_info->builtin_type)
+				switch (simple_type_info->type->builtin_type)
 				{
 					case BT_INT :
 						result = strappend(result, "int");
@@ -1334,14 +1334,17 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type
 					case BT_CHAR :
 						result = strappend(result, "char");
 						break;
+					case BT_VOID :
+						result = strappend(result, "void");
+						break;
 					default:
-						internal_error("Invalid type", 0);
+						internal_error("Invalid type %d", 0);
 				}
 				break;
 			}
 		case STK_USER_DEFINED :
 			{
-				result = strappend(result, simple_type_info->user_defined_type->symbol_name);
+				result = strappend(result, simple_type_info->type->user_defined_type->symbol_name);
 				break;
 			}
 		default :

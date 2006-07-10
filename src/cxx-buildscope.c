@@ -15,7 +15,7 @@
 
 /*
  * This file builds symbol table. If ambiguous nodes are found disambiguating
- * routines will be called prior to filling symbolic information. Note that
+ * routines will be called prior to filling symbolic inormation. Note that
  * disambiguating routines will use the currently built symbol table.
  *
  * Note that some "semantic checks" performed here are intended only to verify
@@ -30,31 +30,31 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t decl_context);
 static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_context_t decl_context);
 static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t* st, scope_t** parameters_scope, 
-		gather_decl_spec_t* gather_info, simple_type_t* simple_type_info, type_t** declarator_type,
+		gather_decl_spec_t* gather_info, type_t* simple_type_info, type_t** declarator_type,
 		decl_context_t decl_context);
 
 static void build_scope_member_declaration(AST a, scope_t*  st, 
-		access_specifier_t current_access, simple_type_t* simple_type_info,
+		access_specifier_t current_access, type_t* simple_type_info,
 		int step, decl_context_t decl_context);
 static void build_scope_simple_member_declaration(AST a, scope_t*  st, 
-		access_specifier_t current_access, simple_type_t* simple_type_info, decl_context_t decl_context);
+		access_specifier_t current_access, type_t* simple_type_info, decl_context_t decl_context);
 static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st, 
-		access_specifier_t current_access, simple_type_t* class_info, int step, decl_context_t decl_context);
+		access_specifier_t current_access, type_t* class_info, int step, decl_context_t decl_context);
 
 static void build_scope_statement(AST statement, scope_t* st, decl_context_t decl_context);
 
-static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simple_type_t* type_info,
+static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type_t* type_info,
 		decl_context_t decl_context);
-static void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* type_info, 
+static void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* type_info, 
 		decl_context_t decl_context);
-static void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* type_info,
+static void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* type_info,
 		decl_context_t decl_context);
-static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, simple_type_t* simple_type_info,
+static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t* simple_type_info,
 		decl_context_t decl_context);
 
-static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st, simple_type_t* type_info,
+static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st, type_t* type_info,
 		decl_context_t decl_context);
-static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, simple_type_t* type_info,
+static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, type_t* type_info,
 		decl_context_t decl_context);
 
 static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_scope, type_t** declarator_type, 
@@ -96,15 +96,15 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 		decl_context_t decl_context);
 
 static void build_scope_member_template_declaration(AST a, scope_t* st, 
-		access_specifier_t current_access, simple_type_t* class_info, int step, 
+		access_specifier_t current_access, type_t* class_info, int step, 
 		decl_context_t decl_context);
 static void build_scope_member_template_function_definition(AST a, scope_t* st, scope_t* template_scope, 
 		int num_parameters, template_parameter_t** template_param_info,
-		access_specifier_t current_access, simple_type_t* class_info, int step,
+		access_specifier_t current_access, type_t* class_info, int step,
 		decl_context_t decl_context);
 static void build_scope_member_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
 		int num_parameters, template_parameter_t** template_param_info,
-		access_specifier_t current_access, simple_type_t* class_info, decl_context_t decl_context);
+		access_specifier_t current_access, type_t* class_info, decl_context_t decl_context);
 
 static void build_scope_using_directive(AST a, scope_t* st, decl_context_t decl_context);
 static void build_scope_using_declaration(AST a, scope_t* st, decl_context_t decl_context);
@@ -172,6 +172,18 @@ static void initialize_builtin_symbols()
 	builtin_va_list->type_information->kind = TK_DIRECT;
 	builtin_va_list->type_information->type = GC_CALLOC(1, sizeof(*(builtin_va_list->type_information->type)));
 	builtin_va_list->type_information->type->kind = STK_VA_LIST;
+
+	// __null is a magic NULL in g++
+	scope_entry_t* null_keyword;
+
+	null_keyword = new_symbol(compilation_options.global_scope, "__null");
+	null_keyword->kind = SK_VARIABLE;
+	null_keyword->type_information = GC_CALLOC(1, sizeof(*(null_keyword->type_information)));
+	null_keyword->type_information->kind = TK_DIRECT;
+	null_keyword->type_information->type = GC_CALLOC(1, sizeof(*(null_keyword->type_information->type)));
+	null_keyword->type_information->type->kind = STK_BUILTIN_TYPE;
+	null_keyword->type_information->type->builtin_type = BT_INT;
+	null_keyword->expression_value = ASTLeaf(AST_OCTAL_LITERAL, 0, "0");
 }
 
 static void build_scope_declaration_sequence(AST list, scope_t* st, decl_context_t decl_context)
@@ -355,7 +367,7 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 	if (ASTType(a) == AST_EMPTY_DECL)
 		return;
 
-	simple_type_t* simple_type_info = NULL;
+    type_t* simple_type_info = NULL;
 	gather_decl_spec_t gather_info;
 	// Clear stack debris
 	memset(&gather_info, 0, sizeof(gather_info));
@@ -521,7 +533,7 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
  *    };
  */
 void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gather_info, 
-		simple_type_t **simple_type_info, decl_context_t decl_context)
+		type_t **simple_type_info, decl_context_t decl_context)
 {
 	AST iter, list;
 
@@ -560,6 +572,7 @@ void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gath
 	if (ASTSon1(a) != NULL) 
 	{
 		*simple_type_info = GC_CALLOC(1, sizeof(**simple_type_info));
+		(*simple_type_info)->type = GC_CALLOC(1, sizeof(*((*simple_type_info)->type)));
 
 		decl_context_t new_decl_context = decl_context;
 
@@ -578,34 +591,34 @@ void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gath
 		if (gather_info->is_long)
 		{
 			// It is not set to 1 because of gcc long long
-			(*simple_type_info)->is_long++;
+			(*simple_type_info)->type->is_long++;
 		}
 
 		if (gather_info->is_short)
 		{
-			(*simple_type_info)->is_short = 1;
+			(*simple_type_info)->type->is_short = 1;
 		}
 
 		if (gather_info->is_unsigned)
 		{
-			(*simple_type_info)->is_unsigned = 1;
+			(*simple_type_info)->type->is_unsigned = 1;
 		}
 
 		if (gather_info->is_signed)
 		{
-			(*simple_type_info)->is_signed = 1;
+			(*simple_type_info)->type->is_signed = 1;
 		}
 		
 		// cv-qualification
-		(*simple_type_info)->cv_qualifier = CV_NONE;
+		(*simple_type_info)->type->cv_qualifier = CV_NONE;
 		if (gather_info->is_const)
 		{
-			(*simple_type_info)->cv_qualifier |= CV_CONST;
+			(*simple_type_info)->type->cv_qualifier |= CV_CONST;
 		}
 
 		if (gather_info->is_volatile)
 		{
-			(*simple_type_info)->cv_qualifier |= CV_VOLATILE;
+			(*simple_type_info)->type->cv_qualifier |= CV_VOLATILE;
 		}
 	}
 }
@@ -692,7 +705,7 @@ void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather
  *
  * scope_t* sc is unused here
  */
-void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type_info,
+void gather_type_spec_information(AST a, scope_t* st, type_t* simple_type_info,
 		decl_context_t decl_context)
 {
 	switch (ASTType(a))
@@ -721,52 +734,52 @@ void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type
 			gather_type_spec_from_elaborated_class_specifier(a, st, simple_type_info, decl_context);
 			break;
 		case AST_CHAR_TYPE :
-			simple_type_info->kind = STK_BUILTIN_TYPE;
-			simple_type_info->builtin_type= BT_CHAR;
+			simple_type_info->type->kind = STK_BUILTIN_TYPE;
+			simple_type_info->type->builtin_type= BT_CHAR;
 			break;
 		case AST_WCHAR_TYPE :
-			simple_type_info->kind = STK_BUILTIN_TYPE;
-			simple_type_info->builtin_type= BT_WCHAR;
+			simple_type_info->type->kind = STK_BUILTIN_TYPE;
+			simple_type_info->type->builtin_type= BT_WCHAR;
 			break;
 		case AST_BOOL_TYPE :
-			simple_type_info->kind = STK_BUILTIN_TYPE;
-			simple_type_info->builtin_type= BT_BOOL;
+			simple_type_info->type->kind = STK_BUILTIN_TYPE;
+			simple_type_info->type->builtin_type= BT_BOOL;
 			break;
 		case AST_SHORT_TYPE :
-			simple_type_info->kind = STK_BUILTIN_TYPE;
-			simple_type_info->builtin_type= BT_INT;
-			simple_type_info->is_short = 1;
+			simple_type_info->type->kind = STK_BUILTIN_TYPE;
+			simple_type_info->type->builtin_type= BT_INT;
+			simple_type_info->type->is_short = 1;
 			break;
 		case AST_INT_TYPE :
-			simple_type_info->kind = STK_BUILTIN_TYPE;
-			simple_type_info->builtin_type= BT_INT;
+			simple_type_info->type->kind = STK_BUILTIN_TYPE;
+			simple_type_info->type->builtin_type= BT_INT;
 			break;
 		case AST_LONG_TYPE :
-			simple_type_info->kind = STK_BUILTIN_TYPE;
-			simple_type_info->builtin_type= BT_INT;
-			simple_type_info->is_long = 1;
+			simple_type_info->type->kind = STK_BUILTIN_TYPE;
+			simple_type_info->type->builtin_type= BT_INT;
+			simple_type_info->type->is_long = 1;
 			break;
 		case AST_SIGNED_TYPE :
-			simple_type_info->kind = STK_BUILTIN_TYPE;
-			simple_type_info->builtin_type = BT_INT;
-			simple_type_info->is_signed = 1;
+			simple_type_info->type->kind = STK_BUILTIN_TYPE;
+			simple_type_info->type->builtin_type = BT_INT;
+			simple_type_info->type->is_signed = 1;
 			break;
 		case AST_UNSIGNED_TYPE :
-			simple_type_info->kind = STK_BUILTIN_TYPE;
-			simple_type_info->builtin_type = BT_INT;
-			simple_type_info->is_unsigned = 1;
+			simple_type_info->type->kind = STK_BUILTIN_TYPE;
+			simple_type_info->type->builtin_type = BT_INT;
+			simple_type_info->type->is_unsigned = 1;
 			break;
 		case AST_FLOAT_TYPE :
-			simple_type_info->kind = STK_BUILTIN_TYPE;
-			simple_type_info->builtin_type = BT_FLOAT;
+			simple_type_info->type->kind = STK_BUILTIN_TYPE;
+			simple_type_info->type->builtin_type = BT_FLOAT;
 			break;
 		case AST_DOUBLE_TYPE :
-			simple_type_info->kind = STK_BUILTIN_TYPE;
-			simple_type_info->builtin_type = BT_DOUBLE;
+			simple_type_info->type->kind = STK_BUILTIN_TYPE;
+			simple_type_info->type->builtin_type = BT_DOUBLE;
 			break;
 		case AST_VOID_TYPE :
-			simple_type_info->kind = STK_BUILTIN_TYPE;
-			simple_type_info->builtin_type = BT_VOID;
+			simple_type_info->type->kind = STK_BUILTIN_TYPE;
+			simple_type_info->type->builtin_type = BT_VOID;
 			break;
 		case AST_AMBIGUITY :
 			solve_ambiguous_type_specifier(a, st);
@@ -776,15 +789,15 @@ void gather_type_spec_information(AST a, scope_t* st, simple_type_t* simple_type
 			// GCC Extensions
 		case AST_GCC_TYPEOF :
 		case AST_GCC_TYPEOF_EXPR :
-			simple_type_info->kind = STK_TYPEOF;
-			simple_type_info->typeof_expr = ASTSon0(a);
+			simple_type_info->type->kind = STK_TYPEOF;
+			simple_type_info->type->typeof_expr = ASTSon0(a);
 			break;
 		default:
 			internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
 	}
 }
 
-static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st, simple_type_t* type_info,
+static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st, type_t* type_info,
 		decl_context_t decl_context)
 {
 	// AST class_key = ASTSon0(a);
@@ -953,8 +966,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 				}
 			}
 
-			type_info->kind = STK_USER_DEFINED;
-			type_info->user_defined_type = new_class;
+			type_info->type->kind = STK_USER_DEFINED;
+			type_info->type->user_defined_type = new_class;
 		}
 		else
 		{
@@ -964,12 +977,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 	else
 	{
 		fprintf(stderr, "Class type found, using it\n");
-		type_info->kind = STK_USER_DEFINED;
-		type_info->user_defined_type = entry;
+		type_info->type->kind = STK_USER_DEFINED;
+		type_info->type->user_defined_type = entry;
 	}
 }
 
-static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, simple_type_t* type_info, decl_context_t decl_context)
+static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, type_t* type_info, decl_context_t decl_context)
 {
 	AST global_scope = ASTSon0(a);
 	AST nested_name_specifier = ASTSon1(a);
@@ -1004,8 +1017,8 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 			new_class->type_information->type->kind = STK_ENUM;
 			new_class->type_information->type->type_scope = st;
 
-			type_info->kind = STK_USER_DEFINED;
-			type_info->user_defined_type = new_class;
+			type_info->type->kind = STK_USER_DEFINED;
+			type_info->type->user_defined_type = new_class;
 		}
 		else
 		{
@@ -1015,31 +1028,32 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 	else
 	{
 		fprintf(stderr, "Enum type found, using it\n");
-		type_info->kind = STK_USER_DEFINED;
-		type_info->user_defined_type = entry;
+		type_info->type->kind = STK_USER_DEFINED;
+		type_info->type->user_defined_type = entry;
 	}
 }
 
-static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, simple_type_t* simple_type_info,
+static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t* simple_type_info,
 		decl_context_t decl_context)
 {
 	AST global_scope = ASTSon0(a);
 	AST nested_name_spec = ASTSon1(a);
 	AST name = ASTSon2(a);
 
+	fprintf(stderr, "Trying to look up a dependent typename\n");
 	scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
 			LF_EXACT_TEMPLATE_MATCH);
 	if (result == NULL
 			|| result->entry->kind == SK_DEPENDENT_ENTITY)
 	{
-		simple_type_info->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-		simple_type_info->typeof_expr = a;
-		simple_type_info->typeof_scope = st;
+		simple_type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
+		simple_type_info->type->typeof_expr = a;
+		simple_type_info->type->typeof_scope = st;
 	}
 	else
 	{
-		simple_type_info->kind = STK_USER_DEFINED;
-		simple_type_info->user_defined_type = result->entry;
+		simple_type_info->type->kind = STK_USER_DEFINED;
+		simple_type_info->type->user_defined_type = result->entry;
 	}
 
 	// Remove additional ambiguities that might appear in things of the form 
@@ -1068,7 +1082,7 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, simple_
  * This routine is called in gather_type_spec_information and its purpose is to fill the simple_type
  * with the proper reference of the user defined type.
  */
-static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simple_type_t* simple_type_info,
+static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type_t* simple_type_info,
 		decl_context_t decl_context)
 {
 	AST global_op = ASTSon0(a);
@@ -1083,12 +1097,13 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simp
 	scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, 
             type_name, FULL_UNQUALIFIED_LOOKUP);
 
-	// Filter for non types hiding this type name
-	// Fix this, it sounds a bit awkward
 	if (entry_list == NULL)
 	{
 		internal_error("The list of types is already empty! (line=%d)\n", ASTLine(a));
 	}
+	
+	// Filter for non types hiding this type name
+	// Fix this, it sounds a bit awkward
 	scope_entry_t* simple_type_entry = filter_simple_type_specifier(entry_list);
 
 	if (simple_type_entry == NULL)
@@ -1105,22 +1120,29 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, simp
 				ASTText(type_name));
 	}
 
-	simple_type_info->kind = STK_USER_DEFINED;
-	simple_type_info->user_defined_type = simple_type_entry;
+	if (simple_type_entry->kind != SK_TYPEDEF)
+	{
+		simple_type_info->type->kind = STK_USER_DEFINED;
+		simple_type_info->type->user_defined_type = simple_type_entry;
+	}
+	else
+	{
+		*simple_type_info = *simple_type_entry->type_information->type->aliased_type;
+	}
 }
 
 /*
  * This function is called for enum specifiers. It saves all enumerated values
  * and if it has been given a name, it is registered in the scope.
  */
-void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* simple_type_info,
+void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_type_info,
 		decl_context_t decl_context)
 {
-	simple_type_info->enum_info = (enum_info_t*) GC_CALLOC(1, sizeof(*simple_type_info->enum_info));
+	simple_type_info->type->enum_info = (enum_info_t*) GC_CALLOC(1, sizeof(*simple_type_info->type->enum_info));
 
-	simple_type_info->kind = STK_ENUM;
+	simple_type_info->type->kind = STK_ENUM;
 
-	simple_type_info->type_scope = st;
+	simple_type_info->type->type_scope = st;
 
 	AST enum_name = ASTSon0(a);
 	// If it has name, we register this type name in the symbol table
@@ -1147,14 +1169,14 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 
 		// Copy the type because we are creating it and we would clobber it
 		// otherwise
-		new_entry->type_information = copy_type(simple_type_to_type(simple_type_info));
+		new_entry->type_information = copy_type(simple_type_info);
 		new_entry->defined = 1;
 
 		// Since this type is not anonymous we'll want that simple_type_info
 		// refers to this newly created type
 		memset(simple_type_info, 0, sizeof(*simple_type_info));
-		simple_type_info->kind = STK_USER_DEFINED;
-		simple_type_info->user_defined_type = new_entry;
+		simple_type_info->type->kind = STK_USER_DEFINED;
+		simple_type_info->type->user_defined_type = new_entry;
 	}
 
 	AST list, iter;
@@ -1162,12 +1184,12 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 	
 	if (list != NULL)
 	{
-		type_t* enumerator_type = simple_type_to_type(simple_type_info);
+		type_t* enumerator_type = simple_type_info;
 
 		// If the type had name, refer to the enum type
 		if (simple_type_info->kind == STK_USER_DEFINED)
 		{
-			simple_type_info = simple_type_info->user_defined_type->type_information->type;
+			simple_type_info->type = simple_type_info->type->user_defined_type->type_information->type;
 		}
 
 		// For every enumeration, sign them up in the symbol table
@@ -1185,8 +1207,8 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, simple_type_t* sim
 
 			enumeration_item->expression_value = enumeration_expr;
 
-			P_LIST_ADD(simple_type_info->enum_info->enumeration_list, 
-					simple_type_info->enum_info->num_enumeration,
+			P_LIST_ADD(simple_type_info->type->enum_info->enumeration_list, 
+					simple_type_info->type->enum_info->num_enumeration,
 					enumeration_item);
 		}
 
@@ -1256,7 +1278,7 @@ static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class
 
             base_class_info_t* base_class = GC_CALLOC(1, sizeof(*base_class));
             base_class->class_type = result_list->entry->type_information;
-#warning Missing access specifier for bases
+// #warning Missing access specifier for bases
 
             P_LIST_ADD(class_info->base_classes_list, class_info->num_bases, base_class);
         }
@@ -1266,7 +1288,7 @@ static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class
 /*
  * This function is called for class specifiers
  */
-void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* simple_type_info,
+void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_type_info,
 		decl_context_t decl_context)
 {
 	AST class_head = ASTSon0(a);
@@ -1276,14 +1298,14 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 	AST class_head_nested_name = ASTSon1(class_head);
 	AST class_head_identifier = ASTSon2(class_head);
 
-	simple_type_info->class_info = GC_CALLOC(1, sizeof(*simple_type_info->class_info));
-	simple_type_info->kind = STK_CLASS;
+	simple_type_info->type->class_info = GC_CALLOC(1, sizeof(*simple_type_info->type->class_info));
+	simple_type_info->type->kind = STK_CLASS;
 
 	scope_t* inner_scope = new_class_scope(st);
 
 	// Save the inner scope in the class type
 	// (it is used when checking member acesses)
-	simple_type_info->class_info->inner_scope = inner_scope;
+	simple_type_info->type->class_info->inner_scope = inner_scope;
 
 
 	scope_entry_t* class_entry = NULL;
@@ -1333,8 +1355,8 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 				inner_scope = new_class_scope(st);
 
 				// Get its simple type info and adjust its scope
-				simple_type_info = class_entry->type_information->type;
-				simple_type_info->class_info->inner_scope = inner_scope;
+				simple_type_info->type = class_entry->type_information->type;
+				simple_type_info->type->class_info->inner_scope = inner_scope;
                 
 			}
 			else if (class_entry_list == NULL
@@ -1383,7 +1405,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
             // Now add the bases
             if (base_clause != NULL)
             {
-                build_scope_base_clause(base_clause, st, inner_scope, simple_type_info->class_info);
+                build_scope_base_clause(base_clause, st, inner_scope, simple_type_info->type->class_info);
             }
 
 			if (decl_context.template_param_info != NULL)
@@ -1454,7 +1476,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 								st->template_scope,
 								class_entry->template_parameter_info, 
 								class_entry->num_template_parameters,
-								&(simple_type_info->template_arguments));
+								&(simple_type_info->type->template_arguments));
 						break;
 					}
 				case SK_TEMPLATE_SPECIALIZED_CLASS :
@@ -1462,11 +1484,11 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 						if (!BITMAP_TEST(decl_context.decl_flags, DF_INSTANTIATION))
 						{
 							build_scope_template_arguments(class_head_identifier, st, st, st->template_scope,
-									&(simple_type_info->template_arguments));
+									&(simple_type_info->type->template_arguments));
 						}
 						else
 						{
-							simple_type_info->template_arguments = decl_context.template_argument_list;
+							simple_type_info->type->template_arguments = decl_context.template_argument_list;
 							// Remove the instantiation flag, is not needed anymore
 							decl_context.decl_flags &= (~DF_INSTANTIATION);
 						}
@@ -1483,18 +1505,18 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
 			}
 			
 			// Save the decl that will be instantiated
-			simple_type_info->template_class_body = a;
+			simple_type_info->type->template_class_body = a;
 
 			// Copy the type because we are creating it and we would clobber it
 			// otherwise
-			class_entry->type_information = copy_type(simple_type_to_type(simple_type_info));
+			class_entry->type_information = copy_type(simple_type_info);
 			class_entry->related_scope = inner_scope;
             
 			// Since this type is not anonymous we'll want that simple_type_info
 			// refers to this newly created type
 			memset(simple_type_info, 0, sizeof(*simple_type_info));
-			simple_type_info->kind = STK_USER_DEFINED;
-			simple_type_info->user_defined_type = class_entry;
+			simple_type_info->type->kind = STK_USER_DEFINED;
+			simple_type_info->type->user_defined_type = class_entry;
 		}
 		else
 		{
@@ -1623,7 +1645,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, simple_type_t* si
  * build_scope_declarator_name is called to sign it up in the symbol table.
  */
 scope_entry_t* build_scope_declarator(AST a, scope_t* st, 
-		gather_decl_spec_t* gather_info, simple_type_t* simple_type_info, type_t** declarator_type,
+		gather_decl_spec_t* gather_info, type_t* simple_type_info, type_t** declarator_type,
 		decl_context_t decl_context)
 {
 	scope_entry_t* entry = build_scope_declarator_with_parameter_scope(a, 
@@ -1633,12 +1655,12 @@ scope_entry_t* build_scope_declarator(AST a, scope_t* st,
 }
 
 static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t* st, scope_t** parameters_scope, 
-		gather_decl_spec_t* gather_info, simple_type_t* simple_type_info, type_t** declarator_type,
+		gather_decl_spec_t* gather_info, type_t* simple_type_info, type_t** declarator_type,
 		decl_context_t decl_context)
 {
 	scope_entry_t* entry = NULL;
 	// Set base type
-	*declarator_type = simple_type_to_type(simple_type_info);
+	*declarator_type = simple_type_info;
 
 	AST declarator_name = get_declarator_name(a);
 
@@ -1801,7 +1823,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 		// Maybe this needs some kind of fixing
 		return;
 	}
-#warning Properly handle (void)
+// #warning Properly handle (void)
 
 	AST iter, list;
 	list = parameters;
@@ -1849,7 +1871,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 		gather_decl_spec_t gather_info;
 		memset(&gather_info, 0, sizeof(gather_info));
 		
-		simple_type_t* simple_type_info;
+		type_t* simple_type_info;
 
 		build_scope_decl_specifier_seq(parameter_decl_spec_seq, parameters_scope, &gather_info, &simple_type_info,
 				default_decl_context);
@@ -1879,7 +1901,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 		// If we don't have a declarator just save the base type
 		else
 		{
-			type_t* type_info = simple_type_to_type(simple_type_info);
+			type_t* type_info = simple_type_info;
 
 			parameter_info_t* new_parameter = GC_CALLOC(1, sizeof(*new_parameter));
 			new_parameter->type_info = type_info;
@@ -2623,7 +2645,7 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
 static void build_scope_template_function_definition(AST a, scope_t* st, scope_t* template_scope, 
 		int num_parameters, template_parameter_t** template_param_info, decl_context_t decl_context)
 {
-	scope_entry_t* entry = build_scope_function_definition(a, st, decl_context);
+	/* scope_entry_t* entry = */ build_scope_function_definition(a, st, decl_context);
 }
 
 static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
@@ -2658,7 +2680,7 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 	// to the standard
 	AST init_declarator_list = ASTSon1(a);
 
-	simple_type_t* simple_type_info = NULL;
+	type_t* simple_type_info = NULL;
 	gather_decl_spec_t gather_info;
 	memset(&gather_info, 0, sizeof(gather_info));
 
@@ -2744,7 +2766,7 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 			new_decl_context.decl_flags |= DF_CONSTRUCTOR;
 		}
 
-		scope_entry_t* entry = build_scope_declarator(declarator, st, 
+		/* scope_entry_t* entry = */ build_scope_declarator(declarator, st, 
 				&gather_info, simple_type_info, &declarator_type,
 				new_decl_context);
 		
@@ -2969,7 +2991,7 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 		// This declarator can be null
 		AST default_arg_declarator = ASTSon1(type_id);
 
-		simple_type_t* type_info = NULL;
+		type_t* type_info = NULL;
 		gather_decl_spec_t gather_info;
 		memset(&gather_info, 0, sizeof(gather_info));
 
@@ -2985,7 +3007,7 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 		}
 		else
 		{
-			template_param_info->default_type = simple_type_to_type(type_info);
+			template_param_info->default_type = type_info;
 		}
 	}
 
@@ -2998,7 +3020,7 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 {
 	// As usual there are three parts
 	//     decl_specifier_seq [declarator] [ = expression ]
-	simple_type_t* simple_type_info;
+	type_t* simple_type_info;
 	gather_decl_spec_t gather_info;
 	memset(&gather_info, 0, sizeof(gather_info));
 
@@ -3008,8 +3030,8 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 
 	build_scope_decl_specifier_seq(decl_specifier_seq, st, &gather_info, &simple_type_info, decl_context);
 
-	simple_type_info->template_parameter_nesting = decl_context.template_nesting;
-	simple_type_info->template_parameter_num = num_parameter;
+	simple_type_info->type->template_parameter_nesting = decl_context.template_nesting;
+	simple_type_info->type->template_parameter_num = num_parameter;
 
 	if (parameter_declarator != NULL)
 	{
@@ -3026,13 +3048,13 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 
 			// Save its name
 			template_param_info->template_parameter_name = GC_STRDUP(entry->symbol_name);
-			simple_type_info->template_parameter_name = GC_STRDUP(entry->symbol_name);
+			simple_type_info->type->template_parameter_name = GC_STRDUP(entry->symbol_name);
 		}
 	}
 	// If we don't have a declarator just save the base type
 	else
 	{
-		template_param_info->type_info = simple_type_to_type(simple_type_info);
+		template_param_info->type_info = simple_type_info;
 	}
 
 	template_param_info->default_argument_scope = st;
@@ -3082,7 +3104,7 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
 	else
 	{
 		// build_scope_declaration_sequence(ASTSon1(a), compilation_options.global_scope);
-#warning Unnamed namespace support is missing
+// #warning Unnamed namespace support is missing
 	}
 }
 
@@ -3099,7 +3121,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 	// If there is no decl_specifier_seq this has to be a destructor, constructor or conversion function
 	gather_decl_spec_t gather_info;
 	memset(&gather_info, 0, sizeof(gather_info));
-	simple_type_t* type_info = NULL;
+	type_t* type_info = NULL;
 
 	AST decl_spec_seq = ASTSon0(a);
 	char is_constructor = 0;
@@ -3175,8 +3197,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 				type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
 				this_type->kind = TK_POINTER;
 				this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
-				this_type->pointer->pointee = simple_type_to_type(
-						copy_simple_type(entry->type_information->function->class_type));
+				this_type->pointer->pointee = copy_type(entry->type_information->function->class_type);
 
 				// "this" pseudovariable has the same cv-qualification of this member
 				this_type->pointer->pointee->type->cv_qualifier = 
@@ -3211,7 +3232,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 
 
 static void build_scope_member_declaration(AST a, scope_t*  st, 
-		access_specifier_t current_access, simple_type_t* class_info,
+		access_specifier_t current_access, type_t* class_info,
 		int step, decl_context_t decl_context)
 {
 	switch (ASTType(a))
@@ -3259,7 +3280,7 @@ static void build_scope_member_declaration(AST a, scope_t*  st,
  * This function registers a member template declaration
  */
 static void build_scope_member_template_declaration(AST a, scope_t* st, 
-		access_specifier_t current_access, simple_type_t* class_info, int step,
+		access_specifier_t current_access, type_t* class_info, int step,
 		decl_context_t decl_context)
 {
 	/*
@@ -3340,20 +3361,20 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
 
 static void build_scope_member_template_function_definition(AST a, scope_t* st, scope_t* template_scope, 
 		int num_parameters, template_parameter_t** template_param_info,
-		access_specifier_t current_access, simple_type_t* class_info, int step,
+		access_specifier_t current_access, type_t* class_info, int step,
 		decl_context_t decl_context)
 {
 	decl_context_t new_decl_context = decl_context;
 	new_decl_context.decl_flags |= DF_TEMPLATE;
 
 	// Define the function within st scope but being visible template_scope
-	scope_entry_t* entry = build_scope_member_function_definition(a, st, current_access, class_info, step, 
+	/* scope_entry_t* entry = */ build_scope_member_function_definition(a, st, current_access, class_info, step, 
 			new_decl_context);
 }
 
 static void build_scope_member_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
 		int num_parameters, template_parameter_t** template_param_info,
-		access_specifier_t current_access, simple_type_t* class_info,
+		access_specifier_t current_access, type_t* class_info,
 		decl_context_t decl_context)
 {
 	decl_context_t new_decl_context = decl_context;
@@ -3365,15 +3386,15 @@ static void build_scope_member_template_simple_declaration(AST a, scope_t* st, s
 }
 
 static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st, 
-		access_specifier_t current_access, simple_type_t* class_info,
+		access_specifier_t current_access, type_t* class_info,
 		int step, decl_context_t decl_context)
 {
 	char* class_name = "";
 	class_info_t* class_type = NULL;
 	if (class_info->kind == STK_USER_DEFINED)
 	{
-		class_name = class_info->user_defined_type->symbol_name;
-		class_type = class_info->user_defined_type->type_information->type->class_info;
+		class_name = class_info->type->user_defined_type->symbol_name;
+		class_type = class_info->type->user_defined_type->type_information->type->class_info;
 	}
 
 	scope_entry_t* entry = NULL;
@@ -3384,7 +3405,7 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
 		// If there is no decl_specifier_seq this has to be a destructor, constructor or conversion function
 		gather_decl_spec_t gather_info;
 		memset(&gather_info, 0, sizeof(gather_info));
-		simple_type_t* type_info = NULL;
+		type_t* type_info = NULL;
 
 		AST declarator = ASTSon1(a);
 		// Get the declarator name
@@ -3490,10 +3511,10 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
 }
 
 static void build_scope_simple_member_declaration(AST a, scope_t*  st, 
-		access_specifier_t current_access, simple_type_t* class_info, decl_context_t decl_context)
+		access_specifier_t current_access, type_t* class_info, decl_context_t decl_context)
 {
 	gather_decl_spec_t gather_info;
-	simple_type_t* simple_type_info = NULL;
+	type_t* simple_type_info = NULL;
 
 	memset(&gather_info, 0, sizeof(gather_info));
 
@@ -3502,8 +3523,8 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 	class_info_t* class_type = NULL;
 	if (class_info->kind == STK_USER_DEFINED)
 	{
-		class_name = class_info->user_defined_type->symbol_name;
-		class_type = class_info->user_defined_type->type_information->type->class_info;
+		class_name = class_info->type->user_defined_type->symbol_name;
+		class_type = class_info->type->user_defined_type->type_information->type->class_info;
 	}
 
 	if (ASTSon0(a) != NULL)
@@ -3728,7 +3749,7 @@ static exception_spec_t* build_exception_spec(scope_t* st, AST a)
 
 		// A type_specifier_seq is essentially a subset of a
 		// declarator_specifier_seq so we can reuse existing functions
-		simple_type_t* type_info = NULL;
+		type_t* type_info = NULL;
 		gather_decl_spec_t gather_info;
 		memset(&gather_info, 0, sizeof(gather_info));
 	
@@ -3745,7 +3766,7 @@ static exception_spec_t* build_exception_spec(scope_t* st, AST a)
 		}
 		else
 		{
-			type_t* declarator_type = simple_type_to_type(type_info);
+			type_t* declarator_type = type_info;
 			P_LIST_ADD(result->exception_type_seq, result->num_exception_types,
 					declarator_type);
 		}
@@ -3886,7 +3907,7 @@ void build_scope_template_arguments(AST class_head_id,
 
 					// A type_specifier_seq is essentially a subset of a
 					// declarator_specifier_seq so we can reuse existing functions
-					simple_type_t* type_info;
+					type_t* type_info;
 					gather_decl_spec_t gather_info;
 					memset(&gather_info, 0, sizeof(gather_info));
 
@@ -3901,7 +3922,7 @@ void build_scope_template_arguments(AST class_head_id,
 					}
 					else
 					{
-						declarator_type = simple_type_to_type(type_info);
+						declarator_type = type_info;
 					}
 					new_template_argument->type = declarator_type;
 					new_template_argument->argument_tree = template_argument;
@@ -4128,7 +4149,7 @@ static void build_scope_condition(AST a, scope_t* st, decl_context_t decl_contex
 
 		// A type_specifier_seq is essentially a subset of a
 		// declarator_specifier_seq so we can reuse existing functions
-		simple_type_t* type_info = NULL;
+		type_t* type_info = NULL;
 		gather_decl_spec_t gather_info;
 		memset(&gather_info, 0, sizeof(gather_info));
 	
@@ -4292,7 +4313,7 @@ static void build_scope_try_block(AST a, scope_t* st, decl_context_t decl_contex
 			// This declarator can be null
 			AST declarator = ASTSon1(exception_declaration);
 
-			simple_type_t* type_info = NULL;
+			type_t* type_info = NULL;
 			gather_decl_spec_t gather_info;
 			memset(&gather_info, 0, sizeof(gather_info));
 
@@ -4405,6 +4426,7 @@ AST get_declarator_name(AST a)
 				return ASTSon0(a);
 				break;
 			}
+		case AST_CONVERSION_DECLARATOR :
 		case AST_ABSTRACT_DECLARATOR :
 		case AST_GCC_ABSTRACT_DECLARATOR :
 		case AST_PARENTHESIZED_ABSTRACT_DECLARATOR:

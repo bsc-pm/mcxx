@@ -291,7 +291,7 @@ typedef struct function_tag
 	int is_constructor; // States if this functions is a constructor
 
 	// Related class type
-	simple_type_t* class_type;
+	struct type_tag* class_type;
 
 } function_info_t;
 
@@ -448,7 +448,8 @@ typedef enum lookup_flags_tag
 	LF_EXACT_TEMPLATE_MATCH = BITMAP(2),
 	LF_EXPRESSION = BITMAP(3),
 	LF_NO_INSTANTIATE = BITMAP(4),
-	LF_IN_NAMESPACE_SCOPE = BITMAP(5)
+	LF_IN_NAMESPACE_SCOPE = BITMAP(5),
+	LF_FROM_QUALIFIED = BITMAP(6)
 } lookup_flags_t ;
 
 // Higher level functions when dealing with the scope
@@ -471,6 +472,8 @@ scope_entry_list_t* query_id_expression_flags(scope_t* st, AST id_expr,
 
 // Performs a full unqualified lookup
 scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name);
+scope_entry_list_t* query_unqualified_name_flags(scope_t* st, char* unqualified_name, 
+		lookup_flags_t lookup_flags);
 
 // Nested names
 //    This one should be enough for most cases
