@@ -12,7 +12,7 @@ enum cv_equivalence_t
 };
 
 char equivalent_types(type_t* t1, type_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
-char overloaded_function(function_info_t* f1, function_info_t* f2, scope_t* st);
+char overloaded_function(type_t* f1, type_t* f2, scope_t* st);
 
 /* Copy functions */
 class_info_t* copy_class_info(class_info_t* class_info);

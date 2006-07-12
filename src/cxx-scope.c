@@ -169,7 +169,7 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
 {
 	if (entry->symbol_name == NULL)
 	{
-		internal_error("Inserting an symbol entry without name!", 0);
+		internal_error("Inserting a symbol entry without name!", 0);
 	}
 	
 	scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, entry->symbol_name);
@@ -195,6 +195,40 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
 	}
 }
 
+
+void remove_entry(scope_t* sc, scope_entry_t* entry)
+{
+	if (entry->symbol_name == NULL)
+	{
+		internal_error("Removing a symbol entry without name!", 0);
+	}
+
+	scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, entry->symbol_name);
+
+	scope_entry_list_t* current = result_set;
+	scope_entry_list_t* previous = NULL;
+
+	while (current != NULL)
+	{
+		if (current->entry == entry)
+		{
+			if (previous != NULL)
+			{
+				// Unlink from the structure
+				previous->next = current->next;
+			}
+			else
+			{
+				// Delete the whole entry
+				hash_delete(sc->hash, entry->symbol_name);
+			}
+			break;
+		}
+
+		previous = current;
+		current = current->next;
+	}
+}
 
 /*
  * Returns the scope of this nested name specification
@@ -529,7 +563,6 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 	char give_exact_match = 0;
 	char will_not_instantiate = 0;
 
-
 	will_not_instantiate |= BITMAP_TEST(lookup_flags, LF_NO_INSTANTIATE);
 
 	if (BITMAP_TEST(lookup_flags, LF_EXACT_TEMPLATE_MATCH))
@@ -589,8 +622,9 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 	{
 		// If the template we are selecting is not incomplete or we are not
 		// willing to instantiate
-		fprintf(stderr, "Selected exact template '%p'\n", matched_template);
-		return create_list_from_entry(matched_template->entry);
+		scope_entry_t* matched_entry = matched_template->entry;
+
+		return create_list_from_entry(matched_entry);
 	}
 	else
 	{
@@ -1233,6 +1267,27 @@ scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum 
 	scope_entry_list_t* result = NULL;
 
 	result = filter_symbol_non_kind_set(entry_list, 1, &symbol_kind);
+
+	return result;
+}
+
+scope_entry_list_t* filter_entry_from_list(scope_entry_list_t* entry_list, scope_entry_t* entry)
+{
+	scope_entry_list_t* result = NULL;
+	scope_entry_list_t* iter = entry_list;
+	
+	while (iter != NULL)
+	{
+		if (iter->entry != entry)
+		{
+			scope_entry_list_t* new_item = GC_CALLOC(1, sizeof(*new_item));
+			new_item->entry = iter->entry;
+			new_item->next = result;
+			result = new_item;
+		}
+
+		iter = iter->next;
+	}
 
 	return result;
 }

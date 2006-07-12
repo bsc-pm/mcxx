@@ -2064,10 +2064,11 @@ member_declaration : decl_specifier_seq member_declarator_list ';'
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, NULL, $1, ASTLine($1), NULL);
 }
-| function_definition ';'
-{
-	$$ = $1;
-}
+// This is in the standard, but this causes an ambiguity with an empty declaration
+// | function_definition ';'
+// {
+// 	$$ = $1;
+// }
 | function_definition 
 {
 	$$ = $1;

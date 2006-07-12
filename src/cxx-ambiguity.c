@@ -60,6 +60,22 @@ do \
 } while (0);
 
 
+// Returns 1 if ASTType(t1) == n1 && ASTType(t2) == n2
+// Returns -1 if ASTType(t1) == n2 && ASTType(t2) == n1
+// Returns 0 otherwise
+static char either_type(AST t1, AST t2, node_t n1, node_t n2)
+{
+	if ((ASTType(t1) == n1) 
+			&& (ASTType(t2) == n2)) 
+		return 1;
+
+	if ((ASTType(t1) == n2) 
+			&& (ASTType(t2) == n1)) 
+		return -1;
+
+	return 0;
+}
+
 /*
  * Ambiguity between parameter-declaration and type-parameter in a template
  * parameter list
@@ -94,7 +110,7 @@ void solve_parameter_declaration_vs_type_parameter_class(AST a)
  */
 void solve_ambiguous_declaration(AST a, scope_t* st)
 {
-#warning TODO - Refactorize this with the code that makes the same with a single decl_specifier_seq/type_specifier_seq
+// #warning TODO - Refactorize this with the code that makes the same with a single decl_specifier_seq/type_specifier_seq
 	char valid;
 	int i;
 	int j;
@@ -396,12 +412,11 @@ void solve_ambiguous_statement(AST a, scope_t* st)
 				AST first_option = ASTSon0(a->ambig[correct_choice]);
 				AST second_option = ASTSon0(a->ambig[i]);
 
-				if ((ASTType(first_option) == AST_SIMPLE_DECLARATION
-						&& ASTType(second_option) == AST_EXPLICIT_TYPE_CONVERSION)
-						|| (ASTType(first_option) == AST_EXPLICIT_TYPE_CONVERSION
-							&& ASTType(second_option) == AST_SIMPLE_DECLARATION))
+				char either;
+				if ((either = either_type(first_option, second_option, 
+							AST_SIMPLE_DECLARATION, AST_EXPLICIT_TYPE_CONVERSION)))
 				{
-					if (ASTType(first_option) != AST_SIMPLE_DECLARATION)
+					if (either < 0)
 					{
 						correct_choice = i;
 					}
@@ -580,7 +595,6 @@ static char check_for_simple_declaration(AST a, scope_t* st)
 		}
 
 		// Additional check. Ensure we are using the longest possible nested name seq
-		//
 		AST first_init_declarator = NULL;
 		AST list = ASTSon1(a);
 		AST iter;
@@ -891,6 +905,7 @@ static char check_for_typeless_declarator(AST declarator, scope_t* st)
 	return check_for_typeless_declarator_rec(declarator, st, 0);
 }
 
+
 // This function will check for soundness of an expression.
 // It does not typechecking but checks that the expression
 // is semantically feasible.
@@ -932,9 +947,25 @@ static char check_for_expression(AST expression, scope_t* st)
 						}
 						else
 						{
-							internal_error("More than one valid choice for expression statement (line %d)\n'%s' vs '%s'\n", 
-									ASTLine(expression), ast_print_node_type(ASTType(expression->ambig[i])), 
-									ast_print_node_type(ASTType(expression->ambig[correct_choice])));
+							// Favor known ambiguities
+							AST previous_choice = expression->ambig[correct_choice];
+							AST current_choice = expression->ambig[i];
+
+							char either;
+							if ((either = either_type(previous_choice, current_choice,
+										AST_SIZEOF_TYPEID, AST_SIZEOF)))
+							{
+								if (either < 0)
+								{
+									correct_choice = i;
+								}
+							}
+							else
+							{
+								internal_error("More than one valid choice for expression (line %d)\n'%s' vs '%s'\n", 
+										ASTLine(expression), ast_print_node_type(ASTType(expression->ambig[i])), 
+										ast_print_node_type(ASTType(expression->ambig[correct_choice])));
+							}
 						}
 					}
 				}
@@ -1326,7 +1357,7 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 		case AST_SYMBOL :
 		case AST_TEMPLATE_ID :
 			{
-#warning Koenig lookup should be performed here
+// #warning Koenig lookup should be performed here
 				// The technique here relies on finding something that is a
 				// function.  If nothing is found, assume also that is a
 				// function that would need full Koenig lookup for correct
@@ -1428,7 +1459,7 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st)
 {
 	int i;
 
-	char selected_option = -1;
+	int selected_option = -1;
 	for (i = 0; i < ambig_template_argument->num_ambig; i++)
 	{
 		char current_option = 0;
@@ -1471,7 +1502,21 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st)
 			}
 			else
 			{
-				internal_error("Two valid ambiguities", 0);
+				AST previous_template_argument = ambig_template_argument->ambig[selected_option];
+
+				char either;
+				if ((either = either_type(previous_template_argument, current_template_argument, 
+								AST_TEMPLATE_TYPE_ARGUMENT, AST_TEMPLATE_EXPRESSION_ARGUMENT)))
+				{
+					if (either < 0)
+					{
+						selected_option = i;
+					}
+				}
+				else
+				{
+					internal_error("Two valid ambiguities", 0);
+				}
 			}
 		}
 	}
@@ -1653,7 +1698,28 @@ void solve_ambiguous_init_declarator(AST a, scope_t* st)
 			}
 			else
 			{
-				internal_error("More than one valid choice!\n", 0);
+				// Ambiguity: T t(Q()); where T and Q are type-names always solves to 
+				// function declaration
+
+				AST previous_choice = a->ambig[correct_choice];
+				AST previous_choice_declarator = ASTSon0(previous_choice);
+
+				AST current_choice_declarator = ASTSon0(init_declarator);
+
+				char either;
+				if ((either = either_type(ASTSon0(previous_choice_declarator), ASTSon0(current_choice_declarator), 
+							AST_DECLARATOR_FUNC, AST_DECLARATOR_ID_EXPR)))
+				{
+					// Always favor function declarations
+					if (either < 0)
+					{
+						correct_choice = i;
+					}
+				}
+				else
+				{
+					internal_error("More than one valid choice!\n", 0);
+				}
 			}
 		}
 	}

@@ -64,12 +64,13 @@ typedef struct {
 // For type_t
 enum type_kind
 {
-	TK_DIRECT,
-	TK_POINTER,
-	TK_REFERENCE,
-	TK_POINTER_TO_MEMBER,
-	TK_ARRAY,
-	TK_FUNCTION,
+	TK_UNKNOWN = 0,
+	TK_DIRECT,             // 1
+	TK_POINTER,            // 2
+	TK_REFERENCE,          // 3
+	TK_POINTER_TO_MEMBER,  // 4
+	TK_ARRAY,              // 5
+	TK_FUNCTION,           // 6
 };
 
 // For simple_type_t
@@ -129,7 +130,7 @@ typedef struct template_parameter {
 
 	struct type_tag* default_type;
 
-	AST default_expression;
+	AST default_tree;
 	struct scope_tag* default_argument_scope;
 } template_parameter_t;
 
@@ -201,6 +202,9 @@ typedef struct template_argument_tag
 
 	// Otherwise we should have type_t here
 	struct type_tag* type;
+
+	// The argument was implicitly defined by default template argument
+	char implicit;
 } template_argument_t;
 
 typedef struct template_argument_list_tag {
@@ -251,14 +255,15 @@ typedef struct simple_type_tag {
 	int template_parameter_nesting;
 	int template_parameter_num;
 
-	cv_qualifier_t cv_qualifier;
-	
 	// Scope where this type was declared if not builtin
 	struct scope_tag* type_scope;
 
 	// For typeof and template dependent types
 	AST typeof_expr;
 	struct scope_tag* typeof_scope;
+
+	// For instantiation purposes
+	char from_instantiation;
 } simple_type_t;
 
 typedef struct parameter_info_tag
@@ -274,7 +279,6 @@ typedef struct function_tag
 	struct type_tag* return_type;
 	int num_parameters;
 	parameter_info_t** parameter_list;
-	cv_qualifier_t cv_qualifier;
 	exception_spec_t* exception_spec;
 
 	// For instantiating template function purposes
@@ -298,7 +302,6 @@ typedef struct function_tag
 // Pointers, references and pointers to members
 typedef struct pointer_tag
 {
-	cv_qualifier_t cv_qualifier;
 	struct type_tag* pointee;
 	struct scope_entry_tag* pointee_class;
 } pointer_info_t;
@@ -336,6 +339,9 @@ typedef struct type_tag
 
 	// "Simple" type
 	simple_type_t* type;
+
+	// cv-qualifier related to this type
+	cv_qualifier_t cv_qualifier;
 
 } type_t;
 
@@ -433,6 +439,7 @@ scope_t* new_template_scope(scope_t* enclosing_scope);
 
 // Functions to handle scope
 scope_entry_t* new_symbol(scope_t* st, char* name);
+void remove_entry(scope_t* st, scope_entry_t* entry);
 void insert_entry(scope_t* st, scope_entry_t* entry);
 
 typedef enum unqualified_lookup_behaviour_tag
@@ -463,6 +470,8 @@ scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int n
 // Opposite filtering
 scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum cxx_symbol_kind symbol_kind);
 scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set);
+
+scope_entry_list_t* filter_entry_from_list(scope_entry_list_t* entry_list, scope_entry_t* entry);
 
 // Everything built by an id_expression can be queried with this function
 scope_entry_list_t* query_id_expression(scope_t* st, AST id_expr, unqualified_lookup_behaviour_t unqualified_lookup);

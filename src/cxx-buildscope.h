@@ -36,7 +36,6 @@ typedef enum decl_flags_tag
 	DF_CONSTRUCTOR = BITMAP(1),
 	DF_NO_DECLARATORS = BITMAP(2),
 	DF_FRIEND = BITMAP(3),
-	DF_INSTANTIATION = BITMAP(4)
 } decl_flags_t;
 
 // Inherited attributes
@@ -71,6 +70,10 @@ scope_entry_t* build_scope_declarator(AST a, scope_t* st, gather_decl_spec_t* ga
 
 void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather_info);
 void gather_type_spec_information(AST a, scope_t* st, type_t* type_info, decl_context_t dctx);
+
+void build_scope_member_specification(scope_t* inner_scope, AST member_specification_tree, 
+		access_specifier_t current_access, type_t* simple_type_info, 
+		decl_context_t decl_context);
 
 extern const decl_context_t default_decl_context;
 

@@ -102,8 +102,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 		case TK_REFERENCE :
 		case TK_POINTER :
 			{
-				return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, st, unif_set)
-					&& equivalent_cv_qualification(t1->pointer->cv_qualifier, t2->pointer->cv_qualifier);
+				return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, st, unif_set);
 				break;
 			}
 		case TK_POINTER_TO_MEMBER :
@@ -147,6 +146,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 						return 0;
 					}
 				}
+				break;
 			}
 		default :
 			internal_error("Unknown type kind %d\n", t1->kind);

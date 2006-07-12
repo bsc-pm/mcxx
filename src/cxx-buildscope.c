@@ -11,6 +11,8 @@
 #include "cxx-cexpr.h"
 #include "cxx-ambiguity.h"
 #include "cxx-printscope.h"
+#include "cxx-solvetemplate.h"
+#include "cxx-instantiation.h"
 #include "hash_iterator.h"
 
 /*
@@ -129,6 +131,7 @@ static char is_constructor_declarator(AST a);
 
 static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 		type_t* declarator_type, char* is_overload, decl_context_t decl_context);
+
 
 // Current linkage, by default C++
 static char* current_linkage = "\"C++\"";
@@ -612,16 +615,14 @@ void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gath
 		}
 		
 		// cv-qualification
-		// (*simple_type_info)->type->cv_qualifier = CV_NONE;
-		cv_qualifier_t* cv_qualifier = get_innermost_cv_qualifier(*simple_type_info);
 		if (gather_info->is_const)
 		{
-			*cv_qualifier |= CV_CONST;
+			(*simple_type_info)->cv_qualifier |= CV_CONST;
 		}
 
 		if (gather_info->is_volatile)
 		{
-			*cv_qualifier |= CV_VOLATILE;
+			(*simple_type_info)->cv_qualifier |= CV_VOLATILE;
 		}
 	}
 }
@@ -711,6 +712,10 @@ void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather
 void gather_type_spec_information(AST a, scope_t* st, type_t* simple_type_info,
 		decl_context_t decl_context)
 {
+	// This can be overriden in gather_type_spec_from_simple_type_specifier if
+	// declaring a typedef
+	simple_type_info->kind = TK_DIRECT;
+
 	switch (ASTType(a))
 	{
 		case AST_SIMPLE_TYPE_SPECIFIER :
@@ -814,11 +819,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
 	lookup_flags_t lookup_flags = LF_NONE;
 	
-	if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
-	{
-		lookup_flags |= LF_IN_NAMESPACE_SCOPE;
-	}
-
 	if (ASTType(class_symbol) == AST_TEMPLATE_ID)
 	{
 		AST template_args = ASTSon1(class_symbol);
@@ -828,9 +828,23 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 			lookup_flags |= LF_EXACT_TEMPLATE_MATCH;
 		}
 	}
+	
+	// if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+	// {
+	// 	lookup_flags |= LF_IN_NAMESPACE_SCOPE;
+	// }
 
-	result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-			NOFULL_UNQUALIFIED_LOOKUP, lookup_flags);
+	if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+	{
+		result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
+				NOFULL_UNQUALIFIED_LOOKUP, lookup_flags);
+	}
+	else
+	{
+		result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
+				FULL_UNQUALIFIED_LOOKUP, lookup_flags);
+	}
+
 
 	// Now look for a type
 	enum cxx_symbol_kind filter_classes[3] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
@@ -916,11 +930,15 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 								case TPK_TYPE :
 								case TPK_TEMPLATE :
 									{
-										if (new_class->template_parameter_info[i]->default_type != NULL
+										if ((new_class->template_parameter_info[i]->default_type != NULL
 												&& decl_context.template_param_info[i]->default_type == NULL)
+										|| (new_class->template_parameter_info[i]->default_tree != NULL
+												&& decl_context.template_param_info[i]->default_tree == NULL))
 										{
 											decl_context.template_param_info[i]->default_type = 
 												new_class->template_parameter_info[i]->default_type;
+											decl_context.template_param_info[i]->default_tree = 
+												new_class->template_parameter_info[i]->default_tree;
 											decl_context.template_param_info[i]->default_argument_scope = 
 												new_class->template_parameter_info[i]->default_argument_scope;
 										}
@@ -928,11 +946,11 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 									}
 								case TPK_NONTYPE :
 									{
-										if (new_class->template_parameter_info[i]->default_expression != NULL
-												&& decl_context.template_param_info[i]->default_expression == NULL)
+										if (new_class->template_parameter_info[i]->default_tree != NULL
+												&& decl_context.template_param_info[i]->default_tree == NULL)
 										{
-											decl_context.template_param_info[i]->default_expression = 
-												new_class->template_parameter_info[i]->default_expression;
+											decl_context.template_param_info[i]->default_tree = 
+												new_class->template_parameter_info[i]->default_tree;
 											decl_context.template_param_info[i]->default_argument_scope = 
 												new_class->template_parameter_info[i]->default_argument_scope;
 										}
@@ -1130,9 +1148,8 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
 	}
 	else
 	{
-		// Copy the type, we do not want to clobber it, but avoid having an
-		// unnecessary indirection
-		*simple_type_info = *(copy_type(simple_type_entry->type_information->type->aliased_type));
+		// Bitwise copy, cv-qualification will be in this simple_type_info
+		*simple_type_info = *simple_type_entry->type_information->type->aliased_type;
 	}
 }
 
@@ -1312,7 +1329,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 	// (it is used when checking member acesses)
 	simple_type_info->type->class_info->inner_scope = inner_scope;
 
-
 	scope_entry_t* class_entry = NULL;
 	
 	if (class_head_identifier != NULL)
@@ -1339,8 +1355,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 
 			if (class_entry_list != NULL 
 					&& ((class_entry_list->entry->kind == SK_TEMPLATE_PRIMARY_CLASS
-							&& ASTType(class_head_identifier) == AST_TEMPLATE_ID)
-						|| BITMAP_TEST(decl_context.decl_flags, DF_INSTANTIATION)))
+							&& ASTType(class_head_identifier) == AST_TEMPLATE_ID)))
 			{
 				// We have found a primary template but we are specializing
 				class_entry_list = NULL;
@@ -1381,11 +1396,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 					class_entry = new_symbol(st, ASTText(ASTSon0(class_head_identifier)));
 				}
 
-				if (BITMAP_TEST(decl_context.decl_flags, DF_INSTANTIATION))
-				{
-					class_entry->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
-				}
-				else if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+				if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
 				{
 					class_entry->kind = SK_CLASS;
 				}
@@ -1407,11 +1418,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 				internal_error("Unreachable code", 0);
 			}
             
-            // Now add the bases
-            if (base_clause != NULL)
-            {
-                build_scope_base_clause(base_clause, st, inner_scope, simple_type_info->type->class_info);
-            }
 
 			if (decl_context.template_param_info != NULL)
 			{
@@ -1436,9 +1442,13 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 							case TPK_TYPE :
 							case TPK_TEMPLATE :
 								{
-									if (class_entry->template_parameter_info[i]->default_type != NULL
-											&& decl_context.template_param_info[i]->default_type == NULL)
+									if ((class_entry->template_parameter_info[i]->default_type != NULL
+												&& decl_context.template_param_info[i]->default_type == NULL)
+											|| (class_entry->template_parameter_info[i]->default_tree != NULL
+												&& decl_context.template_param_info[i]->default_tree == NULL))
 									{
+										decl_context.template_param_info[i]->default_tree = 
+											class_entry->template_parameter_info[i]->default_tree;
 										decl_context.template_param_info[i]->default_type = 
 											class_entry->template_parameter_info[i]->default_type;
 										decl_context.template_param_info[i]->default_argument_scope = 
@@ -1448,11 +1458,11 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 								}
 							case TPK_NONTYPE :
 								{
-									if (class_entry->template_parameter_info[i]->default_expression != NULL
-											&& decl_context.template_param_info[i]->default_expression == NULL)
+									if (class_entry->template_parameter_info[i]->default_tree != NULL
+											&& decl_context.template_param_info[i]->default_tree == NULL)
 									{
-										decl_context.template_param_info[i]->default_expression = 
-											class_entry->template_parameter_info[i]->default_expression;
+										decl_context.template_param_info[i]->default_tree = 
+											class_entry->template_parameter_info[i]->default_tree;
 										decl_context.template_param_info[i]->default_argument_scope = 
 											class_entry->template_parameter_info[i]->default_argument_scope;
 									}
@@ -1486,17 +1496,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 					}
 				case SK_TEMPLATE_SPECIALIZED_CLASS :
 					{
-						if (!BITMAP_TEST(decl_context.decl_flags, DF_INSTANTIATION))
-						{
-							build_scope_template_arguments(class_head_identifier, st, st, st->template_scope,
-									&(simple_type_info->type->template_arguments));
-						}
-						else
-						{
-							simple_type_info->type->template_arguments = decl_context.template_argument_list;
-							// Remove the instantiation flag, is not needed anymore
-							decl_context.decl_flags &= (~DF_INSTANTIATION);
-						}
+						simple_type_info->type->template_arguments = decl_context.template_argument_list;
 						break;
 					}
 				case SK_CLASS :
@@ -1510,13 +1510,16 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 			}
 			
 			// Save the decl that will be instantiated
-			simple_type_info->type->template_class_body = a;
+			simple_type_info->type->template_class_body = ASTSon1(a);
 
 			// Copy the type because we are creating it and we would clobber it
 			// otherwise
 			class_entry->type_information = copy_type(simple_type_info);
 			class_entry->related_scope = inner_scope;
-            
+
+			// Clear this flag
+			class_entry->type_information->type->from_instantiation = 0;
+
 			// Since this type is not anonymous we'll want that simple_type_info
 			// refers to this newly created type
 			memset(simple_type_info->type, 0, sizeof(*(simple_type_info->type)));
@@ -1528,9 +1531,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 			internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(class_head_identifier)));
 		}
 	}
-    
-
-	// Member specification
+	
 	access_specifier_t current_access;
 	// classes have a private by default
 	if (ASTType(class_key) == AST_CLASS_KEY_CLASS)
@@ -1544,10 +1545,77 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 	}
 
 	AST member_specification = ASTSon1(a);
+    build_scope_member_specification(inner_scope, member_specification, 
+			current_access, simple_type_info, decl_context);
+	
+	// Now add the bases
+	if (base_clause != NULL)
+	{
+		build_scope_base_clause(base_clause, st, inner_scope, class_entry->type_information->type->class_info);
+	}
+    
+	if (class_entry != NULL)
+	{
+		// If the class had a name, it is completely defined here
+		class_entry->defined = 1;
+	}
 
+	// Now reinstantiate existing specializations coming from previous
+	// instantiations (not from explicit declarations within the code)
+	if (class_entry != NULL 
+			&& class_entry->symbol_name != NULL
+			&& BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+	{
+		fprintf(stderr, "Reinstantiating previous references to this template\n");
+		scope_entry_list_t* existing_templates = query_nested_name_flags(st, NULL, 
+					class_head_nested_name, class_head_identifier,
+					NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
 
+		enum cxx_symbol_kind template_symbol[2] = {SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
+		
+		existing_templates = filter_symbol_kind_set(existing_templates, 2, template_symbol);
+		
+		// Filter current type if it is already specialized
+		if (class_entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+		{
+			existing_templates = filter_entry_from_list(existing_templates, class_entry);
+		}
+
+		scope_entry_list_t* existing_specializations = filter_symbol_kind(existing_templates, SK_TEMPLATE_SPECIALIZED_CLASS);
+
+		scope_entry_list_t* iter = existing_specializations;
+
+		while (iter != NULL)
+		{
+			scope_entry_t* entry = iter->entry;
+
+			// Only things created from instantiations must be considered here
+			if (entry->type_information->type->from_instantiation)
+			{
+				// I'm not a candidate
+				scope_entry_list_t* candidates = filter_entry_from_list(existing_templates, entry);
+				// instantiate_template_in_symbol(entry, 
+				matching_pair_t* matching_pair = solve_template(candidates, entry->type_information->type->template_arguments, 
+						st, /* give_exact_match = */ 0);
+
+				instantiate_template_in_symbol(entry, matching_pair, entry->type_information->type->template_arguments, st);
+			}
+
+			iter = iter->next;
+		}
+	}
+}
+
+void build_scope_member_specification(scope_t* inner_scope, AST member_specification_tree, 
+		access_specifier_t default_current_access, type_t* simple_type_info, 
+		decl_context_t decl_context)
+{
+	// Member specification
+	access_specifier_t current_access = default_current_access;
 	decl_context_t new_decl_context = decl_context;
 	new_decl_context.decl_flags &= ~(DF_TEMPLATE);
+
+	AST member_specification = member_specification_tree;
 
 	// First step, sign up only prototypes and simple declarations
 	while (member_specification != NULL)
@@ -1568,7 +1636,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 					current_access = AS_PROTECTED;
 					break;
 				default :
-					internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(a))));
+					internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(member_specification))));
 			}
 		}
 
@@ -1583,16 +1651,9 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 	}
 
 	// Second step, sign up everything
-	if (ASTType(class_key) == AST_CLASS_KEY_CLASS)
-	{
-		current_access = AS_PRIVATE;
-	}
-	else
-	{
-		current_access = AS_PUBLIC;
-	}
+	current_access = AS_PRIVATE;
 
-	member_specification = ASTSon1(a);
+	member_specification = member_specification_tree;
 
 	while (member_specification != NULL)
 	{
@@ -1611,7 +1672,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 					current_access = AS_PROTECTED;
 					break;
 				default :
-					internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(a))));
+					internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(member_specification))));
 			}
 		}
 
@@ -1624,13 +1685,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 
 		member_specification = ASTSon2(member_specification);
 	}
-
-	if (class_entry != NULL)
-	{
-		// If the class had a name, it is completely defined here
-		class_entry->defined = 1;
-	}
-
 }
 
 
@@ -1774,7 +1828,8 @@ static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_
 					// Ok, this might be a type template parameter or template template parameter
 				}
 			}
-			(*declarator_type)->pointer->cv_qualifier = compute_cv_qualifier(ASTSon2(pointer_tree));
+			// (*declarator_type)->pointer->cv_qualifier = compute_cv_qualifier(ASTSon2(pointer_tree));
+			(*declarator_type)->cv_qualifier = compute_cv_qualifier(ASTSon2(pointer_tree));
 			break;
 		case AST_REFERENCE_SPEC :
 			(*declarator_type)->kind = TK_REFERENCE;
@@ -1933,7 +1988,8 @@ static void set_function_type(type_t** declarator_type, scope_t* st, scope_t** p
 
 	set_function_parameter_clause(*declarator_type, st, parameters_scope, parameter);
 
-	(*declarator_type)->function->cv_qualifier = compute_cv_qualifier(cv_qualif);
+	// (*declarator_type)->function->cv_qualifier = compute_cv_qualifier(cv_qualif);
+	(*declarator_type)->cv_qualifier = compute_cv_qualifier(cv_qualif);
 
 	(*declarator_type)->function->exception_spec = build_exception_spec(st, except_spec);
 
@@ -2413,19 +2469,28 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 		lookup_flags |= LF_CONSTRUCTOR;
 	}
 
-	if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+	scope_entry_list_t* entry_list;
+	if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
 	{
-		lookup_flags |= LF_IN_NAMESPACE_SCOPE;
+		entry_list = query_id_expression_flags(st, declarator_id, 
+				NOFULL_UNQUALIFIED_LOOKUP, lookup_flags);
+	}
+	else
+	{
+		entry_list = query_id_expression_flags(st, declarator_id, 
+				FULL_UNQUALIFIED_LOOKUP, lookup_flags);
 	}
 
-	scope_entry_list_t* entry_list = query_id_expression_flags(st, declarator_id, 
-			NOFULL_UNQUALIFIED_LOOKUP, lookup_flags);
-
-	function_info_t* function_being_declared = declarator_type->function;
+	type_t* function_being_declared = declarator_type;
 	scope_entry_t* equal_entry = NULL;
 
 	char found_equal = 0;
 	*is_overload = 0;
+
+	// if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+	// {
+	// 	lookup_flags |= LF_IN_NAMESPACE_SCOPE;
+	// }
 
 	while (entry_list != NULL && !found_equal)
 	{
@@ -2439,7 +2504,7 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 			continue;
 		}
 
-		function_info_t* current_function = entry->type_information->function;
+		type_t* current_function = entry->type_information;
 
 		found_equal = !overloaded_function(function_being_declared, current_function, st);
 		if (found_equal)
@@ -3014,6 +3079,9 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 		{
 			template_param_info->default_type = type_info;
 		}
+
+		template_param_info->default_argument_scope = st;
+		template_param_info->default_tree = type_id;
 	}
 
 	template_param_info->kind = TPK_TYPE;
@@ -3063,7 +3131,7 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 	}
 
 	template_param_info->default_argument_scope = st;
-	template_param_info->default_expression = default_expression;
+	template_param_info->default_tree = default_expression;
 
 	template_param_info->kind = TPK_NONTYPE;
 }
@@ -3205,8 +3273,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 				this_type->pointer->pointee = copy_type(entry->type_information->function->class_type);
 
 				// "this" pseudovariable has the same cv-qualification of this member
-				this_type->pointer->pointee->type->cv_qualifier = 
-					entry->type_information->function->cv_qualifier;
+				this_type->cv_qualifier = entry->type_information->cv_qualifier;
 
 				// This will put the symbol in the function scope, but this is fine
 				scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
@@ -3270,6 +3337,10 @@ static void build_scope_member_declaration(AST a, scope_t*  st,
 				solve_ambiguous_declaration(a, st);
 				// Restart
 				build_scope_member_declaration(a, st, current_access, class_info, step, decl_context);
+				break;
+			}
+		case AST_EMPTY_DECL :
+			{
 				break;
 			}
 		default:
@@ -3491,7 +3562,7 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
 
 					// The conversion type is the return of the conversion function id
 					new_conversion->conversion_type = entry->type_information->function->return_type;
-					new_conversion->cv_qualifier = entry->type_information->function->cv_qualifier;
+					new_conversion->cv_qualifier = entry->type_information->cv_qualifier;
 
 					P_LIST_ADD(class_type->conversion_function_list, class_type->num_conversion_functions, new_conversion);
 					break;
@@ -3650,7 +3721,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 
 										// The conversion type is the return of the conversion function id
 										new_conversion->conversion_type = entry->type_information->function->return_type;
-										new_conversion->cv_qualifier = entry->type_information->function->cv_qualifier;
+										new_conversion->cv_qualifier = entry->type_information->cv_qualifier;
 
 										P_LIST_ADD(class_type->conversion_function_list, class_type->num_conversion_functions, new_conversion);
 										break;
@@ -3990,19 +4061,22 @@ void build_scope_template_arguments(AST class_head_id,
 					}
 				case TPK_NONTYPE :
 					{
-						if (curr_template_parameter->default_expression == NULL)
+						if (curr_template_parameter->default_tree == NULL)
 						{
 							internal_error("Missing default expression for nontype template parameter", 0);
 						}
 
 						curr_template_arg->kind = TAK_NONTYPE;
-						curr_template_arg->argument_tree = curr_template_parameter->default_expression;
+						curr_template_arg->argument_tree = curr_template_parameter->default_tree;
 						curr_template_arg->scope = curr_template_parameter->default_argument_scope;
 						break;
 					}
 				default:
 					internal_error("Unknown template parameter kind %d\n", curr_template_parameter->kind);
 			}
+
+			// Was given implicitly
+			curr_template_arg->implicit = 1;
 
 			P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, curr_template_arg);
 		}

@@ -16,7 +16,7 @@ static char is_typedef_type(type_t* t);
 static type_t* aliased_type(type_t* t);
 static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scope_t* st);
 static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st);
-static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st);
+static char equivalent_function_type(type_t* t1, type_t* t2, scope_t* st);
 static char compatible_parameters(function_info_t* t1, function_info_t* t2, scope_t* st);
 static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t2, scope_t* st);
 
@@ -78,7 +78,7 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st, enum cv_equivalence_t
 			result = equivalent_array_type(t1->array, t2->array, st);
 			break;
 		case TK_FUNCTION :
-			result = equivalent_function_type(t1->function, t2->function, st);
+			result = equivalent_function_type(t1, t2, st);
 			break;
 		default :
 			internal_error("Unknown type kind (%d)\n", t1->kind);
@@ -135,11 +135,6 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
 			return 0;
 	}
 
-	if (result)
-	{
-		result = equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier);
-	}
-
 	return result;
 }
 
@@ -184,11 +179,6 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
 			return 0;
 	}
 	
-	if (!equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier))
-	{
-		return 0;
-	}
-
 	// Ok, nothing makes us think they might be different
 	return 1;
 }
@@ -200,7 +190,7 @@ static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, scop
 		return 0;
 	}
 
-	return (equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier));
+	return 1;
 }
 
 static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* st)
@@ -227,32 +217,17 @@ cv_qualifier_t* get_outermost_cv_qualifier(type_t* t)
 
 	switch (t->kind)
 	{
+		case TK_FUNCTION :
 		case TK_DIRECT :
-			{
-				if (t->type->kind == STK_TYPEDEF)
-				{
-					return get_outermost_cv_qualifier(t->type->aliased_type);
-				}
-
-				return &(t->type->cv_qualifier);
-				break;
-			}
-		case TK_ARRAY :
-			{
-				return (&dummy_cv_qualif);
-			}
 		case TK_POINTER :
 		case TK_POINTER_TO_MEMBER :
 			{
-				return (&(t->pointer->cv_qualifier));
+				return (&(t->cv_qualifier));
 			}
+		case TK_ARRAY :
 		case TK_REFERENCE :
 			{
 				return (&dummy_cv_qualif);
-			}
-		case TK_FUNCTION :
-			{
-				return (&(t->function->cv_qualifier));
 			}
 		default:
 			{
@@ -273,12 +248,7 @@ cv_qualifier_t* get_innermost_cv_qualifier(type_t* t)
 	{
 		case TK_DIRECT :
 			{
-				if (t->type->kind == STK_TYPEDEF)
-				{
-					return get_outermost_cv_qualifier(t->type->aliased_type);
-				}
-
-				return &(t->type->cv_qualifier);
+				return &(t->cv_qualifier);
 				break;
 			}
 		case TK_ARRAY :
@@ -302,8 +272,11 @@ cv_qualifier_t* get_innermost_cv_qualifier(type_t* t)
 	}
 }
 
-char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
+char overloaded_function(type_t* ft1, type_t* ft2, scope_t* st)
 {
+	function_info_t* t1 = ft1->function;
+	function_info_t* t2 = ft2->function;
+
 	if (!compatible_parameters(t1, t2, st))
 		return 1;
 
@@ -315,8 +288,8 @@ char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
 				&& (t1->return_type != NULL)))
 		return 1;
 
-	if (!equivalent_cv_qualification(t1->cv_qualifier, 
-				t2->cv_qualifier))
+	if (!equivalent_cv_qualification(ft1->cv_qualifier, 
+				ft2->cv_qualifier))
 		return 1;
 			
 
@@ -334,15 +307,18 @@ char overloaded_function(function_info_t* t1, function_info_t* t2, scope_t* st)
 	return 0;
 }
 
-static char equivalent_function_type(function_info_t* t1, function_info_t* t2, scope_t* st)
+static char equivalent_function_type(type_t* ft1, type_t* ft2, scope_t* st)
 {
+	function_info_t* t1 = ft1->function;
+	function_info_t* t2 = ft2->function;
+
 	if (!equivalent_types(t1->return_type, t2->return_type, st, CVE_CONSIDER))
 		return 0;
 
 	if (!compatible_parameters(t1, t2, st))
 		return 0;
 
-	if (!equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier))
+	if (!equivalent_cv_qualification(ft1->cv_qualifier, ft2->cv_qualifier))
 		return 0;
 
 	return 1;
@@ -477,7 +453,7 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 
 		if (ASTType(t1_class_or_namespace) == AST_SYMBOL)
 		{
-			enum cxx_symbol_kind filter_class_or_namespace[3] = {SK_NAMESPACE, SK_CLASS, SK_TEMPLATE_TYPE_PARAMETER};
+			// enum cxx_symbol_kind filter_class_or_namespace[3] = {SK_NAMESPACE, SK_CLASS, SK_TEMPLATE_TYPE_PARAMETER};
 
 			scope_entry_list_t* t1_name_list = query_unqualified_name(t1_scope, ASTText(t1_class_or_namespace));
 			scope_entry_list_t* t2_name_list = query_unqualified_name(t2_scope, ASTText(t2_class_or_namespace));
@@ -723,7 +699,7 @@ char can_be_promoted_to_dest(type_t* orig, type_t* dest)
 	}
 
 	// A wchar_t can be promoted to a plain int
-#warning "This depends on the exact environment"
+// #warning "This depends on the exact environment"
 	if (orig_simple_type->builtin_type == BT_WCHAR
 			&& dest_simple_type->builtin_type == BT_INT
 			&& !dest_simple_type->is_short
@@ -734,7 +710,7 @@ char can_be_promoted_to_dest(type_t* orig, type_t* dest)
 	}
 
 	// A bool can be promoted to a plain int
-#warning "This depends on the exact environment"
+// #warning "This depends on the exact environment"
 	if (orig_simple_type->builtin_type == BT_BOOL
 			&& dest_simple_type->builtin_type == BT_INT
 			&& !dest_simple_type->is_short
@@ -745,7 +721,7 @@ char can_be_promoted_to_dest(type_t* orig, type_t* dest)
 	}
 
 	// A short, either signed or unsigned, can be promoted to a plain int
-#warning "This depends on the exact environment"
+// #warning "This depends on the exact environment"
 	if (orig_simple_type->builtin_type == BT_INT
 			&& orig_simple_type->is_short
 			&& dest_simple_type->builtin_type == BT_INT
@@ -757,7 +733,7 @@ char can_be_promoted_to_dest(type_t* orig, type_t* dest)
 	}
 
 	// A char, either signed or unsigned, can be promoted to a plain int
-#warning "This depends on the exact environment"
+// #warning "This depends on the exact environment"
 	if (orig_simple_type->builtin_type == BT_CHAR
 			&& dest_simple_type->builtin_type == BT_INT
 			&& !dest_simple_type->is_short
@@ -767,7 +743,7 @@ char can_be_promoted_to_dest(type_t* orig, type_t* dest)
 		return 1;
 	}
 
-#warning Missing the case for bitfields
+// #warning Missing the case for bitfields
 
 	// Doesn't look promotionable to me
 	return 0;
@@ -785,12 +761,12 @@ char is_reference_related(type_t* t1, type_t* t2, scope_t* st)
 	// a) t1 == t2, or if not
 	// b) t1 belongs to base(t2), provided t1 and t2 are of class type
 	
-	cv_qualifier_t cv1 = base_type(t1)->type->cv_qualifier;
-	cv_qualifier_t cv2 = base_type(t2)->type->cv_qualifier;
+	cv_qualifier_t cv1 = base_type(t1)->cv_qualifier;
+	cv_qualifier_t cv2 = base_type(t2)->cv_qualifier;
 
 	// Ignore outermost
-	base_type(t1)->type->cv_qualifier = CV_NONE;
-	base_type(t2)->type->cv_qualifier = CV_NONE;
+	base_type(t1)->cv_qualifier = CV_NONE;
+	base_type(t2)->cv_qualifier = CV_NONE;
 	
 	if (equivalent_types(t1, t2, st, CVE_CONSIDER))
 	{
@@ -805,8 +781,8 @@ char is_reference_related(type_t* t1, type_t* t2, scope_t* st)
 		}
 	}
 
-	base_type(t1)->type->cv_qualifier = cv1;
-	base_type(t2)->type->cv_qualifier = cv2;
+	base_type(t1)->cv_qualifier = cv1;
+	base_type(t2)->cv_qualifier = cv2;
 
 	return 0;
 }
@@ -821,18 +797,21 @@ char is_reference_compatible(type_t* t1, type_t* t2, scope_t* st)
 	if (is_reference_related(t1, t2, st))
 	{
 		// They are references
-		cv_qualifier_t cv1 = base_type(t1)->type->cv_qualifier;
-		cv_qualifier_t cv2 = base_type(t2)->type->cv_qualifier;
+		// cv_qualifier_t cv1 = base_type(t1)->type->cv_qualifier;
+		// cv_qualifier_t cv2 = base_type(t2)->type->cv_qualifier;
 
+		// Fix this
+		//
 		// cv1 is more qualified if everything in cv2 is also in cv1
-		if ((cv1 | cv2) == cv1)
-		{
-			return 1;
-		}
-		else
-		{
-			return 0;
-		}
+		// if ((cv1 | cv2) == cv1)
+		// {
+		// 	return 1;
+		// }
+		// else
+		// {
+		// 	return 0;
+		// }
+		return 1;
 	}
 	else
 	{
@@ -1015,15 +994,15 @@ char pointer_can_be_converted_to_dest_rec(type_t* orig, type_t* dest, scope_t* s
 	//  (orig can be converted to dest)
 
 	// If the orig pointer is qualified, so does have to the dest one
-	if ((orig->pointer->cv_qualifier | dest->pointer->cv_qualifier) != 
-			orig->pointer->cv_qualifier)
+	if ((orig->cv_qualifier | dest->cv_qualifier) != 
+			orig->cv_qualifier)
 	{
 		return 0;
 	}
 
 	// If the dest pointer is const-qualified every previous pointer
 	// should have been const-qualified
-	if ((dest->pointer->cv_qualifier & CV_CONST) == CV_CONST)
+	if ((dest->cv_qualifier & CV_CONST) == CV_CONST)
 	{
 		if (!(*all_previous_are_const))
 		{
@@ -1194,7 +1173,7 @@ simple_type_t* copy_simple_type(simple_type_t* type_info)
 
 char* get_type_spec_name(AST type_spec, scope_t* st)
 {
-#warning Improve this function
+// #warning Improve this function
 	char* result = "";
 	switch (ASTType(type_spec))
 	{
@@ -1214,7 +1193,7 @@ char* get_type_spec_name(AST type_spec, scope_t* st)
 					AST class_or_namespace = ASTSon0(nested_name);
 					if (ASTType(class_or_namespace) == AST_SYMBOL)
 					{
-#warning Check for template parameters symbols
+// #warning Check for template parameters symbols
 						result = strappend(result, ASTText(class_or_namespace));
 					}
 					else // template-id
@@ -1222,7 +1201,7 @@ char* get_type_spec_name(AST type_spec, scope_t* st)
 						AST template_name = ASTSon0(class_or_namespace);
 						result = strappend(result, ASTText(template_name));
 						result = strappend(result, "<");
-#warning Add support for template parameters
+// #warning Add support for template parameters
 						result = strappend(result, ">");
 					}
 					result = strappend(result, "::");
@@ -1232,7 +1211,7 @@ char* get_type_spec_name(AST type_spec, scope_t* st)
 
 				if (ASTType(type_name) == AST_SYMBOL)
 				{
-#warning Check for template parameters symbols
+// #warning Check for template parameters symbols
 					result = strappend(result, ASTText(type_name));
 				}
 				else // template-id
@@ -1240,7 +1219,7 @@ char* get_type_spec_name(AST type_spec, scope_t* st)
 					AST template_name = ASTSon0(type_name);
 					result = strappend(result, ASTText(template_name));
 					result = strappend(result, "<");
-#warning Add support for template parameters
+// #warning Add support for template parameters
 					result = strappend(result, ">");
 				}
 				break;
@@ -1303,12 +1282,12 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type
 	{
 		char* current_conversion_declarator = "";
 		current_conversion_declarator = strappend(current_conversion_declarator, "* ");
-		if ((type_iter->pointer->cv_qualifier & CV_CONST) == CV_CONST)
+		if ((type_iter->cv_qualifier & CV_CONST) == CV_CONST)
 		{
 			current_conversion_declarator = strappend(current_conversion_declarator, "const ");
 		}
 
-		if ((type_iter->pointer->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+		if ((type_iter->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
 		{
 			current_conversion_declarator = strappend(current_conversion_declarator, "volatile ");
 		}
@@ -1326,12 +1305,12 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type
 
 	simple_type_info->type = type_iter->type;
 
-	if ((simple_type_info->type->cv_qualifier & CV_CONST) == CV_CONST)
+	if ((simple_type_info->cv_qualifier & CV_CONST) == CV_CONST)
 	{
 		result = strappend(result, "const ");
 	}
 
-	if ((simple_type_info->type->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+	if ((simple_type_info->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
 	{
 		result = strappend(result, "volatile ");
 	}
@@ -1399,38 +1378,7 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type
 
 cv_qualifier_t get_cv_qualifier(type_t* type_info)
 {
-	switch (type_info->kind)
-	{
-		case TK_DIRECT: 
-			{
-				type_info = advance_over_typedefs(type_info);
-				return type_info->type->cv_qualifier;
-			}
-		case TK_FUNCTION :
-			{
-				return type_info->function->cv_qualifier;
-			}
-		case TK_ARRAY :
-			{
-				// const int a[10];
-				//
-				//   a[x] is "const int"
-				//   a    is "const int *", but is not const
-				return CV_NONE;
-			}
-		case TK_POINTER :
-			{
-				return type_info->pointer->cv_qualifier;
-			}
-		case TK_REFERENCE :
-			{
-				return CV_NONE;
-			}
-		default:
-			{
-				internal_error("Unkown type kind", 0);
-			}
-	}
+	return type_info->cv_qualifier;
 }
 
 /** 
@@ -1440,25 +1388,7 @@ cv_qualifier_t get_cv_qualifier(type_t* type_info)
 // Gives the name of a builtin type
 const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
 {
-	static char* cv_qualifier_str;
-
-	char* result = NULL;
-
-	cv_qualifier_str = "";
-	if ((simple_type_info->cv_qualifier & CV_CONST) == CV_CONST)
-	{
-		cv_qualifier_str = "const ";
-		if ((simple_type_info->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
-		{
-			cv_qualifier_str = "const volatile ";
-		}
-	}
-	else if ((simple_type_info->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
-	{
-		cv_qualifier_str = "volatile ";
-	}
-
-	result = strappend("", cv_qualifier_str);
+	char* result = "";
 
 	if (simple_type_info->is_long)
 	{
@@ -1595,6 +1525,14 @@ void print_declarator(type_t* printed_declarator, scope_t* st)
 {
 	do 
 	{
+		if ((printed_declarator->cv_qualifier & CV_CONST) == CV_CONST)
+		{
+			fprintf(stderr, "const ");
+		}
+		if ((printed_declarator->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+		{
+			fprintf(stderr, "volatile ");
+		}
 		switch (printed_declarator->kind)
 		{
 			case TK_DIRECT :
@@ -1609,38 +1547,14 @@ void print_declarator(type_t* printed_declarator, scope_t* st)
 				printed_declarator = NULL;
 				break;
 			case TK_POINTER :
-				if ((printed_declarator->pointer->cv_qualifier & CV_CONST) == CV_CONST)
-				{
-					fprintf(stderr, "const ");
-				}
-				if ((printed_declarator->pointer->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
-				{
-					fprintf(stderr, "volatile ");
-				}
 				fprintf(stderr, "pointer to ");
 				printed_declarator = printed_declarator->pointer->pointee;
 				break;
 			case TK_REFERENCE :
-				if ((printed_declarator->pointer->cv_qualifier & CV_CONST) == CV_CONST)
-				{
-					fprintf(stderr, "const ");
-				}
-				if ((printed_declarator->pointer->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
-				{
-					fprintf(stderr, "volatile ");
-				}
 				fprintf(stderr, "reference to ");
 				printed_declarator = printed_declarator->pointer->pointee;
 				break;
 			case TK_POINTER_TO_MEMBER :
-				if ((printed_declarator->pointer->cv_qualifier & CV_CONST) == CV_CONST)
-				{
-					fprintf(stderr, "const ");
-				}
-				if ((printed_declarator->pointer->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
-				{
-					fprintf(stderr, "volatile ");
-				}
 				fprintf(stderr, "pointer to member of ");
 				if (printed_declarator->pointer->pointee_class != NULL)
 				{
@@ -1686,14 +1600,6 @@ void print_declarator(type_t* printed_declarator, scope_t* st)
 						}
 					}
 					fprintf(stderr, ")");
-					if ((printed_declarator->function->cv_qualifier & CV_CONST) == CV_CONST)
-					{
-						fprintf(stderr, " const");
-					}
-					if ((printed_declarator->function->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
-					{
-						fprintf(stderr, " volatile");
-					}
 					fprintf(stderr, " returning ");
 					printed_declarator = printed_declarator->function->return_type;
 					break;
