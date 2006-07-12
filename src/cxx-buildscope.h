@@ -51,8 +51,6 @@ typedef struct decl_context_tag
 	template_parameter_t** template_param_info;
 	int num_template_parameters;
 
-	// Template argument information (for instantiation purposes)
-	template_argument_list_t* template_argument_list;
 } decl_context_t;
 
 #undef BITMAP

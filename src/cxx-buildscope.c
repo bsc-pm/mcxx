@@ -1417,7 +1417,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 			{
 				internal_error("Unreachable code", 0);
 			}
-            
 
 			if (decl_context.template_param_info != NULL)
 			{
@@ -1496,7 +1495,8 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 					}
 				case SK_TEMPLATE_SPECIALIZED_CLASS :
 					{
-						simple_type_info->type->template_arguments = decl_context.template_argument_list;
+						build_scope_template_arguments(class_head_identifier, st, st, st->template_scope, 
+								&(simple_type_info->type->template_arguments));
 						break;
 					}
 				case SK_CLASS :

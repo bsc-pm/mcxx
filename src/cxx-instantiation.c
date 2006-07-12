@@ -126,12 +126,8 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
 	}
 
 	// Build scope over the new tree
-
 	decl_context_t decl_context;
 	memset(&decl_context, 0, sizeof(decl_context));
-
-	// decl_context.decl_flags |= DF_INSTANTIATION;
-	// decl_context.template_argument_list = template_argument_list;
 
 	fprintf(stderr, "--------> Building scope of instantiated template '%s'\n", matched_template->symbol_name);
 	print_scope(instantiate_scope, 0);
@@ -267,9 +263,6 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 	// Build scope over the new tree
 	decl_context_t decl_context;
 	memset(&decl_context, 0, sizeof(decl_context));
-
-	// decl_context.decl_flags |= DF_INSTANTIATION;
-	decl_context.template_argument_list = template_argument_list;
 
 	fprintf(stderr, "--------> Building scope of instantiated template '%s'\n", matched_template->symbol_name);
 	print_scope(instantiate_scope, 0);
