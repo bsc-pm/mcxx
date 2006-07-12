@@ -135,10 +135,11 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
 
 		if (!match_one_template(min_args, current_args, current_entry->entry, st, unification_set))
 		{
+			fprintf(stderr, "Template %p is more specialized than %p\n", current_entry->entry, min);
 			min = current_entry;
 
 			unification_set_t* unification_set_check = GC_CALLOC(1, sizeof(*unification_set_check));
-			if (!match_one_template(current_args, min_args, min->entry, st, unification_set))
+			if (!match_one_template(current_args, min_args, min->entry, st, unification_set_check))
 			{
 				internal_error("Ambiguous specialization instantiation\n", 0);
 			}

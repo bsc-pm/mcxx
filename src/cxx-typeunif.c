@@ -66,7 +66,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 		}
 		else
 		{
-			fprintf(stderr, "Already unified parameter = %d (name=%s)\n", 
+			fprintf(stderr, "Parameter = %d (name=%s) already unified\n", 
 					t1->type->template_parameter_num, t1->type->template_parameter_name);
 			// Check is the same unification we are going to do
 			if (!equivalent_types(previous_unif, t2, st, CVE_CONSIDER))
