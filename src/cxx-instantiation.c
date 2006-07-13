@@ -139,6 +139,13 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
 	simple_type_info->type->kind = STK_USER_DEFINED;
 	simple_type_info->type->user_defined_type = instance_symbol;
 
+	AST template_class_base_clause = matched_template->type_information->type->template_class_base_clause;
+
+	if (template_class_base_clause != NULL)
+	{
+		build_scope_base_clause(template_class_base_clause, instance_symbol->scope, instance_symbol->related_scope, 
+				instance_symbol->type_information->type->class_info);
+	}
 
 	build_scope_member_specification(instance_symbol->related_scope, instantiate_tree, AS_PUBLIC,
 			simple_type_info, decl_context);

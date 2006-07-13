@@ -247,6 +247,7 @@ typedef struct simple_type_tag {
 	char* template_parameter_name;
 
 	// Used when instantiating a template class
+	AST template_class_base_clause;
 	AST template_class_body;
 
 	// For template parameters, the positional number of this argument in the

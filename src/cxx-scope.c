@@ -1128,27 +1128,27 @@ scope_entry_list_t* query_unqualified_name_flags(scope_t* st, char* unqualified_
 	switch (st->kind)
 	{
 		case PROTOTYPE_SCOPE :
-			fprintf(stderr, "Starting lookup in prototype scope\n");
+			fprintf(stderr, "Starting lookup in prototype scope %p\n", st);
 			result = lookup_prototype_scope(st, unqualified_name, lookup_flags);
 			break;
 		case NAMESPACE_SCOPE :
-			fprintf(stderr, "Starting lookup in namespace scope\n");
+			fprintf(stderr, "Starting lookup in namespace scope %p\n", st);
 			result = lookup_namespace_scope(st, unqualified_name, lookup_flags);
 			break;
 		case FUNCTION_SCOPE :
-			fprintf(stderr, "Starting lookup in function scope\n");
+			fprintf(stderr, "Starting lookup in function scope %p\n", st);
 			result = lookup_function_scope(st, unqualified_name, lookup_flags);
 			break;
 		case BLOCK_SCOPE :
-			fprintf(stderr, "Starting lookup in block scope\n");
+			fprintf(stderr, "Starting lookup in block scope %p\n", st);
 			result = lookup_block_scope(st, unqualified_name, lookup_flags);
 			break;
 		case CLASS_SCOPE :
-			fprintf(stderr, "Starting lookup in class scope\n");
+			fprintf(stderr, "Starting lookup in class scope %p\n", st);
 			result = lookup_class_scope(st, unqualified_name, lookup_flags);
 			break;
 		case TEMPLATE_SCOPE :
-			fprintf(stderr, "Starting lookup in template scope\n");
+			fprintf(stderr, "Starting lookup in template scope %p\n", st);
 			result = lookup_template_scope(st, unqualified_name, lookup_flags);
 			break;
 		case UNDEFINED_SCOPE :

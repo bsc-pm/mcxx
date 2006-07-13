@@ -1636,7 +1636,7 @@ char is_dependent_tree(AST tree, scope_t* st)
         scope_entry_t* result = result_list->entry;
 
         if (result->kind == SK_TEMPLATE_TYPE_PARAMETER
-                || result->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
+                || result->kind == SK_TEMPLATE_PARAMETER
                 || result->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
         {
 			fprintf(stderr, "Name '%s' is dependent\n", name);
@@ -1666,6 +1666,8 @@ char is_dependent_tree(AST tree, scope_t* st)
 					fprintf(stderr, "Type of name '%s' is dependent\n", name);
 					return 1;
 				}
+				print_declarator(t, st);
+				fprintf(stderr, "\n");
 			}
 		}
 

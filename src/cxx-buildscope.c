@@ -76,7 +76,6 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
 		template_parameter_t** template_parameter_info, int num_template_parameters, 
 		template_argument_list_t** template_arguments);
 
-static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope, class_info_t* class_info);
 
 static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t decl_context);
 static void build_scope_explicit_template_specialization(AST a, scope_t* st, decl_context_t decl_context);
@@ -200,10 +199,17 @@ static void build_scope_declaration_sequence(AST list, scope_t* st, decl_context
 	}
 }
 
+static int max_line = 0;
+
 // Build scope for a declaration
 static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_context)
 {
-	fprintf(stderr, "==== Declaration line [%08d] ====\n", ASTLine(a));
+	if (max_line < ASTLine(a))
+	{
+		max_line = ASTLine(a);
+	}
+
+	fprintf(stderr, "==== Declaration line [%08d] [max=%08d] ====\n", ASTLine(a), max_line);
 
 	switch (ASTType(a))
 	{
@@ -900,6 +906,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 			new_class->type_information->type->class_info = GC_CALLOC(1, 
 					sizeof(*(new_class->type_information->type->class_info)));
 
+
 			if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE) 
 					&& ASTType(class_symbol) != AST_TEMPLATE_ID)
 			{
@@ -1000,6 +1007,11 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 		fprintf(stderr, "Class type found, using it\n");
 		type_info->type->kind = STK_USER_DEFINED;
 		type_info->type->user_defined_type = entry;
+
+		if (BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
+		{
+			entry->type_information->type->from_instantiation = 0;
+		}
 	}
 }
 
@@ -1238,7 +1250,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 
 }
 
-static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope, class_info_t* class_info)
+void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope, class_info_t* class_info)
 {
 	AST list = ASTSon0(base_clause);
 	AST iter;
@@ -1295,6 +1307,10 @@ static void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class
 
             if (result->related_scope != NULL)
             {
+				fprintf(stderr, "Adding scope %p as base number %d\n", 
+						result->related_scope, class_scope->num_base_scopes);
+
+				// print_scope(result->related_scope, 0);
                 P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, result->related_scope);
             }
 
@@ -1510,6 +1526,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 			}
 			
 			// Save the decl that will be instantiated
+			simple_type_info->type->template_class_base_clause = base_clause;
 			simple_type_info->type->template_class_body = ASTSon1(a);
 
 			// Copy the type because we are creating it and we would clobber it
@@ -1543,16 +1560,19 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 	{
 		current_access = AS_PUBLIC;
 	}
+	
+	// Now add the bases
+	if (base_clause != NULL)
+	{
+		fprintf(stderr, "Adding the bases of this class\n");
+		build_scope_base_clause(base_clause, st, inner_scope, class_entry->type_information->type->class_info);
+		fprintf(stderr, "Bases added\n");
+	}
 
 	AST member_specification = ASTSon1(a);
     build_scope_member_specification(inner_scope, member_specification, 
 			current_access, simple_type_info, decl_context);
 	
-	// Now add the bases
-	if (base_clause != NULL)
-	{
-		build_scope_base_clause(base_clause, st, inner_scope, class_entry->type_information->type->class_info);
-	}
     
 	if (class_entry != NULL)
 	{
@@ -1564,7 +1584,8 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 	// instantiations (not from explicit declarations within the code)
 	if (class_entry != NULL 
 			&& class_entry->symbol_name != NULL
-			&& BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+			&& BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE)
+			&& !BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
 	{
 		fprintf(stderr, "Reinstantiating previous references to this template\n");
 		scope_entry_list_t* existing_templates = query_nested_name_flags(st, NULL, 
@@ -1614,13 +1635,18 @@ void build_scope_member_specification(scope_t* inner_scope, AST member_specifica
 	access_specifier_t current_access = default_current_access;
 	decl_context_t new_decl_context = decl_context;
 	new_decl_context.decl_flags &= ~(DF_TEMPLATE);
+	new_decl_context.decl_flags &= ~(DF_EXPLICIT_SPECIALIZATION);
 
 	AST member_specification = member_specification_tree;
 
 	// First step, sign up only prototypes and simple declarations
 	while (member_specification != NULL)
 	{
-		fprintf(stderr, "==== Member declaration [%08d] ====\n", ASTLine(member_specification));
+		if (max_line < ASTLine(member_specification))
+		{
+			max_line = ASTLine(member_specification);
+		}
+		fprintf(stderr, "==== Member declaration [%08d] [max=%08d] ====\n", ASTLine(member_specification), max_line);
 		// If it has an access specifier, update it
 		if (ASTSon0(member_specification) != NULL)
 		{
@@ -2676,6 +2702,7 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
 	decl_context_t new_decl_context = decl_context;
 
 	new_decl_context.decl_flags |= DF_TEMPLATE;
+	new_decl_context.decl_flags |= DF_EXPLICIT_SPECIALIZATION;
 	
 	// Save template scope
 	template_scope->template_scope = st->template_scope;
