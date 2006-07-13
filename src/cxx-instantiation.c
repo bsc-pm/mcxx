@@ -303,11 +303,13 @@ void instantiate_template_in_symbol(scope_entry_t* instance_symbol,
 	scope_entry_t* matched_template = match_pair->entry;
 	unification_set_t* unification_set = match_pair->unif_set;
 
+	int line = instance_symbol->line;
 	scope_t* symbol_scope = instance_symbol->scope;
 	char* symbol_name = instance_symbol->symbol_name;
 	memset(instance_symbol, 0, sizeof(*instance_symbol));
 	instance_symbol->symbol_name = symbol_name;
 	instance_symbol->scope = symbol_scope;
+	instance_symbol->line = line;
 
 	instance_symbol->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
 	instance_symbol->type_information = GC_CALLOC(1, sizeof(*(instance_symbol->type_information)));
@@ -351,13 +353,14 @@ void instantiate_template_in_symbol(scope_entry_t* instance_symbol,
 	fprintf(stderr, "<< instantiate_template -> '%s'\n", matched_template->symbol_name);
 }
 
-void instantiate_template(matching_pair_t* match_pair, template_argument_list_t* arguments, scope_t* st)
+void instantiate_template(matching_pair_t* match_pair, template_argument_list_t* arguments, scope_t* st, int instantiation_line)
 {
 	scope_entry_t* matched_template = match_pair->entry;
 	// unification_set_t* unification_set = match_pair->unif_set;
 
-	fprintf(stderr, "Creating the instantiated new symbol\n");
+	fprintf(stderr, "Creating the instantiated new symbol due to instantiation in line %d\n", instantiation_line);
 	scope_entry_t* instance_symbol = new_symbol(matched_template->scope, matched_template->symbol_name);
+	instance_symbol->line = instantiation_line;
 
 	instantiate_template_in_symbol(instance_symbol, match_pair, arguments, st);
 }

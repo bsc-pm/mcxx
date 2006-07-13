@@ -132,6 +132,8 @@ static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_inde
 
 	fprintf(stderr, "\n");
 
+	PRINT_INDENTED_LINE(stderr, global_indent+1, "Declared in line %d\n", entry->line);
+
 	if (entry->kind == SK_VARIABLE
 			|| entry->kind == SK_TEMPLATE_PARAMETER
 			|| entry->kind == SK_TEMPLATE_TYPE_PARAMETER

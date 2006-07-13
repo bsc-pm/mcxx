@@ -678,7 +678,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 			{
 				fprintf(stderr, "-> Instantiating the template\n");
 				// We have to instantiate the template
-				instantiate_template(matched_template, current_template_arguments, sc);
+				instantiate_template(matched_template, current_template_arguments, sc, ASTLine(template_id));
 
 				// And now restart this function but now we want an exact match
 				return query_template_id_internal(template_id, sc, lookup_scope, unqualified_lookup, 

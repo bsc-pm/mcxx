@@ -376,6 +376,9 @@ typedef struct scope_entry_tag
 
 	// Linkage
 	char* linkage_spec;
+
+	// Line where this simbol was signed up
+	int line;
 } scope_entry_t;
 
 // This is what the scope returns

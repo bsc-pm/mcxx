@@ -897,6 +897,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 			}
 			new_class = new_symbol(st, class_name);
 
+			new_class->line = ASTLine(class_symbol);
+
 			new_class->type_information = GC_CALLOC(1, sizeof(*(new_class->type_information)));
 			new_class->type_information->kind = TK_DIRECT;
 			new_class->type_information->type = GC_CALLOC(1, sizeof(*(new_class->type_information->type)));
@@ -1043,6 +1045,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 		{
 			fprintf(stderr, "Enum type not found, creating a stub for this scope\n");
 			scope_entry_t* new_class = new_symbol(st, ASTText(symbol));
+			new_class->line = ASTLine(symbol);
 			new_class->kind = SK_ENUM;
 			new_class->type_information = GC_CALLOC(1, sizeof(*(new_class->type_information)));
 			new_class->type_information->kind = TK_DIRECT;
@@ -1198,6 +1201,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 		{
 			fprintf(stderr, "Registering enum '%s' in %p\n", ASTText(enum_name), st);
 			new_entry = new_symbol(st, ASTText(enum_name));
+			new_entry->line = ASTLine(enum_name);
 			new_entry->kind = SK_ENUM;
 		}
 
@@ -1236,6 +1240,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 			// Note that enums do not define an additional scope
 			fprintf(stderr, "Registering enumerator '%s'\n", ASTText(enumeration_name));
 			scope_entry_t* enumeration_item = new_symbol(st, ASTText(enumeration_name));
+			enumeration_item->line = ASTLine(enumeration_name);
 			enumeration_item->kind = SK_ENUMERATOR;
 			enumeration_item->type_information = enumerator_type;
 
@@ -1411,6 +1416,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 				{
 					class_entry = new_symbol(st, ASTText(ASTSon0(class_head_identifier)));
 				}
+				class_entry->line = ASTLine(class_head_identifier);
 
 				if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
 				{
@@ -2384,6 +2390,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 
 	fprintf(stderr, "Registering typedef '%s'\n", ASTText(declarator_id));
 
+	entry->line = ASTLine(declarator_id);
 	// Save aliased type under the type of this declaration
 	entry->kind = SK_TYPEDEF;
 	entry->type_information = GC_CALLOC(1, sizeof(*(entry->type_information)));
@@ -2426,6 +2433,7 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
 
 		fprintf(stderr, "Registering variable '%s' in %p\n", ASTText(declarator_id), st);
 		scope_entry_t* entry = new_symbol(st, ASTText(declarator_id));
+		entry->line = ASTLine(declarator_id);
 		entry->kind = SK_VARIABLE;
 		entry->type_information = declarator_type;
 
@@ -2464,6 +2472,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 			function_name = strprepend(function_name, "constructor ");
 		}
 		scope_entry_t* new_entry = new_symbol(st, function_name);
+		new_entry->line = ASTLine(declarator_id);
 	
 		if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
 		{
@@ -2991,6 +3000,7 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 		char* name = ASTText(symbol);
 
 		scope_entry_t* new_entry = new_symbol(st, name);
+		new_entry->line = ASTLine(symbol);
 
 		new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
 		new_entry->type_information = new_type;
@@ -3062,6 +3072,7 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 		// This is a named type parameter. Register it in the symbol table
 		fprintf(stderr, "Registering type template-parameter '%s' in scope %p\n", ASTText(name), st);
 		scope_entry_t* new_entry = new_symbol(st, ASTText(name));
+		new_entry->line = ASTLine(name);
 		new_entry->type_information = new_type;
 		new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
 
@@ -3192,6 +3203,7 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
 			scope_t* namespace_scope = new_namespace_scope(st);
 
 			entry = new_symbol(st, ASTText(namespace_name));
+			entry->line = ASTLine(namespace_name);
 			entry->kind = SK_NAMESPACE;
 			entry->related_scope = namespace_scope;
 		}
@@ -3305,6 +3317,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 				// This will put the symbol in the function scope, but this is fine
 				scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
 
+				this_symbol->line = ASTLine(function_body);
 				this_symbol->kind = SK_VARIABLE;
 				this_symbol->type_information = this_type;
 			}
