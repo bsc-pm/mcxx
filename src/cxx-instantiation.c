@@ -297,12 +297,9 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 	fprintf(stderr, "--------> Instantiation ended\n");
 }
 
-void instantiate_template_in_symbol(scope_entry_t* instance_symbol, 
-		matching_pair_t* match_pair, template_argument_list_t* arguments, scope_t* st)
+static void fill_template_specialized_info(scope_entry_t* instance_symbol, 
+		template_argument_list_t* arguments)
 {
-	scope_entry_t* matched_template = match_pair->entry;
-	unification_set_t* unification_set = match_pair->unif_set;
-
 	int line = instance_symbol->line;
 	scope_t* symbol_scope = instance_symbol->scope;
 	char* symbol_name = instance_symbol->symbol_name;
@@ -330,6 +327,32 @@ void instantiate_template_in_symbol(scope_entry_t* instance_symbol,
 	instance_symbol->type_information->type->from_instantiation = 1;
 
 	instance_symbol->type_information->type->template_arguments = arguments;
+}
+
+scope_entry_t* create_holding_symbol_for_template(scope_entry_t* matched_template, template_argument_list_t*
+		arguments, scope_t* st, int instantiation_line)
+{
+	scope_entry_t* instance_symbol = new_symbol(matched_template->scope, matched_template->symbol_name);
+	fprintf(stderr, "Creating the holding symbol (%p) due to instantiation in line %d\n", 
+			instance_symbol,
+			instantiation_line);
+	instance_symbol->line = instantiation_line;
+
+	fill_template_specialized_info(instance_symbol, arguments);
+
+	// This should not come from instantiation
+	instance_symbol->type_information->type->from_instantiation = 0;
+
+	return instance_symbol;
+}
+
+void instantiate_template_in_symbol(scope_entry_t* instance_symbol, 
+		matching_pair_t* match_pair, template_argument_list_t* arguments, scope_t* st)
+{
+	scope_entry_t* matched_template = match_pair->entry;
+	unification_set_t* unification_set = match_pair->unif_set;
+
+	fill_template_specialized_info(instance_symbol, arguments);
 
 	fprintf(stderr, ">> instantiate_template over given symbol %p-> '%s'\n", instance_symbol, matched_template->symbol_name);
 
@@ -358,8 +381,10 @@ void instantiate_template(matching_pair_t* match_pair, template_argument_list_t*
 	scope_entry_t* matched_template = match_pair->entry;
 	// unification_set_t* unification_set = match_pair->unif_set;
 
-	fprintf(stderr, "Creating the instantiated new symbol due to instantiation in line %d\n", instantiation_line);
 	scope_entry_t* instance_symbol = new_symbol(matched_template->scope, matched_template->symbol_name);
+	fprintf(stderr, "Creating the instantiated new symbol (%p) due to instantiation in line %d\n", 
+			instance_symbol,
+			instantiation_line);
 	instance_symbol->line = instantiation_line;
 
 	instantiate_template_in_symbol(instance_symbol, match_pair, arguments, st);

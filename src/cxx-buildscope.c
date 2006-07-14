@@ -884,7 +884,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 		if (nested_name_specifier == NULL
 				&& global_scope == NULL)
 		{
-			fprintf(stderr, "Type not found, creating a stub for this scope\n");
 			scope_entry_t* new_class = NULL;
 			char* class_name = NULL;
 			if (ASTType(class_symbol) == AST_SYMBOL)
@@ -895,6 +894,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 			{
 				class_name = ASTText(ASTSon0(class_symbol));
 			}
+			fprintf(stderr, "Type not found, creating a stub in this scope for '%s'\n", class_name);
 			new_class = new_symbol(st, class_name);
 
 			new_class->line = ASTLine(class_symbol);
@@ -903,7 +903,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 			new_class->type_information->kind = TK_DIRECT;
 			new_class->type_information->type = GC_CALLOC(1, sizeof(*(new_class->type_information->type)));
 			new_class->type_information->type->kind = STK_CLASS;
-			new_class->type_information->type->type_scope = st;
+			new_class->type_information->type->type_scope = copy_scope(st);
 
 			new_class->type_information->type->class_info = GC_CALLOC(1, 
 					sizeof(*(new_class->type_information->type->class_info)));
@@ -1006,7 +1006,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 	}
 	else
 	{
-		fprintf(stderr, "Class type found, using it\n");
+		fprintf(stderr, "Class type found already declared in line %d, using it\n", entry->line);
 		type_info->type->kind = STK_USER_DEFINED;
 		type_info->type->user_defined_type = entry;
 
@@ -1051,7 +1051,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 			new_class->type_information->kind = TK_DIRECT;
 			new_class->type_information->type = GC_CALLOC(1, sizeof(*(new_class->type_information->type)));
 			new_class->type_information->type->kind = STK_ENUM;
-			new_class->type_information->type->type_scope = st;
+			new_class->type_information->type->type_scope = copy_scope(st);
 
 			type_info->type->kind = STK_USER_DEFINED;
 			type_info->type->user_defined_type = new_class;
@@ -1084,7 +1084,7 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 	{
 		simple_type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
 		simple_type_info->type->typeof_expr = a;
-		simple_type_info->type->typeof_scope = st;
+		simple_type_info->type->typeof_scope = copy_scope(st);
 	}
 	else
 	{
@@ -1292,7 +1292,8 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
 		}
 
 
-		scope_entry_list_t* result_list = query_nested_name(st, global_op, nested_name_specifier, name, FULL_UNQUALIFIED_LOOKUP);
+		scope_entry_list_t* result_list = query_nested_name_flags(st, global_op, nested_name_specifier, name, 
+				FULL_UNQUALIFIED_LOOKUP, LF_INSTANTIATE);
 
 		enum cxx_symbol_kind filter[6] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS, 
 			SK_TEMPLATE_TYPE_PARAMETER, SK_TEMPLATE_TEMPLATE_PARAMETER, SK_TYPEDEF};
@@ -1403,10 +1404,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 			else if (class_entry_list == NULL
 					&& class_head_nested_name == NULL)
 			{
-				fprintf(stderr, "Registering class '");
-				prettyprint(stderr, class_head_nested_name);
-				prettyprint(stderr, class_head_identifier);
-				fprintf(stderr, "' in %p\n", st);
 
 				if (ASTType(class_head_identifier) == AST_SYMBOL)
 				{
@@ -1416,6 +1413,11 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 				{
 					class_entry = new_symbol(st, ASTText(ASTSon0(class_head_identifier)));
 				}
+
+				fprintf(stderr, "Registering class '");
+				prettyprint(stderr, class_head_nested_name);
+				prettyprint(stderr, class_head_identifier);
+				fprintf(stderr, "' (%p) in scope %p\n", class_entry, st);
 				class_entry->line = ASTLine(class_head_identifier);
 
 				if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
@@ -1579,7 +1581,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
     build_scope_member_specification(inner_scope, member_specification, 
 			current_access, simple_type_info, decl_context);
 	
-    
 	if (class_entry != NULL)
 	{
 		// If the class had a name, it is completely defined here
@@ -1762,7 +1763,8 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 				|| ASTType(declarator_name) == AST_QUALIFIED_TEMPLATE)
 		{
 			char is_dependent = 0;
-			decl_st = query_nested_name_spec(st, ASTSon0(declarator_name), ASTSon1(declarator_name), NULL, &is_dependent);
+			decl_st = query_nested_name_spec_flags(st, ASTSon0(declarator_name), ASTSon1(declarator_name), 
+					NULL, &is_dependent, LF_INSTANTIATE);
 
 			if (decl_st == NULL)
 			{
@@ -2287,7 +2289,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 			{
 				// An unqualified operator_function_id "operator +"
 				char* operator_function_name = get_operator_function_name(declarator_id);
-				AST operator_id = ASTLeaf(AST_SYMBOL, 0, operator_function_name);
+				AST operator_id = ASTLeaf(AST_SYMBOL, ASTLine(declarator_id), operator_function_name);
 				return register_new_variable_name(operator_id, declarator_type, gather_info, st, decl_context);
 				break;
 			}
@@ -2300,7 +2302,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 
 				// Get the type and its name
 				char* conversion_function_name = get_conversion_function_name(declarator_id,  st, &conversion_type_info);
-				AST conversion_id = ASTLeaf(AST_SYMBOL, 0, conversion_function_name);
+				AST conversion_id = ASTLeaf(AST_SYMBOL, ASTLine(declarator_id), conversion_function_name);
 				return register_new_variable_name(conversion_id, declarator_type, gather_info, st, decl_context);
 				break;
 			}
@@ -3038,6 +3040,9 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 		template_param_info->default_type = entry_list->entry->type_information;
 	}
 
+	template_param_info->default_argument_scope = copy_scope(st);
+	// template_param_info->default_tree = type_id;
+
 	template_param_info->kind = TPK_TEMPLATE;
 }
 
@@ -3118,7 +3123,7 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 			template_param_info->default_type = type_info;
 		}
 
-		template_param_info->default_argument_scope = st;
+		template_param_info->default_argument_scope = copy_scope(st);
 		template_param_info->default_tree = type_id;
 	}
 
@@ -3168,7 +3173,7 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 		template_param_info->type_info = simple_type_info;
 	}
 
-	template_param_info->default_argument_scope = st;
+	template_param_info->default_argument_scope = copy_scope(st);
 	template_param_info->default_tree = default_expression;
 
 	template_param_info->kind = TPK_NONTYPE;
@@ -3215,6 +3220,7 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
 	}
 	else
 	{
+		WARNING_MESSAGE("Unnamed namespace support is missing", 0);
 		// build_scope_declaration_sequence(ASTSon1(a), compilation_options.global_scope);
 // #warning Unnamed namespace support is missing
 	}
@@ -3337,7 +3343,9 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 	}
 	else
 	{
+		// TODO - change this
 		entry->type_information->function->function_body = function_body;
+		entry->defined = 1;
 	}
 	return entry;
 }
@@ -4042,7 +4050,7 @@ void build_scope_template_arguments(AST class_head_id,
 					}
 					new_template_argument->type = declarator_type;
 					new_template_argument->argument_tree = template_argument;
-					new_template_argument->scope = arguments_scope;
+					new_template_argument->scope = copy_scope(arguments_scope);
 					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 					break;
 				}
@@ -4075,6 +4083,65 @@ void build_scope_template_arguments(AST class_head_id,
 	{
 		// We have to complete with default arguments
 		fprintf(stderr, "Completing template arguments with default arguments\n");
+
+		// Replace symbols in the template scope with the current arguments
+		scope_t* new_template_args_scope = new_template_scope(NULL);
+
+		scope_t* curr_template_scope = primary_template->template_parameter_info[num_arguments]->default_argument_scope;
+
+		Iterator *it;
+
+		it = (Iterator*) hash_iterator_create(curr_template_scope->hash);
+		for ( iterator_first(it); 
+				!iterator_finished(it); 
+				iterator_next(it))
+		{
+			scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
+			scope_entry_t* entry = entry_list->entry;
+
+			switch (entry->kind)
+			{
+				case SK_TEMPLATE_TYPE_PARAMETER :
+				case SK_TEMPLATE_TEMPLATE_PARAMETER :
+					{
+						int parameter_num = entry->type_information->type->template_parameter_num;
+
+						if (parameter_num < num_arguments)
+						{
+							scope_entry_t* replaced_symbol = new_symbol(new_template_args_scope, entry->symbol_name);
+							replaced_symbol->kind = SK_TYPEDEF;
+
+							replaced_symbol->type_information = GC_CALLOC(1, sizeof(*(replaced_symbol->type_information)));
+							replaced_symbol->type_information->kind = TK_DIRECT;
+
+							replaced_symbol->type_information->type = GC_CALLOC(1, sizeof(*(replaced_symbol->type_information->type)));
+							replaced_symbol->type_information->type->aliased_type = 
+								(*template_arguments)->argument_list[parameter_num]->type;
+						}
+
+						break;
+					}
+				case SK_TEMPLATE_PARAMETER : 
+					{
+						int parameter_num = entry->type_information->type->template_parameter_num;
+
+						if (parameter_num < num_arguments)
+						{
+							scope_entry_t* replaced_symbol = new_symbol(new_template_args_scope, entry->symbol_name);
+							replaced_symbol->kind = SK_VARIABLE;
+
+							*(replaced_symbol->type_information) = *(primary_template->template_parameter_info[parameter_num]->type_info);
+
+							replaced_symbol->expression_value = primary_template->template_parameter_info[parameter_num]->default_tree;
+						}
+						break;
+					}
+				default :
+					internal_error("Unexpected node type '%s'\n", entry->kind);
+			}
+		}
+
+		// Now complete the types
 		int k;
 		for (k = num_arguments; 
 				k < (primary_template->num_template_parameters);
@@ -4089,14 +4156,40 @@ void build_scope_template_arguments(AST class_head_id,
 				case TPK_TYPE :
 				case TPK_TEMPLATE :
 					{
-						if (curr_template_parameter->default_type == NULL)
-						{
-							internal_error("Missing default argument type for type template parameter", 0);
-						}
+						new_template_args_scope->template_scope = arguments_scope->template_scope;
+						arguments_scope->template_scope = new_template_args_scope;
 
 						curr_template_arg->kind = TAK_TYPE;
-						curr_template_arg->type = curr_template_parameter->default_type;
-                        curr_template_arg->scope = curr_template_parameter->default_argument_scope;
+						curr_template_arg->scope = copy_scope(arguments_scope);
+						
+						AST type_template_argument = curr_template_parameter->default_tree;
+						AST type_specifier_seq = ASTSon0(type_template_argument);
+						AST abstract_decl = ASTSon1(type_template_argument);
+
+						// A type_specifier_seq is essentially a subset of a
+						// declarator_specifier_seq so we can reuse existing functions
+						type_t* type_info;
+						gather_decl_spec_t gather_info;
+						memset(&gather_info, 0, sizeof(gather_info));
+
+						build_scope_decl_specifier_seq(type_specifier_seq, arguments_scope, &gather_info, &type_info,
+								default_decl_context);
+
+						type_t* declarator_type;
+						if (abstract_decl != NULL)
+						{
+							build_scope_declarator(abstract_decl, arguments_scope, &gather_info, type_info, &declarator_type,
+									default_decl_context);
+						}
+						else
+						{
+							declarator_type = type_info;
+						}
+
+						curr_template_arg->type = declarator_type;
+
+						arguments_scope->template_scope = new_template_args_scope->template_scope;
+						new_template_args_scope->template_scope = NULL;
 						break;
 					}
 				case TPK_NONTYPE :
@@ -4120,6 +4213,8 @@ void build_scope_template_arguments(AST class_head_id,
 
 			P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, curr_template_arg);
 		}
+
+		primary_template->template_parameter_info[num_arguments]->default_argument_scope = curr_template_scope;
 	}
 
 }

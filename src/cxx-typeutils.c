@@ -440,6 +440,8 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 	AST t1_nested_name_spec = ASTSon1(t1_expr);
 	AST t2_nested_name_spec = ASTSon1(t2_expr);
 
+	int qualification_level = 0;
+
 	while (t1_nested_name_spec != NULL
 			&& t2_nested_name_spec != NULL)
 	{
@@ -497,8 +499,19 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 		}
 		else if (ASTType(t1_class_or_namespace) == AST_TEMPLATE_ID)
 		{
-			scope_entry_list_t* t1_template_name_list = query_template_id(t1_class_or_namespace, st, t1_scope);
-			scope_entry_list_t* t2_template_name_list = query_template_id(t2_class_or_namespace, st, t2_scope);
+			scope_entry_list_t* t1_template_name_list;
+			scope_entry_list_t* t2_template_name_list;
+
+			if (qualification_level > 0)
+			{
+				t1_template_name_list = query_template_id(t1_class_or_namespace, st, t1_scope);
+				t2_template_name_list = query_template_id(t2_class_or_namespace, st, t2_scope);
+			}
+			else
+			{
+				t1_template_name_list = query_unqualified_template_id(t1_class_or_namespace, st, t1_scope);
+				t2_template_name_list = query_unqualified_template_id(t2_class_or_namespace, st, t2_scope);
+			}
 
 			if (t1_template_name_list == NULL || t2_template_name_list == NULL)
 			{
@@ -518,6 +531,7 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 
 		t1_nested_name_spec = ASTSon1(t1_nested_name_spec);
 		t2_nested_name_spec = ASTSon1(t2_nested_name_spec);
+		qualification_level++;
 	}
 
 	if ((t1_nested_name_spec == NULL && t2_nested_name_spec != NULL) 

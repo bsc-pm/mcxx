@@ -93,7 +93,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
 	{
 		fprintf(stderr, "More than one template can be selected, determining more specialized\n");
 		result = determine_more_specialized(num_matching_set, matching_set, st);
-		fprintf(stderr, "More specialized determined result=%p\n", result);
+		fprintf(stderr, "More specialized determined result=%p\n", result->entry);
 	}
 
 	if (give_exact_match 
@@ -135,7 +135,7 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
 
 		if (!match_one_template(min_args, current_args, current_entry->entry, st, unification_set))
 		{
-			fprintf(stderr, "Template %p is more specialized than %p\n", current_entry->entry, min);
+			fprintf(stderr, "Template %p is more specialized than %p\n", current_entry->entry, min->entry);
 			min = current_entry;
 
 			unification_set_t* unification_set_check = GC_CALLOC(1, sizeof(*unification_set_check));

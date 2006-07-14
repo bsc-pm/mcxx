@@ -458,7 +458,7 @@ typedef enum lookup_flags_tag
 	LF_CONSTRUCTOR = BITMAP(1),
 	LF_EXACT_TEMPLATE_MATCH = BITMAP(2),
 	LF_EXPRESSION = BITMAP(3),
-	LF_NO_INSTANTIATE = BITMAP(4),
+	LF_INSTANTIATE = BITMAP(4),
 	LF_IN_NAMESPACE_SCOPE = BITMAP(5),
 	LF_FROM_QUALIFIED = BITMAP(6)
 } lookup_flags_t ;
@@ -476,6 +476,8 @@ scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum 
 scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set);
 
 scope_entry_list_t* filter_entry_from_list(scope_entry_list_t* entry_list, scope_entry_t* entry);
+
+scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list, char (*f)(scope_entry_t*));
 
 // Everything built by an id_expression can be queried with this function
 scope_entry_list_t* query_id_expression(scope_t* st, AST id_expr, unqualified_lookup_behaviour_t unqualified_lookup);
@@ -515,6 +517,9 @@ scope_entry_list_t* append_scope_entry_lists(scope_entry_list_t* a, scope_entry_
 
 // Looking for scopes
 scope_t* enclosing_namespace_scope(scope_t* st);
+
+// Copy scope
+scope_t* copy_scope(scope_t* st);
 
 #undef BITMAP
 

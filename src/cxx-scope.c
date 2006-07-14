@@ -353,11 +353,11 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 				{
 					if (qualif_level == 0)
 					{
-						entry_list = query_unqualified_template_id(nested_name_spec, sc, lookup_scope);
+						entry_list = query_unqualified_template_id_flags(nested_name_spec, sc, lookup_scope, LF_INSTANTIATE);
 					}
 					else
 					{
-						entry_list = query_template_id(nested_name_spec, sc, lookup_scope);
+						entry_list = query_template_id_flags(nested_name_spec, sc, lookup_scope, LF_INSTANTIATE);
 					}
 					lookup_scope = entry_list->entry->related_scope;
 					seen_class = 1;
@@ -561,9 +561,12 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 	build_scope_template_arguments(template_id, lookup_scope, sc, sc, &current_template_arguments);
 
 	char give_exact_match = 0;
-	char will_not_instantiate = 0;
+	char will_not_instantiate = 1;
 
-	will_not_instantiate |= BITMAP_TEST(lookup_flags, LF_NO_INSTANTIATE);
+	if (BITMAP_TEST(lookup_flags, LF_INSTANTIATE))
+	{
+		will_not_instantiate = 0;
+	}
 
 	if (BITMAP_TEST(lookup_flags, LF_EXACT_TEMPLATE_MATCH))
 	{
@@ -624,7 +627,26 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		// willing to instantiate
 		scope_entry_t* matched_entry = matched_template->entry;
 
-		return create_list_from_entry(matched_entry);
+		if (!will_not_instantiate && 
+				!matched_entry->type_information->type->from_instantiation)
+		{
+			fprintf(stderr, "-> Instantiating something that was declared before but not instantiated\n");
+
+			scope_entry_list_t* fixed_entry_list = filter_entry_from_list(entry_list, matched_entry);
+			matched_template = solve_template(fixed_entry_list,
+					current_template_arguments, sc, 0);
+
+			instantiate_template_in_symbol(matched_entry, matched_template, current_template_arguments, sc);
+
+			// And now restart this function but now we want an exact match
+			return query_template_id_internal(template_id, sc, lookup_scope, unqualified_lookup, 
+					lookup_flags & (~LF_INSTANTIATE));
+		}
+		else
+		{
+			fprintf(stderr, "-> Just returning the matching template %p\n", matched_entry);
+			return create_list_from_entry(matched_entry);
+		}
 	}
 	else
 	{
@@ -640,7 +662,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
 		{
 			int i;
-			fprintf(stderr, "=== Unification details for selected template %p\n", matched_template);
+			fprintf(stderr, "=== Unification details for selected template %p\n", matched_template->entry);
 
 			for (i = 0; i < matched_template->unif_set->num_elems; i++)
 			{
@@ -671,8 +693,11 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		{
 			if (will_not_instantiate)
 			{
-				fprintf(stderr, "-> Just returning the matched template\n");
-				return create_list_from_entry(matched_template->entry);
+				fprintf(stderr, "-> Creating a fake holding type\n");
+				return create_list_from_entry(
+						create_holding_symbol_for_template(matched_template->entry, current_template_arguments, 
+							sc, ASTLine(template_id))
+						);
 			}
 			else
 			{
@@ -682,7 +707,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
 				// And now restart this function but now we want an exact match
 				return query_template_id_internal(template_id, sc, lookup_scope, unqualified_lookup, 
-						lookup_flags | LF_NO_INSTANTIATE);
+						lookup_flags & (~LF_INSTANTIATE));
 			}
 		}
 		else
@@ -1292,6 +1317,27 @@ scope_entry_list_t* filter_entry_from_list(scope_entry_list_t* entry_list, scope
 	return result;
 }
 
+scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list, char (*f)(scope_entry_t*))
+{
+	scope_entry_list_t* result = NULL;
+	scope_entry_list_t* iter = entry_list;
+	
+	while (iter != NULL)
+	{
+		if (f(iter->entry))
+		{
+			scope_entry_list_t* new_item = GC_CALLOC(1, sizeof(*new_item));
+			new_item->entry = iter->entry;
+			new_item->next = result;
+			result = new_item;
+		}
+
+		iter = iter->next;
+	}
+
+	return result;
+}
+
 /*
  * Returns a type if and only if this entry_list contains just one type
  * specifier. If another identifier is found it returns NULL
@@ -1397,3 +1443,16 @@ scope_t* enclosing_namespace_scope(scope_t* st)
 
 	return st;
 }
+
+// Copy scope to be able to retrieve data exactly as it was in that point
+// (useful for dynamic scoping like template scopes that disappear)
+scope_t* copy_scope(scope_t* st)
+{
+	scope_t* result = GC_CALLOC(1, sizeof(*result));
+
+	// bitwise copy
+	*result = *st;
+
+	return result;
+}
+
