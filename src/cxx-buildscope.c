@@ -2714,6 +2714,10 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
 
 	new_decl_context.decl_flags |= DF_TEMPLATE;
 	new_decl_context.decl_flags |= DF_EXPLICIT_SPECIALIZATION;
+	new_decl_context.template_nesting++;
+
+	new_decl_context.template_param_info = template_param_info;
+	new_decl_context.num_template_parameters = 0;
 	
 	// Save template scope
 	template_scope->template_scope = st->template_scope;
@@ -2727,22 +2731,28 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
 	switch (ASTType(ASTSon0(a)))
 	{
 		case AST_FUNCTION_DEFINITION :
-			build_scope_template_function_definition(ASTSon0(a), st, template_scope, num_parameters, 
-					template_param_info, new_decl_context);
-			break;
+			{
+				build_scope_template_function_definition(ASTSon0(a), st, template_scope, num_parameters, 
+						template_param_info, new_decl_context);
+				break;
+			}
 		case AST_SIMPLE_DECLARATION :
 			{
-				new_decl_context.template_param_info = template_param_info;
-				new_decl_context.num_template_parameters = 0;
-
 				build_scope_template_simple_declaration(ASTSon0(a), st, template_scope, num_parameters, 
 						template_param_info, new_decl_context);
 				break;
 			}
+		case AST_EXPLICIT_SPECIALIZATION :
+			{
+				build_scope_explicit_template_specialization(ASTSon0(a), st, new_decl_context);
+				break;
+			}
 		default :
-			prettyprint(stderr, a);
-			fprintf(stderr, "\n");
-			internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(a))));
+			{
+				prettyprint(stderr, a);
+				fprintf(stderr, "\n");
+				internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(a))));
+			}
 	}
 	
 	// Restore template scope
