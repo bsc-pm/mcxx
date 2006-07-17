@@ -71,6 +71,9 @@ int get_children_num(AST parent, AST children);
 
 char* ast_print_node_type(node_t n);
 
+char ast_equal (AST ast1, AST ast2);
+char ast_equal_node (AST ast1, AST ast2);
+
 // Eases iterating forward in AST_NODE_LISTs
 #define for_each_element(list, iter) \
 	iter = (list); while (ASTSon0(iter) != NULL) iter = ASTSon0(iter); \

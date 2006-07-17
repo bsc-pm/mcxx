@@ -176,3 +176,45 @@ int get_children_num(AST parent, AST children)
 	return -1;
 }
 
+char ast_equal_node (AST ast1, AST ast2)
+{
+	if (ast1 == ast2)
+		return 1;
+	if (!ast1 || !ast2)
+		return 0;
+
+	if (ASTType(ast1) != ASTType(ast2))
+		return 0;
+	if (ASTNumChildren(ast1) != ASTNumChildren(ast2))
+		return 0;
+
+	if (ASTText(ast1) != ASTText(ast2))
+	{
+		if (!ASTText(ast1) || !ASTText(ast2))
+			return 0;
+		if (strcmp (ASTText(ast1), ASTText(ast2)))
+			return 0;
+	}
+
+	return 1;
+}
+
+char ast_equal (AST ast1, AST ast2)
+{
+	int i;
+
+	if (!ast_equal_node (ast1, ast2))
+		return 0;
+
+	if (ast1 == NULL)
+		return 1;
+
+
+	for (i = 0; i < ASTNumChildren(ast1); i++)
+	{
+		if (!ast_equal(ASTChild(ast1, i), ASTChild(ast2, i)))
+			return 0;
+	}
+	return 1;
+}
+

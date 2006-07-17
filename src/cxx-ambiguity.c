@@ -1574,6 +1574,7 @@ static char check_for_simple_type_spec(AST type_spec, scope_t* st)
 			case AST_UNSIGNED_TYPE :
 			case AST_WCHAR_TYPE :
 			case AST_VOID_TYPE :
+			case AST_BOOL_TYPE :
 				return 1;
 				break;
 			default :

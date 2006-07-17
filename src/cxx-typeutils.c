@@ -442,6 +442,8 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 
 	int qualification_level = 0;
 
+	char dependent_qualification = 0;
+
 	while (t1_nested_name_spec != NULL
 			&& t2_nested_name_spec != NULL)
 	{
@@ -453,7 +455,14 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 			return 0;
 		}
 
-		if (ASTType(t1_class_or_namespace) == AST_SYMBOL)
+		if (dependent_qualification)
+		{
+			if (!ast_equal(t1_class_or_namespace, t2_class_or_namespace))
+			{
+				return 0;
+			}
+		}
+		else if (ASTType(t1_class_or_namespace) == AST_SYMBOL)
 		{
 			// enum cxx_symbol_kind filter_class_or_namespace[3] = {SK_NAMESPACE, SK_CLASS, SK_TEMPLATE_TYPE_PARAMETER};
 
@@ -484,6 +493,7 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 				{
 					return 0;
 				}
+				dependent_qualification = 1;
 			}
 			else
 			{
@@ -492,10 +502,10 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 				{
 					return 0;
 				}
-			}
 
-			t1_scope = t1_name->related_scope;
-			t2_scope = t2_name->related_scope;
+				t1_scope = t1_name->related_scope;
+				t2_scope = t2_name->related_scope;
+			}
 		}
 		else if (ASTType(t1_class_or_namespace) == AST_TEMPLATE_ID)
 		{
@@ -522,10 +532,30 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 			scope_entry_t* t1_template_name = t1_template_name_list->entry;
 			scope_entry_t* t2_template_name = t2_template_name_list->entry;
 
-			// TODO - Check this because i'm unsure this is totally true
-			if (t1_template_name != t2_template_name)
+			if (t1_template_name->kind != t2_template_name->kind)
 			{
 				return 0;
+			}
+
+			if (t1_template_name->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+			{
+				if ((t1_template_name->type_information->type->template_parameter_num != 
+							t2_template_name->type_information->type->template_parameter_num)
+						|| (t1_template_name->type_information->type->template_parameter_nesting != 
+							t2_template_name->type_information->type->template_parameter_nesting))
+				{
+					return 0;
+				}
+
+				dependent_qualification = 1;
+			}
+			else
+			{
+				// TODO - Check this because i'm unsure this is totally true
+				if (t1_template_name != t2_template_name)
+				{
+					return 0;
+				}
 			}
 		}
 

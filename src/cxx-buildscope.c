@@ -2005,7 +2005,8 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 		}
 	}
 
-	if (declarator_type->function->num_parameters == 1)
+	if (declarator_type->function->num_parameters == 1
+			&& !declarator_type->function->parameter_list[0]->is_ellipsis)
 	{
 		type_t* parameter_type = declarator_type->function->parameter_list[0]->type_info;
 
@@ -3403,6 +3404,11 @@ static void build_scope_member_declaration(AST a, scope_t*  st,
 				build_scope_member_template_declaration(a, st, current_access, class_info, step, decl_context);
 				break;
 			}
+		case AST_USING_DECL :
+			{
+				build_scope_using_declaration(a, st, decl_context);
+				break;
+			}
 		case AST_AMBIGUITY :
 			{
 				solve_ambiguous_declaration(a, st);
@@ -3703,8 +3709,17 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 
 			switch (ASTType(declarator))
 			{
+				case AST_AMBIGUITY:
+					{
+						solve_ambiguous_init_declarator(declarator, st);
+						// Restart the function
+						build_scope_simple_member_declaration(a, st, current_access, class_info, decl_context);
+						return;
+						break;
+					}
 				case AST_BITFIELD_DECLARATOR :
 					{
+						WARNING_MESSAGE("Unsupported bitfield declarator ignored", 0);
 						break;
 					}
 					// init declarator may appear here because of templates
