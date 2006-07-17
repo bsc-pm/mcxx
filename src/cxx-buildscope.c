@@ -1917,7 +1917,6 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 		// Maybe this needs some kind of fixing
 		return;
 	}
-// #warning Properly handle (void)
 
 	AST iter, list;
 	list = parameters;
@@ -2003,6 +2002,20 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 
 			P_LIST_ADD(declarator_type->function->parameter_list, declarator_type->function->num_parameters, new_parameter);
 
+		}
+	}
+
+	if (declarator_type->function->num_parameters == 1)
+	{
+		type_t* parameter_type = declarator_type->function->parameter_list[0]->type_info;
+
+		if (parameter_type->kind == TK_DIRECT
+				&& parameter_type->type->kind == STK_BUILTIN_TYPE
+				&& parameter_type->type->builtin_type == BT_VOID)
+		{
+			// This list was really empty
+			declarator_type->function->num_parameters = 0;
+			declarator_type->function->parameter_list = NULL;
 		}
 	}
 }
