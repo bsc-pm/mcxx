@@ -501,7 +501,11 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 				return 0;
 			}
 
-			if (t1_name->kind == SK_TEMPLATE_TYPE_PARAMETER)
+			t1_name = give_real_entry(t1_name);
+			t2_name = give_real_entry(t2_name);
+
+			if (t1_name->kind == SK_TEMPLATE_TYPE_PARAMETER
+					|| t1_name->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
 			{
 				// Compare template type parameters
 				if ((t1_name->type_information->type->template_parameter_num != 
@@ -1340,6 +1344,24 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type
 	type_t* type_iter = type_info;
 
 	char* conversion_declarator_name = "";
+	if (type_iter->kind == TK_REFERENCE)
+	{
+		char* current_conversion_declarator = "";
+		current_conversion_declarator = strappend(current_conversion_declarator, "& ");
+		// This is a GNU extension
+		if ((type_iter->cv_qualifier & CV_CONST) == CV_CONST)
+		{
+			current_conversion_declarator = strappend(current_conversion_declarator, "const ");
+		}
+		if ((type_iter->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+		{
+			current_conversion_declarator = strappend(current_conversion_declarator, "volatile ");
+		}
+		conversion_declarator_name = strprepend(conversion_declarator_name, current_conversion_declarator);
+
+		type_iter = type_iter->pointer->pointee;
+	}
+
 	while (type_iter->kind == TK_POINTER)
 	{
 		char* current_conversion_declarator = "";
@@ -1358,11 +1380,11 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type
 
 		type_iter = type_iter->pointer->pointee;
 	}
-
+	
 
 	if (type_iter->kind != TK_DIRECT)
 	{
-		internal_error("Expecting simple type", 0);
+		internal_error("Expecting a simple type here", 0);
 	}
 
 	simple_type_info->type = type_iter->type;

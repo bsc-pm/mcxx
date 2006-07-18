@@ -1245,6 +1245,11 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 			enumeration_item->kind = SK_ENUMERATOR;
 			enumeration_item->type_information = enumerator_type;
 
+			if (enumeration_expr != NULL)
+			{
+				solve_possibly_ambiguous_expression(enumeration_expr, st);
+			}
+
 			enumeration_item->expression_value = enumeration_expr;
 
 			P_LIST_ADD(simple_type_info->type->enum_info->enumeration_list, 
@@ -3224,6 +3229,11 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 		template_parameters->type_info = simple_type_info;
 	}
 
+	if (default_expression != NULL)
+	{
+		solve_possibly_ambiguous_expression(default_expression, st);
+	}
+
 	template_parameters->default_argument_scope = copy_scope(st);
 	template_parameters->default_tree = default_expression;
 
@@ -3871,6 +3881,16 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 										P_LIST_ADD(class_type->conversion_function_list, class_type->num_conversion_functions, new_conversion);
 										break;
 									}
+								case AST_QUALIFIED_ID :
+									{
+										// Do nothing with them
+										// In particular if they come from a friend context
+										if (!gather_info.is_friend)
+										{
+											internal_error("I was not expecting a qualified-id in something that is not a friend declaration", 0);
+										}
+										break;
+									}
 								case AST_TEMPLATE_ID :
 									{
 										// Do nothing with this
@@ -4213,6 +4233,7 @@ void build_scope_template_arguments(AST class_head_id,
 							replaced_symbol->type_information->kind = TK_DIRECT;
 
 							replaced_symbol->type_information->type = GC_CALLOC(1, sizeof(*(replaced_symbol->type_information->type)));
+							replaced_symbol->type_information->type->kind = STK_TYPEDEF;
 							replaced_symbol->type_information->type->aliased_type = 
 								(*template_arguments)->argument_list[parameter_num]->type;
 						}
