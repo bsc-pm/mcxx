@@ -277,6 +277,24 @@ char overloaded_function(type_t* ft1, type_t* ft2, scope_t* st)
 	function_info_t* t1 = ft1->function;
 	function_info_t* t2 = ft2->function;
 
+	if (t1->template_nesting != t2->template_nesting)
+		return 1;
+
+	if (t1->num_template_parameters != t2->num_template_parameters)
+		return 1;
+
+	int i = 0;
+	for (i = 0; i < t1->num_template_parameters; i++)
+	{
+		template_parameter_t* t1_param = t1->template_parameter_info[i];
+		template_parameter_t* t2_param = t2->template_parameter_info[i];
+
+		if (t1_param->kind != t2_param->kind)
+		{
+			return 1;
+		}
+	}
+
 	if (!compatible_parameters(t1, t2, st))
 		return 1;
 
@@ -1499,18 +1517,21 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
 						snprintf(user_defined_str, 255, "typedef %s", user_defined_type->symbol_name);
 						break;
 					case SK_TEMPLATE_TYPE_PARAMETER :
-						snprintf(user_defined_str, 255, "type template parameter #%d %s", 
+						snprintf(user_defined_str, 255, "type template parameter #%d nesting=%d %s", 
 								user_defined_type->type_information->type->template_parameter_num,
+								user_defined_type->type_information->type->template_parameter_nesting,
 								user_defined_type->symbol_name);
 						break;
 					case SK_TEMPLATE_TEMPLATE_PARAMETER :
-						snprintf(user_defined_str, 255, "template template parameter #%d %s",
+						snprintf(user_defined_str, 255, "template template parameter #%d nesting=%d %s",
 								user_defined_type->type_information->type->template_parameter_num,
+								user_defined_type->type_information->type->template_parameter_nesting,
 								user_defined_type->symbol_name);
 						break;
 					case SK_TEMPLATE_PARAMETER :
-						snprintf(user_defined_str, 255, "nontype template parameter #%d %s", 
+						snprintf(user_defined_str, 255, "nontype template parameter #%d nesting=%d %s", 
 								user_defined_type->type_information->type->template_parameter_num,
+								user_defined_type->type_information->type->template_parameter_nesting,
 								user_defined_type->symbol_name);
 						break;
 					case SK_TEMPLATE_PRIMARY_CLASS :
@@ -1627,7 +1648,52 @@ void print_declarator(type_t* printed_declarator, scope_t* st)
 			case TK_FUNCTION :
 				{
 					int i;
-					fprintf(stderr, "function (");
+					fprintf(stderr, "function");
+					
+					if (printed_declarator->function->num_template_parameters > 0)
+					{
+						fprintf(stderr, "<");
+						for (i = 0; i < printed_declarator->function->num_template_parameters; i++)
+						{
+							template_parameter_t* template_param = printed_declarator->function->template_parameter_info[i];
+							if (template_param->template_parameter_name != NULL)
+							{
+								fprintf(stderr, "%s", template_param->template_parameter_name);
+							}
+							else
+							{
+								switch (template_param->kind)
+								{
+									case TPK_NONTYPE :
+										{
+											fprintf(stderr, "(non-type)");
+											break;
+										}
+									case TPK_TYPE :
+										{
+											fprintf(stderr, "(type)");
+											break;
+										}
+									case TPK_TEMPLATE :
+										{
+											fprintf(stderr, "(template)");
+											break;
+										}
+									default :
+										{
+										}
+								}
+							}
+
+							if ((i + 1) < printed_declarator->function->num_template_parameters)
+							{
+								fprintf(stderr, ", ");
+							}
+						}
+						fprintf(stderr, ">");
+					}
+
+					fprintf(stderr, " (");
 					for (i = 0; i < printed_declarator->function->num_parameters; i++)
 					{
 						if (!printed_declarator->function->parameter_list[i]->is_ellipsis)

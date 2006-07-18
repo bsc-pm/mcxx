@@ -298,6 +298,12 @@ typedef struct function_tag
 	// Related class type
 	struct type_tag* class_type;
 
+	// For template parameters
+	int num_template_parameters;
+	template_parameter_t** template_parameter_info;
+
+	// Information about the nesting of this function within templates
+	int template_nesting;
 } function_info_t;
 
 // Pointers, references and pointers to members

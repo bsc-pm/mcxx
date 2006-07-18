@@ -2148,7 +2148,7 @@ member_declarator : declarator
 // GNU Extensions
 | declarator attributes 
 {
-	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, $2, NULL, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, NULL, $2, ASTLine($1), NULL);
 }
 // - El susbsumirem amb constant_initializer -
 // | declarator attributes pure_specifier
@@ -2162,11 +2162,11 @@ member_declarator : declarator
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
 
-	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, identifier, $2, $4, $1.token_line, NULL);
+	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, identifier, $4, $2, $1.token_line, NULL);
 }
 | attributes ':' constant_expression
 {
-	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, NULL, $1, $3, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_BITFIELD_DECLARATOR, NULL, $3, $1, ASTLine($1), NULL);
 }
 ;
 

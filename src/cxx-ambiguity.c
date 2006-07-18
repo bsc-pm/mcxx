@@ -794,7 +794,15 @@ static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, int n
 				{
 					return 0;
 				}
-
+				
+				// These always have type
+				if (ASTType(symbol) == AST_OPERATOR_FUNCTION_ID
+						|| ASTType(symbol) == AST_TEMPLATE_ID
+						|| ASTType(symbol) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+				{
+					return 0;
+				}
+				
 				char* class_name = ASTText(symbol);
 
 				if (ASTType(symbol) == AST_DESTRUCTOR_ID
@@ -804,12 +812,6 @@ static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, int n
 					class_name++;
 				}
 				
-				// A template-id always will have an associated type
-				if (ASTType(symbol) == AST_TEMPLATE_ID
-						|| ASTType(symbol) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
-				{
-					return 0;
-				}
 				
 				// Now look for the class symbol
 				nested_scope = nested_scope->contained_in;
@@ -1914,12 +1916,16 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 	AST list = parameter_declaration_clause;
 	AST iter;
 
+	if (ASTType(parameter_declaration_clause) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
+	{
+		return 1;
+	}
+
 	for_each_element(list, iter)
 	{
 		AST parameter = ASTSon1(iter);
 
-		if (ASTType(parameter) == AST_VARIADIC_ARG
-				|| ASTType(parameter) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
+		if (ASTType(parameter) == AST_VARIADIC_ARG)
 		{
 			continue;
 		}

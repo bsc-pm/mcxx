@@ -324,6 +324,24 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 						{
 							return NULL;
 						}
+
+						// We need to instantiate it
+						if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
+								&& !entry->type_information->type->from_instantiation)
+						{
+							// Instantiation happenning here
+							fprintf(stderr, "Instantiation of '%s' within qualified name lookup\n", entry->symbol_name);
+							scope_entry_list_t* candidates = query_in_symbols_of_scope(entry->scope, entry->symbol_name);
+
+							candidates = filter_entry_from_list(candidates, entry);
+
+							template_argument_list_t* current_template_arguments = entry->type_information->type->template_arguments;
+
+							matching_pair_t* matched_template = solve_template(candidates,
+									current_template_arguments, entry->scope, 0);
+
+							instantiate_template_in_symbol(entry, matched_template, current_template_arguments, entry->scope);
+						}
 					}
 
 					if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
@@ -568,10 +586,10 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		will_not_instantiate = 0;
 	}
 
-	if (BITMAP_TEST(lookup_flags, LF_EXACT_TEMPLATE_MATCH))
-	{
-		give_exact_match = 1;
-	}
+	// if (BITMAP_TEST(lookup_flags, LF_EXACT_TEMPLATE_MATCH))
+	// {
+	// 	give_exact_match = 1;
+	// }
 
 	int i;
     char seen_dependent_args = 0;

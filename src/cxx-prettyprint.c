@@ -2380,12 +2380,12 @@ static void gcc_member_declarator_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
 	fprintf(f, " ");
-	spaced_sequence_handler(f, ASTSon1(a), level);
+	spaced_sequence_handler(f, ASTSon2(a), level);
 
-	if (ASTSon2(a) != NULL)
+	if (ASTSon1(a) != NULL)
 	{
 		fprintf(f, " ");
-		prettyprint_level(f, ASTSon2(a), level);
+		prettyprint_level(f, ASTSon1(a), level);
 	}
 }
 
@@ -2393,9 +2393,9 @@ static void gcc_bitfield_declarator_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
 	fprintf(f, " : ");
-	spaced_sequence_handler(f, ASTSon1(a), level);
+	spaced_sequence_handler(f, ASTSon2(a), level);
 	fprintf(f, " ");
-	prettyprint_level(f, ASTSon2(a), level);
+	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void gcc_case_statement_handler(FILE* f, AST a, int level)
