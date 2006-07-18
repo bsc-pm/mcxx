@@ -302,6 +302,9 @@ typedef struct function_tag
 	int num_template_parameters;
 	template_parameter_t** template_parameter_info;
 
+	int num_template_parameters_in_scope;
+	template_parameter_t** template_parameter_in_scope_info;
+
 	// Information about the nesting of this function within templates
 	int template_nesting;
 } function_info_t;

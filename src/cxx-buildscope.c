@@ -1643,6 +1643,7 @@ void build_scope_member_specification(scope_t* inner_scope, AST member_specifica
 	decl_context_t new_decl_context = decl_context;
 	new_decl_context.decl_flags &= ~(DF_TEMPLATE);
 	new_decl_context.decl_flags &= ~(DF_EXPLICIT_SPECIALIZATION);
+
 	new_decl_context.num_template_parameters = 0;
 	new_decl_context.template_parameters = NULL;
 
@@ -2539,6 +2540,9 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 	function_being_declared->function->num_template_parameters = decl_context.num_template_parameters;
 	function_being_declared->function->template_parameter_info = decl_context.template_parameters;
 
+	function_being_declared->function->num_template_parameters_in_scope = decl_context.num_template_parameters_in_scope;
+	function_being_declared->function->template_parameter_in_scope_info = decl_context.template_parameters_in_scope;
+
 	scope_entry_t* equal_entry = NULL;
 
 	char found_equal = 0;
@@ -2664,18 +2668,43 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 	int num_parameters = 0;
 	
 	// Construct parameter information
-	decl_context_t decl_new_context = decl_context;
-	decl_new_context.decl_flags |= DF_TEMPLATE;
-	decl_new_context.template_nesting++;
+	decl_context_t new_decl_context = decl_context;
+	new_decl_context.decl_flags |= DF_TEMPLATE;
+	new_decl_context.template_nesting++;
 
 	template_scope->contained_in = st;
 	build_scope_template_parameter_list(ASTSon0(a), template_scope, &template_parameters, 
-			&num_parameters, decl_new_context);
+			&num_parameters, new_decl_context);
 	template_scope->contained_in = NULL;
 	
 	// Save template parameters of the current definition
-	decl_new_context.num_template_parameters = num_parameters;
-	decl_new_context.template_parameters = template_parameters;
+	new_decl_context.num_template_parameters = num_parameters;
+	new_decl_context.template_parameters = template_parameters;
+
+	// And save them into the "in scope" template parameter set
+	new_decl_context.num_template_parameters_in_scope = 0;
+	new_decl_context.template_parameters_in_scope = GC_CALLOC(1, 
+			sizeof(*(new_decl_context.template_parameters_in_scope)));
+	// First the inherited ones
+	int i;
+	for (i = 0; i < decl_context.num_template_parameters_in_scope; i++)
+	{
+		fprintf(stderr, "(1) ### Old template parameter [%d] ###\n", i);
+		P_LIST_ADD(new_decl_context.template_parameters_in_scope, 
+				new_decl_context.num_template_parameters_in_scope,
+				decl_context.template_parameters_in_scope[i]);
+	}
+	// then the new ones
+	for (i = 0; i < num_parameters; i++)
+	{
+		fprintf(stderr, "(1) ### New template parameter [%d] ###\n", i);
+		P_LIST_ADD(new_decl_context.template_parameters_in_scope, 
+				new_decl_context.num_template_parameters_in_scope,
+				template_parameters[i]);
+	}
+
+	fprintf(stderr, "### Num template parameters in scope %d\n",
+			new_decl_context.num_template_parameters_in_scope);
 
 	// Save template scope
 	template_scope->template_scope = st->template_scope;
@@ -2694,18 +2723,18 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 			{
 
 				build_scope_template_function_definition(templated_decl, st, template_scope, num_parameters, 
-						template_parameters, decl_new_context);
+						template_parameters, new_decl_context);
 				break;
 			}
 		case AST_SIMPLE_DECLARATION :
 			{
 				build_scope_template_simple_declaration(templated_decl, st, template_scope, num_parameters, 
-						template_parameters, decl_new_context);
+						template_parameters, new_decl_context);
 				break;
 			}
 		case AST_TEMPLATE_DECLARATION :
 			{
-				build_scope_template_declaration(templated_decl, st, decl_new_context);
+				build_scope_template_declaration(templated_decl, st, new_decl_context);
 				// build_scope_template_declaration(templated_decl, st, decl_context);
 				break;
 			}
@@ -3476,6 +3505,33 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
 	new_decl_context.template_parameters = template_parameters;
 	new_decl_context.num_template_parameters = num_parameters;
 	
+	// And save them into the "in scope" template parameter set
+	int i;
+	new_decl_context.template_parameters_in_scope = GC_CALLOC(1, 
+			sizeof(*(new_decl_context.template_parameters_in_scope)));
+	new_decl_context.num_template_parameters_in_scope = 0;
+	// First the inherited ones
+	for (i = 0; i < decl_context.num_template_parameters_in_scope; i++)
+	{
+		fprintf(stderr, "(2) ### Old template parameter [%d] ### %p\n", 
+				i, decl_context.template_parameters_in_scope[i]);
+		P_LIST_ADD(new_decl_context.template_parameters_in_scope, 
+				new_decl_context.num_template_parameters_in_scope,
+				decl_context.template_parameters_in_scope[i]);
+	}
+	// then the new ones
+	for (i = 0; i < num_parameters; i++)
+	{
+		fprintf(stderr, "(2) ### New template parameter [%d] ### %p\n", 
+				i, template_parameters[i]);
+		P_LIST_ADD(new_decl_context.template_parameters_in_scope, 
+				new_decl_context.num_template_parameters_in_scope,
+				template_parameters[i]);
+	}
+
+	fprintf(stderr, "### Num template parameters in scope %d\n", 
+			new_decl_context.num_template_parameters_in_scope);
+	
 	// Save template scope
 	template_scope->template_scope = st->template_scope;
 	st->template_scope = template_scope;
@@ -4144,6 +4200,7 @@ void build_scope_template_arguments(AST class_head_id,
 
 						if (parameter_num < num_arguments)
 						{
+							fprintf(stderr, "Replacing type/template template parameter '%s'\n", entry->symbol_name);
 							scope_entry_t* replaced_symbol = new_symbol(new_template_args_scope, entry->symbol_name);
 							replaced_symbol->kind = SK_TYPEDEF;
 
@@ -4163,6 +4220,7 @@ void build_scope_template_arguments(AST class_head_id,
 
 						if (parameter_num < num_arguments)
 						{
+							fprintf(stderr, "Replacing nontype template parameter '%s'\n", entry->symbol_name);
 							scope_entry_t* replaced_symbol = new_symbol(new_template_args_scope, entry->symbol_name);
 							replaced_symbol->kind = SK_VARIABLE;
 
@@ -4192,11 +4250,13 @@ void build_scope_template_arguments(AST class_head_id,
 				case TPK_TYPE :
 				case TPK_TEMPLATE :
 					{
-						new_template_args_scope->template_scope = arguments_scope->template_scope;
-						arguments_scope->template_scope = new_template_args_scope;
+						scope_t* template_argument_scope = curr_template_parameter->default_argument_scope->contained_in;
+
+						new_template_args_scope->template_scope = template_argument_scope->template_scope;
+						template_argument_scope->template_scope = new_template_args_scope;
 
 						curr_template_arg->kind = TAK_TYPE;
-						curr_template_arg->scope = copy_scope(arguments_scope);
+						curr_template_arg->scope = copy_scope(template_argument_scope);
 						
 						AST type_template_argument = curr_template_parameter->default_tree;
 						AST type_specifier_seq = ASTSon0(type_template_argument);
@@ -4208,13 +4268,13 @@ void build_scope_template_arguments(AST class_head_id,
 						gather_decl_spec_t gather_info;
 						memset(&gather_info, 0, sizeof(gather_info));
 
-						build_scope_decl_specifier_seq(type_specifier_seq, arguments_scope, &gather_info, &type_info,
+						build_scope_decl_specifier_seq(type_specifier_seq, template_argument_scope, &gather_info, &type_info,
 								default_decl_context);
 
 						type_t* declarator_type;
 						if (abstract_decl != NULL)
 						{
-							build_scope_declarator(abstract_decl, arguments_scope, &gather_info, type_info, &declarator_type,
+							build_scope_declarator(abstract_decl, template_argument_scope, &gather_info, type_info, &declarator_type,
 									default_decl_context);
 						}
 						else
@@ -4224,7 +4284,7 @@ void build_scope_template_arguments(AST class_head_id,
 
 						curr_template_arg->type = declarator_type;
 
-						arguments_scope->template_scope = new_template_args_scope->template_scope;
+						template_argument_scope->template_scope = new_template_args_scope->template_scope;
 						new_template_args_scope->template_scope = NULL;
 						break;
 					}
@@ -4234,10 +4294,17 @@ void build_scope_template_arguments(AST class_head_id,
 						{
 							internal_error("Missing default expression for nontype template parameter", 0);
 						}
+						scope_t* template_argument_scope = curr_template_parameter->default_argument_scope->contained_in;
+
+						new_template_args_scope->template_scope = template_argument_scope->template_scope;
+						template_argument_scope->template_scope = new_template_args_scope;
 
 						curr_template_arg->kind = TAK_NONTYPE;
 						curr_template_arg->argument_tree = curr_template_parameter->default_tree;
-						curr_template_arg->scope = curr_template_parameter->default_argument_scope;
+						curr_template_arg->scope = copy_scope(template_argument_scope);
+
+						template_argument_scope->template_scope = new_template_args_scope->template_scope;
+						new_template_args_scope->template_scope = NULL;
 						break;
 					}
 				default:

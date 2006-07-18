@@ -280,14 +280,14 @@ char overloaded_function(type_t* ft1, type_t* ft2, scope_t* st)
 	if (t1->template_nesting != t2->template_nesting)
 		return 1;
 
-	if (t1->num_template_parameters != t2->num_template_parameters)
+	if (t1->num_template_parameters_in_scope != t2->num_template_parameters_in_scope)
 		return 1;
 
 	int i = 0;
-	for (i = 0; i < t1->num_template_parameters; i++)
+	for (i = 0; i < t1->num_template_parameters_in_scope; i++)
 	{
-		template_parameter_t* t1_param = t1->template_parameter_info[i];
-		template_parameter_t* t2_param = t2->template_parameter_info[i];
+		template_parameter_t* t1_param = t1->template_parameter_in_scope_info[i];
+		template_parameter_t* t2_param = t2->template_parameter_in_scope_info[i];
 
 		if (t1_param->kind != t2_param->kind)
 		{
