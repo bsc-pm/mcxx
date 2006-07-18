@@ -485,7 +485,8 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 				}
 
 				// The last entry will hold our symbol, no need to look for it in the list
-				if (entry_list->entry->defined)
+				if (entry_list->entry->defined 
+						&& entry_list->entry->kind != SK_TYPEDEF)
 				{
 					internal_error("This symbol has already been defined", 0);
 				}
@@ -2388,20 +2389,24 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 	// Only enum or classes can exist, otherwise this is an error
 	if (list != NULL)
 	{
-		if (list->next == NULL)
+		scope_entry_t* entry = filter_simple_type_specifier(list);
+		if (entry == NULL)
 		{
-			scope_entry_t* entry = filter_simple_type_specifier(list);
 			// This means this was not just a type specifier 
-			if (entry == NULL)
-			{
-				internal_error("Symbol '%s' in line %d has been redeclared as a different symbol kind.",
-						ASTText(declarator_id), ASTLine(declarator_id));
-			}
+			internal_error("Symbol '%s' in line %d has been redeclared as a different symbol kind (look at line %d).",
+					ASTText(declarator_id), ASTLine(declarator_id), entry->line);
 		}
-		else // More than one symbol sounds extremely suspicious
+		else
 		{
-			internal_error("Symbol '%s' in line %d has been redeclared as a different symbol kind.",
-					ASTText(declarator_id), ASTLine(declarator_id));
+			if (!equivalent_types(entry->type_information, declarator_type, st, CVE_CONSIDER))
+			{
+				internal_error("Symbol '%s' in line %d has been redeclared as a different symbol kind (look at line %d).",
+						ASTText(declarator_id), ASTLine(declarator_id), entry->line);
+			}
+			else
+			{
+				return entry;
+			}
 		}
 	}
 
