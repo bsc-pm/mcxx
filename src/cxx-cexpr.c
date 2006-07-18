@@ -7,6 +7,7 @@
 #include "cxx-ast.h"
 #include "cxx-utils.h"
 #include "cxx-prettyprint.h"
+#include "cxx-ambiguity.h"
 
 /*
  * This file implements an evaluator of constant expressions in C++
@@ -156,6 +157,7 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
 				AST first_expression = ASTSon1(expression_list);
 				return cast_expression(ASTSon0(a), first_expression, st);
 			}
+		case AST_AMBIGUITY :
 		default :
 			internal_error("Unsupported node '%s' when evaluating constant expression (line=%d)", 
 					ast_print_node_type(ASTType(a)), ASTLine(a));
@@ -168,6 +170,11 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st
 	literal_value_t val_lhs;
 	literal_value_t val_rhs;
 	binary_operation_t bop;
+
+	if (val_lhs.kind == LVK_INVALID || val_rhs.kind == LVK_INVALID)
+	{
+		return val_lhs;
+	}
 
 	val_lhs = evaluate_constant_expression(lhs, st);
 
@@ -258,6 +265,8 @@ char value_is_zero(literal_value_t v)
             return (v.value.character_value == 0);
         case LVK_BOOL :
             return (v.value.boolean_value == 0);
+		case LVK_INVALID :
+			return 0;
         default:
             internal_error("Invalid value kind %d\n", v.kind);
     }
@@ -638,7 +647,7 @@ static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* s
 
 static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 {
-	scope_entry_list_t* result = query_id_expression(st, symbol, FULL_UNQUALIFIED_LOOKUP);
+	scope_entry_list_t* result = query_id_expression_flags(st, symbol, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION);
 
 	if (result == NULL)
 	{
@@ -666,7 +675,11 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 		fprintf(stderr, "Invalid symbol '");
 		prettyprint(stderr, symbol);
 		fprintf(stderr, "'\n");
-		internal_error("This symbol is not an expression", 0);
+
+		literal_value_t invalid_type;
+		memset(&invalid_type, 0, sizeof(invalid_type));
+
+		return invalid_type;
 	}
 
 	if (result->entry->expression_value == NULL)

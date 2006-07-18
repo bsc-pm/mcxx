@@ -21,7 +21,6 @@ static void solve_nested_name_with_no_type(AST a);
 static void solve_ambiguous_simple_declaration(AST a, scope_t* st);
 
 static char check_for_declaration_statement(AST a, scope_t* st);
-static char check_for_expression(AST expression, scope_t* st);
 static char check_for_expression_statement(AST a, scope_t* st);
 static char check_for_qualified_id(AST expr, scope_t* st);
 static char check_for_symbol(AST expr, scope_t* st);
@@ -926,7 +925,7 @@ static char check_for_typeless_declarator(AST declarator, scope_t* st)
 // "(B < C) > D" intepretation is not feasible because B names
 // a type and thus does not yield a value
 //
-static char check_for_expression(AST expression, scope_t* st)
+char check_for_expression(AST expression, scope_t* st)
 {
 	switch (ASTType(expression))
 	{
@@ -1287,7 +1286,8 @@ static char check_for_qualified_id(AST expr, scope_t* st)
 	AST nested_name_spec = ASTSon1(expr);
 	AST unqualified_object = ASTSon2(expr);
 
-	scope_entry_list_t* result_list = query_nested_name(st, global_scope, nested_name_spec, unqualified_object, FULL_UNQUALIFIED_LOOKUP);
+	scope_entry_list_t* result_list = query_nested_name_flags(st, global_scope, nested_name_spec, 
+			unqualified_object, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION);
 
 	return (result_list != NULL
 			&& (result_list->entry->kind == SK_VARIABLE

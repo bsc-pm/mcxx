@@ -51,7 +51,8 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
 		// It is supposed that this will hold in correct code
 		if (arguments->num_arguments != specialized->num_arguments)
 		{
-			internal_error("Template argument lists are not of equal length", 0);
+			// internal_error("Template argument lists are not of equal length", 0);
+			return NULL;
 		}
 
 		unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));

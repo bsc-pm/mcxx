@@ -1362,6 +1362,11 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type
 		type_iter = type_iter->pointer->pointee;
 	}
 
+	if (type_iter->kind == TK_POINTER_TO_MEMBER)
+	{
+		internal_error("Pointer to member in conversion functions are still unsupported", 0);
+	}
+
 	while (type_iter->kind == TK_POINTER)
 	{
 		char* current_conversion_declarator = "";

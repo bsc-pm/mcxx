@@ -499,11 +499,18 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 				if (initializer != NULL)
 				{
 					// We do not fold it here
+					
 					entry_list->entry->expression_value = initializer;
 
 					if (ASTType(initializer) == AST_INITIALIZER)
 					{
-						entry_list->entry->expression_value = ASTSon0(initializer);
+						AST initializer_clause = ASTSon0(initializer);
+						entry_list->entry->expression_value = initializer_clause;
+
+						if (ASTType(initializer_clause) == AST_INITIALIZER_EXPR)
+						{
+							solve_possibly_ambiguous_expression(ASTSon0(initializer_clause), st);
+						}
 					}
 				}
 			}
@@ -824,23 +831,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
 	scope_t* declarating_scope = st;
 
-	lookup_flags_t lookup_flags = LF_NONE;
+	lookup_flags_t lookup_flags = LF_ALWAYS_CREATE_SPECIALIZATION;
 	
-	if (ASTType(class_symbol) == AST_TEMPLATE_ID)
-	{
-		AST template_args = ASTSon1(class_symbol);
-
-		if (is_dependent_tree(template_args, st))
-		{
-			lookup_flags |= LF_EXACT_TEMPLATE_MATCH;
-		}
-	}
-	
-	// if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
-	// {
-	// 	lookup_flags |= LF_IN_NAMESPACE_SCOPE;
-	// }
-
 	if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
 	{
 		result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
@@ -1079,7 +1071,7 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 
 	fprintf(stderr, "Trying to look up a dependent typename\n");
 	scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
-			LF_EXACT_TEMPLATE_MATCH);
+			LF_NONE);
 	if (result == NULL
 			|| result->entry->kind == SK_DEPENDENT_ENTITY)
 	{
@@ -1370,7 +1362,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 			
 			class_entry_list = query_nested_name_flags(st, NULL, 
 					class_head_nested_name, class_head_identifier,
-					NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+					NOFULL_UNQUALIFIED_LOOKUP, LF_ALWAYS_CREATE_SPECIALIZATION);
 
 			enum cxx_symbol_kind filter_classes[3] = 
 			{
@@ -1603,7 +1595,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 		fprintf(stderr, "Reinstantiating previous references to this template\n");
 		scope_entry_list_t* existing_templates = query_nested_name_flags(st, NULL, 
 					class_head_nested_name, class_head_identifier,
-					NOFULL_UNQUALIFIED_LOOKUP, LF_EXACT_TEMPLATE_MATCH);
+					NOFULL_UNQUALIFIED_LOOKUP, LF_NONE);
 
 		enum cxx_symbol_kind template_symbol[2] = {SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
 		
@@ -3359,7 +3351,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 
 	// Function_body
 	AST function_body = ASTSon3(a);
-	if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+	// if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
 	{
 		AST statement = ASTSon0(function_body);
 
@@ -3402,7 +3394,8 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 			entry->defined = 1;
 		}
 	}
-	else
+
+	if (BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
 	{
 		// TODO - change this
 		entry->type_information->function->function_body = function_body;
