@@ -595,7 +595,14 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
 	if (entry_list == NULL)
 	{
-		internal_error("Template not found! (line=%d)\n", ASTLine(template_id));
+		if (BITMAP_TEST(lookup_flags, LF_NO_FAIL))
+		{
+			return NULL;
+		}
+		else
+		{
+			internal_error("Template not found! (line=%d)\n", ASTLine(template_id));
+		}
 	}
 
 	scope_entry_list_t* template_functions = filter_symbol_kind(entry_list, SK_TEMPLATE_FUNCTION);
@@ -603,16 +610,18 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 	{
 		// This is naming a template function
 		// Just return them, do not instantiate
+		solve_possibly_ambiguous_template_id(template_id, sc);
+
 		return template_functions;
 	}
-	
-	// First try to match exactly an existing template
-	// because this is a parameterized template-id
-	template_argument_list_t* current_template_arguments = NULL;
 
+	template_argument_list_t* current_template_arguments = NULL;
 	// Note the scope being different here
 	build_scope_template_arguments(template_id, lookup_scope, sc, sc, &current_template_arguments);
 
+
+	// First try to match exactly an existing template
+	// because this is a parameterized template-id
 	char will_not_instantiate = 1;
 
 	char always_create_specialization = 0;

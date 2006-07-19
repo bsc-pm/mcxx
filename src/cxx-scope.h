@@ -469,7 +469,8 @@ typedef enum lookup_flags_tag
 	LF_INSTANTIATE = BITMAP(3),
 	LF_IN_NAMESPACE_SCOPE = BITMAP(4),
 	LF_FROM_QUALIFIED = BITMAP(5),
-	LF_ALWAYS_CREATE_SPECIALIZATION = BITMAP(6)
+	LF_ALWAYS_CREATE_SPECIALIZATION = BITMAP(6),
+	LF_NO_FAIL = BITMAP(7)
 } lookup_flags_t ;
 
 // Higher level functions when dealing with the scope

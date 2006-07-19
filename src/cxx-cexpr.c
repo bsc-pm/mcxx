@@ -171,14 +171,14 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st
 	literal_value_t val_rhs;
 	binary_operation_t bop;
 
-	if (val_lhs.kind == LVK_INVALID || val_rhs.kind == LVK_INVALID)
+	val_lhs = evaluate_constant_expression(lhs, st);
+
+	if (val_lhs.kind == LVK_DEPENDENT_EXPR)
 	{
 		return val_lhs;
 	}
 
-	val_lhs = evaluate_constant_expression(lhs, st);
-
-	if (val_lhs.kind == LVK_DEPENDENT_EXPR)
+	if (val_lhs.kind == LVK_INVALID)
 	{
 		return val_lhs;
 	}
@@ -218,6 +218,11 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st
 	}
 
 	if (val_rhs.kind == LVK_DEPENDENT_EXPR)
+	{
+		return val_rhs;
+	}
+
+	if (val_rhs.kind == LVK_INVALID)
 	{
 		return val_rhs;
 	}

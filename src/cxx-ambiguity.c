@@ -4,6 +4,7 @@
 #include "cxx-utils.h"
 #include "cxx-prettyprint.h"
 #include "cxx-buildscope.h"
+#include "cxx-graphviz.h"
 
 /*
  * This file performs disambiguation. If a symbol table is passed along the
@@ -29,6 +30,7 @@ static char check_for_destructor_id(AST expr, scope_t* st);
 #endif
 static char check_for_function_call(AST expr, scope_t* st);
 static char check_for_explicit_type_conversion(AST expr, scope_t* st);
+static char check_for_explicit_typename_type_conversion(AST expr, scope_t* st);
 static char check_for_typeid(AST expr, scope_t* st);
 static char check_for_typeid_expr(AST expr, scope_t* st);
 static char check_for_sizeof_expr(AST expr, scope_t* st);
@@ -433,6 +435,7 @@ void solve_ambiguous_statement(AST a, scope_t* st)
 
 	if (correct_choice < 0)
 	{
+		ast_dump_graphviz(a, stderr);
 		internal_error("Ambiguity not solved\n", 0);
 	}
 	else
@@ -961,6 +964,18 @@ char check_for_expression(AST expression, scope_t* st)
 									correct_choice = i;
 								}
 							}
+							// This case must be considered because the
+							// AST_FUNCTION_CALL might return a valid dependent
+							// expression instead of saying that this is not a
+							// valid function call
+							else if ((either = either_type(previous_choice, current_choice, 
+										AST_EXPLICIT_TYPE_CONVERSION, AST_FUNCTION_CALL)))
+							{
+								if (either < 0)
+								{
+									correct_choice = i;
+								}
+							}
 							else
 							{
 								internal_error("More than one valid choice for expression (line %d)\n'%s' vs '%s'\n", 
@@ -1062,8 +1077,7 @@ char check_for_expression(AST expression, scope_t* st)
 			}
 		case AST_TYPENAME_EXPLICIT_TYPE_CONVERSION :
 			{
-				// This does not yields a value
-				return 0;
+				return check_for_explicit_typename_type_conversion(expression, st);
 			}
 		case AST_TYPENAME_TEMPLATE :
 		case AST_TYPENAME_TEMPLATE_TEMPLATE :
@@ -1106,6 +1120,14 @@ char check_for_expression(AST expression, scope_t* st)
 		case AST_REINTERPRET_CAST :
 		case AST_CONST_CAST :
 			{
+				AST type_id = ASTSon0(expression);
+				AST type_specifier = ASTSon0(type_id);
+
+				if (ASTType(type_specifier) == AST_AMBIGUITY)
+				{
+					solve_ambiguous_decl_specifier_seq(type_specifier, st);
+				}
+
 				// This should not yield a type
 				return 1;
 			}
@@ -1240,6 +1262,7 @@ char check_for_expression(AST expression, scope_t* st)
 				break;
 			}
 		case AST_DELETE_EXPR :
+		case AST_DELETE_ARRAY_EXPR :
 			{
 				// This is always a value, never a type
 				return 1;
@@ -1287,7 +1310,7 @@ static char check_for_qualified_id(AST expr, scope_t* st)
 	AST unqualified_object = ASTSon2(expr);
 
 	scope_entry_list_t* result_list = query_nested_name_flags(st, global_scope, nested_name_spec, 
-			unqualified_object, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION);
+			unqualified_object, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION | LF_NO_FAIL);
 
 	return (result_list != NULL
 			&& (result_list->entry->kind == SK_VARIABLE
@@ -1306,7 +1329,6 @@ static char check_for_symbol(AST expr, scope_t* st)
 			&& (result->entry->kind == SK_VARIABLE
 				|| result->entry->kind == SK_ENUMERATOR
 				|| result->entry->kind == SK_FUNCTION
-				|| result->entry->kind == SK_TEMPLATE_FUNCTION
 				|| result->entry->kind == SK_TEMPLATE_PARAMETER));
 }
 
@@ -1354,6 +1376,7 @@ static char check_for_destructor_id(AST expr, scope_t* st)
 
 static char check_for_functional_expression(AST expr, AST arguments, scope_t* st)
 {
+	char result = 0;
 	switch(ASTType(expr))
 	{
 		case AST_SYMBOL :
@@ -1383,21 +1406,18 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 					return 1;
 				}
 
-				enum cxx_symbol_kind filter_funct[2] =
+				enum cxx_symbol_kind filter_funct[3] =
 				{ 
+					SK_VARIABLE, // for "operator()" on objects
 					SK_FUNCTION,
 					SK_TEMPLATE_FUNCTION
 				};
-				function_lookup = filter_symbol_kind_set(function_lookup, 2, filter_funct);
+				function_lookup = filter_symbol_kind_set(function_lookup, 3, filter_funct);
 
 				// We have found some function
 				if (function_lookup != NULL)
 				{
-					return 1;
-				}
-				else
-				{
-					return 0;
+					result = 1;
 				}
 #if 0
 				// Koenig lookup here!
@@ -1413,25 +1433,38 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 
 				if (function_lookup != NULL)
 				{
-					return 1;
-				}
-				else
-				{
-					return 0;
+					result = 1;
 				}
 #endif
 				break;
 			}
 		case AST_PARENTHESIZED_EXPRESSION :
 			{
-				return check_for_functional_expression(ASTSon0(expr), arguments, st);
+				result = check_for_functional_expression(ASTSon0(expr), arguments, st);
 				break;
 			}
 		default :
 			{
-				return check_for_expression(expr, st);
+				result = check_for_expression(expr, st);
 			}
 	}
+
+	if (result)
+	{
+		if (arguments != NULL)
+		{
+			AST list = arguments;
+			AST iter;
+
+			for_each_element(list, iter)
+			{
+				AST parameter_expr = ASTSon1(iter);
+				check_for_expression(parameter_expr, st);
+			}
+		}
+	}
+
+	return result;
 }
 
 static char check_for_function_call(AST expr, scope_t* st)
@@ -1443,6 +1476,29 @@ static char check_for_function_call(AST expr, scope_t* st)
 	//
 	// f has to yield a valid value or functional
 	return check_for_functional_expression(ASTSon0(expr), ASTSon1(expr), st);
+}
+
+static char check_for_explicit_typename_type_conversion(AST expr, scope_t* st)
+{
+	AST global_op = ASTSon0(expr);
+	AST nested_name_spec = ASTSon1(expr);
+	AST symbol = ASTSon2(expr);
+
+	scope_entry_list_t* entry_list = query_nested_name_flags(st, global_op, nested_name_spec, symbol, 
+			FULL_UNQUALIFIED_LOOKUP, LF_NONE);
+
+	if (entry_list == NULL)
+	{
+		return 0;
+	}
+
+	// scope_entry_t* entry = entry_list->entry;
+	
+	// return (entry->kind == SK_CLASS
+	// 		|| entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+	// 		|| entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS);
+
+	return 1;
 }
 
 static char check_for_explicit_type_conversion(AST expr, scope_t* st)
@@ -1534,6 +1590,7 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st)
 	{
 		choose_option(ambig_template_argument, selected_option);
 	}
+
 }
 
 void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st)
@@ -1593,8 +1650,8 @@ static char check_for_simple_type_spec(AST type_spec, scope_t* st)
 		solve_possibly_ambiguous_template_id(type_name, st);
 	}
 
-	scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, 
-            type_name, FULL_UNQUALIFIED_LOOKUP);
+	scope_entry_list_t* entry_list = query_nested_name_flags(st, global_op, nested_name_spec, 
+            type_name, FULL_UNQUALIFIED_LOOKUP, LF_NO_FAIL);
 
 	if (entry_list == NULL)
 	{
@@ -1930,6 +1987,40 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 			continue;
 		}
 
+		if (ASTType(parameter) == AST_AMBIGUITY)
+		{
+			int correct_choice = -1;
+			int i;
+			for (i = 0; i < parameter->num_ambig; i++)
+			{
+				AST parameter_decl = parameter->ambig[i];
+
+				AST decl_specifier_seq = ASTSon0(parameter_decl);
+				AST type_specifier = ASTSon1(decl_specifier_seq);
+
+				if (check_for_type_specifier(type_specifier, st))
+				{
+					if (correct_choice < 0)
+					{
+						correct_choice = i;
+					}
+					else
+					{
+						internal_error("More than one valid alternative", 0);
+					}
+				}
+			}
+
+			if (correct_choice < 0)
+			{
+				return 0;
+			}
+			else
+			{
+				choose_option(parameter, correct_choice);
+			}
+		}
+
 		if (ASTType(parameter) != AST_PARAMETER_DECL)
 		{
 			internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(parameter)));
@@ -2204,16 +2295,6 @@ static void choose_option(AST a, int n)
 		internal_error("Invalid node number (%d)", n);
 	}
 
-	// Free discarded options
-	int i;
-	for (i = 0; i < a->num_ambig; i++)
-	{
-		if (i != n)
-		{
-			ASTFree(a->ambig[i]);
-		}
-	}
-
 	AST parent = ASTParent(a);
 	// int num_children = get_children_num(parent, a);
 
@@ -2222,20 +2303,36 @@ static void choose_option(AST a, int n)
 	// 	internal_error("Children not found in the parent!\n", 0);
 	// }
 
-	fprintf(stderr, "*** Choosing '%s' in the ambiguity tree (line=%d)\n", ast_print_node_type(ASTType(a->ambig[n])),
-			ASTLine(a->ambig[n]));
+	fprintf(stderr, "*** Choosing '%s' in the ambiguity tree %p (line=%d) using %p\n", 
+			ast_print_node_type(ASTType(a->ambig[n])), a, ASTLine(a->ambig[n]), 
+			a->ambig[n]);
+
+	if (!ASTCheck(a->ambig[n]))
+	{
+		internal_error("*** INCONSISTENT TREE DETECTED *** %p\n", a->ambig[n]);
+	}
 	
 	// This will work, trust on me :)
-	*a = *(a->ambig[n]);
+	*a = *(duplicate_ast(a->ambig[n]));
 
 	// Correctly relink to the parent
 	ASTParent(a) = parent;
 
-	// This is not needed
-	// if (parent != NULL)
-	// {
-	// 	ASTChild(parent, num_children) = a;
-	// }
+	int i;
+	for (i = 0; i < ASTNumChildren(a); i++)
+	{
+		if (ASTChild(a, i) != NULL)
+		{
+			AST child = ASTChild(a, i);
+
+			ASTParent(child) = a;
+		}
+	}
+
+	if (!ASTCheck(a))
+	{
+		internal_error("*** INCONSISTENT TREE DETECTED ***\n", a);
+	}
 }
 
 // Returns the index of the first node of type "type"

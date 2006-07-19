@@ -1315,7 +1315,11 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
 						result->related_scope, class_scope->num_base_scopes);
 
 				// print_scope(result->related_scope, 0);
-                P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, result->related_scope);
+				scope_t* base_scope = copy_scope(result->related_scope);
+
+				base_scope->contained_in = NULL;
+
+                P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, base_scope);
             }
 
             base_class_info_t* base_class = GC_CALLOC(1, sizeof(*base_class));
@@ -4184,7 +4188,8 @@ void build_scope_template_arguments(AST class_head_id,
 					break;
 				}
 			default :
-				internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(template_argument)));
+				internal_error("Unexpected node '%s' (line=%d)\n", ast_print_node_type(ASTType(template_argument)),
+						ASTLine(template_argument));
 				break;
 		}
 	}
@@ -4709,6 +4714,8 @@ static stmt_scope_handler_t stmt_scope_handlers[] =
 
 static void build_scope_statement(AST a, scope_t* st, decl_context_t decl_context)
 {
+	fprintf(stderr, "=== Statement line [%08d] ===\n", ASTLine(a));
+
 	stmt_scope_handler_t f = stmt_scope_handlers[ASTType(a)];
 
 	if (f != NULL)

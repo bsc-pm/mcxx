@@ -99,6 +99,14 @@ char ASTCheck(AST node)
 				}
 			}
 		}
+
+		if (ASTType(node) == AST_AMBIGUITY)
+		{
+			for (i = 0; i < node->num_ambig; i++)
+			{
+				check &= ASTCheck(node->ambig[i]);
+			}
+		}
 	}
 	return check;
 }
@@ -208,7 +216,6 @@ char ast_equal (AST ast1, AST ast2)
 
 	if (ast1 == NULL)
 		return 1;
-
 
 	for (i = 0; i < ASTNumChildren(ast1); i++)
 	{

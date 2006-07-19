@@ -219,37 +219,14 @@ char match_one_template(template_argument_list_t* arguments,
 						else
 						{
 							unification_item_t* unif_item = GC_CALLOC(1, sizeof(*unif_item));
-							// Get the name. This assumes that the expression
-							// will be solely AST_EXPRESSION -> AST_SYMBOL
-							
-							if (ASTType(spec_arg->argument_tree) == AST_EXPRESSION)
-							{
-								AST symbol = ASTSon0(spec_arg->argument_tree);
-								if (ASTType(symbol) == AST_SYMBOL)
-								{
-									char* name = ASTText(symbol);
 
-									unification_item_t* unif_item = GC_CALLOC(1, sizeof(*unif_item));
-									unif_item->parameter_name = name;
-									unif_item->expression = arg->argument_tree;
-									// Set to -1 to early detect errors
-									unif_item->parameter_num = -1;
-									unif_item->parameter_nesting = -1;
+							unif_item->parameter_name = get_unique_name();
+							unif_item->expression = arg->argument_tree;
+							// Set to -1 to early detect errors
+							unif_item->parameter_num = -1;
+							unif_item->parameter_nesting = -1;
 
-									P_LIST_ADD(unif_set->unif_list, unif_set->num_elems, unif_item);
-								}
-								else
-								{
-									internal_error("Expecting an AST_SYMBOL and found '%s'\n", ast_print_node_type(ASTType(symbol)));
-								}
-							}
-							else
-							{
-								prettyprint(stderr, spec_arg->argument_tree);
-								fprintf(stderr, "\n");
-								internal_error("Expecting an AST_EXPRESSION and found '%s'\n", 
-										ast_print_node_type(ASTType(spec_arg->argument_tree)));
-							}
+							P_LIST_ADD(unif_set->unif_list, unif_set->num_elems, unif_item);
 						}
 						break;
 					}

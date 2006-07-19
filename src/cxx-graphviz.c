@@ -35,13 +35,13 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
 
 		if (ASTText(a))
 		{
-			fprintf(f, "n%d[shape=%s,label=\"%s\\nLine: %d\\nText: -%s-\"]\n", 
-					node_actual, shape, ast_print_node_type(ASTType(a)), ASTLine(a), ASTText(a));
+			fprintf(f, "n%d[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\nLine: %d\\nText: -%s-\"]\n", 
+					node_actual, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ASTLine(a), ASTText(a));
 		}
 		else
 		{
-			fprintf(f, "n%d[shape=%s,label=\"%s\\nLine: %d\"]\n", 
-					node_actual, shape, ast_print_node_type(ASTType(a)), ASTLine(a));
+			fprintf(f, "n%d[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\nLine: %d\"]\n", 
+					node_actual, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ASTLine(a));
 		}
 
 		if (parent_node != 0)

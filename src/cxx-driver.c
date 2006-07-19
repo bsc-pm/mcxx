@@ -19,11 +19,18 @@ char check_for_ambiguities(AST a);
 
 int main(int argc, char* argv[])
 {
+	int result = 0;
 	fprintf(stderr, PACKAGE " - " VERSION " (experimental)\n");
 	mcxx_flex_debug = yydebug = 0;
 	// yydebug = 1;
 
 	yyparse(&compilation_options.parsed_tree);
+
+	if (!ASTCheck(compilation_options.parsed_tree))
+	{
+		fprintf(stderr, "*** INCONSISTENT TREE DETECTED ***\n");
+		exit(EXIT_FAILURE);
+	}
 
 	if (argc > 1)
 	{
@@ -53,7 +60,7 @@ int main(int argc, char* argv[])
 			{
 				fprintf(stderr, "***** THERE ARE UNRESOLVED AMBIGUITIES !!! *****\n");
 				print_ambiguities(compilation_options.parsed_tree, 1);
-				return 1;
+				result = 1;
 			}
 
 			prettyprint(stderr, compilation_options.parsed_tree);
@@ -64,7 +71,13 @@ int main(int argc, char* argv[])
 		prettyprint(stdout, compilation_options.parsed_tree);
 	}
 
-	return 0;
+	if (!ASTCheck(compilation_options.parsed_tree))
+	{
+		fprintf(stderr, "*** INCONSISTENT TREE DETECTED ***\n");
+		result = 1;
+	}
+
+	return result;
 }
 
 char check_for_ambiguities(AST a)

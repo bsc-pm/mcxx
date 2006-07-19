@@ -1,5 +1,5 @@
-#ifndef FORTRAN95_GRAPHVIZ_H
-#define FORTRAN95_GRAPHVIZ_H
+#ifndef CXX_GRAPHVIZ_H
+#define CXX_GRAPHVIZ_H
 
 #include "cxx-ast.h"
 

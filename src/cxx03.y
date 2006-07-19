@@ -4079,7 +4079,7 @@ template_logical_and_expression : template_inclusive_or_expression
 {
 	$$ = $1;
 }
-| template_inclusive_or_expression ANDAND template_inclusive_or_expression
+| template_logical_and_expression ANDAND template_inclusive_or_expression
 {
 	$$ = ASTMake2(AST_LOGICAL_AND, $1, $3, ASTLine($1), NULL);
 }
@@ -4279,7 +4279,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 		{
 			son0->num_ambig++;
 			son0->ambig = (AST*) GC_REALLOC(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
-			son0->ambig[son0->num_ambig-1] = son1;
+			son0->ambig[son0->num_ambig-1] = duplicate_ast(son1);
 
 			return son0;
 		}
@@ -4288,7 +4288,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 	{
 		son1->num_ambig++;
 		son1->ambig = (AST*) GC_REALLOC(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
-		son1->ambig[son1->num_ambig-1] = son0;
+		son1->ambig[son1->num_ambig-1] = duplicate_ast(son0);
 
 		return son1;
 	}
@@ -4298,8 +4298,9 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 
 		result->num_ambig = 2;
 		result->ambig = GC_CALLOC(sizeof(*(result->ambig)), result->num_ambig);
-		result->ambig[0] = son0;
-		result->ambig[1] = son1;
+		// This avoids some problems with bison reusing stacks
+		result->ambig[0] = duplicate_ast(son0);
+		result->ambig[1] = duplicate_ast(son1);
 		result->line = son0->line;
 
 		return result;
