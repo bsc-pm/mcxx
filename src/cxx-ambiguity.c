@@ -1613,6 +1613,11 @@ void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st)
 			{
 				solve_ambiguous_template_argument(template_argument, st);
 			}
+
+			if (ASTType(template_argument) == AST_TEMPLATE_EXPRESSION_ARGUMENT)
+			{
+				solve_possibly_ambiguous_expression(ASTSon0(template_argument), st);
+			}
 		}
 	}
 }
