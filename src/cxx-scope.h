@@ -238,11 +238,10 @@ typedef struct simple_type_tag {
 	// For classes
 	class_info_t* class_info;
 
-
 	// For template classes
 	// Template arguments for specializations and instantiations
 	template_argument_list_t* template_arguments;
-
+	
 	// Used in unification
 	char* template_parameter_name;
 
@@ -304,6 +303,7 @@ typedef struct function_tag
 
 	int num_template_parameters_in_scope;
 	template_parameter_t** template_parameter_in_scope_info;
+
 
 	// Information about the nesting of this function within templates
 	int template_nesting;
@@ -388,6 +388,11 @@ typedef struct scope_entry_tag
 
 	// Line where this simbol was signed up
 	int line;
+
+	// Do not print this symbol (because of recursion, hiding, etc)
+	char do_not_print;
+
+	char injected_class_name;
 } scope_entry_t;
 
 // This is what the scope returns

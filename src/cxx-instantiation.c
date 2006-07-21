@@ -116,7 +116,10 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
 						scope_entry_t* injected_nontype = new_symbol(instantiate_scope, name);
 						injected_nontype->kind = SK_VARIABLE;
 						injected_nontype->type_information = template_parameter->type_info;
-						injected_nontype->expression_value = template_argument->argument_tree;
+						AST duplicated_tree = duplicate_ast(template_argument->argument_tree);
+
+						AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, duplicated_tree, ASTLine(duplicated_tree), NULL);
+						injected_nontype->expression_value = fake_initializer;
 						break;
 					}
 				default :
@@ -254,7 +257,10 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 									scope_entry_t* injected_nontype = new_symbol(instantiate_scope, name);
 									injected_nontype->kind = SK_VARIABLE;
 									injected_nontype->type_information = template_parameter->type_info;
-									injected_nontype->expression_value = unification_item->expression;
+									AST duplicated_tree = duplicate_ast(unification_item->expression);
+
+									AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, duplicated_tree, ASTLine(duplicated_tree), NULL);
+									injected_nontype->expression_value = fake_initializer;
 									break;
 								}
 							}

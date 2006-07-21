@@ -110,6 +110,8 @@ static void build_scope_member_template_simple_declaration(AST a, scope_t* st, s
 static void build_scope_using_directive(AST a, scope_t* st, decl_context_t decl_context);
 static void build_scope_using_declaration(AST a, scope_t* st, decl_context_t decl_context);
 
+static void build_scope_explicit_instantiation(AST a, scope_t* st, decl_context_t decl_context);
+
 static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* declarator_type, 
 		gather_decl_spec_t* gather_info, scope_t* st, decl_context_t decl_context);
 static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* declarator_type, 
@@ -264,9 +266,8 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
 				break;
 			}
 		case AST_EXPLICIT_INSTANTIATION :
-		case AST_GCC_EXPLICIT_INSTANTIATION :
 			{
-				// Should we construct something on this ?
+				build_scope_explicit_instantiation(a, st, decl_context);
 				break;
 			}
 		case AST_EXPLICIT_SPECIALIZATION :
@@ -308,6 +309,29 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
 						ast_print_node_type(ASTType(a)), ASTLine(a));
 				break;
 			}
+	}
+}
+
+// It simply disambiguates
+static void build_scope_explicit_instantiation(AST a, scope_t* st, decl_context_t decl_context)
+{
+	AST decl_specifier_seq = ASTSon1(a);
+	AST declarator = ASTSon2(a);
+
+
+	type_t* simple_type_info = NULL;
+	gather_decl_spec_t gather_info;
+	memset(&gather_info, 0, sizeof(gather_info));
+
+	if (decl_specifier_seq != NULL)
+	{
+		build_scope_decl_specifier_seq(decl_specifier_seq, st, &gather_info, &simple_type_info, decl_context);
+	}
+
+	if (declarator != NULL)
+	{
+		type_t* declarator_type = NULL;
+		build_scope_declarator(declarator, st, &gather_info, simple_type_info, &declarator_type, decl_context);
 	}
 }
 
@@ -440,30 +464,6 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 
 			type_t* declarator_type;
 
-			// This is done here because the declarator it is not in scope in the initializer expression
-			if (initializer != NULL)
-			{
-				switch (ASTType(initializer))
-				{
-					case AST_INITIALIZER :
-						{
-							AST initializer_clause = ASTSon0(initializer);
-
-							if (ASTType(initializer_clause) == AST_INITIALIZER_EXPR)
-							{
-								AST initializer_expr = ASTSon0(initializer_clause);
-								solve_possibly_ambiguous_expression(initializer_expr, st);
-							}
-							break;
-						}
-					case AST_PARENTHESIZED_INITIALIZER :
-						{
-							break;
-						}
-					default:
-						internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(initializer)));
-				}
-			}
 
 			// This will create the symbol if it is unqualified
 			scope_t* parameters_scope = NULL;
@@ -498,20 +498,10 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 
 				if (initializer != NULL)
 				{
-					// We do not fold it here
-					
+					fprintf(stderr, "Initializer: '%s'\n", ast_print_node_type(ASTType(initializer)));
+
+					check_for_initialization(initializer, entry_list->entry->scope);
 					entry_list->entry->expression_value = initializer;
-
-					if (ASTType(initializer) == AST_INITIALIZER)
-					{
-						AST initializer_clause = ASTSon0(initializer);
-						entry_list->entry->expression_value = initializer_clause;
-
-						if (ASTType(initializer_clause) == AST_INITIALIZER_EXPR)
-						{
-							solve_possibly_ambiguous_expression(ASTSon0(initializer_clause), st);
-						}
-					}
 				}
 			}
 			else
@@ -1242,7 +1232,10 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 				solve_possibly_ambiguous_expression(enumeration_expr, st);
 			}
 
-			enumeration_item->expression_value = enumeration_expr;
+			AST duplicate_expr = duplicate_ast(enumeration_expr);
+
+			AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, duplicate_expr, ASTLine(duplicate_expr), 0);
+			enumeration_item->expression_value = fake_initializer;
 
 			P_LIST_ADD(simple_type_info->type->enum_info->enumeration_list, 
 					simple_type_info->type->enum_info->num_enumeration,
@@ -1401,7 +1394,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 				// Get its simple type info and adjust its scope
 				simple_type_info->type = class_entry->type_information->type;
 				simple_type_info->type->class_info->inner_scope = inner_scope;
-                
 			}
 			else if (class_entry_list == NULL
 					&& class_head_nested_name == NULL)
@@ -1547,6 +1539,12 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 			// Clear this flag
 			class_entry->type_information->type->from_instantiation = 0;
 
+			if (BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
+			{
+				// Unless this is an explicit specialization that is in a way already instantiated
+				class_entry->type_information->type->from_instantiation = 1;
+			}
+
 			// Since this type is not anonymous we'll want that simple_type_info
 			// refers to this newly created type
 			memset(simple_type_info->type, 0, sizeof(*(simple_type_info->type)));
@@ -1577,6 +1575,18 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 		fprintf(stderr, "Adding the bases of this class\n");
 		build_scope_base_clause(base_clause, st, inner_scope, class_entry->type_information->type->class_info);
 		fprintf(stderr, "Bases added\n");
+	}
+
+	// Inject the class symbol in the scope
+	if (class_entry != NULL 
+			&& class_entry->symbol_name != NULL)
+	{
+		scope_entry_t* injected_symbol = new_symbol(inner_scope, class_entry->symbol_name);
+
+		*injected_symbol = *class_entry;
+		injected_symbol->do_not_print = 1;
+
+		injected_symbol->injected_class_name = 1;
 	}
 
 	AST member_specification = ASTSon1(a);
@@ -1965,6 +1975,11 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 		// Default value can be null
 		// The scope of this parameter declaration should be "st" and not parameters_scope
 		AST default_argument = ASTSon2(parameter_declaration);
+
+		if (default_argument != NULL)
+		{
+			solve_possibly_ambiguous_expression(default_argument, st);
+		}
 
 		gather_decl_spec_t gather_info;
 		memset(&gather_info, 0, sizeof(gather_info));
@@ -2766,7 +2781,7 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
 
 	new_decl_context.decl_flags |= DF_TEMPLATE;
 	new_decl_context.decl_flags |= DF_EXPLICIT_SPECIALIZATION;
-	new_decl_context.template_nesting++;
+	// new_decl_context.template_nesting++;
 
 	new_decl_context.template_parameters = template_parameters;
 	new_decl_context.num_template_parameters = 0;
@@ -2893,6 +2908,8 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 		}
 
 		AST declarator = ASTSon0(init_declarator);
+		AST initializer = ASTSon1(init_declarator);
+
 
 		if (decl_specifier_seq != NULL 
 				&& ((ASTType(decl_specifier_seq) != AST_AMBIGUITY && ASTSon1(decl_specifier_seq) != NULL)
@@ -2949,11 +2966,11 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 			fprintf(stderr, "'\n");
 			entry_list->entry->defined = 1;
 
-			// if (initializer != NULL)
-			// {
-			// 	// We do not fold it here
-			// 	entry_list->entry->expression_value = initializer;
-			// }
+			if (initializer != NULL)
+			{
+				check_for_initialization(initializer, entry_list->entry->scope);
+				entry_list->entry->expression_value = initializer;
+			}
 		}
 		else if (declarator_type->kind == TK_FUNCTION)
 		{
@@ -3283,6 +3300,60 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
 	}
 }
 
+static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st)
+{
+	// This function merely disambiguates
+	AST mem_initializer_list = ASTSon0(ctor_initializer);
+	AST iter;
+
+	for_each_element(mem_initializer_list, iter)
+	{
+		AST mem_initializer = ASTSon1(iter);
+
+		switch (ASTType(mem_initializer))
+		{
+			case AST_MEM_INITIALIZER :
+				{
+					AST mem_initializer_id = ASTSon0(mem_initializer);
+					AST expression_list = ASTSon1(mem_initializer);
+
+					AST global_op = ASTSon0(mem_initializer_id);
+					AST nested_name_spec = ASTSon1(mem_initializer_id);
+					AST symbol = ASTSon2(mem_initializer_id);
+
+					scope_entry_list_t* result_list = query_nested_name(st, global_op, nested_name_spec, symbol, FULL_UNQUALIFIED_LOOKUP);
+
+					if (result_list == NULL)
+					{
+						internal_error("Initialized entity in constructor initializer not found (line=%d)", ASTLine(symbol));
+					}
+
+					if (expression_list != NULL)
+					{
+						if (ASTType(expression_list) == AST_AMBIGUITY)
+						{
+							solve_ambiguous_expression_list(expression_list, st);
+						}
+
+						AST iter;
+						for_each_element(expression_list, iter)
+						{
+							AST expression = ASTSon1(iter);
+
+							solve_possibly_ambiguous_expression(expression, st);
+						}
+					}
+					break;
+				}
+			default : 
+				{
+					internal_error("Unexpected node '%s' in constructor declaration", ast_print_node_type(ASTType(mem_initializer)));
+					break;
+				}
+		}
+	}
+}
+
 /*
  * This function builds symbol table information for a function definition
  */
@@ -3351,52 +3422,55 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 		internal_error("This is not a function!!!", 0);
 	}
 
-	// Nothing will be done with ctor_initializer at the moment
 
 	// Function_body
 	AST function_body = ASTSon3(a);
-	// if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
+	AST statement = ASTSon0(function_body);
+
+	scope_t* inner_scope = new_function_scope(st, parameter_scope);
+
+	entry->related_scope = inner_scope;
+
+	AST ctor_initializer = ASTSon2(a);
+	if (ctor_initializer != NULL)
 	{
-		AST statement = ASTSon0(function_body);
+		scope_t* ctor_scope = new_block_scope(st, parameter_scope, inner_scope);
+		build_scope_ctor_initializer(ctor_initializer, ctor_scope);
+	}
 
-		scope_t* inner_scope = new_function_scope(st, parameter_scope);
-
-		entry->related_scope = inner_scope;
-
-		if (entry->type_information->function->is_member)
+	if (entry->type_information->function->is_member)
+	{
+		// If is a member function sign up additional information
+		if (!entry->type_information->function->is_static
+				&& !entry->type_information->function->is_constructor)
 		{
-			// If is a member function sign up additional information
-			if (!entry->type_information->function->is_static
-					&& !entry->type_information->function->is_constructor)
-			{
-				type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
-				this_type->kind = TK_POINTER;
-				this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
-				this_type->pointer->pointee = copy_type(entry->type_information->function->class_type);
+			type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
+			this_type->kind = TK_POINTER;
+			this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
+			this_type->pointer->pointee = copy_type(entry->type_information->function->class_type);
 
-				// "this" pseudovariable has the same cv-qualification of this member
-				this_type->cv_qualifier = entry->type_information->cv_qualifier;
+			// "this" pseudovariable has the same cv-qualification of this member
+			this_type->cv_qualifier = entry->type_information->cv_qualifier;
 
-				// This will put the symbol in the function scope, but this is fine
-				scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
+			// This will put the symbol in the function scope, but this is fine
+			scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
 
-				this_symbol->line = ASTLine(function_body);
-				this_symbol->kind = SK_VARIABLE;
-				this_symbol->type_information = this_type;
-			}
+			this_symbol->line = ASTLine(function_body);
+			this_symbol->kind = SK_VARIABLE;
+			this_symbol->type_information = this_type;
 		}
+	}
 
-		build_scope_statement(statement, inner_scope, decl_context);
+	build_scope_statement(statement, inner_scope, decl_context);
 
-		if (entry == NULL)
-		{
-			internal_error("This symbol is undeclared here", 0);
-		}
-		else 
-		{
-			fprintf(stderr, "Function '%s' is defined\n", entry->symbol_name);
-			entry->defined = 1;
-		}
+	if (entry == NULL)
+	{
+		internal_error("This symbol is undeclared here", 0);
+	}
+	else 
+	{
+		fprintf(stderr, "Function '%s' is defined\n", entry->symbol_name);
+		entry->defined = 1;
 	}
 
 	if (BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
@@ -3793,6 +3867,8 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 				case AST_GCC_MEMBER_DECLARATOR :
 					{
 						AST declarator_name = get_declarator_name(declarator);
+
+						AST initializer = ASTSon1(declarator);
 						// Change name of constructors
 						AST decl_spec_seq = ASTSon0(a);
 						if (decl_spec_seq != NULL 
@@ -3898,6 +3974,14 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 										internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(declarator_name)));
 										break;
 									}
+							}
+						}
+						else
+						{
+							if (initializer != NULL)
+							{
+								check_for_initialization(initializer, entry->scope);
+								entry->expression_value = initializer;
 							}
 						}
 						break;
@@ -4770,6 +4854,8 @@ AST get_declarator_name(AST a)
 				return ASTSon0(a);
 				break;
 			}
+		case AST_NEW_DECLARATOR :
+		case AST_DIRECT_NEW_DECLARATOR :
 		case AST_CONVERSION_DECLARATOR :
 		case AST_ABSTRACT_DECLARATOR :
 		case AST_GCC_ABSTRACT_DECLARATOR :

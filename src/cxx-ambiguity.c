@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "cxx-ambiguity.h"
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
@@ -47,9 +48,12 @@ static char check_for_init_declarator(AST init_declarator, scope_t* st);
 static char check_for_declarator(AST declarator, scope_t* st);
 static char check_for_declarator_rec(AST declarator, scope_t* st);
 static char check_for_function_declarator_parameters(AST parameter_declaration_clause, scope_t* st);
-static char check_for_initialization(AST initializer, scope_t* st);
 
 static char check_for_simple_declaration(AST a, scope_t* st);
+static char check_for_initializer_clause(AST initializer_clause, scope_t* st);
+
+static char check_for_new_expression(AST new_expr, scope_t* st);
+static char check_for_new_type_id_expr(AST new_expr, scope_t* st);
 
 #define EXPECT_OPTIONS(a, n) \
 do \
@@ -1064,8 +1068,8 @@ char check_for_expression(AST expression, scope_t* st)
 			// Postfix expressions
 		case AST_ARRAY_SUBSCRIPT :
 			{
-				// It depends only on the postfix expression
-				return check_for_expression(ASTSon0(expression), st);
+				return check_for_expression(ASTSon0(expression), st)
+					&& check_for_expression(ASTSon1(expression), st);
 			}
 		case AST_FUNCTION_CALL :
 			{
@@ -1088,14 +1092,18 @@ char check_for_expression(AST expression, scope_t* st)
 		case AST_CLASS_MEMBER_ACCESS :
 		case AST_POINTER_CLASS_MEMBER_ACCESS :
 			{
+				int result = 0;
+				result = check_for_expression(ASTSon0(expression), st);
+
 				// This should always yield a value unless the right hand is shit
-				if (ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_ID
-						|| ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_TEMPLATE_ID)
+				if (result 
+						&& (ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_ID
+							|| ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_TEMPLATE_ID))
 				{
-					return 0;
+					result = 0;
 				}
 				
-				return 1;
+				return result;
 			}
 		case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
 		case AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS :
@@ -1107,12 +1115,15 @@ char check_for_expression(AST expression, scope_t* st)
 					return 0;
 				}
 
+				check_for_expression(ASTSon1(expression), st);
+
 				return 1;
 			}
 		case AST_POSTINCREMENT :
 		case AST_POSTDECREMENT :
 			{
 				// This cannot yield a type
+				check_for_expression(ASTSon0(expression), st);
 				return 1;
 			}
 		case AST_DYNAMIC_CAST :
@@ -1122,12 +1133,25 @@ char check_for_expression(AST expression, scope_t* st)
 			{
 				AST type_id = ASTSon0(expression);
 				AST type_specifier = ASTSon0(type_id);
+				AST abstract_declarator = ASTSon1(type_id);
 
-				if (ASTType(type_specifier) == AST_AMBIGUITY)
+				gather_decl_spec_t gather_info;
+				memset(&gather_info, 0, sizeof(gather_info));
+
+				type_t* simple_type_info = NULL;
+				build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
+						default_decl_context);
+
+				if (abstract_declarator != NULL)
 				{
-					solve_ambiguous_decl_specifier_seq(type_specifier, st);
+					type_t* declarator_type = NULL;
+					build_scope_declarator(abstract_declarator, st, &gather_info, simple_type_info, 
+							&declarator_type, default_decl_context);
 				}
 
+				AST casted_expression = ASTSon1(expression);
+
+				solve_possibly_ambiguous_expression(casted_expression, st);
 				// This should not yield a type
 				return 1;
 			}
@@ -1143,6 +1167,7 @@ char check_for_expression(AST expression, scope_t* st)
 		case AST_PREINCREMENT :
 		case AST_PREDECREMENT :
 			{
+				check_for_expression(ASTSon0(expression), st);
 				return 1;
 			}
 		case AST_SIZEOF :
@@ -1258,20 +1283,24 @@ char check_for_expression(AST expression, scope_t* st)
 		case AST_NEW_EXPRESSION :
 			{
 				// This is always a value, never a type
-				return 1;
+				return check_for_new_expression(expression, st);
 				break;
+			}
+		case AST_NEW_TYPE_ID_EXPR :
+			{
+				return check_for_new_type_id_expr(expression, st);
 			}
 		case AST_DELETE_EXPR :
 		case AST_DELETE_ARRAY_EXPR :
 			{
 				// This is always a value, never a type
+				check_for_expression(ASTSon1(expression), st);
 				return 1;
 				break;
 			}
 		case AST_PSEUDO_DESTRUCTOR_CALL :
 		case AST_POINTER_PSEUDO_DESTRUCTOR_CALL :
 			{
-				// This is never a type
 				return 1;
 				break;
 			}
@@ -1281,6 +1310,67 @@ char check_for_expression(AST expression, scope_t* st)
 				break;
 			}
 	}
+}
+
+static char check_for_new_expression(AST new_expr, scope_t* st)
+{
+	// AST global_op = ASTSon0(new_expr);
+	AST new_placement = ASTSon1(new_expr);
+	AST new_type_id = ASTSon2(new_expr);
+	AST new_initializer = ASTSon3(new_expr);
+
+	if (new_placement != NULL)
+	{
+		AST expression_list = ASTSon0(new_placement);
+		AST iter;
+
+		for_each_element(expression_list, iter)
+		{
+			AST expression = ASTSon1(iter);
+
+			solve_possibly_ambiguous_expression(expression, st);
+		}
+	}
+
+	AST type_specifier_seq = ASTSon0(new_type_id);
+	AST new_declarator = ASTSon1(new_type_id);
+
+	type_t* dummy_type;
+	gather_decl_spec_t gather_info;
+	memset(&gather_info, 0, sizeof(gather_info));
+
+	build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &dummy_type, default_decl_context);
+
+	if (new_declarator != NULL)
+	{
+		type_t* declarator_type = NULL;
+		build_scope_declarator(new_declarator, st, &gather_info, dummy_type, &declarator_type, default_decl_context);
+	}
+
+	if (new_initializer != NULL)
+	{
+		AST expression_list = ASTSon0(new_initializer);
+		
+		if (expression_list != NULL)
+		{
+			AST iter;
+
+			for_each_element(expression_list, iter)
+			{
+				AST expression = ASTSon1(iter);
+
+				solve_possibly_ambiguous_expression(expression, st);
+			}
+		}
+	}
+
+	// This is a bit bogus
+	return 1;
+}
+
+static char check_for_new_type_id_expr(AST new_expr, scope_t* st)
+{
+	return check_for_new_expression(new_expr, st);
 }
 
 void solve_possibly_ambiguous_expression(AST a, scope_t* st)
@@ -1395,6 +1485,7 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 				}
 				else
 				{
+					solve_possibly_ambiguous_template_id(expr, st);
 					name = ASTText(ASTSon0(expr));
 				}
 
@@ -1403,7 +1494,8 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 				if (function_lookup == NULL)
 				{
 					// Assume this will name a function
-					return 1;
+					// WARNING_MESSAGE("Assuming symbol '%s' not found to be a function\n", name)
+					result = 1;
 				}
 
 				enum cxx_symbol_kind filter_funct[3] =
@@ -1419,6 +1511,7 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 				{
 					result = 1;
 				}
+
 #if 0
 				// Koenig lookup here!
 				scope_entry_list_t* function_lookup = NULL;
@@ -1459,7 +1552,7 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 			for_each_element(list, iter)
 			{
 				AST parameter_expr = ASTSon1(iter);
-				check_for_expression(parameter_expr, st);
+				solve_possibly_ambiguous_expression(parameter_expr, st);
 			}
 		}
 	}
@@ -1508,9 +1601,28 @@ static char check_for_explicit_type_conversion(AST expr, scope_t* st)
 	//   T ( e );
 	//
 	// T has to be a valid typename
+	char result = 0;
 	AST simple_type_spec = ASTSon0(expr);
 
-	return check_for_simple_type_spec(simple_type_spec, st);
+	result = check_for_simple_type_spec(simple_type_spec, st);
+
+	if (result)
+	{
+		AST expression_list = ASTSon1(expr);
+
+		if (expression_list != NULL)
+		{
+			AST iter;
+			for_each_element(expression_list, iter)
+			{
+				AST current_expression = ASTSon1(iter);
+
+				solve_possibly_ambiguous_expression(current_expression, st);
+			}
+		}
+	}
+
+	return result;
 }
 
 void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st)
@@ -1681,6 +1793,11 @@ static char check_for_type_id_tree(AST type_id, scope_t* st)
 	AST type_specifier_seq = ASTSon0(type_id);
 	// AST abstract_declarator = ASTSon1(type_id);
 	
+	if (ASTType(type_specifier_seq) == AST_AMBIGUITY)
+	{
+		solve_ambiguous_decl_specifier_seq(type_specifier_seq, st);
+	}
+	
 	// This is never NULL
 	AST type_specifier = ASTSon1(type_specifier_seq);
 
@@ -1719,8 +1836,9 @@ static char check_for_type_specifier(AST type_id, scope_t* st)
 		case AST_DOUBLE_TYPE :
 		case AST_FLOAT_TYPE :
 		case AST_VOID_TYPE :
-			// These are never ambiguous but are always types!
-			return 1;
+			{
+				return 1;
+			}
 		default :
 			{
 				internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(type_id)));
@@ -1743,7 +1861,33 @@ static char check_for_sizeof_typeid(AST expr, scope_t* st)
 static char check_for_cast(AST expr, scope_t* st)
 {
 	AST type_id = ASTSon0(expr);
-	return check_for_type_id_tree(type_id, st);
+	if (check_for_type_id_tree(type_id, st))
+	{
+		AST type_specifier = ASTSon0(type_id);
+		AST abstract_declarator = ASTSon1(type_id);
+
+		gather_decl_spec_t gather_info;
+		memset(&gather_info, 0, sizeof(gather_info));
+
+		type_t* simple_type_info = NULL;
+		build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
+				default_decl_context);
+
+		if (abstract_declarator != NULL)
+		{
+			type_t* declarator_type = NULL;
+			build_scope_declarator(abstract_declarator, st, &gather_info, simple_type_info, 
+					&declarator_type, default_decl_context);
+		}
+
+		solve_possibly_ambiguous_expression(ASTSon1(expr), st);
+
+		return 1;
+	}
+	else
+	{
+		return 0;
+	}
 }
 
 void solve_ambiguous_init_declarator(AST a, scope_t* st)
@@ -1807,7 +1951,6 @@ static char check_for_init_declarator(AST init_declarator, scope_t* st)
 	if (!check_for_declarator(declarator, st))
 		return 0;
 
-	// Is this needed ?
 	if (initializer != NULL)
 	{
 		if (!check_for_initialization(initializer, st))
@@ -1877,32 +2020,20 @@ static char check_for_initializer_list(AST initializer_list, scope_t* st)
 	}
 }
 
-static char check_for_initialization(AST initializer, scope_t* st)
+char check_for_initialization(AST initializer, scope_t* st)
 {
 	switch (ASTType(initializer))
 	{
+		case AST_CONSTANT_INITIALIZER :
+			{
+				AST expression = ASTSon0(initializer);
+				return check_for_expression(expression, st);
+				break;
+			}
 		case AST_INITIALIZER :
 			{
-				// Why are we checking this ? This branch should not be ambiguous
 				AST initializer_clause = ASTSon0(initializer);
-				switch (ASTType(initializer_clause))
-				{
-					case AST_INITIALIZER_BRACES :
-						{
-							// This is never ambiguous
-							return 1;
-						}
-					case AST_INITIALIZER_EXPR :
-						{
-							AST expression = ASTSon0(initializer_clause);
-							return check_for_expression(expression, st);
-							break;
-						}
-					default :
-						{
-							internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(initializer)));
-						}
-				}
+				return check_for_initializer_clause(initializer_clause, st);
 				break;
 			}
 		case AST_PARENTHESIZED_INITIALIZER :
@@ -1916,6 +2047,36 @@ static char check_for_initialization(AST initializer, scope_t* st)
 			}
 	}
 	return 1;
+}
+
+static char check_for_initializer_clause(AST initializer, scope_t* st)
+{
+	switch (ASTType(initializer))
+	{
+		case AST_INITIALIZER_BRACES :
+			{
+				// This is never ambiguous
+				AST expression_list = ASTSon0(initializer);
+				AST iter;
+				for_each_element(expression_list, iter)
+				{
+					AST initializer_clause = ASTSon1(iter);
+
+					check_for_initializer_clause(initializer_clause, st);
+				}
+				return 1;
+			}
+		case AST_INITIALIZER_EXPR :
+			{
+				AST expression = ASTSon0(initializer);
+				return check_for_expression(expression, st);
+				break;
+			}
+		default :
+			{
+				internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(initializer)));
+			}
+	}
 }
 
 static char check_for_declarator(AST declarator, scope_t* st)
@@ -2011,7 +2172,11 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 					}
 					else
 					{
-						internal_error("More than one valid alternative", 0);
+						AST current_choice = parameter_decl;
+						AST previous_choice = parameter->ambig[correct_choice];
+						internal_error("More than one valid alternative '%s' vs '%s'", 
+								ast_print_node_type(ASTType(previous_choice)),
+								ast_print_node_type(ASTType(current_choice)));
 					}
 				}
 			}
@@ -2044,6 +2209,13 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 		if (!check_for_type_specifier(type_specifier, st))
 		{
 			return 0;
+		}
+
+		AST default_arg = ASTSon2(parameter);
+
+		if (default_arg != NULL)
+		{
+			check_for_expression(default_arg, st);
 		}
 	}
 
@@ -2101,6 +2273,12 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st)
 	{
 		choose_option(parameter_declaration, current_choice);
 	}
+}
+
+// Convencience function name
+void solve_ambiguous_type_specifier_seq(AST type_spec_seq, scope_t* st)
+{
+	solve_ambiguous_decl_specifier_seq(type_spec_seq, st);
 }
 
 void solve_ambiguous_decl_specifier_seq(AST type_spec_seq, scope_t* st)
@@ -2279,6 +2457,50 @@ void solve_ambiguous_type_specifier(AST ambig_type, scope_t* st)
 	else
 	{
 		choose_option(ambig_type, typeof_choice);
+	}
+}
+
+void solve_ambiguous_expression_list(AST expression_list, scope_t* st)
+{
+	int correct_choice = -1;
+	int i;
+	char result = 1;
+	for (i = 0; i < expression_list->num_ambig; i++)
+	{
+		AST current_expression_list = expression_list->ambig[i];
+		AST iter;
+
+		for_each_element(current_expression_list, iter)
+		{
+			AST current_expression = ASTSon1(iter);
+
+			result &= check_for_expression(current_expression, st);
+		}
+
+		if (result)
+		{
+			if (correct_choice < 0)
+			{
+				correct_choice = i;
+			}
+			else
+			{
+				AST previous_choice = expression_list->ambig[correct_choice];
+				AST current_choice = expression_list->ambig[i];
+				internal_error("More than one valid alternative '%s' vs '%s'", 
+						ast_print_node_type(ASTType(previous_choice)),
+						ast_print_node_type(ASTType(current_choice)));
+			}
+		}
+	}
+
+	if (correct_choice < 0)
+	{
+		internal_error("Ambiguity not solved", 0);
+	}
+	else
+	{
+		choose_option(expression_list, correct_choice);
 	}
 }
 

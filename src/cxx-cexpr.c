@@ -650,6 +650,43 @@ static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* s
 	}
 }
 
+static literal_value_t evaluate_initializer_clause(AST initializer_clause, scope_t* st)
+{
+	switch (ASTType(initializer_clause))
+	{
+		case AST_INITIALIZER_EXPR :
+			{
+				AST expression = ASTSon0(initializer_clause);
+				return evaluate_constant_expression(expression, st);
+			}
+		default :
+			{
+				internal_error("Unexpected node '%s' while evaluating initializer clause\n", 
+						ast_print_node_type(ASTType(initializer_clause)));
+			}
+	}
+}
+
+static literal_value_t evaluate_initializer(AST initializer, scope_t* st)
+{
+	switch (ASTType(initializer))
+	{
+		case AST_CONSTANT_INITIALIZER :
+			{
+				AST expression = ASTSon0(initializer);
+				return evaluate_constant_expression(expression, st);
+				break;
+			}
+		case AST_INITIALIZER :
+			{
+				AST initializer_clause = ASTSon0(initializer);
+				return evaluate_initializer_clause(initializer_clause, st);
+			}
+		default :
+			internal_error("Unexpected node '%s' while evaluating initializer\n", ast_print_node_type(ASTType(initializer)));
+	}
+}
+
 static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 {
 	scope_entry_list_t* result = query_id_expression_flags(st, symbol, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION);
@@ -695,7 +732,7 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 		internal_error("This symbol does not have a value", 0);
 	}
 
-	return evaluate_constant_expression(result->entry->expression_value, st);
+	return evaluate_initializer(result->entry->expression_value, st);
 }
 
 literal_value_t literal_value_zero()

@@ -11,6 +11,7 @@
 #include "cxx-instantiation.h"
 #include "cxx-prettyprint.h"
 #include "cxx-cexpr.h"
+#include "cxx-ambiguity.h"
 #include "hash.h"
 
 static scope_t* new_scope(void)
@@ -331,21 +332,34 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 						}
 
 						// We need to instantiate it
-						if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-								&& !entry->type_information->type->from_instantiation)
+						if (!BITMAP_TEST(lookup_flags, LF_EXPRESSION))
 						{
-							// Instantiation happenning here
-							fprintf(stderr, "Instantiation of '%s' within qualified name lookup\n", entry->symbol_name);
-							scope_entry_list_t* candidates = query_in_symbols_of_scope(entry->scope, entry->symbol_name);
+							if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
+									&& !entry->type_information->type->from_instantiation)
+							{
+								// Instantiation happenning here
+								fprintf(stderr, "Instantiation of '%s' within qualified name lookup\n", entry->symbol_name);
+								scope_entry_list_t* candidates = query_in_symbols_of_scope(entry->scope, entry->symbol_name);
 
-							candidates = filter_entry_from_list(candidates, entry);
+								candidates = filter_entry_from_list(candidates, entry);
 
-							template_argument_list_t* current_template_arguments = entry->type_information->type->template_arguments;
+								template_argument_list_t* current_template_arguments = entry->type_information->type->template_arguments;
 
-							matching_pair_t* matched_template = solve_template(candidates,
-									current_template_arguments, entry->scope, 0);
+								matching_pair_t* matched_template = solve_template(candidates,
+										current_template_arguments, entry->scope, 0);
 
-							instantiate_template_in_symbol(entry, matched_template, current_template_arguments, entry->scope);
+								instantiate_template_in_symbol(entry, matched_template, current_template_arguments, entry->scope);
+							}
+						}
+						else
+						{
+							if ((entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
+									|| entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
+									&& !entry->type_information->type->from_instantiation)
+							{
+								*is_dependent = 1;
+								return NULL;
+							}
 						}
 					}
 
@@ -585,13 +599,13 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(symbol));
 	}
 
-	enum cxx_symbol_kind filter_template_classes[3] = {
+	enum cxx_symbol_kind filter_templates[3] = {
 		SK_TEMPLATE_PRIMARY_CLASS, 
 		SK_TEMPLATE_SPECIALIZED_CLASS,
 		SK_TEMPLATE_FUNCTION
 	};
 
-	entry_list = filter_symbol_kind_set(entry_list, 3, filter_template_classes);
+	entry_list = filter_symbol_kind_set(entry_list, 3, filter_templates);
 
 	if (entry_list == NULL)
 	{
@@ -613,6 +627,37 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		solve_possibly_ambiguous_template_id(template_id, sc);
 
 		return template_functions;
+	}
+	
+	// Now readjust the scope to really find the templates and not just the
+	// injected class name
+	lookup_scope = entry_list->entry->scope;
+	if (unqualified_lookup == FULL_UNQUALIFIED_LOOKUP)
+	{
+		entry_list = query_unqualified_name(lookup_scope, ASTText(symbol));
+	}
+	else
+	{
+		entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(symbol));
+	}
+
+	enum cxx_symbol_kind filter_template_classes[2] = {
+		SK_TEMPLATE_PRIMARY_CLASS, 
+		SK_TEMPLATE_SPECIALIZED_CLASS,
+	};
+
+	entry_list = filter_symbol_kind_set(entry_list, 2, filter_template_classes);
+
+	if (entry_list == NULL)
+	{
+		if (BITMAP_TEST(lookup_flags, LF_NO_FAIL))
+		{
+			return NULL;
+		}
+		else
+		{
+			internal_error("Template not found! (line=%d)\n", ASTLine(template_id));
+		}
 	}
 
 	template_argument_list_t* current_template_arguments = NULL;
@@ -874,6 +919,8 @@ scope_entry_list_t* query_id_expression_flags(scope_t* sc, AST id_expr,
 			{
 				// An unqualified template_id "identifier<stuff>"
 				AST symbol = ASTSon0(id_expr);
+
+				solve_possibly_ambiguous_template_id(id_expr, sc);
 
 				scope_entry_list_t* result = query_unqualified_name(sc, ASTText(symbol));
 

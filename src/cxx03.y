@@ -3901,46 +3901,40 @@ type_parameter : CLASS
 
 explicit_instantiation : TEMPLATE decl_specifier_seq declarator ';'
 {
-	AST simple_decl = ASTMake2(AST_SIMPLE_DECLARATION, $2, ASTListLeaf($3), ASTLine($2), NULL);
-
-	$$ = ASTMake1(AST_EXPLICIT_INSTANTIATION, simple_decl, $1.token_line, NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, NULL, $2, $3, $1.token_line, NULL);
 }
 | TEMPLATE decl_specifier_seq ';'
 {
-	AST simple_decl = ASTMake2(AST_SIMPLE_DECLARATION, $2, NULL, ASTLine($2), NULL);
-
-	$$ = ASTMake1(AST_EXPLICIT_INSTANTIATION, simple_decl, $1.token_line, NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, NULL, $2, NULL, $1.token_line, NULL);
 }
 | TEMPLATE declarator ';'
 {
-	AST simple_decl = ASTMake2(AST_SIMPLE_DECLARATION, NULL, ASTListLeaf($2), ASTLine($2), NULL);
-
-	$$ = ASTMake1(AST_EXPLICIT_INSTANTIATION, simple_decl, $1.token_line, NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, NULL, NULL, $2, $1.token_line, NULL);
 }
 // GNU Extensions
 | storage_class_specifier TEMPLATE decl_specifier_seq declarator ';'
 {
-	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, $3, $4, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, $1, $3, $4, ASTLine($1), NULL);
 }
 | storage_class_specifier TEMPLATE decl_specifier_seq ';'
 {
-	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, $3, NULL, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, $1, $3, NULL, ASTLine($1), NULL);
 }
 | storage_class_specifier TEMPLATE declarator ';'
 {
-	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, NULL, $3, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, $1, NULL, $3, ASTLine($1), NULL);
 }
 | function_specifier TEMPLATE decl_specifier_seq declarator ';'
 {
-	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, $3, $4, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, $1, $3, $4, ASTLine($1), NULL);
 }
 | function_specifier TEMPLATE decl_specifier_seq ';'
 {
-	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, $3, NULL, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, $1, $3, NULL, ASTLine($1), NULL);
 }
 | function_specifier TEMPLATE declarator ';'
 {
-	$$ = ASTMake3(AST_GCC_EXPLICIT_INSTANTIATION, $1, NULL, $3, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_EXPLICIT_INSTANTIATION, $1, NULL, $3, ASTLine($1), NULL);
 }
 ;
 

@@ -80,6 +80,11 @@ static void print_scope_entry_list(scope_entry_list_t* entry_list, scope_t* st, 
 {
 	while (entry_list != NULL)
 	{
+		if (entry_list->entry->do_not_print)
+		{
+			entry_list = entry_list->next;
+			continue;
+		}
 		print_scope_entry(entry_list->entry, st, global_indent);
 
 		if (entry_list->entry->related_scope != NULL)
