@@ -2191,7 +2191,8 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 			}
 		}
 
-		if (ASTType(parameter) != AST_PARAMETER_DECL)
+		if (ASTType(parameter) != AST_PARAMETER_DECL
+                && ASTType(parameter) != AST_GCC_PARAMETER_DECL)
 		{
 			internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(parameter)));
 		}

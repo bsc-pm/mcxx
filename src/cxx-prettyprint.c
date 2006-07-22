@@ -159,6 +159,7 @@ HANDLER_PROTOTYPE(gcc_builtin_va_arg_handler);
 HANDLER_PROTOTYPE(gcc_postfix_expression);
 HANDLER_PROTOTYPE(gcc_conditional_expression);
 HANDLER_PROTOTYPE(gcc_extension_preffix_handler);
+HANDLER_PROTOTYPE(gcc_parameter_decl_handler);
 
 prettyprint_entry_t handlers_list[] =
 {
@@ -483,6 +484,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_GCC_POSTFIX_EXPRESSION, gcc_postfix_expression, NULL),
 	NODE_HANDLER(AST_GCC_ALIGNOF_TYPE, gcc_alignof_type_handler, NULL),
 	NODE_HANDLER(AST_GCC_CONDITIONAL_EXPRESSION, gcc_conditional_expression, NULL),
+	NODE_HANDLER(AST_GCC_PARAMETER_DECL, gcc_parameter_decl_handler, NULL),
 };
 
 static void prettyprint_level(FILE* f, AST a, int level);
@@ -2462,4 +2464,24 @@ static void gcc_extension_preffix_handler(FILE* f, AST a, int level)
 	fprintf(f, "__extension__\n");
 
 	prettyprint_level(f, ASTSon0(a), level);
+}
+
+static void gcc_parameter_decl_handler(FILE* f, AST a, int level)
+{
+	prettyprint_level(f, ASTSon0(a), level);
+
+	if (ASTSon1(a) != NULL)
+	{
+		fprintf(f, " ");
+		prettyprint_level(f, ASTSon1(a), level);
+	}
+
+    fprintf(f, " ");
+    prettyprint_level(f, ASTSon3(a), level);
+	
+	if (ASTSon2(a) != NULL)
+	{
+		fprintf(f, " = ");
+		prettyprint_level(f, ASTSon2(a), level);
+	}
 }

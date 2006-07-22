@@ -3011,6 +3011,7 @@ static void build_scope_template_parameter(AST a, scope_t* st,
 {
 	switch (ASTType(a))
 	{
+		case AST_GCC_PARAMETER_DECL :
 		case AST_PARAMETER_DECL :
 			build_scope_nontype_template_parameter(a, st, template_parameters, num_parameter, decl_context);
 			break;

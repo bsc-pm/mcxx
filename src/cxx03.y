@@ -1806,6 +1806,23 @@ parameter_declaration : decl_specifier_seq declarator
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, $4, ASTLine($1), NULL);
 }
+// GCC Extension
+| decl_specifier_seq declarator attributes
+{
+	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, NULL, $3, ASTLine($1), NULL);
+}
+| decl_specifier_seq declarator attributes '=' assignment_expression 
+{
+	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, $5, $3, ASTLine($1), NULL);
+}
+| decl_specifier_seq abstract_declarator attributes
+{
+	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, NULL, $3, ASTLine($1), NULL);
+}
+| decl_specifier_seq abstract_declarator attributes '=' assignment_expression
+{
+	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, $5, $3, ASTLine($1), NULL);
+}
 ;
 
 initializer : '=' initializer_clause
