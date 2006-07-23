@@ -1840,6 +1840,30 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 	return entry;
 }
 
+static void convert_tree_from_nested_name_to_qualified_id(AST tree, 
+        AST* nested_name_spec, 
+        AST* unqualified_id)
+{
+    *nested_name_spec = duplicate_ast(tree);
+
+    AST iter = *nested_name_spec;
+    while (ASTSon1(iter) != NULL)
+    {
+        iter = ASTSon1(iter);
+    }
+
+    if (iter == *nested_name_spec)
+    {
+        *nested_name_spec = NULL;
+    }
+    else
+    {
+        AST previous_nest = ASTParent(iter);
+        ASTSon1(previous_nest) = NULL;
+    }
+    *unqualified_id = ASTSon0(iter);
+}
+
 /*
  * This functions converts a type "T" to a "pointer to T"
  */
@@ -1865,16 +1889,21 @@ static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_
 				(*declarator_type)->kind = TK_POINTER_TO_MEMBER;
 
 				scope_entry_list_t* entry_list = NULL;
-				char is_dependent = 0;
-				query_nested_name_spec(st, ASTSon0(pointer_tree), ASTSon1(pointer_tree), &entry_list, &is_dependent);
+
+                AST global_op = ASTSon0(pointer_tree);
+                AST nested_name_spec = NULL;
+                AST unqualified_id = NULL;
+                convert_tree_from_nested_name_to_qualified_id(ASTSon1(pointer_tree), &nested_name_spec, &unqualified_id);
+
+                entry_list = query_nested_name(st, global_op, nested_name_spec,
+                        unqualified_id, FULL_UNQUALIFIED_LOOKUP);
 
 				if (entry_list != NULL)
 				{
-					(*declarator_type)->pointer->pointee_class = entry_list->entry;
+                    (*declarator_type)->pointer->pointee_class = entry_list->entry;
 				}
 				else
 				{
-					// Ok, this might be a type template parameter or template template parameter
 				}
 			}
 			// (*declarator_type)->pointer->cv_qualifier = compute_cv_qualifier(ASTSon2(pointer_tree));
@@ -4171,6 +4200,11 @@ void build_scope_template_arguments(AST class_head_id,
 		scope_t* template_scope,         // Arguments that are expressions and might involve template symbols
 		template_argument_list_t** template_arguments)
 {
+
+    fprintf(stderr, "Building scope information for '");
+    prettyprint(stderr, class_head_id);
+    fprintf(stderr, "' template\n");
+
 	AST list, iter;
 	*template_arguments = GC_CALLOC(sizeof(1), sizeof(*(*template_arguments)));
 
@@ -4291,58 +4325,61 @@ void build_scope_template_arguments(AST class_head_id,
 
 		Iterator *it;
 
-		it = (Iterator*) hash_iterator_create(curr_template_scope->hash);
-		for ( iterator_first(it); 
-				!iterator_finished(it); 
-				iterator_next(it))
-		{
-			scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
-			scope_entry_t* entry = entry_list->entry;
+        if (curr_template_scope != NULL)
+        {
+            it = (Iterator*) hash_iterator_create(curr_template_scope->hash);
+            for ( iterator_first(it); 
+                    !iterator_finished(it); 
+                    iterator_next(it))
+            {
+                scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
+                scope_entry_t* entry = entry_list->entry;
 
-			switch (entry->kind)
-			{
-				case SK_TEMPLATE_TYPE_PARAMETER :
-				case SK_TEMPLATE_TEMPLATE_PARAMETER :
-					{
-						int parameter_num = entry->type_information->type->template_parameter_num;
+                switch (entry->kind)
+                {
+                    case SK_TEMPLATE_TYPE_PARAMETER :
+                    case SK_TEMPLATE_TEMPLATE_PARAMETER :
+                        {
+                            int parameter_num = entry->type_information->type->template_parameter_num;
 
-						if (parameter_num < num_arguments)
-						{
-							fprintf(stderr, "Replacing type/template template parameter '%s'\n", entry->symbol_name);
-							scope_entry_t* replaced_symbol = new_symbol(new_template_args_scope, entry->symbol_name);
-							replaced_symbol->kind = SK_TYPEDEF;
+                            if (parameter_num < num_arguments)
+                            {
+                                fprintf(stderr, "Replacing type/template template parameter '%s'\n", entry->symbol_name);
+                                scope_entry_t* replaced_symbol = new_symbol(new_template_args_scope, entry->symbol_name);
+                                replaced_symbol->kind = SK_TYPEDEF;
 
-							replaced_symbol->type_information = GC_CALLOC(1, sizeof(*(replaced_symbol->type_information)));
-							replaced_symbol->type_information->kind = TK_DIRECT;
+                                replaced_symbol->type_information = GC_CALLOC(1, sizeof(*(replaced_symbol->type_information)));
+                                replaced_symbol->type_information->kind = TK_DIRECT;
 
-							replaced_symbol->type_information->type = GC_CALLOC(1, sizeof(*(replaced_symbol->type_information->type)));
-							replaced_symbol->type_information->type->kind = STK_TYPEDEF;
-							replaced_symbol->type_information->type->aliased_type = 
-								(*template_arguments)->argument_list[parameter_num]->type;
-						}
+                                replaced_symbol->type_information->type = GC_CALLOC(1, sizeof(*(replaced_symbol->type_information->type)));
+                                replaced_symbol->type_information->type->kind = STK_TYPEDEF;
+                                replaced_symbol->type_information->type->aliased_type = 
+                                    (*template_arguments)->argument_list[parameter_num]->type;
+                            }
 
-						break;
-					}
-				case SK_TEMPLATE_PARAMETER : 
-					{
-						int parameter_num = entry->type_information->type->template_parameter_num;
+                            break;
+                        }
+                    case SK_TEMPLATE_PARAMETER : 
+                        {
+                            int parameter_num = entry->type_information->type->template_parameter_num;
 
-						if (parameter_num < num_arguments)
-						{
-							fprintf(stderr, "Replacing nontype template parameter '%s'\n", entry->symbol_name);
-							scope_entry_t* replaced_symbol = new_symbol(new_template_args_scope, entry->symbol_name);
-							replaced_symbol->kind = SK_VARIABLE;
+                            if (parameter_num < num_arguments)
+                            {
+                                fprintf(stderr, "Replacing nontype template parameter '%s'\n", entry->symbol_name);
+                                scope_entry_t* replaced_symbol = new_symbol(new_template_args_scope, entry->symbol_name);
+                                replaced_symbol->kind = SK_VARIABLE;
 
-							*(replaced_symbol->type_information) = *(primary_template->template_parameter_info[parameter_num]->type_info);
+                                *(replaced_symbol->type_information) = *(primary_template->template_parameter_info[parameter_num]->type_info);
 
-							replaced_symbol->expression_value = primary_template->template_parameter_info[parameter_num]->default_tree;
-						}
-						break;
-					}
-				default :
-					internal_error("Unexpected node type '%s'\n", entry->kind);
-			}
-		}
+                                replaced_symbol->expression_value = primary_template->template_parameter_info[parameter_num]->default_tree;
+                            }
+                            break;
+                        }
+                    default :
+                        internal_error("Unexpected node type '%s'\n", entry->kind);
+                }
+            }
+        }
 
 		// Now complete the types
 		int k;
@@ -4354,76 +4391,82 @@ void build_scope_template_arguments(AST class_head_id,
 
 			template_argument_t* curr_template_arg = GC_CALLOC(1, sizeof(*curr_template_arg));
 
-			switch (curr_template_parameter->kind)
-			{
-				case TPK_TYPE :
-				case TPK_TEMPLATE :
-					{
-						scope_t* template_argument_scope = curr_template_parameter->default_argument_scope->contained_in;
+            // Something is wrong here, maybe due to an ambiguity
+            if (curr_template_parameter->default_tree == NULL
+                    || curr_template_parameter->default_argument_scope == NULL)
+            {
+                fprintf(stderr, "Not completing because of lacking information for parameter #%d\n", k);
+            }
+            else
+            {
+                switch (curr_template_parameter->kind)
+                {
+                    case TPK_TYPE :
+                    case TPK_TEMPLATE :
+                        {
+                            scope_t* template_argument_scope = curr_template_parameter->default_argument_scope->contained_in;
 
-						new_template_args_scope->template_scope = template_argument_scope->template_scope;
-						template_argument_scope->template_scope = new_template_args_scope;
+                            new_template_args_scope->template_scope = template_argument_scope->template_scope;
+                            template_argument_scope->template_scope = new_template_args_scope;
 
-						curr_template_arg->kind = TAK_TYPE;
-						curr_template_arg->scope = copy_scope(template_argument_scope);
-						
-						AST type_template_argument = curr_template_parameter->default_tree;
-						AST type_specifier_seq = ASTSon0(type_template_argument);
-						AST abstract_decl = ASTSon1(type_template_argument);
+                            curr_template_arg->kind = TAK_TYPE;
+                            curr_template_arg->scope = copy_scope(template_argument_scope);
 
-						// A type_specifier_seq is essentially a subset of a
-						// declarator_specifier_seq so we can reuse existing functions
-						type_t* type_info;
-						gather_decl_spec_t gather_info;
-						memset(&gather_info, 0, sizeof(gather_info));
+                            AST type_template_argument = curr_template_parameter->default_tree;
+                            AST type_specifier_seq = ASTSon0(type_template_argument);
+                            AST abstract_decl = ASTSon1(type_template_argument);
 
-						build_scope_decl_specifier_seq(type_specifier_seq, template_argument_scope, &gather_info, &type_info,
-								default_decl_context);
+                            // A type_specifier_seq is essentially a subset of a
+                            // declarator_specifier_seq so we can reuse existing functions
+                            type_t* type_info;
+                            gather_decl_spec_t gather_info;
+                            memset(&gather_info, 0, sizeof(gather_info));
 
-						type_t* declarator_type;
-						if (abstract_decl != NULL)
-						{
-							build_scope_declarator(abstract_decl, template_argument_scope, &gather_info, type_info, &declarator_type,
-									default_decl_context);
-						}
-						else
-						{
-							declarator_type = type_info;
-						}
+                            build_scope_decl_specifier_seq(type_specifier_seq, template_argument_scope, &gather_info, &type_info,
+                                    default_decl_context);
 
-						curr_template_arg->type = declarator_type;
+                            type_t* declarator_type;
+                            if (abstract_decl != NULL)
+                            {
+                                build_scope_declarator(abstract_decl, template_argument_scope, &gather_info, type_info, &declarator_type,
+                                        default_decl_context);
+                            }
+                            else
+                            {
+                                declarator_type = type_info;
+                            }
 
-						template_argument_scope->template_scope = new_template_args_scope->template_scope;
-						new_template_args_scope->template_scope = NULL;
-						break;
-					}
-				case TPK_NONTYPE :
-					{
-						if (curr_template_parameter->default_tree == NULL)
-						{
-							internal_error("Missing default expression for nontype template parameter", 0);
-						}
-						scope_t* template_argument_scope = curr_template_parameter->default_argument_scope->contained_in;
+                            curr_template_arg->type = declarator_type;
 
-						new_template_args_scope->template_scope = template_argument_scope->template_scope;
-						template_argument_scope->template_scope = new_template_args_scope;
+                            template_argument_scope->template_scope = new_template_args_scope->template_scope;
+                            new_template_args_scope->template_scope = NULL;
+                            break;
+                        }
+                    case TPK_NONTYPE :
+                        {
+                            scope_t* template_argument_scope = curr_template_parameter->default_argument_scope->contained_in;
 
-						curr_template_arg->kind = TAK_NONTYPE;
-						curr_template_arg->argument_tree = curr_template_parameter->default_tree;
-						curr_template_arg->scope = copy_scope(template_argument_scope);
+                            new_template_args_scope->template_scope = template_argument_scope->template_scope;
+                            template_argument_scope->template_scope = new_template_args_scope;
 
-						template_argument_scope->template_scope = new_template_args_scope->template_scope;
-						new_template_args_scope->template_scope = NULL;
-						break;
-					}
-				default:
-					internal_error("Unknown template parameter kind %d\n", curr_template_parameter->kind);
-			}
+                            curr_template_arg->kind = TAK_NONTYPE;
+                            curr_template_arg->argument_tree = curr_template_parameter->default_tree;
+                            curr_template_arg->scope = copy_scope(template_argument_scope);
+
+                            template_argument_scope->template_scope = new_template_args_scope->template_scope;
+                            new_template_args_scope->template_scope = NULL;
+                            break;
+                        }
+                    default:
+                        internal_error("Unknown template parameter kind %d\n", curr_template_parameter->kind);
+                }
 
 			// Was given implicitly
 			curr_template_arg->implicit = 1;
 
 			P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, curr_template_arg);
+            }
+
 		}
 
 		primary_template->template_parameter_info[num_arguments]->default_argument_scope = curr_template_scope;

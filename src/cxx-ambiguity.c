@@ -353,7 +353,7 @@ void solve_ambiguous_declarator(AST a, scope_t* st)
 						&& (m = select_node_type(a, AST_DECLARATOR_ID_EXPR)) != -1)
 				{
 					AST operator_function_id1 = look_for_node_type_within_ambig(a, AST_OPERATOR_FUNCTION_ID, n);
-					AST operator_function_id2 = look_for_node_type_within_ambig(a, AST_OPERATOR_FUNCTION_ID, m);
+                    AST operator_function_id2 = look_for_node_type_within_ambig(a, AST_OPERATOR_FUNCTION_ID, m);
 
 					if ((operator_function_id1 != NULL)
 							&& (operator_function_id2 != NULL))
@@ -1054,6 +1054,12 @@ char check_for_expression(AST expression, scope_t* st)
 				// This should yield a value, should not ?
 				return 1;
 			}
+        case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
+            {
+				// This should yield a value, should not ?
+                solve_possibly_ambiguous_template_id(expression, st);
+                return 1;
+            }
 		case AST_CONVERSION_FUNCTION_ID :
 			{
 				// This should yield a value, should not ?
@@ -1707,9 +1713,10 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st)
 
 void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st)
 {
-	if (ASTType(type_name) != AST_TEMPLATE_ID)
+	if (ASTType(type_name) != AST_TEMPLATE_ID
+            && ASTType(type_name) != AST_OPERATOR_FUNCTION_ID_TEMPLATE)
 	{
-		internal_error("Unexpected node '%s' only AST_TEMPLATE_ID allowed", 0);
+		internal_error("Unexpected node '%s' only AST_TEMPLATE_ID or AST_OPERATOR_FUNCTION_ID_TEMPLATE allowed", 0);
 	}
 
 	// For every argument solve its possible ambiguities

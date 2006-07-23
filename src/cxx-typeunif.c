@@ -107,7 +107,9 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 			}
 		case TK_POINTER_TO_MEMBER :
 			// TODO - What to do here ?
-			internal_error("How to unificate a pointer to member?", 0);
+            return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, st, unif_set)
+                && unificate_two_types(t1->pointer->pointee_class->type_information,
+                        t2->pointer->pointee_class->type_information, st, unif_set);
 			break;
 		case TK_ARRAY :
 			{
