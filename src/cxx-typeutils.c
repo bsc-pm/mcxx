@@ -84,6 +84,8 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st, enum cv_equivalence_t
 			internal_error("Unknown type kind (%d)\n", t1->kind);
 	}
 
+    result &= equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier);
+
 	if (cv_equiv == CVE_IGNORE_OUTERMOST)
 	{
 		*(get_outermost_cv_qualifier(t1)) = qualif_t1;

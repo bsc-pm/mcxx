@@ -96,7 +96,8 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 		case TK_DIRECT :
 			{
 				// If they were unificable they would have been unified before
-				return equivalent_simple_types(t1->type, t2->type, st);
+                return equivalent_types(t1, t2, st, CVE_CONSIDER);
+				// return equivalent_simple_types(t1->type, t2->type, st);
 				break;
 			}
 		case TK_REFERENCE :

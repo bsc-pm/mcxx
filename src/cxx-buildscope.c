@@ -1071,8 +1071,17 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 	}
 	else
 	{
-		simple_type_info->type->kind = STK_USER_DEFINED;
-		simple_type_info->type->user_defined_type = result->entry;
+        scope_entry_t* entry = result->entry;
+
+        if (entry->kind != SK_TYPEDEF)
+        {
+            simple_type_info->type->kind = STK_USER_DEFINED;
+            simple_type_info->type->user_defined_type = result->entry;
+        }
+        else
+        {
+            *simple_type_info = *entry->type_information->type->aliased_type;
+        }
 	}
 
 	// Remove additional ambiguities that might appear in things of the form 
