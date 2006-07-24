@@ -1608,51 +1608,49 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 		class_entry->defined = 1;
 	}
 
-	// Now reinstantiate existing specializations coming from previous
-	// instantiations (not from explicit declarations within the code)
-	if (class_entry != NULL 
-			&& class_entry->symbol_name != NULL
-			&& BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE)
-			&& !BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
-	{
-		fprintf(stderr, "Reinstantiating previous references to this template\n");
-		scope_entry_list_t* existing_templates = query_nested_name_flags(st, NULL, 
-					class_head_nested_name, class_head_identifier,
-					NOFULL_UNQUALIFIED_LOOKUP, LF_NONE);
+	// if (class_entry != NULL 
+	// 		&& class_entry->symbol_name != NULL
+	// 		&& BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE)
+	// 		&& !BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
+	// {
+	// 	fprintf(stderr, "Reinstantiating previous references to this template\n");
+	// 	scope_entry_list_t* existing_templates = query_nested_name_flags(st, NULL, 
+	// 				class_head_nested_name, class_head_identifier,
+	// 				NOFULL_UNQUALIFIED_LOOKUP, LF_NONE);
 
-		enum cxx_symbol_kind template_symbol[2] = {SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
-		
-		existing_templates = filter_symbol_kind_set(existing_templates, 2, template_symbol);
-		
-		// Filter current type if it is already specialized
-		if (class_entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-		{
-			existing_templates = filter_entry_from_list(existing_templates, class_entry);
-		}
+	// 	enum cxx_symbol_kind template_symbol[2] = {SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
+	// 	
+	// 	existing_templates = filter_symbol_kind_set(existing_templates, 2, template_symbol);
+	// 	
+	// 	// Filter current type if it is already specialized
+	// 	if (class_entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+	// 	{
+	// 		existing_templates = filter_entry_from_list(existing_templates, class_entry);
+	// 	}
 
-		scope_entry_list_t* existing_specializations = filter_symbol_kind(existing_templates, SK_TEMPLATE_SPECIALIZED_CLASS);
+	// 	scope_entry_list_t* existing_specializations = filter_symbol_kind(existing_templates, SK_TEMPLATE_SPECIALIZED_CLASS);
 
-		scope_entry_list_t* iter = existing_specializations;
+	// 	scope_entry_list_t* iter = existing_specializations;
 
-		while (iter != NULL)
-		{
-			scope_entry_t* entry = iter->entry;
+	// 	while (iter != NULL)
+	// 	{
+	// 		scope_entry_t* entry = iter->entry;
 
-			// Only things created from instantiations must be considered here
-			if (entry->type_information->type->from_instantiation)
-			{
-				// I'm not a candidate
-				scope_entry_list_t* candidates = filter_entry_from_list(existing_templates, entry);
-				// instantiate_template_in_symbol(entry, 
-				matching_pair_t* matching_pair = solve_template(candidates, entry->type_information->type->template_arguments, 
-						st, /* give_exact_match = */ 0);
+	// 		// Only things created from instantiations must be considered here
+	// 		if (entry->type_information->type->from_instantiation)
+	// 		{
+	// 			// I'm not a candidate
+	// 			scope_entry_list_t* candidates = filter_entry_from_list(existing_templates, entry);
+	// 			// instantiate_template_in_symbol(entry, 
+	// 			matching_pair_t* matching_pair = solve_template(candidates, entry->type_information->type->template_arguments, 
+	// 					st, /* give_exact_match = */ 0);
 
-				instantiate_template_in_symbol(entry, matching_pair, entry->type_information->type->template_arguments, st);
-			}
+	// 			instantiate_template_in_symbol(entry, matching_pair, entry->type_information->type->template_arguments, st);
+	// 		}
 
-			iter = iter->next;
-		}
-	}
+	// 		iter = iter->next;
+	// 	}
+	// }
 }
 
 void build_scope_member_specification(scope_t* inner_scope, AST member_specification_tree, 
@@ -3091,7 +3089,6 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 	parm_template_scope->contained_in = st;
 	build_scope_template_parameter_list(ASTSon0(a), parm_template_scope, &parm_template_param_info, 
 			&parm_num_parameters, template_params_context);
-	parm_template_scope->contained_in = NULL;
 
 	// Now create a STK_CLASS
 	type_t* new_type = GC_CALLOC(1, sizeof(*new_type));
@@ -3100,6 +3097,7 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 	new_type->type->kind = STK_CLASS;
 	new_type->type->template_parameter_nesting = decl_context.template_nesting;
 	new_type->type->template_parameter_num = num_parameter;
+
 	
 	// Save the info
 	template_parameters->type_info = new_type;
@@ -3114,6 +3112,15 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 
 		new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
 		new_entry->type_information = new_type;
+
+		new_entry->template_parameter_info = parm_template_param_info;
+		new_entry->num_template_parameters = parm_num_parameters;
+
+		build_scope_template_arguments_for_primary_template(st, 
+			parm_template_scope, 
+			new_entry->template_parameter_info,
+			new_entry->num_template_parameters, 
+			&(new_entry->type_information->type->template_arguments));
 		
 		// And save its name
 		template_parameters->template_parameter_name = GC_STRDUP(name);
@@ -4152,6 +4159,7 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
 		switch (template_parameter->kind)
 		{
 			case TPK_TYPE :
+			case TPK_TEMPLATE :
 				{
 					template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
 
@@ -4238,10 +4246,20 @@ void build_scope_template_arguments(AST class_head_id,
 
 	scope_entry_list_t* templates_list = query_unqualified_name(primary_template_scope, ASTText(template_name));
 	
-	enum cxx_symbol_kind filter_template_classes[2] = {SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
-	templates_list = filter_symbol_kind_set(templates_list, 2, filter_template_classes);
+	enum cxx_symbol_kind filter_template_classes[3] = {
+		SK_TEMPLATE_PRIMARY_CLASS, 
+		SK_TEMPLATE_SPECIALIZED_CLASS, 
+		SK_TEMPLATE_TEMPLATE_PARAMETER
+	};
 
-	scope_entry_list_t* primary_template_list = filter_symbol_kind(templates_list, SK_TEMPLATE_PRIMARY_CLASS);
+	templates_list = filter_symbol_kind_set(templates_list, 3, filter_template_classes);
+
+	enum cxx_symbol_kind filter_primary_classes[2] = {
+		SK_TEMPLATE_PRIMARY_CLASS,
+		SK_TEMPLATE_TEMPLATE_PARAMETER
+	};
+
+	scope_entry_list_t* primary_template_list = filter_symbol_kind_set(templates_list, 2, filter_primary_classes);
 
 	if (primary_template_list == NULL)
 	{
@@ -4378,6 +4396,7 @@ void build_scope_template_arguments(AST class_head_id,
                                 scope_entry_t* replaced_symbol = new_symbol(new_template_args_scope, entry->symbol_name);
                                 replaced_symbol->kind = SK_VARIABLE;
 
+								replaced_symbol->type_information = GC_CALLOC(1, sizeof(*(replaced_symbol->type_information)));
                                 *(replaced_symbol->type_information) = *(primary_template->template_parameter_info[parameter_num]->type_info);
 
                                 replaced_symbol->expression_value = primary_template->template_parameter_info[parameter_num]->default_tree;

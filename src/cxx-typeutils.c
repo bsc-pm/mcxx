@@ -503,33 +503,45 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 				return 0;
 			}
 
-			t1_name = give_real_entry(t1_name);
-			t2_name = give_real_entry(t2_name);
 
-			if (t1_name->kind == SK_TEMPLATE_TYPE_PARAMETER
-					|| t1_name->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+			if (t1_name->kind == SK_NAMESPACE
+					&& t2_name->kind == SK_NAMESPACE)
 			{
-				// Compare template type parameters
-				if ((t1_name->type_information->type->template_parameter_num != 
-							t2_name->type_information->type->template_parameter_num)
-						|| (t1_name->type_information->type->template_parameter_nesting != 
-							t2_name->type_information->type->template_parameter_nesting))
-				{
-					return 0;
-				}
-				dependent_qualification = 1;
-			}
-			else
-			{
-				// They should be the same class or namespace
 				if (t1_name != t2_name)
 				{
 					return 0;
 				}
-
-				t1_scope = t1_name->related_scope;
-				t2_scope = t2_name->related_scope;
 			}
+			else
+			{
+				t1_name = give_real_entry(t1_name);
+				t2_name = give_real_entry(t2_name);
+
+				type_t* t1_type = t1_name->type_information;
+				type_t* t2_type = t2_name->type_information;
+
+				t1_type = advance_over_typedefs(t1_type);
+				t2_type = advance_over_typedefs(t2_type);
+
+				if (t1_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
+						&& t2_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
+				{
+					if (!equivalent_types(t1_type, t2_type, st, CVE_CONSIDER))
+					{
+						return 0;
+					}
+					dependent_qualification = 1;
+				}
+				else
+				{
+					if (t1_name != t2_name)
+					{
+						return 0;
+					}
+				}
+			}
+			t1_scope = t1_name->related_scope;
+			t2_scope = t2_name->related_scope;
 		}
 		else if (ASTType(t1_class_or_namespace) == AST_TEMPLATE_ID)
 		{
@@ -1828,7 +1840,11 @@ scope_entry_t* give_real_entry(scope_entry_t* entry)
 	scope_entry_t* result = entry;
 
 	type_t* t = entry->type_information;
-	t = advance_over_typedefs(t);
+
+	if (t != NULL)
+	{
+		t = advance_over_typedefs(t);
+	}
 
 	while (t != NULL 
 			&& t->kind == TK_DIRECT

@@ -264,6 +264,10 @@ typedef struct simple_type_tag {
 
 	// For instantiation purposes
 	char from_instantiation;
+
+	// Templates created for purposes of type calculation but not declarated by
+	// the user
+	char not_declarated;
 } simple_type_t;
 
 typedef struct parameter_info_tag

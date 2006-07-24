@@ -42,6 +42,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 			&& t1->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
 			|| user_defined_type != NULL )
 	{
+		type_t* original_t1 = t1;
 		if (user_defined_type != NULL)
 		{
 			t1 = user_defined_type;
@@ -51,18 +52,29 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 				t1->type->template_parameter_nesting);
 		if (previous_unif == NULL)
 		{
-			unification_item_t* unif_item = GC_CALLOC(1, sizeof(*unif_item));
+			// Check that t1 is less cv-qualified than t2
 
-			// This number will be the position of the argument
-			// within the specialization ! Not of the whole template
-			fprintf(stderr, "Unified parameter = %d (name=%s)\n", t1->type->template_parameter_num,
-					t1->type->template_parameter_name);
-			unif_item->parameter_num = t1->type->template_parameter_num;
-			unif_item->parameter_nesting = t1->type->template_parameter_nesting;
-			unif_item->parameter_name = t1->type->template_parameter_name;
-			unif_item->value = t2;
+			if ((original_t1->cv_qualifier | t2->cv_qualifier) == (t2->cv_qualifier))
+			{
+				unification_item_t* unif_item = GC_CALLOC(1, sizeof(*unif_item));
 
-			P_LIST_ADD((*unif_set)->unif_list, (*unif_set)->num_elems, unif_item);
+				// This number will be the position of the argument
+				// within the specialization ! Not of the whole template
+				fprintf(stderr, "Unified parameter = %d (name=%s)\n", t1->type->template_parameter_num,
+						t1->type->template_parameter_name);
+				unif_item->parameter_num = t1->type->template_parameter_num;
+				unif_item->parameter_nesting = t1->type->template_parameter_nesting;
+				unif_item->parameter_name = t1->type->template_parameter_name;
+				unif_item->value = t2;
+
+				P_LIST_ADD((*unif_set)->unif_list, (*unif_set)->num_elems, unif_item);
+			}
+			else
+			{
+				// We cannot unify 'const X' with 'Y' (even if we can unify 'X' with 'const Y')
+				fprintf(stderr, "Unification parameter is more cv-qualified than the argument\n");
+				return 0;
+			}
 		}
 		else
 		{

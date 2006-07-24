@@ -13,7 +13,8 @@ char match_one_template(template_argument_list_t* arguments,
 		template_argument_list_t* specialized, scope_entry_t* specialized_entry, 
 		scope_t* st, unification_set_t* unif_set);
 
-static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, scope_t* st);
+static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, 
+		scope_t* st, char give_exact_match);
 
 matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, template_argument_list_t* arguments, scope_t* st, 
 		char give_exact_match)
@@ -26,7 +27,8 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
 	char seen_primary_template = 0;
 	while (iter != NULL && !seen_primary_template)
 	{
-		seen_primary_template |= (iter->entry->kind == SK_TEMPLATE_PRIMARY_CLASS);
+		seen_primary_template |= ((iter->entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
+				|| (iter->entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER));
 		iter = iter->next;
 	}
 
@@ -92,8 +94,9 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
 	}
 	else if (num_matching_set > 0)
 	{
-		fprintf(stderr, "More than one template can be selected, determining more specialized\n");
-		result = determine_more_specialized(num_matching_set, matching_set, st);
+		fprintf(stderr, "More than one template can be selected, determining more specialized (exact=%d)\n", give_exact_match);
+		result = determine_more_specialized(num_matching_set, matching_set, st,
+				give_exact_match);
 		fprintf(stderr, "More specialized determined result=%p\n", result->entry);
 	}
 
@@ -116,7 +119,8 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
 }
 
 // This function assumes that only one minimum will exist
-static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, scope_t* st)
+static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, 
+		scope_t* st, char give_exact_match)
 {
 	matching_pair_t* min = matching_set[0];
 
@@ -140,9 +144,12 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
 			min = current_entry;
 
 			unification_set_t* unification_set_check = GC_CALLOC(1, sizeof(*unification_set_check));
-			if (!match_one_template(current_args, min_args, min->entry, st, unification_set_check))
+			if (!give_exact_match)
 			{
-				internal_error("Ambiguous specialization instantiation\n", 0);
+				if (!match_one_template(current_args, min_args, min->entry, st, unification_set_check))
+				{
+					internal_error("Ambiguous specialization instantiation\n", 0);
+				}
 			}
 		}
 	}

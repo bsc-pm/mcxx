@@ -599,13 +599,14 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(symbol));
 	}
 
-	enum cxx_symbol_kind filter_templates[3] = {
+	enum cxx_symbol_kind filter_templates[4] = {
 		SK_TEMPLATE_PRIMARY_CLASS, 
 		SK_TEMPLATE_SPECIALIZED_CLASS,
-		SK_TEMPLATE_FUNCTION
+		SK_TEMPLATE_FUNCTION,
+		SK_TEMPLATE_TEMPLATE_PARAMETER
 	};
 
-	entry_list = filter_symbol_kind_set(entry_list, 3, filter_templates);
+	entry_list = filter_symbol_kind_set(entry_list, 4, filter_templates);
 
 	if (entry_list == NULL)
 	{
@@ -641,12 +642,13 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(symbol));
 	}
 
-	enum cxx_symbol_kind filter_template_classes[2] = {
+	enum cxx_symbol_kind filter_template_classes[3] = {
 		SK_TEMPLATE_PRIMARY_CLASS, 
 		SK_TEMPLATE_SPECIALIZED_CLASS,
+		SK_TEMPLATE_TEMPLATE_PARAMETER
 	};
 
-	entry_list = filter_symbol_kind_set(entry_list, 2, filter_template_classes);
+	entry_list = filter_symbol_kind_set(entry_list, 3, filter_template_classes);
 
 	if (entry_list == NULL)
 	{
@@ -663,7 +665,6 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 	template_argument_list_t* current_template_arguments = NULL;
 	// Note the scope being different here
 	build_scope_template_arguments(template_id, lookup_scope, sc, sc, &current_template_arguments);
-
 
 	// First try to match exactly an existing template
 	// because this is a parameterized template-id
@@ -733,7 +734,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 	fprintf(stderr, "-> Looking for exact match templates\n");
 
 	matching_pair_t* matched_template = solve_template(entry_list,
-			current_template_arguments, sc, 1);
+			current_template_arguments, sc, /* exact = */ 1);
 
 	if (matched_template != NULL)
 	{
@@ -741,8 +742,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 		// willing to instantiate
 		scope_entry_t* matched_entry = matched_template->entry;
 
-		if (!will_not_instantiate && 
-				!matched_entry->type_information->type->from_instantiation)
+		if (!will_not_instantiate 
+				&& !matched_entry->type_information->type->from_instantiation)
 		{
 			fprintf(stderr, "-> Instantiating something that was declared before but not instantiated\n");
 
@@ -769,74 +770,61 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
 	// If we are here there is no exact match thus we may have to instantiate
 	// the template
-	fprintf(stderr, "-> Solving the template without exact match\n");
-	matched_template = solve_template(entry_list, current_template_arguments, sc, 0);
-
-	if (matched_template == NULL)
-		return NULL;
-
+	
+	if (!will_not_instantiate)
 	{
-		int i;
-		fprintf(stderr, "=== Unification details for selected template %p\n", matched_template->entry);
+		fprintf(stderr, "-> Solving the template without exact match\n");
+		matched_template = solve_template(entry_list, current_template_arguments, sc, /* exact= */ 0);
 
-		for (i = 0; i < matched_template->unif_set->num_elems; i++)
+		if (matched_template == NULL)
 		{
-			unification_item_t* unif_item = matched_template->unif_set->unif_list[i];
-			fprintf(stderr, "Parameter num: %d || Parameter nesting: %d || Parameter name: %s <- ",
-					unif_item->parameter_num, unif_item->parameter_nesting, unif_item->parameter_name);
-			if (unif_item->value != NULL)
-			{
-				fprintf(stderr, "[type] ");
-				print_declarator(unif_item->value, sc);
-			}
-			else if (unif_item->expression != NULL)
-			{
-				fprintf(stderr, "[expr] ");
-				prettyprint(stderr, unif_item->expression);
-			}
-			else
-			{
-				fprintf(stderr, "(unknown)");
-			}
-			fprintf(stderr, "\n");
+
+			fprintf(stderr, "-> Nothing has matched, no template was selected\n");
+			return NULL;
 		}
-		fprintf(stderr, "=== End of unification details for selected template\n");
-	}
 
-
-	if (matched_template != NULL)
-	{
-		if (will_not_instantiate)
 		{
-			if (always_create_specialization || !seen_dependent_args)
-			{
-				fprintf(stderr, "-> Creating a fake holding type\n");
-				return create_list_from_entry(
-						create_holding_symbol_for_template(matched_template->entry, current_template_arguments, 
-							sc, ASTLine(template_id))
-						);
-			}
-			else
-			{
-				fprintf(stderr, "-> Not creating a fake holding type but returning because of dependent arguments\n");
-				return create_list_from_entry(matched_template->entry);
-			}
-		}
-		else
-		{
-			fprintf(stderr, "-> Instantiating the template\n");
-			// We have to instantiate the template
-			instantiate_template(matched_template, current_template_arguments, sc, ASTLine(template_id));
+			int i;
+			fprintf(stderr, "=== Unification details for selected template %p\n", matched_template->entry);
 
-			// And now restart this function but now we want an exact match
-			return query_template_id_internal(template_id, sc, lookup_scope, unqualified_lookup, 
-					lookup_flags & (~LF_INSTANTIATE));
+			for (i = 0; i < matched_template->unif_set->num_elems; i++)
+			{
+				unification_item_t* unif_item = matched_template->unif_set->unif_list[i];
+				fprintf(stderr, "Parameter num: %d || Parameter nesting: %d || Parameter name: %s <- ",
+						unif_item->parameter_num, unif_item->parameter_nesting, unif_item->parameter_name);
+				if (unif_item->value != NULL)
+				{
+					fprintf(stderr, "[type] ");
+					print_declarator(unif_item->value, sc);
+				}
+				else if (unif_item->expression != NULL)
+				{
+					fprintf(stderr, "[expr] ");
+					prettyprint(stderr, unif_item->expression);
+				}
+				else
+				{
+					fprintf(stderr, "(unknown)");
+				}
+				fprintf(stderr, "\n");
+			}
+			fprintf(stderr, "=== End of unification details for selected template\n");
 		}
+
+		fprintf(stderr, "-> Instantiating the template\n");
+		// We have to instantiate the template
+		instantiate_template(matched_template, current_template_arguments, sc, ASTLine(template_id));
+
+		// And now restart this function but now we want an exact match
+		return query_template_id_internal(template_id, sc, lookup_scope, unqualified_lookup, 
+				lookup_flags & (~LF_INSTANTIATE));
 	}
 	else
 	{
-		fprintf(stderr, "No template selected\n");
-		return NULL;
+		return create_list_from_entry(
+				create_holding_symbol_for_template(entry_list->entry, current_template_arguments,
+					sc, ASTLine(template_id))
+				);
 	}
 }
 
