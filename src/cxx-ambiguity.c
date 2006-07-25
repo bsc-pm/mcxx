@@ -478,7 +478,12 @@ static char check_for_init_declarator_list(AST init_declarator_list, scope_t* st
 					}
 					else
 					{
-						internal_error("More than one valid option", 0);
+						AST current_option = init_declarator->ambig[i];
+						AST previous_option = init_declarator->ambig[current_choice];
+
+						internal_error("More than one valid option '%s' vs '%s'", 
+								ast_print_node_type(ASTType(current_option)),
+								ast_print_node_type(ASTType(previous_option)));
 					}
 				}
 			}
@@ -586,6 +591,36 @@ static char check_for_simple_declaration(AST a, scope_t* st)
 		//
 		// is a declaration if "A" names a type. Otherwise this is not a valid
 		// simple declaration
+		
+		// Additional check. Ensure we are using the longest possible nested name seq
+		AST first_init_declarator = NULL;
+		AST list = ASTSon1(a);
+		AST iter;
+
+		if (list != NULL)
+		{
+
+			for_each_element(list, iter)
+			{
+				first_init_declarator = ASTSon1(iter);
+				break;
+			}
+
+			AST first_declarator;
+			if (ASTType(first_init_declarator) == AST_AMBIGUITY)
+			{
+				first_declarator = ASTSon0(first_init_declarator->ambig[0]);
+			}
+			else
+			{
+				first_declarator = ASTSon0(first_init_declarator);
+			}
+
+			if (!check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, first_declarator))
+			{
+				return 0;
+			}
+		}
 
 		AST type_spec = ASTSon1(decl_specifier_seq);
 
@@ -607,27 +642,6 @@ static char check_for_simple_declaration(AST a, scope_t* st)
 			}
 		}
 
-		// Additional check. Ensure we are using the longest possible nested name seq
-		AST first_init_declarator = NULL;
-		AST list = ASTSon1(a);
-		AST iter;
-
-		if (list != NULL)
-		{
-
-			for_each_element(list, iter)
-			{
-				first_init_declarator = ASTSon1(iter);
-				break;
-			}
-
-			AST first_declarator = ASTSon0(first_init_declarator);
-
-			if (!check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, first_declarator))
-			{
-				return 0;
-			}
-		}
 
 		// Additional check for this special case
 		// typedef int T;
@@ -2237,6 +2251,21 @@ static char check_for_declarator_rec(AST declarator, scope_t* st)
 {
 	switch (ASTType(declarator))
 	{
+		case AST_ABSTRACT_DECLARATOR :
+			{
+				return check_for_declarator_rec(ASTSon1(declarator), st);
+				break;
+			}
+		case AST_DECLARATOR_ARRAY :
+		case AST_ABSTRACT_ARRAY :
+			{
+				if (ASTSon0(declarator) != NULL)
+				{
+					solve_possibly_ambiguous_expression(ASTSon0(declarator), st);
+				}
+				return check_for_declarator_rec(ASTSon0(declarator), st);
+			}
+		case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
 		case AST_PARENTHESIZED_DECLARATOR :
 		case AST_DECLARATOR :
 			{
@@ -2248,11 +2277,7 @@ static char check_for_declarator_rec(AST declarator, scope_t* st)
 				return check_for_declarator_rec(ASTSon1(declarator), st);
 				break;
 			}
-		case AST_DECLARATOR_ARRAY : 
-			{
-				return check_for_declarator_rec(ASTSon0(declarator), st);
-				break;
-			}
+		case AST_ABSTRACT_DECLARATOR_FUNC :
 		case AST_DECLARATOR_FUNC :
 			{
 				// Check for parameters here
@@ -2264,7 +2289,10 @@ static char check_for_declarator_rec(AST declarator, scope_t* st)
 						return 0;
 					}
 				}
-				return check_for_declarator_rec(ASTSon0(declarator), st);
+				if (ASTSon0(declarator) != NULL)
+				{
+					return check_for_declarator_rec(ASTSon0(declarator), st);
+				}
 				break;
 			}
 		case AST_DECLARATOR_ID_EXPR :
@@ -2312,8 +2340,10 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 
 				AST decl_specifier_seq = ASTSon0(parameter_decl);
 				AST type_specifier = ASTSon1(decl_specifier_seq);
+				AST declarator = ASTSon1(parameter_decl);
 
-				if (check_for_type_specifier(type_specifier, st))
+				if (check_for_type_specifier(type_specifier, st)
+						&& check_for_declarator(declarator, st))
 				{
 					if (correct_choice < 0)
 					{
@@ -2323,9 +2353,12 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 					{
 						AST current_choice = parameter_decl;
 						AST previous_choice = parameter->ambig[correct_choice];
-						internal_error("More than one valid alternative '%s' vs '%s'", 
+						ast_dump_graphviz(previous_choice, stderr);
+						ast_dump_graphviz(current_choice, stderr);
+						internal_error("More than one valid alternative '%s' vs '%s' (line=%d)", 
 								ast_print_node_type(ASTType(previous_choice)),
-								ast_print_node_type(ASTType(current_choice)));
+								ast_print_node_type(ASTType(current_choice)),
+								ASTLine(previous_choice));
 					}
 				}
 			}
