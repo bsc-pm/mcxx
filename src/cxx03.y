@@ -2138,8 +2138,9 @@ member_declarator : declarator
 | IDENTIFIER ':' constant_expression
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
+	AST declarator_id_expr = ASTMake1(AST_DECLARATOR_ID_EXPR, identifier, ASTLine(identifier), NULL);
 
-	$$ = ASTMake2(AST_BITFIELD_DECLARATOR, identifier, $3, $1.token_line, NULL);
+	$$ = ASTMake2(AST_BITFIELD_DECLARATOR, declarator_id_expr, $3, $1.token_line, NULL);
 }
 // GNU Extensions
 | declarator attributes 

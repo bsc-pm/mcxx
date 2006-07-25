@@ -1340,6 +1340,28 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
 
 			result = give_real_entry(result);
 
+			if (result->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+			{
+				if (!result->type_information->type->from_instantiation)
+				{
+					scope_entry_list_t* templates_available = query_unqualified_name(result->scope, result->symbol_name);
+					if (templates_available == NULL)
+					{
+						internal_error("I did not find myself!\n", 0);
+					}
+
+					templates_available = filter_entry_from_list(templates_available, result);
+
+					matching_pair_t* match_pair = solve_template(templates_available, 
+							result->type_information->type->template_arguments, result->scope, /* give_exact_match = */ 0);
+
+					if (match_pair != NULL)
+					{
+						instantiate_template_in_symbol(result, match_pair, 
+								result->type_information->type->template_arguments, result->scope);
+					}
+				}
+			}
             if (result->related_scope != NULL)
             {
 				fprintf(stderr, "Adding scope %p as base number %d\n", 
@@ -3929,7 +3951,15 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 				case AST_GCC_BITFIELD_DECLARATOR :
 				case AST_BITFIELD_DECLARATOR :
 					{
-						// WARNING_MESSAGE("Unsupported bitfield declarator ignored", 0);
+						AST identifier = ASTSon0(declarator);
+						if (identifier != NULL)
+						{
+							type_t* declarator_type = NULL;
+							/* scope_entry_t* entry = */ build_scope_declarator(identifier, st, &gather_info, 
+									simple_type_info, &declarator_type, 
+									decl_context);
+						}
+
 						AST expression = ASTSon1(declarator);
 						solve_possibly_ambiguous_expression(expression, st);
 						break;
