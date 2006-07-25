@@ -270,6 +270,8 @@ char value_is_zero(literal_value_t v)
             return (v.value.character_value == 0);
         case LVK_BOOL :
             return (v.value.boolean_value == 0);
+		case LVK_DEPENDENT_EXPR :
+			return 0;
 		case LVK_INVALID :
 			return 0;
         default:

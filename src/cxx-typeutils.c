@@ -180,6 +180,12 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
 		if (t1->is_signed != t2->is_signed)
 			return 0;
 	}
+
+	// GCC extension for complex 
+	if (t1->is_complex != t2->is_complex)
+	{
+		return 0;
+	}
 	
 	// Ok, nothing makes us think they might be different
 	return 1;

@@ -25,6 +25,7 @@ typedef struct gather_decl_spec_tag {
 	char is_inline;
 	char is_virtual;
 	char is_explicit;
+	char is_complex;
 } gather_decl_spec_t;
 
 #define BITMAP(x) (1 << (x))

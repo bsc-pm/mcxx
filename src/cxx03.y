@@ -1583,27 +1583,6 @@ declarator_id : id_expression
 {
 	$$ = ASTMake1(AST_DECLARATOR_ID_EXPR, $1, ASTLine($1), NULL);
 }
-/* 
-This looks to me very "uselessly" ambiguous since everything generated here can
-be generated with a plain id_expression and there is no point in remembering
-here that this can name a type. -rferrer
-*/
-// | nested_name_specifier type_name 
-// {
-// 	$$ = ASTMake3(AST_DECLARATOR_ID_TYPE_NAME, NULL, $1, $2, ASTLine($1), NULL);
-// }
-// | DOS_DOS_PUNTS type_name
-// {
-// 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
-// 
-// 	$$ = ASTMake3(AST_DECLARATOR_ID_TYPE_NAME, global_op, NULL, $2, $1.token_line, NULL);
-// }
-// | DOS_DOS_PUNTS nested_name_specifier type_name
-// {
-// 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
-// 
-// 	$$ = ASTMake3(AST_DECLARATOR_ID_TYPE_NAME, global_op, $2, $3, $1.token_line, NULL);
-// }
 ;
 
 

@@ -221,7 +221,10 @@ typedef struct simple_type_tag {
 	char is_unsigned;
 	char is_signed;
 
-	int is_static; // local linkage or class-static
+	char is_static; // local linkage or class-static
+
+	// GCC extension
+	char is_complex;
 
 	// Previously declared type. should be completely "cv-unqualified"
 	//

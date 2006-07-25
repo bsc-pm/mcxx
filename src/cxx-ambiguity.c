@@ -253,7 +253,11 @@ static void solve_ambiguous_simple_declaration(AST a, scope_t* st)
 			}
 			else
 			{
-				internal_error("More than one valid alternative!\n", 0);
+				AST previous_option = a->ambig[correct_option];
+				AST current_option = option;
+				internal_error("More than one valid alternative! %s vs %s\n", 
+						ast_print_node_type(ASTType(previous_option)),
+						ast_print_node_type(ASTType(current_option)));
 			}
 		}
 	}
@@ -505,7 +509,8 @@ static char check_for_decl_spec_seq_followed_by_declarator(AST decl_specifier_se
 	// A::f(c) has to be interpreted as A::f(c) and never as A   ::f(c)
 	// (if you want the latest you must use A(::f(c))
 	AST type_spec = ASTSon1(decl_specifier_seq);
-	if (ASTSon2(decl_specifier_seq) == NULL
+	if (type_spec != NULL
+			&& ASTSon2(decl_specifier_seq) == NULL
 			&& (ASTType(type_spec) == AST_SIMPLE_TYPE_SPECIFIER
 				|| ASTType(type_spec) == AST_ELABORATED_TYPE_CLASS
 				|| ASTType(type_spec) == AST_ELABORATED_TYPE_ENUM
@@ -584,9 +589,12 @@ static char check_for_simple_declaration(AST a, scope_t* st)
 
 		AST type_spec = ASTSon1(decl_specifier_seq);
 
-		if (!check_for_type_specifier(type_spec, st))
+		if (type_spec != NULL)
 		{
-			return 0;
+			if (!check_for_type_specifier(type_spec, st))
+			{
+				return 0;
+			}
 		}
 
 		AST init_declarator_list = ASTSon1(a);
@@ -621,7 +629,79 @@ static char check_for_simple_declaration(AST a, scope_t* st)
 			}
 		}
 
-		
+		// Additional check for this special case
+		// typedef int T;
+		// struct A
+		// {
+		//    A(T);     <-- This is a constructor not "A T;"
+		// };
+		//
+		// This is not a field declarator if all of these happen
+		//
+		//    * 'A' must be a SK_CLASS (or SK_TEMPLATE_PRIMARY_CLASS or SK_TEMPLATE_SPECIALIZED_CLASS)
+		//    * 'A' related-scope is the same of current scope
+		//    * 'T' is just a declarator_id_expr
+		//    * 'T' names a type
+
+		if (first_init_declarator != NULL 
+				&& type_spec != NULL)
+		{
+			AST first_declarator = ASTSon0(first_init_declarator);
+
+			AST parenthesized_declarator;
+			AST inner_declarator;
+			AST declarator_id_expression;
+			// T is just a parenthesized declarator_id_expr
+			if (ASTType(first_declarator) == AST_DECLARATOR
+					&& (parenthesized_declarator = ASTSon0(first_declarator)) != NULL
+					&& ASTType(parenthesized_declarator) == AST_PARENTHESIZED_DECLARATOR
+					&& (inner_declarator = ASTSon0(parenthesized_declarator)) != NULL
+					&& ASTType(inner_declarator) == AST_DECLARATOR
+					&& (declarator_id_expression = ASTSon0(inner_declarator)) != NULL
+					&& ASTType(declarator_id_expression) == AST_DECLARATOR_ID_EXPR)
+			{
+				AST id_expression = ASTSon0(declarator_id_expression);
+				scope_entry_list_t* entry_list = query_id_expression(st, id_expression, FULL_UNQUALIFIED_LOOKUP);
+
+				// T names a type
+				if (entry_list != NULL 
+						&& (entry_list->entry->kind == SK_TYPEDEF
+							|| entry_list->entry->kind == SK_ENUM
+							|| entry_list->entry->kind == SK_CLASS
+							|| entry_list->entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+							|| entry_list->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
+							|| entry_list->entry->kind == SK_TEMPLATE_TYPE_PARAMETER))
+				{
+					// A is a simple type specifier
+					if (ASTType(type_spec) == AST_SIMPLE_TYPE_SPECIFIER)
+					{
+						AST global_op = ASTSon0(type_spec);
+						AST nested_name_spec = ASTSon1(type_spec);
+						AST type_name = ASTSon2(type_spec);
+
+						entry_list = query_nested_name(st, global_op, nested_name_spec, type_name, FULL_UNQUALIFIED_LOOKUP);
+
+						// A is of class nature
+						if (entry_list != NULL
+								&& (entry_list->entry->kind == SK_CLASS
+									|| entry_list->entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+									|| entry_list->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS))
+						{
+							scope_entry_t* entry = entry_list->entry;
+							
+							// The related scope of A is the same as the
+							// current scope
+							if (entry->related_scope == st)
+							{
+								// In this case, and only in this case, this is
+								// not a data member declaration
+								return 0;
+							}
+						}
+					}
+				}
+			}
+		}
 	}
 	else
 	{
@@ -886,7 +966,9 @@ static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, int n
 					scope_entry_list_t* result = query_in_symbols_of_scope(enclosing_scope, class_name);
 
 					if (result == NULL
-							|| result->entry->kind != SK_CLASS)
+							|| (result->entry->kind != SK_CLASS
+								&& result->entry->kind != SK_TEMPLATE_PRIMARY_CLASS
+								&& result->entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS))
 					{
 						// This is not a class name
 						return 0;
@@ -1574,6 +1656,11 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
 	{
 		if (arguments != NULL)
 		{
+			if (ASTType(arguments) == AST_AMBIGUITY)
+			{
+				solve_ambiguous_expression_list(arguments, st);
+			}
+
 			AST list = arguments;
 			AST iter;
 

@@ -29,6 +29,7 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
 static void build_scope_declaration_sequence(AST a, scope_t* st, decl_context_t decl_context);
 static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t decl_context);
 
+static void build_scope_namespace_alias(AST a, scope_t* st, decl_context_t decl_context);
 static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t decl_context);
 static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_context_t decl_context);
 static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t* st, scope_t** parameters_scope, 
@@ -237,6 +238,11 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
 				//      ...
 				//   }
 				build_scope_namespace_definition(a, st, decl_context);
+				break;
+			}
+		case AST_NAMESPACE_ALIAS :
+			{
+				build_scope_namespace_alias(a, st, decl_context);
 				break;
 			}
 		case AST_FUNCTION_DEFINITION :
@@ -617,6 +623,12 @@ void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gath
 		{
 			(*simple_type_info)->type->is_signed = 1;
 		}
+
+		// GCC extension
+		if (gather_info->is_complex)
+		{
+			(*simple_type_info)->type->is_complex = 1;
+		}
 		
 		// cv-qualification
 		if (gather_info->is_const)
@@ -700,7 +712,10 @@ void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather
 			// GCC Extensions
 		case AST_GCC_ATTRIBUTE :
 			break;
-		// Unknown node
+		case AST_GCC_COMPLEX_TYPE :
+			gather_info->is_complex = 1;
+			break;
+			// Unknown node
 		default:
 			internal_error("Unknown node '%s' (line=%d)", ast_print_node_type(ASTType(a)), ASTLine(a));
 			break;
@@ -1894,6 +1909,10 @@ static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_
 		case AST_REFERENCE_SPEC :
 			(*declarator_type)->kind = TK_REFERENCE;
 			break;
+		case AST_GCC_REFERENCE_SPEC :
+			(*declarator_type)->kind = TK_REFERENCE;
+			(*declarator_type)->cv_qualifier = compute_cv_qualifier(ASTSon0(pointer_tree));
+			break;
 		default :
 			internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTType(pointer_tree)));
 			break;
@@ -2586,7 +2605,11 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 		if (entry->kind != SK_FUNCTION
 				&& entry->kind != SK_TEMPLATE_FUNCTION)
 		{
-			internal_error("Symbol '%s' already declared as a different symbol type", ASTText(declarator_id), entry->kind);
+			if (entry->kind != SK_ENUM
+					&& entry->kind != SK_CLASS)
+			{
+				internal_error("Symbol '%s' already declared as a different symbol type", ASTText(declarator_id), entry->kind);
+			}
 			entry_list = entry_list->next;
 			continue;
 		}
@@ -3266,6 +3289,38 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 	template_parameters->default_tree = default_expression;
 
 	template_parameters->kind = TPK_NONTYPE;
+}
+
+static void build_scope_namespace_alias(AST a, scope_t* st, decl_context_t decl_context)
+{
+	AST alias_ident = ASTSon0(a);
+	AST qualified_name = ASTSon1(a);
+
+	AST global_op = ASTSon0(qualified_name);
+	AST nested_name_spec = ASTSon1(qualified_name);
+	AST name = ASTSon2(qualified_name);
+
+	scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP);
+
+	if (entry_list == NULL)
+	{
+		internal_error("Namespace not found\n", 0);
+	}
+
+	scope_entry_t* entry = entry_list->entry;
+	
+	if (entry->kind != SK_NAMESPACE)
+	{
+		internal_error("The referred symbol is not a namespace\n", 0);
+	}
+
+	char* alias_name = ASTText(alias_ident);
+
+	scope_entry_t* alias_entry = new_symbol(st, alias_name);
+
+	alias_entry->line = ASTLine(alias_ident);
+	alias_entry->kind = SK_NAMESPACE;
+	alias_entry->related_scope = entry->related_scope;
 }
 
 /*
