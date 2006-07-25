@@ -738,12 +738,22 @@ void gather_type_spec_information(AST a, scope_t* st, type_t* simple_type_info,
 		case AST_ELABORATED_TYPE_ENUM :
 			gather_type_spec_from_elaborated_enum_specifier(a, st, simple_type_info, decl_context);
 			break;
+		case AST_GCC_ELABORATED_TYPE_ENUM :
+			gather_type_spec_from_elaborated_class_specifier(ASTSon1(a), st, simple_type_info, decl_context);
+			break;
 		case AST_ELABORATED_TYPE_CLASS :
 			gather_type_spec_from_elaborated_class_specifier(a, st, simple_type_info, decl_context);
+			break;
+		case AST_GCC_ELABORATED_TYPE_CLASS :
+			gather_type_spec_from_elaborated_class_specifier(ASTSon1(a), st, simple_type_info, decl_context);
 			break;
 		case AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS :
 		case AST_ELABORATED_TYPE_TEMPLATE_CLASS :
 			gather_type_spec_from_elaborated_class_specifier(a, st, simple_type_info, decl_context);
+			break;
+		case AST_GCC_ELABORATED_TYPE_TEMPLATE_CLASS :
+		case AST_GCC_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS :
+			gather_type_spec_from_elaborated_class_specifier(ASTSon1(a), st, simple_type_info, decl_context);
 			break;
 		case AST_CHAR_TYPE :
 			simple_type_info->type->kind = STK_BUILTIN_TYPE;
@@ -1058,36 +1068,9 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 	AST global_scope = ASTSon0(a);
 	AST nested_name_spec = ASTSon1(a);
 	AST name = ASTSon2(a);
-
-	fprintf(stderr, "Trying to look up a dependent typename\n");
-	scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
-			LF_NONE);
-	if (result == NULL
-			|| result->entry->kind == SK_DEPENDENT_ENTITY)
-	{
-		simple_type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-		simple_type_info->type->typeof_expr = a;
-		simple_type_info->type->typeof_scope = copy_scope(st);
-	}
-	else
-	{
-        scope_entry_t* entry = result->entry;
-
-        if (entry->kind != SK_TYPEDEF)
-        {
-            simple_type_info->type->kind = STK_USER_DEFINED;
-            simple_type_info->type->user_defined_type = result->entry;
-        }
-        else
-        {
-            *simple_type_info = *entry->type_information->type->aliased_type;
-        }
-	}
-
+	
 	// Remove additional ambiguities that might appear in things of the form 
 	// T::template A<B>
-	//
-	
 	while (nested_name_spec != NULL)
 	{
 		AST class_name = ASTSon0(nested_name_spec);
@@ -1104,6 +1087,37 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 	{
 		solve_possibly_ambiguous_template_id(name, st);
 	}
+
+	fprintf(stderr, "Trying to look up a dependent typename\n");
+	global_scope = ASTSon0(a);
+	nested_name_spec = ASTSon1(a);
+	name = ASTSon2(a);
+	
+	scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
+			LF_NO_FAIL);
+
+	if (result != NULL
+			&& result->entry->kind != SK_DEPENDENT_ENTITY)
+	{
+		scope_entry_t* entry = result->entry;
+
+		if (entry->kind != SK_TYPEDEF)
+		{
+			simple_type_info->type->kind = STK_USER_DEFINED;
+			simple_type_info->type->user_defined_type = result->entry;
+		}
+		else
+		{
+			*simple_type_info = *entry->type_information->type->aliased_type;
+		}
+	}
+	else
+	{
+		simple_type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
+		simple_type_info->type->typeof_expr = a;
+		simple_type_info->type->typeof_scope = copy_scope(st);
+	}
+	
 }
 
 /*
@@ -1340,6 +1354,12 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 		decl_context_t decl_context)
 {
 	AST class_head = ASTSon0(a);
+
+	if (ASTType(class_head) == AST_GCC_CLASS_HEAD)
+	{
+		class_head = ASTSon1(class_head);
+	}
+
 	AST class_key = ASTSon0(class_head);
 	AST base_clause = ASTSon3(class_head);
 
@@ -1607,50 +1627,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 		// If the class had a name, it is completely defined here
 		class_entry->defined = 1;
 	}
-
-	// if (class_entry != NULL 
-	// 		&& class_entry->symbol_name != NULL
-	// 		&& BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE)
-	// 		&& !BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
-	// {
-	// 	fprintf(stderr, "Reinstantiating previous references to this template\n");
-	// 	scope_entry_list_t* existing_templates = query_nested_name_flags(st, NULL, 
-	// 				class_head_nested_name, class_head_identifier,
-	// 				NOFULL_UNQUALIFIED_LOOKUP, LF_NONE);
-
-	// 	enum cxx_symbol_kind template_symbol[2] = {SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
-	// 	
-	// 	existing_templates = filter_symbol_kind_set(existing_templates, 2, template_symbol);
-	// 	
-	// 	// Filter current type if it is already specialized
-	// 	if (class_entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-	// 	{
-	// 		existing_templates = filter_entry_from_list(existing_templates, class_entry);
-	// 	}
-
-	// 	scope_entry_list_t* existing_specializations = filter_symbol_kind(existing_templates, SK_TEMPLATE_SPECIALIZED_CLASS);
-
-	// 	scope_entry_list_t* iter = existing_specializations;
-
-	// 	while (iter != NULL)
-	// 	{
-	// 		scope_entry_t* entry = iter->entry;
-
-	// 		// Only things created from instantiations must be considered here
-	// 		if (entry->type_information->type->from_instantiation)
-	// 		{
-	// 			// I'm not a candidate
-	// 			scope_entry_list_t* candidates = filter_entry_from_list(existing_templates, entry);
-	// 			// instantiate_template_in_symbol(entry, 
-	// 			matching_pair_t* matching_pair = solve_template(candidates, entry->type_information->type->template_arguments, 
-	// 					st, /* give_exact_match = */ 0);
-
-	// 			instantiate_template_in_symbol(entry, matching_pair, entry->type_information->type->template_arguments, st);
-	// 		}
-
-	// 		iter = iter->next;
-	// 	}
-	// }
 }
 
 void build_scope_member_specification(scope_t* inner_scope, AST member_specification_tree, 
@@ -1794,8 +1770,7 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 				decl_st = st;
 			}
 		}
-		else if(ASTType(declarator_name) == AST_QUALIFIED_TEMPLATE_ID
-				|| ASTType(declarator_name) == AST_QUALIFIED_OPERATOR_FUNCTION_ID)
+		else if(ASTType(declarator_name) == AST_QUALIFIED_OPERATOR_FUNCTION_ID)
 		{
 			decl_st = compilation_options.global_scope;
 		}
@@ -2403,13 +2378,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 			}
 		case AST_QUALIFIED_TEMPLATE :
 			{
-				// A qualified template "a::b::template c" [?]
-				return NULL;
-				break;
-			}
-		case AST_QUALIFIED_TEMPLATE_ID :
-			{
-				// A qualified template_id "a::b::c<int>"
+				// A qualified template "a::b::template c<id>"
 				return NULL;
 				break;
 			}
@@ -3902,9 +3871,12 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 						return;
 						break;
 					}
+				case AST_GCC_BITFIELD_DECLARATOR :
 				case AST_BITFIELD_DECLARATOR :
 					{
-						WARNING_MESSAGE("Unsupported bitfield declarator ignored", 0);
+						// WARNING_MESSAGE("Unsupported bitfield declarator ignored", 0);
+						AST expression = ASTSon1(declarator);
+						solve_possibly_ambiguous_expression(expression, st);
 						break;
 					}
 					// init declarator may appear here because of templates

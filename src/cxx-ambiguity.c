@@ -519,8 +519,7 @@ static char check_for_decl_spec_seq_followed_by_declarator(AST decl_specifier_se
 		if (declarator_name != NULL)
 		{
 			if (ASTType(declarator_name) == AST_QUALIFIED_ID
-					|| ASTType(declarator_name) == AST_QUALIFIED_OPERATOR_FUNCTION_ID
-					|| ASTType(declarator_name) == AST_QUALIFIED_TEMPLATE_ID)
+					|| ASTType(declarator_name) == AST_QUALIFIED_OPERATOR_FUNCTION_ID)
 			{
 				AST global_op = ASTSon0(declarator_name);
 				if (global_op != NULL)
@@ -980,6 +979,14 @@ char check_for_expression(AST expression, scope_t* st)
 									correct_choice = i;
 								}
 							}
+							else if ((either = either_type(previous_choice, current_choice,
+										AST_FUNCTION_CALL, AST_GREATER_THAN)))
+							{
+								if (either < 0)
+								{
+									correct_choice = i;
+								}
+							}
 							else
 							{
 								internal_error("More than one valid choice for expression (line %d)\n'%s' vs '%s'\n", 
@@ -1021,18 +1028,22 @@ char check_for_expression(AST expression, scope_t* st)
 			}
 		case AST_QUALIFIED_TEMPLATE :
 			{
-				// TODO - This can yield a value ?
-				return 0;
+				// This always yields a value because it must be used in a
+				// template context where everything is regarded as an
+				// expression unless the user "typenames" things
+
+				AST global_scope = ASTSon0(expression);
+				AST nested_name = ASTSon1(expression);
+				AST template_id = ASTSon2(expression);
+
+				query_nested_name_flags(st, global_scope, nested_name, template_id, FULL_UNQUALIFIED_LOOKUP, LF_NO_FAIL);
+
+				return 1;
 			}
 		case AST_QUALIFIED_OPERATOR_FUNCTION_ID :
 			{
 				// This always yields a value, does not it?
 				return 1;
-			}
-		case AST_QUALIFIED_TEMPLATE_ID :
-			{
-				// This is never a value
-				return 0;
 			}
 		case AST_PARENTHESIZED_EXPRESSION :
 			{
@@ -1108,6 +1119,8 @@ char check_for_expression(AST expression, scope_t* st)
 				{
 					result = 0;
 				}
+
+				check_for_expression(ASTSon1(expression), st);
 				
 				return result;
 			}
@@ -1121,6 +1134,7 @@ char check_for_expression(AST expression, scope_t* st)
 					return 0;
 				}
 
+				check_for_expression(ASTSon0(expression), st);
 				check_for_expression(ASTSon1(expression), st);
 
 				return 1;
@@ -1408,12 +1422,20 @@ static char check_for_qualified_id(AST expr, scope_t* st)
 	scope_entry_list_t* result_list = query_nested_name_flags(st, global_scope, nested_name_spec, 
 			unqualified_object, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION | LF_NO_FAIL);
 
-	return (result_list != NULL
-			&& (result_list->entry->kind == SK_VARIABLE
-				|| result_list->entry->kind == SK_ENUMERATOR
-				|| result_list->entry->kind == SK_FUNCTION
-				|| result_list->entry->kind == SK_TEMPLATE_FUNCTION
-				|| result_list->entry->kind == SK_DEPENDENT_ENTITY));
+	if (ASTType(unqualified_object) == AST_TEMPLATE_ID)
+	{
+		return (result_list != NULL
+				&& (result_list->entry->kind == SK_TEMPLATE_FUNCTION));
+	}
+	else
+	{
+		return (result_list != NULL
+				&& (result_list->entry->kind == SK_VARIABLE
+					|| result_list->entry->kind == SK_ENUMERATOR
+					|| result_list->entry->kind == SK_FUNCTION
+					|| result_list->entry->kind == SK_TEMPLATE_FUNCTION
+					|| result_list->entry->kind == SK_DEPENDENT_ENTITY));
+	}
 }
 
 static char check_for_symbol(AST expr, scope_t* st)
@@ -1591,11 +1613,23 @@ static char check_for_explicit_typename_type_conversion(AST expr, scope_t* st)
 		return 0;
 	}
 
-	// scope_entry_t* entry = entry_list->entry;
-	
-	// return (entry->kind == SK_CLASS
-	// 		|| entry->kind == SK_TEMPLATE_PRIMARY_CLASS
-	// 		|| entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS);
+	AST list = ASTSon3(expr);
+	if (list != NULL)
+	{
+		AST iter;
+
+		if (ASTType(list) == AST_AMBIGUITY)
+		{
+			solve_ambiguous_expression_list(list, st);
+		}
+
+		for_each_element(list, iter)
+		{
+			AST expression = ASTSon1(iter);
+
+			solve_possibly_ambiguous_expression(expression, st);
+		}
+	}
 
 	return 1;
 }
@@ -1736,6 +1770,27 @@ void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st)
 			if (ASTType(template_argument) == AST_TEMPLATE_EXPRESSION_ARGUMENT)
 			{
 				solve_possibly_ambiguous_expression(ASTSon0(template_argument), st);
+			}
+			else if (ASTType(template_argument) == AST_TEMPLATE_TYPE_ARGUMENT)
+			{
+				AST type_id = ASTSon0(template_argument);
+
+				AST type_specifier = ASTSon0(type_id);
+				AST abstract_declarator = ASTSon1(type_id);
+
+				gather_decl_spec_t gather_info;
+				memset(&gather_info, 0, sizeof(gather_info));
+
+				type_t* simple_type_info = NULL;
+				build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
+						default_decl_context);
+
+				if (abstract_declarator != NULL)
+				{
+					type_t* declarator_type = NULL;
+					build_scope_declarator(abstract_declarator, st, &gather_info, simple_type_info, 
+							&declarator_type, default_decl_context);
+				}
 			}
 		}
 	}

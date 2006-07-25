@@ -1323,27 +1323,27 @@ elaborated_type_specifier : class_key IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
 
-	$$ = ASTMake4(AST_GCC_ELABORATED_TYPE_ENUM, $2, NULL, NULL, identifier, $1.token_line, NULL);
+	$$ = ASTMake4(AST_GCC_ELABORATED_TYPE_ENUM, NULL, NULL, identifier, $2, $1.token_line, NULL);
 }
 | ENUM attributes DOS_DOS_PUNTS IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
 
-	$$ = ASTMake4(AST_GCC_ELABORATED_TYPE_ENUM, $2, global_op, NULL, identifier, $1.token_line, NULL);
+	$$ = ASTMake4(AST_GCC_ELABORATED_TYPE_ENUM, global_op, NULL, identifier, $2, $1.token_line, NULL);
 }
 | ENUM attributes nested_name_specifier IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
 
-	$$ = ASTMake4(AST_GCC_ELABORATED_TYPE_ENUM, $2, NULL, $3, identifier, $1.token_line, NULL);
+	$$ = ASTMake4(AST_GCC_ELABORATED_TYPE_ENUM, NULL, $3, identifier, $2, $1.token_line, NULL);
 }
 | ENUM attributes DOS_DOS_PUNTS nested_name_specifier IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $5.token_line, $5.token_text);
 
-	$$ = ASTMake4(AST_GCC_ELABORATED_TYPE_ENUM, $2, global_op, NULL, identifier, $1.token_line, NULL);
+	$$ = ASTMake4(AST_GCC_ELABORATED_TYPE_ENUM, global_op, $4, identifier, $2, $1.token_line, NULL);
 }
 ;
 
@@ -1373,27 +1373,27 @@ init_declarator : declarator
 // GNU Extensions
 | declarator asm_specification 
 {
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $2, NULL, NULL, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, $2, NULL, ASTLine($1), NULL);
 }
 | declarator attributes
 {
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, $2, NULL, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, NULL, $2, ASTLine($1), NULL);
 }
 | declarator asm_specification attributes
 {
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $2, $3, NULL, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, $2, $3, ASTLine($1), NULL);
 }
 | declarator asm_specification initializer
 {
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $2, NULL, $3, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $3, $2, NULL, ASTLine($1), NULL);
 }
 | declarator attributes initializer
 {
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, NULL, $2, $3, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $3, NULL, $2, ASTLine($1), NULL);
 }
 | declarator asm_specification attributes initializer
 {
-	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $2, $3, $4, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_GCC_INIT_DECLARATOR, $1, $4, $2, $3, ASTLine($1), NULL);
 }
 ;
 
@@ -2169,11 +2169,10 @@ member_declarator : declarator
 }
 // - El susbsumirem amb constant_initializer -
 // | declarator attributes pure_specifier
-// {
 // }
 | declarator attributes constant_initializer
 {
-	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, $2, $3, ASTLine($1), NULL);
+	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, $3, $2, ASTLine($1), NULL);
 }
 | IDENTIFIER attributes ':' constant_expression
 {
@@ -2748,11 +2747,17 @@ qualified_id : nested_name_specifier unqualified_id
 
 	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, identifier, $1.token_line, NULL);
 }
-| nested_name_specifier TEMPLATE unqualified_id
+| DOS_DOS_PUNTS template_id
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
+
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, $2, $1.token_line, NULL);
+}
+| nested_name_specifier TEMPLATE template_id
 {
 	$$ = ASTMake3(AST_QUALIFIED_TEMPLATE, NULL, $1, $3, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier TEMPLATE unqualified_id
+| DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -2763,12 +2768,6 @@ qualified_id : nested_name_specifier unqualified_id
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 	
 	$$ = ASTMake2(AST_QUALIFIED_OPERATOR_FUNCTION_ID, global_op, $2, $1.token_line, NULL);
-}
-| DOS_DOS_PUNTS template_id
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
-
-	$$ = ASTMake2(AST_QUALIFIED_TEMPLATE_ID, global_op, $2, $1.token_line, NULL);
 }
 ;
 

@@ -273,16 +273,22 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 	lookup_scope = copy_scope(lookup_scope);
 	lookup_scope->template_scope = sc->template_scope;
 
+	char seen_class = 0;
 	// Traverse the qualification tree
 	while (nested_name != NULL)
 	{
 		AST nested_name_spec = ASTSon0(nested_name);
-		char seen_class = 0;
 
 		switch (ASTType(nested_name_spec))
 		{
 			case AST_SYMBOL :
 				{
+					// Do nothing if we have seen that this is dependent
+					if (*is_dependent)
+					{
+						break;
+					}
+
 					if (qualif_level == 0)
 					{
 						entry_list = query_unqualified_name(lookup_scope, ASTText(nested_name_spec));
@@ -354,7 +360,7 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 						else
 						{
 							if ((entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-									|| entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
+										|| entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
 									&& !entry->type_information->type->from_instantiation)
 							{
 								*is_dependent = 1;
@@ -367,7 +373,7 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 							|| entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
 					{
 						*is_dependent = 1;
-						return NULL;
+						break;
 					}
 
 					// Classes do not have namespaces within them
@@ -397,6 +403,14 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 				}
 			case AST_TEMPLATE_ID :
 				{
+					solve_possibly_ambiguous_template_id(nested_name_spec, sc);
+
+					// Nothing else is necessary if we've seen that this was dependent
+					if (*is_dependent)
+					{
+						break;
+					}
+
 					if (qualif_level == 0)
 					{
 						entry_list = query_unqualified_template_id_flags(nested_name_spec, sc, lookup_scope, LF_INSTANTIATE | lookup_flags);
@@ -414,12 +428,12 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 					if (entry_list->entry->kind == SK_DEPENDENT_ENTITY)
 					{
 						*is_dependent = 1;
-						return NULL;
+						break;
 					}
 
 					scope_t* previous_scope = lookup_scope;
 					lookup_scope = copy_scope(entry_list->entry->related_scope);
-					
+
 					// This can be null if the type is incomplete and we are
 					// declaring a pointer to member
 					if (lookup_scope != NULL)
@@ -439,6 +453,12 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 
 		qualif_level++;
 		nested_name = ASTSon1(nested_name);
+	}
+
+	// If this was seen as dependent, do not return anything
+	if (*is_dependent)
+	{
+		return NULL;
 	}
 
 	if (result_entry_list != NULL)
@@ -507,8 +527,10 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 				}
 				break;
 			case AST_TEMPLATE_ID:
-				// result = query_unqualified_template_id_flags(name, sc, sc, lookup_flags);
-				result = query_unqualified_template_id_flags(name, sc, lookup_scope, lookup_flags);
+				{
+					solve_possibly_ambiguous_template_id(name, sc);
+					result = query_unqualified_template_id_flags(name, sc, lookup_scope, lookup_flags);
+				}
 				break;
 			default :
 				internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(name)));
@@ -539,7 +561,10 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 					}
 					break;
 				case AST_TEMPLATE_ID:
-					result = query_template_id_flags(name, sc, lookup_scope, lookup_flags);
+					{
+						solve_possibly_ambiguous_template_id(name, sc);
+						result = query_template_id_flags(name, sc, lookup_scope, lookup_flags);
+					}
 					break;
 				case AST_CONVERSION_FUNCTION_ID :
 					{
@@ -948,14 +973,8 @@ scope_entry_list_t* query_id_expression_flags(scope_t* sc, AST id_expr,
 			}
 		case AST_QUALIFIED_TEMPLATE :
 			{
-				// A qualified template "a::b::template c" [?]
+				// A qualified template "a::b::template c<a>"
 				internal_error("Unsupported qualified template", 0);
-				break;
-			}
-		case AST_QUALIFIED_TEMPLATE_ID :
-			{
-				// A qualified template_id "a::b::c<int>"
-				internal_error("Unsupported qualified template id", 0);
 				break;
 			}
 		case AST_QUALIFIED_OPERATOR_FUNCTION_ID :

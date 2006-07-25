@@ -129,6 +129,9 @@ void print_ambiguities(AST a, char lines)
 					}
 				}
 				fprintf(stderr, "\n");
+				fprintf(stderr, "------\n");
+				prettyprint(stderr, a);
+				fprintf(stderr, "\n------\n");
 				break;
 			}
 		default :

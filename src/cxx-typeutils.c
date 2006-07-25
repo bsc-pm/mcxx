@@ -439,6 +439,12 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 	AST t1_expr = t1->typeof_expr;
 	AST t2_expr = t2->typeof_expr;
 
+	// Shortcut
+	if (t1_expr == t2_expr)
+	{
+		return 1;
+	}
+
 	scope_t* t1_scope = t1->typeof_scope;
 	scope_t* t2_scope = t2->typeof_scope;
 
@@ -532,6 +538,11 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 					}
 					dependent_qualification = 1;
 				}
+				else if (t1_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE
+							&& t2_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
+				{
+					dependent_qualification = 1;
+				}
 				else
 				{
 					if (t1_name != t2_name)
@@ -548,15 +559,19 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 			scope_entry_list_t* t1_template_name_list;
 			scope_entry_list_t* t2_template_name_list;
 
+			scope_t* extended_scope1 = copy_scope(st);
+			extended_scope1->template_scope = t1_scope->template_scope;
+			scope_t* extended_scope2 = copy_scope(st);
+			extended_scope2->template_scope = t2_scope->template_scope;
 			if (qualification_level > 0)
 			{
-				t1_template_name_list = query_template_id(t1_class_or_namespace, st, t1_scope);
-				t2_template_name_list = query_template_id(t2_class_or_namespace, st, t2_scope);
+				t1_template_name_list = query_template_id(t1_class_or_namespace, extended_scope1, t1_scope);
+				t2_template_name_list = query_template_id(t2_class_or_namespace, extended_scope2, t2_scope);
 			}
 			else
 			{
-				t1_template_name_list = query_unqualified_template_id(t1_class_or_namespace, st, t1_scope);
-				t2_template_name_list = query_unqualified_template_id(t2_class_or_namespace, st, t2_scope);
+				t1_template_name_list = query_unqualified_template_id(t1_class_or_namespace, extended_scope1, t1_scope);
+				t2_template_name_list = query_unqualified_template_id(t2_class_or_namespace, extended_scope2, t2_scope);
 			}
 
 			if (t1_template_name_list == NULL || t2_template_name_list == NULL)
@@ -1827,10 +1842,10 @@ char is_dependent_tree(AST tree, scope_t* st)
     }
     else
     {
-        return is_dependent_tree(ASTSon0(tree), st)
-            || is_dependent_tree(ASTSon1(tree), st)
-            || is_dependent_tree(ASTSon2(tree), st)
-            || is_dependent_tree(ASTSon3(tree), st);
+		return is_dependent_tree(ASTSon0(tree), st)
+			|| is_dependent_tree(ASTSon1(tree), st)
+			|| is_dependent_tree(ASTSon2(tree), st)
+			|| is_dependent_tree(ASTSon3(tree), st);
     }
 }
 

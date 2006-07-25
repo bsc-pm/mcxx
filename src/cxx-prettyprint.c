@@ -60,7 +60,6 @@ HANDLER_PROTOTYPE(son_handler_then_suffix_parameter);
 HANDLER_PROTOTYPE(templated_cast_handler);
 HANDLER_PROTOTYPE(qualified_id_handler);
 HANDLER_PROTOTYPE(qualified_template_handler);
-HANDLER_PROTOTYPE(qualified_template_id_handler);
 HANDLER_PROTOTYPE(qualified_operator_function_id_handler);
 HANDLER_PROTOTYPE(conversion_type_id_handler);
 HANDLER_PROTOTYPE(conversion_declarator_handler);
@@ -303,7 +302,6 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_PARENTHESIZED_EXPRESSION, parenthesized_son_handler, NULL),
 	NODE_HANDLER(AST_QUALIFIED_ID, qualified_id_handler, NULL),
 	NODE_HANDLER(AST_QUALIFIED_TEMPLATE, qualified_template_handler, NULL),
-	NODE_HANDLER(AST_QUALIFIED_TEMPLATE_ID, qualified_template_id_handler, NULL),
 	NODE_HANDLER(AST_QUALIFIED_OPERATOR_FUNCTION_ID, qualified_operator_function_id_handler, NULL),
 	NODE_HANDLER(AST_DESTRUCTOR_ID, unary_container_handler, NULL),
 	NODE_HANDLER(AST_DESTRUCTOR_TEMPLATE_ID, prefix_with_parameter_then_son_handler, "~"),
@@ -1100,11 +1098,6 @@ static void qualified_operator_function_id_handler(FILE* f, AST a, int level)
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
-static void qualified_template_id_handler(FILE* f, AST a, int level)
-{
-	prettyprint_level(f, ASTSon0(a), level);
-	prettyprint_level(f, ASTSon1(a), level);
-}
 
 static void conversion_type_id_handler(FILE* f, AST a, int level)
 {
@@ -2124,19 +2117,19 @@ static void gcc_typeof_expr_handler(FILE* f, AST a, int level)
 static void gcc_elaborated_type_enum_handler(FILE* f, AST a, int level)
 {
 	fprintf(f, "enum ");
-	spaced_sequence_handler(f, ASTSon0(a), level);
+	spaced_sequence_handler(f, ASTSon3(a), level);
+
+	if (ASTSon0(a) != NULL)
+	{
+		prettyprint_level(f, ASTSon0(a), level);
+	}
 
 	if (ASTSon1(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 
-	if (ASTSon2(a) != NULL)
-	{
-		prettyprint_level(f, ASTSon2(a), level);
-	}
-
-	prettyprint_level(f, ASTSon3(a), level);
+	prettyprint_level(f, ASTSon2(a), level);
 }
 
 static void gcc_elaborated_type_class_handler(FILE* f, AST a, int level)
@@ -2216,22 +2209,22 @@ static void gcc_init_declarator_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
 
-	if (ASTSon1(a) != NULL)
-	{
-		fprintf(f, " ");
-		prettyprint_level(f, ASTSon1(a), level);
-	}
-
 	if (ASTSon2(a) != NULL)
 	{
 		fprintf(f, " ");
-		spaced_sequence_handler(f, ASTSon2(a), level);
+		prettyprint_level(f, ASTSon2(a), level);
 	}
 
 	if (ASTSon3(a) != NULL)
 	{
 		fprintf(f, " ");
-		prettyprint_level(f, ASTSon3(a), level);
+		spaced_sequence_handler(f, ASTSon3(a), level);
+	}
+
+	if (ASTSon1(a) != NULL)
+	{
+		fprintf(f, " ");
+		prettyprint_level(f, ASTSon1(a), level);
 	}
 }
 
