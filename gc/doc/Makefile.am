@@ -15,7 +15,7 @@
 
 # installed documentation
 #
-dist_pkgdata_DATA = barrett_diagram debugging.html gc.man \
+dist_noinst_DATA = barrett_diagram debugging.html gc.man \
     gcdescr.html README README.amiga README.arm.cross \
     README.autoconf README.changes README.contributors \
     README.cords README.DGUX386 README.dj README.environment \

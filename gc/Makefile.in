@@ -56,10 +56,9 @@ host_triplet = @host@
 target_triplet = @target@
 check_PROGRAMS = gctest$(EXEEXT) $(am__EXEEXT_1)
 DIST_COMMON = $(am__configure_deps) $(dist_noinst_HEADERS) \
-	$(dist_noinst_SCRIPTS) $(include_HEADERS) \
-	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(top_srcdir)/configure config.guess config.sub depcomp \
-	install-sh ltmain.sh missing mkinstalldirs
+	$(dist_noinst_SCRIPTS) $(srcdir)/Makefile.am \
+	$(srcdir)/Makefile.in $(top_srcdir)/configure config.guess \
+	config.sub depcomp install-sh ltmain.sh missing mkinstalldirs
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
@@ -70,15 +69,7 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno configure.status.lineno
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_CLEAN_FILES =
-am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
-am__vpath_adj = case $$p in \
-    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
-    *) f=$$p;; \
-  esac;
-am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
-am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"
-libLTLIBRARIES_INSTALL = $(INSTALL)
-LTLIBRARIES = $(lib_LTLIBRARIES)
+LTLIBRARIES = $(noinst_LTLIBRARIES)
 am__DEPENDENCIES_1 =
 am__libgc_la_SOURCES_DIST = allchblk.c alloc.c blacklst.c checksums.c \
 	dbg_mlc.c dyn_load.c finalize.c gc_dlopen.c gcj_mlc.c \
@@ -101,7 +92,7 @@ libgc_la_OBJECTS = $(am_libgc_la_OBJECTS)
 libgccpp_la_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_1)
 am_libgccpp_la_OBJECTS = gc_cpp.lo
 libgccpp_la_OBJECTS = $(am_libgccpp_la_OBJECTS)
-@CPLUSPLUS_TRUE@am_libgccpp_la_rpath = -rpath $(libdir)
+@CPLUSPLUS_TRUE@am_libgccpp_la_rpath =
 @CPLUSPLUS_TRUE@am__EXEEXT_1 = test_cpp$(EXEEXT)
 am_gctest_OBJECTS = test.$(OBJEXT)
 gctest_OBJECTS = $(am_gctest_OBJECTS)
@@ -139,8 +130,7 @@ RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	install-recursive installcheck-recursive installdirs-recursive \
 	pdf-recursive ps-recursive uninstall-info-recursive \
 	uninstall-recursive
-includeHEADERS_INSTALL = $(INSTALL_HEADER)
-HEADERS = $(dist_noinst_HEADERS) $(include_HEADERS)
+HEADERS = $(dist_noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 DIST_SUBDIRS = $(SUBDIRS)
@@ -191,6 +181,7 @@ EXEEXT = @EXEEXT@
 EXTRA_TEST_LIBS = @EXTRA_TEST_LIBS@
 GC_CFLAGS = @GC_CFLAGS@
 GC_VERSION = @GC_VERSION@
+GREP = @GREP@
 INCLUDES = @INCLUDES@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
@@ -226,11 +217,8 @@ UNWINDLIBS = @UNWINDLIBS@
 USE_LIBDIR_FALSE = @USE_LIBDIR_FALSE@
 USE_LIBDIR_TRUE = @USE_LIBDIR_TRUE@
 VERSION = @VERSION@
-ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
-ac_ct_RANLIB = @ac_ct_RANLIB@
-ac_ct_STRIP = @ac_ct_STRIP@
 addincludes = @addincludes@
 addlibs = @addlibs@
 addobjs = @addobjs@
@@ -251,23 +239,30 @@ build_cpu = @build_cpu@
 build_os = @build_os@
 build_vendor = @build_vendor@
 datadir = @datadir@
+datarootdir = @datarootdir@
+docdir = @docdir@
+dvidir = @dvidir@
 exec_prefix = @exec_prefix@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
 host_os = @host_os@
 host_vendor = @host_vendor@
+htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
+localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
+pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
+psdir = @psdir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
@@ -316,11 +311,15 @@ EXTRA_DIST = alpha_mach_dep.S mips_sgi_mach_dep.s sparc_mach_dep.S \
 	cord/de_win.RC libtool.m4
 @CPLUSPLUS_FALSE@extra = 
 @CPLUSPLUS_TRUE@extra = libgccpp.la
-lib_LTLIBRARIES = libgc.la $(extra) 
-include_HEADERS = include/gc.h include/gc_local_alloc.h \
-include/gc_pthread_redirects.h include/gc_config_macros.h \
-include/leak_detector.h include/gc_typed.h @addincludes@
+noinst_LTLIBRARIES = libgc.la $(extra) 
 
+# headers which are not installed
+# (see include/Makefile.am for more)
+#
+dist_noinst_HEADERS = include/gc.h include/gc_local_alloc.h \
+	include/gc_pthread_redirects.h include/gc_config_macros.h \
+	include/leak_detector.h include/gc_typed.h @addincludes@ \
+	version.h
 EXTRA_HEADERS = include/gc_cpp.h include/gc_allocator.h
 @POWERPC_DARWIN_FALSE@asm_libgc_sources = 
 @POWERPC_DARWIN_TRUE@asm_libgc_sources = powerpc_darwin_mach_dep.s
@@ -368,11 +367,6 @@ LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) \
 LINK = $(LIBTOOL) --mode=link $(CC) $(AM_CFLAGS) $(MY_CFLAGS) $(LDFLAGS) -o $@
 dist_noinst_SCRIPTS = callprocs configure.host
 
-# headers which are not installed
-# (see include/Makefile.am for more)
-#
-dist_noinst_HEADERS = version.h
-
 # this is an auxiliary shell file used by Makefile and Makefile.direct
 #
 CONFIG_STATUS_DEPENDENCIES = $(srcdir)/configure.host
@@ -413,35 +407,17 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 	cd $(srcdir) && $(AUTOCONF)
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(srcdir) && $(ACLOCAL) $(ACLOCAL_AMFLAGS)
-install-libLTLIBRARIES: $(lib_LTLIBRARIES)
-	@$(NORMAL_INSTALL)
-	test -z "$(libdir)" || $(mkdir_p) "$(DESTDIR)$(libdir)"
-	@list='$(lib_LTLIBRARIES)'; for p in $$list; do \
-	  if test -f $$p; then \
-	    f=$(am__strip_dir) \
-	    echo " $(LIBTOOL) --mode=install $(libLTLIBRARIES_INSTALL) $(INSTALL_STRIP_FLAG) '$$p' '$(DESTDIR)$(libdir)/$$f'"; \
-	    $(LIBTOOL) --mode=install $(libLTLIBRARIES_INSTALL) $(INSTALL_STRIP_FLAG) "$$p" "$(DESTDIR)$(libdir)/$$f"; \
-	  else :; fi; \
-	done
 
-uninstall-libLTLIBRARIES:
-	@$(NORMAL_UNINSTALL)
-	@set -x; list='$(lib_LTLIBRARIES)'; for p in $$list; do \
-	  p=$(am__strip_dir) \
-	  echo " $(LIBTOOL) --mode=uninstall rm -f '$(DESTDIR)$(libdir)/$$p'"; \
-	  $(LIBTOOL) --mode=uninstall rm -f "$(DESTDIR)$(libdir)/$$p"; \
-	done
-
-clean-libLTLIBRARIES:
-	-test -z "$(lib_LTLIBRARIES)" || rm -f $(lib_LTLIBRARIES)
-	@list='$(lib_LTLIBRARIES)'; for p in $$list; do \
+clean-noinstLTLIBRARIES:
+	-test -z "$(noinst_LTLIBRARIES)" || rm -f $(noinst_LTLIBRARIES)
+	@list='$(noinst_LTLIBRARIES)'; for p in $$list; do \
 	  dir="`echo $$p | sed -e 's|/[^/]*$$||'`"; \
 	  test "$$dir" != "$$p" || dir=.; \
 	  echo "rm -f \"$${dir}/so_locations\""; \
 	  rm -f "$${dir}/so_locations"; \
 	done
 libgc.la: $(libgc_la_OBJECTS) $(libgc_la_DEPENDENCIES) 
-	$(LINK) -rpath $(libdir) $(libgc_la_LDFLAGS) $(libgc_la_OBJECTS) $(libgc_la_LIBADD) $(LIBS)
+	$(LINK)  $(libgc_la_LDFLAGS) $(libgc_la_OBJECTS) $(libgc_la_LIBADD) $(LIBS)
 libgccpp.la: $(libgccpp_la_OBJECTS) $(libgccpp_la_DEPENDENCIES) 
 	$(CXXLINK) $(am_libgccpp_la_rpath) $(libgccpp_la_LDFLAGS) $(libgccpp_la_OBJECTS) $(libgccpp_la_LIBADD) $(LIBS)
 
@@ -580,23 +556,6 @@ clean-libtool:
 distclean-libtool:
 	-rm -f libtool
 uninstall-info-am:
-install-includeHEADERS: $(include_HEADERS)
-	@$(NORMAL_INSTALL)
-	test -z "$(includedir)" || $(mkdir_p) "$(DESTDIR)$(includedir)"
-	@list='$(include_HEADERS)'; for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  f=$(am__strip_dir) \
-	  echo " $(includeHEADERS_INSTALL) '$$d$$p' '$(DESTDIR)$(includedir)/$$f'"; \
-	  $(includeHEADERS_INSTALL) "$$d$$p" "$(DESTDIR)$(includedir)/$$f"; \
-	done
-
-uninstall-includeHEADERS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(include_HEADERS)'; for p in $$list; do \
-	  f=$(am__strip_dir) \
-	  echo " rm -f '$(DESTDIR)$(includedir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(includedir)/$$f"; \
-	done
 
 # This directory's subdirectories are mostly independent; you can cd
 # into them and run `make' without going through this Makefile.
@@ -952,9 +911,6 @@ check: check-recursive
 all-am: Makefile $(LTLIBRARIES) $(SCRIPTS) $(HEADERS)
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(includedir)"; do \
-	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
-	done
 install: install-recursive
 install-exec: install-exec-recursive
 install-data: install-data-recursive
@@ -981,8 +937,8 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-recursive
 
-clean-am: clean-checkPROGRAMS clean-generic clean-libLTLIBRARIES \
-	clean-libtool mostlyclean-am
+clean-am: clean-checkPROGRAMS clean-generic clean-libtool \
+	clean-noinstLTLIBRARIES mostlyclean-am
 
 distclean: distclean-recursive
 	-rm -f $(am__CONFIG_DISTCLEAN_FILES)
@@ -1001,9 +957,9 @@ info: info-recursive
 
 info-am:
 
-install-data-am: install-includeHEADERS
+install-data-am:
 
-install-exec-am: install-libLTLIBRARIES
+install-exec-am:
 
 install-info: install-info-recursive
 
@@ -1031,29 +987,26 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-includeHEADERS uninstall-info-am \
-	uninstall-libLTLIBRARIES
+uninstall-am: uninstall-info-am
 
 uninstall-info: uninstall-info-recursive
 
 .PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am am--refresh check \
 	check-TESTS check-am clean clean-checkPROGRAMS clean-generic \
-	clean-libLTLIBRARIES clean-libtool clean-recursive ctags \
+	clean-libtool clean-noinstLTLIBRARIES clean-recursive ctags \
 	ctags-recursive dist dist-all dist-bzip2 dist-gzip dist-shar \
 	dist-tarZ dist-zip distcheck distclean distclean-compile \
 	distclean-generic distclean-libtool distclean-recursive \
 	distclean-tags distcleancheck distdir distuninstallcheck dvi \
 	dvi-am html html-am info info-am install install-am \
 	install-data install-data-am install-exec install-exec-am \
-	install-includeHEADERS install-info install-info-am \
-	install-libLTLIBRARIES install-man install-strip installcheck \
-	installcheck-am installdirs installdirs-am maintainer-clean \
-	maintainer-clean-generic maintainer-clean-recursive \
-	mostlyclean mostlyclean-compile mostlyclean-generic \
-	mostlyclean-libtool mostlyclean-recursive pdf pdf-am ps ps-am \
-	tags tags-recursive uninstall uninstall-am \
-	uninstall-includeHEADERS uninstall-info-am \
-	uninstall-libLTLIBRARIES
+	install-info install-info-am install-man install-strip \
+	installcheck installcheck-am installdirs installdirs-am \
+	maintainer-clean maintainer-clean-generic \
+	maintainer-clean-recursive mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool mostlyclean-recursive \
+	pdf pdf-am ps ps-am tags tags-recursive uninstall uninstall-am \
+	uninstall-info-am
 
 
 test.o:	$(srcdir)/tests/test.c

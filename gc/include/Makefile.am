@@ -15,17 +15,13 @@
 
 # installed headers
 #
-pkginclude_HEADERS = gc.h gc_typed.h gc_inl.h \
+dist_noinst_HEADERS = gc.h gc_typed.h gc_inl.h \
     gc_inline.h gc_mark.h gc_cpp.h \
     weakpointer.h gc_alloc.h new_gc_alloc.h \
     gc_allocator.h gc_backptr.h \
     gc_gcj.h gc_local_alloc.h leak_detector.h \
     gc_amiga_redirects.h gc_pthread_redirects.h \
-    gc_config_macros.h
-
-# headers which are not installed
-#
-dist_noinst_HEADERS = private/gc_hdrs.h \
+    gc_config_macros.h private/gc_hdrs.h \
     private/gc_priv.h private/gcconfig.h \
     private/gc_pmark.h private/gc_locks.h \
     private/solaris_threads.h private/dbg_mlc.h \

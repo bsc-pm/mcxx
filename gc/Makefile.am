@@ -30,9 +30,10 @@ extra = libgccpp.la
 else
 extra = 
 endif
-lib_LTLIBRARIES = libgc.la $(extra) 
+noinst_LTLIBRARIES = libgc.la $(extra) 
 
-include_HEADERS = include/gc.h include/gc_local_alloc.h \
+dist_noinst_HEADERS =
+dist_noinst_HEADERS += include/gc.h include/gc_local_alloc.h \
 include/gc_pthread_redirects.h include/gc_config_macros.h \
 include/leak_detector.h include/gc_typed.h @addincludes@
 
@@ -138,7 +139,7 @@ dist_noinst_SCRIPTS = callprocs configure.host
 # headers which are not installed
 # (see include/Makefile.am for more)
 #
-dist_noinst_HEADERS = version.h
+dist_noinst_HEADERS += version.h
 
 # documentation which is not installed
 #
