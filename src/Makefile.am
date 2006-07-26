@@ -36,6 +36,8 @@ mcxx_SOURCES = \
   cxx-instantiation.h \
   cxx-instantiation.c \
   cxx-fileextensions.c
+
+# Currently these files are unused but waiting for their momentum
 #  cxx-koenig.c \
 #  cxx-koenig.h \
 #  cxx-typecalc.c \
@@ -47,11 +49,11 @@ mcxx_LDFLAGS=-L../lib -L../gc
 mcxx_LDADD=../lib/libmcxx-utils.la ../gc/libgc.la
 mcxx_CFLAGS=-Wall -g -I$(srcdir)/../lib -I$(srcdir)/../gc/include
 
-
 EXTRA_DIST =
 EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx03.l
 EXTRA_DIST += cxx-asttype.def
+EXTRA_DIST += cxx-fileextensions.gperf
 
 cxx-ast.h : cxx-asttype.h
 
