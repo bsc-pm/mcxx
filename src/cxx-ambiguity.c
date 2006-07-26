@@ -234,7 +234,7 @@ void solve_ambiguous_declaration(AST a, scope_t* st)
 		return;
 	}
 
-	internal_error("Don't know how to handle this ambiguity. Line %d", ASTLine(a));
+	ASSERT_MESSAGE(1, "Don't know how to handle this ambiguity. Line %d", ASTLine(a));
 }
 
 static void solve_ambiguous_simple_declaration(AST a, scope_t* st)
@@ -1834,9 +1834,12 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st)
 
 	if (selected_option < 0)
 	{
-		fprintf(stderr, "Template argument '");
-		prettyprint(stderr, ambig_template_argument);
-		fprintf(stderr, "'\n");
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "Template argument '");
+			prettyprint(stderr, ambig_template_argument);
+			fprintf(stderr, "'\n");
+		}
 		internal_error("No valid choice found! line=%d", ASTLine(ambig_template_argument));
 	}
 	else
@@ -2713,9 +2716,12 @@ static void choose_option(AST a, int n)
 	// 	internal_error("Children not found in the parent!\n", 0);
 	// }
 
-	fprintf(stderr, "*** Choosing '%s' in the ambiguity tree %p (line=%d) using %p\n", 
-			ast_print_node_type(ASTType(a->ambig[n])), a, ASTLine(a->ambig[n]), 
-			a->ambig[n]);
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "*** Choosing '%s' in the ambiguity tree %p (line=%d) using %p\n", 
+				ast_print_node_type(ASTType(a->ambig[n])), a, ASTLine(a->ambig[n]), 
+				a->ambig[n]);
+	}
 
 	if (!ASTCheck(a->ambig[n]))
 	{

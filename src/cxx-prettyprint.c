@@ -498,6 +498,20 @@ void prettyprint(FILE* f, AST a)
 	prettyprint_level(f, a, 0);
 }
 
+char* prettyprint_in_buffer(AST a)
+{
+	FILE* temporal_file = tmpfile();
+
+	prettyprint(temporal_file, a);
+
+	int bytes_file = ftell(temporal_file) + 20;
+	rewind(temporal_file);
+
+	char* result = GC_CALLOC(bytes_file, sizeof(char));
+	fread(result, bytes_file, sizeof(char), temporal_file);
+
+	return result;
+}
 
 static void indent_at_level(FILE* f, int level)
 {

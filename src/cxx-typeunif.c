@@ -5,6 +5,7 @@
 #include "cxx-cexpr.h"
 #include "cxx-scope.h"
 #include "cxx-utils.h"
+#include "cxx-driver.h"
 
 static type_t* get_template_parameter_unification(unification_set_t* unif_set, int num, int nesting);
 
@@ -60,8 +61,11 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 
 				// This number will be the position of the argument
 				// within the specialization ! Not of the whole template
-				fprintf(stderr, "Unified parameter = %d (name=%s)\n", t1->type->template_parameter_num,
-						t1->type->template_parameter_name);
+				DEBUG_CODE()
+				{
+					fprintf(stderr, "Unified parameter = %d (name=%s)\n", t1->type->template_parameter_num,
+							t1->type->template_parameter_name);
+				}
 				unif_item->parameter_num = t1->type->template_parameter_num;
 				unif_item->parameter_nesting = t1->type->template_parameter_nesting;
 				unif_item->parameter_name = t1->type->template_parameter_name;
@@ -72,24 +76,36 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 			else
 			{
 				// We cannot unify 'const X' with 'Y' (even if we can unify 'X' with 'const Y')
-				fprintf(stderr, "Unification parameter is more cv-qualified than the argument\n");
+				DEBUG_CODE()
+				{
+					fprintf(stderr, "Unification parameter is more cv-qualified than the argument\n");
+				}
 				return 0;
 			}
 		}
 		else
 		{
-			fprintf(stderr, "Parameter = %d (name=%s) already unified\n", 
-					t1->type->template_parameter_num, t1->type->template_parameter_name);
+			DEBUG_CODE()
+			{
+				fprintf(stderr, "Parameter = %d (name=%s) already unified\n", 
+						t1->type->template_parameter_num, t1->type->template_parameter_name);
+			}
 			// Check is the same unification we are going to do
 			if (!equivalent_types(previous_unif, t2, st, CVE_CONSIDER))
 			{
 				// They're not equivalent, thus not unificable
-				fprintf(stderr, "Previous unification does not match the current one\n");
+				DEBUG_CODE()
+				{
+					fprintf(stderr, "Previous unification does not match the current one\n");
+				}
 				return 0;
 			}
 			else
 			{
-				fprintf(stderr, "Previous unification DOES match the current one\n");
+				DEBUG_CODE()
+				{
+					fprintf(stderr, "Previous unification DOES match the current one\n");
+				}
 			}
 		}
 

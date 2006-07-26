@@ -19,10 +19,7 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
 		scope_entry_t* instance_symbol,
 		template_argument_list_t* template_argument_list, scope_t* st)
 {
-	if (matched_template->kind != SK_TEMPLATE_PRIMARY_CLASS)
-	{
-		internal_error("Unexpected symbol kind '%d'\n", matched_template->kind);
-	}
+	ERROR_CONDITION((matched_template->kind != SK_TEMPLATE_PRIMARY_CLASS), "Unexpected symbol kind '%d'\n", matched_template->kind);
 
 	template_parameter_t** template_parameter_list = matched_template->template_parameter_info;
 	int num_template_parameters = matched_template->num_template_parameters;
@@ -174,10 +171,7 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 		template_argument_list_t* template_argument_list, 
 		unification_set_t* unification_set, scope_t* st)
 {
-	if (matched_template->kind != SK_TEMPLATE_SPECIALIZED_CLASS)
-	{
-		internal_error("Unexpected symbol kind '%d'\n", matched_template->kind);
-	}
+	ERROR_CONDITION((matched_template->kind != SK_TEMPLATE_SPECIALIZED_CLASS), "Unexpected symbol kind '%d'\n", matched_template->kind);
 
 	template_parameter_t** template_parameter_list = matched_template->template_parameter_info;
 	int num_template_parameters = matched_template->num_template_parameters;
@@ -187,7 +181,10 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 
 	if (instantiate_tree == NULL)
 	{
-		fprintf(stderr, "This instantiation refers to an incomplete type\n");
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "This instantiation refers to an incomplete type\n");
+		}
 		instantiate_incomplete_specialized_template(matched_template, template_argument_list, unification_set, st);
 		return;
 	}
@@ -221,7 +218,10 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 							{
 								if (strcmp(unification_item->parameter_name, template_parameter->template_parameter_name) == 0)
 								{
-									fprintf(stderr, "Injecting type '%s' into the instantiate scope\n", name);
+									DEBUG_CODE()
+									{
+										fprintf(stderr, "Injecting type '%s' into the instantiate scope\n", name);
+									}
 									scope_entry_t* injected_type = new_symbol(instantiate_scope, name);
 
 									// We use a typedef
@@ -253,7 +253,10 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 								if (strcmp(unification_item->parameter_name, 
 											template_parameter->template_parameter_name) == 0)
 								{
-									fprintf(stderr, "Injecting nontype '%s' into the instantiate scope\n", name);
+									DEBUG_CODE()
+									{
+										fprintf(stderr, "Injecting nontype '%s' into the instantiate scope\n", name);
+									}
 									scope_entry_t* injected_nontype = new_symbol(instantiate_scope, name);
 									injected_nontype->kind = SK_VARIABLE;
 									injected_nontype->type_information = template_parameter->type_info;
@@ -277,7 +280,10 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 	decl_context_t decl_context;
 	memset(&decl_context, 0, sizeof(decl_context));
 
-	fprintf(stderr, "--------> Building scope of instantiated template '%s'\n", matched_template->symbol_name);
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "--------> Building scope of instantiated template '%s'\n", matched_template->symbol_name);
+	}
 	print_scope(instantiate_scope, 0);
 
 	instance_symbol->related_scope->template_scope = matched_template->scope->template_scope;
@@ -300,7 +306,10 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 
 	instance_symbol->defined = 1;
 
-	fprintf(stderr, "--------> Instantiation ended\n");
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "--------> Instantiation ended\n");
+	}
 }
 
 static void fill_template_specialized_info(scope_entry_t* instance_symbol, 
@@ -323,7 +332,12 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
 			sizeof(*(instance_symbol->type_information->type->class_info)));
 
 	scope_t* inner_scope = new_class_scope(instance_symbol->scope);
-	fprintf(stderr, "New inner_scope %p\n", inner_scope);
+
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "New inner_scope %p\n", inner_scope);
+	}
+
 	instance_symbol->type_information->type->class_info->inner_scope = inner_scope;
 	instance_symbol->related_scope = inner_scope;
 
@@ -339,9 +353,12 @@ scope_entry_t* create_holding_symbol_for_template(scope_entry_t* matched_templat
 		arguments, scope_t* st, int instantiation_line)
 {
 	scope_entry_t* instance_symbol = new_symbol(matched_template->scope, matched_template->symbol_name);
-	fprintf(stderr, "Creating the holding symbol (%p) due to instantiation in line %d\n", 
-			instance_symbol,
-			instantiation_line);
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "Creating the holding symbol (%p) due to instantiation in line %d\n", 
+				instance_symbol,
+				instantiation_line);
+	}
 	instance_symbol->line = instantiation_line;
 
 	fill_template_specialized_info(instance_symbol, arguments);
@@ -360,7 +377,10 @@ void instantiate_template_in_symbol(scope_entry_t* instance_symbol,
 
 	fill_template_specialized_info(instance_symbol, arguments);
 
-	fprintf(stderr, ">> instantiate_template over given symbol %p-> '%s'\n", instance_symbol, matched_template->symbol_name);
+	DEBUG_CODE()
+	{
+		fprintf(stderr, ">> instantiate_template over given symbol %p-> '%s'\n", instance_symbol, matched_template->symbol_name);
+	}
 
 	switch (matched_template->kind)
 	{
@@ -379,7 +399,11 @@ void instantiate_template_in_symbol(scope_entry_t* instance_symbol,
 				internal_error("Unexpected kind %d\n", matched_template->kind);
 			}
 	}
-	fprintf(stderr, "<< instantiate_template -> '%s'\n", matched_template->symbol_name);
+
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "<< instantiate_template -> '%s'\n", matched_template->symbol_name);
+	}
 }
 
 void instantiate_template(matching_pair_t* match_pair, template_argument_list_t* arguments, scope_t* st, int instantiation_line)
@@ -388,9 +412,14 @@ void instantiate_template(matching_pair_t* match_pair, template_argument_list_t*
 	// unification_set_t* unification_set = match_pair->unif_set;
 
 	scope_entry_t* instance_symbol = new_symbol(matched_template->scope, matched_template->symbol_name);
-	fprintf(stderr, "Creating the instantiated new symbol (%p) due to instantiation in line %d\n", 
-			instance_symbol,
-			instantiation_line);
+
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "Creating the instantiated new symbol (%p) due to instantiation in line %d\n", 
+				instance_symbol,
+				instantiation_line);
+	}
+
 	instance_symbol->line = instantiation_line;
 
 	instantiate_template_in_symbol(instance_symbol, match_pair, arguments, st);

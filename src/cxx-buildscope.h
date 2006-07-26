@@ -2,10 +2,11 @@
 #define CXX_BUILDSCOPE_H
 
 #include <stdlib.h>
+#include "cxx-driver.h"
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 
-void build_scope_translation_unit(AST a);
+void build_scope_translation_unit(translation_unit_t* translation_unit);
 
 typedef struct gather_decl_spec_tag {
 	char is_auto;

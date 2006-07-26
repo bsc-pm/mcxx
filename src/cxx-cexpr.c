@@ -150,10 +150,8 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
 			{
 				// Take the last one
 				AST expression_list = ASTSon1(a);
-				if (ASTSon0(expression_list) != NULL)
-				{
-					internal_error("Cannot cast a constant expression formed with an expression list longer than 1", 0);
-				}
+				ERROR_CONDITION((ASTSon0(expression_list) != NULL), 
+						"Cannot cast a constant expression formed with an expression list longer than 1", 0);
 				AST first_expression = ASTSon1(expression_list);
 				return cast_expression(ASTSon0(a), first_expression, st);
 			}
@@ -227,14 +225,18 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st
 		return val_rhs;
 	}
 
-	fprintf(stderr, "(1) val_lhs.kind=%d || val_rhs.kind=%d\n", val_lhs.kind, val_rhs.kind);
-	promote_values(val_lhs, val_rhs, &val_lhs, &val_rhs);
-	fprintf(stderr, "(2) val_lhs.kind=%d || val_rhs.kind=%d\n", val_lhs.kind, val_rhs.kind);
-
-	if (val_lhs.kind != val_rhs.kind)
+	DEBUG_CODE()
 	{
-		internal_error("Both types should be the same (%d != %d)", val_lhs.kind, val_rhs.kind);
+		fprintf(stderr, "(1) val_lhs.kind=%d || val_rhs.kind=%d\n", val_lhs.kind, val_rhs.kind);
 	}
+	promote_values(val_lhs, val_rhs, &val_lhs, &val_rhs);
+
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "(2) val_lhs.kind=%d || val_rhs.kind=%d\n", val_lhs.kind, val_rhs.kind);
+	}
+
+	ERROR_CONDITION((val_lhs.kind != val_rhs.kind), "Both types should be the same (%d != %d)", val_lhs.kind, val_rhs.kind);
 
 	return bop.fun(val_lhs, val_rhs);
 }
@@ -693,13 +695,8 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 {
 	scope_entry_list_t* result = query_id_expression_flags(st, symbol, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION);
 
-	if (result == NULL)
-	{
-		fprintf(stderr, "Unknown symbol '");
-		prettyprint(stderr, symbol);
-		fprintf(stderr, "'\n");
-		internal_error("Cannot evaluate unknown symbol line=%d", ASTLine(symbol));
-	}
+	ERROR_CONDITION((result == NULL), "Cannot evaluate unknown symbol '%s' line=%d", 
+			prettyprint_in_buffer(symbol), ASTLine(symbol));
 
 	if (result->entry->kind == SK_DEPENDENT_ENTITY
 			|| result->entry->kind == SK_TEMPLATE_PARAMETER)
@@ -716,9 +713,12 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 			&& result->entry->kind != SK_VARIABLE
 			&& result->entry->kind != SK_TEMPLATE_PARAMETER)
 	{
-		fprintf(stderr, "Invalid symbol '");
-		prettyprint(stderr, symbol);
-		fprintf(stderr, "'\n");
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "Invalid symbol '");
+			prettyprint(stderr, symbol);
+			fprintf(stderr, "'\n");
+		}
 
 		literal_value_t invalid_type;
 		memset(&invalid_type, 0, sizeof(invalid_type));
@@ -726,13 +726,8 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 		return invalid_type;
 	}
 
-	if (result->entry->expression_value == NULL)
-	{
-		fprintf(stderr, "Invalid symbol '");
-		prettyprint(stderr, symbol);
-		fprintf(stderr, "'");
-		internal_error("This symbol does not have a value", 0);
-	}
+	ERROR_CONDITION((result->entry->expression_value == NULL), 
+			"Symbol '%s' does not have a value", prettyprint_in_buffer(symbol));
 
 	return evaluate_initializer(result->entry->expression_value, st);
 }

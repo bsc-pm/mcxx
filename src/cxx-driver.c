@@ -2,8 +2,9 @@
  #include <config.h>
 #endif
 
-#include <string.h>
+#include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "cxx-driver.h"
 #include "cxx-ast.h"
@@ -11,12 +12,108 @@
 #include "cxx-prettyprint.h"
 #include "cxx-buildscope.h"
 
+#include <getopt.h>
+
 // Compilation options
 compilation_options_t compilation_options;
 
-void print_ambiguities(AST a, char lines);
-char check_for_ambiguities(AST a);
+// Remember to update GETOPT_STRING if needed
+#define GETOPT_STRING "vkagdc"
+struct option getopt_long_options[] =
+{
+	{"version", no_argument, NULL, OPTION_VERSION},
+	{"verbose", no_argument, NULL, 'v'},
+	{"keep-files", no_argument, NULL, 'k'},
+	{"check-dates", no_argument, NULL, 'a'},
+	{"graphviz", no_argument, NULL, 'g'},
+	{"debug", no_argument, NULL, 'd'},
+	// sentinel
+	{NULL, 0, NULL, 0}
+};
 
+static void print_version(void);
+static void parse_arguments(void);
+static void driver_initialization(int argc, char* argv[]);
+static void initialize_default_values(void);
+
+int main(int argc, char* argv[])
+{
+	driver_initialization(argc, argv);
+
+	// Argument parsing
+	parse_arguments();
+
+	return compilation_options.execution_result;
+}
+
+static void driver_initialization(int argc, char* argv[])
+{
+	memset(&compilation_options, 0, sizeof(compilation_options));
+	compilation_options.argc = argc;
+	compilation_options.argv = argv;
+}
+
+static void parse_arguments(void)
+{
+	int c;
+	int indexptr;
+
+	initialize_default_values();
+
+	while ((c = getopt_long (compilation_options.argc, 
+					compilation_options.argv, 
+					GETOPT_STRING, 
+					getopt_long_options, 
+					&indexptr)) != -1)
+	{
+		switch (c)
+		{
+			case OPTION_VERSION : // --version
+				{
+					print_version();
+					exit(0);
+					break;
+				}
+			case 'v' : // --verbose || -v
+				{
+					compilation_options.verbose = 1;
+					break;
+				}
+			case 'k' : // --keep-files || -k
+				{
+					compilation_options.keep_files = 1;
+					break;
+				}
+			case 'c' : // -c
+				{
+					compilation_options.do_not_link = 1;
+					break;
+				}
+			case 'a' : // --check-dates || -a
+				{
+					compilation_options.check_dates = 1;
+					break;
+				}
+			case 'd' : // --debug || -d
+				{
+					compilation_options.debug_level++;
+					break;
+				}
+		}
+	}
+}
+
+static void initialize_default_values(void)
+{
+	// Initialize here all default values
+}
+
+static void print_version(void)
+{
+	fprintf(stderr, PACKAGE " - " VERSION " (experimental)\n");
+}
+
+#if 0
 int main(int argc, char* argv[])
 {
 	int result = 0;
@@ -145,3 +242,4 @@ void print_ambiguities(AST a, char lines)
 			}
 	}
 }
+#endif

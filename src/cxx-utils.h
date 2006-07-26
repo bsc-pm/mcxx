@@ -28,28 +28,42 @@
 void running_error(char* message, ...) NORETURN;
 
 #define internal_error(message, ...) \
-   { debug_message(message, "Internal compiler error. Please report bug:\n", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); raise(SIGABRT); exit(EXIT_FAILURE);  }
+{ \
+	debug_message(message, "Internal compiler error. Please report bug:\n", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); \
+	raise(SIGABRT); \
+	exit(EXIT_FAILURE); \
+}
 
 void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...);
 
-#define DEBUG_MESSAGE(message, ...) \
-   { debug_message(message, "Debug: ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); }
-#if 0
-#define DEBUG_MESSAGE(message, ...) \
-   { if (compilation_options.debugging) debug_message(message, "Debug: ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); }
-#endif
-
 #define WARNING_MESSAGE(message, ...) \
-   { debug_message(message, "Warning: ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); }
+{ \
+	debug_message(message, "Warning: ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+}
 
 #define ASSERT_MESSAGE(cond, message, ...) \
-   { if (!(cond)) \
-       { debug_message(message, "Assert failed (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); } \
-   }
+{ if (!(cond)) \
+	{ \
+		debug_message((message), "Assertion failed (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+		raise(SIGABRT); \
+	} \
+}
+
+#define ERROR_CONDITION(cond, message, ...) \
+{ if ((cond)) \
+	{ \
+		debug_message((message), "Error condition (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+		raise(SIGABRT); \
+	} \
+}
+
+#define DEBUG_MESSAGE(message, ...) \
+{ \
+	debug_message(message, "Debug : ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+}
 
 #define HASH_SIZE 23
 int prime_hash(char* key, int hash_size);
-
 
 char* strappend(char* orig, char* appended);
 char* strprepend(char* orig, char* prepended);
@@ -84,6 +98,9 @@ char* GC_STRDUP(const char* str);
 
 #define BITMAP_TEST(x, b) (((x) & (b)) == (b))
 
+#define DEBUG_CODE() if (compilation_options.debug_level)
+
+// Gives a unique name for the identifier
 char* get_unique_name(void);
 
 #endif // CXX_UTILS_H

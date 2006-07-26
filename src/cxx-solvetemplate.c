@@ -8,6 +8,7 @@
 #include "cxx-typeunif.h"
 #include "cxx-typeutils.h"
 #include "cxx-prettyprint.h"
+#include "cxx-driver.h"
 
 char match_one_template(template_argument_list_t* arguments, 
 		template_argument_list_t* specialized, scope_entry_t* specialized_entry, 
@@ -79,7 +80,10 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
 		{
 			template_argument_list_t* specialized = result->entry->type_information->type->template_arguments;
 
-			fprintf(stderr, "Checking match with the unique %p %p\n", specialized, arguments);
+			DEBUG_CODE()
+			{
+				fprintf(stderr, "Checking match with the unique %p %p\n", specialized, arguments);
+			}
 
 			unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
 			if (!match_one_template(specialized, arguments, NULL, st, unification_set))
@@ -94,10 +98,16 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
 	}
 	else if (num_matching_set > 0)
 	{
-		fprintf(stderr, "More than one template can be selected, determining more specialized (exact=%d)\n", give_exact_match);
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "More than one template can be selected, determining more specialized (exact=%d)\n", give_exact_match);
+		}
 		result = determine_more_specialized(num_matching_set, matching_set, st,
 				give_exact_match);
-		fprintf(stderr, "More specialized determined result=%p\n", result->entry);
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "More specialized determined result=%p\n", result->entry);
+		}
 	}
 
 	if (give_exact_match 
@@ -106,7 +116,10 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
 		// Result will be an exact match if it can be unified with the original
 		template_argument_list_t* specialized = result->entry->type_information->type->template_arguments;
 
-		fprintf(stderr, "Checking match %p %p\n", specialized, arguments);
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "Checking match %p %p\n", specialized, arguments);
+		}
 
 		unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
 		if (!match_one_template(specialized, arguments, NULL, st, unification_set))
@@ -124,7 +137,10 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
 {
 	matching_pair_t* min = matching_set[0];
 
-	fprintf(stderr, "Have to select the best template among %d templates\n", num_matching_set);
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "Have to select the best template among %d templates\n", num_matching_set);
+	}
 
 	int i;
 	for (i = 1; i < num_matching_set; i++)
@@ -140,7 +156,11 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
 
 		if (!match_one_template(min_args, current_args, current_entry->entry, st, unification_set))
 		{
-			fprintf(stderr, "Template %p is more specialized than %p\n", current_entry->entry, min->entry);
+			DEBUG_CODE()
+			{
+				fprintf(stderr, "Template %p is more specialized than %p\n", current_entry->entry, min->entry);
+			}
+
 			min = current_entry;
 
 			unification_set_t* unification_set_check = GC_CALLOC(1, sizeof(*unification_set_check));
@@ -154,7 +174,10 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
 		}
 	}
 
-	fprintf(stderr, "Best template selected\n");
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "Best template selected\n");
+	}
 
 	return min;
 }
@@ -166,14 +189,17 @@ char match_one_template(template_argument_list_t* arguments,
 	int i;
 	// unification_set_t* unif_set = GC_CALLOC(1, sizeof(*unif_set));
 	
-	if (specialized_entry != NULL)
+	DEBUG_CODE()
 	{
-		fprintf(stderr, "=== Starting unification with %p\n", specialized_entry);
-	}
-	else
-	{
-		// For reverse unifications
-		fprintf(stderr, "=== Starting unification\n");
+		if (specialized_entry != NULL)
+		{
+			fprintf(stderr, "=== Starting unification with %p\n", specialized_entry);
+		}
+		else
+		{
+			// For reverse unifications
+			fprintf(stderr, "=== Starting unification\n");
+		}
 	}
 
 	for (i = 0; i < arguments->num_arguments; i++)
@@ -189,7 +215,10 @@ char match_one_template(template_argument_list_t* arguments,
 					{
 						if (!unificate_two_types(spec_arg->type, arg->type, st, &unif_set))
 						{
-							fprintf(stderr, "=== Unification failed\n");
+							DEBUG_CODE()
+							{
+								fprintf(stderr, "=== Unification failed\n");
+							}
 							return 0;
 						}
 						break;
@@ -214,13 +243,19 @@ char match_one_template(template_argument_list_t* arguments,
 						{
 							if (!equal_literal_values(spec_arg_value, arg_value, st))
 							{
-								fprintf(stderr, "==> They are different\n");
-								fprintf(stderr, "=== Unification failed\n");
+								DEBUG_CODE()
+								{
+									fprintf(stderr, "==> They are different\n");
+									fprintf(stderr, "=== Unification failed\n");
+								}
 								return 0;
 							}
 							else
 							{
-								fprintf(stderr, "==> They are the same!\n");
+								DEBUG_CODE()
+								{
+									fprintf(stderr, "==> They are the same!\n");
+								}
 							}
 						}
 						else
@@ -245,35 +280,41 @@ char match_one_template(template_argument_list_t* arguments,
 		}
 		else
 		{
-			fprintf(stderr, "=== Unification failed\n");
+			DEBUG_CODE()
+			{
+				fprintf(stderr, "=== Unification failed\n");
+			}
 			return 0;
 		}
 	}
 
-	fprintf(stderr, "=== Unification succeeded!\n");
-	fprintf(stderr, "=== Unification details\n");
-	for (i = 0; i < unif_set->num_elems; i++)
+	DEBUG_CODE()
 	{
-		unification_item_t* unif_item = unif_set->unif_list[i];
-		fprintf(stderr, "Parameter num: %d || Parameter nesting: %d || Parameter name: %s <- ",
-				unif_item->parameter_num, unif_item->parameter_nesting, unif_item->parameter_name);
-		if (unif_item->value != NULL)
+		fprintf(stderr, "=== Unification succeeded!\n");
+		fprintf(stderr, "=== Unification details\n");
+		for (i = 0; i < unif_set->num_elems; i++)
 		{
-			fprintf(stderr, "[type] ");
-			print_declarator(unif_item->value, st);
+			unification_item_t* unif_item = unif_set->unif_list[i];
+			fprintf(stderr, "Parameter num: %d || Parameter nesting: %d || Parameter name: %s <- ",
+					unif_item->parameter_num, unif_item->parameter_nesting, unif_item->parameter_name);
+			if (unif_item->value != NULL)
+			{
+				fprintf(stderr, "[type] ");
+				print_declarator(unif_item->value, st);
+			}
+			else if (unif_item->expression != NULL)
+			{
+				fprintf(stderr, "[expr] ");
+				prettyprint(stderr, unif_item->expression);
+			}
+			else
+			{
+				fprintf(stderr, "(unknown)");
+			}
+			fprintf(stderr, "\n");
 		}
-		else if (unif_item->expression != NULL)
-		{
-			fprintf(stderr, "[expr] ");
-			prettyprint(stderr, unif_item->expression);
-		}
-		else
-		{
-			fprintf(stderr, "(unknown)");
-		}
-		fprintf(stderr, "\n");
+		fprintf(stderr, "=== End of unification details\n");
 	}
-	fprintf(stderr, "=== End of unification details\n");
 
 	return 1;
 }

@@ -34,7 +34,8 @@ mcxx_SOURCES = \
   cxx-printscope.c \
   cxx-printscope.h \
   cxx-instantiation.h \
-  cxx-instantiation.c
+  cxx-instantiation.c \
+  cxx-fileextensions.c
 #  cxx-koenig.c \
 #  cxx-koenig.h \
 #  cxx-typecalc.c \
@@ -79,6 +80,11 @@ cxx-parser.c cxx-parser.h : $(srcdir)/cxx03.y
 cxx-scanner.c : $(srcdir)/cxx03.l $(srcdir)/cxx-ast.h cxx-parser.h
 	flex -Pmcxx -d -ocxx-scanner.c -8 $(srcdir)/cxx03.l
 
+cxx-fileextensions.c : cxx-fileextensions.gperf cxx-driver.h
+	gperf --language=ANSI-C --hash-function-name=fileextensions_hash --struct-type \
+      --lookup-function-name=fileextensions_lookup --output=cxx-fileextensions.c \
+      $(srcdir)/cxx-fileextensions.gperf
+
 CLEANFILES =
 CLEANFILES += cxx-parser.c
 CLEANFILES += cxx-parser.h
@@ -86,3 +92,4 @@ CLEANFILES += cxx-scanner.c
 CLEANFILES += cxx-asttype.h
 CLEANFILES += cxx-asttype.c
 CLEANFILES += cxx-parser.output
+CLEANFILES += cxx-fileextensions.c

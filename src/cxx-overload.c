@@ -623,9 +623,17 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 	implicit_conversion_sequence_t* result = GC_CALLOC(1, sizeof(*result));
 
 #warning Non const member functions are not viable if the object where invoked is not const too
-	fprintf(stderr, "Building ICS for function '");
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "Building ICS for function '");
+	}
+
 	print_declarator(entry->type_information, st);
-	fprintf(stderr, "'\n");
+
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "'\n");
+	}
 	DEBUG_MESSAGE("Number of arguments = %d | Number of parameters = %d", num_args, num_pars);
 
 	for (i = 0; i < num_args; i++)
@@ -644,9 +652,12 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 
 			if (one_ics == NULL)
 			{
-				fprintf(stderr, "Function '");
-				print_declarator(entry->type_information, st);
-				fprintf(stderr, "' does not have an ICS\n");
+				DEBUG_CODE()
+				{
+					fprintf(stderr, "Function '");
+					print_declarator(entry->type_information, st);
+					fprintf(stderr, "' does not have an ICS\n");
+				}
 				return NULL;
 			}
 
@@ -654,9 +665,12 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 		}
 	}
 
-	fprintf(stderr, "Built an ICS for function '");
-	print_declarator(entry->type_information, st);
-	fprintf(stderr, "'\n");
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "Built an ICS for function '");
+		print_declarator(entry->type_information, st);
+		fprintf(stderr, "'\n");
+	}
 
 	return result;
 }
@@ -1110,26 +1124,35 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
 
 	while (iter != NULL)
 	{
-		fprintf(stderr, "iter > result? %d\n", is_better_viable_function(iter, result, st));
-		fprintf(stderr, "iter < result? %d\n", is_better_viable_function(result, iter, st));
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "iter > result? %d\n", is_better_viable_function(iter, result, st));
+			fprintf(stderr, "iter < result? %d\n", is_better_viable_function(result, iter, st));
+		}
 
 		if (is_better_viable_function(iter, result, st))
 		{
-			fprintf(stderr, "Choosing function '");
-			print_declarator(iter->entry->type_information, result->entry->scope);
-			fprintf(stderr, "' because is better than '");
-			print_declarator(result->entry->type_information, result->entry->scope);
-			fprintf(stderr, "'\n");
+			DEBUG_CODE()
+			{
+				fprintf(stderr, "Choosing function '");
+				print_declarator(iter->entry->type_information, result->entry->scope);
+				fprintf(stderr, "' because is better than '");
+				print_declarator(result->entry->type_information, result->entry->scope);
+				fprintf(stderr, "'\n");
+			}
 
 			result = iter;
 		}
 		else
 		{
-			fprintf(stderr, "Function '");
-			print_declarator(iter->entry->type_information, result->entry->scope);
-			fprintf(stderr, "' is still better than '");
-			print_declarator(result->entry->type_information, result->entry->scope);
-			fprintf(stderr, "'\n");
+			DEBUG_CODE()
+			{
+				fprintf(stderr, "Function '");
+				print_declarator(iter->entry->type_information, result->entry->scope);
+				fprintf(stderr, "' is still better than '");
+				print_declarator(result->entry->type_information, result->entry->scope);
+				fprintf(stderr, "'\n");
+			}
 		}
 
 		iter = iter->next;
@@ -1145,11 +1168,14 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
 			is_still_the_best = is_better_viable_function(result, iter, st);
 			if (!is_still_the_best)
 			{
-				fprintf(stderr, "Function '");
-				print_declarator(result->entry->type_information, result->entry->scope);
-				fprintf(stderr, "' is not better than '");
-				print_declarator(iter->entry->type_information, result->entry->scope);
-				fprintf(stderr, "'\n");
+				DEBUG_CODE()
+				{
+					fprintf(stderr, "Function '");
+					print_declarator(result->entry->type_information, result->entry->scope);
+					fprintf(stderr, "' is not better than '");
+					print_declarator(iter->entry->type_information, result->entry->scope);
+					fprintf(stderr, "'\n");
+				}
 			}
 		}
 
@@ -1158,15 +1184,18 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
 
 	if (!is_still_the_best)
 	{
-		DEBUG_MESSAGE("There was no best viable function", 0);
+		fprintf(stderr, "There was no best viable function\n");
 		return NULL;
 	}
 	else
 	{
-		DEBUG_MESSAGE("Determined the best viable function", 0);
-		fprintf(stderr, "Best viable function is '");
-		print_declarator(result->entry->type_information, result->entry->scope);
-		fprintf(stderr, "'\n");
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "Determined the best viable function\n");
+			fprintf(stderr, "Best viable function is '");
+			print_declarator(result->entry->type_information, result->entry->scope);
+			fprintf(stderr, "'\n");
+		}
 		return result->entry;
 	}
 }
