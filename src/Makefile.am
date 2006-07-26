@@ -35,7 +35,10 @@ mcxx_SOURCES = \
   cxx-printscope.h \
   cxx-instantiation.h \
   cxx-instantiation.c \
-  cxx-fileextensions.c
+  cxx-fileextensions.c \
+  cxx-configfile.h \
+  cxx-configfile.c \
+  cxx-configoptions.c
 
 # Currently these files are unused but waiting for their momentum
 #  cxx-koenig.c \
@@ -46,14 +49,15 @@ mcxx_SOURCES = \
 #  cxx-overload.h
 
 mcxx_LDFLAGS=-L../lib -L../gc
-mcxx_LDADD=../lib/libmcxx-utils.la ../gc/libgc.la
-mcxx_CFLAGS=-Wall -g -I$(srcdir)/../lib -I$(srcdir)/../gc/include
+mcxx_LDADD=../lib/libmcxx-utils.la ../gc/libgc.la ../lib/libmcxx-mcfg.la
+mcxx_CFLAGS=-Wall -g -I$(srcdir)/../lib -I$(srcdir)/../gc/include -DPKGDATADIR=\"$(pkgdatadir)\"
 
 EXTRA_DIST =
 EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx03.l
 EXTRA_DIST += cxx-asttype.def
 EXTRA_DIST += cxx-fileextensions.gperf
+EXTRA_DIST += cxx-configoptions.gperf
 
 cxx-ast.h : cxx-asttype.h
 
@@ -87,6 +91,11 @@ cxx-fileextensions.c : cxx-fileextensions.gperf cxx-driver.h
       --lookup-function-name=fileextensions_lookup --output=cxx-fileextensions.c \
       $(srcdir)/cxx-fileextensions.gperf
 
+cxx-configoptions.c : cxx-configoptions.gperf cxx-driver.h cxx-configfile.h
+	gperf --language=ANSI-C --hash-function-name=configoptions_hash --struct-type \
+      --lookup-function-name=configoptions_lookup --output=cxx-configoptions.c \
+      $(srcdir)/cxx-configoptions.gperf
+
 CLEANFILES =
 CLEANFILES += cxx-parser.c
 CLEANFILES += cxx-parser.h
@@ -95,3 +104,4 @@ CLEANFILES += cxx-asttype.h
 CLEANFILES += cxx-asttype.c
 CLEANFILES += cxx-parser.output
 CLEANFILES += cxx-fileextensions.c
+CLEANFILES += cxx-configoptions.c

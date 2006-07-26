@@ -1,0 +1,80 @@
+#include "cxx-configfile.h"
+#include "cxx-utils.h"
+#include "cxx-driver.h"
+#include <stdio.h>
+#include <string.h>
+
+// Set source language
+int config_set_language(char* value)
+{
+	if (strcasecmp(value, "c") == 0)
+	{
+		compilation_options.source_language = SOURCE_LANGUAGE_C;
+	}
+	else if (strcasecmp(value, "c++") == 0)
+	{
+		compilation_options.source_language = SOURCE_LANGUAGE_CXX;
+	}
+	else
+	{
+		fprintf(stderr, "Unknown language '%s' assuming C++\n", value);
+		compilation_options.source_language = SOURCE_LANGUAGE_CXX;
+	}
+	return 0;
+}
+
+// Set additional mcxx options
+int config_set_options(char* value)
+{
+	int num;
+	char** comma_options = comma_separate_values(value, &num);
+
+	parse_arguments(num, comma_options);
+
+	return 0;
+}
+
+// Set preprocessor name
+int config_set_preprocessor_name(char* value)
+{
+	compilation_options.preprocessor_name = GC_STRDUP(value);
+	return 0;
+}
+
+// Set preprocessor options
+int config_set_preprocessor_options(char* value)
+{
+	int num;
+	compilation_options.preprocessor_options = comma_separate_values(value, &num);
+	return 0;
+}
+
+// Set native compiler name
+int config_set_compiler_name(char* value)
+{
+	compilation_options.native_compiler_name = GC_STRDUP(value);
+	return 0;
+}
+
+// Set native compiler options
+int config_set_compiler_options(char* value)
+{
+	int num;
+	compilation_options.native_compiler_options = comma_separate_values(value, &num);
+	return 0;
+}
+
+// Set linker name
+int config_set_linker_name(char* value)
+{
+	compilation_options.linker_name = GC_STRDUP(value);
+	return 0;
+}
+
+// Set linker options
+int config_set_linker_options(char* value)
+{
+	int num;
+	compilation_options.linker_options = comma_separate_values(value, &num);
+	return 0;
+}

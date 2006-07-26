@@ -13,12 +13,11 @@
 static int nodes_counter = 1000;
 static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
 {
-	static char* octagon = "octagon";
-	static char* doubleoctagon = "doubleoctagon";
+	// static char* octagon = "octagon";
+	// static char* doubleoctagon = "doubleoctagon";
 	static char* ellipse = "ellipse";
 	static char* mdiamond = "Mdiamond";
 	static char* box = "box";
-	static int num_clusters = 0;
 	char* shape;
 
 	int node_actual = nodes_counter++;
@@ -61,7 +60,6 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
 		else if (ASTType(a) == AST_AMBIGUITY)
 		{
 			int i;
-			int n = node_actual;
 			for(i = 0; i < a->num_ambig; i++)
 			{
 				ast_dump_graphviz_rec(a->ambig[i], f, node_actual, i);

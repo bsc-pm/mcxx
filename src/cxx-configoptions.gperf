@@ -1,0 +1,17 @@
+%{
+#include "cxx-driver.h"
+#include "cxx-configfile.h"
+#include <string.h>
+%}
+
+struct configuration_directive_t
+%%
+language, config_set_language
+options, config_set_options
+preprocessor_name, config_set_preprocessor_name
+preprocessor_options, config_set_preprocessor_options
+compiler_name, config_set_compiler_name
+compiler_options, config_set_compiler_options
+linker_name, config_set_linker_name
+linker_options, config_set_linker_options
+%%

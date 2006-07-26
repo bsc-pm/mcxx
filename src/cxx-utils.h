@@ -2,7 +2,9 @@
 #define CXX_UTILS_H
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <signal.h>
+#include <errno.h>
 
 #include <gc.h>
 
@@ -102,5 +104,23 @@ char* GC_STRDUP(const char* str);
 
 // Gives a unique name for the identifier
 char* get_unique_name(void);
+
+char** comma_separate_values(char* value, int* num_elems);
+
+// Temporal handling routines
+typedef struct 
+{
+	FILE* file;
+	char* name;
+}* temporal_file_t;
+
+// Gives you a new temporal file that will be removed when
+// finishing the program
+temporal_file_t new_temporal_file();
+
+// Routine that does the cleanup. Can be atexit-registered
+// or used discretionally inside the program. Every temporal
+// file is closed and erased.
+void temporal_files_cleanup(void);
 
 #endif // CXX_UTILS_H
