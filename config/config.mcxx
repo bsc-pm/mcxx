@@ -1,28 +1,22 @@
 # This file controls how external programs are handled
 # For C
-[C:<default>]
-
+[mcc]
+language = C
 options =
 preprocessor_name = cc
 preprocessor_options = -E
 compiler_name = cc
 compiler_options = -O2
-linker = cc
+linker_name = cc
 linker_options =
 
 # For C++
-[C++:<default>]
-
+[mcxx]
+language = C++
 options = 
 preprocessor_name = c++
 preprocessor_options = -E
 compiler_name = c++
 compiler_options = -O2
-linker = c++
+linker_name = c++
 linker_options = 
-
-# If you invoke the compiler with "mpi-mcc" the config below will be used, not
-# defined options will have the value defined in <default>
-[C:mpi-mcc:<default>]
-
-linker_options = -L /path/where/MPI/lives/lib -lMPI

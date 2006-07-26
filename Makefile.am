@@ -1,1 +1,1 @@
-SUBDIRS = @subdirs@ lib src
+SUBDIRS = @subdirs@ lib src config

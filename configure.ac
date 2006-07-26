@@ -112,5 +112,6 @@ dnl Escrivim els makefiles
 AC_CONFIG_FILES([Makefile 
 		   src/Makefile 
 		   lib/Makefile
+		   config/Makefile
 		   ])
 AC_OUTPUT
