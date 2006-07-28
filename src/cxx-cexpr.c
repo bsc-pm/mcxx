@@ -157,8 +157,8 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
 			}
 		case AST_AMBIGUITY :
 		default :
-			internal_error("Unsupported node '%s' when evaluating constant expression (line=%d)", 
-					ast_print_node_type(ASTType(a)), ASTLine(a));
+			internal_error("Unsupported node '%s' when evaluating constant expression (%s)", 
+					ast_print_node_type(ASTType(a)), node_information(a));
 	}
 }
 
@@ -695,8 +695,8 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
 {
 	scope_entry_list_t* result = query_id_expression_flags(st, symbol, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION);
 
-	ERROR_CONDITION((result == NULL), "Cannot evaluate unknown symbol '%s' line=%d", 
-			prettyprint_in_buffer(symbol), ASTLine(symbol));
+	ERROR_CONDITION((result == NULL), "Cannot evaluate unknown symbol '%s' %s", 
+			prettyprint_in_buffer(symbol), node_information(symbol));
 
 	if (result->entry->kind == SK_DEPENDENT_ENTITY
 			|| result->entry->kind == SK_TEMPLATE_PARAMETER)

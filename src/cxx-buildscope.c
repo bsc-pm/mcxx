@@ -213,14 +213,9 @@ static int max_line = 0;
 // Build scope for a declaration
 static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_context)
 {
-	if (max_line < ASTLine(a))
-	{
-		max_line = ASTLine(a);
-	}
-
 	DEBUG_CODE()
 	{
-		fprintf(stderr, "==== Declaration line [%08d] [max=%08d] ====\n", ASTLine(a), max_line);
+		fprintf(stderr, "==== Declaration line [%s] ====\n", node_information(a));
 	}
 
 	switch (ASTType(a))
@@ -320,8 +315,8 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
 			}
 		default :
 			{
-				internal_error("A declaration of kind '%s' is still unsupported (line=%d)\n", 
-						ast_print_node_type(ASTType(a)), ASTLine(a));
+				internal_error("A declaration of kind '%s' is still unsupported (%s)\n", 
+						ast_print_node_type(ASTType(a)), node_information(a));
 				break;
 			}
 	}
@@ -388,9 +383,9 @@ static void build_scope_using_declaration(AST a, scope_t* st, decl_context_t dec
 	scope_entry_list_t* used_entity = query_nested_name(st, global_op, nested_name_specifier, unqualified_id, FULL_UNQUALIFIED_LOOKUP);
 
 	ERROR_CONDITION((used_entity == NULL), 
-			"Entity '%s' not found (line=%d)\n", 
+			"Entity '%s' not found (%s)\n", 
 			prettyprint_in_buffer(a), 
-			ASTLine(a));
+			node_information(a));
 
 	while (used_entity != NULL)
 	{
@@ -715,7 +710,7 @@ void gather_decl_spec_information(AST a, scope_t* st, gather_decl_spec_t* gather
 			break;
 			// Unknown node
 		default:
-			internal_error("Unknown node '%s' (line=%d)", ast_print_node_type(ASTType(a)), ASTLine(a));
+			internal_error("Unknown node '%s' (%s)", ast_print_node_type(ASTType(a)), node_information(a));
 			break;
 	}
 }
@@ -1174,14 +1169,14 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
 	scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, 
             type_name, FULL_UNQUALIFIED_LOOKUP);
 
-	ERROR_CONDITION((entry_list == NULL), "The list of types is already empty! (line=%d)\n", ASTLine(a));
+	ERROR_CONDITION((entry_list == NULL), "The list of types is already empty! (%s)\n", node_information(a));
 	
 	// Filter for non types hiding this type name
 	// Fix this, it sounds a bit awkward
 	scope_entry_t* simple_type_entry = filter_simple_type_specifier(entry_list);
 
-	ERROR_CONDITION((simple_type_entry == NULL), "Identifier '%s' in line %d is not a type\n", 
-			ASTText(type_name), ASTLine(type_name));
+	ERROR_CONDITION((simple_type_entry == NULL), "Identifier '%s' in %s is not a type\n", 
+			ASTText(type_name), node_information(type_name));
 
 	ERROR_CONDITION((simple_type_entry->type_information == NULL 
 				|| simple_type_entry->type_information->kind != TK_DIRECT 
@@ -1722,7 +1717,7 @@ void build_scope_member_specification(scope_t* inner_scope, AST member_specifica
 		}
 		DEBUG_CODE()
 		{
-			fprintf(stderr, "==== Member declaration [%08d] [max=%08d] ====\n", ASTLine(member_specification), max_line);
+			fprintf(stderr, "==== Member declaration [%s] ====\n", node_information(member_specification), max_line);
 		}
 		// If it has an access specifier, update it
 		if (ASTSon0(member_specification) != NULL)
@@ -2051,7 +2046,8 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 		if (ASTType(parameter_declaration) == AST_AMBIGUITY)
 		{
 			solve_ambiguous_parameter_decl(parameter_declaration, st);
-			ERROR_CONDITION((ASTType(parameter_declaration) == AST_AMBIGUITY), "Ambiguity not solved %d", ASTLine(parameter_declaration));
+			ERROR_CONDITION((ASTType(parameter_declaration) == AST_AMBIGUITY), "Ambiguity not solved %s", 
+					node_information(parameter_declaration));
 		}
 
 		if (ASTType(parameter_declaration) == AST_VARIADIC_ARG)
@@ -2487,15 +2483,15 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 		scope_entry_t* entry = filter_simple_type_specifier(list);
 
 		ERROR_CONDITION((entry == NULL), 
-				"Symbol '%s' in line %d has been redeclared as a different symbol kind (look at line %d).", 
+				"Symbol '%s' in %s has been redeclared as a different symbol kind (look at line %d).", 
 				ASTText(declarator_id), 
-				ASTLine(declarator_id), 
+				node_information(declarator_id), 
 				list->entry->line);
 
 		ERROR_CONDITION((!equivalent_types(entry->type_information, declarator_type, st, CVE_CONSIDER)), 
-				"Symbol '%s' in line %d has been redeclared as a different symbol kind (look at line %d).", 
+				"Symbol '%s' in line %s has been redeclared as a different symbol kind (look at line %d).", 
 				ASTText(declarator_id), 
-				ASTLine(declarator_id), 
+				node_information(declarator_id), 
 				entry->line);
 
 		return entry;
@@ -2854,7 +2850,8 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 				break;
 			}
 		default :
-			internal_error("Unknown node type '%s' (line=%d)\n", ast_print_node_type(ASTType(templated_decl)), ASTLine(templated_decl));
+			internal_error("Unknown node type '%s' (line=%s)\n", ast_print_node_type(ASTType(templated_decl)), 
+					node_information(templated_decl));
 	}
 
 	// Restore template scope
@@ -3445,7 +3442,8 @@ static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st)
 
 					scope_entry_list_t* result_list = query_nested_name(st, global_op, nested_name_spec, symbol, FULL_UNQUALIFIED_LOOKUP);
 
-					ERROR_CONDITION((result_list == NULL), "Initialized entity in constructor initializer not found (line=%d)", ASTLine(symbol));
+					ERROR_CONDITION((result_list == NULL), "Initialized entity in constructor initializer not found (%s)", 
+							node_information(symbol));
 
 					if (expression_list != NULL)
 					{
@@ -3645,8 +3643,8 @@ static void build_scope_member_declaration(AST a, scope_t*  st,
 			}
 		default:
 			{
-				internal_error("Unsupported node '%s' (line=%d)\n", ast_print_node_type(ASTType(a)),
-						ASTLine(a));
+				internal_error("Unsupported node '%s' (%s)\n", ast_print_node_type(ASTType(a)),
+						node_information(a));
 				break;
 			}
 	}
@@ -4119,7 +4117,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 					}
 				default :
 					{
-						internal_error("Unhandled node '%s' (line=%d)", ast_print_node_type(ASTType(declarator)), ASTLine(declarator));
+						internal_error("Unhandled node '%s' (%s)", ast_print_node_type(ASTType(declarator)), node_information(declarator));
 						break;
 					}
 			}
@@ -4418,8 +4416,8 @@ void build_scope_template_arguments(AST class_head_id,
 					break;
 				}
 			default :
-				internal_error("Unexpected node '%s' (line=%d)\n", ast_print_node_type(ASTType(template_argument)),
-						ASTLine(template_argument));
+				internal_error("Unexpected node '%s' (%s)\n", ast_print_node_type(ASTType(template_argument)),
+						node_information(template_argument));
 				break;
 		}
 	}
@@ -4962,7 +4960,7 @@ static void build_scope_statement(AST a, scope_t* st, decl_context_t decl_contex
 {
 	DEBUG_CODE()
 	{
-		fprintf(stderr, "=== Statement line [%08d] ===\n", ASTLine(a));
+		fprintf(stderr, "=== Statement line [%s] ===\n", node_information(a));
 	}
 
 	stmt_scope_handler_t f = stmt_scope_handlers[ASTType(a)];

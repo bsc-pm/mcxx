@@ -33,7 +33,7 @@ AST ASTMake(node_t type, int num_children, const AST child0, const AST child1, c
 	ASTType(result) = type;
 	result->num_children = num_children;
 
-	result->in_include_file = scanning_now.in_include_file;
+	result->filename = scanning_now.current_filename;
 
 #define ADD_SON(n) \
 	ASTChild##n(result) = child##n; \
@@ -219,3 +219,23 @@ char ast_equal (AST ast1, AST ast2)
 	return 1;
 }
 
+char* node_information(AST a)
+{
+	if (a == NULL)
+		return "";
+
+	char* result = GC_CALLOC(256, sizeof(char));
+
+	if (ASTFileName(a) == NULL)
+	{
+		snprintf(result, 255, "<unknown file>:%d", ASTLine(a));
+	}
+	else
+	{
+		snprintf(result, 255, "%s:%d", ASTFileName(a), ASTLine(a));
+	}
+
+	result[255] = '\0';
+
+	return result;
+}

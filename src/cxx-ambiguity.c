@@ -234,7 +234,7 @@ void solve_ambiguous_declaration(AST a, scope_t* st)
 		return;
 	}
 
-	ASSERT_MESSAGE(1, "Don't know how to handle this ambiguity. Line %d", ASTLine(a));
+	ASSERT_MESSAGE(1, "Don't know how to handle this ambiguity. %s", node_information(a));
 }
 
 static void solve_ambiguous_simple_declaration(AST a, scope_t* st)
@@ -432,10 +432,10 @@ void solve_ambiguous_statement(AST a, scope_t* st)
 				}
 				else
 				{
-					internal_error("More than one valid choice! '%s' vs '%s' line=%d", 
+					internal_error("More than one valid choice! '%s' vs '%s' %s", 
 							ast_print_node_type(ASTType(first_option)),
 								ast_print_node_type(ASTType(second_option)),
-								ASTLine(second_option));
+								node_information(second_option));
 				}
 			}
 		}
@@ -789,7 +789,7 @@ static char check_for_declaration_statement(AST declaration_statement, scope_t* 
 	else if (ASTType(a) == AST_AMBIGUITY)
 	{
 		// internal_error("Unknown node type '%s' (line=%d)\n", ast_print_node_type(ASTType(a)),
-		// 		ASTLine(a));
+		// 		node_information(a));
 		//
 		// In general only AST_SIMPLE_DECLARATION gets ambiguous here
 
@@ -1085,8 +1085,8 @@ char check_for_expression(AST expression, scope_t* st)
 							}
 							else
 							{
-								internal_error("More than one valid choice for expression (line %d)\n'%s' vs '%s'\n", 
-										ASTLine(expression), ast_print_node_type(ASTType(expression->ambig[i])), 
+								internal_error("More than one valid choice for expression (%s)\n'%s' vs '%s'\n", 
+										node_information(expression), ast_print_node_type(ASTType(expression->ambig[i])), 
 										ast_print_node_type(ASTType(expression->ambig[correct_choice])));
 							}
 						}
@@ -1422,7 +1422,8 @@ char check_for_expression(AST expression, scope_t* st)
 			}
 		default :
 			{
-				internal_error("Unexpected node '%s' line=%d\n", ast_print_node_type(ASTType(expression)), ASTLine(expression));
+				internal_error("Unexpected node '%s' %s", ast_print_node_type(ASTType(expression)), 
+				node_information(expression));
 				break;
 			}
 	}
@@ -1840,7 +1841,7 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st)
 			prettyprint(stderr, ambig_template_argument);
 			fprintf(stderr, "'\n");
 		}
-		internal_error("No valid choice found! line=%d", ASTLine(ambig_template_argument));
+		internal_error("No valid choice found! %s", node_information(ambig_template_argument));
 	}
 	else
 	{
@@ -2179,8 +2180,8 @@ static char check_for_initializer_list(AST initializer_list, scope_t* st)
 	}
 	else
 	{
-		internal_error("Unknown node '%s' (line=%d)", 
-				ast_print_node_type(ASTType(initializer_list)), ASTLine(initializer_list));
+		internal_error("Unknown node '%s' %s", 
+				ast_print_node_type(ASTType(initializer_list)), node_information(initializer_list));
 
 		return 0;
 	}
@@ -2358,10 +2359,10 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 						AST previous_choice = parameter->ambig[correct_choice];
 						ast_dump_graphviz(previous_choice, stderr);
 						ast_dump_graphviz(current_choice, stderr);
-						internal_error("More than one valid alternative '%s' vs '%s' (line=%d)", 
+						internal_error("More than one valid alternative '%s' vs '%s' %s", 
 								ast_print_node_type(ASTType(previous_choice)),
 								ast_print_node_type(ASTType(current_choice)),
-								ASTLine(previous_choice));
+								node_information(previous_choice));
 					}
 				}
 			}
@@ -2718,8 +2719,8 @@ static void choose_option(AST a, int n)
 
 	DEBUG_CODE()
 	{
-		fprintf(stderr, "*** Choosing '%s' in the ambiguity tree %p (line=%d) using %p\n", 
-				ast_print_node_type(ASTType(a->ambig[n])), a, ASTLine(a->ambig[n]), 
+		fprintf(stderr, "*** Choosing '%s' in the ambiguity tree %p (%s) using %p\n", 
+				ast_print_node_type(ASTType(a->ambig[n])), a, node_information(a->ambig[n]), 
 				a->ambig[n]);
 	}
 

@@ -18,7 +18,7 @@ struct node_ast
 	struct node_ast* children[MAX_AST_CHILDREN]; // The children
 	int line; // Code line
 	char* text; // Associated text of the node, normally the symbol or the literal
-	char in_include_file;
+	char* filename;
 
 	int num_ambig;
 	struct node_ast** ambig;
@@ -76,6 +76,8 @@ char* ast_print_node_type(node_t n);
 
 char ast_equal (AST ast1, AST ast2);
 char ast_equal_node (AST ast1, AST ast2);
+
+char* node_information(AST a);
 
 // Eases iterating forward in AST_NODE_LISTs
 #define for_each_element(list, iter) \

@@ -12,8 +12,8 @@ struct scan_file_descriptor
 	char in_include_file;
 	char* filename;
 
+	// Current filename due to include lines
 	char* current_filename;
-
 	int line_number;
 	FILE* file_descriptor;
 	struct yy_buffer_state* scanning_buffer;
