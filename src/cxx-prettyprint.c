@@ -1824,7 +1824,10 @@ static void operator_function_id_handler(FILE* f, AST a, int level)
 	if (ASTType(a) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
 	{
 		token_fprintf(f, a, "<");
-		list_handler(f, ASTSon1(a), level);
+		if (ASTSon1(a) != NULL)
+		{
+			list_handler(f, ASTSon1(a), level);
+		}
 		token_fprintf(f, a, " >");
 	}
 }

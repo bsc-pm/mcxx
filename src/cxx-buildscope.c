@@ -2402,10 +2402,17 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 				break;
 			}
 		case AST_OPERATOR_FUNCTION_ID :
+		case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
 			{
 				// An unqualified operator_function_id "operator +"
 				char* operator_function_name = get_operator_function_name(declarator_id);
 				AST operator_id = ASTLeaf(AST_SYMBOL, ASTLine(declarator_id), operator_function_name);
+
+				if (ASTType(declarator_id) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
+				{
+					solve_possibly_ambiguous_template_id(declarator_id, st);
+				}
+
 				return register_new_variable_name(operator_id, declarator_type, gather_info, st, decl_context);
 				break;
 			}
@@ -4072,6 +4079,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 										break;
 									}
 								case AST_OPERATOR_FUNCTION_ID :
+								case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
 									{
 										P_LIST_ADD(class_type->operator_function_list, class_type->num_operator_functions, entry);
 										break;
@@ -4600,7 +4608,9 @@ void build_scope_template_arguments(AST class_head_id,
 // Gives a name to an operator
 char* get_operator_function_name(AST declarator_id)
 {
-	ERROR_CONDITION((ASTType(declarator_id) != AST_OPERATOR_FUNCTION_ID), "This node is not valid here '%s'", ast_print_node_type(ASTType(declarator_id)));
+	ERROR_CONDITION((ASTType(declarator_id) != AST_OPERATOR_FUNCTION_ID
+				&& ASTType(declarator_id) != AST_OPERATOR_FUNCTION_ID_TEMPLATE), 
+			"This node is not valid here '%s'", ast_print_node_type(ASTType(declarator_id)));
 
 	AST operator  = ASTSon0(declarator_id);
 
