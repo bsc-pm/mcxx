@@ -44,17 +44,17 @@ compilation_options_t compilation_options;
 "\n"
 
 // Remember to update GETOPT_STRING if needed
-#define GETOPT_STRING "vkagdch"
+#define GETOPT_STRING "vkagdcho:m:"
 struct option getopt_long_options[] =
 {
-	{"help", no_argument, NULL, 'h'},
-	{"output", required_argument, NULL, 'o'},
-	{"version", no_argument, NULL, OPTION_VERSION},
-	{"verbose", no_argument, NULL, 'v'},
-	{"keep-files", no_argument, NULL, 'k'},
+	{"help",        no_argument, NULL, 'h'},
+	{"version",     no_argument, NULL, OPTION_VERSION},
+	{"verbose",     no_argument, NULL, 'v'},
+	{"keep-files",  no_argument, NULL, 'k'},
 	{"check-dates", no_argument, NULL, 'a'},
-	{"graphviz", no_argument, NULL, 'g'},
-	{"debug", no_argument, NULL, 'd'},
+	{"graphviz",    no_argument, NULL, 'g'},
+	{"debug",       no_argument, NULL, 'd'},
+	{"output",      required_argument, NULL, 'o'},
 	{"config-file", required_argument, NULL, 'm'},
 	// sentinel
 	{NULL, 0, NULL, 0}
@@ -78,11 +78,14 @@ static void compile_every_translation_unit(void);
 
 static char* preprocess_file(translation_unit_t* translation_unit, char* input_filename);
 static void parse_translation_unit(translation_unit_t* translation_unit, char* parsed_filename);
-static void prettyprint_translation_unit(translation_unit_t* translation_unit, char* parsed_filename);
+static char* prettyprint_translation_unit(translation_unit_t* translation_unit, char* parsed_filename);
+static void native_compilation(translation_unit_t* translation_unit, char* prettyprinted_filename);
 
 static void terminating_signal_handler(int sig);
 static char check_tree(AST a);
 static char check_for_ambiguities(AST a, AST* ambiguous_node);
+
+static void link_objects(void);
 
 int main(int argc, char* argv[])
 {
@@ -96,6 +99,8 @@ int main(int argc, char* argv[])
 	load_configuration();
 
 	compile_every_translation_unit();
+
+	link_objects();
 
 	return compilation_options.execution_result;
 }
@@ -212,13 +217,17 @@ void parse_arguments(int argc, char* argv[])
 				&& compilation_options.do_not_link
 				&& output_file != NULL)
 		{
-			running_error("Cannot specify -o with -c or -S with multiple files", 0);
+			running_error("Cannot specify -o with -c with multiple files", 0);
 		}
 		else
 		{
 			translation_unit_t* translation_unit = GC_CALLOC(1, sizeof(*translation_unit));
 			translation_unit->input_filename = GC_STRDUP(argv[optind]);
-			translation_unit->output_filename = output_file;
+			
+			if (compilation_options.do_not_link)
+			{
+				translation_unit->output_filename = output_file;
+			}
 
 			P_LIST_ADD(compilation_options.translation_units, 
 					compilation_options.num_translation_units, 
@@ -226,6 +235,12 @@ void parse_arguments(int argc, char* argv[])
 		}
 		i++;
 		optind++;
+	}
+
+	if (output_file != NULL
+			&& !compilation_options.do_not_link)
+	{
+		compilation_options.linked_output_filename = output_file;
 	}
 }
 
@@ -292,8 +307,9 @@ static void compile_every_translation_unit(void)
 
 		if (extension == NULL)
 		{
-			fprintf(stderr, "File '%s' not recognized as a valid input. Skipping it.\n", 
+			fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim onto the linker.\n", 
 					translation_unit->input_filename);
+			translation_unit->output_filename = translation_unit->input_filename;
 			continue;
 		}
 
@@ -301,8 +317,9 @@ static void compile_every_translation_unit(void)
 
 		if (current_extension == NULL)
 		{
-			fprintf(stderr, "File '%s' not recognized as a valid input. Skipping it.\n", 
+			fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim onto the linker.\n", 
 					translation_unit->input_filename);
+			translation_unit->output_filename = translation_unit->input_filename;
 			continue;
 		}
 
@@ -333,6 +350,10 @@ static void compile_every_translation_unit(void)
 		}
 
 		parse_translation_unit(translation_unit, parsed_filename);
+
+		char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);
+
+		native_compilation(translation_unit, prettyprinted_filename);
 	}
 }
 
@@ -346,11 +367,9 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 	build_scope_translation_unit(translation_unit);
 
 	check_tree(translation_unit->parsed_tree);
-
-	prettyprint_translation_unit(translation_unit, parsed_filename);
 }
 
-static void prettyprint_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
+static char* prettyprint_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
 {
 	char* output_filename = NULL;
 	char* input_filename_dirname = strappend(dirname(translation_unit->input_filename), "/");
@@ -381,6 +400,10 @@ static void prettyprint_translation_unit(translation_unit_t* translation_unit, c
 	}
 
 	prettyprint(prettyprint_file, translation_unit->parsed_tree);
+
+	fclose(prettyprint_file);
+
+	return output_filename;
 }
 
 static char* preprocess_file(translation_unit_t* translation_unit, char* input_filename)
@@ -412,6 +435,88 @@ static char* preprocess_file(translation_unit_t* translation_unit, char* input_f
 	else
 	{
 		return NULL;
+	}
+}
+
+static void native_compilation(translation_unit_t* translation_unit, 
+		char* prettyprinted_filename)
+{
+	char* output_object_filename;
+
+	if (translation_unit->output_filename == NULL
+			|| !compilation_options.do_not_link)
+	{
+		output_object_filename = GC_STRDUP(translation_unit->input_filename);
+		char* extension = get_extension_filename(output_object_filename);
+		*extension = '\0';
+
+		output_object_filename = strappend(output_object_filename, ".o");
+
+		translation_unit->output_filename = output_object_filename;
+	}
+	else
+	{
+		output_object_filename = translation_unit->output_filename;
+	}
+
+	int num_args_compiler = count_null_ended_array((void**)compilation_options.native_compiler_options);
+
+	char** native_compilation_args = GC_CALLOC(num_args_compiler + 4 + 1, sizeof(*native_compilation_args));
+
+	int i;
+	for (i = 0; i < num_args_compiler; i++)
+	{
+		native_compilation_args[i] = compilation_options.native_compiler_options[i];
+	}
+
+	native_compilation_args[i] = GC_STRDUP("-c");
+	i++;
+	native_compilation_args[i] = GC_STRDUP("-o");
+	i++;
+	native_compilation_args[i] = output_object_filename;
+	i++;
+	native_compilation_args[i] = prettyprinted_filename;
+
+	if (execute_program(compilation_options.native_compiler_name, native_compilation_args) != 0)
+	{
+		running_error("Native compilation failed for file '%s'", translation_unit->input_filename);
+	}
+}
+
+static void link_objects(void)
+{
+	if (compilation_options.do_not_link)
+		return;
+
+	int num_args_linker = count_null_ended_array((void**)compilation_options.linker_options);
+
+	char** linker_args = GC_CALLOC(num_args_linker
+			+ compilation_options.num_translation_units + 2 + 1, 
+			sizeof(*linker_args));
+
+	int i, j;
+	for (i = 0; i < num_args_linker; i++)
+	{
+		linker_args[i] = compilation_options.linker_options[i];
+	}
+
+	if (compilation_options.linked_output_filename != NULL)
+	{
+		linker_args[i] = GC_STRDUP("-o");
+		i++;
+		linker_args[i] = compilation_options.linked_output_filename;
+		i++;
+	}
+
+	for (j = 0; j < compilation_options.num_translation_units; j++)
+	{
+		linker_args[i] = compilation_options.translation_units[j]->output_filename;
+		i++;
+	}
+
+	if (execute_program(compilation_options.linker_name, linker_args) != 0)
+	{
+		running_error("Link failed", 0);
 	}
 }
 

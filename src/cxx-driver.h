@@ -88,6 +88,7 @@ typedef struct compilation_options_tag
 	// This makes things non reentrant
 	scope_t* global_scope;
 
+	char* linked_output_filename;
 	// Toolchain information
 	char* preprocessor_name;
 	char** preprocessor_options;
