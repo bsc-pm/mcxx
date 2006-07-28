@@ -9,6 +9,7 @@
 #include <string.h>
 #include <gc.h>
 
+#include "cxx-lexer.h"
 #include "cxx-utils.h"
 
 #define out_of_memory() out_of_memory_(__FILE__, __LINE__)
@@ -32,6 +33,8 @@ AST ASTMake(node_t type, int num_children, const AST child0, const AST child1, c
 	ASTType(result) = type;
 	result->num_children = num_children;
 
+	result->in_include_file = scanning_now.in_include_file;
+
 #define ADD_SON(n) \
 	ASTChild##n(result) = child##n; \
 	if (child##n != NULL) \
@@ -44,8 +47,6 @@ AST ASTMake(node_t type, int num_children, const AST child0, const AST child1, c
 	ADD_SON(2);
 	ADD_SON(3);
 #undef ADD_SON
-
-	result->line = line;
 
 	ASTText(result) = NULL;
 	if (text != NULL)
@@ -66,14 +67,7 @@ AST ASTMake(node_t type, int num_children, const AST child0, const AST child1, c
  */
 void ASTFree(AST node)
 {
-	if (node != NULL)
-	{
-		int i;
-		for (i = 0; i < MAX_AST_CHILDREN; i++)
-		{
-			ASTFree(ASTChild(node, i));
-		}
-	}
+	// Does nothing
 }
 
 /**

@@ -27,6 +27,8 @@ typedef enum source_language_tag
 	SOURCE_LANGUAGE_CXX
 } source_language_t;
 
+extern char* source_language_names[];
+
 // File extensions table
 struct extensions_table_t
 {
@@ -113,5 +115,9 @@ configoptions_lookup (register const char *str,
 		register unsigned int len);
 
 void parse_arguments(int argc, char* argv[]);
+
+extern int num_seen_file_names;
+extern char** seen_file_names;
+
 
 #endif // CXX_DRIVER_H

@@ -18,6 +18,7 @@ struct node_ast
 	struct node_ast* children[MAX_AST_CHILDREN]; // The children
 	int line; // Code line
 	char* text; // Associated text of the node, normally the symbol or the literal
+	char in_include_file;
 
 	int num_ambig;
 	struct node_ast** ambig;
@@ -51,6 +52,8 @@ typedef struct node_ast* AST;
 #define ASTChild(a, n) ((a)->children[n])
 
 #define ASTNumChildren(a) ((a)->num_children)
+
+#define ASTFileName(a) ((a)->filename)
 
 #define ASTListLeaf(a) ASTMake2(AST_NODE_LIST, NULL, a, ASTLine(a), NULL)
 #define ASTList(list,element) ASTMake2(AST_NODE_LIST, list, element, ASTLine(list), NULL)

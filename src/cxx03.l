@@ -4,16 +4,21 @@
 #include <string.h>
 #include <ctype.h>
 #include <gc.h>
+#include <errno.h>
+#include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-lexer.h"
 #include "cxx-ast.h"
 #include "cxx-parser.h"
 
-int yywrap();
+int yywrap(void);
 
-void parse_token_text();
-int no_line=1;
+void parse_token_text(void);
 int first = 0;
+
+struct scan_file_descriptor scanning_now;
+
+static char* main_input_filename;
 
 // For Garbage collection support
 #define free(x)
@@ -70,7 +75,7 @@ schar       ([^\\"\n]|{escape_seq})
 idnondigit  ({nondigit}|{uchar})
 hexprefix   0[xX]
 
-
+ /* states */
 %x longcomment
 %x linecomment
 %x preprocess
@@ -79,9 +84,53 @@ hexprefix   0[xX]
  /* preprocess */
 
 "#"     { yy_push_state(preprocess); }
-<preprocess>.       { /* ignore line */  }
-<preprocess>\n  { no_line++; yy_pop_state(); }
+<preprocess>[ ]{digit}+[ ]+["][^"]+["][^\n]* {
+	char* directive = yytext;
 
+	// Jump the blank
+	directive++;
+
+	int line_num = 0;
+	while (*directive != ' ')
+	{
+		if (isdigit(*directive))
+		{
+			line_num = line_num*10 + ((*directive) - '0');
+		}
+		else
+		{
+			internal_error("Digit expected here but '%c' found", *directive);
+		}
+		directive++;
+	}
+
+	// Now directive is over the blank after the digits. Jump the blank
+	directive++;
+
+	// Now we are over the doublequote ". Jump it
+	directive++;
+
+	char filename[256];
+	memset(filename, 0, 256);
+
+	char* p = filename;
+
+	while (*directive != '"')
+	{
+		*p = *directive;
+		p++;
+		directive++;
+	}
+
+	// Now we have the new number line and the new file name
+
+	// One less line because of the \n
+	scanning_now.line_number = (line_num - 1);
+	seen_filename(filename);
+	scanning_now.current_filename = reference_to_seen_filename(filename);
+}
+<preprocess>.       { /* ignore line */  }
+<preprocess>\n  { scanning_now.line_number++; yy_pop_state(); }
 
  /* C comments ( 6.4.9 ) */
 
@@ -90,14 +139,14 @@ hexprefix   0[xX]
 "/"(\\\n)*"/"       { yy_push_state(linecomment); }
 
  /* escaped new line does not end comment */
-<linecomment>\\\n   { no_line++; }
+<linecomment>\\\n   { scanning_now.line_number++; }
 <linecomment>.      { /* ignore comment */  }
-<linecomment>\n     { no_line++; yy_pop_state(); }
+<linecomment>\n     { scanning_now.line_number++; yy_pop_state(); }
 
  /* long C comments. tags can be splitted across diferent lines */
 
 "/"(\\\n)*"*"               { yy_push_state(longcomment); }
-<longcomment>\n             { no_line++; }
+<longcomment>\n             { scanning_now.line_number++; }
 <longcomment>.              { /* ignore comment */ }
 <longcomment>"*"(\\\n)*"/"  { yy_pop_state(); }
 
@@ -143,7 +192,7 @@ hexprefix   0[xX]
 "throw"         { parse_token_text(); return THROW; } 
 "operator"      { parse_token_text(); return OPERATOR; } 
 
-"new"           { parse_token_text(); return NEW; } 
+"new"           { parse_token_text(); return TOKEN_NEW; } 
 "delete"        { parse_token_text(); return DELETE; }
 
 
@@ -278,7 +327,7 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 "::"        { parse_token_text(); return DOS_DOS_PUNTS; }
 "..."       { parse_token_text(); return TRES_PUNTS; }
 
-[\n]        { no_line++; }
+[\n]        { scanning_now.line_number++; }
 [ \t\v\f]   {  }
 .           { 
     /* ignore bad characters */ 
@@ -295,13 +344,39 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 
 %%
 
-int yywrap()
+int yywrap(void)
 {
     return 1;
 }
 
-void parse_token_text()
+void parse_token_text(void)
 {
-    yylval.token_atrib.token_line = no_line;
+    yylval.token_atrib.token_line = scanning_now.line_number;
     yylval.token_atrib.token_text = GC_STRDUP(yytext);
+}
+
+int open_file_for_scanning(char* scanned_filename, char* input_filename)
+{
+	FILE* file;
+
+	file = fopen(scanned_filename, "r");
+
+	if (file == NULL)
+	{
+		running_error("Cannot open file '%s' (%s)", scanned_filename, strerror(errno));
+	}
+
+	memset(&scanning_now, 0, sizeof(scanning_now));
+	scanning_now.filename = strdup(scanned_filename);
+	scanning_now.file_descriptor = file;
+	scanning_now.line_number = 1;
+
+	seen_filename(input_filename);
+	main_input_filename = reference_to_seen_filename(input_filename);
+
+	scanning_now.scanning_buffer = yy_create_buffer(file, YY_BUF_SIZE);
+
+	yy_switch_to_buffer(scanning_now.scanning_buffer);
+
+	return 0;
 }

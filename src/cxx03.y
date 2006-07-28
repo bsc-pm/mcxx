@@ -101,7 +101,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> MUL_ASSIGN
 %token<token_atrib> MUTABLE
 %token<token_atrib> NAMESPACE
-%token<token_atrib> NEW
+%token<token_atrib> TOKEN_NEW
 %token<token_atrib> NOT_EQUAL
 %token<token_atrib> OCTAL_LITERAL
 %token<token_atrib> OPERATOR
@@ -3114,81 +3114,81 @@ unary_operator : '*'
 }
 ;
 
-new_expression : NEW new_type_id 
+new_expression : TOKEN_NEW new_type_id 
 {
 	$$ = ASTMake4(AST_NEW_EXPRESSION, NULL, NULL, $2, NULL, $1.token_line, NULL);
 }
-| NEW new_type_id new_initializer
+| TOKEN_NEW new_type_id new_initializer
 {
 	$$ = ASTMake4(AST_NEW_EXPRESSION, NULL, NULL, $2, $3, $1.token_line, NULL);
 }
-| NEW new_placement new_type_id 
+| TOKEN_NEW new_placement new_type_id 
 {
 	$$ = ASTMake4(AST_NEW_EXPRESSION, NULL, $2, $3, NULL, $1.token_line, NULL);
 }
-| NEW new_placement new_type_id new_initializer
+| TOKEN_NEW new_placement new_type_id new_initializer
 {
 	$$ = ASTMake4(AST_NEW_EXPRESSION, NULL, $2, $3, $4, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS NEW new_type_id 
+| DOS_DOS_PUNTS TOKEN_NEW new_type_id 
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, NULL, NULL, $3, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS NEW new_type_id new_initializer
+| DOS_DOS_PUNTS TOKEN_NEW new_type_id new_initializer
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, NULL, $3, $4, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS NEW new_placement new_type_id 
+| DOS_DOS_PUNTS TOKEN_NEW new_placement new_type_id 
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, $3, $4, NULL, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS NEW new_placement new_type_id new_initializer
+| DOS_DOS_PUNTS TOKEN_NEW new_placement new_type_id new_initializer
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, $3, $4, $5, $1.token_line, NULL);
 }
-| NEW '(' type_id ')' 
+| TOKEN_NEW '(' type_id ')' 
 {
 	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, NULL, $3, NULL, $1.token_line, NULL);
 }
-| NEW '(' type_id ')' new_initializer
+| TOKEN_NEW '(' type_id ')' new_initializer
 {
 	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, NULL, $3, $5, $1.token_line, NULL);
 }
-| NEW new_placement '(' type_id ')' 
+| TOKEN_NEW new_placement '(' type_id ')' 
 {
 	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, $2, $4, NULL, $1.token_line, NULL);
 }
-| NEW new_placement '(' type_id ')' new_initializer
+| TOKEN_NEW new_placement '(' type_id ')' new_initializer
 {
 	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, $2, $4, $6, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS NEW '(' type_id ')' 
+| DOS_DOS_PUNTS TOKEN_NEW '(' type_id ')' 
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, NULL, $4, NULL, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS NEW '(' type_id ')' new_initializer
+| DOS_DOS_PUNTS TOKEN_NEW '(' type_id ')' new_initializer
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, NULL, $4, $6, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS NEW new_placement '(' type_id ')' 
+| DOS_DOS_PUNTS TOKEN_NEW new_placement '(' type_id ')' 
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, $3, $5, NULL, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS NEW new_placement '(' type_id ')' new_initializer
+| DOS_DOS_PUNTS TOKEN_NEW new_placement '(' type_id ')' new_initializer
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -3588,7 +3588,7 @@ operator_function_id : OPERATOR operator
 }
 ;
 
-operator : NEW
+operator : TOKEN_NEW
 {
 	$$ = ASTLeaf(AST_NEW_OPERATOR, $1.token_line, NULL);
 }
@@ -3596,7 +3596,7 @@ operator : NEW
 {
 	$$ = ASTLeaf(AST_DELETE_OPERATOR, $1.token_line, NULL);
 }
-| NEW '[' ']'
+| TOKEN_NEW '[' ']'
 {
 	$$ = ASTLeaf(AST_NEW_ARRAY_OPERATOR, $1.token_line, NULL);
 }
@@ -4301,9 +4301,7 @@ void yyerror(AST* parsed_tree, const char* c)
 {
 	// Current token
 	extern char* yytext;
-	// Line number
-	extern int no_line;
-	fprintf(stderr, "Line %d Error : '%s'\n", no_line, c);
-    fprintf(stderr, "Token '%s'\n", yytext);
+	fprintf(stderr, "%s:%d error : '%s'\n", scanning_now.current_filename, scanning_now.line_number, c);
+    fprintf(stderr, "Error near token '%s'\n", yytext);
 	exit(EXIT_FAILURE);
 }

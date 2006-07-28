@@ -1,3 +1,8 @@
+#include <gc.h>
+#include <stdarg.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include "cxx-utils.h"
 #include "cxx-prettyprint.h"
 
 typedef void (*prettyprint_handler_t)(FILE* f, AST a, int level);
@@ -513,13 +518,40 @@ char* prettyprint_in_buffer(AST a)
 	return result;
 }
 
-static void indent_at_level(FILE* f, int level)
+
+
+static int character_level_vfprintf(FILE* stream, const char* format, va_list args)
+{
+	int result;
+	char c[512];
+	result = vsnprintf(c, 511, format, args);
+	c[511] = '\0';
+
+	fprintf(stream, "%s", c);
+
+	return result;
+}
+
+
+int token_fprintf(FILE *stream, AST node, const char *format, ...)
+{
+	int result = 0;
+	va_list args;
+
+	va_start(args, format);
+	result = character_level_vfprintf(stream, format, args);
+	va_end(args);
+
+	return result;
+}
+
+static void indent_at_level(FILE* f, AST node, int level)
 {
 	int i;
 	// This 4 should be configurable
 	for (i = 0; i < 4*level; i++)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, node, " ");
 	}
 }
 
@@ -560,7 +592,7 @@ static void spaced_sequence_handler(FILE* f, AST a, int level)
 	if (ASTSon0(a) != NULL)
 	{
 		spaced_sequence_handler(f, ASTSon0(a), level);
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 	}
 
 	prettyprint_level(f, ASTSon1(a), level);
@@ -577,7 +609,7 @@ static void sequence_handler(FILE* f, AST a, int level)
 	if (ASTSon0(a) != NULL)
 	{
 		sequence_handler(f, ASTSon0(a), level);
-		// fprintf(f, " ");
+		// token_fprintf(f, a, " ");
 	}
 
 	prettyprint_level(f, ASTSon1(a), level);
@@ -594,7 +626,7 @@ static void list_handler(FILE* f, AST a, int level)
 	if (ASTSon0(a) != NULL)
 	{
 		list_handler(f, ASTSon0(a), level);
-		fprintf(f, ", ");
+		token_fprintf(f, a, ", ");
 	}
 
 	prettyprint_level(f, ASTSon1(a), level);
@@ -602,14 +634,14 @@ static void list_handler(FILE* f, AST a, int level)
 
 static void simple_declaration_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
+	indent_at_level(f, a, level);
 
 	if (ASTSon0(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(a), level);
 		if (ASTSon1(a) != NULL)
 		{
-			fprintf(f, " ");
+			token_fprintf(f, a, " ");
 		}
 	}
 
@@ -618,17 +650,17 @@ static void simple_declaration_handler(FILE* f, AST a, int level)
 		list_handler(f, ASTSon1(a), level);
 	}
 	
-	fprintf(f, ";\n");
+	token_fprintf(f, a, ";\n");
 }
 
 static void simple_parameter_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "%s", HELPER_PARAMETER);
+	token_fprintf(f, a, "%s", HELPER_PARAMETER);
 }
 
 static void indented_simple_parameter_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
+	indent_at_level(f, a, level);
 	simple_parameter_handler(f, a, level);
 }
 
@@ -649,22 +681,22 @@ static void unary_container_handler(FILE* f, AST a, int level)
 
 static void parenthesized_son_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void nested_name_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
 
-	fprintf(f, "::");
+	token_fprintf(f, a, "::");
 
 	if (ASTSon1(a) != NULL)
 	{
 		if (ASTType(a) == AST_NESTED_NAME_SPECIFIER_TEMPLATE)
 		{
-			fprintf(f, "template ");
+			token_fprintf(f, a, "template ");
 		}
 
 		prettyprint_level(f, ASTSon1(a), level);
@@ -673,19 +705,19 @@ static void nested_name_handler(FILE* f, AST a, int level)
 
 static void simple_text_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "%s", ASTText(a));
+	token_fprintf(f, a, "%s", ASTText(a));
 }
 
 static void template_id_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
 
-	fprintf(f, "<");
+	token_fprintf(f, a, "<");
 	if (ASTSon1(a) != NULL)
 	{
 		list_handler(f, ASTSon1(a), level);
 	}
-	fprintf(f, " >");
+	token_fprintf(f, a, " >");
 }
 
 static void type_id_handler(FILE* f, AST a, int level)
@@ -715,19 +747,19 @@ static void abstract_declarator_function_handler(FILE* f, AST a, int level)
 		prettyprint_level(f, ASTSon0(a), level);
 	}
 
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 	list_handler(f, ASTSon1(a), level);
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 
 	if (ASTSon2(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		spaced_sequence_handler(f, ASTSon2(a), level);
 	}
 
 	if (ASTSon3(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon3(a), level);
 	}
 }
@@ -739,9 +771,9 @@ static void abstract_array_declarator_handler(FILE* f, AST a, int level)
 		prettyprint_level(f, ASTSon0(a), level);
 	}
 
-	fprintf(f, "[");
+	token_fprintf(f, a, "[");
 	prettyprint_level(f, ASTSon1(a), level);
-	fprintf(f, "]");
+	token_fprintf(f, a, "]");
 }
 
 static void null_handler(FILE* f, AST a, int level) { }
@@ -752,37 +784,37 @@ static void parameter_decl_handler(FILE* f, AST a, int level)
 
 	if (ASTSon1(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 	
 	if (ASTSon2(a) != NULL)
 	{
-		fprintf(f, " = ");
+		token_fprintf(f, a, " = ");
 		prettyprint_level(f, ASTSon2(a), level);
 	}
 }
 
 static void prefix_with_parameter_then_son_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "%s", HELPER_PARAMETER_STRING);
+	token_fprintf(f, a, "%s", HELPER_PARAMETER_STRING);
 	prettyprint_level(f, ASTSon0(a), level);
 }
 
 static void braced_initializer_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "{");
+	token_fprintf(f, a, "{");
 	if (ASTSon0(a) != NULL)
 	{
 		list_handler(f, ASTSon0(a), level);
 	}
-	fprintf(f, "}");
+	token_fprintf(f, a, "}");
 }
 
 static void pointer_decl_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
@@ -796,10 +828,10 @@ static void pointer_spec_handler(FILE* f, AST a, int level)
 	if (ASTSon1(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon1(a), level);
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 	}
 	
-	fprintf(f, "*");
+	token_fprintf(f, a, "*");
 	
 	if (ASTSon2(a) != NULL)
 	{
@@ -815,7 +847,7 @@ static void decl_specifier_sequence(FILE* f, AST a, int level)
 
 		if (ASTSon1(a) != NULL || ASTSon2(a) != NULL)
 		{
-			fprintf(f, " ");
+			token_fprintf(f, a, " ");
 		}
 	}
 
@@ -826,7 +858,7 @@ static void decl_specifier_sequence(FILE* f, AST a, int level)
 
 		if (ASTSon2(a) != NULL)
 		{
-			fprintf(f, " ");
+			token_fprintf(f, a, " ");
 		}
 	}
 
@@ -839,17 +871,17 @@ static void decl_specifier_sequence(FILE* f, AST a, int level)
 static void binary_operator_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " %s ", HELPER_PARAMETER_STRING);
+	token_fprintf(f, a, " %s ", HELPER_PARAMETER_STRING);
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void throw_expression_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "throw");
+	token_fprintf(f, a, "throw");
 
 	if (ASTSon0(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon0(a), level);
 	}
 }
@@ -857,25 +889,25 @@ static void throw_expression_handler(FILE* f, AST a, int level)
 static void conditional_expression_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " ? ");
+	token_fprintf(f, a, " ? ");
 	prettyprint_level(f, ASTSon1(a), level);
-	fprintf(f, " : ");
+	token_fprintf(f, a, " : ");
 	prettyprint_level(f, ASTSon2(a), level);
 }
 
 static void cast_expression_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ") ");
+	token_fprintf(f, a, ") ");
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void sizeof_typeid_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "%s(", HELPER_PARAMETER_STRING);
+	token_fprintf(f, a, "%s(", HELPER_PARAMETER_STRING);
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void new_expression_handler(FILE* f, AST a, int level)
@@ -884,19 +916,19 @@ static void new_expression_handler(FILE* f, AST a, int level)
 	{
 		prettyprint_level(f, ASTSon0(a), level);
 	}
-	fprintf(f, "new ");
+	token_fprintf(f, a, "new ");
 
 	if (ASTSon1(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon1(a), level);
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 	}
 
 	prettyprint_level(f, ASTSon2(a), level);
 
 	if (ASTSon3(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon3(a), level);
 	}
 }
@@ -908,16 +940,16 @@ static void new_type_id_expr_handler(FILE* f, AST a, int level)
 		prettyprint_level(f, ASTSon0(a), level);
 	}
 
-	fprintf(f, "new");
+	token_fprintf(f, a, "new");
 
 	if (ASTSon1(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon1(a), level);
 	}
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 	prettyprint_level(f, ASTSon2(a), level);
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 
 	if (ASTSon3(a) != NULL)
 	{
@@ -931,19 +963,19 @@ static void new_type_id_handler(FILE* f, AST a, int level)
 	
 	if (ASTSon1(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 }
 
 static void new_initializer_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 	if (ASTSon0(a) != NULL)
 	{
 		list_handler(f, ASTSon0(a), level);
 	}
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void delete_expression_handler(FILE* f, AST a, int level)
@@ -953,12 +985,12 @@ static void delete_expression_handler(FILE* f, AST a, int level)
 		prettyprint_level(f, ASTSon0(a), level);
 	}
 	
-	fprintf(f, "delete");
+	token_fprintf(f, a, "delete");
 	if (ASTType(a) == AST_DELETE_ARRAY_EXPR)
 	{
-		fprintf(f, "[]");
+		token_fprintf(f, a, "[]");
 	}
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 
 	prettyprint_level(f, ASTSon1(a), level);
 }
@@ -966,25 +998,25 @@ static void delete_expression_handler(FILE* f, AST a, int level)
 static void array_subscript_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, "[");
+	token_fprintf(f, a, "[");
 	prettyprint_level(f, ASTSon1(a), level);
-	fprintf(f, "]");
+	token_fprintf(f, a, "]");
 }
 
 static void function_call_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 	if (ASTSon1(a) != NULL)
 	{
 		list_handler(f, ASTSon1(a), level);
 	}
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void typename_explicit_type_conversion(FILE* f, AST a, int level)
 {
-	fprintf(f, "typename ");
+	token_fprintf(f, a, "typename ");
 
 	if (ASTSon0(a) != NULL)
 	{
@@ -998,17 +1030,17 @@ static void typename_explicit_type_conversion(FILE* f, AST a, int level)
 
 	prettyprint_level(f, ASTSon2(a), level);
 
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 	if (ASTSon3(a) != NULL)
 	{
 		list_handler(f, ASTSon3(a), level);
 	}
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void typename_template_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "typename ");
+	token_fprintf(f, a, "typename ");
 
 	if (ASTSon0(a) != NULL)
 	{
@@ -1019,17 +1051,17 @@ static void typename_template_handler(FILE* f, AST a, int level)
 
 	prettyprint_level(f, ASTSon2(a), level);
 
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 	if (ASTSon3(a) != NULL)
 	{
 		list_handler(f, ASTSon3(a), level);
 	}
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void typename_template_template_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "typename ");
+	token_fprintf(f, a, "typename ");
 
 	if (ASTSon0(a) != NULL)
 	{
@@ -1038,45 +1070,45 @@ static void typename_template_template_handler(FILE* f, AST a, int level)
 
 	prettyprint_level(f, ASTSon1(a), level);
 
-	fprintf(f, "template ");
+	token_fprintf(f, a, "template ");
 	prettyprint_level(f, ASTSon2(a), level);
 
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 	if (ASTSon3(a) != NULL)
 	{
 		list_handler(f, ASTSon3(a), level);
 	}
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void infix_parameter_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, "%s", HELPER_PARAMETER_STRING);
+	token_fprintf(f, a, "%s", HELPER_PARAMETER_STRING);
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void template_member_access(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, "%stemplate ", HELPER_PARAMETER_STRING);
+	token_fprintf(f, a, "%stemplate ", HELPER_PARAMETER_STRING);
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void son_handler_then_suffix_parameter(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, "%s", HELPER_PARAMETER_STRING);
+	token_fprintf(f, a, "%s", HELPER_PARAMETER_STRING);
 }
 
 static void templated_cast_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "%s<", HELPER_PARAMETER_STRING);
+	token_fprintf(f, a, "%s<", HELPER_PARAMETER_STRING);
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " >");
-	fprintf(f, "(");
+	token_fprintf(f, a, " >");
+	token_fprintf(f, a, "(");
 	prettyprint_level(f, ASTSon1(a), level);
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void qualified_id_handler(FILE* f, AST a, int level)
@@ -1102,7 +1134,7 @@ static void qualified_template_handler(FILE* f, AST a, int level)
     }
 
     prettyprint_level(f, ASTSon1(a), level);
-    fprintf(f, "template ");
+    token_fprintf(f, a, "template ");
     prettyprint_level(f, ASTSon2(a), level);
 }
 
@@ -1119,7 +1151,7 @@ static void conversion_type_id_handler(FILE* f, AST a, int level)
 	
 	if (ASTSon1(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 }
@@ -1136,19 +1168,19 @@ static void conversion_declarator_handler(FILE* f, AST a, int level)
 
 static void constructor_initializer_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, ": ");
+	token_fprintf(f, a, ": ");
 	list_handler(f, ASTSon0(a), level);
 }
 
 static void mem_initializer_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 	if (ASTSon1(a) != NULL)
 	{
 		list_handler(f, ASTSon1(a), level);
 	}
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void mem_initializer_id_handler(FILE* f, AST a, int level)
@@ -1169,22 +1201,22 @@ static void mem_initializer_id_handler(FILE* f, AST a, int level)
 static void class_specifier_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, "\n");
-	indent_at_level(f, level);
-	fprintf(f, "{\n");
+	token_fprintf(f, a, "\n");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "{\n");
 	if (ASTSon1(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon1(a), level + 2);
 	}
-	indent_at_level(f, level);
-	fprintf(f, "}");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "}");
 }
 
 static void class_head_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
 
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 
 	if (ASTSon1(a) != NULL)
 	{
@@ -1206,9 +1238,9 @@ static void member_specification_handler(FILE* f, AST a, int level)
 {
 	if (ASTSon0(a) != NULL)
 	{
-		indent_at_level(f, level > 0 ? level - 1 : 0);
+		indent_at_level(f, a, level > 0 ? level - 1 : 0);
 		prettyprint_level(f, ASTSon0(a), level);
-		fprintf(f, ":\n");
+		token_fprintf(f, a, ":\n");
 	}
 
 	if (ASTSon1(a) != NULL)
@@ -1224,12 +1256,12 @@ static void member_specification_handler(FILE* f, AST a, int level)
 
 static void using_declaration_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "using ");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "using ");
 
 	if (ASTType(a) == AST_USING_DECL_TYPENAME)
 	{
-		fprintf(f, "typename ");
+		token_fprintf(f, a, "typename ");
 	}
 	
 	if (ASTSon0(a) != NULL)
@@ -1244,25 +1276,25 @@ static void using_declaration_handler(FILE* f, AST a, int level)
 
 	prettyprint_level(f, ASTSon2(a), level);
 
-	fprintf(f, ";\n");
+	token_fprintf(f, a, ";\n");
 }
 
 static void template_declaration_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
+	indent_at_level(f, a, level);
 	if (ASTType(a) == AST_EXPORT_TEMPLATE_DECLARATION)
 	{
-		fprintf(f, "export ");
+		token_fprintf(f, a, "export ");
 	}
-	fprintf(f, "template<");
+	token_fprintf(f, a, "template<");
 	list_handler(f, ASTSon0(a), level);
-	fprintf(f, " >\n");
+	token_fprintf(f, a, " >\n");
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void type_parameter_class_or_typename_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "%s ", HELPER_PARAMETER_STRING);
+	token_fprintf(f, a, "%s ", HELPER_PARAMETER_STRING);
 	if (ASTSon0(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(a), level);
@@ -1270,16 +1302,16 @@ static void type_parameter_class_or_typename_handler(FILE* f, AST a, int level)
 
 	if (ASTSon1(a) != NULL)
 	{
-		fprintf(f, " = ");
+		token_fprintf(f, a, " = ");
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 }
 
 static void type_parameter_template_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "template<");
+	token_fprintf(f, a, "template<");
 	list_handler(f, ASTSon0(a), level);
-	fprintf(f, " > class ");
+	token_fprintf(f, a, " > class ");
 
 	if (ASTSon1(a) != NULL)
 	{
@@ -1287,7 +1319,7 @@ static void type_parameter_template_handler(FILE* f, AST a, int level)
 	}
 	if (ASTSon2(a) != NULL)
 	{
-		fprintf(f, " = ");
+		token_fprintf(f, a, " = ");
 		prettyprint_level(f, ASTSon2(a), level);
 	}
 }
@@ -1310,20 +1342,20 @@ static void simple_type_specifier_handler(FILE* f, AST a, int level)
 	}
 	else if (ASTSon3(a) != NULL)
 	{
-		fprintf(f, "template ");
+		token_fprintf(f, a, "template ");
 		prettyprint_level(f, ASTSon3(a), level);
 	}
 }
 
 static void member_declaration_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
+	indent_at_level(f, a, level);
 	if (ASTSon0(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(a), level);
 		if (ASTSon1(a) != NULL)
 		{
-			fprintf(f, " ");
+			token_fprintf(f, a, " ");
 		}
 	}
 
@@ -1331,7 +1363,7 @@ static void member_declaration_handler(FILE* f, AST a, int level)
 	{
 		list_handler(f, ASTSon1(a), level);
 	}
-	fprintf(f, ";\n");
+	token_fprintf(f, a, ";\n");
 }
 
 static void member_declarator_handler(FILE* f, AST a, int level)
@@ -1340,93 +1372,93 @@ static void member_declarator_handler(FILE* f, AST a, int level)
 
 	if (ASTSon1(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 }
 
 static void constant_initializer_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "= ");
+	token_fprintf(f, a, "= ");
 	prettyprint_level(f, ASTSon0(a), level);
 }
 
 static void function_definition_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
+	indent_at_level(f, a, level);
 	if (ASTSon0(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(a), level);
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 	}
 
 	prettyprint_level(f, ASTSon1(a), level);
 
 	if (ASTSon2(a) != NULL)
 	{
-		fprintf(f, "\n");
-		indent_at_level(f, level+1);
+		token_fprintf(f, a, "\n");
+		indent_at_level(f, a, level+1);
 		prettyprint_level(f, ASTSon2(a), level+1);
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 	}
 
-	fprintf(f, "\n");
+	token_fprintf(f, a, "\n");
 	prettyprint_level(f, ASTSon3(a), level);
 }
 
 static void compound_statement_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "{\n");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "{\n");
 
 	if (ASTSon0(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(a), level + 1);
 	}
-	indent_at_level(f, level);
-	fprintf(f, "}\n");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "}\n");
 }
 
 static void labeled_statement_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
+	indent_at_level(f, a, level);
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " : ");
+	token_fprintf(f, a, " : ");
 	// Newline will be done here
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void case_statement_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "case ");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "case ");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " : ");
+	token_fprintf(f, a, " : ");
 	// Newline will be done here
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void default_statement_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "default : ");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "default : ");
 	// Newline will be done here
 	prettyprint_level(f, ASTSon0(a), level);
 }
 
 static void expression_statement_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
+	indent_at_level(f, a, level);
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ";\n");
+	token_fprintf(f, a, ";\n");
 }
 
 static void selection_statement_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "switch (");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "switch (");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
@@ -1439,7 +1471,7 @@ static void condition_handler(FILE* f, AST a, int level)
 	if (ASTSon1(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon1(a), level);
-		fprintf(f, " = ");
+		token_fprintf(f, a, " = ");
 	}
 
 	prettyprint_level(f, ASTSon2(a), level);
@@ -1447,10 +1479,10 @@ static void condition_handler(FILE* f, AST a, int level)
 
 static void while_statement_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "while (");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "while (");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ")\n");
+	token_fprintf(f, a, ")\n");
 
 	if (ASTType(ASTSon1(a)) != AST_COMPOUND_STATEMENT)
 	{
@@ -1464,18 +1496,18 @@ static void while_statement_handler(FILE* f, AST a, int level)
 
 static void do_while_statement_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "do ");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "do ");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, "while (");
+	token_fprintf(f, a, "while (");
 	prettyprint_level(f, ASTSon1(a), level);
-	fprintf(f, ");\n");
+	token_fprintf(f, a, ");\n");
 }
 
 static void for_statement_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "for (");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "for (");
 
 	if (ASTSon0(a) != NULL)
 	{
@@ -1484,61 +1516,61 @@ static void for_statement_handler(FILE* f, AST a, int level)
 
 	if (ASTSon1(a) != NULL)
 	{
-		indent_at_level(f, level+1);
+		indent_at_level(f, a, level+1);
 		prettyprint_level(f, ASTSon1(a), 0);
 	}
 	
-	fprintf(f, ";\n");
+	token_fprintf(f, a, ";\n");
 
 	if (ASTSon3(a) != NULL)
 	{
-		indent_at_level(f, level+1);
+		indent_at_level(f, a, level+1);
 		prettyprint_level(f, ASTSon2(a), 0);
 	}
 
-	fprintf(f, ")\n");
+	token_fprintf(f, a, ")\n");
 
 	prettyprint_level(f, ASTSon3(a), level);
 }
 
 static void return_statement_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "return");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "return");
 
 	if (ASTSon0(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon0(a), level);
 	}
 
-	fprintf(f, ";\n");
+	token_fprintf(f, a, ";\n");
 }
 
 static void goto_statement_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
+	indent_at_level(f, a, level);
 
-	fprintf(f, "goto ");
+	token_fprintf(f, a, "goto ");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ";\n");
+	token_fprintf(f, a, ";\n");
 }
 
 static void try_block_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
+	indent_at_level(f, a, level);
 
-	fprintf(f, "try\n");
+	token_fprintf(f, a, "try\n");
 	prettyprint_level(f, ASTSon0(a), level);
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void catch_handler_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "catch (");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "catch (");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ")\n");
+	token_fprintf(f, a, ")\n");
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
@@ -1554,7 +1586,7 @@ static void exception_declaration_handler(FILE* f, AST a, int level)
 
 static void base_clause_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, " : ");
+	token_fprintf(f, a, " : ");
 	list_handler(f, ASTSon0(a), level);
 }
 
@@ -1576,7 +1608,7 @@ static void base_specifier_handler(FILE* f, AST a, int level)
 static void base_specifier_access_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 
 	if (ASTSon1(a) != NULL)
 	{
@@ -1593,12 +1625,12 @@ static void base_specifier_access_handler(FILE* f, AST a, int level)
 
 static void base_specifier_virtual_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "virtual ");
+	token_fprintf(f, a, "virtual ");
 
 	if (ASTSon0(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(a), level);
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 	}
 
 	if (ASTSon1(a) != NULL)
@@ -1617,9 +1649,9 @@ static void base_specifier_virtual_handler(FILE* f, AST a, int level)
 static void base_specifier_access_virtual_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 
-	fprintf(f, "virtual ");
+	token_fprintf(f, a, "virtual ");
 
 	if (ASTSon1(a) != NULL)
 	{
@@ -1637,7 +1669,7 @@ static void base_specifier_access_virtual_handler(FILE* f, AST a, int level)
 static void elaborated_type_class_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 
 	if (ASTSon1(a) != NULL)
 	{
@@ -1655,7 +1687,7 @@ static void elaborated_type_class_handler(FILE* f, AST a, int level)
 static void elaborated_type_template_class_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 
 	if (ASTSon1(a) != NULL)
 	{
@@ -1673,7 +1705,7 @@ static void elaborated_type_template_class_handler(FILE* f, AST a, int level)
 static void elaborated_type_template_template_class_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 
 	if (ASTSon1(a) != NULL)
 	{
@@ -1685,13 +1717,13 @@ static void elaborated_type_template_template_class_handler(FILE* f, AST a, int 
 		prettyprint_level(f, ASTSon2(a), level);
 	}
 
-	fprintf(f, "template ");
+	token_fprintf(f, a, "template ");
 	prettyprint_level(f, ASTSon3(a), level);
 }
 
 static void elaborated_type_enum_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "enum ");
+	token_fprintf(f, a, "enum ");
 
 	if (ASTSon0(a) != NULL)
 	{
@@ -1708,7 +1740,7 @@ static void elaborated_type_enum_handler(FILE* f, AST a, int level)
 
 static void elaborated_typename_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "typename ");
+	token_fprintf(f, a, "typename ");
 
 	if (ASTSon0(a) != NULL)
 	{
@@ -1725,7 +1757,7 @@ static void elaborated_typename_handler(FILE* f, AST a, int level)
 
 static void elaborated_typename_template_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "typename ");
+	token_fprintf(f, a, "typename ");
 
 	if (ASTSon0(a) != NULL)
 	{
@@ -1737,16 +1769,16 @@ static void elaborated_typename_template_handler(FILE* f, AST a, int level)
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 
-	fprintf(f, "template ");
+	token_fprintf(f, a, "template ");
 	prettyprint_level(f, ASTSon2(a), level);
 }
 
 static void if_else_statement_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "if (");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "if (");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ")\n");
+	token_fprintf(f, a, ")\n");
 	
 	// Sthetic
 	if (ASTType(ASTSon1(a)) != AST_COMPOUND_STATEMENT)
@@ -1760,8 +1792,8 @@ static void if_else_statement_handler(FILE* f, AST a, int level)
 
 	if (ASTSon2(a) != NULL)
 	{
-		indent_at_level(f, level);
-		fprintf(f, "else\n");
+		indent_at_level(f, a, level);
+		token_fprintf(f, a, "else\n");
 
 		if (ASTType(ASTSon2(a)) != AST_COMPOUND_STATEMENT)
 		{
@@ -1776,33 +1808,33 @@ static void if_else_statement_handler(FILE* f, AST a, int level)
 
 static void exception_specification_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "throw (");
+	token_fprintf(f, a, "throw (");
 	if (ASTSon0(a) != NULL)
 	{
 		list_handler(f, ASTSon0(a), level);
 	}
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void operator_function_id_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "operator ");
+	token_fprintf(f, a, "operator ");
 	prettyprint_level(f, ASTSon0(a), level);
 	
 	if (ASTType(a) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
 	{
-		fprintf(f, "<");
+		token_fprintf(f, a, "<");
 		list_handler(f, ASTSon1(a), level);
-		fprintf(f, " >");
+		token_fprintf(f, a, " >");
 	}
 }
 
 static void asm_definition_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "asm (");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "asm (");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ");\n");
+	token_fprintf(f, a, ");\n");
 }
 
 static void bitfield_declarator_handler(FILE* f, AST a, int level)
@@ -1810,94 +1842,94 @@ static void bitfield_declarator_handler(FILE* f, AST a, int level)
 	if (ASTSon0(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(a), level);
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 	}
 
-	fprintf(f, ": ");
+	token_fprintf(f, a, ": ");
 
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void enum_specifier_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "enum ");
+	token_fprintf(f, a, "enum ");
 	if (ASTSon0(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(a), level);
 	}
-	fprintf(f, "\n");
-	indent_at_level(f, level);
-	fprintf(f, "{");
+	token_fprintf(f, a, "\n");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "{");
 
 	if (ASTSon1(a) != NULL)
 	{
 		list_handler(f, ASTSon1(a), level+1);
 	}
-	fprintf(f, "\n");
-	indent_at_level(f, level);
-	fprintf(f, "}");
+	token_fprintf(f, a, "\n");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "}");
 }
 
 static void enum_def_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "\n");
-	indent_at_level(f, level);
+	token_fprintf(f, a, "\n");
+	indent_at_level(f, a, level);
 	prettyprint_level(f, ASTSon0(a), level);
 
 	if (ASTSon1(a) != NULL)
 	{
-		fprintf(f, " = ");
+		token_fprintf(f, a, " = ");
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 }
 
 static void explicit_specialization_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "template<>\n");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "template<>\n");
 
 	prettyprint_level(f, ASTSon0(a), level);
 }
 
 static void linkage_specification_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "extern ");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "extern ");
 	
 	prettyprint_level(f, ASTSon0(a), level);
 	
-	fprintf(f, "\n");
-	indent_at_level(f, level);
-	fprintf(f, "{\n");
+	token_fprintf(f, a, "\n");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "{\n");
 
 	if (ASTSon1(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon1(a), level+1);
 	}
-	indent_at_level(f, level);
-	fprintf(f, "}\n");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "}\n");
 }
 
 static void linkage_specification_decl_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "extern ");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "extern ");
 	prettyprint_level(f, ASTSon0(a), level);
 
-	fprintf(f, "\n");
+	token_fprintf(f, a, "\n");
 	prettyprint_level(f, ASTSon1(a), level);
 
-	fprintf(f, "\n");
+	token_fprintf(f, a, "\n");
 }
 
 static void namespace_alias_definition_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "namespace ");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "namespace ");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " = ");
+	token_fprintf(f, a, " = ");
 	prettyprint_level(f, ASTSon1(a), level);
-	fprintf(f, ";\n");
+	token_fprintf(f, a, ";\n");
 }
 
 static void qualified_namespace_spec_handler(FILE* f, AST a, int level)
@@ -1917,8 +1949,8 @@ static void qualified_namespace_spec_handler(FILE* f, AST a, int level)
 
 static void using_directive_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "using namespace ");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "using namespace ");
 
 	if (ASTSon0(a) != NULL)
 	{
@@ -1931,20 +1963,20 @@ static void using_directive_handler(FILE* f, AST a, int level)
 	}
 
 	prettyprint_level(f, ASTSon2(a), level);
-	fprintf(f, ";\n");
+	token_fprintf(f, a, ";\n");
 }
 
 static void namespace_definition_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "namespace ");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "namespace ");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " {\n");
+	token_fprintf(f, a, " {\n");
 
 	prettyprint_level(f, ASTSon1(a), level+1);
 	
-	indent_at_level(f, level);
-	fprintf(f, "}\n");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "}\n");
 }
 
 static void pseudo_destructor_name_handler(FILE* f, AST a, int level)
@@ -1959,7 +1991,7 @@ static void pseudo_destructor_name_handler(FILE* f, AST a, int level)
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 	
-	fprintf(f, "~");
+	token_fprintf(f, a, "~");
 	prettyprint_level(f, ASTSon2(a), level);
 }
 
@@ -1976,7 +2008,7 @@ static void pseudo_destructor_qualified_handler(FILE* f, AST a, int level)
 	}
 
 	prettyprint_level(f, ASTSon2(a), level);
-	fprintf(f, "::~");
+	token_fprintf(f, a, "::~");
 	prettyprint_level(f, ASTSon3(a), level);
 }
 
@@ -1991,14 +2023,14 @@ static void pseudo_destructor_template_handler(FILE* f, AST a, int level)
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 
-	fprintf(f, " template");
+	token_fprintf(f, a, " template");
 
 	if (ASTSon2(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon2(a), level);
 	}
 
-	fprintf(f, "::~");
+	token_fprintf(f, a, "::~");
 
 	if (ASTSon3(a) != NULL)
 	{
@@ -2008,28 +2040,28 @@ static void pseudo_destructor_template_handler(FILE* f, AST a, int level)
 
 static void parenthesized_initializer_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 	list_handler(f, ASTSon0(a), level);
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void gcc_label_declaration_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "label ");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "label ");
 	list_handler(f, ASTSon0(a), level);
 
-	fprintf(f, ";\n");
+	token_fprintf(f, a, ";\n");
 }
 
 static void gcc_attribute_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "__attribute__((");
+	token_fprintf(f, a, "__attribute__((");
 	if (ASTSon0(a) != NULL)
 	{
 		list_handler(f, ASTSon0(a), level);
 	}
-	fprintf(f, "))");
+	token_fprintf(f, a, "))");
 }
 
 static void gcc_attribute_value_handler(FILE* f, AST a, int level)
@@ -2038,52 +2070,52 @@ static void gcc_attribute_value_handler(FILE* f, AST a, int level)
 
 	if (ASTSon1(a) != NULL || ASTSon2(a) != NULL)
 	{
-		fprintf(f, "(");
+		token_fprintf(f, a, "(");
 		if (ASTSon1(a) != NULL)
 		{
 			prettyprint_level(f, ASTSon1(a), level);
 			if (ASTSon2(a) != NULL)
 			{
-				fprintf(f, ", ");
+				token_fprintf(f, a, ", ");
 			}
 		}
 		list_handler(f, ASTSon2(a), level);
-		fprintf(f, ")");
+		token_fprintf(f, a, ")");
 	}
 }
 
 static void gcc_asm_definition_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "asm ");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "asm ");
 
 	if (ASTSon0(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(a), level);
 	}
 
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 
 	prettyprint_level(f, ASTSon1(a), level);
 
-	fprintf(f, ");\n");
+	token_fprintf(f, a, ");\n");
 }
 
 static void gcc_asm_def_parameters(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ": ");
+	token_fprintf(f, a, ": ");
 
 	if (ASTSon1(a) != NULL)
 	{
 		list_handler(f, ASTSon1(a), level);
-		fprintf(f, ": ");
+		token_fprintf(f, a, ": ");
 	}
 
 	if (ASTSon2(a) != NULL)
 	{
 		list_handler(f, ASTSon2(a), level);
-		fprintf(f, ": ");
+		token_fprintf(f, a, ": ");
 	}
 
 	if (ASTSon3(a) != NULL)
@@ -2096,41 +2128,41 @@ static void gcc_asm_operand_handler(FILE* f, AST a, int level)
 {
 	if (ASTSon0(a) != NULL)
 	{
-		fprintf(f, "[");
+		token_fprintf(f, a, "[");
 		prettyprint_level(f, ASTSon0(a), level);
-		fprintf(f, "] ");
+		token_fprintf(f, a, "] ");
 	}
 
 	prettyprint_level(f, ASTSon1(a), level);
-	fprintf(f, " (");
+	token_fprintf(f, a, " (");
 	prettyprint_level(f, ASTSon2(a), level);
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void gcc_type_spec_sequence_handler(FILE* f, AST a, int level)
 {
 	spaced_sequence_handler(f, ASTSon0(a), level);
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void gcc_typeof_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "__typeof ");
-	fprintf(f, "(");
+	token_fprintf(f, a, "__typeof ");
+	token_fprintf(f, a, "(");
 	prettyprint_level(f, ASTSon1(a), level);
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void gcc_typeof_expr_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "__typeof ");
+	token_fprintf(f, a, "__typeof ");
 	prettyprint_level(f, ASTSon0(a), level);
 }
 
 static void gcc_elaborated_type_enum_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "enum ");
+	token_fprintf(f, a, "enum ");
 	spaced_sequence_handler(f, ASTSon3(a), level);
 
 	if (ASTSon0(a) != NULL)
@@ -2215,7 +2247,7 @@ static void gcc_elaborated_type_template_template_handler(FILE* f, AST a, int le
 		prettyprint_level(f, ASTSon2(elaborated), level);
 	}
 
-	fprintf(f, "template ");
+	token_fprintf(f, a, "template ");
 	prettyprint_level(f, ASTSon3(elaborated), level);
 }
 
@@ -2225,69 +2257,69 @@ static void gcc_init_declarator_handler(FILE* f, AST a, int level)
 
 	if (ASTSon2(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon2(a), level);
 	}
 
 	if (ASTSon3(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		spaced_sequence_handler(f, ASTSon3(a), level);
 	}
 
 	if (ASTSon1(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 }
 
 static void gcc_asm_specification_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "asm (");
+	token_fprintf(f, a, "asm (");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void gcc_declarator_handler(FILE* f, AST a, int level)
 {
 	spaced_sequence_handler(f, ASTSon0(a), level);
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void gcc_pointer_declarator_handler(FILE* f, AST a, int level)
 {
 	spaced_sequence_handler(f, ASTSon0(a), level);
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 	prettyprint_level(f, ASTSon1(a), level);
 	prettyprint_level(f, ASTSon2(a), level);
 }
 
 static void gcc_reference_spec_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "& ");
+	token_fprintf(f, a, "& ");
 	spaced_sequence_handler(f, ASTSon0(a), level);
 }
 
 static void gcc_enum_specifier_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "enum ");
+	token_fprintf(f, a, "enum ");
 	if (ASTSon0(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(a), level);
 	}
-	fprintf(f, "\n");
-	indent_at_level(f, level);
-	fprintf(f, "{");
+	token_fprintf(f, a, "\n");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "{");
 
 	if (ASTSon1(a) != NULL)
 	{
 		list_handler(f, ASTSon1(a), level+1);
 	}
-	fprintf(f, "\n");
-	indent_at_level(f, level);
-	fprintf(f, "}");
+	token_fprintf(f, a, "\n");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "}");
 
 	spaced_sequence_handler(f, ASTSon2(a), level);
 }
@@ -2305,7 +2337,7 @@ static void gcc_abstract_declarator_handler(FILE* f, AST a, int level)
 static void gcc_initializer_clause_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ":");
+	token_fprintf(f, a, ":");
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
@@ -2315,7 +2347,7 @@ static void gcc_class_head_handler(FILE* f, AST a, int level)
 
 	prettyprint_level(f, ASTSon0(class_head), level);
 
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 
 	if (ASTSon1(class_head) != NULL)
 	{
@@ -2338,12 +2370,12 @@ static void gcc_class_head_handler(FILE* f, AST a, int level)
 static void gcc_member_declarator_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 	spaced_sequence_handler(f, ASTSon2(a), level);
 
 	if (ASTSon1(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 }
@@ -2351,19 +2383,19 @@ static void gcc_member_declarator_handler(FILE* f, AST a, int level)
 static void gcc_bitfield_declarator_handler(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " : ");
+	token_fprintf(f, a, " : ");
 	spaced_sequence_handler(f, ASTSon2(a), level);
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void gcc_case_statement_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "case ");
+	token_fprintf(f, a, "case ");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, "...");
+	token_fprintf(f, a, "...");
 	prettyprint_level(f, ASTSon1(a), level);
-	fprintf(f, " : ");
+	token_fprintf(f, a, " : ");
 	prettyprint_level(f, ASTSon2(a), level);
 }
 
@@ -2372,22 +2404,22 @@ static void gcc_condition_handler(FILE* f, AST a, int level)
 	AST condition_decl = ASTSon1(a);
 
 	prettyprint_level(f, ASTSon0(condition_decl), level);
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 	prettyprint_level(f, ASTSon1(condition_decl), level);
-	fprintf(f, " ");
+	token_fprintf(f, a, " ");
 
 	if (ASTSon0(a) != NULL)
 	{
 		spaced_sequence_handler(f, ASTSon0(a), level);
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 	}
 
-	fprintf(f, "= ");
+	token_fprintf(f, a, "= ");
 
 	if (ASTSon2(condition_decl) != NULL)
 	{
 		prettyprint_level(f, ASTSon2(condition_decl), level);
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 	}
 
 	prettyprint_level(f, ASTSon3(condition_decl), level);
@@ -2395,80 +2427,80 @@ static void gcc_condition_handler(FILE* f, AST a, int level)
 
 static void gcc_goto_statement_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "goto * ");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "goto * ");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ";\n");
+	token_fprintf(f, a, ";\n");
 }
 
 static void gcc_mem_initializer_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 	if (ASTSon0(a) != NULL)
 	{
 		list_handler(f, ASTSon0(a), level);
 	}
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void gcc_builtin_va_arg_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "__builtin_va_arg(");
+	token_fprintf(f, a, "__builtin_va_arg(");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ", ");
+	token_fprintf(f, a, ", ");
 	prettyprint_level(f, ASTSon1(a), level);
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void gcc_postfix_expression(FILE* f, AST a, int level)
 {
-	fprintf(f, "(");
+	token_fprintf(f, a, "(");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ")");
-	fprintf(f, "{");
+	token_fprintf(f, a, ")");
+	token_fprintf(f, a, "{");
 	list_handler(f, ASTSon1(a), level);
-	fprintf(f, "}");
+	token_fprintf(f, a, "}");
 }
 
 static void gcc_alignof_type_handler(FILE* f, AST a, int level)
 {
-	fprintf(f, "__alignof__(");
+	token_fprintf(f, a, "__alignof__(");
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, ")");
+	token_fprintf(f, a, ")");
 }
 
 static void explicit_instantiation_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
+	indent_at_level(f, a, level);
 	if (ASTSon0(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon0(a), level);
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 	}
-	fprintf(f, "template ");
+	token_fprintf(f, a, "template ");
 	if (ASTSon1(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon1(a), level);
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 	}
 	if (ASTSon2(a) != NULL)
 	{
 		prettyprint_level(f, ASTSon2(a), level);
 	}
-	fprintf(f, ";\n");
+	token_fprintf(f, a, ";\n");
 }
 
 static void gcc_conditional_expression(FILE* f, AST a, int level)
 {
 	prettyprint_level(f, ASTSon0(a), level);
-	fprintf(f, " ? : ");
+	token_fprintf(f, a, " ? : ");
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void gcc_extension_preffix_handler(FILE* f, AST a, int level)
 {
-	indent_at_level(f, level);
-	fprintf(f, "__extension__\n");
+	indent_at_level(f, a, level);
+	token_fprintf(f, a, "__extension__\n");
 
 	prettyprint_level(f, ASTSon0(a), level);
 }
@@ -2479,16 +2511,16 @@ static void gcc_parameter_decl_handler(FILE* f, AST a, int level)
 
 	if (ASTSon1(a) != NULL)
 	{
-		fprintf(f, " ");
+		token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 
-    fprintf(f, " ");
+    token_fprintf(f, a, " ");
     prettyprint_level(f, ASTSon3(a), level);
 	
 	if (ASTSon2(a) != NULL)
 	{
-		fprintf(f, " = ");
+		token_fprintf(f, a, " = ");
 		prettyprint_level(f, ASTSon2(a), level);
 	}
 }

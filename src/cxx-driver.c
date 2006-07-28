@@ -12,6 +12,7 @@
 #include "cxx-graphviz.h"
 #include "cxx-prettyprint.h"
 #include "cxx-buildscope.h"
+#include "cxx-lexer.h"
 
 #include <getopt.h>
 
@@ -30,6 +31,7 @@ compilation_options_t compilation_options;
 "Options: \n" \
 "  -h, --help               Shows this help and quits\n" \
 "  --version                Shows version and quits\n" \
+"  -o, --output=<file>      Sets <file> as the output file\n" \
 "  -c                       Does not link, just compile.\n" \
 "  -k, --keep-files         Do not remove intermediate temporary\n" \
 "                           files.\n" \
@@ -46,6 +48,7 @@ compilation_options_t compilation_options;
 struct option getopt_long_options[] =
 {
 	{"help", no_argument, NULL, 'h'},
+	{"output", required_argument, NULL, 'o'},
 	{"version", no_argument, NULL, OPTION_VERSION},
 	{"verbose", no_argument, NULL, 'v'},
 	{"keep-files", no_argument, NULL, 'k'},
@@ -57,19 +60,36 @@ struct option getopt_long_options[] =
 	{NULL, 0, NULL, 0}
 };
 
+char* source_language_names[] =
+{
+	[SOURCE_LANGUAGE_UNKNOWN] = "unknown language",
+	[SOURCE_LANGUAGE_C] = "C",
+	[SOURCE_LANGUAGE_CXX] = "C++"
+};
+
+int num_seen_file_names;
+char** seen_file_names;
+
 static void print_version(void);
 static void driver_initialization(int argc, char* argv[]);
 static void initialize_default_values(void);
 static void load_configuration(void);
 static void compile_every_translation_unit(void);
 
+static char* preprocess_file(translation_unit_t* translation_unit, char* input_filename);
+static void parse_translation_unit(translation_unit_t* translation_unit, char* parsed_filename);
+static void prettyprint_translation_unit(translation_unit_t* translation_unit, char* parsed_filename);
+
 static void terminating_signal_handler(int sig);
+static char check_tree(AST a);
+static char check_for_ambiguities(AST a, AST* ambiguous_node);
 
 int main(int argc, char* argv[])
 {
 	driver_initialization(argc, argv);
 
 	// Argument parsing
+	initialize_default_values();
 	parse_arguments(compilation_options.argc, compilation_options.argv);
 
 	// Load configuration
@@ -93,6 +113,9 @@ static void driver_initialization(int argc, char* argv[])
 	compilation_options.argc = argc;
 	compilation_options.argv = argv;
 	compilation_options.exec_basename = basename(argv[0]);
+
+	num_seen_file_names = 0;
+	seen_file_names = 0;
 }
 
 static void help_message()
@@ -113,8 +136,7 @@ void parse_arguments(int argc, char* argv[])
 {
 	int c;
 	int indexptr;
-
-	initialize_default_values();
+	char* output_file = NULL;
 
 	while ((c = getopt_long (argc, argv, GETOPT_STRING, 
 					getopt_long_options, 
@@ -158,6 +180,18 @@ void parse_arguments(int argc, char* argv[])
 					compilation_options.config_file = GC_STRDUP(optarg);
 					break;
 				}
+			case 'o' :
+				{
+					if (output_file != NULL)
+					{
+						running_error("Output file specified twice", 0);
+					}
+					else
+					{
+						output_file = GC_STRDUP(optarg);
+					}
+					break;
+				}
 			case 'h' :
 				{
 					help_message();
@@ -171,15 +205,26 @@ void parse_arguments(int argc, char* argv[])
         options_error("You must specify an input file.");
     }
 
-	compilation_options.num_translation_units = 0;
+	int i = 1;
 	while (optind < argc)
 	{
-		translation_unit_t* translation_unit = GC_CALLOC(1, sizeof(*translation_unit));
-		translation_unit->input_filename = GC_STRDUP(argv[optind]);
+		if ((i > 1) 
+				&& compilation_options.do_not_link
+				&& output_file != NULL)
+		{
+			running_error("Cannot specify -o with -c or -S with multiple files", 0);
+		}
+		else
+		{
+			translation_unit_t* translation_unit = GC_CALLOC(1, sizeof(*translation_unit));
+			translation_unit->input_filename = GC_STRDUP(argv[optind]);
+			translation_unit->output_filename = output_file;
 
-		P_LIST_ADD(compilation_options.translation_units, 
-				compilation_options.num_translation_units, 
-				translation_unit);
+			P_LIST_ADD(compilation_options.translation_units, 
+					compilation_options.num_translation_units, 
+					translation_unit);
+		}
+		i++;
 		optind++;
 	}
 }
@@ -188,6 +233,7 @@ static void initialize_default_values(void)
 {
 	// Initialize here all default values
 	compilation_options.config_file = PKGDATADIR "/config.mcxx";
+	compilation_options.num_translation_units = 0;
 }
 
 static void print_version(void)
@@ -239,6 +285,133 @@ static void compile_every_translation_unit(void)
 	int i;
 	for (i = 0; i < compilation_options.num_translation_units; i++)
 	{
+		translation_unit_t* translation_unit = compilation_options.translation_units[i];
+		
+		// First check the file type
+		char* extension = get_extension_filename(translation_unit->input_filename);
+
+		if (extension == NULL)
+		{
+			fprintf(stderr, "File '%s' not recognized as a valid input. Skipping it.\n", 
+					translation_unit->input_filename);
+			continue;
+		}
+
+		struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
+
+		if (current_extension == NULL)
+		{
+			fprintf(stderr, "File '%s' not recognized as a valid input. Skipping it.\n", 
+					translation_unit->input_filename);
+			continue;
+		}
+
+		if (current_extension->source_language != compilation_options.source_language)
+		{
+			fprintf(stderr, "%s was configured for %s language but file '%s' looks %s. Skipping it.\n",
+					compilation_options.exec_basename, 
+					source_language_names[compilation_options.source_language],
+					translation_unit->input_filename,
+					source_language_names[current_extension->source_language]);
+			continue;
+		}
+
+		char* parsed_filename = translation_unit->input_filename;
+		if (current_extension->source_kind == SOURCE_KIND_NOT_PREPROCESSED)
+		{
+			parsed_filename = preprocess_file(translation_unit, translation_unit->input_filename);
+
+			if (parsed_filename == NULL)
+			{
+				running_error("Preprocess failed for file '%s'", translation_unit->input_filename);
+			}
+		}
+
+		if (open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+		{
+			running_error("Could not open file '%s'", parsed_filename);
+		}
+
+		parse_translation_unit(translation_unit, parsed_filename);
+	}
+}
+
+static void parse_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
+{
+	NOT_DEBUG_CODE()
+	{
+		mcxx_flex_debug = yydebug = 0;
+	}
+	yyparse(&(translation_unit->parsed_tree));
+	build_scope_translation_unit(translation_unit);
+
+	check_tree(translation_unit->parsed_tree);
+
+	prettyprint_translation_unit(translation_unit, parsed_filename);
+}
+
+static void prettyprint_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
+{
+	char* output_filename = NULL;
+	char* input_filename_dirname = strappend(dirname(translation_unit->input_filename), "/");
+
+	char* input_filename_basename = NULL;
+	if (translation_unit->output_filename == NULL)
+	{
+		input_filename_basename = basename(translation_unit->input_filename);
+	}
+	else
+	{
+		input_filename_basename = basename(translation_unit->output_filename);
+	}
+
+	char* preffix = strappend(compilation_options.exec_basename, "_");
+	char* output_filename_basename = strappend(preffix,
+			input_filename_basename);
+
+	output_filename = strappend(input_filename_dirname,
+			output_filename_basename);
+
+	FILE* prettyprint_file = fopen(output_filename, "w");
+
+	if (prettyprint_file == NULL)
+	{
+		running_error("Cannot create output file '%s' (%s)\n", output_filename,
+				strerror(errno));
+	}
+
+	prettyprint(prettyprint_file, translation_unit->parsed_tree);
+}
+
+static char* preprocess_file(translation_unit_t* translation_unit, char* input_filename)
+{
+	int num_arguments = count_null_ended_array((void**)compilation_options.preprocessor_options);
+
+	char** preprocessor_options = GC_CALLOC(num_arguments + 3 + 1, sizeof(char*));
+
+	int i;
+	for (i = 0; i < num_arguments; i++)
+	{
+		preprocessor_options[i] = compilation_options.preprocessor_options[i];
+	}
+
+	temporal_file_t preprocessed_file = new_temporal_file();
+	preprocessor_options[i] = GC_STRDUP("-o"); 
+	i++;
+	preprocessor_options[i] = preprocessed_file->name;
+	i++;
+	preprocessor_options[i] = input_filename;
+
+	int result_preprocess = execute_program(compilation_options.preprocessor_name,
+			preprocessor_options);
+
+	if (result_preprocess == 0)
+	{
+		return preprocessed_file->name;
+	}
+	else
+	{
+		return NULL;
 	}
 }
 
@@ -257,6 +430,44 @@ static void terminating_signal_handler(int sig)
 	raise(sig);
 }
 
+static char check_tree(AST a)
+{
+	AST ambiguous_node = NULL;
+	if (!check_for_ambiguities(a, &ambiguous_node))
+	{
+		fprintf(stderr, "============================\n");
+		fprintf(stderr, "  Ambiguities not resolved\n");
+		fprintf(stderr, "============================\n");
+		prettyprint(stderr, ambiguous_node);
+		fprintf(stderr, "============================\n");
+		ast_dump_graphviz(ambiguous_node, stderr);
+		fprintf(stderr, "============================\n");
+		internal_error("Tree still contains ambiguities", 0);
+
+		return 0;
+	}
+
+	return 1;
+}
+
+static char check_for_ambiguities(AST a, AST* ambiguous_node)
+{
+	if (a == NULL)
+		return 1;
+
+	if (ASTType(a) == AST_AMBIGUITY)
+	{
+		*ambiguous_node = a;
+		return 0;
+	}
+	else
+	{
+		return check_for_ambiguities(ASTSon0(a), ambiguous_node)
+			&& check_for_ambiguities(ASTSon1(a), ambiguous_node)
+			&& check_for_ambiguities(ASTSon2(a), ambiguous_node)
+			&& check_for_ambiguities(ASTSon3(a), ambiguous_node);
+	}
+}
 
 #if 0
 int main(int argc, char* argv[])
@@ -322,23 +533,6 @@ int main(int argc, char* argv[])
 	return result;
 }
 
-char check_for_ambiguities(AST a)
-{
-	if (a == NULL)
-		return 1;
-
-	if (ASTType(a) == AST_AMBIGUITY)
-	{
-		return 0;
-	}
-	else
-	{
-		return check_for_ambiguities(ASTSon0(a))
-			&& check_for_ambiguities(ASTSon1(a))
-			&& check_for_ambiguities(ASTSon2(a))
-			&& check_for_ambiguities(ASTSon3(a));
-	}
-}
 
 void print_ambiguities(AST a, char lines)
 {

@@ -101,6 +101,7 @@ char* GC_STRDUP(const char* str);
 #define BITMAP_TEST(x, b) (((x) & (b)) == (b))
 
 #define DEBUG_CODE() if (compilation_options.debug_level)
+#define NOT_DEBUG_CODE() if (!compilation_options.debug_level)
 
 // Gives a unique name for the identifier
 char* get_unique_name(void);
@@ -122,5 +123,14 @@ temporal_file_t new_temporal_file();
 // or used discretionally inside the program. Every temporal
 // file is closed and erased.
 void temporal_files_cleanup(void);
+
+char* get_extension_filename(char* filename);
+
+int execute_program(char* program_name, char** arguments);
+
+int count_null_ended_array(void** v);
+
+void seen_filename(char* filename);
+char* reference_to_seen_filename(char* filename);
 
 #endif // CXX_UTILS_H

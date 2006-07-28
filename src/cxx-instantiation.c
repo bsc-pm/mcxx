@@ -35,7 +35,10 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
 
 	if (instantiate_tree == NULL)
 	{
-		fprintf(stderr, "This instantiation refers to an incomplete type\n");
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "This instantiation refers to an incomplete type\n");
+		}
 		instantiate_incomplete_primary_template(matched_template, template_argument_list, st);
 		return;
 	}
@@ -60,7 +63,10 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
 				case TPK_TYPE :
 				case TPK_TEMPLATE :
 					{
-						fprintf(stderr, "Injecting type '%s' into the instantiate scope\n", name);
+						DEBUG_CODE()
+						{
+							fprintf(stderr, "Injecting type '%s' into the instantiate scope\n", name);
+						}
 						scope_entry_t* injected_type = new_symbol(instantiate_scope, name);
 
 						// We use a typedef
@@ -109,7 +115,10 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
 					}
 				case TPK_NONTYPE :
 					{
-						fprintf(stderr, "Injecting nontype '%s' into the instantiate scope\n", name);
+						DEBUG_CODE()
+						{
+							fprintf(stderr, "Injecting nontype '%s' into the instantiate scope\n", name);
+						}
 						scope_entry_t* injected_nontype = new_symbol(instantiate_scope, name);
 						injected_nontype->kind = SK_VARIABLE;
 						injected_nontype->type_information = template_parameter->type_info;
@@ -129,8 +138,11 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
 	decl_context_t decl_context;
 	memset(&decl_context, 0, sizeof(decl_context));
 
-	fprintf(stderr, "--------> Building scope of instantiated template '%s'\n", matched_template->symbol_name);
-	print_scope(instantiate_scope, 0);
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "--------> Building scope of instantiated template '%s'\n", matched_template->symbol_name);
+		print_scope(instantiate_scope, 0);
+	}
 
 	type_t* simple_type_info = GC_CALLOC(1, sizeof(*simple_type_info));
 
@@ -156,7 +168,10 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
 
 	instance_symbol->defined = 1;
 
-	fprintf(stderr, "--------> Instantiation ended\n");
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "--------> Instantiation ended\n");
+	}
 }
 
 static void instantiate_incomplete_specialized_template(scope_entry_t* matched_template, template_argument_list_t* template_argument_list, 
@@ -283,8 +298,8 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 	DEBUG_CODE()
 	{
 		fprintf(stderr, "--------> Building scope of instantiated template '%s'\n", matched_template->symbol_name);
+		print_scope(instantiate_scope, 0);
 	}
-	print_scope(instantiate_scope, 0);
 
 	instance_symbol->related_scope->template_scope = matched_template->scope->template_scope;
 	matched_template->scope->template_scope = instance_symbol->related_scope;
@@ -295,7 +310,6 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 	simple_type_info->type = GC_CALLOC(1, sizeof(*(simple_type_info->type)));
 	simple_type_info->type->kind = STK_USER_DEFINED;
 	simple_type_info->type->user_defined_type = instance_symbol;
-
 
 	build_scope_member_specification(instance_symbol->related_scope, instantiate_tree, AS_PUBLIC,
 			simple_type_info, decl_context);

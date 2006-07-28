@@ -1,3 +1,6 @@
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -5,6 +8,7 @@
 #include <libgen.h>
 #include <signal.h>
 #include <gc.h>
+
 
 #include "cxx-driver.h"
 #include "cxx-utils.h"
@@ -143,7 +147,7 @@ temporal_file_t new_temporal_file()
 {
 	char* template;
 #ifndef _WIN32
-	template = strdup("/tmp/mf95_XXXXXX");
+	template = strdup("/tmp/mcxx_XXXXXX");
 	// Create the temporal file
 	int file_descriptor = mkstemp(template);
 
@@ -153,7 +157,7 @@ temporal_file_t new_temporal_file()
 		return NULL;
 	}
 #else
-	template = _tempnam(NULL, "mf95");
+	template = _tempnam(NULL, "mcxx");
 	if (template == NULL)
 		return NULL;
 #endif
@@ -205,3 +209,88 @@ void temporal_files_cleanup(void)
 	temporal_file_list = NULL;
 }
 
+char* get_extension_filename(char* filename)
+{
+	return strrchr(filename, '.');
+}
+
+int execute_program(char* program_name, char** arguments)
+{
+	int num = count_null_ended_array((void**)arguments);
+
+	char** execvp_arguments = GC_CALLOC(num + 1 + 1, sizeof(char*));
+
+	execvp_arguments[0] = program_name;
+
+	int i;
+	for (i = 0; i < num; i++)
+	{
+		execvp_arguments[i+1] = arguments[i];
+	}
+
+	// if (compilation_options.verbose)
+	{
+		int i = 0;
+		while (execvp_arguments[i] != NULL)
+		{
+			fprintf(stderr, "%s ", execvp_arguments[i]);
+			i++;
+		}
+		fprintf(stderr, "\n");
+	}
+
+    // This routine is UNIX-only
+    pid_t spawned_process;
+    spawned_process = fork();
+    if (spawned_process < 0) 
+    {
+        running_error("Could not fork to execute '%s' (%s)", program_name, strerror(errno));
+    }
+    else if (spawned_process == 0) // I'm the spawned process
+    {
+        execvp(program_name, execvp_arguments);
+
+        // Execvp should not return
+        running_error("Execution of '%s' failed (%s)", program_name, strerror(errno));
+    }
+    else // I'm the parent
+    {
+        // Wait for my son
+        int status;
+        wait(&status);
+        return (WEXITSTATUS(status));
+    }
+}
+
+int count_null_ended_array(void** v)
+{
+	int result = 0;
+	while (v[result] != NULL)
+	{
+		result++;
+	}
+
+	return result;
+}
+
+void seen_filename(char* filename)
+{
+	if (reference_to_seen_filename(filename) != NULL)
+		return;
+
+	P_LIST_ADD(seen_file_names, num_seen_file_names, GC_STRDUP(filename));
+}
+
+char* reference_to_seen_filename(char* filename)
+{
+	int i;
+	for (i = 0; i < num_seen_file_names; i++)
+	{
+		if (strcmp(seen_file_names[i], filename) == 0)
+		{
+			return seen_file_names[i];
+		}
+	}
+
+	return NULL;
+}
