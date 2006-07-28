@@ -24,7 +24,8 @@ typedef enum source_language_tag
 {
 	SOURCE_LANGUAGE_UNKNOWN = 0,
 	SOURCE_LANGUAGE_C,
-	SOURCE_LANGUAGE_CXX
+	SOURCE_LANGUAGE_CXX,
+	SOURCE_LANGUAGE_LINKER_DATA
 } source_language_t;
 
 extern char* source_language_names[];

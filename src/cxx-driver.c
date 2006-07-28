@@ -6,7 +6,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include <libgen.h>
 
+#include "gc.h"
+#include "getopt.h"
 #include "cxx-utils.h"
 #include "cxx-driver.h"
 #include "cxx-ast.h"
@@ -14,14 +17,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-buildscope.h"
 #include "cxx-lexer.h"
-
-#include <getopt.h>
-
-#include <gc.h>
-
-#include <mcfg.h>
-
-#include <libgen.h>
+#include "mcfg.h"
 
 
 // Compilation options
@@ -320,6 +316,12 @@ static void compile_every_translation_unit(void)
 		{
 			fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim onto the linker.\n", 
 					translation_unit->input_filename);
+			translation_unit->output_filename = translation_unit->input_filename;
+			continue;
+		}
+
+		if (current_extension->source_language == SOURCE_LANGUAGE_LINKER_DATA)
+		{
 			translation_unit->output_filename = translation_unit->input_filename;
 			continue;
 		}
