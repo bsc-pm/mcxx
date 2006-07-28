@@ -2346,8 +2346,17 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 				AST type_specifier = ASTSon1(decl_specifier_seq);
 				AST declarator = ASTSon1(parameter_decl);
 
-				if (check_for_type_specifier(type_specifier, st)
-						&& check_for_declarator(declarator, st))
+				char seems_ok = 1;
+
+				seems_ok &= check_for_type_specifier(type_specifier, st);
+
+				if (seems_ok && declarator != NULL)
+				{
+					seems_ok &= check_for_declarator(declarator, st);
+					seems_ok &= check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, declarator);
+				}
+
+				if (seems_ok)
 				{
 					if (correct_choice < 0)
 					{
@@ -2384,6 +2393,7 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 		}
 
 		AST decl_specifier_seq = ASTSon0(parameter);
+		AST abstract_declarator = ASTSon1(parameter);
 
 		if (ASTType(decl_specifier_seq) == AST_AMBIGUITY)
 		{
@@ -2396,6 +2406,14 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 		if (!check_for_type_specifier(type_specifier, st))
 		{
 			return 0;
+		}
+
+		if (abstract_declarator != NULL)
+		{
+			if (!check_for_declarator(abstract_declarator, st))
+			{
+				return 0;
+			}
 		}
 
 		AST default_arg = ASTSon2(parameter);
@@ -2431,6 +2449,11 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st)
 		{
 			current_valid &= check_for_type_specifier(type_specifier, st);
 		}
+		else
+		{
+			// There must be type_spec in a parameter_decl
+			current_valid = 0;
+		}
 
 		AST declarator = ASTSon1(parameter_decl);
 
@@ -2447,7 +2470,7 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st)
 			}
 			else
 			{
-				internal_error("More than one option is possible", 0);
+				internal_error("More than one option is possible in %s", node_information(parameter_declaration));
 			}
 		}
 	}

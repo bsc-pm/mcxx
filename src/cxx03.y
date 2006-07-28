@@ -4253,7 +4253,6 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 		{
 			int original_son0 = son0->num_ambig;
 
-
 			son0->num_ambig += son1->num_ambig;
 			son0->ambig = (AST*) GC_REALLOC(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
 			
@@ -4292,6 +4291,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 		result->ambig[0] = duplicate_ast(son0);
 		result->ambig[1] = duplicate_ast(son1);
 		result->line = son0->line;
+		result->filename = son0->filename;
 
 		return result;
 	}

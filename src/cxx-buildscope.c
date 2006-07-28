@@ -1717,7 +1717,7 @@ void build_scope_member_specification(scope_t* inner_scope, AST member_specifica
 		}
 		DEBUG_CODE()
 		{
-			fprintf(stderr, "==== Member declaration [%s] ====\n", node_information(member_specification), max_line);
+			fprintf(stderr, "==== Member declaration [%s] ====\n", node_information(member_specification));
 		}
 		// If it has an access specifier, update it
 		if (ASTSon0(member_specification) != NULL)
@@ -2433,7 +2433,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 				{
 					scope_entry_list_t* entry_list = query_id_expression(st, declarator_id, FULL_UNQUALIFIED_LOOKUP);
 
-					ERROR_CONDITION((entry_list == NULL), "Qualified id '%s' name not found", prettyprint_in_buffer(declarator_id));
+					ERROR_CONDITION((entry_list == NULL), "Qualified id '%s' name not found (%s)", 
+							prettyprint_in_buffer(declarator_id), node_information(declarator_id));
 
 					return entry_list->entry;
 				}

@@ -33,6 +33,7 @@ AST ASTMake(node_t type, int num_children, const AST child0, const AST child1, c
 	ASTType(result) = type;
 	result->num_children = num_children;
 
+	result->line = line;
 	result->filename = scanning_now.current_filename;
 
 #define ADD_SON(n) \

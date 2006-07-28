@@ -88,18 +88,18 @@ typedef enum builtin_type_tag
 
 typedef enum simple_type_kind_tag
 {
-	STK_UNDEFINED = 0,
-	STK_BUILTIN_TYPE,
-	STK_CLASS,
-	STK_ENUM,
-	STK_TYPEDEF,
-	STK_USER_DEFINED,
+	STK_UNDEFINED = 0, 
+	STK_BUILTIN_TYPE, // [1] int, float, char, wchar_t, bool, void {identifier};
+	STK_CLASS, // [2] struct {identifier};
+	STK_ENUM, // [3] enum {identifier}
+	STK_TYPEDEF, // [4] typedef int {identifier};
+	STK_USER_DEFINED, // [5] A {identifier};
 	// Templates stuff
-	STK_TYPE_TEMPLATE_PARAMETER,
-	STK_TEMPLATE_DEPENDENT_TYPE,
+	STK_TYPE_TEMPLATE_PARAMETER, // [6] template <class {identifier}> struct B {};
+	STK_TEMPLATE_DEPENDENT_TYPE, // [7] template <class T> struct B { typename T::a {identifier}; };
 	// GCC Extensions
-	STK_VA_LIST,
-	STK_TYPEOF
+	STK_VA_LIST, // [8] __builtin_va_list {identifier};
+	STK_TYPEOF  // [9] __typeof__(int) {identifier};
 } simple_type_kind_t;
 
 struct scope_entry_tag;

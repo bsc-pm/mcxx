@@ -132,6 +132,14 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
 		case STK_TYPEDEF :
 			internal_error("A typedef cannot reach here", 0);
 			break;
+		case STK_TYPEOF :
+			internal_error("__typeof__ comparison still not implemented", 0);
+			break;
+		case STK_VA_LIST :
+			{
+				// If both are __builtin_va_list, this is trivially true
+				return 1;
+			}
 		default :
 			internal_error("Unknown simple type kind (%d)", t1->kind);
 			return 0;
@@ -206,11 +214,26 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* s
 	if (!equivalent_types(t1->element_type, t2->element_type, st, CVE_CONSIDER))
 		return 0;
 
-	literal_value_t v1 = evaluate_constant_expression(t1->array_expr, st);
-	literal_value_t v2 = evaluate_constant_expression(t2->array_expr, st);
-
-	if (!equal_literal_values(v1, v2, st))
-		return 0;
+	if (t1->array_expr != NULL
+			&& t2->array_expr != NULL)
+	{
+		literal_value_t v1 = evaluate_constant_expression(t1->array_expr, st);
+		literal_value_t v2 = evaluate_constant_expression(t2->array_expr, st);
+		if (!equal_literal_values(v1, v2, st))
+			return 0;
+	}
+	else
+	{
+		// int a[] does not match with int a[10]; (it will match via
+		// array-to-pointer, but this is not the case we are handling now)
+		if ((t1->array_expr == NULL
+				&& t2->array_expr != NULL)
+				|| (t1->array_expr != NULL
+					&& t2->array_expr == NULL))
+		{
+			return 0;
+		}
+	}
 	
 	return 1;
 }

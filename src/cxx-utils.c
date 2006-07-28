@@ -228,7 +228,7 @@ int execute_program(char* program_name, char** arguments)
 		execvp_arguments[i+1] = arguments[i];
 	}
 
-	// if (compilation_options.verbose)
+	if (compilation_options.verbose)
 	{
 		int i = 0;
 		while (execvp_arguments[i] != NULL)

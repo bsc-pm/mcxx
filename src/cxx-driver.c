@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "cxx-utils.h"
 #include "cxx-driver.h"
@@ -336,7 +337,22 @@ static void compile_every_translation_unit(void)
 		char* parsed_filename = translation_unit->input_filename;
 		if (current_extension->source_kind == SOURCE_KIND_NOT_PREPROCESSED)
 		{
+			time_t start_preprocessing, end_preprocessing;
+			if (compilation_options.verbose)
+			{
+				start_preprocessing = time(NULL);
+			}
+
 			parsed_filename = preprocess_file(translation_unit, translation_unit->input_filename);
+
+			if (parsed_filename != NULL
+					&& compilation_options.verbose)
+			{
+				end_preprocessing = time(NULL);
+				fprintf(stderr, "File '%s' preprocessed in %u seconds\n",
+						translation_unit->input_filename, 
+						(unsigned int)(end_preprocessing - start_preprocessing));
+			}
 
 			if (parsed_filename == NULL)
 			{
@@ -354,6 +370,11 @@ static void compile_every_translation_unit(void)
 		char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);
 
 		native_compilation(translation_unit, prettyprinted_filename);
+
+		if (compilation_options.verbose)
+		{
+			fprintf(stderr, "\n");
+		}
 	}
 }
 
@@ -363,8 +384,21 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 	{
 		mcxx_flex_debug = yydebug = 0;
 	}
+	time_t start_parsing, end_parsing;
+	if (compilation_options.verbose)
+	{
+		start_parsing = time(NULL);
+	}
 	yyparse(&(translation_unit->parsed_tree));
 	build_scope_translation_unit(translation_unit);
+	if (compilation_options.verbose)
+	{
+		end_parsing = time(NULL);
+		fprintf(stderr, "File '%s' ('%s') parsed in %u seconds\n", 
+				translation_unit->input_filename,
+				parsed_filename,
+				(unsigned int)(end_parsing - start_parsing));
+	}
 
 	check_tree(translation_unit->parsed_tree);
 }
@@ -375,14 +409,7 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
 	char* input_filename_dirname = strappend(dirname(translation_unit->input_filename), "/");
 
 	char* input_filename_basename = NULL;
-	if (translation_unit->output_filename == NULL)
-	{
-		input_filename_basename = basename(translation_unit->input_filename);
-	}
-	else
-	{
-		input_filename_basename = basename(translation_unit->output_filename);
-	}
+	input_filename_basename = basename(translation_unit->input_filename);
 
 	char* preffix = strappend(compilation_options.exec_basename, "_");
 	char* output_filename_basename = strappend(preffix,
@@ -395,7 +422,7 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
 
 	if (prettyprint_file == NULL)
 	{
-		running_error("Cannot create output file '%s' (%s)\n", output_filename,
+		running_error("Cannot create output file '%s' (%s)", output_filename,
 				strerror(errno));
 	}
 
@@ -477,9 +504,24 @@ static void native_compilation(translation_unit_t* translation_unit,
 	i++;
 	native_compilation_args[i] = prettyprinted_filename;
 
+	time_t start_compilation, end_compilation;
+	if (compilation_options.verbose)
+	{
+		start_compilation = time(NULL);
+	}
+
 	if (execute_program(compilation_options.native_compiler_name, native_compilation_args) != 0)
 	{
 		running_error("Native compilation failed for file '%s'", translation_unit->input_filename);
+	}
+
+	if (compilation_options.verbose)
+	{
+		end_compilation = time(NULL);
+		fprintf(stderr, "File '%s' ('%s') natively compiled in %u seconds\n", 
+				translation_unit->input_filename,
+				prettyprinted_filename,
+				(unsigned int)(end_compilation - start_compilation));
 	}
 }
 
@@ -514,9 +556,22 @@ static void link_objects(void)
 		i++;
 	}
 
+	time_t start_link, end_link;
+	if (compilation_options.verbose)
+	{
+		start_link = time(NULL);
+	}
+
 	if (execute_program(compilation_options.linker_name, linker_args) != 0)
 	{
 		running_error("Link failed", 0);
+	}
+
+	if (compilation_options.verbose)
+	{
+		end_link = time(NULL);
+		fprintf(stderr, "Link performed in %u seconds\n", 
+				(unsigned int)(end_link - start_link));
 	}
 }
 
