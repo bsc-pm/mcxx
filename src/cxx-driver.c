@@ -35,13 +35,19 @@ compilation_options_t compilation_options;
 "  -a, --check-dates        Checks dates before regenerating files\n" \
 "  -g, --graphviz           Outputs AST in graphviz format\n" \
 "  -d, --debug              Prints lots of debugging information\n" \
+"  -Wp,<options>            Pass comma-separated <options> on to\n" \
+"                           the preprocessor\n" \
+"  -Wn,<options>            Pass comma-separated <options> on to\n" \
+"                           the native compiler\n" \
+"  -Wl,<options>            Pass comma-separated <options> on to\n" \
+"                           the linker\n" \
 "  --config-file=<file>     Uses <file> as config file, otherwise\n" \
 "                           '" PKGDATADIR "/config.mcxx'\n" \
 "                           will be used\n" \
 "\n"
 
 // Remember to update GETOPT_STRING if needed
-#define GETOPT_STRING "vkagdcho:m:"
+#define GETOPT_STRING "vkagdcho:m:W:"
 struct option getopt_long_options[] =
 {
 	{"help",        no_argument, NULL, 'h'},
@@ -83,6 +89,8 @@ static char check_tree(AST a);
 static char check_for_ambiguities(AST a, AST* ambiguous_node);
 
 static void link_objects(void);
+
+static void parse_subcommand_arguments(char* arguments);
 
 int main(int argc, char* argv[])
 {
@@ -194,6 +202,11 @@ void parse_arguments(int argc, char* argv[])
 					}
 					break;
 				}
+			case 'W' :
+				{
+					parse_subcommand_arguments(optarg);
+					break;
+				}
 			case 'h' :
 				{
 					help_message();
@@ -239,6 +252,11 @@ void parse_arguments(int argc, char* argv[])
 	{
 		compilation_options.linked_output_filename = output_file;
 	}
+}
+
+static void parse_subcommand_arguments(char* arguments)
+{
+#warning TODO
 }
 
 static void initialize_default_values(void)
@@ -302,19 +320,13 @@ static void compile_every_translation_unit(void)
 		// First check the file type
 		char* extension = get_extension_filename(translation_unit->input_filename);
 
-		if (extension == NULL)
-		{
-			fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim onto the linker.\n", 
-					translation_unit->input_filename);
-			translation_unit->output_filename = translation_unit->input_filename;
-			continue;
-		}
+		struct extensions_table_t* current_extension = NULL;
 
-		struct extensions_table_t* current_extension = fileextensions_lookup(extension, strlen(extension));
-
-		if (current_extension == NULL)
+		if (extension == NULL 
+				|| ((current_extension =
+						fileextensions_lookup(extension, strlen(extension))) == NULL))
 		{
-			fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim onto the linker.\n", 
+			fprintf(stderr, "File '%s' not recognized as a valid input. Passing verbatim on to the linker.\n", 
 					translation_unit->input_filename);
 			translation_unit->output_filename = translation_unit->input_filename;
 			continue;
