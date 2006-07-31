@@ -6,7 +6,7 @@ options =
 preprocessor_name = cc
 preprocessor_options = -E
 compiler_name = cc
-compiler_options = -O2
+compiler_options = 
 linker_name = cc
 linker_options =
 
@@ -17,6 +17,6 @@ options =
 preprocessor_name = c++
 preprocessor_options = -E
 compiler_name = c++
-compiler_options = -O2
+compiler_options = 
 linker_name = c++
 linker_options = 
