@@ -131,6 +131,8 @@ int main(int argc, char* argv[])
 	{
 		fprintf(stderr, "Whole process took %.2f seconds to complete\n",
 				timing_elapsed(&timing_global));
+
+		fprintf(stderr, "\n");
 	}
 
 	return compilation_options.execution_result;
