@@ -35,6 +35,12 @@ compilation_options_t compilation_options;
 "  -a, --check-dates        Checks dates before regenerating files\n" \
 "  -g, --graphviz           Outputs AST in graphviz format\n" \
 "  -d, --debug              Prints lots of debugging information\n" \
+"  --cpp=<name>             Preprocessor <name> will be used for\n" \
+"                           preprocessing\n" \
+"  --cxx=<name>             Compiler <name> will be used for native\n" \
+"                           compilation\n" \
+"  --cc=<name>              Another name for --cxx=<name>\n" \
+"  --ld=<name>              Linker <name> will be used for linking\n" \
 "  -Wp,<options>            Pass comma-separated <options> on to\n" \
 "                           the preprocessor\n" \
 "  -Wn,<options>            Pass comma-separated <options> on to\n" \
@@ -59,6 +65,10 @@ struct option getopt_long_options[] =
 	{"debug",       no_argument, NULL, 'd'},
 	{"output",      required_argument, NULL, 'o'},
 	{"config-file", required_argument, NULL, 'm'},
+	{"cc", required_argument, NULL, OPTION_NATIVE_COMPILER_NAME},
+	{"cxx", required_argument, NULL, OPTION_NATIVE_COMPILER_NAME},
+	{"cpp", required_argument, NULL, OPTION_PREPROCESSOR_NAME},
+	{"ld", required_argument, NULL, OPTION_LINKER_NAME},
 	// sentinel
 	{NULL, 0, NULL, 0}
 };
@@ -94,10 +104,15 @@ static void parse_subcommand_arguments(char* arguments);
 
 int main(int argc, char* argv[])
 {
+	timing_t timing_global;
+	timing_start(&timing_global);
+
+	// Initialization of the driver
 	driver_initialization(argc, argv);
 
 	// Argument parsing
 	initialize_default_values();
+	
 	// Load configuration
 	load_configuration();
 
@@ -105,9 +120,18 @@ int main(int argc, char* argv[])
 	parse_arguments(compilation_options.argc, 
 		compilation_options.argv, /* from_command_line= */1);
 
+	// Compilation of every specified translation unit
 	compile_every_translation_unit();
 
+	// Link all generated objects
 	link_objects();
+
+	timing_end(&timing_global);
+	if (compilation_options.verbose)
+	{
+		fprintf(stderr, "Whole process took %.2f seconds to complete\n",
+				timing_elapsed(&timing_global));
+	}
 
 	return compilation_options.execution_result;
 }
@@ -213,6 +237,21 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 			case 'W' :
 				{
 					parse_subcommand_arguments(optarg);
+					break;
+				}
+			case OPTION_PREPROCESSOR_NAME :
+				{
+					compilation_options.preprocessor_name = GC_STRDUP(optarg);
+					break;
+				}
+			case OPTION_NATIVE_COMPILER_NAME :
+				{
+					compilation_options.native_compiler_name = GC_STRDUP(optarg);
+					break;
+				}
+			case OPTION_LINKER_NAME :
+				{
+					compilation_options.linker_name = GC_STRDUP(optarg);
 					break;
 				}
 			case 'h' :
@@ -403,17 +442,14 @@ static void compile_every_translation_unit(void)
 		if (current_extension->source_kind == SOURCE_KIND_NOT_PREPROCESSED)
 		{
 			timing_t timing_preprocessing;
-			if (compilation_options.verbose)
-			{
-				timing_start(&timing_preprocessing);
-			}
 
+			timing_start(&timing_preprocessing);
 			parsed_filename = preprocess_file(translation_unit, translation_unit->input_filename);
+			timing_end(&timing_preprocessing);
 
 			if (parsed_filename != NULL
 					&& compilation_options.verbose)
 			{
-				timing_end(&timing_preprocessing);
 				fprintf(stderr, "File '%s' preprocessed in %.2f seconds\n",
 						translation_unit->input_filename, 
 						timing_elapsed(&timing_preprocessing));
@@ -435,11 +471,6 @@ static void compile_every_translation_unit(void)
 		char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);
 
 		native_compilation(translation_unit, prettyprinted_filename);
-
-		if (compilation_options.verbose)
-		{
-			fprintf(stderr, "\n");
-		}
 	}
 }
 
@@ -453,15 +484,15 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 	{
 		mcxx_flex_debug = yydebug = 1;
 	}
+
 	timing_t timing_parsing;
-	if (compilation_options.verbose)
-	{
-		timing_start(&timing_parsing);
-	}
+
+	timing_start(&timing_parsing);
 	yyparse(&(translation_unit->parsed_tree));
+	timing_end(&timing_parsing);
+
 	if (compilation_options.verbose)
 	{
-		timing_end(&timing_parsing);
 		fprintf(stderr, "File '%s' ('%s') parsed in %.2f seconds\n", 
 				translation_unit->input_filename,
 				parsed_filename,
@@ -469,14 +500,13 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 	}
 
 	timing_t timing_semantic;
-	if (compilation_options.verbose)
-	{
-		timing_start(&timing_semantic);
-	}
+
+	timing_start(&timing_semantic);
 	build_scope_translation_unit(translation_unit);
+	timing_end(&timing_semantic);
+
 	if (compilation_options.verbose)
 	{
-		timing_end(&timing_semantic);
 		fprintf(stderr, "File '%s' ('%s') semantically analyzed in %.2f seconds\n", 
 				translation_unit->input_filename,
 				parsed_filename,
@@ -591,19 +621,16 @@ static void native_compilation(translation_unit_t* translation_unit,
 	native_compilation_args[i] = prettyprinted_filename;
 
 	timing_t timing_compilation;
-	if (compilation_options.verbose)
-	{
-		timing_start(&timing_compilation);
-	}
+	timing_start(&timing_compilation);
 
 	if (execute_program(compilation_options.native_compiler_name, native_compilation_args) != 0)
 	{
 		running_error("Native compilation failed for file '%s'", translation_unit->input_filename);
 	}
+	timing_end(&timing_compilation);
 
 	if (compilation_options.verbose)
 	{
-		timing_end(&timing_compilation);
 		fprintf(stderr, "File '%s' ('%s') natively compiled in %.2f seconds\n", 
 				translation_unit->input_filename,
 				prettyprinted_filename,
@@ -643,19 +670,15 @@ static void link_objects(void)
 	}
 
 	timing_t timing_link;
-	if (compilation_options.verbose)
-	{
-		timing_start(&timing_link);
-	}
-
+	timing_start(&timing_link);
 	if (execute_program(compilation_options.linker_name, linker_args) != 0)
 	{
 		running_error("Link failed", 0);
 	}
+	timing_end(&timing_link);
 
 	if (compilation_options.verbose)
 	{
-		timing_end(&timing_link);
 		fprintf(stderr, "Link performed in %.2f seconds\n", 
 				timing_elapsed(&timing_link));
 	}
