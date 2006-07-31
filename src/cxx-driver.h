@@ -117,7 +117,7 @@ struct configuration_directive_t*
 configoptions_lookup (register const char *str, 
 		register unsigned int len);
 
-void parse_arguments(int argc, char* argv[]);
+void parse_arguments(int argc, char* argv[], char from_command_line);
 
 extern int num_seen_file_names;
 extern char** seen_file_names;

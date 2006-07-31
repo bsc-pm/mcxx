@@ -29,7 +29,7 @@ int config_set_options(char* value)
 	int num;
 	char** comma_options = comma_separate_values(value, &num);
 
-	parse_arguments(num, comma_options);
+	parse_arguments(num, comma_options, /* from_command_line= */ 0);
 
 	return 0;
 }

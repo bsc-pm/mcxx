@@ -112,22 +112,22 @@ char* get_unique_name(void)
 
 char** comma_separate_values(char* value, int *num_elems)
 {
-	char* comma_string = GC_STRDUP(value);
-
 	char** result = NULL;
 	*num_elems = 0;
-	
-	char* current = strtok(comma_string, ",");
 
-	while (current != NULL)
+	if (value != NULL)
 	{
-		P_LIST_ADD(result, *num_elems, GC_STRDUP(current));
-		current = strtok(NULL, ",");
+		char* comma_string = GC_STRDUP(value);
+		char* current = strtok(comma_string, ",");
+
+		while (current != NULL)
+		{
+			P_LIST_ADD(result, *num_elems, GC_STRDUP(current));
+			current = strtok(NULL, ",");
+		}
 	}
 
 	P_LIST_ADD(result, *num_elems, NULL);
-
-	// Do not count the last one
 	(*num_elems)--;
 
 	return result;
@@ -265,6 +265,11 @@ int execute_program(char* program_name, char** arguments)
 int count_null_ended_array(void** v)
 {
 	int result = 0;
+	if (v == NULL)
+	{
+		return result;
+	}
+
 	while (v[result] != NULL)
 	{
 		result++;
@@ -293,4 +298,28 @@ char* reference_to_seen_filename(char* filename)
 	}
 
 	return NULL;
+}
+
+void timing_start(timing_t* t)
+{
+	memset(t, 0, sizeof(*t));
+    
+	gettimeofday(&(t->start), NULL);
+}
+
+void timing_end(timing_t* t)
+{
+	gettimeofday(&(t->end), NULL);
+
+	double start_value = t->start.tv_sec*1e6 + t->start.tv_usec;
+	double end_value = t->end.tv_sec*1e6 + t->end.tv_usec;
+
+	double diff_value = end_value - start_value;
+
+	t->elapsed_time = diff_value / 1e6;
+}
+
+double timing_elapsed(const timing_t* t)
+{
+	return (t->elapsed_time);
 }

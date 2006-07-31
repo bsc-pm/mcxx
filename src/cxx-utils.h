@@ -5,6 +5,8 @@
 #include <stdio.h>
 #include <signal.h>
 #include <errno.h>
+#include <sys/time.h>
+#include <time.h>
 
 #include <gc.h>
 
@@ -106,7 +108,6 @@ char* GC_STRDUP(const char* str);
 // Gives a unique name for the identifier
 char* get_unique_name(void);
 
-char** comma_separate_values(char* value, int* num_elems);
 
 // Temporal handling routines
 typedef struct 
@@ -128,9 +129,25 @@ char* get_extension_filename(char* filename);
 
 int execute_program(char* program_name, char** arguments);
 
+// char** routines
+char** comma_separate_values(char* value, int* num_elems);
 int count_null_ended_array(void** v);
 
+// Table of seen filenames
 void seen_filename(char* filename);
 char* reference_to_seen_filename(char* filename);
+
+typedef struct
+{
+  struct timeval start;
+  struct timeval end;
+  double elapsed_time;
+} timing_t;
+
+void timing_start(timing_t* t);
+void timing_end(timing_t* t);
+int timing_seconds(const timing_t* t);
+int timing_microseconds(const timing_t* t);
+double timing_elapsed(const timing_t* t);
 
 #endif // CXX_UTILS_H

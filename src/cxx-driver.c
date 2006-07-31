@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 #include <libgen.h>
 
 #include "gc.h"
@@ -99,10 +98,12 @@ int main(int argc, char* argv[])
 
 	// Argument parsing
 	initialize_default_values();
-	parse_arguments(compilation_options.argc, compilation_options.argv);
-
 	// Load configuration
 	load_configuration();
+
+	// Parse arguments
+	parse_arguments(compilation_options.argc, 
+		compilation_options.argv, /* from_command_line= */1);
 
 	compile_every_translation_unit();
 
@@ -143,7 +144,7 @@ static void options_error(char* message)
 	exit(EXIT_FAILURE);
 }
 
-void parse_arguments(int argc, char* argv[])
+void parse_arguments(int argc, char* argv[], char from_command_line)
 {
 	int c;
 	int indexptr;
@@ -222,10 +223,15 @@ void parse_arguments(int argc, char* argv[])
 		}
 	}
 
-    if (argc == optind)
-    {
-        options_error("You must specify an input file.");
-    }
+	if (!from_command_line)
+	{
+		return;
+	}
+
+	if (argc == optind)
+	{
+		options_error("You must specify an input file.");
+	}
 
 	int i = 1;
 	while (optind < argc)
@@ -240,7 +246,7 @@ void parse_arguments(int argc, char* argv[])
 		{
 			translation_unit_t* translation_unit = GC_CALLOC(1, sizeof(*translation_unit));
 			translation_unit->input_filename = GC_STRDUP(argv[optind]);
-			
+
 			if (compilation_options.do_not_link)
 			{
 				translation_unit->output_filename = output_file;
@@ -263,7 +269,45 @@ void parse_arguments(int argc, char* argv[])
 
 static void parse_subcommand_arguments(char* arguments)
 {
-#warning TODO
+	if ((strlen(arguments) <= 2)
+			|| (arguments[1] != ',')
+			|| (arguments[0] != 'n'
+				&& arguments[0] != 'p'
+				&& arguments[0] != 'l'))
+	{
+		options_error("Option -W is of the form -Wx, where 'x' can be 'n', 'p' or 'l'");
+	}
+
+	int num_parameters = 0;
+	char** parameters = comma_separate_values(&arguments[2], &num_parameters);
+
+	char*** existing_options = NULL;
+
+	switch (arguments[0])
+	{
+		case 'n' :
+			existing_options = &compilation_options.native_compiler_options;
+			break;
+		case 'p' :
+			existing_options = &compilation_options.preprocessor_options;
+			break;
+		case 'l' :
+			existing_options = &compilation_options.linker_options;
+			break;
+		default:
+			{
+				internal_error("Unknown '%c' switch\n", arguments[0]);
+			}
+	}
+
+	int num_existing_options = count_null_ended_array((void**)(*existing_options));
+	(*existing_options) = GC_REALLOC((*existing_options), sizeof(char*)*(num_existing_options + num_parameters + 1));
+
+	int i;
+	for (i = 0; i < num_parameters; i++)
+	{
+		(*existing_options)[num_existing_options + i] = parameters[i];
+	}
 }
 
 static void initialize_default_values(void)
@@ -358,10 +402,10 @@ static void compile_every_translation_unit(void)
 		char* parsed_filename = translation_unit->input_filename;
 		if (current_extension->source_kind == SOURCE_KIND_NOT_PREPROCESSED)
 		{
-			time_t start_preprocessing, end_preprocessing;
+			timing_t timing_preprocessing;
 			if (compilation_options.verbose)
 			{
-				start_preprocessing = time(NULL);
+				timing_start(&timing_preprocessing);
 			}
 
 			parsed_filename = preprocess_file(translation_unit, translation_unit->input_filename);
@@ -369,10 +413,10 @@ static void compile_every_translation_unit(void)
 			if (parsed_filename != NULL
 					&& compilation_options.verbose)
 			{
-				end_preprocessing = time(NULL);
-				fprintf(stderr, "File '%s' preprocessed in %u seconds\n",
+				timing_end(&timing_preprocessing);
+				fprintf(stderr, "File '%s' preprocessed in %.2f seconds\n",
 						translation_unit->input_filename, 
-						(unsigned int)(end_preprocessing - start_preprocessing));
+						timing_elapsed(&timing_preprocessing));
 			}
 
 			if (parsed_filename == NULL)
@@ -409,34 +453,34 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 	{
 		mcxx_flex_debug = yydebug = 1;
 	}
-	time_t start_parsing, end_parsing;
+	timing_t timing_parsing;
 	if (compilation_options.verbose)
 	{
-		start_parsing = time(NULL);
+		timing_start(&timing_parsing);
 	}
 	yyparse(&(translation_unit->parsed_tree));
 	if (compilation_options.verbose)
 	{
-		end_parsing = time(NULL);
-		fprintf(stderr, "File '%s' ('%s') parsed in %u seconds\n", 
+		timing_end(&timing_parsing);
+		fprintf(stderr, "File '%s' ('%s') parsed in %.2f seconds\n", 
 				translation_unit->input_filename,
 				parsed_filename,
-				(unsigned int)(end_parsing - start_parsing));
+				timing_elapsed(&timing_parsing));
 	}
 
-	time_t start_semantic, end_semantic;
+	timing_t timing_semantic;
 	if (compilation_options.verbose)
 	{
-		start_semantic = time(NULL);
+		timing_start(&timing_semantic);
 	}
 	build_scope_translation_unit(translation_unit);
 	if (compilation_options.verbose)
 	{
-		end_semantic = time(NULL);
-		fprintf(stderr, "File '%s' ('%s') semantically analyzed in %u seconds\n", 
+		timing_end(&timing_semantic);
+		fprintf(stderr, "File '%s' ('%s') semantically analyzed in %.2f seconds\n", 
 				translation_unit->input_filename,
 				parsed_filename,
-				(unsigned int)(end_semantic - start_semantic));
+				timing_elapsed(&timing_semantic));
 	}
 
 	check_tree(translation_unit->parsed_tree);
@@ -546,10 +590,10 @@ static void native_compilation(translation_unit_t* translation_unit,
 	i++;
 	native_compilation_args[i] = prettyprinted_filename;
 
-	time_t start_compilation, end_compilation;
+	timing_t timing_compilation;
 	if (compilation_options.verbose)
 	{
-		start_compilation = time(NULL);
+		timing_start(&timing_compilation);
 	}
 
 	if (execute_program(compilation_options.native_compiler_name, native_compilation_args) != 0)
@@ -559,11 +603,11 @@ static void native_compilation(translation_unit_t* translation_unit,
 
 	if (compilation_options.verbose)
 	{
-		end_compilation = time(NULL);
-		fprintf(stderr, "File '%s' ('%s') natively compiled in %u seconds\n", 
+		timing_end(&timing_compilation);
+		fprintf(stderr, "File '%s' ('%s') natively compiled in %.2f seconds\n", 
 				translation_unit->input_filename,
 				prettyprinted_filename,
-				(unsigned int)(end_compilation - start_compilation));
+				timing_elapsed(&timing_compilation));
 	}
 }
 
@@ -598,10 +642,10 @@ static void link_objects(void)
 		i++;
 	}
 
-	time_t start_link, end_link;
+	timing_t timing_link;
 	if (compilation_options.verbose)
 	{
-		start_link = time(NULL);
+		timing_start(&timing_link);
 	}
 
 	if (execute_program(compilation_options.linker_name, linker_args) != 0)
@@ -611,9 +655,9 @@ static void link_objects(void)
 
 	if (compilation_options.verbose)
 	{
-		end_link = time(NULL);
-		fprintf(stderr, "Link performed in %u seconds\n", 
-				(unsigned int)(end_link - start_link));
+		timing_end(&timing_link);
+		fprintf(stderr, "Link performed in %.2f seconds\n", 
+				timing_elapsed(&timing_link));
 	}
 }
 
