@@ -144,6 +144,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> WCHAR_T
 %token<token_atrib> WHILE
 %token<token_atrib> XOR_ASSIGN
+%token<token_atrib> UNKNOWN_PRAGMA
 
 // Lexical symbols
 %token<token_atrib> '!'
@@ -354,6 +355,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> nontype_specifier_seq2
 %type<ast> nontype_specifier2
 %type<ast> volatile_optional
+%type<ast> unknown_pragma
 
 %type<node_type> unary_operator
 %type<node_type> assignment_operator
@@ -418,12 +420,16 @@ declaration : block_declaration
 {
 	$$ = $1;
 }
-// GNU Extension
-| EXTENSION declaration
+| unknown_pragma
 {
-	// This extension is designed to shut up gcc's -pedantic
-	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, NULL);
+	$$ = $1;
 }
+// GNU Extension
+// | EXTENSION declaration
+// {
+// 	// This extension is designed to shut up gcc's -pedantic
+// 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, NULL);
+// }
 ;
 
 linkage_specification : EXTERN string_literal '{' declaration_sequence '}'
@@ -500,6 +506,10 @@ block_declaration : simple_declaration
 {
 	$$ = $1;
 }
+| EXTENSION block_declaration
+{
+	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, $1.token_text);
+}
 ;
 
 /* GNU Extension */
@@ -534,11 +544,11 @@ attributes : attributes attribute
 
 attribute : ATTRIBUTE '(' '(' attribute_list ')' ')'
 {
-	$$ = ASTMake1(AST_GCC_ATTRIBUTE, $4, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_ATTRIBUTE, $4, $1.token_line, $1.token_text);
 }
 | ATTRIBUTE '(''(' ')'')'
 {
-	$$ = ASTMake1(AST_GCC_ATTRIBUTE, NULL, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_ATTRIBUTE, NULL, $1.token_line, $1.token_text);
 }
 ;
 
@@ -589,32 +599,32 @@ attribute_value : IDENTIFIER
 
 asm_definition : ASM '(' string_literal ')' ';'
 {
-	$$ = ASTMake1(AST_ASM_DEFINITION, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_ASM_DEFINITION, $3, $1.token_line, $1.token_text);
 }
 // GNU Extensions
 | ASM volatile_optional '(' string_literal ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, NULL, NULL, NULL, ASTLine($4), NULL);
-	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, NULL);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
 }
 | ASM volatile_optional '(' string_literal ':' asm_operand_list ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, $6, NULL, NULL, ASTLine($4), NULL);
-	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, NULL);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
 }
 | ASM volatile_optional '(' string_literal ':' asm_operand_list ':' asm_operand_list ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, $6, $8, NULL, ASTLine($4), NULL);
-	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, NULL);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
 }
 | ASM volatile_optional '(' string_literal ':' asm_operand_list ':' asm_operand_list ':' asm_operand_list ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, $6, $8, $10, ASTLine($4), NULL);
-	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, NULL);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
 }
 ;
 
@@ -1038,11 +1048,11 @@ simple_type_specifier : type_name
 // GNU Extension
 | TYPEOF unary_expression
 {
-	$$ = ASTMake1(AST_GCC_TYPEOF_EXPR, $2, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_TYPEOF_EXPR, $2, $1.token_line, $1.token_text);
 }
 | TYPEOF '(' type_id ')'
 {
-	$$ = ASTMake1(AST_GCC_TYPEOF, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_TYPEOF, $3, $1.token_line, $1.token_text);
 }
 ;
 
@@ -1875,6 +1885,10 @@ function_definition : functional_declarator function_body
 {
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, $3, $4, ASTLine($1), NULL);
 }
+| EXTENSION function_definition
+{
+	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, $1.token_text);
+}
 ;
 
 function_body : compound_statement
@@ -2097,6 +2111,10 @@ member_declaration : decl_specifier_seq member_declarator_list ';'
 {
 	$$ = $1;
 }
+| unknown_pragma
+{
+	$$ = $1;
+}
 // This is a common tolerated error
 | ';' 
 {
@@ -2105,7 +2123,7 @@ member_declaration : decl_specifier_seq member_declarator_list ';'
 // GNU Extension
 | EXTENSION member_declaration
 {
-	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, $1.token_text);
 }
 ;
 
@@ -3062,15 +3080,15 @@ unary_expression : postfix_expression
 // GNU Extensions
 | EXTENSION cast_expression
 {
-	$$ = ASTMake1(AST_GCC_EXTENSION_EXPR, $2, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_EXTENSION_EXPR, $2, $1.token_line, $1.token_text);
 }
 | ALIGNOF unary_expression
 {
-	$$ = ASTMake1(AST_GCC_ALIGNOF, $2, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_ALIGNOF, $2, $1.token_line, $1.token_text);
 }
 | ALIGNOF '(' type_id ')'
 {
-	$$ = ASTMake1(AST_GCC_ALIGNOF_TYPE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_ALIGNOF_TYPE, $3, $1.token_line, $1.token_text);
 }
 | REAL cast_expression
 {
@@ -4200,6 +4218,11 @@ throw_expression : THROW
 	$$ = ASTMake1(AST_THROW_EXPRESSION, $2, $1.token_line, NULL);
 }
 ;
+
+unknown_pragma : UNKNOWN_PRAGMA
+{
+	$$ = ASTLeaf(AST_UNKNOWN_PRAGMA, $1.token_line, $1.token_text);
+}
 
 // This eases parsing, though it should be viewed as a lexical issue
 string_literal : STRING_LITERAL

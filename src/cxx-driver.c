@@ -30,6 +30,7 @@ compilation_options_t compilation_options;
 "  --version                Shows version and quits\n" \
 "  -o, --output=<file>      Sets <file> as the output file\n" \
 "  -c                       Does not link, just compile.\n" \
+"  -E                       Does not compile, just preprocess.\n" \
 "  -k, --keep-files         Do not remove intermediate temporary\n" \
 "                           files.\n" \
 "  -a, --check-dates        Checks dates before regenerating files\n" \
@@ -47,7 +48,7 @@ compilation_options_t compilation_options;
 "\n"
 
 // Remember to update GETOPT_STRING if needed
-#define GETOPT_STRING "vkagdcho:m:W:"
+#define GETOPT_STRING "vkagdcho:m:W:E"
 struct option getopt_long_options[] =
 {
 	{"help",        no_argument, NULL, 'h'},
@@ -172,6 +173,12 @@ void parse_arguments(int argc, char* argv[])
 				}
 			case 'c' : // -c
 				{
+					compilation_options.do_not_link = 1;
+					break;
+				}
+			case 'E' : // -E
+				{
+					compilation_options.do_not_compile = 1;
 					compilation_options.do_not_link = 1;
 					break;
 				}
@@ -398,13 +405,16 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 	{
 		mcxx_flex_debug = yydebug = 0;
 	}
+	DEBUG_CODE()
+	{
+		mcxx_flex_debug = yydebug = 1;
+	}
 	time_t start_parsing, end_parsing;
 	if (compilation_options.verbose)
 	{
 		start_parsing = time(NULL);
 	}
 	yyparse(&(translation_unit->parsed_tree));
-	build_scope_translation_unit(translation_unit);
 	if (compilation_options.verbose)
 	{
 		end_parsing = time(NULL);
@@ -412,6 +422,21 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 				translation_unit->input_filename,
 				parsed_filename,
 				(unsigned int)(end_parsing - start_parsing));
+	}
+
+	time_t start_semantic, end_semantic;
+	if (compilation_options.verbose)
+	{
+		start_semantic = time(NULL);
+	}
+	build_scope_translation_unit(translation_unit);
+	if (compilation_options.verbose)
+	{
+		end_semantic = time(NULL);
+		fprintf(stderr, "File '%s' ('%s') semantically analyzed in %u seconds\n", 
+				translation_unit->input_filename,
+				parsed_filename,
+				(unsigned int)(end_semantic - start_semantic));
 	}
 
 	check_tree(translation_unit->parsed_tree);
@@ -482,6 +507,9 @@ static char* preprocess_file(translation_unit_t* translation_unit, char* input_f
 static void native_compilation(translation_unit_t* translation_unit, 
 		char* prettyprinted_filename)
 {
+	if (compilation_options.do_not_compile)
+		return;
+
 	char* output_object_filename;
 
 	if (translation_unit->output_filename == NULL

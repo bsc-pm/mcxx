@@ -51,9 +51,12 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 
 static char check_for_simple_declaration(AST a, scope_t* st);
 static char check_for_initializer_clause(AST initializer_clause, scope_t* st);
+static char check_for_parenthesized_initializer(AST parenthesized_initializer, scope_t* st);
+static char check_for_initializer_list(AST initializer_list, scope_t* st);
 
 static char check_for_new_expression(AST new_expr, scope_t* st);
 static char check_for_new_type_id_expr(AST new_expr, scope_t* st);
+
 
 #define EXPECT_OPTIONS(a, n) \
 do \
@@ -234,7 +237,7 @@ void solve_ambiguous_declaration(AST a, scope_t* st)
 		return;
 	}
 
-	ASSERT_MESSAGE(1, "Don't know how to handle this ambiguity. %s", node_information(a));
+	internal_error("Don't know how to handle this ambiguity. %s", node_information(a));
 }
 
 static void solve_ambiguous_simple_declaration(AST a, scope_t* st)
@@ -1420,6 +1423,12 @@ char check_for_expression(AST expression, scope_t* st)
 				return 1;
 				break;
 			}
+		case AST_GCC_POSTFIX_EXPRESSION :
+			{
+				return (check_for_type_id_tree(ASTSon0(expression), st) &&
+						check_for_initializer_list(ASTSon1(expression), st));
+				break;
+			}
 		default :
 			{
 				internal_error("Unexpected node '%s' %s", ast_print_node_type(ASTType(expression)), 
@@ -2127,7 +2136,7 @@ static char check_for_init_declarator(AST init_declarator, scope_t* st)
 	return 1;
 }
 
-static char check_for_initializer_list(AST initializer_list, scope_t* st)
+static char check_for_parenthesized_initializer(AST initializer_list, scope_t* st)
 {
 	if (ASTType(initializer_list) == AST_AMBIGUITY)
 	{
@@ -2136,7 +2145,7 @@ static char check_for_initializer_list(AST initializer_list, scope_t* st)
 
 		for (i = 0; i < initializer_list->num_ambig; i++)
 		{
-			if (check_for_initializer_list(initializer_list->ambig[i], st))
+			if (check_for_parenthesized_initializer(initializer_list->ambig[i], st))
 			{
 				if (current_choice < 0)
 				{
@@ -2171,7 +2180,7 @@ static char check_for_initializer_list(AST initializer_list, scope_t* st)
 		// Recurse, because there may be additional ambiguities lying around here
 		if (ASTSon0(initializer_list) != NULL)
 		{
-			return check_for_initializer_list(ASTSon0(initializer_list), st);
+			return check_for_parenthesized_initializer(ASTSon0(initializer_list), st);
 		}
 		else
 		{
@@ -2205,7 +2214,7 @@ char check_for_initialization(AST initializer, scope_t* st)
 			}
 		case AST_PARENTHESIZED_INITIALIZER :
 			{
-				return check_for_initializer_list(ASTSon0(initializer), st);
+				return check_for_parenthesized_initializer(ASTSon0(initializer), st);
 				break;
 			}
 		default :
@@ -2213,6 +2222,19 @@ char check_for_initialization(AST initializer, scope_t* st)
 				internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(initializer)));
 			}
 	}
+	return 1;
+}
+
+static char check_for_initializer_list(AST initializer_list, scope_t* st)
+{
+	AST iter;
+	for_each_element(initializer_list, iter)
+	{
+		AST initializer_clause = ASTSon1(iter);
+
+		check_for_initializer_clause(initializer_clause, st);
+	}
+
 	return 1;
 }
 
@@ -2237,6 +2259,12 @@ static char check_for_initializer_clause(AST initializer, scope_t* st)
 			{
 				AST expression = ASTSon0(initializer);
 				return check_for_expression(expression, st);
+				break;
+			}
+		case AST_GCC_INITIALIZER_CLAUSE :
+			{
+				AST initializer_clause = ASTSon1(initializer);
+				return check_for_initializer_clause(initializer_clause, st);
 				break;
 			}
 		default :

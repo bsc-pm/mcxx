@@ -71,6 +71,7 @@ typedef struct compilation_options_tag
 	char keep_files;
 	char check_dates;
 	char do_not_link;
+	char do_not_compile;
 	char debug_level;
 	
 	// Source language information

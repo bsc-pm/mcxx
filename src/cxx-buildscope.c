@@ -125,6 +125,8 @@ static void build_scope_template_function_definition(AST a, scope_t* st, scope_t
 static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t* template_scope, 
 		int num_parameters, template_parameter_t** template_parameters, decl_context_t decl_context);
 
+static void build_scope_gcc_asm_definition(AST a, scope_t* st, decl_context_t decl_context);
+
 static cv_qualifier_t compute_cv_qualifier(AST a);
 
 static exception_spec_t* build_exception_spec(scope_t* st, AST a);
@@ -300,7 +302,18 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
 			{
 				solve_ambiguous_declaration(a, st);
 				// Restart function
+				if (ASTType(a) == AST_AMBIGUITY)
+				{
+					internal_error("Ambiguity not handled\n", 0);
+				}
 				build_scope_declaration(a, st, decl_context);
+				break;
+			}
+		case AST_ASM_DEFINITION :
+		case AST_EMPTY_DECL :
+		case AST_UNKNOWN_PRAGMA :
+			{
+				// Do nothing
 				break;
 			}
 		case AST_GCC_EXTENSION :
@@ -308,9 +321,9 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
 				build_scope_declaration(ASTSon0(a), st, decl_context);
 				break;
 			}
-		case AST_EMPTY_DECL :
+		case AST_GCC_ASM_DEFINITION :
 			{
-				// Do nothing
+				build_scope_gcc_asm_definition(a, st, decl_context);
 				break;
 			}
 		default :
@@ -319,6 +332,34 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
 						ast_print_node_type(ASTType(a)), node_information(a));
 				break;
 			}
+	}
+}
+
+// It simply disambiguates
+static void build_scope_gcc_asm_definition(AST a, scope_t* st, decl_context_t decl_context)
+{
+	AST asm_parms = ASTSon1(a);
+
+	int i;
+	// first one is always an AST_STRING_LITERAL
+	for (i = 1; i < ASTNumChildren(asm_parms); i++)
+	{
+		AST asm_operand_list = ASTChild(asm_parms, i);
+
+		if (asm_operand_list != NULL)
+		{
+			AST iter;
+			for_each_element(asm_operand_list, iter)
+			{
+				AST asm_operand = ASTSon1(iter);
+
+				if (ASTType(asm_operand) == AST_GCC_ASM_OPERAND)
+				{
+					AST expression = ASTSon2(asm_operand);
+					solve_possibly_ambiguous_expression(expression, st);
+				}
+			}
+		}
 	}
 }
 
@@ -3646,6 +3687,10 @@ static void build_scope_member_declaration(AST a, scope_t*  st,
 				break;
 			}
 		case AST_EMPTY_DECL :
+			{
+				break;
+			}
+		case AST_UNKNOWN_PRAGMA :
 			{
 				break;
 			}

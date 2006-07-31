@@ -84,6 +84,17 @@ hexprefix   0[xX]
  /* preprocess */
 
 "#"     { yy_push_state(preprocess); }
+ /*
+<preprocess>[ ]*pragma[ ]+omp[^\n]* {
+ // Handle OMP pragmas
+
+}
+ */
+<preprocess>[ ]*pragma[^\n]* {
+ // Handle unknown pragmas
+ parse_token_text();
+ return UNKNOWN_PRAGMA;
+}
 <preprocess>[ ]{digit}+[ ]+["][^"]+["][^\n]* {
 	char* directive = yytext;
 
@@ -234,16 +245,18 @@ hexprefix   0[xX]
 "_Complex" { parse_token_text(); return COMPLEX; }
 "__typeof" { parse_token_text(); return TYPEOF; }
 "__typeof__" { parse_token_text(); return TYPEOF; }
-"__restrict__" { parse_token_text(); return RESTRICT; }
 "__restrict" { parse_token_text(); return RESTRICT; }
+"__restrict__" { parse_token_text(); return RESTRICT; }
 "__const" { parse_token_text(); return CONST; }
 "__const__" { parse_token_text(); return CONST; }
+"__attribute" { parse_token_text(); return ATTRIBUTE; }
 "__attribute__" { parse_token_text(); return ATTRIBUTE; }
 "__thread" { parse_token_text(); return THREAD; } 
 "__inline"        { parse_token_text(); return INLINE; } 
 "__inline__"        { parse_token_text(); return INLINE; } 
 "__volatile"        { parse_token_text(); return VOLATILE; } 
 "__volatile__"        { parse_token_text(); return VOLATILE; } 
+"__asm" { parse_token_text(); return ASM; }
 "__asm__" { parse_token_text(); return ASM; }
 
 "<?" { parse_token_text(); return MIN_OPERATOR; }
