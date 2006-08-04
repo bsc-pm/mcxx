@@ -31,7 +31,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 	
 	char* source_file_copy = GC_STRDUP(source_file);
 	
-	fprintf(stderr, "%s%s:%d %s: ", kind, basename(source_file_copy), line, function_name);
+	fprintf(stderr, "%s%s:%d %s: ", kind, GC_STRDUP(basename(source_file_copy)), line, function_name);
 	va_start(ap, function_name);
 	vfprintf(stderr, sanitized_message, ap);
 	va_end(ap);
@@ -230,11 +230,11 @@ int execute_program(char* program_name, char** arguments)
 
 	if (compilation_options.verbose)
 	{
-		int i = 0;
-		while (execvp_arguments[i] != NULL)
+		int j = 0;
+		while (execvp_arguments[j] != NULL)
 		{
-			fprintf(stderr, "%s ", execvp_arguments[i]);
-			i++;
+			fprintf(stderr, "%s ", execvp_arguments[j]);
+			j++;
 		}
 		fprintf(stderr, "\n");
 	}
@@ -244,21 +244,37 @@ int execute_program(char* program_name, char** arguments)
     spawned_process = fork();
     if (spawned_process < 0) 
     {
-        running_error("Could not fork to execute '%s' (%s)", program_name, strerror(errno));
+        running_error("Could not fork to execute subprocess '%s' (%s)", program_name, strerror(errno));
     }
     else if (spawned_process == 0) // I'm the spawned process
     {
         execvp(program_name, execvp_arguments);
 
         // Execvp should not return
-        running_error("Execution of '%s' failed (%s)", program_name, strerror(errno));
+        running_error("Execution of subprocess '%s' failed (%s)", program_name, strerror(errno));
     }
     else // I'm the parent
     {
         // Wait for my son
         int status;
         wait(&status);
-        return (WEXITSTATUS(status));
+		if (WIFEXITED(status))
+		{
+			return (WEXITSTATUS(status));
+		}
+		else if (WIFSIGNALED(status))
+		{
+			fprintf(stderr, "Subprocess '%s' was ended with signal %d\n",
+					program_name, WTERMSIG(status));
+
+			return 1;
+		}
+		else
+		{
+			internal_error(
+					"Subprocess '%s' ended but neither by normal exit nor signal", 
+					program_name);
+		}
     }
 }
 

@@ -140,6 +140,8 @@ int main(int argc, char* argv[])
 
 static void driver_initialization(int argc, char* argv[])
 {
+	// Initialize GC
+	GC_init();
 	// Basic initialization prior to argument parsing and configuration loading
 	atexit(temporal_files_cleanup);
 	signal(SIGSEGV, terminating_signal_handler);
@@ -150,7 +152,7 @@ static void driver_initialization(int argc, char* argv[])
 	memset(&compilation_options, 0, sizeof(compilation_options));
 	compilation_options.argc = argc;
 	compilation_options.argv = argv;
-	compilation_options.exec_basename = basename(argv[0]);
+	compilation_options.exec_basename = GC_STRDUP(basename(argv[0]));
 
 	num_seen_file_names = 0;
 	seen_file_names = 0;
@@ -524,7 +526,7 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
 	char* input_filename_dirname = strappend(dirname(translation_unit->input_filename), "/");
 
 	char* input_filename_basename = NULL;
-	input_filename_basename = basename(translation_unit->input_filename);
+	input_filename_basename = GC_STRDUP(basename(translation_unit->input_filename));
 
 	char* preffix = strappend(compilation_options.exec_basename, "_");
 	char* output_filename_basename = strappend(preffix,
@@ -539,6 +541,11 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
 	{
 		running_error("Cannot create output file '%s' (%s)", output_filename,
 				strerror(errno));
+	}
+	
+	if (compilation_options.verbose)
+	{
+		fprintf(stderr, "Prettyprinting into file '%s'\n", output_filename);
 	}
 
 	prettyprint(prettyprint_file, translation_unit->parsed_tree);
@@ -576,6 +583,8 @@ static char* preprocess_file(translation_unit_t* translation_unit, char* input_f
 	}
 	else
 	{
+		fprintf(stderr, "Preprocessing failed. Returned code %d\n",
+				result_preprocess);
 		return NULL;
 	}
 }
@@ -621,6 +630,12 @@ static void native_compilation(translation_unit_t* translation_unit,
 	native_compilation_args[i] = output_object_filename;
 	i++;
 	native_compilation_args[i] = prettyprinted_filename;
+
+	if (compilation_options.verbose)
+	{
+		fprintf(stderr, "Performing native compilation of '%s' into '%s'\n",
+				prettyprinted_filename, output_object_filename);
+	}
 
 	timing_t timing_compilation;
 	timing_start(&timing_compilation);
