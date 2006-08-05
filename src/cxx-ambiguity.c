@@ -2320,6 +2320,26 @@ static char check_for_initializer_list(AST initializer_list, scope_t* st)
 	return 1;
 }
 
+static char check_for_designation(AST designation, scope_t* st)
+{
+    AST designator_list = ASTSon0(designation);
+    AST iter;
+
+    for_each_element(designator_list, iter)
+    {
+        AST designator = ASTSon1(iter);
+
+        if (ASTType(designator) == AST_INDEX_DESIGNATOR)
+        {
+            AST index_designator = designator;
+            AST constant_expression = ASTSon0(index_designator);
+            solve_possibly_ambiguous_expression(constant_expression, st);
+        }
+    }
+
+    return 1;
+}
+
 static char check_for_initializer_clause(AST initializer, scope_t* st)
 {
 	switch (ASTType(initializer))
@@ -2343,6 +2363,17 @@ static char check_for_initializer_clause(AST initializer, scope_t* st)
 				return check_for_expression(expression, st);
 				break;
 			}
+        case AST_DESIGNATED_INITIALIZER :
+            {
+                AST designation = ASTSon0(initializer);
+
+                check_for_designation(designation, st);
+
+                AST initializer_clause = ASTSon1(initializer);
+
+                return check_for_initializer_clause(initializer_clause, st);
+                break;
+            }
 		case AST_GCC_INITIALIZER_CLAUSE :
 			{
 				AST initializer_clause = ASTSon1(initializer);

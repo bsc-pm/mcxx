@@ -147,13 +147,15 @@ temporal_file_t new_temporal_file()
 {
 	char* template;
 #ifndef _WIN32
-	template = strdup("/tmp/mcxx_XXXXXX");
+    template = compilation_options.exec_basename;
+    template = strappend("/tmp/", template);
+    template = strappend(template, "_XXXXXX");
+
 	// Create the temporal file
 	int file_descriptor = mkstemp(template);
 
 	if (file_descriptor < 0) 
 	{
-		free(template);
 		return NULL;
 	}
 #else
@@ -202,8 +204,6 @@ void temporal_files_cleanup(void)
 
 		temporal_file_list_t old = iter;
 		iter = iter->next;
-		free(old->info->name);
-		free(old);
 	}
 
 	temporal_file_list = NULL;

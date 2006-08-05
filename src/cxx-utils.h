@@ -10,6 +10,8 @@
 
 #include <gc.h>
 
+#include "cxx-driver.h"
+
 // Some useful macros
 #ifndef __GNUC__
     #define __attribute__(x)

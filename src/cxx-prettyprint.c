@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-prettyprint.h"
 
@@ -130,6 +131,11 @@ HANDLER_PROTOTYPE(pseudo_destructor_template_handler);
 HANDLER_PROTOTYPE(pseudo_destructor_qualified_handler);
 HANDLER_PROTOTYPE(parenthesized_initializer_handler);
 HANDLER_PROTOTYPE(unknown_pragma_handler);
+HANDLER_PROTOTYPE(kr_parameter_list_handler);
+HANDLER_PROTOTYPE(designated_initializer_handler);
+HANDLER_PROTOTYPE(designation_handler);
+HANDLER_PROTOTYPE(index_designator_handler);
+HANDLER_PROTOTYPE(field_designator_handler);
 
 // GCC Extensions
 HANDLER_PROTOTYPE(gcc_label_declaration_handler);
@@ -443,6 +449,11 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_NAME, pseudo_destructor_name_handler, NULL),
 	NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_QUALIF, pseudo_destructor_qualified_handler, NULL),
 	NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_TEMPLATE, pseudo_destructor_template_handler, NULL),
+    NODE_HANDLER(AST_KR_PARAMETER_LIST, kr_parameter_list_handler, NULL),
+    NODE_HANDLER(AST_DESIGNATED_INITIALIZER, designated_initializer_handler, NULL),
+    NODE_HANDLER(AST_DESIGNATION, designation_handler, NULL),
+    NODE_HANDLER(AST_INDEX_DESIGNATOR, index_designator_handler, NULL),
+    NODE_HANDLER(AST_FIELD_DESIGNATOR, field_designator_handler, NULL),
 	NODE_HANDLER(AST_UNKNOWN_PRAGMA, unknown_pragma_handler, NULL),
 	// GCC Extensions
 	NODE_HANDLER(AST_GCC_EXTENSION, gcc_extension_preffix_handler, "__extension__ "),
@@ -754,7 +765,14 @@ static void abstract_declarator_function_handler(FILE* f, AST a, int level)
 	}
 
 	token_fprintf(f, a, "(");
-	list_handler(f, ASTSon1(a), level);
+    if (ASTType(ASTSon1(a)) != AST_KR_PARAMETER_LIST)
+    {
+        list_handler(f, ASTSon1(a), level);
+    }
+    else
+    {
+        prettyprint_level(f, ASTSon1(a), level);
+    }
 	token_fprintf(f, a, ")");
 
 	if (ASTSon2(a) != NULL)
@@ -1424,15 +1442,31 @@ static void function_definition_handler(FILE* f, AST a, int level)
 
 	prettyprint_level(f, ASTSon1(a), level);
 
-	if (ASTSon2(a) != NULL)
-	{
-		token_fprintf(f, a, "\n");
-		indent_at_level(f, a, level+1);
-		prettyprint_level(f, ASTSon2(a), level+1);
-		token_fprintf(f, a, " ");
-	}
+    CXX_LANGUAGE()
+    {
+        if (ASTSon2(a) != NULL)
+        {
+            token_fprintf(f, a, "\n");
+            indent_at_level(f, a, level+1);
+            prettyprint_level(f, ASTSon2(a), level+1);
+            token_fprintf(f, a, " ");
+        }
+        token_fprintf(f, a, "\n");
+    }
 
-	token_fprintf(f, a, "\n");
+    C_LANGUAGE()
+    {
+        if (ASTSon2(a) != NULL)
+        {
+            token_fprintf(f, a, "\n");
+            prettyprint_level(f, ASTSon2(a), level+1);
+        }
+        else
+        {
+            token_fprintf(f, a, "\n");
+        }
+    }
+
 	prettyprint_level(f, ASTSon3(a), level);
 }
 
@@ -2077,6 +2111,39 @@ static void parenthesized_initializer_handler(FILE* f, AST a, int level)
 	list_handler(f, ASTSon0(a), level);
 	token_fprintf(f, a, ")");
 }
+
+static void kr_parameter_list_handler(FILE* f, AST a, int level)
+{
+    AST list = ASTSon0(a);
+
+    list_handler(f, list, level);
+}
+
+static void designated_initializer_handler(FILE* f, AST a, int level)
+{
+    prettyprint_level(f, ASTSon0(a), level);
+    prettyprint_level(f, ASTSon1(a), level);
+}
+
+static void designation_handler(FILE* f, AST a, int level)
+{
+    sequence_handler(f, ASTSon0(a), level);
+    token_fprintf(f, a, " = ");
+}
+
+static void index_designator_handler(FILE* f, AST a, int level)
+{
+    token_fprintf(f, a, "[");
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, "]");
+}
+
+static void field_designator_handler(FILE* f, AST a, int level)
+{
+    token_fprintf(f, a, ".");
+    prettyprint_level(f, ASTSon0(a), level);
+}
+
 
 static void unknown_pragma_handler(FILE* f, AST a, int level)
 {
