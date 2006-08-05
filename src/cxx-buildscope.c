@@ -156,6 +156,7 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
 
 	// The global scope is created here
 	translation_unit->global_scope = new_namespace_scope(NULL);
+
 	// Fix this one day
 	compilation_options.global_scope = translation_unit->global_scope;
 
@@ -169,6 +170,8 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
 		print_scope(compilation_options.global_scope, 0);
 		fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
 	}
+
+	compilation_options.global_scope = NULL;
 }
 
 // This function initialize global symbols that exist in every translation unit
@@ -187,18 +190,21 @@ static void initialize_builtin_symbols()
 	builtin_va_list->type_information->type->kind = STK_VA_LIST;
 	builtin_va_list->defined = 1;
 
-	// __null is a magic NULL in g++
-	scope_entry_t* null_keyword;
+    CXX_LANGUAGE()
+    {
+        // __null is a magic NULL in g++
+        scope_entry_t* null_keyword;
 
-	null_keyword = new_symbol(compilation_options.global_scope, "__null");
-	null_keyword->kind = SK_VARIABLE;
-	null_keyword->type_information = GC_CALLOC(1, sizeof(*(null_keyword->type_information)));
-	null_keyword->type_information->kind = TK_DIRECT;
-	null_keyword->type_information->type = GC_CALLOC(1, sizeof(*(null_keyword->type_information->type)));
-	null_keyword->type_information->type->kind = STK_BUILTIN_TYPE;
-	null_keyword->type_information->type->builtin_type = BT_INT;
-	null_keyword->expression_value = ASTLeaf(AST_OCTAL_LITERAL, 0, "0");
-	null_keyword->defined = 1;
+        null_keyword = new_symbol(compilation_options.global_scope, "__null");
+        null_keyword->kind = SK_VARIABLE;
+        null_keyword->type_information = GC_CALLOC(1, sizeof(*(null_keyword->type_information)));
+        null_keyword->type_information->kind = TK_DIRECT;
+        null_keyword->type_information->type = GC_CALLOC(1, sizeof(*(null_keyword->type_information->type)));
+        null_keyword->type_information->type->kind = STK_BUILTIN_TYPE;
+        null_keyword->type_information->type->builtin_type = BT_INT;
+        null_keyword->expression_value = ASTLeaf(AST_OCTAL_LITERAL, 0, "0");
+        null_keyword->defined = 1;
+    }
 }
 
 static void build_scope_declaration_sequence(AST list, scope_t* st, decl_context_t decl_context)
@@ -518,7 +524,7 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 			if (!gather_info.is_extern
 					&& declarator_type->kind != TK_FUNCTION)
 			{
-				AST declarator_name = get_declarator_name(declarator);
+				AST declarator_name = get_declarator_name(declarator, st);
 				scope_entry_list_t* entry_list = query_id_expression(st, declarator_name, 
                         NOFULL_UNQUALIFIED_LOOKUP);
 
@@ -882,17 +888,28 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
 	lookup_flags_t lookup_flags = LF_ALWAYS_CREATE_SPECIALIZATION;
 	
-	if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
-	{
-		result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-				NOFULL_UNQUALIFIED_LOOKUP, lookup_flags);
-	}
-	else
-	{
-		result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-				FULL_UNQUALIFIED_LOOKUP, lookup_flags);
-	}
+    CXX_LANGUAGE()
+    {
+        if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+        {
+            result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
+                    NOFULL_UNQUALIFIED_LOOKUP, lookup_flags);
+        }
+        else
+        {
+            result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
+                    FULL_UNQUALIFIED_LOOKUP, lookup_flags);
+        }
+    }
 
+    C_LANGUAGE()
+    {
+        char* class_name = ASTText(class_symbol);
+
+        class_name = strappend("struct ", class_name);
+
+        result_list = query_unqualified_name(st, class_name);
+    }
 
 	// Now look for a type
 	enum cxx_symbol_kind filter_classes[3] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS};
@@ -935,6 +952,11 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 			{
 				class_name = ASTText(ASTSon0(class_symbol));
 			}
+
+            C_LANGUAGE()
+            {
+                class_name = strappend("struct ", class_name);
+            }
 
 			DEBUG_CODE()
 			{
@@ -1075,8 +1097,19 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 
 	scope_entry_list_t* result_list = NULL;
 
-	result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
-			NOFULL_UNQUALIFIED_LOOKUP);
+    CXX_LANGUAGE()
+    {
+        result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
+                NOFULL_UNQUALIFIED_LOOKUP);
+    }
+
+    C_LANGUAGE()
+    {
+        char* enum_name = ASTText(symbol);
+
+        enum_name = strappend("enum ", enum_name);
+        result_list = query_unqualified_name(st, enum_name);
+    }
 
 	// Look for an enum name
 	scope_entry_t* entry = NULL;
@@ -1097,7 +1130,15 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 			{
 				fprintf(stderr, "Enum type not found, creating a stub for this scope\n");
 			}
-			scope_entry_t* new_class = new_symbol(st, ASTText(symbol));
+
+            char* enum_name = ASTText(symbol);
+
+            C_LANGUAGE()
+            {
+                enum_name = strappend("enum ", enum_name);
+            }
+
+			scope_entry_t* new_class = new_symbol(st, enum_name);
 			new_class->line = ASTLine(symbol);
 			new_class->kind = SK_ENUM;
 			new_class->type_information = GC_CALLOC(1, sizeof(*(new_class->type_information)));
@@ -1225,10 +1266,10 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
 			"The named type '%s' has no direct type entry in symbol table\n", ASTText(type_name));
 
 	if (simple_type_entry->kind != SK_TYPEDEF)
-	{
-		simple_type_info->type->kind = STK_USER_DEFINED;
-		simple_type_info->type->user_defined_type = simple_type_entry;
-	}
+    {
+        simple_type_info->type->kind = STK_USER_DEFINED;
+        simple_type_info->type->user_defined_type = simple_type_entry;
+    }
 	else
 	{
 		// Bitwise copy, cv-qualification will be in this simple_type_info
@@ -1250,11 +1291,18 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 	simple_type_info->type->type_scope = st;
 
 	AST enum_name = ASTSon0(a);
+    char* enum_name_str = ASTText(enum_name);
+
+    C_LANGUAGE()
+    {
+        enum_name_str = strappend("enum ", enum_name_str);
+    }
+
 	// If it has name, we register this type name in the symbol table
 	// but only if it has not been declared previously
 	if (enum_name != NULL)
 	{
-		scope_entry_list_t* enum_entry_list = query_unqualified_name(st, ASTText(enum_name));
+		scope_entry_list_t* enum_entry_list = query_unqualified_name(st, enum_name_str);
 
 		scope_entry_t* new_entry;
 			
@@ -1264,7 +1312,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 		{
 			DEBUG_CODE()
 			{
-				fprintf(stderr, "Enum '%s' already declared in %p\n", ASTText(enum_name), st);
+				fprintf(stderr, "Enum '%s' already declared in %p\n", enum_name_str, st);
 			}
 
 			new_entry = enum_entry_list->entry;
@@ -1273,10 +1321,10 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 		{
 			DEBUG_CODE()
 			{
-				fprintf(stderr, "Registering enum '%s' in %p\n", ASTText(enum_name), st);
+				fprintf(stderr, "Registering enum '%s' in %p\n", enum_name_str, st);
 			}
 
-			new_entry = new_symbol(st, ASTText(enum_name));
+			new_entry = new_symbol(st, enum_name_str);
 			new_entry->line = ASTLine(enum_name);
 			new_entry->kind = SK_ENUM;
 		}
@@ -1479,9 +1527,21 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 		{
 			scope_entry_list_t* class_entry_list = NULL;
 			
-			class_entry_list = query_nested_name_flags(st, NULL, 
-					class_head_nested_name, class_head_identifier,
-					NOFULL_UNQUALIFIED_LOOKUP, LF_ALWAYS_CREATE_SPECIALIZATION);
+            CXX_LANGUAGE()
+            {
+                class_entry_list = query_nested_name_flags(st, NULL, 
+                        class_head_nested_name, class_head_identifier,
+                        NOFULL_UNQUALIFIED_LOOKUP, LF_ALWAYS_CREATE_SPECIALIZATION);
+            }
+
+            C_LANGUAGE()
+            {
+                // This can only be an AST_SYMBOL in C
+                char* class_name = ASTText(class_head_identifier);
+                class_name = strappend("struct ", class_name);
+
+                class_entry_list = query_unqualified_name(st, class_name);
+            }
 
 			enum cxx_symbol_kind filter_classes[3] = 
 			{
@@ -1523,14 +1583,24 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 			else if (class_entry_list == NULL
 					&& class_head_nested_name == NULL)
 			{
-
 				if (ASTType(class_head_identifier) == AST_SYMBOL)
 				{
-					class_entry = new_symbol(st, ASTText(class_head_identifier));
+                    C_LANGUAGE()
+                    {
+                        char* class_name = ASTText(class_head_identifier);
+                        class_name = strappend("struct ", class_name);
+
+                        class_entry = new_symbol(st, class_name);
+                    }
+
+                    CXX_LANGUAGE()
+                    {
+                        class_entry = new_symbol(st, ASTText(class_head_identifier));
+                    }
 				}
 				else
 				{
-					class_entry = new_symbol(st, ASTText(ASTSon0(class_head_identifier)));
+                    class_entry = new_symbol(st, ASTText(ASTSon0(class_head_identifier)));
 				}
 
 				DEBUG_CODE()
@@ -1712,16 +1782,19 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
 	}
 
 	// Inject the class symbol in the scope
-	if (class_entry != NULL 
-			&& class_entry->symbol_name != NULL)
-	{
-		scope_entry_t* injected_symbol = new_symbol(inner_scope, class_entry->symbol_name);
+    CXX_LANGUAGE()
+    {
+        if (class_entry != NULL 
+                && class_entry->symbol_name != NULL)
+        {
+            scope_entry_t* injected_symbol = new_symbol(inner_scope, class_entry->symbol_name);
 
-		*injected_symbol = *class_entry;
-		injected_symbol->do_not_print = 1;
+            *injected_symbol = *class_entry;
+            injected_symbol->do_not_print = 1;
 
-		injected_symbol->injected_class_name = 1;
-	}
+            injected_symbol->injected_class_name = 1;
+        }
+    }
 
 	AST member_specification = ASTSon1(a);
     build_scope_member_specification(inner_scope, member_specification, 
@@ -1860,7 +1933,7 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 	// Set base type
 	*declarator_type = simple_type_info;
 
-	AST declarator_name = get_declarator_name(a);
+	AST declarator_name = get_declarator_name(a, st);
 
 	scope_t* decl_st = st;
 	if (declarator_name != NULL)
@@ -2079,6 +2152,15 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 	{
 		*parameter_sc = parameters_scope;
 	}
+
+    C_LANGUAGE()
+    {
+        // Nothing to do here with K&R parameters
+        if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
+        {
+            return;
+        }
+    }
 
 	for_each_element(list, iter)
 	{
@@ -2636,6 +2718,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 		{
 			function_name = strprepend(function_name, "constructor ");
 		}
+
 		scope_entry_t* new_entry = new_symbol(st, function_name);
 		new_entry->line = ASTLine(declarator_id);
 
@@ -2725,7 +2808,16 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 		}
 		else
 		{
-			*is_overload = 1;
+            CXX_LANGUAGE()
+            {
+                *is_overload = 1;
+            }
+
+            C_LANGUAGE()
+            {
+                internal_error("Function '%s' has been declared with different prototype", 
+                        ASTText(declarator_id));
+            }
 		}
 
 		entry_list = entry_list->next;
@@ -3082,7 +3174,7 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 		if (!gather_info.is_extern
 				&& declarator_type->kind != TK_FUNCTION)
 		{
-			AST declarator_name = get_declarator_name(declarator);
+			AST declarator_name = get_declarator_name(declarator, st);
 			scope_entry_list_t* entry_list = query_id_expression(st, declarator_name, NOFULL_UNQUALIFIED_LOOKUP);
 
 			ERROR_CONDITION((entry_list == NULL), "Symbol just declared has not been found in the scope!", 0);
@@ -3520,6 +3612,20 @@ static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st)
 	}
 }
 
+void build_scope_kr_parameter_declaration(AST kr_parameter_declaration, 
+        scope_t* parameter_scope, decl_context_t decl_context)
+{
+    AST declaration_list = kr_parameter_declaration;
+    AST iter;
+
+    for_each_element(declaration_list, iter)
+    {
+        AST simple_decl = ASTSon1(iter);
+
+        build_scope_simple_declaration(simple_decl, parameter_scope, decl_context);
+    }
+}
+
 /*
  * This function builds symbol table information for a function definition
  */
@@ -3596,12 +3702,24 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 
 	entry->related_scope = inner_scope;
 
-	AST ctor_initializer = ASTSon2(a);
-	if (ctor_initializer != NULL)
-	{
-		scope_t* ctor_scope = new_block_scope(st, parameter_scope, inner_scope);
-		build_scope_ctor_initializer(ctor_initializer, ctor_scope);
-	}
+    CXX_LANGUAGE()
+    {
+        AST ctor_initializer = ASTSon2(a);
+        if (ctor_initializer != NULL)
+        {
+            scope_t* ctor_scope = new_block_scope(st, parameter_scope, inner_scope);
+            build_scope_ctor_initializer(ctor_initializer, ctor_scope);
+        }
+    }
+    C_LANGUAGE()
+    {
+        AST kr_parameter_declaration = ASTSon2(a);
+        if (kr_parameter_declaration != NULL)
+        {
+            build_scope_kr_parameter_declaration(kr_parameter_declaration, parameter_scope,
+                    decl_context);
+        }
+    }
 
 	if (entry->type_information->function->is_member)
 	{
@@ -3875,7 +3993,7 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
 
 		AST declarator = ASTSon1(a);
 		// Get the declarator name
-		AST declarator_name = get_declarator_name(declarator);
+		AST declarator_name = get_declarator_name(declarator, st);
 
 		char is_constructor = 0;
 		AST decl_spec_seq = ASTSon0(a);
@@ -4051,7 +4169,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 				case AST_MEMBER_DECLARATOR :
 				case AST_GCC_MEMBER_DECLARATOR :
 					{
-						AST declarator_name = get_declarator_name(declarator);
+						AST declarator_name = get_declarator_name(declarator, st);
 
 						AST initializer = ASTSon1(declarator);
 						// Change name of constructors
@@ -5035,7 +5153,7 @@ static void build_scope_statement(AST a, scope_t* st, decl_context_t decl_contex
  * This function returns the node that holds the name for a non-abstract
  * declarator
  */
-AST get_declarator_name(AST a)
+AST get_declarator_name(AST a, scope_t* st)
 {
 	ERROR_CONDITION((a == NULL), "This function does not admit NULL trees", 0);
 
@@ -5047,22 +5165,22 @@ AST get_declarator_name(AST a)
 		case AST_DECLARATOR :
 		case AST_PARENTHESIZED_DECLARATOR :
 			{
-				return get_declarator_name(ASTSon0(a)); 
+				return get_declarator_name(ASTSon0(a), st); 
 				break;
 			}
 		case AST_POINTER_DECL :
 			{
-				return get_declarator_name(ASTSon1(a));
+				return get_declarator_name(ASTSon1(a), st);
 				break;
 			}
 		case AST_DECLARATOR_ARRAY :
 			{
-				return get_declarator_name(ASTSon0(a));
+				return get_declarator_name(ASTSon0(a), st);
 				break;
 			}
 		case AST_DECLARATOR_FUNC :
 			{
-				return get_declarator_name(ASTSon0(a));
+				return get_declarator_name(ASTSon0(a), st);
 				break;
 			}
 		case AST_DECLARATOR_ID_EXPR :
@@ -5083,10 +5201,10 @@ AST get_declarator_name(AST a)
 			}
 		case AST_AMBIGUITY :
 			{
-				// A scope null is valid here since this is purely syntactic
-				solve_ambiguous_declarator(a, NULL);
+				solve_ambiguous_declarator(a, st);
+
 				// Restart function
-				return get_declarator_name(a);
+				return get_declarator_name(a, st);
 			}
 		default:
 			{

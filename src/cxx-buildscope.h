@@ -82,7 +82,7 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
 
 extern const decl_context_t default_decl_context;
 
-AST get_declarator_name(AST a);
+AST get_declarator_name(AST a, scope_t* st);
 AST get_leftmost_declarator_name(AST a);
 
 #endif // CXX_BUILDSCOPE_H

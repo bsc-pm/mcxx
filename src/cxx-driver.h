@@ -90,10 +90,13 @@ typedef struct compilation_options_tag
 	// Config file
 	char* config_file;
 
-	// This makes things non reentrant
+    // This makes things non reentrant (but globally accessable without
+    // parameter cluttering)
 	scope_t* global_scope;
 
+    // Output filename
 	char* linked_output_filename;
+    
 	// Toolchain information
 	char* preprocessor_name;
 	char** preprocessor_options;
@@ -127,5 +130,8 @@ extern char** seen_file_names;
 
 extern int mcxxdebug;
 extern void mcxxparse(AST* a);
+
+extern int mc99debug;
+extern void mc99parse(AST* a);
 
 #endif // CXX_DRIVER_H

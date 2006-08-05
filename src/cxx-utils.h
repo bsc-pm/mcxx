@@ -105,6 +105,9 @@ char* GC_STRDUP(const char* str);
 #define DEBUG_CODE() if (compilation_options.debug_level)
 #define NOT_DEBUG_CODE() if (!compilation_options.debug_level)
 
+#define CXX_LANGUAGE() if (compilation_options.source_language == SOURCE_LANGUAGE_CXX)
+#define C_LANGUAGE() if (compilation_options.source_language == SOURCE_LANGUAGE_C)
+
 // Gives a unique name for the identifier
 char* get_unique_name(void);
 

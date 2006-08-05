@@ -75,7 +75,7 @@ struct option getopt_long_options[] =
 
 char* source_language_names[] =
 {
-	[SOURCE_LANGUAGE_UNKNOWN] = "unknown language",
+	[SOURCE_LANGUAGE_UNKNOWN] = "unknown",
 	[SOURCE_LANGUAGE_C] = "C",
 	[SOURCE_LANGUAGE_CXX] = "C++"
 };
@@ -434,7 +434,7 @@ static void compile_every_translation_unit(void)
 
 		if (current_extension->source_language != compilation_options.source_language)
 		{
-			fprintf(stderr, "%s was configured for %s language but file '%s' looks %s. Skipping it.\n",
+			fprintf(stderr, "%s was configured for %s language but file '%s' looks %s language. Skipping it.\n",
 					compilation_options.exec_basename, 
 					source_language_names[compilation_options.source_language],
 					translation_unit->input_filename,
@@ -465,10 +465,20 @@ static void compile_every_translation_unit(void)
 			}
 		}
 
-		if (mcxx_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
-		{
-			running_error("Could not open file '%s'", parsed_filename);
-		}
+        CXX_LANGUAGE()
+        {
+            if (mcxx_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+            {
+                running_error("Could not open file '%s'", parsed_filename);
+            }
+        }
+        C_LANGUAGE()
+        {
+            if (mc99_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+            {
+                running_error("Could not open file '%s'", parsed_filename);
+            }
+        }
 
 		parse_translation_unit(translation_unit, parsed_filename);
 
@@ -482,17 +492,27 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 {
 	NOT_DEBUG_CODE()
 	{
-		mcxx_flex_debug = mcxxdebug = 0;
+		mcxx_flex_debug = mcxxdebug = mc99debug = 0;
 	}
 	DEBUG_CODE()
 	{
-		mcxx_flex_debug = mcxxdebug = 1;
+		mcxx_flex_debug = mcxxdebug = mc99debug = 1;
 	}
 
 	timing_t timing_parsing;
 
 	timing_start(&timing_parsing);
-	mcxxparse(&(translation_unit->parsed_tree));
+
+    CXX_LANGUAGE()
+    {
+        mcxxparse(&(translation_unit->parsed_tree));
+    }
+
+    C_LANGUAGE()
+    {
+        mc99parse(&(translation_unit->parsed_tree));
+    }
+
 	timing_end(&timing_parsing);
 
 	if (compilation_options.verbose)

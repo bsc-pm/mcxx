@@ -342,6 +342,36 @@ static void solve_integral_specification_ambig(AST a)
 	choose_option(a, i-1);
 }
 
+// Checks for old-styled functions
+static char check_for_kr_parameter_list(AST parameters_kr, scope_t* st)
+{
+    CXX_LANGUAGE()
+    {
+        internal_error("This function is only for C", 0);
+    }
+
+    AST identifier_list = ASTSon0(parameters_kr);
+    AST iter;
+
+    for_each_element(identifier_list, iter)
+    {
+        AST identifier = ASTSon1(iter);
+
+        scope_entry_list_t* entry_list = query_unqualified_name(st, ASTText(identifier));
+
+        if (entry_list != NULL)
+        {
+            scope_entry_t* entry = entry_list->entry;
+            if (entry->kind == SK_TYPEDEF)
+            {
+                return 0;
+            }
+        }
+    }
+
+    return 1;
+}
+
 /*
  * Ambiguity within a declarator.
  */
@@ -353,23 +383,75 @@ void solve_ambiguous_declarator(AST a, scope_t* st)
 	{
 		case 2 :
 			{
-				// Case for declarator of
-				// "(operator new[])" vs "(operator new)[]"
-				int n, m;
-				if ((n = select_node_type(a, AST_DECLARATOR_ARRAY)) != -1
-						&& (m = select_node_type(a, AST_DECLARATOR_ID_EXPR)) != -1)
-				{
-					AST operator_function_id1 = look_for_node_type_within_ambig(a, AST_OPERATOR_FUNCTION_ID, n);
-                    AST operator_function_id2 = look_for_node_type_within_ambig(a, AST_OPERATOR_FUNCTION_ID, m);
+                CXX_LANGUAGE()
+                {
+                    // Case for declarator of
+                    // "(operator new[])" vs "(operator new)[]"
+                    int n, m;
+                    if ((n = select_node_type(a, AST_DECLARATOR_ARRAY)) != -1
+                            && (m = select_node_type(a, AST_DECLARATOR_ID_EXPR)) != -1)
+                    {
+                        AST operator_function_id1 = look_for_node_type_within_ambig(a, AST_OPERATOR_FUNCTION_ID, n);
+                        AST operator_function_id2 = look_for_node_type_within_ambig(a, AST_OPERATOR_FUNCTION_ID, m);
 
-					if ((operator_function_id1 != NULL)
-							&& (operator_function_id2 != NULL))
-					{
-						// We want the declarator_id_expr
-						choose_option(a, m);
-						return;
-					}
-				}
+                        if ((operator_function_id1 != NULL)
+                                && (operator_function_id2 != NULL))
+                        {
+                            // We want the declarator_id_expr
+                            choose_option(a, m);
+                            return;
+                        }
+                    }
+                }
+
+                C_LANGUAGE()
+                {
+                    // Case for
+                    //
+                    //   void f(a, b, c);
+                    //
+                    // we are unsure if this is a K&R-style function
+                    // declaration or a proper prototype with all being
+                    // abstract declarators
+                    
+                    AST first_option = a->ambig[0];
+                    AST second_option = a->ambig[1];
+
+                    if (ASTType(first_option) == AST_DECLARATOR_FUNC
+                            && ASTType(second_option) == AST_DECLARATOR_FUNC)
+                    {
+                        AST parameters = ASTSon1(first_option);
+
+                        if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
+                        {
+                            if (check_for_kr_parameter_list(parameters, st))
+                            {
+                                choose_option(a, 0);
+                                return;
+                            }
+                            else
+                            {
+                                choose_option(a, 1);
+                                return;
+                            }
+                        }
+
+                        parameters = ASTSon1(second_option);
+                        if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
+                        {
+                            if (check_for_kr_parameter_list(parameters, st))
+                            {
+                                choose_option(a, 1);
+                                return;
+                            }
+                            else
+                            {
+                                choose_option(a, 0);
+                                return;
+                            }
+                        }
+                    }
+                }
 				break;
 			}
 	}
@@ -425,8 +507,8 @@ void solve_ambiguous_statement(AST a, scope_t* st)
 				AST second_option = ASTSon0(a->ambig[i]);
 
 				char either;
-				if ((either = either_type(first_option, second_option, 
-							AST_SIMPLE_DECLARATION, AST_EXPLICIT_TYPE_CONVERSION)))
+                if ((either = either_type(first_option, second_option, 
+							AST_SIMPLE_DECLARATION, AST_EXPRESSION)))
 				{
 					if (either < 0)
 					{

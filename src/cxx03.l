@@ -14,7 +14,6 @@
 static int yywrap(void);
 
 static void parse_token_text(void);
-static int first = 0;
 
 struct scan_file_descriptor scanning_now;
 

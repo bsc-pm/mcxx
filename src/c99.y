@@ -242,6 +242,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> no_if_statement
 %type<ast> parameter_type_list
 %type<ast> identifier_list
+%type<ast> identifier_list_kr
 %type<ast> parameter_declaration
 %type<ast> parameter_declaration_list
 %type<ast> postfix_expression
@@ -1197,15 +1198,20 @@ direct_abstract_declarator : '(' abstract_declarator ')'
 }
 ;
 
-identifier_list : IDENTIFIER
+identifier_list : identifier_list_kr
+{
+    $$ = ASTMake1(AST_KR_PARAMETER_LIST, $1, ASTLine($1), NULL);
+};
+
+identifier_list_kr : IDENTIFIER
 {
     AST symbol = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
 
     $$ = ASTListLeaf(symbol);
 }
-| identifier_list ',' IDENTIFIER 
+| identifier_list_kr ',' IDENTIFIER 
 {
-    AST symbol = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+    AST symbol = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
 
     $$ = ASTList($1, symbol);
 }
@@ -1439,15 +1445,6 @@ member_declaration : decl_specifier_seq member_declarator_list ';'
 | decl_specifier_seq ';' 
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, $1, NULL, ASTLine($1), NULL);
-}
-// This is in the standard, but this causes an ambiguity with an empty declaration
-// | function_definition ';'
-// {
-// 	$$ = $1;
-// }
-| function_definition 
-{
-	$$ = $1;
 }
 | unknown_pragma
 {
