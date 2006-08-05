@@ -465,7 +465,7 @@ static void compile_every_translation_unit(void)
 			}
 		}
 
-		if (open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+		if (mcxx_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
 		{
 			running_error("Could not open file '%s'", parsed_filename);
 		}
@@ -482,17 +482,17 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 {
 	NOT_DEBUG_CODE()
 	{
-		mcxx_flex_debug = yydebug = 0;
+		mcxx_flex_debug = mcxxdebug = 0;
 	}
 	DEBUG_CODE()
 	{
-		mcxx_flex_debug = yydebug = 1;
+		mcxx_flex_debug = mcxxdebug = 1;
 	}
 
 	timing_t timing_parsing;
 
 	timing_start(&timing_parsing);
-	yyparse(&(translation_unit->parsed_tree));
+	mcxxparse(&(translation_unit->parsed_tree));
 	timing_end(&timing_parsing);
 
 	if (compilation_options.verbose)

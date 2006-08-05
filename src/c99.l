@@ -9,12 +9,12 @@
 #include "cxx-utils.h"
 #include "cxx-lexer.h"
 #include "cxx-ast.h"
-#include "cxx-parser.h"
+#include "c99-parser.h"
 
 static int yywrap(void);
 
 static void parse_token_text(void);
-static int first = 0;
+int first = 0;
 
 struct scan_file_descriptor scanning_now;
 
@@ -164,8 +164,7 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 
  /* A.2.11 */
 "char"          { parse_token_text(); return CHAR; }
-"wchar_t"       { parse_token_text(); return WCHAR_T; }
-"bool"          { parse_token_text(); return BOOL; }
+"_Bool"          { parse_token_text(); return BOOL; }
 "short"         { parse_token_text(); return SHORT; }
 "int"           { parse_token_text(); return INT; }
 "long"          { parse_token_text(); return LONG; }
@@ -176,43 +175,18 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 "void"          { parse_token_text(); return VOID; }
 
 "typedef"       { parse_token_text(); return TYPEDEF; }
-"class"         { parse_token_text(); return CLASS; }
 "enum"          { parse_token_text(); return ENUM; } 
-"template"      { parse_token_text(); return TEMPLATE; } 
 "struct"        { parse_token_text(); return STRUCT; } 
-"export"        { parse_token_text(); return EXPORT; } 
-"friend"        { parse_token_text(); return FRIEND; } 
 "auto"          { parse_token_text(); return AUTO; } 
 "register"      { parse_token_text(); return REGISTER; } 
 "static"        { parse_token_text(); return STATIC; } 
 "extern"        { parse_token_text(); return EXTERN; } 
-"mutable"       { parse_token_text(); return MUTABLE; } 
 "inline"        { parse_token_text(); return INLINE; } 
-"virtual"       { parse_token_text(); return VIRTUAL; } 
-"explicit"      { parse_token_text(); return EXPLICIT; } 
-"typename"      { parse_token_text(); return TYPENAME; } 
 "const"         { parse_token_text(); return CONST; } 
 "volatile"      { parse_token_text(); return VOLATILE; } 
 "union"         { parse_token_text(); return UNION; } 
-"using"         { parse_token_text(); return USING; } 
-"namespace"     { parse_token_text(); return NAMESPACE; } 
 "asm"           { parse_token_text(); return ASM; } 
-"private"       { parse_token_text(); return PRIVATE; } 
-"protected"     { parse_token_text(); return PROTECTED; } 
-"public"        { parse_token_text(); return PUBLIC; } 
-"throw"         { parse_token_text(); return THROW; } 
-"operator"      { parse_token_text(); return OPERATOR; } 
 
-"new"           { parse_token_text(); return TOKEN_NEW; } 
-"delete"        { parse_token_text(); return DELETE; }
-
-
-"this"          { parse_token_text(); return THIS; }
-"dynamic_cast"      { parse_token_text(); return DYNAMIC_CAST; }
-"static_cast"       { parse_token_text(); return STATIC_CAST; }
-"reinterpret_cast"      { parse_token_text(); return REINTERPRET_CAST; }
-"const_cast"        { parse_token_text(); return CONST_CAST; }
-"typeid"        { parse_token_text(); return TYPEID; }
 "sizeof"        { parse_token_text(); return SIZEOF; }
 "case"          { parse_token_text(); return CASE; }
 "default"       { parse_token_text(); return DEFAULT; }
@@ -225,8 +199,6 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 "break"         { parse_token_text(); return BREAK; }
 "continue"      { parse_token_text(); return CONTINUE; }
 "goto"          { parse_token_text(); return GOTO; }
-"try"           { parse_token_text(); return TRY; }
-"catch"         { parse_token_text(); return CATCH; }
 "return"        { parse_token_text(); return RETURN; }
 
  /* A.2.41 */
@@ -243,6 +215,7 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 "__label__" { parse_token_text(); return LABEL; }
 "__complex__" { parse_token_text(); return COMPLEX; }
 "_Complex" { parse_token_text(); return COMPLEX; }
+"_Imaginary" { parse_token_text(); return IMAGINARY; }
 "__typeof" { parse_token_text(); return TYPEOF; }
 "__typeof__" { parse_token_text(); return TYPEOF; }
 "__restrict" { parse_token_text(); return RESTRICT; }
@@ -303,7 +276,6 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 ")"         { parse_token_text(); return ')'; }
 "("         { parse_token_text(); return '('; }
 "->"        { parse_token_text(); return PTR_OP; }
-"->*"       { parse_token_text(); return PTR_OP_MUL; }
 "++"        { parse_token_text(); return PLUSPLUS; }
 "--"        { parse_token_text(); return MINUSMINUS; }
 "+"         { parse_token_text(); return '+'; }
@@ -348,7 +320,6 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 "&"         { parse_token_text(); return '&'; }
 "*"         { parse_token_text(); return '*'; }
 "\""        { parse_token_text(); return '"'; }
-"::"        { parse_token_text(); return DOS_DOS_PUNTS; }
 "..."       { parse_token_text(); return TRES_PUNTS; }
 
 [\n]        { scanning_now.line_number++; }
@@ -368,18 +339,18 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 
 %%
 
-int yywrap(void)
+static int yywrap(void)
 {
     return 1;
 }
 
-void parse_token_text(void)
+static void parse_token_text(void)
 {
-    mcxxlval.token_atrib.token_line = scanning_now.line_number;
-    mcxxlval.token_atrib.token_text = GC_STRDUP(yytext);
+    mc99lval.token_atrib.token_line = scanning_now.line_number;
+    mc99lval.token_atrib.token_text = GC_STRDUP(yytext);
 }
 
-int mcxx_open_file_for_scanning(char* scanned_filename, char* input_filename)
+int mc99_open_file_for_scanning(char* scanned_filename, char* input_filename)
 {
 	FILE* file;
 

@@ -38,7 +38,9 @@ mcxx_SOURCES = \
   cxx-fileextensions.c \
   cxx-configfile.h \
   cxx-configfile.c \
-  cxx-configoptions.c
+  cxx-configoptions.c \
+  c99-scanner.c \
+  c99-parser.c
 
 # Currently these files are unused but waiting for their momentum
 #  cxx-koenig.c \
@@ -58,6 +60,8 @@ EXTRA_DIST += cxx03.l
 EXTRA_DIST += cxx-asttype.def
 EXTRA_DIST += cxx-fileextensions.gperf
 EXTRA_DIST += cxx-configoptions.gperf
+EXTRA_DIST += c99.y
+EXTRA_DIST += c99.l
 
 cxx-ast.h : cxx-asttype.h
 
@@ -81,7 +85,7 @@ cxx-asttype.c : $(srcdir)/cxx-asttype.def cxx-asttype.h
 	echo "};" >> cxx-asttype.c
 
 cxx-parser.c cxx-parser.h : $(srcdir)/cxx03.y
-	bison --debug --defines --report=all --output=cxx-parser.c $(srcdir)/cxx03.y
+	bison -pmcxx --debug --defines --report=all --output=cxx-parser.c $(srcdir)/cxx03.y
 
 cxx-scanner.c : $(srcdir)/cxx03.l $(srcdir)/cxx-ast.h cxx-parser.h
 	flex -Pmcxx -d -ocxx-scanner.c -8 $(srcdir)/cxx03.l
@@ -96,6 +100,12 @@ cxx-configoptions.c : cxx-configoptions.gperf cxx-driver.h cxx-configfile.h
       --lookup-function-name=configoptions_lookup --output=cxx-configoptions.c \
       $(srcdir)/cxx-configoptions.gperf
 
+c99-parser.c c99-parser.h : $(srcdir)/c99.y
+	bison -pmc99 --debug --defines --report=all --output=c99-parser.c $(srcdir)/c99.y
+
+c99-scanner.c : $(srcdir)/c99.l $(srcdir)/cxx-ast.h c99-parser.h
+	flex -Pmc99 -d -oc99-scanner.c -8 $(srcdir)/c99.l
+
 CLEANFILES =
 CLEANFILES += cxx-parser.c
 CLEANFILES += cxx-parser.h
@@ -105,3 +115,8 @@ CLEANFILES += cxx-asttype.c
 CLEANFILES += cxx-parser.output
 CLEANFILES += cxx-fileextensions.c
 CLEANFILES += cxx-configoptions.c
+CLEANFILES += c99-parser.c
+CLEANFILES += c99-parser.h
+CLEANFILES += c99-scanner.c
+
+

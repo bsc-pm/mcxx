@@ -125,5 +125,7 @@ void parse_arguments(int argc, char* argv[], char from_command_line);
 extern int num_seen_file_names;
 extern char** seen_file_names;
 
+extern int mcxxdebug;
+extern void mcxxparse(AST* a);
 
 #endif // CXX_DRIVER_H

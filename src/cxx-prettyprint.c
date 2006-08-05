@@ -224,8 +224,10 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_VIRTUAL_SPEC, simple_parameter_handler, "virtual"),
 	NODE_HANDLER(AST_EXPLICIT_SPEC, simple_parameter_handler, "explicit"),
 	NODE_HANDLER(AST_DECIMAL_LITERAL, simple_text_handler, NULL),
+	NODE_HANDLER(AST_VLA_EXPRESSION, simple_text_handler, NULL),
 	NODE_HANDLER(AST_OCTAL_LITERAL, simple_text_handler, NULL),
 	NODE_HANDLER(AST_HEXADECIMAL_LITERAL, simple_text_handler, NULL),
+	NODE_HANDLER(AST_HEXADECIMAL_FLOAT, simple_text_handler, NULL),
 	NODE_HANDLER(AST_FLOATING_LITERAL, simple_text_handler, NULL),
 	NODE_HANDLER(AST_BOOLEAN_LITERAL, simple_text_handler, NULL),
 	NODE_HANDLER(AST_CHARACTER_LITERAL, simple_text_handler, NULL),
@@ -452,6 +454,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_GCC_ASM_DEF_PARMS, gcc_asm_def_parameters, NULL),
 	NODE_HANDLER(AST_GCC_ASM_OPERAND, gcc_asm_operand_handler, NULL),
 	NODE_HANDLER(AST_GCC_COMPLEX_TYPE, simple_text_handler, NULL),
+	NODE_HANDLER(AST_GCC_IMAGINARY_TYPE, simple_text_handler, NULL),
 	NODE_HANDLER(AST_GCC_TYPE_SPECIFIER_SEQ, gcc_type_spec_sequence_handler, NULL),
 	NODE_HANDLER(AST_GCC_TYPEOF, gcc_typeof_handler, NULL),
 	NODE_HANDLER(AST_GCC_TYPEOF_EXPR, gcc_typeof_expr_handler, NULL),
@@ -775,7 +778,25 @@ static void abstract_array_declarator_handler(FILE* f, AST a, int level)
 	}
 
 	token_fprintf(f, a, "[");
-	prettyprint_level(f, ASTSon1(a), level);
+
+    // static of C99
+    if (ASTSon3(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon3(a), level);
+        fprintf(f, " ");
+    }
+
+    // cv-qualifier-seq of C99
+    if (ASTSon2(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon2(a), level);
+    }
+
+    // expression
+    if (ASTSon1(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon1(a), level);
+    }
 	token_fprintf(f, a, "]");
 }
 

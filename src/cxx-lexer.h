@@ -22,6 +22,7 @@ struct scan_file_descriptor
 
 extern struct scan_file_descriptor scanning_now;
 
-int open_file_for_scanning(char* scanned_filename, char* input_filename);
+int mcxx_open_file_for_scanning(char* scanned_filename, char* input_filename);
+int mc99_open_file_for_scanning(char* scanned_filename, char* input_filename);
 
 #endif // CXX_LEXER_H

@@ -26,8 +26,8 @@
 
 void yyerror(AST* parsed_tree, const char* c);
 
-#define yylex mcxxlex
-#define yytext mcxxtext
+// #define yylex mcxxlex
+// #define yytext mcxxtext
 extern int yylex(void);
 
 %}
@@ -83,6 +83,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> EXTERN
 %token<token_atrib> FLOAT
 %token<token_atrib> FLOATING_LITERAL
+%token<token_atrib> HEXADECIMAL_FLOAT
 %token<token_atrib> FOR
 %token<token_atrib> FRIEND
 %token<token_atrib> GOTO
@@ -3570,6 +3571,10 @@ literal : DECIMAL_LITERAL
 {
 	$$ = ASTLeaf(AST_HEXADECIMAL_LITERAL, $1.token_line, $1.token_text);
 }
+| HEXADECIMAL_FLOAT
+{
+    $$ = ASTLeaf(AST_HEXADECIMAL_FLOAT, $1.token_line, $1.token_text);
+}
 | FLOATING_LITERAL
 {
 	$$ = ASTLeaf(AST_FLOATING_LITERAL, $1.token_line, $1.token_text);
@@ -4256,8 +4261,6 @@ string_literal : STRING_LITERAL
 
 %%
 
-int num_crides = 0;
-
 static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 {
 	// return ASTMake2(AST_AMBIGUITY, x0.ast, x1.ast, 0, NULL);
@@ -4323,8 +4326,8 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 void yyerror(AST* parsed_tree, const char* c)
 {
 	// Current token
-	extern char* yytext;
+	extern char* mcxxtext;
 	fprintf(stderr, "%s:%d error : '%s'\n", scanning_now.current_filename, scanning_now.line_number, c);
-    fprintf(stderr, "Error near token '%s'\n", yytext);
+    fprintf(stderr, "Error near token '%s'\n", mcxxtext);
 	exit(EXIT_FAILURE);
 }
