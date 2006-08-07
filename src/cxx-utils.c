@@ -202,7 +202,6 @@ void temporal_files_cleanup(void)
 			remove(iter->info->name);
 		}
 
-		temporal_file_list_t old = iter;
 		iter = iter->next;
 	}
 
