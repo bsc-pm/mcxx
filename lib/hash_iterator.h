@@ -10,8 +10,8 @@
 
 ***************************************************************************/
 
-#ifndef _HASH_ITERATOR_H_
-#define _HASH_ITERATOR_H_
+#ifndef HASH_ITERATOR_H
+#define HASH_ITERATOR_H
 
 #include "hash.h"
 #include "iterator.h"
