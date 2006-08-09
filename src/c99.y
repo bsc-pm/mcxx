@@ -1,6 +1,6 @@
 %{
 /*
-   Parser of ISO/IEC 14882:2003 - C++
+   Parser of ISO/IEC 9899:1999 - C
 
    It parses a superset of the language.
 
