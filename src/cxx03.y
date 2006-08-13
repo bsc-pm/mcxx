@@ -1633,7 +1633,7 @@ enumeration_list : enumeration_list_proper
 	$$ = $1;
 };
 
-enumeration_list_proper : enumeration_list ',' enumeration_definition
+enumeration_list_proper : enumeration_list_proper ',' enumeration_definition
 {
 	$$ = ASTList($1, $3);
 }

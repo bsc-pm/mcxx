@@ -1291,17 +1291,18 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 	simple_type_info->type->type_scope = st;
 
 	AST enum_name = ASTSon0(a);
-    char* enum_name_str = ASTText(enum_name);
-
-    C_LANGUAGE()
-    {
-        enum_name_str = strappend("enum ", enum_name_str);
-    }
 
 	// If it has name, we register this type name in the symbol table
 	// but only if it has not been declared previously
 	if (enum_name != NULL)
 	{
+        char* enum_name_str = ASTText(enum_name);
+
+        C_LANGUAGE()
+        {
+            enum_name_str = strappend("enum ", enum_name_str);
+        }
+
 		scope_entry_list_t* enum_entry_list = query_unqualified_name(st, enum_name_str);
 
 		scope_entry_t* new_entry;

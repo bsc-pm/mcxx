@@ -155,4 +155,6 @@ int timing_seconds(const timing_t* t);
 int timing_microseconds(const timing_t* t);
 double timing_elapsed(const timing_t* t);
 
+char is_blank_string(const char* c);
+
 #endif // CXX_UTILS_H

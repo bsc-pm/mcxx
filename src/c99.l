@@ -200,10 +200,6 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 "goto"          { parse_token_text(); return GOTO; }
 "return"        { parse_token_text(); return RETURN; }
 
- /* A.2.41 */
-"false"         { parse_token_text(); return BOOLEAN_LITERAL; }
-"true"          { parse_token_text(); return BOOLEAN_LITERAL; }
-
  /* GNU Extensions */
 "__builtin_va_arg" { parse_token_text(); return BUILTIN_VA_ARG; }
 "__extension__" { parse_token_text(); return EXTENSION; }

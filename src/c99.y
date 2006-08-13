@@ -252,6 +252,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> selection_statement
 %type<ast> shift_expression
 %type<ast> simple_declaration
+%type<ast> simple_declaration_not_empty
 %type<ast> simple_type_specifier
 %type<ast> statement
 %type<ast> statement_seq
@@ -510,18 +511,25 @@ asm_operand : string_literal '(' expression ')'
 ;
 /* End of GNU extensions */
 
-simple_declaration : decl_specifier_seq init_declarator_list ';' 
+
+simple_declaration : simple_declaration_not_empty
+{
+    $$ = $1;
+}
+| ';'
+{
+	// This is an error but also a common extension
+	$$ = ASTLeaf(AST_EMPTY_DECL, $1.token_line, $1.token_text);
+}
+;
+
+simple_declaration_not_empty : decl_specifier_seq init_declarator_list ';' 
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, $2, ASTLine($1), NULL);
 }
 | decl_specifier_seq ';' 
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, NULL, ASTLine($1), NULL);
-}
-| ';'
-{
-	// This is an error but also a common extension
-	$$ = ASTLeaf(AST_EMPTY_DECL, $1.token_line, $1.token_text);
 }
 ;
 
@@ -551,10 +559,10 @@ decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_seq
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, NULL, ASTLine($1), NULL);
 }
-| nontype_specifier_seq
-{
-	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, NULL, NULL, ASTLine($1), NULL);
-}
+// | nontype_specifier_seq
+// {
+// 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, NULL, NULL, ASTLine($1), NULL);
+// }
 ;
 
 nontype_specifier_seq : nontype_specifier
@@ -963,6 +971,12 @@ functional_declarator_id : declarator_id '(' parameter_type_list ')'
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTLine($1), NULL);
 }
+| declarator_id '(' ')'
+{
+	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, 0, NULL);
+
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, empty_parameter, NULL, NULL, ASTLine($1), NULL);
+}
 ;
 
 cv_qualifier_seq : cv_qualifier
@@ -1096,7 +1110,7 @@ enumeration_list : enumeration_list_proper
 	$$ = $1;
 };
 
-enumeration_list_proper : enumeration_list ',' enumeration_definition
+enumeration_list_proper : enumeration_list_proper ',' enumeration_definition
 {
 	$$ = ASTList($1, $3);
 }
@@ -1365,11 +1379,11 @@ function_definition : decl_specifier_seq functional_declarator function_body
 }
 ;
 
-simple_declaration_list : simple_declaration
+simple_declaration_list : simple_declaration_not_empty
 {
     $$ = ASTListLeaf($1);
 }
-| simple_declaration_list simple_declaration
+| simple_declaration_list simple_declaration_not_empty
 {
     $$ = ASTList($1, $2);
 }
@@ -1435,6 +1449,10 @@ class_key : STRUCT
 member_specification : member_declaration
 {
 	$$ = ASTMake3(AST_MEMBER_SPEC, NULL, $1, NULL, ASTLine($1), NULL);
+}
+| member_declaration member_specification
+{
+	$$ = ASTMake3(AST_MEMBER_SPEC, NULL, $1, $2, ASTLine($1), NULL);
 }
 ;
 

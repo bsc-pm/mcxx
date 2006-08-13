@@ -338,3 +338,21 @@ double timing_elapsed(const timing_t* t)
 {
 	return (t->elapsed_time);
 }
+
+static char is_blank(char c)
+{
+    return (c == ' ' || c == '\t');
+}
+
+char is_blank_string(const char* c)
+{
+    char result = 1;
+
+    while (result && (c != '\0'))
+    {
+        result &= is_blank(*c);
+        c++;
+    }
+
+    return result;
+}

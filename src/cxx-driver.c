@@ -279,26 +279,31 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 	int i = 1;
 	while (optind < argc)
 	{
-		if ((i > 1) 
-				&& compilation_options.do_not_link
-				&& output_file != NULL)
-		{
-			running_error("Cannot specify -o with -c with multiple files", 0);
-		}
-		else
-		{
-			translation_unit_t* translation_unit = GC_CALLOC(1, sizeof(*translation_unit));
-			translation_unit->input_filename = GC_STRDUP(argv[optind]);
+        // Ignore spurious blank parameters
+        if (strlen(argv[optind]) != 0
+                && !is_blank_string(argv[optind]))
+        {
+            if ((i > 1) 
+                    && compilation_options.do_not_link
+                    && output_file != NULL)
+            {
+                running_error("Cannot specify -o with -c with multiple files (second file '%s')", argv[optind]);
+            }
+            else
+            {
+                translation_unit_t* translation_unit = GC_CALLOC(1, sizeof(*translation_unit));
+                translation_unit->input_filename = GC_STRDUP(argv[optind]);
 
-			if (compilation_options.do_not_link)
-			{
-				translation_unit->output_filename = output_file;
-			}
+                if (compilation_options.do_not_link)
+                {
+                    translation_unit->output_filename = output_file;
+                }
 
-			P_LIST_ADD(compilation_options.translation_units, 
-					compilation_options.num_translation_units, 
-					translation_unit);
-		}
+                P_LIST_ADD(compilation_options.translation_units, 
+                        compilation_options.num_translation_units, 
+                        translation_unit);
+            }
+        }
 		i++;
 		optind++;
 	}
