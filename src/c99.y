@@ -512,9 +512,13 @@ asm_operand : string_literal '(' expression ')'
 /* End of GNU extensions */
 
 
-simple_declaration : simple_declaration_not_empty
+simple_declaration : decl_specifier_seq init_declarator_list ';' 
 {
-    $$ = $1;
+	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, $2, ASTLine($1), NULL);
+}
+| decl_specifier_seq ';' 
+{
+	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, NULL, ASTLine($1), NULL);
 }
 | ';'
 {
@@ -526,10 +530,6 @@ simple_declaration : simple_declaration_not_empty
 simple_declaration_not_empty : decl_specifier_seq init_declarator_list ';' 
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, $2, ASTLine($1), NULL);
-}
-| decl_specifier_seq ';' 
-{
-	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, NULL, ASTLine($1), NULL);
 }
 ;
 
@@ -559,10 +559,10 @@ decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_seq
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, NULL, ASTLine($1), NULL);
 }
-// | nontype_specifier_seq
-// {
-// 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, NULL, NULL, ASTLine($1), NULL);
-// }
+| nontype_specifier_seq
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, NULL, NULL, ASTLine($1), NULL);
+}
 ;
 
 nontype_specifier_seq : nontype_specifier
