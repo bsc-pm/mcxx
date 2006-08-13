@@ -1,14 +1,10 @@
 noinst_LTLIBRARIES = libmcxx-utils.la libmcxx-mcfg.la
 EXTRA_LTLIBRARIES=libmcxx-getopt.la
 
-#
-# CFLAGS=-ggdb -g3 -Wall
-#
-CFLAGS=-O2 -Wall
-
 libmcxx_getopt_la_SOURCES = getopt.c \
 						   getopt1.c \
 						   getopt.h
+libmcxx_getopt_la_CFLAGS=
 
 libmcxx_utils_la_SOURCES = iterator.c \
                           iterator.h \
@@ -28,5 +24,4 @@ libmcxx_utils_la_CFLAGS = -I $(srcdir)/../gc/include
 
 libmcxx_mcfg_la_SOURCES = mcfg.h \
                           mcfg.c
-
 libmcxx_mcfg_la_CFLAGS = -I $(srcdir)/../gc/include

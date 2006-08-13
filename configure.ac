@@ -79,7 +79,7 @@ else
   AC_MSG_CHECKING([bison version])
   bison_ver=`bison --version | head -n 1 | sed -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
   case x${bison_ver} in
-     x2.@<:@01@:>@)
+     x2.@<:@0123@:>@)
 	    AC_MSG_RESULT([${bison_ver}, ok])
 		bison_good=yes
 	    ;;
