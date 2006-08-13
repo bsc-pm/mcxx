@@ -118,5 +118,6 @@ CLEANFILES += cxx-configoptions.c
 CLEANFILES += c99-parser.c
 CLEANFILES += c99-parser.h
 CLEANFILES += c99-scanner.c
+CLEANFILES += c99-parser.output
 
 

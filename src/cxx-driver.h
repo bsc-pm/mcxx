@@ -110,8 +110,8 @@ typedef struct compilation_options_tag
 
 extern compilation_options_t compilation_options;
 
-extern int yydebug;
 extern int mcxx_flex_debug;
+extern int mc99_flex_debug;
 
 extern int yyparse(AST* parsed_tree);
 
