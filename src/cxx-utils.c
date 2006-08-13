@@ -31,7 +31,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 	
 	char* source_file_copy = GC_STRDUP(source_file);
 	
-	fprintf(stderr, "%s%s:%d %s: ", kind, GC_STRDUP(basename(source_file_copy)), line, function_name);
+	fprintf(stderr, "%s%s:%d %s: ", kind, give_basename(source_file_copy), line, function_name);
 	va_start(ap, function_name);
 	vfprintf(stderr, sanitized_message, ap);
 	va_end(ap);
@@ -131,6 +131,18 @@ char** comma_separate_values(char* value, int *num_elems)
 	(*num_elems)--;
 
 	return result;
+}
+
+char* give_basename(const char* c)
+{
+    char* result = basename(GC_STRDUP(c));
+    return GC_STRDUP(result);
+}
+
+char* give_dirname(const char* c)
+{
+    char* result = dirname(GC_STRDUP(c));
+    return GC_STRDUP(result);
 }
 
 // Temporal files handling routines

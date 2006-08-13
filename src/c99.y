@@ -749,10 +749,10 @@ simple_type_specifier : type_name
 {
 	$$ = $1;
 }
-// GNU Extension
-| TYPEOF unary_expression
+// GNU Extension. Somebody decided that this had to be different in gcc and g++
+| TYPEOF '(' expression ')'
 {
-	$$ = ASTMake1(AST_GCC_TYPEOF_EXPR, $2, $1.token_line, $1.token_text);
+	$$ = ASTMake1(AST_GCC_TYPEOF_EXPR, $3, $1.token_line, $1.token_text);
 }
 | TYPEOF '(' type_id ')'
 {
@@ -771,7 +771,6 @@ builtin_types : CHAR
 {
 	$$ = ASTLeaf(AST_CHAR_TYPE, $1.token_line, $1.token_text);
 }
-// Fix this to "_Bool" and not "bool"
 | BOOL
 {
 	$$ = ASTLeaf(AST_BOOL_TYPE, $1.token_line, $1.token_text);

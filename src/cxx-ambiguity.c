@@ -2077,6 +2077,14 @@ static char check_for_type_specifier(AST type_id, scope_t* st)
 			break;
 		case AST_CLASS_SPECIFIER :
 		case AST_ENUM_SPECIFIER :
+            {
+                type_t* simple_type_info;
+                simple_type_info = GC_CALLOC(1, sizeof(*simple_type_info));
+                simple_type_info->type = GC_CALLOC(1, sizeof(*(simple_type_info->type)));
+
+                gather_type_spec_information(type_id, st, simple_type_info, default_decl_context);
+                return 1;
+            }
         case AST_ELABORATED_TYPENAME :
         case AST_ELABORATED_TYPENAME_TEMPLATE :
 		case AST_ELABORATED_TYPE_ENUM :
@@ -2406,7 +2414,7 @@ static char check_for_declarator_rec(AST declarator, scope_t* st)
 			{
 				if (ASTSon0(declarator) != NULL)
 				{
-					solve_possibly_ambiguous_expression(ASTSon0(declarator), st);
+					solve_possibly_ambiguous_expression(ASTSon1(declarator), st);
 				}
 				return check_for_declarator_rec(ASTSon0(declarator), st);
 			}

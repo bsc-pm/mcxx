@@ -4995,6 +4995,11 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
 	{
 		build_scope_simple_declaration(for_init_statement, block_scope, decl_context);
 	}
+    else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
+    {
+        AST expression = ASTSon0(for_init_statement);
+        solve_possibly_ambiguous_expression(expression, st);
+    }
 
 	if (condition != NULL)
 	{
@@ -5021,7 +5026,7 @@ static void build_scope_switch_statement(AST a, scope_t* st, decl_context_t decl
 
 static void build_scope_labeled_statement(AST a, scope_t* st, decl_context_t decl_context)
 {
-	AST statement = ASTSon0(a);
+	AST statement = ASTSon1(a);
 	build_scope_statement(statement, st, decl_context);
 }
 
@@ -5146,7 +5151,8 @@ static void build_scope_statement(AST a, scope_t* st, decl_context_t decl_contex
 	}
 	else
 	{
-		WARNING_MESSAGE("Statement node type '%s' doesn't have handler", ast_print_node_type(ASTType(a)));
+		WARNING_MESSAGE("Statement node type '%s' does not have handler in %s", ast_print_node_type(ASTType(a)),
+                node_information(a));
 	}
 }
 

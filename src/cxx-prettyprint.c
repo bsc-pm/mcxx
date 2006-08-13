@@ -540,11 +540,20 @@ char* prettyprint_in_buffer(AST a)
 static int character_level_vfprintf(FILE* stream, const char* format, va_list args)
 {
 	int result;
-	char c[512];
-	result = vsnprintf(c, 511, format, args);
-	c[511] = '\0';
+    int size = 512;
+	char* c = GC_CALLOC(size, sizeof(char));
+	result = vsnprintf(c, size, format, args);
+
+    while (result < 0 || result >= size)
+    {
+        size *= 2;
+        GC_FREE(c);
+        c = GC_CALLOC(size, sizeof(char));
+        result = vsnprintf(c, size, format, args);
+    }
 
 	fprintf(stream, "%s", c);
+    GC_FREE(c);
 
 	return result;
 }
@@ -1487,8 +1496,7 @@ static void labeled_statement_handler(FILE* f, AST a, int level)
 {
 	indent_at_level(f, a, level);
 	prettyprint_level(f, ASTSon0(a), level);
-	token_fprintf(f, a, " : ");
-	// Newline will be done here
+	token_fprintf(f, a, " : \n");
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
@@ -1497,16 +1505,14 @@ static void case_statement_handler(FILE* f, AST a, int level)
 	indent_at_level(f, a, level);
 	token_fprintf(f, a, "case ");
 	prettyprint_level(f, ASTSon0(a), level);
-	token_fprintf(f, a, " : ");
-	// Newline will be done here
+	token_fprintf(f, a, " : \n");
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void default_statement_handler(FILE* f, AST a, int level)
 {
 	indent_at_level(f, a, level);
-	token_fprintf(f, a, "default : ");
-	// Newline will be done here
+	token_fprintf(f, a, "default : \n");
 	prettyprint_level(f, ASTSon0(a), level);
 }
 
@@ -1522,7 +1528,7 @@ static void selection_statement_handler(FILE* f, AST a, int level)
 	indent_at_level(f, a, level);
 	token_fprintf(f, a, "switch (");
 	prettyprint_level(f, ASTSon0(a), level);
-	token_fprintf(f, a, ")");
+	token_fprintf(f, a, ")\n");
 	prettyprint_level(f, ASTSon1(a), level);
 }
 
@@ -2265,8 +2271,19 @@ static void gcc_typeof_handler(FILE* f, AST a, int level)
 static void gcc_typeof_expr_handler(FILE* f, AST a, int level)
 {
 	token_fprintf(f, a, ASTText(a));
-	token_fprintf(f, a, " ");
+    CXX_LANGUAGE()
+    {
+        token_fprintf(f, a, " ");
+    }
+    C_LANGUAGE()
+    {
+        token_fprintf(f, a, "(");
+    }
 	prettyprint_level(f, ASTSon0(a), level);
+    C_LANGUAGE()
+    {
+        token_fprintf(f, a, ")");
+    }
 }
 
 static void gcc_elaborated_type_enum_handler(FILE* f, AST a, int level)

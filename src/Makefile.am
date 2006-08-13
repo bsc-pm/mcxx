@@ -52,7 +52,7 @@ mcxx_SOURCES = \
 
 mcxx_LDFLAGS=-L../lib -L../gc
 mcxx_LDADD=../lib/libmcxx-utils.la ../gc/libgc.la ../lib/libmcxx-mcfg.la
-mcxx_CFLAGS=-Wall -g -I$(srcdir)/../lib -I$(srcdir)/../gc/include -DPKGDATADIR=\"$(pkgdatadir)\"
+mcxx_CFLAGS=-I$(srcdir)/../lib -I$(srcdir)/../gc/include -DPKGDATADIR=\"$(pkgdatadir)\"
 
 EXTRA_DIST =
 EXTRA_DIST += cxx03.y

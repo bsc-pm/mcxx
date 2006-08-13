@@ -152,7 +152,7 @@ static void driver_initialization(int argc, char* argv[])
 	memset(&compilation_options, 0, sizeof(compilation_options));
 	compilation_options.argc = argc;
 	compilation_options.argv = argv;
-	compilation_options.exec_basename = GC_STRDUP(basename(argv[0]));
+	compilation_options.exec_basename = give_basename(argv[0]);
 
 	num_seen_file_names = 0;
 	seen_file_names = 0;
@@ -447,6 +447,11 @@ static void compile_every_translation_unit(void)
 			continue;
 		}
 
+        if (compilation_options.verbose)
+        {
+            fprintf(stderr, "Compilting file '%s'\n", translation_unit->input_filename);
+        }
+
 		char* parsed_filename = translation_unit->input_filename;
 		if (current_extension->source_kind == SOURCE_KIND_NOT_PREPROCESSED)
 		{
@@ -548,10 +553,12 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 static char* prettyprint_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
 {
 	char* output_filename = NULL;
-	char* input_filename_dirname = strappend(dirname(translation_unit->input_filename), "/");
+
+	char* input_filename_dirname = give_dirname(translation_unit->input_filename);
+    input_filename_dirname = strappend(input_filename_dirname, "/");
 
 	char* input_filename_basename = NULL;
-	input_filename_basename = GC_STRDUP(basename(translation_unit->input_filename));
+	input_filename_basename = give_basename(translation_unit->input_filename);
 
 	char* preffix = strappend(compilation_options.exec_basename, "_");
 	char* output_filename_basename = strappend(preffix,
@@ -691,11 +698,8 @@ static void link_objects(void)
 			+ compilation_options.num_translation_units + 2 + 1, 
 			sizeof(*linker_args));
 
-	int i, j;
-	for (i = 0; i < num_args_linker; i++)
-	{
-		linker_args[i] = compilation_options.linker_options[i];
-	}
+	int i = 0;
+    int j = 0;
 
 	if (compilation_options.linked_output_filename != NULL)
 	{
@@ -709,6 +713,12 @@ static void link_objects(void)
 	{
 		linker_args[i] = compilation_options.translation_units[j]->output_filename;
 		i++;
+	}
+
+	for (j = 0; j < num_args_linker; j++)
+	{
+		linker_args[i] = compilation_options.linker_options[j];
+        i++;
 	}
 
 	timing_t timing_link;
@@ -750,6 +760,8 @@ static char check_tree(AST a)
 		fprintf(stderr, "  Ambiguities not resolved\n");
 		fprintf(stderr, "============================\n");
 		prettyprint(stderr, ambiguous_node);
+		fprintf(stderr, "\n============================\n");
+        fprintf(stderr, " at %s\n", node_information(ambiguous_node));
 		fprintf(stderr, "============================\n");
 		ast_dump_graphviz(ambiguous_node, stderr);
 		fprintf(stderr, "============================\n");

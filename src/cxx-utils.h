@@ -157,4 +157,7 @@ double timing_elapsed(const timing_t* t);
 
 char is_blank_string(const char* c);
 
+char* give_dirname(const char* c);
+char* give_basename(const char* c);
+
 #endif // CXX_UTILS_H

@@ -54,10 +54,10 @@ longlongsuffix [lL][lL]
 
 
  /* A.2.28 */
-cchar       ([^\\'\n]|{escape_seq})
+cchar       ([^\\'\n]|{escape_seq}|(\\[']))
 
  /* A.2.29 */
-escape_seq      ((\\["abfnrtv])|(\\{octaldigit}{1,3})|((\\x)+{hexdigit}+))
+escape_seq      ((\\["abfnrtv\\])|(\\{octaldigit}{1,3})|((\\x)+{hexdigit}+))
  /* A.2.34 */
 fractconst  (({digit}*\.{digit}+)|({digit}+(\.)?))
  /* A.2.35 */
@@ -65,7 +65,7 @@ exponent    ([eE][+-]?{digit}+)
  /* A.2.38 */
 floatingsuffix  [flFL]
  /* A.2.40 */
-schar       ([^\\"\n]|{escape_seq})
+schar       ([^\\"\n]|{escape_seq}|(\\["]))
 
 idnondigit  ({nondigit}|{uchar})
 hexprefix   0[xX]
