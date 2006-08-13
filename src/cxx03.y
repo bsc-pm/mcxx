@@ -357,6 +357,9 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> nontype_specifier2
 %type<ast> volatile_optional
 %type<ast> unknown_pragma
+%type<ast> designation
+%type<ast> designator_list
+%type<ast> designator
 
 %type<node_type> unary_operator
 %type<node_type> assignment_operator
@@ -1851,6 +1854,18 @@ initializer_list : initializer_clause
 {
 	$$ = ASTList($1, $3);
 }
+| designation initializer_clause
+{
+    AST designated_initializer = ASTMake2(AST_DESIGNATED_INITIALIZER, $1, $2, ASTLine($1), NULL);
+
+    $$ = ASTListLeaf(designated_initializer);
+}
+| initializer_list ',' designation initializer_clause
+{
+    AST designated_initializer = ASTMake2(AST_DESIGNATED_INITIALIZER, $3, $4, ASTLine($3), NULL);
+
+    $$ = ASTList($1, designated_initializer);
+}
 // GNU Extensions
 | IDENTIFIER ':' initializer_clause
 {
@@ -1867,6 +1882,34 @@ initializer_list : initializer_clause
 	AST gcc_initializer_clause = ASTMake2(AST_GCC_INITIALIZER_CLAUSE, identifier, $5, ASTLine($1), NULL);
 
 	$$ = ASTList($1, gcc_initializer_clause);
+}
+;
+
+designation : designator_list '='
+{
+    $$ = ASTMake1(AST_DESIGNATION, $1, ASTLine($1), NULL);
+}
+;
+
+designator_list : designator
+{
+    $$ = ASTListLeaf($1);
+}
+| designator_list designator
+{
+    $$ = ASTList($1, $2);
+}
+;
+
+designator : '[' constant_expression ']'
+{
+    $$ = ASTMake1(AST_INDEX_DESIGNATOR, $2, $1.token_line, NULL);
+}
+| '.' IDENTIFIER
+{
+    AST symbol = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+
+    $$ = ASTMake1(AST_FIELD_DESIGNATOR, symbol, $1.token_line, NULL);
 }
 ;
 
