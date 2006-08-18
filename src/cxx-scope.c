@@ -62,15 +62,17 @@ scope_t* new_block_scope(scope_t* enclosing_scope, scope_t* prototype_scope, sco
 	result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
 	
 	// Create artificial entry for the block scope
-	static int scope_number = 1000;
+	static int scope_number = 0;
 	char* c = GC_CALLOC(256, sizeof(char));
-	sprintf(c, "(block scope #%05d)", scope_number);
+	sprintf(c, "(#%d)", scope_number);
 	scope_number++;
 
 	scope_entry_t* new_block_scope_entry = new_symbol(enclosing_scope, c);
 	new_block_scope_entry->kind = SK_SCOPE;
 
 	new_block_scope_entry->related_scope = result;
+
+    new_block_scope_entry->defined = 1;
 	
 	return result;
 }

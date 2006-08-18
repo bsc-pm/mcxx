@@ -141,7 +141,7 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
 	DEBUG_CODE()
 	{
 		fprintf(stderr, "--------> Building scope of instantiated template '%s'\n", matched_template->symbol_name);
-		print_scope(instantiate_scope, 0);
+		print_scope(instantiate_scope);
 	}
 
 	type_t* simple_type_info = GC_CALLOC(1, sizeof(*simple_type_info));
@@ -298,7 +298,7 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 	DEBUG_CODE()
 	{
 		fprintf(stderr, "--------> Building scope of instantiated template '%s'\n", matched_template->symbol_name);
-		print_scope(instantiate_scope, 0);
+		print_scope(instantiate_scope);
 	}
 
 	instance_symbol->related_scope->template_scope = matched_template->scope->template_scope;

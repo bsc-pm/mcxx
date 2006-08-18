@@ -19,10 +19,10 @@ struct debug_flags_list_t;
 
 static int cmpstringp(const void *p1, const void *p2)
 {
-    struct debug_flags_list_t* df1 = (struct debug_flags_list_t*) p1;
-    struct debug_flags_list_t* df2 = (struct debug_flags_list_t*) p2;
+    struct debug_flags_list_t** df1 = (struct debug_flags_list_t**) p1;
+    struct debug_flags_list_t** df2 = (struct debug_flags_list_t**) p2;
 
-    return strcmp(df1->name, df2->name);
+    return strcmp((*df1)->name, (*df2)->name);
 }
 
 

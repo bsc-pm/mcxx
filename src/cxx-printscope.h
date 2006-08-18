@@ -4,6 +4,6 @@
 #include "cxx-scope.h"
 #include "cxx-ast.h"
 
-void print_scope(scope_t* st, int global_indent);
+void print_scope(scope_t* st);
 
 #endif // CXX_PRINTSCOPE_H

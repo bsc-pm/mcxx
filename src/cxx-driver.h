@@ -157,4 +157,7 @@ extern void mc99parse(AST* a);
 
 struct debug_flags_list_t** list_of_debug_flags(void);
 
+struct debug_flags_list_t *
+debugflags_lookup (register const char *str, register unsigned int len);
+
 #endif // CXX_DRIVER_H

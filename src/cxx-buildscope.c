@@ -140,7 +140,7 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id,
 // Current linkage, by default C++
 static char* current_linkage = "\"C++\"";
 
-static void initialize_builtin_symbols();
+static void initialize_builtin_symbols(void);
 
 const decl_context_t default_decl_context = { 0 };
 
@@ -164,10 +164,10 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
 
 	build_scope_declaration_sequence(list, compilation_options.global_scope, default_decl_context);
 
-	DEBUG_CODE()
+	if (compilation_options.debug_options.print_scope)
 	{
 		fprintf(stderr, "============ SYMBOL TABLE ===============\n");
-		print_scope(compilation_options.global_scope, 0);
+		print_scope(compilation_options.global_scope);
 		fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
 	}
 
@@ -176,7 +176,7 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
 
 // This function initialize global symbols that exist in every translation unit
 // prior to its translation
-static void initialize_builtin_symbols()
+static void initialize_builtin_symbols(void)
 {
 	// __builtin_va_list is a very special type in GCC
 	scope_entry_t* builtin_va_list;
@@ -3317,7 +3317,17 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 		// And save its name
 		template_parameters->template_parameter_name = GC_STRDUP(name);
 		new_type->type->template_parameter_name = GC_STRDUP(name);
+
+        template_parameters->parameter_tree = duplicate_ast(a);
+        ASTSon2(template_parameters->parameter_tree) = NULL;
 	}
+    else
+    {
+        char* template_param_name = GC_CALLOC(256, sizeof(char));
+
+        sprintf(template_param_name, " <template-param-%d-%d> ", decl_context.template_nesting, num_parameter+1);
+        template_parameters->parameter_tree = ASTLeaf(AST_SYMBOL, ASTLine(a), template_param_name);
+    }
 
 	AST id_expr = ASTSon2(a);
 	if (id_expr != NULL)
@@ -3370,6 +3380,7 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 	// Save the info
 	template_parameters->type_info = new_type;
 
+
 	AST name = ASTSon0(a);
 	AST type_id = ASTSon1(a);
 	
@@ -3388,7 +3399,16 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 		// And save it in the type
 		template_parameters->template_parameter_name = GC_STRDUP(ASTText(name));
 		new_type->type->template_parameter_name = GC_STRDUP(ASTText(name));
+
+        template_parameters->parameter_tree = name;
 	}
+    else
+    {
+        char* template_param_name = GC_CALLOC(256, sizeof(char));
+
+        sprintf(template_param_name, " <template-param-%d-%d> ", decl_context.template_nesting, num_parameter+1);
+        template_parameters->parameter_tree = ASTLeaf(AST_SYMBOL, ASTLine(a), template_param_name);
+    }
 
 	if (type_id != NULL)
 	{
@@ -3486,6 +3506,7 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 	}
 
 	template_parameters->default_argument_scope = copy_scope(st);
+
 	template_parameters->default_tree = default_expression;
 
 	template_parameters->kind = TPK_NONTYPE;
@@ -4419,6 +4440,7 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
 					new_template_argument->kind = TAK_TYPE;
 					new_template_argument->type = template_parameter->type_info;
 					new_template_argument->scope = template_scope; 
+                    new_template_argument->argument_tree = template_parameter->parameter_tree;
 
                     // Note that argument_tree will remain NULL here, there is
                     // no need to create a fake tree here

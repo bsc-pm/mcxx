@@ -350,6 +350,21 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 
 static void enable_debug_flag(char* flag)
 {
+   struct debug_flags_list_t* flag_option = 
+       debugflags_lookup (flag, strlen(flag));
+
+   if (flag_option != NULL)
+   {
+       *(flag_option->flag_pointer) = 1;
+   }
+   else
+   {
+       fprintf(stderr, "Debug flag '%s' unknown. Ignoring it\n", flag);
+   }
+
+   // Fix scope printing
+   compilation_options.debug_options.print_scope |= 
+       compilation_options.debug_options.print_scope_brief;
 }
 
 static void parse_subcommand_arguments(char* arguments)

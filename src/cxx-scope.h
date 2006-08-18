@@ -122,7 +122,9 @@ enum template_parameter_kind
 	TPK_TEMPLATE
 };
 
-typedef struct template_parameter {
+typedef struct template_parameter 
+{
+    AST parameter_tree;
 	enum template_parameter_kind kind;
 	char* template_parameter_name;
 
@@ -267,10 +269,6 @@ typedef struct simple_type_tag {
 
 	// For instantiation purposes
 	char from_instantiation;
-
-	// Templates created for purposes of type calculation but not declarated by
-	// the user
-	char not_declarated;
 } simple_type_t;
 
 typedef struct parameter_info_tag
@@ -310,7 +308,6 @@ typedef struct function_tag
 
 	int num_template_parameters_in_scope;
 	template_parameter_t** template_parameter_in_scope_info;
-
 
 	// Information about the nesting of this function within templates
 	int template_nesting;
