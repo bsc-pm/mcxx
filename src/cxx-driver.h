@@ -14,6 +14,7 @@ typedef enum
 	OPTION_NATIVE_COMPILER_NAME,
 	OPTION_LINKER_NAME,
 	OPTION_DEBUG_FLAG,
+    OPTION_HELP_DEBUG_FLAGS,
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
@@ -62,6 +63,22 @@ struct configuration_directive_t
 	int (*funct)(char* value);
 };
 
+struct debug_flags_list_t
+{
+    char* name;
+    char* flag_pointer;
+};
+
+typedef struct debug_options_tag
+{
+    char abort_on_ice;
+    char print_scope;
+    char print_scope_brief;
+    char enable_debug_code;
+    char debug_lexer;
+    char debug_parser;
+} debug_options_t;
+
 // Global compiler options
 typedef struct compilation_options_tag
 {
@@ -77,8 +94,8 @@ typedef struct compilation_options_tag
 	char do_not_link;
 	char do_not_compile;
 	char do_not_prettyprint;
-	char debug_level;
-    char abort_on_ice;
+
+    debug_options_t debug_options;
 	
 	// Source language information
 	source_language_t source_language;
@@ -136,5 +153,7 @@ extern void mcxxparse(AST* a);
 
 extern int mc99debug;
 extern void mc99parse(AST* a);
+
+char** list_of_debug_flags(void);
 
 #endif // CXX_DRIVER_H

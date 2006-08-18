@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-prettyprint.h"
@@ -531,6 +532,14 @@ char* prettyprint_in_buffer(AST a)
 
 	char* result = GC_CALLOC(bytes_file, sizeof(char));
 	fread(result, bytes_file, sizeof(char), temporal_file);
+
+    int c = strlen(result) - 1;
+
+    while (result[c] == '\n')
+    {
+        result[c] = '\0';
+        c--;
+    }
 
 	return result;
 }

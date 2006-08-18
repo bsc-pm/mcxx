@@ -36,10 +36,8 @@ compilation_options_t compilation_options;
 "                           files.\n" \
 "  -a, --check-dates        Checks dates before regenerating files\n" \
 "  -g, --graphviz           Outputs AST in graphviz format\n" \
-"  -d, --debug              Prints lots of debugging information\n" \
-"  --debug-flag=<flag>      Enables <flag> in debugging. \n" \
-"                           <flag> can be one of the following: \n" \
-"                                abort_on_ice\n" \
+"  --debug-flag=<flag>      Enables <flag> in debugging. Valid flags\n" \
+"                           can be listed with --help-debug-flags\n" \
 "  --cpp=<name>             Preprocessor <name> will be used for\n" \
 "                           preprocessing\n" \
 "  --cxx=<name>             Compiler <name> will be used for native\n" \
@@ -75,6 +73,7 @@ struct option getopt_long_options[] =
 	{"cpp", required_argument, NULL, OPTION_PREPROCESSOR_NAME},
 	{"ld", required_argument, NULL, OPTION_LINKER_NAME},
     {"debug-flag",  required_argument, NULL, OPTION_DEBUG_FLAG},
+    {"help-debug-flags", no_argument, NULL, OPTION_HELP_DEBUG_FLAGS},
 	// sentinel
 	{NULL, 0, NULL, 0}
 };
@@ -166,10 +165,23 @@ static void driver_initialization(int argc, char* argv[])
 	seen_file_names = 0;
 }
 
-static void help_message()
+static void help_message(void)
 {
 	fprintf(stderr, "Usage: %s options file [file..]\n", compilation_options.argv[0]);
 	fprintf(stderr, HELP_STRING);
+}
+
+static void print_debug_flags_list(void)
+{
+    fprintf(stderr, "Debug flag list:\n\n");
+
+    char** debug_flag_list = list_of_debug_flags();
+
+    while (*debug_flag_list != NULL)
+    {
+        fprintf(stderr, "      %s\n", *debug_flag_list);
+        debug_flag_list++;
+    }
 }
 
 static void options_error(char* message)
@@ -231,11 +243,6 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 					compilation_options.check_dates = 1;
 					break;
 				}
-			case 'd' : // --debug || -d
-				{
-					compilation_options.debug_level++;
-					break;
-				}
 			case 'm' :
 				{
 					compilation_options.config_file = GC_STRDUP(optarg);
@@ -277,6 +284,11 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 {
                     enable_debug_flag(optarg);
                     break;
+                }
+            case OPTION_HELP_DEBUG_FLAGS :
+                {
+                    print_debug_flags_list();
+                    exit(EXIT_SUCCESS);
                 }
 			case 'h' :
 				{
@@ -337,14 +349,6 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 
 static void enable_debug_flag(char* flag)
 {
-    if (strcmp(flag, "abort_on_ice") == 0)
-    {
-        compilation_options.abort_on_ice = 1;
-    }
-    else
-    {
-        fprintf(stderr, "Debug flag '%s' unknown. Ignored.\n", flag);
-    }
 }
 
 static void parse_subcommand_arguments(char* arguments)

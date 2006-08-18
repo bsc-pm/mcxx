@@ -36,7 +36,7 @@ void running_error(char* message, ...) NORETURN;
 #define internal_error(message, ...) \
 { \
 	debug_message(message, "Internal compiler error. Please report bug:\n", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); \
-    if (compilation_options.abort_on_ice) \
+    if (compilation_options.debug_options.abort_on_ice) \
 	        raise(SIGABRT); \
 	exit(EXIT_FAILURE); \
 }
@@ -52,7 +52,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 { if (!(cond)) \
 	{ \
 		debug_message((message), "Assertion failed (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
-        if (compilation_options.abort_on_ice) \
+        if (compilation_options.debug_options.abort_on_ice) \
 		    raise(SIGABRT); \
 	    exit(EXIT_FAILURE); \
 	} \
@@ -62,7 +62,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 { if ((cond)) \
 	{ \
 		debug_message((message), "Error condition (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
-        if (compilation_options.abort_on_ice) \
+        if (compilation_options.debug_options.abort_on_ice) \
 		    raise(SIGABRT); \
 	    exit(EXIT_FAILURE); \
 	} \
@@ -109,8 +109,8 @@ char* GC_STRDUP(const char* str);
 
 #define BITMAP_TEST(x, b) (((x) & (b)) == (b))
 
-#define DEBUG_CODE() if (compilation_options.debug_level)
-#define NOT_DEBUG_CODE() if (!compilation_options.debug_level)
+#define DEBUG_CODE() if (compilation_options.debug_options.enable_debug_code)
+#define NOT_DEBUG_CODE() if (!compilation_options.debug_options.enable_debug_code)
 
 #define CXX_LANGUAGE() if (compilation_options.source_language == SOURCE_LANGUAGE_CXX)
 #define C_LANGUAGE() if (compilation_options.source_language == SOURCE_LANGUAGE_C)

@@ -1,0 +1,39 @@
+%{
+#include "cxx-driver.h"
+#include "cxx-utils.h"
+
+#define DEBUG_OPTION_REF(x) (&(compilation_options.debug_options.x))
+%}
+
+struct debug_flags_list_t;
+%%
+"abort_on_ice", DEBUG_OPTION_REF(abort_on_ice)
+"print_scope", DEBUG_OPTION_REF(print_scope)
+"print_scope_brief", DEBUG_OPTION_REF(print_scope_brief)
+"enable_debug_code", DEBUG_OPTION_REF(enable_debug_code)
+"debug_lexer", DEBUG_OPTION_REF(debug_lexer)
+"debug_parser", DEBUG_OPTION_REF(debug_parser)
+%%
+
+char** list_of_debug_flags(void)
+{
+    char** result = NULL;
+
+    int i = 0;
+    int j = 0;
+    while (i < TOTAL_KEYWORDS)
+    {
+        char* keyword = debugflags_list[j].name;
+
+        if (keyword != NULL && *keyword != '\0')
+        {
+            P_LIST_ADD(result, i, keyword);
+        }
+
+        j++;
+    }
+
+    P_LIST_ADD(result, i, NULL);
+
+    return result;
+}
