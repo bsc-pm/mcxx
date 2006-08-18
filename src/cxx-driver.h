@@ -67,6 +67,7 @@ struct debug_flags_list_t
 {
     char* name;
     char* flag_pointer;
+    char* description;
 };
 
 typedef struct debug_options_tag
@@ -154,6 +155,6 @@ extern void mcxxparse(AST* a);
 extern int mc99debug;
 extern void mc99parse(AST* a);
 
-char** list_of_debug_flags(void);
+struct debug_flags_list_t** list_of_debug_flags(void);
 
 #endif // CXX_DRIVER_H

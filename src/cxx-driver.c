@@ -175,11 +175,12 @@ static void print_debug_flags_list(void)
 {
     fprintf(stderr, "Debug flag list:\n\n");
 
-    char** debug_flag_list = list_of_debug_flags();
+    struct debug_flags_list_t** debug_flag_list = list_of_debug_flags();
 
     while (*debug_flag_list != NULL)
     {
-        fprintf(stderr, "      %s\n", *debug_flag_list);
+        fprintf(stderr, " * %s\n", (*debug_flag_list)->name);
+        fprintf(stderr, " %s\n\n", (*debug_flag_list)->description);
         debug_flag_list++;
     }
 }
