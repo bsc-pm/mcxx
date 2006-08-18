@@ -30,11 +30,16 @@ compilation_options_t compilation_options;
 "  -o, --output=<file>      Sets <file> as the output file\n" \
 "  -c                       Does not link, just compile.\n" \
 "  -E                       Does not compile, just preprocess.\n" \
+"  -y                       Only parsing will be performed.\n" \
+"                           No file will be generated.\n" \
 "  -k, --keep-files         Do not remove intermediate temporary\n" \
 "                           files.\n" \
 "  -a, --check-dates        Checks dates before regenerating files\n" \
 "  -g, --graphviz           Outputs AST in graphviz format\n" \
 "  -d, --debug              Prints lots of debugging information\n" \
+"  --debug-flag=<flag>      Enables <flag> in debugging. \n" \
+"                           <flag> can be one of the following: \n" \
+"                                abort_on_ice\n" \
 "  --cpp=<name>             Preprocessor <name> will be used for\n" \
 "                           preprocessing\n" \
 "  --cxx=<name>             Compiler <name> will be used for native\n" \
@@ -53,7 +58,7 @@ compilation_options_t compilation_options;
 "\n"
 
 // Remember to update GETOPT_STRING if needed
-#define GETOPT_STRING "vkagdcho:m:W:E"
+#define GETOPT_STRING "vkagdcho:m:W:Ey"
 struct option getopt_long_options[] =
 {
 	{"help",        no_argument, NULL, 'h'},
@@ -69,6 +74,7 @@ struct option getopt_long_options[] =
 	{"cxx", required_argument, NULL, OPTION_NATIVE_COMPILER_NAME},
 	{"cpp", required_argument, NULL, OPTION_PREPROCESSOR_NAME},
 	{"ld", required_argument, NULL, OPTION_LINKER_NAME},
+    {"debug-flag",  required_argument, NULL, OPTION_DEBUG_FLAG},
 	// sentinel
 	{NULL, 0, NULL, 0}
 };
@@ -101,6 +107,8 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node);
 static void link_objects(void);
 
 static void parse_subcommand_arguments(char* arguments);
+
+static void enable_debug_flag(char* flag);
 
 int main(int argc, char* argv[])
 {
@@ -211,6 +219,13 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 					compilation_options.do_not_link = 1;
 					break;
 				}
+            case 'y' : // -y
+                {
+					compilation_options.do_not_compile = 1;
+					compilation_options.do_not_link = 1;
+                    compilation_options.do_not_prettyprint = 1;
+					break;
+                }
 			case 'a' : // --check-dates || -a
 				{
 					compilation_options.check_dates = 1;
@@ -258,6 +273,11 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 					compilation_options.linker_name = GC_STRDUP(optarg);
 					break;
 				}
+            case OPTION_DEBUG_FLAG :
+                {
+                    enable_debug_flag(optarg);
+                    break;
+                }
 			case 'h' :
 				{
 					help_message();
@@ -313,6 +333,18 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 	{
 		compilation_options.linked_output_filename = output_file;
 	}
+}
+
+static void enable_debug_flag(char* flag)
+{
+    if (strcmp(flag, "abort_on_ice") == 0)
+    {
+        compilation_options.abort_on_ice = 1;
+    }
+    else
+    {
+        fprintf(stderr, "Debug flag '%s' unknown. Ignored.\n", flag);
+    }
 }
 
 static void parse_subcommand_arguments(char* arguments)
@@ -552,6 +584,11 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 
 static char* prettyprint_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
 {
+    if (compilation_options.do_not_prettyprint)
+    {
+        return NULL;
+    }
+
 	char* output_filename = NULL;
 
 	char* input_filename_dirname = give_dirname(translation_unit->input_filename);

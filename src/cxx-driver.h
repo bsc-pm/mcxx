@@ -13,6 +13,7 @@ typedef enum
 	OPTION_PREPROCESSOR_NAME,
 	OPTION_NATIVE_COMPILER_NAME,
 	OPTION_LINKER_NAME,
+	OPTION_DEBUG_FLAG,
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
@@ -75,7 +76,9 @@ typedef struct compilation_options_tag
 	char check_dates;
 	char do_not_link;
 	char do_not_compile;
+	char do_not_prettyprint;
 	char debug_level;
+    char abort_on_ice;
 	
 	// Source language information
 	source_language_t source_language;
