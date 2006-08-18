@@ -27,8 +27,8 @@ foreach test $testcases {
             xfail "$test"
         } elseif [expr {$kind_of_test == "success"}] {
             fail "$test"
-            send_user "${output_execution}\n"
         } 
+            send_user "${output_execution}\n"
     } else {
         if [expr { $kind_of_test == "success" }] {
             pass "$test"
