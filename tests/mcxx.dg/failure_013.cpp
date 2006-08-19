@@ -1,0 +1,3 @@
+namespace a { }
+
+int a;

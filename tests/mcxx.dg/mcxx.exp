@@ -20,7 +20,7 @@ foreach test $testcases {
     set output_execution ""
     if {
         [catch { 
-            set output_execution [exec "$full_path_tool" "-y" "$test" "|&" "cat"] 
+            set output_execution [exec "$full_path_tool" "-y" "--debug-flag=print_scope_brief" "$test" "|&" "cat"] 
         } output_execution ]
     } {
         if [expr { $kind_of_test == "xfailure" }] {
