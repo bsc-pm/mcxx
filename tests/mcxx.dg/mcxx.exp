@@ -5,6 +5,8 @@ set testcases [lsort [find $srcdir/$subdir *.cpp]]
 
 foreach test $testcases {
     set basename_test [file tail $test]
+    set dirname_test [file dirname $test]
+    set rootname_test [file rootname $test]
     set kind_of_test ""
     if [string match "success_*" $basename_test] {
         set kind_of_test "success"
@@ -20,7 +22,7 @@ foreach test $testcases {
     set output_execution ""
     if {
         [catch { 
-            set output_execution [exec "$full_path_tool" "-y" "--debug-flag=print_scope_brief" "$test" "|&" "cat"] 
+            set output_execution [exec "$full_path_tool" "--verbose" "--cxx=c++" "-c" "--debug-flag=print_scope_brief" "$test" "|&" "cat"] 
         } output_execution ]
     } {
         if [expr { $kind_of_test == "xfailure" }] {
@@ -28,7 +30,6 @@ foreach test $testcases {
         } elseif [expr {$kind_of_test == "success"}] {
             fail "$test"
         } 
-        send_log "${output_execution}\n"
     } else {
         if [expr { $kind_of_test == "success" }] {
             pass "$test"
@@ -36,4 +37,7 @@ foreach test $testcases {
             xpass "$test"
         }
     }
+    send_log "${output_execution}\n"
+
+    exec "sh" "-c" "rm -f ${dirname_test}/mcxx_${basename_test} ${rootname_test}.o"
 }
