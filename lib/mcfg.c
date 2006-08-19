@@ -240,19 +240,16 @@ openConfFile (char *filename)
 {
   FILE *fp = (FILE *) NULL;
 
-  char *func = "params.c:openConfFile() -";
-
   if ((filename == NULL) || (*filename == '\0'))
     {
-      (void) fprintf (stderr, "%s no config file specified.\n", func);
+      (void) fprintf (stderr, "No config file specified.\n");
       return ((FILE *) NULL);
     }
 
   fp = fopen (filename, "r");
   if (fp == (FILE *) NULL)
     {
-      (void) fprintf (stderr, "%s unable to open config file %s\n",
-		      func, filename);
+      (void) fprintf (stderr, "Unable to open config file '%s'\n", filename);
       return ((FILE *) NULL);
     }
 
@@ -262,7 +259,7 @@ openConfFile (char *filename)
 
 
 /*
-**  paramProcess()
+**  param_process()
 **  process the named parameter file
 **
 **  Parameters:
@@ -306,10 +303,10 @@ openConfFile (char *filename)
 */
 
 int
-paramProcess (char *filename,
+param_process (char *filename,
 	      int style, int (*sfunc) (char *), int (*pfunc) (char *, char *))
 {
-  char *func = "params.c:paramProcess() -";
+  char *func = "params.c:param_process() -";
 
   int result;
 
@@ -318,7 +315,7 @@ paramProcess (char *filename,
   /* open the conf file */
   fp = openConfFile (filename);
   if (fp == (FILE *) NULL)
-    return (-1);
+    return (PPR_OPEN_FILE_ERROR);
 
   if (bufr != NULL)
     result = Parse (fp, style, sfunc, pfunc);
@@ -330,7 +327,7 @@ paramProcess (char *filename,
 	{
 	  (void) fprintf (stderr, "%s GC_MALLOC failed\n", func);
 	  (void) fclose (fp);
-	  return (-2);
+	  return (PPR_MALLOC_ERROR);
 	}
       result = Parse (fp, style, sfunc, pfunc);
       // free(bufr);
@@ -342,10 +339,10 @@ paramProcess (char *filename,
     {
       (void) fprintf (stderr, "%s failed. error returned from Parse()\n",
 		      func);
-      return (-3);
+      return (PPR_PARSE_ERROR);
     }
 
-  return (0);
+  return (PPR_SUCCESS);
 }
 
 /*

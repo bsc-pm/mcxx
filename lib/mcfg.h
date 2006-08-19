@@ -13,9 +13,19 @@
 /*
 ** function prototypes
 */
-int paramProcess(char *filename,int style,
+typedef
+enum param_process_result_tag
+{
+    PPR_SUCCESS = 0,
+    PPR_OPEN_FILE_ERROR = -1,
+    PPR_MALLOC_ERROR = -2,
+    PPR_PARSE_ERROR = -3
+} param_process_t;
+
+int param_process(char *filename,int style,
 		int (*sfunc)(char *),
 		int (*pfunc)(char *,char *));
 char *getCurrentSection(void);
+
 
 #endif  /* INI_H */
