@@ -761,6 +761,7 @@ static void type_id_handler(FILE* f, AST a, int level)
 
 	if (ASTSon1(a) != NULL)
 	{
+        token_fprintf(f, a, " ");
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 }

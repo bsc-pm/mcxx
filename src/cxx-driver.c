@@ -552,14 +552,8 @@ static void compile_every_translation_unit(void)
 
 static void parse_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
 {
-	NOT_DEBUG_CODE()
-	{
-		mcxx_flex_debug = mc99_flex_debug = mcxxdebug = mc99debug = 0;
-	}
-	DEBUG_CODE()
-	{
-		mcxx_flex_debug = mc99_flex_debug = mcxxdebug = mc99debug = 1;
-	}
+    mcxx_flex_debug = mc99_flex_debug = compilation_options.debug_options.debug_lexer;
+    mcxxdebug = mc99debug = compilation_options.debug_options.debug_parser;
 
 	timing_t timing_parsing;
 

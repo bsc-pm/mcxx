@@ -2216,8 +2216,13 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 		if (parameter_declarator != NULL)
 		{
 			type_t* type_info;
-			build_scope_declarator(parameter_declarator, parameters_scope, 
+			scope_entry_t* entry = build_scope_declarator(parameter_declarator, parameters_scope, 
 					&gather_info, simple_type_info, &type_info, default_decl_context);
+
+            if (entry != NULL)
+            {
+                entry->defined = 1;
+            }
 
 			parameter_info_t* new_parameter = GC_CALLOC(1, sizeof(*new_parameter));
 			new_parameter->type_info = type_info;
@@ -2236,7 +2241,6 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 			new_parameter->default_argument = default_argument;
 
 			P_LIST_ADD(declarator_type->function->parameter_list, declarator_type->function->num_parameters, new_parameter);
-
 		}
 	}
 
@@ -2793,7 +2797,7 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 		{
 			ERROR_CONDITION((entry->kind != SK_ENUM && entry->kind != SK_CLASS), 
 					"Symbol '%s' already declared as a different symbol type", 
-					ASTText(declarator_id), 
+					prettyprint_in_buffer(declarator_id), 
 					entry->kind);
 
 			entry_list = entry_list->next;
@@ -3126,7 +3130,7 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 
 	if (init_declarator_list != NULL)
 	{
-		ERROR_CONDITION((ASTSon0(init_declarator_list) != NULL), "In template declarations only one declarator is valid", 0);
+		// ERROR_CONDITION((ASTSon0(init_declarator_list) != NULL), "In template declarations only one declarator is valid", 0);
 
 		AST init_declarator = ASTSon1(init_declarator_list);
 
@@ -3582,7 +3586,7 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
 	}
 }
 
-static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st)
+static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st, scope_t* class_scope)
 {
 	// This function merely disambiguates
 	AST mem_initializer_list = ASTSon0(ctor_initializer);
@@ -3603,10 +3607,49 @@ static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st)
 					AST nested_name_spec = ASTSon1(mem_initializer_id);
 					AST symbol = ASTSon2(mem_initializer_id);
 
-					scope_entry_list_t* result_list = query_nested_name(st, global_op, nested_name_spec, symbol, FULL_UNQUALIFIED_LOOKUP);
+                    scope_entry_list_t* result_list = NULL;
+                    result_list = query_nested_name(class_scope, global_op, nested_name_spec, symbol, 
+                            FULL_UNQUALIFIED_LOOKUP);
 
 					ERROR_CONDITION((result_list == NULL), "Initialized entity in constructor initializer not found (%s)", 
 							node_information(symbol));
+
+                    scope_entry_t* entry = result_list->entry;
+
+                    if (entry->kind == SK_VARIABLE)
+                    {
+                        ERROR_CONDITION(entry->scope != class_scope,
+                                "This symbol does not belong to this class (%s)", 
+                                node_information(symbol));
+                    }
+                    else if (entry->kind == SK_CLASS
+                            || entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+                            || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+                    {
+                        // It must be a direct base class
+                        char found = 0;
+                        int i;
+                        for (i = 0; i < class_scope->num_base_scopes; i++)
+                        {
+                            scope_t* base_scope = class_scope->base_scope[i];
+
+                            // Fix this. It is an ugly way to check if they
+                            // hold the same entities
+                            if (base_scope->hash == entry->related_scope->hash)
+                            {
+                                found = 1;
+                                break;
+                            }
+                        }
+
+                        ERROR_CONDITION(!found,
+                                "This symbol is not a direct base of this class (%s)", 
+                                node_information(symbol));
+                    }
+                    else
+                    {
+                        internal_error("Unexpected symbol kind %d", entry->kind);
+                    }
 
 					if (expression_list != NULL)
 					{
@@ -3730,7 +3773,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
         if (ctor_initializer != NULL)
         {
             scope_t* ctor_scope = new_block_scope(st, parameter_scope, inner_scope);
-            build_scope_ctor_initializer(ctor_initializer, ctor_scope);
+            build_scope_ctor_initializer(ctor_initializer, ctor_scope, st);
         }
     }
     C_LANGUAGE()
@@ -3763,6 +3806,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 			this_symbol->line = ASTLine(function_body);
 			this_symbol->kind = SK_VARIABLE;
 			this_symbol->type_information = this_type;
+            this_symbol->defined = 1;
 		}
 	}
 
