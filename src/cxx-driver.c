@@ -36,8 +36,9 @@ compilation_options_t compilation_options;
 "                           files.\n" \
 "  -a, --check-dates        Checks dates before regenerating files\n" \
 "  -g, --graphviz           Outputs AST in graphviz format\n" \
-"  --debug-flag=<flag>      Enables <flag> in debugging. Valid flags\n" \
-"                           can be listed with --help-debug-flags\n" \
+"  --debug-flags=<flags>    Comma-separated list of flags for used\n" \
+"                           when debugging. Valid flags can be listed\n" \
+"                           with --help-debug-flags\n" \
 "  --cpp=<name>             Preprocessor <name> will be used for\n" \
 "                           preprocessing\n" \
 "  --cxx=<name>             Compiler <name> will be used for native\n" \
@@ -72,7 +73,7 @@ struct option getopt_long_options[] =
 	{"cxx", required_argument, NULL, OPTION_NATIVE_COMPILER_NAME},
 	{"cpp", required_argument, NULL, OPTION_PREPROCESSOR_NAME},
 	{"ld", required_argument, NULL, OPTION_LINKER_NAME},
-    {"debug-flag",  required_argument, NULL, OPTION_DEBUG_FLAG},
+    {"debug-flags",  required_argument, NULL, OPTION_DEBUG_FLAG},
     {"help-debug-flags", no_argument, NULL, OPTION_HELP_DEBUG_FLAGS},
 	// sentinel
 	{NULL, 0, NULL, 0}
@@ -120,12 +121,12 @@ int main(int argc, char* argv[])
 	// Argument parsing
 	initialize_default_values();
 	
-	// Load configuration
-	load_configuration();
-
 	// Parse arguments
 	parse_arguments(compilation_options.argc, 
 		compilation_options.argv, /* from_command_line= */1);
+    
+	// Load configuration
+	load_configuration();
 
 	// Compilation of every specified translation unit
 	compile_every_translation_unit();
@@ -283,7 +284,7 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 				}
             case OPTION_DEBUG_FLAG :
                 {
-                    enable_debug_flag(optarg);
+                    enable_debug_flag(GC_STRDUP(optarg));
                     break;
                 }
             case OPTION_HELP_DEBUG_FLAGS :
@@ -348,23 +349,32 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 	}
 }
 
-static void enable_debug_flag(char* flag)
+static void enable_debug_flag(char* flags)
 {
-   struct debug_flags_list_t* flag_option = 
-       debugflags_lookup (flag, strlen(flag));
+    int num_flags = 0;
+    char** flag_list = comma_separate_values(flags, &num_flags);
 
-   if (flag_option != NULL)
-   {
-       *(flag_option->flag_pointer) = 1;
-   }
-   else
-   {
-       fprintf(stderr, "Debug flag '%s' unknown. Ignoring it\n", flag);
-   }
+    int i;
+    for (i = 0; i < num_flags; i++)
+    {
+        char* flag = flag_list[i];
 
-   // Fix scope printing
-   compilation_options.debug_options.print_scope |= 
-       compilation_options.debug_options.print_scope_brief;
+        struct debug_flags_list_t* flag_option = 
+            debugflags_lookup (flag, strlen(flag));
+
+        if (flag_option != NULL)
+        {
+            *(flag_option->flag_pointer) = 1;
+        }
+        else
+        {
+            fprintf(stderr, "Debug flag '%s' unknown. Ignoring it\n", flag);
+        }
+    }
+
+    // Fix scope printing
+    compilation_options.debug_options.print_scope |= 
+        compilation_options.debug_options.print_scope_brief;
 }
 
 static void parse_subcommand_arguments(char* arguments)
@@ -412,9 +422,21 @@ static void parse_subcommand_arguments(char* arguments)
 
 static void initialize_default_values(void)
 {
+    int dummy = 0;
 	// Initialize here all default values
 	compilation_options.config_file = PKGDATADIR "/config.mcxx";
 	compilation_options.num_translation_units = 0;
+
+    compilation_options.source_language = SOURCE_LANGUAGE_CXX;
+
+    compilation_options.preprocessor_name = GC_STRDUP("c++");
+    compilation_options.preprocessor_options = comma_separate_values(GC_STRDUP("-E"), &dummy);
+
+    compilation_options.native_compiler_name = GC_STRDUP("c++");
+    compilation_options.native_compiler_options = NULL;
+
+    compilation_options.linker_name = GC_STRDUP("c++");
+    compilation_options.linker_options = NULL;
 }
 
 static void print_version(void)
@@ -457,8 +479,37 @@ static int parameter_callback(char* parameter, char* value)
 
 static void load_configuration(void)
 {
-	paramProcess(compilation_options.config_file, MS_STYLE, 
+	int result = param_process(compilation_options.config_file, MS_STYLE, 
 			section_callback, parameter_callback);
+
+    switch (result)
+    {
+        case PPR_OPEN_FILE_ERROR :
+            {
+                fprintf(stderr, "Setting to C++ built-in configuration\n");
+                // This has already been done in initialize_default_values
+                break;
+            }
+        case PPR_PARSE_ERROR :
+            {
+                fprintf(stderr, "Config file is ill-formed. Check its syntax\n");
+                break;
+            }
+        case PPR_MALLOC_ERROR :
+            {
+                internal_error("Could not allocate memory for configuration file parsing", 0);
+                break;
+            }
+        case PPR_SUCCESS :
+            {
+                // Everything went well
+                break;
+            }
+       default :
+            {
+                internal_error("Function param_process returned an invalid value %d", result);
+            }
+    }
 }
 
 static void compile_every_translation_unit(void)
@@ -501,7 +552,7 @@ static void compile_every_translation_unit(void)
 
         if (compilation_options.verbose)
         {
-            fprintf(stderr, "Compilting file '%s'\n", translation_unit->input_filename);
+            fprintf(stderr, "Compiling file '%s'\n", translation_unit->input_filename);
         }
 
 		char* parsed_filename = translation_unit->input_filename;

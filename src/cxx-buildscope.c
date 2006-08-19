@@ -3615,40 +3615,61 @@ static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st, scop
 							node_information(symbol));
 
                     scope_entry_t* entry = result_list->entry;
-
-                    if (entry->kind == SK_VARIABLE)
+                    // This checking code is only partially correct
+                    // and covers very obvious cases
+                    if (!is_dependent_tree(mem_initializer_id, class_scope))
                     {
-                        ERROR_CONDITION(entry->scope != class_scope,
-                                "This symbol does not belong to this class (%s)", 
-                                node_information(symbol));
-                    }
-                    else if (entry->kind == SK_CLASS
-                            || entry->kind == SK_TEMPLATE_PRIMARY_CLASS
-                            || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-                    {
-                        // It must be a direct base class
-                        char found = 0;
-                        int i;
-                        for (i = 0; i < class_scope->num_base_scopes; i++)
+                        if (entry->kind == SK_VARIABLE)
                         {
-                            scope_t* base_scope = class_scope->base_scope[i];
-
-                            // Fix this. It is an ugly way to check if they
-                            // hold the same entities
-                            if (base_scope->hash == entry->related_scope->hash)
-                            {
-                                found = 1;
-                                break;
-                            }
+                            ERROR_CONDITION(entry->scope != class_scope,
+                                    "This symbol does not belong to this class (%s)", 
+                                    node_information(symbol));
                         }
+                        else if (entry->kind == SK_CLASS
+                                || entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+                                || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
+                                || entry->kind == SK_TYPEDEF)
+                        {
+                            scope_entry_t* original_entry = entry;
+                            entry = give_real_entry(entry);
 
-                        ERROR_CONDITION(!found,
-                                "This symbol is not a direct base of this class (%s)", 
-                                node_information(symbol));
-                    }
-                    else
-                    {
-                        internal_error("Unexpected symbol kind %d", entry->kind);
+                            if ((entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+                                        || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+                                    && !entry->type_information->type->from_instantiation)
+                            {
+                                // Ignore this case
+                            }
+                            else
+                            {
+                                // It must be a direct base class
+                                char found = 0;
+                                int i;
+                                for (i = 0; i < class_scope->num_base_scopes; i++)
+                                {
+                                    scope_t* base_scope = class_scope->base_scope[i];
+
+                                    // Fix this. It is an ugly way to check if they
+                                    // hold the same entities
+                                    if (base_scope->hash == entry->related_scope->hash)
+                                    {
+                                        found = 1;
+                                        break;
+                                    }
+                                }
+                                ERROR_CONDITION(!found,
+                                        "Symbol '%s' is not a direct base of this class (%s)", 
+                                        prettyprint_in_buffer(mem_initializer_id),
+                                        node_information(symbol));
+                            }
+
+                        }
+                        else 
+                        {
+                            internal_error("Unexpected symbol '%s' of kind %d in %s", 
+                                    prettyprint_in_buffer(mem_initializer_id),
+                                    entry->kind,
+                                    node_information(symbol));
+                        }
                     }
 
 					if (expression_list != NULL)

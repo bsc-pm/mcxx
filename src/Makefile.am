@@ -1,4 +1,4 @@
-bin_PROGRAMS = mcxx
+bin_PROGRAMS = mcxx mcc
 
 mcxx_SOURCES = \
   cxx-asttype.h \
@@ -42,6 +42,9 @@ mcxx_SOURCES = \
   cxx-debugflags.c \
   c99-scanner.c \
   c99-parser.c
+
+mcc : mcxx
+	cp mcxx mcc
 
 # Currently these files are unused but waiting for their momentum
 #  cxx-koenig.c \
