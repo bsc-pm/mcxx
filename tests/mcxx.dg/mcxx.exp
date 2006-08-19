@@ -9,13 +9,13 @@ foreach test $testcases {
     if [string match "success_*" $basename_test] {
         set kind_of_test "success"
     } elseif [string match "failure_*" $basename_test] {
-        set kind_of_test "expected failure"
+        set kind_of_test "xfailure"
     } else {
         unresolved "$test"
         continue
     }
 
-    send_user "Running ${kind_of_test} test ${basename_test}...\n"
+    send_user "Running test ${basename_test}...\n"
 
     set output_execution ""
     if {
@@ -23,8 +23,8 @@ foreach test $testcases {
             set output_execution [exec "$full_path_tool" "-y" "$test" "|&" "cat"] 
         } output_execution ]
     } {
-        if [expr { $kind_of_test == "expected failure" }] {
-            xfail "$test"
+        if [expr { $kind_of_test == "xfailure" }] {
+            pass "$test"
         } elseif [expr {$kind_of_test == "success"}] {
             fail "$test"
         } 
@@ -32,7 +32,7 @@ foreach test $testcases {
     } else {
         if [expr { $kind_of_test == "success" }] {
             pass "$test"
-        } elseif [expr { $kind_of_test == "expected failure"} ] {
+        } elseif [expr { $kind_of_test == "xfailure"} ] {
             xpass "$test"
         }
     }
