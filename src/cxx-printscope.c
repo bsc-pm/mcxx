@@ -323,7 +323,7 @@ static void print_scope_entry_brief(scope_entry_t* entry, scope_t* st, char* qua
                 symbol_name = strappend(symbol_name, ", ");
             }
         }
-        symbol_name = strappend(symbol_name, ">");
+        symbol_name = strappend(symbol_name, " >");
     }
 
     new_brief_line->symbol_name = strappend(new_brief_line->symbol_name,

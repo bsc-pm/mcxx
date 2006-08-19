@@ -144,8 +144,10 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
 			return complement_operation(ASTSon0(a), st);
 		case AST_SIZEOF :
 		case AST_SIZEOF_TYPEID :
-			WARNING_MESSAGE("Found a sizeof expression while evaluating a constant expression. Assuming zero.\n", 0);
-			return literal_value_zero();
+            {
+                WARNING_MESSAGE("Found a sizeof expression while evaluating a constant expression. Assuming zero.\n", 0);
+                return literal_value_zero();
+            }
 		case AST_EXPLICIT_TYPE_CONVERSION :
 			{
 				// Take the last one
@@ -155,6 +157,11 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
 				AST first_expression = ASTSon1(expression_list);
 				return cast_expression(ASTSon0(a), first_expression, st);
 			}
+        case AST_REFERENCE :
+            {
+                WARNING_MESSAGE("Found an address expression while evaluating a constant expression. Assuming zero.\n", 0);
+                return literal_value_zero();
+            }
 		case AST_AMBIGUITY :
 		default :
 			internal_error("Unsupported node '%s' when evaluating constant expression (%s)", 

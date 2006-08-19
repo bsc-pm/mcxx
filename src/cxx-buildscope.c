@@ -4552,10 +4552,13 @@ void build_scope_template_arguments(AST class_head_id,
 
 	list = ASTSon1(class_head_id);
 	// Count the arguments
-	for_each_element(list, iter)
-	{
-		num_arguments++;
-	}
+    if (list != NULL)
+    {
+        for_each_element(list, iter)
+        {
+            num_arguments++;
+        }
+    }
 
 	solve_possibly_ambiguous_template_id(class_head_id, arguments_scope);
 	
@@ -4591,75 +4594,78 @@ void build_scope_template_arguments(AST class_head_id,
 	primary_template = primary_template_list->entry;
 
 	list = ASTSon1(class_head_id);
-	for_each_element(list, iter)
-	{
-		AST template_argument = ASTSon1(iter);
+    if (list != NULL)
+    {
+        for_each_element(list, iter)
+        {
+            AST template_argument = ASTSon1(iter);
 
-		// We should check if this names a type
-		// There is an ambiguity around here that will have to be handled
-		switch (ASTType(template_argument))
-		{
-			case AST_TEMPLATE_TYPE_ARGUMENT:
-				{
-					template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
-					new_template_argument->kind = TAK_TYPE;
-					// Create the type_spec
-					// A type_id is a type_specifier_seq followed by an optional abstract
-					// declarator
-					AST type_template_argument = ASTSon0(template_argument);
-					AST type_specifier_seq = ASTSon0(type_template_argument);
-					AST abstract_decl = ASTSon1(type_template_argument);
+            // We should check if this names a type
+            // There is an ambiguity around here that will have to be handled
+            switch (ASTType(template_argument))
+            {
+                case AST_TEMPLATE_TYPE_ARGUMENT:
+                    {
+                        template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
+                        new_template_argument->kind = TAK_TYPE;
+                        // Create the type_spec
+                        // A type_id is a type_specifier_seq followed by an optional abstract
+                        // declarator
+                        AST type_template_argument = ASTSon0(template_argument);
+                        AST type_specifier_seq = ASTSon0(type_template_argument);
+                        AST abstract_decl = ASTSon1(type_template_argument);
 
-					// A type_specifier_seq is essentially a subset of a
-					// declarator_specifier_seq so we can reuse existing functions
-					type_t* type_info;
-					gather_decl_spec_t gather_info;
-					memset(&gather_info, 0, sizeof(gather_info));
+                        // A type_specifier_seq is essentially a subset of a
+                        // declarator_specifier_seq so we can reuse existing functions
+                        type_t* type_info;
+                        gather_decl_spec_t gather_info;
+                        memset(&gather_info, 0, sizeof(gather_info));
 
-					build_scope_decl_specifier_seq(type_specifier_seq, arguments_scope, &gather_info, &type_info,
-							default_decl_context);
+                        build_scope_decl_specifier_seq(type_specifier_seq, arguments_scope, &gather_info, &type_info,
+                                default_decl_context);
 
-					type_t* declarator_type;
-					if (abstract_decl != NULL)
-					{
-						build_scope_declarator(abstract_decl, arguments_scope, &gather_info, type_info, &declarator_type,
-								default_decl_context);
-					}
-					else
-					{
-						declarator_type = type_info;
-					}
-					new_template_argument->type = declarator_type;
-					new_template_argument->argument_tree = template_argument;
-					new_template_argument->scope = copy_scope(arguments_scope);
-					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
-					break;
-				}
-			case AST_TEMPLATE_EXPRESSION_ARGUMENT :
-				{
-					// This expression is of limited nature
-					template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
-					new_template_argument->kind = TAK_NONTYPE;
+                        type_t* declarator_type;
+                        if (abstract_decl != NULL)
+                        {
+                            build_scope_declarator(abstract_decl, arguments_scope, &gather_info, type_info, &declarator_type,
+                                    default_decl_context);
+                        }
+                        else
+                        {
+                            declarator_type = type_info;
+                        }
+                        new_template_argument->type = declarator_type;
+                        new_template_argument->argument_tree = template_argument;
+                        new_template_argument->scope = copy_scope(arguments_scope);
+                        P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
+                        break;
+                    }
+                case AST_TEMPLATE_EXPRESSION_ARGUMENT :
+                    {
+                        // This expression is of limited nature
+                        template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
+                        new_template_argument->kind = TAK_NONTYPE;
 
-					AST expr_template_argument = ASTSon0(template_argument);
+                        AST expr_template_argument = ASTSon0(template_argument);
 
-					new_template_argument->argument_tree = expr_template_argument;
-					new_template_argument->scope = template_scope;
+                        new_template_argument->argument_tree = expr_template_argument;
+                        new_template_argument->scope = template_scope;
 
-					P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
-					break;
-				}
-			case AST_AMBIGUITY :
-				{
-					internal_error("Ambiguous node\n", 0);
-					break;
-				}
-			default :
-				internal_error("Unexpected node '%s' (%s)\n", ast_print_node_type(ASTType(template_argument)),
-						node_information(template_argument));
-				break;
-		}
-	}
+                        P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
+                        break;
+                    }
+                case AST_AMBIGUITY :
+                    {
+                        internal_error("Ambiguous node\n", 0);
+                        break;
+                    }
+                default :
+                    internal_error("Unexpected node '%s' (%s)\n", ast_print_node_type(ASTType(template_argument)),
+                            node_information(template_argument));
+                    break;
+            }
+        }
+    }
 
 	if (primary_template->num_template_parameters > num_arguments)
 	{
@@ -4715,7 +4721,8 @@ void build_scope_template_arguments(AST class_head_id,
                         }
                     case SK_TEMPLATE_PARAMETER : 
                         {
-                            int parameter_num = entry->type_information->type->template_parameter_num;
+                            type_t* simple_type_info = base_type(entry->type_information);
+                            int parameter_num = simple_type_info->type->template_parameter_num;
 
                             if (parameter_num < num_arguments)
                             {
@@ -4772,6 +4779,8 @@ void build_scope_template_arguments(AST class_head_id,
 
                             curr_template_arg->kind = TAK_TYPE;
                             curr_template_arg->scope = copy_scope(template_argument_scope);
+
+                            curr_template_arg->argument_tree = curr_template_parameter->default_tree;
 
                             AST type_template_argument = curr_template_parameter->default_tree;
                             AST type_specifier_seq = ASTSon0(type_template_argument);
