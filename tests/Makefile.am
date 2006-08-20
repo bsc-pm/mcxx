@@ -53,7 +53,7 @@ EXTRA_DIST = \
 
 AUTOMAKE_OPTIONS = dejagnu
 
-RUNTESTFLAGS=--srcdir=$(srcdir) BUILD_DIR=../src
+RUNTESTFLAGS=--srcdir=$(srcdir) 
 
 DEJATOOL = \
   mcxx
