@@ -15,6 +15,7 @@ typedef enum
     OPTION_LINKER_NAME,
     OPTION_DEBUG_FLAG,
     OPTION_HELP_DEBUG_FLAGS,
+    OPTION_OUTPUT_DIRECTORY
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
@@ -127,6 +128,8 @@ typedef struct compilation_options_tag
 
     char* linker_name;
     char** linker_options;
+
+    char* output_directory;
 } compilation_options_t;
 
 extern compilation_options_t compilation_options;

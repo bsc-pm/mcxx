@@ -36,6 +36,9 @@ compilation_options_t compilation_options;
 "                           files.\n" \
 "  -a, --check-dates        Checks dates before regenerating files\n" \
 "  -g, --graphviz           Outputs AST in graphviz format\n" \
+"  --output-dir=<dir>       Prettyprinted files will be left in\n" \
+"                           directory <dir>. Otherwise the input\n" \
+"                           file directory is used.\n" \
 "  --debug-flags=<flags>    Comma-separated list of flags for used\n" \
 "                           when debugging. Valid flags can be listed\n" \
 "                           with --help-debug-flags\n" \
@@ -69,6 +72,7 @@ struct option getopt_long_options[] =
     {"debug",       no_argument, NULL, 'd'},
     {"output",      required_argument, NULL, 'o'},
     {"config-file", required_argument, NULL, 'm'},
+    {"output-dir",  required_argument, NULL, OPTION_OUTPUT_DIRECTORY},
     {"cc", required_argument, NULL, OPTION_NATIVE_COMPILER_NAME},
     {"cxx", required_argument, NULL, OPTION_NATIVE_COMPILER_NAME},
     {"cpp", required_argument, NULL, OPTION_PREPROCESSOR_NAME},
@@ -285,6 +289,11 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
             case OPTION_DEBUG_FLAG :
                 {
                     enable_debug_flag(GC_STRDUP(optarg));
+                    break;
+                }
+            case OPTION_OUTPUT_DIRECTORY :
+                {
+                    compilation_options.output_directory = GC_STRDUP(optarg);
                     break;
                 }
             case OPTION_HELP_DEBUG_FLAGS :
@@ -654,20 +663,30 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
         return NULL;
     }
 
-    char* output_filename = NULL;
-
-    char* input_filename_dirname = give_dirname(translation_unit->input_filename);
-    input_filename_dirname = strappend(input_filename_dirname, "/");
-
     char* input_filename_basename = NULL;
     input_filename_basename = give_basename(translation_unit->input_filename);
 
     char* preffix = strappend(compilation_options.exec_basename, "_");
-    char* output_filename_basename = strappend(preffix,
+
+    char* output_filename_basename = NULL; 
+    output_filename_basename = strappend(preffix,
             input_filename_basename);
 
-    output_filename = strappend(input_filename_dirname,
-            output_filename_basename);
+    char* output_filename = NULL;
+
+    if (compilation_options.output_directory == NULL)
+    {
+        char* input_filename_dirname = give_dirname(translation_unit->input_filename);
+        input_filename_dirname = strappend(input_filename_dirname, "/");
+
+        output_filename = strappend(input_filename_dirname,
+                output_filename_basename);
+    }
+    else
+    {
+        output_filename = strappend(compilation_options.output_directory, "/");
+        output_filename = strappend(output_filename, output_filename_basename);
+    }
 
     FILE* prettyprint_file = fopen(output_filename, "w");
 
