@@ -197,7 +197,6 @@ MAINT = @MAINT@
 MAINTAINER_MODE_FALSE = @MAINTAINER_MODE_FALSE@
 MAINTAINER_MODE_TRUE = @MAINTAINER_MODE_TRUE@
 MAKEINFO = @MAKEINFO@
-MY_CFLAGS = @MY_CFLAGS@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
@@ -362,9 +361,9 @@ all_objs = @addobjs@ $(libgc_la_OBJECTS)
 @COMPILER_XLC_TRUE@ASM_CPP_OPTIONS = 
 LTCOMPILE = $(LIBTOOL) --mode=compile $(CC) $(DEFS) $(INCLUDES) \
 	$(AM_CPPFLAGS) $(CPPFLAGS) \
-	$(AM_CFLAGS) $(MY_CFLAGS) $(GC_CFLAGS) 
+	$(AM_CFLAGS) $(GC_CFLAGS) 
 
-LINK = $(LIBTOOL) --mode=link $(CC) $(AM_CFLAGS) $(MY_CFLAGS) $(LDFLAGS) -o $@
+LINK = $(LIBTOOL) --mode=link $(CC) $(AM_CFLAGS) $(LDFLAGS) -o $@
 dist_noinst_SCRIPTS = callprocs configure.host
 
 # this is an auxiliary shell file used by Makefile and Makefile.direct

@@ -882,7 +882,6 @@ CPP
 GREP
 EGREP
 LIBTOOL
-MY_CFLAGS
 UNWINDLIBS
 USE_LIBDIR_TRUE
 USE_LIBDIR_FALSE
@@ -7037,7 +7036,7 @@ test "x$enable_libtool_lock" != xno && enable_libtool_lock=yes
 case $host in
 *-*-irix6*)
   # Find out which ABI we are using.
-  echo '#line 7040 "configure"' > conftest.$ac_ext
+  echo '#line 7039 "configure"' > conftest.$ac_ext
   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (eval $ac_compile) 2>&5
   ac_status=$?
@@ -7652,7 +7651,7 @@ chmod -w .
 save_CFLAGS="$CFLAGS"
 CFLAGS="$CFLAGS -o out/conftest2.$ac_objext"
 compiler_c_o=no
-if { (eval echo configure:7655: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>out/conftest.err; } && test -s out/conftest2.$ac_objext; then
+if { (eval echo configure:7654: \"$ac_compile\") 1>&5; (eval $ac_compile) 2>out/conftest.err; } && test -s out/conftest2.$ac_objext; then
   # The compiler can only warn and ignore the option if not recognized
   # So say no if there are warnings
   if test -s out/conftest.err; then
@@ -9681,7 +9680,7 @@ else
     lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<EOF
-#line 9684 "configure"
+#line 9683 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -9779,7 +9778,7 @@ else
     lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<EOF
-#line 9782 "configure"
+#line 9781 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -10739,8 +10738,6 @@ echo "${ECHO_T}no" >&6; }
  *) { echo "$as_me:$LINENO: result: no" >&5
 echo "${ECHO_T}no" >&6; } ;;
 esac
-
-MY_CFLAGS="$CFLAGS"
 
 
 cat >>confdefs.h <<\_ACEOF
@@ -11841,7 +11838,6 @@ CPP!$CPP$ac_delim
 GREP!$GREP$ac_delim
 EGREP!$EGREP$ac_delim
 LIBTOOL!$LIBTOOL$ac_delim
-MY_CFLAGS!$MY_CFLAGS$ac_delim
 UNWINDLIBS!$UNWINDLIBS$ac_delim
 USE_LIBDIR_TRUE!$USE_LIBDIR_TRUE$ac_delim
 USE_LIBDIR_FALSE!$USE_LIBDIR_FALSE$ac_delim
@@ -11849,7 +11845,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 31; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 30; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
