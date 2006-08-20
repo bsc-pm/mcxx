@@ -1917,6 +1917,11 @@ scope_entry_t* give_real_entry(scope_entry_t* entry)
         }
     }
 
+    if (result->injected_class_name)
+    {
+        result = result->injected_class_referred_symbol;
+    }
+
     return result;
 }
 

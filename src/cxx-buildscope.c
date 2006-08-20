@@ -958,11 +958,15 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
                 class_name = strappend("struct ", class_name);
             }
 
+            new_class = new_symbol(st, class_name);
+
             DEBUG_CODE()
             {
-                fprintf(stderr, "Type not found, creating a stub in this scope for '%s'\n", class_name);
+                fprintf(stderr, "Type not found, creating a stub in scope %p for '%s' %p\n", 
+                        st,
+                        class_name,
+                        new_class);
             }
-            new_class = new_symbol(st, class_name);
 
             new_class->line = ASTLine(class_symbol);
 
@@ -1405,6 +1409,8 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
         AST nested_name_specifier; 
         AST name;
 
+        char is_virtual = 0;
+
         switch (ASTType(base_specifier))
         {
             case AST_BASE_SPECIFIER :
@@ -1414,9 +1420,13 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
                     name = ASTSon2(base_specifier);
                     break;
                 }
-            case AST_BASE_SPECIFIER_ACCESS :
             case AST_BASE_SPECIFIER_VIRTUAL :
             case AST_BASE_SPECIFIER_ACCESS_VIRTUAL :
+                {
+                    is_virtual = 1;
+                    /* Fall through */
+                }
+            case AST_BASE_SPECIFIER_ACCESS :
                 {
                     access_spec = ASTSon0(base_specifier);
                     global_op = ASTSon1(base_specifier);
@@ -1436,15 +1446,13 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
             SK_TEMPLATE_TYPE_PARAMETER, SK_TEMPLATE_TEMPLATE_PARAMETER, SK_TYPEDEF};
         result_list = filter_symbol_kind_set(result_list, 6, filter);
 
+        ERROR_CONDITION((result_list == NULL), "Base class not found!\n", 0);
+        scope_entry_t* result = result_list->entry;
+        result = give_real_entry(result);
+
         if (!is_dependent_tree(nested_name_specifier, st)
                 && !is_dependent_tree(name, st))
         {
-            ERROR_CONDITION((result_list == NULL), "Base class not found!\n", 0);
-
-            scope_entry_t* result = result_list->entry;
-
-            result = give_real_entry(result);
-
             if (result->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
             {
                 if (!result->type_information->type->from_instantiation)
@@ -1464,6 +1472,7 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
                     }
                 }
             }
+
             if (result->related_scope != NULL)
             {
                 DEBUG_CODE()
@@ -1479,13 +1488,31 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
 
                 P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, base_scope);
             }
-
-            base_class_info_t* base_class = GC_CALLOC(1, sizeof(*base_class));
-            base_class->class_type = result_list->entry->type_information;
-// #warning Missing access specifier for bases
-
-            P_LIST_ADD(class_info->base_classes_list, class_info->num_bases, base_class);
         }
+
+        /* Now add virtual inherited classes */
+        class_info_t* base_class_info = result->type_information->type->class_info;
+
+        if (base_class_info != NULL)
+        {
+            int i;
+            for (i = 0; i < base_class_info->num_bases; i++)
+            {
+                base_class_info_t* base_of_base_class = base_class_info->base_classes_list[i];
+
+                if (base_of_base_class->is_virtual)
+                {
+                    P_LIST_ADD_ONCE(class_info->base_classes_list, class_info->num_bases, base_of_base_class);
+                }
+            }
+        }
+
+        base_class_info_t* new_base_class = GC_CALLOC(1, sizeof(*new_base_class));
+        new_base_class->class_symbol = result;
+        new_base_class->class_type = result->type_information;
+        new_base_class->is_virtual = is_virtual;
+
+        P_LIST_ADD(class_info->base_classes_list, class_info->num_bases, new_base_class);
     }
 }
 
@@ -1794,6 +1821,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
             injected_symbol->do_not_print = 1;
 
             injected_symbol->injected_class_name = 1;
+            injected_symbol->injected_class_referred_symbol = class_entry;
         }
     }
 
@@ -3586,9 +3614,33 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
     }
 }
 
-static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st, scope_t* class_scope)
+static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st, 
+        scope_t* class_scope, scope_entry_t* function_entry)
 {
-    // This function merely disambiguates
+    // Get the class symbol
+    char* constructor_name = function_entry->symbol_name;
+    constructor_name += strlen("constructor ");
+
+    scope_entry_list_t* class_entry_list = 
+        query_in_symbols_of_scope(class_scope, constructor_name);
+
+    ERROR_CONDITION(class_entry_list == NULL,
+            "Class of constructor '%s' not found!", function_entry->symbol_name);
+
+    scope_entry_t* class_entry = class_entry_list->entry;
+
+    ERROR_CONDITION(class_entry->kind != SK_CLASS
+            && class_entry->kind != SK_TEMPLATE_PRIMARY_CLASS
+            && class_entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS,
+            "Symbol '%s' is not a class", class_entry->symbol_name);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Class '%s' is symbol %p\n", constructor_name, class_entry);
+    }
+
+    class_info_t* class_entry_info = class_entry->type_information->type->class_info;
+
     AST mem_initializer_list = ASTSon0(ctor_initializer);
     AST iter;
 
@@ -3633,35 +3685,24 @@ static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st, scop
                             scope_entry_t* original_entry = entry;
                             entry = give_real_entry(entry);
 
-                            if ((entry->kind == SK_TEMPLATE_PRIMARY_CLASS
-                                        || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-                                    && !entry->type_information->type->from_instantiation)
+                            // It must be a direct base class
+                            char found = 0;
+                            int i;
+                            for (i = 0; i < class_entry_info->num_bases; i++)
                             {
-                                // Ignore this case
-                            }
-                            else
-                            {
-                                // It must be a direct base class
-                                char found = 0;
-                                int i;
-                                for (i = 0; i < class_scope->num_base_scopes; i++)
+                                base_class_info_t* base_class_info = 
+                                    class_entry_info->base_classes_list[i];
+
+                                if (base_class_info->class_symbol == entry)
                                 {
-                                    scope_t* base_scope = class_scope->base_scope[i];
-
-                                    // Fix this. It is an ugly way to check if they
-                                    // hold the same entities
-                                    if (base_scope->hash == entry->related_scope->hash)
-                                    {
-                                        found = 1;
-                                        break;
-                                    }
+                                    found = 1;
+                                    break;
                                 }
-                                ERROR_CONDITION(!found,
-                                        "Symbol '%s' is not a direct base of this class (%s)", 
-                                        prettyprint_in_buffer(mem_initializer_id),
-                                        node_information(symbol));
                             }
-
+                            ERROR_CONDITION(!found,
+                                    "Symbol '%s' is not a direct base of this class (%s)", 
+                                    prettyprint_in_buffer(mem_initializer_id),
+                                    node_information(symbol));
                         }
                         else 
                         {
@@ -3794,7 +3835,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
         if (ctor_initializer != NULL)
         {
             scope_t* ctor_scope = new_block_scope(st, parameter_scope, inner_scope);
-            build_scope_ctor_initializer(ctor_initializer, ctor_scope, st);
+            build_scope_ctor_initializer(ctor_initializer, ctor_scope, st, entry);
         }
     }
     C_LANGUAGE()

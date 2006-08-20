@@ -396,6 +396,7 @@ int mcxx_open_file_for_scanning(char* scanned_filename, char* input_filename)
 
 	seen_filename(input_filename);
 	main_input_filename = reference_to_seen_filename(input_filename);
+    scanning_now.current_filename = main_input_filename;
 
 	scanning_now.scanning_buffer = yy_create_buffer(file, YY_BUF_SIZE);
 

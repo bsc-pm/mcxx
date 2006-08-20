@@ -161,7 +161,9 @@ typedef struct conversion_function_info_tag
 typedef struct base_class_info_tag
 {
     struct type_tag* class_type;
+    struct scope_entry_tag* class_symbol;
     access_specifier_t access_specifier;
+    char is_virtual;
 } base_class_info_t;
 
 typedef struct class_information_tag {
@@ -397,6 +399,7 @@ typedef struct scope_entry_tag
     char do_not_print;
 
     char injected_class_name;
+    struct scope_entry_tag* injected_class_referred_symbol;
 } scope_entry_t;
 
 // This is what the scope returns
