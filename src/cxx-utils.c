@@ -15,122 +15,122 @@
 
 void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...)
 {
-	va_list ap;
-	char* sanitized_message = GC_STRDUP(message);
+    va_list ap;
+    char* sanitized_message = GC_STRDUP(message);
 
-	// Remove annoying \n at the end. This will make this function
-	// interchangeable with fprintf(stderr, 
-	int length = strlen(sanitized_message);
+    // Remove annoying \n at the end. This will make this function
+    // interchangeable with fprintf(stderr, 
+    int length = strlen(sanitized_message);
 
-	length--;
-	while (length > 0 && sanitized_message[length] == '\n')
-	{
-		sanitized_message[length] = '\0';
-		length--;
-	}
-	
-	char* source_file_copy = GC_STRDUP(source_file);
-	
-	fprintf(stderr, "%s%s:%d %s: ", kind, give_basename(source_file_copy), line, function_name);
-	va_start(ap, function_name);
-	vfprintf(stderr, sanitized_message, ap);
-	va_end(ap);
-	fprintf(stderr, "\n");
+    length--;
+    while (length > 0 && sanitized_message[length] == '\n')
+    {
+        sanitized_message[length] = '\0';
+        length--;
+    }
+    
+    char* source_file_copy = GC_STRDUP(source_file);
+    
+    fprintf(stderr, "%s%s:%d %s: ", kind, give_basename(source_file_copy), line, function_name);
+    va_start(ap, function_name);
+    vfprintf(stderr, sanitized_message, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
 }
 
 void running_error(char* message, ...)
 {
-	va_list ap;
-	
-	fprintf(stderr, "Error: ");
-	va_start(ap, message);
-	vfprintf(stderr, message, ap);
-	va_end(ap);
-	fprintf(stderr, "\n");
+    va_list ap;
+    
+    fprintf(stderr, "Error: ");
+    va_start(ap, message);
+    vfprintf(stderr, message, ap);
+    va_end(ap);
+    fprintf(stderr, "\n");
 
-	exit(EXIT_FAILURE);
+    exit(EXIT_FAILURE);
 }
 
 int prime_hash(char* key, int hash_size)
 {
-	int length = strlen(key);
-	int result = 0;
-	int i;
+    int length = strlen(key);
+    int result = 0;
+    int i;
 
-	for (i = 0; i < length; i++)
-	{
-		result += key[i];
-	}
+    for (i = 0; i < length; i++)
+    {
+        result += key[i];
+    }
 
-	return (result % hash_size);
+    return (result % hash_size);
 }
 
 char* strappend(char* orig, char* appended)
 {
-	int total = strlen(orig) + strlen(appended) + 1;
+    int total = strlen(orig) + strlen(appended) + 1;
 
-	char* result = GC_CALLOC(total, sizeof(*result));
+    char* result = GC_CALLOC(total, sizeof(*result));
 
-	strcat(result, orig);
-	strcat(result, appended);
-	
-	return result;
+    strcat(result, orig);
+    strcat(result, appended);
+    
+    return result;
 }
 
 char* strprepend(char* orig, char* prepended)
 {
-	int total = strlen(orig) + strlen(prepended) + 1;
+    int total = strlen(orig) + strlen(prepended) + 1;
 
-	char* result = GC_CALLOC(total, sizeof(*result));
+    char* result = GC_CALLOC(total, sizeof(*result));
 
-	strcat(result, prepended);
-	strcat(result, orig);
+    strcat(result, prepended);
+    strcat(result, orig);
 
-	return result;
+    return result;
 }
 
 char* GC_STRDUP(const char* str)
 {
-	char* result = GC_CALLOC(strlen(str) + 1, sizeof(char));
+    char* result = GC_CALLOC(strlen(str) + 1, sizeof(char));
 
-	strcpy(result, str);
+    strcpy(result, str);
 
-	return result;
+    return result;
 }
 
 char* get_unique_name(void)
 {
-	static int num_var = 100;
-	char* result = GC_CALLOC(15, sizeof(char));
+    static int num_var = 100;
+    char* result = GC_CALLOC(15, sizeof(char));
 
-	snprintf(result, 14, "$.anon%05d", num_var);
+    snprintf(result, 14, "$.anon%05d", num_var);
 
-	num_var++;
+    num_var++;
 
-	return result;
+    return result;
 }
 
 char** comma_separate_values(char* value, int *num_elems)
 {
-	char** result = NULL;
-	*num_elems = 0;
+    char** result = NULL;
+    *num_elems = 0;
 
-	if (value != NULL)
-	{
-		char* comma_string = GC_STRDUP(value);
-		char* current = strtok(comma_string, ",");
+    if (value != NULL)
+    {
+        char* comma_string = GC_STRDUP(value);
+        char* current = strtok(comma_string, ",");
 
-		while (current != NULL)
-		{
-			P_LIST_ADD(result, *num_elems, GC_STRDUP(current));
-			current = strtok(NULL, ",");
-		}
-	}
+        while (current != NULL)
+        {
+            P_LIST_ADD(result, *num_elems, GC_STRDUP(current));
+            current = strtok(NULL, ",");
+        }
+    }
 
-	P_LIST_ADD(result, *num_elems, NULL);
-	(*num_elems)--;
+    P_LIST_ADD(result, *num_elems, NULL);
+    (*num_elems)--;
 
-	return result;
+    return result;
 }
 
 char* give_basename(const char* c)
@@ -149,106 +149,106 @@ char* give_dirname(const char* c)
 
 typedef struct temporal_file_list_tag
 {
-	temporal_file_t info;
-	struct temporal_file_list_tag* next;
+    temporal_file_t info;
+    struct temporal_file_list_tag* next;
 }* temporal_file_list_t;
 
 static temporal_file_list_t temporal_file_list = NULL;
 
 temporal_file_t new_temporal_file()
 {
-	char* template;
+    char* template;
 #ifndef _WIN32
     template = compilation_options.exec_basename;
     template = strappend("/tmp/", template);
     template = strappend(template, "_XXXXXX");
 
-	// Create the temporal file
-	int file_descriptor = mkstemp(template);
+    // Create the temporal file
+    int file_descriptor = mkstemp(template);
 
-	if (file_descriptor < 0) 
-	{
-		return NULL;
-	}
+    if (file_descriptor < 0) 
+    {
+        return NULL;
+    }
 #else
-	template = _tempnam(NULL, "mcxx");
-	if (template == NULL)
-		return NULL;
+    template = _tempnam(NULL, "mcxx");
+    if (template == NULL)
+        return NULL;
 #endif
 
-	// Save the info of the new file
-	temporal_file_t result = calloc(sizeof(*result), 1);
-	result->name = template;
-	// Get a FILE* descriptor
+    // Save the info of the new file
+    temporal_file_t result = calloc(sizeof(*result), 1);
+    result->name = template;
+    // Get a FILE* descriptor
 #ifndef _WIN32
-	result->file = fdopen(file_descriptor, "w+");
+    result->file = fdopen(file_descriptor, "w+");
 #else
-	result->file = fopen(template, "w+");
+    result->file = fopen(template, "w+");
 #endif
-	if (result->file == NULL)
-	{
-		running_error("Cannot create temporary file (%s)", strerror(errno));
-	}
+    if (result->file == NULL)
+    {
+        running_error("Cannot create temporary file (%s)", strerror(errno));
+    }
 
-	// Link to the temporal_file_list
-	temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
-	new_file_element->info = result;
-	new_file_element->next = temporal_file_list;
-	temporal_file_list = new_file_element;
+    // Link to the temporal_file_list
+    temporal_file_list_t new_file_element = calloc(sizeof(*new_file_element), 1);
+    new_file_element->info = result;
+    new_file_element->next = temporal_file_list;
+    temporal_file_list = new_file_element;
 
-	return result;
+    return result;
 }
 
 void temporal_files_cleanup(void)
 {
-	temporal_file_list_t iter = temporal_file_list;
+    temporal_file_list_t iter = temporal_file_list;
 
-	while (iter != NULL)
-	{
-		// close the descriptor
-		fclose(iter->info->file);
+    while (iter != NULL)
+    {
+        // close the descriptor
+        fclose(iter->info->file);
 
-		// If no keep, remove file
-		if (!compilation_options.keep_files)
-		{
-			remove(iter->info->name);
-		}
+        // If no keep, remove file
+        if (!compilation_options.keep_files)
+        {
+            remove(iter->info->name);
+        }
 
-		iter = iter->next;
-	}
+        iter = iter->next;
+    }
 
-	temporal_file_list = NULL;
+    temporal_file_list = NULL;
 }
 
 char* get_extension_filename(char* filename)
 {
-	return strrchr(filename, '.');
+    return strrchr(filename, '.');
 }
 
 int execute_program(char* program_name, char** arguments)
 {
-	int num = count_null_ended_array((void**)arguments);
+    int num = count_null_ended_array((void**)arguments);
 
-	char** execvp_arguments = GC_CALLOC(num + 1 + 1, sizeof(char*));
+    char** execvp_arguments = GC_CALLOC(num + 1 + 1, sizeof(char*));
 
-	execvp_arguments[0] = program_name;
+    execvp_arguments[0] = program_name;
 
-	int i;
-	for (i = 0; i < num; i++)
-	{
-		execvp_arguments[i+1] = arguments[i];
-	}
+    int i;
+    for (i = 0; i < num; i++)
+    {
+        execvp_arguments[i+1] = arguments[i];
+    }
 
-	if (compilation_options.verbose)
-	{
-		int j = 0;
-		while (execvp_arguments[j] != NULL)
-		{
-			fprintf(stderr, "%s ", execvp_arguments[j]);
-			j++;
-		}
-		fprintf(stderr, "\n");
-	}
+    if (compilation_options.verbose)
+    {
+        int j = 0;
+        while (execvp_arguments[j] != NULL)
+        {
+            fprintf(stderr, "%s ", execvp_arguments[j]);
+            j++;
+        }
+        fprintf(stderr, "\n");
+    }
 
     // This routine is UNIX-only
     pid_t spawned_process;
@@ -269,86 +269,86 @@ int execute_program(char* program_name, char** arguments)
         // Wait for my son
         int status;
         wait(&status);
-		if (WIFEXITED(status))
-		{
-			return (WEXITSTATUS(status));
-		}
-		else if (WIFSIGNALED(status))
-		{
-			fprintf(stderr, "Subprocess '%s' was ended with signal %d\n",
-					program_name, WTERMSIG(status));
+        if (WIFEXITED(status))
+        {
+            return (WEXITSTATUS(status));
+        }
+        else if (WIFSIGNALED(status))
+        {
+            fprintf(stderr, "Subprocess '%s' was ended with signal %d\n",
+                    program_name, WTERMSIG(status));
 
-			return 1;
-		}
-		else
-		{
-			internal_error(
-					"Subprocess '%s' ended but neither by normal exit nor signal", 
-					program_name);
-		}
+            return 1;
+        }
+        else
+        {
+            internal_error(
+                    "Subprocess '%s' ended but neither by normal exit nor signal", 
+                    program_name);
+        }
     }
 }
 
 int count_null_ended_array(void** v)
 {
-	int result = 0;
-	if (v == NULL)
-	{
-		return result;
-	}
+    int result = 0;
+    if (v == NULL)
+    {
+        return result;
+    }
 
-	while (v[result] != NULL)
-	{
-		result++;
-	}
+    while (v[result] != NULL)
+    {
+        result++;
+    }
 
-	return result;
+    return result;
 }
 
 void seen_filename(char* filename)
 {
-	if (reference_to_seen_filename(filename) != NULL)
-		return;
+    if (reference_to_seen_filename(filename) != NULL)
+        return;
 
-	P_LIST_ADD(seen_file_names, num_seen_file_names, GC_STRDUP(filename));
+    P_LIST_ADD(seen_file_names, num_seen_file_names, GC_STRDUP(filename));
 }
 
 char* reference_to_seen_filename(char* filename)
 {
-	int i;
-	for (i = 0; i < num_seen_file_names; i++)
-	{
-		if (strcmp(seen_file_names[i], filename) == 0)
-		{
-			return seen_file_names[i];
-		}
-	}
+    int i;
+    for (i = 0; i < num_seen_file_names; i++)
+    {
+        if (strcmp(seen_file_names[i], filename) == 0)
+        {
+            return seen_file_names[i];
+        }
+    }
 
-	return NULL;
+    return NULL;
 }
 
 void timing_start(timing_t* t)
 {
-	memset(t, 0, sizeof(*t));
+    memset(t, 0, sizeof(*t));
     
-	gettimeofday(&(t->start), NULL);
+    gettimeofday(&(t->start), NULL);
 }
 
 void timing_end(timing_t* t)
 {
-	gettimeofday(&(t->end), NULL);
+    gettimeofday(&(t->end), NULL);
 
-	double start_value = t->start.tv_sec*1e6 + t->start.tv_usec;
-	double end_value = t->end.tv_sec*1e6 + t->end.tv_usec;
+    double start_value = t->start.tv_sec*1e6 + t->start.tv_usec;
+    double end_value = t->end.tv_sec*1e6 + t->end.tv_usec;
 
-	double diff_value = end_value - start_value;
+    double diff_value = end_value - start_value;
 
-	t->elapsed_time = diff_value / 1e6;
+    t->elapsed_time = diff_value / 1e6;
 }
 
 double timing_elapsed(const timing_t* t)
 {
-	return (t->elapsed_time);
+    return (t->elapsed_time);
 }
 
 static char is_blank(char c)

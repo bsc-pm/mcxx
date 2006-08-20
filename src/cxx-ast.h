@@ -11,17 +11,17 @@
 
 struct node_ast
 {
-	// Node stuff
-	node_t type; // Node type
-	int num_children; // Number of children
-	struct node_ast* parent; // Parent node
-	struct node_ast* children[MAX_AST_CHILDREN]; // The children
-	int line; // Code line
-	char* text; // Associated text of the node, normally the symbol or the literal
-	char* filename;
+    // Node stuff
+    node_t type; // Node type
+    int num_children; // Number of children
+    struct node_ast* parent; // Parent node
+    struct node_ast* children[MAX_AST_CHILDREN]; // The children
+    int line; // Code line
+    char* text; // Associated text of the node, normally the symbol or the literal
+    char* filename;
 
-	int num_ambig;
-	struct node_ast** ambig;
+    int num_ambig;
+    struct node_ast** ambig;
 };
 
 typedef struct node_ast* AST;
@@ -81,7 +81,7 @@ char* node_information(AST a);
 
 // Eases iterating forward in AST_NODE_LISTs
 #define for_each_element(list, iter) \
-	iter = (list); while (ASTSon0(iter) != NULL) iter = ASTSon0(iter); \
-	for(; iter != NULL; iter = (iter != (list)) ? ASTParent(iter) : NULL)
+    iter = (list); while (ASTSon0(iter) != NULL) iter = ASTSon0(iter); \
+    for(; iter != NULL; iter = (iter != (list)) ? ASTParent(iter) : NULL)
 
 #endif // CXX_AST_H

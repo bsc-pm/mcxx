@@ -35,42 +35,42 @@ void running_error(char* message, ...) NORETURN;
 
 #define internal_error(message, ...) \
 { \
-	debug_message(message, "Internal compiler error. Please report bug:\n", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); \
+    debug_message(message, "Internal compiler error. Please report bug:\n", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); \
     if (compilation_options.debug_options.abort_on_ice) \
-	        raise(SIGABRT); \
-	exit(EXIT_FAILURE); \
+            raise(SIGABRT); \
+    exit(EXIT_FAILURE); \
 }
 
 void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...);
 
 #define WARNING_MESSAGE(message, ...) \
 { \
-	debug_message(message, "Warning: ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+    debug_message(message, "Warning: ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
 }
 
 #define ASSERT_MESSAGE(cond, message, ...) \
 { if (!(cond)) \
-	{ \
-		debug_message((message), "Assertion failed (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+    { \
+        debug_message((message), "Assertion failed (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
         if (compilation_options.debug_options.abort_on_ice) \
-		    raise(SIGABRT); \
-	    exit(EXIT_FAILURE); \
-	} \
+            raise(SIGABRT); \
+        exit(EXIT_FAILURE); \
+    } \
 }
 
 #define ERROR_CONDITION(cond, message, ...) \
 { if ((cond)) \
-	{ \
-		debug_message((message), "Error condition (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+    { \
+        debug_message((message), "Error condition (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
         if (compilation_options.debug_options.abort_on_ice) \
-		    raise(SIGABRT); \
-	    exit(EXIT_FAILURE); \
-	} \
+            raise(SIGABRT); \
+        exit(EXIT_FAILURE); \
+    } \
 }
 
 #define DEBUG_MESSAGE(message, ...) \
 { \
-	debug_message(message, "Debug : ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
+    debug_message(message, "Debug : ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
 }
 
 #define HASH_SIZE 23
@@ -85,24 +85,24 @@ char* strprepend(char* orig, char* prepended);
 //   elem is a T*
 #define P_LIST_ADD(list, size, elem)  \
 do { \
-	(size)++; \
-	(list) = GC_REALLOC((list), sizeof(*(list))*(size)); \
-	(list)[((size)-1)] = (elem); \
+    (size)++; \
+    (list) = GC_REALLOC((list), sizeof(*(list))*(size)); \
+    (list)[((size)-1)] = (elem); \
 } while(0)
 
 // This is a bit inefficient. Should not be used for large lists
 #define P_LIST_ADD_ONCE(list, size, elem) \
 do { \
-	int _i; \
-	char _found = 0; \
-	for (_i = 0; (_i < (size)) && !_found; _i++) \
-	{ \
-		 _found = ((list)[_i] == (elem)); \
-	} \
-	if (!_found) \
-	{ \
-		P_LIST_ADD((list), (size), (elem)); \
-	} \
+    int _i; \
+    char _found = 0; \
+    for (_i = 0; (_i < (size)) && !_found; _i++) \
+    { \
+         _found = ((list)[_i] == (elem)); \
+    } \
+    if (!_found) \
+    { \
+        P_LIST_ADD((list), (size), (elem)); \
+    } \
 } while (0)
 
 char* GC_STRDUP(const char* str);
@@ -122,8 +122,8 @@ char* get_unique_name(void);
 // Temporal handling routines
 typedef struct 
 {
-	FILE* file;
-	char* name;
+    FILE* file;
+    char* name;
 }* temporal_file_t;
 
 // Gives you a new temporal file that will be removed when

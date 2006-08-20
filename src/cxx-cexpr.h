@@ -5,33 +5,33 @@
 
 enum literal_value_kind_t
 {
-	LVK_INVALID = 0,
-	LVK_DEPENDENT_EXPR,
-	LVK_SIGNED_INT,
-	LVK_UNSIGNED_INT,
-	LVK_SIGNED_LONG,
-	LVK_UNSIGNED_LONG,
-	LVK_BOOL,
-	LVK_CHARACTER
-	// TODO - Float values ?
+    LVK_INVALID = 0,
+    LVK_DEPENDENT_EXPR,
+    LVK_SIGNED_INT,
+    LVK_UNSIGNED_INT,
+    LVK_SIGNED_LONG,
+    LVK_UNSIGNED_LONG,
+    LVK_BOOL,
+    LVK_CHARACTER
+    // TODO - Float values ?
 };
 
 typedef struct
 {
-	enum literal_value_kind_t kind;
+    enum literal_value_kind_t kind;
 
-	char template_dependent;
+    char template_dependent;
 
-	union 
-	{
-		signed int signed_int;
-		unsigned int unsigned_int;
-		signed long int signed_long;
-		unsigned long int unsigned_long;
-		char boolean_value;
-		char character_value;
-		// TODO - Float values ?
-	} value;
+    union 
+    {
+        signed int signed_int;
+        unsigned int unsigned_int;
+        signed long int signed_long;
+        unsigned long int unsigned_long;
+        char boolean_value;
+        char character_value;
+        // TODO - Float values ?
+    } value;
 } literal_value_t;
 
 literal_value_t evaluate_constant_expression(AST a, scope_t* st);

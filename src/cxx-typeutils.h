@@ -6,9 +6,9 @@
 
 enum cv_equivalence_t
 {
-	CVE_UNKNOWN = 0,
-	CVE_IGNORE_OUTERMOST,
-	CVE_CONSIDER
+    CVE_UNKNOWN = 0,
+    CVE_IGNORE_OUTERMOST,
+    CVE_CONSIDER
 };
 
 char equivalent_types(type_t* t1, type_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
@@ -55,7 +55,7 @@ char is_reference_related(type_t* rt1, type_t* rt2, scope_t* st);
 char is_reference_compatible(type_t* t1, type_t* t2, scope_t* st);
 
 char pointer_can_be_converted_to_dest(type_t* orig, type_t* dest, scope_t* st, 
-		char* to_void, char* derived_to_base, char* cv_adjust);
+        char* to_void, char* derived_to_base, char* cv_adjust);
 
 char* get_type_spec_name(AST type_spec, scope_t* st);
 char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type_t** result_conversion_type);

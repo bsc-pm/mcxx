@@ -20,50 +20,50 @@ static void print_scope_entry_brief(scope_entry_t* entry, scope_t* st, char* qua
 
 static void indent_at_level(FILE* f, int n)
 {
-	int i;
-	for (i = 0; i < 4*n; i++) 
-	{ 
-		fprintf(f, " "); 
-	} 
+    int i;
+    for (i = 0; i < 4*n; i++) 
+    { 
+        fprintf(f, " "); 
+    } 
 }
 
 #define PRINT_INDENTED_LINE(f, n, ...) \
-	do { \
-		indent_at_level(f, n); \
-		fprintf(f,  __VA_ARGS__ ); \
-	} while (0);
+    do { \
+        indent_at_level(f, n); \
+        fprintf(f,  __VA_ARGS__ ); \
+    } while (0);
 
 static char* symbol_kind_names[] =
 {
-	[SK_UNDEFINED] = "SK_UNDEFINED",
-	[SK_CLASS] = "SK_CLASS",
-	[SK_ENUM] = "SK_ENUM",
-	[SK_ENUMERATOR] = "SK_ENUMERATOR",
-	[SK_FUNCTION] = "SK_FUNCTION",
-	[SK_LABEL] = "SK_LABEL",
-	[SK_NAMESPACE] = "SK_NAMESPACE",
-	[SK_VARIABLE] = "SK_VARIABLE",
-	[SK_TYPEDEF] = "SK_TYPEDEF",
-	[SK_TEMPLATE_PRIMARY_CLASS] = "SK_TEMPLATE_PRIMARY_CLASS",
-	[SK_TEMPLATE_SPECIALIZED_CLASS] = "SK_TEMPLATE_SPECIALIZED_CLASS",
-	[SK_TEMPLATE_FUNCTION] = "SK_TEMPLATE_FUNCTION",
-	[SK_TEMPLATE_PARAMETER] = "SK_TEMPLATE_PARAMETER", 
-	[SK_TEMPLATE_TYPE_PARAMETER] = "SK_TEMPLATE_TYPE_PARAMETER", 
-	[SK_TEMPLATE_TEMPLATE_PARAMETER] = "SK_TEMPLATE_TEMPLATE_PARAMETER", 
-	[SK_SCOPE] = "SK_SCOPE",
-	// GCC EXtension for builtin types
-	[SK_GCC_BUILTIN_TYPE] = "SK_GCC_BUILTIN_TYPE",
+    [SK_UNDEFINED] = "SK_UNDEFINED",
+    [SK_CLASS] = "SK_CLASS",
+    [SK_ENUM] = "SK_ENUM",
+    [SK_ENUMERATOR] = "SK_ENUMERATOR",
+    [SK_FUNCTION] = "SK_FUNCTION",
+    [SK_LABEL] = "SK_LABEL",
+    [SK_NAMESPACE] = "SK_NAMESPACE",
+    [SK_VARIABLE] = "SK_VARIABLE",
+    [SK_TYPEDEF] = "SK_TYPEDEF",
+    [SK_TEMPLATE_PRIMARY_CLASS] = "SK_TEMPLATE_PRIMARY_CLASS",
+    [SK_TEMPLATE_SPECIALIZED_CLASS] = "SK_TEMPLATE_SPECIALIZED_CLASS",
+    [SK_TEMPLATE_FUNCTION] = "SK_TEMPLATE_FUNCTION",
+    [SK_TEMPLATE_PARAMETER] = "SK_TEMPLATE_PARAMETER", 
+    [SK_TEMPLATE_TYPE_PARAMETER] = "SK_TEMPLATE_TYPE_PARAMETER", 
+    [SK_TEMPLATE_TEMPLATE_PARAMETER] = "SK_TEMPLATE_TEMPLATE_PARAMETER", 
+    [SK_SCOPE] = "SK_SCOPE",
+    // GCC EXtension for builtin types
+    [SK_GCC_BUILTIN_TYPE] = "SK_GCC_BUILTIN_TYPE",
 };
 
 static char* scope_names[] =
 {
-	[UNDEFINED_SCOPE] = "UNDEFINED_SCOPE",
-	[NAMESPACE_SCOPE] = "NAMESPACE_SCOPE",
-	[FUNCTION_SCOPE] = "FUNCTION_SCOPE",
-	[PROTOTYPE_SCOPE] = "PROTOTYPE_SCOPE",
-	[BLOCK_SCOPE] = "BLOCK_SCOPE",
-	[CLASS_SCOPE] = "CLASS_SCOPE",
-	[TEMPLATE_SCOPE] = "TEMPLATE_SCOPE",
+    [UNDEFINED_SCOPE] = "UNDEFINED_SCOPE",
+    [NAMESPACE_SCOPE] = "NAMESPACE_SCOPE",
+    [FUNCTION_SCOPE] = "FUNCTION_SCOPE",
+    [PROTOTYPE_SCOPE] = "PROTOTYPE_SCOPE",
+    [BLOCK_SCOPE] = "BLOCK_SCOPE",
+    [CLASS_SCOPE] = "CLASS_SCOPE",
+    [TEMPLATE_SCOPE] = "TEMPLATE_SCOPE",
 };
 
 struct brief_lines_t
@@ -114,180 +114,180 @@ void print_scope(scope_t* st)
 
 static void print_scope_full(scope_t* st, int global_indent)
 {
-	if (st == NULL)
-		return;
+    if (st == NULL)
+        return;
 
-	Iterator *it;
-	
-	it = (Iterator*) hash_iterator_create(st->hash);
-	for ( iterator_first(it); 
-			!iterator_finished(it); 
-			iterator_next(it))
-	{
-		scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
+    Iterator *it;
+    
+    it = (Iterator*) hash_iterator_create(st->hash);
+    for ( iterator_first(it); 
+            !iterator_finished(it); 
+            iterator_next(it))
+    {
+        scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
 
-		print_scope_entry_list(entry_list, st, global_indent);
-	}
+        print_scope_entry_list(entry_list, st, global_indent);
+    }
 }
 
 static void print_scope_entry_list(scope_entry_list_t* entry_list, scope_t* st, int global_indent)
 {
-	while (entry_list != NULL)
-	{
-		if (entry_list->entry->do_not_print)
-		{
-			entry_list = entry_list->next;
-			continue;
-		}
-		print_scope_entry(entry_list->entry, st, global_indent);
+    while (entry_list != NULL)
+    {
+        if (entry_list->entry->do_not_print)
+        {
+            entry_list = entry_list->next;
+            continue;
+        }
+        print_scope_entry(entry_list->entry, st, global_indent);
 
-		if (entry_list->entry->related_scope != NULL)
-		{
-			if (entry_list->entry->related_scope->template_scope != NULL)
-			{
-				PRINT_INDENTED_LINE(stderr, global_indent+1, "[TEMPLATE_SCOPE - %p]\n", 
-						entry_list->entry->related_scope->template_scope);
-				print_scope_full(entry_list->entry->related_scope->template_scope, global_indent+2);
-			}
-			if (entry_list->entry->related_scope->kind == FUNCTION_SCOPE)
-			{
-				if (entry_list->entry->related_scope->prototype_scope != NULL)
-				{
-					PRINT_INDENTED_LINE(stderr, global_indent+1, "[PROTOTYPE_SCOPE - %p]\n",
-							entry_list->entry->related_scope->prototype_scope);
-					print_scope_full(entry_list->entry->related_scope->prototype_scope, global_indent+2);
-				}
-				if (entry_list->entry->related_scope->function_scope != NULL)
-				{
-					PRINT_INDENTED_LINE(stderr, global_indent+1, "[FUNCTION_SCOPE - %p]\n",
-							entry_list->entry->related_scope->function_scope);
-					print_scope_full(entry_list->entry->related_scope->function_scope, global_indent+2);
-				}
-			}
+        if (entry_list->entry->related_scope != NULL)
+        {
+            if (entry_list->entry->related_scope->template_scope != NULL)
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "[TEMPLATE_SCOPE - %p]\n", 
+                        entry_list->entry->related_scope->template_scope);
+                print_scope_full(entry_list->entry->related_scope->template_scope, global_indent+2);
+            }
+            if (entry_list->entry->related_scope->kind == FUNCTION_SCOPE)
+            {
+                if (entry_list->entry->related_scope->prototype_scope != NULL)
+                {
+                    PRINT_INDENTED_LINE(stderr, global_indent+1, "[PROTOTYPE_SCOPE - %p]\n",
+                            entry_list->entry->related_scope->prototype_scope);
+                    print_scope_full(entry_list->entry->related_scope->prototype_scope, global_indent+2);
+                }
+                if (entry_list->entry->related_scope->function_scope != NULL)
+                {
+                    PRINT_INDENTED_LINE(stderr, global_indent+1, "[FUNCTION_SCOPE - %p]\n",
+                            entry_list->entry->related_scope->function_scope);
+                    print_scope_full(entry_list->entry->related_scope->function_scope, global_indent+2);
+                }
+            }
 
-			if (entry_list->entry->related_scope != NULL)
-			{
-				PRINT_INDENTED_LINE(stderr, global_indent+1, "[%s - %p]\n", 
-						scope_names[entry_list->entry->related_scope->kind],
-						entry_list->entry->related_scope);
-				print_scope_full(entry_list->entry->related_scope, global_indent+2);
-			}
-		}
+            if (entry_list->entry->related_scope != NULL)
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "[%s - %p]\n", 
+                        scope_names[entry_list->entry->related_scope->kind],
+                        entry_list->entry->related_scope);
+                print_scope_full(entry_list->entry->related_scope, global_indent+2);
+            }
+        }
 
-		entry_list = entry_list->next;
-	}
+        entry_list = entry_list->next;
+    }
 }
 
 
 
 static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_indent)
 {
-	PRINT_INDENTED_LINE(stderr, global_indent, "* \"%s\" %s", entry->symbol_name, symbol_kind_names[entry->kind]);
+    PRINT_INDENTED_LINE(stderr, global_indent, "* \"%s\" %s", entry->symbol_name, symbol_kind_names[entry->kind]);
 
-	if (entry->defined)
-	{
-		fprintf(stderr, " [DEFINED]");
-	}
+    if (entry->defined)
+    {
+        fprintf(stderr, " [DEFINED]");
+    }
 
-	fprintf(stderr, "\n");
+    fprintf(stderr, "\n");
 
-	PRINT_INDENTED_LINE(stderr, global_indent+1, "Declared in line %d\n", entry->line);
+    PRINT_INDENTED_LINE(stderr, global_indent+1, "Declared in line %d\n", entry->line);
 
-	if (entry->kind == SK_VARIABLE
-			|| entry->kind == SK_TEMPLATE_PARAMETER
-			|| entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-			|| entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-	{
-		PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Type: ");
-		print_declarator(entry->type_information, st);
-		fprintf(stderr, "\n");
-	}
+    if (entry->kind == SK_VARIABLE
+            || entry->kind == SK_TEMPLATE_PARAMETER
+            || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+            || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Type: ");
+        print_declarator(entry->type_information, st);
+        fprintf(stderr, "\n");
+    }
 
-	if (entry->kind == SK_TYPEDEF)
-	{
-		PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Aliased type: ");
-		print_declarator(entry->type_information->type->aliased_type, st);
-		fprintf(stderr, "\n");
-	}
+    if (entry->kind == SK_TYPEDEF)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Aliased type: ");
+        print_declarator(entry->type_information->type->aliased_type, st);
+        fprintf(stderr, "\n");
+    }
 
-	if (entry->kind == SK_GCC_BUILTIN_TYPE)
-	{
-		PRINT_INDENTED_LINE(stderr, global_indent+1, "(builtin type)\n");
-	}
+    if (entry->kind == SK_GCC_BUILTIN_TYPE)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "(builtin type)\n");
+    }
 
-	if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-			|| entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
-	{
-		PRINT_INDENTED_LINE(stderr, global_indent+1, "Template: %p\n", entry);
-	}
+    if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
+            || entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Template: %p\n", entry);
+    }
 
-	if (entry->kind == SK_NAMESPACE
-			|| entry->kind == SK_CLASS
-			|| entry->kind == SK_TEMPLATE_PRIMARY_CLASS
-			|| entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-	{
-		// print_scope_full(entry->related_scope, global_indent+1);
-	}
+    if (entry->kind == SK_NAMESPACE
+            || entry->kind == SK_CLASS
+            || entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+            || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+    {
+        // print_scope_full(entry->related_scope, global_indent+1);
+    }
 
-	if (entry->kind == SK_ENUMERATOR)
-	{
-		PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Type: ");
-		print_declarator(entry->type_information, st);
-		fprintf(stderr, "\n");
-	}
+    if (entry->kind == SK_ENUMERATOR)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Type: ");
+        print_declarator(entry->type_information, st);
+        fprintf(stderr, "\n");
+    }
 
-	if ((entry->kind == SK_VARIABLE || entry->kind == SK_ENUMERATOR)
-			&& entry->expression_value != NULL)
-	{
-		PRINT_INDENTED_LINE(stderr, global_indent+1, "Expression value: ");
-		prettyprint(stderr, entry->expression_value);
-		fprintf(stderr, "\n");
-	}
+    if ((entry->kind == SK_VARIABLE || entry->kind == SK_ENUMERATOR)
+            && entry->expression_value != NULL)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Expression value: ");
+        prettyprint(stderr, entry->expression_value);
+        fprintf(stderr, "\n");
+    }
 
-	if (entry->kind == SK_FUNCTION
-			|| entry->kind == SK_TEMPLATE_FUNCTION)
-	{
-		PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Prototype: ");
-		print_declarator(entry->type_information, st);
-		fprintf(stderr, "\n");
-		// print_scope_full(entry->related_scope, global_indent+1);
-	}
+    if (entry->kind == SK_FUNCTION
+            || entry->kind == SK_TEMPLATE_FUNCTION)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Prototype: ");
+        print_declarator(entry->type_information, st);
+        fprintf(stderr, "\n");
+        // print_scope_full(entry->related_scope, global_indent+1);
+    }
 }
 
 // Brief versions of print scope
 
 static void print_scope_brief(scope_t* st, char* qualif_name)
 {
-	if (st == NULL)
-		return;
+    if (st == NULL)
+        return;
 
-	Iterator *it;
-	
-	it = (Iterator*) hash_iterator_create(st->hash);
-	for ( iterator_first(it); 
-			!iterator_finished(it); 
-			iterator_next(it))
-	{
-		scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
+    Iterator *it;
+    
+    it = (Iterator*) hash_iterator_create(st->hash);
+    for ( iterator_first(it); 
+            !iterator_finished(it); 
+            iterator_next(it))
+    {
+        scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
 
-		print_scope_entry_list_brief(entry_list, st, qualif_name);
-	}
+        print_scope_entry_list_brief(entry_list, st, qualif_name);
+    }
 }
 
 
 static void print_scope_entry_list_brief(scope_entry_list_t* entry_list, scope_t* st, char* qualif_name)
 {
-	while (entry_list != NULL)
-	{
-		if (entry_list->entry->do_not_print)
-		{
-			entry_list = entry_list->next;
-			continue;
-		}
-		print_scope_entry_brief(entry_list->entry, st, qualif_name);
+    while (entry_list != NULL)
+    {
+        if (entry_list->entry->do_not_print)
+        {
+            entry_list = entry_list->next;
+            continue;
+        }
+        print_scope_entry_brief(entry_list->entry, st, qualif_name);
 
-		entry_list = entry_list->next;
-	}
+        entry_list = entry_list->next;
+    }
 }
 
 // Format of the line
