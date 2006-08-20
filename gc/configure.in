@@ -388,8 +388,8 @@ case "$host" in
 esac
 
 dnl We need to override the top-level CFLAGS.  This is how we do it.
-MY_CFLAGS="$CFLAGS"
-AC_SUBST(MY_CFLAGS)
+dnl MY_CFLAGS="$CFLAGS"
+dnl AC_SUBST(MY_CFLAGS)
 
 dnl Include defines that have become de facto standard.
 dnl ALL_INTERIOR_POINTERS can be overridden in startup code.
