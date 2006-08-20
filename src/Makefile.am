@@ -43,6 +43,8 @@ mcxx_SOURCES = \
   c99-scanner.c \
   c99-parser.c
 
+mcc_SOURCES =
+
 mcc : mcxx
 	cp mcxx mcc
 
