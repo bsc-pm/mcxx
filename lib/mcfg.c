@@ -11,13 +11,13 @@ static char *cursec = (char *) NULL;
 */
 static FILE *openConfFile (char *filename);
 static int Parse (FILE * fp, int style, int (*sfunc) (char *),
-		  int (*pfunc) (char *, char *));
+          int (*pfunc) (char *, char *));
 static int Section (FILE * fp, int (*sfunc) (char *));
 static int Continuation (char *line, int pos);
 static char *loc_GC_REALLOC (char *p, int size);
 static int eatWhitespace (FILE * fp);
 static int Parameter (FILE * fp, int style,
-		      int (*pfunc) (char *, char *), int c);
+              int (*pfunc) (char *, char *), int c);
 // static void regSection (char **s);
 
 /*
@@ -67,9 +67,9 @@ static int Parameter (FILE * fp, int style,
 static int
 Parameter (FILE * fp, int style, int (*pfunc) (char *, char *), int c)
 {
-  int i = 0;			/* position withing bufr */
-  int end = 0;			/* bufr[end] is current end-of-string */
-  int vstart = 0;		/* starting position of the parameter */
+  int i = 0;            /* position withing bufr */
+  int end = 0;          /* bufr[end] is current end-of-string */
+  int vstart = 0;       /* starting position of the parameter */
 
   char *func = "params.c:Parameter() -";
 
@@ -79,136 +79,136 @@ Parameter (FILE * fp, int style, int (*pfunc) (char *, char *), int c)
        ** loop until we found the start of the value 
        */
       while (vstart == 0)
-	{
-	  /*
-	   ** ensure there's space for next char 
-	   */
-	  if (i > (bsize - 2))
-	    {
-	      bsize += BUFR_INC;
-	      bufr = loc_GC_REALLOC (bufr, bsize);
-	      if (bufr == NULL)
-		{
-		  (void) fprintf (stderr, "%s GC_MALLOC failed\n", func);
-		  return (-1);
-		}
-	    }
+    {
+      /*
+       ** ensure there's space for next char 
+       */
+      if (i > (bsize - 2))
+        {
+          bsize += BUFR_INC;
+          bufr = loc_GC_REALLOC (bufr, bsize);
+          if (bufr == NULL)
+        {
+          (void) fprintf (stderr, "%s GC_MALLOC failed\n", func);
+          return (-1);
+        }
+        }
 
-	  switch (c)
-	    {
-	    case '=':
-	      {
-		if (end == 0)
-		  {
-		    (void) fprintf (stderr, "%s invalid parameter name\n",
-				    func);
-		    return (-1);
-		  }
-		bufr[end++] = '\0';
-		i = end;
-		vstart = end;
-		bufr[i] = '\0';
-		break;
-	      }
+      switch (c)
+        {
+        case '=':
+          {
+        if (end == 0)
+          {
+            (void) fprintf (stderr, "%s invalid parameter name\n",
+                    func);
+            return (-1);
+          }
+        bufr[end++] = '\0';
+        i = end;
+        vstart = end;
+        bufr[i] = '\0';
+        break;
+          }
 
-	    case '\n':
-	      {
-		i = Continuation (bufr, i);
-		if (i < 0)
-		  {
-		    bufr[end] = '\0';
-		    (void) fprintf (stderr,
-				    "%s ignoring badly formed line in config file\n",
-				    func);
-		    return (0);
-		  }
+        case '\n':
+          {
+        i = Continuation (bufr, i);
+        if (i < 0)
+          {
+            bufr[end] = '\0';
+            (void) fprintf (stderr,
+                    "%s ignoring badly formed line in config file\n",
+                    func);
+            return (0);
+          }
 
-		end = ((i > 0) && (bufr[i - 1] == ' ')) ? (i - 1) : (i);
-		c = getc (fp);
-		break;
-	      }
+        end = ((i > 0) && (bufr[i - 1] == ' ')) ? (i - 1) : (i);
+        c = getc (fp);
+        break;
+          }
 
-	    case '\0':
-	    case EOF:
-	      {
-		bufr[i] = '\0';
-		(void) fprintf (stderr,
-				"%s unexpected end-of-file at %s: func\n",
-				func, bufr);
-		return (0);
-		break;
-	      }
+        case '\0':
+        case EOF:
+          {
+        bufr[i] = '\0';
+        (void) fprintf (stderr,
+                "%s unexpected end-of-file at %s: func\n",
+                func, bufr);
+        return (0);
+        break;
+          }
 
-	    default:
-	      {
-		if (isspace (c))
-		  {
-		    bufr[end] = ' ';
-		    i = end + 1;
-		    c = eatWhitespace (fp);
-		  }
-		else
-		  {
-		    bufr[i++] = c;
-		    end = i;
-		    c = getc (fp);
-		  }
-		break;
-	      }
-	    }
-	}
+        default:
+          {
+        if (isspace (c))
+          {
+            bufr[end] = ' ';
+            i = end + 1;
+            c = eatWhitespace (fp);
+          }
+        else
+          {
+            bufr[i++] = c;
+            end = i;
+            c = getc (fp);
+          }
+        break;
+          }
+        }
+    }
 
       /*
        ** now parse the value
        */
       c = eatWhitespace (fp);
-    }				/* MS_STYLE */
+    }               /* MS_STYLE */
 
   while ((c != EOF) && (c > 0))
     {
       if (i > (bsize - 2))
-	{
-	  bsize += BUFR_INC;
-	  bufr = loc_GC_REALLOC (bufr, bsize);
-	  if (bufr == NULL)
-	    {
-	      (void) fprintf (stderr, "%s GC_MALLOC failed\n", func);
-	      return (-1);
-	    }
-	}
+    {
+      bsize += BUFR_INC;
+      bufr = loc_GC_REALLOC (bufr, bsize);
+      if (bufr == NULL)
+        {
+          (void) fprintf (stderr, "%s GC_MALLOC failed\n", func);
+          return (-1);
+        }
+    }
 
       switch (c)
-	{
-	case '\r':
-	  {
-	    c = getc (fp);
-	    break;
-	  }
+    {
+    case '\r':
+      {
+        c = getc (fp);
+        break;
+      }
 
-	case '\n':
-	  {
-	    i = Continuation (bufr, i);
-	    if (i < 0)
-	      c = 0;
-	    else
-	      {
-		for (end = i; (end >= 0) && isspace (bufr[end]); end--)
-		  ;
-		c = getc (fp);
-	      }
-	    break;
-	  }
+    case '\n':
+      {
+        i = Continuation (bufr, i);
+        if (i < 0)
+          c = 0;
+        else
+          {
+        for (end = i; (end >= 0) && isspace (bufr[end]); end--)
+          ;
+        c = getc (fp);
+          }
+        break;
+      }
 
-	default:
-	  {
-	    bufr[i++] = c;
-	    if (!isspace (c))
-	      end = i;
-	    c = getc (fp);
-	    break;
-	  }
+    default:
+      {
+        bufr[i++] = c;
+        if (!isspace (c))
+          end = i;
+        c = getc (fp);
+        break;
+      }
 
-	}
+    }
     }
 
   bufr[end] = '\0';
@@ -304,7 +304,7 @@ openConfFile (char *filename)
 
 int
 param_process (char *filename,
-	      int style, int (*sfunc) (char *), int (*pfunc) (char *, char *))
+          int style, int (*sfunc) (char *), int (*pfunc) (char *, char *))
 {
   char *func = "params.c:param_process() -";
 
@@ -324,11 +324,11 @@ param_process (char *filename,
       bsize = BUFR_INC;
       bufr = (char *) GC_MALLOC (bsize);
       if (bufr == NULL)
-	{
-	  (void) fprintf (stderr, "%s GC_MALLOC failed\n", func);
-	  (void) fclose (fp);
-	  return (PPR_MALLOC_ERROR);
-	}
+    {
+      (void) fprintf (stderr, "%s GC_MALLOC failed\n", func);
+      (void) fclose (fp);
+      return (PPR_MALLOC_ERROR);
+    }
       result = Parse (fp, style, sfunc, pfunc);
       // free(bufr);
       bufr = NULL;
@@ -338,7 +338,7 @@ param_process (char *filename,
   if (result < 0)
     {
       (void) fprintf (stderr, "%s failed. error returned from Parse()\n",
-		      func);
+              func);
       return (PPR_PARSE_ERROR);
     }
 
@@ -430,43 +430,43 @@ Parse (FILE * fp,
     {
 
       switch (c)
-	{
-	case '\n':		/* blank line */
-	  {
-	    c = eatWhitespace (fp);
-	    break;
-	  }
+    {
+    case '\n':      /* blank line */
+      {
+        c = eatWhitespace (fp);
+        break;
+      }
 
-	case ';':		/* comment line */
-	case '#':
-	  {
-	    c = eatComment (fp);
-	    break;
-	  }
+    case ';':       /* comment line */
+    case '#':
+      {
+        c = eatComment (fp);
+        break;
+      }
 
-	case '[':		/* section header */
-	  {
-	    if (Section (fp, sfunc) < 0)
-	      {
-		return (-1);
-	      }
-	    c = eatWhitespace (fp);
-	    break;
-	  }
+    case '[':       /* section header */
+      {
+        if (Section (fp, sfunc) < 0)
+          {
+        return (-1);
+          }
+        c = eatWhitespace (fp);
+        break;
+      }
 
-	case '\\':		/* bogus backslash */
-	  {
-	    c = eatWhitespace (fp);
-	    break;
-	  }
+    case '\\':      /* bogus backslash */
+      {
+        c = eatWhitespace (fp);
+        break;
+      }
 
-	default:		/* parameter line */
-	  {
-	    if (Parameter (fp, style, pfunc, c) < 0)
-	      return (-1);
-	    c = eatWhitespace (fp);
-	  }
-	}
+    default:        /* parameter line */
+      {
+        if (Parameter (fp, style, pfunc, c) < 0)
+          return (-1);
+        c = eatWhitespace (fp);
+      }
+    }
     }
 
   return (0);
@@ -503,81 +503,81 @@ static int Section (FILE * fp, int (*sfunc) (char *))
   i = 0;
   end = 0;
 
-  c = eatWhitespace (fp);	/* 
-				 ** we've already got the '['. scan past initial
-				 ** white space
-				 */
+  c = eatWhitespace (fp);   /* 
+                 ** we've already got the '['. scan past initial
+                 ** white space
+                 */
 
   while ((c != EOF) && (c > 0))
     {
       if (i > (bsize - 2))
-	{
-	  bsize += BUFR_INC;
-	  bufr = loc_GC_REALLOC (bufr, bsize);
-	  if (bufr == NULL)
-	    {
-	      (void) fprintf (stderr, "%s GC_MALLOC failed\n", func);
-	      return (-1);
-	    }
-	}
+    {
+      bsize += BUFR_INC;
+      bufr = loc_GC_REALLOC (bufr, bsize);
+      if (bufr == NULL)
+        {
+          (void) fprintf (stderr, "%s GC_MALLOC failed\n", func);
+          return (-1);
+        }
+    }
 
       switch (c)
-	{
-	case ']':		/* found the closing bracked */
-	  {
-	    bufr[end] = '\0';
-	    if (end == 0)
-	      {
-		(void) fprintf (stderr, "%s empty section name\n", func);
-		return (-1);
-	      }
+    {
+    case ']':       /* found the closing bracked */
+      {
+        bufr[end] = '\0';
+        if (end == 0)
+          {
+        (void) fprintf (stderr, "%s empty section name\n", func);
+        return (-1);
+          }
 
-	    /*
-	     ** register
-	     ** regSection(&bufr);
-	     */
+        /*
+         ** register
+         ** regSection(&bufr);
+         */
 
-	    if (sfunc (bufr) < 0)
-	      {
-		return (-1);
-	      }
-	    (void) eatComment (fp);
-	    return (0);
-	    break;
-	  }
+        if (sfunc (bufr) < 0)
+          {
+        return (-1);
+          }
+        (void) eatComment (fp);
+        return (0);
+        break;
+      }
 
-	case '\n':
-	  {
-	    i = Continuation (bufr, i);
-	    if (i < 0)
-	      {
-		bufr[end] = '\0';
-		(void) fprintf (stderr, "%s badly formed line in cfg file\n",
-				func);
+    case '\n':
+      {
+        i = Continuation (bufr, i);
+        if (i < 0)
+          {
+        bufr[end] = '\0';
+        (void) fprintf (stderr, "%s badly formed line in cfg file\n",
+                func);
 
-		return (-1);
-	      }
-	    end = ((i > 0) && (bufr[i - 1] == ' ')) ? (i - 1) : (i);
-	    c = getc (fp);
-	    break;
-	  }
-	default:
-	  {
-	    if (isspace (c))
-	      {
-		bufr[end] = ' ';
-		i = end + 1;
-		c = eatWhitespace (fp);
-	      }
-	    else
-	      {
-		bufr[i++] = c;
-		end = i;
-		c = getc (fp);
-	      }
-	    break;
-	  }
-	}
+        return (-1);
+          }
+        end = ((i > 0) && (bufr[i - 1] == ' ')) ? (i - 1) : (i);
+        c = getc (fp);
+        break;
+      }
+    default:
+      {
+        if (isspace (c))
+          {
+        bufr[end] = ' ';
+        i = end + 1;
+        c = eatWhitespace (fp);
+          }
+        else
+          {
+        bufr[i++] = c;
+        end = i;
+        c = getc (fp);
+          }
+        break;
+      }
+    }
     }
 
   return (0);
@@ -594,11 +594,11 @@ loc_GC_REALLOC (char *p, int size)
   if (size == 0)
     {
       if (p)
-	{
-	  // (void) free(p);
-	  (void) fprintf (stderr, "loc_GC_REALLOC() asked for 0 bytes\n");
-	  return (NULL);
-	}
+    {
+      // (void) free(p);
+      (void) fprintf (stderr, "loc_GC_REALLOC() asked for 0 bytes\n");
+      return (NULL);
+    }
     }
 
   if (!p)
@@ -608,8 +608,8 @@ loc_GC_REALLOC (char *p, int size)
 
   if (!ret)
     (void) fprintf (stderr,
-		    "GC_MALLOC problem, failed to expand to %d bytes\n",
-		    size);
+            "GC_MALLOC problem, failed to expand to %d bytes\n",
+            size);
   return (ret);
 }
 

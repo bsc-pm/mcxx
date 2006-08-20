@@ -42,11 +42,11 @@ struct _hash
 };
 
 void hash_init (Hash * h, int size, HASH_FUNC * hash_func,
-		KEYCMP_FUNC * keycmp_func);
+        KEYCMP_FUNC * keycmp_func);
 void hash_set (Hash * h, int op, void *value);
 #define hash_set_bool(h,op,val) hash_set(h,op,(void *)val)
 Hash *hash_create (int size, HASH_FUNC * hash_func,
-		   KEYCMP_FUNC * keycmp_func);
+           KEYCMP_FUNC * keycmp_func);
 void hash_dump (Hash * h);
 void hash_destroy (Hash * h);
 void hash_put (Hash * h, void *key, void *item);

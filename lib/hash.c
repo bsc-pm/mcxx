@@ -2,7 +2,7 @@
 
 void
 hash_init (Hash * h, int size, HASH_FUNC * hash_func,
-	   KEYCMP_FUNC * keycmp_func)
+       KEYCMP_FUNC * keycmp_func)
 {
   int i;
   h->size = size;
@@ -58,20 +58,20 @@ hash_dump (Hash * h)
   for (i = 0; i < h->size; i++)
     for (node = h->table[i]; node; node = node_next)
       {
-	node_next = node->next;
-	if (h->free_items)
-	  {
-	    if (h->df_items)
-	      (*h->df_items) (node->item);
-	    FREE (node->item);
-	  }
-	if (h->free_keys)
-	  {
-	    if (h->df_keys)
-	      (*h->df_keys) (node->key);
-	    FREE (node->key);
-	  }
-	FREE (node);
+    node_next = node->next;
+    if (h->free_items)
+      {
+        if (h->df_items)
+          (*h->df_items) (node->item);
+        FREE (node->item);
+      }
+    if (h->free_keys)
+      {
+        if (h->df_keys)
+          (*h->df_keys) (node->key);
+        FREE (node->key);
+      }
+    FREE (node);
       }
 
   FREE (h->table);
@@ -165,7 +165,7 @@ hash_delete (Hash * h, void *key)
   if (h->free_items)
     {
       if (h->df_items)
-	(*h->df_items) (node->item);
+    (*h->df_items) (node->item);
       FREE (node->item);
       item = NULL;
     }
@@ -175,7 +175,7 @@ hash_delete (Hash * h, void *key)
   if (h->free_keys)
     {
       if (h->df_keys)
-	(*h->df_keys) (node->key);
+    (*h->df_keys) (node->key);
       FREE (node->key);
     }
   FREE (node);

@@ -23,8 +23,8 @@ enum param_process_result_tag
 } param_process_t;
 
 int param_process(char *filename,int style,
-		int (*sfunc)(char *),
-		int (*pfunc)(char *,char *));
+        int (*sfunc)(char *),
+        int (*pfunc)(char *,char *));
 char *getCurrentSection(void);
 
 

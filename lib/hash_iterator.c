@@ -20,13 +20,13 @@ hash_iterator_end (HashIterator * i)
 static void
 hash_iterator_first (HashIterator * i)
 {
-	if (i->hash)
-	{
-		i->table = 0;
+    if (i->hash)
+    {
+        i->table = 0;
 
-		for (i->act = NULL; !i->act && i->table < i->hash->size; i->table++)
-			i->act = i->hash->table[i->table];
-	}
+        for (i->act = NULL; !i->act && i->table < i->hash->size; i->table++)
+            i->act = i->hash->table[i->table];
+    }
 }
 
 static bool_type
@@ -38,8 +38,8 @@ hash_iterator_finished (HashIterator * i)
 static void
 hash_iterator_next (HashIterator * i)
 {
-	for (i->act = i->act->next; !i->act && i->table < i->hash->size; i->table++)
-		i->act = i->hash->table[i->table];
+    for (i->act = i->act->next; !i->act && i->table < i->hash->size; i->table++)
+        i->act = i->hash->table[i->table];
 }
 
 static void *

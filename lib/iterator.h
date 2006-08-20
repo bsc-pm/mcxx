@@ -9,7 +9,7 @@ typedef struct _iterator_ops IteratorOps;
 #define ITERATOR(it) ((Iterator *)it)
 
 /**
- *	@internal
+ *  @internal
  */
 
 struct _iterator_ops
