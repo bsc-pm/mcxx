@@ -124,13 +124,13 @@ int main(int argc, char* argv[])
 
     // Argument parsing
     initialize_default_values();
+	
+    // Load configuration
+    load_configuration();
     
     // Parse arguments
     parse_arguments(compilation_options.argc, 
         compilation_options.argv, /* from_command_line= */1);
-    
-    // Load configuration
-    load_configuration();
 
     // Compilation of every specified translation unit
     compile_every_translation_unit();
@@ -251,7 +251,8 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 }
             case 'm' :
                 {
-                    compilation_options.config_file = GC_STRDUP(optarg);
+					// This option is handled in "load_configuration"
+					// and ignore here for getopt_long happiness
                     break;
                 }
             case 'o' :
@@ -488,6 +489,37 @@ static int parameter_callback(char* parameter, char* value)
 
 static void load_configuration(void)
 {
+	// Solve here the egg and chicken problem of the option --config-file / -m
+	int i;
+	for (i = 1; i < compilation_options.argc; i++)
+	{
+		// First case "-m" "file"
+		if (strcmp(compilation_options.argv[i], "-m") == 0)
+		{
+			if ((i + 1) < compilation_options.argc)
+			{
+				compilation_options.config_file = 
+					GC_STRDUP(compilation_options.argv[i+1]);
+				i++;
+			}
+		}
+		// Second case -mfile
+		else if (strncmp(compilation_options.argv[i], "-m", strlen("-m")) == 0)
+		{
+			compilation_options.config_file = 
+				GC_STRDUP(&(compilation_options.argv[i][strlen("-m")]));
+		}
+		// Third case --config-file=file
+		// FIXME: GNU getopt_long is kind enough to allow you to specify just a
+		// preffix of the option. At the moment do not try to emulate this feature here
+		else if (strncmp(compilation_options.argv[i], 
+					"--config-file=", strlen("--config-file=")) == 0)
+		{
+			compilation_options.config_file = 
+				GC_STRDUP(&(compilation_options.argv[i][strlen("--config-file=") ]));
+		}
+	}
+
     int result = param_process(compilation_options.config_file, MS_STYLE, 
             section_callback, parameter_callback);
 
