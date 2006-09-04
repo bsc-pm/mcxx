@@ -424,10 +424,6 @@ declaration : block_declaration
 {
 	$$ = $1;
 }
-| unknown_pragma
-{
-	$$ = $1;
-}
 // GNU Extension
 // | EXTENSION declaration
 // {
@@ -513,6 +509,10 @@ block_declaration : simple_declaration
 | EXTENSION block_declaration
 {
 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, $1.token_text);
+}
+| unknown_pragma
+{
+	$$ = $1;
 }
 ;
 

@@ -534,7 +534,8 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
                 // The last entry will hold our symbol, no need to look for it in the list
                 ERROR_CONDITION((entry_list->entry->defined 
                             && entry_list->entry->kind != SK_TYPEDEF),
-                        "Symbol '%s' has already been defined", prettyprint_in_buffer(declarator_name));
+                        "Symbol '%s' in %s has already been defined", prettyprint_in_buffer(declarator_name),
+						node_information(declarator_name));
 
                 DEBUG_CODE()
                 {
@@ -1255,7 +1256,8 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
     scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, 
             type_name, FULL_UNQUALIFIED_LOOKUP);
 
-    ERROR_CONDITION((entry_list == NULL), "The list of types is already empty! (%s)\n", node_information(a));
+    ERROR_CONDITION((entry_list == NULL), "The list of types of type '%s' is empty! (%s)\n", 
+			prettyprint_in_buffer(a), node_information(a));
     
     // Filter for non types hiding this type name
     // Fix this, it sounds a bit awkward
@@ -1351,12 +1353,18 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
     
     if (list != NULL)
     {
+		// This is a bit convoluted. Basically simple_enumerator_type is just
+		// an arrow to the true SK_ENUM type, but we cannot use directly
+		// enumerator_type because we would be clobbering the original symbol
+		// type information.
+		
         type_t* enumerator_type = simple_type_info;
+		simple_type_t* simple_enumerator_type = enumerator_type->type;
 
         // If the type had name, refer to the enum type
-        if (simple_type_info->type->kind == STK_USER_DEFINED)
+        if (enumerator_type->type->kind == STK_USER_DEFINED)
         {
-            simple_type_info->type = simple_type_info->type->user_defined_type->type_information->type;
+            simple_enumerator_type = enumerator_type->type->user_defined_type->type_information->type;
         }
 
         // For every enumeration, sign them up in the symbol table
@@ -1387,8 +1395,8 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
             AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, duplicate_expr, ASTLine(duplicate_expr), 0);
             enumeration_item->expression_value = fake_initializer;
 
-            P_LIST_ADD(simple_type_info->type->enum_info->enumeration_list, 
-                    simple_type_info->type->enum_info->num_enumeration,
+            P_LIST_ADD(simple_enumerator_type->enum_info->enumeration_list, 
+                    simple_enumerator_type->enum_info->num_enumeration,
                     enumeration_item);
         }
 
@@ -2652,11 +2660,35 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                 node_information(declarator_id), 
                 list->entry->line);
 
-        ERROR_CONDITION((!equivalent_types(entry->type_information, declarator_type, st, CVE_CONSIDER)), 
-                "Symbol '%s' in line %s has been redeclared as a different symbol kind (look at line %d).", 
-                ASTText(declarator_id), 
-                node_information(declarator_id), 
-                entry->line);
+		// We have to allow 
+		// typedef struct A { .. } A;
+		//
+		// In this case the declarator_id (rightmost "A") will be a SK_CLASS
+		// with TK_DIRECT of STK_USER_DEFINED pointing exactly to entry (the
+		// leftmost "A"). In this case, this is not an error.
+		//
+		// Consider
+		//
+		// typedef struct A { .. } *A;
+		//
+		// This is ill-formed because the rightmost A should be the same typename for the leftmost one.
+		//
+		if (declarator_type->kind != TK_DIRECT
+				|| declarator_type->type->kind != STK_USER_DEFINED
+				|| declarator_type->type->user_defined_type != entry)
+		{
+			ERROR_CONDITION((!equivalent_types(entry->type_information, declarator_type, st, CVE_CONSIDER)), 
+					"Symbol '%s' in line %s has been redeclared as a different symbol kind (look at line %d).", 
+					ASTText(declarator_id), 
+					node_information(declarator_id), 
+					entry->line);
+		}
+		else
+		{
+			// In this special case, "A" will not be redefined, lets undefine
+			// here and let be defined after
+			entry->defined = 0;
+		}
 
         return entry;
     }
@@ -4765,7 +4797,8 @@ void build_scope_template_arguments(AST class_head_id,
                             {
                                 DEBUG_CODE()
                                 {
-                                    fprintf(stderr, "Replacing type/template template parameter '%s'\n", entry->symbol_name);
+                                    fprintf(stderr, "Replacing type/template template parameter '%s' in %p\n", 
+											entry->symbol_name, new_template_args_scope);
                                 }
                                 scope_entry_t* replaced_symbol = new_symbol(new_template_args_scope, entry->symbol_name);
                                 replaced_symbol->kind = SK_TYPEDEF;
@@ -4790,7 +4823,8 @@ void build_scope_template_arguments(AST class_head_id,
                             {
                                 DEBUG_CODE()
                                 {
-                                    fprintf(stderr, "Replacing nontype template parameter '%s'\n", entry->symbol_name);
+                                    fprintf(stderr, "Replacing nontype template parameter '%s' in %p\n", entry->symbol_name,
+											new_template_args_scope);
                                 }
                                 scope_entry_t* replaced_symbol = new_symbol(new_template_args_scope, entry->symbol_name);
                                 replaced_symbol->kind = SK_VARIABLE;
@@ -4809,6 +4843,11 @@ void build_scope_template_arguments(AST class_head_id,
         }
 
         // Now complete the types
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "Completing the types\n");
+		}
+
         int k;
         for (k = num_arguments; 
                 k < (primary_template->num_template_parameters);

@@ -71,6 +71,10 @@ struct option getopt_long_options[] =
     {"graphviz",    no_argument, NULL, 'g'},
     {"debug",       no_argument, NULL, 'd'},
     {"output",      required_argument, NULL, 'o'},
+	// This option has a chicken-and-egg problem. If we delay till getopt_long
+	// to open the configuration file we overwrite variables defined in the
+	// command line. Thus "load_configuration" is invoked before command line parsing
+	// and looks for "--config-file" / "-m" in the arguments
     {"config-file", required_argument, NULL, 'm'},
     {"output-dir",  required_argument, NULL, OPTION_OUTPUT_DIRECTORY},
     {"cc", required_argument, NULL, OPTION_NATIVE_COMPILER_NAME},
