@@ -22,6 +22,7 @@ function_info_t* copy_function_info(function_info_t* function_info);
 array_info_t* copy_array_info(array_info_t* array_info);
 pointer_info_t* copy_pointer_info(pointer_info_t* pointer_info);
 enum_info_t* copy_enum_info(enum_info_t* enum_info);
+template_argument_list_t* copy_template_argument_list(template_argument_list_t* template_argument_list);
 
 // Equality functions
 char equivalent_builtin_type(simple_type_t *t1, simple_type_t *t2);

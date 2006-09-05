@@ -61,7 +61,6 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
             switch (template_parameter->kind)
             {
                 case TPK_TYPE :
-                case TPK_TEMPLATE :
                     {
                         DEBUG_CODE()
                         {
@@ -79,38 +78,50 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
                                 sizeof(*(injected_type->type_information->type)));
                         injected_type->type_information->type->kind = STK_TYPEDEF;
 
-                        if (!template_argument->implicit)
+                        injected_type->type_information->type->aliased_type = template_argument->type;
+                        break;
+                    }
+                case TPK_TEMPLATE :
+                    {
+                        DEBUG_CODE()
                         {
-                            injected_type->type_information->type->aliased_type = template_argument->type;
+                            fprintf(stderr, "Injecting template-alias '%s' into the instantiate scope\n", name);
                         }
-                        else
+
+                        scope_entry_t* injected_type = new_symbol(instantiate_scope, name);
+
+                        injected_type->kind = SK_TEMPLATE_ALIAS;
+
+                        AST template_type_argument = template_argument->argument_tree;
+
+                        if (ASTType(template_type_argument) != AST_TEMPLATE_TYPE_ARGUMENT)
                         {
-                            // Construct the type
-                            AST default_arg_type_spec_seq = ASTSon0(template_parameter->default_tree);
-                            // This declarator can be null
-                            AST default_arg_declarator = ASTSon1(template_parameter->default_tree);
-
-                            type_t* type_info = NULL;
-                            gather_decl_spec_t gather_info;
-                            memset(&gather_info, 0, sizeof(gather_info));
-
-                            build_scope_decl_specifier_seq(default_arg_type_spec_seq, matched_template->scope, 
-                                    &gather_info, &type_info,
-                                    default_decl_context);
-
-                            if (default_arg_declarator != NULL)
-                            {
-                                type_t* declarator_type = NULL;
-                                build_scope_declarator(default_arg_declarator, matched_template->scope, &gather_info, type_info, &declarator_type,
-                                        default_decl_context);
-                                injected_type->type_information->type->aliased_type = declarator_type;
-                            }
-                            else
-                            {
-                                injected_type->type_information->type->aliased_type = type_info;
-                            }
-
+                            internal_error("Unexpected node '%s' in '%s'", ast_print_node_type(ASTType(template_type_argument)),
+                                    node_information(template_type_argument));
                         }
+
+                        AST type_id = ASTSon0(template_type_argument);
+                        AST type_specifier_seq = ASTSon0(type_id);
+                        AST type_specifier = ASTSon1(type_specifier_seq);
+
+                        if (ASTType(type_specifier) != AST_SIMPLE_TYPE_SPECIFIER)
+                        {
+                            internal_error("Unexpected node '%s' in '%s'", ast_print_node_type(ASTType(type_specifier)),
+                                    node_information(type_specifier));
+                        }
+
+                        AST alias_symbol = ASTSon2(type_specifier);
+                        // This should not be a template_id
+                        if (ASTType(alias_symbol) != AST_SYMBOL)
+                        {
+                            internal_error("Expecting a symbol in %s but '%s' was given",
+                                    node_information(alias_symbol),
+                                    ast_print_node_type(ASTType(alias_symbol)));
+                        }
+
+                        injected_type->template_alias_tree = type_specifier;
+                        injected_type->template_alias_scope = template_argument->scope;
+
                         break;
                     }
                 case TPK_NONTYPE :
@@ -231,7 +242,6 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
             switch (template_parameter->kind)
             {
                 case TPK_TYPE :
-                case TPK_TEMPLATE :
                     {
                         // Search the name in the unification set
                         int j;
@@ -263,6 +273,17 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
                                 }
                             }
                         }
+                        break;
+                    }
+                case TPK_TEMPLATE :
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "Injecting template-alias '%s' into the instantiate scope\n", name);
+                        }
+
+                        internal_error("Not yet implemented", 0);
+
                         break;
                     }
                 case TPK_NONTYPE :

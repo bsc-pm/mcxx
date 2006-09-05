@@ -122,6 +122,7 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st)
                     t2->user_defined_type->type_information, st, CVE_CONSIDER);
             break;
         case STK_TYPE_TEMPLATE_PARAMETER :
+		case STK_TEMPLATE_TEMPLATE_PARAMETER : // Fix this case
             result = ((t1 == t2) || 
                     ((t1->template_parameter_num == t2->template_parameter_num)
                      && (t1->template_parameter_nesting == t2->template_parameter_nesting)));
@@ -558,8 +559,10 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                 t1_type = advance_over_typedefs(t1_type);
                 t2_type = advance_over_typedefs(t2_type);
 
-                if (t1_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
-                        && t2_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
+				if ((t1_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
+							&& t2_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
+						|| (t1_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER
+							&& t2_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER))
                 {
                     if (!equivalent_types(t1_type, t2_type, st, CVE_CONSIDER))
                     {
@@ -1274,6 +1277,40 @@ class_info_t* copy_class_info(class_info_t* class_info)
     return result;
 }
 
+template_argument_t* copy_template_argument(template_argument_t* template_argument)
+{
+	template_argument_t* result = GC_CALLOC(1, sizeof(*result));
+
+	*result = *template_argument;
+
+    if (template_argument->type != NULL)
+    {
+        result->type = copy_type(template_argument->type);
+    }
+
+    if (template_argument->argument_tree != NULL)
+    {
+        result->argument_tree = duplicate_ast(template_argument->argument_tree);
+    }
+
+	return result;
+}
+
+template_argument_list_t* copy_template_argument_list(template_argument_list_t* template_argument_list)
+{
+	template_argument_list_t* result = GC_CALLOC(1, sizeof(*result));
+
+	*result = *template_argument_list;
+
+	int i;
+	for (i = 0; i < template_argument_list->num_arguments; i++)
+	{
+		result->argument_list[i] = copy_template_argument(template_argument_list->argument_list[i]);
+	}
+
+	return result;
+}
+
 // This function copies a simple type
 simple_type_t* copy_simple_type(simple_type_t* type_info)
 {
@@ -1291,6 +1328,11 @@ simple_type_t* copy_simple_type(simple_type_t* type_info)
     {
         result->class_info = copy_class_info(type_info->class_info);
     }
+
+	if (result->template_arguments != NULL)
+	{
+		result->template_arguments = copy_template_argument_list(type_info->template_arguments);
+	}
 
     return result;
 }
@@ -1642,6 +1684,15 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
             break;
         case STK_CLASS :
             result = strappend(result, "class <anonymous>");
+            break;
+		case STK_TEMPLATE_TEMPLATE_PARAMETER :
+            {
+                char temp[256];
+                snprintf(temp, 255, "template template parameter #%d nesting=%d", 
+                        simple_type_info->template_parameter_num, simple_type_info->template_parameter_nesting);
+
+                result = strappend(result, temp);
+            }
             break;
         case STK_TYPE_TEMPLATE_PARAMETER :
             {

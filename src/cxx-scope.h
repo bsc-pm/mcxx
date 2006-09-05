@@ -37,16 +37,17 @@ enum cxx_symbol_kind
     SK_TEMPLATE_PRIMARY_CLASS, // [9] this names a primary template
     SK_TEMPLATE_SPECIALIZED_CLASS, // [10] this names a specialized template class
     SK_TEMPLATE_FUNCTION, // [11] this names a template function
-    SK_TEMPLATE_PARAMETER, // [12] nontype parameters like N in "template<int N>"
-    SK_TEMPLATE_TYPE_PARAMETER, // [13] plain type parameters like T in "template <class T>"
-    SK_TEMPLATE_TEMPLATE_PARAMETER, // [14] template template parameters like Q in "template<template<class P> Q>"
+	SK_TEMPLATE_ALIAS, // [12] this names something that aliases a template-name (used solely in instantiation)
+    SK_TEMPLATE_PARAMETER, // [13] nontype parameters like N in "template<int N>"
+    SK_TEMPLATE_TYPE_PARAMETER, // [14] plain type parameters like T in "template <class T>"
+    SK_TEMPLATE_TEMPLATE_PARAMETER, // [15] template template parameters like Q in "template<template<class P> Q>"
     // Artificial symbol representing scopes - used only for debugging purposes
     // should not be considered as a symbol
-    SK_SCOPE, // [15]
+    SK_SCOPE, // [16]
     // GCC Extension for builtin types
-    SK_GCC_BUILTIN_TYPE, // [16]
+    SK_GCC_BUILTIN_TYPE, // [17]
     // Dependent entity that is named but nothing is known at the moment
-    SK_DEPENDENT_ENTITY // [17]
+    SK_DEPENDENT_ENTITY // [18]
 };
 
 typedef enum {
@@ -96,10 +97,11 @@ typedef enum simple_type_kind_tag
     STK_USER_DEFINED, // [5] A {identifier};
     // Templates stuff
     STK_TYPE_TEMPLATE_PARAMETER, // [6] template <class {identifier}> struct B {};
-    STK_TEMPLATE_DEPENDENT_TYPE, // [7] template <class T> struct B { typename T::a {identifier}; };
+	STK_TEMPLATE_TEMPLATE_PARAMETER, // [7] template <template <...> class {identifier}> struct B {};
+    STK_TEMPLATE_DEPENDENT_TYPE, // [8] template <class T> struct B { typename T::a {identifier}; };
     // GCC Extensions
-    STK_VA_LIST, // [8] __builtin_va_list {identifier};
-    STK_TYPEOF  // [9] __typeof__(int) {identifier};
+    STK_VA_LIST, // [9] __builtin_va_list {identifier};
+    STK_TYPEOF  // [10] __typeof__(int) {identifier};
 } simple_type_kind_t;
 
 struct scope_entry_tag;
@@ -271,6 +273,7 @@ typedef struct simple_type_tag {
 
     // For instantiation purposes
     char from_instantiation;
+
 } simple_type_t;
 
 typedef struct parameter_info_tag
@@ -400,6 +403,10 @@ typedef struct scope_entry_tag
 
     char injected_class_name;
     struct scope_entry_tag* injected_class_referred_symbol;
+	
+	// For template-alias
+	AST template_alias_tree;
+	struct scope_tag* template_alias_scope;
 } scope_entry_t;
 
 // This is what the scope returns

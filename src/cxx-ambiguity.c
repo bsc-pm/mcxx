@@ -1638,48 +1638,6 @@ static char check_for_symbol(AST expr, scope_t* st)
                 || result->entry->kind == SK_TEMPLATE_PARAMETER));
 }
 
-#if 0
-static char check_for_destructor_id(AST expr, scope_t* st)
-{
-    // ENSURE_TYPE(expr, AST_DESTRUCTOR_ID);
-    if (ASTType(expr) != AST_DESTRUCTOR_ID
-            && ASTType(expr) != AST_DESTRUCTOR_TEMPLATE_ID)
-    {
-        internal_error("Expecting node of AST_DESTRUCTOR_{ID|TEMPLATE_ID} but got '%s'\n", ast_print_node_type(ASTType(expr)));
-    }
-
-    char* class_name = ASTText(expr);
-    // Spring ~
-    class_name++;
-    scope_entry_list_t* result_list = query_unqualified_name(st, class_name);
-
-    if (result_list == NULL)
-    {
-        return 0;
-    }
-
-    type_t* type_result = result_list->entry->type_information;
-
-    if (type_result->kind != TK_DIRECT)
-    {
-        return 0;
-    }
-
-    // Advance over typedefs
-    type_result = advance_over_typedefs(type_result);
-
-    if (type_result->type->kind == STK_USER_DEFINED)
-    {
-        type_result = type_result->type->user_defined_type->type_information;
-    }
-
-    return (type_result->kind == TK_DIRECT
-            && (type_result->type->kind == STK_CLASS
-                // Dubious without exact instantiation
-                || type_result->type->kind == STK_TYPE_TEMPLATE_PARAMETER));
-}
-#endif
-
 static char check_for_functional_expression(AST expr, AST arguments, scope_t* st)
 {
     char result = 0;
