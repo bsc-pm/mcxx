@@ -529,26 +529,7 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
                 {
                     solve_possibly_ambiguous_template_id(name, sc);
 
-                    if (is_dependent_tree(name, sc))
-                    {
-                        scope_entry_t* dependent_entity = GC_CALLOC(1, sizeof(*dependent_entity));
-                        dependent_entity->kind = SK_DEPENDENT_ENTITY;
-
-                        dependent_entity->type_information = GC_CALLOC(1, sizeof(*(dependent_entity->type_information)));
-                        dependent_entity->type_information->kind = TK_DIRECT;
-
-                        dependent_entity->type_information->type = GC_CALLOC(1,
-                                sizeof(*(dependent_entity->type_information->type)));
-                        dependent_entity->type_information->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-                        dependent_entity->type_information->type->typeof_expr = name;
-                        dependent_entity->type_information->type->typeof_scope = copy_scope(sc);
-
-                        return create_list_from_entry(dependent_entity);
-                    }
-                    else
-                    {
-                        result = query_unqualified_template_id_flags(name, sc, lookup_scope, lookup_flags);
-                    }
+					result = query_unqualified_template_id_flags(name, sc, lookup_scope, lookup_flags);
                 }
                 break;
             default :
@@ -611,15 +592,6 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
         {
             scope_entry_t* dependent_entity = GC_CALLOC(1, sizeof(*dependent_entity));
             dependent_entity->kind = SK_DEPENDENT_ENTITY;
-
-            dependent_entity->type_information = GC_CALLOC(1, sizeof(*(dependent_entity->type_information)));
-            dependent_entity->type_information->kind = TK_DIRECT;
-
-            dependent_entity->type_information->type = GC_CALLOC(1,
-                    sizeof(*(dependent_entity->type_information->type)));
-            dependent_entity->type_information->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-            dependent_entity->type_information->type->typeof_expr = name;
-            dependent_entity->type_information->type->typeof_scope = copy_scope(sc);
 
             return create_list_from_entry(dependent_entity);
         }
@@ -823,15 +795,6 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
         scope_entry_t* dependent_entity = GC_CALLOC(1, sizeof(*dependent_entity));
         dependent_entity->kind = SK_DEPENDENT_ENTITY;
-
-        dependent_entity->type_information = GC_CALLOC(1, sizeof(*(dependent_entity->type_information)));
-        dependent_entity->type_information->kind = TK_DIRECT;
-
-        dependent_entity->type_information->type = GC_CALLOC(1,
-                sizeof(*(dependent_entity->type_information->type)));
-        dependent_entity->type_information->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-        dependent_entity->type_information->type->typeof_expr = template_id;
-        dependent_entity->type_information->type->typeof_scope = copy_scope(sc);
 
         return create_list_from_entry(dependent_entity);
     }
@@ -1045,30 +1008,9 @@ scope_entry_list_t* query_id_expression_flags(scope_t* sc, AST id_expr,
 
                 solve_possibly_ambiguous_template_id(id_expr, sc);
 
-                if (is_dependent_tree(id_expr, sc))
-                {
+				scope_entry_list_t* result = query_unqualified_name(sc, ASTText(symbol));
 
-                    scope_entry_t* dependent_entity = GC_CALLOC(1, sizeof(*dependent_entity));
-                    dependent_entity->kind = SK_DEPENDENT_ENTITY;
-
-                    dependent_entity->type_information = GC_CALLOC(1, sizeof(*(dependent_entity->type_information)));
-                    dependent_entity->type_information->kind = TK_DIRECT;
-
-                    dependent_entity->type_information->type = GC_CALLOC(1,
-                            sizeof(*(dependent_entity->type_information->type)));
-                    dependent_entity->type_information->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-                    dependent_entity->type_information->type->typeof_expr = id_expr;
-                    dependent_entity->type_information->type->typeof_scope = copy_scope(sc);
-
-                    return create_list_from_entry(dependent_entity);
-                }
-                else
-                {
-                    scope_entry_list_t* result = query_unqualified_name(sc, ASTText(symbol));
-
-                    return result;
-                }
-
+				return result;
                 break;
             }
         case AST_OPERATOR_FUNCTION_ID :
@@ -1711,7 +1653,6 @@ scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list)
                 && simple_type_entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
                 && simple_type_entry->kind != SK_TEMPLATE_PRIMARY_CLASS
                 && simple_type_entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS
-                && simple_type_entry->kind != SK_DEPENDENT_ENTITY
                 && simple_type_entry->kind != SK_GCC_BUILTIN_TYPE)
         {
             // Functions with name of a class are constructors and do not hide

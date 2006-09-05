@@ -1252,7 +1252,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
     {
         solve_possibly_ambiguous_template_id(type_name, st);
     }
-
+	
     scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, 
             type_name, FULL_UNQUALIFIED_LOOKUP);
 
@@ -1262,6 +1262,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
     // Filter for non types hiding this type name
     // Fix this, it sounds a bit awkward
     scope_entry_t* simple_type_entry = filter_simple_type_specifier(entry_list);
+
 
     ERROR_CONDITION((simple_type_entry == NULL), "Identifier '%s' in %s is not a type\n", 
             ASTText(type_name), node_information(type_name));
@@ -1450,9 +1451,9 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
         scope_entry_list_t* result_list = query_nested_name_flags(st, global_op, nested_name_specifier, name, 
                 FULL_UNQUALIFIED_LOOKUP, LF_INSTANTIATE);
 
-        enum cxx_symbol_kind filter[6] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS, 
-            SK_TEMPLATE_TYPE_PARAMETER, SK_TEMPLATE_TEMPLATE_PARAMETER, SK_TYPEDEF};
-        result_list = filter_symbol_kind_set(result_list, 6, filter);
+        enum cxx_symbol_kind filter[7] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS, 
+            SK_TEMPLATE_TYPE_PARAMETER, SK_TEMPLATE_TEMPLATE_PARAMETER, SK_TYPEDEF, SK_DEPENDENT_ENTITY};
+        result_list = filter_symbol_kind_set(result_list, 7, filter);
 
         ERROR_CONDITION((result_list == NULL), "Base class not found!\n", 0);
         scope_entry_t* result = result_list->entry;

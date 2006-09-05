@@ -1710,7 +1710,7 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
             result = strappend(result, "__typeof");
             break;
         case STK_TEMPLATE_DEPENDENT_TYPE :
-            result = strappend(result, "template dependent parameter");
+            result = strappend(result, "template dependent type");
             break;
         default :
             {
@@ -1913,7 +1913,8 @@ char is_dependent_tree(AST tree, scope_t* st)
 
                 if (t->kind == TK_DIRECT
                         && (t->type->kind == STK_TEMPLATE_DEPENDENT_TYPE
-                            || t->type->kind == STK_TYPE_TEMPLATE_PARAMETER))
+                            || t->type->kind == STK_TYPE_TEMPLATE_PARAMETER
+							|| t->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER))
                 {
                     DEBUG_CODE()
                     {
