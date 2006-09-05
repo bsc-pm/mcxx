@@ -7,10 +7,10 @@ template <typename T,
     template<typename Q> class V = A >
 struct M
 {
-	typedef typename V<int> T;
+	typedef V<int> F;
 };
 
 void f()
 {
-	M<int>::T k;
+	M<int>::F k;
 }
