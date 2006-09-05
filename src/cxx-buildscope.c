@@ -4713,15 +4713,31 @@ static void update_template_parameter_types(type_t** update_type,
                     else if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS
                             || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
                     {
+						DEBUG_CODE()
+						{
+							fprintf(stderr, "Updating types of template '%s'\n", entry->symbol_name);
+						}
                         template_argument_list_t* new_template_arguments = 
                             copy_template_argument_list(entry->type_information->type->template_arguments);
 
                         int i;
+
+						DEBUG_CODE()
+						{
+							for (i = 0; i < new_template_arguments->num_arguments; i++)
+							{
+								char c = (entry->type_information->type->template_arguments->argument_list[i]->type ==
+										new_template_arguments->argument_list[i]->type);
+								ERROR_CONDITION(c, "These pointers have to be different!!!\n", 0);
+							}
+						}
+
                         for (i = 0; i < new_template_arguments->num_arguments; i++)
                         {
                             DEBUG_CODE()
                             {
-                                fprintf(stderr, "Before template argument type update %d : ", i);
+                                fprintf(stderr, "Before template argument type update %d (%p) : ", i,
+										new_template_arguments->argument_list[i]->type);
                                 print_declarator(new_template_arguments->argument_list[i]->type, entry->scope);
                                 fprintf(stderr, "\n");
                             }
@@ -4732,7 +4748,8 @@ static void update_template_parameter_types(type_t** update_type,
 
                             DEBUG_CODE()
                             {
-                                fprintf(stderr, "After template argument type update %d : ", i);
+                                fprintf(stderr, "After template argument type update %d (%p) : ", i,
+										new_template_arguments->argument_list[i]->type);
                                 print_declarator(new_template_arguments->argument_list[i]->type, entry->scope);
                                 fprintf(stderr, "\n");
                             }

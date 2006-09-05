@@ -1183,6 +1183,9 @@ enum_info_t* copy_enum_info(enum_info_t* enum_info)
 
     *result = *enum_info;
 
+	result->enumeration_list = 
+		GC_CALLOC(result->num_enumeration, sizeof(*(result->enumeration_list)));
+
     int i;
     for (i = 0; i < result->num_enumeration; i++)
     {
@@ -1223,6 +1226,9 @@ function_info_t* copy_function_info(function_info_t* function_info)
     *result = *function_info;
 
     result->return_type = copy_type(function_info->return_type);
+
+	function_info->parameter_list = GC_CALLOC(function_info->num_parameters,
+			sizeof(*(function_info->parameter_list)));
     
     int i;
     for (i = 0; i < function_info->num_parameters; i++)
@@ -1301,6 +1307,8 @@ template_argument_list_t* copy_template_argument_list(template_argument_list_t* 
 	template_argument_list_t* result = GC_CALLOC(1, sizeof(*result));
 
 	*result = *template_argument_list;
+
+	result->argument_list = GC_CALLOC(template_argument_list->num_arguments, sizeof(*(result->argument_list)));
 
 	int i;
 	for (i = 0; i < template_argument_list->num_arguments; i++)
