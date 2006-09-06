@@ -1213,7 +1213,7 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
     scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
             LF_NO_FAIL);
 
-    if (result != NULL
+    /*if (result != NULL
             && result->entry->kind != SK_DEPENDENT_ENTITY)
     {
         scope_entry_t* entry = result->entry;
@@ -1228,7 +1228,7 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
             *simple_type_info = *entry->type_information->type->aliased_type;
         }
     }
-    else
+    else */
     {
         simple_type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
         simple_type_info->type->typeof_expr = a;
@@ -3603,7 +3603,6 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
     }
 
     template_parameters->default_argument_scope = copy_scope(st);
-
     template_parameters->default_tree = default_expression;
 
     template_parameters->kind = TPK_NONTYPE;
@@ -4640,8 +4639,12 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
                     AST expression_tree = ASTMake1(AST_EXPRESSION, symbol_tree, 0, NULL);
 
                     new_template_argument->argument_tree = expression_tree;
-                    new_template_argument->scope = template_scope;
-                    
+                    new_template_argument->scope = copy_scope(template_parameter->default_argument_scope->contained_in);
+
+					scope_t* old_template_scope = new_template_argument->scope->template_scope;
+					new_template_argument->scope->template_scope = template_parameter->default_argument_scope;
+					new_template_argument->scope->template_scope->template_scope = old_template_scope;
+
                     P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
                     break;
                 }
@@ -4654,7 +4657,7 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
 }
 
 static void update_template_parameter_types(type_t** update_type,
-        template_argument_t** argument_list)
+        template_argument_list_t* argument_list)
 {
     if (update_type == NULL
             || *update_type == NULL)
@@ -4693,12 +4696,93 @@ static void update_template_parameter_types(type_t** update_type,
             {
                 if ((*update_type)->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
                 {
-                    *update_type = argument_list[(*update_type)->type->template_parameter_num]->type;
+					type_t* replace_type = argument_list->argument_list[(*update_type)->type->template_parameter_num]->type;
+					*update_type = 
+						advance_over_typedefs(argument_list->argument_list[(*update_type)->type->template_parameter_num]->type);
                 }
                 else if ((*update_type)->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER)
                 {
                     internal_error("Not yet implemented", 0);
                 }
+				else if ((*update_type)->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
+				{
+					AST a = (*update_type)->type->typeof_expr;
+					AST global_scope = ASTSon0(a);
+					AST nested_name_spec = ASTSon1(a);
+					AST name = ASTSon2(a);
+
+					scope_t* replace_scope = new_template_scope((*update_type)->type->typeof_scope);
+
+					Iterator* it = (Iterator*) hash_iterator_create(
+							(*update_type)->type->typeof_scope->hash);
+					for (iterator_first(it); !iterator_finished(it); iterator_next(it))
+					{
+						scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
+
+						scope_entry_t* entry = entry_list->entry;
+
+						scope_entry_t* new_entry = new_symbol(replace_scope, entry->symbol_name);
+
+						if (entry->type_information->type->template_parameter_num >= argument_list->num_arguments)
+						{
+							continue;
+						}
+
+						if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
+						{
+							new_entry->kind = SK_TYPEDEF;
+
+							new_entry->type_information = GC_CALLOC(1, sizeof(*(new_entry->type_information)));
+							new_entry->type_information->kind = TK_DIRECT;
+
+							new_entry->type_information->type = GC_CALLOC(1, sizeof(*(new_entry->type_information->type)));
+							new_entry->type_information->type->kind = STK_TYPEDEF;
+							new_entry->type_information->type->aliased_type = copy_type(
+									advance_over_typedefs(entry->type_information));
+
+							update_template_parameter_types(&(new_entry->type_information->type->aliased_type),
+									argument_list);
+						}
+						else if (entry->kind == SK_TEMPLATE_PARAMETER)
+						{
+							*new_entry = *entry;
+							new_entry->scope = replace_scope;
+
+							// This is no more a SK_TEMPLATE_PARAMETER
+							new_entry->kind = SK_VARIABLE;
+							AST expression = duplicate_ast(
+									argument_list->argument_list[entry->type_information->type->template_parameter_num]->argument_tree);
+							AST constant_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, expression, ASTLine(expression), NULL);
+
+							new_entry->expression_value = constant_initializer;
+						}
+						else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+						{
+							internal_error("Not implemented", 0);
+						}
+						else
+						{
+							internal_error("Unexpected node type '%d'\n", entry->kind);
+						}
+					}
+
+					scope_t* search_scope = copy_scope((*update_type)->type->typeof_scope->contained_in);
+					search_scope->template_scope = replace_scope;
+
+					scope_entry_list_t* entry_list = query_nested_name_flags(search_scope,
+							global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
+							LF_NO_FAIL);
+
+					if (entry_list != NULL)
+					{
+						scope_entry_t* entry = entry_list->entry;
+						(*update_type) = entry->type_information;
+					}
+					else
+					{
+						internal_error("Argument type not found\n", 0);
+					}
+				}
                 else if ((*update_type)->type->kind == STK_USER_DEFINED)
                 {
                     scope_entry_t* entry = (*update_type)->type->user_defined_type;
@@ -4707,7 +4791,7 @@ static void update_template_parameter_types(type_t** update_type,
                     {
                         type_t* template_type = entry->type_information;
 
-                        *update_type = argument_list[template_type->type->template_parameter_num]->type;
+                        *update_type = argument_list->argument_list[template_type->type->template_parameter_num]->type;
                     }
                     // Handle templates. We create specializations here if needed
                     else if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS
@@ -5018,7 +5102,7 @@ void build_scope_template_arguments(AST class_head_id,
                                     fprintf(stderr, "\n");
                                 }
                                 update_template_parameter_types(&(curr_template_arg->type),
-                                        (*template_arguments)->argument_list);
+                                        (*template_arguments));
 
                                 DEBUG_CODE()
                                 {
@@ -5037,6 +5121,69 @@ void build_scope_template_arguments(AST class_head_id,
                             curr_template_arg->kind = TAK_NONTYPE;
                             curr_template_arg->argument_tree = curr_template_parameter->default_tree;
                             curr_template_arg->scope = copy_scope(template_argument_scope);
+
+							// Replace types in the parameter scope
+							scope_t* replace_scope = new_template_scope(curr_template_parameter->default_argument_scope->contained_in);
+
+							Iterator* it = (Iterator*) hash_iterator_create(
+									curr_template_parameter->default_argument_scope->hash);
+							for (iterator_first(it); !iterator_finished(it); iterator_next(it))
+							{
+								scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
+
+								scope_entry_t* entry = entry_list->entry;
+
+								scope_entry_t* new_entry = new_symbol(replace_scope, entry->symbol_name);
+
+								if (entry->type_information->type->template_parameter_num >=
+										(*template_arguments)->num_arguments)
+								{
+									continue;
+								}
+
+
+								if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
+								{
+									new_entry->kind = SK_TYPEDEF;
+
+									new_entry->type_information = GC_CALLOC(1, sizeof(*(new_entry->type_information)));
+									new_entry->type_information->kind = TK_DIRECT;
+
+									new_entry->type_information->type = GC_CALLOC(1, sizeof(*(new_entry->type_information->type)));
+									new_entry->type_information->type->kind = STK_TYPEDEF;
+									new_entry->type_information->type->aliased_type = copy_type(
+											advance_over_typedefs(entry->type_information));
+
+									update_template_parameter_types(&(new_entry->type_information->type->aliased_type),
+											(*template_arguments));
+								}
+								else if (entry->kind == SK_TEMPLATE_PARAMETER)
+								{
+									*new_entry = *entry;
+									new_entry->scope = replace_scope;
+
+									// This is no more a SK_TEMPLATE_PARAMETER
+									new_entry->kind = SK_VARIABLE;
+									AST expression = duplicate_ast(
+											(*template_arguments)->
+											argument_list[entry->type_information->type->template_parameter_num]->argument_tree);
+									AST constant_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, expression, ASTLine(expression), NULL);
+
+									new_entry->expression_value = constant_initializer;
+								}
+								else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+								{
+									internal_error("Not implemented", 0);
+								}
+								else
+								{
+									internal_error("Unexpected node type '%d'\n", entry->kind);
+								}
+							}
+									
+							scope_t* old_template_scope = curr_template_arg->scope->template_scope;
+							curr_template_arg->scope->template_scope = replace_scope;
+							curr_template_arg->scope->template_scope->template_scope = old_template_scope;
 
                             break;
                         }

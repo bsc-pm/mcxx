@@ -213,6 +213,10 @@ char match_one_template(template_argument_list_t* arguments,
             {
                 case TAK_TYPE :
                     {
+						DEBUG_CODE()
+						{
+							fprintf(stderr, "=== Unificating types\n");
+						}
                         if (!unificate_two_types(spec_arg->type, arg->type, st, &unif_set))
                         {
                             DEBUG_CODE()
@@ -221,10 +225,21 @@ char match_one_template(template_argument_list_t* arguments,
                             }
                             return 0;
                         }
+						else
+						{
+							DEBUG_CODE()
+							{
+								fprintf(stderr, "=== Types unificated\n");
+							}
+						}
                         break;
                     }
                 case TAK_NONTYPE :
                     {
+						DEBUG_CODE()
+						{
+							fprintf(stderr, "==> Unificating expressions\n");
+						}
                         // The key here is evaluating both expressions and checking they are the same
                         if (spec_arg->argument_tree == NULL)
                         {
@@ -261,12 +276,22 @@ char match_one_template(template_argument_list_t* arguments,
                         else
                         {
                             unification_item_t* unif_item = GC_CALLOC(1, sizeof(*unif_item));
+							unif_item->expression = arg->argument_tree;
 
-                            unif_item->parameter_name = get_unique_name();
-                            unif_item->expression = arg->argument_tree;
+							if (arg_value.kind != LVK_INVALID
+									&& arg_value.kind != LVK_DEPENDENT_EXPR)
+							{
+								unif_item->expression = tree_from_literal_value(arg_value);
+							}
+
                             // Set to -1 to early detect errors
                             unif_item->parameter_num = -1;
                             unif_item->parameter_nesting = -1;
+
+							DEBUG_CODE()
+							{
+								fprintf(stderr, "==> Expression unified\n");
+							}
 
                             P_LIST_ADD(unif_set->unif_list, unif_set->num_elems, unif_item);
                         }

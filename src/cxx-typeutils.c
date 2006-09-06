@@ -1747,7 +1747,7 @@ void print_declarator(type_t* printed_declarator, scope_t* st)
             case TK_DIRECT :
                 if (printed_declarator->type != NULL)
                 {
-                    fprintf(stderr, "%s", get_builtin_type_name(printed_declarator->type, st));
+					fprintf(stderr, "%s", get_builtin_type_name(printed_declarator->type, st));
                 }
                 else
                 {

@@ -769,6 +769,10 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
             if (value.kind == LVK_DEPENDENT_EXPR)
             {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "-> Dependent expression template argument\n");
+                }
                 seen_dependent_args = 1;
             }
 
@@ -805,7 +809,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         will_not_instantiate |= seen_dependent_args;
         DEBUG_CODE()
         {
-            fprintf(stderr, "This template-id has dependent arguments and will not be instantiated here\n");
+            fprintf(stderr, "The template-id '%s' has dependent arguments and will not be instantiated here\n",
+					prettyprint_in_buffer(template_id));
         }
     }
     
