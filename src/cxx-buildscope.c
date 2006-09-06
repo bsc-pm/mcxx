@@ -1178,63 +1178,64 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t* simple_type_info,
         decl_context_t decl_context)
 {
-    AST global_scope = ASTSon0(a);
-    AST nested_name_spec = ASTSon1(a);
-    AST name = ASTSon2(a);
-    
-    // Remove additional ambiguities that might appear in things of the form 
-    // T::template A<B>
-    while (nested_name_spec != NULL)
-    {
-        AST class_name = ASTSon0(nested_name_spec);
+	AST global_scope = ASTSon0(a);
+	AST nested_name_spec = ASTSon1(a);
+	AST name = ASTSon2(a);
 
-        if (ASTType(class_name) == AST_TEMPLATE_ID)
-        {
-            solve_possibly_ambiguous_template_id(class_name, st);
-        }
+	// Remove additional ambiguities that might appear in things of the form 
+	// T::template A<B>
+	while (nested_name_spec != NULL)
+	{
+		AST class_name = ASTSon0(nested_name_spec);
 
-        nested_name_spec = ASTSon1(nested_name_spec);
-    }
+		if (ASTType(class_name) == AST_TEMPLATE_ID)
+		{
+			solve_possibly_ambiguous_template_id(class_name, st);
+		}
 
-    if (ASTType(name) == AST_TEMPLATE_ID)
-    {
-        solve_possibly_ambiguous_template_id(name, st);
-    }
+		nested_name_spec = ASTSon1(nested_name_spec);
+	}
 
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "Trying to look up a dependent typename\n");
-    }
+	if (ASTType(name) == AST_TEMPLATE_ID)
+	{
+		solve_possibly_ambiguous_template_id(name, st);
+	}
 
-    global_scope = ASTSon0(a);
-    nested_name_spec = ASTSon1(a);
-    name = ASTSon2(a);
-    
-    scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
-            LF_NO_FAIL);
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "Trying to look up a dependent typename\n");
+	}
 
-    /*if (result != NULL
-            && result->entry->kind != SK_DEPENDENT_ENTITY)
-    {
-        scope_entry_t* entry = result->entry;
+	global_scope = ASTSon0(a);
+	nested_name_spec = ASTSon1(a);
+	name = ASTSon2(a);
 
-        if (entry->kind != SK_TYPEDEF)
-        {
-            simple_type_info->type->kind = STK_USER_DEFINED;
-            simple_type_info->type->user_defined_type = result->entry;
-        }
-        else
-        {
-            *simple_type_info = *entry->type_information->type->aliased_type;
-        }
-    }
-    else */
-    {
-        simple_type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-        simple_type_info->type->typeof_expr = a;
-        simple_type_info->type->typeof_scope = copy_scope(st);
-    }
-    
+	if (!BITMAP_TEST(decl_context.decl_flags, DF_ALWAYS_DEPENDENT_TYPE))
+	{
+		scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
+				LF_NO_FAIL);
+
+		if (result != NULL
+				&& result->entry->kind != SK_DEPENDENT_ENTITY)
+		{
+			scope_entry_t* entry = result->entry;
+
+			if (entry->kind != SK_TYPEDEF)
+			{
+				simple_type_info->type->kind = STK_USER_DEFINED;
+				simple_type_info->type->user_defined_type = result->entry;
+			}
+			else
+			{
+				*simple_type_info = *entry->type_information->type->aliased_type;
+			}
+			return;
+		}
+	}
+
+	simple_type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
+	simple_type_info->type->typeof_expr = a;
+	simple_type_info->type->typeof_scope = copy_scope(st);
 }
 
 /*
@@ -3529,14 +3530,17 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
         gather_decl_spec_t gather_info;
         memset(&gather_info, 0, sizeof(gather_info));
 
+		decl_context_t new_decl_context = decl_context;
+		new_decl_context.decl_flags |= DF_ALWAYS_DEPENDENT_TYPE;
+
         build_scope_decl_specifier_seq(default_arg_type_spec_seq, st, &gather_info, &type_info,
-                decl_context);
+                new_decl_context);
 
         if (default_arg_declarator != NULL)
         {
             type_t* declarator_type = NULL;
             build_scope_declarator(default_arg_declarator, st, &gather_info, type_info, &declarator_type,
-                    decl_context);
+                    new_decl_context);
             template_parameters->default_type = declarator_type;
         }
         else
