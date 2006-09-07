@@ -42,28 +42,34 @@ namespace B
 
 namespace A
 {
-  template<typename _Tp>
-    struct allocator;
-  template<>
-    struct allocator<void>
-    {
-    public:
-      typedef size_t size_type;
-      template<typename _Tp1>
-        struct rebind
-        { typedef allocator<_Tp1> other; };
-    };
-  template<typename _Tp>
-    struct allocator: public B::new_allocator<_Tp>
-    {
-   public:
-      typedef size_t size_type;
-      template<typename _Tp1>
-        struct rebind
-        { typedef allocator<_Tp1> other; };
-      allocator(const allocator& __a) throw()
-      : B::new_allocator<_Tp>(__a) { }
-    };
+	template<typename _Tp>
+		struct allocator;
+
+	template<>
+		struct allocator<void>
+		{
+			public:
+				typedef size_t size_type;
+				template<typename _Tp1>
+					struct rebind
+					{ 
+						typedef allocator<_Tp1> other; 
+					};
+		};
+
+	template<typename _Tp>
+		struct allocator: public B::new_allocator<_Tp>
+		{
+			public:
+				typedef size_t size_type;
+				template<typename _Tp1>
+					struct rebind
+					{ 
+						typedef allocator<_Tp1> other; 
+					};
+				allocator(const allocator& __a) throw()
+					: B::new_allocator<_Tp>(__a) { }
+		};
 }
 
 namespace A
