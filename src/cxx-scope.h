@@ -329,6 +329,7 @@ typedef struct pointer_tag
 typedef struct array_tag
 {
     AST array_expr;
+    struct scope_tag* array_expr_scope;
     struct type_tag* element_type;
 } array_info_t;
 

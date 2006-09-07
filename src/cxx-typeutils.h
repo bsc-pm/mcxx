@@ -67,6 +67,9 @@ char is_named_class_type(type_t* possible_class);
 char is_base_class_of(type_t* possible_base, type_t* possible_derived);
 type_t* get_class_type(type_t* class_type);
 
+char is_dependent_type(type_t* type);
+char is_dependent_expression(AST expr, scope_t* st);
+
 cv_qualifier_t get_cv_qualifier(type_t* type_info);
 
 char is_bool_type(type_t* t1);
@@ -80,7 +83,9 @@ char is_reference_to_class_type(type_t* t1);
 
 char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 
-char is_dependent_tree(AST tree, scope_t* st);
+#if 0
+char is_dependent_tree(AST tree, scope_t* st) __attribute__((deprecated));
+#endif
 
 scope_entry_t* give_real_entry(scope_entry_t* entry);
 

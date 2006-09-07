@@ -180,7 +180,6 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     injected_symbol->injected_class_name = 1;
     injected_symbol->injected_class_referred_symbol = instance_symbol;
 
-
     build_scope_member_specification(instance_symbol->related_scope, instantiate_tree, AS_PUBLIC,
             simple_type_info, decl_context);
 

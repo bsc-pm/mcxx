@@ -758,37 +758,43 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         template_argument_t* argument = current_template_arguments->argument_list[i];
         if (argument->kind == TAK_TYPE)
         {
-            if (is_dependent_tree(argument->argument_tree, argument->scope))
+            if (is_dependent_type(argument->type))
             {
                 seen_dependent_args = 1;
             }
         }
         else if (argument->kind == TAK_NONTYPE)
         {
-            literal_value_t value = evaluate_constant_expression(argument->argument_tree, argument->scope);
+			if (is_dependent_expression(argument->argument_tree, argument->scope))
+			{
+				DEBUG_CODE()
+				{
+					fprintf(stderr, "-> Dependent expression template argument '%s'\n",
+							prettyprint_in_buffer(argument->argument_tree));
+				}
+				seen_dependent_args = 1;
+			}
+            // literal_value_t value = evaluate_constant_expression(argument->argument_tree, argument->scope);
 
-            if (value.kind == LVK_DEPENDENT_EXPR)
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "-> Dependent expression template argument\n");
-                }
-                seen_dependent_args = 1;
-            }
+            // if (value.kind == LVK_DEPENDENT_EXPR)
+            // {
+            //     seen_dependent_args = 1;
+            // }
 
-            if (value.kind == LVK_INVALID)
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "-> Template not returned since one of its arguments is an invalid expression\n");
-                }
-                return NULL;
-            }
+            // if (value.kind == LVK_INVALID)
+            // {
+            //     DEBUG_CODE()
+            //     {
+            //         fprintf(stderr, "-> Template not returned since one of its arguments is an invalid expression\n");
+            //     }
+            //     return NULL;
+            // }
         }
     }
 
     // If this is considered in the context of an expression and dependent args
     // have been seen, create a dependent entity
+
     if (BITMAP_TEST(lookup_flags, LF_EXPRESSION) 
             && seen_dependent_args)
     {

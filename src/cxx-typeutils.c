@@ -1868,6 +1868,339 @@ void print_declarator(type_t* printed_declarator, scope_t* st)
     } while (printed_declarator != NULL);
 }
 
+// Expression that may appear here are of very limited nature
+char is_dependent_expression(AST expression, scope_t* st)
+{
+	switch (ASTType(expression))
+	{
+		case AST_EXPRESSION : 
+		case AST_CONSTANT_EXPRESSION : 
+		case AST_PARENTHESIZED_EXPRESSION :
+			{
+				return is_dependent_expression(ASTSon0(expression), st);
+			}
+			// Primaries
+		case AST_DECIMAL_LITERAL :
+		case AST_OCTAL_LITERAL :
+		case AST_HEXADECIMAL_LITERAL :
+		case AST_FLOATING_LITERAL :
+		case AST_BOOLEAN_LITERAL :
+		case AST_CHARACTER_LITERAL :
+		case AST_STRING_LITERAL :
+		case AST_THIS_VARIABLE :
+			{
+				return 0;
+			}
+		case AST_SYMBOL :
+		case AST_QUALIFIED_ID :
+			{
+				scope_entry_list_t* entry_list = query_id_expression(st, expression, FULL_UNQUALIFIED_LOOKUP);
+
+				if (entry_list == NULL)
+				{
+					internal_error("Symbol '%s' not found\n", prettyprint_in_buffer(expression));
+				}
+				scope_entry_t* entry = entry_list->entry;
+
+				return is_dependent_type(entry->type_information);
+			}
+			// Postfix expressions
+		case AST_ARRAY_SUBSCRIPT :
+			{
+				return is_dependent_expression(ASTSon0(expression), st)
+					&& is_dependent_expression(ASTSon1(expression), st);
+			}
+		case AST_EXPLICIT_TYPE_CONVERSION :
+			{
+				AST type_specifier = ASTSon0(expression);
+
+				gather_decl_spec_t gather_info;
+				memset(&gather_info, 0, sizeof(gather_info));
+
+				type_t* simple_type_info = NULL;
+				build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
+						default_decl_context);
+
+				if (is_dependent_type(simple_type_info))
+				{
+					return 1;
+				}
+
+				AST expression_list = ASTSon1(expression);
+
+				if (expression_list != NULL)
+				{
+					AST iter;
+					for_each_element(expression_list, iter)
+					{
+						AST current_expression = ASTSon1(iter);
+
+						if (is_dependent_expression(current_expression, st))
+						{
+							return 1;
+						}
+					}
+				}
+
+				return 0;
+			}
+		case AST_TYPENAME_EXPLICIT_TYPE_CONVERSION :
+			{
+				// This typename denotes that this will be dependent
+				return 1;
+			}
+		case AST_TYPENAME_TEMPLATE :
+		case AST_TYPENAME_TEMPLATE_TEMPLATE :
+			{
+				// This is always dependent
+				return 1;
+			}
+		case AST_SIZEOF :
+			{
+				return is_dependent_expression(ASTSon0(expression), st);
+			}
+		case AST_SIZEOF_TYPEID :
+			{
+				AST type_id = ASTSon0(expression);
+
+				AST type_specifier = ASTSon0(type_id);
+				AST abstract_declarator = ASTSon1(type_id);
+
+				gather_decl_spec_t gather_info;
+				memset(&gather_info, 0, sizeof(gather_info));
+
+				type_t* simple_type_info = NULL;
+				build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
+						default_decl_context);
+
+				if (abstract_declarator != NULL)
+				{
+					type_t* declarator_type = NULL;
+					build_scope_declarator(abstract_declarator, st, &gather_info, simple_type_info, 
+							&declarator_type, default_decl_context);
+				}
+
+				return is_dependent_type(simple_type_info);
+			}
+		case AST_DERREFERENCE :
+		case AST_REFERENCE :
+		case AST_PLUS_OP :
+		case AST_NEG_OP :
+		case AST_NOT_OP :
+		case AST_COMPLEMENT_OP :
+			{
+				return is_dependent_expression(ASTSon0(expression), st);
+			}
+			// Cast expression
+		case AST_CAST_EXPRESSION :
+			{
+				AST type_id = ASTSon0(expression);
+
+				AST type_specifier = ASTSon0(type_id);
+				AST abstract_declarator = ASTSon1(type_id);
+
+				gather_decl_spec_t gather_info;
+				memset(&gather_info, 0, sizeof(gather_info));
+
+				type_t* simple_type_info = NULL;
+				build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
+						default_decl_context);
+
+				if (abstract_declarator != NULL)
+				{
+					type_t* declarator_type = NULL;
+					build_scope_declarator(abstract_declarator, st, &gather_info, simple_type_info, 
+							&declarator_type, default_decl_context);
+				}
+
+				if (is_dependent_type(simple_type_info))
+				{
+					return 1;
+				}
+				else
+				{
+					return is_dependent_expression(ASTSon1(expression), st);
+				}
+			}
+		case AST_MULT_OP :
+		case AST_DIV_OP :
+		case AST_MOD_OP :
+		case AST_ADD_OP :
+		case AST_MINUS_OP :
+		case AST_SHL_OP :
+		case AST_SHR_OP :
+		case AST_LOWER_THAN :
+		case AST_GREATER_THAN :
+		case AST_GREATER_OR_EQUAL_THAN :
+		case AST_LOWER_OR_EQUAL_THAN :
+		case AST_EQUAL_OP :
+		case AST_DIFFERENT_OP :
+		case AST_BITWISE_AND :
+		case AST_BITWISE_XOR :
+		case AST_BITWISE_OR :
+		case AST_LOGICAL_AND :
+		case AST_LOGICAL_OR :
+			{
+				return is_dependent_expression(ASTSon0(expression), st)
+					&& is_dependent_expression(ASTSon1(expression), st);
+			}
+		case AST_CONDITIONAL_EXPRESSION :
+			{
+				return is_dependent_expression(ASTSon0(expression), st)
+					&& is_dependent_expression(ASTSon1(expression), st)
+					&& is_dependent_expression(ASTSon2(expression), st);
+			}
+			// GCC Extension
+		default :
+			{
+				internal_error("Unexpected node '%s' %s", ast_print_node_type(ASTType(expression)), 
+						node_information(expression));
+				break;
+			}
+			return 0;
+	}
+}
+
+char is_dependent_simple_type(type_t* type_info)
+{
+	if (type_info->kind != TK_DIRECT)
+	{
+		internal_error("This function expects a direct type\n", 0);
+	}
+
+	simple_type_t* simple_type = type_info->type;
+
+	switch (simple_type->kind)
+	{
+		case STK_TEMPLATE_DEPENDENT_TYPE :
+		case STK_TYPE_TEMPLATE_PARAMETER :
+		case STK_TEMPLATE_TEMPLATE_PARAMETER :
+			{
+				return 1;
+				break;
+			}
+		case STK_TYPEDEF :
+			{
+				return is_dependent_type(simple_type->aliased_type);
+				break;
+			}
+		case STK_USER_DEFINED :
+			{
+				return is_dependent_type(simple_type->user_defined_type->type_information);
+				break;
+			}
+		case STK_ENUM :
+			{
+				enum_info_t* enum_info = simple_type->enum_info;
+
+				int i;
+				for (i = 0; i < enum_info->num_enumeration; i++)
+				{
+					scope_entry_t* entry = enum_info->enumeration_list[i];
+
+					if (entry->expression_value != NULL)
+					{
+						if (is_dependent_expression(entry->expression_value, entry->scope))
+						{
+							return 1;
+						}
+					}
+				}
+
+				return 0;
+				break;
+			}
+		case STK_CLASS :
+			{
+				int i;
+				for (i = 0; i < simple_type->template_arguments->num_arguments; i++)
+				{
+					template_argument_t* curr_argument = simple_type->template_arguments->argument_list[i];
+
+					if (is_dependent_type(curr_argument->type))
+					{
+						return 1;
+					}
+				}
+				return 0;
+				break;
+			}
+		case STK_BUILTIN_TYPE :
+		case STK_VA_LIST :
+			{
+				return 0;
+			}
+		case STK_TYPEOF :
+			{
+				internal_error("Not implemented yet\n", 0);
+			}
+		default :
+			{
+				internal_error("Unknown simple type kind=%d\n", simple_type->kind);
+			}
+	}
+}
+
+char is_dependent_type(type_t* type)
+{
+	type = advance_over_typedefs(type);
+
+	switch (type->kind)
+	{
+		case TK_DIRECT :
+			{
+				return is_dependent_simple_type(type);
+				break;
+			}
+		case TK_ARRAY :
+			{
+				return is_dependent_type(type->array->element_type)
+					|| is_dependent_expression(type->array->array_expr,
+							type->array->array_expr_scope);
+				break;
+			}
+		case TK_FUNCTION :
+			{
+				if (type->function->return_type != NULL
+						&& is_dependent_type(type->function->return_type))
+				{
+					return 1;
+				}
+
+				int i;
+				for (i = 0; i < type->function->num_parameters; i++)
+				{
+					if (!type->function->parameter_list[i]->is_ellipsis
+							&& is_dependent_type(type->function->parameter_list[i]->type_info))
+					{
+						return 1;
+					}
+				}
+
+				return 0;
+				break;
+			}
+		case TK_POINTER :
+		case TK_REFERENCE :
+			{
+				return is_dependent_type(type->pointer->pointee);
+				break;
+			}
+		case TK_POINTER_TO_MEMBER :
+			{
+				return is_dependent_type(type->pointer->pointee)
+					|| is_dependent_type(type->pointer->pointee_class->type_information);
+				break;
+			}
+		default:
+			{
+				internal_error("Unknown type kind %d\n", type->kind);
+				break;
+			}
+	}
+}
+
+#if 0
 char is_dependent_tree(AST tree, scope_t* st)
 {
     if (tree == NULL)
@@ -1904,6 +2237,65 @@ char is_dependent_tree(AST tree, scope_t* st)
             }
             return 1;
         }
+		else if (result->kind == SK_TYPEDEF)
+		{
+		}
+		else if (result->kind == SK_TEMPLATE_PRIMARY_CLASS)
+		{
+			// This is always something with dependent nature !
+			// because primary templates only match with themselves
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Primary template '%s' is dependent\n", name);
+            }
+		}
+		else if (result->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+		{
+			// A template specialized class can be dependent or not depending
+			// on its arguments
+			DEBUG_CODE()
+			{
+				fprintf(stderr, "Symbol '%s' is a specialized template, checking if it is dependent\n", 
+						name);
+			}
+
+			int i;
+			char is_dependent_arg = 0;
+			for (i = 0; 
+					(i < result->type_information->type->template_arguments->num_arguments) &&
+					!is_dependent_arg; i++)
+			{
+				template_argument_t* curr_argument = 
+					result->type_information->type->template_arguments->argument_list[i];
+
+				if (curr_argument->argument_tree != NULL
+						&& curr_argument->scope != NULL)
+				{
+					is_dependent_arg |= is_dependent_tree(curr_argument->argument_tree, curr_argument->scope);
+				}
+				else
+				{
+					DEBUG_CODE()
+					{
+						fprintf(stderr, "This template argument is incorrect\n");
+					}
+				}
+			}
+
+			DEBUG_CODE()
+			{
+				if (is_dependent_arg)
+				{
+					fprintf(stderr, "This specialized template is dependent\n");
+				}
+				else
+				{
+					fprintf(stderr, "This specialized template is not dependent\n");
+				}
+			}
+
+			return is_dependent_arg;
+		}
         else
         {
             type_t* t = result->type_information;
@@ -1954,6 +2346,7 @@ char is_dependent_tree(AST tree, scope_t* st)
             || is_dependent_tree(ASTSon3(tree), st);
     }
 }
+#endif
 
 // This jumps over user defined types and typedefs
 scope_entry_t* give_real_entry(scope_entry_t* entry)
