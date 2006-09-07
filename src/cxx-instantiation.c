@@ -122,8 +122,7 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
                         }
 
                         injected_type->template_alias_tree = type_specifier;
-                        injected_type->template_alias_scope = template_argument->scope;
-
+                        injected_type->template_alias_scope = copy_scope(template_argument->scope);
                         break;
                     }
                 case TPK_NONTYPE :

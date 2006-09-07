@@ -194,7 +194,8 @@ enum template_argument_kind
 {
     TAK_UNDEFINED = 0,
     TAK_NONTYPE,
-    TAK_TYPE
+    TAK_TYPE,
+    TAK_TEMPLATE
 };
 
 typedef struct template_argument_tag

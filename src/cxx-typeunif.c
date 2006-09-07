@@ -130,7 +130,8 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 		if (t2->kind != TK_DIRECT
 				|| t2->type->kind != STK_USER_DEFINED
 				|| (t2->type->user_defined_type->kind != SK_TEMPLATE_PRIMARY_CLASS
-					&& t2->type->user_defined_type->kind != SK_TEMPLATE_SPECIALIZED_CLASS))
+					&& t2->type->user_defined_type->kind != SK_TEMPLATE_SPECIALIZED_CLASS
+                    && t2->type->user_defined_type->kind != SK_TEMPLATE_TEMPLATE_PARAMETER))
 		{
 			// This cannot be unified at all, only templates are valid here
 			return 0;
@@ -205,8 +206,6 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 			//   A<T> can be unified with A<int>   with   [T <- int]
 			//
 
-			// Unify only the minimum due to possible default arguments
-			// FIX this, looks broken
 			simple_type_t* simple_type_t1 = entry_t1->type_information->type;
 			simple_type_t* simple_type_t2 = entry_t2->type_information->type;
 

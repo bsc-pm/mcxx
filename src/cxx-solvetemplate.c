@@ -211,6 +211,7 @@ char match_one_template(template_argument_list_t* arguments,
         {
             switch (spec_arg->kind)
             {
+                case TAK_TEMPLATE :
                 case TAK_TYPE :
                     {
 						DEBUG_CODE()
@@ -299,7 +300,7 @@ char match_one_template(template_argument_list_t* arguments,
                     }
                 default :
                     {
-                        internal_error("Unknown template argument type %s", spec_arg->kind);
+                        internal_error("Unknown template argument type %d", spec_arg->kind);
                     }
             }
         }

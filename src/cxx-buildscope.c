@@ -3463,17 +3463,23 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 
         ERROR_CONDITION((entry_list == NULL), "Default argument expression id not found\n", 0);
 
-        // specializations are not necessary here
-        entry_list = filter_symbol_kind(entry_list, SK_TEMPLATE_PRIMARY_CLASS);
 
-        ERROR_CONDITION((entry_list == NULL), "No primary template name found", 0);
+        enum cxx_symbol_kind valid_templates_arguments[2] = 
+        { 
+            SK_TEMPLATE_PRIMARY_CLASS, 
+            SK_TEMPLATE_TEMPLATE_PARAMETER,
+        };
+        // specializations are not necessary here
+        entry_list = filter_symbol_kind_set(entry_list, 2, valid_templates_arguments);
+
+        ERROR_CONDITION((entry_list == NULL), "No primary template or template template parameter found", 0);
 
         template_parameters->default_type = GC_CALLOC(1, 
                 sizeof(*(template_parameters->default_type)));
         template_parameters->default_type->kind = TK_DIRECT;
 
         template_parameters->default_type->type = GC_CALLOC(1, 
-            sizeof(*(template_parameters->default_type->type)));
+                sizeof(*(template_parameters->default_type->type)));
         template_parameters->default_type->type->kind = STK_USER_DEFINED;
         template_parameters->default_type->type->user_defined_type = entry_list->entry;
 
@@ -4660,11 +4666,23 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
         switch (template_parameter->kind)
         {
             case TPK_TYPE :
-            case TPK_TEMPLATE :
                 {
                     template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
 
                     new_template_argument->kind = TAK_TYPE;
+                    new_template_argument->type = template_parameter->type_info;
+                    new_template_argument->scope = template_scope; 
+                    new_template_argument->argument_tree = template_parameter->parameter_tree;
+
+                    P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
+
+                    break;
+                }
+            case TPK_TEMPLATE :
+                {
+                    template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
+
+                    new_template_argument->kind = TAK_TEMPLATE;
                     new_template_argument->type = template_parameter->type_info;
                     new_template_argument->scope = template_scope; 
                     new_template_argument->argument_tree = template_parameter->parameter_tree;
@@ -4913,7 +4931,14 @@ static void update_template_parameter_types(type_t** update_type,
                             new_specialization = new_match_template->entry;
                         }
 
-                        *update_type = new_specialization->type_information;
+                        type_t* new_user_defined_type = GC_CALLOC(1, sizeof(*new_user_defined_type));
+                        new_user_defined_type->kind = TK_DIRECT;
+
+                        new_user_defined_type->type = GC_CALLOC(1, sizeof(*(new_user_defined_type->type)));
+                        new_user_defined_type->type->kind = STK_USER_DEFINED;
+                        new_user_defined_type->type->user_defined_type = new_specialization;
+
+                        *update_type = new_user_defined_type;
                     }
                 }
 
@@ -5040,7 +5065,23 @@ void build_scope_template_arguments(AST class_head_id,
                 case AST_TEMPLATE_TYPE_ARGUMENT:
                     {
                         template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
-                        new_template_argument->kind = TAK_TYPE;
+
+                        template_parameter_t* curr_template_parameter = 
+                            primary_template->template_parameter_info[(*template_arguments)->num_arguments];
+
+                        if (curr_template_parameter->kind == TPK_TEMPLATE)
+                        {
+                            new_template_argument->kind = TAK_TEMPLATE;
+                        }
+                        else if (curr_template_parameter->kind == TPK_TYPE)
+                        {
+                            new_template_argument->kind = TAK_TYPE;
+                        }
+                        else
+                        {
+                            internal_error("Unknown template parameter kind=%d\n", 
+                                    curr_template_parameter->kind);
+                        }
                         // Create the type_spec
                         // A type_id is a type_specifier_seq followed by an optional abstract
                         // declarator
@@ -5138,6 +5179,41 @@ void build_scope_template_arguments(AST class_head_id,
                 switch (curr_template_parameter->kind)
                 {
                     case TPK_TEMPLATE :
+                        {
+                            scope_t* template_argument_scope = curr_template_parameter->default_argument_scope->contained_in;
+
+                            curr_template_arg->kind = TAK_TEMPLATE;
+                            curr_template_arg->scope = copy_scope(template_argument_scope);
+
+                            curr_template_arg->argument_tree = curr_template_parameter->default_tree;
+
+                            curr_template_arg->type = 
+                                primary_template->template_parameter_info[(*template_arguments)->num_arguments]->default_type;
+
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "Before template template update: ");
+                                print_declarator(curr_template_arg->type, curr_template_arg->scope);
+                                fprintf(stderr, "\n");
+                            }
+                            if ((curr_template_arg->type->kind == TK_DIRECT)
+                                    && (curr_template_arg->type->type->kind == STK_USER_DEFINED)
+                                    && (curr_template_arg->type->type->user_defined_type->kind 
+                                        == SK_TEMPLATE_TEMPLATE_PARAMETER))
+                            {
+                                *(curr_template_arg->type) = 
+                                    *((*template_arguments)->
+                                            argument_list[curr_template_arg->type->type->template_parameter_num]->type);
+                            }
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "After template type update: ");
+                                print_declarator(curr_template_arg->type, curr_template_arg->scope);
+                                fprintf(stderr, "\n");
+                            }
+
+                            break;
+                        }
                     case TPK_TYPE :
                         {
                             scope_t* template_argument_scope = curr_template_parameter->default_argument_scope->contained_in;
@@ -5148,26 +5224,23 @@ void build_scope_template_arguments(AST class_head_id,
                             curr_template_arg->argument_tree = curr_template_parameter->default_tree;
 
                             curr_template_arg->type = 
-                                copy_type(primary_template->template_parameter_info[(*template_arguments)->num_arguments]->default_type);
+                                copy_type(primary_template->template_parameter_info[(*template_arguments)->num_arguments]
+                                        ->default_type);
 
-                            if (curr_template_parameter->kind == TPK_TYPE)
+                            DEBUG_CODE()
                             {
-                                // Only types need this kind of "fix"
-                                DEBUG_CODE()
-                                {
-                                    fprintf(stderr, "Before template type update: ");
-                                    print_declarator(curr_template_arg->type, curr_template_arg->scope);
-                                    fprintf(stderr, "\n");
-                                }
-                                update_template_parameter_types(&(curr_template_arg->type),
-                                        (*template_arguments));
+                                fprintf(stderr, "Before template type update: ");
+                                print_declarator(curr_template_arg->type, curr_template_arg->scope);
+                                fprintf(stderr, "\n");
+                            }
+                            update_template_parameter_types(&(curr_template_arg->type),
+                                    (*template_arguments));
 
-                                DEBUG_CODE()
-                                {
-                                    fprintf(stderr, "After template type update: ");
-                                    print_declarator(curr_template_arg->type, curr_template_arg->scope);
-                                    fprintf(stderr, "\n");
-                                }
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "After template type update: ");
+                                print_declarator(curr_template_arg->type, curr_template_arg->scope);
+                                fprintf(stderr, "\n");
                             }
 
                             break;

@@ -427,7 +427,8 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                         return NULL;
                     }
 
-                    if (entry_list->entry->kind == SK_DEPENDENT_ENTITY)
+                    if (entry_list->entry->kind == SK_DEPENDENT_ENTITY
+                            || entry_list->entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
                     {
                         *is_dependent = 1;
                         break;
@@ -653,6 +654,12 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         return template_functions;
     }
 
+    scope_entry_list_t* template_template_param = filter_symbol_kind(entry_list, SK_TEMPLATE_TEMPLATE_PARAMETER);
+    if (template_template_param != NULL)
+    {
+        return template_template_param;
+    }
+
     // Solve template_alias properly
     scope_entry_list_t* template_alias_list = filter_symbol_kind(entry_list, SK_TEMPLATE_ALIAS);
     if (template_alias_list != NULL)
@@ -760,8 +767,17 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         {
             if (is_dependent_type(argument->type))
             {
+				DEBUG_CODE()
+				{
+					fprintf(stderr, "-> Dependent type template argument '%s'\n",
+							prettyprint_in_buffer(argument->argument_tree));
+				}
                 seen_dependent_args = 1;
             }
+        }
+        else if (argument->kind == TAK_TEMPLATE)
+        {
+            // Fix this
         }
         else if (argument->kind == TAK_NONTYPE)
         {
