@@ -1874,6 +1874,7 @@ char is_dependent_expression(AST expression, scope_t* st)
 	switch (ASTType(expression))
 	{
 		case AST_EXPRESSION : 
+		case AST_CONSTANT_INITIALIZER : 
 		case AST_CONSTANT_EXPRESSION : 
 		case AST_PARENTHESIZED_EXPRESSION :
 			{
@@ -2112,14 +2113,17 @@ char is_dependent_simple_type(type_t* type_info)
 			}
 		case STK_CLASS :
 			{
-				int i;
-				for (i = 0; i < simple_type->template_arguments->num_arguments; i++)
+				if (simple_type->template_arguments != NULL)
 				{
-					template_argument_t* curr_argument = simple_type->template_arguments->argument_list[i];
-
-					if (is_dependent_type(curr_argument->type))
+					int i;
+					for (i = 0; i < simple_type->template_arguments->num_arguments; i++)
 					{
-						return 1;
+						template_argument_t* curr_argument = simple_type->template_arguments->argument_list[i];
+
+						if (is_dependent_type(curr_argument->type))
+						{
+							return 1;
+						}
 					}
 				}
 				return 0;

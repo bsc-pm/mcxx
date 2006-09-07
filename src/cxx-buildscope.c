@@ -1232,33 +1232,30 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 	nested_name_spec = ASTSon1(a);
 	name = ASTSon2(a);
 
-	// if (!BITMAP_TEST(decl_context.decl_flags, DF_ALWAYS_DEPENDENT_TYPE))
+	scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
+			LF_NO_FAIL);
+
+	if (result != NULL
+			&& result->entry->kind != SK_DEPENDENT_ENTITY)
 	{
-		scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
-				LF_NO_FAIL);
+		scope_entry_t* entry = result->entry;
 
-		if (result != NULL
-				&& result->entry->kind != SK_DEPENDENT_ENTITY)
+		if (entry->kind != SK_TYPEDEF)
 		{
-			scope_entry_t* entry = result->entry;
-
-			if (entry->kind != SK_TYPEDEF)
-			{
-				simple_type_info->type->kind = STK_USER_DEFINED;
-				simple_type_info->type->user_defined_type = result->entry;
-			}
-			else
-			{
-				*simple_type_info = *entry->type_information->type->aliased_type;
-			}
-
-			DEBUG_CODE()
-			{
-				fprintf(stderr, "Dependent typename refers to an existing type\n");
-			}
-			
-			return;
+			simple_type_info->type->kind = STK_USER_DEFINED;
+			simple_type_info->type->user_defined_type = result->entry;
 		}
+		else
+		{
+			*simple_type_info = *entry->type_information->type->aliased_type;
+		}
+
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "Dependent typename refers to an existing type\n");
+		}
+
+		return;
 	}
 
 	DEBUG_CODE()
@@ -1268,7 +1265,8 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 
 	if (decl_context.template_nesting == 0)
 	{
-		internal_error("Dependent typename not resolved outside of template scope\n", 0);
+		internal_error("Dependent typename '%s' not resolved outside of template scope (%s)\n", 
+				prettyprint_in_buffer(a), node_information(a));
 	}
 
 	simple_type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;

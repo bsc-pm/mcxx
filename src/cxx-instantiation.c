@@ -79,7 +79,8 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
                                 sizeof(*(injected_type->type_information->type)));
                         injected_type->type_information->type->kind = STK_TYPEDEF;
 
-                        injected_type->type_information->type->aliased_type = advance_over_typedefs(template_argument->type);
+                        // injected_type->type_information->type->aliased_type = advance_over_typedefs(template_argument->type);
+                        injected_type->type_information->type->aliased_type = template_argument->type;
                         break;
                     }
                 case TPK_TEMPLATE :
