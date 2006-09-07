@@ -4727,7 +4727,8 @@ static void update_template_parameter_types(type_t** update_type,
 
 						scope_entry_t* new_entry = new_symbol(replace_scope, entry->symbol_name);
 
-						if (entry->type_information->type->template_parameter_num >= argument_list->num_arguments)
+						type_t* entry_base_type = base_type(entry->type_information);
+						if (entry_base_type->type->template_parameter_num >= argument_list->num_arguments)
 						{
 							continue;
 						}
@@ -5139,7 +5140,8 @@ void build_scope_template_arguments(AST class_head_id,
 
 								scope_entry_t* new_entry = new_symbol(replace_scope, entry->symbol_name);
 
-								if (entry->type_information->type->template_parameter_num >=
+								type_t* entry_base_type = base_type(entry->type_information);
+								if (entry_base_type->type->template_parameter_num >=
 										(*template_arguments)->num_arguments)
 								{
 									continue;

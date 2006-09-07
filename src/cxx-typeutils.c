@@ -470,7 +470,8 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
     AST t2_expr = t2->typeof_expr;
 
     // Shortcut
-    if (t1_expr == t2_expr)
+    if (t1 == t2 
+			|| t1_expr == t2_expr)
     {
         return 1;
     }
@@ -1227,12 +1228,13 @@ function_info_t* copy_function_info(function_info_t* function_info)
 
     result->return_type = copy_type(function_info->return_type);
 
-	function_info->parameter_list = GC_CALLOC(function_info->num_parameters,
-			sizeof(*(function_info->parameter_list)));
+	result->parameter_list = GC_CALLOC(function_info->num_parameters,
+			sizeof(*(result->parameter_list)));
     
     int i;
     for (i = 0; i < function_info->num_parameters; i++)
     {
+        result->parameter_list[i] = GC_CALLOC(1, sizeof(*(result->parameter_list[i])));
         result->parameter_list[i]->type_info = copy_type(function_info->parameter_list[i]->type_info);
         if (function_info->parameter_list[i]->default_argument != NULL)
         {

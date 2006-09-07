@@ -541,6 +541,8 @@ char* prettyprint_in_buffer(AST a)
         c--;
     }
 
+	fclose(temporal_file);
+
     return result;
 }
 
