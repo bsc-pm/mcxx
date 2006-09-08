@@ -407,8 +407,7 @@ typedef struct scope_entry_tag
     struct scope_entry_tag* injected_class_referred_symbol;
 	
 	// For template-alias
-	AST template_alias_tree;
-	struct scope_tag* template_alias_scope;
+	struct type_tag* template_alias_type;
 } scope_entry_t;
 
 // This is what the scope returns

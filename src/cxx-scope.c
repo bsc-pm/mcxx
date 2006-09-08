@@ -666,43 +666,23 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
     {
         scope_entry_t* template_alias = template_alias_list->entry;
 
-        AST type_specifier = template_alias->template_alias_tree;
+        type_t* alias_type_info = template_alias->template_alias_type;
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "Symbol '%s' is a template alias of '%s', fetching the aliased template\n",
-                    ASTText(symbol), prettyprint_in_buffer(type_specifier));
+            fprintf(stderr, "Symbol '%s' is a template alias\n", ASTText(symbol));
+        }
+
+        if (alias_type_info->kind != TK_DIRECT
+                || alias_type_info->type->kind != STK_USER_DEFINED)
+        {
+            internal_error("Expected a template name type\n", 0);
         }
         
-        AST global_op = ASTSon0(type_specifier);
-        AST nested_name_spec = ASTSon1(type_specifier);
-        AST alias_symbol = ASTSon2(type_specifier); 
-
-        scope_entry_list_t* template_alias_list = 
-            query_nested_name(template_alias->template_alias_scope, global_op, 
-                    nested_name_spec, alias_symbol, FULL_UNQUALIFIED_LOOKUP);
-
-        if (template_alias_list == NULL)
-        {
-            internal_error("Aliased template name '%s' not found (reference to '%s')",
-                    prettyprint_in_buffer(type_specifier), node_information(type_specifier));
-        }
-
-        enum cxx_symbol_kind filter_class_templates[2] = {
-            SK_TEMPLATE_PRIMARY_CLASS, 
-            SK_TEMPLATE_SPECIALIZED_CLASS,
-        };
-
-        template_alias_list = filter_symbol_kind_set(template_alias_list, 2, filter_class_templates);
-
-        if (template_alias_list == NULL)
-        {
-            internal_error("Aliased template name '%s' does not name a template",
-                    prettyprint_in_buffer(type_specifier));
-        }
-
-        entry_list = template_alias_list;
-        symbol = alias_symbol;
+        entry_list = create_list_from_entry(alias_type_info->type->user_defined_type);
+        symbol = ASTLeaf(AST_SYMBOL, 
+                alias_type_info->type->user_defined_type->line,
+                alias_type_info->type->user_defined_type->symbol_name);
     }
 
     // Now readjust the scope to really find the templates and not just the

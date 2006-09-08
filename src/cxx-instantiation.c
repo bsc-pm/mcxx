@@ -94,35 +94,7 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
 
                         injected_type->kind = SK_TEMPLATE_ALIAS;
 
-                        AST template_type_argument = template_argument->argument_tree;
-
-                        if (ASTType(template_type_argument) != AST_TEMPLATE_TYPE_ARGUMENT)
-                        {
-                            internal_error("Unexpected node '%s' in '%s'", ast_print_node_type(ASTType(template_type_argument)),
-                                    node_information(template_type_argument));
-                        }
-
-                        AST type_id = ASTSon0(template_type_argument);
-                        AST type_specifier_seq = ASTSon0(type_id);
-                        AST type_specifier = ASTSon1(type_specifier_seq);
-
-                        if (ASTType(type_specifier) != AST_SIMPLE_TYPE_SPECIFIER)
-                        {
-                            internal_error("Unexpected node '%s' in '%s'", ast_print_node_type(ASTType(type_specifier)),
-                                    node_information(type_specifier));
-                        }
-
-                        AST alias_symbol = ASTSon2(type_specifier);
-                        // This should not be a template_id
-                        if (ASTType(alias_symbol) != AST_SYMBOL)
-                        {
-                            internal_error("Expecting a symbol in %s but '%s' was given",
-                                    node_information(alias_symbol),
-                                    ast_print_node_type(ASTType(alias_symbol)));
-                        }
-
-                        injected_type->template_alias_tree = type_specifier;
-                        injected_type->template_alias_scope = copy_scope(template_argument->scope);
+                        injected_type->template_alias_type = template_argument->type;
                         break;
                     }
                 case TPK_NONTYPE :

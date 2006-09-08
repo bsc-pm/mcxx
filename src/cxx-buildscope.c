@@ -3463,7 +3463,6 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 
         ERROR_CONDITION((entry_list == NULL), "Default argument expression id not found\n", 0);
 
-
         enum cxx_symbol_kind valid_templates_arguments[2] = 
         { 
             SK_TEMPLATE_PRIMARY_CLASS, 
@@ -5024,30 +5023,15 @@ void build_scope_template_arguments(AST class_head_id,
     // If what is found is an alias, repeat the lookup with the aliased name
     if (primary_template_list->entry->kind == SK_TEMPLATE_ALIAS)
     {
-        AST template_alias = primary_template_list->entry->template_alias_tree;
-        DEBUG_CODE()
+        type_t* alias_type_info = primary_template_list->entry->template_alias_type;
+
+        if (alias_type_info->kind != TK_DIRECT
+                || alias_type_info->type->kind != STK_USER_DEFINED)
         {
-            fprintf(stderr, "'%s' is a template alias, fetching the aliased template '%s'\n",
-                    ASTText(template_name), prettyprint_in_buffer(template_alias));
+            internal_error("Expected a template name type\n", 0);
         }
 
-        AST global_op = ASTSon0(template_alias);
-        AST nested_name_spec = ASTSon1(template_alias);
-        AST aliased_symbol = ASTSon2(template_alias);
-
-        templates_list = query_nested_name(primary_template_list->entry->template_alias_scope, global_op,
-                nested_name_spec, aliased_symbol, FULL_UNQUALIFIED_LOOKUP);
-
-        templates_list = filter_symbol_kind_set(templates_list, 4, filter_template_classes);
-
-        primary_template_list = filter_symbol_kind_set(templates_list, 3, filter_primary_classes);
-
-        if (primary_template_list->entry->kind == SK_TEMPLATE_ALIAS)
-        {
-            internal_error("A template alias should not alias another template alias", 0);
-        }
-
-        ERROR_CONDITION((primary_template_list == NULL), "Primary template for '%s' not found", ASTText(template_name));
+        primary_template_list = create_list_from_entry(alias_type_info->type->user_defined_type);
     }
 
     scope_entry_t* primary_template = NULL;
