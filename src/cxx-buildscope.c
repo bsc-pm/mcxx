@@ -61,7 +61,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
         decl_context_t decl_context);
 
 static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_scope, type_t** declarator_type, 
-        gather_decl_spec_t* gather_info, AST* declarator_name);
+        gather_decl_spec_t* gather_info, AST* declarator_name, decl_context_t decl_context);
 
 
 static scope_entry_t* build_scope_declarator_name(AST declarator_name, type_t* declarator_type, 
@@ -143,6 +143,7 @@ static char* current_linkage = "\"C++\"";
 static void initialize_builtin_symbols(void);
 
 const decl_context_t default_decl_context = { 0 };
+const decl_context_t default_nofail_decl_context = { DF_NO_FAIL };
 
 // Builds scope for the translation unit
 void build_scope_translation_unit(translation_unit_t* translation_unit)
@@ -1263,7 +1264,8 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 		fprintf(stderr, "Dependent typename not found -> returning a dependent type\n");
 	}
 
-	if (decl_context.template_nesting == 0)
+	if (decl_context.template_nesting == 0
+			&& !BITMAP_TEST(decl_context.decl_flags, DF_NO_FAIL))
 	{
 		internal_error("Dependent typename '%s' not resolved outside of template scope (%s)\n", 
 				prettyprint_in_buffer(a), node_information(a));
@@ -1442,7 +1444,8 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 
 }
 
-void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope, class_info_t* class_info)
+void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope, 
+		class_info_t* class_info, decl_context_t decl_context)
 {
     AST list = ASTSon0(base_clause);
     AST iter;
@@ -1484,13 +1487,51 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
                 internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(base_specifier)));
         }
 
+		// Create a convenience simple type specifier
+		AST simple_type_specifier = 
+			ASTMake3(AST_SIMPLE_TYPE_SPECIFIER, 
+					duplicate_ast(global_op), 
+					duplicate_ast(nested_name_specifier), 
+					duplicate_ast(name), 
+					ASTLine(name), NULL);
 
-        scope_entry_list_t* result_list = query_nested_name_flags(st, global_op, nested_name_specifier, name, 
-                FULL_UNQUALIFIED_LOOKUP, LF_INSTANTIATE);
+		AST type_specifier_seq = ASTMake3(AST_TYPE_SPECIFIER_SEQ,
+				NULL, simple_type_specifier, NULL, ASTLine(simple_type_specifier), NULL);
 
-        enum cxx_symbol_kind filter[7] = {SK_CLASS, SK_TEMPLATE_PRIMARY_CLASS, SK_TEMPLATE_SPECIALIZED_CLASS, 
-            SK_TEMPLATE_TYPE_PARAMETER, SK_TEMPLATE_TEMPLATE_PARAMETER, SK_TYPEDEF, SK_DEPENDENT_ENTITY};
-        result_list = filter_symbol_kind_set(result_list, 7, filter);
+        type_t* type_info = NULL;
+        gather_decl_spec_t gather_info;
+        memset(&gather_info, 0, sizeof(gather_info));
+    
+        build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &type_info, decl_context);
+
+        // scope_entry_list_t* result_list = query_nested_name_flags(st, global_op, nested_name_specifier, name, 
+        //         FULL_UNQUALIFIED_LOOKUP, LF_INSTANTIATE);
+		//
+
+		// This is always a type name
+		if (type_info == NULL)
+		{
+			internal_error("Base type not found\n", 0);
+		}
+		
+		if (type_info->kind != TK_DIRECT
+				|| type_info->type->kind != STK_USER_DEFINED)
+		{
+			internal_error("Base type is not a type name\n", 0);
+		}
+
+        enum cxx_symbol_kind filter[7] =
+		{
+			SK_CLASS,
+			SK_TEMPLATE_PRIMARY_CLASS,
+			SK_TEMPLATE_SPECIALIZED_CLASS, 
+			SK_TEMPLATE_TYPE_PARAMETER, 
+			SK_TEMPLATE_TEMPLATE_PARAMETER, 
+			SK_TYPEDEF, 
+			SK_DEPENDENT_ENTITY
+		};
+
+        scope_entry_list_t* result_list = create_list_from_entry(type_info->type->user_defined_type);
 
         ERROR_CONDITION((result_list == NULL), "Base class not found!\n", 0);
         scope_entry_t* result = result_list->entry;
@@ -1866,7 +1907,8 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
             fprintf(stderr, "Adding the bases of this class\n");
         }
 
-        build_scope_base_clause(base_clause, st, inner_scope, class_entry->type_information->type->class_info);
+        build_scope_base_clause(base_clause, st, inner_scope, 
+				class_entry->type_information->type->class_info, decl_context);
 
         DEBUG_CODE()
         {
@@ -2051,7 +2093,8 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
         }
     }
 
-    build_scope_declarator_rec(a, decl_st, parameters_scope, declarator_type, gather_info, &declarator_name);
+    build_scope_declarator_rec(a, decl_st, parameters_scope, declarator_type, 
+			gather_info, &declarator_name, decl_context);
     
     if (declarator_name != NULL)
     {
@@ -2223,7 +2266,7 @@ static void set_array_type(type_t** declarator_type, scope_t* st, AST constant_e
  * parameter_declaration_clause of a functional declarator
  */
 static void set_function_parameter_clause(type_t* declarator_type, scope_t* st, 
-        scope_t** parameter_sc, AST parameters)
+        scope_t** parameter_sc, AST parameters, decl_context_t decl_context)
 {
     declarator_type->function->num_parameters = 0;
     declarator_type->function->parameter_list = NULL;
@@ -2296,7 +2339,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
         type_t* simple_type_info;
 
         build_scope_decl_specifier_seq(parameter_decl_spec_seq, parameters_scope, &gather_info, &simple_type_info,
-                default_decl_context);
+                decl_context);
 
         // It is valid in a function declaration not having a declarator at all
         // (note this is different from having an abstract declarator).
@@ -2311,7 +2354,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
         {
             type_t* type_info;
             scope_entry_t* entry = build_scope_declarator(parameter_declarator, parameters_scope, 
-                    &gather_info, simple_type_info, &type_info, default_decl_context);
+                    &gather_info, simple_type_info, &type_info, decl_context);
 
             if (entry != NULL)
             {
@@ -2358,7 +2401,8 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
  * This function converts a type "T" into a "function (...) returning T" type
  */
 static void set_function_type(type_t** declarator_type, scope_t* st, scope_t** parameters_scope, 
-        gather_decl_spec_t* gather_info, AST parameter, AST cv_qualif, AST except_spec)
+        gather_decl_spec_t* gather_info, AST parameter, AST cv_qualif, AST except_spec, 
+		decl_context_t decl_context)
 {
     type_t* returning_type = *declarator_type;
 
@@ -2367,7 +2411,7 @@ static void set_function_type(type_t** declarator_type, scope_t* st, scope_t** p
     (*declarator_type)->function = GC_CALLOC(1, sizeof(*((*declarator_type)->function)));
     (*declarator_type)->function->return_type = returning_type;
 
-    set_function_parameter_clause(*declarator_type, st, parameters_scope, parameter);
+    set_function_parameter_clause(*declarator_type, st, parameters_scope, parameter, decl_context);
 
     // (*declarator_type)->function->cv_qualifier = compute_cv_qualifier(cv_qualif);
     (*declarator_type)->cv_qualifier = compute_cv_qualifier(cv_qualif);
@@ -2393,7 +2437,7 @@ static void set_function_type(type_t** declarator_type, scope_t* st, scope_t** p
  * Starts with a base type of "int" and ends being a "pointer to array 3 of int"
  */
 static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_scope, type_t** declarator_type, 
-        gather_decl_spec_t* gather_info, AST* declarator_name)
+        gather_decl_spec_t* gather_info, AST* declarator_name, decl_context_t decl_context)
 {
     ERROR_CONDITION((a == NULL), "This function does not admit NULL trees", 0);
 
@@ -2403,7 +2447,7 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
         case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
             {
-                build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name); 
+                build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context); 
                 break;
             }
         case AST_CONVERSION_DECLARATOR :
@@ -2412,14 +2456,14 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
                 set_pointer_type(declarator_type, st, ASTSon0(a));
                 if (ASTSon1(a) != NULL)
                 {
-                    build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
+                    build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
                 }
                 break;
             }
         case AST_POINTER_DECL :
             {
                 set_pointer_type(declarator_type, st, ASTSon0(a));
-                build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
+                build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
                 break;
             }
         case AST_ABSTRACT_ARRAY :
@@ -2427,7 +2471,7 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
                 set_array_type(declarator_type, st, ASTSon1(a));
                 if (ASTSon0(a) != NULL)
                 {
-                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
+                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
                 }
                 break;
             }
@@ -2436,7 +2480,7 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
                 set_array_type(declarator_type, st, ASTSon1(a));
                 if (ASTSon0(a) != NULL)
                 {
-                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
+                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
                 }
                 break;
             }
@@ -2445,29 +2489,29 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
                 set_pointer_type(declarator_type, st, ASTSon0(a));
                 if (ASTSon0(a) != NULL)
                 {
-                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
+                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
                 }
                 break;
             }
         case AST_DECLARATOR_ARRAY :
             {
                 set_array_type(declarator_type, st, ASTSon1(a));
-                build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
+                build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
                 break;
             }
         case AST_ABSTRACT_DECLARATOR_FUNC :
             {
-                set_function_type(declarator_type, st, parameters_scope, gather_info, ASTSon1(a), ASTSon2(a), ASTSon3(a));
+                set_function_type(declarator_type, st, parameters_scope, gather_info, ASTSon1(a), ASTSon2(a), ASTSon3(a), decl_context);
                 if (ASTSon0(a) != NULL)
                 {
-                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
+                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
                 }
                 break;
             }
         case AST_DECLARATOR_FUNC :
             {
-                set_function_type(declarator_type, st, parameters_scope, gather_info, ASTSon1(a), ASTSon2(a), ASTSon3(a));
-                build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name);
+                set_function_type(declarator_type, st, parameters_scope, gather_info, ASTSon1(a), ASTSon2(a), ASTSon3(a), decl_context);
+                build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -2483,7 +2527,7 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
             {
                 solve_ambiguous_declarator(a, st);
                 // Restart function
-                build_scope_declarator_rec(a, st, parameters_scope, declarator_type, gather_info, declarator_name);
+                build_scope_declarator_rec(a, st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
                 break;
             }
         default:
@@ -5048,6 +5092,12 @@ void build_scope_template_arguments(AST class_head_id,
             {
                 case AST_TEMPLATE_TYPE_ARGUMENT:
                     {
+						if ((*template_arguments)->num_arguments >= 
+								primary_template->num_template_parameters)
+						{
+							// Do nothing, we may be checking for ambiguities
+							break;
+						}
                         template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
 
                         template_parameter_t* curr_template_parameter = 
@@ -5102,6 +5152,12 @@ void build_scope_template_arguments(AST class_head_id,
                     }
                 case AST_TEMPLATE_EXPRESSION_ARGUMENT :
                     {
+						if ((*template_arguments)->num_arguments >= 
+								primary_template->num_template_parameters)
+						{
+							// Do nothing, we may be checking for ambiguities
+							break;
+						}
                         // This expression is of limited nature
                         template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
                         new_template_argument->kind = TAK_NONTYPE;

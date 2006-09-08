@@ -39,6 +39,7 @@ typedef enum decl_flags_tag
     DF_NO_DECLARATORS = BITMAP(2),
     DF_FRIEND = BITMAP(3),
     DF_EXPLICIT_SPECIALIZATION = BITMAP(4),
+	DF_NO_FAIL = BITMAP(5)
 } decl_flags_t;
 
 // Inherited attributes
@@ -78,9 +79,11 @@ void gather_type_spec_information(AST a, scope_t* st, type_t* type_info, decl_co
 void build_scope_member_specification(scope_t* inner_scope, AST member_specification_tree, 
         access_specifier_t current_access, type_t* simple_type_info, 
         decl_context_t decl_context);
-void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope, class_info_t* class_info);
+void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope, class_info_t* class_info,
+		decl_context_t decl_context);
 
 extern const decl_context_t default_decl_context;
+extern const decl_context_t default_nofail_decl_context;
 
 AST get_declarator_name(AST a, scope_t* st);
 AST get_leftmost_declarator_name(AST a);

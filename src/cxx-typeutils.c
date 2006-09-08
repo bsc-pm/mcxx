@@ -1874,11 +1874,65 @@ char is_dependent_expression(AST expression, scope_t* st)
 	switch (ASTType(expression))
 	{
 		case AST_EXPRESSION : 
+		case AST_INITIALIZER :
+		case AST_INITIALIZER_EXPR :
 		case AST_CONSTANT_INITIALIZER : 
 		case AST_CONSTANT_EXPRESSION : 
 		case AST_PARENTHESIZED_EXPRESSION :
 			{
 				return is_dependent_expression(ASTSon0(expression), st);
+			}
+		case AST_INITIALIZER_BRACES :
+			{
+				AST initializer_list = ASTSon0(expression);
+				AST iter;
+
+				for_each_element(initializer_list, iter)
+				{
+					AST initializer = ASTSon1(iter);
+
+					if (is_dependent_expression(initializer, st))
+					{
+						return 1;
+					}
+				}
+			}
+		case AST_DESIGNATED_INITIALIZER :
+			{
+				// [1][2] = 3
+				// a.b = 4
+				AST designation = ASTSon0(expression);
+				AST initializer_clause = ASTSon1(initializer_clause);
+
+				break;
+			}
+		case AST_DESIGNATION : 
+			{
+				// [1][2] {= 3}
+				// a.b {= 3}
+				AST designator_list = ASTSon0(expression);
+				AST iter;
+
+				for_each_element(designator_list, iter)
+				{
+					AST designator = ASTSon1(iter);
+
+					if (is_dependent_expression(designator, st))
+					{
+						return 1;
+					}
+				}
+				break;
+			}
+		case AST_INDEX_DESIGNATOR :
+			{
+				// [1]{[2] = 3}
+				return is_dependent_expression(ASTSon0(expression), st);
+			}
+		case AST_FIELD_DESIGNATOR :
+			{
+				// a{.b = 3}
+				return 0;
 			}
 			// Primaries
 		case AST_DECIMAL_LITERAL :
@@ -1895,13 +1949,31 @@ char is_dependent_expression(AST expression, scope_t* st)
 		case AST_SYMBOL :
 		case AST_QUALIFIED_ID :
 			{
-				scope_entry_list_t* entry_list = query_id_expression(st, expression, FULL_UNQUALIFIED_LOOKUP);
+				scope_entry_list_t* entry_list = query_id_expression_flags(st, expression, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION);
 
 				if (entry_list == NULL)
 				{
-					internal_error("Symbol '%s' not found\n", prettyprint_in_buffer(expression));
+					internal_error("Symbol '%s' in '%s' not found\n", prettyprint_in_buffer(expression),
+							node_information(expression));
 				}
 				scope_entry_t* entry = entry_list->entry;
+
+				if (entry->kind == SK_DEPENDENT_ENTITY)
+				{
+					return 1;
+				}
+
+				// Maybe this is a const-variable initialized with a dependent expression
+				if (entry->kind == SK_VARIABLE)
+				{
+					if (entry->expression_value != NULL)
+					{
+						if (is_dependent_expression(entry->expression_value, st))
+						{
+							return 1;
+						}
+					}
+				}
 
 				return is_dependent_type(entry->type_information);
 			}
@@ -1913,13 +1985,18 @@ char is_dependent_expression(AST expression, scope_t* st)
 			}
 		case AST_EXPLICIT_TYPE_CONVERSION :
 			{
-				AST type_specifier = ASTSon0(expression);
+				AST type_specifier = duplicate_ast(ASTSon0(expression));
+
+				// Create a full-fledged type_specifier_seq
+				AST type_specifier_seq = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, 
+						type_specifier, NULL, ASTLine(type_specifier), NULL);
 
 				gather_decl_spec_t gather_info;
 				memset(&gather_info, 0, sizeof(gather_info));
 
 				type_t* simple_type_info = NULL;
-				build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
+
+				build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &simple_type_info, 
 						default_decl_context);
 
 				if (is_dependent_type(simple_type_info))

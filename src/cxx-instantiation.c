@@ -140,7 +140,7 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     if (template_class_base_clause != NULL)
     {
         build_scope_base_clause(template_class_base_clause, instance_symbol->scope, instance_symbol->related_scope, 
-                instance_symbol->type_information->type->class_info);
+                instance_symbol->type_information->type->class_info, decl_context);
     }
 
     // Inject the class name
@@ -319,7 +319,7 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
     if (template_class_base_clause != NULL)
     {
         build_scope_base_clause(template_class_base_clause, instance_symbol->scope, instance_symbol->related_scope, 
-                instance_symbol->type_information->type->class_info);
+                instance_symbol->type_information->type->class_info, decl_context);
     }
     
     // Inject the class name
