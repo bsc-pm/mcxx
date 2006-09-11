@@ -12,6 +12,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-cexpr.h"
 #include "cxx-ambiguity.h"
+#include "cxx-buildscope.h"
 #include "hash.h"
 
 static scope_t* new_scope(void)
@@ -237,14 +238,17 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
  * Returns the scope of this nested name specification
  */
 scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name,
-        scope_entry_list_t** result_entry_list, char* is_dependent)
+        scope_entry_list_t** result_entry_list, char* is_dependent,
+        decl_context_t decl_context)
 {
-    return query_nested_name_spec_flags(sc, global_op, nested_name, result_entry_list, is_dependent, LF_NONE);
+    return query_nested_name_spec_flags(sc, global_op, nested_name, 
+            result_entry_list, is_dependent, LF_NONE,
+            decl_context);
 }
 
 scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
         nested_name, scope_entry_list_t** result_entry_list, char*
-        is_dependent, lookup_flags_t lookup_flags)
+        is_dependent, lookup_flags_t lookup_flags, decl_context_t decl_context)
 {
     int qualif_level = 0;
     // We'll start the search in "sc"
@@ -354,7 +358,7 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                                 template_argument_list_t* current_template_arguments = entry->type_information->type->template_arguments;
 
                                 matching_pair_t* matched_template = solve_template(candidates,
-                                        current_template_arguments, entry->scope, 0);
+                                        current_template_arguments, entry->scope, 0, decl_context);
 
                                 instantiate_template_in_symbol(entry, matched_template, current_template_arguments, entry->scope);
                             }
@@ -405,7 +409,7 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                 }
             case AST_TEMPLATE_ID :
                 {
-                    solve_possibly_ambiguous_template_id(nested_name_spec, sc);
+                    solve_possibly_ambiguous_template_id(nested_name_spec, sc, decl_context);
 
                     // Nothing else is necessary if we've seen that this was dependent
                     if (*is_dependent)
@@ -415,11 +419,13 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 
                     if (qualif_level == 0)
                     {
-                        entry_list = query_unqualified_template_id_flags(nested_name_spec, sc, lookup_scope, LF_INSTANTIATE | lookup_flags);
+                        entry_list = query_unqualified_template_id_flags(nested_name_spec, sc, lookup_scope, 
+                                LF_INSTANTIATE | lookup_flags, decl_context);
                     }
                     else
                     {
-                        entry_list = query_template_id_flags(nested_name_spec, sc, lookup_scope, LF_INSTANTIATE | lookup_flags);
+                        entry_list = query_template_id_flags(nested_name_spec, sc, lookup_scope, 
+                                LF_INSTANTIATE | lookup_flags, decl_context);
                     }
 
                     if (entry_list == NULL)
@@ -473,14 +479,17 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 }
 
 scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name, 
-        unqualified_lookup_behaviour_t unqualified_lookup)
+        unqualified_lookup_behaviour_t unqualified_lookup,
+        decl_context_t decl_context)
 {
-    return query_nested_name_flags(sc, global_op, nested_name, name, unqualified_lookup, LF_NONE);
+    return query_nested_name_flags(sc, global_op, nested_name, name, unqualified_lookup, 
+            LF_NONE, decl_context);
 }
 
 // Similar to query_nested_name_spec but searches the name
 scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nested_name, AST name, 
-        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags)
+        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags,
+        decl_context_t decl_context)
 {
     scope_entry_list_t* result = NULL;
     scope_t* lookup_scope;
@@ -528,9 +537,10 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
                 break;
             case AST_TEMPLATE_ID:
                 {
-                    solve_possibly_ambiguous_template_id(name, sc);
+                    solve_possibly_ambiguous_template_id(name, sc, decl_context);
 
-					result = query_unqualified_template_id_flags(name, sc, lookup_scope, lookup_flags);
+					result = query_unqualified_template_id_flags(name, sc, 
+                            lookup_scope, lookup_flags, decl_context);
                 }
                 break;
             default :
@@ -541,7 +551,7 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
     {
         char is_dependent = 0;
         if ((lookup_scope = query_nested_name_spec_flags(sc, global_op, nested_name, 
-                        NULL, &is_dependent, lookup_flags)) != NULL)
+                        NULL, &is_dependent, lookup_flags, decl_context)) != NULL)
         {
             switch (ASTType(name))
             {
@@ -559,13 +569,15 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
                     break;
                 case AST_TEMPLATE_ID:
                     {
-                        solve_possibly_ambiguous_template_id(name, sc);
-                        result = query_template_id_flags(name, sc, lookup_scope, lookup_flags);
+                        solve_possibly_ambiguous_template_id(name, sc, decl_context);
+                        result = query_template_id_flags(name, sc, lookup_scope, lookup_flags,
+                                decl_context);
                     }
                     break;
                 case AST_CONVERSION_FUNCTION_ID :
                     {
-                        char* conversion_function_name = get_conversion_function_name(name, lookup_scope, NULL);
+                        char* conversion_function_name = get_conversion_function_name(name, lookup_scope, NULL,
+                                decl_context);
                         result = query_unqualified_name_flags(lookup_scope, conversion_function_name, lookup_flags | LF_FROM_QUALIFIED);
                         break;
                     }
@@ -603,7 +615,8 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
 
 
 static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* sc, scope_t* lookup_scope, 
-        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags)
+        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags,
+        decl_context_t decl_context)
 {
     AST symbol = ASTSon0(template_id);
     DEBUG_CODE()
@@ -649,7 +662,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
     {
         // This is naming a template function
         // Just return them, do not instantiate
-        solve_possibly_ambiguous_template_id(template_id, sc);
+        solve_possibly_ambiguous_template_id(template_id, sc, decl_context);
 
         return template_functions;
     }
@@ -719,7 +732,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
     template_argument_list_t* current_template_arguments = NULL;
     // Note the scope being different here
-    build_scope_template_arguments(template_id, lookup_scope, sc, sc, &current_template_arguments);
+    build_scope_template_arguments(template_id, lookup_scope, sc, sc, 
+            &current_template_arguments, decl_context);
 
     // First try to match exactly an existing template
     // because this is a parameterized template-id
@@ -822,7 +836,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
     }
 
     matching_pair_t* matched_template = solve_template(entry_list,
-            current_template_arguments, sc, /* exact = */ 1);
+            current_template_arguments, sc, /* exact = */ 1, decl_context);
 
     if (matched_template != NULL)
     {
@@ -840,13 +854,13 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
             scope_entry_list_t* fixed_entry_list = filter_entry_from_list(entry_list, matched_entry);
             matched_template = solve_template(fixed_entry_list,
-                    current_template_arguments, sc, 0);
+                    current_template_arguments, sc, 0, decl_context);
 
             instantiate_template_in_symbol(matched_entry, matched_template, current_template_arguments, sc);
 
             // And now restart this function but now we want an exact match
             return query_template_id_internal(template_id, sc, lookup_scope, unqualified_lookup, 
-                    lookup_flags & (~LF_INSTANTIATE));
+                    lookup_flags & (~LF_INSTANTIATE), decl_context);
         }
         else
         {
@@ -874,7 +888,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         {
             fprintf(stderr, "-> Solving the template without exact match\n");
         }
-        matched_template = solve_template(entry_list, current_template_arguments, sc, /* exact= */ 0);
+        matched_template = solve_template(entry_list, current_template_arguments, sc, /* exact= */ 0,
+                decl_context);
 
         if (matched_template == NULL)
         {
@@ -922,7 +937,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
         // And now restart this function but now we want an exact match
         return query_template_id_internal(template_id, sc, lookup_scope, unqualified_lookup, 
-                lookup_flags & (~LF_INSTANTIATE));
+                lookup_flags & (~LF_INSTANTIATE), decl_context);
     }
     else
     {
@@ -933,35 +948,44 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
     }
 }
 
-scope_entry_list_t* query_unqualified_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope)
+scope_entry_list_t* query_unqualified_template_id(AST template_id, scope_t* sc, 
+        scope_t* lookup_scope, decl_context_t decl_context)
 {
-    return query_template_id_internal(template_id, sc, lookup_scope, FULL_UNQUALIFIED_LOOKUP, LF_NONE);
+    return query_template_id_internal(template_id, sc, lookup_scope, FULL_UNQUALIFIED_LOOKUP, LF_NONE,
+            decl_context);
 }
 
 scope_entry_list_t* query_unqualified_template_id_flags(AST template_id, scope_t* sc, scope_t* lookup_scope,
-        lookup_flags_t lookup_flags)
+        lookup_flags_t lookup_flags, decl_context_t decl_context)
 {
-    return query_template_id_internal(template_id, sc, lookup_scope, FULL_UNQUALIFIED_LOOKUP, lookup_flags);
+    return query_template_id_internal(template_id, sc, lookup_scope, FULL_UNQUALIFIED_LOOKUP, lookup_flags,
+            decl_context);
 }
 
-scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope)
+scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope,
+        decl_context_t decl_context)
 {
-    return query_template_id_internal(template_id, sc, lookup_scope, NOFULL_UNQUALIFIED_LOOKUP, LF_NONE);
+    return query_template_id_internal(template_id, sc, lookup_scope, 
+            NOFULL_UNQUALIFIED_LOOKUP, LF_NONE, decl_context);
 }
 
 scope_entry_list_t* query_template_id_flags(AST template_id, scope_t* sc, 
-        scope_t* lookup_scope, lookup_flags_t lookup_flags)
+        scope_t* lookup_scope, lookup_flags_t lookup_flags, 
+        decl_context_t decl_context)
 {
-    return query_template_id_internal(template_id, sc, lookup_scope, NOFULL_UNQUALIFIED_LOOKUP, lookup_flags);
+    return query_template_id_internal(template_id, sc, lookup_scope, 
+            NOFULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
 }
 
-scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr, unqualified_lookup_behaviour_t unqualified_lookup)
+scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr, 
+        unqualified_lookup_behaviour_t unqualified_lookup, decl_context_t decl_context)
 {
-    return query_id_expression_flags(sc, id_expr, unqualified_lookup, LF_NONE);
+    return query_id_expression_flags(sc, id_expr, unqualified_lookup, LF_NONE, decl_context);
 }
 
 scope_entry_list_t* query_id_expression_flags(scope_t* sc, AST id_expr, 
-        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags)
+        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags,
+        decl_context_t decl_context)
 {
     switch (ASTType(id_expr))
     {
@@ -1013,7 +1037,7 @@ scope_entry_list_t* query_id_expression_flags(scope_t* sc, AST id_expr,
                 // An unqualified template_id "identifier<stuff>"
                 AST symbol = ASTSon0(id_expr);
 
-                solve_possibly_ambiguous_template_id(id_expr, sc);
+                solve_possibly_ambiguous_template_id(id_expr, sc, decl_context);
 
 				scope_entry_list_t* result = query_unqualified_name(sc, ASTText(symbol));
 
@@ -1046,7 +1070,7 @@ scope_entry_list_t* query_id_expression_flags(scope_t* sc, AST id_expr,
                 AST symbol = ASTSon2(id_expr);
 
                 scope_entry_list_t* result = query_nested_name_flags(sc, global_op, nested_name, 
-                        symbol, FULL_UNQUALIFIED_LOOKUP, lookup_flags);
+                        symbol, FULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
 
                 return result;
                 break;

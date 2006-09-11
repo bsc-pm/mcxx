@@ -10,15 +10,16 @@
 #include "cxx-prettyprint.h"
 #include "cxx-driver.h"
 
-char match_one_template(template_argument_list_t* arguments, 
+static char match_one_template(template_argument_list_t* arguments, 
         template_argument_list_t* specialized, scope_entry_t* specialized_entry, 
-        scope_t* st, unification_set_t* unif_set);
+        scope_t* st, unification_set_t* unif_set,
+        decl_context_t decl_context);
 
 static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, 
-        scope_t* st, char give_exact_match);
+        scope_t* st, char give_exact_match, decl_context_t decl_context);
 
-matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, template_argument_list_t* arguments, scope_t* st, 
-        char give_exact_match)
+matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, template_argument_list_t* arguments, 
+        scope_t* st, char give_exact_match, decl_context_t decl_context)
 {
     matching_pair_t* result = NULL;
 
@@ -59,7 +60,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
         }
 
         unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
-        if (match_one_template(arguments, specialized, entry, st, unification_set))
+        if (match_one_template(arguments, specialized, entry, st, unification_set, decl_context))
         {
             matching_pair_t* match_pair = GC_CALLOC(1, sizeof(*match_pair));
 
@@ -86,9 +87,13 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
             }
 
             unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
-            if (!match_one_template(specialized, arguments, NULL, st, unification_set))
+            if (!match_one_template(specialized, arguments, NULL, st, unification_set, decl_context))
             {
                 return NULL;
+            }
+            else
+            {
+                return result;
             }
         }
         else
@@ -103,7 +108,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
             fprintf(stderr, "More than one template can be selected, determining more specialized (exact=%d)\n", give_exact_match);
         }
         result = determine_more_specialized(num_matching_set, matching_set, st,
-                give_exact_match);
+                give_exact_match, decl_context);
         DEBUG_CODE()
         {
             fprintf(stderr, "More specialized determined result=%p\n", result->entry);
@@ -122,7 +127,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
         }
 
         unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
-        if (!match_one_template(specialized, arguments, NULL, st, unification_set))
+        if (!match_one_template(specialized, arguments, NULL, st, unification_set, decl_context))
         {
             return NULL;
         }
@@ -133,7 +138,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
 
 // This function assumes that only one minimum will exist
 static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, 
-        scope_t* st, char give_exact_match)
+        scope_t* st, char give_exact_match, decl_context_t decl_context)
 {
     matching_pair_t* min = matching_set[0];
 
@@ -154,7 +159,8 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
 
         unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
 
-        if (!match_one_template(min_args, current_args, current_entry->entry, st, unification_set))
+        if (!match_one_template(min_args, current_args, current_entry->entry, st, 
+                    unification_set, decl_context))
         {
             DEBUG_CODE()
             {
@@ -166,7 +172,8 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
             unification_set_t* unification_set_check = GC_CALLOC(1, sizeof(*unification_set_check));
             if (!give_exact_match)
             {
-                if (!match_one_template(current_args, min_args, min->entry, st, unification_set_check))
+                if (!match_one_template(current_args, min_args, min->entry, st, 
+                            unification_set_check, decl_context))
                 {
                     internal_error("Ambiguous specialization instantiation\n", 0);
                 }
@@ -182,9 +189,10 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
     return min;
 }
 
-char match_one_template(template_argument_list_t* arguments, 
+static char match_one_template(template_argument_list_t* arguments, 
         template_argument_list_t* specialized, scope_entry_t* specialized_entry, 
-        scope_t* st, unification_set_t* unif_set)
+        scope_t* st, unification_set_t* unif_set,
+        decl_context_t decl_context)
 {
     int i;
     // unification_set_t* unif_set = GC_CALLOC(1, sizeof(*unif_set));
@@ -193,7 +201,8 @@ char match_one_template(template_argument_list_t* arguments,
     {
         if (specialized_entry != NULL)
         {
-            fprintf(stderr, "=== Starting unification with %p\n", specialized_entry);
+            fprintf(stderr, "=== Starting unification with %p (line %d)\n", specialized_entry,
+                    specialized_entry->line);
         }
         else
         {
@@ -218,7 +227,8 @@ char match_one_template(template_argument_list_t* arguments,
 						{
 							fprintf(stderr, "=== Unificating types\n");
 						}
-                        if (!unificate_two_types(spec_arg->type, arg->type, st, &unif_set))
+                        if (!unificate_two_types(spec_arg->type, arg->type, st, &unif_set,
+                                    decl_context))
                         {
                             DEBUG_CODE()
                             {
@@ -246,14 +256,19 @@ char match_one_template(template_argument_list_t* arguments,
                         {
                             internal_error("Expected an expression value for specialized argument", 0);
                         }
-                        literal_value_t spec_arg_value = evaluate_constant_expression(spec_arg->argument_tree, spec_arg->scope);
+                        literal_value_t spec_arg_value = 
+                            evaluate_constant_expression(spec_arg->argument_tree, 
+                                    spec_arg->scope, decl_context);
 
                         if (arg->argument_tree == NULL)
                         {
                             internal_error("Expected an expression value for argument", 0);
                         }
 
-                        literal_value_t arg_value = evaluate_constant_expression(arg->argument_tree, arg->scope);
+                        literal_value_t arg_value = 
+                            evaluate_constant_expression(arg->argument_tree, 
+                                    arg->scope,
+                                    decl_context);
 
                         if (spec_arg_value.kind != LVK_DEPENDENT_EXPR)
                         {

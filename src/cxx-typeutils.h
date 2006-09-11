@@ -3,6 +3,7 @@
 
 #include "cxx-ast.h"
 #include "cxx-scope.h"
+#include "cxx-buildscope.h"
 
 enum cv_equivalence_t
 {
@@ -11,8 +12,10 @@ enum cv_equivalence_t
     CVE_CONSIDER
 };
 
-char equivalent_types(type_t* t1, type_t* t2, scope_t* st, enum cv_equivalence_t cv_equiv);
-char overloaded_function(type_t* f1, type_t* f2, scope_t* st);
+char equivalent_types(type_t* t1, type_t* t2, scope_t* st, 
+        enum cv_equivalence_t cv_equiv, decl_context_t decl_context);
+char overloaded_function(type_t* f1, type_t* f2, scope_t* st, 
+        decl_context_t decl_context);
 
 /* Copy functions */
 class_info_t* copy_class_info(class_info_t* class_info);
@@ -29,7 +32,8 @@ char equivalent_builtin_type(simple_type_t *t1, simple_type_t *t2);
 
 // Conversion functions
 type_t* simple_type_to_type(simple_type_t* simple_type_info);
-char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st);
+char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st,
+        decl_context_t decl_context);
 
 cv_qualifier_t* get_outermost_cv_qualifier(type_t* t);
 
@@ -52,14 +56,16 @@ char can_be_promoted_to_dest(type_t* orig, type_t* dest);
 char can_be_converted_to_dest(type_t* orig, type_t* dest);
 
 char is_reference_type(type_t* t1);
-char is_reference_related(type_t* rt1, type_t* rt2, scope_t* st);
-char is_reference_compatible(type_t* t1, type_t* t2, scope_t* st);
+char is_reference_related(type_t* rt1, type_t* rt2, 
+        scope_t* st, decl_context_t decl_context);
+char is_reference_compatible(type_t* t1, type_t* t2, 
+        scope_t* st, decl_context_t decl_context);
 
 char pointer_can_be_converted_to_dest(type_t* orig, type_t* dest, scope_t* st, 
-        char* to_void, char* derived_to_base, char* cv_adjust);
+        char* to_void, char* derived_to_base, char* cv_adjust,
+        decl_context_t decl_context);
 
 char* get_type_spec_name(AST type_spec, scope_t* st);
-char* get_conversion_function_name(AST conversion_function_id, scope_t* st, type_t** result_conversion_type);
 
 char is_class_type(type_t* possible_class);
 char is_unnamed_class_type(type_t* possible_class);

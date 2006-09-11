@@ -14,40 +14,60 @@ static type_t* get_template_parameter_unification(unification_set_t* unif_set, i
 // e.g.   Q*    can    be unificated to   T**    with   [Q <- T*]
 //        T**   cannot be unificated to   Q*
 //
-char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t** unif_set)
+char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, 
+        unification_set_t** unif_set, decl_context_t decl_context)
 {
-    // Check first if t1 is a template parameter
-    type_t* user_defined_type = NULL;
 
     t1 = advance_over_typedefs(t1);
     t2 = advance_over_typedefs(t2);
-    
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Trying to unificate '");
+        print_declarator(t1, st);
+        fprintf(stderr, "' <- '");
+        print_declarator(t2, st);
+        fprintf(stderr, "'\n");
+    }
+
+    // Normalize types
     // If the user defined type points to a template parameter, we will use the
     // template parameter
+    type_t* original_t1 = t1;
     if (t1->kind == TK_DIRECT && 
             t1->type->kind == STK_USER_DEFINED)
     {
+        // Check first if t1 is a template parameter
+        type_t* user_defined_type = NULL;
         user_defined_type = advance_over_typedefs(t1->type->user_defined_type->type_information);
-        if (user_defined_type->kind != TK_DIRECT
-                || (user_defined_type->type->kind != STK_TYPE_TEMPLATE_PARAMETER
-					&& user_defined_type->type->kind != STK_TEMPLATE_TEMPLATE_PARAMETER))
+        if (user_defined_type->kind == TK_DIRECT
+                && (user_defined_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
+					|| user_defined_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER))
         {
-            user_defined_type = NULL;
+            t1 = user_defined_type;
+        }
+    }
+
+    type_t* original_t2 = t2;
+    if (t2->kind == TK_DIRECT && 
+            t2->type->kind == STK_USER_DEFINED)
+    {
+        // Check first if t1 is a template parameter
+        type_t* user_defined_type = NULL;
+        user_defined_type = advance_over_typedefs(t2->type->user_defined_type->type_information);
+        if (user_defined_type->kind == TK_DIRECT
+                && (user_defined_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
+					|| user_defined_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER))
+        {
+            t2 = user_defined_type;
         }
     }
 
     // If it is a template parameter (or a user defined type pointing to it)
     // then perform unification
-	if ((t1->kind == TK_DIRECT
-				&& (t1->type->kind == STK_TYPE_TEMPLATE_PARAMETER))
-			|| user_defined_type != NULL)
+	if (t1->kind == TK_DIRECT 
+            && t1->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
     {
-        type_t* original_t1 = t1;
-        if (user_defined_type != NULL)
-        {
-            t1 = user_defined_type;
-        }
-
 		// First check if this parameter has not been already unified
         type_t* previous_unif = get_template_parameter_unification(*unif_set, t1->type->template_parameter_num,
                 t1->type->template_parameter_nesting);
@@ -91,12 +111,16 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
                         t1->type->template_parameter_num, t1->type->template_parameter_name);
             }
             // Check is the same unification we are going to do
-            if (!equivalent_types(previous_unif, t2, st, CVE_CONSIDER))
+            if (!equivalent_types(previous_unif, t2, st, CVE_CONSIDER, decl_context))
             {
                 // They're not equivalent, thus not unificable
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "Previous unification does not match the current one\n");
+                    fprintf(stderr, "Previous unification type '");
+                    print_declarator(previous_unif, st);
+                    fprintf(stderr, "' does not match the current one '");
+                    print_declarator(t2, st);
+                    fprintf(stderr, "'\n");
                 }
                 return 0;
             }
@@ -113,19 +137,13 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
         return 1;
     }
 	// template template parameters are handled a bit different
-	else if ((t1->kind == TK_DIRECT
-				&& (t1->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER))
-			|| user_defined_type != NULL)
+    else if (t1->kind == TK_DIRECT
+            && t1->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER)
 	{
 		DEBUG_CODE()
 		{
 			fprintf(stderr, "Unificating template template parameter\n");
 		}
-        type_t* original_t1 = t1;
-        if (user_defined_type != NULL)
-        {
-            t1 = user_defined_type;
-        }
 
 		if (t2->kind != TK_DIRECT
 				|| t2->type->kind != STK_USER_DEFINED
@@ -142,7 +160,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
         if (previous_unif != NULL)
         {
             // Check is the same unification we are going to do
-            if (!equivalent_types(previous_unif, t2, st, CVE_CONSIDER))
+            if (!equivalent_types(previous_unif, t2, st, CVE_CONSIDER, decl_context))
             {
                 // They're not equivalent, thus not unificable
                 DEBUG_CODE()
@@ -199,7 +217,8 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 		{
 			DEBUG_CODE()
 			{
-				fprintf(stderr, "Arguments are the same template, unificating via arguments\n");
+				fprintf(stderr, "Arguments are both the same template '%s', unificating via arguments\n",
+                        entry_t1->symbol_name);
 			}
 			// If they are the same templates they might be unified via its arguments
 			//
@@ -222,7 +241,8 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
 			for (i = 0; i < simple_type_t1->template_arguments->num_arguments; i++)
 			{
 				unificable &= unificate_two_types(simple_type_t1->template_arguments->argument_list[i]->type,
-						simple_type_t2->template_arguments->argument_list[i]->type, st, unif_set);
+						simple_type_t2->template_arguments->argument_list[i]->type, st, unif_set,
+                        decl_context);
 			}
 
 			return unificable;
@@ -240,30 +260,32 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
         case TK_DIRECT :
             {
                 // If they were unificable they would have been unified before
-                return equivalent_types(t1, t2, st, CVE_CONSIDER);
+                return equivalent_types(t1, t2, st, CVE_CONSIDER, decl_context);
                 // return equivalent_simple_types(t1->type, t2->type, st);
                 break;
             }
         case TK_REFERENCE :
         case TK_POINTER :
             {
-                return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, st, unif_set);
+                return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, st, unif_set,
+                        decl_context);
                 break;
             }
         case TK_POINTER_TO_MEMBER :
-            // TODO - What to do here ?
-            return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, st, unif_set)
+            return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, st, unif_set,
+                    decl_context)
                 && unificate_two_types(t1->pointer->pointee_class->type_information,
-                        t2->pointer->pointee_class->type_information, st, unif_set);
+                        t2->pointer->pointee_class->type_information, st, unif_set, decl_context);
             break;
         case TK_ARRAY :
             {
-                literal_value_t v1 = evaluate_constant_expression(t1->array->array_expr, st);
-                literal_value_t v2 = evaluate_constant_expression(t2->array->array_expr, st);
+                literal_value_t v1 = evaluate_constant_expression(t1->array->array_expr, st, decl_context);
+                literal_value_t v2 = evaluate_constant_expression(t2->array->array_expr, st, decl_context);
 
                 if (equal_literal_values(v1, v2, st))
                 {
-                    return unificate_two_types(t1->array->element_type, t2->array->element_type, st, unif_set);
+                    return unificate_two_types(t1->array->element_type, t2->array->element_type, st, unif_set,
+                            decl_context);
                 }
                 break;
             }
@@ -271,7 +293,8 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
             // A function will be unified by steps. First unify the return
             // then the parameters
             {
-                if (!unificate_two_types(t1->function->return_type, t2->function->return_type, st, unif_set))
+                if (!unificate_two_types(t1->function->return_type, t2->function->return_type, st, 
+                            unif_set, decl_context))
                 {
                     return 0;
                 }
@@ -288,7 +311,8 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, unification_set_t*
                     type_t* par1 = t1->function->parameter_list[i]->type_info;
                     type_t* par2 = t2->function->parameter_list[i]->type_info;
 
-                    if (!unificate_two_types(par1, par2, st, unif_set))
+                    if (!unificate_two_types(par1, par2, st, unif_set,
+                                decl_context))
                     {
                         return 0;
                     }

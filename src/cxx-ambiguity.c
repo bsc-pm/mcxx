@@ -20,42 +20,43 @@ static AST recursive_search(AST a, node_t type);
 static AST look_for_node_type_within_ambig(AST a, node_t type, int n);
 static void solve_integral_specification_ambig(AST a);
 static void solve_nested_name_with_no_type(AST a);
-static void solve_ambiguous_simple_declaration(AST a, scope_t* st);
 
-static char check_for_declaration_statement(AST a, scope_t* st);
-static char check_for_expression_statement(AST a, scope_t* st);
-static char check_for_qualified_id(AST expr, scope_t* st);
-static char check_for_symbol(AST expr, scope_t* st);
+static void solve_ambiguous_simple_declaration(AST a, scope_t* st, decl_context_t decl_context);
+
+static char check_for_declaration_statement(AST a, scope_t* st, decl_context_t decl_context);
+static char check_for_expression_statement(AST a, scope_t* st, decl_context_t decl_context);
+static char check_for_qualified_id(AST expr, scope_t* st, decl_context_t decl_context);
+static char check_for_symbol(AST expr, scope_t* st, decl_context_t decl_context);
 #if 0
-static char check_for_destructor_id(AST expr, scope_t* st);
+static char check_for_destructor_id(AST expr, scope_t* st, decl_context_t decl_context);
 #endif
-static char check_for_function_call(AST expr, scope_t* st);
-static char check_for_explicit_type_conversion(AST expr, scope_t* st);
-static char check_for_explicit_typename_type_conversion(AST expr, scope_t* st);
-static char check_for_typeid(AST expr, scope_t* st);
-static char check_for_typeid_expr(AST expr, scope_t* st);
-static char check_for_sizeof_expr(AST expr, scope_t* st);
-static char check_for_sizeof_typeid(AST expr, scope_t* st);
-static char check_for_cast(AST expr, scope_t* st);
+static char check_for_function_call(AST expr, scope_t* st, decl_context_t decl_context);
+static char check_for_explicit_type_conversion(AST expr, scope_t* st, decl_context_t decl_context);
+static char check_for_explicit_typename_type_conversion(AST expr, scope_t* st, decl_context_t decl_context);
+static char check_for_typeid(AST expr, scope_t* st, decl_context_t decl_context);
+static char check_for_typeid_expr(AST expr, scope_t* st, decl_context_t decl_context);
+static char check_for_sizeof_expr(AST expr, scope_t* st, decl_context_t decl_context);
+static char check_for_sizeof_typeid(AST expr, scope_t* st, decl_context_t decl_context);
+static char check_for_cast(AST expr, scope_t* st, decl_context_t decl_context);
 
-static char check_for_simple_type_spec(AST type_spec, scope_t* st);
-static char check_for_type_id_tree(AST type_id, scope_t* st);
-static char check_for_type_specifier(AST type_id, scope_t* st);
+static char check_for_simple_type_spec(AST type_spec, scope_t* st, decl_context_t decl_context);
+static char check_for_type_id_tree(AST type_id, scope_t* st, decl_context_t decl_context);
+static char check_for_type_specifier(AST type_id, scope_t* st, decl_context_t decl_context);
 
-static char check_for_typeless_declarator(AST declarator, scope_t* st);
+static char check_for_typeless_declarator(AST declarator, scope_t* st, decl_context_t decl_context);
 
-static char check_for_init_declarator(AST init_declarator, scope_t* st);
-static char check_for_declarator(AST declarator, scope_t* st);
-static char check_for_declarator_rec(AST declarator, scope_t* st);
-static char check_for_function_declarator_parameters(AST parameter_declaration_clause, scope_t* st);
+static char check_for_init_declarator(AST init_declarator, scope_t* st, decl_context_t decl_context);
+static char check_for_declarator(AST declarator, scope_t* st, decl_context_t decl_context);
+static char check_for_declarator_rec(AST declarator, scope_t* st, decl_context_t decl_context);
+static char check_for_function_declarator_parameters(AST parameter_declaration_clause, scope_t* st, decl_context_t decl_context);
 
-static char check_for_simple_declaration(AST a, scope_t* st);
-static char check_for_initializer_clause(AST initializer_clause, scope_t* st);
-static char check_for_parenthesized_initializer(AST parenthesized_initializer, scope_t* st);
-static char check_for_initializer_list(AST initializer_list, scope_t* st);
+static char check_for_simple_declaration(AST a, scope_t* st, decl_context_t decl_context);
+static char check_for_initializer_clause(AST initializer_clause, scope_t* st, decl_context_t decl_context);
+static char check_for_parenthesized_initializer(AST parenthesized_initializer, scope_t* st, decl_context_t decl_context);
+static char check_for_initializer_list(AST initializer_list, scope_t* st, decl_context_t decl_context);
 
-static char check_for_new_expression(AST new_expr, scope_t* st);
-static char check_for_new_type_id_expr(AST new_expr, scope_t* st);
+static char check_for_new_expression(AST new_expr, scope_t* st, decl_context_t decl_context);
+static char check_for_new_type_id_expr(AST new_expr, scope_t* st, decl_context_t decl_context);
 
 
 #define EXPECT_OPTIONS(a, n) \
@@ -116,7 +117,7 @@ void solve_parameter_declaration_vs_type_parameter_class(AST a)
 /*
  * Ambiguity in a high order declaration
  */
-void solve_ambiguous_declaration(AST a, scope_t* st)
+void solve_ambiguous_declaration(AST a, scope_t* st, decl_context_t decl_context)
 {
 // #warning TODO - Refactorize this with the code that makes the same with a single decl_specifier_seq/type_specifier_seq
     char valid;
@@ -233,14 +234,14 @@ void solve_ambiguous_declaration(AST a, scope_t* st)
 
     if (valid)
     {
-        solve_ambiguous_simple_declaration(a, st);
+        solve_ambiguous_simple_declaration(a, st, decl_context);
         return;
     }
 
     internal_error("Don't know how to handle this ambiguity. %s", node_information(a));
 }
 
-static void solve_ambiguous_simple_declaration(AST a, scope_t* st)
+static void solve_ambiguous_simple_declaration(AST a, scope_t* st, decl_context_t decl_context)
 {
     int correct_option = -1;
     int i;
@@ -248,7 +249,7 @@ static void solve_ambiguous_simple_declaration(AST a, scope_t* st)
     {
         AST option = a->ambig[i];
 
-        if (check_for_simple_declaration(option, st))
+        if (check_for_simple_declaration(option, st, decl_context))
         {
             if (correct_option < 0)
             {
@@ -343,7 +344,7 @@ static void solve_integral_specification_ambig(AST a)
 }
 
 // Checks for old-styled functions
-static char check_for_kr_parameter_list(AST parameters_kr, scope_t* st)
+static char check_for_kr_parameter_list(AST parameters_kr, scope_t* st, decl_context_t decl_context)
 {
     CXX_LANGUAGE()
     {
@@ -375,7 +376,7 @@ static char check_for_kr_parameter_list(AST parameters_kr, scope_t* st)
 /*
  * Ambiguity within a declarator.
  */
-void solve_ambiguous_declarator(AST a, scope_t* st)
+void solve_ambiguous_declarator(AST a, scope_t* st, decl_context_t decl_context)
 {
     int num_ambig = a->num_ambig;
 
@@ -424,7 +425,7 @@ void solve_ambiguous_declarator(AST a, scope_t* st)
 
                         if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
                         {
-                            if (check_for_kr_parameter_list(parameters, st))
+                            if (check_for_kr_parameter_list(parameters, st, decl_context))
                             {
                                 choose_option(a, 0);
                                 return;
@@ -439,7 +440,7 @@ void solve_ambiguous_declarator(AST a, scope_t* st)
                         parameters = ASTSon1(second_option);
                         if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
                         {
-                            if (check_for_kr_parameter_list(parameters, st))
+                            if (check_for_kr_parameter_list(parameters, st, decl_context))
                             {
                                 choose_option(a, 1);
                                 return;
@@ -459,7 +460,7 @@ void solve_ambiguous_declarator(AST a, scope_t* st)
     internal_error("Don't know how to handle this ambiguity", 0);
 }
 
-void solve_ambiguous_statement(AST a, scope_t* st)
+void solve_ambiguous_statement(AST a, scope_t* st, decl_context_t decl_context)
 {
     // The strategy used here is to check every ambiguity and select
     // the valid one
@@ -474,12 +475,12 @@ void solve_ambiguous_statement(AST a, scope_t* st)
         {
             case AST_DECLARATION_STATEMENT :
                 {
-                    current_check = check_for_declaration_statement(a->ambig[i], st);
+                    current_check = check_for_declaration_statement(a->ambig[i], st, decl_context);
                     break;
                 }
             case AST_EXPRESSION_STATEMENT :
                 {
-                    current_check = check_for_expression_statement(a->ambig[i], st);
+                    current_check = check_for_expression_statement(a->ambig[i], st, decl_context);
                     break;
                 }
             default :
@@ -538,7 +539,7 @@ void solve_ambiguous_statement(AST a, scope_t* st)
 }
 
 
-static char check_for_init_declarator_list(AST init_declarator_list, scope_t* st)
+static char check_for_init_declarator_list(AST init_declarator_list, scope_t* st, decl_context_t decl_context)
 {
     AST list = init_declarator_list;
     AST iter;
@@ -555,7 +556,7 @@ static char check_for_init_declarator_list(AST init_declarator_list, scope_t* st
             {
                 AST one_init_decl = init_declarator->ambig[i];
 
-                if (check_for_init_declarator(one_init_decl, st))
+                if (check_for_init_declarator(one_init_decl, st, decl_context))
                 {
                     if (current_choice < 0)
                     {
@@ -584,7 +585,7 @@ static char check_for_init_declarator_list(AST init_declarator_list, scope_t* st
         }
         else
         {
-            if (!check_for_init_declarator(init_declarator, st))
+            if (!check_for_init_declarator(init_declarator, st, decl_context))
             {
                 return 0;
             }
@@ -609,7 +610,8 @@ static char check_for_decl_spec_seq_followed_by_declarator(AST decl_specifier_se
                 || ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_CLASS
                 || ASTType(type_spec) == AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS))
     {
-        AST declarator_name = get_leftmost_declarator_name(declarator);
+        // Fix this
+        AST declarator_name = get_leftmost_declarator_name(declarator, default_decl_context);
 
         if (declarator_name != NULL)
         {
@@ -664,7 +666,7 @@ static char check_for_decl_spec_seq_followed_by_declarator(AST decl_specifier_se
     return 1;
 }
 
-static char check_for_simple_declaration(AST a, scope_t* st)
+static char check_for_simple_declaration(AST a, scope_t* st, decl_context_t decl_context)
 {
     AST decl_specifier_seq = ASTSon0(a);
 
@@ -711,7 +713,7 @@ static char check_for_simple_declaration(AST a, scope_t* st)
 
         if (type_spec != NULL)
         {
-            if (!check_for_type_specifier(type_spec, st))
+            if (!check_for_type_specifier(type_spec, st, decl_context))
             {
                 return 0;
             }
@@ -721,7 +723,7 @@ static char check_for_simple_declaration(AST a, scope_t* st)
 
         if (init_declarator_list != NULL)
         {
-            if (!check_for_init_declarator_list(init_declarator_list, st))
+            if (!check_for_init_declarator_list(init_declarator_list, st, decl_context))
             {
                 return 0;
             }
@@ -760,7 +762,8 @@ static char check_for_simple_declaration(AST a, scope_t* st)
                     && ASTType(declarator_id_expression) == AST_DECLARATOR_ID_EXPR)
             {
                 AST id_expression = ASTSon0(declarator_id_expression);
-                scope_entry_list_t* entry_list = query_id_expression(st, id_expression, FULL_UNQUALIFIED_LOOKUP);
+                scope_entry_list_t* entry_list = query_id_expression(st, id_expression, 
+                        FULL_UNQUALIFIED_LOOKUP, decl_context);
 
                 // T names a type
                 if (entry_list != NULL 
@@ -778,7 +781,8 @@ static char check_for_simple_declaration(AST a, scope_t* st)
                         AST nested_name_spec = ASTSon1(type_spec);
                         AST type_name = ASTSon2(type_spec);
 
-                        entry_list = query_nested_name(st, global_op, nested_name_spec, type_name, FULL_UNQUALIFIED_LOOKUP);
+                        entry_list = query_nested_name(st, global_op, nested_name_spec, 
+                                type_name, FULL_UNQUALIFIED_LOOKUP, decl_context);
 
                         // A is of class nature
                         if (entry_list != NULL
@@ -826,7 +830,7 @@ static char check_for_simple_declaration(AST a, scope_t* st)
                 {
                     AST opt_declarator = ASTSon0(init_declarator->ambig[i]);
 
-                    if (check_for_typeless_declarator(opt_declarator, st))
+                    if (check_for_typeless_declarator(opt_declarator, st, decl_context))
                     {
                         if (correct_choice < 0)
                         {
@@ -851,7 +855,7 @@ static char check_for_simple_declaration(AST a, scope_t* st)
             }
             else
             {
-                if (!check_for_typeless_declarator(declarator, st))
+                if (!check_for_typeless_declarator(declarator, st, decl_context))
                 {
                     return 0;
                 }
@@ -862,14 +866,14 @@ static char check_for_simple_declaration(AST a, scope_t* st)
     return 1;
 }
 
-static char check_for_declaration_statement(AST declaration_statement, scope_t* st)
+static char check_for_declaration_statement(AST declaration_statement, scope_t* st, decl_context_t decl_context)
 {
     AST a = ASTSon0(declaration_statement);
 
     // In general only AST_SIMPLE_DECLARATION gets ambiguous here
     if (ASTType(a) == AST_SIMPLE_DECLARATION)
     {
-        return check_for_simple_declaration(a, st);
+        return check_for_simple_declaration(a, st, decl_context);
     }
     else if (ASTType(a) == AST_AMBIGUITY)
     {
@@ -882,7 +886,7 @@ static char check_for_declaration_statement(AST declaration_statement, scope_t* 
         int i;
         for (i = 0; i < a->num_ambig; i++)
         {
-            if (check_for_simple_declaration(a->ambig[i], st))
+            if (check_for_simple_declaration(a->ambig[i], st, decl_context))
             {
                 if (correct_choice < 0)
                 {
@@ -908,14 +912,15 @@ static char check_for_declaration_statement(AST declaration_statement, scope_t* 
     return 1;
 }
 
-static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, int nfuncs)
+static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, decl_context_t decl_context, int nfuncs)
 {
     switch (ASTType(declarator))
     {
         case AST_PARENTHESIZED_EXPRESSION :
         case AST_DECLARATOR :
             {
-                return check_for_typeless_declarator_rec(ASTSon0(declarator), st, nfuncs);
+                return check_for_typeless_declarator_rec(ASTSon0(declarator), 
+                        st, decl_context, nfuncs);
                 break;
             }
         case AST_POINTER_DECL :
@@ -930,7 +935,7 @@ static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, int n
             }
         case AST_DECLARATOR_FUNC :
             {
-                return check_for_typeless_declarator_rec(ASTSon0(declarator), st, nfuncs+1);
+                return check_for_typeless_declarator_rec(ASTSon0(declarator), st, decl_context, nfuncs+1);
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -966,7 +971,8 @@ static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, int n
                 AST symbol = ASTSon2(id_expression);
 
                 char is_dependent = 0;
-                scope_t* nested_scope = query_nested_name_spec(st, global_scope, nested_name_spec, NULL, &is_dependent);
+                scope_t* nested_scope = query_nested_name_spec(st, global_scope, nested_name_spec, 
+                        NULL, &is_dependent, decl_context);
 
                 if (nested_scope == NULL)
                 {
@@ -1088,9 +1094,9 @@ static char check_for_typeless_declarator_rec(AST declarator, scope_t* st, int n
     return 0;
 }
 
-static char check_for_typeless_declarator(AST declarator, scope_t* st)
+static char check_for_typeless_declarator(AST declarator, scope_t* st, decl_context_t decl_context)
 {
-    return check_for_typeless_declarator_rec(declarator, st, 0);
+    return check_for_typeless_declarator_rec(declarator, st, decl_context, 0);
 }
 
 
@@ -1112,14 +1118,14 @@ static char check_for_typeless_declarator(AST declarator, scope_t* st)
 // "(B < C) > D" intepretation is not feasible because B names
 // a type and thus does not yield a value
 //
-char check_for_expression(AST expression, scope_t* st)
+char check_for_expression(AST expression, scope_t* st, decl_context_t decl_context)
 {
     switch (ASTType(expression))
     {
         case AST_EXPRESSION : 
         case AST_CONSTANT_EXPRESSION : 
             {
-                return check_for_expression(ASTSon0(expression), st);
+                return check_for_expression(ASTSon0(expression), st, decl_context);
             }
         case AST_AMBIGUITY :
             {
@@ -1127,7 +1133,7 @@ char check_for_expression(AST expression, scope_t* st)
                 int i;
                 for (i = 0; i < expression->num_ambig; i++)
                 {
-                    if (check_for_expression(expression->ambig[i], st))
+                    if (check_for_expression(expression->ambig[i], st, decl_context))
                     {
                         if (correct_choice < 0)
                         {
@@ -1205,7 +1211,7 @@ char check_for_expression(AST expression, scope_t* st)
             }
         case AST_QUALIFIED_ID :
             {
-                return check_for_qualified_id(expression, st);
+                return check_for_qualified_id(expression, st, decl_context);
             }
         case AST_QUALIFIED_TEMPLATE :
             {
@@ -1217,7 +1223,8 @@ char check_for_expression(AST expression, scope_t* st)
                 AST nested_name = ASTSon1(expression);
                 AST template_id = ASTSon2(expression);
 
-                query_nested_name_flags(st, global_scope, nested_name, template_id, FULL_UNQUALIFIED_LOOKUP, LF_NO_FAIL);
+                query_nested_name_flags(st, global_scope, nested_name, template_id, 
+                        FULL_UNQUALIFIED_LOOKUP, LF_NO_FAIL, decl_context);
 
                 return 1;
             }
@@ -1228,11 +1235,12 @@ char check_for_expression(AST expression, scope_t* st)
             }
         case AST_PARENTHESIZED_EXPRESSION :
             {
-                return check_for_expression(ASTSon0(expression), st);
+                return check_for_expression(ASTSon0(expression), st,
+                        decl_context);
             }
         case AST_SYMBOL :
             {
-                return check_for_symbol(expression, st);
+                return check_for_symbol(expression, st, decl_context);
             }
         case AST_DESTRUCTOR_ID :
         case AST_DESTRUCTOR_TEMPLATE_ID :
@@ -1249,7 +1257,7 @@ char check_for_expression(AST expression, scope_t* st)
         case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
             {
                 // This should yield a value, should not ?
-                solve_possibly_ambiguous_template_id(expression, st);
+                solve_possibly_ambiguous_template_id(expression, st, decl_context);
                 return 1;
             }
         case AST_CONVERSION_FUNCTION_ID :
@@ -1260,26 +1268,26 @@ char check_for_expression(AST expression, scope_t* st)
         case AST_TEMPLATE_ID :
             {
                 // This is never a value
-                solve_possibly_ambiguous_template_id(expression, st);
+                solve_possibly_ambiguous_template_id(expression, st, decl_context);
                 return 0;
             }
             // Postfix expressions
         case AST_ARRAY_SUBSCRIPT :
             {
-                return check_for_expression(ASTSon0(expression), st)
-                    && check_for_expression(ASTSon1(expression), st);
+                return check_for_expression(ASTSon0(expression), st, decl_context )
+                    && check_for_expression(ASTSon1(expression), st, decl_context );
             }
         case AST_FUNCTION_CALL :
             {
-                return check_for_function_call(expression, st);
+                return check_for_function_call(expression, st, decl_context );
             }
         case AST_EXPLICIT_TYPE_CONVERSION :
             {
-                return check_for_explicit_type_conversion(expression, st);
+                return check_for_explicit_type_conversion(expression, st, decl_context );
             }
         case AST_TYPENAME_EXPLICIT_TYPE_CONVERSION :
             {
-                return check_for_explicit_typename_type_conversion(expression, st);
+                return check_for_explicit_typename_type_conversion(expression, st, decl_context );
             }
         case AST_TYPENAME_TEMPLATE :
         case AST_TYPENAME_TEMPLATE_TEMPLATE :
@@ -1291,7 +1299,7 @@ char check_for_expression(AST expression, scope_t* st)
         case AST_POINTER_CLASS_MEMBER_ACCESS :
             {
                 int result = 0;
-                result = check_for_expression(ASTSon0(expression), st);
+                result = check_for_expression(ASTSon0(expression), st, decl_context );
 
                 // This should always yield a value unless the right hand is shit
                 if (result 
@@ -1301,7 +1309,7 @@ char check_for_expression(AST expression, scope_t* st)
                     result = 0;
                 }
 
-                check_for_expression(ASTSon1(expression), st);
+                check_for_expression(ASTSon1(expression), st, decl_context );
                 
                 return result;
             }
@@ -1315,8 +1323,8 @@ char check_for_expression(AST expression, scope_t* st)
                     return 0;
                 }
 
-                check_for_expression(ASTSon0(expression), st);
-                check_for_expression(ASTSon1(expression), st);
+                check_for_expression(ASTSon0(expression), st, decl_context );
+                check_for_expression(ASTSon1(expression), st, decl_context );
 
                 return 1;
             }
@@ -1324,7 +1332,7 @@ char check_for_expression(AST expression, scope_t* st)
         case AST_POSTDECREMENT :
             {
                 // This cannot yield a type
-                check_for_expression(ASTSon0(expression), st);
+                check_for_expression(ASTSon0(expression), st, decl_context );
                 return 1;
             }
         case AST_DYNAMIC_CAST :
@@ -1352,32 +1360,32 @@ char check_for_expression(AST expression, scope_t* st)
 
                 AST casted_expression = ASTSon1(expression);
 
-                solve_possibly_ambiguous_expression(casted_expression, st);
+                solve_possibly_ambiguous_expression(casted_expression, st, decl_context );
                 // This should not yield a type
                 return 1;
             }
         case AST_TYPEID_TYPE :
             {
-                return check_for_typeid(expression, st);
+                return check_for_typeid(expression, st, decl_context);
             }
         case AST_TYPEID_EXPR :
             {
-                return check_for_typeid_expr(expression, st);
+                return check_for_typeid_expr(expression, st, decl_context);
             }
         // Unary expressions
         case AST_PREINCREMENT :
         case AST_PREDECREMENT :
             {
-                check_for_expression(ASTSon0(expression), st);
+                check_for_expression(ASTSon0(expression), st, decl_context);
                 return 1;
             }
         case AST_SIZEOF :
             {
-                return check_for_sizeof_expr(expression, st);
+                return check_for_sizeof_expr(expression, st, decl_context);
             }
         case AST_SIZEOF_TYPEID :
             {
-                return check_for_sizeof_typeid(expression, st);
+                return check_for_sizeof_typeid(expression, st, decl_context);
             }
         case AST_DERREFERENCE :
         case AST_REFERENCE :
@@ -1386,12 +1394,12 @@ char check_for_expression(AST expression, scope_t* st)
         case AST_NOT_OP :
         case AST_COMPLEMENT_OP :
             {
-                return check_for_expression(ASTSon0(expression), st);
+                return check_for_expression(ASTSon0(expression), st, decl_context);
             }
             // Cast expression
         case AST_CAST_EXPRESSION :
             {
-                return check_for_cast(expression, st);
+                return check_for_cast(expression, st, decl_context );
             }
         // Pointer to method expressions 
         case AST_POINTER_TO_POINTER_MEMBER :
@@ -1419,14 +1427,14 @@ char check_for_expression(AST expression, scope_t* st)
         case AST_LOGICAL_AND :
         case AST_LOGICAL_OR :
             {
-                return check_for_expression(ASTSon0(expression), st)
-                    && check_for_expression(ASTSon1(expression), st);
+                return check_for_expression(ASTSon0(expression), st, decl_context )
+                    && check_for_expression(ASTSon1(expression), st, decl_context );
             }
         case AST_CONDITIONAL_EXPRESSION :
             {
-                return check_for_expression(ASTSon0(expression), st)
-                    && check_for_expression(ASTSon1(expression), st)
-                    && check_for_expression(ASTSon2(expression), st);
+                return check_for_expression(ASTSon0(expression), st, decl_context )
+                    && check_for_expression(ASTSon1(expression), st, decl_context )
+                    && check_for_expression(ASTSon2(expression), st, decl_context );
             }
         case AST_ASSIGNMENT :
         case AST_MUL_ASSIGNMENT :
@@ -1440,22 +1448,22 @@ char check_for_expression(AST expression, scope_t* st)
         case AST_XOR_ASSIGNMENT :
         case AST_MOD_ASSIGNMENT :
             {
-                return check_for_expression(ASTSon0(expression), st)
-                    && check_for_expression(ASTSon1(expression), st);
+                return check_for_expression(ASTSon0(expression), st, decl_context )
+                    && check_for_expression(ASTSon1(expression), st, decl_context );
             }
         case AST_THROW_EXPRESSION :
             {
                 if (ASTSon0(expression) != NULL)
                 {
-                    return check_for_expression(ASTSon0(expression), st);
+                    return check_for_expression(ASTSon0(expression), st, decl_context );
                 }
                 else 
                     return 1;
             }
         case AST_COMMA_OP :
             {
-                return check_for_expression(ASTSon0(expression), st)
-                    && check_for_expression(ASTSon1(expression), st);
+                return check_for_expression(ASTSon0(expression), st, decl_context )
+                    && check_for_expression(ASTSon1(expression), st, decl_context );
             }
             // GCC Extension
         case AST_GCC_LABEL_ADDR :
@@ -1467,35 +1475,35 @@ char check_for_expression(AST expression, scope_t* st)
         case AST_GCC_IMAG_PART :
         case AST_GCC_EXTENSION_EXPR :
             {
-                return check_for_expression(ASTSon0(expression), st);
+                return check_for_expression(ASTSon0(expression), st, decl_context );
             }
         case AST_GCC_ALIGNOF :
             {
                 // Reuse the sizeof code
-                return check_for_sizeof_expr(expression, st);
+                return check_for_sizeof_expr(expression, st, decl_context );
                 break;
             }
         case AST_GCC_ALIGNOF_TYPE :
             {
                 // Reuse the sizeof code
-                return check_for_sizeof_typeid(expression, st);
+                return check_for_sizeof_typeid(expression, st, decl_context );
                 break;
             }
         case AST_NEW_EXPRESSION :
             {
                 // This is always a value, never a type
-                return check_for_new_expression(expression, st);
+                return check_for_new_expression(expression, st, decl_context );
                 break;
             }
         case AST_NEW_TYPE_ID_EXPR :
             {
-                return check_for_new_type_id_expr(expression, st);
+                return check_for_new_type_id_expr(expression, st, decl_context );
             }
         case AST_DELETE_EXPR :
         case AST_DELETE_ARRAY_EXPR :
             {
                 // This is always a value, never a type
-                check_for_expression(ASTSon1(expression), st);
+                check_for_expression(ASTSon1(expression), st, decl_context );
                 return 1;
                 break;
             }
@@ -1507,8 +1515,8 @@ char check_for_expression(AST expression, scope_t* st)
             }
         case AST_GCC_POSTFIX_EXPRESSION :
             {
-                return (check_for_type_id_tree(ASTSon0(expression), st) &&
-                        check_for_initializer_list(ASTSon1(expression), st));
+                return (check_for_type_id_tree(ASTSon0(expression), st, decl_context ) &&
+                        check_for_initializer_list(ASTSon1(expression), st, decl_context ));
                 break;
             }
         default :
@@ -1520,7 +1528,7 @@ char check_for_expression(AST expression, scope_t* st)
     }
 }
 
-static char check_for_new_expression(AST new_expr, scope_t* st)
+static char check_for_new_expression(AST new_expr, scope_t* st, decl_context_t decl_context)
 {
     // AST global_op = ASTSon0(new_expr);
     AST new_placement = ASTSon1(new_expr);
@@ -1536,7 +1544,7 @@ static char check_for_new_expression(AST new_expr, scope_t* st)
         {
             AST expression = ASTSon1(iter);
 
-            solve_possibly_ambiguous_expression(expression, st);
+            solve_possibly_ambiguous_expression(expression, st, decl_context );
         }
     }
 
@@ -1567,7 +1575,7 @@ static char check_for_new_expression(AST new_expr, scope_t* st)
             {
                 AST expression = ASTSon1(iter);
 
-                solve_possibly_ambiguous_expression(expression, st);
+                solve_possibly_ambiguous_expression(expression, st, decl_context );
             }
         }
     }
@@ -1576,20 +1584,20 @@ static char check_for_new_expression(AST new_expr, scope_t* st)
     return 1;
 }
 
-static char check_for_new_type_id_expr(AST new_expr, scope_t* st)
+static char check_for_new_type_id_expr(AST new_expr, scope_t* st, decl_context_t decl_context)
 {
-    return check_for_new_expression(new_expr, st);
+    return check_for_new_expression(new_expr, st, decl_context );
 }
 
-void solve_possibly_ambiguous_expression(AST a, scope_t* st)
+void solve_possibly_ambiguous_expression(AST a, scope_t* st, decl_context_t decl_context)
 {
-    check_for_expression(a, st);
+    check_for_expression(a, st, decl_context );
 }
 
-static char check_for_expression_statement(AST a, scope_t* st)
+static char check_for_expression_statement(AST a, scope_t* st, decl_context_t decl_context)
 {
     AST expression = ASTSon0(a);
-    return check_for_expression(expression, st);
+    return check_for_expression(expression, st, decl_context );
 }
 
 #define ENSURE_TYPE(expr, type) \
@@ -1601,14 +1609,14 @@ do { \
 } \
 while (0);
 
-static char check_for_qualified_id(AST expr, scope_t* st)
+static char check_for_qualified_id(AST expr, scope_t* st, decl_context_t decl_context)
 {
     AST global_scope = ASTSon0(expr);
     AST nested_name_spec = ASTSon1(expr);
     AST unqualified_object = ASTSon2(expr);
 
     scope_entry_list_t* result_list = query_nested_name_flags(st, global_scope, nested_name_spec, 
-            unqualified_object, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION | LF_NO_FAIL);
+            unqualified_object, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION | LF_NO_FAIL, decl_context );
 
     if (ASTType(unqualified_object) == AST_TEMPLATE_ID)
     {
@@ -1626,7 +1634,7 @@ static char check_for_qualified_id(AST expr, scope_t* st)
     }
 }
 
-static char check_for_symbol(AST expr, scope_t* st)
+static char check_for_symbol(AST expr, scope_t* st, decl_context_t decl_context)
 {
     ENSURE_TYPE(expr, AST_SYMBOL);
     scope_entry_list_t* result = query_unqualified_name(st, ASTText(expr)); 
@@ -1638,7 +1646,7 @@ static char check_for_symbol(AST expr, scope_t* st)
                 || result->entry->kind == SK_TEMPLATE_PARAMETER));
 }
 
-static char check_for_functional_expression(AST expr, AST arguments, scope_t* st)
+static char check_for_functional_expression(AST expr, AST arguments, scope_t* st, decl_context_t decl_context)
 {
     char result = 0;
     switch(ASTType(expr))
@@ -1659,7 +1667,7 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
                 }
                 else
                 {
-                    solve_possibly_ambiguous_template_id(expr, st);
+                    solve_possibly_ambiguous_template_id(expr, st, decl_context );
                     name = ASTText(ASTSon0(expr));
                 }
 
@@ -1707,12 +1715,12 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
             }
         case AST_PARENTHESIZED_EXPRESSION :
             {
-                result = check_for_functional_expression(ASTSon0(expr), arguments, st);
+                result = check_for_functional_expression(ASTSon0(expr), arguments, st, decl_context );
                 break;
             }
         default :
             {
-                result = check_for_expression(expr, st);
+                result = check_for_expression(expr, st, decl_context );
             }
     }
 
@@ -1722,7 +1730,7 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
         {
             if (ASTType(arguments) == AST_AMBIGUITY)
             {
-                solve_ambiguous_expression_list(arguments, st);
+                solve_ambiguous_expression_list(arguments, st, decl_context);
             }
 
             AST list = arguments;
@@ -1731,7 +1739,7 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
             for_each_element(list, iter)
             {
                 AST parameter_expr = ASTSon1(iter);
-                solve_possibly_ambiguous_expression(parameter_expr, st);
+                solve_possibly_ambiguous_expression(parameter_expr, st, decl_context );
             }
         }
     }
@@ -1739,7 +1747,7 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
     return result;
 }
 
-static char check_for_function_call(AST expr, scope_t* st)
+static char check_for_function_call(AST expr, scope_t* st, decl_context_t decl_context)
 {
     ENSURE_TYPE(expr, AST_FUNCTION_CALL);
     
@@ -1747,17 +1755,17 @@ static char check_for_function_call(AST expr, scope_t* st)
     //   f ( e );
     //
     // f has to yield a valid value or functional
-    return check_for_functional_expression(ASTSon0(expr), ASTSon1(expr), st);
+    return check_for_functional_expression(ASTSon0(expr), ASTSon1(expr), st, decl_context );
 }
 
-static char check_for_explicit_typename_type_conversion(AST expr, scope_t* st)
+static char check_for_explicit_typename_type_conversion(AST expr, scope_t* st, decl_context_t decl_context)
 {
     AST global_op = ASTSon0(expr);
     AST nested_name_spec = ASTSon1(expr);
     AST symbol = ASTSon2(expr);
 
     scope_entry_list_t* entry_list = query_nested_name_flags(st, global_op, nested_name_spec, symbol, 
-            FULL_UNQUALIFIED_LOOKUP, LF_NONE);
+            FULL_UNQUALIFIED_LOOKUP, LF_NONE, decl_context );
 
     if (entry_list == NULL)
     {
@@ -1771,21 +1779,21 @@ static char check_for_explicit_typename_type_conversion(AST expr, scope_t* st)
 
         if (ASTType(list) == AST_AMBIGUITY)
         {
-            solve_ambiguous_expression_list(list, st);
+            solve_ambiguous_expression_list(list, st, decl_context );
         }
 
         for_each_element(list, iter)
         {
             AST expression = ASTSon1(iter);
 
-            solve_possibly_ambiguous_expression(expression, st);
+            solve_possibly_ambiguous_expression(expression, st, decl_context );
         }
     }
 
     return 1;
 }
 
-static char check_for_explicit_type_conversion(AST expr, scope_t* st)
+static char check_for_explicit_type_conversion(AST expr, scope_t* st, decl_context_t decl_context)
 {
     // An explicit type conversion is of the form
     //
@@ -1795,7 +1803,7 @@ static char check_for_explicit_type_conversion(AST expr, scope_t* st)
     char result = 0;
     AST simple_type_spec = ASTSon0(expr);
 
-    result = check_for_simple_type_spec(simple_type_spec, st);
+    result = check_for_simple_type_spec(simple_type_spec, st, decl_context);
 
     if (result)
     {
@@ -1808,7 +1816,7 @@ static char check_for_explicit_type_conversion(AST expr, scope_t* st)
             {
                 AST current_expression = ASTSon1(iter);
 
-                solve_possibly_ambiguous_expression(current_expression, st);
+                solve_possibly_ambiguous_expression(current_expression, st, decl_context);
             }
         }
     }
@@ -1816,7 +1824,7 @@ static char check_for_explicit_type_conversion(AST expr, scope_t* st)
     return result;
 }
 
-void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st)
+void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st, decl_context_t decl_context)
 {
     int i;
 
@@ -1839,16 +1847,16 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st)
                     if (ASTSon2(type_id_simple_type_spec) != NULL
                             && ASTType(ASTSon2(type_id_simple_type_spec)) == AST_TEMPLATE_ID)
                     {
-                        solve_possibly_ambiguous_template_id(ASTSon2(type_id_simple_type_spec), st);
+                        solve_possibly_ambiguous_template_id(ASTSon2(type_id_simple_type_spec), st, decl_context);
                     }
 
-                    current_option = check_for_type_id_tree(type_id, st);
+                    current_option = check_for_type_id_tree(type_id, st, decl_context);
                     break;
                 }
             case AST_TEMPLATE_EXPRESSION_ARGUMENT :
                 {
                     AST expression_arg = ASTSon0(current_template_argument);
-                    current_option = check_for_expression(expression_arg, st);
+                    current_option = check_for_expression(expression_arg, st, decl_context);
                     break;
                 }
             default :
@@ -1899,7 +1907,7 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st)
 
 }
 
-void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st)
+void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st, decl_context_t decl_context)
 {
     if (ASTType(type_name) != AST_TEMPLATE_ID
             && ASTType(type_name) != AST_OPERATOR_FUNCTION_ID_TEMPLATE)
@@ -1918,12 +1926,12 @@ void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st)
 
             if (ASTType(template_argument) == AST_AMBIGUITY)
             {
-                solve_ambiguous_template_argument(template_argument, st);
+                solve_ambiguous_template_argument(template_argument, st, decl_context);
             }
 
             if (ASTType(template_argument) == AST_TEMPLATE_EXPRESSION_ARGUMENT)
             {
-                solve_possibly_ambiguous_expression(ASTSon0(template_argument), st);
+                solve_possibly_ambiguous_expression(ASTSon0(template_argument), st, decl_context);
             }
             else if (ASTType(template_argument) == AST_TEMPLATE_TYPE_ARGUMENT)
             {
@@ -1950,7 +1958,7 @@ void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st)
     }
 }
 
-static char check_for_simple_type_spec(AST type_spec, scope_t* st)
+static char check_for_simple_type_spec(AST type_spec, scope_t* st, decl_context_t decl_context)
 {
     if (ASTType(type_spec) != AST_SIMPLE_TYPE_SPECIFIER)
     {
@@ -1980,11 +1988,11 @@ static char check_for_simple_type_spec(AST type_spec, scope_t* st)
 
     if (ASTType(type_name) == AST_TEMPLATE_ID)
     {
-        solve_possibly_ambiguous_template_id(type_name, st);
+        solve_possibly_ambiguous_template_id(type_name, st, decl_context);
     }
 
     scope_entry_list_t* entry_list = query_nested_name_flags(st, global_op, nested_name_spec, 
-            type_name, FULL_UNQUALIFIED_LOOKUP, LF_NO_FAIL);
+            type_name, FULL_UNQUALIFIED_LOOKUP, LF_NO_FAIL, decl_context);
 
     if (entry_list == NULL)
     {
@@ -1999,39 +2007,39 @@ static char check_for_simple_type_spec(AST type_spec, scope_t* st)
             || entry_list->entry->kind == SK_TEMPLATE_TYPE_PARAMETER);
 }
 
-static char check_for_typeid(AST expr, scope_t* st)
+static char check_for_typeid(AST expr, scope_t* st, decl_context_t decl_context)
 {
-    return check_for_type_id_tree(ASTSon0(expr), st);
+    return check_for_type_id_tree(ASTSon0(expr), st, decl_context);
 }
 
-static char check_for_type_id_tree(AST type_id, scope_t* st)
+static char check_for_type_id_tree(AST type_id, scope_t* st, decl_context_t decl_context)
 {
     AST type_specifier_seq = ASTSon0(type_id);
     // AST abstract_declarator = ASTSon1(type_id);
     
     if (ASTType(type_specifier_seq) == AST_AMBIGUITY)
     {
-        solve_ambiguous_decl_specifier_seq(type_specifier_seq, st);
+        solve_ambiguous_decl_specifier_seq(type_specifier_seq, st, decl_context);
     }
     
     // This is never NULL
     AST type_specifier = ASTSon1(type_specifier_seq);
 
-    return check_for_type_specifier(type_specifier, st);
+    return check_for_type_specifier(type_specifier, st, decl_context);
 }
 
-static char check_for_typeid_expr(AST expr, scope_t* st)
+static char check_for_typeid_expr(AST expr, scope_t* st, decl_context_t decl_context)
 {
     AST expression = ASTSon0(expr);
-    return check_for_expression(expression, st);
+    return check_for_expression(expression, st, decl_context);
 }
 
-static char check_for_type_specifier(AST type_id, scope_t* st)
+static char check_for_type_specifier(AST type_id, scope_t* st, decl_context_t decl_context)
 {
     switch (ASTType(type_id))
     {
         case AST_SIMPLE_TYPE_SPECIFIER :
-            return check_for_simple_type_spec(type_id, st);
+            return check_for_simple_type_spec(type_id, st, decl_context);
             break;
         case AST_CLASS_SPECIFIER :
         case AST_ENUM_SPECIFIER :
@@ -2070,22 +2078,22 @@ static char check_for_type_specifier(AST type_id, scope_t* st)
     }
 }
 
-static char check_for_sizeof_expr(AST expr, scope_t* st)
+static char check_for_sizeof_expr(AST expr, scope_t* st, decl_context_t decl_context)
 {
     AST sizeof_expression = ASTSon0(expr);
-    return check_for_expression(sizeof_expression, st);
+    return check_for_expression(sizeof_expression, st, decl_context);
 }
 
-static char check_for_sizeof_typeid(AST expr, scope_t* st)
+static char check_for_sizeof_typeid(AST expr, scope_t* st, decl_context_t decl_context)
 {
     AST type_id = ASTSon0(expr);
-    return check_for_type_id_tree(type_id, st);
+    return check_for_type_id_tree(type_id, st, decl_context);
 }
 
-static char check_for_cast(AST expr, scope_t* st)
+static char check_for_cast(AST expr, scope_t* st, decl_context_t decl_context)
 {
     AST type_id = ASTSon0(expr);
-    if (check_for_type_id_tree(type_id, st))
+    if (check_for_type_id_tree(type_id, st, decl_context))
     {
         AST type_specifier = ASTSon0(type_id);
         AST abstract_declarator = ASTSon1(type_id);
@@ -2104,7 +2112,7 @@ static char check_for_cast(AST expr, scope_t* st)
                     &declarator_type, default_nofail_decl_context);
         }
 
-        solve_possibly_ambiguous_expression(ASTSon1(expr), st);
+        solve_possibly_ambiguous_expression(ASTSon1(expr), st, decl_context);
 
         return 1;
     }
@@ -2114,7 +2122,7 @@ static char check_for_cast(AST expr, scope_t* st)
     }
 }
 
-void solve_ambiguous_init_declarator(AST a, scope_t* st)
+void solve_ambiguous_init_declarator(AST a, scope_t* st, decl_context_t decl_context)
 {
     int correct_choice = -1;
     int i;
@@ -2123,7 +2131,7 @@ void solve_ambiguous_init_declarator(AST a, scope_t* st)
     {
         AST init_declarator = a->ambig[i];
 
-        if (check_for_init_declarator(init_declarator, st))
+        if (check_for_init_declarator(init_declarator, st, decl_context))
         {
             if (correct_choice < 0)
             {
@@ -2167,24 +2175,24 @@ void solve_ambiguous_init_declarator(AST a, scope_t* st)
     }
 }
 
-static char check_for_init_declarator(AST init_declarator, scope_t* st)
+static char check_for_init_declarator(AST init_declarator, scope_t* st, decl_context_t decl_context)
 {
     AST declarator = ASTSon0(init_declarator);
     AST initializer = ASTSon1(init_declarator);
 
-    if (!check_for_declarator(declarator, st))
+    if (!check_for_declarator(declarator, st, decl_context ))
         return 0;
 
     if (initializer != NULL)
     {
-        if (!check_for_initialization(initializer, st))
+        if (!check_for_initialization(initializer, st, decl_context))
             return 0;
     }
 
     return 1;
 }
 
-static char check_for_parenthesized_initializer(AST initializer_list, scope_t* st)
+static char check_for_parenthesized_initializer(AST initializer_list, scope_t* st, decl_context_t decl_context)
 {
     if (ASTType(initializer_list) == AST_AMBIGUITY)
     {
@@ -2193,7 +2201,7 @@ static char check_for_parenthesized_initializer(AST initializer_list, scope_t* s
 
         for (i = 0; i < initializer_list->num_ambig; i++)
         {
-            if (check_for_parenthesized_initializer(initializer_list->ambig[i], st))
+            if (check_for_parenthesized_initializer(initializer_list->ambig[i], st, decl_context))
             {
                 if (current_choice < 0)
                 {
@@ -2220,7 +2228,7 @@ static char check_for_parenthesized_initializer(AST initializer_list, scope_t* s
     {
         AST expression = ASTSon1(initializer_list);
 
-        if (!check_for_expression(expression, st))
+        if (!check_for_expression(expression, st, decl_context))
         {
             return 0;
         }
@@ -2228,7 +2236,7 @@ static char check_for_parenthesized_initializer(AST initializer_list, scope_t* s
         // Recurse, because there may be additional ambiguities lying around here
         if (ASTSon0(initializer_list) != NULL)
         {
-            return check_for_parenthesized_initializer(ASTSon0(initializer_list), st);
+            return check_for_parenthesized_initializer(ASTSon0(initializer_list), st, decl_context);
         }
         else
         {
@@ -2244,25 +2252,25 @@ static char check_for_parenthesized_initializer(AST initializer_list, scope_t* s
     }
 }
 
-char check_for_initialization(AST initializer, scope_t* st)
+char check_for_initialization(AST initializer, scope_t* st, decl_context_t decl_context)
 {
     switch (ASTType(initializer))
     {
         case AST_CONSTANT_INITIALIZER :
             {
                 AST expression = ASTSon0(initializer);
-                return check_for_expression(expression, st);
+                return check_for_expression(expression, st, decl_context);
                 break;
             }
         case AST_INITIALIZER :
             {
                 AST initializer_clause = ASTSon0(initializer);
-                return check_for_initializer_clause(initializer_clause, st);
+                return check_for_initializer_clause(initializer_clause, st, decl_context);
                 break;
             }
         case AST_PARENTHESIZED_INITIALIZER :
             {
-                return check_for_parenthesized_initializer(ASTSon0(initializer), st);
+                return check_for_parenthesized_initializer(ASTSon0(initializer), st, decl_context);
                 break;
             }
         default :
@@ -2273,20 +2281,20 @@ char check_for_initialization(AST initializer, scope_t* st)
     return 1;
 }
 
-static char check_for_initializer_list(AST initializer_list, scope_t* st)
+static char check_for_initializer_list(AST initializer_list, scope_t* st, decl_context_t decl_context)
 {
     AST iter;
     for_each_element(initializer_list, iter)
     {
         AST initializer_clause = ASTSon1(iter);
 
-        check_for_initializer_clause(initializer_clause, st);
+        check_for_initializer_clause(initializer_clause, st, decl_context);
     }
 
     return 1;
 }
 
-static char check_for_designation(AST designation, scope_t* st)
+static char check_for_designation(AST designation, scope_t* st, decl_context_t decl_context)
 {
     AST designator_list = ASTSon0(designation);
     AST iter;
@@ -2299,14 +2307,14 @@ static char check_for_designation(AST designation, scope_t* st)
         {
             AST index_designator = designator;
             AST constant_expression = ASTSon0(index_designator);
-            solve_possibly_ambiguous_expression(constant_expression, st);
+            solve_possibly_ambiguous_expression(constant_expression, st, decl_context);
         }
     }
 
     return 1;
 }
 
-static char check_for_initializer_clause(AST initializer, scope_t* st)
+static char check_for_initializer_clause(AST initializer, scope_t* st, decl_context_t decl_context)
 {
     switch (ASTType(initializer))
     {
@@ -2319,31 +2327,31 @@ static char check_for_initializer_clause(AST initializer, scope_t* st)
                 {
                     AST initializer_clause = ASTSon1(iter);
 
-                    check_for_initializer_clause(initializer_clause, st);
+                    check_for_initializer_clause(initializer_clause, st, decl_context);
                 }
                 return 1;
             }
         case AST_INITIALIZER_EXPR :
             {
                 AST expression = ASTSon0(initializer);
-                return check_for_expression(expression, st);
+                return check_for_expression(expression, st, decl_context);
                 break;
             }
         case AST_DESIGNATED_INITIALIZER :
             {
                 AST designation = ASTSon0(initializer);
 
-                check_for_designation(designation, st);
+                check_for_designation(designation, st, decl_context);
 
                 AST initializer_clause = ASTSon1(initializer);
 
-                return check_for_initializer_clause(initializer_clause, st);
+                return check_for_initializer_clause(initializer_clause, st, decl_context);
                 break;
             }
         case AST_GCC_INITIALIZER_CLAUSE :
             {
                 AST initializer_clause = ASTSon1(initializer);
-                return check_for_initializer_clause(initializer_clause, st);
+                return check_for_initializer_clause(initializer_clause, st, decl_context);
                 break;
             }
         default :
@@ -2353,18 +2361,18 @@ static char check_for_initializer_clause(AST initializer, scope_t* st)
     }
 }
 
-static char check_for_declarator(AST declarator, scope_t* st)
+static char check_for_declarator(AST declarator, scope_t* st, decl_context_t decl_context)
 {
-    return check_for_declarator_rec(declarator, st);
+    return check_for_declarator_rec(declarator, st, decl_context);
 }
 
-static char check_for_declarator_rec(AST declarator, scope_t* st)
+static char check_for_declarator_rec(AST declarator, scope_t* st, decl_context_t decl_context)
 {
     switch (ASTType(declarator))
     {
         case AST_ABSTRACT_DECLARATOR :
             {
-                return check_for_declarator_rec(ASTSon1(declarator), st);
+                return check_for_declarator_rec(ASTSon1(declarator), st, decl_context);
                 break;
             }
         case AST_DECLARATOR_ARRAY :
@@ -2372,20 +2380,20 @@ static char check_for_declarator_rec(AST declarator, scope_t* st)
             {
                 if (ASTSon0(declarator) != NULL)
                 {
-                    solve_possibly_ambiguous_expression(ASTSon1(declarator), st);
+                    solve_possibly_ambiguous_expression(ASTSon1(declarator), st, decl_context);
                 }
-                return check_for_declarator_rec(ASTSon0(declarator), st);
+                return check_for_declarator_rec(ASTSon0(declarator), st, decl_context);
             }
         case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
         case AST_DECLARATOR :
             {
-                return check_for_declarator_rec(ASTSon0(declarator), st);
+                return check_for_declarator_rec(ASTSon0(declarator), st, decl_context);
                 break;
             }
         case AST_POINTER_DECL :
             {
-                return check_for_declarator_rec(ASTSon1(declarator), st);
+                return check_for_declarator_rec(ASTSon1(declarator), st, decl_context);
                 break;
             }
         case AST_ABSTRACT_DECLARATOR_FUNC :
@@ -2395,14 +2403,14 @@ static char check_for_declarator_rec(AST declarator, scope_t* st)
                 AST parameter_declaration_clause = ASTSon1(declarator);
                 if (parameter_declaration_clause != NULL)
                 {
-                    if (!check_for_function_declarator_parameters(parameter_declaration_clause, st))
+                    if (!check_for_function_declarator_parameters(parameter_declaration_clause, st, decl_context))
                     {
                         return 0;
                     }
                 }
                 if (ASTSon0(declarator) != NULL)
                 {
-                    return check_for_declarator_rec(ASTSon0(declarator), st);
+                    return check_for_declarator_rec(ASTSon0(declarator), st, decl_context);
                 }
                 break;
             }
@@ -2422,7 +2430,7 @@ static char check_for_declarator_rec(AST declarator, scope_t* st)
     return 0;
 }
 
-static char check_for_function_declarator_parameters(AST parameter_declaration_clause, scope_t* st)
+static char check_for_function_declarator_parameters(AST parameter_declaration_clause, scope_t* st, decl_context_t decl_context)
 {
     AST list = parameter_declaration_clause;
     AST iter;
@@ -2455,11 +2463,11 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 
                 char seems_ok = 1;
 
-                seems_ok &= check_for_type_specifier(type_specifier, st);
+                seems_ok &= check_for_type_specifier(type_specifier, st, decl_context);
 
                 if (seems_ok && declarator != NULL)
                 {
-                    seems_ok &= check_for_declarator(declarator, st);
+                    seems_ok &= check_for_declarator(declarator, st, decl_context);
                     seems_ok &= check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, declarator);
                 }
 
@@ -2505,19 +2513,19 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
         if (ASTType(decl_specifier_seq) == AST_AMBIGUITY)
         {
             // Ensure that this is the unique ambiguity than can appear here
-            solve_ambiguous_decl_specifier_seq(decl_specifier_seq, st);
+            solve_ambiguous_decl_specifier_seq(decl_specifier_seq, st, decl_context);
         }
 
         AST type_specifier = ASTSon1(decl_specifier_seq);
 
-        if (!check_for_type_specifier(type_specifier, st))
+        if (!check_for_type_specifier(type_specifier, st, decl_context))
         {
             return 0;
         }
 
         if (abstract_declarator != NULL)
         {
-            if (!check_for_declarator(abstract_declarator, st))
+            if (!check_for_declarator(abstract_declarator, st, decl_context))
             {
                 return 0;
             }
@@ -2527,14 +2535,14 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 
         if (default_arg != NULL)
         {
-            check_for_expression(default_arg, st);
+            check_for_expression(default_arg, st, decl_context);
         }
     }
 
     return 1;
 }
 
-void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st)
+void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st, decl_context_t decl_context)
 {
     int current_choice = -1;
     int i;
@@ -2547,14 +2555,14 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st)
 
         if (ASTType(decl_specifier_seq) == AST_AMBIGUITY)
         {
-            solve_ambiguous_decl_specifier_seq(decl_specifier_seq, st);
+            solve_ambiguous_decl_specifier_seq(decl_specifier_seq, st, decl_context);
         }
 
         AST type_specifier = ASTSon1(decl_specifier_seq);
 
         if (type_specifier != NULL)
         {
-            current_valid &= check_for_type_specifier(type_specifier, st);
+            current_valid &= check_for_type_specifier(type_specifier, st, decl_context);
         }
         else
         {
@@ -2593,12 +2601,12 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st)
 }
 
 // Convencience function name
-void solve_ambiguous_type_specifier_seq(AST type_spec_seq, scope_t* st)
+void solve_ambiguous_type_specifier_seq(AST type_spec_seq, scope_t* st, decl_context_t decl_context)
 {
-    solve_ambiguous_decl_specifier_seq(type_spec_seq, st);
+    solve_ambiguous_decl_specifier_seq(type_spec_seq, st, decl_context);
 }
 
-void solve_ambiguous_decl_specifier_seq(AST type_spec_seq, scope_t* st)
+void solve_ambiguous_decl_specifier_seq(AST type_spec_seq, scope_t* st, decl_context_t decl_context)
 {
     // What makes different a type_specifier_seq from a decl_specifier_seq
     // is the fact that a type_specifier always has a type_spec while
@@ -2659,7 +2667,7 @@ void solve_ambiguous_decl_specifier_seq(AST type_spec_seq, scope_t* st)
     }
 }
 
-void solve_ambiguous_for_init_statement(AST a, scope_t* st)
+void solve_ambiguous_for_init_statement(AST a, scope_t* st, decl_context_t decl_context)
 {
     int correct_choice = -1;
     int i;
@@ -2671,13 +2679,13 @@ void solve_ambiguous_for_init_statement(AST a, scope_t* st)
         switch (ASTType(for_init_statement))
         {
             case AST_SIMPLE_DECLARATION :
-                if (check_for_simple_declaration(for_init_statement, st))
+                if (check_for_simple_declaration(for_init_statement, st, decl_context))
                 {
                     current = 1;
                 }
                 break;
             case AST_EXPRESSION_STATEMENT :
-                if (check_for_expression(ASTSon0(for_init_statement), st))
+                if (check_for_expression(ASTSon0(for_init_statement), st, decl_context))
                 {
                     current = 1;
                 }
@@ -2710,7 +2718,7 @@ void solve_ambiguous_for_init_statement(AST a, scope_t* st)
     }
 }
 
-void solve_ambiguous_type_specifier(AST ambig_type, scope_t* st)
+void solve_ambiguous_type_specifier(AST ambig_type, scope_t* st, decl_context_t decl_context)
 {
     // The unique ambiguity that should happen here is the one below
     //
@@ -2743,11 +2751,11 @@ void solve_ambiguous_type_specifier(AST ambig_type, scope_t* st)
 
         if (ASTType(type_specifier) == AST_GCC_TYPEOF)
         {
-            current_typeof = check_for_type_id_tree(typeof_argument, st);
+            current_typeof = check_for_type_id_tree(typeof_argument, st, decl_context);
         }
         else if (ASTType(type_specifier) == AST_GCC_TYPEOF_EXPR)
         {
-            current_typeof = check_for_expression(typeof_argument, st);
+            current_typeof = check_for_expression(typeof_argument, st, decl_context);
         }
         else
         {
@@ -2777,7 +2785,7 @@ void solve_ambiguous_type_specifier(AST ambig_type, scope_t* st)
     }
 }
 
-void solve_ambiguous_expression_list(AST expression_list, scope_t* st)
+void solve_ambiguous_expression_list(AST expression_list, scope_t* st, decl_context_t decl_context)
 {
     int correct_choice = -1;
     int i;
@@ -2791,7 +2799,7 @@ void solve_ambiguous_expression_list(AST expression_list, scope_t* st)
         {
             AST current_expression = ASTSon1(iter);
 
-            result &= check_for_expression(current_expression, st);
+            result &= check_for_expression(current_expression, st, decl_context);
         }
 
         if (result)

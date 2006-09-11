@@ -2,6 +2,7 @@
 #define CXX_CEXPR_H
 
 #include "cxx-scope.h"
+#include "cxx-buildscope.h"
 
 enum literal_value_kind_t
 {
@@ -34,7 +35,8 @@ typedef struct
     } value;
 } literal_value_t;
 
-literal_value_t evaluate_constant_expression(AST a, scope_t* st);
+literal_value_t evaluate_constant_expression(AST a, scope_t* st, 
+        decl_context_t decl_context);
 char value_is_zero(literal_value_t v);
 literal_value_t literal_value_zero();
 literal_value_t literal_value_minus_one();

@@ -389,8 +389,9 @@ scope_entry_t* create_holding_symbol_for_template(scope_entry_t* matched_templat
     scope_entry_t* instance_symbol = new_symbol(matched_template->scope, matched_template->symbol_name);
     DEBUG_CODE()
     {
-        fprintf(stderr, "Creating the holding symbol (%p) due to instantiation in line %d\n", 
+        fprintf(stderr, "Creating the holding symbol (%p) for '%s' due to instantiation in line %d\n", 
                 instance_symbol,
+                matched_template->symbol_name,
                 instantiation_line);
     }
     instance_symbol->line = instantiation_line;

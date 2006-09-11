@@ -15,10 +15,13 @@
 static void promote_values(literal_value_t v1, literal_value_t v2, 
         literal_value_t* out_v1, literal_value_t* out_v2);
 static literal_value_t evaluate_conditional_expression(AST condition, 
-        AST value_if_true, AST value_if_false, scope_t* st);
-static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* st);
-static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st);
-static literal_value_t evaluate_symbol(AST symbol, scope_t* st);
+        AST value_if_true, AST value_if_false, scope_t* st,
+        decl_context_t decl_context);
+static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* st,
+        decl_context_t decl_context);
+static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st, 
+        decl_context_t decl_context);
+static literal_value_t evaluate_symbol(AST symbol, scope_t* st, decl_context_t decl_context);
 static literal_value_t create_value_from_literal(AST a);
 
 static literal_value_t convert_to_signed_int(literal_value_t e1);
@@ -61,9 +64,9 @@ BINARY_FUNCTION(division);
 BINARY_FUNCTION(multiplication);
 BINARY_FUNCTION(module);
 
-literal_value_t not_operation(AST a, scope_t* st);
-literal_value_t negate_operation(AST a, scope_t* st);
-literal_value_t complement_operation(AST a, scope_t* st);
+literal_value_t not_operation(AST a, scope_t* st, decl_context_t decl_context);
+literal_value_t negate_operation(AST a, scope_t* st, decl_context_t decl_context);
+literal_value_t complement_operation(AST a, scope_t* st, decl_context_t decl_context);
 
 binary_operation_t binary_ops[] =
 {
@@ -88,7 +91,7 @@ binary_operation_t binary_ops[] =
 };
 
 
-literal_value_t evaluate_constant_expression(AST a, scope_t* st)
+literal_value_t evaluate_constant_expression(AST a, scope_t* st, decl_context_t decl_context)
 {
     switch (ASTType(a))
     {
@@ -96,10 +99,10 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
         case AST_EXPRESSION :
         case AST_CONSTANT_EXPRESSION :
         case AST_PARENTHESIZED_EXPRESSION :
-            return evaluate_constant_expression(ASTSon0(a), st);
+            return evaluate_constant_expression(ASTSon0(a), st, decl_context);
         case AST_QUALIFIED_ID :
         case AST_SYMBOL :
-            return evaluate_symbol(a, st);
+            return evaluate_symbol(a, st, decl_context);
             break;
         case AST_LOGICAL_OR :
         case AST_LOGICAL_AND :
@@ -119,15 +122,16 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
         case AST_MULT_OP :
         case AST_MOD_OP :
         case AST_DIV_OP :
-            return binary_operation(ASTType(a), ASTSon0(a), ASTSon1(a), st);
+            return binary_operation(ASTType(a), ASTSon0(a), ASTSon1(a), st, decl_context);
         case AST_CAST_EXPRESSION :
             {
                 AST type_id = ASTSon0(a);
                 AST type_spec = ASTSon0(type_id);
-                return cast_expression(type_spec, ASTSon1(a), st);
+                return cast_expression(type_spec, ASTSon1(a), st, decl_context);
             }
         case AST_CONDITIONAL_EXPRESSION :
-            return evaluate_conditional_expression(ASTSon0(a), ASTSon1(a), ASTSon2(a), st);
+            return evaluate_conditional_expression(ASTSon0(a), ASTSon1(a), ASTSon2(a), st,
+                    decl_context);
         case AST_DECIMAL_LITERAL :
         case AST_OCTAL_LITERAL :
         case AST_HEXADECIMAL_LITERAL :
@@ -135,13 +139,13 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
         case AST_BOOLEAN_LITERAL :
             return create_value_from_literal(a);
         case AST_PLUS_OP :
-            return evaluate_constant_expression(ASTSon0(a), st);
+            return evaluate_constant_expression(ASTSon0(a), st, decl_context);
         case AST_NOT_OP :
-            return not_operation(ASTSon0(a), st);
+            return not_operation(ASTSon0(a), st, decl_context);
         case AST_NEG_OP :
-            return negate_operation(ASTSon0(a), st);
+            return negate_operation(ASTSon0(a), st, decl_context);
         case AST_COMPLEMENT_OP :
-            return complement_operation(ASTSon0(a), st);
+            return complement_operation(ASTSon0(a), st, decl_context);
         case AST_SIZEOF :
         case AST_SIZEOF_TYPEID :
             {
@@ -157,7 +161,7 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
                         "In '%s' cannot cast a constant expression formed with an expression list longer than 1", 
 						node_information(a));
                 AST first_expression = ASTSon1(expression_list);
-                return cast_expression(ASTSon0(a), first_expression, st);
+                return cast_expression(ASTSon0(a), first_expression, st, decl_context);
             }
         case AST_REFERENCE :
             {
@@ -173,13 +177,14 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st)
 }
 
 
-static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st)
+static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st, 
+        decl_context_t decl_context)
 {
     literal_value_t val_lhs;
     literal_value_t val_rhs;
     binary_operation_t bop;
 
-    val_lhs = evaluate_constant_expression(lhs, st);
+    val_lhs = evaluate_constant_expression(lhs, st, decl_context);
 
     if (val_lhs.kind == LVK_DEPENDENT_EXPR)
     {
@@ -199,7 +204,7 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st
         {
             if (value_is_zero(val_lhs))
             {
-                val_rhs = evaluate_constant_expression(rhs, st);
+                val_rhs = evaluate_constant_expression(rhs, st, decl_context);
                 return val_rhs;
             }
             else
@@ -211,7 +216,7 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st
         {
             if (!value_is_zero(val_lhs))
             {
-                val_rhs = evaluate_constant_expression(rhs, st);
+                val_rhs = evaluate_constant_expression(rhs, st, decl_context);
                 return val_rhs;
             }
             else
@@ -222,7 +227,7 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st
     }
     else
     {
-        val_rhs = evaluate_constant_expression(rhs, st);
+        val_rhs = evaluate_constant_expression(rhs, st, decl_context);
     }
 
     if (val_rhs.kind == LVK_DEPENDENT_EXPR)
@@ -252,17 +257,18 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs, scope_t* st
 }
 
 
-static literal_value_t evaluate_conditional_expression(AST condition, AST value_if_true, AST value_if_false, scope_t* st)
+static literal_value_t evaluate_conditional_expression(AST condition, AST value_if_true, AST value_if_false, 
+        scope_t* st, decl_context_t decl_context)
 {
-    literal_value_t condition_value = evaluate_constant_expression(condition, st);
+    literal_value_t condition_value = evaluate_constant_expression(condition, st, decl_context);
 
     if (value_is_zero(condition_value))
     {
-        return evaluate_constant_expression(value_if_false, st);
+        return evaluate_constant_expression(value_if_false, st, decl_context);
     }
     else
     {
-        return evaluate_constant_expression(value_if_true, st);
+        return evaluate_constant_expression(value_if_true, st, decl_context);
     }
 }
 
@@ -587,9 +593,11 @@ static void promote_values(literal_value_t v1, literal_value_t v2,
     }
 }
 
-static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* st)
+static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* st,
+        decl_context_t decl_context)
 {
-    literal_value_t before_cast = evaluate_constant_expression(expression, st);
+    literal_value_t before_cast = evaluate_constant_expression(expression, 
+            st, decl_context);
 
     if (before_cast.kind == LVK_DEPENDENT_EXPR)
     {
@@ -664,14 +672,16 @@ static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* s
     }
 }
 
-static literal_value_t evaluate_initializer_clause(AST initializer_clause, scope_t* st)
+static literal_value_t evaluate_initializer_clause(AST initializer_clause, scope_t* st,
+        decl_context_t decl_context)
 {
     switch (ASTType(initializer_clause))
     {
         case AST_INITIALIZER_EXPR :
             {
                 AST expression = ASTSon0(initializer_clause);
-                return evaluate_constant_expression(expression, st);
+                return evaluate_constant_expression(expression, st,
+                        decl_context);
             }
         default :
             {
@@ -681,29 +691,34 @@ static literal_value_t evaluate_initializer_clause(AST initializer_clause, scope
     }
 }
 
-static literal_value_t evaluate_initializer(AST initializer, scope_t* st)
+static literal_value_t evaluate_initializer(AST initializer, scope_t* st,
+        decl_context_t decl_context)
 {
     switch (ASTType(initializer))
     {
         case AST_CONSTANT_INITIALIZER :
             {
                 AST expression = ASTSon0(initializer);
-                return evaluate_constant_expression(expression, st);
+                return evaluate_constant_expression(expression, st,
+                        decl_context);
                 break;
             }
         case AST_INITIALIZER :
             {
                 AST initializer_clause = ASTSon0(initializer);
-                return evaluate_initializer_clause(initializer_clause, st);
+                return evaluate_initializer_clause(initializer_clause, st,
+                        decl_context);
             }
         default :
             internal_error("Unexpected node '%s' while evaluating initializer\n", ast_print_node_type(ASTType(initializer)));
     }
 }
 
-static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
+static literal_value_t evaluate_symbol(AST symbol, scope_t* st, decl_context_t decl_context)
 {
-    scope_entry_list_t* result = query_id_expression_flags(st, symbol, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION);
+    // Fix this
+    scope_entry_list_t* result = 
+        query_id_expression_flags(st, symbol, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION, decl_context);
 
     ERROR_CONDITION((result == NULL), "Cannot evaluate unknown symbol '%s' %s", 
             prettyprint_in_buffer(symbol), node_information(symbol));
@@ -739,7 +754,7 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st)
     ERROR_CONDITION((result->entry->expression_value == NULL), 
             "Symbol '%s' does not have a value", prettyprint_in_buffer(symbol));
 
-    return evaluate_initializer(result->entry->expression_value, st);
+    return evaluate_initializer(result->entry->expression_value, st, decl_context);
 }
 
 literal_value_t literal_value_zero()
@@ -857,9 +872,9 @@ char equal_literal_values(literal_value_t v1, literal_value_t v2, scope_t* st)
  * ************************* */
 
 
-literal_value_t not_operation(AST a, scope_t* st)
+literal_value_t not_operation(AST a, scope_t* st, decl_context_t decl_context)
 {
-    literal_value_t result = evaluate_constant_expression(a, st);
+    literal_value_t result = evaluate_constant_expression(a, st, decl_context);
     switch (result.kind)
     {
         case LVK_UNSIGNED_LONG :
@@ -889,9 +904,9 @@ literal_value_t not_operation(AST a, scope_t* st)
     return result;
 }
 
-literal_value_t negate_operation(AST a, scope_t* st)
+literal_value_t negate_operation(AST a, scope_t* st, decl_context_t decl_context)
 {
-    literal_value_t result = evaluate_constant_expression(a, st);
+    literal_value_t result = evaluate_constant_expression(a, st, decl_context);
     switch (result.kind)
     {
         case LVK_UNSIGNED_LONG :
@@ -921,9 +936,9 @@ literal_value_t negate_operation(AST a, scope_t* st)
     return result;
 }
 
-literal_value_t complement_operation(AST a, scope_t* st)
+literal_value_t complement_operation(AST a, scope_t* st, decl_context_t decl_context)
 {
-    literal_value_t result = evaluate_constant_expression(a, st);
+    literal_value_t result = evaluate_constant_expression(a, st, decl_context);
     switch (result.kind)
     {
         case LVK_UNSIGNED_LONG :

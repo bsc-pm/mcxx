@@ -4,6 +4,7 @@
 #include "cxx-ast.h"
 #include "hash.h"
 
+
 #define BITMAP(x) (1 << x)
 
 /*
@@ -21,6 +22,7 @@
  */
 
 struct scope_tag;
+struct decl_context_tag;
 
 enum cxx_symbol_kind
 {
@@ -511,10 +513,12 @@ scope_entry_list_t* filter_entry_from_list(scope_entry_list_t* entry_list, scope
 scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list, char (*f)(scope_entry_t*));
 
 // Everything built by an id_expression can be queried with this function
-scope_entry_list_t* query_id_expression(scope_t* st, AST id_expr, unqualified_lookup_behaviour_t unqualified_lookup);
+scope_entry_list_t* query_id_expression(scope_t* st, AST id_expr, 
+        unqualified_lookup_behaviour_t unqualified_lookup, struct decl_context_tag decl_context);
 
 scope_entry_list_t* query_id_expression_flags(scope_t* st, AST id_expr, 
-        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags);
+        unqualified_lookup_behaviour_t unqualified_lookup, 
+        lookup_flags_t lookup_flags, struct decl_context_tag decl_context);
 
 // Performs a full unqualified lookup
 scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name);
@@ -524,22 +528,26 @@ scope_entry_list_t* query_unqualified_name_flags(scope_t* st, char* unqualified_
 // Nested names
 //    This one should be enough for most cases
 scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name, 
-        unqualified_lookup_behaviour_t unqualified_lookup);
+        unqualified_lookup_behaviour_t unqualified_lookup, struct decl_context_tag decl_context);
 
 scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nested_name, AST name, 
-        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags);
+        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags,
+        struct decl_context_tag decl_context);
 //    These are here for the purpose of flexibility but should be rarely needed
 scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list, 
-        char* is_dependent);
+        char* is_dependent, struct decl_context_tag decl_context);
 scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list,
-        char* is_dependent, lookup_flags_t lookup_flags);
+        char* is_dependent, lookup_flags_t lookup_flags, struct decl_context_tag decl_context);
 // char incompatible_symbol_exists(scope_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
-scope_entry_list_t* query_template_id(AST nested_name_spec, scope_t* st, scope_t* lookup_scope);
+scope_entry_list_t* query_template_id(AST nested_name_spec, scope_t* st, scope_t* lookup_scope,
+        struct decl_context_tag decl_context);
 scope_entry_list_t* query_template_id_flags(AST nested_name_spec, scope_t* st, scope_t* lookup_scope,
-        lookup_flags_t lookup_flags);
-scope_entry_list_t* query_unqualified_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope);
+        lookup_flags_t lookup_flags, struct decl_context_tag decl_context);
+scope_entry_list_t* query_unqualified_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope,
+        struct decl_context_tag decl_context);
 scope_entry_list_t* query_unqualified_template_id_flags(AST template_id, scope_t* sc, scope_t* lookup_scope, 
-        lookup_flags_t lookup_flags);
+        lookup_flags_t lookup_flags,
+        struct decl_context_tag decl_context);
 scope_entry_list_t* query_in_symbols_of_scope(scope_t* sc, char* name);
 
 // Manipulators

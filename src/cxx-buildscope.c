@@ -25,6 +25,7 @@
  * this is a full type checking phase
  */
 
+
 static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_context);
 static void build_scope_declaration_sequence(AST a, scope_t* st, decl_context_t decl_context);
 static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t decl_context);
@@ -129,7 +130,8 @@ static void build_scope_gcc_asm_definition(AST a, scope_t* st, decl_context_t de
 
 static cv_qualifier_t compute_cv_qualifier(AST a);
 
-static exception_spec_t* build_exception_spec(scope_t* st, AST a);
+static exception_spec_t* build_exception_spec(scope_t* st, AST a, 
+        decl_context_t decl_context);
 
 static char is_constructor_declarator(AST a);
 
@@ -307,7 +309,7 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
             }
         case AST_AMBIGUITY :
             {
-                solve_ambiguous_declaration(a, st);
+                solve_ambiguous_declaration(a, st, decl_context);
                 // Restart function
                 if (ASTType(a) == AST_AMBIGUITY)
                 {
@@ -363,7 +365,7 @@ static void build_scope_gcc_asm_definition(AST a, scope_t* st, decl_context_t de
                 if (ASTType(asm_operand) == AST_GCC_ASM_OPERAND)
                 {
                     AST expression = ASTSon2(asm_operand);
-                    solve_possibly_ambiguous_expression(expression, st);
+                    solve_possibly_ambiguous_expression(expression, st, decl_context);
                 }
             }
         }
@@ -402,7 +404,7 @@ static void build_scope_using_directive(AST a, scope_t* st, decl_context_t decl_
     AST name = ASTSon2(a);
 
     scope_entry_list_t* result_list = query_nested_name(st, global_op, 
-            nested_name, name, FULL_UNQUALIFIED_LOOKUP);
+            nested_name, name, FULL_UNQUALIFIED_LOOKUP, decl_context);
 
     ERROR_CONDITION((result_list == NULL), "Namespace '%s' not found\n", ASTText(name));
 
@@ -428,7 +430,8 @@ static void build_scope_using_declaration(AST a, scope_t* st, decl_context_t dec
     AST nested_name_specifier = ASTSon1(a);
     AST unqualified_id = ASTSon2(a);
 
-    scope_entry_list_t* used_entity = query_nested_name(st, global_op, nested_name_specifier, unqualified_id, FULL_UNQUALIFIED_LOOKUP);
+    scope_entry_list_t* used_entity = query_nested_name(st, global_op, nested_name_specifier, 
+            unqualified_id, FULL_UNQUALIFIED_LOOKUP, decl_context);
 
     ERROR_CONDITION((used_entity == NULL), 
             "Entity '%s' not found (%s)\n", 
@@ -506,7 +509,7 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 
             if (ASTType(init_declarator) == AST_AMBIGUITY)
             {
-                solve_ambiguous_init_declarator(init_declarator, st);
+                solve_ambiguous_init_declarator(init_declarator, st, decl_context);
             }
 
             AST declarator = ASTSon0(init_declarator);
@@ -525,9 +528,9 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
             if (!gather_info.is_extern
                     && declarator_type->kind != TK_FUNCTION)
             {
-                AST declarator_name = get_declarator_name(declarator, st);
+                AST declarator_name = get_declarator_name(declarator, st, decl_context);
                 scope_entry_list_t* entry_list = query_id_expression(st, declarator_name, 
-                        NOFULL_UNQUALIFIED_LOOKUP);
+                        NOFULL_UNQUALIFIED_LOOKUP, decl_context);
 
                 ERROR_CONDITION((entry_list == NULL), "Symbol '%s' just declared has not been found in the scope",
                         prettyprint_in_buffer(declarator_name));
@@ -554,7 +557,7 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
                         fprintf(stderr, "Initializer: '%s'\n", ast_print_node_type(ASTType(initializer)));
                     }
 
-                    check_for_initialization(initializer, entry_list->entry->scope);
+                    check_for_initialization(initializer, entry_list->entry->scope, decl_context);
                     entry_list->entry->expression_value = initializer;
                 }
             }
@@ -599,7 +602,7 @@ void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gath
 
     if (ASTType(a) == AST_AMBIGUITY)
     {
-        solve_ambiguous_decl_specifier_seq(a, st);
+        solve_ambiguous_decl_specifier_seq(a, st, decl_context);
         ERROR_CONDITION((ASTType(a) == AST_AMBIGUITY), "Ambiguity not solved", 0);
     }
 
@@ -861,7 +864,7 @@ void gather_type_spec_information(AST a, scope_t* st, type_t* simple_type_info,
             simple_type_info->type->builtin_type = BT_VOID;
             break;
         case AST_AMBIGUITY :
-            solve_ambiguous_type_specifier(a, st);
+            solve_ambiguous_type_specifier(a, st, decl_context);
             // Restart function
             gather_type_spec_information(a, st, simple_type_info, decl_context);
             break;
@@ -895,12 +898,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 		if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
 		{
 			result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-					NOFULL_UNQUALIFIED_LOOKUP, lookup_flags);
+					NOFULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
 		}
 		else
 		{
 			result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-					FULL_UNQUALIFIED_LOOKUP, lookup_flags);
+					FULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
 		}
 	}
 
@@ -994,6 +997,10 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
 				if (ASTType(class_symbol) != AST_TEMPLATE_ID)
 				{
+                    // If this is new, there is no mix to be performed
+                    new_class->template_parameter_info = decl_context.template_parameters;
+                    new_class->num_template_parameters = decl_context.num_template_parameters;
+
 					new_class->kind = SK_TEMPLATE_PRIMARY_CLASS;
 					build_scope_template_arguments_for_primary_template(st, 
 							st->template_scope, 
@@ -1005,7 +1012,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 				{
 					new_class->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
 					build_scope_template_arguments(class_symbol, st, declarating_scope, st->template_scope,
-							&(new_class->type_information->type->template_arguments));
+							&(new_class->type_information->type->template_arguments), decl_context);
 				}
 			}
 		}
@@ -1037,13 +1044,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
 	if (decl_context.template_parameters != NULL)
 	{
-		if (new_class->template_parameter_info == NULL)
-		{
-			// Just overwrite
-			new_class->template_parameter_info = decl_context.template_parameters;
-			new_class->num_template_parameters = decl_context.num_template_parameters;
-		}
-		else // Otherwise first mix them
+		if (new_class->template_parameter_info != NULL)
 		{
 			ERROR_CONDITION((new_class->num_template_parameters != decl_context.num_template_parameters), 
 					"The number of template parameters declared here does not match with a previous declaration\n", 0);
@@ -1128,7 +1129,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
     CXX_LANGUAGE()
     {
         result_list = query_nested_name(st, global_scope, nested_name_specifier, symbol,
-                NOFULL_UNQUALIFIED_LOOKUP);
+                NOFULL_UNQUALIFIED_LOOKUP, decl_context);
     }
 
     C_LANGUAGE()
@@ -1213,7 +1214,7 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 
 		if (ASTType(class_name) == AST_TEMPLATE_ID)
 		{
-			solve_possibly_ambiguous_template_id(class_name, st);
+			solve_possibly_ambiguous_template_id(class_name, st, decl_context);
 		}
 
 		nested_name_spec = ASTSon1(nested_name_spec);
@@ -1221,7 +1222,7 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 
 	if (ASTType(name) == AST_TEMPLATE_ID)
 	{
-		solve_possibly_ambiguous_template_id(name, st);
+		solve_possibly_ambiguous_template_id(name, st, decl_context);
 	}
 
 	DEBUG_CODE()
@@ -1233,8 +1234,8 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 	nested_name_spec = ASTSon1(a);
 	name = ASTSon2(a);
 
-	scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
-			LF_NO_FAIL);
+	scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, 
+            FULL_UNQUALIFIED_LOOKUP, LF_NO_FAIL, decl_context);
 
 	if (result != NULL
 			&& result->entry->kind != SK_DEPENDENT_ENTITY)
@@ -1289,11 +1290,11 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
 
     if (ASTType(type_name) == AST_TEMPLATE_ID)
     {
-        solve_possibly_ambiguous_template_id(type_name, st);
+        solve_possibly_ambiguous_template_id(type_name, st, decl_context);
     }
 	
     scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, 
-            type_name, FULL_UNQUALIFIED_LOOKUP);
+            type_name, FULL_UNQUALIFIED_LOOKUP, decl_context);
 
     ERROR_CONDITION((entry_list == NULL), "The list of types of type '%s' is empty! (%s)\n", 
             prettyprint_in_buffer(a), node_information(a));
@@ -1427,13 +1428,14 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 
             if (enumeration_expr != NULL)
             {
-                solve_possibly_ambiguous_expression(enumeration_expr, st);
+                solve_possibly_ambiguous_expression(enumeration_expr, st, decl_context);
+
+                AST duplicate_expr = duplicate_ast(enumeration_expr);
+
+                AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, duplicate_expr, ASTLine(duplicate_expr), NULL);
+                enumeration_item->expression_value = fake_initializer;
+
             }
-
-            AST duplicate_expr = duplicate_ast(enumeration_expr);
-
-            AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, duplicate_expr, ASTLine(duplicate_expr), 0);
-            enumeration_item->expression_value = fake_initializer;
 
             P_LIST_ADD(simple_enumerator_type->enum_info->enumeration_list, 
                     simple_enumerator_type->enum_info->num_enumeration,
@@ -1507,6 +1509,22 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
         // scope_entry_list_t* result_list = query_nested_name_flags(st, global_op, nested_name_specifier, name, 
         //         FULL_UNQUALIFIED_LOOKUP, LF_INSTANTIATE);
 		//
+        
+        // Replace the fixed nodes
+        if (global_op != NULL)
+        {
+            *global_op = *(ASTSon0(simple_type_specifier));
+        }
+
+        if (nested_name_specifier != NULL)
+        {
+            *nested_name_specifier = *(ASTSon1(simple_type_specifier));
+        }
+
+        if (name != NULL)
+        {
+            *name = *(ASTSon2(simple_type_specifier));
+        }
 
 		// This is always a type name
 		if (type_info == NULL)
@@ -1549,7 +1567,8 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
                     templates_available = filter_entry_from_list(templates_available, result);
 
                     matching_pair_t* match_pair = solve_template(templates_available, 
-                            result->type_information->type->template_arguments, result->scope, /* give_exact_match = */ 0);
+                            result->type_information->type->template_arguments, result->scope, 
+                            /* give_exact_match = */ 0, decl_context);
 
                     if (match_pair != NULL)
                     {
@@ -1645,7 +1664,8 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
             {
                 class_entry_list = query_nested_name_flags(st, NULL, 
                         class_head_nested_name, class_head_identifier,
-                        NOFULL_UNQUALIFIED_LOOKUP, LF_ALWAYS_CREATE_SPECIALIZATION);
+                        NOFULL_UNQUALIFIED_LOOKUP, LF_ALWAYS_CREATE_SPECIALIZATION,
+                        decl_context);
             }
 
             C_LANGUAGE()
@@ -1844,7 +1864,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 case SK_TEMPLATE_SPECIALIZED_CLASS :
                     {
                         build_scope_template_arguments(class_head_identifier, st, st, st->template_scope, 
-                                &(simple_type_info->type->template_arguments));
+                                &(simple_type_info->type->template_arguments), decl_context);
                         break;
                     }
                 case SK_CLASS :
@@ -1965,10 +1985,6 @@ void build_scope_member_specification(scope_t* inner_scope, AST member_specifica
         {
             max_line = ASTLine(member_specification);
         }
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "==== Member declaration [%s] ====\n", node_information(member_specification));
-        }
         // If it has an access specifier, update it
         if (ASTSon0(member_specification) != NULL)
         {
@@ -2069,7 +2085,7 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
     // Set base type
     *declarator_type = simple_type_info;
 
-    AST declarator_name = get_declarator_name(a, st);
+    AST declarator_name = get_declarator_name(a, st, decl_context);
 
     scope_t* decl_st = st;
     if (declarator_name != NULL)
@@ -2079,7 +2095,7 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
         {
             char is_dependent = 0;
             decl_st = query_nested_name_spec_flags(st, ASTSon0(declarator_name), ASTSon1(declarator_name), 
-                    NULL, &is_dependent, LF_INSTANTIATE);
+                    NULL, &is_dependent, LF_INSTANTIATE, decl_context);
 
             if (decl_st == NULL)
             {
@@ -2123,7 +2139,7 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
             if (conversion_function_id != NULL)
             {
                 type_t* conversion_function_type;
-                get_conversion_function_name(conversion_function_id, st, &conversion_function_type);
+                get_conversion_function_name(conversion_function_id, st, &conversion_function_type, decl_context);
 
                 (*declarator_type)->function->return_type = conversion_function_type;
             }
@@ -2174,7 +2190,8 @@ static void convert_tree_from_nested_name_to_qualified_id(AST tree,
 /*
  * This functions converts a type "T" to a "pointer to T"
  */
-static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_tree)
+static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_tree, 
+        decl_context_t decl_context)
 {
     type_t* pointee_type = *declarator_type;
 
@@ -2207,7 +2224,7 @@ static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_
                 convert_tree_from_nested_name_to_qualified_id(ASTSon1(pointer_tree), &nested_name_spec, &unqualified_id);
 
                 entry_list = query_nested_name(st, global_op, nested_name_spec,
-                        unqualified_id, FULL_UNQUALIFIED_LOOKUP);
+                        unqualified_id, FULL_UNQUALIFIED_LOOKUP, decl_context);
 
                 if (entry_list != NULL)
                 {
@@ -2240,13 +2257,14 @@ static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_
 /*
  * This function converts a type "T" to a "array x of T"
  */
-static void set_array_type(type_t** declarator_type, scope_t* st, AST constant_expr)
+static void set_array_type(type_t** declarator_type, scope_t* st, 
+        AST constant_expr, decl_context_t decl_context)
 {
     type_t* element_type = *declarator_type;
 
     if (constant_expr != NULL)
     {
-        solve_possibly_ambiguous_expression(constant_expr, st);
+        solve_possibly_ambiguous_expression(constant_expr, st, decl_context);
     }
 
     (*declarator_type) = GC_CALLOC(1, sizeof(*(*declarator_type)));
@@ -2306,7 +2324,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 
         if (ASTType(parameter_declaration) == AST_AMBIGUITY)
         {
-            solve_ambiguous_parameter_decl(parameter_declaration, st);
+            solve_ambiguous_parameter_decl(parameter_declaration, st, decl_context);
             ERROR_CONDITION((ASTType(parameter_declaration) == AST_AMBIGUITY), "Ambiguity not solved %s", 
                     node_information(parameter_declaration));
         }
@@ -2330,7 +2348,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 
         if (default_argument != NULL)
         {
-            solve_possibly_ambiguous_expression(default_argument, st);
+            solve_possibly_ambiguous_expression(default_argument, st, decl_context);
         }
 
         gather_decl_spec_t gather_info;
@@ -2416,7 +2434,7 @@ static void set_function_type(type_t** declarator_type, scope_t* st, scope_t** p
     // (*declarator_type)->function->cv_qualifier = compute_cv_qualifier(cv_qualif);
     (*declarator_type)->cv_qualifier = compute_cv_qualifier(cv_qualif);
 
-    (*declarator_type)->function->exception_spec = build_exception_spec(st, except_spec);
+    (*declarator_type)->function->exception_spec = build_exception_spec(st, except_spec, decl_context);
 
     (*declarator_type)->function->is_static = gather_info->is_static;
     (*declarator_type)->function->is_inline = gather_info->is_inline;
@@ -2447,71 +2465,82 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
         case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
             {
-                build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context); 
+                build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, 
+                        gather_info, declarator_name, decl_context); 
                 break;
             }
         case AST_CONVERSION_DECLARATOR :
         case AST_ABSTRACT_DECLARATOR :
             {
-                set_pointer_type(declarator_type, st, ASTSon0(a));
+                set_pointer_type(declarator_type, st, ASTSon0(a), decl_context);
                 if (ASTSon1(a) != NULL)
                 {
-                    build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
+                    build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, 
+                            gather_info, declarator_name, decl_context);
                 }
                 break;
             }
         case AST_POINTER_DECL :
             {
-                set_pointer_type(declarator_type, st, ASTSon0(a));
-                build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
+                set_pointer_type(declarator_type, st, ASTSon0(a), decl_context);
+                build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, 
+                        gather_info, declarator_name, decl_context);
                 break;
             }
         case AST_ABSTRACT_ARRAY :
             {
-                set_array_type(declarator_type, st, ASTSon1(a));
+                set_array_type(declarator_type, st, ASTSon1(a), decl_context);
                 if (ASTSon0(a) != NULL)
                 {
-                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
+                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, 
+                            gather_info, declarator_name, decl_context);
                 }
                 break;
             }
         case AST_DIRECT_NEW_DECLARATOR :
             {
-                set_array_type(declarator_type, st, ASTSon1(a));
+                set_array_type(declarator_type, st, ASTSon1(a), decl_context);
                 if (ASTSon0(a) != NULL)
                 {
-                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
+                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, 
+                            gather_info, declarator_name, decl_context);
                 }
                 break;
             }
         case AST_NEW_DECLARATOR :
             {
-                set_pointer_type(declarator_type, st, ASTSon0(a));
+                set_pointer_type(declarator_type, st, ASTSon0(a), decl_context);
                 if (ASTSon0(a) != NULL)
                 {
-                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
+                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, 
+                            gather_info, declarator_name, decl_context);
                 }
                 break;
             }
         case AST_DECLARATOR_ARRAY :
             {
-                set_array_type(declarator_type, st, ASTSon1(a));
-                build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
+                set_array_type(declarator_type, st, ASTSon1(a), decl_context);
+                build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, 
+                        gather_info, declarator_name, decl_context);
                 break;
             }
         case AST_ABSTRACT_DECLARATOR_FUNC :
             {
-                set_function_type(declarator_type, st, parameters_scope, gather_info, ASTSon1(a), ASTSon2(a), ASTSon3(a), decl_context);
+                set_function_type(declarator_type, st, parameters_scope, gather_info, ASTSon1(a), 
+                        ASTSon2(a), ASTSon3(a), decl_context);
                 if (ASTSon0(a) != NULL)
                 {
-                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
+                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, 
+                            gather_info, declarator_name, decl_context);
                 }
                 break;
             }
         case AST_DECLARATOR_FUNC :
             {
-                set_function_type(declarator_type, st, parameters_scope, gather_info, ASTSon1(a), ASTSon2(a), ASTSon3(a), decl_context);
-                build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
+                set_function_type(declarator_type, st, parameters_scope, gather_info, ASTSon1(a), 
+                        ASTSon2(a), ASTSon3(a), decl_context);
+                build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, 
+                        gather_info, declarator_name, decl_context);
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -2525,9 +2554,10 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
             }
         case AST_AMBIGUITY :
             {
-                solve_ambiguous_declarator(a, st);
+                solve_ambiguous_declarator(a, st, decl_context);
                 // Restart function
-                build_scope_declarator_rec(a, st, parameters_scope, declarator_type, gather_info, declarator_name, decl_context);
+                build_scope_declarator_rec(a, st, parameters_scope, declarator_type, 
+                        gather_info, declarator_name, decl_context);
                 break;
             }
         default:
@@ -2661,7 +2691,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
             {
                 // This can only happen in an explicit template function instantiation.
                 // WARNING_MESSAGE("Template id not supported. Skipping it", 0);
-                scope_entry_list_t* entry_list = query_id_expression(st, declarator_id, FULL_UNQUALIFIED_LOOKUP);
+                scope_entry_list_t* entry_list = query_id_expression(st, declarator_id, 
+                        FULL_UNQUALIFIED_LOOKUP, decl_context);
 
                 ERROR_CONDITION((entry_list == NULL), "Template-id not found", 0);
                 return entry_list->entry;
@@ -2676,7 +2707,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
 
                 if (ASTType(declarator_id) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
                 {
-                    solve_possibly_ambiguous_template_id(declarator_id, st);
+                    solve_possibly_ambiguous_template_id(declarator_id, st, decl_context);
                 }
 
                 return register_new_variable_name(operator_id, declarator_type, gather_info, st, decl_context);
@@ -2693,7 +2724,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 type_t* conversion_type_info = NULL;
 
                 // Get the type and its name
-                char* conversion_function_name = get_conversion_function_name(declarator_id,  st, &conversion_type_info);
+                char* conversion_function_name = get_conversion_function_name(declarator_id,  st, &conversion_type_info,
+                        decl_context);
                 AST conversion_id = ASTLeaf(AST_SYMBOL, ASTLine(declarator_id), conversion_function_name);
                 return register_new_variable_name(conversion_id, declarator_type, gather_info, st, decl_context);
                 break;
@@ -2704,7 +2736,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 // A qualified id "a::b::c"
                 if (declarator_type->kind != TK_FUNCTION)
                 {
-                    scope_entry_list_t* entry_list = query_id_expression(st, declarator_id, FULL_UNQUALIFIED_LOOKUP);
+                    scope_entry_list_t* entry_list = query_id_expression(st, declarator_id, FULL_UNQUALIFIED_LOOKUP,
+                            decl_context);
 
                     ERROR_CONDITION((entry_list == NULL), "Qualified id '%s' name not found (%s)", 
                             prettyprint_in_buffer(declarator_id), node_information(declarator_id));
@@ -2749,7 +2782,8 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         gather_decl_spec_t* gather_info, scope_t* st, decl_context_t decl_context)
 {
     // First query for an existing entry in this scope
-    scope_entry_list_t* list = query_id_expression(st, declarator_id, NOFULL_UNQUALIFIED_LOOKUP);
+    scope_entry_list_t* list = query_id_expression(st, declarator_id, 
+            NOFULL_UNQUALIFIED_LOOKUP, decl_context);
 
     // Only enum or classes can exist, otherwise this is an error
     if (list != NULL)
@@ -2779,7 +2813,8 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
                 || declarator_type->type->kind != STK_USER_DEFINED
                 || declarator_type->type->user_defined_type != entry)
         {
-            ERROR_CONDITION((!equivalent_types(entry->type_information, declarator_type, st, CVE_CONSIDER)), 
+            ERROR_CONDITION((!equivalent_types(entry->type_information, declarator_type, st, CVE_CONSIDER,
+                            decl_context)), 
                     "Symbol '%s' in line %s has been redeclared as a different symbol kind (look at line %d).", 
                     ASTText(declarator_id), 
                     node_information(declarator_id), 
@@ -2825,7 +2860,8 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
     if (declarator_type->kind != TK_FUNCTION)
     {
         // Check for existence of this symbol in this scope
-        scope_entry_list_t* entry_list = query_id_expression(st, declarator_id, NOFULL_UNQUALIFIED_LOOKUP);
+        scope_entry_list_t* entry_list = query_id_expression(st, declarator_id, 
+                NOFULL_UNQUALIFIED_LOOKUP, decl_context);
 
         scope_entry_list_t* check_list = filter_symbol_kind(entry_list, SK_VARIABLE);
 
@@ -2867,17 +2903,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
     if (entry == NULL)
     {
-        DEBUG_CODE()
-        {
-            if (!is_overload)
-            {
-                fprintf(stderr, "Registering function '%s'\n", ASTText(declarator_id));
-            }
-            else
-            {
-                fprintf(stderr, "Registering overload for function '%s'\n", ASTText(declarator_id));
-            }
-        }
 
         char* function_name = ASTText(declarator_id);
 
@@ -2899,6 +2924,26 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         }
 
         new_entry->type_information = declarator_type;
+
+        DEBUG_CODE()
+        {
+            if (!is_overload)
+            {
+                fprintf(stderr, "Registering function '%s' %p in (%s)\n", 
+                        function_name, 
+                        new_entry,
+                        node_information(declarator_id)
+                        );
+            }
+            else
+            {
+                fprintf(stderr, "Registering overload function for '%s' %p in (%s)\n", 
+                        function_name, 
+                        new_entry,
+                        node_information(declarator_id)
+                        );
+            }
+        }
 
         return new_entry;
     }
@@ -2923,12 +2968,12 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
     if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
     {
         entry_list = query_id_expression_flags(st, declarator_id, 
-                NOFULL_UNQUALIFIED_LOOKUP, lookup_flags);
+                NOFULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
     }
     else
     {
         entry_list = query_id_expression_flags(st, declarator_id, 
-                FULL_UNQUALIFIED_LOOKUP, lookup_flags);
+                FULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
     }
 
     type_t* function_being_declared = declarator_type;
@@ -2968,7 +3013,7 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 
         type_t* current_function = entry->type_information;
 
-        found_equal = !overloaded_function(function_being_declared, current_function, st);
+        found_equal = !overloaded_function(function_being_declared, current_function, st, decl_context);
         if (found_equal)
         {
             equal_entry = entry;
@@ -3133,7 +3178,7 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 
     if (ASTType(templated_decl) == AST_AMBIGUITY)
     {
-        solve_ambiguous_declaration(templated_decl, st);
+        solve_ambiguous_declaration(templated_decl, st, decl_context);
     }
 
     switch (ASTType(templated_decl))
@@ -3191,7 +3236,7 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
     
     if (ASTType(ASTSon0(a)) == AST_AMBIGUITY)
     {
-        solve_ambiguous_declaration(ASTSon0(a), st);
+        solve_ambiguous_declaration(ASTSon0(a), st, decl_context);
     }
 
     switch (ASTType(ASTSon0(a)))
@@ -3298,7 +3343,7 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 
         if (ASTType(init_declarator) == AST_AMBIGUITY)
         {
-            solve_ambiguous_init_declarator(init_declarator, st);
+            solve_ambiguous_init_declarator(init_declarator, st, decl_context);
         }
 
         AST declarator = ASTSon0(init_declarator);
@@ -3341,8 +3386,9 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
         if (!gather_info.is_extern
                 && declarator_type->kind != TK_FUNCTION)
         {
-            AST declarator_name = get_declarator_name(declarator, st);
-            scope_entry_list_t* entry_list = query_id_expression(st, declarator_name, NOFULL_UNQUALIFIED_LOOKUP);
+            AST declarator_name = get_declarator_name(declarator, st, decl_context);
+            scope_entry_list_t* entry_list = query_id_expression(st, declarator_name, 
+                    NOFULL_UNQUALIFIED_LOOKUP, decl_context);
 
             ERROR_CONDITION((entry_list == NULL), "Symbol just declared has not been found in the scope!", 0);
 
@@ -3360,7 +3406,8 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 
             if (initializer != NULL)
             {
-                check_for_initialization(initializer, entry_list->entry->scope);
+                check_for_initialization(initializer, entry_list->entry->scope,
+                        decl_context);
                 entry_list->entry->expression_value = initializer;
             }
         }
@@ -3501,9 +3548,10 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
     if (id_expr != NULL)
     {
         // This might be ambiguous
-        solve_possibly_ambiguous_expression(id_expr, st);
+        solve_possibly_ambiguous_expression(id_expr, st, decl_context);
 
-        scope_entry_list_t* entry_list = query_id_expression(st, id_expr, FULL_UNQUALIFIED_LOOKUP);
+        scope_entry_list_t* entry_list = query_id_expression(st, id_expr, 
+                FULL_UNQUALIFIED_LOOKUP, decl_context);
 
         ERROR_CONDITION((entry_list == NULL), "Default argument expression id not found\n", 0);
 
@@ -3622,7 +3670,8 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
         if (ASTSon2(def_arg_simple_type_spec) != NULL
                 && ASTType(ASTSon2(def_arg_simple_type_spec)) == AST_TEMPLATE_ID)
         {
-            solve_possibly_ambiguous_template_id(ASTSon2(def_arg_simple_type_spec), st);
+            solve_possibly_ambiguous_template_id(ASTSon2(def_arg_simple_type_spec), st,
+                    decl_context);
         }
 
 
@@ -3705,7 +3754,7 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 
     if (default_expression != NULL)
     {
-        solve_possibly_ambiguous_expression(default_expression, st);
+        solve_possibly_ambiguous_expression(default_expression, st, decl_context);
     }
 
     template_parameters->default_argument_scope = copy_scope(st);
@@ -3723,7 +3772,8 @@ static void build_scope_namespace_alias(AST a, scope_t* st, decl_context_t decl_
     AST nested_name_spec = ASTSon1(qualified_name);
     AST name = ASTSon2(qualified_name);
 
-    scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP);
+    scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, 
+            name, FULL_UNQUALIFIED_LOOKUP, decl_context);
 
     ERROR_CONDITION((entry_list == NULL), "Namespace not found\n", 0);
 
@@ -3785,7 +3835,7 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
 }
 
 static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st, 
-        scope_t* class_scope, scope_entry_t* function_entry)
+        scope_t* class_scope, scope_entry_t* function_entry, decl_context_t decl_context)
 {
     // Get the class symbol
     char* constructor_name = function_entry->symbol_name;
@@ -3831,7 +3881,7 @@ static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st,
 
                     scope_entry_list_t* result_list = NULL;
                     result_list = query_nested_name(class_scope, global_op, nested_name_spec, symbol, 
-                            FULL_UNQUALIFIED_LOOKUP);
+                            FULL_UNQUALIFIED_LOOKUP, decl_context);
 
                     ERROR_CONDITION((result_list == NULL), "Initialized entity in constructor initializer not found (%s)", 
                             node_information(symbol));
@@ -3887,7 +3937,8 @@ static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st,
                     {
                         if (ASTType(expression_list) == AST_AMBIGUITY)
                         {
-                            solve_ambiguous_expression_list(expression_list, st);
+                            solve_ambiguous_expression_list(expression_list, st,
+                                    decl_context);
                         }
 
                         AST iter;
@@ -3895,7 +3946,8 @@ static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st,
                         {
                             AST expression = ASTSon1(iter);
 
-                            solve_possibly_ambiguous_expression(expression, st);
+                            solve_possibly_ambiguous_expression(expression, st,
+                                    decl_context);
                         }
                     }
                     break;
@@ -4005,7 +4057,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
         if (ctor_initializer != NULL)
         {
             scope_t* ctor_scope = new_block_scope(st, parameter_scope, inner_scope);
-            build_scope_ctor_initializer(ctor_initializer, ctor_scope, st, entry);
+            build_scope_ctor_initializer(ctor_initializer, ctor_scope, st, entry, decl_context);
         }
     }
     C_LANGUAGE()
@@ -4065,6 +4117,11 @@ static void build_scope_member_declaration(AST a, scope_t*  st,
         access_specifier_t current_access, type_t* class_info,
         int step, decl_context_t decl_context)
 {
+    DEBUG_CODE()
+    {
+    fprintf(stderr, "==== Member declaration line: [%s] (step=%d) ====\n",
+            node_information(a), step);
+    }
     switch (ASTType(a))
     {
         case AST_MEMBER_DECLARATION :
@@ -4097,7 +4154,7 @@ static void build_scope_member_declaration(AST a, scope_t*  st,
             }
         case AST_AMBIGUITY :
             {
-                solve_ambiguous_declaration(a, st);
+                solve_ambiguous_declaration(a, st, decl_context);
                 // Restart
                 build_scope_member_declaration(a, st, current_access, class_info, step, decl_context);
                 break;
@@ -4291,7 +4348,7 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
 
         AST declarator = ASTSon1(a);
         // Get the declarator name
-        AST declarator_name = get_declarator_name(declarator, st);
+        AST declarator_name = get_declarator_name(declarator, st, decl_context);
 
         char is_constructor = 0;
         AST decl_spec_seq = ASTSon0(a);
@@ -4303,7 +4360,7 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
                     || (ASTType(decl_spec_seq) == AST_AMBIGUITY)))
         {
             build_scope_decl_specifier_seq(decl_spec_seq, st, &gather_info, &type_info,
-                    default_decl_context);
+                    decl_context);
 
         }
         else
@@ -4440,7 +4497,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
             {
                 case AST_AMBIGUITY:
                     {
-                        solve_ambiguous_init_declarator(declarator, st);
+                        solve_ambiguous_init_declarator(declarator, st, decl_context);
                         // Restart the function
                         build_scope_simple_member_declaration(a, st, current_access, class_info, decl_context);
                         return;
@@ -4459,7 +4516,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
                         }
 
                         AST expression = ASTSon1(declarator);
-                        solve_possibly_ambiguous_expression(expression, st);
+                        solve_possibly_ambiguous_expression(expression, st, decl_context);
                         break;
                     }
                     // init declarator may appear here because of templates
@@ -4467,7 +4524,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
                 case AST_MEMBER_DECLARATOR :
                 case AST_GCC_MEMBER_DECLARATOR :
                     {
-                        AST declarator_name = get_declarator_name(declarator, st);
+                        AST declarator_name = get_declarator_name(declarator, st, decl_context);
 
                         AST initializer = ASTSon1(declarator);
                         // Change name of constructors
@@ -4579,7 +4636,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
                         {
                             if (initializer != NULL)
                             {
-                                check_for_initialization(initializer, entry->scope);
+                                check_for_initialization(initializer, entry->scope, decl_context);
                                 entry->expression_value = initializer;
                             }
                         }
@@ -4641,7 +4698,8 @@ static cv_qualifier_t compute_cv_qualifier(AST a)
 // This function fills returns an exception_spec_t* It returns NULL if no
 // exception spec has been defined. Note that 'throw ()' is an exception spec
 // and non-NULL is returned in this case.
-static exception_spec_t* build_exception_spec(scope_t* st, AST a)
+static exception_spec_t* build_exception_spec(scope_t* st, AST a, 
+        decl_context_t decl_context)
 {
     // No exception specifier at all
     if (a == NULL)
@@ -4672,13 +4730,13 @@ static exception_spec_t* build_exception_spec(scope_t* st, AST a)
         memset(&gather_info, 0, sizeof(gather_info));
     
         build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &type_info,
-                default_decl_context);
+                decl_context);
 
         if (abstract_decl != NULL)
         {
             type_t* declarator_type;
             build_scope_declarator(abstract_decl, st, &gather_info, type_info, &declarator_type,
-                    default_decl_context);
+                    decl_context);
             P_LIST_ADD(result->exception_type_seq, result->num_exception_types,
                     declarator_type);
         }
@@ -4775,7 +4833,7 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
 }
 
 static void update_template_parameter_types(type_t** update_type,
-        template_argument_list_t* argument_list)
+        template_argument_list_t* argument_list, decl_context_t decl_context)
 {
     if (update_type == NULL
             || *update_type == NULL)
@@ -4786,14 +4844,17 @@ static void update_template_parameter_types(type_t** update_type,
         case TK_REFERENCE :
         case TK_POINTER :
             {
-                update_template_parameter_types(&((*update_type)->pointer->pointee), argument_list);
+                update_template_parameter_types(&((*update_type)->pointer->pointee), 
+                        argument_list, decl_context);
                 break;
             }
         case TK_POINTER_TO_MEMBER :
             {
-                update_template_parameter_types(&((*update_type)->pointer->pointee), argument_list);
+                update_template_parameter_types(&((*update_type)->pointer->pointee), 
+                        argument_list, decl_context);
                 scope_entry_t* pointee_class = (*update_type)->pointer->pointee_class;
-                update_template_parameter_types(&(pointee_class->type_information), argument_list);
+                update_template_parameter_types(&(pointee_class->type_information), 
+                        argument_list, decl_context);
                 break;
             }
         case TK_FUNCTION :
@@ -4801,12 +4862,13 @@ static void update_template_parameter_types(type_t** update_type,
                 int i;
                 function_info_t* function_info = (*update_type)->function;
 
-                update_template_parameter_types(&(function_info->return_type), argument_list);
+                update_template_parameter_types(&(function_info->return_type), 
+                        argument_list, decl_context);
 
                 for (i = 0; i < function_info->num_parameters; i++)
                 {
                     update_template_parameter_types(&(function_info->parameter_list[i]->type_info),
-                            argument_list);
+                            argument_list, decl_context);
                 }
                 break;
             }
@@ -4860,7 +4922,7 @@ static void update_template_parameter_types(type_t** update_type,
 									advance_over_typedefs(entry->type_information));
 
 							update_template_parameter_types(&(new_entry->type_information->type->aliased_type),
-									argument_list);
+									argument_list, decl_context);
 						}
 						else if (entry->kind == SK_TEMPLATE_PARAMETER)
 						{
@@ -4869,8 +4931,10 @@ static void update_template_parameter_types(type_t** update_type,
 
 							// This is no more a SK_TEMPLATE_PARAMETER
 							new_entry->kind = SK_VARIABLE;
-							AST expression = duplicate_ast(
-									argument_list->argument_list[entry->type_information->type->template_parameter_num]->argument_tree);
+                            AST expression = duplicate_ast(
+                                    argument_list->argument_list[(
+                                        entry->type_information->type->template_parameter_num
+                                        )]->argument_tree);
 							AST constant_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, expression, ASTLine(expression), NULL);
 
 							new_entry->expression_value = constant_initializer;
@@ -4890,7 +4954,7 @@ static void update_template_parameter_types(type_t** update_type,
 
 					scope_entry_list_t* entry_list = query_nested_name_flags(search_scope,
 							global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
-							LF_NO_FAIL);
+							LF_NO_FAIL, decl_context);
 
 					if (entry_list != NULL)
 					{
@@ -4947,7 +5011,7 @@ static void update_template_parameter_types(type_t** update_type,
 
                             update_template_parameter_types(
                                     &(new_template_arguments->argument_list[i]->type),
-                                    argument_list);
+                                    argument_list, decl_context);
 
                             DEBUG_CODE()
                             {
@@ -4961,7 +5025,7 @@ static void update_template_parameter_types(type_t** update_type,
                         scope_entry_list_t* candidates = query_unqualified_name(entry->scope, entry->symbol_name);
 
                         matching_pair_t* new_match_template = solve_template(candidates, new_template_arguments, entry->scope, 
-                                /* give_exact_match = */ 1);
+                                /* give_exact_match = */ 1, decl_context);
 
                         scope_entry_t* new_specialization = NULL;
                         if (new_match_template == NULL)
@@ -4989,7 +5053,8 @@ static void update_template_parameter_types(type_t** update_type,
             }
         case TK_ARRAY :
             {
-                update_template_parameter_types(&((*update_type)->array->element_type), argument_list);
+                update_template_parameter_types(&((*update_type)->array->element_type), 
+                        argument_list, decl_context);
                 break;
             }
         default :
@@ -5005,7 +5070,8 @@ void build_scope_template_arguments(AST class_head_id,
                                          // (A::B<int>, the primary template is searched in A::)
         scope_t* arguments_scope,        // Where the arguments are looked up (in the point of the declaration)
         scope_t* template_scope,         // Arguments that are expressions and might involve template symbols
-        template_argument_list_t** template_arguments)
+        template_argument_list_t** template_arguments,
+        decl_context_t decl_context)
 {
     DEBUG_CODE()
     {
@@ -5031,7 +5097,7 @@ void build_scope_template_arguments(AST class_head_id,
         }
     }
 
-    solve_possibly_ambiguous_template_id(class_head_id, arguments_scope);
+    solve_possibly_ambiguous_template_id(class_head_id, arguments_scope, decl_context);
     
     // Complete arguments with default ones
     //
@@ -5130,13 +5196,13 @@ void build_scope_template_arguments(AST class_head_id,
                         memset(&gather_info, 0, sizeof(gather_info));
 
                         build_scope_decl_specifier_seq(type_specifier_seq, arguments_scope, &gather_info, &type_info,
-                                default_decl_context);
+                                decl_context);
 
                         type_t* declarator_type;
                         if (abstract_decl != NULL)
                         {
                             build_scope_declarator(abstract_decl, arguments_scope, &gather_info, type_info, &declarator_type,
-                                    default_decl_context);
+                                    decl_context);
                         }
                         else
                         {
@@ -5274,7 +5340,7 @@ void build_scope_template_arguments(AST class_head_id,
                                 fprintf(stderr, "\n");
                             }
                             update_template_parameter_types(&(curr_template_arg->type),
-                                    (*template_arguments));
+                                    (*template_arguments), decl_context);
 
                             DEBUG_CODE()
                             {
@@ -5327,7 +5393,7 @@ void build_scope_template_arguments(AST class_head_id,
 											advance_over_typedefs(entry->type_information));
 
 									update_template_parameter_types(&(new_entry->type_information->type->aliased_type),
-											(*template_arguments));
+											(*template_arguments), decl_context);
 								}
 								else if (entry->kind == SK_TEMPLATE_PARAMETER)
 								{
@@ -5339,7 +5405,8 @@ void build_scope_template_arguments(AST class_head_id,
 									AST expression = duplicate_ast(
 											(*template_arguments)->
 											argument_list[entry->type_information->type->template_parameter_num]->argument_tree);
-									AST constant_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, expression, ASTLine(expression), NULL);
+									AST constant_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, expression, ASTLine(expression), 
+                                            NULL);
 
 									new_entry->expression_value = constant_initializer;
 								}
@@ -5507,7 +5574,7 @@ static void build_scope_condition(AST a, scope_t* st, decl_context_t decl_contex
 
         if (ASTType(type_specifier_seq) == AST_AMBIGUITY)
         {
-            solve_ambiguous_decl_specifier_seq(type_specifier_seq, st);
+            solve_ambiguous_decl_specifier_seq(type_specifier_seq, st, decl_context);
         }
         
         ERROR_CONDITION((ASTType(declarator) == AST_AMBIGUITY), "Unexpected ambiguity", 0);
@@ -5519,19 +5586,19 @@ static void build_scope_condition(AST a, scope_t* st, decl_context_t decl_contex
         memset(&gather_info, 0, sizeof(gather_info));
     
         build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &type_info,
-                default_decl_context);
+                decl_context);
 
         type_t* declarator_type = NULL;
         scope_entry_t* entry = build_scope_declarator(declarator, st, &gather_info, type_info, &declarator_type,
-                default_decl_context);
+                decl_context);
 
-        solve_possibly_ambiguous_expression(ASTSon2(a), st);
+        solve_possibly_ambiguous_expression(ASTSon2(a), st, decl_context);
         
         entry->expression_value = ASTSon2(a);
     }
     else
     {
-        solve_possibly_ambiguous_expression(ASTSon2(a), st);
+        solve_possibly_ambiguous_expression(ASTSon2(a), st, decl_context);
     }
 }
 
@@ -5548,7 +5615,7 @@ static void build_scope_while_statement(AST a, scope_t* st, decl_context_t decl_
 
 static void build_scope_ambiguity_handler(AST a, scope_t* st, decl_context_t decl_context)
 {
-    solve_ambiguous_statement(a, st);
+    solve_ambiguous_statement(a, st, decl_context);
     // Restart
     build_scope_statement(a, st, decl_context);
 }
@@ -5562,7 +5629,7 @@ static void build_scope_declaration_statement(AST a, scope_t* st, decl_context_t
 
 static void solve_expression_ambiguities(AST a, scope_t* st, decl_context_t decl_context)
 {
-    solve_possibly_ambiguous_expression(ASTSon0(a), st);
+    solve_possibly_ambiguous_expression(ASTSon0(a), st, decl_context);
 }
 
 static void build_scope_if_else_statement(AST a, scope_t* st, decl_context_t decl_context)
@@ -5591,7 +5658,7 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
 
     if (ASTType(for_init_statement) == AST_AMBIGUITY)
     {
-        solve_ambiguous_for_init_statement(for_init_statement, st);
+        solve_ambiguous_for_init_statement(for_init_statement, st, decl_context);
     }
 
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
@@ -5603,7 +5670,7 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
         AST expression = ASTSon0(for_init_statement);
-        solve_possibly_ambiguous_expression(expression, st);
+        solve_possibly_ambiguous_expression(expression, st, decl_context);
     }
 
     if (condition != NULL)
@@ -5613,7 +5680,7 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
 
     if (expression != NULL)
     {
-        solve_possibly_ambiguous_expression(expression, block_scope);
+        solve_possibly_ambiguous_expression(expression, block_scope, decl_context);
     }
     
     build_scope_statement(statement, block_scope, decl_context);
@@ -5645,7 +5712,7 @@ static void build_scope_case_statement(AST a, scope_t* st, decl_context_t decl_c
 {
     AST constant_expression = ASTSon0(a);
     AST statement = ASTSon1(a);
-    solve_possibly_ambiguous_expression(constant_expression, st);
+    solve_possibly_ambiguous_expression(constant_expression, st, decl_context);
 
     build_scope_statement(statement, st, decl_context);
 }
@@ -5655,7 +5722,7 @@ static void build_scope_return_statement(AST a, scope_t* st, decl_context_t decl
     AST expression = ASTSon0(a);
     if (expression != NULL)
     {
-        solve_possibly_ambiguous_expression(expression, st);
+        solve_possibly_ambiguous_expression(expression, st, decl_context);
     }
 }
 
@@ -5708,7 +5775,7 @@ static void build_scope_do_statement(AST a, scope_t* st, decl_context_t decl_con
     AST expression = ASTSon1(a);
 
     build_scope_statement(statement, st, decl_context);
-    solve_possibly_ambiguous_expression(expression, st);
+    solve_possibly_ambiguous_expression(expression, st, decl_context);
 }
 
 static void build_scope_null(AST a, scope_t* st, decl_context_t decl_context)
@@ -5765,7 +5832,7 @@ static void build_scope_statement(AST a, scope_t* st, decl_context_t decl_contex
  * This function returns the node that holds the name for a non-abstract
  * declarator
  */
-AST get_declarator_name(AST a, scope_t* st)
+AST get_declarator_name(AST a, scope_t* st, decl_context_t decl_context)
 {
     ERROR_CONDITION((a == NULL), "This function does not admit NULL trees", 0);
 
@@ -5777,22 +5844,22 @@ AST get_declarator_name(AST a, scope_t* st)
         case AST_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
             {
-                return get_declarator_name(ASTSon0(a), st); 
+                return get_declarator_name(ASTSon0(a), st, decl_context); 
                 break;
             }
         case AST_POINTER_DECL :
             {
-                return get_declarator_name(ASTSon1(a), st);
+                return get_declarator_name(ASTSon1(a), st, decl_context);
                 break;
             }
         case AST_DECLARATOR_ARRAY :
             {
-                return get_declarator_name(ASTSon0(a), st);
+                return get_declarator_name(ASTSon0(a), st, decl_context);
                 break;
             }
         case AST_DECLARATOR_FUNC :
             {
-                return get_declarator_name(ASTSon0(a), st);
+                return get_declarator_name(ASTSon0(a), st, decl_context);
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -5813,10 +5880,10 @@ AST get_declarator_name(AST a, scope_t* st)
             }
         case AST_AMBIGUITY :
             {
-                solve_ambiguous_declarator(a, st);
+                solve_ambiguous_declarator(a, st, decl_context);
 
                 // Restart function
-                return get_declarator_name(a, st);
+                return get_declarator_name(a, st, decl_context);
             }
         default:
             {
@@ -5831,7 +5898,7 @@ AST get_declarator_name(AST a, scope_t* st)
 //   int f(); // Returns the tree holding 'f'
 //   int (f()); // Returns null
 //   int a[10]; // Returns the tree holding 'a'
-AST get_leftmost_declarator_name(AST a)
+AST get_leftmost_declarator_name(AST a, decl_context_t decl_context)
 {
     ERROR_CONDITION((a == NULL), "This function does not admit NULL trees", 0);
 
@@ -5841,7 +5908,7 @@ AST get_leftmost_declarator_name(AST a)
         case AST_MEMBER_DECLARATOR :
         case AST_INIT_DECLARATOR :
             {
-                return get_leftmost_declarator_name(ASTSon0(a)); 
+                return get_leftmost_declarator_name(ASTSon0(a), decl_context); 
                 break;
             }
         case AST_PARENTHESIZED_DECLARATOR :
@@ -5854,12 +5921,12 @@ AST get_leftmost_declarator_name(AST a)
             }
         case AST_DECLARATOR_ARRAY :
             {
-                return get_leftmost_declarator_name(ASTSon0(a));
+                return get_leftmost_declarator_name(ASTSon0(a), decl_context);
                 break;
             }
         case AST_DECLARATOR_FUNC :
             {
-                return get_leftmost_declarator_name(ASTSon0(a));
+                return get_leftmost_declarator_name(ASTSon0(a), decl_context);
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -5878,13 +5945,181 @@ AST get_leftmost_declarator_name(AST a)
         case AST_AMBIGUITY :
             {
                 // A scope null is valid here since this is purely syntactic
-                solve_ambiguous_declarator(a, NULL);
+                solve_ambiguous_declarator(a, NULL, decl_context);
                 // Restart function
-                return get_leftmost_declarator_name(a);
+                return get_leftmost_declarator_name(a, decl_context);
             }
         default:
             {
                 internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
             }
     }
+}
+
+char* get_conversion_function_name(AST conversion_function_id, scope_t* st, 
+        type_t** result_conversion_type, decl_context_t decl_context)
+{
+    if (ASTType(conversion_function_id) != AST_CONVERSION_FUNCTION_ID)
+    {
+        internal_error("This node '%s' is not valid for this function", 
+                ast_print_node_type(ASTType(conversion_function_id)));
+    }
+
+    AST conversion_type_id = ASTSon0(conversion_function_id);
+
+    AST type_specifier = ASTSon0(conversion_type_id);
+    AST conversion_declarator = ASTSon1(conversion_type_id);
+
+    gather_decl_spec_t gather_info;
+    memset(&gather_info, 0, sizeof(gather_info));
+    type_t* simple_type_info = NULL;
+
+    build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info,
+            decl_context);
+
+    type_t* type_info = NULL;
+
+    if (conversion_declarator != NULL)
+    {
+        // Fix this
+        build_scope_declarator(conversion_declarator, st, &gather_info, simple_type_info, &type_info,
+                decl_context);
+    }
+    else
+    {
+        type_info = simple_type_info;
+    }
+
+    if (result_conversion_type != NULL)
+    {
+        *result_conversion_type = type_info;
+    }
+
+    char* result = "";
+
+    result = strappend(result, "operator ");
+
+
+    type_t* type_iter = type_info;
+
+    char* conversion_declarator_name = "";
+    if (type_iter->kind == TK_REFERENCE)
+    {
+        char* current_conversion_declarator = "";
+        current_conversion_declarator = strappend(current_conversion_declarator, "& ");
+        // This is a GNU extension
+        if ((type_iter->cv_qualifier & CV_CONST) == CV_CONST)
+        {
+            current_conversion_declarator = strappend(current_conversion_declarator, "const ");
+        }
+        if ((type_iter->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+        {
+            current_conversion_declarator = strappend(current_conversion_declarator, "volatile ");
+        }
+        conversion_declarator_name = strprepend(conversion_declarator_name, current_conversion_declarator);
+
+        type_iter = type_iter->pointer->pointee;
+    }
+
+    if (type_iter->kind == TK_POINTER_TO_MEMBER)
+    {
+        internal_error("Pointer to member in conversion functions are still unsupported", 0);
+    }
+
+    while (type_iter->kind == TK_POINTER)
+    {
+        char* current_conversion_declarator = "";
+        current_conversion_declarator = strappend(current_conversion_declarator, "* ");
+        if ((type_iter->cv_qualifier & CV_CONST) == CV_CONST)
+        {
+            current_conversion_declarator = strappend(current_conversion_declarator, "const ");
+        }
+
+        if ((type_iter->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+        {
+            current_conversion_declarator = strappend(current_conversion_declarator, "volatile ");
+        }
+
+        conversion_declarator_name = strprepend(conversion_declarator_name, current_conversion_declarator);
+
+        type_iter = type_iter->pointer->pointee;
+    }
+    
+
+    if (type_iter->kind != TK_DIRECT)
+    {
+        internal_error("Expecting a simple type here", 0);
+    }
+
+    simple_type_info->type = type_iter->type;
+
+    if ((simple_type_info->cv_qualifier & CV_CONST) == CV_CONST)
+    {
+        result = strappend(result, "const ");
+    }
+
+    if ((simple_type_info->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+    {
+        result = strappend(result, "volatile ");
+    }
+
+    if (simple_type_info->type->is_long)
+    {
+        result = strappend(result, "long ");
+    }
+
+    if (simple_type_info->type->is_short)
+    {
+        result = strappend(result, "short ");
+    }
+
+    if (simple_type_info->type->is_unsigned)
+    {
+        result = strappend(result, "unsigned ");
+    }
+
+    switch (simple_type_info->type->kind)
+    {
+        case STK_BUILTIN_TYPE :
+            {
+                switch (simple_type_info->type->builtin_type)
+                {
+                    case BT_INT :
+                        result = strappend(result, "int");
+                        break;
+                    case BT_BOOL :
+                        result = strappend(result, "bool");
+                        break;
+                    case BT_FLOAT :
+                        result = strappend(result, "float");
+                        break;
+                    case BT_DOUBLE :
+                        result = strappend(result, "double");
+                        break;
+                    case BT_WCHAR :
+                        result = strappend(result, "wchar_t");
+                        break;
+                    case BT_CHAR :
+                        result = strappend(result, "char");
+                        break;
+                    case BT_VOID :
+                        result = strappend(result, "void");
+                        break;
+                    default:
+                        internal_error("Invalid type %d", 0);
+                }
+                break;
+            }
+        case STK_USER_DEFINED :
+            {
+                result = strappend(result, simple_type_info->type->user_defined_type->symbol_name);
+                break;
+            }
+        default :
+            internal_error("Unexpected simple type kind", 0);
+    }
+
+    result = strappend(result, conversion_declarator_name);
+
+    return result;
 }
