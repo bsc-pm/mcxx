@@ -38,7 +38,7 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "This instantiation refers to an incomplete type\n");
+            fprintf(stderr, "This instantiation of primary template refers to an incomplete type\n");
         }
         instantiate_incomplete_primary_template(matched_template, template_argument_list, st);
         return;
@@ -191,7 +191,7 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "This instantiation refers to an incomplete type\n");
+            fprintf(stderr, "This instantiation of a specialized template refers to an incomplete type\n");
         }
         instantiate_incomplete_specialized_template(matched_template, template_argument_list, unification_set, st);
         return;
@@ -378,6 +378,13 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
     // Save the inner scope in the class type
     // (it is used when checking member acesses)
     instance_symbol->type_information->type->class_info->inner_scope = inner_scope;
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Symbol '%s' set to come from instantiation\n",
+                instance_symbol->symbol_name);
+    }
+
     instance_symbol->type_information->type->from_instantiation = 1;
 
     instance_symbol->type_information->type->template_arguments = arguments;
@@ -399,6 +406,11 @@ scope_entry_t* create_holding_symbol_for_template(scope_entry_t* matched_templat
     fill_template_specialized_info(instance_symbol, arguments);
 
     // This should not come from instantiation
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "The holding symbol '%s' does not come from instantiation\n",
+                instance_symbol->symbol_name);
+    }
     instance_symbol->type_information->type->from_instantiation = 0;
 
     return instance_symbol;

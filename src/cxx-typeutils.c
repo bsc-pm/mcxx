@@ -1735,7 +1735,7 @@ void print_declarator(type_t* printed_declarator, scope_t* st)
 }
 
 // Expression that may appear here are of very limited nature
-char is_dependent_expression(AST expression, scope_t* st)
+char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_context)
 {
 	switch (ASTType(expression))
 	{
@@ -1746,7 +1746,7 @@ char is_dependent_expression(AST expression, scope_t* st)
 		case AST_CONSTANT_EXPRESSION : 
 		case AST_PARENTHESIZED_EXPRESSION :
 			{
-				return is_dependent_expression(ASTSon0(expression), st);
+				return is_dependent_expression(ASTSon0(expression), st, decl_context);
 			}
 		case AST_INITIALIZER_BRACES :
 			{
@@ -1757,7 +1757,7 @@ char is_dependent_expression(AST expression, scope_t* st)
 				{
 					AST initializer = ASTSon1(iter);
 
-					if (is_dependent_expression(initializer, st))
+					if (is_dependent_expression(initializer, st, decl_context))
 					{
 						return 1;
 					}
@@ -1783,7 +1783,7 @@ char is_dependent_expression(AST expression, scope_t* st)
 				{
 					AST designator = ASTSon1(iter);
 
-					if (is_dependent_expression(designator, st))
+					if (is_dependent_expression(designator, st, decl_context))
 					{
 						return 1;
 					}
@@ -1793,7 +1793,7 @@ char is_dependent_expression(AST expression, scope_t* st)
 		case AST_INDEX_DESIGNATOR :
 			{
 				// [1]{[2] = 3}
-				return is_dependent_expression(ASTSon0(expression), st);
+				return is_dependent_expression(ASTSon0(expression), st, decl_context);
 			}
 		case AST_FIELD_DESIGNATOR :
 			{
@@ -1815,9 +1815,8 @@ char is_dependent_expression(AST expression, scope_t* st)
 		case AST_SYMBOL :
 		case AST_QUALIFIED_ID :
 			{
-                // Fix this
 				scope_entry_list_t* entry_list = 
-                    query_id_expression_flags(st, expression, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION, default_decl_context);
+                    query_id_expression_flags(st, expression, FULL_UNQUALIFIED_LOOKUP, LF_EXPRESSION, decl_context);
 
 				if (entry_list == NULL)
 				{
@@ -1836,20 +1835,20 @@ char is_dependent_expression(AST expression, scope_t* st)
 				{
 					if (entry->expression_value != NULL)
 					{
-						if (is_dependent_expression(entry->expression_value, st))
+						if (is_dependent_expression(entry->expression_value, st, decl_context))
 						{
 							return 1;
 						}
 					}
 				}
 
-				return is_dependent_type(entry->type_information);
+				return is_dependent_type(entry->type_information, decl_context);
 			}
 			// Postfix expressions
 		case AST_ARRAY_SUBSCRIPT :
 			{
-				return is_dependent_expression(ASTSon0(expression), st)
-					&& is_dependent_expression(ASTSon1(expression), st);
+				return is_dependent_expression(ASTSon0(expression), st, decl_context)
+					&& is_dependent_expression(ASTSon1(expression), st, decl_context);
 			}
 		case AST_EXPLICIT_TYPE_CONVERSION :
 			{
@@ -1866,9 +1865,9 @@ char is_dependent_expression(AST expression, scope_t* st)
 
                 // Fix this
 				build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &simple_type_info, 
-						default_decl_context);
+						decl_context);
 
-				if (is_dependent_type(simple_type_info))
+				if (is_dependent_type(simple_type_info, decl_context))
 				{
 					return 1;
 				}
@@ -1882,7 +1881,7 @@ char is_dependent_expression(AST expression, scope_t* st)
 					{
 						AST current_expression = ASTSon1(iter);
 
-						if (is_dependent_expression(current_expression, st))
+						if (is_dependent_expression(current_expression, st, decl_context))
 						{
 							return 1;
 						}
@@ -1904,7 +1903,7 @@ char is_dependent_expression(AST expression, scope_t* st)
 			}
 		case AST_SIZEOF :
 			{
-				return is_dependent_expression(ASTSon0(expression), st);
+				return is_dependent_expression(ASTSon0(expression), st, decl_context);
 			}
 		case AST_SIZEOF_TYPEID :
 			{
@@ -1919,17 +1918,17 @@ char is_dependent_expression(AST expression, scope_t* st)
 				type_t* simple_type_info = NULL;
                 // Fix this
 				build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
-						default_decl_context);
+						decl_context);
 
 				if (abstract_declarator != NULL)
 				{
 					type_t* declarator_type = NULL;
                     // Fix this
 					build_scope_declarator(abstract_declarator, st, &gather_info, simple_type_info, 
-							&declarator_type, default_decl_context);
+							&declarator_type, decl_context);
 				}
 
-				return is_dependent_type(simple_type_info);
+				return is_dependent_type(simple_type_info, decl_context);
 			}
 		case AST_DERREFERENCE :
 		case AST_REFERENCE :
@@ -1938,7 +1937,7 @@ char is_dependent_expression(AST expression, scope_t* st)
 		case AST_NOT_OP :
 		case AST_COMPLEMENT_OP :
 			{
-				return is_dependent_expression(ASTSon0(expression), st);
+				return is_dependent_expression(ASTSon0(expression), st, decl_context);
 			}
 			// Cast expression
 		case AST_CAST_EXPRESSION :
@@ -1954,23 +1953,23 @@ char is_dependent_expression(AST expression, scope_t* st)
 				type_t* simple_type_info = NULL;
                 // Fix this
 				build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
-						default_decl_context);
+						decl_context);
 
 				if (abstract_declarator != NULL)
 				{
 					type_t* declarator_type = NULL;
                     // Fix this
 					build_scope_declarator(abstract_declarator, st, &gather_info, simple_type_info, 
-							&declarator_type, default_decl_context);
+							&declarator_type, decl_context);
 				}
 
-				if (is_dependent_type(simple_type_info))
+				if (is_dependent_type(simple_type_info, decl_context))
 				{
 					return 1;
 				}
 				else
 				{
-					return is_dependent_expression(ASTSon1(expression), st);
+					return is_dependent_expression(ASTSon1(expression), st, decl_context);
 				}
 			}
 		case AST_MULT_OP :
@@ -1992,14 +1991,14 @@ char is_dependent_expression(AST expression, scope_t* st)
 		case AST_LOGICAL_AND :
 		case AST_LOGICAL_OR :
 			{
-				return is_dependent_expression(ASTSon0(expression), st)
-					&& is_dependent_expression(ASTSon1(expression), st);
+				return is_dependent_expression(ASTSon0(expression), st, decl_context)
+					&& is_dependent_expression(ASTSon1(expression), st, decl_context);
 			}
 		case AST_CONDITIONAL_EXPRESSION :
 			{
-				return is_dependent_expression(ASTSon0(expression), st)
-					&& is_dependent_expression(ASTSon1(expression), st)
-					&& is_dependent_expression(ASTSon2(expression), st);
+				return is_dependent_expression(ASTSon0(expression), st, decl_context)
+					&& is_dependent_expression(ASTSon1(expression), st, decl_context)
+					&& is_dependent_expression(ASTSon2(expression), st, decl_context);
 			}
 			// GCC Extension
 		default :
@@ -2012,7 +2011,7 @@ char is_dependent_expression(AST expression, scope_t* st)
 	}
 }
 
-char is_dependent_simple_type(type_t* type_info)
+char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
 {
 	if (type_info->kind != TK_DIRECT)
 	{
@@ -2032,12 +2031,12 @@ char is_dependent_simple_type(type_t* type_info)
 			}
 		case STK_TYPEDEF :
 			{
-				return is_dependent_type(simple_type->aliased_type);
+				return is_dependent_type(simple_type->aliased_type, decl_context);
 				break;
 			}
 		case STK_USER_DEFINED :
 			{
-				return is_dependent_type(simple_type->user_defined_type->type_information);
+				return is_dependent_type(simple_type->user_defined_type->type_information, decl_context);
 				break;
 			}
 		case STK_ENUM :
@@ -2051,7 +2050,7 @@ char is_dependent_simple_type(type_t* type_info)
 
 					if (entry->expression_value != NULL)
 					{
-						if (is_dependent_expression(entry->expression_value, entry->scope))
+						if (is_dependent_expression(entry->expression_value, entry->scope, decl_context))
 						{
 							return 1;
 						}
@@ -2072,7 +2071,7 @@ char is_dependent_simple_type(type_t* type_info)
 
                         if (curr_argument->kind != TAK_NONTYPE)
                         {
-                            if (is_dependent_type(curr_argument->type))
+                            if (is_dependent_type(curr_argument->type, decl_context))
                             {
                                 return 1;
                             }
@@ -2080,7 +2079,7 @@ char is_dependent_simple_type(type_t* type_info)
                         else
                         {
                             if (is_dependent_expression(curr_argument->argument_tree,
-                                        curr_argument->scope))
+                                        curr_argument->scope, decl_context))
                             {
                                 return 1;
                             }
@@ -2106,7 +2105,7 @@ char is_dependent_simple_type(type_t* type_info)
 	}
 }
 
-char is_dependent_type(type_t* type)
+char is_dependent_type(type_t* type, decl_context_t decl_context)
 {
 	type = advance_over_typedefs(type);
 
@@ -2114,20 +2113,20 @@ char is_dependent_type(type_t* type)
 	{
 		case TK_DIRECT :
 			{
-				return is_dependent_simple_type(type);
+				return is_dependent_simple_type(type, decl_context);
 				break;
 			}
 		case TK_ARRAY :
 			{
-				return is_dependent_type(type->array->element_type)
+				return is_dependent_type(type->array->element_type, decl_context)
 					|| is_dependent_expression(type->array->array_expr,
-							type->array->array_expr_scope);
+							type->array->array_expr_scope, decl_context);
 				break;
 			}
 		case TK_FUNCTION :
 			{
 				if (type->function->return_type != NULL
-						&& is_dependent_type(type->function->return_type))
+						&& is_dependent_type(type->function->return_type, decl_context))
 				{
 					return 1;
 				}
@@ -2136,7 +2135,7 @@ char is_dependent_type(type_t* type)
 				for (i = 0; i < type->function->num_parameters; i++)
 				{
 					if (!type->function->parameter_list[i]->is_ellipsis
-							&& is_dependent_type(type->function->parameter_list[i]->type_info))
+							&& is_dependent_type(type->function->parameter_list[i]->type_info, decl_context))
 					{
 						return 1;
 					}
@@ -2148,13 +2147,13 @@ char is_dependent_type(type_t* type)
 		case TK_POINTER :
 		case TK_REFERENCE :
 			{
-				return is_dependent_type(type->pointer->pointee);
+				return is_dependent_type(type->pointer->pointee, decl_context);
 				break;
 			}
 		case TK_POINTER_TO_MEMBER :
 			{
-				return is_dependent_type(type->pointer->pointee)
-					|| is_dependent_type(type->pointer->pointee_class->type_information);
+				return is_dependent_type(type->pointer->pointee, decl_context)
+					|| is_dependent_type(type->pointer->pointee_class->type_information, decl_context);
 				break;
 			}
 		default:

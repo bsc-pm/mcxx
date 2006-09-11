@@ -345,7 +345,8 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                         {
                             if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
                                     && !entry->type_information->type->from_instantiation
-                                    && !is_dependent_type(entry->type_information))
+                                    && !is_dependent_type(entry->type_information, decl_context)
+                                    && !BITMAP_TEST(lookup_flags, LF_NO_INSTANTIATE))
                             {
                                 // Instantiation happenning here
                                 DEBUG_CODE()
@@ -356,7 +357,8 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 
                                 candidates = filter_entry_from_list(candidates, entry);
 
-                                template_argument_list_t* current_template_arguments = entry->type_information->type->template_arguments;
+                                template_argument_list_t* current_template_arguments = 
+                                    entry->type_information->type->template_arguments;
 
                                 matching_pair_t* matched_template = solve_template(candidates,
                                         current_template_arguments, entry->scope, 0, decl_context);
@@ -760,7 +762,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         template_argument_t* argument = current_template_arguments->argument_list[i];
         if (argument->kind == TAK_TYPE)
         {
-            if (is_dependent_type(argument->type))
+            if (is_dependent_type(argument->type, decl_context))
             {
 				DEBUG_CODE()
 				{
@@ -776,7 +778,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         }
         else if (argument->kind == TAK_NONTYPE)
         {
-			if (is_dependent_expression(argument->argument_tree, argument->scope))
+			if (is_dependent_expression(argument->argument_tree, argument->scope, decl_context))
 			{
 				DEBUG_CODE()
 				{

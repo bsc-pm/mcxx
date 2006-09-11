@@ -73,8 +73,8 @@ char is_named_class_type(type_t* possible_class);
 char is_base_class_of(type_t* possible_base, type_t* possible_derived);
 type_t* get_class_type(type_t* class_type);
 
-char is_dependent_type(type_t* type);
-char is_dependent_expression(AST expr, scope_t* st);
+char is_dependent_type(type_t* type, decl_context_t decl_context);
+char is_dependent_expression(AST expr, scope_t* st, decl_context_t decl_context);
 
 cv_qualifier_t get_cv_qualifier(type_t* type_info);
 
