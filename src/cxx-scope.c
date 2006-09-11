@@ -344,7 +344,8 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                         if (!BITMAP_TEST(lookup_flags, LF_EXPRESSION))
                         {
                             if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-                                    && !entry->type_information->type->from_instantiation)
+                                    && !entry->type_information->type->from_instantiation
+                                    && !is_dependent_type(entry->type_information))
                             {
                                 // Instantiation happenning here
                                 DEBUG_CODE()
