@@ -97,5 +97,4 @@ scope_entry_t* give_real_entry(scope_entry_t* entry);
 
 cv_qualifier_t* get_innermost_cv_qualifier(type_t* t);
 
-
 #endif // CXX_TYPEUTILS_H

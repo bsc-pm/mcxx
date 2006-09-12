@@ -1951,7 +1951,13 @@ class_specifier : class_head '{' member_specification '}'
 }
 | class_head '{' '}'
 {
-	$$ = ASTMake2(AST_CLASS_SPECIFIER, $1, NULL, ASTLine($1), NULL);
+	AST member_declaration = ASTLeaf(AST_EMPTY_DECL, $2.token_line, NULL);
+	AST member_specification = 
+		ASTMake3(AST_MEMBER_SPEC, NULL, member_declaration, 
+				NULL, ASTLine(member_declaration), NULL);
+
+	$$ = ASTMake2(AST_CLASS_SPECIFIER, $1, member_specification, 
+			ASTLine($1), NULL);
 }
 ;
 

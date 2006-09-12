@@ -1239,11 +1239,19 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
     nested_name_spec = ASTSon1(a);
     name = ASTSon2(a);
 
+    lookup_flags_t lookup_flags = LF_NO_FAIL;
+
+    if (decl_context.template_nesting != 0)
+    {
+        lookup_flags |= LF_NO_INSTANTIATE;
+    }
+
     scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, 
-            FULL_UNQUALIFIED_LOOKUP, LF_NO_FAIL | LF_NO_INSTANTIATE , decl_context);
+            FULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
 
     if (result != NULL
-            && result->entry->kind != SK_DEPENDENT_ENTITY)
+            && result->entry->kind != SK_DEPENDENT_ENTITY
+            && !is_dependent_type(result->entry->type_information, decl_context))
     {
         scope_entry_t* entry = result->entry;
 
@@ -1267,7 +1275,7 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Dependent typename not found -> returning a dependent type\n");
+        fprintf(stderr, "Typename not found-> returning a dependent type\n");
     }
 
     if (decl_context.template_nesting == 0
@@ -1728,7 +1736,8 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                     fprintf(stderr, "Class '");
                     prettyprint(stderr, class_head_nested_name);
                     prettyprint(stderr, class_head_identifier);
-                    fprintf(stderr, "' already declared in %p (%p)\n", st, class_entry);
+                    fprintf(stderr, "' already declared as %p in scope %p (line %d)\n", class_entry, st,
+                        class_entry->line);
                 }
 
                 st = class_entry->scope;
@@ -1940,7 +1949,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
             internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(class_head_identifier)));
         }
     }
-    
+
     access_specifier_t current_access;
     // classes have a private by default
     if (ASTType(class_key) == AST_CLASS_KEY_CLASS)
@@ -4973,13 +4982,17 @@ static void update_template_parameter_types(type_t** update_type,
 
                             new_entry->expression_value = constant_initializer;
                         }
+                        else if (entry->kind == SK_TYPEDEF)
+                        {
+                            break;
+                        }
                         else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
                         {
                             internal_error("Not implemented", 0);
                         }
                         else
                         {
-                            internal_error("Unexpected node type '%d'\n", entry->kind);
+                            internal_error("Unexpected symbol type '%d' line %d\n", entry->kind, entry->line);
                         }
                     }
 

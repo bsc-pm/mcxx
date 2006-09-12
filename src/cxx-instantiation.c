@@ -386,7 +386,6 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
     }
 
     instance_symbol->type_information->type->from_instantiation = 1;
-
     instance_symbol->type_information->type->template_arguments = arguments;
 }
 

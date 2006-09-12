@@ -275,8 +275,9 @@ typedef struct simple_type_tag {
     struct scope_tag* typeof_scope;
 
     // For instantiation purposes
-    char from_instantiation;
-
+	// 
+	// The specialized template has already been instantiated
+    char from_instantiation; 
 } simple_type_t;
 
 typedef struct parameter_info_tag

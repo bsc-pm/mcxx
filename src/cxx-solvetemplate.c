@@ -111,7 +111,8 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
                 give_exact_match, decl_context);
         DEBUG_CODE()
         {
-            fprintf(stderr, "More specialized determined result=%p\n", result->entry);
+            fprintf(stderr, "More specialized determined result=%p (line %d)\n", result->entry,
+					result->entry->line);
         }
     }
 

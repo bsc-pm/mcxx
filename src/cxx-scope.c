@@ -234,6 +234,11 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
     }
 }
 
+static char has_nonempty_template_body(scope_entry_t* entry)
+{
+	return (entry->type_information->type->template_class_body != NULL);
+}
+
 /*
  * Returns the scope of this nested name specification
  */
@@ -356,14 +361,37 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                                 scope_entry_list_t* candidates = query_in_symbols_of_scope(entry->scope, entry->symbol_name);
 
                                 candidates = filter_entry_from_list(candidates, entry);
+								candidates = filter_symbol_using_predicate(candidates, has_nonempty_template_body);
 
                                 template_argument_list_t* current_template_arguments = 
                                     entry->type_information->type->template_arguments;
 
-                                matching_pair_t* matched_template = solve_template(candidates,
+                                matching_pair_t* matched_template = NULL;
+								
+								matched_template = solve_template(candidates,
                                         current_template_arguments, entry->scope, 0, decl_context);
 
-                                instantiate_template_in_symbol(entry, matched_template, current_template_arguments, entry->scope);
+								// while (matched_template != NULL
+								// 		&& matched_template->entry->type_information->type->template_class_body == NULL)
+								// {
+								// 	DEBUG_CODE()
+								// 	{
+								// 		fprintf(stderr, "This specialization has empty body\n", 0);
+								// 	}
+								// 	candidates = filter_entry_from_list(candidates, matched_template->entry);
+								// 	matched_template = solve_template(candidates,
+								// 			current_template_arguments, entry->scope, 0, decl_context);
+								// }
+
+								// if (matched_template == NULL)
+								// {
+								// 	internal_error("Sux\n", 0);
+								// }
+								// else
+								{
+									instantiate_template_in_symbol(entry, matched_template, 
+											current_template_arguments, entry->scope);
+								}
                             }
                         }
                         else
@@ -742,16 +770,9 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
     // because this is a parameterized template-id
     char will_not_instantiate = 1;
 
-    char always_create_specialization = 0;
-
     if (BITMAP_TEST(lookup_flags, LF_INSTANTIATE))
     {
         will_not_instantiate = 0;
-    }
-
-    if (BITMAP_TEST(lookup_flags, LF_ALWAYS_CREATE_SPECIALIZATION))
-    {
-        always_create_specialization = 1;
     }
 
     int i;
@@ -884,13 +905,15 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
     // If we are here there is no exact match thus we may have to instantiate
     // the template
-    
     if (!will_not_instantiate)
     {
         DEBUG_CODE()
         {
             fprintf(stderr, "-> Solving the template without exact match\n");
         }
+		
+		entry_list = filter_symbol_using_predicate(entry_list, has_nonempty_template_body);
+
         matched_template = solve_template(entry_list, current_template_arguments, sc, /* exact= */ 0,
                 decl_context);
 
@@ -944,10 +967,16 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
     }
     else
     {
-        return create_list_from_entry(
-                create_holding_symbol_for_template(entry_list->entry, current_template_arguments,
-                    sc, ASTLine(template_id))
-                );
+		// We won't instantiate the template
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "-> Since we are not instantiating, creating the holding symbol\n");
+		}
+		scope_entry_t* holding_symbol = create_holding_symbol_for_template(entry_list->entry,
+				current_template_arguments,
+				sc, ASTLine(template_id));
+
+		return create_list_from_entry(holding_symbol);
     }
 }
 
@@ -1624,6 +1653,11 @@ scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum 
 
 scope_entry_list_t* filter_entry_from_list(scope_entry_list_t* entry_list, scope_entry_t* entry)
 {
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "Filtering %p (line %d) from candidate list %p\n", 
+				entry, entry->line, entry_list);
+	}
     scope_entry_list_t* result = NULL;
     scope_entry_list_t* iter = entry_list;
     
