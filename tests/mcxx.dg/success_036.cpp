@@ -10,7 +10,7 @@ struct B : A<_T>
 };
 
 template <class _T>
-struct B
+struct C
 {
   A<_T*> b;
 };
