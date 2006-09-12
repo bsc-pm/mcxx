@@ -4074,7 +4074,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 
     entry = build_scope_declarator_with_parameter_scope(ASTSon1(a), st, &parameter_scope,
             &gather_info, type_info, &declarator_type, new_decl_context);
-    ERROR_CONDITION((entry == NULL), "This function does not exist!", 0);
+    ERROR_CONDITION((entry == NULL), "This function does not exist! %s", node_information(a));
 
     // Change scope to the function one
     DEBUG_CODE()

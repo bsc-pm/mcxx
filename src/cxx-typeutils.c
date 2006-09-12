@@ -779,6 +779,15 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                     }
                     return 0;
                 }
+                else if (is_dependent_type(t1_template_name->type_information, decl_context)
+                        && is_dependent_type(t2_template_name->type_information, decl_context))
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "From now this typename is dependent due to a dependent template-id\n");
+                    }
+                    dependent_qualification = 1;
+                }
             }
         }
 
@@ -852,8 +861,12 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 
             if (t1_name_list == NULL || t2_name_list == NULL)
             {
-                internal_error("When comparing template dependent types one or both names were not found t1=%p scope_t1=%p t2=%p scope_t2=%p\n",
-                        t1_name_list, t1_scope, t2_name_list, t2_scope);
+                internal_error("When comparing template dependent types one or both names were not found t1=%p scope_t1=%p t2=%p scope_t2=%p, t1='%s' in %s, t2='%s' in %s\n",
+                        t1_name_list, t1_scope, t2_name_list, t2_scope,
+                        prettyprint_in_buffer(t1_class_or_namespace), 
+                        node_information(t1_class_or_namespace),
+                        prettyprint_in_buffer(t2_class_or_namespace),
+                        node_information(t2_class_or_namespace));
             }
 
             scope_entry_t* t1_name = t1_name_list->entry;
@@ -1026,6 +1039,15 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                                 t2_template_name->symbol_name);
                     }
                     return 0;
+                }
+                else if (is_dependent_type(t1_template_name->type_information, decl_context)
+                        && is_dependent_type(t2_template_name->type_information, decl_context))
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "From now this typename is dependent due to a dependent template-id\n");
+                    }
+                    dependent_qualification = 1;
                 }
             }
         }
