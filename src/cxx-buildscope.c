@@ -1249,9 +1249,10 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
     scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, 
             FULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
 
+    char is_dependent = 0;
     if (result != NULL
             && result->entry->kind != SK_DEPENDENT_ENTITY
-            && !is_dependent_type(result->entry->type_information, decl_context))
+            && !(is_dependent = is_dependent_type(result->entry->type_information, decl_context)))
     {
         scope_entry_t* entry = result->entry;
 
@@ -1275,7 +1276,18 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Typename not found-> returning a dependent type\n");
+        if (result == NULL)
+        {
+            fprintf(stderr, "Typename not found -> returning a dependent type\n");
+        }
+        else if (result->entry->kind == SK_DEPENDENT_ENTITY)
+        {
+            fprintf(stderr, "Typename is a dependent entity -> returning a dependent type\n");
+        }
+        else if (is_dependent)
+        {
+            fprintf(stderr, "Typename refers to a type that is dependent -> returning a dependent type\n");
+        }
     }
 
     if (decl_context.template_nesting == 0
