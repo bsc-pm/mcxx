@@ -525,6 +525,77 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
     AST t1_global_op = ASTSon0(t1_expr);
     AST t2_global_op = ASTSon0(t2_expr);
 
+    AST t1_nested_name_spec = ASTSon1(t1_expr);
+    AST t2_nested_name_spec = ASTSon1(t2_expr);
+
+    AST t1_symbol = ASTSon2(t1_expr);
+    AST t2_symbol = ASTSon2(t2_expr);
+
+    // First try to solve them via the type system
+    {
+        scope_entry_list_t* result_t1 = query_nested_name(t1_scope, t1_global_op, t1_nested_name_spec, t1_symbol,
+                FULL_UNQUALIFIED_LOOKUP, decl_context);
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Checking if '%s' solves to the same as '%s'\n", 
+                    prettyprint_in_buffer(t1_expr), 
+                    prettyprint_in_buffer(t2_expr));
+        }
+
+        if (result_t1 != NULL)
+        {
+            scope_entry_t* entry_t1 = result_t1->entry;
+            type_t* entry_t1_type = advance_over_typedefs(entry_t1->type_information);
+
+            if (entry_t1_type->kind == TK_DIRECT)
+            {
+                if (equivalent_simple_types(entry_t1_type->type, t2, entry_t1->scope, decl_context))
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Type '%s' solves to the same as '%s'\n", 
+                                prettyprint_in_buffer(t1_expr), 
+                                prettyprint_in_buffer(t2_expr));
+                    }
+                    return 1;
+                }
+            }
+        }
+    }
+
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Checking if '%s' solves to the same as '%s'\n", 
+                    prettyprint_in_buffer(t2_expr),
+                    prettyprint_in_buffer(t1_expr));
+        }
+        scope_entry_list_t* result_t2 = query_nested_name(t2_scope, t2_global_op, t2_nested_name_spec, t2_symbol,
+                FULL_UNQUALIFIED_LOOKUP, decl_context);
+        if (result_t2 != NULL)
+        {
+            scope_entry_t* entry_t2 = result_t2->entry;
+            type_t* entry_t2_type = advance_over_typedefs(entry_t2->type_information);
+
+            if (entry_t2_type->kind == TK_DIRECT)
+            {
+                if (equivalent_simple_types(entry_t2_type->type, t1, entry_t2->scope, decl_context))
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Type '%s' solves to the same as '%s'\n", 
+                                prettyprint_in_buffer(t2_expr), 
+                                prettyprint_in_buffer(t1_expr));
+                    }
+                    return 1;
+                }
+            }
+        }
+    }
+
+    // Fallback to syntactical comparison
+
     // One has :: and the other not
     if ((t1_global_op == NULL && t2_global_op != NULL)
             || (t1_global_op != NULL && t2_global_op == NULL))
@@ -541,8 +612,6 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
         st = compilation_options.global_scope;
     }
 
-    AST t1_nested_name_spec = ASTSon1(t1_expr);
-    AST t2_nested_name_spec = ASTSon1(t2_expr);
 
     int qualification_level = 0;
 
@@ -583,16 +652,22 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 
             if (!ast_equal(t1_class_or_namespace, t2_class_or_namespace))
             {
-                fprintf(stderr, "Dependent trees '%s' and '%s' are not equal\n",
-                        prettyprint_in_buffer(t1_class_or_namespace),
-                        prettyprint_in_buffer(t2_class_or_namespace));
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Dependent trees '%s' and '%s' are not equal\n",
+                            prettyprint_in_buffer(t1_class_or_namespace),
+                            prettyprint_in_buffer(t2_class_or_namespace));
+                }
                 return 0;
             }
             else
             {
-                fprintf(stderr, "Dependent trees '%s' and '%s' are identic\n",
-                        prettyprint_in_buffer(t1_class_or_namespace),
-                        prettyprint_in_buffer(t2_class_or_namespace));
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Dependent trees '%s' and '%s' are identic\n",
+                            prettyprint_in_buffer(t1_class_or_namespace),
+                            prettyprint_in_buffer(t2_class_or_namespace));
+                }
             }
         }
         else if (ASTType(t1_class_or_namespace) == AST_SYMBOL)
@@ -773,7 +848,7 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                 {
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "The template symbols '%s' and '%s' do not refer to the same\n",
+                        fprintf(stderr, "The template symbols '%s' and '%s' do not refer to the same entity\n",
                                 t1_template_name->symbol_name,
                                 t2_template_name->symbol_name);
                     }
@@ -840,16 +915,22 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 
             if (!ast_equal(t1_class_or_namespace, t2_class_or_namespace))
             {
-                fprintf(stderr, "Dependent trees '%s' and '%s' are not equal\n",
-                        prettyprint_in_buffer(t1_class_or_namespace),
-                        prettyprint_in_buffer(t2_class_or_namespace));
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Dependent trees '%s' and '%s' are not equal\n",
+                            prettyprint_in_buffer(t1_class_or_namespace),
+                            prettyprint_in_buffer(t2_class_or_namespace));
+                }
                 return 0;
             }
             else
             {
-                fprintf(stderr, "Dependent trees '%s' and '%s' are identic\n",
-                        prettyprint_in_buffer(t1_class_or_namespace),
-                        prettyprint_in_buffer(t2_class_or_namespace));
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Dependent trees '%s' and '%s' are identic\n",
+                            prettyprint_in_buffer(t1_class_or_namespace),
+                            prettyprint_in_buffer(t2_class_or_namespace));
+                }
             }
         }
         else if (ASTType(t1_class_or_namespace) == AST_SYMBOL)
@@ -1034,7 +1115,7 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                 {
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "The template symbols '%s' and '%s' do not refer to the same\n",
+                        fprintf(stderr, "The template symbols '%s' and '%s' do not refer to the same entity\n",
                                 t1_template_name->symbol_name,
                                 t2_template_name->symbol_name);
                     }
