@@ -370,6 +370,14 @@ typedef struct type_tag
 
 } type_t;
 
+typedef enum dependency_info_tag
+{
+    DI_UNKNOWN = 0,
+    DI_NOT_DEPENDENT,
+    DI_DEPENDENT,
+    DI_BUSY // This means it is being calculated now
+} dependency_info_t;
+
 // This is an entry in the scope
 typedef struct scope_entry_tag
 {
@@ -412,6 +420,15 @@ typedef struct scope_entry_tag
 	
 	// For template-alias
 	struct type_tag* template_alias_type;
+
+    // Dependency info. It states if this symbol has a template-dependent nature
+    // A value of DI_UNKNOWN means this has not been already computed
+    //
+    // At the moment, this is used only for variables and enumerators.  It is
+    // intended to avoid an infinite recursion when computing whether an enum
+    // or enumerator is dependent.  An enum will check every of its
+    // enumerators, and an enumerator will check its enum type
+    dependency_info_t dependency_info;
 } scope_entry_t;
 
 // This is what the scope returns

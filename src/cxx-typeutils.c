@@ -23,6 +23,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2, scop
         decl_context_t decl_context);
 static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t2, scope_t* st,
         decl_context_t decl_context);
+static type_t* get_type_of_dependent_typename(simple_type_t* t1, decl_context_t decl_context);
 
 type_t* advance_over_typedefs(type_t* t1)
 {
@@ -53,6 +54,40 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st,
     if (t1->kind != t2->kind)
     {
         // They cannot be the same
+        simple_type_t* dependent_simple_type = NULL;
+        type_t* other_type = NULL;
+        cv_qualifier_t qualif_depend = CV_NONE;
+        if (t1->kind == TK_DIRECT && t1->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
+        {
+            dependent_simple_type = t1->type;
+            other_type = t2;
+
+            qualif_depend = *(get_outermost_cv_qualifier(t1));
+        }
+        else if (t2->kind == TK_DIRECT && t2->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
+        {
+            dependent_simple_type = t2->type;
+            other_type = t1;
+
+            qualif_depend = *(get_outermost_cv_qualifier(t2));
+        }
+
+        if (dependent_simple_type != NULL)
+        {
+            type_t* dependent_type = get_type_of_dependent_typename(dependent_simple_type, decl_context);
+
+            if (dependent_type != NULL)
+            {
+                dependent_type = advance_over_typedefs(dependent_type);
+                cv_qualifier_t saved_cv_qualif = *(get_outermost_cv_qualifier(dependent_type));
+
+                *(get_outermost_cv_qualifier(dependent_type)) = qualif_depend;
+                char result = equivalent_types(other_type, dependent_type, st, cv_equiv, decl_context);
+                *(get_outermost_cv_qualifier(dependent_type)) = saved_cv_qualif;
+
+                return result;
+            }
+        }
         return 0;
     }
 
@@ -100,6 +135,32 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st,
     return result;
 }
 
+static type_t* get_type_of_dependent_typename(simple_type_t* t1, decl_context_t decl_context)
+{
+    if (t1->kind != STK_TEMPLATE_DEPENDENT_TYPE)
+    {
+        internal_error("This is not a dependent typename\n", 0);
+    }
+
+    scope_t* t1_scope = t1->typeof_scope;
+
+    AST t1_expr = t1->typeof_expr;
+    AST t1_global_op = ASTSon0(t1_expr);
+    AST t1_nested_name_spec = ASTSon1(t1_expr);
+    AST t1_symbol = ASTSon2(t1_expr);
+
+    scope_entry_list_t* result_t1 = query_nested_name(t1_scope, t1_global_op, t1_nested_name_spec, t1_symbol,
+                FULL_UNQUALIFIED_LOOKUP, decl_context);
+
+    if (result_t1 == NULL)
+        return NULL;
+
+    if (result_t1->entry->type_information == NULL)
+        return NULL;
+
+    return result_t1->entry->type_information;
+}
+
 char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st,
         decl_context_t decl_context)
 {
@@ -107,7 +168,36 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st,
     if (t1->kind != t2->kind)
     {
         // typedefs have been handled in an earlier place, so 
-        // this cannot be the same type
+        // this cannot be the same type unless one is a template dependent type
+
+        simple_type_t* simple_dependent_type = NULL;
+        simple_type_t* other_type = NULL;
+        if (t1->kind == STK_TEMPLATE_DEPENDENT_TYPE)
+        {
+            simple_dependent_type = t1;
+            other_type = t2;
+        }
+        else if (t2->kind == STK_TEMPLATE_DEPENDENT_TYPE)
+        {
+            simple_dependent_type = t2;
+            other_type = t1;
+        }
+
+        if (simple_dependent_type != NULL)
+        {
+            type_t* dep_type = get_type_of_dependent_typename(simple_dependent_type, decl_context);
+            
+            if (dep_type == NULL)
+            {
+                return 0;
+            }
+            else
+            {
+                // Try to solve this type
+                return equivalent_types(dep_type, simple_type_to_type(other_type), st, CVE_CONSIDER, decl_context);
+            }
+        }
+
         return 0;
     }
 
@@ -533,9 +623,6 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 
     // First try to solve them via the type system
     {
-        scope_entry_list_t* result_t1 = query_nested_name(t1_scope, t1_global_op, t1_nested_name_spec, t1_symbol,
-                FULL_UNQUALIFIED_LOOKUP, decl_context);
-
         DEBUG_CODE()
         {
             fprintf(stderr, "Checking if '%s' solves to the same as '%s'\n", 
@@ -543,14 +630,16 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                     prettyprint_in_buffer(t2_expr));
         }
 
+        scope_entry_list_t* result_t1 = query_nested_name(t1_scope, t1_global_op, t1_nested_name_spec, t1_symbol,
+                FULL_UNQUALIFIED_LOOKUP, decl_context);
+
         if (result_t1 != NULL)
         {
             scope_entry_t* entry_t1 = result_t1->entry;
-            type_t* entry_t1_type = advance_over_typedefs(entry_t1->type_information);
-
-            if (entry_t1_type->kind == TK_DIRECT)
+            if (entry_t1->type_information != NULL)
             {
-                if (equivalent_simple_types(entry_t1_type->type, t2, entry_t1->scope, decl_context))
+                if (equivalent_types(entry_t1->type_information, simple_type_to_type(t2), 
+                            entry_t1->scope, CVE_CONSIDER, decl_context))
                 {
                     DEBUG_CODE()
                     {
@@ -576,11 +665,10 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
         if (result_t2 != NULL)
         {
             scope_entry_t* entry_t2 = result_t2->entry;
-            type_t* entry_t2_type = advance_over_typedefs(entry_t2->type_information);
-
-            if (entry_t2_type->kind == TK_DIRECT)
+            if (entry_t2->type_information != NULL)
             {
-                if (equivalent_simple_types(entry_t2_type->type, t1, entry_t2->scope, decl_context))
+                if (equivalent_types(entry_t2->type_information, simple_type_to_type(t1), 
+                            entry_t2->scope, CVE_CONSIDER, decl_context))
                 {
                     DEBUG_CODE()
                     {
@@ -595,6 +683,10 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
     }
 
     // Fallback to syntactical comparison
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "We fall back to syntactical comparison step-by-step\n");
+    }
 
     // One has :: and the other not
     if ((t1_global_op == NULL && t2_global_op != NULL)
@@ -763,6 +855,15 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                                 t1_name->symbol_name,
                                 t2_name->symbol_name);
                         return 0;
+                    }
+
+                    if (is_dependent_type(t1_type, decl_context))
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template dependent type\n");
+                        }
+                        dependent_qualification = 1;
                     }
                 }
             }
@@ -2222,6 +2323,7 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
                         return 1;
                     }
                 }
+                return 0;
             }
         case AST_DESIGNATED_INITIALIZER :
             {
@@ -2230,6 +2332,9 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
                 AST designation = ASTSon0(expression);
                 AST initializer_clause = ASTSon1(initializer_clause);
 
+                // TODO - Complete this
+
+                return 0;
                 break;
             }
         case AST_DESIGNATION : 
@@ -2248,6 +2353,8 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
                         return 1;
                     }
                 }
+
+                return 0;
                 break;
             }
         case AST_INDEX_DESIGNATOR :
@@ -2287,22 +2394,37 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
 
                 if (entry->kind == SK_DEPENDENT_ENTITY)
                 {
+                    entry->dependency_info = DI_DEPENDENT;
                     return 1;
                 }
 
                 // Maybe this is a const-variable initialized with a dependent expression
-                if (entry->kind == SK_VARIABLE)
+                if ((entry->kind == SK_VARIABLE
+                        || entry->kind == SK_ENUMERATOR))
                 {
-                    if (entry->expression_value != NULL)
+                    if(entry->dependency_info == DI_UNKNOWN)
                     {
-                        if (is_dependent_expression(entry->expression_value, st, decl_context))
+                        if (entry->expression_value != NULL)
                         {
-                            return 1;
+                            if (is_dependent_expression(entry->expression_value, st, decl_context))
+                            {
+                                entry->dependency_info = DI_DEPENDENT;
+                                return 1;
+                            }
                         }
+                    }
+                    else
+                    {
+                        // Dependency information has already been computed or
+                        // it is being computed now
+                        return (entry->dependency_info == DI_DEPENDENT);
                     }
                 }
 
-                return is_dependent_type(entry->type_information, decl_context);
+                char result;
+                result = is_dependent_type(entry->type_information, decl_context);
+                entry->dependency_info = result ? DI_DEPENDENT : DI_NOT_DEPENDENT;
+                return result;
             }
             // Postfix expressions
         case AST_ARRAY_SUBSCRIPT :
@@ -2496,7 +2618,20 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
             }
         case STK_USER_DEFINED :
             {
-                return is_dependent_type(simple_type->user_defined_type->type_information, decl_context);
+                if (simple_type->user_defined_type->dependency_info == DI_UNKNOWN)
+                {
+                    // It is being calculated now
+                    simple_type->user_defined_type->dependency_info = DI_BUSY;
+                    char result = is_dependent_type(simple_type->user_defined_type->type_information, decl_context);
+                    simple_type->user_defined_type->dependency_info =
+                        (result ? DI_DEPENDENT : DI_NOT_DEPENDENT);
+
+                    return result;
+                }
+                else
+                {
+                    return (simple_type->user_defined_type->dependency_info == DI_DEPENDENT);
+                }
                 break;
             }
         case STK_ENUM :
@@ -2508,9 +2643,22 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
                 {
                     scope_entry_t* entry = enum_info->enumeration_list[i];
 
-                    if (entry->expression_value != NULL)
+                    if (entry->expression_value != NULL
+                            && entry->dependency_info == DI_UNKNOWN)
                     {
                         if (is_dependent_expression(entry->expression_value, entry->scope, decl_context))
+                        {
+                            entry->dependency_info = DI_DEPENDENT;
+                            return 1;
+                        }
+                        else
+                        {
+                            entry->dependency_info = DI_NOT_DEPENDENT;
+                        }
+                    }
+                    else
+                    {
+                        if (entry->dependency_info == DI_DEPENDENT)
                         {
                             return 1;
                         }

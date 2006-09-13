@@ -331,13 +331,23 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                         aliased_type = advance_over_typedefs(aliased_type);
 
                         // Now get the entry_t*
-                        // If this is a typedef it can only be a typedef against a type
-                        // that should be a class
+                        // If this is a typedef it can only be a typedef
+                        // against a type that should be a typename or a
+                        // template dependent type
                         if (aliased_type->kind != TK_DIRECT
-                                || aliased_type->type->kind != STK_USER_DEFINED)
+                                || (aliased_type->type->kind != STK_USER_DEFINED
+                                    && aliased_type->type->kind != STK_TEMPLATE_DEPENDENT_TYPE))
                         {
                             return NULL;
                         }
+
+                        if ((aliased_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
+                                && BITMAP_TEST(lookup_flags, LF_EXPRESSION))
+                        {
+                            *is_dependent = 1;
+                            return NULL;
+                        }
+
                         entry = aliased_type->type->user_defined_type;
 
                         if (entry == NULL)
