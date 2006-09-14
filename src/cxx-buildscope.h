@@ -84,7 +84,6 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
 		decl_context_t decl_context);
 
 extern const decl_context_t default_decl_context;
-extern const decl_context_t default_nofail_decl_context;
 
 AST get_declarator_name(AST a, scope_t* st, decl_context_t decl_context);
 AST get_leftmost_declarator_name(AST a, decl_context_t decl_context);

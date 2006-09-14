@@ -145,7 +145,6 @@ static char* current_linkage = "\"C++\"";
 static void initialize_builtin_symbols(void);
 
 const decl_context_t default_decl_context = { 0 };
-const decl_context_t default_nofail_decl_context = { DF_NO_FAIL };
 
 // Builds scope for the translation unit
 void build_scope_translation_unit(translation_unit_t* translation_unit)
@@ -1232,7 +1231,8 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Trying to look up a dependent typename\n");
+        fprintf(stderr, "Trying to look up a dependent typename '%s'\n",
+				prettyprint_in_buffer(a));
     }
 
     global_scope = ASTSon0(a);
@@ -1242,9 +1242,13 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
     lookup_flags_t lookup_flags = LF_NO_FAIL;
 
     if (decl_context.template_nesting != 0)
-    {
-        lookup_flags |= LF_NO_INSTANTIATE;
-    }
+	{
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "We will not instantiate when solving this dependent typename because we are under template hood\n");
+		}
+		lookup_flags |= LF_NO_INSTANTIATE;
+	}
 
     scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, 
             FULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
@@ -5871,7 +5875,7 @@ static void build_scope_statement(AST a, scope_t* st, decl_context_t decl_contex
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "=== Statement line [%s] ===\n", node_information(a));
+        fprintf(stderr, "==== Statement line [%s] ====\n", node_information(a));
     }
 
     stmt_scope_handler_t f = stmt_scope_handlers[ASTType(a)];

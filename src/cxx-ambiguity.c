@@ -1347,16 +1347,20 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 gather_decl_spec_t gather_info;
                 memset(&gather_info, 0, sizeof(gather_info));
 
+				decl_context.decl_flags |= DF_NO_FAIL;
+
                 type_t* simple_type_info = NULL;
                 build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
-                        default_nofail_decl_context);
+                        decl_context);
 
-                if (abstract_declarator != NULL)
-                {
-                    type_t* declarator_type = NULL;
-                    build_scope_declarator(abstract_declarator, st, &gather_info, simple_type_info, 
-                            &declarator_type, default_nofail_decl_context);
-                }
+				if (abstract_declarator != NULL)
+				{
+					decl_context_t nofail_context = decl_context;
+					nofail_context.decl_flags |= DF_NO_FAIL;
+					type_t* declarator_type = NULL;
+					build_scope_declarator(abstract_declarator, st, &gather_info, simple_type_info, 
+							&declarator_type, nofail_context);
+				}
 
                 AST casted_expression = ASTSon1(expression);
 
@@ -1555,12 +1559,14 @@ static char check_for_new_expression(AST new_expr, scope_t* st, decl_context_t d
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
-    build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &dummy_type, default_nofail_decl_context);
+	decl_context.decl_flags |= DF_NO_FAIL;
+
+    build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &dummy_type, decl_context);
 
     if (new_declarator != NULL)
     {
         type_t* declarator_type = NULL;
-        build_scope_declarator(new_declarator, st, &gather_info, dummy_type, &declarator_type, default_nofail_decl_context);
+        build_scope_declarator(new_declarator, st, &gather_info, dummy_type, &declarator_type, decl_context);
     }
 
     if (new_initializer != NULL)
@@ -1943,15 +1949,17 @@ void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st, decl_conte
                 gather_decl_spec_t gather_info;
                 memset(&gather_info, 0, sizeof(gather_info));
 
+				decl_context.decl_flags |= DF_NO_FAIL;
+
                 type_t* simple_type_info = NULL;
                 build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
-                        default_nofail_decl_context);
+                        decl_context);
 
                 if (abstract_declarator != NULL)
                 {
                     type_t* declarator_type = NULL;
                     build_scope_declarator(abstract_declarator, st, &gather_info, simple_type_info, 
-                            &declarator_type, default_nofail_decl_context);
+                            &declarator_type, decl_context);
                 }
             }
         }
@@ -2048,7 +2056,9 @@ static char check_for_type_specifier(AST type_id, scope_t* st, decl_context_t de
                 simple_type_info = GC_CALLOC(1, sizeof(*simple_type_info));
                 simple_type_info->type = GC_CALLOC(1, sizeof(*(simple_type_info->type)));
 
-                gather_type_spec_information(type_id, st, simple_type_info, default_nofail_decl_context);
+				decl_context.decl_flags |= DF_NO_FAIL;
+
+                gather_type_spec_information(type_id, st, simple_type_info, decl_context);
                 return 1;
             }
         case AST_ELABORATED_TYPENAME :
@@ -2101,15 +2111,17 @@ static char check_for_cast(AST expr, scope_t* st, decl_context_t decl_context)
         gather_decl_spec_t gather_info;
         memset(&gather_info, 0, sizeof(gather_info));
 
+		decl_context.decl_flags |= DF_NO_FAIL;
+
         type_t* simple_type_info = NULL;
         build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
-                default_nofail_decl_context);
+                decl_context);
 
         if (abstract_declarator != NULL)
         {
             type_t* declarator_type = NULL;
             build_scope_declarator(abstract_declarator, st, &gather_info, simple_type_info, 
-                    &declarator_type, default_nofail_decl_context);
+                    &declarator_type, decl_context);
         }
 
         solve_possibly_ambiguous_expression(ASTSon1(expr), st, decl_context);

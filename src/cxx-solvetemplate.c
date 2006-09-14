@@ -26,6 +26,11 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
     // In the worst of the cases the chosen template will be the primary one
     scope_entry_list_t* iter = candidate_templates;
 
+	if (iter == NULL)
+	{
+		internal_error("No templates were given to solve the current one", 0);
+	}
+
     char seen_primary_template = 0;
     while (iter != NULL && !seen_primary_template)
     {

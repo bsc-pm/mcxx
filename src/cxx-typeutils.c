@@ -149,6 +149,8 @@ static type_t* get_type_of_dependent_typename(simple_type_t* t1, decl_context_t 
     AST t1_nested_name_spec = ASTSon1(t1_expr);
     AST t1_symbol = ASTSon2(t1_expr);
 
+	decl_context.decl_flags |= DF_NO_FAIL;
+
     scope_entry_list_t* result_t1 = query_nested_name(t1_scope, t1_global_op, t1_nested_name_spec, t1_symbol,
                 FULL_UNQUALIFIED_LOOKUP, decl_context);
 
@@ -629,9 +631,11 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                     prettyprint_in_buffer(t1_expr), 
                     prettyprint_in_buffer(t2_expr));
         }
+		decl_context_t new_decl_context = decl_context;
+		new_decl_context.decl_flags |= DF_NO_FAIL;
 
-        scope_entry_list_t* result_t1 = query_nested_name(t1_scope, t1_global_op, t1_nested_name_spec, t1_symbol,
-                FULL_UNQUALIFIED_LOOKUP, decl_context);
+        scope_entry_list_t* result_t1 = query_nested_name_flags(t1_scope, t1_global_op, t1_nested_name_spec, t1_symbol,
+                FULL_UNQUALIFIED_LOOKUP, LF_NONE, decl_context);
 
         if (result_t1 != NULL)
         {
@@ -660,8 +664,12 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                     prettyprint_in_buffer(t2_expr),
                     prettyprint_in_buffer(t1_expr));
         }
-        scope_entry_list_t* result_t2 = query_nested_name(t2_scope, t2_global_op, t2_nested_name_spec, t2_symbol,
-                FULL_UNQUALIFIED_LOOKUP, decl_context);
+
+		decl_context_t new_decl_context = decl_context;
+		new_decl_context.decl_flags |= DF_NO_FAIL;
+
+        scope_entry_list_t* result_t2 = query_nested_name_flags(t2_scope, t2_global_op, t2_nested_name_spec, t2_symbol,
+                FULL_UNQUALIFIED_LOOKUP, LF_NONE, new_decl_context);
         if (result_t2 != NULL)
         {
             scope_entry_t* entry_t2 = result_t2->entry;
@@ -851,9 +859,12 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                 {
                     if (t1_name != t2_name)
                     {
-                        fprintf(stderr, "Symbol '%s' is not the same as '%s'\n",
-                                t1_name->symbol_name,
-                                t2_name->symbol_name);
+						DEBUG_CODE()
+						{
+							fprintf(stderr, "Symbol '%s' is not the same as '%s'\n",
+									t1_name->symbol_name,
+									t2_name->symbol_name);
+						}
                         return 0;
                     }
 
@@ -1127,9 +1138,12 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                 {
                     if (t1_name != t2_name)
                     {
-                        fprintf(stderr, "Symbol '%s' is not the same as '%s'\n",
-                                t1_name->symbol_name,
-                                t2_name->symbol_name);
+						DEBUG_CODE()
+						{
+							fprintf(stderr, "Symbol '%s' is not the same as '%s'\n",
+									t1_name->symbol_name,
+									t2_name->symbol_name);
+						}
                         return 0;
                     }
                 }
@@ -2392,7 +2406,8 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
                 }
                 scope_entry_t* entry = entry_list->entry;
 
-                if (entry->kind == SK_DEPENDENT_ENTITY)
+                if (entry->kind == SK_DEPENDENT_ENTITY
+						|| entry->kind == SK_TEMPLATE_PARAMETER)
                 {
                     entry->dependency_info = DI_DEPENDENT;
                     return 1;
@@ -2430,7 +2445,7 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
         case AST_ARRAY_SUBSCRIPT :
             {
                 return is_dependent_expression(ASTSon0(expression), st, decl_context)
-                    && is_dependent_expression(ASTSon1(expression), st, decl_context);
+                    || is_dependent_expression(ASTSon1(expression), st, decl_context);
             }
         case AST_EXPLICIT_TYPE_CONVERSION :
             {
@@ -2574,13 +2589,13 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
         case AST_LOGICAL_OR :
             {
                 return is_dependent_expression(ASTSon0(expression), st, decl_context)
-                    && is_dependent_expression(ASTSon1(expression), st, decl_context);
+                    || is_dependent_expression(ASTSon1(expression), st, decl_context);
             }
         case AST_CONDITIONAL_EXPRESSION :
             {
                 return is_dependent_expression(ASTSon0(expression), st, decl_context)
-                    && is_dependent_expression(ASTSon1(expression), st, decl_context)
-                    && is_dependent_expression(ASTSon2(expression), st, decl_context);
+                    || is_dependent_expression(ASTSon1(expression), st, decl_context)
+                    || is_dependent_expression(ASTSon2(expression), st, decl_context);
             }
             // GCC Extension
         default :

@@ -236,7 +236,7 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
 
 static char has_nonempty_template_body(scope_entry_t* entry)
 {
-	return (entry->type_information->type->template_class_body != NULL);
+    return (entry->type_information->type->template_class_body != NULL);
 }
 
 /*
@@ -252,7 +252,7 @@ scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name,
 }
 
 scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
-        nested_name, scope_entry_list_t** result_entry_list, char*
+        param_nested_name, scope_entry_list_t** result_entry_list, char*
         is_dependent, lookup_flags_t lookup_flags, decl_context_t decl_context)
 {
     int qualif_level = 0;
@@ -281,7 +281,9 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
     lookup_scope = copy_scope(lookup_scope);
     lookup_scope->template_scope = sc->template_scope;
 
+    AST nested_name = param_nested_name;
     char seen_class = 0;
+    char seen_dependent_things = 0;
     // Traverse the qualification tree
     while (nested_name != NULL)
     {
@@ -323,6 +325,7 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                     }
 
                     scope_entry_t* entry = entry_list->entry;
+
 
                     if (entry->kind == SK_TYPEDEF)
                     {
@@ -371,37 +374,37 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                                 scope_entry_list_t* candidates = query_in_symbols_of_scope(entry->scope, entry->symbol_name);
 
                                 candidates = filter_entry_from_list(candidates, entry);
-								candidates = filter_symbol_using_predicate(candidates, has_nonempty_template_body);
+                                candidates = filter_symbol_using_predicate(candidates, has_nonempty_template_body);
 
                                 template_argument_list_t* current_template_arguments = 
                                     entry->type_information->type->template_arguments;
 
                                 matching_pair_t* matched_template = NULL;
-								
-								matched_template = solve_template(candidates,
+                                
+                                matched_template = solve_template(candidates,
                                         current_template_arguments, entry->scope, 0, decl_context);
 
-								// while (matched_template != NULL
-								// 		&& matched_template->entry->type_information->type->template_class_body == NULL)
-								// {
-								// 	DEBUG_CODE()
-								// 	{
-								// 		fprintf(stderr, "This specialization has empty body\n", 0);
-								// 	}
-								// 	candidates = filter_entry_from_list(candidates, matched_template->entry);
-								// 	matched_template = solve_template(candidates,
-								// 			current_template_arguments, entry->scope, 0, decl_context);
-								// }
+                                // while (matched_template != NULL
+                                //      && matched_template->entry->type_information->type->template_class_body == NULL)
+                                // {
+                                //  DEBUG_CODE()
+                                //  {
+                                //      fprintf(stderr, "This specialization has empty body\n", 0);
+                                //  }
+                                //  candidates = filter_entry_from_list(candidates, matched_template->entry);
+                                //  matched_template = solve_template(candidates,
+                                //          current_template_arguments, entry->scope, 0, decl_context);
+                                // }
 
-								// if (matched_template == NULL)
-								// {
-								// 	internal_error("Sux\n", 0);
-								// }
-								// else
-								{
-									instantiate_template_in_symbol(entry, matched_template, 
-											current_template_arguments, entry->scope);
-								}
+                                // if (matched_template == NULL)
+                                // {
+                                //  internal_error("Sux\n", 0);
+                                // }
+                                // else
+                                {
+                                    instantiate_template_in_symbol(entry, matched_template, 
+                                            current_template_arguments, entry->scope);
+                                }
                             }
                         }
                         else
@@ -410,6 +413,11 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                                         || entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
                                     && !entry->type_information->type->from_instantiation)
                             {
+                                DEBUG_CODE()
+                                {
+                                    fprintf(stderr, "Returning a dependent entity due to the lookup of '%s'\n",
+                                            nested_name_spec);
+                                }
                                 *is_dependent = 1;
                                 return NULL;
                             }
@@ -435,6 +443,11 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                         seen_class = 1;
                     }
 
+                    if (entry->type_information != NULL)
+                    {
+                        seen_dependent_things |= is_dependent_type(entry->type_information, decl_context);
+                    }
+
                     // It looks fine, update the scope
                     scope_t* previous_scope = lookup_scope;
                     lookup_scope = copy_scope(entry->related_scope);
@@ -458,15 +471,22 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                         break;
                     }
 
+                    lookup_flags_t instantiation_flag = LF_INSTANTIATE;
+
+                    if (seen_dependent_things)
+                    {
+                        instantiation_flag = LF_NONE;
+                    }
+
                     if (qualif_level == 0)
                     {
                         entry_list = query_unqualified_template_id_flags(nested_name_spec, sc, lookup_scope, 
-                                LF_INSTANTIATE | lookup_flags, decl_context);
+                                instantiation_flag | lookup_flags, decl_context);
                     }
                     else
                     {
                         entry_list = query_template_id_flags(nested_name_spec, sc, lookup_scope, 
-                                LF_INSTANTIATE | lookup_flags, decl_context);
+                                instantiation_flag | lookup_flags, decl_context);
                     }
 
                     if (entry_list == NULL)
@@ -481,8 +501,15 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                         break;
                     }
 
+                    scope_entry_t* entry = entry_list->entry;
+
+                    if (entry->type_information != NULL)
+                    {
+                        seen_dependent_things |= is_dependent_type(entry->type_information, decl_context);
+                    }
+
                     scope_t* previous_scope = lookup_scope;
-                    lookup_scope = copy_scope(entry_list->entry->related_scope);
+                    lookup_scope = copy_scope(entry->related_scope);
 
                     // This can be null if the type is incomplete and we are
                     // declaring a pointer to member
@@ -580,7 +607,7 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
                 {
                     solve_possibly_ambiguous_template_id(name, sc, decl_context);
 
-					result = query_unqualified_template_id_flags(name, sc, 
+                    result = query_unqualified_template_id_flags(name, sc, 
                             lookup_scope, lookup_flags, decl_context);
                 }
                 break;
@@ -785,6 +812,12 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         will_not_instantiate = 0;
     }
 
+    // LF_NO_INSTANTIATE has higher precedence over LF_INSTANTIATE
+    if (BITMAP_TEST(lookup_flags, LF_NO_INSTANTIATE))
+    {
+        will_not_instantiate = 1;
+    }
+
     int i;
     char seen_dependent_args = 0;
     for (i = 0; (i < current_template_arguments->num_arguments)
@@ -795,11 +828,11 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         {
             if (is_dependent_type(argument->type, decl_context))
             {
-				DEBUG_CODE()
-				{
-					fprintf(stderr, "-> Dependent type template argument '%s'\n",
-							prettyprint_in_buffer(argument->argument_tree));
-				}
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "-> Dependent type template argument '%s'\n",
+                            prettyprint_in_buffer(argument->argument_tree));
+                }
                 seen_dependent_args = 1;
             }
         }
@@ -809,15 +842,15 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         }
         else if (argument->kind == TAK_NONTYPE)
         {
-			if (is_dependent_expression(argument->argument_tree, argument->scope, decl_context))
-			{
-				DEBUG_CODE()
-				{
-					fprintf(stderr, "-> Dependent expression template argument '%s'\n",
-							prettyprint_in_buffer(argument->argument_tree));
-				}
-				seen_dependent_args = 1;
-			}
+            if (is_dependent_expression(argument->argument_tree, argument->scope, decl_context))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "-> Dependent expression template argument '%s'\n",
+                            prettyprint_in_buffer(argument->argument_tree));
+                }
+                seen_dependent_args = 1;
+            }
             // literal_value_t value = evaluate_constant_expression(argument->argument_tree, argument->scope);
 
             // if (value.kind == LVK_DEPENDENT_EXPR)
@@ -860,7 +893,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         DEBUG_CODE()
         {
             fprintf(stderr, "The template-id '%s' has dependent arguments and will not be instantiated here\n",
-					prettyprint_in_buffer(template_id));
+                    prettyprint_in_buffer(template_id));
         }
     }
     
@@ -874,10 +907,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
     if (matched_template != NULL)
     {
-        // If the template we are selecting is not incomplete or we are not
-        // willing to instantiate
         scope_entry_t* matched_entry = matched_template->entry;
-
         if (!will_not_instantiate 
                 && !matched_entry->type_information->type->from_instantiation)
         {
@@ -921,8 +951,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         {
             fprintf(stderr, "-> Solving the template without exact match\n");
         }
-		
-		entry_list = filter_symbol_using_predicate(entry_list, has_nonempty_template_body);
+        
+        entry_list = filter_symbol_using_predicate(entry_list, has_nonempty_template_body);
 
         matched_template = solve_template(entry_list, current_template_arguments, sc, /* exact= */ 0,
                 decl_context);
@@ -977,16 +1007,16 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
     }
     else
     {
-		// We won't instantiate the template
-		DEBUG_CODE()
-		{
-			fprintf(stderr, "-> Since we are not instantiating, creating the holding symbol\n");
-		}
-		scope_entry_t* holding_symbol = create_holding_symbol_for_template(entry_list->entry,
-				current_template_arguments,
-				sc, ASTLine(template_id));
+        // We won't instantiate the template
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "-> Since we are not instantiating, creating the holding symbol\n");
+        }
+        scope_entry_t* holding_symbol = create_holding_symbol_for_template(entry_list->entry,
+                current_template_arguments,
+                sc, ASTLine(template_id));
 
-		return create_list_from_entry(holding_symbol);
+        return create_list_from_entry(holding_symbol);
     }
 }
 
@@ -1081,9 +1111,9 @@ scope_entry_list_t* query_id_expression_flags(scope_t* sc, AST id_expr,
 
                 solve_possibly_ambiguous_template_id(id_expr, sc, decl_context);
 
-				scope_entry_list_t* result = query_unqualified_name(sc, ASTText(symbol));
+                scope_entry_list_t* result = query_unqualified_name(sc, ASTText(symbol));
 
-				return result;
+                return result;
                 break;
             }
         case AST_OPERATOR_FUNCTION_ID :
@@ -1663,11 +1693,11 @@ scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum 
 
 scope_entry_list_t* filter_entry_from_list(scope_entry_list_t* entry_list, scope_entry_t* entry)
 {
-	DEBUG_CODE()
-	{
-		fprintf(stderr, "Filtering %p (line %d) from candidate list %p\n", 
-				entry, entry->line, entry_list);
-	}
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Filtering %p (line %d) from candidate list %p\n", 
+                entry, entry->line, entry_list);
+    }
     scope_entry_list_t* result = NULL;
     scope_entry_list_t* iter = entry_list;
     
