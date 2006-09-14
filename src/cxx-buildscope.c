@@ -1332,19 +1332,8 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
     // Fix this, it sounds a bit awkward
     scope_entry_t* simple_type_entry = filter_simple_type_specifier(entry_list);
 
-    if (entry_list->entry->kind != SK_DEPENDENT_ENTITY)
-    {
-        ERROR_CONDITION((simple_type_entry == NULL), "Identifier '%s' in %s is not a type\n", 
-                ASTText(type_name), node_information(type_name));
-    }
-    else
-    {
-        // Create a dependent typename
-        simple_type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
-        simple_type_info->type->typeof_expr = a;
-        simple_type_info->type->typeof_scope = copy_scope(st);
-        return;
-    }
+    ERROR_CONDITION((simple_type_entry == NULL), "Identifier '%s' in %s is not a type\n", 
+            ASTText(type_name), node_information(type_name));
 
     ERROR_CONDITION((simple_type_entry->type_information == NULL 
                 || simple_type_entry->type_information->kind != TK_DIRECT 

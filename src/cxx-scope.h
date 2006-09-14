@@ -304,12 +304,7 @@ typedef struct function_tag
     int is_pure; // is_pure implies is_virtual
     int is_explicit;
 
-    int is_member; // States if this function is a member function
-
     int is_constructor; // States if this functions is a constructor
-
-    // Related class type
-    struct type_tag* class_type;
 
     // For template parameters
     int num_template_parameters;
@@ -420,6 +415,11 @@ typedef struct scope_entry_tag
 	
 	// For template-alias
 	struct type_tag* template_alias_type;
+
+    // Is a member ?
+    char is_member;
+    // of who ?
+    struct type_tag* class_type;
 
     // Dependency info. It states if this symbol has a template-dependent nature
     // A value of DI_UNKNOWN means this has not been already computed

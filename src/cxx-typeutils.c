@@ -2638,6 +2638,18 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
                     // It is being calculated now
                     simple_type->user_defined_type->dependency_info = DI_BUSY;
                     char result = is_dependent_type(simple_type->user_defined_type->type_information, decl_context);
+
+                    if (!result)
+                    {
+                        scope_entry_t* entry = simple_type->user_defined_type;
+
+                        if (entry->is_member
+                                && entry->class_type != NULL)
+                        {
+                            result = is_dependent_type(entry->class_type, decl_context);
+                        }
+                    }
+
                     simple_type->user_defined_type->dependency_info =
                         (result ? DI_DEPENDENT : DI_NOT_DEPENDENT);
 

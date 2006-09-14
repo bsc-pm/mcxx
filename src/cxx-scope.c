@@ -506,6 +506,11 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                     if (entry->type_information != NULL)
                     {
                         seen_dependent_things |= is_dependent_type(entry->type_information, decl_context);
+                        if (entry->is_member
+                                && entry->class_type)
+                        {
+                            seen_dependent_things |= is_dependent_type(entry->class_type, decl_context);
+                        }
                     }
 
                     scope_t* previous_scope = lookup_scope;

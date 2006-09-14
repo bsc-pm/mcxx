@@ -347,6 +347,7 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 }
 
 static void fill_template_specialized_info(scope_entry_t* instance_symbol, 
+        scope_entry_t* matched_template,
         template_argument_list_t* arguments)
 {
     int line = instance_symbol->line;
@@ -364,6 +365,9 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
     instance_symbol->type_information->type->kind = STK_CLASS;
     instance_symbol->type_information->type->class_info = GC_CALLOC(1, 
             sizeof(*(instance_symbol->type_information->type->class_info)));
+
+    instance_symbol->is_member = matched_template->is_member;
+    instance_symbol->class_type = matched_template->class_type;
 
     scope_t* inner_scope = new_class_scope(instance_symbol->scope);
 
@@ -402,7 +406,7 @@ scope_entry_t* create_holding_symbol_for_template(scope_entry_t* matched_templat
     }
     instance_symbol->line = instantiation_line;
 
-    fill_template_specialized_info(instance_symbol, arguments);
+    fill_template_specialized_info(instance_symbol, matched_template, arguments);
 
     // This should not come from instantiation
     DEBUG_CODE()
@@ -421,7 +425,7 @@ void instantiate_template_in_symbol(scope_entry_t* instance_symbol,
     scope_entry_t* matched_template = match_pair->entry;
     unification_set_t* unification_set = match_pair->unif_set;
 
-    fill_template_specialized_info(instance_symbol, arguments);
+    fill_template_specialized_info(instance_symbol, matched_template, arguments);
 
     DEBUG_CODE()
     {
