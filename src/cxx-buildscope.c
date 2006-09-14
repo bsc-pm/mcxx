@@ -1327,14 +1327,24 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
 
     ERROR_CONDITION((entry_list == NULL), "The list of types of type '%s' is empty! (%s)\n", 
             prettyprint_in_buffer(a), node_information(a));
-    
+
     // Filter for non types hiding this type name
     // Fix this, it sounds a bit awkward
     scope_entry_t* simple_type_entry = filter_simple_type_specifier(entry_list);
 
-
-    ERROR_CONDITION((simple_type_entry == NULL), "Identifier '%s' in %s is not a type\n", 
-            ASTText(type_name), node_information(type_name));
+    if (entry_list->entry->kind != SK_DEPENDENT_ENTITY)
+    {
+        ERROR_CONDITION((simple_type_entry == NULL), "Identifier '%s' in %s is not a type\n", 
+                ASTText(type_name), node_information(type_name));
+    }
+    else
+    {
+        // Create a dependent typename
+        simple_type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
+        simple_type_info->type->typeof_expr = a;
+        simple_type_info->type->typeof_scope = copy_scope(st);
+        return;
+    }
 
     ERROR_CONDITION((simple_type_entry->type_information == NULL 
                 || simple_type_entry->type_information->kind != TK_DIRECT 
@@ -4129,7 +4139,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
         }
     }
 
-    if (entry->type_information->function->is_member)
+    if (entry->is_member)
     {
         // If is a member function sign up additional information
         if (!entry->type_information->function->is_static
@@ -4138,7 +4148,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
             type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
             this_type->kind = TK_POINTER;
             this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
-            this_type->pointer->pointee = copy_type(entry->type_information->function->class_type);
+            this_type->pointer->pointee = copy_type(entry->class_type);
 
             // "this" pseudovariable has the same cv-qualification of this member
             this_type->cv_qualifier = entry->type_information->cv_qualifier;
@@ -4496,8 +4506,8 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
                 }
         }
 
-        entry->type_information->function->is_member = 1;
-        entry->type_information->function->class_type = class_info;
+        entry->is_member = 1;
+        entry->class_type = class_info;
     }
     else
     {
@@ -4539,6 +4549,13 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 
         build_scope_decl_specifier_seq(ASTSon0(a), st, &gather_info,
                 &simple_type_info, new_decl_context);
+
+        if (simple_type_info->kind == TK_DIRECT
+                && simple_type_info->type->kind == STK_USER_DEFINED)
+        {
+            simple_type_info->type->user_defined_type->is_member = 1;
+            simple_type_info->type->user_defined_type->class_type = class_info;
+        }
 
     }
 
@@ -4625,16 +4642,12 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
                                 simple_type_info, &declarator_type, 
                                 new_decl_context);
 
-                        // If we are declaring a function, state it is a member and
-                        // save its class_type
-                        //
-                        // This will be used further when defining this function.
+                        entry->is_member = 1;
+                        entry->class_type = class_info;
+
                         if (entry->kind == SK_FUNCTION
                                 || entry->kind == SK_TEMPLATE_FUNCTION)
                         {
-                            entry->type_information->function->is_member = 1;
-                            entry->type_information->function->class_type = class_info;
-
                             // Update information in the class about this member function
                             switch (ASTType(declarator_name))
                             {
