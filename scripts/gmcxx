@@ -1,0 +1,3 @@
+#!/bin/bash
+
+./mcxx --verbose --debug-flags=enable_debug_code,print_scope,abort_on_ice $@
