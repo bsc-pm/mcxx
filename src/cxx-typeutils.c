@@ -859,7 +859,8 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 						dependent_qualification = 1;
 					}
 				}
-				if (t1_name != t2_name)
+				if (!dependent_qualification 
+						&& t1_name != t2_name)
 				{
 					DEBUG_CODE()
 					{
@@ -870,7 +871,8 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 					return 0;
 				}
 
-				if (is_dependent_type(t1_type, decl_context))
+				if (!dependent_qualification 
+						&& is_dependent_type(t1_type, decl_context))
 				{
 					DEBUG_CODE()
 					{
