@@ -10,15 +10,22 @@
 #include "cxx-printscope.h"
 
 static void instantiate_incomplete_primary_template(scope_entry_t* matched_template,
-        template_argument_list_t* template_argument_list, scope_t* st)
+        template_argument_list_t* template_argument_list, 
+		scope_t* st, decl_context_t decl_context)
 {
     // This routine is planned for a future where we will be able to
     // "pre-instantiate" things
 }
 
+static decl_context_t build_proper_instantiation_context(decl_context_t decl_context)
+{
+	return decl_context;
+}
+
 static void instantiate_primary_template(scope_entry_t* matched_template,
         scope_entry_t* instance_symbol,
-        template_argument_list_t* template_argument_list, scope_t* st)
+        template_argument_list_t* template_argument_list, 
+		scope_t* st, decl_context_t decl_context)
 {
     ERROR_CONDITION((matched_template->kind != SK_TEMPLATE_PRIMARY_CLASS), "Unexpected symbol kind '%d'\n", matched_template->kind);
 
@@ -40,7 +47,7 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
         {
             fprintf(stderr, "This instantiation of primary template refers to an incomplete type\n");
         }
-        instantiate_incomplete_primary_template(matched_template, template_argument_list, st);
+        instantiate_incomplete_primary_template(matched_template, template_argument_list, st, decl_context);
         return;
     }
 
@@ -119,8 +126,7 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     }
 
     // Build scope over the new tree
-    decl_context_t decl_context;
-    memset(&decl_context, 0, sizeof(decl_context));
+    decl_context_t new_decl_context = build_proper_instantiation_context(decl_context);
 
     DEBUG_CODE()
     {
@@ -140,7 +146,7 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     if (template_class_base_clause != NULL)
     {
         build_scope_base_clause(template_class_base_clause, instance_symbol->scope, instance_symbol->related_scope, 
-                instance_symbol->type_information->type->class_info, decl_context);
+                instance_symbol->type_information->type->class_info, new_decl_context);
     }
 
     // Inject the class name
@@ -153,7 +159,7 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     injected_symbol->injected_class_referred_symbol = instance_symbol;
 
     build_scope_member_specification(instance_symbol->related_scope, instantiate_tree, AS_PUBLIC,
-            simple_type_info, decl_context);
+            simple_type_info, new_decl_context);
 
     instance_symbol->related_scope->template_scope = NULL;
     matched_template->scope->template_scope = instantiate_scope->template_scope;
@@ -177,7 +183,8 @@ static void instantiate_incomplete_specialized_template(scope_entry_t* matched_t
 static void instantiate_specialized_template(scope_entry_t* matched_template, 
         scope_entry_t* instance_symbol,
         template_argument_list_t* template_argument_list, 
-        unification_set_t* unification_set, scope_t* st)
+        unification_set_t* unification_set, scope_t* st,
+		decl_context_t decl_context)
 {
     ERROR_CONDITION((matched_template->kind != SK_TEMPLATE_SPECIALIZED_CLASS), "Unexpected symbol kind '%d'\n", matched_template->kind);
 
@@ -295,8 +302,7 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
     }
 
     // Build scope over the new tree
-    decl_context_t decl_context;
-    memset(&decl_context, 0, sizeof(decl_context));
+    decl_context_t new_decl_context = build_proper_instantiation_context(decl_context);
 
     DEBUG_CODE()
     {
@@ -319,7 +325,7 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
     if (template_class_base_clause != NULL)
     {
         build_scope_base_clause(template_class_base_clause, instance_symbol->scope, instance_symbol->related_scope, 
-                instance_symbol->type_information->type->class_info, decl_context);
+                instance_symbol->type_information->type->class_info, new_decl_context);
     }
     
     // Inject the class name
@@ -332,7 +338,7 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
     injected_symbol->injected_class_referred_symbol = instance_symbol;
 
     build_scope_member_specification(instance_symbol->related_scope, instantiate_tree, AS_PUBLIC,
-            simple_type_info, decl_context);
+            simple_type_info, new_decl_context);
 
     instance_symbol->related_scope->template_scope = NULL;
     matched_template->scope->template_scope = instantiate_scope->template_scope;
@@ -420,7 +426,8 @@ scope_entry_t* create_holding_symbol_for_template(scope_entry_t* matched_templat
 }
 
 void instantiate_template_in_symbol(scope_entry_t* instance_symbol, 
-        matching_pair_t* match_pair, template_argument_list_t* arguments, scope_t* st)
+        matching_pair_t* match_pair, template_argument_list_t* arguments, scope_t* st,
+		decl_context_t decl_context)
 {
     scope_entry_t* matched_template = match_pair->entry;
     unification_set_t* unification_set = match_pair->unif_set;
@@ -436,12 +443,14 @@ void instantiate_template_in_symbol(scope_entry_t* instance_symbol,
     {
         case SK_TEMPLATE_PRIMARY_CLASS :
             {
-                instantiate_primary_template(matched_template, instance_symbol, arguments, st);
+                instantiate_primary_template(matched_template, instance_symbol, 
+						arguments, st, decl_context);
                 break;
             }
         case SK_TEMPLATE_SPECIALIZED_CLASS :
             {
-                instantiate_specialized_template(matched_template, instance_symbol, arguments, unification_set, st);
+                instantiate_specialized_template(matched_template, instance_symbol, arguments, 
+						unification_set, st, decl_context);
                 break;
             }
         default :
@@ -456,7 +465,8 @@ void instantiate_template_in_symbol(scope_entry_t* instance_symbol,
     }
 }
 
-void instantiate_template(matching_pair_t* match_pair, template_argument_list_t* arguments, scope_t* st, int instantiation_line)
+void instantiate_template(matching_pair_t* match_pair, template_argument_list_t* arguments, 
+		scope_t* st, int instantiation_line, decl_context_t decl_context)
 {
     scope_entry_t* matched_template = match_pair->entry;
     // unification_set_t* unification_set = match_pair->unif_set;
@@ -472,5 +482,5 @@ void instantiate_template(matching_pair_t* match_pair, template_argument_list_t*
 
     instance_symbol->line = instantiation_line;
 
-    instantiate_template_in_symbol(instance_symbol, match_pair, arguments, st);
+    instantiate_template_in_symbol(instance_symbol, match_pair, arguments, st, decl_context);
 }

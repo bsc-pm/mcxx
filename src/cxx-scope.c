@@ -283,7 +283,6 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 
     AST nested_name = param_nested_name;
     char seen_class = 0;
-    char seen_dependent_things = 0;
     // Traverse the qualification tree
     while (nested_name != NULL)
     {
@@ -403,7 +402,7 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                                 // else
                                 {
                                     instantiate_template_in_symbol(entry, matched_template, 
-                                            current_template_arguments, entry->scope);
+                                            current_template_arguments, entry->scope, decl_context);
                                 }
                             }
                         }
@@ -443,11 +442,6 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                         seen_class = 1;
                     }
 
-                    if (entry->type_information != NULL)
-                    {
-                        seen_dependent_things |= is_dependent_type(entry->type_information, decl_context);
-                    }
-
                     // It looks fine, update the scope
                     scope_t* previous_scope = lookup_scope;
                     lookup_scope = copy_scope(entry->related_scope);
@@ -473,11 +467,6 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
 
                     lookup_flags_t instantiation_flag = LF_INSTANTIATE;
 
-                    if (seen_dependent_things)
-                    {
-                        instantiation_flag = LF_NONE;
-                    }
-
                     if (qualif_level == 0)
                     {
                         entry_list = query_unqualified_template_id_flags(nested_name_spec, sc, lookup_scope, 
@@ -502,16 +491,6 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                     }
 
                     scope_entry_t* entry = entry_list->entry;
-
-                    if (entry->type_information != NULL)
-                    {
-                        seen_dependent_things |= is_dependent_type(entry->type_information, decl_context);
-                        if (entry->is_member
-                                && entry->class_type)
-                        {
-                            seen_dependent_things |= is_dependent_type(entry->class_type, decl_context);
-                        }
-                    }
 
                     scope_t* previous_scope = lookup_scope;
                     lookup_scope = copy_scope(entry->related_scope);
@@ -726,7 +705,9 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         }
         else
         {
-            internal_error("Template not found! (line=%d)\n", ASTLine(template_id));
+            internal_error("Template '%s' not found! (line=%d)\n", 
+				prettyprint_in_buffer(template_id),
+				ASTLine(template_id));
         }
     }
 
@@ -925,7 +906,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
             matched_template = solve_template(fixed_entry_list,
                     current_template_arguments, sc, 0, decl_context);
 
-            instantiate_template_in_symbol(matched_entry, matched_template, current_template_arguments, sc);
+            instantiate_template_in_symbol(matched_entry, matched_template, current_template_arguments, 
+					sc, decl_context);
 
             // And now restart this function but now we want an exact match
             return query_template_id_internal(template_id, sc, lookup_scope, unqualified_lookup, 
@@ -1004,7 +986,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
             fprintf(stderr, "-> Instantiating the template\n");
         }
         // We have to instantiate the template
-        instantiate_template(matched_template, current_template_arguments, sc, ASTLine(template_id));
+        instantiate_template(matched_template, current_template_arguments, sc, 
+				ASTLine(template_id), decl_context);
 
         // And now restart this function but now we want an exact match
         return query_template_id_internal(template_id, sc, lookup_scope, unqualified_lookup, 

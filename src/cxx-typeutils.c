@@ -823,60 +823,61 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                 t1_type = advance_over_typedefs(t1_type);
                 t2_type = advance_over_typedefs(t2_type);
 
-                if ((t1_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
-                            && t2_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
-                        || (t1_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER
-                            && t2_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER))
-                {
-                    if (!equivalent_types(t1_type, t2_type, st, CVE_CONSIDER, decl_context))
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "Type '");
-                            print_declarator(t1_type, st);
-                            fprintf(stderr, "' is not the same as '");
-                            print_declarator(t2_type, st);
-                            fprintf(stderr, "'\n");
-                        }
-                        return 0;
-                    }
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template parameter\n");
-                    }
-                    dependent_qualification = 1;
-                }
-                else if (t1_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE
-                            && t2_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template dependent type\n");
-                    }
-                    dependent_qualification = 1;
-                }
-                else
-                {
-                    if (t1_name != t2_name)
-                    {
+				if (t1_type->kind == TK_DIRECT
+						&& t2_type->kind == TK_DIRECT)
+				{
+					if ((t1_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
+								&& t2_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
+							|| (t1_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER
+								&& t2_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER))
+					{
+						if (!equivalent_types(t1_type, t2_type, st, CVE_CONSIDER, decl_context))
+						{
+							DEBUG_CODE()
+							{
+								fprintf(stderr, "Type '");
+								print_declarator(t1_type, st);
+								fprintf(stderr, "' is not the same as '");
+								print_declarator(t2_type, st);
+								fprintf(stderr, "'\n");
+							}
+							return 0;
+						}
 						DEBUG_CODE()
 						{
-							fprintf(stderr, "Symbol '%s' is not the same as '%s'\n",
-									t1_name->symbol_name,
-									t2_name->symbol_name);
+							fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template parameter\n");
 						}
-                        return 0;
-                    }
+						dependent_qualification = 1;
+					}
+					else if (t1_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE
+							&& t2_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
+					{
+						DEBUG_CODE()
+						{
+							fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template dependent type\n");
+						}
+						dependent_qualification = 1;
+					}
+				}
+				if (t1_name != t2_name)
+				{
+					DEBUG_CODE()
+					{
+						fprintf(stderr, "Symbol '%s' is not the same as '%s'\n",
+								t1_name->symbol_name,
+								t2_name->symbol_name);
+					}
+					return 0;
+				}
 
-                    if (is_dependent_type(t1_type, decl_context))
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template dependent type\n");
-                        }
-                        dependent_qualification = 1;
-                    }
-                }
+				if (is_dependent_type(t1_type, decl_context))
+				{
+					DEBUG_CODE()
+					{
+						fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template dependent type\n");
+					}
+					dependent_qualification = 1;
+				}
             }
             t1_scope = t1_name->related_scope;
             t2_scope = t2_name->related_scope;
@@ -1102,51 +1103,53 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                 t1_type = advance_over_typedefs(t1_type);
                 t2_type = advance_over_typedefs(t2_type);
 
-                if ((t1_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
-                            && t2_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
-                        || (t1_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER
-                            && t2_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER))
-                {
-                    if (!equivalent_types(t1_type, t2_type, st, CVE_CONSIDER, decl_context))
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "Type '");
-                            print_declarator(t1_type, st);
-                            fprintf(stderr, "' is not the same as '");
-                            print_declarator(t2_type, st);
-                            fprintf(stderr, "'\n");
-                        }
-                        return 0;
-                    }
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template parameter\n");
-                    }
-                    dependent_qualification = 1;
-                }
-                else if (t1_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE
-                            && t2_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template dependent type\n");
-                    }
-                    dependent_qualification = 1;
-                }
-                else
-                {
-                    if (t1_name != t2_name)
-                    {
+				if (t1_type->kind == TK_DIRECT
+						&& t2_type->kind == TK_DIRECT)
+				{
+					if ((t1_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
+								&& t2_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
+							|| (t1_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER
+								&& t2_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER))
+					{
+						if (!equivalent_types(t1_type, t2_type, st, CVE_CONSIDER, decl_context))
+						{
+							DEBUG_CODE()
+							{
+								fprintf(stderr, "Type '");
+								print_declarator(t1_type, st);
+								fprintf(stderr, "' is not the same as '");
+								print_declarator(t2_type, st);
+								fprintf(stderr, "'\n");
+							}
+							return 0;
+						}
 						DEBUG_CODE()
 						{
-							fprintf(stderr, "Symbol '%s' is not the same as '%s'\n",
-									t1_name->symbol_name,
-									t2_name->symbol_name);
+							fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template parameter\n");
 						}
-                        return 0;
-                    }
-                }
+						dependent_qualification = 1;
+					}
+					else if (t1_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE
+							&& t2_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
+					{
+						DEBUG_CODE()
+						{
+							fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template dependent type\n");
+						}
+						dependent_qualification = 1;
+					}
+				}
+
+				if (t1_name != t2_name)
+				{
+					DEBUG_CODE()
+					{
+						fprintf(stderr, "Symbol '%s' is not the same as '%s'\n",
+								t1_name->symbol_name,
+								t2_name->symbol_name);
+					}
+					return 0;
+				}
             }
             t1_scope = t1_name->related_scope;
             t2_scope = t2_name->related_scope;
@@ -2639,20 +2642,8 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
                     simple_type->user_defined_type->dependency_info = DI_BUSY;
                     char result = is_dependent_type(simple_type->user_defined_type->type_information, decl_context);
 
-                    if (!result)
-                    {
-                        scope_entry_t* entry = simple_type->user_defined_type;
-
-                        if (entry->is_member
-                                && entry->class_type != NULL)
-                        {
-                            result = is_dependent_type(entry->class_type, decl_context);
-                        }
-                    }
-
                     simple_type->user_defined_type->dependency_info =
                         (result ? DI_DEPENDENT : DI_NOT_DEPENDENT);
-
                     return result;
                 }
                 else

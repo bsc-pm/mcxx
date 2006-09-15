@@ -56,6 +56,7 @@ typedef struct decl_context_tag
     template_parameter_t** template_parameters;
     int num_template_parameters;
 
+	// Used in template functions
     template_parameter_t** template_parameters_in_scope;
     int num_template_parameters_in_scope;
 } decl_context_t;

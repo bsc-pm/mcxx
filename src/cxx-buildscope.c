@@ -1620,7 +1620,8 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
                     if (match_pair != NULL)
                     {
                         instantiate_template_in_symbol(result, match_pair, 
-                                result->type_information->type->template_arguments, result->scope);
+                                result->type_information->type->template_arguments, result->scope,
+								decl_context);
                     }
                 }
             }
@@ -4539,7 +4540,8 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
         build_scope_decl_specifier_seq(ASTSon0(a), st, &gather_info,
                 &simple_type_info, new_decl_context);
 
-        if (simple_type_info->kind == TK_DIRECT
+        if (simple_type_info != NULL
+				&& simple_type_info->kind == TK_DIRECT
                 && simple_type_info->type->kind == STK_USER_DEFINED)
         {
             simple_type_info->type->user_defined_type->is_member = 1;
