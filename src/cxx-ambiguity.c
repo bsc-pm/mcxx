@@ -2390,11 +2390,15 @@ static char check_for_declarator_rec(AST declarator, scope_t* st, decl_context_t
         case AST_DECLARATOR_ARRAY :
         case AST_ABSTRACT_ARRAY :
             {
-                if (ASTSon0(declarator) != NULL)
+                if (ASTSon1(declarator) != NULL)
                 {
                     solve_possibly_ambiguous_expression(ASTSon1(declarator), st, decl_context);
                 }
-                return check_for_declarator_rec(ASTSon0(declarator), st, decl_context);
+				if (ASTSon0(declarator) != NULL)
+				{
+					return check_for_declarator_rec(ASTSon0(declarator), st, decl_context);
+				}
+				return 1;
             }
         case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
@@ -2424,6 +2428,7 @@ static char check_for_declarator_rec(AST declarator, scope_t* st, decl_context_t
                 {
                     return check_for_declarator_rec(ASTSon0(declarator), st, decl_context);
                 }
+				return 1;
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -2554,6 +2559,19 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
     return 1;
 }
 
+static char is_abstract_declarator(AST a)
+{
+	return (ASTType(a) == AST_ABSTRACT_DECLARATOR
+			|| ASTType(a) == AST_ABSTRACT_DECLARATOR_FUNC
+			|| ASTType(a) == AST_ABSTRACT_ARRAY);
+}
+
+static char is_non_abstract_declarator(AST a)
+{
+	return (ASTType(a) == AST_DECLARATOR
+			|| ASTType(a) == AST_POINTER_DECL);
+}
+
 void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st, decl_context_t decl_context)
 {
     int current_choice = -1;
@@ -2587,6 +2605,11 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st, decl
         if (declarator != NULL)
         {
             current_valid &= check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, declarator);
+
+			if (current_valid)
+			{
+				current_valid &= check_for_declarator(declarator, st, decl_context);
+			}
         }
 
         if (current_valid)
@@ -2597,7 +2620,35 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st, decl
             }
             else
             {
-                internal_error("More than one option is possible in %s", node_information(parameter_declaration));
+			    AST previous_parameter_decl = parameter_declaration->ambig[current_choice];
+				AST current_parameter_decl = parameter_decl;
+
+				AST previous_declarator = ASTSon1(previous_parameter_decl);
+				AST current_declarator = ASTSon1(current_parameter_decl);
+
+				// If an abstract declarator is possible, then it must be an abstract declarator
+				char solved_ambiguity = 0;
+				if (previous_declarator != NULL
+						&& current_declarator != NULL)
+				{
+					if (is_abstract_declarator(previous_declarator)
+							&& is_non_abstract_declarator(current_declarator))
+					{
+						solved_ambiguity = 1;
+					}
+					else if (is_non_abstract_declarator(previous_declarator)
+							&& is_abstract_declarator(current_declarator))
+					{
+						current_choice = i;
+						solved_ambiguity = 1;
+					}
+				}
+
+				if (!solved_ambiguity)
+				{
+					internal_error("More than one option is possible in %s", 
+							node_information(parameter_declaration));
+				}
             }
         }
     }

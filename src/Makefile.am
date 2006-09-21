@@ -92,7 +92,7 @@ cxx-asttype.c : $(srcdir)/cxx-asttype.def cxx-asttype.h
 	echo "};" >> cxx-asttype.c
 
 cxx-parser.c cxx-parser.h : $(srcdir)/cxx03.y
-	bison -pmcxx --debug --defines --report=all --output=cxx-parser.c $(srcdir)/cxx03.y
+	bison -g -pmcxx --debug --defines --report=all --output=cxx-parser.c $(srcdir)/cxx03.y
 
 cxx-scanner.c : $(srcdir)/cxx03.l $(srcdir)/cxx-ast.h cxx-parser.h
 	flex -Pmcxx -d -ocxx-scanner.c -8 $(srcdir)/cxx03.l
@@ -114,7 +114,7 @@ cxx-debugflags.c : cxx-debugflags.gperf cxx-driver.h cxx-utils.h
 	  $(srcdir)/cxx-debugflags.gperf
 
 c99-parser.c c99-parser.h : $(srcdir)/c99.y
-	bison -pmc99 --debug --defines --report=all --output=c99-parser.c $(srcdir)/c99.y
+	bison -g -pmc99 --debug --defines --report=all --output=c99-parser.c $(srcdir)/c99.y
 
 c99-scanner.c : $(srcdir)/c99.l $(srcdir)/cxx-ast.h c99-parser.h
 	flex -Pmc99 -d -oc99-scanner.c -8 $(srcdir)/c99.l
