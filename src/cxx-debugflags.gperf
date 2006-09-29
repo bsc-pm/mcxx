@@ -15,6 +15,7 @@ struct debug_flags_list_t;
 "enable_debug_code", DEBUG_OPTION_REF(enable_debug_code), "Enable debug code, in general these are debug messages"
 "debug_lexer", DEBUG_OPTION_REF(debug_lexer), "Enables lexer debug"
 "debug_parser", DEBUG_OPTION_REF(debug_parser), "Enables parser debug"
+"print_ast", DEBUG_OPTION_REF(print_ast), "Prints ast in graphviz format"
 %%
 
 static int cmpstringp(const void *p1, const void *p2)

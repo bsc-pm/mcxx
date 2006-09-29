@@ -324,6 +324,13 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
                 // Do nothing
                 break;
             }
+			// OpenMP 2.5 constructs
+		case AST_OMP_THREADPRIVATE_DIRECTIVE :
+			{
+				// Do nothing for now
+				break;
+			}
+			// GCC Extensions
         case AST_GCC_EXTENSION :
             {
                 build_scope_declaration(ASTSon0(a), st, decl_context);
@@ -5850,6 +5857,25 @@ static void build_scope_null(AST a, scope_t* st, decl_context_t decl_context)
     // Do nothing
 }
 
+/* OpenMP 2.5 handlers */
+static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_context)
+{
+}
+
+static void build_scope_omp_sections_construct(AST a, scope_t* st, decl_context_t decl_context)
+{
+}
+
+static void build_scope_omp_construct(AST a, scope_t* st, decl_context_t decl_context)
+{
+	build_scope_omp_directive(ASTSon0(a), st, decl_context);
+	if (ASTSon1(a) != NULL)
+	{
+		build_scope_statement(ASTSon1(a), st, decl_context);
+	}
+}
+
+
 #define STMT_HANDLER(type, hndl) [type] = hndl
 
 static stmt_scope_handler_t stmt_scope_handlers[] =
@@ -5872,6 +5898,21 @@ static stmt_scope_handler_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_null),
     STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_null),
     STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_null),
+	// OpenMP 2.5 constructs
+	STMT_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, build_scope_omp_construct),
+	STMT_HANDLER(AST_OMP_FOR_CONSTRUCT, build_scope_omp_construct),
+	STMT_HANDLER(AST_OMP_PARALLEL_FOR_CONSTRUCT, build_scope_omp_construct),
+	STMT_HANDLER(AST_OMP_SECTIONS_CONSTRUCT, build_scope_omp_sections_construct),
+	STMT_HANDLER(AST_OMP_PARALLEL_SECTIONS_CONSTRUCT, build_scope_omp_sections_construct),
+	STMT_HANDLER(AST_OMP_SINGLE_CONSTRUCT, build_scope_omp_construct),
+	STMT_HANDLER(AST_OMP_MASTER_CONSTRUCT, build_scope_omp_construct),
+	STMT_HANDLER(AST_OMP_ATOMIC_CONSTRUCT, build_scope_omp_construct),
+	STMT_HANDLER(AST_OMP_ORDERED_CONSTRUCT, build_scope_omp_construct),
+	STMT_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, build_scope_omp_construct),
+	STMT_HANDLER(AST_OMP_FLUSH_DIRECTIVE, build_scope_omp_directive),
+	STMT_HANDLER(AST_OMP_BARRIER_DIRECTIVE, build_scope_omp_directive),
+	STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_null),
+	STMT_HANDLER(AST_OMP_SECTION, build_scope_null),
 };
 
 

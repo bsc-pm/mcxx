@@ -15,7 +15,8 @@ typedef enum
     OPTION_LINKER_NAME,
     OPTION_DEBUG_FLAG,
     OPTION_HELP_DEBUG_FLAGS,
-    OPTION_OUTPUT_DIRECTORY
+    OPTION_OUTPUT_DIRECTORY,
+	OPTION_NO_OPENMP
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
@@ -79,6 +80,7 @@ typedef struct debug_options_tag
     char enable_debug_code;
     char debug_lexer;
     char debug_parser;
+	char print_ast;
 } debug_options_t;
 
 // Global compiler options
@@ -96,6 +98,7 @@ typedef struct compilation_options_tag
     char do_not_link;
     char do_not_compile;
     char do_not_prettyprint;
+	char disable_openmp;
 
     debug_options_t debug_options;
     

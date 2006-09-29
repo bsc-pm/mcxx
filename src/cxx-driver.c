@@ -35,7 +35,6 @@ compilation_options_t compilation_options;
 "  -k, --keep-files         Do not remove intermediate temporary\n" \
 "                           files.\n" \
 "  -a, --check-dates        Checks dates before regenerating files\n" \
-"  -g, --graphviz           Outputs AST in graphviz format\n" \
 "  --output-dir=<dir>       Prettyprinted files will be left in\n" \
 "                           directory <dir>. Otherwise the input\n" \
 "                           file directory is used.\n" \
@@ -54,13 +53,14 @@ compilation_options_t compilation_options;
 "                           the native compiler\n" \
 "  -Wl,<options>            Pass comma-separated <options> on to\n" \
 "                           the linker\n" \
+"  --no-openmp              Disables OpenMP 2.5 support\n" \
 "  --config-file=<file>     Uses <file> as config file, otherwise\n" \
 "                           '" PKGDATADIR "/config.mcxx'\n" \
 "                           will be used\n" \
 "\n"
 
 // Remember to update GETOPT_STRING if needed
-#define GETOPT_STRING "vkagdcho:m:W:Ey"
+#define GETOPT_STRING "vkadcho:m:W:Ey"
 struct option getopt_long_options[] =
 {
     {"help",        no_argument, NULL, 'h'},
@@ -68,7 +68,6 @@ struct option getopt_long_options[] =
     {"verbose",     no_argument, NULL, 'v'},
     {"keep-files",  no_argument, NULL, 'k'},
     {"check-dates", no_argument, NULL, 'a'},
-    {"graphviz",    no_argument, NULL, 'g'},
     {"debug",       no_argument, NULL, 'd'},
     {"output",      required_argument, NULL, 'o'},
 	// This option has a chicken-and-egg problem. If we delay till getopt_long
@@ -83,6 +82,7 @@ struct option getopt_long_options[] =
     {"ld", required_argument, NULL, OPTION_LINKER_NAME},
     {"debug-flags",  required_argument, NULL, OPTION_DEBUG_FLAG},
     {"help-debug-flags", no_argument, NULL, OPTION_HELP_DEBUG_FLAGS},
+	{"no-openmp", no_argument, NULL, OPTION_NO_OPENMP},
     // sentinel
     {NULL, 0, NULL, 0}
 };
@@ -126,7 +126,7 @@ int main(int argc, char* argv[])
     // Initialization of the driver
     driver_initialization(argc, argv);
 
-    // Argument parsing
+	// Default values
     initialize_default_values();
 	
     // Load configuration
@@ -299,10 +299,16 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                     compilation_options.output_directory = GC_STRDUP(optarg);
                     break;
                 }
+			case OPTION_NO_OPENMP :
+				{
+					compilation_options.disable_openmp = 1;
+					break;
+				}
             case OPTION_HELP_DEBUG_FLAGS :
                 {
                     print_debug_flags_list();
                     exit(EXIT_SUCCESS);
+					break;
                 }
             case 'h' :
                 {
@@ -686,6 +692,13 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
                 parsed_filename,
                 timing_elapsed(&timing_semantic));
     }
+
+	if (compilation_options.debug_options.print_ast)
+	{
+		fprintf(stderr, "Printing AST in graphviz format\n");
+
+		ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+	}
 
     check_tree(translation_unit->parsed_tree);
 }

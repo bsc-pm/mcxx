@@ -19,13 +19,15 @@ struct scan_file_descriptor scanning_now;
 
 static char* main_input_filename;
 
+static int omp_var_list_parentheses = 0;
+static int omp_schedule_parentheses = 0;
+static char omp_seen_schedule_kind = 0;
+
 // For Garbage collection support
 #define free(x)
 #define malloc(x) GC_MALLOC(x)
 
 %}
-
-%option stack
 
  /* Lexical conventions A.2 */
  /* A.2.1 */
@@ -78,17 +80,314 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 %x longcomment
 %x linecomment
 %x preprocess
+%x openmp_directive
+%x openmp_clause
+%x openmp_default
+
+%s openmp_var_list
+%s openmp_schedule
 
 %%
  /* preprocess */
 
-"#"     { yy_push_state(preprocess); }
- /*
-<preprocess>[ ]*pragma[ ]+omp[^\n]* {
- // Handle OMP pragmas
+"#"     { BEGIN(preprocess); }
+
+<preprocess>[ ]*pragma[ ]+omp[ ]+/[^\n]* {
+	// Handle OpenMP pragmas
+	if (compilation_options.disable_openmp)
+	{
+		// Ignore this if OpenMP is disabled
+		REJECT;
+	}
+	BEGIN(openmp_directive);
+	return OMP_PRAGMA;
+}
+
+<openmp_directive>{
+
+parallel {
+	BEGIN(openmp_clause);
+	return OMP_PARALLEL;
+}
+
+for {
+	BEGIN(openmp_clause);
+	return OMP_PARALLEL;
+}
+
+sections {
+	BEGIN(openmp_clause);
+	return OMP_SECTIONS;
+}
+
+section {
+	BEGIN(openmp_clause);
+	return OMP_SECTION;
+}
+
+parallel[ ]+for {
+	BEGIN(openmp_clause);
+	return OMP_PARALLEL_FOR;
+}
+
+parallel[ ]+sections {
+	BEGIN(openmp_clause);
+	return OMP_PARALLEL_SECTIONS;
+}
+
+single {
+	BEGIN(openmp_clause);
+	return OMP_SINGLE;
+}
+
+master {
+	BEGIN(openmp_clause);
+	return OMP_MASTER;
+}
+
+atomic {
+	BEGIN(openmp_clause);
+	return OMP_ATOMIC;
+}
+
+flush {
+	BEGIN(openmp_clause);
+	return OMP_FLUSH;
+}
+
+barrier {
+	BEGIN(openmp_clause);
+	return OMP_BARRIER;
+}
+
+ordered {
+	BEGIN(openmp_clause);
+	return OMP_ORDERED;
+}
+
+critical {
+	BEGIN(openmp_clause);
+	return OMP_ORDERED;
+}
+
+threadprivate {
+	omp_var_list_parentheses = 0;
+	BEGIN(openmp_var_list);
+	return OMP_THREADPRIVATE;
+}
 
 }
- */
+
+<openmp_clause>{
+
+\n {
+	BEGIN(INITIAL);
+	return OMP_NEWLINE;
+}
+
+[,] {
+	return ',';
+}
+
+[ \t] { }
+
+schedule {
+	omp_schedule_parentheses = 0;
+	omp_seen_schedule_kind = 0;
+	BEGIN(openmp_schedule);
+	return OMP_SCHEDULE;
+}
+
+nowait {
+	return OMP_NOWAIT;
+}
+
+ordered {
+	return OMP_ORDERED;
+}
+
+private {
+	omp_var_list_parentheses = 0;
+	BEGIN(openmp_var_list);
+	return OMP_PRIVATE;
+}
+
+copyprivate {
+	omp_var_list_parentheses = 0;
+	BEGIN(openmp_var_list);
+	return OMP_COPYPRIVATE;
+}
+
+firstprivate {
+	omp_var_list_parentheses = 0;
+	BEGIN(openmp_var_list);
+	return OMP_FIRSTPRIVATE;
+}
+
+lastprivate {
+	omp_var_list_parentheses = 0;
+	BEGIN(openmp_var_list);
+	return OMP_LASTPRIVATE;
+}
+
+shared {
+	omp_var_list_parentheses = 0;
+	BEGIN(openmp_var_list);
+	return OMP_SHARED;
+}
+
+copyin {
+	omp_var_list_parentheses = 0;
+	BEGIN(openmp_var_list);
+	return OMP_COPYIN;
+}
+
+reduction {
+	omp_var_list_parentheses = 0;
+	BEGIN(openmp_var_list);
+	return OMP_PRIVATE;
+}
+
+default {
+	BEGIN(openmp_default);
+	return OMP_DEFAULT;
+}
+
+if {
+	// Lexing is the same as a var-list
+	BEGIN(openmp_var_list);
+	return OMP_IF;
+}
+
+num_threads {
+	// Lexing is the same as a var-list
+	BEGIN(openmp_var_list);
+	return OMP_NUM_THREADS;
+}
+
+}
+
+<openmp_default>{
+
+[(] {
+		return '(';
+}
+
+[)] {
+	BEGIN(openmp_clause);
+	return ')';
+}
+
+shared {
+	return OMP_SHARED;
+}
+
+none {
+	return OMP_NONE;
+}
+
+[ \t] { }
+
+}
+
+<openmp_var_list>{
+
+[(] {
+	parse_token_text();
+	omp_var_list_parentheses++;
+	return '(';
+}
+
+[)] {
+	parse_token_text();
+	omp_var_list_parentheses--;
+	if (omp_var_list_parentheses == 0)
+	{
+		BEGIN(openmp_clause);
+	}
+	return ')';
+}
+
+}
+
+<openmp_schedule>{
+
+[(] {
+	parse_token_text();
+	omp_schedule_parentheses++;
+	return '(';
+}
+
+[)] {
+	parse_token_text();
+	omp_schedule_parentheses--;
+
+	if (omp_schedule_parentheses == 0)
+	{
+		BEGIN(openmp_clause);
+	}
+
+	return ')';
+}
+
+static {
+	// static is a reserved word in C++
+	// We do not need to take additional care
+	parse_token_text();
+	omp_seen_schedule_kind = 1;
+	return OMP_STATIC;
+}
+
+dynamic {
+	// dynamic is only a schedule-kind after "schedule("
+	parse_token_text();
+	if (!omp_seen_schedule_kind)
+	{
+		omp_seen_schedule_kind = 1;
+		return OMP_DYNAMIC;
+	}
+	else
+	{
+		return IDENTIFIER;
+	}
+}
+
+guided {
+	// guided is only a schedule-kind after "schedule("
+	parse_token_text();
+	if (!omp_seen_schedule_kind)
+	{
+		omp_seen_schedule_kind = 1;
+		return OMP_GUIDED;
+	}
+	else
+	{
+		return IDENTIFIER;
+	}
+}
+
+runtime {
+	// runtime is only a schedule-kind after "schedule("
+	parse_token_text();
+	if (!omp_seen_schedule_kind)
+	{
+		omp_seen_schedule_kind = 1;
+		return OMP_RUNTIME;
+	}
+	else
+	{
+		return IDENTIFIER;
+	}
+}
+
+[,] {
+	// After the comma, no schedule-kind may appear
+	omp_seen_schedule_kind = 1;
+	return ',';
+}
+
+}
+
 <preprocess>[ ]*pragma[^\n]* {
  // Handle unknown pragmas
  parse_token_text();
@@ -140,25 +439,25 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 	scanning_now.current_filename = reference_to_seen_filename(filename);
 }
 <preprocess>.       { /* ignore line */  }
-<preprocess>\n  { scanning_now.line_number++; yy_pop_state(); }
+<preprocess>\n  { scanning_now.line_number++; BEGIN(INITIAL); }
 
  /* C comments ( 6.4.9 ) */
 
  /* // comments. // can be splitted across different lines */
 
-"/"(\\\n)*"/"       { yy_push_state(linecomment); }
+"/"(\\\n)*"/"       { BEGIN(linecomment); }
 
  /* escaped new line does not end comment */
 <linecomment>\\\n   { scanning_now.line_number++; }
 <linecomment>.      { /* ignore comment */  }
-<linecomment>\n     { scanning_now.line_number++; yy_pop_state(); }
+<linecomment>\n     { scanning_now.line_number++; BEGIN(INITIAL); }
 
  /* long C comments. tags can be splitted across diferent lines */
 
-"/"(\\\n)*"*"               { yy_push_state(longcomment); }
+"/"(\\\n)*"*"               { BEGIN(longcomment); }
 <longcomment>\n             { scanning_now.line_number++; }
 <longcomment>.              { /* ignore comment */ }
-<longcomment>"*"(\\\n)*"/"  { yy_pop_state(); }
+<longcomment>"*"(\\\n)*"/"  { BEGIN(INITIAL); }
 
 
  /* A.2.11 */
@@ -352,7 +651,7 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 
 [\n]        { scanning_now.line_number++; }
 [ \t\v\f]   {  }
-.           { 
+<*>.           { 
     /* ignore bad characters */ 
     if (isgraph(*yytext))
     {
