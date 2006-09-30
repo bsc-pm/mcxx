@@ -121,6 +121,8 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 
 <openmp_directive>{
 
+[ \t] { }
+
 parallel {
 	BEGIN(openmp_clause);
 	return OMP_PARALLEL;
