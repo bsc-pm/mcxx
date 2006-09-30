@@ -31,6 +31,7 @@ static int num_new_lines(char* c)
     {
         if (*c == '\n') 
             result++;
+        c++;
     }
 
     return result;
