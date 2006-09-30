@@ -5860,11 +5860,54 @@ static void build_scope_null(AST a, scope_t* st, decl_context_t decl_context)
 /* OpenMP 2.5 handlers */
 static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_context)
 {
+    // Semantic fix of expressions in clauses
+    if (ASTSon0(a) != NULL)
+    {
+        AST list = ASTSon0(a);
+        AST iter;
+
+        for_each_element(list, iter)
+        {
+            AST clause = ASTSon1(iter);
+
+            switch (ASTType(clause))
+            {
+                case AST_OMP_IF_CLAUSE :
+                case AST_OMP_NUM_THREADS_CLAUSE :
+                    {
+                        AST expression = ASTSon0(clause);
+                        solve_possibly_ambiguous_expression(expression, st, decl_context);
+                        break;
+                    }
+                case AST_OMP_SCHEDULE_CLAUSE :
+                case AST_OMP_ORDERED_CLAUSE :
+                case AST_OMP_NOWAIT_CLAUSE :
+                case AST_OMP_SHARED_CLAUSE :
+                case AST_OMP_PRIVATE_CLAUSE :
+                case AST_OMP_FIRSTPRIVATE_CLAUSE :
+                case AST_OMP_LASTPRIVATE_CLAUSE :
+                case AST_OMP_COPYPRIVATE_CLAUSE :
+                case AST_OMP_COPYIN_CLAUSE :
+                case AST_OMP_DEFAULT_NONE_CLAUSE :
+                case AST_OMP_DEFAULT_SHARED_CLAUSE :
+                    {
+                        // OpenMP clauses with variable_list could end up
+                        // having an ambiguity within it because of a
+                        // template-id involving ambiguous expressions, but
+                        // this is unlikely in most of the codes, so at the
+                        // moment do not fix these nodes
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Unknown node '%s' in %s\n", ast_print_node_type(ASTType(clause)),
+                                node_information(clause));
+                    }
+            }
+        }
+    }
 }
 
-static void build_scope_omp_sections_construct(AST a, scope_t* st, decl_context_t decl_context)
-{
-}
 
 static void build_scope_omp_construct(AST a, scope_t* st, decl_context_t decl_context)
 {
@@ -5875,6 +5918,48 @@ static void build_scope_omp_construct(AST a, scope_t* st, decl_context_t decl_co
 	}
 }
 
+static void build_scope_omp_threadprivate(AST a, scope_t* st, decl_context_t decl_context)
+{
+    // At the moment do nothing
+}
+
+static void build_scope_omp_flush_directive(AST a, scope_t* st, decl_context_t decl_context)
+{
+    // At the moment do nothing
+}
+
+static void build_scope_omp_sections_construct(AST a, scope_t* st, decl_context_t decl_context)
+{
+    build_scope_omp_directive(ASTSon0(a), st, decl_context);
+
+    AST section_sequence = ASTSon1(a);
+
+    if (section_sequence != NULL)
+    {
+        AST list = section_sequence;
+        AST iter;
+        
+        for_each_element(list, iter)
+        {
+            AST omp_section = ASTSon1(iter);
+
+            // Nothing is going to be done to the "#pragma omp section"
+            //
+            // build_scope_omp_directive(ASTSon0(omp_section), st, decl_context)
+
+            build_scope_statement(ASTSon1(omp_section), st, decl_context);
+        }
+    }
+}
+
+static void build_scope_omp_critical_construct(AST a, scope_t* st, decl_context_t decl_context)
+{
+    // No need to check anything 
+    if (ASTSon1(a) != NULL)
+    {
+		build_scope_statement(ASTSon1(a), st, decl_context);
+    }
+}
 
 #define STMT_HANDLER(type, hndl) [type] = hndl
 
@@ -5908,11 +5993,10 @@ static stmt_scope_handler_t stmt_scope_handlers[] =
 	STMT_HANDLER(AST_OMP_MASTER_CONSTRUCT, build_scope_omp_construct),
 	STMT_HANDLER(AST_OMP_ATOMIC_CONSTRUCT, build_scope_omp_construct),
 	STMT_HANDLER(AST_OMP_ORDERED_CONSTRUCT, build_scope_omp_construct),
-	STMT_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, build_scope_omp_construct),
-	STMT_HANDLER(AST_OMP_FLUSH_DIRECTIVE, build_scope_omp_directive),
+	STMT_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, build_scope_omp_critical_construct),
+	STMT_HANDLER(AST_OMP_FLUSH_DIRECTIVE, build_scope_omp_flush_directive),
 	STMT_HANDLER(AST_OMP_BARRIER_DIRECTIVE, build_scope_omp_directive),
-	STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_null),
-	STMT_HANDLER(AST_OMP_SECTION, build_scope_null),
+	STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate),
 };
 
 

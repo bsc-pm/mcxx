@@ -698,7 +698,6 @@ static void sequence_handler(FILE* f, AST a, int level)
     if (ASTSon0(a) != NULL)
     {
         sequence_handler(f, ASTSon0(a), level);
-        // token_fprintf(f, a, " ");
     }
 
     prettyprint_level(f, ASTSon1(a), level);
@@ -2731,7 +2730,7 @@ static void omp_generic_directive_handler(FILE* f, AST a, int level)
 	if (ASTSon0(a) != NULL)
 	{
 		token_fprintf(f, a, " ");
-		prettyprint_level(f, ASTSon0(a), level);
+		spaced_sequence_handler(f, ASTSon0(a), level);
 	}
 	token_fprintf(f, a, "\n");
 }

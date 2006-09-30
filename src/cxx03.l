@@ -23,6 +23,19 @@ static int omp_var_list_parentheses = 0;
 static int omp_schedule_parentheses = 0;
 static char omp_seen_schedule_kind = 0;
 
+static int num_new_lines(char* c)
+{
+    int result = 0;
+
+    while (*c)
+    {
+        if (*c == '\n') 
+            result++;
+    }
+
+    return result;
+}
+
 // For Garbage collection support
 #define free(x)
 #define malloc(x) GC_MALLOC(x)
@@ -90,9 +103,11 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 %%
  /* preprocess */
 
-"#"     { BEGIN(preprocess); }
+"#" { 
+    BEGIN(preprocess); 
+}
 
-<preprocess>[ ]*pragma[ ]+omp[ ]+/[^\n]* {
+<preprocess>[ ]*pragma[ ]+omp/[ ][^\n]* {
 	// Handle OpenMP pragmas
 	if (compilation_options.disable_openmp)
 	{
@@ -181,8 +196,10 @@ threadprivate {
 <openmp_clause>{
 
 \n {
-	BEGIN(INITIAL);
-	return OMP_NEWLINE;
+    scanning_now.line_number++;
+    BEGIN(INITIAL);
+
+    return OMP_NEWLINE;
 }
 
 [,] {
@@ -445,7 +462,10 @@ runtime {
 
  /* // comments. // can be splitted across different lines */
 
-"/"(\\\n)*"/"       { BEGIN(linecomment); }
+"/"(\\\n)*"/"       { 
+    scanning_now.line_number += num_new_lines(yytext); 
+    BEGIN(linecomment); 
+}
 
  /* escaped new line does not end comment */
 <linecomment>\\\n   { scanning_now.line_number++; }
@@ -454,10 +474,16 @@ runtime {
 
  /* long C comments. tags can be splitted across diferent lines */
 
-"/"(\\\n)*"*"               { BEGIN(longcomment); }
+"/"(\\\n)*"*"               { 
+    scanning_now.line_number += num_new_lines(yytext);
+    BEGIN(longcomment); 
+}
 <longcomment>\n             { scanning_now.line_number++; }
 <longcomment>.              { /* ignore comment */ }
-<longcomment>"*"(\\\n)*"/"  { BEGIN(INITIAL); }
+<longcomment>"*"(\\\n)*"/"  { 
+    scanning_now.line_number += num_new_lines(yytext);
+    BEGIN(INITIAL); 
+}
 
 
  /* A.2.11 */
