@@ -1,3 +1,5 @@
+noinst_PROGRAMS = tpp
+
 noinst_LTLIBRARIES = libmcxx-utils.la libmcxx-mcfg.la
 EXTRA_LTLIBRARIES=libmcxx-getopt.la
 
@@ -25,3 +27,5 @@ libmcxx_utils_la_CFLAGS = -I $(srcdir)/../gc/include
 libmcxx_mcfg_la_SOURCES = mcfg.h \
                           mcfg.c
 libmcxx_mcfg_la_CFLAGS = -I $(srcdir)/../gc/include
+
+tpp_SOURCES = tpp.c
