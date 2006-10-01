@@ -62,13 +62,12 @@ mcxx_CFLAGS=-I$(srcdir)/../lib -I$(srcdir)/../gc/include -DPKGDATADIR=\"$(pkgdat
 
 EXTRA_DIST =
 EXTRA_DIST += cxx03.y
-EXTRA_DIST += cxx03.l
 EXTRA_DIST += cxx-asttype.def
 EXTRA_DIST += cxx-fileextensions.gperf
 EXTRA_DIST += cxx-configoptions.gperf
 EXTRA_DIST += cxx-debugflags.gperf
 EXTRA_DIST += c99.y
-EXTRA_DIST += c99.l
+EXTRA_DIST += cxx-lexer.l
 
 cxx-ast.h : cxx-asttype.h
 
@@ -94,8 +93,11 @@ cxx-asttype.c : $(srcdir)/cxx-asttype.def cxx-asttype.h
 cxx-parser.c cxx-parser.h : $(srcdir)/cxx03.y
 	bison -g -pmcxx --debug --defines --report=all --output=cxx-parser.c $(srcdir)/cxx03.y
 
-cxx-scanner.c : $(srcdir)/cxx03.l $(srcdir)/cxx-ast.h cxx-parser.h
-	flex -Pmcxx -d -ocxx-scanner.c -8 $(srcdir)/cxx03.l
+cxx-scanner.c : cxx03.l $(srcdir)/cxx-ast.h cxx-parser.h
+	flex -Pmcxx -d -ocxx-scanner.c -8 cxx03.l
+
+cxx03.l : ../lib/tpp $(srcdir)/cxx-lexer.l
+	../lib/tpp -o cxx03.l -D CPLUSPLUS $(srcdir)/cxx-lexer.l
 
 cxx-fileextensions.c : cxx-fileextensions.gperf cxx-driver.h
 	gperf --language=ANSI-C --hash-function-name=fileextensions_hash --struct-type \
@@ -116,8 +118,11 @@ cxx-debugflags.c : cxx-debugflags.gperf cxx-driver.h cxx-utils.h
 c99-parser.c c99-parser.h : $(srcdir)/c99.y
 	bison -g -pmc99 --debug --defines --report=all --output=c99-parser.c $(srcdir)/c99.y
 
-c99-scanner.c : $(srcdir)/c99.l $(srcdir)/cxx-ast.h c99-parser.h
-	flex -Pmc99 -d -oc99-scanner.c -8 $(srcdir)/c99.l
+c99-scanner.c : c99.l $(srcdir)/cxx-ast.h c99-parser.h
+	flex -Pmc99 -d -oc99-scanner.c -8 c99.l
+
+c99.l : ../lib/tpp $(srcdir)/cxx-lexer.l
+	../lib/tpp -o c99.l -D C99 $(srcdir)/cxx-lexer.l
 
 CLEANFILES =
 CLEANFILES += cxx-parser.c
@@ -129,9 +134,11 @@ CLEANFILES += cxx-parser.output
 CLEANFILES += cxx-fileextensions.c
 CLEANFILES += cxx-configoptions.c
 CLEANFILES += cxx-debugflags.c
+CLEANFILES += cxx03.l
 CLEANFILES += c99-parser.c
 CLEANFILES += c99-parser.h
 CLEANFILES += c99-scanner.c
 CLEANFILES += c99-parser.output
+CLEANFILES += c99.l
 
 
