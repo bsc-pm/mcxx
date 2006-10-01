@@ -8,6 +8,10 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -17,7 +21,8 @@
 
 
 #define HELP_MESSAGE \
-"Syntax: tpp -o output_file [-D define...] input_file" \
+"Syntax: \n" \
+"  tpp -o output_file [-D define...] input_file" \
 "\n"
 
 static int num_defines = 0;
@@ -30,59 +35,61 @@ static void help_message(char* error_message)
 {
     if (error_message != NULL)
     {
-        fprintf(stderr, "%s\n\n", error_message);
+        fprintf(stderr, "Error: %s\n\n", error_message);
     }
     fprintf(stderr, HELP_MESSAGE);
     exit(EXIT_FAILURE);
 }
 
+#define GETOPT_OPTIONS "o:D:"
 static void parse_arguments(int argc, char* argv[])
 {
-    int i;
-    for (i = 1; i < argc; i++)
+    int n;
+    while ((n = getopt(argc, argv, GETOPT_OPTIONS)) != -1)
     {
-        if (strcmp(argv[i], "-D") == 0)
+        char c = (char)n;
+
+        switch (c)
         {
-            if ((i + 1) >= argc)
-            {
-                help_message("Macro name not specified");
-            }
+            case 'o' :
+                {
+                    if (output_file != NULL)
+                    {
+                        help_message("Output file more than once specified\n");
+                    }
 
-            defines[num_defines] = argv[i+1];
-            num_defines++;
-            i++;
-        }
-        else if (strcmp(argv[i], "-o") == 0)
-        {
-            if ((i + 1) >= argc)
-            {
-                help_message("Output filename not specified");
-            }
-
-            if (output_file != NULL)
-            {
-                help_message("Output file more than once specified\n");
-            }
-
-            output_file = argv[i+1];
-            i++;
-        }
-        else
-        {
-            if (input_file != NULL)
-            {
-                help_message("Input filename more than once specified\n");
-            }
-
-            input_file = argv[i];
+                    output_file = strdup(optarg);
+                    break;
+                }
+           case 'D' :
+                {
+                    defines[num_defines] = strdup(optarg);
+                    num_defines++;
+                    break;
+                }
+           default :
+                {
+                    break;
+                }
         }
     }
 
-    if ((input_file == NULL)
-        || (output_file == NULL))
+    if (output_file == NULL)
     {
-        help_message("Missing parameters");
+        help_message("Output file not specified");
     }
+
+    if (optind >= argc)
+    {
+        help_message("Input file not specified");
+    }
+
+    if ((optind + 1) < argc)
+    {
+        help_message("More than one input file specified");
+    }
+
+    input_file = strdup(argv[optind]);
 }
 
 static void conditional_process(char* input_filename, char* output_filename)
@@ -243,6 +250,7 @@ static void conditional_process(char* input_filename, char* output_filename)
 
 int main(int argc, char* argv[])
 {
+    fprintf(stderr, "tpp - a tiny preprocessor for " PACKAGE " " VERSION "\n");
     parse_arguments(argc, argv);
     conditional_process(input_file, output_file);
     return 0;
