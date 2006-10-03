@@ -57,7 +57,7 @@ mcc : mcxx
 #  cxx-overload.h
 
 mcxx_LDFLAGS=-L../lib -L../gc
-mcxx_LDADD=../lib/libmcxx-utils.la ../gc/libgc.la ../lib/libmcxx-mcfg.la
+mcxx_LDADD=../lib/libmcxx-utils.la ../gc/libgc.la ../lib/libmcxx-mcfg.la ../lib/libmcxx-extstruct.la
 mcxx_CFLAGS=-I$(srcdir)/../lib -I$(srcdir)/../gc/include -DPKGDATADIR=\"$(pkgdatadir)\"
 
 EXTRA_DIST =

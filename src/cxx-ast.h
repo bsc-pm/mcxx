@@ -7,6 +7,7 @@
 
 #define MAX_AST_CHILDREN (4)
 
+#include "extstruct.h"
 #include "cxx-asttype.h"
 
 struct node_ast
@@ -22,7 +23,12 @@ struct node_ast
 
     int num_ambig;
     struct node_ast** ambig;
+
+	// Extension node
+	extensible_struct_t extended_data;
 };
+
+extern extensible_schema_t ast_extensible_schema;
 
 typedef struct node_ast* AST;
 

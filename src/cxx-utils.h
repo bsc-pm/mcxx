@@ -9,6 +9,7 @@
 #include <time.h>
 
 #include <gc.h>
+#include <gcstring.h>
 
 #include "cxx-driver.h"
 
@@ -105,7 +106,6 @@ do { \
     } \
 } while (0)
 
-char* GC_STRDUP(const char* str);
 
 #define BITMAP_TEST(x, b) (((x) & (b)) == (b))
 

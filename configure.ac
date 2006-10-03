@@ -110,8 +110,8 @@ AC_CONFIG_SUBDIRS(gc)
 
 dnl Escrivim els makefiles
 AC_CONFIG_FILES([Makefile 
-		   src/Makefile 
 		   lib/Makefile
+		   src/Makefile 
 		   config/Makefile
            tests/Makefile
 		   ])

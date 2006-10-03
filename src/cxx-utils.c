@@ -89,14 +89,6 @@ char* strprepend(char* orig, char* prepended)
     return result;
 }
 
-char* GC_STRDUP(const char* str)
-{
-    char* result = GC_CALLOC(strlen(str) + 1, sizeof(char));
-
-    strcpy(result, str);
-
-    return result;
-}
 
 char* get_unique_name(void)
 {
