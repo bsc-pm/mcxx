@@ -3,6 +3,7 @@
 
 #include <cxx-ast.h>
 #include <cxx-scope.h>
+#include <cxx-scopelink.h>
 #include <getopt.h>
 #include "cxx-macros.h"
 
@@ -59,6 +60,7 @@ typedef struct translation_unit_tag
 
     AST parsed_tree;
     scope_t* global_scope;
+	scope_link_t* scope_link;
 } translation_unit_t;
 
 // Configuration file directives
@@ -121,6 +123,7 @@ typedef struct compilation_options_tag
     // This makes things non reentrant (but globally accessable without
     // parameter cluttering)
     scope_t* global_scope;
+	scope_link_t* scope_link;
 
     // Output filename
     char* linked_output_filename;

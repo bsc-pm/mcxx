@@ -1,11 +1,14 @@
 #include <stdio.h>
 #include <string.h>
+#include "extstruct.h"
+#include "cxx-attrnames.h"
 #include "cxx-ambiguity.h"
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
 #include "cxx-prettyprint.h"
 #include "cxx-buildscope.h"
 #include "cxx-graphviz.h"
+#include "cxx-tltype.h"
 
 /*
  * This file performs disambiguation. If a symbol table is passed along the
@@ -1240,7 +1243,14 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             }
         case AST_SYMBOL :
             {
-                return check_for_symbol(expression, st, decl_context);
+               char c = check_for_symbol(expression, st, decl_context);
+
+			   if (c)
+			   {
+				   ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
+			   }
+
+			   return c;
             }
         case AST_DESTRUCTOR_ID :
         case AST_DESTRUCTOR_TEMPLATE_ID :

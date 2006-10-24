@@ -15,6 +15,8 @@
 #include "cxx-solvetemplate.h"
 #include "cxx-instantiation.h"
 #include "cxx-tltype.h"
+#include "cxx-scopelink.h"
+#include "cxx-attrnames.h"
 #include "hash_iterator.h"
 
 /*
@@ -149,6 +151,11 @@ const decl_context_t default_decl_context = { 0 };
 
 void build_scope_dynamic_initializer(void)
 {
+	// C/C++ stuff
+	// States if this AST names a symbol (it can be a qualified one)
+	extensible_schema_add_field(&ast_extensible_schema, "lang.is_id_expression", sizeof(tl_type_t));
+	
+	// OpenMP stuff
 	extensible_schema_add_field(&ast_extensible_schema, "omp.is_parallel_construct", sizeof(tl_type_t));
 }
 
@@ -164,9 +171,14 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
 
     // The global scope is created here
     translation_unit->global_scope = new_namespace_scope(NULL);
+	translation_unit->scope_link = scope_link_new();
 
-    // Fix this one day
+	// Link the AST root node with the global scope
+	scope_link_set(translation_unit->scope_link, a, translation_unit->global_scope);
+
+    // Fix this one day (it makes thing non fully reentrant)
     compilation_options.global_scope = translation_unit->global_scope;
+	compilation_options.scope_link = translation_unit->scope_link;
 
     initialize_builtin_symbols();
 
@@ -179,6 +191,8 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
         fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
     }
 
+    // Clear for sanity checks
+	compilation_options.scope_link = NULL;
     compilation_options.global_scope = NULL;
 }
 
@@ -1712,6 +1726,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
     // (it is used when checking member acesses)
     simple_type_info->type->class_info->inner_scope = inner_scope;
 
+	// No class entry
     scope_entry_t* class_entry = NULL;
     
     if (class_head_identifier != NULL)
@@ -1833,6 +1848,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 internal_error("Unreachable code", 0);
             }
 
+			// This code is completely ugly
             if (decl_context.template_parameters != NULL)
             {
                 if (class_entry->template_parameter_info == NULL)
@@ -1843,7 +1859,8 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 }
                 else // Otherwise first mix them
                 {
-                    ERROR_CONDITION((class_entry->num_template_parameters != decl_context.num_template_parameters), "The number of template parameters declared here does not match with a previous declaration\n", 0);
+                    ERROR_CONDITION((class_entry->num_template_parameters != decl_context.num_template_parameters), 
+							"The number of template parameters declared here does not match with a previous declaration\n", 0);
 
                     int i;
                     for (i = 0; i < decl_context.num_template_parameters; i++)
@@ -1992,6 +2009,9 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
     {
         current_access = AS_PUBLIC;
     }
+
+	// The inner scope is properly adjusted here thus we can link it with the AST
+	scope_link_set(compilation_options.scope_link, a, copy_scope(inner_scope));
     
     // Now add the bases
     if (base_clause != NULL)
@@ -2391,6 +2411,9 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
             return;
         }
     }
+
+	// Link the scope of the parameters
+	scope_link_set(compilation_options.scope_link, parameters, copy_scope(parameters_scope));
 
     for_each_element(list, iter)
     {
@@ -3255,6 +3278,9 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
         solve_ambiguous_declaration(templated_decl, st, decl_context);
     }
 
+	// Link the AST with the scope
+	scope_link_set(compilation_options.scope_link, a, copy_scope(st));
+
     switch (ASTType(templated_decl))
     {
         case AST_FUNCTION_DEFINITION :
@@ -3893,6 +3919,9 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
             entry->line = ASTLine(namespace_name);
             entry->kind = SK_NAMESPACE;
             entry->related_scope = namespace_scope;
+
+			// Link the scope of this newly created namespace
+			scope_link_set(compilation_options.scope_link, a, namespace_scope);
         }
 
         if (ASTSon1(a) != NULL)
@@ -5634,6 +5663,8 @@ static void build_scope_compound_statement(AST a, scope_t* st, decl_context_t de
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
+	scope_link_set(compilation_options.scope_link, a, copy_scope(block_scope));
+
     AST list = ASTSon0(a);
     if (list != NULL)
     {
@@ -5687,6 +5718,9 @@ static void build_scope_condition(AST a, scope_t* st, decl_context_t decl_contex
 static void build_scope_while_statement(AST a, scope_t* st, decl_context_t decl_context)
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
+
+	scope_link_set(compilation_options.scope_link, a, copy_scope(block_scope));
+
     build_scope_condition(ASTSon0(a), block_scope, decl_context);
 
     if (ASTSon1(a) != NULL)
@@ -5718,6 +5752,8 @@ static void build_scope_if_else_statement(AST a, scope_t* st, decl_context_t dec
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
+	scope_link_set(compilation_options.scope_link, a, copy_scope(block_scope));
+
     AST condition = ASTSon0(a);
     build_scope_condition(condition, block_scope, decl_context);
 
@@ -5745,6 +5781,8 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
 
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
+	scope_link_set(compilation_options.scope_link, a, copy_scope(block_scope));
+
     if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
     {
         build_scope_simple_declaration(for_init_statement, block_scope, decl_context);
@@ -5771,6 +5809,9 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
 static void build_scope_switch_statement(AST a, scope_t* st, decl_context_t decl_context)
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
+
+	scope_link_set(compilation_options.scope_link, a, copy_scope(block_scope));
+
     AST condition = ASTSon0(a);
     AST statement = ASTSon1(a);
 
@@ -5827,6 +5868,8 @@ static void build_scope_try_block(AST a, scope_t* st, decl_context_t decl_contex
         if (ASTType(exception_declaration) != AST_ANY_EXCEPTION)
         {
             scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
+
+			scope_link_set(compilation_options.scope_link, exception_declaration, copy_scope(block_scope));
 
             AST type_specifier_seq = ASTSon0(exception_declaration);
             // This declarator can be null
@@ -5921,7 +5964,7 @@ static void build_scope_omp_construct(AST a, scope_t* st, decl_context_t decl_co
 {
 	tl_type_t tl_val = tl_bool(1);
 
-	ASTAttrSetValueType(a, "omp.is_parallel_construct", tl_type_t, tl_val);
+	ASTAttrSetValueType(a, OMP_IS_PARALLEL_CONSTRUCT, tl_type_t, tl_val);
 
 	build_scope_omp_directive(ASTSon0(a), st, decl_context);
 	if (ASTSon1(a) != NULL)

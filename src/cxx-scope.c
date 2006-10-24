@@ -1835,8 +1835,22 @@ scope_t* enclosing_namespace_scope(scope_t* st)
     return st;
 }
 
-// Copy scope to be able to retrieve data exactly as it was in that point
-// (useful for dynamic scoping like template scopes that disappear)
+// Copy scope. It preserves the structure of the scopes but not the contents.
+// Useful for dynamic scopes like templates that might appear and disappear
+// FIXME - ???
+// scope_t* copy_scope(scope_t* st)
+// {
+//     if (st == NULL)
+//         return NULL;
+// 
+//     scope_t* result = GC_CALLOC(1, sizeof(*result));
+// 
+//     // bitwise copy
+//     *result = *st;
+// 
+//     return result;
+// }
+
 scope_t* copy_scope(scope_t* st)
 {
     if (st == NULL)
@@ -1847,6 +1861,13 @@ scope_t* copy_scope(scope_t* st)
     // bitwise copy
     *result = *st;
 
+	// Copy all the full structure. 
+	//
+	// It is not needed since the "contained_in" relationship does not change
+	// and the "template_scope" relationship is updated at every place creating
+	// a linked list effect
+	//
+	// result->contained_in = copy_scope(st->contained_in);
+
     return result;
 }
-

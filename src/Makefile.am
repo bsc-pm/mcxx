@@ -61,6 +61,8 @@ libmcxx_la_SOURCES = \
   cxx-tltype.c \
   cxx-scopelink.c \
   cxx-scopelink.h \
+  cxx-attrnames.h \
+  cxx-attrnames.c \
   c99-scanner.c \
   c99-parser.c
 
@@ -80,6 +82,7 @@ EXTRA_DIST += cxx-asttype.def
 EXTRA_DIST += cxx-fileextensions.gperf
 EXTRA_DIST += cxx-configoptions.gperf
 EXTRA_DIST += cxx-debugflags.gperf
+EXTRA_DIST += cxx-attrnames.def
 EXTRA_DIST += c99.y
 
 # Sources (or things needed) built at some step before its real compilation
@@ -94,12 +97,16 @@ BUILT_SOURCES += cxx-debugflags.c
 BUILT_SOURCES += c99-scanner.c
 BUILT_SOURCES += c99-parser.c
 BUILT_SOURCES += c99-parser.h
+BUILT_SOURCES += cxx-attrnames.c
+BUILT_SOURCES += cxx-attrnames.h
 
 CLEANFILES += cxx-parser.c
 CLEANFILES += cxx-parser.h
 CLEANFILES += cxx-scanner.c
 CLEANFILES += cxx-asttype.h
 CLEANFILES += cxx-asttype.c
+CLEANFILES += cxx-attrnames.c
+CLEANFILES += cxx-attrnames.h
 CLEANFILES += cxx-parser.output
 CLEANFILES += cxx-fileextensions.c
 CLEANFILES += cxx-configoptions.c
@@ -149,21 +156,39 @@ cxx-ast.h : cxx-asttype.h
 cxx-asttype.h : $(srcdir)/cxx-asttype.def
 	echo "#ifndef CXX_ASTTYPE_H" > cxx-asttype.h
 	echo "#define CXX_ASTTYPE_H" >> cxx-asttype.h
-	echo "/* This file has been generated. Every time you change cxx-asttype.def it will be regenerated */" >> cxx-asttype.h
+	echo "#include \"cxx-macros.h\"" >> cxx-asttype.h
+	echo "MCXX_BEGIN_DECLS" >> cxx-asttype.h
+	echo "/* This file has been generated. Every time you change $< it will be regenerated */" >> cxx-asttype.h
 	echo "enum node_type {" >> cxx-asttype.h
 	sed -e "s/$$/,/" < $(srcdir)/cxx-asttype.def >> cxx-asttype.h
 	echo "AST_LAST_NODE" >> cxx-asttype.h
 	echo "};" >> cxx-asttype.h
 	echo "extern char* ast_node_names[];" >> cxx-asttype.h
 	echo "typedef enum node_type node_t;" >> cxx-asttype.h
+	echo "MCXX_END_DECLS" >> cxx-asttype.h
 	echo "#endif // CXX_ASTTYPE_H" >> cxx-asttype.h
 
 cxx-asttype.c : $(srcdir)/cxx-asttype.def cxx-asttype.h
-	echo "/* This file has been generated. Every time you change cxx-asttype.def it will be regenerated */" > cxx-asttype.c
+	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-asttype.c
 	echo "#include \"cxx-asttype.h\"" >> cxx-asttype.c
 	echo "char* ast_node_names[] = {" >> cxx-asttype.c
 	sed -e "s/^.*$$/[&] = \"&\",/" < $(srcdir)/cxx-asttype.def >> cxx-asttype.c
 	echo "};" >> cxx-asttype.c
+
+cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
+	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-attrnames.h
+	echo "#ifndef CXX_ATTRNAMES_H" > cxx-attrnames.h
+	echo "#define CXX_ATTRNAMES_H" >> cxx-attrnames.h
+	echo "#include \"cxx-macros.h\"" >> cxx-attrnames.h
+	echo "MCXX_BEGIN_DECLS" >> cxx-attrnames.h
+	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/extern const char* \1;/" < $< >> cxx-attrnames.h
+	echo "MCXX_END_DECLS" >> cxx-attrnames.h
+	echo "#endif // CXX_ATTRNAMES_H" >> cxx-attrnames.h
+
+cxx-attrnames.c : $(srcdir)/cxx-attrnames.def cxx-attrnames.h
+	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-attrnames.c
+	echo "#include \"cxx-attrnames.h\"" >> cxx-attrnames.c
+	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/const char* \1 = \"\2\";/" < $< >> cxx-attrnames.c
 
 cxx-parser.c cxx-parser.h : $(srcdir)/cxx03.y
 	bison -pmcxx --debug --defines --report=all --output=cxx-parser.c $(srcdir)/cxx03.y
