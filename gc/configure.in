@@ -1,4 +1,4 @@
-# Copyright (c) 1999-2001 by Red Hat, Inc. All rights reserved.
+
 # 
 # THIS MATERIAL IS PROVIDED AS IS, WITH ABSOLUTELY NO WARRANTY EXPRESSED
 # OR IMPLIED.  ANY USE IS AT YOUR OWN RISK.
@@ -236,6 +236,9 @@ case "$TARGET_ECOS" in
       ;;
 esac
 
+# Always enable c++ in mcxx
+enable_cplusplus=yes
+
 if test "${enable_cplusplus}" = yes; then
       addincludes="$addincludes include/gc_cpp.h include/gc_allocator.h"
       addtests="$addtests test_cpp"
@@ -250,8 +253,8 @@ AC_SUBST(CXXINCLUDES)
 
 # Configuration of shared libraries
 #
-dnl AC_MSG_CHECKING(whether to build shared libraries)
-dnl AC_ENABLE_SHARED
+AC_MSG_CHECKING(whether to build shared libraries)
+AC_ENABLE_SHARED
 
 case "$host" in
  alpha-*-openbsd*)
@@ -320,7 +323,7 @@ AC_SUBST(addincludes)
 AC_SUBST(addlibs)
 AC_SUBST(addtests)
 
-AC_DISABLE_SHARED
+# AC_DISABLE_SHARED
 AC_PROG_LIBTOOL
 
 #
