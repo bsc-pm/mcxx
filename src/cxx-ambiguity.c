@@ -1214,7 +1214,14 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             }
         case AST_QUALIFIED_ID :
             {
-                return check_for_qualified_id(expression, st, decl_context);
+                char c = check_for_qualified_id(expression, st, decl_context);
+
+				if (c)
+				{
+					ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
+				}
+
+				return c;
             }
         case AST_QUALIFIED_TEMPLATE :
             {

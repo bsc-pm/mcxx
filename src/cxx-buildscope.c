@@ -5962,9 +5962,7 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
 
 static void build_scope_omp_construct(AST a, scope_t* st, decl_context_t decl_context)
 {
-	tl_type_t tl_val = tl_bool(1);
-
-	ASTAttrSetValueType(a, OMP_IS_PARALLEL_CONSTRUCT, tl_type_t, tl_val);
+	ASTAttrSetValueType(a, OMP_IS_PARALLEL_CONSTRUCT, tl_type_t, tl_bool(1));
 
 	build_scope_omp_directive(ASTSon0(a), st, decl_context);
 	if (ASTSon1(a) != NULL)

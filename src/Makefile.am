@@ -9,11 +9,11 @@ CLEANFILES =
 BUILT_SOURCES = 
 
 # Gluing library C to C++
-libmcxxtl_la_CXXFLAGS=-I tl -I $(srcdir)/tl -I ../lib -I $(srcdir)/../lib -I $(srcdir)/../gc/include
-
 libmcxxtl_la_SOURCES = \
 	cxx-compilerphases.hpp \
 	cxx-compilerphases.cpp
+
+libmcxxtl_la_CXXFLAGS=-I tl -I $(srcdir)/tl -I ../lib -I $(srcdir)/../lib -I $(srcdir)/../gc/include
 
 # Mercurium C/C++ compiler runtime library
 libmcxx_la_SOURCES = \
