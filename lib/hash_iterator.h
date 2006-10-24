@@ -16,6 +16,10 @@
 #include "hash.h"
 #include "iterator.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct
 {
   Iterator iterator;
@@ -27,5 +31,9 @@ HashIterator;
 
 void hash_iterator_init (HashIterator * i, Hash * h);
 HashIterator *hash_iterator_create (Hash * h);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

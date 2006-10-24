@@ -1,6 +1,23 @@
-bin_PROGRAMS = mcxx mcc
+SUBDIRS = tl
 
-mcxx_SOURCES = \
+bin_PROGRAMS = mcxx 
+
+lib_LTLIBRARIES = libmcxx.la libmcxxtl.la
+
+EXTRA_DIST =
+CLEANFILES =
+BUILT_SOURCES = 
+
+# Gluing library C to C++
+libmcxxtl_la_CXXFLAGS=-I tl -I $(srcdir)/tl -I ../lib -I $(srcdir)/../lib -I $(srcdir)/../gc/include
+
+libmcxxtl_la_SOURCES = \
+	cxx-compilerphases.hpp \
+	cxx-compilerphases.cpp
+
+# Mercurium C/C++ compiler runtime library
+libmcxx_la_SOURCES = \
+  cxx-macros.h \
   cxx-asttype.h \
   cxx-asttype.c \
   cxx-ast.c \
@@ -9,8 +26,6 @@ mcxx_SOURCES = \
   cxx-parser.h \
   cxx-parser.c \
   cxx-scanner.c \
-  cxx-driver.c \
-  cxx-driver.h \
   cxx-graphviz.h \
   cxx-graphviz.c \
   cxx-prettyprint.c \
@@ -40,13 +55,14 @@ mcxx_SOURCES = \
   cxx-configfile.c \
   cxx-configoptions.c \
   cxx-debugflags.c \
+  cxx-dyninit.c \
+  cxx-dyninit.h \
+  cxx-tltype.h \
+  cxx-tltype.c \
+  cxx-scopelink.c \
+  cxx-scopelink.h \
   c99-scanner.c \
   c99-parser.c
-
-mcc_SOURCES =
-
-mcc : mcxx
-	cp mcxx mcc
 
 # Currently these files are unused but waiting for their momentum
 #  cxx-koenig.c \
@@ -56,11 +72,8 @@ mcc : mcxx
 #  cxx-overload.c \
 #  cxx-overload.h
 
-mcxx_LDFLAGS=-L../lib -L../gc
-mcxx_LDADD=../lib/libmcxx-utils.la ../gc/libgc.la ../lib/libmcxx-mcfg.la ../lib/libmcxx-extstruct.la
-mcxx_CFLAGS=-I$(srcdir)/../lib -I$(srcdir)/../gc/include -DPKGDATADIR=\"$(pkgdatadir)\"
+libmcxx_la_CFLAGS=-fexceptions -I$(srcdir)/../lib -I$(srcdir)/../gc/include -DPKGDATADIR=\"$(pkgdatadir)\" 
 
-EXTRA_DIST =
 EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx-lexer.l
 EXTRA_DIST += cxx-asttype.def
@@ -69,6 +82,68 @@ EXTRA_DIST += cxx-configoptions.gperf
 EXTRA_DIST += cxx-debugflags.gperf
 EXTRA_DIST += c99.y
 
+# Sources (or things needed) built at some step before its real compilation
+BUILT_SOURCES += cxx-asttype.h 
+BUILT_SOURCES += cxx-asttype.c
+BUILT_SOURCES += cxx-scanner.c
+BUILT_SOURCES += cxx-parser.c
+BUILT_SOURCES += cxx-parser.h
+BUILT_SOURCES += cxx-fileextensions.c
+BUILT_SOURCES += cxx-configoptions.c
+BUILT_SOURCES += cxx-debugflags.c
+BUILT_SOURCES += c99-scanner.c
+BUILT_SOURCES += c99-parser.c
+BUILT_SOURCES += c99-parser.h
+
+CLEANFILES += cxx-parser.c
+CLEANFILES += cxx-parser.h
+CLEANFILES += cxx-scanner.c
+CLEANFILES += cxx-asttype.h
+CLEANFILES += cxx-asttype.c
+CLEANFILES += cxx-parser.output
+CLEANFILES += cxx-fileextensions.c
+CLEANFILES += cxx-configoptions.c
+CLEANFILES += cxx-debugflags.c
+CLEANFILES += cxx03.l
+CLEANFILES += c99-parser.c
+CLEANFILES += c99-parser.h
+CLEANFILES += c99-scanner.c
+CLEANFILES += c99-parser.output
+CLEANFILES += c99.l
+
+mcxx_SOURCES = \
+  cxx-driver.c \
+  cxx-driver.h
+
+mcxx_LDFLAGS = \
+   -L../lib \
+   -L../gc \
+   -L.
+
+mcxx_LDADD = \
+   -lstdc++ \
+   tl/libtl.la \
+   ./libmcxx.la \
+   ./libmcxxtl.la \
+   ../lib/libmcxx-utils.la \
+   ../lib/libmcxx-extstruct.la \
+   ../lib/libmcxx-mcfg.la \
+   ../gc/libgc.la
+
+mcxx_DEPENDENCIES =
+mcxx_DEPENDENCIES += libmcxx.la
+mcxx_DEPENDENCIES += libmcxxtl.la
+mcxx_DEPENDENCIES += ./tl/libtl.la
+mcxx_DEPENDENCIES += ../lib/libmcxx-utils.la
+mcxx_DEPENDENCIES += ../lib/libmcxx-mcfg.la
+mcxx_DEPENDENCIES += ../lib/libmcxx-extstruct.la
+
+mcxx_CFLAGS=-fexceptions -I$(srcdir)/../lib -I$(srcdir)/../gc/include -DPKGDATADIR=\"$(pkgdatadir)\" 
+
+# Mercurium C Compiler
+# Is just mcxx copied to mcc
+
+# Manual targets
 cxx-ast.h : cxx-asttype.h
 
 cxx-asttype.h : $(srcdir)/cxx-asttype.def
@@ -124,33 +199,21 @@ c99-scanner.c : c99.l $(srcdir)/cxx-ast.h c99-parser.h
 c99.l : ../lib/tpp $(srcdir)/cxx-lexer.l
 	../lib/tpp -o c99.l -D C99 $(srcdir)/cxx-lexer.l
 
-../lib/tpp : 
+../lib/tpp :
 	$(MAKE) -C ../lib tpp
 
-../lib/libmcxx-utils.la :
+../lib/libmcxx-utils.la : 
 	$(MAKE) -C ../lib libmcxx-utils.la
 
-../gc/libgc.la :
-	$(MAKE) -C ../gcc libgc.la
-
-../lib/libmcxx-mcfg.la :
+../lib/libmcxx-mcfg.la : 
 	$(MAKE) -C ../lib libmcxx-mcfg.la
 
-CLEANFILES =
-CLEANFILES += cxx-parser.c
-CLEANFILES += cxx-parser.h
-CLEANFILES += cxx-scanner.c
-CLEANFILES += cxx-asttype.h
-CLEANFILES += cxx-asttype.c
-CLEANFILES += cxx-parser.output
-CLEANFILES += cxx-fileextensions.c
-CLEANFILES += cxx-configoptions.c
-CLEANFILES += cxx-debugflags.c
-CLEANFILES += cxx03.l
-CLEANFILES += c99-parser.c
-CLEANFILES += c99-parser.h
-CLEANFILES += c99-scanner.c
-CLEANFILES += c99-parser.output
-CLEANFILES += c99.l
+../lib/libmcxx-extstruct.la : 
+	$(MAKE) -C ../lib libmcxx-extstruct.la
 
-
+# Install hooks
+# installs "mcc" as a copy of mcxx
+.PHONY : mcc
+mcc :
+install-exec-local:
+	$(LIBTOOL) --mode=install cp mcxx $(bindir)/mcc

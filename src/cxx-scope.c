@@ -415,7 +415,7 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                                 DEBUG_CODE()
                                 {
                                     fprintf(stderr, "Returning a dependent entity due to the lookup of '%s'\n",
-                                            nested_name_spec);
+                                            entry->symbol_name);
                                 }
                                 *is_dependent = 1;
                                 return NULL;

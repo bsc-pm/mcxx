@@ -3,6 +3,10 @@
 
 #include "list.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef List Stack;
 
 #define stack_create() list_create()
@@ -14,5 +18,9 @@ typedef List Stack;
 #define stack_pop(stack) list_delete(stack,list_last(stack))
 #define stack_top(stack) node_data(list_last(stack))
 #define stack_empty(stack) (list_num_items(stack) == 0)
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

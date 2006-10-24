@@ -3,6 +3,9 @@
 
 #include "cxx-ast.h"
 #include "cxx-scope.h"
+#include "cxx-macros.h"
+
+MCXX_BEGIN_DECLS
 
 enum ics_kind
 {
@@ -75,5 +78,6 @@ typedef struct viable_function_list_tag
     struct viable_function_list_tag* next;
 } viable_function_list_t;
 
+MCXX_END_DECLS
 
 #endif // CXX_OVERLOAD

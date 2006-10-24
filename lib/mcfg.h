@@ -7,6 +7,10 @@
 #include <string.h>
 #include <gc.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define     MS_STYLE            1
 #define     NOT_MS_STYLE        2
 
@@ -27,5 +31,8 @@ int param_process(char *filename,int style,
         int (*pfunc)(char *,char *));
 char *getCurrentSection(void);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif  /* INI_H */

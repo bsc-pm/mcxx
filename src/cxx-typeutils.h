@@ -4,6 +4,9 @@
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
+#include "cxx-macros.h"
+
+MCXX_BEGIN_DECLS
 
 enum cv_equivalence_t
 {
@@ -96,5 +99,7 @@ char is_dependent_tree(AST tree, scope_t* st) __attribute__((deprecated));
 scope_entry_t* give_real_entry(scope_entry_t* entry);
 
 cv_qualifier_t* get_innermost_cv_qualifier(type_t* t);
+
+MCXX_END_DECLS
 
 #endif // CXX_TYPEUTILS_H

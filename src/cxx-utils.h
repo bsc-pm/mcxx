@@ -12,25 +12,9 @@
 #include <gcstring.h>
 
 #include "cxx-driver.h"
+#include "cxx-macros.h"
 
-// Some useful macros
-#ifndef __GNUC__
-    #define __attribute__(x)
-#endif
-
-#ifdef __GNUC__
-  #if __GNUC__ >= 3 
-     #define NORETURN __attribute__((noreturn))
-
-     #if __GNUC_MINOR__ >= 4
-         #define WARN_UNUSED __attribute__((warn_unused_result))
-     #else
-         #define WARN_UNUSED
-     #endif
-  #elif __GNUC__ == 2
-     #error "This code will not compile with GCC 2"
-  #endif
-#endif
+MCXX_BEGIN_DECLS
 
 void running_error(char* message, ...) NORETURN;
 
@@ -106,9 +90,6 @@ do { \
     } \
 } while (0)
 
-
-#define BITMAP_TEST(x, b) (((x) & (b)) == (b))
-
 #define DEBUG_CODE() if (compilation_options.debug_options.enable_debug_code)
 #define NOT_DEBUG_CODE() if (!compilation_options.debug_options.enable_debug_code)
 
@@ -164,5 +145,7 @@ char is_blank_string(const char* c);
 
 char* give_dirname(const char* c);
 char* give_basename(const char* c);
+
+MCXX_END_DECLS
 
 #endif // CXX_UTILS_H

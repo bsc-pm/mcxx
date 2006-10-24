@@ -110,6 +110,7 @@ void extensible_struct_activate_field(extensible_schema_t* schema,
 		while (i < extensible_struct->num_active_fields)
 		{
 			extensible_struct->offsets_data[i] = -1;
+			i++;
 		}
 	}
 
@@ -121,7 +122,7 @@ void extensible_struct_activate_field(extensible_schema_t* schema,
 
 void* extensible_struct_get_field_pointer(extensible_schema_t* schema,
 		extensible_struct_t* extensible_struct,
-		char* field_name)
+		const char* field_name)
 {
 	if (schema == NULL)
 	{
@@ -141,7 +142,7 @@ void* extensible_struct_get_field_pointer(extensible_schema_t* schema,
 
 	if (schema_field_order < 0)
 	{
-		warning_message("Field not found in the schema");
+		warning_message("Field '%s' not found in the schema", field_name);
 		return NULL;
 	}
 

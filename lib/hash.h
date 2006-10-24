@@ -4,6 +4,10 @@
 #include "mem_ctl.h"
 #include "s_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _hashnode HashNode;
 typedef struct _hash Hash;
 typedef int HASH_FUNC (void *key, int size);
@@ -59,5 +63,8 @@ void *hash_delete (Hash * h, void *key);
 int hash_string (char *name, int size);
 int hash_caseless_string (char *name, int size);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif

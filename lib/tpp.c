@@ -108,7 +108,7 @@ static void conditional_process(char* input_filename, char* output_filename)
     if (regcomp(&ifnot_regex, "^[[:blank:]]*/[*]!ifnot[[:blank:]]+([^[:blank:]*]+)[[:blank:]]*[*]/[[:blank:]]*$",
             REG_EXTENDED | REG_NEWLINE) != 0)
     {
-        fprintf(stderr, "Error when compiling if regular expression\n");
+        fprintf(stderr, "Error when compiling if not regular expression\n");
         exit(EXIT_FAILURE);
     }
 

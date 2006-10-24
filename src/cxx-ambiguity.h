@@ -4,6 +4,9 @@
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
+#include "cxx-macros.h"
+
+MCXX_BEGIN_DECLS
 
 // Non contextual
 void solve_parameter_declaration_vs_type_parameter_class(AST a);
@@ -27,5 +30,7 @@ char check_for_expression(AST a, scope_t* st, decl_context_t decl_context);
 char check_for_initialization(AST initializer, scope_t* st, decl_context_t decl_context);
 
 void solve_ambiguous_expression_list(AST expression_list, scope_t* st, decl_context_t decl_context);
+
+MCXX_END_DECLS
 
 #endif // CXX_AMBIGUITY

@@ -3,7 +3,9 @@
 
 #include "cxx-ast.h"
 #include "hash.h"
+#include "cxx-macros.h"
 
+MCXX_BEGIN_DECLS
 
 #define BITMAP(x) (1 << x)
 
@@ -580,5 +582,7 @@ scope_t* enclosing_namespace_scope(scope_t* st);
 scope_t* copy_scope(scope_t* st);
 
 #undef BITMAP
+
+MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H

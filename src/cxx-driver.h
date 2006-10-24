@@ -4,6 +4,9 @@
 #include <cxx-ast.h>
 #include <cxx-scope.h>
 #include <getopt.h>
+#include "cxx-macros.h"
+
+MCXX_BEGIN_DECLS
 
 // Options for command line arguments
 typedef enum 
@@ -165,5 +168,7 @@ struct debug_flags_list_t** list_of_debug_flags(void);
 
 struct debug_flags_list_t *
 debugflags_lookup (register const char *str, register unsigned int len);
+
+MCXX_END_DECLS
 
 #endif // CXX_DRIVER_H

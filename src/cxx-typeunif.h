@@ -4,6 +4,9 @@
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
+#include "cxx-macros.h"
+
+MCXX_BEGIN_DECLS
 
 typedef struct unification_item_tag
 {
@@ -24,5 +27,7 @@ typedef struct
 
 char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, 
         unification_set_t** unif_set, decl_context_t decl_context);
+
+MCXX_END_DECLS
 
 #endif

@@ -5,6 +5,9 @@
 #include "cxx-driver.h"
 #include "cxx-ast.h"
 #include "cxx-scope.h"
+#include "cxx-macros.h"
+
+MCXX_BEGIN_DECLS
 
 void build_scope_translation_unit(translation_unit_t* translation_unit);
 
@@ -91,5 +94,9 @@ AST get_leftmost_declarator_name(AST a, decl_context_t decl_context);
 
 char* get_conversion_function_name(AST conversion_function_id, scope_t* st, 
         type_t** result_conversion_type, decl_context_t decl_context);
+
+void build_scope_dynamic_initializer(void);
+
+MCXX_END_DECLS
 
 #endif // CXX_BUILDSCOPE_H

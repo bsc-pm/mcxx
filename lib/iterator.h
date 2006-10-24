@@ -3,6 +3,10 @@
 
 #include "s_types.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _iterator Iterator;
 typedef struct _iterator_ops IteratorOps;
 
@@ -42,6 +46,10 @@ void iterator_remove(Iterator * i);
 
 #if 1                           /* JAIRO */
 int iterator_items(Iterator * i);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif

@@ -3,6 +3,10 @@
 
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /*
  * This is the extensible_schema_t
  * it stores a list of field_names and a list
@@ -80,6 +84,10 @@ void extensible_struct_activate_field(extensible_schema_t* schema,
 		int schema_field_order);
 void* extensible_struct_get_field_pointer(extensible_schema_t* schema,
 		extensible_struct_t* extensible_struct,
-		char* field_name);
+		const char* field_name);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif // EXTSTRUCT_H

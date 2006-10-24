@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <signal.h>
 #include <gc.h>
+#include "extstruct.h"
 #include "cxx-driver.h"
 #include "cxx-buildscope.h"
 #include "cxx-scope.h"
@@ -13,6 +14,7 @@
 #include "cxx-printscope.h"
 #include "cxx-solvetemplate.h"
 #include "cxx-instantiation.h"
+#include "cxx-tltype.h"
 #include "hash_iterator.h"
 
 /*
@@ -77,7 +79,6 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
         scope_t* template_scope,
         template_parameter_t** template_parameter_info, int num_template_parameters, 
         template_argument_list_t** template_arguments);
-
 
 static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t decl_context);
 static void build_scope_explicit_template_specialization(AST a, scope_t* st, decl_context_t decl_context);
@@ -145,6 +146,11 @@ static char* current_linkage = "\"C++\"";
 static void initialize_builtin_symbols(void);
 
 const decl_context_t default_decl_context = { 0 };
+
+void build_scope_dynamic_initializer(void)
+{
+	extensible_schema_add_field(&ast_extensible_schema, "omp.is_parallel_construct", sizeof(tl_type_t));
+}
 
 // Builds scope for the translation unit
 void build_scope_translation_unit(translation_unit_t* translation_unit)
@@ -1047,7 +1053,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
             DEBUG_CODE()
             {
                 fprintf(stderr, "Symbol '%s' does not come from instantiation\n", 
-                        entry->type_information->type->from_instantiation);
+                        entry->symbol_name);
             }
             entry->type_information->type->from_instantiation = 0;
         }
@@ -1592,6 +1598,7 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
             continue;
         }
 
+#if 0
         enum cxx_symbol_kind filter[7] =
         {
             SK_CLASS,
@@ -1602,6 +1609,7 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
             SK_TYPEDEF, 
             SK_DEPENDENT_ENTITY
         };
+#endif
 
         scope_entry_list_t* result_list = create_list_from_entry(type_info->type->user_defined_type);
 
@@ -3968,7 +3976,7 @@ static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st,
                                 || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
                                 || entry->kind == SK_TYPEDEF)
                         {
-                            scope_entry_t* original_entry = entry;
+                            // scope_entry_t* original_entry = entry;
                             entry = give_real_entry(entry);
 
                             // It must be a direct base class
@@ -4946,7 +4954,7 @@ static void update_template_parameter_types(type_t** update_type,
             {
                 if ((*update_type)->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
                 {
-                    type_t* replace_type = argument_list->argument_list[(*update_type)->type->template_parameter_num]->type;
+                    // type_t* replace_type = argument_list->argument_list[(*update_type)->type->template_parameter_num]->type;
                     *update_type = 
                         advance_over_typedefs(argument_list->argument_list[(*update_type)->type->template_parameter_num]->type);
                 }
@@ -5911,6 +5919,10 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
 
 static void build_scope_omp_construct(AST a, scope_t* st, decl_context_t decl_context)
 {
+	tl_type_t tl_val = tl_bool(1);
+
+	ASTAttrSetValueType(a, "omp.is_parallel_construct", tl_type_t, tl_val);
+
 	build_scope_omp_directive(ASTSon0(a), st, decl_context);
 	if (ASTSon1(a) != NULL)
 	{

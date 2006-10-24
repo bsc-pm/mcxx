@@ -3,6 +3,9 @@
 
 #include "cxx-ast.h"
 #include "cxx-scope.h"
+#include "cxx-macros.h"
+
+MCXX_BEGIN_DECLS
 
 typedef struct {
     int num_types;
@@ -18,6 +21,6 @@ typedef struct {
     scope_entry_list_t* overloaded_functions;
 } calculated_type_t;
 
-
+MCXX_END_DECLS
 
 #endif // CXX_TYPECALC_H

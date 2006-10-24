@@ -1,5 +1,8 @@
 #ifndef CXX_LEXER_H
 #define CXX_LEXER_H
+#include "cxx-macros.h"
+
+MCXX_BEGIN_DECLS
 
 typedef struct token_atrib_tag 
 {
@@ -24,5 +27,7 @@ extern struct scan_file_descriptor scanning_now;
 
 int mcxx_open_file_for_scanning(char* scanned_filename, char* input_filename);
 int mc99_open_file_for_scanning(char* scanned_filename, char* input_filename);
+
+MCXX_END_DECLS
 
 #endif // CXX_LEXER_H

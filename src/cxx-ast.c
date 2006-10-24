@@ -117,8 +117,14 @@ AST duplicate_ast(AST a)
 
     AST result = GC_CALLOC(1, sizeof(*result));
 
+	extensible_struct_t orig_extended_data = result->extended_data;
+
     // Copy everything by value
     *result = *a;
+
+	// Restore original extended data
+	result->extended_data = orig_extended_data;
+
 
     int i;
     for (i = 0; i < ASTNumChildren(result); i++)

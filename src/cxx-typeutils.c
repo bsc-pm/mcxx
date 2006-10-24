@@ -2348,7 +2348,7 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
             {
                 // [1][2] = 3
                 // a.b = 4
-                AST designation = ASTSon0(expression);
+                // AST designation = ASTSon0(expression);
                 AST initializer_clause = ASTSon1(initializer_clause);
 
                 // TODO - Complete this

@@ -25,7 +25,7 @@ dnl Comprovem install
 AC_PROG_INSTALL
 
 dnl Comprovem libtool
-AC_DISABLE_SHARED
+dnl AC_DISABLE_SHARED
 AC_PROG_LIBTOOL
 
 dnl Comprovem que hi ha compilador
@@ -112,6 +112,7 @@ dnl Escrivim els makefiles
 AC_CONFIG_FILES([Makefile 
 		   lib/Makefile
 		   src/Makefile 
+		   src/tl/Makefile 
 		   config/Makefile
            tests/Makefile
 		   ])

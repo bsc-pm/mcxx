@@ -5,6 +5,10 @@
 #include "s_types.h"
 #include <stdlib.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef struct _list_node ListNode;
 
 enum
@@ -55,5 +59,9 @@ ListNode *node_prev(List * l, ListNode * node, bool_type unlock);
 void list_delete(List * l, ListNode * node);
 void list_delete_item(List * l, void *item);
 void *list_get(List * l, int pos);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

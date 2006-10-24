@@ -1,9 +1,17 @@
 #ifndef S_TYPES
 #define S_TYPES
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#ifndef __cplusplus
 typedef enum
 { false, true }
 bool_type;
+#else
+typedef bool bool_type;
+#endif
 
 /*
  *
@@ -14,6 +22,10 @@ bool_type;
  */
 
 typedef void delete_func (void *object);
+
+#ifdef __cplusplus
+}
+#endif
 
 
 #endif

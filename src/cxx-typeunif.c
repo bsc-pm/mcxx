@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include <gc.h>
 #include "cxx-typeunif.h"
 #include "cxx-typeutils.h"
@@ -48,7 +49,6 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
         }
     }
 
-    type_t* original_t2 = t2;
     if (t2->kind == TK_DIRECT && 
             t2->type->kind == STK_USER_DEFINED)
     {

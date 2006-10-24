@@ -8,6 +8,14 @@
 #define NEW_ARRAY(type,size)    (type *)GC_CALLOC(size, sizeof(type))
 #define FREE(ptr)               
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void noop_free(void* v);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

@@ -16,6 +16,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-buildscope.h"
 #include "cxx-lexer.h"
+#include "cxx-dyninit.h"
 #include "mcfg.h"
 
 
@@ -27,17 +28,19 @@ compilation_options_t compilation_options;
 "Options: \n" \
 "  -h, --help               Shows this help and quits\n" \
 "  --version                Shows version and quits\n" \
+"  -v, --verbose            Runs verbosely, displaying the programs\n" \
+"                           invoked by the compiler\n" \
 "  -o, --output=<file>      Sets <file> as the output file\n" \
-"  -c                       Does not link, just compile.\n" \
-"  -E                       Does not compile, just preprocess.\n" \
-"  -y                       Only parsing will be performed.\n" \
-"                           No file will be generated.\n" \
+"  -c                       Does not link, just compile\n" \
+"  -E                       Does not compile, just preprocess\n" \
+"  -y                       Only parsing will be performed\n" \
+"                           No file will be generated\n" \
 "  -k, --keep-files         Do not remove intermediate temporary\n" \
-"                           files.\n" \
+"                           files\n" \
 "  -a, --check-dates        Checks dates before regenerating files\n" \
 "  --output-dir=<dir>       Prettyprinted files will be left in\n" \
 "                           directory <dir>. Otherwise the input\n" \
-"                           file directory is used.\n" \
+"                           file directory is used\n" \
 "  --debug-flags=<flags>    Comma-separated list of flags for used\n" \
 "                           when debugging. Valid flags can be listed\n" \
 "                           with --help-debug-flags\n" \
@@ -103,6 +106,7 @@ static void initialize_default_values(void);
 static void load_configuration(void);
 static void compile_every_translation_unit(void);
 
+static void compiler_phases_execution(translation_unit_t* translation_unit, char* parsed_filename);
 static char* preprocess_file(translation_unit_t* translation_unit, char* input_filename);
 static void parse_translation_unit(translation_unit_t* translation_unit, char* parsed_filename);
 static char* prettyprint_translation_unit(translation_unit_t* translation_unit, char* parsed_filename);
@@ -118,6 +122,10 @@ static void parse_subcommand_arguments(char* arguments);
 
 static void enable_debug_flag(char* flag);
 
+static void load_compiler_phases(void);
+
+static void register_default_initializers(void);
+
 int main(int argc, char* argv[])
 {
     timing_t timing_global;
@@ -128,10 +136,20 @@ int main(int argc, char* argv[])
 
 	// Default values
     initialize_default_values();
-	
+
+	// Register default initializers
+	register_default_initializers();
+
     // Load configuration
     load_configuration();
-    
+
+	// Loads the compiler phases
+	load_compiler_phases();
+
+	// Compiler phases can define additional dynamic initializers
+	// (besides the built in ones)
+	run_dynamic_initializers();
+	
     // Parse arguments
     parse_arguments(compilation_options.argc, 
         compilation_options.argv, /* from_command_line= */1);
@@ -457,6 +475,11 @@ static void initialize_default_values(void)
     compilation_options.linker_options = NULL;
 }
 
+static void register_default_initializers(void)
+{
+	register_dynamic_initializer(build_scope_dynamic_initializer);
+}
+
 static void print_version(void)
 {
     fprintf(stderr, PACKAGE " - " VERSION " (experimental)\n");
@@ -634,6 +657,7 @@ static void compile_every_translation_unit(void)
                 running_error("Could not open file '%s'", parsed_filename);
             }
         }
+
         C_LANGUAGE()
         {
             if (mc99_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
@@ -644,10 +668,20 @@ static void compile_every_translation_unit(void)
 
         parse_translation_unit(translation_unit, parsed_filename);
 
+		compiler_phases_execution(translation_unit, parsed_filename);
+
         char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);
 
         native_compilation(translation_unit, prettyprinted_filename);
     }
+}
+
+void start_compiler_phase_execution(translation_unit_t* translation_unit);
+
+static void compiler_phases_execution(translation_unit_t* translation_unit, 
+		char* parsed_filename)
+{
+	start_compiler_phase_execution(translation_unit);
 }
 
 static void parse_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
@@ -959,3 +993,14 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node)
             && check_for_ambiguities(ASTSon3(a), ambiguous_node);
     }
 }
+
+
+extern void load_compiler_phases_cxx(void);
+
+static void load_compiler_phases(void)
+{
+	// This invokes a C++ routine that will dlopen all libraries, get the proper symbol
+	// and fill an array of compiler phases
+	load_compiler_phases_cxx();
+}
+

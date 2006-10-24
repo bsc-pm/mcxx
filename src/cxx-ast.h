@@ -9,6 +9,9 @@
 
 #include "extstruct.h"
 #include "cxx-asttype.h"
+#include "cxx-macros.h"
+
+MCXX_BEGIN_DECLS
 
 struct node_ast
 {
@@ -68,6 +71,18 @@ typedef struct node_ast* AST;
 
 #define ASTAmbiguous(a, b) ASTMake2(AST_AMBIGUITY, a, b, 0, NULL)
 
+// Extensible structure function
+#define ASTAttrValue(_a, _name) \
+	( \
+	  extensible_struct_get_field_pointer(&ast_extensible_schema, &((_a)->extended_data), (_name)) \
+	)
+
+#define ASTAttrValueType(_a, _name, _type) \
+	( (*(_type*)(ASTAttrValue((_a), (_name)))))
+
+#define ASTAttrSetValueType(_a, _name, _type, _value) \
+	( ASTAttrValueType((_a), (_name), _type) = _value )
+
 // Routine to create a node
 AST ASTMake(node_t type, int num_children, const AST son0, const AST son1, const AST son2, const AST son3, int line, const char *text);
 
@@ -89,5 +104,7 @@ char* node_information(AST a);
 #define for_each_element(list, iter) \
     iter = (list); while (ASTSon0(iter) != NULL) iter = ASTSon0(iter); \
     for(; iter != NULL; iter = (iter != (list)) ? ASTParent(iter) : NULL)
+
+MCXX_END_DECLS
 
 #endif // CXX_AST_H
