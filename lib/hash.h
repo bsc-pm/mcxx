@@ -13,11 +13,10 @@ typedef struct _hash Hash;
 typedef int HASH_FUNC (void *key, int size);
 typedef int KEYCMP_FUNC (void *key1, void *key2);
 
-enum
+enum HashOps_tag
 { HASH_FREE_KEYS, HASH_FREE_ITEMS, HASH_KEYS_DESTRUCTOR,
   HASH_ITEMS_DESTRUCTOR
-}
-HashOps;
+};
 
 #define HASHFUNC(f) ((HASH_FUNC *)f)
 #define KEYCMPFUNC(f) ((KEYCMP_FUNC *)f)
