@@ -52,6 +52,7 @@ namespace TL
 			}
 
 			friend class Object;
+			friend class Source;
 			friend class Context;
 			friend class ContextLink;
 			friend class CompilerPhaseRunner;

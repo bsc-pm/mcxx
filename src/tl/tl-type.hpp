@@ -16,11 +16,12 @@ namespace TL
 			{
 				return NULL;
 			}
-		public :
+
 			Type(type_t* type_info)
 				: _type_info(type_info)
 			{
 			}
+		public :
 
 			virtual ~Type()
 			{
@@ -30,6 +31,8 @@ namespace TL
 			{
 				return true;
 			}
+
+			friend class Symbol;
 	};
 }
 

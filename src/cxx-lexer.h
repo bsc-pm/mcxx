@@ -28,6 +28,9 @@ extern struct scan_file_descriptor scanning_now;
 int mcxx_open_file_for_scanning(char* scanned_filename, char* input_filename);
 int mc99_open_file_for_scanning(char* scanned_filename, char* input_filename);
 
+int mcxx_prepare_string_for_scanning(const char* str);
+int mc99_prepare_string_for_scanning(const char* str);
+
 MCXX_END_DECLS
 
 #endif // CXX_LEXER_H

@@ -747,11 +747,26 @@ static void parse_token_text(void)
 
 /*!if CPLUSPLUS*/
 #define OPEN_FILE_FOR_SCANNING mcxx_open_file_for_scanning
+#define PREPARE_STRING_FOR_SCANNING mcxx_prepare_string_for_scanning
 /*!endif*/
 
 /*!if C99*/
 #define OPEN_FILE_FOR_SCANNING mc99_open_file_for_scanning
+#define PREPARE_STRING_FOR_SCANNING mc99_prepare_string_for_scanning
 /*!endif*/
+
+int PREPARE_STRING_FOR_SCANNING(const char* str)
+{
+	memset(&scanning_now, 0, sizeof(scanning_now));
+	scanning_now.filename = GC_STRDUP("tl-source-string");
+	scanning_now.line_number = 1;
+
+	scanning_now.scanning_buffer = yy_scan_string(str);
+
+	yy_switch_to_buffer(scanning_now.scanning_buffer);
+
+	return 0;
+}
 
 int OPEN_FILE_FOR_SCANNING(char* scanned_filename, char* input_filename)
 {
@@ -765,7 +780,7 @@ int OPEN_FILE_FOR_SCANNING(char* scanned_filename, char* input_filename)
 	}
 
 	memset(&scanning_now, 0, sizeof(scanning_now));
-	scanning_now.filename = strdup(scanned_filename);
+	scanning_now.filename = GC_STRDUP(scanned_filename);
 	scanning_now.file_descriptor = file;
 	scanning_now.line_number = 1;
 
