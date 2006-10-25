@@ -2,6 +2,7 @@
 #define TL_SYMBOL_HPP
 
 #include <string>
+#include <sstream>
 #include "cxx-scope.h"
 #include "tl-object.hpp"
 #include "tl-type.hpp"
@@ -12,24 +13,8 @@ namespace TL
 	{
 		private:
 			scope_entry_t* _symbol;
-		public:
-			Type* type() const
-			{
-				if (_symbol->type_information != NULL)
-				{
-					return new Type(_symbol->type_information);
-				}
-				return NULL;
-			}
 
-			std::string name() const
-			{
-				return (_symbol->symbol_name != NULL) ? 
-					std::string(_symbol->symbol_name) : 
-					std::string("");
-			}
-
-			virtual Object* attributes(const std::string& name) const
+			virtual tl_type_t* get_extended_attribute(const std::string& str) const
 			{
 				return NULL;
 			}
@@ -38,15 +23,34 @@ namespace TL
 				: _symbol(symbol)
 			{
 			}
+		public:
+			Type* get_type() const
+			{
+				if (_symbol->type_information != NULL)
+				{
+					return new Type(_symbol->type_information);
+				}
+				return NULL;
+			}
+
+			std::string get_name() const
+			{
+				return (_symbol->symbol_name != NULL) ? 
+					std::string(_symbol->symbol_name) : 
+					std::string("");
+			}
+
 
 			virtual ~Symbol()
 			{
 			}
 
-			virtual bool is_symbol()
+			virtual bool is_symbol() const
 			{
 				return true;
 			}
+
+			friend class SymbolMapping;
 	};
 }
 

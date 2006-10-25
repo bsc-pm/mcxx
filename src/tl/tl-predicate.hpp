@@ -7,7 +7,7 @@ namespace TL
 	class Predicate 
 	{
 		public :
-			virtual bool operator()(AST_t ast) const = 0;
+			virtual bool operator()(const AST_t& ast) const = 0;
 			virtual ~Predicate() { }
 	};
 }

@@ -12,22 +12,21 @@ namespace TL
 	{
 		private:
 			type_t* _type_info;
+			virtual tl_type_t* get_extended_attribute(const std::string& str) const
+			{
+				return NULL;
+			}
 		public :
 			Type(type_t* type_info)
 				: _type_info(type_info)
 			{
 			}
 
-			virtual Object* attributes(const std::string& name) const
-			{
-				return NULL;
-			}
-
 			virtual ~Type()
 			{
 			}
 
-			virtual bool is_type()
+			virtual bool is_type() const
 			{
 				return true;
 			}

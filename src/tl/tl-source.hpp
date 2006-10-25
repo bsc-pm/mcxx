@@ -12,7 +12,7 @@ namespace TL
 			std::string _code;
 		public :
 
-			virtual bool is_source()
+			virtual bool is_source() const
 			{
 				return true;
 			}

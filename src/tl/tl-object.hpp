@@ -6,14 +6,20 @@
 #include <iostream>
 #include <string>
 #include <typeinfo>
+#include "cxx-tltype.h"
+#include "extstruct.h"
 
 namespace TL
 {
 	// Avoid at the moment the use of "gc"
 	class Object /* : public gc */
 	{ 
+		protected:
+			virtual tl_type_t* get_extended_attribute(const std::string& name) const = 0;
 		public:
-			virtual Object* attributes(const std::string& name) const = 0;
+			/* do not override */
+			Object* get_attribute(const std::string& name) const;
+
 			virtual ~Object() { }
 
 			virtual operator bool() const
@@ -71,11 +77,12 @@ namespace TL
 
     class Undefined : public Object
     {
-        public :
-			virtual Object* attributes(const std::string& name) const
+		protected:
+			virtual tl_type_t* get_extended_attribute(const std::string& name) const
             {
                 return NULL;
             }
+        public :
 			virtual ~Undefined() { }
     };
 }

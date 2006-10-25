@@ -10,12 +10,13 @@ class Integer : public Object
 {
 	private:
 		int _i;
-	public:
-		virtual Object* attributes(const std::string& name) const
+
+	protected:
+		virtual tl_type_t* get_extended_attribute(const std::string& name) const
 		{
 			return NULL;
 		}
-
+	public:
 		Integer(int i)
 			: _i(i)
 		{
@@ -108,7 +109,7 @@ class Integer : public Object
 			return (this->_i == j._i);
 		}
 
-		virtual bool is_integer()
+		virtual bool is_integer() const
 		{
 			return true;
 		}
@@ -119,11 +120,13 @@ class Bool : public Object
 {
 	private:
 		bool _b;
-	public:
-		virtual Object* attributes(const std::string& name) const
+
+	protected:
+		virtual tl_type_t* get_extended_attribute(const std::string& name) const
 		{
 			return NULL;
 		}
+	public:
 
 		Bool(bool b)
 			: _b(b)
@@ -187,11 +190,13 @@ class String : public Object
 			}
 			return blanks;
 		}
-	public:
-		virtual Object* attributes(const std::string& name) const
+
+	protected:
+		virtual tl_type_t* get_extended_attribute(const std::string& name) const
 		{
 			return NULL;
 		}
+	public:
 
 		String(const std::string& str)
 			: _str(str)
@@ -213,7 +218,7 @@ class String : public Object
 			return String(this->_str + str._str);
 		}
 
-		virtual bool is_string()
+		virtual bool is_string() const
 		{
 			return true;
 		}
