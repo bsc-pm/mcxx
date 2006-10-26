@@ -59,7 +59,7 @@ namespace TL
                 return false;
             }
 
-            virtual bool is_context() const
+            virtual bool is_scope() const
             {
                 return false;
             }

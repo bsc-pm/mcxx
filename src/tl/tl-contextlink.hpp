@@ -4,16 +4,16 @@
 #include "cxx-scopelink.h"
 #include "tl-object.hpp"
 #include "tl-ast.hpp"
-#include "tl-context.hpp"
+#include "tl-scope.hpp"
 
 namespace TL
 {
-	class ContextLink : public Object
+	class ScopeLink : public Object
 	{
 		private:
 			scope_link_t* _scope_link;
 
-			ContextLink(scope_link_t* scope_link)
+			ScopeLink(scope_link_t* scope_link)
 				: _scope_link(scope_link)
 			{
 			}
@@ -24,7 +24,7 @@ namespace TL
 				return NULL;
 			}
 		public:
-			Context* get_context(AST_t& ast);
+			Scope* get_scope(AST_t& ast);
 
 			friend class CompilerPhaseRunner;
 	};

@@ -1,8 +1,8 @@
-#include "tl-contextlink.hpp"
+#include "tl-scopelink.hpp"
 namespace TL
 {
 
-Context* ContextLink::get_context(AST_t& ast)
+Scope* ScopeLink::get_scope(AST_t& ast)
 {
 	AST _ast = ast._ast;
 	scope_t* st = scope_link_get(_scope_link, _ast);
@@ -10,7 +10,7 @@ Context* ContextLink::get_context(AST_t& ast)
 	if (st == NULL)
 		return NULL;
 
-	Context* result = new Context(st);
+	Scope* result = new Scope(st);
 
 	return result;
 }

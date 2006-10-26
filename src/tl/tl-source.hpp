@@ -4,6 +4,7 @@
 #include <string>
 #include "tl-object.hpp"
 #include "tl-ast.hpp"
+#include "tl-scope.hpp"
 #include "cxx-lexer.h"
 #include "cxx-driver.h"
 
@@ -13,6 +14,11 @@ namespace TL
 	{
 		private:
 			std::string _code;
+
+			virtual tl_type_t* get_extended_attribute(const std::string& str) const
+			{
+				return NULL;
+			}
 		public :
 			Source()
 				: _code("")
@@ -30,7 +36,7 @@ namespace TL
 				return *this;
 			}
 
-			AST_t* parse()
+			AST_t* parse_global(TL::Scope* ctx)
 			{
 				const char* str = _code.c_str();
 

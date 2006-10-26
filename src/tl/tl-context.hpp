@@ -33,7 +33,7 @@ namespace TL
 			}
 	};
 
-	class Context : public Object
+	class Scope : public Object
 	{
 		private:
 			scope_t* _st;
@@ -61,7 +61,7 @@ namespace TL
 				return NULL;
 			}
 		public:
-			Context(scope_t* st)
+			Scope(scope_t* st)
 				: _st(st)
 			{
 			}
@@ -93,7 +93,7 @@ namespace TL
 				AST _ast = ast._ast;
 
 				scope_entry_list_t* entry_list = query_id_expression(_st, _ast, 
-						FULL_UNQUALIFIED_LOOKUP, default_decl_context);
+						FULL_UNQUALIFIED_LOOKUP, default_decl_scope);
 
 				convert_to_vector(entry_list, result);
 
@@ -110,7 +110,7 @@ namespace TL
 				return result;
 			}
 
-			virtual bool is_context() const
+			virtual bool is_scope() const
 			{
 				return true;
 			}

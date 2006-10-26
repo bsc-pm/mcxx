@@ -10,7 +10,7 @@
 
 namespace TL
 {
-	class ContextLink;
+	class ScopeLink;
 	class AST_t : public Object
 	{
 		private:
@@ -53,8 +53,8 @@ namespace TL
 
 			friend class Object;
 			friend class Source;
-			friend class Context;
-			friend class ContextLink;
+			friend class Scope;
+			friend class ScopeLink;
 			friend class CompilerPhaseRunner;
 	};
 
