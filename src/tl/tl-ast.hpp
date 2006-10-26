@@ -11,6 +11,10 @@
 namespace TL
 {
 	class ScopeLink;
+
+	class AST_t;
+	typedef std::vector<AST_t*> AST_list_t;
+
 	class AST_t : public Object
 	{
 		private:
@@ -27,7 +31,7 @@ namespace TL
 			static void relink_parent(AST previous_child, AST new_child);
 		protected:
 			AST _ast;
-			void tree_iterator(const AST_t& a, const Predicate& p, std::vector<AST_t>& result) const;
+			static void tree_iterator(const AST_t& a, const Predicate& p, AST_list_t& result);
 			tl_type_t* get_extended_attribute(const std::string& name) const;
 		public:
 
@@ -44,7 +48,7 @@ namespace TL
 
 			AST_t* duplicate() const;
 
-			std::vector<AST_t> get_all_subtrees_predicate(const Predicate& p) const;
+			AST_list_t get_all_subtrees_predicate(const Predicate& p) const;
 
 			std::string internal_ast_type() const;
 
@@ -62,7 +66,6 @@ namespace TL
 			friend class CompilerPhaseRunner;
 	};
 
-	typedef std::vector<AST_t> AST_list_t;
 }
 
 #endif // TL_AST_HPP

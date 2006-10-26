@@ -34,19 +34,19 @@ AST_t* AST_t::duplicate() const
 	return result;
 }
 
-std::vector<AST_t> AST_t::get_all_subtrees_predicate(const Predicate& p) const
+AST_list_t AST_t::get_all_subtrees_predicate(const Predicate& p) const
 {
-	std::vector<AST_t> result;
+	std::vector<AST_t*> result;
 	tree_iterator(*this, p, result);
 
 	return result;
 }
 
-void AST_t::tree_iterator(const AST_t& a, const Predicate& p, std::vector<AST_t>& result) const
+void AST_t::tree_iterator(const AST_t& a, const Predicate& p, AST_list_t& result)
 {
 	if (p(a))
 	{
-		result.push_back(a);
+		result.push_back(new AST_t(a._ast));
 	}
 
 	AST tree = a._ast;

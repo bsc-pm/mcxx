@@ -36,7 +36,9 @@ libtl_la_SOURCES = \
     tl-compilerphase.hpp \
     tl-compilerphase.cpp \
 	tl-source.hpp \
-	tl-source.cpp
+	tl-source.cpp \
+	tl-type.hpp \
+	tl-type.cpp
 
 libtlomp_la_CXXFLAGS = -Wall -O0 \
     -I $(srcdir)/../../src \

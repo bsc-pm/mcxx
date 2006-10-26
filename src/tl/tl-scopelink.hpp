@@ -17,7 +17,6 @@ namespace TL
 				: _scope_link(scope_link)
 			{
 			}
-
 		protected :
 			virtual tl_type_t* get_extended_attribute(const std::string& str) const
 			{

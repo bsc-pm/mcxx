@@ -9,6 +9,7 @@
 
 namespace TL
 {
+	class Type;
 	class Symbol : public Object
 	{
 		private:
@@ -24,22 +25,9 @@ namespace TL
 			{
 			}
 		public:
-			Type* get_type() const
-			{
-				if (_symbol->type_information != NULL)
-				{
-					return new Type(_symbol->type_information);
-				}
-				return NULL;
-			}
+			Type* get_type() const;
 
-			std::string get_name() const
-			{
-				return (_symbol->symbol_name != NULL) ? 
-					std::string(_symbol->symbol_name) : 
-					std::string("");
-			}
-
+			std::string get_name() const;
 
 			virtual ~Symbol()
 			{

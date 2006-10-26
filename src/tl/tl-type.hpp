@@ -21,6 +21,10 @@ namespace TL
 				: _type_info(type_info)
 			{
 			}
+
+			static void std::string get_type_name_str(type_t* type);
+
+			static void std::string get_simple_type_name_str(simple_type_t* simple_type);
 		public :
 
 			virtual ~Type()
@@ -31,6 +35,8 @@ namespace TL
 			{
 				return true;
 			}
+
+			std::string get_declaration_str(const std::string& symbol_name) const;
 
 			friend class Symbol;
 	};

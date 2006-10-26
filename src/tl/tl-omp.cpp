@@ -17,19 +17,6 @@ extern "C"
 
 namespace TL
 {
-    class ParallelConstructPred : public Predicate
-    {
-        public:
-            virtual bool operator()(const AST_t& ast) const
-            {
-                TL::Object* attr = ast.get_attribute(OMP_IS_PARALLEL_CONSTRUCT);
-
-                return (attr != NULL
-                        && attr->is_bool()
-                        && ((bool)(*attr)));
-            }
-    };
-
     class IdExpressionPred : public Predicate
     {
         public:
@@ -49,10 +36,24 @@ namespace TL
         TL::ScopeLink* scope_link = dynamic_cast<TL::ScopeLink*>(dto["scope_link"]);
         TL::Scope* global_scope = scope_link->get_scope(translation_unit);
 
-        Source s; 
-        s   << "int prova_fun() { int k; k = 3; }";
+        IdExpressionPred id_expression_pred;
+        TL::AST_list_t id_expressions_list = translation_unit->get_all_subtrees_predicate(id_expression_pred);
 
-        TL::AST_t* new_fun_ast = s.parse_global(global_scope, scope_link);
-        translation_unit->append_to_translation_unit(new_fun_ast);
+        // Get the symbol
+        TL::AST_list_t::iterator it;
+        for (it = id_expressions_list.begin();
+                it != id_expressions_list.end();
+                it++)
+        {
+            TL::Scope* st = scope_link->get_scope(*it);
+            if (st == NULL)
+                continue;
+
+            TL::Symbol* sym = st->get_symbol_from_id_expr(*it);
+            if (sym == NULL)
+                continue;
+
+            TL::Type* type = sym->get_type();
+        }
     }
 }
