@@ -4,7 +4,7 @@
 
    It parses a superset of the language.
 
-   Must be compiled with rofi-bison-2.1. 
+   Must be compiled with rofi-bison-2.3
    Ask for it at <rferrer@ac.upc.edu>
  */
 

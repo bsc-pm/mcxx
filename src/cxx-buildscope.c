@@ -1399,6 +1399,10 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
         // Bitwise copy, cv-qualification will be in this simple_type_info
         *simple_type_info = *simple_type_entry->type_information->type->aliased_type;
     }
+
+	// It is useful to save the tree of simple type specifiers
+	simple_type_info->type->typeof_expr = a;
+	simple_type_info->type->typeof_scope = copy_scope(st);
 }
 
 /*
@@ -3954,8 +3958,8 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
     else
     {
         WARNING_MESSAGE("Unnamed namespace support is missing", 0);
-        // build_scope_declaration_sequence(ASTSon1(a), compilation_options.global_scope);
-// #warning Unnamed namespace support is missing
+        build_scope_declaration_sequence(ASTSon1(a), compilation_options.global_scope, decl_context);
+		// #warning Unnamed namespace support is missing
     }
 }
 
@@ -4086,6 +4090,7 @@ static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st,
     }
 }
 
+// This function is C99 only
 void build_scope_kr_parameter_declaration(AST kr_parameter_declaration, 
         scope_t* parameter_scope, decl_context_t decl_context)
 {

@@ -459,7 +459,7 @@ typedef struct scope_tag
 {
     // Kind of this scope
     enum scope_kind kind;
-    
+
     // Hash of scope_entry_list
     Hash* hash;
 
