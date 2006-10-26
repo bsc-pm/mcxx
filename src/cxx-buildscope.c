@@ -182,6 +182,7 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
 
     initialize_builtin_symbols();
 
+	// Refactor this and "build_scope_translation_unit_tree_with_global_scope" one day
     build_scope_declaration_sequence(list, compilation_options.global_scope, default_decl_context);
 
     if (compilation_options.debug_options.print_scope)
@@ -191,7 +192,28 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
         fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
     }
 
-    // Clear for sanity checks
+    // Clear for sanity
+	compilation_options.scope_link = NULL;
+    compilation_options.global_scope = NULL;
+}
+
+void build_scope_translation_unit_tree_with_global_scope(AST tree,
+		scope_t* global_scope, scope_link_t* scope_link)
+{
+    compilation_options.global_scope = global_scope;
+	compilation_options.scope_link = scope_link;
+	
+	if (ASTType(tree) != AST_TRANSLATION_UNIT)
+	{
+		internal_error("This function expects a translation unit tree but '%s'", 
+				ast_print_node_type(ASTType(tree)));
+	}
+
+	AST list = ASTSon0(tree);
+	// The scope will have been already populated with basic things
+    build_scope_declaration_sequence(list, compilation_options.global_scope, default_decl_context);
+	
+    // Clear for sanity 
 	compilation_options.scope_link = NULL;
     compilation_options.global_scope = NULL;
 }

@@ -5,7 +5,7 @@
 #include "cxx-compilerphases.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-ast.hpp"
-#include "tl-contextlink.hpp"
+#include "tl-scopelink.hpp"
 
 /*
    void *dlopen(const char *filename, int flag);
@@ -31,10 +31,10 @@ namespace TL
 				TL::DTO* dto = new TL::DTO;
 
 				TL::AST_t* ast = new TL::AST_t(translation_unit->parsed_tree);
-				dto->set_object("ast", ast);
+				dto->set_object("translation_unit", ast);
 
-				TL::ContextLink* context = new TL::ContextLink(translation_unit->scope_link);
-				dto->set_object("context_link", context);
+				TL::ScopeLink* scope = new TL::ScopeLink(translation_unit->scope_link);
+				dto->set_object("scope_link", scope);
 
 				for (compiler_phases_t::iterator it = compiler_phases.begin();
 						it != compiler_phases.end();

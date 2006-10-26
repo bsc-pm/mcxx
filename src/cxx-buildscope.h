@@ -10,6 +10,7 @@
 MCXX_BEGIN_DECLS
 
 void build_scope_translation_unit(translation_unit_t* translation_unit);
+void build_scope_translation_unit_tree_with_global_scope(AST tree, scope_t* global_scope, scope_link_t* scope_link);
 
 typedef struct gather_decl_spec_tag {
     char is_auto;
