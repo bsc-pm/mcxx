@@ -2,7 +2,7 @@
 #include "tl-builtin.hpp"
 #include "tl-ast.hpp"
 #include "tl-source.hpp"
-#include "tl-contextlink.hpp"
+#include "tl-scopelink.hpp"
 #include "cxx-attrnames.h"
 #include <iostream>
 #include <set>
@@ -43,15 +43,16 @@ namespace TL
             }
     };
 
-    void OpenMPTransform::run(DTO& data_flow)
+    void OpenMPTransform::run(DTO& dto)
     {
         TL::AST_t* translation_unit = dynamic_cast<TL::AST_t*>(dto["translation_unit"]);
-        TL::ContextLink* scope_link = dynamic_cast<TL::ContextLink*>(dto["context_link"]);
-        TL::Context* global_scope = scope_link->get_context(translation_unit);
+        TL::ScopeLink* scope_link = dynamic_cast<TL::ScopeLink*>(dto["scope_link"]);
+        TL::Scope* global_scope = scope_link->get_scope(translation_unit);
 
         Source s; 
         s   << "int prova_fun() { int k; k = 3; }";
 
-        TL::AST_t* new_fun_ast = s.parse_global(global_scope);
+        TL::AST_t* new_fun_ast = s.parse_global(global_scope, scope_link);
+        translation_unit->append_to_translation_unit(new_fun_ast);
     }
 }

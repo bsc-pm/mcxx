@@ -93,7 +93,7 @@ namespace TL
 				AST _ast = ast._ast;
 
 				scope_entry_list_t* entry_list = query_id_expression(_st, _ast, 
-						FULL_UNQUALIFIED_LOOKUP, default_decl_scope);
+						FULL_UNQUALIFIED_LOOKUP, default_decl_context);
 
 				convert_to_vector(entry_list, result);
 
@@ -114,6 +114,8 @@ namespace TL
 			{
 				return true;
 			}
+
+			friend class Source;
 	};
 }
 

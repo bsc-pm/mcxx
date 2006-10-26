@@ -21,6 +21,10 @@ namespace TL
 				: _ast(_wrapped_tree)
 			{
 			}
+
+			static AST get_translation_unit(AST node);
+			static void append_list(AST orig_list, AST appended_list);
+			static void relink_parent(AST previous_child, AST new_child);
 		protected:
 			AST _ast;
 			void tree_iterator(const AST_t& a, const Predicate& p, std::vector<AST_t>& result) const;
@@ -36,11 +40,9 @@ namespace TL
 
 			std::string prettyprint() const;
 
-			void replace_with(const AST_t& ast);
+			void replace_with(AST_t* ast);
 
-			AST_t duplicate() const;
-
-			void add_sibling(AST_t& t);
+			AST_t* duplicate() const;
 
 			std::vector<AST_t> get_all_subtrees_predicate(const Predicate& p) const;
 
@@ -50,6 +52,8 @@ namespace TL
 			{
 				return true;
 			}
+
+			void append_to_translation_unit(AST_t* t);
 
 			friend class Object;
 			friend class Source;

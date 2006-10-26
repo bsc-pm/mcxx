@@ -27,14 +27,14 @@ libtl_la_SOURCES = \
     tl-predicate.cpp \
     tl-scope.hpp \
     tl-scope.cpp \
+	tl-scopelink.hpp \
+	tl-scopelink.cpp \
     tl-dto.hpp \
     tl-dto.cpp \
 	tl-symbol.hpp \
 	tl-symbol.cpp \
     tl-compilerphase.hpp \
     tl-compilerphase.cpp \
-	tl-scopelink.hpp \
-	tl-scopelink.cpp \
 	tl-source.hpp \
 	tl-source.cpp
 

@@ -24,8 +24,9 @@ namespace TL
 				return NULL;
 			}
 		public:
-			Scope* get_scope(AST_t& ast);
+			Scope* get_scope(AST_t* ast);
 
+			friend class Source;
 			friend class CompilerPhaseRunner;
 	};
 }
