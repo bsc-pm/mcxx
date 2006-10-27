@@ -1,6 +1,7 @@
 #ifndef TL_TYPE_HPP
 #define TL_TYPE_HPP
 
+#include <string>
 #include "tl-object.hpp"
 #include "tl-symbol.hpp"
 #include "cxx-scope.h"
@@ -22,9 +23,14 @@ namespace TL
 			{
 			}
 
-			static void std::string get_type_name_str(type_t* type);
-
-			static void std::string get_simple_type_name_str(simple_type_t* simple_type);
+			static std::string get_type_name_str(type_t* type, const std::string& symbol_name);
+            static void get_type_name_str_internal(type_t* type_info, 
+                    const std::string &symbol_name, std::string& left, std::string& right);
+            static std::string get_cv_qualifier_str(type_t* type_info);
+			static std::string get_simple_type_name_str(type_t* simple_type);
+            static bool declarator_needs_parentheses(type_t* type_info);
+            static std::string get_declaration_str_internal(type_t* type_info, 
+                    const std::string& symbol_name, bool semicolon);
 		public :
 
 			virtual ~Type()
@@ -36,7 +42,8 @@ namespace TL
 				return true;
 			}
 
-			std::string get_declaration_str(const std::string& symbol_name) const;
+			std::string get_simple_declaration_str(const std::string& symbol_name) const;
+			std::string get_parameter_declaration_str(const std::string& symbol_name) const;
 
 			friend class Symbol;
 	};

@@ -8,6 +8,11 @@ namespace TL
 		return *this;
 	}
 
+	std::string Source::get_source()
+	{
+		return _code;
+	}
+
 	AST_t* Source::parse_global(TL::Scope* ctx, TL::ScopeLink* scope_link)
 	{
 		const char* str = _code.c_str();

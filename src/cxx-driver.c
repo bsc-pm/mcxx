@@ -364,7 +364,8 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 translation_unit_t* translation_unit = GC_CALLOC(1, sizeof(*translation_unit));
                 translation_unit->input_filename = GC_STRDUP(argv[optind]);
 
-                if (compilation_options.do_not_link)
+				if (compilation_options.do_not_link
+						|| compilation_options.do_not_compile)
                 {
                     translation_unit->output_filename = output_file;
                 }
@@ -744,32 +745,43 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
         return NULL;
     }
 
-    char* input_filename_basename = NULL;
-    input_filename_basename = give_basename(translation_unit->input_filename);
+	FILE* prettyprint_file;
+	char* output_filename = NULL;
 
-    char* preffix = strappend(compilation_options.exec_basename, "_");
+	if (compilation_options.do_not_compile
+			&& compilation_options.do_not_link
+			&& strcmp(translation_unit->output_filename, "-") == 0)
+	{
+		prettyprint_file = stdout;
+		output_filename = "(stdout)";
+	}
+	else
+	{
+		char* input_filename_basename = NULL;
+		input_filename_basename = give_basename(translation_unit->input_filename);
 
-    char* output_filename_basename = NULL; 
-    output_filename_basename = strappend(preffix,
-            input_filename_basename);
+		char* preffix = strappend(compilation_options.exec_basename, "_");
 
-    char* output_filename = NULL;
+		char* output_filename_basename = NULL; 
+		output_filename_basename = strappend(preffix,
+				input_filename_basename);
 
-    if (compilation_options.output_directory == NULL)
-    {
-        char* input_filename_dirname = give_dirname(translation_unit->input_filename);
-        input_filename_dirname = strappend(input_filename_dirname, "/");
+		if (compilation_options.output_directory == NULL)
+		{
+			char* input_filename_dirname = give_dirname(translation_unit->input_filename);
+			input_filename_dirname = strappend(input_filename_dirname, "/");
 
-        output_filename = strappend(input_filename_dirname,
-                output_filename_basename);
-    }
-    else
-    {
-        output_filename = strappend(compilation_options.output_directory, "/");
-        output_filename = strappend(output_filename, output_filename_basename);
-    }
+			output_filename = strappend(input_filename_dirname,
+					output_filename_basename);
+		}
+		else
+		{
+			output_filename = strappend(compilation_options.output_directory, "/");
+			output_filename = strappend(output_filename, output_filename_basename);
+		}
+		prettyprint_file = fopen(output_filename, "w");
+	}
 
-    FILE* prettyprint_file = fopen(output_filename, "w");
 
     if (prettyprint_file == NULL)
     {

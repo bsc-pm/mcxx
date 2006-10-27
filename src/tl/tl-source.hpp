@@ -28,10 +28,19 @@ namespace TL
 			{
 			}
 
+            Source (const std::string& str)
+                : _code(str)
+            {
+            }
+
+
+
 			virtual bool is_source() const
 			{
 				return true;
 			}
+
+            std::string get_source();
 
 			Source& operator<<(const std::string& str);
 			AST_t* parse_global(TL::Scope* ctx, TL::ScopeLink* scope_link);

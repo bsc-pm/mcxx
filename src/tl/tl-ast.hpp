@@ -59,6 +59,7 @@ namespace TL
 
 			void append_to_translation_unit(AST_t* t);
 
+            friend class Type;
 			friend class Object;
 			friend class Source;
 			friend class Scope;

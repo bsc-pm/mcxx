@@ -54,6 +54,15 @@ namespace TL
                 continue;
 
             TL::Type* type = sym->get_type();
+
+			std::string decl = type->get_simple_declaration_str("prova_" + sym->get_name());
+
+			TL::Source src;
+			src << decl;
+
+			TL::AST_t* decl_ast = src.parse_global(global_scope, scope_link);
+
+			translation_unit->append_to_translation_unit(decl_ast);
         }
     }
 }

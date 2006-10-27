@@ -35,6 +35,6 @@
   #define MCXX_END_DECLS
 #endif
 
-#define BITMAP_TEST(x, b) (((x) & (b)) == (b))
+#define BITMAP_TEST(x, b) ((((int)(x)) & ((int)(b))) == (b))
 
 #endif // CXX_MACROS_H
