@@ -28,24 +28,25 @@ namespace TL
             + declarator_name
             + std::string(semicolon ? ";" : "");
 
+		std::cerr << "Retornant '" << result << "'" << std::endl;
         return result;
     }
 
     std::string Type::get_cv_qualifier_str(type_t* type_info)
     {
-        std::string result = std::string("");
+        std::string result = std::string(" ");
 
-        if (BITMAP_TEST(type_info, CV_CONST))
+        if (BITMAP_TEST(type_info->cv_qualifier, CV_CONST))
         {
             result += "const ";
         }
 
-        if (BITMAP_TEST(type_info, CV_VOLATILE))
+        if (BITMAP_TEST(type_info->cv_qualifier, CV_VOLATILE))
         {
             result += "volatile ";
         }
 
-        if (BITMAP_TEST(type_info, CV_RESTRICT))
+        if (BITMAP_TEST(type_info->cv_qualifier, CV_RESTRICT))
         {
             result += "restricted ";
         }
@@ -99,6 +100,7 @@ namespace TL
                         left = left + "(";
                     }
 
+					left = left + get_cv_qualifier_str(type_info);
                     left = left + "*";
 
                     get_type_name_str_internal(type_info->pointer->pointee, symbol_name, left, right);
@@ -111,6 +113,23 @@ namespace TL
                 }
             case TK_POINTER_TO_MEMBER :
                 {
+                    if (declarator_needs_parentheses(type_info))
+                    {
+                        left = left + "(";
+                    }
+
+					left = left + std::string(type_info->pointer->pointee_class->symbol_name);
+
+                    left = left + "::";
+					left = left + "*";
+					left = left + get_cv_qualifier_str(type_info);
+
+                    get_type_name_str_internal(type_info->pointer->pointee, symbol_name, left, right);
+
+                    if (declarator_needs_parentheses(type_info))
+                    {
+                        right = ")" + right;
+                    }
                     break;
                 }
             case TK_REFERENCE :
@@ -162,7 +181,8 @@ namespace TL
                             prototype += get_declaration_str_internal(type_info->function->parameter_list[i]->type_info, "", false);
                         }
                     }
-                    prototype += std::string(")");
+                    prototype += std::string(") ");
+					prototype += get_cv_qualifier_str(type_info);
 
                     right = right + prototype;
                     break;
@@ -175,6 +195,101 @@ namespace TL
         }
     }
 
+	std::string Type::get_simple_type_name_str_internal(simple_type_t* simple_type)
+	{
+		std::string result;
+		switch ((int)simple_type->kind)
+		{
+			case STK_USER_DEFINED :
+			case STK_TYPEOF :
+				{
+					TL::AST_t type_name(simple_type->typeof_expr);
+					result = type_name.prettyprint();
+					break;
+				}
+			case STK_VA_LIST :
+				{
+					result = std::string("__builtin_va_list");
+					break;
+				}
+			case STK_BUILTIN_TYPE :
+				{
+					if (simple_type->is_unsigned)
+					{
+						result = "unsigned ";
+					}
+					else if (simple_type->is_signed)
+					{
+						result = "signed ";
+					}
+
+					if (simple_type->is_long == 1)
+					{
+						result += "long ";
+					}
+					else if (simple_type->is_long >= 2)
+					{
+						result += "long long ";
+					}
+					else if (simple_type->is_short)
+					{
+						result += "short ";
+					}
+
+					switch ((int)simple_type->builtin_type)
+					{
+						case BT_INT :
+							{
+								result += "int ";
+								break;
+							}
+						case BT_CHAR :
+							{
+								result += "char ";
+								break;
+							}
+						case BT_WCHAR :
+							{
+								result += "wchar_t ";
+								break;
+							}
+						case BT_FLOAT :
+							{
+								result += "float ";
+								break;
+							}
+						case BT_DOUBLE :
+							{
+								result += "double ";
+								break;
+							}
+						case BT_BOOL :
+							{
+								result += "bool ";
+								break;
+							}
+						case BT_VOID :
+							{
+								result += "void ";
+								break;
+							}
+						case BT_UNKNOWN :
+							{
+								result += " ";
+								break;
+							}
+						default :
+							break;
+					}
+					break;
+				}
+			default:
+				break;
+		}
+
+		return result;
+	}
+
     std::string Type::get_simple_type_name_str(type_t* type_info)
     {
         std::string result;
@@ -182,8 +297,8 @@ namespace TL
         {
             case TK_DIRECT :
                 {
-                    TL::AST_t type_name(type_info->type->typeof_expr);
-                    result = type_name.prettyprint();
+					return get_cv_qualifier_str(type_info) 
+						+ get_simple_type_name_str_internal(type_info->type);
                     break;
                 }
             case TK_FUNCTION :
