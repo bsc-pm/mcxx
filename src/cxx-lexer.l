@@ -619,6 +619,10 @@ runtime {
 "<?=" { parse_token_text(); return MIN_OPERATOR_ASSIGN; }
 ">?=" { parse_token_text(); return MAX_OPERATOR_ASSIGN; }
 
+ /* Special tokens for subparsing */
+@EXPRESSION@ { parse_token_text(); return SUBPARSE_EXPRESSION; }
+@STATEMENT@ { parse_token_text(); return SUBPARSE_STATEMENT; }
+
 {idnondigit}({idnondigit}|{digit})* {parse_token_text(); return IDENTIFIER; }
 
 
@@ -756,7 +760,7 @@ static void parse_token_text(void)
 #define TL_SOURCE_STRING mc99_tl_source_string
 /*!endif*/
 
-const char* TL_SOURCE_STRING = "tl-source-string";
+char* TL_SOURCE_STRING = "tl-source-string";
 
 int PREPARE_STRING_FOR_SCANNING(const char* str)
 {

@@ -4,10 +4,13 @@
 #include <string>
 #include "tl-object.hpp"
 #include "tl-symbol.hpp"
+#include "tl-ast.hpp"
+#include "tl-scope.hpp"
 #include "cxx-scope.h"
 
 namespace TL
 {
+	class Scope;
 	class Symbol;
 	class Type : public Object
 	{
@@ -45,6 +48,10 @@ namespace TL
 
 			std::string get_simple_declaration_str(const std::string& symbol_name) const;
 			std::string get_parameter_declaration_str(const std::string& symbol_name) const;
+
+			Type* duplicate();
+			Type* get_pointer_to();
+			Type* get_array_to(AST_t *expression_array, Scope* scope);
 
 			friend class Symbol;
 	};

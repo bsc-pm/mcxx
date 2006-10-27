@@ -96,6 +96,7 @@ AST get_leftmost_declarator_name(AST a, decl_context_t decl_context);
 char* get_conversion_function_name(AST conversion_function_id, scope_t* st, 
         type_t** result_conversion_type, decl_context_t decl_context);
 
+void build_scope_statement_with_scope_link(AST a, scope_t* st, scope_link_t* scope_link);
 void build_scope_dynamic_initializer(void);
 
 MCXX_END_DECLS

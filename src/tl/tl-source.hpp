@@ -43,7 +43,11 @@ namespace TL
             std::string get_source();
 
 			Source& operator<<(const std::string& str);
+
 			AST_t* parse_global(TL::Scope* ctx, TL::ScopeLink* scope_link);
+			AST_t* parse_statement(TL::Scope* ctx, TL::ScopeLink* scope_link);
+
+			AST_t* parse_expression(TL::Scope* ctx);
 	};
 }
 

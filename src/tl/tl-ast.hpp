@@ -27,6 +27,7 @@ namespace TL
 			}
 
 			static AST get_translation_unit(AST node);
+			static void prepend_list(AST orig_list, AST prepended_list);
 			static void append_list(AST orig_list, AST appended_list);
 			static void relink_parent(AST previous_child, AST new_child);
 		protected:
@@ -57,7 +58,10 @@ namespace TL
 				return true;
 			}
 
+			void prepend_to_translation_unit(AST_t* t);
 			void append_to_translation_unit(AST_t* t);
+
+			TL::AST_t* get_enclosing_block();
 
             friend class Type;
 			friend class Object;

@@ -48,6 +48,7 @@ namespace TL
 				return true;
 			}
 
+			friend class Type;
 			friend class Source;
 	};
 }

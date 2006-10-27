@@ -1,7 +1,9 @@
 #include "tl-type.hpp"
 #include "tl-ast.hpp"
 #include "cxx-utils.h"
+#include "cxx-typeutils.h"
 #include "cxx-scope.h"
+#include <gc.h>
 
 namespace TL
 {
@@ -27,8 +29,6 @@ namespace TL
             + std::string(" ")
             + declarator_name
             + std::string(semicolon ? ";" : "");
-
-		std::cerr << "Retornant '" << result << "'" << std::endl;
         return result;
     }
 
@@ -323,4 +323,44 @@ namespace TL
         }
         return result;
     }
+
+	Type* Type::duplicate()
+	{
+		type_t* new_type_info = copy_type(_type_info);
+		return new Type(new_type_info);
+	}
+
+	Type* Type::get_pointer_to()
+	{
+		Type* result = this->duplicate();
+		type_t* result_type = result->_type_info;
+
+		type_t* pointer_to = (type_t*)GC_CALLOC(1, sizeof(*pointer_to));
+
+		pointer_to->kind = TK_POINTER;
+		pointer_to->pointer = (pointer_info_t*)GC_CALLOC(1, sizeof(*(pointer_to->pointer)));
+		pointer_to->pointer->pointee = result_type;
+
+		result->_type_info = pointer_to;
+
+		return result;
+	}
+
+	Type* Type::get_array_to(AST_t *array_expr, Scope* scope)
+	{
+		Type* result = this->duplicate();
+		type_t* result_type = result->_type_info;
+
+		type_t* array_to = (type_t*)GC_CALLOC(1, sizeof(*array_to));
+
+		array_to->kind = TK_ARRAY;
+		array_to->array = (array_info_t*)GC_CALLOC(1, sizeof(*(array_to->array)));
+		array_to->array->element_type = result_type;
+		array_to->array->array_expr = array_expr->_ast;
+		array_to->array->array_expr_scope = scope->_st;
+
+		result->_type_info = array_to;
+
+		return result;
+	}
 }

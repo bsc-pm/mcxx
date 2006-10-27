@@ -198,6 +198,10 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> MAX_OPERATOR_ASSIGN
 %token<token_atrib> MIN_OPERATOR_ASSIGN
 
+// Subparsing
+%token<token_atrib> SUBPARSE_EXPRESSION
+%token<token_atrib> SUBPARSE_STATEMENT
+
 // Nonterminals
 %type<ast> abstract_declarator
 %type<ast> additive_expression
@@ -392,7 +396,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 
 %type<ast> reduction_operator
 
-
+%type<ast> subparsing
 
 %start translation_unit
 
@@ -406,9 +410,24 @@ translation_unit : declaration_sequence
 {
 	*parsed_tree = ASTMake1(AST_TRANSLATION_UNIT, $1, 0, NULL);
 }
+// This is used for subparsing
+| subparsing
+{
+	*parsed_tree = $1;
+}
 | /* empty */
 {
 	*parsed_tree = ASTMake1(AST_TRANSLATION_UNIT, NULL, 0, NULL);
+}
+;
+
+subparsing : SUBPARSE_EXPRESSION expression
+{
+	$$ = $2;
+}
+| SUBPARSE_STATEMENT statement
+{
+	$$ = $2;
 }
 ;
 

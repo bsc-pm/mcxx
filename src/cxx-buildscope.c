@@ -6079,6 +6079,14 @@ static stmt_scope_handler_t stmt_scope_handlers[] =
 	STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate),
 };
 
+void build_scope_statement_with_scope_link(AST a, scope_t* st, scope_link_t* scope_link)
+{
+	compilation_options.scope_link = scope_link;
+
+	build_scope_statement(a, st, default_decl_context);
+
+	compilation_options.scope_link = NULL;
+}
 
 static void build_scope_statement(AST a, scope_t* st, decl_context_t decl_context)
 {
