@@ -36,7 +36,7 @@ Object* Object::get_attribute(const std::string& name) const
 			}
 		case TL_AST :
 			{
-				TL::AST_t* ast = new TL::AST_t(tl_value->data._ast);
+				TL::AST_t* ast = TL::AST_t::wrap_ast(tl_value->data._ast);
 				return ast;
 				break;
 			}

@@ -33,8 +33,6 @@ namespace TL
             {
             }
 
-
-
 			virtual bool is_source() const
 			{
 				return true;

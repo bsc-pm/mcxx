@@ -26,7 +26,7 @@ namespace TL
 
 		solve_possibly_ambiguous_expression(a, ctx->_st, default_decl_context);
 
-		return new TL::AST_t(a);
+		return TL::AST_t::wrap_ast(a);
 	}
 	
 	AST_t* Source::parse_statement(TL::Scope* ctx, TL::ScopeLink* scope_link)
@@ -41,7 +41,7 @@ namespace TL
 
 		build_scope_statement_with_scope_link(a, ctx->_st, scope_link->_scope_link);
 
-		return new TL::AST_t(a);
+		return TL::AST_t::wrap_ast(a);
 	}
 
 	AST_t* Source::parse_global(TL::Scope* ctx, TL::ScopeLink* scope_link)
@@ -55,6 +55,6 @@ namespace TL
 
 		build_scope_translation_unit_tree_with_global_scope(a, ctx->_st, scope_link->_scope_link);
 
-		return new TL::AST_t(a);
+		return TL::AST_t::wrap_ast(a);
 	}
 }

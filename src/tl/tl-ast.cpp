@@ -3,6 +3,18 @@
 
 namespace TL
 {
+	std::map<AST, AST_t*> AST_t::ast_cache;
+
+	AST_t* AST_t::wrap_ast(AST ast)
+	{
+		if (ast_cache.find(ast) == ast_cache.end())
+		{
+			ast_cache[ast] = new TL::AST_t(ast);
+		}
+
+		return ast_cache[ast];
+	}
+
 	tl_type_t* AST_t::get_extended_attribute(const std::string& name) const
 	{
 		//  First get the extended attribute
@@ -29,13 +41,13 @@ namespace TL
 
 	AST_t* AST_t::duplicate() const
 	{
-		AST_t* result = new AST_t(duplicate_ast(this->_ast));
+		AST_t* result = wrap_ast(duplicate_ast(this->_ast));
 		return result;
 	}
 
 	AST_list_t AST_t::get_all_subtrees_predicate(const Predicate& p) const
 	{
-		std::vector<AST_t*> result;
+		AST_list_t result;
 		tree_iterator(*this, p, result);
 
 		return result;
@@ -45,7 +57,7 @@ namespace TL
 	{
 		if (p(a))
 		{
-			result.push_back(new AST_t(a._ast));
+			result.push_back(wrap_ast(a._ast));
 		}
 
 		AST tree = a._ast;
@@ -215,17 +227,112 @@ namespace TL
 		return ASTParent(node);
 	}
 
-	TL::AST_t* AST_t::get_enclosing_block()
+	AST_t* AST_t::get_enclosing_block()
 	{
 		AST node = _ast;
-		while (ASTType(node) != AST_COMPOUND_STATEMENT
-				&& ASTType(node) != AST_CLASS_SPECIFIER
-				&& ASTType(node) != AST_TRANSLATION_UNIT
-				&& ASTType(node) != AST_NAMESPACE_DEFINITION)
+		while (!is_extensible_block(node))
+		{
+			node = ASTParent(node);
+		}
+		return wrap_ast(node);
+	}
+
+	bool AST_t::is_extensible_block(AST node)
+	{
+		return (ASTType(node) == AST_COMPOUND_STATEMENT
+				|| ASTType(node) == AST_CLASS_SPECIFIER
+				|| ASTType(node) == AST_TRANSLATION_UNIT
+				|| ASTType(node) == AST_NAMESPACE_DEFINITION);
+	}
+
+	AST AST_t::get_list_of_extensible_block(AST node)
+	{
+		switch ((int)ASTType(node))
+		{
+			case AST_COMPOUND_STATEMENT :
+				{
+					// This can be null
+					return ASTSon0(node);
+					break;
+				}
+			case AST_CLASS_SPECIFIER :
+				{
+					// This one has to be handled specially because of its
+					// special nature
+					return ASTSon1(node);
+					break;
+				}
+			case AST_TRANSLATION_UNIT :
+				{
+					// This can be null
+					return ASTSon0(node);
+					break;
+				}
+			case AST_NAMESPACE_DEFINITION :
+				{
+					// This can be null
+					return ASTSon1(node);
+					break;
+				}
+			default:
+				return NULL;
+		}
+	}
+
+	void AST_t::prepend(AST_t* t)
+	{
+		if (!is_extensible_block(_ast))
+		{
+			std::cerr << "This tree cannot be prepended anything (" 
+				<< ast_print_node_type(ASTType(_ast)) << ")" << std::endl;
+			return;
+		}
+
+		AST list = get_list_of_extensible_block(_ast);
+
+		AST prepended_list = t->_ast;
+		if (ASTType(t->_ast) != AST_NODE_LIST)
+		{
+			prepended_list = ASTListLeaf(prepended_list);
+		}
+
+		prepend_list(list, prepended_list);
+	}
+
+	void AST_t::append(AST_t* t)
+	{
+		if (!is_extensible_block(_ast))
+		{
+			std::cerr << "This tree cannot be appended anything (" 
+				<< ast_print_node_type(ASTType(_ast)) << ")" << std::endl;
+			return;
+		}
+		
+		AST list = get_list_of_extensible_block(_ast);
+
+		if (ASTType(list) == AST_MEMBER_SPEC)
+		{
+			// Handle this one appart
+		}
+
+		AST appended_list = t->_ast;
+		if (ASTType(t->_ast) != AST_NODE_LIST)
+		{
+			appended_list = ASTListLeaf(appended_list);
+		}
+
+		append_list(list, appended_list);
+	}
+
+	AST_t* AST_t::get_enclosing_function_definition()
+	{
+		AST node = _ast;
+
+		while (ASTType(node) != AST_FUNCTION_DEFINITION)
 		{
 			node = ASTParent(node);
 		}
 
-		return new TL::AST_t(node);
+		return wrap_ast(node);
 	}
 }
