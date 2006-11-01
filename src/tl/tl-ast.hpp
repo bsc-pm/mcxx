@@ -14,41 +14,14 @@ namespace TL
 {
 	class ScopeLink;
 
-	class AST_t;
-
-	class AST_list_t : public std::vector<AST_t*>
-	{
-		public:
-	};
-
-	class AST_set_t : public std::set<AST_t*>
-	{
-		private:
-			void initialize_from_list(const AST_list_t& list)
-			{
-				for (AST_list_t::const_iterator it = list.begin();
-						it != list.end();
-						it++)
-				{
-					this->insert(*it);
-				}
-			}
-		public:
-			AST_set_t& operator=(const AST_list_t& list)
-			{
-				initialize_from_list(list);
-				return (*this);
-			}
-
-			AST_set_t(const AST_list_t& list)
-			{
-				initialize_from_list(list);
-			}
-	};
 
 	class AST_t : public Object
 	{
 		private:
+			AST _ast;
+			static void tree_iterator(const AST_t& a, const Predicate& p, std::vector<AST_t>& result);
+			tl_type_t* get_extended_attribute(const std::string& name) const;
+		public:
 			/*
 			 * Constructor
 			 */
@@ -56,6 +29,17 @@ namespace TL
 				: _ast(_wrapped_tree)
 			{
 			}
+
+            AST_t(Object obj)
+            {
+                AST_t* cast = dynamic_cast<AST_t*>(&obj);
+                this->_ast = cast->_ast;
+            }
+
+			// AST_t(AST_t& ast)
+			// 	: _ast(ast._ast)
+			// {
+			// }
 
 			static AST get_translation_unit(AST node);
 			static void prepend_list(AST orig_list, AST prepended_list);
@@ -65,14 +49,6 @@ namespace TL
 			static bool is_extensible_block(AST node);
 			static AST get_list_of_extensible_block(AST node);
 
-			static std::map<AST, AST_t*> ast_cache;
-			static AST_t* wrap_ast(AST ast);
-		protected:
-			AST _ast;
-			static void tree_iterator(const AST_t& a, const Predicate& p, AST_list_t& result);
-			tl_type_t* get_extended_attribute(const std::string& name) const;
-		public:
-
 			/*
 			 * Destructor
 			 */
@@ -80,13 +56,17 @@ namespace TL
 			{
 			}
 
+			bool operator<(AST_t n);
+			bool operator==(AST_t n);
+			AST_t& operator=(AST_t n);
+
 			std::string prettyprint() const;
 
-			void replace_with(AST_t* ast);
+			void replace_with(AST_t ast);
 
-			AST_t* duplicate() const;
+			AST_t duplicate() const;
 
-			AST_list_t get_all_subtrees_predicate(const Predicate& p) const;
+			std::vector<AST_t> get_all_subtrees_predicate(const Predicate& p) const;
 
 			std::string internal_ast_type() const;
 
@@ -95,24 +75,23 @@ namespace TL
 				return true;
 			}
 
-			void prepend_to_translation_unit(AST_t* t);
-			void append_to_translation_unit(AST_t* t);
+			void prepend_to_translation_unit(AST_t t);
+			void append_to_translation_unit(AST_t t);
 
-			void append(AST_t* t);
-			void prepend(AST_t* t);
+			void append(AST_t t);
+			void prepend(AST_t t);
 
-			AST_t* get_enclosing_block();
-			AST_t* get_enclosing_function_definition();
+			AST_t get_enclosing_block();
+			AST_t get_enclosing_function_definition();
 
-            friend class Type;
-			friend class Object;
-			friend class Source;
-			friend class Scope;
-			friend class ScopeLink;
-			friend class CompilerPhaseRunner;
-			friend class Traverse;
+			friend class Type;
+            friend class Scope;
+            friend class ScopeLink;
+            friend class DepthTraverse;
 	};
 
+    typedef std::vector<AST_t> AST_list_t;
+    typedef std::vector<AST_t> AST_set_t;
 }
 
 #endif // TL_AST_HPP

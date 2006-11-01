@@ -15,10 +15,13 @@ namespace TL
 	class Object /* : public gc */
 	{ 
 		protected:
-			virtual tl_type_t* get_extended_attribute(const std::string& name) const = 0;
+			virtual tl_type_t* get_extended_attribute(const std::string& name) const
+			{
+				return NULL;
+			}
 		public:
 			/* do not override */
-			Object* get_attribute(const std::string& name) const;
+			Object get_attribute(const std::string& name) const;
 
 			virtual ~Object() { }
 

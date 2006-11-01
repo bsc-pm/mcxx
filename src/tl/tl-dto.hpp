@@ -10,15 +10,16 @@ namespace TL
 	class DTO 
 	{
 		private:
-			typedef std::map<std::string, Object*> DTO_inner;
+			typedef std::map<std::string, Object> DTO_inner;
 			DTO_inner _dto;
+            Undefined _undefined;
 		public :
-			Object* operator[](const std::string& str) const
+			Object operator[](const std::string& str)
 			{
 				DTO_inner::const_iterator it = _dto.find(str);
 				if (it == _dto.end())
 				{
-					return NULL;
+					return _undefined;
 				}
 				else
 				{
@@ -26,7 +27,7 @@ namespace TL
 				}
 			}
 
-			void set_object(const std::string& str, Object* obj)
+			void set_object(const std::string& str, Object obj)
 			{
 				_dto[str] = obj;
 			}

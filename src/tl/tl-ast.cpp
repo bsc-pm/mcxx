@@ -3,16 +3,20 @@
 
 namespace TL
 {
-	std::map<AST, AST_t*> AST_t::ast_cache;
-
-	AST_t* AST_t::wrap_ast(AST ast)
+	bool AST_t::operator<(AST_t n)
 	{
-		if (ast_cache.find(ast) == ast_cache.end())
-		{
-			ast_cache[ast] = new TL::AST_t(ast);
-		}
+		return this->_ast < n._ast;
+	}
 
-		return ast_cache[ast];
+	bool AST_t::operator==(AST_t n)
+	{
+		return ast_equal(this->_ast, n._ast);
+	}
+
+	AST_t& AST_t::operator=(AST_t n)
+	{
+		this->_ast = n._ast;
+		return (*this);
 	}
 
 	tl_type_t* AST_t::get_extended_attribute(const std::string& name) const
@@ -32,32 +36,33 @@ namespace TL
 		return result;
 	}
 
-	void AST_t::replace_with(AST_t* ast)
+	void AST_t::replace_with(AST_t ast)
 	{
 		AST orig_tree = this->_ast;
-		*(this->_ast) = *(ast->_ast);
+		*(this->_ast) = *(ast._ast);
 		relink_parent(orig_tree, this->_ast);
 	}
 
-	AST_t* AST_t::duplicate() const
+	AST_t AST_t::duplicate() const
 	{
-		AST_t* result = wrap_ast(duplicate_ast(this->_ast));
+		AST_t result(duplicate_ast(this->_ast));
 		return result;
 	}
 
-	AST_list_t AST_t::get_all_subtrees_predicate(const Predicate& p) const
+	std::vector<AST_t> AST_t::get_all_subtrees_predicate(const Predicate& p) const
 	{
-		AST_list_t result;
+		std::vector<AST_t> result;
 		tree_iterator(*this, p, result);
 
 		return result;
 	}
 
-	void AST_t::tree_iterator(const AST_t& a, const Predicate& p, AST_list_t& result)
+	void AST_t::tree_iterator(const AST_t& a, const Predicate& p, std::vector<AST_t>& result)
 	{
 		if (p(a))
 		{
-			result.push_back(wrap_ast(a._ast));
+			AST_t match_ast(a._ast);
+			// result.push_back(match_ast);
 		}
 
 		AST tree = a._ast;
@@ -66,7 +71,8 @@ namespace TL
 		{
 			if (ASTChild(tree, i) != NULL)
 			{
-				tree_iterator(AST_t(ASTChild(tree, i)), p, result);
+				AST_t iterate(ASTChild(tree, i));
+				tree_iterator(iterate, p, result);
 			}
 		}
 	}
@@ -78,10 +84,10 @@ namespace TL
 		return result;
 	}
 
-	void AST_t::append_to_translation_unit(AST_t* tree)
+	void AST_t::append_to_translation_unit(AST_t tree)
 	{
 		AST this_translation_unit = get_translation_unit(this->_ast);
-		AST tree_translation_unit = get_translation_unit(tree->_ast);
+		AST tree_translation_unit = get_translation_unit(tree._ast);
 
 		AST this_declaration_seq = ASTSon0(this_translation_unit);
 		AST tree_declaration_seq = ASTSon0(tree_translation_unit);
@@ -96,10 +102,10 @@ namespace TL
 		}
 	}
 
-	void AST_t::prepend_to_translation_unit(AST_t* tree)
+	void AST_t::prepend_to_translation_unit(AST_t tree)
 	{
 		AST this_translation_unit = get_translation_unit(this->_ast);
-		AST tree_translation_unit = get_translation_unit(tree->_ast);
+		AST tree_translation_unit = get_translation_unit(tree._ast);
 
 		AST this_declaration_seq = ASTSon0(this_translation_unit);
 		AST tree_declaration_seq = ASTSon0(tree_translation_unit);
@@ -227,14 +233,16 @@ namespace TL
 		return ASTParent(node);
 	}
 
-	AST_t* AST_t::get_enclosing_block()
+	AST_t AST_t::get_enclosing_block()
 	{
 		AST node = _ast;
 		while (!is_extensible_block(node))
 		{
 			node = ASTParent(node);
 		}
-		return wrap_ast(node);
+
+		AST_t result(node);
+		return result;
 	}
 
 	bool AST_t::is_extensible_block(AST node)
@@ -279,7 +287,7 @@ namespace TL
 		}
 	}
 
-	void AST_t::prepend(AST_t* t)
+	void AST_t::prepend(AST_t t)
 	{
 		if (!is_extensible_block(_ast))
 		{
@@ -290,8 +298,8 @@ namespace TL
 
 		AST list = get_list_of_extensible_block(_ast);
 
-		AST prepended_list = t->_ast;
-		if (ASTType(t->_ast) != AST_NODE_LIST)
+		AST prepended_list = t._ast;
+		if (ASTType(t._ast) != AST_NODE_LIST)
 		{
 			prepended_list = ASTListLeaf(prepended_list);
 		}
@@ -299,7 +307,7 @@ namespace TL
 		prepend_list(list, prepended_list);
 	}
 
-	void AST_t::append(AST_t* t)
+	void AST_t::append(AST_t t)
 	{
 		if (!is_extensible_block(_ast))
 		{
@@ -315,8 +323,8 @@ namespace TL
 			// Handle this one appart
 		}
 
-		AST appended_list = t->_ast;
-		if (ASTType(t->_ast) != AST_NODE_LIST)
+		AST appended_list = t._ast;
+		if (ASTType(t._ast) != AST_NODE_LIST)
 		{
 			appended_list = ASTListLeaf(appended_list);
 		}
@@ -324,7 +332,7 @@ namespace TL
 		append_list(list, appended_list);
 	}
 
-	AST_t* AST_t::get_enclosing_function_definition()
+	AST_t AST_t::get_enclosing_function_definition()
 	{
 		AST node = _ast;
 
@@ -333,6 +341,7 @@ namespace TL
 			node = ASTParent(node);
 		}
 
-		return wrap_ast(node);
+		AST_t result(node);
+		return result;
 	}
 }

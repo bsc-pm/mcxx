@@ -23,7 +23,14 @@ namespace TL
 				return NULL;
 			}
 		public:
-			Scope* get_scope(AST_t* ast);
+			Scope get_scope(AST_t ast);
+
+            ScopeLink(Object obj)
+            {
+            }
+
+			ScopeLink& operator=(ScopeLink sl);
+			bool operator==(ScopeLink sl);
 
 			friend class Source;
 			friend class CompilerPhaseRunner;

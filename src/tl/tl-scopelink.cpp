@@ -2,22 +2,24 @@
 namespace TL
 {
 
-Scope* ScopeLink::get_scope(AST_t* ast)
+Scope ScopeLink::get_scope(AST_t ast)
 {
-	if (ast == NULL)
-	{
-		return NULL;
-	}
-
-	AST _ast = ast->_ast;
+	AST _ast = ast._ast;
 	scope_t* st = scope_link_get(_scope_link, _ast);
 
-	if (st == NULL)
-		return NULL;
-
-	Scope* result = new Scope(st);
-
+	Scope result(st);
 	return result;
+}
+
+ScopeLink& ScopeLink::operator=(ScopeLink sl)
+{
+	this->_scope_link = sl._scope_link;
+	return (*this);
+}
+
+bool ScopeLink::operator==(ScopeLink sl)
+{
+	return this->_scope_link == sl._scope_link;
 }
 
 }

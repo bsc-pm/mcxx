@@ -33,6 +33,11 @@ namespace TL
             {
             }
 
+			// Source(Source& src)
+			// 	: _code(src._code)
+			// {
+			// }
+
 			virtual bool is_source() const
 			{
 				return true;
@@ -42,10 +47,14 @@ namespace TL
 
 			Source& operator<<(const std::string& str);
 
-			AST_t* parse_global(TL::Scope* ctx, TL::ScopeLink* scope_link);
-			AST_t* parse_statement(TL::Scope* ctx, TL::ScopeLink* scope_link);
+			AST_t parse_global(TL::Scope ctx, TL::ScopeLink scope_link);
+			AST_t parse_statement(TL::Scope ctx, TL::ScopeLink scope_link);
 
-			AST_t* parse_expression(TL::Scope* ctx);
+			AST_t parse_expression(TL::Scope ctx);
+
+			bool operator==(Source src);
+			bool operator<(Source src);
+			Source& operator=(Source src);
 	};
 }
 

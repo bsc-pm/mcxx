@@ -14,7 +14,7 @@ namespace TL
 		return _code;
 	}
 
-	AST_t* Source::parse_expression(TL::Scope* ctx)
+	AST_t Source::parse_expression(TL::Scope ctx)
 	{
 		std::string mangled_text = "@EXPRESSION@ " + _code;
 		const char* str = mangled_text.c_str();
@@ -24,12 +24,13 @@ namespace TL
 		AST a;
 		mcxxparse(&a);
 
-		solve_possibly_ambiguous_expression(a, ctx->_st, default_decl_context);
+		solve_possibly_ambiguous_expression(a, ctx._st, default_decl_context);
 
-		return TL::AST_t::wrap_ast(a);
+		AST_t result(a);
+        return result;
 	}
 	
-	AST_t* Source::parse_statement(TL::Scope* ctx, TL::ScopeLink* scope_link)
+	AST_t Source::parse_statement(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
 		std::string mangled_text = "@STATEMENT@ " + _code;
 		const char* str = mangled_text.c_str();
@@ -39,12 +40,13 @@ namespace TL
 		AST a;
 		mcxxparse(&a);
 
-		build_scope_statement_with_scope_link(a, ctx->_st, scope_link->_scope_link);
+		build_scope_statement_with_scope_link(a, ctx._st, scope_link._scope_link);
 
-		return TL::AST_t::wrap_ast(a);
+        AST_t result(a);
+		return result;
 	}
 
-	AST_t* Source::parse_global(TL::Scope* ctx, TL::ScopeLink* scope_link)
+	AST_t Source::parse_global(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
 		const char* str = _code.c_str();
 
@@ -53,8 +55,25 @@ namespace TL
 		AST a;
 		mcxxparse(&a);
 
-		build_scope_translation_unit_tree_with_global_scope(a, ctx->_st, scope_link->_scope_link);
+		build_scope_translation_unit_tree_with_global_scope(a, ctx._st, scope_link._scope_link);
 
-		return TL::AST_t::wrap_ast(a);
+        AST_t result(a);
+		return result;
+	}
+
+	bool Source::operator==(Source src)
+	{
+		return this->_code == src._code;
+	}
+
+	bool Source::operator<(Source src)
+	{
+		return this->_code < src._code;
+	}
+
+	Source& Source::operator=(Source src)
+	{
+		this->_code = src._code;
+		return (*this);
 	}
 }
