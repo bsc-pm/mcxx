@@ -25,7 +25,14 @@ namespace TL
 		public:
 			Scope get_scope(AST_t ast);
 
-            ScopeLink(Object obj)
+            ScopeLink(const Object& obj)
+            {
+                const ScopeLink* sl = dynamic_cast<const ScopeLink*>(&obj);
+                this->_scope_link = sl->_scope_link;
+            }
+
+            ScopeLink(const ScopeLink& sl)
+                : _scope_link(sl._scope_link)
             {
             }
 

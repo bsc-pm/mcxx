@@ -33,10 +33,10 @@ namespace TL
             {
             }
 
-			// Source(Source& src)
-			// 	: _code(src._code)
-			// {
-			// }
+			Source(const Source& src)
+				: _code(src._code)
+			{
+			}
 
 			virtual bool is_source() const
 			{

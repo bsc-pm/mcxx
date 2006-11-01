@@ -27,6 +27,12 @@ class Integer : public Object
 		{
 		}
 
+        Integer(const Object& obj)
+        {
+            const Integer* pint = dynamic_cast<const Integer*>(&obj);
+            this->_i = pint->_i;
+        }
+
 		virtual operator int() const
 		{
 			return _i;
@@ -138,6 +144,12 @@ class Bool : public Object
 		{
 		}
 
+        Bool(const Object& obj)
+        {
+            const Bool* pint = dynamic_cast<const Bool*>(&obj);
+            this->_b = pint->_b;
+        }
+
 		virtual operator int() const
 		{
 			return int(_b);
@@ -212,6 +224,12 @@ class String : public Object
 			: _str(str._str)
 		{
 		}
+
+        String(const Object& obj)
+        {
+            const String* pint = dynamic_cast<const String*>(&obj);
+            this->_str = pint->_str;
+        }
 
 		String operator+(const String& str) const
 		{

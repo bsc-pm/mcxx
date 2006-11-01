@@ -27,10 +27,16 @@ namespace TL
 			{
 			}
 
-			// Scope(Scope& sc)
-			// 	: _st(sc._st)
-			// {
-			// }
+			Scope(const Scope& sc)
+				: _st(sc._st)
+			{
+			}
+
+            Scope(const Object& obj)
+            {
+                const Scope* sc = dynamic_cast<const Scope*>(&obj);
+                this->_st = sc->_st;
+            }
 
 			std::vector<Symbol> get_symbols_from_name(const std::string& str);
 

@@ -36,10 +36,10 @@ namespace TL
 			{
 			}
 
-			// Type(Type& type)
-			// 	: _type_info(type._type_info)
-			// {
-			// }
+			Type(const Type& type)
+				: _type_info(type._type_info)
+			{
+			}
 
 			virtual ~Type()
 			{

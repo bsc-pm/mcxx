@@ -30,16 +30,16 @@ namespace TL
 			{
 			}
 
-            AST_t(Object obj)
+            AST_t(const Object& obj)
             {
-                AST_t* cast = dynamic_cast<AST_t*>(&obj);
+                const AST_t* cast = dynamic_cast<const AST_t*>(&obj);
                 this->_ast = cast->_ast;
             }
 
-			// AST_t(AST_t& ast)
-			// 	: _ast(ast._ast)
-			// {
-			// }
+			AST_t(const AST_t& ast)
+				: _ast(ast._ast)
+			{
+			}
 
 			static AST get_translation_unit(AST node);
 			static void prepend_list(AST orig_list, AST prepended_list);
