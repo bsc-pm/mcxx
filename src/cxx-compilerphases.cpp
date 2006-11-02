@@ -28,20 +28,20 @@ namespace TL
 			static void start_compiler_phase_execution(translation_unit_t* translation_unit)
 			{
 				// Create the DTO
-				TL::DTO* dto = new TL::DTO;
+				TL::DTO dto;
 
-				TL::AST_t* ast = new TL::AST_t(translation_unit->parsed_tree);
-				dto->set_object("translation_unit", ast);
+				TL::AST_t ast(translation_unit->parsed_tree);
+				dto.set_object("translation_unit", ast);
 
-				TL::ScopeLink* scope = new TL::ScopeLink(translation_unit->scope_link);
-				dto->set_object("scope_link", scope);
+				TL::ScopeLink scope(translation_unit->scope_link);
+				dto.set_object("scope_link", scope);
 
 				for (compiler_phases_t::iterator it = compiler_phases.begin();
 						it != compiler_phases.end();
 						it++)
 				{
 					TL::CompilerPhase* phase = (*it);
-					phase->run(*dto);
+					phase->run(dto);
 				}
 			}
 

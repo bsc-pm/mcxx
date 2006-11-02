@@ -42,7 +42,9 @@ libtl_la_SOURCES = \
 	tl-traverse.hpp \
 	tl-traverse.cpp \
 	tl-context.hpp \
-	tl-context.cpp
+	tl-context.cpp \
+	tl-predicateutils.hpp \
+	tl-predicateutils.cpp
 
 libtlomp_la_CXXFLAGS = -Wall -O0 \
     -I $(srcdir)/../../src \

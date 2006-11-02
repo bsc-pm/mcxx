@@ -1,6 +1,9 @@
 #ifndef TL_BUILTIN_HPP
 #define TL_BUILTIN_HPP
 
+#include <typeinfo>
+#include <iostream>
+#include <string>
 #include "tl-object.hpp"
 
 namespace TL
@@ -29,8 +32,19 @@ class Integer : public Object
 
         Integer(const Object& obj)
         {
-            const Integer* pint = dynamic_cast<const Integer*>(&obj);
-            this->_i = pint->_i;
+				const Integer* pint = dynamic_cast<const Integer*>(&obj);
+				if (pint != NULL)
+				{
+					this->_i = pint->_i;
+				}
+				else
+				{
+					if (typeid(obj) != typeid(const Undefined&))
+					{
+						std::cerr << "Bad initialization of Integer" << std::endl;
+					}
+					this->_i = 0;
+				}
         }
 
 		virtual operator int() const
@@ -145,10 +159,21 @@ class Bool : public Object
 		}
 
         Bool(const Object& obj)
-        {
-            const Bool* pint = dynamic_cast<const Bool*>(&obj);
-            this->_b = pint->_b;
-        }
+		{
+			const Bool* pint = dynamic_cast<const Bool*>(&obj);
+			if (pint != NULL)
+			{
+				this->_b = pint->_b;
+			}
+			else
+			{
+				if (typeid(obj) != typeid(const Undefined&))
+				{
+					std::cerr << "Bad initialization of Bool (" << typeid(obj).name() << ")"  << std::endl;
+				}
+				this->_b = false;
+			}
+		}
 
 		virtual operator int() const
 		{
@@ -226,10 +251,21 @@ class String : public Object
 		}
 
         String(const Object& obj)
-        {
-            const String* pint = dynamic_cast<const String*>(&obj);
-            this->_str = pint->_str;
-        }
+		{
+			const String* pint = dynamic_cast<const String*>(&obj);
+			if (pint != NULL)
+			{
+				this->_str = pint->_str;
+			}
+			else
+			{
+				if (typeid(obj) != typeid(const Undefined&))
+				{
+					std::cerr << "Bad initialization of String" << std::endl;
+				}
+				this->_str = std::string("");
+			}
+		}
 
 		String operator+(const String& str) const
 		{

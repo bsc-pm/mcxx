@@ -62,7 +62,7 @@ namespace TL
 		if (p(a))
 		{
 			AST_t match_ast(a._ast);
-			// result.push_back(match_ast);
+			result.push_back(match_ast);
 		}
 
 		AST tree = a._ast;
@@ -336,7 +336,8 @@ namespace TL
 	{
 		AST node = _ast;
 
-		while (ASTType(node) != AST_FUNCTION_DEFINITION)
+		while (node != NULL && 
+				ASTType(node) != AST_FUNCTION_DEFINITION)
 		{
 			node = ASTParent(node);
 		}

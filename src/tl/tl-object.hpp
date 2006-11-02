@@ -19,11 +19,14 @@ namespace TL
 			{
 				return NULL;
 			}
+
 		public:
 			/* do not override */
-			Object get_attribute(const std::string& name) const;
+			Object& get_attribute(const std::string& name) const;
 
 			virtual ~Object() { }
+
+			bool has_attribute(const std::string& name) const;
 
 			virtual operator bool() const
 			{

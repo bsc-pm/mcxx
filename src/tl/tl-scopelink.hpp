@@ -1,6 +1,7 @@
 #ifndef TL_SCOPELINK_HPP
 #define TL_SCOPELINK_HPP
 
+#include <typeinfo>
 #include "cxx-scopelink.h"
 #include "tl-object.hpp"
 #include "tl-ast.hpp"
@@ -26,10 +27,20 @@ namespace TL
 			Scope get_scope(AST_t ast);
 
             ScopeLink(const Object& obj)
-            {
-                const ScopeLink* sl = dynamic_cast<const ScopeLink*>(&obj);
-                this->_scope_link = sl->_scope_link;
-            }
+			{
+				const ScopeLink* sl = dynamic_cast<const ScopeLink*>(&obj);
+				if (sl != NULL)
+				{
+					this->_scope_link = sl->_scope_link;
+				}
+				else
+				{
+					if (typeid(obj) != typeid(const Undefined&))
+					{
+						std::cerr << "Bad initialization for ScopeLink" << std::endl;
+					}
+				}
+			}
 
             ScopeLink(const ScopeLink& sl)
                 : _scope_link(sl._scope_link)

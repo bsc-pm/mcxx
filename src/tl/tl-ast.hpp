@@ -1,6 +1,8 @@
 #ifndef TL_AST_HPP
 #define TL_AST_HPP
 
+#include <typeinfo>
+#include <iostream>
 #include <string>
 #include <set>
 #include <map>
@@ -13,7 +15,7 @@
 namespace TL
 {
 	class ScopeLink;
-
+	class Predicate;
 
 	class AST_t : public Object
 	{
@@ -31,10 +33,23 @@ namespace TL
 			}
 
             AST_t(const Object& obj)
-            {
-                const AST_t* cast = dynamic_cast<const AST_t*>(&obj);
-                this->_ast = cast->_ast;
-            }
+			{
+				const AST_t* cast = dynamic_cast<const AST_t*>(&obj);
+
+				if (cast == NULL)
+				{
+					if (typeid(obj) != typeid(const Undefined&))
+					{
+						std::cerr << "Bad initialization of AST_t" << std::endl;
+					}
+
+					this->_ast = NULL;
+				}
+				else
+				{
+					this->_ast = cast->_ast;
+				}
+			}
 
 			AST_t(const AST_t& ast)
 				: _ast(ast._ast)
@@ -91,7 +106,20 @@ namespace TL
 	};
 
     typedef std::vector<AST_t> AST_list_t;
-    typedef std::vector<AST_t> AST_set_t;
+
+	class AST_set_t : public std::set<AST_t>
+	{
+		public:
+			AST_set_t(const AST_list_t& list)
+			{
+				for (AST_list_t::const_iterator it = list.begin();
+						it != list.end();
+						it++)
+				{
+					this->insert(*it);
+				}
+			}
+	};
 }
 
 #endif // TL_AST_HPP

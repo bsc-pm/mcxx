@@ -3,9 +3,9 @@
 
 #include <utility>
 #include <vector>
+#include "tl-context.hpp"
 #include "tl-ast.hpp"
 #include "tl-predicate.hpp"
-#include "tl-context.hpp"
 
 namespace TL
 {
@@ -13,8 +13,8 @@ namespace TL
 	{
 		private:
 		public:
-			virtual void preorder(const Context& ctx, AST_t node) { };
-			virtual void postorder(const Context& ctx, AST_t node) { };
+			virtual void preorder(Context ctx, AST_t node) { }
+			virtual void postorder(Context ctx, AST_t node) { }
 
 			virtual ~TraverseFunctor() { }
 	};
@@ -28,7 +28,7 @@ namespace TL
 			std::vector<CondAction> _pred_list;
 		public:
 			void add_predicate(Predicate& pred, TraverseFunctor& functor);
-			void traverse(TL::AST_t node);
+			void traverse(TL::AST_t node, TL::ScopeLink scope_link);
 	};
 }
 

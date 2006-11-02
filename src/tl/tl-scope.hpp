@@ -1,5 +1,5 @@
-#ifndef TL_CONTEXT_HPP
-#define TL_CONTEXT_HPP
+#ifndef TL_SCOPE_HPP
+#define TL_SCOPE_HPP
 
 #include <string>
 #include <vector>
@@ -35,7 +35,17 @@ namespace TL
             Scope(const Object& obj)
             {
                 const Scope* sc = dynamic_cast<const Scope*>(&obj);
-                this->_st = sc->_st;
+				if (sc != NULL)
+				{
+					this->_st = sc->_st;
+				}
+				else
+				{
+					if (typeid(obj) != typeid(const Undefined&))
+					{
+						std::cerr << "Bad initialization for Scope" << std::endl;
+					}
+				}
             }
 
 			std::vector<Symbol> get_symbols_from_name(const std::string& str);

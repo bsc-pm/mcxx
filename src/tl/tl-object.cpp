@@ -5,47 +5,52 @@
 namespace TL
 {
 
-Object Object::get_attribute(const std::string& name) const
+bool Object::has_attribute(const std::string& name) const
+{
+	return (this->get_extended_attribute(name) != NULL);
+}
+
+Object& Object::get_attribute(const std::string& name) const
 {
 	tl_type_t* tl_value = this->get_extended_attribute(name);
 
 	if (tl_value == NULL)
 	{
-		return Undefined();
+		std::cerr << "Attribute '" << name << "' not found" << std::endl;
+		TL::Undefined* und = new TL::Undefined();
+		return *(und);
 	}
 
 	switch (tl_value->kind)
 	{
 		case TL_INTEGER :
 			{
-				TL::Integer i(tl_value->data._integer);
-				return i;
+				Integer* i = new Integer(tl_value->data._integer);
+				return (*i);
 				break;
 			}
 		case TL_BOOL :
 			{
-				TL::Bool b(tl_value->data._boolean);
-				return b;
-				break;
-			}
-		case TL_ARRAY :
-			{
-// #warning Implement this
-				return TL::Undefined();
+				Bool* b = new Bool(tl_value->data._boolean);
+				return (*b);
 				break;
 			}
 		case TL_AST :
 			{
-				TL::AST_t ast(tl_value->data._ast);
-				return ast;
+				AST_t* ast = new AST_t(tl_value->data._ast);
+				return (*ast);
 				break;
 			}
-		default:
+		case TL_ARRAY :
+		case TL_UNDEFINED :
 			{
-				return TL::Undefined();
+// #warning Implement this
 				break;
 			}
 	}
+
+	TL::Undefined* und = new TL::Undefined();
+	return (*und);
 }
 
 }
