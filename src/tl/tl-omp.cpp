@@ -4,6 +4,7 @@
 #include "tl-source.hpp"
 #include "tl-scopelink.hpp"
 #include "tl-traverse.hpp"
+#include "tl-predicateutils.hpp"
 #include "cxx-attrnames.h"
 #include <iostream>
 #include <set>
@@ -56,7 +57,7 @@ namespace TL
 				// Now get all the references in it
 				IdExpression id_expression;
 				AST_list_t references_list = construct_body.get_all_subtrees_predicate(id_expression);
-				AST_lit_t::iterator it;
+				AST_list_t::iterator it;
 				for (it = references_list.begin(); it != references_list.end(); it++)
 				{
 					std::string id_expr_str = it->prettyprint();
@@ -86,7 +87,7 @@ namespace TL
 		DepthTraverse depth_traverse;
 
 		ParallelConstruct on_parallel;
-		ParallelFunctor parallel_functor(ompContext);
+		ParallelFunctor parallel_functor(omp_context);
 
 		depth_traverse.add_predicate(on_parallel, parallel_functor);
     }
