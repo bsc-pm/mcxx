@@ -4,7 +4,7 @@ namespace TL
 {
 	void DepthTraverse::add_predicate(Predicate& pred, TraverseFunctor& functor)
 	{
-		CondAction c(pred, functor);
+		CondAction c(&pred, &functor);
 		_pred_list.push_back(c);
 	}
 
@@ -15,11 +15,11 @@ namespace TL
 
 		for (unsigned int i = 0; i < _pred_list.size(); i++)
 		{
-			Predicate pred = _pred_list[i].first;
+			Predicate* pred = _pred_list[i].first;
 
-			if (pred(node))
+			if ((*pred)(node))
 			{
-				functor = &(_pred_list[i].second);
+				functor = _pred_list[i].second;
                 break;
 			}
 		}

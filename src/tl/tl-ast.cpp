@@ -39,7 +39,7 @@ namespace TL
 	void AST_t::replace_with(AST_t ast)
 	{
 		AST orig_tree = this->_ast;
-		*(this->_ast) = *(ast._ast);
+		this->_ast = ast._ast;
 		relink_parent(orig_tree, this->_ast);
 	}
 

@@ -123,8 +123,7 @@ AST duplicate_ast(AST a)
     *result = *a;
 
 	// Restore original extended data
-	result->extended_data = orig_extended_data;
-
+	// result->extended_data = orig_extended_data;
 
     int i;
     for (i = 0; i < ASTNumChildren(result); i++)

@@ -181,7 +181,7 @@ cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
 	echo "#define CXX_ATTRNAMES_H" >> cxx-attrnames.h
 	echo "#include \"cxx-macros.h\"" >> cxx-attrnames.h
 	echo "MCXX_BEGIN_DECLS" >> cxx-attrnames.h
-	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/extern const char \1[];/" < $< >> cxx-attrnames.h
+	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/extern char \1[];/" < $< >> cxx-attrnames.h
 # sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/#define \1 \"\2\"/" < $< >> cxx-attrnames.h
 	echo "MCXX_END_DECLS" >> cxx-attrnames.h
 	echo "#endif // CXX_ATTRNAMES_H" >> cxx-attrnames.h
@@ -189,7 +189,7 @@ cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
 cxx-attrnames.c : $(srcdir)/cxx-attrnames.def cxx-attrnames.h
 	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-attrnames.c
 	echo "#include \"cxx-attrnames.h\"" >> cxx-attrnames.c
-	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/extern const char \1[] = \"\2\";/" < $< >> cxx-attrnames.c
+	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/char \1[] = \"\2\";/" < $< >> cxx-attrnames.c
 
 cxx-parser.c cxx-parser.h : $(srcdir)/cxx03.y
 	bison -pmcxx --debug --defines --report=all --output=cxx-parser.c $(srcdir)/cxx03.y
