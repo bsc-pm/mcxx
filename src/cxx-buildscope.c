@@ -152,11 +152,43 @@ const decl_context_t default_decl_context = { 0 };
 void build_scope_dynamic_initializer(void)
 {
 	// C/C++ stuff
-	// States if this AST names a symbol (it can be a qualified one)
-	extensible_schema_add_field(&ast_extensible_schema, "lang.is_id_expression", sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_FUNCTION_NAME, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_ID_EXPRESSION, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_FUNCTION_NAME, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_EXPRESSION, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_DECLARATION, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_COMPOUND_STATEMENT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_DO_STATEMENT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_WHILE_STATEMENT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_IF_STATEMENT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_FOR_STATEMENT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_LABELED_STATEMENT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_DEFAULT_STATEMENT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_CASE_STATEMENT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_RETURN_STATEMENT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_TRY_BLOCK, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_SWITCH_STATEMENT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_EMPTY_STATEMENT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_BREAK_STATEMENT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_CONTINUE_STATEMENT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_GOTO_STATEMENT, sizeof(tl_type_t));
 	
 	// OpenMP stuff
-	extensible_schema_add_field(&ast_extensible_schema, "omp.is_parallel_construct", sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_CONSTRUCT_BODY, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_ATOMIC_CONSTRUCT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_BARRIER_DIRECTIVE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_CRITICAL_CONSTRUCT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_FLUSH_DIRECTIVE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_FOR_CONSTRUCT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_MASTER_CONSTRUCT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_OMP_CONSTRUCT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_ORDERED_CONTRUCT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_PARALLEL_CONSTRUCT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_PARALLEL_FOR_CONSTRUCT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_SECTIONS_CONSTRUCT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_PARALLEL_SECTIONS_CONSTRUCT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_SINGLE_CONSTRUCT, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_THREADPRIVATE_DIRECTIVE, sizeof(tl_type_t));
 }
 
 // Builds scope for the translation unit
@@ -4162,6 +4194,12 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     entry = build_scope_declarator_with_parameter_scope(ASTSon1(a), st, &parameter_scope,
             &gather_info, type_info, &declarator_type, new_decl_context);
     ERROR_CONDITION((entry == NULL), "This function does not exist! %s", node_information(a));
+	
+	{
+		// Function declaration
+		AST declarator_name = get_declarator_name(ASTSon1(a), st, decl_context);
+		ASTAttrSetValueType(a, LANG_FUNCTION_NAME, tl_type_t, tl_ast(declarator_name));
+	}
 
     // Change scope to the function one
     DEBUG_CODE()
@@ -5684,9 +5722,15 @@ char* get_operator_function_name(AST declarator_id)
  * Building scope for statements
  */
 
-typedef void (*stmt_scope_handler_t)(AST a, scope_t* st, decl_context_t decl_context);
+typedef void (*stmt_scope_handler_t)(AST a, scope_t* st, decl_context_t decl_context, char* attrib_to_set);
+typedef 
+struct stmt_scope_handler_map_tag
+{
+	void (*handler)(AST a, scope_t* st, decl_context_t decl_context, char* attrib_to_set);
+	char* attr_name;
+} stmt_scope_handler_map_t;
 
-static void build_scope_compound_statement(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_compound_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
@@ -5701,6 +5745,8 @@ static void build_scope_compound_statement(AST a, scope_t* st, decl_context_t de
             build_scope_statement(ASTSon1(iter), block_scope, decl_context);
         }
     }
+
+	ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_condition(AST a, scope_t* st, decl_context_t decl_context)
@@ -5742,7 +5788,7 @@ static void build_scope_condition(AST a, scope_t* st, decl_context_t decl_contex
     }
 }
 
-static void build_scope_while_statement(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_while_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
@@ -5754,28 +5800,33 @@ static void build_scope_while_statement(AST a, scope_t* st, decl_context_t decl_
     {
         build_scope_statement(ASTSon1(a), block_scope, decl_context);
     }
+
+	ASTAttrSetValueType(a, LANG_IS_WHILE_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_ambiguity_handler(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_ambiguity_handler(AST a, scope_t* st, decl_context_t decl_context, 
+		char* attrib_to_set)
 {
     solve_ambiguous_statement(a, st, decl_context);
     // Restart
     build_scope_statement(a, st, decl_context);
 }
 
-static void build_scope_declaration_statement(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_declaration_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     AST declaration = ASTSon0(a);
 
     build_scope_declaration(declaration, st, decl_context);
+
+	ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
 }
 
-static void solve_expression_ambiguities(AST a, scope_t* st, decl_context_t decl_context)
+static void solve_expression_ambiguities(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     solve_possibly_ambiguous_expression(ASTSon0(a), st, decl_context);
 }
 
-static void build_scope_if_else_statement(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_if_else_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
@@ -5792,9 +5843,11 @@ static void build_scope_if_else_statement(AST a, scope_t* st, decl_context_t dec
     {
         build_scope_statement(else_branch, block_scope, decl_context);
     }
+
+	ASTAttrSetValueType(a, LANG_IS_IF_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     AST for_init_statement = ASTSon0(a);
     AST condition = ASTSon1(a);
@@ -5831,9 +5884,11 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
     }
     
     build_scope_statement(statement, block_scope, decl_context);
+
+	ASTAttrSetValueType(a, LANG_IS_FOR_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_switch_statement(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_switch_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
@@ -5844,39 +5899,49 @@ static void build_scope_switch_statement(AST a, scope_t* st, decl_context_t decl
 
     build_scope_condition(condition, block_scope, decl_context);
     build_scope_statement(statement, block_scope, decl_context);
+
+	ASTAttrSetValueType(a, LANG_IS_SWITCH_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_labeled_statement(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_labeled_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     AST statement = ASTSon1(a);
     build_scope_statement(statement, st, decl_context);
+
+	ASTAttrSetValueType(a, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_default_statement(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_default_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     AST statement = ASTSon0(a);
     build_scope_statement(statement, st, decl_context);
+
+	ASTAttrSetValueType(a, LANG_IS_DEFAULT_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_case_statement(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_case_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     AST constant_expression = ASTSon0(a);
     AST statement = ASTSon1(a);
     solve_possibly_ambiguous_expression(constant_expression, st, decl_context);
 
     build_scope_statement(statement, st, decl_context);
+
+	ASTAttrSetValueType(a, LANG_IS_CASE_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_return_statement(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_return_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     AST expression = ASTSon0(a);
     if (expression != NULL)
     {
         solve_possibly_ambiguous_expression(expression, st, decl_context);
     }
+
+	ASTAttrSetValueType(a, LANG_IS_RETURN_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_try_block(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_try_block(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     AST compound_statement = ASTSon0(a);
 
@@ -5919,98 +5984,154 @@ static void build_scope_try_block(AST a, scope_t* st, decl_context_t decl_contex
 
         build_scope_statement(compound_statement, st, decl_context);
     }
+
+	ASTAttrSetValueType(a, LANG_IS_TRY_BLOCK, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_do_statement(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_do_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name) 
 {
     AST statement = ASTSon0(a);
     AST expression = ASTSon1(a);
 
     build_scope_statement(statement, st, decl_context);
     solve_possibly_ambiguous_expression(expression, st, decl_context);
+
+	ASTAttrSetValueType(a, LANG_IS_DO_STATEMENT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_null(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_null(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     // Do nothing
 }
 
 /* OpenMP 2.5 handlers */
-static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name) 
 {
-    // Semantic fix of expressions in clauses
-    if (ASTSon0(a) != NULL)
-    {
-        AST list = ASTSon0(a);
-        AST iter;
+	// Semantic fix of expressions in clauses
+	if (ASTSon0(a) != NULL)
+	{
+		AST list = ASTSon0(a);
+		AST iter;
 
-        for_each_element(list, iter)
-        {
-            AST clause = ASTSon1(iter);
+		for_each_element(list, iter)
+		{
+			AST clause = ASTSon1(iter);
 
-            switch (ASTType(clause))
-            {
-                case AST_OMP_IF_CLAUSE :
-                case AST_OMP_NUM_THREADS_CLAUSE :
-                    {
-                        AST expression = ASTSon0(clause);
-                        solve_possibly_ambiguous_expression(expression, st, decl_context);
-                        break;
-                    }
-                case AST_OMP_SCHEDULE_CLAUSE :
-                case AST_OMP_ORDERED_CLAUSE :
-                case AST_OMP_NOWAIT_CLAUSE :
-                case AST_OMP_SHARED_CLAUSE :
-                case AST_OMP_PRIVATE_CLAUSE :
-                case AST_OMP_FIRSTPRIVATE_CLAUSE :
-                case AST_OMP_LASTPRIVATE_CLAUSE :
-                case AST_OMP_COPYPRIVATE_CLAUSE :
-                case AST_OMP_COPYIN_CLAUSE :
-                case AST_OMP_DEFAULT_NONE_CLAUSE :
-                case AST_OMP_DEFAULT_SHARED_CLAUSE :
-                    {
-                        // OpenMP clauses with variable_list could end up
-                        // having an ambiguity within it because of a
-                        // template-id involving ambiguous expressions, but
-                        // this is unlikely in most of the codes, so at the
-                        // moment do not fix these nodes
-                        break;
-                    }
-                default:
-                    {
-                        internal_error("Unknown node '%s' in %s\n", ast_print_node_type(ASTType(clause)),
-                                node_information(clause));
-                    }
-            }
-        }
-    }
+			switch (ASTType(clause))
+			{
+				case AST_OMP_IF_CLAUSE :
+					{
+						AST expression = ASTSon0(clause);
+						solve_possibly_ambiguous_expression(expression, st, decl_context);
+						ASTAttrSetValueType(clause, OMP_IS_IF_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				case AST_OMP_NUM_THREADS_CLAUSE :
+					{
+						AST expression = ASTSon0(clause);
+						solve_possibly_ambiguous_expression(expression, st, decl_context);
+						ASTAttrSetValueType(clause, OMP_IS_NUM_THREADS_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				case AST_OMP_SCHEDULE_CLAUSE :
+					{
+						ASTAttrSetValueType(clause, OMP_IS_SCHEDULE_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				case AST_OMP_ORDERED_CLAUSE :
+					{
+						ASTAttrSetValueType(clause, OMP_IS_ORDERED_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				case AST_OMP_NOWAIT_CLAUSE :
+					{
+						ASTAttrSetValueType(clause, OMP_IS_NOWAIT_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				case AST_OMP_SHARED_CLAUSE :
+					{
+						ASTAttrSetValueType(clause, OMP_IS_SHARED_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				case AST_OMP_PRIVATE_CLAUSE :
+					{
+						ASTAttrSetValueType(clause, OMP_IS_PRIVATE_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				case AST_OMP_FIRSTPRIVATE_CLAUSE :
+					{
+						ASTAttrSetValueType(clause, OMP_IS_FIRSTPRIVATE_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				case AST_OMP_LASTPRIVATE_CLAUSE :
+					{
+						ASTAttrSetValueType(clause, OMP_IS_LASTPRIVATE_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				case AST_OMP_COPYPRIVATE_CLAUSE :
+					{
+						ASTAttrSetValueType(clause, OMP_IS_COPYPRIVATE_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				case AST_OMP_COPYIN_CLAUSE :
+					{
+						ASTAttrSetValueType(clause, OMP_IS_COPYIN_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				case AST_OMP_DEFAULT_NONE_CLAUSE :
+					{
+						ASTAttrSetValueType(clause, OMP_IS_DEFAULT_NONE_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				case AST_OMP_DEFAULT_SHARED_CLAUSE :
+					{
+						// OpenMP clauses with variable_list could end up
+						// having an ambiguity within it because of a
+						// template-id involving ambiguous expressions, but
+						// this is unlikely in most of the codes, so at the
+						// moment do not fix these nodes
+						ASTAttrSetValueType(clause, OMP_IS_DEFAULT_SHARED_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				default:
+					{
+						internal_error("Unknown node '%s' in %s\n", ast_print_node_type(ASTType(clause)),
+								node_information(clause));
+					}
+			}
+		}
+	}
 }
 
 
-static void build_scope_omp_construct(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_omp_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-	ASTAttrSetValueType(a, OMP_IS_PARALLEL_CONSTRUCT, tl_type_t, tl_bool(1));
+	ASTAttrSetValueType(a, OMP_IS_OMP_CONSTRUCT, tl_type_t, tl_bool(1));
+	ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
 
-	build_scope_omp_directive(ASTSon0(a), st, decl_context);
+	build_scope_omp_directive(ASTSon0(a), st, decl_context, NULL);
 	if (ASTSon1(a) != NULL)
 	{
+		ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(ASTSon1(a)));
 		build_scope_statement(ASTSon1(a), st, decl_context);
 	}
 }
 
-static void build_scope_omp_threadprivate(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_omp_threadprivate(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     // At the moment do nothing
+	ASTAttrSetValueType(a, OMP_IS_THREADPRIVATE_DIRECTIVE, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_omp_flush_directive(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_omp_flush_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     // At the moment do nothing
+	ASTAttrSetValueType(a, OMP_IS_FLUSH_DIRECTIVE, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_omp_sections_construct(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_omp_sections_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-    build_scope_omp_directive(ASTSon0(a), st, decl_context);
+    build_scope_omp_directive(ASTSon0(a), st, decl_context, NULL);
 
     AST section_sequence = ASTSon1(a);
 
@@ -6030,53 +6151,57 @@ static void build_scope_omp_sections_construct(AST a, scope_t* st, decl_context_
             build_scope_statement(ASTSon1(omp_section), st, decl_context);
         }
     }
+
+	ASTAttrSetValueType(a, OMP_IS_SECTIONS_CONSTRUCT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_omp_critical_construct(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_omp_critical_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     // No need to check anything 
     if (ASTSon1(a) != NULL)
     {
 		build_scope_statement(ASTSon1(a), st, decl_context);
     }
+
+	ASTAttrSetValueType(a, OMP_IS_CRITICAL_CONSTRUCT, tl_type_t, tl_bool(1));
 }
 
-#define STMT_HANDLER(type, hndl) [type] = hndl
+#define STMT_HANDLER(type, hndl, attr_name_v) [type] = { .handler = (hndl), .attr_name = (attr_name_v) }
 
-static stmt_scope_handler_t stmt_scope_handlers[] =
+static stmt_scope_handler_map_t stmt_scope_handlers[] =
 {
-    STMT_HANDLER(AST_AMBIGUITY, build_scope_ambiguity_handler),
-    STMT_HANDLER(AST_EXPRESSION_STATEMENT, solve_expression_ambiguities),
-    STMT_HANDLER(AST_DECLARATION_STATEMENT, build_scope_declaration_statement),
-    STMT_HANDLER(AST_COMPOUND_STATEMENT, build_scope_compound_statement),
-    STMT_HANDLER(AST_DO_STATEMENT, build_scope_do_statement),
-    STMT_HANDLER(AST_WHILE_STATEMENT, build_scope_while_statement),
-    STMT_HANDLER(AST_IF_ELSE_STATEMENT, build_scope_if_else_statement),
-    STMT_HANDLER(AST_FOR_STATEMENT, build_scope_for_statement),
-    STMT_HANDLER(AST_LABELED_STATEMENT, build_scope_labeled_statement),
-    STMT_HANDLER(AST_DEFAULT_STATEMENT, build_scope_default_statement),
-    STMT_HANDLER(AST_CASE_STATEMENT, build_scope_case_statement),
-    STMT_HANDLER(AST_RETURN_STATEMENT, build_scope_return_statement),
-    STMT_HANDLER(AST_TRY_BLOCK, build_scope_try_block),
-    STMT_HANDLER(AST_SWITCH_STATEMENT, build_scope_switch_statement),
-    STMT_HANDLER(AST_EMPTY_STATEMENT, build_scope_null),
-    STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_null),
-    STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_null),
-    STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_null),
+    STMT_HANDLER(AST_AMBIGUITY, build_scope_ambiguity_handler, NULL),
+    STMT_HANDLER(AST_EXPRESSION_STATEMENT, solve_expression_ambiguities, LANG_IS_EXPRESSION),
+    STMT_HANDLER(AST_DECLARATION_STATEMENT, build_scope_declaration_statement, LANG_IS_DECLARATION),
+    STMT_HANDLER(AST_COMPOUND_STATEMENT, build_scope_compound_statement, LANG_IS_COMPOUND_STATEMENT),
+    STMT_HANDLER(AST_DO_STATEMENT, build_scope_do_statement, LANG_IS_DO_STATEMENT),
+    STMT_HANDLER(AST_WHILE_STATEMENT, build_scope_while_statement, LANG_IS_WHILE_STATEMENT),
+    STMT_HANDLER(AST_IF_ELSE_STATEMENT, build_scope_if_else_statement, LANG_IS_IF_STATEMENT),
+    STMT_HANDLER(AST_FOR_STATEMENT, build_scope_for_statement, LANG_IS_FOR_STATEMENT),
+    STMT_HANDLER(AST_LABELED_STATEMENT, build_scope_labeled_statement, LANG_IS_LABELED_STATEMENT),
+    STMT_HANDLER(AST_DEFAULT_STATEMENT, build_scope_default_statement, LANG_IS_DEFAULT_STATEMENT),
+    STMT_HANDLER(AST_CASE_STATEMENT, build_scope_case_statement, LANG_IS_CASE_STATEMENT),
+    STMT_HANDLER(AST_RETURN_STATEMENT, build_scope_return_statement, LANG_IS_RETURN_STATEMENT),
+    STMT_HANDLER(AST_TRY_BLOCK, build_scope_try_block, LANG_IS_TRY_BLOCK),
+    STMT_HANDLER(AST_SWITCH_STATEMENT, build_scope_switch_statement, LANG_IS_SWITCH_STATEMENT),
+    STMT_HANDLER(AST_EMPTY_STATEMENT, build_scope_null, LANG_IS_EMPTY_STATEMENT),
+    STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_null, LANG_IS_BREAK_STATEMENT),
+    STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_null, LANG_IS_CONTINUE_STATEMENT),
+    STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_null, LANG_IS_GOTO_STATEMENT),
 	// OpenMP 2.5 constructs
-	STMT_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, build_scope_omp_construct),
-	STMT_HANDLER(AST_OMP_FOR_CONSTRUCT, build_scope_omp_construct),
-	STMT_HANDLER(AST_OMP_PARALLEL_FOR_CONSTRUCT, build_scope_omp_construct),
-	STMT_HANDLER(AST_OMP_SECTIONS_CONSTRUCT, build_scope_omp_sections_construct),
-	STMT_HANDLER(AST_OMP_PARALLEL_SECTIONS_CONSTRUCT, build_scope_omp_sections_construct),
-	STMT_HANDLER(AST_OMP_SINGLE_CONSTRUCT, build_scope_omp_construct),
-	STMT_HANDLER(AST_OMP_MASTER_CONSTRUCT, build_scope_omp_construct),
-	STMT_HANDLER(AST_OMP_ATOMIC_CONSTRUCT, build_scope_omp_construct),
-	STMT_HANDLER(AST_OMP_ORDERED_CONSTRUCT, build_scope_omp_construct),
-	STMT_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, build_scope_omp_critical_construct),
-	STMT_HANDLER(AST_OMP_FLUSH_DIRECTIVE, build_scope_omp_flush_directive),
-	STMT_HANDLER(AST_OMP_BARRIER_DIRECTIVE, build_scope_omp_directive),
-	STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate),
+	STMT_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, build_scope_omp_construct, OMP_IS_PARALLEL_CONSTRUCT),
+	STMT_HANDLER(AST_OMP_FOR_CONSTRUCT, build_scope_omp_construct, OMP_IS_FOR_CONSTRUCT),
+	STMT_HANDLER(AST_OMP_PARALLEL_FOR_CONSTRUCT, build_scope_omp_construct, OMP_IS_PARALLEL_FOR_CONSTRUCT),
+	STMT_HANDLER(AST_OMP_SECTIONS_CONSTRUCT, build_scope_omp_sections_construct, OMP_IS_SECTIONS_CONSTRUCT),
+	STMT_HANDLER(AST_OMP_PARALLEL_SECTIONS_CONSTRUCT, build_scope_omp_sections_construct, OMP_IS_PARALLEL_SECTIONS_CONSTRUCT),
+	STMT_HANDLER(AST_OMP_SINGLE_CONSTRUCT, build_scope_omp_construct, OMP_IS_SINGLE_CONSTRUCT),
+	STMT_HANDLER(AST_OMP_MASTER_CONSTRUCT, build_scope_omp_construct, OMP_IS_MASTER_CONSTRUCT),
+	STMT_HANDLER(AST_OMP_ATOMIC_CONSTRUCT, build_scope_omp_construct, OMP_IS_ATOMIC_CONSTRUCT),
+	STMT_HANDLER(AST_OMP_ORDERED_CONSTRUCT, build_scope_omp_construct, OMP_IS_ORDERED_CONTRUCT),
+	STMT_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, build_scope_omp_critical_construct, OMP_IS_CRITICAL_CONSTRUCT),
+	STMT_HANDLER(AST_OMP_FLUSH_DIRECTIVE, build_scope_omp_flush_directive, OMP_IS_FLUSH_DIRECTIVE),
+	STMT_HANDLER(AST_OMP_BARRIER_DIRECTIVE, build_scope_omp_directive, OMP_IS_BARRIER_DIRECTIVE),
+	STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate, OMP_IS_THREADPRIVATE_DIRECTIVE),
 };
 
 void build_scope_statement_with_scope_link(AST a, scope_t* st, scope_link_t* scope_link)
@@ -6095,11 +6220,12 @@ static void build_scope_statement(AST a, scope_t* st, decl_context_t decl_contex
         fprintf(stderr, "==== Statement line [%s] ====\n", node_information(a));
     }
 
-    stmt_scope_handler_t f = stmt_scope_handlers[ASTType(a)];
+    stmt_scope_handler_t f = stmt_scope_handlers[ASTType(a)].handler;
+	char* attr_name = stmt_scope_handlers[ASTType(a)].attr_name;
 
     if (f != NULL)
     {
-        f(a, st, decl_context);
+        f(a, st, decl_context, attr_name);
     }
     else
     {
