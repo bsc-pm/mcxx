@@ -28,18 +28,6 @@ namespace TL
 
 			bool has_attribute(const std::string& name) const;
 
-			virtual operator bool() const
-			{
-				std::cerr << "You are converting a " << typeid(*this).name() << " into bool" << std::endl;
-				return false;
-			}
-
-			virtual operator int() const
-			{
-				std::cerr << "You are converting a " << typeid(*this).name() << " into int" << std::endl;
-				return 0;
-			}
-
             virtual bool is_bool() const
             {
                 return false;

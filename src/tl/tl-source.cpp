@@ -1,5 +1,6 @@
 #include "tl-source.hpp"
 #include "cxx-ambiguity.h"
+#include <sstream>
 
 namespace TL
 {
@@ -8,6 +9,20 @@ namespace TL
 		_code += str;
 		return *this;
 	}
+
+	Source& Source::operator<<(int num)
+	{
+        std::stringstream ss;
+        ss << num;
+		_code += ss.str();
+		return *this;
+	}
+
+    Source& Source::operator<<(const Source& src)
+    {
+        this->_code += src._code;
+        return *this;
+    }
 
 	std::string Source::get_source()
 	{
@@ -61,12 +76,12 @@ namespace TL
 		return result;
 	}
 
-	bool Source::operator==(Source src)
+	bool Source::operator==(Source src) const
 	{
 		return this->_code == src._code;
 	}
 
-	bool Source::operator<(Source src)
+	bool Source::operator<(Source src) const
 	{
 		return this->_code < src._code;
 	}
@@ -76,4 +91,29 @@ namespace TL
 		this->_code = src._code;
 		return (*this);
 	}
+
+    Source& Source::append_with_separator(Source src, const std::string& separator)
+    {
+        if (all_blanks())
+        {
+            this->_code = src._code;
+        }
+        else
+        {
+            this->_code += (separator + src._code);
+        }
+
+        return (*this);
+    }
+
+    bool Source::all_blanks() const
+    {
+        bool blanks = true;
+        int len = _code.size();
+        for (int i = 0; (i < len) && blanks; i++)
+        {
+            blanks &= (_code[i] == ' ') || (_code[i] == '\t');
+        }
+        return blanks;
+    }
 }

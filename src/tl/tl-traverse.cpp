@@ -8,7 +8,7 @@ namespace TL
 		_pred_list.push_back(c);
 	}
 
-	void DepthTraverse::traverse(TL::AST_t node, TL::ScopeLink scope)
+	void DepthTraverse::traverse(TL::AST_t node)
 	{
 		TraverseFunctor no_op;
 		TraverseFunctor* functor = &no_op;
@@ -26,7 +26,7 @@ namespace TL
 
 		AST ast = node._ast;
 
-		Context ctx(scope);
+		Context ctx;
 
 		functor->preorder(ctx, node);
 
@@ -37,7 +37,7 @@ namespace TL
 			if (child != NULL)
 			{
                 AST_t w_child(child);
-				traverse(w_child, scope);
+				traverse(w_child);
 			}
 		}
 

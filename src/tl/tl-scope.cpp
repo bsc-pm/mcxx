@@ -76,12 +76,12 @@ namespace TL
 		return (*this);
 	}
 
-	bool Scope::operator<(Scope sc)
+	bool Scope::operator<(Scope sc) const
 	{
 		return (this->_st < sc._st);
 	}
 
-	bool Scope::operator==(Scope sc)
+	bool Scope::operator==(Scope sc) const
 	{
 		return (this->_st == sc._st);
 	}

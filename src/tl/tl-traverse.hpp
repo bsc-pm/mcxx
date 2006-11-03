@@ -28,7 +28,7 @@ namespace TL
 			std::vector<CondAction> _pred_list;
 		public:
 			void add_predicate(Predicate& pred, TraverseFunctor& functor);
-			void traverse(AST_t node, ScopeLink scope_link);
+			void traverse(AST_t node);
 	};
 }
 

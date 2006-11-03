@@ -22,6 +22,11 @@ namespace TL
 		protected:
 			virtual tl_type_t* get_extended_attribute(const std::string& str) const;
 		public:
+			Scope()
+				: _st(NULL)
+			{
+			}
+
 			Scope(scope_t* st)
 				: _st(st)
 			{
@@ -62,8 +67,8 @@ namespace TL
 			}
 
 			Scope& operator=(Scope sc);
-			bool operator<(Scope sc);
-			bool operator==(Scope sc);
+			bool operator<(Scope sc) const;
+			bool operator==(Scope sc) const;
 
 			friend class Type;
 			friend class Source;

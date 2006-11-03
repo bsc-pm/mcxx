@@ -4,9 +4,8 @@
 #include <typeinfo>
 #include <iostream>
 #include <string>
-#include <set>
-#include <map>
 #include <vector>
+#include <algorithm>
 #include "cxx-ast.h"
 #include "cxx-prettyprint.h"
 #include "tl-object.hpp"
@@ -27,6 +26,11 @@ namespace TL
 			/*
 			 * Constructor
 			 */
+			AST_t()
+				: _ast(NULL)
+			{
+			}
+
 			AST_t(AST _wrapped_tree)
 				: _ast(_wrapped_tree)
 			{
@@ -71,8 +75,8 @@ namespace TL
 			{
 			}
 
-			bool operator<(AST_t n);
-			bool operator==(AST_t n);
+			bool operator<(AST_t n) const;
+			bool operator==(AST_t n) const;
 			AST_t& operator=(AST_t n);
 
 			std::string prettyprint() const;
@@ -107,7 +111,7 @@ namespace TL
 
     typedef std::vector<AST_t> AST_list_t;
 
-	class AST_set_t : public std::set<AST_t>
+	class AST_set_t : public AST_list_t
 	{
 		public:
 			AST_set_t(const AST_list_t& list)
@@ -116,7 +120,10 @@ namespace TL
 						it != list.end();
 						it++)
 				{
-					this->insert(*it);
+					if (find(this->begin(), this->end(), *it) == this->end())
+					{
+						this->push_back(*it);
+					}
 				}
 			}
 	};

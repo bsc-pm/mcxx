@@ -17,7 +17,7 @@ namespace TL
 			std::string("");
 	}
 
-	bool Symbol::operator<(Symbol s)
+	bool Symbol::operator<(Symbol s) const
 	{
 		return this->_symbol < s._symbol;
 	}
@@ -28,7 +28,7 @@ namespace TL
 		return (*this);
 	}
 
-	bool Symbol::operator==(Symbol s)
+	bool Symbol::operator==(Symbol s) const
 	{
 		return (this->_symbol == s._symbol);
 	}

@@ -34,7 +34,7 @@ namespace TL
 
     std::string Type::get_cv_qualifier_str(type_t* type_info)
     {
-        std::string result = std::string(" ");
+        std::string result = std::string("");
 
         if (BITMAP_TEST(type_info->cv_qualifier, CV_CONST))
         {
@@ -364,12 +364,12 @@ namespace TL
 		return result;
 	}
 
-	bool Type::operator==(Type t)
+	bool Type::operator==(Type t) const
 	{
 		return this->_type_info == t._type_info;
 	}
 
-	bool Type::operator<(Type t)
+	bool Type::operator<(Type t) const
 	{
 		return this->_type_info < t._type_info;
 	}

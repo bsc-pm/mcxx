@@ -44,8 +44,8 @@ namespace TL
 				return true;
 			}
 
-			bool operator<(Symbol s);
-			bool operator==(Symbol s);
+			bool operator<(Symbol s) const;
+			bool operator==(Symbol s) const;
 			Symbol& operator=(Symbol s);
 	};
 }

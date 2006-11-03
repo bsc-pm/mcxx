@@ -22,6 +22,7 @@ namespace TL
 			{
 				return NULL;
 			}
+			bool all_blanks() const;
 		public :
 			Source()
 				: _code("")
@@ -38,6 +39,8 @@ namespace TL
 			{
 			}
 
+			Source& append_with_separator(Source src, const std::string& separator);
+
 			virtual bool is_source() const
 			{
 				return true;
@@ -45,15 +48,17 @@ namespace TL
 
             std::string get_source();
 
+			Source& operator<<(const Source& src);
 			Source& operator<<(const std::string& str);
+			Source& operator<<(int n);
 
 			AST_t parse_global(TL::Scope ctx, TL::ScopeLink scope_link);
 			AST_t parse_statement(TL::Scope ctx, TL::ScopeLink scope_link);
 
 			AST_t parse_expression(TL::Scope ctx);
 
-			bool operator==(Source src);
-			bool operator<(Source src);
+			bool operator==(Source src) const;
+			bool operator<(Source src) const;
 			Source& operator=(Source src);
 	};
 }

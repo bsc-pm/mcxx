@@ -3,12 +3,12 @@
 
 namespace TL
 {
-	bool AST_t::operator<(AST_t n)
+	bool AST_t::operator<(AST_t n) const
 	{
 		return this->_ast < n._ast;
 	}
 
-	bool AST_t::operator==(AST_t n)
+	bool AST_t::operator==(AST_t n) const
 	{
 		return ast_equal(this->_ast, n._ast);
 	}
@@ -38,9 +38,9 @@ namespace TL
 
 	void AST_t::replace_with(AST_t ast)
 	{
-		AST orig_tree = this->_ast;
-		this->_ast = ast._ast;
-		relink_parent(orig_tree, this->_ast);
+		AST previous_parent = ASTParent(this->_ast);
+		*(this->_ast) = *(ast._ast);
+		ASTParent(this->_ast) = previous_parent;
 	}
 
 	AST_t AST_t::duplicate() const
@@ -125,7 +125,9 @@ namespace TL
 		if (ASTType(orig_list) != AST_NODE_LIST
 				|| ASTType(prepended_list) != AST_NODE_LIST)
 		{
-			std::cerr << "You tried to prepend two lists that are not" << std::endl;
+			std::cerr << "You tried to prepend two lists that are not " 
+				<< "orig_list=" << ast_print_node_type(ASTType(orig_list)) << " "
+				<< "prepend_list=" << ast_print_node_type(ASTType(prepended_list)) << std::endl;
 			return;
 		}
 
@@ -225,12 +227,13 @@ namespace TL
 		if  (node == NULL)
 			return NULL;
 
-		if (ASTType(node) == AST_TRANSLATION_UNIT)
+		while (node != NULL && 
+				ASTType(node) != AST_TRANSLATION_UNIT)
 		{
-			return node;
+			node = ASTParent(node);
 		}
 
-		return ASTParent(node);
+		return node;
 	}
 
 	AST_t AST_t::get_enclosing_block()
