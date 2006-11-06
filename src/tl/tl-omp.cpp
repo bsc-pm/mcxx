@@ -66,7 +66,7 @@ namespace TL
                 IdExpression id_expression;
 
 				// Get all nonrepeated subtrees that satisfy the predicate for id_expression
-                AST_set_t references_set = construct_body.get_all_subtrees_predicate(id_expression);
+                AST_set_t references_set = construct_body.depth_subtrees().filter(id_expression);
                 AST_set_t::iterator it;
 				// And iterate over it
                 for (it = references_set.begin(); it != references_set.end(); it++)
@@ -104,7 +104,7 @@ namespace TL
 				// Now get all the references of the outline function (FIXME we
 				// should check that they have been passed by pointer
 				// parameter)
-				AST_list_t references_list = outlined_function_tree.get_all_subtrees_predicate(id_expression);
+				AST_list_t references_list = outlined_function_tree.depth_subtrees().filter(id_expression);
 				for (it = references_list.begin(); it != references_list.end(); it++)
 				{
 					// Get the scope for this id_expression

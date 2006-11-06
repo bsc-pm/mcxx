@@ -23,8 +23,6 @@ libtl_la_SOURCES = \
     tl-builtin.cpp \
     tl-ast.hpp \
     tl-ast.cpp \
-    tl-predicate.hpp \
-    tl-predicate.cpp \
     tl-scope.hpp \
     tl-scope.cpp \
 	tl-scopelink.hpp \
@@ -43,8 +41,12 @@ libtl_la_SOURCES = \
 	tl-traverse.cpp \
 	tl-context.hpp \
 	tl-context.cpp \
+	tl-objectlist.hpp \
+	tl-objectlist.cpp \
+	tl-predicate.hpp \
+	tl-predicate.cpp \
 	tl-predicateutils.hpp \
-	tl-predicateutils.cpp
+	tl-predicateutils.cpp 
 
 libtlomp_la_CXXFLAGS = -Wall -O0 \
     -I $(srcdir)/../../src \

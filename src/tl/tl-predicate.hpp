@@ -1,16 +1,15 @@
 #ifndef TL_PREDICATE_HPP
 #define TL_PREDICATE_HPP
 
-#include "tl-ast.hpp"
+#include "tl-functor.hpp"
 
 namespace TL
 {
-	class AST_t;
-	class Predicate 
+	template <class T>
+	class Predicate : public Functor<bool, T>
 	{
-		public :
-			virtual bool operator()(const AST_t& ast) const { return false; }
-			virtual ~Predicate() { }
+		public:
+			~Predicate() { }
 	};
 
 }

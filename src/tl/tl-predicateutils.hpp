@@ -8,10 +8,10 @@
 namespace TL
 {
 	template<const char* _ATTR>
-	class PredicateBool : public Predicate
+	class PredicateBool : public Predicate<AST_t>
 	{
 		public:
-			virtual bool operator()(const AST_t& ast) const
+			virtual bool operator()(AST_t& ast)
 			{
                 TL::Bool attr = ast.get_attribute(_ATTR);
                 return attr;

@@ -9,19 +9,26 @@
 #include "cxx-ast.h"
 #include "cxx-prettyprint.h"
 #include "tl-object.hpp"
-#include "tl-predicate.hpp"
+#include "tl-objectlist.hpp"
 
 namespace TL
 {
 	class ScopeLink;
-	class Predicate;
 
 	class AST_t : public Object
 	{
 		private:
 			AST _ast;
-			static void tree_iterator(const AST_t& a, const Predicate& p, std::vector<AST_t>& result);
+			static void tree_iterator(const AST_t& a, ObjectList<AST_t>& result);
 			tl_type_t* get_extended_attribute(const std::string& name) const;
+
+			static AST get_translation_unit(AST node);
+			static void prepend_list(AST orig_list, AST prepended_list);
+			static void append_list(AST orig_list, AST appended_list);
+			static void relink_parent(AST previous_child, AST new_child);
+
+			static bool is_extensible_block(AST node);
+			static AST get_list_of_extensible_block(AST node);
 		public:
 			/*
 			 * Constructor
@@ -60,13 +67,6 @@ namespace TL
 			{
 			}
 
-			static AST get_translation_unit(AST node);
-			static void prepend_list(AST orig_list, AST prepended_list);
-			static void append_list(AST orig_list, AST appended_list);
-			static void relink_parent(AST previous_child, AST new_child);
-
-			static bool is_extensible_block(AST node);
-			static AST get_list_of_extensible_block(AST node);
 
 			/*
 			 * Destructor
@@ -85,7 +85,7 @@ namespace TL
 
 			AST_t duplicate() const;
 
-			std::vector<AST_t> get_all_subtrees_predicate(const Predicate& p) const;
+			ObjectList<AST_t> depth_subtrees();
 
 			std::string internal_ast_type() const;
 

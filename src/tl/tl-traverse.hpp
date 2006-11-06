@@ -1,7 +1,6 @@
 #ifndef TL_TRAVERSE_HPP
 #define TL_TRAVERSE_HPP
 
-#include <utility>
 #include <vector>
 #include "tl-context.hpp"
 #include "tl-ast.hpp"
@@ -24,10 +23,10 @@ namespace TL
 	class DepthTraverse : public Traverse
 	{
 		private:
-			typedef std::pair<Predicate*, TraverseFunctor*> CondAction;
+			typedef std::pair<Predicate<AST_t>*, TraverseFunctor*> CondAction;
 			std::vector<CondAction> _pred_list;
 		public:
-			void add_predicate(Predicate& pred, TraverseFunctor& functor);
+			void add_predicate(Predicate<AST_t>& pred, TraverseFunctor& functor);
 			void traverse(AST_t node);
 	};
 }

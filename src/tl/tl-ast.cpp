@@ -49,21 +49,10 @@ namespace TL
 		return result;
 	}
 
-	std::vector<AST_t> AST_t::get_all_subtrees_predicate(const Predicate& p) const
+	void AST_t::tree_iterator(const AST_t& a, ObjectList<AST_t>& result)
 	{
-		std::vector<AST_t> result;
-		tree_iterator(*this, p, result);
-
-		return result;
-	}
-
-	void AST_t::tree_iterator(const AST_t& a, const Predicate& p, std::vector<AST_t>& result)
-	{
-		if (p(a))
-		{
-			AST_t match_ast(a._ast);
-			result.push_back(match_ast);
-		}
+		AST_t match_ast(a._ast);
+		result.push_back(match_ast);
 
 		AST tree = a._ast;
 
@@ -72,9 +61,18 @@ namespace TL
 			if (ASTChild(tree, i) != NULL)
 			{
 				AST_t iterate(ASTChild(tree, i));
-				tree_iterator(iterate, p, result);
+				tree_iterator(iterate, result);
 			}
 		}
+	}
+
+	ObjectList<AST_t> AST_t::depth_subtrees()
+	{
+		ObjectList<AST_t> result;
+
+		tree_iterator(*this, result);
+
+		return result;
 	}
 
 	std::string AST_t::internal_ast_type() const
