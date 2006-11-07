@@ -287,6 +287,11 @@ class String : public Object
 			return (this->_str == str._str);
 		}
 
+		std::string get_string() const
+		{
+			return this->_str;
+		}
+
 		String& append_with_separator(const String& str, const String& sep) 
 		{
 			if (all_blanks())

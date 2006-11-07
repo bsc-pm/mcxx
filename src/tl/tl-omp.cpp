@@ -50,6 +50,8 @@ namespace TL
 			// symbolic work that the semantic phase has performed earlier.
 			std::set<Symbol> shared_symbols;
 			std::set<Symbol> private_symbols;
+
+			std::string function_name;
         public:
             ParallelFunctor(OpenMPTransform& omp_ctx)
                 : omp_context(omp_ctx)
@@ -74,7 +76,52 @@ namespace TL
 
 				// We set up data attributes (shared, private, etc). See below
 				setup_data_attributes(ctx, node);
-				
+
+				// Here we create the outline
+				create_outline(ctx, node);
+
+				// And replace the whole directive with the spawn code
+				replace_with_spawn_code(ctx, node);
+            }
+
+			void replace_with_spawn_code(Context ctx, AST_t node)
+			{
+				// This will hold the spawn code
+				Source spawn_code;
+				Source shared_parameters;
+
+				// The skeleton
+				spawn_code 
+					<< "{"
+					<< "   extern void nthf_create(...);"
+				    << "   extern int nthf_num_cpus();"
+				    << "   for (int _i = 0; _i < nthf_num_cpus(); _i++)"
+					<< "   {"
+					<< "      nthf_create(outlined_" << this->function_name << ", " << shared_parameters << ");"
+					<< "   }"
+					<< "}";
+
+				// Here we fill shared_parameters
+				shared_parameters << shared_symbols.size();
+				for (std::set<Symbol>::iterator it = shared_symbols.begin();
+						it != shared_symbols.end(); it++)
+				{
+					shared_parameters.append_with_separator(std::string("&") + it->get_name(), ",");
+				}
+
+				// Now parse the spawning code
+				// First get [again, this must be improved] the construct scope
+				Scope construct_scope = omp_context.scope_link.get_scope(node);
+
+				// We parse this statement
+				AST_t spawn_code_tree = spawn_code.parse_statement(construct_scope, omp_context.scope_link);
+
+				// And replace the whole construct with the spawning code
+				node.replace_with(spawn_code_tree);
+			}
+
+			void create_outline(Context ctx, AST_t node)
+			{
 				// Get the scope of the whole Parallel construct
 				//
 				// omp_context is defined in tl-omp.hpp, it is some context that
@@ -90,6 +137,7 @@ namespace TL
 				Source outlined_body;
 				Source privatized_variables;
 				Source shared_parameters;
+				Source outline_function_name;
 
 				// We create the skeleton of the outline
 				//
@@ -99,27 +147,35 @@ namespace TL
 				//
 				// Similarly Source::operator<<(const std::string&) just  saves
 				// a chunk of text.
-				//
-				// FIXME - Get the name of the current function
-				outlined_function << "void outlined_function(" << shared_parameters << ")"
+				outlined_function << "void outlined_" << outline_function_name << "(" << shared_parameters << ")"
 					<< "{"
 					<< privatized_variables
 					<< outlined_body
 					<< "}";
 
 				// Declare shared parameters. We fill here "shared_parameters"
+				// Iterate every symbol in "shared_symbols"
 				for (std::set<Symbol>::iterator it = shared_symbols.begin();
 						it != shared_symbols.end();
 						it++)
 				{
+					// We get its Type (this is not an AST_t but a wrapper to
+					// the type information currently in the symbol table)
 					Type pointer_to = it->get_type().get_pointer_to();
 
+					// This is a convenience function for appending things in
+					// string lists
 					shared_parameters.append_with_separator(
+							// This creates a string that declares this type
+							// with the given name (note that "parameter" here
+							// means that won't have a trailing ';' but this
+							// can be abstracted away)
 							pointer_to.get_parameter_declaration_str(it->get_name()), 
 							",");
 				}
 
 				// Declare private variables. We fill privatized_variables here
+				// We iterate every private symbol
 				for (std::set<Symbol>::iterator it = private_symbols.begin();
 						it != private_symbols.end();
 						it++)
@@ -127,60 +183,97 @@ namespace TL
 					Type symbol_type = it->get_type();
 
 					privatized_variables 
+						// And we get the declaration of the symbol name but prefixed with 'p_'
+						// (note that "simple" here means that will have a trailing ';' and
+						// like the earlier case, this can be abstracted away)
 						<< symbol_type.get_simple_declaration_str(std::string("p_") + it->get_name());
 				}
 				
 				// Now we replace shared references with true derreferences
 				// First we duplicate the construct_body
 				AST_t outlined_body_tree = construct_body.duplicate();
-				// Now we get all the references
+				
+				// Now we get all the references of the outlined_body_tree
 				AST_list_t shared_references = outlined_body_tree.depth_subtrees().filter(id_expression);
+				// And iterate
 				for(AST_list_t::iterator it = shared_references.begin(); 
 						it != shared_references.end(); it++)
 				{
+					// We get the symbol in the ORIGINAL scope (not the copy
+					// one since the duplicated tree does not have scope)
 					Symbol sym = construct_scope.get_symbol_from_id_expr(*it);
 
 					if (sym != Symbol::invalid())
 					{
+						// If the symbol is found in the scope and belongs to shared
 						if (shared_symbols.find(sym) != shared_symbols.end())
 						{
+							// We derreference it 
 							Source derref_expression;
 							derref_expression 
 								<< "(*" << it->prettyprint() << ")";
 
+							// This parses this string (*P) as an expression
 							AST_t derref_expression_tree = derref_expression.parse_expression(construct_scope);
+
+							// And we replace the whole id-expression with this derreference expression
 							it->replace_with(derref_expression_tree);
 						}
 					}
 				}
 
-				// Now we replace privatized references to "p_ID"
+				// Now we replace privatized references from "id" to "p_id"
+				// We get all the references of the outlined_body_tree
 				AST_list_t privatized_references = outlined_body_tree.depth_subtrees().filter(id_expression);
+				
 				for(AST_list_t::iterator it = privatized_references.begin(); 
 						it != privatized_references.end(); it++)
 				{
+					// We get its symbolic information
 					Symbol sym = construct_scope.get_symbol_from_id_expr(*it);
 
 					if (sym != Symbol::invalid())
 					{
+						// And if it exists and is privatized
 						if (private_symbols.find(sym) != private_symbols.end())
 						{
+							// We simply replace the text.
+							//
+							// Before we replaced q -> (*q) via an expression because
+							// we don't have a variable named '(*q)' but 'q'.
+							//
+							// In this case we don't have any variable named 'q', but 'p_q'
 							it->replace_text(std::string("p_") + sym.get_name());
 						}
 					}
 				}
 
+				// Now we prettyprint the outlined_body_tree once it has been
+				// modified to the corresponding source (recall this was
+				// referenced in the skeleton of the outline)
 				outlined_body << outlined_body_tree.prettyprint();
 
+				// Get the enclosing function of this node
 				AST_t enclosing_function_def = node.get_enclosing_function_definition();
+				// and its scope.
 				Scope enclosing_function_def_scope = omp_context.scope_link.get_scope(enclosing_function_def);
+				// Then get its name. Maybe this is the typical "context" that
+				// can be given to the preorder and postorder functions while
+				// doing the traversal, to avoid doing this everytime when this
+				// kind of "locational information" is needed
+				AST_t function_name_tree = enclosing_function_def.get_attribute(LANG_FUNCTION_NAME);
 
+				// Now set the outline_function_name. 
+				this->function_name = function_name_tree.prettyprint();
+				outline_function_name << this->function_name;
+
+				// Now we parse the source that represents the outlined function
 				AST_t outlined_function_tree = 
 					outlined_function.parse_global(enclosing_function_def_scope, omp_context.scope_link);
 
+				// And we prepend as a sibling of the enclosing function
 				node.prepend_sibling_function(outlined_function_tree);
-
-            }
+			}
 
 			void setup_data_attributes(Context ctx, AST_t node)
 			{
