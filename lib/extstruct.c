@@ -7,7 +7,7 @@
 
 #define warning_message(...) \
 { \
-  fprintf(stderr, "%s:%d - ", __FUNCTION__, __LINE__); \
+  fprintf(stderr, "%s:%d(%s) ", __FILE__, __LINE__, __FUNCTION__); \
   fprintf(stderr, __VA_ARGS__); \
   fprintf(stderr, "\n"); \
 }
@@ -28,7 +28,7 @@ void extensible_schema_init(extensible_schema_t* schema)
 
 // Adds a new field into the schema
 int extensible_schema_add_field(extensible_schema_t* schema, 
-		char* field_name, 
+		const char* field_name, 
 		size_t field_size)
 {
 	int num_fields = schema->num_fields+1;
@@ -49,7 +49,7 @@ int extensible_schema_add_field(extensible_schema_t* schema,
 }
 
 int extensible_schema_get_field_order(extensible_schema_t* schema,
-		char* field_name)
+		const char* field_name)
 {
 	int schema_order = -1;
 	int i;

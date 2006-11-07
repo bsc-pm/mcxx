@@ -69,10 +69,10 @@ typedef struct extensible_struct_tag extensible_struct_t;
 extensible_schema_t extensible_schema_new();
 void extensible_schema_init(extensible_schema_t* schema);
 int extensible_schema_add_field(extensible_schema_t* schema, 
-		char* field_name, 
+		const char* field_name, 
 		size_t field_size);
 int extensible_schema_get_field_order(extensible_schema_t* schema,
-		char* field_name);
+		const char* field_name);
 
 // Extensible struct operations
 void extensible_struct_init(extensible_struct_t* extensible_struct, extensible_schema_t* schema);
