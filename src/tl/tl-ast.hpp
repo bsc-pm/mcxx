@@ -17,7 +17,7 @@ namespace TL
 
 	class AST_t : public Object
 	{
-		private:
+		protected:
 			AST _ast;
 			static void tree_iterator(const AST_t& a, ObjectList<AST_t>& result);
 			tl_type_t* get_extended_attribute(const std::string& name) const;
@@ -77,6 +77,7 @@ namespace TL
 
 			bool operator<(AST_t n) const;
 			bool operator==(AST_t n) const;
+			bool operator!=(AST_t n) const;
 			AST_t& operator=(AST_t n);
 
 			std::string prettyprint() const;
@@ -102,6 +103,11 @@ namespace TL
 
 			AST_t get_enclosing_block();
 			AST_t get_enclosing_function_definition();
+
+			void prepend_sibling_function(AST_t t);
+			void append_sibling_function(AST_t t);
+
+			void replace_text(const std::string& str);
 
 			friend class Type;
             friend class Scope;

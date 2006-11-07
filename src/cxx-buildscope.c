@@ -189,6 +189,20 @@ void build_scope_dynamic_initializer(void)
 	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_PARALLEL_SECTIONS_CONSTRUCT, sizeof(tl_type_t));
 	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_SINGLE_CONSTRUCT, sizeof(tl_type_t));
 	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_THREADPRIVATE_DIRECTIVE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_IF_CLAUSE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_NUM_THREADS_CLAUSE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_SCHEDULE_CLAUSE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_ORDERED_CLAUSE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_NOWAIT_CLAUSE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_SHARED_CLAUSE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_PRIVATE_CLAUSE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_FIRSTPRIVATE_CLAUSE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_LASTPRIVATE_CLAUSE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_COPYPRIVATE_CLAUSE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_COPYIN_CLAUSE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_DEFAULT_NONE_CLAUSE, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_DEFAULT_SHARED_CLAUSE, sizeof(tl_type_t));
+
 }
 
 // Builds scope for the translation unit
@@ -6005,6 +6019,21 @@ static void build_scope_null(AST a, scope_t* st, decl_context_t decl_context, ch
 }
 
 /* OpenMP 2.5 handlers */
+static void build_scope_omp_data_clause(AST a, scope_t* st, decl_context_t decl_context)
+{
+	AST list = a;
+	AST iter;
+
+	for_each_element(list, iter)
+	{
+		AST variable = ASTSon1(iter);
+
+		// This is not technically an expression (just a name for an object),
+		// but this is a strict subset of expressions, so we use the same code
+		solve_possibly_ambiguous_expression(variable, st, decl_context);
+	}
+}
+
 static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name) 
 {
 	// Semantic fix of expressions in clauses
@@ -6051,31 +6080,37 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
 				case AST_OMP_SHARED_CLAUSE :
 					{
 						ASTAttrSetValueType(clause, OMP_IS_SHARED_CLAUSE, tl_type_t, tl_bool(1));
+						build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
 						break;
 					}
 				case AST_OMP_PRIVATE_CLAUSE :
 					{
 						ASTAttrSetValueType(clause, OMP_IS_PRIVATE_CLAUSE, tl_type_t, tl_bool(1));
+						build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
 						break;
 					}
 				case AST_OMP_FIRSTPRIVATE_CLAUSE :
 					{
 						ASTAttrSetValueType(clause, OMP_IS_FIRSTPRIVATE_CLAUSE, tl_type_t, tl_bool(1));
+						build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
 						break;
 					}
 				case AST_OMP_LASTPRIVATE_CLAUSE :
 					{
 						ASTAttrSetValueType(clause, OMP_IS_LASTPRIVATE_CLAUSE, tl_type_t, tl_bool(1));
+						build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
 						break;
 					}
 				case AST_OMP_COPYPRIVATE_CLAUSE :
 					{
 						ASTAttrSetValueType(clause, OMP_IS_COPYPRIVATE_CLAUSE, tl_type_t, tl_bool(1));
+						build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
 						break;
 					}
 				case AST_OMP_COPYIN_CLAUSE :
 					{
 						ASTAttrSetValueType(clause, OMP_IS_COPYIN_CLAUSE, tl_type_t, tl_bool(1));
+						build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
 						break;
 					}
 				case AST_OMP_DEFAULT_NONE_CLAUSE :
@@ -6085,11 +6120,6 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
 					}
 				case AST_OMP_DEFAULT_SHARED_CLAUSE :
 					{
-						// OpenMP clauses with variable_list could end up
-						// having an ambiguity within it because of a
-						// template-id involving ambiguous expressions, but
-						// this is unlikely in most of the codes, so at the
-						// moment do not fix these nodes
 						ASTAttrSetValueType(clause, OMP_IS_DEFAULT_SHARED_CLAUSE, tl_type_t, tl_bool(1));
 						break;
 					}

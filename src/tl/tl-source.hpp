@@ -13,42 +13,94 @@
 
 namespace TL
 {
+	class Source;
+
+	class SourceChunk
+	{
+		private:
+		public:
+			virtual std::string get_source() const = 0;
+			virtual ~SourceChunk() { } 
+			virtual bool is_source_text() { return false; }
+			virtual bool is_source_ref() { return false; }
+	};
+
+	class SourceText : public SourceChunk
+	{
+		private:
+			std::string _source;
+		public:
+			virtual std::string get_source() const
+			{
+				return _source;
+			}
+
+			SourceText(const std::string& str)
+				: _source(str)
+			{
+			}
+
+			virtual ~SourceText() { } 
+
+			virtual bool is_source_text() { return true; }
+
+			friend class Source;
+	};
+
+	class SourceRef : public SourceChunk
+	{
+		private:
+			Source* _src;
+		public:
+			SourceRef(Source& src)
+				: _src(&src)
+			{
+			}
+			virtual std::string get_source() const;
+
+			virtual ~SourceRef() { }
+
+			virtual bool is_source_ref() { return true; }
+
+			friend class Source;
+	};
+
 	class Source : public Object
 	{
 		private:
-			std::string _code;
+			std::vector<SourceChunk*> _chunk_list;
 
-			virtual tl_type_t* get_extended_attribute(const std::string& str) const
-			{
-				return NULL;
-			}
+			void append_text_chunk(const std::string& str);
+			void append_source_ref(Source& src);
+
 			bool all_blanks() const;
-		public :
+		public:
 			Source()
-				: _code("")
 			{
 			}
 
-            Source (const std::string& str)
-                : _code(str)
-            {
-            }
+			Source(const std::string& str)
+			{
+				_chunk_list.push_back(new SourceText(str));
+			}
 
 			Source(const Source& src)
-				: _code(src._code)
+				: _chunk_list(src._chunk_list)
 			{
 			}
-
-			Source& append_with_separator(Source src, const std::string& separator);
 
 			virtual bool is_source() const
 			{
 				return true;
 			}
+			
+			std::string get_source() const;
+			
+			Source& append_with_separator(const std::string& src, const std::string& separator);
+			Source& append_with_separator(Source& src, const std::string& separator);
 
-            std::string get_source();
 
-			Source& operator<<(const Source& src);
+			Source& operator<<(Source& src);
 			Source& operator<<(const std::string& str);
 			Source& operator<<(int n);
 
@@ -58,6 +110,7 @@ namespace TL
 			AST_t parse_expression(TL::Scope ctx);
 
 			bool operator==(Source src) const;
+			bool operator!=(Source src) const;
 			bool operator<(Source src) const;
 			Source& operator=(Source src);
 	};

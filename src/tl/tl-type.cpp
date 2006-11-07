@@ -369,6 +369,11 @@ namespace TL
 		return this->_type_info == t._type_info;
 	}
 
+	bool Type::operator!=(Type t) const
+	{
+		return !(this->operator==(t));
+	}
+
 	bool Type::operator<(Type t) const
 	{
 		return this->_type_info < t._type_info;

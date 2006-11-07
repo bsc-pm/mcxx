@@ -1,12 +1,46 @@
 #include "tl-source.hpp"
 #include "cxx-ambiguity.h"
+#include <iostream>
 #include <sstream>
 
 namespace TL
 {
+	std::string SourceRef::get_source() const
+	{
+		return _src->get_source();
+	}
+
+	void Source::append_text_chunk(const std::string& str)
+	{
+		if (_chunk_list.empty())
+		{
+			_chunk_list.push_back(new SourceText(str));
+		}
+		else
+		{
+			SourceChunk* last = *(_chunk_list.rbegin());
+
+			if (last->is_source_text())
+			{
+				// Collapse two adjacent texts
+				SourceText* text = dynamic_cast<SourceText*>(last);
+				text->_source += str;
+			}
+			else
+			{
+				_chunk_list.push_back(new SourceText(str));
+			}
+		}
+	}
+
+	void Source::append_source_ref(Source& src)
+	{
+		_chunk_list.push_back(new SourceRef(src));
+	}
+
 	Source& Source::operator<<(const std::string& str)
 	{
-		_code += str;
+		append_text_chunk(str);
 		return *this;
 	}
 
@@ -14,24 +48,32 @@ namespace TL
 	{
         std::stringstream ss;
         ss << num;
-		_code += ss.str();
+		append_text_chunk(ss.str());
 		return *this;
 	}
 
-    Source& Source::operator<<(const Source& src)
+    Source& Source::operator<<(Source& src)
     {
-        this->_code += src._code;
+		append_source_ref(src);
         return *this;
     }
 
-	std::string Source::get_source()
+	std::string Source::get_source() const
 	{
-		return _code;
+		std::string result;
+		for(std::vector<SourceChunk*>::const_iterator it = _chunk_list.begin();
+				it != _chunk_list.end();
+				it++)
+		{
+			result += (*it)->get_source();
+		}
+
+		return result;
 	}
 
 	AST_t Source::parse_expression(TL::Scope ctx)
 	{
-		std::string mangled_text = "@EXPRESSION@ " + _code;
+		std::string mangled_text = "@EXPRESSION@ " + this->get_source();
 		const char* str = mangled_text.c_str();
 
 		mcxx_prepare_string_for_scanning(str);
@@ -47,7 +89,7 @@ namespace TL
 	
 	AST_t Source::parse_statement(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
-		std::string mangled_text = "@STATEMENT@ " + _code;
+		std::string mangled_text = "@STATEMENT@ " + this->get_source();
 		const char* str = mangled_text.c_str();
 
 		mcxx_prepare_string_for_scanning(str);
@@ -63,7 +105,7 @@ namespace TL
 
 	AST_t Source::parse_global(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
-		const char* str = _code.c_str();
+		const char* str = this->get_source().c_str();
 
 		mcxx_prepare_string_for_scanning(str);
 
@@ -78,42 +120,66 @@ namespace TL
 
 	bool Source::operator==(Source src) const
 	{
-		return this->_code == src._code;
+		return this->get_source() == src.get_source();
+	}
+
+	bool Source::operator!=(Source src) const
+	{
+		return !(this->operator==(src));
 	}
 
 	bool Source::operator<(Source src) const
 	{
-		return this->_code < src._code;
+		return this->get_source() < src.get_source();
 	}
 
 	Source& Source::operator=(Source src)
 	{
-		this->_code = src._code;
+		this->_chunk_list = src._chunk_list;
 		return (*this);
 	}
 
-    Source& Source::append_with_separator(Source src, const std::string& separator)
+    Source& Source::append_with_separator(const std::string& src, const std::string& separator)
     {
         if (all_blanks())
         {
-            this->_code = src._code;
+            append_text_chunk(src);
         }
         else
         {
-            this->_code += (separator + src._code);
+			append_text_chunk(separator + src);
         }
 
         return (*this);
     }
 
+	Source& Source::append_with_separator(Source& src, const std::string& separator)
+	{
+        if (!all_blanks())
+        {
+			append_text_chunk(separator);
+        }
+		append_source_ref(src);
+
+        return (*this);
+	}
+
     bool Source::all_blanks() const
     {
+		if (_chunk_list.empty())
+		{
+			return true;
+		}
+
         bool blanks = true;
-        int len = _code.size();
+		std::string code = this->get_source();
+        int len = code.size();
+
         for (int i = 0; (i < len) && blanks; i++)
         {
-            blanks &= (_code[i] == ' ') || (_code[i] == '\t');
+            blanks &= (code[i] == ' ') || (code[i] == '\t');
         }
+
         return blanks;
     }
 }

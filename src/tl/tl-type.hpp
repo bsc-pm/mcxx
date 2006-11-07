@@ -58,6 +58,7 @@ namespace TL
 			Type get_array_to(AST_t expression_array, Scope scope);
 
 			bool operator==(Type t) const;
+			bool operator!=(Type t) const;
 			Type& operator=(Type t);
 			bool operator<(Type t) const;
 

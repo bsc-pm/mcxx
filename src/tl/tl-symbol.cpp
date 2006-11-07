@@ -32,4 +32,14 @@ namespace TL
 	{
 		return (this->_symbol == s._symbol);
 	}
+
+	bool Symbol::operator!=(Symbol s) const
+	{
+		return !(this->operator==(s));
+	}
+
+	const Symbol Symbol::invalid()
+	{
+		return Symbol(NULL);
+	}
 }

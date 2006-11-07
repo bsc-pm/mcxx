@@ -69,6 +69,7 @@ namespace TL
 			Scope& operator=(Scope sc);
 			bool operator<(Scope sc) const;
 			bool operator==(Scope sc) const;
+			bool operator!=(Scope sc) const;
 
 			friend class Type;
 			friend class Source;

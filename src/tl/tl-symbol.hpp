@@ -21,6 +21,8 @@ namespace TL
 			}
 
 		public:
+			static const Symbol invalid();
+
 			Symbol(scope_entry_t* symbol)
 				: _symbol(symbol)
 			{
@@ -46,6 +48,7 @@ namespace TL
 
 			bool operator<(Symbol s) const;
 			bool operator==(Symbol s) const;
+			bool operator!=(Symbol s) const;
 			Symbol& operator=(Symbol s);
 	};
 }

@@ -16,8 +16,12 @@ namespace TL
 	{
 		if (in.size() > 0)
 		{
-            std::vector<Symbol>::const_iterator it = in.begin();
+			std::vector<Symbol>::const_iterator it = in.begin();
 			out = (*it);
+		}
+		else
+		{
+			out = Symbol::invalid();
 		}
 	}
 
@@ -41,7 +45,7 @@ namespace TL
 	{
 		std::vector<Symbol> list = this->get_symbols_from_name(str);
 
-		Symbol result = NULL;
+		Symbol result(NULL);
 		get_head(list, result);
 
 		return result;
@@ -84,5 +88,10 @@ namespace TL
 	bool Scope::operator==(Scope sc) const
 	{
 		return (this->_st == sc._st);
+	}
+
+	bool Scope::operator!=(Scope sc) const
+	{
+		return !(this->operator==(sc));
 	}
 }

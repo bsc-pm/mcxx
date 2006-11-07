@@ -54,6 +54,7 @@ namespace TL
 
 			ScopeLink& operator=(ScopeLink sl);
 			bool operator==(ScopeLink sl);
+			bool operator!=(ScopeLink sl);
 
 			friend class Source;
 			friend class CompilerPhaseRunner;

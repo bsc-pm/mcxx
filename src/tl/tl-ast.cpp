@@ -1,5 +1,6 @@
 #include "tl-builtin.hpp"
 #include "tl-ast.hpp"
+#include "gcstring.h"
 
 namespace TL
 {
@@ -11,6 +12,11 @@ namespace TL
 	bool AST_t::operator==(AST_t n) const
 	{
 		return ast_equal(this->_ast, n._ast);
+	}
+
+	bool AST_t::operator!=(AST_t n) const
+	{
+		return !(this->operator==(n));
 	}
 
 	AST_t& AST_t::operator=(AST_t n)
@@ -345,5 +351,25 @@ namespace TL
 
 		AST_t result(node);
 		return result;
+	}
+
+	void AST_t::prepend_sibling_function(AST_t t)
+	{
+		AST_t enclosing_function = this->get_enclosing_function_definition();
+
+		// FIXME - Member specifiers are special
+		AST list = ASTParent(enclosing_function._ast);
+		AST prepended_list = get_list_of_extensible_block(t._ast);
+
+		prepend_list(list, prepended_list);
+	}
+
+	void AST_t::append_sibling_function(AST_t t)
+	{
+	}
+
+	void AST_t::replace_text(const std::string& str)
+	{
+		ASTText(this->_ast) = GC_STRDUP(str.c_str());
 	}
 }

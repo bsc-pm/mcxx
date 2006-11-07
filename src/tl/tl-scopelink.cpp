@@ -22,4 +22,9 @@ bool ScopeLink::operator==(ScopeLink sl)
 	return this->_scope_link == sl._scope_link;
 }
 
+bool ScopeLink::operator!=(ScopeLink sl)
+{
+	return !(this->operator==(sl));
+}
+
 }

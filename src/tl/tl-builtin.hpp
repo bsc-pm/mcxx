@@ -129,6 +129,11 @@ class Integer : public Object
 			return (this->_i == j._i);
 		}
 
+		bool operator!=(Integer& j)
+		{
+			return !(this->operator==(j));
+		}
+
 		virtual bool is_integer() const
 		{
 			return true;
