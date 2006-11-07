@@ -264,7 +264,11 @@ namespace TL
 				AST_t function_name_tree = enclosing_function_def.get_attribute(LANG_FUNCTION_NAME);
 
 				// Now set the outline_function_name. 
-				this->function_name = function_name_tree.prettyprint();
+				// We use a stringstream to append an integer
+				std::stringstream ss;
+				ss << function_name_tree.prettyprint() << omp_context.num_parallels;
+				this->function_name = ss.str();
+
 				outline_function_name << this->function_name;
 
 				// Now we parse the source that represents the outlined function
@@ -389,36 +393,35 @@ namespace TL
 
 						// If the symbol was found this means was defined at the point
 						// where the construct was defined
-						if (sym != Symbol::invalid())
-						{
-							// An additional check has still to be done
-							// since we could shadow a variable if we replaced "int c;"
-							// with "int b;" [and removed "c = 3;" of course]
-							//
-							// int b;
-							// #pragma parallel
-							// {
-							//   int b; <-- Shadows outer b
-							//   b = 2; <-- This must not be shared!
-							// }
-							//
-							// Get the inner scope
-							Scope inner_scope = omp_context.scope_link.get_scope(*it);
-							Symbol inner_symbol = construct_scope.get_symbol_from_id_expr(*it);
+						if (sym == Symbol::invalid())
+							continue;
+						// An additional check has still to be done
+						// since we could shadow a variable if we replaced "int c;"
+						// with "int b;" [and removed "c = 3;" of course]
+						//
+						// int b;
+						// #pragma parallel
+						// {
+						//   int b; <-- Shadows outer b
+						//   b = 2; <-- This must not be shared!
+						// }
+						//
+						// Get the inner scope
+						Scope inner_scope = omp_context.scope_link.get_scope(*it);
+						Symbol inner_symbol = construct_scope.get_symbol_from_id_expr(*it);
 
-							// They have to be the same, if not, the inner_symbol shadows the
-							// outer one
-							if (sym == inner_symbol)
+						// They have to be the same, if not, the inner_symbol shadows the
+						// outer one
+						if (sym == inner_symbol)
+						{
+							// We have to ensure the symbol has not been already set private
+							if (private_symbols.find(sym) == private_symbols.end())
 							{
-								// We have to ensure the symbol has not been already set private
-								if (private_symbols.find(sym) == private_symbols.end())
-								{
-									shared_symbols.insert(sym);
-								}
+								shared_symbols.insert(sym);
 							}
 						}
-					}
-				}
+					} // for
+				} // if
 			}
 
             virtual ~ParallelFunctor() { }
