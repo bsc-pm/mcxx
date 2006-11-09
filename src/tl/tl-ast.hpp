@@ -114,25 +114,6 @@ namespace TL
             friend class ScopeLink;
             friend class DepthTraverse;
 	};
-
-    typedef std::vector<AST_t> AST_list_t;
-
-	class AST_set_t : public AST_list_t
-	{
-		public:
-			AST_set_t(const AST_list_t& list)
-			{
-				for (AST_list_t::const_iterator it = list.begin();
-						it != list.end();
-						it++)
-				{
-					if (find(this->begin(), this->end(), *it) == this->end())
-					{
-						this->push_back(*it);
-					}
-				}
-			}
-	};
 }
 
 #endif // TL_AST_HPP

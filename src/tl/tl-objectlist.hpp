@@ -51,6 +51,24 @@ class ObjectList : public std::vector<T>
 		}
 };
 
+template <class T>
+class ObjectSet : public ObjectList<T>
+{
+	public:
+			ObjectSet(const ObjectList<T>& list)
+			{
+				for (typename ObjectList<T>::const_iterator it = list.begin();
+						it != list.end();
+						it++)
+				{
+					if (find(this->begin(), this->end(), *it) == this->end())
+					{
+						this->push_back(*it);
+					}
+				}
+			}
+};
+
 }
 
 #endif // TL_OBJECTLIST_HPP

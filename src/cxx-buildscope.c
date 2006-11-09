@@ -175,6 +175,7 @@ void build_scope_dynamic_initializer(void)
 	
 	// OpenMP stuff
 	extensible_schema_add_field(&ast_extensible_schema, OMP_CONSTRUCT_BODY, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, OMP_CONSTRUCT_DIRECTIVE, sizeof(tl_type_t));
 	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_ATOMIC_CONSTRUCT, sizeof(tl_type_t));
 	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_BARRIER_DIRECTIVE, sizeof(tl_type_t));
 	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_CRITICAL_CONSTRUCT, sizeof(tl_type_t));
@@ -202,7 +203,6 @@ void build_scope_dynamic_initializer(void)
 	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_COPYIN_CLAUSE, sizeof(tl_type_t));
 	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_DEFAULT_NONE_CLAUSE, sizeof(tl_type_t));
 	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_DEFAULT_SHARED_CLAUSE, sizeof(tl_type_t));
-
 }
 
 // Builds scope for the translation unit
@@ -6036,6 +6036,7 @@ static void build_scope_omp_data_clause(AST a, scope_t* st, decl_context_t decl_
 
 static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name) 
 {
+	ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_bool(1));
 	// Semantic fix of expressions in clauses
 	if (ASTSon0(a) != NULL)
 	{

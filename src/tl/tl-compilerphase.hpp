@@ -24,4 +24,13 @@ extern "C"
 	TL::CompilerPhase* give_compiler_phase_object(void);
 }
 
+#define EXPORT_PHASE(ClassName) \
+extern "C"  \
+{ \
+    TL::CompilerPhase* give_compiler_phase_object(void) \
+    { \
+        return new ClassName(); \
+    } \
+}
+
 #endif // TL_COMPILER_PHASE_HPP

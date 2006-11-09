@@ -46,7 +46,11 @@ libtl_la_SOURCES = \
 	tl-predicate.hpp \
 	tl-predicate.cpp \
 	tl-predicateutils.hpp \
-	tl-predicateutils.cpp 
+	tl-predicateutils.cpp \
+	tl-langconstruct.hpp \
+	tl-langconstruct.cpp \
+	tl-omp.hpp \
+	tl-omp.cpp
 
 libtlomp_la_CXXFLAGS = -Wall -O0 \
     -I $(srcdir)/../../src \
@@ -63,8 +67,8 @@ libtlomp_la_CFLAGS = -Wall -O0 \
     -I ../../lib
 
 libtlomp_la_SOURCES = \
-                        tl-omp.hpp \
-                        tl-omp.cpp
+                        tl-omptransform.hpp \
+                        tl-omptransform.cpp
 
 ../cxx-asttype.h :
 	$(MAKE) -C .. cxx-asttype.h
