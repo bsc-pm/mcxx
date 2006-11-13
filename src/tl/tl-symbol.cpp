@@ -42,4 +42,30 @@ namespace TL
 	{
 		return Symbol(NULL);
 	}
+
+	bool Symbol::is_invalid() const
+	{
+		return (*this == invalid());
+	}
+
+	bool Symbol::is_valid() const
+	{
+		return !is_invalid();
+	}
+
+	// This should be subclassed since it is C/C++ specific
+	bool Symbol::is_variable() const
+	{
+		return (this->_symbol->kind == SK_VARIABLE);
+	}
+
+	bool Symbol::is_typename() const
+	{
+		return (this->_symbol->kind == SK_TYPEDEF
+				|| this->_symbol->kind == SK_ENUM
+				|| this->_symbol->kind == SK_CLASS
+				|| this->_symbol->kind == SK_TEMPLATE_PRIMARY_CLASS
+				|| this->_symbol->kind == SK_TEMPLATE_SPECIALIZED_CLASS
+				|| this->_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER);
+	}
 }

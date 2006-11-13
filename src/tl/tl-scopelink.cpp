@@ -2,7 +2,7 @@
 namespace TL
 {
 
-Scope ScopeLink::get_scope(AST_t ast)
+Scope ScopeLink::get_scope(AST_t ast) const
 {
 	AST _ast = ast._ast;
 	scope_t* st = scope_link_get(_scope_link, _ast);

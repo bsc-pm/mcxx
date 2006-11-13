@@ -16,6 +16,8 @@ typedef struct scope_link_tag
 scope_link_t* scope_link_new(void);
 void scope_link_set(scope_link_t* sl, AST a, scope_t* st);
 scope_t* scope_link_get(scope_link_t* sl, AST a);
+scope_t* scope_link_direct_get(scope_link_t* sl, AST a);
+AST duplicate_ast_with_scope_link(AST a, scope_link_t* orig, scope_link_t* new_sl);
 
 MCXX_END_DECLS
 

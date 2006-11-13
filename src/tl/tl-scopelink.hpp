@@ -19,7 +19,7 @@ namespace TL
 				return NULL;
 			}
 		public:
-			Scope get_scope(AST_t ast);
+			Scope get_scope(AST_t ast) const;
 
 			ScopeLink()
 				: _scope_link(NULL)
@@ -56,6 +56,7 @@ namespace TL
 			bool operator==(ScopeLink sl);
 			bool operator!=(ScopeLink sl);
 
+			friend class AST_t;
 			friend class Source;
 			friend class CompilerPhaseRunner;
 	};

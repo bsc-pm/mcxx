@@ -30,7 +30,7 @@ namespace TL
 		return NULL;
 	}
 
-	std::vector<Symbol> Scope::get_symbols_from_name(const std::string& str)
+	std::vector<Symbol> Scope::get_symbols_from_name(const std::string& str) const
 	{
 		std::vector<Symbol> result;
 		// Fix this for C++
@@ -41,7 +41,7 @@ namespace TL
 		return result;
 	}
 
-	Symbol Scope::get_symbol_from_name(const std::string& str)
+	Symbol Scope::get_symbol_from_name(const std::string& str) const
 	{
 		std::vector<Symbol> list = this->get_symbols_from_name(str);
 
@@ -51,7 +51,7 @@ namespace TL
 		return result;
 	}
 
-	std::vector<Symbol> Scope::get_symbols_from_id_expr(TL::AST_t ast)
+	std::vector<Symbol> Scope::get_symbols_from_id_expr(TL::AST_t ast) const
 	{
 		std::vector<Symbol> result;
 		AST _ast = ast._ast;
@@ -64,7 +64,7 @@ namespace TL
 		return result;
 	}
 
-	Symbol Scope::get_symbol_from_id_expr(TL::AST_t ast)
+	Symbol Scope::get_symbol_from_id_expr(TL::AST_t ast) const
 	{
 		std::vector<Symbol> list = this->get_symbols_from_id_expr(ast);
 

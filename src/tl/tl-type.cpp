@@ -7,12 +7,12 @@
 
 namespace TL
 {
-    std::string Type::get_simple_declaration_str(const std::string& symbol_name) const
+    std::string Type::get_simple_declaration(const std::string& symbol_name) const
     {
         return get_declaration_str_internal(_type_info, symbol_name, true);
     }
 
-    std::string Type::get_parameter_declaration_str(const std::string& symbol_name) const
+    std::string Type::get_declaration(const std::string& symbol_name) const
     {
         return get_declaration_str_internal(_type_info, symbol_name, false);
     }

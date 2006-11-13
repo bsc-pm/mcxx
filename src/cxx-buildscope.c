@@ -6036,7 +6036,6 @@ static void build_scope_omp_data_clause(AST a, scope_t* st, decl_context_t decl_
 
 static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name) 
 {
-	ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_bool(1));
 	// Semantic fix of expressions in clauses
 	if (ASTSon0(a) != NULL)
 	{
@@ -6140,6 +6139,8 @@ static void build_scope_omp_construct(AST a, scope_t* st, decl_context_t decl_co
 	ASTAttrSetValueType(a, OMP_IS_OMP_CONSTRUCT, tl_type_t, tl_bool(1));
 	ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
 
+	ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(ASTSon0(a)));
+
 	build_scope_omp_directive(ASTSon0(a), st, decl_context, NULL);
 	if (ASTSon1(a) != NULL)
 	{
@@ -6162,6 +6163,7 @@ static void build_scope_omp_flush_directive(AST a, scope_t* st, decl_context_t d
 
 static void build_scope_omp_sections_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
+	ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(ASTSon0(a)));
     build_scope_omp_directive(ASTSon0(a), st, decl_context, NULL);
 
     AST section_sequence = ASTSon1(a);
@@ -6177,6 +6179,7 @@ static void build_scope_omp_sections_construct(AST a, scope_t* st, decl_context_
 
             // Nothing is going to be done to the "#pragma omp section"
             //
+			// ASTAttrSetValueType(omp_section, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, ASTSon0(omp_section));
             // build_scope_omp_directive(ASTSon0(omp_section), st, decl_context)
 
             build_scope_statement(ASTSon1(omp_section), st, decl_context);

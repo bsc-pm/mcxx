@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <utility>
 #include "cxx-ast.h"
 #include "cxx-prettyprint.h"
 #include "tl-object.hpp"
@@ -75,6 +76,11 @@ namespace TL
 			{
 			}
 
+			bool is_valid() const
+			{
+				return (_ast != NULL);
+			}
+
 			bool operator<(AST_t n) const;
 			bool operator==(AST_t n) const;
 			bool operator!=(AST_t n) const;
@@ -85,6 +91,8 @@ namespace TL
 			void replace_with(AST_t ast);
 
 			AST_t duplicate() const;
+
+			std::pair<AST_t, ScopeLink> duplicate_with_scope(ScopeLink scope_link) const;
 
 			ObjectList<AST_t> depth_subtrees();
 

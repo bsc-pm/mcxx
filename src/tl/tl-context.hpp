@@ -8,6 +8,13 @@ namespace TL
 {
 	struct Context
 	{
+		public:
+			ScopeLink scope_link;
+
+			Context(ScopeLink _scope_link)
+				: scope_link(_scope_link)
+			{
+			}
 	};
 }
 

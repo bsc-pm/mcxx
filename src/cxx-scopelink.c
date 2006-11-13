@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include "cxx-scopelink.h"
 #include "gc.h"
+#include "gcstring.h"
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 
@@ -58,4 +59,63 @@ scope_t* scope_link_get(scope_link_t* sl, AST a)
 	}
 
 	return NULL;
+}
+
+scope_t* scope_link_direct_get(scope_link_t* sl, AST a)
+{
+	scope_t* result = (scope_t*)hash_get(sl->h, a);
+
+	return result;
+}
+
+static AST duplicate_ast_with_scope_link_rec(AST a, scope_link_t* orig, scope_link_t* new_sl);
+
+AST duplicate_ast_with_scope_link(AST a, scope_link_t* orig, scope_link_t* new_sl)
+{
+	// This scope must be always available
+	scope_t* st = scope_link_get(orig, a);
+	scope_link_set(new_sl, a, st);
+
+	return duplicate_ast_with_scope_link_rec(a, orig, new_sl);
+}
+
+static AST duplicate_ast_with_scope_link_rec(AST a, scope_link_t* orig, scope_link_t* new_sl)
+{
+    if (a == NULL)
+        return NULL;
+
+    AST result = GC_CALLOC(1, sizeof(*result));
+
+	extensible_struct_t orig_extended_data = result->extended_data;
+
+	// Update the scope_link
+	scope_t* st = scope_link_direct_get(orig, a);
+	if (st != NULL)
+	{
+		scope_link_set(new_sl, a, st);
+	}
+
+    // Copy everything by value
+    *result = *a;
+
+	// Restore original extended data
+	// result->extended_data = orig_extended_data;
+
+    int i;
+    for (i = 0; i < ASTNumChildren(result); i++)
+    {
+        ASTChild(result, i) = duplicate_ast_with_scope_link_rec(ASTChild(a, i), orig, new_sl);
+        if (ASTChild(result, i) != NULL)
+        {
+            ASTParent(ASTChild(result, i)) = result;
+        }
+    }
+
+    if (ASTText(a) != NULL)
+    {
+        ASTText(result) = GC_STRDUP(ASTText(a));
+    }
+    ASTParent(result) = NULL;
+
+    return result;
 }

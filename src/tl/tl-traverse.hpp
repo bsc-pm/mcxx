@@ -3,6 +3,7 @@
 
 #include <vector>
 #include "tl-context.hpp"
+#include "tl-scopelink.hpp"
 #include "tl-ast.hpp"
 #include "tl-predicate.hpp"
 
@@ -27,7 +28,7 @@ namespace TL
 			std::vector<CondAction> _pred_list;
 		public:
 			void add_predicate(Predicate<AST_t>& pred, TraverseFunctor& functor);
-			void traverse(AST_t node);
+			void traverse(AST_t node, ScopeLink scope_link);
 	};
 }
 

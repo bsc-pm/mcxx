@@ -1,5 +1,6 @@
 #include "tl-builtin.hpp"
 #include "tl-ast.hpp"
+#include "tl-scopelink.hpp"
 #include "gcstring.h"
 
 namespace TL
@@ -52,6 +53,19 @@ namespace TL
 	AST_t AST_t::duplicate() const
 	{
 		AST_t result(duplicate_ast(this->_ast));
+		return result;
+	}
+
+	std::pair<AST_t, ScopeLink> AST_t::duplicate_with_scope(ScopeLink scope_link) const
+	{
+		scope_link_t* new_sl = scope_link_new();
+
+		AST duplicated_tree = duplicate_ast_with_scope_link(this->_ast, scope_link._scope_link, new_sl);
+
+		ScopeLink sl(new_sl);
+		AST_t ast(duplicated_tree);
+		std::pair<AST_t, ScopeLink> result(sl, ast);
+
 		return result;
 	}
 
@@ -372,4 +386,5 @@ namespace TL
 	{
 		ASTText(this->_ast) = GC_STRDUP(str.c_str());
 	}
+
 }

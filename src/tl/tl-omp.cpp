@@ -9,21 +9,47 @@
 
 namespace TL
 {
+	// This is something common, it is a good candidate to be taken off here
+	class GetSymbolFromAST : public Functor<Symbol, AST_t>
+	{
+		private:
+			ScopeLink scope_link;
+		public:
+			virtual Symbol operator()(AST_t& ast) const 
+			{
+				Scope sc = scope_link.get_scope(ast);
+
+				Symbol result = sc.get_symbol_from_id_expr(ast);
+
+				return result;
+			}
+
+			GetSymbolFromAST(ScopeLink _scope_link)
+				: scope_link(_scope_link)
+			{
+			}
+
+			~GetSymbolFromAST()
+			{
+			}
+	};
+
 	namespace OpenMP
 	{
 		Directive Construct::directive()
 		{
 			AST_t ast = _ref.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
 
-			Directive result(ast);
-			return ast;
+			Directive result(ast, _scope_link);
+			return result;
 		}
 
-		AST_t Construct::body()
+		Statement Construct::body()
 		{
 			AST_t ast = _ref.get_attribute(OMP_CONSTRUCT_BODY);
+			Statement result(ast, _scope_link);
 
-			return ast;
+			return result;
 		}
 
 		void OpenMPPhase::run(DTO& data_flow)
@@ -41,7 +67,6 @@ namespace TL
 			// Functor for #pragma omp parallel
 			PredicateBool<OMP_IS_PARALLEL_CONSTRUCT> parallel_construct;
 			ParallelFunctor parallel_functor(*this);
-			
 
 			// Register the #pragma omp parallel 
 			// filter with its functor
@@ -51,12 +76,110 @@ namespace TL
 			this->init();
 
 			// Traverse in a depth-first fashion the AST
-			depth_traverse.traverse(translation_unit);
+			depth_traverse.traverse(translation_unit, scope_link);
 		}
 
 		void OpenMPPhase::init()
 		{
 		}
+
+		DefaultClause Directive::default_clause()
+		{
+			class DefaultClausePredicate : public Predicate<AST_t>
+			{
+				public:
+					virtual bool operator()(AST_t& ast) const
+					{
+						TL::Bool attr1 = ast.get_attribute(OMP_IS_DEFAULT_NONE_CLAUSE);
+						TL::Bool attr2 = ast.get_attribute(OMP_IS_DEFAULT_SHARED_CLAUSE);
+
+						return attr1 || attr2;
+					}
+					virtual ~DefaultClausePredicate() { }
+			};
+
+			DefaultClausePredicate default_clause_predicate;
+
+			ObjectList<AST_t> clauses = _ref.depth_subtrees().filter(default_clause_predicate);
+
+			if (clauses.empty())
+			{
+				AST_t empty;
+				DefaultClause result(empty, _scope_link);
+
+				return result;
+			}
+			else
+			{
+				DefaultClause result(*(clauses.begin()), _scope_link);
+
+				return result;
+			}
+		}
+
+		Clause Directive::shared_clause()
+		{
+			Clause result(_ref, _scope_link, OMP_IS_SHARED_CLAUSE);
+			return result;
+		}
+
+		Clause Directive::private_clause()
+		{
+			Clause result(_ref, _scope_link, OMP_IS_PRIVATE_CLAUSE);
+			return result;
+		}
+
+		Clause Directive::firstprivate_clause()
+		{
+			Clause result(_ref, _scope_link, OMP_IS_FIRSTPRIVATE_CLAUSE);
+			return result;
+		}
+
+		Clause Directive::lastprivate_clause()
+		{
+			Clause result(_ref, _scope_link, OMP_IS_LASTPRIVATE_CLAUSE);
+			return result;
+		}
+
+		bool DefaultClause::is_none() const
+		{
+			return _ref.is_valid() 
+				&& TL::Bool(_ref.get_attribute(OMP_IS_DEFAULT_NONE_CLAUSE));
+		}
+
+		bool DefaultClause::is_shared() const
+		{
+			return _ref.is_valid() 
+				&& TL::Bool(_ref.get_attribute(OMP_IS_DEFAULT_SHARED_CLAUSE));
+		}
+
+		ObjectList<Symbol> Clause::symbols()
+		{
+			PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
+
+			PredicateAttr predicate_clause(_clause_filter_name);
+			ObjectList<AST_t> clauses = _ref.depth_subtrees().filter(predicate_clause);
+
+			ObjectList<Symbol> raw_result;
+			GetSymbolFromAST get_symbol_from_ast(this->_scope_link);
+
+			for(ObjectList<AST_t>::iterator it = clauses.begin();
+					it != clauses.end();
+					it++)
+			{
+				ObjectList<AST_t> id_expressions = it->depth_subtrees().filter(id_expr_pred);
+
+				ObjectList<Symbol> symbols = id_expressions.map(get_symbol_from_ast);
+
+				symbols = symbols.filter(&Symbol::is_valid);
+
+				raw_result.insert(raw_result.end(), symbols.begin(), symbols.end());
+			}
+
+			ObjectSet<Symbol> result = raw_result;
+			return result;
+		}
+
 	}
 }
 

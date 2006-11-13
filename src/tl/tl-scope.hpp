@@ -53,13 +53,13 @@ namespace TL
 				}
             }
 
-			std::vector<Symbol> get_symbols_from_name(const std::string& str);
+			std::vector<Symbol> get_symbols_from_name(const std::string& str) const;
 
-			Symbol get_symbol_from_name(const std::string& str);
+			Symbol get_symbol_from_name(const std::string& str) const;
 			
-			std::vector<Symbol> get_symbols_from_id_expr(TL::AST_t ast);
+			std::vector<Symbol> get_symbols_from_id_expr(TL::AST_t ast) const;
 
-			Symbol get_symbol_from_id_expr(TL::AST_t ast);
+			Symbol get_symbol_from_id_expr(TL::AST_t ast) const;
 
 			virtual bool is_scope() const
 			{

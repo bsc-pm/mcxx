@@ -23,15 +23,14 @@ namespace TL
 		public:
 			static const Symbol invalid();
 
+			bool is_invalid() const;
+
+			bool is_valid() const;
+
 			Symbol(scope_entry_t* symbol)
 				: _symbol(symbol)
 			{
 			}
-
-			// Symbol(Symbol& sym)
-			// 	: _symbol(sym._symbol)
-			// {
-			// }
 
 			Type get_type() const;
 
@@ -50,6 +49,9 @@ namespace TL
 			bool operator==(Symbol s) const;
 			bool operator!=(Symbol s) const;
 			Symbol& operator=(Symbol s);
+
+			bool is_variable() const;
+			bool is_typename() const;
 	};
 }
 

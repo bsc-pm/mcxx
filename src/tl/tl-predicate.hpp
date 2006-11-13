@@ -11,7 +11,6 @@ namespace TL
 		public:
 			~Predicate() { }
 	};
-
 }
 
 #endif

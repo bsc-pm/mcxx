@@ -18,12 +18,12 @@ namespace TL
 		class Construct : public LangConstruct
 		{
 			public:
-				Construct(AST_t ref)
-					: LangConstruct(ref)
+				Construct(AST_t ref, ScopeLink scope_link)
+					: LangConstruct(ref, scope_link)
 				{
 				}
 
-				AST_t body();
+				Statement body();
 				Directive directive();
 		};
 
@@ -35,8 +35,8 @@ namespace TL
 		class Directive : public LangConstruct
 		{
 			public:
-				Directive(AST_t ref)
-					: LangConstruct(ref)
+				Directive(AST_t ref, ScopeLink scope_link)
+					: LangConstruct(ref, scope_link)
 				{
 				}
 
@@ -61,31 +61,36 @@ namespace TL
 
 		class Clause : public LangConstruct
 		{
+			private:
+				const char* _clause_filter_name;
 			public:
-				Clause(AST_t ref)
-					: LangConstruct(ref) 
+				Clause(AST_t ref, 
+						ScopeLink scope_link,
+						const char* clause_filter_name)
+					: LangConstruct(ref, scope_link), _clause_filter_name(clause_filter_name)
 				{ 
 				}
+
 				ObjectList<Symbol> symbols();
 		};
 
 		class DefaultClause : public LangConstruct
 		{
 			public:
-				DefaultClause(AST_t ref)
-					: LangConstruct(ref)
+				DefaultClause(AST_t ref, ScopeLink scope_link)
+					: LangConstruct(ref, scope_link)
 				{
 				}
 
-				bool is_none();
-				bool is_shared();
+				bool is_none() const;
+				bool is_shared() const;
 		};
 
 		class ReductionClause : public LangConstruct
 		{
 			public:
-				ReductionClause(AST_t ref)
-					: LangConstruct(ref)
+				ReductionClause(AST_t ref, ScopeLink scope_link)
+					: LangConstruct(ref, scope_link)
 				{
 				}
 
@@ -97,8 +102,8 @@ namespace TL
 		class CustomClause : public LangConstruct
 		{
 			public:
-				CustomClause(AST_t ref)
-					: LangConstruct(ref)
+				CustomClause(AST_t ref, ScopeLink scope_link)
+					: LangConstruct(ref, scope_link)
 				{
 				}
 
@@ -108,8 +113,8 @@ namespace TL
 		class ParallelConstruct : public Construct
 		{
 			public:
-				ParallelConstruct(AST_t ref)
-					: Construct(ref)
+				ParallelConstruct(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
 				{
 				}
 		};
@@ -124,13 +129,14 @@ namespace TL
 					public:
 						virtual void preorder(Context ctx, AST_t node) 
 						{
-							ParallelConstruct parallel_construct = node;
+							ParallelConstruct parallel_construct(node, ctx.scope_link);
+
 							_phase.on_parallel_pre.signal(parallel_construct);
 						}
 
 						virtual void postorder(Context ctx, AST_t node) 
 						{
-							ParallelConstruct parallel_construct = node;
+							ParallelConstruct parallel_construct(node, ctx.scope_link);
 							_phase.on_parallel_post.signal(parallel_construct);
 						}
 

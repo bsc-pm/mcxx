@@ -50,8 +50,8 @@ namespace TL
 				return true;
 			}
 
-			std::string get_simple_declaration_str(const std::string& symbol_name) const;
-			std::string get_parameter_declaration_str(const std::string& symbol_name) const;
+			std::string get_simple_declaration(const std::string& symbol_name) const;
+			std::string get_declaration(const std::string& symbol_name) const;
 
 			Type duplicate();
 			Type get_pointer_to();
