@@ -69,6 +69,8 @@ namespace TL
 				: LangConstruct(ref, scope_link)
 			{
 			}
+
+			std::string get_function_name();
 	};
 }
 

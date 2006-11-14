@@ -80,4 +80,11 @@ namespace TL
 	{
 		_ref.prepend_sibling_function(ast);
 	}
+
+	std::string FunctionDefinition::get_function_name()
+	{
+		TL::AST_t ast = _ref.get_attribute(LANG_FUNCTION_NAME);
+
+		return ast.prettyprint();
+	}
 }
