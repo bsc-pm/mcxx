@@ -30,6 +30,12 @@
 #include "cxx-parser.h"
 /*!endif*/
 
+/* Avoids problems */
+#define malloc GC_MALLOC
+#define calloc GC_CALLOC
+#define realloc GC_REALLOC
+#define free
+
 static int yywrap(void);
 
 static void parse_token_text(void);

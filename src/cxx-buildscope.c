@@ -1439,16 +1439,16 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
     {
         simple_type_info->type->kind = STK_USER_DEFINED;
         simple_type_info->type->user_defined_type = simple_type_entry;
+
+        // It is useful to save this when printing types
+        simple_type_info->type->typeof_expr = a;
+        simple_type_info->type->typeof_scope = copy_scope(st);
     }
     else
     {
         // Bitwise copy, cv-qualification will be in this simple_type_info
         *simple_type_info = *simple_type_entry->type_information->type->aliased_type;
     }
-
-	// It is useful to save the tree of simple type specifiers
-	simple_type_info->type->typeof_expr = a;
-	simple_type_info->type->typeof_scope = copy_scope(st);
 }
 
 /*
