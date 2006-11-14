@@ -748,9 +748,10 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
 	FILE* prettyprint_file;
 	char* output_filename = NULL;
 
-	if (compilation_options.do_not_compile
-			&& compilation_options.do_not_link
-			&& strcmp(translation_unit->output_filename, "-") == 0)
+    if (compilation_options.do_not_compile
+            && compilation_options.do_not_link
+            && translation_unit->output_filename != NULL 
+            && strcmp(translation_unit->output_filename, "-" == 0))
 	{
 		prettyprint_file = stdout;
 		output_filename = "(stdout)";
