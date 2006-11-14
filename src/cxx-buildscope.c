@@ -5748,11 +5748,20 @@ static void build_scope_compound_statement(AST a, scope_t* st, decl_context_t de
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
-	scope_link_set(compilation_options.scope_link, a, copy_scope(block_scope));
+	// Note that we set the scope link to the list node and no to the compound statement
+	// node because we want to have the scope just before the compound and after the compound
+	//
+	//   the scope of the compound -> *  {
+	//                                      * <-- the list scope
+	//                                   }
+	//
+	// This adds a bit of burden when enlarging an empty compound
 
     AST list = ASTSon0(a);
     if (list != NULL)
     {
+		scope_link_set(compilation_options.scope_link, list, copy_scope(block_scope));
+
         AST iter;
         for_each_element(list, iter)
         {

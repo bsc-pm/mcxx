@@ -9,6 +9,7 @@
 
 namespace TL
 {
+	class FunctionDefinition;
 	class LangConstruct
 	{
 		protected:
@@ -37,6 +38,8 @@ namespace TL
 			{
 				return _scope_link.get_scope(_ref);
 			}
+
+			FunctionDefinition get_enclosing_function();
 	};
 
 	class Statement : public LangConstruct
@@ -52,6 +55,20 @@ namespace TL
 
 			ObjectList<std::pair<Symbol, AST_t> > non_local_symbol_trees();
 			ObjectList<std::pair<Symbol, AST_t> > local_symbol_trees();
+	};
+
+	class FunctionDefinition : public LangConstruct
+	{
+		public:
+			bool is_member();
+			bool is_template();
+
+			void prepend_sibling(AST_t);
+
+			FunctionDefinition(AST_t ref, ScopeLink scope_link)
+				: LangConstruct(ref, scope_link)
+			{
+			}
 	};
 }
 

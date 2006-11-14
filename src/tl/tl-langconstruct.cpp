@@ -23,12 +23,12 @@ namespace TL
 				it++)
 		{
 			AST_t& ref = *it;
-			Scope ref_scope = _scope_link.get_scope(ref);
 
 			Symbol symbol = statement_scope.get_symbol_from_id_expr(ref);
 
 			if (symbol.is_valid())
 			{
+				Scope ref_scope = _scope_link.get_scope(ref);
 				Symbol local_symbol = ref_scope.get_symbol_from_id_expr(ref);
 
 				if (local_symbol == symbol)
@@ -56,5 +56,28 @@ namespace TL
 
 		ObjectSet<Symbol> result = raw_result;
 		return result;
+	}
+
+	FunctionDefinition LangConstruct::get_enclosing_function()
+	{
+		AST_t enclosing_function = _ref.get_enclosing_function_definition();
+		FunctionDefinition result(enclosing_function, _scope_link);
+
+		return result;
+	}
+
+	bool FunctionDefinition::is_member()
+	{
+		return false;
+	}
+
+	bool FunctionDefinition::is_template()
+	{
+		return false;
+	}
+
+	void FunctionDefinition::prepend_sibling(AST_t ast)
+	{
+		_ref.prepend_sibling_function(ast);
 	}
 }

@@ -64,7 +64,7 @@ namespace TL
 
 		ScopeLink sl(new_sl);
 		AST_t ast(duplicated_tree);
-		std::pair<AST_t, ScopeLink> result(sl, ast);
+		std::pair<AST_t, ScopeLink> result(ast, sl);
 
 		return result;
 	}

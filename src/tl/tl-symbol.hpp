@@ -13,8 +13,10 @@ namespace TL
     class Type;
 	class Symbol : public Object
 	{
+		public:
 			scope_entry_t* _symbol;
 
+		private:
 			virtual tl_type_t* get_extended_attribute(const std::string& str) const
 			{
 				return NULL;

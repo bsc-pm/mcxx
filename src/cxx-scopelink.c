@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include <stdio.h>
 #include "cxx-scopelink.h"
 #include "gc.h"
 #include "gcstring.h"
@@ -73,11 +74,14 @@ static AST duplicate_ast_with_scope_link_rec(AST a, scope_link_t* orig, scope_li
 AST duplicate_ast_with_scope_link(AST a, scope_link_t* orig, scope_link_t* new_sl)
 {
 	// This scope must be always available
-	scope_t* st = scope_link_get(orig, a);
-	scope_link_set(new_sl, a, st);
+	AST result = duplicate_ast_with_scope_link_rec(a, orig, new_sl);
 
-	return duplicate_ast_with_scope_link_rec(a, orig, new_sl);
+	scope_t* st = scope_link_get(orig, a);
+	scope_link_set(new_sl, result, st);
+
+	return result;
 }
+
 
 static AST duplicate_ast_with_scope_link_rec(AST a, scope_link_t* orig, scope_link_t* new_sl)
 {
@@ -92,7 +96,7 @@ static AST duplicate_ast_with_scope_link_rec(AST a, scope_link_t* orig, scope_li
 	scope_t* st = scope_link_direct_get(orig, a);
 	if (st != NULL)
 	{
-		scope_link_set(new_sl, a, st);
+		scope_link_set(new_sl, result, st);
 	}
 
     // Copy everything by value

@@ -28,8 +28,8 @@ static void solve_ambiguous_simple_declaration(AST a, scope_t* st, decl_context_
 
 static char check_for_declaration_statement(AST a, scope_t* st, decl_context_t decl_context);
 static char check_for_expression_statement(AST a, scope_t* st, decl_context_t decl_context);
-static char check_for_qualified_id(AST expr, scope_t* st, decl_context_t decl_context);
-static char check_for_symbol(AST expr, scope_t* st, decl_context_t decl_context);
+static char check_for_qualified_id(AST expr, scope_t* st, decl_context_t decl_context, scope_t** symbol_scope);
+static char check_for_symbol(AST expr, scope_t* st, decl_context_t decl_context, scope_t** symbol_scope);
 #if 0
 static char check_for_destructor_id(AST expr, scope_t* st, decl_context_t decl_context);
 #endif
@@ -1214,14 +1214,19 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             }
         case AST_QUALIFIED_ID :
             {
-                char c = check_for_qualified_id(expression, st, decl_context);
+                scope_t* symbol_scope = NULL;
+                char c = check_for_qualified_id(expression, st, decl_context, &symbol_scope);
 
-				if (c)
-				{
-					ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
-				}
+                if (c)
+                {
+                    ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
+                    if (symbol_scope != NULL && compilation_options.scope_link != NULL)
+                    {
+                        scope_link_set(compilation_options.scope_link, expression, copy_scope(symbol_scope));
+                    }
+                }
 
-				return c;
+                return c;
             }
         case AST_QUALIFIED_TEMPLATE :
             {
@@ -1250,14 +1255,20 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             }
         case AST_SYMBOL :
             {
-               char c = check_for_symbol(expression, st, decl_context);
+                scope_t* symbol_scope = NULL;
+                char c = check_for_symbol(expression, st, decl_context, &symbol_scope);
 
-			   if (c)
-			   {
-				   ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
-			   }
+                if (c)
+                {
+                    ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
+                    // Should be always non null
+                    if (symbol_scope != NULL && compilation_options.scope_link != NULL)
+                    {
+                        scope_link_set(compilation_options.scope_link, expression, copy_scope(symbol_scope));
+                    }
+                }
 
-			   return c;
+                return c;
             }
         case AST_DESTRUCTOR_ID :
         case AST_DESTRUCTOR_TEMPLATE_ID :
@@ -1364,20 +1375,20 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 gather_decl_spec_t gather_info;
                 memset(&gather_info, 0, sizeof(gather_info));
 
-				decl_context.decl_flags |= DF_NO_FAIL;
+                decl_context.decl_flags |= DF_NO_FAIL;
 
                 type_t* simple_type_info = NULL;
                 build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
                         decl_context);
 
-				if (abstract_declarator != NULL)
-				{
-					decl_context_t nofail_context = decl_context;
-					nofail_context.decl_flags |= DF_NO_FAIL;
-					type_t* declarator_type = NULL;
-					build_scope_declarator(abstract_declarator, st, &gather_info, simple_type_info, 
-							&declarator_type, nofail_context);
-				}
+                if (abstract_declarator != NULL)
+                {
+                    decl_context_t nofail_context = decl_context;
+                    nofail_context.decl_flags |= DF_NO_FAIL;
+                    type_t* declarator_type = NULL;
+                    build_scope_declarator(abstract_declarator, st, &gather_info, simple_type_info, 
+                            &declarator_type, nofail_context);
+                }
 
                 AST casted_expression = ASTSon1(expression);
 
@@ -1576,7 +1587,7 @@ static char check_for_new_expression(AST new_expr, scope_t* st, decl_context_t d
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
-	decl_context.decl_flags |= DF_NO_FAIL;
+    decl_context.decl_flags |= DF_NO_FAIL;
 
     build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &dummy_type, decl_context);
 
@@ -1632,8 +1643,9 @@ do { \
 } \
 while (0);
 
-static char check_for_qualified_id(AST expr, scope_t* st, decl_context_t decl_context)
+static char check_for_qualified_id(AST expr, scope_t* st, decl_context_t decl_context, scope_t** symbol_scope)
 {
+    *symbol_scope = NULL;
     AST global_scope = ASTSon0(expr);
     AST nested_name_spec = ASTSon1(expr);
     AST unqualified_object = ASTSon2(expr);
@@ -1643,30 +1655,56 @@ static char check_for_qualified_id(AST expr, scope_t* st, decl_context_t decl_co
 
     if (ASTType(unqualified_object) == AST_TEMPLATE_ID)
     {
-        return (result_list != NULL
-                && (result_list->entry->kind == SK_TEMPLATE_FUNCTION));
+        if (result_list != NULL
+                && (result_list->entry->kind == SK_TEMPLATE_FUNCTION))
+        {
+            *symbol_scope = result_list->entry->scope;
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
     }
     else
     {
-        return (result_list != NULL
+        if (result_list != NULL
                 && (result_list->entry->kind == SK_VARIABLE
                     || result_list->entry->kind == SK_ENUMERATOR
                     || result_list->entry->kind == SK_FUNCTION
                     || result_list->entry->kind == SK_TEMPLATE_FUNCTION
-                    || result_list->entry->kind == SK_DEPENDENT_ENTITY));
+                    || result_list->entry->kind == SK_DEPENDENT_ENTITY))
+        {
+            *symbol_scope = result_list->entry->scope;
+            return 1;
+        }
+        else
+        {
+            return 0;
+        }
     }
 }
 
-static char check_for_symbol(AST expr, scope_t* st, decl_context_t decl_context)
+static char check_for_symbol(AST expr, scope_t* st, decl_context_t decl_context, scope_t** symbol_scope)
 {
     ENSURE_TYPE(expr, AST_SYMBOL);
     scope_entry_list_t* result = query_unqualified_name(st, ASTText(expr)); 
 
-    return (result != NULL 
+    *symbol_scope = NULL;
+
+    if (result != NULL 
             && (result->entry->kind == SK_VARIABLE
                 || result->entry->kind == SK_ENUMERATOR
                 || result->entry->kind == SK_FUNCTION
-                || result->entry->kind == SK_TEMPLATE_PARAMETER));
+                || result->entry->kind == SK_TEMPLATE_PARAMETER))
+    {
+        *symbol_scope = result->entry->scope;
+        return 1;
+    }
+    else
+    {
+        return 0;
+    }
 }
 
 static char check_for_functional_expression(AST expr, AST arguments, scope_t* st, decl_context_t decl_context)
@@ -1966,7 +2004,7 @@ void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st, decl_conte
                 gather_decl_spec_t gather_info;
                 memset(&gather_info, 0, sizeof(gather_info));
 
-				decl_context.decl_flags |= DF_NO_FAIL;
+                decl_context.decl_flags |= DF_NO_FAIL;
 
                 type_t* simple_type_info = NULL;
                 build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
@@ -2073,7 +2111,7 @@ static char check_for_type_specifier(AST type_id, scope_t* st, decl_context_t de
                 simple_type_info = GC_CALLOC(1, sizeof(*simple_type_info));
                 simple_type_info->type = GC_CALLOC(1, sizeof(*(simple_type_info->type)));
 
-				decl_context.decl_flags |= DF_NO_FAIL;
+                decl_context.decl_flags |= DF_NO_FAIL;
 
                 gather_type_spec_information(type_id, st, simple_type_info, decl_context);
                 return 1;
@@ -2128,7 +2166,7 @@ static char check_for_cast(AST expr, scope_t* st, decl_context_t decl_context)
         gather_decl_spec_t gather_info;
         memset(&gather_info, 0, sizeof(gather_info));
 
-		decl_context.decl_flags |= DF_NO_FAIL;
+        decl_context.decl_flags |= DF_NO_FAIL;
 
         type_t* simple_type_info = NULL;
         build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
@@ -2411,11 +2449,11 @@ static char check_for_declarator_rec(AST declarator, scope_t* st, decl_context_t
                 {
                     solve_possibly_ambiguous_expression(ASTSon1(declarator), st, decl_context);
                 }
-				if (ASTSon0(declarator) != NULL)
-				{
-					return check_for_declarator_rec(ASTSon0(declarator), st, decl_context);
-				}
-				return 1;
+                if (ASTSon0(declarator) != NULL)
+                {
+                    return check_for_declarator_rec(ASTSon0(declarator), st, decl_context);
+                }
+                return 1;
             }
         case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
         case AST_PARENTHESIZED_DECLARATOR :
@@ -2445,7 +2483,7 @@ static char check_for_declarator_rec(AST declarator, scope_t* st, decl_context_t
                 {
                     return check_for_declarator_rec(ASTSon0(declarator), st, decl_context);
                 }
-				return 1;
+                return 1;
                 break;
             }
         case AST_DECLARATOR_ID_EXPR :
@@ -2578,15 +2616,15 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
 
 static char is_abstract_declarator(AST a)
 {
-	return (ASTType(a) == AST_ABSTRACT_DECLARATOR
-			|| ASTType(a) == AST_ABSTRACT_DECLARATOR_FUNC
-			|| ASTType(a) == AST_ABSTRACT_ARRAY);
+    return (ASTType(a) == AST_ABSTRACT_DECLARATOR
+            || ASTType(a) == AST_ABSTRACT_DECLARATOR_FUNC
+            || ASTType(a) == AST_ABSTRACT_ARRAY);
 }
 
 static char is_non_abstract_declarator(AST a)
 {
-	return (ASTType(a) == AST_DECLARATOR
-			|| ASTType(a) == AST_POINTER_DECL);
+    return (ASTType(a) == AST_DECLARATOR
+            || ASTType(a) == AST_POINTER_DECL);
 }
 
 void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st, decl_context_t decl_context)
@@ -2623,10 +2661,10 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st, decl
         {
             current_valid &= check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, declarator);
 
-			if (current_valid)
-			{
-				current_valid &= check_for_declarator(declarator, st, decl_context);
-			}
+            if (current_valid)
+            {
+                current_valid &= check_for_declarator(declarator, st, decl_context);
+            }
         }
 
         if (current_valid)
@@ -2637,35 +2675,35 @@ void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st, decl
             }
             else
             {
-			    AST previous_parameter_decl = parameter_declaration->ambig[current_choice];
-				AST current_parameter_decl = parameter_decl;
+                AST previous_parameter_decl = parameter_declaration->ambig[current_choice];
+                AST current_parameter_decl = parameter_decl;
 
-				AST previous_declarator = ASTSon1(previous_parameter_decl);
-				AST current_declarator = ASTSon1(current_parameter_decl);
+                AST previous_declarator = ASTSon1(previous_parameter_decl);
+                AST current_declarator = ASTSon1(current_parameter_decl);
 
-				// If an abstract declarator is possible, then it must be an abstract declarator
-				char solved_ambiguity = 0;
-				if (previous_declarator != NULL
-						&& current_declarator != NULL)
-				{
-					if (is_abstract_declarator(previous_declarator)
-							&& is_non_abstract_declarator(current_declarator))
-					{
-						solved_ambiguity = 1;
-					}
-					else if (is_non_abstract_declarator(previous_declarator)
-							&& is_abstract_declarator(current_declarator))
-					{
-						current_choice = i;
-						solved_ambiguity = 1;
-					}
-				}
+                // If an abstract declarator is possible, then it must be an abstract declarator
+                char solved_ambiguity = 0;
+                if (previous_declarator != NULL
+                        && current_declarator != NULL)
+                {
+                    if (is_abstract_declarator(previous_declarator)
+                            && is_non_abstract_declarator(current_declarator))
+                    {
+                        solved_ambiguity = 1;
+                    }
+                    else if (is_non_abstract_declarator(previous_declarator)
+                            && is_abstract_declarator(current_declarator))
+                    {
+                        current_choice = i;
+                        solved_ambiguity = 1;
+                    }
+                }
 
-				if (!solved_ambiguity)
-				{
-					internal_error("More than one option is possible in %s", 
-							node_information(parameter_declaration));
-				}
+                if (!solved_ambiguity)
+                {
+                    internal_error("More than one option is possible in %s", 
+                            node_information(parameter_declaration));
+                }
             }
         }
     }

@@ -48,6 +48,7 @@ namespace TL
 		Symbol result(NULL);
 		get_head(list, result);
 
+
 		return result;
 	}
 

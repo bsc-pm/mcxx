@@ -19,7 +19,7 @@ namespace TL
 
 			virtual void init()
 			{
-				// Register the handlers for every construction
+				// Register the handlers (callbacks) for every construction
 				on_parallel_pre.connect(&OpenMPTransform::parallel_pre, *this);
 				on_parallel_post.connect(&OpenMPTransform::parallel_post, *this);
 			}
@@ -31,6 +31,37 @@ namespace TL
 				parallel_nesting++;
 			}
 
+			// Parallel postorder
+			void parallel_post(OpenMP::ParallelConstruct parallel_construct)
+			{
+				parallel_nesting--;
+
+				OpenMP::Directive directive = parallel_construct.directive();
+
+				ObjectList<Symbol> shared_symbols;
+				ObjectList<Symbol> private_symbols;
+
+				// Get the body of the statement
+				Statement body = parallel_construct.body();
+
+				// Construct the set of shared and privatized symbols
+				get_data_attributes(directive, body, shared_symbols, private_symbols);
+
+				Source outline_code;
+				outline_code << create_outline(shared_symbols, private_symbols, body);
+
+				std::cerr << "CODE" << std::endl;
+				std::cerr << outline_code.get_source() << std::endl;
+				std::cerr << "END CODE" << std::endl;
+
+				FunctionDefinition f = parallel_construct.get_enclosing_function();
+
+				AST_t outline_tree = outline_code.parse_global(f.get_scope(), f.get_scope_link());
+
+				f.prepend_sibling(outline_tree);
+			}
+
+			// The data enviroment
 			void get_data_attributes(OpenMP::Directive& directive,
 					Statement& body,
 					ObjectList<Symbol>& shared_symbols,
@@ -87,10 +118,9 @@ namespace TL
 			}
 
 			// Create the outline
-			void create_outline(ObjectList<Symbol>& shared_symbols, 
+			std::string create_outline(ObjectList<Symbol>& shared_symbols, 
 					ObjectList<Symbol>& private_symbols,
-					Statement& body,
-					Source& outline_code)
+					Statement& body)
 			{
 				Source outlined_function_name;
 				Source shared_parameters;
@@ -98,6 +128,8 @@ namespace TL
 				Source outlined_body;
 
 				// Define the skeleton
+				Source outline_code;
+
 				outline_code
 					<< "void outlined_" << outlined_function_name << "(" << shared_parameters << ")"
 					<< "{"
@@ -122,6 +154,7 @@ namespace TL
 				// Copy the body since we will modify it
 				std::pair<AST_t, ScopeLink> new_body = body.get_ast().duplicate_with_scope(body.get_scope_link());
 				Statement modified_body(new_body.first, new_body.second);
+				ScopeLink modified_body_scope_link = modified_body.get_scope_link();
 				
 				// Derreference all shared references
 				ObjectList<std::pair<Symbol, AST_t> > non_local_symbols = modified_body.non_local_symbol_trees();
@@ -137,9 +170,13 @@ namespace TL
 						Source derref_source;
 						derref_source << "(*" << ref.prettyprint() << ")";
 
-						Scope expr_scope = modified_body.get_scope_link().get_scope(ref);
+						// Get the scope of this expression
+						Scope expr_scope = modified_body_scope_link.get_scope(ref);
+
+						// Parse this new expression
 						AST_t derref_expr = derref_source.parse_expression(expr_scope);
 
+						// And replace it in the tree
 						ref.replace_with(derref_expr);
 					}
 				}
@@ -155,38 +192,24 @@ namespace TL
 
 						std::string name = it->second.prettyprint();
 						
-						// Here we would replace '::' with '__'
+						// Here we would have to mangle privatized qualified
+						// names (currently not done)
+						//
+						//   q       -> p_q
+						//   A::q    -> p_A__q
+						//   A<0>::q -> p_A_0___q 
+						//
 						name = "p_" + name;
 
 						ref.replace_text(name);
 					}
 				}
 				
-
 				outlined_body << modified_body.prettyprint();
 
-				std::cerr << "---Print---" << std::endl;
-				std::cerr << outline_code.get_source() << std::endl;
-				std::cerr << "---End Print---" << std::endl;
-
+				return outline_code.get_source();
 			}
 
-			void parallel_post(OpenMP::ParallelConstruct parallel_construct)
-			{
-				parallel_nesting--;
-
-				OpenMP::Directive directive = parallel_construct.directive();
-
-				ObjectList<Symbol> shared_symbols;
-				ObjectList<Symbol> private_symbols;
-
-				Statement body = parallel_construct.body();
-
-				get_data_attributes(directive, body, shared_symbols, private_symbols);
-
-				Source outline_code;
-				create_outline(shared_symbols, private_symbols, body, outline_code);
-			}
 	};
 }
 

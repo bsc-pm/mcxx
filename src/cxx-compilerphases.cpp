@@ -2,6 +2,7 @@
 #include <vector>
 #include <dlfcn.h>
 #include "cxx-driver.h"
+#include "cxx-utils.h"
 #include "cxx-compilerphases.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-ast.hpp"
@@ -60,6 +61,10 @@ extern "C"
 	void load_compiler_phases_cxx(void)
 	{
 		// FIX - At the moment just load libtlomp.so
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "Loading libtlomp.so\n");
+		}
 		void* handle = dlopen("libtlomp.so", RTLD_NOW | RTLD_LOCAL);
 
 		if (handle == NULL)
@@ -69,8 +74,16 @@ extern "C"
 			fprintf(stderr, "Skipping\n");
 			return;
 		}
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "libtlomp.so properly loaded\n");
+		}
 
 		// Now get the function
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "Getting the factory function 'give_compiler_phase_object'\n");
+		}
 		void* factory_function_sym = dlsym(handle, "give_compiler_phase_object");
 
 		if (factory_function_sym == NULL)
@@ -80,17 +93,29 @@ extern "C"
 			fprintf(stderr, "Skipping\n");
 			return;
 		}
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "Factory function obtained\n");
+		}
 
 		typedef TL::CompilerPhase*(*factory_function_t)(void);
 		factory_function_t factory_function = (factory_function_t) factory_function_sym;
 
 		TL::CompilerPhase* new_phase = (factory_function)();
 
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "Adding it to the compiler pipeline\n");
+		}
 		TL::CompilerPhaseRunner::add_compiler_phase(new_phase);
 	}
 
 	void start_compiler_phase_execution(translation_unit_t* translation_unit)
 	{
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "Starting the compiler phase pipeline\n");
+		}
 		TL::CompilerPhaseRunner::start_compiler_phase_execution(translation_unit);
 	}
 }
