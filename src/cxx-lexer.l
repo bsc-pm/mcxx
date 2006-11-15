@@ -774,6 +774,10 @@ char* TL_SOURCE_STRING = "tl-source-string";
 
 int PREPARE_STRING_FOR_SCANNING(const char* str)
 {
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "Going to parse string '%s'\n", str);
+	}
 	memset(&scanning_now, 0, sizeof(scanning_now));
 	scanning_now.line_number = 1;
 	scanning_now.filename = TL_SOURCE_STRING;
@@ -781,6 +785,7 @@ int PREPARE_STRING_FOR_SCANNING(const char* str)
 
 	scanning_now.scanning_buffer = yy_scan_string(str);
 
+	// yy_flush_buffer(YY_CURRENT_BUFFER);
 	yy_switch_to_buffer(scanning_now.scanning_buffer);
 
 	return 0;
@@ -808,6 +813,7 @@ int OPEN_FILE_FOR_SCANNING(char* scanned_filename, char* input_filename)
 
 	scanning_now.scanning_buffer = yy_create_buffer(file, YY_BUF_SIZE);
 
+	// yy_flush_buffer(YY_CURRENT_BUFFER);
 	yy_switch_to_buffer(scanning_now.scanning_buffer);
 
 	return 0;

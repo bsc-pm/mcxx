@@ -1,5 +1,6 @@
 #include "tl-source.hpp"
 #include "cxx-ambiguity.h"
+#include "gcstring.h"
 #include <iostream>
 #include <sstream>
 
@@ -74,7 +75,7 @@ namespace TL
 	AST_t Source::parse_expression(TL::Scope ctx)
 	{
 		std::string mangled_text = "@EXPRESSION@ " + this->get_source();
-		const char* str = mangled_text.c_str();
+		char* str = GC_STRDUP(mangled_text.c_str());
 
 		mcxx_prepare_string_for_scanning(str);
 
@@ -90,7 +91,7 @@ namespace TL
 	AST_t Source::parse_statement(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
 		std::string mangled_text = "@STATEMENT@ " + this->get_source();
-		const char* str = mangled_text.c_str();
+		char* str = GC_STRDUP(mangled_text.c_str());
 
 		mcxx_prepare_string_for_scanning(str);
 
@@ -105,7 +106,7 @@ namespace TL
 
 	AST_t Source::parse_global(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
-		const char* str = this->get_source().c_str();
+		char* str = GC_STRDUP(this->get_source().c_str());
 
 		mcxx_prepare_string_for_scanning(str);
 

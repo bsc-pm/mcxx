@@ -28,7 +28,6 @@ namespace TL
             // Parallel preorder
             void parallel_pre(OpenMP::ParallelConstruct parallel_construct)
             {
-                num_parallels++;
                 parallel_nesting++;
             }
 
@@ -36,6 +35,7 @@ namespace TL
             void parallel_post(OpenMP::ParallelConstruct parallel_construct)
             {
                 parallel_nesting--;
+                num_parallels++;
 
                 OpenMP::Directive directive = parallel_construct.directive();
 
@@ -58,7 +58,11 @@ namespace TL
                 Source outline_code;
                 outline_code << create_outline(shared_symbols, private_symbols, body, outline_function_name.get_source());
 
+				std::cerr << "About to compile outline code '" << outline_code.get_source() << "'" << std::endl;
+
                 AST_t outline_tree = outline_code.parse_global(f.get_scope(), f.get_scope_link());
+
+				std::cerr << "Outline code parsed" << std::endl;
 
                 f.prepend_sibling(outline_tree);
 
@@ -98,6 +102,10 @@ namespace TL
                 {
                     shared_references << ", " << concat_strings(shared_references_names, ",");
                 }
+
+				std::cerr << "--SPAWN CODE--" << std::endl;
+				std::cerr << spawning_code.get_source() << std::endl;
+				std::cerr << "--END SPAWN CODE--" << std::endl;
 
                 AST_t spawn_tree = spawning_code.parse_statement(spawn_scope, spawn_scope_link);
                 return spawn_tree;
@@ -254,6 +262,10 @@ namespace TL
                 }
                 
                 outlined_body << modified_body.prettyprint();
+
+				std::cerr << "--OUTLINE CODE--" << std::endl;
+				std::cerr << outline_code.get_source() << std::endl;
+				std::cerr << "--END OUTLINE CODE--" << std::endl;
 
                 return outline_code.get_source();
             }

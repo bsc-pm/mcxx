@@ -177,7 +177,10 @@ namespace TL
         }
 
         ASTSon0(iter) = original_previous;
-        ASTParent(original_previous) = iter;
+		if (original_previous != NULL)
+		{
+			ASTParent(original_previous) = iter;
+		}
 	}
 
 	void AST_t::append_list(AST orig_list, AST appended_list)
