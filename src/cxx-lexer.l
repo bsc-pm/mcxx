@@ -30,11 +30,18 @@
 #include "cxx-parser.h"
 /*!endif*/
 
-/* Avoids problems */
-#define malloc GC_MALLOC
-#define calloc GC_CALLOC
-#define realloc GC_REALLOC
-#define free
+// For Garbage collection support
+#undef free
+#define free(x)
+
+#undef malloc
+#define malloc(x) GC_MALLOC(x)
+
+#undef calloc
+#define calloc(x) GC_CALLOC((x)
+
+#undef realloc
+#define realloc(x,y) GC_REALLOC((x), (y))
 
 static int yywrap(void);
 
@@ -62,9 +69,6 @@ static int num_new_lines(char* c)
     return result;
 }
 
-// For Garbage collection support
-#define free(x)
-#define malloc(x) GC_MALLOC(x)
 
 %}
 
