@@ -1219,11 +1219,29 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
 
                 if (c)
                 {
-                    ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
                     if (symbol_scope != NULL && compilation_options.scope_link != NULL)
                     {
                         scope_link_set(compilation_options.scope_link, expression, copy_scope(symbol_scope));
                     }
+
+					AST global_qualif = ASTSon0(expression);
+					AST nested_name_spec = ASTSon1(expression);
+					AST unqualified_id = ASTSon2(expression);
+
+                    ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
+					ASTAttrSetValueType(expression, LANG_IS_QUALIFIED_ID, tl_type_t, tl_bool(1));
+
+					if (global_qualif != NULL)
+					{
+						ASTAttrSetValueType(expression, LANG_IS_GLOBAL_QUALIFIED, tl_type_t, tl_bool(1));
+					}
+
+					if (nested_name_spec != NULL)
+					{
+						ASTAttrSetValueType(expression, LANG_NESTED_NAME_SPECIFIER, tl_type_t, tl_ast(nested_name_spec));
+					}
+
+					ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(unqualified_id));
                 }
 
                 return c;
@@ -1260,12 +1278,15 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
 
                 if (c)
                 {
-                    ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
                     // Should be always non null
                     if (symbol_scope != NULL && compilation_options.scope_link != NULL)
                     {
                         scope_link_set(compilation_options.scope_link, expression, copy_scope(symbol_scope));
                     }
+
+                    ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(expression));
                 }
 
                 return c;

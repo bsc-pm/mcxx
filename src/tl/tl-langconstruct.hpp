@@ -15,7 +15,6 @@ namespace TL
 		protected:
 			AST_t _ref;
 			ScopeLink _scope_link;
-
 		public:
 			LangConstruct(AST_t ref, ScopeLink scope_link)
 				: _ref(ref), _scope_link(scope_link)
@@ -42,6 +41,25 @@ namespace TL
 			FunctionDefinition get_enclosing_function();
 	};
 
+	class IdExpression : public LangConstruct
+	{
+		public:
+			IdExpression(AST_t ref, ScopeLink scope_link)
+				: LangConstruct(ref, scope_link)
+			{
+			}
+
+			std::string mangle_id_expression() const;
+
+			std::string get_qualified_part() const;
+			std::string get_unqualified_part() const;
+
+			bool is_qualified() const;
+			bool is_unqualified() const;
+
+			Symbol get_symbol() const;
+	};
+
 	class Statement : public LangConstruct
 	{
 		public:
@@ -53,16 +71,13 @@ namespace TL
 			ObjectList<Symbol> symbols();
 			ObjectList<Symbol> non_local_symbols();
 
-			ObjectList<std::pair<Symbol, AST_t> > non_local_symbol_trees();
-			ObjectList<std::pair<Symbol, AST_t> > local_symbol_trees();
+			ObjectList<IdExpression> non_local_symbol_occurrences();
+			ObjectList<IdExpression> local_symbol_occurrences();
 	};
 
 	class FunctionDefinition : public LangConstruct
 	{
 		public:
-			bool is_member();
-			bool is_template();
-
 			void prepend_sibling(AST_t);
 
 			FunctionDefinition(AST_t ref, ScopeLink scope_link)
@@ -70,8 +85,9 @@ namespace TL
 			{
 			}
 
-			std::string get_function_name();
+			IdExpression get_function_name();
 	};
+
 }
 
 #endif // TL_LANGCONSTRUCT_HPP

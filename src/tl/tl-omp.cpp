@@ -160,7 +160,7 @@ namespace TL
 			PredicateAttr predicate_clause(_clause_filter_name);
 			ObjectList<AST_t> clauses = _ref.depth_subtrees().filter(predicate_clause);
 
-			ObjectList<Symbol> raw_result;
+			ObjectList<Symbol> result;
 			GetSymbolFromAST get_symbol_from_ast(this->_scope_link);
 
 			for(ObjectList<AST_t>::iterator it = clauses.begin();
@@ -173,13 +173,11 @@ namespace TL
 
 				symbols = symbols.filter(&Symbol::is_valid);
 
-				raw_result.insert(raw_result.end(), symbols.begin(), symbols.end());
+				result.insert(symbols);
 			}
 
-			ObjectSet<Symbol> result = raw_result;
 			return result;
 		}
-
 	}
 }
 

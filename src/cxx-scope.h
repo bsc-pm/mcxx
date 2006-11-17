@@ -423,6 +423,11 @@ typedef struct scope_entry_tag
     // of who ?
     struct type_tag* class_type;
 
+	// Point in the AST where this was declared. This is approximate, just to
+	// find the simple_declaration, member_declaration or function_definition
+	// holding this one
+	AST point_of_declaration;
+
     // Dependency info. It states if this symbol has a template-dependent nature
     // A value of DI_UNKNOWN means this has not been already computed
     //

@@ -80,8 +80,24 @@ class ObjectList : public std::vector<T>
 			return result;
 		}
 
+
 		template <class S>
-		ObjectList<S> map(ObjectList<S> (T::*pmf)())
+		ObjectList<S> map(S T::*pdm)
+		{
+			ObjectList<S> result;
+
+			for (typename ObjectList<T>::iterator it = this->begin();
+					it != this->end();
+					it++)
+			{
+				result.push_back((*it).*pdm);
+			}
+
+			return result;
+		}
+
+		template <class S>
+		ObjectList<S> map(S (T::*pmf)())
 		{
 			ObjectList<S> result;
 			for (typename ObjectList<T>::iterator it = this->begin();
@@ -95,7 +111,7 @@ class ObjectList : public std::vector<T>
 		}
 
 		template <class S>
-		ObjectList<S> map(ObjectList<S> (T::*pmf)() const)
+		ObjectList<S> map(S (T::*pmf)() const)
 		{
 			ObjectList<S> result;
 			for (typename ObjectList<T>::iterator it = this->begin();
@@ -137,24 +153,39 @@ class ObjectList : public std::vector<T>
 
 			return result;
 		}
-};
 
-template <class T>
-class ObjectSet : public ObjectList<T>
-{
-	public:
-			ObjectSet(const ObjectList<T>& list)
+		void append(const T& t)
+		{
+			this->push_back(t);
+		}
+
+		void append(const ObjectList<T>& t)
+		{
+			for (typename ObjectList<T>::const_iterator it = t.begin();
+					it != t.end();
+					it++)
 			{
-				for (typename ObjectList<T>::const_iterator it = list.begin();
-						it != list.end();
-						it++)
-				{
-					if (find(this->begin(), this->end(), *it) == this->end())
-					{
-						this->push_back(*it);
-					}
-				}
+				this->append(*it);
 			}
+		}
+
+		void insert(const T& t)
+		{
+			if (find(this->begin(), this->end(), t) != this->end())
+			{
+				this->push_back(t);
+			}
+		}
+
+		void insert(const ObjectList<T>& t)
+		{
+			for (typename ObjectList<T>::const_iterator it = t.begin();
+					it != t.end();
+					it++)
+			{
+				this->insert(*it);
+			}
+		}
 };
 
 std::string concat_strings(const ObjectList<std::string>& string_list, const std::string& separator = std::string(""));

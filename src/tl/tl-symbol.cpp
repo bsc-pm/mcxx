@@ -22,6 +22,13 @@ namespace TL
 		return this->_symbol < s._symbol;
 	}
 
+	Scope Symbol::get_scope() const
+	{
+		Scope result(_symbol->scope);
+
+		return result;
+	}
+
 	Symbol& Symbol::operator=(Symbol s)
 	{
 		this->_symbol = s._symbol;
@@ -67,5 +74,10 @@ namespace TL
 				|| this->_symbol->kind == SK_TEMPLATE_PRIMARY_CLASS
 				|| this->_symbol->kind == SK_TEMPLATE_SPECIALIZED_CLASS
 				|| this->_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER);
+	}
+
+	bool Symbol::is_member() const
+	{
+		return _symbol->is_member;
 	}
 }

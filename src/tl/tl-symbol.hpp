@@ -11,6 +11,7 @@
 namespace TL
 {
     class Type;
+	class Scope;
 	class Symbol : public Object
 	{
 		public:
@@ -35,8 +36,9 @@ namespace TL
 			}
 
 			Type get_type() const;
-
 			std::string get_name() const;
+
+			Scope get_scope() const;
 
 			virtual ~Symbol()
 			{
@@ -54,6 +56,8 @@ namespace TL
 
 			bool is_variable() const;
 			bool is_typename() const;
+
+			bool is_member() const;
 	};
 }
 

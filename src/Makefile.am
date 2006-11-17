@@ -125,7 +125,8 @@ mcxx_SOURCES = \
 mcxx_LDFLAGS = \
    -L../lib \
    -L../gc \
-   -L.
+   -L. \
+   -Wl,-E
 
 mcxx_LDADD = \
    -lstdc++ \

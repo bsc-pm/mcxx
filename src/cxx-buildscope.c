@@ -152,7 +152,6 @@ const decl_context_t default_decl_context = { 0 };
 void build_scope_dynamic_initializer(void)
 {
 	// C/C++ stuff
-	extensible_schema_add_field(&ast_extensible_schema, LANG_FUNCTION_NAME, sizeof(tl_type_t));
 	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_ID_EXPRESSION, sizeof(tl_type_t));
 	extensible_schema_add_field(&ast_extensible_schema, LANG_FUNCTION_NAME, sizeof(tl_type_t));
 	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_EXPRESSION, sizeof(tl_type_t));
@@ -172,6 +171,13 @@ void build_scope_dynamic_initializer(void)
 	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_BREAK_STATEMENT, sizeof(tl_type_t));
 	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_CONTINUE_STATEMENT, sizeof(tl_type_t));
 	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_GOTO_STATEMENT, sizeof(tl_type_t));
+
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_QUALIFIED_ID, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_UNQUALIFIED_ID, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_GLOBAL_QUALIFIED, sizeof(tl_type_t));
+	extensible_schema_add_field(&ast_extensible_schema, LANG_NESTED_NAME_SPECIFIER, sizeof(tl_type_t));
+
+	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_UNQUALIFIED_ID, sizeof(tl_type_t));
 	
 	// OpenMP stuff
 	extensible_schema_add_field(&ast_extensible_schema, OMP_CONSTRUCT_BODY, sizeof(tl_type_t));
@@ -1068,6 +1074,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
             }
 
             new_class->line = ASTLine(class_symbol);
+			new_class->point_of_declaration = class_symbol;
 
             new_class->type_information = GC_CALLOC(1, sizeof(*(new_class->type_information)));
             new_class->type_information->kind = TK_DIRECT;
@@ -1268,6 +1275,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 
             scope_entry_t* new_class = new_symbol(st, enum_name);
             new_class->line = ASTLine(symbol);
+			new_class->point_of_declaration = symbol;
             new_class->kind = SK_ENUM;
             new_class->type_information = GC_CALLOC(1, sizeof(*(new_class->type_information)));
             new_class->type_information->kind = TK_DIRECT;
@@ -1501,6 +1509,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 
             new_entry = new_symbol(st, enum_name_str);
             new_entry->line = ASTLine(enum_name);
+			new_entry->point_of_declaration = enum_name;
             new_entry->kind = SK_ENUM;
         }
 
@@ -1550,6 +1559,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 
             scope_entry_t* enumeration_item = new_symbol(st, ASTText(enumeration_name));
             enumeration_item->line = ASTLine(enumeration_name);
+			enumeration_item->point_of_declaration = enumeration_name;
             enumeration_item->kind = SK_ENUMERATOR;
             enumeration_item->type_information = enumerator_type;
 
@@ -1897,6 +1907,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 }
 
                 class_entry->line = ASTLine(class_head_identifier);
+				class_entry->point_of_declaration = class_head_identifier;
 
                 if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
                 {
@@ -1904,7 +1915,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 }
                 else // (BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
                 {
-
                     if (ASTType(class_head_identifier) == AST_SYMBOL)
                     {
                         class_entry->kind = SK_TEMPLATE_PRIMARY_CLASS;
@@ -3007,6 +3017,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
     }
 
     entry->line = ASTLine(declarator_id);
+	entry->point_of_declaration = declarator_id;
     // Save aliased type under the type of this declaration
     entry->kind = SK_TYPEDEF;
     entry->type_information = GC_CALLOC(1, sizeof(*(entry->type_information)));
@@ -3016,7 +3027,6 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
     entry->type_information->type->aliased_type = declarator_type;
     entry->type_information->type->type_scope = st;
 
-    // TODO - cv qualification
     return entry;
 }
 
@@ -3051,6 +3061,7 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         }
         scope_entry_t* entry = new_symbol(st, ASTText(declarator_id));
         entry->line = ASTLine(declarator_id);
+		entry->point_of_declaration = declarator_id;
         entry->kind = SK_VARIABLE;
         entry->type_information = declarator_type;
 
@@ -3082,6 +3093,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         scope_entry_t* new_entry = new_symbol(st, function_name);
         new_entry->line = ASTLine(declarator_id);
+		new_entry->point_of_declaration = declarator_id;
 
         if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
         {
@@ -3686,6 +3698,7 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 
         scope_entry_t* new_entry = new_symbol(st, name);
         new_entry->line = ASTLine(symbol);
+		new_entry->point_of_declaration = symbol;
 
         new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
         new_entry->type_information = new_type;
@@ -3816,6 +3829,7 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
         }
         scope_entry_t* new_entry = new_symbol(st, ASTText(name));
         new_entry->line = ASTLine(name);
+        new_entry->point_of_declaration = name;
         new_entry->type_information = new_type;
         new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
 
@@ -3958,6 +3972,7 @@ static void build_scope_namespace_alias(AST a, scope_t* st, decl_context_t decl_
     scope_entry_t* alias_entry = new_symbol(st, alias_name);
 
     alias_entry->line = ASTLine(alias_ident);
+	alias_entry->point_of_declaration = alias_ident;
     alias_entry->kind = SK_NAMESPACE;
     alias_entry->related_scope = entry->related_scope;
 }
@@ -3989,6 +4004,7 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
 
             entry = new_symbol(st, ASTText(namespace_name));
             entry->line = ASTLine(namespace_name);
+			entry->point_of_declaration = namespace_name;
             entry->kind = SK_NAMESPACE;
             entry->related_scope = namespace_scope;
 
@@ -4210,9 +4226,36 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     ERROR_CONDITION((entry == NULL), "This function does not exist! %s", node_information(a));
 	
 	{
-		// Function declaration
+		// Function declaration name
 		AST declarator_name = get_declarator_name(ASTSon1(a), st, decl_context);
 		ASTAttrSetValueType(a, LANG_FUNCTION_NAME, tl_type_t, tl_ast(declarator_name));
+
+		if (ASTType(declarator_name) == AST_QUALIFIED_ID)
+		{
+			AST global_qualif = ASTSon0(declarator_name);
+			AST nested_name_spec = ASTSon1(declarator_name);
+			AST unqualified_id = ASTSon2(declarator_name);
+
+			ASTAttrSetValueType(declarator_name, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
+			ASTAttrSetValueType(declarator_name, LANG_IS_QUALIFIED_ID, tl_type_t, tl_bool(1));
+
+			if (global_qualif != NULL)
+			{
+				ASTAttrSetValueType(declarator_name, LANG_IS_GLOBAL_QUALIFIED, tl_type_t, tl_bool(1));
+			}
+
+			if (nested_name_spec != NULL)
+			{
+				ASTAttrSetValueType(declarator_name, LANG_NESTED_NAME_SPECIFIER, tl_type_t, tl_ast(nested_name_spec));
+			}
+
+			ASTAttrSetValueType(declarator_name, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(unqualified_id));
+		}
+		else if (ASTType(declarator_name) == AST_SYMBOL)
+		{
+			ASTAttrSetValueType(declarator_name, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
+			ASTAttrSetValueType(declarator_name, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(declarator_name));
+		}
 	}
 
     // Change scope to the function one
@@ -4221,6 +4264,8 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
         fprintf(stderr, "Changing scope from %p to %p\n", st, entry->scope);
     }
     st = entry->scope;
+
+	scope_link_set(compilation_options.scope_link, a, copy_scope(st));
 
     ERROR_CONDITION((entry->kind != SK_FUNCTION && entry->kind != SK_TEMPLATE_FUNCTION), 
             "This is not a function!!!", 0);
@@ -4270,6 +4315,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
             scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
 
             this_symbol->line = ASTLine(function_body);
+            this_symbol->point_of_declaration = function_body;
             this_symbol->kind = SK_VARIABLE;
             this_symbol->type_information = this_type;
             this_symbol->defined = 1;
