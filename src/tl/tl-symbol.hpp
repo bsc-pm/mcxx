@@ -58,6 +58,8 @@ namespace TL
 			bool is_typename() const;
 
 			bool is_member() const;
+
+			Type member_of() const;
 	};
 }
 

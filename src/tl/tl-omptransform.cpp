@@ -65,7 +65,7 @@ namespace TL
                 Source outline_code;
                 Source shared_parameters;
                 outline_code 
-                    << create_outline(shared_symbols, private_symbols, body, shared_parameters,
+                    << create_outline(function_symbol, shared_symbols, private_symbols, body, shared_parameters,
                             outline_function_name.get_source());
 
                 if (function_symbol.is_member())
@@ -97,19 +97,28 @@ namespace TL
                 f.prepend_sibling(outline_tree);
 
                 // Create the spawning code
-                AST_t spawn_tree = create_spawn_code(parallel_construct.get_scope(), 
+                AST_t spawn_tree = create_spawn_code(function_symbol,
+						parallel_construct.get_scope(), 
                         parallel_construct.get_scope_link(),
                         outline_function_name, shared_symbols);
                 parallel_construct.get_ast().replace_with(spawn_tree);
             }
 
-            AST_t create_spawn_code(Scope spawn_scope,
+            AST_t create_spawn_code(Symbol function_symbol,
+					Scope spawn_scope,
                     ScopeLink spawn_scope_link,
                     Source& outline_function_name,
                     ObjectList<Symbol>& shared_symbols)
             {
                 Source spawning_code;
                 Source shared_references;
+
+				int num_parameters = shared_symbols.size();
+
+				if (function_symbol.is_member())
+				{
+					num_parameters++;
+				}
 
                 // Spawn skeleton
                 spawning_code 
@@ -118,7 +127,8 @@ namespace TL
                     << "  extern int nth_create(...);"
                     << "  for (int i = 0; i < nth_num_threads(); i++)"
                     << "  {"
-                    << "    nth_create(&" << outline_function_name << ", " << shared_symbols.size() << shared_references << ");"
+                    << "    nth_create(&" << outline_function_name << ", " 
+					<<            num_parameters << shared_references << ");"
                     << "  }"
                     << "}"
                     ;
@@ -127,6 +137,11 @@ namespace TL
                 ObjectList<std::string> shared_references_names = shared_symbols.map(
                         functor(&OpenMPTransform::reference_to_name, *this)
                         );
+				
+				if (function_symbol.is_member())
+				{
+					shared_references << ", this";
+				}
 
                 if (!shared_references_names.empty())
                 {
@@ -183,11 +198,11 @@ namespace TL
                             );
 
                     // that are not members of a class
-                    // symbols = symbols.filter(
-                    //      negate(
-                    //          predicate(&Symbol::is_member)
-                    //          )
-                    //      );
+                    symbols = symbols.filter(
+                         negate(
+                             predicate(&Symbol::is_member)
+                             )
+                         );
 
                     // and that are not already set private
                     symbols = symbols.filter(not_in_set(private_symbols));
@@ -237,7 +252,9 @@ namespace TL
             }
 
             // Create the outline
-            std::string create_outline(ObjectList<Symbol>& shared_symbols, 
+            std::string create_outline(
+					Symbol function_symbol,
+					ObjectList<Symbol>& shared_symbols, 
                     ObjectList<Symbol>& private_symbols,
                     Statement& body,
                     Source& shared_parameters,
@@ -261,8 +278,19 @@ namespace TL
                         functor(&OpenMPTransform::declare_parameter, *this)
                         );
 
+				if (function_symbol.is_member())
+				{
+					Type class_type = function_symbol.member_of();
+
+					Type pointer_to_class = class_type.get_pointer_to();
+
+					std::string this_declaration = pointer_to_class.get_declaration("_this");
+
+					shared_parameters << this_declaration << ", ";
+				}
+
                 // And concat all declarations with ','
-                shared_parameters = concat_strings(parameter_declarations, ", ");
+                shared_parameters << concat_strings(parameter_declarations, ", ");
 
                 ObjectList<std::string> private_declarations = private_symbols.map(
                         functor(&OpenMPTransform::declare_privates, *this)
@@ -304,6 +332,7 @@ namespace TL
                     }
                 }
                 
+				// Get again non local symbols
                 non_local_symbols = modified_body.non_local_symbol_occurrences();
                 // Rename all private references
                 for (ObjectList<IdExpression>::iterator it = non_local_symbols.begin();
@@ -314,9 +343,8 @@ namespace TL
                                 it->get_symbol()) != private_symbols.end())
                     {
                         AST_t ref = it->get_ast();
+						Symbol sym = it->get_symbol();
 
-                        std::string name = ref.prettyprint();
-                        
                         // Here we would have to mangle privatized qualified
                         // names (currently not done)
                         //
@@ -324,11 +352,45 @@ namespace TL
                         //   A::q    -> p_A__q
                         //   A<0>::q -> p_A_0___q 
                         //
-                        name = "p_" + name;
+						
+						Source privatized_ref;
+						privatized_ref << "p_" << sym.get_name();
 
-                        ref.replace_text(name);
+                        Scope expr_scope = modified_body_scope_link.get_scope(ref);
+						AST_t privatized_ref_tree = privatized_ref.parse_expression(expr_scope);
+
+						ref.replace_with(privatized_ref_tree);
+                        // name = "p_" + name;
+                        // ref.replace_text(name);
                     }
                 }
+				
+				// Get again non local symbols
+				// Now replace the "this" entities
+				if (function_symbol.is_member())
+				{
+					non_local_symbols = modified_body.non_local_symbol_occurrences();
+					for (ObjectList<IdExpression>::iterator it = non_local_symbols.begin();
+							it != non_local_symbols.end();
+							it++)
+					{
+						if (it->is_unqualified())
+						{
+							Symbol s = it->get_symbol();
+
+							if (s.is_member() 
+									&& (function_symbol.member_of() == s.member_of()))
+							{
+								AST_t ref = it->get_ast();
+								std::string name = ref.prettyprint();
+
+								name = "_this->" + name;
+
+								ref.replace_text(name);
+							}
+						}
+					}
+				}
                 
                 outlined_body << modified_body.prettyprint();
 

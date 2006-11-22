@@ -201,10 +201,16 @@ namespace TL
 		switch ((int)simple_type->kind)
 		{
 			case STK_USER_DEFINED :
+				{
+					Symbol s(simple_type->user_defined_type);
+
+					result = s.get_name();
+
+					break;
+				}
 			case STK_TYPEOF :
 				{
-					TL::AST_t type_name(simple_type->typeof_expr);
-					result = type_name.prettyprint();
+					result = "__typeof_not_supported_yet__";
 					break;
 				}
 			case STK_VA_LIST :
@@ -284,7 +290,10 @@ namespace TL
 					break;
 				}
 			default:
-				break;
+				{
+                    std::cerr << "Unknown simple type kind '" << (int)simple_type->kind << "'" << std::endl;
+					break;
+				}
 		}
 
 		return result;

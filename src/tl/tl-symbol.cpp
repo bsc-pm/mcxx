@@ -80,4 +80,9 @@ namespace TL
 	{
 		return _symbol->is_member;
 	}
+
+	Type Symbol::member_of() const
+	{
+		return Type(_symbol->class_type);
+	}
 }
