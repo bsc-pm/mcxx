@@ -164,14 +164,20 @@ namespace TL
                     ObjectList<IdExpression> symbol_ocurrences = body.non_local_symbol_occurrences();
 
 					// We don't want qualified names
-					symbol_ocurrences = symbol_ocurrences.filter(&IdExpression::is_unqualified);
+					symbol_ocurrences = symbol_ocurrences.filter(predicate(&IdExpression::is_unqualified));
 
-					ObjectList<Symbol> symbols = symbol_ocurrences.map(&IdExpression::get_symbol);
+					ObjectList<Symbol> symbols = symbol_ocurrences.map(
+							functor(&IdExpression::get_symbol)
+							);
 
                     // We only want variables
-                    symbols = symbols.filter(&Symbol::is_variable);
+                    symbols = symbols.filter(
+							predicate(&Symbol::is_variable)
+							);
 
-                    // that are not already set private
+					// that are not members of a class
+
+                    // and that are not already set private
                     symbols = symbols.filter(not_in_set(private_symbols));
 
                     // and not already set shared

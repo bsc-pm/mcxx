@@ -57,6 +57,91 @@ namespace TL
 			}
 	};
 
+	template <class Ret, class T, class Q>
+	class MemberFunctionConstAdapter : public Functor<Ret, T>
+	{
+		private:
+			Q& _q;
+			Ret (Q::*_pmf)(T& t) const;
+		public:
+			MemberFunctionConstAdapter(Ret (Q::*pmf)(T& t) const, Q& q)
+				: _q(q), _pmf(pmf)
+			{
+			}
+
+			virtual Ret operator()(T& t) const
+			{
+				return (_q.*_pmf)(t);
+			}
+
+			virtual ~MemberFunctionConstAdapter()
+			{
+			}
+	};
+
+	template <class Ret, class T>
+	class DataMemberAdapter : public Functor<Ret, T>
+	{
+		private:
+			Ret T::*_pdm;
+		public:
+			DataMemberAdapter(Ret T::*pdm)
+				: _pdm(pdm)
+			{
+			}
+
+			~DataMemberAdapter()
+			{
+			}
+
+			virtual Ret operator()(T& t) const
+			{
+				return t.*_pdm;
+			}
+	};
+
+	template <class Ret, class T>
+	class ThisMemberFunctionAdapter : public Functor<Ret, T>
+	{
+		private:
+			Ret (T::*_pmf)();
+		public:
+			ThisMemberFunctionAdapter(Ret (T::*pmf)())
+				: _pmf(pmf)
+			{
+			}
+
+			virtual Ret operator()(T& t) const
+			{
+				return (t.*_pmf)();
+			}
+
+			virtual ~ThisMemberFunctionAdapter()
+			{
+			}
+	};
+
+	template <class Ret, class T>
+	class ThisMemberFunctionConstAdapter : public Functor<Ret, T>
+	{
+		private:
+			Ret (T::*_pmf)() const;
+		public:
+			ThisMemberFunctionConstAdapter(Ret (T::*pmf)() const)
+				: _pmf(pmf)
+			{
+			}
+
+			virtual Ret operator()(T& t) const
+			{
+				return (t.*_pmf)();
+			}
+
+			virtual ~ThisMemberFunctionConstAdapter()
+			{
+			}
+	};
+
 	template <class Ret, class T>
 	FunctionAdapter<Ret, T> functor(Ret (*pf)(T&))
 	{
@@ -70,6 +155,34 @@ namespace TL
 		MemberFunctionAdapter<Ret, T, Q> result(pmf, q);
 		return result;
 	}
+
+	template <class Ret, class T, class Q>
+	MemberFunctionConstAdapter<Ret, T, Q> functor(Ret (Q::*pmf)(T& t) const, Q& q)
+	{
+		MemberFunctionConstAdapter<Ret, T, Q> result(pmf, q);
+		return result;
+	}
+
+	template <class Ret, class T>
+	ThisMemberFunctionAdapter<Ret, T> functor(Ret (T::*pmf)())
+	{
+		ThisMemberFunctionAdapter<Ret, T> result(pmf);
+		return result;
+	}
+
+	template <class Ret, class T>
+	ThisMemberFunctionConstAdapter<Ret, T> functor(Ret (T::*pmf)() const)
+	{
+		ThisMemberFunctionConstAdapter<Ret, T> result(pmf);
+		return result;
+	}
+
+	// template <class Ret, class T>
+	// DataMemberAdapter<Ret, T> functor (Ret T::*pdm)
+	// {
+	// 	DataMemberAdapter<Ret, T> result(pdm);
+	// 	return result;
+	// }
 }
 
 #endif // TL_FUNCTOR_HPP

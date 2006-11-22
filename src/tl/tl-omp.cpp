@@ -171,7 +171,7 @@ namespace TL
 
 				ObjectList<Symbol> symbols = id_expressions.map(get_symbol_from_ast);
 
-				symbols = symbols.filter(&Symbol::is_valid);
+				symbols = symbols.filter(predicate(&Symbol::is_valid));
 
 				result.insert(symbols);
 			}

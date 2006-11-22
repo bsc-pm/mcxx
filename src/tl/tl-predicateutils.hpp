@@ -37,12 +37,19 @@ namespace TL
 	};
 
 	template <class T>
-	class FunctionPredicate : public FunctionAdapter<bool, T>
+	class FunctionPredicate : public Predicate<T>
 	{
+		private:
+			FunctionAdapter<bool, T> funct_adapter;
 		public:
 			FunctionPredicate(bool (*pf)(T&))
-				: FunctionAdapter<bool, T>(pf)
+				: funct_adapter(pf)
 			{
+			}
+
+			virtual bool operator()(T& t) const
+			{
+				return pf(t);
 			}
 
 			~FunctionPredicate()
@@ -51,15 +58,64 @@ namespace TL
 	};
 
 	template <class T, class Q>
-	class MemberFunctionPredicate : public MemberFunctionAdapter<bool, T, Q>
+	class MemberFunctionPredicate : public Predicate<T>
 	{
+		private:
+			MemberFunctionAdapter<bool, T, Q> mem_funct_adapter;
 		public:
 			MemberFunctionPredicate(bool (Q::*pmf)(T& t), Q& q)
-				: MemberFunctionAdapter<bool, T, Q>(pmf, q)
+				: mem_funct_adapter(pmf, q)
 			{
 			}
 
+			virtual bool operator()(T& t) const
+			{
+				return mem_funct_adapter(t);
+			}
+
 			~MemberFunctionPredicate()
+			{
+			}
+	};
+
+	template <class T>
+	class ThisMemberFunctionPredicate : public Predicate<T>
+	{
+		private:
+			ThisMemberFunctionAdapter<bool, T> this_mem_funct_adapter;
+		public:
+			ThisMemberFunctionPredicate(bool (T::*pmf)())
+				: this_mem_funct_adapter(pmf)
+			{
+			}
+
+			virtual bool operator()(T& t) const
+			{
+				return this_mem_funct_adapter(t);
+			}
+
+			~ThisMemberFunctionPredicate()
+			{
+			}
+	};
+
+	template <class T>
+	class ThisMemberFunctionConstPredicate : public Predicate<T>
+	{
+		private:
+				ThisMemberFunctionConstAdapter<bool, T> this_mem_funct_adapter;
+		public:
+			ThisMemberFunctionConstPredicate(bool (T::*pmf)() const)
+				: this_mem_funct_adapter(pmf)
+			{
+			}
+
+			virtual bool operator()(T& t) const
+			{
+				return this_mem_funct_adapter(t);
+			}
+
+			~ThisMemberFunctionConstPredicate()
 			{
 			}
 	};
@@ -74,6 +130,18 @@ namespace TL
 	MemberFunctionPredicate<T, Q> predicate(bool (Q::* pf)(T& t), Q& q)
 	{
 		return MemberFunctionPredicate<T, Q>(pf, q);
+	}
+
+	template <class T>
+	ThisMemberFunctionPredicate<T> predicate(bool (T::* pf)())
+	{
+		return ThisMemberFunctionPredicate<T>(pf);
+	}
+
+	template <class T>
+	ThisMemberFunctionConstPredicate<T> predicate(bool (T::* pf)() const)
+	{
+		return ThisMemberFunctionConstPredicate<T>(pf);
 	}
 
 	template <class T>

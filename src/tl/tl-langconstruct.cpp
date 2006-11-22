@@ -45,7 +45,7 @@ namespace TL
 	ObjectList<Symbol> Statement::non_local_symbols()
 	{
 		ObjectList<IdExpression> id_expressions  = non_local_symbol_occurrences();
-		ObjectList<Symbol> result = id_expressions.map(&IdExpression::get_symbol);
+		ObjectList<Symbol> result = id_expressions.map(functor(&IdExpression::get_symbol));
 		return result;
 	}
 
