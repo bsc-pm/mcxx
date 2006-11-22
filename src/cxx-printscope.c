@@ -253,6 +253,11 @@ static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_inde
         fprintf(stderr, "\n");
         // print_scope_full(entry->related_scope, global_indent+1);
     }
+
+	if (entry->is_member)
+	{
+		PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member\n");
+	}
 }
 
 // Brief versions of print scope

@@ -114,8 +114,6 @@ namespace TL
 		AST a;
 		mcxxparse(&a);
 
-		print_scope(ctx._st);
-
 		build_scope_translation_unit_tree_with_global_scope(a, ctx._st, scope_link._scope_link);
 
         AST_t result(a);

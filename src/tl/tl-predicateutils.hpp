@@ -187,6 +187,33 @@ namespace TL
 	{
 		return NotInSetPredicate<T>(list);
 	}
+
+	template <class T>
+	class NotPredicate : public Predicate<T>
+	{
+		private:
+			const Predicate<T>& _pred;
+		public:
+			NotPredicate(const Predicate<T>& pred)
+				: _pred(pred)
+			{
+			}
+
+			virtual bool operator()(T& t) const
+			{
+				return !(_pred(t));
+			}
+
+			~NotPredicate()
+			{
+			}
+	};
+
+	template <class T>
+	NotPredicate<T> negate(const Predicate<T>& pred)
+	{
+		return NotPredicate<T>(pred);
+	}
 }
 
 #endif

@@ -774,19 +774,26 @@ char* TL_SOURCE_STRING = "tl-source-string";
 
 int PREPARE_STRING_FOR_SCANNING(const char* str)
 {
+    static int num_string = 0;
 	DEBUG_CODE()
 	{
 		fprintf(stderr, "Going to parse string '%s'\n", str);
 	}
 	memset(&scanning_now, 0, sizeof(scanning_now));
 	scanning_now.line_number = 1;
-	scanning_now.filename = TL_SOURCE_STRING;
-	scanning_now.current_filename = TL_SOURCE_STRING;
+
+	scanning_now.filename = GC_CALLOC(strlen(TL_SOURCE_STRING) + 10, sizeof(char));
+    sprintf(scanning_now.filename, "%s-%d", TL_SOURCE_STRING, num_string);
+
+    scanning_now.current_filename = scanning_now.filename;
+
+    num_string++;
 
 	scanning_now.scanning_buffer = yy_scan_string(str);
 
 	// yy_flush_buffer(YY_CURRENT_BUFFER);
 	yy_switch_to_buffer(scanning_now.scanning_buffer);
+
 
 	return 0;
 }

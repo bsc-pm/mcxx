@@ -48,6 +48,15 @@ namespace TL
 		AST previous_parent = ASTParent(this->_ast);
 		*(this->_ast) = *(ast._ast);
 		ASTParent(this->_ast) = previous_parent;
+
+        // Relink sons
+        for (int i = 0; i < ASTNumChildren(this->_ast); i++)
+        {
+            if (ASTChild(this->_ast, i) != NULL)
+            {
+                ASTParent(ASTChild(this->_ast, i)) = this->_ast;
+            }
+        }
 	}
 
 	AST_t AST_t::duplicate() const

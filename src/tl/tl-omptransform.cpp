@@ -46,14 +46,14 @@ namespace TL
                 FunctionDefinition f = parallel_construct.get_enclosing_function();
 
                 Source outline_function_name; 
-				IdExpression function_name = f.get_function_name();
+                IdExpression function_name = f.get_function_name();
 
-				Symbol function_symbol = function_name.get_symbol();
+                Symbol function_symbol = function_name.get_symbol();
 
                 outline_function_name
-					<< function_name.get_qualified_part()
-					<< "outline_"
-					<< function_name.get_unqualified_part();
+                    << function_name.get_qualified_part()
+                    << "outline_"
+                    << function_name.get_unqualified_part();
 
                 // Get the body of the statement
                 Statement body = parallel_construct.body();
@@ -63,36 +63,36 @@ namespace TL
 
                 // Create the outline function
                 Source outline_code;
-				Source shared_parameters;
+                Source shared_parameters;
                 outline_code 
-					<< create_outline(shared_symbols, private_symbols, body, shared_parameters,
-							outline_function_name.get_source());
+                    << create_outline(shared_symbols, private_symbols, body, shared_parameters,
+                            outline_function_name.get_source());
 
-				if (function_symbol.is_member())
-				{
-					// We have to declare it in the class where this symbol was declared
-					Source member_outline_declaration;
-					member_outline_declaration
-						<< "static void outline_"
-						<< function_name.get_unqualified_part()
-						<< "(" << shared_parameters << ");";
+                if (function_symbol.is_member())
+                {
+                    // We have to declare it in the class where this symbol was declared
+                    Source member_outline_declaration;
+                    member_outline_declaration
+                        << "static void outline_"
+                        << function_name.get_unqualified_part()
+                        << "(" << shared_parameters << ");";
 
-					std::cerr << "--- Outlined code for member ---" << std::endl;
-					std::cerr << member_outline_declaration.get_source() << std::endl;
-					std::cerr << "--- End outline code ---" << std::endl;
+                    std::cerr << "--- Outlined code for member ---" << std::endl;
+                    std::cerr << member_outline_declaration.get_source() << std::endl;
+                    std::cerr << "--- End outline code ---" << std::endl;
 
-					AST_t member_outline_decl_tree = 
-						member_outline_declaration.parse_global(f.get_scope(), 
-								f.get_scope_link());
+                    AST_t member_outline_decl_tree = 
+                        member_outline_declaration.parse_global(f.get_scope(), 
+                                f.get_scope_link());
 
-					std::cerr << "--- Member declaration parsed ---" << std::endl;
-				}
+                    std::cerr << "--- Member declaration parsed ---" << std::endl;
+                }
 
-				// std::cerr << "About to compile outline code '" << outline_code.get_source() << "'" << std::endl;
+                // std::cerr << "About to compile outline code '" << outline_code.get_source() << "'" << std::endl;
 
                 AST_t outline_tree = outline_code.parse_global(f.get_scope(), f.get_scope_link());
 
-				// std::cerr << "Outline code parsed" << std::endl;
+                // std::cerr << "Outline code parsed" << std::endl;
 
                 f.prepend_sibling(outline_tree);
 
@@ -133,9 +133,9 @@ namespace TL
                     shared_references << ", " << concat_strings(shared_references_names, ",");
                 }
 
-				// std::cerr << "--SPAWN CODE--" << std::endl;
-				// std::cerr << spawning_code.get_source() << std::endl;
-				// std::cerr << "--END SPAWN CODE--" << std::endl;
+                // std::cerr << "--SPAWN CODE--" << std::endl;
+                // std::cerr << spawning_code.get_source() << std::endl;
+                // std::cerr << "--END SPAWN CODE--" << std::endl;
 
                 AST_t spawn_tree = spawning_code.parse_statement(spawn_scope, spawn_scope_link);
                 return spawn_tree;
@@ -151,9 +151,13 @@ namespace TL
                 OpenMP::Clause shared_clause = directive.shared_clause();
                 shared_symbols = shared_clause.symbols();
 
+                print_list("shared_symbols", shared_symbols.map(functor(&Symbol::get_name)));
+
                 // Get symbols in private_clause
                 OpenMP::Clause private_clause = directive.private_clause();
                 private_symbols = private_clause.symbols();
+
+                print_list("private_symbols", private_symbols.map(functor(&Symbol::get_name)));
 
                 // default(none|shared) clause
                 OpenMP::DefaultClause default_clause = directive.default_clause();
@@ -163,19 +167,27 @@ namespace TL
                 {
                     ObjectList<IdExpression> symbol_ocurrences = body.non_local_symbol_occurrences();
 
-					// We don't want qualified names
-					symbol_ocurrences = symbol_ocurrences.filter(predicate(&IdExpression::is_unqualified));
+                    // We don't want qualified names
+                    symbol_ocurrences = symbol_ocurrences.filter(
+                            predicate(&IdExpression::is_unqualified)
+                            );
 
-					ObjectList<Symbol> symbols = symbol_ocurrences.map(
-							functor(&IdExpression::get_symbol)
-							);
+                    // For every symbol occurrence get it associated symbol
+                    ObjectList<Symbol> symbols = symbol_ocurrences.map(
+                            functor(&IdExpression::get_symbol)
+                            );
 
                     // We only want variables
                     symbols = symbols.filter(
-							predicate(&Symbol::is_variable)
-							);
+                            predicate(&Symbol::is_variable)
+                            );
 
-					// that are not members of a class
+                    // that are not members of a class
+                    // symbols = symbols.filter(
+                    //      negate(
+                    //          predicate(&Symbol::is_member)
+                    //          )
+                    //      );
 
                     // and that are not already set private
                     symbols = symbols.filter(not_in_set(private_symbols));
@@ -184,7 +196,7 @@ namespace TL
                     symbols = symbols.filter(not_in_set(shared_symbols));
 
                     // add to the shared symbols
-					shared_symbols.insert(symbols);
+                    shared_symbols.insert(symbols);
                 }
             }
 
@@ -207,16 +219,28 @@ namespace TL
                 Type type = s.get_type();
 
                 // and return its declaration but the symbol 
-				// declaration will have "p_" prepended
+                // declaration will have "p_" prepended
                 return type.get_declaration(std::string("p_") + s.get_name()) 
-					+ std::string(";");
+                    + std::string(";");
+            }
+
+            void print_list(std::string name, ObjectList<std::string> list)
+            {
+                std::cerr << "###       " << name << " ###" << std::endl;
+                for (ObjectList<std::string>::iterator it = list.begin();
+                        it != list.end();
+                        it++)
+                {
+                    std::cerr << "'" << (*it) << "'" << std::endl;
+                }
+                std::cerr << "### [end] " << name << " ###" << std::endl;
             }
 
             // Create the outline
             std::string create_outline(ObjectList<Symbol>& shared_symbols, 
                     ObjectList<Symbol>& private_symbols,
                     Statement& body,
-					Source& shared_parameters,
+                    Source& shared_parameters,
                     const std::string& outline_function_name)
             {
                 Source privatized_variables;
@@ -248,21 +272,21 @@ namespace TL
                 
                 // Copy the body since we will modify it
                 std::pair<AST_t, ScopeLink> new_body = 
-					body.get_ast().duplicate_with_scope(body.get_scope_link());
+                    body.get_ast().duplicate_with_scope(body.get_scope_link());
                 Statement modified_body(new_body.first, new_body.second);
                 ScopeLink modified_body_scope_link = modified_body.get_scope_link();
                 
                 // Derreference all shared references
                 ObjectList<IdExpression> non_local_symbols = 
-					modified_body.non_local_symbol_occurrences();
+                    modified_body.non_local_symbol_occurrences();
 
                 for (ObjectList<IdExpression>::iterator 
-						it = non_local_symbols.begin();
+                        it = non_local_symbols.begin();
                         it != non_local_symbols.end();
                         it++)
                 {
                     if (find(shared_symbols.begin(), 
-								shared_symbols.end(), it->get_symbol()) != shared_symbols.end())
+                                shared_symbols.end(), it->get_symbol()) != shared_symbols.end())
                     {
                         AST_t ref = it->get_ast();
 
@@ -280,13 +304,14 @@ namespace TL
                     }
                 }
                 
+                non_local_symbols = modified_body.non_local_symbol_occurrences();
                 // Rename all private references
                 for (ObjectList<IdExpression>::iterator it = non_local_symbols.begin();
                         it != non_local_symbols.end();
                         it++)
                 {
                     if (find(private_symbols.begin(), private_symbols.end(), 
-								it->get_symbol()) != private_symbols.end())
+                                it->get_symbol()) != private_symbols.end())
                     {
                         AST_t ref = it->get_ast();
 
@@ -307,9 +332,9 @@ namespace TL
                 
                 outlined_body << modified_body.prettyprint();
 
-				std::cerr << "--OUTLINE CODE--" << std::endl;
-				std::cerr << outline_code.get_source() << std::endl;
-				std::cerr << "--END OUTLINE CODE--" << std::endl;
+                std::cerr << "--OUTLINE CODE--" << std::endl;
+                std::cerr << outline_code.get_source() << std::endl;
+                std::cerr << "--END OUTLINE CODE--" << std::endl;
 
                 return outline_code.get_source();
             }

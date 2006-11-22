@@ -96,7 +96,7 @@ class ObjectList : public std::vector<T>
 
 		void insert(const T& t)
 		{
-			if (find(this->begin(), this->end(), t) != this->end())
+			if (find(this->begin(), this->end(), t) == this->end())
 			{
 				this->push_back(t);
 			}
