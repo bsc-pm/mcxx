@@ -2139,6 +2139,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
     }
 }
 
+
 void build_scope_member_specification(scope_t* inner_scope, AST member_specification_tree, 
         access_specifier_t default_current_access, type_t* simple_type_info, 
         decl_context_t decl_context)
@@ -6292,6 +6293,18 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
 	STMT_HANDLER(AST_OMP_BARRIER_DIRECTIVE, build_scope_omp_directive, OMP_IS_BARRIER_DIRECTIVE),
 	STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate, OMP_IS_THREADPRIVATE_DIRECTIVE),
 };
+
+void build_scope_member_specification_with_scope_link(scope_t* inner_scope, AST member_specification_tree, 
+        access_specifier_t current_access, type_t* simple_type_info, 
+        decl_context_t decl_context, scope_link_t* scope_link)
+{
+	compilation_options.scope_link = scope_link;
+
+	build_scope_member_specification(inner_scope, member_specification_tree, 
+			current_access, simple_type_info, decl_context);
+
+	compilation_options.scope_link = NULL;
+}
 
 void build_scope_statement_with_scope_link(AST a, scope_t* st, scope_link_t* scope_link)
 {

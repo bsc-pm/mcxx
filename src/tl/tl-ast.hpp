@@ -30,6 +30,10 @@ namespace TL
 
 			static bool is_extensible_block(AST node);
 			static AST get_list_of_extensible_block(AST node);
+
+			static void append_to_member_spec(AST member_spec, AST member_decl);
+			static void prepend_to_member_spec(AST member_spec, AST member_decl);
+
 		public:
 			/*
 			 * Constructor

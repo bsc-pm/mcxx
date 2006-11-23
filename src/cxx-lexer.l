@@ -632,6 +632,9 @@ runtime {
  /* Special tokens for subparsing */
 @EXPRESSION@ { parse_token_text(); return SUBPARSE_EXPRESSION; }
 @STATEMENT@ { parse_token_text(); return SUBPARSE_STATEMENT; }
+ /*!if CPLUSPLUS*/
+@MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
+ /*!endif*/
 
 {idnondigit}({idnondigit}|{digit})* {parse_token_text(); return IDENTIFIER; }
 

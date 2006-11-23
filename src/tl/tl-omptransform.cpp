@@ -81,9 +81,15 @@ namespace TL
                     std::cerr << member_outline_declaration.get_source() << std::endl;
                     std::cerr << "--- End outline code ---" << std::endl;
 
+					// TODO - parse_member
                     AST_t member_outline_decl_tree = 
-                        member_outline_declaration.parse_global(f.get_scope(), 
-                                f.get_scope_link());
+                        member_outline_declaration.parse_member(f.get_scope(), 
+                                f.get_scope_link(), function_symbol.get_class_type());
+
+					AST_t point_of_declaration = function_symbol.get_point_of_declaration();
+					AST_t enclosing_block = point_of_declaration.get_enclosing_block();
+
+					enclosing_block.append(member_outline_decl_tree);
 
                     std::cerr << "--- Member declaration parsed ---" << std::endl;
                 }
@@ -280,7 +286,7 @@ namespace TL
 
 				if (function_symbol.is_member())
 				{
-					Type class_type = function_symbol.member_of();
+					Type class_type = function_symbol.get_class_type();
 
 					Type pointer_to_class = class_type.get_pointer_to();
 
@@ -379,7 +385,7 @@ namespace TL
 							Symbol s = it->get_symbol();
 
 							if (s.is_member() 
-									&& (function_symbol.member_of() == s.member_of()))
+									&& (function_symbol.get_class_type() == s.get_class_type()))
 							{
 								AST_t ref = it->get_ast();
 								std::string name = ref.prettyprint();

@@ -81,8 +81,13 @@ namespace TL
 		return _symbol->is_member;
 	}
 
-	Type Symbol::member_of() const
+	Type Symbol::get_class_type() const
 	{
 		return Type(_symbol->class_type);
+	}
+
+	AST_t Symbol::get_point_of_declaration() const
+	{
+		return AST_t(_symbol->point_of_declaration);
 	}
 }

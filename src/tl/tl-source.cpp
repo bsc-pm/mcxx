@@ -88,6 +88,22 @@ namespace TL
 		AST_t result(a);
         return result;
 	}
+
+	AST_t Source::parse_member(TL::Scope ctx, TL::ScopeLink scope_link, Type class_type)
+	{
+		std::string mangled_text = "@MEMBER@ " + this->get_source();
+		char* str = GC_STRDUP(mangled_text.c_str());
+
+		mcxx_prepare_string_for_scanning(str);
+
+		AST a;
+		mcxxparse(&a);
+
+		build_scope_member_specification_with_scope_link(ctx._st, a, AS_PUBLIC, 
+				class_type._type_info, default_decl_context, scope_link._scope_link);
+
+		return AST_t(a);
+	}
 	
 	AST_t Source::parse_statement(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
@@ -104,6 +120,7 @@ namespace TL
         AST_t result(a);
 		return result;
 	}
+
 
 	AST_t Source::parse_global(TL::Scope ctx, TL::ScopeLink scope_link)
 	{

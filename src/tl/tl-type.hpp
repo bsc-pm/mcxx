@@ -63,6 +63,7 @@ namespace TL
 			bool operator<(Type t) const;
 
 			friend class Symbol;
+			friend class Source;
 	};
 }
 

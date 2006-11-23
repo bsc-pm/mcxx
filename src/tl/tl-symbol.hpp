@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <sstream>
+#include "tl-ast.hpp"
 #include "tl-object.hpp"
 #include "tl-type.hpp"
 #include "cxx-scope.h"
@@ -59,7 +60,9 @@ namespace TL
 
 			bool is_member() const;
 
-			Type member_of() const;
+			Type get_class_type() const;
+
+			AST_t get_point_of_declaration() const;
 	};
 }
 

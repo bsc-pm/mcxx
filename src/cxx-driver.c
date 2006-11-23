@@ -728,12 +728,6 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
                 timing_elapsed(&timing_semantic));
     }
 
-	if (compilation_options.debug_options.print_ast)
-	{
-		fprintf(stderr, "Printing AST in graphviz format\n");
-
-		ast_dump_graphviz(translation_unit->parsed_tree, stdout);
-	}
 
     check_tree(translation_unit->parsed_tree);
 }

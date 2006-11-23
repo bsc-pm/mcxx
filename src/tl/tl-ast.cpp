@@ -2,6 +2,7 @@
 #include "tl-ast.hpp"
 #include "tl-scopelink.hpp"
 #include "gcstring.h"
+#include "cxx-ast.h"
 
 namespace TL
 {
@@ -325,24 +326,45 @@ namespace TL
 		}
 	}
 
-	void AST_t::prepend(AST_t t)
+
+	void AST_t::append_to_member_spec(AST member_spec, AST member_decl)
 	{
-		if (!is_extensible_block(_ast))
+		AST new_member_spec = ASTMake3(AST_MEMBER_SPEC, NULL, member_decl, 
+				ASTSon2(member_spec), ASTLine(member_spec), NULL);
+		ASTSon2(member_spec) = new_member_spec;
+		ASTParent(new_member_spec) = member_spec;
+	}
+
+	void AST_t::prepend_to_member_spec(AST member_spec, AST member_decl)
+	{
+		AST orig_parent = ASTParent(member_spec);
+		AST new_member_spec = NULL;
+		if (ASTSon0(member_spec) != NULL)
 		{
-			std::cerr << "This tree cannot be prepended anything (" 
-				<< ast_print_node_type(ASTType(_ast)) << ")" << std::endl;
-			return;
+			AST aux_member_spec = ASTMake3(AST_MEMBER_SPEC, NULL, member_decl, member_spec, 
+					ASTLine(member_spec), NULL);
+			new_member_spec = ASTMake3(AST_MEMBER_SPEC, ASTSon0(member_spec),
+					NULL, aux_member_spec, ASTLine(aux_member_spec), NULL);
+			ASTSon0(member_spec) = NULL;
+		}
+		else
+		{
+			new_member_spec = ASTMake3(AST_MEMBER_SPEC, NULL, member_decl, member_spec,
+					ASTLine(member_spec), NULL);
 		}
 
-		AST list = get_list_of_extensible_block(_ast);
+		ASTParent(new_member_spec) = orig_parent;
 
-		AST prepended_list = t._ast;
-		if (ASTType(t._ast) != AST_NODE_LIST)
+		if (orig_parent != NULL)
 		{
-			prepended_list = ASTListLeaf(prepended_list);
+			for (int i = 0; i < ASTNumChildren(orig_parent); i++)
+			{
+				if (ASTChild(orig_parent, i) == member_spec)
+				{
+					ASTChild(orig_parent, i) = new_member_spec;
+				}
+			}
 		}
-
-		prepend_list(list, prepended_list);
 	}
 
 	void AST_t::append(AST_t t)
@@ -358,16 +380,45 @@ namespace TL
 
 		if (ASTType(list) == AST_MEMBER_SPEC)
 		{
-			// Handle this one appart
+			append_to_member_spec(list, t._ast);
 		}
-
-		AST appended_list = t._ast;
-		if (ASTType(t._ast) != AST_NODE_LIST)
+		else
 		{
-			appended_list = ASTListLeaf(appended_list);
+			AST appended_list = t._ast;
+			if (ASTType(t._ast) != AST_NODE_LIST)
+			{
+				appended_list = ASTListLeaf(appended_list);
+			}
+
+			append_list(list, appended_list);
+		}
+	}
+
+	void AST_t::prepend(AST_t t)
+	{
+		if (!is_extensible_block(_ast))
+		{
+			std::cerr << "This tree cannot be prepended anything (" 
+				<< ast_print_node_type(ASTType(_ast)) << ")" << std::endl;
+			return;
 		}
 
-		append_list(list, appended_list);
+		AST list = get_list_of_extensible_block(_ast);
+
+		if (ASTType(list) == AST_MEMBER_SPEC)
+		{
+			prepend_to_member_spec(list, t._ast);
+		}
+		else
+		{
+			AST prepended_list = t._ast;
+			if (ASTType(t._ast) != AST_NODE_LIST)
+			{
+				prepended_list = ASTListLeaf(prepended_list);
+			}
+
+			prepend_list(list, prepended_list);
+		}
 	}
 
 	AST_t AST_t::get_enclosing_function_definition()
