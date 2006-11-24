@@ -58,6 +58,7 @@ namespace TL
 			bool is_unqualified() const;
 
 			Symbol get_symbol() const;
+			AST_t get_ast() const;
 	};
 
 	class Statement : public LangConstruct

@@ -17,14 +17,136 @@ namespace TL
             {
             }
 
+			virtual ~OpenMPTransform()
+			{
+			}
+
             virtual void init()
             {
                 // Register the handlers (callbacks) for every construction
-                // for now only '#pragma omp parallel'
-                on_parallel_pre.connect(&OpenMPTransform::parallel_pre, *this);
-                on_parallel_post.connect(&OpenMPTransform::parallel_post, *this);
+                // for now only '#pragma omp parallel for'
+                on_parallel_for_pre.connect(&OpenMPTransform::parallel_for_pre, *this);
+                on_parallel_for_post.connect(&OpenMPTransform::parallel_for_post, *this);
             }
 
+            void parallel_for_pre(OpenMP::ParallelForConstruct parallel_for_construct)
+			{
+				num_parallels++;
+				parallel_nesting++;
+			}
+
+			void parallel_for_post(OpenMP::ParallelForConstruct parallel_for_construct)
+			{
+				parallel_nesting--;
+
+				// Get the directive
+                OpenMP::Directive directive = parallel_for_construct.directive();
+				
+                // Get the enclosing function definition
+                FunctionDefinition function_definition = parallel_for_construct.get_enclosing_function();
+
+				ObjectList<Symbol> shared_symbols;
+				ObjectList<Symbol> private_symbols;
+				ObjectList<Symbol> firstprivate_symbols;
+				ObjectList<Symbol> lastprivate_symbols;
+				ObjectList<OpenMP::ReductionSymbol> reduction_symbols;
+				
+				// Get the construct_body of the statement
+				Statement construct_body = parallel_for_construct.body();
+
+				// Get the data attributes
+				get_data_attributes(function_definition.get_scope(),
+						directive,
+						construct_body,
+						shared_symbols,
+						private_symbols,
+						firstprivate_symbols,
+						lastprivate_symbols,
+						reduction_symbols);
+			}
+
+            void get_data_attributes(
+					Scope function_scope,
+					OpenMP::Directive& directive,
+                    Statement& construct_body,
+                    ObjectList<Symbol>& shared_symbols,
+                    ObjectList<Symbol>& private_symbols,
+					ObjectList<Symbol>& firstprivate_symbols,
+					ObjectList<Symbol>& lastprivate_symbols,
+					ObjectList<OpenMP::ReductionSymbol>& reduction_symbols)
+            {
+                // Get symbols in shared clause
+                OpenMP::Clause shared_clause = directive.shared_clause();
+                shared_symbols = shared_clause.symbols();
+
+                // Get symbols in private_clause
+                OpenMP::Clause private_clause = directive.private_clause();
+                private_symbols = private_clause.symbols();
+
+				// Get symbols in firstprivate clause
+				OpenMP::Clause firstprivate_clause = directive.firstprivate_clause();
+				firstprivate_symbols = firstprivate_clause.symbols();
+
+				// Get symbols in lastprivate clause
+				OpenMP::Clause lastprivate_clause = directive.lastprivate_clause();
+				lastprivate_symbols = lastprivate_clause.symbols();
+
+				// Get symbols in reduction clause
+				OpenMP::ReductionClause reduction_clause = directive.reduction_clause();
+				reduction_symbols = reduction_clause.symbols();
+
+                // default(none|shared) clause
+                OpenMP::DefaultClause default_clause = directive.default_clause();
+
+                // Recall there is no is_private() in C/C++
+                if (!default_clause.is_none())
+                {
+                    ObjectList<IdExpression> symbol_occurrences = construct_body.non_local_symbol_occurrences();
+
+					// For every symbol occurrence get its associated symbol from the scope
+					// of the enclosing function
+					//
+					// First get the tree of the id-expression
+					ObjectList<AST_t> tree_occurrences = symbol_occurrences.map(
+							functor(&IdExpression::get_ast)
+							);
+
+					// Now search in the scope of the enclosing function
+					ObjectList<Symbol> global_symbols = tree_occurrences.map(
+							functor(&Scope::get_symbol_from_id_expr, function_scope)
+							);
+
+					// and discard those that are not valid
+					global_symbols = global_symbols.filter(
+							predicate(&Symbol::is_valid)
+							);
+
+                    // For every symbol occurrence get its associated symbol
+					// in the current scope
+                    ObjectList<Symbol> symbols = symbol_occurrences.map(
+                            functor(&IdExpression::get_symbol)
+                            );
+
+                    // We only want variables
+                    symbols = symbols.filter(
+                            predicate(&Symbol::is_variable)
+                            );
+
+					// that are not globally accessable from this function
+					symbols = symbols.filter(not_in_set(global_symbols));
+
+                    // and that are not already set private
+                    symbols = symbols.filter(not_in_set(private_symbols));
+
+                    // and not already set shared
+                    symbols = symbols.filter(not_in_set(shared_symbols));
+
+                    // add to the shared symbols
+                    shared_symbols.insert(symbols);
+                }
+            }
+
+# if 0
             // Parallel preorder
             void parallel_pre(OpenMP::ParallelConstruct parallel_construct)
             {
@@ -55,17 +177,17 @@ namespace TL
                     << "outline_"
                     << function_name.get_unqualified_part();
 
-                // Get the body of the statement
-                Statement body = parallel_construct.body();
+                // Get the construct_body of the statement
+                Statement construct_body = parallel_construct.construct_body();
 
                 // Construct the set of shared and privatized symbols
-                get_data_attributes(directive, body, shared_symbols, private_symbols);
+                get_data_attributes(directive, construct_body, shared_symbols, private_symbols);
 
                 // Create the outline function
                 Source outline_code;
                 Source shared_parameters;
                 outline_code 
-                    << create_outline(function_symbol, shared_symbols, private_symbols, body, shared_parameters,
+                    << create_outline(function_symbol, shared_symbols, private_symbols, construct_body, shared_parameters,
                             outline_function_name.get_source());
 
                 if (function_symbol.is_member())
@@ -164,7 +286,7 @@ namespace TL
 
             // The data enviroment
             void get_data_attributes(OpenMP::Directive& directive,
-                    Statement& body,
+                    Statement& construct_body,
                     ObjectList<Symbol>& shared_symbols,
                     ObjectList<Symbol>& private_symbols)
             {
@@ -186,7 +308,7 @@ namespace TL
                 // Recall there is no is_private() in C/C++
                 if (!default_clause.is_none())
                 {
-                    ObjectList<IdExpression> symbol_ocurrences = body.non_local_symbol_occurrences();
+                    ObjectList<IdExpression> symbol_ocurrences = construct_body.non_local_symbol_occurrences();
 
                     // We don't want qualified names
                     symbol_ocurrences = symbol_ocurrences.filter(
@@ -245,24 +367,13 @@ namespace TL
                     + std::string(";");
             }
 
-            void print_list(std::string name, ObjectList<std::string> list)
-            {
-                std::cerr << "###       " << name << " ###" << std::endl;
-                for (ObjectList<std::string>::iterator it = list.begin();
-                        it != list.end();
-                        it++)
-                {
-                    std::cerr << "'" << (*it) << "'" << std::endl;
-                }
-                std::cerr << "### [end] " << name << " ###" << std::endl;
-            }
 
             // Create the outline
             std::string create_outline(
 					Symbol function_symbol,
 					ObjectList<Symbol>& shared_symbols, 
                     ObjectList<Symbol>& private_symbols,
-                    Statement& body,
+                    Statement& construct_body,
                     Source& shared_parameters,
                     const std::string& outline_function_name)
             {
@@ -304,9 +415,9 @@ namespace TL
 
                 privatized_variables << concat_strings(private_declarations);
                 
-                // Copy the body since we will modify it
+                // Copy the construct_body since we will modify it
                 std::pair<AST_t, ScopeLink> new_body = 
-                    body.get_ast().duplicate_with_scope(body.get_scope_link());
+                    construct_body.get_ast().duplicate_with_scope(construct_body.get_scope_link());
                 Statement modified_body(new_body.first, new_body.second);
                 ScopeLink modified_body_scope_link = modified_body.get_scope_link();
                 
@@ -319,8 +430,7 @@ namespace TL
                         it != non_local_symbols.end();
                         it++)
                 {
-                    if (find(shared_symbols.begin(), 
-                                shared_symbols.end(), it->get_symbol()) != shared_symbols.end())
+					if (shared_symbols.contains(it->get_symbol()))
                     {
                         AST_t ref = it->get_ast();
 
@@ -345,8 +455,7 @@ namespace TL
                         it != non_local_symbols.end();
                         it++)
                 {
-                    if (find(private_symbols.begin(), private_symbols.end(), 
-                                it->get_symbol()) != private_symbols.end())
+					if (private_symbols.contains(it->get_symbol()))
                     {
                         AST_t ref = it->get_ast();
 						Symbol sym = it->get_symbol();
@@ -412,6 +521,7 @@ namespace TL
                 return std::string("&") + sym.get_name();
             }
 
+#endif
     };
 }
 

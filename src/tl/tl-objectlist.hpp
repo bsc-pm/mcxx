@@ -96,7 +96,7 @@ class ObjectList : public std::vector<T>
 
 		void insert(const T& t)
 		{
-			if (find(this->begin(), this->end(), t) == this->end())
+			if (!contains(t))
 			{
 				this->push_back(t);
 			}
@@ -110,6 +110,26 @@ class ObjectList : public std::vector<T>
 			{
 				this->insert(*it);
 			}
+		}
+		
+		bool contains(const T& t)
+		{
+			return (find(this->begin(), this->end(), t) != this->end());
+		}
+
+		template <class S>
+		bool contains(const Functor<S, T>& f, const S& s)
+		{
+			for (typename ObjectList<T>::const_iterator it = this->begin();
+					it != this->end();
+					it++)
+			{
+				if (f(*it) == s)
+				{
+					return true;
+				}
+			}
+			return false;
 		}
 };
 

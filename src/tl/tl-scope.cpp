@@ -2,7 +2,7 @@
 
 namespace TL
 {
-	void Scope::convert_to_vector(scope_entry_list_t* entry_list, std::vector<Symbol>& out)
+	void Scope::convert_to_vector(scope_entry_list_t* entry_list, ObjectList<Symbol>& out)
 	{
 		while (entry_list != NULL)
 		{
@@ -12,11 +12,11 @@ namespace TL
 		}
 	}
 
-	void Scope::get_head(const std::vector<Symbol>& in, Symbol& out)
+	void Scope::get_head(const ObjectList<Symbol>& in, Symbol& out)
 	{
 		if (in.size() > 0)
 		{
-			std::vector<Symbol>::const_iterator it = in.begin();
+			ObjectList<Symbol>::const_iterator it = in.begin();
 			out = (*it);
 		}
 		else
@@ -30,9 +30,9 @@ namespace TL
 		return NULL;
 	}
 
-	std::vector<Symbol> Scope::get_symbols_from_name(const std::string& str) const
+	ObjectList<Symbol> Scope::get_symbols_from_name(const std::string& str) const
 	{
-		std::vector<Symbol> result;
+		ObjectList<Symbol> result;
 		// Fix this for C++
 		scope_entry_list_t* entry_list = query_unqualified_name(_st, const_cast<char*>(str.c_str()));
 
@@ -43,7 +43,7 @@ namespace TL
 
 	Symbol Scope::get_symbol_from_name(const std::string& str) const
 	{
-		std::vector<Symbol> list = this->get_symbols_from_name(str);
+		ObjectList<Symbol> list = this->get_symbols_from_name(str);
 
 		Symbol result(NULL);
 		get_head(list, result);
@@ -52,9 +52,9 @@ namespace TL
 		return result;
 	}
 
-	std::vector<Symbol> Scope::get_symbols_from_id_expr(TL::AST_t ast) const
+	ObjectList<Symbol> Scope::get_symbols_from_id_expr(TL::AST_t ast) const
 	{
-		std::vector<Symbol> result;
+		ObjectList<Symbol> result;
 		AST _ast = ast._ast;
 
 		scope_entry_list_t* entry_list = query_id_expression(_st, _ast, 
@@ -67,7 +67,7 @@ namespace TL
 
 	Symbol Scope::get_symbol_from_id_expr(TL::AST_t ast) const
 	{
-		std::vector<Symbol> list = this->get_symbols_from_id_expr(ast);
+		ObjectList<Symbol> list = this->get_symbols_from_id_expr(ast);
 
         Symbol result(NULL);
 		get_head(list, result);

@@ -67,10 +67,18 @@ namespace TL
 			// Functor for #pragma omp parallel
 			PredicateBool<OMP_IS_PARALLEL_CONSTRUCT> parallel_construct;
 			ParallelFunctor parallel_functor(*this);
-
+			
 			// Register the #pragma omp parallel 
 			// filter with its functor
 			depth_traverse.add_predicate(parallel_construct, parallel_functor);
+
+			// Functor for #pragma omp parallel do
+			PredicateBool<OMP_IS_PARALLEL_FOR_CONSTRUCT> parallel_for_construct;
+			ParallelForFunctor parallel_for_functor(*this);
+
+			// Register the #pragma omp parallel 
+			// filter with its functor
+			depth_traverse.add_predicate(parallel_for_construct, parallel_for_functor);
 			
 			// Let the user register its slots
 			this->init();
@@ -174,6 +182,45 @@ namespace TL
 				symbols = symbols.filter(predicate(&Symbol::is_valid));
 
 				result.insert(symbols);
+			}
+
+			return result;
+		}
+
+		ObjectList<ReductionSymbol> ReductionClause::symbols()
+		{
+			PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
+
+			ObjectList<ReductionSymbol> result;
+			GetSymbolFromAST get_symbol_from_ast(this->_scope_link);
+
+			PredicateAttr reduction_clause_predicate(OMP_IS_REDUCTION_CLAUSE);
+
+			ObjectList<AST_t> reduction_clauses = _ref.depth_subtrees().filter(reduction_clause_predicate);
+
+			for (ObjectList<AST_t>::iterator it = reduction_clauses.begin();
+					it != reduction_clauses.end();
+					it++)
+			{
+				AST_t reduction_clause = *it;
+
+				AST_t reduct_operator = it->get_attribute(OMP_REDUCTION_OPERATOR);
+				AST_t reduct_neuter = it->get_attribute(OMP_REDUCTION_NEUTER);
+
+				AST_t reduct_vars = it->get_attribute(OMP_REDUCTION_VARIABLES);
+
+				ObjectList<AST_t> reduct_references = reduct_vars.depth_subtrees().filter(id_expr_pred);
+				ObjectList<Symbol> reduct_symbols = reduct_references.map(get_symbol_from_ast);
+				reduct_symbols = reduct_symbols.filter(predicate(&Symbol::is_valid));
+
+				for (ObjectList<Symbol>::iterator it = reduct_symbols.begin();
+						it != reduct_symbols.end();
+						it++)
+				{
+					ReductionSymbol reduct_symbol(*it, reduct_operator, reduct_neuter);
+
+					result.append(reduct_symbol);
+				}
 			}
 
 			return result;

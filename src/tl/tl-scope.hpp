@@ -7,6 +7,7 @@
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
 #include "tl-object.hpp"
+#include "tl-objectlist.hpp"
 #include "tl-symbol.hpp"
 #include "tl-ast.hpp"
 
@@ -17,8 +18,8 @@ namespace TL
 	{
 		private:
 			scope_t* _st;
-			static void convert_to_vector(scope_entry_list_t* entry_list, std::vector<Symbol>& out);
-			static void get_head(const std::vector<Symbol>& in, Symbol& out);
+			static void convert_to_vector(scope_entry_list_t* entry_list, ObjectList<Symbol>& out);
+			static void get_head(const ObjectList<Symbol>& in, Symbol& out);
 		protected:
 			virtual tl_type_t* get_extended_attribute(const std::string& str) const;
 		public:
@@ -53,11 +54,11 @@ namespace TL
 				}
             }
 
-			std::vector<Symbol> get_symbols_from_name(const std::string& str) const;
+			ObjectList<Symbol> get_symbols_from_name(const std::string& str) const;
 
 			Symbol get_symbol_from_name(const std::string& str) const;
 			
-			std::vector<Symbol> get_symbols_from_id_expr(TL::AST_t ast) const;
+			ObjectList<Symbol> get_symbols_from_id_expr(TL::AST_t ast) const;
 
 			Symbol get_symbol_from_id_expr(TL::AST_t ast) const;
 

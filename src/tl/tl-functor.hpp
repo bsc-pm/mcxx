@@ -35,6 +35,27 @@ namespace TL
 			}
 	};
 
+	template <class Ret, class T>
+	class FunctionByValueAdapter : Functor<Ret, T>
+	{
+		private:
+			Ret (*_pf)(T);
+		public:
+			FunctionByValueAdapter(Ret (*pf)(T))
+				: _pf(pf)
+			{
+			}
+
+			virtual Ret operator()(T& t) const 
+			{
+				return (_pf)(t);
+			}
+
+			virtual ~FunctionByValueAdapter()
+			{
+			}
+	};
+
 	template <class Ret, class T, class Q>
 	class MemberFunctionAdapter : public Functor<Ret, T>
 	{
@@ -58,6 +79,28 @@ namespace TL
 	};
 
 	template <class Ret, class T, class Q>
+	class MemberFunctionByValueAdapter : public Functor<Ret, T>
+	{
+		private:
+			Q& _q;
+			Ret (Q::*_pmf)(T t);
+		public:
+			MemberFunctionByValueAdapter(Ret (Q::*pmf)(T t), Q& q)
+				: _q(q), _pmf(pmf)
+			{
+			}
+
+			virtual Ret operator()(T& t) const
+			{
+				return (_q.*_pmf)(t);
+			}
+
+			virtual ~MemberFunctionByValueAdapter()
+			{
+			}
+	};
+
+	template <class Ret, class T, class Q>
 	class MemberFunctionConstAdapter : public Functor<Ret, T>
 	{
 		private:
@@ -75,6 +118,28 @@ namespace TL
 			}
 
 			virtual ~MemberFunctionConstAdapter()
+			{
+			}
+	};
+
+	template <class Ret, class T, class Q>
+	class MemberFunctionByValueConstAdapter : public Functor<Ret, T>
+	{
+		private:
+			Q& _q;
+			Ret (Q::*_pmf)(T t) const;
+		public:
+			MemberFunctionByValueConstAdapter(Ret (Q::*pmf)(T t) const, Q& q)
+				: _q(q), _pmf(pmf)
+			{
+			}
+
+			virtual Ret operator()(T& t) const
+			{
+				return (_q.*_pmf)(t);
+			}
+
+			virtual ~MemberFunctionByValueConstAdapter()
 			{
 			}
 	};
@@ -149,6 +214,13 @@ namespace TL
 		return result;
 	}
 
+	template <class Ret, class T>
+	FunctionByValueAdapter<Ret, T> functor(Ret (*pf)(T))
+	{
+		FunctionByValueAdapter<Ret, T> result(pf);
+		return result;
+	}
+
 	template <class Ret, class T, class Q>
 	MemberFunctionAdapter<Ret, T, Q> functor(Ret (Q::*pmf)(T& t), Q& q)
 	{
@@ -157,9 +229,23 @@ namespace TL
 	}
 
 	template <class Ret, class T, class Q>
+	MemberFunctionByValueAdapter<Ret, T, Q> functor(Ret (Q::*pmf)(T t), Q& q)
+	{
+		MemberFunctionByValueAdapter<Ret, T, Q> result(pmf, q);
+		return result;
+	}
+
+	template <class Ret, class T, class Q>
 	MemberFunctionConstAdapter<Ret, T, Q> functor(Ret (Q::*pmf)(T& t) const, Q& q)
 	{
 		MemberFunctionConstAdapter<Ret, T, Q> result(pmf, q);
+		return result;
+	}
+
+	template <class Ret, class T, class Q>
+	MemberFunctionByValueConstAdapter<Ret, T, Q> functor(Ret (Q::*pmf)(T t) const, Q& q)
+	{
+		MemberFunctionByValueConstAdapter<Ret, T, Q> result(pmf, q);
 		return result;
 	}
 

@@ -86,6 +86,34 @@ namespace TL
 				bool is_shared() const;
 		};
 
+		class ReductionSymbol
+		{
+			private:
+				Symbol _symbol;
+				AST_t _op;
+				AST_t _neuter;
+			public:
+				ReductionSymbol(Symbol s, AST_t op, AST_t neuter)
+					: _symbol(s), _op(op), _neuter(neuter)
+				{
+				}
+
+				Symbol get_symbol() const
+				{
+					return _symbol;
+				}
+
+				AST_t get_neuter() const
+				{
+					return _neuter;
+				}
+
+				AST_t get_operation() const
+				{
+					return _op;
+				}
+		};
+
 		class ReductionClause : public LangConstruct
 		{
 			public:
@@ -94,9 +122,7 @@ namespace TL
 				{
 				}
 
-				AST_t operation();
-
-				ObjectList<Symbol> symbols();
+				ObjectList<ReductionSymbol> symbols();
 		};
 
 		class CustomClause : public LangConstruct
@@ -114,6 +140,15 @@ namespace TL
 		{
 			public:
 				ParallelConstruct(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
+		class ParallelForConstruct : public Construct
+		{
+			public:
+				ParallelForConstruct(AST_t ref, ScopeLink scope_link)
 					: Construct(ref, scope_link)
 				{
 				}
@@ -145,6 +180,30 @@ namespace TL
 						{
 						}
 				};
+
+				class ParallelForFunctor : public TraverseFunctor
+				{
+					private:
+						OpenMPPhase& _phase;
+					public:
+						virtual void preorder(Context ctx, AST_t node) 
+						{
+							ParallelForConstruct parallel_for_construct(node, ctx.scope_link);
+
+							_phase.on_parallel_for_pre.signal(parallel_for_construct);
+						}
+
+						virtual void postorder(Context ctx, AST_t node) 
+						{
+							ParallelForConstruct parallel_for_construct(node, ctx.scope_link);
+							_phase.on_parallel_for_post.signal(parallel_for_construct);
+						}
+
+						ParallelForFunctor(OpenMPPhase& phase)
+							: _phase(phase)
+						{
+						}
+				};
 			protected:
 				AST_t translation_unit;
 				ScopeLink scope_link;
@@ -152,6 +211,9 @@ namespace TL
 			public:
 				Signal1<ParallelConstruct> on_parallel_pre;
 				Signal1<ParallelConstruct> on_parallel_post;
+				
+				Signal1<ParallelForConstruct> on_parallel_for_pre;
+				Signal1<ParallelForConstruct> on_parallel_for_post;
 
 				virtual void run(DTO& data_flow);
 				virtual void init();

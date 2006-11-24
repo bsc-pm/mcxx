@@ -671,6 +671,13 @@ static void compile_every_translation_unit(void)
 
 		compiler_phases_execution(translation_unit, parsed_filename);
 
+		if (compilation_options.debug_options.print_ast)
+		{
+			fprintf(stderr, "Printing AST in graphviz format\n");
+
+			ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+		}
+
         char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);
 
         native_compilation(translation_unit, prettyprinted_filename);

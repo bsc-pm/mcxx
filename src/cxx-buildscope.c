@@ -151,64 +151,8 @@ const decl_context_t default_decl_context = { 0 };
 
 void build_scope_dynamic_initializer(void)
 {
-	// C/C++ stuff
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_ID_EXPRESSION, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_FUNCTION_NAME, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_EXPRESSION, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_DECLARATION, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_COMPOUND_STATEMENT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_DO_STATEMENT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_WHILE_STATEMENT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_IF_STATEMENT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_FOR_STATEMENT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_LABELED_STATEMENT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_DEFAULT_STATEMENT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_CASE_STATEMENT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_RETURN_STATEMENT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_TRY_BLOCK, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_SWITCH_STATEMENT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_EMPTY_STATEMENT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_BREAK_STATEMENT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_CONTINUE_STATEMENT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_GOTO_STATEMENT, sizeof(tl_type_t));
-
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_QUALIFIED_ID, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_UNQUALIFIED_ID, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_GLOBAL_QUALIFIED, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, LANG_NESTED_NAME_SPECIFIER, sizeof(tl_type_t));
-
-	extensible_schema_add_field(&ast_extensible_schema, LANG_IS_UNQUALIFIED_ID, sizeof(tl_type_t));
-	
-	// OpenMP stuff
-	extensible_schema_add_field(&ast_extensible_schema, OMP_CONSTRUCT_BODY, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_CONSTRUCT_DIRECTIVE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_ATOMIC_CONSTRUCT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_BARRIER_DIRECTIVE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_CRITICAL_CONSTRUCT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_FLUSH_DIRECTIVE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_FOR_CONSTRUCT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_MASTER_CONSTRUCT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_OMP_CONSTRUCT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_ORDERED_CONTRUCT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_PARALLEL_CONSTRUCT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_PARALLEL_FOR_CONSTRUCT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_SECTIONS_CONSTRUCT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_PARALLEL_SECTIONS_CONSTRUCT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_SINGLE_CONSTRUCT, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_THREADPRIVATE_DIRECTIVE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_IF_CLAUSE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_NUM_THREADS_CLAUSE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_SCHEDULE_CLAUSE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_ORDERED_CLAUSE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_NOWAIT_CLAUSE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_SHARED_CLAUSE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_PRIVATE_CLAUSE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_FIRSTPRIVATE_CLAUSE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_LASTPRIVATE_CLAUSE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_COPYPRIVATE_CLAUSE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_COPYIN_CLAUSE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_DEFAULT_NONE_CLAUSE, sizeof(tl_type_t));
-	extensible_schema_add_field(&ast_extensible_schema, OMP_IS_DEFAULT_SHARED_CLAUSE, sizeof(tl_type_t));
+	// Defined in cxx-attrnames.c
+	register_ast_extended_attributes();
 }
 
 // Builds scope for the translation unit
@@ -6177,6 +6121,61 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
 				case AST_OMP_DEFAULT_SHARED_CLAUSE :
 					{
 						ASTAttrSetValueType(clause, OMP_IS_DEFAULT_SHARED_CLAUSE, tl_type_t, tl_bool(1));
+						break;
+					}
+				case AST_OMP_REDUCTION_CLAUSE :
+					{
+						build_scope_omp_data_clause(ASTSon1(clause), st, decl_context);
+
+						// Compute here the neuter for future use
+						AST neuter = NULL;
+						switch (ASTType(ASTSon0(clause)))
+						{
+							case AST_ADD_OPERATOR :
+							case AST_MINUS_OPERATOR : 
+							case AST_BITWISE_OR_OPERATOR :
+							case AST_BITWISE_XOR_OPERATOR :
+							case AST_LOGICAL_OR_OPERATOR :
+								{
+									neuter = ASTMake1(AST_EXPRESSION, 
+											ASTLeaf(AST_OCTAL_LITERAL, ASTLine(clause), "0"),
+											ASTLine(clause), NULL);
+									break;
+								}
+							case AST_MULT_OPERATOR :
+							case AST_LOGICAL_AND_OPERATOR :
+								{
+									neuter = ASTMake1(AST_EXPRESSION, 
+											ASTLeaf(AST_DECIMAL_LITERAL, ASTLine(clause), "1"),
+											ASTLine(clause), NULL);
+									break;
+								}
+							case AST_BITWISE_AND_OPERATOR :
+								{
+									AST zero = ASTLeaf(AST_OCTAL_LITERAL, ASTLine(clause), "0");
+
+									neuter = ASTMake1(AST_EXPRESSION,
+											ASTMake1(AST_COMPLEMENT_OP, zero, ASTLine(clause), NULL),
+											ASTLine(clause), NULL);
+
+									break;
+								}
+							default:
+								{
+									internal_error("Unknown node' %s'\n", 
+											ast_print_node_type(ASTType(ASTSon0(clause))));
+								}
+
+						}
+
+						// Save the neuter
+						ASTSon2(clause) = neuter;
+						ASTParent(neuter) = clause;
+
+						ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
+						ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(ASTSon0(clause)));
+						ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon1(clause)));
+						ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon2(clause)));
 						break;
 					}
 				default:

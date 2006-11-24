@@ -45,6 +45,8 @@ libtl_la_SOURCES = \
 	tl-objectlist.cpp \
 	tl-predicate.hpp \
 	tl-predicate.cpp \
+	tl-functor.hpp \
+	tl-functor.cpp \
 	tl-predicateutils.hpp \
 	tl-predicateutils.cpp \
 	tl-langconstruct.hpp \

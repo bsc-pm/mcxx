@@ -125,4 +125,9 @@ namespace TL
 		Symbol result = id_expr_scope.get_symbol_from_id_expr(_ref);
 		return result;
 	}
+
+	AST_t IdExpression::get_ast() const
+	{
+		return _ref;
+	}
 }
