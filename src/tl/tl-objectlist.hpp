@@ -120,7 +120,7 @@ class ObjectList : public std::vector<T>
 		template <class S>
 		bool contains(const Functor<S, T>& f, const S& s)
 		{
-			for (typename ObjectList<T>::const_iterator it = this->begin();
+			for (typename ObjectList<T>::iterator it = this->begin();
 					it != this->end();
 					it++)
 			{
@@ -130,6 +130,36 @@ class ObjectList : public std::vector<T>
 				}
 			}
 			return false;
+		}
+
+		ObjectList<T> find(const T& t)
+		{
+			ObjectList<T> result;
+
+			for (typename ObjectList<T>::iterator it = find(this->begin(), this->end(), t);
+					it != this->end();
+					it++)
+			{
+				result.append(*it);
+			}
+		}
+
+		template <class S>
+		ObjectList<T> find(const Functor<S, T>& f, const S& s)
+		{
+			ObjectList<S> result;
+
+			for (typename ObjectList<T>::const_iterator it = this->begin();
+					it != this->end();
+					it++)
+			{
+				if (f(*it) == s)
+				{
+					result.append(*it);
+				}
+			}
+
+			return result;
 		}
 };
 

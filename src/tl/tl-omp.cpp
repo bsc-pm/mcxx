@@ -161,14 +161,14 @@ namespace TL
 				&& TL::Bool(_ref.get_attribute(OMP_IS_DEFAULT_SHARED_CLAUSE));
 		}
 
-		ObjectList<Symbol> Clause::symbols()
+		ObjectList<IdExpression> Clause::id_expressions()
 		{
 			PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
 
 			PredicateAttr predicate_clause(_clause_filter_name);
 			ObjectList<AST_t> clauses = _ref.depth_subtrees().filter(predicate_clause);
 
-			ObjectList<Symbol> result;
+			ObjectList<IdExpression> result;
 			GetSymbolFromAST get_symbol_from_ast(this->_scope_link);
 
 			for(ObjectList<AST_t>::iterator it = clauses.begin();
@@ -177,21 +177,28 @@ namespace TL
 			{
 				ObjectList<AST_t> id_expressions = it->depth_subtrees().filter(id_expr_pred);
 
-				ObjectList<Symbol> symbols = id_expressions.map(get_symbol_from_ast);
+				for (ObjectList<AST_t>::iterator jt = id_expressions.begin();
+						jt != id_expressions.end();
+						jt++)
+				{
+					Symbol sym = get_symbol_from_ast(*jt);
 
-				symbols = symbols.filter(predicate(&Symbol::is_valid));
-
-				result.insert(symbols);
+					if (sym.is_valid())
+					{
+						IdExpression id_expr(*jt, this->_scope_link);
+						result.append(id_expr);
+					}
+				}
 			}
 
 			return result;
 		}
 
-		ObjectList<ReductionSymbol> ReductionClause::symbols()
+		ObjectList<ReductionIdExpression> ReductionClause::id_expressions()
 		{
 			PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
 
-			ObjectList<ReductionSymbol> result;
+			ObjectList<ReductionIdExpression> result;
 			GetSymbolFromAST get_symbol_from_ast(this->_scope_link);
 
 			PredicateAttr reduction_clause_predicate(OMP_IS_REDUCTION_CLAUSE);
@@ -210,16 +217,20 @@ namespace TL
 				AST_t reduct_vars = it->get_attribute(OMP_REDUCTION_VARIABLES);
 
 				ObjectList<AST_t> reduct_references = reduct_vars.depth_subtrees().filter(id_expr_pred);
-				ObjectList<Symbol> reduct_symbols = reduct_references.map(get_symbol_from_ast);
-				reduct_symbols = reduct_symbols.filter(predicate(&Symbol::is_valid));
 
-				for (ObjectList<Symbol>::iterator it = reduct_symbols.begin();
-						it != reduct_symbols.end();
-						it++)
+				for (ObjectList<AST_t>::iterator jt = reduct_references.begin();
+						jt != reduct_references.end();
+						jt++)
 				{
-					ReductionSymbol reduct_symbol(*it, reduct_operator, reduct_neuter);
+					Symbol sym = get_symbol_from_ast(*jt);
 
-					result.append(reduct_symbol);
+					if (sym.is_valid())
+					{
+						IdExpression id_expr(*jt, this->_scope_link);
+						ReductionIdExpression reduct_id_expr(id_expr, reduct_operator, reduct_neuter);
+
+						result.append(reduct_id_expr);
+					}
 				}
 			}
 

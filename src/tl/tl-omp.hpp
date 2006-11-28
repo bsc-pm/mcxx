@@ -71,7 +71,7 @@ namespace TL
 				{ 
 				}
 
-				ObjectList<Symbol> symbols();
+				ObjectList<IdExpression> id_expressions();
 		};
 
 		class DefaultClause : public LangConstruct
@@ -86,21 +86,26 @@ namespace TL
 				bool is_shared() const;
 		};
 
-		class ReductionSymbol
+		class ReductionIdExpression
 		{
 			private:
-				Symbol _symbol;
+				IdExpression _symbol;
 				AST_t _op;
 				AST_t _neuter;
 			public:
-				ReductionSymbol(Symbol s, AST_t op, AST_t neuter)
+				ReductionIdExpression(IdExpression s, AST_t op, AST_t neuter)
 					: _symbol(s), _op(op), _neuter(neuter)
 				{
 				}
 
+				AST_t get_id_expression() const
+				{
+					return _symbol.get_ast();
+				}
+
 				Symbol get_symbol() const
 				{
-					return _symbol;
+					return _symbol.get_symbol();
 				}
 
 				AST_t get_neuter() const
@@ -122,7 +127,7 @@ namespace TL
 				{
 				}
 
-				ObjectList<ReductionSymbol> symbols();
+				ObjectList<ReductionIdExpression> id_expressions();
 		};
 
 		class CustomClause : public LangConstruct

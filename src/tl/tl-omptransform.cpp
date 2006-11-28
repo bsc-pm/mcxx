@@ -44,484 +44,365 @@ namespace TL
 				
                 // Get the enclosing function definition
                 FunctionDefinition function_definition = parallel_for_construct.get_enclosing_function();
+				Scope function_scope = function_definition.get_scope();
+				IdExpression function_name = function_definition.get_function_name();
 
-				ObjectList<Symbol> shared_symbols;
-				ObjectList<Symbol> private_symbols;
-				ObjectList<Symbol> firstprivate_symbols;
-				ObjectList<Symbol> lastprivate_symbols;
-				ObjectList<OpenMP::ReductionSymbol> reduction_symbols;
+				// The will hold the entities as they appear in the clauses
+				ObjectList<IdExpression> shared_references;
+				ObjectList<IdExpression> private_references;
+				ObjectList<IdExpression> firstprivate_references;
+				ObjectList<IdExpression> lastprivate_references;
+				ObjectList<OpenMP::ReductionIdExpression> reduction_references;
 				
 				// Get the construct_body of the statement
 				Statement construct_body = parallel_for_construct.body();
+				ForStatement for_statement(construct_body);
 
-				// Get the data attributes
-				get_data_attributes(function_definition.get_scope(),
+				// Get the data attributes for every entity
+				get_data_attributes(function_scope,
 						directive,
 						construct_body,
-						shared_symbols,
-						private_symbols,
-						firstprivate_symbols,
-						lastprivate_symbols,
-						reduction_symbols);
+						shared_references,
+						private_references,
+						firstprivate_references,
+						lastprivate_references,
+						reduction_references);
+
+				ObjectList<IdExpression> pass_by_pointer;
+				ObjectList<IdExpression> privatized_entities;
+				// Create the replacement map and the pass_by_pointer set
+				ReplaceIdExpression replace_references = 
+					set_replacements(function_scope,
+							directive,
+							construct_body,
+							shared_references,
+							private_references,
+							firstprivate_references,
+							lastprivate_references,
+							reduction_references,
+							pass_by_pointer,
+							privatized_entities);
+
+				Source outlined_function_name = get_outlined_function_name(function_name);
+
+				AST_t outline_code = create_outline_parallel_for(outlined_function_name, 
+						for_statement,
+						replace_references,
+						pass_by_pointer,
+						privatized_entities,
+						firstprivate_references,
+						lastprivate_references,
+						reduction_references);
+
+				// AST_t spawn_code = create_spawn_code();
+			}
+
+			AST_t create_outline_parallel_for(Source outlined_function_name,
+					ForStatement for_statement,
+					ReplaceIdExpression replace_references,
+					ObjectList<IdExpression> pass_by_pointer,
+					ObjectList<IdExpression> privatized_entities,
+					ObjectList<IdExpression> firstprivate_references,
+					ObjectList<IdExpression> lastprivate_references,
+					ObjectList<OpenMP::ReductionIdExpression> reduction_references
+					)
+			{
+				Source outline_parallel_for;
+
+				Source private_declarations;
+				Source firstprivate_initializations;
+				Source schedule_decisions;
+				Source loop_initialization;
+				Source distributed_loop_body;
+				Source lastprivate_assignments;
+				Source loop_reductions;
+				Source loop_finalization;
+				Source formal_parameters;
+
+				outline_parallel_for 
+					<< "void " << outlined_function_name << "(" << formal_parameters << ")"
+					<< "{"
+					<<    private_declarations
+					<<    loop_initialization
+					<<    schedule_decisions
+					<<    distributed_loop_body
+					<<    lastprivate_assignments
+					<<    loop_reductions
+					<<    loop_finalization
+					<< "}"
+					;
+
+
+				Source induction_var_name;
+
+				// induction_var_name
+				// 	<< "p_" + for_statement.induction_var().prettyprint()
+				// 	;
+
+				// Formal parameters, basically pass_by_pointer things
+				// (and sometimes something else)
+				for (ObjectList<IdExpression>::iterator it = pass_by_pointer.begin();
+						it != pass_by_pointer.end();
+						it++)
+				{
+					Symbol sym = it->get_symbol();
+					Type type = sym.get_type();
+
+					// Get a declaration of the mangled name of the id-expression
+					formal_parameters << type.get_declaration(it->mangle_id_expression()) << ", ";
+				}
+
+				// FIXME - We have nice operations that can help avoiding that
+				private_declarations << " void* _prova";
+				
+				// Private declarations
+				for (ObjectList<IdExpression>::iterator it = privatized_entities.begin();
+						it != privatized_entities.end();
+						it++)
+				{
+					Symbol sym = it->get_symbol();
+					Type type = sym.get_type();
+
+					// Get a declaration of the mangled name of the id-expression
+					
+					if (!firstprivate_references.contains(functor(&IdExpression::get_symbol), sym))
+					{
+						private_declarations << type.get_declaration("p_" + it->mangle_id_expression()) << ";";
+					}
+					else
+					{
+						// TODO - We'll have to write the proper initialization here
+						//
+						// private_declarations << type->get_declaration_with_initializer("p_" + it->mangle_id_expression(),
+						//                                                 "(*" + 
+					}
+				}
+
+				loop_initialization 
+					<< "int nth_low;"
+					<< "int nth_upper;"
+					<< "int nth_step;"
+					<< "int nth_chunk;"
+					<< "int nth_schedule;"
+					<< "int intone_start;"
+					<< "int intone_end;"
+					<< "int intone_last;"
+					<< "int nth_barrier;"
+
+					// << "nth_low = " << for_statement.lower_expression().prettyprint() << ";"
+					// << "nth_upper = " << for_statement.upper_expression().prettyprint() << ";"
+					// << "nth_step = " << for_statement.step_expression().prettyprint() << ";"
+					;
+				
+				// Schedule decisions
+				// TODO
+				schedule_decisions
+					<< "int nth_schedule;"
+					<< "int nth_chunk;"
+					<< "nth_schedule = 0;"
+					<< "nth_chunk = 0;"
+					;
+
+				// Loop distribution
+				Source modified_loop_body;
+				distributed_loop_body
+					// FIXME - Eventually an include will solve this
+					<< "external void in__tone_begin_for_(int*, int*, int*, int*, int*);"
+					<< "external int in__tone_next_iters_(int*, int*, int*);"
+					<< "external void in__tone_end_for_(int*);"
+
+					<< "in__tone_begin_for_(&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
+					
+					<< "while (in__tone_next_iters_(&intone_start, &intone_end, &intone_last) != 0)"
+					<< "{"
+					<< "   for (" << induction_var_name << " = intone_start; "
+					<< "        step >= 1 ? " << induction_var_name << " <= intone_end : " << induction_var_name << ">= intone_end;"
+					<< "        " << induction_var_name << " += step)"
+					<< "   {"
+					<< "   " << modified_loop_body
+					<< "   }"
+					<< "}"
+					;
+
+				// Lastprivate assignments
+				for (ObjectList<IdExpression>::iterator it = lastprivate_references.begin();
+						it != lastprivate_references.end();
+						it++)
+				{
+					if (pass_by_pointer.contains(functor(&IdExpression::get_symbol), it->get_symbol()))
+					{
+						lastprivate_assignments 
+							<< "(*" << it->get_ast().prettyprint() << ")" << " = p_" << it->mangle_id_expression() << ";"
+							;
+					}
+					else
+					{
+						lastprivate_assignments 
+							<< it->get_ast().prettyprint() << " = p_" << it->mangle_id_expression() << ";"
+							;
+					}
+				}
+
+				// Loop reductions
+				// TODO
+
+				// Loop finalization
+				loop_finalization
+					<< "nth_barrier = 0;"
+					<< "in__tone_end_for_(&nth_barrier);"
+					;
 			}
 
             void get_data_attributes(
 					Scope function_scope,
-					OpenMP::Directive& directive,
-                    Statement& construct_body,
-                    ObjectList<Symbol>& shared_symbols,
-                    ObjectList<Symbol>& private_symbols,
-					ObjectList<Symbol>& firstprivate_symbols,
-					ObjectList<Symbol>& lastprivate_symbols,
-					ObjectList<OpenMP::ReductionSymbol>& reduction_symbols)
+					OpenMP::Directive directive,
+                    Statement construct_body,
+                    ObjectList<IdExpression>& shared_references,
+                    ObjectList<IdExpression>& private_references,
+					ObjectList<IdExpression>& firstprivate_references,
+					ObjectList<IdExpression>& lastprivate_references,
+					ObjectList<OpenMP::ReductionIdExpression>& reduction_references)
             {
-                // Get symbols in shared clause
+                // Get references in shared clause
                 OpenMP::Clause shared_clause = directive.shared_clause();
-                shared_symbols = shared_clause.symbols();
+                shared_references = shared_clause.id_expressions();
 
-                // Get symbols in private_clause
+                // Get references in private_clause
                 OpenMP::Clause private_clause = directive.private_clause();
-                private_symbols = private_clause.symbols();
+                private_references = private_clause.id_expressions();
 
-				// Get symbols in firstprivate clause
+				// Get references in firstprivate clause
 				OpenMP::Clause firstprivate_clause = directive.firstprivate_clause();
-				firstprivate_symbols = firstprivate_clause.symbols();
+				firstprivate_references = firstprivate_clause.id_expressions();
 
-				// Get symbols in lastprivate clause
+				// Get references in lastprivate clause
 				OpenMP::Clause lastprivate_clause = directive.lastprivate_clause();
-				lastprivate_symbols = lastprivate_clause.symbols();
+				lastprivate_references = lastprivate_clause.id_expressions();
 
-				// Get symbols in reduction clause
+				// Get references in reduction clause
 				OpenMP::ReductionClause reduction_clause = directive.reduction_clause();
-				reduction_symbols = reduction_clause.symbols();
-
-                // default(none|shared) clause
-                OpenMP::DefaultClause default_clause = directive.default_clause();
-
-                // Recall there is no is_private() in C/C++
-                if (!default_clause.is_none())
-                {
-                    ObjectList<IdExpression> symbol_occurrences = construct_body.non_local_symbol_occurrences();
-
-					// For every symbol occurrence get its associated symbol from the scope
-					// of the enclosing function
-					//
-					// First get the tree of the id-expression
-					ObjectList<AST_t> tree_occurrences = symbol_occurrences.map(
-							functor(&IdExpression::get_ast)
-							);
-
-					// Now search in the scope of the enclosing function
-					ObjectList<Symbol> global_symbols = tree_occurrences.map(
-							functor(&Scope::get_symbol_from_id_expr, function_scope)
-							);
-
-					// and discard those that are not valid
-					global_symbols = global_symbols.filter(
-							predicate(&Symbol::is_valid)
-							);
-
-                    // For every symbol occurrence get its associated symbol
-					// in the current scope
-                    ObjectList<Symbol> symbols = symbol_occurrences.map(
-                            functor(&IdExpression::get_symbol)
-                            );
-
-                    // We only want variables
-                    symbols = symbols.filter(
-                            predicate(&Symbol::is_variable)
-                            );
-
-					// that are not globally accessable from this function
-					symbols = symbols.filter(not_in_set(global_symbols));
-
-                    // and that are not already set private
-                    symbols = symbols.filter(not_in_set(private_symbols));
-
-                    // and not already set shared
-                    symbols = symbols.filter(not_in_set(shared_symbols));
-
-                    // add to the shared symbols
-                    shared_symbols.insert(symbols);
-                }
+				reduction_references = reduction_clause.id_expressions();
             }
 
-# if 0
-            // Parallel preorder
-            void parallel_pre(OpenMP::ParallelConstruct parallel_construct)
-            {
-                parallel_nesting++;
-            }
+			ReplaceIdExpression set_replacements(Scope function_scope,
+					OpenMP::Directive directive,
+					Statement construct_body,
+					ObjectList<IdExpression>& shared_references,
+					ObjectList<IdExpression>& private_references,
+					ObjectList<IdExpression>& firstprivate_references,
+					ObjectList<IdExpression>& lastprivate_references,
+					ObjectList<OpenMP::ReductionIdExpression>& reduction_references,
+					ObjectList<IdExpression>& pass_by_pointer,
+					ObjectList<IdExpression>& privatized_entities)
+			{
+				ReplaceIdExpression result;
 
-            // Parallel postorder
-            void parallel_post(OpenMP::ParallelConstruct parallel_construct)
-            {
-                parallel_nesting--;
-                num_parallels++;
+				// First mix every symbol that might be shareable
+				// 
+				// "shareable" means that it can be passed by pointer
+				// because of it being an entity not accessible from the
+				// sibling function
 
-                OpenMP::Directive directive = parallel_construct.directive();
+				ObjectList<IdExpression> shareable_references;
 
-                ObjectList<Symbol> shared_symbols;
-                ObjectList<Symbol> private_symbols;
+				// There will be no repeated here
+				shareable_references.append(shared_references);
+				shareable_references.append(firstprivate_references);
+				shareable_references.append(lastprivate_references);
 
-                // Get the enclosing function definition
-                FunctionDefinition f = parallel_construct.get_enclosing_function();
-
-                Source outline_function_name; 
-                IdExpression function_name = f.get_function_name();
-
-                Symbol function_symbol = function_name.get_symbol();
-
-                outline_function_name
-                    << function_name.get_qualified_part()
-                    << "outline_"
-                    << function_name.get_unqualified_part();
-
-                // Get the construct_body of the statement
-                Statement construct_body = parallel_construct.construct_body();
-
-                // Construct the set of shared and privatized symbols
-                get_data_attributes(directive, construct_body, shared_symbols, private_symbols);
-
-                // Create the outline function
-                Source outline_code;
-                Source shared_parameters;
-                outline_code 
-                    << create_outline(function_symbol, shared_symbols, private_symbols, construct_body, shared_parameters,
-                            outline_function_name.get_source());
-
-                if (function_symbol.is_member())
-                {
-                    // We have to declare it in the class where this symbol was declared
-                    Source member_outline_declaration;
-                    member_outline_declaration
-                        << "static void outline_"
-                        << function_name.get_unqualified_part()
-                        << "(" << shared_parameters << ");";
-
-                    std::cerr << "--- Outlined code for member ---" << std::endl;
-                    std::cerr << member_outline_declaration.get_source() << std::endl;
-                    std::cerr << "--- End outline code ---" << std::endl;
-
-					// TODO - parse_member
-                    AST_t member_outline_decl_tree = 
-                        member_outline_declaration.parse_member(f.get_scope(), 
-                                f.get_scope_link(), function_symbol.get_class_type());
-
-					AST_t point_of_declaration = function_symbol.get_point_of_declaration();
-					AST_t enclosing_block = point_of_declaration.get_enclosing_block();
-
-					enclosing_block.append(member_outline_decl_tree);
-
-                    std::cerr << "--- Member declaration parsed ---" << std::endl;
-                }
-
-                // std::cerr << "About to compile outline code '" << outline_code.get_source() << "'" << std::endl;
-
-                AST_t outline_tree = outline_code.parse_global(f.get_scope(), f.get_scope_link());
-
-                // std::cerr << "Outline code parsed" << std::endl;
-
-                f.prepend_sibling(outline_tree);
-
-                // Create the spawning code
-                AST_t spawn_tree = create_spawn_code(function_symbol,
-						parallel_construct.get_scope(), 
-                        parallel_construct.get_scope_link(),
-                        outline_function_name, shared_symbols);
-                parallel_construct.get_ast().replace_with(spawn_tree);
-            }
-
-            AST_t create_spawn_code(Symbol function_symbol,
-					Scope spawn_scope,
-                    ScopeLink spawn_scope_link,
-                    Source& outline_function_name,
-                    ObjectList<Symbol>& shared_symbols)
-            {
-                Source spawning_code;
-                Source shared_references;
-
-				int num_parameters = shared_symbols.size();
-
-				if (function_symbol.is_member())
+				for (ObjectList<IdExpression>::iterator it = shared_references.begin();
+						it != shared_references.end();
+						it++)
 				{
-					num_parameters++;
-				}
+					Symbol current_sym = it->get_symbol();
 
-                // Spawn skeleton
-                spawning_code 
-                    << "{"
-                    << "  extern int nth_num_threads();"
-                    << "  extern int nth_create(...);"
-                    << "  for (int i = 0; i < nth_num_threads(); i++)"
-                    << "  {"
-                    << "    nth_create(&" << outline_function_name << ", " 
-					<<            num_parameters << shared_references << ");"
-                    << "  }"
-                    << "}"
-                    ;
+					// This symbol already appears in "pass_by_pointer" id-expressions
+					if (pass_by_pointer.contains(functor(&IdExpression::get_symbol), current_sym))
+						continue;
 
-                // Transform every symbol 'name' to '&name'
-                ObjectList<std::string> shared_references_names = shared_symbols.map(
-                        functor(&OpenMPTransform::reference_to_name, *this)
-                        );
-				
-				if (function_symbol.is_member())
-				{
-					shared_references << ", this";
-				}
+					Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
 
-                if (!shared_references_names.empty())
-                {
-                    shared_references << ", " << concat_strings(shared_references_names, ",");
-                }
-
-                // std::cerr << "--SPAWN CODE--" << std::endl;
-                // std::cerr << spawning_code.get_source() << std::endl;
-                // std::cerr << "--END SPAWN CODE--" << std::endl;
-
-                AST_t spawn_tree = spawning_code.parse_statement(spawn_scope, spawn_scope_link);
-                return spawn_tree;
-            }
-
-            // The data enviroment
-            void get_data_attributes(OpenMP::Directive& directive,
-                    Statement& construct_body,
-                    ObjectList<Symbol>& shared_symbols,
-                    ObjectList<Symbol>& private_symbols)
-            {
-                // Get symbols in shared clause
-                OpenMP::Clause shared_clause = directive.shared_clause();
-                shared_symbols = shared_clause.symbols();
-
-                print_list("shared_symbols", shared_symbols.map(functor(&Symbol::get_name)));
-
-                // Get symbols in private_clause
-                OpenMP::Clause private_clause = directive.private_clause();
-                private_symbols = private_clause.symbols();
-
-                print_list("private_symbols", private_symbols.map(functor(&Symbol::get_name)));
-
-                // default(none|shared) clause
-                OpenMP::DefaultClause default_clause = directive.default_clause();
-
-                // Recall there is no is_private() in C/C++
-                if (!default_clause.is_none())
-                {
-                    ObjectList<IdExpression> symbol_ocurrences = construct_body.non_local_symbol_occurrences();
-
-                    // We don't want qualified names
-                    symbol_ocurrences = symbol_ocurrences.filter(
-                            predicate(&IdExpression::is_unqualified)
-                            );
-
-                    // For every symbol occurrence get it associated symbol
-                    ObjectList<Symbol> symbols = symbol_ocurrences.map(
-                            functor(&IdExpression::get_symbol)
-                            );
-
-                    // We only want variables
-                    symbols = symbols.filter(
-                            predicate(&Symbol::is_variable)
-                            );
-
-                    // that are not members of a class
-                    symbols = symbols.filter(
-                         negate(
-                             predicate(&Symbol::is_member)
-                             )
-                         );
-
-                    // and that are not already set private
-                    symbols = symbols.filter(not_in_set(private_symbols));
-
-                    // and not already set shared
-                    symbols = symbols.filter(not_in_set(shared_symbols));
-
-                    // add to the shared symbols
-                    shared_symbols.insert(symbols);
-                }
-            }
-
-            // Given a symbol declares a suitable parameter pointer to it
-            std::string declare_parameter(Symbol& s)
-            {
-                // Get the type of the symbol
-                Type type = s.get_type();
-                // Construct a type that is a pointer to the original type
-                Type pointer_type = type.get_pointer_to();
-
-                // And return its declaration
-                return pointer_type.get_declaration(s.get_name());
-            }
-
-            // Given a symbol declares a full private declaration to it
-            std::string declare_privates(Symbol& s)
-            {
-                // Get the type
-                Type type = s.get_type();
-
-                // and return its declaration but the symbol 
-                // declaration will have "p_" prepended
-                return type.get_declaration(std::string("p_") + s.get_name()) 
-                    + std::string(";");
-            }
-
-
-            // Create the outline
-            std::string create_outline(
-					Symbol function_symbol,
-					ObjectList<Symbol>& shared_symbols, 
-                    ObjectList<Symbol>& private_symbols,
-                    Statement& construct_body,
-                    Source& shared_parameters,
-                    const std::string& outline_function_name)
-            {
-                Source privatized_variables;
-                Source outlined_body;
-
-                // Define the skeleton
-                Source outline_code;
-
-                outline_code
-                    << "void " << outline_function_name << "(" << shared_parameters << ")"
-                    << "{"
-                    <<     privatized_variables
-                    <<     outlined_body
-                    << "}";
-
-                // For every shared symbol, return a declaration to it
-                ObjectList<std::string> parameter_declarations = shared_symbols.map(
-                        functor(&OpenMPTransform::declare_parameter, *this)
-                        );
-
-				if (function_symbol.is_member())
-				{
-					Type class_type = function_symbol.get_class_type();
-
-					Type pointer_to_class = class_type.get_pointer_to();
-
-					std::string this_declaration = pointer_to_class.get_declaration("_this");
-
-					shared_parameters << this_declaration << ", ";
-				}
-
-                // And concat all declarations with ','
-                shared_parameters << concat_strings(parameter_declarations, ", ");
-
-                ObjectList<std::string> private_declarations = private_symbols.map(
-                        functor(&OpenMPTransform::declare_privates, *this)
-                        );
-
-                privatized_variables << concat_strings(private_declarations);
-                
-                // Copy the construct_body since we will modify it
-                std::pair<AST_t, ScopeLink> new_body = 
-                    construct_body.get_ast().duplicate_with_scope(construct_body.get_scope_link());
-                Statement modified_body(new_body.first, new_body.second);
-                ScopeLink modified_body_scope_link = modified_body.get_scope_link();
-                
-                // Derreference all shared references
-                ObjectList<IdExpression> non_local_symbols = 
-                    modified_body.non_local_symbol_occurrences();
-
-                for (ObjectList<IdExpression>::iterator 
-                        it = non_local_symbols.begin();
-                        it != non_local_symbols.end();
-                        it++)
-                {
-					if (shared_symbols.contains(it->get_symbol()))
-                    {
-                        AST_t ref = it->get_ast();
-
-                        Source derref_source;
-                        derref_source << "(*" << ref.prettyprint() << ")";
-
-                        // Get the scope of this expression
-                        Scope expr_scope = modified_body_scope_link.get_scope(ref);
-
-                        // Parse this new expression
-                        AST_t derref_expr = derref_source.parse_expression(expr_scope);
-
-                        // And replace it in the tree
-                        ref.replace_with(derref_expr);
-                    }
-                }
-                
-				// Get again non local symbols
-                non_local_symbols = modified_body.non_local_symbol_occurrences();
-                // Rename all private references
-                for (ObjectList<IdExpression>::iterator it = non_local_symbols.begin();
-                        it != non_local_symbols.end();
-                        it++)
-                {
-					if (private_symbols.contains(it->get_symbol()))
-                    {
-                        AST_t ref = it->get_ast();
-						Symbol sym = it->get_symbol();
-
-                        // Here we would have to mangle privatized qualified
-                        // names (currently not done)
-                        //
-                        //   q       -> p_q
-                        //   A::q    -> p_A__q
-                        //   A<0>::q -> p_A_0___q 
-                        //
-						
-						Source privatized_ref;
-						privatized_ref << "p_" << sym.get_name();
-
-                        Scope expr_scope = modified_body_scope_link.get_scope(ref);
-						AST_t privatized_ref_tree = privatized_ref.parse_expression(expr_scope);
-
-						ref.replace_with(privatized_ref_tree);
-                        // name = "p_" + name;
-                        // ref.replace_text(name);
-                    }
-                }
-				
-				// Get again non local symbols
-				// Now replace the "this" entities
-				if (function_symbol.is_member())
-				{
-					non_local_symbols = modified_body.non_local_symbol_occurrences();
-					for (ObjectList<IdExpression>::iterator it = non_local_symbols.begin();
-							it != non_local_symbols.end();
-							it++)
+					if (!global_sym.is_valid() ||
+							(global_sym != current_sym))
 					{
-						if (it->is_unqualified())
+						// The symbol is either not accessible or it is not the same
+						// Since it is shared it must be referenced via a pointer
+						//
+
+						// This must be passed by pointer
+						pass_by_pointer.append(*it);
+
+						// The mapping is needed only if in shared because
+						// every reference will have to be replaced
+						if (shared_references.contains(functor(&IdExpression::get_symbol), current_sym))
 						{
-							Symbol s = it->get_symbol();
+							// First get a nice name by mangling it
+							//
+							// FIXME: There are cases we could see an unqualified identifier
+							// that due to scoping issues clashes with another unqualified identifier
+							// (e.g. different using namespaces in different block scopes)
+							std::string mangled_name = it->mangle_id_expression();
 
-							if (s.is_member() 
-									&& (function_symbol.get_class_type() == s.get_class_type()))
-							{
-								AST_t ref = it->get_ast();
-								std::string name = ref.prettyprint();
+							Source derref_name;
+							derref_name << "(*" << mangled_name << ")";
 
-								name = "_this->" + name;
+							// FIXME: this is a bit dangerous since the
+							// mangled_name might not exist but we do not have
+							// to disambiguate this
+							AST_t derref_tree = derref_name.parse_expression(it->get_scope());
 
-								ref.replace_text(name);
-							}
+							result.add_replacement(current_sym, derref_tree);
 						}
 					}
+
 				}
-                
-                outlined_body << modified_body.prettyprint();
+				
+				// First mix all things that will be made private
+				ObjectList<IdExpression> privatized_references;
+				privatized_references.append(private_references);
+				privatized_references.append(firstprivate_references);
+				privatized_references.append(lastprivate_references);
 
-                std::cerr << "--OUTLINE CODE--" << std::endl;
-                std::cerr << outline_code.get_source() << std::endl;
-                std::cerr << "--END OUTLINE CODE--" << std::endl;
+				for (ObjectList<IdExpression>::iterator it = privatized_references.begin();
+						it != privatized_references.end();
+						it++)
+				{
+					Symbol current_sym = it->get_symbol();
 
-                return outline_code.get_source();
-            }
+					if (result.has_replacement(current_sym))
+						continue;
 
-            std::string reference_to_name(Symbol& sym)
-            {
-                return std::string("&") + sym.get_name();
-            }
+					std::string mangled_name = std::string("p_") + it->mangle_id_expression();
 
-#endif
+					Source private_ref;
+					private_ref << mangled_name;
+
+					AST_t private_ref_tree = private_ref.parse_expression(it->get_scope());
+					
+					// This entity is privatized
+					privatized_entities.append(*it);
+
+					// Create a replacement for it
+					result.add_replacement(current_sym, private_ref_tree);
+				}
+
+				return result;
+			}
+
+			Source get_outlined_function_name(IdExpression function_name)
+			{
+				Source result;
+				if (function_name.is_qualified())
+				{
+					result
+						<< function_name.get_qualified_part() << "::"
+						;
+				}
+				result
+					<< "nth__" << function_name.get_unqualified_part() << "_" << num_parallels;
+
+				return result;
+			}
     };
 }
 

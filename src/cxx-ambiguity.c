@@ -1128,7 +1128,13 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
         case AST_EXPRESSION : 
         case AST_CONSTANT_EXPRESSION : 
             {
-                return check_for_expression(ASTSon0(expression), st, decl_context);
+				char result;
+                if (result = check_for_expression(ASTSon0(expression), st, decl_context))
+				{
+					ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+					ASTAttrSetValueType(expression, LANG_EXPRESSION_NEST, tl_type_t, tl_ast(ASTSon0(expression)));
+				}
+				return result;
             }
         case AST_AMBIGUITY :
             {
@@ -1202,12 +1208,37 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             }
             // Primaries
         case AST_DECIMAL_LITERAL :
-        case AST_OCTAL_LITERAL :
+		case AST_OCTAL_LITERAL :
         case AST_HEXADECIMAL_LITERAL :
+			{
+				ASTAttrSetValueType(expression, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
+                return 1;
+				break;
+			}
         case AST_FLOATING_LITERAL :
+			{
+				ASTAttrSetValueType(expression, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));
+                return 1;
+				break;
+			}
         case AST_BOOLEAN_LITERAL :
+			{
+				ASTAttrSetValueType(expression, LANG_IS_BOOLEAN_LITERAL, tl_type_t, tl_bool(1));
+                return 1;
+				break;
+			}
         case AST_CHARACTER_LITERAL :
+			{
+				ASTAttrSetValueType(expression, LANG_IS_CHARACTER_LITERAL, tl_type_t, tl_bool(1));
+                return 1;
+				break;
+			}
         case AST_STRING_LITERAL :
+			{
+				ASTAttrSetValueType(expression, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
+                return 1;
+				break;
+			}
         case AST_THIS_VARIABLE :
             {
                 return 1;
@@ -1268,8 +1299,13 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             }
         case AST_PARENTHESIZED_EXPRESSION :
             {
-                return check_for_expression(ASTSon0(expression), st,
-                        decl_context);
+				char result;
+                if (result = check_for_expression(ASTSon0(expression), st,
+                        decl_context))
+				{
+					ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+					ASTAttrSetValueType(expression, LANG_EXPRESSION_NEST, tl_type_t, tl_ast(ASTSon0(expression)));
+				}
             }
         case AST_SYMBOL :
             {
@@ -1323,12 +1359,30 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             // Postfix expressions
         case AST_ARRAY_SUBSCRIPT :
             {
-                return check_for_expression(ASTSon0(expression), st, decl_context )
+                char result = check_for_expression(ASTSon0(expression), st, decl_context )
                     && check_for_expression(ASTSon1(expression), st, decl_context );
+
+				if (result)
+				{
+                    ASTAttrSetValueType(expression, LANG_IS_ARRAY_SUBSCRIPT, tl_type_t, tl_bool(1));
+					ASTAttrSetValueType(expression, LANG_SUBSCRIPTED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_SUBSCRIPT_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+				}
+				return result;
             }
         case AST_FUNCTION_CALL :
             {
-                return check_for_function_call(expression, st, decl_context );
+                char result = check_for_function_call(expression, st, decl_context );
+
+				if (result)
+				{
+					ASTAttrSetValueType(expression, LANG_IS_FUNCTION_CALL, tl_type_t, tl_bool(1));
+					ASTAttrSetValueType(expression, LANG_CALLED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
+					ASTAttrSetValueType(expression, LANG_FUNCTION_ARGUMENTS, tl_type_t, tl_ast(ASTSon1(expression)));
+					// TODO function arguments
+				}
+
+				return result;
             }
         case AST_EXPLICIT_TYPE_CONVERSION :
             {
@@ -1447,12 +1501,41 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
         case AST_NOT_OP :
         case AST_COMPLEMENT_OP :
             {
-                return check_for_expression(ASTSon0(expression), st, decl_context);
+                char result = check_for_expression(ASTSon0(expression), st, decl_context);
+
+				char* unary_expression_attr[] =
+				{
+					[AST_DERREFERENCE]  = LANG_IS_DERREFERENCE_OP,
+					[AST_REFERENCE]     = LANG_IS_REFERENCE_OP,
+					[AST_PLUS_OP]       = LANG_IS_PLUS_OP,
+					[AST_NEG_OP]        = LANG_IS_NEGATE_OP,
+					[AST_NOT_OP]        = LANG_IS_NOT_OP,
+					[AST_COMPLEMENT_OP] = LANG_IS_COMPLEMENT_OP
+				};
+
+				if (result)
+				{
+					ASTAttrSetValueType(expression, 
+							unary_expression_attr[ASTType(expression)], tl_type_t, tl_bool(1));
+
+					ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+				}
+
+				return result;
             }
             // Cast expression
         case AST_CAST_EXPRESSION :
             {
-                return check_for_cast(expression, st, decl_context );
+                char result = check_for_cast(expression, st, decl_context );
+
+				if (result)
+				{
+					ASTAttrSetValueType(expression, LANG_IS_CAST, tl_type_t, tl_bool(1));
+					ASTAttrSetValueType(expression, LANG_CAST_TYPE, tl_type_t, tl_ast(ASTSon0(expression)));
+					ASTAttrSetValueType(expression, LANG_CASTED_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+				}
+
+				return result;
             }
         // Pointer to method expressions 
         case AST_POINTER_TO_POINTER_MEMBER :
@@ -1480,14 +1563,59 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
         case AST_LOGICAL_AND :
         case AST_LOGICAL_OR :
             {
-                return check_for_expression(ASTSon0(expression), st, decl_context )
+				char* binary_expression_attr[] =
+				{
+					[AST_MULT_OP] = LANG_IS_MULT_OP,
+					[AST_DIV_OP] = LANG_IS_DIVISION_OP,
+					[AST_MOD_OP] = LANG_IS_MODULUS_OP,
+					[AST_ADD_OP] = LANG_IS_ADDITION_OP,
+					[AST_MINUS_OP] = LANG_IS_SUBSTRACTION_OP,
+					[AST_SHL_OP] = LANG_IS_SHIFT_LEFT_OP,
+					[AST_SHR_OP] = LANG_IS_SHIFT_RIGHT_OP,
+					[AST_LOWER_THAN] = LANG_IS_LOWER_THAN_OP,
+					[AST_GREATER_THAN] = LANG_IS_GREATER_THAN_OP,
+					[AST_GREATER_OR_EQUAL_THAN] = LANG_IS_GREATER_OR_EQUAL_THAN_OP,
+					[AST_LOWER_OR_EQUAL_THAN] = LANG_IS_LOWER_OR_EQUAL_THAN_OP,
+					[AST_EQUAL_OP] = LANG_IS_EQUAL_OP,
+					[AST_DIFFERENT_OP] = LANG_IS_DIFFERENT_OP,
+					[AST_BITWISE_AND] = LANG_IS_BITWISE_AND_OP,
+					[AST_BITWISE_XOR] = LANG_IS_BITWISE_XOR_OP,
+					[AST_BITWISE_OR] = LANG_IS_BITWISE_OR_OP,
+					[AST_LOGICAL_AND] = LANG_IS_LOGICAL_AND_OP,
+					[AST_LOGICAL_OR] = LANG_IS_LOGICAL_OR_OP
+				};
+
+				char result = check_for_expression(ASTSon0(expression), st, decl_context )
                     && check_for_expression(ASTSon1(expression), st, decl_context );
+
+				if (result)
+				{
+					ASTAttrSetValueType(expression, 
+							binary_expression_attr[ASTType(expression)], tl_type_t, tl_bool(1));
+
+					ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+					ASTAttrSetValueType(expression, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
+				}
+
+				return result;
             }
         case AST_CONDITIONAL_EXPRESSION :
             {
-                return check_for_expression(ASTSon0(expression), st, decl_context )
+                char result = check_for_expression(ASTSon0(expression), st, decl_context )
                     && check_for_expression(ASTSon1(expression), st, decl_context )
                     && check_for_expression(ASTSon2(expression), st, decl_context );
+
+				if (result)
+				{
+					ASTAttrSetValueType(expression, LANG_IS_CONDITIONAL_EXPRESSION,
+							tl_type_t, tl_bool(1));
+
+					ASTAttrSetValueType(expression, LANG_CONDITIONAL_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
+					ASTAttrSetValueType(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+					ASTAttrSetValueType(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, tl_type_t, tl_ast(ASTSon2(expression)));
+				}
+
+				return result;
             }
         case AST_ASSIGNMENT :
         case AST_MUL_ASSIGNMENT :
@@ -1501,8 +1629,31 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
         case AST_XOR_ASSIGNMENT :
         case AST_MOD_ASSIGNMENT :
             {
-                return check_for_expression(ASTSon0(expression), st, decl_context )
+				char* assig_op_attr[] =
+				{
+					[AST_ASSIGNMENT]     = LANG_IS_ASSIGNMENT,
+					[AST_MUL_ASSIGNMENT] = LANG_IS_MUL_ASSIGNMENT,
+					[AST_DIV_ASSIGNMENT] = LANG_IS_DIV_ASSIGNMENT,
+					[AST_ADD_ASSIGNMENT] = LANG_IS_ADD_ASSIGNMENT,
+					[AST_SUB_ASSIGNMENT] = LANG_IS_SUB_ASSIGNMENT,
+					[AST_SHL_ASSIGNMENT] = LANG_IS_SHL_ASSIGNMENT,
+					[AST_SHR_ASSIGNMENT] = LANG_IS_SHR_ASSIGNMENT,
+					[AST_AND_ASSIGNMENT] = LANG_IS_AND_ASSIGNMENT,
+					[AST_OR_ASSIGNMENT ] = LANG_IS_OR_ASSIGNMENT, 
+					[AST_XOR_ASSIGNMENT] = LANG_IS_XOR_ASSIGNMENT,
+					[AST_MOD_ASSIGNMENT] = LANG_IS_MOD_ASSIGNMENT,
+				};
+                char result = check_for_expression(ASTSon0(expression), st, decl_context )
                     && check_for_expression(ASTSon1(expression), st, decl_context );
+
+				if (result)
+				{
+					ASTAttrSetValueType(expression, assig_op_attr[ASTType(expression)], tl_type_t, tl_bool(1));
+					ASTAttrSetValueType(expression, LANG_LHS_ASSIGNMENT, tl_type_t, tl_ast(ASTSon0(expression)));
+					ASTAttrSetValueType(expression, LANG_RHS_ASSIGNMENT, tl_type_t, tl_ast(ASTSon1(expression)));
+				}
+
+				return result;
             }
         case AST_THROW_EXPRESSION :
             {
@@ -1515,8 +1666,17 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             }
         case AST_COMMA_OP :
             {
-                return check_for_expression(ASTSon0(expression), st, decl_context )
+				char result = check_for_expression(ASTSon0(expression), st, decl_context )
                     && check_for_expression(ASTSon1(expression), st, decl_context );
+
+				if (result)
+				{
+					ASTAttrSetValueType(expression, LANG_IS_COMMA_OP, tl_type_t, tl_bool(1));
+					ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+					ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
+				}
+
+				return result;
             }
             // GCC Extension
         case AST_GCC_LABEL_ADDR :

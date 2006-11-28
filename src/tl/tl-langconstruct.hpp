@@ -4,6 +4,8 @@
 #include "tl-ast.hpp"
 #include "tl-symbol.hpp"
 #include "tl-scopelink.hpp"
+#include "tl-builtin.hpp"
+#include "cxx-attrnames.h"
 #include <string>
 #include <utility>
 
@@ -59,6 +61,7 @@ namespace TL
 
 			Symbol get_symbol() const;
 			AST_t get_ast() const;
+
 	};
 
 	class Statement : public LangConstruct
@@ -76,6 +79,26 @@ namespace TL
 			ObjectList<IdExpression> local_symbol_occurrences();
 	};
 
+	class ForStatement : public Statement
+	{
+		public:
+			ForStatement(AST_t ref, ScopeLink scope_link)
+				: Statement(ref, scope_link)
+			{
+			}
+
+			ForStatement(Statement& st)
+				 : Statement(st)
+			{
+				TL::Bool b = this->_ref.get_attribute(LANG_IS_FOR_STATEMENT);
+
+				if (b)
+				{
+					std::cerr << "The given statement is not a for statement" << std::endl;
+				}
+			}
+	};
+
 	class FunctionDefinition : public LangConstruct
 	{
 		public:
@@ -87,6 +110,22 @@ namespace TL
 			}
 
 			IdExpression get_function_name();
+	};
+
+	class ReplaceIdExpression : public ObjectList<std::pair<Symbol, AST_t> >
+	{
+		private:
+			std::map<Symbol, AST_t> _repl_map;
+		public:
+			ReplaceIdExpression()
+			{
+			}
+
+			void add_replacement(Symbol sym, AST_t ast);
+
+			void replace(Statement statement);
+
+			bool has_replacement(Symbol sym);
 	};
 
 }
