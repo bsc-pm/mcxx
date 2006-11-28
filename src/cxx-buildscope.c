@@ -539,6 +539,9 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
                 new_decl_context);
     }
 
+	ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
+	ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
+
     // A type has been specified and there are declarators ahead
     if (simple_type_info != NULL && (ASTSon1(a) != NULL))
     {
@@ -560,7 +563,6 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
             AST initializer = ASTSon1(init_declarator);
 
             type_t* declarator_type;
-
 
             // This will create the symbol if it is unqualified
             scope_t* parameters_scope = NULL;
@@ -603,6 +605,8 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 
                     check_for_initialization(initializer, entry_list->entry->scope, decl_context);
                     entry_list->entry->expression_value = initializer;
+
+					ASTAttrSetValueType(declarator_name, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
                 }
             }
             else
@@ -611,6 +615,7 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
             }
         }
     }
+
 }
 
 
@@ -2228,6 +2233,9 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
         {
             decl_st = compilation_options.global_scope;
         }
+
+		ASTAttrSetValueType(declarator_name, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
+		ASTAttrSetValueType(declarator_name, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
     }
 
     build_scope_declarator_rec(a, decl_st, parameters_scope, declarator_type, 
@@ -2502,6 +2510,12 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
             {
                 entry->defined = 1;
             }
+
+			AST declarator_name = get_declarator_name(parameter_declarator, st, decl_context);
+			if (declarator_name != NULL)
+			{
+				ASTAttrSetValueType(declarator_name, LANG_IS_DECLARED_PARAMETER, tl_type_t, tl_bool(1));
+			}
 
             parameter_info_t* new_parameter = GC_CALLOC(1, sizeof(*new_parameter));
             new_parameter->type_info = type_info;
@@ -5832,7 +5846,7 @@ static void build_scope_declaration_statement(AST a, scope_t* st, decl_context_t
 
     build_scope_declaration(declaration, st, decl_context);
 
-	ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
+	ASTAttrSetValueType(a, LANG_IS_DECLARATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void solve_expression_ambiguities(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
@@ -5900,6 +5914,10 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
     build_scope_statement(statement, block_scope, decl_context);
 
 	ASTAttrSetValueType(a, LANG_IS_FOR_STATEMENT, tl_type_t, tl_bool(1));
+	ASTAttrSetValueType(a, LANG_FOR_INIT_CONSTRUCT, tl_type_t, tl_ast(for_init_statement));
+	ASTAttrSetValueType(a, LANG_FOR_CONDITION, tl_type_t, tl_ast(condition));
+	ASTAttrSetValueType(a, LANG_FOR_ITERATION_EXPRESSION, tl_type_t, tl_ast(expression));
+	ASTAttrSetValueType(a, LANG_FOR_BODY_STATEMENT, tl_type_t, tl_ast(statement));
 }
 
 static void build_scope_switch_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
@@ -6261,7 +6279,7 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
 {
     STMT_HANDLER(AST_AMBIGUITY, build_scope_ambiguity_handler, NULL),
     STMT_HANDLER(AST_EXPRESSION_STATEMENT, solve_expression_ambiguities, LANG_IS_EXPRESSION),
-    STMT_HANDLER(AST_DECLARATION_STATEMENT, build_scope_declaration_statement, LANG_IS_DECLARATION),
+    STMT_HANDLER(AST_DECLARATION_STATEMENT, build_scope_declaration_statement, LANG_IS_DECLARATION_STATEMENT),
     STMT_HANDLER(AST_COMPOUND_STATEMENT, build_scope_compound_statement, LANG_IS_COMPOUND_STATEMENT),
     STMT_HANDLER(AST_DO_STATEMENT, build_scope_do_statement, LANG_IS_DO_STATEMENT),
     STMT_HANDLER(AST_WHILE_STATEMENT, build_scope_while_statement, LANG_IS_WHILE_STATEMENT),

@@ -1131,8 +1131,7 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
 				char result;
                 if (result = check_for_expression(ASTSon0(expression), st, decl_context))
 				{
-					ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-					ASTAttrSetValueType(expression, LANG_EXPRESSION_NEST, tl_type_t, tl_ast(ASTSon0(expression)));
+					expression->extended_data = ASTSon0(expression)->extended_data;
 				}
 				return result;
             }
@@ -1303,8 +1302,8 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 if (result = check_for_expression(ASTSon0(expression), st,
                         decl_context))
 				{
-					ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-					ASTAttrSetValueType(expression, LANG_EXPRESSION_NEST, tl_type_t, tl_ast(ASTSon0(expression)));
+					// This simplifies things a lot
+					expression->extended_data = ASTSon0(expression)->extended_data;
 				}
             }
         case AST_SYMBOL :

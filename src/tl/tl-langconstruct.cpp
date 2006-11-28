@@ -1,5 +1,6 @@
 #include "tl-langconstruct.hpp"
 #include "tl-predicateutils.hpp"
+#include "tl-source.hpp"
 #include "cxx-attrnames.h"
 
 namespace TL
@@ -159,5 +160,59 @@ namespace TL
 	bool ReplaceIdExpression::has_replacement(Symbol sym)
 	{
 		return (_repl_map.find(sym) != _repl_map.end());
+	}
+
+	bool ForStatement::check_statement()
+	{
+		TL::Bool b = this->_ref.get_attribute(LANG_IS_FOR_STATEMENT);
+
+		if (!b)
+		{
+			std::cerr << "The given statement is not a for statement" << std::endl;
+		}
+
+		return b;
+	}
+
+	void ForStatement::gather_for_information()
+	{
+		// First gather init expression and lower bound
+		AST_t init_expr = this->_ref.get_attribute(LANG_FOR_INIT_CONSTRUCT);
+
+		TL::Bool is_assignment = init_expr.get_attribute(LANG_IS_ASSIGNMENT);
+		if (is_assignment)
+		{
+			AST_t lhs_assignment = init_expr.get_attribute(LANG_LHS_ASSIGNMENT);
+			AST_t rhs_assignment = init_expr.get_attribute(LANG_RHS_ASSIGNMENT);
+
+			TL::Bool is_id_expression = lhs_assignment.get_attribute(LANG_IS_ID_EXPRESSION);
+
+			_induction_variable = lhs_assignment;
+			_lower_bound = rhs_assignment;
+		}
+
+		TL::Bool is_declaration = this->_ref.get_attribute(LANG_IS_DECLARATION);
+		if (is_declaration)
+		{
+			PredicateBool<LANG_IS_DECLARED_NAME> lang_declared_name_pred;
+			PredicateBool<LANG_IS_DECLARED_PARAMETER> lang_declared_param_pred;
+
+			ObjectList<AST_t> declared_symbols =
+			this->_ref.depth_subtrees().filter(lang_declared_name_pred).filter(negate(lang_declared_param_pred));
+
+			if (declared_symbols.size() == 1)
+			{
+				Source id_expression_str;
+				AST_t declared_name = *(declared_symbols.begin());
+				id_expression_str << declared_name.prettyprint();
+
+				AST_t id_expression_tree = id_expression_str.parse_expression(this->get_scope());
+
+				_induction_variable = id_expression_tree;
+				_lower_bound = declared_name.get_attribute(LANG_INITIALIZER);
+			}
+		}
+
+		// Now gather upper bound
 	}
 }

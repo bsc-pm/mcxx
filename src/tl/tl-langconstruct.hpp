@@ -81,20 +81,30 @@ namespace TL
 
 	class ForStatement : public Statement
 	{
+		private:
+			AST_t _induction_variable;
+			AST_t _lower_bound;
+			AST_t _upper_bound;
+			AST_t _step;
+
+			void gather_for_information();
+			bool check_statement();
 		public:
 			ForStatement(AST_t ref, ScopeLink scope_link)
 				: Statement(ref, scope_link)
 			{
+				if (check_statement())
+				{
+					gather_for_information();
+				}
 			}
 
 			ForStatement(Statement& st)
 				 : Statement(st)
 			{
-				TL::Bool b = this->_ref.get_attribute(LANG_IS_FOR_STATEMENT);
-
-				if (b)
+				if (check_statement())
 				{
-					std::cerr << "The given statement is not a for statement" << std::endl;
+					gather_for_information();
 				}
 			}
 	};
