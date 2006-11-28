@@ -122,6 +122,63 @@ namespace TL
 			IdExpression get_function_name();
 	};
 
+    class Expression : public LangConstruct
+    {
+        private:
+            static AST_t advance_over_nests(AST_t);
+        public :
+            Expression(AST_t ref, ScopeLink scope_link)
+                : LangConstruct(ref, scope_link)
+            {
+                this->_ref = advance_over_nests(this->_ref);
+            }
+
+            bool is_id_expression();
+            IdExpression get_id_expression();
+
+            bool is_binary_operation();
+
+            bool is_unary_operation();
+
+            AST_t get_cast_type();
+            Expression get_casted_expression();
+            bool is_casting();
+
+            bool is_assignment();
+
+            bool is_operation_assignment();
+
+            bool is_array_subscript();
+
+            Expression get_first_operand();
+            Expression get_second_operand();
+
+            Expression get_unary_operand();
+    };
+
+    class DeclaredEntity : public LangConstruct
+    {
+        public :
+            DeclaredEntity(AST_t ast, ScopeLink scope_link)
+                : LangConstruct(ast, scope_link)
+            {
+            }
+
+            IdExpression get_declared_entity();
+            bool has_initializer();
+            Expression get_initializer();
+    };
+    class Declaration : public LangConstruct
+    {
+        public:
+            Declaration(AST_t ast, ScopeLink scope_link)
+                : LangConstruct(ast, scope_link)
+            {
+            }
+
+            ObjectList<DeclaredEntity> get_declared_entities();
+    };
+
 	class ReplaceIdExpression : public ObjectList<std::pair<Symbol, AST_t> >
 	{
 		private:

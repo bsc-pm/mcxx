@@ -162,6 +162,181 @@ namespace TL
 		return (_repl_map.find(sym) != _repl_map.end());
 	}
 
+    AST_t Expression::advance_over_nests(AST_t expr)
+    {
+        TL::Bool is_expression_nest = expr.get_attribute(LANG_IS_EXPRESSION_NEST);
+
+        while (is_expression_nest)
+        {
+            expr = expr.get_attribute(LANG_EXPRESSION_NESTED);
+            is_expression_nest = expr.get_attribute(LANG_IS_EXPRESSION_NEST);
+        }
+
+        return expr;
+    }
+
+    bool Expression::is_id_expression()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_ID_EXPRESSION);
+
+        return b;
+    }
+
+    IdExpression Expression::get_id_expression()
+    {
+        return IdExpression(_ref, this->_scope_link);
+    }
+
+    bool Expression::is_binary_operation()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_BINARY_OPERATION);
+
+        return b;
+    }
+
+    bool Expression::is_unary_operation()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_UNARY_OPERATION);
+
+        return b;
+    }
+
+    bool Expression::is_assignment()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_ASSIGNMENT);
+
+        return b;
+    }
+    
+    bool Expression::is_operation_assignment()
+    {
+        TL::Bool b(false);
+        b = TL::Bool(_ref.get_attribute(LANG_IS_MUL_ASSIGNMENT))
+            || TL::Bool(_ref.get_attribute(LANG_IS_DIV_ASSIGNMENT))
+            || TL::Bool(_ref.get_attribute(LANG_IS_ADD_ASSIGNMENT))
+            || TL::Bool(_ref.get_attribute(LANG_IS_SUB_ASSIGNMENT))
+            || TL::Bool(_ref.get_attribute(LANG_IS_SHL_ASSIGNMENT))
+            || TL::Bool(_ref.get_attribute(LANG_IS_SHR_ASSIGNMENT))
+            || TL::Bool(_ref.get_attribute(LANG_IS_AND_ASSIGNMENT))
+            || TL::Bool(_ref.get_attribute(LANG_IS_OR_ASSIGNMENT))
+            || TL::Bool(_ref.get_attribute(LANG_IS_XOR_ASSIGNMENT))
+            || TL::Bool(_ref.get_attribute(LANG_IS_MOD_ASSIGNMENT));
+
+        return b;
+    }
+
+    bool Expression::is_array_subscript()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_ARRAY_SUBSCRIPT);
+
+        return b;
+    }
+
+    bool Expression::is_casting()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_CAST);
+
+        return b;
+    }
+
+    AST_t Expression::get_cast_type()
+    {
+        AST_t result = _ref.get_attribute(LANG_CAST_TYPE);
+
+        return result;
+    }
+
+    Expression Expression::get_casted_expression()
+    {
+        Expression result(_ref.get_attribute(LANG_CASTED_EXPRESSION), this->_scope_link);
+
+        return result;
+    }
+
+    Expression Expression::get_first_operand()
+    {
+        if (this->is_assignment() || this->is_operation_assignment())
+        {
+            AST_t result = _ref.get_attribute(LANG_LHS_ASSIGNMENT);
+            return Expression(result, this->_scope_link);
+        }
+        else
+        {
+            AST_t result = _ref.get_attribute(LANG_LHS_OPERAND);
+            return Expression(result, this->_scope_link);
+        }
+    }
+
+    Expression Expression::get_second_operand()
+    {
+        if (this->is_assignment() || this->is_operation_assignment())
+        {
+            AST_t result = _ref.get_attribute(LANG_RHS_ASSIGNMENT);
+            return Expression(result, this->_scope_link);
+        }
+        else
+        {
+            AST_t result = _ref.get_attribute(LANG_RHS_OPERAND);
+            return Expression(result, this->_scope_link);
+        }
+    }
+
+    Expression Expression::get_unary_operand()
+    {
+        AST_t result = _ref.get_attribute(LANG_RHS_OPERAND);
+
+        return Expression(result, this->_scope_link);
+    }
+
+    IdExpression DeclaredEntity::get_declared_entity()
+    {
+        // We convert it into an expression for commodity
+        AST_t declared_name = _ref.get_attribute(LANG_DECLARED_NAME);
+
+        Source declared_name_str = declared_name.prettyprint();
+
+        AST_t expression_ast = declared_name_str.parse_expression(this->get_scope());
+
+        Expression expression(expression_ast, this->_scope_link);
+
+        return expression.get_id_expression();
+    }
+
+    bool DeclaredEntity::has_initializer()
+    {
+        AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
+        
+        return initializer.is_valid();
+    }
+
+    Expression DeclaredEntity::get_initializer()
+    {
+        AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
+
+        return Expression(initializer, this->_scope_link);
+    }
+
+    ObjectList<DeclaredEntity> Declaration::get_declared_entities()
+    {
+        PredicateBool<LANG_IS_DECLARED_NAME> lang_declared_name_pred;
+        PredicateBool<LANG_IS_DECLARED_PARAMETER> lang_declared_param_pred;
+
+        ObjectList<AST_t> declared_symbols =
+            this->_ref.depth_subtrees().filter(lang_declared_name_pred).filter(negate(lang_declared_param_pred));
+
+        ObjectList<DeclaredEntity> result;
+        for (ObjectList<AST_t>::iterator it = declared_symbols.begin();
+                it != declared_symbols.end();
+                it++)
+        {
+            DeclaredEntity declared(*it, this->_scope_link);
+
+            result.push_back(declared);
+        }
+
+        return result;
+    }
+
 	bool ForStatement::check_statement()
 	{
 		TL::Bool b = this->_ref.get_attribute(LANG_IS_FOR_STATEMENT);
@@ -179,37 +354,39 @@ namespace TL
 		// First gather init expression and lower bound
 		AST_t init_expr = this->_ref.get_attribute(LANG_FOR_INIT_CONSTRUCT);
 
-		TL::Bool is_assignment = init_expr.get_attribute(LANG_IS_ASSIGNMENT);
-		if (is_assignment)
+		TL::Bool is_expression = init_expr.get_attribute(LANG_IS_EXPRESSION_NEST);
+		if (is_expression)
 		{
-			AST_t lhs_assignment = init_expr.get_attribute(LANG_LHS_ASSIGNMENT);
-			AST_t rhs_assignment = init_expr.get_attribute(LANG_RHS_ASSIGNMENT);
+            Expression expr(init_expr, this->_scope_link);
 
-			TL::Bool is_id_expression = lhs_assignment.get_attribute(LANG_IS_ID_EXPRESSION);
+            if (expr.is_assignment())
+            {
+                Expression lhs_assignment = expr.get_first_operand();
+                Expression rhs_assignment = expr.get_second_operand();
 
-			_induction_variable = lhs_assignment;
-			_lower_bound = rhs_assignment;
+                if (lhs_assignment.is_id_expression())
+                {
+                    _induction_variable = lhs_assignment.get_ast();
+                    _lower_bound = rhs_assignment.get_ast();
+                }
+            }
 		}
 
 		TL::Bool is_declaration = this->_ref.get_attribute(LANG_IS_DECLARATION);
 		if (is_declaration)
 		{
-			PredicateBool<LANG_IS_DECLARED_NAME> lang_declared_name_pred;
-			PredicateBool<LANG_IS_DECLARED_PARAMETER> lang_declared_param_pred;
+            Declaration declaration(is_declaration, this->_scope_link);
 
-			ObjectList<AST_t> declared_symbols =
-			this->_ref.depth_subtrees().filter(lang_declared_name_pred).filter(negate(lang_declared_param_pred));
+            ObjectList<DeclaredEntity> declared_symbols = declaration.get_declared_entities();
 
 			if (declared_symbols.size() == 1)
 			{
-				Source id_expression_str;
-				AST_t declared_name = *(declared_symbols.begin());
-				id_expression_str << declared_name.prettyprint();
+				DeclaredEntity declared_name = *(declared_symbols.begin());
 
-				AST_t id_expression_tree = id_expression_str.parse_expression(this->get_scope());
+                IdExpression declared_entity = declared_name.get_declared_entity();
 
-				_induction_variable = id_expression_tree;
-				_lower_bound = declared_name.get_attribute(LANG_INITIALIZER);
+				_induction_variable = declared_entity.get_ast();
+				_lower_bound = declared_name.get_initializer().get_ast();
 			}
 		}
 

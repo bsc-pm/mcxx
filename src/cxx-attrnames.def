@@ -6,7 +6,7 @@ LANG_CONDITIONAL_FALSE_EXPRESSION lang.conditional_false_expression
 LANG_CONDITIONAL_TRUE_EXPRESSION lang.conditional_true_expression
 LANG_DECLARATION_SPECIFIERS lang.declaration_specifiers
 LANG_DECLARED_NAME lang.declared_name
-LANG_IS_DECLARED_PARAMETER lang.is_declared_parameter
+LANG_EXPRESSION_NESTED lang.expression_nested
 LANG_FOR_BODY_STATEMENT lant.for_body_statement
 LANG_FOR_CONDITION lang.for_condition
 LANG_FOR_INIT_CONSTRUCT lang.for_init_construct
@@ -19,6 +19,7 @@ LANG_IS_ADDITION_OP lang.is_addition_op
 LANG_IS_AND_ASSIGNMENT lang.is_and_assignment
 LANG_IS_ARRAY_SUBSCRIPT lang.is_array_subscript
 LANG_IS_ASSIGNMENT lang.is_assignment
+LANG_IS_BINARY_OPERATION lang.is_binary_operation
 LANG_IS_BITWISE_AND_OP lang.is_bitwise_and_op
 LANG_IS_BITWISE_OR_OP lang.is_bitwise_or_op
 LANG_IS_BITWISE_XOR_OP lang.is_bitwise_xor_op
@@ -35,6 +36,7 @@ LANG_IS_CONTINUE_STATEMENT lang.is_continue_statement
 LANG_IS_DECLARATION lang.is_declaration
 LANG_IS_DECLARATION_STATEMENT lang.is_declaration_statement
 LANG_IS_DECLARED_NAME lang.is_declared_name
+LANG_IS_DECLARED_PARAMETER lang.is_declared_parameter
 LANG_IS_DEFAULT_STATEMENT lang.is_default_statement
 LANG_IS_DERREFERENCE_OP lang.is_derreference_op
 LANG_IS_DIFFERENT_OP lang.is_different_op
@@ -43,7 +45,8 @@ LANG_IS_DIVISION_OP lang.is_division_op
 LANG_IS_DO_STATEMENT lang.is_do_statement
 LANG_IS_EMPTY_STATEMENT lang.is_empty_statement
 LANG_IS_EQUAL_OP lang.is_equal_op
-LANG_IS_EXPRESSION lang.is_expression_statement
+LANG_IS_EXPRESSION_NEST lang.is_expression_nest
+LANG_IS_EXPRESSION_STATEMENT lang.is_expression_statement
 LANG_IS_FLOATING_LITERAL lang.is_floating_literal
 LANG_IS_FOR_STATEMENT lang.is_for_statement
 LANG_IS_FUNCTION_CALL lang.is_function_call
@@ -79,6 +82,7 @@ LANG_IS_SUB_ASSIGNMENT lang.is_sub_assignment
 LANG_IS_SUBSTRACTION_OP lang.is_substraction_op
 LANG_IS_SWITCH_STATEMENT lang.is_switch_statement
 LANG_IS_TRY_BLOCK lang.is_try_block
+LANG_IS_UNARY_OPERATION lang.is_unary_operation
 LANG_IS_UNQUALIFIED_ID lang.is_unqualified_id
 LANG_IS_WHILE_STATEMENT lang.is_while_statement
 LANG_IS_XOR_ASSIGNMENT lang.is_xor_assignment

@@ -6278,7 +6278,7 @@ static void build_scope_omp_critical_construct(AST a, scope_t* st, decl_context_
 static stmt_scope_handler_map_t stmt_scope_handlers[] =
 {
     STMT_HANDLER(AST_AMBIGUITY, build_scope_ambiguity_handler, NULL),
-    STMT_HANDLER(AST_EXPRESSION_STATEMENT, solve_expression_ambiguities, LANG_IS_EXPRESSION),
+    STMT_HANDLER(AST_EXPRESSION_STATEMENT, solve_expression_ambiguities, LANG_IS_EXPRESSION_STATEMENT),
     STMT_HANDLER(AST_DECLARATION_STATEMENT, build_scope_declaration_statement, LANG_IS_DECLARATION_STATEMENT),
     STMT_HANDLER(AST_COMPOUND_STATEMENT, build_scope_compound_statement, LANG_IS_COMPOUND_STATEMENT),
     STMT_HANDLER(AST_DO_STATEMENT, build_scope_do_statement, LANG_IS_DO_STATEMENT),

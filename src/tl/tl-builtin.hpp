@@ -195,22 +195,22 @@ class Bool : public Object
 			return true;
 		}
 
-		Bool operator&&(const Bool& b)
+		Bool operator&&(const Bool& b) const
 		{
 			return Bool(_b && b._b);
 		}
 
-		Bool operator||(const Bool& b)
+		Bool operator||(const Bool& b) const
 		{
 			return Bool(_b || b._b);
 		}
 
-		Bool operator!()
+		Bool operator!() const
 		{
 			return Bool(!_b);
 		}
 
-		Bool& operator=(Bool& b)
+		Bool& operator=(const Bool& b)
 		{
 			_b = b._b;
 			return (*this);

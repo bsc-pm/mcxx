@@ -1127,11 +1127,13 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
     {
         case AST_EXPRESSION : 
         case AST_CONSTANT_EXPRESSION : 
+        case AST_PARENTHESIZED_EXPRESSION :
             {
 				char result;
                 if (result = check_for_expression(ASTSon0(expression), st, decl_context))
 				{
-					expression->extended_data = ASTSon0(expression)->extended_data;
+                    ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(expression)));
 				}
 				return result;
             }
@@ -1295,16 +1297,6 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             {
                 // This always yields a value, does not it?
                 return 1;
-            }
-        case AST_PARENTHESIZED_EXPRESSION :
-            {
-				char result;
-                if (result = check_for_expression(ASTSon0(expression), st,
-                        decl_context))
-				{
-					// This simplifies things a lot
-					expression->extended_data = ASTSon0(expression)->extended_data;
-				}
             }
         case AST_SYMBOL :
             {
@@ -1518,6 +1510,8 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
 							unary_expression_attr[ASTType(expression)], tl_type_t, tl_bool(1));
 
 					ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+
+                    ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
 				}
 
 				return result;
@@ -1594,6 +1588,7 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
 
 					ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
 					ASTAttrSetValueType(expression, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ASTAttrSetValueType(expression, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
 				}
 
 				return result;
