@@ -70,6 +70,14 @@ namespace TL
                         lastprivate_references,
                         reduction_references);
 
+                IdExpression induction_var = for_statement.get_induction_variable();
+                if (!private_references.contains(functor(&IdExpression::get_symbol), induction_var.get_symbol()))
+                {
+                    private_references.append(induction_var);
+					shared_references = shared_references.not_find(functor(&IdExpression::get_symbol), 
+							induction_var.get_symbol());
+				}
+
                 ObjectList<IdExpression> pass_by_pointer;
                 ObjectList<IdExpression> privatized_entities;
                 // Create the replacement map and the pass_by_pointer set
@@ -228,15 +236,6 @@ namespace TL
                 IdExpression induction_var = for_statement.get_induction_variable();
                 induction_var_name << "p_" << induction_var.mangle_id_expression();
 
-                if (!privatized_entities.contains(functor(&IdExpression::get_symbol), induction_var.get_symbol()))
-                {
-					Source replacement_source;
-
-					replacement_source << "p_" << induction_var.mangle_id_expression();
-					replace_references.add_replacement(induction_var.get_symbol(), replacement_source);
-
-                    privatized_entities.append(induction_var);
-                }
 
                 // Formal parameters, basically pass_by_pointer things
                 // (and sometimes something else)

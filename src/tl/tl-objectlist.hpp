@@ -144,10 +144,43 @@ class ObjectList : public std::vector<T>
 			}
 		}
 
+		ObjectList<T> not_find(const T& t)
+		{
+			ObjectList<T> result;
+
+			for (typename ObjectList<T>::iterator it = this->begin();
+					it != this->end();
+					it++)
+			{
+				if (!((*it) == t))
+				{
+					result.append(*it);
+				}
+			}
+		}
+
+		template <class S>
+		ObjectList<T> not_find(const Functor<S, T>& f, const S& s)
+		{
+			ObjectList<T> result;
+
+			for (typename ObjectList<T>::iterator it = this->begin();
+					it != this->end();
+					it++)
+			{
+				if (!(f(*it) == s))
+				{
+					result.append(*it);
+				}
+			}
+
+			return result;
+		}
+
 		template <class S>
 		ObjectList<T> find(const Functor<S, T>& f, const S& s)
 		{
-			ObjectList<S> result;
+			ObjectList<T> result;
 
 			for (typename ObjectList<T>::const_iterator it = this->begin();
 					it != this->end();
