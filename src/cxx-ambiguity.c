@@ -532,7 +532,8 @@ void solve_ambiguous_statement(AST a, scope_t* st, decl_context_t decl_context)
 
     if (correct_choice < 0)
     {
-        ast_dump_graphviz(a, stderr);
+		fprintf(stderr, "This statement cannot be disambiguated:\n");
+		prettyprint(stderr, a);
         internal_error("Ambiguity not solved\n", 0);
     }
     else
@@ -1130,7 +1131,8 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
         case AST_PARENTHESIZED_EXPRESSION :
             {
 				char result;
-                if (result = check_for_expression(ASTSon0(expression), st, decl_context))
+                result = check_for_expression(ASTSon0(expression), st, decl_context);
+                if (result)
 				{
                     ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(expression)));
@@ -1423,10 +1425,19 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 return 1;
             }
         case AST_POSTINCREMENT :
+			{
+                check_for_expression(ASTSon0(expression), st, decl_context );
+				ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
+				ASTAttrSetValueType(expression, LANG_IS_POSTINCREMENT, tl_type_t, tl_bool(1));
+				ASTAttrSetValueType(expression, LANG_EXPRESSION_INCREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
+				return 1;
+			}
         case AST_POSTDECREMENT :
             {
-                // This cannot yield a type
                 check_for_expression(ASTSon0(expression), st, decl_context );
+				ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
+				ASTAttrSetValueType(expression, LANG_IS_POSTDECREMENT, tl_type_t, tl_bool(1));
+				ASTAttrSetValueType(expression, LANG_EXPRESSION_DECREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
                 return 1;
             }
         case AST_DYNAMIC_CAST :
@@ -1472,9 +1483,19 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             }
         // Unary expressions
         case AST_PREINCREMENT :
+			{
+                check_for_expression(ASTSon0(expression), st, decl_context);
+				ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
+				ASTAttrSetValueType(expression, LANG_IS_PREINCREMENT, tl_type_t, tl_bool(1));
+				ASTAttrSetValueType(expression, LANG_EXPRESSION_INCREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
+				return 1;
+			}
         case AST_PREDECREMENT :
             {
                 check_for_expression(ASTSon0(expression), st, decl_context);
+				ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
+				ASTAttrSetValueType(expression, LANG_IS_PREDECREMENT, tl_type_t, tl_bool(1));
+				ASTAttrSetValueType(expression, LANG_EXPRESSION_DECREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
                 return 1;
             }
         case AST_SIZEOF :
@@ -2501,7 +2522,8 @@ char check_for_initialization(AST initializer, scope_t* st, decl_context_t decl_
         case AST_CONSTANT_INITIALIZER :
             {
                 AST expression = ASTSon0(initializer);
-                return check_for_expression(expression, st, decl_context);
+                char result = check_for_expression(expression, st, decl_context);
+				return result;
                 break;
             }
         case AST_INITIALIZER :
@@ -2576,7 +2598,13 @@ static char check_for_initializer_clause(AST initializer, scope_t* st, decl_cont
         case AST_INITIALIZER_EXPR :
             {
                 AST expression = ASTSon0(initializer);
-                return check_for_expression(expression, st, decl_context);
+				char result = check_for_expression(expression, st, decl_context);
+
+				if (result)
+				{
+					ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+					ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expression));
+				}
                 break;
             }
         case AST_DESIGNATED_INITIALIZER :
@@ -2728,8 +2756,12 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
                     {
                         AST current_choice = parameter_decl;
                         AST previous_choice = parameter->ambig[correct_choice];
-                        ast_dump_graphviz(previous_choice, stderr);
-                        ast_dump_graphviz(current_choice, stderr);
+						fprintf(stderr, "Previous choice\n");
+						prettyprint(stderr, previous_choice);
+						fprintf(stderr, "\n");
+						fprintf(stderr, "Current choice\n");
+						prettyprint(stderr, current_choice);
+						fprintf(stderr, "\n");
                         internal_error("More than one valid alternative '%s' vs '%s' %s", 
                                 ast_print_node_type(ASTType(previous_choice)),
                                 ast_print_node_type(ASTType(current_choice)),

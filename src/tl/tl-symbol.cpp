@@ -66,6 +66,12 @@ namespace TL
 		return (this->_symbol->kind == SK_VARIABLE);
 	}
 
+	bool Symbol::is_function() const
+	{
+		return (this->_symbol->kind == SK_FUNCTION
+				|| this->_symbol->kind == SK_TEMPLATE_FUNCTION);
+	}
+
 	bool Symbol::is_typename() const
 	{
 		return (this->_symbol->kind == SK_TYPEDEF

@@ -149,6 +149,12 @@ namespace TL
 			return result;
 		}
 
+        ReductionClause Directive::reduction_clause()
+        {
+            ReductionClause result(_ref, _scope_link);
+            return result;
+        }
+
 		bool DefaultClause::is_none() const
 		{
 			return _ref.is_valid() 

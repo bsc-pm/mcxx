@@ -98,9 +98,9 @@ namespace TL
 				{
 				}
 
-				AST_t get_id_expression() const
+				IdExpression get_id_expression() const
 				{
-					return _symbol.get_ast();
+					return _symbol;
 				}
 
 				Symbol get_symbol() const

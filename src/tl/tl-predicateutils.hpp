@@ -161,6 +161,25 @@ namespace TL
 			}
 	};
 
+	template <class T, class Q>
+	class InSetPredicateFunctor : public Predicate<T>
+	{
+		private:
+			ObjectList<T>& _list;
+			const Functor<Q, T>& _f;
+		public:
+			InSetPredicateFunctor(ObjectList<T>& list, const Functor<Q, T>& f)
+				: _list(list), _f(f)
+			{
+			}
+
+			virtual bool operator()(T& t) const
+			{
+				ObjectList<Q> mapped_list = _list.map(_f);
+				return (find(mapped_list.begin(), mapped_list.end(), _f(t)) != mapped_list.end());
+			}
+	};
+
 	template <class T>
 	class NotInSetPredicate : public InSetPredicate<T>
 	{
@@ -176,16 +195,43 @@ namespace TL
 			}
 	};
 
+	template <class T, class Q>
+	class NotInSetPredicateFunctor : public InSetPredicateFunctor<T, Q>
+	{
+		public:
+			NotInSetPredicateFunctor(ObjectList<T>& list, const Functor<Q, T>& f)
+				: InSetPredicateFunctor<T, Q>(list, f)
+			{
+			}
+
+			virtual bool operator()(T& t) const
+			{
+				return !(InSetPredicateFunctor<T, Q>::operator()(t));
+			}
+	};
+
 	template <class T>
 	InSetPredicate<T> in_set(ObjectList<T>& list)
 	{
 		return InSetPredicate<T>(list);
 	}
 
+	template <class T, class Q>
+	InSetPredicateFunctor<T, Q> in_set(ObjectList<T>& list, const Functor<Q, T>& f)
+	{
+		return InSetPredicateFunctor<T, Q>(list, f);
+	}
+
 	template <class T>
 	NotInSetPredicate<T> not_in_set(ObjectList<T>& list)
 	{
 		return NotInSetPredicate<T>(list);
+	}
+
+	template <class T, class Q>
+	NotInSetPredicateFunctor<T, Q> not_in_set(ObjectList<T>& list, const Functor<Q, T>& f)
+	{
+		return NotInSetPredicateFunctor<T, Q>(list, f);
 	}
 
 	template <class T>

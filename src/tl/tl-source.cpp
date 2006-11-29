@@ -60,14 +60,34 @@ namespace TL
         return *this;
     }
 
-	std::string Source::get_source() const
+	std::string Source::get_source(bool with_newlines) const
 	{
-		std::string result;
+		std::string temp_result;
 		for(std::vector<SourceChunk*>::const_iterator it = _chunk_list.begin();
 				it != _chunk_list.end();
 				it++)
 		{
-			result += (*it)->get_source();
+			temp_result += (*it)->get_source();
+		}
+		std::string result;
+
+		if (!with_newlines)
+		{
+			result = temp_result;
+		}
+		else
+		{
+			// Eases debugging
+			for (unsigned int i = 0; i < temp_result.size(); i++)
+			{
+				char c = temp_result[i];
+
+				result += c;
+				if (c == ';' || c == '{' || c == '}')
+				{
+					result += '\n';
+				}
+			}
 		}
 
 		return result;
@@ -75,7 +95,7 @@ namespace TL
 
 	AST_t Source::parse_expression(TL::Scope ctx)
 	{
-		std::string mangled_text = "@EXPRESSION@ " + this->get_source();
+		std::string mangled_text = "@EXPRESSION@ " + this->get_source(true);
 		char* str = GC_STRDUP(mangled_text.c_str());
 
 		mcxx_prepare_string_for_scanning(str);
@@ -89,9 +109,28 @@ namespace TL
         return result;
 	}
 
+	AST_t Source::parse_expression(TL::Scope ctx, TL::ScopeLink scope_link)
+	{
+		std::string mangled_text = "@EXPRESSION@ " + this->get_source(true);
+		char* str = GC_STRDUP(mangled_text.c_str());
+
+		mcxx_prepare_string_for_scanning(str);
+
+		AST a;
+		mcxxparse(&a);
+
+		solve_possibly_ambiguous_expression(a, ctx._st, default_decl_context);
+
+		AST_t result(a);
+
+        scope_link_set(scope_link._scope_link, a, ctx._st);
+
+        return result;
+	}
+
 	AST_t Source::parse_member(TL::Scope ctx, TL::ScopeLink scope_link, Type class_type)
 	{
-		std::string mangled_text = "@MEMBER@ " + this->get_source();
+		std::string mangled_text = "@MEMBER@ " + this->get_source(true);
 		char* str = GC_STRDUP(mangled_text.c_str());
 
 		mcxx_prepare_string_for_scanning(str);
@@ -107,7 +146,7 @@ namespace TL
 	
 	AST_t Source::parse_statement(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
-		std::string mangled_text = "@STATEMENT@ " + this->get_source();
+		std::string mangled_text = "@STATEMENT@ " + this->get_source(true);
 		char* str = GC_STRDUP(mangled_text.c_str());
 
 		mcxx_prepare_string_for_scanning(str);
@@ -124,7 +163,7 @@ namespace TL
 
 	AST_t Source::parse_global(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
-		char* str = GC_STRDUP(this->get_source().c_str());
+		char* str = GC_STRDUP(this->get_source(true).c_str());
 
 		mcxx_prepare_string_for_scanning(str);
 

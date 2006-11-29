@@ -5,6 +5,7 @@
 #include "tl-symbol.hpp"
 #include "tl-scopelink.hpp"
 #include "tl-builtin.hpp"
+#include "tl-source.hpp"
 #include "cxx-attrnames.h"
 #include <string>
 #include <utility>
@@ -72,13 +73,22 @@ namespace TL
 			{
 			}
 
+			enum SymbolsWanted
+			{
+				ALL_SYMBOLS = 0,
+				ONLY_OBJECTS,
+				ONLY_VARIABLES = ONLY_OBJECTS, // A useful alias
+				ONLY_FUNCTIONS
+			};
+
 			ObjectList<Symbol> symbols();
 			ObjectList<Symbol> non_local_symbols();
 
-			ObjectList<IdExpression> non_local_symbol_occurrences();
+			ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
 			ObjectList<IdExpression> local_symbol_occurrences();
 	};
 
+	class Expression;
 	class ForStatement : public Statement
 	{
 		private:
@@ -107,6 +117,15 @@ namespace TL
 					gather_for_information();
 				}
 			}
+
+			IdExpression get_induction_variable();
+			Expression get_lower_bound();
+			Expression get_upper_bound();
+			Expression get_step();
+
+			Statement get_loop_body();
+
+			bool regular_loop();
 	};
 
 	class FunctionDefinition : public LangConstruct
@@ -127,6 +146,39 @@ namespace TL
         private:
             static AST_t advance_over_nests(AST_t);
         public :
+			enum OperationKind
+			{
+				UNKNOWN = 0,
+				DERREFERENCE,
+				REFERENCE,
+				PLUS,
+				MINUS,
+				ADDITION,
+				SUBSTRACTION,
+				MULTIPLICATION,
+				DIVISION,
+				MODULUS,
+				SHIFT_LEFT,
+				SHIFT_RIGHT,
+				LOGICAL_OR,
+				LOGICAL_AND,
+				LOGICAL_NOT,
+				BITWISE_OR,
+				BITWISE_AND,
+				BITWISE_XOR,
+				BITWISE_NOT,
+				LOWER_THAN,
+				GREATER_THAN,
+				LOWER_EQUAL_THAN,
+				GREATER_EQUAL_THAN,
+				COMPARISON,
+				DIFFERENT,
+				PREINCREMENT,
+				POSTINCREMENT,
+				PREDECREMENT,
+				POSTDECREMENT
+			};
+
             Expression(AST_t ref, ScopeLink scope_link)
                 : LangConstruct(ref, scope_link)
             {
@@ -154,6 +206,8 @@ namespace TL
             Expression get_second_operand();
 
             Expression get_unary_operand();
+
+			OperationKind get_operation_kind();
     };
 
     class DeclaredEntity : public LangConstruct
@@ -189,10 +243,39 @@ namespace TL
 			}
 
 			void add_replacement(Symbol sym, AST_t ast);
+			void add_replacement(Symbol sym, std::string str);
+			void add_replacement(Symbol sym, Source src);
 
-			void replace(Statement statement);
 
 			bool has_replacement(Symbol sym);
+
+			template <class T>
+			T replace(T orig_stmt)
+			{
+				std::pair<AST_t, ScopeLink> modified_statement = 
+					orig_stmt.get_ast().duplicate_with_scope(orig_stmt.get_scope_link());
+
+				T result(modified_statement.first, modified_statement.second);
+
+				ObjectList<IdExpression> id_expressions = result.non_local_symbol_occurrences();
+
+				for (ObjectList<IdExpression>::iterator it = id_expressions.begin();
+						it != id_expressions.end();
+						it++)
+				{
+					Symbol sym = it->get_symbol();
+
+					if (_repl_map.find(sym) != _repl_map.end())
+					{
+						AST_t repl_ast = _repl_map[sym];
+						AST_t orig_ast = it->get_ast();
+
+						orig_ast.replace_with(repl_ast);
+					}
+				}
+
+				return result;
+			}
 	};
 
 }

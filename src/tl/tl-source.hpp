@@ -94,7 +94,7 @@ namespace TL
 				return true;
 			}
 			
-			std::string get_source() const;
+			std::string get_source(bool with_newlines = false) const;
 			
 			Source& append_with_separator(const std::string& src, const std::string& separator);
 			Source& append_with_separator(Source& src, const std::string& separator);
@@ -107,6 +107,7 @@ namespace TL
 			AST_t parse_global(TL::Scope ctx, TL::ScopeLink scope_link);
 			AST_t parse_statement(TL::Scope ctx, TL::ScopeLink scope_link);
 			AST_t parse_expression(TL::Scope ctx);
+			AST_t parse_expression(TL::Scope ctx, TL::ScopeLink scope_link);
 			AST_t parse_member(TL::Scope ctx, TL::ScopeLink scope_link, Type class_type);
 
 			bool operator==(Source src) const;

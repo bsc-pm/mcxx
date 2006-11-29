@@ -2236,6 +2236,8 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 
 		ASTAttrSetValueType(declarator_name, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
 		ASTAttrSetValueType(declarator_name, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+
+		scope_link_set(compilation_options.scope_link, declarator_name, copy_scope(decl_st));
     }
 
     build_scope_declarator_rec(a, decl_st, parameters_scope, declarator_type, 
@@ -5813,6 +5815,8 @@ static void build_scope_condition(AST a, scope_t* st, decl_context_t decl_contex
     else
     {
         solve_possibly_ambiguous_expression(ASTSon2(a), st, decl_context);
+		ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+		ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon2(a)));
     }
 }
 
@@ -5852,6 +5856,9 @@ static void build_scope_declaration_statement(AST a, scope_t* st, decl_context_t
 static void solve_expression_ambiguities(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     solve_possibly_ambiguous_expression(ASTSon0(a), st, decl_context);
+
+	ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+	ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(a)));
 }
 
 static void build_scope_if_else_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
@@ -5897,8 +5904,7 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
-        AST expression = ASTSon0(for_init_statement);
-        solve_possibly_ambiguous_expression(expression, st, decl_context);
+        solve_expression_ambiguities(for_init_statement, st, decl_context, LANG_IS_EXPRESSION_STATEMENT);
     }
 
     if (condition != NULL)
