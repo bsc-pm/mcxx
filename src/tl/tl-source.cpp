@@ -14,13 +14,13 @@ namespace TL
 
 	void Source::append_text_chunk(const std::string& str)
 	{
-		if (_chunk_list.empty())
+		if ((*_chunk_list).empty())
 		{
-			_chunk_list.push_back(new SourceText(str));
+			(*_chunk_list).push_back(new SourceText(str));
 		}
 		else
 		{
-			SourceChunk* last = *(_chunk_list.rbegin());
+			SourceChunk* last = *((*_chunk_list).rbegin());
 
 			if (last->is_source_text())
 			{
@@ -30,14 +30,14 @@ namespace TL
 			}
 			else
 			{
-				_chunk_list.push_back(new SourceText(str));
+				(*_chunk_list).push_back(new SourceText(str));
 			}
 		}
 	}
 
 	void Source::append_source_ref(Source& src)
 	{
-		_chunk_list.push_back(new SourceRef(src));
+		(*_chunk_list).push_back(new SourceRef(src));
 	}
 
 	Source& Source::operator<<(const std::string& str)
@@ -56,15 +56,16 @@ namespace TL
 
     Source& Source::operator<<(Source& src)
     {
-		append_source_ref(src);
+		Source *new_src = new Source(src);
+		append_source_ref(*new_src);
         return *this;
     }
 
 	std::string Source::get_source(bool with_newlines) const
 	{
 		std::string temp_result;
-		for(std::vector<SourceChunk*>::const_iterator it = _chunk_list.begin();
-				it != _chunk_list.end();
+		for(std::vector<SourceChunk*>::const_iterator it = (*_chunk_list).begin();
+				it != (*_chunk_list).end();
 				it++)
 		{
 			temp_result += (*it)->get_source();
@@ -176,24 +177,27 @@ namespace TL
 		return result;
 	}
 
-	bool Source::operator==(Source src) const
+	bool Source::operator==(const Source& src) const
 	{
 		return this->get_source() == src.get_source();
 	}
 
-	bool Source::operator!=(Source src) const
+	bool Source::operator!=(const Source &src) const
 	{
 		return !(this->operator==(src));
 	}
 
-	bool Source::operator<(Source src) const
+	bool Source::operator<(const Source &src) const
 	{
 		return this->get_source() < src.get_source();
 	}
 
-	Source& Source::operator=(Source src)
+	Source& Source::operator=(const Source& src)
 	{
-		this->_chunk_list = src._chunk_list;
+		if (this != &src)
+		{
+			this->_chunk_list = src._chunk_list;
+		}
 		return (*this);
 	}
 
@@ -224,7 +228,7 @@ namespace TL
 
     bool Source::all_blanks() const
     {
-		if (_chunk_list.empty())
+		if ((*_chunk_list).empty())
 		{
 			return true;
 		}

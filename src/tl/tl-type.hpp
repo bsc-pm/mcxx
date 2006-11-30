@@ -28,7 +28,7 @@ namespace TL
 			static std::string get_simple_type_name_str(type_t* simple_type);
             static bool declarator_needs_parentheses(type_t* type_info);
             static std::string get_declaration_str_internal(type_t* type_info, 
-                    const std::string& symbol_name, bool semicolon);
+                    const std::string& symbol_name, const std::string& initializer, bool semicolon);
 
 		public:
 			Type(type_t* type_info)
@@ -52,6 +52,8 @@ namespace TL
 
 			std::string get_simple_declaration(const std::string& symbol_name) const;
 			std::string get_declaration(const std::string& symbol_name) const;
+
+			std::string get_declaration_with_initializer(const std::string& symbol_name, const std::string& initializer) const;
 
 			Type duplicate();
 			Type get_pointer_to();

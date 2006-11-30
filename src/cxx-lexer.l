@@ -294,7 +294,7 @@ copyin {
 reduction {
 	omp_var_list_parentheses = 0;
 	BEGIN(openmp_var_list);
-	return OMP_PRIVATE;
+	return OMP_REDUCTION;
 }
 
 default {

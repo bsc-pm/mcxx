@@ -68,7 +68,7 @@ namespace TL
 	class Source : public Object
 	{
 		private:
-			std::vector<SourceChunk*> _chunk_list;
+			std::vector<SourceChunk*>* _chunk_list;
 
 			void append_text_chunk(const std::string& str);
 			void append_source_ref(Source& src);
@@ -77,11 +77,13 @@ namespace TL
 		public:
 			Source()
 			{
+				_chunk_list = new std::vector<SourceChunk*>();
 			}
 
 			Source(const std::string& str)
 			{
-				_chunk_list.push_back(new SourceText(str));
+				_chunk_list = new std::vector<SourceChunk*>();
+				(*_chunk_list).push_back(new SourceText(str));
 			}
 
 			Source(const Source& src)
@@ -110,10 +112,10 @@ namespace TL
 			AST_t parse_expression(TL::Scope ctx, TL::ScopeLink scope_link);
 			AST_t parse_member(TL::Scope ctx, TL::ScopeLink scope_link, Type class_type);
 
-			bool operator==(Source src) const;
-			bool operator!=(Source src) const;
-			bool operator<(Source src) const;
-			Source& operator=(Source src);
+			bool operator==(const Source& src) const;
+			bool operator!=(const Source& src) const;
+			bool operator<(const Source& src) const;
+			Source& operator=(const Source& src);
 	};
 }
 

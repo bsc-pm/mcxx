@@ -7,18 +7,25 @@
 
 namespace TL
 {
+	std::string Type::get_declaration_with_initializer(const std::string& symbol_name,
+			const std::string& initializer) const
+	{
+        return get_declaration_str_internal(_type_info, symbol_name, initializer, false);
+	}
+
     std::string Type::get_simple_declaration(const std::string& symbol_name) const
     {
-        return get_declaration_str_internal(_type_info, symbol_name, true);
+        return get_declaration_str_internal(_type_info, symbol_name, "", true);
     }
 
     std::string Type::get_declaration(const std::string& symbol_name) const
     {
-        return get_declaration_str_internal(_type_info, symbol_name, false);
+        return get_declaration_str_internal(_type_info, symbol_name, "", false);
     }
 
     std::string Type::get_declaration_str_internal(type_t* type_info, 
-            const std::string& symbol_name, bool semicolon)
+            const std::string& symbol_name, const std::string& initializer, 
+			bool semicolon)
     {
         std::string base_type_name = get_simple_type_name_str(type_info);
         std::string declarator_name = get_type_name_str(type_info, symbol_name);
@@ -27,8 +34,16 @@ namespace TL
 
         result = base_type_name 
             + std::string(" ")
-            + declarator_name
-            + std::string(semicolon ? ";" : "");
+            + declarator_name;
+
+		// FIXME Should check if copy-constructor is not flagged as "explicit"
+		// (for parameters this can be useful to declare default arguments)
+		if (initializer != "")
+		{
+			result += " = " + initializer;
+		}
+
+	    result += std::string(semicolon ? ";" : "");
         return result;
     }
 
@@ -178,7 +193,7 @@ namespace TL
                         else
                         {
                             // Abstract declarator
-                            prototype += get_declaration_str_internal(type_info->function->parameter_list[i]->type_info, "", false);
+                            prototype += get_declaration_str_internal(type_info->function->parameter_list[i]->type_info, "", "", false);
                         }
                     }
                     prototype += std::string(") ");

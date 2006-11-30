@@ -182,7 +182,7 @@ class ObjectList : public std::vector<T>
 		{
 			ObjectList<T> result;
 
-			for (typename ObjectList<T>::const_iterator it = this->begin();
+			for (typename ObjectList<T>::iterator it = this->begin();
 					it != this->end();
 					it++)
 			{
