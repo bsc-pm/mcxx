@@ -3035,6 +3035,8 @@ void solve_ambiguous_for_init_statement(AST a, scope_t* st, decl_context_t decl_
 
     if (correct_choice < 0)
     {
+		fprintf(stderr, "This init statement cannot be disambiguated:\n");
+		prettyprint(stderr, a);
         internal_error("Ambiguity not solved !", 0);
     }
     else

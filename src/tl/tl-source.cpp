@@ -196,7 +196,7 @@ namespace TL
 	{
 		if (this != &src)
 		{
-			this->_chunk_list = src._chunk_list;
+			*(this->_chunk_list) = *(src._chunk_list);
 		}
 		return (*this);
 	}

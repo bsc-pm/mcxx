@@ -66,19 +66,24 @@ namespace TL
 
 			// Functor for #pragma omp parallel
 			PredicateBool<OMP_IS_PARALLEL_CONSTRUCT> parallel_construct;
-			ParallelFunctor parallel_functor(*this);
-			
+			ParallelFunctor parallel_functor(on_parallel_pre, on_parallel_post);
 			// Register the #pragma omp parallel 
 			// filter with its functor
 			depth_traverse.add_predicate(parallel_construct, parallel_functor);
 
-			// Functor for #pragma omp parallel do
+			// Functor for #pragma omp parallel for
 			PredicateBool<OMP_IS_PARALLEL_FOR_CONSTRUCT> parallel_for_construct;
-			ParallelForFunctor parallel_for_functor(*this);
-
-			// Register the #pragma omp parallel 
-			// filter with its functor
+			ParallelForFunctor parallel_for_functor(on_parallel_for_pre, on_parallel_for_post);
+			// Register the #pragma omp parallel for
+			// filter with its functor 
 			depth_traverse.add_predicate(parallel_for_construct, parallel_for_functor);
+
+			// Functor for #pragma omp for
+			PredicateBool<OMP_IS_FOR_CONSTRUCT> for_construct;
+			ForFunctor for_functor(on_for_pre, on_for_post);
+			// Register the #pragma omp parallel for
+			// filter with its functor 
+			depth_traverse.add_predicate(for_construct, for_functor);
 			
 			// Let the user register its slots
 			this->init();

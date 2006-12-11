@@ -159,7 +159,7 @@ parallel {
 
 for {
 	BEGIN(openmp_clause);
-	return OMP_PARALLEL;
+	return OMP_FOR;
 }
 
 sections {

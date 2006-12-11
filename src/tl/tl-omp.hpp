@@ -159,56 +159,50 @@ namespace TL
 				}
 		};
 
+		class ForConstruct : public Construct
+		{
+			public:
+				ForConstruct(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
 		class OpenMPPhase : public CompilerPhase
 		{
 			private:
-				class ParallelFunctor : public TraverseFunctor
+				template<class T>
+				class OpenMPConstructFunctor : public TraverseFunctor
 				{
 					private:
-						OpenMPPhase& _phase;
+						Signal1<T>& _on_construct_pre;
+						Signal1<T>& _on_construct_post;
 					public:
 						virtual void preorder(Context ctx, AST_t node) 
 						{
-							ParallelConstruct parallel_construct(node, ctx.scope_link);
+							T parallel_construct(node, ctx.scope_link);
 
-							_phase.on_parallel_pre.signal(parallel_construct);
+							_on_construct_pre.signal(parallel_construct);
 						}
 
 						virtual void postorder(Context ctx, AST_t node) 
 						{
-							ParallelConstruct parallel_construct(node, ctx.scope_link);
-							_phase.on_parallel_post.signal(parallel_construct);
+							T parallel_construct(node, ctx.scope_link);
+
+							_on_construct_post.signal(parallel_construct);
 						}
 
-						ParallelFunctor(OpenMPPhase& phase)
-							: _phase(phase)
+						OpenMPConstructFunctor(Signal1<T>& on_construct_pre,
+								Signal1<T>& on_construct_post)
+							: _on_construct_pre(on_construct_pre),
+							_on_construct_post(on_construct_post)
 						{
 						}
 				};
 
-				class ParallelForFunctor : public TraverseFunctor
-				{
-					private:
-						OpenMPPhase& _phase;
-					public:
-						virtual void preorder(Context ctx, AST_t node) 
-						{
-							ParallelForConstruct parallel_for_construct(node, ctx.scope_link);
-
-							_phase.on_parallel_for_pre.signal(parallel_for_construct);
-						}
-
-						virtual void postorder(Context ctx, AST_t node) 
-						{
-							ParallelForConstruct parallel_for_construct(node, ctx.scope_link);
-							_phase.on_parallel_for_post.signal(parallel_for_construct);
-						}
-
-						ParallelForFunctor(OpenMPPhase& phase)
-							: _phase(phase)
-						{
-						}
-				};
+				typedef OpenMPConstructFunctor<ParallelConstruct> ParallelFunctor;
+				typedef OpenMPConstructFunctor<ParallelForConstruct> ParallelForFunctor;
+				typedef OpenMPConstructFunctor<ForConstruct> ForFunctor;
 			protected:
 				AST_t translation_unit;
 				ScopeLink scope_link;
@@ -219,6 +213,9 @@ namespace TL
 				
 				Signal1<ParallelForConstruct> on_parallel_for_pre;
 				Signal1<ParallelForConstruct> on_parallel_for_post;
+
+				Signal1<ForConstruct> on_for_pre;
+				Signal1<ForConstruct> on_for_post;
 
 				virtual void run(DTO& data_flow);
 				virtual void init();

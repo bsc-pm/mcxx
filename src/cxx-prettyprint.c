@@ -1600,6 +1600,7 @@ static void condition_handler(FILE* f, AST a, int level)
     if (ASTSon0(a) != NULL)
     {
         prettyprint_level(f, ASTSon0(a), level);
+		token_fprintf(f, a, " ");
     }
     if (ASTSon1(a) != NULL)
     {

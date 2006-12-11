@@ -109,7 +109,7 @@ namespace TL
 				}
 			}
 
-			ForStatement(Statement& st)
+			ForStatement(const Statement& st)
 				 : Statement(st)
 			{
 				if (check_statement())

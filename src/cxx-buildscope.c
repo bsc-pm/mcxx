@@ -5781,6 +5781,8 @@ static void build_scope_compound_statement(AST a, scope_t* st, decl_context_t de
 
 static void build_scope_condition(AST a, scope_t* st, decl_context_t decl_context)
 {
+	scope_link_set(compilation_options.scope_link, a, copy_scope(st));
+
     if (ASTSon0(a) != NULL 
             && ASTSon1(a) != NULL)
     {
@@ -5824,8 +5826,6 @@ static void build_scope_while_statement(AST a, scope_t* st, decl_context_t decl_
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
-	scope_link_set(compilation_options.scope_link, a, copy_scope(block_scope));
-
     build_scope_condition(ASTSon0(a), block_scope, decl_context);
 
     if (ASTSon1(a) != NULL)
@@ -5865,8 +5865,6 @@ static void build_scope_if_else_statement(AST a, scope_t* st, decl_context_t dec
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
-	scope_link_set(compilation_options.scope_link, a, copy_scope(block_scope));
-
     AST condition = ASTSon0(a);
     build_scope_condition(condition, block_scope, decl_context);
 
@@ -5896,15 +5894,13 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
 
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
-	scope_link_set(compilation_options.scope_link, a, copy_scope(block_scope));
-
     if (ASTType(for_init_statement) == AST_SIMPLE_DECLARATION)
     {
         build_scope_simple_declaration(for_init_statement, block_scope, decl_context);
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
-        solve_expression_ambiguities(for_init_statement, st, decl_context, LANG_IS_EXPRESSION_STATEMENT);
+        solve_expression_ambiguities(for_init_statement, block_scope, decl_context, LANG_IS_EXPRESSION_STATEMENT);
     }
 
     if (condition != NULL)
@@ -5914,6 +5910,7 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
 
     if (expression != NULL)
     {
+		scope_link_set(compilation_options.scope_link, expression, copy_scope(block_scope));
         solve_possibly_ambiguous_expression(expression, block_scope, decl_context);
     }
     
@@ -5929,8 +5926,6 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
 static void build_scope_switch_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
-
-	scope_link_set(compilation_options.scope_link, a, copy_scope(block_scope));
 
     AST condition = ASTSon0(a);
     AST statement = ASTSon1(a);
