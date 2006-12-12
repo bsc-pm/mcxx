@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <gc.h>
 #include "cxx-utils.h"
 #include "cxx-cexpr.h"
 #include "cxx-scope.h"
@@ -64,10 +63,10 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
             return NULL;
         }
 
-        unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
+        unification_set_t* unification_set = calloc(1, sizeof(*unification_set));
         if (match_one_template(arguments, specialized, entry, st, unification_set, decl_context))
         {
-            matching_pair_t* match_pair = GC_CALLOC(1, sizeof(*match_pair));
+            matching_pair_t* match_pair = calloc(1, sizeof(*match_pair));
 
             match_pair->entry = entry;
             match_pair->unif_set = unification_set;
@@ -91,7 +90,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
                 fprintf(stderr, "Checking match with the unique %p %p\n", specialized, arguments);
             }
 
-            unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
+            unification_set_t* unification_set = calloc(1, sizeof(*unification_set));
             if (!match_one_template(specialized, arguments, NULL, st, unification_set, decl_context))
             {
                 return NULL;
@@ -132,7 +131,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
             fprintf(stderr, "Checking match %p %p\n", specialized, arguments);
         }
 
-        unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
+        unification_set_t* unification_set = calloc(1, sizeof(*unification_set));
         if (!match_one_template(specialized, arguments, NULL, st, unification_set, decl_context))
         {
             return NULL;
@@ -163,7 +162,7 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
         template_argument_list_t* current_args =
             current_entry->entry->type_information->type->template_arguments;
 
-        unification_set_t* unification_set = GC_CALLOC(1, sizeof(*unification_set));
+        unification_set_t* unification_set = calloc(1, sizeof(*unification_set));
 
         if (!match_one_template(min_args, current_args, current_entry->entry, st, 
                     unification_set, decl_context))
@@ -175,7 +174,7 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
 
             min = current_entry;
 
-            unification_set_t* unification_set_check = GC_CALLOC(1, sizeof(*unification_set_check));
+            unification_set_t* unification_set_check = calloc(1, sizeof(*unification_set_check));
             if (!give_exact_match)
             {
                 if (!match_one_template(current_args, min_args, min->entry, st, 
@@ -201,7 +200,7 @@ static char match_one_template(template_argument_list_t* arguments,
         decl_context_t decl_context)
 {
     int i;
-    // unification_set_t* unif_set = GC_CALLOC(1, sizeof(*unif_set));
+    // unification_set_t* unif_set = calloc(1, sizeof(*unif_set));
     
     DEBUG_CODE()
     {
@@ -297,7 +296,7 @@ static char match_one_template(template_argument_list_t* arguments,
                         }
                         else
                         {
-                            unification_item_t* unif_item = GC_CALLOC(1, sizeof(*unif_item));
+                            unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
 							unif_item->expression = arg->argument_tree;
 
 							if (arg_value.kind != LVK_INVALID

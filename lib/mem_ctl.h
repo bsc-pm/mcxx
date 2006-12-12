@@ -2,10 +2,9 @@
 #define MEM_CTL_H
 
 #include <stdlib.h>
-#include <gc.h>
 
-#define NEW(type)               (type *) GC_MALLOC(sizeof(type))
-#define NEW_ARRAY(type,size)    (type *)GC_CALLOC(size, sizeof(type))
+#define NEW(type)               (type *) malloc(sizeof(type))
+#define NEW_ARRAY(type,size)    (type *)calloc(size, sizeof(type))
 #define FREE(ptr)               
 
 #ifdef __cplusplus

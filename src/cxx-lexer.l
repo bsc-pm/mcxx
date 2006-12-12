@@ -17,7 +17,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <gc.h>
 #include <errno.h>
 #include "cxx-driver.h"
 #include "cxx-utils.h"
@@ -31,17 +30,6 @@
 /*!endif*/
 
 // For Garbage collection support
-#undef free
-#define free(x)
-
-#undef malloc
-#define malloc(x) GC_MALLOC(x)
-
-#undef calloc
-#define calloc(x) GC_CALLOC((x)
-
-#undef realloc
-#define realloc(x,y) GC_REALLOC((x), (y))
 
 static int yywrap(void);
 
@@ -759,7 +747,7 @@ static int yywrap(void)
 static void parse_token_text(void)
 {
     FLEX_LVAL.token_atrib.token_line = scanning_now.line_number;
-    FLEX_LVAL.token_atrib.token_text = GC_STRDUP(yytext);
+    FLEX_LVAL.token_atrib.token_text = strdup(yytext);
 }
 
 /*!if CPLUSPLUS*/
@@ -785,7 +773,7 @@ int PREPARE_STRING_FOR_SCANNING(const char* str)
 	memset(&scanning_now, 0, sizeof(scanning_now));
 	scanning_now.line_number = 1;
 
-	scanning_now.filename = GC_CALLOC(strlen(TL_SOURCE_STRING) + 10, sizeof(char));
+	scanning_now.filename = calloc(strlen(TL_SOURCE_STRING) + 10, sizeof(char));
     sprintf(scanning_now.filename, "%s-%d", TL_SOURCE_STRING, num_string);
 
     scanning_now.current_filename = scanning_now.filename;
@@ -796,7 +784,6 @@ int PREPARE_STRING_FOR_SCANNING(const char* str)
 
 	// yy_flush_buffer(YY_CURRENT_BUFFER);
 	yy_switch_to_buffer(scanning_now.scanning_buffer);
-
 
 	return 0;
 }
@@ -813,7 +800,7 @@ int OPEN_FILE_FOR_SCANNING(char* scanned_filename, char* input_filename)
 	}
 
 	memset(&scanning_now, 0, sizeof(scanning_now));
-	scanning_now.filename = GC_STRDUP(scanned_filename);
+	scanning_now.filename = strdup(scanned_filename);
 	scanning_now.file_descriptor = file;
 	scanning_now.line_number = 1;
 

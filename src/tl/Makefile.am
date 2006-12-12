@@ -5,14 +5,12 @@ BUILT_SOURCES = ../cxx-asttype.h
 libtl_la_CXXFLAGS = -Wall -O0 \
     -I $(srcdir)/../../src \
     -I $(srcdir)/../../lib \
-    -I $(srcdir)/../../gc/include \
     -I ../../src \
     -I ../../lib
 
 libtl_la_CFLAGS = -Wall -O0 \
     -I $(srcdir)/../../src \
     -I $(srcdir)/../../lib \
-    -I $(srcdir)/../../gc/include \
     -I ../../src \
     -I ../../lib
 
@@ -57,14 +55,12 @@ libtl_la_SOURCES = \
 libtlomp_la_CXXFLAGS = -Wall -O0 \
     -I $(srcdir)/../../src \
     -I $(srcdir)/../../lib \
-    -I $(srcdir)/../../gc/include \
     -I ../../src \
     -I ../../lib
 
 libtlomp_la_CFLAGS = -Wall -O0 \
     -I $(srcdir)/../../src \
     -I $(srcdir)/../../lib \
-    -I $(srcdir)/../../gc/include \
     -I ../../src \
     -I ../../lib
 

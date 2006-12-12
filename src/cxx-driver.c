@@ -7,7 +7,6 @@
 #include <string.h>
 #include <libgen.h>
 
-#include "gc.h"
 #include "getopt.h"
 #include "cxx-utils.h"
 #include "cxx-driver.h"
@@ -172,8 +171,6 @@ int main(int argc, char* argv[])
 
 static void driver_initialization(int argc, char* argv[])
 {
-    // Initialize GC
-    GC_init();
     // Basic initialization prior to argument parsing and configuration loading
     atexit(temporal_files_cleanup);
     signal(SIGSEGV, terminating_signal_handler);
@@ -283,7 +280,7 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                     }
                     else
                     {
-                        output_file = GC_STRDUP(optarg);
+                        output_file = strdup(optarg);
                     }
                     break;
                 }
@@ -294,27 +291,27 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 }
             case OPTION_PREPROCESSOR_NAME :
                 {
-                    compilation_options.preprocessor_name = GC_STRDUP(optarg);
+                    compilation_options.preprocessor_name = strdup(optarg);
                     break;
                 }
             case OPTION_NATIVE_COMPILER_NAME :
                 {
-                    compilation_options.native_compiler_name = GC_STRDUP(optarg);
+                    compilation_options.native_compiler_name = strdup(optarg);
                     break;
                 }
             case OPTION_LINKER_NAME :
                 {
-                    compilation_options.linker_name = GC_STRDUP(optarg);
+                    compilation_options.linker_name = strdup(optarg);
                     break;
                 }
             case OPTION_DEBUG_FLAG :
                 {
-                    enable_debug_flag(GC_STRDUP(optarg));
+                    enable_debug_flag(strdup(optarg));
                     break;
                 }
             case OPTION_OUTPUT_DIRECTORY :
                 {
-                    compilation_options.output_directory = GC_STRDUP(optarg);
+                    compilation_options.output_directory = strdup(optarg);
                     break;
                 }
 			case OPTION_NO_OPENMP :
@@ -361,8 +358,8 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
             }
             else
             {
-                translation_unit_t* translation_unit = GC_CALLOC(1, sizeof(*translation_unit));
-                translation_unit->input_filename = GC_STRDUP(argv[optind]);
+                translation_unit_t* translation_unit = calloc(1, sizeof(*translation_unit));
+                translation_unit->input_filename = strdup(argv[optind]);
 
 				if (compilation_options.do_not_link
 						|| compilation_options.do_not_compile)
@@ -448,7 +445,7 @@ static void parse_subcommand_arguments(char* arguments)
     }
 
     int num_existing_options = count_null_ended_array((void**)(*existing_options));
-    (*existing_options) = GC_REALLOC((*existing_options), sizeof(char*)*(num_existing_options + num_parameters + 1));
+    (*existing_options) = realloc((*existing_options), sizeof(char*)*(num_existing_options + num_parameters + 1));
 
     int i;
     for (i = 0; i < num_parameters; i++)
@@ -466,13 +463,13 @@ static void initialize_default_values(void)
 
     compilation_options.source_language = SOURCE_LANGUAGE_CXX;
 
-    compilation_options.preprocessor_name = GC_STRDUP("c++");
-    compilation_options.preprocessor_options = comma_separate_values(GC_STRDUP("-E"), &dummy);
+    compilation_options.preprocessor_name = strdup("c++");
+    compilation_options.preprocessor_options = comma_separate_values(strdup("-E"), &dummy);
 
-    compilation_options.native_compiler_name = GC_STRDUP("c++");
+    compilation_options.native_compiler_name = strdup("c++");
     compilation_options.native_compiler_options = NULL;
 
-    compilation_options.linker_name = GC_STRDUP("c++");
+    compilation_options.linker_name = strdup("c++");
     compilation_options.linker_options = NULL;
 }
 
@@ -531,7 +528,7 @@ static void load_configuration(void)
 			if ((i + 1) < compilation_options.argc)
 			{
 				compilation_options.config_file = 
-					GC_STRDUP(compilation_options.argv[i+1]);
+					strdup(compilation_options.argv[i+1]);
 				i++;
 			}
 		}
@@ -539,7 +536,7 @@ static void load_configuration(void)
 		else if (strncmp(compilation_options.argv[i], "-m", strlen("-m")) == 0)
 		{
 			compilation_options.config_file = 
-				GC_STRDUP(&(compilation_options.argv[i][strlen("-m")]));
+				strdup(&(compilation_options.argv[i][strlen("-m")]));
 		}
 		// Third case --config-file=file
 		// FIXME: GNU getopt_long is kind enough to allow you to specify just a
@@ -548,7 +545,7 @@ static void load_configuration(void)
 					"--config-file=", strlen("--config-file=")) == 0)
 		{
 			compilation_options.config_file = 
-				GC_STRDUP(&(compilation_options.argv[i][strlen("--config-file=") ]));
+				strdup(&(compilation_options.argv[i][strlen("--config-file=") ]));
 		}
 	}
 
@@ -806,7 +803,7 @@ static char* preprocess_file(translation_unit_t* translation_unit, char* input_f
 {
     int num_arguments = count_null_ended_array((void**)compilation_options.preprocessor_options);
 
-    char** preprocessor_options = GC_CALLOC(num_arguments + 3 + 1, sizeof(char*));
+    char** preprocessor_options = calloc(num_arguments + 3 + 1, sizeof(char*));
 
     int i;
     for (i = 0; i < num_arguments; i++)
@@ -815,7 +812,7 @@ static char* preprocess_file(translation_unit_t* translation_unit, char* input_f
     }
 
     temporal_file_t preprocessed_file = new_temporal_file();
-    preprocessor_options[i] = GC_STRDUP("-o"); 
+    preprocessor_options[i] = strdup("-o"); 
     i++;
     preprocessor_options[i] = preprocessed_file->name;
     i++;
@@ -847,7 +844,7 @@ static void native_compilation(translation_unit_t* translation_unit,
     if (translation_unit->output_filename == NULL
             || !compilation_options.do_not_link)
     {
-        output_object_filename = GC_STRDUP(translation_unit->input_filename);
+        output_object_filename = strdup(translation_unit->input_filename);
         char* extension = get_extension_filename(output_object_filename);
         *extension = '\0';
 
@@ -862,7 +859,7 @@ static void native_compilation(translation_unit_t* translation_unit,
 
     int num_args_compiler = count_null_ended_array((void**)compilation_options.native_compiler_options);
 
-    char** native_compilation_args = GC_CALLOC(num_args_compiler + 4 + 1, sizeof(*native_compilation_args));
+    char** native_compilation_args = calloc(num_args_compiler + 4 + 1, sizeof(*native_compilation_args));
 
     int i;
     for (i = 0; i < num_args_compiler; i++)
@@ -870,9 +867,9 @@ static void native_compilation(translation_unit_t* translation_unit,
         native_compilation_args[i] = compilation_options.native_compiler_options[i];
     }
 
-    native_compilation_args[i] = GC_STRDUP("-c");
+    native_compilation_args[i] = strdup("-c");
     i++;
-    native_compilation_args[i] = GC_STRDUP("-o");
+    native_compilation_args[i] = strdup("-o");
     i++;
     native_compilation_args[i] = output_object_filename;
     i++;
@@ -909,7 +906,7 @@ static void link_objects(void)
 
     int num_args_linker = count_null_ended_array((void**)compilation_options.linker_options);
 
-    char** linker_args = GC_CALLOC(num_args_linker
+    char** linker_args = calloc(num_args_linker
             + compilation_options.num_translation_units + 2 + 1, 
             sizeof(*linker_args));
 
@@ -918,7 +915,7 @@ static void link_objects(void)
 
     if (compilation_options.linked_output_filename != NULL)
     {
-        linker_args[i] = GC_STRDUP("-o");
+        linker_args[i] = strdup("-o");
         i++;
         linker_args[i] = compilation_options.linked_output_filename;
         i++;

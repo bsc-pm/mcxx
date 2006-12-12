@@ -1,8 +1,6 @@
 #ifndef TL_OBJECT_HPP
 #define TL_OBJECT_HPP
 
-// #include <gc_cpp.h>
-
 #include <iostream>
 #include <string>
 #include <typeinfo>
@@ -11,8 +9,7 @@
 
 namespace TL
 {
-	// Avoid at the moment the use of "gc"
-	class Object /* : public gc */
+	class Object 
 	{ 
 		protected:
 			virtual tl_type_t* get_extended_attribute(const std::string& name) const

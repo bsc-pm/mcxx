@@ -1,4 +1,3 @@
-#include <gc.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -582,7 +581,7 @@ char* prettyprint_in_buffer(AST a)
     int bytes_file = ftell(temporal_file) + 20;
     rewind(temporal_file);
 
-    char* result = GC_CALLOC(bytes_file, sizeof(char));
+    char* result = calloc(bytes_file, sizeof(char));
     fread(result, bytes_file, sizeof(char), temporal_file);
 
     int c = strlen(result) - 1;
@@ -604,19 +603,19 @@ static int character_level_vfprintf(FILE* stream, const char* format, va_list ar
 {
     int result;
     int size = 512;
-    char* c = GC_CALLOC(size, sizeof(char));
+    char* c = calloc(size, sizeof(char));
     result = vsnprintf(c, size, format, args);
 
     while (result < 0 || result >= size)
     {
         size *= 2;
-        GC_FREE(c);
-        c = GC_CALLOC(size, sizeof(char));
+        free(c);
+        c = calloc(size, sizeof(char));
         result = vsnprintf(c, size, format, args);
     }
 
     fprintf(stream, "%s", c);
-    GC_FREE(c);
+    free(c);
 
     return result;
 }

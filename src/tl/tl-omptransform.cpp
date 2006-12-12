@@ -49,9 +49,6 @@ namespace TL
 			// Parallel in preorder
             void parallel_preorder(OpenMP::ParallelConstruct parallel_construct)
             {
-				// One more parallel seen
-                num_parallels++;
-
 				// Increase the parallel nesting value
                 parallel_nesting++;
             }
@@ -59,6 +56,9 @@ namespace TL
 			// Parallel in postorder
             void parallel_postorder(OpenMP::ParallelConstruct parallel_construct)
             {
+				// One more parallel seen
+                num_parallels++;
+
 				// Decrease the parallel nesting
                 parallel_nesting--;
                 
@@ -119,7 +119,7 @@ namespace TL
 				// Additionally {first|last}private and reduction
 				// entities are needed for proper initializations
 				// and assignments.
-                AST_t outline_code = create_outline_parallel(
+                AST_t outline_code = get_outline_parallel(
                         function_definition,
                         outlined_function_name, 
                         construct_body,
@@ -137,7 +137,7 @@ namespace TL
 				// Now create the spawning code. Pass by pointer list and
 				// reductions are needed for proper pass of data and reduction
 				// vectors declaration
-                AST_t spawn_code = create_spawn_code(parallel_construct.get_scope(),
+                AST_t spawn_code = get_spawn_code(parallel_construct.get_scope(),
                         parallel_construct.get_scope_link(),
                         outlined_function_name,
                         pass_by_pointer,
@@ -150,15 +150,15 @@ namespace TL
 
             void parallel_for_preorder(OpenMP::ParallelForConstruct parallel_for_construct)
             {
-				// One more parallel seen
-                num_parallels++;
-
 				// Increase the parallel nesting value
                 parallel_nesting++;
             }
 
             void parallel_for_postorder(OpenMP::ParallelForConstruct parallel_for_construct)
             {
+				// One more parallel seen
+                num_parallels++;
+
 				// Decrease the parallel nesting level 
                 parallel_nesting--;
 
@@ -231,7 +231,7 @@ namespace TL
                 Source outlined_function_name = get_outlined_function_name(function_name);
 
                 // Create the outline for parallel for
-                AST_t outline_code = create_outline_parallel_for(
+                AST_t outline_code = get_outline_parallel_for(
                         function_definition,
                         outlined_function_name, 
                         for_statement,
@@ -246,7 +246,7 @@ namespace TL
 				// Now prepend the outline
                 function_definition.get_ast().prepend_sibling_function(outline_code);
 
-				AST_t spawn_code = create_spawn_code(parallel_for_construct.get_scope(),
+				AST_t spawn_code = get_spawn_code(parallel_for_construct.get_scope(),
 						parallel_for_construct.get_scope_link(),
 						outlined_function_name,
 						pass_by_pointer,
@@ -256,8 +256,139 @@ namespace TL
 				// Replace all the whole construct with spawn_code
                 parallel_for_construct.get_ast().replace_with(spawn_code);
             }
+			
+			// #pragma omp for
+			void for_preorder(OpenMP::ForConstruct for_construct)
+			{
+				// Do nothing at the moment
+			}
 
-            AST_t create_spawn_code(
+			void for_postorder(OpenMP::ForConstruct for_construct)
+			{
+				OpenMP::Directive directive = for_construct.directive();
+				ForStatement for_statement = for_construct.body();
+				Statement loop_body = for_statement.get_loop_body();
+
+                // They will hold the entities as they appear in the clauses
+                ObjectList<IdExpression> shared_references;
+                ObjectList<IdExpression> private_references;
+                ObjectList<IdExpression> firstprivate_references;
+                ObjectList<IdExpression> lastprivate_references;
+                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+				
+                // Get the enclosing function definition
+                FunctionDefinition function_definition = for_construct.get_enclosing_function();
+				// its scope
+                Scope function_scope = function_definition.get_scope();
+                
+                // Get the data attributes for every entity
+                get_data_explicit_attributes(function_scope,
+                        directive,
+                        loop_body,
+                        shared_references,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references);
+				
+				// The induction variable deserves special treatment
+                IdExpression induction_var = for_statement.get_induction_variable();
+				// If private_references does not contain an IdExpression whose
+				// related symbol is the induction variable symbol, then
+				// privatize here (FIXME: I've seen codes where the induction
+				// variable appears in lastprivate)
+                if (!private_references.contains(functor(&IdExpression::get_symbol), induction_var.get_symbol()))
+                {
+					// Add the induction variale onto the private references
+                    private_references.append(induction_var);
+					// And now remove, if it was already there, any reference
+					// to the induction variable symbol from the set of shared
+					// references
+                    shared_references = shared_references.not_find(functor(&IdExpression::get_symbol), 
+                            induction_var.get_symbol());
+                }
+
+				// The lists of entities passes by pointer and entities
+				// privatized in the outline
+                ObjectList<IdExpression> pass_by_pointer;
+                ObjectList<IdExpression> privatized_entities;
+                // Create the replacement map and the pass_by_pointer set
+                ReplaceIdExpression replace_references = 
+                    set_replacements(function_scope,
+                            directive,
+                            loop_body,
+                            shared_references,
+                            private_references,
+                            firstprivate_references,
+                            lastprivate_references,
+                            reduction_references,
+                            pass_by_pointer,
+                            privatized_entities);
+
+				Source parallel_for_body;
+				
+				Source private_declarations = get_privatized_declarations(privatized_entities, pass_by_pointer, 
+						firstprivate_references, reduction_references);
+
+				Source loop_distribution_code = get_loop_distribution_code(for_statement,
+						replace_references);
+
+				Source lastprivate_assignments = get_lastprivate_assignments(lastprivate_references, 
+						pass_by_pointer);
+
+				Source loop_finalization = get_loop_finalization(/*do_barrier=*/true);
+
+				Source reduction_code;
+
+				parallel_for_body
+					<< "{"
+					<<    private_declarations
+					<<    loop_distribution_code
+					<<    lastprivate_assignments
+					<<    loop_finalization
+					<<    reduction_code
+					<< "}"
+					;
+
+				bool orphaned = (parallel_nesting == 0);
+
+				if (orphaned)
+				{
+					reduction_code = get_critical_reduction_code(reduction_references);
+				}
+				else
+				{
+					Source reduction_update;
+					Source reduction_gathering;
+
+					reduction_code
+						<< reduction_update
+						<< "extern void in__tone_barrier_();"
+						<< "extern char in__tone_is_master_();"
+
+						<< "in__tone_barrier();"
+						<< "if (in__tone_is_master())"
+						<< "{"
+						<<    reduction_gathering
+						<< "}"
+						;
+
+					reduction_update = get_reduction_update(reduction_references);
+					reduction_gathering = get_reduction_gathering(reduction_references);
+				}
+
+				std::cerr << "CODI FOR" << std::endl;
+				std::cerr << parallel_for_body.get_source(true) << std::endl;
+				std::cerr << "End CODI FOR" << std::endl;
+
+                AST_t result;
+                result = parallel_for_body.parse_statement(loop_body.get_scope(), 
+                         loop_body.get_scope_link());
+
+				for_construct.get_ast().replace_with(result);
+			}
+
+            AST_t get_spawn_code(
                     Scope scope,
                     ScopeLink scope_link,
                     Source outlined_function_name,
@@ -360,35 +491,7 @@ namespace TL
                 // Reduction code
 				//
 				// If there is any reduction reference
-                if (!reduction_references.empty())
-                {
-					// Create the source code that gathers the values computed by every thread
-                    Source reduction_gathering;
-
-                    reduction_code
-                        << "for (int rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
-                        << "{"
-                        <<    reduction_gathering
-                        << "}"
-                        ;
-
-					// For every entity being reduced
-                    for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
-                            it != reduction_references.end();
-                            it++)
-                    {
-						// Construct the name of its related reduction vector
-                        std::string reduced_var_name = it->get_id_expression().get_ast().prettyprint();
-                        std::string reduction_vector_name = "rdv_" + it->get_id_expression().mangle_id_expression();
-
-						// get the operator involved
-                        std::string op = it->get_operation().prettyprint();
-
-						// And reduce for this element of the reduction vector
-                        reduction_gathering
-                            << reduced_var_name << " = " << reduced_var_name << op << reduction_vector_name << "[rdv_i]" << ";";
-                    }
-                }
+				reduction_code = get_noncritical_reduction_code(reduction_references);
                 
                 // std::cerr << "CODI SPAWN" << std::endl;
                 // std::cerr << spawn_code.get_source(true) << std::endl;
@@ -399,7 +502,133 @@ namespace TL
                 return result;
             }
 
-            Source create_outline_common(
+			Source get_critical_reduction_code(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+			{
+				Source reduction_code;
+
+				if (reduction_references.empty())
+				{
+					// Nothing to do if the reduction set is empty
+					return reduction_code;
+				}
+
+				Source reduction_gathering;
+
+				reduction_code
+					<< "{"
+					<<    "static void *default_mutex;"
+					<<    "extern nthf_spin_lock_(void*);"
+					<<    "extern nthf_spin_unlock_(void*);"
+					<<    "int rdv_i;"
+
+					<<    "nthf_spin_lock_(default_mutex);"
+					<<    "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
+					<<    "{"
+					<<       reduction_gathering
+					<<    "}"
+					<<    "nthf_spin_unlock_(default_mutex);"
+					<< "}"
+					; 
+
+				for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
+						it != reduction_references.end();
+						it++)
+				{
+					// get the operator involved
+					std::string reduced_var_name = it->get_id_expression().mangle_id_expression();
+					std::string reduction_var_name = "p_" + it->get_id_expression().mangle_id_expression();
+
+					std::string op = it->get_operation().prettyprint();
+
+					reduction_gathering 
+						<< reduced_var_name << " = " << reduced_var_name << op << reduction_var_name << ";"
+						;
+				}
+
+				return reduction_code;
+			}
+
+
+			Source get_noncritical_reduction_code(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+			{
+				Source reduction_code;
+
+				if (reduction_references.empty())
+				{
+					return reduction_code;
+				}
+
+				// Create the source code that gathers the values computed by every thread
+				Source reduction_gathering;
+
+				reduction_code
+					<< "for (int rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
+					<< "{"
+					<<    reduction_gathering
+					<< "}"
+					;
+
+				Source reduction_gethering;
+
+				reduction_gathering = get_reduction_gathering(reduction_references);
+
+				return reduction_code;
+			}
+
+			Source get_reduction_update(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+			{
+				Source reduction_update;
+
+				if (!reduction_references.empty())
+				{
+					reduction_update 
+						<< "extern int in__tone_thread_id_ ();"
+						<< "{"
+						<<    "int nth_thread_id = in__tone_thread_id_();"
+						;
+
+					for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
+							it != reduction_references.end();
+							it++)
+					{
+						reduction_update
+							<< "rdv_" << it->get_id_expression().mangle_id_expression() << "[nth_thread_id] = "
+							<< "p_" << it->get_id_expression().mangle_id_expression() << ";";
+					}
+
+					reduction_update
+						<< "}"
+						;
+				}
+
+				return reduction_update;
+			}
+
+			Source get_reduction_gathering(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+			{
+				Source reduction_gathering;
+
+				// For every entity being reduced
+				for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
+						it != reduction_references.end();
+						it++)
+				{
+					// Construct the name of its related reduction vector
+					std::string reduced_var_name = it->get_id_expression().get_ast().prettyprint();
+					std::string reduction_vector_name = "rdv_" + it->get_id_expression().mangle_id_expression();
+
+					// get the operator involved
+					std::string op = it->get_operation().prettyprint();
+
+					// And reduce for this element of the reduction vector
+					reduction_gathering
+						<< reduced_var_name << " = " << reduced_var_name << op << reduction_vector_name << "[rdv_i]" << ";";
+				}
+
+				return reduction_gathering;
+			}
+
+            Source get_outline_common(
                     Source& specific_body,
                     Source outlined_function_name,
                     ObjectList<IdExpression> pass_by_pointer,
@@ -450,7 +679,7 @@ namespace TL
 				return result;
             }
 
-            AST_t create_outline_parallel(
+            AST_t get_outline_parallel(
                     FunctionDefinition function_definition,
                     Source outlined_function_name,
                     Statement construct_body,
@@ -466,7 +695,7 @@ namespace TL
                 Source parallel_body;
                 Source empty;
 
-                outline_parallel = create_outline_common(
+                outline_parallel = get_outline_common(
                         parallel_body, // The body of the outline
                         outlined_function_name,
                         pass_by_pointer,
@@ -477,10 +706,13 @@ namespace TL
 
 				Source private_declarations = get_privatized_declarations(privatized_entities, pass_by_pointer, 
 						firstprivate_references, reduction_references);
+
+				Source reduction_update = get_reduction_update(reduction_references);
 				
                 parallel_body 
 				    << private_declarations
 					<< modified_parallel_body_stmt.get_ast().prettyprint()
+					<< reduction_update
 					;
 
                 std::cerr << "CODI OUTLINE" << std::endl;
@@ -495,109 +727,9 @@ namespace TL
                 return result;
             }
 
-			// #pragma omp for
-			void for_preorder(OpenMP::ForConstruct for_construct)
-			{
-				// Do nothing at the moment
-			}
-
-			void for_postorder(OpenMP::ForConstruct for_construct)
-			{
-				OpenMP::Directive directive = for_construct.directive();
-				ForStatement for_statement = for_construct.body();
-				Statement loop_body = for_statement.get_loop_body();
-
-                // They will hold the entities as they appear in the clauses
-                ObjectList<IdExpression> shared_references;
-                ObjectList<IdExpression> private_references;
-                ObjectList<IdExpression> firstprivate_references;
-                ObjectList<IdExpression> lastprivate_references;
-                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
-				
-                // Get the enclosing function definition
-                FunctionDefinition function_definition = for_construct.get_enclosing_function();
-				// its scope
-                Scope function_scope = function_definition.get_scope();
-                
-                // Get the data attributes for every entity
-                get_data_explicit_attributes(function_scope,
-                        directive,
-                        loop_body,
-                        shared_references,
-                        private_references,
-                        firstprivate_references,
-                        lastprivate_references,
-                        reduction_references);
-				
-				// The induction variable deserves special treatment
-                IdExpression induction_var = for_statement.get_induction_variable();
-				// If private_references does not contain an IdExpression whose
-				// related symbol is the induction variable symbol, then
-				// privatize here (FIXME: I've seen codes where the induction
-				// variable appears in lastprivate)
-                if (!private_references.contains(functor(&IdExpression::get_symbol), induction_var.get_symbol()))
-                {
-					// Add the induction variale onto the private references
-                    private_references.append(induction_var);
-					// And now remove, if it was already there, any reference
-					// to the induction variable symbol from the set of shared
-					// references
-                    shared_references = shared_references.not_find(functor(&IdExpression::get_symbol), 
-                            induction_var.get_symbol());
-                }
-
-				// The lists of entities passes by pointer and entities
-				// privatized in the outline
-                ObjectList<IdExpression> pass_by_pointer;
-                ObjectList<IdExpression> privatized_entities;
-                // Create the replacement map and the pass_by_pointer set
-                ReplaceIdExpression replace_references = 
-                    set_replacements(function_scope,
-                            directive,
-                            loop_body,
-                            shared_references,
-                            private_references,
-                            firstprivate_references,
-                            lastprivate_references,
-                            reduction_references,
-                            pass_by_pointer,
-                            privatized_entities);
-
-				Source parallel_for_body;
-				
-				Source private_declarations = get_privatized_declarations(privatized_entities, pass_by_pointer, 
-						firstprivate_references, reduction_references);
-
-				Source loop_distribution_code = create_loop_distribution_code(for_statement,
-						replace_references);
-
-				Source lastprivate_assignments = get_lastprivate_assignments(lastprivate_references, 
-						pass_by_pointer);
-
-				Source loop_finalization = get_loop_finalization(/*do_barrier=*/true);
-
-				parallel_for_body
-					<< "{"
-					<<    private_declarations
-					<<    loop_distribution_code
-					<<    lastprivate_assignments
-					<<    loop_finalization
-					<< "}"
-					;
-
-				std::cerr << "CODI FOR" << std::endl;
-				std::cerr << parallel_for_body.get_source(true) << std::endl;
-				std::cerr << "End CODI FOR" << std::endl;
-
-                AST_t result;
-                result = parallel_for_body.parse_statement(loop_body.get_scope(), 
-                         loop_body.get_scope_link());
-
-				for_construct.get_ast().replace_with(result);
-			}
 
 			// Create outline for parallel for
-            AST_t create_outline_parallel_for(
+            AST_t get_outline_parallel_for(
                     FunctionDefinition function_definition,
                     Source outlined_function_name,
                     ForStatement for_statement,
@@ -615,7 +747,7 @@ namespace TL
 				Source parallel_for_body;
 
 				// Get the source of the common parallel X outline
-				outline_parallel_for = create_outline_common(
+				outline_parallel_for = get_outline_common(
 						parallel_for_body,
 						outlined_function_name,
 						pass_by_pointer,
@@ -624,7 +756,7 @@ namespace TL
 				Source private_declarations = get_privatized_declarations(privatized_entities, pass_by_pointer, 
 						firstprivate_references, reduction_references);
 
-				Source loop_distribution = create_loop_distribution_code(for_statement, replace_references);
+				Source loop_distribution = get_loop_distribution_code(for_statement, replace_references);
 
 				Source lastprivate_assignments = get_lastprivate_assignments(lastprivate_references, 
 						pass_by_pointer);
@@ -632,16 +764,19 @@ namespace TL
 				// Barrier is already done at parallel level
 				Source loop_finalization = get_loop_finalization(/* do_barrier = */ false);
 
+				Source reduction_update = get_reduction_update(reduction_references);
+
 				parallel_for_body 
 					<< private_declarations
 					<< loop_distribution
 					<< lastprivate_assignments
+					<< reduction_update
 					<< loop_finalization
 					;
 
-				std::cerr << "CODI OUTLINE" << std::endl;
+				std::cerr << "CODI OUTLINE PARALLEL FOR" << std::endl;
 				std::cerr << outline_parallel_for.get_source(true) << std::endl;
-				std::cerr << "End CODI OUTLINE" << std::endl;
+				std::cerr << "End CODI OUTLINE PARALLEL FOR" << std::endl;
 
 				AST_t result;
 
@@ -796,6 +931,8 @@ namespace TL
                             Source derref_name;
                             derref_name << "(*" << mangled_name << ")";
 
+							std::cerr << "Derref -> '" << derref_name.get_source() << "'" << std::endl;
+
                             result.add_replacement(current_sym, derref_name);
                         }
                     }
@@ -831,7 +968,7 @@ namespace TL
                 return result;
             }
 
-			Source create_loop_distribution_code(ForStatement for_statement,
+			Source get_loop_distribution_code(ForStatement for_statement,
 					ReplaceIdExpression replace_references)
 			{
 				Source parallel_for_body;

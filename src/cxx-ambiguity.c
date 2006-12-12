@@ -530,6 +530,19 @@ void solve_ambiguous_statement(AST a, scope_t* st, decl_context_t decl_context)
         }
     }
 
+	// In case of ignorance, favor expressions
+	if (correct_choice < 0)
+	{
+		for (i = 0; i < a->num_ambig; i++)
+		{
+			if (ASTType(a->ambig[i]) == AST_EXPRESSION_STATEMENT)
+			{
+				correct_choice = i;
+				break;
+			}
+		}
+	}
+
     if (correct_choice < 0)
     {
 		fprintf(stderr, "This statement cannot be disambiguated:\n");
@@ -2304,8 +2317,8 @@ static char check_for_type_specifier(AST type_id, scope_t* st, decl_context_t de
         case AST_ENUM_SPECIFIER :
             {
                 type_t* simple_type_info;
-                simple_type_info = GC_CALLOC(1, sizeof(*simple_type_info));
-                simple_type_info->type = GC_CALLOC(1, sizeof(*(simple_type_info->type)));
+                simple_type_info = calloc(1, sizeof(*simple_type_info));
+                simple_type_info->type = calloc(1, sizeof(*(simple_type_info->type)));
 
                 decl_context.decl_flags |= DF_NO_FAIL;
 

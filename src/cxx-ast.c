@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <gc.h>
 
 #include "cxx-lexer.h"
 #include "cxx-utils.h"
@@ -24,7 +23,7 @@ extensible_schema_t ast_extensible_schema;
 */
 AST ASTMake(node_t type, int num_children, const AST child0, const AST child1, const AST child2, const AST child3, int line, const char *text)
 {
-    AST result = GC_CALLOC(1, sizeof(*result));
+    AST result = calloc(1, sizeof(*result));
     if (result == NULL) // unlikely
     {
         out_of_memory();
@@ -56,7 +55,7 @@ AST ASTMake(node_t type, int num_children, const AST child0, const AST child1, c
     ASTText(result) = NULL;
     if (text != NULL)
     {
-        ASTText(result) = GC_STRDUP(text);
+        ASTText(result) = strdup(text);
 
         if (ASTText(result) == NULL) // unlikely
         {
@@ -115,7 +114,7 @@ AST duplicate_ast(AST a)
     if (a == NULL)
         return NULL;
 
-    AST result = GC_CALLOC(1, sizeof(*result));
+    AST result = calloc(1, sizeof(*result));
 
 	extensible_struct_t orig_extended_data = result->extended_data;
 
@@ -137,7 +136,7 @@ AST duplicate_ast(AST a)
 
     if (ASTText(a) != NULL)
     {
-        ASTText(result) = GC_STRDUP(ASTText(a));
+        ASTText(result) = strdup(ASTText(a));
     }
     ASTParent(result) = NULL;
 
@@ -149,7 +148,7 @@ AST ASTListLeaf(AST element)
 {
     AST result = ASTLeaf(AST_NODE_LIST, 0, NULL);
     result->num_list = 1;
-    result->list = (AST*) GC_CALLOC(sizeof(*result->list), result->num_list);
+    result->list = (AST*) calloc(sizeof(*result->list), result->num_list);
     result->list[result->num_list-1] = element;
 
     return result;
@@ -158,7 +157,7 @@ AST ASTListLeaf(AST element)
 AST ASTList(AST list, AST element)
 {
     list->num_list++;
-    list->list = (AST*) GC_REALLOC(list->list, sizeof(*list->list)*list->num_list);
+    list->list = (AST*) realloc(list->list, sizeof(*list->list)*list->num_list);
 
     list->list[list->num_list-1] = element;
 
@@ -234,7 +233,7 @@ char* node_information(AST a)
     if (a == NULL)
         return "";
 
-    char* result = GC_CALLOC(256, sizeof(char));
+    char* result = calloc(256, sizeof(char));
 
     if (ASTFileName(a) == NULL)
     {

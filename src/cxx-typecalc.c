@@ -31,10 +31,10 @@ static type_t* usual_arithmetic_conversions(type_t* t1, type_t* t2, scope_t* st)
 
 static type_t* new_fundamental_type(void)
 {
-    type_t* result = GC_CALLOC(1, sizeof(*result));
+    type_t* result = calloc(1, sizeof(*result));
 
     result->kind = TK_DIRECT;
-    result->type = GC_CALLOC(1, sizeof(*(result->type)));
+    result->type = calloc(1, sizeof(*(result->type)));
 
     result->type->kind = STK_BUILTIN_TYPE;
 
@@ -92,9 +92,9 @@ static type_t* new_const_wchar_pointer_type(void)
     
     const_char->type->cv_qualifier |= CV_CONST;
 
-    type_t* pointer = GC_CALLOC(1, sizeof(*pointer));
+    type_t* pointer = calloc(1, sizeof(*pointer));
     pointer->kind = TK_POINTER;
-    pointer->pointer = GC_CALLOC(1, sizeof(*(pointer->pointer)));
+    pointer->pointer = calloc(1, sizeof(*(pointer->pointer)));
     pointer->pointer->pointee = const_char;
     
     return pointer;
@@ -106,9 +106,9 @@ static type_t* new_const_char_pointer_type(void)
     
     const_char->type->cv_qualifier |= CV_CONST;
 
-    type_t* pointer = GC_CALLOC(1, sizeof(*pointer));
+    type_t* pointer = calloc(1, sizeof(*pointer));
     pointer->kind = TK_POINTER;
-    pointer->pointer = GC_CALLOC(1, sizeof(*(pointer->pointer)));
+    pointer->pointer = calloc(1, sizeof(*(pointer->pointer)));
     pointer->pointer->pointee = const_char;
     
     return pointer;
@@ -153,7 +153,7 @@ static calculated_type_t* calculate_functional_expression_type(AST a, AST argume
 
                 if (function_lookup->entry->kind == SK_FUNCTION)
                 {
-                    result = GC_CALLOC(1, sizeof(*result));
+                    result = calloc(1, sizeof(*result));
                     scope_entry_list_t* iter = function_lookup;
 
                     // This is rather ugly
@@ -269,7 +269,7 @@ static calculated_type_t* calculate_expression_type(AST a, scope_t* st)
                 // If this is a function name return all types associated with it
                 if (result_list->entry->kind == SK_FUNCTION)
                 {
-                    result = GC_CALLOC(1, sizeof(*result));
+                    result = calloc(1, sizeof(*result));
                     scope_entry_list_t* iter = result_list;
 
                     // This is rather ugly
@@ -410,7 +410,7 @@ static calculated_type_t* calculate_expression_type(AST a, scope_t* st)
                 // If this is a function name return all types associated with it
                 if (result_list->entry->kind == SK_FUNCTION)
                 {
-                    result = GC_CALLOC(1, sizeof(*result));
+                    result = calloc(1, sizeof(*result));
                     scope_entry_list_t* iter = result_list;
 
                     // This is rather ugly
@@ -577,9 +577,9 @@ static calculated_type_t* calculate_expression_type(AST a, scope_t* st)
                 }
                 else
                 {
-                    type_t* pointer_to = GC_CALLOC(1, sizeof(*pointer_to));
+                    type_t* pointer_to = calloc(1, sizeof(*pointer_to));
                     pointer_to->kind = TK_POINTER;
-                    pointer_to->pointer = GC_CALLOC(1, sizeof(*(pointer_to->pointer)));
+                    pointer_to->pointer = calloc(1, sizeof(*(pointer_to->pointer)));
                     pointer_to->pointer->pointee = declarator_type;
 
                     return create_type_set(pointer_to, VT_RVALUE);
@@ -740,9 +740,9 @@ static calculated_type_t* calculate_expression_type(AST a, scope_t* st)
 
                 if (is_fundamental_type(object_type))
                 {
-                    type_t* pointer_to = GC_CALLOC(1, sizeof(*pointer_to));
+                    type_t* pointer_to = calloc(1, sizeof(*pointer_to));
                     pointer_to->kind = TK_POINTER;
-                    pointer_to->pointer = GC_CALLOC(1, sizeof(*(pointer_to->pointer)));
+                    pointer_to->pointer = calloc(1, sizeof(*(pointer_to->pointer)));
                     pointer_to->pointer->pointee = object_type;
 
                     return create_type_set(pointer_to, VT_RVALUE);
@@ -801,11 +801,11 @@ static calculated_type_t* create_type_set(type_t* t, value_type_t value_type)
         internal_error("Should not be creating a type set from a null type", 0);
     }
 
-    calculated_type_t* result = GC_CALLOC(1, sizeof(*result));
+    calculated_type_t* result = calloc(1, sizeof(*result));
 
     result->num_types = 1;
 
-    result->types = GC_CALLOC(1, sizeof(*result));
+    result->types = calloc(1, sizeof(*result));
     result->types[0] = t;
 
     result->value_type = value_type;

@@ -37,7 +37,7 @@ int config_set_options(char* value)
 // Set preprocessor name
 int config_set_preprocessor_name(char* value)
 {
-    compilation_options.preprocessor_name = GC_STRDUP(value);
+    compilation_options.preprocessor_name = strdup(value);
     return 0;
 }
 
@@ -52,7 +52,7 @@ int config_set_preprocessor_options(char* value)
 // Set native compiler name
 int config_set_compiler_name(char* value)
 {
-    compilation_options.native_compiler_name = GC_STRDUP(value);
+    compilation_options.native_compiler_name = strdup(value);
     return 0;
 }
 
@@ -67,7 +67,7 @@ int config_set_compiler_options(char* value)
 // Set linker name
 int config_set_linker_name(char* value)
 {
-    compilation_options.linker_name = GC_STRDUP(value);
+    compilation_options.linker_name = strdup(value);
     return 0;
 }
 

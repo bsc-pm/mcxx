@@ -5,7 +5,6 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
-#include <gc.h>
 
 #ifdef __cplusplus
 extern "C" {

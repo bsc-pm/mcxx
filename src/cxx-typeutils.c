@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <string.h>
-#include <gc.h>
 #include "cxx-buildscope.h"
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
@@ -1776,7 +1775,7 @@ char pointer_can_be_converted_to_dest(type_t* orig, type_t* dest, scope_t* st,
  */
 type_t* simple_type_to_type(simple_type_t* simple_type_info)
 {
-    type_t* result = GC_CALLOC(1, sizeof(*result));
+    type_t* result = calloc(1, sizeof(*result));
     result->kind = TK_DIRECT;
     // result->type = copy_simple_type(simple_type_info);
     result->type = simple_type_info;
@@ -1789,12 +1788,12 @@ type_t* simple_type_to_type(simple_type_t* simple_type_info)
 // This function copies the type information of an enum
 enum_info_t* copy_enum_info(enum_info_t* enum_info)
 {
-    enum_info_t* result = GC_CALLOC(1, sizeof(*result));
+    enum_info_t* result = calloc(1, sizeof(*result));
 
     *result = *enum_info;
 
     result->enumeration_list = 
-        GC_CALLOC(result->num_enumeration, sizeof(*(result->enumeration_list)));
+        calloc(result->num_enumeration, sizeof(*(result->enumeration_list)));
 
     int i;
     for (i = 0; i < result->num_enumeration; i++)
@@ -1809,7 +1808,7 @@ enum_info_t* copy_enum_info(enum_info_t* enum_info)
 // This function copies the type information of a pointer
 pointer_info_t* copy_pointer_info(pointer_info_t* pointer_info)
 {
-    pointer_info_t* result = GC_CALLOC(1, sizeof(*result));
+    pointer_info_t* result = calloc(1, sizeof(*result));
     *result = *pointer_info;
     
     result->pointee = copy_type(result->pointee);
@@ -1820,7 +1819,7 @@ pointer_info_t* copy_pointer_info(pointer_info_t* pointer_info)
 // This function copies the type information of an array
 array_info_t* copy_array_info(array_info_t* array_info)
 {
-    array_info_t* result = GC_CALLOC(1, sizeof(*result));
+    array_info_t* result = calloc(1, sizeof(*result));
     *result = *array_info;
     
     result->array_expr = duplicate_ast(array_info->array_expr);
@@ -1832,18 +1831,18 @@ array_info_t* copy_array_info(array_info_t* array_info)
 // This function copies the type information of a function
 function_info_t* copy_function_info(function_info_t* function_info)
 {
-    function_info_t* result = GC_CALLOC(1, sizeof(*result));
+    function_info_t* result = calloc(1, sizeof(*result));
     *result = *function_info;
 
     result->return_type = copy_type(function_info->return_type);
 
-    result->parameter_list = GC_CALLOC(function_info->num_parameters,
+    result->parameter_list = calloc(function_info->num_parameters,
             sizeof(*(result->parameter_list)));
     
     int i;
     for (i = 0; i < function_info->num_parameters; i++)
     {
-        result->parameter_list[i] = GC_CALLOC(1, sizeof(*(result->parameter_list[i])));
+        result->parameter_list[i] = calloc(1, sizeof(*(result->parameter_list[i])));
         result->parameter_list[i]->type_info = copy_type(function_info->parameter_list[i]->type_info);
         if (function_info->parameter_list[i]->default_argument != NULL)
         {
@@ -1857,7 +1856,7 @@ function_info_t* copy_function_info(function_info_t* function_info)
 // This function copies a full fledged type
 type_t* copy_type(type_t* type)
 {
-    type_t* result = GC_CALLOC(1, sizeof(*result));
+    type_t* result = calloc(1, sizeof(*result));
 
     *result = *type;
 
@@ -1887,7 +1886,7 @@ type_t* copy_type(type_t* type)
 // This function copies class type information
 class_info_t* copy_class_info(class_info_t* class_info)
 {
-    class_info_t* result = GC_CALLOC(1, sizeof(*result));
+    class_info_t* result = calloc(1, sizeof(*result));
 
     *result = *class_info;
 
@@ -1896,7 +1895,7 @@ class_info_t* copy_class_info(class_info_t* class_info)
 
 template_argument_t* copy_template_argument(template_argument_t* template_argument)
 {
-    template_argument_t* result = GC_CALLOC(1, sizeof(*result));
+    template_argument_t* result = calloc(1, sizeof(*result));
 
     *result = *template_argument;
 
@@ -1915,11 +1914,11 @@ template_argument_t* copy_template_argument(template_argument_t* template_argume
 
 template_argument_list_t* copy_template_argument_list(template_argument_list_t* template_argument_list)
 {
-    template_argument_list_t* result = GC_CALLOC(1, sizeof(*result));
+    template_argument_list_t* result = calloc(1, sizeof(*result));
 
     *result = *template_argument_list;
 
-    result->argument_list = GC_CALLOC(template_argument_list->num_arguments, sizeof(*(result->argument_list)));
+    result->argument_list = calloc(template_argument_list->num_arguments, sizeof(*(result->argument_list)));
 
     int i;
     for (i = 0; i < template_argument_list->num_arguments; i++)
@@ -1933,7 +1932,7 @@ template_argument_list_t* copy_template_argument_list(template_argument_list_t* 
 // This function copies a simple type
 simple_type_t* copy_simple_type(simple_type_t* type_info)
 {
-    simple_type_t* result = GC_CALLOC(1, sizeof(*result));
+    simple_type_t* result = calloc(1, sizeof(*result));
 
     // Bitwise copy for every thing that can be directly copied
     *result = *type_info;
@@ -2084,7 +2083,7 @@ const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
             }
         case STK_USER_DEFINED :
             {
-                char* user_defined_str = GC_CALLOC(256, sizeof(char));
+                char* user_defined_str = calloc(256, sizeof(char));
                 scope_entry_t* user_defined_type = simple_type_info->user_defined_type;
                 switch (user_defined_type->kind)
                 {

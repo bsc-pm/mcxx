@@ -225,6 +225,29 @@ class FunctionHandler1 : public BaseHandler<Param1>
         }
 };
 
+// 1 parameters fun_ptr with 1 bind parameter
+template <class Param1, class Param2>
+class FunctionHandlerBind1 : public BaseHandler<Param1>
+{
+    private:
+        void (*_pf)(Param1, Param2&);
+		Param2& _param2;
+    public:
+        FunctionHandlerBind1(void (*pf)(Param1, Param2&), Param2& param2)
+            : _pf(pf), _param2(param2)
+        {
+        }
+        
+        virtual void execute(Param1 p1)
+        {
+            return (this->_pf)(p1, _param2);
+        }
+
+        virtual ~FunctionHandlerBind1()
+        {
+        }
+};
+
 // 0 parameters fun_ptr
 template <typename = void>
 class FunctionHandler0 : public BaseHandler<>
@@ -381,6 +404,30 @@ class MemberFunctionHandler1 : public BaseHandler<Param1>
         }
 
         virtual ~MemberFunctionHandler1()
+        {
+        }
+};
+
+// Member function 1 parameters with bind 1
+template <class T, class Param1, class Param2>
+class MemberFunctionHandlerBind1 : public BaseHandler<Param1>
+{
+    private:
+        T& _t;
+		Param2& _param2;
+        void (T::*_pf)(Param1, Param2&);
+    public:
+        MemberFunctionHandlerBind1(T& t, void (T::*pf)(Param1, Param2&), Param2& param2)
+            : _t(t), _pf(pf), _param2(param2)
+        {
+        }
+        
+        virtual void execute(Param1 p1)
+        {
+            return (_t.*_pf)(p1, _param2);
+        }
+
+        virtual ~MemberFunctionHandlerBind1()
         {
         }
 };
@@ -661,6 +708,15 @@ class Signal1
             _handlers.push_back(fun_handler);
         }
 
+		template <class Param2>
+		void connect_with_bind(void (*f)(Param1, Param2&), Param2& p)
+		{
+			typedef FunctionHandlerBind1<Param1, Param2> function_bind_handler_type;
+			function_bind_handler_type* fun_handler = new function_bind_handler_type(f, p);
+
+			_handlers.push_back(fun_handler);
+		}
+
         template <class T>
             void connect(void (T::*f)(Param1), T& t)
             {
@@ -670,6 +726,16 @@ class Signal1
 
                 _handlers.push_back(member_handler);
             }
+
+		template <class T, class Param2>
+		void connect_with_bind(void (T::*f)(Param1, Param2&), T& t, Param2& p)
+		{
+			typedef MemberFunctionHandlerBind1<T, Param1, Param2> member_function_bind_handler_type;
+
+			member_function_bind_handler_type* member_handler = new member_function_bind_handler_type(t, f, p);
+
+			_handlers.push_back(member_handler);
+		}
 
         void signal(Param1 p1)
         {

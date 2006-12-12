@@ -1,7 +1,6 @@
 #include "tl-builtin.hpp"
 #include "tl-ast.hpp"
 #include "tl-scopelink.hpp"
-#include "gcstring.h"
 #include "cxx-ast.h"
 
 namespace TL
@@ -452,7 +451,7 @@ namespace TL
 
 	void AST_t::replace_text(const std::string& str)
 	{
-		ASTText(this->_ast) = GC_STRDUP(str.c_str());
+		ASTText(this->_ast) = strdup(str.c_str());
 	}
 
 }

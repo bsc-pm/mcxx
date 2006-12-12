@@ -188,13 +188,13 @@ static void build_standard_conversion_sequence(type_t* argument_type, value_type
             if (argument_type->kind == TK_ARRAY)
             {
                 argument_type->kind = TK_POINTER;
-                argument_type->pointer = GC_CALLOC(1, sizeof(*(argument_type->pointer)));
+                argument_type->pointer = calloc(1, sizeof(*(argument_type->pointer)));
                 argument_type->pointer->pointee = argument_type->array->element_type;
             }
             else
             {
                 parameter_type->kind = TK_POINTER;
-                parameter_type->pointer = GC_CALLOC(1, sizeof(*(parameter_type->pointer)));
+                parameter_type->pointer = calloc(1, sizeof(*(parameter_type->pointer)));
                 parameter_type->pointer->pointee = parameter_type->array->element_type;
             }
 
@@ -521,7 +521,7 @@ build_one_implicit_conversion_sequence(scope_entry_t* entry, int n_arg, AST argu
         internal_error("Additional overload unsupported", 0);
     }
 
-    one_implicit_conversion_sequence_t* result = GC_CALLOC(1, sizeof(*result));
+    one_implicit_conversion_sequence_t* result = calloc(1, sizeof(*result));
 
     type_t* argument_type = type_result_set->types[0];
     type_t* parameter_type = entry->type_information->function->parameter_list[n_arg]->type_info;
@@ -620,7 +620,7 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
     int num_pars = entry->type_information->function->num_parameters;
     int i;
 
-    implicit_conversion_sequence_t* result = GC_CALLOC(1, sizeof(*result));
+    implicit_conversion_sequence_t* result = calloc(1, sizeof(*result));
 
 #warning Non const member functions are not viable if the object where invoked is not const too
     DEBUG_CODE()
@@ -641,7 +641,7 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
         one_implicit_conversion_sequence_t* one_ics;
         if (num_args > num_pars)
         {
-            one_ics = GC_CALLOC(1, sizeof(*one_ics));
+            one_ics = calloc(1, sizeof(*one_ics));
             // This can only be by ellipsis nature
             one_ics->kind = ICS_ELLIPSIS;
             P_LIST_ADD(result->conversion, result->num_arg, one_ics);
@@ -992,7 +992,7 @@ static viable_function_list_t* calculate_viable_functions(scope_entry_list_t* ca
             
             if (ics != NULL)
             {
-                viable_function_list_t* current_funct = GC_CALLOC(1, sizeof(*current_funct));
+                viable_function_list_t* current_funct = calloc(1, sizeof(*current_funct));
                 current_funct->entry = iter->entry;
                 current_funct->ics_num_args = num_args;
                 current_funct->ics = ics;

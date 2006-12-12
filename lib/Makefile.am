@@ -26,9 +26,7 @@ libmcxx_utils_la_SOURCES = \
                           hash.h \
                           hash_iterator.h \
                           hash_iterator.c \
-                          stack.h \
-						  gcstring.h \
-						  gcstring.c
+                          stack.h
 
 libmcxx_utils_la_CFLAGS = -I $(srcdir)/../gc/include
 

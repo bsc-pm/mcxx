@@ -3,7 +3,6 @@
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
 #include "cxx-scope.h"
-#include <gc.h>
 
 namespace TL
 {
@@ -359,10 +358,10 @@ namespace TL
 		Type result = this->duplicate();
 		type_t* result_type = result._type_info;
 
-		type_t* pointer_to = (type_t*)GC_CALLOC(1, sizeof(*pointer_to));
+		type_t* pointer_to = (type_t*)calloc(1, sizeof(*pointer_to));
 
 		pointer_to->kind = TK_POINTER;
-		pointer_to->pointer = (pointer_info_t*)GC_CALLOC(1, sizeof(*(pointer_to->pointer)));
+		pointer_to->pointer = (pointer_info_t*)calloc(1, sizeof(*(pointer_to->pointer)));
 		pointer_to->pointer->pointee = result_type;
 
 		result._type_info = pointer_to;
@@ -375,10 +374,10 @@ namespace TL
 		Type result = this->duplicate();
 		type_t* result_type = result._type_info;
 
-		type_t* array_to = (type_t*)GC_CALLOC(1, sizeof(*array_to));
+		type_t* array_to = (type_t*)calloc(1, sizeof(*array_to));
 
 		array_to->kind = TK_ARRAY;
-		array_to->array = (array_info_t*)GC_CALLOC(1, sizeof(*(array_to->array)));
+		array_to->array = (array_info_t*)calloc(1, sizeof(*(array_to->array)));
 		array_to->array->element_type = result_type;
 		array_to->array->array_expr = array_expr._ast;
 		array_to->array->array_expr_scope = scope._st;

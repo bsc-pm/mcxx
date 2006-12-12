@@ -1,8 +1,7 @@
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
 #include "cxx-scopelink.h"
-#include "gc.h"
-#include "gcstring.h"
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 
@@ -31,7 +30,7 @@ static int pointer_hash(void* key, int size)
 
 scope_link_t* scope_link_new(void)
 {
-	scope_link_t* result = GC_CALLOC(1, sizeof(*result));
+	scope_link_t* result = calloc(1, sizeof(*result));
 
 	result->h = hash_create(23, pointer_hash, integer_comp);
 
@@ -88,7 +87,7 @@ static AST duplicate_ast_with_scope_link_rec(AST a, scope_link_t* orig, scope_li
     if (a == NULL)
         return NULL;
 
-    AST result = GC_CALLOC(1, sizeof(*result));
+    AST result = calloc(1, sizeof(*result));
 
 	extensible_struct_t orig_extended_data = result->extended_data;
 
@@ -117,7 +116,7 @@ static AST duplicate_ast_with_scope_link_rec(AST a, scope_link_t* orig, scope_li
 
     if (ASTText(a) != NULL)
     {
-        ASTText(result) = GC_STRDUP(ASTText(a));
+        ASTText(result) = strdup(ASTText(a));
     }
     ASTParent(result) = NULL;
 

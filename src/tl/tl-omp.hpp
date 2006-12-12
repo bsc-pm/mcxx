@@ -168,38 +168,38 @@ namespace TL
 				}
 		};
 
+		template<class T>
+			class OpenMPConstructFunctor : public TraverseFunctor
+		{
+			private:
+				Signal1<T>& _on_construct_pre;
+				Signal1<T>& _on_construct_post;
+			public:
+				virtual void preorder(Context ctx, AST_t node) 
+				{
+					T parallel_construct(node, ctx.scope_link);
+
+					_on_construct_pre.signal(parallel_construct);
+				}
+
+				virtual void postorder(Context ctx, AST_t node) 
+				{
+					T parallel_construct(node, ctx.scope_link);
+
+					_on_construct_post.signal(parallel_construct);
+				}
+
+				OpenMPConstructFunctor(Signal1<T>& on_construct_pre,
+						Signal1<T>& on_construct_post)
+					: _on_construct_pre(on_construct_pre),
+					_on_construct_post(on_construct_post)
+			{
+			}
+		};
+
 		class OpenMPPhase : public CompilerPhase
 		{
 			private:
-				template<class T>
-				class OpenMPConstructFunctor : public TraverseFunctor
-				{
-					private:
-						Signal1<T>& _on_construct_pre;
-						Signal1<T>& _on_construct_post;
-					public:
-						virtual void preorder(Context ctx, AST_t node) 
-						{
-							T parallel_construct(node, ctx.scope_link);
-
-							_on_construct_pre.signal(parallel_construct);
-						}
-
-						virtual void postorder(Context ctx, AST_t node) 
-						{
-							T parallel_construct(node, ctx.scope_link);
-
-							_on_construct_post.signal(parallel_construct);
-						}
-
-						OpenMPConstructFunctor(Signal1<T>& on_construct_pre,
-								Signal1<T>& on_construct_post)
-							: _on_construct_pre(on_construct_pre),
-							_on_construct_post(on_construct_post)
-						{
-						}
-				};
-
 				typedef OpenMPConstructFunctor<ParallelConstruct> ParallelFunctor;
 				typedef OpenMPConstructFunctor<ParallelForConstruct> ParallelForFunctor;
 				typedef OpenMPConstructFunctor<ForConstruct> ForFunctor;
@@ -219,6 +219,8 @@ namespace TL
 
 				virtual void run(DTO& data_flow);
 				virtual void init();
+
+				virtual ~OpenMPPhase() { }
 		};
 	}
 }

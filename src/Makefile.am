@@ -13,7 +13,7 @@ libmcxxtl_la_SOURCES = \
 	cxx-compilerphases.hpp \
 	cxx-compilerphases.cpp
 
-libmcxxtl_la_CXXFLAGS=-I tl -I $(srcdir)/tl -I ../lib -I $(srcdir)/../lib -I $(srcdir)/../gc/include
+libmcxxtl_la_CXXFLAGS=-I tl -I $(srcdir)/tl -I ../lib -I $(srcdir)/../lib 
 
 # Mercurium C/C++ compiler runtime library
 libmcxx_la_SOURCES = \
@@ -74,7 +74,7 @@ libmcxx_la_SOURCES = \
 #  cxx-overload.c \
 #  cxx-overload.h
 
-libmcxx_la_CFLAGS=-fexceptions -I$(srcdir)/../lib -I$(srcdir)/../gc/include -DPKGDATADIR=\"$(pkgdatadir)\" 
+libmcxx_la_CFLAGS=-fexceptions -I$(srcdir)/../lib -DPKGDATADIR=\"$(pkgdatadir)\" 
 
 EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx-lexer.l
@@ -124,19 +124,18 @@ mcxx_SOURCES = \
 
 mcxx_LDFLAGS = \
    -L../lib \
-   -L../gc \
    -L. \
    -Wl,-E
 
 mcxx_LDADD = \
+   -ldl \
    -lstdc++ \
    tl/libtl.la \
    ./libmcxx.la \
    ./libmcxxtl.la \
    ../lib/libmcxx-utils.la \
    ../lib/libmcxx-extstruct.la \
-   ../lib/libmcxx-mcfg.la \
-   ../gc/libgc.la
+   ../lib/libmcxx-mcfg.la
 
 mcxx_DEPENDENCIES =
 mcxx_DEPENDENCIES += libmcxx.la
@@ -146,7 +145,7 @@ mcxx_DEPENDENCIES += ../lib/libmcxx-utils.la
 mcxx_DEPENDENCIES += ../lib/libmcxx-mcfg.la
 mcxx_DEPENDENCIES += ../lib/libmcxx-extstruct.la
 
-mcxx_CFLAGS=-fexceptions -I$(srcdir)/../lib -I$(srcdir)/../gc/include -DPKGDATADIR=\"$(pkgdatadir)\" 
+mcxx_CFLAGS=-fexceptions -I$(srcdir)/../lib -DPKGDATADIR=\"$(pkgdatadir)\" 
 
 # Mercurium C Compiler
 # Is just mcxx copied to mcc

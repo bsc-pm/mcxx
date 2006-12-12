@@ -79,10 +79,10 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
                         // We use a typedef
                         injected_type->kind = SK_TYPEDEF;
 
-                        injected_type->type_information = GC_CALLOC(1, sizeof(*(injected_type->type_information)));
+                        injected_type->type_information = calloc(1, sizeof(*(injected_type->type_information)));
                         injected_type->type_information->kind = TK_DIRECT;
 
-                        injected_type->type_information->type = GC_CALLOC(1, 
+                        injected_type->type_information->type = calloc(1, 
                                 sizeof(*(injected_type->type_information->type)));
                         injected_type->type_information->type->kind = STK_TYPEDEF;
 
@@ -134,10 +134,10 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
         print_scope(instantiate_scope);
     }
 
-    type_t* simple_type_info = GC_CALLOC(1, sizeof(*simple_type_info));
+    type_t* simple_type_info = calloc(1, sizeof(*simple_type_info));
 
     simple_type_info->kind = TK_DIRECT;
-    simple_type_info->type = GC_CALLOC(1, sizeof(*(simple_type_info->type)));
+    simple_type_info->type = calloc(1, sizeof(*(simple_type_info->type)));
     simple_type_info->type->kind = STK_USER_DEFINED;
     simple_type_info->type->user_defined_type = instance_symbol;
 
@@ -241,10 +241,10 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
                                     // We use a typedef
                                     injected_type->kind = SK_TYPEDEF;
 
-                                    injected_type->type_information = GC_CALLOC(1, sizeof(*(injected_type->type_information)));
+                                    injected_type->type_information = calloc(1, sizeof(*(injected_type->type_information)));
                                     injected_type->type_information->kind = TK_DIRECT;
 
-                                    injected_type->type_information->type = GC_CALLOC(1, 
+                                    injected_type->type_information->type = calloc(1, 
                                             sizeof(*(injected_type->type_information->type)));
                                     injected_type->type_information->type->kind = STK_TYPEDEF;
                                     injected_type->type_information->type->aliased_type = unification_item->value;
@@ -313,10 +313,10 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
     instance_symbol->related_scope->template_scope = matched_template->scope->template_scope;
     matched_template->scope->template_scope = instance_symbol->related_scope;
 
-    type_t* simple_type_info = GC_CALLOC(1, sizeof(*simple_type_info));
+    type_t* simple_type_info = calloc(1, sizeof(*simple_type_info));
 
     simple_type_info->kind = TK_DIRECT;
-    simple_type_info->type = GC_CALLOC(1, sizeof(*(simple_type_info->type)));
+    simple_type_info->type = calloc(1, sizeof(*(simple_type_info->type)));
     simple_type_info->type->kind = STK_USER_DEFINED;
     simple_type_info->type->user_defined_type = instance_symbol;
 
@@ -365,11 +365,11 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
     instance_symbol->line = line;
 
     instance_symbol->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
-    instance_symbol->type_information = GC_CALLOC(1, sizeof(*(instance_symbol->type_information)));
+    instance_symbol->type_information = calloc(1, sizeof(*(instance_symbol->type_information)));
     instance_symbol->type_information->kind = TK_DIRECT;
-    instance_symbol->type_information->type = GC_CALLOC(1, sizeof(*(instance_symbol->type_information->type)));
+    instance_symbol->type_information->type = calloc(1, sizeof(*(instance_symbol->type_information->type)));
     instance_symbol->type_information->type->kind = STK_CLASS;
-    instance_symbol->type_information->type->class_info = GC_CALLOC(1, 
+    instance_symbol->type_information->type->class_info = calloc(1, 
             sizeof(*(instance_symbol->type_information->type->class_info)));
 
     instance_symbol->is_member = matched_template->is_member;

@@ -1,7 +1,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <signal.h>
-#include <gc.h>
 #include "extstruct.h"
 #include "cxx-driver.h"
 #include "cxx-buildscope.h"
@@ -223,10 +222,10 @@ static void initialize_builtin_symbols(void)
 
     builtin_va_list = new_symbol(compilation_options.global_scope, "__builtin_va_list");
     builtin_va_list->kind = SK_GCC_BUILTIN_TYPE;
-    builtin_va_list->type_information = GC_CALLOC(1, sizeof(*(builtin_va_list->type_information)));
+    builtin_va_list->type_information = calloc(1, sizeof(*(builtin_va_list->type_information)));
 
     builtin_va_list->type_information->kind = TK_DIRECT;
-    builtin_va_list->type_information->type = GC_CALLOC(1, sizeof(*(builtin_va_list->type_information->type)));
+    builtin_va_list->type_information->type = calloc(1, sizeof(*(builtin_va_list->type_information->type)));
     builtin_va_list->type_information->type->kind = STK_VA_LIST;
     builtin_va_list->defined = 1;
 
@@ -237,9 +236,9 @@ static void initialize_builtin_symbols(void)
 
         null_keyword = new_symbol(compilation_options.global_scope, "__null");
         null_keyword->kind = SK_VARIABLE;
-        null_keyword->type_information = GC_CALLOC(1, sizeof(*(null_keyword->type_information)));
+        null_keyword->type_information = calloc(1, sizeof(*(null_keyword->type_information)));
         null_keyword->type_information->kind = TK_DIRECT;
-        null_keyword->type_information->type = GC_CALLOC(1, sizeof(*(null_keyword->type_information->type)));
+        null_keyword->type_information->type = calloc(1, sizeof(*(null_keyword->type_information->type)));
         null_keyword->type_information->type->kind = STK_BUILTIN_TYPE;
         null_keyword->type_information->type->builtin_type = BT_INT;
         null_keyword->expression_value = ASTLeaf(AST_OCTAL_LITERAL, 0, "0");
@@ -680,8 +679,8 @@ void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gath
     // Now gather information of the type_spec
     if (ASTSon1(a) != NULL) 
     {
-        *simple_type_info = GC_CALLOC(1, sizeof(**simple_type_info));
-        (*simple_type_info)->type = GC_CALLOC(1, sizeof(*((*simple_type_info)->type)));
+        *simple_type_info = calloc(1, sizeof(**simple_type_info));
+        (*simple_type_info)->type = calloc(1, sizeof(*((*simple_type_info)->type)));
 
         decl_context_t new_decl_context = decl_context;
 
@@ -1025,13 +1024,13 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
             new_class->line = ASTLine(class_symbol);
 			new_class->point_of_declaration = class_symbol;
 
-            new_class->type_information = GC_CALLOC(1, sizeof(*(new_class->type_information)));
+            new_class->type_information = calloc(1, sizeof(*(new_class->type_information)));
             new_class->type_information->kind = TK_DIRECT;
-            new_class->type_information->type = GC_CALLOC(1, sizeof(*(new_class->type_information->type)));
+            new_class->type_information->type = calloc(1, sizeof(*(new_class->type_information->type)));
             new_class->type_information->type->kind = STK_CLASS;
             new_class->type_information->type->type_scope = copy_scope(st);
 
-            new_class->type_information->type->class_info = GC_CALLOC(1, 
+            new_class->type_information->type->class_info = calloc(1, 
                     sizeof(*(new_class->type_information->type->class_info)));
 
             type_info->type->kind = STK_USER_DEFINED;
@@ -1226,9 +1225,9 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
             new_class->line = ASTLine(symbol);
 			new_class->point_of_declaration = symbol;
             new_class->kind = SK_ENUM;
-            new_class->type_information = GC_CALLOC(1, sizeof(*(new_class->type_information)));
+            new_class->type_information = calloc(1, sizeof(*(new_class->type_information)));
             new_class->type_information->kind = TK_DIRECT;
-            new_class->type_information->type = GC_CALLOC(1, sizeof(*(new_class->type_information->type)));
+            new_class->type_information->type = calloc(1, sizeof(*(new_class->type_information->type)));
             new_class->type_information->type->kind = STK_ENUM;
             new_class->type_information->type->type_scope = copy_scope(st);
 
@@ -1415,7 +1414,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
 void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_type_info,
         decl_context_t decl_context)
 {
-    simple_type_info->type->enum_info = (enum_info_t*) GC_CALLOC(1, sizeof(*simple_type_info->type->enum_info));
+    simple_type_info->type->enum_info = (enum_info_t*) calloc(1, sizeof(*simple_type_info->type->enum_info));
 
     simple_type_info->type->kind = STK_ENUM;
 
@@ -1720,7 +1719,7 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
             }
         }
 
-        base_class_info_t* new_base_class = GC_CALLOC(1, sizeof(*new_base_class));
+        base_class_info_t* new_base_class = calloc(1, sizeof(*new_base_class));
         new_base_class->class_symbol = result;
         new_base_class->class_type = result->type_information;
         new_base_class->is_virtual = is_virtual;
@@ -1748,7 +1747,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
     AST class_head_nested_name = ASTSon1(class_head);
     AST class_head_identifier = ASTSon2(class_head);
 
-    simple_type_info->type->class_info = GC_CALLOC(1, sizeof(*simple_type_info->type->class_info));
+    simple_type_info->type->class_info = calloc(1, sizeof(*simple_type_info->type->class_info));
     simple_type_info->type->kind = STK_CLASS;
 
     scope_t* inner_scope = new_class_scope(st);
@@ -2326,8 +2325,8 @@ static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_
 {
     type_t* pointee_type = *declarator_type;
 
-    (*declarator_type) = GC_CALLOC(1, sizeof(*(*declarator_type)));
-    (*declarator_type)->pointer = GC_CALLOC(1, sizeof(*((*declarator_type)->pointer)));
+    (*declarator_type) = calloc(1, sizeof(*(*declarator_type)));
+    (*declarator_type)->pointer = calloc(1, sizeof(*((*declarator_type)->pointer)));
     (*declarator_type)->pointer->pointee = pointee_type;
 
     switch (ASTType(pointer_tree))
@@ -2398,9 +2397,9 @@ static void set_array_type(type_t** declarator_type, scope_t* st,
         solve_possibly_ambiguous_expression(constant_expr, st, decl_context);
     }
 
-    (*declarator_type) = GC_CALLOC(1, sizeof(*(*declarator_type)));
+    (*declarator_type) = calloc(1, sizeof(*(*declarator_type)));
     (*declarator_type)->kind = TK_ARRAY;
-    (*declarator_type)->array = GC_CALLOC(1, sizeof(*((*declarator_type)->array)));
+    (*declarator_type)->array = calloc(1, sizeof(*((*declarator_type)->array)));
     (*declarator_type)->array->element_type = element_type;
     (*declarator_type)->array->array_expr = constant_expr;
     (*declarator_type)->array->array_expr_scope = copy_scope(st);
@@ -2465,7 +2464,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 
         if (ASTType(parameter_declaration) == AST_VARIADIC_ARG)
         {
-            parameter_info_t* new_parameter = GC_CALLOC(1, sizeof(*new_parameter));
+            parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
             new_parameter->is_ellipsis = 1;
 
             P_LIST_ADD(declarator_type->function->parameter_list, declarator_type->function->num_parameters, new_parameter);
@@ -2519,7 +2518,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 				ASTAttrSetValueType(declarator_name, LANG_IS_DECLARED_PARAMETER, tl_type_t, tl_bool(1));
 			}
 
-            parameter_info_t* new_parameter = GC_CALLOC(1, sizeof(*new_parameter));
+            parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
             new_parameter->type_info = type_info;
             new_parameter->default_argument = default_argument;
 
@@ -2531,7 +2530,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
         {
             type_t* type_info = simple_type_info;
 
-            parameter_info_t* new_parameter = GC_CALLOC(1, sizeof(*new_parameter));
+            parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
             new_parameter->type_info = type_info;
             new_parameter->default_argument = default_argument;
 
@@ -2564,9 +2563,9 @@ static void set_function_type(type_t** declarator_type, scope_t* st, scope_t** p
 {
     type_t* returning_type = *declarator_type;
 
-    (*declarator_type) = GC_CALLOC(1, sizeof(*(*declarator_type)));
+    (*declarator_type) = calloc(1, sizeof(*(*declarator_type)));
     (*declarator_type)->kind = TK_FUNCTION;
-    (*declarator_type)->function = GC_CALLOC(1, sizeof(*((*declarator_type)->function)));
+    (*declarator_type)->function = calloc(1, sizeof(*((*declarator_type)->function)));
     (*declarator_type)->function->return_type = returning_type;
 
     set_function_parameter_clause(*declarator_type, st, parameters_scope, parameter, decl_context);
@@ -2981,9 +2980,9 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 	entry->point_of_declaration = declarator_id;
     // Save aliased type under the type of this declaration
     entry->kind = SK_TYPEDEF;
-    entry->type_information = GC_CALLOC(1, sizeof(*(entry->type_information)));
+    entry->type_information = calloc(1, sizeof(*(entry->type_information)));
     entry->type_information->kind = TK_DIRECT;
-    entry->type_information->type = GC_CALLOC(1, sizeof(*(entry->type_information->type)));
+    entry->type_information->type = calloc(1, sizeof(*(entry->type_information->type)));
     entry->type_information->type->kind = STK_TYPEDEF;
     entry->type_information->type->aliased_type = declarator_type;
     entry->type_information->type->type_scope = st;
@@ -3280,7 +3279,7 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 
     // And save them into the "in scope" template parameter set
     new_decl_context.num_template_parameters_in_scope = 0;
-    new_decl_context.template_parameters_in_scope = GC_CALLOC(1, 
+    new_decl_context.template_parameters_in_scope = calloc(1, 
             sizeof(*(new_decl_context.template_parameters_in_scope)));
     // First the inherited ones
     int i;
@@ -3363,7 +3362,7 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 static void build_scope_explicit_template_specialization(AST a, scope_t* st, decl_context_t decl_context)
 {
     scope_t* template_scope = new_template_scope(st);
-    template_parameter_t** template_parameters = GC_CALLOC(1, sizeof(*template_parameters));
+    template_parameter_t** template_parameters = calloc(1, sizeof(*template_parameters));
     int num_parameters = 0;
 
     decl_context_t new_decl_context = decl_context;
@@ -3576,7 +3575,7 @@ static void build_scope_template_parameter_list(AST a, scope_t* st,
     {
         AST template_parameter = ASTSon1(iter);
 
-        template_parameter_t* new_template_param = GC_CALLOC(1, sizeof(*new_template_param));
+        template_parameter_t* new_template_param = calloc(1, sizeof(*new_template_param));
 
         DEBUG_CODE()
         {
@@ -3641,9 +3640,9 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
             &parm_num_parameters, template_params_context);
 
     // Now create a STK_CLASS
-    type_t* new_type = GC_CALLOC(1, sizeof(*new_type));
+    type_t* new_type = calloc(1, sizeof(*new_type));
     new_type->kind = TK_DIRECT;
-    new_type->type = GC_CALLOC(1, sizeof(*(new_type->type)));
+    new_type->type = calloc(1, sizeof(*(new_type->type)));
     new_type->type->kind = STK_TEMPLATE_TEMPLATE_PARAMETER;
     new_type->type->template_parameter_nesting = decl_context.template_nesting;
     new_type->type->template_parameter_num = num_parameter;
@@ -3674,8 +3673,8 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
             &(new_entry->type_information->type->template_arguments));
         
         // And save its name
-        template_parameters->template_parameter_name = GC_STRDUP(name);
-        new_type->type->template_parameter_name = GC_STRDUP(name);
+        template_parameters->template_parameter_name = strdup(name);
+        new_type->type->template_parameter_name = strdup(name);
 
         template_parameters->parameter_tree = ASTMake3(AST_SIMPLE_TYPE_SPECIFIER, 
                 NULL, NULL, duplicate_ast(symbol), ASTLine(symbol), NULL);
@@ -3684,7 +3683,7 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
     }
     else
     {
-        char* template_param_name = GC_CALLOC(256, sizeof(char));
+        char* template_param_name = calloc(256, sizeof(char));
 
         sprintf(template_param_name, " <template-param-%d-%d> ", decl_context.template_nesting, num_parameter+1);
         template_parameters->parameter_tree = ASTLeaf(AST_SYMBOL, ASTLine(a), template_param_name);
@@ -3711,11 +3710,11 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 
         ERROR_CONDITION((entry_list == NULL), "No primary template or template template parameter found", 0);
 
-        template_parameters->default_type = GC_CALLOC(1, 
+        template_parameters->default_type = calloc(1, 
                 sizeof(*(template_parameters->default_type)));
         template_parameters->default_type->kind = TK_DIRECT;
 
-        template_parameters->default_type->type = GC_CALLOC(1, 
+        template_parameters->default_type->type = calloc(1, 
                 sizeof(*(template_parameters->default_type->type)));
         template_parameters->default_type->type->kind = STK_USER_DEFINED;
         template_parameters->default_type->type->user_defined_type = entry_list->entry;
@@ -3767,9 +3766,9 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
     // table
     //
     // Create the type
-    type_t* new_type = GC_CALLOC(1, sizeof(*new_type));
+    type_t* new_type = calloc(1, sizeof(*new_type));
     new_type->kind = TK_DIRECT;
-    new_type->type = GC_CALLOC(1, sizeof(*(new_type->type)));
+    new_type->type = calloc(1, sizeof(*(new_type->type)));
     new_type->type->kind = STK_TYPE_TEMPLATE_PARAMETER;
     new_type->type->template_parameter_nesting = decl_context.template_nesting;
     new_type->type->template_parameter_num = num_parameter;
@@ -3795,14 +3794,14 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
         new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
 
         // And save it in the type
-        template_parameters->template_parameter_name = GC_STRDUP(ASTText(name));
-        new_type->type->template_parameter_name = GC_STRDUP(ASTText(name));
+        template_parameters->template_parameter_name = strdup(ASTText(name));
+        new_type->type->template_parameter_name = strdup(ASTText(name));
 
         template_parameters->parameter_tree = name;
     }
     else
     {
-        char* template_param_name = GC_CALLOC(256, sizeof(char));
+        char* template_param_name = calloc(256, sizeof(char));
 
         sprintf(template_param_name, " <template-param-%d-%d> ", decl_context.template_nesting, num_parameter+1);
         template_parameters->parameter_tree = ASTLeaf(AST_SYMBOL, ASTLine(a), template_param_name);
@@ -3889,8 +3888,8 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
             entry->kind = SK_TEMPLATE_PARAMETER;
 
             // Save its name
-            template_parameters->template_parameter_name = GC_STRDUP(entry->symbol_name);
-            simple_type_info->type->template_parameter_name = GC_STRDUP(entry->symbol_name);
+            template_parameters->template_parameter_name = strdup(entry->symbol_name);
+            simple_type_info->type->template_parameter_name = strdup(entry->symbol_name);
         }
     }
     // If we don't have a declarator just save the base type
@@ -4264,9 +4263,9 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
         if (!entry->type_information->function->is_static
                 && !entry->type_information->function->is_constructor)
         {
-            type_t* this_type = GC_CALLOC(1, sizeof(*this_type));
+            type_t* this_type = calloc(1, sizeof(*this_type));
             this_type->kind = TK_POINTER;
-            this_type->pointer = GC_CALLOC(1, sizeof(*(this_type->pointer)));
+            this_type->pointer = calloc(1, sizeof(*(this_type->pointer)));
             this_type->pointer->pointee = copy_type(entry->class_type);
 
             // "this" pseudovariable has the same cv-qualification of this member
@@ -4420,7 +4419,7 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
     
     // And save them into the "in scope" template parameter set
     int i;
-    new_decl_context.template_parameters_in_scope = GC_CALLOC(1, 
+    new_decl_context.template_parameters_in_scope = calloc(1, 
             sizeof(*(new_decl_context.template_parameters_in_scope)));
     new_decl_context.num_template_parameters_in_scope = 0;
     // First the inherited ones
@@ -4610,7 +4609,7 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
                 }
             case AST_CONVERSION_FUNCTION_ID :
                 {
-                    conversion_function_t* new_conversion = GC_CALLOC(1, sizeof(*new_conversion));
+                    conversion_function_t* new_conversion = calloc(1, sizeof(*new_conversion));
 
                     // The conversion type is the return of the conversion function id
                     new_conversion->conversion_type = entry->type_information->function->return_type;
@@ -4797,7 +4796,7 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
                                     }
                                 case AST_CONVERSION_FUNCTION_ID :
                                     {
-                                        conversion_function_t* new_conversion = GC_CALLOC(1, sizeof(*new_conversion));
+                                        conversion_function_t* new_conversion = calloc(1, sizeof(*new_conversion));
 
                                         // The conversion type is the return of the conversion function id
                                         new_conversion->conversion_type = entry->type_information->function->return_type;
@@ -4898,7 +4897,7 @@ static exception_spec_t* build_exception_spec(scope_t* st, AST a,
     if (a == NULL)
         return NULL;
 
-    exception_spec_t* result = GC_CALLOC(1, sizeof(*result));
+    exception_spec_t* result = calloc(1, sizeof(*result));
 
     AST type_id_list = ASTSon0(a);
 
@@ -4949,7 +4948,7 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
         template_parameter_t** template_parameter_info, 
         int num_template_parameters, template_argument_list_t** template_arguments)
 {
-    *template_arguments = GC_CALLOC(sizeof(1), sizeof(*(*template_arguments)));
+    *template_arguments = calloc(sizeof(1), sizeof(*(*template_arguments)));
     (*template_arguments)->num_arguments = 0;
 
     int i;
@@ -4961,7 +4960,7 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
         {
             case TPK_TYPE :
                 {
-                    template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
+                    template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
 
                     new_template_argument->kind = TAK_TYPE;
                     new_template_argument->type = template_parameter->type_info;
@@ -4974,7 +4973,7 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
                 }
             case TPK_TEMPLATE :
                 {
-                    template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
+                    template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
 
                     new_template_argument->kind = TAK_TEMPLATE;
                     new_template_argument->type = template_parameter->type_info;
@@ -4987,7 +4986,7 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
                 }
             case TPK_NONTYPE :
                 {
-                    template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
+                    template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
 
                     new_template_argument->kind = TAK_NONTYPE;
                     new_template_argument->type = template_parameter->type_info;
@@ -5106,10 +5105,10 @@ static void update_template_parameter_types(type_t** update_type,
                         {
                             new_entry->kind = SK_TYPEDEF;
 
-                            new_entry->type_information = GC_CALLOC(1, sizeof(*(new_entry->type_information)));
+                            new_entry->type_information = calloc(1, sizeof(*(new_entry->type_information)));
                             new_entry->type_information->kind = TK_DIRECT;
 
-                            new_entry->type_information->type = GC_CALLOC(1, sizeof(*(new_entry->type_information->type)));
+                            new_entry->type_information->type = calloc(1, sizeof(*(new_entry->type_information->type)));
                             new_entry->type_information->type->kind = STK_TYPEDEF;
                             new_entry->type_information->type->aliased_type = copy_type(
                                     advance_over_typedefs(entry->type_information));
@@ -5235,10 +5234,10 @@ static void update_template_parameter_types(type_t** update_type,
                             new_specialization = new_match_template->entry;
                         }
 
-                        type_t* new_user_defined_type = GC_CALLOC(1, sizeof(*new_user_defined_type));
+                        type_t* new_user_defined_type = calloc(1, sizeof(*new_user_defined_type));
                         new_user_defined_type->kind = TK_DIRECT;
 
-                        new_user_defined_type->type = GC_CALLOC(1, sizeof(*(new_user_defined_type->type)));
+                        new_user_defined_type->type = calloc(1, sizeof(*(new_user_defined_type->type)));
                         new_user_defined_type->type->kind = STK_USER_DEFINED;
                         new_user_defined_type->type->user_defined_type = new_specialization;
 
@@ -5278,7 +5277,7 @@ void build_scope_template_arguments(AST class_head_id,
     }
 
     AST list, iter;
-    *template_arguments = GC_CALLOC(sizeof(1), sizeof(*(*template_arguments)));
+    *template_arguments = calloc(sizeof(1), sizeof(*(*template_arguments)));
 
     (*template_arguments)->num_arguments = 0;
 
@@ -5361,7 +5360,7 @@ void build_scope_template_arguments(AST class_head_id,
                             // Do nothing, we may be checking for ambiguities
                             break;
                         }
-                        template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
+                        template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
 
                         template_parameter_t* curr_template_parameter = 
                             primary_template->template_parameter_info[(*template_arguments)->num_arguments];
@@ -5422,7 +5421,7 @@ void build_scope_template_arguments(AST class_head_id,
                             break;
                         }
                         // This expression is of limited nature
-                        template_argument_t* new_template_argument = GC_CALLOC(1, sizeof(*new_template_argument));
+                        template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
                         new_template_argument->kind = TAK_NONTYPE;
 
                         AST expr_template_argument = ASTSon0(template_argument);
@@ -5467,7 +5466,7 @@ void build_scope_template_arguments(AST class_head_id,
         {
             template_parameter_t* curr_template_parameter = primary_template->template_parameter_info[k];
 
-            template_argument_t* curr_template_arg = GC_CALLOC(1, sizeof(*curr_template_arg));
+            template_argument_t* curr_template_arg = calloc(1, sizeof(*curr_template_arg));
 
             // Something is wrong here, maybe due to an ambiguity
             if (curr_template_parameter->default_argument_scope == NULL)
@@ -5581,10 +5580,10 @@ void build_scope_template_arguments(AST class_head_id,
                                 {
                                     new_entry->kind = SK_TYPEDEF;
 
-                                    new_entry->type_information = GC_CALLOC(1, sizeof(*(new_entry->type_information)));
+                                    new_entry->type_information = calloc(1, sizeof(*(new_entry->type_information)));
                                     new_entry->type_information->kind = TK_DIRECT;
 
-                                    new_entry->type_information->type = GC_CALLOC(1, sizeof(*(new_entry->type_information->type)));
+                                    new_entry->type_information->type = calloc(1, sizeof(*(new_entry->type_information->type)));
                                     new_entry->type_information->type->kind = STK_TYPEDEF;
                                     new_entry->type_information->type->aliased_type = copy_type(
                                             advance_over_typedefs(entry->type_information));

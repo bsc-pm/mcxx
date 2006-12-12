@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <gc.h>
 #include "cxx-scope.h"
 #include "cxx-buildscope.h"
 #include "cxx-driver.h"
@@ -17,7 +16,7 @@
 
 static scope_t* new_scope(void)
 {
-    scope_t* sc = GC_CALLOC(1, sizeof(*sc));
+    scope_t* sc = calloc(1, sizeof(*sc));
     sc->hash = hash_create(HASH_SIZE, HASHFUNC(prime_hash), KEYCMPFUNC(strcmp));
 
     return sc;
@@ -64,7 +63,7 @@ scope_t* new_block_scope(scope_t* enclosing_scope, scope_t* prototype_scope, sco
     
     // Create artificial entry for the block scope
     static int scope_number = 0;
-    char* c = GC_CALLOC(256, sizeof(char));
+    char* c = calloc(256, sizeof(char));
     sprintf(c, "(#%d)", scope_number);
     scope_number++;
 
@@ -123,13 +122,13 @@ scope_entry_t* new_symbol(scope_t* sc, char* name)
 
     scope_entry_t* result;
 
-    result = GC_CALLOC(1, sizeof(*result));
-    result->symbol_name = GC_STRDUP(name);
+    result = calloc(1, sizeof(*result));
+    result->symbol_name = strdup(name);
     result->scope = sc;
 
     if (result_set != NULL)
     {
-        scope_entry_list_t* new_set = (scope_entry_list_t*) GC_CALLOC(1, sizeof(*new_set));
+        scope_entry_list_t* new_set = (scope_entry_list_t*) calloc(1, sizeof(*new_set));
 
         // Put the new entry in front of the previous
         *new_set = *result_set;
@@ -139,7 +138,7 @@ scope_entry_t* new_symbol(scope_t* sc, char* name)
     }
     else
     {
-        result_set = (scope_entry_list_t*) GC_CALLOC(1, sizeof(*result_set));
+        result_set = (scope_entry_list_t*) calloc(1, sizeof(*result_set));
         result_set->entry = result;
         result_set->next = NULL; // redundant, though
 
@@ -195,7 +194,7 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
 
     if (result_set != NULL)
     {
-        scope_entry_list_t* new_set = (scope_entry_list_t*) GC_CALLOC(1, sizeof(*new_set));
+        scope_entry_list_t* new_set = (scope_entry_list_t*) calloc(1, sizeof(*new_set));
 
         // Put the new entry in front of the previous
         *new_set = *result_set;
@@ -205,7 +204,7 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
     }
     else
     {
-        result_set = (scope_entry_list_t*) GC_CALLOC(1, sizeof(*result_set));
+        result_set = (scope_entry_list_t*) calloc(1, sizeof(*result_set));
         result_set->entry = entry;
         result_set->next = NULL; // redundant, though
 
@@ -666,7 +665,7 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
         }
         else if (is_dependent)
         {
-            scope_entry_t* dependent_entity = GC_CALLOC(1, sizeof(*dependent_entity));
+            scope_entry_t* dependent_entity = calloc(1, sizeof(*dependent_entity));
             dependent_entity->kind = SK_DEPENDENT_ENTITY;
 
             return create_list_from_entry(dependent_entity);
@@ -877,7 +876,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
             fprintf(stderr, "This is a dependent template-id used in an expression\n");
         }
 
-        scope_entry_t* dependent_entity = GC_CALLOC(1, sizeof(*dependent_entity));
+        scope_entry_t* dependent_entity = calloc(1, sizeof(*dependent_entity));
         dependent_entity->kind = SK_DEPENDENT_ENTITY;
 
         return create_list_from_entry(dependent_entity);
@@ -1170,7 +1169,7 @@ scope_entry_list_t* query_id_expression_flags(scope_t* sc, AST id_expr,
 
 scope_entry_list_t* create_list_from_entry(scope_entry_t* entry)
 {
-    scope_entry_list_t* result = GC_CALLOC(1, sizeof(*result));
+    scope_entry_list_t* result = calloc(1, sizeof(*result));
     result->entry = entry;
     result->next = NULL;
 
@@ -1632,7 +1631,7 @@ scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int n
         {
             if (iter->entry->kind == symbol_kind_set[i])
             {
-                scope_entry_list_t* new_item = GC_CALLOC(1, sizeof(*new_item));
+                scope_entry_list_t* new_item = calloc(1, sizeof(*new_item));
                 new_item->entry = iter->entry;
                 new_item->next = result;
                 result = new_item;
@@ -1675,7 +1674,7 @@ scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, i
 
         if (!found)
         {
-            scope_entry_list_t* new_item = GC_CALLOC(1, sizeof(*new_item));
+            scope_entry_list_t* new_item = calloc(1, sizeof(*new_item));
             new_item->entry = iter->entry;
             new_item->next = result;
             result = new_item;
@@ -1710,7 +1709,7 @@ scope_entry_list_t* filter_entry_from_list(scope_entry_list_t* entry_list, scope
     {
         if (iter->entry != entry)
         {
-            scope_entry_list_t* new_item = GC_CALLOC(1, sizeof(*new_item));
+            scope_entry_list_t* new_item = calloc(1, sizeof(*new_item));
             new_item->entry = iter->entry;
             new_item->next = result;
             result = new_item;
@@ -1731,7 +1730,7 @@ scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list
     {
         if (f(iter->entry))
         {
-            scope_entry_list_t* new_item = GC_CALLOC(1, sizeof(*new_item));
+            scope_entry_list_t* new_item = calloc(1, sizeof(*new_item));
             new_item->entry = iter->entry;
             new_item->next = result;
             result = new_item;
@@ -1807,7 +1806,7 @@ scope_entry_list_t* append_scope_entry_lists(scope_entry_list_t* a, scope_entry_
     iter = a;
     while (iter != NULL)
     {
-        scope_entry_list_t* new_entry = GC_CALLOC(1, sizeof(*new_entry));
+        scope_entry_list_t* new_entry = calloc(1, sizeof(*new_entry));
 
         new_entry->entry = iter->entry;
         new_entry->next = result;
@@ -1820,7 +1819,7 @@ scope_entry_list_t* append_scope_entry_lists(scope_entry_list_t* a, scope_entry_
     iter = b;
     while (iter != NULL)
     {
-        scope_entry_list_t* new_entry = GC_CALLOC(1, sizeof(*new_entry));
+        scope_entry_list_t* new_entry = calloc(1, sizeof(*new_entry));
 
         new_entry->entry = iter->entry;
         new_entry->next = result;
@@ -1860,7 +1859,7 @@ scope_t* enclosing_namespace_scope(scope_t* st)
 //     if (st == NULL)
 //         return NULL;
 // 
-//     scope_t* result = GC_CALLOC(1, sizeof(*result));
+//     scope_t* result = calloc(1, sizeof(*result));
 // 
 //     // bitwise copy
 //     *result = *st;
@@ -1873,7 +1872,7 @@ scope_t* copy_scope(scope_t* st)
     if (st == NULL)
         return NULL;
 
-    scope_t* result = GC_CALLOC(1, sizeof(*result));
+    scope_t* result = calloc(1, sizeof(*result));
 
     // bitwise copy
     *result = *st;

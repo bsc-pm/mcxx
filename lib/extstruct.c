@@ -2,8 +2,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <gc.h>
-#include <gcstring.h>
 
 #define warning_message(...) \
 { \
@@ -34,13 +32,13 @@ int extensible_schema_add_field(extensible_schema_t* schema,
 	int num_fields = schema->num_fields+1;
 
 	// Realloc the arrays
-	schema->field_names = GC_REALLOC(schema->field_names, 
+	schema->field_names = realloc(schema->field_names, 
 			sizeof(*(schema->field_names))*num_fields);
-	schema->field_sizes = GC_REALLOC(schema->field_sizes, 
+	schema->field_sizes = realloc(schema->field_sizes, 
 			sizeof(*(schema->field_sizes))*num_fields);
 
 	// Store the information of this new field
-	schema->field_names[num_fields-1] = GC_STRDUP(field_name);
+	schema->field_names[num_fields-1] = strdup(field_name);
 	schema->field_sizes[num_fields-1] = field_size;
 
 	schema->num_fields++;
@@ -77,7 +75,7 @@ void extensible_struct_allocate_field(extensible_schema_t* schema,
 {
 	int field_size = schema->field_sizes[schema_field_order];
 
-	extensible_struct->data = GC_REALLOC(extensible_struct->data,
+	extensible_struct->data = realloc(extensible_struct->data,
 			(extensible_struct->data_size + field_size) * sizeof(char));
 
 	// Clear the field data
@@ -102,7 +100,7 @@ void extensible_struct_activate_field(extensible_schema_t* schema,
 		int previous_active_fields = extensible_struct->num_active_fields;
 		extensible_struct->num_active_fields = schema_field_order + 1;
 		extensible_struct->offsets_data = 
-			GC_REALLOC(extensible_struct->offsets_data, 
+			realloc(extensible_struct->offsets_data, 
 					(extensible_struct->num_active_fields)*(sizeof(*(extensible_struct->offsets_data))));
 
 		// Set the unallocated to -1

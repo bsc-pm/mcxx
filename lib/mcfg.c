@@ -14,7 +14,7 @@ static int Parse (FILE * fp, int style, int (*sfunc) (char *),
           int (*pfunc) (char *, char *));
 static int Section (FILE * fp, int (*sfunc) (char *));
 static int Continuation (char *line, int pos);
-static char *loc_GC_REALLOC (char *p, int size);
+static char *loc_realloc (char *p, int size);
 static int eatWhitespace (FILE * fp);
 static int Parameter (FILE * fp, int style,
               int (*pfunc) (char *, char *), int c);
@@ -86,10 +86,10 @@ Parameter (FILE * fp, int style, int (*pfunc) (char *, char *), int c)
       if (i > (bsize - 2))
         {
           bsize += BUFR_INC;
-          bufr = loc_GC_REALLOC (bufr, bsize);
+          bufr = loc_realloc (bufr, bsize);
           if (bufr == NULL)
         {
-          (void) fprintf (stderr, "%s GC_MALLOC failed\n", func);
+          (void) fprintf (stderr, "%s malloc failed\n", func);
           return (-1);
         }
         }
@@ -169,10 +169,10 @@ Parameter (FILE * fp, int style, int (*pfunc) (char *, char *), int c)
       if (i > (bsize - 2))
     {
       bsize += BUFR_INC;
-      bufr = loc_GC_REALLOC (bufr, bsize);
+      bufr = loc_realloc (bufr, bsize);
       if (bufr == NULL)
         {
-          (void) fprintf (stderr, "%s GC_MALLOC failed\n", func);
+          (void) fprintf (stderr, "%s malloc failed\n", func);
           return (-1);
         }
     }
@@ -290,7 +290,7 @@ openConfFile (char *filename)
 **  Return Values:
 **      0   if successfully parsed
 **      -1  if failed to open the file for reading
-**      -2  GC_MALLOC failed
+**      -2  malloc failed
 **      -3  parse error
 **
 **  Limitations and Comments:
@@ -322,10 +322,10 @@ param_process (char *filename,
   else
     {
       bsize = BUFR_INC;
-      bufr = (char *) GC_MALLOC (bsize);
+      bufr = (char *) malloc (bsize);
       if (bufr == NULL)
     {
-      (void) fprintf (stderr, "%s GC_MALLOC failed\n", func);
+      (void) fprintf (stderr, "%s malloc failed\n", func);
       (void) fclose (fp);
       return (PPR_MALLOC_ERROR);
     }
@@ -513,10 +513,10 @@ static int Section (FILE * fp, int (*sfunc) (char *))
       if (i > (bsize - 2))
     {
       bsize += BUFR_INC;
-      bufr = loc_GC_REALLOC (bufr, bsize);
+      bufr = loc_realloc (bufr, bsize);
       if (bufr == NULL)
         {
-          (void) fprintf (stderr, "%s GC_MALLOC failed\n", func);
+          (void) fprintf (stderr, "%s malloc failed\n", func);
           return (-1);
         }
     }
@@ -587,7 +587,7 @@ static int Section (FILE * fp, int (*sfunc) (char *))
 ** expand a pointer to be a particular size
 */
 static char *
-loc_GC_REALLOC (char *p, int size)
+loc_realloc (char *p, int size)
 {
   char *ret = NULL;
 
@@ -596,19 +596,19 @@ loc_GC_REALLOC (char *p, int size)
       if (p)
     {
       // (void) free(p);
-      (void) fprintf (stderr, "loc_GC_REALLOC() asked for 0 bytes\n");
+      (void) fprintf (stderr, "loc_realloc() asked for 0 bytes\n");
       return (NULL);
     }
     }
 
   if (!p)
-    ret = (char *) GC_MALLOC (size);
+    ret = (char *) malloc (size);
   else
-    ret = (char *) GC_REALLOC (p, size);
+    ret = (char *) realloc (p, size);
 
   if (!ret)
     (void) fprintf (stderr,
-            "GC_MALLOC problem, failed to expand to %d bytes\n",
+            "malloc problem, failed to expand to %d bytes\n",
             size);
   return (ret);
 }

@@ -7,7 +7,6 @@
 #include <string.h>
 #include <libgen.h>
 #include <signal.h>
-#include <gc.h>
 
 
 #include "cxx-driver.h"
@@ -16,7 +15,7 @@
 void debug_message(const char* message, const char* kind, const char* source_file, int line, const char* function_name, ...)
 {
     va_list ap;
-    char* sanitized_message = GC_STRDUP(message);
+    char* sanitized_message = strdup(message);
 
     // Remove annoying \n at the end. This will make this function
     // interchangeable with fprintf(stderr, 
@@ -29,7 +28,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
         length--;
     }
     
-    char* source_file_copy = GC_STRDUP(source_file);
+    char* source_file_copy = strdup(source_file);
     
     fprintf(stderr, "%s%s:%d %s: ", kind, give_basename(source_file_copy), line, function_name);
     va_start(ap, function_name);
@@ -69,7 +68,7 @@ char* strappend(char* orig, char* appended)
 {
     int total = strlen(orig) + strlen(appended) + 1;
 
-    char* result = GC_CALLOC(total, sizeof(*result));
+    char* result = calloc(total, sizeof(*result));
 
     strcat(result, orig);
     strcat(result, appended);
@@ -81,7 +80,7 @@ char* strprepend(char* orig, char* prepended)
 {
     int total = strlen(orig) + strlen(prepended) + 1;
 
-    char* result = GC_CALLOC(total, sizeof(*result));
+    char* result = calloc(total, sizeof(*result));
 
     strcat(result, prepended);
     strcat(result, orig);
@@ -93,7 +92,7 @@ char* strprepend(char* orig, char* prepended)
 char* get_unique_name(void)
 {
     static int num_var = 100;
-    char* result = GC_CALLOC(15, sizeof(char));
+    char* result = calloc(15, sizeof(char));
 
     snprintf(result, 14, "$.anon%05d", num_var);
 
@@ -109,12 +108,12 @@ char** comma_separate_values(char* value, int *num_elems)
 
     if (value != NULL)
     {
-        char* comma_string = GC_STRDUP(value);
+        char* comma_string = strdup(value);
         char* current = strtok(comma_string, ",");
 
         while (current != NULL)
         {
-            P_LIST_ADD(result, *num_elems, GC_STRDUP(current));
+            P_LIST_ADD(result, *num_elems, strdup(current));
             current = strtok(NULL, ",");
         }
     }
@@ -127,14 +126,14 @@ char** comma_separate_values(char* value, int *num_elems)
 
 char* give_basename(const char* c)
 {
-    char* result = basename(GC_STRDUP(c));
-    return GC_STRDUP(result);
+    char* result = basename(strdup(c));
+    return strdup(result);
 }
 
 char* give_dirname(const char* c)
 {
-    char* result = dirname(GC_STRDUP(c));
-    return GC_STRDUP(result);
+    char* result = dirname(strdup(c));
+    return strdup(result);
 }
 
 // Temporal files handling routines
@@ -221,7 +220,7 @@ int execute_program(char* program_name, char** arguments)
 {
     int num = count_null_ended_array((void**)arguments);
 
-    char** execvp_arguments = GC_CALLOC(num + 1 + 1, sizeof(char*));
+    char** execvp_arguments = calloc(num + 1 + 1, sizeof(char*));
 
     execvp_arguments[0] = program_name;
 
@@ -302,7 +301,7 @@ void seen_filename(char* filename)
     if (reference_to_seen_filename(filename) != NULL)
         return;
 
-    P_LIST_ADD(seen_file_names, num_seen_file_names, GC_STRDUP(filename));
+    P_LIST_ADD(seen_file_names, num_seen_file_names, strdup(filename));
 }
 
 char* reference_to_seen_filename(char* filename)

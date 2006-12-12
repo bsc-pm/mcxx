@@ -1,6 +1,5 @@
 #include "tl-source.hpp"
 #include "cxx-ambiguity.h"
-#include "gcstring.h"
 #include <iostream>
 #include <sstream>
 #include "cxx-printscope.h"
@@ -97,7 +96,7 @@ namespace TL
 	AST_t Source::parse_expression(TL::Scope ctx)
 	{
 		std::string mangled_text = "@EXPRESSION@ " + this->get_source(true);
-		char* str = GC_STRDUP(mangled_text.c_str());
+		char* str = strdup(mangled_text.c_str());
 
 		mcxx_prepare_string_for_scanning(str);
 
@@ -113,7 +112,7 @@ namespace TL
 	AST_t Source::parse_expression(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
 		std::string mangled_text = "@EXPRESSION@ " + this->get_source(true);
-		char* str = GC_STRDUP(mangled_text.c_str());
+		char* str = strdup(mangled_text.c_str());
 
 		mcxx_prepare_string_for_scanning(str);
 
@@ -132,7 +131,7 @@ namespace TL
 	AST_t Source::parse_member(TL::Scope ctx, TL::ScopeLink scope_link, Type class_type)
 	{
 		std::string mangled_text = "@MEMBER@ " + this->get_source(true);
-		char* str = GC_STRDUP(mangled_text.c_str());
+		char* str = strdup(mangled_text.c_str());
 
 		mcxx_prepare_string_for_scanning(str);
 
@@ -148,7 +147,7 @@ namespace TL
 	AST_t Source::parse_statement(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
 		std::string mangled_text = "@STATEMENT@ " + this->get_source(true);
-		char* str = GC_STRDUP(mangled_text.c_str());
+		char* str = strdup(mangled_text.c_str());
 
 		mcxx_prepare_string_for_scanning(str);
 
@@ -164,7 +163,7 @@ namespace TL
 
 	AST_t Source::parse_global(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
-		char* str = GC_STRDUP(this->get_source(true).c_str());
+		char* str = strdup(this->get_source(true).c_str());
 
 		mcxx_prepare_string_for_scanning(str);
 

@@ -303,7 +303,7 @@ static void print_scope_entry_list_brief(scope_entry_list_t* entry_list, scope_t
 // and symbol_kind one of the SK_xxx defined in cxx-scope.h
 static void print_scope_entry_brief(scope_entry_t* entry, scope_t* st, char* qualif_name)
 {
-    struct brief_lines_t* new_brief_line = GC_CALLOC(1, sizeof(*new_brief_line));
+    struct brief_lines_t* new_brief_line = calloc(1, sizeof(*new_brief_line));
 
     new_brief_line->symbol_name = qualif_name;
     new_brief_line->symbol_name = strappend(new_brief_line->symbol_name,
@@ -335,7 +335,7 @@ static void print_scope_entry_brief(scope_entry_t* entry, scope_t* st, char* qua
     new_brief_line->symbol_name = strappend(new_brief_line->symbol_name,
             symbol_name);
 
-    new_brief_line->rest_of_line = GC_CALLOC(256, sizeof(char));
+    new_brief_line->rest_of_line = calloc(256, sizeof(char));
 
     sprintf(new_brief_line->rest_of_line, "%s %s", entry->defined ? "D" : "U",
             symbol_kind_names[entry->kind]);

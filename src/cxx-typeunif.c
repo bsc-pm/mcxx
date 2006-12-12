@@ -1,6 +1,5 @@
 #include <stdio.h>
 #include <string.h>
-#include <gc.h>
 #include "cxx-typeunif.h"
 #include "cxx-typeutils.h"
 #include "cxx-cexpr.h"
@@ -77,7 +76,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
 
             if ((original_t1->cv_qualifier | t2->cv_qualifier) == (t2->cv_qualifier))
             {
-                unification_item_t* unif_item = GC_CALLOC(1, sizeof(*unif_item));
+                unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
 
                 // This number will be the position of the argument
                 // within the specialization ! Not of the whole template
@@ -179,7 +178,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
 		}
 		else
 		{
-			unification_item_t* unif_item = GC_CALLOC(1, sizeof(*unif_item));
+			unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
 
 			// This number will be the position of the argument
 			// within the specialization ! Not of the whole template

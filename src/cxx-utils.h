@@ -8,9 +8,6 @@
 #include <sys/time.h>
 #include <time.h>
 
-#include <gc.h>
-#include <gcstring.h>
-
 #include "cxx-driver.h"
 #include "cxx-macros.h"
 
@@ -71,7 +68,7 @@ char* strprepend(char* orig, char* prepended);
 #define P_LIST_ADD(list, size, elem)  \
 do { \
     (size)++; \
-    (list) = GC_REALLOC((list), sizeof(*(list))*(size)); \
+    (list) = realloc((list), sizeof(*(list))*(size)); \
     (list)[((size)-1)] = (elem); \
 } while(0)
 
