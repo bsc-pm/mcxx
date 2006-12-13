@@ -122,6 +122,7 @@ OMP_IS_PRIVATE_CLAUSE omp.is_private_clause
 OMP_IS_REDUCTION_CLAUSE omp.is_reduction_clause
 OMP_IS_SCHEDULE_CLAUSE omp.is_schedule_clause
 OMP_IS_SECTIONS_CONSTRUCT omp.is_sections_construct
+OMP_IS_SECTION_CONSTRUCT omp.is_section_construct
 OMP_IS_SHARED_CLAUSE omp.is_shared_clause
 OMP_IS_SINGLE_CONSTRUCT omp.is_single_construct
 OMP_IS_THREADPRIVATE_DIRECTIVE omp.is_threadprivate_directive

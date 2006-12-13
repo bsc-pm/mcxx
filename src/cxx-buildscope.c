@@ -6255,11 +6255,17 @@ static void build_scope_omp_sections_construct(AST a, scope_t* st, decl_context_
 			// ASTAttrSetValueType(omp_section, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, ASTSon0(omp_section));
             // build_scope_omp_directive(ASTSon0(omp_section), st, decl_context)
 
-            build_scope_statement(ASTSon1(omp_section), st, decl_context);
+			AST omp_section_body = ASTSon1(omp_section);
+            build_scope_statement(omp_section_body, st, decl_context);
+
+			ASTAttrSetValueType(omp_section, OMP_IS_SECTION_CONSTRUCT, tl_type_t, tl_bool(1));
+			ASTAttrSetValueType(omp_section, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(omp_section_body));
         }
+
+		ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(section_sequence));
     }
 
-	ASTAttrSetValueType(a, OMP_IS_SECTIONS_CONSTRUCT, tl_type_t, tl_bool(1));
+	ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_omp_critical_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)

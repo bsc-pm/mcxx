@@ -4,6 +4,7 @@
 #include "tl-source.hpp"
 #include <iostream>
 #include <utility>
+#include <stack>
 
 
 namespace TL
@@ -11,10 +12,19 @@ namespace TL
     class OpenMPTransform : public OpenMP::OpenMPPhase
     {
         private:
-            // "persistent" variables in templates
+            // Here we declare those "persistent" variables
+
+			// The number of parallel regions seen so far
+			// (technically not, since it is updated in the postorder of these)
             int num_parallels;
+
+			// The nesting for parallel, updated both in preorder and postorder
             int parallel_nesting;
 
+			// A stack to save the number of "section" within a "sections".  If
+			// just a scalar was used, we would only be able to handle one
+			// level of sections
+			std::stack<int> num_sections_stack;
         public:
             OpenMPTransform()
             {
@@ -42,9 +52,187 @@ namespace TL
                 on_parallel_for_post.connect(&OpenMPTransform::parallel_for_postorder, *this);
 
 				// #pragma omp for
-				on_for_pre.connect(&OpenMPTransform::for_preorder, *this);
 				on_for_post.connect(&OpenMPTransform::for_postorder, *this);
+
+				// #pragma omp parallel sections 
+				on_parallel_sections_pre.connect(&OpenMPTransform::parallel_sections_preorder, *this);
+				on_parallel_sections_post.connect(&OpenMPTransform::parallel_sections_postorder, *this);
+				
+				// #pragma omp sections
+				
+				// #pragma omp section
+				on_section_post.connect(&OpenMPTransform::section_postorder, *this);
+
+				// #pragma omp barrier
+				on_barrier_post.connect(&OpenMPTransform::barrier_postorder, *this);
+				
+				// #pragma omp atomic
+				on_atomic_post.connect(&OpenMPTransform::atomic_postorder, *this);
+
+				// #pragma omp single
+				on_single_post.connect(&OpenMPTransform::single_postorder, *this);
+				
+				// #pragma omp critical
+				on_critical_post.connect(&OpenMPTransform::critical_postorder, *this);
+				
+				// #pragma omp flush
+				on_flush_post.connect(&OpenMPTransform::flush_postorder, *this);
             }
+
+			void section_postorder(OpenMP::SectionConstruct section_construct)
+			{
+				int &num_sections = num_sections_stack.top();
+
+				Source section_source;
+				Statement construct_body = section_construct.body();
+
+				section_source
+					<< "case " << num_sections << ":"
+					<< "{"
+					<<    construct_body.get_ast().prettyprint()
+					<<    "break;"
+					<< "}"
+					;
+
+				AST_t section_tree = section_source.parse_statement(section_construct.get_scope(),
+						section_construct.get_scope_link());
+
+				// One more section
+				num_sections++;
+
+				section_construct.get_ast().replace_with(section_tree);
+			}
+
+			void critical_postorder(OpenMP::CriticalConstruct critical_construct)
+			{
+				Source critical_source;
+
+				Statement critical_body = critical_construct.body();
+
+				critical_source
+					<< "{"
+					     // TODO - Criticals can have a name
+					<<   "static void *default_mutex_var;"
+					<<   "extern void nthf_spin_lock_(void*);"
+					<<   "extern void nthf_spin_unlock_(void*);"
+					<<   "nthf_spin_lock_(default_mutex_var);"
+					<<   critical_body.get_ast().prettyprint()
+					<<   "nthf_spin_unlock_(default_mutex_var);"
+					<< "}"
+					;
+
+				AST_t critical_tree = critical_source.parse_statement(critical_construct.get_scope(),
+						critical_construct.get_scope_link());
+
+				critical_construct.get_ast().replace_with(critical_tree);
+			}
+
+			void atomic_postorder(OpenMP::AtomicConstruct atomic_construct)
+			{
+				// TODO - An atomic can be implemented better
+				Source critical_source;
+
+				Statement critical_body = atomic_construct.body();
+
+				critical_source
+					<< "{"
+					<<   "static void *default_mutex_var;"
+					<<   "extern void nthf_spin_lock_(void*);"
+					<<   "extern void nthf_spin_unlock_(void*);"
+					<<   "nthf_spin_lock_(default_mutex_var);"
+					<<   critical_body.get_ast().prettyprint()
+					<<   "nthf_spin_unlock_(default_mutex_var);"
+					<< "}"
+					;
+
+				AST_t atomic_tree = critical_source.parse_statement(atomic_construct.get_scope(),
+						atomic_construct.get_scope_link());
+
+				atomic_construct.get_ast().replace_with(atomic_tree);
+			}
+
+			void barrier_postorder(OpenMP::BarrierDirective barrier_directive)
+			{
+				Source barrier_source;
+
+				barrier_source
+					<< "{"
+					<<    "extern void in__tone_barrier_();"
+					<<    "in__tone_barrier_();"
+					<< "}"
+					;
+
+				AST_t barrier_tree = barrier_source.parse_statement(barrier_directive.get_scope(),
+						barrier_directive.get_scope_link());
+
+				barrier_directive.get_ast().replace_with(barrier_tree);
+			}
+
+			void flush_postorder(OpenMP::FlushDirective flush_directive)
+			{
+				Source flush_source;
+
+				flush_source
+					<< "{"
+					<<    "extern void synchronize();"
+					<<    "synchronize();"
+					<< "}"
+					;
+
+				AST_t flush_tree = flush_source.parse_statement(flush_directive.get_scope(),
+						flush_directive.get_scope_link());
+
+				flush_directive.get_ast().replace_with(flush_tree);
+			}
+
+			void single_postorder(OpenMP::SingleConstruct single_construct)
+			{
+				Source single_source;
+				Source barrier_code;
+
+				Statement body_construct = single_construct.body();
+				OpenMP::Directive directive = single_construct.directive();
+
+				single_source
+					<< "{"
+					<<   "int nth_low;"
+					<<   "int nth_upper;"
+					<<   "int nth_step;"
+					<<   "int nth_chunk;"
+					<<   "int nth_schedule;"
+					<<   "int nth_dummy1;"
+					<<   "int nth_dummy2;"
+					<<   "int nth_dummy3;"
+					<<   "int nth_barrier; "
+
+					<<   "nth_low = 0;"
+					<<   "nth_upper = 0;"
+					<<   "nth_step = 1;"
+					<<   "nth_schedule = 1;"
+					<<   "nth_chunk = 1;"
+
+                    <<   "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
+                    <<   "extern int in__tone_next_iters_(int*, int*, int*);"
+                    <<   "extern void in__tone_end_for_(int*);"
+
+					<<   "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
+					<<   "while (in__tone_next_iters_ (&dummy1, &dummy2, &dummy3) != 0)"
+					<<   "{"
+					<<       body_construct.get_ast().prettyprint()
+					<<   "}"
+					<<   barrier_code
+					<<   "in__tone_end_for_(&nth_barrier);"
+					<< "}"
+					;
+
+				OpenMP::Clause nowait_clause = directive.nowait_clause();
+				barrier_code << "nth_barrier = " << (nowait_clause.is_defined() ? "0" : "1") << ";";
+
+				AST_t single_tree = single_source.parse_statement(single_construct.get_scope(), 
+						single_construct.get_scope_link());
+
+				single_construct.get_ast().replace_with(single_tree);
+			}
 
 			// Parallel in preorder
             void parallel_preorder(OpenMP::ParallelConstruct parallel_construct)
@@ -256,13 +444,113 @@ namespace TL
 				// Replace all the whole construct with spawn_code
                 parallel_for_construct.get_ast().replace_with(spawn_code);
             }
-			
-			// #pragma omp for
-			void for_preorder(OpenMP::ForConstruct for_construct)
+
+			void parallel_sections_preorder(OpenMP::ParallelSectionsConstruct parallel_sections_construct)
 			{
-				// Do nothing at the moment
+				parallel_nesting++;
+
+				// We push a new level of sections with zero "section" counted
+				// so far
+				num_sections_stack.push(0);
 			}
 
+			void parallel_sections_postorder(OpenMP::ParallelSectionsConstruct parallel_sections_construct)
+            {
+				// One more parallel seen
+                num_parallels++;
+
+				// Decrease the parallel nesting
+                parallel_nesting--;
+                
+                // Get the directive
+                OpenMP::Directive directive = parallel_sections_construct.directive();
+                
+                // Get the enclosing function definition
+                FunctionDefinition function_definition = parallel_sections_construct.get_enclosing_function();
+				// its scope
+                Scope function_scope = function_definition.get_scope();
+				// and the id-expression of the function name
+                IdExpression function_name = function_definition.get_function_name();
+
+                // They will hold the entities as they appear in the clauses
+                ObjectList<IdExpression> shared_references;
+                ObjectList<IdExpression> private_references;
+                ObjectList<IdExpression> firstprivate_references;
+                ObjectList<IdExpression> lastprivate_references;
+                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                
+                // Get the construct_body of the statement
+                Statement construct_body = parallel_sections_construct.body();
+
+                // Get the data attributes for every entity
+                get_data_attributes(function_scope,
+                        directive,
+                        construct_body,
+                        shared_references,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references);
+
+				// This list will hold everything that must be passed by pointer
+                ObjectList<IdExpression> pass_by_pointer;
+				// This list will hold everything that has been privatized
+                ObjectList<IdExpression> privatized_entities;
+                // Create the replacement map and fill the privatized
+				// entities and pass by pointer lists.
+                ReplaceIdExpression replace_references = 
+                    set_replacements(function_scope,
+                            directive,
+                            construct_body,
+                            shared_references,
+                            private_references,
+                            firstprivate_references,
+                            lastprivate_references,
+                            reduction_references,
+                            pass_by_pointer,
+                            privatized_entities);
+
+                // Get the outline function name
+                Source outlined_function_name = get_outlined_function_name(function_name);
+
+                // Create the outline for parallel sections using 
+				// the privatized entities and pass by pointer
+				// lists.
+				// Additionally {first|last}private and reduction
+				// entities are needed for proper initializations
+				// and assignments.
+                AST_t outline_code = get_outline_parallel_sections(
+                        function_definition,
+                        outlined_function_name, 
+                        construct_body,
+                        replace_references,
+                        pass_by_pointer,
+                        privatized_entities,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references);
+
+				// In the AST of the function definition, prepend outline_code
+				// as a sibling (at the same level)
+                function_definition.get_ast().prepend_sibling_function(outline_code);
+
+				// Now create the spawning code. Pass by pointer list and
+				// reductions are needed for proper pass of data and reduction
+				// vectors declaration
+                AST_t spawn_code = get_spawn_code(parallel_sections_construct.get_scope(),
+                        parallel_sections_construct.get_scope_link(),
+                        outlined_function_name,
+                        pass_by_pointer,
+                        reduction_references
+                        );
+
+				// One less level of sections
+				num_sections_stack.pop();
+
+				// Now replace the whole construct with spawn_code
+                parallel_sections_construct.get_ast().replace_with(spawn_code);
+            }
+			
 			void for_postorder(OpenMP::ForConstruct for_construct)
 			{
 				OpenMP::Directive directive = for_construct.directive();
@@ -308,7 +596,7 @@ namespace TL
                             induction_var.get_symbol());
                 }
 
-				// The lists of entities passes by pointer and entities
+				// The lists of entities passed by pointer and entities
 				// privatized in the outline
                 ObjectList<IdExpression> pass_by_pointer;
                 ObjectList<IdExpression> privatized_entities;
@@ -336,7 +624,9 @@ namespace TL
 				Source lastprivate_assignments = get_lastprivate_assignments(lastprivate_references, 
 						pass_by_pointer);
 
-				Source loop_finalization = get_loop_finalization(/*do_barrier=*/true);
+				OpenMP::Clause nowait_clause = directive.nowait_clause();
+
+				Source loop_finalization = get_loop_finalization(/*do_barrier=*/!(nowait_clause.is_defined()));
 
 				Source reduction_code;
 
@@ -344,7 +634,10 @@ namespace TL
 					<< "{"
 					<<    private_declarations
 					<<    loop_distribution_code
-					<<    lastprivate_assignments
+					<<    "if (intone_last != 0)"
+					<<    "{"
+					<<       lastprivate_assignments
+					<<    "}"
 					<<    loop_finalization
 					<<    reduction_code
 					<< "}"
@@ -358,6 +651,35 @@ namespace TL
 				}
 				else
 				{
+
+					for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
+							it != reduction_references.end();
+							it++)
+					{
+						// create a reduction vector after the name of the mangled entity
+						std::string reduction_vector_name = "rdv_" + it->get_id_expression().mangle_id_expression();
+
+						// get its type
+						Symbol reduction_symbol = it->get_symbol();
+						Type reduction_type = reduction_symbol.get_type();
+
+						// create a tree of expression 64
+						// FIXME: hardcoded to 64 processors
+						Source array_length;
+						array_length << "64";
+						AST_t array_length_tree = array_length.parse_expression(it->get_id_expression().get_scope());
+
+						// and get an array of 64 elements
+						Type reduction_vector_type = reduction_type.get_array_to(array_length_tree, 
+								it->get_id_expression().get_scope());
+
+						// now get the code that declares this reduction vector, and add it to the private_declarations
+						private_declarations
+							<< reduction_vector_type.get_declaration(reduction_vector_name) << ";";
+
+						std::cerr << "Declared '" << reduction_vector_name << "'" << std::endl;
+					}
+
 					Source reduction_update;
 					Source reduction_gathering;
 
@@ -366,10 +688,17 @@ namespace TL
 						<< "extern void in__tone_barrier_();"
 						<< "extern char in__tone_is_master_();"
 
-						<< "in__tone_barrier();"
-						<< "if (in__tone_is_master())"
+						<< "in__tone_barrier_();"
+						<< "if (in__tone_is_master_())"
 						<< "{"
-						<<    reduction_gathering
+						<<    "int rdv_i;"
+						<<    "extern int nthf_cpus_actual();"
+
+						<<    "int nth_nprocs = nthf_cpus_actual();"
+						<<    "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
+						<<    "{"
+						<<       reduction_gathering
+						<<    "}"
 						<< "}"
 						;
 
@@ -377,9 +706,9 @@ namespace TL
 					reduction_gathering = get_reduction_gathering(reduction_references);
 				}
 
-				std::cerr << "CODI FOR" << std::endl;
-				std::cerr << parallel_for_body.get_source(true) << std::endl;
-				std::cerr << "End CODI FOR" << std::endl;
+				// std::cerr << "CODI FOR" << std::endl;
+				// std::cerr << parallel_for_body.get_source(true) << std::endl;
+				// std::cerr << "End CODI FOR" << std::endl;
 
                 AST_t result;
                 result = parallel_for_body.parse_statement(loop_body.get_scope(), 
@@ -715,9 +1044,9 @@ namespace TL
 					<< reduction_update
 					;
 
-                std::cerr << "CODI OUTLINE" << std::endl;
-                std::cerr << outline_parallel.get_source(true) << std::endl;
-                std::cerr << "End CODI OUTLINE" << std::endl;
+                // std::cerr << "CODI OUTLINE" << std::endl;
+                // std::cerr << outline_parallel.get_source(true) << std::endl;
+                // std::cerr << "End CODI OUTLINE" << std::endl;
 
                 AST_t result;
 
@@ -727,6 +1056,70 @@ namespace TL
                 return result;
             }
 
+			// Create outline for parallel sections
+			AST_t get_outline_parallel_sections(
+					FunctionDefinition function_definition,
+					Source outlined_function_name, 
+					Statement construct_body,
+					ReplaceIdExpression replace_references,
+					ObjectList<IdExpression> pass_by_pointer,
+					ObjectList<IdExpression> privatized_entities,
+					ObjectList<IdExpression> firstprivate_references,
+					ObjectList<IdExpression> lastprivate_references,
+					ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+			{
+				Source outline_parallel_sections;
+				Source parallel_sections_body;
+				
+				// Get the source of the common parallel X outline
+				outline_parallel_sections = get_outline_common(
+						parallel_sections_body,
+						outlined_function_name,
+						pass_by_pointer,
+						reduction_references);
+
+				Source private_declarations = get_privatized_declarations(privatized_entities, pass_by_pointer,
+						firstprivate_references, reduction_references);
+
+				Source loop_distribution;
+
+				int num_sections = num_sections_stack.top();
+
+				loop_distribution = get_loop_distribution_in_sections(num_sections,
+						construct_body,
+						replace_references
+						);
+
+				Source lastprivate_assignments = get_lastprivate_assignments(lastprivate_references, 
+						pass_by_pointer);
+				
+				// Barrier is already done at parallel level
+				Source loop_finalization = get_loop_finalization(/* do_barrier = */ false);
+
+				Source reduction_update = get_reduction_update(reduction_references);
+
+				parallel_sections_body 
+					<< private_declarations
+					<< loop_distribution
+					<< "if (intone_last != 0)"
+					<< "{"
+					<<    lastprivate_assignments
+					<< "}"
+					<< reduction_update
+					<< loop_finalization
+					;
+
+				// std::cerr << "CODI OUTLINE PARALLEL SECTIONS" << std::endl;
+				// std::cerr << outline_parallel_sections.get_source(true) << std::endl;
+				// std::cerr << "End CODI OUTLINE PARALLEL SECTIONS" << std::endl;
+
+				AST_t result;
+
+				result = outline_parallel_sections.parse_global(function_definition.get_scope(), 
+						function_definition.get_scope_link());
+
+				return result;
+			}
 
 			// Create outline for parallel for
             AST_t get_outline_parallel_for(
@@ -769,14 +1162,17 @@ namespace TL
 				parallel_for_body 
 					<< private_declarations
 					<< loop_distribution
-					<< lastprivate_assignments
+					<< "if (intone_last != 0)"
+					<< "{"
+					<<    lastprivate_assignments
+					<< "}"
 					<< reduction_update
 					<< loop_finalization
 					;
 
-				std::cerr << "CODI OUTLINE PARALLEL FOR" << std::endl;
-				std::cerr << outline_parallel_for.get_source(true) << std::endl;
-				std::cerr << "End CODI OUTLINE PARALLEL FOR" << std::endl;
+				// std::cerr << "CODI OUTLINE PARALLEL FOR" << std::endl;
+				// std::cerr << outline_parallel_for.get_source(true) << std::endl;
+				// std::cerr << "End CODI OUTLINE PARALLEL FOR" << std::endl;
 
 				AST_t result;
 
@@ -931,8 +1327,6 @@ namespace TL
                             Source derref_name;
                             derref_name << "(*" << mangled_name << ")";
 
-							std::cerr << "Derref -> '" << derref_name.get_source() << "'" << std::endl;
-
                             result.add_replacement(current_sym, derref_name);
                         }
                     }
@@ -967,6 +1361,55 @@ namespace TL
 
                 return result;
             }
+
+			Source get_loop_distribution_in_sections(
+					int num_sections,
+					Statement construct_body,
+					ReplaceIdExpression replace_references)
+			{
+				Source loop_distribution;
+				
+                // Replace references using set "replace_references" over construct body
+                Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
+
+				loop_distribution 
+					<< "int nth_low;"
+					<< "int nth_upper;"
+					<< "int nth_step;"
+					<< "int nth_chunk;"
+					<< "int nth_schedule;"
+                    << "int intone_start;"
+                    << "int intone_end;"
+                    << "int intone_last;"
+					<< "int nth_barrier;"
+					<< "int nth_i;"
+
+					<< "nth_low = 0;"
+					<< "nth_upper = " << num_sections << ";"
+					<< "nth_step = 1;"
+					<< "nth_schedule = 1;"
+					<< "nth_chunk = 1;"
+
+                    << "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
+                    << "extern int in__tone_next_iters_(int*, int*, int*);"
+                    << "extern void in__tone_end_for_(int*);"
+
+					<< "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
+					<< "while (in__tone_next_iters_ (&intone_start, &intone_end, &intone_last) != 0)"
+					<< "{"
+					<<    "for (nth_i = intone_start; nth_i <= intone_end; nth_i += nth_step)"
+					<<    "{"
+					<<         "switch (nth_i)"
+					<<         "{"
+					<<            modified_parallel_body_stmt.get_ast().prettyprint()
+					<<            "default: break;" 
+					<<         "}"
+					<<    "}"
+					<< "}"
+					;
+
+				return loop_distribution;
+			}
 
 			Source get_loop_distribution_code(ForStatement for_statement,
 					ReplaceIdExpression replace_references)
@@ -1127,6 +1570,7 @@ namespace TL
 					ObjectList<IdExpression> pass_by_pointer)
 			{
 				Source lastprivate_assignments;
+
 				// Lastprivates
 				for (ObjectList<IdExpression>::iterator it = lastprivate_references.begin();
 						it != lastprivate_references.end();

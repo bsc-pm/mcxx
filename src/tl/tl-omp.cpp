@@ -84,6 +84,42 @@ namespace TL
 			// Register the #pragma omp parallel for
 			// filter with its functor 
 			depth_traverse.add_predicate(for_construct, for_functor);
+
+			// #pragma omp parallel sections
+			PredicateBool<OMP_IS_PARALLEL_SECTIONS_CONSTRUCT> parallel_sections_construct;
+			ParallelSectionsFunctor parallel_sections_functor(on_parallel_sections_pre, 
+					on_parallel_sections_post);
+			depth_traverse.add_predicate(parallel_sections_construct, parallel_sections_functor);
+
+			// #pragma omp section
+			PredicateBool<OMP_IS_SECTION_CONSTRUCT> section_construct;
+			SectionFunctor section_functor(on_section_pre, on_section_post);
+			depth_traverse.add_predicate(section_construct, section_functor);
+			
+			// #pragma omp barrier
+			PredicateBool<OMP_IS_BARRIER_DIRECTIVE> barrier_directive;
+			BarrierFunctor barrier_functor(on_barrier_pre, on_barrier_post);
+			depth_traverse.add_predicate(barrier_directive, barrier_functor);
+
+			// #pragma omp atomic
+			PredicateBool<OMP_IS_ATOMIC_CONSTRUCT> atomic_construct;
+			AtomicFunctor atomic_functor(on_atomic_pre, on_atomic_post);
+			depth_traverse.add_predicate(atomic_construct, atomic_functor);
+			
+			// #pragma omp critical
+			PredicateBool<OMP_IS_CRITICAL_CONSTRUCT> critical_construct;
+			CriticalFunctor critical_functor(on_critical_pre, on_critical_post);
+			depth_traverse.add_predicate(critical_construct, critical_functor);
+
+			// #pragma omp single
+			PredicateBool<OMP_IS_SINGLE_CONSTRUCT> single_construct;
+			SingleFunctor single_functor(on_single_pre, on_single_post);
+			depth_traverse.add_predicate(single_construct, single_functor);
+
+			// #pragma omp flush
+			PredicateBool<OMP_IS_FLUSH_DIRECTIVE> flush_directive;
+			FlushFunctor flush_functor(on_flush_pre, on_flush_post);
+			depth_traverse.add_predicate(flush_directive, flush_functor);
 			
 			// Let the user register its slots
 			this->init();
@@ -94,6 +130,20 @@ namespace TL
 
 		void OpenMPPhase::init()
 		{
+		}
+
+		Clause Directive::nowait_clause()
+		{
+			Clause result(_ref, _scope_link, OMP_IS_NOWAIT_CLAUSE);
+			return result;
+		}
+
+		bool Clause::is_defined()
+		{
+			PredicateAttr predicate_clause(_clause_filter_name);
+			ObjectList<AST_t> clauses = _ref.depth_subtrees().filter(predicate_clause);
+
+			return (!clauses.empty());
 		}
 
 		DefaultClause Directive::default_clause()

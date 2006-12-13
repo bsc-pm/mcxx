@@ -72,6 +72,7 @@ namespace TL
 				}
 
 				ObjectList<IdExpression> id_expressions();
+				bool is_defined();
 		};
 
 		class DefaultClause : public LangConstruct
@@ -168,6 +169,78 @@ namespace TL
 				}
 		};
 
+		class BarrierDirective : public Construct
+		{
+			public:
+				BarrierDirective(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
+		class AtomicConstruct : public Construct
+		{
+			public:
+				AtomicConstruct(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
+		class SingleConstruct : public Construct
+		{
+			public:
+				SingleConstruct(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
+		class CriticalConstruct : public Construct
+		{
+			public:
+				CriticalConstruct(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
+		class FlushDirective : public Construct
+		{
+			public:
+				FlushDirective(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
+		class ParallelSectionsConstruct : public Construct
+		{
+			public:
+				ParallelSectionsConstruct(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
+		class SectionsConstruct : public Construct
+		{
+			public:
+				SectionsConstruct(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
+		class SectionConstruct : public Construct
+		{
+			public:
+				SectionConstruct(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
 		template<class T>
 			class OpenMPConstructFunctor : public TraverseFunctor
 		{
@@ -203,6 +276,14 @@ namespace TL
 				typedef OpenMPConstructFunctor<ParallelConstruct> ParallelFunctor;
 				typedef OpenMPConstructFunctor<ParallelForConstruct> ParallelForFunctor;
 				typedef OpenMPConstructFunctor<ForConstruct> ForFunctor;
+				typedef OpenMPConstructFunctor<BarrierDirective> BarrierFunctor;
+				typedef OpenMPConstructFunctor<CriticalConstruct> CriticalFunctor;
+				typedef OpenMPConstructFunctor<AtomicConstruct> AtomicFunctor;
+				typedef OpenMPConstructFunctor<SingleConstruct> SingleFunctor;
+				typedef OpenMPConstructFunctor<FlushDirective> FlushFunctor;
+				typedef OpenMPConstructFunctor<ParallelSectionsConstruct> ParallelSectionsFunctor;
+				typedef OpenMPConstructFunctor<SectionsConstruct> SectionsFunctor;
+				typedef OpenMPConstructFunctor<SectionConstruct> SectionFunctor;
 			protected:
 				AST_t translation_unit;
 				ScopeLink scope_link;
@@ -216,6 +297,30 @@ namespace TL
 
 				Signal1<ForConstruct> on_for_pre;
 				Signal1<ForConstruct> on_for_post;
+
+				Signal1<BarrierDirective> on_barrier_pre;
+				Signal1<BarrierDirective> on_barrier_post;
+
+				Signal1<AtomicConstruct> on_atomic_pre;
+				Signal1<AtomicConstruct> on_atomic_post;
+
+				Signal1<SingleConstruct> on_single_pre;
+				Signal1<SingleConstruct> on_single_post;
+
+				Signal1<FlushDirective> on_flush_pre;
+				Signal1<FlushDirective> on_flush_post;
+
+				Signal1<CriticalConstruct> on_critical_pre;
+				Signal1<CriticalConstruct> on_critical_post;
+
+				Signal1<ParallelSectionsConstruct> on_parallel_sections_pre;
+				Signal1<ParallelSectionsConstruct> on_parallel_sections_post;
+
+				Signal1<SectionsConstruct> on_sections_pre;
+				Signal1<SectionsConstruct> on_sections_post;
+
+				Signal1<SectionConstruct> on_section_pre;
+				Signal1<SectionConstruct> on_section_post;
 
 				virtual void run(DTO& data_flow);
 				virtual void init();

@@ -545,7 +545,7 @@ void solve_ambiguous_statement(AST a, scope_t* st, decl_context_t decl_context)
 
     if (correct_choice < 0)
     {
-		fprintf(stderr, "This statement cannot be disambiguated:\n");
+		fprintf(stderr, "This statement cannot be disambiguated: %s\n", node_information(a));
 		prettyprint(stderr, a);
         internal_error("Ambiguity not solved\n", 0);
     }
@@ -2618,6 +2618,8 @@ static char check_for_initializer_clause(AST initializer, scope_t* st, decl_cont
 					ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
 					ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expression));
 				}
+
+				return result;
                 break;
             }
         case AST_DESIGNATED_INITIALIZER :
@@ -2642,6 +2644,9 @@ static char check_for_initializer_clause(AST initializer, scope_t* st, decl_cont
                 internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(initializer)));
             }
     }
+
+	internal_error("Code unreachable", 0);
+	return 0;
 }
 
 static char check_for_declarator(AST declarator, scope_t* st, decl_context_t decl_context)
