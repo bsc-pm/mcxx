@@ -59,6 +59,8 @@ namespace TL
 				on_parallel_sections_post.connect(&OpenMPTransform::parallel_sections_postorder, *this);
 				
 				// #pragma omp sections
+				on_sections_pre.connect(&OpenMPTransform::sections_preorder, *this);
+				on_sections_pre.connect(&OpenMPTransform::sections_postorder, *this);
 				
 				// #pragma omp section
 				on_section_post.connect(&OpenMPTransform::section_postorder, *this);
@@ -550,6 +552,115 @@ namespace TL
 				// Now replace the whole construct with spawn_code
                 parallel_sections_construct.get_ast().replace_with(spawn_code);
             }
+
+			void sections_preorder(OpenMP::SectionsConstruct sections_construct)
+			{
+				// We push a new level of sections with zero "section" counted
+				// so far
+				num_sections_stack.push(0);
+			}
+
+			void sections_postorder(OpenMP::SectionsConstruct sections_construct)
+            {
+                // They will hold the entities as they appear in the clauses
+                ObjectList<IdExpression> shared_references;
+                ObjectList<IdExpression> private_references;
+                ObjectList<IdExpression> firstprivate_references;
+                ObjectList<IdExpression> lastprivate_references;
+                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                
+                // Get the construct_body of the statement
+				OpenMP::Directive directive = sections_construct.directive();
+                Statement construct_body = sections_construct.body();
+				
+                // Get the enclosing function definition
+                FunctionDefinition function_definition = sections_construct.get_enclosing_function();
+				// its scope
+                Scope function_scope = function_definition.get_scope();
+
+                // Get the data attributes for every entity
+                get_data_attributes(function_scope,
+                        directive,
+                        construct_body,
+                        shared_references,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references);
+
+				// This list will hold everything that must be passed by pointer
+                ObjectList<IdExpression> pass_by_pointer;
+				// This list will hold everything that has been privatized
+                ObjectList<IdExpression> privatized_entities;
+                // Create the replacement map and fill the privatized
+				// entities and pass by pointer lists.
+                ReplaceIdExpression replace_references = 
+                    set_replacements(function_scope,
+                            directive,
+                            construct_body,
+                            shared_references,
+                            private_references,
+                            firstprivate_references,
+                            lastprivate_references,
+                            reduction_references,
+                            pass_by_pointer,
+                            privatized_entities);
+
+				int num_sections = num_sections_stack.top();
+
+				Source loop_distribution_code;
+
+				loop_distribution_code = get_loop_distribution_in_sections(num_sections,
+						construct_body,
+						replace_references);
+
+				Source private_declarations;
+				private_declarations = get_privatized_declarations(privatized_entities,
+						pass_by_pointer,
+						firstprivate_references,
+						reduction_references);
+
+				Source lastprivate_assignments;
+				lastprivate_assignments = get_lastprivate_assignments(lastprivate_references,
+						pass_by_pointer);
+
+				OpenMP::Clause nowait_clause = directive.nowait_clause();
+				Source loop_finalization = get_loop_finalization(/*do_barrier=*/!(nowait_clause.is_defined()));
+
+				Source reduction_code;
+
+				bool orphaned = (parallel_nesting == 0);
+				if (orphaned)
+				{
+					reduction_code = get_critical_reduction_code(reduction_references);
+				}
+				else
+				{
+					reduction_code = get_noncritical_inlined_reduction_code(reduction_references,
+							private_declarations);
+				}
+
+				Source sections_source;
+				sections_source 
+					<< "{"
+					<<    private_declarations
+					<<    loop_distribution_code
+					<<    "if (intone_last != 0)"
+					<<    "{"
+					<<       lastprivate_assignments
+					<<    "}"
+					<<    loop_finalization
+					<<    reduction_code
+					<< "}"
+					;
+
+				num_sections_stack.pop();
+
+				AST_t sections_tree = sections_source.parse_statement(sections_construct.get_scope(),
+						sections_construct.get_scope_link());
+
+				sections_construct.get_ast().replace_with(sections_tree);
+			}
 			
 			void for_postorder(OpenMP::ForConstruct for_construct)
 			{
@@ -644,66 +755,14 @@ namespace TL
 					;
 
 				bool orphaned = (parallel_nesting == 0);
-
 				if (orphaned)
 				{
 					reduction_code = get_critical_reduction_code(reduction_references);
 				}
 				else
 				{
-
-					for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
-							it != reduction_references.end();
-							it++)
-					{
-						// create a reduction vector after the name of the mangled entity
-						std::string reduction_vector_name = "rdv_" + it->get_id_expression().mangle_id_expression();
-
-						// get its type
-						Symbol reduction_symbol = it->get_symbol();
-						Type reduction_type = reduction_symbol.get_type();
-
-						// create a tree of expression 64
-						// FIXME: hardcoded to 64 processors
-						Source array_length;
-						array_length << "64";
-						AST_t array_length_tree = array_length.parse_expression(it->get_id_expression().get_scope());
-
-						// and get an array of 64 elements
-						Type reduction_vector_type = reduction_type.get_array_to(array_length_tree, 
-								it->get_id_expression().get_scope());
-
-						// now get the code that declares this reduction vector, and add it to the private_declarations
-						private_declarations
-							<< reduction_vector_type.get_declaration(reduction_vector_name) << ";";
-
-						std::cerr << "Declared '" << reduction_vector_name << "'" << std::endl;
-					}
-
-					Source reduction_update;
-					Source reduction_gathering;
-
-					reduction_code
-						<< reduction_update
-						<< "extern void in__tone_barrier_();"
-						<< "extern char in__tone_is_master_();"
-
-						<< "in__tone_barrier_();"
-						<< "if (in__tone_is_master_())"
-						<< "{"
-						<<    "int rdv_i;"
-						<<    "extern int nthf_cpus_actual();"
-
-						<<    "int nth_nprocs = nthf_cpus_actual();"
-						<<    "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
-						<<    "{"
-						<<       reduction_gathering
-						<<    "}"
-						<< "}"
-						;
-
-					reduction_update = get_reduction_update(reduction_references);
-					reduction_gathering = get_reduction_gathering(reduction_references);
+					reduction_code = get_noncritical_inlined_reduction_code(reduction_references,
+							private_declarations);
 				}
 
 				// std::cerr << "CODI FOR" << std::endl;
@@ -899,6 +958,66 @@ namespace TL
 
 				Source reduction_gethering;
 
+				reduction_gathering = get_reduction_gathering(reduction_references);
+
+				return reduction_code;
+			}
+
+			Source get_noncritical_inlined_reduction_code(
+					ObjectList<OpenMP::ReductionIdExpression> reduction_references,
+					Source& private_declarations)
+			{
+				Source reduction_code;
+
+				for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
+						it != reduction_references.end();
+						it++)
+				{
+					// create a reduction vector after the name of the mangled entity
+					std::string reduction_vector_name = "rdv_" + it->get_id_expression().mangle_id_expression();
+
+					// get its type
+					Symbol reduction_symbol = it->get_symbol();
+					Type reduction_type = reduction_symbol.get_type();
+
+					// create a tree of expression 64
+					// FIXME: hardcoded to 64 processors
+					Source array_length;
+					array_length << "64";
+					AST_t array_length_tree = array_length.parse_expression(it->get_id_expression().get_scope());
+
+					// and get an array of 64 elements
+					Type reduction_vector_type = reduction_type.get_array_to(array_length_tree, 
+							it->get_id_expression().get_scope());
+
+					// now get the code that declares this reduction vector, and add it to the private_declarations
+					private_declarations
+						<< reduction_vector_type.get_declaration(reduction_vector_name) << ";";
+				}
+
+				Source reduction_update;
+				Source reduction_gathering;
+
+				reduction_code
+					<< reduction_update
+					<< "extern void in__tone_barrier_();"
+					<< "extern char in__tone_is_master_();"
+
+					<< "in__tone_barrier_();"
+					<< "if (in__tone_is_master_())"
+					<< "{"
+					<<    "int rdv_i;"
+					<<    "extern int nthf_cpus_actual();"
+
+					<<    "int nth_nprocs = nthf_cpus_actual();"
+					<<    "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
+					<<    "{"
+					<<       reduction_gathering
+					<<    "}"
+					<< "}"
+					;
+
+				reduction_update = get_reduction_update(reduction_references);
 				reduction_gathering = get_reduction_gathering(reduction_references);
 
 				return reduction_code;
