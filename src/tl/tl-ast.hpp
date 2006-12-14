@@ -154,9 +154,9 @@ namespace TL
 	class PredicateAttr : public Predicate<AST_t>
 	{
 		private:
-			const char* _attr_name;
+			const std::string &_attr_name;
 		public:
-			PredicateAttr(const char* attr_name)
+			PredicateAttr(const std::string &attr_name)
 				: _attr_name(attr_name)
 			{
 			}

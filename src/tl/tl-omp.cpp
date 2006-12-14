@@ -210,6 +210,71 @@ namespace TL
 			return result;
 		}
 
+		ObjectList<AST_t> CustomClause::filter_custom_clause()
+		{
+			PredicateAttr predicate_attr(_clause_name);
+
+			ObjectList<AST_t> result = _ref.depth_subtrees(predicate_attr);
+
+			return result;
+		}
+
+		ObjectList<Expression> CustomClause::get_expression_list()
+		{
+			PredicateBool<LANG_IS_EXPRESSION_NEST> expression_nest;
+			ObjectList<Expression> result;
+
+			ObjectList<AST_t> custom_clauses = filter_custom_clause();
+			for (ObjectList<AST_t>::iterator it = custom_clauses.begin();
+					it != custom_clauses.end();
+					it++)
+			{
+				ObjectList<AST_t> expression_nest_list = it->depth_subtrees(expression_nest, AST_t::NON_RECURSIVE);
+
+				for (ObjectList<AST_t>::iterator it2 = expression_nest_list.begin();
+						it2 != expression_nest_list.end();
+						it2++)
+				{
+					Expression expr(*it2, _scope_link);
+					result.append(expr);
+				}
+			}
+
+			return result;
+		}
+
+		ObjectList<IdExpression> CustomClause::id_expressions()
+		{
+			PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
+
+			ObjectList<AST_t> clauses = filter_custom_clause();
+
+			ObjectList<IdExpression> result;
+			GetSymbolFromAST get_symbol_from_ast(this->_scope_link);
+
+			for(ObjectList<AST_t>::iterator it = clauses.begin();
+					it != clauses.end();
+					it++)
+			{
+				ObjectList<AST_t> id_expressions = it->depth_subtrees().filter(id_expr_pred);
+
+				for (ObjectList<AST_t>::iterator jt = id_expressions.begin();
+						jt != id_expressions.end();
+						jt++)
+				{
+					Symbol sym = get_symbol_from_ast(*jt);
+
+					if (sym.is_valid())
+					{
+						IdExpression id_expr(*jt, this->_scope_link);
+						result.append(id_expr);
+					}
+				}
+			}
+
+			return result;
+		}
+
         ReductionClause Directive::reduction_clause()
         {
             ReductionClause result(_ref, _scope_link);

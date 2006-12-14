@@ -135,13 +135,16 @@ namespace TL
 		{
 			private:
 				std::string _clause_name;
+
+				ObjectList<AST_t> filter_custom_clause();
 			public:
 				CustomClause(const std::string& str, AST_t ref, ScopeLink scope_link)
 					: LangConstruct(ref, scope_link), _clause_name(str)
 				{
 				}
 
-
+				ObjectList<Expression> get_expression_list();
+				ObjectList<IdExpression> id_expressions();
 		};
 
 		class ParallelConstruct : public Construct

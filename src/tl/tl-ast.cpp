@@ -82,14 +82,16 @@ namespace TL
 	void AST_t::tree_iterator(AST_t& a, const Predicate<AST_t>& predicate, 
 			RecursiveFlag recursive_flag, ObjectList<AST_t>& result)
 	{
+		AST tree = a._ast;
+		if (tree == NULL)
+			return;
+
 		bool matched = false;
 		if (predicate(a))
 		{
 			matched = true;
 			result.push_back(a);
 		}
-
-		AST tree = a._ast;
 
 		if (!matched || (recursive_flag == RECURSIVE))
 		{
