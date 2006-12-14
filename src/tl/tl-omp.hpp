@@ -56,7 +56,7 @@ namespace TL
 
 				ReductionClause reduction_clause();
 
-				CustomClause custom_clause(std::string& src);
+				CustomClause custom_clause(const std::string& src);
 		};
 
 		class Clause : public LangConstruct
@@ -133,13 +133,15 @@ namespace TL
 
 		class CustomClause : public LangConstruct
 		{
+			private:
+				std::string _clause_name;
 			public:
-				CustomClause(AST_t ref, ScopeLink scope_link)
-					: LangConstruct(ref, scope_link)
+				CustomClause(const std::string& str, AST_t ref, ScopeLink scope_link)
+					: LangConstruct(ref, scope_link), _clause_name(str)
 				{
 				}
 
-				// Pending
+
 		};
 
 		class ParallelConstruct : public Construct

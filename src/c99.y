@@ -146,6 +146,8 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> OMP_SINGLE
 %token<token_atrib> OMP_STATIC
 %token<token_atrib> OMP_THREADPRIVATE
+%token<token_atrib> OMP_CUSTOM_CLAUSE
+%token<token_atrib> OMP_CUSTOM_DIRECTIVE
 
 // Lexical symbols
 %token<token_atrib> '!'
@@ -389,6 +391,12 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 
 %type<ast> reduction_operator
 
+%type<ast> custom_construct
+%type<ast> custom_directive
+%type<ast> custom_clause_opt_seq
+%type<ast> custom_clause_seq
+%type<ast> custom_clause
+
 %type<ast> subparsing
 
 %start translation_unit
@@ -448,6 +456,10 @@ declaration : block_declaration
 }
 // OpenMP 2.5
 | threadprivate_directive
+{
+	$$ = $1;
+}
+| custom_directive
 {
 	$$ = $1;
 }
@@ -2464,6 +2476,10 @@ openmp_construct : parallel_construct
 {
 	$$ = $1;
 }
+| custom_construct
+{
+	$$ = $1;
+}
 ;
 
 openmp_directive : barrier_directive
@@ -2473,6 +2489,45 @@ openmp_directive : barrier_directive
 | flush_directive
 {
 	$$ = $1;
+}
+;
+
+custom_construct : custom_directive structured_block
+{
+	$$ = ASTMake2(AST_OMP_CUSTOM_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+}
+;
+
+// Custom OpenMP support
+custom_directive : OMP_PRAGMA OMP_CUSTOM_DIRECTIVE custom_clause_opt_seq OMP_NEWLINE
+{
+	$$ = ASTMake1(AST_OMP_CUSTOM_DIRECTIVE, $3, $1.token_line, $2.token_text);
+};
+
+custom_clause_opt_seq : /* empty */
+{
+	$$ = NULL;
+}
+| custom_clause_seq
+{
+	$$ = $1;
+}
+;
+
+// I think this is the more general
+custom_clause_seq : parallel_for_clause_seq
+{
+	$$ = $1;
+}
+;
+
+custom_clause : OMP_CUSTOM_CLAUSE '(' expression_list ')'
+{
+	$$ = ASTMake1(AST_OMP_CUSTOM_CLAUSE, $3, $1.token_line, $1.token_text);
+}
+| OMP_CUSTOM_CLAUSE '(' ')'
+{
+	$$ = ASTMake1(AST_OMP_CUSTOM_CLAUSE, NULL, $1.token_line, $1.token_text);
 }
 ;
 
@@ -2523,6 +2578,10 @@ parallel_clause : unique_parallel_clause
 	$$ = $1;
 }
 | data_clause
+{
+	$$ = $1;
+}
+| custom_clause
 {
 	$$ = $1;
 }
@@ -2583,6 +2642,10 @@ for_clause : unique_for_clause
 	$$ = $1
 }
 | nowait_clause
+{
+	$$ = $1;
+}
+| custom_clause
 {
 	$$ = $1;
 }
@@ -2661,6 +2724,10 @@ sections_clause : data_clause
 	$$ = $1;
 }
 | nowait_clause
+{
+	$$ = $1;
+}
+| custom_clause
 {
 	$$ = $1;
 }
@@ -2748,6 +2815,10 @@ single_clause : data_clause
 {
 	$$ = $1;
 }
+| custom_clause
+{
+	$$ = $1;
+}
 ;
 
 parallel_for_construct : parallel_for_directive iteration_statement
@@ -2798,6 +2869,10 @@ parallel_for_clause : unique_parallel_clause
 {
 	$$ = $1;
 }
+| custom_clause
+{
+	$$ = $1;
+}
 ;
 
 parallel_sections_construct : parallel_sections_directive section_scope
@@ -2841,6 +2916,10 @@ parallel_sections_clause : unique_parallel_clause
 	$$ = $1;
 }
 | data_clause
+{
+	$$ = $1;
+}
+| custom_clause
 {
 	$$ = $1;
 }

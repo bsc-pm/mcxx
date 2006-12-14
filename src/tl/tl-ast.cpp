@@ -1,6 +1,7 @@
 #include "tl-builtin.hpp"
 #include "tl-ast.hpp"
 #include "tl-scopelink.hpp"
+#include "tl-predicate.hpp"
 #include "cxx-ast.h"
 
 namespace TL
@@ -78,28 +79,36 @@ namespace TL
 		return result;
 	}
 
-	void AST_t::tree_iterator(const AST_t& a, ObjectList<AST_t>& result)
+	void AST_t::tree_iterator(AST_t& a, const Predicate<AST_t>& predicate, 
+			RecursiveFlag recursive_flag, ObjectList<AST_t>& result)
 	{
-		AST_t match_ast(a._ast);
-		result.push_back(match_ast);
+		bool matched = false;
+		if (predicate(a))
+		{
+			matched = true;
+			result.push_back(a);
+		}
 
 		AST tree = a._ast;
 
-		for (int i = 0; i < ASTNumChildren(tree); i++)
+		if (!matched || (recursive_flag == RECURSIVE))
 		{
-			if (ASTChild(tree, i) != NULL)
+			for (int i = 0; i < ASTNumChildren(tree); i++)
 			{
-				AST_t iterate(ASTChild(tree, i));
-				tree_iterator(iterate, result);
+				if (ASTChild(tree, i) != NULL)
+				{
+					AST_t iterate(ASTChild(tree, i));
+					tree_iterator(iterate, predicate, recursive_flag, result);
+				}
 			}
 		}
 	}
 
-	ObjectList<AST_t> AST_t::depth_subtrees()
+	ObjectList<AST_t> AST_t::depth_subtrees(const Predicate<AST_t>& pred, RecursiveFlag recursive_flag)
 	{
 		ObjectList<AST_t> result;
 
-		tree_iterator(*this, result);
+		tree_iterator(*this, pred, recursive_flag, result);
 
 		return result;
 	}

@@ -141,6 +141,10 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id,
         type_t* declarator_type, char* is_overload, decl_context_t decl_context);
 
 
+// OpenMP functions needed here
+static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name);
+static void build_scope_omp_threadprivate(AST a, scope_t* st, decl_context_t decl_context, char* attr_name);
+
 // Current linkage, by default C++
 static char* current_linkage = "\"C++\"";
 
@@ -364,7 +368,12 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
 			// OpenMP 2.5 constructs
 		case AST_OMP_THREADPRIVATE_DIRECTIVE :
 			{
-				// Do nothing for now
+				build_scope_omp_threadprivate(a, st, decl_context, OMP_IS_THREADPRIVATE_DIRECTIVE);
+				break;
+			}
+		case AST_OMP_CUSTOM_DIRECTIVE :
+			{
+				build_scope_omp_directive(a, st, decl_context, OMP_IS_CUSTOM_DIRECTIVE);
 				break;
 			}
 			// GCC Extensions
@@ -6052,8 +6061,14 @@ static void build_scope_omp_data_clause(AST a, scope_t* st, decl_context_t decl_
 	}
 }
 
+
 static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name) 
 {
+	if (attr_name != NULL)
+	{
+		ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
+	}
+
 	// Semantic fix of expressions in clauses
 	if (ASTSon0(a) != NULL)
 	{
@@ -6196,6 +6211,25 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
 						ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon2(clause)));
 						break;
 					}
+				case AST_OMP_CUSTOM_CLAUSE :
+					{
+						ASTAttrSetValueType(clause, OMP_IS_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
+
+						AST expression_list = ASTSon0(clause);
+						if (expression_list != NULL)
+						{
+							AST iter;
+
+							for_each_element(expression_list, iter)
+							{
+								AST expression = ASTSon1(iter);
+
+								solve_possibly_ambiguous_expression(expression, st, decl_context);
+							}
+						}
+
+						break;
+					}
 				default:
 					{
 						internal_error("Unknown node '%s' in %s\n", ast_print_node_type(ASTType(clause)),
@@ -6206,6 +6240,11 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
 	}
 }
 
+static void build_scope_omp_custom_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
+{
+	ASTAttrSetValueType(a, OMP_IS_CUSTOM_DIRECTIVE, tl_type_t, tl_bool(1));
+	build_scope_omp_directive(a, st, decl_context, attr_name);
+}
 
 static void build_scope_omp_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
@@ -6315,6 +6354,7 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
 	STMT_HANDLER(AST_OMP_FLUSH_DIRECTIVE, build_scope_omp_flush_directive, OMP_IS_FLUSH_DIRECTIVE),
 	STMT_HANDLER(AST_OMP_BARRIER_DIRECTIVE, build_scope_omp_directive, OMP_IS_BARRIER_DIRECTIVE),
 	STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate, OMP_IS_THREADPRIVATE_DIRECTIVE),
+	STMT_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, build_scope_omp_construct, OMP_IS_CUSTOM_CONSTRUCT),
 };
 
 void build_scope_member_specification_with_scope_link(scope_t* inner_scope, AST member_specification_tree, 

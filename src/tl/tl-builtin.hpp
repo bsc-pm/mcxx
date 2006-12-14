@@ -4,6 +4,7 @@
 #include <typeinfo>
 #include <iostream>
 #include <string>
+#include <strings.h>
 #include "tl-object.hpp"
 
 namespace TL
@@ -217,18 +218,16 @@ class Bool : public Object
 		}
 };
 
-class String : public Object
+class String : public Object, public std::string
 {
 	private:
-		std::string _str;
-
 		bool all_blanks() const
 		{
 			bool blanks = true;
-			int len = _str.size();
+			int len = this->size();
 			for (int i = 0; (i < len) && blanks; i++)
 			{
-				blanks &= (_str[i] == ' ') || (_str[i] == '\t');
+				blanks &= (this->operator[](i) == ' ') || (this->operator[](i) == '\t');
 			}
 			return blanks;
 		}
@@ -239,28 +238,46 @@ class String : public Object
 			return NULL;
 		}
 	public:
-
-		String(const std::string& str)
-			: _str(str)
+		String()
+			: std::string()
 		{
 		}
 
-		String(char* str)
-			: _str(str)
+		String( const String& s )
+			: std::string(s)
+		{
+		}
+		String( size_type length, const char& ch )
+			: std::string(length, ch)
 		{
 		}
 
-		String(const String& str)
-			: _str(str._str)
+		String( const char* str )
+			 : std::string(str)
 		{
 		}
+
+		String( const char* str, size_type length )
+			: std::string(str, length)
+		{
+		}
+
+		String( const String& str, size_type index, size_type length )
+			: std::string(str, index, length)
+		{
+		}
+
+		// String( std::input_iterator start, std::input_iterator end )
+		// 	: std::string(start, end)
+		// {
+		// }
 
         String(const Object& obj)
 		{
 			const String* pint = dynamic_cast<const String*>(&obj);
 			if (pint != NULL)
 			{
-				this->_str = pint->_str;
+				this->operator=(*pint);
 			}
 			else
 			{
@@ -268,13 +285,7 @@ class String : public Object
 				{
 					std::cerr << "Bad initialization of String" << std::endl;
 				}
-				this->_str = std::string("");
 			}
-		}
-
-		String operator+(const String& str) const
-		{
-			return String(this->_str + str._str);
 		}
 
 		virtual bool is_string() const
@@ -282,28 +293,30 @@ class String : public Object
 			return true;
 		}
 
-		bool operator==(const String& str) const
+		bool compare_to_case_insensitive(const String& str) const
 		{
-			return (this->_str == str._str);
-		}
-
-		std::string get_string() const
-		{
-			return this->_str;
+			return (strcasecmp(this->c_str(), str.c_str()) == 0);
 		}
 
 		String& append_with_separator(const String& str, const String& sep) 
 		{
-			if (all_blanks())
+			if (this->all_blanks())
 			{
-				this->_str = str._str;
+				this->operator=(str);
 			}
 			else
 			{
-				this->_str += (sep._str + str._str);
+				this->operator+=(sep);
+				this->operator+=(str);
 			}
 
 			return (*this);
+		}
+
+		~String()
+		{
+			// ¿ Needed ?
+			this->std::string::~string();
 		}
 };
 

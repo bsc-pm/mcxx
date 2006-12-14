@@ -2,39 +2,21 @@
 #define TL_PREDICATEUTILS_HPP
 
 #include "tl-builtin.hpp"
-#include "tl-ast.hpp"
 #include "tl-predicate.hpp"
 #include "tl-objectlist.hpp"
 
 namespace TL
 {
-	template<const char* _ATTR>
-	class PredicateBool : public Predicate<AST_t>
-	{
-		public:
-			virtual bool operator()(AST_t& ast) const
-			{
-                TL::Bool attr = ast.get_attribute(_ATTR);
-                return attr;
-			}
-			virtual ~PredicateBool() { }
-	};
-
-	class PredicateAttr : public Predicate<AST_t>
-	{
+	template<class T>
+	class AlwaysTrue : public Predicate<T>
+    {
 		private:
-			const char* _attr_name;
 		public:
-			PredicateAttr(const char* attr_name)
-				: _attr_name(attr_name)
+			virtual bool operator()(T& t) const
 			{
+				return true;
 			}
-
-			virtual bool operator()(AST_t& ast) const
-			{
-				return TL::Bool(ast.get_attribute(_attr_name));
-			}
-	};
+    };
 
 	template <class T>
 	class FunctionPredicate : public Predicate<T>
@@ -77,6 +59,7 @@ namespace TL
 			{
 			}
 	};
+
 
 	template <class T>
 	class ThisMemberFunctionPredicate : public Predicate<T>

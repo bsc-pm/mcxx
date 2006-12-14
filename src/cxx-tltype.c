@@ -1,3 +1,4 @@
+#include <strings.h>
 #include "cxx-tltype.h"
 
 tl_type_t tl_bool(char c)
@@ -26,6 +27,16 @@ tl_type_t tl_ast(AST a)
 
 	result.kind = TL_AST;
 	result.data._ast = a;
+
+	return result;
+}
+
+tl_type_t tl_string(const char* str)
+{
+	tl_type_t result;
+	
+	result.kind = TL_STRING;
+	result.data._string = strdup(str);
 
 	return result;
 }

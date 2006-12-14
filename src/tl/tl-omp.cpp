@@ -204,6 +204,12 @@ namespace TL
 			return result;
 		}
 
+		CustomClause Directive::custom_clause(const std::string& src)
+		{
+			CustomClause result(src, _ref, _scope_link);
+			return result;
+		}
+
         ReductionClause Directive::reduction_clause()
         {
             ReductionClause result(_ref, _scope_link);

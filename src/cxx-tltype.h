@@ -20,6 +20,7 @@ typedef union tl_type_data_tag
 	char _boolean;
 	AST _ast;
 	tl_type_array_t _array;
+	char* _string;
 } tl_type_data_t;
 
 typedef enum tl_type_kind_tag
@@ -28,6 +29,7 @@ typedef enum tl_type_kind_tag
 	TL_INTEGER,
 	TL_BOOL,
 	TL_AST,
+	TL_STRING,
 	TL_ARRAY
 } tl_type_kind_t;
 
@@ -40,6 +42,7 @@ typedef struct tl_type_tag
 tl_type_t tl_bool(char c);
 tl_type_t tl_integer(int i);
 tl_type_t tl_ast(AST a);
+tl_type_t tl_string(const char* str);
 
 MCXX_END_DECLS
 

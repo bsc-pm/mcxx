@@ -211,6 +211,13 @@ threadprivate {
 	return OMP_THREADPRIVATE;
 }
 
+{idnondigit}({idnondigit}|{digit})* {
+	// Special case for custom clauses
+	BEGIN(openmp_clause);
+	parse_token_text(); 
+	return OMP_CUSTOM_DIRECTIVE; 
+}
+
 }
 
 <openmp_clause>{
@@ -300,6 +307,13 @@ num_threads {
 	// Lexing is the same as a var-list
 	BEGIN(openmp_var_list);
 	return OMP_NUM_THREADS;
+}
+
+{idnondigit}({idnondigit}|{digit})* {
+	// Special case for custom clauses
+	BEGIN(openmp_var_list);
+	parse_token_text(); 
+	return OMP_CUSTOM_CLAUSE; 
 }
 
 }
@@ -721,11 +735,13 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
     /* ignore bad characters */ 
     if (isgraph(*yytext))
     {
-        fprintf(stderr, "Unknown character '%c' (%#x). Ignoring it.\n", *yytext, *yytext);
+        fprintf(stderr, "Unknown character '%c' (%#x) at %s:%d. Ignoring it.\n", *yytext, *yytext,
+				scanning_now.current_filename, scanning_now.line_number);
     }
     else
     {
-        fprintf(stderr, "Unknown character %#x. Ignoring it.\n", *yytext);
+        fprintf(stderr, "Unknown character %#x at %s:%d. Ignoring it.\n", *yytext,
+				scanning_now.current_filename, scanning_now.line_number);
     }
 }
 

@@ -11,6 +11,8 @@
 #include "cxx-prettyprint.h"
 #include "tl-object.hpp"
 #include "tl-objectlist.hpp"
+#include "tl-predicate.hpp"
+#include "tl-predicateutils.hpp"
 
 namespace TL
 {
@@ -18,9 +20,18 @@ namespace TL
 
 	class AST_t : public Object
 	{
+		public:
+			enum RecursiveFlag
+			{
+				RECURSIVE = 0,
+				NON_RECURSIVE
+			};
 		protected:
 			AST _ast;
-			static void tree_iterator(const AST_t& a, ObjectList<AST_t>& result);
+
+			static void tree_iterator(AST_t& a, const Predicate<AST_t>& predicate, 
+					RecursiveFlag recursive_flag, ObjectList<AST_t>& result);
+
 			tl_type_t* get_extended_attribute(const std::string& name) const;
 
 			static AST get_translation_unit(AST node);
@@ -98,7 +109,7 @@ namespace TL
 
 			std::pair<AST_t, ScopeLink> duplicate_with_scope(ScopeLink scope_link) const;
 
-			ObjectList<AST_t> depth_subtrees();
+			ObjectList<AST_t> depth_subtrees(const Predicate<AST_t>& pred = AlwaysTrue<AST_t>(), RecursiveFlag recursive_flag = RECURSIVE);
 
 			std::string internal_ast_type() const;
 
@@ -121,10 +132,39 @@ namespace TL
 
 			void replace_text(const std::string& str);
 
+
 			friend class Type;
             friend class Scope;
             friend class ScopeLink;
             friend class DepthTraverse;
+	};
+
+	template<const char* _ATTR>
+	class PredicateBool : public Predicate<AST_t>
+	{
+		public:
+			virtual bool operator()(AST_t& ast) const
+			{
+                TL::Bool attr = ast.get_attribute(_ATTR);
+                return attr;
+			}
+			virtual ~PredicateBool() { }
+	};
+
+	class PredicateAttr : public Predicate<AST_t>
+	{
+		private:
+			const char* _attr_name;
+		public:
+			PredicateAttr(const char* attr_name)
+				: _attr_name(attr_name)
+			{
+			}
+
+			virtual bool operator()(AST_t& ast) const
+			{
+				return TL::Bool(ast.get_attribute(_attr_name));
+			}
 	};
 }
 

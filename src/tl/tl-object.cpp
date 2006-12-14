@@ -41,6 +41,12 @@ Object& Object::get_attribute(const std::string& name) const
 				return (*ast);
 				break;
 			}
+		case TL_STRING :
+			{
+				String* str = new String(tl_value->data._string);
+				return (*str);
+				break;
+			}
 		case TL_ARRAY :
 		case TL_UNDEFINED :
 			{
