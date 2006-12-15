@@ -252,6 +252,11 @@ class String : public Object, public std::string
 		{
 		}
 
+		String (const std::string& str)
+			: std::string(str)
+		{
+		}
+
 		String( const char* str )
 			 : std::string(str)
 		{
@@ -293,7 +298,7 @@ class String : public Object, public std::string
 			return true;
 		}
 
-		bool compare_to_case_insensitive(const String& str) const
+		bool compare_case_insensitive_to(const String& str) const
 		{
 			return (strcasecmp(this->c_str(), str.c_str()) == 0);
 		}

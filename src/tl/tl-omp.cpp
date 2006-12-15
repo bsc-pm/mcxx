@@ -212,11 +212,42 @@ namespace TL
 
 		ObjectList<AST_t> CustomClause::filter_custom_clause()
 		{
-			PredicateAttr predicate_attr(_clause_name);
+			class PredicateCustomClause : public Predicate<AST_t>
+			{
+				private:
+					PredicateAttr _custom_clause;
+					const std::string& _clause_name;
 
-			ObjectList<AST_t> result = _ref.depth_subtrees(predicate_attr);
+				public:
+					PredicateCustomClause(const std::string& clause_name)
+						 : _custom_clause(OMP_IS_CUSTOM_CLAUSE), _clause_name(clause_name)
+					{
+					}
+
+					virtual bool operator()(AST_t& t) const
+					{
+						if (_custom_clause(t))
+						{
+							TL::String clause_name_attr = t.get_attribute(OMP_CUSTOM_CLAUSE_NAME);
+
+							return (clause_name_attr.compare_case_insensitive_to(_clause_name));
+						}
+						else return false;
+					}
+			};
+
+			PredicateCustomClause predicate_custom_clause(_clause_name);
+
+			ObjectList<AST_t> result = _ref.depth_subtrees(predicate_custom_clause);
 
 			return result;
+		}
+
+		bool CustomClause::is_defined()
+		{
+			ObjectList<AST_t> clauses = filter_custom_clause();
+
+			return (!clauses.empty());
 		}
 
 		ObjectList<Expression> CustomClause::get_expression_list()

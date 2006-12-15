@@ -327,11 +327,17 @@ namespace TL
 				// Now create the spawning code. Pass by pointer list and
 				// reductions are needed for proper pass of data and reduction
 				// vectors declaration
+				
+				OpenMP::Clause num_threads = directive.num_threads_clause();
+				OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+				
                 AST_t spawn_code = get_spawn_code(parallel_construct.get_scope(),
                         parallel_construct.get_scope_link(),
                         outlined_function_name,
                         pass_by_pointer,
-                        reduction_references
+                        reduction_references,
+						num_threads,
+						groups_clause
                         );
 
 				// Now replace the whole construct with spawn_code
@@ -436,11 +442,16 @@ namespace TL
 				// Now prepend the outline
                 function_definition.get_ast().prepend_sibling_function(outline_code);
 
+				OpenMP::Clause num_threads = directive.num_threads_clause();
+				OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+
 				AST_t spawn_code = get_spawn_code(parallel_for_construct.get_scope(),
 						parallel_for_construct.get_scope_link(),
 						outlined_function_name,
 						pass_by_pointer,
-						reduction_references
+						reduction_references,
+						num_threads,
+						groups_clause
 						);
 
 				// Replace all the whole construct with spawn_code
@@ -536,6 +547,9 @@ namespace TL
 				// as a sibling (at the same level)
                 function_definition.get_ast().prepend_sibling_function(outline_code);
 
+				OpenMP::Clause num_threads = directive.num_threads_clause();
+				OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+				
 				// Now create the spawning code. Pass by pointer list and
 				// reductions are needed for proper pass of data and reduction
 				// vectors declaration
@@ -543,7 +557,9 @@ namespace TL
                         parallel_sections_construct.get_scope_link(),
                         outlined_function_name,
                         pass_by_pointer,
-                        reduction_references
+                        reduction_references,
+						num_threads,
+						groups_clause
                         );
 
 				// One less level of sections
@@ -781,7 +797,9 @@ namespace TL
                     ScopeLink scope_link,
                     Source outlined_function_name,
                     ObjectList<IdExpression> pass_by_pointer,
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
+					OpenMP::Clause num_threads,
+					OpenMP::CustomClause groups)
             {
                 Source spawn_code;
                 Source reduction_vectors;
