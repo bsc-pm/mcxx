@@ -71,6 +71,7 @@ namespace TL
 				{ 
 				}
 
+				ObjectList<Expression> get_expression_list();
 				ObjectList<IdExpression> id_expressions();
 				bool is_defined();
 		};

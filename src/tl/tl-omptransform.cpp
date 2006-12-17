@@ -798,8 +798,8 @@ namespace TL
                     Source outlined_function_name,
                     ObjectList<IdExpression> pass_by_pointer,
                     ObjectList<OpenMP::ReductionIdExpression> reduction_references,
-					OpenMP::Clause num_threads,
-					OpenMP::CustomClause groups)
+					OpenMP::Clause num_threads_clause,
+					OpenMP::CustomClause groups_clause)
             {
                 Source spawn_code;
                 Source reduction_vectors;
@@ -893,6 +893,86 @@ namespace TL
                 
                 // Groups definition
                 // TODO
+                if (!groups_clause.is_defined() && !num_threads_clause.is_defined())
+                {
+                    groups_definition 
+                        << "extern int nthf_cpus_actual_();"
+
+                        << "nth_nprocs =  nthf_cpus_actual_();"
+                        ;
+                }
+                else if (num_threads_clause.is_defined())
+                {
+                    // This is like a groups of 1 parameter
+                    ObjectList<Expression> clause_exprs = num_threads_clause.get_expression_list();
+
+                    std::string num_threads_value = clause_exprs[0].prettyprint();
+                    groups_definition 
+                        << "extern void nthf_compute_uniform_groups_(int*);"
+                        << "int nth_num_threads = " << num_threads_value << ";"
+
+                        << "nthf_compute_uniform_groups_(&nth_num_threads);"
+                        << "nth_nprocs = " << num_threads_value << ";"
+                        ;
+                }
+                else /* groups is defined */
+                {
+                    groups_definition << "int nth_groups_num;"
+                        ;
+
+                    ObjectList<Expression> groups_expressions = groups_clause.get_expression_list();
+
+                    switch (groups_expressions.size())
+                    {
+                        case 1 :
+                            {
+                                std::string num_groups = groups_expressions[0].prettyprint();
+
+                                groups_definition 
+                                    << "extern void nthf_compute_uniform_groups_(int*);"
+
+                                    << "nth_groups_num = " << num_groups << ";"
+                                    << "nthf_compute_uniform_groups_(&nthf_groups_num);"
+                                    ;
+                                break;
+                            }
+                        case 2 :
+                            {
+                                std::string num_groups = groups_expressions[0].prettyprint();
+                                std::string howmany_groups = groups_expressions[1].prettyprint();
+
+                                groups_definition
+                                    << "extern void nthf_compute_groups_vec_(int*, int*);"
+
+                                    << "nth_groups_num = " << num_groups << ";"
+                                    << "nthf_compute_groups_vec_(&nthf_groups_num, " << howmany_groups << ");"
+                                    ;
+                        
+                                break;
+                            }
+                        case 3 :
+                            {
+                                std::string num_groups = groups_expressions[0].prettyprint();
+                                std::string who_groups = groups_expressions[1].prettyprint();
+                                std::string howmany_groups = groups_expressions[2].prettyprint();
+
+                                groups_definition
+                                    << "extern void nthf_define_groups_(int*, int*, int*);"
+
+                                    << "nth_groups_num = " << num_groups << ";"
+                                    << "nthf_define_groups_(&nthf_groups_num, " << who_groups << ", " << howmany_groups << ");"
+                                    ;
+
+                                break;
+                            }
+                        default:
+                            break;
+                    }
+
+                    groups_definition
+                        << "nth_nprocs = nth_groups_num;"
+                        ;
+                }
                 
                 // Reduction code
 				//
@@ -1025,9 +1105,9 @@ namespace TL
 					<< "if (in__tone_is_master_())"
 					<< "{"
 					<<    "int rdv_i;"
-					<<    "extern int nthf_cpus_actual();"
+					<<    "extern int nthf_cpus_actual_();"
 
-					<<    "int nth_nprocs = nthf_cpus_actual();"
+					<<    "int nth_nprocs = nthf_cpus_actual_();"
 					<<    "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
 					<<    "{"
 					<<       reduction_gathering

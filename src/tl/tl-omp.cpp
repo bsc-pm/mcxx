@@ -204,6 +204,12 @@ namespace TL
 			return result;
 		}
 
+        Clause Directive::num_threads_clause()
+        {
+			Clause result(_ref, _scope_link, OMP_IS_NUM_THREADS_CLAUSE);
+			return result;
+        }
+
 		CustomClause Directive::custom_clause(const std::string& src)
 		{
 			CustomClause result(src, _ref, _scope_link);
@@ -248,6 +254,33 @@ namespace TL
 			ObjectList<AST_t> clauses = filter_custom_clause();
 
 			return (!clauses.empty());
+		}
+
+        // Time to start to think to fuse Clause and CustomClause in an inheritance tree
+		ObjectList<Expression> Clause::get_expression_list()
+		{
+			PredicateBool<LANG_IS_EXPRESSION_NEST> expression_nest;
+			ObjectList<Expression> result;
+
+			PredicateAttr predicate_clause(_clause_filter_name);
+			ObjectList<AST_t> clauses = _ref.depth_subtrees().filter(predicate_clause);
+
+			for (ObjectList<AST_t>::iterator it = clauses.begin();
+					it != clauses.end();
+					it++)
+			{
+				ObjectList<AST_t> expression_nest_list = it->depth_subtrees(expression_nest, AST_t::NON_RECURSIVE);
+
+				for (ObjectList<AST_t>::iterator it2 = expression_nest_list.begin();
+						it2 != expression_nest_list.end();
+						it2++)
+				{
+					Expression expr(*it2, _scope_link);
+					result.append(expr);
+				}
+			}
+
+			return result;
 		}
 
 		ObjectList<Expression> CustomClause::get_expression_list()
