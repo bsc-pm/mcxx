@@ -912,7 +912,7 @@ namespace TL
                         << "int nth_num_threads = " << num_threads_value << ";"
 
                         << "nthf_compute_uniform_groups_(&nth_num_threads);"
-                        << "nth_nprocs = " << num_threads_value << ";"
+                        << "nth_nprocs = nth_num_threads;"
                         ;
                 }
                 else /* groups is defined */
