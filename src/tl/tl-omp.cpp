@@ -180,6 +180,13 @@ namespace TL
 			}
 		}
 
+		Clause Directive::parameter_clause()
+		{
+			Clause result(_ref, _scope_link, OMP_IS_PARAMETER_CLAUSE);
+
+			return result;
+		}
+
 		Clause Directive::shared_clause()
 		{
 			Clause result(_ref, _scope_link, OMP_IS_SHARED_CLAUSE);
@@ -307,7 +314,7 @@ namespace TL
 			return result;
 		}
 
-		ObjectList<IdExpression> CustomClause::id_expressions()
+		ObjectList<IdExpression> CustomClause::id_expressions(IdExpressionCriteria criteria)
 		{
 			PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
 
@@ -328,7 +335,22 @@ namespace TL
 				{
 					Symbol sym = get_symbol_from_ast(*jt);
 
-					if (sym.is_valid())
+					bool eligible = false;
+
+					switch (criteria)
+					{
+						case ALL_SYMBOLS :
+							eligible = true;
+							break;
+						case VALID_SYMBOLS :
+							eligible = sym.is_valid();
+							break;
+						case INVALID_SYMBOLS :
+							eligible = !sym.is_valid();
+							break;
+					}
+
+					if (eligible)
 					{
 						IdExpression id_expr(*jt, this->_scope_link);
 						result.append(id_expr);
@@ -357,7 +379,7 @@ namespace TL
 				&& TL::Bool(_ref.get_attribute(OMP_IS_DEFAULT_SHARED_CLAUSE));
 		}
 
-		ObjectList<IdExpression> Clause::id_expressions()
+		ObjectList<IdExpression> Clause::id_expressions(IdExpressionCriteria criteria)
 		{
 			PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
 
@@ -371,7 +393,9 @@ namespace TL
 					it != clauses.end();
 					it++)
 			{
-				ObjectList<AST_t> id_expressions = it->depth_subtrees().filter(id_expr_pred);
+				ObjectList<AST_t> id_expressions = it->depth_subtrees();
+
+				id_expressions = id_expressions.filter(id_expr_pred);
 
 				for (ObjectList<AST_t>::iterator jt = id_expressions.begin();
 						jt != id_expressions.end();
@@ -379,7 +403,22 @@ namespace TL
 				{
 					Symbol sym = get_symbol_from_ast(*jt);
 
-					if (sym.is_valid())
+					bool eligible = false;
+
+					switch (criteria)
+					{
+						case ALL_SYMBOLS :
+							eligible = true;
+							break;
+						case VALID_SYMBOLS :
+							eligible = sym.is_valid();
+							break;
+						case INVALID_SYMBOLS :
+							eligible = !sym.is_valid();
+							break;
+					}
+
+					if (eligible)
 					{
 						IdExpression id_expr(*jt, this->_scope_link);
 						result.append(id_expr);
@@ -390,7 +429,7 @@ namespace TL
 			return result;
 		}
 
-		ObjectList<ReductionIdExpression> ReductionClause::id_expressions()
+		ObjectList<ReductionIdExpression> ReductionClause::id_expressions(IdExpressionCriteria criteria)
 		{
 			PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
 
@@ -420,7 +459,22 @@ namespace TL
 				{
 					Symbol sym = get_symbol_from_ast(*jt);
 
-					if (sym.is_valid())
+					bool eligible = false;
+
+					switch (criteria)
+					{
+						case ALL_SYMBOLS :
+							eligible = true;
+							break;
+						case VALID_SYMBOLS :
+							eligible = sym.is_valid();
+							break;
+						case INVALID_SYMBOLS :
+							eligible = !sym.is_valid();
+							break;
+					}
+
+					if (eligible)
 					{
 						IdExpression id_expr(*jt, this->_scope_link);
 						ReductionIdExpression reduct_id_expr(id_expr, reduct_operator, reduct_neuter);

@@ -127,6 +127,8 @@ namespace TL
 			AST_t get_enclosing_block();
 			AST_t get_enclosing_function_definition();
 
+			AST get_translation_unit();
+
 			void prepend_sibling_function(AST_t t);
 			void append_sibling_function(AST_t t);
 

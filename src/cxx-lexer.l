@@ -202,7 +202,7 @@ ordered {
 
 critical {
 	BEGIN(openmp_clause);
-	return OMP_ORDERED;
+	return OMP_CRITICAL;
 }
 
 threadprivate {
@@ -227,6 +227,18 @@ threadprivate {
     BEGIN(INITIAL);
 
     return OMP_NEWLINE;
+}
+
+[(] {
+   /* 
+	   This is a special one, this is a clause without name
+	   and must be lexed as if it was a var-list, but a '(' has
+	   already been seen thus "omp_var_list_parentheses == 1"
+   */
+   omp_var_list_parentheses = 1;
+
+   BEGIN(openmp_var_list);
+   return '(';
 }
 
 [,] {
@@ -299,18 +311,21 @@ default {
 
 if {
 	// Lexing is the same as a var-list
+	omp_var_list_parentheses = 0;
 	BEGIN(openmp_var_list);
 	return OMP_IF;
 }
 
 num_threads {
 	// Lexing is the same as a var-list
+	omp_var_list_parentheses = 0;
 	BEGIN(openmp_var_list);
 	return OMP_NUM_THREADS;
 }
 
 {idnondigit}({idnondigit}|{digit})* {
 	// Special case for custom clauses
+	omp_var_list_parentheses = 0;
 	BEGIN(openmp_var_list);
 	parse_token_text(); 
 	return OMP_CUSTOM_CLAUSE; 

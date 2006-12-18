@@ -268,6 +268,11 @@ namespace TL
 		ASTParent(new_child) = parent;
 	}
 
+	AST AST_t::get_translation_unit()
+	{
+		return this->get_translation_unit(this->_ast);
+	}
+
 	AST AST_t::get_translation_unit(AST node)
 	{
 		if  (node == NULL)

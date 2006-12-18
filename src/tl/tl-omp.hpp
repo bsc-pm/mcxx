@@ -57,6 +57,15 @@ namespace TL
 				ReductionClause reduction_clause();
 
 				CustomClause custom_clause(const std::string& src);
+
+				Clause parameter_clause();
+		};
+
+		enum IdExpressionCriteria
+		{
+			VALID_SYMBOLS = 0,
+			INVALID_SYMBOLS,
+			ALL_SYMBOLS
 		};
 
 		class Clause : public LangConstruct
@@ -72,7 +81,7 @@ namespace TL
 				}
 
 				ObjectList<Expression> get_expression_list();
-				ObjectList<IdExpression> id_expressions();
+				ObjectList<IdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
 				bool is_defined();
 		};
 
@@ -129,7 +138,7 @@ namespace TL
 				{
 				}
 
-				ObjectList<ReductionIdExpression> id_expressions();
+				ObjectList<ReductionIdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
 		};
 
 		class CustomClause : public LangConstruct
@@ -145,7 +154,7 @@ namespace TL
 				}
 
 				ObjectList<Expression> get_expression_list();
-				ObjectList<IdExpression> id_expressions();
+				ObjectList<IdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
 
 				bool is_defined();
 		};

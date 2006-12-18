@@ -483,6 +483,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> custom_directive
 %type<ast> custom_clause_opt_seq
 %type<ast> custom_clause_seq
+%type<ast> custom_parameter_clause
 %type<ast> custom_clause
 
 %type<ast> subparsing
@@ -4560,9 +4561,23 @@ custom_clause_opt_seq : /* empty */
 ;
 
 // I think this is the more general
-custom_clause_seq : parallel_for_clause_seq
+custom_clause_seq : parallel_for_clause
 {
-	$$ = $1;
+	$$ = ASTListLeaf($1);
+}
+| custom_parameter_clause
+{
+	$$ = ASTListLeaf($1);
+}
+| custom_clause_seq parallel_for_clause
+{
+	$$ = ASTList($1, $2);
+}
+;
+
+custom_parameter_clause : '(' expression_list ')'
+{
+	$$ = ASTMake1(AST_OMP_CUSTOM_PARAMETER_CLAUSE, $2, $1.token_line, NULL);
 }
 ;
 
@@ -5005,7 +5020,10 @@ region_phrase_opt : /* empty */
 
 region_phrase : '(' IDENTIFIER ')'
 {
-	$$ = ASTLeaf(AST_OMP_CRITICAL_REGION_PHRASE, $2.token_line, $2.token_text);
+	// Cast it into an expression, makes things a lot easier
+	AST critical_region_phrase = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+
+	$$ = ASTMake1(AST_EXPRESSION, critical_region_phrase, $1.token_line, NULL);
 }
 ;
 

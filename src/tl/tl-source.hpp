@@ -101,7 +101,6 @@ namespace TL
 			Source& append_with_separator(const std::string& src, const std::string& separator);
 			Source& append_with_separator(Source& src, const std::string& separator);
 
-
 			Source& operator<<(Source& src);
 			Source& operator<<(const std::string& str);
 			Source& operator<<(int n);

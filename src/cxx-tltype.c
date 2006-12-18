@@ -1,4 +1,4 @@
-#include <strings.h>
+#include <string.h>
 #include "cxx-tltype.h"
 
 tl_type_t tl_bool(char c)

@@ -6211,9 +6211,17 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
 						ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon2(clause)));
 						break;
 					}
+				case AST_OMP_CUSTOM_PARAMETER_CLAUSE :
 				case AST_OMP_CUSTOM_CLAUSE :
 					{
-						ASTAttrSetValueType(clause, OMP_IS_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
+						if (ASTType(clause) == AST_OMP_CUSTOM_CLAUSE)
+						{
+							ASTAttrSetValueType(clause, OMP_IS_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
+						}
+						else if (ASTType(clause) == AST_OMP_CUSTOM_PARAMETER_CLAUSE)
+						{
+							ASTAttrSetValueType(clause, OMP_IS_PARAMETER_CLAUSE, tl_type_t, tl_bool(1));
+						}
 
 						AST expression_list = ASTSon0(clause);
 						if (expression_list != NULL)
@@ -6309,11 +6317,23 @@ static void build_scope_omp_sections_construct(AST a, scope_t* st, decl_context_
 
 static void build_scope_omp_critical_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-    // No need to check anything 
-    if (ASTSon1(a) != NULL)
+	AST critical_directive = ASTSon0(a);
+	ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(critical_directive));
+
+	AST body_construct = ASTSon1(a);
+    if (body_construct != NULL)
     {
-		build_scope_statement(ASTSon1(a), st, decl_context);
+		ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(body_construct));
+		build_scope_statement(body_construct, st, decl_context);
     }
+
+	AST region_phrase = ASTSon0(critical_directive);
+	if (region_phrase != NULL)
+	{
+		solve_possibly_ambiguous_expression(region_phrase, st, decl_context);
+
+		ASTAttrSetValueType(region_phrase, OMP_IS_PARAMETER_CLAUSE, tl_type_t, tl_bool(1));
+	}
 
 	ASTAttrSetValueType(a, OMP_IS_CRITICAL_CONSTRUCT, tl_type_t, tl_bool(1));
 }

@@ -149,6 +149,8 @@ HANDLER_PROTOTYPE(omp_section_handler);
 HANDLER_PROTOTYPE(omp_threadprivate_directive_handler);
 HANDLER_PROTOTYPE(omp_custom_directive_handler);
 HANDLER_PROTOTYPE(omp_custom_clause_handler);
+HANDLER_PROTOTYPE(omp_custom_parameter_clause_handler);
+HANDLER_PROTOTYPE(omp_critical_directive_handler);
 
 // GCC Extensions
 HANDLER_PROTOTYPE(gcc_label_declaration_handler);
@@ -491,6 +493,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, omp_generic_construct_handler, NULL),
 	NODE_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, omp_custom_directive_handler, NULL),
 	NODE_HANDLER(AST_OMP_CUSTOM_CLAUSE, omp_custom_clause_handler, NULL),
+	NODE_HANDLER(AST_OMP_CUSTOM_PARAMETER_CLAUSE, omp_custom_parameter_clause_handler, NULL),
 	NODE_HANDLER(AST_OMP_BARRIER_DIRECTIVE, omp_generic_directive_handler, "barrier"),
 	NODE_HANDLER(AST_OMP_FLUSH_DIRECTIVE, omp_generic_directive_handler, "flush"),
 	NODE_HANDLER(AST_OMP_IF_CLAUSE, omp_generic_clause_handler_with_expression, "if"),
@@ -512,6 +515,8 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_OMP_DEFAULT_NONE_CLAUSE, simple_parameter_handler, "default(none)"),
 	NODE_HANDLER(AST_OMP_REDUCTION_CLAUSE, omp_reduction_clause_handler, NULL),
 	NODE_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, omp_threadprivate_directive_handler, NULL),
+	NODE_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, omp_generic_construct_handler, NULL),
+	NODE_HANDLER(AST_OMP_CRITICAL_DIRECTIVE, omp_critical_directive_handler, NULL),
     // GCC Extensions
     NODE_HANDLER(AST_GCC_EXTENSION, gcc_extension_preffix_handler, "__extension__ "),
     NODE_HANDLER(AST_GCC_EXTENSION_EXPR, prefix_with_token_text_then_son_handler, NULL),
@@ -2740,6 +2745,16 @@ static void omp_custom_clause_handler(FILE* f, AST a, int level)
 	token_fprintf(f, a, ")");
 }
 
+static void omp_custom_parameter_clause_handler(FILE* f, AST a, int level)
+{
+	token_fprintf(f, a, "(");
+	if (ASTSon0(a) != NULL)
+	{
+		list_handler(f, ASTSon0(a), level);
+	}
+	token_fprintf(f, a, ")");
+}
+
 static void omp_custom_directive_handler(FILE* f, AST a, int level)
 {
 	token_fprintf(f, a, "#pragma omp %s", ASTText(a));
@@ -2788,6 +2803,18 @@ static void omp_schedule_clause_handler(FILE* f, AST a, int level)
 		prettyprint_level(f, ASTSon1(a), level);
 	}
 	token_fprintf(f, a, ")");
+}
+
+static void omp_critical_directive_handler(FILE* f, AST a, int level)
+{
+	token_fprintf(f, a, "#pragma omp critical ");
+	if (ASTSon0(a) != NULL)
+	{
+		token_fprintf(f, a, "(");
+		prettyprint_level(f, ASTSon0(a), level);
+		token_fprintf(f, a, ")");
+	}
+	token_fprintf(f, a, "\n");
 }
 
 static void omp_reduction_clause_handler(FILE* f, AST a, int level)
