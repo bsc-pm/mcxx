@@ -52,6 +52,45 @@ namespace TL
 			return result;
 		}
 
+		void CustomConstructFunctor::dispatch_custom_construct(CustomFunctorMap& search_map, Context ctx, AST_t node)
+		{
+			TL::Bool is_directive = node.get_attribute(OMP_IS_CUSTOM_DIRECTIVE);
+			TL::Bool is_construct = node.get_attribute(OMP_IS_CUSTOM_CONSTRUCT);
+
+			AST_t directive;
+			if (is_construct)
+			{
+				directive = node.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
+			}
+			else
+			{
+				directive = node;
+			}
+
+			TL::String directive_name = directive.get_attribute(OMP_CUSTOM_DIRECTIVE_NAME);
+
+			std::cerr << "Looking for '" << directive_name << "'" << std::endl;
+			// Find this directive in custom preorder map
+			if (search_map.find(directive_name) != search_map.end())
+			{
+				// Invoke its functor if found
+				CustomConstruct custom_construct(node, ctx.scope_link);
+				Signal1<CustomConstruct>& functor = search_map[directive_name];
+
+				functor.signal(custom_construct);
+			}
+		}
+
+		void CustomConstructFunctor::preorder(Context ctx, AST_t node)
+		{
+			dispatch_custom_construct(_custom_functor_pre, ctx, node);
+		}
+
+		void CustomConstructFunctor::postorder(Context ctx, AST_t node)
+		{
+			dispatch_custom_construct(_custom_functor_post, ctx, node);
+		}
+
 		void OpenMPPhase::run(DTO& data_flow)
 		{
 			// get the translation_unit tree
@@ -120,6 +159,14 @@ namespace TL
 			PredicateBool<OMP_IS_FLUSH_DIRECTIVE> flush_directive;
 			FlushFunctor flush_functor(on_flush_pre, on_flush_post);
 			depth_traverse.add_predicate(flush_directive, flush_functor);
+
+			// #pragma omp constructs|directives
+			// (custom constructions)
+			PredicateBool<OMP_IS_CUSTOM_CONSTRUCT> custom_construct;
+			CustomConstructFunctor custom_construct_functor(on_custom_construct_pre, on_custom_construct_post);
+			depth_traverse.add_predicate(custom_construct, custom_construct_functor);
+			PredicateBool<OMP_IS_CUSTOM_DIRECTIVE> custom_directive;
+			depth_traverse.add_predicate(custom_directive, custom_construct_functor);
 			
 			// Let the user register its slots
 			this->init();

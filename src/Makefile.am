@@ -13,7 +13,7 @@ libmcxxtl_la_SOURCES = \
 	cxx-compilerphases.hpp \
 	cxx-compilerphases.cpp
 
-libmcxxtl_la_CXXFLAGS=-I tl -I $(srcdir)/tl -I ../lib -I $(srcdir)/../lib 
+libmcxxtl_la_CXXFLAGS=-I tl -I $(srcdir)/tl -I ../lib -I $(srcdir)/../lib -Wall
 
 # Mercurium C/C++ compiler runtime library
 libmcxx_la_SOURCES = \
@@ -74,7 +74,7 @@ libmcxx_la_SOURCES = \
 #  cxx-overload.c \
 #  cxx-overload.h
 
-libmcxx_la_CFLAGS=-fexceptions -I$(srcdir)/../lib -DPKGDATADIR=\"$(pkgdatadir)\" 
+libmcxx_la_CFLAGS=-fexceptions -I$(srcdir)/../lib -DPKGDATADIR=\"$(pkgdatadir)\" -Wall
 
 EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx-lexer.l
@@ -145,7 +145,7 @@ mcxx_DEPENDENCIES += ../lib/libmcxx-utils.la
 mcxx_DEPENDENCIES += ../lib/libmcxx-mcfg.la
 mcxx_DEPENDENCIES += ../lib/libmcxx-extstruct.la
 
-mcxx_CFLAGS=-fexceptions -I$(srcdir)/../lib -DPKGDATADIR=\"$(pkgdatadir)\" 
+mcxx_CFLAGS=-fexceptions -I$(srcdir)/../lib -DPKGDATADIR=\"$(pkgdatadir)\" -Wall
 
 # Mercurium C Compiler
 # Is just mcxx copied to mcc
@@ -182,7 +182,7 @@ cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
 	echo "#include \"cxx-macros.h\"" >> cxx-attrnames.h
 	echo "MCXX_BEGIN_DECLS" >> cxx-attrnames.h
 	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/extern char \1[];/" < $< >> cxx-attrnames.h
-	echo "void register_ast_extended_attributes(void);" >> cxx_attrnames.h
+	echo "void register_ast_extended_attributes(void);" >> cxx-attrnames.h
 	echo "MCXX_END_DECLS" >> cxx-attrnames.h
 	echo "#endif // CXX_ATTRNAMES_H" >> cxx-attrnames.h
 

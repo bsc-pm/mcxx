@@ -140,6 +140,14 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 
 [ \t] { }
 
+construct {
+	return OMP_CONSTRUCT_TOKEN;
+}
+
+directive {
+	return OMP_DIRECTIVE_TOKEN;
+}
+
 parallel {
 	BEGIN(openmp_clause);
 	return OMP_PARALLEL;

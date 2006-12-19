@@ -148,6 +148,7 @@ HANDLER_PROTOTYPE(omp_sections_construct_handler);
 HANDLER_PROTOTYPE(omp_section_handler);
 HANDLER_PROTOTYPE(omp_threadprivate_directive_handler);
 HANDLER_PROTOTYPE(omp_custom_directive_handler);
+HANDLER_PROTOTYPE(omp_custom_construct_directive_handler);
 HANDLER_PROTOTYPE(omp_custom_clause_handler);
 HANDLER_PROTOTYPE(omp_custom_parameter_clause_handler);
 HANDLER_PROTOTYPE(omp_critical_directive_handler);
@@ -492,6 +493,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_OMP_ORDERED_CONSTRUCT, omp_generic_construct_handler, NULL),
 	NODE_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, omp_generic_construct_handler, NULL),
 	NODE_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, omp_custom_directive_handler, NULL),
+	NODE_HANDLER(AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE, omp_custom_construct_directive_handler, NULL),
 	NODE_HANDLER(AST_OMP_CUSTOM_CLAUSE, omp_custom_clause_handler, NULL),
 	NODE_HANDLER(AST_OMP_CUSTOM_PARAMETER_CLAUSE, omp_custom_parameter_clause_handler, NULL),
 	NODE_HANDLER(AST_OMP_BARRIER_DIRECTIVE, omp_generic_directive_handler, "barrier"),
@@ -2757,7 +2759,18 @@ static void omp_custom_parameter_clause_handler(FILE* f, AST a, int level)
 
 static void omp_custom_directive_handler(FILE* f, AST a, int level)
 {
-	token_fprintf(f, a, "#pragma omp %s", ASTText(a));
+	token_fprintf(f, a, "#pragma omp directive %s", ASTText(a));
+	if (ASTSon0(a) != NULL)
+	{
+		token_fprintf(f, a, " ");
+		spaced_sequence_handler(f, ASTSon0(a), level);
+	}
+	token_fprintf(f, a, "\n");
+}
+
+static void omp_custom_construct_directive_handler(FILE* f, AST a, int level)
+{
+	token_fprintf(f, a, "#pragma omp construct %s", ASTText(a));
 	if (ASTSon0(a) != NULL)
 	{
 		token_fprintf(f, a, " ");

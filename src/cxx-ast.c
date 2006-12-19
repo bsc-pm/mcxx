@@ -116,7 +116,7 @@ AST duplicate_ast(AST a)
 
     AST result = calloc(1, sizeof(*result));
 
-	extensible_struct_t orig_extended_data = result->extended_data;
+	// extensible_struct_t orig_extended_data = result->extended_data;
 
     // Copy everything by value
     *result = *a;

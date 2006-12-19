@@ -89,7 +89,7 @@ static AST duplicate_ast_with_scope_link_rec(AST a, scope_link_t* orig, scope_li
 
     AST result = calloc(1, sizeof(*result));
 
-	extensible_struct_t orig_extended_data = result->extended_data;
+	// extensible_struct_t orig_extended_data = result->extended_data;
 
 	// Update the scope_link
 	scope_t* st = scope_link_direct_get(orig, a);

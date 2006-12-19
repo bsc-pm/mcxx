@@ -142,7 +142,7 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id,
 
 
 // OpenMP functions needed here
-static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name);
+static void build_scope_omp_custom_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name);
 static void build_scope_omp_threadprivate(AST a, scope_t* st, decl_context_t decl_context, char* attr_name);
 
 // Current linkage, by default C++
@@ -373,7 +373,7 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
 			}
 		case AST_OMP_CUSTOM_DIRECTIVE :
 			{
-				build_scope_omp_directive(a, st, decl_context, OMP_IS_CUSTOM_DIRECTIVE);
+				build_scope_omp_custom_directive(a, st, decl_context, NULL);
 				break;
 			}
 			// GCC Extensions
@@ -6217,6 +6217,8 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
 						if (ASTType(clause) == AST_OMP_CUSTOM_CLAUSE)
 						{
 							ASTAttrSetValueType(clause, OMP_IS_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
+							fprintf(stderr, "Custom clause name -> '%s'\n", ASTText(clause));
+							ASTAttrSetValueType(clause, OMP_CUSTOM_CLAUSE_NAME, tl_type_t, tl_string(ASTText(clause)));
 						}
 						else if (ASTType(clause) == AST_OMP_CUSTOM_PARAMETER_CLAUSE)
 						{
@@ -6250,7 +6252,17 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
 
 static void build_scope_omp_custom_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-	ASTAttrSetValueType(a, OMP_IS_CUSTOM_DIRECTIVE, tl_type_t, tl_bool(1));
+	if (ASTType(a) == AST_OMP_CUSTOM_DIRECTIVE)
+	{
+		ASTAttrSetValueType(a, OMP_IS_CUSTOM_DIRECTIVE, tl_type_t, tl_bool(1));
+	}
+	else if (ASTType(a) == AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE)
+	{
+		ASTAttrSetValueType(a, OMP_IS_CUSTOM_CONSTRUCT_DIRECTIVE, tl_type_t, tl_bool(1));
+	}
+
+	ASTAttrSetValueType(a, OMP_CUSTOM_DIRECTIVE_NAME, tl_type_t, tl_string(ASTText(a)));
+
 	build_scope_omp_directive(a, st, decl_context, attr_name);
 }
 
@@ -6262,6 +6274,21 @@ static void build_scope_omp_construct(AST a, scope_t* st, decl_context_t decl_co
 	ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(ASTSon0(a)));
 
 	build_scope_omp_directive(ASTSon0(a), st, decl_context, NULL);
+	if (ASTSon1(a) != NULL)
+	{
+		ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(ASTSon1(a)));
+		build_scope_statement(ASTSon1(a), st, decl_context);
+	}
+}
+
+static void build_scope_omp_custom_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
+{
+	ASTAttrSetValueType(a, OMP_IS_OMP_CONSTRUCT, tl_type_t, tl_bool(1));
+	ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
+
+	ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(ASTSon0(a)));
+
+	build_scope_omp_custom_directive(ASTSon0(a), st, decl_context, NULL);
 	if (ASTSon1(a) != NULL)
 	{
 		ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(ASTSon1(a)));
@@ -6374,7 +6401,8 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
 	STMT_HANDLER(AST_OMP_FLUSH_DIRECTIVE, build_scope_omp_flush_directive, OMP_IS_FLUSH_DIRECTIVE),
 	STMT_HANDLER(AST_OMP_BARRIER_DIRECTIVE, build_scope_omp_directive, OMP_IS_BARRIER_DIRECTIVE),
 	STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate, OMP_IS_THREADPRIVATE_DIRECTIVE),
-	STMT_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, build_scope_omp_construct, OMP_IS_CUSTOM_CONSTRUCT),
+	STMT_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, build_scope_omp_custom_construct, OMP_IS_CUSTOM_CONSTRUCT),
+	STMT_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, build_scope_omp_custom_directive, NULL)
 };
 
 void build_scope_member_specification_with_scope_link(scope_t* inner_scope, AST member_specification_tree, 

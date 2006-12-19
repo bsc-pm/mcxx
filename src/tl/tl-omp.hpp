@@ -258,6 +258,15 @@ namespace TL
 				}
 		};
 
+		class CustomConstruct : public Construct
+		{
+			public:
+				CustomConstruct(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
 		template<class T>
 			class OpenMPConstructFunctor : public TraverseFunctor
 		{
@@ -283,6 +292,27 @@ namespace TL
 						Signal1<T>& on_construct_post)
 					: _on_construct_pre(on_construct_pre),
 					_on_construct_post(on_construct_post)
+			{
+			}
+		};
+
+		typedef std::map<std::string, Signal1<CustomConstruct> > CustomFunctorMap;
+
+		class CustomConstructFunctor : public TraverseFunctor
+		{
+			private:
+				CustomFunctorMap& _custom_functor_pre;
+				CustomFunctorMap& _custom_functor_post;
+
+				void dispatch_custom_construct(CustomFunctorMap& search_map, Context ctx, AST_t node);
+			public:
+				virtual void preorder(Context ctx, AST_t node);
+				virtual void postorder(Context ctx, AST_t node);
+
+				CustomConstructFunctor(CustomFunctorMap& custom_functor_pre, 
+						CustomFunctorMap& custom_functor_post)
+					: _custom_functor_pre(custom_functor_pre),
+					_custom_functor_post(custom_functor_post)
 			{
 			}
 		};
@@ -338,6 +368,9 @@ namespace TL
 
 				Signal1<SectionConstruct> on_section_pre;
 				Signal1<SectionConstruct> on_section_post;
+
+				std::map<std::string, Signal1<CustomConstruct> > on_custom_construct_pre;
+				std::map<std::string, Signal1<CustomConstruct> > on_custom_construct_post;
 
 				virtual void run(DTO& data_flow);
 				virtual void init();

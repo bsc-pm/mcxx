@@ -178,6 +178,8 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> OMP_THREADPRIVATE
 %token<token_atrib> OMP_CUSTOM_CLAUSE
 %token<token_atrib> OMP_CUSTOM_DIRECTIVE
+%token<token_atrib> OMP_CONSTRUCT_TOKEN
+%token<token_atrib> OMP_DIRECTIVE_TOKEN
 
 // Lexical symbols
 %token<token_atrib> '!'
@@ -480,6 +482,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> reduction_operator
 
 %type<ast> custom_construct
+%type<ast> custom_construct_directive
 %type<ast> custom_directive
 %type<ast> custom_clause_opt_seq
 %type<ast> custom_clause_seq
@@ -4522,6 +4525,10 @@ openmp_construct : parallel_construct
 {
 	$$ = $1;
 }
+| custom_directive
+{
+	$$ = $1;
+}
 | custom_construct
 {
 	$$ = $1;
@@ -4538,17 +4545,28 @@ openmp_directive : barrier_directive
 }
 ;
 
-custom_construct : custom_directive structured_block
+// Custom OpenMP support
+custom_directive : OMP_PRAGMA OMP_DIRECTIVE_TOKEN OMP_CUSTOM_DIRECTIVE custom_clause_opt_seq OMP_NEWLINE
+{
+	$$ = ASTMake1(AST_OMP_CUSTOM_DIRECTIVE, $4, $1.token_line, $3.token_text);
+}
+;
+
+custom_construct : custom_construct_directive structured_block
 {
 	$$ = ASTMake2(AST_OMP_CUSTOM_CONSTRUCT, $1, $2, ASTLine($1), NULL);
 }
 ;
 
-// Custom OpenMP support
-custom_directive : OMP_PRAGMA OMP_CUSTOM_DIRECTIVE custom_clause_opt_seq OMP_NEWLINE
+custom_construct_directive : OMP_PRAGMA OMP_CUSTOM_DIRECTIVE custom_clause_opt_seq OMP_NEWLINE
 {
-	$$ = ASTMake1(AST_OMP_CUSTOM_DIRECTIVE, $3, $1.token_line, $2.token_text);
-};
+	$$ = ASTMake1(AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE, $3, $1.token_line, $2.token_text);
+}
+| OMP_PRAGMA OMP_CONSTRUCT_TOKEN OMP_CUSTOM_DIRECTIVE custom_clause_opt_seq OMP_NEWLINE
+{
+	$$ = ASTMake1(AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE, $4, $1.token_line, $3.token_text);
+}
+;
 
 custom_clause_opt_seq : /* empty */
 {
