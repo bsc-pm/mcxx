@@ -69,7 +69,6 @@ namespace TL
 
 			TL::String directive_name = directive.get_attribute(OMP_CUSTOM_DIRECTIVE_NAME);
 
-			std::cerr << "Looking for '" << directive_name << "'" << std::endl;
 			// Find this directive in custom preorder map
 			if (search_map.find(directive_name) != search_map.end())
 			{

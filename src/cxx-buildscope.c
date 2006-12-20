@@ -6217,7 +6217,10 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
 						if (ASTType(clause) == AST_OMP_CUSTOM_CLAUSE)
 						{
 							ASTAttrSetValueType(clause, OMP_IS_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
-							fprintf(stderr, "Custom clause name -> '%s'\n", ASTText(clause));
+							DEBUG_CODE()
+							{
+								fprintf(stderr, "Custom clause name -> '%s'\n", ASTText(clause));
+							}
 							ASTAttrSetValueType(clause, OMP_CUSTOM_CLAUSE_NAME, tl_type_t, tl_string(ASTText(clause)));
 						}
 						else if (ASTType(clause) == AST_OMP_CUSTOM_PARAMETER_CLAUSE)

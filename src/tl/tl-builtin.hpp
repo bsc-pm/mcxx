@@ -321,7 +321,7 @@ class String : public Object, public std::string
 		~String()
 		{
 			// ¿ Needed ?
-			this->std::string::~string();
+			// this->std::string::~string();
 		}
 };
 
