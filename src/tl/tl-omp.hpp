@@ -249,6 +249,15 @@ namespace TL
 				}
 		};
 
+		class ThreadPrivateDirective : public Construct
+		{
+			public:
+				ThreadPrivateDirective(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
 		class SectionConstruct : public Construct
 		{
 			public:
@@ -331,6 +340,7 @@ namespace TL
 				typedef OpenMPConstructFunctor<ParallelSectionsConstruct> ParallelSectionsFunctor;
 				typedef OpenMPConstructFunctor<SectionsConstruct> SectionsFunctor;
 				typedef OpenMPConstructFunctor<SectionConstruct> SectionFunctor;
+                typedef OpenMPConstructFunctor<ThreadPrivateDirective> ThreadPrivateFunctor;
 			protected:
 				AST_t translation_unit;
 				ScopeLink scope_link;
@@ -368,6 +378,9 @@ namespace TL
 
 				Signal1<SectionConstruct> on_section_pre;
 				Signal1<SectionConstruct> on_section_post;
+
+                Signal1<ThreadPrivateDirective> on_threadprivate_pre;
+                Signal1<ThreadPrivateDirective> on_threadprivate_post;
 
 				std::map<std::string, Signal1<CustomConstruct> > on_custom_construct_pre;
 				std::map<std::string, Signal1<CustomConstruct> > on_custom_construct_post;

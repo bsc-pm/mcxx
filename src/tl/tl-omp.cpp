@@ -159,6 +159,11 @@ namespace TL
 			FlushFunctor flush_functor(on_flush_pre, on_flush_post);
 			depth_traverse.add_predicate(flush_directive, flush_functor);
 
+            // #pragma omp threadprivate
+            PredicateBool<OMP_IS_THREADPRIVATE_DIRECTIVE> threadprivate_directive;
+            ThreadPrivateFunctor threadprivate_functor(on_threadprivate_pre, on_threadprivate_post);
+            depth_traverse.add_predicate(threadprivate_directive, threadprivate_functor);
+
 			// #pragma omp constructs|directives
 			// (custom constructions)
 			PredicateBool<OMP_IS_CUSTOM_CONSTRUCT> custom_construct;
