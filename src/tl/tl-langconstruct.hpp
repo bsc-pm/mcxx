@@ -44,6 +44,8 @@ namespace TL
 			FunctionDefinition get_enclosing_function();
 	};
 
+    class Declaration;
+
 	class IdExpression : public LangConstruct
 	{
 		public:
@@ -63,6 +65,7 @@ namespace TL
 			Symbol get_symbol() const;
 			AST_t get_ast() const;
 
+            Declaration get_declaration();
 	};
 
 	class Statement : public LangConstruct
@@ -212,6 +215,8 @@ namespace TL
 
     class DeclaredEntity : public LangConstruct
     {
+        private:
+            AST_t get_basic_declaration();
         public :
             DeclaredEntity(AST_t ast, ScopeLink scope_link)
                 : LangConstruct(ast, scope_link)
@@ -222,6 +227,16 @@ namespace TL
             bool has_initializer();
             Expression get_initializer();
     };
+
+    class DeclarationSpec : public LangConstruct
+    {
+        public:
+            DeclarationSpec(AST_t ast, ScopeLink scope_link)
+                : LangConstruct(ast, scope_link)
+            {
+            }
+    };
+
     class Declaration : public LangConstruct
     {
         public:
@@ -231,6 +246,7 @@ namespace TL
             }
 
             ObjectList<DeclaredEntity> get_declared_entities();
+            DeclarationSpec get_declaration_specifiers();
     };
 
 	class ReplaceIdExpression : public ObjectList<std::pair<Symbol, AST_t> >

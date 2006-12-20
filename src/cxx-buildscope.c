@@ -140,6 +140,7 @@ static char is_constructor_declarator(AST a);
 static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
         type_t* declarator_type, char* is_overload, decl_context_t decl_context);
 
+static AST get_enclosing_declaration(AST point_of_declarator);
 
 // OpenMP functions needed here
 static void build_scope_omp_custom_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name);
@@ -614,7 +615,7 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
                     check_for_initialization(initializer, entry_list->entry->scope, decl_context);
                     entry_list->entry->expression_value = initializer;
 
-					ASTAttrSetValueType(declarator_name, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+					ASTAttrSetValueType(declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
                 }
             }
             else
@@ -1031,7 +1032,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
             }
 
             new_class->line = ASTLine(class_symbol);
-			new_class->point_of_declaration = class_symbol;
+			new_class->point_of_declaration = get_enclosing_declaration(class_symbol);
 
             new_class->type_information = calloc(1, sizeof(*(new_class->type_information)));
             new_class->type_information->kind = TK_DIRECT;
@@ -1232,7 +1233,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 
             scope_entry_t* new_class = new_symbol(st, enum_name);
             new_class->line = ASTLine(symbol);
-			new_class->point_of_declaration = symbol;
+			new_class->point_of_declaration = get_enclosing_declaration(symbol);
             new_class->kind = SK_ENUM;
             new_class->type_information = calloc(1, sizeof(*(new_class->type_information)));
             new_class->type_information->kind = TK_DIRECT;
@@ -1516,7 +1517,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 
             scope_entry_t* enumeration_item = new_symbol(st, ASTText(enumeration_name));
             enumeration_item->line = ASTLine(enumeration_name);
-			enumeration_item->point_of_declaration = enumeration_name;
+			enumeration_item->point_of_declaration = get_enclosing_declaration(enumeration_name);
             enumeration_item->kind = SK_ENUMERATOR;
             enumeration_item->type_information = enumerator_type;
 
@@ -1864,7 +1865,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 }
 
                 class_entry->line = ASTLine(class_head_identifier);
-				class_entry->point_of_declaration = class_head_identifier;
+				class_entry->point_of_declaration = get_enclosing_declaration(class_head_identifier);
 
                 if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
                 {
@@ -2242,8 +2243,8 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
             decl_st = compilation_options.global_scope;
         }
 
-		ASTAttrSetValueType(declarator_name, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
-		ASTAttrSetValueType(declarator_name, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+		ASTAttrSetValueType(a, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
+		ASTAttrSetValueType(a, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
 
 		scope_link_set(compilation_options.scope_link, declarator_name, copy_scope(decl_st));
     }
@@ -2524,7 +2525,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 			AST declarator_name = get_declarator_name(parameter_declarator, st, decl_context);
 			if (declarator_name != NULL)
 			{
-				ASTAttrSetValueType(declarator_name, LANG_IS_DECLARED_PARAMETER, tl_type_t, tl_bool(1));
+				ASTAttrSetValueType(parameter_declarator, LANG_IS_DECLARED_PARAMETER, tl_type_t, tl_bool(1));
 			}
 
             parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
@@ -2986,7 +2987,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
     }
 
     entry->line = ASTLine(declarator_id);
-	entry->point_of_declaration = declarator_id;
+	entry->point_of_declaration = get_enclosing_declaration(declarator_id);
     // Save aliased type under the type of this declaration
     entry->kind = SK_TYPEDEF;
     entry->type_information = calloc(1, sizeof(*(entry->type_information)));
@@ -3030,7 +3031,7 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         }
         scope_entry_t* entry = new_symbol(st, ASTText(declarator_id));
         entry->line = ASTLine(declarator_id);
-		entry->point_of_declaration = declarator_id;
+		entry->point_of_declaration = get_enclosing_declaration(declarator_id);
         entry->kind = SK_VARIABLE;
         entry->type_information = declarator_type;
 
@@ -4284,6 +4285,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
             scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
 
             this_symbol->line = ASTLine(function_body);
+            // Not very useful
             this_symbol->point_of_declaration = function_body;
             this_symbol->kind = SK_VARIABLE;
             this_symbol->type_information = this_type;
@@ -6744,4 +6746,17 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st,
     result = strappend(result, conversion_declarator_name);
 
     return result;
+}
+
+static AST get_enclosing_declaration(AST point_of_declarator)
+{
+    while (point_of_declarator != NULL
+            && ASTType(point_of_declarator) != AST_SIMPLE_DECLARATION
+            && ASTType(point_of_declarator) != AST_MEMBER_DECLARATION
+            && ASTType(point_of_declarator) != AST_PARAMETER_DECL)
+    {
+        point_of_declarator = ASTParent(point_of_declarator);
+    }
+
+    return point_of_declarator;
 }

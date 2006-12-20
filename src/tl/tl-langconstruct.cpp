@@ -102,6 +102,24 @@ namespace TL
         return id_expr_str;
     }
 
+    Declaration IdExpression::get_declaration()
+    {
+        AST_t point_of_declaration = this->get_symbol().get_point_of_declaration();
+
+        TL::Bool b = point_of_declaration.get_attribute(LANG_IS_DECLARATION);
+
+        if (b)
+        {
+            return Declaration(point_of_declaration, this->_scope_link);
+        }
+        else
+        {
+            std::cerr << "Cannot retrieve a proper declaration of id-expression '" 
+                << _ref.prettyprint() << "'"  << std::endl;
+            return Declaration(AST_t(), this->_scope_link);
+        }
+    }
+
     std::string IdExpression::get_qualified_part() const
     {
         if (is_unqualified())
@@ -408,6 +426,15 @@ namespace TL
         return expression.get_id_expression();
     }
 
+    DeclarationSpec Declaration::get_declaration_specifiers()
+    {
+        AST_t declaration_specifiers = _ref.get_attribute(LANG_DECLARATION_SPECIFIERS);
+
+        DeclarationSpec result(declaration_specifiers, this->_scope_link);
+
+        return result;
+    }
+
     bool DeclaredEntity::has_initializer()
     {
         AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
@@ -425,10 +452,9 @@ namespace TL
     ObjectList<DeclaredEntity> Declaration::get_declared_entities()
     {
         PredicateBool<LANG_IS_DECLARED_NAME> lang_declared_name_pred;
-        PredicateBool<LANG_IS_DECLARED_PARAMETER> lang_declared_param_pred;
 
         ObjectList<AST_t> declared_symbols =
-            this->_ref.depth_subtrees().filter(lang_declared_name_pred).filter(negate(lang_declared_param_pred));
+            this->_ref.depth_subtrees(lang_declared_name_pred, AST_t::NON_RECURSIVE);
 
         ObjectList<DeclaredEntity> result;
         for (ObjectList<AST_t>::iterator it = declared_symbols.begin();
