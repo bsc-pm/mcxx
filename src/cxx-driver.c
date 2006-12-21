@@ -888,8 +888,6 @@ static void native_compilation(translation_unit_t* translation_unit,
     timing_t timing_compilation;
     timing_start(&timing_compilation);
 
-	raise(SIGABRT);
-
     if (execute_program(compilation_options.native_compiler_name, native_compilation_args) != 0)
     {
         running_error("Native compilation failed for file '%s'", translation_unit->input_filename);
