@@ -229,6 +229,7 @@ namespace TL
                 Source size_params;
                 Source task_parameters;
 
+				// FIXME - This is for IA32 only
                 for (ObjectList<IdExpression>::iterator it = captureaddress_references.begin();
                         it != captureaddress_references.end();
                         it++)
@@ -254,6 +255,9 @@ namespace TL
                         <<   ": (sizeof(" << it->prettyprint() << ") - (4 - (sizeof(" << it->prettyprint() << ") % 4)));"
                         ;
                 }
+
+				size_params 
+					<< "num_params /= 4;";
 
                 task_queueing
                     << "{"
@@ -1135,6 +1139,7 @@ namespace TL
                     << "}"
                     ;
 
+				// FIXME - This is IA32 specific
                 // Reduction vectors
                 //
                 // For every entity in the reduction_references list
@@ -1189,6 +1194,10 @@ namespace TL
                         <<   ": (sizeof(&" << it->prettyprint() << ") - (4 - (sizeof(&" << it->prettyprint() << ") % 4)));"
                         ;
                 }
+
+				source_num_parameters
+					<< "nth_num_threads /= 4;"
+					;
                 
                 // Groups definition
                 if (!groups_clause.is_defined() && !num_threads_clause.is_defined())
