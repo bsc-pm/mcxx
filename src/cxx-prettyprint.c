@@ -449,7 +449,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_REGISTER_SPEC, simple_parameter_handler, "register"),
     NODE_HANDLER(AST_EXTERN_SPEC, simple_parameter_handler, "extern"),
     NODE_HANDLER(AST_MUTABLE_SPEC, simple_parameter_handler, "mutable"),
-    NODE_HANDLER(AST_THREAD_SPEC, simple_parameter_handler, "mutable"),
+    NODE_HANDLER(AST_THREAD_SPEC, simple_parameter_handler, "__thread"),
     NODE_HANDLER(AST_BITFIELD_DECLARATOR, bitfield_declarator_handler, NULL),
     NODE_HANDLER(AST_ENUM_SPECIFIER, enum_specifier_handler, NULL),
     NODE_HANDLER(AST_ENUM_DEF, enum_def_handler, NULL),

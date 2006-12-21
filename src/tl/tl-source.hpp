@@ -67,6 +67,13 @@ namespace TL
 
 	class Source : public Object
 	{
+        public:
+            enum ParseFlags
+            {
+                UNKNOWN = 0,
+                DEFAULT = 1 << 0,
+                ALLOW_REDECLARATION = 1 << 1
+            };
 		private:
 			std::vector<SourceChunk*>* _chunk_list;
 
@@ -109,6 +116,7 @@ namespace TL
 			AST_t parse_statement(TL::Scope ctx, TL::ScopeLink scope_link);
 			AST_t parse_expression(TL::Scope ctx);
 			AST_t parse_expression(TL::Scope ctx, TL::ScopeLink scope_link);
+            AST_t parse_declaration(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
 			AST_t parse_member(TL::Scope ctx, TL::ScopeLink scope_link, Type class_type);
 
 			bool operator==(const Source& src) const;

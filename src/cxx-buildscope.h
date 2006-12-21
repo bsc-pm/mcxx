@@ -41,7 +41,8 @@ typedef enum decl_flags_tag
     DF_NO_DECLARATORS = BITMAP(2),
     DF_FRIEND = BITMAP(3),
     DF_EXPLICIT_SPECIALIZATION = BITMAP(4),
-	DF_NO_FAIL = BITMAP(5)
+	DF_NO_FAIL = BITMAP(5),
+    DF_ALLOW_REDEFINITION = BITMAP(6)
 } decl_flags_t;
 
 // Inherited attributes
@@ -98,7 +99,8 @@ void build_scope_dynamic_initializer(void);
 
 // Needed for phases
 void build_scope_translation_unit(translation_unit_t* translation_unit);
-void build_scope_translation_unit_tree_with_global_scope(AST tree, scope_t* global_scope, scope_link_t* scope_link);
+void build_scope_translation_unit_tree_with_global_scope(AST tree, scope_t* global_scope, scope_link_t* scope_link, decl_context_t decl_context);
+void build_scope_declaration_sequence_with_scope_link(AST a, scope_t* st, decl_context_t decl_context, scope_link_t* scope_link);
 void build_scope_statement_with_scope_link(AST a, scope_t* st, scope_link_t* scope_link);
 void build_scope_member_specification_with_scope_link(scope_t* inner_scope, AST member_specification_tree, 
         access_specifier_t current_access, type_t* simple_type_info, 

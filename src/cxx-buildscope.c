@@ -198,7 +198,8 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
 }
 
 void build_scope_translation_unit_tree_with_global_scope(AST tree,
-		scope_t* global_scope, scope_link_t* scope_link)
+		scope_t* global_scope, scope_link_t* scope_link,
+        decl_context_t decl_context)
 {
     compilation_options.global_scope = global_scope;
 	compilation_options.scope_link = scope_link;
@@ -211,7 +212,7 @@ void build_scope_translation_unit_tree_with_global_scope(AST tree,
 
 	AST list = ASTSon0(tree);
 	// The scope will have been already populated with basic things
-    build_scope_declaration_sequence(list, compilation_options.global_scope, default_decl_context);
+    build_scope_declaration_sequence(list, compilation_options.global_scope, decl_context);
 	
     // Clear for sanity 
 	compilation_options.scope_link = NULL;
@@ -592,7 +593,8 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
 
                 // The last entry will hold our symbol, no need to look for it in the list
                 ERROR_CONDITION((entry_list->entry->defined 
-                            && entry_list->entry->kind != SK_TYPEDEF),
+                            && entry_list->entry->kind != SK_TYPEDEF
+                            && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION)),
                         "Symbol '%s' in %s has already been defined", prettyprint_in_buffer(declarator_name),
                         node_information(declarator_name));
 
@@ -6303,8 +6305,10 @@ static void build_scope_omp_custom_construct(AST a, scope_t* st, decl_context_t 
 
 static void build_scope_omp_threadprivate(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-    // At the moment do nothing
 	ASTAttrSetValueType(a, OMP_IS_THREADPRIVATE_DIRECTIVE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(a));
+    ASTAttrSetValueType(ASTSon0(a), OMP_IS_PARAMETER_CLAUSE, tl_type_t, tl_bool(1));
+    build_scope_omp_data_clause(ASTSon0(a), st, decl_context);
 }
 
 static void build_scope_omp_flush_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
@@ -6427,6 +6431,15 @@ void build_scope_statement_with_scope_link(AST a, scope_t* st, scope_link_t* sco
 	compilation_options.scope_link = scope_link;
 
 	build_scope_statement(a, st, default_decl_context);
+
+	compilation_options.scope_link = NULL;
+}
+
+void build_scope_declaration_sequence_with_scope_link(AST a, scope_t* st, decl_context_t decl_context, scope_link_t* scope_link)
+{
+	compilation_options.scope_link = scope_link;
+
+	build_scope_declaration_sequence(a, st, decl_context);
 
 	compilation_options.scope_link = NULL;
 }

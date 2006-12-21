@@ -104,6 +104,8 @@ namespace TL
 			std::string prettyprint() const;
 
 			void replace_with(AST_t ast);
+            void replace_in_list(AST_t ast);
+            void remove_in_list();
 
 			AST_t duplicate() const;
 

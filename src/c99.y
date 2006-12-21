@@ -198,6 +198,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 // Subparsing
 %token<token_atrib> SUBPARSE_EXPRESSION
 %token<token_atrib> SUBPARSE_STATEMENT
+%token<token_atrib> SUBPARSE_DECLARATION
 
 // Nonterminals
 %type<ast> abstract_declarator
@@ -431,6 +432,10 @@ subparsing : SUBPARSE_EXPRESSION expression
 	$$ = $2;
 }
 | SUBPARSE_STATEMENT statement
+{
+	$$ = $2;
+}
+| SUBPARSE_DECLARATION declaration_sequence
 {
 	$$ = $2;
 }

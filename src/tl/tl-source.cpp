@@ -160,6 +160,29 @@ namespace TL
 		return result;
 	}
 
+    AST_t Source::parse_declaration(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags parse_flags)
+    {
+		std::string mangled_text = "@DECLARATION@ " + this->get_source(true);
+		char* str = strdup(mangled_text.c_str());
+
+		mcxx_prepare_string_for_scanning(str);
+
+		AST a;
+		mcxxparse(&a);
+
+        decl_context_tag decl_context = default_decl_context;
+
+        int parse_flags_int = (int)parse_flags;
+        if ((parse_flags_int & Source::ALLOW_REDECLARATION) == Source::ALLOW_REDECLARATION)
+        {
+            decl_context.decl_flags = (decl_flags_t)((int)(decl_context.decl_flags) | DF_ALLOW_REDEFINITION);
+        }
+
+		build_scope_declaration_sequence_with_scope_link(a, ctx._st, decl_context, scope_link._scope_link);
+
+        AST_t result(a);
+		return result;
+    }
 
 	AST_t Source::parse_global(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
@@ -169,8 +192,10 @@ namespace TL
 
 		AST a;
 		mcxxparse(&a);
+        
+        decl_context_tag decl_context = default_decl_context;
 
-		build_scope_translation_unit_tree_with_global_scope(a, ctx._st, scope_link._scope_link);
+		build_scope_translation_unit_tree_with_global_scope(a, ctx._st, scope_link._scope_link, decl_context);
 
         AST_t result(a);
 		return result;

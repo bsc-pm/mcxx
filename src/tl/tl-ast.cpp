@@ -450,6 +450,67 @@ namespace TL
 		return result;
 	}
 
+    void AST_t::remove_in_list()
+    {
+        AST list = this->_ast;
+        // Look for the enclosing list
+        while (list != NULL &&
+                ASTType(list) != AST_NODE_LIST)
+        {
+            list = ASTParent(list);
+        }
+
+        if (list == NULL)
+        {
+            std::cerr << "A suitable list has not been found" << std::endl;
+            return;
+        }
+
+        AST parent = ASTParent(list);
+        AST next = ASTSon0(list);
+
+        if (next != NULL)
+        {
+            ASTParent(next) = parent;
+        }
+
+        int i;
+        for (i = 0; i < ASTNumChildren(parent); i++)
+        {
+            if (ASTChild(parent, i) == list)
+            {
+                ASTChild(parent, i) = next;
+                break;
+            }
+        }
+    }
+
+    void AST_t::replace_in_list(AST_t ast)
+    {
+        if (ASTType(ast._ast) != AST_NODE_LIST)
+        {
+			std::cerr << "The replacement tree is not a list" << std::endl;
+        }
+
+        AST list = this->_ast;
+
+        // Look for the enclosing list
+        while (list != NULL &&
+                ASTType(list) != AST_NODE_LIST)
+        {
+            list = ASTParent(list);
+        }
+
+        if (list == NULL)
+        {
+            std::cerr << "A suitable list has not been found" << std::endl;
+            return;
+        }
+
+        AST_t replaced(list);
+        replaced.replace_with(ast);
+    }
+
 	void AST_t::prepend_sibling_function(AST_t t)
 	{
 		AST_t enclosing_function = this->get_enclosing_function_definition();
