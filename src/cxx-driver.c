@@ -425,6 +425,7 @@ static void parse_subcommand_arguments(char* arguments)
     int num_parameters = 0;
     char** parameters = comma_separate_values(&arguments[2], &num_parameters);
 
+
     char*** existing_options = NULL;
 
     switch (arguments[0])
@@ -445,6 +446,8 @@ static void parse_subcommand_arguments(char* arguments)
     }
 
     int num_existing_options = count_null_ended_array((void**)(*existing_options));
+
+
     (*existing_options) = realloc((*existing_options), sizeof(char*)*(num_existing_options + num_parameters + 1));
 
     int i;
@@ -452,6 +455,7 @@ static void parse_subcommand_arguments(char* arguments)
     {
         (*existing_options)[num_existing_options + i] = parameters[i];
     }
+	(*existing_options)[num_existing_options + i] = NULL;
 }
 
 static void initialize_default_values(void)
@@ -883,6 +887,8 @@ static void native_compilation(translation_unit_t* translation_unit,
 
     timing_t timing_compilation;
     timing_start(&timing_compilation);
+
+	raise(SIGABRT);
 
     if (execute_program(compilation_options.native_compiler_name, native_compilation_args) != 0)
     {

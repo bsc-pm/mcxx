@@ -230,6 +230,8 @@ int execute_program(char* program_name, char** arguments)
         execvp_arguments[i+1] = arguments[i];
     }
 
+	execvp_arguments[i+1] = NULL;
+
     if (compilation_options.verbose)
     {
         int j = 0;

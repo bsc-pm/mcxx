@@ -226,11 +226,7 @@ namespace TL
                 function_definition.get_ast().prepend_sibling_function(outline_code);
 
                 Source task_queueing;
-
                 Source size_params;
-                
-                size_params << "0";
-
                 Source task_parameters;
 
                 for (ObjectList<IdExpression>::iterator it = captureaddress_references.begin();
@@ -238,7 +234,12 @@ namespace TL
                         it++)
                 {
                     task_parameters << ", &" << it->prettyprint();
-                    size_params << "+ sizeof(&" << it->prettyprint() << ")";
+
+                    size_params << "num_params += "
+                        << "((sizeof(&" << it->prettyprint() << ") % 4) == 0) "
+                        <<   "? sizeof(&" << it->prettyprint() << ")"
+                        <<   ": (sizeof(&" << it->prettyprint() << ") - (4 - (sizeof(&" << it->prettyprint() << ") % 4)));"
+                        ;
                 }
 
                 for (ObjectList<IdExpression>::iterator it = capturevalue_references.begin();
@@ -246,7 +247,12 @@ namespace TL
                         it++)
                 {
                     task_parameters << ", " << it->prettyprint();
-                    size_params << "+ sizeof(" << it->prettyprint() << ")";
+
+                    size_params << "num_params += "
+                        << "((sizeof(" << it->prettyprint() << ") % 4) == 0) "
+                        <<   "? sizeof(" << it->prettyprint() << ")"
+                        <<   ": (sizeof(" << it->prettyprint() << ") - (4 - (sizeof(" << it->prettyprint() << ") % 4)));"
+                        ;
                 }
 
                 task_queueing
@@ -255,12 +261,13 @@ namespace TL
                     <<    "int arg;"
                     <<    "unsigned long long mask;"
                     <<    "int num_params;"
-                    <<    "extern struct nth_desc *nth_create_task(void (*)(), unsigned long long*, int*, ...);"
+                    <<    "extern struct nth_desc *nthf_create_task_(void (*)(), unsigned long long*, int*, ...);"
 
                     <<    "mask = ~(0ULL);" 
-                    <<    "num_params = " << size_params << ";"
+                    <<    "num_params = 0;"
+                    <<     size_params
 
-                    <<    "nth = nth_create_task((void (*)())(" << outlined_function_name << "), "
+                    <<    "nth = nthf_create_task_((void (*)())(" << outlined_function_name << "), "
                     <<             "&mask, &num_params " << task_parameters << ");"
                     << "}"
                 ;
@@ -1116,7 +1123,8 @@ namespace TL
                     << "  nthf_team_set_nplayers_ (&nth_nprocs);"
                     << "  nth_arg = 0;"
                     << "  nth_mask = (unsigned long long)(~0ULL);"
-                    << "  nth_num_params = " << source_num_parameters << ";"
+                    << "  nth_num_params = 0;"
+                    <<    source_num_parameters
                     << "  for (nth_p = 0; nth_p < nth_nprocs_2 - 1; nth_p++)"
                     << "  {"
                     << "     nthf_create_1s_vp_((void(*)())(" << outlined_function_name << "), &nth_arg, &nth_p, &nth_selfv, "
@@ -1126,8 +1134,6 @@ namespace TL
                     <<    reduction_code
                     << "}"
                     ;
-
-                source_num_parameters << "0";
 
                 // Reduction vectors
                 //
@@ -1160,7 +1166,11 @@ namespace TL
                     // And add to the list of referenced parameters
                     referenced_parameters << ", " << reduction_vector_name;
 
-                    source_num_parameters << " + sizeof(" << reduction_vector_name << ")";
+                    source_num_parameters << "nth_num_params += "
+                        << "((sizeof(" << reduction_vector_name << ") % 4) == 0) "
+                        <<   "? sizeof(" << reduction_vector_name << ")"
+                        <<   ": (sizeof(" << reduction_vector_name << ") + (4 - (sizeof(" << reduction_vector_name << ") % 4)));"
+                        ;
                 }
                 
                 // Referenced parameters
@@ -1173,7 +1183,11 @@ namespace TL
                     // Simply pass its reference (its address)
                     referenced_parameters << ", &" << it->prettyprint();
 
-                    source_num_parameters << " + sizeof(&" << it->prettyprint() << ")";
+                    source_num_parameters << "nth_num_params += "
+                        << "((sizeof(&" << it->prettyprint() << ") % 4) == 0) "
+                        <<   "? sizeof(&" << it->prettyprint() << ")"
+                        <<   ": (sizeof(&" << it->prettyprint() << ") - (4 - (sizeof(&" << it->prettyprint() << ") % 4)));"
+                        ;
                 }
                 
                 // Groups definition

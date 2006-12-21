@@ -3,6 +3,7 @@
 #include <iostream>
 #include <sstream>
 #include "cxx-printscope.h"
+#include "cxx-utils.h"
 
 namespace TL
 {
@@ -98,10 +99,26 @@ namespace TL
 		std::string mangled_text = "@EXPRESSION@ " + this->get_source(true);
 		char* str = strdup(mangled_text.c_str());
 
-		mcxx_prepare_string_for_scanning(str);
+        CXX_LANGUAGE()
+        {
+            mcxx_prepare_string_for_scanning(str);
+        }
+        C_LANGUAGE()
+        {
+            mc99_prepare_string_for_scanning(str);
+        }
 
 		AST a;
-		mcxxparse(&a);
+
+        CXX_LANGUAGE()
+        {
+            mcxxparse(&a);
+        }
+
+        C_LANGUAGE()
+        {
+            mc99parse(&a);
+        }
 
 		solve_possibly_ambiguous_expression(a, ctx._st, default_decl_context);
 
@@ -114,10 +131,25 @@ namespace TL
 		std::string mangled_text = "@EXPRESSION@ " + this->get_source(true);
 		char* str = strdup(mangled_text.c_str());
 
-		mcxx_prepare_string_for_scanning(str);
+        CXX_LANGUAGE()
+        {
+            mcxx_prepare_string_for_scanning(str);
+        }
+        C_LANGUAGE()
+        {
+            mc99_prepare_string_for_scanning(str);
+        }
 
 		AST a;
-		mcxxparse(&a);
+
+        CXX_LANGUAGE()
+        {
+            mcxxparse(&a);
+        }
+        C_LANGUAGE()
+        {
+            mc99parse(&a);
+        }
 
 		solve_possibly_ambiguous_expression(a, ctx._st, default_decl_context);
 
@@ -149,10 +181,25 @@ namespace TL
 		std::string mangled_text = "@STATEMENT@ " + this->get_source(true);
 		char* str = strdup(mangled_text.c_str());
 
-		mcxx_prepare_string_for_scanning(str);
+        CXX_LANGUAGE()
+        {
+            mcxx_prepare_string_for_scanning(str);
+        }
+        C_LANGUAGE()
+        {
+            mc99_prepare_string_for_scanning(str);
+        }
 
 		AST a;
-		mcxxparse(&a);
+
+        CXX_LANGUAGE()
+        {
+            mcxxparse(&a);
+        }
+        C_LANGUAGE()
+        {
+            mc99parse(&a);
+        }
 
 		build_scope_statement_with_scope_link(a, ctx._st, scope_link._scope_link);
 
@@ -165,10 +212,25 @@ namespace TL
 		std::string mangled_text = "@DECLARATION@ " + this->get_source(true);
 		char* str = strdup(mangled_text.c_str());
 
-		mcxx_prepare_string_for_scanning(str);
+        CXX_LANGUAGE()
+        {
+            mcxx_prepare_string_for_scanning(str);
+        }
+        C_LANGUAGE()
+        {
+            mc99_prepare_string_for_scanning(str);
+        }
 
 		AST a;
-		mcxxparse(&a);
+
+        CXX_LANGUAGE()
+        {
+            mcxxparse(&a);
+        }
+        C_LANGUAGE()
+        {
+            mc99parse(&a);
+        }
 
         decl_context_tag decl_context = default_decl_context;
 
@@ -188,10 +250,25 @@ namespace TL
 	{
 		char* str = strdup(this->get_source(true).c_str());
 
-		mcxx_prepare_string_for_scanning(str);
+        CXX_LANGUAGE()
+        {
+            mcxx_prepare_string_for_scanning(str);
+        }
+        C_LANGUAGE()
+        {
+            mc99_prepare_string_for_scanning(str);
+        }
 
 		AST a;
-		mcxxparse(&a);
+
+        CXX_LANGUAGE()
+        {
+            mcxxparse(&a);
+        }
+        C_LANGUAGE()
+        {
+            mc99parse(&a);
+        }
         
         decl_context_tag decl_context = default_decl_context;
 
