@@ -389,9 +389,9 @@ namespace TL
                     << "{"
 //                    <<   "extern void nthf_spin_lock_(void*);"
 //                    <<   "extern void nthf_spin_unlock_(void*);"
-                    <<   "nthf_spin_lock_(" << mutex_variable << ");"
+                    <<   "nthf_spin_lock_(&" << mutex_variable << ");"
                     <<   critical_body.prettyprint()
-                    <<   "nthf_spin_unlock_(" << mutex_variable << ");"
+                    <<   "nthf_spin_unlock_(&" << mutex_variable << ");"
                     << "}"
                     ;
 
@@ -401,16 +401,16 @@ namespace TL
                     Source critical_mutex_def_src;
 
                     critical_mutex_def_src <<
-                        "void *" << mutex_variable << ";"
+                        "nth_word_t " << mutex_variable << ";"
                         ;
 
-                    AST_t translation_unit = critical_construct.get_ast().get_translation_unit();
-                    Scope scope_translation_unit = scope_link.get_scope(translation_unit);
+                    // AST_t translation_unit = critical_construct.get_ast().get_translation_unit();
+                    // Scope scope_translation_unit = scope_link.get_scope(translation_unit);
 
-                    AST_t critical_mutex_def_tree = critical_mutex_def_src.parse_global(scope_translation_unit,
-                            scope_link);
+                    AST_t critical_mutex_def_tree = critical_mutex_def_src.parse_global(critical_construct.get_scope(),
+                            critical_construct.get_scope_link());
 
-                    translation_unit.prepend_to_translation_unit(critical_mutex_def_tree);
+					critical_construct.get_ast().prepend_sibling_function(critical_mutex_def_tree);
 
                     criticals_defined.insert(mutex_variable);
                 }
@@ -430,12 +430,12 @@ namespace TL
 
                 critical_source
                     << "{"
-                    <<   "static void *default_mutex_var;"
+                    <<   "static nth_word_t default_mutex_var;"
 //                    <<   "extern void nthf_spin_lock_(void*);"
 //                    <<   "extern void nthf_spin_unlock_(void*);"
-                    <<   "nthf_spin_lock_(default_mutex_var);"
+                    <<   "nthf_spin_lock_(&default_mutex_var);"
                     <<   critical_body.prettyprint()
-                    <<   "nthf_spin_unlock_(default_mutex_var);"
+                    <<   "nthf_spin_unlock_(&default_mutex_var);"
                     << "}"
                     ;
 
@@ -1324,17 +1324,17 @@ namespace TL
 
                 reduction_code
                     << "{"
-                    <<    "static void *default_mutex;"
+                    <<    "static nth_word_t default_mutex;"
 //                    <<    "extern nthf_spin_lock_(void*);"
 //                    <<    "extern nthf_spin_unlock_(void*);"
                     <<    "int rdv_i;"
 
-                    <<    "nthf_spin_lock_(default_mutex);"
+                    <<    "nthf_spin_lock_(&default_mutex);"
                     <<    "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
                     <<    "{"
                     <<       reduction_gathering
                     <<    "}"
-                    <<    "nthf_spin_unlock_(default_mutex);"
+                    <<    "nthf_spin_unlock_(&default_mutex);"
                     << "}"
                     ; 
 
