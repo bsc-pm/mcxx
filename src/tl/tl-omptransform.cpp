@@ -157,6 +157,15 @@ namespace TL
 
                 OpenMP::Directive directive = task_construct.directive();
                 Statement construct_body = task_construct.body();
+				
+                // Get the enclosing function
+                FunctionDefinition function_definition = task_construct.get_enclosing_function();
+                // its scope
+                Scope function_scope = function_definition.get_scope();
+                // and the id-expression of the function name
+                IdExpression function_name = function_definition.get_function_name();
+                // create the outlined function name
+                Source outlined_function_name = get_outlined_function_name(function_name);
 
                 // Get references in local clause
                 OpenMP::CustomClause local_clause = directive.custom_clause("local");
@@ -164,7 +173,23 @@ namespace TL
 
                 // Get references in captureaddress clause
                 OpenMP::CustomClause captureaddress_clause = directive.custom_clause("captureaddress");
-                ObjectList<IdExpression> captureaddress_references = captureaddress_clause.id_expressions();
+				
+				ObjectList<IdExpression> captureaddress_references_all = captureaddress_clause.id_expressions();
+				ObjectList<IdExpression> captureaddress_references;
+				{
+					for (ObjectList<IdExpression>::iterator it = captureaddress_references_all.begin();
+							it != captureaddress_references_all.end();
+							it++)
+					{
+						Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
+
+						if (!global_sym.is_valid() ||
+								global_sym != it->get_symbol())
+						{
+							captureaddress_references.append(*it);
+						}
+					}
+				}
 
                 OpenMP::CustomClause capturevalue_clause = directive.custom_clause("capturevalue");
                 ObjectList<IdExpression> capturevalue_references = capturevalue_clause.id_expressions();
@@ -182,7 +207,7 @@ namespace TL
 					{
 						if (!capturevalue_references_body.contains(functor(&IdExpression::get_symbol), it->get_symbol()))
 						{
-							capturevalue_references_body.append(*it);
+								capturevalue_references_body.append(*it);
 						}
 					}
 				}
@@ -191,21 +216,12 @@ namespace TL
                 capturevalue_references_body = 
                     capturevalue_references_body.filter(not_in_set(local_references, functor(&IdExpression::get_symbol)));
                 capturevalue_references_body = 
-                    capturevalue_references_body.filter(not_in_set(captureaddress_references, functor(&IdExpression::get_symbol)));
+                    capturevalue_references_body.filter(not_in_set(captureaddress_references_all, functor(&IdExpression::get_symbol)));
                 capturevalue_references_body = 
                     capturevalue_references_body.filter(not_in_set(capturevalue_references, functor(&IdExpression::get_symbol)));
 
                 capturevalue_references.append(capturevalue_references_body);
 
-                // Get the enclosing function
-                FunctionDefinition function_definition = task_construct.get_enclosing_function();
-                // its scope
-                Scope function_scope = function_definition.get_scope();
-                // and the id-expression of the function name
-                IdExpression function_name = function_definition.get_function_name();
-                // create the outlined function name
-                Source outlined_function_name = get_outlined_function_name(function_name);
-                
                 // This list will hold everything that must be passed by pointer
                 ObjectList<IdExpression> pass_by_pointer;
                 // This list will hold everything that has been privatized
