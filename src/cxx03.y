@@ -322,6 +322,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> member_declaration
 %type<ast> member_declarator
 %type<ast> member_declarator_list
+%type<ast> member_specification_seq
 %type<ast> member_specification
 %type<ast> mem_initializer
 %type<ast> mem_initializer_id
@@ -2106,19 +2107,18 @@ function_body : compound_statement
 // A.8 - Classes
 // *********************************************************
 
-class_specifier : class_head '{' member_specification '}'
+class_specifier : class_head '{' member_specification_seq '}'
 {
 	$$ = ASTMake2(AST_CLASS_SPECIFIER, $1, $3, ASTLine($1), NULL);
 }
 | class_head '{' '}'
 {
-	AST member_declaration = ASTLeaf(AST_EMPTY_DECL, $2.token_line, NULL);
-	AST member_specification = 
-		ASTMake3(AST_MEMBER_SPEC, NULL, member_declaration, 
-				NULL, ASTLine(member_declaration), NULL);
+	// AST member_declaration = ASTLeaf(AST_EMPTY_DECL, $2.token_line, NULL);
+	// AST member_specification = 
+	// 	ASTMake3(AST_MEMBER_SPEC, NULL, member_declaration, 
+	// 			NULL, ASTLine(member_declaration), NULL);
 
-	$$ = ASTMake2(AST_CLASS_SPECIFIER, $1, member_specification, 
-			ASTLine($1), NULL);
+	$$ = ASTMake2(AST_CLASS_SPECIFIER, $1, NULL, ASTLine($1), NULL);
 }
 ;
 
@@ -2255,21 +2255,23 @@ class_key : CLASS
 }
 ;
 
+member_specification_seq : member_specification
+{
+	$$ = ASTListLeaf($1);
+}
+| member_specification_seq member_specification
+{
+	$$ = ASTList($1, $2);
+}
+;
+
 member_specification : member_declaration
 {
-	$$ = ASTMake3(AST_MEMBER_SPEC, NULL, $1, NULL, ASTLine($1), NULL);
+	$$ = $1;
 }
 | access_specifier ':'
 {
-	$$ = ASTMake3(AST_MEMBER_SPEC, $1, NULL, NULL, ASTLine($1), NULL);
-}
-| member_declaration member_specification
-{
-	$$ = ASTMake3(AST_MEMBER_SPEC, NULL, $1, $2, ASTLine($1), NULL);
-}
-| access_specifier ':' member_specification
-{
-	$$ = ASTMake3(AST_MEMBER_SPEC, $1, NULL, $3, ASTLine($1), NULL);
+	$$ = ASTMake1(AST_MEMBER_ACCESS_SPEC, $1, ASTLine($1), NULL);
 }
 ;
 

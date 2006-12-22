@@ -274,7 +274,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> member_declaration
 %type<ast> member_declarator
 %type<ast> member_declarator_list
-%type<ast> member_specification
+%type<ast> member_specification_seq
 %type<ast> multiplicative_expression
 %type<ast> no_if_statement
 %type<ast> parameter_type_list
@@ -1553,7 +1553,7 @@ function_body : compound_statement
 // A.8 - Classes
 // *********************************************************
 
-class_specifier : class_head '{' member_specification '}'
+class_specifier : class_head '{' member_specification_seq '}'
 {
 	$$ = ASTMake2(AST_CLASS_SPECIFIER, $1, $3, ASTLine($1), NULL);
 }
@@ -1600,13 +1600,13 @@ class_key : STRUCT
 }
 ;
 
-member_specification : member_declaration
+member_specification_seq : member_declaration
 {
-	$$ = ASTMake3(AST_MEMBER_SPEC, NULL, $1, NULL, ASTLine($1), NULL);
+	$$ = ASTListLeaf($1);
 }
-| member_declaration member_specification
+| member_specification_seq member_declaration
 {
-	$$ = ASTMake3(AST_MEMBER_SPEC, NULL, $1, $2, ASTLine($1), NULL);
+	$$ = ASTList($1, $2);
 }
 ;
 

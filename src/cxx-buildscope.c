@@ -2113,79 +2113,87 @@ void build_scope_member_specification(scope_t* inner_scope, AST member_specifica
     new_decl_context.num_template_parameters = 0;
     new_decl_context.template_parameters = NULL;
 
-    AST member_specification = member_specification_tree;
+    // AST member_specification = member_specification_tree;
 
-    // First step, sign up only prototypes and simple declarations
-    while (member_specification != NULL)
-    {
-        if (max_line < ASTLine(member_specification))
-        {
-            max_line = ASTLine(member_specification);
-        }
-        // If it has an access specifier, update it
-        if (ASTSon0(member_specification) != NULL)
-        {
-            switch (ASTType(ASTSon0(member_specification)))
-            {
-                case AST_PRIVATE_SPEC : 
-                    current_access = AS_PRIVATE;
-                    break;
-                case AST_PUBLIC_SPEC :
-                    current_access = AS_PUBLIC;
-                    break;
-                case AST_PROTECTED_SPEC :
-                    current_access = AS_PROTECTED;
-                    break;
-                default :
-                    internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(member_specification))));
-            }
-        }
+	AST iter;
 
-        // For every member declaration, sign it up in the symbol table for this class
-        if (ASTSon1(member_specification) != NULL)
-        {
-            build_scope_member_declaration(ASTSon1(member_specification), inner_scope, 
-                    current_access, simple_type_info, /* step= */ 0, new_decl_context);
-        }
+	if (member_specification_tree == NULL)
+	{
+		return;
+	}
 
-        member_specification = ASTSon2(member_specification);
-    }
+    // First pass, sign up only prototypes and simple declarations
+	for_each_element(member_specification_tree, iter)
+	{
+		AST member_specification = ASTSon1(iter);
+
+		if (max_line < ASTLine(member_specification))
+		{
+			max_line = ASTLine(member_specification);
+		}
+
+		// If this is an access specifier update its related access info
+		if (ASTType(member_specification) == AST_MEMBER_ACCESS_SPEC)
+		{
+			switch (ASTType(ASTSon0(member_specification)))
+			{
+				case AST_PRIVATE_SPEC : 
+					current_access = AS_PRIVATE;
+					break;
+				case AST_PUBLIC_SPEC :
+					current_access = AS_PUBLIC;
+					break;
+				case AST_PROTECTED_SPEC :
+					current_access = AS_PROTECTED;
+					break;
+				default :
+					internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(member_specification))));
+			}
+		}
+		else 
+		{
+			// This is a simple member_declaration
+			build_scope_member_declaration(member_specification, inner_scope, 
+					current_access, simple_type_info, /* step= */ 0, new_decl_context);
+		}
+	}
 
     // Second step, sign up everything
-    current_access = AS_PRIVATE;
+    current_access = default_current_access;
+	for_each_element(member_specification_tree, iter)
+	{
+		AST member_specification = ASTSon1(iter);
 
-    member_specification = member_specification_tree;
+		if (max_line < ASTLine(member_specification))
+		{
+			max_line = ASTLine(member_specification);
+		}
 
-    while (member_specification != NULL)
-    {
-        // If it has an access specifier, update it
-        if (ASTSon0(member_specification) != NULL)
-        {
-            switch (ASTType(ASTSon0(member_specification)))
-            {
-                case AST_PRIVATE_SPEC : 
-                    current_access = AS_PRIVATE;
-                    break;
-                case AST_PUBLIC_SPEC :
-                    current_access = AS_PUBLIC;
-                    break;
-                case AST_PROTECTED_SPEC :
-                    current_access = AS_PROTECTED;
-                    break;
-                default :
-                    internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(member_specification))));
-            }
-        }
-
-        // For every member declaration, sign it up in the symbol table for this class
-        if (ASTSon1(member_specification) != NULL)
-        {
-            build_scope_member_declaration(ASTSon1(member_specification), inner_scope, 
-                    current_access, simple_type_info, /* step = */ 1, new_decl_context);
-        }
-
-        member_specification = ASTSon2(member_specification);
-    }
+		// If this is an access specifier update its related access info
+		if (ASTType(member_specification) == AST_MEMBER_ACCESS_SPEC)
+		{
+			switch (ASTType(ASTSon0(member_specification)))
+			{
+				case AST_PRIVATE_SPEC : 
+					current_access = AS_PRIVATE;
+					break;
+				case AST_PUBLIC_SPEC :
+					current_access = AS_PUBLIC;
+					break;
+				case AST_PROTECTED_SPEC :
+					current_access = AS_PROTECTED;
+					break;
+				default :
+					internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(member_specification))));
+			}
+		}
+		else 
+		{
+			// This is a simple member_declaration
+			build_scope_member_declaration(member_specification, inner_scope, 
+					current_access, simple_type_info, /* step= */ 1, new_decl_context);
+		}
+	}
 }
 
 

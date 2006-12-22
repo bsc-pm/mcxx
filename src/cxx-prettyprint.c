@@ -75,7 +75,7 @@ HANDLER_PROTOTYPE(mem_initializer_handler);
 HANDLER_PROTOTYPE(mem_initializer_id_handler);
 HANDLER_PROTOTYPE(class_specifier_handler);
 HANDLER_PROTOTYPE(class_head_handler);
-HANDLER_PROTOTYPE(member_specification_handler);
+HANDLER_PROTOTYPE(member_access_specifier_handler);
 HANDLER_PROTOTYPE(using_declaration_handler);
 HANDLER_PROTOTYPE(template_declaration_handler);
 HANDLER_PROTOTYPE(type_parameter_class_or_typename_handler);
@@ -347,7 +347,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_CLASS_KEY_STRUCT, simple_parameter_handler, "struct"),
     NODE_HANDLER(AST_CLASS_KEY_UNION, simple_parameter_handler, "union"),
     NODE_HANDLER(AST_CLASS_HEAD, class_head_handler, NULL),
-    NODE_HANDLER(AST_MEMBER_SPEC, member_specification_handler, NULL),
+    NODE_HANDLER(AST_MEMBER_ACCESS_SPEC, member_access_specifier_handler, NULL),
     NODE_HANDLER(AST_MEMBER_DECLARATION_QUALIFIED, qualified_id_handler, NULL),
     NODE_HANDLER(AST_MEMBER_DECLARATION_TEMPLATE, qualified_template_handler, NULL),
     NODE_HANDLER(AST_MEMBER_DECLARATION, member_declaration_handler, NULL),
@@ -1365,24 +1365,11 @@ static void class_head_handler(FILE* f, AST a, int level)
     }
 }
 
-static void member_specification_handler(FILE* f, AST a, int level)
+static void member_access_specifier_handler(FILE *f, AST a, int level)
 {
-    if (ASTSon0(a) != NULL)
-    {
-        indent_at_level(f, a, level > 0 ? level - 1 : 0);
-        prettyprint_level(f, ASTSon0(a), level);
-        token_fprintf(f, a, ":\n");
-    }
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), level);
-    }
-
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), level);
-    }
+	indent_at_level(f, a, level-1);
+	prettyprint_level(f, ASTSon0(a), level);
+	token_fprintf(f, a, " :\n");
 }
 
 static void using_declaration_handler(FILE* f, AST a, int level)

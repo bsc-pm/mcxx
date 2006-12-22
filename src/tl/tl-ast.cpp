@@ -344,42 +344,42 @@ namespace TL
 
 	void AST_t::append_to_member_spec(AST member_spec, AST member_decl)
 	{
-		AST new_member_spec = ASTMake3(AST_MEMBER_SPEC, NULL, member_decl, 
-				ASTSon2(member_spec), ASTLine(member_spec), NULL);
-		ASTSon2(member_spec) = new_member_spec;
-		ASTParent(new_member_spec) = member_spec;
+		// AST new_member_spec = ASTMake3(AST_MEMBER_SPEC, NULL, member_decl, 
+		// 		ASTSon2(member_spec), ASTLine(member_spec), NULL);
+		// ASTSon2(member_spec) = new_member_spec;
+		// ASTParent(new_member_spec) = member_spec;
 	}
 
 	void AST_t::prepend_to_member_spec(AST member_spec, AST member_decl)
 	{
-		AST orig_parent = ASTParent(member_spec);
-		AST new_member_spec = NULL;
-		if (ASTSon0(member_spec) != NULL)
-		{
-			AST aux_member_spec = ASTMake3(AST_MEMBER_SPEC, NULL, member_decl, member_spec, 
-					ASTLine(member_spec), NULL);
-			new_member_spec = ASTMake3(AST_MEMBER_SPEC, ASTSon0(member_spec),
-					NULL, aux_member_spec, ASTLine(aux_member_spec), NULL);
-			ASTSon0(member_spec) = NULL;
-		}
-		else
-		{
-			new_member_spec = ASTMake3(AST_MEMBER_SPEC, NULL, member_decl, member_spec,
-					ASTLine(member_spec), NULL);
-		}
+		// AST orig_parent = ASTParent(member_spec);
+		// AST new_member_spec = NULL;
+		// if (ASTSon0(member_spec) != NULL)
+		// {
+		// 	AST aux_member_spec = ASTMake3(AST_MEMBER_SPEC, NULL, member_decl, member_spec, 
+		// 			ASTLine(member_spec), NULL);
+		// 	new_member_spec = ASTMake3(AST_MEMBER_SPEC, ASTSon0(member_spec),
+		// 			NULL, aux_member_spec, ASTLine(aux_member_spec), NULL);
+		// 	ASTSon0(member_spec) = NULL;
+		// }
+		// else
+		// {
+		// 	new_member_spec = ASTMake3(AST_MEMBER_SPEC, NULL, member_decl, member_spec,
+		// 			ASTLine(member_spec), NULL);
+		// }
 
-		ASTParent(new_member_spec) = orig_parent;
+		// ASTParent(new_member_spec) = orig_parent;
 
-		if (orig_parent != NULL)
-		{
-			for (int i = 0; i < ASTNumChildren(orig_parent); i++)
-			{
-				if (ASTChild(orig_parent, i) == member_spec)
-				{
-					ASTChild(orig_parent, i) = new_member_spec;
-				}
-			}
-		}
+		// if (orig_parent != NULL)
+		// {
+		// 	for (int i = 0; i < ASTNumChildren(orig_parent); i++)
+		// 	{
+		// 		if (ASTChild(orig_parent, i) == member_spec)
+		// 		{
+		// 			ASTChild(orig_parent, i) = new_member_spec;
+		// 		}
+		// 	}
+		// }
 	}
 
 	void AST_t::append(AST_t t)
@@ -393,11 +393,11 @@ namespace TL
 		
 		AST list = get_list_of_extensible_block(_ast);
 
-		if (ASTType(list) == AST_MEMBER_SPEC)
-		{
-			append_to_member_spec(list, t._ast);
-		}
-		else
+		// if (ASTType(list) == AST_MEMBER_SPEC)
+		// {
+		// 	append_to_member_spec(list, t._ast);
+		// }
+		// else
 		{
 			AST appended_list = t._ast;
 			if (ASTType(t._ast) != AST_NODE_LIST)
@@ -420,11 +420,11 @@ namespace TL
 
 		AST list = get_list_of_extensible_block(_ast);
 
-		if (ASTType(list) == AST_MEMBER_SPEC)
-		{
-			prepend_to_member_spec(list, t._ast);
-		}
-		else
+		// if (ASTType(list) == AST_MEMBER_SPEC)
+		// {
+		// 	prepend_to_member_spec(list, t._ast);
+		// }
+		// else
 		{
 			AST prepended_list = t._ast;
 			if (ASTType(t._ast) != AST_NODE_LIST)

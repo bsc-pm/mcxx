@@ -265,7 +265,7 @@ namespace TL
                     <<    "int arg;"
                     <<    "unsigned long long mask;"
                     <<    "int num_params;"
-                    // <<    "extern struct nth_desc *nthf_create_task_(void (*)(), unsigned long long*, int*, ...);"
+                    <<    "extern struct nth_desc *nthf_create_task_(void (*)(), unsigned long long*, int*, ...);"
 
                     <<    "mask = ~(0ULL);" 
                     <<    "num_params = 0;"
@@ -288,7 +288,7 @@ namespace TL
 
                 taskwait_source
                     << "{"
-                    // <<    "extern void nthf_task_block_(void);"
+                    <<    "extern void nthf_task_block_(void);"
                     <<    "nthf_task_block_();"
                     << "}"
                     ;
@@ -306,9 +306,9 @@ namespace TL
 
                 taskgroup_source
                     << "{"
-                    // <<    "extern void nthf_task_block_(void);"
-                    // <<    "extern int nthf_push_taskgroup_scope_(void);"
-                    // <<    "extern int nthf_pop_taskgroup_scope_(void);"
+                    <<    "extern void nthf_task_block_(void);"
+                    <<    "extern int nthf_push_taskgroup_scope_(void);"
+                    <<    "extern int nthf_pop_taskgroup_scope_(void);"
                     <<    "nthf_push_taskgroup_scope_();"
                     <<    taskgroup_body.prettyprint()
                     <<    "nthf_task_block_();"
@@ -372,8 +372,8 @@ namespace TL
 
                 critical_source
                     << "{"
-                    // <<   "extern void nthf_spin_lock_(void*);"
-                    // <<   "extern void nthf_spin_unlock_(void*);"
+                    <<   "extern void nthf_spin_lock_(void*);"
+                    <<   "extern void nthf_spin_unlock_(void*);"
                     <<   "nthf_spin_lock_(" << mutex_variable << ");"
                     <<   critical_body.prettyprint()
                     <<   "nthf_spin_unlock_(" << mutex_variable << ");"
@@ -416,8 +416,8 @@ namespace TL
                 critical_source
                     << "{"
                     <<   "static void *default_mutex_var;"
-                    // <<   "extern void nthf_spin_lock_(void*);"
-                    // <<   "extern void nthf_spin_unlock_(void*);"
+                    <<   "extern void nthf_spin_lock_(void*);"
+                    <<   "extern void nthf_spin_unlock_(void*);"
                     <<   "nthf_spin_lock_(default_mutex_var);"
                     <<   critical_body.prettyprint()
                     <<   "nthf_spin_unlock_(default_mutex_var);"
@@ -436,7 +436,7 @@ namespace TL
 
                 barrier_source
                     << "{"
-                    // <<    "extern void in__tone_barrier_();"
+                    <<    "extern void in__tone_barrier_();"
                     <<    "in__tone_barrier_();"
                     << "}"
                     ;
@@ -453,7 +453,7 @@ namespace TL
 
                 flush_source
                     << "{"
-                    // <<    "extern void synchronize();"
+                    <<    "extern void synchronize();"
                     <<    "synchronize();"
                     << "}"
                     ;
@@ -490,9 +490,9 @@ namespace TL
                     <<   "nth_schedule = 1;"
                     <<   "nth_chunk = 1;"
 
-                    // <<   "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
-                    // <<   "extern int in__tone_next_iters_(int*, int*, int*);"
-                    // <<   "extern void in__tone_end_for_(int*);"
+                    <<   "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
+                    <<   "extern int in__tone_next_iters_(int*, int*, int*);"
+                    <<   "extern void in__tone_end_for_(int*);"
 
                     <<   "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
                     <<   "while (in__tone_next_iters_ (&nth_dummy1, &nth_dummy2, &nth_dummy3) != 0)"
@@ -1116,10 +1116,10 @@ namespace TL
                     << "  unsigned long long nth_mask;"
                     << "  int nth_num_params;"
                     << "  int nth_p;"
-                    // << "  extern struct nth_desc *nthf_self_();"
-                    // << "  extern void nthf_team_set_nplayers_(int *);"
-                    // << "  extern void nthf_create_1s_vp_(void (*)(), int *, int *, struct nth_desc **, unsigned long long *, int *, ...);"
-                    // << "  extern void nthf_block_();"
+                    << "  extern struct nth_desc *nthf_self_();"
+                    << "  extern void nthf_team_set_nplayers_(int *);"
+                    << "  extern void nthf_create_1s_vp_(void (*)(), int *, int *, struct nth_desc **, unsigned long long *, int *, ...);"
+                    << "  extern void nthf_block_();"
                     <<    reduction_vectors
                     <<    groups_definition
                     << "  nth_selfv = nthf_self_();"
@@ -1203,7 +1203,7 @@ namespace TL
                 if (!groups_clause.is_defined() && !num_threads_clause.is_defined())
                 {
                     groups_definition 
-                        // << "extern int nthf_cpus_actual_();"
+                        << "extern int nthf_cpus_actual_();"
 
                         << "nth_nprocs =  nthf_cpus_actual_();"
                         ;
@@ -1215,7 +1215,7 @@ namespace TL
 
                     std::string num_threads_value = clause_exprs[0].prettyprint();
                     groups_definition 
-                        // << "extern void nthf_compute_uniform_groups_(int*);"
+                        << "extern void nthf_compute_uniform_groups_(int*);"
                         << "int nth_num_threads = " << num_threads_value << ";"
 
                         << "nthf_compute_uniform_groups_(&nth_num_threads);"
@@ -1236,7 +1236,7 @@ namespace TL
                                 std::string num_groups = groups_expressions[0].prettyprint();
 
                                 groups_definition 
-                                    // << "extern void nthf_compute_uniform_groups_(int*);"
+                                    << "extern void nthf_compute_uniform_groups_(int*);"
 
                                     << "nth_groups_num = " << num_groups << ";"
                                     << "nthf_compute_uniform_groups_(&nthf_groups_num);"
@@ -1249,7 +1249,7 @@ namespace TL
                                 std::string howmany_groups = groups_expressions[1].prettyprint();
 
                                 groups_definition
-                                    // << "extern void nthf_compute_groups_vec_(int*, int*);"
+                                    << "extern void nthf_compute_groups_vec_(int*, int*);"
 
                                     << "nth_groups_num = " << num_groups << ";"
                                     << "nthf_compute_groups_vec_(&nthf_groups_num, " << howmany_groups << ");"
@@ -1264,7 +1264,7 @@ namespace TL
                                 std::string howmany_groups = groups_expressions[2].prettyprint();
 
                                 groups_definition
-                                    // << "extern void nthf_define_groups_(int*, int*, int*);"
+                                    << "extern void nthf_define_groups_(int*, int*, int*);"
 
                                     << "nth_groups_num = " << num_groups << ";"
                                     << "nthf_define_groups_(&nthf_groups_num, " << who_groups << ", " << howmany_groups << ");"
@@ -1310,8 +1310,8 @@ namespace TL
                 reduction_code
                     << "{"
                     <<    "static void *default_mutex;"
-                    // <<    "extern nthf_spin_lock_(void*);"
-                    // <<    "extern nthf_spin_unlock_(void*);"
+                    <<    "extern nthf_spin_lock_(void*);"
+                    <<    "extern nthf_spin_unlock_(void*);"
                     <<    "int rdv_i;"
 
                     <<    "nthf_spin_lock_(default_mutex);"
@@ -1405,14 +1405,14 @@ namespace TL
 
                 reduction_code
                     << reduction_update
-                    // << "extern void in__tone_barrier_();"
-                    // << "extern char in__tone_is_master_();"
+                    << "extern void in__tone_barrier_();"
+                    << "extern char in__tone_is_master_();"
 
                     << "in__tone_barrier_();"
                     << "if (in__tone_is_master_())"
                     << "{"
                     <<    "int rdv_i;"
-                    // <<    "extern int nthf_cpus_actual_();"
+                    <<    "extern int nthf_cpus_actual_();"
 
                     <<    "int nth_nprocs = nthf_cpus_actual_();"
                     <<    "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
@@ -1435,8 +1435,8 @@ namespace TL
                 if (!reduction_references.empty())
                 {
                     reduction_update 
-                        // << "extern int in__tone_thread_id_ ();"
                         << "{"
+                        <<    "extern int in__tone_thread_id_ ();"
                         <<    "int nth_thread_id = in__tone_thread_id_();"
                         ;
 
@@ -1581,7 +1581,7 @@ namespace TL
                     << private_declarations
                     << modified_parallel_body_stmt.prettyprint()
                     << reduction_update
-                    // << "extern void nthf_task_block_(void);"
+                    << "extern void nthf_task_block_(void);"
                     << "nthf_task_block_();"
                     ;
 
@@ -1703,7 +1703,7 @@ namespace TL
                     << lastprivate_code
                     << reduction_update
                     << loop_finalization
-                    // << "extern void nthf_task_block_(void);"
+                    << "extern void nthf_task_block_(void);"
                     << "nthf_task_block_();"
                     ;
 
@@ -1779,7 +1779,7 @@ namespace TL
                     << lastprivate_code
                     << reduction_update
                     << loop_finalization
-                    // << "extern void nthf_task_block_(void);"
+                    << "extern void nthf_task_block_(void);"
                     << "nthf_task_block_();"
                     ;
 
@@ -2003,9 +2003,9 @@ namespace TL
                     << "nth_schedule = 1;"
                     << "nth_chunk = 1;"
 
-                    // << "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
-                    // << "extern int in__tone_next_iters_(int*, int*, int*);"
-                    // << "extern void in__tone_end_for_(int*);"
+                    << "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
+                    << "extern int in__tone_next_iters_(int*, int*, int*);"
+                    << "extern void in__tone_end_for_(int*);"
 
                     << "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
                     << "while (in__tone_next_iters_ (&intone_start, &intone_end, &intone_last) != 0)"
@@ -2077,10 +2077,9 @@ namespace TL
                 // Loop distribution
                 Source modified_loop_body;
                 distributed_loop_body
-                    // FIXME - Eventually an include will solve this
-                    // << "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
-                    // << "extern int in__tone_next_iters_(int*, int*, int*);"
-                    // << "extern void in__tone_end_for_(int*);"
+                    << "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
+                    << "extern int in__tone_next_iters_(int*, int*, int*);"
+                    << "extern void in__tone_end_for_(int*);"
 
                     << "in__tone_begin_for_(&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
 
