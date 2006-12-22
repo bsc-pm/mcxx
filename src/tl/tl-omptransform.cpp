@@ -169,8 +169,23 @@ namespace TL
                 OpenMP::CustomClause capturevalue_clause = directive.custom_clause("capturevalue");
                 ObjectList<IdExpression> capturevalue_references = capturevalue_clause.id_expressions();
 
-                ObjectList<IdExpression> capturevalue_references_body
-                    = construct_body.non_local_symbol_occurrences(Statement::ONLY_VARIABLES);
+
+				ObjectList<IdExpression> capturevalue_references_body;
+				// Fix this with a better ObjectList<T>::insert(Functor<S, T>, T);
+				{
+					ObjectList<IdExpression> capturevalue_references_body_all
+						= construct_body.non_local_symbol_occurrences(Statement::ONLY_VARIABLES);
+
+					for (ObjectList<IdExpression>::iterator it = capturevalue_references_body_all.begin();
+							it != capturevalue_references_body_all.end();
+							it++)
+					{
+						if (!capturevalue_references_body.contains(functor(&IdExpression::get_symbol), it->get_symbol()))
+						{
+							capturevalue_references_body.append(*it);
+						}
+					}
+				}
 
                 // Filter those symbols in local and capturevalue
                 capturevalue_references_body = 
@@ -261,13 +276,13 @@ namespace TL
 
                 task_queueing
                     << "{"
-                    <<    "struct nth_desc * nth;"
+                    <<    "nth_desc * nth;"
                     <<    "int arg;"
-                    <<    "unsigned long long mask;"
+                    <<    "nth_argdesc_t mask;"
                     <<    "int num_params;"
 //                    <<    "extern struct nth_desc *nthf_create_task_(void (*)(), unsigned long long*, int*, ...);"
 
-                    <<    "mask = ~(0ULL);" 
+                    <<    "mask = (nth_argdesc_t)(~0);" 
                     <<    "num_params = 0;"
                     <<     size_params
 
@@ -1110,10 +1125,10 @@ namespace TL
                 spawn_code
                     << "{"
                     << "  int nth_nprocs;"
-                    << "  struct nth_desc *nth_selfv;"
+                    << "  nth_desc *nth_selfv;"
                     << "  int nth_nprocs_2;"
                     << "  int nth_arg;"
-                    << "  unsigned long long nth_mask;"
+                    << "  nth_argdesc_t nth_mask;"
                     << "  int nth_num_params;"
                     << "  int nth_p;"
 //                    << "  extern struct nth_desc *nthf_self_();"
@@ -1126,7 +1141,7 @@ namespace TL
                     << "  nth_nprocs_2 = nth_nprocs + 1;"
                     << "  nthf_team_set_nplayers_ (&nth_nprocs);"
                     << "  nth_arg = 0;"
-                    << "  nth_mask = (unsigned long long)(~0ULL);"
+                    << "  nth_mask = (nth_argdesc_t)(~0);"
                     << "  nth_num_params = 0;"
                     <<    source_num_parameters
                     << "  for (nth_p = 0; nth_p < nth_nprocs_2 - 1; nth_p++)"

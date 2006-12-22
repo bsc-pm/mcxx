@@ -168,7 +168,7 @@ namespace TL
 				<< "prepend_list=" << ast_print_node_type(ASTType(prepended_list)) << std::endl;
 			return;
 		}
-
+		
 		// Relink the parent, first remove pointer to the prepended_list
 		if (ASTParent(prepended_list) != NULL)
 		{
@@ -183,24 +183,15 @@ namespace TL
 			}
 		}
 
-		// Now make the prepended_list as the son
-        AST original_previous = ASTSon0(orig_list);
-
-        ASTSon0(orig_list) = prepended_list;
-        ASTParent(prepended_list) = orig_list;
-
-        // Go to the deeper node of prepended_list
-        AST iter = prepended_list;
-        while (ASTSon0(iter) != NULL)
-        {
-            iter = ASTSon0(iter);
-        }
-
-        ASTSon0(iter) = original_previous;
-		if (original_previous != NULL)
+		// Go to the deeper node of orig_list and make its ASTSon0 to point prepended_list
+		AST iter = orig_list;
+		while (ASTSon0(iter) != NULL)
 		{
-			ASTParent(original_previous) = iter;
+			iter = ASTSon0(iter);
 		}
+		// ASTSon0(iter) == NULL
+		ASTSon0(iter) = prepended_list;
+		ASTParent(prepended_list) = iter;
 	}
 
 	void AST_t::append_list(AST orig_list, AST appended_list)
