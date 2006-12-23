@@ -1041,9 +1041,12 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
             new_class->type_information->type = calloc(1, sizeof(*(new_class->type_information->type)));
             new_class->type_information->type->kind = STK_CLASS;
             new_class->type_information->type->type_scope = copy_scope(st);
+            
 
             new_class->type_information->type->class_info = calloc(1, 
                     sizeof(*(new_class->type_information->type->class_info)));
+
+            new_class->type_information->type->incomplete = 1;
 
             type_info->type->kind = STK_USER_DEFINED;
             type_info->type->user_defined_type = new_class;
@@ -1837,6 +1840,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 // Get its simple type info and adjust its scope
                 simple_type_info->type = class_entry->type_information->type;
                 simple_type_info->type->class_info->inner_scope = inner_scope;
+                simple_type_info->type->incomplete = 0;
             }
             else if (class_entry_list == NULL
                     && class_head_nested_name == NULL)

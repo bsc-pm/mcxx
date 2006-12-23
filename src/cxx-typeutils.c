@@ -46,6 +46,9 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st,
     if (t1 == NULL || t2 == NULL)
         return 1;
 
+    type_t* t1_orig = t1;
+    type_t* t2_orig = t2;
+
     // Advance over typedefs
     t1 = advance_over_typedefs(t1);
     t2 = advance_over_typedefs(t2);
@@ -123,7 +126,8 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st,
             internal_error("Unknown type kind (%d)\n", t1->kind);
     }
 
-    result &= equivalent_cv_qualification(t1->cv_qualifier, t2->cv_qualifier);
+    result &= equivalent_cv_qualification(t1->cv_qualifier | t1_orig->cv_qualifier, 
+            t2->cv_qualifier | t2_orig->cv_qualifier);
 
     if (cv_equiv == CVE_IGNORE_OUTERMOST)
     {
@@ -195,7 +199,9 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st,
             else
             {
                 // Try to solve this type
-                return equivalent_types(dep_type, simple_type_to_type(other_type), st, CVE_CONSIDER, decl_context);
+                char result;
+                result = equivalent_types(dep_type, simple_type_to_type(other_type), st, CVE_CONSIDER, decl_context);
+                return result;
             }
         }
 

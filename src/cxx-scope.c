@@ -22,6 +22,11 @@ static scope_t* new_scope(void)
     return sc;
 }
 
+static char is_not_incomplete(scope_entry_t* entry)
+{
+    return (entry->type_information->type->incomplete == 0);
+}
+
 // Creates a new namespace scope, a new global scope is created by just
 // passing a NULL enclosing namespace
 scope_t* new_namespace_scope(scope_t* enclosing_scope)
@@ -244,11 +249,6 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
     }
 }
 
-static char has_nonempty_template_body(scope_entry_t* entry)
-{
-    return (entry->type_information->type->template_class_body != NULL);
-}
-
 /*
  * Returns the scope of this nested name specification
  */
@@ -383,7 +383,7 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                                 scope_entry_list_t* candidates = query_in_symbols_of_scope(entry->scope, entry->symbol_name);
 
                                 candidates = filter_entry_from_list(candidates, entry);
-                                candidates = filter_symbol_using_predicate(candidates, has_nonempty_template_body);
+                                candidates = filter_symbol_using_predicate(candidates, is_not_incomplete);
 
                                 template_argument_list_t* current_template_arguments = 
                                     entry->type_information->type->template_arguments;
@@ -949,7 +949,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
             fprintf(stderr, "-> Solving the template without exact match\n");
         }
         
-        entry_list = filter_symbol_using_predicate(entry_list, has_nonempty_template_body);
+        entry_list = filter_symbol_using_predicate(entry_list, is_not_incomplete);
 
         matched_template = solve_template(entry_list, current_template_arguments, sc, /* exact= */ 0,
                 decl_context);
