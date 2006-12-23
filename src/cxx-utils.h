@@ -119,6 +119,7 @@ int execute_program(char* program_name, char** arguments);
 
 // char** routines
 char** comma_separate_values(char* value, int* num_elems);
+char** blank_separate_values(char* value, int *num_elems);
 int count_null_ended_array(void** v);
 
 // Table of seen filenames

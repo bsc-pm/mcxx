@@ -27,7 +27,7 @@ int config_set_language(char* value)
 int config_set_options(char* value)
 {
     int num;
-    char** comma_options = comma_separate_values(value, &num);
+    char** comma_options = blank_separate_values(value, &num);
 
     parse_arguments(num, comma_options, /* from_command_line= */ 0);
 
@@ -45,7 +45,7 @@ int config_set_preprocessor_name(char* value)
 int config_set_preprocessor_options(char* value)
 {
     int num;
-    compilation_options.preprocessor_options = comma_separate_values(value, &num);
+    compilation_options.preprocessor_options = blank_separate_values(value, &num);
     return 0;
 }
 
@@ -60,7 +60,7 @@ int config_set_compiler_name(char* value)
 int config_set_compiler_options(char* value)
 {
     int num;
-    compilation_options.native_compiler_options = comma_separate_values(value, &num);
+    compilation_options.native_compiler_options = blank_separate_values(value, &num);
     return 0;
 }
 
@@ -75,6 +75,6 @@ int config_set_linker_name(char* value)
 int config_set_linker_options(char* value)
 {
     int num;
-    compilation_options.linker_options = comma_separate_values(value, &num);
+    compilation_options.linker_options = blank_separate_values(value, &num);
     return 0;
 }

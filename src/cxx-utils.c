@@ -124,6 +124,29 @@ char** comma_separate_values(char* value, int *num_elems)
     return result;
 }
 
+char** blank_separate_values(char* value, int *num_elems)
+{
+    char** result = NULL;
+    *num_elems = 0;
+
+    if (value != NULL)
+    {
+        char* comma_string = strdup(value);
+        char* current = strtok(comma_string, " \t");
+
+        while (current != NULL)
+        {
+            P_LIST_ADD(result, *num_elems, strdup(current));
+            current = strtok(NULL, " \t");
+        }
+    }
+
+    P_LIST_ADD(result, *num_elems, NULL);
+    (*num_elems)--;
+
+    return result;
+}
+
 char* give_basename(const char* c)
 {
     char* result = basename(strdup(c));
