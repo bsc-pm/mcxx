@@ -225,6 +225,10 @@ void temporal_files_cleanup(void)
         // If no keep, remove file
         if (!compilation_options.keep_files)
         {
+            if (compilation_options.verbose)
+            {
+                fprintf(stderr, "Removing temporal filename '%s'\n", iter->info->name);
+            }
             remove(iter->info->name);
         }
 

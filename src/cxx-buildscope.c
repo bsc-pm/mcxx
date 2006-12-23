@@ -1403,7 +1403,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
                 || simple_type_entry->type_information->type == NULL), 
             "The named type '%s' has no direct type entry in symbol table\n", ASTText(type_name));
 
-    if (simple_type_entry->kind != SK_TYPEDEF)
+    // if (simple_type_entry->kind != SK_TYPEDEF)
     {
         simple_type_info->type->kind = STK_USER_DEFINED;
         simple_type_info->type->user_defined_type = simple_type_entry;
@@ -1412,11 +1412,14 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
         simple_type_info->type->typeof_expr = a;
         simple_type_info->type->typeof_scope = copy_scope(st);
     }
-    else
-    {
-        // Bitwise copy, cv-qualification will be in this simple_type_info
-        *simple_type_info = *simple_type_entry->type_information->type->aliased_type;
-    }
+    // TODO - Check this, I think doing it is unnecessary but should
+    // be checked against all the C++ oddities
+    // else
+    // {
+    //     // Bitwise copy, cv-qualification will be in this simple_type_info
+    //     // *simple_type_info = *simple_type_entry->type_information->type->aliased_type;
+    //     *simple_type_info = *simple_type_entry->type_information;
+    // }
 }
 
 /*

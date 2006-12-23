@@ -303,6 +303,30 @@ namespace TL
 					}
 					break;
 				}
+            case STK_CLASS :
+                {
+                    // class_info_t* class_info = simple_type->class_info;
+
+                    // switch (class_info.class_kind)
+                    // {
+                    //     case CK_STRUCT :
+                    //         {
+                    //             result += "struct ";
+                    //             break;
+                    //         }
+                    //     case CK_UNION :
+                    //         {
+                    //             result += "union ";
+                    //             break;
+                    //         }
+                    //     case CK_CLASS :
+                    //         {
+                    //             result += "class ";
+                    //         }
+                    //     default:
+                    //         break;
+                    // }
+                }
 			default:
 				{
                     std::cerr << "Unknown simple type kind '" << (int)simple_type->kind << "'" << std::endl;

@@ -901,6 +901,15 @@ static void native_compilation(translation_unit_t* translation_unit,
                 prettyprinted_filename,
                 timing_elapsed(&timing_compilation));
     }
+
+    if (!compilation_options.keep_files)
+    {
+        if (compilation_options.verbose)
+        {
+            fprintf(stderr, "Removing prettyprinted file '%s'\n", prettyprinted_filename);
+        }
+        remove(prettyprinted_filename);
+    }
 }
 
 static void link_objects(void)
@@ -1017,4 +1026,3 @@ static void load_compiler_phases(void)
 	// and fill an array of compiler phases
 	load_compiler_phases_cxx();
 }
-
