@@ -625,14 +625,8 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 #warning Non const member functions are not viable if the object where invoked is not const too
     DEBUG_CODE()
     {
-        fprintf(stderr, "Building ICS for function '");
-    }
-
-    print_declarator(entry->type_information, st);
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "'\n");
+        fprintf(stderr, "Building ICS for function '%s'\n",
+                print_declarator(entry->type_information, st));
     }
     DEBUG_MESSAGE("Number of arguments = %d | Number of parameters = %d", num_args, num_pars);
 
@@ -654,9 +648,8 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "Function '");
-                    print_declarator(entry->type_information, st);
-                    fprintf(stderr, "' does not have an ICS\n");
+                    fprintf(stderr, "Function '%s' does not have an ICS\n",
+                            print_declarator(entry->type_information, st));
                 }
                 return NULL;
             }
@@ -667,9 +660,8 @@ static implicit_conversion_sequence_t* build_implicit_conversion_sequence(scope_
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Built an ICS for function '");
-        print_declarator(entry->type_information, st);
-        fprintf(stderr, "'\n");
+        fprintf(stderr, "Built an ICS for function '%s'\n",
+                print_declarator(entry->type_information, st));
     }
 
     return result;
@@ -1134,11 +1126,9 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Choosing function '");
-                print_declarator(iter->entry->type_information, result->entry->scope);
-                fprintf(stderr, "' because is better than '");
-                print_declarator(result->entry->type_information, result->entry->scope);
-                fprintf(stderr, "'\n");
+                fprintf(stderr, "Choosing function '%s' because is better than '%s'\n",
+                        print_declarator(iter->entry->type_information, result->entry->scope),
+                        print_declarator(result->entry->type_information, result->entry->scope));
             }
 
             result = iter;
@@ -1147,11 +1137,9 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Function '");
-                print_declarator(iter->entry->type_information, result->entry->scope);
-                fprintf(stderr, "' is still better than '");
-                print_declarator(result->entry->type_information, result->entry->scope);
-                fprintf(stderr, "'\n");
+                fprintf(stderr, "Function '%s' is still better than '%s'\n",
+                        print_declarator(iter->entry->type_information, result->entry->scope),
+                        print_declarator(result->entry->type_information, result->entry->scope));
             }
         }
 
@@ -1170,11 +1158,9 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "Function '");
-                    print_declarator(result->entry->type_information, result->entry->scope);
-                    fprintf(stderr, "' is not better than '");
-                    print_declarator(iter->entry->type_information, result->entry->scope);
-                    fprintf(stderr, "'\n");
+                    fprintf(stderr, "Function '%s' is not better than '%s'\n",
+                            print_declarator(result->entry->type_information, result->entry->scope),
+                            print_declarator(iter->entry->type_information, result->entry->scope));
                 }
             }
         }
@@ -1192,9 +1178,8 @@ static scope_entry_t* choose_best_viable_function(viable_function_list_t* viable
         DEBUG_CODE()
         {
             fprintf(stderr, "Determined the best viable function\n");
-            fprintf(stderr, "Best viable function is '");
-            print_declarator(result->entry->type_information, result->entry->scope);
-            fprintf(stderr, "'\n");
+            fprintf(stderr, "Best viable function is '%s'\n",
+                    print_declarator(result->entry->type_information, result->entry->scope));
         }
         return result->entry;
     }

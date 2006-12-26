@@ -199,16 +199,14 @@ static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_inde
             || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
             || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Type: ");
-        print_declarator(entry->type_information, st);
-        fprintf(stderr, "\n");
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n", 
+                print_declarator(entry->type_information, st));
     }
 
     if (entry->kind == SK_TYPEDEF)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Aliased type: ");
-        print_declarator(entry->type_information->type->aliased_type, st);
-        fprintf(stderr, "\n");
+        PRINT_INDENTED_LINE(stderr, global_indent+1,  "Aliased type: %s\n",
+                print_declarator(entry->type_information->type->aliased_type, st));
     }
 
     if (entry->kind == SK_GCC_BUILTIN_TYPE)
@@ -232,25 +230,22 @@ static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_inde
 
     if (entry->kind == SK_ENUMERATOR)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Type: ");
-        print_declarator(entry->type_information, st);
-        fprintf(stderr, "\n");
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n",
+                print_declarator(entry->type_information, st));
     }
 
     if ((entry->kind == SK_VARIABLE || entry->kind == SK_ENUMERATOR)
             && entry->expression_value != NULL)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "Expression value: ");
-        prettyprint(stderr, entry->expression_value);
-        fprintf(stderr, "\n");
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Expression value: %s\n",
+                prettyprint_in_buffer(entry->expression_value));
     }
 
     if (entry->kind == SK_FUNCTION
             || entry->kind == SK_TEMPLATE_FUNCTION)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "%s", "Prototype: ");
-        print_declarator(entry->type_information, st);
-        fprintf(stderr, "\n");
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Prototype: %s\n",
+                print_declarator(entry->type_information, st));
         // print_scope_full(entry->related_scope, global_indent+1);
     }
 

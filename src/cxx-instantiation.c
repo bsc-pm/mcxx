@@ -9,14 +9,6 @@
 
 #include "cxx-printscope.h"
 
-static void instantiate_incomplete_primary_template(scope_entry_t* matched_template,
-        template_argument_list_t* template_argument_list, 
-		scope_t* st, decl_context_t decl_context)
-{
-    // This routine is planned for a future where we will be able to
-    // "pre-instantiate" things
-}
-
 static decl_context_t build_proper_instantiation_context(decl_context_t decl_context)
 {
 	return decl_context;
@@ -40,16 +32,6 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     }
 
     AST instantiate_tree = matched_template->type_information->type->template_class_body;
-
-    if (instantiate_tree == NULL)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "This instantiation of primary template refers to an incomplete type\n");
-        }
-        instantiate_incomplete_primary_template(matched_template, template_argument_list, st, decl_context);
-        return;
-    }
 
     // Now create a new scope and inject template parameters with its argument value
     scope_t* instantiate_scope = new_template_scope(matched_template->scope);
@@ -158,8 +140,11 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     injected_symbol->injected_class_name = 1;
     injected_symbol->injected_class_referred_symbol = instance_symbol;
 
-    build_scope_member_specification(instance_symbol->related_scope, instantiate_tree, AS_PUBLIC,
-            simple_type_info, new_decl_context);
+    if (instantiate_tree != NULL)
+    {
+        build_scope_member_specification(instance_symbol->related_scope, instantiate_tree, AS_PUBLIC,
+                simple_type_info, new_decl_context);
+    }
 
     instance_symbol->related_scope->template_scope = NULL;
     matched_template->scope->template_scope = instantiate_scope->template_scope;
@@ -171,13 +156,6 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     {
         fprintf(stderr, "--------> Instantiation ended\n");
     }
-}
-
-static void instantiate_incomplete_specialized_template(scope_entry_t* matched_template, template_argument_list_t* template_argument_list, 
-        unification_set_t* unification_set, scope_t* st)
-{
-    // This routine is planned for a future where we will be able to
-    // "pre-instantiate" things
 }
 
 static void instantiate_specialized_template(scope_entry_t* matched_template, 
@@ -194,15 +172,6 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 
     AST instantiate_tree = matched_template->type_information->type->template_class_body;
 
-    if (instantiate_tree == NULL)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "This instantiation of a specialized template refers to an incomplete type\n");
-        }
-        instantiate_incomplete_specialized_template(matched_template, template_argument_list, unification_set, st);
-        return;
-    }
 
     // Now create a new scope and inject template parameters with its argument value
     scope_t* instantiate_scope = new_template_scope(matched_template->scope);
@@ -337,8 +306,11 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
     injected_symbol->injected_class_name = 1;
     injected_symbol->injected_class_referred_symbol = instance_symbol;
 
-    build_scope_member_specification(instance_symbol->related_scope, instantiate_tree, AS_PUBLIC,
-            simple_type_info, new_decl_context);
+    if (instantiate_tree != NULL)
+    {
+        build_scope_member_specification(instance_symbol->related_scope, instantiate_tree, AS_PUBLIC,
+                simple_type_info, new_decl_context);
+    }
 
     instance_symbol->related_scope->template_scope = NULL;
     matched_template->scope->template_scope = instantiate_scope->template_scope;
@@ -391,8 +363,8 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Symbol '%s' set to come from instantiation\n",
-                instance_symbol->symbol_name);
+        fprintf(stderr, "Symbol '%s' %p set to come from instantiation\n",
+                instance_symbol->symbol_name, instance_symbol);
     }
 
     instance_symbol->type_information->type->from_instantiation = 1;
@@ -417,8 +389,8 @@ scope_entry_t* create_holding_symbol_for_template(scope_entry_t* matched_templat
     // This should not come from instantiation
     DEBUG_CODE()
     {
-        fprintf(stderr, "The holding symbol '%s' does not come from instantiation\n",
-                instance_symbol->symbol_name);
+        fprintf(stderr, "The holding symbol '%s' %p does not come from instantiation\n",
+                instance_symbol->symbol_name, instance_symbol);
     }
     instance_symbol->type_information->type->from_instantiation = 0;
 

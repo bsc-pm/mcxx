@@ -23,11 +23,9 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Trying to unificate '");
-        print_declarator(t1, st);
-        fprintf(stderr, "' <- '");
-        print_declarator(t2, st);
-        fprintf(stderr, "'\n");
+        fprintf(stderr, "Trying to unificate '%s' <- '%s'\n",
+                print_declarator(t1, st),
+                print_declarator(t2, st));
     }
 
     // Normalize types
@@ -115,11 +113,9 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
                 // They're not equivalent, thus not unificable
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "Previous unification type '");
-                    print_declarator(previous_unif, st);
-                    fprintf(stderr, "' does not match the current one '");
-                    print_declarator(t2, st);
-                    fprintf(stderr, "'\n");
+                    fprintf(stderr, "Previous unification type '%s' does not match the current one '%s'\n",
+                            print_declarator(previous_unif, st),
+                            print_declarator(t2, st));
                 }
                 return 0;
             }

@@ -22,10 +22,10 @@ static scope_t* new_scope(void)
     return sc;
 }
 
-static char is_not_incomplete(scope_entry_t* entry)
-{
-    return (entry->type_information->type->incomplete == 0);
-}
+// static char is_not_incomplete(scope_entry_t* entry)
+// {
+//     return (entry->type_information->type->incomplete == 0);
+// }
 
 // Creates a new namespace scope, a new global scope is created by just
 // passing a NULL enclosing namespace
@@ -382,8 +382,12 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                                 }
                                 scope_entry_list_t* candidates = query_in_symbols_of_scope(entry->scope, entry->symbol_name);
 
+                                DEBUG_CODE()
+                                {
+                                    fprintf(stderr, "Filtering entry %p from candidate list\n", entry);
+                                }
                                 candidates = filter_entry_from_list(candidates, entry);
-                                candidates = filter_symbol_using_predicate(candidates, is_not_incomplete);
+                                // candidates = filter_symbol_using_predicate(candidates, is_not_incomplete);
 
                                 template_argument_list_t* current_template_arguments = 
                                     entry->type_information->type->template_arguments;
@@ -912,6 +916,10 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
                 fprintf(stderr, "-> Instantiating something that was declared before but not instantiated\n");
             }
 
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Filtering matched entry %p from entry list\n", matched_entry);
+            }
             scope_entry_list_t* fixed_entry_list = filter_entry_from_list(entry_list, matched_entry);
             matched_template = solve_template(fixed_entry_list,
                     current_template_arguments, sc, 0, decl_context);
@@ -927,7 +935,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "-> Just returning the matching template %p\n", matched_entry);
+                fprintf(stderr, "-> Just returning the exact matching template %p\n", matched_entry);
             }
             return create_list_from_entry(matched_entry);
         }
@@ -949,7 +957,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
             fprintf(stderr, "-> Solving the template without exact match\n");
         }
         
-        entry_list = filter_symbol_using_predicate(entry_list, is_not_incomplete);
+        // entry_list = filter_symbol_using_predicate(entry_list, is_not_incomplete);
 
         matched_template = solve_template(entry_list, current_template_arguments, sc, /* exact= */ 0,
                 decl_context);
@@ -974,13 +982,13 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
                         unif_item->parameter_num, unif_item->parameter_nesting, unif_item->parameter_name);
                 if (unif_item->value != NULL)
                 {
-                    fprintf(stderr, "[type] ");
-                    print_declarator(unif_item->value, sc);
+                    fprintf(stderr, "[type] %s", 
+                            print_declarator(unif_item->value, sc));
                 }
                 else if (unif_item->expression != NULL)
                 {
-                    fprintf(stderr, "[expr] ");
-                    prettyprint(stderr, unif_item->expression);
+                    fprintf(stderr, "[expr] %s", 
+                            prettyprint_in_buffer(unif_item->expression));
                 }
                 else
                 {
@@ -1006,15 +1014,31 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
     else
     {
         // We won't instantiate the template
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "-> Since we are not instantiating, creating the holding symbol\n");
-        }
-        scope_entry_t* holding_symbol = create_holding_symbol_for_template(entry_list->entry,
-                current_template_arguments,
-                sc, ASTLine(template_id));
+        matched_template = solve_template(entry_list, current_template_arguments, sc, /* exact= */ 0,
+                decl_context);
 
-        return create_list_from_entry(holding_symbol);
+        if (matched_template == NULL 
+                || BITMAP_TEST(lookup_flags, LF_ALWAYS_CREATE_SPECIALIZATION))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "-> Since we are not instantiating, creating the holding symbol\n");
+            }
+            scope_entry_t* holding_symbol = create_holding_symbol_for_template(entry_list->entry,
+                    current_template_arguments,
+                    sc, ASTLine(template_id));
+            return create_list_from_entry(holding_symbol);
+
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "-> An existing specialization found %p (line %d), returning this one\n",
+                        matched_template, matched_template->entry->line);
+            }
+            return create_list_from_entry(matched_template->entry);
+        }
     }
 }
 

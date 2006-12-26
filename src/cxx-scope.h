@@ -281,8 +281,6 @@ typedef struct simple_type_tag {
 	// The specialized template has already been instantiated
     char from_instantiation; 
     
-    // Incomplete type
-    char incomplete;
 } simple_type_t;
 
 typedef struct parameter_info_tag

@@ -1046,8 +1046,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
             new_class->type_information->type->class_info = calloc(1, 
                     sizeof(*(new_class->type_information->type->class_info)));
 
-            new_class->type_information->type->incomplete = 1;
-
             type_info->type->kind = STK_USER_DEFINED;
             type_info->type->user_defined_type = new_class;
 
@@ -1593,6 +1591,7 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
         }
 
         // Create a convenience simple type specifier
+#if 0
         AST simple_type_specifier = 
             ASTMake3(AST_SIMPLE_TYPE_SPECIFIER, 
                     duplicate_ast(global_op), 
@@ -1606,12 +1605,9 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
         type_t* type_info = NULL;
         gather_decl_spec_t gather_info;
         memset(&gather_info, 0, sizeof(gather_info));
-    
+
         build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &type_info, decl_context);
 
-        // scope_entry_list_t* result_list = query_nested_name_flags(st, global_op, nested_name_specifier, name, 
-        //         FULL_UNQUALIFIED_LOOKUP, LF_INSTANTIATE);
-        //
         
         // Replace the fixed nodes
         if (global_op != NULL)
@@ -1660,7 +1656,8 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
             continue;
         }
 
-#if 0
+
+#endif
         enum cxx_symbol_kind filter[7] =
         {
             SK_CLASS,
@@ -1671,16 +1668,21 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
             SK_TYPEDEF, 
             SK_DEPENDENT_ENTITY
         };
-#endif
 
-        scope_entry_list_t* result_list = create_list_from_entry(type_info->type->user_defined_type);
+        scope_entry_list_t* result_list = query_nested_name_flags(st, global_op, nested_name_specifier, name, 
+                FULL_UNQUALIFIED_LOOKUP, LF_INSTANTIATE, decl_context);
+        result_list = filter_symbol_kind_set(result_list, 7, filter);
 
-        ERROR_CONDITION((result_list == NULL), "Base class not found!\n", 0);
+        ERROR_CONDITION((result_list == NULL), "Base class '%s' not found!\n", prettyprint_in_buffer(base_specifier));
         scope_entry_t* result = result_list->entry;
         result = give_real_entry(result);
 
         if (!is_dependent_type(result->type_information, decl_context))
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Base class '%s' IS NOT a dependent type\n", prettyprint_in_buffer(base_specifier));
+            }
             if (result->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
             {
                 if (!result->type_information->type->from_instantiation)
@@ -1717,6 +1719,13 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
                 base_scope->contained_in = NULL;
 
                 P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, base_scope);
+            }
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Base class '%s' found IS a dependent type\n", prettyprint_in_buffer(base_specifier));
             }
         }
 
@@ -1840,7 +1849,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 // Get its simple type info and adjust its scope
                 simple_type_info->type = class_entry->type_information->type;
                 simple_type_info->type->class_info->inner_scope = inner_scope;
-                simple_type_info->type->incomplete = 0;
             }
             else if (class_entry_list == NULL
                     && class_head_nested_name == NULL)
@@ -1909,7 +1917,9 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 else // Otherwise first mix them
                 {
                     ERROR_CONDITION((class_entry->num_template_parameters != decl_context.num_template_parameters), 
-							"The number of template parameters declared here does not match with a previous declaration\n", 0);
+							"The number of template parameters declared here (%s) does not match with a previous " 
+                            "declaration (line=%d)\n", 
+                            node_information(a), class_entry->line);
 
                     int i;
                     for (i = 0; i < decl_context.num_template_parameters; i++)
@@ -2306,15 +2316,14 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "declaring '");
-            prettyprint(stderr, declarator_name);
-            fprintf(stderr, "' as ");
+            fprintf(stderr, "declaring '%s' as ",
+                    prettyprint_in_buffer(declarator_name));
         }
     }
 
     DEBUG_CODE()
     {
-        print_declarator(*declarator_type, st); fprintf(stderr, "\n");
+        fprintf(stderr, "%s\n", print_declarator(*declarator_type, st));
     }
 
     return entry;
@@ -3334,7 +3343,7 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "### Num template parameters in scope %d\n",
+        fprintf(stderr, "### Num template parameters in scope: %d\n",
                 new_decl_context.num_template_parameters_in_scope);
     }
 
@@ -5227,11 +5236,14 @@ static void update_template_parameter_types(type_t** update_type,
                         {
                             DEBUG_CODE()
                             {
-                                fprintf(stderr, "Before template argument type update %d (%p) : ", i,
-                                        new_template_arguments->argument_list[i]->type);
-                                print_declarator(new_template_arguments->argument_list[i]->type, entry->scope);
-                                fprintf(stderr, "\n");
+                                fprintf(stderr, "Before template argument type update %d (%p) : %s\n", i,
+                                        new_template_arguments->argument_list[i]->type,
+                                        print_declarator(new_template_arguments->argument_list[i]->type, entry->scope));
                             }
+                            
+                            // update_template_parameter_types(
+                            //         &(new_template_arguments->argument_list[i]->type),
+                            //         new_template_arguments, decl_context);
 
                             update_template_parameter_types(
                                     &(new_template_arguments->argument_list[i]->type),
@@ -5239,10 +5251,9 @@ static void update_template_parameter_types(type_t** update_type,
 
                             DEBUG_CODE()
                             {
-                                fprintf(stderr, "After template argument type update %d (%p) : ", i,
-                                        new_template_arguments->argument_list[i]->type);
-                                print_declarator(new_template_arguments->argument_list[i]->type, entry->scope);
-                                fprintf(stderr, "\n");
+                                fprintf(stderr, "After template argument type update %d (%p) : %s\n", i,
+                                        new_template_arguments->argument_list[i]->type,
+                                        print_declarator(new_template_arguments->argument_list[i]->type, entry->scope));
                             }
                         }
 
@@ -5479,12 +5490,8 @@ void build_scope_template_arguments(AST class_head_id,
         // We have to complete with default arguments
         DEBUG_CODE()
         {
-            fprintf(stderr, "Completing template arguments with default arguments\n");
-        }
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "Completing the types\n");
+            fprintf(stderr, "Completing template arguments of '%s' with default arguments\n",
+                   prettyprint_in_buffer(class_head_id));
         }
 
         int k;
@@ -5492,6 +5499,11 @@ void build_scope_template_arguments(AST class_head_id,
                 k < (primary_template->num_template_parameters);
                 k++)
         {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Completing template argument #%d of '%s' with default arguments\n",
+                        k, prettyprint_in_buffer(class_head_id));
+            }
             template_parameter_t* curr_template_parameter = primary_template->template_parameter_info[k];
 
             template_argument_t* curr_template_arg = calloc(1, sizeof(*curr_template_arg));
@@ -5522,9 +5534,8 @@ void build_scope_template_arguments(AST class_head_id,
 
                             DEBUG_CODE()
                             {
-                                fprintf(stderr, "Before template template update: ");
-                                print_declarator(curr_template_arg->type, curr_template_arg->scope);
-                                fprintf(stderr, "\n");
+                                fprintf(stderr, "Before template template type update: %s\n",
+                                        print_declarator(curr_template_arg->type, curr_template_arg->scope));
                             }
                             if ((curr_template_arg->type->kind == TK_DIRECT)
                                     && (curr_template_arg->type->type->kind == STK_USER_DEFINED)
@@ -5537,9 +5548,8 @@ void build_scope_template_arguments(AST class_head_id,
                             }
                             DEBUG_CODE()
                             {
-                                fprintf(stderr, "After template type update: ");
-                                print_declarator(curr_template_arg->type, curr_template_arg->scope);
-                                fprintf(stderr, "\n");
+                                fprintf(stderr, "After template template type update: %s\n", 
+                                        print_declarator(curr_template_arg->type, curr_template_arg->scope));
                             }
 
                             break;
@@ -5559,18 +5569,16 @@ void build_scope_template_arguments(AST class_head_id,
 
                             DEBUG_CODE()
                             {
-                                fprintf(stderr, "Before template type update: ");
-                                print_declarator(curr_template_arg->type, curr_template_arg->scope);
-                                fprintf(stderr, "\n");
+                                fprintf(stderr, "Before template type update: %s\n",
+                                print_declarator(curr_template_arg->type, curr_template_arg->scope));
                             }
                             update_template_parameter_types(&(curr_template_arg->type),
                                     (*template_arguments), decl_context);
 
                             DEBUG_CODE()
                             {
-                                fprintf(stderr, "After template type update: ");
-                                print_declarator(curr_template_arg->type, curr_template_arg->scope);
-                                fprintf(stderr, "\n");
+                                fprintf(stderr, "After template type update: %s\n",
+                                print_declarator(curr_template_arg->type, curr_template_arg->scope));
                             }
 
                             break;
@@ -5657,6 +5665,9 @@ void build_scope_template_arguments(AST class_head_id,
                 // Was given implicitly
                 curr_template_arg->implicit = 1;
 
+                fprintf(stderr, "Adding '%s' as a template argument of '%s'\n", 
+                        prettyprint_in_buffer(curr_template_arg->argument_tree),
+                        prettyprint_in_buffer(class_head_id));
                 // Finally add to the template argument list
                 P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, curr_template_arg);
             }

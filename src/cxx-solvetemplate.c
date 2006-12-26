@@ -345,13 +345,11 @@ static char match_one_template(template_argument_list_t* arguments,
                     unif_item->parameter_num, unif_item->parameter_nesting, unif_item->parameter_name);
             if (unif_item->value != NULL)
             {
-                fprintf(stderr, "[type] ");
-                print_declarator(unif_item->value, st);
+                fprintf(stderr, "[type] %s", print_declarator(unif_item->value, st));
             }
             else if (unif_item->expression != NULL)
             {
-                fprintf(stderr, "[expr] ");
-                prettyprint(stderr, unif_item->expression);
+                fprintf(stderr, "[expr] %s", prettyprint_in_buffer(unif_item->expression));
             }
             else
             {

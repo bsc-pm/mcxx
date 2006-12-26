@@ -41,13 +41,13 @@ char equivalent_simple_types(simple_type_t *t1, simple_type_t *t2, scope_t* st,
 cv_qualifier_t* get_outermost_cv_qualifier(type_t* t);
 
 // Query functions
-const char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st);
+char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st);
 type_t* base_type(type_t* t);
 
 type_t* advance_over_typedefs(type_t* t);
 
 // Debug purpose functions
-void print_declarator(type_t* printed_declarator, scope_t* st);
+char* print_declarator(type_t* printed_declarator, scope_t* st);
 
 // Query functions
 char is_fundamental_type(type_t* t);
