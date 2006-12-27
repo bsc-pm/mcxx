@@ -1017,8 +1017,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         matched_template = solve_template(entry_list, current_template_arguments, sc, /* exact= */ 0,
                 decl_context);
 
-        if (matched_template == NULL 
-                || BITMAP_TEST(lookup_flags, LF_ALWAYS_CREATE_SPECIALIZATION))
+        if (!seen_dependent_args
+                 || BITMAP_TEST(lookup_flags, LF_ALWAYS_CREATE_SPECIALIZATION))
         {
             DEBUG_CODE()
             {

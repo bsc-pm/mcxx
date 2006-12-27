@@ -10,7 +10,4 @@ struct M
 	typedef V<int> F;
 };
 
-void f()
-{
-	M<int>::F k;
-}
+M<int>::F k;

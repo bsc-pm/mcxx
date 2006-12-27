@@ -136,7 +136,7 @@ typedef struct template_parameter
 
     struct type_tag* type_info;
 
-    struct type_tag* default_type;
+    // struct type_tag* default_type;
 
     AST default_tree;
     struct scope_tag* default_argument_scope;

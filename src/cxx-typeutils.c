@@ -2101,8 +2101,10 @@ char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
                         snprintf(user_defined_str, MAX_LENGTH, "class %s", user_defined_type->symbol_name);
                         break;
                     case SK_TYPEDEF :
-                        snprintf(user_defined_str, MAX_LENGTH, "typedef %s (aliased type: %s)", user_defined_type->symbol_name,
-                                print_declarator(user_defined_type->type_information->type->aliased_type, st));
+                        snprintf(user_defined_str, MAX_LENGTH, "%s", 
+                                print_declarator(advance_over_typedefs(user_defined_type->type_information), st));
+                        // snprintf(user_defined_str, MAX_LENGTH, "typedef %s (aliased type: %s)", user_defined_type->symbol_name,
+                        //         print_declarator(advance_over_typedefs(user_defined_type->type_information), st));
                         break;
                     case SK_TEMPLATE_TYPE_PARAMETER :
                         snprintf(user_defined_str, MAX_LENGTH, "type template parameter %s #%d nesting=%d", 
@@ -2175,11 +2177,14 @@ char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
         case STK_TEMPLATE_DEPENDENT_TYPE :
             result = strappend(result, "template dependent type");
             break;
+        case STK_TYPEDEF :
+            result = strappend(result, print_declarator(advance_over_typedefs(simple_type_info->aliased_type), st));
+            break;
         default :
             {
                 char c[50];
                 snprintf(c, 49, "(unknown simple type = %d)", simple_type_info->kind);
-                result = strappend(result, ")");
+                result = strappend(result, c);
                 break;
             }
     }

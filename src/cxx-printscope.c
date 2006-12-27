@@ -220,6 +220,18 @@ static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_inde
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Template: %p\n", entry);
     }
 
+    if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+    {
+        if (entry->type_information->type->from_instantiation)
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "Specialization instantiated\n");
+        }
+        else
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "Specialization created but not instantiated\n");
+        }
+    }
+
     if (entry->kind == SK_NAMESPACE
             || entry->kind == SK_CLASS
             || entry->kind == SK_TEMPLATE_PRIMARY_CLASS
