@@ -2726,12 +2726,12 @@ static void omp_generic_construct_handler(FILE* f, AST a, int level)
 static void omp_custom_clause_handler(FILE* f, AST a, int level)
 {
 	token_fprintf(f, a, "%s", ASTText(a));
-	token_fprintf(f, a, "(");
 	if (ASTSon0(a) != NULL)
 	{
+		token_fprintf(f, a, "(");
 		list_handler(f, ASTSon0(a), level);
+		token_fprintf(f, a, ")");
 	}
-	token_fprintf(f, a, ")");
 }
 
 static void omp_custom_parameter_clause_handler(FILE* f, AST a, int level)

@@ -259,13 +259,14 @@ namespace TL
                 Source task_queueing;
                 Source size_params;
                 Source task_parameters;
+				Source task_parameter_list;
 
 				// FIXME - This is for IA32 only
                 for (ObjectList<IdExpression>::iterator it = captureaddress_references.begin();
                         it != captureaddress_references.end();
                         it++)
                 {
-                    task_parameters << ", &" << it->prettyprint();
+                    task_parameter_list.append_with_separator("&" + it->prettyprint(), ",");
 
                     size_params << "num_params += "
                         << "((sizeof(&" << it->prettyprint() << ") % 4) == 0) "
@@ -278,7 +279,7 @@ namespace TL
                         it != capturevalue_references.end();
                         it++)
                 {
-                    task_parameters << ", " << it->prettyprint();
+                    task_parameter_list.append_with_separator(it->prettyprint(), ",");
 
                     size_params << "num_params += "
                         << "((sizeof(" << it->prettyprint() << ") % 4) == 0) "
@@ -287,23 +288,43 @@ namespace TL
                         ;
                 }
 
+				if (!task_parameter_list.empty())
+				{
+					task_parameters << ", " << task_parameter_list;
+				}
+
 				size_params 
 					<< "num_params /= 4;";
+
+				Source threadswitch;
+
+				if (directive.custom_clause("switch").is_defined())
+				{
+					threadswitch << "1";
+				}
+				else
+				{
+					threadswitch << "0";
+				}
 
                 task_queueing
                     << "{"
                     <<    "nth_desc * nth;"
                     <<    "int arg;"
-                    <<    "nth_argdesc_t mask;"
+                    <<    "int set_threadswitch;"
                     <<    "int num_params;"
 //                    <<    "extern struct nth_desc *nthf_create_task_(void (*)(), unsigned long long*, int*, ...);"
 
-                    <<    "mask = (nth_argdesc_t)(~0);" 
+                    <<    "set_threadswitch = " << threadswitch << ";" 
                     <<    "num_params = 0;"
                     <<     size_params
 
                     <<    "nth = nthf_create_task_((void (*)())(" << outlined_function_name << "), "
-                    <<             "&mask, &num_params " << task_parameters << ");"
+                    <<             "&set_threadswitch, &num_params " << task_parameters << ");"
+					<<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
+					<<    "{"
+					<<       outlined_function_name << "(" << task_parameter_list << ");"
+					<<    "}"
                     << "}"
                 ;
 
@@ -316,11 +337,13 @@ namespace TL
             void taskwait_postorder(OpenMP::CustomConstruct taskwait_construct)
             {
                 Source taskwait_source;
+                Statement taskwait_body = taskwait_construct.body();
 
                 taskwait_source
                     << "{"
 //                    <<    "extern void nthf_task_block_(void);"
                     <<    "nthf_task_block_();"
+					<<    taskwait_body.prettyprint()
                     << "}"
                     ;
 

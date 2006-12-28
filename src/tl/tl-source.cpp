@@ -327,6 +327,11 @@ namespace TL
         return (*this);
 	}
 
+	bool Source::empty() const
+	{
+		return all_blanks();
+	}
+
     bool Source::all_blanks() const
     {
 		if ((*_chunk_list).empty())

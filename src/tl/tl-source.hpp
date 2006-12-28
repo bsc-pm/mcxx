@@ -119,6 +119,8 @@ namespace TL
             AST_t parse_declaration(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
 			AST_t parse_member(TL::Scope ctx, TL::ScopeLink scope_link, Type class_type);
 
+			bool empty() const;
+
 			bool operator==(const Source& src) const;
 			bool operator!=(const Source& src) const;
 			bool operator<(const Source& src) const;

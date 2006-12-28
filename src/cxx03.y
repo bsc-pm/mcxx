@@ -4614,6 +4614,10 @@ custom_clause : OMP_CUSTOM_CLAUSE '(' expression_list ')'
 {
 	$$ = ASTMake1(AST_OMP_CUSTOM_CLAUSE, NULL, $1.token_line, $1.token_text);
 }
+| OMP_CUSTOM_CLAUSE
+{
+	$$ = ASTMake1(AST_OMP_CUSTOM_CLAUSE, NULL, $1.token_line, $1.token_text);
+}
 ;
 
 structured_block : statement
