@@ -52,7 +52,7 @@ else
   AC_MSG_CHECKING([flex version])
   flex_ver=`flex --version | head -n 1 | sed -e 's/@<:@^0-9@:>@*\(@<:@0-9@:>@*@<:@0-9.@:>@*\).*$/\1/'`
   case x${flex_ver} in
-    x2.5.4 | x2.5.33)
+    x2.5.4 | x2.5.3[13])
 	   AC_MSG_RESULT([${flex_ver}, ok])
 	   flex_good=yes
 	   ;;
