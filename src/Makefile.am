@@ -129,7 +129,6 @@ mcxx_LDFLAGS = \
 
 mcxx_LDADD = \
    -ldl \
-   -lstdc++ \
    tl/libtl.la \
    ./libmcxx.la \
    ./libmcxxtl.la \
