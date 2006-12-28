@@ -497,7 +497,8 @@ namespace TL
     {
         if (ASTType(ast._ast) != AST_NODE_LIST)
         {
-			std::cerr << "The replacement tree is not a list" << std::endl;
+			std::cerr << "The replacement tree is not a list. No replacement performed" << std::endl;
+			return;
         }
 
         AST list = this->_ast;
@@ -515,8 +516,16 @@ namespace TL
             return;
         }
 
+		AST previous = ASTSon0(list);
+
         AST_t replaced(list);
         replaced.replace_with(ast);
+
+		ASTSon0(list) = previous;
+		if (previous != NULL)
+		{
+			ASTParent(previous) = list;
+		}
     }
 
 	void AST_t::prepend_sibling_function(AST_t t)
