@@ -136,6 +136,9 @@ namespace TL
 
 			void replace_text(const std::string& str);
 
+			int get_line() const;
+			std::string get_file() const;
+			std::string get_locus() const;
 
 			friend class Type;
             friend class Scope;

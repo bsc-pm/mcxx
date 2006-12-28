@@ -78,6 +78,9 @@ namespace TL
 
                 // #pragma omp single
                 on_single_post.connect(&OpenMPTransform::single_postorder, *this);
+				
+                // #pragma omp single
+                on_parallel_single_post.connect(&OpenMPTransform::parallel_single_postorder, *this);
                 
                 // #pragma omp critical
                 on_critical_post.connect(&OpenMPTransform::critical_postorder, *this);
@@ -517,6 +520,112 @@ namespace TL
 
                 flush_directive.get_ast().replace_with(flush_tree);
             }
+
+            void parallel_single_preorder(OpenMP::ParallelSingleConstruct parallel_single_construct)
+            {
+                // Increase the parallel nesting value
+                parallel_nesting++;
+            }
+
+            void parallel_single_postorder(OpenMP::ParallelSingleConstruct parallel_single_construct)
+            {
+                // One more parallel seen
+                num_parallels++;
+
+                // Decrease the parallel nesting
+                parallel_nesting--;
+                
+                // Get the directive
+                OpenMP::Directive directive = parallel_single_construct.directive();
+                
+                // Get the enclosing function definition
+                FunctionDefinition function_definition = parallel_single_construct.get_enclosing_function();
+                // its scope
+                Scope function_scope = function_definition.get_scope();
+                // and the id-expression of the function name
+                IdExpression function_name = function_definition.get_function_name();
+
+                // They will hold the entities as they appear in the clauses
+                ObjectList<IdExpression> shared_references;
+                ObjectList<IdExpression> private_references;
+                ObjectList<IdExpression> firstprivate_references;
+                ObjectList<IdExpression> lastprivate_references;
+                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                
+                // Get the construct_body of the statement
+                Statement construct_body = parallel_single_construct.body();
+
+                // Get the data attributes for every entity
+                get_data_attributes(function_scope,
+                        directive,
+                        construct_body,
+                        shared_references,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references);
+
+                // This list will hold everything that must be passed by pointer
+                ObjectList<IdExpression> pass_by_pointer;
+                // This list will hold everything that has been privatized
+                ObjectList<IdExpression> privatized_entities;
+                // Create the replacement map and fill the privatized
+                // entities and pass by pointer lists.
+                ReplaceIdExpression replace_references = 
+                    set_replacements(function_scope,
+                            directive,
+                            construct_body,
+                            shared_references,
+                            private_references,
+                            firstprivate_references,
+                            lastprivate_references,
+                            reduction_references,
+                            pass_by_pointer,
+                            privatized_entities);
+
+                // Get the outline function name
+                Source outlined_function_name = get_outlined_function_name(function_name);
+
+                // Create the outline for parallel for using 
+                // the privatized entities and pass by pointer
+                // lists.
+                // Additionally {first|last}private and reduction
+                // entities are needed for proper initializations
+                // and assignments.
+                AST_t outline_code = get_outline_parallel_single(
+                        function_definition,
+                        outlined_function_name, 
+                        construct_body,
+                        replace_references,
+                        pass_by_pointer,
+                        privatized_entities,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references);
+
+                // In the AST of the function definition, prepend outline_code
+                // as a sibling (at the same level)
+                function_definition.get_ast().prepend_sibling_function(outline_code);
+
+                // Now create the spawning code. Pass by pointer list and
+                // reductions are needed for proper pass of data and reduction
+                // vectors declaration
+                
+                OpenMP::Clause num_threads = directive.num_threads_clause();
+                OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+                
+                AST_t spawn_code = get_parallel_spawn_code(parallel_single_construct.get_scope(),
+                        parallel_single_construct.get_scope_link(),
+                        outlined_function_name,
+                        pass_by_pointer,
+                        reduction_references,
+                        num_threads,
+                        groups_clause
+                        );
+
+                // Now replace the whole construct with spawn_code
+                parallel_single_construct.get_ast().replace_with(spawn_code);
+			}
 
             void single_postorder(OpenMP::SingleConstruct single_construct)
             {
@@ -1772,6 +1881,90 @@ namespace TL
 
                 return result;
             }
+
+            AST_t get_outline_parallel_single(
+                    FunctionDefinition function_definition,
+                    Source outlined_function_name,
+                    Statement construct_body,
+                    ReplaceIdExpression replace_references,
+                    ObjectList<IdExpression> pass_by_pointer,
+                    ObjectList<IdExpression> privatized_entities,
+                    ObjectList<IdExpression> firstprivate_references,
+                    ObjectList<IdExpression> lastprivate_references,
+                    ObjectList<OpenMP::ReductionIdExpression> reduction_references
+                    )
+            {
+                ObjectList<IdExpression> pass_by_value;
+
+                Source outline_parallel;
+                Source parallel_body;
+                Source empty;
+
+                outline_parallel = get_outline_common(
+                        parallel_body, // The body of the outline
+                        outlined_function_name,
+                        pass_by_pointer,
+                        pass_by_value,
+                        reduction_references);
+                
+                // Replace references using set "replace_references" over construct body
+                Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
+
+                Source private_declarations = get_privatized_declarations(privatized_entities, pass_by_pointer, 
+                        firstprivate_references, reduction_references);
+
+                Source reduction_update = get_reduction_update(reduction_references);
+
+				Source single_source;
+
+                single_source
+                    << "{"
+                    <<   "int nth_low;"
+                    <<   "int nth_upper;"
+                    <<   "int nth_step;"
+                    <<   "int nth_chunk;"
+                    <<   "int nth_schedule;"
+                    <<   "int nth_dummy1;"
+                    <<   "int nth_dummy2;"
+                    <<   "int nth_dummy3;"
+                    <<   "int nth_barrier; "
+
+                    <<   "nth_low = 0;"
+                    <<   "nth_upper = 0;"
+                    <<   "nth_step = 1;"
+                    <<   "nth_schedule = 1;"
+                    <<   "nth_chunk = 1;"
+
+//                    <<   "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
+//                    <<   "extern int in__tone_next_iters_(int*, int*, int*);"
+//                    <<   "extern void in__tone_end_for_(int*);"
+
+                    <<   "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
+                    <<   "while (in__tone_next_iters_ (&nth_dummy1, &nth_dummy2, &nth_dummy3) != 0)"
+                    <<   "{"
+                    <<       modified_parallel_body_stmt.prettyprint()
+                    <<   "}"
+                    << "}"
+                    ;
+                
+                parallel_body 
+                    << private_declarations
+                    << single_source
+                    << "nthf_task_block_();"
+                    ;
+
+                // std::cerr << "CODI OUTLINE" << std::endl;
+                // std::cerr << outline_parallel.get_source(true) << std::endl;
+                // std::cerr << "End CODI OUTLINE" << std::endl;
+
+                AST_t result;
+
+                result = outline_parallel.parse_global(function_definition.get_scope(), 
+                         function_definition.get_scope_link());
+
+                return result;
+            }
+
 
             // Create outline for parallel for
             AST_t get_outline_parallel_for(

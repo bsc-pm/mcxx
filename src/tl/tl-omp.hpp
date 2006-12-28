@@ -204,6 +204,15 @@ namespace TL
 				}
 		};
 
+		class ParallelSingleConstruct : public Construct
+		{
+			public:
+				ParallelSingleConstruct(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
 		class SingleConstruct : public Construct
 		{
 			public:
@@ -335,6 +344,7 @@ namespace TL
 				typedef OpenMPConstructFunctor<BarrierDirective> BarrierFunctor;
 				typedef OpenMPConstructFunctor<CriticalConstruct> CriticalFunctor;
 				typedef OpenMPConstructFunctor<AtomicConstruct> AtomicFunctor;
+				typedef OpenMPConstructFunctor<ParallelSingleConstruct> ParallelSingleFunctor;
 				typedef OpenMPConstructFunctor<SingleConstruct> SingleFunctor;
 				typedef OpenMPConstructFunctor<FlushDirective> FlushFunctor;
 				typedef OpenMPConstructFunctor<ParallelSectionsConstruct> ParallelSectionsFunctor;
@@ -372,6 +382,9 @@ namespace TL
 
 				Signal1<ParallelSectionsConstruct> on_parallel_sections_pre;
 				Signal1<ParallelSectionsConstruct> on_parallel_sections_post;
+
+				Signal1<ParallelSingleConstruct> on_parallel_single_pre;
+				Signal1<ParallelSingleConstruct> on_parallel_single_post;
 
 				Signal1<SectionsConstruct> on_sections_pre;
 				Signal1<SectionsConstruct> on_sections_post;

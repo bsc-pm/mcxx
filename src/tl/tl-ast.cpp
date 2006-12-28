@@ -3,6 +3,7 @@
 #include "tl-scopelink.hpp"
 #include "tl-predicate.hpp"
 #include "cxx-ast.h"
+#include <sstream>
 
 namespace TL
 {
@@ -538,4 +539,36 @@ namespace TL
 		ASTText(this->_ast) = strdup(str.c_str());
 	}
 
+	int AST_t::get_line() const
+	{
+		if (this->_ast == NULL)
+		{
+			return 0;
+		}
+		else
+		{
+			return ASTLine(this->_ast);
+		}
+	}
+
+	std::string AST_t::get_file() const
+	{
+		if (this->_ast == NULL)
+		{
+			return "(invalid node)";
+		}
+		else
+		{
+			return this->_ast->filename;
+		}
+	}
+
+	std::string AST_t::get_locus() const
+	{
+		std::stringstream ss;
+		
+		ss << this->get_file() << ":" << this->get_line();
+
+		return ss.str();
+	}
 }

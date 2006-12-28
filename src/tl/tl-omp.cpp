@@ -78,6 +78,10 @@ namespace TL
 
 				functor.signal(custom_construct);
 			}
+			else
+			{
+				std::cerr << "Custom construct '" << directive_name << "' in " << node.get_locus() << " is not currently handled" << std::endl;
+			}
 		}
 
 		void CustomConstructFunctor::preorder(Context ctx, AST_t node)
@@ -148,6 +152,11 @@ namespace TL
 			PredicateBool<OMP_IS_CRITICAL_CONSTRUCT> critical_construct;
 			CriticalFunctor critical_functor(on_critical_pre, on_critical_post);
 			depth_traverse.add_predicate(critical_construct, critical_functor);
+			
+			// #pragma omp parallel single
+			PredicateBool<OMP_IS_PARALLEL_SINGLE_CONSTRUCT> parallel_single_construct;
+			ParallelSingleFunctor parallel_single_functor(on_parallel_single_pre, on_parallel_single_post);
+			depth_traverse.add_predicate(parallel_single_construct, parallel_single_functor);
 
 			// #pragma omp single
 			PredicateBool<OMP_IS_SINGLE_CONSTRUCT> single_construct;

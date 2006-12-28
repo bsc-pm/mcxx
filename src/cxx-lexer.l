@@ -178,6 +178,11 @@ parallel[ ]+sections {
 	return OMP_PARALLEL_SECTIONS;
 }
 
+parallel[ ]+single {
+	BEGIN(openmp_clause);
+	return OMP_PARALLEL_SINGLE;
+}
+
 single {
 	BEGIN(openmp_clause);
 	return OMP_SINGLE;
