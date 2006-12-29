@@ -162,10 +162,10 @@ extern int num_seen_file_names;
 extern char** seen_file_names;
 
 extern int mcxxdebug;
-extern void mcxxparse(AST* a);
+extern int mcxxparse(AST* a);
 
 extern int mc99debug;
-extern void mc99parse(AST* a);
+extern int mc99parse(AST* a);
 
 struct debug_flags_list_t** list_of_debug_flags(void);
 

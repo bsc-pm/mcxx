@@ -1410,7 +1410,7 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 int result = 0;
                 result = check_for_expression(ASTSon0(expression), st, decl_context );
 
-                // This should always yield a value unless the right hand is shit
+                // This should always yield a value unless the right hand is rubbish
                 if (result 
                         && (ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_ID
                             || ASTType(ASTSon1(expression)) == AST_DESTRUCTOR_TEMPLATE_ID))

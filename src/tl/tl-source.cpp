@@ -108,17 +108,23 @@ namespace TL
             mc99_prepare_string_for_scanning(str);
         }
 
+		int parse_result = 0;
 		AST a;
 
         CXX_LANGUAGE()
         {
-            mcxxparse(&a);
+            parse_result = mcxxparse(&a);
         }
 
         C_LANGUAGE()
         {
-            mc99parse(&a);
+            parse_result = mc99parse(&a);
         }
+
+		if (parse_result != 0)
+		{
+			running_error("Could not parse the expression '%s'", this->get_source(true).c_str());
+		}
 
 		solve_possibly_ambiguous_expression(a, ctx._st, default_decl_context);
 
@@ -141,15 +147,21 @@ namespace TL
         }
 
 		AST a;
+		int parse_result = 0;
 
         CXX_LANGUAGE()
         {
-            mcxxparse(&a);
+            parse_result = mcxxparse(&a);
         }
         C_LANGUAGE()
         {
-            mc99parse(&a);
+            parse_result = mc99parse(&a);
         }
+
+		if (parse_result != 0)
+		{
+			running_error("Could not parse the expression '%s'", this->get_source(true).c_str());
+		}
 
 		solve_possibly_ambiguous_expression(a, ctx._st, default_decl_context);
 
@@ -167,8 +179,14 @@ namespace TL
 
 		mcxx_prepare_string_for_scanning(str);
 
+		int parse_result = 0;
 		AST a;
-		mcxxparse(&a);
+		parse_result = mcxxparse(&a);
+
+		if (parse_result != 0)
+		{
+			running_error("Could not parse member declaration\n\n%s\n", this->get_source(true).c_str());
+		}
 
 		build_scope_member_specification_with_scope_link(ctx._st, a, AS_PUBLIC, 
 				class_type._type_info, default_decl_context, scope_link._scope_link);
@@ -190,16 +208,22 @@ namespace TL
             mc99_prepare_string_for_scanning(str);
         }
 
+		int parse_result = 0;
 		AST a;
 
         CXX_LANGUAGE()
         {
-            mcxxparse(&a);
+            parse_result = mcxxparse(&a);
         }
         C_LANGUAGE()
         {
-            mc99parse(&a);
+            parse_result = mc99parse(&a);
         }
+
+		if (parse_result != 0)
+		{
+			running_error("Could not parse statement\n\n%s\n", this->get_source(true).c_str());
+		}
 
 		build_scope_statement_with_scope_link(a, ctx._st, scope_link._scope_link);
 
@@ -221,16 +245,22 @@ namespace TL
             mc99_prepare_string_for_scanning(str);
         }
 
+		int parse_result = 0;
 		AST a;
 
         CXX_LANGUAGE()
         {
-            mcxxparse(&a);
+            parse_result = mcxxparse(&a);
         }
         C_LANGUAGE()
         {
-            mc99parse(&a);
+            parse_result = mc99parse(&a);
         }
+
+		if (parse_result != 0)
+		{
+			running_error("Could not parse declaration\n\n%s\n", this->get_source(true).c_str());
+		}
 
         decl_context_tag decl_context = default_decl_context;
 
@@ -259,16 +289,22 @@ namespace TL
             mc99_prepare_string_for_scanning(str);
         }
 
+		int parse_result = 0;
 		AST a;
 
         CXX_LANGUAGE()
         {
-            mcxxparse(&a);
+            parse_result = mcxxparse(&a);
         }
         C_LANGUAGE()
         {
-            mc99parse(&a);
+            parse_result = mc99parse(&a);
         }
+
+		if (parse_result != 0)
+		{
+			running_error("Could not parse code\n\n%s\n", this->get_source(true).c_str());
+		}
         
         decl_context_tag decl_context = default_decl_context;
 

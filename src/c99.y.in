@@ -2389,5 +2389,5 @@ void yyerror(AST* parsed_tree, const char* c)
 	extern char* mc99text;
 	fprintf(stderr, "%s:%d error : '%s'\n", scanning_now.current_filename, scanning_now.line_number, c);
     fprintf(stderr, "Error near token '%s'\n", mc99text);
-	exit(EXIT_FAILURE);
+	// exit(EXIT_FAILURE);
 }
