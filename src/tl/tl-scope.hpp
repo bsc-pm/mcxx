@@ -54,6 +54,8 @@ namespace TL
 				}
             }
 
+			void printscope();
+
 			ObjectList<Symbol> get_symbols_from_name(const std::string& str) const;
 
 			Symbol get_symbol_from_name(const std::string& str) const;

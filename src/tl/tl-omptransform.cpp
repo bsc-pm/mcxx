@@ -2371,6 +2371,7 @@ namespace TL
 
                 Statement loop_body = for_statement.get_loop_body();
 
+
                 IdExpression induction_var = for_statement.get_induction_variable();
                 Source induction_var_name;
                 // Induction var name is handled specially

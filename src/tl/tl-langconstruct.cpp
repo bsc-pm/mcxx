@@ -13,7 +13,10 @@ namespace TL
     ObjectList<IdExpression> Statement::non_local_symbol_occurrences(SymbolsWanted symbol_filter)
     {
         PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
-        ObjectList<AST_t> id_expressions = _ref.depth_subtrees().filter(id_expr_pred);
+		PredicateBool<LANG_IS_MEMBER_ACCESS> member_access;
+        ObjectList<AST_t> id_expressions = _ref.depth_subtrees()
+			.filter(id_expr_pred)
+			.filter(negate(member_access));
 
         Scope statement_scope = _scope_link.get_scope(_ref);
 
@@ -25,26 +28,15 @@ namespace TL
         {
             AST_t& ref = *it;
 
-			std::cerr << "Checking '" << it->prettyprint() << "'" << std::endl;
-
             Symbol symbol = statement_scope.get_symbol_from_id_expr(ref);
 
-            if (!symbol.is_valid())
-			{
-				std::cerr << "Symbol '" << it->prettyprint() << "' invalid" << std::endl;
-			}
-			else
+            if (symbol.is_valid())
             {
                 Scope ref_scope = _scope_link.get_scope(ref);
                 Symbol local_symbol = ref_scope.get_symbol_from_id_expr(ref);
 
-                if (local_symbol != symbol)
-				{
-					std::cerr << "Symbol '" << it->prettyprint() << "' local" << std::endl;
-				}
-				else
+                if (local_symbol == symbol)
                 {
-					std::cerr << "Symbol '" << it->prettyprint() << "' not local" << std::endl;
                     IdExpression id_expression(*it, _scope_link);
 
 					bool eligible = true;

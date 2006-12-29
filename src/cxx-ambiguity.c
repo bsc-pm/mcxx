@@ -1419,6 +1419,8 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 }
 
                 check_for_expression(ASTSon1(expression), st, decl_context );
+
+				ASTAttrSetValueType(ASTSon1(expression), LANG_IS_MEMBER_ACCESS, tl_type_t, tl_bool(1));
                 
                 return result;
             }

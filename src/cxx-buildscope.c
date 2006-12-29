@@ -6048,6 +6048,7 @@ static void build_scope_while_statement(AST a, scope_t* st, decl_context_t decl_
     if (ASTSon1(a) != NULL)
     {
         build_scope_statement(ASTSon1(a), block_scope, decl_context);
+		scope_link_set(compilation_options.scope_link, ASTSon1(a), copy_scope(block_scope));
     }
 
 	ASTAttrSetValueType(a, LANG_IS_WHILE_STATEMENT, tl_type_t, tl_bool(1));
@@ -6088,11 +6089,13 @@ static void build_scope_if_else_statement(AST a, scope_t* st, decl_context_t dec
 
     AST then_branch = ASTSon1(a);
     build_scope_statement(then_branch, block_scope, decl_context);
+	scope_link_set(compilation_options.scope_link, then_branch, copy_scope(block_scope));
 
     AST else_branch = ASTSon2(a);
     if (else_branch != NULL)
     {
         build_scope_statement(else_branch, block_scope, decl_context);
+		scope_link_set(compilation_options.scope_link, else_branch, copy_scope(block_scope));
     }
 
 	ASTAttrSetValueType(a, LANG_IS_IF_STATEMENT, tl_type_t, tl_bool(1));
@@ -6135,6 +6138,7 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
     }
     
     build_scope_statement(statement, block_scope, decl_context);
+	scope_link_set(compilation_options.scope_link, statement, copy_scope(block_scope));
 
 	ASTAttrSetValueType(a, LANG_IS_FOR_STATEMENT, tl_type_t, tl_bool(1));
 	ASTAttrSetValueType(a, LANG_FOR_INIT_CONSTRUCT, tl_type_t, tl_ast(for_init_statement));
@@ -6154,6 +6158,7 @@ static void build_scope_switch_statement(AST a, scope_t* st, decl_context_t decl
 	scope_link_set(compilation_options.scope_link, condition, copy_scope(block_scope));
 
     build_scope_statement(statement, block_scope, decl_context);
+	scope_link_set(compilation_options.scope_link, statement, copy_scope(block_scope));
 
 	ASTAttrSetValueType(a, LANG_IS_SWITCH_STATEMENT, tl_type_t, tl_bool(1));
 }

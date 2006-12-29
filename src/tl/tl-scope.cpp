@@ -1,7 +1,13 @@
 #include "tl-scope.hpp"
+#include "cxx-printscope.h"
 
 namespace TL
 {
+	void Scope::printscope()
+	{
+		print_scope(_st);
+	}
+
 	void Scope::convert_to_vector(scope_entry_list_t* entry_list, ObjectList<Symbol>& out)
 	{
 		while (entry_list != NULL)
