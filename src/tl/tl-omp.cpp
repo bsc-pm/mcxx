@@ -80,7 +80,14 @@ namespace TL
 			}
 			else
 			{
-				std::cerr << "Custom construct '" << directive_name << "' in " << node.get_locus() << " is not currently handled" << std::endl;
+				if (&search_map == &_custom_functor_pre)
+				{
+					if (_custom_functor_post.find(directive_name) == _custom_functor_post.end())
+					{
+						std::cerr << "Custom construct '" << directive_name << "' in " 
+							<< node.get_locus() << " is not currently handled" << std::endl;
+					}
+				}
 			}
 		}
 

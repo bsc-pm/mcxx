@@ -13,7 +13,7 @@ dnl Inicialitzem Automake
 AM_INIT_AUTOMAKE([dist-bzip2])
 
 dnl Per comprovar que hi ha el codi
-AC_CONFIG_SRCDIR(src/cxx03.y)
+AC_CONFIG_SRCDIR(src/cxx03.y.in)
 
 dnl Establim el config header
 AC_CONFIG_HEADERS([config.h])
