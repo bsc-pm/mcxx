@@ -22,12 +22,19 @@
 
 #define HELP_MESSAGE \
 "Syntax: \n" \
-"  tpp -o output_file [-D define...] input_file" \
+"  tpp -o output_file [-D define...] [-I directory...] input_file" \
 "\n"
 
-static int num_defines = 0;
+#define MAX_INCLUDE_NESTING 32
+#define MAX_INCLUDE_DIRS 32
 #define MAX_DEFINES 32
+
+static int num_include_dirs = 1;
+static char* include_dirs[MAX_INCLUDE_DIRS] = {"."};
+
+static int num_defines = 0;
 static char* defines[MAX_DEFINES];
+
 static char* input_file = NULL;
 static char* output_file = NULL;
 
@@ -41,7 +48,7 @@ static void help_message(char* error_message)
     exit(EXIT_FAILURE);
 }
 
-#define GETOPT_OPTIONS "o:D:"
+#define GETOPT_OPTIONS "o:D:I:"
 static void parse_arguments(int argc, char* argv[])
 {
     int n;
@@ -63,9 +70,9 @@ static void parse_arguments(int argc, char* argv[])
                 }
            case 'D' :
                 {
-					if (num_defines == 32)
+					if (num_defines == MAX_DEFINES)
 					{
-						fprintf(stderr, "Too much defines\n");
+						fprintf(stderr, "Too many defines\n");
 						exit(EXIT_FAILURE);
 					}
 
@@ -73,6 +80,18 @@ static void parse_arguments(int argc, char* argv[])
                     num_defines++;
                     break;
                 }
+			case 'I' :
+				{
+					if (num_include_dirs == MAX_INCLUDE_DIRS)
+					{
+						fprintf(stderr, "Too many include directories\n");
+						exit(EXIT_FAILURE);
+					}
+
+					include_dirs[num_include_dirs] = strdup(optarg);
+					num_include_dirs++;
+					break;
+				}
            default :
                 {
                     break;
@@ -188,7 +207,7 @@ static void conditional_process(char* input_filename, char* output_filename)
     int block_nesting = 0;
     char buffer[1024];
 
-	FILE* input_stack[32];
+	FILE* input_stack[MAX_INCLUDE_NESTING];
 	int top_input_stack = 0;
 	input_stack[top_input_stack] = input;
 
@@ -210,17 +229,28 @@ static void conditional_process(char* input_filename, char* output_filename)
 
 				strncpy(include_name, &(buffer[start]), length);
 
-				if (top_input_stack == 31)
+				if (top_input_stack == (MAX_INCLUDE_NESTING-1))
 				{
 					fprintf(stderr, "Too much include nesting\n");
 					exit(EXIT_FAILURE);
 				}
-				FILE* new_input = fopen(include_name, "r");
+				FILE* new_input; 
+
+				int current_include_dir = 0;
+				do 
+				{
+					char full_path[512];
+					snprintf(full_path, 511, "%s/%s", include_dirs[current_include_dir], include_name);
+					new_input = fopen(full_path, "r");
+					current_include_dir++;
+				} while ((new_input == NULL) && (current_include_dir < num_include_dirs));
+
 				if (new_input == NULL)
 				{
 					fprintf(stderr, "Could not open included file '%s': %s\n", include_name, strerror(errno));
 					exit(EXIT_FAILURE);
 				}
+
 				top_input_stack++;
 				input_stack[top_input_stack] = new_input;
 			}
@@ -249,9 +279,9 @@ static void conditional_process(char* input_filename, char* output_filename)
 				// If not found register as a new define
 				if (!found)
 				{
-					if (num_defines == 32)
+					if (num_defines == MAX_DEFINES)
 					{
-						fprintf(stderr, "Too much defines\n");
+						fprintf(stderr, "Too many defines\n");
 						exit(EXIT_FAILURE);
 					}
 					defines[num_defines] = strdup(define_name);
