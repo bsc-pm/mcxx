@@ -336,16 +336,10 @@ num_threads {
 	return OMP_NUM_THREADS;
 }
 
-{idnondigit}({idnondigit}|{digit})*/[ \t]*[(] {
-	// Special case for custom clauses with parentheses
+{idnondigit}({idnondigit}|{digit})* {
+	// Special case for custom clauses 
 	omp_var_list_parentheses = 0;
 	BEGIN(openmp_var_list);
-	parse_token_text(); 
-	return OMP_CUSTOM_CLAUSE; 
-}
-
-{idnondigit}({idnondigit}|{digit})* {
-	// Special case for custom clauses without parentheses
 	parse_token_text(); 
 	return OMP_CUSTOM_CLAUSE; 
 }
@@ -391,6 +385,20 @@ none {
 		BEGIN(openmp_clause);
 	}
 	return ')';
+}
+
+{idnondigit}({idnondigit}|{digit})* {
+	// Special case for custom clauses 
+	if (omp_var_list_parentheses == 0)
+	{
+		BEGIN(openmp_clause);
+		parse_token_text(); 
+		return OMP_CUSTOM_CLAUSE; 
+	}
+	else
+	{
+		REJECT;
+	}
 }
 
 }

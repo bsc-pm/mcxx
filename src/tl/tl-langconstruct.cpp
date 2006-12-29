@@ -419,7 +419,9 @@ namespace TL
 
         Source declared_name_str = declared_name.prettyprint();
 
-        AST_t expression_ast = declared_name_str.parse_expression(this->get_scope(), this->_scope_link);
+		Scope sc = this->_scope_link.get_scope(declared_name);
+
+        AST_t expression_ast = declared_name_str.parse_expression(sc, this->_scope_link);
 
         Expression expression(expression_ast, this->_scope_link);
 

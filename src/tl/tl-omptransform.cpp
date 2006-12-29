@@ -80,6 +80,12 @@ namespace TL
                 // #pragma omp atomic
                 on_atomic_post.connect(&OpenMPTransform::atomic_postorder, *this);
 
+				// #pragma omp ordered
+				on_ordered_post.connect(&OpenMPTransform::ordered_postorder, *this);
+
+				// #pragma omp master
+				on_master_post.connect(&OpenMPTransform::master_postorder, *this);
+
                 // #pragma omp single
                 on_single_post.connect(&OpenMPTransform::single_postorder, *this);
 				
@@ -1142,6 +1148,25 @@ namespace TL
 
                 sections_construct.get_ast().replace_with(sections_tree);
             }
+
+			void master_postorder(OpenMP::MasterConstruct master_construct)
+			{
+				Source master_source;
+
+				Statement statement = master_construct.body();
+
+				master_source
+					<< "if (in__tone_is_master_())"
+					<< "{"
+					<<    statement.prettyprint()
+					<< "}"
+					;
+
+				AST_t master_tree = master_source.parse_statement(master_construct.get_scope(),
+						master_construct.get_scope_link());
+
+				master_construct.get_ast().replace_with(master_tree);
+			}
 
 			void ordered_postorder(OpenMP::OrderedConstruct ordered_construct)
 			{

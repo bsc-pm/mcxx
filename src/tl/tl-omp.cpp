@@ -178,6 +178,11 @@ namespace TL
 			OrderedFunctor ordered_functor(on_ordered_pre, on_ordered_post);
 			depth_traverse.add_predicate(ordered_construct, ordered_functor);
 
+			// #pragma omp master
+			PredicateBool<OMP_IS_MASTER_CONSTRUCT> master_construct;
+			MasterFunctor master_functor(on_master_pre, on_master_post);
+			depth_traverse.add_predicate(master_construct, master_functor);
+
 			// #pragma omp constructs|directives
 			// (custom constructions)
 			PredicateBool<OMP_IS_CUSTOM_CONSTRUCT> custom_construct;
