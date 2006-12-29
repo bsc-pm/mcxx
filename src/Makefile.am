@@ -76,14 +76,15 @@ libmcxx_la_SOURCES = \
 
 libmcxx_la_CFLAGS=-fexceptions -I$(srcdir)/../lib -DPKGDATADIR=\"$(pkgdatadir)\" -Wall
 
-EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx-lexer.l
 EXTRA_DIST += cxx-asttype.def
 EXTRA_DIST += cxx-fileextensions.gperf
 EXTRA_DIST += cxx-configoptions.gperf
 EXTRA_DIST += cxx-debugflags.gperf
 EXTRA_DIST += cxx-attrnames.def
-EXTRA_DIST += c99.y
+EXTRA_DIST += c99.y.in
+EXTRA_DIST += cxx03.y.in
+EXTRA_DIST += cxx-omp.y
 
 # Sources (or things needed) built at some step before its real compilation
 BUILT_SOURCES += cxx-asttype.h 
@@ -117,6 +118,8 @@ CLEANFILES += c99-parser.h
 CLEANFILES += c99-scanner.c
 CLEANFILES += c99-parser.output
 CLEANFILES += c99.l
+CLEANFILES += c99.y
+CLEANFILES += cxx03.y
 
 mcxx_SOURCES = \
   cxx-driver.c \
@@ -197,8 +200,8 @@ cxx-attrnames.c : $(srcdir)/cxx-attrnames.def cxx-attrnames.h
 	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/    extensible_schema_add_field(\&ast_extensible_schema, \1, sizeof(tl_type_t));/" < $< >> cxx-attrnames.c
 	echo "}" >> cxx-attrnames.c
 
-cxx-parser.c cxx-parser.h : $(srcdir)/cxx03.y
-	bison -pmcxx --debug --defines --report=all --output=cxx-parser.c $(srcdir)/cxx03.y
+cxx-parser.c cxx-parser.h : cxx03.y
+	bison -pmcxx --debug --defines --report=all --output=cxx-parser.c cxx03.y
 
 cxx-scanner.c : cxx03.l $(srcdir)/cxx-ast.h cxx-parser.h
 	flex -Pmcxx -d -ocxx-scanner.c -8 cxx03.l
@@ -222,14 +225,20 @@ cxx-debugflags.c : cxx-debugflags.gperf cxx-driver.h cxx-utils.h
       --global-table --word-array-name=debugflags_list\
 	  $(srcdir)/cxx-debugflags.gperf
 
-c99-parser.c c99-parser.h : $(srcdir)/c99.y
-	bison -pmc99 --debug --defines --report=all --output=c99-parser.c $(srcdir)/c99.y
+c99-parser.c c99-parser.h : c99.y
+	bison -pmc99 --debug --defines --report=all --output=c99-parser.c c99.y
 
 c99-scanner.c : c99.l $(srcdir)/cxx-ast.h c99-parser.h
 	flex -Pmc99 -d -oc99-scanner.c -8 c99.l
 
 c99.l : ../lib/tpp $(srcdir)/cxx-lexer.l
 	../lib/tpp -o c99.l -D C99 $(srcdir)/cxx-lexer.l
+
+c99.y : ../lib/tpp $(srcdir)/c99.y.in $(srcdir)/cxx-omp.y
+	../lib/tpp -o c99.y -I$(srcdir) $(srcdir)/c99.y.in
+
+cxx03.y : ../lib/tpp $(srcdir)/cxx03.y.in $(srcdir)/cxx-omp.y
+	../lib/tpp -o cxx03.y -I$(srcdir) $(srcdir)/cxx03.y.in
 
 ../lib/tpp :
 	$(MAKE) -C ../lib tpp
