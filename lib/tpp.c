@@ -63,6 +63,12 @@ static void parse_arguments(int argc, char* argv[])
                 }
            case 'D' :
                 {
+					if (num_defines == 32)
+					{
+						fprintf(stderr, "Too much defines\n");
+						exit(EXIT_FAILURE);
+					}
+
                     defines[num_defines] = strdup(optarg);
                     num_defines++;
                     break;
@@ -98,6 +104,8 @@ static void conditional_process(char* input_filename, char* output_filename)
     regex_t ifnot_regex;
     regex_t endif_regex;
 	regex_t include_regex;
+	regex_t define_regex;
+	regex_t undefine_regex;
 
     if (regcomp(&if_regex, "^[[:blank:]]*/[*]!if[[:blank:]]+([^[:blank:]*]+)[[:blank:]]*[*]/[[:blank:]]*$",
             REG_EXTENDED | REG_NEWLINE) != 0)
@@ -124,6 +132,20 @@ static void conditional_process(char* input_filename, char* output_filename)
 				REG_EXTENDED | REG_NEWLINE) != 0)
 	{
 		fprintf(stderr, "Error when compiling include regular expression\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (regcomp(&define_regex, "^[[:blank:]]*/[*]!define[[:blank:]]+([^[:blank:]*]+)[[:blank:]]*[*]/[[:blank:]]*$",
+				REG_EXTENDED | REG_NEWLINE) != 0)
+	{
+		fprintf(stderr, "Error when compiling define regular expression\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if (regcomp(&undefine_regex, "^[[:blank:]]*/[*]!undefine[[:blank:]]+([^[:blank:]*]+)[[:blank:]]*[*]/[[:blank:]]*$",
+				REG_EXTENDED | REG_NEWLINE) != 0)
+	{
+		fprintf(stderr, "Error when compiling undefine regular expression\n");
 		exit(EXIT_FAILURE);
 	}
 
@@ -201,6 +223,75 @@ static void conditional_process(char* input_filename, char* output_filename)
 				}
 				top_input_stack++;
 				input_stack[top_input_stack] = new_input;
+			}
+			else if (output_enabled
+					&& (regexec(&define_regex, buffer, 2, offsets, 0) == 0))
+			{
+				char define_name[256] = { 0 };
+
+				int start = offsets[1].rm_so;
+
+				int length = offsets[1].rm_eo - offsets[1].rm_so;
+				length = (length > 255) ? 255 : length;
+
+				strncpy(define_name, &(buffer[start]), length);
+
+				int j;
+				char found = 0;;
+				for (j = 0; (j < num_defines) && !found; j++)
+				{
+					if (strcmp(defines[j], define_name) == 0)
+					{
+						found = 1;
+					}
+				}
+
+				// If not found register as a new define
+				if (!found)
+				{
+					if (num_defines == 32)
+					{
+						fprintf(stderr, "Too much defines\n");
+						exit(EXIT_FAILURE);
+					}
+					defines[num_defines] = strdup(define_name);
+					num_defines++;
+				}
+			}
+			else if (output_enabled
+					&& (regexec(&undefine_regex, buffer, 2, offsets, 0) == 0))
+			{
+				char define_name[256] = { 0 };
+
+				int start = offsets[1].rm_so;
+
+				int length = offsets[1].rm_eo - offsets[1].rm_so;
+				length = (length > 255) ? 255 : length;
+
+				strncpy(define_name, &(buffer[start]), length);
+
+				int j;
+				char found = 0;;
+				for (j = 0; (j < num_defines) && !found; j++)
+				{
+					if (strcmp(defines[j], define_name) == 0)
+					{
+						found = 1;
+						break;
+					}
+				}
+
+				// If found unregister it as a define
+				if (found)
+				{
+					free(defines[j]);
+					int k;
+					for (k = j; k < num_defines-1; k++)
+					{
+						defines[k] = defines[k+1];
+					}
+					num_defines--;
+				}
 			}
 			else if (regexec(&if_regex, buffer, 2, offsets, 0) == 0)
 			{
