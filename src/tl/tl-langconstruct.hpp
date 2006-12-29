@@ -262,7 +262,6 @@ namespace TL
 			void add_replacement(Symbol sym, std::string str);
 			void add_replacement(Symbol sym, Source src);
 
-
 			bool has_replacement(Symbol sym);
 
 			template <class T>
