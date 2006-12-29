@@ -280,6 +280,8 @@ namespace TL
 				{
 					Symbol sym = it->get_symbol();
 
+					std::cerr << "Checking symbol '" << it->prettyprint() << "'" << std::endl;
+
 					if (_repl_map.find(sym) != _repl_map.end())
 					{
 						AST_t repl_ast = _repl_map[sym];

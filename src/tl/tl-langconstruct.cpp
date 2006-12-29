@@ -25,15 +25,26 @@ namespace TL
         {
             AST_t& ref = *it;
 
+			std::cerr << "Checking '" << it->prettyprint() << "'" << std::endl;
+
             Symbol symbol = statement_scope.get_symbol_from_id_expr(ref);
 
-            if (symbol.is_valid())
+            if (!symbol.is_valid())
+			{
+				std::cerr << "Symbol '" << it->prettyprint() << "' invalid" << std::endl;
+			}
+			else
             {
                 Scope ref_scope = _scope_link.get_scope(ref);
                 Symbol local_symbol = ref_scope.get_symbol_from_id_expr(ref);
 
-                if (local_symbol == symbol)
+                if (local_symbol != symbol)
+				{
+					std::cerr << "Symbol '" << it->prettyprint() << "' local" << std::endl;
+				}
+				else
                 {
+					std::cerr << "Symbol '" << it->prettyprint() << "' not local" << std::endl;
                     IdExpression id_expression(*it, _scope_link);
 
 					bool eligible = true;
