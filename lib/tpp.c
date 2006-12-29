@@ -97,6 +97,7 @@ static void conditional_process(char* input_filename, char* output_filename)
     regex_t if_regex;
     regex_t ifnot_regex;
     regex_t endif_regex;
+	regex_t include_regex;
 
     if (regcomp(&if_regex, "^[[:blank:]]*/[*]!if[[:blank:]]+([^[:blank:]*]+)[[:blank:]]*[*]/[[:blank:]]*$",
             REG_EXTENDED | REG_NEWLINE) != 0)
@@ -118,6 +119,13 @@ static void conditional_process(char* input_filename, char* output_filename)
         fprintf(stderr, "Error when compiling endif regular expression\n");
         exit(EXIT_FAILURE);
     }
+
+	if (regcomp(&include_regex, "^[[:blank:]]*/[*]!include[[:blank:]]+([^[:blank:]*]+)[[:blank:]]*[*]/[[:blank:]]*$",
+				REG_EXTENDED | REG_NEWLINE) != 0)
+	{
+		fprintf(stderr, "Error when compiling include regular expression\n");
+		exit(EXIT_FAILURE);
+	}
 
     FILE* input = NULL;
     if (strcmp(input_filename, "-") == 0)
@@ -153,90 +161,127 @@ static void conditional_process(char* input_filename, char* output_filename)
         exit(EXIT_FAILURE);
     }
 
+
     char output_enabled = 1;
     int block_nesting = 0;
     char buffer[1024];
 
-    while (fgets(buffer, 1024, input) != NULL)
-    {
-        regmatch_t offsets[2];
+	FILE* input_stack[32];
+	int top_input_stack = 0;
+	input_stack[top_input_stack] = input;
 
-        if (regexec(&if_regex, buffer, 2, offsets, 0) == 0)
-        {
-            block_nesting++;
-            char define_name[256] = { 0 };
+	while (top_input_stack >= 0)
+	{
+		while (fgets(buffer, 1024, input_stack[top_input_stack]) != NULL)
+		{
+			regmatch_t offsets[2];
 
-            int start = offsets[1].rm_so;
+			if (output_enabled 
+					&& (regexec(&include_regex, buffer, 2, offsets, 0) == 0))
+			{
+				char include_name[256] = { 0 };
 
-            int length = offsets[1].rm_eo - offsets[1].rm_so;
-            length = (length > 255) ? 255 : length;
+				int start = offsets[1].rm_so;
 
-            strncpy(define_name, &(buffer[start]), length);
+				int length = offsets[1].rm_eo - offsets[1].rm_so;
+				length = (length > 255) ? 255 : length;
 
-            // If output is enabled, then we have to ensure this macro is defined
-            if (output_enabled)
-            {
-                int j;
-                char found = 0;;
-                for (j = 0; (j < num_defines) && !found; j++)
-                {
-                    if (strcmp(defines[j], define_name) == 0)
-                    {
-                        found = 1;
-                    }
-                }
+				strncpy(include_name, &(buffer[start]), length);
 
-                if (!found)
-                {
-                    output_enabled = 0;
-                }
-            }
-        }
-        else if (regexec(&ifnot_regex, buffer, 2, offsets, 0) == 0)
-        {
-            block_nesting++;
-            char define_name[256];
+				if (top_input_stack == 31)
+				{
+					fprintf(stderr, "Too much include nesting\n");
+					exit(EXIT_FAILURE);
+				}
+				FILE* new_input = fopen(include_name, "r");
+				if (new_input == NULL)
+				{
+					fprintf(stderr, "Could not open included file '%s': %s\n", include_name, strerror(errno));
+					exit(EXIT_FAILURE);
+				}
+				top_input_stack++;
+				input_stack[top_input_stack] = new_input;
+			}
+			else if (regexec(&if_regex, buffer, 2, offsets, 0) == 0)
+			{
+				block_nesting++;
+				char define_name[256] = { 0 };
 
-            int start = offsets[1].rm_so;
+				int start = offsets[1].rm_so;
 
-            int length = offsets[1].rm_eo - offsets[1].rm_so;
-            length = (length > 255) ? 255 : length;
+				int length = offsets[1].rm_eo - offsets[1].rm_so;
+				length = (length > 255) ? 255 : length;
 
-            strncpy(define_name, &(buffer[start]), length);
+				strncpy(define_name, &(buffer[start]), length);
 
-            // If output is enabled, then we have to ensure this macro is undefined
-            if (output_enabled)
-            {
-                int j;
-                char found = 0;;
-                for (j = 0; (j < num_defines) && !found; j++)
-                {
-                    if (strcmp(defines[j], define_name) == 0)
-                    {
-                        found = 1;
-                    }
-                }
+				// If output is enabled, then we have to ensure this macro is defined
+				if (output_enabled)
+				{
+					int j;
+					char found = 0;;
+					for (j = 0; (j < num_defines) && !found; j++)
+					{
+						if (strcmp(defines[j], define_name) == 0)
+						{
+							found = 1;
+						}
+					}
 
-                if (found)
-                {
-                    output_enabled = 0;
-                }
-            }
-        }
-        else if (regexec(&endif_regex, buffer, 0, NULL, 0) == 0)
-        {
-            block_nesting--;
+					if (!found)
+					{
+						output_enabled = 0;
+					}
+				}
+			}
+			else if (regexec(&ifnot_regex, buffer, 2, offsets, 0) == 0)
+			{
+				block_nesting++;
+				char define_name[256];
 
-            if (block_nesting == 0)
-            {
-                output_enabled = 1;
-            }
-        }
-        else if (output_enabled)
-        {
-            fprintf(output, "%s", buffer);
-        }
-    }
+				int start = offsets[1].rm_so;
+
+				int length = offsets[1].rm_eo - offsets[1].rm_so;
+				length = (length > 255) ? 255 : length;
+
+				strncpy(define_name, &(buffer[start]), length);
+
+				// If output is enabled, then we have to ensure this macro is undefined
+				if (output_enabled)
+				{
+					int j;
+					char found = 0;;
+					for (j = 0; (j < num_defines) && !found; j++)
+					{
+						if (strcmp(defines[j], define_name) == 0)
+						{
+							found = 1;
+						}
+					}
+
+					if (found)
+					{
+						output_enabled = 0;
+					}
+				}
+			}
+			else if (regexec(&endif_regex, buffer, 0, NULL, 0) == 0)
+			{
+				block_nesting--;
+
+				if (block_nesting == 0)
+				{
+					output_enabled = 1;
+				}
+			}
+			else if (output_enabled)
+			{
+				fprintf(output, "%s", buffer);
+			}
+		}
+
+		fclose(input_stack[top_input_stack]);
+		top_input_stack--;
+	}
 
     if (block_nesting != 0)
     {
@@ -245,7 +290,6 @@ static void conditional_process(char* input_filename, char* output_filename)
     }
 
     fclose(output);
-    fclose(input);
 }
 
 int main(int argc, char* argv[])
