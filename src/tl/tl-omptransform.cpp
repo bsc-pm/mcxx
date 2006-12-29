@@ -27,6 +27,9 @@ namespace TL
             // level of sections
             std::stack<int> num_sections_stack;
 
+			// Stores the innermost induction variable of a parallel for or for construct
+			std::stack<IdExpression> induction_var_stack;
+
             // A set to save what critical names have been defined in
             // translation unit level
             std::set<std::string> criticals_defined;
@@ -57,6 +60,7 @@ namespace TL
                 on_parallel_for_post.connect(&OpenMPTransform::parallel_for_postorder, *this);
 
                 // #pragma omp for
+				on_for_pre.connect(&OpenMPTransform::for_preorder, *this);
                 on_for_post.connect(&OpenMPTransform::for_postorder, *this);
 
                 // #pragma omp parallel sections 
@@ -788,12 +792,24 @@ namespace TL
             {
                 // Increase the parallel nesting value
                 parallel_nesting++;
+
+                Statement construct_body = parallel_for_construct.body();
+                // The construct is in fact a ForStatement in a #pragma omp parallel do
+                ForStatement for_statement(construct_body);
+				
+                IdExpression induction_var = for_statement.get_induction_variable();
+
+				// Save this induction var in the stack
+				induction_var_stack.push(induction_var);
             }
 
             void parallel_for_postorder(OpenMP::ParallelForConstruct parallel_for_construct)
             {
                 // One more parallel seen
                 num_parallels++;
+
+				// Remove the induction var from the stack
+				induction_var_stack.pop();
 
                 // Decrease the parallel nesting level 
                 parallel_nesting--;
@@ -1126,12 +1142,48 @@ namespace TL
 
                 sections_construct.get_ast().replace_with(sections_tree);
             }
+
+			void ordered_postorder(OpenMP::OrderedConstruct ordered_construct)
+			{
+				IdExpression induction_var = induction_var_stack.top();
+
+				Statement construct_body = ordered_construct.body();
+				Source ordered_source;
+
+				ordered_source
+					<< "{"
+					<<   "in__tone_enter_ordered_ (& "<< induction_var.prettyprint() << ");"
+					<<   construct_body.prettyprint()
+					<<   "in__tone_leave_ordered_ (&" << induction_var.prettyprint() << ");"
+					<< "}"
+					;
+
+                AST_t ordered_code = ordered_source.parse_statement(ordered_construct.get_scope(),
+                        ordered_construct.get_scope_link());
+
+                ordered_construct.get_ast().replace_with(ordered_code);
+			}
+
+            void for_preorder(OpenMP::ForConstruct for_construct)
+			{
+                Statement construct_body = for_construct.body();
+                // The construct is in fact a ForStatement in a #pragma omp parallel do
+                ForStatement for_statement(construct_body);
+				
+                IdExpression induction_var = for_statement.get_induction_variable();
+
+				// Save this induction var in the stack
+				induction_var_stack.push(induction_var);
+			}
             
             void for_postorder(OpenMP::ForConstruct for_construct)
             {
                 OpenMP::Directive directive = for_construct.directive();
                 ForStatement for_statement = for_construct.body();
                 Statement loop_body = for_statement.get_loop_body();
+
+				// Remove the induction var from the stack
+				induction_var_stack.pop();
 
                 // They will hold the entities as they appear in the clauses
                 ObjectList<IdExpression> shared_references;
@@ -1518,7 +1570,8 @@ namespace TL
                 Source reduction_gathering;
 
                 reduction_code
-                    << "for (int rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
+					<< "int rdv_i;"
+                    << "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
                     << "{"
                     <<    reduction_gathering
                     << "}"

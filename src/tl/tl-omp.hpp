@@ -276,6 +276,15 @@ namespace TL
 				}
 		};
 
+		class OrderedConstruct : public Construct
+		{
+			public:
+				OrderedConstruct(AST_t ref, ScopeLink scope_link)
+					: Construct(ref, scope_link)
+				{
+				}
+		};
+
 		class CustomConstruct : public Construct
 		{
 			public:
@@ -350,6 +359,7 @@ namespace TL
 				typedef OpenMPConstructFunctor<ParallelSectionsConstruct> ParallelSectionsFunctor;
 				typedef OpenMPConstructFunctor<SectionsConstruct> SectionsFunctor;
 				typedef OpenMPConstructFunctor<SectionConstruct> SectionFunctor;
+                typedef OpenMPConstructFunctor<OrderedConstruct> OrderedFunctor;
                 typedef OpenMPConstructFunctor<ThreadPrivateDirective> ThreadPrivateFunctor;
 			protected:
 				AST_t translation_unit;
@@ -391,6 +401,9 @@ namespace TL
 
 				Signal1<SectionConstruct> on_section_pre;
 				Signal1<SectionConstruct> on_section_post;
+
+                Signal1<OrderedConstruct> on_ordered_pre;
+                Signal1<OrderedConstruct> on_ordered_post;
 
                 Signal1<ThreadPrivateDirective> on_threadprivate_pre;
                 Signal1<ThreadPrivateDirective> on_threadprivate_post;

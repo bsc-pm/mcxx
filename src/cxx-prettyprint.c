@@ -491,6 +491,7 @@ prettyprint_entry_t handlers_list[] =
 	NODE_HANDLER(AST_OMP_ATOMIC_CONSTRUCT, omp_generic_construct_handler, NULL),
 	NODE_HANDLER(AST_OMP_ATOMIC_DIRECTIVE, omp_generic_directive_handler, "atomic"),
 	NODE_HANDLER(AST_OMP_ORDERED_CONSTRUCT, omp_generic_construct_handler, NULL),
+	NODE_HANDLER(AST_OMP_ORDERED_DIRECTIVE, omp_generic_directive_handler, "ordered"),
 	NODE_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, omp_generic_construct_handler, NULL),
 	NODE_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, omp_custom_directive_handler, NULL),
 	NODE_HANDLER(AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE, omp_custom_construct_directive_handler, NULL),
