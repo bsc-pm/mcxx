@@ -15,6 +15,7 @@ LANG_FOR_INIT_CONSTRUCT lang.for_init_construct
 LANG_FOR_ITERATION_EXPRESSION lang.for_iteration_expression
 LANG_FUNCTION_ARGUMENTS lang.function_arguments
 LANG_FUNCTION_NAME lang.function_name
+LANG_FUNCTION_BODY lang.function_body
 LANG_INITIALIZER lang.initializer
 LANG_IS_ADD_ASSIGNMENT lang.is_add_assignment
 LANG_IS_ADDITION_OP lang.is_addition_op

@@ -1413,7 +1413,12 @@ static scope_entry_list_t* lookup_function_scope(scope_t* st, char* unqualified_
         fprintf(stderr, "Looking up '%s' in function scope...", unqualified_name);
     }
     result = query_in_symbols_of_scope(st, unqualified_name);
-    //
+    
+	if (result != NULL)
+	{
+		return result;
+	}
+
     // Otherwise try to find anything in the enclosing scope
     if (st->contained_in != NULL)
     {

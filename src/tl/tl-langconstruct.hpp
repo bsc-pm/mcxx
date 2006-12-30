@@ -142,6 +142,7 @@ namespace TL
 			}
 
 			IdExpression get_function_name();
+			Statement get_function_body();
 	};
 
     class Expression : public LangConstruct

@@ -45,6 +45,31 @@ namespace TL
 		return result;
 	}
 
+	void AST_t::replace(AST_t ast)
+	{
+		// If the replacement is a list, always do a in-list replacement.
+		// (even if the original replaced was not a list)
+		if (ASTType(ast._ast) == AST_NODE_LIST)
+		{
+			replace_in_list(ast);
+		}
+		// If the thing being replaced is a list, but the replacement
+		// is not, then convert the latter into a list
+		else if (ASTType(_ast) == AST_NODE_LIST
+				&& ASTType(_ast) != AST_NODE_LIST)
+		{
+			// Create a single element list
+			AST single(ASTListLeaf(ast._ast));
+			replace_in_list(single);
+		}
+		// Otherwise replace directly. Neither the replaced nor the replacement
+		// are lists in this case.
+		else
+		{
+			replace_with(ast);
+		}
+	}
+
 	void AST_t::replace_with(AST_t ast)
 	{
 		AST previous_parent = ASTParent(this->_ast);
@@ -392,49 +417,42 @@ namespace TL
 
 	void AST_t::append(AST_t t)
 	{
-		if (!is_extensible_block(_ast))
-		{
-			std::cerr << "This tree cannot be appended anything (" 
-				<< ast_print_node_type(ASTType(_ast)) << ")" << std::endl;
+        if (ASTType(t._ast) != AST_NODE_LIST)
+        {
+			std::cerr << "The appended tree is not a list. No append performed" << std::endl;
 			return;
-		}
-		
-		AST list = get_list_of_extensible_block(_ast);
+        }
 
 		AST appended_list = t._ast;
-		if (ASTType(t._ast) != AST_NODE_LIST)
+
+		AST enclosing_list = get_enclosing_list(this->_ast);
+
+		if (enclosing_list == NULL)
 		{
-			appended_list = ASTListLeaf(appended_list);
+			std::cerr << "Cannot found a suitable list to append" << std::endl;
 		}
 
-		append_list(list, appended_list);
+		append_list(enclosing_list, appended_list);
 	}
 
 	void AST_t::prepend(AST_t t)
 	{
-		if (!is_extensible_block(_ast))
-		{
-			std::cerr << "This tree cannot be prepended anything (" 
-				<< ast_print_node_type(ASTType(_ast)) << ")" << std::endl;
+        if (ASTType(t._ast) != AST_NODE_LIST)
+        {
+			std::cerr << "The prepended tree is not a list. No prepend performed" << std::endl;
 			return;
-		}
+        }
 
-		AST list = get_list_of_extensible_block(_ast);
+		AST prepended_list = t._ast;
 
-		// if (ASTType(list) == AST_MEMBER_SPEC)
-		// {
-		// 	prepend_to_member_spec(list, t._ast);
-		// }
-		// else
+		AST enclosing_list = get_enclosing_list(this->_ast);
+
+		if (enclosing_list == NULL)
 		{
-			AST prepended_list = t._ast;
-			if (ASTType(t._ast) != AST_NODE_LIST)
-			{
-				prepended_list = ASTListLeaf(prepended_list);
-			}
-
-			prepend_list(list, prepended_list);
+			std::cerr << "Cannot found a suitable list to prepend" << std::endl;
 		}
+
+		prepend_list(enclosing_list, prepended_list);
 	}
 
 	AST_t AST_t::get_enclosing_function_definition()
@@ -486,6 +504,20 @@ namespace TL
         }
     }
 
+	AST AST_t::get_enclosing_list(AST ast)
+	{
+        AST list = ast;
+
+        // Look for the enclosing list
+        while (list != NULL &&
+                ASTType(list) != AST_NODE_LIST)
+        {
+            list = ASTParent(list);
+        }
+
+		return list;
+	}
+
     void AST_t::replace_in_list(AST_t ast)
     {
         if (ASTType(ast._ast) != AST_NODE_LIST)
@@ -494,14 +526,7 @@ namespace TL
 			return;
         }
 
-        AST list = this->_ast;
-
-        // Look for the enclosing list
-        while (list != NULL &&
-                ASTType(list) != AST_NODE_LIST)
-        {
-            list = ASTParent(list);
-        }
+        AST list = get_enclosing_list(this->_ast);
 
         if (list == NULL)
         {

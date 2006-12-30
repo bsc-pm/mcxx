@@ -153,7 +153,7 @@ namespace TL
 
                     AST_t redeclaration_tree = remade_declaration.parse_declaration(decl.get_scope(),
                             scope_link, Source::ALLOW_REDECLARATION);
-                    decl.get_ast().replace_in_list(redeclaration_tree);
+                    decl.get_ast().replace(redeclaration_tree);
 
                     // std::cerr << "-- Remade declaration --" << std::endl;
                     // std::cerr << remade_declaration.get_source(true) << std::endl;
@@ -245,7 +245,7 @@ namespace TL
                 ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
 
                 ReplaceIdExpression replace_references = 
-                    set_replacements(function_scope,
+                    set_replacements(function_definition,
                             directive,
                             construct_body,
                             captureaddress_references,
@@ -344,7 +344,7 @@ namespace TL
                 AST_t task_code = task_queueing.parse_statement(task_construct.get_scope(),
                         task_construct.get_scope_link());
 
-                task_construct.get_ast().replace_with(task_code);
+                task_construct.get_ast().replace(task_code);
             }
 
             void taskwait_postorder(OpenMP::CustomConstruct taskwait_construct)
@@ -363,7 +363,7 @@ namespace TL
                 AST_t taskwait_code = taskwait_source.parse_statement(taskwait_construct.get_scope(),
                         taskwait_construct.get_scope_link());
 
-                taskwait_construct.get_ast().replace_with(taskwait_code);
+                taskwait_construct.get_ast().replace(taskwait_code);
             }
 
             void taskgroup_postorder(OpenMP::CustomConstruct taskgroup_construct)
@@ -386,7 +386,7 @@ namespace TL
                 AST_t taskgroup_code = taskgroup_source.parse_statement(taskgroup_construct.get_scope(),
                         taskgroup_construct.get_scope_link());
 
-                taskgroup_construct.get_ast().replace_with(taskgroup_code);
+                taskgroup_construct.get_ast().replace(taskgroup_code);
             }
 
             void section_postorder(OpenMP::SectionConstruct section_construct)
@@ -410,7 +410,7 @@ namespace TL
                 // One more section
                 num_sections++;
 
-                section_construct.get_ast().replace_with(section_tree);
+                section_construct.get_ast().replace(section_tree);
             }
 
             void critical_postorder(OpenMP::CriticalConstruct critical_construct)
@@ -470,7 +470,7 @@ namespace TL
                 AST_t critical_tree = critical_source.parse_statement(critical_construct.get_scope(),
                         critical_construct.get_scope_link());
 
-                critical_construct.get_ast().replace_with(critical_tree);
+                critical_construct.get_ast().replace(critical_tree);
             }
 
             void atomic_postorder(OpenMP::AtomicConstruct atomic_construct)
@@ -494,7 +494,7 @@ namespace TL
                 AST_t atomic_tree = critical_source.parse_statement(atomic_construct.get_scope(),
                         atomic_construct.get_scope_link());
 
-                atomic_construct.get_ast().replace_with(atomic_tree);
+                atomic_construct.get_ast().replace(atomic_tree);
             }
 
             void barrier_postorder(OpenMP::BarrierDirective barrier_directive)
@@ -511,7 +511,7 @@ namespace TL
                 AST_t barrier_tree = barrier_source.parse_statement(barrier_directive.get_scope(),
                         barrier_directive.get_scope_link());
 
-                barrier_directive.get_ast().replace_with(barrier_tree);
+                barrier_directive.get_ast().replace(barrier_tree);
             }
 
             void flush_postorder(OpenMP::FlushDirective flush_directive)
@@ -528,7 +528,7 @@ namespace TL
                 AST_t flush_tree = flush_source.parse_statement(flush_directive.get_scope(),
                         flush_directive.get_scope_link());
 
-                flush_directive.get_ast().replace_with(flush_tree);
+                flush_directive.get_ast().replace(flush_tree);
             }
 
             void parallel_single_preorder(OpenMP::ParallelSingleConstruct parallel_single_construct)
@@ -582,7 +582,7 @@ namespace TL
                 // Create the replacement map and fill the privatized
                 // entities and pass by pointer lists.
                 ReplaceIdExpression replace_references = 
-                    set_replacements(function_scope,
+                    set_replacements(function_definition,
                             directive,
                             construct_body,
                             shared_references,
@@ -624,7 +624,9 @@ namespace TL
                 OpenMP::Clause num_threads = directive.num_threads_clause();
                 OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
                 
-                AST_t spawn_code = get_parallel_spawn_code(parallel_single_construct.get_scope(),
+                AST_t spawn_code = get_parallel_spawn_code(
+						function_definition,
+						parallel_single_construct.get_scope(),
                         parallel_single_construct.get_scope_link(),
                         outlined_function_name,
                         pass_by_pointer,
@@ -634,7 +636,7 @@ namespace TL
                         );
 
                 // Now replace the whole construct with spawn_code
-                parallel_single_construct.get_ast().replace_with(spawn_code);
+                parallel_single_construct.get_ast().replace(spawn_code);
 			}
 
             void single_postorder(OpenMP::SingleConstruct single_construct)
@@ -683,7 +685,7 @@ namespace TL
                 AST_t single_tree = single_source.parse_statement(single_construct.get_scope(), 
                         single_construct.get_scope_link());
 
-                single_construct.get_ast().replace_with(single_tree);
+                single_construct.get_ast().replace(single_tree);
             }
 
             // Parallel in preorder
@@ -739,7 +741,7 @@ namespace TL
                 // Create the replacement map and fill the privatized
                 // entities and pass by pointer lists.
                 ReplaceIdExpression replace_references = 
-                    set_replacements(function_scope,
+                    set_replacements(function_definition,
                             directive,
                             construct_body,
                             shared_references,
@@ -781,7 +783,9 @@ namespace TL
                 OpenMP::Clause num_threads = directive.num_threads_clause();
                 OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
                 
-                AST_t spawn_code = get_parallel_spawn_code(parallel_construct.get_scope(),
+                AST_t spawn_code = get_parallel_spawn_code(
+						function_definition,
+						parallel_construct.get_scope(),
                         parallel_construct.get_scope_link(),
                         outlined_function_name,
                         pass_by_pointer,
@@ -791,7 +795,7 @@ namespace TL
                         );
 
                 // Now replace the whole construct with spawn_code
-                parallel_construct.get_ast().replace_with(spawn_code);
+                parallel_construct.get_ast().replace(spawn_code);
             }
 
             void parallel_for_preorder(OpenMP::ParallelForConstruct parallel_for_construct)
@@ -874,7 +878,7 @@ namespace TL
                 ObjectList<IdExpression> privatized_entities;
                 // Create the replacement map and the pass_by_pointer set
                 ReplaceIdExpression replace_references = 
-                    set_replacements(function_scope,
+                    set_replacements(function_definition,
                             directive,
                             loop_body,
                             shared_references,
@@ -907,7 +911,9 @@ namespace TL
                 OpenMP::Clause num_threads = directive.num_threads_clause();
                 OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
 
-                AST_t spawn_code = get_parallel_spawn_code(parallel_for_construct.get_scope(),
+                AST_t spawn_code = get_parallel_spawn_code(
+						function_definition,
+						parallel_for_construct.get_scope(),
                         parallel_for_construct.get_scope_link(),
                         outlined_function_name,
                         pass_by_pointer,
@@ -917,7 +923,7 @@ namespace TL
                         );
 
                 // Replace all the whole construct with spawn_code
-                parallel_for_construct.get_ast().replace_with(spawn_code);
+                parallel_for_construct.get_ast().replace(spawn_code);
             }
 
             void parallel_sections_preorder(OpenMP::ParallelSectionsConstruct parallel_sections_construct)
@@ -974,7 +980,7 @@ namespace TL
                 // Create the replacement map and fill the privatized
                 // entities and pass by pointer lists.
                 ReplaceIdExpression replace_references = 
-                    set_replacements(function_scope,
+                    set_replacements(function_definition,
                             directive,
                             construct_body,
                             shared_references,
@@ -1015,7 +1021,9 @@ namespace TL
                 // Now create the spawning code. Pass by pointer list and
                 // reductions are needed for proper pass of data and reduction
                 // vectors declaration
-                AST_t spawn_code = get_parallel_spawn_code(parallel_sections_construct.get_scope(),
+                AST_t spawn_code = get_parallel_spawn_code(
+						function_definition,
+						parallel_sections_construct.get_scope(),
                         parallel_sections_construct.get_scope_link(),
                         outlined_function_name,
                         pass_by_pointer,
@@ -1028,7 +1036,7 @@ namespace TL
                 num_sections_stack.pop();
 
                 // Now replace the whole construct with spawn_code
-                parallel_sections_construct.get_ast().replace_with(spawn_code);
+                parallel_sections_construct.get_ast().replace(spawn_code);
             }
 
             void sections_preorder(OpenMP::SectionsConstruct sections_construct)
@@ -1073,7 +1081,7 @@ namespace TL
                 // Create the replacement map and fill the privatized
                 // entities and pass by pointer lists.
                 ReplaceIdExpression replace_references = 
-                    set_replacements(function_scope,
+                    set_replacements(function_definition,
                             directive,
                             construct_body,
                             shared_references,
@@ -1146,7 +1154,7 @@ namespace TL
                 AST_t sections_tree = sections_source.parse_statement(sections_construct.get_scope(),
                         sections_construct.get_scope_link());
 
-                sections_construct.get_ast().replace_with(sections_tree);
+                sections_construct.get_ast().replace(sections_tree);
             }
 
 			void master_postorder(OpenMP::MasterConstruct master_construct)
@@ -1165,7 +1173,7 @@ namespace TL
 				AST_t master_tree = master_source.parse_statement(master_construct.get_scope(),
 						master_construct.get_scope_link());
 
-				master_construct.get_ast().replace_with(master_tree);
+				master_construct.get_ast().replace(master_tree);
 			}
 
 			void ordered_postorder(OpenMP::OrderedConstruct ordered_construct)
@@ -1186,7 +1194,7 @@ namespace TL
                 AST_t ordered_code = ordered_source.parse_statement(ordered_construct.get_scope(),
                         ordered_construct.get_scope_link());
 
-                ordered_construct.get_ast().replace_with(ordered_code);
+                ordered_construct.get_ast().replace(ordered_code);
 			}
 
             void for_preorder(OpenMP::ForConstruct for_construct)
@@ -1255,7 +1263,7 @@ namespace TL
                 ObjectList<IdExpression> privatized_entities;
                 // Create the replacement map and the pass_by_pointer set
                 ReplaceIdExpression replace_references = 
-                    set_replacements(function_scope,
+                    set_replacements(function_definition,
                             directive,
                             loop_body,
                             shared_references,
@@ -1326,10 +1334,11 @@ namespace TL
                 result = parallel_for_body.parse_statement(loop_body.get_scope(), 
                          loop_body.get_scope_link());
 
-                for_construct.get_ast().replace_with(result);
+                for_construct.get_ast().replace(result);
             }
 
             AST_t get_parallel_spawn_code(
+					FunctionDefinition function_definition,
                     Scope scope,
                     ScopeLink scope_link,
                     Source outlined_function_name,
@@ -1420,6 +1429,18 @@ namespace TL
                 
                 // Referenced parameters
                 //
+				// "this" if needed
+				if (is_nonstatic_member_function(function_definition))
+				{
+                    referenced_parameters << ", this";
+
+                    source_num_parameters << "nth_num_params += "
+                        << "((sizeof(this) % 4) == 0) "
+                        <<   "? sizeof(this)"
+                        <<   ": (sizeof(this) - (4 - (sizeof(this) % 4)));"
+                        ;
+				}
+
                 // For every entity in list "pass_by_pointer"
                 for (ObjectList<IdExpression>::iterator it = pass_by_pointer.begin();
                         it != pass_by_pointer.end();
@@ -1723,6 +1744,7 @@ namespace TL
             }
 
 			Source get_member_function_declaration(
+					FunctionDefinition function_definition,
                     Source outlined_function_name,
                     ObjectList<IdExpression> pass_by_pointer,
                     ObjectList<IdExpression> pass_by_value,
@@ -1737,12 +1759,14 @@ namespace TL
 					<< "static void " << outlined_function_name << "(" << formal_parameters << ");"
 					;
 
-				formal_parameters = get_formal_parameters(pass_by_pointer, pass_by_value, reduction_references);
+				formal_parameters = get_formal_parameters(function_definition, 
+						pass_by_pointer, pass_by_value, reduction_references);
 
 				return result;
 			}
 
             Source get_outline_common(
+					FunctionDefinition function_definition,
                     Source& specific_body,
                     Source outlined_function_name,
                     ObjectList<IdExpression> pass_by_pointer,
@@ -1761,17 +1785,32 @@ namespace TL
                     << "}"
                     ;
 
-				formal_parameters = get_formal_parameters(pass_by_pointer, pass_by_value, reduction_references);
+				formal_parameters = get_formal_parameters(function_definition, pass_by_pointer, pass_by_value, reduction_references);
 
                 return result;
             }
 
 			Source get_formal_parameters(
+					FunctionDefinition function_definition,
 					ObjectList<IdExpression> pass_by_pointer,
 					ObjectList<IdExpression> pass_by_value,
 					ObjectList<OpenMP::ReductionIdExpression> reduction_references)
 			{
 				Source formal_parameters;
+
+				// Add _this if needed
+
+				if (is_nonstatic_member_function(function_definition))
+				{
+					IdExpression function_name = function_definition.get_function_name();
+					Symbol function_symbol = function_name.get_symbol();
+
+					Type class_type = function_symbol.get_class_type();
+					Type pointer_to_class = class_type.get_pointer_to();
+
+					formal_parameters.append_with_separator(pointer_to_class.get_declaration("_this"), ",");
+				}
+
                 // Reduction vectors are passed first by "value" (there is no
                 // need to pass by pointer something that was already passed as
                 // a pointer)
@@ -1835,6 +1874,7 @@ namespace TL
                 Source empty;
 
                 outline_parallel = get_outline_common(
+						function_definition,
                         parallel_body, // The body of the outline
                         outlined_function_name,
                         pass_by_pointer,
@@ -1864,11 +1904,15 @@ namespace TL
 				IdExpression function_name = function_definition.get_function_name();
 				Symbol function_symbol = function_name.get_symbol();
 
-				if (function_symbol.is_member())
+				// If the function is a member and is qualified (therefore the function
+				// definition is outside the class)
+				if (function_symbol.is_member() 
+						&& function_name.is_qualified())
 				{
 					Source outline_function_decl = get_outlined_function_name(function_name, /*qualified=*/false);
 
 					Source member_declaration = get_member_function_declaration(
+							function_definition,
 							outline_function_decl,
 							pass_by_pointer,
 							pass_by_value,
@@ -1876,15 +1920,11 @@ namespace TL
 
 					Declaration decl = function_name.get_declaration();
 
-					member_declaration
-						<< decl.prettyprint()
-						;
-
 					Scope class_scope = decl.get_scope();
 					Type class_type = function_symbol.get_class_type();
 					AST_t member_decl_tree = member_declaration.parse_member(decl.get_scope(), decl.get_scope_link(), class_type);
 
-					decl.get_ast().replace_in_list(member_decl_tree);
+					decl.get_ast().append(member_decl_tree);
 				}
 
                 AST_t result;
@@ -1913,6 +1953,7 @@ namespace TL
                 Source empty;
 
                 outline_parallel = get_outline_common(
+						function_definition,
                         parallel_body, // The body of the outline
                         outlined_function_name,
                         pass_by_pointer,
@@ -1957,6 +1998,7 @@ namespace TL
                 
                 // Get the source of the common parallel X outline
                 outline_parallel_sections = get_outline_common(
+						function_definition,
                         parallel_sections_body,
                         outlined_function_name,
                         pass_by_pointer,
@@ -2036,6 +2078,7 @@ namespace TL
                 Source empty;
 
                 outline_parallel = get_outline_common(
+						function_definition,
                         parallel_body, // The body of the outline
                         outlined_function_name,
                         pass_by_pointer,
@@ -2124,6 +2167,7 @@ namespace TL
 
                 // Get the source of the common parallel X outline
                 outline_parallel_for = get_outline_common(
+						function_definition,
                         parallel_for_body,
                         outlined_function_name,
                         pass_by_pointer,
@@ -2257,7 +2301,7 @@ namespace TL
                 shared_references.append(non_local_symbols);
             }
 
-            ReplaceIdExpression set_replacements(Scope function_scope,
+            ReplaceIdExpression set_replacements(FunctionDefinition function_definition,
                     OpenMP::Directive directive,
                     Statement construct_body,
                     ObjectList<IdExpression>& shared_references,
@@ -2268,6 +2312,8 @@ namespace TL
                     ObjectList<IdExpression>& pass_by_pointer,
                     ObjectList<IdExpression>& privatized_entities)
             {
+				Symbol function_symbol = function_definition.get_function_name().get_symbol();
+				Scope function_scope = function_definition.get_scope();
                 ReplaceIdExpression result;
 
                 // First mix every symbol that might be shareable
@@ -2287,6 +2333,7 @@ namespace TL
                         it != shareable_references.end();
                         it++)
                 {
+					std::cerr << "Checking " << it->prettyprint() << std::endl;
                     Symbol current_sym = it->get_symbol();
 
                     // This symbol already appears in "pass_by_pointer" id-expressions,
@@ -2325,7 +2372,18 @@ namespace TL
                             result.add_replacement(current_sym, derref_name);
                         }
                     }
+					else if (it->is_unqualified()
+							&& current_sym.is_member()
+							&& (current_sym.get_class_type() == function_symbol.get_class_type()))
+					{
+						// if (is_nonstatic_member_function(function_definition))
+						// {
+							Source member_access;
+							member_access << "(_this->" << it->prettyprint() << ")";
 
+							result.add_replacement(current_sym, member_access);
+						// }
+					}
                 }
                 
                 // First mix all things that will be made private
@@ -2597,6 +2655,30 @@ namespace TL
                 return result;
             }
 
+			bool is_nonstatic_member_function(FunctionDefinition function_definition)
+			{
+				IdExpression function_name = function_definition.get_function_name();
+				Symbol function_symbol = function_name.get_symbol();
+
+				// It must be a member
+				if (!function_symbol.is_member())
+				{
+					std::cerr << "Function is not member" << std::endl;
+					return false;
+				}
+
+				Statement function_body = function_definition.get_function_body();
+				Scope function_body_scope = function_body.get_scope();
+
+				Symbol sym = function_body_scope.get_symbol_from_name("this");
+
+				if (!sym.is_valid())
+				{
+					return false;
+				}
+
+				return true;
+			}
     };
 }
 

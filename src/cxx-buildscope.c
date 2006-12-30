@@ -84,6 +84,8 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
 static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t decl_context);
 static void build_scope_explicit_template_specialization(AST a, scope_t* st, decl_context_t decl_context);
 
+static void build_scope_statement_seq(AST a, scope_t* st, decl_context_t decl_context);
+
 static void build_scope_template_parameter_list(AST a, scope_t* st, 
         template_parameter_t*** template_parameters, int* num_parameters,
         decl_context_t decl_context);
@@ -4248,6 +4250,9 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     }
 
     build_scope_statement(statement, inner_scope, decl_context);
+	scope_link_set(compilation_options.scope_link, statement, copy_scope(inner_scope));
+
+	ASTAttrSetValueType(a, LANG_FUNCTION_BODY, tl_type_t, tl_ast(statement));
 
     ERROR_CONDITION((entry == NULL), "This symbol is undeclared here", 0);
     DEBUG_CODE()
@@ -5994,11 +5999,7 @@ static void build_scope_compound_statement(AST a, scope_t* st, decl_context_t de
     {
 		scope_link_set(compilation_options.scope_link, list, copy_scope(block_scope));
 
-        AST iter;
-        for_each_element(list, iter)
-        {
-            build_scope_statement(ASTSon1(iter), block_scope, decl_context);
-        }
+		build_scope_statement_seq(list, block_scope, decl_context);
     }
 
 	ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
@@ -6651,11 +6652,24 @@ void build_scope_member_specification_with_scope_link(scope_t* inner_scope, AST 
 	compilation_options.scope_link = NULL;
 }
 
-void build_scope_statement_with_scope_link(AST a, scope_t* st, scope_link_t* scope_link)
+static void build_scope_statement_seq(AST a, scope_t* st, decl_context_t decl_context)
+{
+    AST list = a;
+    if (list != NULL)
+    {
+        AST iter;
+        for_each_element(list, iter)
+        {
+            build_scope_statement(ASTSon1(iter), st, decl_context);
+        }
+    }
+}
+
+void build_scope_statement_seq_with_scope_link(AST a, scope_t* st, scope_link_t* scope_link)
 {
 	compilation_options.scope_link = scope_link;
 
-	build_scope_statement(a, st, default_decl_context);
+	build_scope_statement_seq(a, st, default_decl_context);
 
 	compilation_options.scope_link = NULL;
 }

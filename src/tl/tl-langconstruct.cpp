@@ -87,6 +87,13 @@ namespace TL
         return IdExpression(ast, _scope_link);
     }
 
+	Statement FunctionDefinition::get_function_body()
+	{
+        TL::AST_t ast = _ref.get_attribute(LANG_FUNCTION_BODY);
+
+        return Statement(ast, _scope_link);
+	}
+
     // Returns a flattened version of this id-expression
     std::string IdExpression::mangle_id_expression() const
     {

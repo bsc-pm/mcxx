@@ -310,7 +310,7 @@ subparsing : SUBPARSE_EXPRESSION expression
 {
 	$$ = $2;
 }
-| SUBPARSE_STATEMENT statement
+| SUBPARSE_STATEMENT statement_seq
 {
 	$$ = $2;
 }

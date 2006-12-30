@@ -225,7 +225,7 @@ namespace TL
 			running_error("Could not parse statement\n\n%s\n", this->get_source(true).c_str());
 		}
 
-		build_scope_statement_with_scope_link(a, ctx._st, scope_link._scope_link);
+		build_scope_statement_seq_with_scope_link(a, ctx._st, scope_link._scope_link);
 
         AST_t result(a);
 		return result;

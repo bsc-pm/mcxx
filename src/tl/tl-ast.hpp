@@ -42,6 +42,8 @@ namespace TL
 			static bool is_extensible_block(AST node);
 			static AST get_list_of_extensible_block(AST node);
 
+			static AST get_enclosing_list(AST node);
+
 			static void append_to_member_spec(AST member_spec, AST member_decl);
 			static void prepend_to_member_spec(AST member_spec, AST member_decl);
 
@@ -103,8 +105,11 @@ namespace TL
 
 			std::string prettyprint() const;
 
+			void replace(AST_t ast);
+
 			void replace_with(AST_t ast);
             void replace_in_list(AST_t ast);
+
             void remove_in_list();
 
 			AST_t duplicate() const;
@@ -120,6 +125,9 @@ namespace TL
 				return true;
 			}
 
+			void prepend_sibling_function(AST_t t);
+			void append_sibling_function(AST_t t);
+
 			void prepend_to_translation_unit(AST_t t);
 			void append_to_translation_unit(AST_t t);
 
@@ -130,9 +138,6 @@ namespace TL
 			AST_t get_enclosing_function_definition();
 
 			AST get_translation_unit();
-
-			void prepend_sibling_function(AST_t t);
-			void append_sibling_function(AST_t t);
 
 			void replace_text(const std::string& str);
 
