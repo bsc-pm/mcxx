@@ -401,20 +401,13 @@ namespace TL
 		
 		AST list = get_list_of_extensible_block(_ast);
 
-		// if (ASTType(list) == AST_MEMBER_SPEC)
-		// {
-		// 	append_to_member_spec(list, t._ast);
-		// }
-		// else
+		AST appended_list = t._ast;
+		if (ASTType(t._ast) != AST_NODE_LIST)
 		{
-			AST appended_list = t._ast;
-			if (ASTType(t._ast) != AST_NODE_LIST)
-			{
-				appended_list = ASTListLeaf(appended_list);
-			}
-
-			append_list(list, appended_list);
+			appended_list = ASTListLeaf(appended_list);
 		}
+
+		append_list(list, appended_list);
 	}
 
 	void AST_t::prepend(AST_t t)
@@ -521,6 +514,11 @@ namespace TL
         AST_t replaced(list);
         replaced.replace_with(ast);
 
+		while (ASTSon0(list) != NULL)
+		{
+			list = ASTSon0(list);
+		}
+
 		ASTSon0(list) = previous;
 		if (previous != NULL)
 		{
@@ -532,7 +530,6 @@ namespace TL
 	{
 		AST_t enclosing_function = this->get_enclosing_function_definition();
 
-		// FIXME - Member specifiers are special
 		AST list = ASTParent(enclosing_function._ast);
 		AST prepended_list = get_list_of_extensible_block(t._ast);
 

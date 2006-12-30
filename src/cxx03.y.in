@@ -404,7 +404,7 @@ subparsing : SUBPARSE_EXPRESSION expression
 {
 	$$ = $2;
 }
-| SUBPARSE_MEMBER member_specification
+| SUBPARSE_MEMBER member_specification_seq
 {
 	$$ = $2;
 }

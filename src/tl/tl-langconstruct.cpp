@@ -118,7 +118,8 @@ namespace TL
         else
         {
             std::cerr << "Cannot retrieve a proper declaration of id-expression '" 
-                << _ref.prettyprint() << "'"  << std::endl;
+                << _ref.prettyprint() << "' from its point of declaration '" 
+				<<  point_of_declaration.prettyprint() << "'"  << std::endl;
             return Declaration(AST_t(), this->_scope_link);
         }
     }

@@ -3076,7 +3076,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         scope_entry_t* new_entry = new_symbol(st, function_name);
         new_entry->line = ASTLine(declarator_id);
-		new_entry->point_of_declaration = declarator_id;
+		new_entry->point_of_declaration = get_enclosing_declaration(declarator_id);
 
         if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
         {
@@ -4146,7 +4146,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 
     entry = build_scope_declarator_with_parameter_scope(ASTSon1(a), st, &parameter_scope,
             &gather_info, type_info, &declarator_type, new_decl_context);
-    ERROR_CONDITION((entry == NULL), "This function does not exist! %s", node_information(a));
+    ERROR_CONDITION((entry == NULL), "Function '%s' does not exist! %s", prettyprint_in_buffer(ASTSon1(a)), node_information(a));
 	
 	{
 		// Function declaration name
@@ -4646,6 +4646,9 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 
     if (ASTSon1(a) != NULL)
     {
+		ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
+		ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
+
         AST list = ASTSon1(a);
         AST iter;
 
@@ -4687,7 +4690,13 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
                     {
                         AST declarator_name = get_declarator_name(declarator, st, decl_context);
 
+						ASTAttrSetValueType(declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
+						ASTAttrSetValueType(declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+
                         AST initializer = ASTSon1(declarator);
+
+						ASTAttrSetValueType(declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+						
                         // Change name of constructors
                         AST decl_spec_seq = ASTSon0(a);
                         if (decl_spec_seq != NULL 

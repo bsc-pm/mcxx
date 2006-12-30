@@ -158,9 +158,9 @@ namespace TL
                     // std::cerr << "-- Remade declaration --" << std::endl;
                     // std::cerr << remade_declaration.get_source(true) << std::endl;
                     // std::cerr << "-- End remade declaration --" << std::endl;
-
-                    threadprivate_directive.get_ast().remove_in_list();
                 }
+
+				threadprivate_directive.get_ast().remove_in_list();
             }
 
             void task_postorder(OpenMP::CustomConstruct task_construct)
@@ -1722,6 +1722,26 @@ namespace TL
                 return reduction_gathering;
             }
 
+			Source get_member_function_declaration(
+                    Source outlined_function_name,
+                    ObjectList<IdExpression> pass_by_pointer,
+                    ObjectList<IdExpression> pass_by_value,
+                    ObjectList<OpenMP::ReductionIdExpression> reduction_references
+					)
+			{
+				Source result;
+
+				Source formal_parameters;
+
+				result
+					<< "static void " << outlined_function_name << "(" << formal_parameters << ");"
+					;
+
+				formal_parameters = get_formal_parameters(pass_by_pointer, pass_by_value, reduction_references);
+
+				return result;
+			}
+
             Source get_outline_common(
                     Source& specific_body,
                     Source outlined_function_name,
@@ -1741,6 +1761,17 @@ namespace TL
                     << "}"
                     ;
 
+				formal_parameters = get_formal_parameters(pass_by_pointer, pass_by_value, reduction_references);
+
+                return result;
+            }
+
+			Source get_formal_parameters(
+					ObjectList<IdExpression> pass_by_pointer,
+					ObjectList<IdExpression> pass_by_value,
+					ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+			{
+				Source formal_parameters;
                 // Reduction vectors are passed first by "value" (there is no
                 // need to pass by pointer something that was already passed as
                 // a pointer)
@@ -1782,8 +1813,8 @@ namespace TL
                     formal_parameters.append_with_separator(type.get_declaration(it->mangle_id_expression()), ",");
                 }
 
-                return result;
-            }
+				return formal_parameters;
+			}
 
             AST_t get_outline_parallel(
                     FunctionDefinition function_definition,
@@ -1829,6 +1860,32 @@ namespace TL
                 // std::cerr << "CODI OUTLINE" << std::endl;
                 // std::cerr << outline_parallel.get_source(true) << std::endl;
                 // std::cerr << "End CODI OUTLINE" << std::endl;
+
+				IdExpression function_name = function_definition.get_function_name();
+				Symbol function_symbol = function_name.get_symbol();
+
+				if (function_symbol.is_member())
+				{
+					Source outline_function_decl = get_outlined_function_name(function_name, /*qualified=*/false);
+
+					Source member_declaration = get_member_function_declaration(
+							outline_function_decl,
+							pass_by_pointer,
+							pass_by_value,
+							reduction_references);
+
+					Declaration decl = function_name.get_declaration();
+
+					member_declaration
+						<< decl.prettyprint()
+						;
+
+					Scope class_scope = decl.get_scope();
+					Type class_type = function_symbol.get_class_type();
+					AST_t member_decl_tree = member_declaration.parse_member(decl.get_scope(), decl.get_scope_link(), class_type);
+
+					decl.get_ast().replace_in_list(member_decl_tree);
+				}
 
                 AST_t result;
 
@@ -2525,10 +2582,10 @@ namespace TL
                 return lastprivate_assignments;
             }
 
-            Source get_outlined_function_name(IdExpression function_name)
+            Source get_outlined_function_name(IdExpression function_name, bool want_fully_qualified = true)
             {
                 Source result;
-                if (function_name.is_qualified())
+                if (function_name.is_qualified() && want_fully_qualified)
                 {
                     result
                         << function_name.get_qualified_part()

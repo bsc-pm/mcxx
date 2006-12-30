@@ -690,7 +690,17 @@ void start_compiler_phase_execution(translation_unit_t* translation_unit);
 static void compiler_phases_execution(translation_unit_t* translation_unit, 
 		char* parsed_filename)
 {
+	timing_t time_phases;
+	timing_start(&time_phases);
+
 	start_compiler_phase_execution(translation_unit);
+
+	timing_end(&time_phases);
+
+	if (compilation_options.verbose)
+	{
+		fprintf(stderr, "Compiler phases pipeline executed in %.2f seconds\n", timing_elapsed(&time_phases));
+	}
 }
 
 static void parse_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
@@ -797,12 +807,17 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
                 strerror(errno));
     }
     
-    if (compilation_options.verbose)
-    {
-        fprintf(stderr, "Prettyprinting into file '%s'\n", output_filename);
-    }
+
+	timing_t time_print;
+	timing_start(&time_print);
 
     prettyprint(prettyprint_file, translation_unit->parsed_tree);
+
+	timing_end(&time_print);
+    if (compilation_options.verbose)
+    {
+        fprintf(stderr, "Prettyprinted into file '%s' in %.2f seconds\n", output_filename, timing_elapsed(&time_print));
+    }
 
     fclose(prettyprint_file);
 
@@ -1028,7 +1043,17 @@ extern void load_compiler_phases_cxx(void);
 
 static void load_compiler_phases(void)
 {
+	timing_t loading_phases;
+	timing_start(&loading_phases);
+
 	// This invokes a C++ routine that will dlopen all libraries, get the proper symbol
 	// and fill an array of compiler phases
 	load_compiler_phases_cxx();
+
+	timing_end(&loading_phases);
+
+	if (compilation_options.verbose)
+	{
+		fprintf(stderr, "Compiler phases loaded in %.2f seconds\n", timing_elapsed(&loading_phases));
+	}
 }
