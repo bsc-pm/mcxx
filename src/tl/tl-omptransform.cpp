@@ -2376,13 +2376,13 @@ namespace TL
 							&& current_sym.is_member()
 							&& (current_sym.get_class_type() == function_symbol.get_class_type()))
 					{
-						// if (is_nonstatic_member_function(function_definition))
-						// {
+						if (is_nonstatic_member_function(function_definition))
+						{
 							Source member_access;
 							member_access << "(_this->" << it->prettyprint() << ")";
 
 							result.add_replacement(current_sym, member_access);
-						// }
+						}
 					}
                 }
                 
