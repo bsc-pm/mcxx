@@ -24,15 +24,28 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
         decl_context_t decl_context);
 static type_t* get_type_of_dependent_typename(simple_type_t* t1, decl_context_t decl_context);
 
-type_t* advance_over_typedefs(type_t* t1)
+type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qualif)
 {
+	if (cv_qualif != NULL)
+	{
+		*cv_qualif = t1->cv_qualifier;
+	}
     // Advance over typedefs
     while (is_typedef_type(t1))
     {
         t1 = aliased_type(t1);
+		if (cv_qualif != NULL)
+		{
+			*cv_qualif |= t1->cv_qualifier;
+		}
     }
 
     return t1;
+}
+
+type_t* advance_over_typedefs(type_t* t1)
+{
+	return advance_over_typedefs_with_cv_qualif(t1, NULL);
 }
 
 /*
@@ -46,12 +59,11 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st,
     if (t1 == NULL || t2 == NULL)
         return 1;
 
-    type_t* t1_orig = t1;
-    type_t* t2_orig = t2;
+	cv_qualifier_t cv_qualifier_t1, cv_qualifier_t2;
 
     // Advance over typedefs
-    t1 = advance_over_typedefs(t1);
-    t2 = advance_over_typedefs(t2);
+    t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
+    t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
 
     if (t1->kind != t2->kind)
     {
@@ -126,8 +138,7 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st,
             internal_error("Unknown type kind (%d)\n", t1->kind);
     }
 
-    result &= equivalent_cv_qualification(t1->cv_qualifier | t1_orig->cv_qualifier, 
-            t2->cv_qualifier | t2_orig->cv_qualifier);
+    result &= equivalent_cv_qualification(cv_qualifier_t1, cv_qualifier_t2);
 
     if (cv_equiv == CVE_IGNORE_OUTERMOST)
     {

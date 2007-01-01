@@ -45,6 +45,7 @@ char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st);
 type_t* base_type(type_t* t);
 
 type_t* advance_over_typedefs(type_t* t);
+type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qualif);
 
 // Debug purpose functions
 char* print_declarator(type_t* printed_declarator, scope_t* st);
