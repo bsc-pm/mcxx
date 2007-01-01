@@ -172,7 +172,7 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
         return;
 
     // The global scope is created here
-    translation_unit->global_scope = new_namespace_scope(NULL);
+    translation_unit->global_scope = new_namespace_scope(NULL, NULL);
 	translation_unit->scope_link = scope_link_new();
 
 	// Link the AST root node with the global scope
@@ -1771,7 +1771,13 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
     simple_type_info->type->class_info = calloc(1, sizeof(*simple_type_info->type->class_info));
     simple_type_info->type->kind = STK_CLASS;
 
-    scope_t* inner_scope = new_class_scope(st);
+	char* qualification_name = NULL;
+	if (class_head_identifier != NULL)
+	{
+		qualification_name = prettyprint_in_buffer(class_head_identifier);
+	}
+
+    scope_t* inner_scope = new_class_scope(st, qualification_name);
 
     // Save the inner scope in the class type
     // (it is used when checking member acesses)
@@ -1838,7 +1844,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 }
 
                 st = class_entry->scope;
-                inner_scope = new_class_scope(st);
+                inner_scope = new_class_scope(st, qualification_name);
 
                 // Get its simple type info and adjust its scope
                 simple_type_info->type = class_entry->type_information->type;
@@ -3925,7 +3931,9 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
         else
         {
             // We register a symbol of type namespace and link to a newly created scope.
-            scope_t* namespace_scope = new_namespace_scope(st);
+			char* qualification_name = prettyprint_in_buffer(namespace_name);
+
+            scope_t* namespace_scope = new_namespace_scope(st, qualification_name);
 
             entry = new_symbol(st, ASTText(namespace_name));
             entry->line = ASTLine(namespace_name);

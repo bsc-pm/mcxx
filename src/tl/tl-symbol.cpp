@@ -17,6 +17,20 @@ namespace TL
 			std::string("");
 	}
 
+	std::string Symbol::get_qualified_name() const
+	{
+		if (_symbol->symbol_name == NULL)
+		{
+			return std::string("");
+		}
+		else
+		{
+			// FIXME -> the scope should be the occurrence one
+			char* qualified_name = get_fully_qualified_symbol_name(_symbol, _symbol->scope);
+			return std::string(qualified_name);
+		}
+	}
+
 	bool Symbol::operator<(Symbol s) const
 	{
 		return this->_symbol < s._symbol;

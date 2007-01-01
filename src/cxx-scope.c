@@ -29,9 +29,14 @@ static scope_t* new_scope(void)
 
 // Creates a new namespace scope, a new global scope is created by just
 // passing a NULL enclosing namespace
-scope_t* new_namespace_scope(scope_t* enclosing_scope)
+scope_t* new_namespace_scope(scope_t* enclosing_scope, char* qualification_name)
 {
     scope_t* result = new_scope();
+
+	if (qualification_name != NULL)
+	{
+		result->qualification_name = strdup(qualification_name);
+	}
 
     result->kind = NAMESPACE_SCOPE;
     result->contained_in = enclosing_scope;
@@ -97,11 +102,16 @@ scope_t* new_function_scope(scope_t* enclosing_scope, scope_t* prototype_scope)
 }
 
 // Creates a new class scope
-scope_t* new_class_scope(scope_t* enclosing_scope)
+scope_t* new_class_scope(scope_t* enclosing_scope, char* qualification_name)
 {
     scope_t* result = new_scope();
 
     result->kind = CLASS_SCOPE;
+
+	if (qualification_name != NULL)
+	{
+		result->qualification_name = strdup(qualification_name);
+	}
 
     result->contained_in = enclosing_scope;
 
@@ -1915,4 +1925,26 @@ scope_t* copy_scope(scope_t* st)
 	// result->contained_in = copy_scope(st->contained_in);
 
     return result;
+}
+
+// Get the fully qualified symbol name in the scope of the ocurrence
+char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st)
+{
+	char* result = strdup(entry->symbol_name);
+	scope_t* current_scope = st;
+
+	// FIXME - What about templates? Maybe checking the template_scope can be useful
+	
+	while (current_scope != NULL)
+	{
+		if (current_scope->qualification_name != NULL)
+		{
+			char* nested_name = strappend(current_scope->qualification_name, "::");
+			result = strappend(nested_name, result);
+		}
+
+		current_scope = current_scope->contained_in;
+	}
+
+	return result;
 }

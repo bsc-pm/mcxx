@@ -2333,7 +2333,6 @@ namespace TL
                         it != shareable_references.end();
                         it++)
                 {
-					std::cerr << "Checking " << it->prettyprint() << std::endl;
                     Symbol current_sym = it->get_symbol();
 
                     // This symbol already appears in "pass_by_pointer" id-expressions,
@@ -2663,7 +2662,6 @@ namespace TL
 				// It must be a member
 				if (!function_symbol.is_member())
 				{
-					std::cerr << "Function is not member" << std::endl;
 					return false;
 				}
 

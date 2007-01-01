@@ -218,7 +218,7 @@ namespace TL
 				{
 					Symbol s(simple_type->user_defined_type);
 
-					result = s.get_name();
+					result = s.get_qualified_name();
 
 					break;
 				}

@@ -39,6 +39,8 @@ namespace TL
 			Type get_type() const;
 			std::string get_name() const;
 
+			std::string get_qualified_name() const;
+
 			Scope get_scope() const;
 
 			virtual ~Symbol()

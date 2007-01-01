@@ -44,7 +44,7 @@ enum cxx_symbol_kind
 	SK_TEMPLATE_ALIAS, // [12] this names something that aliases a template-name (used solely in instantiation)
     SK_TEMPLATE_PARAMETER, // [13] nontype parameters like N in "template<int N>"
     SK_TEMPLATE_TYPE_PARAMETER, // [14] plain type parameters like T in "template <class T>"
-    SK_TEMPLATE_TEMPLATE_PARAMETER, // [15] template template parameters like Q in "template<template<class P> Q>"
+    SK_TEMPLATE_TEMPLATE_PARAMETER, // [15] template template parameters like Q in "template<template<typename P> class Q>"
     // Artificial symbol representing scopes - used only for debugging purposes
     // should not be considered as a symbol
     SK_SCOPE, // [16]
@@ -469,6 +469,9 @@ typedef struct scope_tag
     // Hash of scope_entry_list
     Hash* hash;
 
+	// Qualification name
+	char* qualification_name;
+
     // Relationships with other scopes
     // Nesting relationship is expressed by "contained_in"
     struct scope_tag* contained_in; 
@@ -492,11 +495,11 @@ typedef struct scope_tag
 } scope_t;
 
 
-scope_t* new_namespace_scope(scope_t* enclosing_scope);
+scope_t* new_namespace_scope(scope_t* enclosing_scope, char* qualification_name);
 scope_t* new_prototype_scope(scope_t* enclosing_scope);
 scope_t* new_block_scope(scope_t* enclosing_scope, scope_t* prototype_scope, scope_t* function_scope);
 scope_t* new_function_scope(scope_t* enclosing_scope, scope_t* prototype_scope);
-scope_t* new_class_scope(scope_t* enclosing_scope);
+scope_t* new_class_scope(scope_t* enclosing_scope, char* qualification_name);
 scope_t* new_template_scope(scope_t* enclosing_scope);
 
 // Functions to handle scope
@@ -586,6 +589,9 @@ scope_t* enclosing_namespace_scope(scope_t* st);
 
 // Copy scope
 scope_t* copy_scope(scope_t* st);
+
+// Get the fully qualified symbol name in the scope of the ocurrence
+char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st);
 
 #undef BITMAP
 

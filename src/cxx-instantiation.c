@@ -347,7 +347,9 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
     instance_symbol->is_member = matched_template->is_member;
     instance_symbol->class_type = matched_template->class_type;
 
-    scope_t* inner_scope = new_class_scope(instance_symbol->scope);
+	char* qualification_name = matched_template->symbol_name;
+
+    scope_t* inner_scope = new_class_scope(instance_symbol->scope, qualification_name);
 
     DEBUG_CODE()
     {
