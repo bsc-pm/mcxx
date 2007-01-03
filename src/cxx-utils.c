@@ -64,7 +64,7 @@ int prime_hash(char* key, int hash_size)
     return (result % hash_size);
 }
 
-char* strappend(char* orig, char* appended)
+char* strappend(const char* orig, const char* appended)
 {
     int total = strlen(orig) + strlen(appended) + 1;
 
@@ -76,7 +76,7 @@ char* strappend(char* orig, char* appended)
     return result;
 }
 
-char* strprepend(char* orig, char* prepended)
+char* strprepend(const char* orig, const char* prepended)
 {
     int total = strlen(orig) + strlen(prepended) + 1;
 

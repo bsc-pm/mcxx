@@ -1415,7 +1415,8 @@ namespace TL
 
                     // now get the code that declares this reduction vector
                     reduction_vectors
-                        << reduction_vector_type.get_declaration(reduction_vector_name) << ";";
+                        << reduction_vector_type.get_declaration(it->get_id_expression().get_scope(), 
+								reduction_vector_name) << ";";
 
                     // And add to the list of referenced parameters
                     referenced_parameters << ", " << reduction_vector_name;
@@ -1659,7 +1660,9 @@ namespace TL
 
                     // now get the code that declares this reduction vector, and add it to the private_declarations
                     private_declarations
-                        << reduction_vector_type.get_declaration(reduction_vector_name) << ";";
+                        << reduction_vector_type.get_declaration(
+								it->get_id_expression().get_scope(), reduction_vector_name) 
+						<< ";";
                 }
 
                 Source reduction_update;
@@ -1777,15 +1780,51 @@ namespace TL
                 Source formal_parameters;
                 Source reduction_code;
 
+				Source static_qualifier;
+
+				Source forward_declaration;
+
                 Source result;
                 result
+					<< forward_declaration
+					<< static_qualifier
                     << "void " << outlined_function_name << "(" << formal_parameters << ")"
                     << "{"
                     <<    specific_body
                     << "}"
                     ;
 
-				formal_parameters = get_formal_parameters(function_definition, pass_by_pointer, pass_by_value, reduction_references);
+				IdExpression function_name = function_definition.get_function_name();
+				Symbol function_symbol = function_name.get_symbol();
+
+				// If the function is a member and is not qualified we need an additional
+				// static here
+				if (function_symbol.is_member() 
+						&& !function_name.is_qualified())
+				{
+					static_qualifier << "static ";
+				}
+
+				formal_parameters = get_formal_parameters(
+						function_definition, 
+						pass_by_pointer, 
+						pass_by_value, 
+						reduction_references);
+
+				// We want to forward the declaration
+				if (!function_symbol.is_member())
+				{
+					Declaration point_of_decl = function_name.get_declaration();
+					DeclarationSpec decl_specs = point_of_decl.get_declaration_specifiers();
+					ObjectList<DeclaredEntity> declared_entities = point_of_decl.get_declared_entities();
+					DeclaredEntity declared_entity = *(declared_entities.begin());
+
+					forward_declaration 
+						<< decl_specs.prettyprint()
+						<< " "
+						<< declared_entity.prettyprint()
+						<< ";";
+				}
 
                 return result;
             }
@@ -1808,7 +1847,10 @@ namespace TL
 					Type class_type = function_symbol.get_class_type();
 					Type pointer_to_class = class_type.get_pointer_to();
 
-					formal_parameters.append_with_separator(pointer_to_class.get_declaration("_this"), ",");
+					formal_parameters.append_with_separator(
+							// Fix this scope
+							pointer_to_class.get_declaration(function_name.get_scope(), "_this"), 
+							",");
 				}
 
                 // Reduction vectors are passed first by "value" (there is no
@@ -1824,7 +1866,9 @@ namespace TL
                     Type type = sym.get_type();
                     Type pointer_type = type.get_pointer_to();
                     
-                    formal_parameters.append_with_separator(pointer_type.get_declaration(reduction_vector_name), ",");
+                    formal_parameters.append_with_separator(
+							pointer_type.get_declaration(it->get_id_expression().get_scope(), reduction_vector_name), 
+							",");
                 }
 
                 // Formal parameters, basically pass_by_pointer things
@@ -1838,7 +1882,9 @@ namespace TL
                     Type pointer_type = type.get_pointer_to();
 
                     // Get a declaration of the mangled name of the id-expression
-                    formal_parameters.append_with_separator(pointer_type.get_declaration(it->mangle_id_expression()), ",");
+                    formal_parameters.append_with_separator(
+							pointer_type.get_declaration(it->get_scope(), it->mangle_id_expression())
+							, ",");
                 }
 
                 for (ObjectList<IdExpression>::iterator it = pass_by_value.begin();
@@ -1849,7 +1895,9 @@ namespace TL
                     Type type = sym.get_type();
 
                     // Get a declaration of the mangled name of the id-expression
-                    formal_parameters.append_with_separator(type.get_declaration(it->mangle_id_expression()), ",");
+                    formal_parameters.append_with_separator(
+							type.get_declaration(it->get_scope(), it->mangle_id_expression()), 
+							",");
                 }
 
 				return formal_parameters;
@@ -1904,8 +1952,9 @@ namespace TL
 				IdExpression function_name = function_definition.get_function_name();
 				Symbol function_symbol = function_name.get_symbol();
 
-				// If the function is a member and is qualified (therefore the function
-				// definition is outside the class)
+				// If the function is a member and is qualified (therefore the
+				// function definition is outside the class) we have to create
+				// an additional declaration for the new member
 				if (function_symbol.is_member() 
 						&& function_name.is_qualified())
 				{
@@ -2549,7 +2598,7 @@ namespace TL
                 Source loop_finalization;
 
                 loop_finalization
-                    << "int nth_barrier = " << (int)(do_barrier) << ";"
+                    << "nth_barrier = " << (int)(do_barrier) << ";"
                     << "in__tone_end_for_(&nth_barrier);"
                     ;
 
@@ -2584,8 +2633,12 @@ namespace TL
                             initializer << it->prettyprint();
                         }
                         
-                        private_declarations << type.get_declaration_with_initializer("p_" + it->mangle_id_expression(),
-                                initializer.get_source()) << ";";
+                        private_declarations 
+							<< type.get_declaration_with_initializer(
+									it->get_scope(),
+									"p_" + it->mangle_id_expression(),
+									initializer.get_source()) 
+							<< ";";
                     }
                     else if (reduction_references.contains(functor(&OpenMP::ReductionIdExpression::get_symbol), sym))
                     {
@@ -2601,11 +2654,16 @@ namespace TL
                         
                         // Initialize to the neuter
                         private_declarations 
-                            << type.get_declaration_with_initializer("p_" + id_expr.mangle_id_expression(), neuter) << ";";
+                            << type.get_declaration_with_initializer(
+									id_expr.get_scope(),
+									"p_" + id_expr.mangle_id_expression(), neuter) 
+							<< ";";
                     }
                     else
                     {
-                        private_declarations << type.get_declaration("p_" + it->mangle_id_expression()) << ";";
+                        private_declarations 
+							<< type.get_declaration(it->get_scope(), "p_" + it->mangle_id_expression()) 
+							<< ";";
                     }
                 }
 

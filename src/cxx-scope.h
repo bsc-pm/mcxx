@@ -134,6 +134,8 @@ typedef struct template_parameter
     enum template_parameter_kind kind;
     char* template_parameter_name;
 
+	struct scope_entry_tag* template_parameter_symbol;
+
     struct type_tag* type_info;
 
     // struct type_tag* default_type;

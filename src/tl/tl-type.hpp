@@ -50,10 +50,11 @@ namespace TL
 				return true;
 			}
 
-			std::string get_simple_declaration(const std::string& symbol_name) const;
-			std::string get_declaration(const std::string& symbol_name) const;
+			std::string get_simple_declaration(Scope sc, const std::string& symbol_name) const;
+			std::string get_declaration(Scope sc, const std::string& symbol_name) const;
 
-			std::string get_declaration_with_initializer(const std::string& symbol_name, const std::string& initializer) const;
+			std::string get_declaration_with_initializer(Scope sc, 
+					const std::string& symbol_name, const std::string& initializer) const;
 
 			Type duplicate();
 			Type get_pointer_to();
@@ -66,6 +67,7 @@ namespace TL
 
 			friend class Symbol;
 			friend class Source;
+			friend class Scope;
 	};
 }
 

@@ -156,6 +156,12 @@ static type_t* get_type_of_dependent_typename(simple_type_t* t1, decl_context_t 
         internal_error("This is not a dependent typename\n", 0);
     }
 
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "Getting the type of the dependent typename '%s'\n", 
+				prettyprint_in_buffer(t1->typeof_expr));
+	}
+
     scope_t* t1_scope = t1->typeof_scope;
 
     AST t1_expr = t1->typeof_expr;
@@ -1596,6 +1602,16 @@ char can_be_converted_to_dest(type_t* orig, type_t* dest)
     return 0;
 }
 
+scope_entry_t* get_class_symbol(type_t* class_type)
+{
+	if (is_named_class_type(class_type))
+	{
+		return class_type->type->user_defined_type;
+	}
+	else 
+		return NULL;
+}
+
 type_t* get_class_type(type_t* class_type)
 {
     if (is_named_class_type(class_type))
@@ -3006,3 +3022,362 @@ scope_entry_t* give_real_entry(scope_entry_t* entry)
     return result;
 }
 
+static char* get_cv_qualifier_string(type_t* type_info)
+{
+	char* result = "";
+
+	if (BITMAP_TEST(type_info->cv_qualifier, CV_CONST))
+	{
+		result = strappend(result, "const ");
+	}
+
+	if (BITMAP_TEST(type_info->cv_qualifier, CV_VOLATILE))
+	{
+		result = strappend(result, "volatile ");
+	}
+
+	if (BITMAP_TEST(type_info->cv_qualifier, CV_RESTRICT))
+	{
+		result = strappend(result, "restricted ");
+	}
+
+	return result;
+}
+
+
+// States if a declarator of this type will need parentheses
+static char declarator_needs_parentheses(type_t* type_info)
+{
+    char result = 0;
+    if (type_info->kind == TK_POINTER_TO_MEMBER
+            || type_info->kind == TK_POINTER
+            || type_info->kind == TK_REFERENCE)
+    {
+        type_t* pointee = type_info->pointer->pointee;
+        result = (pointee->kind != TK_POINTER_TO_MEMBER
+                && pointee->kind != TK_POINTER
+                && pointee->kind != TK_REFERENCE
+                && pointee->kind != TK_DIRECT);
+    }
+
+    return result;
+}
+
+// Gives a string with the name of this simple type
+static char* get_simple_type_name_string_internal(scope_t* st, simple_type_t* simple_type)
+{
+	char* result = strdup("");
+	switch ((int)simple_type->kind)
+	{
+		case STK_USER_DEFINED :
+			{
+				result = get_fully_qualified_symbol_name(simple_type->user_defined_type,
+						st);
+				break;
+			}
+		case STK_TYPEOF :
+			{
+				result = "__typeof_not_supported_yet__";
+				break;
+			}
+		case STK_VA_LIST :
+			{
+				result = "__builtin_va_list";
+				break;
+			}
+		case STK_BUILTIN_TYPE :
+			{
+				if (simple_type->is_unsigned)
+				{
+					result = "unsigned ";
+				}
+				else if (simple_type->is_signed)
+				{
+					result = "signed ";
+				}
+
+				if (simple_type->is_long == 1)
+				{
+					result = strappend(result, "long ");
+				}
+				else if (simple_type->is_long >= 2)
+				{
+					result = strappend(result, "long long ");
+				}
+				else if (simple_type->is_short)
+				{
+					result = strappend(result, "short ");
+				}
+
+				switch ((int)simple_type->builtin_type)
+				{
+					case BT_INT :
+						{
+							result = strappend(result, "int ");
+							break;
+						}
+					case BT_CHAR :
+						{
+							result = strappend(result, "char ");
+							break;
+						}
+					case BT_WCHAR :
+						{
+							result = strappend(result, "wchar_t ");
+							break;
+						}
+					case BT_FLOAT :
+						{
+							result = strappend(result, "float ");
+							break;
+						}
+					case BT_DOUBLE :
+						{
+							result = strappend(result, "double ");
+							break;
+						}
+					case BT_BOOL :
+						{
+							result = strappend(result, "bool ");
+							break;
+						}
+					case BT_VOID :
+						{
+							result = strappend(result, "void ");
+							break;
+						}
+					case BT_UNKNOWN :
+						{
+							result = strappend(result, " ");
+							break;
+						}
+					default :
+						break;
+				}
+				break;
+			}
+		case STK_CLASS :
+			{
+				internal_error("Type STK_CLASS still unimplemented\n", 0);
+				break;
+			}
+		default:
+			{
+				internal_error("Unknown simple type kind '%d'\n", simple_type->kind);
+				break;
+			}
+	}
+
+	return result;
+}
+
+
+// Gives the simple type name of a full fledged type
+static char* get_simple_type_name_string(scope_t* st, type_t* type_info)
+{
+    char* result = strdup("");
+    switch ((int)(type_info->kind))
+    {
+        case TK_DIRECT :
+            {
+				result = get_cv_qualifier_string(type_info);
+				result = strappend(result, get_simple_type_name_string_internal(st, type_info->type));
+				return result;
+                break;
+            }
+        case TK_FUNCTION :
+            {
+                result = get_simple_type_name_string(st, type_info->function->return_type);
+                break;
+            }
+        case TK_POINTER :
+        case TK_REFERENCE :
+        case TK_POINTER_TO_MEMBER :
+            {
+                result = get_simple_type_name_string(st, type_info->pointer->pointee);
+                break;
+            }
+        case TK_ARRAY :
+            {
+                result = get_simple_type_name_string(st, type_info->array->element_type);
+                break;
+            }
+        default:
+            break;
+    }
+    return result;
+}
+
+static char* get_type_name_string(scope_t* st,
+		type_t* type_info, 
+		const char* symbol_name);
+
+// Returns a declaration string given a type, a symbol name, an optional initializer
+// and a semicolon
+char* get_declaration_string_internal(type_t* type_info, 
+		scope_t* st,
+		const char* symbol_name, const char* initializer, 
+		char semicolon)
+{
+	char* base_type_name = get_simple_type_name_string(st, type_info);
+	char* declarator_name = get_type_name_string(st, type_info, symbol_name);
+
+	char* result;
+
+	result = base_type_name;
+	result = strappend(result, " ");
+
+	result = strappend(result, declarator_name);
+
+	// FIXME Should check if copy-constructor is not flagged as "explicit"
+	// (for parameters this can be useful to declare default arguments)
+	if (strcmp(initializer, "") == 0)
+	{
+		result = strappend(result, initializer);
+	}
+
+	if (semicolon)
+	{
+		result = strappend(result, ";");
+	}
+
+	return result;
+}
+
+static void get_type_name_str_internal(scope_t* st,
+		type_t* type_info, 
+		char** left,
+		char** right);
+
+static char* get_type_name_string(scope_t* st,
+		type_t* type_info, 
+		const char* symbol_name)
+{
+	char* left = strdup("");
+	char* right = strdup("");
+	get_type_name_str_internal(st, type_info, &left, &right);
+
+	char* result = strappend(left, symbol_name);
+	result = strappend(result, right);
+
+	return result;
+}
+
+
+// Constructs a proper declarator
+static void get_type_name_str_internal(scope_t* st,
+		type_t* type_info, 
+		char** left,
+		char** right)
+{
+	switch (type_info->kind)
+	{
+		case TK_DIRECT :
+			{
+				break;
+			}
+		case TK_POINTER :
+			{
+				get_type_name_str_internal(st, type_info->pointer->pointee, left, right);
+
+				if (declarator_needs_parentheses(type_info))
+				{
+					(*left) = strappend((*left), "(");
+				}
+
+				(*left) = strappend((*left), get_cv_qualifier_string(type_info));
+				(*left) = strappend((*left), "*");
+
+				if (declarator_needs_parentheses(type_info))
+				{
+					(*right) = strappend(")", (*right));
+				}
+				break;
+			}
+		case TK_POINTER_TO_MEMBER :
+			{
+				get_type_name_str_internal(st, type_info->pointer->pointee, left, right);
+
+				if (declarator_needs_parentheses(type_info))
+				{
+					(*left) = strappend((*left), "(");
+				}
+
+				(*left) = strappend((*left), type_info->pointer->pointee_class->symbol_name);
+
+				(*left) = strappend((*left), "::");
+				(*left) = strappend((*left), "*");
+				(*left) = strappend((*left), get_cv_qualifier_string(type_info));
+
+
+				if (declarator_needs_parentheses(type_info))
+				{
+					(*right) = strappend(")", (*right));
+				}
+				break;
+			}
+		case TK_REFERENCE :
+			{
+				get_type_name_str_internal(st, type_info->pointer->pointee, left, right);
+
+				if (declarator_needs_parentheses(type_info))
+				{
+					(*left) = strappend((*left), "(");
+				}
+
+				(*left) = strappend((*left), "&");
+
+				if (declarator_needs_parentheses(type_info))
+				{
+					(*right) = strappend(")", (*right));
+				}
+				break;
+			}
+		case TK_ARRAY :
+			{
+				get_type_name_str_internal(st, type_info->array->element_type, left, right);
+
+				char* array_expr = strappend("[", prettyprint_in_buffer(type_info->array->array_expr));
+				array_expr = strappend(array_expr, "]");
+
+				(*right) = strappend((*right), array_expr);
+				break;
+			}
+		case TK_FUNCTION :
+			{
+				get_type_name_str_internal(st, type_info->function->return_type, left, right);
+
+				char* prototype;
+				prototype = "(";
+				int i;
+				for (i = 0; i < type_info->function->num_parameters; i++)
+				{
+					if (i > 0)
+					{
+						prototype = strappend(prototype, ", ");
+					}
+
+					if (type_info->function->parameter_list[i]->is_ellipsis)
+					{
+						prototype = strappend(prototype, "...");
+					}
+					else
+					{
+						// Abstract declarator
+						prototype = strappend(prototype,
+								get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, st, "", "", 0));
+					}
+				}
+				prototype = strappend(prototype, ") ");
+				prototype = strappend(prototype, get_cv_qualifier_string(type_info));
+
+				(*right) = strappend((*right), prototype);
+				break;
+			}
+		default:
+			{
+				fprintf(stderr, "Unknown type kind '%d'\n", (int)type_info->type);
+				break;
+			}
+	}
+}

@@ -1359,6 +1359,10 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
                 prettyprint_in_buffer(a), node_information(a));
     }
 
+	DEBUG_CODE()
+	{
+		fprintf(stderr, "Returning dependent type for '%s'\n", prettyprint_in_buffer(a));
+	}
     simple_type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
     simple_type_info->type->typeof_expr = a;
     simple_type_info->type->typeof_scope = copy_scope(st);
@@ -1584,74 +1588,6 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
                 internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(base_specifier)));
         }
 
-        // Create a convenience simple type specifier
-#if 0
-        AST simple_type_specifier = 
-            ASTMake3(AST_SIMPLE_TYPE_SPECIFIER, 
-                    duplicate_ast(global_op), 
-                    duplicate_ast(nested_name_specifier), 
-                    duplicate_ast(name), 
-                    ASTLine(name), NULL);
-
-        AST type_specifier_seq = ASTMake3(AST_TYPE_SPECIFIER_SEQ,
-                NULL, simple_type_specifier, NULL, ASTLine(simple_type_specifier), NULL);
-
-        type_t* type_info = NULL;
-        gather_decl_spec_t gather_info;
-        memset(&gather_info, 0, sizeof(gather_info));
-
-        build_scope_decl_specifier_seq(type_specifier_seq, st, &gather_info, &type_info, decl_context);
-
-        
-        // Replace the fixed nodes
-        if (global_op != NULL)
-        {
-            *global_op = *(ASTSon0(simple_type_specifier));
-        }
-
-        if (nested_name_specifier != NULL)
-        {
-            *nested_name_specifier = *(ASTSon1(simple_type_specifier));
-        }
-
-        if (name != NULL)
-        {
-            *name = *(ASTSon2(simple_type_specifier));
-        }
-
-        // This is always a type name
-        if (type_info == NULL)
-        {
-            internal_error("Base type '%s' not found (%s)\n", 
-                    prettyprint_in_buffer(base_specifier),
-                    node_information(base_specifier));
-        }
-        
-        if (type_info->kind != TK_DIRECT)
-        {
-            internal_error("Base type '%s' is not a direct type but kind type %d (%s)\n", 
-                    prettyprint_in_buffer(base_specifier),
-                    type_info->kind,
-                    node_information(base_specifier));
-        }
-
-        if (type_info->type->kind != STK_USER_DEFINED
-                && type_info->type->kind != STK_TEMPLATE_DEPENDENT_TYPE)
-        {
-            internal_error("Base type '%s' is not type name but kind type %d (%s)\n", 
-                    prettyprint_in_buffer(base_specifier), 
-                    type_info->type->kind,
-                    node_information(base_specifier));
-        }
-
-        if (type_info->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
-        {
-            // This does not have any further information
-            continue;
-        }
-
-
-#endif
         enum cxx_symbol_kind filter[7] =
         {
             SK_CLASS,
@@ -2549,6 +2485,36 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
 				ASTAttrSetValueType(parameter_declarator, LANG_IS_DECLARED_PARAMETER, tl_type_t, tl_bool(1));
 			}
 
+			// Normalize parameters
+			//
+			// function to pointer-to-function
+			if (entry != NULL)
+			{
+				if (type_info->kind == TK_FUNCTION)
+				{
+					fprintf(stderr, "Normalizing parameter '%s'\n", prettyprint_in_buffer(declarator_name));
+					type_t* pointer_to = calloc(1, sizeof(*pointer_to));
+					pointer_to->kind = TK_POINTER;
+					pointer_to->pointer = calloc(1, sizeof(*pointer_to->pointer));
+					pointer_to->pointer->pointee = entry->type_information;
+
+					// Fix this variable
+					entry->kind = SK_VARIABLE;
+
+					entry->type_information = pointer_to;
+				}
+				// array to array-to-pointer
+				else if (type_info->kind == TK_ARRAY)
+				{
+					entry->type_information->kind = TK_POINTER;
+					entry->type_information->pointer = calloc(1, sizeof(*entry->type_information->pointer));
+					entry->type_information->pointer->pointee = entry->type_information->array->element_type;
+					entry->type_information->array = NULL;
+				}
+
+				type_info = entry->type_information;
+			}
+
             parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
             new_parameter->type_info = type_info;
             new_parameter->default_argument = default_argument;
@@ -3038,6 +3004,10 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         if (check_list != NULL)
         {
             scope_entry_t* entry = check_list->entry;
+			
+			// Always use the latest one, unfortunately a variable can be
+			// declared several times by means of "extern" keyword
+			entry->point_of_declaration = get_enclosing_declaration(declarator_id);
             return entry;
         }
 
@@ -3703,12 +3673,13 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
             new_entry->num_template_parameters, 
             &(new_entry->type_information->type->template_arguments));
         
-        // And save its name
-        template_parameters->template_parameter_name = strdup(name);
         new_type->type->template_parameter_name = strdup(name);
 
         template_parameters->parameter_tree = ASTMake3(AST_SIMPLE_TYPE_SPECIFIER, 
                 NULL, NULL, duplicate_ast(symbol), ASTLine(symbol), NULL);
+
+		template_parameters->template_parameter_symbol = new_entry;
+        template_parameters->template_parameter_name = new_entry->symbol_name;
 
         ASTSon2(template_parameters->parameter_tree) = NULL;
     }
@@ -3791,9 +3762,10 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
 
         // And save it in the type
         template_parameters->template_parameter_name = strdup(ASTText(name));
-        new_type->type->template_parameter_name = strdup(ASTText(name));
 
         template_parameters->parameter_tree = name;
+		template_parameters->template_parameter_symbol = new_entry;
+        new_type->type->template_parameter_name = new_entry->symbol_name;
     }
     else
     {
@@ -3860,7 +3832,8 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 
             // Save its name
             template_parameters->template_parameter_name = strdup(entry->symbol_name);
-            simple_type_info->type->template_parameter_name = strdup(entry->symbol_name);
+			template_parameters->template_parameter_symbol = entry;
+            simple_type_info->type->template_parameter_name = entry->symbol_name;
         }
     }
     // If we don't have a declarator just save the base type
@@ -4203,6 +4176,9 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 
     ERROR_CONDITION((entry->kind != SK_FUNCTION && entry->kind != SK_TEMPLATE_FUNCTION), 
             "This is not a function!!!", 0);
+
+	ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
+	ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
 
     // Function_body
     AST function_body = ASTSon3(a);
@@ -4950,7 +4926,14 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
                     template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
 
                     new_template_argument->kind = TAK_TYPE;
-                    new_template_argument->type = template_parameter->type_info;
+                    // new_template_argument->type = template_parameter->type_info;
+					new_template_argument->type = calloc(1, sizeof(*new_template_argument->type));
+
+					new_template_argument->type->kind = TK_DIRECT;
+					new_template_argument->type->type = calloc(1, sizeof(*new_template_argument->type->type));
+					new_template_argument->type->type->kind = STK_USER_DEFINED;
+					new_template_argument->type->type->user_defined_type = template_parameter->template_parameter_symbol;
+
                     new_template_argument->scope = template_scope; 
                     new_template_argument->argument_tree = template_parameter->parameter_tree;
 
@@ -4963,9 +4946,15 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
                     template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
 
                     new_template_argument->kind = TAK_TEMPLATE;
-                    new_template_argument->type = template_parameter->type_info;
+                    // new_template_argument->type = template_parameter->type_info;
                     new_template_argument->scope = template_scope; 
                     new_template_argument->argument_tree = template_parameter->parameter_tree;
+
+					new_template_argument->type = calloc(1, sizeof(*new_template_argument->type));
+					new_template_argument->type->kind = TK_DIRECT;
+					new_template_argument->type->type = calloc(1, sizeof(*new_template_argument->type->type));
+					new_template_argument->type->type->kind = STK_USER_DEFINED;
+					new_template_argument->type->type->user_defined_type = template_parameter->template_parameter_symbol;
 
                     P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 
@@ -5010,247 +4999,6 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
         }
     }
 }
-
-#if 0
-static void update_template_parameter_types(type_t** update_type,
-        template_argument_list_t* argument_list, decl_context_t decl_context)
-{
-    if (update_type == NULL
-            || *update_type == NULL)
-        return;
-
-    switch ((*update_type)->kind)
-    {
-        case TK_REFERENCE :
-        case TK_POINTER :
-            {
-                update_template_parameter_types(&((*update_type)->pointer->pointee), 
-                        argument_list, decl_context);
-                break;
-            }
-        case TK_POINTER_TO_MEMBER :
-            {
-                update_template_parameter_types(&((*update_type)->pointer->pointee), 
-                        argument_list, decl_context);
-                scope_entry_t* pointee_class = (*update_type)->pointer->pointee_class;
-                update_template_parameter_types(&(pointee_class->type_information), 
-                        argument_list, decl_context);
-                break;
-            }
-        case TK_FUNCTION :
-            {
-                int i;
-                function_info_t* function_info = (*update_type)->function;
-
-                update_template_parameter_types(&(function_info->return_type), 
-                        argument_list, decl_context);
-
-                for (i = 0; i < function_info->num_parameters; i++)
-                {
-                    update_template_parameter_types(&(function_info->parameter_list[i]->type_info),
-                            argument_list, decl_context);
-                }
-                break;
-            }
-        case TK_DIRECT :
-            {
-                if ((*update_type)->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
-                {
-                    // type_t* replace_type = argument_list->argument_list[(*update_type)->type->template_parameter_num]->type;
-                    *update_type = 
-                        advance_over_typedefs(argument_list->argument_list[(*update_type)->type->template_parameter_num]->type);
-                }
-                else if ((*update_type)->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER)
-                {
-                    internal_error("Not yet implemented", 0);
-                }
-                else if ((*update_type)->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
-                {
-                    AST a = (*update_type)->type->typeof_expr;
-                    AST global_scope = ASTSon0(a);
-                    AST nested_name_spec = ASTSon1(a);
-                    AST name = ASTSon2(a);
-
-                    scope_t* replace_scope = new_template_scope((*update_type)->type->typeof_scope);
-
-                    Iterator* it = (Iterator*) hash_iterator_create(
-                            (*update_type)->type->typeof_scope->hash);
-                    for (iterator_first(it); !iterator_finished(it); iterator_next(it))
-                    {
-                        scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
-
-                        scope_entry_t* entry = entry_list->entry;
-
-                        scope_entry_t* new_entry = new_symbol(replace_scope, entry->symbol_name);
-
-                        type_t* entry_base_type = base_type(entry->type_information);
-                        if (entry_base_type->type->template_parameter_num >= argument_list->num_arguments)
-                        {
-                            continue;
-                        }
-
-                        if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
-                        {
-                            new_entry->kind = SK_TYPEDEF;
-
-                            new_entry->type_information = calloc(1, sizeof(*(new_entry->type_information)));
-                            new_entry->type_information->kind = TK_DIRECT;
-
-                            new_entry->type_information->type = calloc(1, sizeof(*(new_entry->type_information->type)));
-                            new_entry->type_information->type->kind = STK_TYPEDEF;
-                            new_entry->type_information->type->aliased_type = copy_type(
-                                    advance_over_typedefs(entry->type_information));
-
-                            update_template_parameter_types(&(new_entry->type_information->type->aliased_type),
-                                    argument_list, decl_context);
-                        }
-                        else if (entry->kind == SK_TEMPLATE_PARAMETER)
-                        {
-                            *new_entry = *entry;
-                            new_entry->scope = replace_scope;
-
-                            // This is no more a SK_TEMPLATE_PARAMETER
-                            new_entry->kind = SK_VARIABLE;
-                            AST expression = duplicate_ast(
-                                    argument_list->argument_list[(
-                                        entry->type_information->type->template_parameter_num
-                                        )]->argument_tree);
-                            AST constant_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, expression, ASTLine(expression), NULL);
-
-                            new_entry->expression_value = constant_initializer;
-                        }
-                        else if (entry->kind == SK_TYPEDEF)
-                        {
-                            break;
-                        }
-                        else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-                        {
-                            internal_error("Not implemented", 0);
-                        }
-                        else
-                        {
-                            internal_error("Unexpected symbol type '%d' line %d\n", entry->kind, entry->line);
-                        }
-                    }
-
-                    scope_t* search_scope = copy_scope((*update_type)->type->typeof_scope->contained_in);
-                    search_scope->template_scope = replace_scope;
-
-                    scope_entry_list_t* entry_list = query_nested_name_flags(search_scope,
-                            global_scope, nested_name_spec, name, FULL_UNQUALIFIED_LOOKUP,
-                            LF_NO_FAIL, decl_context);
-
-                    if (entry_list != NULL)
-                    {
-                        scope_entry_t* entry = entry_list->entry;
-                        (*update_type) = entry->type_information;
-                    }
-                    else
-                    {
-                        internal_error("Argument type not found\n", 0);
-                    }
-                }
-                else if ((*update_type)->type->kind == STK_USER_DEFINED)
-                {
-                    scope_entry_t* entry = (*update_type)->type->user_defined_type;
-
-                    if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
-                    {
-                        type_t* template_type = entry->type_information;
-
-                        *update_type = argument_list->argument_list[template_type->type->template_parameter_num]->type;
-                    }
-                    // Handle templates. We create specializations here if needed
-                    else if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS
-                            || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "Updating types of template '%s'\n", entry->symbol_name);
-                        }
-                        template_argument_list_t* new_template_arguments = 
-                            copy_template_argument_list(entry->type_information->type->template_arguments);
-
-                        int i;
-
-                        DEBUG_CODE()
-                        {
-                            for (i = 0; i < new_template_arguments->num_arguments; i++)
-                            {
-                                char c = (entry->type_information->type->template_arguments->argument_list[i]->type ==
-                                        new_template_arguments->argument_list[i]->type);
-                                ERROR_CONDITION(c, "These pointers have to be different!!!\n", 0);
-                            }
-                        }
-
-                        for (i = 0; i < new_template_arguments->num_arguments; i++)
-                        {
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "Before template argument type update %d (%p) : %s\n", i,
-                                        new_template_arguments->argument_list[i]->type,
-                                        print_declarator(new_template_arguments->argument_list[i]->type, entry->scope));
-                            }
-                            
-                            // update_template_parameter_types(
-                            //         &(new_template_arguments->argument_list[i]->type),
-                            //         new_template_arguments, decl_context);
-
-                            update_template_parameter_types(
-                                    &(new_template_arguments->argument_list[i]->type),
-                                    argument_list, decl_context);
-
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "After template argument type update %d (%p) : %s\n", i,
-                                        new_template_arguments->argument_list[i]->type,
-                                        print_declarator(new_template_arguments->argument_list[i]->type, entry->scope));
-                            }
-                        }
-
-                        scope_entry_list_t* candidates = query_unqualified_name(entry->scope, entry->symbol_name);
-
-                        matching_pair_t* new_match_template = solve_template(candidates, new_template_arguments, entry->scope, 
-                                /* give_exact_match = */ 1, decl_context);
-
-                        scope_entry_t* new_specialization = NULL;
-                        if (new_match_template == NULL)
-                        {
-                            new_specialization = create_holding_symbol_for_template(entry, new_template_arguments,
-                                    entry->scope, entry->line);
-                        }
-                        else
-                        {
-                            new_specialization = new_match_template->entry;
-                        }
-
-                        type_t* new_user_defined_type = calloc(1, sizeof(*new_user_defined_type));
-                        new_user_defined_type->kind = TK_DIRECT;
-
-                        new_user_defined_type->type = calloc(1, sizeof(*(new_user_defined_type->type)));
-                        new_user_defined_type->type->kind = STK_USER_DEFINED;
-                        new_user_defined_type->type->user_defined_type = new_specialization;
-
-                        *update_type = new_user_defined_type;
-                    }
-                }
-
-                break;
-            }
-        case TK_ARRAY :
-            {
-                update_template_parameter_types(&((*update_type)->array->element_type), 
-                        argument_list, decl_context);
-                break;
-            }
-        default :
-            {
-                internal_error("Unknown type kind '%d'\n", (*update_type)->kind);
-                break;
-            }
-    }
-}
-#endif
 
 // Replaces symbols of template parameters with template arguments seen so far
 scope_t* replace_template_parameters_with_template_arguments(template_parameter_t* curr_template_parameter, 
@@ -7017,6 +6765,7 @@ static AST get_enclosing_declaration(AST point_of_declarator)
     while (point_of_declarator != NULL
             && ASTType(point_of_declarator) != AST_SIMPLE_DECLARATION
             && ASTType(point_of_declarator) != AST_MEMBER_DECLARATION
+            && ASTType(point_of_declarator) != AST_FUNCTION_DEFINITION
             && ASTType(point_of_declarator) != AST_PARAMETER_DECL)
     {
         point_of_declarator = ASTParent(point_of_declarator);

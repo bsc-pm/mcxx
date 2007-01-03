@@ -13,6 +13,7 @@
 #include "cxx-ambiguity.h"
 #include "cxx-buildscope.h"
 #include "hash.h"
+#include "hash_iterator.h"
 
 static scope_t* new_scope(void)
 {
@@ -1927,14 +1928,14 @@ scope_t* copy_scope(scope_t* st)
     return result;
 }
 
-// Get the fully qualified symbol name in the scope of the ocurrence
-char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st)
+// Only for "simple" symbols, this is, that are not members and they are simply contained
+// in a nest of namespaces
+static char* get_fully_qualified_symbol_name_simple(scope_t* st, char* current_qualif_name)
 {
-	char* result = strdup(entry->symbol_name);
+	char* result = current_qualif_name;
+
 	scope_t* current_scope = st;
 
-	// FIXME - What about templates? Maybe checking the template_scope can be useful
-	
 	while (current_scope != NULL)
 	{
 		if (current_scope->qualification_name != NULL)
@@ -1944,6 +1945,147 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st)
 		}
 
 		current_scope = current_scope->contained_in;
+	}
+
+	return result;
+}
+
+static scope_entry_t* find_template_parameter(scope_t* st, scope_entry_t* template_param)
+{
+    Iterator* it = (Iterator*) hash_iterator_create(st->hash);
+    for ( iterator_first(it); 
+            !iterator_finished(it); 
+            iterator_next(it))
+    {
+		scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
+
+		scope_entry_t* entry = entry_list->entry;
+
+		if (entry->kind == template_param->kind
+				&& (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+					|| entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
+		{
+			type_t* type_current = entry->type_information;
+			type_t* type_param = template_param->type_information;
+
+			simple_type_t* t1 = type_current->type;
+			simple_type_t* t2 = type_param->type;
+
+			if ((t1->template_parameter_num == t2->template_parameter_num)
+						&& (t1->template_parameter_nesting == t2->template_parameter_nesting))
+			{
+				return entry;
+			}
+		}
+	}
+
+	return NULL;
+}
+
+static char* give_name_for_template_parameter(scope_entry_t* entry, scope_t* st)
+{
+	if (st->kind != TEMPLATE_SCOPE)
+	{
+		st = st->template_scope;
+	}
+
+	char found = 0;
+
+	while (st != NULL)
+	{
+		scope_entry_t* template_parameter = find_template_parameter(st, entry);
+		if (template_parameter != NULL)
+		{
+			return template_parameter->symbol_name;
+		}
+
+		st = st->template_scope;
+	}
+
+	if (!found)
+	{
+		internal_error("Template parameter '%s' not found in scope\n", entry->symbol_name);
+	}
+
+	return NULL;
+}
+
+// Get the fully qualified symbol name in the scope of the ocurrence
+char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st)
+{
+	// fprintf(stderr, "Getting fully qualified symbol name for '%s'\n", entry->symbol_name);
+	char* result = strdup(entry->symbol_name);
+
+	if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+			|| entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+	{
+		// This symbol must be looked up for the proper real name
+		result = give_name_for_template_parameter(entry, st);
+		return result;
+	}
+
+	if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+			|| entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+	{
+		// It is not enough with the name, we have to print the arguments
+		result = strappend(result, "<");
+		template_argument_list_t* template_arguments = entry->type_information->type->template_arguments;
+
+		int i;
+		for (i = 0; i < template_arguments->num_arguments; i++)
+		{
+			if (i != 0)
+			{
+				result = strappend(result, ", ");
+			}
+
+			template_argument_t* template_argument = template_arguments->argument_list[i];
+
+			switch (template_argument->kind)
+			{
+				// Print the type
+				case TAK_TEMPLATE:
+				case TAK_TYPE:
+					{
+						char* abstract_declaration = 
+							get_declaration_string_internal(template_argument->type, st, "", "", 0);
+						
+						result = strappend(result, abstract_declaration);
+						break;
+					}
+				case TAK_NONTYPE:
+					{
+						break;
+					}
+				default:
+					{
+						fprintf(stderr, "Undefined template argument\n");
+						break;
+					}
+			}
+		}
+
+		result = strappend(result, ">");
+	}
+
+	if (entry->is_member)
+	{
+		// We need the qualification of the class
+		scope_entry_t* class_symbol = get_class_symbol(entry->class_type);
+
+		if (class_symbol != NULL)
+		{
+			char* class_qualification = get_fully_qualified_symbol_name(class_symbol, st);
+
+			class_qualification = strappend(class_qualification, "::");
+
+			result = strappend(class_qualification, result);
+		}
+	} 
+	else if (!entry->is_member)
+	{
+		// This symbol is already simple enough
+		result = get_fully_qualified_symbol_name_simple(entry->scope->contained_in, result);
 	}
 
 	return result;
