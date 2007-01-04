@@ -1303,8 +1303,6 @@ namespace TL
 
                 Source reduction_code;
 
-
-
                 parallel_for_body
                     << "{"
                     <<    private_declarations
@@ -1325,10 +1323,6 @@ namespace TL
                     reduction_code = get_noncritical_inlined_reduction_code(reduction_references,
                             private_declarations);
                 }
-
-                // std::cerr << "CODI FOR" << std::endl;
-                // std::cerr << parallel_for_body.get_source(true) << std::endl;
-                // std::cerr << "End CODI FOR" << std::endl;
 
                 AST_t result;
                 result = parallel_for_body.parse_statement(loop_body.get_scope(), 
@@ -1637,6 +1631,11 @@ namespace TL
             {
                 Source reduction_code;
 
+				if (reduction_references.empty())
+				{
+					return reduction_code;
+				}
+
                 for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
                         it != reduction_references.end();
                         it++)
@@ -1694,33 +1693,36 @@ namespace TL
             }
 
             Source get_reduction_update(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
-            {
-                Source reduction_update;
+			{
+				Source reduction_update;
 
-                if (!reduction_references.empty())
-                {
-                    reduction_update 
-                        << "{"
-//                        <<    "extern int in__tone_thread_id_ ();"
-                        <<    "int nth_thread_id = in__tone_thread_id_();"
-                        ;
+				if (reduction_references.empty())
+				{
+					return reduction_update;
+				}
 
-                    for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
-                            it != reduction_references.end();
-                            it++)
-                    {
-                        reduction_update
-                            << "rdv_" << it->get_id_expression().mangle_id_expression() << "[nth_thread_id] = "
-                            << "p_" << it->get_id_expression().mangle_id_expression() << ";";
-                    }
+				reduction_update 
+					<< "{"
+					//                        <<    "extern int in__tone_thread_id_ ();"
+					<<    "int nth_thread_id = in__tone_thread_id_();"
+					;
 
-                    reduction_update
-                        << "}"
-                        ;
-                }
+				for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
+						it != reduction_references.end();
+						it++)
+				{
+					reduction_update
+						<< "rdv_" << it->get_id_expression().mangle_id_expression() << "[nth_thread_id] = "
+						<< "p_" << it->get_id_expression().mangle_id_expression() << ";";
+				}
 
-                return reduction_update;
-            }
+				reduction_update
+					<< "}"
+					;
+
+
+				return reduction_update;
+			}
 
             Source get_reduction_gathering(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
             {
@@ -2548,6 +2550,7 @@ namespace TL
                     << "int intone_start;"
                     << "int intone_end;"
                     << "int intone_last;"
+					<< "int nth_barrier;"
 
                     << "nth_low = " << for_statement.get_lower_bound().prettyprint() << ";"
                     << "nth_upper = " << for_statement.get_upper_bound().prettyprint() << ";"

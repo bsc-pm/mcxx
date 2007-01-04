@@ -1010,6 +1010,19 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
         if (nested_name_specifier == NULL
                 && global_scope == NULL)
         {
+			// First fix the scope, it must be the first non-class namespace scope
+			// enclosing this one
+			while (st != NULL && st->kind != NAMESPACE_SCOPE)
+			{
+				st = st->contained_in;
+			}
+
+			if (st == NULL)
+			{
+				internal_error("Could not get a namespace scope for elaborated class declaration '%s'\n", 
+						prettyprint_in_buffer(a));
+			}
+
             char* class_name = NULL;
             if (ASTType(class_symbol) == AST_SYMBOL)
             {
@@ -4579,7 +4592,11 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
                 }
         }
 
-        entry->is_member = 1;
+		DEBUG_CODE()
+		{
+			fprintf(stderr, "Setting member function definition of '%s' as a member\n", entry->symbol_name); 
+		}
+		entry->is_member = 1;
         entry->class_type = class_info;
     }
     else
@@ -4627,8 +4644,16 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 				&& simple_type_info->kind == TK_DIRECT
                 && simple_type_info->type->kind == STK_USER_DEFINED)
         {
-            simple_type_info->type->user_defined_type->is_member = 1;
-            simple_type_info->type->user_defined_type->class_type = class_info;
+			if (st == simple_type_info->type->user_defined_type->scope)
+			{
+				DEBUG_CODE()
+				{
+					fprintf(stderr, "Setting type '%s' as member\n", 
+							simple_type_info->type->user_defined_type->symbol_name);
+				}
+				simple_type_info->type->user_defined_type->is_member = 1;
+				simple_type_info->type->user_defined_type->class_type = class_info;
+			}
         }
 
     }
@@ -4725,6 +4750,10 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
                                 simple_type_info, &declarator_type, 
                                 new_decl_context);
 
+						DEBUG_CODE()
+						{
+							fprintf(stderr, "Setting symbol '%s' as a member\n", entry->symbol_name);
+						}
                         entry->is_member = 1;
                         entry->class_type = class_info;
 

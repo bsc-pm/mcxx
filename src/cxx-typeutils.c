@@ -2122,10 +2122,12 @@ char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
                 switch (user_defined_type->kind)
                 {
                     case SK_ENUM :
-                        snprintf(user_defined_str, MAX_LENGTH, "enum %s", user_defined_type->symbol_name);
+                        snprintf(user_defined_str, MAX_LENGTH, "enum %s", 
+								get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope));
                         break;
                     case SK_CLASS :
-                        snprintf(user_defined_str, MAX_LENGTH, "class %s", user_defined_type->symbol_name);
+                        snprintf(user_defined_str, MAX_LENGTH, "class %s", 
+								get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope));
                         break;
                     case SK_TYPEDEF :
                         snprintf(user_defined_str, MAX_LENGTH, "%s", 
@@ -3285,8 +3287,8 @@ static void get_type_name_str_internal(scope_t* st,
 					(*left) = strappend((*left), "(");
 				}
 
-				(*left) = strappend((*left), get_cv_qualifier_string(type_info));
 				(*left) = strappend((*left), "*");
+				(*left) = strappend((*left), get_cv_qualifier_string(type_info));
 
 				if (declarator_needs_parentheses(type_info))
 				{
