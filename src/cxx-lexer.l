@@ -481,8 +481,19 @@ runtime {
 
 }
 
+<preprocess>[ ]*pragma[ ]+gcc[ ]+[^\n]* {
+ // Handle unknown pragmas from gcc but do not warn people as they may be
+ // mandatory in gcc headers
+ parse_token_text();
+ return UNKNOWN_PRAGMA;
+}
+
 <preprocess>[ ]*pragma[^\n]* {
- // Handle unknown pragmas
+ // Handle *really* unknown pragmas
+ fprintf(stderr, "Warning, unknown '#%s' at %s:%d\n", 
+		 yytext,
+		 scanning_now.current_filename,
+		 scanning_now.line_number);
  parse_token_text();
  return UNKNOWN_PRAGMA;
 }
