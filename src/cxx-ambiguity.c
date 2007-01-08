@@ -2170,7 +2170,8 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st,
             prettyprint(stderr, ambig_template_argument);
             fprintf(stderr, "'\n");
         }
-        internal_error("No valid choice found! %s", node_information(ambig_template_argument));
+        internal_error("No valid choice found in %s for '%s' ", node_information(ambig_template_argument),
+				prettyprint_in_buffer(ambig_template_argument));
     }
     else
     {

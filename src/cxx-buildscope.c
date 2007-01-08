@@ -5493,7 +5493,7 @@ void build_scope_template_arguments(AST class_head_id,
 
             DEBUG_CODE()
             {
-                fprintf(stderr, "Adding '%s' as a template argument of '%s'\n", 
+                fprintf(stderr, "Adding '%s' as an implicit template argument of '%s'\n", 
                         prettyprint_in_buffer(curr_template_arg->argument_tree),
                         prettyprint_in_buffer(class_head_id));
             }

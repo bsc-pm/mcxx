@@ -2047,8 +2047,10 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st)
 				case TAK_TEMPLATE:
 				case TAK_TYPE:
 					{
-						char* abstract_declaration = 
-							get_declaration_string_internal(template_argument->type, st, "", "", 0);
+						char* abstract_declaration;
+
+						abstract_declaration = 
+							get_declaration_string_internal(advance_over_typedefs(template_argument->type), st, "", "", 0);
 						
 						result = strappend(result, abstract_declaration);
 						break;
@@ -2085,7 +2087,7 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st)
 	else if (!entry->is_member)
 	{
 		// This symbol is already simple enough
-		result = get_fully_qualified_symbol_name_simple(entry->scope->contained_in, result);
+		result = get_fully_qualified_symbol_name_simple(entry->scope, result);
 	}
 
 	return result;
