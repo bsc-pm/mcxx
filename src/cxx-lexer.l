@@ -481,7 +481,7 @@ runtime {
 
 }
 
-<preprocess>[ ]*pragma[ ]+gcc[ ]+[^\n]* {
+<preprocess>[ ]*pragma[ ]+[Gg][Cc][Cc][ ]+[^\n]* {
  // Handle unknown pragmas from gcc but do not warn people as they may be
  // mandatory in gcc headers
  parse_token_text();

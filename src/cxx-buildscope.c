@@ -1010,17 +1010,21 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
         if (nested_name_specifier == NULL
                 && global_scope == NULL)
         {
-			// First fix the scope, it must be the first non-class namespace scope
-			// enclosing this one
-			while (st != NULL && st->kind != NAMESPACE_SCOPE)
+			if (!BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
 			{
-				st = st->contained_in;
-			}
+				// First fix the scope, it must be the first non-class namespace scope
+				// enclosing this one if the declaration is of type "struct A something;"
+				// if it has form "struct A;" it must be declared in the current scope
+				while (st != NULL && st->kind != NAMESPACE_SCOPE)
+				{
+					st = st->contained_in;
+				}
 
-			if (st == NULL)
-			{
-				internal_error("Could not get a namespace scope for elaborated class declaration '%s'\n", 
-						prettyprint_in_buffer(a));
+				if (st == NULL)
+				{
+					internal_error("Could not get a namespace scope for elaborated class declaration '%s'\n", 
+							prettyprint_in_buffer(a));
+				}
 			}
 
             char* class_name = NULL;
@@ -3702,6 +3706,16 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 
         sprintf(template_param_name, " <template-param-%d-%d> ", decl_context.template_nesting, num_parameter+1);
         template_parameters->parameter_tree = ASTLeaf(AST_SYMBOL, ASTLine(a), template_param_name);
+
+        scope_entry_t* new_entry = new_symbol(st, template_param_name);
+        new_entry->line = ASTLine(a);
+		new_entry->point_of_declaration = a;
+
+        new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
+        new_entry->type_information = new_type;
+
+        new_entry->template_parameter_info = parm_template_param_info;
+        new_entry->num_template_parameters = parm_num_parameters;
     }
 
     AST id_expr = ASTSon2(a);
@@ -3785,7 +3799,16 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
         char* template_param_name = calloc(256, sizeof(char));
 
         sprintf(template_param_name, " <template-param-%d-%d> ", decl_context.template_nesting, num_parameter+1);
+
+        scope_entry_t* new_entry = new_symbol(st, template_param_name);
+        new_entry->line = ASTLine(a);
+        new_entry->point_of_declaration = a;
+        new_entry->type_information = new_type;
+        new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
+
         template_parameters->parameter_tree = ASTLeaf(AST_SYMBOL, ASTLine(a), template_param_name);
+		template_parameters->template_parameter_symbol = new_entry;
+        new_type->type->template_parameter_name = new_entry->symbol_name;
     }
 
     if (type_id != NULL)
