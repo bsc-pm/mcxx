@@ -49,8 +49,10 @@ libtl_la_SOURCES = \
 	tl-predicateutils.cpp \
 	tl-langconstruct.hpp \
 	tl-langconstruct.cpp \
+	tl-externalvars.hpp \
+	tl-externalvars.cpp \
 	tl-omp.hpp \
-	tl-omp.cpp
+	tl-omp.cpp 
 
 libtlomp_la_CXXFLAGS = -Wall -O0 \
     -I $(srcdir)/../../src \

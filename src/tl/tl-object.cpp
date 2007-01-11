@@ -12,6 +12,18 @@ bool Object::has_attribute(const std::string& name) const
 
 Object& Object::get_attribute(const std::string& name) const
 {
+	// Fix this function because it leaks everythime you call it
+	//
+	//   * we want to return a reference in order to make it convertible to any
+	//   derived class of Object without slicing the result
+	//
+	//   * returning a pointer makes the code ugly thus returning a reference works
+	//   * maybe using another approach like
+	//
+	//     void get_attribute(const std::string& name, <derived-class-of-object>& result);
+	//     
+	//     would be better (one function for every type)
+
 	tl_type_t* tl_value = this->get_extended_attribute(name);
 
 	if (tl_value == NULL)
