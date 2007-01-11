@@ -20,7 +20,8 @@ typedef enum
     OPTION_DEBUG_FLAG,
     OPTION_HELP_DEBUG_FLAGS,
     OPTION_OUTPUT_DIRECTORY,
-	OPTION_NO_OPENMP
+	OPTION_NO_OPENMP,
+	OPTION_EXTERNAL_VAR
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
@@ -88,6 +89,11 @@ typedef struct debug_options_tag
 	char print_ast;
 } debug_options_t;
 
+typedef struct external_var_tag {
+	char* name;
+	char* value;
+} external_var_t;
+
 // Global compiler options
 typedef struct compilation_options_tag
 {
@@ -120,8 +126,8 @@ typedef struct compilation_options_tag
     // Config file
     char* config_file;
 
-    // This makes things non reentrant (but globally accessable without
-    // parameter cluttering)
+	// This makes things non reentrant (but globally accessable without
+	// parameter cluttering)
     scope_t* global_scope;
 	scope_link_t* scope_link;
 
@@ -142,6 +148,10 @@ typedef struct compilation_options_tag
 
 	int num_compiler_phases;
 	char** compiler_phases;
+
+	// External vars for compiler pipeline
+	int num_external_vars;
+	external_var_t** external_vars;
 } compilation_options_t;
 
 extern compilation_options_t compilation_options;

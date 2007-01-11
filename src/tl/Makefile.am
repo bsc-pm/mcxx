@@ -51,6 +51,8 @@ libtl_la_SOURCES = \
 	tl-langconstruct.cpp \
 	tl-externalvars.hpp \
 	tl-externalvars.cpp \
+	tl-handler.hpp \
+	tl-handler.cpp \
 	tl-omp.hpp \
 	tl-omp.cpp 
 

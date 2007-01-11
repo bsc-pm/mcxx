@@ -84,5 +84,7 @@ int config_add_compiler_phase(char* value)
 	char* library_name = strdup(value);
 	P_LIST_ADD(compilation_options.compiler_phases, 
 			compilation_options.num_compiler_phases, 
-			value);
+			library_name);
+
+	return 0;
 }

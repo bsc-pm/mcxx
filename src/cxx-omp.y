@@ -123,6 +123,8 @@
 
 %type<ast> reduction_operator
 
+%type<ast> user_defined_reduction
+
 %type<ast> custom_construct
 %type<ast> custom_construct_directive
 %type<ast> custom_directive
@@ -848,6 +850,10 @@ data_clause : OMP_PRIVATE '(' variable_list ')'
 	$$ = ASTMake2(AST_OMP_REDUCTION_CLAUSE, 
 			$3, $5, $1.token_line, NULL);
 }
+| user_defined_reduction
+{
+	$$ = $1;
+}
 | OMP_COPYIN '(' variable_list ')'
 {
 	$$ = ASTMake1(AST_OMP_COPYIN_CLAUSE, $3, $1.token_line, NULL);
@@ -897,4 +903,12 @@ variable_list : id_expression
 	$$ = ASTList($1, $3);
 }
 ;
+
+user_defined_reduction : OMP_REDUCTION '(' id_expression ',' expression ':' variable_list ')'
+{
+	$$ = ASTMake3(AST_OMP_USER_DEFINED_REDUCTION_CLAUSE, 
+			$3, $5, $7, $1.token_line, NULL);
+}
+;
+
 /*!endif*/

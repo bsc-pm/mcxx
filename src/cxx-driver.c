@@ -59,6 +59,9 @@ compilation_options_t compilation_options;
 "  --config-file=<file>     Uses <file> as config file, otherwise\n" \
 "                           '" PKGDATADIR "/config.mcxx'\n" \
 "                           will be used\n" \
+"  --variable=name:value    Defines variable 'name' with value\n" \
+"                           'value' to be used in the compiler\n" \
+"                           phases pipeline\n" \
 "\n"
 
 // Remember to update GETOPT_STRING if needed
@@ -85,6 +88,7 @@ struct option getopt_long_options[] =
     {"debug-flags",  required_argument, NULL, OPTION_DEBUG_FLAG},
     {"help-debug-flags", no_argument, NULL, OPTION_HELP_DEBUG_FLAGS},
 	{"no-openmp", no_argument, NULL, OPTION_NO_OPENMP},
+	{"variable-name", required_argument, NULL, OPTION_EXTERNAL_VAR},
     // sentinel
     {NULL, 0, NULL, 0}
 };
@@ -325,6 +329,29 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                     exit(EXIT_SUCCESS);
 					break;
                 }
+			case OPTION_EXTERNAL_VAR :
+				{
+					if (strchr(optarg, ':') == NULL)
+					{
+						fprintf(stderr, "External variable '%s' definition is missing a colon. It will be ignored\n",
+								optarg);
+						break;
+					}
+
+					char* name = strdup(optarg);
+					char* value = strchr(name, ':');
+					*value = '\0';
+					value++;
+
+					external_var_t* new_external_var = calloc(1, sizeof(*new_external_var));
+
+					new_external_var->name = name;
+					new_external_var->value = value;
+
+					P_LIST_ADD(compilation_options.external_vars, compilation_options.num_external_vars,
+							new_external_var);
+					break;
+				}
             case 'h' :
                 {
                     help_message();

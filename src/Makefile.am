@@ -257,4 +257,4 @@ cxx03.y : ../lib/tpp $(srcdir)/cxx03.y.in $(srcdir)/cxx-omp.y
 .PHONY : mcc
 mcc :
 install-exec-local:
-	$(LIBTOOL) --mode=install cp mcxx $(bindir)/mcc
+	$(LIBTOOL) --mode=install --mode=install /usr/bin/install -c mcxx $(DESTDIR)/$(bindir)/mcc
