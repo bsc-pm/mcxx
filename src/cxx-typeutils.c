@@ -3212,17 +3212,22 @@ static char* get_simple_type_name_string(scope_t* st, type_t* type_info)
 
 static char* get_type_name_string(scope_t* st,
 		type_t* type_info, 
-		const char* symbol_name);
+		const char* symbol_name,
+		int* num_parameter_names,
+		char*** parameter_names);
 
 // Returns a declaration string given a type, a symbol name, an optional initializer
 // and a semicolon
 char* get_declaration_string_internal(type_t* type_info, 
 		scope_t* st,
 		const char* symbol_name, const char* initializer, 
-		char semicolon)
+		char semicolon,
+		int* num_parameter_names,
+		char*** parameter_names)
 {
 	char* base_type_name = get_simple_type_name_string(st, type_info);
-	char* declarator_name = get_type_name_string(st, type_info, symbol_name);
+	char* declarator_name = get_type_name_string(st, type_info, symbol_name, 
+			num_parameter_names, parameter_names);
 
 	char* result;
 
@@ -3249,15 +3254,20 @@ char* get_declaration_string_internal(type_t* type_info,
 static void get_type_name_str_internal(scope_t* st,
 		type_t* type_info, 
 		char** left,
-		char** right);
+		char** right,
+		int* num_parameter_names,
+		char*** parameter_names);
 
 static char* get_type_name_string(scope_t* st,
 		type_t* type_info, 
-		const char* symbol_name)
+		const char* symbol_name,
+		int* num_parameter_names,
+		char*** parameter_names)
 {
 	char* left = strdup("");
 	char* right = strdup("");
-	get_type_name_str_internal(st, type_info, &left, &right);
+	get_type_name_str_internal(st, type_info, &left, &right, 
+			num_parameter_names, parameter_names);
 
 	char* result = strappend(left, symbol_name);
 	result = strappend(result, right);
@@ -3270,7 +3280,9 @@ static char* get_type_name_string(scope_t* st,
 static void get_type_name_str_internal(scope_t* st,
 		type_t* type_info, 
 		char** left,
-		char** right)
+		char** right,
+		int* num_parameter_names,
+		char*** parameter_names)
 {
 	switch (type_info->kind)
 	{
@@ -3280,7 +3292,8 @@ static void get_type_name_str_internal(scope_t* st,
 			}
 		case TK_POINTER :
 			{
-				get_type_name_str_internal(st, type_info->pointer->pointee, left, right);
+				get_type_name_str_internal(st, type_info->pointer->pointee, left, right, 
+						num_parameter_names, parameter_names);
 
 				if (declarator_needs_parentheses(type_info))
 				{
@@ -3298,7 +3311,9 @@ static void get_type_name_str_internal(scope_t* st,
 			}
 		case TK_POINTER_TO_MEMBER :
 			{
-				get_type_name_str_internal(st, type_info->pointer->pointee, left, right);
+				get_type_name_str_internal(st, type_info->pointer->pointee, left, right, 
+						num_parameter_names,
+						parameter_names);
 
 				if (declarator_needs_parentheses(type_info))
 				{
@@ -3320,7 +3335,8 @@ static void get_type_name_str_internal(scope_t* st,
 			}
 		case TK_REFERENCE :
 			{
-				get_type_name_str_internal(st, type_info->pointer->pointee, left, right);
+				get_type_name_str_internal(st, type_info->pointer->pointee, left, right, 
+						num_parameter_names, parameter_names);
 
 				if (declarator_needs_parentheses(type_info))
 				{
@@ -3337,7 +3353,8 @@ static void get_type_name_str_internal(scope_t* st,
 			}
 		case TK_ARRAY :
 			{
-				get_type_name_str_internal(st, type_info->array->element_type, left, right);
+				get_type_name_str_internal(st, type_info->array->element_type, left, right, 
+						num_parameter_names, parameter_names);
 
 				char* array_expr = strappend("[", prettyprint_in_buffer(type_info->array->array_expr));
 				array_expr = strappend(array_expr, "]");
@@ -3347,7 +3364,8 @@ static void get_type_name_str_internal(scope_t* st,
 			}
 		case TK_FUNCTION :
 			{
-				get_type_name_str_internal(st, type_info->function->return_type, left, right);
+				get_type_name_str_internal(st, type_info->function->return_type, left, right, 
+						num_parameter_names, parameter_names);
 
 				char* prototype;
 				prototype = "(";
@@ -3365,9 +3383,25 @@ static void get_type_name_str_internal(scope_t* st,
 					}
 					else
 					{
-						// Abstract declarator
-						prototype = strappend(prototype,
-								get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, st, "", "", 0));
+						if (parameter_names == NULL)
+						{
+							// Abstract declarator
+							prototype = strappend(prototype,
+									get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, st, 
+										"", "", 0, NULL, NULL));
+						}
+						else
+						{
+							// We create a name
+							char* parameter_name = calloc(20, sizeof(char));
+							snprintf(parameter_name, 19, "_p_%d", i);
+
+							P_LIST_ADD((*parameter_names), (*num_parameter_names), parameter_name);
+
+							prototype = strappend(prototype,
+									get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, st, 
+										parameter_name, "", 0, NULL, NULL));
+						}
 					}
 				}
 				prototype = strappend(prototype, ") ");

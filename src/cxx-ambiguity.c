@@ -1385,7 +1385,6 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
 					ASTAttrSetValueType(expression, LANG_IS_FUNCTION_CALL, tl_type_t, tl_bool(1));
 					ASTAttrSetValueType(expression, LANG_CALLED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
 					ASTAttrSetValueType(expression, LANG_FUNCTION_ARGUMENTS, tl_type_t, tl_ast(ASTSon1(expression)));
-					// TODO function arguments
 				}
 
 				return result;
@@ -1966,6 +1965,7 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
                     result = 1;
                 }
 
+				check_for_expression(expr, st, decl_context);
 #if 0
                 // Koenig lookup here!
                 scope_entry_list_t* function_lookup = NULL;

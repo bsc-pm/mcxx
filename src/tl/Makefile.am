@@ -1,4 +1,4 @@
-lib_LTLIBRARIES = libtl.la libtlomp.la
+lib_LTLIBRARIES = libtl.la libtlomp.la libtlinstr.la
 
 BUILT_SOURCES = ../cxx-asttype.h
 
@@ -67,6 +67,22 @@ libtlomp_la_CFLAGS = -Wall -O0 \
 libtlomp_la_SOURCES = \
                         tl-omptransform.hpp \
                         tl-omptransform.cpp
+
+libtlinstr_la_CXXFLAGS = -Wall -O0 \
+    -I $(srcdir)/../../src \
+    -I $(srcdir)/../../lib \
+    -I ../../src \
+    -I ../../lib
+
+libtlinstr_la_CFLAGS = -Wall -O0 \
+    -I $(srcdir)/../../src \
+    -I $(srcdir)/../../lib \
+    -I ../../src \
+    -I ../../lib
+
+libtlinstr_la_SOURCES = \
+						tl-instrumentation.hpp \
+						tl-instrumentation.cpp
 
 ../cxx-asttype.h :
 	$(MAKE) -C .. cxx-asttype.h

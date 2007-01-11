@@ -60,54 +60,60 @@ extern "C"
 {
 	void load_compiler_phases_cxx(void)
 	{
-		// FIX - At the moment just load libtlomp.so
-		DEBUG_CODE()
-		{
-			fprintf(stderr, "Loading libtlomp.so\n");
-		}
-		void* handle = dlopen("libtlomp.so", RTLD_NOW | RTLD_LOCAL);
+		int num = compilation_options.num_compiler_phases;
 
-		if (handle == NULL)
+		int i;
+		for (i = 0; i < num; i++)
 		{
-			fprintf(stderr, "Cannot open 'libtlomp.so'\n");
-			fprintf(stderr, "%s\n", dlerror());
-			fprintf(stderr, "Skipping\n");
-			return;
-		}
-		DEBUG_CODE()
-		{
-			fprintf(stderr, "libtlomp.so properly loaded\n");
-		}
+			char* library_name = compilation_options.compiler_phases[i];
 
-		// Now get the function
-		DEBUG_CODE()
-		{
-			fprintf(stderr, "Getting the factory function 'give_compiler_phase_object'\n");
-		}
-		void* factory_function_sym = dlsym(handle, "give_compiler_phase_object");
+ 			DEBUG_CODE()
+ 			{
+				fprintf(stderr, "Loading compiler phase '%s'\n", library_name);
+			}
+			void* handle = dlopen(library_name, RTLD_NOW | RTLD_LOCAL);
 
-		if (factory_function_sym == NULL)
-		{
-			fprintf(stderr, "Cannot get the factory function 'give_compiler_phase_object'\n");
-			fprintf(stderr, "%s\n", dlerror());
-			fprintf(stderr, "Skipping\n");
-			return;
-		}
-		DEBUG_CODE()
-		{
-			fprintf(stderr, "Factory function obtained\n");
-		}
+			if (handle == NULL)
+			{
+				fprintf(stderr, "Cannot open '%s'.\nReason: '%s'\n", library_name, dlerror());
+				fprintf(stderr, "Skipping '%s'\n", library_name);
+				return;
+			}
+			DEBUG_CODE()
+			{
+				fprintf(stderr, "'%s' properly loaded\n", library_name);
+			}
 
-		typedef TL::CompilerPhase*(*factory_function_t)(void);
-		factory_function_t factory_function = (factory_function_t) factory_function_sym;
+			// Now get the function
+			DEBUG_CODE()
+			{
+				fprintf(stderr, "Getting the factory function 'give_compiler_phase_object'\n");
+			}
+			void* factory_function_sym = dlsym(handle, "give_compiler_phase_object");
 
-		TL::CompilerPhase* new_phase = (factory_function)();
+			if (factory_function_sym == NULL)
+			{
+				fprintf(stderr, "Cannot get the factory function 'give_compiler_phase_object'\n");
+				fprintf(stderr, "%s\n", dlerror());
+				fprintf(stderr, "Skipping\n");
+				return;
+			}
+			DEBUG_CODE()
+			{
+				fprintf(stderr, "Factory function obtained\n");
+			}
 
-		DEBUG_CODE()
-		{
-			fprintf(stderr, "Adding it to the compiler pipeline\n");
+			typedef TL::CompilerPhase*(*factory_function_t)(void);
+			factory_function_t factory_function = (factory_function_t) factory_function_sym;
+
+			TL::CompilerPhase* new_phase = (factory_function)();
+
+			DEBUG_CODE()
+			{
+				fprintf(stderr, "Adding '%s' phase object to the compiler pipeline\n", library_name);
+			}
+			TL::CompilerPhaseRunner::add_compiler_phase(new_phase);
 		}
-		TL::CompilerPhaseRunner::add_compiler_phase(new_phase);
 	}
 
 	void start_compiler_phase_execution(translation_unit_t* translation_unit)

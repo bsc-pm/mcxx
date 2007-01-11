@@ -19,15 +19,10 @@ namespace TL
 	};
 }
 
-extern "C"
-{
-	TL::CompilerPhase* give_compiler_phase_object(void);
-}
-
 #define EXPORT_PHASE(ClassName) \
 extern "C"  \
 { \
-    TL::CompilerPhase* give_compiler_phase_object(void) \
+    extern TL::CompilerPhase* give_compiler_phase_object(void) \
     { \
         return new ClassName(); \
     } \

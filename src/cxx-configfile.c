@@ -78,3 +78,11 @@ int config_set_linker_options(char* value)
     compilation_options.linker_options = blank_separate_values(value, &num);
     return 0;
 }
+
+int config_add_compiler_phase(char* value)
+{
+	char* library_name = strdup(value);
+	P_LIST_ADD(compilation_options.compiler_phases, 
+			compilation_options.num_compiler_phases, 
+			value);
+}

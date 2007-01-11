@@ -105,7 +105,9 @@ cv_qualifier_t* get_innermost_cv_qualifier(type_t* t);
 char* get_declaration_string_internal(type_t* type_info, 
 		scope_t* st,
 		const char* symbol_name, const char* initializer, 
-		char semicolon);
+		char semicolon,
+		int *num_parameter_names,
+		char ***parameter_names);
 
 MCXX_END_DECLS
 

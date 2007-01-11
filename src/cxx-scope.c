@@ -2050,7 +2050,7 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st)
 						char* abstract_declaration;
 
 						abstract_declaration = 
-							get_declaration_string_internal(advance_over_typedefs(template_argument->type), st, "", "", 0);
+							get_declaration_string_internal(advance_over_typedefs(template_argument->type), st, "", "", 0, NULL, NULL);
 						
 						result = strappend(result, abstract_declaration);
 						break;

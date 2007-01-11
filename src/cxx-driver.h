@@ -139,6 +139,9 @@ typedef struct compilation_options_tag
     char** linker_options;
 
     char* output_directory;
+
+	int num_compiler_phases;
+	char** compiler_phases;
 } compilation_options_t;
 
 extern compilation_options_t compilation_options;

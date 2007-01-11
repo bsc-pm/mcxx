@@ -10,17 +10,33 @@ namespace TL
 			const std::string& initializer) const
 	{
         return get_declaration_string_internal(_type_info, sc._st, symbol_name.c_str(), 
-				initializer.c_str(), 0);
+				initializer.c_str(), 0, NULL, NULL);
+	}
+
+	std::string Type::get_declaration_with_parameters(Scope sc,
+			const std::string& symbol_name, ObjectList<std::string>& parameters)
+	{
+		char** parameter_names = NULL;
+		int num_parameters = 0;
+        char* result = get_declaration_string_internal(_type_info, sc._st, symbol_name.c_str(), 
+				"", 0, &num_parameters, &parameter_names);
+
+		for (int i = 0; i < num_parameters; i++)
+		{
+			parameters.push_back(std::string(parameter_names[i]));
+		}
+
+		return result;
 	}
 
     std::string Type::get_simple_declaration(Scope sc, const std::string& symbol_name) const
     {
-        return get_declaration_string_internal(_type_info, sc._st, symbol_name.c_str(), "", 0);
+        return get_declaration_string_internal(_type_info, sc._st, symbol_name.c_str(), "", 0, NULL, NULL);
     }
 
     std::string Type::get_declaration(Scope sc, const std::string& symbol_name) const
     {
-        return get_declaration_string_internal(_type_info, sc._st, symbol_name.c_str(), "", 0);
+        return get_declaration_string_internal(_type_info, sc._st, symbol_name.c_str(), "", 0, NULL, NULL);
     }
 
 	Type Type::duplicate()

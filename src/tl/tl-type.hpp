@@ -56,6 +56,9 @@ namespace TL
 			std::string get_declaration_with_initializer(Scope sc, 
 					const std::string& symbol_name, const std::string& initializer) const;
 
+			std::string get_declaration_with_parameters(Scope sc,
+					const std::string& symbol_name, ObjectList<std::string>& parameters);
+
 			Type duplicate();
 			Type get_pointer_to();
 			Type get_array_to(AST_t expression_array, Scope scope);
