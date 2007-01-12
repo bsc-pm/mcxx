@@ -92,6 +92,8 @@ namespace TL
 			bool is_reference() const;
 			Type references_to() const;
 
+			bool is_void() const;
+
 			friend class Symbol;
 			friend class Source;
 			friend class Scope;

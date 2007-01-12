@@ -1354,7 +1354,6 @@ namespace TL
                     << "{"
                     << "  int nth_nprocs;"
                     << "  nth_desc *nth_selfv;"
-                    << "  int nth_nprocs_2;"
                     << "  int nth_arg;"
                     << "  nth_argdesc_t nth_mask;"
                     << "  int nth_num_params;"
@@ -1366,13 +1365,12 @@ namespace TL
                     <<    reduction_vectors
                     <<    groups_definition
                     << "  nth_selfv = nthf_self_();"
-                    << "  nth_nprocs_2 = nth_nprocs + 1;"
                     << "  nthf_team_set_nplayers_ (&nth_nprocs);"
                     << "  nth_arg = 0;"
                     << "  nth_mask = (nth_argdesc_t)(~0);"
                     << "  nth_num_params = 0;"
                     <<    source_num_parameters
-                    << "  for (nth_p = 0; nth_p < nth_nprocs_2 - 1; nth_p++)"
+                    << "  for (nth_p = 0; nth_p < nth_nprocs; nth_p++)"
                     << "  {"
                     << "     nthf_create_1s_vp_((void(*)())(" << outlined_function_name << "), &nth_arg, &nth_p, &nth_selfv, "
                     << "        &nth_mask, &nth_num_params " << referenced_parameters << ");"
@@ -1466,16 +1464,16 @@ namespace TL
                 }
                 else if (num_threads_clause.is_defined())
                 {
-                    // This is like a groups of 1 parameter
                     ObjectList<Expression> clause_exprs = num_threads_clause.get_expression_list();
 
                     std::string num_threads_value = clause_exprs[0].prettyprint();
                     groups_definition 
 //                        << "extern void nthf_compute_uniform_groups_(int*);"
-                        << "int nth_num_threads = " << num_threads_value << ";"
+                        // << "int nth_num_threads = " << num_threads_value << ";"
 
-                        << "nthf_compute_uniform_groups_(&nth_num_threads);"
-                        << "nth_nprocs = nth_num_threads;"
+                        // << "nthf_compute_uniform_groups_(&nth_num_threads);"
+                        // << "nth_nprocs = nth_num_threads;"
+                        << "nth_nprocs =" << num_threads_value << ";"
                         ;
                 }
                 else /* groups is defined */

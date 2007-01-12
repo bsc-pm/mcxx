@@ -227,4 +227,10 @@ namespace TL
 	{
 		return ::is_direct_type(_type_info);
 	}
+
+	bool Type::is_void() const
+	{
+		return (is_builtin_type() &&
+				builtin_type() == BuiltinType::VOID);
+	}
 }

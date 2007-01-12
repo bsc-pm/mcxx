@@ -88,12 +88,35 @@ namespace TL
 							original_arguments.append_with_separator((*it), ",");
 						}
 
+						Source invocation;
+						Source before_code;
+						Source after_code;
+
 						shadow_function_definition
 							<< "static inline " << shadow_declaration
 							<< "{"
-							<<   "return "  << function_name.prettyprint() << "(" << original_arguments << ");"
+							<< invocation
 							<< "}"
 							;
+
+						if (!function_type.returns().is_void())
+						{
+							invocation
+								<< before_code
+								<< function_type.returns().get_declaration(function_definition.get_scope(), "_result") << " = "
+								<< function_name.prettyprint() << "(" << original_arguments << ");"
+								<< after_code
+								<< "return _result;"
+								;
+						}
+						else
+						{
+							invocation
+								<< before_code
+								<< function_name.prettyprint() << "(" << original_arguments << ");"
+								<< after_code
+								;
+						}
 
 						AST_t shadow_function_def_tree = 
 							shadow_function_definition.parse_global(function_definition.get_scope(),
