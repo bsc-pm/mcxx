@@ -68,9 +68,161 @@ namespace TL
 			Type& operator=(Type t);
 			bool operator<(Type t) const;
 
+			struct BuiltinType;
+
+			struct TypeModifier;
+
+			bool is_builtin_type() const;
+			BuiltinType builtin_type() const;
+			BuiltinType builtin_type(TypeModifier& type_modif) const;
+
+			bool is_direct_type() const;
+
+			bool is_function() const;
+			Type returns() const;
+
+			bool is_pointer() const;
+			Type points_to() const;
+
+			bool is_array() const;
+			Type array_element() const;
+
+			bool is_dependent() const;
+
+			bool is_reference() const;
+			Type references_to() const;
+
 			friend class Symbol;
 			friend class Source;
 			friend class Scope;
+	};
+
+	struct Type::BuiltinType
+	{
+		enum _enum_type
+		{
+			UNKNOWN = 0,
+			INT,
+			BOOL,
+			FLOAT,
+			DOUBLE,
+			CHAR,
+			WCHAR,
+			VOID
+		};
+
+		BuiltinType()
+			: _val(UNKNOWN)
+		{
+		}
+
+		BuiltinType(const _enum_type& t)
+			: _val(t) { }
+
+		BuiltinType& operator=(const _enum_type& t)
+		{
+			_val = t;
+			return (*this);
+		}
+
+		bool operator==(const _enum_type& t)
+		{
+			return (_val == t);
+		}
+
+		bool operator!=(const _enum_type& t)
+		{
+			return !(this->operator==(t));
+		}
+
+		bool operator==(const BuiltinType& t)
+		{
+			return _val == t._val;
+		}
+
+		bool operator!=(const BuiltinType& t)
+		{
+			return !(this->operator==(t));
+		}
+
+		private:
+		_enum_type _val;
+	};
+
+	struct Type::TypeModifier
+	{
+		enum _enum_type
+		{
+			NONE = 0,
+			SHORT = 1,
+			LONG = 2,
+			LONG_LONG = 4,
+			UNSIGNED = 8,
+			CONST = 16,
+			VOLATILE = 32,
+			RESTRICT = 64,
+		};
+
+		TypeModifier()
+			: _val(NONE)
+		{
+		}
+
+		TypeModifier(const _enum_type& t)
+			: _val(t) { }
+
+		TypeModifier& operator=(const _enum_type& t)
+		{
+			_val = t;
+			return (*this);
+		}
+
+		bool operator==(const _enum_type& t)
+		{
+			return (_val == t);
+		}
+
+		bool operator!=(const _enum_type& t)
+		{
+			return !(this->operator==(t));
+		}
+
+		bool operator==(const TypeModifier& t)
+		{
+			return _val == t._val;
+		}
+
+		bool operator!=(const TypeModifier& t)
+		{
+			return !(this->operator==(t));
+		}
+
+		void operator|=(const _enum_type& t)
+		{
+			_val = (_enum_type)((int)(_val) | (int)(t));
+		}
+
+		void operator|=(const TypeModifier& t)
+		{
+			_val = (_enum_type)((int)(_val) | (int)(t._val));
+		}
+		
+		TypeModifier operator&(const _enum_type& t)
+		{
+			TypeModifier result;
+			result._val = (_enum_type)((int)(_val) & ((int)t));
+			return result;
+		}
+
+		TypeModifier operator&(const TypeModifier& t)
+		{
+			TypeModifier result;
+			result._val = (_enum_type)((int)(_val) & ((int)t._val));
+			return result;
+		}
+
+		private:
+		_enum_type _val;
 	};
 }
 

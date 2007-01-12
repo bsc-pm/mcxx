@@ -55,11 +55,14 @@ char is_fundamental_type(type_t* t);
 char is_integral_type(type_t* t);
 char is_floating_type(type_t* t);
 char is_enumerated_type(type_t* t);
+char is_function_type(type_t* t);
+type_t* function_return_type(type_t* t);
 
 char can_be_promoted_to_dest(type_t* orig, type_t* dest);
 char can_be_converted_to_dest(type_t* orig, type_t* dest);
 
 char is_reference_type(type_t* t1);
+type_t* reference_referenced_type(type_t* t1);
 char is_reference_related(type_t* rt1, type_t* rt2, 
         scope_t* st, decl_context_t decl_context);
 char is_reference_compatible(type_t* t1, type_t* t2, 
@@ -83,10 +86,14 @@ char is_dependent_expression(AST expr, scope_t* st, decl_context_t decl_context)
 
 cv_qualifier_t get_cv_qualifier(type_t* type_info);
 
+char is_direct_type(type_t* t1);
 char is_bool_type(type_t* t1);
 char is_pointer_type(type_t* t1);
+char is_direct_type(type_t* t);
+type_t* pointer_pointee_type(type_t* t);
 char is_pointer_to_member_type(type_t* t);
 char is_array_type(type_t* t1);
+type_t* array_element_type(type_t* t1);
 
 char is_void_pointer_type(type_t* t1);
 char is_pointer_to_class_type(type_t* t1);

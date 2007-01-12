@@ -99,4 +99,132 @@ namespace TL
 		this->_type_info = t._type_info;
 		return (*this);
 	}
+
+	bool Type::is_builtin_type() const
+	{
+		return (is_fundamental_type(_type_info));
+	}
+
+	Type::BuiltinType Type::builtin_type(TypeModifier& type_modif) const
+	{
+		if (is_builtin_type())
+		{
+			type_t* type_info = _type_info;
+			type_info = advance_over_typedefs(type_info);
+
+			if ((type_info->cv_qualifier & CV_CONST) == CV_CONST)
+			{
+				type_modif |= TypeModifier::CONST;
+			}
+
+			if ((type_info->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+			{
+				type_modif |= TypeModifier::VOLATILE;
+			}
+
+			if ((type_info->cv_qualifier & CV_RESTRICT) == CV_RESTRICT)
+			{
+				type_modif |= TypeModifier::RESTRICT;
+			}
+
+			if (type_info->type->is_short)
+			{
+				type_modif |= TypeModifier::SHORT;
+			}
+			else if (type_info->type->is_long)
+			{
+				if (type_info->type->is_long == 1)
+				{
+					type_modif |= TypeModifier::LONG;
+				}
+				else
+				{
+					type_modif |= TypeModifier::LONG_LONG;
+				}
+			}
+
+			if (type_info->type->is_unsigned)
+			{
+				type_modif |= TypeModifier::UNSIGNED;
+			}
+
+			switch ((int)(type_info->type->builtin_type))
+			{
+				case BT_INT:
+					return BuiltinType::INT;
+				case BT_BOOL:
+					return BuiltinType::BOOL;
+				case BT_FLOAT:
+					return BuiltinType::FLOAT;
+				case BT_DOUBLE:
+					return BuiltinType::DOUBLE;
+				case BT_CHAR:
+					return BuiltinType::CHAR;
+				case BT_WCHAR:
+					return BuiltinType::WCHAR;
+				case BT_VOID:
+					return BuiltinType::VOID;
+				default:
+					return BuiltinType::UNKNOWN;
+			}
+		}
+
+		return BuiltinType::UNKNOWN;
+	}
+
+	Type::BuiltinType Type::builtin_type() const
+	{
+		TypeModifier type_modif;
+		return builtin_type(type_modif);
+	}
+
+	bool Type::is_pointer() const
+	{
+		return (is_pointer_type(_type_info));
+	}
+
+	bool Type::is_array() const
+	{
+		return (is_array_type(_type_info));
+	}
+
+	bool Type::is_reference() const
+	{
+		return (is_reference_type(_type_info));
+	}
+
+	bool Type::is_function() const
+	{
+		return is_function_type(_type_info);
+	}
+
+	bool Type::is_dependent() const
+	{
+		return (is_dependent_type(_type_info, default_decl_context));
+	}
+
+	Type Type::returns() const
+	{
+		return function_return_type(_type_info);
+	}
+
+	Type Type::points_to() const
+	{
+		return pointer_pointee_type(_type_info);
+	}
+
+	Type Type::array_element() const
+	{
+		return array_element_type(_type_info);
+	}
+
+	Type Type::references_to() const
+	{
+		return reference_referenced_type(_type_info);
+	}
+
+	bool Type::is_direct_type() const
+	{
+		return ::is_direct_type(_type_info);
+	}
 }

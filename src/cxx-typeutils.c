@@ -1361,6 +1361,14 @@ char is_fundamental_type(type_t* t)
             && t->type->kind == STK_BUILTIN_TYPE);
 }
 
+char is_direct_type(type_t* t)
+{
+    // Advance over typedefs
+    t = advance_over_typedefs(t);
+
+    return (t->kind == TK_DIRECT);
+}
+
 char is_integral_type(type_t* t)
 {
     // Advance over typedefs
@@ -1377,6 +1385,49 @@ char is_pointer_type(type_t* t)
     t = advance_over_typedefs(t);
 
     return (t->kind == TK_POINTER);
+}
+
+char is_function_type(type_t* t)
+{
+	t = advance_over_typedefs(t);
+
+	return (t->kind == TK_FUNCTION);
+}
+
+type_t* function_return_type(type_t* t)
+{
+	t = advance_over_typedefs(t);
+
+	if (t->kind == TK_FUNCTION)
+	{
+		return t->function->return_type;
+	}
+	else 
+		return NULL;
+}
+
+type_t* pointer_pointee_type(type_t* t)
+{
+	t = advance_over_typedefs(t);
+
+	if (t->kind == TK_POINTER)
+	{
+		return t->pointer->pointee;
+	}
+	else 
+		return NULL;
+}
+
+type_t* array_element_type(type_t* t)
+{
+	t = advance_over_typedefs(t);
+
+	if (t->kind == TK_ARRAY)
+	{
+		return t->array->element_type;
+	}
+	else 
+		return NULL;
 }
 
 char is_array_type(type_t* t)
@@ -1396,6 +1447,7 @@ char is_reference_to_class_type(type_t* t1)
 {
     return (is_reference_type(t1) && is_class_type(t1->pointer->pointee));
 }
+
 
 char is_void_pointer_type(type_t* t)
 {
@@ -1503,8 +1555,22 @@ char can_be_promoted_to_dest(type_t* orig, type_t* dest)
     return 0;
 }
 
+type_t* reference_referenced_type(type_t* t1)
+{
+	t1 = advance_over_typedefs(t1);
+
+    if (t1->kind == TK_REFERENCE)
+	{
+		return t1->pointer->pointee;
+	}
+	else
+		return NULL;
+}
+
 char is_reference_type(type_t* t1)
 {
+	t1 = advance_over_typedefs(t1);
+
     return (t1->kind == TK_REFERENCE);
 }
 
