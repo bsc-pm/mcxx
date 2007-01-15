@@ -208,6 +208,31 @@ namespace TL
 		return function_return_type(_type_info);
 	}
 
+	ObjectList<Type> Type::parameters() const
+	{
+		bool b;
+		return parameters(b);
+	}
+
+	ObjectList<Type> Type::parameters(bool& has_ellipsis) const
+	{
+		type_t** parameter_list;
+		int num_params = 0;
+		char ellipsis = 0;
+
+		parameter_list = function_parameter_types(_type_info, &num_params, &ellipsis);
+		has_ellipsis = ellipsis;
+
+		ObjectList<Type> result;
+		for (int i = 0; i < num_params; i++)
+		{
+			Type t(parameter_list[i]);
+			result.push_back(t);
+		}
+
+		return result;
+	}
+
 	Type Type::points_to() const
 	{
 		return pointer_pointee_type(_type_info);

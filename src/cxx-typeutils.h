@@ -57,6 +57,7 @@ char is_floating_type(type_t* t);
 char is_enumerated_type(type_t* t);
 char is_function_type(type_t* t);
 type_t* function_return_type(type_t* t);
+type_t** function_parameter_types(type_t* t, int* num_params, char* has_ellipsis);
 
 char can_be_promoted_to_dest(type_t* orig, type_t* dest);
 char can_be_converted_to_dest(type_t* orig, type_t* dest);

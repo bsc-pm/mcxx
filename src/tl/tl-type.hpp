@@ -80,6 +80,8 @@ namespace TL
 
 			bool is_function() const;
 			Type returns() const;
+			ObjectList<Type> parameters() const;
+			ObjectList<Type> parameters(bool& has_ellipsis) const;
 
 			bool is_pointer() const;
 			Type points_to() const;

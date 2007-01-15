@@ -1406,6 +1406,29 @@ type_t* function_return_type(type_t* t)
 		return NULL;
 }
 
+type_t** function_parameter_types(type_t* t, int* num_params, char* has_ellipsis)
+{
+	*has_ellipsis = 0;
+	*num_params = 0;
+	type_t** result = calloc(1, sizeof(*result));
+
+	int i;
+	for (i = 0; i < t->function->num_parameters; i++)
+	{
+		parameter_info_t* param_info = t->function->parameter_list[i];
+		if (!param_info->is_ellipsis && param_info->type_info != NULL)
+		{
+			P_LIST_ADD(result, (*num_params), param_info->type_info);
+		}
+		else if (!param_info->is_ellipsis)
+		{
+			*has_ellipsis = 1;
+		}
+	}
+
+	return result;
+}
+
 type_t* pointer_pointee_type(type_t* t)
 {
 	t = advance_over_typedefs(t);
@@ -3304,8 +3327,9 @@ char* get_declaration_string_internal(type_t* type_info,
 
 	// FIXME Should check if copy-constructor is not flagged as "explicit"
 	// (for parameters this can be useful to declare default arguments)
-	if (strcmp(initializer, "") == 0)
+	if (strcmp(initializer, "") != 0)
 	{
+		result = strappend(result, " = ");
 		result = strappend(result, initializer);
 	}
 

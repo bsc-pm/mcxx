@@ -1731,20 +1731,96 @@ namespace TL
                         it != reduction_references.end();
                         it++)
                 {
-                    // Construct the name of its related reduction vector
-                    std::string reduced_var_name = it->get_id_expression().prettyprint();
-                    std::string reduction_vector_name = "rdv_" + it->get_id_expression().mangle_id_expression();
-
-                    // get the operator involved
-                    std::string op = it->get_operation().prettyprint();
-
                     // And reduce for this element of the reduction vector
-                    reduction_gathering
-                        << reduced_var_name << " = " << reduced_var_name << op << reduction_vector_name << "[rdv_i]" << ";";
+					if (!it->is_user_defined())
+					{
+						// If it is not a user defined one it is easy
+
+						// Construct the name of its related reduction vector
+						std::string reduced_var_name = it->get_id_expression().prettyprint();
+						std::string reduction_vector_name = "rdv_" + it->get_id_expression().mangle_id_expression();
+
+						// get the operator involved
+						std::string op = it->get_operation().prettyprint();
+						reduction_gathering
+							<< reduced_var_name << " = " << reduced_var_name << op << reduction_vector_name << "[rdv_i]" << ";";
+					}
+					else
+					{
+						Source one_urd_reduction = get_one_user_defined_gathering(*it);
+						reduction_gathering << one_urd_reduction;
+					}
                 }
 
                 return reduction_gathering;
             }
+
+			Source get_one_user_defined_gathering(OpenMP::ReductionIdExpression reduction_id_expr)
+			{
+				IdExpression reductor = reduction_id_expr.get_user_defined_reductor();
+				Symbol reductor_symbol = reductor.get_symbol();
+
+				Type reductor_type = reductor_symbol.get_type();
+
+				if (!reductor_type.is_function())
+				{
+					std::cerr << "User defined reduction in " 
+						<< reductor.get_ast().get_locus() << " does not refer a function. Ignoring" << std::endl;
+					return Source("");
+				}
+				
+				// Construct the name of its related reduction vector
+				std::string reduced_var_name = reduction_id_expr.get_id_expression().prettyprint();
+				std::string reduction_vector_name = "rdv_" + reduction_id_expr.get_id_expression().mangle_id_expression();
+
+				Source reduction_gathering;
+
+				// FIXME - For C++ this is more difficult. Currently not implemented
+				// Extract the unqualified part of the id-expression
+				// and if it is a member construct a member-access with function call
+				//
+				// The id-expression
+				//
+				// Lets "happily" assume that if the reductor returns void is of the form
+				//
+				//    void f(T*, T);
+				//    void f(T&, T);
+				//
+				// otherwise we will assume it is of type 
+				//
+				//    T f(T, T);
+				//
+				if (reductor_type.returns().is_void())
+				{
+					// If the first parameter is a pointer we will assume that the reductor is of this form
+					//
+					//    void f(T*, t);
+					//
+					// otherwise it will be assumed to be
+					//
+					//    void f(T&, t);
+					//
+					ObjectList<Type> parameters = reductor_type.parameters();
+
+					if (parameters[0].is_pointer())
+					{
+						reduction_gathering
+							<< reductor.prettyprint() << "(&" << reduced_var_name << "," << reduction_vector_name << "[rdv_i]" << ");";
+					}
+					else
+					{
+						reduction_gathering
+							<< reductor.prettyprint() << "(" << reduced_var_name << "," << reduction_vector_name << "[rdv_i]" << ");";
+					}
+				}
+				else
+				{
+					reduction_gathering
+						<< reduced_var_name << " = " << reductor.prettyprint() << "(" << reduced_var_name << "," << reduction_vector_name << "[rdv_i]" << ");";
+				}
+
+				return reduction_gathering;
+			}
 
 			Source get_member_function_declaration(
 					FunctionDefinition function_definition,
@@ -2652,6 +2728,8 @@ namespace TL
                         IdExpression id_expr = red_id_expr.get_id_expression();
 
                         std::string neuter = red_id_expr.get_neuter().prettyprint();
+
+						std::cerr << "Declaring reduction private " << neuter << std::endl;
                         
                         // Initialize to the neuter
                         private_declarations 

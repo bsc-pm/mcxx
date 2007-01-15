@@ -14,8 +14,8 @@ LANG_FOR_CONDITION lang.for_condition
 LANG_FOR_INIT_CONSTRUCT lang.for_init_construct
 LANG_FOR_ITERATION_EXPRESSION lang.for_iteration_expression
 LANG_FUNCTION_ARGUMENTS lang.function_arguments
-LANG_FUNCTION_NAME lang.function_name
 LANG_FUNCTION_BODY lang.function_body
+LANG_FUNCTION_NAME lang.function_name
 LANG_INITIALIZER lang.initializer
 LANG_IS_ADD_ASSIGNMENT lang.is_add_assignment
 LANG_IS_ADDITION_OP lang.is_addition_op
@@ -143,6 +143,8 @@ OMP_IS_SECTIONS_CONSTRUCT omp.is_sections_construct
 OMP_IS_SHARED_CLAUSE omp.is_shared_clause
 OMP_IS_SINGLE_CONSTRUCT omp.is_single_construct
 OMP_IS_THREADPRIVATE_DIRECTIVE omp.is_threadprivate_directive
+OMP_IS_USER_DEFINED_REDUCTION omp.is_user_defined_reduction
+OMP_REDUCTION_FUNCTION omp.reduction_function
 OMP_REDUCTION_NEUTER omp.reduction_neuter
 OMP_REDUCTION_OPERATOR omp.reduction_operator
 OMP_REDUCTION_VARIABLES omp.reduction_variables

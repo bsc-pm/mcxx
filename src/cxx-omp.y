@@ -904,7 +904,12 @@ variable_list : id_expression
 }
 ;
 
-user_defined_reduction : OMP_REDUCTION '(' id_expression ',' expression ':' variable_list ')'
+user_defined_reduction : OMP_REDUCTION '(' id_expression ',' constant_expression ':' variable_list ')'
+{
+	$$ = ASTMake3(AST_OMP_USER_DEFINED_REDUCTION_CLAUSE, 
+			$3, $5, $7, $1.token_line, NULL);
+}
+| OMP_REDUCTION '(' reduction_operator ',' constant_expression ':' variable_list ')'
 {
 	$$ = ASTMake3(AST_OMP_USER_DEFINED_REDUCTION_CLAUSE, 
 			$3, $5, $7, $1.token_line, NULL);

@@ -103,10 +103,16 @@ namespace TL
 				IdExpression _symbol;
 				AST_t _op;
 				AST_t _neuter;
+				bool _is_user_defined;
 			public:
-				ReductionIdExpression(IdExpression s, AST_t op, AST_t neuter)
-					: _symbol(s), _op(op), _neuter(neuter)
+				ReductionIdExpression(IdExpression s, AST_t op, AST_t neuter, bool is_user_defined = false)
+					: _symbol(s), _op(op), _neuter(neuter), _is_user_defined(is_user_defined)
 				{
+				}
+
+				bool is_user_defined() const
+				{
+					return _is_user_defined;
 				}
 
 				IdExpression get_id_expression() const
@@ -127,6 +133,11 @@ namespace TL
 				AST_t get_operation() const
 				{
 					return _op;
+				}
+
+				IdExpression get_user_defined_reductor()
+				{
+					return IdExpression(_op, _symbol.get_scope_link());
 				}
 		};
 

@@ -6243,9 +6243,29 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
 						ASTParent(neuter) = clause;
 
 						ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
+						ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(0));
 						ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(ASTSon0(clause)));
 						ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon1(clause)));
 						ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon2(clause)));
+						break;
+					}
+				case AST_OMP_USER_DEFINED_REDUCTION_CLAUSE :
+					{
+						// Check the id-expression
+						solve_possibly_ambiguous_expression(ASTSon0(clause), st, decl_context);
+
+						// Check the neuter expression
+						solve_possibly_ambiguous_expression(ASTSon1(clause), st, decl_context);
+
+						// Build scope for var-lists
+						build_scope_omp_data_clause(ASTSon2(clause), st, decl_context);
+
+						ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
+						ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(1));
+						ASTAttrSetValueType(clause, OMP_REDUCTION_FUNCTION, tl_type_t, tl_ast(ASTSon0(clause)));
+						ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon1(clause)));
+						ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon2(clause)));
+
 						break;
 					}
 				case AST_OMP_CUSTOM_PARAMETER_CLAUSE :
