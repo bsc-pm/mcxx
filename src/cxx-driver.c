@@ -225,6 +225,11 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
     int indexptr;
     char* output_file = NULL;
 
+	// Flags -E/-y and -c are incompatible
+	static char c_specified = 0;
+	static char E_specified = 0;
+	static char y_specified = 0;
+
     while ((c = getopt_long (argc, argv, GETOPT_STRING, 
                     getopt_long_options, 
                     &indexptr)) != -1)
@@ -249,17 +254,38 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 }
             case 'c' : // -c
                 {
+					if (y_specified || E_specified)
+					{
+						running_error("Parameter -c cannot be used together with -E or -y");
+					}
+
+					c_specified = 1;
+
                     compilation_options.do_not_link = 1;
                     break;
                 }
             case 'E' : // -E
                 {
+					if (c_specified || y_specified)
+					{
+						running_error("Parameter -E cannot be used together with -c or -y");
+					}
+
+					E_specified = 1;
+
                     compilation_options.do_not_compile = 1;
                     compilation_options.do_not_link = 1;
                     break;
                 }
             case 'y' : // -y
                 {
+					if (c_specified || E_specified)
+					{
+						running_error("Parameter -y cannot be used together with -c or -E");
+					}
+
+					y_specified = 1;
+
                     compilation_options.do_not_compile = 1;
                     compilation_options.do_not_link = 1;
                     compilation_options.do_not_prettyprint = 1;
@@ -378,7 +404,7 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 && !is_blank_string(argv[optind]))
         {
             if ((i > 1) 
-                    && compilation_options.do_not_link
+                    && c_specified
                     && output_file != NULL)
             {
                 running_error("Cannot specify -o with -c with multiple files (second file '%s')", argv[optind]);

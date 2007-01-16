@@ -332,7 +332,7 @@ namespace TL
                     <<    "num_params = 0;"
                     <<     size_params
 
-                    <<    "nth = nthf_create_task_((void (*)())(" << outlined_function_name << "), "
+                    <<    "nth = nthf_create_task_((void*)(" << outlined_function_name << "), "
                     <<             "&set_threadswitch, &num_params " << task_parameters << ");"
 					<<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
 					<<    "{"
@@ -1372,7 +1372,7 @@ namespace TL
                     <<    source_num_parameters
                     << "  for (nth_p = 0; nth_p < nth_nprocs; nth_p++)"
                     << "  {"
-                    << "     nthf_create_1s_vp_((void(*)())(" << outlined_function_name << "), &nth_arg, &nth_p, &nth_selfv, "
+                    << "     nthf_create_1s_vp_((void*)(" << outlined_function_name << "), &nth_arg, &nth_p, &nth_selfv, "
                     << "        &nth_mask, &nth_num_params " << referenced_parameters << ");"
                     << "  }"
                     << "  nthf_block_();"
@@ -1581,6 +1581,8 @@ namespace TL
                         it != reduction_references.end();
                         it++)
                 {
+					if (!it->is_user_defined())
+					{
                     // get the operator involved
                     std::string reduced_var_name = it->get_id_expression().mangle_id_expression();
                     std::string reduction_var_name = "p_" + it->get_id_expression().mangle_id_expression();
@@ -1590,6 +1592,12 @@ namespace TL
                     reduction_gathering 
                         << reduced_var_name << " = " << reduced_var_name << op << reduction_var_name << ";"
                         ;
+					}
+					else
+					{
+						Source one_urd_reduction = get_one_user_defined_gathering(*it);
+						reduction_gathering << one_urd_reduction;
+					}
                 }
 
                 return reduction_code;
@@ -2729,8 +2737,6 @@ namespace TL
 
                         std::string neuter = red_id_expr.get_neuter().prettyprint();
 
-						std::cerr << "Declaring reduction private " << neuter << std::endl;
-                        
                         // Initialize to the neuter
                         private_declarations 
                             << type.get_declaration_with_initializer(
