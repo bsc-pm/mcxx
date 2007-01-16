@@ -396,6 +396,14 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
         options_error("You must specify an input file.");
     }
 
+	// "-o -" is not valid when compilation or linking will be done
+	if (output_file != NULL
+			&& (strcmp(output_file, "-") == 0)
+			&& !E_specified)
+	{
+		running_error("You must use -E if you want to use stdout as output");
+	}
+
     int i = 1;
     while (optind < argc)
     {
