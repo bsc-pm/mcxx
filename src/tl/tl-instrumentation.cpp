@@ -20,6 +20,10 @@ namespace TL
 				private:
 					std::set<std::string> defined_shadows;
 				public:
+					~InstrumentationFunctor()
+					{
+					}
+
 					virtual void preorder(Context ctx, AST_t node)
 					{
 						// Do nothing
@@ -95,7 +99,7 @@ namespace TL
 						shadow_function_definition
 							<< "static inline " << shadow_declaration
 							<< "{"
-							<< invocation
+							<<     invocation
 							<< "}"
 							;
 
@@ -118,12 +122,114 @@ namespace TL
 								;
 						}
 
+						// FIXME - Adapt it to mintaka when it is ready
+						// before_code
+						// 	<< "uint64_t user_function_event = mintaka_user_function_event(" << function_name.get_ast().get_line() << ", "
+						// 	                                         << "\"" << function_name.get_ast().get_file() << "\");"
+						// 	<< "(void)mintaka_record(user_event, user_function_event);"
+						// 	;
+
+						// after_code
+						// 	<< "(void)mintaka_record(user_event, user_function_event);"
+						// 	;
+
 						AST_t shadow_function_def_tree = 
 							shadow_function_definition.parse_global(function_definition.get_scope(),
 									function_definition.get_scope_link());
 
 						function_definition.get_ast().prepend_sibling_function(shadow_function_def_tree);
 					}
+			};
+
+			class MainWrapper : public TraverseFunctor
+			{
+				private:
+					ScopeLink _sl;
+				public:
+					MainWrapper(ScopeLink sl)
+						: _sl(sl)
+					{
+					}
+
+					virtual void preorder(Context ctx, AST_t node)
+					{
+						// Do nothing
+					}
+
+					virtual void postorder(Context ctx, AST_t node)
+					{
+						FunctionDefinition function_def(node, _sl);
+						IdExpression function_name = function_def.get_function_name();
+
+						Symbol function_symbol = function_name.get_symbol();
+						Type function_type = function_symbol.get_type();
+
+						ObjectList<std::string> parameters;
+
+						Source main_declaration = function_type.get_declaration_with_parameters(function_symbol.get_scope(),
+								"main", parameters);
+
+						// "main" is always an unqualified name so this transformation is safe
+						function_name.get_ast().replace_text("__instrumented_main");
+
+						Source instrumented_main_declaration = function_type.get_declaration(function_symbol.get_scope(),
+								"__instrumented_main");
+
+						Source new_main;
+						new_main
+							<< instrumented_main_declaration << ";"
+							<< main_declaration
+							<< "{"
+							<<    "__instrumented_main(p0, p1);"
+							<< "}"
+							<< node.prettyprint()
+							;
+
+						AST_t new_main_tree = new_main.parse_global(function_def.get_scope(),
+								function_def.get_scope_link());
+
+						node.replace_with(new_main_tree);
+					}
+
+					~MainWrapper()
+					{
+					}
+			};
+
+			class MainPredicate : public Predicate<AST_t>
+			{
+				private:
+					ScopeLink _sl;
+					PredicateBool<LANG_IS_FUNCTION_DEFINITION> is_function_def;
+				public:
+					MainPredicate(ScopeLink& sl)
+						: _sl(sl)
+					{
+					}
+
+					virtual bool operator()(AST_t& t) const
+					{
+						if (is_function_def(t))
+						{
+							FunctionDefinition function_def(t, _sl);
+
+							IdExpression function_name = function_def.get_function_name();
+
+							if (function_name.mangle_id_expression() == "main")
+							{
+								Symbol function_symbol = function_name.get_symbol();
+
+								if (!function_symbol.is_member())
+								{
+									return true;
+								}
+							}
+
+						}
+						return false;
+					}
+
+					virtual ~MainPredicate() { }
 			};
 
 		public:
@@ -138,7 +244,12 @@ namespace TL
 				PredicateBool<LANG_IS_FUNCTION_CALL> function_call_pred;
 				InstrumentationFunctor instrumentation_functor;
 
-				depth_traverse.add_predicate(function_call_pred, instrumentation_functor);
+				MainWrapper mainwrapper_functor(scope_link);
+				MainPredicate main_function_def(scope_link);
+
+				// depth_traverse.add_predicate(function_call_pred, instrumentation_functor);
+				depth_traverse.add_predicate(main_function_def, mainwrapper_functor);
+
 				depth_traverse.traverse(root_node, scope_link);
 			}
 

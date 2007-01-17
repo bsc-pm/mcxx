@@ -4272,6 +4272,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     build_scope_statement(statement, inner_scope, decl_context);
 	scope_link_set(compilation_options.scope_link, statement, copy_scope(inner_scope));
 
+	ASTAttrSetValueType(a, LANG_IS_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
 	ASTAttrSetValueType(a, LANG_FUNCTION_BODY, tl_type_t, tl_ast(statement));
 
     ERROR_CONDITION((entry == NULL), "This symbol is undeclared here", 0);
