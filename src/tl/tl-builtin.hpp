@@ -140,6 +140,7 @@ class Integer : public Object
 			return true;
 		}
 
+		~Integer() { }
 };
 
 class Bool : public Object
@@ -216,6 +217,8 @@ class Bool : public Object
 			_b = b._b;
 			return (*this);
 		}
+
+		~Bool() { }
 };
 
 class String : public Object, public std::string
@@ -320,8 +323,6 @@ class String : public Object, public std::string
 
 		~String()
 		{
-			// ¿ Needed ?
-			// this->std::string::~string();
 		}
 };
 

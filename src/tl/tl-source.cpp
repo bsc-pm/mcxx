@@ -278,6 +278,8 @@ namespace TL
 
 	AST_t Source::parse_global(TL::Scope ctx, TL::ScopeLink scope_link)
 	{
+		return parse_declaration(ctx, scope_link);
+#if 0
 		char* str = strdup(this->get_source(true).c_str());
 
         CXX_LANGUAGE()
@@ -312,6 +314,7 @@ namespace TL
 
         AST_t result(a);
 		return result;
+#endif
 	}
 
 	bool Source::operator==(const Source& src) const

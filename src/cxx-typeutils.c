@@ -3129,7 +3129,7 @@ static char* get_cv_qualifier_string(type_t* type_info)
 
 	if (BITMAP_TEST(type_info->cv_qualifier, CV_RESTRICT))
 	{
-		result = strappend(result, "restricted ");
+		result = strappend(result, "restrict ");
 	}
 
 	return result;

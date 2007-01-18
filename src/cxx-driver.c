@@ -16,6 +16,7 @@
 #include "cxx-buildscope.h"
 #include "cxx-lexer.h"
 #include "cxx-dyninit.h"
+#include "cxx-printscope.h"
 #include "mcfg.h"
 
 
@@ -738,6 +739,13 @@ static void compile_every_translation_unit(void)
 			fprintf(stderr, "Printing AST in graphviz format\n");
 
 			ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+		}
+
+		if (compilation_options.debug_options.print_scope)
+		{
+			fprintf(stderr, "============ SYMBOL TABLE ===============\n");
+			print_scope(translation_unit->global_scope);
+			fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
 		}
 
         char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);

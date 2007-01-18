@@ -1218,6 +1218,8 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 {
                     // Choose the option and state that this can be valid
                     choose_option(expression, correct_choice);
+					// Now recalculate everything to update data properly
+					check_for_expression(expression, st, decl_context);
                     return 1;
                 }
                 break;

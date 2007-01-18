@@ -28,7 +28,7 @@ struct node_ast
     struct node_ast** ambig;
 
 	// Extension node
-	extensible_struct_t extended_data;
+	extensible_struct_t* extended_data;
 };
 
 extern extensible_schema_t ast_extensible_schema;
@@ -74,7 +74,7 @@ typedef struct node_ast* AST;
 // Extensible structure function
 #define ASTAttrValue(_a, _name) \
 	( \
-	  extensible_struct_get_field_pointer(&ast_extensible_schema, &((_a)->extended_data), (_name)) \
+	  extensible_struct_get_field_pointer(&ast_extensible_schema, (_a)->extended_data, (_name)) \
 	)
 
 #define ASTAttrValueType(_a, _name, _type) \

@@ -37,7 +37,8 @@ AST ASTMake(node_t type, int num_children, const AST child0, const AST child1, c
     result->line = line;
     result->filename = scanning_now.current_filename;
 
-	extensible_struct_init(&(result->extended_data), &ast_extensible_schema);
+	result->extended_data = calloc(1, sizeof(*(result->extended_data)));
+	extensible_struct_init(result->extended_data, &ast_extensible_schema);
 
 #define ADD_SON(n) \
     ASTChild##n(result) = child##n; \

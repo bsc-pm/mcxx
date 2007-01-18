@@ -66,7 +66,7 @@ namespace TL
 							shadow_function_call.parse_expression(called_id_expression.get_scope());
 
 						// And replace it
-						called_expression_tree.replace_with(shadow_function_call_tree);
+						called_expression_tree.replace(shadow_function_call_tree);
 					}
 
 					void define_shadow(IdExpression function_name, std::string shadow_function_name)
@@ -122,16 +122,25 @@ namespace TL
 								;
 						}
 
-						// FIXME - Adapt it to mintaka when it is ready
-						// before_code
-						// 	<< "uint64_t user_function_event = mintaka_user_function_event(" << function_name.get_ast().get_line() << ", "
-						// 	                                         << "\"" << function_name.get_ast().get_file() << "\");"
-						// 	<< "(void)mintaka_record(user_event, user_function_event);"
-						// 	;
+						int file_line = 0;
+						std::string mangled_function_name = "\"" + function_name.mangle_id_expression() + "\"";
 
-						// after_code
-						// 	<< "(void)mintaka_record(user_event, user_function_event);"
-						// 	;
+						// Should not this be uint64_t instead of int ?
+						before_code
+							<< "const int EVENT_CALL_USER_FUNCTION = 6000;"
+							<< "int _user_function_event = mintaka_index_get(" << mangled_function_name << "," << file_line << ");"
+							<< "if (_user_function_event == -1)"
+							<< "{"
+							// FIXME - Protect this with a global mutex
+							<<     "_user_function_event = mintaka_index_allocate(" << mangled_function_name << "," << file_line << ");"
+							<< "}"
+							/// ???
+							<< "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
+							;
+
+						after_code
+							<< "mintaka_event(EVENT_CALL_USER_FUNCTION, 0);"
+							;
 
 						AST_t shadow_function_def_tree = 
 							shadow_function_definition.parse_global(function_definition.get_scope(),
@@ -177,10 +186,69 @@ namespace TL
 
 						Source new_main;
 						new_main
+							<< "static void __begin_mintaka_per_thread()"
+							<< "{"
+							<< "   mintaka_thread_begin(0, nth_get_physical_thread_num());"
+							<< "}"
+
+							<< "static void __end_mintaka_per_thread()"
+							<< "{"
+							<< "   mintaka_thread_end();"
+							<< "}"
+
+							<< "static void __begin_mintaka(char* exec_basename)"
+							<< "{"
+							<< "  mintaka_app_begin(exec_basename);"
+							<< "  int nth_nprocs;"
+							<< "  nth_desc *nth_selfv;"
+							<< "  int nth_arg;"
+							<< "  nth_argdesc_t nth_mask;"
+							<< "  int nth_num_params;"
+							<< "  int nth_p;"
+							<< "  nth_selfv = nthf_self_();"
+                            << "  nth_nprocs =  nthf_cpus_actual_();"
+							<< "  nthf_team_set_nplayers_ (&nth_nprocs);"
+							<< "  nth_arg = 0;"
+							<< "  nth_mask = (nth_argdesc_t)(~0);"
+							<< "  nth_num_params = 0;"
+							<< "  for (nth_p = 0; nth_p < nth_nprocs; nth_p++)"
+							<< "  {"
+							<< "     nthf_create_1s_vp_((void*)(__begin_mintaka_per_thread), &nth_arg, &nth_p, &nth_selfv, "
+							<< "        &nth_mask, &nth_num_params);"
+							<< "  }"
+							<< "  nthf_block_();"
+							<< "}"
+
+							<< "static void __end_mintaka()"
+							<< "{"
+							<< "  int nth_nprocs;"
+							<< "  nth_desc *nth_selfv;"
+							<< "  int nth_arg;"
+							<< "  nth_argdesc_t nth_mask;"
+							<< "  int nth_num_params;"
+							<< "  int nth_p;"
+							<< "  nth_selfv = nthf_self_();"
+                            << "  nth_nprocs =  nthf_cpus_actual_();"
+							<< "  nthf_team_set_nplayers_ (&nth_nprocs);"
+							<< "  nth_arg = 0;"
+							<< "  nth_mask = (nth_argdesc_t)(~0);"
+							<< "  nth_num_params = 0;"
+							<< "  for (nth_p = 0; nth_p < nth_nprocs; nth_p++)"
+							<< "  {"
+							<< "     nthf_create_1s_vp_((void*)(__end_mintaka_per_thread), &nth_arg, &nth_p, &nth_selfv, "
+							<< "        &nth_mask, &nth_num_params);"
+							<< "  }"
+							<< "  nthf_block_();"
+							<< "  mintaka_merge();"
+							<< "  mintaka_app_end();"
+							<< "}"
+
 							<< instrumented_main_declaration << ";"
 							<< main_declaration
 							<< "{"
-							<<    "__instrumented_main(p0, p1);"
+							<< "  __begin_mintaka(basename(_p_1[0]));"
+							<< "  __instrumented_main(_p_0, _p_1);"
+							<< "  __end_mintaka();"
 							<< "}"
 							<< node.prettyprint()
 							;
@@ -188,7 +256,7 @@ namespace TL
 						AST_t new_main_tree = new_main.parse_global(function_def.get_scope(),
 								function_def.get_scope_link());
 
-						node.replace_with(new_main_tree);
+						node.replace(new_main_tree);
 					}
 
 					~MainWrapper()
@@ -247,7 +315,7 @@ namespace TL
 				MainWrapper mainwrapper_functor(scope_link);
 				MainPredicate main_function_def(scope_link);
 
-				// depth_traverse.add_predicate(function_call_pred, instrumentation_functor);
+				depth_traverse.add_predicate(function_call_pred, instrumentation_functor);
 				depth_traverse.add_predicate(main_function_def, mainwrapper_functor);
 
 				depth_traverse.traverse(root_node, scope_link);

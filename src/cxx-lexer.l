@@ -665,6 +665,7 @@ runtime {
  /*!endif*/
 "__typeof" { parse_token_text(); return TYPEOF; }
 "__typeof__" { parse_token_text(); return TYPEOF; }
+"restrict" { parse_token_text(); return RESTRICT; /* This should be only for C99 but we will be lax here */ }
 "__restrict" { parse_token_text(); return RESTRICT; }
 "__restrict__" { parse_token_text(); return RESTRICT; }
 "__const" { parse_token_text(); return CONST; }

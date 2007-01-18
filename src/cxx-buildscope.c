@@ -187,13 +187,6 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
 	// Refactor this and "build_scope_translation_unit_tree_with_global_scope" one day
     build_scope_declaration_sequence(list, compilation_options.global_scope, default_decl_context);
 
-    if (compilation_options.debug_options.print_scope)
-    {
-        fprintf(stderr, "============ SYMBOL TABLE ===============\n");
-        print_scope(compilation_options.global_scope);
-        fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
-    }
-
     // Clear for sanity
 	compilation_options.scope_link = NULL;
     compilation_options.global_scope = NULL;

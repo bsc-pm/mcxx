@@ -32,7 +32,7 @@ namespace TL
 	{
 		//  First get the extended attribute
 		void* p = extensible_struct_get_field_pointer(&ast_extensible_schema,
-				&(this->_ast->extended_data),
+				this->_ast->extended_data,
 				name.c_str());
 
 		return (tl_type_t*) p;
@@ -367,6 +367,11 @@ namespace TL
 				{
 					// This can be null
 					return ASTSon1(node);
+					break;
+				}
+			case AST_NODE_LIST :
+				{
+					return node;
 					break;
 				}
 			default:

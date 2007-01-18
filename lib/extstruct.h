@@ -42,8 +42,6 @@ typedef struct extensible_schema_tag extensible_schema_t;
  *                  the field has not been given allocation in the 'data' array
  *                  (this happens if the user references a field defined later
  *                  in the schema before referencing the previous field)
- *   last_offset -  stores the last offset assigned to an active field. This is used
- *                  when allocating a field that has got active.
  *
  */
 struct extensible_struct_tag
