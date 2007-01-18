@@ -1,3 +1,4 @@
+#include "cxx-utils.h"
 #include "tl-instrumentation.hpp"
 #include "tl-compilerphase.hpp"
 #include "tl-predicateutils.hpp"
@@ -7,19 +8,140 @@
 #include "tl-externalvars.hpp"
 
 #include <iostream>
+#include <fstream>
 #include <set>
 
 namespace TL
 {
+	class InstrumentFilterFile 
+	{
+		private:
+			bool _filter_inverted;
+			std::set<std::string> _filter_set;
+		public:
+			InstrumentFilterFile()
+			{
+				std::ifstream filter_file;
+				std::string filter_file_name = ExternalVars::get("instrument_file_name", "./filter_instrument");
+
+				std::string filter_mode_var = ExternalVars::get("instrument_mode", "normal");
+
+				_filter_inverted = false;
+				if (filter_mode_var == "inverted")
+				{
+					_filter_inverted = true;
+				}
+				else if (filter_mode_var != "normal")
+				{
+					std::cerr << "Variable 'instrument_mode' only can be 'inverted' or 'normal' (you set '" 
+						<< filter_mode_var << "')" << std::endl;
+				}
+
+				filter_file.open(filter_file_name.c_str());
+				if (!filter_file.good())
+				{
+					std::cerr << "Could not open file '" << filter_file_name << "'. Skipping." << std::endl;
+					return;
+				}
+
+				// Read all lines of the file
+				char line[256];
+				while (filter_file.good())
+				{
+					filter_file.getline(line, 256);
+
+					char* p = line;
+
+					while (*p == ' ' || *p == '\t')
+					{
+						p++;
+					}
+
+					if (*p == '#')
+					{
+						// Comment
+						continue;
+					}
+
+					if (is_blank_string(p))
+					{
+						continue;
+					}
+
+					_filter_set.insert(p);
+				}
+
+				filter_file.close();
+
+				// Always include this
+				_filter_set.insert("mintaka*");
+			}
+
+			bool match(const std::string& function_name)
+			{
+				bool found = false;
+				for (std::set<std::string>::iterator it = _filter_set.begin();
+						it != _filter_set.end();
+						it++)
+				{
+					std::string::const_reverse_iterator rit = it->rbegin();
+
+					if (*rit == '*')
+					{
+						// Prefix
+						std::string prefix = it->substr(0, it->size() - 1);
+						std::string match_prefix = function_name;
+
+
+						if (match_prefix.size() >= prefix.size())
+						{
+							match_prefix = match_prefix.substr(0, prefix.size());
+
+							if (match_prefix == prefix)
+							{
+								found = true;
+								break;
+							}
+						}
+					}
+					else
+					{
+						if (function_name == *it)
+						{
+							found = true;
+							break;
+						}
+					}
+				}
+
+				if (!_filter_inverted)
+				{
+					// If found it does have to be filtered
+					return found ? true : false;
+				}
+				else
+				{
+					// If not found it does not have to be filtered
+					return found ? false : true;
+				}
+			}
+	};
 
 	class Instrumentation : public CompilerPhase
 	{
 		private:
+			InstrumentFilterFile _instrument_filter;
 			class InstrumentationFunctor : public TraverseFunctor
 			{
 				private:
 					std::set<std::string> defined_shadows;
+					InstrumentFilterFile& _instrument_filter;
 				public:
+					InstrumentationFunctor(InstrumentFilterFile& instrument_filter)
+						: _instrument_filter(instrument_filter)
+					{
+					}
+
 					~InstrumentationFunctor()
 					{
 					}
@@ -44,7 +166,11 @@ namespace TL
 						}
 
 						IdExpression called_id_expression = called_expression.get_id_expression();
-						
+
+						if (_instrument_filter.match(called_id_expression.prettyprint()))
+								return;
+
+
 						std::string shadow_function_name = 
 							"_" + called_id_expression.mangle_id_expression() + "_instr";
 
@@ -131,10 +257,8 @@ namespace TL
 							<< "int _user_function_event = mintaka_index_get(" << mangled_function_name << "," << file_line << ");"
 							<< "if (_user_function_event == -1)"
 							<< "{"
-							// FIXME - Protect this with a global mutex
 							<<     "_user_function_event = mintaka_index_allocate(" << mangled_function_name << "," << file_line << ");"
 							<< "}"
-							/// ???
 							<< "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
 							;
 
@@ -310,7 +434,7 @@ namespace TL
 				DepthTraverse depth_traverse;
 
 				PredicateBool<LANG_IS_FUNCTION_CALL> function_call_pred;
-				InstrumentationFunctor instrumentation_functor;
+				InstrumentationFunctor instrumentation_functor(_instrument_filter);
 
 				MainWrapper mainwrapper_functor(scope_link);
 				MainPredicate main_function_def(scope_link);
