@@ -257,7 +257,8 @@ namespace TL
 							<< "int _user_function_event = mintaka_index_get(" << mangled_function_name << "," << file_line << ");"
 							<< "if (_user_function_event == -1)"
 							<< "{"
-							<<     "_user_function_event = mintaka_index_allocate(" << mangled_function_name << "," << file_line << ");"
+							<<     "_user_function_event = mintaka_index_allocate(" << mangled_function_name << "," 
+							                   << file_line << ", EVENT_CALL_USER_FUNCTION);"
 							<< "}"
 							<< "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
 							;
@@ -312,7 +313,11 @@ namespace TL
 						new_main
 							<< "static void __begin_mintaka_per_thread()"
 							<< "{"
-							<< "   mintaka_thread_begin(0, nth_get_physical_thread_num());"
+							<< "   mintaka_thread_begin(0, nth_get_cpu_num());"
+							<< "   if (nth_get_cpu_num() != 0)
+							<< "        mintaka_state_idle();
+						    << "   else
+							<< "        mintaka_state_run();
 							<< "}"
 
 							<< "static void __end_mintaka_per_thread()"
@@ -323,6 +328,12 @@ namespace TL
 							<< "static void __begin_mintaka(char* exec_basename)"
 							<< "{"
 							<< "  mintaka_app_begin(exec_basename);"
+							// Register events
+							// TODO - OpenMP events descriptions
+							<< "  static const int EVENT_CALL_USER_FUNCTION = 6000;
+							<< "  static const char* EVENT_CALL_USER_FUNCTION_DESCR = \"User function call\"";
+							<< "  mintaka_index_event(EVENT_CALL_USER_FUNCTION, EVENT_CALL_USER_FUNCTION_DESCR);
+							// Initialize every thread
 							<< "  int nth_nprocs;"
 							<< "  nth_desc *nth_selfv;"
 							<< "  int nth_arg;"
