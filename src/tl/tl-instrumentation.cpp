@@ -314,10 +314,10 @@ namespace TL
 							<< "static void __begin_mintaka_per_thread()"
 							<< "{"
 							<< "   mintaka_thread_begin(0, nth_get_cpu_num());"
-							<< "   if (nth_get_cpu_num() != 0)
-							<< "        mintaka_state_idle();
-						    << "   else
-							<< "        mintaka_state_run();
+							<< "   if (nth_get_cpu_num() != 0)"
+							<< "        mintaka_state_idle();"
+						    << "   else"
+							<< "        mintaka_state_run();"
 							<< "}"
 
 							<< "static void __end_mintaka_per_thread()"
@@ -330,9 +330,9 @@ namespace TL
 							<< "  mintaka_app_begin(exec_basename);"
 							// Register events
 							// TODO - OpenMP events descriptions
-							<< "  static const int EVENT_CALL_USER_FUNCTION = 6000;
-							<< "  static const char* EVENT_CALL_USER_FUNCTION_DESCR = \"User function call\"";
-							<< "  mintaka_index_event(EVENT_CALL_USER_FUNCTION, EVENT_CALL_USER_FUNCTION_DESCR);
+							<< "  static const int EVENT_CALL_USER_FUNCTION = 6000;"
+							<< "  static const char* EVENT_CALL_USER_FUNCTION_DESCR = \"User function call\";"
+							<< "  mintaka_index_event(EVENT_CALL_USER_FUNCTION, EVENT_CALL_USER_FUNCTION_DESCR);"
 							// Initialize every thread
 							<< "  int nth_nprocs;"
 							<< "  nth_desc *nth_selfv;"
