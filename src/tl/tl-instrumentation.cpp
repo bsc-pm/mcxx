@@ -73,8 +73,11 @@ namespace TL
 
 				filter_file.close();
 
-				// Always include this
-				_filter_set.insert("mintaka*");
+				if (!_filter_inverted)
+				{
+					// Always include this
+					_filter_set.insert("mintaka*");
+				}
 			}
 
 			bool match(const std::string& function_name)
@@ -156,12 +159,13 @@ namespace TL
 						ScopeLink scope_link = ctx.scope_link;
 						
 						AST_t called_expression_tree = node.get_attribute(LANG_CALLED_EXPRESSION);
+						AST_t arguments_tree = node.get_attribute(LANG_FUNCTION_ARGUMENTS);
 						Expression called_expression(called_expression_tree, scope_link);
 
 						// Only function-names are considered here
 						if (!called_expression.is_id_expression())
 						{
-							std::cerr << "Called expression is not an id expression" << std::endl;
+							// std::cerr << "Called expression is not an id expression" << std::endl;
 							return;
 						}
 
@@ -181,18 +185,30 @@ namespace TL
 							defined_shadows.insert(shadow_function_name);
 						}
 
+						// Now replace the arguments
+						Source replaced_arguments;
+
+						replaced_arguments 
+							<< "\"" << node.get_file() << "\""
+							<< ","
+							<< node.get_line()
+							;
+
+						if (arguments_tree.prettyprint() != "")
+						{
+							replaced_arguments << "," << arguments_tree.prettyprint(/*commas=*/true);
+						}
+
 						// Now create an expression tree
 						Source shadow_function_call;
-
-						// Note that this is just what you find before the "(...)"
 						shadow_function_call
-							<< shadow_function_name;
+							<< shadow_function_name << "(" << replaced_arguments << ")"
+							;
 
 						AST_t shadow_function_call_tree = 
-							shadow_function_call.parse_expression(called_id_expression.get_scope());
-
-						// And replace it
-						called_expression_tree.replace(shadow_function_call_tree);
+							shadow_function_call.parse_expression(scope_link.get_scope(node));
+						
+						node.replace(shadow_function_call_tree);
 					}
 
 					void define_shadow(IdExpression function_name, std::string shadow_function_name)
@@ -204,8 +220,36 @@ namespace TL
 
 						ObjectList<std::string> parameter_names;
 						
-						std::string shadow_declaration = function_type.get_declaration_with_parameters(function_symbol.get_scope(), 
-								shadow_function_name, parameter_names);
+						std::string shadow_declaration;
+
+						shadow_declaration = function_type.returns().get_declaration(function_symbol.get_scope(), "");
+						shadow_declaration += shadow_function_name;
+						shadow_declaration += "(";
+						shadow_declaration += "const char* __file, int __line";
+
+						bool has_ellipsis = false;
+						ObjectList<Type> parameters = function_type.parameters(has_ellipsis);
+						int param_num = 0;
+						for (ObjectList<Type>::iterator it = parameters.begin();
+								it != parameters.end();
+								it++)
+						{
+							std::stringstream ss;
+							ss << "_p_" << param_num;
+							shadow_declaration += "," + it->get_declaration(function_symbol.get_scope(), ss.str());
+
+							parameter_names.append(ss.str());
+							param_num++;
+						}
+
+						if (has_ellipsis)
+						{
+							shadow_declaration += ", ...";
+						}
+
+						shadow_declaration += ")";
+						// std::string shadow_declaration = function_type.get_declaration_with_parameters(function_symbol.get_scope(), 
+						// 		shadow_function_name, parameter_names);
 
 						Source shadow_function_definition;
 
@@ -251,14 +295,15 @@ namespace TL
 						int file_line = 0;
 						std::string mangled_function_name = "\"" + function_name.mangle_id_expression() + "\"";
 
-						// Should not this be uint64_t instead of int ?
 						before_code
-							<< "const int EVENT_CALL_USER_FUNCTION = 6000;"
-							<< "int _user_function_event = mintaka_index_get(" << mangled_function_name << "," << file_line << ");"
+							<< "const int EVENT_CALL_USER_FUNCTION = 60000018;"
+							<< "int _user_function_event = mintaka_index_get(__file, __line);"
 							<< "if (_user_function_event == -1)"
 							<< "{"
-							<<     "_user_function_event = mintaka_index_allocate(" << mangled_function_name << "," 
+							<< "     nthf_spin_lock_((nth_word_t*)&mintaka_mutex);"
+							<< "     _user_function_event = mintaka_index_allocate(" << mangled_function_name << "," 
 							                   << file_line << ", EVENT_CALL_USER_FUNCTION);"
+							<< "     nthf_spin_unlock_((nth_word_t*)&mintaka_mutex);"
 							<< "}"
 							<< "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
 							;
@@ -330,7 +375,7 @@ namespace TL
 							<< "  mintaka_app_begin(exec_basename);"
 							// Register events
 							// TODO - OpenMP events descriptions
-							<< "  static const int EVENT_CALL_USER_FUNCTION = 6000;"
+							<< "  const int EVENT_CALL_USER_FUNCTION = 60000018;"
 							<< "  static const char* EVENT_CALL_USER_FUNCTION_DESCR = \"User function call\";"
 							<< "  mintaka_index_event(EVENT_CALL_USER_FUNCTION, EVENT_CALL_USER_FUNCTION_DESCR);"
 							// Initialize every thread
@@ -381,7 +426,7 @@ namespace TL
 							<< instrumented_main_declaration << ";"
 							<< main_declaration
 							<< "{"
-							<< "  __begin_mintaka(basename(_p_1[0]));"
+							<< "  __begin_mintaka(mintaka_basename(_p_1[0]));"
 							<< "  __instrumented_main(_p_0, _p_1);"
 							<< "  __end_mintaka();"
 							<< "}"
@@ -438,10 +483,32 @@ namespace TL
 		public:
 			virtual void run(DTO& data_flow)
 			{
-				std::cerr << "Running instrumentation" << std::endl;
 				AST_t root_node = data_flow["translation_unit"];
 				ScopeLink scope_link = data_flow["scope_link"];
+				
+				// Always define the mutex for mintaka
+				Source mintaka_mutex_def;
+				mintaka_mutex_def
+					<< "long mintaka_mutex;"
+					;
 
+				AST_t mintaka_mutex_tree = mintaka_mutex_def.parse_global(
+						scope_link.get_scope(root_node), scope_link
+						);
+
+				root_node.prepend_to_translation_unit(mintaka_mutex_tree);
+
+				if (ExternalVars::get("instrument", "0") == "1")
+				{
+					std::cerr << "Running instrumentation" << std::endl;
+				}
+				else
+				{
+					std::cerr << "Instrumentation disabled. You can enable with '--variable=instrument:1'" << std::endl;
+					return;
+				}
+
+				// Traversal of LANG_IS_FUNCTION_CALLs
 				DepthTraverse depth_traverse;
 
 				PredicateBool<LANG_IS_FUNCTION_CALL> function_call_pred;

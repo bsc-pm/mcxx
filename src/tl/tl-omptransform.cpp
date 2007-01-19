@@ -2,6 +2,7 @@
 #include "tl-omptransform.hpp"
 #include "tl-predicateutils.hpp"
 #include "tl-source.hpp"
+#include "tl-externalvars.hpp"
 #include <iostream>
 #include <utility>
 #include <stack>
@@ -623,6 +624,22 @@ namespace TL
                 
                 OpenMP::Clause num_threads = directive.num_threads_clause();
                 OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+
+				Source instrument_code_before;
+				Source instrument_code_after;
+
+				if (ExternalVars::get("instrument", "0") == "1")
+				{
+					instrument_code_before
+						<< "const int EVENT_PARALLEL = 60000001;"
+						<< "const int VALUE_PARALLEL_SINGLE = 4;"
+						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SINGLE);"
+						;
+					instrument_code_after
+						<< "const int VALUE_PARALLEL_CLOSE = 0;"
+						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+						;
+				}
                 
                 AST_t spawn_code = get_parallel_spawn_code(
 						function_definition,
@@ -632,7 +649,9 @@ namespace TL
                         pass_by_pointer,
                         reduction_references,
                         num_threads,
-                        groups_clause
+                        groups_clause,
+						instrument_code_before,
+						instrument_code_after
                         );
 
                 // Now replace the whole construct with spawn_code
@@ -782,6 +801,21 @@ namespace TL
                 
                 OpenMP::Clause num_threads = directive.num_threads_clause();
                 OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+
+				Source instrument_code_before;
+				Source instrument_code_after;
+				if (ExternalVars::get("instrument", "0") == "1")
+				{
+					instrument_code_before
+						<< "const int EVENT_PARALLEL = 60000001;"
+						<< "const int VALUE_PARALLEL_REGION = 3;"
+						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_REGION);"
+						;
+					instrument_code_after
+						<< "const int VALUE_PARALLEL_CLOSE = 0;"
+						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+						;
+				}
                 
                 AST_t spawn_code = get_parallel_spawn_code(
 						function_definition,
@@ -791,7 +825,9 @@ namespace TL
                         pass_by_pointer,
                         reduction_references,
                         num_threads,
-                        groups_clause
+                        groups_clause,
+						instrument_code_before,
+						instrument_code_after
                         );
 
                 // Now replace the whole construct with spawn_code
@@ -911,6 +947,21 @@ namespace TL
                 OpenMP::Clause num_threads = directive.num_threads_clause();
                 OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
 
+				Source instrument_code_before;
+				Source instrument_code_after;
+				if (ExternalVars::get("instrument", "0") == "1")
+				{
+					instrument_code_before
+						<< "const int EVENT_PARALLEL = 60000001;"
+						<< "const int VALUE_PARALLEL_FOR = 1;"
+						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_FOR);"
+						;
+					instrument_code_after
+						<< "const int VALUE_PARALLEL_CLOSE = 0;"
+						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+						;
+				}
+
                 AST_t spawn_code = get_parallel_spawn_code(
 						function_definition,
 						parallel_for_construct.get_scope(),
@@ -919,7 +970,9 @@ namespace TL
                         pass_by_pointer,
                         reduction_references,
                         num_threads,
-                        groups_clause
+                        groups_clause,
+						instrument_code_before,
+						instrument_code_after
                         );
 
                 // Replace all the whole construct with spawn_code
@@ -1021,6 +1074,21 @@ namespace TL
                 // Now create the spawning code. Pass by pointer list and
                 // reductions are needed for proper pass of data and reduction
                 // vectors declaration
+				Source instrument_code_before;
+				Source instrument_code_after;
+				if (ExternalVars::get("instrument", "0") == "1")
+				{
+					instrument_code_before
+						<< "const int EVENT_PARALLEL = 60000001;"
+						<< "const int VALUE_PARALLEL_SECTIONS = 2;"
+						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SECTIONS);"
+						;
+					instrument_code_after
+						<< "const int VALUE_PARALLEL_CLOSE = 0;"
+						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+						;
+				}
+
                 AST_t spawn_code = get_parallel_spawn_code(
 						function_definition,
 						parallel_sections_construct.get_scope(),
@@ -1029,7 +1097,9 @@ namespace TL
                         pass_by_pointer,
                         reduction_references,
                         num_threads,
-                        groups_clause
+                        groups_clause,
+						instrument_code_before,
+						instrument_code_after
                         );
 
                 // One less level of sections
@@ -1339,7 +1409,9 @@ namespace TL
                     ObjectList<IdExpression> pass_by_pointer,
                     ObjectList<OpenMP::ReductionIdExpression> reduction_references,
                     OpenMP::Clause num_threads_clause,
-                    OpenMP::CustomClause groups_clause)
+                    OpenMP::CustomClause groups_clause,
+					Source& instrument_code_before,
+					Source& instrument_code_after)
             {
                 Source spawn_code;
                 Source reduction_vectors;
@@ -1363,6 +1435,7 @@ namespace TL
 //                    << "  extern void nthf_create_1s_vp_(void (*)(), int *, int *, struct nth_desc **, unsigned long long *, int *, ...);"
 //                    << "  extern void nthf_block_();"
                     <<    reduction_vectors
+					<<    instrument_code_before
                     <<    groups_definition
                     << "  nth_selfv = nthf_self_();"
                     << "  nthf_team_set_nplayers_ (&nth_nprocs);"
@@ -1377,6 +1450,7 @@ namespace TL
                     << "  }"
                     << "  nthf_block_();"
                     <<    reduction_code
+					<<    instrument_code_after
                     << "}"
                     ;
 
@@ -2020,11 +2094,21 @@ namespace TL
                         firstprivate_references, reduction_references);
 
                 Source reduction_update = get_reduction_update(reduction_references);
+
+				Source instrumentation_code_before;
+				Source instrumentation_code_after;
+
+				instrumentation_outline(instrumentation_code_before,
+						instrumentation_code_after, 
+						function_definition,
+						construct_body);
                 
                 parallel_body 
                     << private_declarations
+					<< instrumentation_code_before
                     << modified_parallel_body_stmt.prettyprint()
                     << reduction_update
+					<< instrumentation_code_after
 //                    << "extern void nthf_task_block_(void);"
                     << "nthf_task_block_();"
                     ;
@@ -2170,12 +2254,20 @@ namespace TL
 
                 Source reduction_update = get_reduction_update(reduction_references);
 
+				Source instrumentation_code_before, instrumentation_code_after;
+				instrumentation_outline(instrumentation_code_before,
+						instrumentation_code_after, 
+						function_definition,
+						construct_body);
+
                 parallel_sections_body 
                     << private_declarations
+					<< instrumentation_code_before
                     << loop_distribution
                     << lastprivate_code
                     << reduction_update
                     << loop_finalization
+					<< instrumentation_code_after
 //                    << "extern void nthf_task_block_(void);"
                     << "nthf_task_block_();"
                     ;
@@ -2228,6 +2320,7 @@ namespace TL
 
 				Source single_source;
 
+
                 single_source
                     << "{"
                     <<   "int nth_low;"
@@ -2257,10 +2350,18 @@ namespace TL
                     <<   "}"
                     << "}"
                     ;
+
+				Source instrumentation_code_before, instrumentation_code_after;
+				instrumentation_outline(instrumentation_code_before,
+						instrumentation_code_after, 
+						function_definition,
+						construct_body);
                 
                 parallel_body 
                     << private_declarations
+					<< instrumentation_code_before
                     << single_source
+					<< instrumentation_code_after
                     << "nthf_task_block_();"
                     ;
 
@@ -2332,12 +2433,20 @@ namespace TL
 
                 Source reduction_update = get_reduction_update(reduction_references);
 
+				Source instrumentation_code_before, instrumentation_code_after;
+				instrumentation_outline(instrumentation_code_before,
+						instrumentation_code_after, 
+						function_definition,
+						loop_body);
+
                 parallel_for_body 
                     << private_declarations
+					<< instrumentation_code_before
                     << loop_distribution
                     << lastprivate_code
                     << reduction_update
                     << loop_finalization
+					<< instrumentation_code_after
 //                    << "extern void nthf_task_block_(void);"
                     << "nthf_task_block_();"
                     ;
@@ -2819,6 +2928,39 @@ namespace TL
 				}
 
 				return true;
+			}
+
+			void instrumentation_outline(Source& instrumentation_code_before,
+					Source& instrumentation_code_after,
+					FunctionDefinition function_definition,
+					Statement construct_body)
+			{
+				if (ExternalVars::get("instrument", "0") == "1")
+				{
+					// FIXME - We'll want to get the fully qualified function of the underlying symbol
+					std::string function_locus = "\"" + function_definition.get_ast().get_file() + "\"";
+					// function_locus += "\":" + function_definition.get_function_name().prettyprint() + "\"";
+
+					int file_line = construct_body.get_ast().get_line();
+
+					instrumentation_code_before
+						<< "const int EVENT_CALL_USER_FUNCTION = 60000018;"
+						<< "int _user_function_event = mintaka_index_get(" << function_locus << "," << file_line << ");"
+						<< "if (_user_function_event == -1)"
+						<< "{"
+						// FIXME - We need a critical here
+						<< "     nthf_spin_lock_((nth_word_t*)&mintaka_mutex);"
+						<< "     _user_function_event = mintaka_index_allocate(" << function_locus << "," 
+						<<                file_line << ", EVENT_CALL_USER_FUNCTION);"
+						<< "     nthf_spin_unlock_((nth_word_t*)&mintaka_mutex);"
+						<< "}"
+						<< "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
+						;
+
+					instrumentation_code_after
+						<< "mintaka_event(EVENT_CALL_USER_FUNCTION, 0);"
+						;
+				}
 			}
     };
 }

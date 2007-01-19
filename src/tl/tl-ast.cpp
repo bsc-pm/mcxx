@@ -38,11 +38,18 @@ namespace TL
 		return (tl_type_t*) p;
 	}
 
-	std::string AST_t::prettyprint() const
+	std::string AST_t::prettyprint(bool with_commas) const
 	{
-		char* c = prettyprint_in_buffer(this->_ast);
-		std::string result(c);
-		return result;
+		if (with_commas && ASTType(this->_ast) == AST_NODE_LIST)
+		{
+			return list_handler_in_buffer(this->_ast);
+		}
+		else
+		{
+			char* c = prettyprint_in_buffer(this->_ast);
+			std::string result(c);
+			return result;
+		}
 	}
 
 	void AST_t::replace(AST_t ast)
@@ -151,10 +158,9 @@ namespace TL
 	void AST_t::append_to_translation_unit(AST_t tree)
 	{
 		AST this_translation_unit = get_translation_unit(this->_ast);
-		AST tree_translation_unit = get_translation_unit(tree._ast);
 
 		AST this_declaration_seq = ASTSon0(this_translation_unit);
-		AST tree_declaration_seq = ASTSon0(tree_translation_unit);
+		AST tree_declaration_seq = tree._ast;
 
 		if (this_declaration_seq == NULL)
 		{
@@ -169,7 +175,6 @@ namespace TL
 	void AST_t::prepend_to_translation_unit(AST_t tree)
 	{
 		AST this_translation_unit = get_translation_unit(this->_ast);
-		AST tree_translation_unit = get_translation_unit(tree._ast);
 
 		AST this_declaration_seq = ASTSon0(this_translation_unit);
 
@@ -179,7 +184,7 @@ namespace TL
 			this_declaration_seq = ASTSon0(this_declaration_seq);
 		}
 
-		AST tree_declaration_seq = ASTSon0(tree_translation_unit);
+		AST tree_declaration_seq = tree._ast;
 
 		if (this_declaration_seq == NULL)
 		{

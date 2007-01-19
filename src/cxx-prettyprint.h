@@ -10,6 +10,7 @@ MCXX_BEGIN_DECLS
 void prettyprint_set_main_filename(char* filename);
 void prettyprint(FILE* f, AST a);
 char* prettyprint_in_buffer(AST a);
+char* list_handler_in_buffer(AST a);
 
 MCXX_END_DECLS
 

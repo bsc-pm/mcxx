@@ -610,6 +610,30 @@ char* prettyprint_in_buffer(AST a)
     return result;
 }
 
+char* list_handler_in_buffer(AST a)
+{
+    FILE* temporal_file = tmpfile();
+
+    list_handler(temporal_file, a, 0);
+
+    int bytes_file = ftell(temporal_file) + 20;
+    rewind(temporal_file);
+
+    char* result = calloc(bytes_file, sizeof(char));
+    fread(result, bytes_file, sizeof(char), temporal_file);
+
+    int c = strlen(result) - 1;
+
+    while (result[c] == '\n')
+    {
+        result[c] = '\0';
+        c--;
+    }
+
+	fclose(temporal_file);
+
+    return result;
+}
 
 
 static int character_level_vfprintf(FILE* stream, const char* format, va_list args)

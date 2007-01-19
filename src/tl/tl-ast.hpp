@@ -103,7 +103,7 @@ namespace TL
 			bool operator!=(AST_t n) const;
 			AST_t& operator=(AST_t n);
 
-			std::string prettyprint() const;
+			std::string prettyprint(bool with_commas = false) const;
 
 			void replace(AST_t ast);
 
