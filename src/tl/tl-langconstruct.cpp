@@ -327,7 +327,7 @@ namespace TL
 
     Expression Expression::get_unary_operand()
     {
-        AST_t result = _ref.get_attribute(LANG_RHS_OPERAND);
+        AST_t result = _ref.get_attribute(LANG_UNARY_OPERAND);
 
         return Expression(result, this->_scope_link);
     }
