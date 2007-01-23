@@ -292,7 +292,6 @@ namespace TL
 								;
 						}
 
-						int file_line = 0;
 						std::string mangled_function_name = "\"" + function_name.mangle_id_expression() + "\"";
 
 						before_code
@@ -301,8 +300,8 @@ namespace TL
 							<< "if (_user_function_event == -1)"
 							<< "{"
 							<< "     nthf_spin_lock_((nth_word_t*)&mintaka_mutex);"
-							<< "     _user_function_event = mintaka_index_allocate(" << mangled_function_name << "," 
-							                   << file_line << ", EVENT_CALL_USER_FUNCTION);"
+							<< "     _user_function_event = mintaka_index_allocate2(__file, __line, "
+							                   << mangled_function_name << ", EVENT_CALL_USER_FUNCTION);"
 							<< "     nthf_spin_unlock_((nth_word_t*)&mintaka_mutex);"
 							<< "}"
 							<< "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
@@ -358,7 +357,7 @@ namespace TL
 						new_main
 							<< "static void __begin_mintaka_per_thread()"
 							<< "{"
-							<< "   mintaka_thread_begin(0, nth_get_cpu_num());"
+							<< "   mintaka_thread_begin(1, nth_get_cpu_num() + 1);"
 							<< "   if (nth_get_cpu_num() != 0)"
 							<< "        mintaka_state_idle();"
 						    << "   else"
@@ -399,7 +398,7 @@ namespace TL
 							<< "  nthf_block_();"
 							<< "}"
 
-							<< "static void __end_mintaka()"
+							<< "static void __end_mintaka(char* exec_basename)"
 							<< "{"
 							<< "  int nth_nprocs;"
 							<< "  nth_desc *nth_selfv;"
@@ -419,8 +418,9 @@ namespace TL
 							<< "        &nth_mask, &nth_num_params);"
 							<< "  }"
 							<< "  nthf_block_();"
-							<< "  mintaka_merge();"
 							<< "  mintaka_app_end();"
+							<< "  mintaka_merge();"
+							<< "  mintaka_index_generate(exec_basename);"
 							<< "}"
 
 							<< instrumented_main_declaration << ";"
@@ -428,7 +428,7 @@ namespace TL
 							<< "{"
 							<< "  __begin_mintaka(mintaka_basename(_p_1[0]));"
 							<< "  __instrumented_main(_p_0, _p_1);"
-							<< "  __end_mintaka();"
+							<< "  __end_mintaka(mintaka_basename(_p_1[0]));"
 							<< "}"
 							<< node.prettyprint()
 							;

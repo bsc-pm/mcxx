@@ -634,10 +634,12 @@ namespace TL
 						<< "const int EVENT_PARALLEL = 60000001;"
 						<< "const int VALUE_PARALLEL_SINGLE = 4;"
 						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SINGLE);"
+						<< "mintaka_state_schedule();"
 						;
 					instrument_code_after
 						<< "const int VALUE_PARALLEL_CLOSE = 0;"
 						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+						<< "mintaka_state_run();"
 						;
 				}
                 
@@ -810,10 +812,12 @@ namespace TL
 						<< "const int EVENT_PARALLEL = 60000001;"
 						<< "const int VALUE_PARALLEL_REGION = 3;"
 						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_REGION);"
+						<< "mintaka_state_schedule();"
 						;
 					instrument_code_after
 						<< "const int VALUE_PARALLEL_CLOSE = 0;"
 						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+						<< "mintaka_state_run();"
 						;
 				}
                 
@@ -955,10 +959,12 @@ namespace TL
 						<< "const int EVENT_PARALLEL = 60000001;"
 						<< "const int VALUE_PARALLEL_FOR = 1;"
 						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_FOR);"
+						<< "mintaka_state_schedule();"
 						;
 					instrument_code_after
 						<< "const int VALUE_PARALLEL_CLOSE = 0;"
 						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+						<< "mintaka_state_run();"
 						;
 				}
 
@@ -1082,10 +1088,12 @@ namespace TL
 						<< "const int EVENT_PARALLEL = 60000001;"
 						<< "const int VALUE_PARALLEL_SECTIONS = 2;"
 						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SECTIONS);"
+						<< "mintaka_state_schedule();"
 						;
 					instrument_code_after
 						<< "const int VALUE_PARALLEL_CLOSE = 0;"
 						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+						<< "mintaka_state_run();"
 						;
 				}
 
@@ -1421,6 +1429,10 @@ namespace TL
 
                 Source reduction_code;
 
+				// FIXME. This should be moved out of here like
+				// instrument_code_before and instrument_code_after
+				Source instrument_code_block;
+
                 // The skeleton of the spawn code will be this one
                 spawn_code
                     << "{"
@@ -1448,11 +1460,19 @@ namespace TL
                     << "     nthf_create_1s_vp_((void*)(" << outlined_function_name << "), &nth_arg, &nth_p, &nth_selfv, "
                     << "        &nth_mask, &nth_num_params " << referenced_parameters << ");"
                     << "  }"
+					<<    instrument_code_block // This is crummy here
                     << "  nthf_block_();"
                     <<    reduction_code
 					<<    instrument_code_after
                     << "}"
                     ;
+
+				if (ExternalVars::get("instrument", "0") == "1")
+				{
+					instrument_code_block 
+						<< "mintaka_state_synch();"
+						;
+				}
 
 				// FIXME - This is IA32 specific
                 // Reduction vectors
@@ -2937,28 +2957,31 @@ namespace TL
 			{
 				if (ExternalVars::get("instrument", "0") == "1")
 				{
-					// FIXME - We'll want to get the fully qualified function of the underlying symbol
-					std::string function_locus = "\"" + function_definition.get_ast().get_file() + "\"";
-					// function_locus += "\":" + function_definition.get_function_name().prettyprint() + "\"";
+					std::string file_name = "\"" + function_definition.get_ast().get_file() + "\"";
 
 					int file_line = construct_body.get_ast().get_line();
 
+					std::string mangled_function_name = 
+						"\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
+
 					instrumentation_code_before
 						<< "const int EVENT_CALL_USER_FUNCTION = 60000018;"
-						<< "int _user_function_event = mintaka_index_get(" << function_locus << "," << file_line << ");"
+						<< "int _user_function_event = mintaka_index_get(" << file_name << "," << file_line << ");"
 						<< "if (_user_function_event == -1)"
 						<< "{"
-						// FIXME - We need a critical here
 						<< "     nthf_spin_lock_((nth_word_t*)&mintaka_mutex);"
-						<< "     _user_function_event = mintaka_index_allocate(" << function_locus << "," 
-						<<                file_line << ", EVENT_CALL_USER_FUNCTION);"
+						<< "     _user_function_event = mintaka_index_allocate2(" << file_name << "," 
+						<<                file_line << "," << mangled_function_name << ", EVENT_CALL_USER_FUNCTION);"
 						<< "     nthf_spin_unlock_((nth_word_t*)&mintaka_mutex);"
 						<< "}"
 						<< "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
+						<< "int __previous_state = mintaka_get_state();"
+						<< "mintaka_state_run();"
 						;
 
 					instrumentation_code_after
 						<< "mintaka_event(EVENT_CALL_USER_FUNCTION, 0);"
+						<< "mintaka_set_state(__previous_state);"
 						;
 				}
 			}
