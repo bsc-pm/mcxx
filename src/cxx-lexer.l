@@ -90,7 +90,8 @@ longlongsuffix [lL][lL]
 cchar       ([^\\'\n]|{escape_seq}|(\\[']))
 
  /* A.2.29 */
-escape_seq      ((\\["abfnrtv\\])|(\\{octaldigit}{1,3})|((\\x)+{hexdigit}+))
+ /* \e is a GNU extension */
+escape_seq      ((\\["'?eabfnrtv\\])|(\\{octaldigit}{1,3})|((\\x)+{hexdigit}+))
  /* A.2.34 */
 fractconst  (({digit}*\.{digit}+)|({digit}+(\.)?))
  /* A.2.35 */
