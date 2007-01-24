@@ -309,6 +309,10 @@ typedef struct function_tag
     int is_pure; // is_pure implies is_virtual
     int is_explicit;
 
+	// States if this function has been declared or defined 
+	// without prototype. This is only meaningful in C
+	int lacks_prototype;
+
     int is_constructor; // States if this functions is a constructor
 
     // For template parameters

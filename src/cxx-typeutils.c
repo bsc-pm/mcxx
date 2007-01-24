@@ -3443,13 +3443,14 @@ static void get_type_name_str_internal(scope_t* st,
 			}
 		case TK_ARRAY :
 			{
-				get_type_name_str_internal(st, type_info->array->element_type, left, right, 
-						num_parameter_names, parameter_names);
-
 				char* array_expr = strappend("[", prettyprint_in_buffer(type_info->array->array_expr));
 				array_expr = strappend(array_expr, "]");
 
 				(*right) = strappend((*right), array_expr);
+
+				get_type_name_str_internal(st, type_info->array->element_type, left, right, 
+						num_parameter_names, parameter_names);
+
 				break;
 			}
 		case TK_FUNCTION :

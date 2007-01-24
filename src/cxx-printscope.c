@@ -259,6 +259,13 @@ static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_inde
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Prototype: %s\n",
                 print_declarator(entry->type_information, st));
         // print_scope_full(entry->related_scope, global_indent+1);
+		C_LANGUAGE()
+		{
+			if (entry->type_information->function->lacks_prototype)
+			{
+				PRINT_INDENTED_LINE(stderr, global_indent+1, "This function does not have prototype yet\n");
+			}
+		}
     }
 
 	if (entry->is_member)

@@ -65,7 +65,7 @@ namespace TL
 		{
 			VALID_SYMBOLS = 0,
 			INVALID_SYMBOLS,
-			ALL_SYMBOLS
+			ALL_FOUND_SYMBOLS
 		};
 
 		class Clause : public LangConstruct

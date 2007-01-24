@@ -10,7 +10,7 @@ namespace TL
         return _ref.prettyprint();
     }
 
-    ObjectList<IdExpression> Statement::non_local_symbol_occurrences(SymbolsWanted symbol_filter)
+    ObjectList<IdExpression> LangConstruct::non_local_symbol_occurrences(SymbolsWanted symbol_filter)
     {
         PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
 		PredicateBool<LANG_IS_MEMBER_ACCESS> member_access;
@@ -575,7 +575,7 @@ namespace TL
 
                             adjust_value << "(" << right_hand.get_ast().prettyprint() << ") - 1";
 
-                            _upper_bound = adjust_value.parse_expression(expression.get_scope());
+                            _upper_bound = adjust_value.parse_expression(expression.get_scope(), expression.get_scope_link());
                             break;
                         }
                     case Expression::GREATER_THAN:
@@ -584,7 +584,7 @@ namespace TL
 
                             adjust_value << "(" << right_hand.get_ast().prettyprint() << ") + 1";
 
-                            _upper_bound = adjust_value.parse_expression(expression.get_scope());
+                            _upper_bound = adjust_value.parse_expression(expression.get_scope(), expression.get_scope_link());
                             break;
                         }
                     case Expression::LOWER_EQUAL_THAN :

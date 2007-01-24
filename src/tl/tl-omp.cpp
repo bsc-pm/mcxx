@@ -416,7 +416,7 @@ namespace TL
 
 					switch (criteria)
 					{
-						case ALL_SYMBOLS :
+						case ALL_FOUND_SYMBOLS :
 							eligible = true;
 							break;
 						case VALID_SYMBOLS :
@@ -484,7 +484,7 @@ namespace TL
 
 					switch (criteria)
 					{
-						case ALL_SYMBOLS :
+						case ALL_FOUND_SYMBOLS :
 							eligible = true;
 							break;
 						case VALID_SYMBOLS :
@@ -553,7 +553,7 @@ namespace TL
 
 					switch (criteria)
 					{
-						case ALL_SYMBOLS :
+						case ALL_FOUND_SYMBOLS :
 							eligible = true;
 							break;
 						case VALID_SYMBOLS :

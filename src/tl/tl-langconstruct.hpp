@@ -13,6 +13,7 @@
 namespace TL
 {
 	class FunctionDefinition;
+	class IdExpression;
 	class LangConstruct
 	{
 		protected:
@@ -23,6 +24,14 @@ namespace TL
 				: _ref(ref), _scope_link(scope_link)
 			{
 			}
+
+			enum SymbolsWanted
+			{
+				ALL_SYMBOLS = 0,
+				ONLY_OBJECTS,
+				ONLY_VARIABLES = ONLY_OBJECTS, // A useful alias
+				ONLY_FUNCTIONS
+			};
 
 			std::string prettyprint();
 
@@ -42,6 +51,9 @@ namespace TL
 			}
 
 			FunctionDefinition get_enclosing_function();
+
+			ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
+			ObjectList<IdExpression> local_symbol_occurrences();
 	};
 
     class Declaration;
@@ -76,19 +88,12 @@ namespace TL
 			{
 			}
 
-			enum SymbolsWanted
-			{
-				ALL_SYMBOLS = 0,
-				ONLY_OBJECTS,
-				ONLY_VARIABLES = ONLY_OBJECTS, // A useful alias
-				ONLY_FUNCTIONS
-			};
 
 			ObjectList<Symbol> symbols();
 			ObjectList<Symbol> non_local_symbols();
 
-			ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
-			ObjectList<IdExpression> local_symbol_occurrences();
+//			ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
+//			ObjectList<IdExpression> local_symbol_occurrences();
 	};
 
 	class Expression;

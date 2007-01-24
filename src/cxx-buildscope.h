@@ -90,6 +90,7 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
 extern const decl_context_t default_decl_context;
 
 AST get_declarator_name(AST a, scope_t* st, decl_context_t decl_context);
+AST get_function_declarator_parameter_list(AST funct_declarator, scope_t* st, decl_context_t decl_context);
 AST get_leftmost_declarator_name(AST a, decl_context_t decl_context);
 
 char* get_conversion_function_name(AST conversion_function_id, scope_t* st, 

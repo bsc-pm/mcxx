@@ -130,27 +130,29 @@ namespace TL
                     ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
 
                     Source remade_declaration;
-                    Source not_modified_entities;
 
-                    if (declared_entities.size() > 1)
-                    {
-                        for (ObjectList<DeclaredEntity>::iterator it2 = declared_entities.begin();
-                                it2 != declared_entities.end();
-                                it2++)
-                        {
-                            if (it2->get_declared_entity().get_symbol() != it->get_symbol())
-                            {
-                                not_modified_entities.append_with_separator(it2->prettyprint(), ",");
-                            }
-                        }
+					for (ObjectList<DeclaredEntity>::iterator it2 = declared_entities.begin();
+							it2 != declared_entities.end();
+							it2++)
+					{
+						remade_declaration << decl_spec.prettyprint() << " ";
+						if (it2->get_declared_entity().get_symbol() == it->get_symbol())
+						{
+							remade_declaration << " __thread ";
 
-                        remade_declaration
-                            << decl_spec.prettyprint() << " " << not_modified_entities << ";"
-                            ;
-                    }
-                    remade_declaration
-                        << decl_spec.prettyprint() << " __thread " << it->prettyprint() << ";"
-                        ;
+						}
+
+						remade_declaration << it2->prettyprint();
+
+						if (it2->has_initializer())
+						{
+							remade_declaration << it2->get_initializer().prettyprint()
+								;
+						}
+
+						remade_declaration << ";"
+							;
+					}
 
                     AST_t redeclaration_tree = remade_declaration.parse_declaration(decl.get_scope(),
                             scope_link, Source::ALLOW_REDECLARATION);
@@ -207,7 +209,6 @@ namespace TL
 
                 OpenMP::CustomClause capturevalue_clause = directive.custom_clause("capturevalue");
                 ObjectList<IdExpression> capturevalue_references = capturevalue_clause.id_expressions();
-
 
 				ObjectList<IdExpression> capturevalue_references_body;
 				// Fix this with a better ObjectList<T>::insert(Functor<S, T>, T);
@@ -432,7 +433,7 @@ namespace TL
                 }
                 else
                 {
-                    ObjectList<IdExpression> id_expressions = region_name.id_expressions(OpenMP::ALL_SYMBOLS);
+                    ObjectList<IdExpression> id_expressions = region_name.id_expressions(OpenMP::ALL_FOUND_SYMBOLS);
                     IdExpression head = id_expressions[0];
 
                     mutex_variable = "_nthf_"  + head.prettyprint();
@@ -888,7 +889,7 @@ namespace TL
                 // Get the data attributes for every entity
                 get_data_attributes(function_scope,
                         directive,
-                        loop_body,
+						construct_body,
                         shared_references,
                         private_references,
                         firstprivate_references,
@@ -1290,7 +1291,8 @@ namespace TL
             void for_postorder(OpenMP::ForConstruct for_construct)
             {
                 OpenMP::Directive directive = for_construct.directive();
-                ForStatement for_statement = for_construct.body();
+				Statement construct_body = for_construct.body();
+                ForStatement for_statement = construct_body;
                 Statement loop_body = for_statement.get_loop_body();
 
 				// Remove the induction var from the stack
@@ -1311,7 +1313,7 @@ namespace TL
                 // Get the data attributes for every entity
                 get_data_explicit_attributes(function_scope,
                         directive,
-                        loop_body,
+                        construct_body,
                         shared_references,
                         private_references,
                         firstprivate_references,
@@ -1663,6 +1665,7 @@ namespace TL
                     <<    "int rdv_i;"
 
                     <<    "nthf_spin_lock_(&default_mutex);"
+                    <<    "int nth_nprocs = nthf_cpus_actual_();"
                     <<    "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
                     <<    "{"
                     <<       reduction_gathering
@@ -2753,6 +2756,14 @@ namespace TL
                 // Induction var name is handled specially
                 induction_var_name << "p_" << induction_var.mangle_id_expression();
 
+				Expression lower_bound = for_statement.get_lower_bound();
+				Expression upper_bound = for_statement.get_upper_bound();
+				Expression step = for_statement.get_step();
+
+				lower_bound = replace_references.replace(lower_bound);
+				upper_bound = replace_references.replace(upper_bound);
+				step = replace_references.replace(step);
+
                 // Define here the bounds of the loop
                 loop_initialization 
                     << "int nth_low;"
@@ -2763,9 +2774,9 @@ namespace TL
                     << "int intone_last;"
 					<< "int nth_barrier;"
 
-                    << "nth_low = " << for_statement.get_lower_bound().prettyprint() << ";"
-                    << "nth_upper = " << for_statement.get_upper_bound().prettyprint() << ";"
-                    << "nth_step = " << for_statement.get_step().prettyprint() << ";"
+                    << "nth_low = " << lower_bound.prettyprint() << ";"
+                    << "nth_upper = " << upper_bound.prettyprint() << ";"
+                    << "nth_step = " << step.prettyprint() << ";"
                     ;
 
                 // Schedule decisions

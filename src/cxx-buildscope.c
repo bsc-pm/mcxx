@@ -2396,10 +2396,14 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
     declarator_type->function->num_parameters = 0;
     declarator_type->function->parameter_list = NULL;
     
-    // An empty parameter declaration clause is like (void) in C++
     if (ASTType(parameters) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
     {
-        // Maybe this needs some kind of fixing
+		C_LANGUAGE()
+		{
+			// In C this is a function definition lacking a prototype
+			declarator_type->function->lacks_prototype = 1;
+		}
+		// An empty parameter declaration clause is like (void) in C++
         return;
     }
 
@@ -2421,6 +2425,8 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
         // Nothing to do here with K&R parameters
         if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
         {
+			// It will lack a prototype
+			declarator_type->function->lacks_prototype = 1;
             return;
         }
     }
@@ -3179,8 +3185,14 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 
             C_LANGUAGE()
             {
-                internal_error("Function '%s' has been declared with different prototype", 
-                        ASTText(declarator_id));
+				if (!function_being_declared->function->lacks_prototype
+				 		&& !current_function->function->lacks_prototype)
+				{
+					internal_error("Function '%s' has been declared with different prototype", 
+							ASTText(declarator_id));
+				}
+				equal_entry = entry;
+				found_equal = 1;
             }
         }
 
@@ -4088,11 +4100,17 @@ static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st,
 }
 
 // This function is C99 only
-void build_scope_kr_parameter_declaration(AST kr_parameter_declaration, 
+void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
+		AST kr_parameter_declaration, 
+		AST kr_parameters,
         scope_t* parameter_scope, decl_context_t decl_context)
 {
+	AST kr_parameter_list = ASTSon0(kr_parameters);
+
     AST declaration_list = kr_parameter_declaration;
     AST iter;
+
+	type_t* declarator_type = function_entry->type_information;
 
     for_each_element(declaration_list, iter)
     {
@@ -4100,6 +4118,29 @@ void build_scope_kr_parameter_declaration(AST kr_parameter_declaration,
 
         build_scope_simple_declaration(simple_decl, parameter_scope, decl_context);
     }
+
+	// Now for every symbol in kr_parameter_list get its type and sign it up
+	// in the parameters of the type
+	for_each_element(kr_parameter_list, iter)
+	{
+		AST symbol = ASTSon1(iter);
+
+		scope_entry_list_t* entry_list = query_in_symbols_of_scope(parameter_scope, ASTText(symbol));
+		if (entry_list == NULL)
+		{
+			fprintf(stderr, "Parameter '%s' of K&R-style function '%s' in %s not defined\n",
+					ASTText(symbol), function_entry->symbol_name, node_information(kr_parameters));
+		}
+
+		scope_entry_t* entry = entry_list->entry;
+		parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
+		new_parameter->type_info = entry->type_information;
+
+		P_LIST_ADD(declarator_type->function->parameter_list, declarator_type->function->num_parameters, new_parameter);
+	}
+
+	// Should not lack prototype no more
+	declarator_type->function->lacks_prototype = 0;
 }
 
 /*
@@ -4231,7 +4272,9 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
         AST kr_parameter_declaration = ASTSon2(a);
         if (kr_parameter_declaration != NULL)
         {
-            build_scope_kr_parameter_declaration(kr_parameter_declaration, parameter_scope,
+			AST kr_parameter_list = get_function_declarator_parameter_list(ASTSon1(a), st, decl_context);
+
+            build_scope_kr_parameter_declaration(entry, kr_parameter_declaration, kr_parameter_list, parameter_scope,
                     decl_context);
         }
     }
@@ -6524,6 +6567,33 @@ static void build_scope_statement(AST a, scope_t* st, decl_context_t decl_contex
         WARNING_MESSAGE("Statement node type '%s' does not have handler in %s", ast_print_node_type(ASTType(a)),
                 node_information(a));
     }
+}
+
+AST get_function_declarator_parameter_list(AST funct_declarator, scope_t* st, decl_context_t decl_context)
+{
+    ERROR_CONDITION((funct_declarator == NULL), "This function does not admit NULL trees", 0);
+
+	switch (ASTType(funct_declarator))
+	{
+		case AST_DECLARATOR :
+		case AST_PARENTHESIZED_DECLARATOR :
+			{
+                return get_function_declarator_parameter_list(ASTSon0(funct_declarator), st, decl_context); 
+				break;
+			}
+        case AST_DECLARATOR_FUNC :
+            {
+				return ASTSon1(funct_declarator);
+                break;
+            }
+		default:
+			{
+                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(funct_declarator)));
+				break;
+			}
+	}
+
+	return NULL;
 }
 
 /*
