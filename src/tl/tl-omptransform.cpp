@@ -1,3 +1,4 @@
+#include "cxx-utils.h"
 #include "tl-omp.hpp"
 #include "tl-omptransform.hpp"
 #include "tl-predicateutils.hpp"
@@ -2847,23 +2848,71 @@ namespace TL
                     // Get a declaration of the mangled name of the id-expression
                     if (firstprivate_references.contains(functor(&IdExpression::get_symbol), sym))
                     {
-                        Source initializer;
-
+                        Source initializer_value;
+						
                         if (pass_by_pointer.contains(functor(&IdExpression::get_symbol), sym))
                         {
-                            initializer << "(*" << it->mangle_id_expression() << ")";
+                            initializer_value << "(*" << it->mangle_id_expression() << ")";
                         }
-                        else
-                        {
-                            initializer << it->prettyprint();
-                        }
-                        
-                        private_declarations 
-							<< type.get_declaration_with_initializer(
-									it->get_scope(),
-									"p_" + it->mangle_id_expression(),
-									initializer.get_source()) 
-							<< ";";
+						else
+						{
+							initializer_value << it->prettyprint();
+						}
+
+						if (type.is_array())
+						{
+							private_declarations 
+								<< type.get_declaration(
+										it->get_scope(),
+										"p_" + it->mangle_id_expression())
+								<< ";"
+								;
+
+							Source array_assignment = array_copy(type, "p_" + it->mangle_id_expression(),
+									initializer_value.get_source(), 0);
+
+							private_declarations << array_assignment;
+						}
+						else
+						{
+							C_LANGUAGE()
+							{
+								// If it is not an array just assign
+								private_declarations 
+									<< type.get_declaration(
+											it->get_scope(),
+											"p_" + it->mangle_id_expression())
+									<< ";"
+									<< "p_" + it->mangle_id_expression() << "=" << initializer_value.get_source() << ";"
+									;
+							}
+							CXX_LANGUAGE()
+							{
+								// In C++ if this is a class we invoke the copy-constructor
+								if (type.is_class())
+								{
+									private_declarations 
+										<< type.get_declaration(
+												it->get_scope(),
+												"p_" + it->mangle_id_expression())
+										<< "(" << initializer_value.get_source() << ")"
+										<< ";"
+										;
+								}
+								else
+								{
+									// Otherwise simply assign
+									private_declarations 
+										<< type.get_declaration(
+												it->get_scope(),
+												"p_" + it->mangle_id_expression())
+										<< ";"
+										<< "p_" + it->mangle_id_expression() << "=" << initializer_value.get_source() << ";"
+										;
+								}
+							}
+						}
+
                     }
                     else if (reduction_references.contains(functor(&OpenMP::ReductionIdExpression::get_symbol), sym))
                     {
@@ -2959,6 +3008,48 @@ namespace TL
 				}
 
 				return true;
+			}
+
+			Source array_copy(Type t, const std::string& dest, const std::string& orig, int level)
+			{
+				Source result;
+
+				std::stringstream subscript;
+
+				for (int i = 0; i < level; i++)
+				{
+					subscript << "[_i_" << i << "]";
+				}
+
+				if (!t.is_array())
+				{
+					result 
+						<< dest << subscript.str() << "=" << orig << subscript.str() << ";"
+						;
+				}
+				else
+				{
+					std::stringstream index_var;
+					index_var << "_i_" << level;
+
+					Source next_dim_array_copy = array_copy(t.array_element(), dest, orig, level+1);
+
+					result 
+						<< "{"
+						<< "  int " << index_var.str() << ";"
+						<< "  for (" << index_var.str() << " = 0;" 
+						<<              index_var.str() 
+						<<                 " < (sizeof(" << dest 
+						<<                 subscript.str() << ")/sizeof(" << dest << subscript.str() << "[0]));"
+						<<              index_var.str() << "++" << ")"
+						<< "  {"
+						<<       next_dim_array_copy
+						<< "  }"
+						<< "}"
+						;
+				}
+
+				return result;
 			}
 
 			void instrumentation_outline(Source& instrumentation_code_before,

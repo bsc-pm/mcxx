@@ -258,4 +258,16 @@ namespace TL
 		return (is_builtin_type() &&
 				builtin_type() == BuiltinType::VOID);
 	}
+
+	bool Type::is_enum() const
+	{
+		return (this->is_direct_type()
+				&& is_enumerated_type(_type_info));
+	}
+
+	bool Type::is_class() const
+	{
+		return (this->is_direct_type()
+				&& is_named_class_type(_type_info));
+	}
 }

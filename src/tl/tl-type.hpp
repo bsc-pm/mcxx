@@ -77,6 +77,8 @@ namespace TL
 			BuiltinType builtin_type(TypeModifier& type_modif) const;
 
 			bool is_direct_type() const;
+			bool is_class() const;
+			bool is_enum() const;
 
 			bool is_function() const;
 			Type returns() const;

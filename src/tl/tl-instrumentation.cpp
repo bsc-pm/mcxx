@@ -427,8 +427,9 @@ namespace TL
 							<< main_declaration
 							<< "{"
 							<< "  __begin_mintaka(mintaka_basename(_p_1[0]));"
-							<< "  __instrumented_main(_p_0, _p_1);"
+							<< "  int __result = __instrumented_main(_p_0, _p_1);"
 							<< "  __end_mintaka(mintaka_basename(_p_1[0]));"
+							<< "  return __result;"
 							<< "}"
 							<< node.prettyprint()
 							;
