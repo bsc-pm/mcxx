@@ -2061,6 +2061,9 @@ namespace TL
                 {
                     Symbol sym = it->get_symbol();
                     Type type = sym.get_type();
+
+					type = convert_array_to_pointer(type);
+
                     Type pointer_type = type.get_pointer_to();
 
                     // Get a declaration of the mangled name of the id-expression
@@ -2075,6 +2078,8 @@ namespace TL
                 {
                     Symbol sym = it->get_symbol();
                     Type type = sym.get_type();
+
+					type = convert_array_to_pointer(type);
 
                     // Get a declaration of the mangled name of the id-expression
                     formal_parameters.append_with_separator(
@@ -2541,30 +2546,56 @@ namespace TL
 
                 OpenMP::DefaultClause default_clause = directive.default_clause();
 
-                // Everything should have been tagged by the user
-                if (default_clause.is_none())
-                    return;
+                // // Everything should have been tagged by the user
+                // if (default_clause.is_none())
+                //     return;
 
                 // Get every non local reference: this is, not defined in the
                 // construct itself, but visible at the point where the
                 // construct is defined
-                ObjectList<IdExpression> non_local_symbols = construct_body.non_local_symbol_occurrences(Statement::ONLY_VARIABLES);
+                ObjectList<IdExpression> non_local_references = construct_body.non_local_symbol_occurrences(Statement::ONLY_VARIABLES);
+				ObjectList<Symbol> non_local_symbols = non_local_references.map(functor(&IdExpression::get_symbol));
+				
+				// Filter shareds, privates, firstprivate, lastprivate or
+				// reduction that are useless
+				ObjectList<IdExpression> unreferenced;
+				unreferenced.append(shared_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+				shared_references = shared_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
+
+				unreferenced.append(private_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+				private_references = private_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
+
+				unreferenced.append(firstprivate_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+				firstprivate_references = firstprivate_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
+
+				unreferenced.append(lastprivate_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+				lastprivate_references = lastprivate_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
+
+				unreferenced.append(
+						reduction_references.filter(not_in_set(non_local_symbols, 
+								functor(&OpenMP::ReductionIdExpression::get_symbol)))
+						.map(functor(&OpenMP::ReductionIdExpression::get_id_expression))
+						);
+				reduction_references = reduction_references.filter(in_set(non_local_symbols, 
+							functor(&OpenMP::ReductionIdExpression::get_symbol)));
+
+				unreferenced.map(functor(&OpenMPTransform::warn_unreferenced_data, *this));
 
                 // Filter in any of the private sets. We don't want any
                 // id-expression whose related symbol appears in any
                 // id-expression of shared, private, firstprivate lastprivate
                 // or reduction
-                non_local_symbols = non_local_symbols.filter(not_in_set(shared_references, functor(&IdExpression::get_symbol)));
-                non_local_symbols = non_local_symbols.filter(not_in_set(private_references, functor(&IdExpression::get_symbol)));
-                non_local_symbols = non_local_symbols.filter(not_in_set(firstprivate_references, functor(&IdExpression::get_symbol)));
-                non_local_symbols = non_local_symbols.filter(not_in_set(lastprivate_references, functor(&IdExpression::get_symbol)));
-
+                non_local_references = non_local_references.filter(not_in_set(shared_references, functor(&IdExpression::get_symbol)));
+                non_local_references = non_local_references.filter(not_in_set(private_references, functor(&IdExpression::get_symbol)));
+                non_local_references = non_local_references.filter(not_in_set(firstprivate_references, functor(&IdExpression::get_symbol)));
+                non_local_references = non_local_references.filter(not_in_set(lastprivate_references, functor(&IdExpression::get_symbol)));
+				
                 // Get every id-expression related to the ReductionIdExpression list
                 ObjectList<IdExpression> reduction_id_expressions = 
                     reduction_references.map(functor(&OpenMP::ReductionIdExpression::get_id_expression));
-                non_local_symbols = non_local_symbols.filter(not_in_set(reduction_id_expressions, functor(&IdExpression::get_symbol)));
+                non_local_references = non_local_references.filter(not_in_set(reduction_id_expressions, functor(&IdExpression::get_symbol)));
 
-                shared_references.append(non_local_symbols);
+                shared_references.append(non_local_references);
             }
 
             ReplaceIdExpression set_replacements(FunctionDefinition function_definition,
@@ -3052,6 +3083,28 @@ namespace TL
 				return result;
 			}
 
+			Type convert_array_to_pointer(Type type)
+			{
+				if (type.is_array())
+				{
+					// Get the element type
+					Type element_type = type.array_element();
+
+					// Convert if needed into a pointer
+					Type temporal_type = convert_array_to_pointer(element_type);
+
+					// And get a pointer to
+					temporal_type = temporal_type.get_pointer_to();
+
+					return temporal_type;
+				}
+				else 
+				{
+					// If this is not an array nothing has to be done
+					return type;
+				}
+			}
+
 			void instrumentation_outline(Source& instrumentation_code_before,
 					Source& instrumentation_code_after,
 					FunctionDefinition function_definition,
@@ -3086,6 +3139,14 @@ namespace TL
 						<< "mintaka_set_state(__previous_state);"
 						;
 				}
+			}
+
+			IdExpression warn_unreferenced_data(IdExpression id_expr)
+			{
+				std::cerr << "Warning: Entity '" << id_expr.prettyprint() << "' in '" << id_expr.get_ast().get_locus() 
+					<< " is not referenced in the body of the construct" << std::endl;
+	
+				return id_expr;
 			}
     };
 }

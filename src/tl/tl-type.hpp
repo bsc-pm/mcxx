@@ -90,6 +90,8 @@ namespace TL
 
 			bool is_array() const;
 			Type array_element() const;
+			bool explicit_array_dimension() const;
+			AST_t array_dimension() const;
 
 			bool is_dependent() const;
 

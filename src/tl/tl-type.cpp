@@ -270,4 +270,20 @@ namespace TL
 		return (this->is_direct_type()
 				&& is_named_class_type(_type_info));
 	}
+
+	bool Type::explicit_array_dimension() const
+	{
+		if (is_array())
+		{
+			return (_type_info->array->array_expr != NULL);
+		}
+
+		return false;
+	}
+
+	AST_t Type::array_dimension() const
+	{
+		AST expression = _type_info->array->array_expr;
+		return expression;
+	}
 }

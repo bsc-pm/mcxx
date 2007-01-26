@@ -148,18 +148,17 @@ namespace TL
 	class InSetPredicateFunctor : public Predicate<T>
 	{
 		private:
-			ObjectList<T>& _list;
+			ObjectList<Q> _list;
 			const Functor<Q, T>& _f;
 		public:
-			InSetPredicateFunctor(ObjectList<T>& list, const Functor<Q, T>& f)
+			InSetPredicateFunctor(ObjectList<Q>& list, const Functor<Q, T>& f)
 				: _list(list), _f(f)
 			{
 			}
 
 			virtual bool operator()(T& t) const
 			{
-				ObjectList<Q> mapped_list = _list.map(_f);
-				return (find(mapped_list.begin(), mapped_list.end(), _f(t)) != mapped_list.end());
+				return (find(_list.begin(), _list.end(), _f(t)) != _list.end());
 			}
 	};
 
@@ -182,7 +181,7 @@ namespace TL
 	class NotInSetPredicateFunctor : public InSetPredicateFunctor<T, Q>
 	{
 		public:
-			NotInSetPredicateFunctor(ObjectList<T>& list, const Functor<Q, T>& f)
+			NotInSetPredicateFunctor(ObjectList<Q>& list, const Functor<Q, T>& f)
 				: InSetPredicateFunctor<T, Q>(list, f)
 			{
 			}
@@ -200,9 +199,16 @@ namespace TL
 	}
 
 	template <class T, class Q>
-	InSetPredicateFunctor<T, Q> in_set(ObjectList<T>& list, const Functor<Q, T>& f)
+	InSetPredicateFunctor<T, Q> in_set(ObjectList<Q>& list, const Functor<Q, T>& f)
 	{
 		return InSetPredicateFunctor<T, Q>(list, f);
+	}
+
+	template <class T, class Q>
+	InSetPredicateFunctor<T, Q> in_set(ObjectList<T>& list, const Functor<Q, T>& f)
+	{
+		ObjectList<Q> mapped_list = list.map(f);
+		return InSetPredicateFunctor<T, Q>(mapped_list, f);
 	}
 
 	template <class T>
@@ -212,9 +218,16 @@ namespace TL
 	}
 
 	template <class T, class Q>
-	NotInSetPredicateFunctor<T, Q> not_in_set(ObjectList<T>& list, const Functor<Q, T>& f)
+	NotInSetPredicateFunctor<T, Q> not_in_set(ObjectList<Q>& list, const Functor<Q, T>& f)
 	{
 		return NotInSetPredicateFunctor<T, Q>(list, f);
+	}
+
+	template <class T, class Q>
+	NotInSetPredicateFunctor<T, Q> not_in_set(ObjectList<T>& list, const Functor<Q, T>& f)
+	{
+		ObjectList<Q> mapped_list = list.map(f);
+		return NotInSetPredicateFunctor<T, Q>(mapped_list, f);
 	}
 
 	template <class T>
