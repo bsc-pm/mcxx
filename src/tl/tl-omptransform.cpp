@@ -29,8 +29,8 @@ namespace TL
             // level of sections
             std::stack<int> num_sections_stack;
 
-			// Stores the innermost induction variable of a parallel for or for construct
-			std::stack<IdExpression> induction_var_stack;
+            // Stores the innermost induction variable of a parallel for or for construct
+            std::stack<IdExpression> induction_var_stack;
 
             // A set to save what critical names have been defined in
             // translation unit level
@@ -62,7 +62,7 @@ namespace TL
                 on_parallel_for_post.connect(&OpenMPTransform::parallel_for_postorder, *this);
 
                 // #pragma omp for
-				on_for_pre.connect(&OpenMPTransform::for_preorder, *this);
+                on_for_pre.connect(&OpenMPTransform::for_preorder, *this);
                 on_for_post.connect(&OpenMPTransform::for_postorder, *this);
 
                 // #pragma omp parallel sections 
@@ -82,15 +82,15 @@ namespace TL
                 // #pragma omp atomic
                 on_atomic_post.connect(&OpenMPTransform::atomic_postorder, *this);
 
-				// #pragma omp ordered
-				on_ordered_post.connect(&OpenMPTransform::ordered_postorder, *this);
+                // #pragma omp ordered
+                on_ordered_post.connect(&OpenMPTransform::ordered_postorder, *this);
 
-				// #pragma omp master
-				on_master_post.connect(&OpenMPTransform::master_postorder, *this);
+                // #pragma omp master
+                on_master_post.connect(&OpenMPTransform::master_postorder, *this);
 
                 // #pragma omp single
                 on_single_post.connect(&OpenMPTransform::single_postorder, *this);
-				
+                
                 // #pragma omp single
                 on_parallel_single_post.connect(&OpenMPTransform::parallel_single_postorder, *this);
                 
@@ -132,28 +132,28 @@ namespace TL
 
                     Source remade_declaration;
 
-					for (ObjectList<DeclaredEntity>::iterator it2 = declared_entities.begin();
-							it2 != declared_entities.end();
-							it2++)
-					{
-						remade_declaration << decl_spec.prettyprint() << " ";
-						if (it2->get_declared_entity().get_symbol() == it->get_symbol())
-						{
-							remade_declaration << " __thread ";
+                    for (ObjectList<DeclaredEntity>::iterator it2 = declared_entities.begin();
+                            it2 != declared_entities.end();
+                            it2++)
+                    {
+                        remade_declaration << decl_spec.prettyprint() << " ";
+                        if (it2->get_declared_entity().get_symbol() == it->get_symbol())
+                        {
+                            remade_declaration << " __thread ";
 
-						}
+                        }
 
-						remade_declaration << it2->prettyprint();
+                        remade_declaration << it2->prettyprint();
 
-						if (it2->has_initializer())
-						{
-							remade_declaration << it2->get_initializer().prettyprint()
-								;
-						}
+                        if (it2->has_initializer())
+                        {
+                            remade_declaration << it2->get_initializer().prettyprint()
+                                ;
+                        }
 
-						remade_declaration << ";"
-							;
-					}
+                        remade_declaration << ";"
+                            ;
+                    }
 
                     AST_t redeclaration_tree = remade_declaration.parse_declaration(decl.get_scope(),
                             scope_link, Source::ALLOW_REDECLARATION);
@@ -164,7 +164,7 @@ namespace TL
                     // std::cerr << "-- End remade declaration --" << std::endl;
                 }
 
-				threadprivate_directive.get_ast().remove_in_list();
+                threadprivate_directive.get_ast().remove_in_list();
             }
 
             void task_postorder(OpenMP::CustomConstruct task_construct)
@@ -174,7 +174,7 @@ namespace TL
 
                 OpenMP::Directive directive = task_construct.directive();
                 Statement construct_body = task_construct.body();
-				
+                
                 // Get the enclosing function
                 FunctionDefinition function_definition = task_construct.get_enclosing_function();
                 // its scope
@@ -190,43 +190,43 @@ namespace TL
 
                 // Get references in captureaddress clause
                 OpenMP::CustomClause captureaddress_clause = directive.custom_clause("captureaddress");
-				
-				ObjectList<IdExpression> captureaddress_references_all = captureaddress_clause.id_expressions();
-				ObjectList<IdExpression> captureaddress_references;
-				{
-					for (ObjectList<IdExpression>::iterator it = captureaddress_references_all.begin();
-							it != captureaddress_references_all.end();
-							it++)
-					{
-						Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
+                
+                ObjectList<IdExpression> captureaddress_references_all = captureaddress_clause.id_expressions();
+                ObjectList<IdExpression> captureaddress_references;
+                {
+                    for (ObjectList<IdExpression>::iterator it = captureaddress_references_all.begin();
+                            it != captureaddress_references_all.end();
+                            it++)
+                    {
+                        Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
 
-						if (!global_sym.is_valid() ||
-								global_sym != it->get_symbol())
-						{
-							captureaddress_references.append(*it);
-						}
-					}
-				}
+                        if (!global_sym.is_valid() ||
+                                global_sym != it->get_symbol())
+                        {
+                            captureaddress_references.append(*it);
+                        }
+                    }
+                }
 
                 OpenMP::CustomClause capturevalue_clause = directive.custom_clause("capturevalue");
                 ObjectList<IdExpression> capturevalue_references = capturevalue_clause.id_expressions();
 
-				ObjectList<IdExpression> capturevalue_references_body;
-				// Fix this with a better ObjectList<T>::insert(Functor<S, T>, T);
-				{
-					ObjectList<IdExpression> capturevalue_references_body_all
-						= construct_body.non_local_symbol_occurrences(Statement::ONLY_VARIABLES);
+                ObjectList<IdExpression> capturevalue_references_body;
+                // Fix this with a better ObjectList<T>::insert(Functor<S, T>, T);
+                {
+                    ObjectList<IdExpression> capturevalue_references_body_all
+                        = construct_body.non_local_symbol_occurrences(Statement::ONLY_VARIABLES);
 
-					for (ObjectList<IdExpression>::iterator it = capturevalue_references_body_all.begin();
-							it != capturevalue_references_body_all.end();
-							it++)
-					{
-						if (!capturevalue_references_body.contains(functor(&IdExpression::get_symbol), it->get_symbol()))
-						{
-								capturevalue_references_body.append(*it);
-						}
-					}
-				}
+                    for (ObjectList<IdExpression>::iterator it = capturevalue_references_body_all.begin();
+                            it != capturevalue_references_body_all.end();
+                            it++)
+                    {
+                        if (!capturevalue_references_body.contains(functor(&IdExpression::get_symbol), it->get_symbol()))
+                        {
+                                capturevalue_references_body.append(*it);
+                        }
+                    }
+                }
 
                 // Filter those symbols in local and capturevalue
                 capturevalue_references_body = 
@@ -275,9 +275,9 @@ namespace TL
                 Source task_queueing;
                 Source size_params;
                 Source task_parameters;
-				Source task_parameter_list;
+                Source task_parameter_list;
 
-				// FIXME - This is for IA32 only
+                // FIXME - This is for IA32 only
                 for (ObjectList<IdExpression>::iterator it = captureaddress_references.begin();
                         it != captureaddress_references.end();
                         it++)
@@ -304,24 +304,24 @@ namespace TL
                         ;
                 }
 
-				if (!task_parameter_list.empty())
-				{
-					task_parameters << ", " << task_parameter_list;
-				}
+                if (!task_parameter_list.empty())
+                {
+                    task_parameters << ", " << task_parameter_list;
+                }
 
-				size_params 
-					<< "num_params /= 4;";
+                size_params 
+                    << "num_params /= 4;";
 
-				Source threadswitch;
+                Source threadswitch;
 
-				if (directive.custom_clause("switch").is_defined())
-				{
-					threadswitch << "1";
-				}
-				else
-				{
-					threadswitch << "0";
-				}
+                if (directive.custom_clause("switch").is_defined())
+                {
+                    threadswitch << "1";
+                }
+                else
+                {
+                    threadswitch << "0";
+                }
 
                 task_queueing
                     << "{"
@@ -337,10 +337,10 @@ namespace TL
 
                     <<    "nth = nthf_create_task_((void*)(" << outlined_function_name << "), "
                     <<             "&set_threadswitch, &num_params " << task_parameters << ");"
-					<<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
-					<<    "{"
-					<<       outlined_function_name << "(" << task_parameter_list << ");"
-					<<    "}"
+                    <<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
+                    <<    "{"
+                    <<       outlined_function_name << "(" << task_parameter_list << ");"
+                    <<    "}"
                     << "}"
                 ;
 
@@ -359,7 +359,7 @@ namespace TL
                     << "{"
 //                    <<    "extern void nthf_task_block_(void);"
                     <<    "nthf_task_block_();"
-					<<    taskwait_body.prettyprint()
+                    <<    taskwait_body.prettyprint()
                     << "}"
                     ;
 
@@ -465,7 +465,7 @@ namespace TL
                     AST_t critical_mutex_def_tree = critical_mutex_def_src.parse_global(critical_construct.get_scope(),
                             critical_construct.get_scope_link());
 
-					critical_construct.get_ast().prepend_sibling_function(critical_mutex_def_tree);
+                    critical_construct.get_ast().prepend_sibling_function(critical_mutex_def_tree);
 
                     criticals_defined.insert(mutex_variable);
                 }
@@ -627,40 +627,40 @@ namespace TL
                 OpenMP::Clause num_threads = directive.num_threads_clause();
                 OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
 
-				Source instrument_code_before;
-				Source instrument_code_after;
+                Source instrument_code_before;
+                Source instrument_code_after;
 
-				if (ExternalVars::get("instrument", "0") == "1")
-				{
-					instrument_code_before
-						<< "const int EVENT_PARALLEL = 60000001;"
-						<< "const int VALUE_PARALLEL_SINGLE = 4;"
-						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SINGLE);"
-						<< "mintaka_state_schedule();"
-						;
-					instrument_code_after
-						<< "const int VALUE_PARALLEL_CLOSE = 0;"
-						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
-						<< "mintaka_state_run();"
-						;
-				}
+                if (ExternalVars::get("instrument", "0") == "1")
+                {
+                    instrument_code_before
+                        << "const int EVENT_PARALLEL = 60000001;"
+                        << "const int VALUE_PARALLEL_SINGLE = 4;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SINGLE);"
+                        << "mintaka_state_schedule();"
+                        ;
+                    instrument_code_after
+                        << "const int VALUE_PARALLEL_CLOSE = 0;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+                        << "mintaka_state_run();"
+                        ;
+                }
                 
                 AST_t spawn_code = get_parallel_spawn_code(
-						function_definition,
-						parallel_single_construct.get_scope(),
+                        function_definition,
+                        parallel_single_construct.get_scope(),
                         parallel_single_construct.get_scope_link(),
                         outlined_function_name,
                         pass_by_pointer,
                         reduction_references,
                         num_threads,
                         groups_clause,
-						instrument_code_before,
-						instrument_code_after
+                        instrument_code_before,
+                        instrument_code_after
                         );
 
                 // Now replace the whole construct with spawn_code
                 parallel_single_construct.get_ast().replace(spawn_code);
-			}
+            }
 
             void single_postorder(OpenMP::SingleConstruct single_construct)
             {
@@ -806,34 +806,34 @@ namespace TL
                 OpenMP::Clause num_threads = directive.num_threads_clause();
                 OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
 
-				Source instrument_code_before;
-				Source instrument_code_after;
-				if (ExternalVars::get("instrument", "0") == "1")
-				{
-					instrument_code_before
-						<< "const int EVENT_PARALLEL = 60000001;"
-						<< "const int VALUE_PARALLEL_REGION = 3;"
-						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_REGION);"
-						<< "mintaka_state_schedule();"
-						;
-					instrument_code_after
-						<< "const int VALUE_PARALLEL_CLOSE = 0;"
-						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
-						<< "mintaka_state_run();"
-						;
-				}
+                Source instrument_code_before;
+                Source instrument_code_after;
+                if (ExternalVars::get("instrument", "0") == "1")
+                {
+                    instrument_code_before
+                        << "const int EVENT_PARALLEL = 60000001;"
+                        << "const int VALUE_PARALLEL_REGION = 3;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_REGION);"
+                        << "mintaka_state_schedule();"
+                        ;
+                    instrument_code_after
+                        << "const int VALUE_PARALLEL_CLOSE = 0;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+                        << "mintaka_state_run();"
+                        ;
+                }
                 
                 AST_t spawn_code = get_parallel_spawn_code(
-						function_definition,
-						parallel_construct.get_scope(),
+                        function_definition,
+                        parallel_construct.get_scope(),
                         parallel_construct.get_scope_link(),
                         outlined_function_name,
                         pass_by_pointer,
                         reduction_references,
                         num_threads,
                         groups_clause,
-						instrument_code_before,
-						instrument_code_after
+                        instrument_code_before,
+                        instrument_code_after
                         );
 
                 // Now replace the whole construct with spawn_code
@@ -848,11 +848,11 @@ namespace TL
                 Statement construct_body = parallel_for_construct.body();
                 // The construct is in fact a ForStatement in a #pragma omp parallel do
                 ForStatement for_statement(construct_body);
-				
+                
                 IdExpression induction_var = for_statement.get_induction_variable();
 
-				// Save this induction var in the stack
-				induction_var_stack.push(induction_var);
+                // Save this induction var in the stack
+                induction_var_stack.push(induction_var);
             }
 
             void parallel_for_postorder(OpenMP::ParallelForConstruct parallel_for_construct)
@@ -860,8 +860,8 @@ namespace TL
                 // One more parallel seen
                 num_parallels++;
 
-				// Remove the induction var from the stack
-				induction_var_stack.pop();
+                // Remove the induction var from the stack
+                induction_var_stack.pop();
 
                 // Decrease the parallel nesting level 
                 parallel_nesting--;
@@ -890,7 +890,7 @@ namespace TL
                 // Get the data attributes for every entity
                 get_data_attributes(function_scope,
                         directive,
-						construct_body,
+                        construct_body,
                         shared_references,
                         private_references,
                         firstprivate_references,
@@ -953,34 +953,34 @@ namespace TL
                 OpenMP::Clause num_threads = directive.num_threads_clause();
                 OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
 
-				Source instrument_code_before;
-				Source instrument_code_after;
-				if (ExternalVars::get("instrument", "0") == "1")
-				{
-					instrument_code_before
-						<< "const int EVENT_PARALLEL = 60000001;"
-						<< "const int VALUE_PARALLEL_FOR = 1;"
-						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_FOR);"
-						<< "mintaka_state_schedule();"
-						;
-					instrument_code_after
-						<< "const int VALUE_PARALLEL_CLOSE = 0;"
-						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
-						<< "mintaka_state_run();"
-						;
-				}
+                Source instrument_code_before;
+                Source instrument_code_after;
+                if (ExternalVars::get("instrument", "0") == "1")
+                {
+                    instrument_code_before
+                        << "const int EVENT_PARALLEL = 60000001;"
+                        << "const int VALUE_PARALLEL_FOR = 1;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_FOR);"
+                        << "mintaka_state_schedule();"
+                        ;
+                    instrument_code_after
+                        << "const int VALUE_PARALLEL_CLOSE = 0;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+                        << "mintaka_state_run();"
+                        ;
+                }
 
                 AST_t spawn_code = get_parallel_spawn_code(
-						function_definition,
-						parallel_for_construct.get_scope(),
+                        function_definition,
+                        parallel_for_construct.get_scope(),
                         parallel_for_construct.get_scope_link(),
                         outlined_function_name,
                         pass_by_pointer,
                         reduction_references,
                         num_threads,
                         groups_clause,
-						instrument_code_before,
-						instrument_code_after
+                        instrument_code_before,
+                        instrument_code_after
                         );
 
                 // Replace all the whole construct with spawn_code
@@ -1082,34 +1082,34 @@ namespace TL
                 // Now create the spawning code. Pass by pointer list and
                 // reductions are needed for proper pass of data and reduction
                 // vectors declaration
-				Source instrument_code_before;
-				Source instrument_code_after;
-				if (ExternalVars::get("instrument", "0") == "1")
-				{
-					instrument_code_before
-						<< "const int EVENT_PARALLEL = 60000001;"
-						<< "const int VALUE_PARALLEL_SECTIONS = 2;"
-						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SECTIONS);"
-						<< "mintaka_state_schedule();"
-						;
-					instrument_code_after
-						<< "const int VALUE_PARALLEL_CLOSE = 0;"
-						<< "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
-						<< "mintaka_state_run();"
-						;
-				}
+                Source instrument_code_before;
+                Source instrument_code_after;
+                if (ExternalVars::get("instrument", "0") == "1")
+                {
+                    instrument_code_before
+                        << "const int EVENT_PARALLEL = 60000001;"
+                        << "const int VALUE_PARALLEL_SECTIONS = 2;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SECTIONS);"
+                        << "mintaka_state_schedule();"
+                        ;
+                    instrument_code_after
+                        << "const int VALUE_PARALLEL_CLOSE = 0;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+                        << "mintaka_state_run();"
+                        ;
+                }
 
                 AST_t spawn_code = get_parallel_spawn_code(
-						function_definition,
-						parallel_sections_construct.get_scope(),
+                        function_definition,
+                        parallel_sections_construct.get_scope(),
                         parallel_sections_construct.get_scope_link(),
                         outlined_function_name,
                         pass_by_pointer,
                         reduction_references,
                         num_threads,
                         groups_clause,
-						instrument_code_before,
-						instrument_code_after
+                        instrument_code_before,
+                        instrument_code_after
                         );
 
                 // One less level of sections
@@ -1237,67 +1237,67 @@ namespace TL
                 sections_construct.get_ast().replace(sections_tree);
             }
 
-			void master_postorder(OpenMP::MasterConstruct master_construct)
-			{
-				Source master_source;
+            void master_postorder(OpenMP::MasterConstruct master_construct)
+            {
+                Source master_source;
 
-				Statement statement = master_construct.body();
+                Statement statement = master_construct.body();
 
-				master_source
-					<< "if (in__tone_is_master_())"
-					<< "{"
-					<<    statement.prettyprint()
-					<< "}"
-					;
+                master_source
+                    << "if (in__tone_is_master_())"
+                    << "{"
+                    <<    statement.prettyprint()
+                    << "}"
+                    ;
 
-				AST_t master_tree = master_source.parse_statement(master_construct.get_scope(),
-						master_construct.get_scope_link());
+                AST_t master_tree = master_source.parse_statement(master_construct.get_scope(),
+                        master_construct.get_scope_link());
 
-				master_construct.get_ast().replace(master_tree);
-			}
+                master_construct.get_ast().replace(master_tree);
+            }
 
-			void ordered_postorder(OpenMP::OrderedConstruct ordered_construct)
-			{
-				IdExpression induction_var = induction_var_stack.top();
+            void ordered_postorder(OpenMP::OrderedConstruct ordered_construct)
+            {
+                IdExpression induction_var = induction_var_stack.top();
 
-				Statement construct_body = ordered_construct.body();
-				Source ordered_source;
+                Statement construct_body = ordered_construct.body();
+                Source ordered_source;
 
-				ordered_source
-					<< "{"
-					<<   "in__tone_enter_ordered_ (& "<< induction_var.prettyprint() << ");"
-					<<   construct_body.prettyprint()
-					<<   "in__tone_leave_ordered_ (&" << induction_var.prettyprint() << ");"
-					<< "}"
-					;
+                ordered_source
+                    << "{"
+                    <<   "in__tone_enter_ordered_ (& "<< induction_var.prettyprint() << ");"
+                    <<   construct_body.prettyprint()
+                    <<   "in__tone_leave_ordered_ (&" << induction_var.prettyprint() << ");"
+                    << "}"
+                    ;
 
                 AST_t ordered_code = ordered_source.parse_statement(ordered_construct.get_scope(),
                         ordered_construct.get_scope_link());
 
                 ordered_construct.get_ast().replace(ordered_code);
-			}
+            }
 
             void for_preorder(OpenMP::ForConstruct for_construct)
-			{
+            {
                 Statement construct_body = for_construct.body();
                 // The construct is in fact a ForStatement in a #pragma omp parallel do
                 ForStatement for_statement(construct_body);
-				
+                
                 IdExpression induction_var = for_statement.get_induction_variable();
 
-				// Save this induction var in the stack
-				induction_var_stack.push(induction_var);
-			}
+                // Save this induction var in the stack
+                induction_var_stack.push(induction_var);
+            }
             
             void for_postorder(OpenMP::ForConstruct for_construct)
             {
                 OpenMP::Directive directive = for_construct.directive();
-				Statement construct_body = for_construct.body();
+                Statement construct_body = for_construct.body();
                 ForStatement for_statement = construct_body;
                 Statement loop_body = for_statement.get_loop_body();
 
-				// Remove the induction var from the stack
-				induction_var_stack.pop();
+                // Remove the induction var from the stack
+                induction_var_stack.pop();
 
                 // They will hold the entities as they appear in the clauses
                 ObjectList<IdExpression> shared_references;
@@ -1413,7 +1413,7 @@ namespace TL
             }
 
             AST_t get_parallel_spawn_code(
-					FunctionDefinition function_definition,
+                    FunctionDefinition function_definition,
                     Scope scope,
                     ScopeLink scope_link,
                     Source outlined_function_name,
@@ -1421,8 +1421,8 @@ namespace TL
                     ObjectList<OpenMP::ReductionIdExpression> reduction_references,
                     OpenMP::Clause num_threads_clause,
                     OpenMP::CustomClause groups_clause,
-					Source& instrument_code_before,
-					Source& instrument_code_after)
+                    Source& instrument_code_before,
+                    Source& instrument_code_after)
             {
                 Source spawn_code;
                 Source reduction_vectors;
@@ -1432,16 +1432,16 @@ namespace TL
 
                 Source reduction_code;
 
-				// FIXME. This should be moved out of here like
-				// instrument_code_before and instrument_code_after
-				Source instrument_code_block;
+                // FIXME. This should be moved out of here like
+                // instrument_code_before and instrument_code_after
+                Source instrument_code_block;
 
                 // The skeleton of the spawn code will be this one
                 spawn_code
                     << "{"
                     << "  int nth_nprocs;"
                     << "  nth_desc *nth_selfv;"
-                    << "  int nth_arg;"
+                    << "  int nth_num_deps;"
                     << "  nth_argdesc_t nth_mask;"
                     << "  int nth_num_params;"
                     << "  int nth_p;"
@@ -1450,34 +1450,35 @@ namespace TL
 //                    << "  extern void nthf_create_1s_vp_(void (*)(), int *, int *, struct nth_desc **, unsigned long long *, int *, ...);"
 //                    << "  extern void nthf_block_();"
                     <<    reduction_vectors
-					<<    instrument_code_before
+                    <<    instrument_code_before
                     <<    groups_definition
                     << "  nth_selfv = nthf_self_();"
                     << "  nthf_team_set_nplayers_ (&nth_nprocs);"
-                    << "  nth_arg = 0;"
+                    << "  nth_num_deps = 0;"
                     << "  nth_mask = (nth_argdesc_t)(~0);"
                     << "  nth_num_params = 0;"
                     <<    source_num_parameters
                     << "  for (nth_p = 0; nth_p < nth_nprocs; nth_p++)"
                     << "  {"
-                    << "     nthf_create_1s_vp_((void*)(" << outlined_function_name << "), &nth_arg, &nth_p, &nth_selfv, "
+                    << "     nthf_create_1s_vp_((void*)(" << outlined_function_name << "), &nth_num_deps, &nth_p, &nth_selfv, "
                     << "        &nth_mask, &nth_num_params " << referenced_parameters << ");"
                     << "  }"
-					<<    instrument_code_block // This is crummy here
+                    <<    instrument_code_block // This is crummy here
                     << "  nthf_block_();"
                     <<    reduction_code
-					<<    instrument_code_after
+                    <<    instrument_code_after
                     << "}"
                     ;
 
-				if (ExternalVars::get("instrument", "0") == "1")
-				{
-					instrument_code_block 
-						<< "mintaka_state_synch();"
-						;
-				}
+                // I don't like this
+                if (ExternalVars::get("instrument", "0") == "1")
+                {
+                    instrument_code_block 
+                        << "mintaka_state_synch();"
+                        ;
+                }
 
-				// FIXME - This is IA32 specific
+                // FIXME - This is IA32 specific
                 // Reduction vectors
                 //
                 // For every entity in the reduction_references list
@@ -1505,7 +1506,7 @@ namespace TL
                     // now get the code that declares this reduction vector
                     reduction_vectors
                         << reduction_vector_type.get_declaration(it->get_id_expression().get_scope(), 
-								reduction_vector_name) << ";";
+                                reduction_vector_name) << ";";
 
                     // And add to the list of referenced parameters
                     referenced_parameters << ", " << reduction_vector_name;
@@ -1519,9 +1520,9 @@ namespace TL
                 
                 // Referenced parameters
                 //
-				// "this" if needed
-				if (is_nonstatic_member_function(function_definition))
-				{
+                // "this" if needed
+                if (is_nonstatic_member_function(function_definition))
+                {
                     referenced_parameters << ", this";
 
                     source_num_parameters << "nth_num_params += "
@@ -1529,7 +1530,7 @@ namespace TL
                         <<   "? sizeof(this)"
                         <<   ": (sizeof(this) - (4 - (sizeof(this) % 4)));"
                         ;
-				}
+                }
 
                 // For every entity in list "pass_by_pointer"
                 for (ObjectList<IdExpression>::iterator it = pass_by_pointer.begin();
@@ -1546,9 +1547,9 @@ namespace TL
                         ;
                 }
 
-				source_num_parameters
-					<< "nth_num_params /= 4;"
-					;
+                source_num_parameters
+                    << "nth_num_params /= 4;"
+                    ;
                 
                 // Groups definition
                 if (!groups_clause.is_defined() && !num_threads_clause.is_defined())
@@ -1679,8 +1680,8 @@ namespace TL
                         it != reduction_references.end();
                         it++)
                 {
-					if (!it->is_user_defined())
-					{
+                    if (!it->is_user_defined())
+                    {
                     // get the operator involved
                     std::string reduced_var_name = it->get_id_expression().mangle_id_expression();
                     std::string reduction_var_name = "p_" + it->get_id_expression().mangle_id_expression();
@@ -1690,12 +1691,12 @@ namespace TL
                     reduction_gathering 
                         << reduced_var_name << " = " << reduced_var_name << op << reduction_var_name << ";"
                         ;
-					}
-					else
-					{
-						Source one_urd_reduction = get_one_user_defined_gathering(*it);
-						reduction_gathering << one_urd_reduction;
-					}
+                    }
+                    else
+                    {
+                        Source one_urd_reduction = get_one_user_defined_gathering(*it);
+                        reduction_gathering << one_urd_reduction;
+                    }
                 }
 
                 return reduction_code;
@@ -1715,7 +1716,7 @@ namespace TL
                 Source reduction_gathering;
 
                 reduction_code
-					<< "int rdv_i;"
+                    << "int rdv_i;"
                     << "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
                     << "{"
                     <<    reduction_gathering
@@ -1735,10 +1736,10 @@ namespace TL
             {
                 Source reduction_code;
 
-				if (reduction_references.empty())
-				{
-					return reduction_code;
-				}
+                if (reduction_references.empty())
+                {
+                    return reduction_code;
+                }
 
                 for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
                         it != reduction_references.end();
@@ -1764,8 +1765,8 @@ namespace TL
                     // now get the code that declares this reduction vector, and add it to the private_declarations
                     private_declarations
                         << reduction_vector_type.get_declaration(
-								it->get_id_expression().get_scope(), reduction_vector_name) 
-						<< ";";
+                                it->get_id_expression().get_scope(), reduction_vector_name) 
+                        << ";";
                 }
 
                 Source reduction_update;
@@ -1797,36 +1798,36 @@ namespace TL
             }
 
             Source get_reduction_update(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
-			{
-				Source reduction_update;
+            {
+                Source reduction_update;
 
-				if (reduction_references.empty())
-				{
-					return reduction_update;
-				}
+                if (reduction_references.empty())
+                {
+                    return reduction_update;
+                }
 
-				reduction_update 
-					<< "{"
-					//                        <<    "extern int in__tone_thread_id_ ();"
-					<<    "int nth_thread_id = in__tone_thread_id_();"
-					;
+                reduction_update 
+                    << "{"
+                    //                        <<    "extern int in__tone_thread_id_ ();"
+                    <<    "int nth_thread_id = in__tone_thread_id_();"
+                    ;
 
-				for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
-						it != reduction_references.end();
-						it++)
-				{
-					reduction_update
-						<< "rdv_" << it->get_id_expression().mangle_id_expression() << "[nth_thread_id] = "
-						<< "p_" << it->get_id_expression().mangle_id_expression() << ";";
-				}
+                for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
+                        it != reduction_references.end();
+                        it++)
+                {
+                    reduction_update
+                        << "rdv_" << it->get_id_expression().mangle_id_expression() << "[nth_thread_id] = "
+                        << "p_" << it->get_id_expression().mangle_id_expression() << ";";
+                }
 
-				reduction_update
-					<< "}"
-					;
+                reduction_update
+                    << "}"
+                    ;
 
 
-				return reduction_update;
-			}
+                return reduction_update;
+            }
 
             Source get_reduction_gathering(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
             {
@@ -1838,120 +1839,120 @@ namespace TL
                         it++)
                 {
                     // And reduce for this element of the reduction vector
-					if (!it->is_user_defined())
-					{
-						// If it is not a user defined one it is easy
+                    if (!it->is_user_defined())
+                    {
+                        // If it is not a user defined one it is easy
 
-						// Construct the name of its related reduction vector
-						std::string reduced_var_name = it->get_id_expression().prettyprint();
-						std::string reduction_vector_name = "rdv_" + it->get_id_expression().mangle_id_expression();
+                        // Construct the name of its related reduction vector
+                        std::string reduced_var_name = it->get_id_expression().prettyprint();
+                        std::string reduction_vector_name = "rdv_" + it->get_id_expression().mangle_id_expression();
 
-						// get the operator involved
-						std::string op = it->get_operation().prettyprint();
-						reduction_gathering
-							<< reduced_var_name << " = " << reduced_var_name << op << reduction_vector_name << "[rdv_i]" << ";";
-					}
-					else
-					{
-						Source one_urd_reduction = get_one_user_defined_gathering(*it);
-						reduction_gathering << one_urd_reduction;
-					}
+                        // get the operator involved
+                        std::string op = it->get_operation().prettyprint();
+                        reduction_gathering
+                            << reduced_var_name << " = " << reduced_var_name << op << reduction_vector_name << "[rdv_i]" << ";";
+                    }
+                    else
+                    {
+                        Source one_urd_reduction = get_one_user_defined_gathering(*it);
+                        reduction_gathering << one_urd_reduction;
+                    }
                 }
 
                 return reduction_gathering;
             }
 
-			Source get_one_user_defined_gathering(OpenMP::ReductionIdExpression reduction_id_expr)
-			{
-				IdExpression reductor = reduction_id_expr.get_user_defined_reductor();
-				Symbol reductor_symbol = reductor.get_symbol();
+            Source get_one_user_defined_gathering(OpenMP::ReductionIdExpression reduction_id_expr)
+            {
+                IdExpression reductor = reduction_id_expr.get_user_defined_reductor();
+                Symbol reductor_symbol = reductor.get_symbol();
 
-				Type reductor_type = reductor_symbol.get_type();
+                Type reductor_type = reductor_symbol.get_type();
 
-				if (!reductor_type.is_function())
-				{
-					std::cerr << "User defined reduction in " 
-						<< reductor.get_ast().get_locus() << " does not refer a function. Ignoring" << std::endl;
-					return Source("");
-				}
-				
-				// Construct the name of its related reduction vector
-				std::string reduced_var_name = reduction_id_expr.get_id_expression().prettyprint();
-				std::string reduction_vector_name = "rdv_" + reduction_id_expr.get_id_expression().mangle_id_expression();
+                if (!reductor_type.is_function())
+                {
+                    std::cerr << "User defined reduction in " 
+                        << reductor.get_ast().get_locus() << " does not refer a function. Ignoring" << std::endl;
+                    return Source("");
+                }
+                
+                // Construct the name of its related reduction vector
+                std::string reduced_var_name = reduction_id_expr.get_id_expression().prettyprint();
+                std::string reduction_vector_name = "rdv_" + reduction_id_expr.get_id_expression().mangle_id_expression();
 
-				Source reduction_gathering;
+                Source reduction_gathering;
 
-				// FIXME - For C++ this is more difficult. Currently not implemented
-				// Extract the unqualified part of the id-expression
-				// and if it is a member construct a member-access with function call
-				//
-				// The id-expression
-				//
-				// Lets "happily" assume that if the reductor returns void is of the form
-				//
-				//    void f(T*, T);
-				//    void f(T&, T);
-				//
-				// otherwise we will assume it is of type 
-				//
-				//    T f(T, T);
-				//
-				if (reductor_type.returns().is_void())
-				{
-					// If the first parameter is a pointer we will assume that the reductor is of this form
-					//
-					//    void f(T*, t);
-					//
-					// otherwise it will be assumed to be
-					//
-					//    void f(T&, t);
-					//
-					ObjectList<Type> parameters = reductor_type.parameters();
+                // FIXME - For C++ this is more difficult. Currently not implemented
+                // Extract the unqualified part of the id-expression
+                // and if it is a member construct a member-access with function call
+                //
+                // The id-expression
+                //
+                // Lets "happily" assume that if the reductor returns void is of the form
+                //
+                //    void f(T*, T);
+                //    void f(T&, T);
+                //
+                // otherwise we will assume it is of type 
+                //
+                //    T f(T, T);
+                //
+                if (reductor_type.returns().is_void())
+                {
+                    // If the first parameter is a pointer we will assume that the reductor is of this form
+                    //
+                    //    void f(T*, t);
+                    //
+                    // otherwise it will be assumed to be
+                    //
+                    //    void f(T&, t);
+                    //
+                    ObjectList<Type> parameters = reductor_type.parameters();
 
-					if (parameters[0].is_pointer())
-					{
-						reduction_gathering
-							<< reductor.prettyprint() << "(&" << reduced_var_name << "," << reduction_vector_name << "[rdv_i]" << ");";
-					}
-					else
-					{
-						reduction_gathering
-							<< reductor.prettyprint() << "(" << reduced_var_name << "," << reduction_vector_name << "[rdv_i]" << ");";
-					}
-				}
-				else
-				{
-					reduction_gathering
-						<< reduced_var_name << " = " << reductor.prettyprint() << "(" << reduced_var_name << "," << reduction_vector_name << "[rdv_i]" << ");";
-				}
+                    if (parameters[0].is_pointer())
+                    {
+                        reduction_gathering
+                            << reductor.prettyprint() << "(&" << reduced_var_name << "," << reduction_vector_name << "[rdv_i]" << ");";
+                    }
+                    else
+                    {
+                        reduction_gathering
+                            << reductor.prettyprint() << "(" << reduced_var_name << "," << reduction_vector_name << "[rdv_i]" << ");";
+                    }
+                }
+                else
+                {
+                    reduction_gathering
+                        << reduced_var_name << " = " << reductor.prettyprint() << "(" << reduced_var_name << "," << reduction_vector_name << "[rdv_i]" << ");";
+                }
 
-				return reduction_gathering;
-			}
+                return reduction_gathering;
+            }
 
-			Source get_member_function_declaration(
-					FunctionDefinition function_definition,
+            Source get_member_function_declaration(
+                    FunctionDefinition function_definition,
                     Source outlined_function_name,
                     ObjectList<IdExpression> pass_by_pointer,
                     ObjectList<IdExpression> pass_by_value,
                     ObjectList<OpenMP::ReductionIdExpression> reduction_references
-					)
-			{
-				Source result;
+                    )
+            {
+                Source result;
 
-				Source formal_parameters;
+                Source formal_parameters;
 
-				result
-					<< "static void " << outlined_function_name << "(" << formal_parameters << ");"
-					;
+                result
+                    << "static void " << outlined_function_name << "(" << formal_parameters << ");"
+                    ;
 
-				formal_parameters = get_formal_parameters(function_definition, 
-						pass_by_pointer, pass_by_value, reduction_references);
+                formal_parameters = get_formal_parameters(function_definition, 
+                        pass_by_pointer, pass_by_value, reduction_references);
 
-				return result;
-			}
+                return result;
+            }
 
             Source get_outline_common(
-					FunctionDefinition function_definition,
+                    FunctionDefinition function_definition,
                     Source& specific_body,
                     Source outlined_function_name,
                     ObjectList<IdExpression> pass_by_pointer,
@@ -1962,78 +1963,78 @@ namespace TL
                 Source formal_parameters;
                 Source reduction_code;
 
-				Source static_qualifier;
+                Source static_qualifier;
 
-				Source forward_declaration;
+                Source forward_declaration;
 
                 Source result;
                 result
-					<< forward_declaration
-					<< static_qualifier
+                    << forward_declaration
+                    << static_qualifier
                     << "void " << outlined_function_name << "(" << formal_parameters << ")"
                     << "{"
                     <<    specific_body
                     << "}"
                     ;
 
-				IdExpression function_name = function_definition.get_function_name();
-				Symbol function_symbol = function_name.get_symbol();
+                IdExpression function_name = function_definition.get_function_name();
+                Symbol function_symbol = function_name.get_symbol();
 
-				// If the function is a member and is not qualified we need an additional
-				// static here
-				if (function_symbol.is_member() 
-						&& !function_name.is_qualified())
-				{
-					static_qualifier << "static ";
-				}
+                // If the function is a member and is not qualified we need an additional
+                // static here
+                if (function_symbol.is_member() 
+                        && !function_name.is_qualified())
+                {
+                    static_qualifier << "static ";
+                }
 
-				formal_parameters = get_formal_parameters(
-						function_definition, 
-						pass_by_pointer, 
-						pass_by_value, 
-						reduction_references);
+                formal_parameters = get_formal_parameters(
+                        function_definition, 
+                        pass_by_pointer, 
+                        pass_by_value, 
+                        reduction_references);
 
-				// We want to forward the declaration
-				if (!function_symbol.is_member())
-				{
-					Declaration point_of_decl = function_name.get_declaration();
-					DeclarationSpec decl_specs = point_of_decl.get_declaration_specifiers();
-					ObjectList<DeclaredEntity> declared_entities = point_of_decl.get_declared_entities();
-					DeclaredEntity declared_entity = *(declared_entities.begin());
+                // We want to forward the declaration
+                if (!function_symbol.is_member())
+                {
+                    Declaration point_of_decl = function_name.get_declaration();
+                    DeclarationSpec decl_specs = point_of_decl.get_declaration_specifiers();
+                    ObjectList<DeclaredEntity> declared_entities = point_of_decl.get_declared_entities();
+                    DeclaredEntity declared_entity = *(declared_entities.begin());
 
-					forward_declaration 
-						<< decl_specs.prettyprint()
-						<< " "
-						<< declared_entity.prettyprint()
-						<< ";";
-				}
+                    forward_declaration 
+                        << decl_specs.prettyprint()
+                        << " "
+                        << declared_entity.prettyprint()
+                        << ";";
+                }
 
                 return result;
             }
 
-			Source get_formal_parameters(
-					FunctionDefinition function_definition,
-					ObjectList<IdExpression> pass_by_pointer,
-					ObjectList<IdExpression> pass_by_value,
-					ObjectList<OpenMP::ReductionIdExpression> reduction_references)
-			{
-				Source formal_parameters;
+            Source get_formal_parameters(
+                    FunctionDefinition function_definition,
+                    ObjectList<IdExpression> pass_by_pointer,
+                    ObjectList<IdExpression> pass_by_value,
+                    ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+            {
+                Source formal_parameters;
 
-				// Add _this if needed
+                // Add _this if needed
 
-				if (is_nonstatic_member_function(function_definition))
-				{
-					IdExpression function_name = function_definition.get_function_name();
-					Symbol function_symbol = function_name.get_symbol();
+                if (is_nonstatic_member_function(function_definition))
+                {
+                    IdExpression function_name = function_definition.get_function_name();
+                    Symbol function_symbol = function_name.get_symbol();
 
-					Type class_type = function_symbol.get_class_type();
-					Type pointer_to_class = class_type.get_pointer_to();
+                    Type class_type = function_symbol.get_class_type();
+                    Type pointer_to_class = class_type.get_pointer_to();
 
-					formal_parameters.append_with_separator(
-							// Fix this scope
-							pointer_to_class.get_declaration(function_name.get_scope(), "_this"), 
-							",");
-				}
+                    formal_parameters.append_with_separator(
+                            // Fix this scope
+                            pointer_to_class.get_declaration(function_name.get_scope(), "_this"), 
+                            ",");
+                }
 
                 // Reduction vectors are passed first by "value" (there is no
                 // need to pass by pointer something that was already passed as
@@ -2049,8 +2050,8 @@ namespace TL
                     Type pointer_type = type.get_pointer_to();
                     
                     formal_parameters.append_with_separator(
-							pointer_type.get_declaration(it->get_id_expression().get_scope(), reduction_vector_name), 
-							",");
+                            pointer_type.get_declaration(it->get_id_expression().get_scope(), reduction_vector_name), 
+                            ",");
                 }
 
                 // Formal parameters, basically pass_by_pointer things
@@ -2062,14 +2063,14 @@ namespace TL
                     Symbol sym = it->get_symbol();
                     Type type = sym.get_type();
 
-					type = convert_array_to_pointer(type);
+                    type = convert_array_to_pointer(type);
 
                     Type pointer_type = type.get_pointer_to();
 
                     // Get a declaration of the mangled name of the id-expression
                     formal_parameters.append_with_separator(
-							pointer_type.get_declaration(it->get_scope(), it->mangle_id_expression())
-							, ",");
+                            pointer_type.get_declaration(it->get_scope(), it->mangle_id_expression())
+                            , ",");
                 }
 
                 for (ObjectList<IdExpression>::iterator it = pass_by_value.begin();
@@ -2079,16 +2080,16 @@ namespace TL
                     Symbol sym = it->get_symbol();
                     Type type = sym.get_type();
 
-					type = convert_array_to_pointer(type);
+                    type = convert_array_to_pointer(type);
 
                     // Get a declaration of the mangled name of the id-expression
                     formal_parameters.append_with_separator(
-							type.get_declaration(it->get_scope(), it->mangle_id_expression()), 
-							",");
+                            type.get_declaration(it->get_scope(), it->mangle_id_expression()), 
+                            ",");
                 }
 
-				return formal_parameters;
-			}
+                return formal_parameters;
+            }
 
             AST_t get_outline_parallel(
                     FunctionDefinition function_definition,
@@ -2109,7 +2110,7 @@ namespace TL
                 Source empty;
 
                 outline_parallel = get_outline_common(
-						function_definition,
+                        function_definition,
                         parallel_body, // The body of the outline
                         outlined_function_name,
                         pass_by_pointer,
@@ -2124,20 +2125,20 @@ namespace TL
 
                 Source reduction_update = get_reduction_update(reduction_references);
 
-				Source instrumentation_code_before;
-				Source instrumentation_code_after;
+                Source instrumentation_code_before;
+                Source instrumentation_code_after;
 
-				instrumentation_outline(instrumentation_code_before,
-						instrumentation_code_after, 
-						function_definition,
-						construct_body);
+                instrumentation_outline(instrumentation_code_before,
+                        instrumentation_code_after, 
+                        function_definition,
+                        construct_body);
                 
                 parallel_body 
                     << private_declarations
-					<< instrumentation_code_before
+                    << instrumentation_code_before
                     << modified_parallel_body_stmt.prettyprint()
                     << reduction_update
-					<< instrumentation_code_after
+                    << instrumentation_code_after
 //                    << "extern void nthf_task_block_(void);"
                     << "nthf_task_block_();"
                     ;
@@ -2146,32 +2147,32 @@ namespace TL
                 // std::cerr << outline_parallel.get_source(true) << std::endl;
                 // std::cerr << "End CODI OUTLINE" << std::endl;
 
-				IdExpression function_name = function_definition.get_function_name();
-				Symbol function_symbol = function_name.get_symbol();
+                IdExpression function_name = function_definition.get_function_name();
+                Symbol function_symbol = function_name.get_symbol();
 
-				// If the function is a member and is qualified (therefore the
-				// function definition is outside the class) we have to create
-				// an additional declaration for the new member
-				if (function_symbol.is_member() 
-						&& function_name.is_qualified())
-				{
-					Source outline_function_decl = get_outlined_function_name(function_name, /*qualified=*/false);
+                // If the function is a member and is qualified (therefore the
+                // function definition is outside the class) we have to create
+                // an additional declaration for the new member
+                if (function_symbol.is_member() 
+                        && function_name.is_qualified())
+                {
+                    Source outline_function_decl = get_outlined_function_name(function_name, /*qualified=*/false);
 
-					Source member_declaration = get_member_function_declaration(
-							function_definition,
-							outline_function_decl,
-							pass_by_pointer,
-							pass_by_value,
-							reduction_references);
+                    Source member_declaration = get_member_function_declaration(
+                            function_definition,
+                            outline_function_decl,
+                            pass_by_pointer,
+                            pass_by_value,
+                            reduction_references);
 
-					Declaration decl = function_name.get_declaration();
+                    Declaration decl = function_name.get_declaration();
 
-					Scope class_scope = decl.get_scope();
-					Type class_type = function_symbol.get_class_type();
-					AST_t member_decl_tree = member_declaration.parse_member(decl.get_scope(), decl.get_scope_link(), class_type);
+                    Scope class_scope = decl.get_scope();
+                    Type class_type = function_symbol.get_class_type();
+                    AST_t member_decl_tree = member_declaration.parse_member(decl.get_scope(), decl.get_scope_link(), class_type);
 
-					decl.get_ast().append(member_decl_tree);
-				}
+                    decl.get_ast().append(member_decl_tree);
+                }
 
                 AST_t result;
 
@@ -2199,7 +2200,7 @@ namespace TL
                 Source empty;
 
                 outline_parallel = get_outline_common(
-						function_definition,
+                        function_definition,
                         parallel_body, // The body of the outline
                         outlined_function_name,
                         pass_by_pointer,
@@ -2244,7 +2245,7 @@ namespace TL
                 
                 // Get the source of the common parallel X outline
                 outline_parallel_sections = get_outline_common(
-						function_definition,
+                        function_definition,
                         parallel_sections_body,
                         outlined_function_name,
                         pass_by_pointer,
@@ -2283,20 +2284,20 @@ namespace TL
 
                 Source reduction_update = get_reduction_update(reduction_references);
 
-				Source instrumentation_code_before, instrumentation_code_after;
-				instrumentation_outline(instrumentation_code_before,
-						instrumentation_code_after, 
-						function_definition,
-						construct_body);
+                Source instrumentation_code_before, instrumentation_code_after;
+                instrumentation_outline(instrumentation_code_before,
+                        instrumentation_code_after, 
+                        function_definition,
+                        construct_body);
 
                 parallel_sections_body 
                     << private_declarations
-					<< instrumentation_code_before
+                    << instrumentation_code_before
                     << loop_distribution
                     << lastprivate_code
                     << reduction_update
                     << loop_finalization
-					<< instrumentation_code_after
+                    << instrumentation_code_after
 //                    << "extern void nthf_task_block_(void);"
                     << "nthf_task_block_();"
                     ;
@@ -2332,7 +2333,7 @@ namespace TL
                 Source empty;
 
                 outline_parallel = get_outline_common(
-						function_definition,
+                        function_definition,
                         parallel_body, // The body of the outline
                         outlined_function_name,
                         pass_by_pointer,
@@ -2347,7 +2348,7 @@ namespace TL
 
                 Source reduction_update = get_reduction_update(reduction_references);
 
-				Source single_source;
+                Source single_source;
 
 
                 single_source
@@ -2380,17 +2381,17 @@ namespace TL
                     << "}"
                     ;
 
-				Source instrumentation_code_before, instrumentation_code_after;
-				instrumentation_outline(instrumentation_code_before,
-						instrumentation_code_after, 
-						function_definition,
-						construct_body);
+                Source instrumentation_code_before, instrumentation_code_after;
+                instrumentation_outline(instrumentation_code_before,
+                        instrumentation_code_after, 
+                        function_definition,
+                        construct_body);
                 
                 parallel_body 
                     << private_declarations
-					<< instrumentation_code_before
+                    << instrumentation_code_before
                     << single_source
-					<< instrumentation_code_after
+                    << instrumentation_code_after
                     << "nthf_task_block_();"
                     ;
 
@@ -2430,7 +2431,7 @@ namespace TL
 
                 // Get the source of the common parallel X outline
                 outline_parallel_for = get_outline_common(
-						function_definition,
+                        function_definition,
                         parallel_for_body,
                         outlined_function_name,
                         pass_by_pointer,
@@ -2462,20 +2463,20 @@ namespace TL
 
                 Source reduction_update = get_reduction_update(reduction_references);
 
-				Source instrumentation_code_before, instrumentation_code_after;
-				instrumentation_outline(instrumentation_code_before,
-						instrumentation_code_after, 
-						function_definition,
-						loop_body);
+                Source instrumentation_code_before, instrumentation_code_after;
+                instrumentation_outline(instrumentation_code_before,
+                        instrumentation_code_after, 
+                        function_definition,
+                        loop_body);
 
                 parallel_for_body 
                     << private_declarations
-					<< instrumentation_code_before
+                    << instrumentation_code_before
                     << loop_distribution
                     << lastprivate_code
                     << reduction_update
                     << loop_finalization
-					<< instrumentation_code_after
+                    << instrumentation_code_after
 //                    << "extern void nthf_task_block_(void);"
                     << "nthf_task_block_();"
                     ;
@@ -2554,32 +2555,32 @@ namespace TL
                 // construct itself, but visible at the point where the
                 // construct is defined
                 ObjectList<IdExpression> non_local_references = construct_body.non_local_symbol_occurrences(Statement::ONLY_VARIABLES);
-				ObjectList<Symbol> non_local_symbols = non_local_references.map(functor(&IdExpression::get_symbol));
-				
-				// Filter shareds, privates, firstprivate, lastprivate or
-				// reduction that are useless
-				ObjectList<IdExpression> unreferenced;
-				unreferenced.append(shared_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
-				shared_references = shared_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
+                ObjectList<Symbol> non_local_symbols = non_local_references.map(functor(&IdExpression::get_symbol));
+                
+                // Filter shareds, privates, firstprivate, lastprivate or
+                // reduction that are useless
+                ObjectList<IdExpression> unreferenced;
+                unreferenced.append(shared_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+                shared_references = shared_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
 
-				unreferenced.append(private_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
-				private_references = private_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
+                unreferenced.append(private_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+                private_references = private_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
 
-				unreferenced.append(firstprivate_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
-				firstprivate_references = firstprivate_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
+                unreferenced.append(firstprivate_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+                firstprivate_references = firstprivate_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
 
-				unreferenced.append(lastprivate_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
-				lastprivate_references = lastprivate_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
+                unreferenced.append(lastprivate_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+                lastprivate_references = lastprivate_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
 
-				unreferenced.append(
-						reduction_references.filter(not_in_set(non_local_symbols, 
-								functor(&OpenMP::ReductionIdExpression::get_symbol)))
-						.map(functor(&OpenMP::ReductionIdExpression::get_id_expression))
-						);
-				reduction_references = reduction_references.filter(in_set(non_local_symbols, 
-							functor(&OpenMP::ReductionIdExpression::get_symbol)));
+                unreferenced.append(
+                        reduction_references.filter(not_in_set(non_local_symbols, 
+                                functor(&OpenMP::ReductionIdExpression::get_symbol)))
+                        .map(functor(&OpenMP::ReductionIdExpression::get_id_expression))
+                        );
+                reduction_references = reduction_references.filter(in_set(non_local_symbols, 
+                            functor(&OpenMP::ReductionIdExpression::get_symbol)));
 
-				unreferenced.map(functor(&OpenMPTransform::warn_unreferenced_data, *this));
+                unreferenced.map(functor(&OpenMPTransform::warn_unreferenced_data, *this));
 
                 // Filter in any of the private sets. We don't want any
                 // id-expression whose related symbol appears in any
@@ -2589,7 +2590,7 @@ namespace TL
                 non_local_references = non_local_references.filter(not_in_set(private_references, functor(&IdExpression::get_symbol)));
                 non_local_references = non_local_references.filter(not_in_set(firstprivate_references, functor(&IdExpression::get_symbol)));
                 non_local_references = non_local_references.filter(not_in_set(lastprivate_references, functor(&IdExpression::get_symbol)));
-				
+                
                 // Get every id-expression related to the ReductionIdExpression list
                 ObjectList<IdExpression> reduction_id_expressions = 
                     reduction_references.map(functor(&OpenMP::ReductionIdExpression::get_id_expression));
@@ -2609,8 +2610,8 @@ namespace TL
                     ObjectList<IdExpression>& pass_by_pointer,
                     ObjectList<IdExpression>& privatized_entities)
             {
-				Symbol function_symbol = function_definition.get_function_name().get_symbol();
-				Scope function_scope = function_definition.get_scope();
+                Symbol function_symbol = function_definition.get_function_name().get_symbol();
+                Scope function_scope = function_definition.get_scope();
                 ReplaceIdExpression result;
 
                 // First mix every symbol that might be shareable
@@ -2668,18 +2669,18 @@ namespace TL
                             result.add_replacement(current_sym, derref_name);
                         }
                     }
-					else if (it->is_unqualified()
-							&& current_sym.is_member()
-							&& (current_sym.get_class_type() == function_symbol.get_class_type()))
-					{
-						if (is_nonstatic_member_function(function_definition))
-						{
-							Source member_access;
-							member_access << "(_this->" << it->prettyprint() << ")";
+                    else if (it->is_unqualified()
+                            && current_sym.is_member()
+                            && (current_sym.get_class_type() == function_symbol.get_class_type()))
+                    {
+                        if (is_nonstatic_member_function(function_definition))
+                        {
+                            Source member_access;
+                            member_access << "(_this->" << it->prettyprint() << ")";
 
-							result.add_replacement(current_sym, member_access);
-						}
-					}
+                            result.add_replacement(current_sym, member_access);
+                        }
+                    }
                 }
                 
                 // First mix all things that will be made private
@@ -2788,13 +2789,13 @@ namespace TL
                 // Induction var name is handled specially
                 induction_var_name << "p_" << induction_var.mangle_id_expression();
 
-				Expression lower_bound = for_statement.get_lower_bound();
-				Expression upper_bound = for_statement.get_upper_bound();
-				Expression step = for_statement.get_step();
+                Expression lower_bound = for_statement.get_lower_bound();
+                Expression upper_bound = for_statement.get_upper_bound();
+                Expression step = for_statement.get_step();
 
-				lower_bound = replace_references.replace(lower_bound);
-				upper_bound = replace_references.replace(upper_bound);
-				step = replace_references.replace(step);
+                lower_bound = replace_references.replace(lower_bound);
+                upper_bound = replace_references.replace(upper_bound);
+                step = replace_references.replace(step);
 
                 // Define here the bounds of the loop
                 loop_initialization 
@@ -2804,7 +2805,7 @@ namespace TL
                     << "int intone_start;"
                     << "int intone_end;"
                     << "int intone_last;"
-					<< "int nth_barrier;"
+                    << "int nth_barrier;"
 
                     << "nth_low = " << lower_bound.prettyprint() << ";"
                     << "nth_upper = " << upper_bound.prettyprint() << ";"
@@ -2880,69 +2881,69 @@ namespace TL
                     if (firstprivate_references.contains(functor(&IdExpression::get_symbol), sym))
                     {
                         Source initializer_value;
-						
+                        
                         if (pass_by_pointer.contains(functor(&IdExpression::get_symbol), sym))
                         {
                             initializer_value << "(*" << it->mangle_id_expression() << ")";
                         }
-						else
-						{
-							initializer_value << it->prettyprint();
-						}
+                        else
+                        {
+                            initializer_value << it->prettyprint();
+                        }
 
-						if (type.is_array())
-						{
-							private_declarations 
-								<< type.get_declaration(
-										it->get_scope(),
-										"p_" + it->mangle_id_expression())
-								<< ";"
-								;
+                        if (type.is_array())
+                        {
+                            private_declarations 
+                                << type.get_declaration(
+                                        it->get_scope(),
+                                        "p_" + it->mangle_id_expression())
+                                << ";"
+                                ;
 
-							Source array_assignment = array_copy(type, "p_" + it->mangle_id_expression(),
-									initializer_value.get_source(), 0);
+                            Source array_assignment = array_copy(type, "p_" + it->mangle_id_expression(),
+                                    initializer_value.get_source(), 0);
 
-							private_declarations << array_assignment;
-						}
-						else
-						{
-							C_LANGUAGE()
-							{
-								// If it is not an array just assign
-								private_declarations 
-									<< type.get_declaration(
-											it->get_scope(),
-											"p_" + it->mangle_id_expression())
-									<< ";"
-									<< "p_" + it->mangle_id_expression() << "=" << initializer_value.get_source() << ";"
-									;
-							}
-							CXX_LANGUAGE()
-							{
-								// In C++ if this is a class we invoke the copy-constructor
-								if (type.is_class())
-								{
-									private_declarations 
-										<< type.get_declaration(
-												it->get_scope(),
-												"p_" + it->mangle_id_expression())
-										<< "(" << initializer_value.get_source() << ")"
-										<< ";"
-										;
-								}
-								else
-								{
-									// Otherwise simply assign
-									private_declarations 
-										<< type.get_declaration(
-												it->get_scope(),
-												"p_" + it->mangle_id_expression())
-										<< ";"
-										<< "p_" + it->mangle_id_expression() << "=" << initializer_value.get_source() << ";"
-										;
-								}
-							}
-						}
+                            private_declarations << array_assignment;
+                        }
+                        else
+                        {
+                            C_LANGUAGE()
+                            {
+                                // If it is not an array just assign
+                                private_declarations 
+                                    << type.get_declaration(
+                                            it->get_scope(),
+                                            "p_" + it->mangle_id_expression())
+                                    << ";"
+                                    << "p_" + it->mangle_id_expression() << "=" << initializer_value.get_source() << ";"
+                                    ;
+                            }
+                            CXX_LANGUAGE()
+                            {
+                                // In C++ if this is a class we invoke the copy-constructor
+                                if (type.is_class())
+                                {
+                                    private_declarations 
+                                        << type.get_declaration(
+                                                it->get_scope(),
+                                                "p_" + it->mangle_id_expression())
+                                        << "(" << initializer_value.get_source() << ")"
+                                        << ";"
+                                        ;
+                                }
+                                else
+                                {
+                                    // Otherwise simply assign
+                                    private_declarations 
+                                        << type.get_declaration(
+                                                it->get_scope(),
+                                                "p_" + it->mangle_id_expression())
+                                        << ";"
+                                        << "p_" + it->mangle_id_expression() << "=" << initializer_value.get_source() << ";"
+                                        ;
+                                }
+                            }
+                        }
 
                     }
                     else if (reduction_references.contains(functor(&OpenMP::ReductionIdExpression::get_symbol), sym))
@@ -2960,15 +2961,15 @@ namespace TL
                         // Initialize to the neuter
                         private_declarations 
                             << type.get_declaration_with_initializer(
-									id_expr.get_scope(),
-									"p_" + id_expr.mangle_id_expression(), neuter) 
-							<< ";";
+                                    id_expr.get_scope(),
+                                    "p_" + id_expr.mangle_id_expression(), neuter) 
+                            << ";";
                     }
                     else
                     {
                         private_declarations 
-							<< type.get_declaration(it->get_scope(), "p_" + it->mangle_id_expression()) 
-							<< ";";
+                            << type.get_declaration(it->get_scope(), "p_" + it->mangle_id_expression()) 
+                            << ";";
                     }
                 }
 
@@ -3017,137 +3018,137 @@ namespace TL
                 return result;
             }
 
-			bool is_nonstatic_member_function(FunctionDefinition function_definition)
-			{
-				IdExpression function_name = function_definition.get_function_name();
-				Symbol function_symbol = function_name.get_symbol();
+            bool is_nonstatic_member_function(FunctionDefinition function_definition)
+            {
+                IdExpression function_name = function_definition.get_function_name();
+                Symbol function_symbol = function_name.get_symbol();
 
-				// It must be a member
-				if (!function_symbol.is_member())
-				{
-					return false;
-				}
+                // It must be a member
+                if (!function_symbol.is_member())
+                {
+                    return false;
+                }
 
-				Statement function_body = function_definition.get_function_body();
-				Scope function_body_scope = function_body.get_scope();
+                Statement function_body = function_definition.get_function_body();
+                Scope function_body_scope = function_body.get_scope();
 
-				Symbol sym = function_body_scope.get_symbol_from_name("this");
+                Symbol sym = function_body_scope.get_symbol_from_name("this");
 
-				if (!sym.is_valid())
-				{
-					return false;
-				}
+                if (!sym.is_valid())
+                {
+                    return false;
+                }
 
-				return true;
-			}
+                return true;
+            }
 
-			Source array_copy(Type t, const std::string& dest, const std::string& orig, int level)
-			{
-				Source result;
+            Source array_copy(Type t, const std::string& dest, const std::string& orig, int level)
+            {
+                Source result;
 
-				std::stringstream subscript;
+                std::stringstream subscript;
 
-				for (int i = 0; i < level; i++)
-				{
-					subscript << "[_i_" << i << "]";
-				}
+                for (int i = 0; i < level; i++)
+                {
+                    subscript << "[_i_" << i << "]";
+                }
 
-				if (!t.is_array())
-				{
-					result 
-						<< dest << subscript.str() << "=" << orig << subscript.str() << ";"
-						;
-				}
-				else
-				{
-					std::stringstream index_var;
-					index_var << "_i_" << level;
+                if (!t.is_array())
+                {
+                    result 
+                        << dest << subscript.str() << "=" << orig << subscript.str() << ";"
+                        ;
+                }
+                else
+                {
+                    std::stringstream index_var;
+                    index_var << "_i_" << level;
 
-					Source next_dim_array_copy = array_copy(t.array_element(), dest, orig, level+1);
+                    Source next_dim_array_copy = array_copy(t.array_element(), dest, orig, level+1);
 
-					result 
-						<< "{"
-						<< "  int " << index_var.str() << ";"
-						<< "  for (" << index_var.str() << " = 0;" 
-						<<              index_var.str() 
-						<<                 " < (sizeof(" << dest 
-						<<                 subscript.str() << ")/sizeof(" << dest << subscript.str() << "[0]));"
-						<<              index_var.str() << "++" << ")"
-						<< "  {"
-						<<       next_dim_array_copy
-						<< "  }"
-						<< "}"
-						;
-				}
+                    result 
+                        << "{"
+                        << "  int " << index_var.str() << ";"
+                        << "  for (" << index_var.str() << " = 0;" 
+                        <<              index_var.str() 
+                        <<                 " < (sizeof(" << dest 
+                        <<                 subscript.str() << ")/sizeof(" << dest << subscript.str() << "[0]));"
+                        <<              index_var.str() << "++" << ")"
+                        << "  {"
+                        <<       next_dim_array_copy
+                        << "  }"
+                        << "}"
+                        ;
+                }
 
-				return result;
-			}
+                return result;
+            }
 
-			Type convert_array_to_pointer(Type type)
-			{
-				if (type.is_array())
-				{
-					// Get the element type
-					Type element_type = type.array_element();
+            Type convert_array_to_pointer(Type type)
+            {
+                if (type.is_array())
+                {
+                    // Get the element type
+                    Type element_type = type.array_element();
 
-					// Convert if needed into a pointer
-					Type temporal_type = convert_array_to_pointer(element_type);
+                    // Convert if needed into a pointer
+                    Type temporal_type = convert_array_to_pointer(element_type);
 
-					// And get a pointer to
-					temporal_type = temporal_type.get_pointer_to();
+                    // And get a pointer to
+                    temporal_type = temporal_type.get_pointer_to();
 
-					return temporal_type;
-				}
-				else 
-				{
-					// If this is not an array nothing has to be done
-					return type;
-				}
-			}
+                    return temporal_type;
+                }
+                else 
+                {
+                    // If this is not an array nothing has to be done
+                    return type;
+                }
+            }
 
-			void instrumentation_outline(Source& instrumentation_code_before,
-					Source& instrumentation_code_after,
-					FunctionDefinition function_definition,
-					Statement construct_body)
-			{
-				if (ExternalVars::get("instrument", "0") == "1")
-				{
-					std::string file_name = "\"" + function_definition.get_ast().get_file() + "\"";
+            void instrumentation_outline(Source& instrumentation_code_before,
+                    Source& instrumentation_code_after,
+                    FunctionDefinition function_definition,
+                    Statement construct_body)
+            {
+                if (ExternalVars::get("instrument", "0") == "1")
+                {
+                    std::string file_name = "\"" + function_definition.get_ast().get_file() + "\"";
 
-					int file_line = construct_body.get_ast().get_line();
+                    int file_line = construct_body.get_ast().get_line();
 
-					std::string mangled_function_name = 
-						"\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
+                    std::string mangled_function_name = 
+                        "\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
 
-					instrumentation_code_before
-						<< "const int EVENT_CALL_USER_FUNCTION = 60000018;"
-						<< "int _user_function_event = mintaka_index_get(" << file_name << "," << file_line << ");"
-						<< "if (_user_function_event == -1)"
-						<< "{"
-						<< "     nthf_spin_lock_((nth_word_t*)&mintaka_mutex);"
-						<< "     _user_function_event = mintaka_index_allocate2(" << file_name << "," 
-						<<                file_line << "," << mangled_function_name << ", EVENT_CALL_USER_FUNCTION);"
-						<< "     nthf_spin_unlock_((nth_word_t*)&mintaka_mutex);"
-						<< "}"
-						<< "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
-						<< "int __previous_state = mintaka_get_state();"
-						<< "mintaka_state_run();"
-						;
+                    instrumentation_code_before
+                        << "const int EVENT_CALL_USER_FUNCTION = 60000018;"
+                        << "int _user_function_event = mintaka_index_get(" << file_name << "," << file_line << ");"
+                        << "if (_user_function_event == -1)"
+                        << "{"
+                        << "     nthf_spin_lock_((nth_word_t*)&mintaka_mutex);"
+                        << "     _user_function_event = mintaka_index_allocate2(" << file_name << "," 
+                        <<                file_line << "," << mangled_function_name << ", EVENT_CALL_USER_FUNCTION);"
+                        << "     nthf_spin_unlock_((nth_word_t*)&mintaka_mutex);"
+                        << "}"
+                        << "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
+                        << "int __previous_state = mintaka_get_state();"
+                        << "mintaka_state_run();"
+                        ;
 
-					instrumentation_code_after
-						<< "mintaka_event(EVENT_CALL_USER_FUNCTION, 0);"
-						<< "mintaka_set_state(__previous_state);"
-						;
-				}
-			}
+                    instrumentation_code_after
+                        << "mintaka_event(EVENT_CALL_USER_FUNCTION, 0);"
+                        << "mintaka_set_state(__previous_state);"
+                        ;
+                }
+            }
 
-			IdExpression warn_unreferenced_data(IdExpression id_expr)
-			{
-				std::cerr << "Warning: Entity '" << id_expr.prettyprint() << "' in '" << id_expr.get_ast().get_locus() 
-					<< " is not referenced in the body of the construct" << std::endl;
-	
-				return id_expr;
-			}
+            IdExpression warn_unreferenced_data(IdExpression id_expr)
+            {
+                std::cerr << "Warning: Entity '" << id_expr.prettyprint() << "' in '" << id_expr.get_ast().get_locus() 
+                    << " is not referenced in the body of the construct" << std::endl;
+    
+                return id_expr;
+            }
     };
 }
 
