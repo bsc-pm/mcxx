@@ -256,6 +256,8 @@ namespace TL
                             empty,
                             empty,
                             reduction_empty,
+                            empty,
+                            empty,
                             pass_by_pointer,
                             privatized_entities);
 
@@ -564,6 +566,8 @@ namespace TL
                 ObjectList<IdExpression> firstprivate_references;
                 ObjectList<IdExpression> lastprivate_references;
                 ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                ObjectList<IdExpression> copyin_references;
+                ObjectList<IdExpression> copyprivate_references;
                 
                 // Get the construct_body of the statement
                 Statement construct_body = parallel_single_construct.body();
@@ -576,7 +580,9 @@ namespace TL
                         private_references,
                         firstprivate_references,
                         lastprivate_references,
-                        reduction_references);
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
 
                 // This list will hold everything that must be passed by pointer
                 ObjectList<IdExpression> pass_by_pointer;
@@ -593,6 +599,8 @@ namespace TL
                             firstprivate_references,
                             lastprivate_references,
                             reduction_references,
+                            copyin_references,
+                            copyprivate_references,
                             pass_by_pointer,
                             privatized_entities);
 
@@ -614,7 +622,9 @@ namespace TL
                         privatized_entities,
                         firstprivate_references,
                         lastprivate_references,
-                        reduction_references);
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
 
                 // In the AST of the function definition, prepend outline_code
                 // as a sibling (at the same level)
@@ -743,6 +753,8 @@ namespace TL
                 ObjectList<IdExpression> firstprivate_references;
                 ObjectList<IdExpression> lastprivate_references;
                 ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                ObjectList<IdExpression> copyin_references;
+                ObjectList<IdExpression> copyprivate_references;
                 
                 // Get the construct_body of the statement
                 Statement construct_body = parallel_construct.body();
@@ -755,7 +767,9 @@ namespace TL
                         private_references,
                         firstprivate_references,
                         lastprivate_references,
-                        reduction_references);
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
 
                 // This list will hold everything that must be passed by pointer
                 ObjectList<IdExpression> pass_by_pointer;
@@ -772,6 +786,8 @@ namespace TL
                             firstprivate_references,
                             lastprivate_references,
                             reduction_references,
+                            copyin_references,
+                            copyprivate_references,
                             pass_by_pointer,
                             privatized_entities);
 
@@ -793,7 +809,9 @@ namespace TL
                         privatized_entities,
                         firstprivate_references,
                         lastprivate_references,
-                        reduction_references);
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
 
                 // In the AST of the function definition, prepend outline_code
                 // as a sibling (at the same level)
@@ -880,6 +898,8 @@ namespace TL
                 ObjectList<IdExpression> firstprivate_references;
                 ObjectList<IdExpression> lastprivate_references;
                 ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                ObjectList<IdExpression> copyin_references;
+                ObjectList<IdExpression> copyprivate_references;
                 
                 // Get the construct_body of the statement
                 Statement construct_body = parallel_for_construct.body();
@@ -895,7 +915,9 @@ namespace TL
                         private_references,
                         firstprivate_references,
                         lastprivate_references,
-                        reduction_references);
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
 
                 // The induction variable deserves special treatment
                 IdExpression induction_var = for_statement.get_induction_variable();
@@ -928,6 +950,8 @@ namespace TL
                             firstprivate_references,
                             lastprivate_references,
                             reduction_references,
+                            copyin_references,
+                            copyprivate_references,
                             pass_by_pointer,
                             privatized_entities);
 
@@ -945,7 +969,9 @@ namespace TL
                         privatized_entities,
                         firstprivate_references,
                         lastprivate_references,
-                        reduction_references);
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
 
                 // Now prepend the outline
                 function_definition.get_ast().prepend_sibling_function(outline_code);
@@ -1020,6 +1046,8 @@ namespace TL
                 ObjectList<IdExpression> firstprivate_references;
                 ObjectList<IdExpression> lastprivate_references;
                 ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                ObjectList<IdExpression> copyin_references;
+                ObjectList<IdExpression> copyprivate_references;
                 
                 // Get the construct_body of the statement
                 Statement construct_body = parallel_sections_construct.body();
@@ -1032,7 +1060,9 @@ namespace TL
                         private_references,
                         firstprivate_references,
                         lastprivate_references,
-                        reduction_references);
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
 
                 // This list will hold everything that must be passed by pointer
                 ObjectList<IdExpression> pass_by_pointer;
@@ -1049,6 +1079,8 @@ namespace TL
                             firstprivate_references,
                             lastprivate_references,
                             reduction_references,
+                            copyin_references,
+                            copyprivate_references,
                             pass_by_pointer,
                             privatized_entities);
 
@@ -1070,7 +1102,9 @@ namespace TL
                         privatized_entities,
                         firstprivate_references,
                         lastprivate_references,
-                        reduction_references);
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
 
                 // In the AST of the function definition, prepend outline_code
                 // as a sibling (at the same level)
@@ -1134,6 +1168,8 @@ namespace TL
                 ObjectList<IdExpression> firstprivate_references;
                 ObjectList<IdExpression> lastprivate_references;
                 ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                ObjectList<IdExpression> copyin_references;
+                ObjectList<IdExpression> copyprivate_references;
                 
                 // Get the construct_body of the statement
                 OpenMP::Directive directive = sections_construct.directive();
@@ -1152,7 +1188,9 @@ namespace TL
                         private_references,
                         firstprivate_references,
                         lastprivate_references,
-                        reduction_references);
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
 
                 // This list will hold everything that must be passed by pointer
                 ObjectList<IdExpression> pass_by_pointer;
@@ -1169,6 +1207,8 @@ namespace TL
                             firstprivate_references,
                             lastprivate_references,
                             reduction_references,
+                            copyin_references,
+                            copyprivate_references,
                             pass_by_pointer,
                             privatized_entities);
 
@@ -1181,17 +1221,22 @@ namespace TL
                         replace_references);
 
                 Source private_declarations;
-                private_declarations = get_privatized_declarations(privatized_entities,
+                private_declarations = get_privatized_declarations(
+                        privatized_entities,
                         pass_by_pointer,
                         firstprivate_references,
-                        reduction_references);
+                        reduction_references,
+                        copyin_references
+                        );
 
                 Source lastprivate_code;
 
                 if (!lastprivate_references.empty())
                 {
                     Source lastprivate_assignments;
-                    lastprivate_assignments = get_lastprivate_assignments(lastprivate_references,
+                    lastprivate_assignments = get_lastprivate_assignments(
+                            lastprivate_references,
+                            copyprivate_references,
                             pass_by_pointer);
 
                     lastprivate_code 
@@ -1305,6 +1350,8 @@ namespace TL
                 ObjectList<IdExpression> firstprivate_references;
                 ObjectList<IdExpression> lastprivate_references;
                 ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                ObjectList<IdExpression> copyin_references;
+                ObjectList<IdExpression> copyprivate_references;
                 
                 // Get the enclosing function definition
                 FunctionDefinition function_definition = for_construct.get_enclosing_function();
@@ -1319,7 +1366,9 @@ namespace TL
                         private_references,
                         firstprivate_references,
                         lastprivate_references,
-                        reduction_references);
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
                 
                 // The induction variable deserves special treatment
                 IdExpression induction_var = for_statement.get_induction_variable();
@@ -1352,13 +1401,19 @@ namespace TL
                             firstprivate_references,
                             lastprivate_references,
                             reduction_references,
+                            copyin_references,
+                            copyprivate_references,
                             pass_by_pointer,
                             privatized_entities);
 
                 Source parallel_for_body;
                 
-                Source private_declarations = get_privatized_declarations(privatized_entities, pass_by_pointer, 
-                        firstprivate_references, reduction_references);
+                Source private_declarations = get_privatized_declarations(
+                        privatized_entities, 
+                        pass_by_pointer, 
+                        firstprivate_references, 
+                        reduction_references, 
+                        copyin_references);
 
                 Source loop_distribution_code = get_loop_distribution_code(for_statement,
                         replace_references);
@@ -1367,7 +1422,9 @@ namespace TL
 
                 if (!lastprivate_references.empty())
                 {
-                    Source lastprivate_assignments = get_lastprivate_assignments(lastprivate_references, 
+                    Source lastprivate_assignments = get_lastprivate_assignments(
+                            lastprivate_references, 
+                            copyprivate_references,
                             pass_by_pointer);
 
                     lastprivate_code
@@ -1994,9 +2051,9 @@ namespace TL
                         pass_by_value, 
                         reduction_references);
 
-                // We want to forward the declaration
                 if (!function_symbol.is_member())
                 {
+                    // We want to forward the declaration
                     Declaration point_of_decl = function_name.get_declaration();
                     DeclarationSpec decl_specs = point_of_decl.get_declaration_specifiers();
                     ObjectList<DeclaredEntity> declared_entities = point_of_decl.get_declared_entities();
@@ -2100,7 +2157,9 @@ namespace TL
                     ObjectList<IdExpression> privatized_entities,
                     ObjectList<IdExpression> firstprivate_references,
                     ObjectList<IdExpression> lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references
+                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
+                    ObjectList<IdExpression> copyin_references,
+                    ObjectList<IdExpression> copyprivate_references
                     )
             {
                 ObjectList<IdExpression> pass_by_value;
@@ -2120,8 +2179,11 @@ namespace TL
                 // Replace references using set "replace_references" over construct body
                 Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
 
-                Source private_declarations = get_privatized_declarations(privatized_entities, pass_by_pointer, 
-                        firstprivate_references, reduction_references);
+                Source private_declarations = get_privatized_declarations(privatized_entities, 
+                        pass_by_pointer, 
+                        firstprivate_references, 
+                        reduction_references,
+                        copyin_references);
 
                 Source reduction_update = get_reduction_update(reduction_references);
 
@@ -2194,6 +2256,7 @@ namespace TL
             {
                 ObjectList<OpenMP::ReductionIdExpression> reduction_references;
                 ObjectList<IdExpression> firstprivate_references;
+                ObjectList<IdExpression> copyin_references;
 
                 Source outline_parallel;
                 Source parallel_body;
@@ -2210,8 +2273,12 @@ namespace TL
                 // Replace references using set "replace_references" over construct body
                 Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
 
-                Source private_declarations = get_privatized_declarations(local_entities, pass_by_pointer, 
-                        firstprivate_references, reduction_references);
+                Source private_declarations = get_privatized_declarations(
+                        local_entities, 
+                        pass_by_pointer, 
+                        firstprivate_references, 
+                        reduction_references,
+                        copyin_references);
 
                 parallel_body 
                     << private_declarations
@@ -2236,7 +2303,9 @@ namespace TL
                     ObjectList<IdExpression> privatized_entities,
                     ObjectList<IdExpression> firstprivate_references,
                     ObjectList<IdExpression> lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
+                    ObjectList<IdExpression> copyin_references,
+                    ObjectList<IdExpression> copyprivate_references)
             {
                 ObjectList<IdExpression> pass_by_value;
 
@@ -2252,8 +2321,12 @@ namespace TL
                         pass_by_value,
                         reduction_references);
 
-                Source private_declarations = get_privatized_declarations(privatized_entities, pass_by_pointer,
-                        firstprivate_references, reduction_references);
+                Source private_declarations = get_privatized_declarations(
+                        privatized_entities, 
+                        pass_by_pointer,
+                        firstprivate_references, 
+                        reduction_references,
+                        copyin_references);
 
                 Source loop_distribution;
 
@@ -2268,7 +2341,9 @@ namespace TL
 
                 if (!lastprivate_references.empty())
                 {
-                    Source lastprivate_assignments = get_lastprivate_assignments(lastprivate_references, 
+                    Source lastprivate_assignments = get_lastprivate_assignments(
+                            lastprivate_references, 
+                            copyprivate_references,
                             pass_by_pointer);
 
                     lastprivate_code
@@ -2323,7 +2398,9 @@ namespace TL
                     ObjectList<IdExpression> privatized_entities,
                     ObjectList<IdExpression> firstprivate_references,
                     ObjectList<IdExpression> lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references
+                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
+                    ObjectList<IdExpression> copyin_references,
+                    ObjectList<IdExpression> copyprivate_references
                     )
             {
                 ObjectList<IdExpression> pass_by_value;
@@ -2343,8 +2420,12 @@ namespace TL
                 // Replace references using set "replace_references" over construct body
                 Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
 
-                Source private_declarations = get_privatized_declarations(privatized_entities, pass_by_pointer, 
-                        firstprivate_references, reduction_references);
+                Source private_declarations = get_privatized_declarations(
+                        privatized_entities, 
+                        pass_by_pointer, 
+                        firstprivate_references, 
+                        reduction_references,
+                        copyin_references);
 
                 Source reduction_update = get_reduction_update(reduction_references);
 
@@ -2419,7 +2500,9 @@ namespace TL
                     ObjectList<IdExpression> privatized_entities,
                     ObjectList<IdExpression> firstprivate_references,
                     ObjectList<IdExpression> lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references
+                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
+                    ObjectList<IdExpression> copyin_references,
+                    ObjectList<IdExpression> copyprivate_references
                     )
             {
                 // empty
@@ -2438,8 +2521,11 @@ namespace TL
                         pass_by_value,
                         reduction_references);
 
-                Source private_declarations = get_privatized_declarations(privatized_entities, pass_by_pointer, 
-                        firstprivate_references, reduction_references);
+                Source private_declarations = get_privatized_declarations(privatized_entities, 
+                        pass_by_pointer, 
+                        firstprivate_references, 
+                        reduction_references,
+                        copyin_references);
 
                 Source loop_distribution = get_loop_distribution_code(for_statement, replace_references);
 
@@ -2447,7 +2533,9 @@ namespace TL
 
                 if (!lastprivate_references.empty())
                 {
-                    Source lastprivate_assignments = get_lastprivate_assignments(lastprivate_references, 
+                    Source lastprivate_assignments = get_lastprivate_assignments(
+                            lastprivate_references, 
+                            copyprivate_references,
                             pass_by_pointer);
 
                     lastprivate_code
@@ -2501,7 +2589,9 @@ namespace TL
                     ObjectList<IdExpression>& private_references,
                     ObjectList<IdExpression>& firstprivate_references,
                     ObjectList<IdExpression>& lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression>& reduction_references)
+                    ObjectList<OpenMP::ReductionIdExpression>& reduction_references,
+                    ObjectList<IdExpression>& copyin_references,
+                    ObjectList<IdExpression>& copyprivate_references)
             {
                 // Get references in shared clause
                 OpenMP::Clause shared_clause = directive.shared_clause();
@@ -2533,7 +2623,9 @@ namespace TL
                     ObjectList<IdExpression>& private_references,
                     ObjectList<IdExpression>& firstprivate_references,
                     ObjectList<IdExpression>& lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression>& reduction_references)
+                    ObjectList<OpenMP::ReductionIdExpression>& reduction_references,
+                    ObjectList<IdExpression>& copyin_references,
+                    ObjectList<IdExpression>& copyprivate_references)
             {
                 get_data_explicit_attributes(
                         function_scope,
@@ -2543,7 +2635,9 @@ namespace TL
                         private_references,
                         firstprivate_references,
                         lastprivate_references,
-                        reduction_references);
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
 
                 OpenMP::DefaultClause default_clause = directive.default_clause();
 
@@ -2607,6 +2701,8 @@ namespace TL
                     ObjectList<IdExpression>& firstprivate_references,
                     ObjectList<IdExpression>& lastprivate_references,
                     ObjectList<OpenMP::ReductionIdExpression>& reduction_references,
+                    ObjectList<IdExpression>& copyin_references,
+                    ObjectList<IdExpression>& copyprivate_references,
                     ObjectList<IdExpression>& pass_by_pointer,
                     ObjectList<IdExpression>& privatized_entities)
             {
@@ -2866,7 +2962,8 @@ namespace TL
             Source get_privatized_declarations(ObjectList<IdExpression> privatized_entities,
                     ObjectList<IdExpression> pass_by_pointer,
                     ObjectList<IdExpression> firstprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
+                    ObjectList<IdExpression> copyin_references)
             {
                 Source private_declarations;
 
@@ -2976,7 +3073,9 @@ namespace TL
                 return private_declarations;
             }
 
-            Source get_lastprivate_assignments(ObjectList<IdExpression> lastprivate_references,
+            Source get_lastprivate_assignments(
+                    ObjectList<IdExpression> lastprivate_references,
+                    ObjectList<IdExpression> copyprivate_references,
                     ObjectList<IdExpression> pass_by_pointer)
             {
                 Source lastprivate_assignments;
