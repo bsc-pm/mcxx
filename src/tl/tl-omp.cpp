@@ -282,6 +282,18 @@ namespace TL
 			return result;
 		}
 
+		Clause Directive::copyin_clause()
+		{
+			Clause result(_ref, _scope_link, OMP_IS_COPYIN_CLAUSE);
+			return result;
+		}
+
+		Clause Directive::copyprivate_clause()
+		{
+			Clause result(_ref, _scope_link, OMP_IS_COPYPRIVATE_CLAUSE);
+			return result;
+		}
+
 		Clause Directive::lastprivate_clause()
 		{
 			Clause result(_ref, _scope_link, OMP_IS_LASTPRIVATE_CLAUSE);
