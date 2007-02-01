@@ -345,6 +345,34 @@ namespace TL
                     threadswitch << "0";
                 }
 
+				Source outline_capture_values;
+				Source outline_arguments;
+
+				// Fallback arguments
+                for (ObjectList<IdExpression>::iterator it = captureaddress_references.begin();
+                        it != captureaddress_references.end();
+                        it++)
+                {
+                    outline_arguments.append_with_separator("&" + it->prettyprint(), ",");
+                }
+                for (ObjectList<IdExpression>::iterator it = capturevalue_references.begin();
+                        it != capturevalue_references.end();
+                        it++)
+                {
+					Symbol sym = it->get_symbol();
+					Type type = sym.get_type();
+
+					outline_capture_values
+						<< type.get_declaration_with_initializer(
+								it->get_scope(),
+								"cval_" + it->mangle_id_expression(), 
+								it->prettyprint()) 
+						<< ";"
+						;
+
+                    outline_arguments.append_with_separator("&cval_" + it->mangle_id_expression(), ",");
+                }
+
                 task_queueing
                     << "{"
                     <<    "nth_desc * nth;"
@@ -359,7 +387,8 @@ namespace TL
                     <<             "&set_threadswitch, &num_params " << task_parameters << ");"
                     <<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
                     <<    "{"
-                    <<       outlined_function_name << "(" << task_parameter_list << ");"
+					<<       outline_capture_values
+                    <<       outlined_function_name << "(" << outline_arguments << ");"
                     <<    "}"
                     << "}"
                 ;

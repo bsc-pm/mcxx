@@ -389,4 +389,12 @@ namespace TL
 
         return blanks;
     }
+
+	std::string comment(const std::string& str)
+	{
+		std::string result;
+
+		result = "@-C-@" + str + "@-CC-@";
+		return result;
+	}
 }

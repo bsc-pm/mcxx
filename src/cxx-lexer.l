@@ -693,6 +693,8 @@ runtime {
  /*!if CPLUSPLUS*/
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/
+ /* Special tokens for prettyprinted comments */
+@-C-@[^@]*@-CC-@ { parse_token_text(); return PP_COMMENT; }
 
 {idnondigit}({idnondigit}|{digit})* {parse_token_text(); return IDENTIFIER; }
 

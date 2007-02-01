@@ -126,6 +126,8 @@ namespace TL
 			bool operator<(const Source& src) const;
 			Source& operator=(const Source& src);
 	};
+
+	std::string comment(const std::string& str);
 }
 
 #endif // TL_SOURCE_T_HPP

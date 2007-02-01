@@ -142,6 +142,8 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> XOR_ASSIGN
 %token<token_atrib> UNKNOWN_PRAGMA
 
+%token<token_atrib> PP_COMMENT
+
 
 // Lexical symbols
 %token<token_atrib> '!'
@@ -465,12 +467,11 @@ declaration : block_declaration
 {
 	$$ = $1;
 }
-// GNU Extension
-// | EXTENSION declaration
-// {
-// 	// This extension is designed to shut up gcc's -pedantic
-// 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, NULL);
-// }
+// Prettyprinted comments
+| PP_COMMENT
+{
+	$$ = ASTLeaf(AST_PP_COMMENT, $1.token_line, $1.token_text);
+}
 ;
 
 linkage_specification : EXTERN string_literal '{' declaration_sequence '}'
