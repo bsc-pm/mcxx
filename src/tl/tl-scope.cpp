@@ -54,7 +54,6 @@ namespace TL
 		Symbol result(NULL);
 		get_head(list, result);
 
-
 		return result;
 	}
 
@@ -81,6 +80,13 @@ namespace TL
 		return result;
 	}
 
+    Scope Scope::temporal_scope() const
+    {
+        scope_t* st = new_block_scope(_st, _st->prototype_scope, _st->function_scope);
+
+        return Scope(st);
+    }
+
 	Scope& Scope::operator=(Scope sc)
 	{
 		this->_st = sc._st;
@@ -101,4 +107,5 @@ namespace TL
 	{
 		return !(this->operator==(sc));
 	}
+
 }

@@ -11,6 +11,14 @@ namespace TL
 		public:
 			virtual Ret operator()(T& t) const = 0; 
 
+            // Adapters never define this one but we want it to work anyway
+            // This method should be final and your functors should be effect
+            // free when given a "const T&"
+            virtual Ret operator()(const T& t) const
+            {
+                return this->operator()(const_cast<T&>(t));
+            }
+
 			virtual ~Functor() { }
 	};
 

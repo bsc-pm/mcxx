@@ -64,6 +64,8 @@ namespace TL
 
 			Symbol get_symbol_from_id_expr(TL::AST_t ast) const;
 
+            Scope temporal_scope() const;
+
 			virtual bool is_scope() const
 			{
 				return true;

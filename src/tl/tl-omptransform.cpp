@@ -264,11 +264,15 @@ namespace TL
                 ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
                 ObjectList<ParameterInfo> parameter_info_list;
 
+                ObjectList<IdExpression> captured_references;
+                captured_references.append(captureaddress_references);
+                captured_references.append(capturevalue_references);
+
                 ReplaceIdExpression replace_references  = 
                     set_replacements(function_definition,
                             directive,
                             construct_body,
-                            captureaddress_references,
+                            captured_references,
                             local_references,
                             empty,
                             empty,
@@ -2040,6 +2044,7 @@ namespace TL
                     FunctionDefinition function_definition,
                     ObjectList<ParameterInfo> parameter_info_list)
             {
+                int num_params = 0;
                 Source formal_parameters;
 
                 // Add _this if needed
@@ -2055,6 +2060,7 @@ namespace TL
                             // Fix this scope
                             pointer_to_class.get_declaration(function_name.get_scope(), "_this"), 
                             ",");
+                    num_params++;
                 }
 
                 // First the pointer ones
@@ -2071,6 +2077,7 @@ namespace TL
 
                     formal_parameters.append_with_separator(
                             type.get_declaration(id_expr.get_scope(), name), ",");
+                    num_params++;
                 }
 
                 // Now the value ones
@@ -2087,6 +2094,12 @@ namespace TL
 
                     formal_parameters.append_with_separator(
                             type.get_declaration(id_expr.get_scope(), name), ",");
+                    num_params++;
+                }
+
+                if (num_params == 0)
+                {
+                    formal_parameters << "void";
                 }
 
                 return formal_parameters;
@@ -2548,9 +2561,11 @@ namespace TL
                 OpenMP::ReductionClause reduction_clause = directive.reduction_clause();
                 reduction_references = reduction_clause.id_expressions();
 
+                // Get references in copyin
                 OpenMP::Clause copyin_clause = directive.copyin_clause();
                 copyin_references = copyin_clause.id_expressions();
 
+                // Get references in copyprivate
                 OpenMP::Clause copyprivate_clause = directive.copyprivate_clause();
                 copyprivate_references = copyprivate_clause.id_expressions();
             }
@@ -2621,6 +2636,7 @@ namespace TL
                 reduction_references = reduction_references.filter(in_set(non_local_symbols, 
                             functor(&OpenMP::ReductionIdExpression::get_symbol)));
 
+                // Will give a warning for every unreferenced element
                 unreferenced.map(functor(&OpenMPTransform::warn_unreferenced_data, *this));
 
                 // Filter in any of the private sets. We don't want any
@@ -2639,7 +2655,7 @@ namespace TL
                     reduction_references.map(functor(&OpenMP::ReductionIdExpression::get_id_expression));
                 non_local_references = non_local_references.filter(not_in_set(reduction_id_expressions, functor(&IdExpression::get_symbol)));
 
-                shared_references.append(non_local_references);
+                shared_references.insert(non_local_references, functor(&IdExpression::get_symbol));
             }
 
             ReplaceIdExpression set_replacements(FunctionDefinition function_definition,
@@ -2663,6 +2679,9 @@ namespace TL
                         it != shared_references.end();
                         it++)
                 {
+                    if (is_function_accessible(*it, function_definition))
+                        continue;
+
                     Symbol symbol = it->get_symbol();
                     Type type = convert_array_to_pointer(symbol.get_type());
 
@@ -3067,9 +3086,23 @@ namespace TL
                         it != lastprivate_references.end();
                         it++)
                 {
-                    lastprivate_assignments
-                        << "(*flp_" << it->mangle_id_expression() << ")" << " = p_" << it->mangle_id_expression() << ";"
-                        ;
+                    Symbol symbol = it->get_symbol();
+                    Type type = symbol.get_type();
+
+                    if (type.is_array())
+                    {
+                        Source array_assignment = array_copy(type, "(*flp_" + it->mangle_id_expression() + ")",
+                                "p_" + it->mangle_id_expression(), 0);
+
+                        lastprivate_assignments 
+                            << array_assignment;
+                    }
+                    else
+                    {
+                        lastprivate_assignments
+                            << "(*flp_" << it->mangle_id_expression() << ")" << " = p_" << it->mangle_id_expression() << ";"
+                            ;
+                    }
                 }
                 
                 // COPYPRIVATE
@@ -3186,6 +3219,18 @@ namespace TL
                     // If this is not an array nothing has to be done
                     return type;
                 }
+            }
+
+            bool is_function_accessible(IdExpression id_expression, 
+                    FunctionDefinition function_definition)
+            {
+                Symbol current_symbol = id_expression.get_symbol();
+
+                Scope function_scope = function_definition.get_scope();
+                Symbol function_visible_symbol = function_scope.get_symbol_from_id_expr(id_expression.get_ast());
+
+                return (function_visible_symbol.is_valid()
+                        && function_visible_symbol == current_symbol);
             }
 
             void instrumentation_outline(Source& instrumentation_code_before,
