@@ -263,12 +263,12 @@ namespace TL
 		return result;
 	}
 
-	// template <class Ret, class T>
-	// DataMemberAdapter<Ret, T> functor (Ret T::*pdm)
-	// {
-	// 	DataMemberAdapter<Ret, T> result(pdm);
-	// 	return result;
-	// }
+	template <class Ret, class T>
+	DataMemberAdapter<Ret, T> functor (Ret T::*pdm)
+	{
+		DataMemberAdapter<Ret, T> result(pdm);
+		return result;
+	}
 }
 
 #endif // TL_FUNCTOR_HPP

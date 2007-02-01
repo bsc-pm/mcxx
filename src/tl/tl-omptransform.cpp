@@ -76,63 +76,63 @@ namespace TL
                 // Register the handlers (callbacks) for every construction
 
                 // #pragma omp parallel
-                on_parallel_pre.connect(&OpenMPTransform::parallel_preorder, *this);
-                on_parallel_post.connect(&OpenMPTransform::parallel_postorder, *this);
+                on_parallel_pre.connect(functor(&OpenMPTransform::parallel_preorder, *this));
+                on_parallel_post.connect(functor(&OpenMPTransform::parallel_postorder, *this));
 
                 // #pragma omp parallel for
-                on_parallel_for_pre.connect(&OpenMPTransform::parallel_for_preorder, *this);
-                on_parallel_for_post.connect(&OpenMPTransform::parallel_for_postorder, *this);
+                on_parallel_for_pre.connect(functor(&OpenMPTransform::parallel_for_preorder, *this));
+                on_parallel_for_post.connect(functor(&OpenMPTransform::parallel_for_postorder, *this));
 
                 // #pragma omp for
-                on_for_pre.connect(&OpenMPTransform::for_preorder, *this);
-                on_for_post.connect(&OpenMPTransform::for_postorder, *this);
+                on_for_pre.connect(functor(&OpenMPTransform::for_preorder, *this));
+                on_for_post.connect(functor(&OpenMPTransform::for_postorder, *this));
 
                 // #pragma omp parallel sections 
-                on_parallel_sections_pre.connect(&OpenMPTransform::parallel_sections_preorder, *this);
-                on_parallel_sections_post.connect(&OpenMPTransform::parallel_sections_postorder, *this);
+                on_parallel_sections_pre.connect(functor(&OpenMPTransform::parallel_sections_preorder, *this));
+                on_parallel_sections_post.connect(functor(&OpenMPTransform::parallel_sections_postorder, *this));
                 
                 // #pragma omp sections
-                on_sections_pre.connect(&OpenMPTransform::sections_preorder, *this);
-                on_sections_pre.connect(&OpenMPTransform::sections_postorder, *this);
+                on_sections_pre.connect(functor(&OpenMPTransform::sections_preorder, *this));
+                on_sections_pre.connect(functor(&OpenMPTransform::sections_postorder, *this));
                 
                 // #pragma omp section
-                on_section_post.connect(&OpenMPTransform::section_postorder, *this);
+                on_section_post.connect(functor(&OpenMPTransform::section_postorder, *this));
 
                 // #pragma omp barrier
-                on_barrier_post.connect(&OpenMPTransform::barrier_postorder, *this);
+                on_barrier_post.connect(functor(&OpenMPTransform::barrier_postorder, *this));
                 
                 // #pragma omp atomic
-                on_atomic_post.connect(&OpenMPTransform::atomic_postorder, *this);
+                on_atomic_post.connect(functor(&OpenMPTransform::atomic_postorder, *this));
 
                 // #pragma omp ordered
-                on_ordered_post.connect(&OpenMPTransform::ordered_postorder, *this);
+                on_ordered_post.connect(functor(&OpenMPTransform::ordered_postorder, *this));
 
                 // #pragma omp master
-                on_master_post.connect(&OpenMPTransform::master_postorder, *this);
+                on_master_post.connect(functor(&OpenMPTransform::master_postorder, *this));
 
                 // #pragma omp single
-                on_single_post.connect(&OpenMPTransform::single_postorder, *this);
+                on_single_post.connect(functor(&OpenMPTransform::single_postorder, *this));
                 
                 // #pragma omp single
-                on_parallel_single_post.connect(&OpenMPTransform::parallel_single_postorder, *this);
+                on_parallel_single_post.connect(functor(&OpenMPTransform::parallel_single_postorder, *this));
                 
                 // #pragma omp critical
-                on_critical_post.connect(&OpenMPTransform::critical_postorder, *this);
+                on_critical_post.connect(functor(&OpenMPTransform::critical_postorder, *this));
                 
                 // #pragma omp flush
-                on_flush_post.connect(&OpenMPTransform::flush_postorder, *this);
+                on_flush_post.connect(functor(&OpenMPTransform::flush_postorder, *this));
 
                 // #pragma omp threadprivate
-                on_threadprivate_post.connect(&OpenMPTransform::threadprivate_postorder, *this);
+                on_threadprivate_post.connect(functor(&OpenMPTransform::threadprivate_postorder, *this));
 
                 // #pragma omp task
-                on_custom_construct_post["task"].connect(&OpenMPTransform::task_postorder, *this);
+                on_custom_construct_post["task"].connect(functor(&OpenMPTransform::task_postorder, *this));
 
                 // #pragma omp directive taskwait
-                on_custom_construct_post["taskwait"].connect(&OpenMPTransform::taskwait_postorder, *this);
+                on_custom_construct_post["taskwait"].connect(functor(&OpenMPTransform::taskwait_postorder, *this));
                 
                 // #pragma omp directive taskgroup
-                on_custom_construct_post["taskgroup"].connect(&OpenMPTransform::taskgroup_postorder, *this);
+                on_custom_construct_post["taskgroup"].connect(functor(&OpenMPTransform::taskgroup_postorder, *this));
             }
 
             void threadprivate_postorder(OpenMP::ThreadPrivateDirective threadprivate_directive)
