@@ -111,6 +111,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> WHILE
 %token<token_atrib> XOR_ASSIGN
 %token<token_atrib> UNKNOWN_PRAGMA
+%token<token_atrib> CUSTOM_PRAGMA
 
 %token<token_atrib> PP_COMMENT
 
@@ -353,10 +354,6 @@ declaration : block_declaration
 {
 	$$ = $1;
 }
-| PP_COMMENT
-{
-	$$ = ASTLeaf(AST_PP_COMMENT, $1.token_line, $1.token_text);
-}
 ;
 
 block_declaration : simple_declaration
@@ -380,6 +377,10 @@ block_declaration : simple_declaration
 | unknown_pragma
 {
 	$$ = $1;
+}
+| PP_COMMENT
+{
+	$$ = ASTLeaf(AST_PP_COMMENT, $1.token_line, $1.token_text);
 }
 ;
 

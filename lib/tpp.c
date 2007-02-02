@@ -25,6 +25,7 @@
 "  tpp -o output_file [-D define...] [-I directory...] input_file" \
 "\n"
 
+#define MAX_TEXT_LINE 1024
 #define MAX_INCLUDE_NESTING 32
 #define MAX_INCLUDE_DIRS 32
 #define MAX_DEFINES 32
@@ -205,7 +206,7 @@ static void conditional_process(char* input_filename, char* output_filename)
 
     char output_enabled = 1;
     int block_nesting = 0;
-    char buffer[1024];
+    char buffer[MAX_TEXT_LINE];
 
 	FILE* input_stack[MAX_INCLUDE_NESTING];
 	int top_input_stack = 0;
@@ -213,19 +214,19 @@ static void conditional_process(char* input_filename, char* output_filename)
 
 	while (top_input_stack >= 0)
 	{
-		while (fgets(buffer, 1024, input_stack[top_input_stack]) != NULL)
+		while (fgets(buffer, MAX_TEXT_LINE, input_stack[top_input_stack]) != NULL)
 		{
 			regmatch_t offsets[2];
 
 			if (output_enabled 
 					&& (regexec(&include_regex, buffer, 2, offsets, 0) == 0))
 			{
-				char include_name[256] = { 0 };
+				char include_name[MAX_TEXT_LINE] = { 0 };
 
 				int start = offsets[1].rm_so;
 
 				int length = offsets[1].rm_eo - offsets[1].rm_so;
-				length = (length > 255) ? 255 : length;
+				length = (length > (MAX_TEXT_LINE-1)) ? (MAX_TEXT_LINE - 1) : length;
 
 				strncpy(include_name, &(buffer[start]), length);
 
@@ -253,16 +254,18 @@ static void conditional_process(char* input_filename, char* output_filename)
 
 				top_input_stack++;
 				input_stack[top_input_stack] = new_input;
+
+				fprintf(output, "\n");
 			}
 			else if (output_enabled
 					&& (regexec(&define_regex, buffer, 2, offsets, 0) == 0))
 			{
-				char define_name[256] = { 0 };
+				char define_name[MAX_TEXT_LINE] = { 0 };
 
 				int start = offsets[1].rm_so;
 
 				int length = offsets[1].rm_eo - offsets[1].rm_so;
-				length = (length > 255) ? 255 : length;
+				length = (length > (MAX_TEXT_LINE - 1)) ? (MAX_TEXT_LINE - 1) : length;
 
 				strncpy(define_name, &(buffer[start]), length);
 
@@ -287,16 +290,18 @@ static void conditional_process(char* input_filename, char* output_filename)
 					defines[num_defines] = strdup(define_name);
 					num_defines++;
 				}
+
+				fprintf(output, "\n");
 			}
 			else if (output_enabled
 					&& (regexec(&undefine_regex, buffer, 2, offsets, 0) == 0))
 			{
-				char define_name[256] = { 0 };
+				char define_name[MAX_TEXT_LINE] = { 0 };
 
 				int start = offsets[1].rm_so;
 
 				int length = offsets[1].rm_eo - offsets[1].rm_so;
-				length = (length > 255) ? 255 : length;
+				length = (length > (MAX_TEXT_LINE - 1)) ? (MAX_TEXT_LINE - 1) : length;
 
 				strncpy(define_name, &(buffer[start]), length);
 
@@ -322,16 +327,18 @@ static void conditional_process(char* input_filename, char* output_filename)
 					}
 					num_defines--;
 				}
+
+				fprintf(output, "\n");
 			}
 			else if (regexec(&if_regex, buffer, 2, offsets, 0) == 0)
 			{
 				block_nesting++;
-				char define_name[256] = { 0 };
+				char define_name[MAX_TEXT_LINE] = { 0 };
 
 				int start = offsets[1].rm_so;
 
 				int length = offsets[1].rm_eo - offsets[1].rm_so;
-				length = (length > 255) ? 255 : length;
+				length = (length > (MAX_TEXT_LINE - 1)) ? (MAX_TEXT_LINE - 1) : length;
 
 				strncpy(define_name, &(buffer[start]), length);
 
@@ -353,16 +360,18 @@ static void conditional_process(char* input_filename, char* output_filename)
 						output_enabled = 0;
 					}
 				}
+
+				fprintf(output, "\n");
 			}
 			else if (regexec(&ifnot_regex, buffer, 2, offsets, 0) == 0)
 			{
 				block_nesting++;
-				char define_name[256];
+				char define_name[MAX_TEXT_LINE];
 
 				int start = offsets[1].rm_so;
 
 				int length = offsets[1].rm_eo - offsets[1].rm_so;
-				length = (length > 255) ? 255 : length;
+				length = (length > (MAX_TEXT_LINE - 1)) ? (MAX_TEXT_LINE - 1) : length;
 
 				strncpy(define_name, &(buffer[start]), length);
 
@@ -384,6 +393,8 @@ static void conditional_process(char* input_filename, char* output_filename)
 						output_enabled = 0;
 					}
 				}
+
+				fprintf(output, "\n");
 			}
 			else if (regexec(&endif_regex, buffer, 0, NULL, 0) == 0)
 			{
@@ -393,10 +404,16 @@ static void conditional_process(char* input_filename, char* output_filename)
 				{
 					output_enabled = 1;
 				}
+
+				fprintf(output, "\n");
 			}
 			else if (output_enabled)
 			{
 				fprintf(output, "%s", buffer);
+			}
+			else if (!output_enabled)
+			{
+				fprintf(output, "\n");
 			}
 		}
 

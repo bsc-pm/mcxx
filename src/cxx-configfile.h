@@ -17,6 +17,7 @@ option_function_t config_set_compiler_options;
 option_function_t config_set_linker_name;
 option_function_t config_set_linker_options;
 option_function_t config_add_compiler_phase;
+option_function_t config_add_preprocessor_prefix;
 
 MCXX_END_DECLS
 

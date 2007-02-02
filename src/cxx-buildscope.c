@@ -384,6 +384,11 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
                 build_scope_gcc_asm_definition(a, st, decl_context);
                 break;
             }
+		case AST_PP_COMMENT :
+			{
+				// Ignore this, it is a prettyprinted comment
+				break;
+			}
         default :
             {
                 internal_error("A declaration of kind '%s' is still unsupported (%s)\n", 

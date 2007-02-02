@@ -112,9 +112,11 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 %x longcomment
 %x linecomment
 %x preprocess
+%x pragma_line
 %x openmp_directive
 %x openmp_clause
 %x openmp_default
+%x unknown_pragma
 
 %s openmp_var_list
 %s openmp_schedule
@@ -126,15 +128,78 @@ binary_exponent_part ([pP]([+-])?{digit}+)
     BEGIN(preprocess); 
 }
 
-<preprocess>[ ]*pragma[ ]+omp/[ ][^\n]* {
-	// Handle OpenMP pragmas
-	if (compilation_options.disable_openmp)
+<preprocess>[ ]*pragma[ ]+ {
+	BEGIN(pragma_line);
+}
+
+<pragma_line>{idnondigit}({idnondigit}|{digit})* {
+	// Unknown pragmas
+	int i;
+	char found = 0;
+
+	char matched = 0;
+
+	// OpenMP
+	if (strcmp(yytext, "omp") == 0)
 	{
-		// Ignore this if OpenMP is disabled
-		REJECT;
+		if (compilation_options.disable_openmp)
+		{
+			fprintf(stderr, "Ignoring OpenMP directive at %s:%d\n",
+					scanning_now.current_filename,
+					scanning_now.line_number);
+			matched = 1;
+			BEGIN(unknown_pragma);
+			yymore();
+		}
+		else
+		{
+			BEGIN(openmp_directive);
+			return OMP_PRAGMA;
+		}
 	}
-	BEGIN(openmp_directive);
-	return OMP_PRAGMA;
+
+	// Ignore gcc
+	if (!matched && strcasecmp(yytext, "gcc") == 0)
+	{
+		BEGIN(unknown_pragma);
+		yymore();
+		matched = 1;
+	}
+
+	if (!matched)
+	{
+		for (i = 0; i < compilation_options.num_custom_pragma_prefix; i++)
+		{
+			found |= (strcmp(yytext, compilation_options.custom_pragma_prefix[i]) == 0);
+		}
+
+		if (!found)
+		{
+			fprintf(stderr, "Warning, unknown '#pragma %s' at %s:%d\n", 
+					yytext,
+					scanning_now.current_filename,
+					scanning_now.line_number);
+			BEGIN(unknown_pragma);
+			// Ignore this prefix as an unknown pragma
+			yymore();
+			matched = 1;
+		}
+		else
+		{
+			BEGIN(openmp_directive);
+			return CUSTOM_PRAGMA;
+		}
+	}
+}
+
+<unknown_pragma>{
+
+[^\n]+ {
+	parse_token_text();
+	BEGIN(preprocess);
+	return UNKNOWN_PRAGMA;
+}
+
 }
 
 <openmp_directive>{
@@ -482,22 +547,6 @@ runtime {
 
 }
 
-<preprocess>[ ]*pragma[ ]+[Gg][Cc][Cc][ ]+[^\n]* {
- // Handle unknown pragmas from gcc but do not warn people as they may be
- // mandatory in gcc headers
- parse_token_text();
- return UNKNOWN_PRAGMA;
-}
-
-<preprocess>[ ]*pragma[^\n]* {
- // Handle *really* unknown pragmas
- fprintf(stderr, "Warning, unknown '#%s' at %s:%d\n", 
-		 yytext,
-		 scanning_now.current_filename,
-		 scanning_now.line_number);
- parse_token_text();
- return UNKNOWN_PRAGMA;
-}
 <preprocess>[ ]{digit}+[ ]+["][^"]+["][^\n]* {
 	char* directive = yytext;
 

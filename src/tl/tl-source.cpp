@@ -397,4 +397,23 @@ namespace TL
 		result = "@-C-@" + str + "@-CC-@";
 		return result;
 	}
+
+	std::string to_string(const ObjectList<std::string>& t, const std::string& separator)
+	{
+		std::string result;
+
+		for (ObjectList<std::string>::const_iterator it = t.begin();
+				it != t.end();
+				it++)
+		{
+			if (it != t.begin())
+			{
+				result = result + separator;
+			}
+
+			result = result + (*it);
+		}
+
+		return result;
+	}
 }

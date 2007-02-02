@@ -128,6 +128,28 @@ namespace TL
 	};
 
 	std::string comment(const std::string& str);
+
+	template <class T>
+	std::string to_string(const ObjectList<T>& t, Functor<std::string, T>& to_str, const std::string& separator = "")
+	{
+		std::string result;
+
+		for (typename ObjectList<T>::const_iterator it = t.begin();
+				it != t.end();
+				it++)
+		{
+			if (it != t.begin())
+			{
+				result = result + separator;
+			}
+
+			result = result + to_str(*it);
+		}
+
+		return result;
+	}
+
+	std::string to_string(const ObjectList<std::string>& t, const std::string& separator = "");
 }
 
 #endif // TL_SOURCE_T_HPP

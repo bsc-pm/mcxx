@@ -1575,6 +1575,7 @@ namespace TL
 
                     // now get the code that declares this reduction vector
                     reduction_vectors
+						<< comment("Reduction vector for '" + it->get_id_expression().prettyprint() + "'")
                         << reduction_vector_type.get_declaration(it->get_id_expression().get_scope(), 
                                 reduction_vector_name) << ";";
                 }
@@ -1724,6 +1725,7 @@ namespace TL
                 Source reduction_gathering;
 
                 reduction_code
+					<< comment("Reduction implemented with a spin lock since this construct is orphaned")
                     << "{"
                     <<    "static nth_word_t default_mutex;"
 //                    <<    "extern nthf_spin_lock_(void*);"
@@ -1780,6 +1782,7 @@ namespace TL
                 Source reduction_gathering;
 
                 reduction_code
+					<< comment("Reduction code noncritical performed after the join")
                     << "int rdv_i;"
                     << "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
                     << "{"
@@ -1837,6 +1840,7 @@ namespace TL
                 Source reduction_gathering;
 
                 reduction_code
+					<< comment("Inlined reduction code since this construct is not orphaned")
                     << reduction_update
 //                    << "extern void in__tone_barrier_();"
 //                    << "extern char in__tone_is_master_();"
@@ -2180,8 +2184,13 @@ namespace TL
                         instrumentation_code_after, 
                         function_definition,
                         construct_body);
+
+				// Debug information
+				Source comment = debug_parameter_info(
+						parameter_info_list);
                 
                 parallel_body 
+					<< comment
                     << private_declarations
                     << instrumentation_code_before
                     << modified_parallel_body_stmt.prettyprint()
@@ -2712,7 +2721,7 @@ namespace TL
                         continue;
 
                     Symbol symbol = it->get_symbol();
-                    Type type = convert_array_to_pointer(symbol.get_type());
+                    Type type = symbol.get_type();
 
                     Type pointer_type = type.get_pointer_to();
 
@@ -2739,7 +2748,7 @@ namespace TL
                         it++)
                 {
                     Symbol symbol = it->get_symbol();
-                    Type type = convert_array_to_pointer(symbol.get_type());
+                    Type type = symbol.get_type();
 
                     Type pointer_type = type.get_pointer_to();
 
@@ -2755,7 +2764,7 @@ namespace TL
                         it++)
                 {
                     Symbol symbol = it->get_symbol();
-                    Type type = convert_array_to_pointer(symbol.get_type());
+                    Type type = symbol.get_type();
 
                     Type pointer_type = type.get_pointer_to();
 
@@ -2772,7 +2781,7 @@ namespace TL
                 {
                     IdExpression id_expr = it->get_id_expression();
                     Symbol symbol = id_expr.get_symbol();
-                    Type type = convert_array_to_pointer(symbol.get_type());
+                    Type type = symbol.get_type();
 
                     Type pointer_type = type.get_pointer_to();
 
@@ -2788,7 +2797,7 @@ namespace TL
                         it++)
                 {
                     Symbol symbol = it->get_symbol();
-                    Type type = convert_array_to_pointer(symbol.get_type());
+                    Type type = symbol.get_type();
 
                     Type pointer_type = type.get_pointer_to();
 
@@ -2802,7 +2811,7 @@ namespace TL
                         it++)
                 {
                     Symbol symbol = it->get_symbol();
-                    Type type = convert_array_to_pointer(symbol.get_type());
+                    Type type = symbol.get_type();
 
                     Type pointer_type = type.get_pointer_to();
 
@@ -2981,6 +2990,8 @@ namespace TL
                     Symbol sym = it->get_symbol();
                     Type type = sym.get_type();
 
+					private_declarations << 
+						comment("Private entity : '" + it->mangle_id_expression() + "'");
                     private_declarations
                         << type.get_declaration(
                                 it->get_scope(),
@@ -3001,6 +3012,9 @@ namespace TL
 
                     initializer_value << "(*flp_" << it->prettyprint() << ")";
 
+					private_declarations << 
+						comment("Firstprivate entity : 'p_" + it->mangle_id_expression() + "'");
+
                     if (type.is_array())
                     {
                         // Both in C and C++ the firstprivatized array must be properly copied
@@ -3010,6 +3024,9 @@ namespace TL
                                     "p_" + it->mangle_id_expression())
                             << ";"
                             ;
+
+						private_declarations 
+							<< comment("This firstprivate entity is an array and must be initialized element-wise");
 
                         Source array_assignment = array_copy(type, "p_" + it->mangle_id_expression(),
                                 initializer_value.get_source(), 0);
@@ -3026,6 +3043,7 @@ namespace TL
                                         it->get_scope(),
                                         "p_" + it->mangle_id_expression())
                                 << ";"
+								<< comment("Using plain assignment to initialize firstprivate entity")
                                 << "p_" + it->mangle_id_expression() << "=" << initializer_value.get_source() << ";"
                                 ;
                         }
@@ -3035,6 +3053,7 @@ namespace TL
                             if (type.is_class())
                             {
                                 private_declarations 
+									<< comment("Using copy constructor to initialize firstprivate entity")
                                     << type.get_declaration(
                                             it->get_scope(),
                                             "p_" + it->mangle_id_expression())
@@ -3050,6 +3069,7 @@ namespace TL
                                             it->get_scope(),
                                             "p_" + it->mangle_id_expression())
                                     << ";"
+									<< comment("Using assignment operator to initialize firstprivate entity")
                                     << "p_" + it->mangle_id_expression() << "=" << initializer_value.get_source() << ";"
                                     ;
                             }
@@ -3066,6 +3086,7 @@ namespace TL
                     Type type = sym.get_type();
 
                     private_declarations
+						<< comment("Lastprivate entity : 'p_" + it->mangle_id_expression() + "'")
                         << type.get_declaration(
                                 it->get_scope(),
                                 "p_" + it->mangle_id_expression())
@@ -3083,6 +3104,7 @@ namespace TL
                     Type type = sym.get_type();
                     
                     private_declarations
+						<< comment("Reduction private entity : 'rdp_" + id_expr.mangle_id_expression() + "'")
                         << type.get_declaration_with_initializer(
                                 id_expr.get_scope(),
                                 "rdp_" + id_expr.mangle_id_expression(),
@@ -3097,6 +3119,7 @@ namespace TL
                         it++)
                 {
                     private_declarations
+						<< comment("Initializing copyin entity '" + it->prettyprint() + "'")
                         << it->prettyprint() << " = " << "(*cin_" + it->mangle_id_expression() << ");"
                         ;
                 }
@@ -3118,12 +3141,16 @@ namespace TL
                     Symbol symbol = it->get_symbol();
                     Type type = symbol.get_type();
 
+					lastprivate_assignments
+						<< comment("Assignment of lastprivate entity: 'flp_" + it->mangle_id_expression() + "'");
+
                     if (type.is_array())
                     {
                         Source array_assignment = array_copy(type, "(*flp_" + it->mangle_id_expression() + ")",
                                 "p_" + it->mangle_id_expression(), 0);
 
                         lastprivate_assignments 
+							<< comment("Entity is an array and must be assigned element-wise")
                             << array_assignment;
                     }
                     else
@@ -3140,6 +3167,7 @@ namespace TL
                         it++)
                 {
                     lastprivate_assignments
+						<< comment("Assignment of copyprivate entity 'cout_" + it->mangle_id_expression() + "'")
                         << "(*cout_" << it->mangle_id_expression() << ")" << " = p_" << it->mangle_id_expression() << ";"
                         ;
                 }
@@ -3228,28 +3256,6 @@ namespace TL
                 return result;
             }
 
-            Type convert_array_to_pointer(Type type)
-            {
-                if (type.is_array())
-                {
-                    // Get the element type
-                    Type element_type = type.array_element();
-
-                    // Convert if needed into a pointer
-                    Type temporal_type = convert_array_to_pointer(element_type);
-
-                    // And get a pointer to
-                    temporal_type = temporal_type.get_pointer_to();
-
-                    return temporal_type;
-                }
-                else 
-                {
-                    // If this is not an array nothing has to be done
-                    return type;
-                }
-            }
-
             bool is_function_accessible(IdExpression id_expression, 
                     FunctionDefinition function_definition)
             {
@@ -3305,6 +3311,40 @@ namespace TL
     
                 return id_expr;
             }
+
+			Source debug_parameter_info(
+                    ObjectList<ParameterInfo> parameter_info_list)
+			{
+				std::stringstream info;
+
+				info << "Parameter information: " << std::endl;
+
+				for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+						it != parameter_info_list.end();
+						it++)
+				{
+					info << "'" << it->name << "' ";
+
+					if (it->kind == ParameterInfo::BY_VALUE)
+					{
+						info << "Passed by value (private pointer). ";
+					}
+					else if (it->kind == ParameterInfo::BY_POINTER)
+					{
+						info << "Passed by reference (global pointer). ";
+					}
+
+					info << "Original type: " 
+						<< it->type.get_declaration(it->id_expression.get_scope(), "") << ". ";
+
+					info << "Related id-expression: " 
+						<< it->id_expression.get_ast().get_locus() << ". ";
+
+					info << std::endl;
+				}
+
+				return comment(info.str());
+			}
     };
 
 }

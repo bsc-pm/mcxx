@@ -137,6 +137,8 @@ HANDLER_PROTOTYPE(designation_handler);
 HANDLER_PROTOTYPE(index_designator_handler);
 HANDLER_PROTOTYPE(field_designator_handler);
 
+HANDLER_PROTOTYPE(pp_comment_handler);
+
 // OpenMP
 HANDLER_PROTOTYPE(omp_generic_construct_handler);
 HANDLER_PROTOTYPE(omp_generic_clause_handler_with_expression);
@@ -471,6 +473,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_INDEX_DESIGNATOR, index_designator_handler, NULL),
     NODE_HANDLER(AST_FIELD_DESIGNATOR, field_designator_handler, NULL),
     NODE_HANDLER(AST_UNKNOWN_PRAGMA, unknown_pragma_handler, NULL),
+	NODE_HANDLER(AST_PP_COMMENT, pp_comment_handler, NULL),
 	// OpenMP 2.5
 	NODE_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, omp_generic_construct_handler, NULL),
 	NODE_HANDLER(AST_OMP_PARALLEL_DIRECTIVE, omp_generic_directive_handler, "parallel"),
@@ -2240,8 +2243,51 @@ static void field_designator_handler(FILE* f, AST a, int level)
 
 static void unknown_pragma_handler(FILE* f, AST a, int level)
 {
-    token_fprintf(f, a, "#");
+    token_fprintf(f, a, "#pragma ");
     token_fprintf(f, a, "%s\n", ASTText(a));
+}
+
+static void pp_comment_handler(FILE* f, AST a, int level)
+{
+	char* text = ASTText(a);
+
+	char* end = text + strlen(text) - strlen("@-CC-@");
+
+	// The whole text
+	char* current_start = text + strlen("@-C-@");
+	char* current_end;
+
+	do
+	{
+		// Look for the first '\n'
+		current_end = strchr(current_start, '\n');
+
+		// If not found use the NULL character
+		if (current_end == NULL)
+		{
+			current_end = end;
+		}
+
+		// Now replace the end with an ending character
+		char temp = *current_end;
+		*current_end = '\0';
+
+		indent_at_level(f, a, level);
+		C_LANGUAGE()
+		{
+			token_fprintf(f, a, "/* %s */\n", current_start);
+		}
+		CXX_LANGUAGE()
+		{
+			token_fprintf(f, a, "// %s\n", current_start);
+		}
+
+		// And restore the modified character
+		*current_end = temp;
+		// The next string starts after the current end
+		current_start = current_end + 1;
+	}
+	while (current_end != end);
 }
 
 static void gcc_label_declaration_handler(FILE* f, AST a, int level)

@@ -149,6 +149,10 @@ typedef struct compilation_options_tag
 	int num_compiler_phases;
 	char** compiler_phases;
 
+	// Pragma prefixes
+	int num_custom_pragma_prefix;
+	char** custom_pragma_prefix;
+
 	// External vars for compiler pipeline
 	int num_external_vars;
 	external_var_t** external_vars;

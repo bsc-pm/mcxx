@@ -88,3 +88,23 @@ int config_add_compiler_phase(char* value)
 
 	return 0;
 }
+
+int config_add_preprocessor_prefix(char* value)
+{
+	if (strcasecmp(value, "gcc") == 0)
+	{
+		fprintf(stderr, "gcc is a reserved pragma prefix\n");
+		return 1;
+	}
+	if (strcasecmp(value, "omp") == 0)
+	{
+		fprintf(stderr, "omp is a reserved pragma prefix\n");
+		return 1;
+	}
+
+	P_LIST_ADD(compilation_options.custom_pragma_prefix,
+			compilation_options.num_custom_pragma_prefix,
+			value);
+
+	return 0;
+}
