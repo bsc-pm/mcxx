@@ -194,7 +194,7 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 
 <unknown_pragma>{
 
-[^\n]+ {
+[^\n]* {
 	parse_token_text();
 	BEGIN(preprocess);
 	return UNKNOWN_PRAGMA;
