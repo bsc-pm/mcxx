@@ -141,7 +141,6 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> WHILE
 %token<token_atrib> XOR_ASSIGN
 %token<token_atrib> UNKNOWN_PRAGMA
-%token<token_atrib> CUSTOM_PRAGMA
 
 %token<token_atrib> PP_COMMENT
 
@@ -372,6 +371,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 
 /*!define GRAMMAR_PROLOGUE*/
 /*!include cxx-omp.y*/
+/*!include cxx-pragma.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
 
 %type<ast> subparsing
@@ -464,7 +464,12 @@ declaration : block_declaration
 {
 	$$ = $1;
 }
-| custom_directive
+| omp_custom_directive
+{
+	$$ = $1;
+}
+// Custom pragma
+| pragma_custom_directive
 {
 	$$ = $1;
 }
@@ -2486,6 +2491,11 @@ no_if_statement : labeled_statement
 {
 	$$ = $1;
 }
+/* Generic pragma */
+| pragma_custom_construct
+{
+	$$ = $1;
+}
 ;
 
 labeled_statement : IDENTIFIER ':' statement
@@ -4366,6 +4376,7 @@ string_literal : STRING_LITERAL
 
 /*!define GRAMMAR_RULES*/
 /*!include cxx-omp.y*/
+/*!include cxx-pragma.y*/
 /*!undefine GRAMMAR_RULES*/
 
 %%

@@ -43,6 +43,8 @@ static int omp_var_list_parentheses = 0;
 static int omp_schedule_parentheses = 0;
 static char omp_seen_schedule_kind = 0;
 
+static int pragma_custom_var_list_parentheses = 0;
+
 static int num_new_lines(char* c)
 {
     int result = 0;
@@ -117,9 +119,13 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 %x openmp_clause
 %x openmp_default
 %x unknown_pragma
+%x pragma_custom_directive
+%x pragma_custom_clause
+
 
 %s openmp_var_list
 %s openmp_schedule
+%s pragma_custom_var_list
 
 %%
  /* preprocess */
@@ -154,6 +160,7 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 		else
 		{
 			BEGIN(openmp_directive);
+			parse_token_text();
 			return OMP_PRAGMA;
 		}
 	}
@@ -168,9 +175,9 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 
 	if (!matched)
 	{
-		for (i = 0; i < compilation_options.num_custom_pragma_prefix; i++)
+		for (i = 0; i < compilation_options.num_pragma_custom_prefix; i++)
 		{
-			found |= (strcmp(yytext, compilation_options.custom_pragma_prefix[i]) == 0);
+			found |= (strcmp(yytext, compilation_options.pragma_custom_prefix[i]) == 0);
 		}
 
 		if (!found)
@@ -186,8 +193,9 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 		}
 		else
 		{
-			BEGIN(openmp_directive);
-			return CUSTOM_PRAGMA;
+			BEGIN(pragma_custom_directive);
+			parse_token_text();
+			return PRAGMA_CUSTOM;
 		}
 	}
 }
@@ -295,6 +303,68 @@ threadprivate {
 	BEGIN(openmp_clause);
 	parse_token_text(); 
 	return OMP_CUSTOM_DIRECTIVE; 
+}
+
+}
+
+<pragma_custom_directive>{
+
+{idnondigit}({idnondigit}|{digit})* {
+	BEGIN(pragma_custom_clause);
+	parse_token_text(); 
+	return PRAGMA_CUSTOM_DIRECTIVE; 
+}
+
+}
+
+<pragma_custom_clause>{
+
+\n {
+    scanning_now.line_number++;
+	BEGIN(INITIAL);
+	return PRAGMA_CUSTOM_NEWLINE;
+}
+
+{idnondigit}({idnondigit}|{digit})* {
+	// Special case for custom clauses
+	BEGIN(pragma_custom_var_list);
+	parse_token_text(); 
+	return PRAGMA_CUSTOM_CLAUSE; 
+}
+
+}
+
+<pragma_custom_var_list>{
+
+[(] {
+	parse_token_text();
+	pragma_custom_var_list_parentheses++;
+	return '(';
+}
+
+[)] {
+	parse_token_text();
+	pragma_custom_var_list_parentheses--;
+	if (pragma_custom_var_list_parentheses == 0)
+	{
+		BEGIN(pragma_custom_clause);
+	}
+	return ')';
+}
+
+{idnondigit}({idnondigit}|{digit})* {
+	// Special case for custom clauses 
+	if (pragma_custom_var_list_parentheses == 0)
+	{
+		BEGIN(pragma_custom_clause);
+		parse_token_text(); 
+		return PRAGMA_CUSTOM_CLAUSE; 
+	}
+	else
+	{
+		// This will fallback to normal lexing
+		REJECT;
+	}
 }
 
 }

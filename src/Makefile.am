@@ -85,6 +85,7 @@ EXTRA_DIST += cxx-attrnames.def
 EXTRA_DIST += c99.y.in
 EXTRA_DIST += cxx03.y.in
 EXTRA_DIST += cxx-omp.y
+EXTRA_DIST += cxx-pragma.y
 
 # Sources (or things needed) built at some step before its real compilation
 BUILT_SOURCES += cxx-asttype.h 
@@ -234,10 +235,10 @@ c99-scanner.c : c99.l $(srcdir)/cxx-ast.h c99-parser.h
 c99.l : ../lib/tpp $(srcdir)/cxx-lexer.l
 	../lib/tpp -o c99.l -D C99 $(srcdir)/cxx-lexer.l
 
-c99.y : ../lib/tpp $(srcdir)/c99.y.in $(srcdir)/cxx-omp.y
+c99.y : ../lib/tpp $(srcdir)/c99.y.in $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y
 	../lib/tpp -o c99.y -I$(srcdir) $(srcdir)/c99.y.in
 
-cxx03.y : ../lib/tpp $(srcdir)/cxx03.y.in $(srcdir)/cxx-omp.y
+cxx03.y : ../lib/tpp $(srcdir)/cxx03.y.in $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y
 	../lib/tpp -o cxx03.y -I$(srcdir) $(srcdir)/cxx03.y.in
 
 ../lib/tpp :

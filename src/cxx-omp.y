@@ -125,13 +125,13 @@
 
 %type<ast> user_defined_reduction
 
-%type<ast> custom_construct
-%type<ast> custom_construct_directive
-%type<ast> custom_directive
-%type<ast> custom_clause_opt_seq
-%type<ast> custom_clause_seq
-%type<ast> custom_parameter_clause
-%type<ast> custom_clause
+%type<ast> omp_custom_construct
+%type<ast> omp_custom_construct_directive
+%type<ast> omp_custom_directive
+%type<ast> omp_custom_clause_opt_seq
+%type<ast> omp_custom_clause_seq
+%type<ast> omp_custom_parameter_clause
+%type<ast> omp_custom_clause
 /*!endif*/
 /*!if GRAMMAR_RULES*/
 /* OpenMP 2.5 grammar rules */
@@ -185,11 +185,11 @@ openmp_construct : parallel_construct
 {
 	$$ = $1;
 }
-| custom_directive
+| omp_custom_directive
 {
 	$$ = $1;
 }
-| custom_construct
+| omp_custom_construct
 {
 	$$ = $1;
 }
@@ -206,60 +206,60 @@ openmp_directive : barrier_directive
 ;
 
 // Custom OpenMP support
-custom_directive : OMP_PRAGMA OMP_DIRECTIVE_TOKEN OMP_CUSTOM_DIRECTIVE custom_clause_opt_seq OMP_NEWLINE
+omp_custom_directive : OMP_PRAGMA OMP_DIRECTIVE_TOKEN OMP_CUSTOM_DIRECTIVE omp_custom_clause_opt_seq OMP_NEWLINE
 {
 	$$ = ASTMake1(AST_OMP_CUSTOM_DIRECTIVE, $4, $1.token_line, $3.token_text);
 }
 ;
 
-custom_construct : custom_construct_directive structured_block
+omp_custom_construct : omp_custom_construct_directive structured_block
 {
 	$$ = ASTMake2(AST_OMP_CUSTOM_CONSTRUCT, $1, $2, ASTLine($1), NULL);
 }
 ;
 
-custom_construct_directive : OMP_PRAGMA OMP_CUSTOM_DIRECTIVE custom_clause_opt_seq OMP_NEWLINE
+omp_custom_construct_directive : OMP_PRAGMA OMP_CUSTOM_DIRECTIVE omp_custom_clause_opt_seq OMP_NEWLINE
 {
 	$$ = ASTMake1(AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE, $3, $1.token_line, $2.token_text);
 }
-| OMP_PRAGMA OMP_CONSTRUCT_TOKEN OMP_CUSTOM_DIRECTIVE custom_clause_opt_seq OMP_NEWLINE
+| OMP_PRAGMA OMP_CONSTRUCT_TOKEN OMP_CUSTOM_DIRECTIVE omp_custom_clause_opt_seq OMP_NEWLINE
 {
 	$$ = ASTMake1(AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE, $4, $1.token_line, $3.token_text);
 }
 ;
 
-custom_clause_opt_seq : /* empty */
+omp_custom_clause_opt_seq : /* empty */
 {
 	$$ = NULL;
 }
-| custom_clause_seq
+| omp_custom_clause_seq
 {
 	$$ = $1;
 }
 ;
 
 // I think this is the more general
-custom_clause_seq : parallel_for_clause
+omp_custom_clause_seq : parallel_for_clause
 {
 	$$ = ASTListLeaf($1);
 }
-| custom_parameter_clause
+| omp_custom_parameter_clause
 {
 	$$ = ASTListLeaf($1);
 }
-| custom_clause_seq parallel_for_clause
+| omp_custom_clause_seq parallel_for_clause
 {
 	$$ = ASTList($1, $2);
 }
 ;
 
-custom_parameter_clause : '(' expression_list ')'
+omp_custom_parameter_clause : '(' expression_list ')'
 {
 	$$ = ASTMake1(AST_OMP_CUSTOM_PARAMETER_CLAUSE, $2, $1.token_line, NULL);
 }
 ;
 
-custom_clause : OMP_CUSTOM_CLAUSE '(' expression_list ')'
+omp_custom_clause : OMP_CUSTOM_CLAUSE '(' expression_list ')'
 {
 	$$ = ASTMake1(AST_OMP_CUSTOM_CLAUSE, $3, $1.token_line, $1.token_text);
 }
@@ -323,7 +323,7 @@ parallel_clause : unique_parallel_clause
 {
 	$$ = $1;
 }
-| custom_clause
+| omp_custom_clause
 {
 	$$ = $1;
 }
@@ -387,7 +387,7 @@ for_clause : unique_for_clause
 {
 	$$ = $1;
 }
-| custom_clause
+| omp_custom_clause
 {
 	$$ = $1;
 }
@@ -469,7 +469,7 @@ sections_clause : data_clause
 {
 	$$ = $1;
 }
-| custom_clause
+| omp_custom_clause
 {
 }
 ;
@@ -556,7 +556,7 @@ parallel_single_clause : data_clause
 {
 	$$ = $1;
 }
-| custom_clause
+| omp_custom_clause
 {
 	$$ = $1;
 }
@@ -606,7 +606,7 @@ single_clause : data_clause
 {
 	$$ = $1;
 }
-| custom_clause
+| omp_custom_clause
 {
 	$$ = $1;
 }
@@ -660,7 +660,7 @@ parallel_for_clause : unique_parallel_clause
 {
 	$$ = $1;
 }
-| custom_clause
+| omp_custom_clause
 {
 	$$ = $1;
 }
@@ -710,7 +710,7 @@ parallel_sections_clause : unique_parallel_clause
 {
 	$$ = $1;
 }
-| custom_clause
+| omp_custom_clause
 {
 	$$ = $1;
 }

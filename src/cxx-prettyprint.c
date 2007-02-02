@@ -139,6 +139,12 @@ HANDLER_PROTOTYPE(field_designator_handler);
 
 HANDLER_PROTOTYPE(pp_comment_handler);
 
+// Pragma custom support
+HANDLER_PROTOTYPE(pragma_custom_directive_handler);
+HANDLER_PROTOTYPE(pragma_custom_construct_handler);
+HANDLER_PROTOTYPE(pragma_custom_clause_handler);
+HANDLER_PROTOTYPE(pragma_custom_line_handler);
+
 // OpenMP
 HANDLER_PROTOTYPE(omp_generic_construct_handler);
 HANDLER_PROTOTYPE(omp_generic_clause_handler_with_expression);
@@ -474,6 +480,11 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_FIELD_DESIGNATOR, field_designator_handler, NULL),
     NODE_HANDLER(AST_UNKNOWN_PRAGMA, unknown_pragma_handler, NULL),
 	NODE_HANDLER(AST_PP_COMMENT, pp_comment_handler, NULL),
+	// Pragma custom
+	NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
+	NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
+	NODE_HANDLER(AST_PRAGMA_CUSTOM_CLAUSE, pragma_custom_clause_handler, NULL),
+	NODE_HANDLER(AST_PRAGMA_CUSTOM_LINE, pragma_custom_line_handler, NULL),
 	// OpenMP 2.5
 	NODE_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, omp_generic_construct_handler, NULL),
 	NODE_HANDLER(AST_OMP_PARALLEL_DIRECTIVE, omp_generic_directive_handler, "parallel"),
@@ -2288,6 +2299,37 @@ static void pp_comment_handler(FILE* f, AST a, int level)
 		current_start = current_end + 1;
 	}
 	while (current_end != end);
+}
+
+static void pragma_custom_line_handler(FILE* f, AST a, int level)
+{
+	token_fprintf(f, a, "%s ", ASTText(a));
+	prettyprint_level(f, ASTSon0(a), level);
+	token_fprintf(f, a, "\n");
+}
+
+static void pragma_custom_directive_handler(FILE* f, AST a, int level)
+{
+	token_fprintf(f, a, "#pragma %s ", ASTText(a));
+	prettyprint_level(f, ASTSon0(a), level);
+}
+
+static void pragma_custom_construct_handler(FILE* f, AST a, int level)
+{
+	token_fprintf(f, a, "#pragma %s ", ASTText(a));
+	prettyprint_level(f, ASTSon0(a), level);
+	prettyprint_level(f, ASTSon1(a), level);
+}
+
+static void pragma_custom_clause_handler(FILE* f, AST a, int level)
+{
+	token_fprintf(f, a, "%s", ASTText(a));
+	if (ASTSon0(a) != NULL)
+	{
+		token_fprintf(f, a, "(");
+		list_handler(f, ASTSon0(a), level);
+		token_fprintf(f, a, ")");
+	}
 }
 
 static void gcc_label_declaration_handler(FILE* f, AST a, int level)

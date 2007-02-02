@@ -102,8 +102,8 @@ int config_add_preprocessor_prefix(char* value)
 		return 1;
 	}
 
-	P_LIST_ADD(compilation_options.custom_pragma_prefix,
-			compilation_options.num_custom_pragma_prefix,
+	P_LIST_ADD(compilation_options.pragma_custom_prefix,
+			compilation_options.num_pragma_custom_prefix,
 			value);
 
 	return 0;
