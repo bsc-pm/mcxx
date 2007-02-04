@@ -88,6 +88,12 @@ namespace TL
 		// Instantiate a DepthTraverse
 		DepthTraverse depth_traverse;
 
+		PredicateBool<LANG_IS_PRAGMA_CUSTOM_DIRECTIVE> pragma_custom_directive_pred;
+		PredicateBool<LANG_IS_PRAGMA_CUSTOM_CONSTRUCT> pragma_custom_construct_pred;
+
+		depth_traverse.add_predicate(pragma_custom_directive_pred, _pragma_dispatcher);
+		depth_traverse.add_predicate(pragma_custom_construct_pred, _pragma_dispatcher);
+
 		depth_traverse.traverse(translation_unit, scope_link);
 	}
 }

@@ -29,7 +29,7 @@ namespace TL
 
 	typedef std::map<std::string, Signal1<PragmaCustomConstruct> > CustomFunctorMap;
 
-	class PragmaDispatcher : TraverseFunctor
+	class PragmaDispatcher : public TraverseFunctor
 	{
 		private:
 			std::string _pragma_handled;
