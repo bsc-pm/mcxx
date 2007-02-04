@@ -53,8 +53,10 @@ libtl_la_SOURCES = \
 	tl-externalvars.cpp \
 	tl-handler.hpp \
 	tl-handler.cpp \
+	tl-pragmasupport.hpp \
+	tl-pragmasupport.cpp \
 	tl-omp.hpp \
-	tl-omp.cpp 
+	tl-omp.cpp
 
 libtlomp_la_CXXFLAGS = -Wall -O0 \
     -I $(srcdir)/../../src \

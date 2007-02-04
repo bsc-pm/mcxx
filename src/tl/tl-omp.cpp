@@ -69,7 +69,7 @@ namespace TL
 
 			TL::String directive_name = directive.get_attribute(OMP_CUSTOM_DIRECTIVE_NAME);
 
-			// Find this directive in custom preorder map
+			// Find this directive in custom map
 			if (search_map.find(directive_name) != search_map.end())
 			{
 				// Invoke its functor if found
@@ -84,7 +84,7 @@ namespace TL
 				{
 					if (_custom_functor_post.find(directive_name) == _custom_functor_post.end())
 					{
-						std::cerr << "Custom construct '" << directive_name << "' in " 
+						std::cerr << "Custom OpenMP construct '" << directive_name << "' in " 
 							<< node.get_locus() << " is not currently handled" << std::endl;
 					}
 				}

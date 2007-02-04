@@ -6477,6 +6477,62 @@ static void build_scope_omp_critical_construct(AST a, scope_t* st, decl_context_
 	ASTAttrSetValueType(a, OMP_IS_CRITICAL_CONSTRUCT, tl_type_t, tl_bool(1));
 }
 
+static void build_scope_pragma_custom_clause(AST a, scope_t* st, decl_context_t decl_context)
+{
+	AST list, iter;
+
+	list = ASTSon0(a);
+
+	for_each_element(list, iter)
+	{
+		AST expression = ASTSon1(iter);
+
+		solve_possibly_ambiguous_expression(expression, st, decl_context);
+	}
+
+	ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
+	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_string(ASTText(a)));
+}
+
+static void build_scope_pragma_custom_line(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
+{
+	if (ASTSon0(a) != NULL)
+	{
+		AST list, iter;
+		list = ASTSon0(a);
+
+		for_each_element(list, iter)
+		{
+			AST pragma_clause = ASTSon1(iter);
+
+			build_scope_pragma_custom_clause(pragma_clause, st, decl_context);
+		}
+	}
+
+	ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_LINE, tl_type_t, tl_bool(1));
+	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_string(ASTText(a)));
+}
+
+static void build_scope_pragma_custom_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
+{
+	build_scope_pragma_custom_line(ASTSon0(a), st, decl_context, LANG_IS_PRAGMA_CUSTOM_LINE);
+
+	ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_bool(1));
+	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
+	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
+}
+
+static void build_scope_pragma_custom_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
+{
+	build_scope_pragma_custom_line(ASTSon0(a), st, decl_context, LANG_IS_PRAGMA_CUSTOM_LINE);
+	build_scope_statement(ASTSon1(a), st, decl_context);
+
+	ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
+	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
+	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
+	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_STATEMENT, tl_type_t, tl_ast(ASTSon1(a)));
+}
+
 #define STMT_HANDLER(type, hndl, attr_name_v) [type] = { .handler = (hndl), .attr_name = (attr_name_v) }
 
 static stmt_scope_handler_map_t stmt_scope_handlers[] =
@@ -6499,6 +6555,8 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_null, LANG_IS_BREAK_STATEMENT),
     STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_null, LANG_IS_CONTINUE_STATEMENT),
     STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_null, LANG_IS_GOTO_STATEMENT),
+	// Pragma custom support
+	STMT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, build_scope_pragma_custom_construct, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT),
 	// OpenMP 2.5 constructs
 	STMT_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, build_scope_omp_construct, OMP_IS_PARALLEL_CONSTRUCT),
 	STMT_HANDLER(AST_OMP_FOR_CONSTRUCT, build_scope_omp_construct, OMP_IS_FOR_CONSTRUCT),
