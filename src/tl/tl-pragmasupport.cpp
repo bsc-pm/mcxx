@@ -2,23 +2,23 @@
 
 namespace TL
 {
-	PragmaDispatcher::PragmaDispatcher(const std::string& pragma_handled, 
+	PragmaCustomDispatcher::PragmaCustomDispatcher(const std::string& pragma_handled, 
 			CustomFunctorMap& pre_map, CustomFunctorMap& post_map)
 		: _pragma_handled(pragma_handled), _pre_map(pre_map), _post_map(post_map)
 	{
 	}
 
-	void PragmaDispatcher::preorder(Context ctx, AST_t node)
+	void PragmaCustomDispatcher::preorder(Context ctx, AST_t node)
 	{
 		dispatch_pragma_construct(_pre_map, ctx, node);
 	}
 
-	void PragmaDispatcher::postorder(Context ctx, AST_t node)
+	void PragmaCustomDispatcher::postorder(Context ctx, AST_t node)
 	{
 		dispatch_pragma_construct(_post_map, ctx, node);
 	}
 
-	void PragmaDispatcher::dispatch_pragma_construct(CustomFunctorMap& search_map, Context ctx, AST_t node)
+	void PragmaCustomDispatcher::dispatch_pragma_construct(CustomFunctorMap& search_map, Context ctx, AST_t node)
 	{
 		PragmaCustomConstruct pragma_custom_construct(node, ctx.scope_link);
 
@@ -71,12 +71,12 @@ namespace TL
 		return result;
 	}
 
-	PragmaCompilerPhase::PragmaCompilerPhase(const std::string& pragma_handled)
+	PragmaCustomCompilerPhase::PragmaCustomCompilerPhase(const std::string& pragma_handled)
 		: _pragma_handled(pragma_handled), _pragma_dispatcher(pragma_handled, on_directive_pre, on_directive_post)
 	{
 	}
 
-	void PragmaCompilerPhase::run(DTO& data_flow)
+	void PragmaCustomCompilerPhase::run(DTO& data_flow)
 	{
 		// get the translation_unit tree
 		AST_t translation_unit = data_flow["translation_unit"];
@@ -95,5 +95,116 @@ namespace TL
 		depth_traverse.add_predicate(pragma_custom_construct_pred, _pragma_dispatcher);
 
 		depth_traverse.traverse(translation_unit, scope_link);
+	}
+
+	ObjectList<Expression> PragmaCustomClause::get_expression_list()
+	{
+		PredicateBool<LANG_IS_EXPRESSION_NEST> expression_nest;
+		ObjectList<Expression> result;
+
+		ObjectList<AST_t> custom_clauses = filter_pragma_clause();
+		for (ObjectList<AST_t>::iterator it = custom_clauses.begin();
+				it != custom_clauses.end();
+				it++)
+		{
+			ObjectList<AST_t> expression_nest_list = it->depth_subtrees(expression_nest, AST_t::NON_RECURSIVE);
+
+			for (ObjectList<AST_t>::iterator it2 = expression_nest_list.begin();
+					it2 != expression_nest_list.end();
+					it2++)
+			{
+				Expression expr(*it2, _scope_link);
+				result.append(expr);
+			}
+		}
+
+		return result;
+	}
+
+	ObjectList<AST_t> PragmaCustomClause::filter_pragma_clause()
+	{
+		class PredicateCustomClause : public Predicate<AST_t>
+		{
+			private:
+				PredicateAttr _custom_clause;
+				const std::string& _clause_name;
+
+			public:
+				PredicateCustomClause(const std::string& clause_name)
+					: _custom_clause(LANG_IS_PRAGMA_CUSTOM_CLAUSE), _clause_name(clause_name)
+				{
+				}
+
+				virtual bool operator()(AST_t& t) const
+				{
+					if (_custom_clause(t))
+					{
+						TL::String clause_name_attr = t.get_attribute(LANG_PRAGMA_CUSTOM_CLAUSE);
+
+						return (clause_name_attr.compare_case_insensitive_to(_clause_name));
+					}
+					else return false;
+				}
+		};
+
+		PredicateCustomClause predicate_custom_clause(_clause_name);
+
+		ObjectList<AST_t> result = _ref.depth_subtrees(predicate_custom_clause);
+
+		return result;
+	}
+
+	ObjectList<IdExpression> PragmaCustomClause::id_expressions(IdExpressionCriteria criteria)
+	{
+		PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
+
+		ObjectList<AST_t> clauses = filter_pragma_clause();
+
+		ObjectList<IdExpression> result;
+		GetSymbolFromAST get_symbol_from_ast(this->_scope_link);
+
+		for(ObjectList<AST_t>::iterator it = clauses.begin();
+				it != clauses.end();
+				it++)
+		{
+			ObjectList<AST_t> id_expressions = it->depth_subtrees().filter(id_expr_pred);
+
+			for (ObjectList<AST_t>::iterator jt = id_expressions.begin();
+					jt != id_expressions.end();
+					jt++)
+			{
+				Symbol sym = get_symbol_from_ast(*jt);
+
+				bool eligible = false;
+
+				switch (criteria)
+				{
+					case ALL_FOUND_SYMBOLS :
+						eligible = true;
+						break;
+					case VALID_SYMBOLS :
+						eligible = sym.is_valid();
+						break;
+					case INVALID_SYMBOLS :
+						eligible = !sym.is_valid();
+						break;
+				}
+
+				if (eligible)
+				{
+					IdExpression id_expr(*jt, this->_scope_link);
+					result.append(id_expr);
+				}
+			}
+		}
+
+		return result;
+	}
+
+	bool PragmaCustomClause::is_defined()
+	{
+		ObjectList<AST_t> clauses = filter_pragma_clause();
+
+		return (!clauses.empty());
 	}
 }

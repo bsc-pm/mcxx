@@ -58,6 +58,13 @@ namespace TL
 
     class Declaration;
 
+	enum IdExpressionCriteria
+	{
+		VALID_SYMBOLS = 0,
+		INVALID_SYMBOLS,
+		ALL_FOUND_SYMBOLS
+	};
+
 	class IdExpression : public LangConstruct
 	{
 		public:
@@ -299,6 +306,30 @@ namespace TL
 			}
 	};
 
+	// This is something common, it is a good candidate to be taken off here
+	class GetSymbolFromAST : public Functor<Symbol, AST_t>
+	{
+		private:
+			ScopeLink scope_link;
+		public:
+			virtual Symbol operator()(AST_t& ast) const 
+			{
+				Scope sc = scope_link.get_scope(ast);
+
+				Symbol result = sc.get_symbol_from_id_expr(ast);
+
+				return result;
+			}
+
+			GetSymbolFromAST(ScopeLink _scope_link)
+				: scope_link(_scope_link)
+			{
+			}
+
+			~GetSymbolFromAST()
+			{
+			}
+	};
 }
 
 #endif // TL_LANGCONSTRUCT_HPP

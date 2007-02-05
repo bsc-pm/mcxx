@@ -10,6 +10,26 @@
 
 namespace TL
 {
+	class PragmaCustomClause : public LangConstruct
+	{
+		private:
+			std::string _clause_name;
+
+			ObjectList<AST_t> filter_pragma_clause();
+		public:
+			PragmaCustomClause(const std::string& src, AST_t ref, ScopeLink scope_link)
+				: LangConstruct(ref, scope_link), _clause_name(src)
+			{
+			}
+
+			ObjectList<Expression> get_expression_list();
+			ObjectList<IdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
+
+			bool is_defined();
+
+
+	};
+
 	class PragmaCustomConstruct : public LangConstruct
 	{
 		public:
@@ -29,7 +49,7 @@ namespace TL
 
 	typedef std::map<std::string, Signal1<PragmaCustomConstruct> > CustomFunctorMap;
 
-	class PragmaDispatcher : public TraverseFunctor
+	class PragmaCustomDispatcher : public TraverseFunctor
 	{
 		private:
 			std::string _pragma_handled;
@@ -38,20 +58,20 @@ namespace TL
 
 			void dispatch_pragma_construct(CustomFunctorMap& search_map, Context ctx, AST_t node);
 		public:
-			PragmaDispatcher(const std::string& pragma_handled, CustomFunctorMap& pre_map,
+			PragmaCustomDispatcher(const std::string& pragma_handled, CustomFunctorMap& pre_map,
 					CustomFunctorMap& post_map);
 
 			virtual void preorder(Context ctx, AST_t node);
 			virtual void postorder(Context ctx, AST_t node);
 	};
 
-	class PragmaCompilerPhase : public CompilerPhase
+	class PragmaCustomCompilerPhase : public CompilerPhase
 	{
 		private:
 			std::string _pragma_handled;
-			PragmaDispatcher _pragma_dispatcher;
+			PragmaCustomDispatcher _pragma_dispatcher;
 		public:
-			PragmaCompilerPhase(const std::string& pragma_handled);
+			PragmaCustomCompilerPhase(const std::string& pragma_handled);
 			virtual void run(DTO& data_flow);
 
 			CustomFunctorMap on_directive_pre;

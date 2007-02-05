@@ -483,7 +483,7 @@ namespace TL
                 }
                 else
                 {
-                    ObjectList<IdExpression> id_expressions = region_name.id_expressions(OpenMP::ALL_FOUND_SYMBOLS);
+                    ObjectList<IdExpression> id_expressions = region_name.id_expressions(TL::ALL_FOUND_SYMBOLS);
                     IdExpression head = id_expressions[0];
 
                     mutex_variable = "_nthf_"  + head.prettyprint();
@@ -1886,7 +1886,7 @@ namespace TL
                 {
                     reduction_update
                         << "rdv_" << it->get_id_expression().mangle_id_expression() << "[nth_thread_id] = "
-                        << "p_" << it->get_id_expression().mangle_id_expression() << ";";
+                        << "rdp_" << it->get_id_expression().mangle_id_expression() << ";";
                 }
 
                 reduction_update

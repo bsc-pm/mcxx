@@ -61,12 +61,6 @@ namespace TL
 				Clause parameter_clause();
 		};
 
-		enum IdExpressionCriteria
-		{
-			VALID_SYMBOLS = 0,
-			INVALID_SYMBOLS,
-			ALL_FOUND_SYMBOLS
-		};
 
 		class Clause : public LangConstruct
 		{
