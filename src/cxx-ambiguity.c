@@ -2350,6 +2350,11 @@ static char check_for_type_specifier(AST type_id, scope_t* st, decl_context_t de
             {
                 return 1;
             }
+			// GCC Extension
+		case AST_GCC_TYPEOF_EXPR :
+			{
+				return 1;
+			}
         default :
             {
                 internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(type_id)));
