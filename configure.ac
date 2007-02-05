@@ -113,6 +113,8 @@ AC_CONFIG_FILES([Makefile
 		   lib/Makefile
 		   src/Makefile 
 		   src/tl/Makefile 
+		   src/tl/omp/Makefile 
+		   src/tl/instr/Makefile 
 		   config/Makefile
            tests/Makefile
 		   ])

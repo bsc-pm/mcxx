@@ -1,6 +1,6 @@
-SUBDIRS = omp
+SUBDIRS = omp instr
 
-lib_LTLIBRARIES = libtl.la libtlinstr.la
+lib_LTLIBRARIES = libtl.la
 
 BUILT_SOURCES = ../cxx-asttype.h
 
