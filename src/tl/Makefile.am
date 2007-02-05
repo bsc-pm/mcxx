@@ -1,4 +1,6 @@
-lib_LTLIBRARIES = libtl.la libtlomp.la libtlinstr.la
+SUBDIRS = omp
+
+lib_LTLIBRARIES = libtl.la libtlinstr.la
 
 BUILT_SOURCES = ../cxx-asttype.h
 
@@ -57,22 +59,6 @@ libtl_la_SOURCES = \
 	tl-pragmasupport.cpp \
 	tl-omp.hpp \
 	tl-omp.cpp
-
-libtlomp_la_CXXFLAGS = -Wall -O0 \
-    -I $(srcdir)/../../src \
-    -I $(srcdir)/../../lib \
-    -I ../../src \
-    -I ../../lib
-
-libtlomp_la_CFLAGS = -Wall -O0 \
-    -I $(srcdir)/../../src \
-    -I $(srcdir)/../../lib \
-    -I ../../src \
-    -I ../../lib
-
-libtlomp_la_SOURCES = \
-                        tl-omptransform.hpp \
-                        tl-omptransform.cpp
 
 libtlinstr_la_CXXFLAGS = -Wall -O0 \
     -I $(srcdir)/../../src \
