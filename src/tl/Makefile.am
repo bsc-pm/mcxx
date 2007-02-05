@@ -60,21 +60,6 @@ libtl_la_SOURCES = \
 	tl-omp.hpp \
 	tl-omp.cpp
 
-libtlinstr_la_CXXFLAGS = -Wall -O0 \
-    -I $(srcdir)/../../src \
-    -I $(srcdir)/../../lib \
-    -I ../../src \
-    -I ../../lib
-
-libtlinstr_la_CFLAGS = -Wall -O0 \
-    -I $(srcdir)/../../src \
-    -I $(srcdir)/../../lib \
-    -I ../../src \
-    -I ../../lib
-
-libtlinstr_la_SOURCES = \
-						tl-instrumentation.hpp \
-						tl-instrumentation.cpp
 
 ../cxx-asttype.h :
 	$(MAKE) -C .. cxx-asttype.h
