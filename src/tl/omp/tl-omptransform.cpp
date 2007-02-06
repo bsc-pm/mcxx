@@ -1677,12 +1677,13 @@ namespace TL
                     <<    size_vector 
                     << "  int nth_nargs_val = " << src_num_args_val << ";"
                     << "  int nth_nargs_ref = " << src_num_args_ref << ";"
+		    << "  nth_num_params = nth_nargs_val + nth_nargs_ref;"
                     << "  nth_selfv = nthf_self_();"
                     << "  nthf_team_set_nplayers_ (&nth_nprocs);"
                     << "  nth_num_deps = 0;"
                     << "  for (nth_p = 0; nth_p < nth_nprocs; nth_p++)"
                     << "  {"
-                    << "     nthf_create_1s_vp_((void*)(" << outlined_function_name << "), &nth_num_deps, &nth_p, &nth_selfv, "
+                    << "     nthf_create_1s_vp_((void*)(" << outlined_function_name << "), &nth_num_deps, &nth_p, &nth_selfv, 0, "
                     << "        &nth_num_params " << referenced_parameters << ");"
                     << "  }"
                     <<    instrument_code_block // This is crummy here
