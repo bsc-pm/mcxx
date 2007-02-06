@@ -3384,25 +3384,8 @@ namespace TL
 
 					void replace_lvalue(Expression expression)
 					{
-						// if (expression.is_binary_operation())
-						// {
-						// 	replace_expression(expression.get_first_operand());
-						// 	replace_expression(expression.get_second_operand());
-						// }
-						// else if (expression.is_unary_operation())
-						// {
-						// 	replace_expression(expression.get_unary_operand());
-						// }
-						// else if (expression.is_pointer_member_access())
-						// {
-						// 	replace_expression(expression.get_accessed_entity());
-						// }
-						// else if (expression.is_member_access())
-						// {
-						// 	replace_expression(expression.get_accessed_entity());
-						// }
-
-						if (!expression.is_id_expression())
+						if (!expression.is_id_expression() 
+								&& !expression.is_member_access())
 						{
 							replace_expression(expression);
 						}
@@ -3456,9 +3439,10 @@ namespace TL
 
 								replace_derreference_address 
 									<< "(*" // << "(__typeof__(&(" << original_expression << ")))"
-									<<"(read(&t, " << expression.get_unary_operand().prettyprint() 
+									<< "read(&t, " << expression.get_unary_operand().prettyprint() 
 									// << ", sizeof(" << original_expression << ")" 
-									<< ")))";
+									<< ")" // read
+									<< ")";
 
 								AST_t replace_derref_tree = replace_derreference_address.parse_expression(expression.get_scope());
 
@@ -3482,9 +3466,10 @@ namespace TL
 
 							read_operation 
 								<< "(*" // << "(__typeof__(&(" << original_expression << ")))"
-								<< "(read(&t, &" << id_expression.prettyprint() 
+								<< "read(&t, &" << id_expression.prettyprint()  
 								// << ", sizeof(" << id_expression.prettyprint() << ")" 
-								<< ")))";
+								<< ")" // read
+								<< ")";
 
 							AST_t read_operation_tree = read_operation.parse_expression(id_expression.get_scope());
 
@@ -3492,11 +3477,54 @@ namespace TL
 						}
 						else if (expression.is_member_access())
 						{
-							replace_expression(expression.get_accessed_entity());
+							Source original_expression = expression.prettyprint();
+
+							// replace_expression(expression.get_accessed_entity());
+							Expression accessed_entity = expression.get_accessed_entity();
+
+							if (accessed_entity.is_unary_operation()
+									&& accessed_entity.get_operation_kind() == Expression::DERREFERENCE)
+							{
+								Expression referenced_entity = accessed_entity.get_unary_operand();
+								replace_expression(referenced_entity);
+							}
+							else if (!accessed_entity.is_id_expression())
+							{
+								replace_expression(accessed_entity);
+							}
+
+							Source read_operation;
+
+							read_operation 
+								<< "(*" // << "(__typeof__(&(" << original_expression << ")))"
+								// << "("
+								<< "read(&t, &" << expression.prettyprint() 
+								// << ", sizeof(" << original_expression << ")" 
+								<< ")" // read
+								<< ")";
+
+							AST_t read_operation_tree = read_operation.parse_expression(expression.get_scope());
+
+							expression.get_ast().replace_with(read_operation_tree);
 						}
 						else if (expression.is_pointer_member_access())
 						{
+							Source original_expression = expression.prettyprint();
+
 							replace_expression(expression.get_accessed_entity());
+
+							Source read_operation;
+
+							read_operation 
+								<< "(*" // << "(__typeof__(&(" << original_expression << ")))"
+								<< "read(&t, &" << expression.prettyprint() 
+								// << ", sizeof(" << original_expression << ")" 
+								<< ")" // read
+								<< ")";
+
+							AST_t read_operation_tree = read_operation.parse_expression(expression.get_scope());
+
+							expression.get_ast().replace_with(read_operation_tree);
 						}
 						else 
 						{
