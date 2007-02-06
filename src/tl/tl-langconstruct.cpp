@@ -13,7 +13,7 @@ namespace TL
     ObjectList<IdExpression> LangConstruct::non_local_symbol_occurrences(SymbolsWanted symbol_filter)
     {
         PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
-		PredicateBool<LANG_IS_MEMBER_ACCESS> member_access;
+		PredicateBool<LANG_IS_ACCESSED_MEMBER> member_access;
         ObjectList<AST_t> id_expressions = _ref.depth_subtrees()
 			.filter(id_expr_pred)
 			.filter(negate(member_access));
@@ -331,6 +331,32 @@ namespace TL
 
         return Expression(result, this->_scope_link);
     }
+
+	bool Expression::is_member_access()
+	{
+		TL::Bool b = _ref.get_attribute(LANG_IS_MEMBER_ACCESS);
+		return b;
+	}
+
+	bool Expression::is_pointer_member_access()
+	{
+		TL::Bool b = _ref.get_attribute(LANG_IS_POINTER_MEMBER_ACCESS);
+		return b;
+	}
+
+	IdExpression Expression::get_accessed_member()
+	{
+		TL::AST_t ast = _ref.get_attribute(LANG_ACCESSED_MEMBER);
+
+		return IdExpression(ast, this->get_scope_link());
+	}
+
+	Expression Expression::get_accessed_entity()
+	{
+		TL::AST_t ast = _ref.get_attribute(LANG_ACCESSED_ENTITY);
+
+		return Expression(ast, this->get_scope_link());
+	}
 
     Expression::OperationKind Expression::get_operation_kind()
     {

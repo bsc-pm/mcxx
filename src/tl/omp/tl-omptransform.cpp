@@ -3384,20 +3384,33 @@ namespace TL
 
 					void replace_lvalue(Expression expression)
 					{
-						if (expression.is_binary_operation())
+						// if (expression.is_binary_operation())
+						// {
+						// 	replace_expression(expression.get_first_operand());
+						// 	replace_expression(expression.get_second_operand());
+						// }
+						// else if (expression.is_unary_operation())
+						// {
+						// 	replace_expression(expression.get_unary_operand());
+						// }
+						// else if (expression.is_pointer_member_access())
+						// {
+						// 	replace_expression(expression.get_accessed_entity());
+						// }
+						// else if (expression.is_member_access())
+						// {
+						// 	replace_expression(expression.get_accessed_entity());
+						// }
+
+						if (!expression.is_id_expression())
 						{
-							replace_expression(expression.get_first_operand());
-							replace_expression(expression.get_second_operand());
+							replace_expression(expression);
 						}
-						else if (expression.is_unary_operation())
-						{
-							replace_expression(expression.get_unary_operand());
-						}
-						else if (expression.is_id_expression())
+
 						{
 							Source reference;
 
-							reference << "&" << expression.prettyprint();
+							reference << "&(" << expression.prettyprint() << ")";
 
 							AST_t reference_tree;
 							reference_tree = reference.parse_expression(expression.get_scope());
@@ -3417,7 +3430,9 @@ namespace TL
 							Source write_operation;
 
 							write_operation << "write(&t, " << expression.get_first_operand().prettyprint()
-								<< ", " << expression.get_second_operand().prettyprint() << ", sizeof(" << original_expression << "))";
+								<< ", " << expression.get_second_operand().prettyprint() 
+								// << ", sizeof(" << original_expression << ")"
+								<< ")";
 
 							AST_t write_operation_tree = write_operation.parse_expression(expression.get_scope());
 
@@ -3440,9 +3455,10 @@ namespace TL
 								Source replace_derreference_address;
 
 								replace_derreference_address 
-									<< "*(__typeof__(&(" << original_expression << ")))"
-									<<"(read(&t, " << expression.get_unary_operand().prettyprint() <<
-									", sizeof(" << original_expression << ")))";
+									<< "(*" // << "(__typeof__(&(" << original_expression << ")))"
+									<<"(read(&t, " << expression.get_unary_operand().prettyprint() 
+									// << ", sizeof(" << original_expression << ")" 
+									<< ")))";
 
 								AST_t replace_derref_tree = replace_derreference_address.parse_expression(expression.get_scope());
 
@@ -3465,12 +3481,22 @@ namespace TL
 							Source read_operation;
 
 							read_operation 
-								<< "*(__typeof__(&(" << original_expression << ")))"
-								<< "(read(&t, &" << id_expression.prettyprint() << ", sizeof(" << id_expression.prettyprint() << ")))";
+								<< "(*" // << "(__typeof__(&(" << original_expression << ")))"
+								<< "(read(&t, &" << id_expression.prettyprint() 
+								// << ", sizeof(" << id_expression.prettyprint() << ")" 
+								<< ")))";
 
 							AST_t read_operation_tree = read_operation.parse_expression(id_expression.get_scope());
 
 							expression.get_ast().replace_with(read_operation_tree);
+						}
+						else if (expression.is_member_access())
+						{
+							replace_expression(expression.get_accessed_entity());
+						}
+						else if (expression.is_pointer_member_access())
+						{
+							replace_expression(expression.get_accessed_entity());
 						}
 						else 
 						{

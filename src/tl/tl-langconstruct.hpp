@@ -218,6 +218,11 @@ namespace TL
 
             bool is_array_subscript();
 
+			bool is_member_access();
+			bool is_pointer_member_access();
+			Expression get_accessed_entity();
+			IdExpression get_accessed_member();
+
             Expression get_first_operand();
             Expression get_second_operand();
 
