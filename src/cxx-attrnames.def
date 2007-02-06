@@ -1,3 +1,5 @@
+LANG_ACCESSED_ENTITY lang.accessed_entity
+LANG_ACCESSED_MEMBER lang.accessed_member
 LANG_CALLED_EXPRESSION lang.called_expression
 LANG_CASTED_EXPRESSION lang.casted_expression
 LANG_CAST_TYPE lang.cast_type
@@ -17,6 +19,7 @@ LANG_FUNCTION_ARGUMENTS lang.function_arguments
 LANG_FUNCTION_BODY lang.function_body
 LANG_FUNCTION_NAME lang.function_name
 LANG_INITIALIZER lang.initializer
+LANG_IS_ACCESSED_MEMBER lang.is_accessed_member
 LANG_IS_ADD_ASSIGNMENT lang.is_add_assignment
 LANG_IS_ADDITION_OP lang.is_addition_op
 LANG_IS_AND_ASSIGNMENT lang.is_and_assignment
@@ -75,8 +78,13 @@ LANG_IS_NEGATE_OP lang.is_negate_op
 LANG_IS_NOT_OP lang.is_not_op
 LANG_IS_OR_ASSIGNMENT lang.is_or_assignment
 LANG_IS_PLUS_OP lang.is_plus_op
+LANG_IS_POINTER_MEMBER_ACCESS lang.is_pointer_member_access
 LANG_IS_POSTDECREMENT lang.is_postdecrement
 LANG_IS_POSTINCREMENT lang.is_postincrement
+LANG_IS_PRAGMA_CUSTOM_CLAUSE lang.is_pragma_custom_clause
+LANG_IS_PRAGMA_CUSTOM_CONSTRUCT lang.is_pragma_custom_construct
+LANG_IS_PRAGMA_CUSTOM_DIRECTIVE lang.is_pragma_custom_directive
+LANG_IS_PRAGMA_CUSTOM_LINE lang.is_pragma_custom_line
 LANG_IS_PREDECREMENT lang.is_predecrement
 LANG_IS_PREINCREMENT lang.is_preincrement
 LANG_IS_QUALIFIED_ID lang.is_qualified_id
@@ -98,6 +106,11 @@ LANG_IS_XOR_ASSIGNMENT lang.is_xor_assignment
 LANG_LHS_ASSIGNMENT lang.lhs_assignment
 LANG_LHS_OPERAND lang.lhs_operand
 LANG_NESTED_NAME_SPECIFIER lang.nested_name_specifier
+LANG_PRAGMA_CUSTOM_CLAUSE lang.pragma_custom_clause
+LANG_PRAGMA_CUSTOM_DIRECTIVE lang.pragma_custom_directive
+LANG_PRAGMA_CUSTOM lang.pragma_custom
+LANG_PRAGMA_CUSTOM_LINE lang.pragma_custom_line
+LANG_PRAGMA_CUSTOM_STATEMENT lang.pragma_custom_statement
 LANG_RHS_ASSIGNMENT lang.rhs_assignment
 LANG_RHS_OPERAND lang.rhs_operand
 LANG_SUBSCRIPTED_EXPRESSION lang.subscripted_expression
@@ -149,12 +162,3 @@ OMP_REDUCTION_FUNCTION omp.reduction_function
 OMP_REDUCTION_NEUTER omp.reduction_neuter
 OMP_REDUCTION_OPERATOR omp.reduction_operator
 OMP_REDUCTION_VARIABLES omp.reduction_variables
-LANG_IS_PRAGMA_CUSTOM_CLAUSE lang.is_pragma_custom_clause
-LANG_PRAGMA_CUSTOM lang.pragma_custom
-LANG_PRAGMA_CUSTOM_LINE lang.pragma_custom_line
-LANG_PRAGMA_CUSTOM_CLAUSE lang.pragma_custom_clause
-LANG_PRAGMA_CUSTOM_DIRECTIVE lang.pragma_custom_directive
-LANG_IS_PRAGMA_CUSTOM_CONSTRUCT lang.is_pragma_custom_construct
-LANG_IS_PRAGMA_CUSTOM_DIRECTIVE lang.is_pragma_custom_directive
-LANG_IS_PRAGMA_CUSTOM_LINE lang.is_pragma_custom_line
-LANG_PRAGMA_CUSTOM_STATEMENT lang.pragma_custom_statement

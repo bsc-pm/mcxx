@@ -205,28 +205,40 @@ namespace TL
             IdExpression get_id_expression();
 
             bool is_binary_operation();
-
-            bool is_unary_operation();
-
-            AST_t get_cast_type();
-            Expression get_casted_expression();
-            bool is_casting();
-
-            bool is_assignment();
-
-            bool is_operation_assignment();
-
-            bool is_array_subscript();
-
-			bool is_member_access();
-			bool is_pointer_member_access();
-			Expression get_accessed_entity();
-			IdExpression get_accessed_member();
-
             Expression get_first_operand();
             Expression get_second_operand();
 
+            bool is_unary_operation();
             Expression get_unary_operand();
+
+            bool is_casting();
+            AST_t get_cast_type();
+            Expression get_casted_expression();
+
+			// exprC(expr-list)
+			bool is_function_call();
+			// exprC
+			Expression get_called_expression();
+			// expr-list
+			ObjectList<Expression> get_argument_list();
+
+			// expr = expr
+            bool is_assignment();
+
+			// expr op= expr
+            bool is_operation_assignment();
+
+			// expr[expr]
+            bool is_array_subscript();
+
+			// exprA.exprM
+			bool is_member_access();
+			// exprA->exprM
+			bool is_pointer_member_access();
+			// exprA
+			Expression get_accessed_entity();
+			// exprM
+			IdExpression get_accessed_member();
 
 			OperationKind get_operation_kind();
     };

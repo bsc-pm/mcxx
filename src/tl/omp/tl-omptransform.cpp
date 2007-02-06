@@ -34,10 +34,66 @@ namespace TL
             }
     };
 
+	/*
+	 * What is an IdExpression ?
+	 * -------------------------
+	 *
+	 * An id-expression (IdExpression) is a name in C/C++.
+	 *
+	 * In C it will be just a plain identifier (ah!, plain easy C :)
+	 *
+	 *    void f(void)
+	 *    {
+	 *      a = 3;     // a
+	 *    }
+	 *
+	 * In C++ it can be an unqualified name or a qualified one.
+	 *
+	 *    namespace A
+	 *    {
+	 *       int b;
+	 *    }
+	 *    void f()
+	 *    {
+	 *      A::b = 3;   // A::b
+	 *    }
+	 *
+	 * It can be "seasoned" with funny templates not very supported in this transformation phase
+	 *
+	 *    template <class T>
+	 *    struct A
+	 *    {
+	 *       static T a;
+	 *    };
+	 *
+	 *    void f()
+	 *    {
+	 *       A<int>::a = 3;  // A<int>::a
+	 *       A<float>::a = 3.4f; // A<float>::a
+	 *    }
+	 *
+	 * Or like this
+	 *
+	 *    template <class T>
+	 *    struct A
+	 *    {
+	 *       void f()
+	 *       {
+	 *          // This is an assignment
+	 *          T::template B<int>::a = 3; // T::template B<int>::a
+	 *       }
+	 *    };
+	 *
+	 * In fact an IdExpression object catches an ocurrence of a symbol. Thus,
+	 * two different IdExpression can refer to the same symbol. This is the
+	 * reason you will see around lots of "IdExpression::get_symbol" because we
+	 * do not want repeated symbols in many places.
+	 */
+
     class OpenMPTransform : public OpenMP::OpenMPPhase
     {
         private:
-            // Here we declare those "persistent" variables
+            // Here we declare "persistent" variables
 
             // The number of parallel regions seen so far
             // (technically not, since it is updated in the postorder of these)
@@ -143,55 +199,98 @@ namespace TL
 
             void threadprivate_postorder(OpenMP::ThreadPrivateDirective threadprivate_directive)
             {
+				// Given
+				//
+				//    int a, b, c;
+				//    #pragma omp threadprivate(b)
+				//
+				// The compiler will create
+				// 
+				//    int a;
+				//    int __thread b;
+				//    int c;
+				//
+
+				// Get the threadprivate directive
                 OpenMP::Directive directive = threadprivate_directive.directive();
 
+				// And get its parameter clause (you can see the (...) as a
+				// clause without name, we'll call it "parameter_clause")
                 OpenMP::Clause clause = directive.parameter_clause();
 
+				// Now get the list of symbols of this clause
                 ObjectList<IdExpression> threadprivate_references = clause.id_expressions();
 
+				// For every symbol in the clause
                 for (ObjectList<IdExpression>::iterator it = threadprivate_references.begin();
                         it != threadprivate_references.end();
                         it++)
                 {
+					// Get its declaration
                     Declaration decl = it->get_declaration();
 
+					// A declaration has two parts, a DeclarationSpec and a list of
+					// DeclaredEntity.
+					//
+					// const int static * a, b; 
+					//  
+					//    const int static -> DeclarationSpec
+					//    *a, b            -> ObjectList<DeclaredEntity>
+					//
                     DeclarationSpec decl_spec = decl.get_declaration_specifiers();
                     ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
 
+					// This will hold the remade declaration
                     Source remade_declaration;
 
+					// For every entity declared
                     for (ObjectList<DeclaredEntity>::iterator it2 = declared_entities.begin();
                             it2 != declared_entities.end();
                             it2++)
                     {
+						// Prettyprint the DeclarationSpec (to make it like it was before)
                         remade_declaration << decl_spec.prettyprint() << " ";
+
+						// And if the declaration appears in the threadprivate
+						// add the non-portable decl-specifier "__thread". 
+						//
+						// Note that it must be at the end of the declaration
+						// specifiers (this is a gcc requirement)
                         if (it2->get_declared_entity().get_symbol() == it->get_symbol())
                         {
                             remade_declaration << " __thread ";
-
                         }
 
                         remade_declaration << it2->prettyprint();
 
+						// If the entity has an initializer like "b" below
+						//
+						//    int a, b = 3, c;
+						//
+						//  then, write it down
                         if (it2->has_initializer())
                         {
                             remade_declaration << it2->get_initializer().prettyprint()
                                 ;
                         }
 
+						// End the declaration (obviously this only work for declaration statements,
+						// arguments, at the moment, cannot be threadprivatized :)
                         remade_declaration << ";"
                             ;
                     }
 
+					// Now parse the remade declarations
                     AST_t redeclaration_tree = remade_declaration.parse_declaration(decl.get_scope(),
+							// And explicitly allow to redeclarate objects otherwise the compiler
+							// will complain (for debugging purposes)
                             scope_link, Source::ALLOW_REDECLARATION);
-                    decl.get_ast().replace(redeclaration_tree);
 
-                    // std::cerr << "-- Remade declaration --" << std::endl;
-                    // std::cerr << remade_declaration.get_source(true) << std::endl;
-                    // std::cerr << "-- End remade declaration --" << std::endl;
+					// Now replace the whole declaration with this new one
+                    decl.get_ast().replace(redeclaration_tree);
                 }
 
+				// This directive must be removed
                 threadprivate_directive.get_ast().remove_in_list();
             }
 
@@ -200,7 +299,10 @@ namespace TL
                 // One more parallel seen
                 num_parallels++;
 
+				// Get the directive of the task construct
                 OpenMP::Directive directive = task_construct.directive();
+
+				// Get the related statement of this task construct
                 Statement construct_body = task_construct.body();
                 
                 // Get the enclosing function
@@ -219,9 +321,12 @@ namespace TL
                 // Get references in captureaddress clause
                 OpenMP::CustomClause captureaddress_clause = directive.custom_clause("captureaddress");
                 
+				// Get all the identifiers of the captureaddress clause
                 ObjectList<IdExpression> captureaddress_references_all = captureaddress_clause.id_expressions();
                 ObjectList<IdExpression> captureaddress_references;
                 {
+					// What we do here is discard symbols that are captureaddress but can be referenced
+					// in the outline (thus, they come from an outer scope to this whole function)
                     for (ObjectList<IdExpression>::iterator it = captureaddress_references_all.begin();
                             it != captureaddress_references_all.end();
                             it++)
@@ -231,12 +336,16 @@ namespace TL
                         if (!global_sym.is_valid() ||
                                 global_sym != it->get_symbol())
                         {
+							// Only if the symbol is not what has been found in the function scope
+							// will be really "captureaddressed", otherwise it can be accessed
+							// directly from the outline
                             captureaddress_references.append(*it);
                         }
                     }
                 }
 
                 OpenMP::CustomClause capturevalue_clause = directive.custom_clause("capturevalue");
+				// Get the identifiers of the capturevalue clause
                 ObjectList<IdExpression> capturevalue_references = capturevalue_clause.id_expressions();
 
                 ObjectList<IdExpression> capturevalue_references_body;

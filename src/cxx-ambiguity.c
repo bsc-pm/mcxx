@@ -1421,8 +1421,20 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
 
                 check_for_expression(ASTSon1(expression), st, decl_context );
 
-				ASTAttrSetValueType(ASTSon1(expression), LANG_IS_MEMBER_ACCESS, tl_type_t, tl_bool(1));
-                
+				ASTAttrSetValueType(ASTSon1(expression), LANG_IS_ACCESSED_MEMBER, tl_type_t, tl_bool(1));
+
+				ASTAttrSetValueType(expression, LANG_ACCESSED_ENTITY, tl_type_t, tl_ast(ASTSon0(expression)));
+				ASTAttrSetValueType(expression, LANG_ACCESSED_MEMBER, tl_type_t, tl_ast(ASTSon1(expression)));
+
+				if (ASTType(expression) == AST_POINTER_CLASS_MEMBER_ACCESS)
+				{
+					ASTAttrSetValueType(expression, LANG_IS_POINTER_MEMBER_ACCESS, tl_type_t, tl_bool(1));
+				}
+				else
+				{
+					ASTAttrSetValueType(expression, LANG_IS_MEMBER_ACCESS, tl_type_t, tl_bool(1));
+				}
+
                 return result;
             }
         case AST_CLASS_TEMPLATE_MEMBER_ACCESS :

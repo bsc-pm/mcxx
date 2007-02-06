@@ -269,6 +269,41 @@ namespace TL
         return b;
     }
 
+	bool Expression::is_function_call()
+	{
+		TL::Bool b = _ref.get_attribute(LANG_IS_FUNCTION_CALL);
+		return b;
+	}
+
+	Expression Expression::get_called_expression()
+	{
+		TL::AST_t result = _ref.get_attribute(LANG_CALLED_EXPRESSION);
+		Expression expr(result, get_scope_link());
+
+		return expr;
+	}
+
+	ObjectList<Expression> Expression::get_argument_list()
+	{
+		AST_t expression_list = _ref.get_attribute(LANG_FUNCTION_ARGUMENTS);
+
+		ObjectList<Expression> result;
+
+		ObjectList<AST_t> arguments 
+			= expression_list.depth_subtrees(PredicateBool<LANG_EXPRESSION_NESTED>(), AST_t::NON_RECURSIVE);
+
+		for (ObjectList<AST_t>::iterator it = arguments.begin(); 
+				it != arguments.end();
+				it++)
+		{
+			Expression expr(*it, get_scope_link());
+
+			result.push_back(expr);
+		}
+
+		return result;
+	}
+
     bool Expression::is_array_subscript()
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_ARRAY_SUBSCRIPT);
