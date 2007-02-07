@@ -27,68 +27,71 @@ namespace TL
             Type type;
             parameter_kind_t kind;
             IdExpression id_expression;
+            Symbol symbol;
 
             ParameterInfo(const std::string& _name, IdExpression _id_expression, Type _type, parameter_kind_t _kind)
-                : name(_name), type(_type), kind(_kind), id_expression(_id_expression)
+                : name(_name), type(_type), kind(_kind), id_expression(_id_expression), 
+                symbol(_id_expression.get_symbol())
             {
             }
     };
 
-	/*
-	 * What is an IdExpression ?
-	 * -------------------------
-	 *
-	 * An id-expression (IdExpression) is a name in C/C++.
-	 *
-	 * In C it will be just a plain identifier (ah!, plain easy C :)
-	 *
-	 *    void f(void)
-	 *    {
-	 *      a = 3;     // a
-	 *    }
-	 *
-	 * In C++ it can be an unqualified name or a qualified one.
-	 *
-	 *    namespace A
-	 *    {
-	 *       int b;
-	 *    }
-	 *    void f()
-	 *    {
-	 *      A::b = 3;   // A::b
-	 *    }
-	 *
-	 * It can be "seasoned" with funny templates not very supported in this transformation phase
-	 *
-	 *    template <class T>
-	 *    struct A
-	 *    {
-	 *       static T a;
-	 *    };
-	 *
-	 *    void f()
-	 *    {
-	 *       A<int>::a = 3;  // A<int>::a
-	 *       A<float>::a = 3.4f; // A<float>::a
-	 *    }
-	 *
-	 * Or like this
-	 *
-	 *    template <class T>
-	 *    struct A
-	 *    {
-	 *       void f()
-	 *       {
-	 *          // This is an assignment
-	 *          T::template B<int>::a = 3; // T::template B<int>::a
-	 *       }
-	 *    };
-	 *
-	 * In fact an IdExpression object catches an ocurrence of a symbol. Thus,
-	 * two different IdExpression can refer to the same symbol. This is the
-	 * reason you will see around lots of "IdExpression::get_symbol" because we
-	 * do not want repeated symbols in many places.
-	 */
+    /*
+     * What is an IdExpression ?
+     * -------------------------
+     *
+     * An id-expression (IdExpression) is a name in C/C++.
+     *
+     * In C it will be just a plain identifier (ah!, plain easy C :)
+     *
+     *    void f(void)
+     *    {
+     *      a = 3;     // a
+     *    }
+     *
+     * In C++ it can be an unqualified name or a qualified one.
+     *
+     *    namespace A
+     *    {
+     *       int b;
+     *    }
+     *    void f()
+     *    {
+     *      A::b = 3;   // A::b
+     *    }
+     *
+     * It can be "seasoned" with funny templates not very supported (yet) in this transformation phase
+     *
+     *    template <class T>
+     *    struct A
+     *    {
+     *       static T a;
+     *    };
+     *
+     *    void f()
+     *    {
+     *       A<int>::a = 3;  // A<int>::a
+     *       A<float>::a = 3.4f; // A<float>::a
+     *    }
+     *
+     * Or like this
+     *
+     *    template <class T>
+     *    struct A
+     *    {
+     *       void f()
+     *       {
+     *          // This is an assignment
+     *          T::template B<int>::a = 3; // T::template B<int>::a
+     *       }
+     *    };
+     *
+     * In fact, an IdExpression object catches an ocurrence of a symbol. Thus,
+     * two different IdExpression can refer to the same Symbol. This is the
+     * reason you will see around lots of "IdExpression::get_symbol" because we
+     * do not want repeated symbols in many places.
+     *
+     */
 
     class OpenMPTransform : public OpenMP::OpenMPPhase
     {
@@ -110,8 +113,8 @@ namespace TL
             // Stores the innermost induction variable of a parallel for or for construct
             std::stack<IdExpression> induction_var_stack;
 
-			// Stores the non orphaned reduction of the enclosing parallel (if any)
-			std::stack<ObjectList<OpenMP::ReductionIdExpression> > inner_reductions_stack;
+            // Stores the non orphaned reduction of the enclosing parallel (if any)
+            std::stack<ObjectList<OpenMP::ReductionIdExpression> > inner_reductions_stack;
 
             // A set to save what critical names have been defined in
             // translation unit level
@@ -193,69 +196,69 @@ namespace TL
                 // #pragma omp directive taskgroup
                 on_custom_construct_post["taskgroup"].connect(functor(&OpenMPTransform::taskgroup_postorder, *this));
 
-				// #pragma omp construct protect
-				on_custom_construct_post["protect"].connect(functor(&OpenMPTransform::protect_postorder, *this));
+                // #pragma omp construct protect
+                on_custom_construct_post["protect"].connect(functor(&OpenMPTransform::protect_postorder, *this));
             }
 
             void threadprivate_postorder(OpenMP::ThreadPrivateDirective threadprivate_directive)
             {
-				// Given
-				//
-				//    int a, b, c;
-				//    #pragma omp threadprivate(b)
-				//
-				// The compiler will create
-				// 
-				//    int a;
-				//    int __thread b;
-				//    int c;
-				//
+                // Given
+                //
+                //    int a, b, c;
+                //    #pragma omp threadprivate(b)
+                //
+                // The compiler will create
+                // 
+                //    int a;
+                //    int __thread b;
+                //    int c;
+                //
 
-				// Get the threadprivate directive
+                // Get the threadprivate directive
                 OpenMP::Directive directive = threadprivate_directive.directive();
 
-				// And get its parameter clause (you can see the (...) as a
-				// clause without name, we'll call it "parameter_clause")
+                // And get its parameter clause (you can see the (...) as a
+                // clause without name, we'll call it "parameter_clause")
                 OpenMP::Clause clause = directive.parameter_clause();
 
-				// Now get the list of symbols of this clause
+                // Now get the list of symbols of this clause
                 ObjectList<IdExpression> threadprivate_references = clause.id_expressions();
 
-				// For every symbol in the clause
+                // For every symbol in the clause
                 for (ObjectList<IdExpression>::iterator it = threadprivate_references.begin();
                         it != threadprivate_references.end();
                         it++)
                 {
-					// Get its declaration
+                    // Get its declaration
                     Declaration decl = it->get_declaration();
 
-					// A declaration has two parts, a DeclarationSpec and a list of
-					// DeclaredEntity.
-					//
-					// const int static * a, b; 
-					//  
-					//    const int static -> DeclarationSpec
-					//    *a, b            -> ObjectList<DeclaredEntity>
-					//
+                    // A declaration has two parts, a DeclarationSpec and a list of
+                    // DeclaredEntity.
+                    //
+                    // const int static * a, b; 
+                    //  
+                    //    const int static -> DeclarationSpec
+                    //    *a, b            -> ObjectList<DeclaredEntity>
+                    //
                     DeclarationSpec decl_spec = decl.get_declaration_specifiers();
                     ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
 
-					// This will hold the remade declaration
+                    // This will hold the remade declaration
                     Source remade_declaration;
 
-					// For every entity declared
+                    // For every entity declared
                     for (ObjectList<DeclaredEntity>::iterator it2 = declared_entities.begin();
                             it2 != declared_entities.end();
                             it2++)
                     {
-						// Prettyprint the DeclarationSpec (to make it like it was before)
+                        // Prettyprint the DeclarationSpec (to make it like it was before)
                         remade_declaration << decl_spec.prettyprint() << " ";
 
-						// And if the declaration appears in the threadprivate
-						// add the non-portable decl-specifier "__thread". 
-						//
-						// Note that it must be at the end of the declaration
-						// specifiers (this is a gcc requirement)
+                        // And if the declaration appears in the threadprivate
+                        // add the non-portable decl-specifier "__thread". 
+                        //
+                        // Note that it must be at the end of the declaration
+                        // specifiers (this is a gcc requirement)
                         if (it2->get_declared_entity().get_symbol() == it->get_symbol())
                         {
                             remade_declaration << " __thread ";
@@ -263,34 +266,34 @@ namespace TL
 
                         remade_declaration << it2->prettyprint();
 
-						// If the entity has an initializer like "b" below
-						//
-						//    int a, b = 3, c;
-						//
-						//  then, write it down
+                        // If the entity has an initializer like "b" below
+                        //
+                        //    int a, b = 3, c;
+                        //
+                        //  then, write it down
                         if (it2->has_initializer())
                         {
                             remade_declaration << it2->get_initializer().prettyprint()
                                 ;
                         }
 
-						// End the declaration (obviously this only work for declaration statements,
-						// arguments, at the moment, cannot be threadprivatized :)
+                        // End the declaration (obviously this only work for declaration statements,
+                        // arguments, at the moment, cannot be threadprivatized :)
                         remade_declaration << ";"
                             ;
                     }
 
-					// Now parse the remade declarations
+                    // Now parse the remade declarations
                     AST_t redeclaration_tree = remade_declaration.parse_declaration(decl.get_scope(),
-							// And explicitly allow to redeclarate objects otherwise the compiler
-							// will complain (for debugging purposes)
+                            // And explicitly allow to redeclarate objects otherwise the compiler
+                            // will complain (for debugging purposes)
                             scope_link, Source::ALLOW_REDECLARATION);
 
-					// Now replace the whole declaration with this new one
+                    // Now replace the whole declaration with this new one
                     decl.get_ast().replace(redeclaration_tree);
                 }
 
-				// This directive must be removed
+                // This directive must be removed
                 threadprivate_directive.get_ast().remove_in_list();
             }
 
@@ -299,15 +302,15 @@ namespace TL
                 // One more parallel seen
                 num_parallels++;
 
-				// Get the directive of the task construct
+                // Get the directive of the task construct
                 OpenMP::Directive directive = task_construct.directive();
 
-				// Get the related statement of this task construct
+                // Get the related statement of this task construct
                 Statement construct_body = task_construct.body();
                 
-                // Get the enclosing function
+                // Get the enclosing function definition
                 FunctionDefinition function_definition = task_construct.get_enclosing_function();
-                // its scope
+                // and its scope
                 Scope function_scope = function_definition.get_scope();
                 // and the id-expression of the function name
                 IdExpression function_name = function_definition.get_function_name();
@@ -321,12 +324,12 @@ namespace TL
                 // Get references in captureaddress clause
                 OpenMP::CustomClause captureaddress_clause = directive.custom_clause("captureaddress");
                 
-				// Get all the identifiers of the captureaddress clause
+                // Get all the identifiers of the captureaddress clause
                 ObjectList<IdExpression> captureaddress_references_all = captureaddress_clause.id_expressions();
                 ObjectList<IdExpression> captureaddress_references;
                 {
-					// What we do here is discard symbols that are captureaddress but can be referenced
-					// in the outline (thus, they come from an outer scope to this whole function)
+                    // What we do here is discard symbols that are captureaddress but can be referenced
+                    // in the outline (thus, they come from an outer scope to this whole function)
                     for (ObjectList<IdExpression>::iterator it = captureaddress_references_all.begin();
                             it != captureaddress_references_all.end();
                             it++)
@@ -336,33 +339,27 @@ namespace TL
                         if (!global_sym.is_valid() ||
                                 global_sym != it->get_symbol())
                         {
-							// Only if the symbol is not what has been found in the function scope
-							// will be really "captureaddressed", otherwise it can be accessed
-							// directly from the outline
+                            // If the symbol found in the function scope is not
+                            // the same as the one referenced in the
+                            // captureaddress it will be really
+                            // 'captureaddressed', otherwise it can be
+                            // referenced from the outline
                             captureaddress_references.append(*it);
                         }
                     }
                 }
 
                 OpenMP::CustomClause capturevalue_clause = directive.custom_clause("capturevalue");
-				// Get the identifiers of the capturevalue clause
+                // Get the identifiers of the capturevalue clause
                 ObjectList<IdExpression> capturevalue_references = capturevalue_clause.id_expressions();
 
                 ObjectList<IdExpression> capturevalue_references_body;
-                // Fix this with a better ObjectList<T>::insert(Functor<S, T>, T);
                 {
+                    // Get all id-expressions in the body construct
                     ObjectList<IdExpression> capturevalue_references_body_all
                         = construct_body.non_local_symbol_occurrences(Statement::ONLY_VARIABLES);
 
-                    for (ObjectList<IdExpression>::iterator it = capturevalue_references_body_all.begin();
-                            it != capturevalue_references_body_all.end();
-                            it++)
-                    {
-                        if (!capturevalue_references_body.contains(functor(&IdExpression::get_symbol), it->get_symbol()))
-                        {
-                                capturevalue_references_body.append(*it);
-                        }
-                    }
+                    capturevalue_references_body.insert(capturevalue_references_body_all, functor(&IdExpression::get_symbol));
                 }
 
                 // Filter those symbols in local and capturevalue
@@ -373,6 +370,7 @@ namespace TL
                 capturevalue_references_body = 
                     capturevalue_references_body.filter(not_in_set(capturevalue_references, functor(&IdExpression::get_symbol)));
 
+                // And mix the capturevalues of the body to the capturevalues that came from the clause
                 capturevalue_references.append(capturevalue_references_body);
 
                 ObjectList<IdExpression> empty;
@@ -387,8 +385,8 @@ namespace TL
                     set_replacements(function_definition,
                             directive,
                             construct_body,
-                            captured_references,
-                            local_references,
+                            captured_references, // Captured entities (captureaddress and capturevalue)
+                            local_references, // Private entities (local clause)
                             empty,
                             empty,
                             reduction_empty,
@@ -408,13 +406,14 @@ namespace TL
                 // Now prepend the outline
                 function_definition.get_ast().prepend_sibling_function(outline_code);
 
+                // Here the spawning code will be created
                 Source task_queueing;
                 Source task_parameters;
                 Source task_parameter_list;
 
                 Source size_vector;
 
-
+                // For each capture address entity just pass a reference to it
                 for (ObjectList<IdExpression>::iterator it = captureaddress_references.begin();
                         it != captureaddress_references.end();
                         it++)
@@ -422,20 +421,25 @@ namespace TL
                     task_parameter_list.append_with_separator("&" + it->prettyprint(), ",");
                 }
 
+                // This vector will hold the sizeof's of entities passed as
+                // private references
                 size_vector << "size_t nth_size[] = {0";
                 int vector_index = 1;
+                // For every capture value entity pass a private reference to it
                 for (ObjectList<IdExpression>::iterator it = capturevalue_references.begin();
                         it != capturevalue_references.end();
                         it++)
                 {
+                    // Add the size in the vector
                     size_vector << ", sizeof(" << it->prettyprint() << ")"
                         ;
 
+                    // A reference to the vector
                     Source vector_ref;
-
                     vector_ref << "&nth_size[" << vector_index << "]"
                         ;
 
+                    // First an address with the size must be passed
                     task_parameter_list.append_with_separator(vector_ref.get_source(), ",");
                     task_parameter_list.append_with_separator("&" + it->prettyprint(), ",");
                     
@@ -444,13 +448,14 @@ namespace TL
                 size_vector << "};"
                     ;
 
+                // A comma only needed when the parameter list is non empty
                 if (!task_parameter_list.empty())
                 {
                     task_parameters << ", " << task_parameter_list;
                 }
 
+                // 'switch' clause support
                 Source threadswitch;
-
                 if (directive.custom_clause("switch").is_defined())
                 {
                     threadswitch << "1";
@@ -460,32 +465,35 @@ namespace TL
                     threadswitch << "0";
                 }
 
-				Source outline_capture_values;
-				Source outline_arguments;
+                // This is the code that will be executed if the task cannot be created
+                // (i.e. NTH_CANNOT_ALLOCATE_TASK is returned)
+                Source fallback_capture_values;
+                Source fallback_arguments;
 
-				// Fallback arguments
+                // Capture address entities are easy, just pass the vector
                 for (ObjectList<IdExpression>::iterator it = captureaddress_references.begin();
                         it != captureaddress_references.end();
                         it++)
                 {
-                    outline_arguments.append_with_separator("&" + it->prettyprint(), ",");
+                    fallback_arguments.append_with_separator("&" + it->prettyprint(), ",");
                 }
+                // For capture value we will be passing pointers to local copies
                 for (ObjectList<IdExpression>::iterator it = capturevalue_references.begin();
                         it != capturevalue_references.end();
                         it++)
                 {
-					Symbol sym = it->get_symbol();
-					Type type = sym.get_type();
+                    Symbol sym = it->get_symbol();
+                    Type type = sym.get_type();
 
-					outline_capture_values
-						<< type.get_declaration_with_initializer(
-								it->get_scope(),
-								"cval_" + it->mangle_id_expression(), 
-								it->prettyprint()) 
-						<< ";"
-						;
+                    fallback_capture_values
+                        << type.get_declaration_with_initializer(
+                                it->get_scope(),
+                                "cval_" + it->mangle_id_expression(), 
+                                it->prettyprint()) 
+                        << ";"
+                        ;
 
-                    outline_arguments.append_with_separator("&cval_" + it->mangle_id_expression(), ",");
+                    fallback_arguments.append_with_separator("&cval_" + it->mangle_id_expression(), ",");
                 }
 
                 task_queueing
@@ -502,15 +510,17 @@ namespace TL
                     <<             "&set_threadswitch, &num_params " << task_parameters << ");"
                     <<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
                     <<    "{"
-					<<       outline_capture_values
-                    <<       outlined_function_name << "(" << outline_arguments << ");"
+                    <<       fallback_capture_values
+                    <<       outlined_function_name << "(" << fallback_arguments << ");"
                     <<    "}"
                     << "}"
                 ;
 
+                // Parse the code
                 AST_t task_code = task_queueing.parse_statement(task_construct.get_scope(),
                         task_construct.get_scope_link());
 
+                // And replace the whole thing
                 task_construct.get_ast().replace(task_code);
             }
 
@@ -523,7 +533,7 @@ namespace TL
                     << "{"
 //                    <<    "extern void nthf_task_block_(void);"
                     <<    "nthf_task_block_();"
-                    <<    taskwait_body.prettyprint()
+                    <<    taskwait_body.prettyprint() // This will avoid breakage if you did not write ';' after the taskwait pragma
                     << "}"
                     ;
 
@@ -700,10 +710,10 @@ namespace TL
 
             void parallel_single_preorder(OpenMP::ParallelSingleConstruct parallel_single_construct)
             {
-				// Allocate a new element for inner reductions
-				ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
-				inner_reductions_stack.push(inner_reductions);
-				
+                // Allocate a new element for inner reductions
+                ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
+                inner_reductions_stack.push(inner_reductions);
+                
                 // Increase the parallel nesting value
                 parallel_nesting++;
             }
@@ -750,8 +760,8 @@ namespace TL
                         copyin_references,
                         copyprivate_references);
 
-				// Merge with inner reductions
-				reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
+                // Merge with inner reductions
+                reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
 
                 // Create the replacement map and fill the parameter info list
                 ObjectList<ParameterInfo> parameter_info_list;
@@ -832,8 +842,8 @@ namespace TL
                         instrument_code_after
                         );
 
-				// Discard inner reductions information
-				inner_reductions_stack.pop();
+                // Discard inner reductions information
+                inner_reductions_stack.pop();
 
                 // Now replace the whole construct with spawn_code
                 parallel_single_construct.get_ast().replace(spawn_code);
@@ -891,9 +901,9 @@ namespace TL
             // Parallel in preorder
             void parallel_preorder(OpenMP::ParallelConstruct parallel_construct)
             {
-				ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
-				inner_reductions_stack.push(inner_reductions);
-				
+                ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
+                inner_reductions_stack.push(inner_reductions);
+                
                 // Increase the parallel nesting value
                 parallel_nesting++;
             }
@@ -903,6 +913,9 @@ namespace TL
             {
                 // One more parallel seen
                 num_parallels++;
+
+                // Decrease the parallel nesting value
+                parallel_nesting--;
 
                 // Get the directive
                 OpenMP::Directive directive = parallel_construct.directive();
@@ -937,9 +950,9 @@ namespace TL
                         reduction_references,
                         copyin_references,
                         copyprivate_references);
-				
-				// Merge with inner reductions
-				reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
+                
+                // Merge with inner reductions
+                reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
 
                 ObjectList<ParameterInfo> parameter_info_list;
 
@@ -1019,8 +1032,8 @@ namespace TL
                         instrument_code_after
                         );
 
-				// Discard inner reductions information
-				inner_reductions_stack.pop();
+                // Discard inner reductions information
+                inner_reductions_stack.pop();
 
                 // Now replace the whole construct with spawn_code
                 parallel_construct.get_ast().replace(spawn_code);
@@ -1028,9 +1041,9 @@ namespace TL
 
             void parallel_for_preorder(OpenMP::ParallelForConstruct parallel_for_construct)
             {
-				ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
-				inner_reductions_stack.push(inner_reductions);
-				
+                ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
+                inner_reductions_stack.push(inner_reductions);
+                
                 // Increase the parallel nesting value
                 parallel_nesting++;
 
@@ -1089,9 +1102,9 @@ namespace TL
                         reduction_references,
                         copyin_references,
                         copyprivate_references);
-				
-				// Merge with inner reductions
-				reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
+                
+                // Merge with inner reductions
+                reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
 
                 // The induction variable deserves special treatment
                 IdExpression induction_var = for_statement.get_induction_variable();
@@ -1179,8 +1192,8 @@ namespace TL
                         instrument_code_after
                         );
 
-				// Discard inner reduction information
-				inner_reductions_stack.pop();
+                // Discard inner reduction information
+                inner_reductions_stack.pop();
 
                 // Replace all the whole construct with spawn_code
                 parallel_for_construct.get_ast().replace(spawn_code);
@@ -1188,9 +1201,9 @@ namespace TL
 
             void parallel_sections_preorder(OpenMP::ParallelSectionsConstruct parallel_sections_construct)
             {
-				ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
-				inner_reductions_stack.push(inner_reductions);
-				
+                ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
+                inner_reductions_stack.push(inner_reductions);
+                
                 // Increase the parallel nesting value
                 parallel_nesting++;
 
@@ -1240,9 +1253,9 @@ namespace TL
                         reduction_references,
                         copyin_references,
                         copyprivate_references);
-				
-				// Merge with inner reductions
-				reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
+                
+                // Merge with inner reductions
+                reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
 
                 ObjectList<ParameterInfo> parameter_info_list;
                 ReplaceIdExpression replace_references = 
@@ -1323,8 +1336,8 @@ namespace TL
                 // One less level of sections
                 num_sections_stack.pop();
 
-				// Discard inner reductions information
-				inner_reductions_stack.pop();
+                // Discard inner reductions information
+                inner_reductions_stack.pop();
 
                 // Now replace the whole construct with spawn_code
                 parallel_sections_construct.get_ast().replace(spawn_code);
@@ -1392,12 +1405,17 @@ namespace TL
                         construct_body,
                         replace_references);
 
+                // In fact we are not passing anything by parameters since
+                // there is no outline here
+                parameter_info_list.clear();
+
                 Source private_declarations = get_privatized_declarations(
                         private_references,
                         firstprivate_references,
                         lastprivate_references,
                         reduction_references,
-                        copyin_references
+                        copyin_references,
+                        parameter_info_list
                         ); 
 
                 Source lastprivate_code;
@@ -1406,7 +1424,8 @@ namespace TL
                 {
                     Source lastprivate_assignments = get_lastprivate_assignments(
                             lastprivate_references,
-                            copyprivate_references);
+                            copyprivate_references,
+                            parameter_info_list);
 
                     lastprivate_code 
                         << "if (intone_last != 0)"
@@ -1574,13 +1593,16 @@ namespace TL
                             parameter_info_list);
 
                 Source parallel_for_body;
+
+                parameter_info_list.clear();
                 
                 Source private_declarations = get_privatized_declarations(
                         private_references,
                         firstprivate_references,
                         lastprivate_references,
                         reduction_references,
-                        copyin_references
+                        copyin_references,
+                        parameter_info_list
                         ); 
 
                 Source loop_distribution_code = get_loop_distribution_code(for_statement,
@@ -1592,7 +1614,8 @@ namespace TL
                 {
                     Source lastprivate_assignments = get_lastprivate_assignments(
                             lastprivate_references, 
-                            copyprivate_references);
+                            copyprivate_references,
+                            parameter_info_list);
 
                     lastprivate_code
                         << "if (intone_last != 0)"
@@ -1635,6 +1658,7 @@ namespace TL
                 for_construct.get_ast().replace(result);
             }
 
+            // This function returns a common spawn code suitable for parallel 'something' constructs
             AST_t get_parallel_spawn_code(
                     FunctionDefinition function_definition,
                     Scope scope,
@@ -1677,7 +1701,7 @@ namespace TL
                     <<    size_vector 
                     << "  int nth_nargs_val = " << src_num_args_val << ";"
                     << "  int nth_nargs_ref = " << src_num_args_ref << ";"
-		    << "  nth_num_params = nth_nargs_val + nth_nargs_ref;"
+                    << "  nth_num_params = nth_nargs_val + nth_nargs_ref;"
                     << "  nth_selfv = nthf_self_();"
                     << "  nthf_team_set_nplayers_ (&nth_nprocs);"
                     << "  nth_num_deps = 0;"
@@ -1725,7 +1749,7 @@ namespace TL
 
                     // now get the code that declares this reduction vector
                     reduction_vectors
-						<< comment("Reduction vector for '" + it->get_id_expression().prettyprint() + "'")
+                        << comment("Reduction vector for '" + it->get_id_expression().prettyprint() + "'")
                         << reduction_vector_type.get_declaration(it->get_id_expression().get_scope(), 
                                 reduction_vector_name) << ";";
                 }
@@ -1875,7 +1899,7 @@ namespace TL
                 Source reduction_gathering;
 
                 reduction_code
-					<< comment("Reduction implemented with a spin lock since this construct is orphaned")
+                    << comment("Reduction implemented with a spin lock since this construct is orphaned")
                     << "{"
                     <<    "static nth_word_t default_mutex;"
 //                    <<    "extern nthf_spin_lock_(void*);"
@@ -1900,7 +1924,7 @@ namespace TL
                     {
                     // get the operator involved
                     std::string reduced_var_name = it->get_id_expression().mangle_id_expression();
-                    std::string reduction_var_name = "p_" + it->get_id_expression().mangle_id_expression();
+                    std::string reduction_var_name = "rdp_" + it->get_id_expression().mangle_id_expression();
 
                     std::string op = it->get_operation().prettyprint();
 
@@ -1922,10 +1946,10 @@ namespace TL
             Source get_noncritical_reduction_code(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
             {
                 Source reduction_code;
-				
-				// Discard those that came from inner constructions
-				reduction_references = reduction_references.filter(
-						not_in_set(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol)));
+                
+                // Discard those that came from inner constructions
+                reduction_references = reduction_references.filter(
+                        not_in_set(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol)));
 
                 if (reduction_references.empty())
                 {
@@ -1936,7 +1960,7 @@ namespace TL
                 Source reduction_gathering;
 
                 reduction_code
-					<< comment("Reduction code noncritical performed after the join")
+                    << comment("Reduction code noncritical performed after the join")
                     << "int rdv_i;"
                     << "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
                     << "{"
@@ -1961,17 +1985,17 @@ namespace TL
                     return reduction_code;
                 }
 
-				ObjectList<OpenMP::ReductionIdExpression>& inner_reductions = inner_reductions_stack.top();
-				
-				// We push them onto the stack of inner_reductions because this
-				// functions is only called when this for is not orphaned
-				inner_reductions.insert(reduction_references, functor(&OpenMP::ReductionIdExpression::get_symbol));
+                ObjectList<OpenMP::ReductionIdExpression>& inner_reductions = inner_reductions_stack.top();
+                
+                // We push them onto the stack of inner_reductions because this
+                // functions is only called when this for is not orphaned
+                inner_reductions.insert(reduction_references, functor(&OpenMP::ReductionIdExpression::get_symbol));
 
                 Source reduction_update;
                 Source reduction_gathering;
 
                 reduction_code
-					<< comment("Inlined reduction code since this construct is not orphaned")
+                    << comment("Inlined reduction code since this construct is not orphaned")
                     << reduction_update
 //                    << "extern void in__tone_barrier_();"
 //                    << "extern char in__tone_is_master_();"
@@ -2303,7 +2327,8 @@ namespace TL
                         firstprivate_references,
                         lastprivate_references,
                         reduction_references,
-                        copyin_references
+                        copyin_references,
+                        parameter_info_list
                         ); 
 
                 Source reduction_update = get_reduction_update(reduction_references);
@@ -2316,12 +2341,12 @@ namespace TL
                         function_definition,
                         construct_body);
 
-				// Debug information
-				Source comment = debug_parameter_info(
-						parameter_info_list);
+                // Debug information
+                Source comment = debug_parameter_info(
+                        parameter_info_list);
                 
                 parallel_body 
-					<< comment
+                    << comment
                     << private_declarations
                     << instrumentation_code_before
                     << modified_parallel_body_stmt.prettyprint()
@@ -2399,7 +2424,8 @@ namespace TL
                         empty,
                         empty,
                         reduction_empty,
-                        empty
+                        empty,
+                        parameter_info_list
                         ); 
 
                 parallel_body 
@@ -2446,7 +2472,8 @@ namespace TL
                         firstprivate_references,
                         lastprivate_references,
                         reduction_references,
-                        copyin_references
+                        copyin_references,
+                        parameter_info_list
                         ); 
 
                 Source loop_distribution;
@@ -2464,7 +2491,9 @@ namespace TL
                 {
                     Source lastprivate_assignments = get_lastprivate_assignments(
                             lastprivate_references, 
-                            copyprivate_references);
+                            copyprivate_references,
+                            ObjectList<ParameterInfo>()
+                            );
 
                     lastprivate_code
                         << "if (intone_last != 0)"
@@ -2543,7 +2572,8 @@ namespace TL
                         firstprivate_references,
                         lastprivate_references,
                         reduction_references,
-                        copyin_references
+                        copyin_references,
+                        parameter_info
                         ); 
 
                 Source reduction_update = get_reduction_update(reduction_references);
@@ -2642,7 +2672,8 @@ namespace TL
                         firstprivate_references,
                         lastprivate_references,
                         reduction_references,
-                        copyin_references
+                        copyin_references,
+                        parameter_info_list
                         ); 
 
                 Source loop_distribution = get_loop_distribution_code(for_statement, replace_references);
@@ -2653,7 +2684,8 @@ namespace TL
                 {
                     Source lastprivate_assignments = get_lastprivate_assignments(
                             lastprivate_references, 
-                            copyprivate_references);
+                            copyprivate_references,
+                            parameter_info_list);
 
                     lastprivate_code
                         << "if (intone_last != 0)"
@@ -3109,7 +3141,9 @@ namespace TL
                     ObjectList<IdExpression> firstprivate_references,
                     ObjectList<IdExpression> lastprivate_references,
                     ObjectList<OpenMP::ReductionIdExpression> reduction_references,
-                    ObjectList<IdExpression> copyin_references)
+                    ObjectList<IdExpression> copyin_references,
+                    ObjectList<ParameterInfo> parameter_info_list
+                    )
             {
                 Source private_declarations;
                 
@@ -3121,8 +3155,8 @@ namespace TL
                     Symbol sym = it->get_symbol();
                     Type type = sym.get_type();
 
-					private_declarations << 
-						comment("Private entity : '" + it->mangle_id_expression() + "'");
+                    private_declarations << 
+                        comment("Private entity : '" + it->mangle_id_expression() + "'");
                     private_declarations
                         << type.get_declaration(
                                 it->get_scope(),
@@ -3141,10 +3175,17 @@ namespace TL
 
                     Source initializer_value;
 
-                    initializer_value << "(*flp_" << it->prettyprint() << ")";
+                    if (parameter_info_list.contains(functor(&ParameterInfo::symbol), it->get_symbol()))
+                    {
+                        initializer_value << "(*flp_" << it->prettyprint() << ")";
+                    }
+                    else
+                    {
+                        initializer_value << it->prettyprint();
+                    }
 
-					private_declarations << 
-						comment("Firstprivate entity : 'p_" + it->mangle_id_expression() + "'");
+                    private_declarations << 
+                        comment("Firstprivate entity : 'p_" + it->mangle_id_expression() + "'");
 
                     if (type.is_array())
                     {
@@ -3156,8 +3197,8 @@ namespace TL
                             << ";"
                             ;
 
-						private_declarations 
-							<< comment("This firstprivate entity is an array and must be initialized element-wise");
+                        private_declarations 
+                            << comment("This firstprivate entity is an array and must be initialized element-wise");
 
                         Source array_assignment = array_copy(type, "p_" + it->mangle_id_expression(),
                                 initializer_value.get_source(), 0);
@@ -3174,7 +3215,7 @@ namespace TL
                                         it->get_scope(),
                                         "p_" + it->mangle_id_expression())
                                 << ";"
-								<< comment("Using plain assignment to initialize firstprivate entity")
+                                << comment("Using plain assignment to initialize firstprivate entity")
                                 << "p_" + it->mangle_id_expression() << "=" << initializer_value.get_source() << ";"
                                 ;
                         }
@@ -3184,7 +3225,7 @@ namespace TL
                             if (type.is_class())
                             {
                                 private_declarations 
-									<< comment("Using copy constructor to initialize firstprivate entity")
+                                    << comment("Using copy constructor to initialize firstprivate entity")
                                     << type.get_declaration(
                                             it->get_scope(),
                                             "p_" + it->mangle_id_expression())
@@ -3200,7 +3241,7 @@ namespace TL
                                             it->get_scope(),
                                             "p_" + it->mangle_id_expression())
                                     << ";"
-									<< comment("Using assignment operator to initialize firstprivate entity")
+                                    << comment("Using assignment operator to initialize firstprivate entity")
                                     << "p_" + it->mangle_id_expression() << "=" << initializer_value.get_source() << ";"
                                     ;
                             }
@@ -3217,7 +3258,7 @@ namespace TL
                     Type type = sym.get_type();
 
                     private_declarations
-						<< comment("Lastprivate entity : 'p_" + it->mangle_id_expression() + "'")
+                        << comment("Lastprivate entity : 'p_" + it->mangle_id_expression() + "'")
                         << type.get_declaration(
                                 it->get_scope(),
                                 "p_" + it->mangle_id_expression())
@@ -3235,7 +3276,7 @@ namespace TL
                     Type type = sym.get_type();
                     
                     private_declarations
-						<< comment("Reduction private entity : 'rdp_" + id_expr.mangle_id_expression() + "'")
+                        << comment("Reduction private entity : 'rdp_" + id_expr.mangle_id_expression() + "'")
                         << type.get_declaration_with_initializer(
                                 id_expr.get_scope(),
                                 "rdp_" + id_expr.mangle_id_expression(),
@@ -3250,7 +3291,7 @@ namespace TL
                         it++)
                 {
                     private_declarations
-						<< comment("Initializing copyin entity '" + it->prettyprint() + "'")
+                        << comment("Initializing copyin entity '" + it->prettyprint() + "'")
                         << it->prettyprint() << " = " << "(*cin_" + it->mangle_id_expression() << ");"
                         ;
                 }
@@ -3260,7 +3301,8 @@ namespace TL
 
             Source get_lastprivate_assignments(
                     ObjectList<IdExpression> lastprivate_references,
-                    ObjectList<IdExpression> copyprivate_references)
+                    ObjectList<IdExpression> copyprivate_references,
+                    ObjectList<ParameterInfo> parameter_info_list)
             {
                 Source lastprivate_assignments;
 
@@ -3272,22 +3314,33 @@ namespace TL
                     Symbol symbol = it->get_symbol();
                     Type type = symbol.get_type();
 
-					lastprivate_assignments
-						<< comment("Assignment of lastprivate entity: 'flp_" + it->mangle_id_expression() + "'");
+                    std::string output_object;
+
+                    if (parameter_info_list.contains(functor(&ParameterInfo::symbol), it->get_symbol()))
+                    {
+                        output_object = "(*flp_" + it->mangle_id_expression() + ")";
+                    }
+                    else
+                    {
+                        output_object = it->prettyprint();
+                    }
+
+                    lastprivate_assignments
+                        << comment("Assignment of lastprivate entity: '" + output_object + "'");
 
                     if (type.is_array())
                     {
-                        Source array_assignment = array_copy(type, "(*flp_" + it->mangle_id_expression() + ")",
+                        Source array_assignment = array_copy(type, output_object,
                                 "p_" + it->mangle_id_expression(), 0);
 
                         lastprivate_assignments 
-							<< comment("Entity is an array and must be assigned element-wise")
+                            << comment("Entity is an array and must be assigned element-wise")
                             << array_assignment;
                     }
                     else
                     {
                         lastprivate_assignments
-                            << "(*flp_" << it->mangle_id_expression() << ")" << " = p_" << it->mangle_id_expression() << ";"
+                            << output_object << " = p_" << it->mangle_id_expression() << ";"
                             ;
                     }
                 }
@@ -3298,7 +3351,7 @@ namespace TL
                         it++)
                 {
                     lastprivate_assignments
-						<< comment("Assignment of copyprivate entity 'cout_" + it->mangle_id_expression() + "'")
+                        << comment("Assignment of copyprivate entity 'cout_" + it->mangle_id_expression() + "'")
                         << "(*cout_" << it->mangle_id_expression() << ")" << " = p_" << it->mangle_id_expression() << ";"
                         ;
                 }
@@ -3443,251 +3496,256 @@ namespace TL
                 return id_expr;
             }
 
-			Source debug_parameter_info(
+            Source debug_parameter_info(
                     ObjectList<ParameterInfo> parameter_info_list)
-			{
-				std::stringstream info;
+            {
+                std::stringstream info;
 
-				info << "Parameter information: " << std::endl;
+                info << "Parameter information: " << std::endl;
 
-				for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
-						it != parameter_info_list.end();
-						it++)
-				{
-					info << "'" << it->name << "' ";
+                if (parameter_info_list.empty())
+                {
+                    info << "No parameters" << std::endl;
+                }
+                else
+                for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                        it != parameter_info_list.end();
+                        it++)
+                {
+                    info << "'" << it->name << "' ";
 
-					if (it->kind == ParameterInfo::BY_VALUE)
-					{
-						info << "Passed by value (private pointer). ";
-					}
-					else if (it->kind == ParameterInfo::BY_POINTER)
-					{
-						info << "Passed by reference (global pointer). ";
-					}
+                    if (it->kind == ParameterInfo::BY_VALUE)
+                    {
+                        info << "Passed by value (private pointer). ";
+                    }
+                    else if (it->kind == ParameterInfo::BY_POINTER)
+                    {
+                        info << "Passed by reference (global pointer). ";
+                    }
 
-					info << "Original type: " 
-						<< it->type.get_declaration(it->id_expression.get_scope(), "") << ". ";
+                    info << "Original type: " 
+                        << it->type.get_declaration(it->id_expression.get_scope(), "") << ". ";
 
-					info << "Related id-expression: " 
-						<< it->id_expression.get_ast().get_locus() << ". ";
+                    info << "Related id-expression: " 
+                        << it->id_expression.get_ast().get_locus() << ". ";
 
-					info << std::endl;
-				}
+                    info << std::endl;
+                }
 
-				return comment(info.str());
-			}
+                return comment(info.str());
+            }
 
-			// ###########################################################
-			//    #pragma omp protect
-			//       statement
-			// ###########################################################
-			
-			class ExpressionReplacement 
-			{
-				private:
-					ObjectList<Symbol> _considered_symbols;
-				public:
-					ExpressionReplacement(ObjectList<Symbol>& considered_symbols)
-						: _considered_symbols(considered_symbols)
-					{
-					}
+            // ###########################################################
+            //    #pragma omp protect
+            //       statement
+            // ###########################################################
+            
+            class ExpressionReplacement 
+            {
+                private:
+                    ObjectList<Symbol> _considered_symbols;
+                public:
+                    ExpressionReplacement(ObjectList<Symbol>& considered_symbols)
+                        : _considered_symbols(considered_symbols)
+                    {
+                    }
 
-					void replace_lvalue(Expression expression)
-					{
-						if (!expression.is_id_expression() 
-								&& !expression.is_member_access())
-						{
-							replace_expression(expression);
-						}
+                    void replace_lvalue(Expression expression)
+                    {
+                        if (!expression.is_id_expression() 
+                                && !expression.is_member_access())
+                        {
+                            replace_expression(expression);
+                        }
 
-						{
-							Source reference;
+                        {
+                            Source reference;
 
-							reference << "&(" << expression.prettyprint() << ")";
+                            reference << "&(" << expression.prettyprint() << ")";
 
-							AST_t reference_tree;
-							reference_tree = reference.parse_expression(expression.get_scope());
+                            AST_t reference_tree;
+                            reference_tree = reference.parse_expression(expression.get_scope());
 
-							expression.get_ast().replace_with(reference_tree);
-						}
-					}
+                            expression.get_ast().replace_with(reference_tree);
+                        }
+                    }
 
-					void replace_expression(Expression expression)
-					{
-						if (expression.is_assignment())
-						{
-							Source original_expression = expression.get_first_operand().prettyprint();
-							replace_lvalue(expression.get_first_operand());
-							replace_expression(expression.get_second_operand());
+                    void replace_expression(Expression expression)
+                    {
+                        if (expression.is_assignment())
+                        {
+                            Source original_expression = expression.get_first_operand().prettyprint();
+                            replace_lvalue(expression.get_first_operand());
+                            replace_expression(expression.get_second_operand());
 
-							Source write_operation;
+                            Source write_operation;
 
-							write_operation << "write(&t, " << expression.get_first_operand().prettyprint()
-								<< ", " << expression.get_second_operand().prettyprint() 
-								// << ", sizeof(" << original_expression << ")"
-								<< ")";
+                            write_operation << "write(&t, " << expression.get_first_operand().prettyprint()
+                                << ", " << expression.get_second_operand().prettyprint() 
+                                // << ", sizeof(" << original_expression << ")"
+                                << ")";
 
-							AST_t write_operation_tree = write_operation.parse_expression(expression.get_scope());
+                            AST_t write_operation_tree = write_operation.parse_expression(expression.get_scope());
 
-							expression.get_ast().replace_with(write_operation_tree);
-						}
-						else if (expression.is_binary_operation())
-						{
-							replace_expression(expression.get_first_operand());
-							replace_expression(expression.get_second_operand());
-						}
-						else if (expression.is_unary_operation())
-						{
-							Source original_expression;
+                            expression.get_ast().replace_with(write_operation_tree);
+                        }
+                        else if (expression.is_binary_operation())
+                        {
+                            replace_expression(expression.get_first_operand());
+                            replace_expression(expression.get_second_operand());
+                        }
+                        else if (expression.is_unary_operation())
+                        {
+                            Source original_expression;
 
-							original_expression << expression.prettyprint();
+                            original_expression << expression.prettyprint();
 
-							replace_expression(expression.get_unary_operand());
-							if (expression.get_operation_kind() == Expression::DERREFERENCE)
-							{
-								Source replace_derreference_address;
+                            replace_expression(expression.get_unary_operand());
+                            if (expression.get_operation_kind() == Expression::DERREFERENCE)
+                            {
+                                Source replace_derreference_address;
 
-								replace_derreference_address 
-									<< "(*" // << "(__typeof__(&(" << original_expression << ")))"
-									<< "read(&t, " << expression.get_unary_operand().prettyprint() 
-									// << ", sizeof(" << original_expression << ")" 
-									<< ")" // read
-									<< ")";
+                                replace_derreference_address 
+                                    << "(*" // << "(__typeof__(&(" << original_expression << ")))"
+                                    << "read(&t, " << expression.get_unary_operand().prettyprint() 
+                                    // << ", sizeof(" << original_expression << ")" 
+                                    << ")" // read
+                                    << ")";
 
-								AST_t replace_derref_tree = replace_derreference_address.parse_expression(expression.get_scope());
+                                AST_t replace_derref_tree = replace_derreference_address.parse_expression(expression.get_scope());
 
-								expression.get_ast().replace_with(replace_derref_tree);
-							}
-						}
-						else if (expression.is_id_expression())
-						{
-							Source original_expression = expression.prettyprint();
-							IdExpression id_expression = expression.get_id_expression();
-							Symbol symbol = id_expression.get_symbol();
-							// Type type = id_expressions.get_type();
+                                expression.get_ast().replace_with(replace_derref_tree);
+                            }
+                        }
+                        else if (expression.is_id_expression())
+                        {
+                            Source original_expression = expression.prettyprint();
+                            IdExpression id_expression = expression.get_id_expression();
+                            Symbol symbol = id_expression.get_symbol();
+                            // Type type = id_expressions.get_type();
 
-							// FIXME - We should be using contains but there is some template breakage
-							if (find(_considered_symbols.begin(),
-										_considered_symbols.end(),
-										symbol) == _considered_symbols.end())
-								return;
+                            // FIXME - We should be using contains but there is some template breakage
+                            if (find(_considered_symbols.begin(),
+                                        _considered_symbols.end(),
+                                        symbol) == _considered_symbols.end())
+                                return;
 
-							Source read_operation;
+                            Source read_operation;
 
-							read_operation 
-								<< "(*" // << "(__typeof__(&(" << original_expression << ")))"
-								<< "read(&t, &" << id_expression.prettyprint()  
-								// << ", sizeof(" << id_expression.prettyprint() << ")" 
-								<< ")" // read
-								<< ")";
+                            read_operation 
+                                << "(*" // << "(__typeof__(&(" << original_expression << ")))"
+                                << "read(&t, &" << id_expression.prettyprint()  
+                                // << ", sizeof(" << id_expression.prettyprint() << ")" 
+                                << ")" // read
+                                << ")";
 
-							AST_t read_operation_tree = read_operation.parse_expression(id_expression.get_scope());
+                            AST_t read_operation_tree = read_operation.parse_expression(id_expression.get_scope());
 
-							expression.get_ast().replace_with(read_operation_tree);
-						}
-						else if (expression.is_member_access())
-						{
-							Source original_expression = expression.prettyprint();
+                            expression.get_ast().replace_with(read_operation_tree);
+                        }
+                        else if (expression.is_member_access())
+                        {
+                            Source original_expression = expression.prettyprint();
 
-							// replace_expression(expression.get_accessed_entity());
-							Expression accessed_entity = expression.get_accessed_entity();
+                            // replace_expression(expression.get_accessed_entity());
+                            Expression accessed_entity = expression.get_accessed_entity();
 
-							if (accessed_entity.is_unary_operation()
-									&& accessed_entity.get_operation_kind() == Expression::DERREFERENCE)
-							{
-								Expression referenced_entity = accessed_entity.get_unary_operand();
-								replace_expression(referenced_entity);
-							}
-							else if (!accessed_entity.is_id_expression())
-							{
-								replace_expression(accessed_entity);
-							}
+                            if (accessed_entity.is_unary_operation()
+                                    && accessed_entity.get_operation_kind() == Expression::DERREFERENCE)
+                            {
+                                Expression referenced_entity = accessed_entity.get_unary_operand();
+                                replace_expression(referenced_entity);
+                            }
+                            else if (!accessed_entity.is_id_expression())
+                            {
+                                replace_expression(accessed_entity);
+                            }
 
-							Source read_operation;
+                            Source read_operation;
 
-							read_operation 
-								<< "(*" // << "(__typeof__(&(" << original_expression << ")))"
-								// << "("
-								<< "read(&t, &" << expression.prettyprint() 
-								// << ", sizeof(" << original_expression << ")" 
-								<< ")" // read
-								<< ")";
+                            read_operation 
+                                << "(*" // << "(__typeof__(&(" << original_expression << ")))"
+                                // << "("
+                                << "read(&t, &" << expression.prettyprint() 
+                                // << ", sizeof(" << original_expression << ")" 
+                                << ")" // read
+                                << ")";
 
-							AST_t read_operation_tree = read_operation.parse_expression(expression.get_scope());
+                            AST_t read_operation_tree = read_operation.parse_expression(expression.get_scope());
 
-							expression.get_ast().replace_with(read_operation_tree);
-						}
-						else if (expression.is_pointer_member_access())
-						{
-							Source original_expression = expression.prettyprint();
+                            expression.get_ast().replace_with(read_operation_tree);
+                        }
+                        else if (expression.is_pointer_member_access())
+                        {
+                            Source original_expression = expression.prettyprint();
 
-							replace_expression(expression.get_accessed_entity());
+                            replace_expression(expression.get_accessed_entity());
 
-							Source read_operation;
+                            Source read_operation;
 
-							read_operation 
-								<< "(*" // << "(__typeof__(&(" << original_expression << ")))"
-								<< "read(&t, &" << expression.prettyprint() 
-								// << ", sizeof(" << original_expression << ")" 
-								<< ")" // read
-								<< ")";
+                            read_operation 
+                                << "(*" // << "(__typeof__(&(" << original_expression << ")))"
+                                << "read(&t, &" << expression.prettyprint() 
+                                // << ", sizeof(" << original_expression << ")" 
+                                << ")" // read
+                                << ")";
 
-							AST_t read_operation_tree = read_operation.parse_expression(expression.get_scope());
+                            AST_t read_operation_tree = read_operation.parse_expression(expression.get_scope());
 
-							expression.get_ast().replace_with(read_operation_tree);
-						}
-						else 
-						{
-							std::cerr << "A case is missing for expression : '" << expression.prettyprint() << "'" << std::endl;
-						}
-					}
-			};
+                            expression.get_ast().replace_with(read_operation_tree);
+                        }
+                        else 
+                        {
+                            std::cerr << "A case is missing for expression : '" << expression.prettyprint() << "'" << std::endl;
+                        }
+                    }
+            };
 
             void protect_postorder(OpenMP::CustomConstruct protect_construct)
             {
-				ObjectList<Symbol> considered_symbols;
-				ObjectList<Symbol> excluded_symbols;
+                ObjectList<Symbol> considered_symbols;
+                ObjectList<Symbol> excluded_symbols;
 
-				Statement protect_statement = protect_construct.body();
-				OpenMP::Directive protect_directive = protect_construct.directive();
+                Statement protect_statement = protect_construct.body();
+                OpenMP::Directive protect_directive = protect_construct.directive();
 
-				OpenMP::CustomClause exclude_clause = protect_directive.custom_clause("exclude");
+                OpenMP::CustomClause exclude_clause = protect_directive.custom_clause("exclude");
 
-				if (exclude_clause.is_defined())
-				{
-					excluded_symbols = 
-						exclude_clause.id_expressions().map(functor(&IdExpression::get_symbol));
-				}
+                if (exclude_clause.is_defined())
+                {
+                    excluded_symbols = 
+                        exclude_clause.id_expressions().map(functor(&IdExpression::get_symbol));
+                }
 
-				OpenMP::CustomClause only_clause = protect_directive.custom_clause("only");
+                OpenMP::CustomClause only_clause = protect_directive.custom_clause("only");
 
-				if (only_clause.is_defined())
-				{
-					considered_symbols = 
-						only_clause.id_expressions().map(functor(&IdExpression::get_symbol));
-				}
-				else
-				{
-					considered_symbols = 
-						protect_statement.non_local_symbol_occurrences().map(functor(&IdExpression::get_symbol));
-				}
+                if (only_clause.is_defined())
+                {
+                    considered_symbols = 
+                        only_clause.id_expressions().map(functor(&IdExpression::get_symbol));
+                }
+                else
+                {
+                    considered_symbols = 
+                        protect_statement.non_local_symbol_occurrences().map(functor(&IdExpression::get_symbol));
+                }
 
-				considered_symbols = considered_symbols.filter(not_in_set(excluded_symbols));
+                considered_symbols = considered_symbols.filter(not_in_set(excluded_symbols));
 
-				PredicateBool<LANG_IS_EXPRESSION_NEST> expression_pred;
-				ExpressionReplacement expression_replacement(considered_symbols);
+                PredicateBool<LANG_IS_EXPRESSION_NEST> expression_pred;
+                ExpressionReplacement expression_replacement(considered_symbols);
 
-				ObjectList<AST_t> expressions = protect_statement.get_ast().depth_subtrees(expression_pred, AST_t::NON_RECURSIVE);
+                ObjectList<AST_t> expressions = protect_statement.get_ast().depth_subtrees(expression_pred, AST_t::NON_RECURSIVE);
 
-				for (ObjectList<AST_t>::iterator it = expressions.begin();
-						it != expressions.end();
-						it++)
-				{
-					Expression expression(*it, protect_statement.get_scope_link());
+                for (ObjectList<AST_t>::iterator it = expressions.begin();
+                        it != expressions.end();
+                        it++)
+                {
+                    Expression expression(*it, protect_statement.get_scope_link());
 
-					expression_replacement.replace_expression(expression);
-				}
-			}
+                    expression_replacement.replace_expression(expression);
+                }
+            }
     };
 
 }
