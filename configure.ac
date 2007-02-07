@@ -1,5 +1,5 @@
 dnl Definicio del programa: nom, versio, mail
-AC_INIT([mcxx],[0.1],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.0],[rferrer@ac.upc.edu])
 
 dnl On estem ?
 AC_CANONICAL_BUILD
