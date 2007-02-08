@@ -94,7 +94,7 @@ namespace TL
      */
 
     class OpenMPTransform : public OpenMP::OpenMPPhase
-    { \
+    {
         private:
             // Here we declare "persistent" variables
 
