@@ -521,6 +521,7 @@ namespace TL
 					<<             "&nth_nargs_ref, &nth_nargs_val" << task_parameters << ");"
                     <<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
                     <<    "{"
+					<<       "fprintf(stderr, \"Cannot allocate task at '%s'\\n\", \"" << task_construct.get_ast().get_locus() << "\");"
                     <<       fallback_capture_values
                     <<       outlined_function_name << "(" << fallback_arguments << ");"
                     <<    "}"

@@ -6652,6 +6652,11 @@ AST get_function_declarator_parameter_list(AST funct_declarator, scope_t* st, de
                 return get_function_declarator_parameter_list(ASTSon0(funct_declarator), st, decl_context); 
 				break;
 			}
+		case AST_POINTER_DECL :
+			{
+				return get_function_declarator_parameter_list(ASTSon1(funct_declarator), st, decl_context);
+				break;
+			}
         case AST_DECLARATOR_FUNC :
             {
 				return ASTSon1(funct_declarator);
@@ -6659,7 +6664,8 @@ AST get_function_declarator_parameter_list(AST funct_declarator, scope_t* st, de
             }
 		default:
 			{
-                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(funct_declarator)));
+                internal_error("Unknown node '%s' at '%s'\n", ast_print_node_type(ASTType(funct_declarator)),
+						node_information(funct_declarator));
 				break;
 			}
 	}
