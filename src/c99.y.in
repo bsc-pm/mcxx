@@ -252,7 +252,6 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> selection_statement
 %type<ast> shift_expression
 %type<ast> simple_declaration
-%type<ast> simple_declaration_not_empty
 %type<ast> simple_type_specifier
 %type<ast> statement
 %type<ast> statement_seq
@@ -274,7 +273,17 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> designation
 %type<ast> designator_list
 %type<ast> designator
-%type<ast> simple_declaration_list
+
+%type<ast> old_style_parameter_list
+%type<ast> old_style_parameter
+
+%type<ast> nontype_specifier_without_attribute_seq
+%type<ast> nontype_specifier_without_attribute
+
+%type<ast> old_style_decl_specifier_seq
+
+%type<ast> decl_specifier_alone_seq
+%type<ast> type_specifier_alone
 
 %type<node_type> unary_operator
 %type<node_type> assignment_operator
@@ -556,9 +565,13 @@ simple_declaration : decl_specifier_seq init_declarator_list ';'
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, $2, ASTLine($1), NULL);
 }
-| decl_specifier_seq ';' 
+| decl_specifier_alone_seq ';' 
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, NULL, ASTLine($1), NULL);
+}
+| init_declarator_list ';' 
+{
+	$$ = ASTMake2(AST_SIMPLE_DECLARATION, NULL, $1, ASTLine($1), NULL);
 }
 | ';'
 {
@@ -567,9 +580,42 @@ simple_declaration : decl_specifier_seq init_declarator_list ';'
 }
 ;
 
-simple_declaration_not_empty : decl_specifier_seq init_declarator_list ';' 
+old_style_parameter : old_style_decl_specifier_seq init_declarator_list ';' 
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, $2, ASTLine($1), NULL);
+}
+;
+
+old_style_decl_specifier_seq : nontype_specifier_without_attribute_seq type_specifier nontype_specifier_seq
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, $3, ASTLine($1), NULL);
+}
+| nontype_specifier_without_attribute_seq type_specifier
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, NULL, ASTLine($1), NULL);
+}
+| type_specifier nontype_specifier_seq
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, $2, ASTLine($1), NULL);
+}
+| type_specifier
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, NULL, ASTLine($1), NULL);
+}
+| nontype_specifier_without_attribute_seq
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, NULL, NULL, ASTLine($1), NULL);
+}
+;
+
+// This avoids a conflict existing in GCC
+nontype_specifier_without_attribute_seq : nontype_specifier_without_attribute 
+{
+    $$ = ASTListLeaf($1);
+}
+| nontype_specifier_without_attribute_seq nontype_specifier_without_attribute
+{
+    $$ = ASTList($1, $2);
 }
 ;
 
@@ -605,6 +651,25 @@ decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_seq
 }
 ;
 
+// This does not declare an object, maybe just types, so restrict it a bit
+decl_specifier_alone_seq : nontype_specifier_seq type_specifier_alone nontype_specifier_seq
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, $3, ASTLine($1), NULL);
+}
+| nontype_specifier_seq type_specifier_alone
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, NULL, ASTLine($1), NULL);
+}
+| type_specifier_alone nontype_specifier_seq
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, $2, ASTLine($1), NULL);
+}
+| type_specifier_alone
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, NULL, ASTLine($1), NULL);
+}
+;
+
 nontype_specifier_seq : nontype_specifier
 {
 	$$ = ASTListLeaf($1);
@@ -615,7 +680,16 @@ nontype_specifier_seq : nontype_specifier
 }
 ;
 
-nontype_specifier : storage_class_specifier
+nontype_specifier : nontype_specifier_without_attribute
+{
+    $$ = $1;
+}
+| attribute
+{
+	$$ = $1;
+}
+
+nontype_specifier_without_attribute : storage_class_specifier
 {
 	$$ = $1;
 }
@@ -658,10 +732,6 @@ nontype_specifier : storage_class_specifier
 {
 	$$ = ASTLeaf(AST_GCC_IMAGINARY_TYPE, $1.token_line, $1.token_text);
 }
-| attribute
-{
-	$$ = $1;
-}
 ;
 
 storage_class_specifier : AUTO 
@@ -693,11 +763,21 @@ function_specifier : INLINE
 }
 ;
 
-type_specifier : simple_type_specifier
+type_specifier : type_specifier_alone
 {
-	$$ = $1;
 }
-| class_specifier
+| simple_type_specifier
+{
+    $$ = $1;
+}
+// GNU Extensions
+| COMPLEX
+{
+	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_line, $1.token_text);
+}
+;
+
+type_specifier_alone : class_specifier
 {
 	$$ = $1;
 }
@@ -708,11 +788,6 @@ type_specifier : simple_type_specifier
 | elaborated_type_specifier
 {
 	$$ = $1;
-}
-// GNU Extensions
-| COMPLEX
-{
-	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_line, $1.token_text);
 }
 ;
 
@@ -1408,21 +1483,31 @@ function_definition : decl_specifier_seq functional_declarator function_body
 {
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, NULL, $3, ASTLine($1), NULL);
 }
-| decl_specifier_seq functional_declarator simple_declaration_list function_body 
+| decl_specifier_seq functional_declarator old_style_parameter_list function_body 
 {
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, $3, $4, ASTLine($1), NULL);
 }
+/* This is an ugly heritage from C90 */
+| functional_declarator function_body
+{
+    $$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, NULL, $2, ASTLine($1), NULL);
+}
+| functional_declarator old_style_parameter_list function_body
+{
+    $$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, $1, $2, $3, ASTLine($1), NULL);
+}
+// GCC extension
 | EXTENSION function_definition
 {
 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, $1.token_text);
 }
 ;
 
-simple_declaration_list : simple_declaration_not_empty
+old_style_parameter_list : old_style_parameter
 {
     $$ = ASTListLeaf($1);
 }
-| simple_declaration_list simple_declaration_not_empty
+| old_style_parameter_list old_style_parameter
 {
     $$ = ASTList($1, $2);
 }

@@ -544,9 +544,23 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
         {
             new_decl_context.decl_flags &= (~DF_NO_DECLARATORS);
         }
-
         build_scope_decl_specifier_seq(ASTSon0(a), st, &gather_info, &simple_type_info,
                 new_decl_context);
+    }
+    else
+    {
+        C_LANGUAGE()
+        {
+            fprintf(stderr, "Warning: Declaration at '%s' does not have decl-specifier, assuming 'int'\n",
+                    node_information(a));
+
+            simple_type_info = calloc(1, sizeof(*simple_type_info));
+            simple_type_info->type = calloc(1, sizeof(*simple_type_info->type));
+
+            simple_type_info->kind = TK_DIRECT;
+            simple_type_info->type->kind = STK_BUILTIN_TYPE;
+            simple_type_info->type->builtin_type= BT_INT;
+        }
     }
 
 	ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
@@ -744,6 +758,21 @@ void build_scope_decl_specifier_seq(AST a, scope_t* st, gather_decl_spec_t* gath
         if (gather_info->is_volatile)
         {
             (*simple_type_info)->cv_qualifier |= CV_VOLATILE;
+        }
+    }
+    else
+    {
+        C_LANGUAGE()
+        {
+            fprintf(stderr, "Warning: Declaration at '%s' does not have a type-specifier, assuming 'int'\n",
+                    node_information(a));
+
+            *simple_type_info = calloc(1, sizeof(**simple_type_info));
+            (*simple_type_info)->type = calloc(1, sizeof(*((*simple_type_info)->type)));
+
+            (*simple_type_info)->kind = TK_DIRECT;
+            (*simple_type_info)->type->kind = STK_BUILTIN_TYPE;
+            (*simple_type_info)->type->builtin_type= BT_INT;
         }
     }
 }
@@ -2697,10 +2726,11 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
                 set_function_type(declarator_type, st, parameters_scope, gather_info, ASTSon1(a), 
                         ASTSon2(a), ASTSon3(a), decl_context);
 
-				if ((*declarator_type)->function->lacks_prototype)
+				if ((*declarator_type)->function->lacks_prototype
+                        && ASTSon1(a) == NULL)
 				{
 					char *funct_decl_name = prettyprint_in_buffer(ASTSon0(a));
-					fprintf(stderr, "Warning, function '%s' in '%s' lacks a prototype. Did you mean '%s(void)' instead of '%s()'?\n",
+					fprintf(stderr, "Warning: Function '%s' in '%s' lacks a prototype. Did you mean '%s(void)' instead of '%s()'?\n",
 							prettyprint_in_buffer(a), node_information(a), funct_decl_name, funct_decl_name);
 				}
 
@@ -4118,42 +4148,75 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
 		AST kr_parameters,
         scope_t* parameter_scope, decl_context_t decl_context)
 {
-	AST kr_parameter_list = ASTSon0(kr_parameters);
+	AST kr_parameter_list = NULL;
+    
+    if (kr_parameters != NULL 
+            && ASTSon0(kr_parameters) != NULL)
+    {
+        kr_parameter_list = ASTSon0(kr_parameters);
+    }
 
     AST declaration_list = kr_parameter_declaration;
     AST iter;
 
 	type_t* declarator_type = function_entry->type_information;
 
-    for_each_element(declaration_list, iter)
+    // This can be empty, but undefined parameters must be signed up
+    if (kr_parameter_declaration != NULL)
     {
-        AST simple_decl = ASTSon1(iter);
+        for_each_element(declaration_list, iter)
+        {
+            AST simple_decl = ASTSon1(iter);
 
-        build_scope_simple_declaration(simple_decl, parameter_scope, decl_context);
+            build_scope_simple_declaration(simple_decl, parameter_scope, decl_context);
+        }
     }
 
 	// Now for every symbol in kr_parameter_list get its type and sign it up
 	// in the parameters of the type
-	for_each_element(kr_parameter_list, iter)
-	{
-		AST symbol = ASTSon1(iter);
+    if (kr_parameter_list != NULL)
+    {
+        for_each_element(kr_parameter_list, iter)
+        {
+            AST symbol = ASTSon1(iter);
 
-		scope_entry_list_t* entry_list = query_in_symbols_of_scope(parameter_scope, ASTText(symbol));
-		if (entry_list == NULL)
-		{
-			fprintf(stderr, "Parameter '%s' of K&R-style function '%s' in %s not defined\n",
-					ASTText(symbol), function_entry->symbol_name, node_information(kr_parameters));
-		}
+            scope_entry_list_t* entry_list = query_in_symbols_of_scope(parameter_scope, ASTText(symbol));
+            scope_entry_t* entry;
 
-		scope_entry_t* entry = entry_list->entry;
-		parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
-		new_parameter->type_info = entry->type_information;
+            if (entry_list == NULL)
+            {
+                fprintf(stderr, "Warning: Parameter '%s' of K&R-style function '%s' in '%s' not defined, defaulting to 'int'\n",
+                        ASTText(symbol), function_entry->symbol_name, node_information(kr_parameters));
 
-		P_LIST_ADD(declarator_type->function->parameter_list, declarator_type->function->num_parameters, new_parameter);
-	}
+                scope_entry_t* new_entry = new_symbol(parameter_scope, ASTText(symbol));
+
+                new_entry->kind = SK_VARIABLE;
+                new_entry->line = ASTLine(symbol);
+                new_entry->type_information = calloc(1, sizeof(*new_entry->type_information));
+                new_entry->type_information->kind = TK_DIRECT;
+                new_entry->type_information->type = calloc(1, sizeof(*new_entry->type_information->type));
+                new_entry->type_information->type->kind = STK_BUILTIN_TYPE;
+                new_entry->type_information->type->builtin_type = BT_INT;
+
+                entry = new_entry;
+            }
+            else
+            {
+                entry = entry_list->entry;
+            }
+
+            parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
+            new_parameter->type_info = entry->type_information;
+
+            P_LIST_ADD(declarator_type->function->parameter_list, declarator_type->function->num_parameters, new_parameter);
+        }
+    }
 
 	// Should not lack prototype no more
-	declarator_type->function->lacks_prototype = 0;
+    if (kr_parameter_list != NULL)
+    {
+        declarator_type->function->lacks_prototype = 0;
+    }
 }
 
 /*
@@ -4184,9 +4247,37 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     }
     else
     {
-        if (is_constructor_declarator(ASTSon1(a)))
+        CXX_LANGUAGE()
         {
-            is_constructor = 1;
+            if (is_constructor_declarator(ASTSon1(a)))
+            {
+                is_constructor = 1;
+            }
+        }
+        C_LANGUAGE()
+        {
+            // There is no decl specifier sequence at all
+            if (decl_spec_seq == NULL
+                    || ASTSon1(decl_spec_seq) == NULL)
+            {
+                if (decl_spec_seq == NULL)
+                {
+                    fprintf(stderr, "Warning: Function definition at '%s' does not have decl-specifier, assuming 'int'\n",
+                            node_information(a));
+                }
+                else
+                {
+                    fprintf(stderr, "Warning: Function definition at '%s' does not have type-specifier, assuming 'int'\n",
+                            node_information(a));
+                }
+
+                type_info = calloc(1, sizeof(*type_info));
+                type_info->type = calloc(1, sizeof(*type_info->type));
+
+                type_info->kind = TK_DIRECT;
+                type_info->type->kind = STK_BUILTIN_TYPE;
+                type_info->type->builtin_type= BT_INT;
+            }
         }
     }
 
@@ -4283,9 +4374,11 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     C_LANGUAGE()
     {
         AST kr_parameter_declaration = ASTSon2(a);
-        if (kr_parameter_declaration != NULL)
+        AST kr_parameter_list = get_function_declarator_parameter_list(ASTSon1(a), st, decl_context);
+
+        if (kr_parameter_declaration != NULL
+                || ASTType(kr_parameter_list) == AST_KR_PARAMETER_LIST)
         {
-			AST kr_parameter_list = get_function_declarator_parameter_list(ASTSon1(a), st, decl_context);
 
             build_scope_kr_parameter_declaration(entry, kr_parameter_declaration, kr_parameter_list, parameter_scope,
                     decl_context);

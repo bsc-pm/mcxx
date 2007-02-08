@@ -14,7 +14,7 @@
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
-pragma_custom_directive : PRAGMA_CUSTOM pragma_custom_line,
+pragma_custom_directive : PRAGMA_CUSTOM pragma_custom_line 
 {
 	$$ = ASTMake1(AST_PRAGMA_CUSTOM_DIRECTIVE, $2, $1.token_line, $1.token_text);
 }
