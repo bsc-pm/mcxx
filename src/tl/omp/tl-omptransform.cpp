@@ -175,7 +175,8 @@ namespace TL
                 // #pragma omp single
                 on_single_post.connect(functor(&OpenMPTransform::single_postorder, *this));
                 
-                // #pragma omp single
+                // #pragma omp parallel single
+                on_parallel_single_pre.connect(functor(&OpenMPTransform::parallel_single_preorder, *this));
                 on_parallel_single_post.connect(functor(&OpenMPTransform::parallel_single_postorder, *this));
                 
                 // #pragma omp critical
@@ -392,7 +393,8 @@ namespace TL
                             reduction_empty,
                             empty,
                             empty,
-                            parameter_info_list); 
+                            parameter_info_list,
+							/* share_always = */ true); // All things said shared, must be shared
 
                 // Get the code of the outline
                 AST_t outline_code  = get_outline_task(
@@ -414,17 +416,20 @@ namespace TL
                 Source size_vector;
 
                 // For each capture address entity just pass a reference to it
+				int num_reference_args = 0;
                 for (ObjectList<IdExpression>::iterator it = captureaddress_references.begin();
                         it != captureaddress_references.end();
                         it++)
                 {
                     task_parameter_list.append_with_separator("&" + it->prettyprint(), ",");
+					num_reference_args++;
                 }
 
                 // This vector will hold the sizeof's of entities passed as
                 // private references
                 size_vector << "size_t nth_size[] = {0";
                 int vector_index = 1;
+				int num_value_args = 0;
                 // For every capture value entity pass a private reference to it
                 for (ObjectList<IdExpression>::iterator it = capturevalue_references.begin();
                         it != capturevalue_references.end();
@@ -447,6 +452,7 @@ namespace TL
                 }
                 size_vector << "};"
                     ;
+				num_value_args = vector_index - 1;
 
                 // A comma only needed when the parameter list is non empty
                 if (!task_parameter_list.empty())
@@ -455,14 +461,14 @@ namespace TL
                 }
 
                 // 'switch' clause support
-                Source threadswitch;
+                Source task_type;
                 if (directive.custom_clause("switch").is_defined())
                 {
-                    threadswitch << "1";
+					task_type << "0xa";
                 }
                 else
                 {
-                    threadswitch << "0";
+					task_type << "0xe";
                 }
 
                 // This is the code that will be executed if the task cannot be created
@@ -499,15 +505,20 @@ namespace TL
                 task_queueing
                     << "{"
                     <<    "nth_desc * nth;"
-                    <<    "int arg;"
-                    <<    "int set_threadswitch;"
-                    <<    "int num_params;"
+					<<    "int nth_type = " << task_type << ";"
+					<<    "int nth_ndeps = 0;"
+					<<    "int nth_vp = 0;"
+					<<    "nth_desc_t* nth_succ = (nth_desc_t*)0;"
+					<<    "int nth_nargs_ref = " << num_reference_args << ";"
+					<<    "int nth_nargs_val = " << num_value_args << ";"
+					<<    "void* nth_arg_addr[" << num_value_args << " + 1];"
+					<<    "void** nth_arg_addr_ptr = nth_arg_addr;"
 
-                    <<    "set_threadswitch = " << threadswitch << ";" 
                     <<    size_vector
 
-                    <<    "nth = nthf_create_task_((void*)(" << outlined_function_name << "), "
-                    <<             "&set_threadswitch, &num_params " << task_parameters << ");"
+                    <<    "nth = nth_create((void*)(" << outlined_function_name << "), "
+                    <<             "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, &nth_arg_addr_ptr, "
+					<<             "&nth_nargs_ref, &nth_nargs_val" << task_parameters << ");"
                     <<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
                     <<    "{"
                     <<       fallback_capture_values
@@ -761,7 +772,7 @@ namespace TL
                         copyprivate_references);
 
                 // Merge with inner reductions
-                reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
+				reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
 
                 // Create the replacement map and fill the parameter info list
                 ObjectList<ParameterInfo> parameter_info_list;
@@ -1692,23 +1703,26 @@ namespace TL
                     << "  int nth_nprocs;"
                     << "  nth_desc *nth_selfv;"
                     << "  int nth_num_deps;"
-                    << "  nth_argdesc_t nth_mask;"
-                    << "  int nth_num_params;"
+                    // << "  int nth_num_params;"
                     << "  int nth_p;"
                     <<    reduction_vectors
                     <<    instrument_code_before
                     <<    groups_definition
                     <<    size_vector 
-                    << "  int nth_nargs_val = " << src_num_args_val << ";"
+					<< "  int nth_task_type = 0x4;"
                     << "  int nth_nargs_ref = " << src_num_args_ref << ";"
-                    << "  nth_num_params = nth_nargs_val + nth_nargs_ref;"
+                    << "  int nth_nargs_val = " << src_num_args_val << ";"
+                    // << "  nth_num_params = nth_nargs_val + nth_nargs_ref;"
+					<< "  void *nth_arg_addr[" << src_num_args_val << " + 1];"
+					<< "  void **nth_arg_addr_ptr = nth_arg_addr;"
                     << "  nth_selfv = nthf_self_();"
                     << "  nthf_team_set_nplayers_ (&nth_nprocs);"
                     << "  nth_num_deps = 0;"
                     << "  for (nth_p = 0; nth_p < nth_nprocs; nth_p++)"
                     << "  {"
-                    << "     nthf_create_1s_vp_((void*)(" << outlined_function_name << "), &nth_num_deps, &nth_p, &nth_selfv, 0, "
-                    << "        &nth_num_params " << referenced_parameters << ");"
+					<< "     nth_create((void*)(" << outlined_function_name << "), "
+					<< "            &nth_task_type, &nth_num_deps, &nth_p, &nth_selfv, "
+					<< "            &nth_arg_addr_ptr, &nth_nargs_ref, &nth_nargs_val" << referenced_parameters << ");"
                     << "  }"
                     <<    instrument_code_block // This is crummy here
                     << "  nthf_block_();"
@@ -1801,6 +1815,13 @@ namespace TL
                 }
                 size_vector << "};"
                     ;
+
+				// Remove a useless variable to avoid a warning
+				if (num_args_val == 0)
+				{
+					size_vector = TL::Source("");
+				}
+
                 src_num_args_val << num_args_val;
 
                 // Groups definition
@@ -2869,7 +2890,8 @@ namespace TL
                     ObjectList<OpenMP::ReductionIdExpression>& reduction_references,
                     ObjectList<IdExpression>& copyin_references,
                     ObjectList<IdExpression>& copyprivate_references,
-                    ObjectList<ParameterInfo>& parameter_info)
+                    ObjectList<ParameterInfo>& parameter_info,
+					bool share_always = false)
             {
                 Symbol function_symbol = function_definition.get_function_name().get_symbol();
                 Scope function_scope = function_definition.get_scope();
@@ -2880,7 +2902,8 @@ namespace TL
                         it != shared_references.end();
                         it++)
                 {
-                    if (is_function_accessible(*it, function_definition))
+                    if (!share_always 
+							&& is_function_accessible(*it, function_definition))
                         continue;
 
                     Symbol symbol = it->get_symbol();
@@ -3535,6 +3558,14 @@ namespace TL
                 return comment(info.str());
             }
 
+			// Debug purposes
+			IdExpression print_id_expression(IdExpression id_expression)
+			{
+				std::cerr << "-> " << id_expression.prettyprint() << std::endl;
+
+				return id_expression;
+			}
+
             // ###########################################################
             //    #pragma omp protect
             //       statement
@@ -3746,6 +3777,8 @@ namespace TL
                     expression_replacement.replace_expression(expression);
                 }
             }
+
+			
     };
 
 }
