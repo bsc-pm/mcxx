@@ -54,11 +54,36 @@ namespace TL
 
 	void AST_t::replace(AST_t ast)
 	{
-		// If the replacement is a list, always do a in-list replacement.
-		// (even if the original replaced was not a list)
 		if (ASTType(ast._ast) == AST_NODE_LIST)
 		{
-			replace_in_list(ast);
+			// If the replacement is a list but the original is not, let's check two cases
+			// maybe this list is a one-element list or not.
+			if (ASTType(this->_ast) != AST_NODE_LIST)
+			{
+				// If it is a one element list
+				if (ASTSon0(ast._ast) == NULL)
+				{
+					// then replace the whole thing with the list information
+					AST_t repl_tree(ASTSon1(ast._ast));
+					replace_with(repl_tree);
+				}
+				// If this is not a one-element list then try to replace using
+				// a typical replace_in_list but this may fail sometimes
+				// because we'll look for the first enclosing list
+				else 
+				{
+					// Maybe we should yield a message here
+					std::cerr << "Warning: Replacing a non-list tree at '" 
+						<< this->get_locus() 
+						<< "' with a list tree of more than one element" << std::endl;
+					replace_in_list(ast);
+				}
+			}
+			// If both are lists is easy
+			else
+			{
+				replace_in_list(ast);
+			}
 		}
 		// If the thing being replaced is a list, but the replacement
 		// is not, then convert the latter into a list
