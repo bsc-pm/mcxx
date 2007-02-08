@@ -2601,6 +2601,8 @@ namespace TL
 
                 Source single_source;
 
+				Source barrier_code;
+
                 single_source
                     << "{"
                     <<   "int nth_low;"
@@ -2628,8 +2630,12 @@ namespace TL
                     <<   "{"
                     <<       modified_parallel_body_stmt.prettyprint()
                     <<   "}"
+					<<   barrier_code
                     << "}"
                     ;
+
+                barrier_code << "nth_barrier = 1;";
+                barrier_code << "in__tone_end_for_(&nth_barrier);";
 
                 Source instrumentation_code_before, instrumentation_code_after;
                 instrumentation_outline(instrumentation_code_before,
