@@ -4,13 +4,13 @@ lib_LTLIBRARIES = libtl.la
 
 BUILT_SOURCES = ../cxx-asttype.h
 
-libtl_la_CXXFLAGS = -Wall -O0 \
+libtl_la_CXXFLAGS = -Wall \
     -I $(srcdir)/../../src \
     -I $(srcdir)/../../lib \
     -I ../../src \
     -I ../../lib
 
-libtl_la_CFLAGS = -Wall -O0 \
+libtl_la_CFLAGS = -Wall \
     -I $(srcdir)/../../src \
     -I $(srcdir)/../../lib \
     -I ../../src \

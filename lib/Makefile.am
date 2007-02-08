@@ -6,12 +6,13 @@ tpp_SOURCES = \
 noinst_LTLIBRARIES = libmcxx-utils.la libmcxx-mcfg.la libmcxx-extstruct.la
 EXTRA_LTLIBRARIES=libmcxx-getopt.la
 
+libmcxx_getopt_la_CFLAGS= -Wall
 libmcxx_getopt_la_SOURCES = \
                            getopt.c \
                            getopt1.c \
                            getopt.h
-libmcxx_getopt_la_CFLAGS=
 
+libmcxx_utils_la_CFLAGS = -Wall -I $(srcdir)/../gc/include
 libmcxx_utils_la_SOURCES = \
                           iterator.c \
                           iterator.h \
@@ -28,15 +29,14 @@ libmcxx_utils_la_SOURCES = \
                           hash_iterator.c \
                           stack.h
 
-libmcxx_utils_la_CFLAGS = -I $(srcdir)/../gc/include
 
+libmcxx_mcfg_la_CFLAGS = -Wall -I $(srcdir)/../gc/include
 libmcxx_mcfg_la_SOURCES = \
                           mcfg.h \
                           mcfg.c
-libmcxx_mcfg_la_CFLAGS = -I $(srcdir)/../gc/include
 
+libmcxx_extstruct_la_CFLAGS = -Wall -I $(srcdir)/../gc/include
 libmcxx_extstruct_la_SOURCES = \
                               extstruct.h \
                               extstruct.c 
 
-libmcxx_extstruct_la_CFLAGS = -I $(srcdir)/../gc/include -Wall

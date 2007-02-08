@@ -1,6 +1,6 @@
 lib_LTLIBRARIES = libtlomp.la
 
-libtlomp_la_CFLAGS = -Wall -O0 \
+libtlomp_la_CFLAGS = -Wall \
     -I $(srcdir)/../../../src \
     -I $(srcdir)/../../../lib \
     -I $(srcdir)/../../../src/tl \
@@ -8,7 +8,7 @@ libtlomp_la_CFLAGS = -Wall -O0 \
     -I ../../../src/tl \
     -I ../../../lib 
 
-libtlomp_la_CXXFLAGS = -Wall -O0 \
+libtlomp_la_CXXFLAGS = -Wall \
     -I $(srcdir)/../../../src \
     -I $(srcdir)/../../../lib \
     -I $(srcdir)/../../../src/tl \

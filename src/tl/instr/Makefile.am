@@ -1,6 +1,6 @@
 lib_LTLIBRARIES = libtlinstr.la
 
-libtlinstr_la_CFLAGS = -Wall -O0 \
+libtlinstr_la_CFLAGS = -Wall \
     -I $(srcdir)/../../../src \
     -I $(srcdir)/../../../lib \
     -I $(srcdir)/../../../src/tl \
@@ -8,7 +8,7 @@ libtlinstr_la_CFLAGS = -Wall -O0 \
     -I ../../../src/tl \
     -I ../../../lib 
 
-libtlinstr_la_CXXFLAGS = -Wall -O0 \
+libtlinstr_la_CXXFLAGS = -Wall \
     -I $(srcdir)/../../../src \
     -I $(srcdir)/../../../lib \
     -I $(srcdir)/../../../src/tl \
