@@ -1,4 +1,4 @@
-SUBDIRS = omp instr
+SUBDIRS = . omp instr
 
 lib_LTLIBRARIES = libtl.la
 
@@ -59,7 +59,3 @@ libtl_la_SOURCES = \
 	tl-pragmasupport.cpp \
 	tl-omp.hpp \
 	tl-omp.cpp
-
-
-../cxx-asttype.h :
-	$(MAKE) -C .. cxx-asttype.h

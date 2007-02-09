@@ -1,7 +1,10 @@
-noinst_PROGRAMS = tpp
+noinst_PROGRAMS = 
 
+if TPP_BUILDING
+noinst_PROGRAMS += tpp
 tpp_SOURCES = \
               tpp.c
+endif
 
 noinst_LTLIBRARIES = libmcxx-utils.la libmcxx-mcfg.la libmcxx-extstruct.la
 EXTRA_LTLIBRARIES=libmcxx-getopt.la

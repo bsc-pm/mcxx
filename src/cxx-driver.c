@@ -781,7 +781,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 
     timing_start(&timing_parsing);
 
-	int parse_result;
+	int parse_result = 0;
     CXX_LANGUAGE()
     {
         parse_result = mcxxparse(&(translation_unit->parsed_tree));
