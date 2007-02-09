@@ -146,19 +146,19 @@ then
           bison_good=yes
           ;;
        x)
-          if test x$force_flex = xyes;
+          if test x$force_bison = xyes;
           then
-            AC_MSG_RESULT([error, could not guess flex version but it will still be used])
+            AC_MSG_RESULT([error, could not guess bison version but it will still be used])
           else
-            AC_MSG_RESULT([error, could not guess flex version])
+            AC_MSG_RESULT([error, could not guess bison version])
           fi
           ;;
        x*)
-          if test x$force_flex = xyes;
+          if test x$force_bison = xyes;
           then
-            AC_MSG_RESULT(${flex_ver}[, warning unsupported version but it will still be used])
+            AC_MSG_RESULT(${bison_ver}[, warning unsupported version but it will still be used])
           else
-            AC_MSG_RESULT(${flex_ver}[, warning unsupported version])
+            AC_MSG_RESULT(${bison_ver}[, warning unsupported version])
           fi
           ;;
     esac

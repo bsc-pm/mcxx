@@ -26,6 +26,9 @@ libmcxx_la_SOURCES = \
   cxx-parser.h \
   cxx-parser.c \
   cxx-scanner.c \
+  c99-scanner.c \
+  c99-parser.h \
+  c99-parser.c \
   cxx-graphviz.h \
   cxx-graphviz.c \
   cxx-prettyprint.c \
@@ -62,9 +65,7 @@ libmcxx_la_SOURCES = \
   cxx-tltype.h \
   cxx-tltype.c \
   cxx-scopelink.c \
-  cxx-scopelink.h \
-  c99-scanner.c \
-  c99-parser.c
+  cxx-scopelink.h
 
 # Currently these files are unused but waiting for their momentum
 #  cxx-koenig.c \
