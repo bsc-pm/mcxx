@@ -2726,13 +2726,20 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
                 set_function_type(declarator_type, st, parameters_scope, gather_info, ASTSon1(a), 
                         ASTSon2(a), ASTSon3(a), decl_context);
 
-				if ((*declarator_type)->function->lacks_prototype
-                        && ASTSon1(a) == NULL)
-				{
-					char *funct_decl_name = prettyprint_in_buffer(ASTSon0(a));
-					fprintf(stderr, "Warning: Function '%s' in '%s' lacks a prototype. Did you mean '%s(void)' instead of '%s()'?\n",
-							prettyprint_in_buffer(a), node_information(a), funct_decl_name, funct_decl_name);
-				}
+                C_LANGUAGE()
+                {
+                    if ((*declarator_type)->function->lacks_prototype)
+                    {
+                        if (ASTSon1(a) == NULL
+                                || ASTType(ASTSon1(a)) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
+                        {
+                            char *funct_decl_name = prettyprint_in_buffer(ASTSon0(a));
+                            fprintf(stderr, "Warning: Function '%s' in '%s' lacks a prototype. "
+                                    "Did you mean '%s(void)' instead of '%s()'?\n",
+                                    prettyprint_in_buffer(a), node_information(a), funct_decl_name, funct_decl_name);
+                        }
+                    }
+                }
 
                 build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, 
                         gather_info, declarator_name, decl_context);
