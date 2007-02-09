@@ -239,6 +239,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> functional_declarator_id
 // %type<ast> decl_specifier
 %type<ast> decl_specifier_seq
+%type<ast> decl_specifier_alone_seq
 %type<ast> delete_expression
 %type<ast> direct_abstract_declarator
 %type<ast> direct_declarator
@@ -350,6 +351,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> type_name
 %type<ast> type_parameter
 %type<ast> type_specifier
+%type<ast> type_specifier_alone
 %type<ast> type_specifier_seq
 %type<ast> unary_expression
 %type<ast> unnamed_namespace_definition
@@ -827,7 +829,7 @@ simple_declaration : decl_specifier_seq init_declarator_list ';'
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, NULL, $1, ASTLine($1), NULL);
 }
-| decl_specifier_seq ';' 
+| decl_specifier_alone_seq ';' 
 {
 	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, NULL, ASTLine($1), NULL);
 }
@@ -867,6 +869,25 @@ decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_seq
 | nontype_specifier_seq
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, NULL, NULL, ASTLine($1), NULL);
+}
+;
+
+// This does not declare an object, maybe just types, so restrict it a bit
+decl_specifier_alone_seq : nontype_specifier_seq type_specifier_alone nontype_specifier_seq
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, $3, ASTLine($1), NULL);
+}
+| nontype_specifier_seq type_specifier_alone
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, NULL, ASTLine($1), NULL);
+}
+| type_specifier_alone nontype_specifier_seq
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, $2, ASTLine($1), NULL);
+}
+| type_specifier_alone
+{
+	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, NULL, ASTLine($1), NULL);
 }
 ;
 
@@ -975,11 +996,21 @@ function_specifier : INLINE
 }
 ;
 
-type_specifier : simple_type_specifier
+type_specifier : type_specifier_alone
 {
-	$$ = $1;
 }
-| class_specifier
+| simple_type_specifier
+{
+    $$ = $1;
+}
+// GNU Extensions
+| COMPLEX
+{
+	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_line, $1.token_text);
+}
+;
+
+type_specifier_alone : class_specifier
 {
 	$$ = $1;
 }
@@ -990,11 +1021,6 @@ type_specifier : simple_type_specifier
 | elaborated_type_specifier
 {
 	$$ = $1;
-}
-// GNU Extensions
-| COMPLEX
-{
-	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_line, $1.token_text);
 }
 ;
 
