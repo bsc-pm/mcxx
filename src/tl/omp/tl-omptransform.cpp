@@ -23,14 +23,23 @@ namespace TL
                 BY_REFERENCE // Unused
             } parameter_kind_t;
 
-            std::string name;
+            std::string parameter_name;
+            std::string argument_name;
             Type type;
             parameter_kind_t kind;
             IdExpression id_expression;
             Symbol symbol;
 
-            ParameterInfo(const std::string& _name, IdExpression _id_expression, Type _type, parameter_kind_t _kind)
-                : name(_name), type(_type), kind(_kind), id_expression(_id_expression), 
+            ParameterInfo(const std::string& _parameter_name, 
+					const std::string& _argument_name, 
+					IdExpression _id_expression, 
+					Type _type, 
+					parameter_kind_t _kind)
+                : parameter_name(_parameter_name), 
+                argument_name(_argument_name), 
+				type(_type), 
+				kind(_kind), 
+				id_expression(_id_expression), 
                 symbol(_id_expression.get_symbol())
             {
             }
@@ -391,6 +400,7 @@ namespace TL
                             empty,
                             empty,
                             reduction_empty,
+							reduction_empty,
                             empty,
                             empty,
                             parameter_info_list,
@@ -521,7 +531,7 @@ namespace TL
 					<<             "&nth_nargs_ref, &nth_nargs_val" << task_parameters << ");"
                     <<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
                     <<    "{"
-					<<       "fprintf(stderr, \"Cannot allocate task at '%s'\\n\", \"" << task_construct.get_ast().get_locus() << "\");"
+					// <<       "fprintf(stderr, \"Cannot allocate task at '%s'\\n\", \"" << task_construct.get_ast().get_locus() << "\");"
                     <<       fallback_capture_values
                     <<       outlined_function_name << "(" << fallback_arguments << ");"
                     <<    "}"
@@ -772,9 +782,6 @@ namespace TL
                         copyin_references,
                         copyprivate_references);
 
-                // Merge with inner reductions
-				reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
-
                 // Create the replacement map and fill the parameter info list
                 ObjectList<ParameterInfo> parameter_info_list;
                 ReplaceIdExpression replace_references = 
@@ -786,6 +793,7 @@ namespace TL
                             firstprivate_references,
                             lastprivate_references,
                             reduction_references,
+							inner_reductions_stack.top(),
                             copyin_references,
                             copyprivate_references,
                             parameter_info_list);
@@ -963,9 +971,6 @@ namespace TL
                         copyin_references,
                         copyprivate_references);
                 
-                // Merge with inner reductions
-                reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
-
                 ObjectList<ParameterInfo> parameter_info_list;
 
                 ReplaceIdExpression replace_references = 
@@ -977,6 +982,7 @@ namespace TL
                             firstprivate_references,
                             lastprivate_references,
                             reduction_references,
+							inner_reductions_stack.top(),
                             copyin_references,
                             copyprivate_references,
                             parameter_info_list);
@@ -1115,9 +1121,6 @@ namespace TL
                         copyin_references,
                         copyprivate_references);
                 
-                // Merge with inner reductions
-                reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
-
                 // The induction variable deserves special treatment
                 IdExpression induction_var = for_statement.get_induction_variable();
                 // If private_references does not contain an IdExpression whose
@@ -1135,6 +1138,8 @@ namespace TL
                             induction_var.get_symbol());
                 }
 
+				ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
+
                 // Create the replacement map and the pass_by_pointer set
                 ObjectList<ParameterInfo> parameter_info_list;
                 ReplaceIdExpression replace_references = 
@@ -1146,6 +1151,7 @@ namespace TL
                             firstprivate_references,
                             lastprivate_references,
                             reduction_references,
+							inner_reductions_stack.top(),
                             copyin_references,
                             copyprivate_references,
                             parameter_info_list);
@@ -1266,9 +1272,6 @@ namespace TL
                         copyin_references,
                         copyprivate_references);
                 
-                // Merge with inner reductions
-                reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol));
-
                 ObjectList<ParameterInfo> parameter_info_list;
                 ReplaceIdExpression replace_references = 
                     set_replacements(function_definition,
@@ -1279,6 +1282,7 @@ namespace TL
                             firstprivate_references,
                             lastprivate_references,
                             reduction_references,
+							inner_reductions_stack.top(),
                             copyin_references,
                             copyprivate_references,
                             parameter_info_list);
@@ -1396,6 +1400,8 @@ namespace TL
 
                 ObjectList<ParameterInfo> parameter_info_list;
 
+				ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
+
                 ReplaceIdExpression replace_references = 
                     set_replacements(function_definition,
                             directive,
@@ -1405,6 +1411,7 @@ namespace TL
                             firstprivate_references,
                             lastprivate_references,
                             reduction_references,
+							reduction_empty,
                             copyin_references,
                             copyprivate_references,
                             parameter_info_list);
@@ -1587,6 +1594,8 @@ namespace TL
                             induction_var.get_symbol());
                 }
 
+				ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
+
                 // The lists of entities passed by pointer and entities
                 // privatized in the outline
                 ObjectList<ParameterInfo> parameter_info_list;
@@ -1600,6 +1609,7 @@ namespace TL
                             firstprivate_references,
                             lastprivate_references,
                             reduction_references,
+							reduction_empty,
                             copyin_references,
                             copyprivate_references,
                             parameter_info_list);
@@ -1741,8 +1751,13 @@ namespace TL
                 }
 
                 // For every entity in the reduction_references list
-                for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
-                        it != reduction_references.end();
+				ObjectList<OpenMP::ReductionIdExpression> merged_reduction_references;
+
+				merged_reduction_references.append(reduction_references);
+				merged_reduction_references.append(inner_reductions_stack.top());
+
+                for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = merged_reduction_references.begin();
+                        it != merged_reduction_references.end();
                         it++)
                 {
                     // create a reduction vector after the name of the mangled entity
@@ -1786,10 +1801,8 @@ namespace TL
                     if (it->kind != ParameterInfo::BY_POINTER)
                         continue;
 
-                    IdExpression id_expr = it->id_expression;
-
                     // Simply pass its reference (its address)
-                    referenced_parameters << ", &" << id_expr.prettyprint();
+					referenced_parameters << ", " << it->argument_name;
 
                     num_args_ref++;
                 }
@@ -1969,14 +1982,10 @@ namespace TL
             {
                 Source reduction_code;
                 
-                // Discard those that came from inner constructions
-                reduction_references = reduction_references.filter(
-                        not_in_set(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol)));
-
-                if (reduction_references.empty())
-                {
-                    return reduction_code;
-                }
+				if (reduction_references.empty())
+				{
+					return reduction_code;
+				}
 
                 // Create the source code that gathers the values computed by every thread
                 Source reduction_gathering;
@@ -2007,12 +2016,6 @@ namespace TL
                     return reduction_code;
                 }
 
-                ObjectList<OpenMP::ReductionIdExpression>& inner_reductions = inner_reductions_stack.top();
-                
-                // We push them onto the stack of inner_reductions because this
-                // functions is only called when this for is not orphaned
-                inner_reductions.insert(reduction_references, functor(&OpenMP::ReductionIdExpression::get_symbol));
-
                 Source reduction_update;
                 Source reduction_gathering;
 
@@ -2039,12 +2042,21 @@ namespace TL
                 reduction_update = get_reduction_update(reduction_references);
                 reduction_gathering = get_reduction_gathering(reduction_references);
 
+                // We push them onto the stack of inner_reductions because this
+                // functions is only called when this for is not orphaned
+                ObjectList<OpenMP::ReductionIdExpression>& inner_reductions = inner_reductions_stack.top();
+                inner_reductions.insert(reduction_references, functor(&OpenMP::ReductionIdExpression::get_symbol));
+
                 return reduction_code;
             }
 
             Source get_reduction_update(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
             {
                 Source reduction_update;
+				
+                // Discard those that came from inner constructions
+                reduction_references = reduction_references.filter(
+                        not_in_set(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol)));
 
                 if (reduction_references.empty())
                 {
@@ -2283,7 +2295,7 @@ namespace TL
 
                     IdExpression id_expr = it->id_expression;
                     Type type = it->type;
-                    std::string name = it->name;
+                    std::string name = it->parameter_name;
 
                     formal_parameters.append_with_separator(
                             type.get_declaration(id_expr.get_scope(), name), ",");
@@ -2300,7 +2312,7 @@ namespace TL
 
                     IdExpression id_expr = it->id_expression;
                     Type type = it->type;
-                    std::string name = it->name;
+                    std::string name = it->parameter_name;
 
                     formal_parameters.append_with_separator(
                             type.get_declaration(id_expr.get_scope(), name), ",");
@@ -2895,6 +2907,7 @@ namespace TL
                     ObjectList<IdExpression>& firstprivate_references,
                     ObjectList<IdExpression>& lastprivate_references,
                     ObjectList<OpenMP::ReductionIdExpression>& reduction_references,
+                    ObjectList<OpenMP::ReductionIdExpression>& inner_reduction_references,
                     ObjectList<IdExpression>& copyin_references,
                     ObjectList<IdExpression>& copyprivate_references,
                     ObjectList<ParameterInfo>& parameter_info,
@@ -2918,7 +2931,8 @@ namespace TL
 
                     Type pointer_type = type.get_pointer_to();
 
-                    ParameterInfo parameter(it->mangle_id_expression(), *it, pointer_type, ParameterInfo::BY_POINTER);
+                    ParameterInfo parameter(it->mangle_id_expression(), 
+							"&" + it->prettyprint(), *it, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
 
                     result.add_replacement(symbol, "(*" + it->mangle_id_expression() + ")");
@@ -2945,7 +2959,9 @@ namespace TL
 
                     Type pointer_type = type.get_pointer_to();
 
-                    ParameterInfo parameter("flp_" + it->mangle_id_expression(), *it, pointer_type, ParameterInfo::BY_POINTER);
+                    ParameterInfo parameter("flp_" + it->mangle_id_expression(), 
+							"&" + it->prettyprint(), 
+							*it, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
 
                     result.add_replacement(symbol, "p_" + it->mangle_id_expression());
@@ -2961,7 +2977,9 @@ namespace TL
 
                     Type pointer_type = type.get_pointer_to();
 
-                    ParameterInfo parameter("flp_" + it->mangle_id_expression(), *it, pointer_type, ParameterInfo::BY_POINTER);
+                    ParameterInfo parameter("flp_" + it->mangle_id_expression(), 
+							"&" + it->prettyprint(),
+							*it, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
 
                     result.add_replacement(symbol, "p_" + it->mangle_id_expression());
@@ -2978,10 +2996,36 @@ namespace TL
 
                     Type pointer_type = type.get_pointer_to();
 
-                    ParameterInfo parameter("rdv_" + id_expr.mangle_id_expression(), id_expr, pointer_type, ParameterInfo::BY_POINTER);
+                    ParameterInfo parameter("rdv_" + id_expr.mangle_id_expression(), 
+							"rdv_" + id_expr.mangle_id_expression(),
+							id_expr, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
 
                     result.add_replacement(symbol, "rdp_" + id_expr.mangle_id_expression());
+                }
+
+				// Inner REDUCTION references (those coming from lexical enclosed DO's inner to this PARALLEL)
+                for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = inner_reduction_references.begin();
+                        it != inner_reduction_references.end();
+                        it++)
+                {
+                    IdExpression id_expr = it->get_id_expression();
+                    Symbol symbol = id_expr.get_symbol();
+                    Type type = symbol.get_type();
+
+                    Type pointer_type = type.get_pointer_to();
+
+                    ParameterInfo reduction_vector_parameter("rdv_" + id_expr.mangle_id_expression(), 
+							"rdv_" + id_expr.mangle_id_expression(),
+							id_expr, pointer_type, ParameterInfo::BY_POINTER);
+
+                    parameter_info.append(reduction_vector_parameter);
+
+                    ParameterInfo parameter(id_expr.mangle_id_expression(), 
+							"&" + id_expr.prettyprint(),
+							id_expr, pointer_type, ParameterInfo::BY_POINTER);
+
+                    result.add_replacement(symbol, "(*" + id_expr.mangle_id_expression() + ")");
                 }
 
                 // COPYIN references
@@ -2994,7 +3038,9 @@ namespace TL
 
                     Type pointer_type = type.get_pointer_to();
 
-                    ParameterInfo parameter("cin_" + it->mangle_id_expression(), *it, type, ParameterInfo::BY_POINTER);
+                    ParameterInfo parameter("cin_" + it->mangle_id_expression(), 
+							"&" + it->prettyprint(),
+							*it, type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
                 }
 
@@ -3008,7 +3054,9 @@ namespace TL
 
                     Type pointer_type = type.get_pointer_to();
 
-                    ParameterInfo parameter("cout_" + it->mangle_id_expression(), *it, pointer_type, ParameterInfo::BY_POINTER);
+                    ParameterInfo parameter("cout_" + it->mangle_id_expression(), 
+							"&" + it->prettyprint(),
+							*it, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
                 }
 
@@ -3542,7 +3590,7 @@ namespace TL
                         it != parameter_info_list.end();
                         it++)
                 {
-                    info << "'" << it->name << "' ";
+                    info << "'" << it->parameter_name << "' ";
 
                     if (it->kind == ParameterInfo::BY_VALUE)
                     {
