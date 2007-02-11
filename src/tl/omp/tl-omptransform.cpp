@@ -1476,8 +1476,8 @@ namespace TL
                     <<    private_declarations
                     <<    loop_distribution_code
                     <<    lastprivate_code
-                    <<    loop_finalization
                     <<    reduction_code
+                    <<    loop_finalization
                     << "}"
                     ;
 
@@ -1658,8 +1658,8 @@ namespace TL
                     <<    private_declarations
                     <<    loop_distribution_code
                     <<    lastprivate_code
-                    <<    loop_finalization
                     <<    reduction_code
+                    <<    loop_finalization
                     << "}"
                     ;
 
@@ -1939,14 +1939,9 @@ namespace TL
                     <<    "static nth_word_t default_mutex;"
 //                    <<    "extern nthf_spin_lock_(void*);"
 //                    <<    "extern nthf_spin_unlock_(void*);"
-                    <<    "int rdv_i;"
 
                     <<    "nthf_spin_lock_(&default_mutex);"
-                    <<    "int nth_nprocs = nthf_cpus_actual_();"
-                    <<    "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
-                    <<    "{"
-                    <<       reduction_gathering
-                    <<    "}"
+                    <<    reduction_gathering
                     <<    "nthf_spin_unlock_(&default_mutex);"
                     << "}"
                     ; 
