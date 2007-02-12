@@ -1053,6 +1053,7 @@ static void link_objects(void)
 
 static void terminating_signal_handler(int sig)
 {
+    signal(sig, SIG_DFL);
     // Do cleanup that will not be done
     // because of SIGSEGV
 
@@ -1062,7 +1063,6 @@ static void terminating_signal_handler(int sig)
     temporal_files_cleanup();
 
     // Reraise the signal
-    signal(sig, SIG_DFL);
     raise(sig);
 }
 
