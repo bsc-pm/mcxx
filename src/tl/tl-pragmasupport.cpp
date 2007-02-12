@@ -44,7 +44,7 @@ namespace TL
 	{
 		TL::AST_t pragma_line = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_LINE);
 
-		TL::String result = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_DIRECTIVE);
+		TL::String result = pragma_line.get_attribute(LANG_PRAGMA_CUSTOM_DIRECTIVE);
 
 		return result;
 	}
@@ -70,6 +70,12 @@ namespace TL
 
 		return result;
 	}
+
+    PragmaCustomClause PragmaCustomConstruct::get_clause(const std::string& name)
+    {
+        PragmaCustomClause result(name, this->get_ast(), this->get_scope_link());
+        return result;
+    }
 
 	PragmaCustomCompilerPhase::PragmaCustomCompilerPhase(const std::string& pragma_handled)
 		: _pragma_handled(pragma_handled), _pragma_dispatcher(pragma_handled, on_directive_pre, on_directive_post)

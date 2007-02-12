@@ -26,8 +26,6 @@ namespace TL
 			ObjectList<IdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
 
 			bool is_defined();
-
-
 	};
 
 	class PragmaCustomConstruct : public LangConstruct
@@ -45,6 +43,8 @@ namespace TL
 			bool is_construct();
 
 			Statement get_statement();
+
+            PragmaCustomClause get_clause(const std::string& name);
 	};
 
 	typedef std::map<std::string, Signal1<PragmaCustomConstruct> > CustomFunctorMap;
