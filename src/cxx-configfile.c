@@ -104,7 +104,7 @@ int config_add_preprocessor_prefix(char* value)
 
 	P_LIST_ADD(compilation_options.pragma_custom_prefix,
 			compilation_options.num_pragma_custom_prefix,
-			value);
+			strdup(value));
 
 	return 0;
 }

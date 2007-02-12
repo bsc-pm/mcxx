@@ -1,4 +1,4 @@
-SUBDIRS = . omp instr
+SUBDIRS = . omp instr mypragma
 
 lib_LTLIBRARIES = libtl.la
 

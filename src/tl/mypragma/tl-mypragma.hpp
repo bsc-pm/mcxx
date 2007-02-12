@@ -1,0 +1,4 @@
+#ifndef TL_MYPRAGMA_HPP
+#define TL_MYPRAGMA_HPP
+
+#endif // TL_MYPRAGMA_HPP
