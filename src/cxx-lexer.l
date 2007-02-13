@@ -315,6 +315,10 @@ threadprivate {
 	return PRAGMA_CUSTOM_DIRECTIVE; 
 }
 
+[ ] {
+	// This blank must be eaten and should be mandatory
+}
+
 }
 
 <pragma_custom_clause>{
