@@ -239,6 +239,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/Makefile 
            src/tl/omp/Makefile 
            src/tl/instr/Makefile 
+           src/tl/mypragma/Makefile 
            config/Makefile
            tests/Makefile
            ])
