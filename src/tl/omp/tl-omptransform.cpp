@@ -140,6 +140,12 @@ namespace TL
 
             virtual void init()
             {
+				if (ExternalVars::get("nanos_new_interface", "0") != "1")
+				{
+					std::cerr << "OpenMP: Using old interface 'nthf_create_1s_vp_' for parallel spawn." << std::endl;
+					std::cerr << "OpenMP: Use '--variable=nanos_new_interface:1' to enable the newer interface" << std::endl;
+				}
+
                 // This function is called in OpenMPPhase::run. The user
                 // can register here the handlers that will be called for
                 // every construction (in preorder and postorder)
@@ -1708,6 +1714,9 @@ namespace TL
                 Source src_num_args_val;
                 Source src_num_args_ref;
 
+				Source nth_creation_function;
+				Source additional_declarations;
+
                 // The skeleton of the spawn code will be this one
                 spawn_code
                     << "{"
@@ -1720,20 +1729,14 @@ namespace TL
                     <<    instrument_code_before
                     <<    groups_definition
                     <<    size_vector 
-					<< "  int nth_task_type = 0x4;"
                     << "  int nth_nargs_ref = " << src_num_args_ref << ";"
-                    << "  int nth_nargs_val = " << src_num_args_val << ";"
-                    // << "  nth_num_params = nth_nargs_val + nth_nargs_ref;"
-					<< "  void *nth_arg_addr[" << src_num_args_val << " + 1];"
-					<< "  void **nth_arg_addr_ptr = nth_arg_addr;"
+					<<    additional_declarations
                     << "  nth_selfv = nthf_self_();"
                     << "  nthf_team_set_nplayers_ (&nth_nprocs);"
                     << "  nth_num_deps = 0;"
                     << "  for (nth_p = 0; nth_p < nth_nprocs; nth_p++)"
                     << "  {"
-					<< "     nth_create((void*)(" << outlined_function_name << "), "
-					<< "            &nth_task_type, &nth_num_deps, &nth_p, &nth_selfv, "
-					<< "            &nth_arg_addr_ptr, &nth_nargs_ref, &nth_nargs_val" << referenced_parameters << ");"
+					<<       nth_creation_function
                     << "  }"
                     <<    instrument_code_block // This is crummy here
                     << "  nthf_block_();"
@@ -1741,6 +1744,7 @@ namespace TL
                     <<    instrument_code_after
                     << "}"
                     ;
+
 
                 // I don't like this
                 if (ExternalVars::get("instrument", "0") == "1")
@@ -1827,12 +1831,48 @@ namespace TL
 
                     num_args_val++;
                 }
-                size_vector << "};"
-                    ;
+                size_vector << "};";
 
-				// Remove a useless variable to avoid a warning
+
+				if ((num_args_val == 0)
+						&& (ExternalVars::get("nanos_new_interface", "0") != "1"))
+				{
+					nth_creation_function
+						<< "     nthf_create_1s_vp_((void*)(" << outlined_function_name << "), &nth_num_deps, &nth_p, &nth_selfv, 0, "
+						<< "        &nth_nargs_ref " << referenced_parameters << ");"
+						;
+				}
+				else
+				{
+					if (ExternalVars::get("nanos_new_interface", "0") == "0")
+					{
+						// FIXME. We are giving an approximate locus but this
+						// should not be very important since in some near 
+						// future we will remove the old interface :)
+						std::cerr << "Warning, OpenMP construct in function '" 
+							<< function_definition.get_function_name().prettyprint() 
+							<< "' at " 
+							<< function_definition.get_ast().get_locus() 
+							<< " requires using the new interface since something must be passed by value."
+							<< std::endl;
+					}
+
+					additional_declarations
+						<< "  int nth_task_type = 0x4;"
+						<< "  int nth_nargs_val = " << src_num_args_val << ";"
+						<< "  void *nth_arg_addr[" << src_num_args_val << " + 1];"
+						<< "  void **nth_arg_addr_ptr = nth_arg_addr;"
+						;
+					nth_creation_function 
+						<< "     nth_create((void*)(" << outlined_function_name << "), "
+						<< "            &nth_task_type, &nth_num_deps, &nth_p, &nth_selfv, "
+						<< "            &nth_arg_addr_ptr, &nth_nargs_ref, &nth_nargs_val" << referenced_parameters << ");"
+						;
+				}
+				
 				if (num_args_val == 0)
 				{
+					// Disable the declaration of the size vector to avoid a warning
 					size_vector = TL::Source("");
 				}
 
