@@ -1,0 +1,53 @@
+Example of mypragma
+===================
+
+This directory contains a very simple example on which the «compiler extender user»
+wants to handle a "#pragma mypragma test" construct.
+
+Custom pragma constructions
+---------------------------
+
+Pragma prefixes (other than "omp" and "gcc" which are reserved) can be specified
+in the compiler for custom transformation.
+
+The compiler currently understands two forms for custom pragmas. The first one
+is located at file-scope (this is, out of any function definition). This is a
+custom pragma directive. They have the following syntax
+
+ custom-pragma-directive ::=
+     #pragma «prefix» clauses-list-opt '\n'
+ 
+where «prefix» is the specific prefix you want to handle and clauses-list-opt is
+a (possibly empty) list of clauses. Clauses have the following syntax.
+
+  clauses-list ::=
+     identifier '(' expression-list ')'
+	 | identifier '(' ')'
+	 | identifier
+
+At function scope, inside a function definition, the compiler only understand
+custom pragma constructs. They are similar to custom pragma directives but they
+are linked to the next statement.
+
+  custom-pragma-construct ::=
+     #pragma «prefix» clauses-list-opt '\n'
+     statement
+
+At the moment you cannot specifiy custom pragma directives in function scope
+thus you will have to write ';' if you want to achieve similar effects.
+
+	#pragma «prefix» clauses-list
+        ;
+
+Enabling a prefix
+------------------
+
+By default only "gcc" and "omp" are recognized pragma prefixes. If you want to
+add an additional pragma prefix you have to enable it at the config.mcxx.
+
+  [mcc]
+  ...
+  pragma_prefix = mypragma
+
+This would make '#pragma mypragma' recognized by the compiler. Other pragma
+prefixes would be still ignored (the compiler yields a warning for them).
