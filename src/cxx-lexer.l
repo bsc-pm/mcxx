@@ -315,7 +315,7 @@ threadprivate {
 	return PRAGMA_CUSTOM_DIRECTIVE; 
 }
 
-[ ] {
+[ \t] {
 	// This blank must be eaten and should be mandatory
 }
 
@@ -334,6 +334,10 @@ threadprivate {
 	BEGIN(pragma_custom_var_list);
 	parse_token_text(); 
 	return PRAGMA_CUSTOM_CLAUSE; 
+}
+
+[ \t] {
+	// This blank must be eaten
 }
 
 }
