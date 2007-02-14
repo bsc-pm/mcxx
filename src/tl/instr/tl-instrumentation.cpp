@@ -355,7 +355,7 @@ namespace TL
 
 						Source new_main;
 						new_main
-							<< "static void __begin_mintaka_per_thread()"
+							<< "static void __begin_mintaka_per_thread(void)"
 							<< "{"
 							<< "   mintaka_thread_begin(1, nth_get_cpu_num() + 1);"
 							<< "   if (nth_get_cpu_num() != 0)"
@@ -364,14 +364,15 @@ namespace TL
 							<< "        mintaka_state_run();"
 							<< "}"
 
-							<< "static void __end_mintaka_per_thread()"
+							<< "static void __end_mintaka_per_thread(void)"
 							<< "{"
 							<< "   mintaka_thread_end();"
 							<< "}"
 
 							<< "static void __begin_mintaka(char* exec_basename)"
 							<< "{"
-							<< "  mintaka_app_begin(exec_basename);"
+							<< "  mintaka_app_begin();"
+							<< "  mintaka_set_filebase(exec_basename);"
 							// Register events
 							// TODO - OpenMP events descriptions
 							<< "  const int EVENT_CALL_USER_FUNCTION = 60000018;"
@@ -398,7 +399,7 @@ namespace TL
 							<< "  nthf_block_();"
 							<< "}"
 
-							<< "static void __end_mintaka(char* exec_basename)"
+							<< "static void __end_mintaka(void)"
 							<< "{"
 							<< "  int nth_nprocs;"
 							<< "  nth_desc *nth_selfv;"
@@ -420,15 +421,15 @@ namespace TL
 							<< "  nthf_block_();"
 							<< "  mintaka_app_end();"
 							<< "  mintaka_merge();"
-							<< "  mintaka_index_generate(exec_basename);"
+							<< "  mintaka_index_generate();"
 							<< "}"
 
 							<< instrumented_main_declaration << ";"
 							<< main_declaration
 							<< "{"
-							<< "  __begin_mintaka(mintaka_basename(_p_1[0]));"
+							<< "  __begin_mintaka(_p_1[0]);"
 							<< "  int __result = __instrumented_main(_p_0, _p_1);"
-							<< "  __end_mintaka(mintaka_basename(_p_1[0]));"
+							<< "  __end_mintaka();"
 							<< "  return __result;"
 							<< "}"
 							<< node.prettyprint()

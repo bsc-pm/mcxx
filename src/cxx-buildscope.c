@@ -4181,6 +4181,10 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
 
 	// Now for every symbol in kr_parameter_list get its type and sign it up
 	// in the parameters of the type
+	//
+	// Clear previous prototype
+	declarator_type->function->num_parameters = 0;
+
     if (kr_parameter_list != NULL)
     {
         for_each_element(kr_parameter_list, iter)
