@@ -59,12 +59,6 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st,
     if (t1 == NULL || t2 == NULL)
         return 1;
 
-	cv_qualifier_t cv_qualifier_t1, cv_qualifier_t2;
-
-    // Advance over typedefs
-    t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
-    t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
-
     if (t1->kind != t2->kind)
     {
         // They cannot be the same
@@ -105,13 +99,20 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st,
         return 0;
     }
 
+	cv_qualifier_t cv_qualifier_t1, cv_qualifier_t2;
+
     cv_qualifier_t qualif_t1 = *(get_outermost_cv_qualifier(t1));
     cv_qualifier_t qualif_t2 = *(get_outermost_cv_qualifier(t2));
     if (cv_equiv == CVE_IGNORE_OUTERMOST)
     {
+		// Remove the outermost cv_qualifier
         *(get_outermost_cv_qualifier(t1)) = CV_NONE;
         *(get_outermost_cv_qualifier(t2)) = CV_NONE;
     }
+	
+    // Advance over typedefs
+    t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
+    t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
 
     char result = 0;
 
