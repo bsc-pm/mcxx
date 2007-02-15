@@ -36,6 +36,7 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     // Now create a new scope and inject template parameters with its argument value
     scope_t* instantiate_scope = new_template_scope(matched_template->scope);
 
+	// The template scope of the matched template will be the template_scope of the instantiated one
     instantiate_scope->template_scope = matched_template->scope->template_scope;
     matched_template->scope->template_scope = instantiate_scope;
     instance_symbol->related_scope->template_scope = instantiate_scope;
@@ -146,7 +147,9 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
                 simple_type_info, new_decl_context);
     }
 
-    instance_symbol->related_scope->template_scope = NULL;
+	// Restore the scopes
+	// The symbol should keep the instance scope for further scope searches
+    // instance_symbol->related_scope->template_scope = NULL;
     matched_template->scope->template_scope = instantiate_scope->template_scope;
     instantiate_scope->template_scope = NULL;
 
@@ -312,7 +315,9 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
                 simple_type_info, new_decl_context);
     }
 
-    instance_symbol->related_scope->template_scope = NULL;
+	// Restore scopes
+	// The symbol should keep the instance scope for further scope searches
+    // instance_symbol->related_scope->template_scope = NULL;
     matched_template->scope->template_scope = instantiate_scope->template_scope;
     instantiate_scope->template_scope = NULL;
 

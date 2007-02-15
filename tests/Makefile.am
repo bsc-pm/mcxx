@@ -76,7 +76,8 @@ EXTRA_DIST = \
              mcxx.dg/success_044.cpp \
              mcxx.dg/success_045.cpp \
              mcxx.dg/success_046.cpp \
-             mcxx.dg/success_047.cpp 
+             mcxx.dg/success_047.cpp \
+             mcxx.dg/success_048.cpp
 
 AUTOMAKE_OPTIONS = dejagnu
 

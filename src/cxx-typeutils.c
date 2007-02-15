@@ -2568,7 +2568,8 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
                     {
                         if (entry->expression_value != NULL)
                         {
-                            if (is_dependent_expression(entry->expression_value, st, decl_context))
+                            // if (is_dependent_expression(entry->expression_value, st, decl_context))
+                            if (is_dependent_expression(entry->expression_value, entry->scope, decl_context))
                             {
                                 entry->dependency_info = DI_DEPENDENT;
                                 return 1;
@@ -2594,6 +2595,31 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
                 return is_dependent_expression(ASTSon0(expression), st, decl_context)
                     || is_dependent_expression(ASTSon1(expression), st, decl_context);
             }
+		case AST_FUNCTION_CALL :
+			{
+				char invoked_dependent = is_dependent_expression(ASTSon0(expression), st, decl_context);
+
+				if (invoked_dependent)
+					return 1;
+
+                AST expression_list = ASTSon1(expression);
+
+                if (expression_list != NULL)
+                {
+                    AST iter;
+                    for_each_element(expression_list, iter)
+                    {
+                        AST current_expression = ASTSon1(iter);
+
+                        if (is_dependent_expression(current_expression, st, decl_context))
+                        {
+                            return 1;
+                        }
+                    }
+                }
+
+				return 0;
+			}
         case AST_EXPLICIT_TYPE_CONVERSION :
             {
                 AST type_specifier = duplicate_ast(ASTSon0(expression));
