@@ -222,7 +222,8 @@ namespace TL
 
                         if (!function_symbol.is_valid())
                         {
-                            std::cerr << "Function referenced in " << function_name.get_ast().get_locus() 
+                            std::cerr << "Function '" << function_name.prettyprint() << "' referenced in " 
+                                << function_name.get_ast().get_locus() 
                                 << " is unknown. It will not be instrumented." << std::endl;
                             return false;
                         }
