@@ -1421,7 +1421,7 @@ type_t** function_parameter_types(type_t* t, int* num_params, char* has_ellipsis
         {
             P_LIST_ADD(result, (*num_params), param_info->type_info);
         }
-        else if (!param_info->is_ellipsis)
+        else if (param_info->is_ellipsis)
         {
             *has_ellipsis = 1;
         }

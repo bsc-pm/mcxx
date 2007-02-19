@@ -174,14 +174,17 @@ namespace TL
                         if (_instrument_filter.match(called_id_expression.prettyprint()))
                                 return;
 
-
                         std::string shadow_function_name = 
                             "_" + called_id_expression.mangle_id_expression() + "_instr";
 
                         if (defined_shadows.find(shadow_function_name) == defined_shadows.end())
                         {
                             // The shadow has not been defined, define it here
-                            define_shadow(called_id_expression, shadow_function_name);
+                            if (!define_shadow(called_id_expression, shadow_function_name))
+                            {
+                                // Ignore this shadow
+                                return;
+                            }
                             defined_shadows.insert(shadow_function_name);
                         }
 
@@ -211,11 +214,19 @@ namespace TL
                         node.replace(shadow_function_call_tree);
                     }
 
-                    void define_shadow(IdExpression function_name, std::string shadow_function_name)
+                    bool define_shadow(IdExpression function_name, std::string shadow_function_name)
                     {
                         FunctionDefinition function_definition = function_name.get_enclosing_function();
 
                         Symbol function_symbol = function_name.get_symbol();
+
+                        if (!function_symbol.is_valid())
+                        {
+                            std::cerr << "Function referenced in " << function_name.get_ast().get_locus() 
+                                << " is unknown. It will not be instrumented." << std::endl;
+                            return false;
+                        }
+
                         Type function_type = function_symbol.get_type();
 
                         ObjectList<std::string> parameter_names;
@@ -229,6 +240,15 @@ namespace TL
 
                         bool has_ellipsis = false;
                         ObjectList<Type> parameters = function_type.parameters(has_ellipsis);
+
+                        if (has_ellipsis)
+                        {
+                            std::cerr << "Function '" << function_name.prettyprint() << "' referenced in "
+                                << function_name.get_ast().get_locus()
+                                << " has variable-length arguments. It will not be instrumented." << std::endl;
+                            return false;
+                        }
+
                         int param_num = 0;
                         for (ObjectList<Type>::iterator it = parameters.begin();
                                 it != parameters.end();
@@ -316,6 +336,8 @@ namespace TL
                                     function_definition.get_scope_link());
 
                         function_definition.get_ast().prepend_sibling_function(shadow_function_def_tree);
+
+                        return true;
                     }
             };
 
