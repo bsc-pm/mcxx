@@ -530,23 +530,23 @@ void solve_ambiguous_statement(AST a, scope_t* st, decl_context_t decl_context)
         }
     }
 
-	// In case of ignorance, favor expressions
-	if (correct_choice < 0)
-	{
-		for (i = 0; i < a->num_ambig; i++)
-		{
-			if (ASTType(a->ambig[i]) == AST_EXPRESSION_STATEMENT)
-			{
-				correct_choice = i;
-				break;
-			}
-		}
-	}
+    // In case of ignorance, favor expressions
+    if (correct_choice < 0)
+    {
+        for (i = 0; i < a->num_ambig; i++)
+        {
+            if (ASTType(a->ambig[i]) == AST_EXPRESSION_STATEMENT)
+            {
+                correct_choice = i;
+                break;
+            }
+        }
+    }
 
     if (correct_choice < 0)
     {
-		fprintf(stderr, "This statement cannot be disambiguated: %s\n", node_information(a));
-		prettyprint(stderr, a);
+        fprintf(stderr, "This statement cannot be disambiguated: %s\n", node_information(a));
+        prettyprint(stderr, a);
         internal_error("Ambiguity not solved\n", 0);
     }
     else
@@ -811,7 +811,7 @@ static char check_for_simple_declaration(AST a, scope_t* st, decl_context_t decl
                             
                             // The related scope of A is the same as the
                             // current scope
-                            if (entry->related_scope == st)
+                            if (same_scope(entry->related_scope, st))
                             {
                                 // In this case, and only in this case, this is
                                 // not a data member declaration
@@ -1143,14 +1143,14 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
         case AST_CONSTANT_EXPRESSION : 
         case AST_PARENTHESIZED_EXPRESSION :
             {
-				char result;
+                char result;
                 result = check_for_expression(ASTSon0(expression), st, decl_context);
                 if (result)
-				{
+                {
                     ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(expression)));
-				}
-				return result;
+                }
+                return result;
             }
         case AST_AMBIGUITY :
             {
@@ -1218,45 +1218,45 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 {
                     // Choose the option and state that this can be valid
                     choose_option(expression, correct_choice);
-					// Now recalculate everything to update data properly
-					check_for_expression(expression, st, decl_context);
+                    // Now recalculate everything to update data properly
+                    check_for_expression(expression, st, decl_context);
                     return 1;
                 }
                 break;
             }
             // Primaries
         case AST_DECIMAL_LITERAL :
-		case AST_OCTAL_LITERAL :
+        case AST_OCTAL_LITERAL :
         case AST_HEXADECIMAL_LITERAL :
-			{
-				ASTAttrSetValueType(expression, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
+            {
+                ASTAttrSetValueType(expression, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
                 return 1;
-				break;
-			}
+                break;
+            }
         case AST_FLOATING_LITERAL :
-			{
-				ASTAttrSetValueType(expression, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));
+            {
+                ASTAttrSetValueType(expression, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));
                 return 1;
-				break;
-			}
+                break;
+            }
         case AST_BOOLEAN_LITERAL :
-			{
-				ASTAttrSetValueType(expression, LANG_IS_BOOLEAN_LITERAL, tl_type_t, tl_bool(1));
+            {
+                ASTAttrSetValueType(expression, LANG_IS_BOOLEAN_LITERAL, tl_type_t, tl_bool(1));
                 return 1;
-				break;
-			}
+                break;
+            }
         case AST_CHARACTER_LITERAL :
-			{
-				ASTAttrSetValueType(expression, LANG_IS_CHARACTER_LITERAL, tl_type_t, tl_bool(1));
+            {
+                ASTAttrSetValueType(expression, LANG_IS_CHARACTER_LITERAL, tl_type_t, tl_bool(1));
                 return 1;
-				break;
-			}
+                break;
+            }
         case AST_STRING_LITERAL :
-			{
-				ASTAttrSetValueType(expression, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
+            {
+                ASTAttrSetValueType(expression, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
                 return 1;
-				break;
-			}
+                break;
+            }
         case AST_THIS_VARIABLE :
             {
                 return 1;
@@ -1273,24 +1273,24 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                         scope_link_set(compilation_options.scope_link, expression, copy_scope(symbol_scope));
                     }
 
-					AST global_qualif = ASTSon0(expression);
-					AST nested_name_spec = ASTSon1(expression);
-					AST unqualified_id = ASTSon2(expression);
+                    AST global_qualif = ASTSon0(expression);
+                    AST nested_name_spec = ASTSon1(expression);
+                    AST unqualified_id = ASTSon2(expression);
 
                     ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
-					ASTAttrSetValueType(expression, LANG_IS_QUALIFIED_ID, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_IS_QUALIFIED_ID, tl_type_t, tl_bool(1));
 
-					if (global_qualif != NULL)
-					{
-						ASTAttrSetValueType(expression, LANG_IS_GLOBAL_QUALIFIED, tl_type_t, tl_bool(1));
-					}
+                    if (global_qualif != NULL)
+                    {
+                        ASTAttrSetValueType(expression, LANG_IS_GLOBAL_QUALIFIED, tl_type_t, tl_bool(1));
+                    }
 
-					if (nested_name_spec != NULL)
-					{
-						ASTAttrSetValueType(expression, LANG_NESTED_NAME_SPECIFIER, tl_type_t, tl_ast(nested_name_spec));
-					}
+                    if (nested_name_spec != NULL)
+                    {
+                        ASTAttrSetValueType(expression, LANG_NESTED_NAME_SPECIFIER, tl_type_t, tl_ast(nested_name_spec));
+                    }
 
-					ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(unqualified_id));
+                    ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(unqualified_id));
                 }
 
                 return c;
@@ -1329,9 +1329,9 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                     }
                 }
 
-				ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
-				ASTAttrSetValueType(expression, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
-				ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(expression));
+                ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(expression, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(expression));
 
                 return c;
             }
@@ -1362,6 +1362,10 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             {
                 // This is never a value
                 solve_possibly_ambiguous_template_id(expression, st, decl_context);
+
+                ASTAttrSetValueType(expression, LANG_IS_TEMPLATE_ID, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(expression, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(ASTSon0(expression)));
+                ASTAttrSetValueType(expression, LANG_TEMPLATE_ARGS, tl_type_t, tl_ast(ASTSon1(expression)));
                 return 0;
             }
             // Postfix expressions
@@ -1370,26 +1374,26 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 char result = check_for_expression(ASTSon0(expression), st, decl_context )
                     && check_for_expression(ASTSon1(expression), st, decl_context );
 
-				if (result)
-				{
+                if (result)
+                {
                     ASTAttrSetValueType(expression, LANG_IS_ARRAY_SUBSCRIPT, tl_type_t, tl_bool(1));
-					ASTAttrSetValueType(expression, LANG_SUBSCRIPTED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_SUBSCRIPTED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
                     ASTAttrSetValueType(expression, LANG_SUBSCRIPT_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
-				}
-				return result;
+                }
+                return result;
             }
         case AST_FUNCTION_CALL :
             {
                 char result = check_for_function_call(expression, st, decl_context );
 
-				if (result)
-				{
-					ASTAttrSetValueType(expression, LANG_IS_FUNCTION_CALL, tl_type_t, tl_bool(1));
-					ASTAttrSetValueType(expression, LANG_CALLED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
-					ASTAttrSetValueType(expression, LANG_FUNCTION_ARGUMENTS, tl_type_t, tl_ast(ASTSon1(expression)));
-				}
+                if (result)
+                {
+                    ASTAttrSetValueType(expression, LANG_IS_FUNCTION_CALL, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_CALLED_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_FUNCTION_ARGUMENTS, tl_type_t, tl_ast(ASTSon1(expression)));
+                }
 
-				return result;
+                return result;
             }
         case AST_EXPLICIT_TYPE_CONVERSION :
             {
@@ -1421,19 +1425,19 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
 
                 check_for_expression(ASTSon1(expression), st, decl_context );
 
-				ASTAttrSetValueType(ASTSon1(expression), LANG_IS_ACCESSED_MEMBER, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(ASTSon1(expression), LANG_IS_ACCESSED_MEMBER, tl_type_t, tl_bool(1));
 
-				ASTAttrSetValueType(expression, LANG_ACCESSED_ENTITY, tl_type_t, tl_ast(ASTSon0(expression)));
-				ASTAttrSetValueType(expression, LANG_ACCESSED_MEMBER, tl_type_t, tl_ast(ASTSon1(expression)));
+                ASTAttrSetValueType(expression, LANG_ACCESSED_ENTITY, tl_type_t, tl_ast(ASTSon0(expression)));
+                ASTAttrSetValueType(expression, LANG_ACCESSED_MEMBER, tl_type_t, tl_ast(ASTSon1(expression)));
 
-				if (ASTType(expression) == AST_POINTER_CLASS_MEMBER_ACCESS)
-				{
-					ASTAttrSetValueType(expression, LANG_IS_POINTER_MEMBER_ACCESS, tl_type_t, tl_bool(1));
-				}
-				else
-				{
-					ASTAttrSetValueType(expression, LANG_IS_MEMBER_ACCESS, tl_type_t, tl_bool(1));
-				}
+                if (ASTType(expression) == AST_POINTER_CLASS_MEMBER_ACCESS)
+                {
+                    ASTAttrSetValueType(expression, LANG_IS_POINTER_MEMBER_ACCESS, tl_type_t, tl_bool(1));
+                }
+                else
+                {
+                    ASTAttrSetValueType(expression, LANG_IS_MEMBER_ACCESS, tl_type_t, tl_bool(1));
+                }
 
                 return result;
             }
@@ -1453,19 +1457,19 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 return 1;
             }
         case AST_POSTINCREMENT :
-			{
+            {
                 check_for_expression(ASTSon0(expression), st, decl_context );
-				ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
-				ASTAttrSetValueType(expression, LANG_IS_POSTINCREMENT, tl_type_t, tl_bool(1));
-				ASTAttrSetValueType(expression, LANG_EXPRESSION_INCREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
-				return 1;
-			}
+                ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(expression, LANG_IS_POSTINCREMENT, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(expression, LANG_EXPRESSION_INCREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
+                return 1;
+            }
         case AST_POSTDECREMENT :
             {
                 check_for_expression(ASTSon0(expression), st, decl_context );
-				ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
-				ASTAttrSetValueType(expression, LANG_IS_POSTDECREMENT, tl_type_t, tl_bool(1));
-				ASTAttrSetValueType(expression, LANG_EXPRESSION_DECREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
+                ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(expression, LANG_IS_POSTDECREMENT, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(expression, LANG_EXPRESSION_DECREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
                 return 1;
             }
         case AST_DYNAMIC_CAST :
@@ -1511,19 +1515,19 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             }
         // Unary expressions
         case AST_PREINCREMENT :
-			{
+            {
                 check_for_expression(ASTSon0(expression), st, decl_context);
-				ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
-				ASTAttrSetValueType(expression, LANG_IS_PREINCREMENT, tl_type_t, tl_bool(1));
-				ASTAttrSetValueType(expression, LANG_EXPRESSION_INCREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
-				return 1;
-			}
+                ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(expression, LANG_IS_PREINCREMENT, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(expression, LANG_EXPRESSION_INCREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
+                return 1;
+            }
         case AST_PREDECREMENT :
             {
                 check_for_expression(ASTSon0(expression), st, decl_context);
-				ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
-				ASTAttrSetValueType(expression, LANG_IS_PREDECREMENT, tl_type_t, tl_bool(1));
-				ASTAttrSetValueType(expression, LANG_EXPRESSION_DECREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
+                ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(expression, LANG_IS_PREDECREMENT, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(expression, LANG_EXPRESSION_DECREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
                 return 1;
             }
         case AST_SIZEOF :
@@ -1543,41 +1547,41 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             {
                 char result = check_for_expression(ASTSon0(expression), st, decl_context);
 
-				char* unary_expression_attr[] =
-				{
-					[AST_DERREFERENCE]  = LANG_IS_DERREFERENCE_OP,
-					[AST_REFERENCE]     = LANG_IS_REFERENCE_OP,
-					[AST_PLUS_OP]       = LANG_IS_PLUS_OP,
-					[AST_NEG_OP]        = LANG_IS_NEGATE_OP,
-					[AST_NOT_OP]        = LANG_IS_NOT_OP,
-					[AST_COMPLEMENT_OP] = LANG_IS_COMPLEMENT_OP
-				};
+                char* unary_expression_attr[] =
+                {
+                    [AST_DERREFERENCE]  = LANG_IS_DERREFERENCE_OP,
+                    [AST_REFERENCE]     = LANG_IS_REFERENCE_OP,
+                    [AST_PLUS_OP]       = LANG_IS_PLUS_OP,
+                    [AST_NEG_OP]        = LANG_IS_NEGATE_OP,
+                    [AST_NOT_OP]        = LANG_IS_NOT_OP,
+                    [AST_COMPLEMENT_OP] = LANG_IS_COMPLEMENT_OP
+                };
 
-				if (result)
-				{
-					ASTAttrSetValueType(expression, 
-							unary_expression_attr[ASTType(expression)], tl_type_t, tl_bool(1));
+                if (result)
+                {
+                    ASTAttrSetValueType(expression, 
+                            unary_expression_attr[ASTType(expression)], tl_type_t, tl_bool(1));
 
-					ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
 
                     ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
-				}
+                }
 
-				return result;
+                return result;
             }
             // Cast expression
         case AST_CAST_EXPRESSION :
             {
                 char result = check_for_cast(expression, st, decl_context );
 
-				if (result)
-				{
-					ASTAttrSetValueType(expression, LANG_IS_CAST, tl_type_t, tl_bool(1));
-					ASTAttrSetValueType(expression, LANG_CAST_TYPE, tl_type_t, tl_ast(ASTSon0(expression)));
-					ASTAttrSetValueType(expression, LANG_CASTED_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
-				}
+                if (result)
+                {
+                    ASTAttrSetValueType(expression, LANG_IS_CAST, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_CAST_TYPE, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_CASTED_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+                }
 
-				return result;
+                return result;
             }
         // Pointer to method expressions 
         case AST_POINTER_TO_POINTER_MEMBER :
@@ -1605,42 +1609,42 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
         case AST_LOGICAL_AND :
         case AST_LOGICAL_OR :
             {
-				char* binary_expression_attr[] =
-				{
-					[AST_MULT_OP] = LANG_IS_MULT_OP,
-					[AST_DIV_OP] = LANG_IS_DIVISION_OP,
-					[AST_MOD_OP] = LANG_IS_MODULUS_OP,
-					[AST_ADD_OP] = LANG_IS_ADDITION_OP,
-					[AST_MINUS_OP] = LANG_IS_SUBSTRACTION_OP,
-					[AST_SHL_OP] = LANG_IS_SHIFT_LEFT_OP,
-					[AST_SHR_OP] = LANG_IS_SHIFT_RIGHT_OP,
-					[AST_LOWER_THAN] = LANG_IS_LOWER_THAN_OP,
-					[AST_GREATER_THAN] = LANG_IS_GREATER_THAN_OP,
-					[AST_GREATER_OR_EQUAL_THAN] = LANG_IS_GREATER_OR_EQUAL_THAN_OP,
-					[AST_LOWER_OR_EQUAL_THAN] = LANG_IS_LOWER_OR_EQUAL_THAN_OP,
-					[AST_EQUAL_OP] = LANG_IS_EQUAL_OP,
-					[AST_DIFFERENT_OP] = LANG_IS_DIFFERENT_OP,
-					[AST_BITWISE_AND] = LANG_IS_BITWISE_AND_OP,
-					[AST_BITWISE_XOR] = LANG_IS_BITWISE_XOR_OP,
-					[AST_BITWISE_OR] = LANG_IS_BITWISE_OR_OP,
-					[AST_LOGICAL_AND] = LANG_IS_LOGICAL_AND_OP,
-					[AST_LOGICAL_OR] = LANG_IS_LOGICAL_OR_OP
-				};
+                char* binary_expression_attr[] =
+                {
+                    [AST_MULT_OP] = LANG_IS_MULT_OP,
+                    [AST_DIV_OP] = LANG_IS_DIVISION_OP,
+                    [AST_MOD_OP] = LANG_IS_MODULUS_OP,
+                    [AST_ADD_OP] = LANG_IS_ADDITION_OP,
+                    [AST_MINUS_OP] = LANG_IS_SUBSTRACTION_OP,
+                    [AST_SHL_OP] = LANG_IS_SHIFT_LEFT_OP,
+                    [AST_SHR_OP] = LANG_IS_SHIFT_RIGHT_OP,
+                    [AST_LOWER_THAN] = LANG_IS_LOWER_THAN_OP,
+                    [AST_GREATER_THAN] = LANG_IS_GREATER_THAN_OP,
+                    [AST_GREATER_OR_EQUAL_THAN] = LANG_IS_GREATER_OR_EQUAL_THAN_OP,
+                    [AST_LOWER_OR_EQUAL_THAN] = LANG_IS_LOWER_OR_EQUAL_THAN_OP,
+                    [AST_EQUAL_OP] = LANG_IS_EQUAL_OP,
+                    [AST_DIFFERENT_OP] = LANG_IS_DIFFERENT_OP,
+                    [AST_BITWISE_AND] = LANG_IS_BITWISE_AND_OP,
+                    [AST_BITWISE_XOR] = LANG_IS_BITWISE_XOR_OP,
+                    [AST_BITWISE_OR] = LANG_IS_BITWISE_OR_OP,
+                    [AST_LOGICAL_AND] = LANG_IS_LOGICAL_AND_OP,
+                    [AST_LOGICAL_OR] = LANG_IS_LOGICAL_OR_OP
+                };
 
-				char result = check_for_expression(ASTSon0(expression), st, decl_context )
+                char result = check_for_expression(ASTSon0(expression), st, decl_context )
                     && check_for_expression(ASTSon1(expression), st, decl_context );
 
-				if (result)
-				{
-					ASTAttrSetValueType(expression, 
-							binary_expression_attr[ASTType(expression)], tl_type_t, tl_bool(1));
+                if (result)
+                {
+                    ASTAttrSetValueType(expression, 
+                            binary_expression_attr[ASTType(expression)], tl_type_t, tl_bool(1));
 
-					ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
-					ASTAttrSetValueType(expression, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_RHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
                     ASTAttrSetValueType(expression, LANG_IS_BINARY_OPERATION, tl_type_t, tl_bool(1));
-				}
+                }
 
-				return result;
+                return result;
             }
         case AST_CONDITIONAL_EXPRESSION :
             {
@@ -1648,17 +1652,17 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                     && check_for_expression(ASTSon1(expression), st, decl_context )
                     && check_for_expression(ASTSon2(expression), st, decl_context );
 
-				if (result)
-				{
-					ASTAttrSetValueType(expression, LANG_IS_CONDITIONAL_EXPRESSION,
-							tl_type_t, tl_bool(1));
+                if (result)
+                {
+                    ASTAttrSetValueType(expression, LANG_IS_CONDITIONAL_EXPRESSION,
+                            tl_type_t, tl_bool(1));
 
-					ASTAttrSetValueType(expression, LANG_CONDITIONAL_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
-					ASTAttrSetValueType(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
-					ASTAttrSetValueType(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, tl_type_t, tl_ast(ASTSon2(expression)));
-				}
+                    ASTAttrSetValueType(expression, LANG_CONDITIONAL_EXPRESSION, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_CONDITIONAL_TRUE_EXPRESSION, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ASTAttrSetValueType(expression, LANG_CONDITIONAL_FALSE_EXPRESSION, tl_type_t, tl_ast(ASTSon2(expression)));
+                }
 
-				return result;
+                return result;
             }
         case AST_ASSIGNMENT :
         case AST_MUL_ASSIGNMENT :
@@ -1672,31 +1676,31 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
         case AST_XOR_ASSIGNMENT :
         case AST_MOD_ASSIGNMENT :
             {
-				char* assig_op_attr[] =
-				{
-					[AST_ASSIGNMENT]     = LANG_IS_ASSIGNMENT,
-					[AST_MUL_ASSIGNMENT] = LANG_IS_MUL_ASSIGNMENT,
-					[AST_DIV_ASSIGNMENT] = LANG_IS_DIV_ASSIGNMENT,
-					[AST_ADD_ASSIGNMENT] = LANG_IS_ADD_ASSIGNMENT,
-					[AST_SUB_ASSIGNMENT] = LANG_IS_SUB_ASSIGNMENT,
-					[AST_SHL_ASSIGNMENT] = LANG_IS_SHL_ASSIGNMENT,
-					[AST_SHR_ASSIGNMENT] = LANG_IS_SHR_ASSIGNMENT,
-					[AST_AND_ASSIGNMENT] = LANG_IS_AND_ASSIGNMENT,
-					[AST_OR_ASSIGNMENT ] = LANG_IS_OR_ASSIGNMENT, 
-					[AST_XOR_ASSIGNMENT] = LANG_IS_XOR_ASSIGNMENT,
-					[AST_MOD_ASSIGNMENT] = LANG_IS_MOD_ASSIGNMENT,
-				};
+                char* assig_op_attr[] =
+                {
+                    [AST_ASSIGNMENT]     = LANG_IS_ASSIGNMENT,
+                    [AST_MUL_ASSIGNMENT] = LANG_IS_MUL_ASSIGNMENT,
+                    [AST_DIV_ASSIGNMENT] = LANG_IS_DIV_ASSIGNMENT,
+                    [AST_ADD_ASSIGNMENT] = LANG_IS_ADD_ASSIGNMENT,
+                    [AST_SUB_ASSIGNMENT] = LANG_IS_SUB_ASSIGNMENT,
+                    [AST_SHL_ASSIGNMENT] = LANG_IS_SHL_ASSIGNMENT,
+                    [AST_SHR_ASSIGNMENT] = LANG_IS_SHR_ASSIGNMENT,
+                    [AST_AND_ASSIGNMENT] = LANG_IS_AND_ASSIGNMENT,
+                    [AST_OR_ASSIGNMENT ] = LANG_IS_OR_ASSIGNMENT, 
+                    [AST_XOR_ASSIGNMENT] = LANG_IS_XOR_ASSIGNMENT,
+                    [AST_MOD_ASSIGNMENT] = LANG_IS_MOD_ASSIGNMENT,
+                };
                 char result = check_for_expression(ASTSon0(expression), st, decl_context )
                     && check_for_expression(ASTSon1(expression), st, decl_context );
 
-				if (result)
-				{
-					ASTAttrSetValueType(expression, assig_op_attr[ASTType(expression)], tl_type_t, tl_bool(1));
-					ASTAttrSetValueType(expression, LANG_LHS_ASSIGNMENT, tl_type_t, tl_ast(ASTSon0(expression)));
-					ASTAttrSetValueType(expression, LANG_RHS_ASSIGNMENT, tl_type_t, tl_ast(ASTSon1(expression)));
-				}
+                if (result)
+                {
+                    ASTAttrSetValueType(expression, assig_op_attr[ASTType(expression)], tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_LHS_ASSIGNMENT, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_RHS_ASSIGNMENT, tl_type_t, tl_ast(ASTSon1(expression)));
+                }
 
-				return result;
+                return result;
             }
         case AST_THROW_EXPRESSION :
             {
@@ -1709,17 +1713,17 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             }
         case AST_COMMA_OP :
             {
-				char result = check_for_expression(ASTSon0(expression), st, decl_context )
+                char result = check_for_expression(ASTSon0(expression), st, decl_context )
                     && check_for_expression(ASTSon1(expression), st, decl_context );
 
-				if (result)
-				{
-					ASTAttrSetValueType(expression, LANG_IS_COMMA_OP, tl_type_t, tl_bool(1));
-					ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
-					ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
-				}
+                if (result)
+                {
+                    ASTAttrSetValueType(expression, LANG_IS_COMMA_OP, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_LHS_OPERAND, tl_type_t, tl_ast(ASTSon1(expression)));
+                }
 
-				return result;
+                return result;
             }
             // GCC Extension
         case AST_GCC_LABEL_ADDR :
@@ -1979,7 +1983,7 @@ static char check_for_functional_expression(AST expr, AST arguments, scope_t* st
                     result = 1;
                 }
 
-				check_for_expression(expr, st, decl_context);
+                check_for_expression(expr, st, decl_context);
 #if 0
                 // Koenig lookup here!
                 scope_entry_list_t* function_lookup = NULL;
@@ -2185,7 +2189,7 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st,
             fprintf(stderr, "'\n");
         }
         internal_error("No valid choice found in %s for '%s' ", node_information(ambig_template_argument),
-				prettyprint_in_buffer(ambig_template_argument));
+                prettyprint_in_buffer(ambig_template_argument));
     }
     else
     {
@@ -2362,11 +2366,11 @@ static char check_for_type_specifier(AST type_id, scope_t* st, decl_context_t de
             {
                 return 1;
             }
-			// GCC Extension
-		case AST_GCC_TYPEOF_EXPR :
-			{
-				return 1;
-			}
+            // GCC Extension
+        case AST_GCC_TYPEOF_EXPR :
+            {
+                return 1;
+            }
         default :
             {
                 internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(type_id)));
@@ -2558,7 +2562,7 @@ char check_for_initialization(AST initializer, scope_t* st, decl_context_t decl_
             {
                 AST expression = ASTSon0(initializer);
                 char result = check_for_expression(expression, st, decl_context);
-				return result;
+                return result;
                 break;
             }
         case AST_INITIALIZER :
@@ -2633,15 +2637,15 @@ static char check_for_initializer_clause(AST initializer, scope_t* st, decl_cont
         case AST_INITIALIZER_EXPR :
             {
                 AST expression = ASTSon0(initializer);
-				char result = check_for_expression(expression, st, decl_context);
+                char result = check_for_expression(expression, st, decl_context);
 
-				if (result)
-				{
-					ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-					ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expression));
-				}
+                if (result)
+                {
+                    ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expression));
+                }
 
-				return result;
+                return result;
                 break;
             }
         case AST_DESIGNATED_INITIALIZER :
@@ -2667,8 +2671,8 @@ static char check_for_initializer_clause(AST initializer, scope_t* st, decl_cont
             }
     }
 
-	internal_error("Code unreachable", 0);
-	return 0;
+    internal_error("Code unreachable", 0);
+    return 0;
 }
 
 static char check_for_declarator(AST declarator, scope_t* st, decl_context_t decl_context)
@@ -2796,12 +2800,12 @@ static char check_for_function_declarator_parameters(AST parameter_declaration_c
                     {
                         AST current_choice = parameter_decl;
                         AST previous_choice = parameter->ambig[correct_choice];
-						fprintf(stderr, "Previous choice\n");
-						prettyprint(stderr, previous_choice);
-						fprintf(stderr, "\n");
-						fprintf(stderr, "Current choice\n");
-						prettyprint(stderr, current_choice);
-						fprintf(stderr, "\n");
+                        fprintf(stderr, "Previous choice\n");
+                        prettyprint(stderr, previous_choice);
+                        fprintf(stderr, "\n");
+                        fprintf(stderr, "Current choice\n");
+                        prettyprint(stderr, current_choice);
+                        fprintf(stderr, "\n");
                         internal_error("More than one valid alternative '%s' vs '%s' %s", 
                                 ast_print_node_type(ASTType(previous_choice)),
                                 ast_print_node_type(ASTType(current_choice)),
@@ -3075,8 +3079,8 @@ void solve_ambiguous_for_init_statement(AST a, scope_t* st, decl_context_t decl_
 
     if (correct_choice < 0)
     {
-		fprintf(stderr, "This init statement cannot be disambiguated:\n");
-		prettyprint(stderr, a);
+        fprintf(stderr, "This init statement cannot be disambiguated:\n");
+        prettyprint(stderr, a);
         internal_error("Ambiguity not solved !", 0);
     }
     else

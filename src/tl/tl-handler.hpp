@@ -17,9 +17,9 @@ class Signal1
 {
     private:
         typedef typename std::vector<Functor<void, Param1>* > handlers_type;
-		typedef typename handlers_type::iterator handlers_iterator;
+        typedef typename handlers_type::iterator handlers_iterator;
 
-		handlers_type _handlers;
+        handlers_type _handlers;
     public:
         template <class T>
         void connect(const T& handler)
@@ -34,13 +34,13 @@ class Signal1
             handlers_iterator it;
             for (it = _handlers.begin(); it != _handlers.end(); it++)
             {
-				(*it)->operator()(p1);
+                (*it)->operator()(p1);
             }
         }
 
-		~Signal1()
-		{
-		}
+        ~Signal1()
+        {
+        }
 };
 
 }

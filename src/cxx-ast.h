@@ -27,8 +27,8 @@ struct node_ast
     int num_ambig;
     struct node_ast** ambig;
 
-	// Extension node
-	extensible_struct_t* extended_data;
+    // Extension node
+    extensible_struct_t* extended_data;
 };
 
 extern extensible_schema_t ast_extensible_schema;
@@ -73,15 +73,15 @@ typedef struct node_ast* AST;
 
 // Extensible structure function
 #define ASTAttrValue(_a, _name) \
-	( \
-	  extensible_struct_get_field_pointer(&ast_extensible_schema, (_a)->extended_data, (_name)) \
-	)
+    ( \
+      extensible_struct_get_field_pointer(&ast_extensible_schema, (_a)->extended_data, (_name)) \
+    )
 
 #define ASTAttrValueType(_a, _name, _type) \
-	( (*(_type*)(ASTAttrValue((_a), (_name)))))
+    ( (*(_type*)(ASTAttrValue((_a), (_name)))))
 
 #define ASTAttrSetValueType(_a, _name, _type, _value) \
-	( ASTAttrValueType((_a), (_name), _type) = _value )
+    ( ASTAttrValueType((_a), (_name), _type) = _value )
 
 // Routine to create a node
 AST ASTMake(node_t type, int num_children, const AST son0, const AST son1, const AST son2, const AST son3, int line, const char *text);

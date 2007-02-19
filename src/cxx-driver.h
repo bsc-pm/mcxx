@@ -20,8 +20,8 @@ typedef enum
     OPTION_DEBUG_FLAG,
     OPTION_HELP_DEBUG_FLAGS,
     OPTION_OUTPUT_DIRECTORY,
-	OPTION_NO_OPENMP,
-	OPTION_EXTERNAL_VAR
+    OPTION_NO_OPENMP,
+    OPTION_EXTERNAL_VAR
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
@@ -61,7 +61,7 @@ typedef struct translation_unit_tag
 
     AST parsed_tree;
     scope_t* global_scope;
-	scope_link_t* scope_link;
+    scope_link_t* scope_link;
 } translation_unit_t;
 
 // Configuration file directives
@@ -86,12 +86,12 @@ typedef struct debug_options_tag
     char enable_debug_code;
     char debug_lexer;
     char debug_parser;
-	char print_ast;
+    char print_ast;
 } debug_options_t;
 
 typedef struct external_var_tag {
-	char* name;
-	char* value;
+    char* name;
+    char* value;
 } external_var_t;
 
 // Global compiler options
@@ -109,7 +109,7 @@ typedef struct compilation_options_tag
     char do_not_link;
     char do_not_compile;
     char do_not_prettyprint;
-	char disable_openmp;
+    char disable_openmp;
 
     debug_options_t debug_options;
     
@@ -126,10 +126,10 @@ typedef struct compilation_options_tag
     // Config file
     char* config_file;
 
-	// This makes things non reentrant (but globally accessable without
-	// parameter cluttering)
+    // This makes things non reentrant (but globally accessable without
+    // parameter cluttering)
     scope_t* global_scope;
-	scope_link_t* scope_link;
+    scope_link_t* scope_link;
 
     // Output filename
     char* linked_output_filename;
@@ -146,16 +146,16 @@ typedef struct compilation_options_tag
 
     char* output_directory;
 
-	int num_compiler_phases;
-	char** compiler_phases;
+    int num_compiler_phases;
+    char** compiler_phases;
 
-	// Pragma prefixes
-	int num_pragma_custom_prefix;
-	char** pragma_custom_prefix;
+    // Pragma prefixes
+    int num_pragma_custom_prefix;
+    char** pragma_custom_prefix;
 
-	// External vars for compiler pipeline
-	int num_external_vars;
-	external_var_t** external_vars;
+    // External vars for compiler pipeline
+    int num_external_vars;
+    external_var_t** external_vars;
 } compilation_options_t;
 
 extern compilation_options_t compilation_options;

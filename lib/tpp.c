@@ -71,28 +71,28 @@ static void parse_arguments(int argc, char* argv[])
                 }
            case 'D' :
                 {
-					if (num_defines == MAX_DEFINES)
-					{
-						fprintf(stderr, "Too many defines\n");
-						exit(EXIT_FAILURE);
-					}
+                    if (num_defines == MAX_DEFINES)
+                    {
+                        fprintf(stderr, "Too many defines\n");
+                        exit(EXIT_FAILURE);
+                    }
 
                     defines[num_defines] = strdup(optarg);
                     num_defines++;
                     break;
                 }
-			case 'I' :
-				{
-					if (num_include_dirs == MAX_INCLUDE_DIRS)
-					{
-						fprintf(stderr, "Too many include directories\n");
-						exit(EXIT_FAILURE);
-					}
+            case 'I' :
+                {
+                    if (num_include_dirs == MAX_INCLUDE_DIRS)
+                    {
+                        fprintf(stderr, "Too many include directories\n");
+                        exit(EXIT_FAILURE);
+                    }
 
-					include_dirs[num_include_dirs] = strdup(optarg);
-					num_include_dirs++;
-					break;
-				}
+                    include_dirs[num_include_dirs] = strdup(optarg);
+                    num_include_dirs++;
+                    break;
+                }
            default :
                 {
                     break;
@@ -123,9 +123,9 @@ static void conditional_process(char* input_filename, char* output_filename)
     regex_t if_regex;
     regex_t ifnot_regex;
     regex_t endif_regex;
-	regex_t include_regex;
-	regex_t define_regex;
-	regex_t undefine_regex;
+    regex_t include_regex;
+    regex_t define_regex;
+    regex_t undefine_regex;
 
     if (regcomp(&if_regex, "^[[:blank:]]*/[*]!if[[:blank:]]+([^[:blank:]*]+)[[:blank:]]*[*]/[[:blank:]]*$",
             REG_EXTENDED | REG_NEWLINE) != 0)
@@ -148,26 +148,26 @@ static void conditional_process(char* input_filename, char* output_filename)
         exit(EXIT_FAILURE);
     }
 
-	if (regcomp(&include_regex, "^[[:blank:]]*/[*]!include[[:blank:]]+([^[:blank:]*]+)[[:blank:]]*[*]/[[:blank:]]*$",
-				REG_EXTENDED | REG_NEWLINE) != 0)
-	{
-		fprintf(stderr, "Error when compiling include regular expression\n");
-		exit(EXIT_FAILURE);
-	}
+    if (regcomp(&include_regex, "^[[:blank:]]*/[*]!include[[:blank:]]+([^[:blank:]*]+)[[:blank:]]*[*]/[[:blank:]]*$",
+                REG_EXTENDED | REG_NEWLINE) != 0)
+    {
+        fprintf(stderr, "Error when compiling include regular expression\n");
+        exit(EXIT_FAILURE);
+    }
 
-	if (regcomp(&define_regex, "^[[:blank:]]*/[*]!define[[:blank:]]+([^[:blank:]*]+)[[:blank:]]*[*]/[[:blank:]]*$",
-				REG_EXTENDED | REG_NEWLINE) != 0)
-	{
-		fprintf(stderr, "Error when compiling define regular expression\n");
-		exit(EXIT_FAILURE);
-	}
+    if (regcomp(&define_regex, "^[[:blank:]]*/[*]!define[[:blank:]]+([^[:blank:]*]+)[[:blank:]]*[*]/[[:blank:]]*$",
+                REG_EXTENDED | REG_NEWLINE) != 0)
+    {
+        fprintf(stderr, "Error when compiling define regular expression\n");
+        exit(EXIT_FAILURE);
+    }
 
-	if (regcomp(&undefine_regex, "^[[:blank:]]*/[*]!undefine[[:blank:]]+([^[:blank:]*]+)[[:blank:]]*[*]/[[:blank:]]*$",
-				REG_EXTENDED | REG_NEWLINE) != 0)
-	{
-		fprintf(stderr, "Error when compiling undefine regular expression\n");
-		exit(EXIT_FAILURE);
-	}
+    if (regcomp(&undefine_regex, "^[[:blank:]]*/[*]!undefine[[:blank:]]+([^[:blank:]*]+)[[:blank:]]*[*]/[[:blank:]]*$",
+                REG_EXTENDED | REG_NEWLINE) != 0)
+    {
+        fprintf(stderr, "Error when compiling undefine regular expression\n");
+        exit(EXIT_FAILURE);
+    }
 
     FILE* input = NULL;
     if (strcmp(input_filename, "-") == 0)
@@ -208,218 +208,218 @@ static void conditional_process(char* input_filename, char* output_filename)
     int block_nesting = 0;
     char buffer[MAX_TEXT_LINE];
 
-	FILE* input_stack[MAX_INCLUDE_NESTING];
-	int top_input_stack = 0;
-	input_stack[top_input_stack] = input;
+    FILE* input_stack[MAX_INCLUDE_NESTING];
+    int top_input_stack = 0;
+    input_stack[top_input_stack] = input;
 
-	while (top_input_stack >= 0)
-	{
-		while (fgets(buffer, MAX_TEXT_LINE, input_stack[top_input_stack]) != NULL)
-		{
-			regmatch_t offsets[2];
+    while (top_input_stack >= 0)
+    {
+        while (fgets(buffer, MAX_TEXT_LINE, input_stack[top_input_stack]) != NULL)
+        {
+            regmatch_t offsets[2];
 
-			if (output_enabled 
-					&& (regexec(&include_regex, buffer, 2, offsets, 0) == 0))
-			{
-				char include_name[MAX_TEXT_LINE] = { 0 };
+            if (output_enabled 
+                    && (regexec(&include_regex, buffer, 2, offsets, 0) == 0))
+            {
+                char include_name[MAX_TEXT_LINE] = { 0 };
 
-				int start = offsets[1].rm_so;
+                int start = offsets[1].rm_so;
 
-				int length = offsets[1].rm_eo - offsets[1].rm_so;
-				length = (length > (MAX_TEXT_LINE-1)) ? (MAX_TEXT_LINE - 1) : length;
+                int length = offsets[1].rm_eo - offsets[1].rm_so;
+                length = (length > (MAX_TEXT_LINE-1)) ? (MAX_TEXT_LINE - 1) : length;
 
-				strncpy(include_name, &(buffer[start]), length);
+                strncpy(include_name, &(buffer[start]), length);
 
-				if (top_input_stack == (MAX_INCLUDE_NESTING-1))
-				{
-					fprintf(stderr, "Too much include nesting\n");
-					exit(EXIT_FAILURE);
-				}
-				FILE* new_input; 
+                if (top_input_stack == (MAX_INCLUDE_NESTING-1))
+                {
+                    fprintf(stderr, "Too much include nesting\n");
+                    exit(EXIT_FAILURE);
+                }
+                FILE* new_input; 
 
-				int current_include_dir = 0;
-				do 
-				{
-					char full_path[512];
-					snprintf(full_path, 511, "%s/%s", include_dirs[current_include_dir], include_name);
-					new_input = fopen(full_path, "r");
-					current_include_dir++;
-				} while ((new_input == NULL) && (current_include_dir < num_include_dirs));
+                int current_include_dir = 0;
+                do 
+                {
+                    char full_path[512];
+                    snprintf(full_path, 511, "%s/%s", include_dirs[current_include_dir], include_name);
+                    new_input = fopen(full_path, "r");
+                    current_include_dir++;
+                } while ((new_input == NULL) && (current_include_dir < num_include_dirs));
 
-				if (new_input == NULL)
-				{
-					fprintf(stderr, "Could not open included file '%s': %s\n", include_name, strerror(errno));
-					exit(EXIT_FAILURE);
-				}
+                if (new_input == NULL)
+                {
+                    fprintf(stderr, "Could not open included file '%s': %s\n", include_name, strerror(errno));
+                    exit(EXIT_FAILURE);
+                }
 
-				top_input_stack++;
-				input_stack[top_input_stack] = new_input;
+                top_input_stack++;
+                input_stack[top_input_stack] = new_input;
 
-				fprintf(output, "\n");
-			}
-			else if (output_enabled
-					&& (regexec(&define_regex, buffer, 2, offsets, 0) == 0))
-			{
-				char define_name[MAX_TEXT_LINE] = { 0 };
+                fprintf(output, "\n");
+            }
+            else if (output_enabled
+                    && (regexec(&define_regex, buffer, 2, offsets, 0) == 0))
+            {
+                char define_name[MAX_TEXT_LINE] = { 0 };
 
-				int start = offsets[1].rm_so;
+                int start = offsets[1].rm_so;
 
-				int length = offsets[1].rm_eo - offsets[1].rm_so;
-				length = (length > (MAX_TEXT_LINE - 1)) ? (MAX_TEXT_LINE - 1) : length;
+                int length = offsets[1].rm_eo - offsets[1].rm_so;
+                length = (length > (MAX_TEXT_LINE - 1)) ? (MAX_TEXT_LINE - 1) : length;
 
-				strncpy(define_name, &(buffer[start]), length);
+                strncpy(define_name, &(buffer[start]), length);
 
-				int j;
-				char found = 0;;
-				for (j = 0; (j < num_defines) && !found; j++)
-				{
-					if (strcmp(defines[j], define_name) == 0)
-					{
-						found = 1;
-					}
-				}
+                int j;
+                char found = 0;;
+                for (j = 0; (j < num_defines) && !found; j++)
+                {
+                    if (strcmp(defines[j], define_name) == 0)
+                    {
+                        found = 1;
+                    }
+                }
 
-				// If not found register as a new define
-				if (!found)
-				{
-					if (num_defines == MAX_DEFINES)
-					{
-						fprintf(stderr, "Too many defines\n");
-						exit(EXIT_FAILURE);
-					}
-					defines[num_defines] = strdup(define_name);
-					num_defines++;
-				}
+                // If not found register as a new define
+                if (!found)
+                {
+                    if (num_defines == MAX_DEFINES)
+                    {
+                        fprintf(stderr, "Too many defines\n");
+                        exit(EXIT_FAILURE);
+                    }
+                    defines[num_defines] = strdup(define_name);
+                    num_defines++;
+                }
 
-				fprintf(output, "\n");
-			}
-			else if (output_enabled
-					&& (regexec(&undefine_regex, buffer, 2, offsets, 0) == 0))
-			{
-				char define_name[MAX_TEXT_LINE] = { 0 };
+                fprintf(output, "\n");
+            }
+            else if (output_enabled
+                    && (regexec(&undefine_regex, buffer, 2, offsets, 0) == 0))
+            {
+                char define_name[MAX_TEXT_LINE] = { 0 };
 
-				int start = offsets[1].rm_so;
+                int start = offsets[1].rm_so;
 
-				int length = offsets[1].rm_eo - offsets[1].rm_so;
-				length = (length > (MAX_TEXT_LINE - 1)) ? (MAX_TEXT_LINE - 1) : length;
+                int length = offsets[1].rm_eo - offsets[1].rm_so;
+                length = (length > (MAX_TEXT_LINE - 1)) ? (MAX_TEXT_LINE - 1) : length;
 
-				strncpy(define_name, &(buffer[start]), length);
+                strncpy(define_name, &(buffer[start]), length);
 
-				int j;
-				char found = 0;;
-				for (j = 0; (j < num_defines) && !found; j++)
-				{
-					if (strcmp(defines[j], define_name) == 0)
-					{
-						found = 1;
-						break;
-					}
-				}
+                int j;
+                char found = 0;;
+                for (j = 0; (j < num_defines) && !found; j++)
+                {
+                    if (strcmp(defines[j], define_name) == 0)
+                    {
+                        found = 1;
+                        break;
+                    }
+                }
 
-				// If found unregister it as a define
-				if (found)
-				{
-					free(defines[j]);
-					int k;
-					for (k = j; k < num_defines-1; k++)
-					{
-						defines[k] = defines[k+1];
-					}
-					num_defines--;
-				}
+                // If found unregister it as a define
+                if (found)
+                {
+                    free(defines[j]);
+                    int k;
+                    for (k = j; k < num_defines-1; k++)
+                    {
+                        defines[k] = defines[k+1];
+                    }
+                    num_defines--;
+                }
 
-				fprintf(output, "\n");
-			}
-			else if (regexec(&if_regex, buffer, 2, offsets, 0) == 0)
-			{
-				block_nesting++;
-				char define_name[MAX_TEXT_LINE] = { 0 };
+                fprintf(output, "\n");
+            }
+            else if (regexec(&if_regex, buffer, 2, offsets, 0) == 0)
+            {
+                block_nesting++;
+                char define_name[MAX_TEXT_LINE] = { 0 };
 
-				int start = offsets[1].rm_so;
+                int start = offsets[1].rm_so;
 
-				int length = offsets[1].rm_eo - offsets[1].rm_so;
-				length = (length > (MAX_TEXT_LINE - 1)) ? (MAX_TEXT_LINE - 1) : length;
+                int length = offsets[1].rm_eo - offsets[1].rm_so;
+                length = (length > (MAX_TEXT_LINE - 1)) ? (MAX_TEXT_LINE - 1) : length;
 
-				strncpy(define_name, &(buffer[start]), length);
+                strncpy(define_name, &(buffer[start]), length);
 
-				// If output is enabled, then we have to ensure this macro is defined
-				if (output_enabled)
-				{
-					int j;
-					char found = 0;;
-					for (j = 0; (j < num_defines) && !found; j++)
-					{
-						if (strcmp(defines[j], define_name) == 0)
-						{
-							found = 1;
-						}
-					}
+                // If output is enabled, then we have to ensure this macro is defined
+                if (output_enabled)
+                {
+                    int j;
+                    char found = 0;;
+                    for (j = 0; (j < num_defines) && !found; j++)
+                    {
+                        if (strcmp(defines[j], define_name) == 0)
+                        {
+                            found = 1;
+                        }
+                    }
 
-					if (!found)
-					{
-						output_enabled = 0;
-					}
-				}
+                    if (!found)
+                    {
+                        output_enabled = 0;
+                    }
+                }
 
-				fprintf(output, "\n");
-			}
-			else if (regexec(&ifnot_regex, buffer, 2, offsets, 0) == 0)
-			{
-				block_nesting++;
-				char define_name[MAX_TEXT_LINE];
+                fprintf(output, "\n");
+            }
+            else if (regexec(&ifnot_regex, buffer, 2, offsets, 0) == 0)
+            {
+                block_nesting++;
+                char define_name[MAX_TEXT_LINE];
 
-				int start = offsets[1].rm_so;
+                int start = offsets[1].rm_so;
 
-				int length = offsets[1].rm_eo - offsets[1].rm_so;
-				length = (length > (MAX_TEXT_LINE - 1)) ? (MAX_TEXT_LINE - 1) : length;
+                int length = offsets[1].rm_eo - offsets[1].rm_so;
+                length = (length > (MAX_TEXT_LINE - 1)) ? (MAX_TEXT_LINE - 1) : length;
 
-				strncpy(define_name, &(buffer[start]), length);
+                strncpy(define_name, &(buffer[start]), length);
 
-				// If output is enabled, then we have to ensure this macro is undefined
-				if (output_enabled)
-				{
-					int j;
-					char found = 0;;
-					for (j = 0; (j < num_defines) && !found; j++)
-					{
-						if (strcmp(defines[j], define_name) == 0)
-						{
-							found = 1;
-						}
-					}
+                // If output is enabled, then we have to ensure this macro is undefined
+                if (output_enabled)
+                {
+                    int j;
+                    char found = 0;;
+                    for (j = 0; (j < num_defines) && !found; j++)
+                    {
+                        if (strcmp(defines[j], define_name) == 0)
+                        {
+                            found = 1;
+                        }
+                    }
 
-					if (found)
-					{
-						output_enabled = 0;
-					}
-				}
+                    if (found)
+                    {
+                        output_enabled = 0;
+                    }
+                }
 
-				fprintf(output, "\n");
-			}
-			else if (regexec(&endif_regex, buffer, 0, NULL, 0) == 0)
-			{
-				block_nesting--;
+                fprintf(output, "\n");
+            }
+            else if (regexec(&endif_regex, buffer, 0, NULL, 0) == 0)
+            {
+                block_nesting--;
 
-				if (block_nesting == 0)
-				{
-					output_enabled = 1;
-				}
+                if (block_nesting == 0)
+                {
+                    output_enabled = 1;
+                }
 
-				fprintf(output, "\n");
-			}
-			else if (output_enabled)
-			{
-				fprintf(output, "%s", buffer);
-			}
-			else if (!output_enabled)
-			{
-				fprintf(output, "\n");
-			}
-		}
+                fprintf(output, "\n");
+            }
+            else if (output_enabled)
+            {
+                fprintf(output, "%s", buffer);
+            }
+            else if (!output_enabled)
+            {
+                fprintf(output, "\n");
+            }
+        }
 
-		fclose(input_stack[top_input_stack]);
-		top_input_stack--;
-	}
+        fclose(input_stack[top_input_stack]);
+        top_input_stack--;
+    }
 
     if (block_nesting != 0)
     {

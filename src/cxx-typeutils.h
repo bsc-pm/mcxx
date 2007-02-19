@@ -111,11 +111,13 @@ scope_entry_t* give_real_entry(scope_entry_t* entry);
 cv_qualifier_t* get_innermost_cv_qualifier(type_t* t);
 
 char* get_declaration_string_internal(type_t* type_info, 
-		scope_t* st,
-		const char* symbol_name, const char* initializer, 
-		char semicolon,
-		int *num_parameter_names,
-		char ***parameter_names);
+        scope_t* st,
+        const char* symbol_name, const char* initializer, 
+        char semicolon,
+        int *num_parameter_names,
+         char ***parameter_names);
+
+char* get_simple_type_name_string(scope_t* st, type_t* type_info);
 
 MCXX_END_DECLS
 

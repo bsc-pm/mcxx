@@ -81,7 +81,7 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
         template_parameter_t** template_parameter_info, int num_template_parameters, 
         template_argument_list_t** template_arguments);
 
-static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t decl_context);
+static void build_scope_template_declaration(AST a, AST top_template_decl, scope_t* st, decl_context_t decl_context);
 static void build_scope_explicit_template_specialization(AST a, scope_t* st, decl_context_t decl_context);
 
 static void build_scope_statement_seq(AST a, scope_t* st, decl_context_t decl_context);
@@ -157,8 +157,8 @@ const decl_context_t default_decl_context = { 0 };
 
 void build_scope_dynamic_initializer(void)
 {
-	// Defined in cxx-attrnames.c
-	register_ast_extended_attributes();
+    // Defined in cxx-attrnames.c
+    register_ast_extended_attributes();
 }
 
 // Builds scope for the translation unit
@@ -173,44 +173,44 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
 
     // The global scope is created here
     translation_unit->global_scope = new_namespace_scope(NULL, NULL);
-	translation_unit->scope_link = scope_link_new();
+    translation_unit->scope_link = scope_link_new();
 
-	// Link the AST root node with the global scope
-	scope_link_set(translation_unit->scope_link, a, translation_unit->global_scope);
+    // Link the AST root node with the global scope
+    scope_link_set(translation_unit->scope_link, a, translation_unit->global_scope);
 
     // Fix this one day (it makes thing non fully reentrant)
     compilation_options.global_scope = translation_unit->global_scope;
-	compilation_options.scope_link = translation_unit->scope_link;
+    compilation_options.scope_link = translation_unit->scope_link;
 
     initialize_builtin_symbols();
 
-	// Refactor this and "build_scope_translation_unit_tree_with_global_scope" one day
+    // Refactor this and "build_scope_translation_unit_tree_with_global_scope" one day
     build_scope_declaration_sequence(list, compilation_options.global_scope, default_decl_context);
 
     // Clear for sanity
-	compilation_options.scope_link = NULL;
+    compilation_options.scope_link = NULL;
     compilation_options.global_scope = NULL;
 }
 
 void build_scope_translation_unit_tree_with_global_scope(AST tree,
-		scope_t* global_scope, scope_link_t* scope_link,
+        scope_t* global_scope, scope_link_t* scope_link,
         decl_context_t decl_context)
 {
     compilation_options.global_scope = global_scope;
-	compilation_options.scope_link = scope_link;
-	
-	if (ASTType(tree) != AST_TRANSLATION_UNIT)
-	{
-		internal_error("This function expects a translation unit tree but '%s'", 
-				ast_print_node_type(ASTType(tree)));
-	}
+    compilation_options.scope_link = scope_link;
+    
+    if (ASTType(tree) != AST_TRANSLATION_UNIT)
+    {
+        internal_error("This function expects a translation unit tree but '%s'", 
+                ast_print_node_type(ASTType(tree)));
+    }
 
-	AST list = ASTSon0(tree);
-	// The scope will have been already populated with basic things
+    AST list = ASTSon0(tree);
+    // The scope will have been already populated with basic things
     build_scope_declaration_sequence(list, compilation_options.global_scope, decl_context);
-	
+    
     // Clear for sanity 
-	compilation_options.scope_link = NULL;
+    compilation_options.scope_link = NULL;
     compilation_options.global_scope = NULL;
 }
 
@@ -320,7 +320,7 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
         case AST_EXPORT_TEMPLATE_DECLARATION :
         case AST_TEMPLATE_DECLARATION :
             {
-                build_scope_template_declaration(a, st, decl_context);
+                build_scope_template_declaration(a, a, st, decl_context);
                 break;
             }
         case AST_EXPLICIT_INSTANTIATION :
@@ -362,18 +362,18 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
                 // Do nothing
                 break;
             }
-			// OpenMP 2.5 constructs
-		case AST_OMP_THREADPRIVATE_DIRECTIVE :
-			{
-				build_scope_omp_threadprivate(a, st, decl_context, OMP_IS_THREADPRIVATE_DIRECTIVE);
-				break;
-			}
-		case AST_OMP_CUSTOM_DIRECTIVE :
-			{
-				build_scope_omp_custom_directive(a, st, decl_context, NULL);
-				break;
-			}
-			// GCC Extensions
+            // OpenMP 2.5 constructs
+        case AST_OMP_THREADPRIVATE_DIRECTIVE :
+            {
+                build_scope_omp_threadprivate(a, st, decl_context, OMP_IS_THREADPRIVATE_DIRECTIVE);
+                break;
+            }
+        case AST_OMP_CUSTOM_DIRECTIVE :
+            {
+                build_scope_omp_custom_directive(a, st, decl_context, NULL);
+                break;
+            }
+            // GCC Extensions
         case AST_GCC_EXTENSION :
             {
                 build_scope_declaration(ASTSon0(a), st, decl_context);
@@ -384,11 +384,11 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
                 build_scope_gcc_asm_definition(a, st, decl_context);
                 break;
             }
-		case AST_PP_COMMENT :
-			{
-				// Ignore this, it is a prettyprinted comment
-				break;
-			}
+        case AST_PP_COMMENT :
+            {
+                // Ignore this, it is a prettyprinted comment
+                break;
+            }
         default :
             {
                 internal_error("A declaration of kind '%s' is still unsupported (%s)\n", 
@@ -563,8 +563,8 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
         }
     }
 
-	ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
-	ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
 
     // A type has been specified and there are declarators ahead
     if (simple_type_info != NULL && (ASTSon1(a) != NULL))
@@ -631,7 +631,7 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
                     check_for_initialization(initializer, entry_list->entry->scope, decl_context);
                     entry_list->entry->expression_value = initializer;
 
-					ASTAttrSetValueType(declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                    ASTAttrSetValueType(declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
                 }
             }
             else
@@ -1037,22 +1037,22 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
         if (nested_name_specifier == NULL
                 && global_scope == NULL)
         {
-			if (!BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
-			{
-				// First fix the scope, it must be the first non-class namespace scope
-				// enclosing this one if the declaration is of type "struct A something;"
-				// if it has form "struct A;" it must be declared in the current scope
-				while (st != NULL && st->kind != NAMESPACE_SCOPE)
-				{
-					st = st->contained_in;
-				}
+            if (!BITMAP_TEST(decl_context.decl_flags, DF_NO_DECLARATORS))
+            {
+                // First fix the scope, it must be the first non-class namespace scope
+                // enclosing this one if the declaration is of type "struct A something;"
+                // if it has form "struct A;" it must be declared in the current scope
+                while (st != NULL && st->kind != NAMESPACE_SCOPE)
+                {
+                    st = st->contained_in;
+                }
 
-				if (st == NULL)
-				{
-					internal_error("Could not get a namespace scope for elaborated class declaration '%s'\n", 
-							prettyprint_in_buffer(a));
-				}
-			}
+                if (st == NULL)
+                {
+                    internal_error("Could not get a namespace scope for elaborated class declaration '%s'\n", 
+                            prettyprint_in_buffer(a));
+                }
+            }
 
             char* class_name = NULL;
             if (ASTType(class_symbol) == AST_SYMBOL)
@@ -1080,7 +1080,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
             }
 
             new_class->line = ASTLine(class_symbol);
-			new_class->point_of_declaration = get_enclosing_declaration(class_symbol);
+            new_class->point_of_declaration = get_enclosing_declaration(class_symbol);
 
             new_class->type_information = calloc(1, sizeof(*(new_class->type_information)));
             new_class->type_information->kind = TK_DIRECT;
@@ -1274,7 +1274,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, scope_t* st, 
 
             scope_entry_t* new_class = new_symbol(st, enum_name);
             new_class->line = ASTLine(symbol);
-			new_class->point_of_declaration = get_enclosing_declaration(symbol);
+            new_class->point_of_declaration = get_enclosing_declaration(symbol);
             new_class->kind = SK_ENUM;
             new_class->type_information = calloc(1, sizeof(*(new_class->type_information)));
             new_class->type_information->kind = TK_DIRECT;
@@ -1334,7 +1334,7 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
     DEBUG_CODE()
     {
         fprintf(stderr, "Trying to look up a dependent typename '%s'\n",
-				prettyprint_in_buffer(a));
+                prettyprint_in_buffer(a));
     }
 
     global_scope = ASTSon0(a);
@@ -1344,13 +1344,13 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
     lookup_flags_t lookup_flags = LF_NO_FAIL;
 
     if (decl_context.template_nesting != 0)
-	{
-		DEBUG_CODE()
-		{
-			fprintf(stderr, "We will not instantiate when solving this dependent typename because we are under template hood\n");
-		}
-		lookup_flags |= LF_NO_INSTANTIATE;
-	}
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "We will not instantiate when solving this dependent typename because we are under template hood\n");
+        }
+        lookup_flags |= LF_NO_INSTANTIATE;
+    }
 
     scope_entry_list_t* result = query_nested_name_flags(st, global_scope, nested_name_spec, name, 
             FULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
@@ -1403,10 +1403,10 @@ static void gather_type_spec_from_dependent_typename(AST a, scope_t* st, type_t*
                 prettyprint_in_buffer(a), node_information(a));
     }
 
-	DEBUG_CODE()
-	{
-		fprintf(stderr, "Returning dependent type for '%s'\n", prettyprint_in_buffer(a));
-	}
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Returning dependent type for '%s'\n", prettyprint_in_buffer(a));
+    }
     simple_type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
     simple_type_info->type->typeof_expr = a;
     simple_type_info->type->typeof_scope = copy_scope(st);
@@ -1515,7 +1515,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 
             new_entry = new_symbol(st, enum_name_str);
             new_entry->line = ASTLine(enum_name);
-			new_entry->point_of_declaration = enum_name;
+            new_entry->point_of_declaration = enum_name;
             new_entry->kind = SK_ENUM;
         }
 
@@ -1565,7 +1565,7 @@ void gather_type_spec_from_enum_specifier(AST a, scope_t* st, type_t* simple_typ
 
             scope_entry_t* enumeration_item = new_symbol(st, ASTText(enumeration_name));
             enumeration_item->line = ASTLine(enumeration_name);
-			enumeration_item->point_of_declaration = get_enclosing_declaration(enumeration_name);
+            enumeration_item->point_of_declaration = get_enclosing_declaration(enumeration_name);
             enumeration_item->kind = SK_ENUMERATOR;
             enumeration_item->type_information = enumerator_type;
 
@@ -1674,7 +1674,7 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
                     {
                         instantiate_template_in_symbol(result, match_pair, 
                                 result->type_information->type->template_arguments, result->scope,
-								decl_context);
+                                decl_context);
                     }
                 }
             }
@@ -1751,11 +1751,11 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
     simple_type_info->type->class_info = calloc(1, sizeof(*simple_type_info->type->class_info));
     simple_type_info->type->kind = STK_CLASS;
 
-	char* qualification_name = NULL;
-	if (class_head_identifier != NULL)
-	{
-		qualification_name = prettyprint_in_buffer(class_head_identifier);
-	}
+    char* qualification_name = NULL;
+    if (class_head_identifier != NULL)
+    {
+        qualification_name = prettyprint_in_buffer(class_head_identifier);
+    }
 
     scope_t* inner_scope = new_class_scope(st, qualification_name);
 
@@ -1763,7 +1763,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
     // (it is used when checking member acesses)
     simple_type_info->type->class_info->inner_scope = inner_scope;
 
-	// No class entry
+    // No class entry
     scope_entry_t* class_entry = NULL;
     
     if (class_head_identifier != NULL)
@@ -1823,6 +1823,9 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                         class_entry->line);
                 }
 
+                // Update the template_scope
+                class_entry->scope->template_scope = copy_scope(st->template_scope);
+
                 st = class_entry->scope;
                 inner_scope = new_class_scope(st, qualification_name);
 
@@ -1862,7 +1865,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 }
 
                 class_entry->line = ASTLine(class_head_identifier);
-				class_entry->point_of_declaration = get_enclosing_declaration(class_head_identifier);
+                class_entry->point_of_declaration = get_enclosing_declaration(class_head_identifier);
 
                 if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
                 {
@@ -1885,7 +1888,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 internal_error("Unreachable code", 0);
             }
 
-			// This code is completely ugly
+            // This code is completely ugly
             if (decl_context.template_parameters != NULL)
             {
                 if (class_entry->template_parameter_info == NULL)
@@ -1897,7 +1900,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 else // Otherwise first mix them
                 {
                     ERROR_CONDITION((class_entry->num_template_parameters != decl_context.num_template_parameters), 
-							"The number of template parameters declared in %s is %d and does not match with a previous " 
+                            "The number of template parameters declared in %s is %d and does not match with a previous " 
                             "declaration in line=%d of %d parameters\n", 
                             node_information(a), 
                             decl_context.num_template_parameters,
@@ -1974,6 +1977,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                                 class_entry->template_parameter_info, 
                                 class_entry->num_template_parameters,
                                 &(simple_type_info->type->template_arguments));
+
                         break;
                     }
                 case SK_TEMPLATE_SPECIALIZED_CLASS :
@@ -1996,10 +2000,16 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
             simple_type_info->type->template_class_base_clause = base_clause;
             simple_type_info->type->template_class_body = ASTSon1(a);
 
+            // Save the decl context
+            decl_context_t* saved_decl_context = calloc(1, sizeof(*saved_decl_context));
+            *saved_decl_context = decl_context;
+            simple_type_info->type->decl_context = saved_decl_context;
+
             // Copy the type because we are creating it and we would clobber it
             // otherwise
             class_entry->type_information = copy_type(simple_type_info);
             class_entry->related_scope = inner_scope;
+
 
             // Clear this flag
             DEBUG_CODE()
@@ -2025,6 +2035,14 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
             memset(simple_type_info->type, 0, sizeof(*(simple_type_info->type)));
             simple_type_info->type->kind = STK_USER_DEFINED;
             simple_type_info->type->user_defined_type = class_entry;
+
+            if (class_entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
+            {
+                // Adjust properly the qualification name because now is just the template-name
+                // and we want the full template-id
+                inner_scope->qualification_name = strappend(inner_scope->qualification_name, 
+                        get_unqualified_template_symbol_name(class_entry, st));
+            }
         }
         else
         {
@@ -2044,8 +2062,8 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
         current_access = AS_PUBLIC;
     }
 
-	// The inner scope is properly adjusted here thus we can link it with the AST
-	scope_link_set(compilation_options.scope_link, a, copy_scope(inner_scope));
+    // The inner scope is properly adjusted here thus we can link it with the AST
+    scope_link_set(compilation_options.scope_link, a, copy_scope(inner_scope));
     
     // Now add the bases
     if (base_clause != NULL)
@@ -2107,85 +2125,85 @@ void build_scope_member_specification(scope_t* inner_scope, AST member_specifica
 
     // AST member_specification = member_specification_tree;
 
-	AST iter;
+    AST iter;
 
-	if (member_specification_tree == NULL)
-	{
-		return;
-	}
+    if (member_specification_tree == NULL)
+    {
+        return;
+    }
 
     // First pass, sign up only prototypes and simple declarations
-	for_each_element(member_specification_tree, iter)
-	{
-		AST member_specification = ASTSon1(iter);
+    for_each_element(member_specification_tree, iter)
+    {
+        AST member_specification = ASTSon1(iter);
 
-		if (max_line < ASTLine(member_specification))
-		{
-			max_line = ASTLine(member_specification);
-		}
+        if (max_line < ASTLine(member_specification))
+        {
+            max_line = ASTLine(member_specification);
+        }
 
-		// If this is an access specifier update its related access info
-		if (ASTType(member_specification) == AST_MEMBER_ACCESS_SPEC)
-		{
-			switch (ASTType(ASTSon0(member_specification)))
-			{
-				case AST_PRIVATE_SPEC : 
-					current_access = AS_PRIVATE;
-					break;
-				case AST_PUBLIC_SPEC :
-					current_access = AS_PUBLIC;
-					break;
-				case AST_PROTECTED_SPEC :
-					current_access = AS_PROTECTED;
-					break;
-				default :
-					internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(member_specification))));
-			}
-		}
-		else 
-		{
-			// This is a simple member_declaration
-			build_scope_member_declaration(member_specification, inner_scope, 
-					current_access, simple_type_info, /* step= */ 0, new_decl_context);
-		}
-	}
+        // If this is an access specifier update its related access info
+        if (ASTType(member_specification) == AST_MEMBER_ACCESS_SPEC)
+        {
+            switch (ASTType(ASTSon0(member_specification)))
+            {
+                case AST_PRIVATE_SPEC : 
+                    current_access = AS_PRIVATE;
+                    break;
+                case AST_PUBLIC_SPEC :
+                    current_access = AS_PUBLIC;
+                    break;
+                case AST_PROTECTED_SPEC :
+                    current_access = AS_PROTECTED;
+                    break;
+                default :
+                    internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(member_specification))));
+            }
+        }
+        else 
+        {
+            // This is a simple member_declaration
+            build_scope_member_declaration(member_specification, inner_scope, 
+                    current_access, simple_type_info, /* step= */ 0, new_decl_context);
+        }
+    }
 
     // Second step, sign up everything
     current_access = default_current_access;
-	for_each_element(member_specification_tree, iter)
-	{
-		AST member_specification = ASTSon1(iter);
+    for_each_element(member_specification_tree, iter)
+    {
+        AST member_specification = ASTSon1(iter);
 
-		if (max_line < ASTLine(member_specification))
-		{
-			max_line = ASTLine(member_specification);
-		}
+        if (max_line < ASTLine(member_specification))
+        {
+            max_line = ASTLine(member_specification);
+        }
 
-		// If this is an access specifier update its related access info
-		if (ASTType(member_specification) == AST_MEMBER_ACCESS_SPEC)
-		{
-			switch (ASTType(ASTSon0(member_specification)))
-			{
-				case AST_PRIVATE_SPEC : 
-					current_access = AS_PRIVATE;
-					break;
-				case AST_PUBLIC_SPEC :
-					current_access = AS_PUBLIC;
-					break;
-				case AST_PROTECTED_SPEC :
-					current_access = AS_PROTECTED;
-					break;
-				default :
-					internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(member_specification))));
-			}
-		}
-		else 
-		{
-			// This is a simple member_declaration
-			build_scope_member_declaration(member_specification, inner_scope, 
-					current_access, simple_type_info, /* step= */ 1, new_decl_context);
-		}
-	}
+        // If this is an access specifier update its related access info
+        if (ASTType(member_specification) == AST_MEMBER_ACCESS_SPEC)
+        {
+            switch (ASTType(ASTSon0(member_specification)))
+            {
+                case AST_PRIVATE_SPEC : 
+                    current_access = AS_PRIVATE;
+                    break;
+                case AST_PUBLIC_SPEC :
+                    current_access = AS_PUBLIC;
+                    break;
+                case AST_PROTECTED_SPEC :
+                    current_access = AS_PROTECTED;
+                    break;
+                default :
+                    internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(member_specification))));
+            }
+        }
+        else 
+        {
+            // This is a simple member_declaration
+            build_scope_member_declaration(member_specification, inner_scope, 
+                    current_access, simple_type_info, /* step= */ 1, new_decl_context);
+        }
+    }
 }
 
 
@@ -2245,10 +2263,12 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
             decl_st = compilation_options.global_scope;
         }
 
-		ASTAttrSetValueType(a, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
-		ASTAttrSetValueType(a, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+        ASTAttrSetValueType(a, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(a, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
 
-		scope_link_set(compilation_options.scope_link, declarator_name, copy_scope(decl_st));
+        scope_t* current_scope = copy_scope(decl_st);
+
+        scope_link_set(compilation_options.scope_link, declarator_name, current_scope);
     }
 
     build_scope_declarator_rec(a, decl_st, parameters_scope, declarator_type, 
@@ -2432,12 +2452,12 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
     
     if (ASTType(parameters) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
     {
-		C_LANGUAGE()
-		{
-			// In C this is a function definition lacking a prototype
-			declarator_type->function->lacks_prototype = 1;
-		}
-		// An empty parameter declaration clause is like (void) in C++
+        C_LANGUAGE()
+        {
+            // In C this is a function definition lacking a prototype
+            declarator_type->function->lacks_prototype = 1;
+        }
+        // An empty parameter declaration clause is like (void) in C++
         return;
     }
 
@@ -2459,14 +2479,14 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
         // Nothing to do here with K&R parameters
         if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
         {
-			// It will lack a prototype
-			declarator_type->function->lacks_prototype = 1;
+            // It will lack a prototype
+            declarator_type->function->lacks_prototype = 1;
             return;
         }
     }
 
-	// Link the scope of the parameters
-	scope_link_set(compilation_options.scope_link, parameters, copy_scope(parameters_scope));
+    // Link the scope of the parameters
+    scope_link_set(compilation_options.scope_link, parameters, copy_scope(parameters_scope));
 
     for_each_element(list, iter)
     {
@@ -2529,41 +2549,41 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
                 entry->defined = 1;
             }
 
-			AST declarator_name = get_declarator_name(parameter_declarator, st, decl_context);
-			if (declarator_name != NULL)
-			{
-				ASTAttrSetValueType(parameter_declarator, LANG_IS_DECLARED_PARAMETER, tl_type_t, tl_bool(1));
-			}
+            AST declarator_name = get_declarator_name(parameter_declarator, st, decl_context);
+            if (declarator_name != NULL)
+            {
+                ASTAttrSetValueType(parameter_declarator, LANG_IS_DECLARED_PARAMETER, tl_type_t, tl_bool(1));
+            }
 
-			// Normalize parameters
-			//
-			// function to pointer-to-function
-			if (entry != NULL)
-			{
-				if (type_info->kind == TK_FUNCTION)
-				{
-					fprintf(stderr, "Normalizing parameter '%s'\n", prettyprint_in_buffer(declarator_name));
-					type_t* pointer_to = calloc(1, sizeof(*pointer_to));
-					pointer_to->kind = TK_POINTER;
-					pointer_to->pointer = calloc(1, sizeof(*pointer_to->pointer));
-					pointer_to->pointer->pointee = entry->type_information;
+            // Normalize parameters
+            //
+            // function to pointer-to-function
+            if (entry != NULL)
+            {
+                if (type_info->kind == TK_FUNCTION)
+                {
+                    fprintf(stderr, "Normalizing parameter '%s'\n", prettyprint_in_buffer(declarator_name));
+                    type_t* pointer_to = calloc(1, sizeof(*pointer_to));
+                    pointer_to->kind = TK_POINTER;
+                    pointer_to->pointer = calloc(1, sizeof(*pointer_to->pointer));
+                    pointer_to->pointer->pointee = entry->type_information;
 
-					// Fix this variable
-					entry->kind = SK_VARIABLE;
+                    // Fix this variable
+                    entry->kind = SK_VARIABLE;
 
-					entry->type_information = pointer_to;
-				}
-				// array to array-to-pointer
-				else if (type_info->kind == TK_ARRAY)
-				{
-					entry->type_information->kind = TK_POINTER;
-					entry->type_information->pointer = calloc(1, sizeof(*entry->type_information->pointer));
-					entry->type_information->pointer->pointee = entry->type_information->array->element_type;
-					entry->type_information->array = NULL;
-				}
+                    entry->type_information = pointer_to;
+                }
+                // array to array-to-pointer
+                else if (type_info->kind == TK_ARRAY)
+                {
+                    entry->type_information->kind = TK_POINTER;
+                    entry->type_information->pointer = calloc(1, sizeof(*entry->type_information->pointer));
+                    entry->type_information->pointer->pointee = entry->type_information->array->element_type;
+                    entry->type_information->array = NULL;
+                }
 
-				type_info = entry->type_information;
-			}
+                type_info = entry->type_information;
+            }
 
             parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
             new_parameter->type_info = type_info;
@@ -3040,7 +3060,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
     }
 
     entry->line = ASTLine(declarator_id);
-	entry->point_of_declaration = get_enclosing_declaration(declarator_id);
+    entry->point_of_declaration = get_enclosing_declaration(declarator_id);
     // Save aliased type under the type of this declaration
     entry->kind = SK_TYPEDEF;
     entry->type_information = calloc(1, sizeof(*(entry->type_information)));
@@ -3070,10 +3090,10 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         if (check_list != NULL)
         {
             scope_entry_t* entry = check_list->entry;
-			
-			// Always use the latest one, unfortunately a variable can be
-			// declared several times by means of "extern" keyword
-			entry->point_of_declaration = get_enclosing_declaration(declarator_id);
+            
+            // Always use the latest one, unfortunately a variable can be
+            // declared several times by means of "extern" keyword
+            entry->point_of_declaration = get_enclosing_declaration(declarator_id);
             return entry;
         }
 
@@ -3088,7 +3108,7 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         }
         scope_entry_t* entry = new_symbol(st, ASTText(declarator_id));
         entry->line = ASTLine(declarator_id);
-		entry->point_of_declaration = get_enclosing_declaration(declarator_id);
+        entry->point_of_declaration = get_enclosing_declaration(declarator_id);
         entry->kind = SK_VARIABLE;
         entry->type_information = declarator_type;
 
@@ -3120,7 +3140,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         scope_entry_t* new_entry = new_symbol(st, function_name);
         new_entry->line = ASTLine(declarator_id);
-		new_entry->point_of_declaration = get_enclosing_declaration(declarator_id);
+        new_entry->point_of_declaration = get_enclosing_declaration(declarator_id);
 
         if (!BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
         {
@@ -3235,14 +3255,14 @@ static scope_entry_t* find_function_declaration(scope_t* st, AST declarator_id, 
 
             C_LANGUAGE()
             {
-				if (!function_being_declared->function->lacks_prototype
-				 		&& !current_function->function->lacks_prototype)
-				{
-					internal_error("Function '%s' has been declared with different prototype", 
-							ASTText(declarator_id));
-				}
-				equal_entry = entry;
-				found_equal = 1;
+                if (!function_being_declared->function->lacks_prototype
+                         && !current_function->function->lacks_prototype)
+                {
+                    internal_error("Function '%s' has been declared with different prototype", 
+                            ASTText(declarator_id));
+                }
+                equal_entry = entry;
+                found_equal = 1;
             }
         }
 
@@ -3299,7 +3319,7 @@ static void build_scope_linkage_specifier_declaration(AST a, scope_t* st, decl_c
 /*
  * This function registers a template declaration
  */
-static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_template_declaration(AST a, AST top_template_decl, scope_t* st, decl_context_t decl_context)
 {
     /*
      * The declaration after the template parameter list can be
@@ -3395,34 +3415,39 @@ static void build_scope_template_declaration(AST a, scope_t* st, decl_context_t 
         solve_ambiguous_declaration(templated_decl, st, decl_context);
     }
 
-	// Link the AST with the scope
-	scope_link_set(compilation_options.scope_link, a, copy_scope(st));
+    // Link the AST with the scope
+    scope_link_set(compilation_options.scope_link, a, copy_scope(st));
 
     switch (ASTType(templated_decl))
     {
         case AST_FUNCTION_DEFINITION :
             {
-
                 build_scope_template_function_definition(templated_decl, st, template_scope, num_parameters, 
                         template_parameters, new_decl_context);
+
+                ASTAttrSetValueType(templated_decl, LANG_IS_TEMPLATED_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
                 break;
             }
         case AST_SIMPLE_DECLARATION :
             {
                 build_scope_template_simple_declaration(templated_decl, st, template_scope, num_parameters, 
                         template_parameters, new_decl_context);
+
+                ASTAttrSetValueType(templated_decl, LANG_IS_TEMPLATED_DECLARATION, tl_type_t, tl_bool(1));
                 break;
             }
         case AST_TEMPLATE_DECLARATION :
             {
-                build_scope_template_declaration(templated_decl, st, new_decl_context);
-                // build_scope_template_declaration(templated_decl, st, decl_context);
+                build_scope_template_declaration(templated_decl, top_template_decl, st, new_decl_context);
                 break;
             }
         default :
             internal_error("Unknown node type '%s' (line=%s)\n", ast_print_node_type(ASTType(templated_decl)), 
                     node_information(templated_decl));
     }
+
+    ASTAttrSetValueType(ASTSon0(a), LANG_IS_TEMPLATE_HEADER, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(templated_decl, LANG_TEMPLATE_HEADER, tl_type_t, tl_ast(top_template_decl));
 
     // Restore template scope
     st->template_scope = template_scope->template_scope;
@@ -3480,7 +3505,7 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
                 internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(ASTSon0(a))));
             }
     }
-    
+
     // Restore template scope
     st->template_scope = template_scope->template_scope;
     template_scope->template_scope = NULL;
@@ -3731,7 +3756,7 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 
         scope_entry_t* new_entry = new_symbol(st, name);
         new_entry->line = ASTLine(symbol);
-		new_entry->point_of_declaration = symbol;
+        new_entry->point_of_declaration = symbol;
 
         new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
         new_entry->type_information = new_type;
@@ -3750,7 +3775,7 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
         template_parameters->parameter_tree = ASTMake3(AST_SIMPLE_TYPE_SPECIFIER, 
                 NULL, NULL, duplicate_ast(symbol), ASTLine(symbol), NULL);
 
-		template_parameters->template_parameter_symbol = new_entry;
+        template_parameters->template_parameter_symbol = new_entry;
         template_parameters->template_parameter_name = new_entry->symbol_name;
 
         ASTSon2(template_parameters->parameter_tree) = NULL;
@@ -3764,7 +3789,7 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
 
         scope_entry_t* new_entry = new_symbol(st, template_param_name);
         new_entry->line = ASTLine(a);
-		new_entry->point_of_declaration = a;
+        new_entry->point_of_declaration = a;
 
         new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
         new_entry->type_information = new_type;
@@ -3846,7 +3871,7 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
         template_parameters->template_parameter_name = strdup(ASTText(name));
 
         template_parameters->parameter_tree = name;
-		template_parameters->template_parameter_symbol = new_entry;
+        template_parameters->template_parameter_symbol = new_entry;
         new_type->type->template_parameter_name = new_entry->symbol_name;
     }
     else
@@ -3862,7 +3887,7 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
         new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
 
         template_parameters->parameter_tree = ASTLeaf(AST_SYMBOL, ASTLine(a), template_param_name);
-		template_parameters->template_parameter_symbol = new_entry;
+        template_parameters->template_parameter_symbol = new_entry;
         new_type->type->template_parameter_name = new_entry->symbol_name;
     }
 
@@ -3923,7 +3948,7 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
 
             // Save its name
             template_parameters->template_parameter_name = strdup(entry->symbol_name);
-			template_parameters->template_parameter_symbol = entry;
+            template_parameters->template_parameter_symbol = entry;
             simple_type_info->type->template_parameter_name = entry->symbol_name;
         }
     }
@@ -3967,7 +3992,7 @@ static void build_scope_namespace_alias(AST a, scope_t* st, decl_context_t decl_
     scope_entry_t* alias_entry = new_symbol(st, alias_name);
 
     alias_entry->line = ASTLine(alias_ident);
-	alias_entry->point_of_declaration = alias_ident;
+    alias_entry->point_of_declaration = alias_ident;
     alias_entry->kind = SK_NAMESPACE;
     alias_entry->related_scope = entry->related_scope;
 }
@@ -3995,18 +4020,18 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
         else
         {
             // We register a symbol of type namespace and link to a newly created scope.
-			char* qualification_name = prettyprint_in_buffer(namespace_name);
+            char* qualification_name = prettyprint_in_buffer(namespace_name);
 
             scope_t* namespace_scope = new_namespace_scope(st, qualification_name);
 
             entry = new_symbol(st, ASTText(namespace_name));
             entry->line = ASTLine(namespace_name);
-			entry->point_of_declaration = namespace_name;
+            entry->point_of_declaration = namespace_name;
             entry->kind = SK_NAMESPACE;
             entry->related_scope = namespace_scope;
 
-			// Link the scope of this newly created namespace
-			scope_link_set(compilation_options.scope_link, a, namespace_scope);
+            // Link the scope of this newly created namespace
+            scope_link_set(compilation_options.scope_link, a, namespace_scope);
         }
 
         if (ASTSon1(a) != NULL)
@@ -4018,7 +4043,7 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
     {
         WARNING_MESSAGE("Unnamed namespace support is missing", 0);
         build_scope_declaration_sequence(ASTSon1(a), compilation_options.global_scope, decl_context);
-		// #warning Unnamed namespace support is missing
+        // #warning Unnamed namespace support is missing
     }
 }
 
@@ -4081,7 +4106,7 @@ static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st,
                     {
                         if (entry->kind == SK_VARIABLE)
                         {
-                            ERROR_CONDITION(entry->scope != class_scope,
+                            ERROR_CONDITION(!same_scope(entry->scope, class_scope),
                                     "This symbol does not belong to this class (%s)", 
                                     node_information(symbol));
                         }
@@ -4151,11 +4176,11 @@ static void build_scope_ctor_initializer(AST ctor_initializer, scope_t* st,
 
 // This function is C99 only
 void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
-		AST kr_parameter_declaration, 
-		AST kr_parameters,
+        AST kr_parameter_declaration, 
+        AST kr_parameters,
         scope_t* parameter_scope, decl_context_t decl_context)
 {
-	AST kr_parameter_list = NULL;
+    AST kr_parameter_list = NULL;
     
     if (kr_parameters != NULL 
             && ASTSon0(kr_parameters) != NULL)
@@ -4166,7 +4191,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
     AST declaration_list = kr_parameter_declaration;
     AST iter;
 
-	type_t* declarator_type = function_entry->type_information;
+    type_t* declarator_type = function_entry->type_information;
 
     // This can be empty, but undefined parameters must be signed up
     if (kr_parameter_declaration != NULL)
@@ -4179,11 +4204,11 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
         }
     }
 
-	// Now for every symbol in kr_parameter_list get its type and sign it up
-	// in the parameters of the type
-	//
-	// Clear previous prototype
-	declarator_type->function->num_parameters = 0;
+    // Now for every symbol in kr_parameter_list get its type and sign it up
+    // in the parameters of the type
+    //
+    // Clear previous prototype
+    declarator_type->function->num_parameters = 0;
 
     if (kr_parameter_list != NULL)
     {
@@ -4223,7 +4248,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
         }
     }
 
-	// Should not lack prototype no more
+    // Should not lack prototype no more
     if (kr_parameter_list != NULL)
     {
         declarator_type->function->lacks_prototype = 0;
@@ -4315,55 +4340,73 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     entry = build_scope_declarator_with_parameter_scope(ASTSon1(a), st, &parameter_scope,
             &gather_info, type_info, &declarator_type, new_decl_context);
     ERROR_CONDITION((entry == NULL), "Function '%s' does not exist! %s", prettyprint_in_buffer(ASTSon1(a)), node_information(a));
-	
-	{
-		// Function declaration name
-		AST declarator_name = get_declarator_name(ASTSon1(a), st, decl_context);
-		ASTAttrSetValueType(a, LANG_FUNCTION_NAME, tl_type_t, tl_ast(declarator_name));
+    
+    {
+        // Function declaration name
+        AST declarator_name = get_declarator_name(ASTSon1(a), st, decl_context);
+        ASTAttrSetValueType(a, LANG_FUNCTION_NAME, tl_type_t, tl_ast(declarator_name));
 
-		if (ASTType(declarator_name) == AST_QUALIFIED_ID)
-		{
-			AST global_qualif = ASTSon0(declarator_name);
-			AST nested_name_spec = ASTSon1(declarator_name);
-			AST unqualified_id = ASTSon2(declarator_name);
+        if (ASTType(declarator_name) == AST_QUALIFIED_ID)
+        {
+            AST global_qualif = ASTSon0(declarator_name);
+            AST nested_name_spec = ASTSon1(declarator_name);
+            AST unqualified_id = ASTSon2(declarator_name);
 
-			ASTAttrSetValueType(declarator_name, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
-			ASTAttrSetValueType(declarator_name, LANG_IS_QUALIFIED_ID, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(declarator_name, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(declarator_name, LANG_IS_QUALIFIED_ID, tl_type_t, tl_bool(1));
 
-			if (global_qualif != NULL)
-			{
-				ASTAttrSetValueType(declarator_name, LANG_IS_GLOBAL_QUALIFIED, tl_type_t, tl_bool(1));
-			}
+            if (global_qualif != NULL)
+            {
+                ASTAttrSetValueType(declarator_name, LANG_IS_GLOBAL_QUALIFIED, tl_type_t, tl_bool(1));
+            }
 
-			if (nested_name_spec != NULL)
-			{
-				ASTAttrSetValueType(declarator_name, LANG_NESTED_NAME_SPECIFIER, tl_type_t, tl_ast(nested_name_spec));
-			}
+            if (nested_name_spec != NULL)
+            {
+                ASTAttrSetValueType(declarator_name, LANG_NESTED_NAME_SPECIFIER, tl_type_t, tl_ast(nested_name_spec));
+            }
 
-			ASTAttrSetValueType(declarator_name, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(unqualified_id));
-		}
-		else if (ASTType(declarator_name) == AST_SYMBOL)
-		{
-			ASTAttrSetValueType(declarator_name, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
-			ASTAttrSetValueType(declarator_name, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(declarator_name));
-		}
-	}
+            ASTAttrSetValueType(declarator_name, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(unqualified_id));
+
+            if (ASTType(unqualified_id) == AST_TEMPLATE_ID)
+            {
+                ASTAttrSetValueType(unqualified_id, LANG_IS_TEMPLATE_ID, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(unqualified_id, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(ASTSon0(unqualified_id)));
+                ASTAttrSetValueType(unqualified_id, LANG_TEMPLATE_ARGS, tl_type_t, tl_ast(ASTSon1(unqualified_id)));
+            }
+        }
+        else if (ASTType(declarator_name) == AST_SYMBOL)
+        {
+            ASTAttrSetValueType(declarator_name, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(declarator_name, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(declarator_name));
+        }
+        else if (ASTType(declarator_name) == AST_TEMPLATE_ID)
+        {
+            ASTAttrSetValueType(declarator_name, LANG_IS_TEMPLATE_ID, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(declarator_name, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(ASTSon0(declarator_name)));
+            ASTAttrSetValueType(declarator_name, LANG_TEMPLATE_ARGS, tl_type_t, tl_ast(ASTSon1(declarator_name)));
+        }
+    }
 
     // Change scope to the function one
     DEBUG_CODE()
     {
         fprintf(stderr, "Changing scope from %p to %p\n", st, entry->scope);
     }
+    
+    // Update the template scope
+    entry->scope->template_scope = copy_scope(st->template_scope);
+
+    // Switch the scope
     st = entry->scope;
 
-	// The scope seen by this function definition
-	scope_link_set(compilation_options.scope_link, a, copy_scope(st));
+    // The scope seen by this function definition
+    scope_link_set(compilation_options.scope_link, a, copy_scope(st));
 
     ERROR_CONDITION((entry->kind != SK_FUNCTION && entry->kind != SK_TEMPLATE_FUNCTION), 
             "This is not a function!!!", 0);
 
-	ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
-	ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
 
     // Function_body
     AST function_body = ASTSon3(a);
@@ -4408,7 +4451,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
             this_type->pointer->pointee = copy_type(entry->class_type);
 
             // "this" pseudovariable has the same cv-qualification of this member
-            this_type->cv_qualifier = entry->type_information->cv_qualifier;
+            this_type->pointer->pointee->cv_qualifier = entry->type_information->cv_qualifier;
 
             // This will put the symbol in the function scope, but this is fine
             scope_entry_t* this_symbol = new_symbol(entry->related_scope, "this");
@@ -4423,10 +4466,21 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     }
 
     build_scope_statement(statement, inner_scope, decl_context);
-	scope_link_set(compilation_options.scope_link, statement, copy_scope(inner_scope));
+    scope_link_set(compilation_options.scope_link, statement, copy_scope(inner_scope));
 
-	ASTAttrSetValueType(a, LANG_IS_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
-	ASTAttrSetValueType(a, LANG_FUNCTION_BODY, tl_type_t, tl_ast(statement));
+    // {
+    //     scope_t* iterator = inner_scope->template_scope;
+    //     while (iterator != NULL)
+    //     {
+    //         print_scope(iterator);
+    //         iterator = iterator->template_scope;
+    //         fprintf(stderr, ".\n");
+    //     }
+    //     fprintf(stderr, "---\n");
+    // }
+
+    ASTAttrSetValueType(a, LANG_IS_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_FUNCTION_BODY, tl_type_t, tl_ast(statement));
 
     ERROR_CONDITION((entry == NULL), "This symbol is undeclared here", 0);
     DEBUG_CODE()
@@ -4607,12 +4661,14 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
             {
                 build_scope_member_template_function_definition(ASTSon1(a), st, template_scope, num_parameters, template_parameters,
                         current_access, class_info, step, new_decl_context);
+                ASTAttrSetValueType(ASTSon1(a), LANG_IS_TEMPLATED_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
             }
             break;
         case AST_SIMPLE_DECLARATION :
             {
                 build_scope_member_template_simple_declaration(ASTSon1(a), st, template_scope, num_parameters, template_parameters,
                         current_access, class_info, new_decl_context);
+                ASTAttrSetValueType(ASTSon1(a), LANG_IS_TEMPLATED_DECLARATION, tl_type_t, tl_bool(1));
                 break;
             }
             //      I think this is not possible
@@ -4624,7 +4680,10 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
         default :
             internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
     }
-    
+
+    ASTAttrSetValueType(ASTSon1(a), LANG_TEMPLATE_HEADER, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(ASTSon0(a), LANG_IS_TEMPLATE_HEADER, tl_type_t, tl_bool(true));
+
     // Restore template scope
     st->template_scope = template_scope->template_scope;
     template_scope->template_scope = NULL;
@@ -4769,11 +4828,11 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
                 }
         }
 
-		DEBUG_CODE()
-		{
-			fprintf(stderr, "Setting member function definition of '%s' as a member\n", entry->symbol_name); 
-		}
-		entry->is_member = 1;
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Setting member function definition of '%s' as a member\n", entry->symbol_name); 
+        }
+        entry->is_member = 1;
         entry->class_type = class_info;
     }
     else
@@ -4818,27 +4877,28 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
                 &simple_type_info, new_decl_context);
 
         if (simple_type_info != NULL
-				&& simple_type_info->kind == TK_DIRECT
+                && simple_type_info->kind == TK_DIRECT
                 && simple_type_info->type->kind == STK_USER_DEFINED)
         {
-			if (st == simple_type_info->type->user_defined_type->scope)
-			{
-				DEBUG_CODE()
-				{
-					fprintf(stderr, "Setting type '%s' as member\n", 
-							simple_type_info->type->user_defined_type->symbol_name);
-				}
-				simple_type_info->type->user_defined_type->is_member = 1;
-				simple_type_info->type->user_defined_type->class_type = class_info;
-			}
+            if (same_scope(st, 
+                        simple_type_info->type->user_defined_type->scope))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Setting type '%s' as member\n", 
+                            simple_type_info->type->user_defined_type->symbol_name);
+                }
+                simple_type_info->type->user_defined_type->is_member = 1;
+                simple_type_info->type->user_defined_type->class_type = class_info;
+            }
         }
 
     }
 
     if (ASTSon1(a) != NULL)
     {
-		ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
-		ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
+        ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
 
         AST list = ASTSon1(a);
         AST iter;
@@ -4881,13 +4941,13 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
                     {
                         AST declarator_name = get_declarator_name(declarator, st, decl_context);
 
-						ASTAttrSetValueType(declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
-						ASTAttrSetValueType(declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+                        ASTAttrSetValueType(declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
+                        ASTAttrSetValueType(declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
 
                         AST initializer = ASTSon1(declarator);
 
-						ASTAttrSetValueType(declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
-						
+                        ASTAttrSetValueType(declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                        
                         // Change name of constructors
                         AST decl_spec_seq = ASTSon0(a);
                         if (decl_spec_seq != NULL 
@@ -4920,6 +4980,27 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
                         else
                         {
                             new_decl_context.decl_flags &= (~DF_FRIEND);
+
+                            AST declarator_name = get_declarator_name(declarator, st, decl_context);
+
+                            if (ASTType(declarator_name) == AST_QUALIFIED_ID
+                                || ASTType(declarator_name) == AST_QUALIFIED_TEMPLATE
+                                || ASTType(declarator_name) == AST_QUALIFIED_OPERATOR_FUNCTION_ID)
+                            {
+                                // Let's fix the tree for the user message
+                                AST fixed_declarator = duplicate_ast(declarator);
+                                AST fixed_declarator_name = get_declarator_name(fixed_declarator, st, decl_context);
+
+                                AST fixed_unqualified_id = ASTSon2(fixed_declarator_name);
+
+                                *fixed_declarator_name = *fixed_unqualified_id;
+
+                                running_error("Extra qualification of member declaration is not allowed '%s' in '%s'. Did you mean '%s'?", 
+                                        prettyprint_in_buffer(declarator),
+                                        node_information(declarator_name),
+                                        prettyprint_in_buffer(fixed_declarator)
+                                        );
+                            }
                         }
 
                         type_t* declarator_type = NULL;
@@ -4927,10 +5008,10 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
                                 simple_type_info, &declarator_type, 
                                 new_decl_context);
 
-						DEBUG_CODE()
-						{
-							fprintf(stderr, "Setting symbol '%s' as a member\n", entry->symbol_name);
-						}
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "Setting symbol '%s' as a member\n", entry->symbol_name);
+                        }
                         entry->is_member = 1;
                         entry->class_type = class_info;
 
@@ -5133,12 +5214,12 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
 
                     new_template_argument->kind = TAK_TYPE;
                     // new_template_argument->type = template_parameter->type_info;
-					new_template_argument->type = calloc(1, sizeof(*new_template_argument->type));
+                    new_template_argument->type = calloc(1, sizeof(*new_template_argument->type));
 
-					new_template_argument->type->kind = TK_DIRECT;
-					new_template_argument->type->type = calloc(1, sizeof(*new_template_argument->type->type));
-					new_template_argument->type->type->kind = STK_USER_DEFINED;
-					new_template_argument->type->type->user_defined_type = template_parameter->template_parameter_symbol;
+                    new_template_argument->type->kind = TK_DIRECT;
+                    new_template_argument->type->type = calloc(1, sizeof(*new_template_argument->type->type));
+                    new_template_argument->type->type->kind = STK_USER_DEFINED;
+                    new_template_argument->type->type->user_defined_type = template_parameter->template_parameter_symbol;
 
                     new_template_argument->scope = template_scope; 
                     new_template_argument->argument_tree = template_parameter->parameter_tree;
@@ -5156,11 +5237,11 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
                     new_template_argument->scope = template_scope; 
                     new_template_argument->argument_tree = template_parameter->parameter_tree;
 
-					new_template_argument->type = calloc(1, sizeof(*new_template_argument->type));
-					new_template_argument->type->kind = TK_DIRECT;
-					new_template_argument->type->type = calloc(1, sizeof(*new_template_argument->type->type));
-					new_template_argument->type->type->kind = STK_USER_DEFINED;
-					new_template_argument->type->type->user_defined_type = template_parameter->template_parameter_symbol;
+                    new_template_argument->type = calloc(1, sizeof(*new_template_argument->type));
+                    new_template_argument->type->kind = TK_DIRECT;
+                    new_template_argument->type->type = calloc(1, sizeof(*new_template_argument->type->type));
+                    new_template_argument->type->type->kind = STK_USER_DEFINED;
+                    new_template_argument->type->type->user_defined_type = template_parameter->template_parameter_symbol;
 
                     P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
 
@@ -5939,37 +6020,37 @@ typedef void (*stmt_scope_handler_t)(AST a, scope_t* st, decl_context_t decl_con
 typedef 
 struct stmt_scope_handler_map_tag
 {
-	void (*handler)(AST a, scope_t* st, decl_context_t decl_context, char* attrib_to_set);
-	char* attr_name;
+    void (*handler)(AST a, scope_t* st, decl_context_t decl_context, char* attrib_to_set);
+    char* attr_name;
 } stmt_scope_handler_map_t;
 
 static void build_scope_compound_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
-	// Note that we set the scope link to the list node and no to the compound statement
-	// node because we want to have the scope just before the compound and after the compound
-	//
-	//   the scope of the compound -> *  {
-	//                                      * <-- the list scope
-	//                                   }
-	//
-	// This adds a bit of burden when enlarging an empty compound
+    // Note that we set the scope link to the list node and no to the compound statement
+    // node because we want to have the scope just before the compound and after the compound
+    //
+    //   the scope of the compound -> *  {
+    //                                      * <-- the list scope
+    //                                   }
+    //
+    // This adds a bit of burden when enlarging an empty compound
 
     AST list = ASTSon0(a);
     if (list != NULL)
     {
-		scope_link_set(compilation_options.scope_link, list, copy_scope(block_scope));
+        scope_link_set(compilation_options.scope_link, list, copy_scope(block_scope));
 
-		build_scope_statement_seq(list, block_scope, decl_context);
+        build_scope_statement_seq(list, block_scope, decl_context);
     }
 
-	ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_condition(AST a, scope_t* st, decl_context_t decl_context)
 {
-	// scope_link_set(compilation_options.scope_link, a, copy_scope(st));
+    // scope_link_set(compilation_options.scope_link, a, copy_scope(st));
 
     if (ASTSon0(a) != NULL 
             && ASTSon1(a) != NULL)
@@ -6005,8 +6086,8 @@ static void build_scope_condition(AST a, scope_t* st, decl_context_t decl_contex
     else
     {
         solve_possibly_ambiguous_expression(ASTSon2(a), st, decl_context);
-		ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-		ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon2(a)));
+        ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon2(a)));
     }
 }
 
@@ -6015,19 +6096,19 @@ static void build_scope_while_statement(AST a, scope_t* st, decl_context_t decl_
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
     build_scope_condition(ASTSon0(a), block_scope, decl_context);
-	scope_link_set(compilation_options.scope_link, ASTSon0(a), copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, ASTSon0(a), copy_scope(block_scope));
 
     if (ASTSon1(a) != NULL)
     {
         build_scope_statement(ASTSon1(a), block_scope, decl_context);
-		scope_link_set(compilation_options.scope_link, ASTSon1(a), copy_scope(block_scope));
+        scope_link_set(compilation_options.scope_link, ASTSon1(a), copy_scope(block_scope));
     }
 
-	ASTAttrSetValueType(a, LANG_IS_WHILE_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_WHILE_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_ambiguity_handler(AST a, scope_t* st, decl_context_t decl_context, 
-		char* attrib_to_set)
+        char* attrib_to_set)
 {
     solve_ambiguous_statement(a, st, decl_context);
     // Restart
@@ -6040,15 +6121,15 @@ static void build_scope_declaration_statement(AST a, scope_t* st, decl_context_t
 
     build_scope_declaration(declaration, st, decl_context);
 
-	ASTAttrSetValueType(a, LANG_IS_DECLARATION_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_DECLARATION_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void solve_expression_ambiguities(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     solve_possibly_ambiguous_expression(ASTSon0(a), st, decl_context);
 
-	ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
-	ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(a)));
 }
 
 static void build_scope_if_else_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
@@ -6057,20 +6138,20 @@ static void build_scope_if_else_statement(AST a, scope_t* st, decl_context_t dec
 
     AST condition = ASTSon0(a);
     build_scope_condition(condition, block_scope, decl_context);
-	scope_link_set(compilation_options.scope_link, condition, copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, condition, copy_scope(block_scope));
 
     AST then_branch = ASTSon1(a);
     build_scope_statement(then_branch, block_scope, decl_context);
-	scope_link_set(compilation_options.scope_link, then_branch, copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, then_branch, copy_scope(block_scope));
 
     AST else_branch = ASTSon2(a);
     if (else_branch != NULL)
     {
         build_scope_statement(else_branch, block_scope, decl_context);
-		scope_link_set(compilation_options.scope_link, else_branch, copy_scope(block_scope));
+        scope_link_set(compilation_options.scope_link, else_branch, copy_scope(block_scope));
     }
 
-	ASTAttrSetValueType(a, LANG_IS_IF_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_IF_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
@@ -6095,28 +6176,28 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
     {
         solve_expression_ambiguities(for_init_statement, block_scope, decl_context, LANG_IS_EXPRESSION_STATEMENT);
     }
-	scope_link_set(compilation_options.scope_link, for_init_statement, copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, for_init_statement, copy_scope(block_scope));
 
     if (condition != NULL)
     {
         build_scope_condition(condition, block_scope, decl_context);
-		scope_link_set(compilation_options.scope_link, condition, copy_scope(block_scope));
+        scope_link_set(compilation_options.scope_link, condition, copy_scope(block_scope));
     }
 
     if (expression != NULL)
     {
         solve_possibly_ambiguous_expression(expression, block_scope, decl_context);
-		scope_link_set(compilation_options.scope_link, expression, copy_scope(block_scope));
+        scope_link_set(compilation_options.scope_link, expression, copy_scope(block_scope));
     }
     
     build_scope_statement(statement, block_scope, decl_context);
-	scope_link_set(compilation_options.scope_link, statement, copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, statement, copy_scope(block_scope));
 
-	ASTAttrSetValueType(a, LANG_IS_FOR_STATEMENT, tl_type_t, tl_bool(1));
-	ASTAttrSetValueType(a, LANG_FOR_INIT_CONSTRUCT, tl_type_t, tl_ast(for_init_statement));
-	ASTAttrSetValueType(a, LANG_FOR_CONDITION, tl_type_t, tl_ast(condition));
-	ASTAttrSetValueType(a, LANG_FOR_ITERATION_EXPRESSION, tl_type_t, tl_ast(expression));
-	ASTAttrSetValueType(a, LANG_FOR_BODY_STATEMENT, tl_type_t, tl_ast(statement));
+    ASTAttrSetValueType(a, LANG_IS_FOR_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_FOR_INIT_CONSTRUCT, tl_type_t, tl_ast(for_init_statement));
+    ASTAttrSetValueType(a, LANG_FOR_CONDITION, tl_type_t, tl_ast(condition));
+    ASTAttrSetValueType(a, LANG_FOR_ITERATION_EXPRESSION, tl_type_t, tl_ast(expression));
+    ASTAttrSetValueType(a, LANG_FOR_BODY_STATEMENT, tl_type_t, tl_ast(statement));
 }
 
 static void build_scope_switch_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
@@ -6127,12 +6208,12 @@ static void build_scope_switch_statement(AST a, scope_t* st, decl_context_t decl
     AST statement = ASTSon1(a);
 
     build_scope_condition(condition, block_scope, decl_context);
-	scope_link_set(compilation_options.scope_link, condition, copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, condition, copy_scope(block_scope));
 
     build_scope_statement(statement, block_scope, decl_context);
-	scope_link_set(compilation_options.scope_link, statement, copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, statement, copy_scope(block_scope));
 
-	ASTAttrSetValueType(a, LANG_IS_SWITCH_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_SWITCH_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_labeled_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
@@ -6140,7 +6221,7 @@ static void build_scope_labeled_statement(AST a, scope_t* st, decl_context_t dec
     AST statement = ASTSon1(a);
     build_scope_statement(statement, st, decl_context);
 
-	ASTAttrSetValueType(a, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_default_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
@@ -6148,7 +6229,7 @@ static void build_scope_default_statement(AST a, scope_t* st, decl_context_t dec
     AST statement = ASTSon0(a);
     build_scope_statement(statement, st, decl_context);
 
-	ASTAttrSetValueType(a, LANG_IS_DEFAULT_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_DEFAULT_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_case_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
@@ -6159,7 +6240,7 @@ static void build_scope_case_statement(AST a, scope_t* st, decl_context_t decl_c
 
     build_scope_statement(statement, st, decl_context);
 
-	ASTAttrSetValueType(a, LANG_IS_CASE_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_CASE_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_return_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
@@ -6170,7 +6251,7 @@ static void build_scope_return_statement(AST a, scope_t* st, decl_context_t decl
         solve_possibly_ambiguous_expression(expression, st, decl_context);
     }
 
-	ASTAttrSetValueType(a, LANG_IS_RETURN_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_RETURN_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_try_block(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
@@ -6193,7 +6274,7 @@ static void build_scope_try_block(AST a, scope_t* st, decl_context_t decl_contex
         {
             scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
-			scope_link_set(compilation_options.scope_link, exception_declaration, copy_scope(block_scope));
+            scope_link_set(compilation_options.scope_link, exception_declaration, copy_scope(block_scope));
 
             AST type_specifier_seq = ASTSon0(exception_declaration);
             // This declarator can be null
@@ -6217,7 +6298,7 @@ static void build_scope_try_block(AST a, scope_t* st, decl_context_t decl_contex
         build_scope_statement(compound_statement, st, decl_context);
     }
 
-	ASTAttrSetValueType(a, LANG_IS_TRY_BLOCK, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_TRY_BLOCK, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_do_statement(AST a, scope_t* st, decl_context_t decl_context, char* attr_name) 
@@ -6228,7 +6309,7 @@ static void build_scope_do_statement(AST a, scope_t* st, decl_context_t decl_con
     build_scope_statement(statement, st, decl_context);
     solve_possibly_ambiguous_expression(expression, st, decl_context);
 
-	ASTAttrSetValueType(a, LANG_IS_DO_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_DO_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_null(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
@@ -6239,280 +6320,280 @@ static void build_scope_null(AST a, scope_t* st, decl_context_t decl_context, ch
 /* OpenMP 2.5 handlers */
 static void build_scope_omp_data_clause(AST a, scope_t* st, decl_context_t decl_context)
 {
-	AST list = a;
-	AST iter;
+    AST list = a;
+    AST iter;
 
-	for_each_element(list, iter)
-	{
-		AST variable = ASTSon1(iter);
+    for_each_element(list, iter)
+    {
+        AST variable = ASTSon1(iter);
 
-		// This is not technically an expression (just a name for an object),
-		// but this is a strict subset of expressions, so we use the same code
-		solve_possibly_ambiguous_expression(variable, st, decl_context);
-	}
+        // This is not technically an expression (just a name for an object),
+        // but this is a strict subset of expressions, so we use the same code
+        solve_possibly_ambiguous_expression(variable, st, decl_context);
+    }
 }
 
 
 static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name) 
 {
-	if (attr_name != NULL)
-	{
-		ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
-	}
+    if (attr_name != NULL)
+    {
+        ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
+    }
 
-	// Semantic fix of expressions in clauses
-	if (ASTSon0(a) != NULL)
-	{
-		AST list = ASTSon0(a);
-		AST iter;
+    // Semantic fix of expressions in clauses
+    if (ASTSon0(a) != NULL)
+    {
+        AST list = ASTSon0(a);
+        AST iter;
 
-		for_each_element(list, iter)
-		{
-			AST clause = ASTSon1(iter);
+        for_each_element(list, iter)
+        {
+            AST clause = ASTSon1(iter);
 
-			switch (ASTType(clause))
-			{
-				case AST_OMP_IF_CLAUSE :
-					{
-						AST expression = ASTSon0(clause);
-						solve_possibly_ambiguous_expression(expression, st, decl_context);
-						ASTAttrSetValueType(clause, OMP_IS_IF_CLAUSE, tl_type_t, tl_bool(1));
-						break;
-					}
-				case AST_OMP_NUM_THREADS_CLAUSE :
-					{
-						AST expression = ASTSon0(clause);
-						solve_possibly_ambiguous_expression(expression, st, decl_context);
-						ASTAttrSetValueType(clause, OMP_IS_NUM_THREADS_CLAUSE, tl_type_t, tl_bool(1));
-						break;
-					}
-				case AST_OMP_SCHEDULE_CLAUSE :
-					{
-						ASTAttrSetValueType(clause, OMP_IS_SCHEDULE_CLAUSE, tl_type_t, tl_bool(1));
-						break;
-					}
-				case AST_OMP_ORDERED_CLAUSE :
-					{
-						ASTAttrSetValueType(clause, OMP_IS_ORDERED_CLAUSE, tl_type_t, tl_bool(1));
-						break;
-					}
-				case AST_OMP_NOWAIT_CLAUSE :
-					{
-						ASTAttrSetValueType(clause, OMP_IS_NOWAIT_CLAUSE, tl_type_t, tl_bool(1));
-						break;
-					}
-				case AST_OMP_SHARED_CLAUSE :
-					{
-						ASTAttrSetValueType(clause, OMP_IS_SHARED_CLAUSE, tl_type_t, tl_bool(1));
-						build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
-						break;
-					}
-				case AST_OMP_PRIVATE_CLAUSE :
-					{
-						ASTAttrSetValueType(clause, OMP_IS_PRIVATE_CLAUSE, tl_type_t, tl_bool(1));
-						build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
-						break;
-					}
-				case AST_OMP_FIRSTPRIVATE_CLAUSE :
-					{
-						ASTAttrSetValueType(clause, OMP_IS_FIRSTPRIVATE_CLAUSE, tl_type_t, tl_bool(1));
-						build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
-						break;
-					}
-				case AST_OMP_LASTPRIVATE_CLAUSE :
-					{
-						ASTAttrSetValueType(clause, OMP_IS_LASTPRIVATE_CLAUSE, tl_type_t, tl_bool(1));
-						build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
-						break;
-					}
-				case AST_OMP_COPYPRIVATE_CLAUSE :
-					{
-						ASTAttrSetValueType(clause, OMP_IS_COPYPRIVATE_CLAUSE, tl_type_t, tl_bool(1));
-						build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
-						break;
-					}
-				case AST_OMP_COPYIN_CLAUSE :
-					{
-						ASTAttrSetValueType(clause, OMP_IS_COPYIN_CLAUSE, tl_type_t, tl_bool(1));
-						build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
-						break;
-					}
-				case AST_OMP_DEFAULT_NONE_CLAUSE :
-					{
-						ASTAttrSetValueType(clause, OMP_IS_DEFAULT_NONE_CLAUSE, tl_type_t, tl_bool(1));
-						break;
-					}
-				case AST_OMP_DEFAULT_SHARED_CLAUSE :
-					{
-						ASTAttrSetValueType(clause, OMP_IS_DEFAULT_SHARED_CLAUSE, tl_type_t, tl_bool(1));
-						break;
-					}
-				case AST_OMP_REDUCTION_CLAUSE :
-					{
-						build_scope_omp_data_clause(ASTSon1(clause), st, decl_context);
+            switch (ASTType(clause))
+            {
+                case AST_OMP_IF_CLAUSE :
+                    {
+                        AST expression = ASTSon0(clause);
+                        solve_possibly_ambiguous_expression(expression, st, decl_context);
+                        ASTAttrSetValueType(clause, OMP_IS_IF_CLAUSE, tl_type_t, tl_bool(1));
+                        break;
+                    }
+                case AST_OMP_NUM_THREADS_CLAUSE :
+                    {
+                        AST expression = ASTSon0(clause);
+                        solve_possibly_ambiguous_expression(expression, st, decl_context);
+                        ASTAttrSetValueType(clause, OMP_IS_NUM_THREADS_CLAUSE, tl_type_t, tl_bool(1));
+                        break;
+                    }
+                case AST_OMP_SCHEDULE_CLAUSE :
+                    {
+                        ASTAttrSetValueType(clause, OMP_IS_SCHEDULE_CLAUSE, tl_type_t, tl_bool(1));
+                        break;
+                    }
+                case AST_OMP_ORDERED_CLAUSE :
+                    {
+                        ASTAttrSetValueType(clause, OMP_IS_ORDERED_CLAUSE, tl_type_t, tl_bool(1));
+                        break;
+                    }
+                case AST_OMP_NOWAIT_CLAUSE :
+                    {
+                        ASTAttrSetValueType(clause, OMP_IS_NOWAIT_CLAUSE, tl_type_t, tl_bool(1));
+                        break;
+                    }
+                case AST_OMP_SHARED_CLAUSE :
+                    {
+                        ASTAttrSetValueType(clause, OMP_IS_SHARED_CLAUSE, tl_type_t, tl_bool(1));
+                        build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
+                        break;
+                    }
+                case AST_OMP_PRIVATE_CLAUSE :
+                    {
+                        ASTAttrSetValueType(clause, OMP_IS_PRIVATE_CLAUSE, tl_type_t, tl_bool(1));
+                        build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
+                        break;
+                    }
+                case AST_OMP_FIRSTPRIVATE_CLAUSE :
+                    {
+                        ASTAttrSetValueType(clause, OMP_IS_FIRSTPRIVATE_CLAUSE, tl_type_t, tl_bool(1));
+                        build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
+                        break;
+                    }
+                case AST_OMP_LASTPRIVATE_CLAUSE :
+                    {
+                        ASTAttrSetValueType(clause, OMP_IS_LASTPRIVATE_CLAUSE, tl_type_t, tl_bool(1));
+                        build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
+                        break;
+                    }
+                case AST_OMP_COPYPRIVATE_CLAUSE :
+                    {
+                        ASTAttrSetValueType(clause, OMP_IS_COPYPRIVATE_CLAUSE, tl_type_t, tl_bool(1));
+                        build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
+                        break;
+                    }
+                case AST_OMP_COPYIN_CLAUSE :
+                    {
+                        ASTAttrSetValueType(clause, OMP_IS_COPYIN_CLAUSE, tl_type_t, tl_bool(1));
+                        build_scope_omp_data_clause(ASTSon0(clause), st, decl_context);
+                        break;
+                    }
+                case AST_OMP_DEFAULT_NONE_CLAUSE :
+                    {
+                        ASTAttrSetValueType(clause, OMP_IS_DEFAULT_NONE_CLAUSE, tl_type_t, tl_bool(1));
+                        break;
+                    }
+                case AST_OMP_DEFAULT_SHARED_CLAUSE :
+                    {
+                        ASTAttrSetValueType(clause, OMP_IS_DEFAULT_SHARED_CLAUSE, tl_type_t, tl_bool(1));
+                        break;
+                    }
+                case AST_OMP_REDUCTION_CLAUSE :
+                    {
+                        build_scope_omp_data_clause(ASTSon1(clause), st, decl_context);
 
-						// Compute here the neuter for future use
-						AST neuter = NULL;
-						switch (ASTType(ASTSon0(clause)))
-						{
-							case AST_ADD_OPERATOR :
-							case AST_MINUS_OPERATOR : 
-							case AST_BITWISE_OR_OPERATOR :
-							case AST_BITWISE_XOR_OPERATOR :
-							case AST_LOGICAL_OR_OPERATOR :
-								{
-									neuter = ASTMake1(AST_EXPRESSION, 
-											ASTLeaf(AST_OCTAL_LITERAL, ASTLine(clause), "0"),
-											ASTLine(clause), NULL);
-									break;
-								}
-							case AST_MULT_OPERATOR :
-							case AST_LOGICAL_AND_OPERATOR :
-								{
-									neuter = ASTMake1(AST_EXPRESSION, 
-											ASTLeaf(AST_DECIMAL_LITERAL, ASTLine(clause), "1"),
-											ASTLine(clause), NULL);
-									break;
-								}
-							case AST_BITWISE_AND_OPERATOR :
-								{
-									AST zero = ASTLeaf(AST_OCTAL_LITERAL, ASTLine(clause), "0");
+                        // Compute here the neuter for future use
+                        AST neuter = NULL;
+                        switch (ASTType(ASTSon0(clause)))
+                        {
+                            case AST_ADD_OPERATOR :
+                            case AST_MINUS_OPERATOR : 
+                            case AST_BITWISE_OR_OPERATOR :
+                            case AST_BITWISE_XOR_OPERATOR :
+                            case AST_LOGICAL_OR_OPERATOR :
+                                {
+                                    neuter = ASTMake1(AST_EXPRESSION, 
+                                            ASTLeaf(AST_OCTAL_LITERAL, ASTLine(clause), "0"),
+                                            ASTLine(clause), NULL);
+                                    break;
+                                }
+                            case AST_MULT_OPERATOR :
+                            case AST_LOGICAL_AND_OPERATOR :
+                                {
+                                    neuter = ASTMake1(AST_EXPRESSION, 
+                                            ASTLeaf(AST_DECIMAL_LITERAL, ASTLine(clause), "1"),
+                                            ASTLine(clause), NULL);
+                                    break;
+                                }
+                            case AST_BITWISE_AND_OPERATOR :
+                                {
+                                    AST zero = ASTLeaf(AST_OCTAL_LITERAL, ASTLine(clause), "0");
 
-									neuter = ASTMake1(AST_EXPRESSION,
-											ASTMake1(AST_COMPLEMENT_OP, zero, ASTLine(clause), NULL),
-											ASTLine(clause), NULL);
+                                    neuter = ASTMake1(AST_EXPRESSION,
+                                            ASTMake1(AST_COMPLEMENT_OP, zero, ASTLine(clause), NULL),
+                                            ASTLine(clause), NULL);
 
-									break;
-								}
-							default:
-								{
-									internal_error("Unknown node' %s'\n", 
-											ast_print_node_type(ASTType(ASTSon0(clause))));
-								}
+                                    break;
+                                }
+                            default:
+                                {
+                                    internal_error("Unknown node' %s'\n", 
+                                            ast_print_node_type(ASTType(ASTSon0(clause))));
+                                }
 
-						}
+                        }
 
-						// Save the neuter
-						ASTSon2(clause) = neuter;
-						ASTParent(neuter) = clause;
+                        // Save the neuter
+                        ASTSon2(clause) = neuter;
+                        ASTParent(neuter) = clause;
 
-						ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
-						ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(0));
-						ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(ASTSon0(clause)));
-						ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon1(clause)));
-						ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon2(clause)));
-						break;
-					}
-				case AST_OMP_USER_DEFINED_REDUCTION_CLAUSE :
-					{
-						// Check the id-expression
-						solve_possibly_ambiguous_expression(ASTSon0(clause), st, decl_context);
+                        ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
+                        ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(0));
+                        ASTAttrSetValueType(clause, OMP_REDUCTION_OPERATOR, tl_type_t, tl_ast(ASTSon0(clause)));
+                        ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon1(clause)));
+                        ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon2(clause)));
+                        break;
+                    }
+                case AST_OMP_USER_DEFINED_REDUCTION_CLAUSE :
+                    {
+                        // Check the id-expression
+                        solve_possibly_ambiguous_expression(ASTSon0(clause), st, decl_context);
 
-						// Check the neuter expression
-						solve_possibly_ambiguous_expression(ASTSon1(clause), st, decl_context);
+                        // Check the neuter expression
+                        solve_possibly_ambiguous_expression(ASTSon1(clause), st, decl_context);
 
-						// Build scope for var-lists
-						build_scope_omp_data_clause(ASTSon2(clause), st, decl_context);
+                        // Build scope for var-lists
+                        build_scope_omp_data_clause(ASTSon2(clause), st, decl_context);
 
-						ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
-						ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(1));
-						ASTAttrSetValueType(clause, OMP_REDUCTION_FUNCTION, tl_type_t, tl_ast(ASTSon0(clause)));
-						ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon1(clause)));
-						ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon2(clause)));
+                        ASTAttrSetValueType(clause, OMP_IS_REDUCTION_CLAUSE, tl_type_t, tl_bool(1));
+                        ASTAttrSetValueType(clause, OMP_IS_USER_DEFINED_REDUCTION, tl_type_t, tl_bool(1));
+                        ASTAttrSetValueType(clause, OMP_REDUCTION_FUNCTION, tl_type_t, tl_ast(ASTSon0(clause)));
+                        ASTAttrSetValueType(clause, OMP_REDUCTION_NEUTER, tl_type_t, tl_ast(ASTSon1(clause)));
+                        ASTAttrSetValueType(clause, OMP_REDUCTION_VARIABLES, tl_type_t, tl_ast(ASTSon2(clause)));
 
-						break;
-					}
-				case AST_OMP_CUSTOM_PARAMETER_CLAUSE :
-				case AST_OMP_CUSTOM_CLAUSE :
-					{
-						if (ASTType(clause) == AST_OMP_CUSTOM_CLAUSE)
-						{
-							ASTAttrSetValueType(clause, OMP_IS_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
-							DEBUG_CODE()
-							{
-								fprintf(stderr, "Custom clause name -> '%s'\n", ASTText(clause));
-							}
-							ASTAttrSetValueType(clause, OMP_CUSTOM_CLAUSE_NAME, tl_type_t, tl_string(ASTText(clause)));
-						}
-						else if (ASTType(clause) == AST_OMP_CUSTOM_PARAMETER_CLAUSE)
-						{
-							ASTAttrSetValueType(clause, OMP_IS_PARAMETER_CLAUSE, tl_type_t, tl_bool(1));
-						}
+                        break;
+                    }
+                case AST_OMP_CUSTOM_PARAMETER_CLAUSE :
+                case AST_OMP_CUSTOM_CLAUSE :
+                    {
+                        if (ASTType(clause) == AST_OMP_CUSTOM_CLAUSE)
+                        {
+                            ASTAttrSetValueType(clause, OMP_IS_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "Custom clause name -> '%s'\n", ASTText(clause));
+                            }
+                            ASTAttrSetValueType(clause, OMP_CUSTOM_CLAUSE_NAME, tl_type_t, tl_string(ASTText(clause)));
+                        }
+                        else if (ASTType(clause) == AST_OMP_CUSTOM_PARAMETER_CLAUSE)
+                        {
+                            ASTAttrSetValueType(clause, OMP_IS_PARAMETER_CLAUSE, tl_type_t, tl_bool(1));
+                        }
 
-						AST expression_list = ASTSon0(clause);
-						if (expression_list != NULL)
-						{
-							AST iter;
+                        AST expression_list = ASTSon0(clause);
+                        if (expression_list != NULL)
+                        {
+                            AST iter;
 
-							for_each_element(expression_list, iter)
-							{
-								AST expression = ASTSon1(iter);
+                            for_each_element(expression_list, iter)
+                            {
+                                AST expression = ASTSon1(iter);
 
-								solve_possibly_ambiguous_expression(expression, st, decl_context);
-							}
-						}
+                                solve_possibly_ambiguous_expression(expression, st, decl_context);
+                            }
+                        }
 
-						break;
-					}
-				default:
-					{
-						internal_error("Unknown node '%s' in %s\n", ast_print_node_type(ASTType(clause)),
-								node_information(clause));
-					}
-			}
-		}
-	}
+                        break;
+                    }
+                default:
+                    {
+                        internal_error("Unknown node '%s' in %s\n", ast_print_node_type(ASTType(clause)),
+                                node_information(clause));
+                    }
+            }
+        }
+    }
 }
 
 static void build_scope_omp_custom_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-	if (ASTType(a) == AST_OMP_CUSTOM_DIRECTIVE)
-	{
-		ASTAttrSetValueType(a, OMP_IS_CUSTOM_DIRECTIVE, tl_type_t, tl_bool(1));
-	}
-	else if (ASTType(a) == AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE)
-	{
-		ASTAttrSetValueType(a, OMP_IS_CUSTOM_CONSTRUCT_DIRECTIVE, tl_type_t, tl_bool(1));
-	}
+    if (ASTType(a) == AST_OMP_CUSTOM_DIRECTIVE)
+    {
+        ASTAttrSetValueType(a, OMP_IS_CUSTOM_DIRECTIVE, tl_type_t, tl_bool(1));
+    }
+    else if (ASTType(a) == AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE)
+    {
+        ASTAttrSetValueType(a, OMP_IS_CUSTOM_CONSTRUCT_DIRECTIVE, tl_type_t, tl_bool(1));
+    }
 
-	ASTAttrSetValueType(a, OMP_CUSTOM_DIRECTIVE_NAME, tl_type_t, tl_string(ASTText(a)));
+    ASTAttrSetValueType(a, OMP_CUSTOM_DIRECTIVE_NAME, tl_type_t, tl_string(ASTText(a)));
 
-	build_scope_omp_directive(a, st, decl_context, attr_name);
+    build_scope_omp_directive(a, st, decl_context, attr_name);
 }
 
 static void build_scope_omp_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-	ASTAttrSetValueType(a, OMP_IS_OMP_CONSTRUCT, tl_type_t, tl_bool(1));
-	ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, OMP_IS_OMP_CONSTRUCT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
 
-	ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(ASTSon0(a)));
 
-	build_scope_omp_directive(ASTSon0(a), st, decl_context, NULL);
-	if (ASTSon1(a) != NULL)
-	{
-		ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(ASTSon1(a)));
-		build_scope_statement(ASTSon1(a), st, decl_context);
-	}
+    build_scope_omp_directive(ASTSon0(a), st, decl_context, NULL);
+    if (ASTSon1(a) != NULL)
+    {
+        ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(ASTSon1(a)));
+        build_scope_statement(ASTSon1(a), st, decl_context);
+    }
 }
 
 static void build_scope_omp_custom_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-	ASTAttrSetValueType(a, OMP_IS_OMP_CONSTRUCT, tl_type_t, tl_bool(1));
-	ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, OMP_IS_OMP_CONSTRUCT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
 
-	ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(ASTSon0(a)));
 
-	build_scope_omp_custom_directive(ASTSon0(a), st, decl_context, NULL);
-	if (ASTSon1(a) != NULL)
-	{
-		ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(ASTSon1(a)));
-		build_scope_statement(ASTSon1(a), st, decl_context);
-	}
+    build_scope_omp_custom_directive(ASTSon0(a), st, decl_context, NULL);
+    if (ASTSon1(a) != NULL)
+    {
+        ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(ASTSon1(a)));
+        build_scope_statement(ASTSon1(a), st, decl_context);
+    }
 }
 
 static void build_scope_omp_threadprivate(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-	ASTAttrSetValueType(a, OMP_IS_THREADPRIVATE_DIRECTIVE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, OMP_IS_THREADPRIVATE_DIRECTIVE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(a));
     ASTAttrSetValueType(ASTSon0(a), OMP_IS_PARAMETER_CLAUSE, tl_type_t, tl_bool(1));
     build_scope_omp_data_clause(ASTSon0(a), st, decl_context);
@@ -6521,12 +6602,12 @@ static void build_scope_omp_threadprivate(AST a, scope_t* st, decl_context_t dec
 static void build_scope_omp_flush_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
     // At the moment do nothing
-	ASTAttrSetValueType(a, OMP_IS_FLUSH_DIRECTIVE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, OMP_IS_FLUSH_DIRECTIVE, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_omp_sections_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-	ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(ASTSon0(a)));
     build_scope_omp_directive(ASTSon0(a), st, decl_context, NULL);
 
     AST section_sequence = ASTSon1(a);
@@ -6542,99 +6623,99 @@ static void build_scope_omp_sections_construct(AST a, scope_t* st, decl_context_
 
             // Nothing is going to be done to the "#pragma omp section"
             //
-			// ASTAttrSetValueType(omp_section, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, ASTSon0(omp_section));
+            // ASTAttrSetValueType(omp_section, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, ASTSon0(omp_section));
             // build_scope_omp_directive(ASTSon0(omp_section), st, decl_context)
 
-			AST omp_section_body = ASTSon1(omp_section);
+            AST omp_section_body = ASTSon1(omp_section);
             build_scope_statement(omp_section_body, st, decl_context);
 
-			ASTAttrSetValueType(omp_section, OMP_IS_SECTION_CONSTRUCT, tl_type_t, tl_bool(1));
-			ASTAttrSetValueType(omp_section, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(omp_section_body));
+            ASTAttrSetValueType(omp_section, OMP_IS_SECTION_CONSTRUCT, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(omp_section, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(omp_section_body));
         }
 
-		ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(section_sequence));
+        ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(section_sequence));
     }
 
-	ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_omp_critical_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-	AST critical_directive = ASTSon0(a);
-	ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(critical_directive));
+    AST critical_directive = ASTSon0(a);
+    ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(critical_directive));
 
-	AST body_construct = ASTSon1(a);
+    AST body_construct = ASTSon1(a);
     if (body_construct != NULL)
     {
-		ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(body_construct));
-		build_scope_statement(body_construct, st, decl_context);
+        ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(body_construct));
+        build_scope_statement(body_construct, st, decl_context);
     }
 
-	AST region_phrase = ASTSon0(critical_directive);
-	if (region_phrase != NULL)
-	{
-		solve_possibly_ambiguous_expression(region_phrase, st, decl_context);
+    AST region_phrase = ASTSon0(critical_directive);
+    if (region_phrase != NULL)
+    {
+        solve_possibly_ambiguous_expression(region_phrase, st, decl_context);
 
-		ASTAttrSetValueType(region_phrase, OMP_IS_PARAMETER_CLAUSE, tl_type_t, tl_bool(1));
-	}
+        ASTAttrSetValueType(region_phrase, OMP_IS_PARAMETER_CLAUSE, tl_type_t, tl_bool(1));
+    }
 
-	ASTAttrSetValueType(a, OMP_IS_CRITICAL_CONSTRUCT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, OMP_IS_CRITICAL_CONSTRUCT, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_pragma_custom_clause(AST a, scope_t* st, decl_context_t decl_context)
 {
-	AST list, iter;
+    AST list, iter;
 
-	list = ASTSon0(a);
+    list = ASTSon0(a);
 
-	for_each_element(list, iter)
-	{
-		AST expression = ASTSon1(iter);
+    for_each_element(list, iter)
+    {
+        AST expression = ASTSon1(iter);
 
-		solve_possibly_ambiguous_expression(expression, st, decl_context);
-	}
+        solve_possibly_ambiguous_expression(expression, st, decl_context);
+    }
 
-	ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
-	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_string(ASTText(a)));
+    ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_string(ASTText(a)));
 }
 
 static void build_scope_pragma_custom_line(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-	if (ASTSon0(a) != NULL)
-	{
-		AST list, iter;
-		list = ASTSon0(a);
+    if (ASTSon0(a) != NULL)
+    {
+        AST list, iter;
+        list = ASTSon0(a);
 
-		for_each_element(list, iter)
-		{
-			AST pragma_clause = ASTSon1(iter);
+        for_each_element(list, iter)
+        {
+            AST pragma_clause = ASTSon1(iter);
 
-			build_scope_pragma_custom_clause(pragma_clause, st, decl_context);
-		}
-	}
+            build_scope_pragma_custom_clause(pragma_clause, st, decl_context);
+        }
+    }
 
-	ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_LINE, tl_type_t, tl_bool(1));
-	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_string(ASTText(a)));
+    ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_LINE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_string(ASTText(a)));
 }
 
 static void build_scope_pragma_custom_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-	build_scope_pragma_custom_line(ASTSon0(a), st, decl_context, LANG_IS_PRAGMA_CUSTOM_LINE);
+    build_scope_pragma_custom_line(ASTSon0(a), st, decl_context, LANG_IS_PRAGMA_CUSTOM_LINE);
 
-	ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_bool(1));
-	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
-	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
 }
 
 static void build_scope_pragma_custom_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
 {
-	build_scope_pragma_custom_line(ASTSon0(a), st, decl_context, LANG_IS_PRAGMA_CUSTOM_LINE);
-	build_scope_statement(ASTSon1(a), st, decl_context);
+    build_scope_pragma_custom_line(ASTSon0(a), st, decl_context, LANG_IS_PRAGMA_CUSTOM_LINE);
+    build_scope_statement(ASTSon1(a), st, decl_context);
 
-	ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
-	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
-	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
-	ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_STATEMENT, tl_type_t, tl_ast(ASTSon1(a)));
+    ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_STATEMENT, tl_type_t, tl_ast(ASTSon1(a)));
 }
 
 #define STMT_HANDLER(type, hndl, attr_name_v) [type] = { .handler = (hndl), .attr_name = (attr_name_v) }
@@ -6659,37 +6740,42 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_null, LANG_IS_BREAK_STATEMENT),
     STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_null, LANG_IS_CONTINUE_STATEMENT),
     STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_null, LANG_IS_GOTO_STATEMENT),
-	// Pragma custom support
-	STMT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, build_scope_pragma_custom_construct, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT),
-	// OpenMP 2.5 constructs
-	STMT_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, build_scope_omp_construct, OMP_IS_PARALLEL_CONSTRUCT),
-	STMT_HANDLER(AST_OMP_FOR_CONSTRUCT, build_scope_omp_construct, OMP_IS_FOR_CONSTRUCT),
-	STMT_HANDLER(AST_OMP_PARALLEL_FOR_CONSTRUCT, build_scope_omp_construct, OMP_IS_PARALLEL_FOR_CONSTRUCT),
-	STMT_HANDLER(AST_OMP_PARALLEL_SINGLE_CONSTRUCT, build_scope_omp_construct, OMP_IS_PARALLEL_SINGLE_CONSTRUCT),
-	STMT_HANDLER(AST_OMP_SECTIONS_CONSTRUCT, build_scope_omp_sections_construct, OMP_IS_SECTIONS_CONSTRUCT),
-	STMT_HANDLER(AST_OMP_PARALLEL_SECTIONS_CONSTRUCT, build_scope_omp_sections_construct, OMP_IS_PARALLEL_SECTIONS_CONSTRUCT),
-	STMT_HANDLER(AST_OMP_SINGLE_CONSTRUCT, build_scope_omp_construct, OMP_IS_SINGLE_CONSTRUCT),
-	STMT_HANDLER(AST_OMP_MASTER_CONSTRUCT, build_scope_omp_construct, OMP_IS_MASTER_CONSTRUCT),
-	STMT_HANDLER(AST_OMP_ATOMIC_CONSTRUCT, build_scope_omp_construct, OMP_IS_ATOMIC_CONSTRUCT),
-	STMT_HANDLER(AST_OMP_ORDERED_CONSTRUCT, build_scope_omp_construct, OMP_IS_ORDERED_CONTRUCT),
-	STMT_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, build_scope_omp_critical_construct, OMP_IS_CRITICAL_CONSTRUCT),
-	STMT_HANDLER(AST_OMP_FLUSH_DIRECTIVE, build_scope_omp_flush_directive, OMP_IS_FLUSH_DIRECTIVE),
-	STMT_HANDLER(AST_OMP_BARRIER_DIRECTIVE, build_scope_omp_directive, OMP_IS_BARRIER_DIRECTIVE),
-	STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate, OMP_IS_THREADPRIVATE_DIRECTIVE),
-	STMT_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, build_scope_omp_custom_construct, OMP_IS_CUSTOM_CONSTRUCT),
-	STMT_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, build_scope_omp_custom_directive, NULL)
+    // Pragma custom support
+    STMT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, build_scope_pragma_custom_construct, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT),
+    // OpenMP 2.5 constructs
+    STMT_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, build_scope_omp_construct, OMP_IS_PARALLEL_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_FOR_CONSTRUCT, build_scope_omp_construct, OMP_IS_FOR_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_PARALLEL_FOR_CONSTRUCT, build_scope_omp_construct, OMP_IS_PARALLEL_FOR_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_PARALLEL_SINGLE_CONSTRUCT, build_scope_omp_construct, OMP_IS_PARALLEL_SINGLE_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_SECTIONS_CONSTRUCT, build_scope_omp_sections_construct, OMP_IS_SECTIONS_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_PARALLEL_SECTIONS_CONSTRUCT, build_scope_omp_sections_construct, OMP_IS_PARALLEL_SECTIONS_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_SINGLE_CONSTRUCT, build_scope_omp_construct, OMP_IS_SINGLE_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_MASTER_CONSTRUCT, build_scope_omp_construct, OMP_IS_MASTER_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_ATOMIC_CONSTRUCT, build_scope_omp_construct, OMP_IS_ATOMIC_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_ORDERED_CONSTRUCT, build_scope_omp_construct, OMP_IS_ORDERED_CONTRUCT),
+    STMT_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, build_scope_omp_critical_construct, OMP_IS_CRITICAL_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_FLUSH_DIRECTIVE, build_scope_omp_flush_directive, OMP_IS_FLUSH_DIRECTIVE),
+    STMT_HANDLER(AST_OMP_BARRIER_DIRECTIVE, build_scope_omp_directive, OMP_IS_BARRIER_DIRECTIVE),
+    STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate, OMP_IS_THREADPRIVATE_DIRECTIVE),
+    STMT_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, build_scope_omp_custom_construct, OMP_IS_CUSTOM_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, build_scope_omp_custom_directive, NULL)
 };
 
 void build_scope_member_specification_with_scope_link(scope_t* inner_scope, AST member_specification_tree, 
         access_specifier_t current_access, type_t* simple_type_info, 
         decl_context_t decl_context, scope_link_t* scope_link)
 {
-	compilation_options.scope_link = scope_link;
+    compilation_options.scope_link = scope_link;
 
-	build_scope_member_specification(inner_scope, member_specification_tree, 
-			current_access, simple_type_info, decl_context);
+    ERROR_CONDITION(!is_named_class_type(simple_type_info), "A named class is expected here!\n", 0);
 
-	compilation_options.scope_link = NULL;
+    decl_context_t new_decl_context
+        = *(simple_type_info->type->user_defined_type->type_information->type->decl_context);
+
+    build_scope_member_specification(inner_scope, member_specification_tree, 
+            current_access, simple_type_info, new_decl_context);
+
+    compilation_options.scope_link = NULL;
 }
 
 static void build_scope_statement_seq(AST a, scope_t* st, decl_context_t decl_context)
@@ -6707,20 +6793,20 @@ static void build_scope_statement_seq(AST a, scope_t* st, decl_context_t decl_co
 
 void build_scope_statement_seq_with_scope_link(AST a, scope_t* st, scope_link_t* scope_link)
 {
-	compilation_options.scope_link = scope_link;
+    compilation_options.scope_link = scope_link;
 
-	build_scope_statement_seq(a, st, default_decl_context);
+    build_scope_statement_seq(a, st, default_decl_context);
 
-	compilation_options.scope_link = NULL;
+    compilation_options.scope_link = NULL;
 }
 
 void build_scope_declaration_sequence_with_scope_link(AST a, scope_t* st, decl_context_t decl_context, scope_link_t* scope_link)
 {
-	compilation_options.scope_link = scope_link;
+    compilation_options.scope_link = scope_link;
 
-	build_scope_declaration_sequence(a, st, decl_context);
+    build_scope_declaration_sequence(a, st, decl_context);
 
-	compilation_options.scope_link = NULL;
+    compilation_options.scope_link = NULL;
 }
 
 static void build_scope_statement(AST a, scope_t* st, decl_context_t decl_context)
@@ -6731,7 +6817,7 @@ static void build_scope_statement(AST a, scope_t* st, decl_context_t decl_contex
     }
 
     stmt_scope_handler_t f = stmt_scope_handlers[ASTType(a)].handler;
-	char* attr_name = stmt_scope_handlers[ASTType(a)].attr_name;
+    char* attr_name = stmt_scope_handlers[ASTType(a)].attr_name;
 
     if (f != NULL)
     {
@@ -6748,33 +6834,33 @@ AST get_function_declarator_parameter_list(AST funct_declarator, scope_t* st, de
 {
     ERROR_CONDITION((funct_declarator == NULL), "This function does not admit NULL trees", 0);
 
-	switch (ASTType(funct_declarator))
-	{
-		case AST_DECLARATOR :
-		case AST_PARENTHESIZED_DECLARATOR :
-			{
-                return get_function_declarator_parameter_list(ASTSon0(funct_declarator), st, decl_context); 
-				break;
-			}
-		case AST_POINTER_DECL :
-			{
-				return get_function_declarator_parameter_list(ASTSon1(funct_declarator), st, decl_context);
-				break;
-			}
-        case AST_DECLARATOR_FUNC :
+    switch (ASTType(funct_declarator))
+    {
+        case AST_DECLARATOR :
+        case AST_PARENTHESIZED_DECLARATOR :
             {
-				return ASTSon1(funct_declarator);
+                return get_function_declarator_parameter_list(ASTSon0(funct_declarator), st, decl_context); 
                 break;
             }
-		default:
-			{
+        case AST_POINTER_DECL :
+            {
+                return get_function_declarator_parameter_list(ASTSon1(funct_declarator), st, decl_context);
+                break;
+            }
+        case AST_DECLARATOR_FUNC :
+            {
+                return ASTSon1(funct_declarator);
+                break;
+            }
+        default:
+            {
                 internal_error("Unknown node '%s' at '%s'\n", ast_print_node_type(ASTType(funct_declarator)),
-						node_information(funct_declarator));
-				break;
-			}
-	}
+                        node_information(funct_declarator));
+                break;
+            }
+    }
 
-	return NULL;
+    return NULL;
 }
 
 /*

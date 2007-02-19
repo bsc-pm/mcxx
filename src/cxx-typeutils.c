@@ -26,18 +26,18 @@ static type_t* get_type_of_dependent_typename(simple_type_t* t1, decl_context_t 
 
 type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qualif)
 {
-	if (cv_qualif != NULL)
-	{
-		*cv_qualif = t1->cv_qualifier;
-	}
+    if (cv_qualif != NULL)
+    {
+        *cv_qualif = t1->cv_qualifier;
+    }
     // Advance over typedefs
     while (is_typedef_type(t1))
     {
         t1 = aliased_type(t1);
-		if (cv_qualif != NULL)
-		{
-			*cv_qualif |= t1->cv_qualifier;
-		}
+        if (cv_qualif != NULL)
+        {
+            *cv_qualif |= t1->cv_qualifier;
+        }
     }
 
     return t1;
@@ -45,7 +45,7 @@ type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qual
 
 type_t* advance_over_typedefs(type_t* t1)
 {
-	return advance_over_typedefs_with_cv_qualif(t1, NULL);
+    return advance_over_typedefs_with_cv_qualif(t1, NULL);
 }
 
 /*
@@ -59,17 +59,17 @@ char equivalent_types(type_t* t1, type_t* t2, scope_t* st,
     if (t1 == NULL || t2 == NULL)
         return 1;
 
-	cv_qualifier_t cv_qualifier_t1, cv_qualifier_t2;
+    cv_qualifier_t cv_qualifier_t1, cv_qualifier_t2;
 
     cv_qualifier_t qualif_t1 = *(get_outermost_cv_qualifier(t1));
     cv_qualifier_t qualif_t2 = *(get_outermost_cv_qualifier(t2));
     if (cv_equiv == CVE_IGNORE_OUTERMOST)
     {
-		// Remove the outermost cv_qualifier
+        // Remove the outermost cv_qualifier
         *(get_outermost_cv_qualifier(t1)) = CV_NONE;
         *(get_outermost_cv_qualifier(t2)) = CV_NONE;
     }
-	
+    
     // Advance over typedefs
     t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualifier_t1);
     t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualifier_t2);
@@ -157,11 +157,11 @@ static type_t* get_type_of_dependent_typename(simple_type_t* t1, decl_context_t 
         internal_error("This is not a dependent typename\n", 0);
     }
 
-	DEBUG_CODE()
-	{
-		fprintf(stderr, "Getting the type of the dependent typename '%s'\n", 
-				prettyprint_in_buffer(t1->typeof_expr));
-	}
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Getting the type of the dependent typename '%s'\n", 
+                prettyprint_in_buffer(t1->typeof_expr));
+    }
 
     scope_t* t1_scope = t1->typeof_scope;
 
@@ -170,7 +170,7 @@ static type_t* get_type_of_dependent_typename(simple_type_t* t1, decl_context_t 
     AST t1_nested_name_spec = ASTSon1(t1_expr);
     AST t1_symbol = ASTSon2(t1_expr);
 
-	decl_context.decl_flags |= DF_NO_FAIL;
+    decl_context.decl_flags |= DF_NO_FAIL;
 
     scope_entry_list_t* result_t1 = query_nested_name(t1_scope, t1_global_op, t1_nested_name_spec, t1_symbol,
                 FULL_UNQUALIFIED_LOOKUP, decl_context);
@@ -654,8 +654,8 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                     prettyprint_in_buffer(t1_expr), 
                     prettyprint_in_buffer(t2_expr));
         }
-		decl_context_t new_decl_context = decl_context;
-		new_decl_context.decl_flags |= DF_NO_FAIL;
+        decl_context_t new_decl_context = decl_context;
+        new_decl_context.decl_flags |= DF_NO_FAIL;
 
         scope_entry_list_t* result_t1 = query_nested_name_flags(t1_scope, t1_global_op, t1_nested_name_spec, t1_symbol,
                 FULL_UNQUALIFIED_LOOKUP, LF_NONE, decl_context);
@@ -688,8 +688,8 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                     prettyprint_in_buffer(t1_expr));
         }
 
-		decl_context_t new_decl_context = decl_context;
-		new_decl_context.decl_flags |= DF_NO_FAIL;
+        decl_context_t new_decl_context = decl_context;
+        new_decl_context.decl_flags |= DF_NO_FAIL;
 
         scope_entry_list_t* result_t2 = query_nested_name_flags(t2_scope, t2_global_op, t2_nested_name_spec, t2_symbol,
                 FULL_UNQUALIFIED_LOOKUP, LF_NONE, new_decl_context);
@@ -846,63 +846,63 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                 t1_type = advance_over_typedefs(t1_type);
                 t2_type = advance_over_typedefs(t2_type);
 
-				if (t1_type->kind == TK_DIRECT
-						&& t2_type->kind == TK_DIRECT)
-				{
-					if ((t1_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
-								&& t2_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
-							|| (t1_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER
-								&& t2_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER))
-					{
-						if (!equivalent_types(t1_type, t2_type, st, CVE_CONSIDER, decl_context))
-						{
-							DEBUG_CODE()
-							{
-								fprintf(stderr, "Type '");
-								print_declarator(t1_type, st);
-								fprintf(stderr, "' is not the same as '");
-								print_declarator(t2_type, st);
-								fprintf(stderr, "'\n");
-							}
-							return 0;
-						}
-						DEBUG_CODE()
-						{
-							fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template parameter\n");
-						}
-						dependent_qualification = 1;
-					}
-					else if (t1_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE
-							&& t2_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
-					{
-						DEBUG_CODE()
-						{
-							fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template dependent type\n");
-						}
-						dependent_qualification = 1;
-					}
-				}
-				if (!dependent_qualification 
-						&& t1_name != t2_name)
-				{
-					DEBUG_CODE()
-					{
-						fprintf(stderr, "Symbol '%s' is not the same as '%s'\n",
-								t1_name->symbol_name,
-								t2_name->symbol_name);
-					}
-					return 0;
-				}
+                if (t1_type->kind == TK_DIRECT
+                        && t2_type->kind == TK_DIRECT)
+                {
+                    if ((t1_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
+                                && t2_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
+                            || (t1_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER
+                                && t2_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER))
+                    {
+                        if (!equivalent_types(t1_type, t2_type, st, CVE_CONSIDER, decl_context))
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "Type '");
+                                print_declarator(t1_type, st);
+                                fprintf(stderr, "' is not the same as '");
+                                print_declarator(t2_type, st);
+                                fprintf(stderr, "'\n");
+                            }
+                            return 0;
+                        }
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template parameter\n");
+                        }
+                        dependent_qualification = 1;
+                    }
+                    else if (t1_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE
+                            && t2_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template dependent type\n");
+                        }
+                        dependent_qualification = 1;
+                    }
+                }
+                if (!dependent_qualification 
+                        && t1_name != t2_name)
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Symbol '%s' is not the same as '%s'\n",
+                                t1_name->symbol_name,
+                                t2_name->symbol_name);
+                    }
+                    return 0;
+                }
 
-				if (!dependent_qualification 
-						&& is_dependent_type(t1_type, decl_context))
-				{
-					DEBUG_CODE()
-					{
-						fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template dependent type\n");
-					}
-					dependent_qualification = 1;
-				}
+                if (!dependent_qualification 
+                        && is_dependent_type(t1_type, decl_context))
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template dependent type\n");
+                    }
+                    dependent_qualification = 1;
+                }
             }
             t1_scope = t1_name->related_scope;
             t2_scope = t2_name->related_scope;
@@ -1128,53 +1128,53 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
                 t1_type = advance_over_typedefs(t1_type);
                 t2_type = advance_over_typedefs(t2_type);
 
-				if (t1_type->kind == TK_DIRECT
-						&& t2_type->kind == TK_DIRECT)
-				{
-					if ((t1_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
-								&& t2_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
-							|| (t1_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER
-								&& t2_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER))
-					{
-						if (!equivalent_types(t1_type, t2_type, st, CVE_CONSIDER, decl_context))
-						{
-							DEBUG_CODE()
-							{
-								fprintf(stderr, "Type '");
-								print_declarator(t1_type, st);
-								fprintf(stderr, "' is not the same as '");
-								print_declarator(t2_type, st);
-								fprintf(stderr, "'\n");
-							}
-							return 0;
-						}
-						DEBUG_CODE()
-						{
-							fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template parameter\n");
-						}
-						dependent_qualification = 1;
-					}
-					else if (t1_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE
-							&& t2_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
-					{
-						DEBUG_CODE()
-						{
-							fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template dependent type\n");
-						}
-						dependent_qualification = 1;
-					}
-				}
+                if (t1_type->kind == TK_DIRECT
+                        && t2_type->kind == TK_DIRECT)
+                {
+                    if ((t1_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
+                                && t2_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
+                            || (t1_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER
+                                && t2_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER))
+                    {
+                        if (!equivalent_types(t1_type, t2_type, st, CVE_CONSIDER, decl_context))
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "Type '");
+                                print_declarator(t1_type, st);
+                                fprintf(stderr, "' is not the same as '");
+                                print_declarator(t2_type, st);
+                                fprintf(stderr, "'\n");
+                            }
+                            return 0;
+                        }
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template parameter\n");
+                        }
+                        dependent_qualification = 1;
+                    }
+                    else if (t1_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE
+                            && t2_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "From now, this dependent type is exclusively dependent due to a template dependent type\n");
+                        }
+                        dependent_qualification = 1;
+                    }
+                }
 
-				if (t1_name != t2_name)
-				{
-					DEBUG_CODE()
-					{
-						fprintf(stderr, "Symbol '%s' is not the same as '%s'\n",
-								t1_name->symbol_name,
-								t2_name->symbol_name);
-					}
-					return 0;
-				}
+                if (t1_name != t2_name)
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Symbol '%s' is not the same as '%s'\n",
+                                t1_name->symbol_name,
+                                t2_name->symbol_name);
+                    }
+                    return 0;
+                }
             }
             t1_scope = t1_name->related_scope;
             t2_scope = t2_name->related_scope;
@@ -1390,68 +1390,68 @@ char is_pointer_type(type_t* t)
 
 char is_function_type(type_t* t)
 {
-	t = advance_over_typedefs(t);
+    t = advance_over_typedefs(t);
 
-	return (t->kind == TK_FUNCTION);
+    return (t->kind == TK_FUNCTION);
 }
 
 type_t* function_return_type(type_t* t)
 {
-	t = advance_over_typedefs(t);
+    t = advance_over_typedefs(t);
 
-	if (t->kind == TK_FUNCTION)
-	{
-		return t->function->return_type;
-	}
-	else 
-		return NULL;
+    if (t->kind == TK_FUNCTION)
+    {
+        return t->function->return_type;
+    }
+    else 
+        return NULL;
 }
 
 type_t** function_parameter_types(type_t* t, int* num_params, char* has_ellipsis)
 {
-	*has_ellipsis = 0;
-	*num_params = 0;
-	type_t** result = calloc(1, sizeof(*result));
+    *has_ellipsis = 0;
+    *num_params = 0;
+    type_t** result = calloc(1, sizeof(*result));
 
-	int i;
-	for (i = 0; i < t->function->num_parameters; i++)
-	{
-		parameter_info_t* param_info = t->function->parameter_list[i];
-		if (!param_info->is_ellipsis && param_info->type_info != NULL)
-		{
-			P_LIST_ADD(result, (*num_params), param_info->type_info);
-		}
-		else if (!param_info->is_ellipsis)
-		{
-			*has_ellipsis = 1;
-		}
-	}
+    int i;
+    for (i = 0; i < t->function->num_parameters; i++)
+    {
+        parameter_info_t* param_info = t->function->parameter_list[i];
+        if (!param_info->is_ellipsis && param_info->type_info != NULL)
+        {
+            P_LIST_ADD(result, (*num_params), param_info->type_info);
+        }
+        else if (!param_info->is_ellipsis)
+        {
+            *has_ellipsis = 1;
+        }
+    }
 
-	return result;
+    return result;
 }
 
 type_t* pointer_pointee_type(type_t* t)
 {
-	t = advance_over_typedefs(t);
+    t = advance_over_typedefs(t);
 
-	if (t->kind == TK_POINTER)
-	{
-		return t->pointer->pointee;
-	}
-	else 
-		return NULL;
+    if (t->kind == TK_POINTER)
+    {
+        return t->pointer->pointee;
+    }
+    else 
+        return NULL;
 }
 
 type_t* array_element_type(type_t* t)
 {
-	t = advance_over_typedefs(t);
+    t = advance_over_typedefs(t);
 
-	if (t->kind == TK_ARRAY)
-	{
-		return t->array->element_type;
-	}
-	else 
-		return NULL;
+    if (t->kind == TK_ARRAY)
+    {
+        return t->array->element_type;
+    }
+    else 
+        return NULL;
 }
 
 char is_array_type(type_t* t)
@@ -1581,19 +1581,19 @@ char can_be_promoted_to_dest(type_t* orig, type_t* dest)
 
 type_t* reference_referenced_type(type_t* t1)
 {
-	t1 = advance_over_typedefs(t1);
+    t1 = advance_over_typedefs(t1);
 
     if (t1->kind == TK_REFERENCE)
-	{
-		return t1->pointer->pointee;
-	}
-	else
-		return NULL;
+    {
+        return t1->pointer->pointee;
+    }
+    else
+        return NULL;
 }
 
 char is_reference_type(type_t* t1)
 {
-	t1 = advance_over_typedefs(t1);
+    t1 = advance_over_typedefs(t1);
 
     return (t1->kind == TK_REFERENCE);
 }
@@ -1694,12 +1694,12 @@ char can_be_converted_to_dest(type_t* orig, type_t* dest)
 
 scope_entry_t* get_class_symbol(type_t* class_type)
 {
-	if (is_named_class_type(class_type))
-	{
-		return class_type->type->user_defined_type;
-	}
-	else 
-		return NULL;
+    if (is_named_class_type(class_type))
+    {
+        return class_type->type->user_defined_type;
+    }
+    else 
+        return NULL;
 }
 
 type_t* get_class_type(type_t* class_type)
@@ -2213,11 +2213,11 @@ char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
                 {
                     case SK_ENUM :
                         snprintf(user_defined_str, MAX_LENGTH, "enum %s", 
-								get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope));
+                                get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope));
                         break;
                     case SK_CLASS :
                         snprintf(user_defined_str, MAX_LENGTH, "class %s", 
-								get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope));
+                                get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope));
                         break;
                     case SK_TYPEDEF :
                         snprintf(user_defined_str, MAX_LENGTH, "%s", 
@@ -2554,7 +2554,7 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
                 scope_entry_t* entry = entry_list->entry;
 
                 if (entry->kind == SK_DEPENDENT_ENTITY
-						|| entry->kind == SK_TEMPLATE_PARAMETER)
+                        || entry->kind == SK_TEMPLATE_PARAMETER)
                 {
                     entry->dependency_info = DI_DEPENDENT;
                     return 1;
@@ -2595,12 +2595,12 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
                 return is_dependent_expression(ASTSon0(expression), st, decl_context)
                     || is_dependent_expression(ASTSon1(expression), st, decl_context);
             }
-		case AST_FUNCTION_CALL :
-			{
-				char invoked_dependent = is_dependent_expression(ASTSon0(expression), st, decl_context);
+        case AST_FUNCTION_CALL :
+            {
+                char invoked_dependent = is_dependent_expression(ASTSon0(expression), st, decl_context);
 
-				if (invoked_dependent)
-					return 1;
+                if (invoked_dependent)
+                    return 1;
 
                 AST expression_list = ASTSon1(expression);
 
@@ -2618,8 +2618,8 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
                     }
                 }
 
-				return 0;
-			}
+                return 0;
+            }
         case AST_EXPLICIT_TYPE_CONVERSION :
             {
                 AST type_specifier = duplicate_ast(ASTSon0(expression));
@@ -3142,24 +3142,24 @@ scope_entry_t* give_real_entry(scope_entry_t* entry)
 
 static char* get_cv_qualifier_string(type_t* type_info)
 {
-	char* result = "";
+    char* result = "";
 
-	if (BITMAP_TEST(type_info->cv_qualifier, CV_CONST))
-	{
-		result = strappend(result, "const ");
-	}
+    if (BITMAP_TEST(type_info->cv_qualifier, CV_CONST))
+    {
+        result = strappend(result, "const ");
+    }
 
-	if (BITMAP_TEST(type_info->cv_qualifier, CV_VOLATILE))
-	{
-		result = strappend(result, "volatile ");
-	}
+    if (BITMAP_TEST(type_info->cv_qualifier, CV_VOLATILE))
+    {
+        result = strappend(result, "volatile ");
+    }
 
-	if (BITMAP_TEST(type_info->cv_qualifier, CV_RESTRICT))
-	{
-		result = strappend(result, "restrict ");
-	}
+    if (BITMAP_TEST(type_info->cv_qualifier, CV_RESTRICT))
+    {
+        result = strappend(result, "restrict ");
+    }
 
-	return result;
+    return result;
 }
 
 
@@ -3184,123 +3184,122 @@ static char declarator_needs_parentheses(type_t* type_info)
 // Gives a string with the name of this simple type
 static char* get_simple_type_name_string_internal(scope_t* st, simple_type_t* simple_type)
 {
-	char* result = strdup("");
-	switch ((int)simple_type->kind)
-	{
-		case STK_USER_DEFINED :
-			{
-				result = get_fully_qualified_symbol_name(simple_type->user_defined_type,
-						st);
-				break;
-			}
-		case STK_TYPEOF :
-			{
-				result = "__typeof_not_supported_yet__";
-				break;
-			}
-		case STK_VA_LIST :
-			{
-				result = "__builtin_va_list";
-				break;
-			}
-		case STK_BUILTIN_TYPE :
-			{
-				if (simple_type->is_unsigned)
-				{
-					result = "unsigned ";
-				}
-				else if (simple_type->is_signed)
-				{
-					result = "signed ";
-				}
+    char* result = strdup("");
+    switch ((int)simple_type->kind)
+    {
+        case STK_USER_DEFINED :
+            {
+                result = get_fully_qualified_symbol_name(simple_type->user_defined_type,
+                        st);
+                break;
+            }
+        case STK_TYPEOF :
+            {
+                result = "__typeof_not_supported_yet__";
+                break;
+            }
+        case STK_VA_LIST :
+            {
+                result = "__builtin_va_list";
+                break;
+            }
+        case STK_BUILTIN_TYPE :
+            {
+                if (simple_type->is_unsigned)
+                {
+                    result = "unsigned ";
+                }
+                else if (simple_type->is_signed)
+                {
+                    result = "signed ";
+                }
 
-				if (simple_type->is_long == 1)
-				{
-					result = strappend(result, "long ");
-				}
-				else if (simple_type->is_long >= 2)
-				{
-					result = strappend(result, "long long ");
-				}
-				else if (simple_type->is_short)
-				{
-					result = strappend(result, "short ");
-				}
+                if (simple_type->is_long == 1)
+                {
+                    result = strappend(result, "long ");
+                }
+                else if (simple_type->is_long >= 2)
+                {
+                    result = strappend(result, "long long ");
+                }
+                else if (simple_type->is_short)
+                {
+                    result = strappend(result, "short ");
+                }
 
-				switch ((int)simple_type->builtin_type)
-				{
-					case BT_INT :
-						{
-							result = strappend(result, "int ");
-							break;
-						}
-					case BT_CHAR :
-						{
-							result = strappend(result, "char ");
-							break;
-						}
-					case BT_WCHAR :
-						{
-							result = strappend(result, "wchar_t ");
-							break;
-						}
-					case BT_FLOAT :
-						{
-							result = strappend(result, "float ");
-							break;
-						}
-					case BT_DOUBLE :
-						{
-							result = strappend(result, "double ");
-							break;
-						}
-					case BT_BOOL :
-						{
-							result = strappend(result, "bool ");
-							break;
-						}
-					case BT_VOID :
-						{
-							result = strappend(result, "void ");
-							break;
-						}
-					case BT_UNKNOWN :
-						{
-							result = strappend(result, " ");
-							break;
-						}
-					default :
-						break;
-				}
-				break;
-			}
-		case STK_CLASS :
-			{
-				internal_error("Type STK_CLASS still unimplemented\n", 0);
-				break;
-			}
-		default:
-			{
-				internal_error("Unknown simple type kind '%d'\n", simple_type->kind);
-				break;
-			}
-	}
+                switch ((int)simple_type->builtin_type)
+                {
+                    case BT_INT :
+                        {
+                            result = strappend(result, "int ");
+                            break;
+                        }
+                    case BT_CHAR :
+                        {
+                            result = strappend(result, "char ");
+                            break;
+                        }
+                    case BT_WCHAR :
+                        {
+                            result = strappend(result, "wchar_t ");
+                            break;
+                        }
+                    case BT_FLOAT :
+                        {
+                            result = strappend(result, "float ");
+                            break;
+                        }
+                    case BT_DOUBLE :
+                        {
+                            result = strappend(result, "double ");
+                            break;
+                        }
+                    case BT_BOOL :
+                        {
+                            result = strappend(result, "bool ");
+                            break;
+                        }
+                    case BT_VOID :
+                        {
+                            result = strappend(result, "void ");
+                            break;
+                        }
+                    case BT_UNKNOWN :
+                        {
+                            result = strappend(result, " ");
+                            break;
+                        }
+                    default :
+                        break;
+                }
+                break;
+            }
+        case STK_CLASS :
+            {
+                internal_error("Type STK_CLASS still unimplemented\n", 0);
+                break;
+            }
+        default:
+            {
+                internal_error("Unknown simple type kind '%d'\n", simple_type->kind);
+                break;
+            }
+    }
 
-	return result;
+    return result;
 }
 
-
 // Gives the simple type name of a full fledged type
-static char* get_simple_type_name_string(scope_t* st, type_t* type_info)
+char* get_simple_type_name_string(scope_t* st, type_t* type_info)
 {
     char* result = strdup("");
     switch ((int)(type_info->kind))
     {
         case TK_DIRECT :
             {
-				result = get_cv_qualifier_string(type_info);
-				result = strappend(result, get_simple_type_name_string_internal(st, type_info->type));
-				return result;
+                result = get_cv_qualifier_string(type_info);
+                result = strappend(result, get_simple_type_name_string_internal(st, type_info->type));
+                return result;
                 break;
             }
         case TK_FUNCTION :
@@ -3327,211 +3326,211 @@ static char* get_simple_type_name_string(scope_t* st, type_t* type_info)
 }
 
 static char* get_type_name_string(scope_t* st,
-		type_t* type_info, 
-		const char* symbol_name,
-		int* num_parameter_names,
-		char*** parameter_names);
+        type_t* type_info, 
+        const char* symbol_name,
+        int* num_parameter_names,
+        char*** parameter_names);
 
 // Returns a declaration string given a type, a symbol name, an optional initializer
 // and a semicolon
 char* get_declaration_string_internal(type_t* type_info, 
-		scope_t* st,
-		const char* symbol_name, const char* initializer, 
-		char semicolon,
-		int* num_parameter_names,
-		char*** parameter_names)
+        scope_t* st,
+        const char* symbol_name, const char* initializer, 
+        char semicolon,
+        int* num_parameter_names,
+        char*** parameter_names)
 {
-	char* base_type_name = get_simple_type_name_string(st, type_info);
-	char* declarator_name = get_type_name_string(st, type_info, symbol_name, 
-			num_parameter_names, parameter_names);
+    char* base_type_name = get_simple_type_name_string(st, type_info);
+    char* declarator_name = get_type_name_string(st, type_info, symbol_name, 
+            num_parameter_names, parameter_names);
 
-	char* result;
+    char* result;
 
-	result = base_type_name;
-	result = strappend(result, " ");
+    result = base_type_name;
+    result = strappend(result, " ");
 
-	result = strappend(result, declarator_name);
+    result = strappend(result, declarator_name);
 
-	// FIXME Should check if copy-constructor is not flagged as "explicit"
-	// (for parameters this can be useful to declare default arguments)
-	if (strcmp(initializer, "") != 0)
-	{
-		result = strappend(result, " = ");
-		result = strappend(result, initializer);
-	}
+    // FIXME Should check if copy-constructor is not flagged as "explicit"
+    // (for parameters this can be useful to declare default arguments)
+    if (strcmp(initializer, "") != 0)
+    {
+        result = strappend(result, " = ");
+        result = strappend(result, initializer);
+    }
 
-	if (semicolon)
-	{
-		result = strappend(result, ";");
-	}
+    if (semicolon)
+    {
+        result = strappend(result, ";");
+    }
 
-	return result;
+    return result;
 }
 
 static void get_type_name_str_internal(scope_t* st,
-		type_t* type_info, 
-		char** left,
-		char** right,
-		int* num_parameter_names,
-		char*** parameter_names);
+        type_t* type_info, 
+        char** left,
+        char** right,
+        int* num_parameter_names,
+        char*** parameter_names);
 
 static char* get_type_name_string(scope_t* st,
-		type_t* type_info, 
-		const char* symbol_name,
-		int* num_parameter_names,
-		char*** parameter_names)
+        type_t* type_info, 
+        const char* symbol_name,
+        int* num_parameter_names,
+        char*** parameter_names)
 {
-	char* left = strdup("");
-	char* right = strdup("");
-	get_type_name_str_internal(st, type_info, &left, &right, 
-			num_parameter_names, parameter_names);
+    char* left = strdup("");
+    char* right = strdup("");
+    get_type_name_str_internal(st, type_info, &left, &right, 
+            num_parameter_names, parameter_names);
 
-	char* result = strappend(left, symbol_name);
-	result = strappend(result, right);
+    char* result = strappend(left, symbol_name);
+    result = strappend(result, right);
 
-	return result;
+    return result;
 }
 
 
 // Constructs a proper declarator
 static void get_type_name_str_internal(scope_t* st,
-		type_t* type_info, 
-		char** left,
-		char** right,
-		int* num_parameter_names,
-		char*** parameter_names)
+        type_t* type_info, 
+        char** left,
+        char** right,
+        int* num_parameter_names,
+        char*** parameter_names)
 {
-	switch (type_info->kind)
-	{
-		case TK_DIRECT :
-			{
-				break;
-			}
-		case TK_POINTER :
-			{
-				get_type_name_str_internal(st, type_info->pointer->pointee, left, right, 
-						num_parameter_names, parameter_names);
+    switch (type_info->kind)
+    {
+        case TK_DIRECT :
+            {
+                break;
+            }
+        case TK_POINTER :
+            {
+                get_type_name_str_internal(st, type_info->pointer->pointee, left, right, 
+                        num_parameter_names, parameter_names);
 
-				if (declarator_needs_parentheses(type_info))
-				{
-					(*left) = strappend((*left), "(");
-				}
+                if (declarator_needs_parentheses(type_info))
+                {
+                    (*left) = strappend((*left), "(");
+                }
 
-				(*left) = strappend((*left), "*");
-				(*left) = strappend((*left), get_cv_qualifier_string(type_info));
+                (*left) = strappend((*left), "*");
+                (*left) = strappend((*left), get_cv_qualifier_string(type_info));
 
-				if (declarator_needs_parentheses(type_info))
-				{
-					(*right) = strappend(")", (*right));
-				}
-				break;
-			}
-		case TK_POINTER_TO_MEMBER :
-			{
-				get_type_name_str_internal(st, type_info->pointer->pointee, left, right, 
-						num_parameter_names,
-						parameter_names);
+                if (declarator_needs_parentheses(type_info))
+                {
+                    (*right) = strappend(")", (*right));
+                }
+                break;
+            }
+        case TK_POINTER_TO_MEMBER :
+            {
+                get_type_name_str_internal(st, type_info->pointer->pointee, left, right, 
+                        num_parameter_names,
+                        parameter_names);
 
-				if (declarator_needs_parentheses(type_info))
-				{
-					(*left) = strappend((*left), "(");
-				}
+                if (declarator_needs_parentheses(type_info))
+                {
+                    (*left) = strappend((*left), "(");
+                }
 
-				(*left) = strappend((*left), type_info->pointer->pointee_class->symbol_name);
+                (*left) = strappend((*left), type_info->pointer->pointee_class->symbol_name);
 
-				(*left) = strappend((*left), "::");
-				(*left) = strappend((*left), "*");
-				(*left) = strappend((*left), get_cv_qualifier_string(type_info));
+                (*left) = strappend((*left), "::");
+                (*left) = strappend((*left), "*");
+                (*left) = strappend((*left), get_cv_qualifier_string(type_info));
 
 
-				if (declarator_needs_parentheses(type_info))
-				{
-					(*right) = strappend(")", (*right));
-				}
-				break;
-			}
-		case TK_REFERENCE :
-			{
-				get_type_name_str_internal(st, type_info->pointer->pointee, left, right, 
-						num_parameter_names, parameter_names);
+                if (declarator_needs_parentheses(type_info))
+                {
+                    (*right) = strappend(")", (*right));
+                }
+                break;
+            }
+        case TK_REFERENCE :
+            {
+                get_type_name_str_internal(st, type_info->pointer->pointee, left, right, 
+                        num_parameter_names, parameter_names);
 
-				if (declarator_needs_parentheses(type_info))
-				{
-					(*left) = strappend((*left), "(");
-				}
+                if (declarator_needs_parentheses(type_info))
+                {
+                    (*left) = strappend((*left), "(");
+                }
 
-				(*left) = strappend((*left), "&");
+                (*left) = strappend((*left), "&");
 
-				if (declarator_needs_parentheses(type_info))
-				{
-					(*right) = strappend(")", (*right));
-				}
-				break;
-			}
-		case TK_ARRAY :
-			{
-				char* array_expr = strappend("[", prettyprint_in_buffer(type_info->array->array_expr));
-				array_expr = strappend(array_expr, "]");
+                if (declarator_needs_parentheses(type_info))
+                {
+                    (*right) = strappend(")", (*right));
+                }
+                break;
+            }
+        case TK_ARRAY :
+            {
+                char* array_expr = strappend("[", prettyprint_in_buffer(type_info->array->array_expr));
+                array_expr = strappend(array_expr, "]");
 
-				(*right) = strappend((*right), array_expr);
+                (*right) = strappend((*right), array_expr);
 
-				get_type_name_str_internal(st, type_info->array->element_type, left, right, 
-						num_parameter_names, parameter_names);
+                get_type_name_str_internal(st, type_info->array->element_type, left, right, 
+                        num_parameter_names, parameter_names);
 
-				break;
-			}
-		case TK_FUNCTION :
-			{
-				get_type_name_str_internal(st, type_info->function->return_type, left, right, 
-						num_parameter_names, parameter_names);
+                break;
+            }
+        case TK_FUNCTION :
+            {
+                get_type_name_str_internal(st, type_info->function->return_type, left, right, 
+                        num_parameter_names, parameter_names);
 
-				char* prototype;
-				prototype = "(";
-				int i;
-				for (i = 0; i < type_info->function->num_parameters; i++)
-				{
-					if (i > 0)
-					{
-						prototype = strappend(prototype, ", ");
-					}
+                char* prototype;
+                prototype = "(";
+                int i;
+                for (i = 0; i < type_info->function->num_parameters; i++)
+                {
+                    if (i > 0)
+                    {
+                        prototype = strappend(prototype, ", ");
+                    }
 
-					if (type_info->function->parameter_list[i]->is_ellipsis)
-					{
-						prototype = strappend(prototype, "...");
-					}
-					else
-					{
-						if (parameter_names == NULL)
-						{
-							// Abstract declarator
-							prototype = strappend(prototype,
-									get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, st, 
-										"", "", 0, NULL, NULL));
-						}
-						else
-						{
-							// We create a name
-							char* parameter_name = calloc(20, sizeof(char));
-							snprintf(parameter_name, 19, "_p_%d", i);
+                    if (type_info->function->parameter_list[i]->is_ellipsis)
+                    {
+                        prototype = strappend(prototype, "...");
+                    }
+                    else
+                    {
+                        if (parameter_names == NULL)
+                        {
+                            // Abstract declarator
+                            prototype = strappend(prototype,
+                                    get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, st, 
+                                        "", "", 0, NULL, NULL));
+                        }
+                        else
+                        {
+                            // We create a name
+                            char* parameter_name = calloc(20, sizeof(char));
+                            snprintf(parameter_name, 19, "_p_%d", i);
 
-							P_LIST_ADD((*parameter_names), (*num_parameter_names), parameter_name);
+                            P_LIST_ADD((*parameter_names), (*num_parameter_names), parameter_name);
 
-							prototype = strappend(prototype,
-									get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, st, 
-										parameter_name, "", 0, NULL, NULL));
-						}
-					}
-				}
-				prototype = strappend(prototype, ") ");
-				prototype = strappend(prototype, get_cv_qualifier_string(type_info));
+                            prototype = strappend(prototype,
+                                    get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, st, 
+                                        parameter_name, "", 0, NULL, NULL));
+                        }
+                    }
+                }
+                prototype = strappend(prototype, ") ");
+                prototype = strappend(prototype, get_cv_qualifier_string(type_info));
 
-				(*right) = strappend((*right), prototype);
-				break;
-			}
-		default:
-			{
-				fprintf(stderr, "Unknown type kind '%d'\n", (int)type_info->type);
-				break;
-			}
-	}
+                (*right) = strappend((*right), prototype);
+                break;
+            }
+        default:
+            {
+                fprintf(stderr, "Unknown type kind '%d'\n", (int)type_info->type);
+                break;
+            }
+    }
 }

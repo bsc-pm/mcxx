@@ -41,7 +41,7 @@ typedef enum decl_flags_tag
     DF_NO_DECLARATORS = BITMAP(2),
     DF_FRIEND = BITMAP(3),
     DF_EXPLICIT_SPECIALIZATION = BITMAP(4),
-	DF_NO_FAIL = BITMAP(5),
+    DF_NO_FAIL = BITMAP(5),
     DF_ALLOW_REDEFINITION = BITMAP(6)
 } decl_flags_t;
 
@@ -59,7 +59,7 @@ typedef struct decl_context_tag
     template_parameter_t** template_parameters;
     int num_template_parameters;
 
-	// Used in template functions
+    // Used in template functions
     template_parameter_t** template_parameters_in_scope;
     int num_template_parameters_in_scope;
 } decl_context_t;
@@ -85,7 +85,7 @@ void build_scope_member_specification(scope_t* inner_scope, AST member_specifica
         access_specifier_t current_access, type_t* simple_type_info, 
         decl_context_t decl_context);
 void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope, class_info_t* class_info,
-		decl_context_t decl_context);
+        decl_context_t decl_context);
 
 extern const decl_context_t default_decl_context;
 

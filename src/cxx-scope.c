@@ -23,6 +23,11 @@ static scope_t* new_scope(void)
     return sc;
 }
 
+char same_scope(scope_t* stA, scope_t* stB)
+{
+    return (stA->hash == stB->hash);
+}
+
 // static char is_not_incomplete(scope_entry_t* entry)
 // {
 //     return (entry->type_information->type->incomplete == 0);
@@ -34,10 +39,10 @@ scope_t* new_namespace_scope(scope_t* enclosing_scope, char* qualification_name)
 {
     scope_t* result = new_scope();
 
-	if (qualification_name != NULL)
-	{
-		result->qualification_name = strdup(qualification_name);
-	}
+    if (qualification_name != NULL)
+    {
+        result->qualification_name = strdup(qualification_name);
+    }
 
     result->kind = NAMESPACE_SCOPE;
     result->contained_in = enclosing_scope;
@@ -109,10 +114,10 @@ scope_t* new_class_scope(scope_t* enclosing_scope, char* qualification_name)
 
     result->kind = CLASS_SCOPE;
 
-	if (qualification_name != NULL)
-	{
-		result->qualification_name = strdup(qualification_name);
-	}
+    if (qualification_name != NULL)
+    {
+        result->qualification_name = strdup(qualification_name);
+    }
 
     result->contained_in = enclosing_scope;
 
@@ -140,7 +145,7 @@ scope_entry_t* new_symbol(scope_t* sc, char* name)
 
     result = calloc(1, sizeof(*result));
     result->symbol_name = strdup(name);
-    result->scope = sc;
+    result->scope = copy_scope(sc);
 
     if (result_set != NULL)
     {
@@ -731,8 +736,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         else
         {
             internal_error("Template '%s' not found! (line=%d)\n", 
-				prettyprint_in_buffer(template_id),
-				ASTLine(template_id));
+                prettyprint_in_buffer(template_id),
+                ASTLine(template_id));
         }
     }
 
@@ -779,7 +784,10 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
     // Now readjust the scope to really find the templates and not just the
     // injected class name
+    scope_t* previous_template_scope = lookup_scope->template_scope;
     lookup_scope = entry_list->entry->scope;
+    lookup_scope->template_scope = previous_template_scope;
+
     if (unqualified_lookup == FULL_UNQUALIFIED_LOOKUP)
     {
         entry_list = query_unqualified_name(lookup_scope, ASTText(symbol));
@@ -936,7 +944,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
                     current_template_arguments, sc, 0, decl_context);
 
             instantiate_template_in_symbol(matched_entry, matched_template, current_template_arguments, 
-					sc, decl_context);
+                    sc, decl_context);
 
             // And now restart this function but now we want an exact match
             return query_template_id_internal(template_id, sc, lookup_scope, unqualified_lookup, 
@@ -1016,7 +1024,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         }
         // We have to instantiate the template
         instantiate_template(matched_template, current_template_arguments, sc, 
-				ASTLine(template_id), decl_context);
+                ASTLine(template_id), decl_context);
 
         // And now restart this function but now we want an exact match
         return query_template_id_internal(template_id, sc, lookup_scope, unqualified_lookup, 
@@ -1318,39 +1326,39 @@ static scope_entry_list_t* lookup_block_scope(scope_t* st, char* unqualified_nam
 
 static scope_entry_list_t* lookup_prototype_scope(scope_t* st, char* unqualified_name, lookup_flags_t lookup_flags)
 {
-	scope_entry_list_t* result = NULL;
+    scope_entry_list_t* result = NULL;
 
-	result = query_in_symbols_of_scope(st, unqualified_name);
-	if (result != NULL)
-	{
-		return result;
-	}
+    result = query_in_symbols_of_scope(st, unqualified_name);
+    if (result != NULL)
+    {
+        return result;
+    }
 
-	// Otherwise, if template scoping is available, check in the template scope
-	if (st->template_scope != NULL)
-	{
-		DEBUG_CODE()
-		{
-			fprintf(stderr, "Looking up '%s' in template parameters...", unqualified_name);
-		}
-		result = query_in_template_nesting(st->template_scope, unqualified_name, lookup_flags);
-		if (result != NULL)
-		{
-			return result;
-		}
-	}
+    // Otherwise, if template scoping is available, check in the template scope
+    if (st->template_scope != NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Looking up '%s' in template parameters...", unqualified_name);
+        }
+        result = query_in_template_nesting(st->template_scope, unqualified_name, lookup_flags);
+        if (result != NULL)
+        {
+            return result;
+        }
+    }
 
-	// Otherwise try to find anything in the enclosing scope
-	if (st->contained_in != NULL)
-	{
-		DEBUG_CODE()
-		{
-			fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
-		}
-		result = query_unqualified_name_flags(st->contained_in, unqualified_name, lookup_flags);
-	}
+    // Otherwise try to find anything in the enclosing scope
+    if (st->contained_in != NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "not found.\nLooking up '%s' in the enclosed scope...", unqualified_name);
+        }
+        result = query_unqualified_name_flags(st->contained_in, unqualified_name, lookup_flags);
+    }
 
-	return result;
+    return result;
 }
 
 static scope_entry_list_t* lookup_namespace_scope(scope_t* st, char* unqualified_name, lookup_flags_t lookup_flags)
@@ -1425,10 +1433,10 @@ static scope_entry_list_t* lookup_function_scope(scope_t* st, char* unqualified_
     }
     result = query_in_symbols_of_scope(st, unqualified_name);
     
-	if (result != NULL)
-	{
-		return result;
-	}
+    if (result != NULL)
+    {
+        return result;
+    }
 
     // Otherwise try to find anything in the enclosing scope
     if (st->contained_in != NULL)
@@ -1917,13 +1925,11 @@ scope_t* copy_scope(scope_t* st)
     // bitwise copy
     *result = *st;
 
-	// Copy all the full structure. 
-	//
-	// It is not needed since the "contained_in" relationship does not change
-	// and the "template_scope" relationship is updated at every place creating
-	// a linked list effect
-	//
-	// result->contained_in = copy_scope(st->contained_in);
+    result->template_scope = copy_scope(st->template_scope);
+
+    // It is not needed since the "contained_in" relationship does not change
+    //
+    // result->contained_in = copy_scope(st->contained_in);
 
     return result;
 }
@@ -1932,22 +1938,31 @@ scope_t* copy_scope(scope_t* st)
 // in a nest of namespaces
 static char* get_fully_qualified_symbol_name_simple(scope_t* st, char* current_qualif_name)
 {
-	char* result = current_qualif_name;
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Getting qualification via scope current='%s'\n", current_qualif_name);
+    }
+    char* result = current_qualif_name;
 
-	scope_t* current_scope = st;
+    scope_t* current_scope = st;
 
-	while (current_scope != NULL)
-	{
-		if (current_scope->qualification_name != NULL)
-		{
-			char* nested_name = strappend(current_scope->qualification_name, "::");
-			result = strappend(nested_name, result);
-		}
+    while (current_scope != NULL)
+    {
+        if (current_scope->qualification_name != NULL)
+        {
+            char* nested_name = strappend(current_scope->qualification_name, "::");
+            result = strappend(nested_name, result);
+        }
 
-		current_scope = current_scope->contained_in;
-	}
+        current_scope = current_scope->contained_in;
+    }
 
-	return result;
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Fully qualified name simple '%s'\n", result);
+    }
+
+    return result;
 }
 
 static scope_entry_t* find_template_parameter(scope_t* st, scope_entry_t* template_param)
@@ -1957,138 +1972,165 @@ static scope_entry_t* find_template_parameter(scope_t* st, scope_entry_t* templa
             !iterator_finished(it); 
             iterator_next(it))
     {
-		scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
+        scope_entry_list_t* entry_list = (scope_entry_list_t*) iterator_item(it);
 
-		scope_entry_t* entry = entry_list->entry;
+        scope_entry_t* entry = entry_list->entry;
 
-		if (entry->kind == template_param->kind
-				&& (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-					|| entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
-		{
-			type_t* type_current = entry->type_information;
-			type_t* type_param = template_param->type_information;
+        if (entry->kind == template_param->kind
+                && (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+                    || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
+        {
+            type_t* type_current = entry->type_information;
+            type_t* type_param = template_param->type_information;
 
-			simple_type_t* t1 = type_current->type;
-			simple_type_t* t2 = type_param->type;
+            simple_type_t* t1 = type_current->type;
+            simple_type_t* t2 = type_param->type;
 
-			if ((t1->template_parameter_num == t2->template_parameter_num)
-						&& (t1->template_parameter_nesting == t2->template_parameter_nesting))
-			{
-				return entry;
-			}
-		}
-	}
+            if ((t1->template_parameter_num == t2->template_parameter_num)
+                        && (t1->template_parameter_nesting == t2->template_parameter_nesting))
+            {
+                return entry;
+            }
+        }
+    }
 
-	return NULL;
+    return NULL;
 }
 
 static char* give_name_for_template_parameter(scope_entry_t* entry, scope_t* st)
 {
-	if (st->kind != TEMPLATE_SCOPE)
-	{
-		st = st->template_scope;
-	}
+    if (st->kind != TEMPLATE_SCOPE)
+    {
+        st = st->template_scope;
+    }
 
-	char found = 0;
+    char found = 0;
 
-	while (st != NULL)
-	{
-		scope_entry_t* template_parameter = find_template_parameter(st, entry);
-		if (template_parameter != NULL)
-		{
-			return template_parameter->symbol_name;
-		}
+    while (st != NULL)
+    {
+        scope_entry_t* template_parameter = find_template_parameter(st, entry);
+        if (template_parameter != NULL)
+        {
+            return template_parameter->symbol_name;
+        }
 
-		st = st->template_scope;
-	}
+        st = st->template_scope;
+    }
 
-	if (!found)
-	{
-		internal_error("Template parameter '%s' not found in scope\n", entry->symbol_name);
-	}
+    if (!found)
+    {
+        internal_error("Template parameter '%s' not found in scope\n", entry->symbol_name);
+    }
 
-	return NULL;
+    return NULL;
+}
+
+char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st)
+{
+    char* result = "";
+
+    // It is not enough with the name, we have to print the arguments
+    result = strappend(result, "<");
+    template_argument_list_t* template_arguments = entry->type_information->type->template_arguments;
+
+    int i;
+    for (i = 0; i < template_arguments->num_arguments; i++)
+    {
+        if (i != 0)
+        {
+            result = strappend(result, ", ");
+        }
+
+        template_argument_t* template_argument = template_arguments->argument_list[i];
+
+        switch (template_argument->kind)
+        {
+            // Print the type
+            case TAK_TEMPLATE:
+            case TAK_TYPE:
+                {
+                    char* abstract_declaration;
+
+                    abstract_declaration = 
+                        get_declaration_string_internal(advance_over_typedefs(template_argument->type), st, "", "", 0, NULL, NULL);
+
+                    result = strappend(result, abstract_declaration);
+                    break;
+                }
+            case TAK_NONTYPE:
+                {
+                    break;
+                }
+            default:
+                {
+                    fprintf(stderr, "Undefined template argument\n");
+                    break;
+                }
+        }
+    }
+
+    result = strappend(result, ">");
+
+    return result;
 }
 
 // Get the fully qualified symbol name in the scope of the ocurrence
 char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st)
 {
-	// fprintf(stderr, "Getting fully qualified symbol name for '%s'\n", entry->symbol_name);
-	char* result = strdup(entry->symbol_name);
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Getting fully qualified symbol name for '%s'\n", entry->symbol_name);
+    }
 
-	if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-			|| entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-	{
-		// This symbol must be looked up for the proper real name
-		result = give_name_for_template_parameter(entry, st);
-		return result;
-	}
+    char* result = strdup(entry->symbol_name);
 
-	if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS
-			|| entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-	{
-		// It is not enough with the name, we have to print the arguments
-		result = strappend(result, "<");
-		template_argument_list_t* template_arguments = entry->type_information->type->template_arguments;
+    if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+            || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+    {
+        // This symbol must be looked up for the proper real name
+        result = give_name_for_template_parameter(entry, st);
+        return result;
+    }
 
-		int i;
-		for (i = 0; i < template_arguments->num_arguments; i++)
-		{
-			if (i != 0)
-			{
-				result = strappend(result, ", ");
-			}
+    if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+            || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+    {
+        result = strappend(result, get_unqualified_template_symbol_name(entry, st));
+    }
 
-			template_argument_t* template_argument = template_arguments->argument_list[i];
+    if (entry->is_member)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "The symbol is a member, getting the qualified symbol name of the enclosing class\n");
+        }
+        // We need the qualification of the class
+        scope_entry_t* class_symbol = get_class_symbol(entry->class_type);
 
-			switch (template_argument->kind)
-			{
-				// Print the type
-				case TAK_TEMPLATE:
-				case TAK_TYPE:
-					{
-						char* abstract_declaration;
+        if (class_symbol != NULL)
+        {
+            char* class_qualification = get_fully_qualified_symbol_name(class_symbol, st);
 
-						abstract_declaration = 
-							get_declaration_string_internal(advance_over_typedefs(template_argument->type), st, "", "", 0, NULL, NULL);
-						
-						result = strappend(result, abstract_declaration);
-						break;
-					}
-				case TAK_NONTYPE:
-					{
-						break;
-					}
-				default:
-					{
-						fprintf(stderr, "Undefined template argument\n");
-						break;
-					}
-			}
-		}
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "The qualified name of the enclosing class of '%s' is '%s'\n", result, class_qualification);
+            }
 
-		result = strappend(result, ">");
-	}
+            class_qualification = strappend(class_qualification, "::");
 
-	if (entry->is_member)
-	{
-		// We need the qualification of the class
-		scope_entry_t* class_symbol = get_class_symbol(entry->class_type);
+            result = strappend(class_qualification, result);
+        }
+    } 
+    else if (!entry->is_member)
+    {
+        // This symbol is already simple enough
+        result = get_fully_qualified_symbol_name_simple(entry->scope, result);
+    }
 
-		if (class_symbol != NULL)
-		{
-			char* class_qualification = get_fully_qualified_symbol_name(class_symbol, st);
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Fully qualified name is '%s'\n", result);
+    }
 
-			class_qualification = strappend(class_qualification, "::");
-
-			result = strappend(class_qualification, result);
-		}
-	} 
-	else if (!entry->is_member)
-	{
-		// This symbol is already simple enough
-		result = get_fully_qualified_symbol_name_simple(entry->scope, result);
-	}
-
-	return result;
+    return result;
 }

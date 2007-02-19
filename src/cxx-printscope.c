@@ -148,7 +148,15 @@ static void print_scope_entry_list(scope_entry_list_t* entry_list, scope_t* st, 
             {
                 PRINT_INDENTED_LINE(stderr, global_indent+1, "[TEMPLATE_SCOPE - %p]\n", 
                         entry_list->entry->related_scope->template_scope);
-                print_scope_full(entry_list->entry->related_scope->template_scope, global_indent+2);
+                scope_t* iterator = entry_list->entry->related_scope->template_scope;
+
+                int i = 0;
+                while (iterator != NULL)
+                {
+                    print_scope_full(iterator, i + global_indent+2);
+                    iterator = iterator->template_scope;
+                    i++;
+                }
             }
             if (entry_list->entry->related_scope->kind == FUNCTION_SCOPE)
             {
@@ -259,19 +267,19 @@ static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_inde
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Prototype: %s\n",
                 print_declarator(entry->type_information, st));
         // print_scope_full(entry->related_scope, global_indent+1);
-		C_LANGUAGE()
-		{
-			if (entry->type_information->function->lacks_prototype)
-			{
-				PRINT_INDENTED_LINE(stderr, global_indent+1, "This function does not have prototype yet\n");
-			}
-		}
+        C_LANGUAGE()
+        {
+            if (entry->type_information->function->lacks_prototype)
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "This function does not have prototype yet\n");
+            }
+        }
     }
 
-	if (entry->is_member)
-	{
-		PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member\n");
-	}
+    if (entry->is_member)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member\n");
+    }
 }
 
 // Brief versions of print scope

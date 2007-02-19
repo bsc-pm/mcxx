@@ -25,10 +25,10 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
     // In the worst of the cases the chosen template will be the primary one
     scope_entry_list_t* iter = candidate_templates;
 
-	if (iter == NULL)
-	{
-		internal_error("No templates were given to solve the current one", 0);
-	}
+    if (iter == NULL)
+    {
+        internal_error("No templates were given to solve the current one", 0);
+    }
 
     char seen_primary_template = 0;
     while (iter != NULL && !seen_primary_template)
@@ -116,7 +116,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
         DEBUG_CODE()
         {
             fprintf(stderr, "More specialized determined result=%p (line %d)\n", result->entry,
-					result->entry->line);
+                    result->entry->line);
         }
     }
 
@@ -228,10 +228,10 @@ static char match_one_template(template_argument_list_t* arguments,
                 case TAK_TEMPLATE :
                 case TAK_TYPE :
                     {
-						DEBUG_CODE()
-						{
-							fprintf(stderr, "=== Unificating types\n");
-						}
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "=== Unificating types\n");
+                        }
                         if (!unificate_two_types(spec_arg->type, arg->type, st, &unif_set,
                                     decl_context))
                         {
@@ -241,21 +241,21 @@ static char match_one_template(template_argument_list_t* arguments,
                             }
                             return 0;
                         }
-						else
-						{
-							DEBUG_CODE()
-							{
-								fprintf(stderr, "=== Types unificated\n");
-							}
-						}
+                        else
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "=== Types unificated\n");
+                            }
+                        }
                         break;
                     }
                 case TAK_NONTYPE :
                     {
-						DEBUG_CODE()
-						{
-							fprintf(stderr, "==> Unificating expressions\n");
-						}
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "==> Unificating expressions\n");
+                        }
                         // The key here is evaluating both expressions and checking they are the same
                         if (spec_arg->argument_tree == NULL)
                         {
@@ -297,22 +297,22 @@ static char match_one_template(template_argument_list_t* arguments,
                         else
                         {
                             unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
-							unif_item->expression = arg->argument_tree;
+                            unif_item->expression = arg->argument_tree;
 
-							if (arg_value.kind != LVK_INVALID
-									&& arg_value.kind != LVK_DEPENDENT_EXPR)
-							{
-								unif_item->expression = tree_from_literal_value(arg_value);
-							}
+                            if (arg_value.kind != LVK_INVALID
+                                    && arg_value.kind != LVK_DEPENDENT_EXPR)
+                            {
+                                unif_item->expression = tree_from_literal_value(arg_value);
+                            }
 
                             // Set to -1 to early detect errors
                             unif_item->parameter_num = -1;
                             unif_item->parameter_nesting = -1;
 
-							DEBUG_CODE()
-							{
-								fprintf(stderr, "==> Expression unified\n");
-							}
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "==> Expression unified\n");
+                            }
 
                             P_LIST_ADD(unif_set->unif_list, unif_set->num_elems, unif_item);
                         }

@@ -10,7 +10,7 @@ MCXX_BEGIN_DECLS
 
 typedef struct scope_link_tag
 {
-	Hash* h;
+    Hash* h;
 } scope_link_t;
 
 scope_link_t* scope_link_new(void);

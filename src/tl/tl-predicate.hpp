@@ -5,12 +5,12 @@
 
 namespace TL
 {
-	template <class T>
-	class Predicate : public Functor<bool, T>
-	{
-		public:
-			~Predicate() { }
-	};
+    template <class T>
+    class Predicate : public Functor<bool, T>
+    {
+        public:
+            ~Predicate() { }
+    };
 }
 
 #endif

@@ -9,21 +9,21 @@
 
 namespace TL
 {
-	class Object 
-	{ 
-		protected:
-			virtual tl_type_t* get_extended_attribute(const std::string& name) const
-			{
-				return NULL;
-			}
+    class Object 
+    { 
+        protected:
+            virtual tl_type_t* get_extended_attribute(const std::string& name) const
+            {
+                return NULL;
+            }
 
-		public:
-			/* do not override */
-			Object& get_attribute(const std::string& name) const;
+        public:
+            /* do not override */
+            Object& get_attribute(const std::string& name) const;
 
-			virtual ~Object() { }
+            virtual ~Object() { }
 
-			bool has_attribute(const std::string& name) const;
+            bool has_attribute(const std::string& name) const;
 
             virtual bool is_bool() const
             {
@@ -60,21 +60,21 @@ namespace TL
                 return false;
             }
 
-			virtual bool is_source() const
-			{
-				return false;
-			}
-	};
+            virtual bool is_source() const
+            {
+                return false;
+            }
+    };
 
     class Undefined : public Object
     {
-		protected:
-			virtual tl_type_t* get_extended_attribute(const std::string& name) const
+        protected:
+            virtual tl_type_t* get_extended_attribute(const std::string& name) const
             {
                 return NULL;
             }
         public :
-			virtual ~Undefined() { }
+            virtual ~Undefined() { }
     };
 }
 

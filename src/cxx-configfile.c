@@ -81,30 +81,30 @@ int config_set_linker_options(char* value)
 
 int config_add_compiler_phase(char* value)
 {
-	char* library_name = strdup(value);
-	P_LIST_ADD(compilation_options.compiler_phases, 
-			compilation_options.num_compiler_phases, 
-			library_name);
+    char* library_name = strdup(value);
+    P_LIST_ADD(compilation_options.compiler_phases, 
+            compilation_options.num_compiler_phases, 
+            library_name);
 
-	return 0;
+    return 0;
 }
 
 int config_add_preprocessor_prefix(char* value)
 {
-	if (strcasecmp(value, "gcc") == 0)
-	{
-		fprintf(stderr, "gcc is a reserved pragma prefix\n");
-		return 1;
-	}
-	if (strcasecmp(value, "omp") == 0)
-	{
-		fprintf(stderr, "omp is a reserved pragma prefix\n");
-		return 1;
-	}
+    if (strcasecmp(value, "gcc") == 0)
+    {
+        fprintf(stderr, "gcc is a reserved pragma prefix\n");
+        return 1;
+    }
+    if (strcasecmp(value, "omp") == 0)
+    {
+        fprintf(stderr, "omp is a reserved pragma prefix\n");
+        return 1;
+    }
 
-	P_LIST_ADD(compilation_options.pragma_custom_prefix,
-			compilation_options.num_pragma_custom_prefix,
-			strdup(value));
+    P_LIST_ADD(compilation_options.pragma_custom_prefix,
+            compilation_options.num_pragma_custom_prefix,
+            strdup(value));
 
-	return 0;
+    return 0;
 }

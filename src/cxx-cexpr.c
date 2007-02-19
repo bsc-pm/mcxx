@@ -150,7 +150,7 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st, decl_context_t 
         case AST_SIZEOF_TYPEID :
             {
                 WARNING_MESSAGE("Found a sizeof expression in '%s' while evaluating a constant expression. Assuming zero.\n", 
-					node_information(a));
+                    node_information(a));
                 return literal_value_zero();
             }
         case AST_EXPLICIT_TYPE_CONVERSION :
@@ -159,14 +159,14 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st, decl_context_t 
                 AST expression_list = ASTSon1(a);
                 ERROR_CONDITION((ASTSon0(expression_list) != NULL), 
                         "In '%s' cannot cast a constant expression formed with an expression list longer than 1", 
-						node_information(a));
+                        node_information(a));
                 AST first_expression = ASTSon1(expression_list);
                 return cast_expression(ASTSon0(a), first_expression, st, decl_context);
             }
         case AST_REFERENCE :
             {
                 WARNING_MESSAGE("Found an address expression in '%s' while evaluating a constant expression. Assuming zero.\n",
-					 node_information(a));
+                     node_information(a));
                 return literal_value_zero();
             }
         case AST_AMBIGUITY :

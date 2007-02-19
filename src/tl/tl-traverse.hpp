@@ -9,27 +9,27 @@
 
 namespace TL
 {
-	class TraverseFunctor
-	{
-		private:
-		public:
-			virtual void preorder(Context ctx, AST_t node) { }
-			virtual void postorder(Context ctx, AST_t node) { }
+    class TraverseFunctor
+    {
+        private:
+        public:
+            virtual void preorder(Context ctx, AST_t node) { }
+            virtual void postorder(Context ctx, AST_t node) { }
 
-			virtual ~TraverseFunctor() { }
-	};
+            virtual ~TraverseFunctor() { }
+    };
 
     class Traverse { };
 
-	class DepthTraverse : public Traverse
-	{
-		private:
-			typedef std::pair<Predicate<AST_t>*, TraverseFunctor*> CondAction;
-			std::vector<CondAction> _pred_list;
-		public:
-			void add_predicate(Predicate<AST_t>& pred, TraverseFunctor& functor);
-			void traverse(AST_t node, ScopeLink scope_link);
-	};
+    class DepthTraverse : public Traverse
+    {
+        private:
+            typedef std::pair<Predicate<AST_t>*, TraverseFunctor*> CondAction;
+            std::vector<CondAction> _pred_list;
+        public:
+            void add_predicate(Predicate<AST_t>& pred, TraverseFunctor& functor);
+            void traverse(AST_t node, ScopeLink scope_link);
+    };
 }
 
 #endif // TL_TRAVERSE_HPP

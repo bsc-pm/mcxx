@@ -13,10 +13,10 @@ namespace TL
     ObjectList<IdExpression> LangConstruct::non_local_symbol_occurrences(SymbolsWanted symbol_filter)
     {
         PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
-		PredicateBool<LANG_IS_ACCESSED_MEMBER> member_access;
+        PredicateBool<LANG_IS_ACCESSED_MEMBER> member_access;
         ObjectList<AST_t> id_expressions = _ref.depth_subtrees()
-			.filter(id_expr_pred)
-			.filter(negate(member_access));
+            .filter(id_expr_pred)
+            .filter(negate(member_access));
 
         Scope statement_scope = _scope_link.get_scope(_ref);
 
@@ -39,20 +39,20 @@ namespace TL
                 {
                     IdExpression id_expression(*it, _scope_link);
 
-					bool eligible = true;
-					if (symbol_filter == ONLY_OBJECTS)
-					{
-						eligible = symbol.is_variable();
-					}
-					else if (symbol_filter == ONLY_FUNCTIONS)
-					{
-						eligible = symbol.is_function();
-					}
+                    bool eligible = true;
+                    if (symbol_filter == ONLY_OBJECTS)
+                    {
+                        eligible = symbol.is_variable();
+                    }
+                    else if (symbol_filter == ONLY_FUNCTIONS)
+                    {
+                        eligible = symbol.is_function();
+                    }
 
-					if (eligible)
-					{
-						result.push_back(id_expression);
-					}
+                    if (eligible)
+                    {
+                        result.push_back(id_expression);
+                    }
                 }
             }
         }
@@ -87,12 +87,44 @@ namespace TL
         return IdExpression(ast, _scope_link);
     }
 
-	Statement FunctionDefinition::get_function_body()
-	{
+    Statement FunctionDefinition::get_function_body()
+    {
         TL::AST_t ast = _ref.get_attribute(LANG_FUNCTION_BODY);
 
         return Statement(ast, _scope_link);
-	}
+    }
+
+    bool FunctionDefinition::is_templated() const
+    {
+        TL::Bool result = _ref.get_attribute(LANG_IS_TEMPLATED_FUNCTION_DEFINITION);
+        return result;
+    }
+
+    ObjectList<AST_t> FunctionDefinition::get_template_header()
+    {
+        TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+
+        PredicateBool<LANG_IS_TEMPLATE_HEADER> template_header_pred;
+
+        ObjectList<AST_t> result = start.depth_subtrees(template_header_pred);
+        return result;
+    }
+
+    bool Declaration::is_templated()
+    {
+        TL::Bool result = _ref.get_attribute(LANG_IS_TEMPLATED_DECLARATION);
+        return result;
+    }
+
+    ObjectList<AST_t> Declaration::get_template_header()
+    {
+        TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+
+        PredicateBool<LANG_IS_TEMPLATE_HEADER> template_header_pred;
+
+        ObjectList<AST_t> result = start.depth_subtrees(template_header_pred);
+        return result;
+    }
 
     // Returns a flattened version of this id-expression
     std::string IdExpression::mangle_id_expression() const
@@ -126,7 +158,7 @@ namespace TL
         {
             std::cerr << "Cannot retrieve a proper declaration of id-expression '" 
                 << _ref.prettyprint() << "' from its point of declaration '" 
-				<<  point_of_declaration.prettyprint() << "'"  << std::endl;
+                <<  point_of_declaration.prettyprint() << "'"  << std::endl;
             return Declaration(AST_t(), this->_scope_link);
         }
     }
@@ -144,11 +176,50 @@ namespace TL
         }
     }
 
-    std::string IdExpression::get_unqualified_part() const
+    bool IdExpression::is_template_id() const
+    {
+        TL::Bool ret = _ref.
+            get_attribute(LANG_UNQUALIFIED_ID).
+            get_attribute(LANG_IS_TEMPLATE_ID);
+        return ret;
+    }
+
+    std::string IdExpression::get_template_arguments() const
+    {
+        TL::AST_t ret = _ref
+            .get_attribute(LANG_UNQUALIFIED_ID)
+            .get_attribute(LANG_TEMPLATE_ARGS);
+        return "<" + ret.prettyprint(/*comma=*/true) + ">";
+    }
+
+    std::string IdExpression::get_template_name() const
+    {
+        TL::AST_t ret = _ref.get_attribute(LANG_TEMPLATE_NAME);
+        return ret.prettyprint();
+    }
+
+    std::string IdExpression::get_unqualified_part(bool with_template_id) const
     {
         TL::AST_t unqualified_part = _ref.get_attribute(LANG_UNQUALIFIED_ID);
 
-        return unqualified_part.prettyprint();
+        if (!with_template_id)
+        {
+            TL::Bool is_template_id = unqualified_part.get_attribute(LANG_IS_TEMPLATE_ID);
+            if (!is_template_id)
+            {
+                return unqualified_part.prettyprint();
+            }
+            else
+            {
+                TL::AST_t template_name = unqualified_part.get_attribute(LANG_TEMPLATE_NAME);
+
+                return template_name.prettyprint();
+            }
+        }
+        else
+        {
+            return unqualified_part.prettyprint();
+        }
     }
 
     bool IdExpression::is_qualified() const
@@ -175,20 +246,20 @@ namespace TL
         return _ref;
     }
 
-	void ReplaceIdExpression::add_replacement(Symbol sym, std::string str)
-	{
-		Source src;
-		src << str;
+    void ReplaceIdExpression::add_replacement(Symbol sym, std::string str)
+    {
+        Source src;
+        src << str;
 
-		AST_t tree = src.parse_expression(sym.get_scope());
+        AST_t tree = src.parse_expression(sym.get_scope());
 
-		_repl_map[sym] = tree;
-	}
+        _repl_map[sym] = tree;
+    }
 
-	void ReplaceIdExpression::add_replacement(Symbol sym, Source src)
-	{
-		add_replacement(sym, src.get_source());
-	}
+    void ReplaceIdExpression::add_replacement(Symbol sym, Source src)
+    {
+        add_replacement(sym, src.get_source());
+    }
 
     void ReplaceIdExpression::add_replacement(Symbol sym, AST_t ast)
     {
@@ -202,11 +273,11 @@ namespace TL
 
     AST_t Expression::advance_over_nests(AST_t expr)
     {
-		if (!expr.is_valid())
-		{
-			std::cerr << "Expression is not valid" << std::endl;
-			return expr;
-		}
+        if (!expr.is_valid())
+        {
+            std::cerr << "Expression is not valid" << std::endl;
+            return expr;
+        }
 
         TL::Bool is_expression_nest = expr.get_attribute(LANG_IS_EXPRESSION_NEST);
 
@@ -269,40 +340,40 @@ namespace TL
         return b;
     }
 
-	bool Expression::is_function_call()
-	{
-		TL::Bool b = _ref.get_attribute(LANG_IS_FUNCTION_CALL);
-		return b;
-	}
+    bool Expression::is_function_call()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_FUNCTION_CALL);
+        return b;
+    }
 
-	Expression Expression::get_called_expression()
-	{
-		TL::AST_t result = _ref.get_attribute(LANG_CALLED_EXPRESSION);
-		Expression expr(result, get_scope_link());
+    Expression Expression::get_called_expression()
+    {
+        TL::AST_t result = _ref.get_attribute(LANG_CALLED_EXPRESSION);
+        Expression expr(result, get_scope_link());
 
-		return expr;
-	}
+        return expr;
+    }
 
-	ObjectList<Expression> Expression::get_argument_list()
-	{
-		AST_t expression_list = _ref.get_attribute(LANG_FUNCTION_ARGUMENTS);
+    ObjectList<Expression> Expression::get_argument_list()
+    {
+        AST_t expression_list = _ref.get_attribute(LANG_FUNCTION_ARGUMENTS);
 
-		ObjectList<Expression> result;
+        ObjectList<Expression> result;
 
-		ObjectList<AST_t> arguments 
-			= expression_list.depth_subtrees(PredicateBool<LANG_EXPRESSION_NESTED>(), AST_t::NON_RECURSIVE);
+        ObjectList<AST_t> arguments 
+            = expression_list.depth_subtrees(PredicateBool<LANG_EXPRESSION_NESTED>(), AST_t::NON_RECURSIVE);
 
-		for (ObjectList<AST_t>::iterator it = arguments.begin(); 
-				it != arguments.end();
-				it++)
-		{
-			Expression expr(*it, get_scope_link());
+        for (ObjectList<AST_t>::iterator it = arguments.begin(); 
+                it != arguments.end();
+                it++)
+        {
+            Expression expr(*it, get_scope_link());
 
-			result.push_back(expr);
-		}
+            result.push_back(expr);
+        }
 
-		return result;
-	}
+        return result;
+    }
 
     bool Expression::is_array_subscript()
     {
@@ -367,31 +438,31 @@ namespace TL
         return Expression(result, this->_scope_link);
     }
 
-	bool Expression::is_member_access()
-	{
-		TL::Bool b = _ref.get_attribute(LANG_IS_MEMBER_ACCESS);
-		return b;
-	}
+    bool Expression::is_member_access()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_MEMBER_ACCESS);
+        return b;
+    }
 
-	bool Expression::is_pointer_member_access()
-	{
-		TL::Bool b = _ref.get_attribute(LANG_IS_POINTER_MEMBER_ACCESS);
-		return b;
-	}
+    bool Expression::is_pointer_member_access()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_POINTER_MEMBER_ACCESS);
+        return b;
+    }
 
-	IdExpression Expression::get_accessed_member()
-	{
-		TL::AST_t ast = _ref.get_attribute(LANG_ACCESSED_MEMBER);
+    IdExpression Expression::get_accessed_member()
+    {
+        TL::AST_t ast = _ref.get_attribute(LANG_ACCESSED_MEMBER);
 
-		return IdExpression(ast, this->get_scope_link());
-	}
+        return IdExpression(ast, this->get_scope_link());
+    }
 
-	Expression Expression::get_accessed_entity()
-	{
-		TL::AST_t ast = _ref.get_attribute(LANG_ACCESSED_ENTITY);
+    Expression Expression::get_accessed_entity()
+    {
+        TL::AST_t ast = _ref.get_attribute(LANG_ACCESSED_ENTITY);
 
-		return Expression(ast, this->get_scope_link());
-	}
+        return Expression(ast, this->get_scope_link());
+    }
 
     Expression::OperationKind Expression::get_operation_kind()
     {
@@ -491,7 +562,7 @@ namespace TL
 
         Source declared_name_str = declared_name.prettyprint();
 
-		Scope sc = this->_scope_link.get_scope(declared_name);
+        Scope sc = this->_scope_link.get_scope(declared_name);
 
         AST_t expression_ast = declared_name_str.parse_expression(sc, this->_scope_link);
 
@@ -558,24 +629,24 @@ namespace TL
     void ForStatement::gather_for_information()
     {
         // First gather init expression and lower bound
-		// // std::cerr << "Gathering for-init-construct" << std::endl;
+        // // std::cerr << "Gathering for-init-construct" << std::endl;
         AST_t init_expr = _ref.get_attribute(LANG_FOR_INIT_CONSTRUCT);
 
         TL::Bool is_expression = init_expr.get_attribute(LANG_IS_EXPRESSION_NEST);
         if (is_expression)
         {
-			// // std::cerr << "Is an expression" << std::endl;
+            // // std::cerr << "Is an expression" << std::endl;
             Expression expr(init_expr, _scope_link);
 
             if (expr.is_assignment())
             {
-				// std::cerr << "Is an assignment" << std::endl;
+                // std::cerr << "Is an assignment" << std::endl;
                 Expression lhs_assignment = expr.get_first_operand();
                 Expression rhs_assignment = expr.get_second_operand();
 
                 if (lhs_assignment.is_id_expression())
                 {
-					// std::cerr << "LHS of expression is id_expression" << std::endl;
+                    // std::cerr << "LHS of expression is id_expression" << std::endl;
                     _induction_variable = lhs_assignment.get_ast();
                     _lower_bound = rhs_assignment.get_ast();
                 }
@@ -585,14 +656,14 @@ namespace TL
         TL::Bool is_declaration = init_expr.get_attribute(LANG_IS_DECLARATION);
         if (is_declaration)
         {
-			// std::cerr << "Is a declaration" << std::endl;
+            // std::cerr << "Is a declaration" << std::endl;
             Declaration declaration(init_expr, this->_scope_link);
 
             ObjectList<DeclaredEntity> declared_symbols = declaration.get_declared_entities();
 
             if (declared_symbols.size() == 1)
             {
-				// std::cerr << "Only one declared, ok" << std::endl;
+                // std::cerr << "Only one declared, ok" << std::endl;
                 DeclaredEntity declared_name = *(declared_symbols.begin());
 
                 IdExpression declared_entity = declared_name.get_declared_entity();
@@ -600,32 +671,32 @@ namespace TL
                 _induction_variable = declared_entity.get_ast();
                 AST_t initializer = declared_name.get_initializer().get_ast();
 
-				PredicateBool<LANG_IS_EXPRESSION_NEST> expression_pred;
+                PredicateBool<LANG_IS_EXPRESSION_NEST> expression_pred;
 
-				ObjectList<AST_t> expressions = initializer.depth_subtrees().filter(expression_pred);
-				if (!expressions.empty())
-				{
-					_lower_bound = *(expressions.begin());
-				}
+                ObjectList<AST_t> expressions = initializer.depth_subtrees().filter(expression_pred);
+                if (!expressions.empty())
+                {
+                    _lower_bound = *(expressions.begin());
+                }
             }
         }
 
-		// std::cerr << "Induction variable '" << _induction_variable.prettyprint() << "'" << std::endl;
-		// std::cerr << "Lower bound '" << _lower_bound.prettyprint() << "'" << std::endl;
+        // std::cerr << "Induction variable '" << _induction_variable.prettyprint() << "'" << std::endl;
+        // std::cerr << "Lower bound '" << _lower_bound.prettyprint() << "'" << std::endl;
 
         // Now gather upper bound
-		// std::cerr << "Gathering upper bound" << std::endl;
+        // std::cerr << "Gathering upper bound" << std::endl;
         AST_t condition = _ref.get_attribute(LANG_FOR_CONDITION);
         is_expression = condition.get_attribute(LANG_IS_EXPRESSION_NEST);
 
         if (is_expression)
         {
-			// std::cerr << "Upper bound is an expression, ok" << std::endl;
+            // std::cerr << "Upper bound is an expression, ok" << std::endl;
             Expression expression(condition, _scope_link);
 
             if (expression.is_binary_operation())
             {
-				// std::cerr << "Upper bound appears in a binary expression" << std::endl;
+                // std::cerr << "Upper bound appears in a binary expression" << std::endl;
                 Expression right_hand = expression.get_second_operand();
 
                 switch ((int)expression.get_operation_kind())
@@ -657,7 +728,7 @@ namespace TL
                 }
             }
 
-			// std::cerr << "Upper bound is '" << _upper_bound.prettyprint() << "'" << std::endl;
+            // std::cerr << "Upper bound is '" << _upper_bound.prettyprint() << "'" << std::endl;
         }
 
         // Now get the step

@@ -225,14 +225,14 @@ void temporal_files_cleanup(void)
         // If no keep, remove file
         if (!compilation_options.keep_files)
         {
-			if (iter->info != NULL)
-			{
-				if (compilation_options.verbose)
-				{
-					fprintf(stderr, "Removing temporal filename '%s'\n", iter->info->name);
-				}
-				remove(iter->info->name);
-			}
+            if (iter->info != NULL)
+            {
+                if (compilation_options.verbose)
+                {
+                    fprintf(stderr, "Removing temporal filename '%s'\n", iter->info->name);
+                }
+                remove(iter->info->name);
+            }
         }
 
         iter = iter->next;
@@ -260,7 +260,7 @@ int execute_program(char* program_name, char** arguments)
         execvp_arguments[i+1] = arguments[i];
     }
 
-	execvp_arguments[i+1] = NULL;
+    execvp_arguments[i+1] = NULL;
 
     if (compilation_options.verbose)
     {

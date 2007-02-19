@@ -76,10 +76,10 @@ struct option getopt_long_options[] =
     {"check-dates", no_argument, NULL, 'a'},
     {"debug",       no_argument, NULL, 'd'},
     {"output",      required_argument, NULL, 'o'},
-	// This option has a chicken-and-egg problem. If we delay till getopt_long
-	// to open the configuration file we overwrite variables defined in the
-	// command line. Thus "load_configuration" is invoked before command line parsing
-	// and looks for "--config-file" / "-m" in the arguments
+    // This option has a chicken-and-egg problem. If we delay till getopt_long
+    // to open the configuration file we overwrite variables defined in the
+    // command line. Thus "load_configuration" is invoked before command line parsing
+    // and looks for "--config-file" / "-m" in the arguments
     {"config-file", required_argument, NULL, 'm'},
     {"output-dir",  required_argument, NULL, OPTION_OUTPUT_DIRECTORY},
     {"cc", required_argument, NULL, OPTION_NATIVE_COMPILER_NAME},
@@ -88,8 +88,8 @@ struct option getopt_long_options[] =
     {"ld", required_argument, NULL, OPTION_LINKER_NAME},
     {"debug-flags",  required_argument, NULL, OPTION_DEBUG_FLAG},
     {"help-debug-flags", no_argument, NULL, OPTION_HELP_DEBUG_FLAGS},
-	{"no-openmp", no_argument, NULL, OPTION_NO_OPENMP},
-	{"variable-name", required_argument, NULL, OPTION_EXTERNAL_VAR},
+    {"no-openmp", no_argument, NULL, OPTION_NO_OPENMP},
+    {"variable-name", required_argument, NULL, OPTION_EXTERNAL_VAR},
     // sentinel
     {NULL, 0, NULL, 0}
 };
@@ -138,22 +138,22 @@ int main(int argc, char* argv[])
     // Initialization of the driver
     driver_initialization(argc, argv);
 
-	// Default values
+    // Default values
     initialize_default_values();
 
-	// Register default initializers
-	register_default_initializers();
+    // Register default initializers
+    register_default_initializers();
 
     // Load configuration
     load_configuration();
 
-	// Loads the compiler phases
-	load_compiler_phases();
+    // Loads the compiler phases
+    load_compiler_phases();
 
-	// Compiler phases can define additional dynamic initializers
-	// (besides the built in ones)
-	run_dynamic_initializers();
-	
+    // Compiler phases can define additional dynamic initializers
+    // (besides the built in ones)
+    run_dynamic_initializers();
+    
     // Parse arguments
     parse_arguments(compilation_options.argc, 
         compilation_options.argv, /* from_command_line= */1);
@@ -226,10 +226,10 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
     int indexptr;
     char* output_file = NULL;
 
-	// Flags -E/-y and -c are incompatible
-	static char c_specified = 0;
-	static char E_specified = 0;
-	static char y_specified = 0;
+    // Flags -E/-y and -c are incompatible
+    static char c_specified = 0;
+    static char E_specified = 0;
+    static char y_specified = 0;
 
     while ((c = getopt_long (argc, argv, GETOPT_STRING, 
                     getopt_long_options, 
@@ -255,24 +255,24 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 }
             case 'c' : // -c
                 {
-					if (y_specified || E_specified)
-					{
-						running_error("Parameter -c cannot be used together with -E or -y");
-					}
+                    if (y_specified || E_specified)
+                    {
+                        running_error("Parameter -c cannot be used together with -E or -y");
+                    }
 
-					c_specified = 1;
+                    c_specified = 1;
 
                     compilation_options.do_not_link = 1;
                     break;
                 }
             case 'E' : // -E
                 {
-					if (c_specified || y_specified)
-					{
-						running_error("Parameter -E cannot be used together with -c or -y");
-					}
+                    if (c_specified || y_specified)
+                    {
+                        running_error("Parameter -E cannot be used together with -c or -y");
+                    }
 
-					E_specified = 1;
+                    E_specified = 1;
 
                     compilation_options.do_not_compile = 1;
                     compilation_options.do_not_link = 1;
@@ -280,12 +280,12 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 }
             case 'y' : // -y
                 {
-					if (c_specified || E_specified)
-					{
-						running_error("Parameter -y cannot be used together with -c or -E");
-					}
+                    if (c_specified || E_specified)
+                    {
+                        running_error("Parameter -y cannot be used together with -c or -E");
+                    }
 
-					y_specified = 1;
+                    y_specified = 1;
 
                     compilation_options.do_not_compile = 1;
                     compilation_options.do_not_link = 1;
@@ -299,8 +299,8 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 }
             case 'm' :
                 {
-					// This option is handled in "load_configuration"
-					// and ignore here for getopt_long happiness
+                    // This option is handled in "load_configuration"
+                    // and ignore here for getopt_long happiness
                     break;
                 }
             case 'o' :
@@ -345,40 +345,40 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                     compilation_options.output_directory = strdup(optarg);
                     break;
                 }
-			case OPTION_NO_OPENMP :
-				{
-					compilation_options.disable_openmp = 1;
-					break;
-				}
+            case OPTION_NO_OPENMP :
+                {
+                    compilation_options.disable_openmp = 1;
+                    break;
+                }
             case OPTION_HELP_DEBUG_FLAGS :
                 {
                     print_debug_flags_list();
                     exit(EXIT_SUCCESS);
-					break;
+                    break;
                 }
-			case OPTION_EXTERNAL_VAR :
-				{
-					if (strchr(optarg, ':') == NULL)
-					{
-						fprintf(stderr, "External variable '%s' definition is missing a colon. It will be ignored\n",
-								optarg);
-						break;
-					}
+            case OPTION_EXTERNAL_VAR :
+                {
+                    if (strchr(optarg, ':') == NULL)
+                    {
+                        fprintf(stderr, "External variable '%s' definition is missing a colon. It will be ignored\n",
+                                optarg);
+                        break;
+                    }
 
-					char* name = strdup(optarg);
-					char* value = strchr(name, ':');
-					*value = '\0';
-					value++;
+                    char* name = strdup(optarg);
+                    char* value = strchr(name, ':');
+                    *value = '\0';
+                    value++;
 
-					external_var_t* new_external_var = calloc(1, sizeof(*new_external_var));
+                    external_var_t* new_external_var = calloc(1, sizeof(*new_external_var));
 
-					new_external_var->name = name;
-					new_external_var->value = value;
+                    new_external_var->name = name;
+                    new_external_var->value = value;
 
-					P_LIST_ADD(compilation_options.external_vars, compilation_options.num_external_vars,
-							new_external_var);
-					break;
-				}
+                    P_LIST_ADD(compilation_options.external_vars, compilation_options.num_external_vars,
+                            new_external_var);
+                    break;
+                }
             case 'h' :
                 {
                     help_message();
@@ -397,13 +397,13 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
         options_error("You must specify an input file.");
     }
 
-	// "-o -" is not valid when compilation or linking will be done
-	if (output_file != NULL
-			&& (strcmp(output_file, "-") == 0)
-			&& !E_specified)
-	{
-		running_error("You must use -E if you want to use stdout as output");
-	}
+    // "-o -" is not valid when compilation or linking will be done
+    if (output_file != NULL
+            && (strcmp(output_file, "-") == 0)
+            && !E_specified)
+    {
+        running_error("You must use -E if you want to use stdout as output");
+    }
 
     int i = 1;
     while (optind < argc)
@@ -423,8 +423,8 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 translation_unit_t* translation_unit = calloc(1, sizeof(*translation_unit));
                 translation_unit->input_filename = strdup(argv[optind]);
 
-				if (compilation_options.do_not_link
-						|| compilation_options.do_not_compile)
+                if (compilation_options.do_not_link
+                        || compilation_options.do_not_compile)
                 {
                     translation_unit->output_filename = output_file;
                 }
@@ -517,7 +517,7 @@ static void parse_subcommand_arguments(char* arguments)
     {
         (*existing_options)[num_existing_options + i] = parameters[i];
     }
-	(*existing_options)[num_existing_options + i] = NULL;
+    (*existing_options)[num_existing_options + i] = NULL;
 }
 
 static void initialize_default_values(void)
@@ -541,7 +541,7 @@ static void initialize_default_values(void)
 
 static void register_default_initializers(void)
 {
-	register_dynamic_initializer(build_scope_dynamic_initializer);
+    register_dynamic_initializer(build_scope_dynamic_initializer);
 }
 
 static void print_version(void)
@@ -584,36 +584,36 @@ static int parameter_callback(char* parameter, char* value)
 
 static void load_configuration(void)
 {
-	// Solve here the egg and chicken problem of the option --config-file / -m
-	int i;
-	for (i = 1; i < compilation_options.argc; i++)
-	{
-		// First case "-m" "file"
-		if (strcmp(compilation_options.argv[i], "-m") == 0)
-		{
-			if ((i + 1) < compilation_options.argc)
-			{
-				compilation_options.config_file = 
-					strdup(compilation_options.argv[i+1]);
-				i++;
-			}
-		}
-		// Second case -mfile
-		else if (strncmp(compilation_options.argv[i], "-m", strlen("-m")) == 0)
-		{
-			compilation_options.config_file = 
-				strdup(&(compilation_options.argv[i][strlen("-m")]));
-		}
-		// Third case --config-file=file
-		// FIXME: GNU getopt_long is kind enough to allow you to specify just a
-		// preffix of the option. At the moment do not try to emulate this feature here
-		else if (strncmp(compilation_options.argv[i], 
-					"--config-file=", strlen("--config-file=")) == 0)
-		{
-			compilation_options.config_file = 
-				strdup(&(compilation_options.argv[i][strlen("--config-file=") ]));
-		}
-	}
+    // Solve here the egg and chicken problem of the option --config-file / -m
+    int i;
+    for (i = 1; i < compilation_options.argc; i++)
+    {
+        // First case "-m" "file"
+        if (strcmp(compilation_options.argv[i], "-m") == 0)
+        {
+            if ((i + 1) < compilation_options.argc)
+            {
+                compilation_options.config_file = 
+                    strdup(compilation_options.argv[i+1]);
+                i++;
+            }
+        }
+        // Second case -mfile
+        else if (strncmp(compilation_options.argv[i], "-m", strlen("-m")) == 0)
+        {
+            compilation_options.config_file = 
+                strdup(&(compilation_options.argv[i][strlen("-m")]));
+        }
+        // Third case --config-file=file
+        // FIXME: GNU getopt_long is kind enough to allow you to specify just a
+        // preffix of the option. At the moment do not try to emulate this feature here
+        else if (strncmp(compilation_options.argv[i], 
+                    "--config-file=", strlen("--config-file=")) == 0)
+        {
+            compilation_options.config_file = 
+                strdup(&(compilation_options.argv[i][strlen("--config-file=") ]));
+        }
+    }
 
     int result = param_process(compilation_options.config_file, MS_STYLE, 
             section_callback, parameter_callback);
@@ -732,21 +732,21 @@ static void compile_every_translation_unit(void)
 
         parse_translation_unit(translation_unit, parsed_filename);
 
-		compiler_phases_execution(translation_unit, parsed_filename);
+        compiler_phases_execution(translation_unit, parsed_filename);
 
-		if (compilation_options.debug_options.print_ast)
-		{
-			fprintf(stderr, "Printing AST in graphviz format\n");
+        if (compilation_options.debug_options.print_ast)
+        {
+            fprintf(stderr, "Printing AST in graphviz format\n");
 
-			ast_dump_graphviz(translation_unit->parsed_tree, stdout);
-		}
+            ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+        }
 
-		if (compilation_options.debug_options.print_scope)
-		{
-			fprintf(stderr, "============ SYMBOL TABLE ===============\n");
-			print_scope(translation_unit->global_scope);
-			fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
-		}
+        if (compilation_options.debug_options.print_scope)
+        {
+            fprintf(stderr, "============ SYMBOL TABLE ===============\n");
+            print_scope(translation_unit->global_scope);
+            fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
+        }
 
         char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);
 
@@ -757,19 +757,19 @@ static void compile_every_translation_unit(void)
 void start_compiler_phase_execution(translation_unit_t* translation_unit);
 
 static void compiler_phases_execution(translation_unit_t* translation_unit, 
-		char* parsed_filename)
+        char* parsed_filename)
 {
-	timing_t time_phases;
-	timing_start(&time_phases);
+    timing_t time_phases;
+    timing_start(&time_phases);
 
-	start_compiler_phase_execution(translation_unit);
+    start_compiler_phase_execution(translation_unit);
 
-	timing_end(&time_phases);
+    timing_end(&time_phases);
 
-	if (compilation_options.verbose)
-	{
-		fprintf(stderr, "Compiler phases pipeline executed in %.2f seconds\n", timing_elapsed(&time_phases));
-	}
+    if (compilation_options.verbose)
+    {
+        fprintf(stderr, "Compiler phases pipeline executed in %.2f seconds\n", timing_elapsed(&time_phases));
+    }
 }
 
 static void parse_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
@@ -781,7 +781,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 
     timing_start(&timing_parsing);
 
-	int parse_result = 0;
+    int parse_result = 0;
     CXX_LANGUAGE()
     {
         parse_result = mcxxparse(&(translation_unit->parsed_tree));
@@ -792,10 +792,10 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
         parse_result = mc99parse(&(translation_unit->parsed_tree));
     }
 
-	if (parse_result != 0)
-	{
-		running_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
-	}
+    if (parse_result != 0)
+    {
+        running_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
+    }
 
     timing_end(&timing_parsing);
 
@@ -832,42 +832,42 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
         return NULL;
     }
 
-	FILE* prettyprint_file;
-	char* output_filename = NULL;
+    FILE* prettyprint_file;
+    char* output_filename = NULL;
 
     if (compilation_options.do_not_compile
             && compilation_options.do_not_link
             && strcmp(translation_unit->output_filename, "-") == 0)
-	{
-		prettyprint_file = stdout;
-		output_filename = "(stdout)";
-	}
-	else
-	{
-		char* input_filename_basename = NULL;
-		input_filename_basename = give_basename(translation_unit->input_filename);
+    {
+        prettyprint_file = stdout;
+        output_filename = "(stdout)";
+    }
+    else
+    {
+        char* input_filename_basename = NULL;
+        input_filename_basename = give_basename(translation_unit->input_filename);
 
-		char* preffix = strappend(compilation_options.exec_basename, "_");
+        char* preffix = strappend(compilation_options.exec_basename, "_");
 
-		char* output_filename_basename = NULL; 
-		output_filename_basename = strappend(preffix,
-				input_filename_basename);
+        char* output_filename_basename = NULL; 
+        output_filename_basename = strappend(preffix,
+                input_filename_basename);
 
-		if (compilation_options.output_directory == NULL)
-		{
-			char* input_filename_dirname = give_dirname(translation_unit->input_filename);
-			input_filename_dirname = strappend(input_filename_dirname, "/");
+        if (compilation_options.output_directory == NULL)
+        {
+            char* input_filename_dirname = give_dirname(translation_unit->input_filename);
+            input_filename_dirname = strappend(input_filename_dirname, "/");
 
-			output_filename = strappend(input_filename_dirname,
-					output_filename_basename);
-		}
-		else
-		{
-			output_filename = strappend(compilation_options.output_directory, "/");
-			output_filename = strappend(output_filename, output_filename_basename);
-		}
-		prettyprint_file = fopen(output_filename, "w");
-	}
+            output_filename = strappend(input_filename_dirname,
+                    output_filename_basename);
+        }
+        else
+        {
+            output_filename = strappend(compilation_options.output_directory, "/");
+            output_filename = strappend(output_filename, output_filename_basename);
+        }
+        prettyprint_file = fopen(output_filename, "w");
+    }
 
 
     if (prettyprint_file == NULL)
@@ -877,12 +877,12 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
     }
     
 
-	timing_t time_print;
-	timing_start(&time_print);
+    timing_t time_print;
+    timing_start(&time_print);
 
     prettyprint(prettyprint_file, translation_unit->parsed_tree);
 
-	timing_end(&time_print);
+    timing_end(&time_print);
     if (compilation_options.verbose)
     {
         fprintf(stderr, "Prettyprinted into file '%s' in %.2f seconds\n", output_filename, timing_elapsed(&time_print));
@@ -1112,17 +1112,17 @@ extern void load_compiler_phases_cxx(void);
 
 static void load_compiler_phases(void)
 {
-	timing_t loading_phases;
-	timing_start(&loading_phases);
+    timing_t loading_phases;
+    timing_start(&loading_phases);
 
-	// This invokes a C++ routine that will dlopen all libraries, get the proper symbol
-	// and fill an array of compiler phases
-	load_compiler_phases_cxx();
+    // This invokes a C++ routine that will dlopen all libraries, get the proper symbol
+    // and fill an array of compiler phases
+    load_compiler_phases_cxx();
 
-	timing_end(&loading_phases);
+    timing_end(&loading_phases);
 
-	if (compilation_options.verbose)
-	{
-		fprintf(stderr, "Compiler phases loaded in %.2f seconds\n", timing_elapsed(&loading_phases));
-	}
+    if (compilation_options.verbose)
+    {
+        fprintf(stderr, "Compiler phases loaded in %.2f seconds\n", timing_elapsed(&loading_phases));
+    }
 }

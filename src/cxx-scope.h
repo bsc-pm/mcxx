@@ -41,7 +41,7 @@ enum cxx_symbol_kind
     SK_TEMPLATE_PRIMARY_CLASS, // [9] this names a primary template
     SK_TEMPLATE_SPECIALIZED_CLASS, // [10] this names a specialized template class
     SK_TEMPLATE_FUNCTION, // [11] this names a template function
-	SK_TEMPLATE_ALIAS, // [12] this names something that aliases a template-name (used solely in instantiation)
+    SK_TEMPLATE_ALIAS, // [12] this names something that aliases a template-name (used solely in instantiation)
     SK_TEMPLATE_PARAMETER, // [13] nontype parameters like N in "template<int N>"
     SK_TEMPLATE_TYPE_PARAMETER, // [14] plain type parameters like T in "template <class T>"
     SK_TEMPLATE_TEMPLATE_PARAMETER, // [15] template template parameters like Q in "template<template<typename P> class Q>"
@@ -101,7 +101,7 @@ typedef enum simple_type_kind_tag
     STK_USER_DEFINED, // [5] A {identifier};
     // Templates stuff
     STK_TYPE_TEMPLATE_PARAMETER, // [6] template <class {identifier}> struct B {};
-	STK_TEMPLATE_TEMPLATE_PARAMETER, // [7] template <template <...> class {identifier}> struct B {};
+    STK_TEMPLATE_TEMPLATE_PARAMETER, // [7] template <template <...> class {identifier}> struct B {};
     STK_TEMPLATE_DEPENDENT_TYPE, // [8] template <class T> struct B { typename T::a {identifier}; };
     // GCC Extensions
     STK_VA_LIST, // [9] __builtin_va_list {identifier};
@@ -134,7 +134,7 @@ typedef struct template_parameter
     enum template_parameter_kind kind;
     char* template_parameter_name;
 
-	struct scope_entry_tag* template_parameter_symbol;
+    struct scope_entry_tag* template_parameter_symbol;
 
     struct type_tag* type_info;
 
@@ -279,10 +279,12 @@ typedef struct simple_type_tag {
     struct scope_tag* typeof_scope;
 
     // For instantiation purposes
-	// 
-	// The specialized template has already been instantiated
+    // 
+    // The specialized template has already been instantiated
     char from_instantiation; 
     
+    // Saved decl_context for classes
+    struct decl_context_tag* decl_context;
 } simple_type_t;
 
 typedef struct parameter_info_tag
@@ -309,9 +311,9 @@ typedef struct function_tag
     int is_pure; // is_pure implies is_virtual
     int is_explicit;
 
-	// States if this function has been declared or defined 
-	// without prototype. This is only meaningful in C
-	int lacks_prototype;
+    // States if this function has been declared or defined 
+    // without prototype. This is only meaningful in C
+    int lacks_prototype;
 
     int is_constructor; // States if this functions is a constructor
 
@@ -319,7 +321,7 @@ typedef struct function_tag
     int num_template_parameters;
     template_parameter_t** template_parameter_info;
 
-	// This is for template functions
+    // This is for template functions
     int num_template_parameters_in_scope;
     template_parameter_t** template_parameter_in_scope_info;
 
@@ -421,19 +423,19 @@ typedef struct scope_entry_tag
 
     char injected_class_name;
     struct scope_entry_tag* injected_class_referred_symbol;
-	
-	// For template-alias
-	struct type_tag* template_alias_type;
+    
+    // For template-alias
+    struct type_tag* template_alias_type;
 
     // Is a member ?
     char is_member;
     // of who ?
     struct type_tag* class_type;
 
-	// Point in the AST where this was declared. This is approximate, just to
-	// find the simple_declaration, member_declaration or function_definition
-	// holding this one
-	AST point_of_declaration;
+    // Point in the AST where this was declared. This is approximate, just to
+    // find the simple_declaration, member_declaration or function_definition
+    // holding this one
+    AST point_of_declaration;
 
     // Dependency info. It states if this symbol has a template-dependent nature
     // A value of DI_UNKNOWN means this has not been already computed
@@ -475,8 +477,8 @@ typedef struct scope_tag
     // Hash of scope_entry_list
     Hash* hash;
 
-	// Qualification name
-	char* qualification_name;
+    // Qualification name
+    char* qualification_name;
 
     // Relationships with other scopes
     // Nesting relationship is expressed by "contained_in"
@@ -598,6 +600,8 @@ scope_t* copy_scope(scope_t* st);
 
 // Get the fully qualified symbol name in the scope of the ocurrence
 char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st);
+char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st);
+char same_scope(scope_t* stA, scope_t* stB);
 
 #undef BITMAP
 

@@ -12,188 +12,195 @@
 
 namespace TL
 {
-	class FunctionDefinition;
-	class IdExpression;
-	class LangConstruct
-	{
-		protected:
-			AST_t _ref;
-			ScopeLink _scope_link;
-		public:
-			LangConstruct(AST_t ref, ScopeLink scope_link)
-				: _ref(ref), _scope_link(scope_link)
-			{
-			}
+    class FunctionDefinition;
+    class IdExpression;
+    class LangConstruct
+    {
+        protected:
+            AST_t _ref;
+            ScopeLink _scope_link;
+        public:
+            LangConstruct(AST_t ref, ScopeLink scope_link)
+                : _ref(ref), _scope_link(scope_link)
+            {
+            }
 
-			enum SymbolsWanted
-			{
-				ALL_SYMBOLS = 0,
-				ONLY_OBJECTS,
-				ONLY_VARIABLES = ONLY_OBJECTS, // A useful alias
-				ONLY_FUNCTIONS
-			};
+            enum SymbolsWanted
+            {
+                ALL_SYMBOLS = 0,
+                ONLY_OBJECTS,
+                ONLY_VARIABLES = ONLY_OBJECTS, // A useful alias
+                ONLY_FUNCTIONS
+            };
 
-			std::string prettyprint();
+            std::string prettyprint();
 
-			AST_t get_ast()
-			{
-				return _ref;
-			}
+            AST_t get_ast()
+            {
+                return _ref;
+            }
 
-			ScopeLink get_scope_link()
-			{
-				return _scope_link;
-			}
+            ScopeLink get_scope_link()
+            {
+                return _scope_link;
+            }
 
-			Scope get_scope()
-			{
-				return _scope_link.get_scope(_ref);
-			}
+            Scope get_scope()
+            {
+                return _scope_link.get_scope(_ref);
+            }
 
-			FunctionDefinition get_enclosing_function();
+            FunctionDefinition get_enclosing_function();
 
-			ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
-			ObjectList<IdExpression> local_symbol_occurrences();
-	};
+            ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
+            ObjectList<IdExpression> local_symbol_occurrences();
+    };
 
     class Declaration;
 
-	enum IdExpressionCriteria
-	{
-		VALID_SYMBOLS = 0,
-		INVALID_SYMBOLS,
-		ALL_FOUND_SYMBOLS
-	};
+    enum IdExpressionCriteria
+    {
+        VALID_SYMBOLS = 0,
+        INVALID_SYMBOLS,
+        ALL_FOUND_SYMBOLS
+    };
 
-	class IdExpression : public LangConstruct
-	{
-		public:
-			IdExpression(AST_t ref, ScopeLink scope_link)
-				: LangConstruct(ref, scope_link)
-			{
-			}
+    class IdExpression : public LangConstruct
+    {
+        public:
+            IdExpression(AST_t ref, ScopeLink scope_link)
+                : LangConstruct(ref, scope_link)
+            {
+            }
 
-			std::string mangle_id_expression() const;
+            std::string mangle_id_expression() const;
 
-			std::string get_qualified_part() const;
-			std::string get_unqualified_part() const;
+            std::string get_qualified_part() const;
+            std::string get_unqualified_part(bool with_template_id = false) const;
 
-			bool is_qualified() const;
-			bool is_unqualified() const;
+            bool is_qualified() const;
+            bool is_unqualified() const;
 
-			Symbol get_symbol() const;
-			AST_t get_ast() const;
+            bool is_template_id() const;
+            std::string get_template_name() const;
+            std::string get_template_arguments() const;
+
+            Symbol get_symbol() const;
+            AST_t get_ast() const;
 
             Declaration get_declaration();
-	};
+    };
 
-	class Statement : public LangConstruct
-	{
-		public:
-			Statement(AST_t ref, ScopeLink scope_link)
-				: LangConstruct(ref, scope_link)
-			{
-			}
+    class Statement : public LangConstruct
+    {
+        public:
+            Statement(AST_t ref, ScopeLink scope_link)
+                : LangConstruct(ref, scope_link)
+            {
+            }
 
 
-			ObjectList<Symbol> symbols();
-			ObjectList<Symbol> non_local_symbols();
+            ObjectList<Symbol> symbols();
+            ObjectList<Symbol> non_local_symbols();
 
-//			ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
-//			ObjectList<IdExpression> local_symbol_occurrences();
-	};
+//            ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
+//            ObjectList<IdExpression> local_symbol_occurrences();
+    };
 
-	class Expression;
-	class ForStatement : public Statement
-	{
-		private:
-			AST_t _induction_variable;
-			AST_t _lower_bound;
-			AST_t _upper_bound;
-			AST_t _step;
+    class Expression;
+    class ForStatement : public Statement
+    {
+        private:
+            AST_t _induction_variable;
+            AST_t _lower_bound;
+            AST_t _upper_bound;
+            AST_t _step;
 
-			void gather_for_information();
-			bool check_statement();
-		public:
-			ForStatement(AST_t ref, ScopeLink scope_link)
-				: Statement(ref, scope_link)
-			{
-				if (check_statement())
-				{
-					gather_for_information();
-				}
-			}
+            void gather_for_information();
+            bool check_statement();
+        public:
+            ForStatement(AST_t ref, ScopeLink scope_link)
+                : Statement(ref, scope_link)
+            {
+                if (check_statement())
+                {
+                    gather_for_information();
+                }
+            }
 
-			ForStatement(const Statement& st)
-				 : Statement(st)
-			{
-				if (check_statement())
-				{
-					gather_for_information();
-				}
-			}
+            ForStatement(const Statement& st)
+                 : Statement(st)
+            {
+                if (check_statement())
+                {
+                    gather_for_information();
+                }
+            }
 
-			IdExpression get_induction_variable();
-			Expression get_lower_bound();
-			Expression get_upper_bound();
-			Expression get_step();
+            IdExpression get_induction_variable();
+            Expression get_lower_bound();
+            Expression get_upper_bound();
+            Expression get_step();
 
-			Statement get_loop_body();
+            Statement get_loop_body();
 
-			bool regular_loop();
-	};
+            bool regular_loop();
+    };
 
-	class FunctionDefinition : public LangConstruct
-	{
-		public:
-			void prepend_sibling(AST_t);
+    class FunctionDefinition : public LangConstruct
+    {
+        public:
+            void prepend_sibling(AST_t);
 
-			FunctionDefinition(AST_t ref, ScopeLink scope_link)
-				: LangConstruct(ref, scope_link)
-			{
-			}
+            FunctionDefinition(AST_t ref, ScopeLink scope_link)
+                : LangConstruct(ref, scope_link)
+            {
+            }
 
-			IdExpression get_function_name();
-			Statement get_function_body();
-	};
+            IdExpression get_function_name();
+            Statement get_function_body();
+
+            bool is_templated() const;
+            ObjectList<AST_t> get_template_header();
+    };
 
     class Expression : public LangConstruct
     {
         private:
             static AST_t advance_over_nests(AST_t);
         public :
-			enum OperationKind
-			{
-				UNKNOWN = 0,
-				DERREFERENCE,
-				REFERENCE,
-				PLUS,
-				MINUS,
-				ADDITION,
-				SUBSTRACTION,
-				MULTIPLICATION,
-				DIVISION,
-				MODULUS,
-				SHIFT_LEFT,
-				SHIFT_RIGHT,
-				LOGICAL_OR,
-				LOGICAL_AND,
-				LOGICAL_NOT,
-				BITWISE_OR,
-				BITWISE_AND,
-				BITWISE_XOR,
-				BITWISE_NOT,
-				LOWER_THAN,
-				GREATER_THAN,
-				LOWER_EQUAL_THAN,
-				GREATER_EQUAL_THAN,
-				COMPARISON,
-				DIFFERENT,
-				PREINCREMENT,
-				POSTINCREMENT,
-				PREDECREMENT,
-				POSTDECREMENT
-			};
+            enum OperationKind
+            {
+                UNKNOWN = 0,
+                DERREFERENCE,
+                REFERENCE,
+                PLUS,
+                MINUS,
+                ADDITION,
+                SUBSTRACTION,
+                MULTIPLICATION,
+                DIVISION,
+                MODULUS,
+                SHIFT_LEFT,
+                SHIFT_RIGHT,
+                LOGICAL_OR,
+                LOGICAL_AND,
+                LOGICAL_NOT,
+                BITWISE_OR,
+                BITWISE_AND,
+                BITWISE_XOR,
+                BITWISE_NOT,
+                LOWER_THAN,
+                GREATER_THAN,
+                LOWER_EQUAL_THAN,
+                GREATER_EQUAL_THAN,
+                COMPARISON,
+                DIFFERENT,
+                PREINCREMENT,
+                POSTINCREMENT,
+                PREDECREMENT,
+                POSTDECREMENT
+            };
 
             Expression(AST_t ref, ScopeLink scope_link)
                 : LangConstruct(ref, scope_link)
@@ -215,32 +222,32 @@ namespace TL
             AST_t get_cast_type();
             Expression get_casted_expression();
 
-			// exprC(expr-list)
-			bool is_function_call();
-			// exprC
-			Expression get_called_expression();
-			// expr-list
-			ObjectList<Expression> get_argument_list();
+            // exprC(expr-list)
+            bool is_function_call();
+            // exprC
+            Expression get_called_expression();
+            // expr-list
+            ObjectList<Expression> get_argument_list();
 
-			// expr = expr
+            // expr = expr
             bool is_assignment();
 
-			// expr op= expr
+            // expr op= expr
             bool is_operation_assignment();
 
-			// expr[expr]
+            // expr[expr]
             bool is_array_subscript();
 
-			// exprA.exprM
-			bool is_member_access();
-			// exprA->exprM
-			bool is_pointer_member_access();
-			// exprA
-			Expression get_accessed_entity();
-			// exprM
-			IdExpression get_accessed_member();
+            // exprA.exprM
+            bool is_member_access();
+            // exprA->exprM
+            bool is_pointer_member_access();
+            // exprA
+            Expression get_accessed_entity();
+            // exprM
+            IdExpression get_accessed_member();
 
-			OperationKind get_operation_kind();
+            OperationKind get_operation_kind();
     };
 
     class DeclaredEntity : public LangConstruct
@@ -277,76 +284,79 @@ namespace TL
 
             ObjectList<DeclaredEntity> get_declared_entities();
             DeclarationSpec get_declaration_specifiers();
+
+            bool is_templated();
+            ObjectList<AST_t> get_template_header();
     };
 
-	class ReplaceIdExpression : public ObjectList<std::pair<Symbol, AST_t> >
-	{
-		private:
-			std::map<Symbol, AST_t> _repl_map;
-		public:
-			ReplaceIdExpression()
-			{
-			}
+    class ReplaceIdExpression : public ObjectList<std::pair<Symbol, AST_t> >
+    {
+        private:
+            std::map<Symbol, AST_t> _repl_map;
+        public:
+            ReplaceIdExpression()
+            {
+            }
 
-			void add_replacement(Symbol sym, AST_t ast);
-			void add_replacement(Symbol sym, std::string str);
-			void add_replacement(Symbol sym, Source src);
+            void add_replacement(Symbol sym, AST_t ast);
+            void add_replacement(Symbol sym, std::string str);
+            void add_replacement(Symbol sym, Source src);
 
-			bool has_replacement(Symbol sym);
+            bool has_replacement(Symbol sym);
 
-			template <class T>
-			T replace(T orig_stmt)
-			{
-				std::pair<AST_t, ScopeLink> modified_statement = 
-					orig_stmt.get_ast().duplicate_with_scope(orig_stmt.get_scope_link());
+            template <class T>
+            T replace(T orig_stmt)
+            {
+                std::pair<AST_t, ScopeLink> modified_statement = 
+                    orig_stmt.get_ast().duplicate_with_scope(orig_stmt.get_scope_link());
 
-				T result(modified_statement.first, modified_statement.second);
+                T result(modified_statement.first, modified_statement.second);
 
-				ObjectList<IdExpression> id_expressions = result.non_local_symbol_occurrences();
+                ObjectList<IdExpression> id_expressions = result.non_local_symbol_occurrences();
 
-				for (ObjectList<IdExpression>::iterator it = id_expressions.begin();
-						it != id_expressions.end();
-						it++)
-				{
-					Symbol sym = it->get_symbol();
+                for (ObjectList<IdExpression>::iterator it = id_expressions.begin();
+                        it != id_expressions.end();
+                        it++)
+                {
+                    Symbol sym = it->get_symbol();
 
-					if (_repl_map.find(sym) != _repl_map.end())
-					{
-						AST_t repl_ast = _repl_map[sym];
-						AST_t orig_ast = it->get_ast();
+                    if (_repl_map.find(sym) != _repl_map.end())
+                    {
+                        AST_t repl_ast = _repl_map[sym];
+                        AST_t orig_ast = it->get_ast();
 
-						orig_ast.replace_with(repl_ast);
-					}
-				}
+                        orig_ast.replace_with(repl_ast);
+                    }
+                }
 
-				return result;
-			}
-	};
+                return result;
+            }
+    };
 
-	// This is something common, it is a good candidate to be taken off here
-	class GetSymbolFromAST : public Functor<Symbol, AST_t>
-	{
-		private:
-			ScopeLink scope_link;
-		public:
-			virtual Symbol operator()(AST_t& ast) const 
-			{
-				Scope sc = scope_link.get_scope(ast);
+    // This is something common, it is a good candidate to be taken off here
+    class GetSymbolFromAST : public Functor<Symbol, AST_t>
+    {
+        private:
+            ScopeLink scope_link;
+        public:
+            virtual Symbol operator()(AST_t& ast) const 
+            {
+                Scope sc = scope_link.get_scope(ast);
 
-				Symbol result = sc.get_symbol_from_id_expr(ast);
+                Symbol result = sc.get_symbol_from_id_expr(ast);
 
-				return result;
-			}
+                return result;
+            }
 
-			GetSymbolFromAST(ScopeLink _scope_link)
-				: scope_link(_scope_link)
-			{
-			}
+            GetSymbolFromAST(ScopeLink _scope_link)
+                : scope_link(_scope_link)
+            {
+            }
 
-			~GetSymbolFromAST()
-			{
-			}
-	};
+            ~GetSymbolFromAST()
+            {
+            }
+    };
 }
 
 #endif // TL_LANGCONSTRUCT_HPP

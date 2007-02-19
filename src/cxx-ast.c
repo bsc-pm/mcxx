@@ -37,8 +37,8 @@ AST ASTMake(node_t type, int num_children, const AST child0, const AST child1, c
     result->line = line;
     result->filename = scanning_now.current_filename;
 
-	result->extended_data = calloc(1, sizeof(*(result->extended_data)));
-	extensible_struct_init(result->extended_data, &ast_extensible_schema);
+    result->extended_data = calloc(1, sizeof(*(result->extended_data)));
+    extensible_struct_init(result->extended_data, &ast_extensible_schema);
 
 #define ADD_SON(n) \
     ASTChild##n(result) = child##n; \
@@ -117,13 +117,13 @@ AST duplicate_ast(AST a)
 
     AST result = calloc(1, sizeof(*result));
 
-	// extensible_struct_t orig_extended_data = result->extended_data;
+    // extensible_struct_t orig_extended_data = result->extended_data;
 
     // Copy everything by value
     *result = *a;
 
-	// Restore original extended data
-	// result->extended_data = orig_extended_data;
+    // Restore original extended data
+    // result->extended_data = orig_extended_data;
 
     int i;
     for (i = 0; i < ASTNumChildren(result); i++)

@@ -18,9 +18,9 @@ extern "C" {
 
 struct extensible_schema_tag
 {
-	int num_fields;
-	char** field_names;
-	size_t* field_sizes;
+    int num_fields;
+    char** field_names;
+    size_t* field_sizes;
 };
 
 typedef struct extensible_schema_tag extensible_schema_t;
@@ -46,18 +46,18 @@ typedef struct extensible_schema_tag extensible_schema_t;
  */
 struct extensible_struct_tag
 {
-	// The related schema of this extensible_struct_t
-	extensible_schema_t* schema;
+    // The related schema of this extensible_struct_t
+    extensible_schema_t* schema;
 
-	// Number of fields 
-	int num_active_fields;
+    // Number of fields 
+    int num_active_fields;
 
-	// Offsets of structs within 'data' array
+    // Offsets of structs within 'data' array
     int* offsets_data;
 
-	// The data
-	int data_size;
-	char* data;
+    // The data
+    int data_size;
+    char* data;
 };
 
 typedef struct extensible_struct_tag extensible_struct_t;
@@ -67,22 +67,22 @@ typedef struct extensible_struct_tag extensible_struct_t;
 extensible_schema_t extensible_schema_new();
 void extensible_schema_init(extensible_schema_t* schema);
 int extensible_schema_add_field(extensible_schema_t* schema, 
-		const char* field_name, 
-		size_t field_size);
+        const char* field_name, 
+        size_t field_size);
 int extensible_schema_get_field_order(extensible_schema_t* schema,
-		const char* field_name);
+        const char* field_name);
 
 // Extensible struct operations
 void extensible_struct_init(extensible_struct_t* extensible_struct, extensible_schema_t* schema);
 void extensible_struct_allocate_field(extensible_schema_t* schema,
-		extensible_struct_t* extensible_struct,
-		int schema_field_order);
+        extensible_struct_t* extensible_struct,
+        int schema_field_order);
 void extensible_struct_activate_field(extensible_schema_t* schema,
-		extensible_struct_t* extensible_struct,
-		int schema_field_order);
+        extensible_struct_t* extensible_struct,
+        int schema_field_order);
 void* extensible_struct_get_field_pointer(extensible_schema_t* schema,
-		extensible_struct_t* extensible_struct,
-		const char* field_name);
+        extensible_struct_t* extensible_struct,
+        const char* field_name);
 
 #ifdef __cplusplus
 }

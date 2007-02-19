@@ -3,13 +3,13 @@
 
 namespace TL
 {
-	class OpenMPTransform;
+    class OpenMPTransform;
 
-	class OpenMPImpl
-	{
-		public:
-			OpenMPImpl(OpenMPTransform& _trans);
-	};
+    class OpenMPImpl
+    {
+        public:
+            OpenMPImpl(OpenMPTransform& _trans);
+    };
 }
 
 #endif // TL_OMPTRANSFORM_HPP

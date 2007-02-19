@@ -6,17 +6,17 @@
 
 namespace TL
 {
-	class CompilerPhase : Object
-	{
-		protected:
-			virtual tl_type_t* get_extended_attribute(const std::string& str) const
-			{
-				return NULL;
-			}
-		public:
-			virtual void run(DTO& data_flow) = 0;
-			virtual ~CompilerPhase() { }
-	};
+    class CompilerPhase : Object
+    {
+        protected:
+            virtual tl_type_t* get_extended_attribute(const std::string& str) const
+            {
+                return NULL;
+            }
+        public:
+            virtual void run(DTO& data_flow) = 0;
+            virtual ~CompilerPhase() { }
+    };
 }
 
 #define EXPORT_PHASE(ClassName) \
