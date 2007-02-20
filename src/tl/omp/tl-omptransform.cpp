@@ -1720,10 +1720,62 @@ namespace TL
                 Source outlined_function_name_decl;
 
                 IdExpression function_name = function_definition.get_function_name();
-                outlined_function_name_decl << outlined_function_name;
-                if (function_name.is_template_id())
+                Symbol function_symbol = function_name.get_symbol();
+
+                // We have to ensure that this qualification refers to the proper function
+                // in C++ this is achieved via a casting. A cast of an overload function name
+                // does not obey unconditionally the programmer but selects the proper overloaded
+                // function (if any, otherwise the program is ill-formed)
+                if (function_symbol.is_template_function())
                 {
-                    outlined_function_name_decl << function_name.get_template_arguments();
+                    Source overload_selector_cast;
+
+                    overload_selector_cast << "(void (*) (";
+
+                    for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                            it != parameter_info_list.end();
+                            it++)
+                    {
+                        if (it != parameter_info_list.begin())
+                        {
+                            overload_selector_cast << ", ";
+                        }
+
+                        overload_selector_cast << it->type.get_declaration(function_definition.get_scope(), "");
+                    }
+
+                    overload_selector_cast << "))";
+
+                    outlined_function_name_decl << overload_selector_cast;
+                }
+
+                outlined_function_name_decl << outlined_function_name;
+                if (function_symbol.is_template_function())
+                {
+                    ObjectList<AST_t> template_headers = function_definition.get_template_header();
+
+                    if (!template_headers.empty())
+                    {
+                        outlined_function_name_decl << "<";
+                        AST_t last_template_header = *(template_headers.rbegin());
+
+                        PredicateBool<LANG_IS_TEMPLATE_PARAMETER> template_parameter_pred;
+                        ObjectList<AST_t> template_parameters = last_template_header.depth_subtrees(template_parameter_pred);
+
+                        for (ObjectList<AST_t>::iterator it = template_parameters.begin();
+                                it != template_parameters.end();
+                                it++)
+                        {
+                            if (it != template_parameters.begin())
+                            {
+                                outlined_function_name_decl << ", ";
+                            }
+
+                            outlined_function_name_decl << it->prettyprint();
+                        }
+
+                        outlined_function_name_decl << ">";
+                    }
                 }
 
                 // The skeleton of the spawn code will be this one
@@ -2285,6 +2337,7 @@ namespace TL
 
                 Source result;
                 result
+                    << template_header
                     << forward_declaration
                     << template_header
                     << static_qualifier

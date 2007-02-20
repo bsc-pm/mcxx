@@ -60,6 +60,7 @@ namespace TL
             bool is_variable() const;
             bool is_typename() const;
             bool is_function() const;
+            bool is_template_function() const;
             bool is_member() const;
 
             Type get_class_type() const;

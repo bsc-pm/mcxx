@@ -3754,6 +3754,8 @@ static void build_scope_template_template_parameter(AST a, scope_t* st,
         AST symbol = ASTSon1(a);
         char* name = ASTText(symbol);
 
+        ASTAttrSetValueType(symbol, LANG_IS_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
+
         scope_entry_t* new_entry = new_symbol(st, name);
         new_entry->line = ASTLine(symbol);
         new_entry->point_of_declaration = symbol;
@@ -3867,6 +3869,8 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
         new_entry->type_information = new_type;
         new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
 
+        ASTAttrSetValueType(name, LANG_IS_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
+
         // And save it in the type
         template_parameters->template_parameter_name = strdup(ASTText(name));
 
@@ -3951,6 +3955,10 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
             template_parameters->template_parameter_symbol = entry;
             simple_type_info->type->template_parameter_name = entry->symbol_name;
         }
+
+        AST declarator_name = get_declarator_name(parameter_declarator, st, decl_context);
+
+        ASTAttrSetValueType(declarator_name, LANG_IS_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
     }
     // If we don't have a declarator just save the base type
     else
