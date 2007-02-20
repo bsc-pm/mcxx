@@ -41,24 +41,37 @@ namespace TL
 		int          _id;
 		IdExpression _variable;
 		int          _task_id;
+		int          _input_task_id;
+		int          _output_task_id;
 		std::string  _name;
 		
 		public:
-		StreamInfo(int id, const IdExpression& variable, int task_id)
+		StreamInfo(int id, const IdExpression& variable, 
+				int task_id, int input_task_id, int output_task_id)
 			: _id(id)
 			, _variable(variable)
 			, _task_id(task_id)
+			, _input_task_id(input_task_id)
+			, _output_task_id(output_task_id)
 		{
 			_name= _variable.prettyprint();
 		}
 		
-		IdExpression get_variable()
+		const IdExpression& get_variable() const
 		{
 			return _variable;
 		}
-		int get_task_id()
+		int get_task_id() const
 		{
 			return _task_id;
+		}
+		int get_input_task_id() const
+		{
+			return _input_task_id;
+		}
+		int get_output_task_id() const
+		{
+			return _output_task_id;
 		}
 		std::string get_name() const 
 		{
@@ -104,26 +117,26 @@ namespace TL
 			
 			return code.str();
 		}
-		std::string get_pop_code(bool desreference= false) const
+		std::string get_pop_code() const
 		{
 			std::stringstream code;
 			
 			code
 				<< "istream_pop"
-				<< "( " << (desreference?"&":"") << get_istream_name()
+				<< "( " << get_istream_name()
 				<< ", &" << get_var_name()
 				<< ");" 
 				;
 			
 			return code.str();
 		}
-		std::string get_push_code(bool desreference= false) const
+		std::string get_push_code() const
 		{
 			std::stringstream code;
 			
 			code
 				<< "ostream_push"
-				<< "( " << (desreference?"&":"") << get_ostream_name()
+				<< "( " << get_ostream_name()
 				<< ", &" << get_var_name()
 				<< ");" 
 				;
@@ -276,7 +289,8 @@ namespace TL
 	{
 		private:
 		int              _id;
-		ObjectList<int>  _task_id_list;
+		ObjectList<int>  _tasks;
+		ObjectList<int>  _streams;
 		
 		public:
 		TaskGroupInfo(int id)
@@ -289,31 +303,39 @@ namespace TL
 			return _id;
 		}	
 		
-		void add_task_id(int task_id)
+		void add_task(int task_id)
 		{
-			_task_id_list.push_back(task_id);
+			_tasks.push_back(task_id);
 		}
-		ObjectList<int> get_task_id_list()
+		ObjectList<int> get_tasks()
 		{
-			return _task_id_list;
+			return _tasks;
+		}
+		void add_stream(int stream_id)
+		{
+			_streams.push_back(stream_id);
+		}
+		ObjectList<int> get_streams()
+		{
+			return _streams;
 		}
 	};
 	
 	class AcotesTransform : public PragmaCustomCompilerPhase 
 	{
 		private:
-		std::stack<int>            _task_group_stack;
+		std::stack<int>            _taskgroup_stack;
 		std::stack<int>            _task_stack;
 		
-		std::vector<TaskGroupInfo> _task_group_info_vector;
+		std::vector<TaskGroupInfo> _taskgroup_info_vector;
 		std::vector<TaskInfo>      _task_info_vector;
 		std::vector<StreamInfo>    _stream_info_vector;
 
 		private:
-		int create_task_group_info()
+		int create_taskgroup_info()
 		{
-			int id= _task_group_info_vector.size();
-			_task_group_info_vector.push_back(id);
+			int id= _taskgroup_info_vector.size();
+			_taskgroup_info_vector.push_back(id);
 			
 			return id;
 		}
@@ -326,11 +348,11 @@ namespace TL
 			return id;
 		}
 		
-		int create_stream_info(const IdExpression& var, int task_id)
+		int create_stream_info(const IdExpression& var, int task_id, int input_task_id, int output_task_id)
 		{
 			int id= _stream_info_vector.size();
 
-			StreamInfo stream_info(id, var, task_id);
+			StreamInfo stream_info(id, var, task_id, input_task_id, output_task_id);
 			_stream_info_vector.push_back(stream_info);
 			
 			return id;
@@ -357,7 +379,7 @@ namespace TL
 		void taskgroup_preorder(PragmaCustomConstruct pragma_custom_construct)
 		{
 			// Push a new task group info and the implicit task_info
-			_task_group_stack.push(create_task_group_info());
+			_taskgroup_stack.push(create_taskgroup_info());
 			_task_stack.push(create_task_info());
 		}
 
@@ -372,7 +394,7 @@ namespace TL
 		{
 			// - Obtain environment  
 			// Obtain current taskgroup id and task id
-			int task_group_id= _task_group_stack.top();
+			int taskgroup_id= _taskgroup_stack.top();
 			int task_id= _task_stack.top();
 			
 			// Pop & Obtain parent task id
@@ -380,14 +402,17 @@ namespace TL
 			int task_parent_id= _task_stack.top();
 			
 			// Obtain tasks and taskgroup instances
-			TaskGroupInfo& task_group_info= _task_group_info_vector.at(task_group_id);
+			TaskGroupInfo& taskgroup_info= _taskgroup_info_vector.at(taskgroup_id);
 			TaskInfo&      task_info= _task_info_vector.at(task_id);
 			TaskInfo&      task_parent_info= _task_info_vector.at(task_parent_id);
+			
+			ObjectList<int> nested_input_ids= task_info.get_nested_inputs();
+			ObjectList<int> nested_output_ids= task_info.get_nested_outputs();
 			
 			
 			// - Obtain data from source  
 			// Register task info at taskgroup
-			task_group_info.add_task_id(task_id);
+			taskgroup_info.add_task(task_id);
 
 			// Look for the clauses
 			PragmaCustomClause input_clause= 
@@ -420,6 +445,9 @@ namespace TL
 			Source task_struct_vars_src;
 			Source task_struct_iss_src;
 			Source task_struct_oss_src;
+			Source task_struct_nested_src;
+			Source task_struct_nested_iss_src;
+			Source task_struct_nested_oss_src;
 
 			Source task_outline_src;
 			Source task_outline_initialization_src;
@@ -429,6 +457,9 @@ namespace TL
 			Source task_outline_initialization_state_vars_src;
 			Source task_outline_initialization_state_iss_src;
 			Source task_outline_initialization_state_oss_src;
+			Source task_outline_initialization_state_nested_src;
+			Source task_outline_initialization_state_nested_iss_src;
+			Source task_outline_initialization_state_nested_oss_src;
 			Source task_outline_initialization_state_error_src;
 			Source task_outline_loop_src;
 			Source task_outline_loop_condition_src;
@@ -438,6 +469,9 @@ namespace TL
 			Source task_outline_finalization_closes_src;
 			Source task_outline_finalization_closes_iss_src;
 			Source task_outline_finalization_closes_oss_src;
+			Source task_outline_finalization_closes_nested_src;
+			Source task_outline_finalization_closes_nested_iss_src;
+			Source task_outline_finalization_closes_nested_oss_src;
 			Source task_outline_finalization_trace_src;
 
 			
@@ -452,6 +486,64 @@ namespace TL
 			std::string struct_name= task_info.get_struct_name();
 
 
+			// task_struct_nested_iss_src
+			// task_outline_initialization_state_nested_iss_src
+			// task_outline_finalization_closes_nested_iss_src
+			foreach (int,it,nested_input_ids)
+			{
+				int stream_id= *it;
+				StreamInfo& stream_info= _stream_info_vector.at(stream_id);
+				
+				// Declares the reverse end streams
+				task_struct_nested_iss_src
+					<< "ostream_t " << stream_info.get_ostream_name() << ";"
+					;
+					
+				// Sets the value for the stream
+				task_outline_initialization_state_nested_iss_src
+					<< "ostream_t* " << stream_info.get_ostream_name() 
+					<< "= " 
+					<< "&" << STATE_NAME << "->" << stream_info.get_ostream_name() 
+					<< ";"
+					;
+					
+				// Closes the used stream
+				task_outline_finalization_closes_nested_iss_src
+					<< "ostream_close"
+					<< "( " << stream_info.get_ostream_name()
+					<< ");"
+					;
+			}
+
+
+			// task_struct_nested_oss_src
+			// task_outline_initialization_state_nested_oss_src
+			// task_outline_finalization_closes_nested_oss_src
+			foreach (int,it,nested_output_ids)
+			{
+				int stream_id= *it;
+				StreamInfo& stream_info= _stream_info_vector.at(stream_id);
+				
+				// Declares the reverse end streams
+				task_struct_nested_oss_src
+					<< "istream_t* " << stream_info.get_istream_name() << ";"
+					;
+					
+				// Sets the value for the stream state value
+				task_outline_initialization_state_nested_oss_src
+					<< "istream_t* " << stream_info.get_istream_name() 
+					<< "= " 
+					<< "&" << STATE_NAME << "->" << stream_info.get_istream_name() 
+					<< ";"
+					;				
+					
+				// Closes the used stream
+				task_outline_finalization_closes_nested_oss_src
+					<< "istream_close"
+					<< "( " << stream_info.get_istream_name()
+					<< ");"
+					;
+			}
 			
 			
 			// task_struct_vars
@@ -492,7 +584,7 @@ namespace TL
 				IdExpression& var= *it;
 				
 				// Create stream
-				int stream_id= create_stream_info(var, task_id);
+				int stream_id= create_stream_info(var, task_id, task_id, task_parent_id);
 				StreamInfo stream_info= _stream_info_vector.at(stream_id);
 				std::string stream_name= stream_info.get_name();
 				std::string istream_name= stream_info.get_istream_name();
@@ -502,6 +594,7 @@ namespace TL
 				// Add streams to task 
 				task_info.add_input(stream_id);
 				task_parent_info.add_nested_input(stream_id);
+				taskgroup_info.add_stream(stream_id);
 				
 				// Declare variable 
 				task_struct_iss_src
@@ -525,7 +618,7 @@ namespace TL
 					
 				// Stream pushes to this task
 				task_replace_pushes_src
-					<< stream_info.get_push_code(true)
+					<< stream_info.get_push_code()
 					;
 			}
 			
@@ -540,17 +633,18 @@ namespace TL
 				IdExpression& var= *it;
 				
 				// Create stream
-				int stream_id= create_stream_info(var, task_id);
+				int stream_id= create_stream_info(var, task_id, task_parent_id, task_id);
 				StreamInfo stream_info= _stream_info_vector.at(stream_id);
-				
-				// Add streams to task 
-				task_info.add_output(stream_id);
-				task_parent_info.add_nested_output(stream_id);
 				std::string stream_name= stream_info.get_name();
 				std::string ostream_name= stream_info.get_ostream_name();
 				std::string var_name= stream_name;
 				std::string istream_name= stream_info.get_istream_name();
 				
+				// Add streams to task 
+				task_info.add_output(stream_id);
+				task_parent_info.add_nested_output(stream_id);
+				taskgroup_info.add_stream(stream_id);
+
 				// Declare variable 
 				task_struct_oss_src
 					<< stream_info.get_ostream_declare_code()
@@ -573,17 +667,25 @@ namespace TL
 
 				// Stream pops to this task
 				task_replace_pops_src
-					<< stream_info.get_pop_code(true)
+					<< stream_info.get_pop_code()
 					;
 			}
 			
-			// task_struct
+			
+			// task_struct_nested_src
+			task_struct_nested_src
+				<< task_struct_nested_iss_src
+				<< task_struct_nested_oss_src
+				;			
+			
+			// task_struct_src
 			task_struct_src
 				<< struct_name 
 				<< "{"
 				<<   task_struct_vars_src
 				<<   task_struct_iss_src
 				<<   task_struct_oss_src
+				<<   task_struct_nested_src
 				<<   "stream_error_t "<< ERROR_NAME <<";"
 				<< "};"
 				;
@@ -596,7 +698,7 @@ namespace TL
             	<< ";"
             	;
             	
-            // task_outline_initialization_trace
+            // task_outline_initialization_trace_src
             task_outline_initialization_trace_src
             	<< "acotrace_init(1," << task_id << ");"
             	; 
@@ -609,11 +711,18 @@ namespace TL
             	<< ";"
             	;
             
-            // task_outline_initialization_state
+            // task_outline_initialization_state_nested_src
+            task_outline_initialization_state_nested_src
+            	<< task_outline_initialization_state_nested_iss_src
+            	<< task_outline_initialization_state_nested_oss_src
+            	;            
+            
+            // task_outline_initialization_state_src
             task_outline_initialization_state_src
             	<< task_outline_initialization_state_vars_src
 				<< task_outline_initialization_state_iss_src
 				<< task_outline_initialization_state_oss_src
+				<< task_outline_initialization_state_nested_src
 				<< task_outline_initialization_state_error_src
 				;
 				
@@ -645,10 +754,17 @@ namespace TL
 				<< "acotrace_fini();"
 				;
 
+			// task_outline_finalization_closes_nested_src
+			task_outline_finalization_closes_nested_src
+				<< task_outline_finalization_closes_nested_iss_src
+				<< task_outline_finalization_closes_nested_oss_src
+				;
+
 			// task_outline_finalization_closes_src
 			task_outline_finalization_closes_src
 				<< task_outline_finalization_closes_iss_src
 				<< task_outline_finalization_closes_oss_src
+				<< task_outline_finalization_closes_nested_src
 				;
 
 			// task_outline_finalization_trace_src
@@ -717,22 +833,23 @@ namespace TL
 		void taskgroup_postorder(PragmaCustomConstruct pragma_custom_construct)
 		{
 			// Obtain current taskgroup id and implicit task id
-			int task_group_id= _task_group_stack.top();
+			int taskgroup_id= _taskgroup_stack.top();
 			int task_implicit_id= _task_stack.top();
 			
 			// Pop current task info			
-			_task_group_stack.pop();
+			_taskgroup_stack.pop();
 			_task_stack.pop();
 			
 			// Obtain task and taskgroup instances
-			TaskGroupInfo&  task_group_info= _task_group_info_vector.at(task_group_id);
+			TaskGroupInfo&  taskgroup_info= _taskgroup_info_vector.at(taskgroup_id);
 			TaskInfo&       task_implicit_info= _task_info_vector.at(task_implicit_id);
-			ObjectList<int> task_ids= task_group_info.get_task_id_list();
+			ObjectList<int> task_ids= taskgroup_info.get_tasks();
 						
 	
 			// Obtain nested streams
 			ObjectList<int> nested_input_ids= task_implicit_info.get_nested_inputs();
 			ObjectList<int> nested_output_ids= task_implicit_info.get_nested_outputs();
+			ObjectList<int> streams_ids= taskgroup_info.get_streams();
 			
 			
 
@@ -778,13 +895,17 @@ namespace TL
 				
 				// Declares the reverse end streams
 				taskgroup_replace_initialization_declare_iss_src
-					<< stream_info.get_ostream_declare_code() 
+					<< "ostream_t " << stream_info.get_ostream_name() << "_object;"
+					<< "ostream_t* " << stream_info.get_ostream_name() 
+					<< "= " 
+					<< "&" << stream_info.get_ostream_name() << "_object" 
+					<< ";"
 					;
 					
 				// Constructs the reverse end streams
 				taskgroup_replace_initialization_create_iss_src
 					<< "ostream_create"
-					<< "( &" << stream_info.get_ostream_name()
+					<< "( " << stream_info.get_ostream_name()
 					<< ", sizeof(" << stream_info.get_var_name() << ")"
 					<< ", " << ERROR_NAME
 					<< ");"
@@ -793,14 +914,14 @@ namespace TL
 				// Closes the used stream
 				taskgroup_replace_closes_iss_src
 					<< "ostream_close"
-					<< "( &" << stream_info.get_ostream_name()
+					<< "( " << stream_info.get_ostream_name()
 					<< ");"
 					;
 					
 				// Destroys the stream
 				taskgroup_replace_finalization_streams_nested_iss_src
 					<< "ostream_destroy"
-					<< "( &" << stream_info.get_ostream_name()
+					<< "( " << stream_info.get_ostream_name()
 					<< ");"
 					;
 			}
@@ -817,13 +938,17 @@ namespace TL
 				
 				// Declares the reverse end streams
 				taskgroup_replace_initialization_declare_oss_src
-					<< stream_info.get_istream_declare_code() 
+					<< "istream_t " << stream_info.get_istream_name() << "_object;"
+					<< "istream_t* " << stream_info.get_istream_name() 
+					<< "= " 
+					<< "&" << stream_info.get_istream_name() << "_object" 
+					<< ";"
 					;
 					
 				// Constructs the reverse end streams
 				taskgroup_replace_initialization_create_oss_src
 					<< "istream_create"
-					<< "( &" << stream_info.get_istream_name()
+					<< "( " << stream_info.get_istream_name()
 					<< ", sizeof(" << stream_info.get_var_name() << ")"
 					<< ", " << ERROR_NAME
 					<< ");"
@@ -832,21 +957,66 @@ namespace TL
 				// Closes the used stream
 				taskgroup_replace_closes_oss_src
 					<< "istream_close"
-					<< "( &" << stream_info.get_istream_name()
+					<< "( " << stream_info.get_istream_name()
 					<< ");"
 					;
 										
 				// Destroys the streams
 				taskgroup_replace_finalization_streams_nested_oss_src
 					<< "istream_destroy"
-					<< "( &" << stream_info.get_istream_name()
+					<< "( " << stream_info.get_istream_name()
 					<< ");"
 					;
 			}
 
+			// taskgroup_replace_initialization_connect_src
+			foreach (int,it,streams_ids)
+			{
+				int stream_id= *it;
+				StreamInfo& stream_info= _stream_info_vector.at(stream_id);
+				
+				int input_task_id= stream_info.get_input_task_id(); 
+				int output_task_id= stream_info.get_output_task_id();
+				TaskInfo& input_task_info= _task_info_vector.at(input_task_id); 
+				TaskInfo& output_task_info= _task_info_vector.at(output_task_id); 
+				
+				std::string istream_name;
+				std::string ostream_name;
+				
+				if (input_task_id == task_implicit_id)
+				{
+					istream_name= stream_info.get_istream_name();
+				}
+				else
+				{
+					istream_name= std::string("&")
+						+ input_task_info.get_state_name()
+						+ std::string(".")
+						+ stream_info.get_istream_name();
+				}
+
+				if (output_task_id == task_implicit_id)
+				{
+					ostream_name= stream_info.get_ostream_name();
+				}
+				else
+				{
+					ostream_name= std::string("&")
+						+ output_task_info.get_state_name()
+						+ std::string(".")
+						+ stream_info.get_ostream_name();
+				}
+
+				// Connect this stream
+				taskgroup_replace_initialization_connect_src
+					<< "ostream_connect"
+					<< "( " << ostream_name
+					<< ", " << istream_name 
+					<< ");"
+					;
+			}
 
 			// taskgroup_replace_initialization_alltask_src 
-			// ~ // taskgroup_replace_initialization_connect_src
 			// taskgroup_replace_start_src
 			// taskgroup_replace_join_src
 			// taskgroup_replace_finalization_streams_tasks_error_src
@@ -863,7 +1033,9 @@ namespace TL
 				Source task_initialization_state_error_src;
 				Source task_initialization_state_iss_src;
 				Source task_initialization_state_oss_src;
-				
+				Source task_initialization_state_nested_src;
+				Source task_initialization_state_nested_iss_src;
+				Source task_initialization_state_nested_oss_src;
 				
 				int task_id= *it;
 				TaskInfo& task_info= _task_info_vector.at(task_id);
@@ -873,6 +1045,8 @@ namespace TL
 				ObjectList<IdExpression> vars= task_info.get_state();
 				ObjectList<int>          inputs= task_info.get_inputs();
 				ObjectList<int>          outputs= task_info.get_outputs();
+				ObjectList<int>          nested_inputs= task_info.get_nested_inputs();
+				ObjectList<int>          nested_outputs= task_info.get_nested_outputs();
 				
 				Source thread_name;
 				
@@ -906,21 +1080,13 @@ namespace TL
 					std::string var_name= stream_info.get_var_name();
 					std::string istream_name= stream_info.get_istream_name();
 					std::string ostream_name= stream_info.get_ostream_name();
-					
+
 					// Adds state stream creation
 					task_initialization_state_iss_src
 						<< "istream_create"
 						<< "( &" << state_name << "." << istream_name
 						<< ", sizeof(" << var_name << ")"
 						<< ", &" << state_name << "." << ERROR_NAME
-						<< ");"
-						;
-						
-					// Connect this stream
-					taskgroup_replace_initialization_connect_src
-						<< "ostream_connect"
-						<< "( &" << ostream_name
-						<< ", &" << state_name << "." << istream_name
 						<< ");"
 						;
 						
@@ -934,7 +1100,6 @@ namespace TL
 
 				
 				// task_initialization_state_oss_src
-				// taskgroup_replace_initialization_connect_src
 				// taskgroup_replace_finalization_streams_tasks_oss_src
 				foreach(int,it2,outputs)
 				{
@@ -954,18 +1119,64 @@ namespace TL
 						<< ");"
 						;
 						
-					// Connect this stream
-					taskgroup_replace_initialization_connect_src
-						<< "ostream_connect"
-						<< "( &" << state_name << "." << ostream_name
-						<< ", &" << istream_name
-						<< ");"
-						;
-						
 					// Destroy the created stream
 					taskgroup_replace_finalization_streams_tasks_oss_src
 						<< "ostream_destroy"
 						<< "( &" << state_name << "." << ostream_name
+						<< ");"
+						;
+				}
+
+				// task_initialization_state_iss_src
+				foreach(int,it2,nested_inputs)
+				{
+					int stream_id= *it2;
+					StreamInfo& stream_info= _stream_info_vector.at(stream_id);
+
+					std::string var_name= stream_info.get_var_name();
+					std::string istream_name= stream_info.get_istream_name();
+					std::string ostream_name= stream_info.get_ostream_name();
+					
+					// Adds state stream creation
+					task_initialization_state_iss_src
+						<< "ostream_create"
+						<< "( &" << state_name << "." << ostream_name
+						<< ", sizeof(" << var_name << ")"
+						<< ", &" << state_name << "." << ERROR_NAME
+						<< ");"
+						;
+						
+					// Destroy the created stream
+					taskgroup_replace_finalization_streams_tasks_iss_src
+						<< "ostream_destroy"
+						<< "( &" << state_name << "." << ostream_name
+						<< ");"
+						;
+				}
+
+				// task_initialization_state_oss_src
+				foreach(int,it2,nested_outputs)
+				{
+					int stream_id= *it2;
+					StreamInfo& stream_info= _stream_info_vector.at(stream_id);
+					
+					std::string var_name= stream_info.get_var_name();
+					std::string istream_name= stream_info.get_istream_name();
+					std::string ostream_name= stream_info.get_ostream_name();
+					
+					// Adds state stream creation
+					task_initialization_state_oss_src
+						<< "istream_create"
+						<< "( &" << state_name << "." << istream_name
+						<< ", sizeof(" << var_name << ")"
+						<< ", &" << state_name << "." << ERROR_NAME
+						<< ");"
+						;
+
+					// Destroy the created stream
+					taskgroup_replace_finalization_streams_tasks_oss_src
+						<< "istream_destroy"
+						<< "( &" << state_name << "." << istream_name
 						<< ");"
 						;
 				}
@@ -994,12 +1205,19 @@ namespace TL
 					<< ");"
 					;
 					
+				// task_initialization_state_nested_src
+				task_initialization_state_nested_src
+					<< task_initialization_state_nested_iss_src
+					<< task_initialization_state_nested_oss_src
+					;
+
 				// task_initialization_state_src
 				task_initialization_state_src
 					<< task_initialization_state_vars_src
 					<< task_initialization_state_error_src
 					<< task_initialization_state_iss_src
 					<< task_initialization_state_oss_src
+					<< task_initialization_state_nested_src
 					;
 				
 				// task_src
