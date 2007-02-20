@@ -1,4 +1,6 @@
-SUBDIRS = . omp instr mypragma
+SUBDIRS = . mypragma @tlextensions@
+
+DIST_SUBDIRS=omp instr acotes
 
 lib_LTLIBRARIES = libtl.la
 

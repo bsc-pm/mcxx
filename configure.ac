@@ -36,6 +36,78 @@ AC_PROG_CPP
 dnl Check c++
 AC_PROG_CXX
 
+tlextensions=""
+
+AC_MSG_CHECKING([if enabled OpenMP TL support])
+AC_ARG_ENABLE([tl-openmp],
+  AS_HELP_STRING([--disable-tl-openmp], [Disables generation of OpenMP TL support]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        tlextensions="${tlextensions} omp"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      tlextensions="${tlextensions} omp"
+      AC_MSG_RESULT([yes])
+  ]
+)
+
+AC_MSG_CHECKING([if enabled Mintaka instrumentation TL support])
+AC_ARG_ENABLE([tl-instrumentation],
+  AS_HELP_STRING([--disable-tl-instrumentation], [Disables generation of Mintaka instrumentation TL support]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        tlextensions="${tlextensions} instr"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      tlextensions="${tlextensions} instr"
+      AC_MSG_RESULT([yes])
+  ]
+)
+
+AC_MSG_CHECKING([if enabled ACOTES TL support])
+AC_ARG_ENABLE([tl-acotes],
+  AS_HELP_STRING([--disable-tl-acotes], [Disables generation of ACOTES TL Support]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        tlextensions="${tlextensions} acotes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      tlextensions="${tlextensions} acotes"
+      AC_MSG_RESULT([yes])
+  ]
+)
+
+dnl AC_MSG_NOTICE([TL extensions that will be built ${tlextensions}])
+
+AC_SUBST([tlextensions])
+
 enable_regeneration=yes
 dnl Enable bundled regex
 AC_ARG_ENABLE([file-regeneration],
@@ -237,9 +309,10 @@ AC_CONFIG_FILES([Makefile
            lib/Makefile
            src/Makefile 
            src/tl/Makefile 
+           src/tl/mypragma/Makefile 
            src/tl/omp/Makefile 
            src/tl/instr/Makefile 
-           src/tl/mypragma/Makefile 
+           src/tl/acotes/Makefile 
            config/Makefile
            tests/Makefile
            ])
