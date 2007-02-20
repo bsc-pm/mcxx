@@ -1753,6 +1753,7 @@ namespace TL
                 if (function_symbol.is_template_function())
                 {
                     ObjectList<AST_t> template_headers = function_definition.get_template_header();
+                    std::cerr << "(2) Num templates " << template_headers.size() << std::endl;
 
                     if (!template_headers.empty())
                     {
@@ -2302,6 +2303,7 @@ namespace TL
                 if (function_declaration.is_templated())
                 {
                     ObjectList<AST_t> template_headers = function_declaration.get_template_header();
+                    std::cerr << "(3) Num templates " << template_headers.size() << std::endl;
                     for (ObjectList<AST_t>::iterator it = template_headers.begin();
                             it != template_headers.end();
                             it++)
@@ -2337,7 +2339,6 @@ namespace TL
 
                 Source result;
                 result
-                    << template_header
                     << forward_declaration
                     << template_header
                     << static_qualifier
@@ -2352,6 +2353,7 @@ namespace TL
                 if (function_definition.is_templated())
                 {
                     ObjectList<AST_t> template_headers = function_definition.get_template_header();
+                    std::cerr << "(1) Num templates " << template_headers.size() << std::endl;
                     for (ObjectList<AST_t>::iterator it = template_headers.begin();
                             it != template_headers.end();
                             it++)
@@ -2382,6 +2384,7 @@ namespace TL
                     DeclaredEntity declared_entity = *(declared_entities.begin());
 
                     forward_declaration 
+                        << template_header
                         << decl_specs.prettyprint()
                         << " "
                         << declared_entity.prettyprint()
@@ -2552,6 +2555,11 @@ namespace TL
                     AST_t member_decl_tree = member_declaration.parse_member(decl.get_scope(), decl.get_scope_link(), class_type);
 
                     decl.get_ast().append(member_decl_tree);
+
+                    std::cerr << "Member function declaration: " 
+                        << std::endl
+                        << member_decl_tree.prettyprint()
+                        << std::endl;
                 }
 
                 AST_t result;
