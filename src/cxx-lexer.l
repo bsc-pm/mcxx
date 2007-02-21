@@ -522,14 +522,22 @@ none {
 }
 
 [)] {
-	parse_token_text();
-	omp_var_list_parentheses--;
-	if (omp_var_list_parentheses == 0)
-	{
-		BEGIN(openmp_clause);
-	}
-	return ')';
+    parse_token_text();
+    omp_var_list_parentheses--;
+    if (omp_var_list_parentheses == 0)
+    {
+        BEGIN(openmp_clause);
+    }
+    return ')';
 }
+
+[\n] {
+    // This happens only in custom clauses with no parameters at the end of the line
+    scanning_now.line_number++;
+    BEGIN(INITIAL);
+    return OMP_NEWLINE;
+}
+
 
 {idnondigit}({idnondigit}|{digit})* {
 	// Special case for custom clauses 
