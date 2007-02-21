@@ -37,6 +37,9 @@ dnl Check c++
 AC_PROG_CXX
 
 tlextensions=""
+enable_tl_omp="no"
+enable_tl_instr="no"
+enable_tl_acotes="no"
 
 AC_MSG_CHECKING([if enabled OpenMP TL support])
 AC_ARG_ENABLE([tl-openmp],
@@ -45,6 +48,7 @@ AC_ARG_ENABLE([tl-openmp],
     if test x$enableval = xyes -o x$enableval = x;
     then
         tlextensions="${tlextensions} omp"
+        enable_tl_omp="yes"
         AC_MSG_RESULT([yes])
     else if test x$enableval = xno;
          then
@@ -56,6 +60,7 @@ AC_ARG_ENABLE([tl-openmp],
   ],
   [
       tlextensions="${tlextensions} omp"
+      enable_tl_omp="yes"
       AC_MSG_RESULT([yes])
   ]
 )
@@ -67,6 +72,7 @@ AC_ARG_ENABLE([tl-instrumentation],
     if test x$enableval = xyes -o x$enableval = x;
     then
         tlextensions="${tlextensions} instr"
+        enable_tl_instr="yes"
         AC_MSG_RESULT([yes])
     else if test x$enableval = xno;
          then
@@ -78,6 +84,7 @@ AC_ARG_ENABLE([tl-instrumentation],
   ],
   [
       tlextensions="${tlextensions} instr"
+      enable_tl_instr="yes"
       AC_MSG_RESULT([yes])
   ]
 )
@@ -89,6 +96,7 @@ AC_ARG_ENABLE([tl-acotes],
     if test x$enableval = xyes -o x$enableval = x;
     then
         tlextensions="${tlextensions} acotes"
+        enable_tl_acotes="yes"
         AC_MSG_RESULT([yes])
     else if test x$enableval = xno;
          then
@@ -100,13 +108,101 @@ AC_ARG_ENABLE([tl-acotes],
   ],
   [
       tlextensions="${tlextensions} acotes"
+      enable_tl_acotes="yes"
       AC_MSG_RESULT([yes])
   ]
 )
 
-dnl AC_MSG_NOTICE([TL extensions that will be built ${tlextensions}])
-
 AC_SUBST([tlextensions])
+
+nanos4_include=""
+nanos4_lib=""
+MCXX_INCLUDES=""
+MCXX_LIBS=""
+if test x$enable_tl_omp = xyes;
+then
+   AC_ARG_WITH([nanos4],
+           AS_HELP_STRING([--with-nanos4=dir], [Directory of NANOS 4 installation]),
+           [
+            nanos4_include="${withval}/include"
+            nanos4_lib="${withval}/lib"
+           ]
+   )
+
+   AC_ARG_WITH([nanos4-include],
+           AS_HELP_STRING([--with-nanos4-include=dir], [Directory of NANOS 4 headers]),
+           [
+            nanos4_include="${withval}"
+           ]
+   )
+
+   AC_ARG_WITH([nanos4-lib],
+           AS_HELP_STRING([--with-nanos4-lib=dir], [Directory of NANOS 4 libraries]),
+           [
+            nanos4_lib="${withval}"
+           ]
+   )
+
+   if test x$nanos4_include = x -a x$nanos4_lib = x;
+   then
+      AC_MSG_NOTICE([You may want to use --with-nanos4 for better configuration of mcxx. See --help.])
+   fi
+
+   if ! test x$nanos4_include = x;
+   then
+      MCXX_INCLUDES="${MCXX_INCLUDES} -D_OPENMP=200505 -I ${nanos4_include} -include nthreads.h -include omp.h -include intone.h"
+   fi
+
+   if ! test x$nanos4_lib = x;
+   then
+      MCXX_LIBS="${MCXX_LIBS} -L ${nanos4_lib} -l nthreads"
+   fi
+fi
+
+mintaka_include=""
+mintaka_lib=""
+INSTRUMENTATION_PHASE=""
+if test x$enable_tl_instr = xyes;
+then
+   AC_ARG_WITH([mintaka],
+           AS_HELP_STRING([--with-mintaka=dir], [Directory of Mintaka installation]),
+           [
+            mintaka_include="${withval}/include"
+            mintaka_lib="${withval}/lib"
+           ]
+   )
+
+   AC_ARG_WITH([mintaka-include],
+           AS_HELP_STRING([--with-mintaka-include=dir], [Directory of Mintaka headers]),
+           [
+            mintaka_include="${withval}"
+           ]
+   )
+
+   AC_ARG_WITH([mintaka-lib],
+           AS_HELP_STRING([--with-mintaka-lib=dir], [Directory of Mintaka libraries]),
+           [
+            mintaka_lib="${withval}"
+           ]
+   )
+
+   if test x$mintaka_include = x -a x$mintaka_lib = x;
+   then
+      AC_MSG_NOTICE([You may want to use --with-mintaka for better configuration of mcxx. See --help.])
+   fi
+
+   if ! test x$mintaka_include = x;
+   then
+      MCXX_INCLUDES="${MCXX_INCLUDES} -I ${mintaka_include} -include mintaka.h"
+   fi
+
+   if ! test x$mintaka_lib = x;
+   then
+      MCXX_LIBS="${MCXX_LIBS} -L ${mintaka_lib} -l mintaka"
+   fi
+
+   INSTRUMENTATION_PHASE="compiler_phase = libtlinstr.so"
+fi
 
 enable_regeneration=yes
 dnl Enable bundled regex
@@ -304,6 +400,10 @@ AC_FUNC_ALLOCA
 
 AC_C_CONST
 
+AC_SUBST([MCXX_INCLUDES])
+AC_SUBST([MCXX_LIBS])
+AC_SUBST([INSTRUMENTATION_PHASE])
+
 dnl Write makefiles
 AC_CONFIG_FILES([Makefile 
            lib/Makefile
@@ -314,6 +414,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/instr/Makefile 
            src/tl/acotes/Makefile 
            config/Makefile
+           config/config.mcxx
            tests/Makefile
            ])
 AC_OUTPUT
