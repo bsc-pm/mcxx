@@ -433,6 +433,14 @@ namespace TL
 
                 // For each capture address entity just pass a reference to it
                 int num_reference_args = 0;
+
+                // This might be needed for nonstatic member functions
+                if (is_nonstatic_member_function(function_definition))
+                {
+                    task_parameter_list.append_with_separator("this", ",");
+                    num_reference_args++;
+                }
+
                 for (ObjectList<IdExpression>::iterator it = captureaddress_references.begin();
                         it != captureaddress_references.end();
                         it++)
@@ -491,6 +499,12 @@ namespace TL
                 // (i.e. NTH_CANNOT_ALLOCATE_TASK is returned)
                 Source fallback_capture_values;
                 Source fallback_arguments;
+                
+                // This might be needed for nonstatic member functions
+                if (is_nonstatic_member_function(function_definition))
+                {
+                    fallback_arguments.append_with_separator("this", ",");
+                }
 
                 // Capture address entities are easy, just pass the vector
                 for (ObjectList<IdExpression>::iterator it = captureaddress_references.begin();
@@ -3214,6 +3228,24 @@ namespace TL
                             "&" + it->prettyprint(),
                             *it, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
+                }
+
+                if (is_nonstatic_member_function(function_definition))
+                {
+                    // Calls to nonstatic member functions within the body of the construct
+                    // of a nonstatic member function
+                    ObjectList<IdExpression> function_references = 
+                        construct_body.non_local_symbol_occurrences(Statement::ONLY_FUNCTIONS);
+                    for (ObjectList<IdExpression>::iterator it = function_references.begin();
+                            it != function_references.end();
+                            it++)
+                    {
+                        if (is_unqualified_member_symbol(*it, function_definition))
+                        {
+                            Symbol symbol = it->get_symbol();
+                            result.add_replacement(symbol, "_this->" + it->prettyprint() );
+                        }
+                    }
                 }
 
                 return result;

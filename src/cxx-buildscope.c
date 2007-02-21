@@ -1431,8 +1431,13 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
     scope_entry_list_t* entry_list = query_nested_name(st, global_op, nested_name_spec, 
             type_name, FULL_UNQUALIFIED_LOOKUP, decl_context);
 
-    ERROR_CONDITION((entry_list == NULL), "The list of types of type '%s' is empty! (%s)\n", 
-            prettyprint_in_buffer(a), node_information(a));
+    // ERROR_CONDITION((entry_list == NULL), "The list of types of type '%s' is empty! (%s)\n", 
+    //         prettyprint_in_buffer(a), node_information(a));
+    if (entry_list == NULL)
+    {
+        running_error("The type name '%s' has not been found in the scope of %s. Did you forget to declare it ?\n",
+                prettyprint_in_buffer(a), node_information(a));
+    }
 
     // Filter for non types hiding this type name
     // Fix this, it sounds a bit awkward
