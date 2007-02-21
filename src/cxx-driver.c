@@ -405,6 +405,14 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
         running_error("You must use -E if you want to use stdout as output");
     }
 
+    // If -E has been specified and no output file has been, assume it is "-"
+    if (output_file == NULL
+            && E_specified)
+    {
+        fprintf(stderr, "Assuming stdout as default output since -E has been specified\n");
+        output_file = strdup("-");
+    }
+
     int i = 1;
     while (optind < argc)
     {
