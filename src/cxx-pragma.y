@@ -14,6 +14,22 @@
 
 /*!endif*/
 /*!if GRAMMAR_RULES*/
+
+// Grammar entry point
+no_if_statement : pragma_custom_construct
+{
+    $$ = $1;
+}
+;
+
+declaration : pragma_custom_directive
+{
+	$$ = $1;
+}
+;
+
+// Pragma custom
+
 pragma_custom_directive : PRAGMA_CUSTOM pragma_custom_line 
 {
 	$$ = ASTMake1(AST_PRAGMA_CUSTOM_DIRECTIVE, $2, $1.token_line, $1.token_text);

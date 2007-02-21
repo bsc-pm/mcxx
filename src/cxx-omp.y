@@ -135,6 +135,35 @@
 /*!endif*/
 /*!if GRAMMAR_RULES*/
 /* OpenMP 2.5 grammar rules */
+
+// Grammar entry point
+no_if_statement : openmp_construct
+{
+    $$ = $1;
+}
+;
+
+statement_seq : openmp_directive
+{
+	$$ = ASTListLeaf($1);
+}
+| statement_seq openmp_directive
+{
+	$$ = ASTList($1, $2);
+}
+;
+
+declaration : threadprivate_directive
+{
+	$$ = $1;
+}
+| omp_custom_directive
+{
+	$$ = $1;
+}
+;
+
+// OpenMP
 openmp_construct : parallel_construct
 {
 	$$ = $1;

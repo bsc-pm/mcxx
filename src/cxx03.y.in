@@ -461,20 +461,6 @@ declaration : block_declaration
 {
 	$$ = $1;
 }
-// OpenMP 2.5
-| threadprivate_directive
-{
-	$$ = $1;
-}
-| omp_custom_directive
-{
-	$$ = $1;
-}
-// Custom pragma
-| pragma_custom_directive
-{
-	$$ = $1;
-}
 ;
 
 linkage_specification : EXTERN string_literal '{' declaration_sequence '}'
@@ -2512,16 +2498,6 @@ no_if_statement : labeled_statement
 {
 	$$ = $1;
 }
-/* OpenMP 2.5 support */
-| openmp_construct
-{
-	$$ = $1;
-}
-/* Generic pragma */
-| pragma_custom_construct
-{
-	$$ = $1;
-}
 ;
 
 labeled_statement : IDENTIFIER ':' statement
@@ -2577,15 +2553,6 @@ statement_seq : statement
 	$$ = ASTListLeaf($1);
 }
 | statement_seq statement
-{
-	$$ = ASTList($1, $2);
-}
-// Support for OpenMP 2.5
-| openmp_directive
-{
-	$$ = ASTListLeaf($1);
-}
-| statement_seq openmp_directive
 {
 	$$ = ASTList($1, $2);
 }
