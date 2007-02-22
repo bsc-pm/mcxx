@@ -37,9 +37,9 @@ dnl Check c++
 AC_PROG_CXX
 
 tlextensions=""
-enable_tl_omp="no"
-enable_tl_instr="no"
-enable_tl_acotes="no"
+is_enabled_tl_omp="no"
+is_enabled_tl_instr="no"
+is_enabled_tl_acotes="no"
 
 AC_MSG_CHECKING([if enabled OpenMP TL support])
 AC_ARG_ENABLE([tl-openmp],
@@ -48,7 +48,7 @@ AC_ARG_ENABLE([tl-openmp],
     if test x$enableval = xyes -o x$enableval = x;
     then
         tlextensions="${tlextensions} omp"
-        enable_tl_omp="yes"
+        is_enabled_tl_omp="yes"
         AC_MSG_RESULT([yes])
     else if test x$enableval = xno;
          then
@@ -60,7 +60,7 @@ AC_ARG_ENABLE([tl-openmp],
   ],
   [
       tlextensions="${tlextensions} omp"
-      enable_tl_omp="yes"
+      is_enabled_tl_omp="yes"
       AC_MSG_RESULT([yes])
   ]
 )
@@ -72,7 +72,7 @@ AC_ARG_ENABLE([tl-instrumentation],
     if test x$enableval = xyes -o x$enableval = x;
     then
         tlextensions="${tlextensions} instr"
-        enable_tl_instr="yes"
+        is_enabled_tl_instr="yes"
         AC_MSG_RESULT([yes])
     else if test x$enableval = xno;
          then
@@ -84,7 +84,7 @@ AC_ARG_ENABLE([tl-instrumentation],
   ],
   [
       tlextensions="${tlextensions} instr"
-      enable_tl_instr="yes"
+      is_enabled_tl_instr="yes"
       AC_MSG_RESULT([yes])
   ]
 )
@@ -96,7 +96,7 @@ AC_ARG_ENABLE([tl-acotes],
     if test x$enableval = xyes -o x$enableval = x;
     then
         tlextensions="${tlextensions} acotes"
-        enable_tl_acotes="yes"
+        is_enabled_tl_acotes="yes"
         AC_MSG_RESULT([yes])
     else if test x$enableval = xno;
          then
@@ -108,7 +108,7 @@ AC_ARG_ENABLE([tl-acotes],
   ],
   [
       tlextensions="${tlextensions} acotes"
-      enable_tl_acotes="yes"
+      is_enabled_tl_acotes="yes"
       AC_MSG_RESULT([yes])
   ]
 )
@@ -119,7 +119,7 @@ nanos4_include=""
 nanos4_lib=""
 MCXX_INCLUDES=""
 MCXX_LIBS=""
-if test x$enable_tl_omp = xyes;
+if test x$is_enabled_tl_omp = xyes;
 then
    AC_ARG_WITH([nanos4],
            AS_HELP_STRING([--with-nanos4=dir], [Directory of NANOS 4 installation]),
@@ -162,7 +162,7 @@ fi
 mintaka_include=""
 mintaka_lib=""
 INSTRUMENTATION_PHASE=""
-if test x$enable_tl_instr = xyes;
+if test x$is_enabled_tl_instr = xyes;
 then
    AC_ARG_WITH([mintaka],
            AS_HELP_STRING([--with-mintaka=dir], [Directory of Mintaka installation]),
