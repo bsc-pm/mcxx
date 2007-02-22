@@ -1,0 +1,45 @@
+\input texinfo
+@c %**start of header
+@setfilename mcxx-internals.info
+@settitle mcxx Internals Manual
+@c %**end of header
+
+@copying
+mcxx Internals Manual. Version 1.0
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.
+
+Copyright @copyright{} 2007 Roger Ferrer Ib@'a@~nez.
+@end copying
+
+@titlepage
+@title mcxx Internals Manual
+@c The following two commands start the copyright page
+@subtitle Mercurium C/C++ Internal Documentation Reference
+@subtitle Last modified: $Date$
+@author Roger Ferrer Ib@'a@~nez
+@page
+@vskip 0pt plus 1filll
+@insertcopying
+@end titlepage
+
+@c Output the table of contents 
+@contents
+
+@ifnottex
+@node Top
+@top mcxx Internals Documentation Reference
+@insertcopying
+@end ifnottex
+
+@menu
+* Introduction::
+@end menu
+
+@node Introduction
+@chapter Introduction
+@cindex introduction
+
+@bye

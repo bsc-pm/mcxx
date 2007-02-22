@@ -47,6 +47,9 @@ void running_error(char* message, ...)
     va_end(ap);
     fprintf(stderr, "\n");
 
+    if (compilation_options.debug_options.abort_on_ice)
+        raise(SIGABRT);
+
     exit(EXIT_FAILURE);
 }
 

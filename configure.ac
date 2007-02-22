@@ -416,5 +416,6 @@ AC_CONFIG_FILES([Makefile
            config/Makefile
            config/config.mcxx
            tests/Makefile
+           doc/Makefile
            ])
 AC_OUTPUT
