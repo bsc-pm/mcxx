@@ -538,7 +538,6 @@ none {
     return OMP_NEWLINE;
 }
 
-
 {idnondigit}({idnondigit}|{digit})* {
 	// Special case for custom clauses 
 	if (omp_var_list_parentheses == 0)
