@@ -333,10 +333,10 @@ namespace TL
         ASTParent(new_child) = parent;
     }
 
-    AST AST_t::get_translation_unit()
-    {
-        return this->get_translation_unit(this->_ast);
-    }
+    // AST AST_t::get_translation_unit()
+    // {
+    //     return this->get_translation_unit(this->_ast);
+    // }
 
     AST AST_t::get_translation_unit(AST node)
     {
@@ -649,5 +649,109 @@ namespace TL
         ss << this->get_file() << ":" << this->get_line();
 
         return ss.str();
+    }
+
+    bool AST_t::is_list() const
+    {
+        return is_valid()
+            && ASTType(_ast) == AST_NODE_LIST;
+    }
+
+    ASTIterator AST_t::get_list_iterator()
+    {
+        ASTIterator iterator(_ast);
+        return _ast;
+    }
+
+    ASTIterator::ASTIterator(AST ast)
+        : _ast(ast), _current(ast)
+    {
+        if (ASTType(ast) != AST_NODE_LIST)
+        {
+            std::cerr << "Node at '" 
+                << ast->filename << ":" << ASTLine(ast) 
+                << "' is not a list" << std::endl;
+            _ast = NULL;
+            _current = NULL;
+        }
+    }
+
+    AST_t ASTIterator::item()
+    {
+        if (_current == NULL)
+        {
+            return AST();
+        }
+        else
+        {
+            return AST(ASTSon1(_current));
+        }
+    }
+
+    void ASTIterator::next()
+    {
+        if (!is_last())
+        {
+            _current = ASTParent(_current);
+        }
+        else
+        {
+            _current = NULL;
+        }
+    }
+
+    void ASTIterator::previous()
+    {
+        if (_current != NULL)
+        {
+            _current = ASTSon0(_current);
+        }
+    }
+
+    void ASTIterator::reset()
+    {
+        _current = _ast;
+    }
+
+    void ASTIterator::rewind()
+    {
+        reset();
+        while (!is_first())
+        {
+            previous();
+        }
+    }
+
+    bool ASTIterator::is_first()
+    {
+        if (_current == NULL)
+        {
+            return true;
+        }
+
+        return (ASTSon0(_current) == NULL);
+    }
+
+    bool ASTIterator::is_last()
+    {
+        if (_current == NULL)
+            return true;
+
+        AST _possible_next = ASTParent(_current);
+        if (ASTType(_possible_next) != AST_NODE_LIST)
+        {
+            return true;
+        }
+        else if (ASTType(_possible_next) == AST_NODE_LIST
+                && ASTSon0(_possible_next) != _current)
+        {
+            return true;
+        }
+        return false;
+    }
+
+    bool ASTIterator::end()
+    {
+        return (_current == NULL);
     }
 }

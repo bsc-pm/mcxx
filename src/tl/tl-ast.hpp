@@ -18,6 +18,28 @@ namespace TL
 {
     class ScopeLink;
 
+    class AST_t;
+    class ASTIterator
+    {
+        private:
+            AST _ast;
+            AST _current;
+            ASTIterator(AST ast);
+        public:
+            ~ASTIterator() { }
+
+            AST_t item();
+            void next();
+            void previous();
+            void reset();
+            void rewind();
+            bool is_first();
+            bool is_last();
+            bool end();
+
+            friend class AST_t;
+    };
+
     class AST_t : public Object
     {
         public:
@@ -99,6 +121,9 @@ namespace TL
                 return (_ast != NULL);
             }
 
+            bool is_list() const;
+            ASTIterator get_list_iterator();
+
             bool operator<(AST_t n) const;
             bool operator==(AST_t n) const;
             bool operator!=(AST_t n) const;
@@ -138,7 +163,7 @@ namespace TL
             AST_t get_enclosing_block();
             AST_t get_enclosing_function_definition(bool jump_templates = false);
 
-            AST get_translation_unit();
+            // AST get_translation_unit();
 
             void replace_text(const std::string& str);
 
@@ -179,6 +204,7 @@ namespace TL
                 return TL::Bool(ast.get_attribute(_attr_name));
             }
     };
+
 }
 
 #endif // TL_AST_HPP

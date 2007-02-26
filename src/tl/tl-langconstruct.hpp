@@ -100,8 +100,11 @@ namespace TL
             }
 
 
-            ObjectList<Symbol> symbols();
-            ObjectList<Symbol> non_local_symbols();
+//             ObjectList<Symbol> symbols();
+             ObjectList<Symbol> non_local_symbols();
+
+            bool is_compound_statement();
+            ObjectList<Statement> get_inner_statements();
 
 //            ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
 //            ObjectList<IdExpression> local_symbol_occurrences();

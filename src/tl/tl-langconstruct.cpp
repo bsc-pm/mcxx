@@ -67,6 +67,36 @@ namespace TL
         return result;
     }
 
+    bool Statement::is_compound_statement()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_COMPOUND_STATEMENT);
+        return b;
+    }
+
+    ObjectList<Statement> Statement::get_inner_statements()
+    {
+        ObjectList<Statement> result;
+
+        if (is_compound_statement())
+        {
+            AST_t list = _ref.get_attribute(LANG_COMPOUND_STATEMENT_LIST);
+            ASTIterator ast_iterator = list.get_list_iterator();
+
+            ast_iterator.rewind();
+
+            while (!ast_iterator.end())
+            {
+                Statement st(ast_iterator.item(), _scope_link);
+
+                result.append(st);
+
+                ast_iterator.next();
+            }
+        }
+
+        return result;
+    }
+
     FunctionDefinition LangConstruct::get_enclosing_function()
     {
         AST_t enclosing_function = _ref.get_enclosing_function_definition();
