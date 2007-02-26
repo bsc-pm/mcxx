@@ -213,7 +213,7 @@ cxx-parser.c cxx-parser.h cxx-parser.output : cxx03.y
 	bison -pmcxx --debug --defines --report=all --output=cxx-parser.c cxx03.y
 
 CLEANFILES += cxx03.y
-cxx03.y : $(srcdir)/cxx03.y.in $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y
+cxx03.y : $(srcdir)/cxx03.y.in $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y
 	../lib/tpp -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in
 endif
 
@@ -235,7 +235,7 @@ c99-parser.c c99-parser.h c99-parser.output : c99.y
 	bison -pmc99 --debug --defines --report=all --output=c99-parser.c c99.y
 
 CLEANFILES += c99.y
-c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y
+c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y
 	../lib/tpp -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
 endif
 

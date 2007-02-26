@@ -821,9 +821,7 @@ runtime {
 ">?=" { parse_token_text(); return MAX_OPERATOR_ASSIGN; }
 
  /* mcxx extensions */
- /*
 "__construct__" { parse_token_text(); return CONSTRUCT; }
- */
 
  /* Special tokens for subparsing */
 @EXPRESSION@ { parse_token_text(); return SUBPARSE_EXPRESSION; }

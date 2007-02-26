@@ -145,6 +145,11 @@ HANDLER_PROTOTYPE(pragma_custom_construct_handler);
 HANDLER_PROTOTYPE(pragma_custom_clause_handler);
 HANDLER_PROTOTYPE(pragma_custom_line_handler);
 
+// Custom construct
+HANDLER_PROTOTYPE(custom_construct_statement_handler);
+HANDLER_PROTOTYPE(custom_construct_header_handler);
+HANDLER_PROTOTYPE(custom_construct_parameter);
+
 // OpenMP
 HANDLER_PROTOTYPE(omp_generic_construct_handler);
 HANDLER_PROTOTYPE(omp_generic_clause_handler_with_expression);
@@ -485,6 +490,10 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CLAUSE, pragma_custom_clause_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_LINE, pragma_custom_line_handler, NULL),
+    // Custom code constructs
+    NODE_HANDLER(AST_CUSTOM_CONSTRUCT_STATEMENT, custom_construct_statement_handler, NULL),
+    NODE_HANDLER(AST_CUSTOM_CONSTRUCT_HEADER, custom_construct_header_handler, NULL),
+    NODE_HANDLER(AST_CUSTOM_CONSTRUCT_PARAMETER, custom_construct_parameter, NULL),
     // OpenMP 2.5
     NODE_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, omp_generic_construct_handler, NULL),
     NODE_HANDLER(AST_OMP_PARALLEL_DIRECTIVE, omp_generic_directive_handler, "parallel"),
@@ -2299,6 +2308,33 @@ static void pp_comment_handler(FILE* f, AST a, int level)
         current_start = current_end + 1;
     }
     while (current_end != end);
+}
+
+static void custom_construct_statement_handler(FILE *f, AST a, int level)
+{
+    prettyprint_level(f, ASTSon0(a), level);
+    prettyprint_level(f, ASTSon1(a), level);
+}
+
+static void custom_construct_header_handler(FILE *f, AST a, int level)
+{
+    token_fprintf(f, a, "__construct__ %s ", ASTText(a));
+
+    if (ASTSon0(a) != NULL)
+    {
+        token_fprintf(f, a, "\n");
+        list_handler(f, ASTSon1(a), level);
+    }
+
+    token_fprintf(f, a, "\n");
+}
+
+static void custom_construct_parameter(FILE *f, AST a, int level)
+{
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, " : ");
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, "\n");
 }
 
 static void pragma_custom_line_handler(FILE* f, AST a, int level)
