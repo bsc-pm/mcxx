@@ -85,7 +85,7 @@ namespace TL
 		{
 			std::stringstream ss;
 			
-			ss << "is_" << get_name() << "_" << _task_id;
+			ss << "is_" << get_name() << "_" << _id;
 			
 			return ss.str();
 		}
@@ -93,7 +93,7 @@ namespace TL
 		{
 			std::stringstream ss;
 			
-			ss << "os_" << get_name() << "_" << _task_id;
+			ss << "os_" << get_name() << "_" << _id;
 			
 			return ss.str();
 		}
@@ -331,33 +331,6 @@ namespace TL
 		std::vector<TaskInfo>      _task_info_vector;
 		std::vector<StreamInfo>    _stream_info_vector;
 
-		private:
-		int create_taskgroup_info()
-		{
-			int id= _taskgroup_info_vector.size();
-			_taskgroup_info_vector.push_back(id);
-			
-			return id;
-		}
-		
-		int create_task_info()
-		{
-			int id= _task_info_vector.size();
-			_task_info_vector.push_back(id);
-			
-			return id;
-		}
-		
-		int create_stream_info(const IdExpression& var, int task_id, int input_task_id, int output_task_id)
-		{
-			int id= _stream_info_vector.size();
-
-			StreamInfo stream_info(id, var, task_id, input_task_id, output_task_id);
-			_stream_info_vector.push_back(stream_info);
-			
-			return id;
-		}
-		
 		public:
 		AcotesTransform()
 		: PragmaCustomCompilerPhase("acotes")
@@ -376,6 +349,44 @@ namespace TL
 			);
 		}
 		
+		private:
+
+		int create_taskgroup_info()
+		{
+			int id= _taskgroup_info_vector.size();
+			_taskgroup_info_vector.push_back(id);
+			
+			return id;
+		}
+		TaskGroupInfo& get_taskgroup_info(int taskgroup_id)
+		{
+			return _taskgroup_info_vector.at(taskgroup_id);
+		}
+		int create_task_info()
+		{
+			int id= _task_info_vector.size();
+			_task_info_vector.push_back(id);
+			
+			return id;
+		}
+		TaskInfo& get_task_info(int task_id)
+		{
+			return _task_info_vector.at(task_id);
+		}
+		int create_stream_info(const IdExpression& var, int task_id, int input_task_id, int output_task_id)
+		{
+			int id= _stream_info_vector.size();
+
+			StreamInfo stream_info(id, var, task_id, input_task_id, output_task_id);
+			_stream_info_vector.push_back(stream_info);
+			
+			return id;
+		}
+		StreamInfo& get_stream_info(int stream_id)
+		{
+			return _stream_info_vector.at(stream_id);
+		}
+				
 		void taskgroup_preorder(PragmaCustomConstruct pragma_custom_construct)
 		{
 			// Push a new task group info and the implicit task_info
@@ -419,11 +430,17 @@ namespace TL
 					pragma_custom_construct.get_clause("input");
 			PragmaCustomClause output_clause= 
 					pragma_custom_construct.get_clause("output");
+			PragmaCustomClause import_clause= 
+					pragma_custom_construct.get_clause("import");
+			PragmaCustomClause export_clause= 
+					pragma_custom_construct.get_clause("export");
 			
 			
 			// Look for referenced variables at input and outputs
 			ObjectList<IdExpression> inputs_vars= input_clause.id_expressions();
 			ObjectList<IdExpression> outputs_vars= output_clause.id_expressions();
+			ObjectList<IdExpression> imports_vars= import_clause.id_expressions();
+			ObjectList<IdExpression> exports_vars= export_clause.id_expressions();
 
 			// Obtaing task body
 			Statement task_body= pragma_custom_construct.get_statement();
@@ -436,6 +453,10 @@ namespace TL
 			// Remove repeated IdExpression's that refer to the same symbol
 			ObjectList<IdExpression> task_state;
 			task_state.insert(task_state_refs, functor(&IdExpression::get_symbol));
+			task_state.insert(inputs_vars, functor(&IdExpression::get_symbol));
+			task_state.insert(outputs_vars, functor(&IdExpression::get_symbol));
+			task_state.insert(imports_vars, functor(&IdExpression::get_symbol));
+			task_state.insert(exports_vars, functor(&IdExpression::get_symbol));
 					
 			
 			// - Generate sources, a little map here :-)
@@ -463,8 +484,11 @@ namespace TL
 			Source task_outline_initialization_state_error_src;
 			Source task_outline_loop_src;
 			Source task_outline_loop_condition_src;
+			Source task_outline_loop_condition_imports_src;
 			Source task_outline_loop_pops_src;
 			Source task_outline_loop_pushes_src;
+			//Source task_outline_loop_pushes_condition_src;
+			//Source task_outline_loop_pushes_condition_imports_src;
 			Source task_outline_finalization_src;
 			Source task_outline_finalization_closes_src;
 			Source task_outline_finalization_closes_iss_src;
@@ -526,7 +550,7 @@ namespace TL
 				
 				// Declares the reverse end streams
 				task_struct_nested_oss_src
-					<< "istream_t* " << stream_info.get_istream_name() << ";"
+					<< "istream_t " << stream_info.get_istream_name() << ";"
 					;
 					
 				// Sets the value for the stream state value
@@ -572,6 +596,37 @@ namespace TL
 					<< ";"
 					;
 			}
+
+			// task_outline_loop_condition_imports_src
+			foreach(IdExpression,it,imports_vars)
+			{
+				// Retreieve input stream variable
+				IdExpression& var= *it;
+				
+				std::string stream_name= var.prettyprint();
+				
+				// Add stream to loop :-)
+				task_outline_loop_condition_imports_src
+					<< " && " 
+					<< "!stream_eos(" << stream_name << ")" 
+					;
+			}
+			
+			// task_outline_loop_condition_imports_src
+			foreach(IdExpression,it,exports_vars)
+			{
+				// Retreieve input stream variable
+				IdExpression& var= *it;
+				
+				std::string stream_name= var.prettyprint();
+				
+				// Add stream to loop :-)
+				task_outline_loop_condition_imports_src
+					<< " && " 
+					<< "!stream_eos(" << stream_name << ")" 
+					;
+			}
+
 			
 			// task_struct_iss
 			// task_outline_initialization_state_vars_src
@@ -737,19 +792,33 @@ namespace TL
 			// task_outline_loop_condition_src
 			task_outline_loop_condition_src
 				<< "!stream_error_eos(" << ERROR_NAME << ")"
+				<< task_outline_loop_condition_imports_src
 				;
+
+			// task_outline_loop_pushes_condition_imports_src
+			//task_outline_loop_pushes_condition_imports_src
+			//	<< task_outline_loop_condition_imports_src;
+				
+			// task_outline_loop_pushes_condition_src
+			//task_outline_loop_pushes_condition_src
+			//	<< "1"
+			//	<< task_outline_loop_pushes_condition_imports_src;
 			
 			// task_outline_loop_src
 			task_outline_loop_src
 				<< task_outline_loop_pops_src
+				<< "if (" << task_outline_loop_condition_src << ")"
 				<< "while(" << task_outline_loop_condition_src << ")"
 				<< "{"
 				<<   "acotrace_iteration_begin();"
 				<<   "acotrace_run();"
 				<<   task_body.prettyprint()
 				<<   "acotrace_iteration_end();"
-				<<   task_outline_loop_pushes_src
-				<<   task_outline_loop_pops_src
+				//<<   "if(" << task_outline_loop_pushes_condition_src << ")"
+				//<<   "{"
+				<<     task_outline_loop_pushes_src
+				<<     task_outline_loop_pops_src
+				//<<   "}"
 				<< "}"
 				<< "acotrace_fini();"
 				;
@@ -1372,8 +1441,6 @@ namespace TL
 			pragma_custom_construct.get_ast().replace(taskgroup_replace_tree);
 		}
 		
-		
-
 	};
 	
 }
