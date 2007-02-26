@@ -215,6 +215,1081 @@ namespace TL
                 // #pragma omp construct protect
                 on_custom_construct_post["protect"].connect(functor(&OpenMPTransform::protect_postorder, *this));
             }
+            
+            // Parallel in preorder
+            void parallel_preorder(OpenMP::ParallelConstruct parallel_construct)
+            {
+                ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
+                inner_reductions_stack.push(inner_reductions);
+                
+                // Increase the parallel nesting value
+                parallel_nesting++;
+            }
+
+            // Parallel in postorder
+            void parallel_postorder(OpenMP::ParallelConstruct parallel_construct)
+            {
+                // One more parallel seen
+                num_parallels++;
+
+                // Decrease the parallel nesting value
+                parallel_nesting--;
+
+                // Get the directive
+                OpenMP::Directive directive = parallel_construct.directive();
+                
+                // Get the enclosing function definition
+                FunctionDefinition function_definition = parallel_construct.get_enclosing_function();
+                // its scope
+                Scope function_scope = function_definition.get_scope();
+                // and the id-expression of the function name
+                IdExpression function_name = function_definition.get_function_name();
+
+                // They will hold the entities as they appear in the clauses
+                ObjectList<IdExpression> shared_references;
+                ObjectList<IdExpression> private_references;
+                ObjectList<IdExpression> firstprivate_references;
+                ObjectList<IdExpression> lastprivate_references;
+                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                ObjectList<IdExpression> copyin_references;
+                ObjectList<IdExpression> copyprivate_references;
+                
+                // Get the construct_body of the statement
+                Statement construct_body = parallel_construct.body();
+
+                // Get the data attributes for every entity
+                get_data_attributes(function_scope,
+                        directive,
+                        construct_body,
+                        shared_references,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
+                
+                ObjectList<ParameterInfo> parameter_info_list;
+
+                ReplaceIdExpression replace_references = 
+                    set_replacements(function_definition,
+                            directive,
+                            construct_body,
+                            shared_references,
+                            private_references,
+                            firstprivate_references,
+                            lastprivate_references,
+                            reduction_references,
+                            inner_reductions_stack.top(),
+                            copyin_references,
+                            copyprivate_references,
+                            parameter_info_list);
+
+                // Get the outline function name
+                Source outlined_function_name = get_outlined_function_name(function_name);
+
+                // Create the outline for parallel for using 
+                // the privatized entities and pass by pointer
+                // lists.
+                // Additionally {first|last}private and reduction
+                // entities are needed for proper initializations
+                // and assignments.
+                AST_t outline_code  = get_outline_parallel(
+                        function_definition,
+                        outlined_function_name, 
+                        construct_body,
+                        replace_references,
+                        parameter_info_list,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
+
+                // In the AST of the function definition, prepend outline_code
+                // as a sibling (at the same level)
+                function_definition.get_ast().prepend_sibling_function(outline_code);
+
+                // Now create the spawning code. Pass by pointer list and
+                // reductions are needed for proper pass of data and reduction
+                // vectors declaration
+                
+                OpenMP::Clause num_threads = directive.num_threads_clause();
+                OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+
+                Source instrument_code_before;
+                Source instrument_code_after;
+                if (ExternalVars::get("instrument", "0") == "1")
+                {
+                    instrument_code_before
+                        << "const int EVENT_PARALLEL = 60000001;"
+                        << "const int VALUE_PARALLEL_REGION = 3;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_REGION);"
+                        << "mintaka_state_schedule();"
+                        ;
+                    instrument_code_after
+                        << "const int VALUE_PARALLEL_CLOSE = 0;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+                        << "mintaka_state_run();"
+                        ;
+                }
+                
+                AST_t spawn_code = get_parallel_spawn_code(
+                        function_definition,
+                        parallel_construct.get_scope(),
+                        parallel_construct.get_scope_link(),
+                        outlined_function_name,
+                        parameter_info_list,
+                        reduction_references,
+                        num_threads,
+                        groups_clause,
+                        instrument_code_before,
+                        instrument_code_after
+                        );
+
+                // Discard inner reductions information
+                inner_reductions_stack.pop();
+
+                // Now replace the whole construct with spawn_code
+                parallel_construct.get_ast().replace(spawn_code);
+            }
+
+            void parallel_for_preorder(OpenMP::ParallelForConstruct parallel_for_construct)
+            {
+                ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
+                inner_reductions_stack.push(inner_reductions);
+                
+                // Increase the parallel nesting value
+                parallel_nesting++;
+
+                Statement construct_body = parallel_for_construct.body();
+                // The construct is in fact a ForStatement in a #pragma omp parallel do
+                ForStatement for_statement(construct_body);
+                
+                IdExpression induction_var = for_statement.get_induction_variable();
+
+                // Save this induction var in the stack
+                induction_var_stack.push(induction_var);
+            }
+
+            void parallel_for_postorder(OpenMP::ParallelForConstruct parallel_for_construct)
+            {
+                // One more parallel seen
+                num_parallels++;
+
+                // Remove the induction var from the stack
+                induction_var_stack.pop();
+
+                // Decrease the parallel nesting level 
+                parallel_nesting--;
+
+                // Get the directive
+                OpenMP::Directive directive = parallel_for_construct.directive();
+                
+                // Get the enclosing function definition
+                FunctionDefinition function_definition = parallel_for_construct.get_enclosing_function();
+                Scope function_scope = function_definition.get_scope();
+                IdExpression function_name = function_definition.get_function_name();
+
+                // They will hold the entities as they appear in the clauses
+                ObjectList<IdExpression> shared_references;
+                ObjectList<IdExpression> private_references;
+                ObjectList<IdExpression> firstprivate_references;
+                ObjectList<IdExpression> lastprivate_references;
+                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                ObjectList<IdExpression> copyin_references;
+                ObjectList<IdExpression> copyprivate_references;
+                
+                // Get the construct_body of the statement
+                Statement construct_body = parallel_for_construct.body();
+                // The construct is in fact a ForStatement in a #pragma omp parallel do
+                ForStatement for_statement(construct_body);
+                Statement loop_body = for_statement.get_loop_body();
+
+                // Get the data attributes for every entity
+                get_data_attributes(function_scope,
+                        directive,
+                        construct_body,
+                        shared_references,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
+                
+                // The induction variable deserves special treatment
+                IdExpression induction_var = for_statement.get_induction_variable();
+                // If private_references does not contain an IdExpression whose
+                // related symbol is the induction variable symbol, then
+                // privatize here (FIXME: I've seen codes where the induction
+                // variable appears in lastprivate)
+                if (!private_references.contains(functor(&IdExpression::get_symbol), induction_var.get_symbol()))
+                {
+                    // Add the induction variale onto the private references
+                    private_references.append(induction_var);
+                    // And now remove, if it was already there, any reference
+                    // to the induction variable symbol from the set of shared
+                    // references
+                    shared_references = shared_references.not_find(functor(&IdExpression::get_symbol), 
+                            induction_var.get_symbol());
+                }
+
+                ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
+
+                // Create the replacement map and the pass_by_pointer set
+                ObjectList<ParameterInfo> parameter_info_list;
+                ReplaceIdExpression replace_references = 
+                    set_replacements(function_definition,
+                            directive,
+                            loop_body,
+                            shared_references,
+                            private_references,
+                            firstprivate_references,
+                            lastprivate_references,
+                            reduction_references,
+                            inner_reductions_stack.top(),
+                            copyin_references,
+                            copyprivate_references,
+                            parameter_info_list);
+
+                // Get the outline function name
+                Source outlined_function_name = get_outlined_function_name(function_name);
+
+                // Create the outline for parallel for
+                AST_t outline_code = get_outline_parallel_for(
+                        function_definition,
+                        outlined_function_name, 
+                        for_statement,
+                        loop_body,
+                        replace_references,
+                        parameter_info_list,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
+
+                // Now prepend the outline
+                function_definition.get_ast().prepend_sibling_function(outline_code);
+
+                OpenMP::Clause num_threads = directive.num_threads_clause();
+                OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+
+                Source instrument_code_before;
+                Source instrument_code_after;
+                if (ExternalVars::get("instrument", "0") == "1")
+                {
+                    instrument_code_before
+                        << "const int EVENT_PARALLEL = 60000001;"
+                        << "const int VALUE_PARALLEL_FOR = 1;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_FOR);"
+                        << "mintaka_state_schedule();"
+                        ;
+                    instrument_code_after
+                        << "const int VALUE_PARALLEL_CLOSE = 0;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+                        << "mintaka_state_run();"
+                        ;
+                }
+
+                AST_t spawn_code = get_parallel_spawn_code(
+                        function_definition,
+                        parallel_for_construct.get_scope(),
+                        parallel_for_construct.get_scope_link(),
+                        outlined_function_name,
+                        parameter_info_list,
+                        reduction_references,
+                        num_threads,
+                        groups_clause,
+                        instrument_code_before,
+                        instrument_code_after
+                        );
+
+                // Discard inner reduction information
+                inner_reductions_stack.pop();
+
+                // Replace all the whole construct with spawn_code
+                parallel_for_construct.get_ast().replace(spawn_code);
+            }
+
+            void for_preorder(OpenMP::ForConstruct for_construct)
+            {
+                Statement construct_body = for_construct.body();
+                // The construct is in fact a ForStatement in a #pragma omp parallel do
+                ForStatement for_statement(construct_body);
+                
+                IdExpression induction_var = for_statement.get_induction_variable();
+
+                // Save this induction var in the stack
+                induction_var_stack.push(induction_var);
+            }
+            
+            void for_postorder(OpenMP::ForConstruct for_construct)
+            {
+                OpenMP::Directive directive = for_construct.directive();
+                Statement construct_body = for_construct.body();
+                ForStatement for_statement = construct_body;
+                Statement loop_body = for_statement.get_loop_body();
+
+                // Remove the induction var from the stack
+                induction_var_stack.pop();
+
+                // They will hold the entities as they appear in the clauses
+                ObjectList<IdExpression> shared_references;
+                ObjectList<IdExpression> private_references;
+                ObjectList<IdExpression> firstprivate_references;
+                ObjectList<IdExpression> lastprivate_references;
+                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                ObjectList<IdExpression> copyin_references;
+                ObjectList<IdExpression> copyprivate_references;
+                
+                // Get the enclosing function definition
+                FunctionDefinition function_definition = for_construct.get_enclosing_function();
+                // its scope
+                Scope function_scope = function_definition.get_scope();
+                
+                // Get the data attributes for every entity
+                get_data_explicit_attributes(function_scope,
+                        directive,
+                        construct_body,
+                        shared_references,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
+                
+                // The induction variable deserves special treatment
+                IdExpression induction_var = for_statement.get_induction_variable();
+                // If private_references does not contain an IdExpression whose
+                // related symbol is the induction variable symbol, then
+                // privatize here (FIXME: I've seen codes where the induction
+                // variable appears in lastprivate)
+                if (!private_references.contains(functor(&IdExpression::get_symbol), induction_var.get_symbol()))
+                {
+                    // Add the induction variale onto the private references
+                    private_references.append(induction_var);
+                    // And now remove, if it was already there, any reference
+                    // to the induction variable symbol from the set of shared
+                    // references
+                    shared_references = shared_references.not_find(functor(&IdExpression::get_symbol), 
+                            induction_var.get_symbol());
+                }
+
+                ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
+
+                // The lists of entities passed by pointer and entities
+                // privatized in the outline
+                ObjectList<ParameterInfo> parameter_info_list;
+                // Create the replacement map and the pass_by_pointer set
+                ReplaceIdExpression replace_references  = 
+                    set_replacements(function_definition,
+                            directive,
+                            loop_body,
+                            shared_references,
+                            private_references,
+                            firstprivate_references,
+                            lastprivate_references,
+                            reduction_references,
+                            reduction_empty,
+                            copyin_references,
+                            copyprivate_references,
+                            parameter_info_list);
+
+                Source parallel_for_body;
+
+                parameter_info_list.clear();
+                
+                Source private_declarations = get_privatized_declarations(
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references,
+                        copyin_references,
+                        parameter_info_list
+                        ); 
+
+                Source loop_distribution_code = get_loop_distribution_code(for_statement,
+                        replace_references);
+
+                Source lastprivate_code;
+
+                if (!lastprivate_references.empty())
+                {
+                    Source lastprivate_assignments = get_lastprivate_assignments(
+                            lastprivate_references, 
+                            copyprivate_references,
+                            parameter_info_list);
+
+                    lastprivate_code
+                        << "if (intone_last != 0)"
+                        << "{"
+                        <<    lastprivate_assignments
+                        << "}"
+                        ;
+                }
+
+                OpenMP::Clause nowait_clause = directive.nowait_clause();
+
+                Source loop_finalization = get_loop_finalization(/*do_barrier=*/!(nowait_clause.is_defined()));
+
+                Source reduction_code;
+
+                parallel_for_body
+                    << "{"
+                    <<    private_declarations
+                    <<    loop_distribution_code
+                    <<    lastprivate_code
+                    <<    reduction_code
+                    <<    loop_finalization
+                    << "}"
+                    ;
+
+                bool orphaned = (parallel_nesting == 0);
+                if (orphaned)
+                {
+                    reduction_code = get_critical_reduction_code(reduction_references);
+                }
+                else
+                {
+                    reduction_code = get_noncritical_inlined_reduction_code(reduction_references);
+                }
+
+                AST_t result;
+                result = parallel_for_body.parse_statement(loop_body.get_scope(), 
+                         loop_body.get_scope_link());
+
+                for_construct.get_ast().replace(result);
+            }
+
+            void parallel_sections_preorder(OpenMP::ParallelSectionsConstruct parallel_sections_construct)
+            {
+                ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
+                inner_reductions_stack.push(inner_reductions);
+                
+                // Increase the parallel nesting value
+                parallel_nesting++;
+
+                // We push a new level of sections with zero "section" counted
+                // so far
+                num_sections_stack.push(0);
+            }
+
+            void parallel_sections_postorder(OpenMP::ParallelSectionsConstruct parallel_sections_construct)
+            {
+                // One more parallel seen
+                num_parallels++;
+
+                // Decrease the parallel nesting
+                parallel_nesting--;
+                
+                // Get the directive
+                OpenMP::Directive directive = parallel_sections_construct.directive();
+                
+                // Get the enclosing function definition
+                FunctionDefinition function_definition = parallel_sections_construct.get_enclosing_function();
+                // its scope
+                Scope function_scope = function_definition.get_scope();
+                // and the id-expression of the function name
+                IdExpression function_name = function_definition.get_function_name();
+
+                // They will hold the entities as they appear in the clauses
+                ObjectList<IdExpression> shared_references;
+                ObjectList<IdExpression> private_references;
+                ObjectList<IdExpression> firstprivate_references;
+                ObjectList<IdExpression> lastprivate_references;
+                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                ObjectList<IdExpression> copyin_references;
+                ObjectList<IdExpression> copyprivate_references;
+                
+                // Get the construct_body of the statement
+                Statement construct_body = parallel_sections_construct.body();
+
+                // Get the data attributes for every entity
+                get_data_attributes(function_scope,
+                        directive,
+                        construct_body,
+                        shared_references,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
+                
+                ObjectList<ParameterInfo> parameter_info_list;
+                ReplaceIdExpression replace_references = 
+                    set_replacements(function_definition,
+                            directive,
+                            construct_body,
+                            shared_references,
+                            private_references,
+                            firstprivate_references,
+                            lastprivate_references,
+                            reduction_references,
+                            inner_reductions_stack.top(),
+                            copyin_references,
+                            copyprivate_references,
+                            parameter_info_list);
+
+                // Get the outline function name
+                Source outlined_function_name = get_outlined_function_name(function_name);
+
+                // Create the outline for parallel sections using 
+                // the privatized entities and pass by pointer
+                // lists.
+                // Additionally {first|last}private and reduction
+                // entities are needed for proper initializations
+                // and assignments.
+                AST_t outline_code = get_outline_parallel_sections(
+                        function_definition,
+                        outlined_function_name, 
+                        construct_body,
+                        replace_references,
+                        parameter_info_list,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
+
+                // In the AST of the function definition, prepend outline_code
+                // as a sibling (at the same level)
+                function_definition.get_ast().prepend_sibling_function(outline_code);
+
+                OpenMP::Clause num_threads = directive.num_threads_clause();
+                OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+                
+                // Now create the spawning code. Pass by pointer list and
+                // reductions are needed for proper pass of data and reduction
+                // vectors declaration
+                Source instrument_code_before;
+                Source instrument_code_after;
+                if (ExternalVars::get("instrument", "0") == "1")
+                {
+                    instrument_code_before
+                        << "const int EVENT_PARALLEL = 60000001;"
+                        << "const int VALUE_PARALLEL_SECTIONS = 2;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SECTIONS);"
+                        << "mintaka_state_schedule();"
+                        ;
+                    instrument_code_after
+                        << "const int VALUE_PARALLEL_CLOSE = 0;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+                        << "mintaka_state_run();"
+                        ;
+                }
+
+                AST_t spawn_code = get_parallel_spawn_code(
+                        function_definition,
+                        parallel_sections_construct.get_scope(),
+                        parallel_sections_construct.get_scope_link(),
+                        outlined_function_name,
+                        parameter_info_list,
+                        reduction_references,
+                        num_threads,
+                        groups_clause,
+                        instrument_code_before,
+                        instrument_code_after
+                        );
+
+                // One less level of sections
+                num_sections_stack.pop();
+
+                // Discard inner reductions information
+                inner_reductions_stack.pop();
+
+                // Now replace the whole construct with spawn_code
+                parallel_sections_construct.get_ast().replace(spawn_code);
+            }
+
+            void sections_preorder(OpenMP::SectionsConstruct sections_construct)
+            {
+                // We push a new level of sections with zero "section" counted
+                // so far
+                num_sections_stack.push(0);
+            }
+
+            void sections_postorder(OpenMP::SectionsConstruct sections_construct)
+            {
+                // They will hold the entities as they appear in the clauses
+                ObjectList<IdExpression> shared_references;
+                ObjectList<IdExpression> private_references;
+                ObjectList<IdExpression> firstprivate_references;
+                ObjectList<IdExpression> lastprivate_references;
+                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                ObjectList<IdExpression> copyin_references;
+                ObjectList<IdExpression> copyprivate_references;
+                
+                // Get the construct_body of the statement
+                OpenMP::Directive directive = sections_construct.directive();
+                Statement construct_body = sections_construct.body();
+                
+                // Get the enclosing function definition
+                FunctionDefinition function_definition = sections_construct.get_enclosing_function();
+                // its scope
+                Scope function_scope = function_definition.get_scope();
+
+                // Get the data attributes for every entity
+                get_data_attributes(function_scope,
+                        directive,
+                        construct_body,
+                        shared_references,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
+
+                ObjectList<ParameterInfo> parameter_info_list;
+
+                ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
+
+                ReplaceIdExpression replace_references = 
+                    set_replacements(function_definition,
+                            directive,
+                            construct_body,
+                            shared_references,
+                            private_references,
+                            firstprivate_references,
+                            lastprivate_references,
+                            reduction_references,
+                            reduction_empty,
+                            copyin_references,
+                            copyprivate_references,
+                            parameter_info_list);
+
+                int num_sections = num_sections_stack.top();
+
+                Source loop_distribution_code;
+
+                loop_distribution_code = get_loop_distribution_in_sections(num_sections,
+                        construct_body,
+                        replace_references);
+
+                // In fact we are not passing anything by parameters since
+                // there is no outline here
+                parameter_info_list.clear();
+
+                Source private_declarations = get_privatized_declarations(
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references,
+                        copyin_references,
+                        parameter_info_list
+                        ); 
+
+                Source lastprivate_code;
+
+                if (!lastprivate_references.empty())
+                {
+                    Source lastprivate_assignments = get_lastprivate_assignments(
+                            lastprivate_references,
+                            copyprivate_references,
+                            parameter_info_list);
+
+                    lastprivate_code 
+                        << "if (intone_last != 0)"
+                        << "{"
+                        <<    lastprivate_assignments
+                        << "}"
+                        ;
+                }
+
+                OpenMP::Clause nowait_clause = directive.nowait_clause();
+                Source loop_finalization = get_loop_finalization(/*do_barrier=*/!(nowait_clause.is_defined()));
+
+                Source reduction_code;
+
+                bool orphaned = (parallel_nesting == 0);
+                if (orphaned)
+                {
+                    reduction_code = get_critical_reduction_code(reduction_references);
+                }
+                else
+                {
+                    reduction_code = get_noncritical_inlined_reduction_code(reduction_references);
+                            
+                }
+
+                Source sections_source;
+                sections_source 
+                    << "{"
+                    <<    private_declarations
+                    <<    loop_distribution_code
+                    <<    lastprivate_code
+                    <<    reduction_code
+                    <<    loop_finalization
+                    << "}"
+                    ;
+
+                num_sections_stack.pop();
+
+                AST_t sections_tree = sections_source.parse_statement(sections_construct.get_scope(),
+                        sections_construct.get_scope_link());
+
+                sections_construct.get_ast().replace(sections_tree);
+            }
+
+            void section_postorder(OpenMP::SectionConstruct section_construct)
+            {
+                int &num_sections = num_sections_stack.top();
+
+                Source section_source;
+                Statement construct_body = section_construct.body();
+
+                section_source
+                    << "case " << num_sections << ":"
+                    << "{"
+                    <<    construct_body.prettyprint()
+                    <<    "break;"
+                    << "}"
+                    ;
+
+                AST_t section_tree = section_source.parse_statement(section_construct.get_scope(),
+                        section_construct.get_scope_link());
+
+                // One more section
+                num_sections++;
+
+                section_construct.get_ast().replace(section_tree);
+            }
+
+            void barrier_postorder(OpenMP::BarrierDirective barrier_directive)
+            {
+                Source barrier_source;
+
+                barrier_source
+                    << "{"
+//                    <<    "extern void in__tone_barrier_();"
+                    <<    "in__tone_barrier_();"
+                    << "}"
+                    ;
+
+                AST_t barrier_tree = barrier_source.parse_statement(barrier_directive.get_scope(),
+                        barrier_directive.get_scope_link());
+
+                barrier_directive.get_ast().replace(barrier_tree);
+            }
+
+            void atomic_postorder(OpenMP::AtomicConstruct atomic_construct)
+            {
+                // TODO - An atomic can be implemented better
+                Source critical_source;
+
+                Statement critical_body = atomic_construct.body();
+
+                critical_source
+                    << "{"
+                    <<   "static nth_word_t default_mutex_var;"
+//                    <<   "extern void nthf_spin_lock_(void*);"
+//                    <<   "extern void nthf_spin_unlock_(void*);"
+                    <<   "nthf_spin_lock_(&default_mutex_var);"
+                    <<   critical_body.prettyprint()
+                    <<   "nthf_spin_unlock_(&default_mutex_var);"
+                    << "}"
+                    ;
+
+                AST_t atomic_tree = critical_source.parse_statement(atomic_construct.get_scope(),
+                        atomic_construct.get_scope_link());
+
+                atomic_construct.get_ast().replace(atomic_tree);
+            }
+
+            void ordered_postorder(OpenMP::OrderedConstruct ordered_construct)
+            {
+                IdExpression induction_var = induction_var_stack.top();
+
+                Statement construct_body = ordered_construct.body();
+                Source ordered_source;
+
+                ordered_source
+                    << "{"
+                    <<   "in__tone_enter_ordered_ (& "<< induction_var.prettyprint() << ");"
+                    <<   construct_body.prettyprint()
+                    <<   "in__tone_leave_ordered_ (&" << induction_var.prettyprint() << ");"
+                    << "}"
+                    ;
+
+                AST_t ordered_code = ordered_source.parse_statement(ordered_construct.get_scope(),
+                        ordered_construct.get_scope_link());
+
+                ordered_construct.get_ast().replace(ordered_code);
+            }
+
+            void master_postorder(OpenMP::MasterConstruct master_construct)
+            {
+                Source master_source;
+
+                Statement statement = master_construct.body();
+
+                master_source
+                    << "if (in__tone_is_master_())"
+                    << "{"
+                    <<    statement.prettyprint()
+                    << "}"
+                    ;
+
+                AST_t master_tree = master_source.parse_statement(master_construct.get_scope(),
+                        master_construct.get_scope_link());
+
+                master_construct.get_ast().replace(master_tree);
+            }
+
+            void single_postorder(OpenMP::SingleConstruct single_construct)
+            {
+                Source single_source;
+                Source barrier_code;
+
+                Statement body_construct = single_construct.body();
+                OpenMP::Directive directive = single_construct.directive();
+
+                single_source
+                    << "{"
+                    <<   "int nth_low;"
+                    <<   "int nth_upper;"
+                    <<   "int nth_step;"
+                    <<   "int nth_chunk;"
+                    <<   "int nth_schedule;"
+                    <<   "int nth_dummy1;"
+                    <<   "int nth_dummy2;"
+                    <<   "int nth_dummy3;"
+                    <<   "int nth_barrier; "
+
+                    <<   "nth_low = 0;"
+                    <<   "nth_upper = 0;"
+                    <<   "nth_step = 1;"
+                    <<   "nth_schedule = 1;"
+                    <<   "nth_chunk = 1;"
+
+//                    <<   "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
+//                    <<   "extern int in__tone_next_iters_(int*, int*, int*);"
+//                    <<   "extern void in__tone_end_for_(int*);"
+
+                    <<   "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
+                    <<   "while (in__tone_next_iters_ (&nth_dummy1, &nth_dummy2, &nth_dummy3) != 0)"
+                    <<   "{"
+                    <<       body_construct.prettyprint()
+                    <<   "}"
+                    <<   barrier_code
+                    << "}"
+                    ;
+
+                OpenMP::Clause nowait_clause = directive.nowait_clause();
+                barrier_code << "nth_barrier = " << (nowait_clause.is_defined() ? "0" : "1") << ";";
+                barrier_code << "in__tone_end_for_(&nth_barrier);";
+
+                AST_t single_tree = single_source.parse_statement(single_construct.get_scope(), 
+                        single_construct.get_scope_link());
+
+                single_construct.get_ast().replace(single_tree);
+            }
+
+            void parallel_single_preorder(OpenMP::ParallelSingleConstruct parallel_single_construct)
+            {
+                // Allocate a new element for inner reductions
+                ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
+                inner_reductions_stack.push(inner_reductions);
+                
+                // Increase the parallel nesting value
+                parallel_nesting++;
+            }
+
+            void parallel_single_postorder(OpenMP::ParallelSingleConstruct parallel_single_construct)
+            {
+                // One more parallel seen
+                num_parallels++;
+
+                // Decrease the parallel nesting
+                parallel_nesting--;
+                
+                // Get the directive
+                OpenMP::Directive directive = parallel_single_construct.directive();
+                
+                // Get the enclosing function definition
+                FunctionDefinition function_definition = parallel_single_construct.get_enclosing_function();
+                // its scope
+                Scope function_scope = function_definition.get_scope();
+                // and the id-expression of the function name
+                IdExpression function_name = function_definition.get_function_name();
+
+                // They will hold the entities as they appear in the clauses
+                ObjectList<IdExpression> shared_references;
+                ObjectList<IdExpression> private_references;
+                ObjectList<IdExpression> firstprivate_references;
+                ObjectList<IdExpression> lastprivate_references;
+                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+                ObjectList<IdExpression> copyin_references;
+                ObjectList<IdExpression> copyprivate_references;
+                
+                // Get the construct_body of the statement
+                Statement construct_body = parallel_single_construct.body();
+
+                // Get the data attributes for every entity
+                get_data_attributes(function_scope,
+                        directive,
+                        construct_body,
+                        shared_references,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
+
+                // Create the replacement map and fill the parameter info list
+                ObjectList<ParameterInfo> parameter_info_list;
+                ReplaceIdExpression replace_references = 
+                    set_replacements(function_definition,
+                            directive,
+                            construct_body,
+                            shared_references,
+                            private_references,
+                            firstprivate_references,
+                            lastprivate_references,
+                            reduction_references,
+                            inner_reductions_stack.top(),
+                            copyin_references,
+                            copyprivate_references,
+                            parameter_info_list);
+
+                // Get the outline function name
+                Source outlined_function_name = get_outlined_function_name(function_name);
+
+                // Create the outline for parallel for using 
+                // the privatized entities and pass by pointer
+                // lists.
+                // Additionally {first|last}private and reduction
+                // entities are needed for proper initializations
+                // and assignments.
+                AST_t outline_code = get_outline_parallel_single(
+                        function_definition,
+                        outlined_function_name, 
+                        construct_body,
+                        replace_references,
+                        parameter_info_list,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references,
+                        copyin_references,
+                        copyprivate_references);
+
+                // In the AST of the function definition, prepend outline_code
+                // as a sibling (at the same level)
+                function_definition.get_ast().prepend_sibling_function(outline_code);
+
+                // Now create the spawning code. Pass by pointer list and
+                // reductions are needed for proper pass of data and reduction
+                // vectors declaration
+                
+                OpenMP::Clause num_threads = directive.num_threads_clause();
+                OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+
+                Source instrument_code_before;
+                Source instrument_code_after;
+
+                if (ExternalVars::get("instrument", "0") == "1")
+                {
+                    instrument_code_before
+                        << "const int EVENT_PARALLEL = 60000001;"
+                        << "const int VALUE_PARALLEL_SINGLE = 4;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SINGLE);"
+                        << "mintaka_state_schedule();"
+                        ;
+                    instrument_code_after
+                        << "const int VALUE_PARALLEL_CLOSE = 0;"
+                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+                        << "mintaka_state_run();"
+                        ;
+                }
+                
+                AST_t spawn_code = get_parallel_spawn_code(
+                        function_definition,
+                        parallel_single_construct.get_scope(),
+                        parallel_single_construct.get_scope_link(),
+                        outlined_function_name,
+                        parameter_info_list,
+                        reduction_references,
+                        num_threads,
+                        groups_clause,
+                        instrument_code_before,
+                        instrument_code_after
+                        );
+
+                // Discard inner reductions information
+                inner_reductions_stack.pop();
+
+                // Now replace the whole construct with spawn_code
+                parallel_single_construct.get_ast().replace(spawn_code);
+            }
+
+            void critical_postorder(OpenMP::CriticalConstruct critical_construct)
+            {
+                Source critical_source;
+
+                OpenMP::Directive directive = critical_construct.directive();
+                Statement critical_body = critical_construct.body();
+                ScopeLink scope_link = critical_construct.get_scope_link();
+                
+                OpenMP::Clause region_name = directive.parameter_clause();
+
+                std::string mutex_variable;
+
+                if (!region_name.is_defined())
+                {
+                    mutex_variable = "_nthf_unspecified_critical";
+                }
+                else
+                {
+                    ObjectList<IdExpression> id_expressions = region_name.id_expressions(TL::ALL_FOUND_SYMBOLS);
+                    IdExpression head = id_expressions[0];
+
+                    mutex_variable = "_nthf_"  + head.prettyprint();
+                }
+
+                critical_source
+                    << "{"
+//                    <<   "extern void nthf_spin_lock_(void*);"
+//                    <<   "extern void nthf_spin_unlock_(void*);"
+                    <<   "nthf_spin_lock_(&" << mutex_variable << ");"
+                    <<   critical_body.prettyprint()
+                    <<   "nthf_spin_unlock_(&" << mutex_variable << ");"
+                    << "}"
+                    ;
+
+                if (criticals_defined.find(mutex_variable) == criticals_defined.end())
+                {
+                    // Now declare, if not done before
+                    Source critical_mutex_def_src;
+
+                    critical_mutex_def_src <<
+                        "nth_word_t " << mutex_variable << ";"
+                        ;
+
+                    // AST_t translation_unit = critical_construct.get_ast().get_translation_unit();
+                    // Scope scope_translation_unit = scope_link.get_scope(translation_unit);
+
+                    AST_t critical_mutex_def_tree = critical_mutex_def_src.parse_global(critical_construct.get_scope(),
+                            critical_construct.get_scope_link());
+
+                    critical_construct.get_ast().prepend_sibling_function(critical_mutex_def_tree);
+
+                    criticals_defined.insert(mutex_variable);
+                }
+
+                AST_t critical_tree = critical_source.parse_statement(critical_construct.get_scope(),
+                        critical_construct.get_scope_link());
+
+                critical_construct.get_ast().replace(critical_tree);
+            }
 
             void threadprivate_postorder(OpenMP::ThreadPrivateDirective threadprivate_directive)
             {
@@ -608,130 +1683,6 @@ namespace TL
                 taskgroup_construct.get_ast().replace(taskgroup_code);
             }
 
-            void section_postorder(OpenMP::SectionConstruct section_construct)
-            {
-                int &num_sections = num_sections_stack.top();
-
-                Source section_source;
-                Statement construct_body = section_construct.body();
-
-                section_source
-                    << "case " << num_sections << ":"
-                    << "{"
-                    <<    construct_body.prettyprint()
-                    <<    "break;"
-                    << "}"
-                    ;
-
-                AST_t section_tree = section_source.parse_statement(section_construct.get_scope(),
-                        section_construct.get_scope_link());
-
-                // One more section
-                num_sections++;
-
-                section_construct.get_ast().replace(section_tree);
-            }
-
-            void critical_postorder(OpenMP::CriticalConstruct critical_construct)
-            {
-                Source critical_source;
-
-                OpenMP::Directive directive = critical_construct.directive();
-                Statement critical_body = critical_construct.body();
-                ScopeLink scope_link = critical_construct.get_scope_link();
-                
-                OpenMP::Clause region_name = directive.parameter_clause();
-
-                std::string mutex_variable;
-
-                if (!region_name.is_defined())
-                {
-                    mutex_variable = "_nthf_unspecified_critical";
-                }
-                else
-                {
-                    ObjectList<IdExpression> id_expressions = region_name.id_expressions(TL::ALL_FOUND_SYMBOLS);
-                    IdExpression head = id_expressions[0];
-
-                    mutex_variable = "_nthf_"  + head.prettyprint();
-                }
-
-                critical_source
-                    << "{"
-//                    <<   "extern void nthf_spin_lock_(void*);"
-//                    <<   "extern void nthf_spin_unlock_(void*);"
-                    <<   "nthf_spin_lock_(&" << mutex_variable << ");"
-                    <<   critical_body.prettyprint()
-                    <<   "nthf_spin_unlock_(&" << mutex_variable << ");"
-                    << "}"
-                    ;
-
-                if (criticals_defined.find(mutex_variable) == criticals_defined.end())
-                {
-                    // Now declare, if not done before
-                    Source critical_mutex_def_src;
-
-                    critical_mutex_def_src <<
-                        "nth_word_t " << mutex_variable << ";"
-                        ;
-
-                    // AST_t translation_unit = critical_construct.get_ast().get_translation_unit();
-                    // Scope scope_translation_unit = scope_link.get_scope(translation_unit);
-
-                    AST_t critical_mutex_def_tree = critical_mutex_def_src.parse_global(critical_construct.get_scope(),
-                            critical_construct.get_scope_link());
-
-                    critical_construct.get_ast().prepend_sibling_function(critical_mutex_def_tree);
-
-                    criticals_defined.insert(mutex_variable);
-                }
-
-                AST_t critical_tree = critical_source.parse_statement(critical_construct.get_scope(),
-                        critical_construct.get_scope_link());
-
-                critical_construct.get_ast().replace(critical_tree);
-            }
-
-            void atomic_postorder(OpenMP::AtomicConstruct atomic_construct)
-            {
-                // TODO - An atomic can be implemented better
-                Source critical_source;
-
-                Statement critical_body = atomic_construct.body();
-
-                critical_source
-                    << "{"
-                    <<   "static nth_word_t default_mutex_var;"
-//                    <<   "extern void nthf_spin_lock_(void*);"
-//                    <<   "extern void nthf_spin_unlock_(void*);"
-                    <<   "nthf_spin_lock_(&default_mutex_var);"
-                    <<   critical_body.prettyprint()
-                    <<   "nthf_spin_unlock_(&default_mutex_var);"
-                    << "}"
-                    ;
-
-                AST_t atomic_tree = critical_source.parse_statement(atomic_construct.get_scope(),
-                        atomic_construct.get_scope_link());
-
-                atomic_construct.get_ast().replace(atomic_tree);
-            }
-
-            void barrier_postorder(OpenMP::BarrierDirective barrier_directive)
-            {
-                Source barrier_source;
-
-                barrier_source
-                    << "{"
-//                    <<    "extern void in__tone_barrier_();"
-                    <<    "in__tone_barrier_();"
-                    << "}"
-                    ;
-
-                AST_t barrier_tree = barrier_source.parse_statement(barrier_directive.get_scope(),
-                        barrier_directive.get_scope_link());
-
-                barrier_directive.get_ast().replace(barrier_tree);
-            }
 
             void flush_postorder(OpenMP::FlushDirective flush_directive)
             {
@@ -750,955 +1701,6 @@ namespace TL
                 flush_directive.get_ast().replace(flush_tree);
             }
 
-            void parallel_single_preorder(OpenMP::ParallelSingleConstruct parallel_single_construct)
-            {
-                // Allocate a new element for inner reductions
-                ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
-                inner_reductions_stack.push(inner_reductions);
-                
-                // Increase the parallel nesting value
-                parallel_nesting++;
-            }
-
-            void parallel_single_postorder(OpenMP::ParallelSingleConstruct parallel_single_construct)
-            {
-                // One more parallel seen
-                num_parallels++;
-
-                // Decrease the parallel nesting
-                parallel_nesting--;
-                
-                // Get the directive
-                OpenMP::Directive directive = parallel_single_construct.directive();
-                
-                // Get the enclosing function definition
-                FunctionDefinition function_definition = parallel_single_construct.get_enclosing_function();
-                // its scope
-                Scope function_scope = function_definition.get_scope();
-                // and the id-expression of the function name
-                IdExpression function_name = function_definition.get_function_name();
-
-                // They will hold the entities as they appear in the clauses
-                ObjectList<IdExpression> shared_references;
-                ObjectList<IdExpression> private_references;
-                ObjectList<IdExpression> firstprivate_references;
-                ObjectList<IdExpression> lastprivate_references;
-                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
-                ObjectList<IdExpression> copyin_references;
-                ObjectList<IdExpression> copyprivate_references;
-                
-                // Get the construct_body of the statement
-                Statement construct_body = parallel_single_construct.body();
-
-                // Get the data attributes for every entity
-                get_data_attributes(function_scope,
-                        directive,
-                        construct_body,
-                        shared_references,
-                        private_references,
-                        firstprivate_references,
-                        lastprivate_references,
-                        reduction_references,
-                        copyin_references,
-                        copyprivate_references);
-
-                // Create the replacement map and fill the parameter info list
-                ObjectList<ParameterInfo> parameter_info_list;
-                ReplaceIdExpression replace_references = 
-                    set_replacements(function_definition,
-                            directive,
-                            construct_body,
-                            shared_references,
-                            private_references,
-                            firstprivate_references,
-                            lastprivate_references,
-                            reduction_references,
-                            inner_reductions_stack.top(),
-                            copyin_references,
-                            copyprivate_references,
-                            parameter_info_list);
-
-                // Get the outline function name
-                Source outlined_function_name = get_outlined_function_name(function_name);
-
-                // Create the outline for parallel for using 
-                // the privatized entities and pass by pointer
-                // lists.
-                // Additionally {first|last}private and reduction
-                // entities are needed for proper initializations
-                // and assignments.
-                AST_t outline_code = get_outline_parallel_single(
-                        function_definition,
-                        outlined_function_name, 
-                        construct_body,
-                        replace_references,
-                        parameter_info_list,
-                        private_references,
-                        firstprivate_references,
-                        lastprivate_references,
-                        reduction_references,
-                        copyin_references,
-                        copyprivate_references);
-
-                // In the AST of the function definition, prepend outline_code
-                // as a sibling (at the same level)
-                function_definition.get_ast().prepend_sibling_function(outline_code);
-
-                // Now create the spawning code. Pass by pointer list and
-                // reductions are needed for proper pass of data and reduction
-                // vectors declaration
-                
-                OpenMP::Clause num_threads = directive.num_threads_clause();
-                OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
-
-                Source instrument_code_before;
-                Source instrument_code_after;
-
-                if (ExternalVars::get("instrument", "0") == "1")
-                {
-                    instrument_code_before
-                        << "const int EVENT_PARALLEL = 60000001;"
-                        << "const int VALUE_PARALLEL_SINGLE = 4;"
-                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SINGLE);"
-                        << "mintaka_state_schedule();"
-                        ;
-                    instrument_code_after
-                        << "const int VALUE_PARALLEL_CLOSE = 0;"
-                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
-                        << "mintaka_state_run();"
-                        ;
-                }
-                
-                AST_t spawn_code = get_parallel_spawn_code(
-                        function_definition,
-                        parallel_single_construct.get_scope(),
-                        parallel_single_construct.get_scope_link(),
-                        outlined_function_name,
-                        parameter_info_list,
-                        reduction_references,
-                        num_threads,
-                        groups_clause,
-                        instrument_code_before,
-                        instrument_code_after
-                        );
-
-                // Discard inner reductions information
-                inner_reductions_stack.pop();
-
-                // Now replace the whole construct with spawn_code
-                parallel_single_construct.get_ast().replace(spawn_code);
-            }
-
-            void single_postorder(OpenMP::SingleConstruct single_construct)
-            {
-                Source single_source;
-                Source barrier_code;
-
-                Statement body_construct = single_construct.body();
-                OpenMP::Directive directive = single_construct.directive();
-
-                single_source
-                    << "{"
-                    <<   "int nth_low;"
-                    <<   "int nth_upper;"
-                    <<   "int nth_step;"
-                    <<   "int nth_chunk;"
-                    <<   "int nth_schedule;"
-                    <<   "int nth_dummy1;"
-                    <<   "int nth_dummy2;"
-                    <<   "int nth_dummy3;"
-                    <<   "int nth_barrier; "
-
-                    <<   "nth_low = 0;"
-                    <<   "nth_upper = 0;"
-                    <<   "nth_step = 1;"
-                    <<   "nth_schedule = 1;"
-                    <<   "nth_chunk = 1;"
-
-//                    <<   "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
-//                    <<   "extern int in__tone_next_iters_(int*, int*, int*);"
-//                    <<   "extern void in__tone_end_for_(int*);"
-
-                    <<   "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
-                    <<   "while (in__tone_next_iters_ (&nth_dummy1, &nth_dummy2, &nth_dummy3) != 0)"
-                    <<   "{"
-                    <<       body_construct.prettyprint()
-                    <<   "}"
-                    <<   barrier_code
-                    << "}"
-                    ;
-
-                OpenMP::Clause nowait_clause = directive.nowait_clause();
-                barrier_code << "nth_barrier = " << (nowait_clause.is_defined() ? "0" : "1") << ";";
-                barrier_code << "in__tone_end_for_(&nth_barrier);";
-
-                AST_t single_tree = single_source.parse_statement(single_construct.get_scope(), 
-                        single_construct.get_scope_link());
-
-                single_construct.get_ast().replace(single_tree);
-            }
-
-            // Parallel in preorder
-            void parallel_preorder(OpenMP::ParallelConstruct parallel_construct)
-            {
-                ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
-                inner_reductions_stack.push(inner_reductions);
-                
-                // Increase the parallel nesting value
-                parallel_nesting++;
-            }
-
-            // Parallel in postorder
-            void parallel_postorder(OpenMP::ParallelConstruct parallel_construct)
-            {
-                // One more parallel seen
-                num_parallels++;
-
-                // Decrease the parallel nesting value
-                parallel_nesting--;
-
-                // Get the directive
-                OpenMP::Directive directive = parallel_construct.directive();
-                
-                // Get the enclosing function definition
-                FunctionDefinition function_definition = parallel_construct.get_enclosing_function();
-                // its scope
-                Scope function_scope = function_definition.get_scope();
-                // and the id-expression of the function name
-                IdExpression function_name = function_definition.get_function_name();
-
-                // They will hold the entities as they appear in the clauses
-                ObjectList<IdExpression> shared_references;
-                ObjectList<IdExpression> private_references;
-                ObjectList<IdExpression> firstprivate_references;
-                ObjectList<IdExpression> lastprivate_references;
-                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
-                ObjectList<IdExpression> copyin_references;
-                ObjectList<IdExpression> copyprivate_references;
-                
-                // Get the construct_body of the statement
-                Statement construct_body = parallel_construct.body();
-
-                // Get the data attributes for every entity
-                get_data_attributes(function_scope,
-                        directive,
-                        construct_body,
-                        shared_references,
-                        private_references,
-                        firstprivate_references,
-                        lastprivate_references,
-                        reduction_references,
-                        copyin_references,
-                        copyprivate_references);
-                
-                ObjectList<ParameterInfo> parameter_info_list;
-
-                ReplaceIdExpression replace_references = 
-                    set_replacements(function_definition,
-                            directive,
-                            construct_body,
-                            shared_references,
-                            private_references,
-                            firstprivate_references,
-                            lastprivate_references,
-                            reduction_references,
-                            inner_reductions_stack.top(),
-                            copyin_references,
-                            copyprivate_references,
-                            parameter_info_list);
-
-                // Get the outline function name
-                Source outlined_function_name = get_outlined_function_name(function_name);
-
-                // Create the outline for parallel for using 
-                // the privatized entities and pass by pointer
-                // lists.
-                // Additionally {first|last}private and reduction
-                // entities are needed for proper initializations
-                // and assignments.
-                AST_t outline_code  = get_outline_parallel(
-                        function_definition,
-                        outlined_function_name, 
-                        construct_body,
-                        replace_references,
-                        parameter_info_list,
-                        private_references,
-                        firstprivate_references,
-                        lastprivate_references,
-                        reduction_references,
-                        copyin_references,
-                        copyprivate_references);
-
-                // In the AST of the function definition, prepend outline_code
-                // as a sibling (at the same level)
-                function_definition.get_ast().prepend_sibling_function(outline_code);
-
-                // Now create the spawning code. Pass by pointer list and
-                // reductions are needed for proper pass of data and reduction
-                // vectors declaration
-                
-                OpenMP::Clause num_threads = directive.num_threads_clause();
-                OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
-
-                Source instrument_code_before;
-                Source instrument_code_after;
-                if (ExternalVars::get("instrument", "0") == "1")
-                {
-                    instrument_code_before
-                        << "const int EVENT_PARALLEL = 60000001;"
-                        << "const int VALUE_PARALLEL_REGION = 3;"
-                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_REGION);"
-                        << "mintaka_state_schedule();"
-                        ;
-                    instrument_code_after
-                        << "const int VALUE_PARALLEL_CLOSE = 0;"
-                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
-                        << "mintaka_state_run();"
-                        ;
-                }
-                
-                AST_t spawn_code = get_parallel_spawn_code(
-                        function_definition,
-                        parallel_construct.get_scope(),
-                        parallel_construct.get_scope_link(),
-                        outlined_function_name,
-                        parameter_info_list,
-                        reduction_references,
-                        num_threads,
-                        groups_clause,
-                        instrument_code_before,
-                        instrument_code_after
-                        );
-
-                // Discard inner reductions information
-                inner_reductions_stack.pop();
-
-                // Now replace the whole construct with spawn_code
-                parallel_construct.get_ast().replace(spawn_code);
-            }
-
-            void parallel_for_preorder(OpenMP::ParallelForConstruct parallel_for_construct)
-            {
-                ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
-                inner_reductions_stack.push(inner_reductions);
-                
-                // Increase the parallel nesting value
-                parallel_nesting++;
-
-                Statement construct_body = parallel_for_construct.body();
-                // The construct is in fact a ForStatement in a #pragma omp parallel do
-                ForStatement for_statement(construct_body);
-                
-                IdExpression induction_var = for_statement.get_induction_variable();
-
-                // Save this induction var in the stack
-                induction_var_stack.push(induction_var);
-            }
-
-            void parallel_for_postorder(OpenMP::ParallelForConstruct parallel_for_construct)
-            {
-                // One more parallel seen
-                num_parallels++;
-
-                // Remove the induction var from the stack
-                induction_var_stack.pop();
-
-                // Decrease the parallel nesting level 
-                parallel_nesting--;
-
-                // Get the directive
-                OpenMP::Directive directive = parallel_for_construct.directive();
-                
-                // Get the enclosing function definition
-                FunctionDefinition function_definition = parallel_for_construct.get_enclosing_function();
-                Scope function_scope = function_definition.get_scope();
-                IdExpression function_name = function_definition.get_function_name();
-
-                // They will hold the entities as they appear in the clauses
-                ObjectList<IdExpression> shared_references;
-                ObjectList<IdExpression> private_references;
-                ObjectList<IdExpression> firstprivate_references;
-                ObjectList<IdExpression> lastprivate_references;
-                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
-                ObjectList<IdExpression> copyin_references;
-                ObjectList<IdExpression> copyprivate_references;
-                
-                // Get the construct_body of the statement
-                Statement construct_body = parallel_for_construct.body();
-                // The construct is in fact a ForStatement in a #pragma omp parallel do
-                ForStatement for_statement(construct_body);
-                Statement loop_body = for_statement.get_loop_body();
-
-                // Get the data attributes for every entity
-                get_data_attributes(function_scope,
-                        directive,
-                        construct_body,
-                        shared_references,
-                        private_references,
-                        firstprivate_references,
-                        lastprivate_references,
-                        reduction_references,
-                        copyin_references,
-                        copyprivate_references);
-                
-                // The induction variable deserves special treatment
-                IdExpression induction_var = for_statement.get_induction_variable();
-                // If private_references does not contain an IdExpression whose
-                // related symbol is the induction variable symbol, then
-                // privatize here (FIXME: I've seen codes where the induction
-                // variable appears in lastprivate)
-                if (!private_references.contains(functor(&IdExpression::get_symbol), induction_var.get_symbol()))
-                {
-                    // Add the induction variale onto the private references
-                    private_references.append(induction_var);
-                    // And now remove, if it was already there, any reference
-                    // to the induction variable symbol from the set of shared
-                    // references
-                    shared_references = shared_references.not_find(functor(&IdExpression::get_symbol), 
-                            induction_var.get_symbol());
-                }
-
-                ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
-
-                // Create the replacement map and the pass_by_pointer set
-                ObjectList<ParameterInfo> parameter_info_list;
-                ReplaceIdExpression replace_references = 
-                    set_replacements(function_definition,
-                            directive,
-                            loop_body,
-                            shared_references,
-                            private_references,
-                            firstprivate_references,
-                            lastprivate_references,
-                            reduction_references,
-                            inner_reductions_stack.top(),
-                            copyin_references,
-                            copyprivate_references,
-                            parameter_info_list);
-
-                // Get the outline function name
-                Source outlined_function_name = get_outlined_function_name(function_name);
-
-                // Create the outline for parallel for
-                AST_t outline_code = get_outline_parallel_for(
-                        function_definition,
-                        outlined_function_name, 
-                        for_statement,
-                        loop_body,
-                        replace_references,
-                        parameter_info_list,
-                        private_references,
-                        firstprivate_references,
-                        lastprivate_references,
-                        reduction_references,
-                        copyin_references,
-                        copyprivate_references);
-
-                // Now prepend the outline
-                function_definition.get_ast().prepend_sibling_function(outline_code);
-
-                OpenMP::Clause num_threads = directive.num_threads_clause();
-                OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
-
-                Source instrument_code_before;
-                Source instrument_code_after;
-                if (ExternalVars::get("instrument", "0") == "1")
-                {
-                    instrument_code_before
-                        << "const int EVENT_PARALLEL = 60000001;"
-                        << "const int VALUE_PARALLEL_FOR = 1;"
-                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_FOR);"
-                        << "mintaka_state_schedule();"
-                        ;
-                    instrument_code_after
-                        << "const int VALUE_PARALLEL_CLOSE = 0;"
-                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
-                        << "mintaka_state_run();"
-                        ;
-                }
-
-                AST_t spawn_code = get_parallel_spawn_code(
-                        function_definition,
-                        parallel_for_construct.get_scope(),
-                        parallel_for_construct.get_scope_link(),
-                        outlined_function_name,
-                        parameter_info_list,
-                        reduction_references,
-                        num_threads,
-                        groups_clause,
-                        instrument_code_before,
-                        instrument_code_after
-                        );
-
-                // Discard inner reduction information
-                inner_reductions_stack.pop();
-
-                // Replace all the whole construct with spawn_code
-                parallel_for_construct.get_ast().replace(spawn_code);
-            }
-
-            void parallel_sections_preorder(OpenMP::ParallelSectionsConstruct parallel_sections_construct)
-            {
-                ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
-                inner_reductions_stack.push(inner_reductions);
-                
-                // Increase the parallel nesting value
-                parallel_nesting++;
-
-                // We push a new level of sections with zero "section" counted
-                // so far
-                num_sections_stack.push(0);
-            }
-
-            void parallel_sections_postorder(OpenMP::ParallelSectionsConstruct parallel_sections_construct)
-            {
-                // One more parallel seen
-                num_parallels++;
-
-                // Decrease the parallel nesting
-                parallel_nesting--;
-                
-                // Get the directive
-                OpenMP::Directive directive = parallel_sections_construct.directive();
-                
-                // Get the enclosing function definition
-                FunctionDefinition function_definition = parallel_sections_construct.get_enclosing_function();
-                // its scope
-                Scope function_scope = function_definition.get_scope();
-                // and the id-expression of the function name
-                IdExpression function_name = function_definition.get_function_name();
-
-                // They will hold the entities as they appear in the clauses
-                ObjectList<IdExpression> shared_references;
-                ObjectList<IdExpression> private_references;
-                ObjectList<IdExpression> firstprivate_references;
-                ObjectList<IdExpression> lastprivate_references;
-                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
-                ObjectList<IdExpression> copyin_references;
-                ObjectList<IdExpression> copyprivate_references;
-                
-                // Get the construct_body of the statement
-                Statement construct_body = parallel_sections_construct.body();
-
-                // Get the data attributes for every entity
-                get_data_attributes(function_scope,
-                        directive,
-                        construct_body,
-                        shared_references,
-                        private_references,
-                        firstprivate_references,
-                        lastprivate_references,
-                        reduction_references,
-                        copyin_references,
-                        copyprivate_references);
-                
-                ObjectList<ParameterInfo> parameter_info_list;
-                ReplaceIdExpression replace_references = 
-                    set_replacements(function_definition,
-                            directive,
-                            construct_body,
-                            shared_references,
-                            private_references,
-                            firstprivate_references,
-                            lastprivate_references,
-                            reduction_references,
-                            inner_reductions_stack.top(),
-                            copyin_references,
-                            copyprivate_references,
-                            parameter_info_list);
-
-                // Get the outline function name
-                Source outlined_function_name = get_outlined_function_name(function_name);
-
-                // Create the outline for parallel sections using 
-                // the privatized entities and pass by pointer
-                // lists.
-                // Additionally {first|last}private and reduction
-                // entities are needed for proper initializations
-                // and assignments.
-                AST_t outline_code = get_outline_parallel_sections(
-                        function_definition,
-                        outlined_function_name, 
-                        construct_body,
-                        replace_references,
-                        parameter_info_list,
-                        private_references,
-                        firstprivate_references,
-                        lastprivate_references,
-                        reduction_references,
-                        copyin_references,
-                        copyprivate_references);
-
-                // In the AST of the function definition, prepend outline_code
-                // as a sibling (at the same level)
-                function_definition.get_ast().prepend_sibling_function(outline_code);
-
-                OpenMP::Clause num_threads = directive.num_threads_clause();
-                OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
-                
-                // Now create the spawning code. Pass by pointer list and
-                // reductions are needed for proper pass of data and reduction
-                // vectors declaration
-                Source instrument_code_before;
-                Source instrument_code_after;
-                if (ExternalVars::get("instrument", "0") == "1")
-                {
-                    instrument_code_before
-                        << "const int EVENT_PARALLEL = 60000001;"
-                        << "const int VALUE_PARALLEL_SECTIONS = 2;"
-                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SECTIONS);"
-                        << "mintaka_state_schedule();"
-                        ;
-                    instrument_code_after
-                        << "const int VALUE_PARALLEL_CLOSE = 0;"
-                        << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
-                        << "mintaka_state_run();"
-                        ;
-                }
-
-                AST_t spawn_code = get_parallel_spawn_code(
-                        function_definition,
-                        parallel_sections_construct.get_scope(),
-                        parallel_sections_construct.get_scope_link(),
-                        outlined_function_name,
-                        parameter_info_list,
-                        reduction_references,
-                        num_threads,
-                        groups_clause,
-                        instrument_code_before,
-                        instrument_code_after
-                        );
-
-                // One less level of sections
-                num_sections_stack.pop();
-
-                // Discard inner reductions information
-                inner_reductions_stack.pop();
-
-                // Now replace the whole construct with spawn_code
-                parallel_sections_construct.get_ast().replace(spawn_code);
-            }
-
-            void sections_preorder(OpenMP::SectionsConstruct sections_construct)
-            {
-                // We push a new level of sections with zero "section" counted
-                // so far
-                num_sections_stack.push(0);
-            }
-
-            void sections_postorder(OpenMP::SectionsConstruct sections_construct)
-            {
-                // They will hold the entities as they appear in the clauses
-                ObjectList<IdExpression> shared_references;
-                ObjectList<IdExpression> private_references;
-                ObjectList<IdExpression> firstprivate_references;
-                ObjectList<IdExpression> lastprivate_references;
-                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
-                ObjectList<IdExpression> copyin_references;
-                ObjectList<IdExpression> copyprivate_references;
-                
-                // Get the construct_body of the statement
-                OpenMP::Directive directive = sections_construct.directive();
-                Statement construct_body = sections_construct.body();
-                
-                // Get the enclosing function definition
-                FunctionDefinition function_definition = sections_construct.get_enclosing_function();
-                // its scope
-                Scope function_scope = function_definition.get_scope();
-
-                // Get the data attributes for every entity
-                get_data_attributes(function_scope,
-                        directive,
-                        construct_body,
-                        shared_references,
-                        private_references,
-                        firstprivate_references,
-                        lastprivate_references,
-                        reduction_references,
-                        copyin_references,
-                        copyprivate_references);
-
-                ObjectList<ParameterInfo> parameter_info_list;
-
-                ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
-
-                ReplaceIdExpression replace_references = 
-                    set_replacements(function_definition,
-                            directive,
-                            construct_body,
-                            shared_references,
-                            private_references,
-                            firstprivate_references,
-                            lastprivate_references,
-                            reduction_references,
-                            reduction_empty,
-                            copyin_references,
-                            copyprivate_references,
-                            parameter_info_list);
-
-                int num_sections = num_sections_stack.top();
-
-                Source loop_distribution_code;
-
-                loop_distribution_code = get_loop_distribution_in_sections(num_sections,
-                        construct_body,
-                        replace_references);
-
-                // In fact we are not passing anything by parameters since
-                // there is no outline here
-                parameter_info_list.clear();
-
-                Source private_declarations = get_privatized_declarations(
-                        private_references,
-                        firstprivate_references,
-                        lastprivate_references,
-                        reduction_references,
-                        copyin_references,
-                        parameter_info_list
-                        ); 
-
-                Source lastprivate_code;
-
-                if (!lastprivate_references.empty())
-                {
-                    Source lastprivate_assignments = get_lastprivate_assignments(
-                            lastprivate_references,
-                            copyprivate_references,
-                            parameter_info_list);
-
-                    lastprivate_code 
-                        << "if (intone_last != 0)"
-                        << "{"
-                        <<    lastprivate_assignments
-                        << "}"
-                        ;
-                }
-
-                OpenMP::Clause nowait_clause = directive.nowait_clause();
-                Source loop_finalization = get_loop_finalization(/*do_barrier=*/!(nowait_clause.is_defined()));
-
-                Source reduction_code;
-
-                bool orphaned = (parallel_nesting == 0);
-                if (orphaned)
-                {
-                    reduction_code = get_critical_reduction_code(reduction_references);
-                }
-                else
-                {
-                    reduction_code = get_noncritical_inlined_reduction_code(reduction_references);
-                            
-                }
-
-                Source sections_source;
-                sections_source 
-                    << "{"
-                    <<    private_declarations
-                    <<    loop_distribution_code
-                    <<    lastprivate_code
-                    <<    reduction_code
-                    <<    loop_finalization
-                    << "}"
-                    ;
-
-                num_sections_stack.pop();
-
-                AST_t sections_tree = sections_source.parse_statement(sections_construct.get_scope(),
-                        sections_construct.get_scope_link());
-
-                sections_construct.get_ast().replace(sections_tree);
-            }
-
-            void master_postorder(OpenMP::MasterConstruct master_construct)
-            {
-                Source master_source;
-
-                Statement statement = master_construct.body();
-
-                master_source
-                    << "if (in__tone_is_master_())"
-                    << "{"
-                    <<    statement.prettyprint()
-                    << "}"
-                    ;
-
-                AST_t master_tree = master_source.parse_statement(master_construct.get_scope(),
-                        master_construct.get_scope_link());
-
-                master_construct.get_ast().replace(master_tree);
-            }
-
-            void ordered_postorder(OpenMP::OrderedConstruct ordered_construct)
-            {
-                IdExpression induction_var = induction_var_stack.top();
-
-                Statement construct_body = ordered_construct.body();
-                Source ordered_source;
-
-                ordered_source
-                    << "{"
-                    <<   "in__tone_enter_ordered_ (& "<< induction_var.prettyprint() << ");"
-                    <<   construct_body.prettyprint()
-                    <<   "in__tone_leave_ordered_ (&" << induction_var.prettyprint() << ");"
-                    << "}"
-                    ;
-
-                AST_t ordered_code = ordered_source.parse_statement(ordered_construct.get_scope(),
-                        ordered_construct.get_scope_link());
-
-                ordered_construct.get_ast().replace(ordered_code);
-            }
-
-            void for_preorder(OpenMP::ForConstruct for_construct)
-            {
-                Statement construct_body = for_construct.body();
-                // The construct is in fact a ForStatement in a #pragma omp parallel do
-                ForStatement for_statement(construct_body);
-                
-                IdExpression induction_var = for_statement.get_induction_variable();
-
-                // Save this induction var in the stack
-                induction_var_stack.push(induction_var);
-            }
-            
-            void for_postorder(OpenMP::ForConstruct for_construct)
-            {
-                OpenMP::Directive directive = for_construct.directive();
-                Statement construct_body = for_construct.body();
-                ForStatement for_statement = construct_body;
-                Statement loop_body = for_statement.get_loop_body();
-
-                // Remove the induction var from the stack
-                induction_var_stack.pop();
-
-                // They will hold the entities as they appear in the clauses
-                ObjectList<IdExpression> shared_references;
-                ObjectList<IdExpression> private_references;
-                ObjectList<IdExpression> firstprivate_references;
-                ObjectList<IdExpression> lastprivate_references;
-                ObjectList<OpenMP::ReductionIdExpression> reduction_references;
-                ObjectList<IdExpression> copyin_references;
-                ObjectList<IdExpression> copyprivate_references;
-                
-                // Get the enclosing function definition
-                FunctionDefinition function_definition = for_construct.get_enclosing_function();
-                // its scope
-                Scope function_scope = function_definition.get_scope();
-                
-                // Get the data attributes for every entity
-                get_data_explicit_attributes(function_scope,
-                        directive,
-                        construct_body,
-                        shared_references,
-                        private_references,
-                        firstprivate_references,
-                        lastprivate_references,
-                        reduction_references,
-                        copyin_references,
-                        copyprivate_references);
-                
-                // The induction variable deserves special treatment
-                IdExpression induction_var = for_statement.get_induction_variable();
-                // If private_references does not contain an IdExpression whose
-                // related symbol is the induction variable symbol, then
-                // privatize here (FIXME: I've seen codes where the induction
-                // variable appears in lastprivate)
-                if (!private_references.contains(functor(&IdExpression::get_symbol), induction_var.get_symbol()))
-                {
-                    // Add the induction variale onto the private references
-                    private_references.append(induction_var);
-                    // And now remove, if it was already there, any reference
-                    // to the induction variable symbol from the set of shared
-                    // references
-                    shared_references = shared_references.not_find(functor(&IdExpression::get_symbol), 
-                            induction_var.get_symbol());
-                }
-
-                ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
-
-                // The lists of entities passed by pointer and entities
-                // privatized in the outline
-                ObjectList<ParameterInfo> parameter_info_list;
-                // Create the replacement map and the pass_by_pointer set
-                ReplaceIdExpression replace_references  = 
-                    set_replacements(function_definition,
-                            directive,
-                            loop_body,
-                            shared_references,
-                            private_references,
-                            firstprivate_references,
-                            lastprivate_references,
-                            reduction_references,
-                            reduction_empty,
-                            copyin_references,
-                            copyprivate_references,
-                            parameter_info_list);
-
-                Source parallel_for_body;
-
-                parameter_info_list.clear();
-                
-                Source private_declarations = get_privatized_declarations(
-                        private_references,
-                        firstprivate_references,
-                        lastprivate_references,
-                        reduction_references,
-                        copyin_references,
-                        parameter_info_list
-                        ); 
-
-                Source loop_distribution_code = get_loop_distribution_code(for_statement,
-                        replace_references);
-
-                Source lastprivate_code;
-
-                if (!lastprivate_references.empty())
-                {
-                    Source lastprivate_assignments = get_lastprivate_assignments(
-                            lastprivate_references, 
-                            copyprivate_references,
-                            parameter_info_list);
-
-                    lastprivate_code
-                        << "if (intone_last != 0)"
-                        << "{"
-                        <<    lastprivate_assignments
-                        << "}"
-                        ;
-                }
-
-                OpenMP::Clause nowait_clause = directive.nowait_clause();
-
-                Source loop_finalization = get_loop_finalization(/*do_barrier=*/!(nowait_clause.is_defined()));
-
-                Source reduction_code;
-
-                parallel_for_body
-                    << "{"
-                    <<    private_declarations
-                    <<    loop_distribution_code
-                    <<    lastprivate_code
-                    <<    reduction_code
-                    <<    loop_finalization
-                    << "}"
-                    ;
-
-                bool orphaned = (parallel_nesting == 0);
-                if (orphaned)
-                {
-                    reduction_code = get_critical_reduction_code(reduction_references);
-                }
-                else
-                {
-                    reduction_code = get_noncritical_inlined_reduction_code(reduction_references);
-                }
-
-                AST_t result;
-                result = parallel_for_body.parse_statement(loop_body.get_scope(), 
-                         loop_body.get_scope_link());
-
-                for_construct.get_ast().replace(result);
-            }
 
             // This function returns a common spawn code suitable for parallel 'something' constructs
             AST_t get_parallel_spawn_code(
