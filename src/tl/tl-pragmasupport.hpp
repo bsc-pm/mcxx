@@ -43,6 +43,7 @@ namespace TL
             bool is_construct();
 
             Statement get_statement();
+            AST_t get_declaration();
 
             PragmaCustomClause get_clause(const std::string& name);
     };

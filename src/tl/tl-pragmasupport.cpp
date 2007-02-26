@@ -56,6 +56,14 @@ namespace TL
         return is_directive;
     }
 
+    AST_t PragmaCustomConstruct::get_declaration()
+    {
+        // The user will put it into a FunctionDefinition or a Declaration
+        // depending on his needs
+        TL::AST_t declaration = this->get_ast().get_attribute(LANG_PRAGMA_CUSTOM_DECLARATION);
+        return declaration;
+    }
+
     bool PragmaCustomConstruct::is_construct()
     {
         TL::Bool is_construct = this->get_ast().get_attribute(LANG_IS_PRAGMA_CUSTOM_CONSTRUCT);

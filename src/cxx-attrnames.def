@@ -112,6 +112,7 @@ LANG_LHS_ASSIGNMENT lang.lhs_assignment
 LANG_LHS_OPERAND lang.lhs_operand
 LANG_NESTED_NAME_SPECIFIER lang.nested_name_specifier
 LANG_PRAGMA_CUSTOM_CLAUSE lang.pragma_custom_clause
+LANG_PRAGMA_CUSTOM_DECLARATION lang.pragma_custom_declaration
 LANG_PRAGMA_CUSTOM_DIRECTIVE lang.pragma_custom_directive
 LANG_PRAGMA_CUSTOM lang.pragma_custom
 LANG_PRAGMA_CUSTOM_LINE lang.pragma_custom_line
