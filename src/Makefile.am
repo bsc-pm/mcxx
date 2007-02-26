@@ -87,6 +87,7 @@ EXTRA_DIST += c99.y.in
 EXTRA_DIST += cxx03.y.in
 EXTRA_DIST += cxx-omp.y
 EXTRA_DIST += cxx-pragma.y
+EXTRA_DIST += cxx-construct.y
 
 BUILT_SOURCES += cxx-attrnames.h
 BUILT_SOURCES += cxx-asttype.h
