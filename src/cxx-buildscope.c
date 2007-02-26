@@ -6048,8 +6048,9 @@ static void build_scope_compound_statement(AST a, scope_t* st, decl_context_t de
 {
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
-    // Note that we set the scope link to the list node and no to the compound statement
-    // node because we want to have the scope just before the compound and after the compound
+    // Note that we set the scope link to the list node and not to the compound
+    // statement node because we want to have the scope just before the
+    // compound and after the compound
     //
     //   the scope of the compound -> *  {
     //                                      * <-- the list scope
@@ -6066,6 +6067,7 @@ static void build_scope_compound_statement(AST a, scope_t* st, decl_context_t de
     }
 
     ASTAttrSetValueType(a, LANG_IS_COMPOUND_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_COMPOUND_STATEMENT_LIST, tl_type_t, tl_ast(ASTSon0(a)));
 }
 
 static void build_scope_condition(AST a, scope_t* st, decl_context_t decl_context)
