@@ -214,7 +214,7 @@ cxx-parser.c cxx-parser.h cxx-parser.output : cxx03.y
 
 CLEANFILES += cxx03.y
 cxx03.y : $(srcdir)/cxx03.y.in $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y
-	../lib/tpp -o cxx03.y -I$(srcdir) $(srcdir)/cxx03.y.in
+	../lib/tpp -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in
 endif
 
 if FLEX_BUILDING
@@ -236,7 +236,7 @@ c99-parser.c c99-parser.h c99-parser.output : c99.y
 
 CLEANFILES += c99.y
 c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y
-	../lib/tpp -o c99.y -I$(srcdir) $(srcdir)/c99.y.in
+	../lib/tpp -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
 endif
 
 

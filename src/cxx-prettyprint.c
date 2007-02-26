@@ -2312,6 +2312,7 @@ static void pragma_custom_directive_handler(FILE* f, AST a, int level)
 {
     token_fprintf(f, a, "#pragma %s ", ASTText(a));
     prettyprint_level(f, ASTSon0(a), level);
+    prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void pragma_custom_construct_handler(FILE* f, AST a, int level)

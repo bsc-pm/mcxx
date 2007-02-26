@@ -820,6 +820,11 @@ runtime {
 "<?=" { parse_token_text(); return MIN_OPERATOR_ASSIGN; }
 ">?=" { parse_token_text(); return MAX_OPERATOR_ASSIGN; }
 
+ /* mcxx extensions */
+ /*
+"__construct__" { parse_token_text(); return CONSTRUCT; }
+ */
+
  /* Special tokens for subparsing */
 @EXPRESSION@ { parse_token_text(); return SUBPARSE_EXPRESSION; }
 @STATEMENT@ { parse_token_text(); return SUBPARSE_STATEMENT; }
@@ -830,8 +835,8 @@ runtime {
  /* Special tokens for prettyprinted comments */
 @-C-@[^@]*@-CC-@ { parse_token_text(); return PP_COMMENT; }
 
+ /* A plain identifier */
 {idnondigit}({idnondigit}|{digit})* {parse_token_text(); return IDENTIFIER; }
-
 
  /* A.2.17 */
 {nonzero}({digit})*{integersuffix}?     { parse_token_text(); return DECIMAL_LITERAL; }

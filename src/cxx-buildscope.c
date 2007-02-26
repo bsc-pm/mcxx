@@ -148,6 +148,8 @@ static AST get_enclosing_declaration(AST point_of_declarator);
 static void build_scope_omp_custom_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name);
 static void build_scope_omp_threadprivate(AST a, scope_t* st, decl_context_t decl_context, char* attr_name);
 
+static void build_scope_pragma_custom_directive(AST a, scope_t* st, decl_context_t decl_context);
+
 // Current linkage, by default C++
 static char* current_linkage = "\"C++\"";
 
@@ -360,6 +362,11 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
         case AST_UNKNOWN_PRAGMA :
             {
                 // Do nothing
+                break;
+            }
+        case AST_PRAGMA_CUSTOM_DIRECTIVE :
+            {
+                build_scope_pragma_custom_directive(a, st, decl_context);
                 break;
             }
             // OpenMP 2.5 constructs
@@ -6711,13 +6718,15 @@ static void build_scope_pragma_custom_line(AST a, scope_t* st, decl_context_t de
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_string(ASTText(a)));
 }
 
-static void build_scope_pragma_custom_directive(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)
+static void build_scope_pragma_custom_directive(AST a, scope_t* st, decl_context_t decl_context)
 {
     build_scope_pragma_custom_line(ASTSon0(a), st, decl_context, LANG_IS_PRAGMA_CUSTOM_LINE);
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
+
+    build_scope_declaration(ASTSon1(a), st, decl_context);
 }
 
 static void build_scope_pragma_custom_construct(AST a, scope_t* st, decl_context_t decl_context, char* attr_name)

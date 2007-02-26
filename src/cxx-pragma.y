@@ -30,9 +30,9 @@ declaration : pragma_custom_directive
 
 // Pragma custom
 
-pragma_custom_directive : PRAGMA_CUSTOM pragma_custom_line 
+pragma_custom_directive : PRAGMA_CUSTOM pragma_custom_line declaration
 {
-	$$ = ASTMake1(AST_PRAGMA_CUSTOM_DIRECTIVE, $2, $1.token_line, $1.token_text);
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_DIRECTIVE, $2, $3, $1.token_line, $1.token_text);
 }
 ;
 
