@@ -6740,6 +6740,33 @@ static void build_scope_pragma_custom_construct(AST a, scope_t* st, decl_context
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_STATEMENT, tl_type_t, tl_ast(ASTSon1(a)));
 }
 
+static void build_scope_custom_construct_statement(AST a, scope_t* st, decl_context_t decl_context, char *attr_name)
+{
+    // Header
+    AST custom_construct_header = ASTSon0(a);
+
+    AST parameters_seq = ASTSon0(custom_construct_header);
+    if (parameters_seq != NULL)
+    {
+        AST iter;
+        for_each_element(parameters_seq, iter)
+        {
+            AST parameter = ASTSon1(iter);
+
+            // AST symbol = ASTSon0(parameter);
+            AST expression = ASTSon1(parameter);
+            
+            solve_possibly_ambiguous_expression(expression, st, decl_context);
+        }
+    }
+
+    // Statement
+    build_scope_statement(ASTSon1(a), st, decl_context);
+
+    // TODO - Fill attributes
+}
+
+
 #define STMT_HANDLER(type, hndl, attr_name_v) [type] = { .handler = (hndl), .attr_name = (attr_name_v) }
 
 static stmt_scope_handler_map_t stmt_scope_handlers[] =
@@ -6764,6 +6791,8 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_null, LANG_IS_GOTO_STATEMENT),
     // Pragma custom support
     STMT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, build_scope_pragma_custom_construct, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT),
+    // Custom construct
+    STMT_HANDLER(AST_CUSTOM_CONSTRUCT_STATEMENT, build_scope_custom_construct_statement, /*LANG_IS_CUSTOM_CONSTRUCT*/ ""),
     // OpenMP 2.5 constructs
     STMT_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, build_scope_omp_construct, OMP_IS_PARALLEL_CONSTRUCT),
     STMT_HANDLER(AST_OMP_FOR_CONSTRUCT, build_scope_omp_construct, OMP_IS_FOR_CONSTRUCT),

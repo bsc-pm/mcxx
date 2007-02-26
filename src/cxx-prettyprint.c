@@ -2312,6 +2312,7 @@ static void pp_comment_handler(FILE* f, AST a, int level)
 
 static void custom_construct_statement_handler(FILE *f, AST a, int level)
 {
+    indent_at_level(f, a, level);
     prettyprint_level(f, ASTSon0(a), level);
     prettyprint_level(f, ASTSon1(a), level);
 }
@@ -2323,7 +2324,8 @@ static void custom_construct_header_handler(FILE *f, AST a, int level)
     if (ASTSon0(a) != NULL)
     {
         token_fprintf(f, a, "\n");
-        list_handler(f, ASTSon1(a), level);
+        indent_at_level(f, a, level + 1);
+        list_handler(f, ASTSon0(a), level);
     }
 
     token_fprintf(f, a, "\n");
@@ -2333,8 +2335,7 @@ static void custom_construct_parameter(FILE *f, AST a, int level)
 {
     prettyprint_level(f, ASTSon0(a), level);
     token_fprintf(f, a, " : ");
-    prettyprint_level(f, ASTSon0(a), level);
-    token_fprintf(f, a, "\n");
+    prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void pragma_custom_line_handler(FILE* f, AST a, int level)

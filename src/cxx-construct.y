@@ -23,11 +23,11 @@ custom_construct_statement : custom_construct_header statement
 
 custom_construct_header : CONSTRUCT IDENTIFIER custom_construct_parameters_seq
 {
-    $$ = ASTMake1(AST_CUSTOM_CONSTRUCT_HEADER, $3, $1.token_line, $1.token_text);
+    $$ = ASTMake1(AST_CUSTOM_CONSTRUCT_HEADER, $3, $1.token_line, $2.token_text);
 }
 | CONSTRUCT IDENTIFIER 
 {
-    $$ = ASTMake1(AST_CUSTOM_CONSTRUCT_HEADER, NULL, $1.token_line, $1.token_text);
+    $$ = ASTMake1(AST_CUSTOM_CONSTRUCT_HEADER, NULL, $1.token_line, $2.token_text);
 }
 ;
 
