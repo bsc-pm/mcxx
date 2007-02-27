@@ -6690,11 +6690,14 @@ static void build_scope_pragma_custom_clause(AST a, scope_t* st, decl_context_t 
 
     list = ASTSon0(a);
 
-    for_each_element(list, iter)
+    if (list != NULL)
     {
-        AST expression = ASTSon1(iter);
+        for_each_element(list, iter)
+        {
+            AST expression = ASTSon1(iter);
 
-        solve_possibly_ambiguous_expression(expression, st, decl_context);
+            solve_possibly_ambiguous_expression(expression, st, decl_context);
+        }
     }
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
