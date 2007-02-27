@@ -391,7 +391,7 @@ namespace TL
         ObjectList<Expression> result;
 
         ObjectList<AST_t> arguments 
-            = expression_list.depth_subtrees(PredicateBool<LANG_EXPRESSION_NESTED>(), AST_t::NON_RECURSIVE);
+            = expression_list.depth_subtrees(PredicateBool<LANG_IS_EXPRESSION_NEST>(), AST_t::NON_RECURSIVE);
 
         for (ObjectList<AST_t>::iterator it = arguments.begin(); 
                 it != arguments.end();
