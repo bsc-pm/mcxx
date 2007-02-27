@@ -412,6 +412,20 @@ namespace TL
         return b;
     }
 
+    Expression Expression::get_subscripted_expression()
+    {
+        TL::AST_t result = _ref.get_attribute(LANG_SUBSCRIPTED_EXPRESSION);
+
+        return Expression(result, _scope_link);
+    }
+
+    Expression Expression::get_subscript_expression()
+    {
+        TL::AST_t result = _ref.get_attribute(LANG_SUBSCRIPT_EXPRESSION);
+
+        return Expression(result, _scope_link);
+    }
+
     bool Expression::is_casting()
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_CAST);

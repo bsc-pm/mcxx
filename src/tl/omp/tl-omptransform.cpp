@@ -3909,6 +3909,45 @@ namespace TL
                                 expression.get_ast().replace_with(replace_derref_tree);
                             }
                         }
+                        else if (expression.is_function_call())
+                        {
+                            ObjectList<Expression> expression_list = expression.get_argument_list();
+
+                            for (ObjectList<Expression>::iterator it = expression_list.begin();
+                                    it != expression_list.end();
+                                    it++)
+                            {
+                                replace_expression(*it);
+                            }
+
+                            // Expression called_expression = expression.get_called_expression();
+                        }
+                        else if (expression.is_array_subscript())
+                        {
+                            Expression subscript_expression = expression.get_subscript_expression();
+
+                            replace_expression(subscript_expression);
+
+                            Expression subscripted_expression = expression.get_subscripted_expression();
+
+                            replace_expression(subscripted_expression);
+
+                            Source replace_derreference_address;
+
+                            replace_derreference_address
+                                << "(*"
+                                << "read(&t,"
+                                << subscripted_expression.prettyprint() << "+" << subscripted_expression.prettyprint()
+                                // << ", sizeof(" << original_expression << ")" 
+                                << ")"
+                                << ")"
+                                ;
+
+
+                            AST_t replace_derref_tree = replace_derreference_address.parse_expression(expression.get_scope());
+
+                            expression.get_ast().replace_with(replace_derref_tree);
+                        }
                         else if (expression.is_id_expression())
                         {
                             Source original_expression = expression.prettyprint();

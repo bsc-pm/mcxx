@@ -54,13 +54,15 @@ enum cxx_symbol_kind
     SK_DEPENDENT_ENTITY // [18]
 };
 
+// Kind of cv-qualification
 typedef enum {
-    CV_NONE = 0,
-    CV_CONST = BITMAP(1),
-    CV_VOLATILE = BITMAP(2),
-    CV_RESTRICT = BITMAP(3)
+    CV_NONE = 0, // [no qualification]
+    CV_CONST = BITMAP(1), // const
+    CV_VOLATILE = BITMAP(2),  // volatile
+    CV_RESTRICT = BITMAP(3) // __restrict__ in C++ || restrict in C99
 } cv_qualifier_t;
 
+// An exception specifier used in function info
 typedef struct {
     int num_exception_types;
     struct type_tag** exception_type_seq;
@@ -110,71 +112,105 @@ typedef enum simple_type_kind_tag
 
 struct scope_entry_tag;
 
-typedef struct {
-    char* name;
-    AST value;
-} enumeration_item_t;
-
+// Information of enums
 typedef struct enum_information_tag {
-    int num_enumeration;
-    struct scope_entry_tag** enumeration_list;
+    int num_enumeration; // Number of enumerations declared for this enum
+    struct scope_entry_tag** enumeration_list; // The symtab entry of the enum
 } enum_info_t;
 
 enum template_parameter_kind
 {
     TPK_UNKNOWN = 0,
-    TPK_NONTYPE,
-    TPK_TYPE,
-    TPK_TEMPLATE
+    TPK_NONTYPE, // template <int N> <-- 'N'
+    TPK_TYPE, // template <class T> <-- 'T'
+    TPK_TEMPLATE // template <template <typename Q> class V > <-- 'V'
 };
 
+// A template parameter
+//
+// template <class T, int N> <-- these are parameters
 typedef struct template_parameter 
 {
-    AST parameter_tree;
+    // Kind of the parameter
     enum template_parameter_kind kind;
+
+    // The tree of the parameter
+    AST parameter_tree;
+
+    // Its name
     char* template_parameter_name;
 
+    // The related symbol associated to this parameter
     struct scope_entry_tag* template_parameter_symbol;
 
+    // Type info of nontype template parameters
     struct type_tag* type_info;
 
     // struct type_tag* default_type;
 
+    // Default parameter information
+    //    template <int N = 10>   
+    //    template <class T = int> 
+    //    template <template <typename Q> class V = std::vector>
+    // The tree (10, int, std::vector)
     AST default_tree;
+    // and its scope
     struct scope_tag* default_argument_scope;
 } template_parameter_t;
 
+// Access specifier, saved but not enforced by the compiler
 typedef enum access_specifier_t
 {
     AS_UNKNOWN = 0,
-    AS_PUBLIC,
-    AS_PRIVATE,
-    AS_PROTECTED
+    AS_PUBLIC, // public
+    AS_PRIVATE, // private
+    AS_PROTECTED // protected
 } access_specifier_t;
 
 struct simple_type_tag;
 
 enum class_kind_t {
-    CK_STRUCT,
-    CK_CLASS,
-    CK_UNION
+    CK_STRUCT, // struct
+    CK_CLASS, // class
+    CK_UNION // union 
 };
 
+// Conversion function info
+//
+// class B
+// {
+//   operator T() { ... }
+// };
 typedef struct conversion_function_info_tag
 {
+    // Which type it converts to
     struct type_tag* conversion_type;
+
+    // Its cv-qualifier
+    //
+    //  operator T() const 
     cv_qualifier_t cv_qualifier;
 } conversion_function_t;
 
+// Base class info (parent classes of a given class)
 typedef struct base_class_info_tag
 {
+    // The parent class type
     struct type_tag* class_type;
+
+    // The parent class symbol
     struct scope_entry_tag* class_symbol;
+
+    // The access specifier (public, private, protected inheritance)
     access_specifier_t access_specifier;
+
+    // A virtual base
     char is_virtual;
 } base_class_info_t;
 
+// Information of a class
 typedef struct class_information_tag {
+    // Kind of class {struct, class}
     enum class_kind_t class_kind;
 
     // Related inner scope to this class
@@ -183,91 +219,132 @@ typedef struct class_information_tag {
     // Special functions
     struct scope_entry_tag* destructor;
 
+    // Conversion functions info
     int num_conversion_functions;
     struct conversion_function_info_tag** conversion_function_list;
 
+    // Operator function info
     int num_operator_functions;
     struct scope_entry_tag** operator_function_list;
 
+    // Class constructors info
     int num_constructors;
     struct scope_entry_tag** constructor_list;
 
+    // Base (parent classes) info
     int num_bases;
     base_class_info_t** base_classes_list;
 } class_info_t;
 
+// Template arguments are the things that go between '<' and '>' in a
+// template-id
+//
+// MyBoundedStack<int, 100> mStack; <-- 'int' and '100' are template arguments
 enum template_argument_kind
 {
     TAK_UNDEFINED = 0,
-    TAK_NONTYPE,
-    TAK_TYPE,
-    TAK_TEMPLATE
+    TAK_NONTYPE, // an nontype template argument (basically an int or pointer)
+    TAK_TYPE, // a type template argument (the common case)
+    TAK_TEMPLATE // template template argument (not very usual)
 };
 
 typedef struct template_argument_tag
 {
+    // Kind of the template argument
     enum template_argument_kind kind;
 
+    // Argument tree. Used for nontype template arguments
     AST argument_tree;
 
     // Scope for the expression
     struct scope_tag* scope;
 
-    // Otherwise we should have type_t here
+    // If the template argument is a type template argument (or a template
+    // template one) the type should be here
     struct type_tag* type;
 
-    // The argument was implicitly defined by default template argument
+    // This argument was implicitly defined by default template argument
     char implicit;
 } template_argument_t;
 
+// List of template arguments
 typedef struct template_argument_list_tag {
     int num_arguments;
     template_argument_t** argument_list;
 } template_argument_list_t;
 
-// Direct type (including classes and enums)
+// Direct type covers types that are not pointers to something, neither
+// functions to something neither arrays to something.  So every basic type is
+// represented here including builtin types, classes, structs, enums, unions
+// and other nuclear types (like type template parameters)
 typedef struct simple_type_tag {
+    // Kind
     simple_type_kind_t kind;
+
+    // if Kind == STK_BUILTIN_TYPE here we have
+    // the exact builtin type
     builtin_type_t builtin_type;
-    char is_long; // This can be 0, 1 or 2
+
+    // This can be 0, 1 (long) or 2 (long long)
+    char is_long; 
+    // short
     char is_short;
+    // unsigned
     char is_unsigned;
+    // signed
     char is_signed;
 
-    char is_static; // local linkage or class-static
+    // This is something not strictly related to the type...
+    // static
+    char is_static; 
 
     // GCC extension
+    // __Complex float
     char is_complex;
 
-    // Previously declared type. should be completely "cv-unqualified"
+    // This type exists after another symbol, for
+    // instance
     //
-    // If this is a template-class this will be NULL since there
-    // is no "real type" backing this
+    // class A
+    // {
+    // };
+    // A b;
+    //
+    // creates an 'A' symbol of type SK_CLASS
+    // and a 'b' symbol SK_VARIABLE with type STK_USER_DEFINED
+    // pointing to 'A' symbol
     struct scope_entry_tag* user_defined_type;
 
-    // For typedefs
+    // For typedefs (kind == STK_TYPEDEF)
+    // the aliased type
     struct type_tag* aliased_type;
 
-    // For enums
+    // For enums (kind == STK_ENUM)
     enum_info_t* enum_info;
     
-    // For classes
+    // For classes (kind == STK_CLASS)
+    // this includes struct/class/union
     class_info_t* class_info;
 
     // For template classes
     // Template arguments for specializations and instantiations
+    // (kind == STK_CLASS)
     template_argument_list_t* template_arguments;
     
     // Used in unification
+    // (kind == STK_TYPE_TEMPLATE_PARAMETER)
     char* template_parameter_name;
 
     // Used when instantiating a template class
+    // (kind == STK_CLASS)
     AST template_class_base_clause;
     AST template_class_body;
 
     // For template parameters, the positional number of this argument in the
     // template and its nesting level (this should be enough to define
     // completely a template parameter in a "nameless" way)
+    // (kind == STK_TYPE_TEMPLATE_PARAMETER)
+    // (kind == STK_TEMPLATE_TEMPLATE_PARAMETER)
     int template_parameter_nesting;
     int template_parameter_num;
 
@@ -275,47 +352,81 @@ typedef struct simple_type_tag {
     struct scope_tag* type_scope;
 
     // For typeof and template dependent types
+    // (kind == STK_TYPEOF)
+    // (kind == STK_TEMPLATE_DEPENDENT_TYPE)
     AST typeof_expr;
     struct scope_tag* typeof_scope;
 
     // For instantiation purposes
     // 
     // The specialized template has already been instantiated
+    // (kind == STK_CLASS)
     char from_instantiation; 
     
-    // Saved decl_context for classes
+    // Saved decl_context for classes (this is used in later phases when we
+    // want to add new members by means of parsing)
+    // (kind == STK_CLASS)
     struct decl_context_tag* decl_context;
 } simple_type_t;
 
+// Information of a parameter
 typedef struct parameter_info_tag
 {
+    // This parameter is '...'
     char is_ellipsis;
+    // Otherwise it has the type here
     struct type_tag* type_info;
+    // Default argument tree for the parameter
+    //    int f(int a = 10);
     AST default_argument;
 } parameter_info_t;
 
 // Function information
 typedef struct function_tag
 {
+    // The returning type of the function
     struct type_tag* return_type;
+
+    // Parameter information
     int num_parameters;
     parameter_info_t** parameter_list;
+
+    // Exception specifier for this function
     exception_spec_t* exception_spec;
 
     // For instantiating template function purposes
     AST function_body;
 
-    int is_static; // local linkage or class-static
+    // static (local linkage or static member)
+    int is_static; 
+
+    // inline
     int is_inline;
+
+    // virtual
     int is_virtual;
-    int is_pure; // is_pure implies is_virtual
+
+    // virtual void f() = 0;
+    // pure implies virtual (not the opposite, though)
+    int is_pure; 
+
+    // explicit constructor
+    // only meaningful in constructors invokable with one parameter
+    //
+    // class A
+    // {
+    //   explicit A(int n) { }
+    // };
     int is_explicit;
 
-    // States if this function has been declared or defined 
-    // without prototype. This is only meaningful in C
+    // States if this function has been declared or defined without prototype.
+    // This is only meaningful in C but not in C++ where all functions do have
+    // prototype
     int lacks_prototype;
 
-    int is_constructor; // States if this functions is a constructor
+    // States if this functions is a constructor hence it will lack
+    // returning type (returning_type == NULL)
+    int is_constructor; 
 
     // For template parameters
     int num_template_parameters;
@@ -332,15 +443,24 @@ typedef struct function_tag
 // Pointers, references and pointers to members
 typedef struct pointer_tag
 {
+    // The pointee type
     struct type_tag* pointee;
+
+    // If the type was a TK_POINTER_TO_MEMBER
+    // the pointee class
     struct scope_entry_tag* pointee_class;
 } pointer_info_t;
 
 // Array information
 typedef struct array_tag
 {
+    // Array sizes
     AST array_expr;
+
+    // Scope of the array size expression
     struct scope_tag* array_expr_scope;
+
+    // The type of the array elements
     struct type_tag* element_type;
 } array_info_t;
 
@@ -348,8 +468,8 @@ typedef struct array_tag
 typedef enum 
 {
     VT_UNDEFINED = 0,
-    VT_LVALUE,
-    VT_RVALUE
+    VT_LVALUE, // a lvalue
+    VT_RVALUE  // a rvalue
 } value_type_t;
 
 // This structure is able to hold type information for a given symbol
@@ -360,34 +480,46 @@ typedef struct type_tag
     enum type_kind kind;
 
     // Pointer
+    // (kind == TK_POINTER)
+    // (kind == TK_POINTER_TO_MEMBER)
     pointer_info_t* pointer;
 
     // Array
+    // (kind == TK_ARRAY)
     array_info_t* array;
 
     // Function
+    // (kind == TK_FUNCTION)
     function_info_t* function;
 
     // "Simple" type
+    // (kind == TK_DIRECT)
     simple_type_t* type;
 
     // cv-qualifier related to this type
+    // The cv-qualifier is in the type
     cv_qualifier_t cv_qualifier;
-
 } type_t;
 
+// Dependent entity means it depends somehow on a template parameter
 typedef enum dependency_info_tag
 {
     DI_UNKNOWN = 0,
-    DI_NOT_DEPENDENT,
-    DI_DEPENDENT,
-    DI_BUSY // This means it is being calculated now
+    DI_NOT_DEPENDENT, // This entity is not dependent
+    DI_DEPENDENT, // The entity is dependent
+    DI_BUSY // This means it is being calculated now. This happens in enums where
+        // we have to check every enumerator in order to realize if the whole
+        // enum is or not dependent. In this case, infinite recursion could happen
+        // if no care is taken
 } dependency_info_t;
 
 // This is an entry in the scope
 typedef struct scope_entry_tag
 {
+    // The symbol name
     char* symbol_name;
+
+    // Kind of this symbol
     enum cxx_symbol_kind kind;
 
     // This allows us to enforce the one-definition-rule within a translation unit
@@ -396,11 +528,10 @@ typedef struct scope_entry_tag
     // Scope of this entry when declared
     struct scope_tag* scope;
 
-    // For everything related to a type
+    // Type information of this symbol
     type_t* type_information;
 
-    // Related scope. For the scope defined after this name
-    // namespaces, classes and functions
+    // Related scope. This is the scope defined within a class or a function.
     struct scope_tag* related_scope;
 
     // Initializations of several kind are saved here
@@ -408,28 +539,35 @@ typedef struct scope_entry_tag
     //  - enumerator values
     AST expression_value;
 
-    // For template parameters
+    // For template parameters alive in the declaration
+    // of this entity
     int num_template_parameters;
     template_parameter_t** template_parameter_info;
 
-    // Linkage
+    // Linkage specifier ("C" or "C++")
+    // Unused field
     char* linkage_spec;
 
     // Line where this simbol was signed up
     int line;
 
-    // Do not print this symbol (because of recursion, hiding, etc)
+    // Do not print this symbol (because of recursion, hiding, etc) Used
+    // specially for the injected class-name, where printing it in print scope
+    // routines would create an infinite recursion.
     char do_not_print;
 
+    // States if this is the injected class name of every class
     char injected_class_name;
+    // and its symbol
     struct scope_entry_tag* injected_class_referred_symbol;
     
     // For template-alias
+    // Used for template template parameters
     struct type_tag* template_alias_type;
 
-    // Is a member ?
+    // Is a member entity (function or data)
     char is_member;
-    // of who ?
+    // and its class
     struct type_tag* class_type;
 
     // Point in the AST where this was declared. This is approximate, just to
@@ -447,7 +585,8 @@ typedef struct scope_entry_tag
     dependency_info_t dependency_info;
 } scope_entry_t;
 
-// This is what the scope returns
+// This is what the scope returns a list of symbols due to function overloading
+// and template class specialization
 typedef struct scope_entry_list
 {
     // The current entry
@@ -457,6 +596,7 @@ typedef struct scope_entry_list
     struct scope_entry_list* next;
 } scope_entry_list_t;
 
+// Scope kind
 enum scope_kind
 {
     UNDEFINED_SCOPE = 0, // Undefined scope, to early catch errors
@@ -477,7 +617,9 @@ typedef struct scope_tag
     // Hash of scope_entry_list
     Hash* hash;
 
-    // Qualification name
+    // Qualification name of this scope this holds the name we have to prepend
+    // to an entity of this scope in order to qualify it in the enclosing
+    // scope.
     char* qualification_name;
 
     // Relationships with other scopes
@@ -501,7 +643,6 @@ typedef struct scope_tag
     // Template scope
     struct scope_tag* template_scope;
 } scope_t;
-
 
 scope_t* new_namespace_scope(scope_t* enclosing_scope, char* qualification_name);
 scope_t* new_prototype_scope(scope_t* enclosing_scope);

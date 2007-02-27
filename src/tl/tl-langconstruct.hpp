@@ -238,8 +238,12 @@ namespace TL
             // expr op= expr
             bool is_operation_assignment();
 
-            // expr[expr]
+            // exprA[exprB]
             bool is_array_subscript();
+            // exprB
+            Expression get_subscript_expression();
+            // exprA
+            Expression get_subscripted_expression();
 
             // exprA.exprM
             bool is_member_access();
