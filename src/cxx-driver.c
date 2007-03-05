@@ -146,6 +146,10 @@ int main(int argc, char* argv[])
 
     // Load configuration
     load_configuration();
+    
+    // Parse arguments
+    parse_arguments(compilation_options.argc, 
+        compilation_options.argv, /* from_command_line= */1);
 
     // Loads the compiler phases
     load_compiler_phases();
@@ -154,10 +158,6 @@ int main(int argc, char* argv[])
     // (besides the built in ones)
     run_dynamic_initializers();
     
-    // Parse arguments
-    parse_arguments(compilation_options.argc, 
-        compilation_options.argv, /* from_command_line= */1);
-
     // Compilation of every specified translation unit
     compile_every_translation_unit();
 

@@ -1398,7 +1398,7 @@ namespace TL
 
                 // Get the related statement of this task construct
                 Statement construct_body = task_construct.body();
-                
+
                 // Get the enclosing function definition
                 FunctionDefinition function_definition = task_construct.get_enclosing_function();
                 // and its scope
@@ -1414,13 +1414,15 @@ namespace TL
 
                 // Get references in captureaddress clause
                 OpenMP::CustomClause captureaddress_clause = directive.custom_clause("captureaddress");
-                
+
                 // Get all the identifiers of the captureaddress clause
                 ObjectList<IdExpression> captureaddress_references_all = captureaddress_clause.id_expressions();
                 ObjectList<IdExpression> captureaddress_references;
                 {
-                    // What we do here is discard symbols that are captureaddress but can be referenced
-                    // in the outline (thus, they come from an outer scope to this whole function)
+                    // What we do here is to discard symbols that are
+                    // captureaddress but can be referenced in the outline
+                    // (thus, they come from an outer scope to this whole
+                    // function)
                     for (ObjectList<IdExpression>::iterator it = captureaddress_references_all.begin();
                             it != captureaddress_references_all.end();
                             it++)
@@ -1450,7 +1452,25 @@ namespace TL
                     ObjectList<IdExpression> capturevalue_references_body_all
                         = construct_body.non_local_symbol_occurrences(Statement::ONLY_VARIABLES);
 
-                    capturevalue_references_body.insert(capturevalue_references_body_all, functor(&IdExpression::get_symbol));
+                    for (ObjectList<IdExpression>::iterator it = capturevalue_references_body_all.begin();
+                            it != capturevalue_references_body_all.end();
+                            it++)
+                    {
+                        Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
+
+                        if (global_sym.is_valid()
+                                && (global_sym == it->get_symbol()))
+                        {
+                            // If the function-scope accessible symbol is the same found
+                            // then it must be implicitly captureaddress, instead of capturevalue
+                            captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
+                        }
+                        else
+                        {
+                            // All the others should be capturevalue
+                            capturevalue_references_body.insert(*it, functor(&IdExpression::get_symbol));
+                        }
+                    }
                 }
 
                 // Filter those symbols in local and capturevalue
@@ -1487,6 +1507,22 @@ namespace TL
                             parameter_info_list,
                             /* share_always = */ true); // All things said shared, must be shared
 
+                // Fix parameter_info_list
+                // Currently set_replacement assumes that everything will be passed BY_POINTER
+                // for every entity found in capturevalue_references will be set to BY_VALUE
+                //
+                // The idea is to fix "set_replacements" one day, but already
+                // takes too much parameters so a more creative approach will be required
+                for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                        it != parameter_info_list.end();
+                        it++)
+                {
+                    if (captured_references.contains(it->id_expression, functor(&IdExpression::get_symbol)))
+                    {
+                        it->kind = ParameterInfo::BY_VALUE;
+                    }
+                }
+
                 // Get the code of the outline
                 AST_t outline_code  = get_outline_task(
                         function_definition,
@@ -1495,7 +1531,7 @@ namespace TL
                         replace_references,
                         parameter_info_list,
                         local_references);
-                
+
                 // Now prepend the outline
                 function_definition.get_ast().prepend_sibling_function(outline_code);
 
@@ -1516,26 +1552,33 @@ namespace TL
                     num_reference_args++;
                 }
 
-                for (ObjectList<IdExpression>::iterator it = captureaddress_references.begin();
-                        it != captureaddress_references.end();
+                for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                        it != parameter_info_list.end();
                         it++)
                 {
-                    task_parameter_list.append_with_separator("&" + it->prettyprint(), ",");
+                    if (it->kind != ParameterInfo::BY_POINTER)
+                        continue;
+
+                    task_parameter_list.append_with_separator("&" + it->id_expression.prettyprint(), ",");
                     num_reference_args++;
                 }
 
                 // This vector will hold the sizeof's of entities passed as
                 // private references
+                bool copy_construction_needed = false;
                 size_vector << "size_t nth_size[] = {0";
                 int vector_index = 1;
                 int num_value_args = 0;
-                // For every capture value entity pass a private reference to it
-                for (ObjectList<IdExpression>::iterator it = capturevalue_references.begin();
-                        it != capturevalue_references.end();
+
+                for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                        it != parameter_info_list.end();
                         it++)
                 {
+                    if (it->kind != ParameterInfo::BY_VALUE)
+                        continue;
+
                     // Add the size in the vector
-                    size_vector << ", sizeof(" << it->prettyprint() << ")"
+                    size_vector << ", sizeof(" << it->id_expression.prettyprint() << ")"
                         ;
 
                     // A reference to the vector
@@ -1545,8 +1588,19 @@ namespace TL
 
                     // First an address with the size must be passed
                     task_parameter_list.append_with_separator(vector_ref.get_source(), ",");
-                    task_parameter_list.append_with_separator("&" + it->prettyprint(), ",");
-                    
+                    task_parameter_list.append_with_separator("&" + it->id_expression.prettyprint(), ",");
+
+                    CXX_LANGUAGE()
+                    {
+                        Symbol sym = it->id_expression.get_symbol();
+                        Type type = sym.get_type();
+
+                        if (type.is_class())
+                        {
+                            copy_construction_needed = true;
+                        }
+                    }
+
                     vector_index++;
                 }
                 size_vector << "};"
@@ -1574,7 +1628,7 @@ namespace TL
                 // (i.e. NTH_CANNOT_ALLOCATE_TASK is returned)
                 Source fallback_capture_values;
                 Source fallback_arguments;
-                
+
                 // This might be needed for nonstatic member functions
                 if (is_nonstatic_member_function(function_definition))
                 {
@@ -1582,36 +1636,94 @@ namespace TL
                 }
 
                 // Capture address entities are easy, just pass the vector
-                for (ObjectList<IdExpression>::iterator it = captureaddress_references.begin();
-                        it != captureaddress_references.end();
+                for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                        it != parameter_info_list.end();
                         it++)
                 {
-                    fallback_arguments.append_with_separator("&" + it->prettyprint(), ",");
+                    if (it->kind != ParameterInfo::BY_POINTER)
+                        continue;
+
+                    fallback_arguments.append_with_separator("&" + it->id_expression.prettyprint(), ",");
                 }
+
                 // For capture value we will be passing pointers to local copies
-                for (ObjectList<IdExpression>::iterator it = capturevalue_references.begin();
-                        it != capturevalue_references.end();
+                for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                        it != parameter_info_list.end();
                         it++)
                 {
-                    Symbol sym = it->get_symbol();
+                    if (it->kind != ParameterInfo::BY_VALUE)
+                        continue;
+
+                    Symbol sym = it->id_expression.get_symbol();
                     Type type = sym.get_type();
 
                     fallback_capture_values
                         << type.get_declaration_with_initializer(
-                                it->get_scope(),
-                                "cval_" + it->mangle_id_expression(), 
-                                it->prettyprint()) 
+                                it->id_expression.get_scope(),
+                                "cval_" + it->id_expression.mangle_id_expression(), 
+                                it->id_expression.prettyprint()) 
                         << ";"
                         ;
 
-                    fallback_arguments.append_with_separator("&cval_" + it->mangle_id_expression(), ",");
+                    fallback_arguments.append_with_separator("&cval_" + it->id_expression.mangle_id_expression(), ",");
+                }
+
+                Source task_dependency;
+
+                // For C++ only
+                Source copy_construction_part;
+                if (copy_construction_needed)
+                {
+                    // The task cannot start immediately because first we have
+                    // to copy-construct capture valued entities
+                    task_dependency << "1";
+
+                    Source copy_sequence;
+
+                    copy_construction_part 
+                        << "else"
+                        << "{"
+                        <<   "int nth_one_dep = 1;"
+                        <<   copy_sequence
+                        <<   "nth_depsub(&nth, &nth_one_dep);"
+                        << "}"
+                        ;
+
+                    int vector_index = 1;
+                    for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                            it != parameter_info_list.end();
+                            it++)
+                    {
+                        if (it->kind != ParameterInfo::BY_VALUE)
+                            continue;
+
+                        Symbol sym = it->id_expression.get_symbol();
+                        Type type = sym.get_type();
+
+                        if (type.is_class())
+                        {
+                            copy_sequence
+                                << "new (nth_arg_addr[" << vector_index << "])" 
+                                << type.get_declaration(it->id_expression.get_scope(), "")
+                                << "(" << it->id_expression.prettyprint() << ");"
+                                ;
+                        }
+
+                        vector_index++;
+                    }
+                }
+                else
+                {
+                    // No dependencies if no construction has to be performed,
+                    // i.e. the task can start immediately
+                    task_dependency << "0";
                 }
 
                 task_queueing
                     << "{"
                     <<    "nth_desc * nth;"
                     <<    "int nth_type = " << task_type << ";"
-                    <<    "int nth_ndeps = 0;"
+                    <<    "int nth_ndeps = " << task_dependency << ";"
                     <<    "int nth_vp = 0;"
                     <<    "nth_desc_t* nth_succ = (nth_desc_t*)0;"
                     <<    "int nth_nargs_ref = " << num_reference_args << ";"
@@ -1630,8 +1742,9 @@ namespace TL
                     <<       fallback_capture_values
                     <<       outlined_function_name << "(" << fallback_arguments << ");"
                     <<    "}"
+                    <<    copy_construction_part
                     << "}"
-                ;
+                    ;
 
                 // Parse the code
                 AST_t task_code = task_queueing.parse_statement(task_construct.get_scope(),
@@ -2571,11 +2684,6 @@ namespace TL
                     AST_t member_decl_tree = member_declaration.parse_member(decl.get_scope(), decl.get_scope_link(), class_type);
 
                     decl.get_ast().append(member_decl_tree);
-
-                    std::cerr << "Member function declaration: " 
-                        << std::endl
-                        << member_decl_tree.prettyprint()
-                        << std::endl;
                 }
 
                 AST_t result;
@@ -2599,7 +2707,6 @@ namespace TL
 
                 Source outline_parallel;
                 Source parallel_body;
-
 
                 outline_parallel = get_outline_common(
                         function_definition,
@@ -2625,6 +2732,29 @@ namespace TL
                     << private_declarations
                     << modified_parallel_body_stmt.prettyprint()
                     ;
+
+                IdExpression function_name = function_definition.get_function_name();
+                Symbol function_symbol = function_name.get_symbol();
+
+                if (function_symbol.is_member() 
+                        && function_name.is_qualified())
+                {
+                    Source outline_function_decl = get_outlined_function_name(function_name, /*qualified=*/false);
+
+                    Declaration decl = function_name.get_declaration();
+                    Scope class_scope = decl.get_scope();
+                    Type class_type = function_symbol.get_class_type();
+
+                    Source member_declaration = get_member_function_declaration(
+                            function_definition,
+                            decl,
+                            outline_function_decl,
+                            parameter_info_list);
+
+                    AST_t member_decl_tree = member_declaration.parse_member(decl.get_scope(), decl.get_scope_link(), class_type);
+
+                    decl.get_ast().append(member_decl_tree);
+                }
 
                 AST_t result;
 
