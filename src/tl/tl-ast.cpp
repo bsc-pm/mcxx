@@ -28,14 +28,33 @@ namespace TL
         return (*this);
     }
 
+    static tl_type_t found_but_not_set;
     tl_type_t* AST_t::get_extended_attribute(const std::string& name) const
     {
         //  First get the extended attribute
-        void* p = extensible_struct_get_field_pointer(&ast_extensible_schema,
+        char found = 0;
+        void* p = extensible_struct_get_field_pointer_lazy(&ast_extensible_schema,
                 this->_ast->extended_data,
-                name.c_str());
+                name.c_str(),
+                &found);
 
-        return (tl_type_t*) p;
+        if (found)
+        {
+            if (p == NULL)
+            {
+                // Clear it for safety
+                memset(&found_but_not_set, 0, sizeof(found_but_not_set));
+                return &found_but_not_set;
+            }
+            else
+            {
+                return (tl_type_t*)p;
+            }
+        }
+        else 
+        {
+            return NULL;
+        }
     }
 
     std::string AST_t::prettyprint(bool with_commas) const

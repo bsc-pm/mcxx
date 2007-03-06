@@ -69,6 +69,23 @@ void extensible_struct_init(extensible_struct_t* extensible_struct, extensible_s
     extensible_struct->schema = schema;
 }
 
+static char extensible_struct_field_is_active(extensible_schema_t* schema,
+        extensible_struct_t* extensible_struct,
+        int schema_field_order)
+{
+    if (schema_field_order >= extensible_struct->num_active_fields)
+    {
+        return 0;
+    }
+
+    if (extensible_struct->offsets_data[schema_field_order] == -1)
+    {
+        return 0;
+    }
+
+    return 1;
+}
+
 void extensible_struct_allocate_field(extensible_schema_t* schema,
         extensible_struct_t* extensible_struct,
         int schema_field_order)
@@ -118,7 +135,45 @@ void extensible_struct_activate_field(extensible_schema_t* schema,
     }
 }
 
-void* extensible_struct_get_field_pointer(extensible_schema_t* schema,
+void *extensible_struct_get_field_pointer_lazy(extensible_schema_t* schema,
+        extensible_struct_t* extensible_struct,
+        const char* field_name,
+        char* is_found)
+{
+    *is_found = 0;
+    if (schema == NULL)
+    {
+        warning_message("Schema is NULL\n");
+        return NULL;
+    }
+
+    if (extensible_struct == NULL)
+    {
+        warning_message("Extensible struct is NULL\n");
+        return NULL;
+    }
+
+    int schema_field_order = extensible_schema_get_field_order(schema, field_name);
+
+    if (schema_field_order < 0)
+    {
+        warning_message("Field '%s' not found in the schema", field_name);
+        return NULL;
+    }
+
+    *is_found = 1;
+    if (!extensible_struct_field_is_active(schema, extensible_struct, schema_field_order))
+    {
+        return NULL;
+    }
+    else
+    {
+        return &(extensible_struct->data[extensible_struct->offsets_data[schema_field_order]]);
+    }
+}
+
+
+void *extensible_struct_get_field_pointer(extensible_schema_t* schema,
         extensible_struct_t* extensible_struct,
         const char* field_name)
 {

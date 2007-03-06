@@ -83,6 +83,10 @@ void extensible_struct_activate_field(extensible_schema_t* schema,
 void* extensible_struct_get_field_pointer(extensible_schema_t* schema,
         extensible_struct_t* extensible_struct,
         const char* field_name);
+void *extensible_struct_get_field_pointer_lazy(extensible_schema_t* schema,
+        extensible_struct_t* extensible_struct,
+        const char* field_name,
+        char* is_found);
 
 #ifdef __cplusplus
 }

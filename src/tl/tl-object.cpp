@@ -10,6 +10,8 @@ bool Object::has_attribute(const std::string& name) const
     return (this->get_extended_attribute(name) != NULL);
 }
 
+static Undefined und;
+
 Object& Object::get_attribute(const std::string& name) const
 {
     // Fix this function because it leaks everythime you call it
@@ -29,8 +31,7 @@ Object& Object::get_attribute(const std::string& name) const
     if (tl_value == NULL)
     {
         std::cerr << "Attribute '" << name << "' not found" << std::endl;
-        TL::Undefined* und = new TL::Undefined();
-        return *(und);
+        return und;
     }
 
     switch (tl_value->kind)
@@ -60,6 +61,10 @@ Object& Object::get_attribute(const std::string& name) const
                 break;
             }
         case TL_ARRAY :
+            {
+                std::cerr << "Unimplemented TL Array" << std::endl;
+                break;
+            }
         case TL_UNDEFINED :
             {
 // #warning Implement this
@@ -67,8 +72,7 @@ Object& Object::get_attribute(const std::string& name) const
             }
     }
 
-    TL::Undefined* und = new TL::Undefined();
-    return (*und);
+    return und;
 }
 
 }
