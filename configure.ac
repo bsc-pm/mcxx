@@ -414,6 +414,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/omp/Makefile 
            src/tl/instr/Makefile 
            src/tl/mypragma/Makefile 
+           src/tl/acotes/Makefile 
            config/Makefile
            config/config.mcxx
            tests/Makefile
