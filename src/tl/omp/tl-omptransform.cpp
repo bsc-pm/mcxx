@@ -1504,14 +1504,13 @@ namespace TL
                             reduction_empty,
                             empty,
                             empty,
-                            parameter_info_list,
-                            /* share_always = */ true); // All things said shared, must be shared
+                            parameter_info_list);
 
                 // Fix parameter_info_list
                 // Currently set_replacement assumes that everything will be passed BY_POINTER
                 // for every entity found in capturevalue_references will be set to BY_VALUE
                 //
-                // The idea is to fix "set_replacements" one day, but already
+                // The proper way should be fixing "set_replacements" one day, but already
                 // takes too much parameters so a more creative approach will be required
                 for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
                         it != parameter_info_list.end();

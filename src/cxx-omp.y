@@ -517,21 +517,18 @@ section_scope : '{' section_sequence '}'
 
 section_sequence : section_directive structured_block
 {
-	$$ = ASTListLeaf(
-			ASTMake2(AST_OMP_SECTION, $1, $2, ASTLine($1), NULL)
-			);
+    AST section_holder = ASTMake2(AST_OMP_SECTION, $1, $2, ASTLine($1), NULL);
+	$$ = ASTListLeaf(section_holder);
 }
 | structured_block
 {
-	$$ = ASTListLeaf(
-			ASTMake2(AST_OMP_SECTION, NULL, $1, ASTLine($1), NULL)
-			);
+    AST section_holder = ASTMake2(AST_OMP_SECTION, NULL, $1, ASTLine($1), NULL);
+	$$ = ASTListLeaf(section_holder);
 }
 | section_sequence section_directive structured_block
 {
-	$$ = ASTList($1, 
-			ASTMake2(AST_OMP_SECTION, $2, $3, ASTLine($2), NULL)
-			);
+    AST section_holder = ASTMake2(AST_OMP_SECTION, $2, $3, ASTLine($2), NULL);
+	$$ = ASTList($1, section_holder);
 }
 ;
 

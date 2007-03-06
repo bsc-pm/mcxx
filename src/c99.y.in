@@ -1971,11 +1971,13 @@ postfix_expression : primary_expression
 
 expression_list : assignment_expression 
 {
-	$$ = ASTListLeaf(ASTMake1(AST_EXPRESSION, $1, ASTLine($1), NULL));
+    AST expression_holder = ASTMake1(AST_EXPRESSION, $1, ASTLine($1), NULL);
+	$$ = ASTListLeaf(expression_holder);
 }
 | expression_list ',' assignment_expression
 {
-	$$ = ASTList($1, ASTMake1(AST_EXPRESSION, $3, ASTLine($3), NULL));
+    AST expression_holder = ASTMake1(AST_EXPRESSION, $3, ASTLine($3), NULL);
+	$$ = ASTList($1, expression_holder);
 }
 ;
 
