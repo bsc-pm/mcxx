@@ -24,6 +24,8 @@ AC_LANG([C])
 dnl Check install
 AC_PROG_INSTALL
 
+dnl Workaround to avoid Libtool checking for FORTRAN
+F77=no
 dnl Check libtool
 AC_PROG_LIBTOOL
 
@@ -409,10 +411,9 @@ AC_CONFIG_FILES([Makefile
            lib/Makefile
            src/Makefile 
            src/tl/Makefile 
-           src/tl/mypragma/Makefile 
            src/tl/omp/Makefile 
            src/tl/instr/Makefile 
-           src/tl/acotes/Makefile 
+           src/tl/mypragma/Makefile 
            config/Makefile
            config/config.mcxx
            tests/Makefile
