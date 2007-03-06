@@ -394,7 +394,8 @@ label_declaration : LABEL label_declarator_seq ';'
 
 label_declarator_seq : IDENTIFIER 
 {
-	$$ = ASTListLeaf(ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text));
+    AST symbol_holder = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
+	$$ = ASTListLeaf(symbol_holder);
 }
 | label_declarator_seq ',' IDENTIFIER
 {
@@ -1338,7 +1339,8 @@ parameter_type_list : parameter_declaration_list
 }
 | parameter_declaration_list ',' TRES_PUNTS
 {
-	$$ = ASTList($1, ASTLeaf(AST_VARIADIC_ARG, $3.token_line, $3.token_text));
+    AST variadic_arg = ASTLeaf(AST_VARIADIC_ARG, $3.token_line, $3.token_text);
+	$$ = ASTList($1, variadic_arg);
 }
 ;
 

@@ -562,7 +562,8 @@ label_declaration : LABEL label_declarator_seq ';'
 
 label_declarator_seq : IDENTIFIER 
 {
-	$$ = ASTListLeaf(ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text));
+    AST symbol_holder = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
+	$$ = ASTListLeaf(symbol_holder);
 }
 | label_declarator_seq ',' IDENTIFIER
 {
@@ -1802,16 +1803,19 @@ parameter_declaration_clause : parameter_declaration_clause_nonempty
 }
 | parameter_declaration_clause_nonempty ',' TRES_PUNTS
 {
-	$$ = ASTList($1, ASTLeaf(AST_VARIADIC_ARG, $3.token_line, $3.token_text));
+    AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, $3.token_line, $3.token_text);
+	$$ = ASTList($1, variadic_tree);
 } 
 | parameter_declaration_clause_nonempty TRES_PUNTS
 {
-	$$ = ASTList($1, ASTLeaf(AST_VARIADIC_ARG, $2.token_line, $2.token_text));
+    AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, $2.token_line, $2.token_text);
+	$$ = ASTList($1, variadic_tree);
 } 
 // Com funciona aixo ?
 | TRES_PUNTS
 {
-	$$ = ASTListLeaf(ASTLeaf(AST_VARIADIC_ARG, $1.token_line, $1.token_text));
+    AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, $1.token_line, $1.token_text);
+	$$ = ASTListLeaf(variadic_tree);
 }
 // No m'agrada aixo, però farem una excepció
 | /* empty */
@@ -4088,11 +4092,13 @@ explicit_specialization : TEMPLATE '<' '>' templated_declaration
 templated_declaration : decl_specifier_seq init_declarator ';'
 {
 	// Crafted form of simple declaration
-	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, ASTListLeaf($2), ASTLine($1), NULL);
+    AST simple_decl_holder = ASTListLeaf($2);
+	$$ = ASTMake2(AST_SIMPLE_DECLARATION, $1, simple_decl_holder, ASTLine($1), NULL);
 }
 | init_declarator ';'
 {
-	$$ = ASTMake2(AST_SIMPLE_DECLARATION, NULL, ASTListLeaf($1), ASTLine($1), NULL);
+    AST init_decl_holder = ASTListLeaf($1);
+	$$ = ASTMake2(AST_SIMPLE_DECLARATION, NULL, init_decl_holder, ASTLine($1), NULL);
 }
 | decl_specifier_seq ';'
 {
