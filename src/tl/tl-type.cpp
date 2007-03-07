@@ -102,15 +102,15 @@ namespace TL
 
     bool Type::is_builtin_type() const
     {
-        return (is_fundamental_type(_type_info));
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return (is_fundamental_type(type_info));
     }
 
     Type::BuiltinType Type::builtin_type(TypeModifier& type_modif) const
     {
         if (is_builtin_type())
         {
-            type_t* type_info = _type_info;
-            type_info = advance_over_typedefs(type_info);
+            type_t* type_info = advance_over_typedefs(_type_info);
 
             if ((type_info->cv_qualifier & CV_CONST) == CV_CONST)
             {
@@ -180,32 +180,38 @@ namespace TL
 
     bool Type::is_pointer() const
     {
-        return (is_pointer_type(_type_info));
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return (is_pointer_type(type_info));
     }
 
     bool Type::is_array() const
     {
-        return (is_array_type(_type_info));
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return (is_array_type(type_info));
     }
 
     bool Type::is_reference() const
     {
-        return (is_reference_type(_type_info));
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return (is_reference_type(type_info));
     }
 
     bool Type::is_function() const
     {
-        return is_function_type(_type_info);
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_function_type(type_info);
     }
 
     bool Type::is_dependent() const
     {
-        return (is_dependent_type(_type_info, default_decl_context));
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return (is_dependent_type(type_info, default_decl_context));
     }
 
     Type Type::returns() const
     {
-        return function_return_type(_type_info);
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return function_return_type(type_info);
     }
 
     ObjectList<Type> Type::parameters() const
@@ -216,11 +222,12 @@ namespace TL
 
     ObjectList<Type> Type::parameters(bool& has_ellipsis) const
     {
+        type_t* type_info = advance_over_typedefs(_type_info);
         type_t** parameter_list;
         int num_params = 0;
         char ellipsis = 0;
 
-        parameter_list = function_parameter_types(_type_info, &num_params, &ellipsis);
+        parameter_list = function_parameter_types(type_info, &num_params, &ellipsis);
         has_ellipsis = ellipsis;
 
         ObjectList<Type> result;
@@ -235,22 +242,26 @@ namespace TL
 
     Type Type::points_to() const
     {
-        return pointer_pointee_type(_type_info);
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return pointer_pointee_type(type_info);
     }
 
     Type Type::array_element() const
     {
-        return array_element_type(_type_info);
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return array_element_type(type_info);
     }
 
     Type Type::references_to() const
     {
-        return reference_referenced_type(_type_info);
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return reference_referenced_type(type_info);
     }
 
     bool Type::is_direct_type() const
     {
-        return ::is_direct_type(_type_info);
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return ::is_direct_type(type_info);
     }
 
     bool Type::is_void() const
@@ -261,21 +272,24 @@ namespace TL
 
     bool Type::is_enum() const
     {
+        type_t* type_info = advance_over_typedefs(_type_info);
         return (this->is_direct_type()
-                && is_enumerated_type(_type_info));
+                && is_enumerated_type(type_info));
     }
 
     bool Type::is_class() const
     {
+        type_t* type_info = advance_over_typedefs(_type_info);
         return (this->is_direct_type()
-                && is_named_class_type(_type_info));
+                && is_named_class_type(type_info));
     }
 
     bool Type::explicit_array_dimension() const
     {
         if (is_array())
         {
-            return (_type_info->array->array_expr != NULL);
+            type_t* type_info = advance_over_typedefs(_type_info);
+            return (type_info->array->array_expr != NULL);
         }
 
         return false;
@@ -283,7 +297,8 @@ namespace TL
 
     AST_t Type::array_dimension() const
     {
-        AST expression = _type_info->array->array_expr;
+        type_t* type_info = advance_over_typedefs(_type_info);
+        AST expression = type_info->array->array_expr;
         return expression;
     }
 }

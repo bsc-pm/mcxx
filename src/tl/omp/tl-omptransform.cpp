@@ -1416,9 +1416,9 @@ namespace TL
                 OpenMP::CustomClause captureaddress_clause = directive.custom_clause("captureaddress");
 
                 // Get all the identifiers of the captureaddress clause
-                ObjectList<IdExpression> captureaddress_references_all = captureaddress_clause.id_expressions();
                 ObjectList<IdExpression> captureaddress_references;
                 {
+                    ObjectList<IdExpression> captureaddress_references_all = captureaddress_clause.id_expressions();
                     // What we do here is to discard symbols that are
                     // captureaddress but can be referenced in the outline
                     // (thus, they come from an outer scope to this whole
@@ -1458,6 +1458,14 @@ namespace TL
                     {
                         Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
 
+                        // If this symbol appears in any data-sharing clause,
+                        // ignore it since it already has an explicit data
+                        // sharing attribute
+                        if (captureaddress_references.contains(*it, functor(&IdExpression::get_symbol))
+                                || capturevalue_references.contains(*it, functor(&IdExpression::get_symbol))
+                                || local_references.contains(*it, functor(&IdExpression::get_symbol)))
+                            continue;
+
                         if (global_sym.is_valid()
                                 && (global_sym == it->get_symbol()))
                         {
@@ -1472,14 +1480,6 @@ namespace TL
                         }
                     }
                 }
-
-                // Filter those symbols in local and capturevalue
-                capturevalue_references_body = 
-                    capturevalue_references_body.filter(not_in_set(local_references, functor(&IdExpression::get_symbol)));
-                capturevalue_references_body = 
-                    capturevalue_references_body.filter(not_in_set(captureaddress_references_all, functor(&IdExpression::get_symbol)));
-                capturevalue_references_body = 
-                    capturevalue_references_body.filter(not_in_set(capturevalue_references, functor(&IdExpression::get_symbol)));
 
                 // And mix the capturevalues of the body to the capturevalues that came from the clause
                 capturevalue_references.append(capturevalue_references_body);
@@ -1504,7 +1504,9 @@ namespace TL
                             reduction_empty,
                             empty,
                             empty,
-                            parameter_info_list);
+                            parameter_info_list,
+                            /* all_shared */ true);
+
 
                 // Fix parameter_info_list
                 // Currently set_replacement assumes that everything will be passed BY_POINTER
@@ -1516,7 +1518,7 @@ namespace TL
                         it != parameter_info_list.end();
                         it++)
                 {
-                    if (captured_references.contains(it->id_expression, functor(&IdExpression::get_symbol)))
+                    if (capturevalue_references.contains(it->id_expression, functor(&IdExpression::get_symbol)))
                     {
                         it->kind = ParameterInfo::BY_VALUE;
                     }
