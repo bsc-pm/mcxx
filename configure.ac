@@ -406,6 +406,21 @@ AC_SUBST([MCXX_INCLUDES])
 AC_SUBST([MCXX_LIBS])
 AC_SUBST([INSTRUMENTATION_PHASE])
 
+dnl Versioning things
+
+build_version=""
+if test -d $srcdir/.svn;
+then
+    AC_MSG_CHECKING([build release])
+    build_version="\"`svnversion $srcdir` (developer version)\""
+    if test $? != 0;
+    then
+      build_version="\"(developer version)\""
+    fi
+    AC_MSG_RESULT($build_version)
+fi
+AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
+
 dnl Write makefiles
 AC_CONFIG_FILES([Makefile 
            lib/Makefile

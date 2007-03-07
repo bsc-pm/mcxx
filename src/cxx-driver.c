@@ -554,7 +554,7 @@ static void register_default_initializers(void)
 
 static void print_version(void)
 {
-    fprintf(stderr, PACKAGE " - " VERSION " (experimental)\n");
+    fprintf(stderr, PACKAGE " - " VERSION " " MCXX_BUILD_VERSION "\n");
 }
 
 static char section_name[128];
