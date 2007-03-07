@@ -67,14 +67,6 @@ libmcxx_la_SOURCES = \
   cxx-scopelink.c \
   cxx-scopelink.h
 
-# Currently these files are unused but waiting for their momentum
-#  cxx-koenig.c \
-#  cxx-koenig.h \
-#  cxx-typecalc.c \
-#  cxx-typecalc.h \
-#  cxx-overload.c \
-#  cxx-overload.h
-
 libmcxx_la_CFLAGS=-fexceptions -I$(srcdir)/../lib -DPKGDATADIR=\"$(pkgdatadir)\" -Wall
 
 EXTRA_DIST += cxx-lexer.l
