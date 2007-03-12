@@ -17,5 +17,9 @@ libtlinstr_la_CXXFLAGS = -Wall \
     -I ../../../lib
 
 libtlinstr_la_SOURCES = \
+						tl-instrumentfilter.hpp \
+						tl-instrumentfilter.cpp \
+						tl-instrumentcalls.hpp \
+						tl-instrumentcalls.cpp \
 						tl-instrumentation.hpp \
 						tl-instrumentation.cpp
