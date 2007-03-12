@@ -920,9 +920,9 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 "*"         { parse_token_text(); return '*'; }
 "\""        { parse_token_text(); return '"'; }
  /*!if CPLUSPLUS*/
-"::"        { parse_token_text(); return DOS_DOS_PUNTS; }
+"::"        { parse_token_text(); return TWO_COLONS; }
  /*!endif*/
-"..."       { parse_token_text(); return TRES_PUNTS; }
+"..."       { parse_token_text(); return ELLIPSIS; }
 
 [\n]        { scanning_now.line_number++; }
 [ \t\v\f]   {  }

@@ -102,7 +102,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> STRUCT
 %token<token_atrib> SUB_ASSIGN
 %token<token_atrib> SWITCH
-%token<token_atrib> TRES_PUNTS
+%token<token_atrib> ELLIPSIS
 %token<token_atrib> TYPEDEF
 %token<token_atrib> UNION
 %token<token_atrib> UNSIGNED
@@ -1337,7 +1337,7 @@ parameter_type_list : parameter_declaration_list
 {
     $$ = $1;
 }
-| parameter_declaration_list ',' TRES_PUNTS
+| parameter_declaration_list ',' ELLIPSIS
 {
     AST variadic_arg = ASTLeaf(AST_VARIADIC_ARG, $3.token_line, $3.token_text);
 	$$ = ASTList($1, variadic_arg);
@@ -1720,7 +1720,7 @@ labeled_statement : IDENTIFIER ':' statement
 	$$ = ASTMake1(AST_DEFAULT_STATEMENT, $3, $1.token_line, NULL);
 }
 // GNU Extension
-| CASE constant_expression TRES_PUNTS constant_expression ':' statement
+| CASE constant_expression ELLIPSIS constant_expression ':' statement
 {
 	$$ = ASTMake3(AST_GCC_CASE_STATEMENT, $2, $4, $6, $1.token_line, NULL);
 }

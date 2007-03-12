@@ -67,7 +67,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> DELETE
 %token<token_atrib> DIV_ASSIGN
 %token<token_atrib> DO
-%token<token_atrib> DOS_DOS_PUNTS
+%token<token_atrib> TWO_COLONS
 %token<token_atrib> DOUBLE
 %token<token_atrib> DYNAMIC_CAST
 %token<token_atrib> ELSE
@@ -126,7 +126,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> TEMPLATE
 %token<token_atrib> THIS
 %token<token_atrib> THROW
-%token<token_atrib> TRES_PUNTS
+%token<token_atrib> ELLIPSIS
 %token<token_atrib> TRY
 %token<token_atrib> TYPEDEF
 %token<token_atrib> TYPEID
@@ -736,14 +736,14 @@ qualified_namespace_specifier : IDENTIFIER
 
 	$$ = ASTMake3(AST_QUALIFIED_NAMESPACE_SPEC, NULL, $1, identifier, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS IDENTIFIER
+| TWO_COLONS IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
 
 	$$ = ASTMake3(AST_QUALIFIED_NAMESPACE_SPEC, global_op, NULL, identifier, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier IDENTIFIER
+| TWO_COLONS nested_name_specifier IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
@@ -756,7 +756,7 @@ using_declaration : USING nested_name_specifier unqualified_id ';'
 {
 	$$ = ASTMake3(AST_USING_DECL, NULL, $2, $3, $1.token_line, NULL);
 }
-| USING DOS_DOS_PUNTS nested_name_specifier unqualified_id ';'
+| USING TWO_COLONS nested_name_specifier unqualified_id ';'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
@@ -766,13 +766,13 @@ using_declaration : USING nested_name_specifier unqualified_id ';'
 {
 	$$ = ASTMake3(AST_USING_DECL_TYPENAME, NULL, $3, $4, $1.token_line, NULL);
 }
-| USING TYPENAME DOS_DOS_PUNTS nested_name_specifier unqualified_id ';'
+| USING TYPENAME TWO_COLONS nested_name_specifier unqualified_id ';'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
 	$$ = ASTMake3(AST_USING_DECL_TYPENAME, global_op, $4, $5, $1.token_line, NULL);
 }
-| USING DOS_DOS_PUNTS unqualified_id ';'
+| USING TWO_COLONS unqualified_id ';'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 	
@@ -787,7 +787,7 @@ using_directive : USING NAMESPACE IDENTIFIER ';'
 
 	$$ = ASTMake3(AST_USING_DIRECTIVE, NULL, NULL, identifier, $1.token_line, NULL);
 }
-| USING NAMESPACE DOS_DOS_PUNTS IDENTIFIER ';'
+| USING NAMESPACE TWO_COLONS IDENTIFIER ';'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
@@ -800,7 +800,7 @@ using_directive : USING NAMESPACE IDENTIFIER ';'
 
 	$$ = ASTMake3(AST_USING_DIRECTIVE, NULL, $3, identifier, $1.token_line, NULL);
 }
-| USING NAMESPACE DOS_DOS_PUNTS nested_name_specifier IDENTIFIER
+| USING NAMESPACE TWO_COLONS nested_name_specifier IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $5.token_line, $5.token_text);
@@ -1081,7 +1081,7 @@ simple_type_specifier : type_name
 {
 	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, NULL, $1, NULL, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS type_name
+| TWO_COLONS type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -1091,7 +1091,7 @@ simple_type_specifier : type_name
 {
 	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, $1, $2, NULL, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier type_name
+| TWO_COLONS nested_name_specifier type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -1101,7 +1101,7 @@ simple_type_specifier : type_name
 {
 	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, $1, NULL, $3, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id
+| TWO_COLONS nested_name_specifier TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -1185,7 +1185,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 
 	$$ = ASTMake4(AST_ELABORATED_TYPE_CLASS, $1, NULL, NULL, identifier, ASTLine($1), NULL);
 }
-| class_key DOS_DOS_PUNTS IDENTIFIER
+| class_key TWO_COLONS IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
@@ -1198,7 +1198,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 
 	$$ = ASTMake4(AST_ELABORATED_TYPE_CLASS, $1, NULL, $2, identifier, ASTLine($1), NULL);
 }
-| class_key DOS_DOS_PUNTS nested_name_specifier IDENTIFIER
+| class_key TWO_COLONS nested_name_specifier IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
@@ -1209,7 +1209,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 {
 	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, $1, NULL, NULL, $3, ASTLine($1), NULL);
 }
-| class_key DOS_DOS_PUNTS TEMPLATE template_id
+| class_key TWO_COLONS TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
@@ -1219,7 +1219,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 {
 	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, $1, NULL, $2, $4, ASTLine($1), NULL);
 }
-| class_key DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id
+| class_key TWO_COLONS nested_name_specifier TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
@@ -1229,7 +1229,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 {
 	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, NULL, NULL, $2, ASTLine($1), NULL);
 }
-| class_key DOS_DOS_PUNTS template_id
+| class_key TWO_COLONS template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
@@ -1239,7 +1239,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 {
 	$$ = ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, NULL, $2, $3, ASTLine($1), NULL);
 }
-| class_key DOS_DOS_PUNTS nested_name_specifier template_id
+| class_key TWO_COLONS nested_name_specifier template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
@@ -1251,7 +1251,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 
 	$$ = ASTMake3(AST_ELABORATED_TYPE_ENUM, NULL, NULL, identifier, $1.token_line, NULL);
 }
-| ENUM DOS_DOS_PUNTS IDENTIFIER
+| ENUM TWO_COLONS IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
@@ -1264,7 +1264,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 
 	$$ = ASTMake3(AST_ELABORATED_TYPE_ENUM, NULL, $2, identifier, $1.token_line, NULL);
 }
-| ENUM DOS_DOS_PUNTS nested_name_specifier IDENTIFIER
+| ENUM TWO_COLONS nested_name_specifier IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
@@ -1277,7 +1277,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 
 	$$ = ASTMake3(AST_ELABORATED_TYPENAME, NULL, $2, identifier, $1.token_line, NULL);
 }
-| TYPENAME DOS_DOS_PUNTS nested_name_specifier IDENTIFIER
+| TYPENAME TWO_COLONS nested_name_specifier IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
@@ -1288,7 +1288,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 {
 	$$ = ASTMake3(AST_ELABORATED_TYPENAME_TEMPLATE, NULL, $2, $3, $1.token_line, NULL);
 }
-| TYPENAME DOS_DOS_PUNTS nested_name_specifier template_id
+| TYPENAME TWO_COLONS nested_name_specifier template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
@@ -1298,14 +1298,14 @@ elaborated_type_specifier : class_key IDENTIFIER
 {
 	$$ = ASTMake3(AST_ELABORATED_TYPENAME_TEMPLATE, NULL, $2, $4, $1.token_line, NULL);
 }
-| TYPENAME DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id
+| TYPENAME TWO_COLONS nested_name_specifier TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
 	$$ = ASTMake3(AST_ELABORATED_TYPENAME_TEMPLATE, global_op, $3, $5, $1.token_line, NULL);
 }
 // GNU Extensions
-| class_key attributes DOS_DOS_PUNTS nested_name_specifier IDENTIFIER
+| class_key attributes TWO_COLONS nested_name_specifier IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $5.token_line, $5.token_text);
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
@@ -1322,7 +1322,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 			ASTMake4(AST_ELABORATED_TYPE_CLASS, $1, NULL, $3, identifier, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
-| class_key attributes DOS_DOS_PUNTS IDENTIFIER
+| class_key attributes TWO_COLONS IDENTIFIER
 {
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
@@ -1345,7 +1345,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, NULL, NULL, $3, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
-| class_key attributes DOS_DOS_PUNTS template_id
+| class_key attributes TWO_COLONS template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
@@ -1359,7 +1359,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, NULL, $3, $4, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
-| class_key attributes DOS_DOS_PUNTS nested_name_specifier template_id
+| class_key attributes TWO_COLONS nested_name_specifier template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
@@ -1373,7 +1373,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, NULL, NULL, $4, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
-| class_key attributes DOS_DOS_PUNTS TEMPLATE template_id
+| class_key attributes TWO_COLONS TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
@@ -1387,7 +1387,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 			ASTMake4(AST_ELABORATED_TYPE_TEMPLATE_CLASS, $1, NULL, $3, $5, ASTLine($1), NULL),
 			ASTLine($1), NULL);
 }
-| class_key attributes DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id
+| class_key attributes TWO_COLONS nested_name_specifier TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
@@ -1401,7 +1401,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 
 	$$ = ASTMake4(AST_GCC_ELABORATED_TYPE_ENUM, NULL, NULL, identifier, $2, $1.token_line, NULL);
 }
-| ENUM attributes DOS_DOS_PUNTS IDENTIFIER
+| ENUM attributes TWO_COLONS IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
@@ -1414,7 +1414,7 @@ elaborated_type_specifier : class_key IDENTIFIER
 
 	$$ = ASTMake4(AST_GCC_ELABORATED_TYPE_ENUM, NULL, $3, identifier, $2, $1.token_line, NULL);
 }
-| ENUM attributes DOS_DOS_PUNTS nested_name_specifier IDENTIFIER
+| ENUM attributes TWO_COLONS nested_name_specifier IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $5.token_line, $5.token_text);
@@ -1507,13 +1507,13 @@ ptr_operator : '*'
 {
 	$$ = ASTMake3(AST_POINTER_SPEC, NULL, $1, $3, $2.token_line, NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier '*'
+| TWO_COLONS nested_name_specifier '*'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake3(AST_POINTER_SPEC, global_op, $2, NULL, $3.token_line, NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier '*' cv_qualifier_seq
+| TWO_COLONS nested_name_specifier '*' cv_qualifier_seq
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -1801,18 +1801,18 @@ parameter_declaration_clause : parameter_declaration_clause_nonempty
 {
 	$$ = $1;
 }
-| parameter_declaration_clause_nonempty ',' TRES_PUNTS
+| parameter_declaration_clause_nonempty ',' ELLIPSIS
 {
     AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, $3.token_line, $3.token_text);
 	$$ = ASTList($1, variadic_tree);
 } 
-| parameter_declaration_clause_nonempty TRES_PUNTS
+| parameter_declaration_clause_nonempty ELLIPSIS
 {
     AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, $2.token_line, $2.token_text);
 	$$ = ASTList($1, variadic_tree);
 } 
 // Com funciona aixo ?
-| TRES_PUNTS
+| ELLIPSIS
 {
     AST variadic_tree = ASTLeaf(AST_VARIADIC_ARG, $1.token_line, $1.token_text);
 	$$ = ASTListLeaf(variadic_tree);
@@ -2203,7 +2203,7 @@ member_declaration : decl_specifier_seq member_declarator_list ';'
 {
 	$$ = ASTMake3(AST_MEMBER_DECLARATION_QUALIFIED, NULL, $1, $2, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier unqualified_id ';'
+| TWO_COLONS nested_name_specifier unqualified_id ';'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -2213,7 +2213,7 @@ member_declaration : decl_specifier_seq member_declarator_list ';'
 {
 	$$ = ASTMake3(AST_MEMBER_DECLARATION_TEMPLATE, NULL, $1, $3, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier TEMPLATE unqualified_id ';'
+| TWO_COLONS nested_name_specifier TEMPLATE unqualified_id ';'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 	
@@ -2337,13 +2337,13 @@ base_specifier : type_name
 {
 	$$ = ASTMake3(AST_BASE_SPECIFIER, NULL, NULL, $1, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS type_name
+| TWO_COLONS type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake3(AST_BASE_SPECIFIER, global_op, NULL, $2, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier type_name
+| TWO_COLONS nested_name_specifier type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -2358,7 +2358,7 @@ base_specifier : type_name
 {
 	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS, $1, NULL, NULL, $2, ASTLine($1), NULL);
 }
-| access_specifier DOS_DOS_PUNTS type_name
+| access_specifier TWO_COLONS type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
@@ -2368,7 +2368,7 @@ base_specifier : type_name
 {
 	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS, $1, NULL, $2, $3, ASTLine($1), NULL);
 }
-| access_specifier DOS_DOS_PUNTS nested_name_specifier type_name
+| access_specifier TWO_COLONS nested_name_specifier type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
@@ -2383,13 +2383,13 @@ base_specifier : type_name
 {
 	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, $2, NULL, NULL, $3, $1.token_line, NULL);
 }
-| VIRTUAL DOS_DOS_PUNTS type_name
+| VIRTUAL TWO_COLONS type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
 	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, NULL, global_op, NULL, $3, $1.token_line, NULL);
 }
-| VIRTUAL access_specifier DOS_DOS_PUNTS type_name
+| VIRTUAL access_specifier TWO_COLONS type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
@@ -2403,13 +2403,13 @@ base_specifier : type_name
 {
 	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, $2, NULL, $3, $4, $1.token_line, NULL);
 }
-| VIRTUAL DOS_DOS_PUNTS nested_name_specifier type_name
+| VIRTUAL TWO_COLONS nested_name_specifier type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
 	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, NULL, global_op, $3, $4, $1.token_line, NULL);
 }
-| VIRTUAL access_specifier DOS_DOS_PUNTS nested_name_specifier type_name
+| VIRTUAL access_specifier TWO_COLONS nested_name_specifier type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
@@ -2420,7 +2420,7 @@ base_specifier : type_name
 {
 	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_VIRTUAL, $1, NULL, NULL, $3, ASTLine($1), NULL);
 }
-| access_specifier VIRTUAL DOS_DOS_PUNTS type_name
+| access_specifier VIRTUAL TWO_COLONS type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
@@ -2430,7 +2430,7 @@ base_specifier : type_name
 {
 	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_VIRTUAL, $1, NULL, $3, $4, ASTLine($1), NULL);
 }
-| access_specifier VIRTUAL DOS_DOS_PUNTS nested_name_specifier type_name
+| access_specifier VIRTUAL TWO_COLONS nested_name_specifier type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
@@ -2520,7 +2520,7 @@ labeled_statement : IDENTIFIER ':' statement
 	$$ = ASTMake1(AST_DEFAULT_STATEMENT, $3, $1.token_line, NULL);
 }
 // GNU Extension
-| CASE constant_expression TRES_PUNTS constant_expression ':' statement
+| CASE constant_expression ELLIPSIS constant_expression ':' statement
 {
 	$$ = ASTMake3(AST_GCC_CASE_STATEMENT, $2, $4, $6, $1.token_line, NULL);
 }
@@ -2765,14 +2765,14 @@ mem_initializer_id : IDENTIFIER
 
 	$$ = ASTMake3(AST_MEM_INITIALIZER_ID, NULL, $1, identifier, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier IDENTIFIER
+| TWO_COLONS nested_name_specifier IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
 
 	$$ = ASTMake3(AST_MEM_INITIALIZER_ID, global_op, $2, identifier, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS IDENTIFIER
+| TWO_COLONS IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
@@ -2787,13 +2787,13 @@ mem_initializer_id : IDENTIFIER
 {
 	$$ = ASTMake3(AST_MEM_INITIALIZER_ID, NULL, $1, $2, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier template_id
+| TWO_COLONS nested_name_specifier template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake3(AST_MEM_INITIALIZER_ID, global_op, $2, $3, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS template_id
+| TWO_COLONS template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -2846,20 +2846,20 @@ qualified_id : nested_name_specifier unqualified_id
 {
 	$$ = ASTMake3(AST_QUALIFIED_ID, NULL, $1, $2, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier unqualified_id
+| TWO_COLONS nested_name_specifier unqualified_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, $2, $3, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS IDENTIFIER
+| TWO_COLONS IDENTIFIER
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
 
 	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, identifier, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS template_id
+| TWO_COLONS template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -2869,13 +2869,13 @@ qualified_id : nested_name_specifier unqualified_id
 {
 	$$ = ASTMake3(AST_QUALIFIED_TEMPLATE, NULL, $1, $3, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id
+| TWO_COLONS nested_name_specifier TEMPLATE template_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake3(AST_QUALIFIED_TEMPLATE, global_op, $2, $4, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS operator_function_id 
+| TWO_COLONS operator_function_id 
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 	
@@ -2883,15 +2883,15 @@ qualified_id : nested_name_specifier unqualified_id
 }
 ;
 
-nested_name_specifier : class_or_namespace_name DOS_DOS_PUNTS 
+nested_name_specifier : class_or_namespace_name TWO_COLONS 
 {
 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, NULL, ASTLine($1), NULL);
 }
-| class_or_namespace_name DOS_DOS_PUNTS nested_name_specifier
+| class_or_namespace_name TWO_COLONS nested_name_specifier
 {
 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER, $1, $3, ASTLine($1), NULL);
 }
-| class_or_namespace_name DOS_DOS_PUNTS TEMPLATE nested_name_specifier
+| class_or_namespace_name TWO_COLONS TEMPLATE nested_name_specifier
 {
 	$$ = ASTMake2(AST_NESTED_NAME_SPECIFIER_TEMPLATE, $1, $4, ASTLine($1), NULL);
 }
@@ -2976,7 +2976,7 @@ postfix_expression : primary_expression
 
 	$$ = ASTMake4(AST_TYPENAME_EXPLICIT_TYPE_CONVERSION, NULL, $2, identifier, NULL, $1.token_line, NULL);
 }
-| TYPENAME DOS_DOS_PUNTS nested_name_specifier IDENTIFIER '(' ')'
+| TYPENAME TWO_COLONS nested_name_specifier IDENTIFIER '(' ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
@@ -2989,7 +2989,7 @@ postfix_expression : primary_expression
 
 	$$ = ASTMake4(AST_TYPENAME_EXPLICIT_TYPE_CONVERSION, NULL, $2, identifier, $5, $1.token_line, NULL);
 }
-| TYPENAME DOS_DOS_PUNTS nested_name_specifier IDENTIFIER '(' expression_list ')'
+| TYPENAME TWO_COLONS nested_name_specifier IDENTIFIER '(' expression_list ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
@@ -3012,25 +3012,25 @@ postfix_expression : primary_expression
 {
 	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE, NULL, $2, $4, $6, $1.token_line, NULL);
 }
-| TYPENAME DOS_DOS_PUNTS nested_name_specifier template_id '(' ')'
+| TYPENAME TWO_COLONS nested_name_specifier template_id '(' ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
 	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, global_op, $3, $4, NULL, $1.token_line, NULL);
 }
-| TYPENAME DOS_DOS_PUNTS nested_name_specifier template_id '(' expression_list ')'
+| TYPENAME TWO_COLONS nested_name_specifier template_id '(' expression_list ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
 	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, global_op, $3, $4, $6, $1.token_line, NULL);
 }
-| TYPENAME DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id '(' ')'
+| TYPENAME TWO_COLONS nested_name_specifier TEMPLATE template_id '(' ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
 	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE, global_op, $3, $5, NULL, $1.token_line, NULL);
 }
-| TYPENAME DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id '(' expression_list ')'
+| TYPENAME TWO_COLONS nested_name_specifier TEMPLATE template_id '(' expression_list ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
@@ -3115,31 +3115,31 @@ expression_list : assignment_expression
 }
 ;
 
-pseudo_destructor_name : type_name DOS_DOS_PUNTS '~' type_name
+pseudo_destructor_name : type_name TWO_COLONS '~' type_name
 {
 	$$ = ASTMake4(AST_PSEUDO_DESTRUCTOR_QUALIF, NULL, NULL, $1, $4, ASTLine($1), NULL);
 }
-| nested_name_specifier type_name DOS_DOS_PUNTS '~' type_name
+| nested_name_specifier type_name TWO_COLONS '~' type_name
 {
 	$$ = ASTMake4(AST_PSEUDO_DESTRUCTOR_QUALIF, NULL, $1, $2, $5, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS type_name DOS_DOS_PUNTS '~' type_name
+| TWO_COLONS type_name TWO_COLONS '~' type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_PSEUDO_DESTRUCTOR_QUALIF, global_op, NULL, $2, $5, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier type_name DOS_DOS_PUNTS '~' type_name
+| TWO_COLONS nested_name_specifier type_name TWO_COLONS '~' type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_PSEUDO_DESTRUCTOR_QUALIF, global_op, $2, $3, $6, $1.token_line, NULL);
 }
-| nested_name_specifier TEMPLATE template_id DOS_DOS_PUNTS '~' type_name
+| nested_name_specifier TEMPLATE template_id TWO_COLONS '~' type_name
 {
 	$$ = ASTMake4(AST_PSEUDO_DESTRUCTOR_TEMPLATE, NULL, $1, $3, $6, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier TEMPLATE template_id DOS_DOS_PUNTS '~' type_name
+| TWO_COLONS nested_name_specifier TEMPLATE template_id TWO_COLONS '~' type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -3153,7 +3153,7 @@ pseudo_destructor_name : type_name DOS_DOS_PUNTS '~' type_name
 {
 	$$ = ASTMake3(AST_PSEUDO_DESTRUCTOR_NAME, NULL, $1, $3, ASTLine($1), NULL);
 }
-| DOS_DOS_PUNTS nested_name_specifier '~' type_name
+| TWO_COLONS nested_name_specifier '~' type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -3264,25 +3264,25 @@ new_expression : TOKEN_NEW new_type_id
 {
 	$$ = ASTMake4(AST_NEW_EXPRESSION, NULL, $2, $3, $4, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS TOKEN_NEW new_type_id 
+| TWO_COLONS TOKEN_NEW new_type_id 
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, NULL, NULL, $3, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS TOKEN_NEW new_type_id new_initializer
+| TWO_COLONS TOKEN_NEW new_type_id new_initializer
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, NULL, $3, $4, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS TOKEN_NEW new_placement new_type_id 
+| TWO_COLONS TOKEN_NEW new_placement new_type_id 
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_NEW_EXPRESSION, global_op, $3, $4, NULL, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS TOKEN_NEW new_placement new_type_id new_initializer
+| TWO_COLONS TOKEN_NEW new_placement new_type_id new_initializer
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -3304,25 +3304,25 @@ new_expression : TOKEN_NEW new_type_id
 {
 	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, NULL, $2, $4, $6, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS TOKEN_NEW '(' type_id ')' 
+| TWO_COLONS TOKEN_NEW '(' type_id ')' 
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, NULL, $4, NULL, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS TOKEN_NEW '(' type_id ')' new_initializer
+| TWO_COLONS TOKEN_NEW '(' type_id ')' new_initializer
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, NULL, $4, $6, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS TOKEN_NEW new_placement '(' type_id ')' 
+| TWO_COLONS TOKEN_NEW new_placement '(' type_id ')' 
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake4(AST_NEW_TYPE_ID_EXPR, global_op, $3, $5, NULL, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS TOKEN_NEW new_placement '(' type_id ')' new_initializer
+| TWO_COLONS TOKEN_NEW new_placement '(' type_id ')' new_initializer
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -3388,13 +3388,13 @@ delete_expression : DELETE cast_expression
 {
 	$$ = ASTMake2(AST_DELETE_ARRAY_EXPR, NULL, $4, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS DELETE cast_expression 
+| TWO_COLONS DELETE cast_expression 
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
 	$$ = ASTMake2(AST_DELETE_EXPR, global_op, $3, $1.token_line, NULL);
 }
-| DOS_DOS_PUNTS DELETE '[' ']' cast_expression
+| TWO_COLONS DELETE '[' ']' cast_expression
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 
@@ -4305,7 +4305,7 @@ exception_declaration : type_specifier_seq declarator
 {
 	$$ = ASTMake2(AST_EXCEPTION_DECLARATION, $1, NULL, ASTLine($1), NULL);
 }
-| TRES_PUNTS
+| ELLIPSIS
 {
 	$$ = ASTLeaf(AST_ANY_EXCEPTION, $1.token_line, NULL);
 }
