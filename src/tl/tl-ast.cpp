@@ -685,11 +685,15 @@ namespace TL
     ASTIterator::ASTIterator(AST ast)
         : _ast(ast), _current(ast)
     {
-        if (ASTType(ast) != AST_NODE_LIST)
+        if (ast == NULL 
+                || ASTType(ast) != AST_NODE_LIST)
         {
-            std::cerr << "Node at '" 
-                << ast->filename << ":" << ASTLine(ast) 
-                << "' is not a list" << std::endl;
+            if (ast != NULL)
+            {
+                std::cerr << "Node at '" 
+                    << ast->filename << ":" << ASTLine(ast) 
+                    << "' is not a list" << std::endl;
+            }
             _ast = NULL;
             _current = NULL;
         }
