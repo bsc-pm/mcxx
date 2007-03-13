@@ -1169,9 +1169,10 @@ scope_entry_list_t* query_id_expression_flags(scope_t* sc, AST id_expr,
             }
         case AST_CONVERSION_FUNCTION_ID :
             {
-                // An unqualified conversion_function_id "operator T"
-                // Why this has no qualified equivalent ?
-                internal_error("Unsupported conversion function id", 0);
+                char* conversion_function_name = get_conversion_function_name(id_expr, sc, NULL,
+                        decl_context);
+                scope_entry_list_t* result = query_unqualified_name(sc, conversion_function_name);
+                return result;
                 break;
             }
             // Qualified ones
