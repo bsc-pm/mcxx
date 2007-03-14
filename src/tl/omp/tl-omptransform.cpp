@@ -1409,11 +1409,18 @@ namespace TL
                 Source outlined_function_name = get_outlined_function_name(function_name);
 
                 // Get references in local clause
-                OpenMP::CustomClause local_clause = directive.custom_clause("local");
+                ObjectList<std::string> local_names;
+                local_names.append("local");
+                local_names.append("taskprivate");
+                local_names.append("task_private");
+                OpenMP::CustomClause local_clause = directive.custom_clause(local_names);
                 ObjectList<IdExpression> local_references = local_clause.id_expressions();
 
                 // Get references in captureaddress clause
-                OpenMP::CustomClause captureaddress_clause = directive.custom_clause("captureaddress");
+                ObjectList<std::string> captureaddress_names;
+                captureaddress_names.append("captureaddress");
+                captureaddress_names.append("capture_address");
+                OpenMP::CustomClause captureaddress_clause = directive.custom_clause(captureaddress_names);
 
                 // Get all the identifiers of the captureaddress clause
                 ObjectList<IdExpression> captureaddress_references;
@@ -1442,7 +1449,10 @@ namespace TL
                     }
                 }
 
-                OpenMP::CustomClause capturevalue_clause = directive.custom_clause("capturevalue");
+                ObjectList<std::string> capturevalue_names;
+                capturevalue_names.append("capturevalue");
+                capturevalue_names.append("capture_value");
+                OpenMP::CustomClause capturevalue_clause = directive.custom_clause(capturevalue_names);
                 // Get the identifiers of the capturevalue clause
                 ObjectList<IdExpression> capturevalue_references = capturevalue_clause.id_expressions();
 
@@ -1658,13 +1668,28 @@ namespace TL
                     Symbol sym = it->id_expression.get_symbol();
                     Type type = sym.get_type();
 
-                    fallback_capture_values
-                        << type.get_declaration_with_initializer(
-                                it->id_expression.get_scope(),
-                                "cval_" + it->id_expression.mangle_id_expression(), 
-                                it->id_expression.prettyprint()) 
-                        << ";"
-                        ;
+                    if (!type.is_array())
+                    {
+                        fallback_capture_values
+                            << type.get_declaration_with_initializer(
+                                    it->id_expression.get_scope(),
+                                    "cval_" + it->id_expression.mangle_id_expression(), 
+                                    it->id_expression.prettyprint()) 
+                            << ";"
+                            ;
+                    }
+                    else
+                    {
+                        Source src_array_copy = array_copy(type, "cval_" + it->id_expression.mangle_id_expression(),
+                                it->id_expression.prettyprint(), 0);
+
+                        fallback_capture_values
+                            << type.get_declaration(it->id_expression.get_scope(),
+                                    "cval_" + it->id_expression.mangle_id_expression())
+                            << ";"
+                            << src_array_copy
+                            ;
+                    }
 
                     fallback_arguments.append_with_separator("&cval_" + it->id_expression.mangle_id_expression(), ",");
                 }
@@ -3973,192 +3998,132 @@ namespace TL
                     {
                     }
 
-                    void replace_lvalue(Expression expression)
+                    Source get_offsetof(Expression member_access)
                     {
-                        if (!expression.is_id_expression() 
-                                && !expression.is_member_access())
+                       Source result;
+
+                       result << "(&((__typeof__(" 
+                                <<  member_access.get_accessed_entity().prettyprint()
+                              << ") *)0)->" 
+                                <<  member_access.get_accessed_member().prettyprint()
+                              << ")";
+
+                       std::cerr << result.get_source() << std::endl;
+
+                       return result;
+                    }
+
+                    void get_address(Expression expression)
+                    {
+                        Source address_expr;
+                        // a -> (&a)
+                        if (expression.is_id_expression())
                         {
-                            replace_expression(expression);
+                            address_expr
+                                << "(&" << expression.prettyprint() << ")"
+                                ;
+                        }
+                        // e[e1] -> e + e1
+                        else if (expression.is_array_subscript())
+                        {
+                            address_expr
+                                << expression.get_subscripted_expression().prettyprint() 
+                                << " + " 
+                                << expression.get_subscript_expression().prettyprint()
+                                ;
+                        }
+                        else if (expression.is_unary_operation() 
+                                && expression.get_operation_kind() == Expression::DERREFERENCE)
+                        {
+                            address_expr
+                                << expression.get_unary_operand().prettyprint()
+                                ;
+                        }
+                        else if (expression.is_member_access())
+                        {
+                            get_address(expression.get_accessed_entity());
+                            Source offsetof_code = get_offsetof(expression);
+
+                            address_expr
+                                << expression.get_accessed_entity().prettyprint()
+                                << " + "
+                                << offsetof_code
+                                ;
+                        }
+                        else if (expression.is_pointer_member_access())
+                        {
+                            Source offsetof_code = get_offsetof(expression);
+
+                            address_expr
+                                << expression.get_accessed_entity().prettyprint()
+                                << " + "
+                                << offsetof_code
+                                ;
+                        }
+                        else if (expression.is_binary_operation())
+                        {
+                            replace_expression(expression.get_first_operand());
+                            replace_expression(expression.get_second_operand());
+
+                            address_expr
+                                << expression.prettyprint();
+                        }
+                        else if (expression.is_unary_operation())
+                        {
+                            replace_expression(expression.get_unary_operand());
+                            address_expr
+                                << expression.prettyprint();
+                        }
+                        else 
+                        {
+                            address_expr
+                                << expression.prettyprint();
                         }
 
-                        {
-                            Source reference;
+                        AST_t expression_tree = address_expr.parse_expression(expression.get_scope());
 
-                            reference << "&(" << expression.prettyprint() << ")";
-
-                            AST_t reference_tree;
-                            reference_tree = reference.parse_expression(expression.get_scope());
-
-                            expression.get_ast().replace_with(reference_tree);
-                        }
+                        expression.get_ast().replace(expression_tree);
                     }
 
                     void replace_expression(Expression expression)
                     {
                         if (expression.is_assignment())
                         {
-                            Source original_expression = expression.get_first_operand().prettyprint();
-                            replace_lvalue(expression.get_first_operand());
-                            replace_expression(expression.get_second_operand());
+                            Expression lvalue = expression.get_first_operand();
+                            Expression rvalue = expression.get_second_operand();
 
-                            Source write_operation;
+                            get_address(lvalue);
+                            replace_expression(rvalue);
 
-                            write_operation << "write(&t, " << expression.get_first_operand().prettyprint()
-                                << ", " << expression.get_second_operand().prettyprint() 
-                                // << ", sizeof(" << original_expression << ")"
-                                << ")";
+                            Source write_expression;
 
-                            AST_t write_operation_tree = write_operation.parse_expression(expression.get_scope());
-
-                            expression.get_ast().replace_with(write_operation_tree);
-                        }
-                        else if (expression.is_binary_operation())
-                        {
-                            replace_expression(expression.get_first_operand());
-                            replace_expression(expression.get_second_operand());
-                        }
-                        else if (expression.is_unary_operation())
-                        {
-                            Source original_expression;
-
-                            original_expression << expression.prettyprint();
-
-                            replace_expression(expression.get_unary_operand());
-                            if (expression.get_operation_kind() == Expression::DERREFERENCE)
-                            {
-                                Source replace_derreference_address;
-
-                                replace_derreference_address 
-                                    << "(*" // << "(__typeof__(&(" << original_expression << ")))"
-                                    << "read(&t, " << expression.get_unary_operand().prettyprint() 
-                                    // << ", sizeof(" << original_expression << ")" 
-                                    << ")" // read
-                                    << ")";
-
-                                AST_t replace_derref_tree = replace_derreference_address.parse_expression(expression.get_scope());
-
-                                expression.get_ast().replace_with(replace_derref_tree);
-                            }
-                        }
-                        else if (expression.is_function_call())
-                        {
-                            ObjectList<Expression> expression_list = expression.get_argument_list();
-
-                            for (ObjectList<Expression>::iterator it = expression_list.begin();
-                                    it != expression_list.end();
-                                    it++)
-                            {
-                                replace_expression(*it);
-                            }
-
-                            // Expression called_expression = expression.get_called_expression();
-                        }
-                        else if (expression.is_array_subscript())
-                        {
-                            Expression subscript_expression = expression.get_subscript_expression();
-
-                            replace_expression(subscript_expression);
-
-                            Expression subscripted_expression = expression.get_subscripted_expression();
-
-                            replace_expression(subscripted_expression);
-
-                            Source replace_derreference_address;
-
-                            replace_derreference_address
-                                << "(*"
-                                << "read(&t,"
-                                << subscripted_expression.prettyprint() << "+" << subscripted_expression.prettyprint()
-                                // << ", sizeof(" << original_expression << ")" 
-                                << ")"
+                            write_expression
+                                << "write(&t,"
+                                << lvalue.prettyprint()
+                                << ","
+                                << rvalue.prettyprint()
                                 << ")"
                                 ;
 
+                            AST_t write_tree = write_expression.parse_expression(expression.get_scope());
 
-                            AST_t replace_derref_tree = replace_derreference_address.parse_expression(expression.get_scope());
-
-                            expression.get_ast().replace_with(replace_derref_tree);
+                            expression.get_ast().replace(write_tree);
                         }
-                        else if (expression.is_id_expression())
+                        else
                         {
-                            Source original_expression = expression.prettyprint();
-                            IdExpression id_expression = expression.get_id_expression();
-                            Symbol symbol = id_expression.get_symbol();
-                            // Type type = id_expressions.get_type();
+                            get_address(expression);
 
-                            // FIXME - We should be using contains but there is some template breakage
-                            if (find(_considered_symbols.begin(),
-                                        _considered_symbols.end(),
-                                        symbol) == _considered_symbols.end())
-                                return;
+                            Source read_expression;
 
-                            Source read_operation;
+                            read_expression
+                                << "*read(&t,"
+                                << expression.prettyprint()
+                                << ")"
+                                ;
 
-                            read_operation 
-                                << "(*" // << "(__typeof__(&(" << original_expression << ")))"
-                                << "read(&t, &" << id_expression.prettyprint()  
-                                // << ", sizeof(" << id_expression.prettyprint() << ")" 
-                                << ")" // read
-                                << ")";
+                            AST_t read_tree = read_expression.parse_expression(expression.get_scope());
 
-                            AST_t read_operation_tree = read_operation.parse_expression(id_expression.get_scope());
-
-                            expression.get_ast().replace_with(read_operation_tree);
-                        }
-                        else if (expression.is_member_access())
-                        {
-                            Source original_expression = expression.prettyprint();
-
-                            // replace_expression(expression.get_accessed_entity());
-                            Expression accessed_entity = expression.get_accessed_entity();
-
-                            if (accessed_entity.is_unary_operation()
-                                    && accessed_entity.get_operation_kind() == Expression::DERREFERENCE)
-                            {
-                                Expression referenced_entity = accessed_entity.get_unary_operand();
-                                replace_expression(referenced_entity);
-                            }
-                            else if (!accessed_entity.is_id_expression())
-                            {
-                                replace_expression(accessed_entity);
-                            }
-
-                            Source read_operation;
-
-                            read_operation 
-                                << "(*" // << "(__typeof__(&(" << original_expression << ")))"
-                                // << "("
-                                << "read(&t, &" << expression.prettyprint() 
-                                // << ", sizeof(" << original_expression << ")" 
-                                << ")" // read
-                                << ")";
-
-                            AST_t read_operation_tree = read_operation.parse_expression(expression.get_scope());
-
-                            expression.get_ast().replace_with(read_operation_tree);
-                        }
-                        else if (expression.is_pointer_member_access())
-                        {
-                            Source original_expression = expression.prettyprint();
-
-                            replace_expression(expression.get_accessed_entity());
-
-                            Source read_operation;
-
-                            read_operation 
-                                << "(*" // << "(__typeof__(&(" << original_expression << ")))"
-                                << "read(&t, &" << expression.prettyprint() 
-                                // << ", sizeof(" << original_expression << ")" 
-                                << ")" // read
-                                << ")";
-
-                            AST_t read_operation_tree = read_operation.parse_expression(expression.get_scope());
-
-                            expression.get_ast().replace_with(read_operation_tree);
-                        }
-                        else 
-                        {
-                            std::cerr << "A case is missing for expression : '" << expression.prettyprint() << "'" << std::endl;
+                            expression.get_ast().replace(read_tree);
                         }
                     }
             };
@@ -4207,6 +4172,34 @@ namespace TL
 
                     expression_replacement.replace_expression(expression);
                 }
+
+                Source replaced_code;
+                
+                replaced_code
+                    << "{"
+                    << "   Transaction t;"
+                    << "   Status ret;"
+                    << "   starttx(&t);"
+                    << "   while(1)"
+                    << "   {"
+                    << "     ret = setjmp(t.env);"
+                    << "     if(0 == ret)"
+                    << "     {"
+                    <<         protect_statement.prettyprint()
+                    // << "       if (COMMIT_SUCESS == committx(&t)) "
+                    << "       if (0 == committx(&t)) "
+                    << "         break;"
+                    << "       else aborttx(&t);"
+                    << "     } else aborttx(&t);"
+                    << "   }"
+                    << "   destroytx(&t);"
+                    << "}"
+                    ;
+
+                AST_t replaced_tree = replaced_code.parse_statement(protect_statement.get_scope(),
+                        protect_statement.get_scope_link());
+
+                protect_construct.get_ast().replace(replaced_tree);
             }
 
             

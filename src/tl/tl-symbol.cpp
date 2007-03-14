@@ -1,7 +1,6 @@
 #include "tl-symbol.hpp"
 #include "tl-type.hpp"
 
-
 namespace TL
 {
     Type Symbol::get_type() const
@@ -114,5 +113,17 @@ namespace TL
     AST_t Symbol::get_point_of_declaration() const
     {
         return AST_t(_symbol->point_of_declaration);
+    }
+
+    bool Symbol::is_parameter() const
+    {
+        if (_symbol != NULL)
+        {
+            return (_symbol->scope->kind == PROTOTYPE_SCOPE);
+        }
+        else
+        {
+            return false;
+        }
     }
 }

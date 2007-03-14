@@ -134,7 +134,7 @@ class ObjectList : public std::vector<T>
         
         bool contains(const T& t)
         {
-            return (find(this->begin(), this->end(), t) != this->end());
+            return (std::find(this->begin(), this->end(), t) != this->end());
         }
 
         template <class S>
@@ -192,6 +192,8 @@ class ObjectList : public std::vector<T>
                     result.append(*it);
                 }
             }
+
+            return result;
         }
 
         template <class S>

@@ -2369,7 +2369,46 @@ static char check_for_type_specifier(AST type_id, scope_t* st, decl_context_t de
             // GCC Extension
         case AST_GCC_TYPEOF_EXPR :
             {
+                return check_for_expression(ASTSon0(type_id), st, decl_context);
+            }
+        case AST_GCC_TYPEOF :
+            {
+                return check_for_type_id_tree(ASTSon0(type_id), st, decl_context);
+            }
+            // There is an ambiguity between AST_GCC_TYPEOF_EXPR and AST_GCC_TYPEOF
+        case AST_AMBIGUITY :
+            {
+                int valid = -1;
+                int i;
+                for (i = 0; i < type_id->num_ambig; i++)
+                {
+                    if (check_for_type_specifier(type_id->ambig[i], st, decl_context))
+                    {
+                        if (valid < 0)
+                        {
+                            valid = i;
+                        }
+                        else
+                        {
+                            internal_error("Two or more valid type-id trees '%s' in %s\n", 
+                                    prettyprint_in_buffer(type_id),
+                                    node_information(type_id));
+                        }
+                    }
+                }
+
+                if (valid < 0)
+                {
+                    internal_error("Cannot solve ambiguity of type-id '%s' in '%s'\n", 
+                            prettyprint_in_buffer(type_id),
+                            node_information(type_id));
+                }
+
+                choose_option(type_id, valid);
+
+                // This is always a valid type
                 return 1;
+                break;
             }
         default :
             {

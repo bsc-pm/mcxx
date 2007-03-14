@@ -705,9 +705,11 @@ asm_operand : string_literal '(' expression ')'
 {
 	$$ = ASTMake3(AST_GCC_ASM_OPERAND, NULL, $1, $3, ASTLine($1), NULL);
 }
-| '[' string_literal ']' string_literal '(' expression ')'
+| '[' IDENTIFIER ']' string_literal '(' expression ')'
 {
-	$$ = ASTMake3(AST_GCC_ASM_OPERAND, $2, $4, $6, $1.token_line, NULL);
+    AST symbol_tree = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+
+	$$ = ASTMake3(AST_GCC_ASM_OPERAND, symbol_tree, $4, $6, $1.token_line, NULL);
 }
 | string_literal
 {

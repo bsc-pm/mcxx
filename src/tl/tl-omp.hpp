@@ -10,6 +10,9 @@
 #include "tl-traverse.hpp"
 #include "tl-dto.hpp"
 
+#include <set>
+#include <stack>
+
 namespace TL
 {
     namespace OpenMP
@@ -23,6 +26,8 @@ namespace TL
                 {
                 }
 
+                ~Construct() { }
+
                 Statement body();
                 Directive directive();
         };
@@ -34,6 +39,7 @@ namespace TL
 
         class Directive : public LangConstruct
         {
+            private:
             public:
                 Directive(AST_t ref, ScopeLink scope_link)
                     : LangConstruct(ref, scope_link)
@@ -57,8 +63,11 @@ namespace TL
                 ReductionClause reduction_clause();
 
                 CustomClause custom_clause(const std::string& src);
+                CustomClause custom_clause(const ObjectList<std::string>& src);
 
                 Clause parameter_clause();
+                
+                ObjectList<std::string> get_all_custom_clauses();
         };
 
 
@@ -149,12 +158,12 @@ namespace TL
         class CustomClause : public LangConstruct
         {
             private:
-                std::string _clause_name;
+                ObjectList<std::string> _clause_names;
 
                 ObjectList<AST_t> filter_custom_clause();
             public:
-                CustomClause(const std::string& str, AST_t ref, ScopeLink scope_link)
-                    : LangConstruct(ref, scope_link), _clause_name(str)
+                CustomClause(const ObjectList<std::string>& names, AST_t ref, ScopeLink scope_link)
+                    : LangConstruct(ref, scope_link), _clause_names(names)
                 {
                 }
 
@@ -308,6 +317,10 @@ namespace TL
                 }
         };
 
+        // Stores information of the used clauses (this is ugly)
+        typedef std::stack<ObjectList<std::string> > construct_map_t;
+        extern construct_map_t construct_map;
+
         template<class T>
             class OpenMPConstructFunctor : public TraverseFunctor
         {
@@ -319,6 +332,12 @@ namespace TL
                 {
                     T parallel_construct(node, ctx.scope_link);
 
+                    // Empty set of strings
+                    Directive directive = parallel_construct.directive();
+
+                    ObjectList<std::string> current_custom_clauses = directive.get_all_custom_clauses();
+                    construct_map.push(current_custom_clauses);
+
                     _on_construct_pre.signal(parallel_construct);
                 }
 
@@ -327,14 +346,25 @@ namespace TL
                     T parallel_construct(node, ctx.scope_link);
 
                     _on_construct_post.signal(parallel_construct);
+
+                    // Emit a warning for every unused one
+                    ObjectList<std::string> &unhandled_clauses = construct_map.top();
+                    for (ObjectList<std::string>::iterator it = unhandled_clauses.begin();
+                            it != unhandled_clauses.end();
+                            it++)
+                    {
+                        std::cerr << "Warning: Clause '" << *it << "' unused in OpenMP directive at " << node.get_locus() << std::endl;
+                    }
+
+                    construct_map.pop();
                 }
 
                 OpenMPConstructFunctor(Signal1<T>& on_construct_pre,
                         Signal1<T>& on_construct_post)
                     : _on_construct_pre(on_construct_pre),
                     _on_construct_post(on_construct_post)
-            {
-            }
+                {
+                }
         };
 
         typedef std::map<std::string, Signal1<CustomConstruct> > CustomFunctorMap;

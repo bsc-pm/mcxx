@@ -15,9 +15,7 @@ namespace TL
         Directive Construct::directive()
         {
             AST_t ast = _ref.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
-
-            Directive result(ast, _scope_link);
-            return result;
+            return Directive(ast, _scope_link);
         }
 
         Statement Construct::body()
@@ -52,10 +50,32 @@ namespace TL
                 CustomConstruct custom_construct(node, ctx.scope_link);
                 Signal1<CustomConstruct>& functor = search_map[directive_name];
 
+                if (&search_map == &_custom_functor_pre)
+                {
+                    Directive directive = custom_construct.directive();
+
+                    ObjectList<std::string> current_custom_clauses = directive.get_all_custom_clauses();
+                    construct_map.push(current_custom_clauses);
+                }
+
                 functor.signal(custom_construct);
+
+                if (&search_map == &_custom_functor_post)
+                {
+                    // Emit a warning for every unused one
+                    // ObjectList<std::string> &unhandled_clauses = construct_map.top();
+                    // for (ObjectList<std::string>::iterator it = unhandled_clauses.begin();
+                    //         it != unhandled_clauses.end();
+                    //         it++)
+                    // {
+                    //     std::cerr << "Warning: Clause '" << *it << "' unused in OpenMP directive at " << node.get_locus() << std::endl;
+                    // }
+                }
             }
             else
             {
+                // Kludge: If we are in preorder and not handled, and in postorder it is not handled too
+                // then warning
                 if (&search_map == &_custom_functor_pre)
                 {
                     if (_custom_functor_post.find(directive_name) == _custom_functor_post.end())
@@ -282,9 +302,50 @@ namespace TL
             return result;
         }
 
-        CustomClause Directive::custom_clause(const std::string& src)
+        CustomClause Directive::custom_clause(const std::string& name)
         {
-            CustomClause result(src, _ref, _scope_link);
+            ObjectList<std::string> names;
+            names.append(name);
+
+            return custom_clause(names);
+        }
+
+        construct_map_t construct_map;
+
+        CustomClause Directive::custom_clause(const ObjectList<std::string>& names)
+        {
+            CustomClause result(names, _ref, _scope_link);
+
+            ObjectList<std::string> &referenced_clauses = construct_map.top();
+
+#if 0
+            for (ObjectList<std::string>::const_iterator it = names.begin();
+                    it != names.end();
+                    it++)
+            {
+                // referenced_clauses.erase(*it);
+                ObjectList<std::string> temp = referenced_clauses;
+                referenced_clauses = temp.not_find(*it);
+            }
+#endif
+
+            return result;
+        }
+
+        ObjectList<std::string> Directive::get_all_custom_clauses()
+        {
+            PredicateBool<OMP_IS_CUSTOM_CLAUSE> predicate_custom_clause;
+            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
+            ObjectList<std::string> result;
+
+            for (ObjectList<AST_t>::iterator it = clauses_list.begin();
+                    it != clauses_list.end();
+                    it++)
+            {
+                TL::String clause_name_attr = it->get_attribute(OMP_CUSTOM_CLAUSE_NAME);
+                result.insert(clause_name_attr);
+            }
+
             return result;
         }
 
@@ -294,11 +355,12 @@ namespace TL
             {
                 private:
                     PredicateAttr _custom_clause;
-                    const std::string& _clause_name;
+                    // const std::string& _clause_name;
+                    ObjectList<std::string>& _clause_names;
 
                 public:
-                    PredicateCustomClause(const std::string& clause_name)
-                         : _custom_clause(OMP_IS_CUSTOM_CLAUSE), _clause_name(clause_name)
+                    PredicateCustomClause(ObjectList<std::string>& clause_names)
+                         : _custom_clause(OMP_IS_CUSTOM_CLAUSE), _clause_names(clause_names)
                     {
                     }
 
@@ -308,13 +370,23 @@ namespace TL
                         {
                             TL::String clause_name_attr = t.get_attribute(OMP_CUSTOM_CLAUSE_NAME);
 
-                            return (clause_name_attr.compare_case_insensitive_to(_clause_name));
+                            for (ObjectList<std::string>::iterator it = _clause_names.begin();
+                                    it != _clause_names.end();
+                                    it++)
+                            {
+                                if (clause_name_attr.compare_case_insensitive_to(*it))
+                                {
+                                    return true;
+                                }
+                            }
+
+                            return false;
                         }
                         else return false;
                     }
             };
 
-            PredicateCustomClause predicate_custom_clause(_clause_name);
+            PredicateCustomClause predicate_custom_clause(_clause_names);
 
             ObjectList<AST_t> result = _ref.depth_subtrees(predicate_custom_clause);
 
