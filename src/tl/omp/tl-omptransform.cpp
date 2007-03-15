@@ -4000,224 +4000,224 @@ namespace TL
 
                     void get_address(Expression expression)
                     {
-                        Source address_expr;
-                        // a -> &a
+                        Source address_expression;
+                        // var => (&var) 
                         if (expression.is_id_expression())
                         {
-                            address_expr
-                                << "&" << expression.prettyprint() << ""
-                                ;
+                            address_expression << "(&" << expression.prettyprint() << ")";
                         }
-                        // e[e1] -> e + e1
-                        else if (expression.is_array_subscript())
-                        {
-                            address_expr
-                                << expression.get_subscripted_expression().prettyprint() 
-                                << " + " 
-                                << expression.get_subscript_expression().prettyprint()
-                                ;
-                        }
-                        // *e -> e
-                        else if (expression.is_unary_operation() 
+                        // *e => READ(e1)
+                        else if (expression.is_unary_operation()
                                 && expression.get_operation_kind() == Expression::DERREFERENCE)
                         {
-                            address_expr
-                                << expression.get_unary_operand().prettyprint()
-                                ;
+                            replace_expression(expression);
+                            
+                            address_expression << "(" << expression.prettyprint() << ")";
                         }
-                        // e.m -> &(&(e)-> m)
-                        else if (expression.is_member_access())
-                        {
-                            get_address(expression.get_accessed_entity());
-
-                            address_expr
-                                << "&("
-                                << "(" << expression.get_accessed_entity().prettyprint() << ")"
-                                << " -> "
-                                << expression.get_accessed_member().prettyprint()
-                                << ")"
-                                ;
-                        }
-                        // e->m -> &(e -> m)
-                        else if (expression.is_pointer_member_access())
-                        {
-                            address_expr
-                                << "&("
-                                << "(" << expression.get_accessed_entity().prettyprint() << ")"
-                                << " -> "
-                                << expression.get_accessed_member().prettyprint()
-                                << ")"
-                                ;
-                        }
-                        else if (expression.is_binary_operation())
-                        {
-                            replace_expression(expression.get_first_operand());
-                            replace_expression(expression.get_second_operand());
-
-                            address_expr
-                                << expression.prettyprint();
-                        }
-                        else if (expression.is_unary_operation())
-                        {
-                            replace_expression(expression.get_unary_operand());
-                            address_expr
-                                << expression.prettyprint();
-                        }
-                        else 
-                        {
-                            address_expr
-                                << expression.prettyprint();
-                        }
-
-                        AST_t expression_tree = address_expr.parse_expression(expression.get_scope());
-
-                        expression.get_ast().replace(expression_tree);
-                    }
-
-                    void replace_expression(Expression expression)
-                    {
-                        if (expression.is_assignment())
-                        {
-                            Expression lvalue = expression.get_first_operand();
-                            Expression rvalue = expression.get_second_operand();
-
-                            get_address(lvalue);
-                            replace_expression(rvalue);
-
-                            Source write_expression;
-
-                            write_expression
-                                << "write(&t,"
-                                << lvalue.prettyprint()
-                                << ","
-                                << rvalue.prettyprint()
-                                << ")"
-                                ;
-
-                            AST_t write_tree = write_expression.parse_expression(expression.get_scope());
-
-                            expression.get_ast().replace(write_tree);
-                        }
-                        else if (expression.is_literal())
-                        {
-                            // Do nothing with a literal
-                        }
-                        else if (expression.is_binary_operation())
-                        {
-                            replace_expression(expression.get_first_operand());
-                            replace_expression(expression.get_second_operand());
-                        }
-                        else if (expression.is_unary_operation() 
-                                && expression.get_operation_kind() == Expression::DERREFERENCE)
-                        {
-                            replace_expression(expression.get_unary_operand());
-
-                            Source read_expression;
-
-                            read_expression
-                                << "*read(&t,"
-                                << expression.get_unary_operand().prettyprint()
-                                << ")"
-                                ;
-
-                            AST_t read_tree = read_expression.parse_expression(expression.get_scope());
-
-                            expression.get_ast().replace(read_tree);
-                        }
-                        else if (expression.is_pointer_member_access())
-                        {
-                            replace_expression(expression.get_accessed_entity());
-
-                            Source read_expression;
-
-                            read_expression
-                                << "*read(&t,"
-                                << "&("
-                                << expression.get_accessed_entity().prettyprint()
-                                << "->"
-                                << expression.get_accessed_member().prettyprint()
-                                << ")"
-                                << ")"
-                                ;
-
-                            AST_t read_tree = read_expression.parse_expression(expression.get_scope());
-
-                            expression.get_ast().replace(read_tree);
-                        }
-                        else if (expression.is_member_access())
-                        {
-                            Source read_expression;
-                            Expression accessed_entity = expression.get_accessed_entity();
-                            if (accessed_entity.is_unary_operation()
-                                    && accessed_entity.get_operation_kind() == Expression::DERREFERENCE)
-                            {
-                                replace_expression(accessed_entity.get_unary_operand());
-                                read_expression
-                                    << "*read(&t,"
-                                    << "&("
-                                    << accessed_entity.get_unary_operand().prettyprint()
-                                    << "->"
-                                    << expression.get_accessed_member().prettyprint()
-                                    << ")"
-                                    << ")"
-                                    ;
-                            }
-                            else
-                            {
-                                replace_expression(expression.get_accessed_entity());
-
-                                read_expression
-                                    << "*read(&t,"
-                                    << "&("
-                                    << expression.get_accessed_entity().prettyprint()
-                                    << "->"
-                                    << expression.get_accessed_member().prettyprint()
-                                    << ")"
-                                    << ")"
-                                    ;
-                            }
-
-                            AST_t read_tree = read_expression.parse_expression(expression.get_scope());
-
-                            expression.get_ast().replace(read_tree);
-                        }
+                        // e1[e2] => READ(e1) + READ(e2)
                         else if (expression.is_array_subscript())
                         {
                             replace_expression(expression.get_subscripted_expression());
-
                             replace_expression(expression.get_subscript_expression());
 
-                            Source read_expression;
-
-                            read_expression
-                                << "*read(&t,"
+                            address_expression 
+                                << "(" 
                                 << expression.get_subscripted_expression().prettyprint()
                                 << " + "
                                 << expression.get_subscript_expression().prettyprint()
                                 << ")"
                                 ;
-
-                            AST_t read_tree = read_expression.parse_expression(expression.get_scope());
-
-                            expression.get_ast().replace(read_tree);
                         }
+                        // e1->e2 => (&(READ(e1)->e2))
+                        else if (expression.is_pointer_member_access())
+                        {
+                            replace_expression(expression.get_accessed_entity());
+
+                            address_expression
+                                << "(&( ( "
+                                << expression.get_accessed_entity().prettyprint()
+                                << ") -> "
+                                << expression.get_accessed_member().prettyprint()
+                                << "))"
+                                ;
+                        }
+                        // (*e1).e2 => (&(READ(e1))->e2)
+                        else if (expression.is_member_access() 
+                                && expression.get_accessed_entity().is_unary_operation()
+                                && (expression.get_accessed_entity().get_operation_kind() 
+                                    == Expression::DERREFERENCE))
+                        {
+                            Expression accessed_entity = expression.get_accessed_entity().get_unary_operand();
+                            replace_expression(accessed_entity);
+
+                            address_expression
+                                << "(&( ( "
+                                << accessed_entity.prettyprint()
+                                << ") -> "
+                                << expression.get_accessed_member().prettyprint()
+                                << "))"
+                                ;
+                        }
+                        // e1.e2 => (&((ADDR(e1))->e2))
+                        else if (expression.is_member_access())
+                        {
+                            get_address(expression.get_accessed_entity());
+
+                            address_expression
+                                << "(&( ( "
+                                << expression.get_accessed_entity().prettyprint()
+                                << ") -> "
+                                << expression.get_accessed_member().prettyprint()
+                                << "))"
+                                ;
+                        }
+                        // e1 ## e2 => 
+                        else if (expression.is_binary_operation())
+                        {
+                            std::cerr << "Lvalue not valid '" << expression.prettyprint() << std::endl;
+                        }
+                        // ## e1
                         else if (expression.is_unary_operation())
                         {
-                            replace_expression(expression.get_unary_operand());
+                            std::cerr << "Lvalue not valid '" << expression.prettyprint() << std::endl;
                         }
+                        // Other expressions (function calls and literals)
+                        else
+                        {
+                            address_expression << expression.prettyprint();
+                        }
+
+                        AST_t address_expression_tree = address_expression.parse_expression(expression.get_scope());
+
+                        expression.get_ast().replace(address_expression_tree);
+                    }
+
+                    void replace_expression(Expression expression, bool replace_outermost = true)
+                    {
+                        Source read_expression;
+                        // e1 = e2 => write(&t, ADDR(e1), READ(e2))
+                        if (expression.is_assignment())
+                        {
+                            get_address(expression.get_first_operand());
+                            replace_expression(expression.get_second_operand());
+
+                            read_expression
+                                << "write(&t, "
+                                << expression.get_first_operand().prettyprint()
+                                << ","
+                                << expression.get_second_operand().prettyprint()
+                                << ")"
+                                ;
+                        }
+                        // var => *read(&t, &var)
                         else if (expression.is_id_expression())
                         {
-                            Source read_expression;
                             read_expression
-                                << "*read(&t,"
+                                << "*read(&t, "
                                 << "&" << expression.prettyprint()
                                 << ")"
                                 ;
-
-                            AST_t read_tree = read_expression.parse_expression(expression.get_scope());
-
-                            expression.get_ast().replace(read_tree);
                         }
+                        // *e =>  *read(&t, READ(e))
+                        else if (expression.is_unary_operation()
+                                && expression.get_operation_kind() == Expression::DERREFERENCE)
+                        {
+                            replace_expression(expression.get_unary_operand());
+
+                            read_expression
+                                << "*read(&t, "
+                                << expression.get_unary_operand().prettyprint()
+                                << ")"
+                                ;
+                        }
+                        // e1[e2] => *read(&t, READ(e1) + READ(e2))
+                        else if (expression.is_array_subscript())
+                        {
+                            replace_expression(expression.get_subscripted_expression());
+                            replace_expression(expression.get_subscript_expression());
+
+                            read_expression
+                                << "*read(&t, "
+                                << expression.get_subscripted_expression().prettyprint()
+                                << " + "
+                                << expression.get_subscript_expression().prettyprint()
+                                << ")"
+                                ;
+                        }
+                        // e1->e2 => *read(&t, (READ(e1))->e2)
+                        else if (expression.is_pointer_member_access())
+                        {
+                            replace_expression(expression.get_accessed_entity());
+
+                            read_expression
+                                << "*read(&t, "
+                                << "&((" << expression.get_accessed_entity().prettyprint() << ")"
+                                << " -> "
+                                << expression.get_accessed_member().prettyprint()
+                                << ")"
+                                << ")"
+                                ;
+                        }
+                        // (*e1).e2 => *read(&t, (READ(e1))->e2)
+                        else if (expression.is_member_access()
+                                && expression.get_accessed_entity().is_unary_operation()
+                                && (expression.get_accessed_entity().get_operation_kind() 
+                                    == Expression::DERREFERENCE))
+                        {
+                            Expression accessed_entity = expression.get_accessed_entity().get_unary_operand();
+                            replace_expression(accessed_entity);
+
+                            read_expression
+                                << "*read(&t, "
+                                << "&((" << accessed_entity.prettyprint() << ")"
+                                << " -> "
+                                << expression.get_accessed_member().prettyprint()
+                                << ")"
+                                << ")"
+                                ;
+                        }
+                        // e1.e2 => *read(&t, (ADDR(e1))->e2)
+                        else if (expression.is_member_access())
+                        {
+                            get_address(expression.get_accessed_entity());
+
+                            read_expression
+                                << "*read(&t, "
+                                << "&((" << expression.get_accessed_entity().prettyprint() << ")"
+                                << " -> "
+                                << expression.get_accessed_member().prettyprint()
+                                << ")"
+                                << ")"
+                                ;
+                        }
+                        // e1 ## e2 =>
+                        else if (expression.is_binary_operation())
+                        {
+                            replace_expression(expression.get_first_operand());
+                            replace_expression(expression.get_second_operand());
+
+                            // Don't do anything else
+                            return;
+                        }
+                        // ## e1
+                        else if (expression.is_unary_operation())
+                        {
+                            replace_expression(expression.get_unary_operand());
+                            
+                            // Don't do anything else
+                            return;
+                        }
+                        // Other expressions (function calls and literals)
+                        else
+                        {
+                            // Don't do anything else
+                            return;
+                        }
+
+                        // Replace the expression
+                        AST_t read_expression_tree = read_expression.parse_expression(expression.get_scope());
+
+                        expression.get_ast().replace(read_expression_tree);
                     }
             };
 
