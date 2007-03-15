@@ -4006,13 +4006,13 @@ namespace TL
                         {
                             address_expression << "(&" << expression.prettyprint() << ")";
                         }
-                        // *e => READ(e1)
+                        // *e1 => READ(e1)
                         else if (expression.is_unary_operation()
                                 && expression.get_operation_kind() == Expression::DERREFERENCE)
                         {
-                            replace_expression(expression);
+                            replace_expression(expression.get_unary_operand());
                             
-                            address_expression << "(" << expression.prettyprint() << ")";
+                            address_expression << "(" << expression.get_unary_operand().prettyprint() << ")";
                         }
                         // e1[e2] => READ(e1) + READ(e2)
                         else if (expression.is_array_subscript())
