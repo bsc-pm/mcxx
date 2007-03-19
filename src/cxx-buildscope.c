@@ -2587,7 +2587,10 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
             {
                 if (type_info->kind == TK_FUNCTION)
                 {
-                    fprintf(stderr, "Normalizing parameter '%s'\n", prettyprint_in_buffer(declarator_name));
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Normalizing parameter '%s' from function to pointer-to-function\n", prettyprint_in_buffer(declarator_name));
+                    }
                     type_t* pointer_to = calloc(1, sizeof(*pointer_to));
                     pointer_to->kind = TK_POINTER;
                     pointer_to->pointer = calloc(1, sizeof(*pointer_to->pointer));
@@ -2601,6 +2604,10 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
                 // array to array-to-pointer
                 else if (type_info->kind == TK_ARRAY)
                 {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Normalizing parameter '%s' from array to pointer\n", prettyprint_in_buffer(declarator_name));
+                    }
                     entry->type_information->kind = TK_POINTER;
                     entry->type_information->pointer = calloc(1, sizeof(*entry->type_information->pointer));
                     entry->type_information->pointer->pointee = entry->type_information->array->element_type;
