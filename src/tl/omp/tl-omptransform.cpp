@@ -1887,13 +1887,35 @@ namespace TL
 
                     overload_selector_cast << "(void (*) (";
 
+                    bool first = true;
+                    if (is_nonstatic_member_function(function_definition))
+                    {
+                        // Do not forget the "this" type
+                        Statement function_body = function_definition.get_function_body();
+                        Scope function_body_scope = function_body.get_scope();
+
+                        Symbol this_symbol = function_body_scope.get_symbol_from_name("this");
+
+                        // decl_scope.printscope();
+                        Type class_type = this_symbol.get_type();
+
+                        overload_selector_cast << class_type.get_declaration(function_body_scope, "");
+
+                        // There is already a first parameter
+                        first = false;
+                    }
+
                     for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
                             it != parameter_info_list.end();
                             it++)
                     {
-                        if (it != parameter_info_list.begin())
+                        if (!first)
                         {
                             overload_selector_cast << ", ";
+                        }
+                        else
+                        {
+                            first = false;
                         }
 
                         overload_selector_cast << it->type.get_declaration(function_definition.get_scope(), "");
@@ -1905,10 +1927,11 @@ namespace TL
                 }
 
                 outlined_function_name_decl << outlined_function_name;
+#if 0
                 if (function_symbol.is_template_function())
                 {
                     ObjectList<AST_t> template_headers = function_definition.get_template_header();
-                    std::cerr << "(2) Num templates " << template_headers.size() << std::endl;
+                    // std::cerr << "(2) Num templates " << template_headers.size() << std::endl;
 
                     if (!template_headers.empty())
                     {
@@ -1933,6 +1956,7 @@ namespace TL
                         outlined_function_name_decl << ">";
                     }
                 }
+#endif
 
                 // The skeleton of the spawn code will be this one
                 spawn_code
@@ -2458,7 +2482,7 @@ namespace TL
                 if (function_declaration.is_templated())
                 {
                     ObjectList<AST_t> template_headers = function_declaration.get_template_header();
-                    std::cerr << "(3) Num templates " << template_headers.size() << std::endl;
+                    // std::cerr << "(3) Num templates " << template_headers.size() << std::endl;
                     for (ObjectList<AST_t>::iterator it = template_headers.begin();
                             it != template_headers.end();
                             it++)
@@ -2508,7 +2532,7 @@ namespace TL
                 if (function_definition.is_templated())
                 {
                     ObjectList<AST_t> template_headers = function_definition.get_template_header();
-                    std::cerr << "(1) Num templates " << template_headers.size() << std::endl;
+                    // std::cerr << "(1) Num templates " << template_headers.size() << std::endl;
                     for (ObjectList<AST_t>::iterator it = template_headers.begin();
                             it != template_headers.end();
                             it++)
@@ -2566,7 +2590,6 @@ namespace TL
                     Scope function_body_scope = function_body.get_scope();
                     Symbol this_symbol = function_body_scope.get_symbol_from_name("this");
 
-                    // std::cerr << "LALA" << std::endl;
                     // decl_scope.printscope();
 
                     Type class_type = this_symbol.get_type();
