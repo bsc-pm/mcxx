@@ -221,9 +221,13 @@ namespace TL
             bool is_unary_operation();
             Expression get_unary_operand();
 
+            // Casting
             bool is_casting();
             AST_t get_cast_type();
             Expression get_casted_expression();
+
+            // Literal
+            bool is_literal();
 
             // exprC(expr-list)
             bool is_function_call();

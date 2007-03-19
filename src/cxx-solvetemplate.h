@@ -16,6 +16,10 @@ typedef struct matching_pair_tag
 
 matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, template_argument_list_t* arguments, scope_t* st,
         char give_exact_match, decl_context_t decl_context);
+char match_one_template(template_argument_list_t* arguments, 
+        template_argument_list_t* specialized, scope_entry_t* specialized_entry, 
+        scope_t* st, unification_set_t* unif_set,
+        decl_context_t decl_context);
 
 MCXX_END_DECLS
 

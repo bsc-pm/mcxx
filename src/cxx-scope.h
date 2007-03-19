@@ -273,6 +273,57 @@ typedef struct template_argument_list_tag {
     template_argument_t** argument_list;
 } template_argument_list_t;
 
+typedef enum template_nature_tag
+{
+    TPN_UNKNOWN = 0,
+    // TPN_COMPLETE_DEPENDENT means that the template has been declared and has
+    // been defined but depends on any template parameter. Examples,
+    // 
+    // template <class T>
+    // struct A { };
+    //
+    // template <class T>
+    // struct A<T*> { };
+    TPN_COMPLETE_DEPENDENT, 
+    // TPN_COMPLETE_INDEPENDENT means that the template has been declared
+    // and defined and does not depend on any template parameter. Templates
+    // instantiated by lookup should fall in this cathegory.
+    //
+    // template <>
+    // struct A<int>
+    // {
+    // };
+    //
+    // A<float>::K t; <-- Here 'A<float>' would be instantiated in order
+    //                    to lookup K and it would be a TPN_COMPLETE_INDEPENDENT
+    TPN_COMPLETE_INDEPENDENT, 
+    // TPN_INCOMPLETE_DEPENDENT means that the template has been declared but
+    // has not been defined and depends on template parameters. Examples,
+    //
+    // template <class T>
+    // struct A; <-- 'A<T>' is TPN_INCOMPLETE_DEPENDENT
+    //
+    // template <class T>
+    // struct A<T*>; <-- 'A<T*>' is TPN_INCOMPLETE_DEPENDENT
+    //
+    // template <class T>
+    // struct B { <-- B here would be TPN_COMPLETE_DEPENDENT
+    //     typedef C<T*> B_pT; <-- for some existing template 'C' 
+    //                             'C<T*>' should be TPN_INCOMPLETE_DEPENDENT
+    // };
+    TPN_INCOMPLETE_DEPENDENT, 
+
+    // TPN_INCOMPLETE_INDEPENDENT includes explicit specializations and
+    // typedefs of independent templates that are simply declared but not
+    // defined and do not depend on any template argument
+    //
+    // template <>
+    // struct A<int>;
+    //
+    // typedef A<char*> A_pchar;
+    TPN_INCOMPLETE_INDEPENDENT
+} template_nature_t;
+
 // Direct type covers types that are not pointers to something, neither
 // functions to something neither arrays to something.  So every basic type is
 // represented here including builtin types, classes, structs, enums, unions
@@ -361,7 +412,7 @@ typedef struct simple_type_tag {
     // 
     // The specialized template has already been instantiated
     // (kind == STK_CLASS)
-    char from_instantiation; 
+    template_nature_t template_nature;
     
     // Saved decl_context for classes (this is used in later phases when we
     // want to add new members by means of parsing)

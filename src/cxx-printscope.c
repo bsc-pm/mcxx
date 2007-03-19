@@ -228,16 +228,27 @@ static void print_scope_entry(scope_entry_t* entry, scope_t* st, int global_inde
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Template: %p\n", entry);
     }
 
-    if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+    if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
+            || entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
     {
-        if (entry->type_information->type->from_instantiation)
+        switch (entry->type_information->type->template_nature)
         {
-            PRINT_INDENTED_LINE(stderr, global_indent+1, "Specialization instantiated\n");
-        }
-        else
-        {
-            PRINT_INDENTED_LINE(stderr, global_indent+1, "Specialization created but not instantiated\n");
-        }
+            case TPN_COMPLETE_DEPENDENT:
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "Dependent complete template\n");
+                break;
+            case TPN_COMPLETE_INDEPENDENT:
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "Independent complete template\n");
+                break;
+            case TPN_INCOMPLETE_DEPENDENT:
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "Dependent incomplete template\n");
+                break;
+            case TPN_INCOMPLETE_INDEPENDENT:
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "Independent incomplete template\n");
+                break;
+            default:
+                PRINT_INDENTED_LINE(stderr, global_indent+1, "Template nature unknown\n");
+                break;
+        };
     }
 
     if (entry->kind == SK_NAMESPACE

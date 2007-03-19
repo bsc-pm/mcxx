@@ -66,6 +66,7 @@ LANG_IS_ID_EXPRESSION lang.is_id_expression
 LANG_IS_IF_STATEMENT lang.is_if_statement
 LANG_IS_INTEGER_LITERAL lang.is_integer_literal
 LANG_IS_LABELED_STATEMENT lang.is_labeled_statement
+LANG_IS_LITERAL lang.is_literal
 LANG_IS_LOGICAL_AND_OP lang.is_logical_and_op
 LANG_IS_LOGICAL_OR_OP lang.is_logical_or_op
 LANG_IS_LOWER_OR_EQUAL_THAN_OP lang.is_lower_or_equal_than_op

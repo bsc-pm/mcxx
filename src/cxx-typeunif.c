@@ -6,6 +6,7 @@
 #include "cxx-scope.h"
 #include "cxx-utils.h"
 #include "cxx-driver.h"
+#include "cxx-solvetemplate.h"
 
 static type_t* get_template_parameter_unification(unification_set_t* unif_set, int num, int nesting);
 
@@ -231,14 +232,12 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
                         simple_type_t2->template_arguments->num_arguments);
             }
 
-            char unificable = 1;
-            int i;
-            for (i = 0; i < simple_type_t1->template_arguments->num_arguments; i++)
-            {
-                unificable &= unificate_two_types(simple_type_t1->template_arguments->argument_list[i]->type,
-                        simple_type_t2->template_arguments->argument_list[i]->type, st, unif_set,
-                        decl_context);
-            }
+            template_argument_list_t* arguments = simple_type_t2->template_arguments;
+            template_argument_list_t* specialized = simple_type_t1->template_arguments;
+
+            char unificable = 0;
+
+            unificable = match_one_template(arguments, specialized, entry_t1, st, *unif_set, decl_context);
 
             return unificable;
         }

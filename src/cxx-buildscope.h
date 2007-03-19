@@ -42,7 +42,8 @@ typedef enum decl_flags_tag
     DF_FRIEND = BITMAP(3),
     DF_EXPLICIT_SPECIALIZATION = BITMAP(4),
     DF_NO_FAIL = BITMAP(5),
-    DF_ALLOW_REDEFINITION = BITMAP(6)
+    DF_ALLOW_REDEFINITION = BITMAP(6),
+    DF_ALWAYS_CREATE_SPECIALIZATION = BITMAP(7),
 } decl_flags_t;
 
 // Inherited attributes

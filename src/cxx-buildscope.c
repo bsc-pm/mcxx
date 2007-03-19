@@ -991,15 +991,18 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
     CXX_LANGUAGE()
     {
+        decl_context_t new_decl_context = decl_context;
+        new_decl_context.decl_flags |= DF_ALWAYS_CREATE_SPECIALIZATION;
+
         if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
         {
             result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-                    NOFULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
+                    NOFULL_UNQUALIFIED_LOOKUP, lookup_flags, new_decl_context);
         }
         else
         {
             result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-                    FULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
+                    FULL_UNQUALIFIED_LOOKUP, lookup_flags, new_decl_context);
         }
     }
 
@@ -1129,6 +1132,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
                     build_scope_template_arguments(class_symbol, st, declarating_scope, st->template_scope,
                             &(new_class->type_information->type->template_arguments), decl_context);
                 }
+                new_class->type_information->type->template_nature = TPN_INCOMPLETE_DEPENDENT;
             }
         }
         else
@@ -1158,7 +1162,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
                 fprintf(stderr, "Symbol '%s' does not come from instantiation\n", 
                         entry->symbol_name);
             }
-            entry->type_information->type->from_instantiation = 0;
+            // It is a complete type that does not depend on anything
+            entry->type_information->type->template_nature = TPN_COMPLETE_INDEPENDENT;
         }
     }
 
@@ -1671,7 +1676,8 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
             }
             if (result->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
             {
-                if (!result->type_information->type->from_instantiation)
+                // If the entity (being an independent one) has not been completed, then instantiate it
+                if (result->type_information->type->template_nature == TPN_INCOMPLETE_INDEPENDENT)
                 {
                     scope_entry_list_t* templates_available = query_unqualified_name(result->scope, result->symbol_name);
                     ERROR_CONDITION((templates_available == NULL), "I did not find myself!\n", 0);
@@ -1789,10 +1795,13 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
             
             CXX_LANGUAGE()
             {
+                decl_context_t new_decl_context = decl_context;
+                new_decl_context.decl_flags |= DF_ALWAYS_CREATE_SPECIALIZATION;
+
                 class_entry_list = query_nested_name_flags(st, NULL, 
                         class_head_nested_name, class_head_identifier,
                         NOFULL_UNQUALIFIED_LOOKUP, LF_ALWAYS_CREATE_SPECIALIZATION,
-                        decl_context);
+                        new_decl_context);
             }
 
             C_LANGUAGE()
@@ -1994,8 +2003,11 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                     }
                 case SK_TEMPLATE_SPECIALIZED_CLASS :
                     {
+                        decl_context_t new_decl_context = decl_context;
+                        new_decl_context.decl_flags |= DF_ALWAYS_CREATE_SPECIALIZATION;
+
                         build_scope_template_arguments(class_head_identifier, st, st, st->template_scope, 
-                                &(simple_type_info->type->template_arguments), decl_context);
+                                &(simple_type_info->type->template_arguments), new_decl_context);
                         break;
                     }
                 case SK_CLASS :
@@ -2029,17 +2041,18 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                     fprintf(stderr, "Symbol '%s' does not come from instantiation\n",
                             class_entry->symbol_name);
             }
-            class_entry->type_information->type->from_instantiation = 0;
+            // It is a complete but dependent symbol
+            class_entry->type_information->type->template_nature = TPN_COMPLETE_DEPENDENT;
 
             if (BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
             {
-                // Unless this is an explicit specialization that is in a way already instantiated
+                // unless it is an explicit specialization
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "Symbol '%s' explicitly instantiated\n",
                             class_entry->symbol_name);
                 }
-                class_entry->type_information->type->from_instantiation = 1;
+                class_entry->type_information->type->template_nature = TPN_COMPLETE_INDEPENDENT;
             }
 
             // Since this type is not anonymous we'll want that simple_type_info
@@ -3578,7 +3591,6 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
         }
 
         build_scope_decl_specifier_seq(decl_specifier_seq, st, &gather_info, &simple_type_info, new_decl_context);
-
     }
 
     // There can be just one declarator here if this is not a class specifier nor a function declaration
@@ -4412,6 +4424,8 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     {
         fprintf(stderr, "Changing scope from %p to %p\n", st, entry->scope);
     }
+
+    scope_t* scope_seen_so_far = st;
     
     // Update the template scope
     entry->scope->template_scope = copy_scope(st->template_scope);
@@ -4433,6 +4447,9 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     AST statement = ASTSon0(function_body);
 
     scope_t* inner_scope = new_function_scope(st, parameter_scope);
+
+    inner_scope->num_used_namespaces = scope_seen_so_far->num_used_namespaces;
+    inner_scope->use_namespace = scope_seen_so_far->use_namespace;
 
     entry->related_scope = inner_scope;
 

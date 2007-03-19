@@ -122,8 +122,8 @@ AST duplicate_ast(AST a)
     // Copy everything by value
     *result = *a;
 
-    // Restore original extended data
-    // result->extended_data = orig_extended_data;
+    result->extended_data = calloc(1, sizeof(*(result->extended_data)));
+    extensible_struct_init(result->extended_data, &ast_extensible_schema);
 
     int i;
     for (i = 0; i < ASTNumChildren(result); i++)

@@ -1229,30 +1229,35 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
         case AST_OCTAL_LITERAL :
         case AST_HEXADECIMAL_LITERAL :
             {
+                ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_INTEGER_LITERAL, tl_type_t, tl_bool(1));
                 return 1;
                 break;
             }
         case AST_FLOATING_LITERAL :
             {
+                ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_FLOATING_LITERAL, tl_type_t, tl_bool(1));
                 return 1;
                 break;
             }
         case AST_BOOLEAN_LITERAL :
             {
+                ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_BOOLEAN_LITERAL, tl_type_t, tl_bool(1));
                 return 1;
                 break;
             }
         case AST_CHARACTER_LITERAL :
             {
+                ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_CHARACTER_LITERAL, tl_type_t, tl_bool(1));
                 return 1;
                 break;
             }
         case AST_STRING_LITERAL :
             {
+                ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
                 return 1;
                 break;

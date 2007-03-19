@@ -384,10 +384,13 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                         }
 
                         // We need to instantiate it
+                        // If this is not an expression
                         if (!BITMAP_TEST(lookup_flags, LF_EXPRESSION))
                         {
+                            // And the entry is a specialized class
                             if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-                                    && !entry->type_information->type->from_instantiation
+                                    // and the symbol is not complete but independent (thus it can be instantiated)
+                                    && (entry->type_information->type->template_nature == TPN_INCOMPLETE_INDEPENDENT)
                                     && !is_dependent_type(entry->type_information, decl_context)
                                     && !BITMAP_TEST(lookup_flags, LF_NO_INSTANTIATE))
                             {
@@ -438,9 +441,12 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                         }
                         else
                         {
+                            // If we are in context of an expression lookup and the entity found is 
+                            // a dependent one, we return a dependent entity
                             if ((entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
                                         || entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
-                                    && !entry->type_information->type->from_instantiation)
+                                    && (entry->type_information->type->template_nature == TPN_INCOMPLETE_DEPENDENT
+                                        || entry->type_information->type->template_nature == TPN_COMPLETE_DEPENDENT))
                             {
                                 DEBUG_CODE()
                                 {
@@ -906,14 +912,23 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
     }
 
     // If we have seen dependent arguments, we will not instantiate
-    if (seen_dependent_args)
+    // unless we are asked to
+    if (seen_dependent_args
+            && !BITMAP_TEST(decl_context.decl_flags, DF_ALWAYS_CREATE_SPECIALIZATION))
     {
         will_not_instantiate |= seen_dependent_args;
         DEBUG_CODE()
         {
-            fprintf(stderr, "The template-id '%s' has dependent arguments and will not be instantiated here\n",
-                    prettyprint_in_buffer(template_id));
+            fprintf(stderr, "The template-id '%s' has dependent arguments and will not be instantiated here (df_always_create=%d || lf_always_create=%d)\n",
+                    prettyprint_in_buffer(template_id),
+                    BITMAP_TEST(decl_context.decl_flags, DF_ALWAYS_CREATE_SPECIALIZATION), // always zero
+                    BITMAP_TEST(lookup_flags, LF_ALWAYS_CREATE_SPECIALIZATION));
         }
+    }
+
+    if (!BITMAP_TEST(decl_context.decl_flags, DF_ALWAYS_CREATE_SPECIALIZATION))
+    {
+        seen_dependent_args = 0;
     }
     
     DEBUG_CODE()
@@ -928,7 +943,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
     {
         scope_entry_t* matched_entry = matched_template->entry;
         if (!will_not_instantiate 
-                && !matched_entry->type_information->type->from_instantiation)
+                    && (matched_entry->type_information->type->template_nature == TPN_INCOMPLETE_INDEPENDENT))
         {
             DEBUG_CODE()
             {
@@ -1037,7 +1052,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
                 decl_context);
 
         if (!seen_dependent_args
-                 || BITMAP_TEST(lookup_flags, LF_ALWAYS_CREATE_SPECIALIZATION))
+                 || BITMAP_TEST(lookup_flags, LF_ALWAYS_CREATE_SPECIALIZATION)
+                 || BITMAP_TEST(decl_context.decl_flags, DF_ALWAYS_CREATE_SPECIALIZATION))
         {
             DEBUG_CODE()
             {
@@ -1045,7 +1061,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
             }
             scope_entry_t* holding_symbol = create_holding_symbol_for_template(entry_list->entry,
                     current_template_arguments,
-                    sc, ASTLine(template_id));
+                    sc, ASTLine(template_id), decl_context);
             return create_list_from_entry(holding_symbol);
 
         }
@@ -1297,6 +1313,7 @@ static scope_entry_list_t* lookup_block_scope(scope_t* st, char* unqualified_nam
 
     if (!BITMAP_TEST(lookup_flags, LF_FROM_QUALIFIED))
     {
+        // If the name is unqualified
         // Otherwise, if template scoping is available, check in the template scope
         if (st->template_scope != NULL)
         {
@@ -1411,6 +1428,7 @@ static scope_entry_list_t* lookup_namespace_scope(scope_t* st, char* unqualified
     if (!BITMAP_TEST(lookup_flags, LF_FROM_QUALIFIED))
     {
         // Otherwise try to find anything in the enclosing scope
+        // but only if it is unqualified
         if (st->contained_in != NULL)
         {
             DEBUG_CODE()
@@ -1437,6 +1455,21 @@ static scope_entry_list_t* lookup_function_scope(scope_t* st, char* unqualified_
     if (result != NULL)
     {
         return result;
+    }
+    
+    // Search in the namespaces
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "not found.\nLooking up '%s' in used namespaces...", unqualified_name);
+    }
+    int i;
+    for (i = 0; i < st->num_used_namespaces; i++)
+    {
+        result = query_in_symbols_of_scope(st->use_namespace[i], unqualified_name);
+        if (result != NULL)
+        {
+            return result;
+        }
     }
 
     // Otherwise try to find anything in the enclosing scope
@@ -1498,6 +1531,7 @@ static scope_entry_list_t* lookup_class_scope(scope_t* st, char* unqualified_nam
 
     if (!BITMAP_TEST(lookup_flags, LF_FROM_QUALIFIED))
     {
+        // If it is unqualified
         // Otherwise, if template scoping is available, check in the template scope
         if (st->template_scope != NULL)
         {

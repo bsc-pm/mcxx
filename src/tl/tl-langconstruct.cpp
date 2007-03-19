@@ -320,6 +320,13 @@ namespace TL
         return expr;
     }
 
+    bool Expression::is_literal()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_LITERAL);
+
+        return b;
+    }
+
     bool Expression::is_id_expression()
     {
         TL::Bool b = _ref.get_attribute(LANG_IS_ID_EXPRESSION);
