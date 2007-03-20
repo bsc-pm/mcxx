@@ -339,7 +339,6 @@ namespace TL
                         function_definition,
                         parallel_construct.get_scope(),
                         parallel_construct.get_scope_link(),
-                        outlined_function_name,
                         parameter_info_list,
                         reduction_references,
                         num_threads,
@@ -499,7 +498,6 @@ namespace TL
                         function_definition,
                         parallel_for_construct.get_scope(),
                         parallel_for_construct.get_scope_link(),
-                        outlined_function_name,
                         parameter_info_list,
                         reduction_references,
                         num_threads,
@@ -789,7 +787,6 @@ namespace TL
                         function_definition,
                         parallel_sections_construct.get_scope(),
                         parallel_sections_construct.get_scope_link(),
-                        outlined_function_name,
                         parameter_info_list,
                         reduction_references,
                         num_threads,
@@ -1215,7 +1212,6 @@ namespace TL
                         function_definition,
                         parallel_single_construct.get_scope(),
                         parallel_single_construct.get_scope_link(),
-                        outlined_function_name,
                         parameter_info_list,
                         reduction_references,
                         num_threads,
@@ -1745,6 +1741,11 @@ namespace TL
                     task_dependency << "0";
                 }
 
+                Source outlined_function_reference;
+                Source selector_cast;
+
+                outlined_function_reference << get_outline_function_reference(function_definition, parameter_info_list);
+
                 task_queueing
                     << "{"
                     <<    "nth_desc * nth;"
@@ -1759,14 +1760,14 @@ namespace TL
 
                     <<    size_vector
 
-                    <<    "nth = nth_create((void*)(" << outlined_function_name << "), "
+                    <<    "nth = nth_create((void*)(" << outlined_function_reference << "), "
                     <<             "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, &nth_arg_addr_ptr, "
                     <<             "&nth_nargs_ref, &nth_nargs_val" << task_parameters << ");"
                     <<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
                     <<    "{"
                     // <<       "fprintf(stderr, \"Cannot allocate task at '%s'\\n\", \"" << task_construct.get_ast().get_locus() << "\");"
                     <<       fallback_capture_values
-                    <<       outlined_function_name << "(" << fallback_arguments << ");"
+                    <<       outlined_function_reference << "(" << fallback_arguments << ");"
                     <<    "}"
                     <<    copy_construction_part
                     << "}"
@@ -1846,7 +1847,6 @@ namespace TL
                     FunctionDefinition function_definition,
                     Scope scope,
                     ScopeLink scope_link,
-                    Source outlined_function_name,
                     ObjectList<ParameterInfo> parameter_info_list,
                     ObjectList<OpenMP::ReductionIdExpression> reduction_references,
                     OpenMP::Clause num_threads_clause,
@@ -1874,89 +1874,8 @@ namespace TL
 
                 Source outlined_function_name_decl;
 
-                IdExpression function_name = function_definition.get_function_name();
-                Symbol function_symbol = function_name.get_symbol();
-
-                // We have to ensure that this qualification refers to the proper function
-                // in C++ this is achieved via a casting. A cast of an overload function name
-                // does not obey unconditionally the programmer but selects the proper overloaded
-                // function (if any, otherwise the program is ill-formed)
-                if (function_symbol.is_template_function())
-                {
-                    Source overload_selector_cast;
-
-                    overload_selector_cast << "(void (*) (";
-
-                    bool first = true;
-                    if (is_nonstatic_member_function(function_definition))
-                    {
-                        // Do not forget the "this" type
-                        Statement function_body = function_definition.get_function_body();
-                        Scope function_body_scope = function_body.get_scope();
-
-                        Symbol this_symbol = function_body_scope.get_symbol_from_name("this");
-
-                        // decl_scope.printscope();
-                        Type class_type = this_symbol.get_type();
-
-                        overload_selector_cast << class_type.get_declaration(function_body_scope, "");
-
-                        // There is already a first parameter
-                        first = false;
-                    }
-
-                    for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
-                            it != parameter_info_list.end();
-                            it++)
-                    {
-                        if (!first)
-                        {
-                            overload_selector_cast << ", ";
-                        }
-                        else
-                        {
-                            first = false;
-                        }
-
-                        overload_selector_cast << it->type.get_declaration(function_definition.get_scope(), "");
-                    }
-
-                    overload_selector_cast << "))";
-
-                    outlined_function_name_decl << overload_selector_cast;
-                }
-
-                outlined_function_name_decl << outlined_function_name;
-#if 0
-                if (function_symbol.is_template_function())
-                {
-                    ObjectList<AST_t> template_headers = function_definition.get_template_header();
-                    // std::cerr << "(2) Num templates " << template_headers.size() << std::endl;
-
-                    if (!template_headers.empty())
-                    {
-                        outlined_function_name_decl << "<";
-                        AST_t last_template_header = *(template_headers.rbegin());
-
-                        PredicateBool<LANG_IS_TEMPLATE_PARAMETER> template_parameter_pred;
-                        ObjectList<AST_t> template_parameters = last_template_header.depth_subtrees(template_parameter_pred);
-
-                        for (ObjectList<AST_t>::iterator it = template_parameters.begin();
-                                it != template_parameters.end();
-                                it++)
-                        {
-                            if (it != template_parameters.begin())
-                            {
-                                outlined_function_name_decl << ", ";
-                            }
-
-                            outlined_function_name_decl << it->prettyprint();
-                        }
-
-                        outlined_function_name_decl << ">";
-                    }
-                }
-#endif
+                // Calculate the proper expression referring this function
+                outlined_function_name_decl << get_outline_function_reference(function_definition, parameter_info_list);
 
                 // The skeleton of the spawn code will be this one
                 spawn_code
@@ -2200,6 +2119,115 @@ namespace TL
                 // Parse the spawn code and return it
                 AST_t result = spawn_code.parse_statement(scope, scope_link);
                 return result;
+            }
+            
+            // This function computes a proper reference to the function
+            std::string get_outline_function_reference(FunctionDefinition function_definition,
+                    ObjectList<ParameterInfo>& parameter_info_list)
+            {
+                IdExpression function_name = function_definition.get_function_name();
+                Symbol function_symbol = function_name.get_symbol();
+
+                Source outlined_function_name_decl;
+
+                bool additional_parentheses = false;
+                
+                // We have to ensure that this qualification refers to the proper function
+                // in C++ this is achieved via a casting. A cast of an overload function name
+                // does not obey unconditionally the programmer but selects the proper overloaded
+                // function (if any, otherwise the program is ill-formed)
+                if (function_symbol.is_template_function())
+                {
+                    Source overload_selector_cast;
+
+                    overload_selector_cast << "(";
+                    additional_parentheses = true;
+                    overload_selector_cast << "(void (*) (";
+
+                    bool first = true;
+                    if (is_nonstatic_member_function(function_definition))
+                    {
+                        // Do not forget the "this" type
+                        Statement function_body = function_definition.get_function_body();
+                        Scope function_body_scope = function_body.get_scope();
+
+                        Symbol this_symbol = function_body_scope.get_symbol_from_name("this");
+
+                        // decl_scope.printscope();
+                        Type class_type = this_symbol.get_type();
+
+                        overload_selector_cast << class_type.get_declaration(function_body_scope, "");
+
+                        // There is already a first parameter
+                        first = false;
+                    }
+
+                    for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                            it != parameter_info_list.end();
+                            it++)
+                    {
+                        if (!first)
+                        {
+                            overload_selector_cast << ", ";
+                        }
+                        else
+                        {
+                            first = false;
+                        }
+
+                        overload_selector_cast << it->type.get_declaration(function_definition.get_scope(), "");
+                    }
+
+                    overload_selector_cast << "))";
+
+                    outlined_function_name_decl << overload_selector_cast;
+                }
+
+
+                if (function_symbol.is_template_function())
+                {
+                    ObjectList<AST_t> template_headers = function_definition.get_template_header();
+                    // std::cerr << "(2) Num templates " << template_headers.size() << std::endl;
+
+                    Source outlined_function_name = get_outlined_function_name(function_name, /*qualif=*/true, 
+                            /*template=*/ !template_headers.empty());
+                    outlined_function_name_decl << outlined_function_name;
+
+                    if (!template_headers.empty())
+                    {
+                        outlined_function_name_decl << "<";
+                        AST_t last_template_header = *(template_headers.rbegin());
+
+                        PredicateBool<LANG_IS_TEMPLATE_PARAMETER> template_parameter_pred;
+                        ObjectList<AST_t> template_parameters = last_template_header.depth_subtrees(template_parameter_pred);
+
+                        for (ObjectList<AST_t>::iterator it = template_parameters.begin();
+                                it != template_parameters.end();
+                                it++)
+                        {
+                            if (it != template_parameters.begin())
+                            {
+                                outlined_function_name_decl << ", ";
+                            }
+
+                            outlined_function_name_decl << it->prettyprint();
+                        }
+
+                        outlined_function_name_decl << ">";
+                    }
+                }
+                else
+                {
+                    Source outlined_function_name = get_outlined_function_name(function_name);
+                    outlined_function_name_decl << outlined_function_name;
+                }
+
+                if (additional_parentheses)
+                {
+                    outlined_function_name_decl << ")";
+                }
+
+                return outlined_function_name_decl.get_source();
             }
 
             Source get_critical_reduction_code(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
@@ -2777,9 +2805,18 @@ namespace TL
                         parameter_info_list
                         ); 
 
+                Source instrumentation_code_before, instrumentation_code_after;
+
+                instrumentation_outline(instrumentation_code_before,
+                        instrumentation_code_after, 
+                        function_definition,
+                        construct_body);
+
                 parallel_body 
                     << private_declarations
+                    << instrumentation_code_before
                     << modified_parallel_body_stmt.prettyprint()
+                    << instrumentation_code_after
                     ;
 
                 IdExpression function_name = function_definition.get_function_name();
@@ -3806,7 +3843,9 @@ namespace TL
                 return lastprivate_assignments;
             }
 
-            Source get_outlined_function_name(IdExpression function_name, bool want_fully_qualified = true)
+            Source get_outlined_function_name(IdExpression function_name, 
+                    bool want_fully_qualified = true, 
+                    bool want_templated_name = false)
             {
                 Source result;
                 if (function_name.is_qualified() && want_fully_qualified)
@@ -3814,6 +3853,10 @@ namespace TL
                     result
                         << function_name.get_qualified_part()
                         ;
+                }
+                if (want_templated_name)
+                {
+                    result << " template ";
                 }
                 result
                     << "nth__" << function_name.get_unqualified_part() << "_" << num_parallels;

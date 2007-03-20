@@ -510,7 +510,7 @@ void solve_ambiguous_statement(AST a, scope_t* st, decl_context_t decl_context)
                 AST first_option = ASTSon0(a->ambig[correct_choice]);
                 AST second_option = ASTSon0(a->ambig[i]);
 
-                char either;
+                int either;
                 if ((either = either_type(first_option, second_option, 
                             AST_SIMPLE_DECLARATION, AST_EXPRESSION)))
                 {
@@ -1170,7 +1170,7 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                             AST previous_choice = expression->ambig[correct_choice];
                             AST current_choice = expression->ambig[i];
 
-                            char either;
+                            int either;
                             if ((either = either_type(previous_choice, current_choice,
                                         AST_SIZEOF_TYPEID, AST_SIZEOF)))
                             {
@@ -2168,7 +2168,7 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st,
             {
                 AST previous_template_argument = ambig_template_argument->ambig[selected_option];
 
-                char either;
+                int either;
                 if ((either = either_type(previous_template_argument, current_template_argument, 
                                 AST_TEMPLATE_TYPE_ARGUMENT, AST_TEMPLATE_EXPRESSION_ARGUMENT)))
                 {
@@ -2493,7 +2493,7 @@ void solve_ambiguous_init_declarator(AST a, scope_t* st, decl_context_t decl_con
 
                 AST current_choice_declarator = ASTSon0(init_declarator);
 
-                char either;
+                int either;
                 if ((either = either_type(ASTSon0(previous_choice_declarator), ASTSon0(current_choice_declarator), 
                             AST_DECLARATOR_FUNC, AST_DECLARATOR_ID_EXPR)))
                 {
