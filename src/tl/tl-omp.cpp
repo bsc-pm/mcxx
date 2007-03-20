@@ -43,34 +43,33 @@ namespace TL
 
             TL::String directive_name = directive.get_attribute(OMP_CUSTOM_DIRECTIVE_NAME);
 
+            CustomConstruct custom_construct(node, ctx.scope_link);
+            // We are in preorder
+            if (&search_map == &_custom_functor_pre)
+            {
+                Directive directive = custom_construct.directive();
+
+                ObjectList<std::string> clauses_names = directive.get_all_custom_clauses();
+
+                ObjectList<construct_map_locus_t> current_custom_clauses;
+                for (ObjectList<std::string>::iterator it = clauses_names.begin();
+                        it != clauses_names.end();
+                        it++)
+                {
+                    construct_map_locus_t p(*it, directive.get_ast().get_locus());
+                    current_custom_clauses.push_back(p);
+                }
+
+                construct_map.push(current_custom_clauses);
+            }
+
             // Find this directive in custom map
             if (search_map.find(directive_name) != search_map.end())
             {
                 // Invoke its functor if found
-                CustomConstruct custom_construct(node, ctx.scope_link);
                 Signal1<CustomConstruct>& functor = search_map[directive_name];
 
-                if (&search_map == &_custom_functor_pre)
-                {
-                    Directive directive = custom_construct.directive();
-
-                    ObjectList<std::string> current_custom_clauses = directive.get_all_custom_clauses();
-                    construct_map.push(current_custom_clauses);
-                }
-
                 functor.signal(custom_construct);
-
-                if (&search_map == &_custom_functor_post)
-                {
-                    // Emit a warning for every unused one
-                    // ObjectList<std::string> &unhandled_clauses = construct_map.top();
-                    // for (ObjectList<std::string>::iterator it = unhandled_clauses.begin();
-                    //         it != unhandled_clauses.end();
-                    //         it++)
-                    // {
-                    //     std::cerr << "Warning: Clause '" << *it << "' unused in OpenMP directive at " << node.get_locus() << std::endl;
-                    // }
-                }
             }
             else
             {
@@ -84,6 +83,22 @@ namespace TL
                             << node.get_locus() << " is not currently handled" << std::endl;
                     }
                 }
+
+            }
+            
+            // We are in postorder
+            if (&search_map == &_custom_functor_post)
+            {
+                // Emit a warning for every unused one
+                ObjectList<construct_map_locus_t> &unhandled_clauses = construct_map.top();
+                for (ObjectList<construct_map_locus_t>::iterator it = unhandled_clauses.begin();
+                        it != unhandled_clauses.end();
+                        it++)
+                {
+                    std::cerr << "Warning: Clause '" << it->first << "' unused in OpenMP directive at " << it->second << std::endl;
+                }
+
+                construct_map.pop();
             }
         }
 
@@ -312,22 +327,25 @@ namespace TL
 
         construct_map_t construct_map;
 
-        CustomClause Directive::custom_clause(const ObjectList<std::string>& names)
+        CustomClause Directive::custom_clause(ObjectList<std::string>& names)
         {
             CustomClause result(names, _ref, _scope_link);
 
-            ObjectList<std::string> &referenced_clauses = construct_map.top();
+            // Copy
+            ObjectList<construct_map_locus_t> new_referenced_clauses = construct_map.top();
 
-#if 0
-            for (ObjectList<std::string>::const_iterator it = names.begin();
-                    it != names.end();
+            // And put again only those that were not mentioned
+            construct_map.top().clear();
+
+            for (ObjectList<construct_map_locus_t>::iterator it = new_referenced_clauses.begin();
+                    it != new_referenced_clauses.end();
                     it++)
             {
-                // referenced_clauses.erase(*it);
-                ObjectList<std::string> temp = referenced_clauses;
-                referenced_clauses = temp.not_find(*it);
+                if (!names.contains(it->first))
+                {
+                    construct_map.top().push_back(*it);
+                }
             }
-#endif
 
             return result;
         }

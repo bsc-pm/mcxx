@@ -12,6 +12,7 @@
 
 #include <set>
 #include <stack>
+#include <utility>
 
 namespace TL
 {
@@ -63,7 +64,7 @@ namespace TL
                 ReductionClause reduction_clause();
 
                 CustomClause custom_clause(const std::string& src);
-                CustomClause custom_clause(const ObjectList<std::string>& src);
+                CustomClause custom_clause(ObjectList<std::string>& src);
 
                 Clause parameter_clause();
                 
@@ -318,7 +319,8 @@ namespace TL
         };
 
         // Stores information of the used clauses (this is ugly)
-        typedef std::stack<ObjectList<std::string> > construct_map_t;
+        typedef std::pair<std::string, std::string> construct_map_locus_t;
+        typedef std::stack<ObjectList<construct_map_locus_t> > construct_map_t;
         extern construct_map_t construct_map;
 
         template<class T>
@@ -335,7 +337,17 @@ namespace TL
                     // Empty set of strings
                     Directive directive = parallel_construct.directive();
 
-                    ObjectList<std::string> current_custom_clauses = directive.get_all_custom_clauses();
+                    ObjectList<construct_map_locus_t> current_custom_clauses;
+                    
+                    ObjectList<std::string> clauses_names = directive.get_all_custom_clauses();
+                    for (ObjectList<std::string>::iterator it = clauses_names.begin();
+                            it != clauses_names.end();
+                            it++)
+                    {
+                        construct_map_locus_t p(*it, directive.get_ast().get_locus());
+                        current_custom_clauses.push_back(p);
+                    }
+
                     construct_map.push(current_custom_clauses);
 
                     _on_construct_pre.signal(parallel_construct);
@@ -348,12 +360,12 @@ namespace TL
                     _on_construct_post.signal(parallel_construct);
 
                     // Emit a warning for every unused one
-                    ObjectList<std::string> &unhandled_clauses = construct_map.top();
-                    for (ObjectList<std::string>::iterator it = unhandled_clauses.begin();
+                    ObjectList<construct_map_locus_t> &unhandled_clauses = construct_map.top();
+                    for (ObjectList<construct_map_locus_t>::iterator it = unhandled_clauses.begin();
                             it != unhandled_clauses.end();
                             it++)
                     {
-                        std::cerr << "Warning: Clause '" << *it << "' unused in OpenMP directive at " << node.get_locus() << std::endl;
+                        std::cerr << "Warning: Clause '" << it->first << "' unused in OpenMP directive at " << it->second << std::endl;
                     }
 
                     construct_map.pop();
