@@ -8,7 +8,8 @@
 
 MCXX_BEGIN_DECLS
 
-typedef struct unification_item_tag
+typedef 
+struct unification_item_tag
 {
     // parameter type <- value
     int parameter_num;

@@ -178,7 +178,7 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
     translation_unit->scope_link = scope_link_new();
 
     // Link the AST root node with the global scope
-    scope_link_set(translation_unit->scope_link, a, translation_unit->global_scope);
+    scope_link_set(translation_unit->scope_link, a, translation_unit->global_scope, default_decl_context);
 
     // Fix this one day (it makes thing non fully reentrant)
     compilation_options.global_scope = translation_unit->global_scope;
@@ -2034,7 +2034,6 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
             class_entry->type_information = copy_type(simple_type_info);
             class_entry->related_scope = inner_scope;
 
-
             // Clear this flag
             DEBUG_CODE()
             {
@@ -2088,7 +2087,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
     }
 
     // The inner scope is properly adjusted here thus we can link it with the AST
-    scope_link_set(compilation_options.scope_link, a, copy_scope(inner_scope));
+    scope_link_set(compilation_options.scope_link, a, copy_scope(inner_scope), decl_context);
     
     // Now add the bases
     if (base_clause != NULL)
@@ -2293,7 +2292,7 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
 
         scope_t* current_scope = copy_scope(decl_st);
 
-        scope_link_set(compilation_options.scope_link, declarator_name, current_scope);
+        scope_link_set(compilation_options.scope_link, declarator_name, current_scope, decl_context);
     }
 
     build_scope_declarator_rec(a, decl_st, parameters_scope, declarator_type, 
@@ -2511,7 +2510,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
     }
 
     // Link the scope of the parameters
-    scope_link_set(compilation_options.scope_link, parameters, copy_scope(parameters_scope));
+    scope_link_set(compilation_options.scope_link, parameters, copy_scope(parameters_scope), decl_context);
 
     for_each_element(list, iter)
     {
@@ -3448,7 +3447,7 @@ static void build_scope_template_declaration(AST a, AST top_template_decl, scope
     }
 
     // Link the AST with the scope
-    scope_link_set(compilation_options.scope_link, a, copy_scope(st));
+    scope_link_set(compilation_options.scope_link, a, copy_scope(st), decl_context);
 
     switch (ASTType(templated_decl))
     {
@@ -4070,7 +4069,7 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
             entry->related_scope = namespace_scope;
 
             // Link the scope of this newly created namespace
-            scope_link_set(compilation_options.scope_link, a, namespace_scope);
+            scope_link_set(compilation_options.scope_link, a, namespace_scope, decl_context);
         }
 
         if (ASTSon1(a) != NULL)
@@ -4441,7 +4440,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     st = entry->scope;
 
     // The scope seen by this function definition
-    scope_link_set(compilation_options.scope_link, a, copy_scope(st));
+    scope_link_set(compilation_options.scope_link, a, copy_scope(st), decl_context);
 
     ERROR_CONDITION((entry->kind != SK_FUNCTION && entry->kind != SK_TEMPLATE_FUNCTION), 
             "This is not a function!!!", 0);
@@ -4510,7 +4509,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     }
 
     build_scope_statement(statement, inner_scope, decl_context);
-    scope_link_set(compilation_options.scope_link, statement, copy_scope(inner_scope));
+    scope_link_set(compilation_options.scope_link, statement, copy_scope(inner_scope), decl_context);
 
     // {
     //     scope_t* iterator = inner_scope->template_scope;
@@ -6085,7 +6084,7 @@ static void build_scope_compound_statement(AST a, scope_t* st, decl_context_t de
     AST list = ASTSon0(a);
     if (list != NULL)
     {
-        scope_link_set(compilation_options.scope_link, list, copy_scope(block_scope));
+        scope_link_set(compilation_options.scope_link, list, copy_scope(block_scope), decl_context);
 
         build_scope_statement_seq(list, block_scope, decl_context);
     }
@@ -6142,12 +6141,12 @@ static void build_scope_while_statement(AST a, scope_t* st, decl_context_t decl_
     scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
     build_scope_condition(ASTSon0(a), block_scope, decl_context);
-    scope_link_set(compilation_options.scope_link, ASTSon0(a), copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, ASTSon0(a), copy_scope(block_scope), decl_context);
 
     if (ASTSon1(a) != NULL)
     {
         build_scope_statement(ASTSon1(a), block_scope, decl_context);
-        scope_link_set(compilation_options.scope_link, ASTSon1(a), copy_scope(block_scope));
+        scope_link_set(compilation_options.scope_link, ASTSon1(a), copy_scope(block_scope), decl_context);
     }
 
     ASTAttrSetValueType(a, LANG_IS_WHILE_STATEMENT, tl_type_t, tl_bool(1));
@@ -6184,17 +6183,17 @@ static void build_scope_if_else_statement(AST a, scope_t* st, decl_context_t dec
 
     AST condition = ASTSon0(a);
     build_scope_condition(condition, block_scope, decl_context);
-    scope_link_set(compilation_options.scope_link, condition, copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, condition, copy_scope(block_scope), decl_context);
 
     AST then_branch = ASTSon1(a);
     build_scope_statement(then_branch, block_scope, decl_context);
-    scope_link_set(compilation_options.scope_link, then_branch, copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, then_branch, copy_scope(block_scope), decl_context);
 
     AST else_branch = ASTSon2(a);
     if (else_branch != NULL)
     {
         build_scope_statement(else_branch, block_scope, decl_context);
-        scope_link_set(compilation_options.scope_link, else_branch, copy_scope(block_scope));
+        scope_link_set(compilation_options.scope_link, else_branch, copy_scope(block_scope), decl_context);
     }
 
     ASTAttrSetValueType(a, LANG_IS_IF_STATEMENT, tl_type_t, tl_bool(1));
@@ -6222,22 +6221,22 @@ static void build_scope_for_statement(AST a, scope_t* st, decl_context_t decl_co
     {
         solve_expression_ambiguities(for_init_statement, block_scope, decl_context, LANG_IS_EXPRESSION_STATEMENT);
     }
-    scope_link_set(compilation_options.scope_link, for_init_statement, copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, for_init_statement, copy_scope(block_scope), decl_context);
 
     if (condition != NULL)
     {
         build_scope_condition(condition, block_scope, decl_context);
-        scope_link_set(compilation_options.scope_link, condition, copy_scope(block_scope));
+        scope_link_set(compilation_options.scope_link, condition, copy_scope(block_scope), decl_context);
     }
 
     if (expression != NULL)
     {
         solve_possibly_ambiguous_expression(expression, block_scope, decl_context);
-        scope_link_set(compilation_options.scope_link, expression, copy_scope(block_scope));
+        scope_link_set(compilation_options.scope_link, expression, copy_scope(block_scope), decl_context);
     }
     
     build_scope_statement(statement, block_scope, decl_context);
-    scope_link_set(compilation_options.scope_link, statement, copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, statement, copy_scope(block_scope), decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_FOR_STATEMENT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_FOR_INIT_CONSTRUCT, tl_type_t, tl_ast(for_init_statement));
@@ -6254,10 +6253,10 @@ static void build_scope_switch_statement(AST a, scope_t* st, decl_context_t decl
     AST statement = ASTSon1(a);
 
     build_scope_condition(condition, block_scope, decl_context);
-    scope_link_set(compilation_options.scope_link, condition, copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, condition, copy_scope(block_scope), decl_context);
 
     build_scope_statement(statement, block_scope, decl_context);
-    scope_link_set(compilation_options.scope_link, statement, copy_scope(block_scope));
+    scope_link_set(compilation_options.scope_link, statement, copy_scope(block_scope), decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_SWITCH_STATEMENT, tl_type_t, tl_bool(1));
 }
@@ -6320,7 +6319,7 @@ static void build_scope_try_block(AST a, scope_t* st, decl_context_t decl_contex
         {
             scope_t* block_scope = new_block_scope(st, st->prototype_scope, st->function_scope);
 
-            scope_link_set(compilation_options.scope_link, exception_declaration, copy_scope(block_scope));
+            scope_link_set(compilation_options.scope_link, exception_declaration, copy_scope(block_scope), decl_context);
 
             AST type_specifier_seq = ASTSon0(exception_declaration);
             // This declarator can be null

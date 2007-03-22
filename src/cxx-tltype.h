@@ -8,13 +8,15 @@ MCXX_BEGIN_DECLS
 
 union tl_type_data_tag;
 
-typedef struct tl_type_array_tag
+typedef 
+struct tl_type_array_tag
 {
     int _elements;
     union tl_type_data_tag* _array;
 } tl_type_array_t;
 
-typedef union tl_type_data_tag
+typedef 
+union tl_type_data_tag
 {
     int _integer;
     char _boolean;
@@ -23,7 +25,8 @@ typedef union tl_type_data_tag
     char* _string;
 } tl_type_data_t;
 
-typedef enum tl_type_kind_tag
+typedef 
+enum tl_type_kind_tag
 {
     TL_UNDEFINED = 0,
     TL_INTEGER,
@@ -33,7 +36,8 @@ typedef enum tl_type_kind_tag
     TL_ARRAY
 } tl_type_kind_t;
 
-typedef struct tl_type_tag
+typedef 
+struct tl_type_tag
 {
     tl_type_kind_t kind;
     tl_type_data_t data;

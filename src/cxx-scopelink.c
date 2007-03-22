@@ -6,6 +6,12 @@
 #include "cxx-scope.h"
 #include "cxx-utils.h"
 
+typedef struct scope_link_entry_tag
+{
+    scope_t* st;
+    decl_context_t decl_context;
+} scope_link_entry_t;
+
 static int integer_comp (void *key1, void *key2)
 {
     intptr_t a = (intptr_t)(key1);
@@ -38,7 +44,7 @@ scope_link_t* scope_link_new(void)
     return result;
 }
 
-void scope_link_set(scope_link_t* sl, AST a, scope_t* st)
+void scope_link_set(scope_link_t* sl, AST a, scope_t* st, decl_context_t decl_context)
 {
     DEBUG_CODE()
     {
@@ -46,38 +52,58 @@ void scope_link_set(scope_link_t* sl, AST a, scope_t* st)
                 node_information(a),
                 st);
     }
-    hash_put(sl->h, a, st);
+
+    scope_link_entry_t* new_entry = calloc(1, sizeof(*new_entry));
+
+    new_entry->st = st;
+    new_entry->decl_context = decl_context;
+
+    hash_put(sl->h, a, new_entry);
 }
 
-scope_t* scope_link_get(scope_link_t* sl, AST a)
+static scope_link_entry_t* scope_link_get(scope_link_t* sl, AST a)
 {
-    scope_t* result = NULL;
+    scope_link_entry_t* result = NULL;
 
     while (a != NULL)
     {
-        result = (scope_t*)hash_get(sl->h, a);
+        scope_link_entry_t* entry = (scope_link_entry_t*)hash_get(sl->h, a);
 
-        if (result != NULL)
+        if (entry != NULL)
         {
-            return result;
+            result = entry;
+            break;
         }
 
         a = ASTParent(a);
     }
 
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "scope_link -> Node '%s' has scope '%p'\n", 
-                node_information(a),
-                result);
-    }
-
     return NULL;
 }
 
-scope_t* scope_link_direct_get(scope_link_t* sl, AST a)
+scope_t* scope_link_get_scope(scope_link_t* sl, AST a)
 {
-    scope_t* result = (scope_t*)hash_get(sl->h, a);
+    scope_link_entry_t* entry = scope_link_get(sl, a);
+
+    if (entry == NULL)
+        return NULL;
+    return 
+        entry->st;
+}
+
+decl_context_t scope_link_get_decl_context(scope_link_t* sl, AST a)
+{
+    scope_link_entry_t* entry = scope_link_get(sl, a);
+
+    if (entry == NULL)
+        return default_decl_context;
+    return 
+        entry->decl_context;
+}
+
+static scope_link_entry_t* scope_link_direct_get_scope(scope_link_t* sl, AST a)
+{
+    scope_link_entry_t* result = (scope_link_entry_t*)hash_get(sl->h, a);
 
     return result;
 }
@@ -89,8 +115,9 @@ AST duplicate_ast_with_scope_link(AST a, scope_link_t* orig, scope_link_t* new_s
     // This scope must be always available
     AST result = duplicate_ast_with_scope_link_rec(a, orig, new_sl);
 
-    scope_t* st = scope_link_get(orig, a);
-    scope_link_set(new_sl, result, st);
+    scope_t* st = scope_link_get_scope(orig, a);
+    decl_context_t decl_context = scope_link_get_decl_context(orig, a);
+    scope_link_set(new_sl, result, st, decl_context);
 
     return result;
 }
@@ -106,10 +133,10 @@ static AST duplicate_ast_with_scope_link_rec(AST a, scope_link_t* orig, scope_li
     // extensible_struct_t orig_extended_data = result->extended_data;
 
     // Update the scope_link
-    scope_t* st = scope_link_direct_get(orig, a);
-    if (st != NULL)
+    scope_link_entry_t* sl_entry = scope_link_direct_get_scope(orig, a);
+    if (sl_entry != NULL)
     {
-        scope_link_set(new_sl, result, st);
+        scope_link_set(new_sl, result, sl_entry->st, sl_entry->decl_context);
     }
 
     // Copy everything by value
@@ -136,3 +163,4 @@ static AST duplicate_ast_with_scope_link_rec(AST a, scope_link_t* orig, scope_li
 
     return result;
 }
+

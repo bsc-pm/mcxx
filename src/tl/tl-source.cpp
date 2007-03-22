@@ -167,7 +167,9 @@ namespace TL
 
         AST_t result(a);
 
-        scope_link_set(scope_link._scope_link, a, ctx._st);
+        decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, a);
+
+        scope_link_set(scope_link._scope_link, a, ctx._st, default_decl_context);
 
         return result;
     }

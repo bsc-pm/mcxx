@@ -4,11 +4,14 @@
 
 MCXX_BEGIN_DECLS
 
-typedef struct token_atrib_tag 
+typedef 
+struct token_atrib_tag 
 {
     char* token_text;
     int token_line;
 } token_atrib_t;
+
+#include <stdio.h>
 
 struct scan_file_descriptor 
 {
@@ -20,7 +23,6 @@ struct scan_file_descriptor
     int line_number;
     FILE* file_descriptor;
     struct yy_buffer_state* scanning_buffer;
-
 };
 
 extern struct scan_file_descriptor scanning_now;

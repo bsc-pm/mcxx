@@ -22,6 +22,7 @@ libmcxx_la_SOURCES = \
   cxx-asttype.c \
   cxx-ast.c \
   cxx-ast.h \
+  cxx-ast-decls.h \
   cxx-lexer.h \
   cxx-parser.h \
   cxx-parser.c \
@@ -37,8 +38,10 @@ libmcxx_la_SOURCES = \
   cxx-utils.h \
   cxx-scope.c \
   cxx-scope.h \
+  cxx-scope-decls.h \
   cxx-attrnames.h \
   cxx-attrnames.c \
+  cxx-buildscope-decls.h \
   cxx-buildscope.c \
   cxx-buildscope.h \
   cxx-typeutils.c \
@@ -65,6 +68,7 @@ libmcxx_la_SOURCES = \
   cxx-tltype.h \
   cxx-tltype.c \
   cxx-scopelink.c \
+  cxx-scopelink-decls.h \
   cxx-scopelink.h
 
 libmcxx_la_CFLAGS=-fexceptions -I$(srcdir)/../lib -DPKGDATADIR=\"$(pkgdatadir)\" -Wall
@@ -86,6 +90,7 @@ BUILT_SOURCES += cxx-asttype.h
 
 mcxx_SOURCES = \
   cxx-driver.c \
+  cxx-driver-decls.h \
   cxx-driver.h
 
 mcxx_LDFLAGS = \
