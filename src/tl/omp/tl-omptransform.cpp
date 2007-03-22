@@ -336,6 +336,7 @@ namespace TL
                 }
                 
                 AST_t spawn_code = get_parallel_spawn_code(
+                        parallel_construct.get_ast(),
                         function_definition,
                         parallel_construct.get_scope(),
                         parallel_construct.get_scope_link(),
@@ -495,6 +496,7 @@ namespace TL
                 }
 
                 AST_t spawn_code = get_parallel_spawn_code(
+                        parallel_for_construct.get_ast(),
                         function_definition,
                         parallel_for_construct.get_scope(),
                         parallel_for_construct.get_scope_link(),
@@ -658,7 +660,7 @@ namespace TL
                 }
 
                 AST_t result;
-                result = parallel_for_body.parse_statement(loop_body.get_scope(), 
+                result = parallel_for_body.parse_statement(loop_body.get_ast(), 
                          loop_body.get_scope_link());
 
                 for_construct.get_ast().replace(result);
@@ -784,6 +786,7 @@ namespace TL
                 }
 
                 AST_t spawn_code = get_parallel_spawn_code(
+                        parallel_sections_construct.get_ast(),
                         function_definition,
                         parallel_sections_construct.get_scope(),
                         parallel_sections_construct.get_scope_link(),
@@ -929,7 +932,7 @@ namespace TL
 
                 num_sections_stack.pop();
 
-                AST_t sections_tree = sections_source.parse_statement(sections_construct.get_scope(),
+                AST_t sections_tree = sections_source.parse_statement(sections_construct.get_ast(),
                         sections_construct.get_scope_link());
 
                 sections_construct.get_ast().replace(sections_tree);
@@ -950,7 +953,7 @@ namespace TL
                     << "}"
                     ;
 
-                AST_t section_tree = section_source.parse_statement(section_construct.get_scope(),
+                AST_t section_tree = section_source.parse_statement(section_construct.get_ast(),
                         section_construct.get_scope_link());
 
                 // One more section
@@ -970,7 +973,7 @@ namespace TL
                     << "}"
                     ;
 
-                AST_t barrier_tree = barrier_source.parse_statement(barrier_directive.get_scope(),
+                AST_t barrier_tree = barrier_source.parse_statement(barrier_directive.get_ast(),
                         barrier_directive.get_scope_link());
 
                 barrier_directive.get_ast().replace(barrier_tree);
@@ -994,7 +997,7 @@ namespace TL
                     << "}"
                     ;
 
-                AST_t atomic_tree = critical_source.parse_statement(atomic_construct.get_scope(),
+                AST_t atomic_tree = critical_source.parse_statement(atomic_construct.get_ast(),
                         atomic_construct.get_scope_link());
 
                 atomic_construct.get_ast().replace(atomic_tree);
@@ -1015,7 +1018,7 @@ namespace TL
                     << "}"
                     ;
 
-                AST_t ordered_code = ordered_source.parse_statement(ordered_construct.get_scope(),
+                AST_t ordered_code = ordered_source.parse_statement(ordered_construct.get_ast(),
                         ordered_construct.get_scope_link());
 
                 ordered_construct.get_ast().replace(ordered_code);
@@ -1034,7 +1037,7 @@ namespace TL
                     << "}"
                     ;
 
-                AST_t master_tree = master_source.parse_statement(master_construct.get_scope(),
+                AST_t master_tree = master_source.parse_statement(master_construct.get_ast(),
                         master_construct.get_scope_link());
 
                 master_construct.get_ast().replace(master_tree);
@@ -1083,7 +1086,7 @@ namespace TL
                 barrier_code << "nth_barrier = " << (nowait_clause.is_defined() ? "0" : "1") << ";";
                 barrier_code << "in__tone_end_for_(&nth_barrier);";
 
-                AST_t single_tree = single_source.parse_statement(single_construct.get_scope(), 
+                AST_t single_tree = single_source.parse_statement(single_construct.get_ast(), 
                         single_construct.get_scope_link());
 
                 single_construct.get_ast().replace(single_tree);
@@ -1209,6 +1212,7 @@ namespace TL
                 }
                 
                 AST_t spawn_code = get_parallel_spawn_code(
+                        parallel_single_construct.get_ast(),
                         function_definition,
                         parallel_single_construct.get_scope(),
                         parallel_single_construct.get_scope_link(),
@@ -1273,7 +1277,7 @@ namespace TL
                     // AST_t translation_unit = critical_construct.get_ast().get_translation_unit();
                     // Scope scope_translation_unit = scope_link.get_scope(translation_unit);
 
-                    AST_t critical_mutex_def_tree = critical_mutex_def_src.parse_global(critical_construct.get_scope(),
+                    AST_t critical_mutex_def_tree = critical_mutex_def_src.parse_global(critical_construct.get_ast(),
                             critical_construct.get_scope_link());
 
                     critical_construct.get_ast().prepend_sibling_function(critical_mutex_def_tree);
@@ -1281,7 +1285,7 @@ namespace TL
                     criticals_defined.insert(mutex_variable);
                 }
 
-                AST_t critical_tree = critical_source.parse_statement(critical_construct.get_scope(),
+                AST_t critical_tree = critical_source.parse_statement(critical_construct.get_ast(),
                         critical_construct.get_scope_link());
 
                 critical_construct.get_ast().replace(critical_tree);
@@ -1371,7 +1375,7 @@ namespace TL
                     }
 
                     // Now parse the remade declarations
-                    AST_t redeclaration_tree = remade_declaration.parse_declaration(decl.get_scope(),
+                    AST_t redeclaration_tree = remade_declaration.parse_declaration(decl.get_ast(),
                             // And explicitly allow to redeclarate objects otherwise the compiler
                             // will complain (for debugging purposes)
                             scope_link, Source::ALLOW_REDECLARATION);
@@ -1774,7 +1778,7 @@ namespace TL
                     ;
 
                 // Parse the code
-                AST_t task_code = task_queueing.parse_statement(task_construct.get_scope(),
+                AST_t task_code = task_queueing.parse_statement(task_construct.get_ast(),
                         task_construct.get_scope_link());
 
                 // And replace the whole thing
@@ -1794,7 +1798,7 @@ namespace TL
                     << "}"
                     ;
 
-                AST_t taskwait_code = taskwait_source.parse_statement(taskwait_construct.get_scope(),
+                AST_t taskwait_code = taskwait_source.parse_statement(taskwait_construct.get_ast(),
                         taskwait_construct.get_scope_link());
 
                 taskwait_construct.get_ast().replace(taskwait_code);
@@ -1817,7 +1821,7 @@ namespace TL
                     << "}"
                     ;
 
-                AST_t taskgroup_code = taskgroup_source.parse_statement(taskgroup_construct.get_scope(),
+                AST_t taskgroup_code = taskgroup_source.parse_statement(taskgroup_construct.get_ast(),
                         taskgroup_construct.get_scope_link());
 
                 taskgroup_construct.get_ast().replace(taskgroup_code);
@@ -1835,7 +1839,7 @@ namespace TL
                     << "}"
                     ;
 
-                AST_t flush_tree = flush_source.parse_statement(flush_directive.get_scope(),
+                AST_t flush_tree = flush_source.parse_statement(flush_directive.get_ast(),
                         flush_directive.get_scope_link());
 
                 flush_directive.get_ast().replace(flush_tree);
@@ -1844,6 +1848,7 @@ namespace TL
 
             // This function returns a common spawn code suitable for parallel 'something' constructs
             AST_t get_parallel_spawn_code(
+                    AST_t ref_tree, // Reference tree, needed for correct parsing
                     FunctionDefinition function_definition,
                     Scope scope,
                     ScopeLink scope_link,
@@ -1935,7 +1940,8 @@ namespace TL
                     // FIXME: hardcoded to 128 processors
                     Source array_length;
                     array_length << "128";
-                    AST_t array_length_tree = array_length.parse_expression(it->get_id_expression().get_scope());
+                    AST_t array_length_tree = array_length.parse_expression(it->get_id_expression().get_ast(), 
+                            it->get_id_expression().get_scope_link());
 
                     // and get an array of 128 elements
                     Type reduction_vector_type = reduction_type.get_array_to(array_length_tree, 
@@ -2117,7 +2123,7 @@ namespace TL
                 // std::cerr << "End CODI SPAWN" << std::endl;
                 
                 // Parse the spawn code and return it
-                AST_t result = spawn_code.parse_statement(scope, scope_link);
+                AST_t result = spawn_code.parse_statement(ref_tree, scope_link);
                 return result;
             }
             
@@ -2758,14 +2764,15 @@ namespace TL
                             outline_function_decl,
                             parameter_info_list);
 
-                    AST_t member_decl_tree = member_declaration.parse_member(decl.get_scope(), decl.get_scope_link(), class_type);
+                    AST_t member_decl_tree = member_declaration.parse_member(decl.get_ast(), 
+                            decl.get_scope_link(), class_type);
 
                     decl.get_ast().append(member_decl_tree);
                 }
 
                 AST_t result;
 
-                result = outline_parallel.parse_global(function_definition.get_scope(), 
+                result = outline_parallel.parse_global(function_definition.get_ast(), 
                          function_definition.get_scope_link());
 
                 return result;
@@ -2837,14 +2844,14 @@ namespace TL
                             outline_function_decl,
                             parameter_info_list);
 
-                    AST_t member_decl_tree = member_declaration.parse_member(decl.get_scope(), decl.get_scope_link(), class_type);
+                    AST_t member_decl_tree = member_declaration.parse_member(decl.get_ast(), decl.get_scope_link(), class_type);
 
                     decl.get_ast().append(member_decl_tree);
                 }
 
                 AST_t result;
 
-                result = outline_parallel.parse_global(function_definition.get_scope(), 
+                result = outline_parallel.parse_global(function_definition.get_ast(), 
                         function_definition.get_scope_link());
 
                 return result;
@@ -2941,7 +2948,7 @@ namespace TL
 
                 AST_t result;
 
-                result = outline_parallel_sections.parse_global(function_definition.get_scope(), 
+                result = outline_parallel_sections.parse_global(function_definition.get_ast(), 
                         function_definition.get_scope_link());
 
                 return result;
@@ -3045,7 +3052,7 @@ namespace TL
 
                 AST_t result;
 
-                result = outline_parallel.parse_global(function_definition.get_scope(), 
+                result = outline_parallel.parse_global(function_definition.get_ast(), 
                          function_definition.get_scope_link());
 
                 return result;
@@ -3139,7 +3146,7 @@ namespace TL
 
                 AST_t result;
 
-                result = outline_parallel_for.parse_global(function_definition.get_scope(), 
+                result = outline_parallel_for.parse_global(function_definition.get_ast(), 
                         function_definition.get_scope_link());
 
                 return result;
@@ -4153,7 +4160,8 @@ namespace TL
                             address_expression << expression.prettyprint();
                         }
 
-                        AST_t address_expression_tree = address_expression.parse_expression(expression.get_scope());
+                        AST_t address_expression_tree = address_expression.parse_expression(expression.get_ast(),
+                                expression.get_scope_link());
 
                         expression.get_ast().replace(address_expression_tree);
                     }
@@ -4281,7 +4289,9 @@ namespace TL
                         }
 
                         // Replace the expression
-                        AST_t read_expression_tree = read_expression.parse_expression(expression.get_scope());
+                        AST_t read_expression_tree = read_expression.parse_expression(
+                                expression.get_ast(),
+                                expression.get_scope_link());
 
                         expression.get_ast().replace(read_expression_tree);
                     }
@@ -4355,7 +4365,7 @@ namespace TL
                     << "}"
                     ;
 
-                AST_t replaced_tree = replaced_code.parse_statement(protect_statement.get_scope(),
+                AST_t replaced_tree = replaced_code.parse_statement(protect_statement.get_ast(),
                         protect_statement.get_scope_link());
 
                 protect_construct.get_ast().replace(replaced_tree);
