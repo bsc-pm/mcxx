@@ -47,7 +47,7 @@ void build_scope_dynamic_initializer(void);
 void build_scope_translation_unit(translation_unit_t* translation_unit);
 void build_scope_translation_unit_tree_with_global_scope(AST tree, scope_t* global_scope, scope_link_t* scope_link, decl_context_t decl_context);
 void build_scope_declaration_sequence_with_scope_link(AST a, scope_t* st, decl_context_t decl_context, scope_link_t* scope_link);
-void build_scope_statement_seq_with_scope_link(AST a, scope_t* st, scope_link_t* scope_link);
+void build_scope_statement_seq_with_scope_link(AST a, scope_t* st, decl_context_t decl_context, scope_link_t* scope_link);
 void build_scope_member_specification_with_scope_link(scope_t* inner_scope, AST member_specification_tree, 
         access_specifier_t current_access, type_t* simple_type_info, 
         decl_context_t decl_context, scope_link_t* scope_link);

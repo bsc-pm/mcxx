@@ -276,6 +276,7 @@ namespace TL
         return _ref;
     }
 
+    /** Beginning of deprecated functions **/
     void ReplaceIdExpression::add_replacement(Symbol sym, std::string str)
     {
         Source src;
@@ -290,10 +291,26 @@ namespace TL
     {
         add_replacement(sym, src.get_source());
     }
+    /** End of deprecated functions **/
 
     void ReplaceIdExpression::add_replacement(Symbol sym, AST_t ast)
     {
         _repl_map[sym] = ast;
+    }
+
+    void ReplaceIdExpression::add_replacement(Symbol sym, std::string str, AST_t ref_tree, ScopeLink scope_link)
+    {
+        Source src;
+        src << str;
+
+        AST_t tree = src.parse_expression(ref_tree, scope_link);
+
+        _repl_map[sym] = tree;
+    }
+
+    void ReplaceIdExpression::add_replacement(Symbol sym, Source src, AST_t ref_tree, ScopeLink scope_link)
+    {
+        add_replacement(sym, src, ref_tree, scope_link);
     }
 
     bool ReplaceIdExpression::has_replacement(Symbol sym)
@@ -615,7 +632,7 @@ namespace TL
 
         Scope sc = this->_scope_link.get_scope(declared_name);
 
-        AST_t expression_ast = declared_name_str.parse_expression(sc, this->_scope_link);
+        AST_t expression_ast = declared_name_str.parse_expression(this->_ref, this->_scope_link);
 
         Expression expression(expression_ast, this->_scope_link);
 
@@ -758,7 +775,7 @@ namespace TL
 
                             adjust_value << "(" << right_hand.get_ast().prettyprint() << ") - 1";
 
-                            _upper_bound = adjust_value.parse_expression(expression.get_scope(), expression.get_scope_link());
+                            _upper_bound = adjust_value.parse_expression(expression.get_ast(), expression.get_scope_link());
                             break;
                         }
                     case Expression::GREATER_THAN:
@@ -767,7 +784,7 @@ namespace TL
 
                             adjust_value << "(" << right_hand.get_ast().prettyprint() << ") + 1";
 
-                            _upper_bound = adjust_value.parse_expression(expression.get_scope(), expression.get_scope_link());
+                            _upper_bound = adjust_value.parse_expression(expression.get_ast(), expression.get_scope_link());
                             break;
                         }
                     case Expression::LOWER_EQUAL_THAN :
@@ -799,7 +816,7 @@ namespace TL
                             // ++var
                             Source step;
                             step << "1";
-                            _step = step.parse_expression(iteration_expression.get_scope());
+                            _step = step.parse_expression(iteration_expression.get_ast(), iteration_expression.get_scope_link());
                             break;
                         }
                     case Expression::PREDECREMENT :
@@ -809,7 +826,7 @@ namespace TL
                             // --var
                             Source step;
                             step << "-1";
-                            _step = step.parse_expression(iteration_expression.get_scope());
+                            _step = step.parse_expression(iteration_expression.get_ast(), iteration_expression.get_scope_link());
                             break;
                         }
                 }
@@ -865,7 +882,8 @@ namespace TL
                             Source adjust; 
                             adjust << " - (" << right_hand_of_assignment.get_ast().prettyprint() << ")";
 
-                            _step = adjust.parse_expression(right_hand_of_assignment.get_scope());
+                            _step = adjust.parse_expression(right_hand_of_assignment.get_ast(),
+                                    right_hand_of_assignment.get_scope_link());
                             break;
                         }
                 }

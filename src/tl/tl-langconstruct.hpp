@@ -7,6 +7,7 @@
 #include "tl-builtin.hpp"
 #include "tl-source.hpp"
 #include "cxx-attrnames.h"
+#include "cxx-macros.h"
 #include <string>
 #include <utility>
 
@@ -310,8 +311,11 @@ namespace TL
             }
 
             void add_replacement(Symbol sym, AST_t ast);
-            void add_replacement(Symbol sym, std::string str);
-            void add_replacement(Symbol sym, Source src);
+            void add_replacement(Symbol sym, std::string str) DEPRECATED;
+            void add_replacement(Symbol sym, Source src) DEPRECATED;
+
+            void add_replacement(Symbol sym, std::string str, AST_t ref_tree, ScopeLink scope_link);
+            void add_replacement(Symbol sym, Source src, AST_t ref_tree, ScopeLink scope_link);
 
             bool has_replacement(Symbol sym);
 

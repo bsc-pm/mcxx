@@ -6871,11 +6871,11 @@ static void build_scope_statement_seq(AST a, scope_t* st, decl_context_t decl_co
     }
 }
 
-void build_scope_statement_seq_with_scope_link(AST a, scope_t* st, scope_link_t* scope_link)
+void build_scope_statement_seq_with_scope_link(AST a, scope_t* st, decl_context_t decl_context, scope_link_t* scope_link)
 {
     compilation_options.scope_link = scope_link;
 
-    build_scope_statement_seq(a, st, default_decl_context);
+    build_scope_statement_seq(a, st, decl_context);
 
     compilation_options.scope_link = NULL;
 }

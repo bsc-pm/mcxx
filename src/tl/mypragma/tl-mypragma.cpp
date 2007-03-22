@@ -97,7 +97,7 @@ namespace TL
                     << "\");"
                     ;
 
-                AST_t replace_tree = src.parse_statement(pragma_custom_construct.get_scope(),
+                AST_t replace_tree = src.parse_statement(pragma_custom_construct.get_ast(),
                         pragma_custom_construct.get_scope_link());
 
                 pragma_custom_construct.get_ast().replace(replace_tree);

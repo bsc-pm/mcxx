@@ -3321,14 +3321,16 @@ namespace TL
                         ParameterInfo parameter(it->mangle_id_expression(), 
                                 "&" + it->prettyprint(), *it, pointer_type, ParameterInfo::BY_POINTER);
                         parameter_info.append(parameter);
-                        result.add_replacement(symbol, "(*" + it->mangle_id_expression() + ")");
+                        result.add_replacement(symbol, "(*" + it->mangle_id_expression() + ")", 
+                                it->get_ast(), it->get_scope_link());
                     }
                     else
                     {
                         // Only if this function is a nonstatic one we need _this access
                         if (is_nonstatic_member_function(function_definition))
                         {
-                            result.add_replacement(symbol, "_this->" + it->prettyprint() );
+                            result.add_replacement(symbol, "_this->" + it->prettyprint(), 
+                                    it->get_ast(), it->get_scope_link());
                         }
                     }
                 }
@@ -3341,7 +3343,8 @@ namespace TL
                     Symbol symbol = it->get_symbol();
                     Type type = symbol.get_type();
 
-                    result.add_replacement(symbol, "p_" + it->mangle_id_expression());
+                    result.add_replacement(symbol, "p_" + it->mangle_id_expression(),
+                            it->get_ast(), it->get_scope_link());
                 }
                 
                 // FIRSTPRIVATE references
@@ -3359,7 +3362,8 @@ namespace TL
                             *it, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
 
-                    result.add_replacement(symbol, "p_" + it->mangle_id_expression());
+                    result.add_replacement(symbol, "p_" + it->mangle_id_expression(),
+                            it->get_ast(), it->get_scope_link());
                 }
                 
                 // LASTPRIVATE references
@@ -3377,7 +3381,8 @@ namespace TL
                             *it, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
 
-                    result.add_replacement(symbol, "p_" + it->mangle_id_expression());
+                    result.add_replacement(symbol, "p_" + it->mangle_id_expression(),
+                            it->get_ast(), it->get_scope_link());
                 }
                 
                 // REDUCTION references
@@ -3396,7 +3401,8 @@ namespace TL
                             id_expr, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
 
-                    result.add_replacement(symbol, "rdp_" + id_expr.mangle_id_expression());
+                    result.add_replacement(symbol, "rdp_" + id_expr.mangle_id_expression(),
+                            id_expr.get_ast(), id_expr.get_scope_link());
                 }
 
                 // Inner REDUCTION references (those coming from lexical enclosed DO's inner to this PARALLEL)
@@ -3420,7 +3426,8 @@ namespace TL
                             "&" + id_expr.prettyprint(),
                             id_expr, pointer_type, ParameterInfo::BY_POINTER);
 
-                    result.add_replacement(symbol, "(*" + id_expr.mangle_id_expression() + ")");
+                    result.add_replacement(symbol, "(*" + id_expr.mangle_id_expression() + ")",
+                            id_expr.get_ast(), id_expr.get_scope_link());
                 }
 
                 // COPYIN references
@@ -3468,7 +3475,8 @@ namespace TL
                         if (is_unqualified_member_symbol(*it, function_definition))
                         {
                             Symbol symbol = it->get_symbol();
-                            result.add_replacement(symbol, "_this->" + it->prettyprint() );
+                            result.add_replacement(symbol, "_this->" + it->prettyprint(),
+                                    it->get_ast(), it->get_scope_link());
                         }
                     }
                 }

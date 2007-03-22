@@ -11,6 +11,11 @@
   #if __GNUC__ == 3 
      #define NORETURN __attribute__((noreturn))
 
+     #if __GNUC_MINOR__ >= 1
+        #define DEPRECATED __attribute__((deprecated))
+     #else
+        #define DEPRECATED
+     #endif
      #if __GNUC_MINOR__ >= 4
          #define WARN_UNUSED __attribute__((warn_unused_result))
      #else
@@ -19,6 +24,7 @@
   #elif __GNUC__ == 4
      #define NORETURN __attribute__((noreturn))
      #define WARN_UNUSED __attribute__((warn_unused_result))
+        #define DEPRECATED __attribute__((deprecated))
   #elif __GNUC__ == 2
      #error "This code will not compile with GCC 2"
   #endif

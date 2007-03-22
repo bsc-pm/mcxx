@@ -175,6 +175,7 @@ namespace TL
             friend class Scope;
             friend class ScopeLink;
             friend class DepthTraverse;
+            friend class Source;
     };
 
     template<const char* _ATTR>

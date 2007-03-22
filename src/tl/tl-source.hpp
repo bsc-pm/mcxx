@@ -81,6 +81,7 @@ namespace TL
             void append_source_ref(Source& src);
 
             bool all_blanks() const;
+            AST_t parse_declaration_inner(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
         public:
             Source()
             {
@@ -112,12 +113,26 @@ namespace TL
             Source& operator<<(const std::string& str);
             Source& operator<<(int n);
 
-            AST_t parse_global(TL::Scope ctx, TL::ScopeLink scope_link);
-            AST_t parse_statement(TL::Scope ctx, TL::ScopeLink scope_link);
-            AST_t parse_expression(TL::Scope ctx);
-            AST_t parse_expression(TL::Scope ctx, TL::ScopeLink scope_link);
-            AST_t parse_declaration(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
-            AST_t parse_member(TL::Scope ctx, TL::ScopeLink scope_link, Type class_type);
+            // -- deprecated family of parse_XXX
+            // These are deprecated and only work reasonably well in C, in C++
+            // they do not get the proper declarating context
+            AST_t parse_global(TL::Scope ctx, TL::ScopeLink scope_link) DEPRECATED;
+            AST_t parse_statement(TL::Scope ctx, TL::ScopeLink scope_link) DEPRECATED;
+            AST_t parse_expression(TL::Scope ctx) DEPRECATED;
+            AST_t parse_expression(TL::Scope ctx, TL::ScopeLink scope_link) DEPRECATED;
+            AST_t parse_declaration(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT) DEPRECATED;
+            AST_t parse_member(TL::Scope ctx, TL::ScopeLink scope_link, Type class_type) DEPRECATED;
+            // -- end of deprecated family
+
+            // -- new family of parse_XXX
+            // These should work correctly in C++ as they are able to get the exact
+            // declaration context of the reference tree (ref_tree)
+            AST_t parse_global(AST_t ref_tree, TL::ScopeLink scope_link);
+            AST_t parse_statement(AST_t ref_tree, TL::ScopeLink scope_link);
+            AST_t parse_expression(AST_t ref_tree, TL::ScopeLink scope_link);
+            AST_t parse_declaration(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+            AST_t parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Type class_type);
+            // -- end of new family of parse_XXX
 
             bool empty() const;
 

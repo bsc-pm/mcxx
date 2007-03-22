@@ -80,7 +80,7 @@ namespace TL
             ;
 
         AST_t shadow_function_call_tree = 
-            shadow_function_call.parse_expression(scope_link.get_scope(node));
+            shadow_function_call.parse_expression(node, scope_link);
 
         node.replace(shadow_function_call_tree);
     }
@@ -205,7 +205,7 @@ namespace TL
             ;
 
         AST_t shadow_function_def_tree = 
-            shadow_function_definition.parse_global(function_definition.get_scope(),
+            shadow_function_definition.parse_global(function_definition.get_ast(),
                     function_definition.get_scope_link());
 
         function_definition.get_ast().prepend_sibling_function(shadow_function_def_tree);
@@ -281,7 +281,7 @@ namespace TL
             << node.prettyprint()
             ;
 
-        AST_t new_main_tree = new_main.parse_global(function_def.get_scope(),
+        AST_t new_main_tree = new_main.parse_global(function_def.get_ast(),
                 function_def.get_scope_link());
 
         node.replace(new_main_tree);
