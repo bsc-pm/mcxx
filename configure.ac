@@ -27,6 +27,7 @@ AC_PROG_INSTALL
 dnl Workaround to avoid Libtool checking for FORTRAN
 F77=no
 dnl Check libtool
+AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
 
 dnl Check cc
