@@ -1,6 +1,6 @@
-SUBDIRS = . mypragma @tlextensions@ profile
+SUBDIRS = . mypragma @tlextensions@ 
 
-DIST_SUBDIRS=omp instr acotes mypragma profile
+DIST_SUBDIRS=omp instr acotes mypragma 
 
 lib_LTLIBRARIES = libtl.la
 
