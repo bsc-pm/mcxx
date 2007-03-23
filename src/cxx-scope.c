@@ -2071,12 +2071,17 @@ char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st)
     int i;
     for (i = 0; i < template_arguments->num_arguments; i++)
     {
+        template_argument_t* template_argument = template_arguments->argument_list[i];
+
+        // Avoid unnecessary cluttering and the fact that these implicit types
+        // come from strange typedefs that would force us to solve completely
+        if (template_argument->implicit)
+            continue;
+
         if (i != 0)
         {
             result = strappend(result, ", ");
         }
-
-        template_argument_t* template_argument = template_arguments->argument_list[i];
 
         switch (template_argument->kind)
         {
@@ -2087,13 +2092,14 @@ char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st)
                     char* abstract_declaration;
 
                     abstract_declaration = 
-                        get_declaration_string_internal(advance_over_typedefs(template_argument->type), st, "", "", 0, NULL, NULL);
+                        get_declaration_string_internal(template_argument->type, st, "", "", 0, NULL, NULL);
 
                     result = strappend(result, abstract_declaration);
                     break;
                 }
             case TAK_NONTYPE:
                 {
+                    result = prettyprint_in_buffer(template_argument->argument_tree);
                     break;
                 }
             default:
@@ -2130,7 +2136,6 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* i
     {
         // This symbol must be looked up for the proper real name
         result = give_name_for_template_parameter(entry, st);
-        *is_dependent = 1;
         return result;
     }
 
@@ -2138,6 +2143,7 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* i
             || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
     {
         result = strappend(result, get_unqualified_template_symbol_name(entry, st));
+        *is_dependent = 1;
     }
 
     if (entry->is_member)
