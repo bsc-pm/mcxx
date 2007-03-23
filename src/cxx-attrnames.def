@@ -173,3 +173,5 @@ OMP_REDUCTION_FUNCTION omp.reduction_function
 OMP_REDUCTION_NEUTER omp.reduction_neuter
 OMP_REDUCTION_OPERATOR omp.reduction_operator
 OMP_REDUCTION_VARIABLES omp.reduction_variables
+LANG_FUNCTION_SYMBOL lang.function_symbol
+LANG_IS_FUNCTIONAL_DECLARATOR lang.is_functional_declarator

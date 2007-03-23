@@ -40,3 +40,13 @@ tl_type_t tl_string(const char* str)
 
     return result;
 }
+
+tl_type_t tl_symbol(scope_entry_t* entry)
+{
+    tl_type_t result;
+    
+    result.kind = TL_SYMBOL;
+    result.data._entry = entry;
+
+    return result;
+}

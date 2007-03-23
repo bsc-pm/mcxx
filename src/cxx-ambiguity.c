@@ -1784,6 +1784,12 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                         check_for_initializer_list(ASTSon1(expression), st, decl_context ));
                 break;
             }
+        case AST_GCC_BUILTIN_VA_ARG :
+            {
+                check_for_expression(ASTSon0(expression), st, decl_context);
+                check_for_type_id_tree(ASTSon1(expression), st, decl_context);
+                break;
+            }
         default :
             {
                 internal_error("Unexpected node '%s' %s", ast_print_node_type(ASTType(expression)), 

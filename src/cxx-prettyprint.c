@@ -1677,8 +1677,9 @@ static void while_statement_handler(FILE* f, AST a, int level)
 static void do_while_statement_handler(FILE* f, AST a, int level)
 {
     indent_at_level(f, a, level);
-    token_fprintf(f, a, "do ");
+    token_fprintf(f, a, "do\n");
     prettyprint_level(f, ASTSon0(a), level);
+    indent_at_level(f, a, level);
     token_fprintf(f, a, "while (");
     prettyprint_level(f, ASTSon1(a), level);
     token_fprintf(f, a, ");\n");

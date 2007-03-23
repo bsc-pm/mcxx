@@ -36,6 +36,23 @@ namespace TL
             {
             }
 
+            Symbol(const Object& obj)
+            {
+                const Symbol* pint = dynamic_cast<const Symbol*>(&obj);
+                if (pint != NULL)
+                {
+                    this->_symbol = pint->_symbol;
+                }
+                else
+                {
+                    if (typeid(obj) != typeid(const Undefined&))
+                    {
+                        std::cerr << "Bad initialization of Symbol" << std::endl;
+                    }
+                    this->_symbol = NULL;
+                }
+            }
+
             Type get_type() const;
             std::string get_name() const;
 

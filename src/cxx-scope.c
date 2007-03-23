@@ -2099,7 +2099,7 @@ char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st)
                 }
             case TAK_NONTYPE:
                 {
-                    result = prettyprint_in_buffer(template_argument->argument_tree);
+                    result = strappend(result, prettyprint_in_buffer(template_argument->argument_tree));
                     break;
                 }
             default:
@@ -2136,6 +2136,8 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* i
     {
         // This symbol must be looked up for the proper real name
         result = give_name_for_template_parameter(entry, st);
+
+        (*is_dependent) |= is_dependent_type(entry->type_information, default_decl_context);
         return result;
     }
 
@@ -2143,7 +2145,7 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* i
             || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
     {
         result = strappend(result, get_unqualified_template_symbol_name(entry, st));
-        *is_dependent = 1;
+        (*is_dependent) = 1;
     }
 
     if (entry->is_member)

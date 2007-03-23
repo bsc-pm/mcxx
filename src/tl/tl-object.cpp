@@ -1,6 +1,7 @@
 #include "tl-builtin.hpp"
 #include "tl-object.hpp"
 #include "tl-ast.hpp"
+#include "tl-symbol.hpp"
 
 namespace TL
 {
@@ -58,6 +59,12 @@ Object& Object::get_attribute(const std::string& name) const
             {
                 String* str = new String(tl_value->data._string);
                 return (*str);
+                break;
+            }
+        case TL_SYMBOL :
+            {
+                Symbol* sym = new Symbol(tl_value->data._entry);
+                return (*sym);
                 break;
             }
         case TL_ARRAY :

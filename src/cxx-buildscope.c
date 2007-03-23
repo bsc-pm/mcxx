@@ -4378,6 +4378,8 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     entry = build_scope_declarator_with_parameter_scope(ASTSon1(a), st, &parameter_scope,
             &gather_info, type_info, &declarator_type, new_decl_context);
     ERROR_CONDITION((entry == NULL), "Function '%s' does not exist! %s", prettyprint_in_buffer(ASTSon1(a)), node_information(a));
+
+    ASTAttrSetValueType(ASTSon1(a), LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
     
     {
         // Function declaration name
@@ -4447,6 +4449,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
 
     ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(entry));
 
     // Function_body
     AST function_body = ASTSon3(a);
