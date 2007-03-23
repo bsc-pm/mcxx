@@ -2212,13 +2212,23 @@ char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
                 switch (user_defined_type->kind)
                 {
                     case SK_ENUM :
-                        snprintf(user_defined_str, MAX_LENGTH, "enum %s", 
-                                get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope));
-                        break;
+                        {
+                            int max_level = 0;
+                            char is_dependent = 0;
+                            snprintf(user_defined_str, MAX_LENGTH, "enum %s", 
+                                    get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope, 
+                                        &is_dependent, &max_level));
+                            break;
+                        }
                     case SK_CLASS :
-                        snprintf(user_defined_str, MAX_LENGTH, "class %s", 
-                                get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope));
-                        break;
+                        {
+                            int max_level = 0;
+                            char is_dependent = 0;
+                            snprintf(user_defined_str, MAX_LENGTH, "class %s", 
+                                    get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope,
+                                    &is_dependent, &max_level));
+                            break;
+                        }
                     case SK_TYPEDEF :
                         snprintf(user_defined_str, MAX_LENGTH, "%s", 
                                 print_declarator(advance_over_typedefs(user_defined_type->type_information), st));
@@ -3197,8 +3207,16 @@ static char* get_simple_type_name_string_internal(scope_t* st, simple_type_t* si
     {
         case STK_USER_DEFINED :
             {
+                // Fix this
+                char is_dependent = 0;
+                int max_level = 0;
                 result = get_fully_qualified_symbol_name(simple_type->user_defined_type,
-                        st);
+                        st, &is_dependent, &max_level);
+
+                if (is_dependent && max_level > 1)
+                {
+                    result = strappend("typename ", result);
+                }
                 break;
             }
         case STK_TYPEOF :
@@ -3284,7 +3302,13 @@ static char* get_simple_type_name_string_internal(scope_t* st, simple_type_t* si
             }
         case STK_CLASS :
             {
-                internal_error("Type STK_CLASS still unimplemented\n", 0);
+                internal_error("Type STK_CLASS invalid\n", 0);
+                break;
+            }
+        case STK_TEMPLATE_DEPENDENT_TYPE :
+            {
+                // internal_error("STK_TEMPLATE_DEPENDENT_TYPE not implemented\n", 0);
+                result = prettyprint_in_buffer(simple_type->typeof_expr);
                 break;
             }
         default:

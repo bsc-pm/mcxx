@@ -3869,7 +3869,7 @@ namespace TL
                         << function_name.get_qualified_part()
                         ;
                 }
-                if (want_templated_name)
+                if (function_name.is_qualified() && want_templated_name)
                 {
                     result << " template ";
                 }

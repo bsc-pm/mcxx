@@ -78,7 +78,7 @@ static scope_link_entry_t* scope_link_get(scope_link_t* sl, AST a)
         a = ASTParent(a);
     }
 
-    return NULL;
+    return result;
 }
 
 scope_t* scope_link_get_scope(scope_link_t* sl, AST a)

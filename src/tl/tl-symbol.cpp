@@ -25,7 +25,10 @@ namespace TL
         else
         {
             // FIXME -> the scope should be the occurrence one
-            char* qualified_name = get_fully_qualified_symbol_name(_symbol, _symbol->scope);
+            int max_level = 0;
+            char is_dependent = 0;
+            char* qualified_name = get_fully_qualified_symbol_name(_symbol, _symbol->scope, 
+                    &is_dependent, &max_level);
             return std::string(qualified_name);
         }
     }

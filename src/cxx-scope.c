@@ -2110,11 +2110,17 @@ char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st)
 }
 
 // Get the fully qualified symbol name in the scope of the ocurrence
-char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st)
+char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* is_dependent, int* max_qualif_level)
 {
     DEBUG_CODE()
     {
         fprintf(stderr, "Getting fully qualified symbol name for '%s'\n", entry->symbol_name);
+    }
+
+    // If this is the injected symbol, ignore it and get the real entry
+    if (entry->injected_class_name)
+    {
+        entry = entry->injected_class_referred_symbol;
     }
 
     char* result = strdup(entry->symbol_name);
@@ -2124,6 +2130,7 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st)
     {
         // This symbol must be looked up for the proper real name
         result = give_name_for_template_parameter(entry, st);
+        *is_dependent = 1;
         return result;
     }
 
@@ -2144,7 +2151,9 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st)
 
         if (class_symbol != NULL)
         {
-            char* class_qualification = get_fully_qualified_symbol_name(class_symbol, st);
+            (*max_qualif_level)++;
+
+            char* class_qualification = get_fully_qualified_symbol_name(class_symbol, st, is_dependent, max_qualif_level);
 
             DEBUG_CODE()
             {

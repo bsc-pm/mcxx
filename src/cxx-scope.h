@@ -86,7 +86,7 @@ scope_t* enclosing_namespace_scope(scope_t* st);
 scope_t* copy_scope(scope_t* st);
 
 // Get the fully qualified symbol name in the scope of the ocurrence
-char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st);
+char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* is_dependent, int* max_qualif_level);
 char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st);
 char same_scope(scope_t* stA, scope_t* stB);
 
