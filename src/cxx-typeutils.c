@@ -3213,11 +3213,12 @@ static char* get_simple_type_name_string_internal(scope_t* st, simple_type_t* si
                 result = get_fully_qualified_symbol_name(simple_type->user_defined_type,
                         st, &is_dependent, &max_level);
 
-                if (is_dependent && max_level >= 1)
+                // If is a dependent name and it is qualified then it can be
+                // given a "typename" keyword (in some cases one must do that)
+                if (is_dependent && max_level > 0)
                 {
                     result = strappend("typename ", result);
                 }
-                fprintf(stderr, "-> %s [is_dep=%d][max_level=%d]\n", result, is_dependent, max_level);
                 break;
             }
         case STK_TYPEOF :
