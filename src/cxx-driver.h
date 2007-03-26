@@ -5,6 +5,7 @@
 #include "cxx-scope.h"
 #include "cxx-scopelink.h"
 #include "cxx-macros.h"
+#include "cxx-driver-decls.h"
 
 MCXX_BEGIN_DECLS
 
