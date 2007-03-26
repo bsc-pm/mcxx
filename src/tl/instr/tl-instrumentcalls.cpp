@@ -213,6 +213,11 @@ namespace TL
         return true;
     }
 
+    InstrumentCalls::MainWrapper::MainWrapper(ScopeLink sl)
+        : _sl(sl)
+    {
+    }
+
     void InstrumentCalls::MainWrapper::preorder(Context ctx, AST_t node)
     {
         // Do nothing
