@@ -246,6 +246,9 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
     int indexptr;
     char* output_file = NULL;
 
+    // Must be set zero
+    optind = 0;
+
     // Flags -E/-y and -c are incompatible
     static char c_specified = 0;
     static char E_specified = 0;

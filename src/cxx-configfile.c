@@ -49,7 +49,19 @@ int config_set_options(char* value)
     int num;
     char** comma_options = blank_separate_values(value, &num);
 
-    parse_arguments(num, comma_options, /* from_command_line= */ 0);
+    num++;
+    char** real_options = calloc(num, sizeof(*real_options));
+
+    int i;
+    for (i = 1; i < num; i++)
+    {
+        real_options[i] = comma_options[i - 1];
+    }
+
+    // This is a fake argument name that getopt_long requires
+    real_options[0] = strdup("mcxx");
+
+    parse_arguments(num, real_options, /* from_command_line= */ 0);
 
     return 0;
 }
