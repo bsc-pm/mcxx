@@ -1,3 +1,23 @@
+/*
+    Mercurium C/C++ Compiler
+    Copyright (C) 2006-2007 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
+    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
+    Universitat Politecnica de Catalunya
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 2 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program; if not, write to the Free Software
+    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+*/
 %{
 /*
    Parser of ISO/IEC 14882:2003 - C++
@@ -650,18 +670,44 @@ asm_definition : ASM '(' string_literal ')' ';'
 			$4, NULL, NULL, NULL, ASTLine($4), NULL);
 	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
 }
+// ( string_literal : asm_operand_list )
+// ( string_literal : )
 | ASM volatile_optional '(' string_literal ':' asm_operand_list ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, $6, NULL, NULL, ASTLine($4), NULL);
 	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
 }
+// ( string_literal : asm_operand_list : asm_operand_list )
+// ( string_literal : asm_operand_list : )
+// ( string_literal : : asm_operand_list )
+// ( string_literal :: asm_operand_list ) [C++ only]
+// ( string_literal : : )
+// ( string_literal :: ) [C++ only]
 | ASM volatile_optional '(' string_literal ':' asm_operand_list ':' asm_operand_list ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, $6, $8, NULL, ASTLine($4), NULL);
 	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
 }
+// ( string_literal : asm_operand_list : asm_operand_list : asm_operand_list )
+// ( string_literal : : asm_operand_list : asm_operand_list )
+// ( string_literal :: asm_operand_list : asm_operand_list ) [C++ only]
+// ( string_literal : asm_operand_list : : asm_operand_list )
+// ( string_literal : asm_operand_list :: asm_operand_list ) [C++ only]
+// ( string_literal : asm_operand_list : asm_operand_list : )
+// ( string_literal : : : asm_operand_list )
+// ( string_literal :: : asm_operand_list ) [C++ only] (1)
+// ( string_literal : :: asm_operand_list ) [C++ only]
+// ( string_literal ::: asm_operand_list )  [C++ only] [will be lexed likewise (1)]
+// ( string_literal : asm_operand_list : : )
+// ( string_literal : asm_operand_list :: ) [C++ only]
+// ( string_literal : : asm_operand_list : )
+// ( string_literal :: asm_operand_list : ) [C++ only]
+// ( string_literal : : : )
+// ( string_literal :: : ) [C++ only] (2)
+// ( string_literal : :: ) [C++ only]
+// ( string_literal ::: ) [C++ only] [will be lexed likewise (2)]
 | ASM volatile_optional '(' string_literal ':' asm_operand_list ':' asm_operand_list ':' asm_operand_list ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 

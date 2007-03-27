@@ -1,0 +1,3019 @@
+2007-03-22 16:31  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-03-22 16:24  rferrer
+
+	* configure.ac:
+
+2007-03-22 15:35  rferrer
+
+	* src/Makefile.am, src/cxx-ambiguity.c, src/cxx-ast-decls.h,
+	  src/cxx-ast.h, src/cxx-buildscope-decls.h, src/cxx-buildscope.c,
+	  src/cxx-buildscope.h, src/cxx-driver-decls.h, src/cxx-driver.h,
+	  src/cxx-lexer.h, src/cxx-scope-decls.h, src/cxx-scope.h,
+	  src/cxx-scopelink-decls.h, src/cxx-scopelink.c,
+	  src/cxx-scopelink.h, src/cxx-solvetemplate.h, src/cxx-tltype.h,
+	  src/cxx-typeunif.h, src/tl/tl-scopelink.cpp,
+	  src/tl/tl-source.cpp:
+
+2007-03-20 17:17  rferrer
+
+	* src/cxx-typeutils.c, src/tl/tl-omp.cpp, src/tl/tl-omp.hpp:
+
+2007-03-20 16:38  rferrer
+
+	* src/cxx-ambiguity.c, src/tl/omp/tl-omptransform.cpp:
+
+2007-03-19 17:12  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-03-19 16:39  rferrer
+
+	* src/cxx-buildscope.c:
+
+2007-03-19 16:28  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ast.c, src/cxx-attrnames.def,
+	  src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-instantiation.c, src/cxx-instantiation.h,
+	  src/cxx-printscope.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-solvetemplate.c, src/cxx-solvetemplate.h,
+	  src/cxx-typeunif.c, src/tl/tl-langconstruct.cpp,
+	  src/tl/tl-langconstruct.hpp, tests/mcxx.dg/success_049.cpp,
+	  tests/mcxx.dg/success_050.cpp, tests/mcxx.dg/success_051.cpp:
+
+2007-03-15 17:07  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-03-15 16:50  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-03-15 10:15  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-03-14 10:39  rferrer
+
+	* src/c99.y.in, src/cxx-ambiguity.c, src/cxx03.y.in,
+	  src/tl/omp/tl-omptransform.cpp, src/tl/tl-objectlist.hpp,
+	  src/tl/tl-omp.cpp, src/tl/tl-omp.hpp, src/tl/tl-symbol.cpp,
+	  src/tl/tl-symbol.hpp:
+
+2007-03-13 07:43  rferrer
+
+	* src/cxx-scope.c:
+
+2007-03-13 07:39  rferrer
+
+	* src/tl/tl-ast.cpp:
+
+2007-03-12 11:01  rferrer
+
+	* src/c99.y.in, src/cxx-lexer.l, src/cxx03.y.in:
+
+2007-03-12 10:07  rferrer
+
+	* src/tl/instr/Makefile.am, src/tl/instr/tl-instrumentation.cpp,
+	  src/tl/instr/tl-instrumentcalls.cpp,
+	  src/tl/instr/tl-instrumentcalls.hpp,
+	  src/tl/instr/tl-instrumentfilter.cpp,
+	  src/tl/instr/tl-instrumentfilter.hpp:
+
+2007-03-08 08:09  rferrer
+
+	* src/cxx-koenig.h, src/cxx-overload.h, src/cxx-typecalc.h:
+
+2007-03-07 19:37  rferrer
+
+	* src/Makefile.am:
+
+2007-03-07 19:36  rferrer
+
+	* src/cxx-koenig.c:
+
+2007-03-07 19:36  rferrer
+
+	* src/cxx-overload.c, src/cxx-typecalc.c:
+
+2007-03-07 10:51  rferrer
+
+	* configure.ac, src/cxx-driver.c:
+
+2007-03-07 10:32  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp, src/tl/tl-type.cpp:
+
+2007-03-06 17:35  rferrer
+
+	* lib/extstruct.c, lib/extstruct.h, src/tl/tl-ast.cpp,
+	  src/tl/tl-object.cpp:
+
+2007-03-06 16:22  rferrer
+
+	* src/c99.y.in, src/cxx03.y.in:
+
+2007-03-06 16:19  rferrer
+
+	* src/c99.y.in, src/cxx-omp.y, src/cxx03.y.in,
+	  src/tl/omp/tl-omptransform.cpp:
+
+2007-03-06 05:48  rferrer
+
+	* configure.ac:
+
+2007-03-06 05:40  rferrer
+
+	* configure.ac:
+
+2007-03-05 17:40  rferrer
+
+	* src/cxx-driver.c, src/tl/instr/tl-instrumentation.cpp,
+	  src/tl/omp/tl-omptransform.cpp:
+
+2007-02-27 14:58  rferrer
+
+	* src/cxx-buildscope.c:
+
+2007-02-27 09:55  rferrer
+
+	* src/tl/tl-langconstruct.cpp:
+
+2007-02-27 09:37  rferrer
+
+	* src/cxx-scope.h, src/tl/mypragma/tl-mypragma.cpp,
+	  src/tl/omp/tl-omptransform.cpp, src/tl/tl-langconstruct.cpp,
+	  src/tl/tl-langconstruct.hpp:
+
+2007-02-26 16:59  rferrer
+
+	* src/cxx-attrnames.def, src/cxx-buildscope.c:
+
+2007-02-26 15:58  drodenas
+
+	* src/tl/acotes/tl-acotestransform.cpp: Some changes.
+	  Revision for graph optimization needed.
+
+2007-02-26 15:20  rferrer
+
+	* src/tl/tl-ast.cpp, src/tl/tl-ast.hpp,
+	  src/tl/tl-langconstruct.cpp, src/tl/tl-langconstruct.hpp:
+
+2007-02-26 10:03  rferrer
+
+	* src/cxx-attrnames.def, src/cxx-buildscope.c,
+	  src/tl/tl-pragmasupport.cpp, src/tl/tl-pragmasupport.hpp:
+
+2007-02-26 09:54  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-construct.y, src/cxx-prettyprint.c:
+
+2007-02-26 09:42  rferrer
+
+	* src/Makefile.am:
+
+2007-02-26 09:42  rferrer
+
+	* src/Makefile.am, src/c99.y.in, src/cxx-asttype.def,
+	  src/cxx-construct.y, src/cxx-lexer.l, src/cxx-prettyprint.c,
+	  src/cxx03.y.in:
+
+2007-02-26 09:26  rferrer
+
+	* src/Makefile.am, src/cxx-buildscope.c, src/cxx-lexer.l,
+	  src/cxx-pragma.y, src/cxx-prettyprint.c:
+
+2007-02-26 07:48  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-02-22 11:32  rferrer
+
+	* doc/mcxx-internals.texi:
+
+2007-02-22 11:28  rferrer
+
+	* doc/mcxx-internal.texi, doc/mcxx-internals.texi:
+
+2007-02-22 11:27  rferrer
+
+	* Makefile.am, configure.ac, doc, doc/Makefile.am,
+	  doc/mcxx-internal.texi, src/cxx-utils.c:
+
+2007-02-22 11:18  drodenas
+
+	* configure.ac: Fixed unfortunate names chosen for enable_tl_XXX
+
+2007-02-22 10:11  drodenas
+
+	* src/tl/Makefile.am: Fixed mypragma directory
+
+2007-02-22 07:34  rferrer
+
+	* src/cxx-lexer.l:
+
+2007-02-21 17:31  rferrer
+
+	* src/cxx-lexer.l:
+
+2007-02-21 14:43  rferrer
+
+	* src/cxx-driver.c:
+
+2007-02-21 14:39  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-typeutils.c,
+	  src/tl/omp/tl-omptransform.cpp:
+
+2007-02-21 11:17  rferrer
+
+	* config/Makefile.am, config/config.mcxx, config/config.mcxx.in,
+	  configure.ac:
+
+2007-02-21 10:21  rferrer
+
+	* src/c99.y.in, src/cxx-omp.y, src/cxx-pragma.y, src/cxx03.y.in:
+
+2007-02-20 20:23  drodenas
+
+	* src/tl/acotes/tl-acotestransform.cpp: Nested task support added.
+
+2007-02-20 18:16  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-02-20 18:11  rferrer
+
+	* configure.ac, src/tl/Makefile.am:
+
+2007-02-20 17:17  drodenas
+
+	* src/tl/acotes, src/tl/acotes/Makefile.am,
+	  src/tl/acotes/tl-acotestransform.cpp,
+	  src/tl/acotes/tl-acotestransform.hpp: Added light support to
+	  acotes,
+	  not nested tasks, not optimization.
+
+2007-02-20 16:29  rferrer
+
+	* src/cxx-attrnames.def, src/cxx-buildscope.c,
+	  src/tl/omp/tl-omptransform.cpp, src/tl/tl-symbol.cpp,
+	  src/tl/tl-symbol.hpp:
+
+2007-02-19 13:11  rferrer
+
+	* src/tl/instr/tl-instrumentation.cpp:
+
+2007-02-19 10:51  rferrer
+
+	* src/cxx-typeutils.c, src/tl/instr/tl-instrumentation.cpp:
+
+2007-02-19 10:02  rferrer
+
+	* lib/extstruct.c, lib/extstruct.h, lib/tpp.c, src/cxx-ambiguity.c,
+	  src/cxx-ast.c, src/cxx-ast.h, src/cxx-attrnames.def,
+	  src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-cexpr.c,
+	  src/cxx-compilerphases.cpp, src/cxx-configfile.c,
+	  src/cxx-driver.c, src/cxx-driver.h, src/cxx-dyninit.c,
+	  src/cxx-instantiation.c, src/cxx-instantiation.h,
+	  src/cxx-macros.h, src/cxx-prettyprint.c, src/cxx-printscope.c,
+	  src/cxx-scope.c, src/cxx-scope.h, src/cxx-scopelink.c,
+	  src/cxx-scopelink.h, src/cxx-solvetemplate.c, src/cxx-tltype.c,
+	  src/cxx-tltype.h, src/cxx-typeunif.c, src/cxx-typeutils.c,
+	  src/cxx-typeutils.h, src/cxx-utils.c,
+	  src/tl/instr/tl-instrumentation.cpp,
+	  src/tl/mypragma/tl-mypragma.cpp, src/tl/omp/tl-omptransform.cpp,
+	  src/tl/omp/tl-omptransform.hpp, src/tl/tl-ast.cpp,
+	  src/tl/tl-ast.hpp, src/tl/tl-builtin.hpp,
+	  src/tl/tl-compilerphase.hpp, src/tl/tl-context.hpp,
+	  src/tl/tl-dto.hpp, src/tl/tl-externalvars.cpp,
+	  src/tl/tl-externalvars.hpp, src/tl/tl-functor.hpp,
+	  src/tl/tl-handler.hpp, src/tl/tl-langconstruct.cpp,
+	  src/tl/tl-langconstruct.hpp, src/tl/tl-object.cpp,
+	  src/tl/tl-object.hpp, src/tl/tl-objectlist.cpp,
+	  src/tl/tl-objectlist.hpp, src/tl/tl-omp.cpp, src/tl/tl-omp.hpp,
+	  src/tl/tl-pragmasupport.cpp, src/tl/tl-pragmasupport.hpp,
+	  src/tl/tl-predicate.hpp, src/tl/tl-predicateutils.hpp,
+	  src/tl/tl-scope.cpp, src/tl/tl-scope.hpp,
+	  src/tl/tl-scopelink.cpp, src/tl/tl-scopelink.hpp,
+	  src/tl/tl-source.cpp, src/tl/tl-source.hpp, src/tl/tl-symbol.cpp,
+	  src/tl/tl-symbol.hpp, src/tl/tl-traverse.cpp,
+	  src/tl/tl-traverse.hpp, src/tl/tl-type.cpp, src/tl/tl-type.hpp: *
+	  Whitespace fixes
+	  * Better template scopes handling
+
+2007-02-15 10:13  rferrer
+
+	* tests/mcxx.dg/success_048.cpp:
+
+2007-02-15 10:13  rferrer
+
+	* src/cxx-instantiation.c, src/cxx-typeutils.c, tests/Makefile.am:
+
+2007-02-15 09:15  rferrer
+
+	* src/cxx-typeutils.c, tests/Makefile.am,
+	  tests/mcxx.dg/success_047.cpp:
+
+2007-02-15 08:59  rferrer
+
+	* src/cxx-typeutils.c:
+
+2007-02-14 16:08  rferrer
+
+	* src/cxx-buildscope.c, src/tl/instr/tl-instrumentation.cpp:
+
+2007-02-13 15:31  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-02-13 13:02  rferrer
+
+	* src/tl/mypragma/README:
+
+2007-02-13 11:27  drodenas
+
+	* src/cxx-lexer.l: Corrected spourious message about white-space
+	  about custom directives.
+	  Check if not mandatory?
+
+2007-02-13 11:02  rferrer
+
+	* src/cxx-lexer.l:
+
+2007-02-13 07:40  rferrer
+
+	* configure.ac:
+
+2007-02-12 22:37  rferrer
+
+	* src/c99.y.in, src/cxx03.y.in, src/tl/mypragma/tl-mypragma.cpp,
+	  src/tl/tl-pragmasupport.cpp, src/tl/tl-pragmasupport.hpp:
+
+2007-02-12 18:16  rferrer
+
+	* src/cxx-configfile.c, src/tl/Makefile.am, src/tl/mypragma,
+	  src/tl/mypragma/Makefile.am, src/tl/mypragma/tl-mypragma.cpp,
+	  src/tl/mypragma/tl-mypragma.hpp:
+
+2007-02-12 15:16  rferrer
+
+	* src/cxx-driver.c, src/cxx-utils.c:
+
+2007-02-11 12:04  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-02-10 23:06  rferrer
+
+	* mcxx/branches/1.0/src/tl/omp/tl-omptransform.cpp,
+	  src/tl/omp/tl-omptransform.cpp: Corregides les reductions a
+	  #pragma omp for no orfenat
+
+2007-02-09 14:37  rferrer
+
+	* configure.ac, src/Makefile.am:
+
+2007-02-09 14:19  rferrer
+
+	* configure.ac, lib/Makefile.am, src/Makefile.am, src/cxx-driver.c,
+	  src/tl/Makefile.am:
+
+2007-02-09 09:11  rferrer
+
+	* src/cxx03.y.in:
+
+2007-02-09 05:52  rferrer
+
+	* src/cxx-buildscope.c:
+
+2007-02-08 21:26  rferrer
+
+	* src/c99.y.in, src/cxx-buildscope.c, src/cxx-pragma.y:
+
+2007-02-08 17:40  rferrer
+
+	* src/cxx-buildscope.c, src/tl/omp/tl-omptransform.cpp:
+
+2007-02-08 15:19  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-02-08 15:12  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp, src/tl/tl-ast.cpp:
+
+2007-02-08 13:03  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-02-08 12:55  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-02-08 07:55  rferrer
+
+	* lib/Makefile.am, src/tl/Makefile.am, src/tl/instr/Makefile.am,
+	  src/tl/omp/Makefile.am, tests/Makefile.am:
+
+2007-02-07 16:56  rferrer
+
+	* configure.ac:
+
+2007-02-07 16:53  rferrer
+
+	* configure.ac:
+
+2007-02-07 16:34  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-02-06 18:34  xavim
+
+	* src/tl/omp/tl-omptransform.cpp: nthf_create_1s_vp_ called with
+	  the correct number of arguments, including
+	  nth_mask, and number of nano-threads arguments computed
+	  correctly.
+	  
+	  BT.S -nth -t 2 works on the cell processor.
+
+2007-02-06 16:43  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-attrnames.def,
+	  src/tl/omp/tl-omptransform.cpp, src/tl/omp/tl-omptransform.hpp,
+	  src/tl/tl-langconstruct.cpp, src/tl/tl-langconstruct.hpp:
+
+2007-02-06 11:21  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp:
+
+2007-02-06 10:26  rferrer
+
+	* src/tl/omp/tl-omptransform.cpp, src/tl/tl-langconstruct.cpp,
+	  src/tl/tl-langconstruct.hpp:
+
+2007-02-05 15:18  rferrer
+
+	* src/cxx-ambiguity.c, src/tl/omp/tl-omptransform.cpp:
+
+2007-02-05 09:02  rferrer
+
+	* configure.ac, src/tl/Makefile.am:
+
+2007-02-05 08:09  rferrer
+
+	* src/tl/Makefile.am, src/tl/instr, src/tl/instrumentation,
+	  src/tl/tl-instrumentation.cpp, src/tl/tl-instrumentation.hpp:
+
+2007-02-05 08:07  rferrer
+
+	* src/tl/instrumentation, src/tl/instrumentation/Makefile.am,
+	  src/tl/instrumentation/tl-instrumentation.cpp,
+	  src/tl/instrumentation/tl-instrumentation.hpp:
+
+2007-02-05 08:02  rferrer
+
+	* src/tl/omp/Makefile.in:
+
+2007-02-05 08:01  rferrer
+
+	* src/tl/Makefile.am, src/tl/omp/tl-omptransform.cpp,
+	  src/tl/omp/tl-omptransform.hpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-omptransform.hpp:
+
+2007-02-05 08:01  rferrer
+
+	* src/tl/omp, src/tl/omp/Makefile.am, src/tl/omp/Makefile.in:
+
+2007-02-05 07:44  rferrer
+
+	* src/tl/tl-langconstruct.hpp, src/tl/tl-omp.cpp,
+	  src/tl/tl-omp.hpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-pragmasupport.cpp, src/tl/tl-pragmasupport.hpp:
+
+2007-02-04 23:49  rferrer
+
+	* src/tl/tl-pragmasupport.cpp, src/tl/tl-pragmasupport.hpp:
+
+2007-02-04 23:45  rferrer
+
+	* src/cxx-attrnames.def, src/cxx-buildscope.c, src/tl/Makefile.am,
+	  src/tl/tl-omp.cpp, src/tl/tl-pragmasupport.cpp,
+	  src/tl/tl-pragmasupport.hpp:
+
+2007-02-02 20:12  rferrer
+
+	* src/Makefile.am, src/c99.y.in, src/cxx-asttype.def,
+	  src/cxx-configfile.c, src/cxx-configoptions.gperf,
+	  src/cxx-driver.h, src/cxx-lexer.l, src/cxx-omp.y,
+	  src/cxx-pragma.y, src/cxx-prettyprint.c, src/cxx03.y.in:
+
+2007-02-02 16:00  rferrer
+
+	* src/cxx-lexer.l:
+
+2007-02-02 15:28  rferrer
+
+	* lib/tpp.c, src/c99.y.in, src/cxx-buildscope.c,
+	  src/cxx-configfile.c, src/cxx-configfile.h,
+	  src/cxx-configoptions.gperf, src/cxx-driver.h, src/cxx-lexer.l,
+	  src/cxx-prettyprint.c, src/cxx03.y.in,
+	  src/tl/tl-omptransform.cpp, src/tl/tl-source.cpp,
+	  src/tl/tl-source.hpp:
+
+2007-02-01 16:56  rferrer
+
+	* src/c99.y.in, src/cxx-asttype.def, src/cxx-lexer.l,
+	  src/cxx03.y.in, src/tl/tl-omptransform.cpp, src/tl/tl-source.cpp,
+	  src/tl/tl-source.hpp:
+
+2007-02-01 14:48  rferrer
+
+	* src/tl/tl-functor.hpp, src/tl/tl-objectlist.hpp,
+	  src/tl/tl-omptransform.cpp, src/tl/tl-scope.cpp,
+	  src/tl/tl-scope.hpp:
+
+2007-02-01 08:27  rferrer
+
+	* src/tl/tl-functor.hpp, src/tl/tl-handler.hpp,
+	  src/tl/tl-omptransform.cpp:
+
+2007-01-31 17:30  rferrer
+
+	* src/cxx-buildscope.c, src/tl/tl-omp.cpp,
+	  src/tl/tl-omptransform.cpp:
+
+2007-01-30 17:40  rferrer
+
+	* src/tl/tl-omptransform.cpp:
+
+2007-01-30 10:45  rferrer
+
+	* src/tl/tl-omptransform.cpp:
+
+2007-01-26 16:18  rferrer
+
+	* src/tl/tl-omptransform.cpp, src/tl/tl-predicateutils.hpp,
+	  src/tl/tl-type.cpp, src/tl/tl-type.hpp:
+
+2007-01-25 16:20  rferrer
+
+	* src/tl/tl-instrumentation.cpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-type.cpp, src/tl/tl-type.hpp:
+
+2007-01-24 15:07  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-printscope.c,
+	  src/cxx-scope.h, src/cxx-typeutils.c,
+	  src/tl/tl-langconstruct.cpp, src/tl/tl-langconstruct.hpp,
+	  src/tl/tl-omp.cpp, src/tl/tl-omp.hpp, src/tl/tl-omptransform.cpp:
+
+2007-01-24 07:58  rferrer
+
+	* src/cxx-lexer.l:
+
+2007-01-23 15:45  rferrer
+
+	* src/tl/tl-instrumentation.cpp, src/tl/tl-omptransform.cpp:
+
+2007-01-22 11:34  rferrer
+
+	* src/tl/tl-langconstruct.cpp:
+
+2007-01-19 17:52  rferrer
+
+	* src/cxx-prettyprint.c, src/cxx-prettyprint.h, src/tl/tl-ast.cpp,
+	  src/tl/tl-ast.hpp, src/tl/tl-instrumentation.cpp,
+	  src/tl/tl-omptransform.cpp:
+
+2007-01-18 18:01  rferrer
+
+	* src/tl/tl-instrumentation.cpp:
+
+2007-01-18 17:58  rferrer
+
+	* src/tl/tl-instrumentation.cpp:
+
+2007-01-18 17:20  rferrer
+
+	* src/tl/tl-instrumentation.cpp:
+
+2007-01-18 15:45  rferrer
+
+	* lib/extstruct.h, src/cxx-ambiguity.c, src/cxx-ast.c,
+	  src/cxx-ast.h, src/cxx-buildscope.c, src/cxx-driver.c,
+	  src/cxx-lexer.l, src/cxx-typeutils.c, src/tl/tl-ast.cpp,
+	  src/tl/tl-builtin.hpp, src/tl/tl-instrumentation.cpp,
+	  src/tl/tl-source.cpp:
+
+2007-01-17 18:08  rferrer
+
+	* src/cxx-attrnames.def, src/cxx-buildscope.c,
+	  src/tl/tl-instrumentation.cpp:
+
+2007-01-16 17:28  rferrer
+
+	* src/cxx-driver.c:
+
+2007-01-16 09:34  rferrer
+
+	* src/cxx-driver.c, src/tl/tl-omptransform.cpp:
+
+2007-01-15 15:54  rferrer
+
+	* src/cxx-attrnames.def, src/cxx-buildscope.c, src/cxx-omp.y,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h, src/tl/tl-omp.cpp,
+	  src/tl/tl-omp.hpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-type.cpp, src/tl/tl-type.hpp:
+
+2007-01-12 17:00  rferrer
+
+	* src/tl/tl-instrumentation.cpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-type.cpp, src/tl/tl-type.hpp:
+
+2007-01-12 16:26  rferrer
+
+	* config/config.mcxx:
+
+2007-01-12 11:14  rferrer
+
+	* src/cxx-typeutils.c, src/cxx-typeutils.h, src/tl/tl-type.cpp,
+	  src/tl/tl-type.hpp:
+
+2007-01-11 17:41  rferrer
+
+	* src/Makefile.am, src/cxx-asttype.def, src/cxx-configfile.c,
+	  src/cxx-driver.c, src/cxx-driver.h, src/cxx-omp.y,
+	  src/tl/Makefile.am, src/tl/tl-instrumentation.cpp:
+
+2007-01-11 15:01  rferrer
+
+	* src/tl/Makefile.am, src/tl/tl-externalvars.cpp,
+	  src/tl/tl-externalvars.hpp, src/tl/tl-object.cpp:
+
+2007-01-11 14:06  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-compilerphases.cpp,
+	  src/cxx-configfile.c, src/cxx-configfile.h,
+	  src/cxx-configoptions.gperf, src/cxx-driver.h, src/cxx-scope.c,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h, src/tl/Makefile.am,
+	  src/tl/tl-compilerphase.hpp, src/tl/tl-instrumentation.cpp,
+	  src/tl/tl-instrumentation.hpp, src/tl/tl-type.cpp,
+	  src/tl/tl-type.hpp:
+
+2007-01-08 16:38  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-scope.c:
+
+2007-01-08 14:29  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-lexer.l:
+
+2007-01-05 09:34  rferrer
+
+	* src/cxx-lexer.l:
+
+2007-01-04 16:08  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-typeutils.c,
+	  src/tl/tl-omptransform.cpp:
+
+2007-01-03 17:01  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h, src/cxx-utils.c,
+	  src/cxx-utils.h, src/tl/tl-omptransform.cpp, src/tl/tl-type.cpp,
+	  src/tl/tl-type.hpp:
+
+2007-01-01 14:16  rferrer
+
+	* src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2007-01-01 11:00  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-instantiation.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-symbol.cpp, src/tl/tl-symbol.hpp, src/tl/tl-type.cpp:
+
+2006-12-30 22:42  rferrer
+
+	* src/tl/tl-omptransform.cpp:
+
+2006-12-30 22:39  rferrer
+
+	* src/c99.y.in, src/cxx-attrnames.def, src/cxx-buildscope.c,
+	  src/cxx-buildscope.h, src/cxx-scope.c, src/cxx03.y.in,
+	  src/tl/tl-ast.cpp, src/tl/tl-ast.hpp,
+	  src/tl/tl-langconstruct.cpp, src/tl/tl-langconstruct.hpp,
+	  src/tl/tl-omptransform.cpp, src/tl/tl-source.cpp:
+
+2006-12-30 12:07  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-driver.c, src/cxx03.y.in,
+	  src/tl/tl-ast.cpp, src/tl/tl-langconstruct.cpp,
+	  src/tl/tl-omptransform.cpp:
+
+2006-12-29 21:17  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-attrnames.def, src/cxx-buildscope.c,
+	  src/tl/tl-langconstruct.cpp, src/tl/tl-langconstruct.hpp,
+	  src/tl/tl-omptransform.cpp, src/tl/tl-scope.cpp,
+	  src/tl/tl-scope.hpp:
+
+2006-12-29 18:04  rferrer
+
+	* src/tl/tl-langconstruct.cpp, src/tl/tl-langconstruct.hpp:
+
+2006-12-29 17:03  rferrer
+
+	* src/cxx-buildscope.c:
+
+2006-12-29 16:41  rferrer
+
+	* src/tl/tl-langconstruct.hpp:
+
+2006-12-29 15:28  rferrer
+
+	* src/c99.y.in, src/cxx-ambiguity.c, src/cxx-driver.c,
+	  src/cxx-driver.h, src/cxx03.y.in, src/tl/tl-source.cpp:
+
+2006-12-29 14:46  rferrer
+
+	* configure.ac, src/tl/tl-omp.cpp:
+
+2006-12-29 14:30  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-lexer.l,
+	  src/tl/tl-langconstruct.cpp, src/tl/tl-omp.cpp,
+	  src/tl/tl-omp.hpp, src/tl/tl-omptransform.cpp:
+
+2006-12-29 10:56  rferrer
+
+	* src/cxx-prettyprint.c, src/tl/tl-omp.cpp, src/tl/tl-omp.hpp,
+	  src/tl/tl-omptransform.cpp:
+
+2006-12-29 09:29  rferrer
+
+	* lib/tpp.c:
+
+2006-12-29 09:24  rferrer
+
+	* src/Makefile.am, src/c99.y, src/c99.y.in, src/cxx-omp.y,
+	  src/cxx03.y, src/cxx03.y.in:
+
+2006-12-29 08:18  rferrer
+
+	* src/c99.y, src/cxx03.y:
+
+2006-12-29 08:18  rferrer
+
+	* lib/tpp.c:
+
+2006-12-29 07:59  rferrer
+
+	* lib/tpp.c:
+
+2006-12-28 18:14  rferrer
+
+	* src/tl/tl-ast.cpp:
+
+2006-12-28 17:52  rferrer
+
+	* src/c99.y, src/cxx-asttype.def, src/cxx-attrnames.def,
+	  src/cxx-buildscope.c, src/cxx-lexer.l, src/cxx03.y,
+	  src/tl/tl-ast.cpp, src/tl/tl-ast.hpp, src/tl/tl-omp.cpp,
+	  src/tl/tl-omp.hpp, src/tl/tl-omptransform.cpp:
+
+2006-12-28 16:10  rferrer
+
+	* src/c99.y, src/cxx-lexer.l, src/cxx-prettyprint.c, src/cxx03.y,
+	  src/tl/tl-omptransform.cpp, src/tl/tl-source.cpp,
+	  src/tl/tl-source.hpp:
+
+2006-12-28 13:46  xteruel
+
+	* configure.ac: Canviat el check de flex
+
+2006-12-28 13:46  xteruel
+
+	* src/Makefile.am: Eliminat -lstdc++
+
+2006-12-28 13:39  xteruel
+
+	* regenerate.sh:
+
+2006-12-28 13:38  xteruel
+
+	* configure.ac:
+
+2006-12-27 22:36  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-printscope.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-typeutils.c,
+	  tests/mcxx.dg/success_026.cpp:
+
+2006-12-26 19:32  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-instantiation.c,
+	  src/cxx-overload.c, src/cxx-printscope.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-solvetemplate.c, src/cxx-typeunif.c,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h,
+	  tests/mcxx.dg/success_045.cpp, tests/mcxx.dg/success_046.cpp:
+
+2006-12-23 18:59  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-typeutils.c:
+
+2006-12-23 15:36  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-driver.c, src/cxx-utils.c,
+	  src/tl/tl-type.cpp:
+
+2006-12-23 12:20  rferrer
+
+	* src/cxx-configfile.c, src/cxx-typeutils.c, src/cxx-utils.c,
+	  src/cxx-utils.h:
+
+2006-12-22 18:32  rferrer
+
+	* src/tl/tl-omptransform.cpp:
+
+2006-12-22 17:48  rferrer
+
+	* src/tl/tl-omptransform.cpp:
+
+2006-12-22 17:24  rferrer
+
+	* src/tl/tl-ast.cpp:
+
+2006-12-22 17:09  rferrer
+
+	* src/tl/tl-ast.cpp, src/tl/tl-omptransform.cpp:
+
+2006-12-22 10:56  rferrer
+
+	* src/tl/tl-omptransform.cpp:
+
+2006-12-22 09:47  rferrer
+
+	* src/c99.y, src/cxx-asttype.def, src/cxx-buildscope.c,
+	  src/cxx-prettyprint.c, src/cxx03.y, src/tl/tl-ast.cpp,
+	  src/tl/tl-omptransform.cpp:
+
+2006-12-21 17:18  rferrer
+
+	* src/tl/tl-omptransform.cpp:
+
+2006-12-21 16:03  rferrer
+
+	* src/tl/tl-omptransform.cpp:
+
+2006-12-21 15:58  rferrer
+
+	* src/cxx-driver.c:
+
+2006-12-21 15:57  rferrer
+
+	* src/cxx-driver.c, src/cxx-utils.c, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-source.cpp:
+
+2006-12-21 12:51  rferrer
+
+	* src/c99.y, src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-lexer.l, src/cxx-prettyprint.c, src/cxx03.y,
+	  src/tl/tl-ast.cpp, src/tl/tl-ast.hpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-source.cpp, src/tl/tl-source.hpp:
+
+2006-12-20 22:29  rferrer
+
+	* src/tl/tl-omp.cpp, src/tl/tl-omp.hpp:
+
+2006-12-20 22:18  rferrer
+
+	* src/cxx-buildscope.c, src/tl/tl-langconstruct.cpp,
+	  src/tl/tl-langconstruct.hpp:
+
+2006-12-20 17:42  rferrer
+
+	* src/cxx-buildscope.c, src/tl/tl-builtin.hpp, src/tl/tl-omp.cpp,
+	  src/tl/tl-omptransform.cpp:
+
+2006-12-19 14:42  rferrer
+
+	* src/Makefile.am, src/c99.y, src/cxx-ast.c, src/cxx-asttype.def,
+	  src/cxx-attrnames.def, src/cxx-buildscope.c, src/cxx-lexer.l,
+	  src/cxx-prettyprint.c, src/cxx-scopelink.c, src/cxx03.y,
+	  src/tl/tl-omp.cpp, src/tl/tl-omp.hpp:
+
+2006-12-18 17:11  rferrer
+
+	* src/c99.y, src/cxx-ambiguity.c, src/cxx-asttype.def,
+	  src/cxx-attrnames.def, src/cxx-buildscope.c, src/cxx-lexer.l,
+	  src/cxx-prettyprint.c, src/cxx-tltype.c, src/cxx03.y,
+	  src/tl/tl-ast.cpp, src/tl/tl-ast.hpp, src/tl/tl-omp.cpp,
+	  src/tl/tl-omp.hpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-source.hpp:
+
+2006-12-17 17:26  rferrer
+
+	* src/tl/tl-ast.hpp, src/tl/tl-omptransform.cpp:
+
+2006-12-17 17:12  rferrer
+
+	* src/tl/tl-omp.cpp, src/tl/tl-omp.hpp, src/tl/tl-omptransform.cpp:
+
+2006-12-15 16:53  rferrer
+
+	* src/tl/tl-builtin.hpp, src/tl/tl-omp.cpp, src/tl/tl-omp.hpp,
+	  src/tl/tl-omptransform.cpp:
+
+2006-12-14 17:14  rferrer
+
+	* src/tl/tl-ast.cpp, src/tl/tl-ast.hpp, src/tl/tl-omp.cpp,
+	  src/tl/tl-omp.hpp:
+
+2006-12-14 16:41  rferrer
+
+	* src/c99.y, src/cxx-asttype.def, src/cxx-attrnames.def,
+	  src/cxx-buildscope.c, src/cxx-lexer.l, src/cxx-prettyprint.c,
+	  src/cxx-tltype.c, src/cxx-tltype.h, src/cxx03.y,
+	  src/tl/tl-ast.cpp, src/tl/tl-ast.hpp, src/tl/tl-builtin.hpp,
+	  src/tl/tl-object.cpp, src/tl/tl-omp.cpp, src/tl/tl-omp.hpp,
+	  src/tl/tl-predicateutils.hpp:
+
+2006-12-14 08:57  rferrer
+
+	* src/tl/tl-omptransform.cpp:
+
+2006-12-13 15:43  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-attrnames.def, src/cxx-buildscope.c,
+	  src/tl/tl-omp.cpp, src/tl/tl-omp.hpp, src/tl/tl-omptransform.cpp:
+
+2006-12-12 13:21  rferrer
+
+	* Makefile.am, configure.ac, gc, lib/Makefile.am, lib/extstruct.c,
+	  lib/gcstring.c, lib/gcstring.h, lib/mcfg.c, lib/mcfg.h,
+	  lib/mem_ctl.c, lib/mem_ctl.h, src/Makefile.am, src/c99.y,
+	  src/cxx-ambiguity.c, src/cxx-ast.c, src/cxx-buildscope.c,
+	  src/cxx-configfile.c, src/cxx-driver.c, src/cxx-instantiation.c,
+	  src/cxx-lexer.l, src/cxx-overload.c, src/cxx-prettyprint.c,
+	  src/cxx-printscope.c, src/cxx-scope.c, src/cxx-scopelink.c,
+	  src/cxx-solvetemplate.c, src/cxx-typecalc.c, src/cxx-typeunif.c,
+	  src/cxx-typeutils.c, src/cxx-utils.c, src/cxx-utils.h,
+	  src/cxx03.y, src/tl/Makefile.am, src/tl/tl-ast.cpp,
+	  src/tl/tl-handler.hpp, src/tl/tl-object.hpp, src/tl/tl-omp.hpp,
+	  src/tl/tl-omptransform.cpp, src/tl/tl-source.cpp,
+	  src/tl/tl-type.cpp:
+
+2006-12-11 18:08  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-lexer.l,
+	  src/cxx-prettyprint.c, src/tl/tl-langconstruct.hpp,
+	  src/tl/tl-omp.cpp, src/tl/tl-omp.hpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-source.cpp:
+
+2006-11-30 16:00  rferrer
+
+	* src/cxx-lexer.l, src/tl/tl-objectlist.hpp,
+	  src/tl/tl-omptransform.cpp, src/tl/tl-source.cpp,
+	  src/tl/tl-source.hpp, src/tl/tl-type.cpp, src/tl/tl-type.hpp:
+
+2006-11-29 19:31  rferrer
+
+	* src/tl/tl-objectlist.hpp, src/tl/tl-omptransform.cpp:
+
+2006-11-29 19:00  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-attrnames.def, src/cxx-buildscope.c,
+	  src/tl/tl-langconstruct.cpp, src/tl/tl-langconstruct.hpp,
+	  src/tl/tl-omp.cpp, src/tl/tl-omp.hpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-predicateutils.hpp, src/tl/tl-source.cpp,
+	  src/tl/tl-source.hpp, src/tl/tl-symbol.cpp, src/tl/tl-symbol.hpp:
+
+2006-11-28 21:46  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-attrnames.def, src/cxx-buildscope.c,
+	  src/tl/tl-builtin.hpp, src/tl/tl-langconstruct.cpp,
+	  src/tl/tl-langconstruct.hpp:
+
+2006-11-28 17:30  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-attrnames.def, src/cxx-buildscope.c,
+	  src/tl/tl-langconstruct.cpp, src/tl/tl-langconstruct.hpp:
+
+2006-11-28 15:37  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-attrnames.def,
+	  src/tl/tl-langconstruct.cpp, src/tl/tl-langconstruct.hpp,
+	  src/tl/tl-objectlist.hpp, src/tl/tl-omp.cpp, src/tl/tl-omp.hpp,
+	  src/tl/tl-omptransform.cpp:
+
+2006-11-24 17:32  rferrer
+
+	* src/Makefile.am, src/cxx-attrnames.def, src/cxx-buildscope.c,
+	  src/cxx-driver.c, src/tl/Makefile.am, src/tl/tl-functor.cpp,
+	  src/tl/tl-functor.hpp, src/tl/tl-langconstruct.cpp,
+	  src/tl/tl-langconstruct.hpp, src/tl/tl-objectlist.hpp,
+	  src/tl/tl-omp.cpp, src/tl/tl-omp.hpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-scope.cpp, src/tl/tl-scope.hpp:
+
+2006-11-23 10:39  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-driver.c,
+	  src/cxx-lexer.l, src/cxx03.y, src/tl/tl-ast.cpp,
+	  src/tl/tl-ast.hpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-source.cpp, src/tl/tl-source.hpp, src/tl/tl-symbol.cpp,
+	  src/tl/tl-symbol.hpp, src/tl/tl-type.hpp:
+
+2006-11-22 15:46  rferrer
+
+	* src/tl/tl-omptransform.cpp, src/tl/tl-symbol.cpp,
+	  src/tl/tl-symbol.hpp, src/tl/tl-type.cpp:
+
+2006-11-22 13:37  rferrer
+
+	* src/cxx-lexer.l, src/cxx-printscope.c, src/tl/tl-ast.cpp,
+	  src/tl/tl-objectlist.hpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-predicateutils.hpp, src/tl/tl-source.cpp:
+
+2006-11-22 10:52  rferrer
+
+	* src/tl/tl-functor.hpp, src/tl/tl-langconstruct.cpp,
+	  src/tl/tl-objectlist.hpp, src/tl/tl-omp.cpp,
+	  src/tl/tl-omptransform.cpp, src/tl/tl-predicateutils.hpp:
+
+2006-11-17 14:47  rferrer
+
+	* src/Makefile.am, src/cxx-ambiguity.c, src/cxx-attrnames.def,
+	  src/cxx-buildscope.c, src/cxx-scope.h,
+	  src/tl/tl-langconstruct.cpp, src/tl/tl-langconstruct.hpp,
+	  src/tl/tl-objectlist.hpp, src/tl/tl-omp.cpp,
+	  src/tl/tl-omptransform.cpp, src/tl/tl-source.cpp,
+	  src/tl/tl-symbol.cpp, src/tl/tl-symbol.hpp:
+
+2006-11-15 07:57  rferrer
+
+	* src/cxx-lexer.l, src/tl/tl-ast.cpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-source.cpp:
+
+2006-11-15 06:55  rferrer
+
+	* src/cxx-lexer.l:
+
+2006-11-14 21:35  rferrer
+
+	* src/cxx-driver.c:
+
+2006-11-14 21:21  rferrer
+
+	* src/cxx-driver.c, src/tl/tl-ast.cpp:
+
+2006-11-14 20:56  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-lexer.l:
+
+2006-11-14 16:07  rferrer
+
+	* src/tl/tl-langconstruct.cpp, src/tl/tl-langconstruct.hpp,
+	  src/tl/tl-omptransform.cpp:
+
+2006-11-14 15:29  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c,
+	  src/cxx-compilerphases.cpp, src/cxx-scope.c, src/cxx-scopelink.c,
+	  src/tl/tl-ast.cpp, src/tl/tl-langconstruct.cpp,
+	  src/tl/tl-langconstruct.hpp, src/tl/tl-omptransform.cpp,
+	  src/tl/tl-scope.cpp, src/tl/tl-symbol.hpp:
+
+2006-11-13 18:09  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-scopelink.c, src/cxx-scopelink.h,
+	  src/tl/tl-ast.cpp, src/tl/tl-ast.hpp, src/tl/tl-context.hpp,
+	  src/tl/tl-functor.hpp, src/tl/tl-langconstruct.cpp,
+	  src/tl/tl-langconstruct.hpp, src/tl/tl-objectlist.cpp,
+	  src/tl/tl-objectlist.hpp, src/tl/tl-omp.cpp, src/tl/tl-omp.hpp,
+	  src/tl/tl-omptransform.cpp, src/tl/tl-predicate.hpp,
+	  src/tl/tl-predicateutils.hpp, src/tl/tl-scope.cpp,
+	  src/tl/tl-scope.hpp, src/tl/tl-scopelink.cpp,
+	  src/tl/tl-scopelink.hpp, src/tl/tl-symbol.cpp,
+	  src/tl/tl-symbol.hpp, src/tl/tl-traverse.cpp,
+	  src/tl/tl-traverse.hpp, src/tl/tl-type.cpp, src/tl/tl-type.hpp:
+
+2006-11-09 15:58  rferrer
+
+	* src/cxx-attrnames.def, src/cxx-buildscope.c, src/tl/Makefile.am,
+	  src/tl/tl-ast.hpp, src/tl/tl-compilerphase.hpp,
+	  src/tl/tl-handler.cpp, src/tl/tl-handler.hpp,
+	  src/tl/tl-langconstruct.cpp, src/tl/tl-langconstruct.hpp,
+	  src/tl/tl-objectlist.hpp, src/tl/tl-omp.cpp, src/tl/tl-omp.hpp,
+	  src/tl/tl-omptransform.cpp, src/tl/tl-omptransform.hpp:
+
+2006-11-07 17:46  rferrer
+
+	* lib/extstruct.c, lib/extstruct.h:
+
+2006-11-07 13:41  rferrer
+
+	* src/tl/tl-omp.cpp:
+
+2006-11-07 13:34  rferrer
+
+	* src/tl/tl-builtin.hpp, src/tl/tl-omp.cpp:
+
+2006-11-07 13:03  rferrer
+
+	* src/cxx-buildscope.c, src/tl/tl-ast.cpp, src/tl/tl-ast.hpp,
+	  src/tl/tl-builtin.hpp, src/tl/tl-omp.cpp, src/tl/tl-scope.cpp,
+	  src/tl/tl-scope.hpp, src/tl/tl-scopelink.cpp,
+	  src/tl/tl-scopelink.hpp, src/tl/tl-source.cpp,
+	  src/tl/tl-source.hpp, src/tl/tl-symbol.cpp, src/tl/tl-symbol.hpp,
+	  src/tl/tl-type.cpp, src/tl/tl-type.hpp:
+
+2006-11-06 09:24  rferrer
+
+	* src/tl/tl-functor.cpp, src/tl/tl-functor.hpp,
+	  src/tl/tl-objectlist.cpp, src/tl/tl-objectlist.hpp:
+
+2006-11-06 09:08  rferrer
+
+	* src/tl/Makefile.am, src/tl/tl-ast.cpp, src/tl/tl-ast.hpp,
+	  src/tl/tl-omp.cpp, src/tl/tl-predicate.hpp,
+	  src/tl/tl-predicateutils.hpp, src/tl/tl-traverse.cpp,
+	  src/tl/tl-traverse.hpp:
+
+2006-11-03 16:59  rferrer
+
+	* src/tl/tl-omp.cpp:
+
+2006-11-03 10:50  rferrer
+
+	* src/tl/tl-ast.cpp, src/tl/tl-ast.hpp, src/tl/tl-context.hpp,
+	  src/tl/tl-object.hpp, src/tl/tl-omp.cpp, src/tl/tl-omp.hpp,
+	  src/tl/tl-scope.cpp, src/tl/tl-scope.hpp,
+	  src/tl/tl-scopelink.hpp, src/tl/tl-source.cpp,
+	  src/tl/tl-source.hpp, src/tl/tl-symbol.cpp, src/tl/tl-symbol.hpp,
+	  src/tl/tl-traverse.cpp, src/tl/tl-traverse.hpp,
+	  src/tl/tl-type.cpp, src/tl/tl-type.hpp:
+
+2006-11-02 16:41  rferrer
+
+	* src/Makefile.am, src/cxx-ast.c, src/tl/tl-ast.cpp,
+	  src/tl/tl-omp.cpp, src/tl/tl-traverse.cpp,
+	  src/tl/tl-traverse.hpp:
+
+2006-11-02 15:38  rferrer
+
+	* src/tl/tl-omp.cpp:
+
+2006-11-02 15:37  rferrer
+
+	* src/Makefile.am, src/cxx-compilerphases.cpp, src/tl/Makefile.am,
+	  src/tl/tl-ast.cpp, src/tl/tl-ast.hpp, src/tl/tl-builtin.hpp,
+	  src/tl/tl-context.cpp, src/tl/tl-context.hpp, src/tl/tl-dto.hpp,
+	  src/tl/tl-object.cpp, src/tl/tl-object.hpp, src/tl/tl-omp.cpp,
+	  src/tl/tl-predicate.hpp, src/tl/tl-predicateutils.cpp,
+	  src/tl/tl-predicateutils.hpp, src/tl/tl-scope.hpp,
+	  src/tl/tl-scopelink.hpp, src/tl/tl-traverse.cpp,
+	  src/tl/tl-traverse.hpp:
+
+2006-11-02 07:41  rferrer
+
+	* src/Makefile.am, src/cxx-attrnames.def, src/cxx-buildscope.c:
+
+2006-11-01 14:57  rferrer
+
+	* src/tl/tl-ast.hpp, src/tl/tl-builtin.hpp, src/tl/tl-scope.hpp,
+	  src/tl/tl-scopelink.hpp, src/tl/tl-source.hpp,
+	  src/tl/tl-type.hpp:
+
+2006-11-01 14:33  rferrer
+
+	* src/tl/tl-ast.cpp, src/tl/tl-ast.hpp, src/tl/tl-dto.hpp,
+	  src/tl/tl-object.cpp, src/tl/tl-object.hpp, src/tl/tl-omp.cpp,
+	  src/tl/tl-predicate.hpp, src/tl/tl-scope.cpp,
+	  src/tl/tl-scope.hpp, src/tl/tl-scopelink.cpp,
+	  src/tl/tl-scopelink.hpp, src/tl/tl-source.cpp,
+	  src/tl/tl-source.hpp, src/tl/tl-symbol.cpp, src/tl/tl-symbol.hpp,
+	  src/tl/tl-traverse.cpp, src/tl/tl-traverse.hpp,
+	  src/tl/tl-type.cpp, src/tl/tl-type.hpp:
+
+2006-10-31 16:10  rferrer
+
+	* src/tl/Makefile.am, src/tl/tl-ast.cpp, src/tl/tl-ast.hpp,
+	  src/tl/tl-context.cpp, src/tl/tl-context.hpp,
+	  src/tl/tl-object.cpp, src/tl/tl-omp.cpp, src/tl/tl-source.cpp,
+	  src/tl/tl-source.hpp, src/tl/tl-traverse.cpp,
+	  src/tl/tl-traverse.hpp:
+
+2006-10-27 15:53  rferrer
+
+	* src/c99.y, src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-lexer.l, src/cxx03.y, src/tl/tl-ast.cpp,
+	  src/tl/tl-ast.hpp, src/tl/tl-scope.hpp, src/tl/tl-source.cpp,
+	  src/tl/tl-source.hpp, src/tl/tl-type.cpp, src/tl/tl-type.hpp:
+
+2006-10-27 13:45  rferrer
+
+	* src/tl/tl-type.cpp, src/tl/tl-type.hpp:
+
+2006-10-27 12:46  rferrer
+
+	* src/cxx-driver.c, src/cxx-macros.h, src/tl/tl-ast.hpp,
+	  src/tl/tl-omp.cpp, src/tl/tl-source.cpp, src/tl/tl-source.hpp,
+	  src/tl/tl-type.cpp, src/tl/tl-type.hpp:
+
+2006-10-26 16:30  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-lexer.l, src/cxx-scope.h,
+	  src/cxx03.y:
+
+2006-10-26 16:29  rferrer
+
+	* src/tl/Makefile.am, src/tl/tl-ast.cpp, src/tl/tl-ast.hpp,
+	  src/tl/tl-omp.cpp, src/tl/tl-scope.cpp, src/tl/tl-scope.hpp,
+	  src/tl/tl-scopelink.hpp, src/tl/tl-source.cpp,
+	  src/tl/tl-source.hpp, src/tl/tl-symbol.cpp, src/tl/tl-symbol.hpp,
+	  src/tl/tl-type.cpp, src/tl/tl-type.hpp:
+
+2006-10-26 08:51  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-compilerphases.cpp:
+
+2006-10-26 08:51  rferrer
+
+	* src/tl/Makefile.am, src/tl/tl-ast.cpp, src/tl/tl-ast.hpp,
+	  src/tl/tl-context.cpp, src/tl/tl-context.hpp,
+	  src/tl/tl-contextlink.cpp, src/tl/tl-contextlink.hpp,
+	  src/tl/tl-omp.cpp, src/tl/tl-scope.cpp, src/tl/tl-scope.hpp,
+	  src/tl/tl-scopelink.cpp, src/tl/tl-scopelink.hpp,
+	  src/tl/tl-source.hpp:
+
+2006-10-26 06:57  rferrer
+
+	* src/tl/Makefile.am, src/tl/tl-ast.hpp, src/tl/tl-context.cpp,
+	  src/tl/tl-context.hpp, src/tl/tl-contextlink.cpp,
+	  src/tl/tl-contextlink.hpp, src/tl/tl-object.hpp,
+	  src/tl/tl-omp.cpp, src/tl/tl-source.hpp:
+
+2006-10-25 17:11  rferrer
+
+	* src/cxx-lexer.h, src/cxx-lexer.l, src/tl/Makefile.am,
+	  src/tl/tl-ast.hpp, src/tl/tl-source.cpp, src/tl/tl-source.hpp,
+	  src/tl/tl-type.hpp:
+
+2006-10-25 14:09  rferrer
+
+	* src/cxx-compilerphases.cpp, src/cxx-scopelink.h,
+	  src/tl/Makefile.am, src/tl/tl-ast.cpp, src/tl/tl-ast.hpp,
+	  src/tl/tl-builtin.hpp, src/tl/tl-compilerphase.hpp,
+	  src/tl/tl-context.cpp, src/tl/tl-context.hpp,
+	  src/tl/tl-contextlink.cpp, src/tl/tl-contextlink.hpp,
+	  src/tl/tl-object.cpp, src/tl/tl-object.hpp, src/tl/tl-omp.cpp,
+	  src/tl/tl-predicate.hpp, src/tl/tl-source.hpp,
+	  src/tl/tl-symbol.cpp, src/tl/tl-symbol.hpp, src/tl/tl-type.hpp:
+
+2006-10-25 09:07  rferrer
+
+	* lib/hash.h:
+
+2006-10-24 16:01  rferrer
+
+	* src/Makefile.am, src/cxx-ambiguity.c, src/cxx-buildscope.c,
+	  src/tl/tl-omp.cpp:
+
+2006-10-24 15:38  rferrer
+
+	* src/Makefile.am, src/cxx-ambiguity.c, src/cxx-attrnames.def,
+	  src/cxx-buildscope.c, src/cxx-driver.h, src/cxx-scope.c,
+	  src/cxx-scopelink.h:
+
+2006-10-24 08:23  rferrer
+
+	* configure.ac, lib/extstruct.c, lib/extstruct.h, lib/gcstring.h,
+	  lib/hash.h, lib/hash_iterator.h, lib/iterator.h, lib/list.h,
+	  lib/list_iterator.h, lib/mcfg.h, lib/mem_ctl.h, lib/s_types.h,
+	  lib/stack.h, lib/tpp.c, regenerate.sh, src/Makefile.am,
+	  src/cxx-ambiguity.h, src/cxx-ast.c, src/cxx-ast.h,
+	  src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-cexpr.h,
+	  src/cxx-compilerphases.cpp, src/cxx-compilerphases.hpp,
+	  src/cxx-configfile.h, src/cxx-driver.c, src/cxx-driver.h,
+	  src/cxx-dyninit.c, src/cxx-dyninit.h, src/cxx-graphviz.h,
+	  src/cxx-instantiation.h, src/cxx-koenig.h, src/cxx-lexer.h,
+	  src/cxx-macros.h, src/cxx-overload.h, src/cxx-prettyprint.h,
+	  src/cxx-printscope.h, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-scopelink.c, src/cxx-scopelink.h,
+	  src/cxx-solvetemplate.h, src/cxx-tltype.c, src/cxx-tltype.h,
+	  src/cxx-typecalc.h, src/cxx-typeunif.c, src/cxx-typeunif.h,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h, src/cxx-utils.h,
+	  src/tl, src/tl/Makefile.am, src/tl/tl-ast.cpp, src/tl/tl-ast.hpp,
+	  src/tl/tl-builtin.cpp, src/tl/tl-builtin.hpp,
+	  src/tl/tl-compilerphase.cpp, src/tl/tl-compilerphase.hpp,
+	  src/tl/tl-context.cpp, src/tl/tl-context.hpp, src/tl/tl-dto.cpp,
+	  src/tl/tl-dto.hpp, src/tl/tl-object.cpp, src/tl/tl-object.hpp,
+	  src/tl/tl-omp.cpp, src/tl/tl-omp.hpp, src/tl/tl-predicate.cpp,
+	  src/tl/tl-predicate.hpp, src/tl/tl-source.cpp,
+	  src/tl/tl-source.hpp, src/tl/tl-symbol.hpp, src/tl/tl-type.hpp:
+
+2006-10-24 08:19  rferrer
+
+	* gc/Makefile.in, gc/acinclude.m4, gc/aclocal.m4, gc/config.guess,
+	  gc/config.sub, gc/configure, gc/configure.in, gc/doc/Makefile.in,
+	  gc/include/Makefile.in, gc/libtool.m4, gc/ltmain.sh:
+
+2006-10-04 06:43  rferrer
+
+	* gc/include/gc_cpp.h:
+
+2006-10-03 10:40  rferrer
+
+	* configure.ac, lib/Makefile.am, lib/extstruct.c, lib/extstruct.h,
+	  lib/gcstring.c, lib/gcstring.h, src/Makefile.am, src/cxx-ast.c,
+	  src/cxx-ast.h, src/cxx-utils.c, src/cxx-utils.h:
+
+2006-10-01 13:56  rferrer
+
+	* lib/tpp.c, src/Makefile.am:
+
+2006-10-01 13:28  rferrer
+
+	* src/c99.y:
+
+2006-10-01 13:20  rferrer
+
+	* src/Makefile.am, src/cxx-lexer.l:
+
+2006-10-01 13:11  rferrer
+
+	* src/c99.l, src/cxx03.l:
+
+2006-10-01 13:11  rferrer
+
+	* lib/Makefile.am, lib/tpp.c:
+
+2006-09-30 14:08  rferrer
+
+	* src/cxx03.l:
+
+2006-09-30 14:06  rferrer
+
+	* src/cxx03.l:
+
+2006-09-30 14:05  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-prettyprint.c, src/cxx03.l:
+
+2006-09-29 17:18  rferrer
+
+	* src/cxx-asttype.def, src/cxx-buildscope.c,
+	  src/cxx-debugflags.gperf, src/cxx-driver.c, src/cxx-driver.h,
+	  src/cxx-prettyprint.c, src/cxx03.l, src/cxx03.y:
+
+2006-09-21 10:37  rferrer
+
+	* src/Makefile.am, src/cxx-ambiguity.c:
+
+2006-09-21 10:12  rferrer
+
+	* tests/mcxx.dg/success_044.cpp:
+
+2006-09-15 10:05  rferrer
+
+	* src/cxx-driver.c:
+
+2006-09-15 09:55  rferrer
+
+	* src/cxx-typeutils.c:
+
+2006-09-15 09:39  rferrer
+
+	* scripts, scripts/gmcxx:
+
+2006-09-15 09:38  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-instantiation.c, src/cxx-instantiation.h,
+	  src/cxx-scope.c, src/cxx-typeutils.c:
+
+2006-09-14 21:52  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-instantiation.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-typeutils.c:
+
+2006-09-14 21:19  rferrer
+
+	* src/cxx-buildscope.c:
+
+2006-09-14 16:01  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-scope.c, src/cxx-solvetemplate.c, src/cxx-typeutils.c:
+
+2006-09-13 16:32  rferrer
+
+	* src/cxx-buildscope.c:
+
+2006-09-13 15:43  rferrer
+
+	* tests/mcxx.dg/success_043.cpp:
+
+2006-09-13 15:42  rferrer
+
+	* src/cxx-scope.c, src/cxx-scope.h, src/cxx-typeutils.c:
+
+2006-09-13 10:50  rferrer
+
+	* tests/mcxx.dg/success_041.cpp, tests/mcxx.dg/success_042.cpp:
+
+2006-09-13 07:25  rferrer
+
+	* src/cxx-typeutils.c:
+
+2006-09-13 07:24  rferrer
+
+	* tests/mcxx.dg/success_040.cpp:
+
+2006-09-13 07:13  rferrer
+
+	* tests/mcxx.dg/success_039.cpp:
+
+2006-09-12 21:25  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-typeutils.c:
+
+2006-09-12 20:42  rferrer
+
+	* tests/mcxx.dg/success_036.cpp:
+
+2006-09-12 16:22  rferrer
+
+	* tests/mcxx.dg/success_036.cpp, tests/mcxx.dg/success_037.cpp,
+	  tests/mcxx.dg/success_038.cpp:
+
+2006-09-12 16:20  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-instantiation.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-solvetemplate.c, src/cxx-typeutils.c,
+	  src/cxx-typeutils.h, src/cxx03.y:
+
+2006-09-11 21:28  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-instantiation.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2006-09-11 16:48  rferrer
+
+	* src/cxx-scope.c:
+
+2006-09-11 16:45  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ambiguity.h, src/cxx-buildscope.c,
+	  src/cxx-buildscope.h, src/cxx-cexpr.c, src/cxx-cexpr.h,
+	  src/cxx-instantiation.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-solvetemplate.c, src/cxx-solvetemplate.h,
+	  src/cxx-typeunif.c, src/cxx-typeunif.h, src/cxx-typeutils.c,
+	  src/cxx-typeutils.h:
+
+2006-09-08 14:09  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-instantiation.c, src/cxx-scope.h, src/cxx-typeutils.c:
+
+2006-09-08 06:36  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-instantiation.c, src/cxx-scope.c,
+	  src/cxx-scope.h:
+
+2006-09-08 04:58  rferrer
+
+	* tests/mcxx.dg/success_035.cpp:
+
+2006-09-07 21:36  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-instantiation.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-solvetemplate.c, src/cxx-typeunif.c:
+
+2006-09-07 16:50  rferrer
+
+	* tests/mcxx.dg/success_016.cpp:
+
+2006-09-07 16:49  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-instantiation.c,
+	  src/cxx-typeutils.c:
+
+2006-09-07 15:39  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-instantiation.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2006-09-07 08:43  rferrer
+
+	* tests/mcxx.dg/success_034.cpp:
+
+2006-09-07 08:34  rferrer
+
+	* tests/mcxx.dg/success_033.cpp:
+
+2006-09-07 06:42  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-prettyprint.c, src/cxx-typeutils.c:
+
+2006-09-06 15:52  rferrer
+
+	* tests/mcxx.dg/success_031.cpp, tests/mcxx.dg/success_032.cpp:
+
+2006-09-06 15:04  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h:
+
+2006-09-06 14:53  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-instantiation.c, src/cxx-scope.c,
+	  src/cxx-solvetemplate.c, src/cxx-typeutils.c:
+
+2006-09-05 16:30  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-typeutils.c:
+
+2006-09-05 15:54  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-scope.c, src/cxx-typeutils.c:
+
+2006-09-05 15:06  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c,
+	  src/cxx-instantiation.c, src/cxx-printscope.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-typeunif.c, src/cxx-typeutils.c,
+	  src/cxx-typeutils.h:
+
+2006-09-05 14:06  rferrer
+
+	* tests/mcxx.dg/success_026.cpp:
+
+2006-09-05 14:01  rferrer
+
+	* tests/mcxx.dg/success_026.cpp:
+
+2006-09-05 14:00  rferrer
+
+	* tests/mcxx.dg/success_030.cpp:
+
+2006-09-05 10:23  rferrer
+
+	* tests/mcxx.dg/success_029.cpp:
+
+2006-09-05 10:21  rferrer
+
+	* tests/mcxx.dg/success_028.cpp, tests/mcxx.dg/success_029.cpp:
+
+2006-09-04 15:53  rferrer
+
+	* tests/mcxx.dg/success_027.cpp:
+
+2006-09-04 15:50  rferrer
+
+	* tests/mcxx.dg/success_024.cpp, tests/mcxx.dg/success_025.cpp,
+	  tests/mcxx.dg/success_026.cpp:
+
+2006-09-04 06:44  rferrer
+
+	* src/c99.y, src/cxx-buildscope.c, src/cxx-cexpr.c,
+	  src/cxx-driver.c, src/cxx03.y:
+
+2006-09-01 16:20  rferrer
+
+	* tests/mcxx.dg/success_023.cpp:
+
+2006-09-01 09:16  rferrer
+
+	* tests/mcxx.dg/success_022.cpp:
+
+2006-09-01 08:55  rferrer
+
+	* tests/mcxx.dg/success_021.cpp:
+
+2006-09-01 08:28  rferrer
+
+	* src/cxx-driver.c:
+
+2006-08-20 16:26  rferrer
+
+	* tests/Makefile.am, tests/mcxx.dg/mcxx.exp:
+
+2006-08-20 16:01  rferrer
+
+	* src/cxx-driver.c, src/cxx-driver.h:
+
+2006-08-20 14:58  rferrer
+
+	* tests/Makefile.am:
+
+2006-08-20 14:53  rferrer
+
+	* config/Makefile.am, src/Makefile.am:
+
+2006-08-20 14:39  rferrer
+
+	* gc/Makefile.in:
+
+2006-08-20 14:37  rferrer
+
+	* gc/Makefile.am, gc/Makefile.in:
+
+2006-08-20 14:31  rferrer
+
+	* gc/Makefile.am, gc/Makefile.in, gc/configure, gc/doc/Makefile.in,
+	  gc/include/Makefile.in:
+
+2006-08-20 14:26  rferrer
+
+	* gc/configure.in:
+
+2006-08-20 13:53  rferrer
+
+	* src/c99.l, src/cxx-buildscope.c, src/cxx-instantiation.c,
+	  src/cxx-scope.h, src/cxx-typeutils.c, src/cxx03.l:
+
+2006-08-20 13:53  rferrer
+
+	* tests/mcxx.dg/success_016.cpp, tests/mcxx.dg/success_017.cpp,
+	  tests/mcxx.dg/success_018.cpp, tests/mcxx.dg/success_019.cpp,
+	  tests/mcxx.dg/success_020.cpp:
+
+2006-08-20 10:49  rferrer
+
+	* tests/mcxx.dg/failure_029.cpp, tests/mcxx.dg/success_015.cpp:
+
+2006-08-20 09:38  rferrer
+
+	* lib/getopt.c, lib/getopt.h, lib/getopt1.c, lib/hash.c,
+	  lib/hash.h, lib/hash_iterator.c, lib/iterator.h, lib/mcfg.c,
+	  lib/mcfg.h, lib/mem_ctl.h:
+
+2006-08-20 09:37  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ast.c, src/cxx-ast.h,
+	  src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-cexpr.c,
+	  src/cxx-cexpr.h, src/cxx-configfile.c, src/cxx-driver.c,
+	  src/cxx-driver.h, src/cxx-graphviz.c, src/cxx-instantiation.c,
+	  src/cxx-instantiation.h, src/cxx-koenig.c, src/cxx-lexer.h,
+	  src/cxx-overload.c, src/cxx-overload.h, src/cxx-prettyprint.c,
+	  src/cxx-printscope.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-solvetemplate.c, src/cxx-solvetemplate.h,
+	  src/cxx-typecalc.c, src/cxx-typecalc.h, src/cxx-typeunif.c,
+	  src/cxx-typeunif.h, src/cxx-typeutils.c, src/cxx-typeutils.h,
+	  src/cxx-utils.c, src/cxx-utils.h:
+
+2006-08-19 22:25  rferrer
+
+	* lib/mcfg.c, lib/mcfg.h:
+
+2006-08-19 22:23  rferrer
+
+	* src/Makefile.am, src/cxx-buildscope.c, src/cxx-driver.c:
+
+2006-08-19 22:11  rferrer
+
+	* tests/mcxx.dg/success_013.cpp, tests/mcxx.dg/success_014.cpp:
+
+2006-08-19 16:11  rferrer
+
+	* tests/mcxx.dg/mcxx.exp, tests/mcxx.dg/success_012.cpp:
+
+2006-08-19 16:10  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-cexpr.c, src/cxx-printscope.c:
+
+2006-08-19 14:53  rferrer
+
+	* tests/mcxx.dg/failure_006.cpp, tests/mcxx.dg/failure_007.cpp,
+	  tests/mcxx.dg/failure_008.cpp, tests/mcxx.dg/failure_009.cpp,
+	  tests/mcxx.dg/failure_010.cpp, tests/mcxx.dg/failure_011.cpp,
+	  tests/mcxx.dg/failure_012.cpp, tests/mcxx.dg/failure_013.cpp,
+	  tests/mcxx.dg/failure_014.cpp, tests/mcxx.dg/failure_015.cpp,
+	  tests/mcxx.dg/failure_016.cpp, tests/mcxx.dg/failure_017.cpp,
+	  tests/mcxx.dg/failure_018.cpp, tests/mcxx.dg/failure_019.cpp,
+	  tests/mcxx.dg/failure_020.cpp, tests/mcxx.dg/failure_021.cpp,
+	  tests/mcxx.dg/failure_022.cpp, tests/mcxx.dg/failure_023.cpp,
+	  tests/mcxx.dg/failure_024.cpp, tests/mcxx.dg/failure_025.cpp,
+	  tests/mcxx.dg/failure_026.cpp, tests/mcxx.dg/failure_027.cpp,
+	  tests/mcxx.dg/failure_028.cpp, tests/mcxx.dg/mcxx.exp,
+	  tests/mcxx.dg/success_006.cpp, tests/mcxx.dg/success_007.cpp,
+	  tests/mcxx.dg/success_008.cpp, tests/mcxx.dg/success_009.cpp,
+	  tests/mcxx.dg/success_010.cpp, tests/mcxx.dg/success_011.cpp:
+
+2006-08-19 14:43  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-driver.c, src/cxx-prettyprint.c:
+
+2006-08-19 11:03  rferrer
+
+	* tests/mcxx.dg/mcxx.exp:
+
+2006-08-18 20:13  rferrer
+
+	* tests/mcxx.dg/mcxx.exp:
+
+2006-08-18 15:26  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-debugflags.gperf, src/cxx-driver.c,
+	  src/cxx-driver.h, src/cxx-instantiation.c, src/cxx-printscope.c,
+	  src/cxx-printscope.h, src/cxx-scope.c, src/cxx-scope.h:
+
+2006-08-18 13:36  rferrer
+
+	* src/cxx-debugflags.gperf, src/cxx-driver.c, src/cxx-driver.h:
+
+2006-08-18 12:20  rferrer
+
+	* src/Makefile.am, src/cxx-debugflags.gperf, src/cxx-driver.c,
+	  src/cxx-driver.h, src/cxx-prettyprint.c, src/cxx-utils.h:
+
+2006-08-18 11:37  rferrer
+
+	* tests/mcxx.dg/failure_002.cpp, tests/mcxx.dg/failure_003.cpp,
+	  tests/mcxx.dg/failure_004.cpp, tests/mcxx.dg/failure_005.cpp,
+	  tests/mcxx.dg/mcxx.exp, tests/mcxx.dg/success_002.cpp,
+	  tests/mcxx.dg/success_003.cpp, tests/mcxx.dg/success_004.cpp,
+	  tests/mcxx.dg/success_005.cpp:
+
+2006-08-18 10:54  rferrer
+
+	* tests/mcxx.dg/mcxx.exp:
+
+2006-08-18 10:49  rferrer
+
+	* Makefile.am, configure.ac:
+
+2006-08-18 10:48  rferrer
+
+	* tests/mcxx.dg/mcxx.exp, tests/mcxx.dg/prova.exp:
+
+2006-08-18 10:48  rferrer
+
+	* tests, tests/Makefile.am, tests/config, tests/config/unix.exp,
+	  tests/mcxx.dg, tests/mcxx.dg/failure_001.cpp,
+	  tests/mcxx.dg/prova.exp, tests/mcxx.dg/success_001.cpp:
+
+2006-08-18 10:48  rferrer
+
+	* src/cxx-driver.c, src/cxx-driver.h, src/cxx-utils.h:
+
+2006-08-13 17:51  rferrer
+
+	* configure.ac, lib/Makefile.am:
+
+2006-08-13 17:51  rferrer
+
+	* src/Makefile.am, src/c99.l, src/c99.y, src/cxx-ambiguity.c,
+	  src/cxx-buildscope.c, src/cxx-driver.c, src/cxx-prettyprint.c,
+	  src/cxx-utils.c, src/cxx-utils.h, src/cxx03.l:
+
+2006-08-13 13:51  rferrer
+
+	* src/c99.y:
+
+2006-08-13 13:39  rferrer
+
+	* src/c99.l, src/c99.y, src/cxx-buildscope.c, src/cxx-driver.c,
+	  src/cxx-utils.c, src/cxx-utils.h, src/cxx03.y:
+
+2006-08-13 10:27  rferrer
+
+	* src/Makefile.am, src/cxx-driver.c, src/cxx-driver.h:
+
+2006-08-13 09:56  rferrer
+
+	* src/cxx03.y:
+
+2006-08-09 20:24  rferrer
+
+	* src/c99.y:
+
+2006-08-07 13:05  rferrer
+
+	* src/cxx-utils.c:
+
+2006-08-07 13:02  rferrer
+
+	* lib/hash.h, lib/hash_iterator.h:
+
+2006-08-05 15:04  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-prettyprint.c, src/cxx-utils.c,
+	  src/cxx-utils.h:
+
+2006-08-05 14:29  rferrer
+
+	* src/c99.l, src/c99.y, src/cxx-ambiguity.c, src/cxx-asttype.def,
+	  src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-driver.c,
+	  src/cxx-driver.h, src/cxx-utils.h, src/cxx03.l:
+
+2006-08-05 11:09  rferrer
+
+	* src/Makefile.am, src/c99.l, src/c99.y, src/cxx-asttype.def,
+	  src/cxx-driver.c, src/cxx-driver.h, src/cxx-lexer.h,
+	  src/cxx-prettyprint.c, src/cxx03.l, src/cxx03.y:
+
+2006-08-04 15:15  rferrer
+
+	* src/cxx-driver.c, src/cxx-utils.c:
+
+2006-07-31 16:25  rferrer
+
+	* src/cxx-driver.c:
+
+2006-07-31 16:16  rferrer
+
+	* src/cxx-driver.c, src/cxx-driver.h:
+
+2006-07-31 15:46  rferrer
+
+	* src/cxx-configfile.c, src/cxx-driver.c, src/cxx-driver.h,
+	  src/cxx-utils.c, src/cxx-utils.h:
+
+2006-07-31 13:39  rferrer
+
+	* config/config.mcxx:
+
+2006-07-31 12:58  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-asttype.def, src/cxx-buildscope.c,
+	  src/cxx-driver.c, src/cxx-driver.h, src/cxx-prettyprint.c,
+	  src/cxx03.l, src/cxx03.y:
+
+2006-07-31 08:36  rferrer
+
+	* config/Makefile.am:
+
+2006-07-28 16:33  rferrer
+
+	* src/cxx-driver.c:
+
+2006-07-28 16:17  rferrer
+
+	* src/cxx-driver.c, src/cxx-driver.h, src/cxx-fileextensions.gperf:
+
+2006-07-28 16:08  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-prettyprint.c:
+
+2006-07-28 15:17  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ast.c, src/cxx-buildscope.c,
+	  src/cxx-driver.c, src/cxx-scope.h, src/cxx-typeutils.c,
+	  src/cxx-utils.c, src/cxx03.y:
+
+2006-07-28 10:31  rferrer
+
+	* src/cxx-driver.c, src/cxx-driver.h:
+
+2006-07-28 09:29  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ast.c, src/cxx-ast.h,
+	  src/cxx-buildscope.c, src/cxx-cexpr.c, src/cxx-graphviz.c,
+	  src/cxx-lexer.h:
+
+2006-07-28 06:47  rferrer
+
+	* src/cxx-ast.c, src/cxx-ast.h, src/cxx-driver.c, src/cxx-driver.h,
+	  src/cxx-instantiation.c, src/cxx-lexer.h, src/cxx-prettyprint.c,
+	  src/cxx-prettyprint.h, src/cxx-typeutils.c, src/cxx-utils.c,
+	  src/cxx-utils.h, src/cxx03.l, src/cxx03.y:
+
+2006-07-26 15:58  rferrer
+
+	* Makefile.am, config/config.mcxx, configure.ac, lib/Makefile.am,
+	  lib/mcfg.c, lib/mcfg.h:
+
+2006-07-26 15:58  rferrer
+
+	* src/Makefile.am, src/cxx-configfile.c, src/cxx-configfile.h,
+	  src/cxx-configoptions.gperf, src/cxx-driver.c, src/cxx-driver.h,
+	  src/cxx-fileextensions.gperf, src/cxx-graphviz.c,
+	  src/cxx-utils.c, src/cxx-utils.h:
+
+2006-07-26 12:53  rferrer
+
+	* gc/Makefile.am, gc/Makefile.in, gc/configure, gc/doc/Makefile.am,
+	  gc/doc/Makefile.in, gc/include/Makefile.am,
+	  gc/include/Makefile.in:
+
+2006-07-26 09:45  rferrer
+
+	* src/Makefile.am:
+
+2006-07-26 09:45  rferrer
+
+	* src/Makefile.am, src/cxx-ambiguity.c, src/cxx-buildscope.c,
+	  src/cxx-buildscope.h, src/cxx-cexpr.c, src/cxx-driver.c,
+	  src/cxx-driver.h, src/cxx-extensions.gperf,
+	  src/cxx-fileextensions.gperf, src/cxx-instantiation.c,
+	  src/cxx-overload.c, src/cxx-prettyprint.c, src/cxx-prettyprint.h,
+	  src/cxx-scope.c, src/cxx-solvetemplate.c, src/cxx-typeunif.c,
+	  src/cxx-utils.h:
+
+2006-07-26 09:37  rferrer
+
+	* src/cxx-fileextensions.gperf:
+
+2006-07-26 09:36  rferrer
+
+	* src/cxx-extensions.gperf:
+
+2006-07-26 06:37  rferrer
+
+	* config, config/config.mcxx:
+
+2006-07-25 17:02  rferrer
+
+	* src/cxx-ambiguity.c:
+
+2006-07-25 16:24  rferrer
+
+	* src/cxx-buildscope.c, src/cxx03.y:
+
+2006-07-25 14:28  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-cexpr.c, src/cxx-scope.h, src/cxx-typeutils.c,
+	  src/cxx03.y:
+
+2006-07-25 09:11  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-asttype.def, src/cxx-buildscope.c,
+	  src/cxx-driver.c, src/cxx-prettyprint.c, src/cxx-scope.c,
+	  src/cxx-typeutils.c, src/cxx03.y:
+
+2006-07-24 09:32  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-solvetemplate.c, src/cxx-typeunif.c, src/cxx-typeutils.c:
+
+2006-07-23 18:07  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-typeunif.c, src/cxx-typeutils.c:
+
+2006-07-23 17:16  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-typeunif.c:
+
+2006-07-22 20:24  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-asttype.def, src/cxx-buildscope.c,
+	  src/cxx-prettyprint.c, src/cxx03.y:
+
+2006-07-21 16:37  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ambiguity.h, src/cxx-asttype.def,
+	  src/cxx-buildscope.c, src/cxx-cexpr.c, src/cxx-instantiation.c,
+	  src/cxx-prettyprint.c, src/cxx-printscope.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx03.y:
+
+2006-07-19 17:51  rferrer
+
+	* src/cxx-ambiguity.c:
+
+2006-07-19 17:29  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ast.c, src/cxx-buildscope.c,
+	  src/cxx-cexpr.c, src/cxx-driver.c, src/cxx-graphviz.c,
+	  src/cxx-graphviz.h, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-solvetemplate.c, src/cxx03.y:
+
+2006-07-18 16:46  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ambiguity.h, src/cxx-buildscope.c,
+	  src/cxx-cexpr.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-solvetemplate.c, src/cxx-typeutils.c:
+
+2006-07-18 12:28  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-typeutils.c:
+
+2006-07-18 10:13  rferrer
+
+	* src/cxx-buildscope.c:
+
+2006-07-18 09:06  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-scope.h,
+	  src/cxx-typeutils.c:
+
+2006-07-18 06:54  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-prettyprint.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-typeutils.c, src/cxx03.y:
+
+2006-07-17 09:53  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ast.c, src/cxx-ast.h,
+	  src/cxx-buildscope.c, src/cxx-typeutils.c:
+
+2006-07-17 08:17  rferrer
+
+	* src/cxx-buildscope.c:
+
+2006-07-17 06:55  rferrer
+
+	* src/cxx-buildscope.c:
+
+2006-07-14 16:39  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-instantiation.c,
+	  src/cxx-instantiation.h, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-solvetemplate.c, src/cxx-typeutils.c:
+
+2006-07-13 09:03  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-instantiation.c,
+	  src/cxx-instantiation.h, src/cxx-printscope.c, src/cxx-scope.c,
+	  src/cxx-scope.h:
+
+2006-07-13 08:06  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-instantiation.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-typeutils.c:
+
+2006-07-12 16:11  rferrer
+
+	* src/cxx-solvetemplate.c, src/cxx-typeunif.c:
+
+2006-07-12 15:43  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-instantiation.c:
+
+2006-07-12 14:23  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-instantiation.c, src/cxx-instantiation.h,
+	  src/cxx-scope.c, src/cxx-scope.h, src/cxx-typeunif.c,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h, src/cxx03.y:
+
+2006-07-10 12:55  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2006-07-10 09:29  rferrer
+
+	* src/cxx-buildscope.c:
+
+2006-07-10 09:25  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-cexpr.c,
+	  src/cxx-instantiation.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-typeutils.c:
+
+2006-07-07 15:02  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-typeutils.c:
+
+2006-07-06 15:19  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-typeutils.c:
+
+2006-07-05 16:12  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx03.y:
+
+2006-07-05 15:50  rferrer
+
+	* src/cxx-buildscope.c:
+
+2006-07-05 15:31  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-scope.c:
+
+2006-07-05 15:09  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-asttype.def, src/cxx-buildscope.c,
+	  src/cxx-buildscope.h, src/cxx-prettyprint.c, src/cxx-typeutils.c,
+	  src/cxx-typeutils.h, src/cxx03.y:
+
+2006-07-05 07:23  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c:
+
+2006-07-04 18:23  rferrer
+
+	* src/cxx-buildscope.c:
+
+2006-07-04 18:12  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-prettyprint.c, src/cxx03.y:
+
+2006-07-04 16:18  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2006-07-04 14:01  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c:
+
+2006-07-04 13:02  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-cexpr.c, src/cxx-instantiation.c,
+	  src/cxx-instantiation.h, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-solvetemplate.c, src/cxx-typeunif.c, src/cxx-typeutils.c,
+	  src/cxx03.y:
+
+2006-07-01 09:56  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-asttype.def, src/cxx-buildscope.c,
+	  src/cxx-prettyprint.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-solvetemplate.c, src/cxx-typeutils.c,
+	  src/cxx-typeutils.h, src/cxx03.y:
+
+2006-06-30 16:03  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-cexpr.c, src/cxx-cexpr.h,
+	  src/cxx-printscope.c, src/cxx-scope.c, src/cxx-solvetemplate.c:
+
+2006-06-30 09:31  rferrer
+
+	* src/cxx-instantiation.c, src/cxx-instantiation.h,
+	  src/cxx-scope.c, src/cxx-solvetemplate.c,
+	  src/cxx-solvetemplate.h:
+
+2006-06-30 08:42  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-instantiation.c, src/cxx-scope.c,
+	  src/cxx-solvetemplate.c:
+
+2006-06-30 07:30  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-scope.c,
+	  src/cxx-typecalc.c, src/cxx03.y:
+
+2006-06-30 06:07  rferrer
+
+	* src/cxx-instantiation.c, src/cxx-instantiation.h:
+
+2006-06-29 16:45  rferrer
+
+	* src/cxx-ambiguity.c:
+
+2006-06-29 15:50  rferrer
+
+	* src/cxx-asttype.def, src/cxx-buildscope.c, src/cxx-prettyprint.c,
+	  src/cxx-solvetemplate.c, src/cxx-utils.c, src/cxx-utils.h,
+	  src/cxx03.l, src/cxx03.y:
+
+2006-06-29 10:21  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-scope.h,
+	  src/cxx-solvetemplate.c:
+
+2006-06-29 07:18  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-scope.h,
+	  src/cxx03.y:
+
+2006-06-28 10:17  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-scope.c:
+
+2006-06-28 09:07  rferrer
+
+	* src/cxx-ast.h, src/cxx-buildscope.c, src/cxx-printscope.c:
+
+2006-06-28 07:10  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-solvetemplate.c,
+	  src/cxx-typeunif.h:
+
+2006-06-27 17:19  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ast.c, src/cxx-ast.h,
+	  src/cxx-asttype.def, src/cxx-buildscope.c, src/cxx-cexpr.c,
+	  src/cxx-cexpr.h, src/cxx-prettyprint.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-solvetemplate.c, src/cxx-typeunif.c,
+	  src/cxx-typeunif.h, src/cxx03.y:
+
+2006-06-26 16:33  rferrer
+
+	* src/Makefile.am, src/cxx-buildscope.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-solvetemplate.c,
+	  src/cxx-solvetemplate.h, src/cxx-typeunif.c, src/cxx-typeunif.h,
+	  src/cxx-typeutils.c:
+
+2006-06-23 15:14  rferrer
+
+	* src/cxx-scope.c:
+
+2006-06-23 10:26  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-scope.c:
+
+2006-06-22 17:10  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-solvetemplate.c, src/cxx-typeunif.c,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2006-06-21 17:14  rferrer
+
+	* src/cxx-buildscope.c:
+
+2006-06-21 16:53  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-scope.c:
+
+2006-06-21 16:21  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-cexpr.c,
+	  src/cxx-cexpr.h, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-typeutils.c, src/cxx03.y:
+
+2006-06-20 16:51  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-cexpr.c,
+	  src/cxx-scope.h, src/cxx-typeutils.c, src/cxx03.y:
+
+2006-06-20 09:31  rferrer
+
+	* src/cxx03.l, src/cxx03.y:
+
+2006-06-20 07:20  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-cexpr.c,
+	  src/cxx-scope.h, src/cxx-typeutils.c:
+
+2006-06-19 16:21  rferrer
+
+	* src/cxx-buildscope.c:
+
+2006-06-19 14:18  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-scope.h:
+
+2006-06-16 16:14  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-asttype.def, src/cxx-buildscope.c,
+	  src/cxx-cexpr.c, src/cxx-cexpr.h, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-solvetemplate.c,
+	  src/cxx-solvetemplate.h, src/cxx-typeutils.c, src/cxx03.y:
+
+2006-06-14 07:16  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-driver.c,
+	  src/cxx-scope.c, src/cxx-scope.h, src/cxx-typeutils.c,
+	  src/cxx-utils.h:
+
+2006-06-13 17:04  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-typeutils.c:
+
+2006-06-13 12:34  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ambiguity.h, src/cxx-buildscope.c,
+	  src/cxx-driver.c, src/cxx-printscope.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-typeutils.c, src/cxx03.y:
+
+2006-06-13 06:44  rferrer
+
+	* src/cxx-buildscope.c:
+
+2006-06-12 16:45  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-asttype.def, src/cxx-buildscope.c,
+	  src/cxx-prettyprint.c, src/cxx-utils.c, src/cxx-utils.h,
+	  src/cxx03.y:
+
+2006-06-12 16:26  rferrer
+
+	* lib/mem_ctl.c:
+
+2006-06-12 16:26  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ambiguity.h, src/cxx-ast.c,
+	  src/cxx-buildscope.c, src/cxx-driver.c, src/cxx-printscope.c,
+	  src/cxx-scope.c, src/cxx-scope.h, src/cxx-typeutils.c,
+	  src/cxx-utils.c, src/cxx-utils.h, src/cxx03.l, src/cxx03.y:
+
+2006-06-12 10:40  rferrer
+
+	* src/cxx-ambiguity.c:
+
+2006-06-12 10:32  rferrer
+
+	* src/Makefile.am:
+
+2006-06-12 10:28  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-koenig.c, src/cxx-overload.c,
+	  src/cxx-overload.h, src/cxx-typecalc.c, src/cxx-typecalc.h:
+
+2006-06-12 10:19  rferrer
+
+	* src/cxx-typecalc.c:
+
+2006-06-12 10:18  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ambiguity.h:
+
+2006-06-12 08:39  rferrer
+
+	* src/cxx-typecalc.c:
+
+2006-06-12 08:31  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ambiguity.h, src/cxx-buildscope.c,
+	  src/cxx-typecalc.c, src/cxx-typeutils.c:
+
+2006-06-09 15:44  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-overload.c, src/cxx-overload.h,
+	  src/cxx-scope.c, src/cxx-typecalc.c, src/cxx-typeutils.c,
+	  src/cxx-typeutils.h:
+
+2006-06-08 15:42  rferrer
+
+	* src/cxx-overload.c, src/cxx-typeutils.c:
+
+2006-06-08 12:44  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-typecalc.c, src/cxx-typeunif.c,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2006-06-08 10:34  rferrer
+
+	* src/cxx-overload.c, src/cxx-printscope.c, src/cxx-typecalc.c,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2006-06-07 16:25  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-koenig.c,
+	  src/cxx-overload.c, src/cxx-printscope.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-typecalc.c, src/cxx-typeutils.c:
+
+2006-06-07 12:29  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-koenig.c,
+	  src/cxx-printscope.c, src/cxx-scope.c, src/cxx-typecalc.c:
+
+2006-06-07 09:12  rferrer
+
+	* src/cxx-koenig.c:
+
+2006-06-07 09:02  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-koenig.c,
+	  src/cxx-overload.c, src/cxx-overload.h, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-typecalc.c, src/cxx-typecalc.h,
+	  src/cxx-utils.h:
+
+2006-06-06 12:57  rferrer
+
+	* src/cxx-overload.c, src/cxx-overload.h:
+
+2006-06-02 16:14  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-overload.c, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-typecalc.c, src/cxx-typecalc.h,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2006-06-02 09:06  rferrer
+
+	* src/cxx-overload.c, src/cxx-overload.h, src/cxx-typeutils.c,
+	  src/cxx-typeutils.h:
+
+2006-06-01 16:21  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-overload.c, src/cxx-scope.h,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2006-06-01 10:56  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-overload.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-typecalc.c, src/cxx-typeutils.c, src/cxx-typeutils.h,
+	  src/cxx-utils.c, src/cxx-utils.h:
+
+2006-05-31 15:33  rferrer
+
+	* src/cxx-overload.c, src/cxx-typeutils.c:
+
+2006-05-31 15:15  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-overload.c, src/cxx-scope.h:
+
+2006-05-31 13:43  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-overload.c, src/cxx-overload.h,
+	  src/cxx-scope.h, src/cxx-typecalc.c, src/cxx-typecalc.h,
+	  src/cxx-typeunif.c, src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2006-05-30 13:28  rferrer
+
+	* src/Makefile.am, src/cxx-buildscope.c, src/cxx-overload.c,
+	  src/cxx-overload.h, src/cxx-scope.h, src/cxx-typecalc.c,
+	  src/cxx-typeutils.c:
+
+2006-05-29 16:25  rferrer
+
+	* src/cxx-typecalc.c:
+
+2006-05-29 16:20  rferrer
+
+	* src/cxx-typecalc.c:
+
+2006-05-29 15:44  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-scope.h,
+	  src/cxx-typecalc.c, src/cxx-typecalc.h:
+
+2006-05-29 10:43  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-asttype.def, src/cxx-prettyprint.c,
+	  src/cxx-typecalc.c, src/cxx-typecalc.h, src/cxx03.y:
+
+2006-05-26 16:35  rferrer
+
+	* src/Makefile.am, src/cxx-ambiguity.c, src/cxx-cexpr.c,
+	  src/cxx-cexpr.h, src/cxx-koenig.c, src/cxx-koenig.h,
+	  src/cxx-scope.h, src/cxx-typecalc.c, src/cxx-typecalc.h:
+
+2006-05-26 10:17  rferrer
+
+	* src/cxx-asttype.def, src/cxx-buildscope.c, src/cxx-prettyprint.c,
+	  src/cxx-scope.c, src/cxx-solvetemplate.c, src/cxx03.y:
+
+2006-05-26 08:45  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-scope.c, src/cxx-scope.h,
+	  src/cxx-solvetemplate.c:
+
+2006-05-26 07:06  rferrer
+
+	* src/cxx-solvetemplate.c:
+
+2006-05-26 06:43  rferrer
+
+	* src/cxx-cexpr.c:
+
+2006-05-25 14:57  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ambiguity.h, src/cxx-buildscope.c:
+
+2006-05-25 12:17  rferrer
+
+	* src/cxx03.y:
+
+2006-05-25 08:55  rferrer
+
+	* src/cxx-ambiguity.c:
+
+2006-05-25 07:35  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ambiguity.h, src/cxx-buildscope.c,
+	  src/cxx-scope.c, src/cxx03.y:
+
+2006-05-22 15:16  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ambiguity.h, src/cxx-buildscope.c,
+	  src/cxx-driver.c:
+
+2006-05-19 09:10  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-printscope.c, src/cxx-scope.c,
+	  src/cxx03.y:
+
+2006-05-19 08:07  rferrer
+
+	* src/cxx-scope.c, src/cxx-typeutils.c:
+
+2006-05-19 07:15  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-scope.c, src/cxx-scope.h:
+
+2006-05-18 20:04  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-cexpr.c, src/cxx-scope.c,
+	  src/cxx-scope.h:
+
+2006-05-18 15:37  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-scope.c, src/cxx-scope.h:
+
+2006-05-18 09:53  rferrer
+
+	* src/cxx-scope.c, src/cxx-scope.h:
+
+2006-05-18 09:34  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-scope.c, src/cxx-scope.h:
+
+2006-05-17 16:05  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-scope.c, src/cxx-scope.h:
+
+2006-05-17 13:50  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-printscope.c, src/cxx-scope.c,
+	  src/cxx-scope.h:
+
+2006-05-17 09:24  rferrer
+
+	* src/cxx-buildscope.h, src/cxx-printscope.h, src/cxx-scope.h:
+
+2006-05-17 09:23  rferrer
+
+	* src/Makefile.am, src/cxx-buildscope.c, src/cxx-buildscope.h,
+	  src/cxx-buildsymtab.c, src/cxx-buildsymtab.h, src/cxx-cexpr.c,
+	  src/cxx-cexpr.h, src/cxx-driver.c, src/cxx-driver.h,
+	  src/cxx-printscope.c, src/cxx-printscope.h,
+	  src/cxx-printsymtab.c, src/cxx-printsymtab.h, src/cxx-scope.c,
+	  src/cxx-scope.h, src/cxx-solvetemplate.c,
+	  src/cxx-solvetemplate.h, src/cxx-symtab.c, src/cxx-symtab.h,
+	  src/cxx-typeunif.c, src/cxx-typeunif.h, src/cxx-typeutils.c,
+	  src/cxx-typeutils.h:
+
+2006-05-16 17:32  rferrer
+
+	* lib/mem_ctl.c:
+
+2006-05-16 13:57  rferrer
+
+	* gc/include/gc.h, src/cxx03.l:
+
+2006-05-16 13:47  rferrer
+
+	* gc/configure, gc/configure.in:
+
+2006-05-16 13:40  rferrer
+
+	* gc/Makefile.in, gc/aclocal.m4, gc/configure, gc/configure.in,
+	  gc/doc/Makefile.in, gc/include/Makefile.in, lib/Makefile.am,
+	  lib/hash_iterator.c, lib/list_iterator.c, lib/mem_ctl.h:
+
+2006-05-16 12:42  rferrer
+
+	* Makefile.am, configure.ac, gc, gc/AmigaOS.c, gc/BCC_MAKEFILE,
+	  gc/EMX_MAKEFILE, gc/MacOS.c, gc/MacProjects.sit.hqx,
+	  gc/Mac_files, gc/Mac_files/MacOS_Test_config.h,
+	  gc/Mac_files/MacOS_config.h, gc/Mac_files/dataend.c,
+	  gc/Mac_files/datastart.c, gc/Makefile.DLLs, gc/Makefile.am,
+	  gc/Makefile.direct, gc/Makefile.dj, gc/Makefile.in,
+	  gc/NT_MAKEFILE, gc/NT_STATIC_THREADS_MAKEFILE,
+	  gc/NT_THREADS_MAKEFILE, gc/OS2_MAKEFILE, gc/PCR-Makefile,
+	  gc/README.QUICK, gc/SMakefile.amiga, gc/WCC_MAKEFILE,
+	  gc/acinclude.m4, gc/aclocal.m4, gc/add_gc_prefix.c,
+	  gc/allchblk.c, gc/alloc.c, gc/alpha_mach_dep.S, gc/backgraph.c,
+	  gc/blacklst.c, gc/callprocs, gc/checksums.c, gc/config.guess,
+	  gc/config.sub, gc/configure, gc/configure.host, gc/configure.in,
+	  gc/cord, gc/cord/cordbscs.c, gc/cord/cordprnt.c,
+	  gc/cord/cordtest.c, gc/cord/cordxtra.c, gc/cord/de.c,
+	  gc/cord/de_cmds.h, gc/cord/de_win.ICO, gc/cord/de_win.RC,
+	  gc/cord/de_win.c, gc/cord/de_win.h, gc/darwin_stop_world.c,
+	  gc/dbg_mlc.c, gc/depcomp, gc/digimars.mak, gc/doc,
+	  gc/doc/Makefile.am, gc/doc/Makefile.in, gc/doc/README,
+	  gc/doc/README.DGUX386, gc/doc/README.Mac, gc/doc/README.MacOSX,
+	  gc/doc/README.OS2, gc/doc/README.amiga, gc/doc/README.arm.cross,
+	  gc/doc/README.autoconf, gc/doc/README.changes,
+	  gc/doc/README.contributors, gc/doc/README.cords,
+	  gc/doc/README.darwin, gc/doc/README.dj,
+	  gc/doc/README.environment, gc/doc/README.ews4800,
+	  gc/doc/README.hp, gc/doc/README.linux, gc/doc/README.macros,
+	  gc/doc/README.rs6000, gc/doc/README.sgi, gc/doc/README.solaris2,
+	  gc/doc/README.uts, gc/doc/README.win32, gc/doc/barrett_diagram,
+	  gc/doc/debugging.html, gc/doc/gc.man, gc/doc/gcdescr.html,
+	  gc/doc/gcinterface.html, gc/doc/leak.html, gc/doc/scale.html,
+	  gc/doc/simple_example.html, gc/doc/tree.html, gc/dyn_load.c,
+	  gc/finalize.c, gc/gc.mak, gc/gc_cpp.cc, gc/gc_cpp.cpp,
+	  gc/gc_dlopen.c, gc/gcc_support.c, gc/gcj_mlc.c, gc/gcname.c,
+	  gc/headers.c, gc/hpux_test_and_clear.s,
+	  gc/ia64_save_regs_in_stack.s, gc/if_mach.c, gc/if_not_there.c,
+	  gc/include, gc/include/.gc.h.swp, gc/include/Makefile.am,
+	  gc/include/Makefile.in, gc/include/cord.h, gc/include/ec.h,
+	  gc/include/gc.h, gc/include/gc_alloc.h,
+	  gc/include/gc_allocator.h, gc/include/gc_amiga_redirects.h,
+	  gc/include/gc_backptr.h, gc/include/gc_config_macros.h,
+	  gc/include/gc_cpp.h, gc/include/gc_gcj.h, gc/include/gc_inl.h,
+	  gc/include/gc_inline.h, gc/include/gc_local_alloc.h,
+	  gc/include/gc_mark.h, gc/include/gc_pthread_redirects.h,
+	  gc/include/gc_typed.h, gc/include/javaxfc.h,
+	  gc/include/leak_detector.h, gc/include/new_gc_alloc.h,
+	  gc/include/private, gc/include/private/cord_pos.h,
+	  gc/include/private/darwin_semaphore.h,
+	  gc/include/private/darwin_stop_world.h,
+	  gc/include/private/dbg_mlc.h, gc/include/private/gc_hdrs.h,
+	  gc/include/private/gc_locks.h, gc/include/private/gc_pmark.h,
+	  gc/include/private/gc_priv.h, gc/include/private/gcconfig.h,
+	  gc/include/private/pthread_stop_world.h,
+	  gc/include/private/pthread_support.h,
+	  gc/include/private/solaris_threads.h,
+	  gc/include/private/specific.h, gc/include/weakpointer.h,
+	  gc/install-sh, gc/libtool.m4, gc/ltmain.sh, gc/mach_dep.c,
+	  gc/malloc.c, gc/mallocx.c, gc/mark.c, gc/mark_rts.c,
+	  gc/mips_sgi_mach_dep.s, gc/mips_ultrix_mach_dep.s, gc/misc.c,
+	  gc/missing, gc/mkinstalldirs, gc/new_hblk.c, gc/obj_map.c,
+	  gc/os_dep.c, gc/pc_excludes, gc/pcr_interface.c,
+	  gc/powerpc_darwin_mach_dep.s, gc/pthread_stop_world.c,
+	  gc/pthread_support.c, gc/ptr_chck.c, gc/real_malloc.c,
+	  gc/reclaim.c, gc/rs6000_mach_dep.s, gc/setjmp_t.c,
+	  gc/solaris_pthreads.c, gc/solaris_threads.c, gc/sparc_mach_dep.S,
+	  gc/sparc_netbsd_mach_dep.s, gc/sparc_sunos4_mach_dep.s,
+	  gc/specific.c, gc/stubborn.c, gc/tests, gc/tests/leak_test.c,
+	  gc/tests/middle.c, gc/tests/test.c, gc/tests/test_cpp.cc,
+	  gc/tests/thread_leak_test.c, gc/tests/trace_test.c,
+	  gc/threadlibs.c, gc/typd_mlc.c, gc/version.h, gc/win32_threads.c,
+	  lib/Makefile.am, src/Makefile.am, src/cxx-ast.c,
+	  src/cxx-buildsymtab.c, src/cxx-solvetemplate.c, src/cxx-symtab.c,
+	  src/cxx-typeunif.c, src/cxx-typeutils.c, src/cxx-utils.c,
+	  src/cxx-utils.h, src/cxx03.l, src/cxx03.y:
+
+2006-05-16 06:42  rferrer
+
+	* configure.ac:
+
+2006-05-15 20:18  rferrer
+
+	* configure.ac:
+
+2006-05-15 09:36  rferrer
+
+	* src/cxx-symtab.c:
+
+2006-05-15 09:16  rferrer
+
+	* src/cxx-symtab.c:
+
+2006-05-15 08:52  rferrer
+
+	* src/cxx-buildsymtab.c:
+
+2006-05-11 06:50  rferrer
+
+	* src/cxx-solvetemplate.c, src/cxx-solvetemplate.h:
+
+2006-05-10 16:21  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-printsymtab.c,
+	  src/cxx-printsymtab.h, src/cxx-typeunif.c, src/cxx-typeutils.c:
+
+2006-05-10 15:01  rferrer
+
+	* src/Makefile.am, src/cxx-buildsymtab.c, src/cxx-buildsymtab.h,
+	  src/cxx-printsymtab.c, src/cxx-symtab.c, src/cxx-symtab.h,
+	  src/cxx-typeunif.c, src/cxx-typeutils.c:
+
+2006-05-10 06:53  rferrer
+
+	* Makefile.OLD:
+
+2006-05-09 16:17  rferrer
+
+	* src/Makefile.am, src/cxx-buildsymtab.c, src/cxx-printsymtab.c,
+	  src/cxx-symtab.h, src/cxx-typeunif.c, src/cxx-typeunif.h,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h, src/cxx-utils.c,
+	  src/cxx-utils.h:
+
+2006-05-08 16:42  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-printsymtab.c, src/cxx03.y:
+
+2006-05-08 15:51  rferrer
+
+	* src/cxx-ambiguities.c, src/cxx-ambiguities.h:
+
+2006-05-08 15:47  rferrer
+
+	* src/Makefile.am:
+
+2006-05-08 12:44  rferrer
+
+	* src/Makefile.am:
+
+2006-04-26 15:53  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-printsymtab.c, src/cxx-symtab.h,
+	  src/cxx-typeutils.c:
+
+2006-04-26 15:01  rferrer
+
+	* src/cxx-buildsymtab.c:
+
+2006-04-26 12:55  rferrer
+
+	* src/cxx-asttype.def, src/cxx-buildsymtab.c,
+	  src/cxx-buildsymtab.h, src/cxx-prettyprint.c, src/cxx-symtab.c,
+	  src/cxx03.y:
+
+2006-04-26 10:23  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-buildsymtab.h,
+	  src/cxx-printsymtab.c, src/cxx-symtab.c, src/cxx-symtab.h,
+	  src/cxx-typeutils.c:
+
+2006-04-26 07:16  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-prettyprint.c,
+	  src/cxx-printsymtab.c, src/cxx-symtab.c, src/cxx-symtab.h,
+	  src/cxx-typeutils.c, src/cxx03.y:
+
+2006-04-25 13:22  rferrer
+
+	* src/Makefile.am, src/cxx-buildsymtab.c, src/cxx-printsymtab.c,
+	  src/cxx-printsymtab.h, src/cxx-symtab.c, src/cxx-symtab.h,
+	  src/cxx-typeutils.c:
+
+2006-04-24 15:39  rferrer
+
+	* src/cxx-buildsymtab.c:
+
+2006-04-24 15:30  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ambiguity.h, src/cxx-buildsymtab.c,
+	  src/cxx-utils.h:
+
+2006-04-24 14:50  rferrer
+
+	* src/Makefile.am, src/cxx-ambiguity.c, src/cxx-ambiguity.h:
+
+2006-04-24 14:46  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-ambiguity.h, src/cxx-buildsymtab.c,
+	  src/cxx-symtab.h:
+
+2006-04-24 06:56  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-typeutils.c:
+
+2006-04-21 15:57  rferrer
+
+	* src/cxx-asttype.def, src/cxx-buildsymtab.c,
+	  src/cxx-prettyprint.c:
+
+2006-04-21 15:31  rferrer
+
+	* src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2006-04-21 14:45  rferrer
+
+	* src/cxx-cexpr.c, src/cxx-cexpr.h, src/cxx-typeutils.c,
+	  src/cxx-typeutils.h:
+
+2006-04-21 14:31  rferrer
+
+	* src/cxx-cexpr.c:
+
+2006-04-21 14:24  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-cexpr.c:
+
+2006-04-21 14:05  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-cexpr.c, src/cxx-cexpr.h,
+	  src/cxx-symtab.h:
+
+2006-04-20 07:09  rferrer
+
+	* src/Makefile.am, src/cxx-cexpr.c, src/cxx-cexpr.h:
+
+2006-04-19 15:46  rferrer
+
+	* src/cxx-buildsymtab.c:
+
+2006-04-19 15:44  rferrer
+
+	* src/cxx-buildsymtab.c:
+
+2006-04-19 15:44  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-symtab.h, src/cxx-typeutils.c:
+
+2006-04-19 14:39  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-buildsymtab.h,
+	  src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2006-04-19 10:56  rferrer
+
+	* src/cxx-asttype.def, src/cxx-buildsymtab.c,
+	  src/cxx-prettyprint.c, src/cxx-symtab.h, src/cxx-typeutils.c,
+	  src/cxx03.y:
+
+2006-04-18 15:54  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-typeutils.c:
+
+2006-04-18 14:56  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-symtab.c, src/cxx-symtab.h,
+	  src/cxx-typeutils.c:
+
+2006-04-18 13:17  rferrer
+
+	* src/cxx-typeutils.c, src/cxx-typeutils.h:
+
+2006-04-18 13:17  rferrer
+
+	* src/Makefile.am, src/cxx-buildsymtab.c, src/cxx-symtab.h:
+
+2006-04-16 14:21  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-symtab.h:
+
+2006-04-15 18:30  rferrer
+
+	* lib/Makefile.am:
+
+2006-04-13 14:39  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-driver.h, src/cxx-symtab.c,
+	  src/cxx-symtab.h:
+
+2006-04-12 16:26  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx03.y:
+
+2006-04-12 12:01  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-driver.c, src/cxx03.y:
+
+2006-04-11 15:59  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-symtab.h:
+
+2006-04-11 12:45  rferrer
+
+	* src/cxx-symtab.h:
+
+2006-04-11 12:43  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-symtab.c, src/cxx-symtab.h:
+
+2006-04-06 16:07  rferrer
+
+	* src/cxx-asttype.def, src/cxx-buildsymtab.c,
+	  src/cxx-prettyprint.c, src/cxx-symtab.c, src/cxx-symtab.h,
+	  src/cxx03.y:
+
+2006-04-06 12:46  rferrer
+
+	* src/cxx-buildsymtab.c:
+
+2006-04-06 10:30  rferrer
+
+	* src/cxx-ast.h, src/cxx-buildsymtab.c, src/cxx-buildsymtab.h,
+	  src/cxx-symtab.h, src/cxx-utils.h, src/cxx03.y:
+
+2006-04-04 09:03  rferrer
+
+	* src/cxx-utils.c, src/cxx-utils.h:
+
+2006-04-04 09:02  rferrer
+
+	* src/cxx-ambiguities.c, src/cxx-ambiguities.h:
+
+2006-04-04 09:02  rferrer
+
+	* src/cxx-buildsymtab.c, src/cxx-buildsymtab.h, src/cxx-symtab.c,
+	  src/cxx-symtab.h:
+
+2006-04-04 09:02  rferrer
+
+	* src/cxx-driver.c:
+
+2006-04-03 16:18  rferrer
+
+	* Makefile.am, configure.ac, lib, lib/getopt.c, lib/getopt.h,
+	  lib/getopt1.c, lib/hash.c, lib/hash.h, lib/hash_iterator.c,
+	  lib/hash_iterator.h, lib/iterator.c, lib/iterator.h, lib/list.c,
+	  lib/list.h, lib/list_iterator.c, lib/list_iterator.h,
+	  lib/mem_ctl.h, lib/s_types.h, lib/stack.h, src/Makefile.am,
+	  src/cxx-driver.c:
+
+2006-03-31 14:31  rferrer
+
+	* src/cxx-prettyprint.c, src/cxx03.y:
+
+2006-03-31 09:06  rferrer
+
+	* src/Makefile.am:
+
+2006-03-31 08:35  rferrer
+
+	* src/cxx-asttype.def, src/cxx-prettyprint.c, src/cxx03.l,
+	  src/cxx03.y:
+
+2006-03-30 16:58  rferrer
+
+	* src/cxx-asttype.def, src/cxx-prettyprint.c, src/cxx03.y:
+
+2006-03-30 15:21  rferrer
+
+	* src/cxx-prettyprint.c:
+
+2006-03-30 08:41  rferrer
+
+	* src/cxx-asttype.def, src/cxx-prettyprint.c, src/cxx03.y:
+
+2006-03-30 08:34  rferrer
+
+	* src/cxx-asttype.def, src/cxx-prettyprint.c, src/cxx03.l,
+	  src/cxx03.y:
+
+2006-03-29 16:45  rferrer
+
+	* src/cxx-asttype.def, src/cxx-prettyprint.c, src/cxx03.y:
+
+2006-03-29 14:15  rferrer
+
+	* src/cxx-asttype.def, src/cxx-prettyprint.c, src/cxx03.y:
+
+2006-03-29 10:12  rferrer
+
+	* src/Makefile.am, src/cxx-asttype.def, src/cxx-driver.c,
+	  src/cxx-prettyprint.c, src/cxx-prettyprint.h, src/cxx03.y:
+
+2006-03-27 13:28  rferrer
+
+	* src/cxx-asttype.def, src/cxx-driver.c, src/cxx03.l, src/cxx03.y:
+
+2006-03-25 08:41  rferrer
+
+	* src/cxx-ast.h, src/cxx-driver.c, src/cxx03.y:
+
+2006-03-25 08:28  rferrer
+
+	* src/cxx-asttype.def, src/cxx-driver.c, src/cxx03.y:
+
+2006-03-25 08:08  rferrer
+
+	* src/cxx-ast.c, src/cxx-ast.h, src/cxx-asttype.def,
+	  src/cxx-driver.c, src/cxx-graphviz.c, src/cxx03.l, src/cxx03.y:
+
+2006-03-25 08:05  rferrer
+
+	* src/Makefile.am:
+
+2006-03-24 21:46  rferrer
+
+	* src/Makefile.am:
+
+2006-03-24 21:30  rferrer
+
+	* src/cxx-ast.c, src/cxx-ast.h, src/cxx-asttype.def,
+	  src/cxx-driver.c, src/cxx-graphviz.c, src/cxx03.l, src/cxx03.y:
+
+2006-03-24 10:10  rferrer
+
+	* src/Makefile.am, src/cxx-ast.c, src/cxx-ast.h,
+	  src/cxx-asttype.def, src/cxx-driver.c, src/cxx-graphviz.c,
+	  src/cxx-graphviz.h:
+
+2006-03-24 09:22  rferrer
+
+	* Makefile.am, configure.ac, src/Makefile.am, src/cxx-driver.c,
+	  src/cxx-driver.h, src/cxx03.y:
+
+2006-03-23 15:28  rferrer
+
+	* Makefile, Makefile.OLD:
+
+2006-03-23 15:28  rferrer
+
+	* cxx-ast.c, cxx-ast.h, cxx-lexer.h, cxx03.l, cxx03.y, src,
+	  src/cxx-ast.c, src/cxx-ast.h, src/cxx-lexer.h, src/cxx03.l,
+	  src/cxx03.y:
+
+2006-03-23 15:28  rferrer
+
+	* cxx-ast.c:
+
+2006-03-23 15:21  rferrer
+
+	* cxx-ast.h:
+
+2006-03-23 15:20  rferrer
+
+	* Makefile, cxx-ast.h, cxx-lexer.h, cxx03.l, cxx03.y:
+
+2006-03-21 14:10  rferrer
+
+	* cxx-lexer.h:
+
+2006-03-21 13:30  rferrer
+
+	* .Makefile.swp, .cxx03.y.swp:
+
+2006-03-21 13:29  rferrer
+
+	* mcxx, ., .Makefile.swp, .cxx03.y.swp, Makefile, cxx-ast.h,
+	  cxx03.l, cxx03.y:
+

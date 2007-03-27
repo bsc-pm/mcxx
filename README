@@ -1,0 +1,76 @@
+Mercurium C/C++ Compiler
+------------------------
+
+This is the Mercurium C/C++ compiler source package. This software is licensed under GPL v2 and you
+should have a file named `COPYING' containing the license itself.
+
+* Target environment
+
+The compiler is meant for GNU/Linux. It has not been tested in other *NIXes and
+it is much more than possible that it will arise portability issues in these
+environments.
+
+* Installation from source tarball
+
+You'll need only a fairly recent version of gcc and g++ (3.3 or newer). Just do the typical
+
+ $ ./configure
+ $ make
+ $ make install
+
+It is recommended that you use --prefix on the configure in order to set the base directory
+of the whole installation. In this latter case you'll need to adjust the PATH and the LD_LIBRARY_PATH
+to the prefix/bin and prefix/lib respectively. 
+
+Provided you use a Bourne alike shell the following would suffice.
+
+ $ ./configure --prefix=/my/path
+ $ make
+ $ make install
+ $ export PATH=$PATH:/my/path/bin
+ $ export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/my/path/bin
+
+* Installation from source repository
+
+You will need
+
+  flex 2.5.x
+  bison 2.3-rofi (currently available at http://mercurium.pc.ac.upc.edu/~rferrer/mercurium/)
+  gperf 3.0.x
+  automake-1.9 (or newer)
+  autoconf-2.59 (or newer)
+  libtool-1.5.22 (or newer)
+  gcc and g++ (3.3 or newer)
+
+Provided you use a Bourne alike shell you must bootstrap
+
+ $ aclocal-1.9
+ $ autoconf  # Ensure that this invokes the proper version of autoconf
+ $ autoheader # Ensure that this invokes the version of autoheader of the autoconf you used
+ $ libtoolize --force
+ $ automake-1.9 -a -c
+
+* Configuration of the compiler
+
+The compiler is driven by the file located at prefix/share/mcxx/config.mcxx. The file has
+the following structure
+
+  [section_name]
+  option_name=value
+
+"section_name" denotes the name of the executable. By default 'mcc' and 'mcxx' are
+installed configured for C and C++, respectively. If you want to create a
+special version of the compiler just soft-link or copy (the former being
+better if you want to rebuild the compiler). For instance, if you want
+a special compiler for MPI and C, you could create 'mpicc' in the prefix/bin
+and then create a section named 'mpicc'
+
+  [mpicc]
+  options
+
+* Phases of the compiler
+
+The idea, but it is not still made possible, is that the compiler will provide a sort of SDK
+to develop further compiler phases that are dynamically loaded. This phases are located under
+src/tl where you will find several example (namely OpenMP and instrumentation with Mintaka).
+Obviously, more documentation about this is needed :)
