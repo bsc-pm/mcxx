@@ -1,3 +1,52 @@
+2007-03-27 08:37  rferrer
+
+	* tests/mcxx.dg/success_052.cpp: New test for template unification
+	  within a template argument already being
+	  unificated.
+
+2007-03-26 15:42  rferrer
+
+	* src/tl/instr/tl-instrumentcalls.cpp:
+
+2007-03-26 13:19  rferrer
+
+	* src/cxx-driver.h:
+
+2007-03-26 06:56  rferrer
+
+	* src/cxx-typeutils.c:
+
+2007-03-23 17:51  rferrer
+
+	* src/tl/Makefile.am:
+
+2007-03-23 17:50  rferrer
+
+	* src/cxx-ambiguity.c, src/cxx-attrnames.def, src/cxx-buildscope.c,
+	  src/cxx-prettyprint.c, src/cxx-scope.c, src/cxx-tltype.c,
+	  src/cxx-tltype.h, src/cxx-typeutils.c, src/tl/Makefile.am,
+	  src/tl/tl-builtin.hpp, src/tl/tl-object.cpp,
+	  src/tl/tl-symbol.hpp:
+
+2007-03-23 11:05  rferrer
+
+	* src/cxx-scope.c:
+
+2007-03-23 10:55  rferrer
+
+	* src/cxx-scope.c, src/cxx-scope.h, src/cxx-scopelink.c,
+	  src/cxx-typeutils.c, src/tl/omp/tl-omptransform.cpp,
+	  src/tl/tl-symbol.cpp:
+
+2007-03-22 17:40  rferrer
+
+	* src/cxx-buildscope.c, src/cxx-buildscope.h, src/cxx-macros.h,
+	  src/tl/instr/tl-instrumentcalls.cpp,
+	  src/tl/mypragma/tl-mypragma.cpp, src/tl/omp/tl-omptransform.cpp,
+	  src/tl/tl-ast.hpp, src/tl/tl-langconstruct.cpp,
+	  src/tl/tl-langconstruct.hpp, src/tl/tl-source.cpp,
+	  src/tl/tl-source.hpp:
+
 2007-03-22 16:31  rferrer
 
 	* src/tl/omp/tl-omptransform.cpp:
