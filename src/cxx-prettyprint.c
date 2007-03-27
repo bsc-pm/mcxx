@@ -519,6 +519,8 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_OMP_PARALLEL_DIRECTIVE, omp_generic_directive_handler, "parallel"),
     NODE_HANDLER(AST_OMP_FOR_CONSTRUCT, omp_generic_construct_handler, NULL),
     NODE_HANDLER(AST_OMP_FOR_DIRECTIVE, omp_generic_directive_handler, "for"),
+    NODE_HANDLER(AST_OMP_PARALLEL_SINGLE_CONSTRUCT, omp_generic_construct_handler, NULL),
+    NODE_HANDLER(AST_OMP_PARALLEL_SINGLE_DIRECTIVE, omp_generic_directive_handler, "parallel single"),
     NODE_HANDLER(AST_OMP_PARALLEL_FOR_CONSTRUCT, omp_generic_construct_handler, NULL),
     NODE_HANDLER(AST_OMP_PARALLEL_FOR_DIRECTIVE, omp_generic_directive_handler, "parallel for"),
     NODE_HANDLER(AST_OMP_PARALLEL_SECTIONS_CONSTRUCT, omp_sections_construct_handler, NULL),
