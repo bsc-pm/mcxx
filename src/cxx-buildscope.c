@@ -2581,79 +2581,77 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
         // The first "int" does not contain any declarator while the second has
         // an abstract one
 
+        scope_entry_t* entry = NULL;
+        type_t* type_info = NULL;
+
         // If we have a declarator compute its type
         if (parameter_declarator != NULL)
         {
-            type_t* type_info;
-            scope_entry_t* entry = build_scope_declarator(parameter_declarator, parameters_scope, 
+            entry = build_scope_declarator(parameter_declarator, parameters_scope, 
                     &gather_info, simple_type_info, &type_info, decl_context);
-
-            if (entry != NULL)
-            {
-                entry->defined = 1;
-            }
 
             AST declarator_name = get_declarator_name(parameter_declarator, st, decl_context);
             if (declarator_name != NULL)
             {
                 ASTAttrSetValueType(parameter_declarator, LANG_IS_DECLARED_PARAMETER, tl_type_t, tl_bool(1));
             }
-
-            // Normalize parameters
-            //
-            // function to pointer-to-function
-            if (entry != NULL)
-            {
-                if (type_info->kind == TK_FUNCTION)
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "Normalizing parameter '%s' from function to pointer-to-function\n", prettyprint_in_buffer(declarator_name));
-                    }
-                    type_t* pointer_to = calloc(1, sizeof(*pointer_to));
-                    pointer_to->kind = TK_POINTER;
-                    pointer_to->pointer = calloc(1, sizeof(*pointer_to->pointer));
-                    pointer_to->pointer->pointee = entry->type_information;
-
-                    // Fix this variable
-                    entry->kind = SK_VARIABLE;
-
-                    entry->type_information = pointer_to;
-                }
-                // array to array-to-pointer
-                else if (type_info->kind == TK_ARRAY)
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "Normalizing parameter '%s' from array to pointer\n", prettyprint_in_buffer(declarator_name));
-                    }
-                    entry->type_information->kind = TK_POINTER;
-                    entry->type_information->pointer = calloc(1, sizeof(*entry->type_information->pointer));
-                    entry->type_information->pointer->pointee = entry->type_information->array->element_type;
-                    entry->type_information->array = NULL;
-                }
-
-                type_info = entry->type_information;
-            }
-
-            parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
-            new_parameter->type_info = type_info;
-            new_parameter->default_argument = default_argument;
-
-            P_LIST_ADD(declarator_type->function->parameter_list, 
-                    declarator_type->function->num_parameters, new_parameter);
         }
         // If we don't have a declarator just save the base type
         else
         {
-            type_t* type_info = simple_type_info;
-
-            parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
-            new_parameter->type_info = type_info;
-            new_parameter->default_argument = default_argument;
-
-            P_LIST_ADD(declarator_type->function->parameter_list, declarator_type->function->num_parameters, new_parameter);
+            type_info = simple_type_info;
         }
+
+        // Now normalize the types
+
+        // If the original type is a typedef then we have to copy it because we
+        // do not want to modify the referenced type but have to modify the
+        // real aliased type
+        if (is_typedef_type(type_info))
+        {
+            type_t* aliased_type = advance_over_typedefs(type_info);
+
+            if (aliased_type->kind == TK_FUNCTION
+                    || aliased_type->kind == TK_ARRAY)
+            {
+                type_info = copy_type(type_info);
+                type_info = advance_over_typedefs(type_info);
+            }
+        }
+
+        // function to pointer-to-function standard conversion
+        if (type_info->kind == TK_FUNCTION)
+        {
+            type_t* function_type = type_info;
+            type_info = calloc(1, sizeof(*type_info));
+            type_info->kind = TK_POINTER;
+            type_info->pointer = calloc(1, sizeof(*type_info->pointer));
+            type_info->pointer->pointee = function_type;
+        }
+        // Array to pointer standard conversion
+        else if (type_info->kind == TK_ARRAY)
+        {
+            type_info->kind = TK_POINTER;
+            type_info->pointer = calloc(1, sizeof(*type_info->pointer));
+            type_info->pointer->pointee = type_info->array->element_type;
+            type_info->array = NULL;
+        }
+
+        if (entry != NULL)
+        {
+            // A parameter is always a variable entity
+            entry->kind = SK_VARIABLE;
+
+            // Update the type info
+            entry->type_information = type_info;
+        }
+
+        parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
+        new_parameter->type_info = type_info;
+        new_parameter->default_argument = default_argument;
+
+        P_LIST_ADD(declarator_type->function->parameter_list, 
+                declarator_type->function->num_parameters, new_parameter);
     }
 
     if (declarator_type->function->num_parameters == 1

@@ -31,7 +31,6 @@
  * This file contains routines destined to work with types.  Comparing two
  * types, comparing function declarations and definitions, etc.
  */
-static char is_typedef_type(type_t* t);
 static type_t* aliased_type(type_t* t);
 static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, 
         scope_t* st, decl_context_t decl_context);
@@ -1304,7 +1303,7 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
     return 1;
 }
 
-static char is_typedef_type(type_t* t1)
+char is_typedef_type(type_t* t1)
 {
     if ((t1->kind == TK_DIRECT 
             && t1->type->kind == STK_TYPEDEF))
