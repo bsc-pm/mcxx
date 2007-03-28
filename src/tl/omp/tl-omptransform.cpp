@@ -1456,8 +1456,9 @@ namespace TL
                     {
                         Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
 
-                        if (!global_sym.is_valid() ||
-                                global_sym != it->get_symbol())
+                        if (!global_sym.is_valid() 
+                                || global_sym != it->get_symbol()
+                                || is_unqualified_member_symbol(*it, function_definition))
                         {
                             // If the symbol found in the function scope is not
                             // the same as the one referenced in the
