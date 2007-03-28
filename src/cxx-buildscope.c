@@ -2614,8 +2614,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
             if (aliased_type->kind == TK_FUNCTION
                     || aliased_type->kind == TK_ARRAY)
             {
-                type_info = copy_type(type_info);
-                type_info = advance_over_typedefs(type_info);
+                type_info = copy_type(aliased_type);
             }
         }
 
