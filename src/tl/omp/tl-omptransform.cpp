@@ -1444,9 +1444,9 @@ namespace TL
 
                 // Get all the identifiers of the captureaddress clause
                 ObjectList<IdExpression> captureaddress_references;
+                ObjectList<IdExpression> captureaddress_references_all = captureaddress_clause.id_expressions();
                 {
-                    ObjectList<IdExpression> captureaddress_references_all = captureaddress_clause.id_expressions();
-                    // What we do here is to discard symbols that are
+                    // We discard symbols here referenced in captureaddress
                     // captureaddress but can be referenced in the outline
                     // (thus, they come from an outer scope to this whole
                     // function)
@@ -1491,7 +1491,12 @@ namespace TL
                         // If this symbol appears in any data-sharing clause,
                         // ignore it since it already has an explicit data
                         // sharing attribute
-                        if (captureaddress_references.contains(*it, functor(&IdExpression::get_symbol))
+                        //
+                        // Note that all captureaddressed things are in
+                        // 'captureaddress_references_all',
+                        // 'captureaddress_references' might contain less of
+                        // them if they are globally accessible
+                        if (captureaddress_references_all.contains(*it, functor(&IdExpression::get_symbol)) 
                                 || capturevalue_references.contains(*it, functor(&IdExpression::get_symbol))
                                 || local_references.contains(*it, functor(&IdExpression::get_symbol)))
                             continue;
@@ -1501,7 +1506,15 @@ namespace TL
                         {
                             // If the function-scope accessible symbol is the same found
                             // then it must be implicitly captureaddress, instead of capturevalue
-                            captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
+                            // but since it is accessible it does not have to be passed
+                            //
+                            // As an exception member symbols must be passed as
+                            // captureaddress and they will be converted to
+                            // _this->member
+                            if (is_unqualified_member_symbol(*it, function_definition))
+                            {
+                                captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
+                            }
                         }
                         else
                         {
