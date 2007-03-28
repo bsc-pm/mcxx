@@ -1985,7 +1985,14 @@ function_info_t* copy_function_info(function_info_t* function_info)
     for (i = 0; i < function_info->num_parameters; i++)
     {
         result->parameter_list[i] = calloc(1, sizeof(*(result->parameter_list[i])));
-        result->parameter_list[i]->type_info = copy_type(function_info->parameter_list[i]->type_info);
+
+        if (function_info->parameter_list[i]->type_info != NULL)
+        {
+            result->parameter_list[i]->type_info = copy_type(function_info->parameter_list[i]->type_info);
+        }
+
+        result->parameter_list[i]->is_ellipsis = function_info->parameter_list[i]->is_ellipsis;
+
         if (function_info->parameter_list[i]->default_argument != NULL)
         {
             result->parameter_list[i]->default_argument = duplicate_ast(function_info->parameter_list[i]->default_argument);
