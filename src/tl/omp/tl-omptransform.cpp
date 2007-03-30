@@ -153,6 +153,11 @@ namespace TL
             {
             }
 
+			bool instrumentation_requested()
+			{
+				return (ExternalVars::get("instrument", "0") == "1");
+			}
+
             virtual ~OpenMPTransform()
             {
                 // This is needed since "init" is a virtual method
@@ -314,6 +319,8 @@ namespace TL
                 // Additionally {first|last}private and reduction
                 // entities are needed for proper initializations
                 // and assignments.
+				OpenMP::CustomClause noinstr_clause = directive.custom_clause("noinstr");
+				
                 AST_t outline_code  = get_outline_parallel(
                         function_definition,
                         outlined_function_name, 
@@ -325,7 +332,8 @@ namespace TL
                         lastprivate_references,
                         reduction_references,
                         copyin_references,
-                        copyprivate_references);
+                        copyprivate_references,
+						noinstr_clause.is_defined());
 
                 // In the AST of the function definition, prepend outline_code
                 // as a sibling (at the same level)
@@ -340,7 +348,7 @@ namespace TL
 
                 Source instrument_code_before;
                 Source instrument_code_after;
-                if (ExternalVars::get("instrument", "0") == "1")
+                if (instrumentation_requested())
                 {
                     instrument_code_before
                         << "const int EVENT_PARALLEL = 60000001;"
@@ -500,7 +508,7 @@ namespace TL
 
                 Source instrument_code_before;
                 Source instrument_code_after;
-                if (ExternalVars::get("instrument", "0") == "1")
+                if (instrumentation_requested())
                 {
                     instrument_code_before
                         << "const int EVENT_PARALLEL = 60000001;"
@@ -634,7 +642,7 @@ namespace TL
                         ); 
 
                 Source loop_distribution_code = get_loop_distribution_code(for_statement,
-                        replace_references);
+                        replace_references, function_definition);
 
                 Source lastprivate_code;
 
@@ -790,7 +798,7 @@ namespace TL
                 // vectors declaration
                 Source instrument_code_before;
                 Source instrument_code_after;
-                if (ExternalVars::get("instrument", "0") == "1")
+                if (instrumentation_requested())
                 {
                     instrument_code_before
                         << "const int EVENT_PARALLEL = 60000001;"
@@ -962,16 +970,29 @@ namespace TL
             {
                 int &num_sections = num_sections_stack.top();
 
-                Source section_source;
+                Source section_source, instrumentation_before, instrumentation_after;
                 Statement construct_body = section_construct.body();
 
                 section_source
                     << "case " << num_sections << ":"
                     << "{"
+					<<    instrumentation_before
                     <<    construct_body.prettyprint()
+					<<    instrumentation_after
                     <<    "break;"
                     << "}"
                     ;
+
+				if (instrumentation_requested())
+				{
+					instrumentation_before
+						<< "mintaka_state_run();"
+						;
+						
+					instrumentation_before
+						<< "mintaka_state_synch();"
+						;
+				}
 
                 AST_t section_tree = section_source.parse_statement(section_construct.get_ast(),
                         section_construct.get_scope_link());
@@ -986,10 +1007,26 @@ namespace TL
             {
                 Source barrier_source;
 
+				Source instrumentation_code_before, instrumentation_code_after;
+
+				if (instrumentation_requested())
+				{
+					instrumentation_code_before
+						<< "int __previous_state = mintaka_get_state();"
+						<< "mintaka_state_synch();"
+						;
+
+					instrumentation_code_after
+						<< "mintaka_set_state(__previous_state);"
+						;
+				}
+
                 barrier_source
                     << "{"
 //                    <<    "extern void in__tone_barrier_();"
+					<<    instrumentation_code_before
                     <<    "in__tone_barrier_();"
+					<<    instrumentation_code_after
                     << "}"
                     ;
 
@@ -1071,8 +1108,11 @@ namespace TL
                 Statement body_construct = single_construct.body();
                 OpenMP::Directive directive = single_construct.directive();
 
+				Source instrumentation_code_before, instrumentation_code_after;
+
                 single_source
                     << "{"
+					<<   instrumentation_code_before
                     <<   "int nth_low;"
                     <<   "int nth_upper;"
                     <<   "int nth_step;"
@@ -1096,15 +1136,27 @@ namespace TL
                     <<   "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
                     <<   "while (in__tone_next_iters_ (&nth_dummy1, &nth_dummy2, &nth_dummy3) != 0)"
                     <<   "{"
+					<<       instrumentation_code_after
                     <<       body_construct.prettyprint()
+					<<       instrumentation_code_before
                     <<   "}"
                     <<   barrier_code
+					<<   instrumentation_code_after
                     << "}"
                     ;
 
+				if (instrumentation_requested())
+				{
+					instrumentation_code_before
+						<< "mintaka_state_synch();"
+						;
+					instrumentation_code_after
+						<< "mintaka_state_run();"
+						;
+				}
+
                 OpenMP::Clause nowait_clause = directive.nowait_clause();
-                barrier_code << "nth_barrier = " << (nowait_clause.is_defined() ? "0" : "1") << ";";
-                barrier_code << "in__tone_end_for_(&nth_barrier);";
+				barrier_code = get_loop_finalization(!(nowait_clause.is_defined()));
 
                 AST_t single_tree = single_source.parse_statement(single_construct.get_ast(), 
                         single_construct.get_scope_link());
@@ -1216,7 +1268,7 @@ namespace TL
                 Source instrument_code_before;
                 Source instrument_code_after;
 
-                if (ExternalVars::get("instrument", "0") == "1")
+                if (instrumentation_requested())
                 {
                     instrument_code_before
                         << "const int EVENT_PARALLEL = 60000001;"
@@ -1285,6 +1337,17 @@ namespace TL
                     << "}"
                     ;
 
+				define_global_mutex(mutex_variable, critical_construct.get_ast(),
+						critical_construct.get_scope_link());
+
+                AST_t critical_tree = critical_source.parse_statement(critical_construct.get_ast(),
+                        critical_construct.get_scope_link());
+
+                critical_construct.get_ast().replace(critical_tree);
+            }
+
+			void define_global_mutex(std::string mutex_variable, AST_t ref_tree, ScopeLink sl)
+			{
                 if (criticals_defined.find(mutex_variable) == criticals_defined.end())
                 {
                     // Now declare, if not done before
@@ -1297,19 +1360,13 @@ namespace TL
                     // AST_t translation_unit = critical_construct.get_ast().get_translation_unit();
                     // Scope scope_translation_unit = scope_link.get_scope(translation_unit);
 
-                    AST_t critical_mutex_def_tree = critical_mutex_def_src.parse_global(critical_construct.get_ast(),
-                            critical_construct.get_scope_link());
+                    AST_t critical_mutex_def_tree = critical_mutex_def_src.parse_global(ref_tree, sl);
 
-                    critical_construct.get_ast().prepend_sibling_function(critical_mutex_def_tree);
+                    ref_tree.prepend_sibling_function(critical_mutex_def_tree);
 
                     criticals_defined.insert(mutex_variable);
                 }
-
-                AST_t critical_tree = critical_source.parse_statement(critical_construct.get_ast(),
-                        critical_construct.get_scope_link());
-
-                critical_construct.get_ast().replace(critical_tree);
-            }
+			}
 
             void threadprivate_postorder(OpenMP::ThreadPrivateDirective threadprivate_directive)
             {
@@ -1784,6 +1841,8 @@ namespace TL
 
                 outlined_function_reference << get_outline_function_reference(function_definition, parameter_info_list);
 
+				Source instrument_code_task_creation;
+
                 task_queueing
                     << "{"
                     <<    "nth_desc * nth;"
@@ -1801,6 +1860,7 @@ namespace TL
                     <<    "nth = nth_create((void*)(" << outlined_function_reference << "), "
                     <<             "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, &nth_arg_addr_ptr, "
                     <<             "&nth_nargs_ref, &nth_nargs_val" << task_parameters << ");"
+					<<    instrument_code_task_creation
                     <<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
                     <<    "{"
                     // <<       "fprintf(stderr, \"Cannot allocate task at '%s'\\n\", \"" << task_construct.get_ast().get_locus() << "\");"
@@ -1810,6 +1870,40 @@ namespace TL
                     <<    copy_construction_part
                     << "}"
                     ;
+
+				if (instrumentation_requested())
+				{
+                    std::string file_name = "\"task enqueue: " + function_definition.get_ast().get_file() + "\"";
+
+                    int file_line = construct_body.get_ast().get_line();
+
+                    std::string mangled_function_name = 
+                        "\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
+
+					instrument_code_task_creation
+						// TODO we want to know if threadswitch was enabled
+                        << "const int EVENT_TASK_ENQUEUE = 60000010;"
+                        << "int _user_function_event = mintaka_index_get(" << file_name << "," << file_line << ");"
+                        << "if (_user_function_event == -1)"
+                        << "{"
+                        << "     nthf_spin_lock_((nth_word_t*)&_nthf_unspecified_critical);"
+                        << "     _user_function_event = mintaka_index_allocate2(" << file_name << "," 
+                        <<                file_line << "," << mangled_function_name << ", EVENT_TASK_ENQUEUE);"
+                        << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
+                        << "}"
+                        << "mintaka_event(EVENT_TASK_ENQUEUE, _user_function_event);"
+						<< "if (nth != NTH_CANNOT_ALLOCATE_TASK)"
+						<< "{"
+						// Adjust to 32 bit
+						<< "     uint32_t id_nth = (((intptr_t)(nth)) >> (32*((sizeof(nth)/4) - 1)));"
+						<< "     mintaka_send(id_nth, 1);"
+						<< "     mintaka_state_run();"
+						<< "}"
+						;
+
+					define_global_mutex("_nthf_unspecified_critical", function_definition.get_ast(),
+							function_definition.get_scope_link());
+				}
 
                 // Parse the code
                 AST_t task_code = task_queueing.parse_statement(task_construct.get_ast(),
@@ -1824,10 +1918,25 @@ namespace TL
                 Source taskwait_source;
                 Statement taskwait_body = taskwait_construct.body();
 
+				Source instrumentation_code_before, instrumentation_code_after;
+
+				if (instrumentation_requested())
+				{
+					instrumentation_code_before
+						<< "int __previous_state = mintaka_get_state();"
+						<< "mintaka_state_synch();"
+						;
+
+					instrumentation_code_after
+						<< "mintaka_set_state(__previous_state);"
+						;
+				}
+
                 taskwait_source
                     << "{"
-//                    <<    "extern void nthf_task_block_(void);"
+					<<    instrumentation_code_before
                     <<    "nthf_task_block_();"
+					<<    instrumentation_code_after
                     <<    taskwait_body.prettyprint() // This will avoid breakage if you did not write ';' after the taskwait pragma
                     << "}"
                     ;
@@ -1843,14 +1952,27 @@ namespace TL
                 Source taskgroup_source;
                 Statement taskgroup_body = taskgroup_construct.body();
 
+				Source instrumentation_code_before, instrumentation_code_after;
+
+				if (instrumentation_requested())
+				{
+					instrumentation_code_before
+						<< "int __previous_state = mintaka_get_state();"
+						<< "mintaka_state_synch();"
+						;
+
+					instrumentation_code_after
+						<< "mintaka_set_state(__previous_state);"
+						;
+				}
+
                 taskgroup_source
                     << "{"
-//                    <<    "extern void nthf_task_block_(void);"
-//                    <<    "extern int nthf_push_taskgroup_scope_(void);"
-//                    <<    "extern int nthf_pop_taskgroup_scope_(void);"
                     <<    "nthf_push_taskgroup_scope_();"
                     <<    taskgroup_body.prettyprint()
+					<<    instrumentation_code_before
                     <<    "nthf_task_block_();"
+					<<    instrumentation_code_after
                     <<    "nthf_pop_taskgroup_scope_();"
                     << "}"
                     ;
@@ -1946,7 +2068,7 @@ namespace TL
 
 
                 // I don't like this
-                if (ExternalVars::get("instrument", "0") == "1")
+                if (instrumentation_requested())
                 {
                     instrument_code_block 
                         << "mintaka_state_synch();"
@@ -2721,7 +2843,8 @@ namespace TL
                     ObjectList<IdExpression> lastprivate_references,
                     ObjectList<OpenMP::ReductionIdExpression> reduction_references,
                     ObjectList<IdExpression> copyin_references,
-                    ObjectList<IdExpression> copyprivate_references
+                    ObjectList<IdExpression> copyprivate_references,
+					bool never_instrument = false
                     )
             {
                 ObjectList<IdExpression> pass_by_value;
@@ -2753,14 +2876,19 @@ namespace TL
                 Source instrumentation_code_before;
                 Source instrumentation_code_after;
 
-                instrumentation_outline(instrumentation_code_before,
-                        instrumentation_code_after, 
-                        function_definition,
-                        construct_body);
+				if (!never_instrument)
+				{
+					instrumentation_outline(instrumentation_code_before,
+							instrumentation_code_after, 
+							function_definition,
+							construct_body);
+				}
 
                 // Debug information
                 Source comment = debug_parameter_info(
                         parameter_info_list);
+
+				Source task_block_code;
                 
                 parallel_body 
                     << comment
@@ -2769,9 +2897,10 @@ namespace TL
                     << modified_parallel_body_stmt.prettyprint()
                     << reduction_update
                     << instrumentation_code_after
-//                    << "extern void nthf_task_block_(void);"
-                    << "nthf_task_block_();"
+					<< task_block_code
                     ;
+
+				task_block_code = get_task_block_code();
 
                 // std::cerr << "CODI OUTLINE" << std::endl;
                 // std::cerr << outline_parallel.get_source(true) << std::endl;
@@ -2853,9 +2982,24 @@ namespace TL
                         function_definition,
                         construct_body);
 
+				Source instrumentation_start_task;
+				if (instrumentation_requested())
+				{
+					instrumentation_start_task
+						<< "{"
+						<< "   nth_desc * nth;"
+						<< "   nth = nthf_self_();"
+						<< "   uint32_t id_nth = (((intptr_t)(nth)) >> (32*((sizeof(nth)/4) - 1)));"
+						<< "   mintaka_receive(id_nth, 1);"
+						<< "   mintaka_state_run();"
+						<< "}"
+						;
+				}
+
                 parallel_body 
                     << private_declarations
                     << instrumentation_code_before
+					<< instrumentation_start_task
                     << modified_parallel_body_stmt.prettyprint()
                     << instrumentation_code_after
                     ;
@@ -2964,6 +3108,8 @@ namespace TL
                         function_definition,
                         construct_body);
 
+				Source task_block_code;
+
                 parallel_sections_body 
                     << private_declarations
                     << instrumentation_code_before
@@ -2972,9 +3118,10 @@ namespace TL
                     << reduction_update
                     << loop_finalization
                     << instrumentation_code_after
-//                    << "extern void nthf_task_block_(void);"
-                    << "nthf_task_block_();"
+					<< task_block_code
                     ;
+
+				task_block_code = get_task_block_code();
 
                 // std::cerr << "CODI OUTLINE PARALLEL SECTIONS" << std::endl;
                 // std::cerr << outline_parallel_sections.get_source(true) << std::endl;
@@ -3032,6 +3179,7 @@ namespace TL
 
                 Source barrier_code;
 
+                Source instrumentation_code_before, instrumentation_code_after;
                 single_source
                     << "{"
                     <<   "int nth_low;"
@@ -3057,7 +3205,9 @@ namespace TL
                     <<   "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
                     <<   "while (in__tone_next_iters_ (&nth_dummy1, &nth_dummy2, &nth_dummy3) != 0)"
                     <<   "{"
+                    <<       instrumentation_code_before
                     <<       modified_parallel_body_stmt.prettyprint()
+                    <<       instrumentation_code_after
                     <<   "}"
                     <<   barrier_code
                     << "}"
@@ -3066,19 +3216,20 @@ namespace TL
                 barrier_code << "nth_barrier = 1;";
                 barrier_code << "in__tone_end_for_(&nth_barrier);";
 
-                Source instrumentation_code_before, instrumentation_code_after;
                 instrumentation_outline(instrumentation_code_before,
                         instrumentation_code_after, 
                         function_definition,
                         construct_body);
+
+				Source task_block_code;
                 
                 parallel_body 
                     << private_declarations
-                    << instrumentation_code_before
                     << single_source
-                    << instrumentation_code_after
-                    << "nthf_task_block_();"
+					<< task_block_code
                     ;
+
+				task_block_code = get_task_block_code();
 
                 // std::cerr << "CODI OUTLINE" << std::endl;
                 // std::cerr << outline_parallel.get_source(true) << std::endl;
@@ -3091,6 +3242,34 @@ namespace TL
 
                 return result;
             }
+
+			Source get_task_block_code()
+			{
+				Source task_block_code;
+				Source instrumentation_task_block_before, instrumentation_task_block_after;
+
+				if (instrumentation_requested())
+				{
+					instrumentation_task_block_before
+						<< "{"
+						<< "   int __previous_state = mintaka_get_state();"
+						<< "   mintaka_state_synch();"
+						;
+
+					instrumentation_task_block_after
+						<< "   mintaka_set_state(__previous_state);"
+						<< "}"
+						;
+				}
+
+				task_block_code
+					<< instrumentation_task_block_before
+                    << "nthf_task_block_();"
+					<< instrumentation_task_block_after
+                    ;
+
+				return task_block_code;
+			}
 
 
             // Create outline for parallel for
@@ -3132,7 +3311,8 @@ namespace TL
                         parameter_info_list
                         ); 
 
-                Source loop_distribution = get_loop_distribution_code(for_statement, replace_references);
+                Source loop_distribution = get_loop_distribution_code(for_statement, 
+						replace_references, function_definition);
 
                 Source lastprivate_code;
 
@@ -3156,23 +3336,19 @@ namespace TL
 
                 Source reduction_update = get_reduction_update(reduction_references);
 
-                Source instrumentation_code_before, instrumentation_code_after;
-                instrumentation_outline(instrumentation_code_before,
-                        instrumentation_code_after, 
-                        function_definition,
-                        loop_body);
+
+				Source task_block_code;
 
                 parallel_for_body 
                     << private_declarations
-                    << instrumentation_code_before
                     << loop_distribution
                     << lastprivate_code
                     << reduction_update
                     << loop_finalization
-                    << instrumentation_code_after
-//                    << "extern void nthf_task_block_(void);"
-                    << "nthf_task_block_();"
+					<< task_block_code
                     ;
+
+				task_block_code = get_task_block_code();
 
                 // std::cerr << "CODI OUTLINE PARALLEL FOR" << std::endl;
                 // std::cerr << outline_parallel_for.get_source(true) << std::endl;
@@ -3528,7 +3704,10 @@ namespace TL
                 // Replace references using set "replace_references" over construct body
                 Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
 
+				Source instrumentation_before, instrumentation_after;
+
                 loop_distribution 
+					<< instrumentation_before
                     << "int nth_low;"
                     << "int nth_upper;"
                     << "int nth_step;"
@@ -3562,13 +3741,25 @@ namespace TL
                     <<         "}"
                     <<    "}"
                     << "}"
+					<< instrumentation_after
                     ;
+
+				if (instrumentation_requested())
+				{
+					instrumentation_before
+						<< "mintaka_state_synch();"
+						;
+					instrumentation_after
+						<< "mintaka_state_run();"
+						;
+				}
 
                 return loop_distribution;
             }
 
             Source get_loop_distribution_code(ForStatement for_statement,
-                    ReplaceIdExpression replace_references)
+                    ReplaceIdExpression replace_references,
+					FunctionDefinition function_definition)
             {
                 Source parallel_for_body;
 
@@ -3589,6 +3780,11 @@ namespace TL
 
                 Statement loop_body = for_statement.get_loop_body();
 
+                Source instrumentation_code_before, instrumentation_code_after;
+                instrumentation_outline(instrumentation_code_before,
+                        instrumentation_code_after, 
+                        function_definition,
+                        loop_body);
 
                 IdExpression induction_var = for_statement.get_induction_variable();
                 Source induction_var_name;
@@ -3639,6 +3835,7 @@ namespace TL
                     // Get a slice of the iteration space
                     << "while (in__tone_next_iters_(&intone_start, &intone_end, &intone_last) != 0)"
                     << "{"
+					<< instrumentation_code_before
                            // And do something with it
                     << "   for (" << induction_var_name << " = intone_start; "
                     << "        nth_step >= 1 ? " << induction_var_name << " <= intone_end : " << induction_var_name << ">= intone_end;"
@@ -3646,6 +3843,7 @@ namespace TL
                     << "   {"
                     << "   " << modified_loop_body
                     << "   }"
+					<< instrumentation_code_after
                     << "}"
                     ;
 
@@ -3661,10 +3859,23 @@ namespace TL
             {
                 Source loop_finalization;
 
-                loop_finalization
-                    << "nth_barrier = " << (int)(do_barrier) << ";"
-                    << "in__tone_end_for_(&nth_barrier);"
-                    ;
+				if (do_barrier 
+						&& instrumentation_requested())
+				{
+					loop_finalization
+						<< "mintaka_state_synch();"
+						<< "nth_barrier = " << (int)(do_barrier) << ";"
+						<< "in__tone_end_for_(&nth_barrier);"
+						<< "mintaka_state_run();"
+						;
+				}
+				else
+				{
+					loop_finalization
+						<< "nth_barrier = " << (int)(do_barrier) << ";"
+						<< "in__tone_end_for_(&nth_barrier);"
+						;
+				}
 
                 return loop_finalization;
             }
@@ -4012,7 +4223,7 @@ namespace TL
                     FunctionDefinition function_definition,
                     Statement construct_body)
             {
-                if (ExternalVars::get("instrument", "0") == "1")
+                if (instrumentation_requested())
                 {
                     std::string file_name = "\"" + function_definition.get_ast().get_file() + "\"";
 
@@ -4026,10 +4237,10 @@ namespace TL
                         << "int _user_function_event = mintaka_index_get(" << file_name << "," << file_line << ");"
                         << "if (_user_function_event == -1)"
                         << "{"
-                        << "     nthf_spin_lock_((nth_word_t*)&mintaka_mutex);"
+                        << "     nthf_spin_lock_((nth_word_t*)&_nthf_unspecified_critical);"
                         << "     _user_function_event = mintaka_index_allocate2(" << file_name << "," 
                         <<                file_line << "," << mangled_function_name << ", EVENT_CALL_USER_FUNCTION);"
-                        << "     nthf_spin_unlock_((nth_word_t*)&mintaka_mutex);"
+                        << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
                         << "}"
                         << "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
                         << "int __previous_state = mintaka_get_state();"
@@ -4040,6 +4251,10 @@ namespace TL
                         << "mintaka_event(EVENT_CALL_USER_FUNCTION, 0);"
                         << "mintaka_set_state(__previous_state);"
                         ;
+
+					// Ensure that it has been defined
+					define_global_mutex("_nthf_unspecified_critical", function_definition.get_ast(),
+							function_definition.get_scope_link());
                 }
             }
 

@@ -270,11 +270,14 @@ namespace TL
             << "  mintaka_set_filebase(exec_basename);"
             // Register events
             // TODO - OpenMP events descriptions
-            << "  const int EVENT_CALL_USER_FUNCTION = 60000018;"
             << "  static const char* EVENT_CALL_USER_FUNCTION_DESCR = \"User function call\";"
+            << "  const int EVENT_CALL_USER_FUNCTION = 60000018;"
+            << "  static const char* EVENT_TASK_ENQUEUE_DESCR = \"Task enqueue\";"
+			<< "  const int EVENT_TASK_ENQUEUE = 60000010;"
             << "  mintaka_index_event(EVENT_CALL_USER_FUNCTION, EVENT_CALL_USER_FUNCTION_DESCR);"
+            << "  mintaka_index_event(EVENT_TASK_ENQUEUE, EVENT_TASK_ENQUEUE_DESCR);"
             // Initialize every thread
-            <<    "#pragma omp parallel\n"
+            <<    "#pragma omp parallel noinstr\n"
             <<    "{"
             <<    "   mintaka_thread_begin(1, omp_get_thread_num() + 1);"
             <<    "   if (omp_get_thread_num() != 0)"
@@ -286,7 +289,7 @@ namespace TL
 
             << "static void __end_mintaka(void)"
             << "{"
-            << "  #pragma omp parallel\n"
+            << "  #pragma omp parallel noinstr\n"
             << "  {"
             << "     mintaka_thread_end();"
             << "  }"
@@ -343,16 +346,6 @@ namespace TL
     {
         AST_t root_node = data_flow["translation_unit"];
         ScopeLink scope_link = data_flow["scope_link"];
-
-        if (ExternalVars::get("instrument", "0") == "1")
-        {
-            std::cerr << "Running instrumentation" << std::endl;
-        }
-        else
-        {
-            std::cerr << "InstrumentCalls disabled. You can enable with '--variable=instrument:1'" << std::endl;
-            return;
-        }
 
         // Traversal of LANG_IS_FUNCTION_CALLs
         DepthTraverse depth_traverse;

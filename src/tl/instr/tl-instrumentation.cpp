@@ -61,13 +61,13 @@ namespace TL
                     return;
                 }
 
-                if (ExternalVars::get("instrumentation", "0") == "1")
+                if (ExternalVars::get("instrument", "0") == "1")
                 {
                     instrument_phase->run(dto);
                 }
                 else
                 {
-                    std::cerr << "Instrumentation disabled. Enable it with '--variable=instrumentation:1'" << std::endl;
+                    std::cerr << "Instrumentation disabled. Enable it with '--variable=instrument:1'" << std::endl;
                 }
             }
     };
