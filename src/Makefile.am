@@ -14,6 +14,7 @@ libmcxxtl_la_SOURCES = \
 	cxx-compilerphases.cpp
 
 libmcxxtl_la_CXXFLAGS=-I tl -I $(srcdir)/tl -I ../lib -I $(srcdir)/../lib -Wall
+libmcxxtl_la_LDFLAGS = -Wl,-rpath,$(libdir)
 
 # Mercurium C/C++ compiler runtime library
 libmcxx_la_SOURCES = \
@@ -71,6 +72,7 @@ libmcxx_la_SOURCES = \
   cxx-scopelink-decls.h \
   cxx-scopelink.h
 
+libmcxx_la_LDFLAGS = -Wl,-rpath,$(libdir)
 libmcxx_la_CFLAGS=-fexceptions -I$(srcdir)/../lib -DPKGDATADIR=\"$(pkgdatadir)\" -Wall
 
 EXTRA_DIST += cxx-lexer.l
