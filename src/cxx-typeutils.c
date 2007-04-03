@@ -3589,7 +3589,7 @@ static void get_type_name_str_internal(scope_t* st,
             }
         default:
             {
-                fprintf(stderr, "Unknown type kind '%d'\n", (int)type_info->type);
+                fprintf(stderr, "Unknown type kind '%d'\n", (int)type_info->kind);
                 break;
             }
     }
