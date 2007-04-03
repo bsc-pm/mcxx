@@ -208,6 +208,7 @@ HANDLER_PROTOTYPE(gcc_pointer_declarator_handler);
 HANDLER_PROTOTYPE(gcc_reference_spec_handler);
 HANDLER_PROTOTYPE(gcc_enum_specifier_handler);
 HANDLER_PROTOTYPE(gcc_abstract_declarator_handler);
+HANDLER_PROTOTYPE(gcc_ptr_abstract_declarator_handler);
 HANDLER_PROTOTYPE(gcc_initializer_clause_handler);
 HANDLER_PROTOTYPE(gcc_class_head_handler);
 HANDLER_PROTOTYPE(gcc_member_declarator_handler);
@@ -221,6 +222,9 @@ HANDLER_PROTOTYPE(gcc_postfix_expression);
 HANDLER_PROTOTYPE(gcc_conditional_expression);
 HANDLER_PROTOTYPE(gcc_extension_preffix_handler);
 HANDLER_PROTOTYPE(gcc_parameter_decl_handler);
+HANDLER_PROTOTYPE(gcc_using_directive_handler);
+HANDLER_PROTOTYPE(gcc_namespace_definition_handler);
+HANDLER_PROTOTYPE(gcc_functional_declarator_handler);
 
 prettyprint_entry_t handlers_list[] =
 {
@@ -601,7 +605,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GCC_REFERENCE_SPEC, gcc_reference_spec_handler, NULL),
     NODE_HANDLER(AST_GCC_ENUM_SPECIFIER, gcc_enum_specifier_handler, NULL),
     NODE_HANDLER(AST_GCC_ABSTRACT_DECLARATOR, gcc_abstract_declarator_handler, NULL),
-    NODE_HANDLER(AST_GCC_DIRECT_DECLARATOR, gcc_abstract_declarator_handler, NULL),
+    NODE_HANDLER(AST_GCC_PTR_ABSTRACT_DECLARATOR, gcc_ptr_abstract_declarator_handler, NULL),
     NODE_HANDLER(AST_GCC_INITIALIZER_CLAUSE, gcc_initializer_clause_handler, NULL),
     NODE_HANDLER(AST_GCC_CLASS_HEAD, gcc_class_head_handler, NULL),
     NODE_HANDLER(AST_GCC_MEMBER_DECLARATOR, gcc_member_declarator_handler, NULL),
@@ -615,6 +619,9 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GCC_ALIGNOF_TYPE, gcc_alignof_type_handler, NULL),
     NODE_HANDLER(AST_GCC_CONDITIONAL_EXPRESSION, gcc_conditional_expression, NULL),
     NODE_HANDLER(AST_GCC_PARAMETER_DECL, gcc_parameter_decl_handler, NULL),
+    NODE_HANDLER(AST_GCC_USING_DIRECTIVE, gcc_using_directive_handler, NULL),
+    NODE_HANDLER(AST_GCC_NAMESPACE_DEFINITION, gcc_namespace_definition_handler, NULL),
+    NODE_HANDLER(AST_GCC_FUNCTIONAL_DECLARATOR, gcc_functional_declarator_handler, NULL), 
 };
 
 static void prettyprint_level(FILE* f, AST a, int level);
@@ -2690,6 +2697,12 @@ static void gcc_abstract_declarator_handler(FILE* f, AST a, int level)
 {
     spaced_sequence_handler(f, ASTSon0(a), level);
     prettyprint_level(f, ASTSon1(a), level);
+}
+
+static void gcc_ptr_abstract_declarator_handler(FILE* f, AST a, int level)
+{
+    spaced_sequence_handler(f, ASTSon0(a), level);
+    prettyprint_level(f, ASTSon1(a), level);
     if (ASTSon2(a) != NULL)
     {
         prettyprint_level(f, ASTSon2(a), level);
@@ -2887,6 +2900,49 @@ static void gcc_parameter_decl_handler(FILE* f, AST a, int level)
         token_fprintf(f, a, " = ");
         prettyprint_level(f, ASTSon2(a), level);
     }
+}
+
+static void gcc_using_directive_handler(FILE* f, AST a, int level)
+{
+    indent_at_level(f, a, level);
+    token_fprintf(f, a, "using namespace ");
+
+    if (ASTSon0(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon0(a), level);
+    }
+
+    if (ASTSon1(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon1(a), level);
+    }
+
+    prettyprint_level(f, ASTSon2(a), level);
+    token_fprintf(f, a, " ");
+    spaced_sequence_handler(f, ASTSon3(a), level);
+    token_fprintf(f, a, ";\n");
+}
+
+static void gcc_namespace_definition_handler(FILE* f, AST a, int level)
+{
+    indent_at_level(f, a, level);
+    token_fprintf(f, a, "namespace ");
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, " ");
+    spaced_sequence_handler(f, ASTSon2(a), level);
+    token_fprintf(f, a, " {\n");
+
+    prettyprint_level(f, ASTSon1(a), level+1);
+    
+    indent_at_level(f, a, level);
+    token_fprintf(f, a, "}\n");
+}
+
+static void gcc_functional_declarator_handler(FILE* f, AST a, int level)
+{
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, " ");
+    spaced_sequence_handler(f, ASTSon1(a), level);
 }
 
 // OpenMP 2.5

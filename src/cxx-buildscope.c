@@ -411,6 +411,16 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
                 build_scope_gcc_asm_definition(a, st, decl_context);
                 break;
             }
+        case AST_GCC_USING_DIRECTIVE :
+            {
+                build_scope_using_directive(a, st, decl_context);
+                break;
+            }
+        case AST_GCC_NAMESPACE_DEFINITION :
+            {
+                build_scope_namespace_definition(a, st, decl_context);
+                break;
+            }
         case AST_PP_COMMENT :
             {
                 // Ignore this, it is a prettyprinted comment
@@ -2820,6 +2830,49 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
                     *declarator_name = a;
                 }
 
+                break;
+            }
+            // GNU extensions
+            // attribute declarator
+        case AST_GCC_DECLARATOR :
+            {
+                build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, 
+                        gather_info, declarator_name, decl_context); 
+                break;
+            }
+            // attribute * declarator
+            // attribute & declarator
+        case AST_GCC_POINTER_DECL :
+            {
+                set_pointer_type(declarator_type, st, ASTSon1(a), decl_context);
+                build_scope_declarator_rec(ASTSon2(a), st, parameters_scope, declarator_type, 
+                        gather_info, declarator_name, decl_context);
+                break;
+            }
+            // attribute abstract-declarator
+        case AST_GCC_ABSTRACT_DECLARATOR :
+            {
+                build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, 
+                        gather_info, declarator_name, decl_context); 
+                break;
+            }
+            // attribute * abstract-declarator
+            // attribute & abstract-declarator
+        case AST_GCC_PTR_ABSTRACT_DECLARATOR :
+            {
+                set_pointer_type(declarator_type, st, ASTSon1(a), decl_context);
+                if (ASTSon2(a) != NULL)
+                {
+                    build_scope_declarator_rec(ASTSon2(a), st, parameters_scope, declarator_type, 
+                            gather_info, declarator_name, decl_context);
+                }
+                break;
+            }
+            // functional-declarator attribute
+        case AST_GCC_FUNCTIONAL_DECLARATOR :
+            {
+                build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type,
+                        gather_info, declarator_name, decl_context);
                 break;
             }
         case AST_AMBIGUITY :
@@ -6952,6 +7005,16 @@ AST get_function_declarator_parameter_list(AST funct_declarator, scope_t* st, de
                 return ASTSon1(funct_declarator);
                 break;
             }
+        case AST_GCC_DECLARATOR :
+            {
+                return get_function_declarator_parameter_list(ASTSon1(funct_declarator), st, decl_context);
+                break;
+            }
+        case AST_GCC_POINTER_DECL :
+            {
+                return get_function_declarator_parameter_list(ASTSon2(funct_declarator), st, decl_context);
+                break;
+            }
         default:
             {
                 internal_error("Unknown node '%s' at '%s'\n", ast_print_node_type(ASTType(funct_declarator)),
@@ -7001,6 +7064,15 @@ AST get_declarator_name(AST a, scope_t* st, decl_context_t decl_context)
             {
                 return ASTSon0(a);
                 break;
+            }
+        case AST_GCC_DECLARATOR :
+            {
+                return get_declarator_name(ASTSon1(a), st, decl_context);
+                break;
+            }
+        case AST_GCC_FUNCTIONAL_DECLARATOR :
+            {
+                return get_declarator_name(ASTSon0(a), st, decl_context);
             }
         case AST_NEW_DECLARATOR :
         case AST_DIRECT_NEW_DECLARATOR :

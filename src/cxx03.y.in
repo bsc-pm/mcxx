@@ -379,9 +379,11 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> using_declaration
 %type<ast> using_directive
 %type<ast> nontype_specifier_seq
+%type<ast> nontype_specifier_no_end_attrib_seq
 %type<ast> nontype_specifier
-%type<ast> nontype_specifier_seq2
-%type<ast> nontype_specifier2
+%type<ast> nontype_specifier_without_attribute
+// %type<ast> nontype_specifier_seq2
+// %type<ast> nontype_specifier2
 %type<ast> volatile_optional
 %type<ast> unknown_pragma
 %type<ast> designation
@@ -508,8 +510,8 @@ namespace_definition : named_namespace_definition
 }
 ;
 
-// extension_namespace_definition genera exactament el mateix
-// que aquesta regla, per aixo més val eliminar-la
+// extension_namespace_definition generates exactly the same
+// so it is not repeated
 named_namespace_definition : NAMESPACE IDENTIFIER '{' declaration_sequence '}'
 {
 	AST identif = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
@@ -521,6 +523,19 @@ named_namespace_definition : NAMESPACE IDENTIFIER '{' declaration_sequence '}'
 	AST identif = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
 
 	$$ = ASTMake2(AST_NAMESPACE_DEFINITION, identif, NULL, $1.token_line, NULL);
+}
+// GNU extensions
+| NAMESPACE IDENTIFIER attributes '{' declaration_sequence '}'
+{
+	AST identif = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+
+	$$ = ASTMake3(AST_GCC_NAMESPACE_DEFINITION, identif, $5, $3, $1.token_line, NULL);
+}
+| NAMESPACE IDENTIFIER attributes '{' '}'
+{
+	AST identif = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+
+	$$ = ASTMake3(AST_GCC_NAMESPACE_DEFINITION, identif, NULL, $3, $1.token_line, NULL);
 }
 ;
 
@@ -848,12 +863,39 @@ using_directive : USING NAMESPACE IDENTIFIER ';'
 
 	$$ = ASTMake3(AST_USING_DIRECTIVE, NULL, $3, identifier, $1.token_line, NULL);
 }
-| USING NAMESPACE TWO_COLONS nested_name_specifier IDENTIFIER
+| USING NAMESPACE TWO_COLONS nested_name_specifier IDENTIFIER ';'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 	AST identifier = ASTLeaf(AST_SYMBOL, $5.token_line, $5.token_text);
 
 	$$ = ASTMake3(AST_USING_DIRECTIVE, global_op, $4, identifier, $1.token_line, NULL);
+}
+// GNU extension
+| USING NAMESPACE IDENTIFIER attributes ';'
+{
+	AST identifier = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
+
+	$$ = ASTMake4(AST_GCC_USING_DIRECTIVE, NULL, NULL, identifier, $4, $1.token_line, NULL);
+}
+| USING NAMESPACE TWO_COLONS IDENTIFIER attributes ';'
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
+	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
+
+	$$ = ASTMake4(AST_GCC_USING_DIRECTIVE, global_op, NULL, identifier, $5, $1.token_line, NULL);
+}
+| USING NAMESPACE nested_name_specifier IDENTIFIER attributes ';'
+{
+	AST identifier = ASTLeaf(AST_SYMBOL, $4.token_line, $4.token_text);
+
+	$$ = ASTMake4(AST_GCC_USING_DIRECTIVE, NULL, $3, identifier, $5, $1.token_line, NULL);
+}
+| USING NAMESPACE TWO_COLONS nested_name_specifier IDENTIFIER attributes ';'
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
+	AST identifier = ASTLeaf(AST_SYMBOL, $5.token_line, $5.token_text);
+
+	$$ = ASTMake4(AST_GCC_USING_DIRECTIVE, global_op, $4, identifier, $6, $1.token_line, NULL);
 }
 ;
 
@@ -886,7 +928,7 @@ simple_declaration : decl_specifier_seq init_declarator_list ';'
 // }
 // ;
 
-decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_seq
+decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_end_attrib_seq
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, $3, ASTLine($1), NULL);
 }
@@ -894,7 +936,7 @@ decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_seq
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, NULL, ASTLine($1), NULL);
 }
-| type_specifier nontype_specifier_seq
+| type_specifier nontype_specifier_no_end_attrib_seq
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, $2, ASTLine($1), NULL);
 }
@@ -902,14 +944,14 @@ decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_seq
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, NULL, ASTLine($1), NULL);
 }
-| nontype_specifier_seq
+| nontype_specifier_no_end_attrib_seq
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, NULL, NULL, ASTLine($1), NULL);
 }
 ;
 
 // This does not declare an object, maybe just types, so restrict it a bit
-decl_specifier_alone_seq : nontype_specifier_seq type_specifier_alone nontype_specifier_seq
+decl_specifier_alone_seq : nontype_specifier_seq type_specifier_alone nontype_specifier_no_end_attrib_seq
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, $3, ASTLine($1), NULL);
 }
@@ -917,7 +959,7 @@ decl_specifier_alone_seq : nontype_specifier_seq type_specifier_alone nontype_sp
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, NULL, ASTLine($1), NULL);
 }
-| type_specifier_alone nontype_specifier_seq
+| type_specifier_alone nontype_specifier_no_end_attrib_seq
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, $2, ASTLine($1), NULL);
 }
@@ -937,11 +979,33 @@ nontype_specifier_seq : nontype_specifier
 }
 ;
 
-nontype_specifier : storage_class_specifier
+nontype_specifier_no_end_attrib_seq : nontype_specifier_without_attribute
+{
+    $$ = ASTListLeaf($1);
+}
+| nontype_specifier_seq nontype_specifier_without_attribute
+{
+    $$ = ASTList($1, $2);
+}
+;
+
+
+nontype_specifier : nontype_specifier_without_attribute
+{
+    $$ = $1;
+}
+// GNU extension
+| attribute
 {
 	$$ = $1;
 }
-// No el volem aqui
+;
+
+nontype_specifier_without_attribute : storage_class_specifier
+{
+	$$ = $1;
+}
+// We don't want it here
 // | type_specifier
 // {
 // 	$$ = $1;
@@ -958,12 +1022,12 @@ nontype_specifier : storage_class_specifier
 {
 	$$ = ASTLeaf(AST_TYPEDEF_SPEC, $1.token_line, $1.token_text);
 }
-// El posem aqui per comoditat
+// To ease things
 | cv_qualifier
 {
 	$$ = $1;
 }
-// Els posem aqui repetits
+// Repeat them
 | SIGNED
 {
 	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_line, $1.token_text);
@@ -984,10 +1048,6 @@ nontype_specifier : storage_class_specifier
 | COMPLEX
 {
 	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_line, $1.token_text);
-}
-| attribute
-{
-	$$ = $1;
 }
 ;
 
@@ -1062,22 +1122,17 @@ type_specifier_alone : class_specifier
 
 /*
 type_specifier_seq has been rewritten in a similar fashion to "decl_specifier_sequence"
-
-type_specifier_seq : nontype_specifier_seq2 type_specifier nontype_specifier_seq2
-
-nontype_specifier_seq2 is a strict subset of nontype_specifier_seq that allows only
-const, volatile, long, short, unsigned, signed and __complex__
 */
 
-type_specifier_seq : nontype_specifier_seq2 type_specifier nontype_specifier_seq2
+type_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_end_attrib_seq
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTLine($1), NULL);
 }
-| nontype_specifier_seq2 type_specifier
+| nontype_specifier_seq type_specifier
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ASTLine($1), NULL);
 }
-| type_specifier nontype_specifier_seq2
+| type_specifier nontype_specifier_no_end_attrib_seq
 {
 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTLine($1), NULL);
 }
@@ -1087,43 +1142,43 @@ type_specifier_seq : nontype_specifier_seq2 type_specifier nontype_specifier_seq
 }
 ;
 
-nontype_specifier_seq2 : nontype_specifier2
-{
-	$$ = ASTListLeaf($1);
-}
-| nontype_specifier_seq2 nontype_specifier2
-{
-	$$ = ASTList($1, $2);
-}
-;
-
-nontype_specifier2 : cv_qualifier
-{
-	$$ = $1;
-}
-// Els posem aqui repetits
-| SIGNED
-{
-	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_line, $1.token_text);
-}
-| UNSIGNED
-{
-	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_line, $1.token_text);
-}
-| LONG
-{
-	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_line, $1.token_text);
-}
-| SHORT
-{
-	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_line, $1.token_text);
-}
-// GNU Extension
-| COMPLEX
-{
-	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_line, $1.token_text);
-}
-;
+// nontype_specifier_seq2 : nontype_specifier2
+// {
+// 	$$ = ASTListLeaf($1);
+// }
+// | nontype_specifier_seq2 nontype_specifier2
+// {
+// 	$$ = ASTList($1, $2);
+// }
+// ;
+// 
+// nontype_specifier2 : cv_qualifier
+// {
+// 	$$ = $1;
+// }
+// // We repeat them here
+// | SIGNED
+// {
+// 	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_line, $1.token_text);
+// }
+// | UNSIGNED
+// {
+// 	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_line, $1.token_text);
+// }
+// | LONG
+// {
+// 	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_line, $1.token_text);
+// }
+// | SHORT
+// {
+// 	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_line, $1.token_text);
+// }
+// // GNU Extension
+// | COMPLEX
+// {
+// 	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_line, $1.token_text);
+// }
+// ;
 
 simple_type_specifier : type_name
 {
@@ -1537,6 +1592,15 @@ declarator : direct_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECL, $1, $2, ASTLine($1), NULL);
 }
+/* GNU Extension */
+| attributes direct_declarator
+{
+    $$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ASTLine($1), NULL);
+}
+| attributes ptr_operator declarator
+{
+    $$ = ASTMake3(AST_GCC_POINTER_DECL, $1, $2, $3, ASTLine($1), NULL);
+}
 ;
 
 ptr_operator : '*'
@@ -1589,6 +1653,15 @@ functional_declarator : functional_direct_declarator
 | ptr_operator functional_declarator
 {
 	$$ = ASTMake2(AST_POINTER_DECL, $1, $2, ASTLine($1), NULL);
+}
+// GNU extension
+| attributes functional_direct_declarator
+{
+	$$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ASTLine($1), NULL);
+}
+| attributes ptr_operator functional_declarator
+{
+	$$ = ASTMake3(AST_GCC_POINTER_DECL, $1, $2, $3, ASTLine($1), NULL);
 }
 ;
 
@@ -1788,6 +1861,19 @@ abstract_declarator : ptr_operator
 | direct_abstract_declarator
 {
 	$$ = $1;
+}
+// GNU extension
+| attributes ptr_operator
+{
+	$$ = ASTMake2(AST_GCC_PTR_ABSTRACT_DECLARATOR, $1, NULL, ASTLine($1), NULL);
+}
+| attributes ptr_operator abstract_declarator
+{
+	$$ = ASTMake2(AST_GCC_PTR_ABSTRACT_DECLARATOR, $1, $2, ASTLine($1), NULL);
+}
+| attributes direct_abstract_declarator
+{
+	$$ = ASTMake2(AST_GCC_ABSTRACT_DECLARATOR, $1, $2, ASTLine($1), NULL);
 }
 ;
 
@@ -2042,6 +2128,33 @@ function_definition : functional_declarator function_body
 {
 	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, $2, $3, $4, ASTLine($1), NULL);
 }
+// GNU extensions
+// Technically only inline member function definitions are allowed this kind 
+// of attributes within g++
+| functional_declarator attributes function_body
+{
+    AST functional_decl = ASTMake2(AST_GCC_FUNCTIONAL_DECLARATOR, $1, $2, ASTLine($1), NULL);
+
+	$$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, functional_decl, NULL, $3, ASTLine($1), NULL);
+}
+| functional_declarator attributes ctor_initializer function_body 
+{
+    AST functional_decl = ASTMake2(AST_GCC_FUNCTIONAL_DECLARATOR, $1, $2, ASTLine($1), NULL);
+
+	$$ = ASTMake4(AST_FUNCTION_DEFINITION, NULL, functional_decl, $3, $4, ASTLine($1), NULL);
+}
+| decl_specifier_seq functional_declarator attributes function_body 
+{
+    AST functional_decl = ASTMake2(AST_GCC_FUNCTIONAL_DECLARATOR, $2, $3, ASTLine($1), NULL);
+
+	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, functional_decl, NULL, $4, ASTLine($1), NULL);
+}
+| decl_specifier_seq functional_declarator attributes ctor_initializer function_body 
+{
+    AST functional_decl = ASTMake2(AST_GCC_FUNCTIONAL_DECLARATOR, $2, $3, ASTLine($1), NULL);
+
+	$$ = ASTMake4(AST_FUNCTION_DEFINITION, $1, functional_decl, $4, $5, ASTLine($1), NULL);
+}
 | EXTENSION function_definition
 {
 	$$ = ASTMake1(AST_GCC_EXTENSION, $2, $1.token_line, $1.token_text);
@@ -2230,7 +2343,7 @@ member_declaration : decl_specifier_seq member_declarator_list ';'
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, $1, $2, ASTLine($1), NULL);
 }
-| decl_specifier_seq ';' 
+| decl_specifier_alone_seq ';' 
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, $1, NULL, ASTLine($1), NULL);
 }
@@ -2309,7 +2422,7 @@ member_declarator : declarator
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, $2, ASTLine($1), NULL);
 }
-// - El susbsumirem amb constant_initializer -
+// This is under the hood of the const_initializer
 // | declarator pure_specifier
 // {
 // }
