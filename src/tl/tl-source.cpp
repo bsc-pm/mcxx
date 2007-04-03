@@ -34,30 +34,29 @@ namespace TL
 
     void Source::append_text_chunk(const std::string& str)
     {
-        if ((*_chunk_list).empty())
+        if (_chunk_list->empty())
         {
-            (*_chunk_list).push_back(new SourceText(str));
+            _chunk_list->push_back(SourceChunkRef(new SourceText(str)));
         }
         else
         {
-            SourceChunk* last = *((*_chunk_list).rbegin());
+            SourceChunkRef last = *(_chunk_list->rbegin());
 
             if (last->is_source_text())
             {
-                // Collapse two adjacent texts
-                SourceText* text = dynamic_cast<SourceText*>(last);
+                RefPtr<SourceText> text = RefPtr<SourceText>::cast_dynamic(last);
                 text->_source += str;
             }
             else
             {
-                (*_chunk_list).push_back(new SourceText(str));
+                _chunk_list->push_back(SourceChunkRef(new SourceText(str)));
             }
         }
     }
 
-    void Source::append_source_ref(Source& src)
+    void Source::append_source_ref(SourceChunkRef ref)
     {
-        (*_chunk_list).push_back(new SourceRef(src));
+        _chunk_list->push_back(ref);
     }
 
     Source& Source::operator<<(const std::string& str)
@@ -76,16 +75,19 @@ namespace TL
 
     Source& Source::operator<<(Source& src)
     {
-        Source *new_src = new Source(src);
-        append_source_ref(*new_src);
+        RefPtr<Source> ref_src = RefPtr<Source>(new Source(src));
+
+        SourceChunkRef new_src = SourceChunkRef(new SourceRef(ref_src));
+
+        append_source_ref(new_src);
         return *this;
     }
 
     std::string Source::get_source(bool with_newlines) const
     {
         std::string temp_result;
-        for(std::vector<SourceChunk*>::const_iterator it = (*_chunk_list).begin();
-                it != (*_chunk_list).end();
+        for(ObjectList<SourceChunkRef>::const_iterator it = _chunk_list->begin();
+                it != _chunk_list->end();
                 it++)
         {
             temp_result += (*it)->get_source();
@@ -499,7 +501,10 @@ namespace TL
     {
         if (this != &src)
         {
-            *(this->_chunk_list) = *(src._chunk_list);
+            // *(this->_chunk_list.get_pointer()) = *(src._chunk_list.get_pointer());
+            //
+            // FIXME - Check this !
+            _chunk_list = src._chunk_list;
         }
         return (*this);
     }
@@ -524,7 +529,8 @@ namespace TL
         {
             append_text_chunk(separator);
         }
-        append_source_ref(src);
+        RefPtr<Source> ref_source = RefPtr<Source>(new Source(src));
+        append_source_ref(SourceChunkRef(new SourceRef(ref_source)));
 
         return (*this);
     }
@@ -536,7 +542,7 @@ namespace TL
 
     bool Source::all_blanks() const
     {
-        if ((*_chunk_list).empty())
+        if (_chunk_list->empty())
         {
             return true;
         }

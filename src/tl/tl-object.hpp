@@ -26,11 +26,14 @@
 #include <typeinfo>
 #include "cxx-tltype.h"
 #include "extstruct.h"
+#include "tl-refptr.hpp"
 
 namespace TL
 {
     class Object 
     { 
+        private:
+            int _refcount;
         protected:
             virtual tl_type_t* get_extended_attribute(const std::string& name) const
             {
@@ -39,7 +42,26 @@ namespace TL
 
         public:
             /* do not override */
-            Object& get_attribute(const std::string& name) const;
+            RefPtr<Object> get_attribute(const std::string& name) const;
+
+            Object()
+                : _refcount(1)
+            {
+            }
+
+            void obj_reference()
+            {
+                _refcount++;
+            }
+
+            void obj_unreference()
+            {
+                _refcount--;
+                if (_refcount == 0)
+                {
+                    delete this;
+                }
+            }
 
             virtual ~Object() { }
 

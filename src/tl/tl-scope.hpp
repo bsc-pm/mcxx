@@ -58,16 +58,16 @@ namespace TL
             {
             }
 
-            Scope(const Object& obj)
+            Scope(RefPtr<Object> obj)
             {
-                const Scope* sc = dynamic_cast<const Scope*>(&obj);
-                if (sc != NULL)
+                RefPtr<Scope> sc = RefPtr<Scope>::cast_dynamic(obj);
+                if (sc.get_pointer() != NULL)
                 {
                     this->_st = sc->_st;
                 }
                 else
                 {
-                    if (typeid(obj) != typeid(const Undefined&))
+                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
                     {
                         std::cerr << "Bad initialization for Scope" << std::endl;
                     }

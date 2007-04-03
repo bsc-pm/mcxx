@@ -25,6 +25,7 @@
 #include <utility>
 #include "tl-functor.hpp"
 #include "tl-predicate.hpp"
+#include <signal.h>
 
 namespace TL
 {
@@ -51,7 +52,32 @@ class ObjectList : public std::vector<T>
             }
         }
 
+        int _refcount;
     public:
+        void obj_reference()
+        {
+            this->_refcount++;
+        }
+
+        void obj_unreference()
+        {
+            this->_refcount--;
+
+            if (this->_refcount == 0)
+            {
+                delete this;
+            }
+        }
+
+        ObjectList()
+            : _refcount(1)
+        {
+        }
+
+        virtual ~ObjectList()
+        {
+        }
+
         ObjectList<T> filter(const Predicate<T>& p)
         {
             ObjectList<T> result;

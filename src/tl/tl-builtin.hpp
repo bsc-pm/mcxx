@@ -50,16 +50,16 @@ namespace TL
             {
             }
 
-            Integer(const Object& obj)
+            Integer(RefPtr<Object> obj)
             {
-                const Integer* pint = dynamic_cast<const Integer*>(&obj);
-                if (pint != NULL)
+                RefPtr<Integer> pint = RefPtr<Integer>::cast_dynamic(obj);
+                if (pint.get_pointer() != NULL)
                 {
                     this->_i = pint->_i;
                 }
                 else
                 {
-                    if (typeid(obj) != typeid(const Undefined&))
+                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
                     {
                         std::cerr << "Bad initialization of Integer" << std::endl;
                     }
@@ -184,18 +184,18 @@ namespace TL
             {
             }
 
-            Bool(const Object& obj)
+            Bool(RefPtr<Object> obj)
             {
-                const Bool* pint = dynamic_cast<const Bool*>(&obj);
-                if (pint != NULL)
+                RefPtr<Bool> pint = RefPtr<Bool>::cast_dynamic(obj);
+                if (pint.get_pointer() != NULL)
                 {
                     this->_b = pint->_b;
                 }
                 else
                 {
-                    if (typeid(obj) != typeid(const Undefined&))
+                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
                     {
-                        std::cerr << "Bad initialization of Bool (" << typeid(obj).name() << ")"  << std::endl;
+                        std::cerr << "Bad initialization of Bool (" << typeid(*obj.get_pointer()).name() << ")"  << std::endl;
                     }
                     this->_b = false;
                 }
@@ -299,16 +299,16 @@ namespace TL
             // {
             // }
 
-            String(const Object& obj)
+            String(RefPtr<Object> obj)
             {
-                const String* pint = dynamic_cast<const String*>(&obj);
-                if (pint != NULL)
+                RefPtr<String> pint = RefPtr<String>::cast_dynamic(obj);
+                if (pint.get_pointer() != NULL)
                 {
-                    this->operator=(*pint);
+                    this->operator=(*pint.operator->());
                 }
                 else
                 {
-                    if (typeid(obj) != typeid(const Undefined&))
+                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
                     {
                         std::cerr << "Bad initialization of String" << std::endl;
                     }

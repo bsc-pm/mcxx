@@ -45,43 +45,27 @@ struct extensible_schema_tag
 
 typedef struct extensible_schema_tag extensible_schema_t;
 
-/*
- * This is the extensible_struct_t
- * for a given schema it stores the related information.
- *
- * Not all fields of the schema are saved, only those that have
- * been written or read to are saved.
- *
- * Fields are stored in the "data" array. They are given offsets sequentially
- * in this array when they are referenced for the first time.
- *
- *   num_active_fields - stores the number of fields that have offset_data
- *                       (even if it is -1)
- *   offsets_data - array that stores the offset we have to add to 'data' to get
- *                  the information of that field. If this field is -1 this means
- *                  the field has not been given allocation in the 'data' array
- *                  (this happens if the user references a field defined later
- *                  in the schema before referencing the previous field)
- *
- */
-struct extensible_struct_tag
+struct extensible_data_item_tag
 {
-    // The related schema of this extensible_struct_t
-    extensible_schema_t* schema;
-
-    // Number of fields 
-    int num_active_fields;
-
-    // Offsets of structs within 'data' array
-    int* offsets_data;
+    // Index of the field in the schema
+    int schema_index;
 
     // The data
-    int data_size;
     char* data;
 };
 
-typedef struct extensible_struct_tag extensible_struct_t;
+typedef struct extensible_data_item_tag extensible_data_item_t;
 
+struct extensible_struct_tag
+{
+    // The related schema of this extensible_struct_t
+    extensible_schema_t *schema;
+
+    int num_items;
+    extensible_data_item_t *items;
+};
+
+typedef struct extensible_struct_tag extensible_struct_t;
 
 // Schema operations
 extensible_schema_t extensible_schema_new();

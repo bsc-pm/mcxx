@@ -62,7 +62,8 @@ namespace TL
         {
             if (p == NULL)
             {
-                // Clear it for safety
+                // It was found but nobody wrote on this attribute
+                // Clear the static return type
                 memset(&found_but_not_set, 0, sizeof(found_but_not_set));
                 return &found_but_not_set;
             }

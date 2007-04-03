@@ -51,16 +51,16 @@ namespace TL
             {
             }
 
-            ScopeLink(const Object& obj)
+            ScopeLink(RefPtr<Object> obj)
             {
-                const ScopeLink* sl = dynamic_cast<const ScopeLink*>(&obj);
-                if (sl != NULL)
+                RefPtr<ScopeLink> sl = RefPtr<ScopeLink>::cast_dynamic(obj);
+                if (sl.get_pointer() != NULL)
                 {
                     this->_scope_link = sl->_scope_link;
                 }
                 else
                 {
-                    if (typeid(obj) != typeid(const Undefined&))
+                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
                     {
                         std::cerr << "Bad initialization for ScopeLink" << std::endl;
                     }

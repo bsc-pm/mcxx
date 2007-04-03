@@ -104,13 +104,13 @@ namespace TL
             {
             }
 
-            AST_t(const Object& obj)
+            AST_t(RefPtr<Object> obj)
             {
-                const AST_t* cast = dynamic_cast<const AST_t*>(&obj);
+                RefPtr<AST_t> cast = RefPtr<AST_t>::cast_dynamic(obj);
 
-                if (cast == NULL)
+                if (cast.get_pointer() == NULL)
                 {
-                    if (typeid(obj) != typeid(const Undefined&))
+                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
                     {
                         std::cerr << "Bad initialization of AST_t" << std::endl;
                     }

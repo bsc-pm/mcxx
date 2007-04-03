@@ -229,8 +229,8 @@ namespace TL
     bool IdExpression::is_template_id() const
     {
         TL::Bool ret = _ref.
-            get_attribute(LANG_UNQUALIFIED_ID).
-            get_attribute(LANG_IS_TEMPLATE_ID);
+            get_attribute(LANG_UNQUALIFIED_ID)
+            ->get_attribute(LANG_IS_TEMPLATE_ID);
         return ret;
     }
 
@@ -238,7 +238,7 @@ namespace TL
     {
         TL::AST_t ret = _ref
             .get_attribute(LANG_UNQUALIFIED_ID)
-            .get_attribute(LANG_TEMPLATE_ARGS);
+            ->get_attribute(LANG_TEMPLATE_ARGS);
         return "<" + ret.prettyprint(/*comma=*/true) + ">";
     }
 

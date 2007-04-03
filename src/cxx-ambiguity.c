@@ -1808,6 +1808,7 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             {
                 check_for_expression(ASTSon0(expression), st, decl_context);
                 check_for_type_id_tree(ASTSon1(expression), st, decl_context);
+                return 1;
                 break;
             }
         default :
@@ -2162,14 +2163,14 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st,
                     AST type_id = ASTSon0(current_template_argument);
 
                     // Recursively fix if needed
-                    AST type_id_type_spec = ASTSon0(type_id);
-                    AST type_id_simple_type_spec = ASTSon1(type_id_type_spec);
-                    
-                    if (ASTSon2(type_id_simple_type_spec) != NULL
-                            && ASTType(ASTSon2(type_id_simple_type_spec)) == AST_TEMPLATE_ID)
-                    {
-                        solve_possibly_ambiguous_template_id(ASTSon2(type_id_simple_type_spec), st, decl_context);
-                    }
+                    // AST type_id_type_spec = ASTSon0(type_id);
+                    // AST type_id_simple_type_spec = ASTSon1(type_id_type_spec);
+                    // 
+                    // if (ASTSon2(type_id_simple_type_spec) != NULL
+                    //         && ASTType(ASTSon2(type_id_simple_type_spec)) == AST_TEMPLATE_ID)
+                    // {
+                    //     solve_possibly_ambiguous_template_id(ASTSon2(type_id_simple_type_spec), st, decl_context);
+                    // }
 
                     current_option = check_for_type_id_tree(type_id, st, decl_context);
                     break;
@@ -2182,6 +2183,7 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st,
                 }
             default :
                 internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(current_template_argument)));
+                break;
         }
         
         if (current_option)
@@ -3305,16 +3307,24 @@ static void choose_option(AST a, int n)
 
     if (!ASTCheck(a->ambig[n]))
     {
-        internal_error("*** INCONSISTENT TREE DETECTED *** %p\n", a->ambig[n]);
+        internal_error("*** INCONSISTENT TREE DETECTED IN AMBIGUITY TREE %d *** %p\n", n, a->ambig[n]);
+    }
+
+    int i;
+    for (i = 0; i < a->num_ambig; i++)
+    {
+        if (i != n)
+        {
+            memset(a->ambig[i], '\0', sizeof(*(a->ambig[i])));
+        }
     }
     
     // This will work, trust on me :)
-    *a = *(duplicate_ast(a->ambig[n]));
+    *a = *(a->ambig[n]);
 
     // Correctly relink to the parent
     ASTParent(a) = parent;
 
-    int i;
     for (i = 0; i < ASTNumChildren(a); i++)
     {
         if (ASTChild(a, i) != NULL)
@@ -3327,7 +3337,7 @@ static void choose_option(AST a, int n)
 
     if (!ASTCheck(a))
     {
-        internal_error("*** INCONSISTENT TREE DETECTED ***\n", a);
+        internal_error("*** INCONSISTENT TREE DETECTED IN DISAMBIGUATED TREE %p ***\n", a);
     }
 }
 

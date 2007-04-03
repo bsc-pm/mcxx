@@ -26,6 +26,7 @@
 #include "tl-ast.hpp"
 #include "tl-scope.hpp"
 #include "tl-scopelink.hpp"
+#include "tl-refptr.hpp"
 #include "cxx-lexer.h"
 #include "cxx-driver.h"
 #include "cxx-scope.h"
@@ -38,11 +39,32 @@ namespace TL
     class SourceChunk
     {
         private:
+            int _refcount;
         public:
             virtual std::string get_source() const = 0;
             virtual ~SourceChunk() { } 
             virtual bool is_source_text() { return false; }
             virtual bool is_source_ref() { return false; }
+
+            SourceChunk()
+                : _refcount(1)
+            {
+            }
+
+            void obj_reference()
+            {
+                this->_refcount++;
+            }
+
+            void obj_unreference()
+            {
+                this->_refcount--;
+
+                if (this->_refcount == 0)
+                {
+                    delete this;
+                }
+            }
     };
 
     class SourceText : public SourceChunk
@@ -70,10 +92,10 @@ namespace TL
     class SourceRef : public SourceChunk
     {
         private:
-            Source* _src;
+            RefPtr<Source> _src;
         public:
-            SourceRef(Source& src)
-                : _src(&src)
+            SourceRef(RefPtr<Source> src)
+                : _src(src)
             {
             }
             virtual std::string get_source() const;
@@ -85,6 +107,10 @@ namespace TL
             friend class Source;
     };
 
+    typedef RefPtr<SourceChunk> SourceChunkRef;
+
+    typedef RefPtr<ObjectList<SourceChunkRef> > chunk_list_ref_t;
+
     class Source : public Object
     {
         public:
@@ -95,26 +121,33 @@ namespace TL
                 ALLOW_REDECLARATION = 1 << 1
             };
         private:
-            std::vector<SourceChunk*>* _chunk_list;
+            chunk_list_ref_t _chunk_list;
 
             void append_text_chunk(const std::string& str);
-            void append_source_ref(Source& src);
+            void append_source_ref(SourceChunkRef src);
 
             bool all_blanks() const;
             AST_t parse_declaration_inner(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
         public:
             Source()
+                : _chunk_list(0)
             {
-                _chunk_list = new std::vector<SourceChunk*>();
+                _chunk_list = chunk_list_ref_t(new ObjectList<SourceChunkRef>());
+            }
+
+            virtual ~Source()
+            {
             }
 
             Source(const std::string& str)
+                : _chunk_list(0)
             {
-                _chunk_list = new std::vector<SourceChunk*>();
-                (*_chunk_list).push_back(new SourceText(str));
+                _chunk_list = chunk_list_ref_t(new ObjectList<SourceChunkRef>());
+                _chunk_list->push_back(SourceChunkRef(new SourceText(str)));
             }
 
             Source(const Source& src)
+                // This is fine, we want to share the same source list for both
                 : _chunk_list(src._chunk_list)
             {
             }

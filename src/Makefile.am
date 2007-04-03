@@ -131,6 +131,7 @@ cxx-asttype.h : $(srcdir)/cxx-asttype.def
 	echo "MCXX_BEGIN_DECLS" >> cxx-asttype.h
 	echo "/* This file has been generated. Every time you change $< it will be regenerated */" >> cxx-asttype.h
 	echo "enum node_type {" >> cxx-asttype.h
+	echo "AST_INVALID_NODE = 0,"  >> cxx-asttype.h
 	sed -e "s/$$/,/" < $(srcdir)/cxx-asttype.def >> cxx-asttype.h
 	echo "AST_LAST_NODE" >> cxx-asttype.h
 	echo "};" >> cxx-asttype.h
@@ -144,7 +145,9 @@ cxx-asttype.c : $(srcdir)/cxx-asttype.def cxx-asttype.h
 	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-asttype.c
 	echo "#include \"cxx-asttype.h\"" >> cxx-asttype.c
 	echo "char* ast_node_names[] = {" >> cxx-asttype.c
+	echo "[AST_INVALID_NODE] = \"AST_INVALID_NODE\", " >> cxx-asttype.c
 	sed -e "s/^.*$$/[&] = \"&\",/" < $(srcdir)/cxx-asttype.def >> cxx-asttype.c
+	echo "[AST_LAST_NODE] = \"AST_LAST_NODE\", " >> cxx-asttype.c
 	echo "};" >> cxx-asttype.c
 
 CLEANFILES += cxx-attrnames.h

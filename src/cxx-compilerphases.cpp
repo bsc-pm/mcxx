@@ -27,6 +27,7 @@
 #include "tl-compilerphase.hpp"
 #include "tl-ast.hpp"
 #include "tl-scopelink.hpp"
+#include "tl-refptr.hpp"
 
 /*
    void *dlopen(const char *filename, int flag);
@@ -51,10 +52,10 @@ namespace TL
                 // Create the DTO
                 TL::DTO dto;
 
-                TL::AST_t ast(translation_unit->parsed_tree);
+                RefPtr<TL::AST_t> ast(new TL::AST_t(translation_unit->parsed_tree));
                 dto.set_object("translation_unit", ast);
 
-                TL::ScopeLink scope(translation_unit->scope_link);
+                RefPtr<TL::ScopeLink> scope(new TL::ScopeLink(translation_unit->scope_link));
                 dto.set_object("scope_link", scope);
 
                 for (compiler_phases_t::iterator it = compiler_phases.begin();

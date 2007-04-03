@@ -89,72 +89,6 @@ void extensible_struct_init(extensible_struct_t* extensible_struct, extensible_s
     extensible_struct->schema = schema;
 }
 
-static char extensible_struct_field_is_active(extensible_schema_t* schema,
-        extensible_struct_t* extensible_struct,
-        int schema_field_order)
-{
-    if (schema_field_order >= extensible_struct->num_active_fields)
-    {
-        return 0;
-    }
-
-    if (extensible_struct->offsets_data[schema_field_order] == -1)
-    {
-        return 0;
-    }
-
-    return 1;
-}
-
-void extensible_struct_allocate_field(extensible_schema_t* schema,
-        extensible_struct_t* extensible_struct,
-        int schema_field_order)
-{
-    int field_size = schema->field_sizes[schema_field_order];
-
-    extensible_struct->data = realloc(extensible_struct->data,
-            (extensible_struct->data_size + field_size) * sizeof(char));
-
-    // Clear the field data
-    int i;
-    for (i = extensible_struct->data_size; i < (extensible_struct->data_size + field_size); i++)
-    {
-        extensible_struct->data[i] = 0;
-    }
-
-    extensible_struct->offsets_data[schema_field_order] = extensible_struct->data_size;
-
-    extensible_struct->data_size += field_size;
-}
-
-void extensible_struct_activate_field(extensible_schema_t* schema,
-        extensible_struct_t* extensible_struct,
-        int schema_field_order)
-{
-    // We have to reallocate up to this field
-    if (schema_field_order >= extensible_struct->num_active_fields)
-    {
-        int previous_active_fields = extensible_struct->num_active_fields;
-        extensible_struct->num_active_fields = schema_field_order + 1;
-        extensible_struct->offsets_data = 
-            realloc(extensible_struct->offsets_data, 
-                    (extensible_struct->num_active_fields)*(sizeof(*(extensible_struct->offsets_data))));
-
-        // Set the unallocated to -1
-        int i = previous_active_fields;
-        while (i < extensible_struct->num_active_fields)
-        {
-            extensible_struct->offsets_data[i] = -1;
-            i++;
-        }
-    }
-
-    if (extensible_struct->offsets_data[schema_field_order] == -1)
-    {
-        extensible_struct_allocate_field(schema, extensible_struct, schema_field_order);
-    }
-}
-
 void *extensible_struct_get_field_pointer_lazy(extensible_schema_t* schema,
         extensible_struct_t* extensible_struct,
         const char* field_name,
@@ -182,14 +116,18 @@ void *extensible_struct_get_field_pointer_lazy(extensible_schema_t* schema,
     }
 
     *is_found = 1;
-    if (!extensible_struct_field_is_active(schema, extensible_struct, schema_field_order))
+    
+    int i;
+    for (i = 0; i < extensible_struct->num_items; i++)
     {
-        return NULL;
+        if (extensible_struct->items[i].schema_index == schema_field_order)
+        {
+            return extensible_struct->items[i].data;
+        }
     }
-    else
-    {
-        return &(extensible_struct->data[extensible_struct->offsets_data[schema_field_order]]);
-    }
+
+    // If it does not exist, do not allocate it
+    return NULL;
 }
 
 
@@ -210,7 +148,6 @@ void *extensible_struct_get_field_pointer(extensible_schema_t* schema,
     }
 
     // First get the order within the schema of this field
-
     int schema_field_order = extensible_schema_get_field_order(schema, field_name);
 
     if (schema_field_order < 0)
@@ -219,8 +156,24 @@ void *extensible_struct_get_field_pointer(extensible_schema_t* schema,
         return NULL;
     }
 
-    // Now check if it is active, otherwise activate it
-    extensible_struct_activate_field(schema, extensible_struct, schema_field_order);
+    int i;
+    for (i = 0; i < extensible_struct->num_items; i++)
+    {
+        if (extensible_struct->items[i].schema_index == schema_field_order)
+        {
+            return extensible_struct->items[i].data;
+        }
+    }
 
-    return &(extensible_struct->data[extensible_struct->offsets_data[schema_field_order]]);
+    // Allocate the field
+    extensible_struct->num_items++;
+    extensible_struct->items = realloc(extensible_struct->items, 
+            extensible_struct->num_items * sizeof(*extensible_struct->items));
+
+    extensible_data_item_t * new_data = &(extensible_struct->items[extensible_struct->num_items - 1]);
+
+    new_data->schema_index = schema_field_order;
+    new_data->data = calloc(1, schema->field_sizes[schema_field_order]);
+
+    return new_data->data;
 }

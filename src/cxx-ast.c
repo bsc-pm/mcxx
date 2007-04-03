@@ -111,6 +111,13 @@ char ASTCheck(AST node)
                 if (ASTParent(ASTChild(node, i)) != node)
                 {
                     check = 0;
+                    AST wrong_parent = ASTParent(ASTChild(node, i));
+                    fprintf(stderr, "Child %d of %s (%s, %p) does not correctly relink. Instead it points to %s (%s, %p)\n",
+                            i, node_information(node), ast_print_node_type(ASTType(node)), node,
+                            wrong_parent == NULL ? "(null)" : node_information(wrong_parent),
+                            wrong_parent == NULL ? "null" : ast_print_node_type(ASTType(wrong_parent)),
+                            wrong_parent);
+                            
                 }
                 else
                 {
@@ -152,6 +159,18 @@ AST duplicate_ast(AST a)
         if (ASTChild(result, i) != NULL)
         {
             ASTParent(ASTChild(result, i)) = result;
+        }
+    }
+
+    // Duplicate ambiguous trees too
+    if (ASTType(a) == AST_AMBIGUITY && 
+            (a->num_ambig > 0))
+    {
+        result->num_ambig = a->num_ambig;
+        result->ambig = calloc(a->num_ambig, sizeof(*(result->ambig)));
+        for (i = 0; i < a->num_ambig; i++)
+        {
+            result->ambig[i] = duplicate_ast(a->ambig[i]);
         }
     }
 

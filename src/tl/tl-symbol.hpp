@@ -56,16 +56,16 @@ namespace TL
             {
             }
 
-            Symbol(const Object& obj)
+            Symbol(RefPtr<Object> obj)
             {
-                const Symbol* pint = dynamic_cast<const Symbol*>(&obj);
-                if (pint != NULL)
+                RefPtr<Symbol> pint = RefPtr<Symbol>::cast_dynamic(obj);
+                if (pint.get_pointer() != NULL)
                 {
                     this->_symbol = pint->_symbol;
                 }
                 else
                 {
-                    if (typeid(obj) != typeid(const Undefined&))
+                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
                     {
                         std::cerr << "Bad initialization of Symbol" << std::endl;
                     }

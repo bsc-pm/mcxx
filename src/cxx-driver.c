@@ -53,6 +53,15 @@ compilation_options_t compilation_options;
 "  -o, --output=<file>      Sets <file> as the output file\n" \
 "  -c                       Does not link, just compile\n" \
 "  -E                       Does not compile, just preprocess\n" \
+"  -I <dir>                 Adds <dir> into the searched include\n" \
+"                           directories\n" \
+"  -L <dir>                 Adds <dir> into the searched library\n" \
+"                           directories\n" \
+"  -l <name>                Adds lib<name> into the final link\n" \
+"  -g                       Enables debug for the native compilation\n" \
+"  -D<macro>                Passes <macro> to the preprocessor\n" \
+"  -O                       Enables -O optimization to the native\n" \
+"                           compiler\n" \
 "  -y                       Only parsing will be performed\n" \
 "                           No file will be generated\n" \
 "  -k, --keep-files         Do not remove intermediate temporary\n" \
@@ -86,7 +95,7 @@ compilation_options_t compilation_options;
 "\n"
 
 // Remember to update GETOPT_STRING if needed
-#define GETOPT_STRING "vkadcho:m:W:Ey"
+#define GETOPT_STRING "vkadcho:m:W:EyI:L:l:gOD:"
 struct option getopt_long_options[] =
 {
     {"help",        no_argument, NULL, 'h'},
@@ -142,6 +151,8 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node);
 
 static void link_objects(void);
 
+static void add_to_parameter_list_str(char*** existing_options, char* str);
+static void add_to_parameter_list(char*** existing_options, char **parameters, int num_parameters);
 static void parse_subcommand_arguments(char* arguments);
 
 static void enable_debug_flag(char* flag);
@@ -323,7 +334,7 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
             case 'm' :
                 {
                     // This option is handled in "load_configuration"
-                    // and ignore here for getopt_long happiness
+                    // and ignored here for getopt_long happiness
                     break;
                 }
             case 'o' :
@@ -341,6 +352,44 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
             case 'W' :
                 {
                     parse_subcommand_arguments(optarg);
+                    break;
+                }
+            case 'O' :
+                {
+                    add_to_parameter_list_str(&compilation_options.native_compiler_options, "-O");
+                    break;
+                }
+            case 'I' :
+                {
+                    char temp[256] = { 0 };
+                    snprintf(temp, 255, "-I%s", optarg);
+                    add_to_parameter_list_str(&compilation_options.preprocessor_options, temp);
+                    break;
+                }
+            case 'L' :
+                {
+                    char temp[256] = { 0 };
+                    snprintf(temp, 255, "-L%s", optarg);
+                    add_to_parameter_list_str(&compilation_options.linker_options, temp);
+                    break;
+                }
+            case 'l' : 
+                {
+                    char temp[256] = { 0 };
+                    snprintf(temp, 255, "-l%s", optarg);
+                    add_to_parameter_list_str(&compilation_options.linker_options, temp);
+                    break;
+                }
+            case 'D' :
+                {
+                    char temp[256] = { 0 };
+                    snprintf(temp, 255, "-D%s", optarg);
+                    add_to_parameter_list_str(&compilation_options.preprocessor_options, temp);
+                    break;
+                }
+            case 'g' :
+                {
+                    add_to_parameter_list_str(&compilation_options.linker_options, "-g");
                     break;
                 }
             case OPTION_PREPROCESSOR_NAME :
@@ -504,6 +553,26 @@ static void enable_debug_flag(char* flags)
         compilation_options.debug_options.print_scope_brief;
 }
 
+static void add_to_parameter_list_str(char*** existing_options, char* str)
+{
+    char* d_str = strdup(str);
+    add_to_parameter_list(existing_options, &d_str, 1);
+}
+
+static void add_to_parameter_list(char*** existing_options, char **parameters, int num_parameters)
+{
+    int num_existing_options = count_null_ended_array((void**)(*existing_options));
+
+    (*existing_options) = realloc((*existing_options), sizeof(char*)*(num_existing_options + num_parameters + 1));
+
+    int i;
+    for (i = 0; i < num_parameters; i++)
+    {
+        (*existing_options)[num_existing_options + i] = parameters[i];
+    }
+    (*existing_options)[num_existing_options + i] = NULL;
+}
+
 static void parse_subcommand_arguments(char* arguments)
 {
     if ((strlen(arguments) <= 2)
@@ -517,7 +586,6 @@ static void parse_subcommand_arguments(char* arguments)
 
     int num_parameters = 0;
     char** parameters = comma_separate_values(&arguments[2], &num_parameters);
-
 
     char*** existing_options = NULL;
 
@@ -538,17 +606,7 @@ static void parse_subcommand_arguments(char* arguments)
             }
     }
 
-    int num_existing_options = count_null_ended_array((void**)(*existing_options));
-
-
-    (*existing_options) = realloc((*existing_options), sizeof(char*)*(num_existing_options + num_parameters + 1));
-
-    int i;
-    for (i = 0; i < num_parameters; i++)
-    {
-        (*existing_options)[num_existing_options + i] = parameters[i];
-    }
-    (*existing_options)[num_existing_options + i] = NULL;
+    add_to_parameter_list(existing_options, parameters, num_parameters);
 }
 
 static void initialize_default_values(void)
