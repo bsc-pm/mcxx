@@ -501,10 +501,13 @@ namespace TL
     {
         if (this != &src)
         {
-            // *(this->_chunk_list.get_pointer()) = *(src._chunk_list.get_pointer());
-            //
-            // FIXME - Check this !
-            _chunk_list = src._chunk_list;
+            _chunk_list->clear();
+            for(ObjectList<SourceChunkRef>::const_iterator it = src._chunk_list->begin();
+                    it != src._chunk_list->end();
+                    it++)
+            {
+                _chunk_list->push_back(*it);
+            }
         }
         return (*this);
     }

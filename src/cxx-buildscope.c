@@ -6488,6 +6488,44 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
                 case AST_OMP_SCHEDULE_CLAUSE :
                     {
                         ASTAttrSetValueType(clause, OMP_IS_SCHEDULE_CLAUSE, tl_type_t, tl_bool(1));
+                        AST schedule_type = ASTSon0(clause);
+
+                        switch (ASTType(schedule_type))
+                        {
+
+                            case AST_OMP_STATIC_SCHEDULE :
+                                {
+                                    ASTAttrSetValueType(clause, OMP_SCHEDULE_KIND, tl_type_t, tl_integer(1));
+                                    break;
+                                }
+                            case AST_OMP_DYNAMIC_SCHEDULE :
+                                {
+                                    ASTAttrSetValueType(clause, OMP_SCHEDULE_KIND, tl_type_t, tl_integer(2));
+                                    break;
+                                }
+                            case AST_OMP_GUIDED_SCHEDULE :
+                                {
+                                    ASTAttrSetValueType(clause, OMP_SCHEDULE_KIND, tl_type_t, tl_integer(4));
+                                    break;
+                                }
+                            case AST_OMP_RUNTIME_SCHEDULE :
+                                {
+                                    ASTAttrSetValueType(clause, OMP_SCHEDULE_KIND, tl_type_t, tl_integer(8));
+                                    break;
+                                }
+                            default:
+                                {
+                                    ASTAttrSetValueType(clause, OMP_SCHEDULE_KIND, tl_type_t, tl_integer(0));
+                                    break;
+                                }
+                        }
+
+                        AST chunk = ASTSon1(clause);
+                        if (chunk != NULL)
+                        {
+                            ASTAttrSetValueType(clause, OMP_SCHEDULE_CHUNK, tl_type_t, tl_ast(chunk));
+                        }
+
                         break;
                     }
                 case AST_OMP_ORDERED_CLAUSE :

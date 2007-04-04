@@ -57,6 +57,7 @@ namespace TL
         class DefaultClause;
         class ReductionClause;
         class CustomClause;
+        class ScheduleClause;
 
         class Directive : public LangConstruct
         {
@@ -66,6 +67,8 @@ namespace TL
                     : LangConstruct(ref, scope_link)
                 {
                 }
+
+                ScheduleClause schedule_clause();
 
                 Clause nowait_clause();
                 Clause num_threads_clause();
@@ -163,6 +166,21 @@ namespace TL
                 {
                     return IdExpression(_op, _symbol.get_scope_link());
                 }
+        };
+
+        class ScheduleClause : public LangConstruct
+        {
+            public:
+                int internal_code();
+                bool is_dynamic();
+                bool is_static();
+                bool is_guided();
+                bool is_runtime();
+                bool is_default();
+                bool is_defined();
+                AST_t get_chunk();
+                ScheduleClause(AST_t ref, ScopeLink sl)
+                    : LangConstruct(ref, sl) { }
         };
 
         class ReductionClause : public LangConstruct

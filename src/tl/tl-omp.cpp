@@ -387,6 +387,103 @@ namespace TL
             return result;
         }
 
+        ScheduleClause Directive::schedule_clause()
+        {
+            ScheduleClause result(_ref, _scope_link);
+            return result;
+        }
+
+        bool ScheduleClause::is_defined()
+        {
+            PredicateBool<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
+
+            return !(clauses_list.empty());
+        }
+
+        int ScheduleClause::internal_code()
+        {
+            PredicateBool<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
+
+            AST_t first = *(clauses_list.begin());
+
+            TL::Integer result = first.get_attribute(OMP_SCHEDULE_KIND);
+
+            return result;
+        }
+
+        bool ScheduleClause::is_dynamic()
+        {
+            PredicateBool<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
+
+            AST_t first = *(clauses_list.begin());
+
+            TL::Integer result = first.get_attribute(OMP_SCHEDULE_KIND);
+
+            return (result == 2);
+        }
+
+        bool ScheduleClause::is_static()
+        {
+            PredicateBool<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
+
+            AST_t first = *(clauses_list.begin());
+
+            TL::Integer result = first.get_attribute(OMP_SCHEDULE_KIND);
+
+            return (result == 1);
+        }
+
+        bool ScheduleClause::is_guided()
+        {
+            PredicateBool<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
+
+            AST_t first = *(clauses_list.begin());
+
+            TL::Integer result = first.get_attribute(OMP_SCHEDULE_KIND);
+
+            return (result == 4);
+        }
+
+        bool ScheduleClause::is_runtime()
+        {
+            PredicateBool<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
+
+            AST_t first = *(clauses_list.begin());
+
+            TL::Integer result = first.get_attribute(OMP_SCHEDULE_KIND);
+
+            return (result == 8);
+        }
+
+        bool ScheduleClause::is_default()
+        {
+            PredicateBool<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
+
+            AST_t first = *(clauses_list.begin());
+
+            TL::Integer result = first.get_attribute(OMP_SCHEDULE_KIND);
+
+            return (result == 0);
+        }
+
+        AST_t ScheduleClause::get_chunk()
+        {
+            PredicateBool<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
+
+            AST_t first = *(clauses_list.begin());
+
+            AST_t ast = first.get_attribute(OMP_SCHEDULE_CHUNK);
+            return ast;
+        }
+
         ObjectList<AST_t> CustomClause::filter_custom_clause()
         {
             class PredicateCustomClause : public Predicate<AST_t>
