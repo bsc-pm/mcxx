@@ -1655,7 +1655,7 @@ member_declaration : decl_specifier_seq member_declarator_list ';'
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, $1, $2, ASTLine($1), NULL);
 }
-| decl_specifier_seq ';' 
+| decl_specifier_alone_seq ';' 
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATION, $1, NULL, ASTLine($1), NULL);
 }
