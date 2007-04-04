@@ -498,7 +498,8 @@ namespace TL
                         lastprivate_references,
                         reduction_references,
                         copyin_references,
-                        copyprivate_references);
+                        copyprivate_references,
+                        directive);
 
                 // Now prepend the outline
                 function_definition.get_ast().prepend_sibling_function(outline_code);
@@ -642,7 +643,7 @@ namespace TL
                         ); 
 
                 Source loop_distribution_code = get_loop_distribution_code(for_statement,
-                        replace_references, function_definition);
+                        replace_references, function_definition, directive);
 
                 Source lastprivate_code;
 
@@ -1126,7 +1127,7 @@ namespace TL
                     <<   "nth_low = 0;"
                     <<   "nth_upper = 0;"
                     <<   "nth_step = 1;"
-                    <<   "nth_schedule = 1;"
+                    <<   "nth_schedule = 2;" // Dynamic
                     <<   "nth_chunk = 1;"
 
 //                    <<   "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
@@ -3195,7 +3196,7 @@ namespace TL
                     <<   "nth_low = 0;"
                     <<   "nth_upper = 0;"
                     <<   "nth_step = 1;"
-                    <<   "nth_schedule = 1;"
+                    <<   "nth_schedule = 2;" // Dynamic
                     <<   "nth_chunk = 1;"
 
 //                    <<   "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
@@ -3285,7 +3286,8 @@ namespace TL
                     ObjectList<IdExpression> lastprivate_references,
                     ObjectList<OpenMP::ReductionIdExpression> reduction_references,
                     ObjectList<IdExpression> copyin_references,
-                    ObjectList<IdExpression> copyprivate_references
+                    ObjectList<IdExpression> copyprivate_references,
+                    OpenMP::Directive directive
                     )
             {
                 // empty
@@ -3312,7 +3314,7 @@ namespace TL
                         ); 
 
                 Source loop_distribution = get_loop_distribution_code(for_statement, 
-						replace_references, function_definition);
+						replace_references, function_definition, directive);
 
                 Source lastprivate_code;
 
@@ -3722,7 +3724,7 @@ namespace TL
                     << "nth_low = 0;"
                     << "nth_upper = " << num_sections << ";"
                     << "nth_step = 1;"
-                    << "nth_schedule = 1;"
+                    << "nth_schedule = 2;" // Dynamic
                     << "nth_chunk = 1;"
 
 //                    << "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
@@ -3759,7 +3761,8 @@ namespace TL
 
             Source get_loop_distribution_code(ForStatement for_statement,
                     ReplaceIdExpression replace_references,
-					FunctionDefinition function_definition)
+					FunctionDefinition function_definition,
+                    OpenMP::Directive directive)
             {
                 Source parallel_for_body;
 
@@ -3815,13 +3818,41 @@ namespace TL
                     ;
 
                 // Schedule decisions
-                // TODO - dynamic, guided and runtime support is lacking
+                Source schedule_const;
+                Source schedule_chunk;
                 schedule_decisions
                     << "int nth_schedule;"
                     << "int nth_chunk;"
-                    << "nth_schedule = 0;"
-                    << "nth_chunk = 0;"
+                    << "nth_schedule = " << schedule_const << ";"
+                    << "nth_chunk = " << schedule_chunk << ";"
                     ;
+
+                OpenMP::ScheduleClause schedule_clause = directive.schedule_clause();
+                if (schedule_clause.is_defined())
+                {
+                    schedule_const << schedule_clause.internal_code();
+
+                    AST_t schedule_chunk_tree = schedule_clause.get_chunk();
+
+                    if (schedule_chunk_tree.is_valid())
+                    {
+                        schedule_chunk << schedule_chunk_tree.prettyprint();
+                    }
+                    else
+                    {
+                        schedule_chunk << "0";
+                    }
+                }
+                else
+                {
+                    schedule_const << "0";
+                    schedule_chunk << "0";
+                }
+
+                // #define INTONE_DEFAULT              0
+                // #define INTONE_STATIC               1
+                // #define INTONE_DYNAMIC              2
+                // #define INTONE_GUIDED               4
 
                 // Loop distribution
                 Source modified_loop_body;
