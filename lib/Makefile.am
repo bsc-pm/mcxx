@@ -30,7 +30,9 @@ libmcxx_utils_la_SOURCES = \
                           hash.h \
                           hash_iterator.h \
                           hash_iterator.c \
-                          stack.h
+                          stack.h \
+						  mcxx_refcount.c \
+						  mcxx_refcount.h
 
 
 libmcxx_mcfg_la_CFLAGS = -Wall -I $(srcdir)/../gc/include

@@ -501,6 +501,7 @@ namespace TL
     {
         if (this != &src)
         {
+            // The same as *(_chunk_list.operator->()) = *(src._chunk_list.operator->()); but clearer
             _chunk_list->clear();
             for(ObjectList<SourceChunkRef>::const_iterator it = src._chunk_list->begin();
                     it != src._chunk_list->end();
