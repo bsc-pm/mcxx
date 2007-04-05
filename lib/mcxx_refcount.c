@@ -1,26 +1,7 @@
-/*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2007 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
-
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
-
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
-
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
 #ifdef MCXX_REFCOUNT_DEBUG
   #include <stdio.h>
 #endif
+#include <string.h>
 #include "mcxx_refcount.h"
 
 /*
@@ -37,6 +18,22 @@
  */
 
 static void _mcxx_nochildren(void *p, void (*_mcxx_do)(void*));
+
+static void _mcxx_release(void *p);
+static void _mcxx_possible_root(void *p);
+static void _mcxx_append_to_roots(void *p);
+static void _mcxx_remove_from_roots(void *p);
+static void _mcxx_markroots(void);
+static void _mcxx_scanroots(void);
+static void _mcxx_collectroots(void);
+static void _mcxx_markgray(void *p);
+static void _mcxx_collectwhite(void *p);
+static void _mcxx_scan(void *p);
+static void _mcxx_scanblack(void *p);
+
+#define MCXX_MAX_ROOTS (256)
+static int _mcxx_numroots = 0;
+static void *_mcxx_roots[MCXX_MAX_ROOTS];
 
 void *_mcxx_calloc(size_t nmemb, size_t size)
 {
@@ -58,11 +55,6 @@ static void _mcxx_nochildren(void *p, void (*_mcxx_do)(void*))
 {
     // Do nothing
 }
-
-static void _mcxx_release(void *p);
-static void _mcxx_possible_root(void *p);
-static void _mcxx_append_to_roots(void *p);
-static void _mcxx_remove_from_roots(void *p);
 
 void _mcxx_increment(void *p)
 {
@@ -119,6 +111,9 @@ static void _mcxx_release(void *p)
         fprintf(stderr, "%s Children of %p decremented\n", __FUNCTION__, p);
 #endif
 
+#ifdef MCXX_REFCOUNT_DEBUG
+        fprintf(stderr, "%s Setting %p as black\n", __FUNCTION__, p);
+#endif
     refp->_mcxx_colour = _MCXX_BLACK;
 
     // If not buffered free
@@ -129,6 +124,12 @@ static void _mcxx_release(void *p)
 #endif
         free(p);
     }
+#ifdef MCXX_REFCOUNT_DEBUG
+    else
+    {
+        fprintf(stderr, "%s Not freeing %p since it is buffered\n", __FUNCTION__, p);
+    }
+#endif
 }
 
 static void _mcxx_possible_root(void *p)
@@ -149,9 +150,6 @@ static void _mcxx_possible_root(void *p)
     }
 }
 
-static void _mcxx_markroots(void);
-static void _mcxx_scanroots(void);
-static void _mcxx_collectroots(void);
 
 void _mcxx_collectcycles(void)
 {
@@ -160,19 +158,21 @@ void _mcxx_collectcycles(void)
     _mcxx_collectroots();
 }
 
-#define MCXX_MAX_ROOTS (256)
-static void *_mcxx_roots[MCXX_MAX_ROOTS];
-static int _mcxx_numroots = 0;
-
-static void _mcxx_markgray(void *p);
 
 static void _mcxx_markroots(void)
 {
+    int numroots = _mcxx_numroots;
+    void *roots[MCXX_MAX_ROOTS];
+    memcpy(roots, _mcxx_roots, sizeof(_mcxx_roots));
+
     int i;
-    for (i = 0; i < _mcxx_numroots; i++)
+    for (i = 0; i < numroots; i++)
     {
-        void *p = _mcxx_roots[i];
+        void *p = roots[i];
         _p_mcxx_base_refcount_t refp = (_p_mcxx_base_refcount_t)(p);
+#ifdef MCXX_REFCOUNT_DEBUG
+        fprintf(stderr, "%s Considering object %p (%d of %d)\n", __FUNCTION__, p, i, numroots);
+#endif
 
         if (refp->_mcxx_colour == _MCXX_PURPLE)
         {
@@ -201,33 +201,37 @@ static void _mcxx_markroots(void)
     }
 }
 
-static void _mcxx_scan(void *p);
-
 static void _mcxx_scanroots(void)
 {
 #ifdef MCXX_REFCOUNT_DEBUG
         fprintf(stderr, "%s Scanning roots\n", __FUNCTION__);
 #endif
+    int numroots = _mcxx_numroots;
+    void *roots[MCXX_MAX_ROOTS];
+    memcpy(roots, _mcxx_roots, sizeof(_mcxx_roots));
+
     int i;
-    for (i = 0; i < _mcxx_numroots; i++)
+    for (i = 0; i < numroots; i++)
     {
-        void *p = _mcxx_roots[i];
+        void *p = roots[i];
 
         _mcxx_scan(p);
     }
 }
-
-static void _mcxx_collectwhite(void *p);
 
 static void _mcxx_collectroots(void)
 {
 #ifdef MCXX_REFCOUNT_DEBUG
         fprintf(stderr, "%s Collecting roots\n", __FUNCTION__);
 #endif
+    int numroots = _mcxx_numroots;
+    void *roots[MCXX_MAX_ROOTS];
+    memcpy(roots, _mcxx_roots, sizeof(_mcxx_roots));
+
     int i;
-    for (i = 0; i < _mcxx_numroots; i++)
+    for (i = 0; i < numroots; i++)
     {
-        void *p = _mcxx_roots[i];
+        void *p = roots[i];
         _p_mcxx_base_refcount_t refp = (_p_mcxx_base_refcount_t)(p);
 
 #ifdef MCXX_REFCOUNT_DEBUG
@@ -237,6 +241,9 @@ static void _mcxx_collectroots(void)
         refp->_mcxx_buffered = 0;
         _mcxx_collectwhite(p);
     }
+#ifdef MCXX_REFCOUNT_DEBUG
+        fprintf(stderr, "%s Roots collected\n", __FUNCTION__);
+#endif
 }
 
 // Auxiliar function for _mcxx_markgray
@@ -266,8 +273,6 @@ static void _mcxx_markgray(void *p)
         (refp->_mcxx_children)(p, _mcxx_markgray_aux);
     }
 }
-
-static void _mcxx_scanblack(void *p);
 
 static void _mcxx_scan(void *p)
 {
@@ -318,9 +323,13 @@ static void _mcxx_scanblack(void *p)
         fprintf(stderr, "%s Scanning black %p\n", __FUNCTION__, p);
 #endif
 
+#ifdef MCXX_REFCOUNT_DEBUG
+        fprintf(stderr, "%s Setting %p as black\n", __FUNCTION__, p);
+#endif
     refp->_mcxx_colour = _MCXX_BLACK;
 
-    // For every child reduce th
+    // For every child reduce increase the reference counter and if not black
+    // scan their blacks
     (refp->_mcxx_children)(p, _mcxx_scanblack_aux);
 }
 
@@ -382,7 +391,7 @@ static void _mcxx_remove_from_roots(void *p)
     {
         _mcxx_roots[i-1] = _mcxx_roots[i];
     }
-
+    
     // And decrease
     _mcxx_numroots--;
 }
