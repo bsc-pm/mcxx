@@ -361,7 +361,13 @@ static void _mcxx_append_to_roots(void *p)
     // ??
     if (_mcxx_numroots == MCXX_MAX_ROOTS)
     {
+#ifdef MCXX_REFCOUNT_DEBUG
+        fprintf(stderr, "Roots buffer full, collecting cycles\n");
+#endif
         _mcxx_collectcycles();
+#ifdef MCXX_REFCOUNT_DEBUG
+        fprintf(stderr, "After collecting cycles, roots buffer has %d objects\n", _mcxx_numroots);
+#endif
     }
 }
 
