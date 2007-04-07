@@ -101,7 +101,8 @@ namespace TL
 
     PragmaCustomClause PragmaCustomConstruct::get_clause(const std::string& name)
     {
-        PragmaCustomClause result(name, this->get_ast(), this->get_scope_link());
+        AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+        PragmaCustomClause result(name, pragma_line, this->get_scope_link());
         return result;
     }
 
