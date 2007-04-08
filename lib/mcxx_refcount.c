@@ -51,6 +51,13 @@ void *_mcxx_calloc(size_t nmemb, size_t size)
     return p;
 }
 
+_mcxx_children_fun *_mcxx_children(void *p)
+{
+    _p_mcxx_base_refcount_t refp = (_p_mcxx_base_refcount_t)(p);
+
+	return &(refp->_mcxx_children);
+}
+
 static void _mcxx_nochildren(void *p, void (*_mcxx_do)(void*))
 {
     // Do nothing
@@ -401,3 +408,4 @@ static void _mcxx_remove_from_roots(void *p)
     // And decrease
     _mcxx_numroots--;
 }
+
