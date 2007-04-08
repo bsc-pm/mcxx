@@ -17,6 +17,18 @@
  *
  */
 
+#define MCXX_REFCOUNT_ENTER_FUN(x)
+#define MCXX_REFCOUNT_LEAVE_FUN(x)
+
+#ifdef MCXX_REFCOUNT_DEBUG
+ #ifdef MCXX_REFCOUNT_DEBUG_FUN
+   #undef MCXX_REFCOUNT_ENTER_FUN
+   #undef MCXX_REFCOUNT_LEAVE_FUN
+   #define MCXX_REFCOUNT_ENTER_FUN(x) fprintf(stderr, "mcxx_refcount -> %s(p=%p) \n",__FUNCTION__, (x))
+   #define MCXX_REFCOUNT_LEAVE_FUN(x) fprintf(stderr, "mcxx_refcount <- %s(p=%p) \n",__FUNCTION__, (x))
+ #endif
+#endif
+
 static void _mcxx_nochildren(void *p, void (*_mcxx_do)(void*));
 
 static void _mcxx_release(void *p);
@@ -65,26 +77,31 @@ static void _mcxx_nochildren(void *p, void (*_mcxx_do)(void*))
 
 void _mcxx_increment(void *p)
 {
+    MCXX_REFCOUNT_ENTER_FUN(p);
     _p_mcxx_base_refcount_t refp = (_p_mcxx_base_refcount_t)(p);
 
 #ifdef MCXX_REFCOUNT_DEBUG
-    fprintf(stderr, "%s Incrementing count of %p\n", __FUNCTION__, p);
+    fprintf(stderr, "%s Increasign refcount of %p from %d to %d\n", __FUNCTION__, p, 
+            refp->_mcxx_refcount, refp->_mcxx_refcount+1);
 #endif
 
     refp->_mcxx_refcount++;
     refp->_mcxx_colour = _MCXX_BLACK;
+    MCXX_REFCOUNT_LEAVE_FUN(p);
 }
 
 void _mcxx_decrement(void *p)
 {
+    MCXX_REFCOUNT_ENTER_FUN(p);
     _p_mcxx_base_refcount_t refp = (_p_mcxx_base_refcount_t)(p);
 
+#ifdef MCXX_REFCOUNT_DEBUG
+    fprintf(stderr, "%s Decrementing count of %p from %d to %d\n", __FUNCTION__, p,
+            refp->_mcxx_refcount, refp->_mcxx_refcount-1);
+#endif
     // Reduce the reference counter
     refp->_mcxx_refcount--;
 
-#ifdef MCXX_REFCOUNT_DEBUG
-    fprintf(stderr, "%s Decrementing count of %p\n", __FUNCTION__, p);
-#endif
 
     // If no references where hold
     if (refp->_mcxx_refcount == 0)
@@ -99,14 +116,17 @@ void _mcxx_decrement(void *p)
     {
         // Otherwise mark it as a possible root
 #ifdef MCXX_REFCOUNT_DEBUG
-    fprintf(stderr, "%s Marking %p as a possible root\n", __FUNCTION__, p);
+    fprintf(stderr, "%s Marking %p as a possible root (refcount=%d)\n", __FUNCTION__, p,
+            refp->_mcxx_refcount);
 #endif
         _mcxx_possible_root(p);
     }
+    MCXX_REFCOUNT_LEAVE_FUN(p);
 }
 
 static void _mcxx_release(void *p)
 {
+    MCXX_REFCOUNT_ENTER_FUN(p);
     _p_mcxx_base_refcount_t refp = (_p_mcxx_base_refcount_t)(p);
 
     // Recursively decrement all the childrens of refp
@@ -137,14 +157,19 @@ static void _mcxx_release(void *p)
         fprintf(stderr, "%s Not freeing %p since it is buffered\n", __FUNCTION__, p);
     }
 #endif
+    MCXX_REFCOUNT_LEAVE_FUN(p);
 }
 
 static void _mcxx_possible_root(void *p)
 {
+    MCXX_REFCOUNT_ENTER_FUN(p);
     _p_mcxx_base_refcount_t refp = (_p_mcxx_base_refcount_t)(p);
 
     if (refp->_mcxx_colour != _MCXX_PURPLE)
     {
+#ifdef MCXX_REFCOUNT_DEBUG
+        fprintf(stderr, "%s Setting %p as purple\n", __FUNCTION__, p);
+#endif
         refp->_mcxx_colour = _MCXX_PURPLE;
         if (!refp->_mcxx_buffered)
         {
@@ -154,7 +179,14 @@ static void _mcxx_possible_root(void *p)
             refp->_mcxx_buffered = 1;
             _mcxx_append_to_roots(p);
         }
+        else
+        {
+#ifdef MCXX_REFCOUNT_DEBUG
+        fprintf(stderr, "%s Setting %p was already buffered, not appending to roots\n", __FUNCTION__, p);
+#endif
+        }
     }
+    MCXX_REFCOUNT_LEAVE_FUN(p);
 }
 
 
@@ -178,7 +210,7 @@ static void _mcxx_markroots(void)
         void *p = roots[i];
         _p_mcxx_base_refcount_t refp = (_p_mcxx_base_refcount_t)(p);
 #ifdef MCXX_REFCOUNT_DEBUG
-        fprintf(stderr, "%s Considering object %p (%d of %d)\n", __FUNCTION__, p, i, numroots);
+        fprintf(stderr, "%s Considering object %p (%d of %d)\n", __FUNCTION__, p, i, numroots-1);
 #endif
 
         if (refp->_mcxx_colour == _MCXX_PURPLE)
@@ -256,9 +288,11 @@ static void _mcxx_collectroots(void)
 // Auxiliar function for _mcxx_markgray
 static void _mcxx_markgray_aux(void *p)
 {
+    MCXX_REFCOUNT_ENTER_FUN(p);
     _p_mcxx_base_refcount_t refp = (_p_mcxx_base_refcount_t)(p);
 #ifdef MCXX_REFCOUNT_DEBUG
-        fprintf(stderr, "%s Decreasing counter of %p\n", __FUNCTION__, p);
+    fprintf(stderr, "%s Decrementing count of %p from %d to %d\n", __FUNCTION__, p,
+            refp->_mcxx_refcount, refp->_mcxx_refcount-1);
 #endif
     refp->_mcxx_refcount--;
     _mcxx_markgray(p);
@@ -279,10 +313,12 @@ static void _mcxx_markgray(void *p)
         // recursively
         (refp->_mcxx_children)(p, _mcxx_markgray_aux);
     }
+    MCXX_REFCOUNT_LEAVE_FUN(p);
 }
 
 static void _mcxx_scan(void *p)
 {
+    MCXX_REFCOUNT_ENTER_FUN(p);
     _p_mcxx_base_refcount_t refp = (_p_mcxx_base_refcount_t)(p);
 
     if (refp->_mcxx_colour == _MCXX_GRAY)
@@ -294,10 +330,10 @@ static void _mcxx_scan(void *p)
 #endif
             _mcxx_scanblack(p);
         }
-        else // refcount == 0
+        else // refcount <= 0
         {
 #ifdef MCXX_REFCOUNT_DEBUG
-        fprintf(stderr, "%s Setting %p as white and scanning children since it is gray and refcount == 0\n", __FUNCTION__, p);
+        fprintf(stderr, "%s Setting %p as white and scanning children since it is gray and refcount <= 0\n", __FUNCTION__, p);
 #endif
             refp->_mcxx_colour = _MCXX_WHITE;
 
@@ -305,25 +341,30 @@ static void _mcxx_scan(void *p)
             (refp->_mcxx_children)(p, _mcxx_scan);
         }
     }
+    MCXX_REFCOUNT_LEAVE_FUN(p);
 }
 
 // Auxiliar function for _mcxx_scanblack
 static void _mcxx_scanblack_aux(void *p)
 {
+    MCXX_REFCOUNT_ENTER_FUN(p);
     _p_mcxx_base_refcount_t refp = (_p_mcxx_base_refcount_t)(p);
 
 #ifdef MCXX_REFCOUNT_DEBUG
-        fprintf(stderr, "%s Increasign refcount of %p\n", __FUNCTION__, p);
+        fprintf(stderr, "%s Increasign refcount of %p from %d to %d\n", __FUNCTION__, p, 
+                refp->_mcxx_refcount, refp->_mcxx_refcount+1);
 #endif
     refp->_mcxx_refcount++;
     if (refp->_mcxx_colour != _MCXX_BLACK)
     {
         _mcxx_scanblack(p);
     }
+    MCXX_REFCOUNT_LEAVE_FUN(p);
 }
 
 static void _mcxx_scanblack(void *p)
 {
+    MCXX_REFCOUNT_ENTER_FUN(p);
     _p_mcxx_base_refcount_t refp = (_p_mcxx_base_refcount_t)(p);
 
 #ifdef MCXX_REFCOUNT_DEBUG
@@ -338,10 +379,12 @@ static void _mcxx_scanblack(void *p)
     // For every child reduce increase the reference counter and if not black
     // scan their blacks
     (refp->_mcxx_children)(p, _mcxx_scanblack_aux);
+    MCXX_REFCOUNT_LEAVE_FUN(p);
 }
 
 static void _mcxx_collectwhite(void *p)
 {
+    MCXX_REFCOUNT_ENTER_FUN(p);
     _p_mcxx_base_refcount_t refp = (_p_mcxx_base_refcount_t)(p);
 
     if (refp->_mcxx_colour == _MCXX_WHITE
@@ -355,6 +398,7 @@ static void _mcxx_collectwhite(void *p)
 #endif
         free(p);
     }
+    MCXX_REFCOUNT_LEAVE_FUN(p);
 }
 
 static void _mcxx_append_to_roots(void *p)

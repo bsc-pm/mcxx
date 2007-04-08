@@ -10,7 +10,6 @@ enum _mcxx_ref_colour_tag
     _MCXX_GRAY, // Possible member of cycle
     _MCXX_WHITE, // Member of garbage cycle
     _MCXX_PURPLE, // Possible root of cycle
-    // _MCXX_GREEN, // Acyclic (unused)
 } _mcxx_ref_colour_t;
 
 typedef void (*_mcxx_children_fun)(void *, void (*)(void*));
@@ -51,9 +50,9 @@ _mcxx_children_fun *_mcxx_children(void *p);
             MCXX_DECREF(x); \
         } \
         (x) = (y); \
-        if ((y) != NULL) \
+        if ((x) != NULL) \
         { \
-            MCXX_INCREF(y); \
+            MCXX_INCREF(x); \
         } \
     } while (0)
 
