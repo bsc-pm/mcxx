@@ -237,6 +237,9 @@ namespace TL
                 // #pragma omp directive taskgroup
                 on_custom_construct_post["taskgroup"].connect(functor(&OpenMPTransform::taskgroup_postorder, *this));
 
+                // #pragma omp directive taskyield
+                on_custom_construct_post["taskyield"].connect(functor(&OpenMPTransform::taskyield_postorder, *this));
+
                 // #pragma omp construct protect
                 on_custom_construct_post["protect"].connect(functor(&OpenMPTransform::protect_postorder, *this));
             }
@@ -2020,6 +2023,24 @@ namespace TL
                         taskwait_construct.get_scope_link());
 
                 taskwait_construct.get_ast().replace(taskwait_code);
+            }
+
+            void taskyield_postorder(OpenMP::CustomConstruct taskyield_construct)
+            {
+                Source taskyield_source;
+                Statement taskyield_body = taskyield_construct.body();
+
+                taskyield_source
+                    << "{"
+                    <<    "nth_yield();"
+                    <<    taskyield_body.prettyprint() // This will avoid breakage if you did not write ';' after the taskyield pragma
+                    << "}"
+                    ;
+
+                AST_t taskyield_code = taskyield_source.parse_statement(taskyield_construct.get_ast(),
+                        taskyield_construct.get_scope_link());
+
+                taskyield_construct.get_ast().replace(taskyield_code);
             }
 
             void taskgroup_postorder(OpenMP::CustomConstruct taskgroup_construct)
