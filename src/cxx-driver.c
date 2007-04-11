@@ -89,7 +89,8 @@ compilation_options_t compilation_options;
 "  --config-file=<file>     Uses <file> as config file, otherwise\n" \
 "                           '" PKGDATADIR "/config.mcxx'\n" \
 "                           will be used\n" \
-"  --variable=name:value    Defines variable 'name' with value\n" \
+"  --profile=<name>         Selects profile compilation to be <name>\n" \
+"  --variable=<name:value>  Defines variable 'name' with value\n" \
 "                           'value' to be used in the compiler\n" \
 "                           phases pipeline\n" \
 "\n"
@@ -110,6 +111,9 @@ struct option getopt_long_options[] =
     // command line. Thus "load_configuration" is invoked before command line parsing
     // and looks for "--config-file" / "-m" in the arguments
     {"config-file", required_argument, NULL, 'm'},
+    // This option has a chicken-and-egg similar to the --config-file.
+    // It is handled in "load_configuration"
+    {"profile", required_argument, NULL, OPTION_PROFILE},
     {"output-dir",  required_argument, NULL, OPTION_OUTPUT_DIRECTORY},
     {"cc", required_argument, NULL, OPTION_NATIVE_COMPILER_NAME},
     {"cxx", required_argument, NULL, OPTION_NATIVE_COMPILER_NAME},
@@ -428,6 +432,10 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                     exit(EXIT_SUCCESS);
                     break;
                 }
+            case OPTION_PROFILE :
+                {
+                    break;
+                }
             case OPTION_EXTERNAL_VAR :
                 {
                     if (strchr(optarg, ':') == NULL)
@@ -702,8 +710,21 @@ static void load_configuration(void)
             compilation_options.config_file = 
                 strdup(&(compilation_options.argv[i][strlen("--config-file=") ]));
         }
+        // Fourth case --profile=name
+        // FIXME: Again, the preffix option of GNU getopt_long is not
+        // implemented
+        else if (strncmp(compilation_options.argv[i], 
+                    "--profile=", strlen("--profile=")) == 0)
+        {
+            // Change the basename, since now it will look like the compiler
+            // has been called as this basename
+            compilation_options.exec_basename =
+                strdup(&(compilation_options.argv[i][strlen("--profile=") ]));
+        }
     }
 
+    // Will invoke section_callback and parameter_callback for every section
+    // and parameter
     int result = param_process(compilation_options.config_file, MS_STYLE, 
             section_callback, parameter_callback);
 
