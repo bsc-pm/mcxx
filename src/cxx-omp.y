@@ -6,6 +6,7 @@
 %token<token_atrib> OMP_COPYPRIVATE
 %token<token_atrib> OMP_CRITICAL
 %token<token_atrib> OMP_DEFAULT
+%token<token_atrib> OMP_DEFAULT_CUSTOM
 %token<token_atrib> OMP_DYNAMIC
 %token<token_atrib> OMP_FIRSTPRIVATE
 %token<token_atrib> OMP_FLUSH
@@ -28,6 +29,7 @@
 %token<token_atrib> OMP_REDUCTION
 %token<token_atrib> OMP_RUNTIME
 %token<token_atrib> OMP_SCHEDULE
+%token<token_atrib> OMP_SCHEDULE_CUSTOM
 %token<token_atrib> OMP_SECTION
 %token<token_atrib> OMP_SECTIONS
 %token<token_atrib> OMP_SHARED
@@ -452,6 +454,10 @@ schedule_kind : OMP_STATIC
 {
 	$$ = ASTLeaf(AST_OMP_RUNTIME_SCHEDULE, $1.token_line, NULL);
 }
+| OMP_SCHEDULE_CUSTOM
+{
+    $$ = ASTLeaf(AST_OMP_CUSTOM_SCHEDULE, $1.token_line, $1.token_text);
+}
 ;
 
 sections_construct : sections_directive section_scope
@@ -870,6 +876,10 @@ data_clause : OMP_PRIVATE '(' variable_list ')'
 | OMP_DEFAULT '(' OMP_NONE ')'
 {
 	$$ = ASTLeaf(AST_OMP_DEFAULT_NONE_CLAUSE, $1.token_line, NULL);
+}
+| OMP_DEFAULT '(' OMP_DEFAULT_CUSTOM ')'
+{
+    $$ = ASTLeaf(AST_OMP_DEFAULT_CUSTOM_CLAUSE, $1.token_line, $3.token_text);
 }
 | OMP_REDUCTION '(' reduction_operator ':' variable_list ')'
 {

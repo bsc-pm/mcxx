@@ -185,6 +185,7 @@ HANDLER_PROTOTYPE(omp_custom_construct_directive_handler);
 HANDLER_PROTOTYPE(omp_custom_clause_handler);
 HANDLER_PROTOTYPE(omp_custom_parameter_clause_handler);
 HANDLER_PROTOTYPE(omp_critical_directive_handler);
+HANDLER_PROTOTYPE(omp_default_custom_clause_handler);
 
 // GCC Extensions
 HANDLER_PROTOTYPE(gcc_label_declaration_handler);
@@ -553,6 +554,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_OMP_NOWAIT_CLAUSE, simple_parameter_handler, "nowait"),
     NODE_HANDLER(AST_OMP_ORDERED_CLAUSE, simple_parameter_handler, "ordered"),
     NODE_HANDLER(AST_OMP_SCHEDULE_CLAUSE, omp_schedule_clause_handler, NULL),
+    NODE_HANDLER(AST_OMP_CUSTOM_SCHEDULE, simple_text_handler, NULL),
     NODE_HANDLER(AST_OMP_STATIC_SCHEDULE, simple_parameter_handler, "static"),
     NODE_HANDLER(AST_OMP_DYNAMIC_SCHEDULE, simple_parameter_handler, "dynamic"),
     NODE_HANDLER(AST_OMP_RUNTIME_SCHEDULE, simple_parameter_handler, "runtime"),
@@ -565,6 +567,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_OMP_COPYIN_CLAUSE, omp_generic_clause_handler_with_list, "copyin"),
     NODE_HANDLER(AST_OMP_DEFAULT_SHARED_CLAUSE, simple_parameter_handler, "default(shared)"),
     NODE_HANDLER(AST_OMP_DEFAULT_NONE_CLAUSE, simple_parameter_handler, "default(none)"),
+    NODE_HANDLER(AST_OMP_DEFAULT_CUSTOM_CLAUSE, omp_default_custom_clause_handler, NULL),
     NODE_HANDLER(AST_OMP_REDUCTION_CLAUSE, omp_reduction_clause_handler, NULL),
     NODE_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, omp_threadprivate_directive_handler, NULL),
     NODE_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, omp_generic_construct_handler, NULL),
@@ -3084,4 +3087,9 @@ static void omp_threadprivate_directive_handler(FILE* f, AST a, int level)
     list_handler(f, ASTSon0(a), level);
     token_fprintf(f, a, ")");
     token_fprintf(f, a, "\n");
+}
+
+static void omp_default_custom_clause_handler(FILE* f, AST a, int level)
+{
+    token_fprintf(f, a, "default(%s)", ASTText(a));
 }

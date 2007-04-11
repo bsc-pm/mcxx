@@ -484,6 +484,36 @@ namespace TL
             return ast;
         }
 
+        bool ScheduleClause::is_custom_schedule()
+        {
+            PredicateBool<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+            ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
+
+            AST_t first = *(clauses_list.begin());
+
+            TL::Integer result = first.get_attribute(OMP_SCHEDULE_KIND);
+
+            return (result == 0);
+        }
+
+        std::string ScheduleClause::custom_schedule()
+        {
+            if (is_custom_schedule())
+            {
+
+                PredicateBool<OMP_IS_SCHEDULE_CLAUSE> predicate_custom_clause;
+                ObjectList<AST_t> clauses_list = _ref.depth_subtrees(predicate_custom_clause);
+
+                AST_t first = *(clauses_list.begin());
+
+                TL::String str = first.get_attribute(OMP_SCHEDULE_CUSTOM_NAME);
+
+                return str;
+            }
+            else 
+                return "not a custom schedule";
+        }
+
         ObjectList<AST_t> CustomClause::filter_custom_clause()
         {
             class PredicateCustomClause : public Predicate<AST_t>
@@ -649,6 +679,13 @@ namespace TL
         {
             return _ref.is_valid() 
                 && TL::Bool(_ref.get_attribute(OMP_IS_DEFAULT_SHARED_CLAUSE));
+        }
+
+        bool DefaultClause::is_custom(const std::string& str) const
+        {
+            return _ref.is_valid()
+                && TL::Bool(_ref.get_attribute(OMP_IS_DEFAULT_CUSTOM_CLAUSE))
+                && (TL::String(_ref.get_attribute(OMP_DEFAULT_CUSTOM_CLAUSE)) == str);
         }
 
         ObjectList<IdExpression> Clause::id_expressions(IdExpressionCriteria criteria)

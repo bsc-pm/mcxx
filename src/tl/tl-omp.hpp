@@ -122,6 +122,7 @@ namespace TL
 
                 bool is_none() const;
                 bool is_shared() const;
+                bool is_custom(const std::string& str) const;
         };
 
         class ReductionIdExpression
@@ -178,6 +179,8 @@ namespace TL
                 bool is_runtime();
                 bool is_default();
                 bool is_defined();
+                bool is_custom_schedule();
+                std::string custom_schedule();
                 AST_t get_chunk();
                 ScheduleClause(AST_t ref, ScopeLink sl)
                     : LangConstruct(ref, sl) { }

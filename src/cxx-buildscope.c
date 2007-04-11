@@ -6513,9 +6513,16 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
                                     ASTAttrSetValueType(clause, OMP_SCHEDULE_KIND, tl_type_t, tl_integer(8));
                                     break;
                                 }
-                            default:
+                            case AST_OMP_CUSTOM_SCHEDULE :
                                 {
                                     ASTAttrSetValueType(clause, OMP_SCHEDULE_KIND, tl_type_t, tl_integer(0));
+                                    ASTAttrSetValueType(clause, OMP_SCHEDULE_CUSTOM_NAME, tl_type_t, 
+                                            tl_string(ASTText(schedule_type)));
+                                    break;
+                                }
+                            default:
+                                {
+                                    internal_error("Unknown schedule type %s\n", ast_print_node_type(ASTType(schedule_type)));
                                     break;
                                 }
                         }
@@ -6582,6 +6589,12 @@ static void build_scope_omp_directive(AST a, scope_t* st, decl_context_t decl_co
                 case AST_OMP_DEFAULT_SHARED_CLAUSE :
                     {
                         ASTAttrSetValueType(clause, OMP_IS_DEFAULT_SHARED_CLAUSE, tl_type_t, tl_bool(1));
+                        break;
+                    }
+                case AST_OMP_DEFAULT_CUSTOM_CLAUSE :
+                    {
+                        ASTAttrSetValueType(clause, OMP_IS_DEFAULT_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
+                        ASTAttrSetValueType(clause, OMP_DEFAULT_CUSTOM_CLAUSE, tl_type_t, tl_string(ASTText(clause)));
                         break;
                     }
                 case AST_OMP_REDUCTION_CLAUSE :

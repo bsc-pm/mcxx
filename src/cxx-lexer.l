@@ -529,6 +529,12 @@ none {
 	return OMP_NONE;
 }
 
+ /* Special case for default custom */
+{idnondigit}({idnondigit}|{digit})* {
+    parse_token_text();
+    return OMP_DEFAULT_CUSTOM;
+}
+
 [ \t] { }
 
 }
@@ -642,6 +648,19 @@ runtime {
 	{
 		return IDENTIFIER;
 	}
+}
+
+{idnondigit}({idnondigit}|{digit})* {
+    parse_token_text();
+    if (!omp_seen_schedule_kind)
+    {
+        omp_seen_schedule_kind = 1;
+        return OMP_SCHEDULE_CUSTOM;
+    }
+    else
+    {
+        return IDENTIFIER;
+    }
 }
 
 [,] {
