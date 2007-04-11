@@ -716,7 +716,7 @@ static void load_configuration(void)
         else if (strncmp(compilation_options.argv[i], 
                     "--profile=", strlen("--profile=")) == 0)
         {
-            // Change the basename, since now it will look like the compiler
+            // Change the basename, from now it will look like the compiler
             // has been called as this basename
             compilation_options.exec_basename =
                 strdup(&(compilation_options.argv[i][strlen("--profile=") ]));
