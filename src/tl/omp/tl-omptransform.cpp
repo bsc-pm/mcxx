@@ -1492,7 +1492,9 @@ namespace TL
                 local_names.append("taskprivate");
                 local_names.append("task_private");
                 OpenMP::CustomClause local_clause = directive.custom_clause(local_names);
-                ObjectList<IdExpression> local_references = local_clause.id_expressions();
+                ObjectList<IdExpression> local_references_in_clause = local_clause.id_expressions();
+                // Those stated by the user to be local are local_references
+                ObjectList<IdExpression> local_references = local_references_in_clause;
 
                 // Get references in captureaddress clause
                 ObjectList<std::string> captureaddress_names;
@@ -1502,14 +1504,13 @@ namespace TL
 
                 // Get all the identifiers of the captureaddress clause
                 ObjectList<IdExpression> captureaddress_references;
-                ObjectList<IdExpression> captureaddress_references_all = captureaddress_clause.id_expressions();
+                ObjectList<IdExpression> captureaddress_references_in_clause = captureaddress_clause.id_expressions();
                 {
                     // We discard symbols here referenced in captureaddress
-                    // captureaddress but can be referenced in the outline
-                    // (thus, they come from an outer scope to this whole
-                    // function)
-                    for (ObjectList<IdExpression>::iterator it = captureaddress_references_all.begin();
-                            it != captureaddress_references_all.end();
+                    // clause that can be referenced in the outline (thus, they
+                    // come from an outer scope to this whole function)
+                    for (ObjectList<IdExpression>::iterator it = captureaddress_references_in_clause.begin();
+                            it != captureaddress_references_in_clause.end();
                             it++)
                     {
                         Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
@@ -1533,16 +1534,61 @@ namespace TL
                 capturevalue_names.append("capture_value");
                 OpenMP::CustomClause capturevalue_clause = directive.custom_clause(capturevalue_names);
                 // Get the identifiers of the capturevalue clause
-                ObjectList<IdExpression> capturevalue_references = capturevalue_clause.id_expressions();
+                ObjectList<IdExpression> capturevalue_references_in_clause = capturevalue_clause.id_expressions();
 
-                ObjectList<IdExpression> capturevalue_references_body;
+                // As stated by the user, everything in the clause is already
+                // capturevalued (no pruning here as we did for captureaddress)
+                ObjectList<IdExpression> capturevalue_references = capturevalue_references_in_clause;
+
+                OpenMP::DefaultClause default_clause = directive.default_clause();
+
+                enum 
+                {
+                    DK_TASK_INVALID = 0,
+                    DK_TASK_CAPTUREADDRESS,
+                    DK_TASK_CAPTUREVALUE,
+                    DK_TASK_LOCAL,
+                    DK_TASK_NONE
+                } default_task_data_sharing = DK_TASK_INVALID;
+
+                if (!default_clause.is_defined())
+                {
+                    // By default capturevalue
+                    default_task_data_sharing = DK_TASK_CAPTUREADDRESS;
+                }
+                else if (default_clause.is_none())
+                {
+                    default_task_data_sharing = DK_TASK_NONE;
+                }
+                else if (default_clause.is_custom(local_names))
+                {
+                    default_task_data_sharing = DK_TASK_LOCAL;
+                }
+                else if (default_clause.is_custom(capturevalue_names))
+                {
+                    default_task_data_sharing = DK_TASK_CAPTUREVALUE;
+                }
+                else if (default_clause.is_custom(captureaddress_names))
+                {
+                    default_task_data_sharing = DK_TASK_CAPTUREADDRESS;
+                }
+                else
+                {
+                    std::cerr << "Warning: Unknown default clause '" 
+                        << default_clause.prettyprint() << "' at " << default_clause.get_ast().get_locus() << ". "
+                        << "Assuming 'default(capturevalue)'."
+                        << std::endl;
+                    default_task_data_sharing = DK_TASK_CAPTUREVALUE;
+                }
+
+                // Now deal with the references of the body
                 {
                     // Get all id-expressions in the body construct
-                    ObjectList<IdExpression> capturevalue_references_body_all
+                    ObjectList<IdExpression> references_body_all
                         = construct_body.non_local_symbol_occurrences(Statement::ONLY_VARIABLES);
 
-                    for (ObjectList<IdExpression>::iterator it = capturevalue_references_body_all.begin();
-                            it != capturevalue_references_body_all.end();
+                    for (ObjectList<IdExpression>::iterator it = references_body_all.begin();
+                            it != references_body_all.end();
                             it++)
                     {
                         Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
@@ -1552,14 +1598,16 @@ namespace TL
                         // sharing attribute
                         //
                         // Note that all captureaddressed things are in
-                        // 'captureaddress_references_all',
+                        // 'captureaddress_references_in_clause',
                         // 'captureaddress_references' might contain less of
                         // them if they are globally accessible
-                        if (captureaddress_references_all.contains(*it, functor(&IdExpression::get_symbol)) 
-                                || capturevalue_references.contains(*it, functor(&IdExpression::get_symbol))
-                                || local_references.contains(*it, functor(&IdExpression::get_symbol)))
+                        if (captureaddress_references_in_clause.contains(*it, functor(&IdExpression::get_symbol)) 
+                                || capturevalue_references_in_clause.contains(*it, functor(&IdExpression::get_symbol))
+                                || local_references_in_clause.contains(*it, functor(&IdExpression::get_symbol)))
                             continue;
 
+                        bool will_be_visible_from_outline = false;
+                        bool is_unqualified_member = false;
                         if (global_sym.is_valid()
                                 && (global_sym == it->get_symbol()))
                         {
@@ -1570,21 +1618,47 @@ namespace TL
                             // As an exception member symbols must be passed as
                             // captureaddress and they will be converted to
                             // _this->member
-                            if (is_unqualified_member_symbol(*it, function_definition))
-                            {
-                                captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
-                            }
+                            will_be_visible_from_outline = true;
+                            is_unqualified_member = is_unqualified_member_symbol(*it, function_definition);
                         }
-                        else
+
+                        switch ((int)default_task_data_sharing)
                         {
-                            // All the others should be capturevalue
-                            capturevalue_references_body.insert(*it, functor(&IdExpression::get_symbol));
+                            case DK_TASK_NONE :
+                                {
+                                    std::cerr << "Warning: '" << it->prettyprint() << "' in " << it->get_ast().get_locus() 
+                                        << " does not have a data sharing attribute and 'default(none)' was specified. "
+                                        << "It will be considered capturevalue." << std::endl;
+                                    /* Fall through captureaddress */
+                                }
+                            case DK_TASK_CAPTUREVALUE :
+                                {
+                                    capturevalue_references.insert(*it, functor(&IdExpression::get_symbol));
+                                    break;
+                                }
+                            case DK_TASK_CAPTUREADDRESS :
+                                {
+                                    // If is not visible from the outline (or
+                                    // if it is, it is an unqualified member)
+                                    // then add to the captureaddress
+                                    if (!will_be_visible_from_outline
+                                            || is_unqualified_member)
+                                    {
+                                        captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
+                                    }
+                                    break;
+                                }
+                            case DK_TASK_LOCAL :
+                                {
+                                    local_references.insert(*it, functor(&IdExpression::get_symbol));
+                                    break;
+                                }
+                            case DK_TASK_INVALID :
+                            default:
+                                break;
                         }
                     }
                 }
-
-                // And mix the capturevalues of the body to the capturevalues that came from the clause
-                capturevalue_references.append(capturevalue_references_body);
 
                 ObjectList<IdExpression> empty;
                 ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
@@ -3430,11 +3504,42 @@ namespace TL
                         copyin_references,
                         copyprivate_references);
 
+                enum
+                {
+                    PK_DATA_INVALID = 0,
+                    PK_DATA_SHARED, 
+                    PK_DATA_PRIVATE,
+                    PK_DATA_NONE,
+                } default_data_sharing = PK_DATA_INVALID;
+
                 OpenMP::DefaultClause default_clause = directive.default_clause();
 
-                // // Everything should have been tagged by the user
-                // if (default_clause.is_none())
-                //     return;
+                if (!default_clause.is_defined())
+                {
+                    // By default it is shared
+                    default_data_sharing = PK_DATA_SHARED;
+                }
+                else if (default_clause.is_none())
+                {
+                    default_data_sharing = PK_DATA_NONE;
+                }
+                else if (default_clause.is_shared())
+                {
+                    default_data_sharing = PK_DATA_SHARED;
+                }
+                // An extension that we consider sensible
+                else if (default_clause.is_custom("private"))
+                {
+                    default_data_sharing = PK_DATA_PRIVATE;
+                }
+                else
+                {
+                    std::cerr << "Warning: Unknown default clause '" 
+                        << default_clause.prettyprint() << "' at " << default_clause.get_ast().get_locus() << ". "
+                        << "Assuming 'default(shared)'."
+                        << std::endl;
+                    default_data_sharing = PK_DATA_SHARED;
+                }
 
                 // Get every non local reference: this is, not defined in the
                 // construct itself, but visible at the point where the
@@ -3445,39 +3550,51 @@ namespace TL
                 // Filter shareds, privates, firstprivate, lastprivate or
                 // reduction that are useless
                 ObjectList<IdExpression> unreferenced;
+                // Add to unreferenced symbols that appear in shared_references but not in non_local_references
                 unreferenced.append(shared_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+                // shared_references now only contains references that appear in non_local_references
                 shared_references = shared_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
 
+                // Add to unreferenced symbols that appear in private_references but not in non_local_references
                 unreferenced.append(private_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+                // private_references now only contains references that appear in non_local_references
                 private_references = private_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
 
+                // Add to unreferenced symbols that appear in lastprivate_references but not in non_local_references
                 unreferenced.append(firstprivate_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+                // firstprivate_references now only contains references that appear in non_local_references
                 firstprivate_references = firstprivate_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
 
+                // Add to unreferenced symbols that appear in lastprivate_references but not in non_local_references
                 unreferenced.append(lastprivate_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+                // lastprivate_references now only contains references that appear in non_local_references
                 lastprivate_references = lastprivate_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
 
+                // Add to unreferenced symbols that appear in copyin_references but not in non_local_references
                 unreferenced.append(copyin_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+                // copyin_references now only contains references that appear in non_local_references
                 copyin_references = copyin_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
 
+                // Add to unreferenced symbols that appear in copyprivate_references but not in non_local_references
                 unreferenced.append(copyprivate_references.filter(not_in_set(non_local_references, functor(&IdExpression::get_symbol))));
+                // copyprivate_references now only contains references that appear in non_local_references
                 copyprivate_references = copyprivate_references.filter(in_set(non_local_references, functor(&IdExpression::get_symbol)));
 
+                // Add to unreferenced symbols that appear in reduction_references but not in non_local_references
                 unreferenced.append(
                         reduction_references.filter(not_in_set(non_local_symbols, 
                                 functor(&OpenMP::ReductionIdExpression::get_symbol)))
                         .map(functor(&OpenMP::ReductionIdExpression::get_id_expression))
                         );
+                // reduction_references now only contains references that appear in non_local_references
                 reduction_references = reduction_references.filter(in_set(non_local_symbols, 
                             functor(&OpenMP::ReductionIdExpression::get_symbol)));
 
                 // Will give a warning for every unreferenced element
                 unreferenced.map(functor(&OpenMPTransform::warn_unreferenced_data, *this));
 
-                // Filter in any of the private sets. We don't want any
-                // id-expression whose related symbol appears in any
-                // id-expression of shared, private, firstprivate lastprivate
-                // or reduction
+                // If a symbol appears into shared_references, private_references, firstprivate_references, lastprivate_references
+                // or copyin_references, copyprivate_references, remove it from non_local_references
                 non_local_references = non_local_references.filter(not_in_set(shared_references, functor(&IdExpression::get_symbol)));
                 non_local_references = non_local_references.filter(not_in_set(private_references, functor(&IdExpression::get_symbol)));
                 non_local_references = non_local_references.filter(not_in_set(firstprivate_references, functor(&IdExpression::get_symbol)));
@@ -3488,9 +3605,32 @@ namespace TL
                 // Get every id-expression related to the ReductionIdExpression list
                 ObjectList<IdExpression> reduction_id_expressions = 
                     reduction_references.map(functor(&OpenMP::ReductionIdExpression::get_id_expression));
+                // and remove it from non_local_references
                 non_local_references = non_local_references.filter(not_in_set(reduction_id_expressions, functor(&IdExpression::get_symbol)));
 
-                shared_references.insert(non_local_references, functor(&IdExpression::get_symbol));
+                switch ((int)default_data_sharing)
+                {
+                    case PK_DATA_NONE :
+                        {
+                            non_local_references.map(functor(&OpenMPTransform::warn_no_data_sharing, *this));
+                            /* Fall through */
+                        }
+                    case PK_DATA_SHARED :
+                        {
+                            shared_references.insert(non_local_references, functor(&IdExpression::get_symbol));
+                            break;
+                        }
+                    case PK_DATA_PRIVATE :
+                        {
+                            private_references.insert(non_local_references, functor(&IdExpression::get_symbol));
+                            break;
+                        }
+                    case PK_DATA_INVALID :
+                    default:
+                        {
+                            break;
+                        }
+                }
             }
 
             ReplaceIdExpression set_replacements(FunctionDefinition function_definition,
@@ -4291,9 +4431,16 @@ namespace TL
 
             IdExpression warn_unreferenced_data(IdExpression id_expr)
             {
-                std::cerr << "Warning: Entity '" << id_expr.prettyprint() << "' in '" << id_expr.get_ast().get_locus() 
+                std::cerr << "Warning: Entity '" << id_expr.prettyprint() << "' in " << id_expr.get_ast().get_locus() 
                     << " is not referenced in the body of the construct" << std::endl;
-    
+                return id_expr;
+            }
+
+            IdExpression warn_no_data_sharing(IdExpression id_expr)
+            {
+                std::cerr << "Warning: '" << id_expr.prettyprint() << "' in " << id_expr.get_ast().get_locus() 
+                    << " does not have a data sharing attribute and 'default(none)' was specified. "
+                    << "It will be considered capturevalue." << std::endl;
                 return id_expr;
             }
 

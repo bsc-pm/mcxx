@@ -263,8 +263,9 @@ namespace TL
                     {
                         TL::Bool attr1 = ast.get_attribute(OMP_IS_DEFAULT_NONE_CLAUSE);
                         TL::Bool attr2 = ast.get_attribute(OMP_IS_DEFAULT_SHARED_CLAUSE);
+                        TL::Bool attr3 = ast.get_attribute(OMP_IS_DEFAULT_CUSTOM_CLAUSE);
 
-                        return attr1 || attr2;
+                        return attr1 || attr2 || attr3;
                     }
                     virtual ~DefaultClausePredicate() { }
             };
@@ -683,9 +684,37 @@ namespace TL
 
         bool DefaultClause::is_custom(const std::string& str) const
         {
-            return _ref.is_valid()
-                && TL::Bool(_ref.get_attribute(OMP_IS_DEFAULT_CUSTOM_CLAUSE))
-                && (TL::String(_ref.get_attribute(OMP_DEFAULT_CUSTOM_CLAUSE)) == str);
+            ObjectList<std::string> list;
+            list.append(str);
+
+            return is_custom(list);
+        }
+
+        bool DefaultClause::is_custom(ObjectList<std::string>& names) const
+        {
+            bool result = false;
+            if (_ref.is_valid())
+            {
+                for (ObjectList<std::string>::iterator it = names.begin();
+                        it != names.end() && !result;
+                        it++)
+                {
+                    bool is_custom = _ref.get_attribute(OMP_IS_DEFAULT_CUSTOM_CLAUSE);
+                    std::string default_custom = "";
+                    if (is_custom)
+                    {
+                        TL::String default_custom = _ref.get_attribute(OMP_DEFAULT_CUSTOM_CLAUSE);
+                        result = (default_custom == *it);
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        bool DefaultClause::is_defined() const
+        {
+            return _ref.is_valid();
         }
 
         ObjectList<IdExpression> Clause::id_expressions(IdExpressionCriteria criteria)
