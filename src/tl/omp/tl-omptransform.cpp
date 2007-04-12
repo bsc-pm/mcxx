@@ -1632,7 +1632,7 @@ namespace TL
                                     std::cerr << "Warning: '" << it->prettyprint() << "' in " << it->get_ast().get_locus() 
                                         << " does not have a data sharing attribute and 'default(none)' was specified. "
                                         << "It will be considered capturevalue." << std::endl;
-                                    /* Fall through captureaddress */
+                                    /* Fall through capturevalue */
                                 }
                             case DK_TASK_CAPTUREVALUE :
                                 {
@@ -3634,7 +3634,7 @@ namespace TL
                     case PK_DATA_NONE :
                         {
                             non_local_references.map(functor(&OpenMPTransform::warn_no_data_sharing, *this));
-                            /* Fall through */
+                            /* Fall through shared */
                         }
                     case PK_DATA_SHARED :
                         {
@@ -4461,7 +4461,7 @@ namespace TL
             {
                 std::cerr << "Warning: '" << id_expr.prettyprint() << "' in " << id_expr.get_ast().get_locus() 
                     << " does not have a data sharing attribute and 'default(none)' was specified. "
-                    << "It will be considered capturevalue." << std::endl;
+                    << "It will be considered shared." << std::endl;
                 return id_expr;
             }
 
