@@ -469,20 +469,6 @@ attribute_value : IDENTIFIER
 
 	$$ = ASTMake3(AST_GCC_ATTRIBUTE_EXPR, identif, NULL, NULL, $1.token_line, NULL);
 }
-// | IDENTIFIER '(' IDENTIFIER ')'
-// {
-// 	AST identif1 = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
-// 	AST identif2 = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
-// 	
-// 	$$ = ASTMake3(AST_GCC_ATTRIBUTE_EXPR, identif1, identif2, NULL, $1.token_line, NULL);
-// }
-// | IDENTIFIER '(' IDENTIFIER ',' expression_list ')'
-// {
-// 	AST identif1 = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
-// 	AST identif2 = ASTLeaf(AST_SYMBOL, $3.token_line, $3.token_text);
-// 	
-// 	$$ = ASTMake3(AST_GCC_ATTRIBUTE_EXPR, identif1, identif2, $5, $1.token_line, NULL);
-// }
 | IDENTIFIER '(' expression_list ')'
 {
 	AST identif1 = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
@@ -629,16 +615,6 @@ nontype_specifier_without_attribute_seq : nontype_specifier_without_attribute
     $$ = ASTList($1, $2);
 }
 ;
-
-// decl_specifier_seq : decl_specifier 
-// {
-// 	$$ = ASTListLeaf($1);
-// }
-// | decl_specifier_seq decl_specifier 
-// {
-// 	$$ = ASTList($1, $2);
-// }
-// ;
 
 decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_end_attrib_seq
 {
@@ -839,62 +815,6 @@ type_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_e
 }
 ;
 
-// type_specifier_seq : nontype_specifier_seq2 type_specifier nontype_specifier_seq2
-// {
-// 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, $3, ASTLine($1), NULL);
-// }
-// | nontype_specifier_seq2 type_specifier
-// {
-// 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, $1, $2, NULL, ASTLine($1), NULL);
-// }
-// | type_specifier nontype_specifier_seq2
-// {
-// 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, $2, ASTLine($1), NULL);
-// }
-// | type_specifier
-// {
-// 	$$ = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, $1, NULL, ASTLine($1), NULL);
-// }
-// ;
-// 
-// nontype_specifier_seq2 : nontype_specifier2
-// {
-// 	$$ = ASTListLeaf($1);
-// }
-// | nontype_specifier_seq2 nontype_specifier2
-// {
-// 	$$ = ASTList($1, $2);
-// }
-// ;
-// 
-// nontype_specifier2 : cv_qualifier
-// {
-// 	$$ = $1;
-// }
-// // Els posem aqui repetits
-// | SIGNED
-// {
-// 	$$ = ASTLeaf(AST_SIGNED_TYPE, $1.token_line, $1.token_text);
-// }
-// | UNSIGNED
-// {
-// 	$$ = ASTLeaf(AST_UNSIGNED_TYPE, $1.token_line, $1.token_text);
-// }
-// | LONG
-// {
-// 	$$ = ASTLeaf(AST_LONG_TYPE, $1.token_line, $1.token_text);
-// }
-// | SHORT
-// {
-// 	$$ = ASTLeaf(AST_SHORT_TYPE, $1.token_line, $1.token_text);
-// }
-// // GNU Extension
-// | COMPLEX
-// {
-// 	$$ = ASTLeaf(AST_GCC_COMPLEX_TYPE, $1.token_line, $1.token_text);
-// }
-// ;
-
 simple_type_specifier : type_name
 {
 	$$ = ASTMake4(AST_SIMPLE_TYPE_SPECIFIER, NULL, NULL, $1, NULL, ASTLine($1), NULL);
@@ -914,7 +834,7 @@ simple_type_specifier : type_name
 }
 ;
 
-// Regla simplificada
+// Simplified rule
 type_name : IDENTIFIER
 {
 	$$ = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
@@ -1693,7 +1613,7 @@ member_declarator : declarator
 {
 	$$ = ASTMake2(AST_MEMBER_DECLARATOR, $1, $2, ASTLine($1), NULL);
 }
-// - El susbsumirem amb constant_initializer -
+// We will subsume it with a constant_initializer
 // | declarator pure_specifier
 // {
 // }
@@ -1713,7 +1633,7 @@ member_declarator : declarator
 {
 	$$ = ASTMake3(AST_GCC_MEMBER_DECLARATOR, $1, NULL, $2, ASTLine($1), NULL);
 }
-// - El susbsumirem amb constant_initializer -
+// We will subsume it with a constant_initializer
 // | declarator attributes pure_specifier
 // }
 | declarator attributes constant_initializer
@@ -1845,22 +1765,22 @@ statement_seq : statement
 }
 ;
 
-// Ambiguitat del IF
-// Aqui podem generar de tot
+// If ambiguity
+// We can generate anything here
 if_statement : IF '(' condition ')' statement
 {
 	$$ = ASTMake3(AST_IF_ELSE_STATEMENT, $3, $5, NULL, $1.token_line, NULL);
 }
 ;
 
-// Aqui nomes generarem if's q tenen else a dins
+// Here only if with an else inside
 if_else_statement : IF '(' condition ')' if_else_eligible_statements ELSE statement
 {
 	$$ = ASTMake3(AST_IF_ELSE_STATEMENT, $3, $5, $7, $1.token_line, NULL);
 }
 ;
 
-// Aqui nomes generarem if's q tenen else a dins
+// Here only if without an else inside
 if_else_eligible_statements : no_if_statement
 {
 	$$ = $1;

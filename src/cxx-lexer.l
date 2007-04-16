@@ -142,7 +142,6 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 %x pragma_custom_directive
 %x pragma_custom_clause
 
-
 %s openmp_var_list
 %s openmp_schedule
 %s pragma_custom_var_list
@@ -188,7 +187,9 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 	// Ignore gcc
 	if (!matched && strcasecmp(yytext, "gcc") == 0)
 	{
+        // All the whole line will be handled as an unknown pragma
 		BEGIN(unknown_pragma);
+        // current yytext must be included in the "unknown pragma"
 		yymore();
 		matched = 1;
 	}
@@ -221,6 +222,7 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 }
 
 <unknown_pragma>{
+  /* This will also catch #pragma gcc */
 
 [^\n]* {
 	parse_token_text();

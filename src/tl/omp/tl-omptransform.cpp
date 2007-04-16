@@ -2370,9 +2370,9 @@ namespace TL
                 // If there is any reduction reference
                 reduction_code = get_noncritical_reduction_code(reduction_references);
                 
-                // std::cerr << "CODI SPAWN" << std::endl;
+                // std::cerr << "SPAWN CODE" << std::endl;
                 // std::cerr << spawn_code.get_source(true) << std::endl;
-                // std::cerr << "End CODI SPAWN" << std::endl;
+                // std::cerr << "End SPAWN CODE" << std::endl;
                 
                 // Parse the spawn code and return it
                 AST_t result = spawn_code.parse_statement(ref_tree, scope_link);
@@ -2998,9 +2998,9 @@ namespace TL
 
 				task_block_code = get_task_block_code();
 
-                // std::cerr << "CODI OUTLINE" << std::endl;
+                // std::cerr << "OUTLINE CODE" << std::endl;
                 // std::cerr << outline_parallel.get_source(true) << std::endl;
-                // std::cerr << "End CODI OUTLINE" << std::endl;
+                // std::cerr << "End OUTLINE CODE" << std::endl;
 
                 IdExpression function_name = function_definition.get_function_name();
                 Symbol function_symbol = function_name.get_symbol();
@@ -3219,9 +3219,9 @@ namespace TL
 
 				task_block_code = get_task_block_code();
 
-                // std::cerr << "CODI OUTLINE PARALLEL SECTIONS" << std::endl;
+                // std::cerr << "OUTLINE PARALLEL SECTIONS CODE" << std::endl;
                 // std::cerr << outline_parallel_sections.get_source(true) << std::endl;
-                // std::cerr << "End CODI OUTLINE PARALLEL SECTIONS" << std::endl;
+                // std::cerr << "End OUTLINE PARALLEL SECTIONS CODE" << std::endl;
 
                 AST_t result;
 
@@ -3327,9 +3327,9 @@ namespace TL
 
 				task_block_code = get_task_block_code();
 
-                // std::cerr << "CODI OUTLINE" << std::endl;
+                // std::cerr << "OUTLINE CODE" << std::endl;
                 // std::cerr << outline_parallel.get_source(true) << std::endl;
-                // std::cerr << "End CODI OUTLINE" << std::endl;
+                // std::cerr << "End OUTLINE CODE" << std::endl;
 
                 AST_t result;
 
@@ -3447,9 +3447,9 @@ namespace TL
 
 				task_block_code = get_task_block_code();
 
-                // std::cerr << "CODI OUTLINE PARALLEL FOR" << std::endl;
+                // std::cerr << "OUTLINE PARALLEL FOR CODE" << std::endl;
                 // std::cerr << outline_parallel_for.get_source(true) << std::endl;
-                // std::cerr << "End CODI OUTLINE PARALLEL FOR" << std::endl;
+                // std::cerr << "End OUTLINE PARALLEL FOR CODE" << std::endl;
 
                 AST_t result;
 
