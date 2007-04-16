@@ -680,37 +680,56 @@ asm_definition : ASM '(' string_literal ')' ';'
 // ( string_literal : asm_operand_list : asm_operand_list )
 // ( string_literal : asm_operand_list : )
 // ( string_literal : : asm_operand_list )
-// ( string_literal :: asm_operand_list ) [C++ only]
+// ( string_literal :: asm_operand_list ) [C++ only] [1]
 // ( string_literal : : )
-// ( string_literal :: ) [C++ only]
+// ( string_literal :: ) [C++ only] [2]
 | ASM volatile_optional '(' string_literal ':' asm_operand_list ':' asm_operand_list ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, $6, $8, NULL, ASTLine($4), NULL);
 	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
 }
+// [1] and [2]
+| ASM volatile_optional '(' string_literal TWO_COLONS asm_operand_list ')'
+{
+	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
+			$4, NULL, NULL, $6, ASTLine($4), NULL);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
+}
 // ( string_literal : asm_operand_list : asm_operand_list : asm_operand_list )
-// ( string_literal : : asm_operand_list : asm_operand_list )
-// ( string_literal :: asm_operand_list : asm_operand_list ) [C++ only]
-// ( string_literal : asm_operand_list : : asm_operand_list )
-// ( string_literal : asm_operand_list :: asm_operand_list ) [C++ only]
-// ( string_literal : asm_operand_list : asm_operand_list : )
-// ( string_literal : : : asm_operand_list )
-// ( string_literal :: : asm_operand_list ) [C++ only] (1)
-// ( string_literal : :: asm_operand_list ) [C++ only]
-// ( string_literal ::: asm_operand_list )  [C++ only] [will be lexed likewise (1)]
-// ( string_literal : asm_operand_list : : )
-// ( string_literal : asm_operand_list :: ) [C++ only]
-// ( string_literal : : asm_operand_list : )
-// ( string_literal :: asm_operand_list : ) [C++ only]
-// ( string_literal : : : )
-// ( string_literal :: : ) [C++ only] (2)
-// ( string_literal : :: ) [C++ only]
-// ( string_literal ::: ) [C++ only] [will be lexed likewise (2)]
 | ASM volatile_optional '(' string_literal ':' asm_operand_list ':' asm_operand_list ':' asm_operand_list ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
 			$4, $6, $8, $10, ASTLine($4), NULL);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
+}
+// ( string_literal :: asm_operand_list ) 
+// ( string_literal :: ) 
+| ASM volatile_optional '(' string_literal TWO_COLONS asm_operand_list ')' ';'
+{
+	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
+			$4, NULL, $6, NULL, ASTLine($4), NULL);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
+}
+// ( string_literal :: asm_operand_list : asm_operand_list ) 
+// ( string_literal :: : asm_operand_list )
+// ( string_literal :: asm_operand_list : )
+// ( string_literal :: : )
+// ( string_literal ::: ) <-- Note that ":::" is lexed as ":: :"
+| ASM volatile_optional '(' string_literal TWO_COLONS asm_operand_list ':' asm_operand_list ')' ';'
+{
+	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
+			$4, NULL, $6, $8, ASTLine($4), NULL);
+	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
+}
+// ( string_literal : asm_operand_list :: asm_operand_list ) 
+// ( string_literal : :: asm_operand_list ) 
+// ( string_literal : asm_operand_list :: ) 
+// ( string_literal : :: )  <-- Note that this is ": ::" not ":::"
+| ASM volatile_optional '(' string_literal ':' asm_operand_list TWO_COLONS asm_operand_list ')' ';'
+{
+	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
+			$4, $6, NULL, $8, ASTLine($4), NULL);
 	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
 }
 ;
