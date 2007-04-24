@@ -20,12 +20,21 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TL_ACOTESTRANSFORM_HPP
-#define TL_ACOTESTRANSFORM_HPP
+#include "tl-transform.hpp"
 
-namespace TL
+
+// Transform constructor -------------------------------------------------------
+TL::Transform::
+Transform
+		(
+		)
 {
-	class AcotesTransform;
 }
 
-#endif // TL_ACOTESTRANSFORM_HPP
+// Transform destructor --------------------------------------------------------
+TL::Transform::
+~Transform
+		(
+		) 
+{
+}

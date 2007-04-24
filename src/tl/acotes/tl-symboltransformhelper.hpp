@@ -20,12 +20,36 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TL_ACOTESTRANSFORM_HPP
-#define TL_ACOTESTRANSFORM_HPP
+#ifndef SYMBOLTRANSFORMHELPER_H_
+#define SYMBOLTRANSFORMHELPER_H_
+
+#include <set>
+#include <string>
+
+#include "tl-symbol.hpp"
 
 namespace TL
 {
-	class AcotesTransform;
+
+class SymbolTransformHelper
+{
+public:
+	static std::string copy_all_from_struct(const std::set<Symbol>& symbols, 
+			const std::string& struct_instance_name);
+	static std::string copy_all_to_struct(const std::set<Symbol>& symbols, 
+			const std::string& struct_instance_name);
+	static std::string copy_from_struct(const Symbol& symbol, const 
+			std::string& struct_instance_name);
+	static std::string copy_to_struct(const Symbol& symbol, const std::string& 
+			struct_instance_name);
+
+	static std::string declare(const Symbol& symbol);
+	static std::string declare_all(const std::set<Symbol>& symbols);
+	
+private:
+	SymbolTransformHelper();
+};
+
 }
 
-#endif // TL_ACOTESTRANSFORM_HPP
+#endif /*SYMBOLTRANSFORMHELPER_H_*/

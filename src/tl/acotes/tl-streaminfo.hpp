@@ -20,12 +20,48 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TL_ACOTESTRANSFORM_HPP
-#define TL_ACOTESTRANSFORM_HPP
+#ifndef TLSTREAMINFO_HPP_
+#define TLSTREAMINFO_HPP_
+
+#include <string>
+
+#include "tl-symbol.hpp"
 
 namespace TL
 {
-	class AcotesTransform;
+	class TaskInfo;
+	
+	class StreamInfo
+	{
+	public:
+		StreamInfo
+				( const Symbol& symbol
+				, TaskInfo* task_info_ostream
+				, TaskInfo* task_info_istream
+				);
+				
+		const std::string& get_istream_name(void) const;
+		const std::string& get_name(void) const;
+		const std::string& get_ostream_name(void) const;
+		const std::string& get_symbol_name(void) const;
+		TaskInfo*          get_task_info_istream(void) const;
+		TaskInfo*          get_task_info_ostream(void) const;
+				
+	private:
+		std::string     _istream_name;
+		std::string     _name;
+		std::string     _ostream_name;
+		const Symbol    _symbol;
+		std::string     _symbol_name;
+		TaskInfo* const _task_info_istream;
+		TaskInfo* const _task_info_ostream;
+		
+		void init_istream_name();
+		void init_name();
+		void init_ostream_name();
+		void init_symbol_name();
+	};
 }
 
-#endif // TL_ACOTESTRANSFORM_HPP
+
+#endif /*TLSTREAMINFO_HPP_*/

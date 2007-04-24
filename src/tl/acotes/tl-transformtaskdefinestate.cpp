@@ -20,12 +20,35 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TL_ACOTESTRANSFORM_HPP
-#define TL_ACOTESTRANSFORM_HPP
+#include "tl-transformtaskdefinestate.hpp"
+
+#include "tl-taskinfo.hpp"
 
 namespace TL
 {
-	class AcotesTransform;
+
+TransformTaskDefineState::
+TransformTaskDefineState
+		( const PragmaCustomConstruct& pragma_custom_construct
+		, TaskInfo* task_info
+		)
+		: _pragma_custom_construct(pragma_custom_construct)
+		, _task_info(task_info)
+{
 }
 
-#endif // TL_ACOTESTRANSFORM_HPP
+TransformTaskDefineState::~TransformTaskDefineState()
+{
+}
+
+// transform -------------------------------------------------------------------
+void
+TransformTaskDefineState::
+transform
+		( void
+		)
+{
+	
+}
+
+}

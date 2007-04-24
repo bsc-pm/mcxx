@@ -20,12 +20,37 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TL_ACOTESTRANSFORM_HPP
-#define TL_ACOTESTRANSFORM_HPP
+#ifndef TLTRANSFORMTASKREPLACE_HPP_
+#define TLTRANSFORMTASKREPLACE_HPP_
+
+#include <string>
+
+#include "tl-pragmasupport.hpp"
+#include "tl-transform.hpp"
 
 namespace TL
 {
-	class AcotesTransform;
-}
+	class TaskInfo;
+	
+	class TransformTaskReplace : public Transform
+	{
+	public:
+		TransformTaskReplace
+			( const PragmaCustomConstruct& pragma_custom_construct
+			, TaskInfo* task_info
+			);
+		
+		virtual void transform(void);
+	
+	private:
+		PragmaCustomConstruct _pragma_custom_construct;
+		TaskInfo*             _task_info;
 
-#endif // TL_ACOTESTRANSFORM_HPP
+		const std::string generate_replace_popes() const;
+		const std::string generate_replace_pushes() const;
+		const std::string generate_replace() const;
+	};
+	
+} // end namespace TL
+
+#endif /*TLTRANSFORMTASKREPLACE_HPP_*/

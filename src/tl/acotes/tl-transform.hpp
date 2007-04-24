@@ -20,12 +20,21 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TL_ACOTESTRANSFORM_HPP
-#define TL_ACOTESTRANSFORM_HPP
+#ifndef TLTRANSFORM_HPP_
+#define TLTRANSFORM_HPP_
 
 namespace TL
 {
-	class AcotesTransform;
-}
+	
+	class Transform
+	{
+	public:
+		Transform();
+		virtual ~Transform();
+		
+		virtual void transform(void)= 0;
+	};
+	
+} // end namespace TL
 
-#endif // TL_ACOTESTRANSFORM_HPP
+#endif /*TLTRANSFORM_HPP_*/

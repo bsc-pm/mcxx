@@ -20,12 +20,26 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TL_ACOTESTRANSFORM_HPP
-#define TL_ACOTESTRANSFORM_HPP
+#ifndef TLTASKTRANSFORMHELPER_HPP_
+#define TLTASKTRANSFORMHELPER_HPP_
+
+#include <string>
+
+#include "tl-taskinfo.hpp"
 
 namespace TL
 {
-	class AcotesTransform;
+
+class TaskTransformHelper
+{
+public:
+	static std::string outline_name(TaskInfo* task);
+	
+private:
+	TaskTransformHelper();
+	
+};
+
 }
 
-#endif // TL_ACOTESTRANSFORM_HPP
+#endif /*TLTASKTRANSFORMHELPER_HPP_*/

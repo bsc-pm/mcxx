@@ -20,12 +20,42 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TL_ACOTESTRANSFORM_HPP
-#define TL_ACOTESTRANSFORM_HPP
+#ifndef TLTRANSFORMTASKOUTLINE_HPP_
+#define TLTRANSFORMTASKOUTLINE_HPP_
 
-namespace TL
+#include <string>
+
+#include "tl-pragmasupport.hpp"
+#include "tl-taskinfo.hpp"
+#include "tl-transform.hpp"
+
+namespace TL 
 {
-	class AcotesTransform;
+
+class TransformTaskOutline : public Transform
+{
+public:
+	TransformTaskOutline
+			( const PragmaCustomConstruct& pragma_custom_construct
+			, TaskInfo* task_info
+			);
+	virtual ~TransformTaskOutline();
+	
+	virtual void transform(void);
+	
+private:
+	PragmaCustomConstruct _pragma_custom_construct;
+	TaskInfo*             _task_info;
+	
+	std::string generate_body(void);
+	std::string generate_closes(void);
+	std::string generate_declares(void);
+	std::string generate_eos(void);
+	std::string generate_outline(void);
+	std::string generate_pops(void);
+	std::string generate_pushes(void);
+};
+
 }
 
-#endif // TL_ACOTESTRANSFORM_HPP
+#endif /*TLTRANSFORMTASKOUTLINE_HPP_*/

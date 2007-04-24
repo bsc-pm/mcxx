@@ -20,12 +20,43 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TL_ACOTESTRANSFORM_HPP
-#define TL_ACOTESTRANSFORM_HPP
+#ifndef TLTRANSFORMTASKGROUPREPLACE_HPP_
+#define TLTRANSFORMTASKGROUPREPLACE_HPP_
+
+#include <string>
+
+#include "tl-pragmasupport.hpp"
+#include "tl-transform.hpp"
+#include "tl-taskgroupinfo.hpp"
 
 namespace TL
 {
-	class AcotesTransform;
+
+class TransformTaskgroupReplace : public TL::Transform
+{
+public:
+	TransformTaskgroupReplace
+			( const PragmaCustomConstruct& pragma_custom_construct
+			, TaskgroupInfo* taskgroup_info
+			);
+	virtual ~TransformTaskgroupReplace();
+		
+	virtual void transform(void);
+	
+private:
+	PragmaCustomConstruct _pragma_custom_construct;
+	TaskgroupInfo*        _taskgroup_info;
+	
+	std::string generate_body(void);
+	std::string generate_connect_streams(void);
+	std::string generate_close_streams(void);
+	std::string generate_create_streams(void);
+	std::string generate_create_threads(void);
+	std::string generate_declare_threads(void);
+	std::string generate_join_threads(void);
+	std::string generate_replace(void);
+};
+
 }
 
-#endif // TL_ACOTESTRANSFORM_HPP
+#endif /*TLTRANSFORMTASKGROUPREPLACE_HPP_*/

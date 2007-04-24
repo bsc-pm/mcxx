@@ -20,12 +20,32 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TL_ACOTESTRANSFORM_HPP
-#define TL_ACOTESTRANSFORM_HPP
+#ifndef TLTHREADTRANSFORMHELPER_HPP_
+#define TLTHREADTRANSFORMHELPER_HPP_
+
+#include <set>
+#include <string>
+
+#include "tl-taskinfo.hpp"
 
 namespace TL
 {
-	class AcotesTransform;
+
+class ThreadTransformHelper
+{
+public:
+	static std::string create(TaskInfo* task);
+	static std::string create_all(const std::set<TaskInfo*>& ts);
+	static std::string declare(TaskInfo* task);
+	static std::string declare_all(const std::set<TaskInfo*>& ts);
+	static std::string join(TaskInfo* task);
+	static std::string join_all(const std::set<TaskInfo*>& ts);
+	static std::string name(TaskInfo* task);	
+
+private:
+	ThreadTransformHelper();
+};
+
 }
 
-#endif // TL_ACOTESTRANSFORM_HPP
+#endif /*TLTHREADTRANSFORMHELPER_HPP_*/

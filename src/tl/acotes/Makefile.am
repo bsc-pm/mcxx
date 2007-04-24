@@ -17,5 +17,31 @@ libtlacotes_la_CXXFLAGS = -Wall \
     -I ../../../lib
 
 libtlacotes_la_SOURCES = \
+						tl-streaminfo.hpp \
+						tl-streaminfo.cpp \
+						tl-streamtransformhelper.hpp \
+						tl-streamtransformhelper.cpp \
+						tl-symboltransformhelper.hpp \
+						tl-symboltransformhelper.cpp \
+						tl-taskgroupinfo.hpp \
+						tl-taskgroupinfo.cpp \
+						tl-taskinfo.hpp \
+						tl-taskinfo.cpp \
+						tl-tasktransformhelper.hpp \
+						tl-tasktransformhelper.cpp \
+						tl-threadtransformhelper.hpp \
+						tl-threadtransformhelper.cpp \
+						tl-transform.hpp \
+						tl-transform.cpp \
+						tl-transformtaskdefinestate.hpp \
+						tl-transformtaskdefinestate.cpp \
+						tl-transformtaskgroupdeclarestreams.hpp \
+						tl-transformtaskgroupdeclarestreams.cpp \
+						tl-transformtaskgroupreplace.hpp \
+						tl-transformtaskgroupreplace.cpp \
+						tl-transformtaskoutline.hpp \
+						tl-transformtaskoutline.cpp \
+						tl-transformtaskreplace.hpp \
+						tl-transformtaskreplace.cpp \
 						tl-acotestransform.hpp \
 						tl-acotestransform.cpp
