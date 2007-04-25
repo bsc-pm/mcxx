@@ -1811,6 +1811,14 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 return 1;
                 break;
             }
+        case AST_GCC_PARENTHESIZED_EXPRESSION :
+            {
+                AST compound_statement = ASTSon0(expression);
+
+                build_scope_statement(compound_statement, st, decl_context);
+
+                return 1;
+            }
         default :
             {
                 internal_error("Unexpected node '%s' %s", ast_print_node_type(ASTType(expression)), 

@@ -61,7 +61,7 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st,
         type_t** result_conversion_type, decl_context_t decl_context);
 
 void build_scope_dynamic_initializer(void);
-
+void build_scope_statement(AST statement, scope_t* st, decl_context_t decl_context);
 
 // Needed for phases
 void build_scope_translation_unit(translation_unit_t* translation_unit);

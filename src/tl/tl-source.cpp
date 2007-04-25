@@ -398,9 +398,13 @@ namespace TL
 
         // Get the scope and declarating context of the reference tree
         scope_t* scope = scope_link_get_scope(scope_link._scope_link, ref_tree._ast);
-        decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
 
+        compilation_options.scope_link = scope_link._scope_link;
+
+        decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
         solve_possibly_ambiguous_expression(a, scope, decl_context);
+
+        compilation_options.scope_link = NULL;
 
         AST_t result(a);
 

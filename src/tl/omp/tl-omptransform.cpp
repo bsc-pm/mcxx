@@ -2140,7 +2140,6 @@ namespace TL
                     << "  int nth_nprocs;"
                     << "  nth_desc *nth_selfv;"
                     << "  int nth_num_deps;"
-                    // << "  int nth_num_params;"
                     << "  int nth_p;"
                     <<    reduction_vectors
                     <<    instrument_code_before
@@ -4625,62 +4624,62 @@ namespace TL
                     void replace_expression(Expression expression, bool replace_outermost = true)
                     {
                         Source read_expression;
-                        // e1 = e2 => write(&t, ADDR(e1), READ(e2))
+                        // e1 = e2 => write(&__t, ADDR(e1), READ(e2))
                         if (expression.is_assignment())
                         {
                             get_address(expression.get_first_operand());
                             replace_expression(expression.get_second_operand());
 
                             read_expression
-                                << "write(&t, "
+                                << "write(&__t, "
                                 << expression.get_first_operand().prettyprint()
                                 << ","
                                 << expression.get_second_operand().prettyprint()
                                 << ")"
                                 ;
                         }
-                        // var => *read(&t, &var)
+                        // var => *read(&__t, &var)
                         else if (expression.is_id_expression())
                         {
                             read_expression
-                                << "*read(&t, "
+                                << "*read(&__t, "
                                 << "&" << expression.prettyprint()
                                 << ")"
                                 ;
                         }
-                        // *e =>  *read(&t, READ(e))
+                        // *e =>  *read(&__t, READ(e))
                         else if (expression.is_unary_operation()
                                 && expression.get_operation_kind() == Expression::DERREFERENCE)
                         {
                             replace_expression(expression.get_unary_operand());
 
                             read_expression
-                                << "*read(&t, "
+                                << "*read(&__t, "
                                 << expression.get_unary_operand().prettyprint()
                                 << ")"
                                 ;
                         }
-                        // e1[e2] => *read(&t, READ(e1) + READ(e2))
+                        // e1[e2] => *read(&__t, READ(e1) + READ(e2))
                         else if (expression.is_array_subscript())
                         {
                             replace_expression(expression.get_subscripted_expression());
                             replace_expression(expression.get_subscript_expression());
 
                             read_expression
-                                << "*read(&t, "
+                                << "*read(&__t, "
                                 << expression.get_subscripted_expression().prettyprint()
                                 << " + "
                                 << expression.get_subscript_expression().prettyprint()
                                 << ")"
                                 ;
                         }
-                        // e1->e2 => *read(&t, (READ(e1))->e2)
+                        // e1->e2 => *read(&__t, (READ(e1))->e2)
                         else if (expression.is_pointer_member_access())
                         {
                             replace_expression(expression.get_accessed_entity());
 
                             read_expression
-                                << "*read(&t, "
+                                << "*read(&__t, "
                                 << "&((" << expression.get_accessed_entity().prettyprint() << ")"
                                 << " -> "
                                 << expression.get_accessed_member().prettyprint()
@@ -4688,7 +4687,7 @@ namespace TL
                                 << ")"
                                 ;
                         }
-                        // (*e1).e2 => *read(&t, (READ(e1))->e2)
+                        // (*e1).e2 => *read(&__t, (READ(e1))->e2)
                         else if (expression.is_member_access()
                                 && expression.get_accessed_entity().is_unary_operation()
                                 && (expression.get_accessed_entity().get_operation_kind() 
@@ -4698,7 +4697,7 @@ namespace TL
                             replace_expression(accessed_entity);
 
                             read_expression
-                                << "*read(&t, "
+                                << "*read(&__t, "
                                 << "&((" << accessed_entity.prettyprint() << ")"
                                 << " -> "
                                 << expression.get_accessed_member().prettyprint()
@@ -4706,13 +4705,13 @@ namespace TL
                                 << ")"
                                 ;
                         }
-                        // e1.e2 => *read(&t, (ADDR(e1))->e2)
+                        // e1.e2 => *read(&__t, (ADDR(e1))->e2)
                         else if (expression.is_member_access())
                         {
                             get_address(expression.get_accessed_entity());
 
                             read_expression
-                                << "*read(&t, "
+                                << "*read(&__t, "
                                 << "&((" << expression.get_accessed_entity().prettyprint() << ")"
                                 << " -> "
                                 << expression.get_accessed_member().prettyprint()
@@ -4732,7 +4731,18 @@ namespace TL
                         // ## e1
                         else if (expression.is_unary_operation())
                         {
-                            replace_expression(expression.get_unary_operand());
+                            if (expression.get_operation_kind() != Expression::REFERENCE)
+                            {
+                                replace_expression(expression.get_unary_operand());
+                            }
+                            else
+                            {
+                                // & e1
+                                Expression address_expr = expression.get_unary_operand();
+
+                                get_address(address_expr);
+                                expression.get_ast().replace_with(address_expr.get_ast());
+                            }
                             
                             // Don't do anything else
                             return;
@@ -4802,22 +4812,22 @@ namespace TL
                 
                 replaced_code
                     << "{"
-                    << "   Transaction t;"
+                    << "   Transaction __t;"
                     << "   Status ret;"
-                    << "   starttx(&t);"
+                    << "   starttx(&__t);"
                     << "   while(1)"
                     << "   {"
-                    << "     ret = setjmp(t.env);"
+                    << "     ret = setjmp(__t->env);"
                     << "     if(0 == ret)"
                     << "     {"
                     <<         protect_statement.prettyprint()
-                    // << "       if (COMMIT_SUCESS == committx(&t)) "
-                    << "       if (0 == committx(&t)) "
+                    // << "       if (COMMIT_SUCESS == committx(&__t)) "
+                    << "       if (0 == committx(&__t)) "
                     << "         break;"
-                    << "       else aborttx(&t);"
-                    << "     } else aborttx(&t);"
+                    << "       else aborttx(&__t);"
+                    << "     } else aborttx(&__t);"
                     << "   }"
-                    << "   destroytx(&t);"
+                    << "   destroytx(&__t);"
                     << "}"
                     ;
 

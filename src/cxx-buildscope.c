@@ -68,7 +68,6 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
 static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st, 
         access_specifier_t current_access, type_t* class_info, int step, decl_context_t decl_context);
 
-static void build_scope_statement(AST statement, scope_t* st, decl_context_t decl_context);
 
 static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type_t* type_info,
         decl_context_t decl_context);
@@ -7013,7 +7012,7 @@ void build_scope_declaration_sequence_with_scope_link(AST a, scope_t* st, decl_c
     compilation_options.scope_link = NULL;
 }
 
-static void build_scope_statement(AST a, scope_t* st, decl_context_t decl_context)
+void build_scope_statement(AST a, scope_t* st, decl_context_t decl_context)
 {
     DEBUG_CODE()
     {
