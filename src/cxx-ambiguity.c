@@ -1487,6 +1487,7 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_POSTINCREMENT, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_EXPRESSION_INCREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
+                ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
                 return 1;
             }
         case AST_POSTDECREMENT :
@@ -1495,6 +1496,7 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_POSTDECREMENT, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_EXPRESSION_DECREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
+                ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
                 return 1;
             }
         case AST_DYNAMIC_CAST :
@@ -1545,6 +1547,7 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_PREINCREMENT, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_EXPRESSION_INCREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
+                ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
                 return 1;
             }
         case AST_PREDECREMENT :
@@ -1553,6 +1556,7 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 ASTAttrSetValueType(expression, LANG_IS_UNARY_OPERATION, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_PREDECREMENT, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_EXPRESSION_DECREMENTED, tl_type_t, tl_ast(ASTSon0(expression)));
+                ASTAttrSetValueType(expression, LANG_UNARY_OPERAND, tl_type_t, tl_ast(ASTSon0(expression)));
                 return 1;
             }
         case AST_SIZEOF :
