@@ -240,8 +240,8 @@ namespace TL
                 // #pragma omp directive taskyield
                 on_custom_construct_post["taskyield"].connect(functor(&OpenMPTransform::taskyield_postorder, *this));
 
-                // #pragma omp construct protect
-                on_custom_construct_post["protect"].connect(functor(&OpenMPTransform::protect_postorder, *this));
+                // #pragma omp construct transaction
+                on_custom_construct_post["transaction"].connect(functor(&OpenMPTransform::transaction_postorder, *this));
             }
             
             // Parallel in preorder
@@ -4512,7 +4512,7 @@ namespace TL
             }
 
             // ###########################################################
-            //    #pragma omp protect
+            //    #pragma omp transaction
             //       statement
             // ###########################################################
             
@@ -4545,15 +4545,22 @@ namespace TL
                         // e1[e2] => READ(e1) + READ(e2)
                         else if (expression.is_array_subscript())
                         {
+
+							Source original_array;
+							original_array << expression.get_subscripted_expression().prettyprint();
+
                             replace_expression(expression.get_subscripted_expression());
                             replace_expression(expression.get_subscript_expression());
 
-                            address_expression 
-                                << "(" 
+                            address_expression
+								<< "((void*)&(" << original_array << ") == ((void*)&(" << original_array << "[0])) ? "
+							    << "(" << original_array << " + " << expression.get_subscript_expression().prettyprint()	<< ")"
+                                << ": ("
                                 << expression.get_subscripted_expression().prettyprint()
                                 << " + "
                                 << expression.get_subscript_expression().prettyprint()
                                 << ")"
+								<< ")"
                                 ;
                         }
                         // e1->e2 => (&(READ(e1)->e2))
@@ -4615,8 +4622,7 @@ namespace TL
                             address_expression << expression.prettyprint();
                         }
 
-                        AST_t address_expression_tree = address_expression.parse_expression(expression.get_ast(),
-                                expression.get_scope_link());
+                        AST_t address_expression_tree = address_expression.parse_expression(expression.get_ast(), expression.get_scope_link());
 
                         expression.get_ast().replace(address_expression_tree);
                     }
@@ -4624,62 +4630,68 @@ namespace TL
                     void replace_expression(Expression expression, bool replace_outermost = true)
                     {
                         Source read_expression;
-                        // e1 = e2 => write(&__t, ADDR(e1), READ(e2))
+                        // e1 = e2 => write(__t, ADDR(e1), READ(e2))
                         if (expression.is_assignment())
                         {
                             get_address(expression.get_first_operand());
                             replace_expression(expression.get_second_operand());
 
                             read_expression
-                                << "write(&__t, "
+                                << "write(__t, "
                                 << expression.get_first_operand().prettyprint()
                                 << ","
                                 << expression.get_second_operand().prettyprint()
                                 << ")"
                                 ;
                         }
-                        // var => *read(&__t, &var)
+                        // var => *read(__t, &var)
                         else if (expression.is_id_expression())
                         {
                             read_expression
-                                << "*read(&__t, "
+                                << "*read(__t, "
                                 << "&" << expression.prettyprint()
                                 << ")"
                                 ;
                         }
-                        // *e =>  *read(&__t, READ(e))
+                        // *e =>  *read(__t, READ(e))
                         else if (expression.is_unary_operation()
                                 && expression.get_operation_kind() == Expression::DERREFERENCE)
                         {
                             replace_expression(expression.get_unary_operand());
 
                             read_expression
-                                << "*read(&__t, "
+                                << "*read(__t, "
                                 << expression.get_unary_operand().prettyprint()
                                 << ")"
                                 ;
                         }
-                        // e1[e2] => *read(&__t, READ(e1) + READ(e2))
+                        // e1[e2] => *read(__t, READ(e1) + READ(e2))
                         else if (expression.is_array_subscript())
                         {
+							Source original_array;
+							original_array << expression.get_subscripted_expression().prettyprint();
+
                             replace_expression(expression.get_subscripted_expression());
                             replace_expression(expression.get_subscript_expression());
 
                             read_expression
-                                << "*read(&__t, "
+								<< "((void*)&(" << original_array << ") == ((void*)&(" << original_array << "[0])) ? "
+							    << "* (" << original_array << " + " << expression.get_subscript_expression().prettyprint()	<< ")"
+                                << ": *read(__t, "
                                 << expression.get_subscripted_expression().prettyprint()
                                 << " + "
                                 << expression.get_subscript_expression().prettyprint()
                                 << ")"
+								<< ")"
                                 ;
                         }
-                        // e1->e2 => *read(&__t, (READ(e1))->e2)
+                        // e1->e2 => *read(__t, (READ(e1))->e2)
                         else if (expression.is_pointer_member_access())
                         {
                             replace_expression(expression.get_accessed_entity());
 
                             read_expression
-                                << "*read(&__t, "
+                                << "*read(__t, "
                                 << "&((" << expression.get_accessed_entity().prettyprint() << ")"
                                 << " -> "
                                 << expression.get_accessed_member().prettyprint()
@@ -4687,7 +4699,7 @@ namespace TL
                                 << ")"
                                 ;
                         }
-                        // (*e1).e2 => *read(&__t, (READ(e1))->e2)
+                        // (*e1).e2 => *read(__t, (READ(e1))->e2)
                         else if (expression.is_member_access()
                                 && expression.get_accessed_entity().is_unary_operation()
                                 && (expression.get_accessed_entity().get_operation_kind() 
@@ -4697,7 +4709,7 @@ namespace TL
                             replace_expression(accessed_entity);
 
                             read_expression
-                                << "*read(&__t, "
+                                << "*read(__t, "
                                 << "&((" << accessed_entity.prettyprint() << ")"
                                 << " -> "
                                 << expression.get_accessed_member().prettyprint()
@@ -4705,13 +4717,13 @@ namespace TL
                                 << ")"
                                 ;
                         }
-                        // e1.e2 => *read(&__t, (ADDR(e1))->e2)
+                        // e1.e2 => *read(__t, (ADDR(e1))->e2)
                         else if (expression.is_member_access())
                         {
                             get_address(expression.get_accessed_entity());
 
                             read_expression
-                                << "*read(&__t, "
+                                << "*read(__t, "
                                 << "&((" << expression.get_accessed_entity().prettyprint() << ")"
                                 << " -> "
                                 << expression.get_accessed_member().prettyprint()
@@ -4731,22 +4743,125 @@ namespace TL
                         // ## e1
                         else if (expression.is_unary_operation())
                         {
-                            if (expression.get_operation_kind() != Expression::REFERENCE)
-                            {
-                                replace_expression(expression.get_unary_operand());
-                            }
-                            else
-                            {
-                                // & e1
-                                Expression address_expr = expression.get_unary_operand();
+							if (expression.get_operation_kind() == Expression::REFERENCE)
+							{
+								// & e1
+								Expression address_expr = expression.get_unary_operand();
+								get_address(address_expr);
+								expression.get_ast().replace_with(address_expr.get_ast());
+							}
+							else if (expression.get_operation_kind() == Expression::PREINCREMENT ||
+								expression.get_operation_kind() == Expression::PREDECREMENT)
+							{
+								// ++e1
+								// e1 = e1 + 1
+								Source increment_code;
 
-                                get_address(address_expr);
-                                expression.get_ast().replace_with(address_expr.get_ast());
-                            }
+								if (expression.get_operation_kind() == Expression::PREINCREMENT)
+								{
+									increment_code << " + 1";
+								}
+								else // (expression.get_operation_kind() == Expression::PREDECREMENT)
+								{
+									increment_code << " - 1";
+								}
+
+								Source flat_code;
+								flat_code << expression.get_unary_operand().prettyprint()
+									<< " = "
+									<< expression.get_unary_operand().prettyprint()
+									<< increment_code;
+
+								AST_t flat_code_tree = flat_code.parse_expression(expression.get_ast(),
+										expression.get_scope_link());
+								Expression flat_code_expr(flat_code_tree, expression.get_scope_link());
+								replace_expression(flat_code_expr);
+
+								Source derref_write;
+								derref_write << "*(" << flat_code_expr.prettyprint() << ")";
+
+								AST_t derref_write_tree = derref_write.parse_expression(expression.get_ast(),
+										expression.get_scope_link());
+
+								expression.get_ast().replace_with(derref_write_tree);
+							}
+							else if (expression.get_operation_kind() == Expression::POSTINCREMENT
+									|| expression.get_operation_kind() == Expression::POSTDECREMENT)
+							{
+								Source post_source;
+								Source incremented_operand, increment_operand;
+
+								Source read_operand_src;
+								read_operand_src << expression.get_unary_operand().prettyprint();
+
+								post_source 
+									<< "({"
+									<< "__typeof__(" << read_operand_src << ") "
+									<< "__temp = " << incremented_operand << ";"
+									<< increment_operand << ";"
+									<< "__temp;"
+									<< "})"
+									;
+
+								AST_t read_operand_tree = 
+									read_operand_src.parse_expression(expression.get_ast(),
+										expression.get_scope_link());
+
+								Expression read_operand_expr(read_operand_tree, expression.get_scope_link());
+								replace_expression(read_operand_expr);
+
+								incremented_operand << read_operand_expr.prettyprint();
+
+								Source increment_source;
+								Source increment_code;
+
+								if (expression.get_operation_kind() == Expression::POSTINCREMENT)
+								{
+									increment_code << " + 1";
+								}
+								else // (expression.get_operation_kind() == Expression::POSTDECREMENT)
+								{
+									increment_code << " - 1";
+								}
+								increment_source << read_operand_src 
+									<< " = "
+									<< read_operand_src
+									<< increment_code
+									;
+
+								AST_t increment_tree =
+									increment_source.parse_expression(expression.get_ast(),
+										expression.get_scope_link());
+								Expression increment_expr(increment_tree, expression.get_scope_link());
+								replace_expression(increment_expr);
+
+								increment_operand << increment_expr.prettyprint()
+									;
+
+								AST_t post_tree = post_source.parse_expression(expression.get_ast(),
+										expression.get_scope_link());
+
+								expression.get_ast().replace_with(post_tree);
+							}
+							else
+							{
+								replace_expression(expression.get_unary_operand());
+							}
                             
                             // Don't do anything else
                             return;
                         }
+						else if (expression.is_function_call())
+						{
+							ObjectList<Expression> arguments = expression.get_argument_list();
+							for (ObjectList<Expression>::iterator it = arguments.begin();
+									it != arguments.end();
+									it++)
+							{
+								replace_expression(*it);
+							}
+							return;
+						}
                         // Other expressions (function calls and literals)
                         else
                         {
@@ -4755,15 +4870,14 @@ namespace TL
                         }
 
                         // Replace the expression
-                        AST_t read_expression_tree = read_expression.parse_expression(
-                                expression.get_ast(),
-                                expression.get_scope_link());
+                        AST_t read_expression_tree = read_expression.parse_expression(expression.get_ast(),
+								expression.get_scope_link());
 
                         expression.get_ast().replace(read_expression_tree);
                     }
             };
 
-            void protect_postorder(OpenMP::CustomConstruct protect_construct)
+            void transaction_postorder(OpenMP::CustomConstruct protect_construct)
             {
                 ObjectList<Symbol> considered_symbols;
                 ObjectList<Symbol> excluded_symbols;
@@ -4794,6 +4908,7 @@ namespace TL
 
                 considered_symbols = considered_symbols.filter(not_in_set(excluded_symbols));
 
+				// For every expression, replace it properly with read and write
                 PredicateBool<LANG_IS_EXPRESSION_NEST> expression_pred;
                 ExpressionReplacement expression_replacement(considered_symbols);
 
@@ -4808,26 +4923,84 @@ namespace TL
                     expression_replacement.replace_expression(expression);
                 }
 
+				// And now find every 'return' statement and protect it
+				PredicateBool<LANG_IS_RETURN_STATEMENT> return_pred;
+				ObjectList<AST_t> returns = protect_statement.get_ast().depth_subtrees(return_pred, AST_t::NON_RECURSIVE);
+				for (ObjectList<AST_t>::iterator it = returns.begin();
+						it != returns.end();
+						it++)
+				{
+					Source return_replace_code;
+
+					Statement return_statement(*it, protect_statement.get_scope_link());
+
+					return_replace_code
+						<< "{"
+                        << "  _tx_commit_start = rdtscf();"
+						<< "  if (0 == committx(__t))"
+						<< "  {"
+						<< "       _tx_commit_end = rdtscf();"
+						<< "       _tx_commit_total += (_tx_commit_end - _tx_commit_start);"
+						<< "       _tx_end = rdtscf();"
+						<< "       _tx_total_time += (_tx_end - _tx_start);"
+						<< "       destroytx(__t);"
+						// Assumption: transaction is completely inside the function
+						<< "       return;"
+						<< "  }"
+						<< "  else" 
+						<< "  {"
+					    << "     _tx_abort_count++;"
+						<< "     aborttx(__t);"
+						// TODO : This will break when the return is contained in another loop (while, for, do..while)
+						<< "     continue;"
+						<< "  }"
+						<< "}"
+						;
+				
+					AST_t return_tree = return_replace_code.parse_statement(return_statement.get_ast(),
+							return_statement.get_scope_link());
+
+					it->replace(return_tree);
+				}
+
                 Source replaced_code;
                 
                 replaced_code
                     << "{"
-                    << "   Transaction __t;"
-                    << "   Status ret;"
-                    << "   starttx(&__t);"
+                    << "   Transaction* __t = createtx();"
+					<< "   uint64_t _tx_start, _tx_end;"
+					<< "   uint64_t _tx_commit_start, _tx_commit_end;"
+                    << "   _tx_start = rdtscf();"
+					<< "   _tx_total_count++;"
                     << "   while(1)"
                     << "   {"
-                    << "     ret = setjmp(__t->env);"
-                    << "     if(0 == ret)"
+                    << "     starttx(__t);"
+                    // << "     int ret = setjmp(__t->context);"
+                    << "     if((__t->nestingLevel > 0) || (0 == setjmp(__t->context)))"
                     << "     {"
                     <<         protect_statement.prettyprint()
-                    // << "       if (COMMIT_SUCESS == committx(&__t)) "
-                    << "       if (0 == committx(&__t)) "
+                    << "       _tx_commit_start = rdtscf();"
+                    << "       if (0 == committx(__t)) "
+					<< "       {"
+					<< "         _tx_commit_end = rdtscf();"
+					<< "         _tx_commit_total += (_tx_commit_end - _tx_commit_start);"
                     << "         break;"
-                    << "       else aborttx(&__t);"
-                    << "     } else aborttx(&__t);"
+					<< "       }"
+                    << "       else"
+					<< "       {"
+					<< "          _tx_abort_count++;"
+					<< "          aborttx(__t);"
+					<< "       }"
+					<< "     }"
+                    << "     else"
+					<< "     {"
+					<< "        _tx_abort_count++;"
+					<< "        aborttx(__t);"
+					<< "     }"
                     << "   }"
-                    << "   destroytx(&__t);"
+                    << "   _tx_end = rdtscf();"
+					<< "   _tx_total_time += (_tx_end - _tx_start);"
+                    << "   destroytx(__t);"
                     << "}"
                     ;
 
@@ -4837,7 +5010,6 @@ namespace TL
                 protect_construct.get_ast().replace(replaced_tree);
             }
 
-            
     };
 
 }
