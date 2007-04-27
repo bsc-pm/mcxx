@@ -434,17 +434,17 @@ namespace TL
 
         ObjectList<Expression> result;
 
-        ObjectList<AST_t> arguments 
-            = expression_list.depth_subtrees(PredicateBool<LANG_IS_EXPRESSION_NEST>(), AST_t::NON_RECURSIVE);
-
-        for (ObjectList<AST_t>::iterator it = arguments.begin(); 
-                it != arguments.end();
-                it++)
-        {
-            Expression expr(*it, get_scope_link());
-
-            result.push_back(expr);
-        }
+		if (expression_list.is_list())
+		{
+			ASTIterator it = expression_list.get_list_iterator();
+			it.rewind();
+			while (!it.end())
+			{
+				Expression expr(it.item(), _scope_link);
+				result.push_back(expr);
+				it.next();
+			}
+		}
 
         return result;
     }

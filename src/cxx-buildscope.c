@@ -2603,6 +2603,8 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
             if (declarator_name != NULL)
             {
                 ASTAttrSetValueType(parameter_declarator, LANG_IS_DECLARED_PARAMETER, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(parameter_declarator, LANG_DECLARED_PARAMETER, 
+						tl_type_t, tl_ast(declarator_name));
             }
         }
         // If we don't have a declarator just save the base type

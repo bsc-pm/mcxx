@@ -431,6 +431,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/instr/Makefile 
            src/tl/mypragma/Makefile 
            src/tl/acotes/Makefile 
+           src/tl/stm_func/Makefile 
            config/Makefile
            config/config.mcxx
            tests/Makefile

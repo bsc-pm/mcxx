@@ -4853,13 +4853,54 @@ namespace TL
                         }
 						else if (expression.is_function_call())
 						{
-							ObjectList<Expression> arguments = expression.get_argument_list();
-							for (ObjectList<Expression>::iterator it = arguments.begin();
-									it != arguments.end();
-									it++)
+
+							Expression called_expression = expression.get_called_expression();
+							if (called_expression.is_id_expression())
 							{
-								replace_expression(*it);
+								// A simple function call of the form "f(...)"
+								Source replace_call, replace_args;
+
+								replace_call
+									<< "__stm_" << called_expression.prettyprint() 
+									<< "(" << replace_args << ")"
+									;
+
+								replace_args.append_with_separator("__t", ",");
+
+								ObjectList<Expression> arguments = expression.get_argument_list();
+								for (ObjectList<Expression>::iterator it = arguments.begin();
+										it != arguments.end();
+										it++)
+								{
+									replace_args.append_with_separator(it->prettyprint(), ",");
+								}
+
+								// Now parse the function call
+								AST_t replace_call_tree = replace_call.parse_expression(
+										called_expression.get_ast(),
+										called_expression.get_scope_link());
+
+								Expression replaced_function_call(replace_call_tree, 
+										called_expression.get_scope_link());
+
+								// This is a function call
+								arguments = replaced_function_call.get_argument_list();
+								for (ObjectList<Expression>::iterator it = arguments.begin();
+										it != arguments.end();
+										it++)
+								{
+									if (it == arguments.begin())
+										continue;
+									std::cerr << "Replacing -> " << it->prettyprint() << std::endl;
+									// Skip the first as it it is a __t
+
+									replace_expression(*it);
+									std::cerr << "Replaced -> " << it->prettyprint() << std::endl;
+								}
+
+								expression.get_ast().replace_with(replace_call_tree);
 							}
+
 							return;
 						}
                         // Other expressions (function calls and literals)
@@ -4886,6 +4927,8 @@ namespace TL
                 OpenMP::Directive protect_directive = protect_construct.directive();
 
                 OpenMP::CustomClause exclude_clause = protect_directive.custom_clause("exclude");
+				OpenMP::CustomClause converted_function = 
+					protect_directive.custom_clause("converted_function");
 
                 if (exclude_clause.is_defined())
                 {
@@ -4934,6 +4977,69 @@ namespace TL
 
 					Statement return_statement(*it, protect_statement.get_scope_link());
 
+					FunctionDefinition enclosing_function_def = return_statement.get_enclosing_function();
+
+					IdExpression function_name = enclosing_function_def.get_function_name();
+					Symbol function_symbol = function_name.get_symbol();
+					Type function_type = function_symbol.get_type();
+					Type return_type = function_type.returns();
+
+					Source return_value;
+					ObjectList<AST_t> return_expression_list = return_statement.get_ast().depth_subtrees(
+							PredicateBool<LANG_IS_EXPRESSION_NEST>(), 
+							AST_t::NON_RECURSIVE);
+					if (!return_expression_list.empty()
+							&& !return_type.is_void())
+					{
+						// Only if we have a value non-void
+						Expression returned_expression(*(return_expression_list.begin()), 
+								enclosing_function_def.get_scope_link());
+
+						AST_t node = enclosing_function_def.get_ast();
+						ObjectList<AST_t> functional_declarator = 
+							node.depth_subtrees(PredicateBool<LANG_IS_FUNCTIONAL_DECLARATOR>(), 
+									AST_t::NON_RECURSIVE);
+
+						AST_t first_functional_declarator = *(functional_declarator.begin());
+						ObjectList<AST_t> declared_parameters = 
+							first_functional_declarator.depth_subtrees(
+									PredicateBool<LANG_IS_DECLARED_PARAMETER>(),
+									AST_t::NON_RECURSIVE);
+
+						Source cancel_source;
+						{
+							ObjectList<AST_t>::iterator it = declared_parameters.begin();
+							if (converted_function.is_defined())
+							{
+								// Skip the first one if the converted_function clause
+								// was defined
+								it++;
+							}
+							for (; it != declared_parameters.end();
+									it++)
+							{
+								AST_t declared_name = it->get_attribute(LANG_DECLARED_PARAMETER);
+								cancel_source
+									<< "invalidateAdrInTx(__t, &" << declared_name.prettyprint() << ");"
+									;
+							}
+						}
+
+						return_value
+							<< return_type.get_declaration(function_name.get_scope(), 
+									"__tx_retval") << ";"
+							<< "     __tx_retval = " << returned_expression.prettyprint() << ";"
+							<< cancel_source
+							<< "     return __tx_retval;"
+							;
+					}
+					else
+					{
+						return_value << return_statement.prettyprint();
+					}
+
+					if (!converted_function.is_defined())
+					{
 					return_replace_code
 						<< "{"
                         << "  _tx_commit_start = rdtscf();"
@@ -4944,8 +5050,9 @@ namespace TL
 						<< "       _tx_end = rdtscf();"
 						<< "       _tx_total_time += (_tx_end - _tx_start);"
 						<< "       destroytx(__t);"
-						// Assumption: transaction is completely inside the function
-						<< "       return;"
+						// Assumption: transaction is completely inside the function.
+						// FIXME: Think about it
+						<< return_value
 						<< "  }"
 						<< "  else" 
 						<< "  {"
@@ -4956,6 +5063,15 @@ namespace TL
 						<< "  }"
 						<< "}"
 						;
+					}
+					else
+					{
+						return_replace_code
+							<< "{"
+							<< return_value
+							<< "}"
+							;
+					}
 				
 					AST_t return_tree = return_replace_code.parse_statement(return_statement.get_ast(),
 							return_statement.get_scope_link());
@@ -4965,44 +5081,58 @@ namespace TL
 
                 Source replaced_code;
                 
-                replaced_code
-                    << "{"
-                    << "   Transaction* __t = createtx();"
-					<< "   uint64_t _tx_start, _tx_end;"
-					<< "   uint64_t _tx_commit_start, _tx_commit_end;"
-                    << "   _tx_start = rdtscf();"
-					<< "   _tx_total_count++;"
-                    << "   while(1)"
-                    << "   {"
-                    << "     starttx(__t);"
-                    // << "     int ret = setjmp(__t->context);"
-                    << "     if((__t->nestingLevel > 0) || (0 == setjmp(__t->context)))"
-                    << "     {"
-                    <<         protect_statement.prettyprint()
-                    << "       _tx_commit_start = rdtscf();"
-                    << "       if (0 == committx(__t)) "
-					<< "       {"
-					<< "         _tx_commit_end = rdtscf();"
-					<< "         _tx_commit_total += (_tx_commit_end - _tx_commit_start);"
-                    << "         break;"
-					<< "       }"
-                    << "       else"
-					<< "       {"
-					<< "          _tx_abort_count++;"
-					<< "          aborttx(__t);"
-					<< "       }"
-					<< "     }"
-                    << "     else"
-					<< "     {"
-					<< "        _tx_abort_count++;"
-					<< "        aborttx(__t);"
-					<< "     }"
-                    << "   }"
-                    << "   _tx_end = rdtscf();"
-					<< "   _tx_total_time += (_tx_end - _tx_start);"
-                    << "   destroytx(__t);"
-                    << "}"
-                    ;
+				if (converted_function.is_defined())
+				{
+					replaced_code
+						<< "   uint64_t _tx_start, _tx_end;"
+						<< "   uint64_t _tx_commit_start, _tx_commit_end;"
+						<< "   _tx_start = rdtscf();"
+						<<         protect_statement.prettyprint()
+						;
+				}
+				else
+				{
+					replaced_code
+						<< "{"
+						<< "   Transaction* __t = createtx();"
+						<< "   uint64_t _tx_start, _tx_end;"
+						<< "   uint64_t _tx_commit_start, _tx_commit_end;"
+						<< "   _tx_start = rdtscf();"
+						<< "   _tx_total_count++;"
+						<< "   while(1)"
+						<< "   {"
+						<< "     starttx(__t);"
+						// << "     int ret = setjmp(__t->context);"
+						<< "     if((__t->nestingLevel > 0) || (0 == setjmp(__t->context)))"
+						<< "     {"
+						<<         comment("Protected code")
+						<<         protect_statement.prettyprint()
+						<<         comment("End of protected code")
+						<< "       _tx_commit_start = rdtscf();"
+						<< "       if (0 == committx(__t)) "
+						<< "       {"
+						<< "         _tx_commit_end = rdtscf();"
+						<< "         _tx_commit_total += (_tx_commit_end - _tx_commit_start);"
+						<< "         break;"
+						<< "       }"
+						<< "       else"
+						<< "       {"
+						<< "          _tx_abort_count++;"
+						<< "          aborttx(__t);"
+						<< "       }"
+						<< "     }"
+						<< "     else"
+						<< "     {"
+						<< "        _tx_abort_count++;"
+						<< "        aborttx(__t);"
+						<< "     }"
+						<< "   }"
+						<< "   _tx_end = rdtscf();"
+						<< "   _tx_total_time += (_tx_end - _tx_start);"
+						<< "   destroytx(__t);"
+						<< "}"
+						;
+				}
 
                 AST_t replaced_tree = replaced_code.parse_statement(protect_statement.get_ast(),
                         protect_statement.get_scope_link());
