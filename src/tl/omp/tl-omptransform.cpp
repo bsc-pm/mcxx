@@ -4875,7 +4875,6 @@ namespace TL
                                 }
 
                                 // Now parse the function call
-                                std::cerr << "Parsing '" << replace_call.get_source() << "'" << std::endl; 
                                 AST_t replace_call_tree = replace_call.parse_expression(
                                         called_expression.get_ast(),
                                         called_expression.get_scope_link());
