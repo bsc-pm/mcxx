@@ -153,10 +153,10 @@ namespace TL
             {
             }
 
-			bool instrumentation_requested()
-			{
-				return (ExternalVars::get("instrument", "0") == "1");
-			}
+            bool instrumentation_requested()
+            {
+                return (ExternalVars::get("instrument", "0") == "1");
+            }
 
             virtual ~OpenMPTransform()
             {
@@ -322,8 +322,8 @@ namespace TL
                 // Additionally {first|last}private and reduction
                 // entities are needed for proper initializations
                 // and assignments.
-				OpenMP::CustomClause noinstr_clause = directive.custom_clause("noinstr");
-				
+                OpenMP::CustomClause noinstr_clause = directive.custom_clause("noinstr");
+                
                 AST_t outline_code  = get_outline_parallel(
                         function_definition,
                         outlined_function_name, 
@@ -336,7 +336,7 @@ namespace TL
                         reduction_references,
                         copyin_references,
                         copyprivate_references,
-						noinstr_clause.is_defined());
+                        noinstr_clause.is_defined());
 
                 // In the AST of the function definition, prepend outline_code
                 // as a sibling (at the same level)
@@ -980,23 +980,23 @@ namespace TL
                 section_source
                     << "case " << num_sections << ":"
                     << "{"
-					<<    instrumentation_before
+                    <<    instrumentation_before
                     <<    construct_body.prettyprint()
-					<<    instrumentation_after
+                    <<    instrumentation_after
                     <<    "break;"
                     << "}"
                     ;
 
-				if (instrumentation_requested())
-				{
-					instrumentation_before
-						<< "mintaka_state_run();"
-						;
-						
-					instrumentation_before
-						<< "mintaka_state_synch();"
-						;
-				}
+                if (instrumentation_requested())
+                {
+                    instrumentation_before
+                        << "mintaka_state_run();"
+                        ;
+                        
+                    instrumentation_before
+                        << "mintaka_state_synch();"
+                        ;
+                }
 
                 AST_t section_tree = section_source.parse_statement(section_construct.get_ast(),
                         section_construct.get_scope_link());
@@ -1011,26 +1011,26 @@ namespace TL
             {
                 Source barrier_source;
 
-				Source instrumentation_code_before, instrumentation_code_after;
+                Source instrumentation_code_before, instrumentation_code_after;
 
-				if (instrumentation_requested())
-				{
-					instrumentation_code_before
-						<< "int __previous_state = mintaka_get_state();"
-						<< "mintaka_state_synch();"
-						;
+                if (instrumentation_requested())
+                {
+                    instrumentation_code_before
+                        << "int __previous_state = mintaka_get_state();"
+                        << "mintaka_state_synch();"
+                        ;
 
-					instrumentation_code_after
-						<< "mintaka_set_state(__previous_state);"
-						;
-				}
+                    instrumentation_code_after
+                        << "mintaka_set_state(__previous_state);"
+                        ;
+                }
 
                 barrier_source
                     << "{"
 //                    <<    "extern void in__tone_barrier_();"
-					<<    instrumentation_code_before
+                    <<    instrumentation_code_before
                     <<    "in__tone_barrier_();"
-					<<    instrumentation_code_after
+                    <<    instrumentation_code_after
                     << "}"
                     ;
 
@@ -1112,11 +1112,11 @@ namespace TL
                 Statement body_construct = single_construct.body();
                 OpenMP::Directive directive = single_construct.directive();
 
-				Source instrumentation_code_before, instrumentation_code_after;
+                Source instrumentation_code_before, instrumentation_code_after;
 
                 single_source
                     << "{"
-					<<   instrumentation_code_before
+                    <<   instrumentation_code_before
                     <<   "int nth_low;"
                     <<   "int nth_upper;"
                     <<   "int nth_step;"
@@ -1140,27 +1140,27 @@ namespace TL
                     <<   "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
                     <<   "while (in__tone_next_iters_ (&nth_dummy1, &nth_dummy2, &nth_dummy3) != 0)"
                     <<   "{"
-					<<       instrumentation_code_after
+                    <<       instrumentation_code_after
                     <<       body_construct.prettyprint()
-					<<       instrumentation_code_before
+                    <<       instrumentation_code_before
                     <<   "}"
                     <<   barrier_code
-					<<   instrumentation_code_after
+                    <<   instrumentation_code_after
                     << "}"
                     ;
 
-				if (instrumentation_requested())
-				{
-					instrumentation_code_before
-						<< "mintaka_state_synch();"
-						;
-					instrumentation_code_after
-						<< "mintaka_state_run();"
-						;
-				}
+                if (instrumentation_requested())
+                {
+                    instrumentation_code_before
+                        << "mintaka_state_synch();"
+                        ;
+                    instrumentation_code_after
+                        << "mintaka_state_run();"
+                        ;
+                }
 
                 OpenMP::Clause nowait_clause = directive.nowait_clause();
-				barrier_code = get_loop_finalization(!(nowait_clause.is_defined()));
+                barrier_code = get_loop_finalization(!(nowait_clause.is_defined()));
 
                 AST_t single_tree = single_source.parse_statement(single_construct.get_ast(), 
                         single_construct.get_scope_link());
@@ -1341,8 +1341,8 @@ namespace TL
                     << "}"
                     ;
 
-				define_global_mutex(mutex_variable, critical_construct.get_ast(),
-						critical_construct.get_scope_link());
+                define_global_mutex(mutex_variable, critical_construct.get_ast(),
+                        critical_construct.get_scope_link());
 
                 AST_t critical_tree = critical_source.parse_statement(critical_construct.get_ast(),
                         critical_construct.get_scope_link());
@@ -1350,8 +1350,8 @@ namespace TL
                 critical_construct.get_ast().replace(critical_tree);
             }
 
-			void define_global_mutex(std::string mutex_variable, AST_t ref_tree, ScopeLink sl)
-			{
+            void define_global_mutex(std::string mutex_variable, AST_t ref_tree, ScopeLink sl)
+            {
                 if (criticals_defined.find(mutex_variable) == criticals_defined.end())
                 {
                     // Now declare, if not done before
@@ -1370,7 +1370,7 @@ namespace TL
 
                     criticals_defined.insert(mutex_variable);
                 }
-			}
+            }
 
             void threadprivate_postorder(OpenMP::ThreadPrivateDirective threadprivate_directive)
             {
@@ -1919,7 +1919,7 @@ namespace TL
 
                 outlined_function_reference << get_outline_function_reference(function_definition, parameter_info_list);
 
-				Source instrument_code_task_creation;
+                Source instrument_code_task_creation;
 
                 task_queueing
                     << "{"
@@ -1938,7 +1938,7 @@ namespace TL
                     <<    "nth = nth_create((void*)(" << outlined_function_reference << "), "
                     <<             "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, &nth_arg_addr_ptr, "
                     <<             "&nth_nargs_ref, &nth_nargs_val" << task_parameters << ");"
-					<<    instrument_code_task_creation
+                    <<    instrument_code_task_creation
                     <<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
                     <<    "{"
                     // <<       "fprintf(stderr, \"Cannot allocate task at '%s'\\n\", \"" << task_construct.get_ast().get_locus() << "\");"
@@ -1949,8 +1949,8 @@ namespace TL
                     << "}"
                     ;
 
-				if (instrumentation_requested())
-				{
+                if (instrumentation_requested())
+                {
                     std::string file_name = "\"task enqueue: " + function_definition.get_ast().get_file() + "\"";
 
                     int file_line = construct_body.get_ast().get_line();
@@ -1958,8 +1958,8 @@ namespace TL
                     std::string mangled_function_name = 
                         "\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
 
-					instrument_code_task_creation
-						// TODO we want to know if threadswitch was enabled
+                    instrument_code_task_creation
+                        // TODO we want to know if threadswitch was enabled
                         << "const int EVENT_TASK_ENQUEUE = 60000010;"
                         << "int _user_function_event = mintaka_index_get(" << file_name << "," << file_line << ");"
                         << "if (_user_function_event == -1)"
@@ -1970,18 +1970,18 @@ namespace TL
                         << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
                         << "}"
                         << "mintaka_event(EVENT_TASK_ENQUEUE, _user_function_event);"
-						<< "if (nth != NTH_CANNOT_ALLOCATE_TASK)"
-						<< "{"
-						// Adjust to 32 bit
-						<< "     uint32_t id_nth = (((intptr_t)(nth)) >> (32*((sizeof(nth)/4) - 1)));"
-						<< "     mintaka_send(id_nth, 1);"
-						<< "     mintaka_state_run();"
-						<< "}"
-						;
+                        << "if (nth != NTH_CANNOT_ALLOCATE_TASK)"
+                        << "{"
+                        // Adjust to 32 bit
+                        << "     uint32_t id_nth = (((intptr_t)(nth)) >> (32*((sizeof(nth)/4) - 1)));"
+                        << "     mintaka_send(id_nth, 1);"
+                        << "     mintaka_state_run();"
+                        << "}"
+                        ;
 
-					define_global_mutex("_nthf_unspecified_critical", function_definition.get_ast(),
-							function_definition.get_scope_link());
-				}
+                    define_global_mutex("_nthf_unspecified_critical", function_definition.get_ast(),
+                            function_definition.get_scope_link());
+                }
 
                 // Parse the code
                 AST_t task_code = task_queueing.parse_statement(task_construct.get_ast(),
@@ -1996,25 +1996,25 @@ namespace TL
                 Source taskwait_source;
                 Statement taskwait_body = taskwait_construct.body();
 
-				Source instrumentation_code_before, instrumentation_code_after;
+                Source instrumentation_code_before, instrumentation_code_after;
 
-				if (instrumentation_requested())
-				{
-					instrumentation_code_before
-						<< "int __previous_state = mintaka_get_state();"
-						<< "mintaka_state_synch();"
-						;
+                if (instrumentation_requested())
+                {
+                    instrumentation_code_before
+                        << "int __previous_state = mintaka_get_state();"
+                        << "mintaka_state_synch();"
+                        ;
 
-					instrumentation_code_after
-						<< "mintaka_set_state(__previous_state);"
-						;
-				}
+                    instrumentation_code_after
+                        << "mintaka_set_state(__previous_state);"
+                        ;
+                }
 
                 taskwait_source
                     << "{"
-					<<    instrumentation_code_before
+                    <<    instrumentation_code_before
                     <<    "nthf_task_block_();"
-					<<    instrumentation_code_after
+                    <<    instrumentation_code_after
                     <<    taskwait_body.prettyprint() // This will avoid breakage if you did not write ';' after the taskwait pragma
                     << "}"
                     ;
@@ -2048,27 +2048,27 @@ namespace TL
                 Source taskgroup_source;
                 Statement taskgroup_body = taskgroup_construct.body();
 
-				Source instrumentation_code_before, instrumentation_code_after;
+                Source instrumentation_code_before, instrumentation_code_after;
 
-				if (instrumentation_requested())
-				{
-					instrumentation_code_before
-						<< "int __previous_state = mintaka_get_state();"
-						<< "mintaka_state_synch();"
-						;
+                if (instrumentation_requested())
+                {
+                    instrumentation_code_before
+                        << "int __previous_state = mintaka_get_state();"
+                        << "mintaka_state_synch();"
+                        ;
 
-					instrumentation_code_after
-						<< "mintaka_set_state(__previous_state);"
-						;
-				}
+                    instrumentation_code_after
+                        << "mintaka_set_state(__previous_state);"
+                        ;
+                }
 
                 taskgroup_source
                     << "{"
                     <<    "nthf_push_taskgroup_scope_();"
                     <<    taskgroup_body.prettyprint()
-					<<    instrumentation_code_before
+                    <<    instrumentation_code_before
                     <<    "nthf_task_block_();"
-					<<    instrumentation_code_after
+                    <<    instrumentation_code_after
                     <<    "nthf_pop_taskgroup_scope_();"
                     << "}"
                     ;
@@ -2939,7 +2939,7 @@ namespace TL
                     ObjectList<OpenMP::ReductionIdExpression> reduction_references,
                     ObjectList<IdExpression> copyin_references,
                     ObjectList<IdExpression> copyprivate_references,
-					bool never_instrument = false
+                    bool never_instrument = false
                     )
             {
                 ObjectList<IdExpression> pass_by_value;
@@ -2971,19 +2971,19 @@ namespace TL
                 Source instrumentation_code_before;
                 Source instrumentation_code_after;
 
-				if (!never_instrument)
-				{
-					instrumentation_outline(instrumentation_code_before,
-							instrumentation_code_after, 
-							function_definition,
-							construct_body);
-				}
+                if (!never_instrument)
+                {
+                    instrumentation_outline(instrumentation_code_before,
+                            instrumentation_code_after, 
+                            function_definition,
+                            construct_body);
+                }
 
                 // Debug information
                 Source comment = debug_parameter_info(
                         parameter_info_list);
 
-				Source task_block_code;
+                Source task_block_code;
                 
                 parallel_body 
                     << comment
@@ -2992,10 +2992,10 @@ namespace TL
                     << modified_parallel_body_stmt.prettyprint()
                     << reduction_update
                     << instrumentation_code_after
-					<< task_block_code
+                    << task_block_code
                     ;
 
-				task_block_code = get_task_block_code();
+                task_block_code = get_task_block_code();
 
                 // std::cerr << "OUTLINE CODE" << std::endl;
                 // std::cerr << outline_parallel.get_source(true) << std::endl;
@@ -3077,24 +3077,24 @@ namespace TL
                         function_definition,
                         construct_body);
 
-				Source instrumentation_start_task;
-				if (instrumentation_requested())
-				{
-					instrumentation_start_task
-						<< "{"
-						<< "   nth_desc * nth;"
-						<< "   nth = nthf_self_();"
-						<< "   uint32_t id_nth = (((intptr_t)(nth)) >> (32*((sizeof(nth)/4) - 1)));"
-						<< "   mintaka_receive(id_nth, 1);"
-						<< "   mintaka_state_run();"
-						<< "}"
-						;
-				}
+                Source instrumentation_start_task;
+                if (instrumentation_requested())
+                {
+                    instrumentation_start_task
+                        << "{"
+                        << "   nth_desc * nth;"
+                        << "   nth = nthf_self_();"
+                        << "   uint32_t id_nth = (((intptr_t)(nth)) >> (32*((sizeof(nth)/4) - 1)));"
+                        << "   mintaka_receive(id_nth, 1);"
+                        << "   mintaka_state_run();"
+                        << "}"
+                        ;
+                }
 
                 parallel_body 
                     << private_declarations
                     << instrumentation_code_before
-					<< instrumentation_start_task
+                    << instrumentation_start_task
                     << modified_parallel_body_stmt.prettyprint()
                     << instrumentation_code_after
                     ;
@@ -3203,7 +3203,7 @@ namespace TL
                         function_definition,
                         construct_body);
 
-				Source task_block_code;
+                Source task_block_code;
 
                 parallel_sections_body 
                     << private_declarations
@@ -3213,10 +3213,10 @@ namespace TL
                     << reduction_update
                     << loop_finalization
                     << instrumentation_code_after
-					<< task_block_code
+                    << task_block_code
                     ;
 
-				task_block_code = get_task_block_code();
+                task_block_code = get_task_block_code();
 
                 // std::cerr << "OUTLINE PARALLEL SECTIONS CODE" << std::endl;
                 // std::cerr << outline_parallel_sections.get_source(true) << std::endl;
@@ -3316,15 +3316,15 @@ namespace TL
                         function_definition,
                         construct_body);
 
-				Source task_block_code;
+                Source task_block_code;
                 
                 parallel_body 
                     << private_declarations
                     << single_source
-					<< task_block_code
+                    << task_block_code
                     ;
 
-				task_block_code = get_task_block_code();
+                task_block_code = get_task_block_code();
 
                 // std::cerr << "OUTLINE CODE" << std::endl;
                 // std::cerr << outline_parallel.get_source(true) << std::endl;
@@ -3338,33 +3338,33 @@ namespace TL
                 return result;
             }
 
-			Source get_task_block_code()
-			{
-				Source task_block_code;
-				Source instrumentation_task_block_before, instrumentation_task_block_after;
+            Source get_task_block_code()
+            {
+                Source task_block_code;
+                Source instrumentation_task_block_before, instrumentation_task_block_after;
 
-				if (instrumentation_requested())
-				{
-					instrumentation_task_block_before
-						<< "{"
-						<< "   int __previous_state = mintaka_get_state();"
-						<< "   mintaka_state_synch();"
-						;
+                if (instrumentation_requested())
+                {
+                    instrumentation_task_block_before
+                        << "{"
+                        << "   int __previous_state = mintaka_get_state();"
+                        << "   mintaka_state_synch();"
+                        ;
 
-					instrumentation_task_block_after
-						<< "   mintaka_set_state(__previous_state);"
-						<< "}"
-						;
-				}
+                    instrumentation_task_block_after
+                        << "   mintaka_set_state(__previous_state);"
+                        << "}"
+                        ;
+                }
 
-				task_block_code
-					<< instrumentation_task_block_before
+                task_block_code
+                    << instrumentation_task_block_before
                     << "nthf_task_block_();"
-					<< instrumentation_task_block_after
+                    << instrumentation_task_block_after
                     ;
 
-				return task_block_code;
-			}
+                return task_block_code;
+            }
 
 
             // Create outline for parallel for
@@ -3408,7 +3408,7 @@ namespace TL
                         ); 
 
                 Source loop_distribution = get_loop_distribution_code(for_statement, 
-						replace_references, function_definition, directive);
+                        replace_references, function_definition, directive);
 
                 Source lastprivate_code;
 
@@ -3433,7 +3433,7 @@ namespace TL
                 Source reduction_update = get_reduction_update(reduction_references);
 
 
-				Source task_block_code;
+                Source task_block_code;
 
                 parallel_for_body 
                     << private_declarations
@@ -3441,10 +3441,10 @@ namespace TL
                     << lastprivate_code
                     << reduction_update
                     << loop_finalization
-					<< task_block_code
+                    << task_block_code
                     ;
 
-				task_block_code = get_task_block_code();
+                task_block_code = get_task_block_code();
 
                 // std::cerr << "OUTLINE PARALLEL FOR CODE" << std::endl;
                 // std::cerr << outline_parallel_for.get_source(true) << std::endl;
@@ -3866,10 +3866,10 @@ namespace TL
                 // Replace references using set "replace_references" over construct body
                 Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
 
-				Source instrumentation_before, instrumentation_after;
+                Source instrumentation_before, instrumentation_after;
 
                 loop_distribution 
-					<< instrumentation_before
+                    << instrumentation_before
                     << "int nth_low;"
                     << "int nth_upper;"
                     << "int nth_step;"
@@ -3903,25 +3903,25 @@ namespace TL
                     <<         "}"
                     <<    "}"
                     << "}"
-					<< instrumentation_after
+                    << instrumentation_after
                     ;
 
-				if (instrumentation_requested())
-				{
-					instrumentation_before
-						<< "mintaka_state_synch();"
-						;
-					instrumentation_after
-						<< "mintaka_state_run();"
-						;
-				}
+                if (instrumentation_requested())
+                {
+                    instrumentation_before
+                        << "mintaka_state_synch();"
+                        ;
+                    instrumentation_after
+                        << "mintaka_state_run();"
+                        ;
+                }
 
                 return loop_distribution;
             }
 
             Source get_loop_distribution_code(ForStatement for_statement,
                     ReplaceIdExpression replace_references,
-					FunctionDefinition function_definition,
+                    FunctionDefinition function_definition,
                     OpenMP::Directive directive)
             {
                 Source parallel_for_body;
@@ -4026,7 +4026,7 @@ namespace TL
                     // Get a slice of the iteration space
                     << "while (in__tone_next_iters_(&intone_start, &intone_end, &intone_last) != 0)"
                     << "{"
-					<< instrumentation_code_before
+                    << instrumentation_code_before
                            // And do something with it
                     << "   for (" << induction_var_name << " = intone_start; "
                     << "        nth_step >= 1 ? " << induction_var_name << " <= intone_end : " << induction_var_name << ">= intone_end;"
@@ -4034,7 +4034,7 @@ namespace TL
                     << "   {"
                     << "   " << modified_loop_body
                     << "   }"
-					<< instrumentation_code_after
+                    << instrumentation_code_after
                     << "}"
                     ;
 
@@ -4050,23 +4050,23 @@ namespace TL
             {
                 Source loop_finalization;
 
-				if (do_barrier 
-						&& instrumentation_requested())
-				{
-					loop_finalization
-						<< "mintaka_state_synch();"
-						<< "nth_barrier = " << (int)(do_barrier) << ";"
-						<< "in__tone_end_for_(&nth_barrier);"
-						<< "mintaka_state_run();"
-						;
-				}
-				else
-				{
-					loop_finalization
-						<< "nth_barrier = " << (int)(do_barrier) << ";"
-						<< "in__tone_end_for_(&nth_barrier);"
-						;
-				}
+                if (do_barrier 
+                        && instrumentation_requested())
+                {
+                    loop_finalization
+                        << "mintaka_state_synch();"
+                        << "nth_barrier = " << (int)(do_barrier) << ";"
+                        << "in__tone_end_for_(&nth_barrier);"
+                        << "mintaka_state_run();"
+                        ;
+                }
+                else
+                {
+                    loop_finalization
+                        << "nth_barrier = " << (int)(do_barrier) << ";"
+                        << "in__tone_end_for_(&nth_barrier);"
+                        ;
+                }
 
                 return loop_finalization;
             }
@@ -4443,9 +4443,9 @@ namespace TL
                         << "mintaka_set_state(__previous_state);"
                         ;
 
-					// Ensure that it has been defined
-					define_global_mutex("_nthf_unspecified_critical", function_definition.get_ast(),
-							function_definition.get_scope_link());
+                    // Ensure that it has been defined
+                    define_global_mutex("_nthf_unspecified_critical", function_definition.get_ast(),
+                            function_definition.get_scope_link());
                 }
             }
 
@@ -4546,21 +4546,21 @@ namespace TL
                         else if (expression.is_array_subscript())
                         {
 
-							Source original_array;
-							original_array << expression.get_subscripted_expression().prettyprint();
+                            Source original_array;
+                            original_array << expression.get_subscripted_expression().prettyprint();
 
                             replace_expression(expression.get_subscripted_expression());
                             replace_expression(expression.get_subscript_expression());
 
                             address_expression
-								<< "((void*)&(" << original_array << ") == ((void*)&(" << original_array << "[0])) ? "
-							    << "(" << original_array << " + " << expression.get_subscript_expression().prettyprint()	<< ")"
+                                << "((void*)&(" << original_array << ") == ((void*)&(" << original_array << "[0])) ? "
+                                << "(" << original_array << " + " << expression.get_subscript_expression().prettyprint()    << ")"
                                 << ": ("
                                 << expression.get_subscripted_expression().prettyprint()
                                 << " + "
                                 << expression.get_subscript_expression().prettyprint()
                                 << ")"
-								<< ")"
+                                << ")"
                                 ;
                         }
                         // e1->e2 => (&(READ(e1)->e2))
@@ -4668,21 +4668,21 @@ namespace TL
                         // e1[e2] => *read(__t, READ(e1) + READ(e2))
                         else if (expression.is_array_subscript())
                         {
-							Source original_array;
-							original_array << expression.get_subscripted_expression().prettyprint();
+                            Source original_array;
+                            original_array << expression.get_subscripted_expression().prettyprint();
 
                             replace_expression(expression.get_subscripted_expression());
                             replace_expression(expression.get_subscript_expression());
 
                             read_expression
-								<< "((void*)&(" << original_array << ") == ((void*)&(" << original_array << "[0])) ? "
-							    << "* (" << original_array << " + " << expression.get_subscript_expression().prettyprint()	<< ")"
+                                << "((void*)&(" << original_array << ") == ((void*)&(" << original_array << "[0])) ? "
+                                << "* (" << original_array << " + " << expression.get_subscript_expression().prettyprint()  << ")"
                                 << ": *read(__t, "
                                 << expression.get_subscripted_expression().prettyprint()
                                 << " + "
                                 << expression.get_subscript_expression().prettyprint()
                                 << ")"
-								<< ")"
+                                << ")"
                                 ;
                         }
                         // e1->e2 => *read(__t, (READ(e1))->e2)
@@ -4743,166 +4743,166 @@ namespace TL
                         // ## e1
                         else if (expression.is_unary_operation())
                         {
-							if (expression.get_operation_kind() == Expression::REFERENCE)
-							{
-								// & e1
-								Expression address_expr = expression.get_unary_operand();
-								get_address(address_expr);
-								expression.get_ast().replace_with(address_expr.get_ast());
-							}
-							else if (expression.get_operation_kind() == Expression::PREINCREMENT ||
-								expression.get_operation_kind() == Expression::PREDECREMENT)
-							{
-								// ++e1
-								// e1 = e1 + 1
-								Source increment_code;
+                            if (expression.get_operation_kind() == Expression::REFERENCE)
+                            {
+                                // & e1
+                                Expression address_expr = expression.get_unary_operand();
+                                get_address(address_expr);
+                                expression.get_ast().replace_with(address_expr.get_ast());
+                            }
+                            else if (expression.get_operation_kind() == Expression::PREINCREMENT ||
+                                expression.get_operation_kind() == Expression::PREDECREMENT)
+                            {
+                                // ++e1
+                                // e1 = e1 + 1
+                                Source increment_code;
 
-								if (expression.get_operation_kind() == Expression::PREINCREMENT)
-								{
-									increment_code << " + 1";
-								}
-								else // (expression.get_operation_kind() == Expression::PREDECREMENT)
-								{
-									increment_code << " - 1";
-								}
+                                if (expression.get_operation_kind() == Expression::PREINCREMENT)
+                                {
+                                    increment_code << " + 1";
+                                }
+                                else // (expression.get_operation_kind() == Expression::PREDECREMENT)
+                                {
+                                    increment_code << " - 1";
+                                }
 
-								Source flat_code;
-								flat_code << expression.get_unary_operand().prettyprint()
-									<< " = "
-									<< expression.get_unary_operand().prettyprint()
-									<< increment_code;
+                                Source flat_code;
+                                flat_code << expression.get_unary_operand().prettyprint()
+                                    << " = "
+                                    << expression.get_unary_operand().prettyprint()
+                                    << increment_code;
 
-								AST_t flat_code_tree = flat_code.parse_expression(expression.get_ast(),
-										expression.get_scope_link());
-								Expression flat_code_expr(flat_code_tree, expression.get_scope_link());
-								replace_expression(flat_code_expr);
+                                AST_t flat_code_tree = flat_code.parse_expression(expression.get_ast(),
+                                        expression.get_scope_link());
+                                Expression flat_code_expr(flat_code_tree, expression.get_scope_link());
+                                replace_expression(flat_code_expr);
 
-								Source derref_write;
-								derref_write << "*(" << flat_code_expr.prettyprint() << ")";
+                                Source derref_write;
+                                derref_write << "*(" << flat_code_expr.prettyprint() << ")";
 
-								AST_t derref_write_tree = derref_write.parse_expression(expression.get_ast(),
-										expression.get_scope_link());
+                                AST_t derref_write_tree = derref_write.parse_expression(expression.get_ast(),
+                                        expression.get_scope_link());
 
-								expression.get_ast().replace_with(derref_write_tree);
-							}
-							else if (expression.get_operation_kind() == Expression::POSTINCREMENT
-									|| expression.get_operation_kind() == Expression::POSTDECREMENT)
-							{
-								Source post_source;
-								Source incremented_operand, increment_operand;
+                                expression.get_ast().replace_with(derref_write_tree);
+                            }
+                            else if (expression.get_operation_kind() == Expression::POSTINCREMENT
+                                    || expression.get_operation_kind() == Expression::POSTDECREMENT)
+                            {
+                                Source post_source;
+                                Source incremented_operand, increment_operand;
 
-								Source read_operand_src;
-								read_operand_src << expression.get_unary_operand().prettyprint();
+                                Source read_operand_src;
+                                read_operand_src << expression.get_unary_operand().prettyprint();
 
-								post_source 
-									<< "({"
-									<< "__typeof__(" << read_operand_src << ") "
-									<< "__temp = " << incremented_operand << ";"
-									<< increment_operand << ";"
-									<< "__temp;"
-									<< "})"
-									;
+                                post_source 
+                                    << "({"
+                                    << "__typeof__(" << read_operand_src << ") "
+                                    << "__temp = " << incremented_operand << ";"
+                                    << increment_operand << ";"
+                                    << "__temp;"
+                                    << "})"
+                                    ;
 
-								AST_t read_operand_tree = 
-									read_operand_src.parse_expression(expression.get_ast(),
-										expression.get_scope_link());
+                                AST_t read_operand_tree = 
+                                    read_operand_src.parse_expression(expression.get_ast(),
+                                        expression.get_scope_link());
 
-								Expression read_operand_expr(read_operand_tree, expression.get_scope_link());
-								replace_expression(read_operand_expr);
+                                Expression read_operand_expr(read_operand_tree, expression.get_scope_link());
+                                replace_expression(read_operand_expr);
 
-								incremented_operand << read_operand_expr.prettyprint();
+                                incremented_operand << read_operand_expr.prettyprint();
 
-								Source increment_source;
-								Source increment_code;
+                                Source increment_source;
+                                Source increment_code;
 
-								if (expression.get_operation_kind() == Expression::POSTINCREMENT)
-								{
-									increment_code << " + 1";
-								}
-								else // (expression.get_operation_kind() == Expression::POSTDECREMENT)
-								{
-									increment_code << " - 1";
-								}
-								increment_source << read_operand_src 
-									<< " = "
-									<< read_operand_src
-									<< increment_code
-									;
+                                if (expression.get_operation_kind() == Expression::POSTINCREMENT)
+                                {
+                                    increment_code << " + 1";
+                                }
+                                else // (expression.get_operation_kind() == Expression::POSTDECREMENT)
+                                {
+                                    increment_code << " - 1";
+                                }
+                                increment_source << read_operand_src 
+                                    << " = "
+                                    << read_operand_src
+                                    << increment_code
+                                    ;
 
-								AST_t increment_tree =
-									increment_source.parse_expression(expression.get_ast(),
-										expression.get_scope_link());
-								Expression increment_expr(increment_tree, expression.get_scope_link());
-								replace_expression(increment_expr);
+                                AST_t increment_tree =
+                                    increment_source.parse_expression(expression.get_ast(),
+                                        expression.get_scope_link());
+                                Expression increment_expr(increment_tree, expression.get_scope_link());
+                                replace_expression(increment_expr);
 
-								increment_operand << increment_expr.prettyprint()
-									;
+                                increment_operand << increment_expr.prettyprint()
+                                    ;
 
-								AST_t post_tree = post_source.parse_expression(expression.get_ast(),
-										expression.get_scope_link());
+                                AST_t post_tree = post_source.parse_expression(expression.get_ast(),
+                                        expression.get_scope_link());
 
-								expression.get_ast().replace_with(post_tree);
-							}
-							else
-							{
-								replace_expression(expression.get_unary_operand());
-							}
+                                expression.get_ast().replace_with(post_tree);
+                            }
+                            else
+                            {
+                                replace_expression(expression.get_unary_operand());
+                            }
                             
                             // Don't do anything else
                             return;
                         }
-						else if (expression.is_function_call())
-						{
+                        else if (expression.is_function_call())
+                        {
+                            Expression called_expression = expression.get_called_expression();
+                            if (called_expression.is_id_expression())
+                            {
+                                // A simple function call of the form "f(...)"
+                                Source replace_call, replace_args;
 
-							Expression called_expression = expression.get_called_expression();
-							if (called_expression.is_id_expression())
-							{
-								// A simple function call of the form "f(...)"
-								Source replace_call, replace_args;
+                                replace_call
+                                    << "__stm_" << called_expression.prettyprint() 
+                                    << "(" << replace_args << ")"
+                                    ;
 
-								replace_call
-									<< "__stm_" << called_expression.prettyprint() 
-									<< "(" << replace_args << ")"
-									;
+                                replace_args.append_with_separator("__t", ",");
 
-								replace_args.append_with_separator("__t", ",");
+                                ObjectList<Expression> arguments = expression.get_argument_list();
+                                for (ObjectList<Expression>::iterator it = arguments.begin();
+                                        it != arguments.end();
+                                        it++)
+                                {
+                                    replace_args.append_with_separator(it->prettyprint(), ",");
+                                }
 
-								ObjectList<Expression> arguments = expression.get_argument_list();
-								for (ObjectList<Expression>::iterator it = arguments.begin();
-										it != arguments.end();
-										it++)
-								{
-									replace_args.append_with_separator(it->prettyprint(), ",");
-								}
+                                // Now parse the function call
+                                std::cerr << "Parsing '" << replace_call.get_source() << "'" << std::endl; 
+                                AST_t replace_call_tree = replace_call.parse_expression(
+                                        called_expression.get_ast(),
+                                        called_expression.get_scope_link());
 
-								// Now parse the function call
-								AST_t replace_call_tree = replace_call.parse_expression(
-										called_expression.get_ast(),
-										called_expression.get_scope_link());
+                                Expression replaced_function_call(replace_call_tree, 
+                                        called_expression.get_scope_link());
 
-								Expression replaced_function_call(replace_call_tree, 
-										called_expression.get_scope_link());
+                                // This is a function call
+                                arguments = replaced_function_call.get_argument_list();
+                                for (ObjectList<Expression>::iterator it = arguments.begin();
+                                        it != arguments.end();
+                                        it++)
+                                {
+                                    if (it == arguments.begin())
+                                        continue;
+                                    std::cerr << "Replacing -> " << it->prettyprint() << std::endl;
+                                    // Skip the first as it it is a __t
 
-								// This is a function call
-								arguments = replaced_function_call.get_argument_list();
-								for (ObjectList<Expression>::iterator it = arguments.begin();
-										it != arguments.end();
-										it++)
-								{
-									if (it == arguments.begin())
-										continue;
-									std::cerr << "Replacing -> " << it->prettyprint() << std::endl;
-									// Skip the first as it it is a __t
+                                    replace_expression(*it);
+                                    std::cerr << "Replaced -> " << it->prettyprint() << std::endl;
+                                }
 
-									replace_expression(*it);
-									std::cerr << "Replaced -> " << it->prettyprint() << std::endl;
-								}
+                                expression.get_ast().replace_with(replace_call_tree);
+                            }
 
-								expression.get_ast().replace_with(replace_call_tree);
-							}
-
-							return;
-						}
+                            return;
+                        }
                         // Other expressions (function calls and literals)
                         else
                         {
@@ -4912,7 +4912,7 @@ namespace TL
 
                         // Replace the expression
                         AST_t read_expression_tree = read_expression.parse_expression(expression.get_ast(),
-								expression.get_scope_link());
+                                expression.get_scope_link());
 
                         expression.get_ast().replace(read_expression_tree);
                     }
@@ -4927,8 +4927,8 @@ namespace TL
                 OpenMP::Directive protect_directive = protect_construct.directive();
 
                 OpenMP::CustomClause exclude_clause = protect_directive.custom_clause("exclude");
-				OpenMP::CustomClause converted_function = 
-					protect_directive.custom_clause("converted_function");
+                OpenMP::CustomClause converted_function = 
+                    protect_directive.custom_clause("converted_function");
 
                 if (exclude_clause.is_defined())
                 {
@@ -4951,7 +4951,7 @@ namespace TL
 
                 considered_symbols = considered_symbols.filter(not_in_set(excluded_symbols));
 
-				// For every expression, replace it properly with read and write
+                // For every expression, replace it properly with read and write
                 PredicateBool<LANG_IS_EXPRESSION_NEST> expression_pred;
                 ExpressionReplacement expression_replacement(considered_symbols);
 
@@ -4966,173 +4966,175 @@ namespace TL
                     expression_replacement.replace_expression(expression);
                 }
 
-				// And now find every 'return' statement and protect it
-				PredicateBool<LANG_IS_RETURN_STATEMENT> return_pred;
-				ObjectList<AST_t> returns = protect_statement.get_ast().depth_subtrees(return_pred, AST_t::NON_RECURSIVE);
-				for (ObjectList<AST_t>::iterator it = returns.begin();
-						it != returns.end();
-						it++)
-				{
-					Source return_replace_code;
+                // And now find every 'return' statement and protect it
+                PredicateBool<LANG_IS_RETURN_STATEMENT> return_pred;
+                ObjectList<AST_t> returns = protect_statement.get_ast().depth_subtrees(return_pred, AST_t::NON_RECURSIVE);
+                for (ObjectList<AST_t>::iterator it = returns.begin();
+                        it != returns.end();
+                        it++)
+                {
+                    Source return_replace_code;
 
-					Statement return_statement(*it, protect_statement.get_scope_link());
+                    Statement return_statement(*it, protect_statement.get_scope_link());
 
-					FunctionDefinition enclosing_function_def = return_statement.get_enclosing_function();
+                    FunctionDefinition enclosing_function_def = return_statement.get_enclosing_function();
 
-					IdExpression function_name = enclosing_function_def.get_function_name();
-					Symbol function_symbol = function_name.get_symbol();
-					Type function_type = function_symbol.get_type();
-					Type return_type = function_type.returns();
+                    IdExpression function_name = enclosing_function_def.get_function_name();
+                    Symbol function_symbol = function_name.get_symbol();
+                    Type function_type = function_symbol.get_type();
+                    Type return_type = function_type.returns();
 
-					Source return_value;
-					ObjectList<AST_t> return_expression_list = return_statement.get_ast().depth_subtrees(
-							PredicateBool<LANG_IS_EXPRESSION_NEST>(), 
-							AST_t::NON_RECURSIVE);
-					if (!return_expression_list.empty()
-							&& !return_type.is_void())
-					{
-						// Only if we have a value non-void
-						Expression returned_expression(*(return_expression_list.begin()), 
-								enclosing_function_def.get_scope_link());
+                    Source return_value;
+                    ObjectList<AST_t> return_expression_list = return_statement.get_ast().depth_subtrees(
+                            PredicateBool<LANG_IS_EXPRESSION_NEST>(), 
+                            AST_t::NON_RECURSIVE);
+                    if (!return_expression_list.empty()
+                            && !return_type.is_void())
+                    {
+                        // Only if we have a value non-void
+                        Expression returned_expression(*(return_expression_list.begin()), 
+                                enclosing_function_def.get_scope_link());
 
-						AST_t node = enclosing_function_def.get_ast();
-						ObjectList<AST_t> functional_declarator = 
-							node.depth_subtrees(PredicateBool<LANG_IS_FUNCTIONAL_DECLARATOR>(), 
-									AST_t::NON_RECURSIVE);
+                        AST_t node = enclosing_function_def.get_ast();
+                        ObjectList<AST_t> functional_declarator = 
+                            node.depth_subtrees(PredicateBool<LANG_IS_FUNCTIONAL_DECLARATOR>(), 
+                                    AST_t::NON_RECURSIVE);
 
-						AST_t first_functional_declarator = *(functional_declarator.begin());
-						ObjectList<AST_t> declared_parameters = 
-							first_functional_declarator.depth_subtrees(
-									PredicateBool<LANG_IS_DECLARED_PARAMETER>(),
-									AST_t::NON_RECURSIVE);
+                        AST_t first_functional_declarator = *(functional_declarator.begin());
+                        ObjectList<AST_t> declared_parameters = 
+                            first_functional_declarator.depth_subtrees(
+                                    PredicateBool<LANG_IS_DECLARED_PARAMETER>(),
+                                    AST_t::NON_RECURSIVE);
 
-						Source cancel_source;
-						{
-							ObjectList<AST_t>::iterator it = declared_parameters.begin();
-							if (converted_function.is_defined())
-							{
-								// Skip the first one if the converted_function clause
-								// was defined
-								it++;
-							}
-							for (; it != declared_parameters.end();
-									it++)
-							{
-								AST_t declared_name = it->get_attribute(LANG_DECLARED_PARAMETER);
-								cancel_source
-									<< "invalidateAdrInTx(__t, &" << declared_name.prettyprint() << ");"
-									;
-							}
-						}
+                        Source cancel_source;
+                        {
+                            ObjectList<AST_t>::iterator it = declared_parameters.begin();
+                            if (converted_function.is_defined())
+                            {
+                                // Skip the first one if the converted_function clause
+                                // was defined
+                                it++;
+                            }
+                            for (; it != declared_parameters.end();
+                                    it++)
+                            {
+                                AST_t declared_name = it->get_attribute(LANG_DECLARED_PARAMETER);
+                                cancel_source
+                                    << "invalidateAdrInTx(__t, &" << declared_name.prettyprint() << ");"
+                                    ;
+                            }
+                        }
 
-						return_value
-							<< return_type.get_declaration(function_name.get_scope(), 
-									"__tx_retval") << ";"
-							<< "     __tx_retval = " << returned_expression.prettyprint() << ";"
-							<< cancel_source
-							<< "     return __tx_retval;"
-							;
-					}
-					else
-					{
-						return_value << return_statement.prettyprint();
-					}
+                        return_value
+                            << return_type.get_declaration(function_name.get_scope(), 
+                                    "__tx_retval") << ";"
+                            << "     __tx_retval = " << returned_expression.prettyprint() << ";"
+                            << cancel_source
+                            << "     return __tx_retval;"
+                            ;
+                    }
+                    else
+                    {
+                        return_value << return_statement.prettyprint();
+                    }
 
-					if (!converted_function.is_defined())
-					{
-					return_replace_code
-						<< "{"
+                    if (!converted_function.is_defined())
+                    {
+                    return_replace_code
+                        << "{"
                         << "  _tx_commit_start = rdtscf();"
-						<< "  if (0 == committx(__t))"
-						<< "  {"
-						<< "       _tx_commit_end = rdtscf();"
-						<< "       _tx_commit_total += (_tx_commit_end - _tx_commit_start);"
-						<< "       _tx_end = rdtscf();"
-						<< "       _tx_total_time += (_tx_end - _tx_start);"
-						<< "       destroytx(__t);"
-						// Assumption: transaction is completely inside the function.
-						// FIXME: Think about it
-						<< return_value
-						<< "  }"
-						<< "  else" 
-						<< "  {"
-					    << "     _tx_abort_count++;"
-						<< "     aborttx(__t);"
-						// TODO : This will break when the return is contained in another loop (while, for, do..while)
-						<< "     continue;"
-						<< "  }"
-						<< "}"
-						;
-					}
-					else
-					{
-						return_replace_code
-							<< "{"
-							<< return_value
-							<< "}"
-							;
-					}
-				
-					AST_t return_tree = return_replace_code.parse_statement(return_statement.get_ast(),
-							return_statement.get_scope_link());
+                        << "  if (0 == committx(__t))"
+                        << "  {"
+                        << "       _tx_commit_end = rdtscf();"
+                        << "       _tx_commit_total += (_tx_commit_end - _tx_commit_start);"
+                        << "       _tx_end = rdtscf();"
+                        << "       _tx_total_time += (_tx_end - _tx_start);"
+                        << "       destroytx(__t);"
+                        // Assumption: transaction is completely inside the function.
+                        // FIXME: Think about it
+                        << return_value
+                        << "  }"
+                        << "  else" 
+                        << "  {"
+                        << "     _tx_abort_count++;"
+                        << "     aborttx(__t);"
+                        // TODO : This will break when the return is contained in another loop (while, for, do..while)
+                        << "     continue;"
+                        << "  }"
+                        << "}"
+                        ;
+                    }
+                    else
+                    {
+                        return_replace_code
+                            << "{"
+                            << return_value
+                            << "}"
+                            ;
+                    }
+                
+                    AST_t return_tree = return_replace_code.parse_statement(return_statement.get_ast(),
+                            return_statement.get_scope_link());
 
-					it->replace(return_tree);
-				}
+                    it->replace(return_tree);
+                }
 
                 Source replaced_code;
                 
-				if (converted_function.is_defined())
-				{
-					replaced_code
-						<< "   uint64_t _tx_start, _tx_end;"
-						<< "   uint64_t _tx_commit_start, _tx_commit_end;"
-						<< "   _tx_start = rdtscf();"
-						<<         protect_statement.prettyprint()
-						;
-				}
-				else
-				{
-					replaced_code
-						<< "{"
-						<< "   Transaction* __t = createtx();"
-						<< "   uint64_t _tx_start, _tx_end;"
-						<< "   uint64_t _tx_commit_start, _tx_commit_end;"
-						<< "   _tx_start = rdtscf();"
-						<< "   _tx_total_count++;"
-						<< "   while(1)"
-						<< "   {"
-						<< "     starttx(__t);"
-						// << "     int ret = setjmp(__t->context);"
-						<< "     if((__t->nestingLevel > 0) || (0 == setjmp(__t->context)))"
-						<< "     {"
-						<<         comment("Protected code")
-						<<         protect_statement.prettyprint()
-						<<         comment("End of protected code")
-						<< "       _tx_commit_start = rdtscf();"
-						<< "       if (0 == committx(__t)) "
-						<< "       {"
-						<< "         _tx_commit_end = rdtscf();"
-						<< "         _tx_commit_total += (_tx_commit_end - _tx_commit_start);"
-						<< "         break;"
-						<< "       }"
-						<< "       else"
-						<< "       {"
-						<< "          _tx_abort_count++;"
-						<< "          aborttx(__t);"
-						<< "       }"
-						<< "     }"
-						<< "     else"
-						<< "     {"
-						<< "        _tx_abort_count++;"
-						<< "        aborttx(__t);"
-						<< "     }"
-						<< "   }"
-						<< "   _tx_end = rdtscf();"
-						<< "   _tx_total_time += (_tx_end - _tx_start);"
-						<< "   destroytx(__t);"
-						<< "}"
-						;
-				}
+                if (converted_function.is_defined())
+                {
+                    replaced_code
+                        << "{"
+                        << "   uint64_t _tx_start, _tx_end;"
+                        << "   uint64_t _tx_commit_start, _tx_commit_end;"
+                        << "   _tx_start = rdtscf();"
+                        <<         protect_statement.prettyprint()
+                        << "}"
+                        ;
+                }
+                else
+                {
+                    replaced_code
+                        << "{"
+                        << "   Transaction* __t = createtx();"
+                        << "   uint64_t _tx_start, _tx_end;"
+                        << "   uint64_t _tx_commit_start, _tx_commit_end;"
+                        << "   _tx_start = rdtscf();"
+                        << "   _tx_total_count++;"
+                        << "   while(1)"
+                        << "   {"
+                        << "     starttx(__t);"
+                        // << "     int ret = setjmp(__t->context);"
+                        << "     if((__t->nestingLevel > 0) || (0 == setjmp(__t->context)))"
+                        << "     {"
+                        <<         comment("Protected code")
+                        <<         protect_statement.prettyprint()
+                        <<         comment("End of protected code")
+                        << "       _tx_commit_start = rdtscf();"
+                        << "       if (0 == committx(__t)) "
+                        << "       {"
+                        << "         _tx_commit_end = rdtscf();"
+                        << "         _tx_commit_total += (_tx_commit_end - _tx_commit_start);"
+                        << "         break;"
+                        << "       }"
+                        << "       else"
+                        << "       {"
+                        << "          _tx_abort_count++;"
+                        << "          aborttx(__t);"
+                        << "       }"
+                        << "     }"
+                        << "     else"
+                        << "     {"
+                        << "        _tx_abort_count++;"
+                        << "        aborttx(__t);"
+                        << "     }"
+                        << "   }"
+                        << "   _tx_end = rdtscf();"
+                        << "   _tx_total_time += (_tx_end - _tx_start);"
+                        << "   destroytx(__t);"
+                        << "}"
+                        ;
+                }
 
                 AST_t replaced_tree = replaced_code.parse_statement(protect_statement.get_ast(),
                         protect_statement.get_scope_link());

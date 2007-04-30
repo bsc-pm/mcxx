@@ -399,6 +399,10 @@ namespace TL
         // Get the scope and declarating context of the reference tree
         scope_t* scope = scope_link_get_scope(scope_link._scope_link, ref_tree._ast);
 
+        std::cerr << "Reference scope --->" << std::endl;
+        print_scope(scope);
+        std::cerr << "<-- Reference scope" << std::endl;
+
         compilation_options.scope_link = scope_link._scope_link;
 
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
