@@ -4891,11 +4891,7 @@ namespace TL
                                 {
                                     if (it == arguments.begin())
                                         continue;
-                                    std::cerr << "Replacing -> " << it->prettyprint() << std::endl;
-                                    // Skip the first as it it is a __t
-
                                     replace_expression(*it);
-                                    std::cerr << "Replaced -> " << it->prettyprint() << std::endl;
                                 }
 
                                 expression.get_ast().replace_with(replace_call_tree);
