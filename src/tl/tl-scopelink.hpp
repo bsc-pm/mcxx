@@ -79,6 +79,7 @@ namespace TL
             friend class AST_t;
             friend class Source;
             friend class CompilerPhaseRunner;
+            friend class Expression;
     };
 }
 

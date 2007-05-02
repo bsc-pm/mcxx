@@ -22,6 +22,7 @@
 #include "tl-predicateutils.hpp"
 #include "tl-source.hpp"
 #include "cxx-attrnames.h"
+#include "cxx-exprtype.h"
 
 namespace TL
 {
@@ -641,6 +642,20 @@ namespace TL
         }
 
         return UNKNOWN;
+    }
+
+    Type Expression::get_type()
+    {
+        // We need access to the inner representation of the tree
+        AST_t expr = this->_ref;
+        AST expr_tree = expr._ast;
+        Scope sc = this->get_scope();
+
+        decl_context_t decl_context = scope_link_get_decl_context(_scope_link._scope_link, expr_tree);
+        type_t* expression_type = compute_expression_type(expr_tree, sc._st, decl_context);
+
+        Type result(expression_type);
+        return result;
     }
 
     IdExpression DeclaredEntity::get_declared_entity()

@@ -98,6 +98,7 @@ namespace TL
 
             friend class Type;
             friend class Source;
+            friend class Expression;
     };
 }
 

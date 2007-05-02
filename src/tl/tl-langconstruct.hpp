@@ -226,6 +226,8 @@ namespace TL
                 POSTDECREMENT
             };
 
+            Type get_type();
+
             Expression(AST_t ref, ScopeLink scope_link)
                 : LangConstruct(ref, scope_link)
             {
