@@ -24,6 +24,7 @@
 
 #include <assert.h>
 
+#include "tl-mintakatransformhelper.hpp"
 #include "tl-streamtransformhelper.hpp"
 #include "tl-tasktransformhelper.hpp"
 #include "tl-threadtransformhelper.hpp"
@@ -154,6 +155,21 @@ generate_declare_threads(void)
 	return ss.str();
 }
 
+// generate_destroy_streams ----------------------------------------------------
+std::string 
+TransformTaskgroupReplace::
+generate_destroy_streams
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	ss << StreamTransformHelper::
+			destroy_all(_taskgroup_info->get_stream_info_set());
+	
+	return ss.str();
+}
+
 // generate_join_threads -------------------------------------------------------
 std::string 
 TransformTaskgroupReplace::
@@ -177,6 +193,7 @@ generate_replace
 	std::stringstream ss;
 	
 	ss 		<< "{"
+			<< MintakaTransformHelper::initialize_taskgroup(_taskgroup_info)
 			<< generate_create_streams()
 			<< generate_connect_streams()
 			<< generate_declare_threads()
@@ -184,6 +201,8 @@ generate_replace
 			<< generate_body()
 			<< generate_close_streams()
 			<< generate_join_threads()
+			<< MintakaTransformHelper::finalize_taskgroup(_taskgroup_info)
+			<< generate_destroy_streams()
 			<< "}"
 			;
 	

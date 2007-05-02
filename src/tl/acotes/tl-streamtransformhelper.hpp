@@ -45,6 +45,10 @@ public:
 	static std::string declare(StreamInfo* s);
 	static std::string declare_istream(StreamInfo *is);
 	static std::string declare_ostream(StreamInfo *os);
+	static std::string destroy(StreamInfo* s);
+	static std::string destroy_istream(StreamInfo* s);
+	static std::string destroy_ostream(StreamInfo* s);
+	static std::string destroy_all(const std::set<StreamInfo*>& ss);
 	static std::string eos(StreamInfo* s);
 	static std::string eos_any(const std::set<StreamInfo*>& ss);
 	static std::string pop(StreamInfo* s);

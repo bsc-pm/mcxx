@@ -24,6 +24,7 @@
 
 #include <assert.h>
 
+#include "tl-mintakatransformhelper.hpp"
 #include "tl-streamtransformhelper.hpp"
 #include "tl-symboltransformhelper.hpp"
 #include "tl-tasktransformhelper.hpp"
@@ -149,6 +150,7 @@ generate_outline
 			<< TaskTransformHelper::outline_name(_task_info)
 			<< "(void * arg)"
 			<< "{"
+			<<   MintakaTransformHelper::initialize_task(_task_info)
 			<<   generate_declares()
 			<<   generate_pops()
 			<<   "while (" << generate_eos() << ")"
@@ -158,6 +160,7 @@ generate_outline
 			<<     generate_pops()
 			<<   "}"
 			<<   generate_closes()
+			<<   MintakaTransformHelper::finalize_task(_task_info)
 			<< "}"
 			;
 	

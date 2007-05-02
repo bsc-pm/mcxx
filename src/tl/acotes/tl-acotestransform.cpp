@@ -49,6 +49,7 @@
 
 #include "tl-taskgroupinfo.hpp"
 #include "tl-taskinfo.hpp"
+#include "tl-transformmintakaoutline.hpp"
 #include "tl-transformtaskdefinestate.hpp"
 #include "tl-transformtaskgroupdeclarestreams.hpp"
 #include "tl-transformtaskgroupreplace.hpp" 
@@ -268,6 +269,14 @@ namespace TL
 
 			// It has an implicit task
 			//task_postorder(pragma_custom_construct);
+
+			// Enquees the mintaka services
+			TransformMintakaOutline* transform_mintaka_outline= 
+					new TransformMintakaOutline
+							( pragma_custom_construct
+							);
+			taskgroup_info->add_transform(transform_mintaka_outline);
+
 
 			// Enquees the replaces the task
 			TransformTaskgroupReplace* transform_taskgroup_replace= 

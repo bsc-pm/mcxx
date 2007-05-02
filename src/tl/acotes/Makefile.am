@@ -17,6 +17,8 @@ libtlacotes_la_CXXFLAGS = -Wall \
     -I ../../../lib
 
 libtlacotes_la_SOURCES = \
+						tl-mintakatransformhelper.hpp \
+						tl-mintakatransformhelper.cpp \
 						tl-streaminfo.hpp \
 						tl-streaminfo.cpp \
 						tl-streamtransformhelper.hpp \
@@ -33,6 +35,8 @@ libtlacotes_la_SOURCES = \
 						tl-threadtransformhelper.cpp \
 						tl-transform.hpp \
 						tl-transform.cpp \
+						tl-transformmintakaoutline.hpp \
+						tl-transformmintakaoutline.cpp \
 						tl-transformtaskdefinestate.hpp \
 						tl-transformtaskdefinestate.cpp \
 						tl-transformtaskgroupdeclarestreams.hpp \

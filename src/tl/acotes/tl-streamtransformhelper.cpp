@@ -241,6 +241,80 @@ create_all
 	return ss.str();
 }
 
+// destroy ---------------------------------------------------------------------
+std::string 
+StreamTransformHelper::
+destroy
+		( StreamInfo* s
+		)
+{
+	std::stringstream ss;
+	
+	ss		<< destroy_istream(s)
+			<< destroy_ostream(s)
+			;
+	
+	return ss.str();
+}
+
+// destroy_istream -------------------------------------------------------------
+std::string 
+StreamTransformHelper::
+destroy_istream
+		( StreamInfo* s
+		)
+{
+	std::stringstream ss;
+	
+	ss		<< "istream_destroy"
+			<< "( " << s->get_istream_name()
+			<< ")"
+			<< ";"
+			;
+	
+	return ss.str();
+}
+
+// create_ostream --------------------------------------------------------------
+std::string 
+StreamTransformHelper::
+destroy_ostream
+		( StreamInfo* s
+		)
+{
+	std::stringstream ss;
+	
+	ss		<< "ostream_destroy"
+			<< "( " << s->get_ostream_name()
+			<< ")"
+			<< ";"
+			;
+	
+	return ss.str();
+}
+
+// create_all ------------------------------------------------------------------
+std::string 
+StreamTransformHelper::
+destroy_all
+		( const std::set<StreamInfo*>& streams
+		)
+{
+	std::stringstream ss;
+	
+	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+			; it != streams.end()
+			; it ++
+			)
+	{
+		StreamInfo* s= *it;
+		
+		ss << destroy(s);
+	}
+	
+	return ss.str();
+}
+
 // eos -------------------------------------------------------------------------
 std::string 
 StreamTransformHelper::

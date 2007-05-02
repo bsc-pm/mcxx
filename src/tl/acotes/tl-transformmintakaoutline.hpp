@@ -20,44 +20,37 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TLTRANSFORMTASKGROUPREPLACE_HPP_
-#define TLTRANSFORMTASKGROUPREPLACE_HPP_
+#ifndef TLTRANSFORMMINTAKAOUTLINE_HPP_
+#define TLTRANSFORMMINTAKAOUTLINE_HPP_
+
+#include "tl-transform.hpp"
 
 #include <string>
 
 #include "tl-pragmasupport.hpp"
-#include "tl-transform.hpp"
-#include "tl-taskgroupinfo.hpp"
 
 namespace TL
 {
 
-class TransformTaskgroupReplace : public TL::Transform
+class TransformMintakaOutline : public TL::Transform
 {
 public:
-	TransformTaskgroupReplace
+	TransformMintakaOutline
 			( const PragmaCustomConstruct& pragma_custom_construct
-			, TaskgroupInfo* taskgroup_info
 			);
-	virtual ~TransformTaskgroupReplace();
-		
+	virtual ~TransformMintakaOutline();
+	
 	virtual void transform(void);
 	
 private:
+	std::string generate_declare_initialized_condition(void);
+
+	static bool s_global_condition_declared; 
+
 	PragmaCustomConstruct _pragma_custom_construct;
-	TaskgroupInfo*        _taskgroup_info;
-	
-	std::string generate_body(void);
-	std::string generate_connect_streams(void);
-	std::string generate_close_streams(void);
-	std::string generate_create_streams(void);
-	std::string generate_create_threads(void);
-	std::string generate_declare_threads(void);
-	std::string generate_destroy_streams(void);
-	std::string generate_join_threads(void);
-	std::string generate_replace(void);
+
 };
 
 }
 
-#endif /*TLTRANSFORMTASKGROUPREPLACE_HPP_*/
+#endif /*TLTRANSFORMMINTAKAOUTLINE_HPP_*/
