@@ -152,17 +152,34 @@ generate_outline
 			<< "{"
 			<<   MintakaTransformHelper::initialize_task(_task_info)
 			<<   generate_declares()
-			<<   generate_pops()
+			<<   generate_waits()
 			<<   "while (" << generate_eos() << ")"
 			<<   "{"
+			<<     generate_peeks()
 			<<     generate_body()
 			<<     generate_pushes()
 			<<     generate_pops()
+			<<     generate_waits()
 			<<   "}"
 			<<   generate_closes()
 			<<   MintakaTransformHelper::finalize_task(_task_info)
 			<< "}"
 			;
+	
+	return ss.str();
+}
+
+// generate_peeks --------------------------------------------------------------
+std::string 
+TransformTaskOutline::
+generate_peeks
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	ss << StreamTransformHelper::
+			peek_all(_task_info->get_loop_pop_istream_set());
 	
 	return ss.str();
 }
@@ -193,6 +210,23 @@ generate_pushes
 	
 	ss << StreamTransformHelper::
 			push_all(_task_info->get_loop_push_ostream_set());
+	
+	return ss.str();
+}
+
+// generate_waits --------------------------------------------------------------
+std::string 
+TransformTaskOutline::
+generate_waits
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	ss << StreamTransformHelper::
+			wait_istream_all(_task_info->get_loop_pop_istream_set());
+	ss << StreamTransformHelper::
+			wait_ostream_all(_task_info->get_loop_push_ostream_set());
 	
 	return ss.str();
 }

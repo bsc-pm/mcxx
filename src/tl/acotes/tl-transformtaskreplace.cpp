@@ -76,7 +76,7 @@ generate_replace_popes
 			)
 	{
 		StreamInfo* stream= *it;
-		ss << StreamTransformHelper::pop(stream);
+		ss << StreamTransformHelper::wait_and_pop(stream);
 	}
 	
 	return ss.str();
@@ -100,7 +100,7 @@ generate_replace_pushes
 			)
 	{
 		StreamInfo* stream= *it;
-		ss << StreamTransformHelper::push(stream);
+		ss << StreamTransformHelper::wait_and_push(stream);
 	}
 	
 	return ss.str();

@@ -82,6 +82,35 @@ initialize_taskgroup
 	return ss.str();
 }
 
+// iteration_begin -------------------------------------------------------------
+std::string 
+MintakaTransformHelper::
+iteration_begin
+		( void
+		)
+{
+	std::stringstream ss;
+
+	ss << "mintaka_event(" << ITERATION_EVENT << ", 1);"
+	
+	return ss.str();
+}
+
+// iteration_end ---------------------------------------------------------------
+std::string 
+MintakaTransformHelper::
+iteration_end
+		( void
+		)
+{
+	std::stringstream ss;
+
+	ss << "mintaka_event(" << ITERATION_EVENT << ", 0);"
+	
+	return ss.str();
+}
+
+
 // finalize_task ---------------------------------------------------------------
 std::string 
 MintakaTransformHelper::

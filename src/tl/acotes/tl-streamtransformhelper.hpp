@@ -51,10 +51,20 @@ public:
 	static std::string destroy_all(const std::set<StreamInfo*>& ss);
 	static std::string eos(StreamInfo* s);
 	static std::string eos_any(const std::set<StreamInfo*>& ss);
+	static std::string peek(StreamInfo* s);
+	static std::string peek_all(const std::set<StreamInfo*>& ss);
 	static std::string pop(StreamInfo* s);
 	static std::string pop_all(const std::set<StreamInfo*>& ss);
 	static std::string push(StreamInfo* s);
 	static std::string push_all(const std::set<StreamInfo*>& ss);
+	static std::string wait_istream(StreamInfo* s);
+	static std::string wait_istream_all(const std::set<StreamInfo*>& ss);
+	static std::string wait_ostream(StreamInfo* s);
+	static std::string wait_ostream_all(const std::set<StreamInfo*>& ss);
+	static std::string wait_and_pop(StreamInfo* s);
+	static std::string wait_and_pop_all(const std::set<StreamInfo*>& ss);
+	static std::string wait_and_push(StreamInfo* s);
+	static std::string wait_and_push_all(const std::set<StreamInfo*>& ss);
 	
 private:
 	StreamTransformHelper();

@@ -52,8 +52,10 @@ private:
 	std::string generate_declares(void);
 	std::string generate_eos(void);
 	std::string generate_outline(void);
+	std::string generate_peeks(void);
 	std::string generate_pops(void);
 	std::string generate_pushes(void);
+	std::string generate_waits(void);
 };
 
 }

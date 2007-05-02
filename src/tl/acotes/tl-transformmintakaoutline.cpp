@@ -65,10 +65,8 @@ transform
 		( void
 		)
 {
-	std::cerr << "mintaka outline transform: begin" << std::endl;
 	if (!s_global_condition_declared)
 	{
-		std::cerr << "mintaka outline transform: added" << std::endl;
 		s_global_condition_declared= true;
 		Source declare_src= generate_declare_initialized_condition();
 		
@@ -84,7 +82,6 @@ transform
 			
 		function_definition.get_ast().prepend_sibling_function(task_add_tree);	
 	}
-	std::cerr << "mintaka outline transform: end" << std::endl;
 }
 
 }
