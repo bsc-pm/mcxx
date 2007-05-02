@@ -17,7 +17,33 @@ libtlomp_la_CXXFLAGS = -Wall \
     -I ../../../lib
 
 libtlomp_la_SOURCES = \
-                        tl-omptransform.hpp \
-                        tl-omptransform.cpp \
-						tl-functionfilter.hpp \
-						tl-functionfilter.cpp
+   tl-atomic.cpp \
+   tl-barrier.cpp \
+   tl-critical.cpp \
+   tl-flush.cpp \
+   tl-for.cpp \
+   tl-functionfilter.cpp \
+   tl-functionfilter.hpp \
+   tl-loop.cpp \
+   tl-master.cpp \
+   tl-datasharing.cpp \
+   tl-debug.cpp \
+   tl-symbols.cpp \
+   tl-transaction.cpp \
+   tl-omptransform.cpp \
+   tl-omptransform.hpp \
+   tl-warning.cpp \
+   tl-ordered.cpp \
+   tl-outline.cpp \
+   tl-parallel.cpp \
+   tl-parallel_for.cpp \
+   tl-parallel_sections.cpp \
+   tl-parallel_single.cpp \
+   tl-parameterinfo.hpp \
+   tl-reduction.cpp \
+   tl-section.cpp \
+   tl-sections.cpp \
+   tl-single.cpp \
+   tl-spawn.cpp \
+   tl-task.cpp \
+   tl-threadprivate.cpp
