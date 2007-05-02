@@ -2,12 +2,14 @@
 #include "tl-compilerphase.hpp"
 #include "tl-langconstruct.hpp"
 #include "tl-traverse.hpp"
+#include "tl-functionfilter.hpp"
 
 namespace TL
 {
     class STMFunctionDefFunctor : public TraverseFunctor
     {
         private:
+			FunctionFilterFile function_filter;
         public:
             virtual void postorder(Context ctx, AST_t node) 
 			{
@@ -43,14 +45,9 @@ namespace TL
 				Source stm_function_body;
 				Statement function_tree = function_def.get_function_body();
 
-				if (function_symbol.is_member()
-						|| function_name.prettyprint() == "rdtscf"
-						|| function_name.prettyprint() == "read"
-						|| function_name.prettyprint() == "write"
-						|| function_name.prettyprint() == "main")
-					       
+				if (function_filter.match(function_name.prettyprint())
+						|| function_symbol.is_member())
 				{
-					// std::cerr << "Skipping member function '" << function_name.prettyprint() << " in " << function_name.get_ast().get_locus() << std::endl;
 					return;
 				}
 

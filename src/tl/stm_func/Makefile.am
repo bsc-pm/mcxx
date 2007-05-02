@@ -18,4 +18,6 @@ libtlstmfunc_la_CXXFLAGS = -Wall \
 
 libtlstmfunc_la_SOURCES = \
     stm_function_transform.hpp \
-    stm_function_transform.cpp
+    stm_function_transform.cpp \
+	tl-functionfilter.cpp \
+	tl-functionfilter.hpp

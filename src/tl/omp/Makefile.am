@@ -18,4 +18,6 @@ libtlomp_la_CXXFLAGS = -Wall \
 
 libtlomp_la_SOURCES = \
                         tl-omptransform.hpp \
-                        tl-omptransform.cpp
+                        tl-omptransform.cpp \
+						tl-functionfilter.hpp \
+						tl-functionfilter.cpp

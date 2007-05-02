@@ -24,6 +24,7 @@
 #include "tl-predicateutils.hpp"
 #include "tl-source.hpp"
 #include "tl-externalvars.hpp"
+#include "tl-functionfilter.hpp"
 #include <iostream>
 #include <utility>
 #include <stack>
@@ -148,8 +149,13 @@ namespace TL
             // A set to save what critical names have been defined in
             // translation unit level
             std::set<std::string> criticals_defined;
+
+			// Function filter for STM
+			FunctionFilterFile function_filter;
+			int transaction_nesting;
         public:
             OpenMPTransform()
+				: parallel_nesting(0), transaction_nesting(0)
             {
             }
 
@@ -241,6 +247,7 @@ namespace TL
                 on_custom_construct_post["taskyield"].connect(functor(&OpenMPTransform::taskyield_postorder, *this));
 
                 // #pragma omp construct transaction
+                on_custom_construct_pre["transaction"].connect(functor(&OpenMPTransform::transaction_preorder, *this));
                 on_custom_construct_post["transaction"].connect(functor(&OpenMPTransform::transaction_postorder, *this));
             }
             
@@ -4520,9 +4527,12 @@ namespace TL
             {
                 private:
                     ObjectList<Symbol> _considered_symbols;
+					FunctionFilterFile &_filter_file;
                 public:
-                    ExpressionReplacement(ObjectList<Symbol>& considered_symbols)
-                        : _considered_symbols(considered_symbols)
+                    ExpressionReplacement(ObjectList<Symbol>& considered_symbols,
+							FunctionFilterFile& filter_file)
+                        : _considered_symbols(considered_symbols),
+                          _filter_file(filter_file)
                     {
                     }
 
@@ -4546,22 +4556,37 @@ namespace TL
                         else if (expression.is_array_subscript())
                         {
 
-                            Source original_array;
-                            original_array << expression.get_subscripted_expression().prettyprint();
+                            // Source original_array;
+                            // original_array << expression.get_subscripted_expression().prettyprint();
+
+							// Expression read_array_expression(
+							// 		original_array.parse_expression(expression.get_ast(),
+							// 			expression.get_scope_link()), expression.get_scope_link());
+
+							// get_address(read_array_expression);
 
                             replace_expression(expression.get_subscripted_expression());
                             replace_expression(expression.get_subscript_expression());
 
-                            address_expression
-                                << "((void*)&(" << original_array << ") == ((void*)&(" << original_array << "[0])) ? "
-                                << "(" << original_array << " + " << expression.get_subscript_expression().prettyprint()    << ")"
-                                << ": ("
+							address_expression
+								<< "("
                                 << expression.get_subscripted_expression().prettyprint()
                                 << " + "
                                 << expression.get_subscript_expression().prettyprint()
-                                << ")"
-                                << ")"
-                                ;
+								<< ")"
+								;
+
+
+                            //address_expression
+                            //    << "((void*)&(" << original_array << ") == ((void*)&(" << original_array << "[0])) ? "
+                            //    << "(*(" << read_array_expression.prettyprint() << ") + " << expression.get_subscript_expression().prettyprint()    << ")"
+                            //    << ": ("
+                            //    << expression.get_subscripted_expression().prettyprint()
+                            //    << " + "
+                            //    << expression.get_subscript_expression().prettyprint()
+                            //    << ")"
+                            //    << ")"
+                            //    ;
                         }
                         // e1->e2 => (&(READ(e1)->e2))
                         else if (expression.is_pointer_member_access())
@@ -4668,22 +4693,36 @@ namespace TL
                         // e1[e2] => *read(__t, READ(e1) + READ(e2))
                         else if (expression.is_array_subscript())
                         {
-                            Source original_array;
-                            original_array << expression.get_subscripted_expression().prettyprint();
+                            // Source original_array;
+                            // original_array << expression.get_subscripted_expression().prettyprint();
+
+							// Expression read_array_expression(
+							// 		original_array.parse_expression(expression.get_ast(),
+							// 			expression.get_scope_link()), expression.get_scope_link());
+
+							// get_address(read_array_expression);
 
                             replace_expression(expression.get_subscripted_expression());
                             replace_expression(expression.get_subscript_expression());
 
-                            read_expression
-                                << "((void*)&(" << original_array << ") == ((void*)&(" << original_array << "[0])) ? "
-                                << "* (" << original_array << " + " << expression.get_subscript_expression().prettyprint()  << ")"
-                                << ": *read(__t, "
+							read_expression
+                                << "( *read(__t, "
                                 << expression.get_subscripted_expression().prettyprint()
                                 << " + "
                                 << expression.get_subscript_expression().prettyprint()
-                                << ")"
-                                << ")"
-                                ;
+                                << ") )"
+								;
+
+                            //read_expression
+                            //    << "((void*)&(" << original_array << ") == ((void*)&(" << original_array << "[0])) ? "
+                            //    << "*read (__t, *(" << read_array_expression.prettyprint() << ") + " << expression.get_subscript_expression().prettyprint()  << ")"
+                            //    << ": *read(__t, "
+                            //    << expression.get_subscripted_expression().prettyprint()
+                            //    << " + "
+                            //    << expression.get_subscript_expression().prettyprint()
+                            //    << ")"
+                            //    << ")"
+                            //    ;
                         }
                         // e1->e2 => *read(__t, (READ(e1))->e2)
                         else if (expression.is_pointer_member_access())
@@ -4859,12 +4898,72 @@ namespace TL
                                 // A simple function call of the form "f(...)"
                                 Source replace_call, replace_args;
 
-                                replace_call
-                                    << "__stm_" << called_expression.prettyprint() 
-                                    << "(" << replace_args << ")"
-                                    ;
+								bool is_replaced_function = 
+									!_filter_file.match(called_expression.prettyprint());
 
-                                replace_args.append_with_separator("__t", ",");
+								if (is_replaced_function)
+								{
+									Symbol function_symbol = called_expression.
+										get_id_expression().get_symbol();
+									Type function_type = function_symbol.get_type();
+									Type return_type = function_type.returns();
+									FunctionDefinition function_def = expression.get_enclosing_function();
+
+									Source stm_parameters;
+									Source declare_header;
+									declare_header 
+										<< return_type.get_declaration(function_def.get_scope(), "") 
+										<< " "
+										<< "__stm_" << called_expression.prettyprint() 
+										<< "(" << stm_parameters << ");"
+										;
+
+									stm_parameters.append_with_separator("Transaction *", ",");
+
+									bool has_ellipsis;
+									ObjectList<Type> parameter_types = function_type.parameters(has_ellipsis);
+									for (ObjectList<Type>::iterator it = parameter_types.begin();
+											it != parameter_types.end();
+											it++)
+									{
+										stm_parameters.append_with_separator(
+												it->get_declaration(
+													function_def.get_scope(), 
+													""),
+												","
+												);
+									}
+
+									if (has_ellipsis)
+									{
+										stm_parameters.append_with_separator("...", ",");
+									}
+
+									AST_t stm_function_decl = 
+										declare_header.parse_declaration(
+												expression.get_ast(), 
+												expression.get_scope_link());
+
+									expression.get_ast().prepend_sibling_function(stm_function_decl);
+
+									replace_call
+										<< "__stm_" << called_expression.prettyprint() 
+										<< "(" << replace_args << ")"
+										;
+								}
+								else
+								{
+									replace_call
+										<< called_expression.prettyprint() 
+										<< "(" << replace_args << ")"
+										;
+								}
+
+								if (is_replaced_function)
+								{
+									// Add a transaction argument
+									replace_args.append_with_separator("__t", ",");
+								}
 
                                 ObjectList<Expression> arguments = expression.get_argument_list();
                                 for (ObjectList<Expression>::iterator it = arguments.begin();
@@ -4888,8 +4987,12 @@ namespace TL
                                         it != arguments.end();
                                         it++)
                                 {
-                                    if (it == arguments.begin())
-                                        continue;
+									if (is_replaced_function)
+									{
+										// Ignore the transaction argument
+										if (it == arguments.begin())
+											continue;
+									}
                                     replace_expression(*it);
                                 }
 
@@ -4913,8 +5016,16 @@ namespace TL
                     }
             };
 
+            void transaction_preorder(OpenMP::CustomConstruct protect_construct)
+			{
+				transaction_nesting++;
+			}
+
             void transaction_postorder(OpenMP::CustomConstruct protect_construct)
             {
+				// Expect that the transaction_postorder == 1 will do
+				// all the transformation
+
                 ObjectList<Symbol> considered_symbols;
                 ObjectList<Symbol> excluded_symbols;
 
@@ -4924,6 +5035,21 @@ namespace TL
                 OpenMP::CustomClause exclude_clause = protect_directive.custom_clause("exclude");
                 OpenMP::CustomClause converted_function = 
                     protect_directive.custom_clause("converted_function");
+
+				// Expect the transformation to be done when transaction_nesting == 1
+				// Here we only remove the pragma itself
+				if (transaction_nesting > 1)
+				{
+					Source replaced_code;
+					replaced_code << protect_statement.prettyprint();
+
+					AST_t replaced_tree = replaced_code.parse_statement(protect_statement.get_ast(),
+							protect_statement.get_scope_link());
+
+					protect_construct.get_ast().replace(replaced_tree);
+					transaction_nesting--;
+					return;
+				}
 
                 if (exclude_clause.is_defined())
                 {
@@ -4948,7 +5074,7 @@ namespace TL
 
                 // For every expression, replace it properly with read and write
                 PredicateBool<LANG_IS_EXPRESSION_NEST> expression_pred;
-                ExpressionReplacement expression_replacement(considered_symbols);
+                ExpressionReplacement expression_replacement(considered_symbols, function_filter);
 
                 ObjectList<AST_t> expressions = protect_statement.get_ast().depth_subtrees(expression_pred, AST_t::NON_RECURSIVE);
 
@@ -5080,9 +5206,6 @@ namespace TL
                 {
                     replaced_code
                         << "{"
-                        << "   uint64_t _tx_start, _tx_end;"
-                        << "   uint64_t _tx_commit_start, _tx_commit_end;"
-                        << "   _tx_start = rdtscf();"
                         <<         protect_statement.prettyprint()
                         << "}"
                         ;
@@ -5135,6 +5258,7 @@ namespace TL
                         protect_statement.get_scope_link());
 
                 protect_construct.get_ast().replace(replaced_tree);
+				transaction_nesting--;
             }
 
     };
