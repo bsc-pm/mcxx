@@ -1399,6 +1399,51 @@ char is_integral_type(type_t* t)
             && t->type->builtin_type == BT_INT);
 }
 
+char is_unsigned_long_int(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return is_integral_type(t)
+        && t->type->is_long == 1
+        && t->type->is_unsigned;
+}
+
+char is_unsigned_long_long_int(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return is_integral_type(t)
+        && t->type->is_long > 1
+        && t->type->is_unsigned;
+}
+
+char is_long_long_int(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return is_integral_type(t)
+        && t->type->is_long > 1
+        && !t->type->is_unsigned;
+}
+
+char is_long_int(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return is_integral_type(t)
+        && t->type->is_long == 1
+        && !t->type->is_unsigned;
+}
+
+char is_unsigned_int(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return is_integral_type(t)
+        && t->type->is_long == 0
+        && !t->type->is_unsigned;
+}
+
 char is_pointer_type(type_t* t)
 {
     // Advance over typedefs
@@ -1533,6 +1578,23 @@ char is_floating_type(type_t* t)
             && t->type->kind == STK_BUILTIN_TYPE
             && (t->type->builtin_type == BT_FLOAT
                 || t->type->builtin_type == BT_DOUBLE));
+}
+
+char is_long_double(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return (is_floating_type(t) 
+            && t->type->builtin_type == BT_DOUBLE
+            && t->type->is_long);
+}
+
+char is_float(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return (is_floating_type(t) 
+            && t->type->builtin_type == BT_FLOAT);
 }
 
 char can_be_promoted_to_dest(type_t* orig, type_t* dest)

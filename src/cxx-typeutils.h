@@ -72,9 +72,19 @@ char* print_declarator(type_t* printed_declarator, scope_t* st);
 
 // Query functions
 char is_fundamental_type(type_t* t);
+
 char is_integral_type(type_t* t);
-char is_floating_type(type_t* t);
+char is_unsigned_long_int(type_t* t);
+char is_unsigned_long_long_int(type_t* t);
+char is_long_long_int(type_t* t);
+char is_long_int(type_t* t);
+char is_unsigned_int(type_t* t);
 char is_enumerated_type(type_t* t);
+
+char is_floating_type(type_t* t);
+char is_long_double(type_t* t);
+char is_float(type_t* t);
+
 char is_function_type(type_t* t);
 type_t* function_return_type(type_t* t);
 type_t** function_parameter_types(type_t* t, int* num_params, char* has_ellipsis);

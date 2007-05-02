@@ -156,7 +156,8 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
                     // class_type->type->kind == STK_CLASS
                     class_scope = class_type->type->class_info->inner_scope;
                 }
-                else break;
+                else 
+                    break;
 
                 // Now get the member of the class
                 scope_entry_list_t* list = query_id_expression(class_scope, ASTSon1(expr), NOFULL_UNQUALIFIED_LOOKUP, decl_context);
@@ -265,12 +266,51 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
         case AST_MOD_OP :
         case AST_ADD_OP :
         case AST_MINUS_OP :
-            {
-                break;
-            }
         case AST_SHL_OP :
         case AST_SHR_OP :
+        case AST_BITWISE_AND :
+        case AST_BITWISE_XOR :
+        case AST_BITWISE_OR :
             {
+                type_t* result_lhs = compute_expression_type_rec(ASTSon0(expr), sc, decl_context);
+                type_t* result_rhs = compute_expression_type_rec(ASTSon1(expr), sc, decl_context);
+
+                if (result_lhs == NULL
+                        || result_rhs == NULL)
+                    break;
+
+                // Order of arithmetic promotions
+                char (*ptr_is_type[])(type_t*) =
+                { 
+                    is_long_double,
+                    is_float,
+                    is_unsigned_long_long_int,
+                    is_long_long_int,
+                    is_unsigned_long_int,
+                    is_long_int
+                };
+                int num_ptr_functs = sizeof(ptr_is_type) / sizeof(*ptr_is_type);
+
+                int i;
+                char conversion_made = 0;
+                for (i = 0; i < num_ptr_functs; i++)
+                {
+                    char (*ptr_func)(type_t*) = ptr_is_type[i];
+
+                    if (ptr_func(result_lhs)
+                            || ptr_func(result_rhs))
+                    {
+                        result = ptr_func(result_lhs) ? result_lhs : result_rhs;
+                        conversion_made = 1;
+                        break;
+                    }
+                }
+
+                if (conversion_made)
+                    break;
+
+                // As we were supposed to do integral promotions only int remains here
+                result = integer_type();
                 break;
             }
         case AST_EQUAL_OP :
@@ -280,21 +320,21 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
         case AST_LOWER_OR_EQUAL_THAN :
         case AST_GREATER_OR_EQUAL_THAN :
             {
-                break;
-            }
-        case AST_BITWISE_AND :
-        case AST_BITWISE_XOR :
-        case AST_BITWISE_OR :
-            {
+                // In C this is always an int
+                result = integer_type();
                 break;
             }
         case AST_LOGICAL_AND :
         case AST_LOGICAL_OR :
             {
+                // In C this is always an int
+                result = integer_type();
                 break;
             }
         case AST_CONDITIONAL_EXPRESSION :
             {
+                // Assume is the first one
+                result = compute_expression_type_rec(ASTSon1(expr), sc, decl_context);
                 break;
             }
         case AST_ASSIGNMENT :
@@ -309,6 +349,8 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
         case AST_XOR_ASSIGNMENT :
         case AST_MOD_ASSIGNMENT :
             {
+                // The type is always the one of the left part of the assignment
+                result = compute_expression_type_rec(ASTSon0(expr), sc, decl_context);
                 break;
             }
         default:

@@ -4701,17 +4701,49 @@ namespace TL
 							// 			expression.get_scope_link()), expression.get_scope_link());
 
 							// get_address(read_array_expression);
+                            
+                            Expression subscripted_expr = expression.get_subscripted_expression();
 
-                            replace_expression(expression.get_subscripted_expression());
-                            replace_expression(expression.get_subscript_expression());
+                            Type subscripted_type = subscripted_expr.get_type();
 
-							read_expression
-                                << "( *read(__t, "
-                                << expression.get_subscripted_expression().prettyprint()
-                                << " + "
-                                << expression.get_subscript_expression().prettyprint()
-                                << ") )"
-								;
+                            if (!subscripted_type.is_valid())
+                            {
+                                std::cerr << "Could not compute the type of the subscripted expression" 
+                                    << "'" << expression.prettyprint() << "'" << std::endl;
+                            }
+                            else if (subscripted_type.is_pointer())
+                            {
+                                replace_expression(expression.get_subscripted_expression());
+                                replace_expression(expression.get_subscript_expression());
+
+                                read_expression
+                                    << "( *read(__t, "
+                                    << expression.get_subscripted_expression().prettyprint()
+                                    << " + "
+                                    << expression.get_subscript_expression().prettyprint()
+                                    << ") )"
+                                    ;
+                            }
+                            else if (subscripted_type.is_array())
+                            {
+                                get_address(expression.get_subscripted_expression());
+                                replace_expression(expression.get_subscript_expression());
+
+                                read_expression
+                                    << "( *read(__t, "
+                                    << "*(" << expression.get_subscripted_expression().prettyprint() << ")"
+                                    << " + "
+                                    << expression.get_subscript_expression().prettyprint()
+                                    << ") )"
+                                    ;
+                            }
+                            else
+                            {
+                                std::cerr << "The type of subscripted expression '" << expression.prettyprint() << "'"
+                                    << " is neither a pointer nor an array ?. Skipping" 
+                                    << std::endl;
+                            }
+
 
                             //read_expression
                             //    << "((void*)&(" << original_array << ") == ((void*)&(" << original_array << "[0])) ? "
