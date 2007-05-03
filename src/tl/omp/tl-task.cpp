@@ -467,7 +467,7 @@ namespace TL
             <<    "int nth_nargs_ref = " << num_reference_args << ";"
             <<    "int nth_nargs_val = " << num_value_args << ";"
             <<    "void* nth_arg_addr[" << num_value_args << " + 1];"
-            <<    "void** nth_arg_addr_ptr = nth_arg_addr;"
+            <<    "void** nth_arg_addr_ptr = &nth_arg_addr[1];"
 
             <<    size_vector
 

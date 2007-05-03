@@ -479,7 +479,7 @@ namespace TL
                 <<   copy_sequence
                 ;
 
-            int vector_index = 0;
+            int vector_index = 1;
             for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
                     it != parameter_info_list.end();
                     it++)
@@ -532,7 +532,7 @@ namespace TL
             <<    "nth_desc * "<< task_id << ";"
             <<    "int " << task_id << "_chunk = 0;"
             <<    "void* " << task_id << "_arg_addr[" << num_value_args << " + 1] = { 0 };"
-            <<    "void** " << task_id << "_arg_addr_ptr = " << task_id << "_arg_addr;"
+            <<    "void** " << task_id << "_arg_addr_ptr = &(" << task_id << "_arg_addr[1]);"
             ;
 
         task_while_info.post_src

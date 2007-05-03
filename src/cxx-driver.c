@@ -393,7 +393,7 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 }
             case 'g' :
                 {
-                    add_to_parameter_list_str(&compilation_options.linker_options, "-g");
+                    add_to_parameter_list_str(&compilation_options.native_compiler_options, "-g");
                     break;
                 }
             case OPTION_PREPROCESSOR_NAME :
