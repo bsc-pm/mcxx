@@ -3,13 +3,80 @@
 
 namespace TL
 {
-    void OpenMPTransform::task_postorder(OpenMP::CustomConstruct task_construct)
+    /*
+      Experimental '#pragma omp while'
+     
+      Example:
+     
+      #pragma omp while chunk(32)
+      while (l != NULL)
+      {
+         // This task would get "chunked" by 32
+         #pragma omp task
+         {
+           f(l);
+         }
+         l = l->next;
+      }
+     */
+    std::stack<TaskWhileInfo> task_while_stack;
+    void OpenMPTransform::task_while_preorder(OpenMP::CustomConstruct while_construct)
     {
-        // EXPERIMENTAL. Task chunking enabled
-        if (!task_while_stack.empty())
+        TaskWhileInfo task_while_info;
+        OpenMP::Directive directive = while_construct.directive();
+
+        OpenMP::CustomClause chunk_clause = directive.custom_clause("chunk");
+        if (chunk_clause.is_defined())
         {
-            return task_postorder_with_chunk(task_construct);
+            ObjectList<Expression> expression_list = chunk_clause.get_expression_list();
+
+            if (expression_list.size() > 0)
+            {
+                task_while_info.chunking = expression_list[0].prettyprint();
+            }
         }
+
+        if (task_while_info.chunking == "")
+        {
+            std::cerr << "Missing 'chunk' clause in " << while_construct.get_ast().get_locus() << " assuming 32" << std::endl;
+            task_while_info.chunking = "32";
+        }
+
+        task_while_stack.push(task_while_info);
+    }
+
+    void OpenMPTransform::task_while_postorder(OpenMP::CustomConstruct while_construct)
+    {
+        Source task_while_src;
+        TaskWhileInfo &task_while_info = task_while_stack.top();
+
+        Statement statement = while_construct.body();
+
+        task_while_src
+            << "{"
+            <<    task_while_info.pre_src
+            <<    statement.prettyprint()
+            <<    task_while_info.post_src
+            << "}"
+            ;
+
+        AST_t task_while_tree = task_while_src.parse_statement(while_construct.get_ast(),
+                while_construct.get_scope_link());
+
+        while_construct.get_ast().replace_with(task_while_tree);
+        task_while_stack.pop();
+    }
+
+    void OpenMPTransform::task_postorder_with_chunk(OpenMP::CustomConstruct task_construct)
+    {
+        TaskWhileInfo &task_while_info = task_while_stack.top();
+
+        static int task_id_number = 0;
+        task_id_number++;
+
+        Source task_id;
+        task_id << "nth_task_" << task_id_number
+            ;
 
         // Get the directive of the task construct
         OpenMP::Directive directive = task_construct.directive();
@@ -294,7 +361,7 @@ namespace TL
                 continue;
 
             // Add the size in the vector
-            size_vector << ", sizeof(" << it->id_expression.prettyprint() << ")"
+            size_vector << ", sizeof(" << it->id_expression.prettyprint() << ") * (" << task_while_info.chunking << ")"
                 ;
 
             // A reference to the vector
@@ -399,28 +466,20 @@ namespace TL
             fallback_arguments.append_with_separator("&cval_" + it->id_expression.mangle_id_expression(), ",");
         }
 
-        Source task_dependency;
-
         // For C++ only
         Source copy_construction_part;
-        if (copy_construction_needed)
+        // if (copy_construction_needed)
         {
             // The task cannot start immediately because first we have
             // to copy-construct capture valued entities
-            task_dependency << "1";
 
             Source copy_sequence;
 
             copy_construction_part 
-                << "else"
-                << "{"
-                <<   "int nth_one_dep = 1;"
                 <<   copy_sequence
-                <<   "nth_depsub(&nth, &nth_one_dep);"
-                << "}"
                 ;
 
-            int vector_index = 1;
+            int vector_index = 0;
             for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
                     it != parameter_info_list.end();
                     it++)
@@ -431,23 +490,35 @@ namespace TL
                 Symbol sym = it->id_expression.get_symbol();
                 Type type = sym.get_type();
 
-                if (type.is_class())
+                CXX_LANGUAGE()
                 {
+                    if (type.is_class())
+                    {
+                        copy_sequence
+                            << "new (nth_arg_addr[" << vector_index << "])" 
+                            << type.get_declaration(it->id_expression.get_scope(), "")
+                            << "(" << it->id_expression.prettyprint() << ");"
+                            ;
+                    }
+                }
+
+                C_LANGUAGE()
+                {
+                    Source type_cast;
                     copy_sequence
-                        << "new (nth_arg_addr[" << vector_index << "])" 
-                        << type.get_declaration(it->id_expression.get_scope(), "")
-                        << "(" << it->id_expression.prettyprint() << ");"
+                        << "memcpy(((" << type_cast << ")" << task_id << "_arg_addr[" << vector_index << "]) + " << task_id << "_chunk, "
+                        << "&(" << it->id_expression.prettyprint() << "),"
+                        << "sizeof(" << it->id_expression.prettyprint() << "));"
                         ;
+
+                    Type type = it->id_expression.get_symbol().get_type();
+                    Type pointer_type = type.get_pointer_to();
+                    type_cast
+                         << pointer_type.get_declaration(it->id_expression.get_scope(), "");
                 }
 
                 vector_index++;
             }
-        }
-        else
-        {
-            // No dependencies if no construction has to be performed,
-            // i.e. the task can start immediately
-            task_dependency << "0";
         }
 
         Source outlined_function_reference;
@@ -457,31 +528,62 @@ namespace TL
 
         Source instrument_code_task_creation;
 
+        task_while_info.pre_src
+            <<    "nth_desc * "<< task_id << ";"
+            <<    "int " << task_id << "_chunk = 0;"
+            <<    "void* " << task_id << "_arg_addr[" << num_value_args << " + 1] = { 0 };"
+            <<    "void** " << task_id << "_arg_addr_ptr = " << task_id << "_arg_addr;"
+            ;
+
+        task_while_info.post_src
+            << "if (" << task_id << "_chunk != 0)"
+            << "{"
+            <<    "int nth_one_dep = 1;"
+            <<    "nth_depsub(&" << task_id << ", &nth_one_dep);"
+            << "}"
+            ;
+
         task_queueing
             << "{"
-            <<    "nth_desc * nth;"
             <<    "int nth_type = " << task_type << ";"
-            <<    "int nth_ndeps = " << task_dependency << ";"
+            <<    "int nth_ndeps = 1;" // Never start it running
             <<    "int nth_vp = 0;"
             <<    "nth_desc_t* nth_succ = (nth_desc_t*)0;"
             <<    "int nth_nargs_ref = " << num_reference_args << ";"
             <<    "int nth_nargs_val = " << num_value_args << ";"
-            <<    "void* nth_arg_addr[" << num_value_args << " + 1];"
-            <<    "void** nth_arg_addr_ptr = nth_arg_addr;"
 
             <<    size_vector
 
-            <<    "nth = nth_create((void*)(" << outlined_function_reference << "), "
-            <<             "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, &nth_arg_addr_ptr, "
-            <<             "&nth_nargs_ref, &nth_nargs_val" << task_parameters << ");"
-            <<    instrument_code_task_creation
-            <<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
+            <<    "if (" << task_id << "_chunk == 0)"
             <<    "{"
-            // <<       "fprintf(stderr, \"Cannot allocate task at '%s'\\n\", \"" << task_construct.get_ast().get_locus() << "\");"
-            <<       fallback_capture_values
-            <<       outlined_function_reference << "(" << fallback_arguments << ");"
+            <<         task_id <<  "= nth_create((void*)(" << outlined_function_reference << "), "
+            <<                  "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, &" << task_id << "_arg_addr_ptr, "
+            <<                  "&nth_nargs_ref, &nth_nargs_val" << task_parameters << ");" \
+            <<         instrument_code_task_creation
+            <<         "if (" << task_id << " == NTH_CANNOT_ALLOCATE_TASK)"
+            <<         "{"
+            // <<            "fprintf(stderr, \"Cannot allocate task at '%s'\\n\", \"" << task_construct.get_ast().get_locus() << "\");"
+            <<            fallback_capture_values
+            <<            outlined_function_reference << "(" << fallback_arguments << ");"
+            <<         "}"
+            <<         "else"
+            <<         "{"
+            <<            copy_construction_part
+            <<            task_id << "_chunk++;"
+            <<         "}"
             <<    "}"
-            <<    copy_construction_part
+            <<    "else"
+            <<    "{"
+            <<       copy_construction_part
+            <<       task_id << "_chunk++;"
+            <<    "}"
+            <<    "if (" << task_id << "_chunk == (" << task_while_info.chunking << "))"
+            <<    "{"
+            <<        "int nth_one_dep = 1;"
+            <<        "nth_depsub(&" << task_id << ", &nth_one_dep);"
+            <<        task_id << "_chunk = 0;"
+            <<        "nth_yield();" // REMOVE THIS
+            <<    "}"
             << "}"
             ;
 
@@ -526,214 +628,4 @@ namespace TL
         // And replace the whole thing
         task_construct.get_ast().replace(task_code);
     }
-
-    void OpenMPTransform::taskwait_postorder(OpenMP::CustomConstruct taskwait_construct)
-    {
-        Source taskwait_source;
-        Statement taskwait_body = taskwait_construct.body();
-
-        Source instrumentation_code_before, instrumentation_code_after;
-
-        if (instrumentation_requested())
-        {
-            instrumentation_code_before
-                << "int __previous_state = mintaka_get_state();"
-                << "mintaka_state_synch();"
-                ;
-
-            instrumentation_code_after
-                << "mintaka_set_state(__previous_state);"
-                ;
-        }
-
-        taskwait_source
-            << "{"
-            <<    instrumentation_code_before
-            <<    "nthf_task_block_();"
-            <<    instrumentation_code_after
-            <<    taskwait_body.prettyprint() // This will avoid breakage if you did not write ';' after the taskwait pragma
-            << "}"
-            ;
-
-        AST_t taskwait_code = taskwait_source.parse_statement(taskwait_construct.get_ast(),
-                taskwait_construct.get_scope_link());
-
-        taskwait_construct.get_ast().replace(taskwait_code);
-    }
-
-    void OpenMPTransform::taskyield_postorder(OpenMP::CustomConstruct taskyield_construct)
-    {
-        Source taskyield_source;
-        Statement taskyield_body = taskyield_construct.body();
-
-        taskyield_source
-            << "{"
-            <<    "nth_yield();"
-            <<    taskyield_body.prettyprint() // This will avoid breakage if you did not write ';' after the taskyield pragma
-            << "}"
-            ;
-
-        AST_t taskyield_code = taskyield_source.parse_statement(taskyield_construct.get_ast(),
-                taskyield_construct.get_scope_link());
-
-        taskyield_construct.get_ast().replace(taskyield_code);
-    }
-
-    void OpenMPTransform::taskgroup_postorder(OpenMP::CustomConstruct taskgroup_construct)
-    {
-        Source taskgroup_source;
-        Statement taskgroup_body = taskgroup_construct.body();
-
-        Source instrumentation_code_before, instrumentation_code_after;
-
-        if (instrumentation_requested())
-        {
-            instrumentation_code_before
-                << "int __previous_state = mintaka_get_state();"
-                << "mintaka_state_synch();"
-                ;
-
-            instrumentation_code_after
-                << "mintaka_set_state(__previous_state);"
-                ;
-        }
-
-        taskgroup_source
-            << "{"
-            <<    "nthf_push_taskgroup_scope_();"
-            <<    taskgroup_body.prettyprint()
-            <<    instrumentation_code_before
-            <<    "nthf_task_block_();"
-            <<    instrumentation_code_after
-            <<    "nthf_pop_taskgroup_scope_();"
-            << "}"
-            ;
-
-        AST_t taskgroup_code = taskgroup_source.parse_statement(taskgroup_construct.get_ast(),
-                taskgroup_construct.get_scope_link());
-
-        taskgroup_construct.get_ast().replace(taskgroup_code);
-    }
-
-    Source OpenMPTransform::get_task_block_code()
-    {
-        Source task_block_code;
-        Source instrumentation_task_block_before, instrumentation_task_block_after;
-
-        if (instrumentation_requested())
-        {
-            instrumentation_task_block_before
-                << "{"
-                << "   int __previous_state = mintaka_get_state();"
-                << "   mintaka_state_synch();"
-                ;
-
-            instrumentation_task_block_after
-                << "   mintaka_set_state(__previous_state);"
-                << "}"
-                ;
-        }
-
-        task_block_code
-            << instrumentation_task_block_before
-            << "nthf_task_block_();"
-            << instrumentation_task_block_after
-            ;
-
-        return task_block_code;
-    }
-
-    AST_t OpenMPTransform::get_outline_task(
-            FunctionDefinition function_definition,
-            Source outlined_function_name,
-            Statement construct_body,
-            ReplaceIdExpression replace_references,
-            ObjectList<ParameterInfo> parameter_info_list,
-            ObjectList<IdExpression> local_references
-            )
-    {
-        ObjectList<OpenMP::ReductionIdExpression> reduction_references;
-
-        Source outline_parallel;
-        Source parallel_body;
-
-        outline_parallel = get_outline_common(
-                function_definition,
-                parallel_body, // The body of the outline
-                outlined_function_name,
-                parameter_info_list);
-
-        // Replace references using set "replace_references" over construct body
-        Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
-
-        ObjectList<IdExpression> empty;
-        ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
-        Source private_declarations = get_privatized_declarations(
-                local_references,
-                empty,
-                empty,
-                reduction_empty,
-                empty,
-                parameter_info_list
-                ); 
-
-        Source instrumentation_code_before, instrumentation_code_after;
-
-        instrumentation_outline(instrumentation_code_before,
-                instrumentation_code_after, 
-                function_definition,
-                construct_body);
-
-        Source instrumentation_start_task;
-        if (instrumentation_requested())
-        {
-            instrumentation_start_task
-                << "{"
-                << "   nth_desc * nth;"
-                << "   nth = nthf_self_();"
-                << "   uint32_t id_nth = (((intptr_t)(nth)) >> (32*((sizeof(nth)/4) - 1)));"
-                << "   mintaka_receive(id_nth, 1);"
-                << "   mintaka_state_run();"
-                << "}"
-                ;
-        }
-
-        parallel_body 
-            << private_declarations
-            << instrumentation_code_before
-            << instrumentation_start_task
-            << modified_parallel_body_stmt.prettyprint()
-            << instrumentation_code_after
-            ;
-
-        IdExpression function_name = function_definition.get_function_name();
-        Symbol function_symbol = function_name.get_symbol();
-
-        if (function_symbol.is_member() 
-                && function_name.is_qualified())
-        {
-            Source outline_function_decl = get_outlined_function_name(function_name, /*qualified=*/false);
-
-            Declaration decl = function_name.get_declaration();
-            Scope class_scope = decl.get_scope();
-            Type class_type = function_symbol.get_class_type();
-
-            Source member_declaration = get_member_function_declaration(
-                    function_definition,
-                    decl,
-                    outline_function_decl,
-                    parameter_info_list);
-
-            AST_t member_decl_tree = member_declaration.parse_member(decl.get_ast(), decl.get_scope_link(), class_type);
-
-            decl.get_ast().append(member_decl_tree);
-        }
-
-        AST_t result;
-        result = outline_parallel.parse_global(function_definition.get_ast(), 
-                function_definition.get_scope_link());
-
-        return result;
-    }
-
 }

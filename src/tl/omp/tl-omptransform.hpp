@@ -332,6 +332,12 @@ namespace TL
 
             void transaction_preorder(OpenMP::CustomConstruct protect_construct);
             void transaction_postorder(OpenMP::CustomConstruct protect_construct);
+            
+            // Experimental
+            void task_while_postorder(OpenMP::CustomConstruct while_construct);
+            void task_while_preorder(OpenMP::CustomConstruct while_construct);
+
+            void task_postorder_with_chunk(OpenMP::CustomConstruct task_construct);
 
 			void retry_postorder(OpenMP::CustomConstruct protect_construct);
     };
