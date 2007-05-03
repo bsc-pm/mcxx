@@ -139,4 +139,8 @@ namespace TL
             }
         }
 
+		void FunctionFilterFile::set_inverted(bool b) 
+		{
+			this->_filter_inverted = b;
+		}
 }

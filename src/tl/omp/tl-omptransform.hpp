@@ -332,6 +332,8 @@ namespace TL
 
             void transaction_preorder(OpenMP::CustomConstruct protect_construct);
             void transaction_postorder(OpenMP::CustomConstruct protect_construct);
+
+			void retry_postorder(OpenMP::CustomConstruct protect_construct);
     };
 }
 

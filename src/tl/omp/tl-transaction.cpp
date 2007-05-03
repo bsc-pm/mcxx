@@ -181,16 +181,16 @@ namespace TL
 
                     // get_address(read_array_expression);
 
-                    Expression subscripted_expr = expression.get_subscripted_expression();
+                    // Expression subscripted_expr = expression.get_subscripted_expression();
 
-                    Type subscripted_type = subscripted_expr.get_type();
+                    // Type subscripted_type = subscripted_expr.get_type();
 
-                    if (!subscripted_type.is_valid())
-                    {
-                        std::cerr << "Could not compute the type of the subscripted expression" 
-                            << "'" << expression.prettyprint() << "'" << std::endl;
-                    }
-                    else if (subscripted_type.is_pointer())
+                    // if (!subscripted_type.is_valid())
+                    // {
+                    //     std::cerr << "Could not compute the type of the subscripted expression" 
+                    //         << "'" << expression.prettyprint() << "'" << std::endl;
+                    // }
+                    // else if (subscripted_type.is_pointer())
                     {
                         replace_expression(expression.get_subscripted_expression());
                         replace_expression(expression.get_subscript_expression());
@@ -203,25 +203,25 @@ namespace TL
                             << ") )"
                             ;
                     }
-                    else if (subscripted_type.is_array())
-                    {
-                        get_address(expression.get_subscripted_expression());
-                        replace_expression(expression.get_subscript_expression());
+                    // else if (subscripted_type.is_array())
+                    // {
+                    //     get_address(expression.get_subscripted_expression());
+                    //     replace_expression(expression.get_subscript_expression());
 
-                        read_expression
-                            << "( *read(__t, "
-                            << "*(" << expression.get_subscripted_expression().prettyprint() << ")"
-                            << " + "
-                            << expression.get_subscript_expression().prettyprint()
-                            << ") )"
-                            ;
-                    }
-                    else
-                    {
-                        std::cerr << "The type of subscripted expression '" << expression.prettyprint() << "'"
-                            << " is neither a pointer nor an array ?. Skipping" 
-                            << std::endl;
-                    }
+                    //     read_expression
+                    //         << "( *read(__t, "
+                    //         << "*(" << expression.get_subscripted_expression().prettyprint() << ")"
+                    //         << " + "
+                    //         << expression.get_subscript_expression().prettyprint()
+                    //         << ") )"
+                    //         ;
+                    // }
+                    // else
+                    // {
+                    //     std::cerr << "The type of subscripted expression '" << expression.prettyprint() << "'"
+                    //         << " is neither a pointer nor an array ?. Skipping" 
+                    //         << std::endl;
+                    // }
 
 
                     //read_expression
@@ -715,11 +715,49 @@ namespace TL
 
         if (converted_function.is_defined())
         {
+			Source return_from_function;
             replaced_code
                 << "{"
                 <<         protect_statement.prettyprint()
+				<<         return_from_function
                 << "}"
                 ;
+
+            FunctionDefinition enclosing_function_def = protect_construct.get_enclosing_function();
+
+            IdExpression function_name = enclosing_function_def.get_function_name();
+            Symbol function_symbol = function_name.get_symbol();
+            Type function_type = function_symbol.get_type();
+
+			if (function_type.returns().is_void())
+			{
+                AST_t node = enclosing_function_def.get_ast();
+                ObjectList<AST_t> functional_declarator = 
+                    node.depth_subtrees(PredicateBool<LANG_IS_FUNCTIONAL_DECLARATOR>(), 
+                            AST_t::NON_RECURSIVE);
+
+                AST_t first_functional_declarator = *(functional_declarator.begin());
+                ObjectList<AST_t> declared_parameters = 
+                    first_functional_declarator.depth_subtrees(
+                            PredicateBool<LANG_IS_DECLARED_PARAMETER>(),
+                            AST_t::NON_RECURSIVE);
+
+                Source cancel_source;
+                {
+                    ObjectList<AST_t>::iterator it = declared_parameters.begin();
+					// Skip the first one if the converted_function clause
+					// was defined
+					it++;
+                    for (; it != declared_parameters.end();
+                            it++)
+                    {
+                        AST_t declared_name = it->get_attribute(LANG_DECLARED_PARAMETER);
+                        return_from_function
+                            << "invalidateAdrInTx(__t, &" << declared_name.prettyprint() << ");"
+                            ;
+                    }
+                }
+			}
         }
         else
         {
@@ -772,4 +810,17 @@ namespace TL
         transaction_nesting--;
     }
 
+    void OpenMPTransform::retry_postorder(OpenMP::CustomConstruct retry_directive)
+	{
+		Source retry_src;
+
+		retry_src
+			<< "retrytx(__t);"
+			;
+
+		AST_t retry_tree = retry_src.parse_statement(retry_directive.get_ast(),
+				retry_directive.get_scope_link());
+
+		retry_directive.get_ast().replace_with(retry_tree);
+	}
 }

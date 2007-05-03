@@ -34,6 +34,8 @@ namespace TL
         public:
             FunctionFilterFile();
             bool match(const std::string& function_name);
+
+			void set_inverted(bool b);
     };
 }
 
