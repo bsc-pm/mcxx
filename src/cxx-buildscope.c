@@ -2775,9 +2775,9 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
         case AST_NEW_DECLARATOR :
             {
                 set_pointer_type(declarator_type, st, ASTSon0(a), decl_context);
-                if (ASTSon0(a) != NULL)
+                if (ASTSon1(a) != NULL)
                 {
-                    build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, 
+                    build_scope_declarator_rec(ASTSon1(a), st, parameters_scope, declarator_type, 
                             gather_info, declarator_name, decl_context);
                 }
                 break;
