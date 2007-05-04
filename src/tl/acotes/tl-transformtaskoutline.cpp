@@ -84,8 +84,15 @@ generate_body
 {
 	std::stringstream ss;
 	
+	// original body
 	Statement task_body= _pragma_custom_construct.get_statement();
-	ss << task_body.prettyprint();
+	
+	// replace references
+	Statement modified_body= SymbolTransformHelper::
+			transform_all_to_reference(_task_info->get_references(), task_body);
+	
+	
+	ss << modified_body.prettyprint();
 	
 	return ss.str();
 }
@@ -115,6 +122,8 @@ generate_declares
 	std::stringstream ss;
 	
 	ss << SymbolTransformHelper::declare_all(_task_info->get_privates());
+	ss << SymbolTransformHelper::
+			declare_reference_all(_task_info->get_references());
 	
 	return ss.str();
 }
@@ -152,14 +161,10 @@ generate_outline
 			<< "{"
 			<<   MintakaTransformHelper::initialize_task(_task_info)
 			<<   generate_declares()
-			<<   generate_waits()
-			<<   "while (" << generate_eos() << ")"
+			<<   "while (" << generate_pops_expression() << ")"
 			<<   "{"
-			<<     generate_peeks()
 			<<     generate_body()
 			<<     generate_pushes()
-			<<     generate_pops()
-			<<     generate_waits()
 			<<   "}"
 			<<   generate_closes()
 			<<   MintakaTransformHelper::finalize_task(_task_info)
@@ -195,6 +200,21 @@ generate_pops
 	
 	ss << StreamTransformHelper::
 			pop_all(_task_info->get_loop_pop_istream_set());
+	
+	return ss.str();
+}
+
+// generate_pops_expression ----------------------------------------------------
+std::string 
+TransformTaskOutline::
+generate_pops_expression
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	ss << StreamTransformHelper::
+			pop_all_expression(_task_info->get_loop_pop_istream_set());
 	
 	return ss.str();
 }

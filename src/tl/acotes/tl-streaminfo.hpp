@@ -43,6 +43,7 @@ namespace TL
 		const std::string& get_istream_name(void) const;
 		const std::string& get_name(void) const;
 		const std::string& get_ostream_name(void) const;
+		const Symbol&      get_symbol(void) const;
 		const std::string& get_symbol_name(void) const;
 		TaskInfo*          get_task_info_istream(void) const;
 		TaskInfo*          get_task_info_ostream(void) const;

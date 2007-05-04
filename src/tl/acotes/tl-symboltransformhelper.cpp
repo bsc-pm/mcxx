@@ -25,6 +25,12 @@
 #include <assert.h>
 
 
+#include "tl-ast.hpp"
+#include "tl-langconstruct.hpp"
+#include "tl-scopelink.hpp"
+#include "tl-symbol.hpp"
+
+
 namespace TL
 {
 
@@ -156,6 +162,95 @@ declare_all
 	}
 	
 	return ss.str();
+}
+
+// declare_reference -----------------------------------------------------------
+std::string 
+SymbolTransformHelper::
+declare_reference
+		( const Symbol& symbol
+		)
+{
+	Type type= symbol.get_type();
+	Scope scope= symbol.get_scope();
+	std::string name= symbol.get_name();
+
+	std::stringstream ss;	
+	
+	ss
+			<< type.get_pointer_to().get_declaration(scope, name)
+			<< ";"
+			;
+	
+	return ss.str();
+}
+
+// declare_reference_all -------------------------------------------------------
+std::string 
+SymbolTransformHelper::
+declare_reference_all
+		( const std::set<Symbol>& symbols
+		)
+{
+	std::stringstream ss;	
+	
+	for		( std::set<Symbol>::iterator it= symbols.begin()
+			; it != symbols.end()
+			; it++)
+	{
+		Symbol symbol= *it;
+		
+		ss << declare_reference(symbol);
+	}
+	
+	return ss.str();
+}
+
+// transform_to_reference ------------------------------------------------------
+Statement 
+SymbolTransformHelper::
+transform_to_reference
+		( const Symbol& symbol
+		, const Statement& fake
+		)
+{
+	ReplaceIdExpression replacer;
+
+	Statement body= fake;
+	AST_t body_ast = body.get_ast();
+	ScopeLink body_scope_link = body.get_scope_link();	
+	Source reference_src= std::string("(*") + symbol.get_name() + ")";
+	AST_t reference_ast= reference_src.
+			parse_expression(body_ast, body_scope_link);
+	
+	replacer.add_replacement(symbol, reference_ast);
+
+	Statement modified_body = replacer.replace(body);
+	
+	return modified_body;	
+}
+
+// transform_all_to_reference --------------------------------------------------
+Statement 
+SymbolTransformHelper::
+transform_all_to_reference
+		( const std::set<Symbol>& symbols
+		, const Statement& body
+		)
+{
+	Statement replaced= body;
+	
+	for 	( std::set<Symbol>::iterator it= symbols.begin()
+			; it != symbols.end()
+			; it++
+			)
+	{
+		Symbol symbol= *it;
+		
+		replaced= transform_to_reference(symbol, replaced);
+	}
+	
+	return replaced;
 }
 
 // SymbolTransformHelper constructor -------------------------------------------

@@ -80,6 +80,14 @@ get_ostream_name
 	return _ostream_name;
 }
 
+// get_symbol ------------------------------------------------------------------
+const Symbol&      
+StreamInfo::
+get_symbol(void) const
+{
+	return _symbol;
+}
+
 // get_symbol_name -------------------------------------------------------------
 const std::string&
 StreamInfo::

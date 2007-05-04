@@ -50,6 +50,7 @@ namespace TL
 		void                         add_output(const Symbol& symbol);
 		void                         add_ostream(StreamInfo* os);
 		void                         add_private(const Symbol& symbol);
+		void                         add_reference(const Symbol& symbol);
 		void                         add_replace_pop_istream(StreamInfo* is);
 		void                         add_replace_push_ostream(StreamInfo* os);
 		void                         add_task_info_child(TaskInfo* child); 
@@ -62,6 +63,7 @@ namespace TL
 		const std::set<StreamInfo*>& get_loop_close_ostream_set(void) const;
 		const std::string&           get_name(void) const;
 		const std::set<Symbol>&      get_privates(void) const;
+		const std::set<Symbol>&      get_references(void) const;
 		const std::set<StreamInfo*>& get_replace_pop_istream_set(void) const;
 		const std::set<StreamInfo*>& get_replace_push_ostream_set(void) const;
 		const std::list<TaskInfo*>&  get_task_info_children(void) const;
@@ -70,6 +72,8 @@ namespace TL
 		bool                         has_istream(StreamInfo* is) const;
 		bool                         has_ostream(StreamInfo* os) const;		
 		bool                         has_task_info_children(void) const;
+		bool                         is_private(const Symbol& symbol) const;
+		bool                         is_reference(const Symbol& symbol) const;
 
 	private:
 		std::string           _name;
@@ -84,6 +88,7 @@ namespace TL
 		std::set<Symbol>      _outputs;
 		std::set<StreamInfo*> _ostream_set;
 		std::set<Symbol>      _privates;
+		std::set<Symbol>      _references;
 		std::set<StreamInfo*> _replace_pop_istream_set;
 		std::set<StreamInfo*> _replace_push_ostream_set;
 		std::list<TaskInfo*>  _task_info_children;

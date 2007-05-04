@@ -26,10 +26,13 @@
 #include <set>
 #include <string>
 
-#include "tl-symbol.hpp"
 
 namespace TL
 {
+	class Symbol;
+	class AST_t;
+	class ScopeLink;
+	class Statement;
 
 class SymbolTransformHelper
 {
@@ -45,6 +48,13 @@ public:
 
 	static std::string declare(const Symbol& symbol);
 	static std::string declare_all(const std::set<Symbol>& symbols);
+	static std::string declare_reference(const Symbol& symbol);
+	static std::string declare_reference_all(const std::set<Symbol>& symbols);
+	
+	static Statement transform_to_reference(const Symbol& symbol, const 
+			Statement& body);
+	static Statement transform_all_to_reference(const std::set<Symbol>& 
+			symbols, const Statement& body);
 	
 private:
 	SymbolTransformHelper();

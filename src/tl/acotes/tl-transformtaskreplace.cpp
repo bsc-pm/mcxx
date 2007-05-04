@@ -25,6 +25,7 @@
 #include <assert.h>
 
 #include "tl-streamtransformhelper.hpp"
+#include "tl-streaminfo.hpp"
 #include "tl-taskinfo.hpp"
 
 namespace TL
@@ -76,7 +77,8 @@ generate_replace_popes
 			)
 	{
 		StreamInfo* stream= *it;
-		ss << StreamTransformHelper::wait_and_pop(stream);
+		
+		ss << StreamTransformHelper::pop(stream);
 	}
 	
 	return ss.str();
@@ -100,7 +102,8 @@ generate_replace_pushes
 			)
 	{
 		StreamInfo* stream= *it;
-		ss << StreamTransformHelper::wait_and_push(stream);
+
+		ss << StreamTransformHelper::push(stream);
 	}
 	
 	return ss.str();

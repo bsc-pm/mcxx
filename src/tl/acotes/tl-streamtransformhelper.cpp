@@ -367,14 +367,12 @@ peek
 	std::stringstream ss;
 	
 	ss
-		<< "memcpy"
-		<< "( &(" << s->get_symbol_name() << ")"
-		<< ", istream_peek"
+		<< s->get_symbol_name()
+		<< "= "
+		<< "istream_peek"
 		<<    "( " << s->get_istream_name()
 		<<    ", 0"
 		<<    ")"
-		<< ", sizeof("<< s->get_symbol_name() <<")"
-		<< ")"
 		<< ";"
 		;
 	
@@ -402,6 +400,51 @@ peek_all
 	return ss.str();
 }
 
+// peek_value ------------------------------------------------------------------
+std::string 
+StreamTransformHelper::
+peek_value
+		( StreamInfo* s
+		)
+{
+	std::stringstream ss;
+	
+	ss
+		<< "memcpy"
+		<< "( &(" << s->get_symbol_name() << ")"
+		<< ", istream_peek"
+		<<    "( " << s->get_istream_name()
+		<<    ", 0"
+		<<    ")"
+		<< ", sizeof("<< s->get_symbol_name() <<")"
+		<< ")"
+		<< ";"
+		;
+	
+	return ss.str();
+}
+
+// peek_value_all --------------------------------------------------------------
+std::string 
+StreamTransformHelper::
+peek_value_all
+		( const std::set<StreamInfo*>& streams
+		)
+{
+	std::stringstream ss;
+	
+	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+			; it != streams.end()
+			; it++
+			)
+	{
+		StreamInfo* s= *it;
+		ss << peek_value(s);
+	} 
+	
+	return ss.str();
+}
+
 // pop -------------------------------------------------------------------------
 std::string 
 StreamTransformHelper::
@@ -412,10 +455,7 @@ pop
 	std::stringstream ss;
 	
 	ss
-		<< "istream_pop"
-		<< "( " << s->get_istream_name()
-		<< ", 1"
-		<< ")"
+		<< pop_expression(s)
 		<< ";"
 		;
 	
@@ -443,6 +483,49 @@ pop_all
 	return ss.str();
 }
 
+// pop_all_expression ----------------------------------------------------------
+std::string 
+StreamTransformHelper::
+pop_all_expression
+		( const std::set<StreamInfo*>& streams
+		)
+{
+	std::stringstream ss;
+	
+	ss << "(";
+	ss << "1";
+	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+			; it != streams.end()
+			; it++
+			)
+	{
+		StreamInfo* s= *it;
+		ss << " && " << pop_expression(s);
+	} 
+	ss << ")";
+	
+	return ss.str();
+}
+
+// pop_expression --------------------------------------------------------------
+std::string 
+StreamTransformHelper::
+pop_expression
+		( StreamInfo* s
+		)
+{
+	std::stringstream ss;
+	
+	ss
+		<< "istream_pop"
+		<< "( " << s->get_istream_name()
+		<< ", &" << s->get_symbol_name()
+		<< ")"
+		;
+	
+	return ss.str();
+}
+
 // push ------------------------------------------------------------------------
 std::string 
 StreamTransformHelper::
@@ -463,7 +546,7 @@ push
 	return ss.str();
 }
 
-// push_all ---------------------------------------------------------------------
+// push_all --------------------------------------------------------------------
 std::string 
 StreamTransformHelper::
 push_all
@@ -479,6 +562,47 @@ push_all
 	{
 		StreamInfo* s= *it;
 		ss << push(s);
+	} 
+	
+	return ss.str();
+}
+
+// push_reference --------------------------------------------------------------
+std::string 
+StreamTransformHelper::
+push_reference
+		( StreamInfo* s
+		)
+{
+	std::stringstream ss;
+	
+	ss
+		<< "ostream_push"
+		<< "( " << s->get_ostream_name()
+		<< ", " << s->get_symbol_name()
+		<< ")"
+		<< ";"
+		;
+	
+	return ss.str();
+}
+
+// push_reference_all ----------------------------------------------------------
+std::string 
+StreamTransformHelper::
+push_reference_all
+		( const std::set<StreamInfo*>& streams
+		)
+{
+	std::stringstream ss;
+	
+	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+			; it != streams.end()
+			; it++
+			)
+	{
+		StreamInfo* s= *it;
+		ss << push_reference(s);
 	} 
 	
 	return ss.str();
@@ -566,6 +690,7 @@ wait_ostream_all
 	return ss.str();
 }
 
+#if 0
 // wait_and_pop ----------------------------------------------------------------
 std::string 
 StreamTransformHelper::
@@ -604,6 +729,49 @@ wait_and_pop_all
 	{
 		StreamInfo* s= *it;
 		ss << wait_and_pop(s);
+	} 
+	
+	return ss.str();
+}
+
+// wait_and_pop_value ----------------------------------------------------------
+std::string 
+StreamTransformHelper::
+wait_and_pop_value
+		( StreamInfo* s
+		)
+{
+	std::stringstream ss;
+	
+	ss
+		<< "{"
+		<<   wait_istream(s)
+		//<<   "if (!" << eos(s) << ") {"
+		<<     peek_value(s)
+		<<     pop(s)
+		//<<   "}"
+		<< "}"
+		;
+	
+	return ss.str();
+}
+
+// wait_and_pop_value_all ------------------------------------------------------
+std::string 
+StreamTransformHelper::
+wait_and_pop_value_all
+		( const std::set<StreamInfo*>& streams
+		)
+{
+	std::stringstream ss;
+	
+	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+			; it != streams.end()
+			; it++
+			)
+	{
+		StreamInfo* s= *it;
+		ss << wait_and_pop_value(s);
 	} 
 	
 	return ss.str();
@@ -648,6 +816,47 @@ wait_and_push_all
 	
 	return ss.str();
 }
+
+// wait_and_push_value ---------------------------------------------------------
+std::string 
+StreamTransformHelper::
+wait_and_push_value
+		( StreamInfo* s
+		)
+{
+	std::stringstream ss;
+	
+	ss
+		<< "{"
+		<<   wait_ostream(s)
+		<<   push_value(s)
+		<< "}"
+		;
+	
+	return ss.str();
+}
+
+// wait_and_push_value_all -----------------------------------------------------
+std::string 
+StreamTransformHelper::
+wait_and_push_value_all
+		( const std::set<StreamInfo*>& streams
+		)
+{
+	std::stringstream ss;
+	
+	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+			; it != streams.end()
+			; it++
+			)
+	{
+		StreamInfo* s= *it;
+		ss << wait_and_push_value(s);
+	} 
+	
+	return ss.str();
+}
+#endif
 
 // StreamTransformHelper constructor -------------------------------------------
 StreamTransformHelper::

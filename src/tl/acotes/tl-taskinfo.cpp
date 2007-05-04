@@ -174,7 +174,21 @@ add_private
 		( const Symbol& symbol
 		)
 {
+	assert(!is_reference(symbol));
+	
 	_privates.insert(symbol);
+}
+
+// add_reference ---------------------------------------------------------------
+void     
+TaskInfo::                    
+add_reference
+		( const Symbol& symbol
+		)
+{
+	assert(!is_private(symbol));
+	
+	_references.insert(symbol);
 }
 
 // add_replace_pop_istream -----------------------------------------------------
@@ -321,6 +335,16 @@ get_privates
 	return _privates;
 }
 
+// get_references --------------------------------------------------------------
+const std::set<Symbol>&      
+TaskInfo::
+get_references
+		( void
+		) const
+{
+	return _references;
+}
+
 // get_replace_pop_istream_set -------------------------------------------------
 const std::set<StreamInfo*>& 
 TaskInfo::
@@ -401,6 +425,30 @@ has_ostream
 	assert(os);
 	
 	bool in= _ostream_set.find(os) != _ostream_set.end();
+	
+	return in;
+}
+
+// is_private ------------------------------------------------------------------
+bool
+TaskInfo::
+is_private
+		( const Symbol& symbol
+		) const
+{
+	bool in= _privates.find(symbol) != _privates.end();
+	
+	return in;
+}
+
+// is_reference ----------------------------------------------------------------
+bool
+TaskInfo::
+is_reference
+		( const Symbol& symbol
+		) const
+{
+	bool in= _references.find(symbol) != _references.end();
 	
 	return in;
 }
