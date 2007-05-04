@@ -1164,12 +1164,15 @@ static void link_objects(void)
 static void terminating_signal_handler(int sig)
 {
     signal(sig, SIG_DFL);
+
+    fprintf(stderr, "Signal handler called (signal=%d). Exiting.\n", sig);
     // Do cleanup that will not be done
     // because of SIGSEGV
 
     // If this routine SIGSEGVs exact behaviour
     // depends on the libc blocking this handler
     // or disabling it
+    signal(SIGSEGV, SIG_DFL);
     temporal_files_cleanup();
 
     // Reraise the signal
