@@ -39,8 +39,8 @@ namespace TL
                     // original_array << expression.get_subscripted_expression().prettyprint();
 
                     // Expression read_array_expression(
-                    // 		original_array.parse_expression(expression.get_ast(),
-                    // 			expression.get_scope_link()), expression.get_scope_link());
+                    //      original_array.parse_expression(expression.get_ast(),
+                    //          expression.get_scope_link()), expression.get_scope_link());
 
                     // get_address(read_array_expression);
 
@@ -120,6 +120,10 @@ namespace TL
                 {
                     std::cerr << "Lvalue not valid '" << expression.prettyprint() << std::endl;
                 }
+                else if (expression.is_casting())
+                {
+                    get_address(expression.get_casted_expression());
+                }
                 // Other expressions (function calls and literals)
                 else
                 {
@@ -134,50 +138,58 @@ namespace TL
             void replace_expression(Expression expression, bool replace_outermost = true)
             {
                 Source read_expression;
-                // e1 = e2 => write(__t, ADDR(e1), READ(e2))
+                // e1 = e2 => __stm_write(__t, ADDR(e1), READ(e2))
                 if (expression.is_assignment())
                 {
                     get_address(expression.get_first_operand());
                     replace_expression(expression.get_second_operand());
 
                     read_expression
-                        << "write(__t, "
+                        << "__stm_write(__t, "
                         << expression.get_first_operand().prettyprint()
                         << ","
                         << expression.get_second_operand().prettyprint()
                         << ")"
                         ;
                 }
-                // var => *read(__t, &var)
+                // var => *__stm_read(__t, &var)
                 else if (expression.is_id_expression())
                 {
+                    IdExpression id_expr = expression.get_id_expression();
+                    Symbol sym = id_expr.get_symbol();
+                    Type type = sym.get_type();
+
+                    // For real function nothing has to be done
+                    if (type.is_function())
+                        return;
+
                     read_expression
-                        << "*read(__t, "
+                        << "*__stm_read(__t, "
                         << "&" << expression.prettyprint()
                         << ")"
                         ;
                 }
-                // *e =>  *read(__t, READ(e))
+                // *e =>  *__stm_read(__t, READ(e))
                 else if (expression.is_unary_operation()
                         && expression.get_operation_kind() == Expression::DERREFERENCE)
                 {
                     replace_expression(expression.get_unary_operand());
 
                     read_expression
-                        << "*read(__t, "
+                        << "*__stm_read(__t, "
                         << expression.get_unary_operand().prettyprint()
                         << ")"
                         ;
                 }
-                // e1[e2] => *read(__t, READ(e1) + READ(e2))
+                // e1[e2] => *__stm_read(__t, READ(e1) + READ(e2))
                 else if (expression.is_array_subscript())
                 {
                     // Source original_array;
                     // original_array << expression.get_subscripted_expression().prettyprint();
 
                     // Expression read_array_expression(
-                    // 		original_array.parse_expression(expression.get_ast(),
-                    // 			expression.get_scope_link()), expression.get_scope_link());
+                    //      original_array.parse_expression(expression.get_ast(),
+                    //          expression.get_scope_link()), expression.get_scope_link());
 
                     // get_address(read_array_expression);
 
@@ -196,7 +208,7 @@ namespace TL
                         replace_expression(expression.get_subscript_expression());
 
                         read_expression
-                            << "( *read(__t, "
+                            << "( *__stm_read(__t, "
                             << expression.get_subscripted_expression().prettyprint()
                             << " + "
                             << expression.get_subscript_expression().prettyprint()
@@ -209,7 +221,7 @@ namespace TL
                     //     replace_expression(expression.get_subscript_expression());
 
                     //     read_expression
-                    //         << "( *read(__t, "
+                    //         << "( *__stm_read(__t, "
                     //         << "*(" << expression.get_subscripted_expression().prettyprint() << ")"
                     //         << " + "
                     //         << expression.get_subscript_expression().prettyprint()
@@ -227,7 +239,7 @@ namespace TL
                     //read_expression
                     //    << "((void*)&(" << original_array << ") == ((void*)&(" << original_array << "[0])) ? "
                     //    << "*read (__t, *(" << read_array_expression.prettyprint() << ") + " << expression.get_subscript_expression().prettyprint()  << ")"
-                    //    << ": *read(__t, "
+                    //    << ": *__stm_read(__t, "
                     //    << expression.get_subscripted_expression().prettyprint()
                     //    << " + "
                     //    << expression.get_subscript_expression().prettyprint()
@@ -235,13 +247,13 @@ namespace TL
                     //    << ")"
                     //    ;
                 }
-                // e1->e2 => *read(__t, (READ(e1))->e2)
+                // e1->e2 => *__stm_read(__t, (READ(e1))->e2)
                 else if (expression.is_pointer_member_access())
                 {
                     replace_expression(expression.get_accessed_entity());
 
                     read_expression
-                        << "*read(__t, "
+                        << "*__stm_read(__t, "
                         << "&((" << expression.get_accessed_entity().prettyprint() << ")"
                         << " -> "
                         << expression.get_accessed_member().prettyprint()
@@ -249,7 +261,7 @@ namespace TL
                         << ")"
                         ;
                 }
-                // (*e1).e2 => *read(__t, (READ(e1))->e2)
+                // (*e1).e2 => *__stm_read(__t, (READ(e1))->e2)
                 else if (expression.is_member_access()
                         && expression.get_accessed_entity().is_unary_operation()
                         && (expression.get_accessed_entity().get_operation_kind() 
@@ -259,7 +271,7 @@ namespace TL
                     replace_expression(accessed_entity);
 
                     read_expression
-                        << "*read(__t, "
+                        << "*__stm_read(__t, "
                         << "&((" << accessed_entity.prettyprint() << ")"
                         << " -> "
                         << expression.get_accessed_member().prettyprint()
@@ -267,13 +279,13 @@ namespace TL
                         << ")"
                         ;
                 }
-                // e1.e2 => *read(__t, (ADDR(e1))->e2)
+                // e1.e2 => *__stm_read(__t, (ADDR(e1))->e2)
                 else if (expression.is_member_access())
                 {
                     get_address(expression.get_accessed_entity());
 
                     read_expression
-                        << "*read(__t, "
+                        << "*__stm_read(__t, "
                         << "&((" << expression.get_accessed_entity().prettyprint() << ")"
                         << " -> "
                         << expression.get_accessed_member().prettyprint()
@@ -403,6 +415,7 @@ namespace TL
                 }
                 else if (expression.is_function_call())
                 {
+                    bool wrapped_function = false;
                     Expression called_expression = expression.get_called_expression();
                     if (called_expression.is_id_expression())
                     {
@@ -412,11 +425,14 @@ namespace TL
                         bool is_replaced_function = 
                             !_filter_file.match(called_expression.prettyprint());
 
-                        if (is_replaced_function)
+                        Symbol function_symbol = called_expression.
+                            get_id_expression().get_symbol();
+                        Type function_type = function_symbol.get_type();
+
+                        if (is_replaced_function && function_type.is_function())
                         {
-                            Symbol function_symbol = called_expression.
-                                get_id_expression().get_symbol();
-                            Type function_type = function_symbol.get_type();
+                            wrapped_function = true;
+
                             Type return_type = function_type.returns();
                             FunctionDefinition function_def = expression.get_enclosing_function();
 
@@ -425,7 +441,7 @@ namespace TL
                             declare_header 
                                 << return_type.get_declaration(function_def.get_scope(), "") 
                                 << " "
-                                << "__stm_" << called_expression.prettyprint() 
+                                << "__stm_" << called_expression.prettyprint() << "_"
                                 << "(" << stm_parameters << ");"
                                 ;
 
@@ -458,14 +474,16 @@ namespace TL
                             expression.get_ast().prepend_sibling_function(stm_function_decl);
 
                             replace_call
-                                << "__stm_" << called_expression.prettyprint() 
+                                << "__stm_" << called_expression.prettyprint() << "_"
                                 << "(" << replace_args << ")"
                                 ;
                         }
                         else
                         {
+                            replace_expression(called_expression);
+
                             replace_call
-                                << called_expression.prettyprint() 
+                                << "(" << called_expression.prettyprint() << ")"
                                 << "(" << replace_args << ")"
                                 ;
                         }
@@ -507,13 +525,20 @@ namespace TL
                             replace_expression(*it);
                         }
 
+
                         expression.get_ast().replace_with(replace_call_tree);
                     }
 
                     return;
                 }
+                else if (expression.is_casting())
+                {
+                    replace_expression(expression.get_casted_expression());
+                    // Don't do anything else
+                    return;
+                } 
                 // Other expressions (function calls and literals)
-                else
+                else 
                 {
                     // Don't do anything else
                     return;
@@ -715,11 +740,11 @@ namespace TL
 
         if (converted_function.is_defined())
         {
-			Source return_from_function;
+            Source return_from_function;
             replaced_code
                 << "{"
                 <<         protect_statement.prettyprint()
-				<<         return_from_function
+                <<         return_from_function
                 << "}"
                 ;
 
@@ -729,8 +754,8 @@ namespace TL
             Symbol function_symbol = function_name.get_symbol();
             Type function_type = function_symbol.get_type();
 
-			if (function_type.returns().is_void())
-			{
+            if (function_type.returns().is_void())
+            {
                 AST_t node = enclosing_function_def.get_ast();
                 ObjectList<AST_t> functional_declarator = 
                     node.depth_subtrees(PredicateBool<LANG_IS_FUNCTIONAL_DECLARATOR>(), 
@@ -745,9 +770,9 @@ namespace TL
                 Source cancel_source;
                 {
                     ObjectList<AST_t>::iterator it = declared_parameters.begin();
-					// Skip the first one if the converted_function clause
-					// was defined
-					it++;
+                    // Skip the first one if the converted_function clause
+                    // was defined
+                    it++;
                     for (; it != declared_parameters.end();
                             it++)
                     {
@@ -757,7 +782,7 @@ namespace TL
                             ;
                     }
                 }
-			}
+            }
         }
         else
         {
@@ -811,16 +836,16 @@ namespace TL
     }
 
     void OpenMPTransform::retry_postorder(OpenMP::CustomConstruct retry_directive)
-	{
-		Source retry_src;
+    {
+        Source retry_src;
 
-		retry_src
-			<< "retrytx(__t);"
-			;
+        retry_src
+            << "retrytx(__t);"
+            ;
 
-		AST_t retry_tree = retry_src.parse_statement(retry_directive.get_ast(),
-				retry_directive.get_scope_link());
+        AST_t retry_tree = retry_src.parse_statement(retry_directive.get_ast(),
+                retry_directive.get_scope_link());
 
-		retry_directive.get_ast().replace_with(retry_tree);
-	}
+        retry_directive.get_ast().replace_with(retry_tree);
+    }
 }

@@ -56,7 +56,7 @@ namespace TL
 				stm_function_source
 					<< return_type.get_declaration(function_def.get_scope(), "") 
 					<< " "
-					<< "__stm_" << function_name.prettyprint() << "(" << stm_parameters << ")"
+					<< "__stm_" << function_name.prettyprint() << "_ (" << stm_parameters << ")"
 					<< "{\n"
 					<< "#pragma omp transaction converted_function(1)\n"
 					<<    stm_function_body
