@@ -641,21 +641,25 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
                 ERROR_CONDITION((entry_list == NULL), "Symbol '%s' just declared has not been found in the scope",
                         prettyprint_in_buffer(declarator_name));
 
-                // The last entry will hold our symbol, no need to look for it in the list
-                ERROR_CONDITION((entry_list->entry->defined 
-                            && entry_list->entry->kind != SK_TYPEDEF
-                            && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION)),
-                        "Symbol '%s' in %s has already been defined", prettyprint_in_buffer(declarator_name),
-                        node_information(declarator_name));
-
-                DEBUG_CODE()
+                CXX_LANGUAGE()
                 {
-                    fprintf(stderr, "Defining symbol '");
-                    prettyprint(stderr, declarator_name);
-                    fprintf(stderr, "'\n");
+                    ERROR_CONDITION((entry_list->entry->defined 
+                                && entry_list->entry->kind != SK_TYPEDEF
+                                && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION)),
+                            "Symbol '%s' in %s has already been defined", prettyprint_in_buffer(declarator_name),
+                            node_information(declarator_name));
                 }
 
-                entry_list->entry->defined = 1;
+                CXX_LANGUAGE()
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Defining symbol '");
+                        prettyprint(stderr, declarator_name);
+                        fprintf(stderr, "'\n");
+                    }
+                    entry_list->entry->defined = 1;
+                }
 
                 if (initializer != NULL)
                 {

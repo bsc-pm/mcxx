@@ -13,6 +13,8 @@ MCXX_BEGIN_DECLS
  * Only implemented for C
  *
  */
+type_t *integer_type(void);
+type_t *unsigned_integer_type(void);
 
 type_t *compute_expression_type(AST expr, scope_t *sc, decl_context_t decl_context);
 

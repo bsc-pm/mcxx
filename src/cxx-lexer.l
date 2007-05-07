@@ -823,8 +823,10 @@ runtime {
 "return"        { parse_token_text(); return RETURN; }
 
  /* A.2.41 */
+ /*!if CPLUSPLUS*/
 "false"         { parse_token_text(); return BOOLEAN_LITERAL; }
 "true"          { parse_token_text(); return BOOLEAN_LITERAL; }
+ /*!endif*/
 
  /* GNU Extensions */
 "__builtin_va_arg" { parse_token_text(); return BUILTIN_VA_ARG; }

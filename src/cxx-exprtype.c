@@ -23,10 +23,7 @@ static type_t *decimal_literal_type(AST expr);
 static type_t *character_literal(AST expr);
 static type_t *floating_literal(AST expr);
 static type_t *string_literal(AST expr);
-
 static type_t *pointer_to_type(type_t* t);
-static type_t *integer_type(void);
-static type_t *unsigned_integer_type(void);
 
 static
 type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_context)
@@ -362,8 +359,7 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
 
 
 // Signed
-
-static type_t *integer_type(void)
+type_t *integer_type(void)
 {
     static type_t* result = NULL;
     if (result == NULL)
@@ -420,7 +416,7 @@ static type_t *short_integer_type(void)
 
 // Unsigned
 
-static type_t *unsigned_integer_type(void)
+type_t *unsigned_integer_type(void)
 {
     static type_t* result = NULL;
     if (result == NULL)

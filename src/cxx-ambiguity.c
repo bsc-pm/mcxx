@@ -1165,7 +1165,7 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             {
                 char result;
                 result = check_for_expression(ASTSon0(expression), st, decl_context);
-                if (result)
+                // if (result)
                 {
                     ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(expression)));

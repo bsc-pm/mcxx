@@ -23,6 +23,7 @@
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
 #include "cxx-scope.h"
+#include "cxx-exprtype.h"
 
 namespace TL
 {
@@ -320,5 +321,11 @@ namespace TL
         type_t* type_info = advance_over_typedefs(_type_info);
         AST expression = type_info->array->array_expr;
         return expression;
+    }
+
+
+    Type Type::get_int_type(void)
+    {
+        return Type(integer_type());
     }
 }

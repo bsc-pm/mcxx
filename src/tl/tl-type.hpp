@@ -75,6 +75,8 @@ namespace TL
                 return true;
             }
 
+            static Type get_int_type(void);
+
             std::string get_simple_declaration(Scope sc, const std::string& symbol_name) const;
             std::string get_declaration(Scope sc, const std::string& symbol_name) const;
 
