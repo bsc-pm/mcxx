@@ -94,7 +94,7 @@ namespace TL
         if (!default_clause.is_defined())
         {
             // By default capturevalue
-            default_task_data_sharing = DK_TASK_CAPTUREADDRESS;
+            default_task_data_sharing = DK_TASK_CAPTUREVALUE;
         }
         else if (default_clause.is_none())
         {

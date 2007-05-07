@@ -189,6 +189,7 @@ namespace TL
                     ObjectList<IdExpression> local_references
                     );
 
+
             AST_t get_outline_parallel_sections(
                     FunctionDefinition function_definition,
                     Source outlined_function_name, 
@@ -332,14 +333,30 @@ namespace TL
 
             void transaction_preorder(OpenMP::CustomConstruct protect_construct);
             void transaction_postorder(OpenMP::CustomConstruct protect_construct);
+
+			void retry_postorder(OpenMP::CustomConstruct protect_construct);
             
             // Experimental
             void task_while_postorder(OpenMP::CustomConstruct while_construct);
             void task_while_preorder(OpenMP::CustomConstruct while_construct);
 
             void task_postorder_with_chunk(OpenMP::CustomConstruct task_construct);
+            AST_t get_outline_task_chunked(
+                    FunctionDefinition function_definition,
+                    Source outlined_function_name,
+                    Statement construct_body,
+                    ReplaceIdExpression replace_references,
+                    ObjectList<ParameterInfo> parameter_info_list,
+                    ObjectList<IdExpression> local_references
+                    );
 
-			void retry_postorder(OpenMP::CustomConstruct protect_construct);
+            ReplaceIdExpression set_replacements_chunk(FunctionDefinition function_definition,
+                    OpenMP::Directive directive,
+                    Statement construct_body,
+                    ObjectList<IdExpression>& capturaddress_references,
+                    ObjectList<IdExpression>& capturvalue_references,
+                    ObjectList<IdExpression>& local_references,
+                    ObjectList<ParameterInfo>& parameter_info);
     };
 }
 

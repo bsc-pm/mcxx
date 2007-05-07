@@ -271,43 +271,39 @@ namespace TL
         ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
         ObjectList<ParameterInfo> parameter_info_list;
 
-        ObjectList<IdExpression> captured_references;
-        captured_references.append(captureaddress_references);
-        captured_references.append(capturevalue_references);
+        // Add the chunking_parameter
+        Source nth_chunk_source;
+        nth_chunk_source << "_nth_chunk";
+        AST_t nth_chunk_tree = nth_chunk_source.parse_expression(task_construct.get_ast(),
+                task_construct.get_scope_link());
+
+        Expression nth_chunk_expr(nth_chunk_tree, task_construct.get_scope_link());
+        IdExpression nth_chunk_id_expression = nth_chunk_expr.get_id_expression();
+
+        ParameterInfo chunking_parameter("_nth_chunk", 
+                task_id.get_source() + "_chunk",
+                nth_chunk_id_expression, 
+                Type::get_int_type().get_pointer_to(),
+                ParameterInfo::BY_VALUE);
+        parameter_info_list.append(chunking_parameter);
+
+        // ObjectList<IdExpression> captured_references;
+        // captured_references.append(captureaddress_references);
+        // captured_references.append(capturevalue_references);
 
         ReplaceIdExpression replace_references  = 
-            set_replacements(function_definition,
+            set_replacements_chunk(function_definition,
                     directive,
                     construct_body,
-                    captured_references, // Captured entities (captureaddress and capturevalue)
-                    local_references, // Private entities (local clause)
-                    empty,
-                    empty,
-                    reduction_empty,
-                    reduction_empty,
-                    empty,
-                    empty,
-                    parameter_info_list,
-                    /* all_shared */ true);
+                    captureaddress_references,
+                    capturevalue_references,
+                    local_references, 
+                    parameter_info_list);
 
-        // Fix parameter_info_list
-        // Currently set_replacement assumes that everything will be passed BY_POINTER
-        // for every entity found in capturevalue_references will be set to BY_VALUE
-        //
-        // The proper way should be fixing "set_replacements" one day, but already
-        // takes too much parameters so a more creative approach will be required
-        for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
-                it != parameter_info_list.end();
-                it++)
-        {
-            if (capturevalue_references.contains(it->id_expression, functor(&IdExpression::get_symbol)))
-            {
-                it->kind = ParameterInfo::BY_VALUE;
-            }
-        }
+        // No fixing neede since this set_replacements_chunk is smarter than the original one 
 
         // Get the code of the outline
-        AST_t outline_code  = get_outline_task(
+        AST_t outline_code  = get_outline_task_chunked(
                 function_definition,
                 outlined_function_name, 
                 construct_body,
@@ -360,9 +356,18 @@ namespace TL
             if (it->kind != ParameterInfo::BY_VALUE)
                 continue;
 
-            // Add the size in the vector
-            size_vector << ", sizeof(" << it->id_expression.prettyprint() << ") * (" << task_while_info.chunking << ")"
-                ;
+            if (it == parameter_info_list.begin())
+            {
+                // Chunking parameter
+                size_vector << ", sizeof(int)"
+                    ;
+            }
+            else
+            {
+                // Add the size in the vector
+                size_vector << ", sizeof(" << it->id_expression.prettyprint() << ") * (" << task_while_info.chunking << ")"
+                    ;
+            }
 
             // A reference to the vector
             Source vector_ref;
@@ -371,13 +376,17 @@ namespace TL
 
             // First an address with the size must be passed
             task_parameter_list.append_with_separator(vector_ref.get_source(), ",");
-            task_parameter_list.append_with_separator("&" + it->id_expression.prettyprint(), ",");
+            task_parameter_list.append_with_separator(it->argument_name, ",");
+            // task_parameter_list.append_with_separator("&" + it->id_expression.prettyprint(), ",");
 
             CXX_LANGUAGE()
             {
                 Symbol sym = it->id_expression.get_symbol();
-                Type type = sym.get_type();
 
+                if (!sym.is_valid())
+                    continue;
+
+                Type type = sym.get_type();
                 if (type.is_class())
                 {
                     copy_construction_needed = true;
@@ -437,8 +446,10 @@ namespace TL
             if (it->kind != ParameterInfo::BY_VALUE)
                 continue;
 
-            Symbol sym = it->id_expression.get_symbol();
-            Type type = sym.get_type();
+            if (!it->symbol.is_valid())
+                continue;
+
+            Type type = it->symbol.get_type();
 
             if (!type.is_array())
             {
@@ -479,7 +490,7 @@ namespace TL
                 <<   copy_sequence
                 ;
 
-            int vector_index = 1;
+            int vector_index = 2;
             for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
                     it != parameter_info_list.end();
                     it++)
@@ -487,9 +498,17 @@ namespace TL
                 if (it->kind != ParameterInfo::BY_VALUE)
                     continue;
 
-                Symbol sym = it->id_expression.get_symbol();
-                Type type = sym.get_type();
+                // Skip the first one as it is the chunking parameter
+                if (it == parameter_info_list.begin())
+                {
+                    continue;
+                }
 
+                Symbol sym = it->id_expression.get_symbol();
+                if (!sym.is_valid())
+                    continue;
+
+                Type type = sym.get_type();
                 CXX_LANGUAGE()
                 {
                     if (type.is_class())
@@ -511,7 +530,11 @@ namespace TL
                         << "sizeof(" << it->id_expression.prettyprint() << "));"
                         ;
 
-                    Type type = it->id_expression.get_symbol().get_type();
+                    Symbol symbol = it->id_expression.get_symbol();
+                    if (!symbol.is_valid())
+                        continue;
+
+                    Type type = symbol.get_type();
                     Type pointer_type = type.get_pointer_to();
                     type_cast
                          << pointer_type.get_declaration(it->id_expression.get_scope(), "");
@@ -564,7 +587,8 @@ namespace TL
             <<         "{"
             // <<            "fprintf(stderr, \"Cannot allocate task at '%s'\\n\", \"" << task_construct.get_ast().get_locus() << "\");"
             <<            fallback_capture_values
-            <<            outlined_function_reference << "(" << fallback_arguments << ");"
+            <<            "int chunk_one = 1;"
+            <<            outlined_function_reference << "(&chunk_one, " << fallback_arguments << ");"
             <<         "}"
             <<         "else"
             <<         "{"
@@ -581,8 +605,9 @@ namespace TL
             <<    "{"
             <<        "int nth_one_dep = 1;"
             <<        "nth_depsub(&" << task_id << ", &nth_one_dep);"
+            <<        "*((int*)" << task_id << "_arg_addr[1]) = " << task_id << "_chunk;"
             <<        task_id << "_chunk = 0;"
-            <<        "nth_yield();" // REMOVE THIS
+            // <<        "nth_yield();" // REMOVE THIS
             <<    "}"
             << "}"
             ;
@@ -627,5 +652,206 @@ namespace TL
 
         // And replace the whole thing
         task_construct.get_ast().replace(task_code);
+    }
+
+    AST_t OpenMPTransform::get_outline_task_chunked(
+            FunctionDefinition function_definition,
+            Source outlined_function_name,
+            Statement construct_body,
+            ReplaceIdExpression replace_references,
+            ObjectList<ParameterInfo> parameter_info_list,
+            ObjectList<IdExpression> local_references
+            )
+    {
+        ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+
+        Source outline_parallel;
+        Source parallel_body;
+
+        outline_parallel = get_outline_common(
+                function_definition,
+                parallel_body, // The body of the outline
+                outlined_function_name,
+                parameter_info_list);
+
+        // Replace references using set "replace_references" over construct body
+        Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
+
+        ObjectList<IdExpression> empty;
+        ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
+        Source private_declarations = get_privatized_declarations(
+                local_references,
+                empty,
+                empty,
+                reduction_empty,
+                empty,
+                parameter_info_list
+                ); 
+
+        Source instrumentation_code_before, instrumentation_code_after;
+
+        instrumentation_outline(instrumentation_code_before,
+                instrumentation_code_after, 
+                function_definition,
+                construct_body);
+
+        Source instrumentation_start_task;
+        if (instrumentation_requested())
+        {
+            instrumentation_start_task
+                << "{"
+                << "   nth_desc * nth;"
+                << "   nth = nthf_self_();"
+                << "   uint32_t id_nth = (((intptr_t)(nth)) >> (32*((sizeof(nth)/4) - 1)));"
+                << "   mintaka_receive(id_nth, 1);"
+                << "   mintaka_state_run();"
+                << "}"
+                ;
+        }
+
+        Source chunking_for;
+
+        parallel_body 
+            << private_declarations
+            << instrumentation_code_before
+            << instrumentation_start_task
+            << chunking_for
+            << "{"
+            << modified_parallel_body_stmt.prettyprint()
+            << "}"
+            << instrumentation_code_after
+            ;
+
+        chunking_for 
+            << "int _nth_chunk_iter;"
+            << "for (_nth_chunk_iter = 0; _nth_chunk_iter < (*_nth_chunk); _nth_chunk_iter++)"
+            ;
+
+        IdExpression function_name = function_definition.get_function_name();
+        Symbol function_symbol = function_name.get_symbol();
+
+        if (function_symbol.is_member() 
+                && function_name.is_qualified())
+        {
+            Source outline_function_decl = get_outlined_function_name(function_name, /*qualified=*/false);
+
+            Declaration decl = function_name.get_declaration();
+            Scope class_scope = decl.get_scope();
+            Type class_type = function_symbol.get_class_type();
+
+            Source member_declaration = get_member_function_declaration(
+                    function_definition,
+                    decl,
+                    outline_function_decl,
+                    parameter_info_list);
+
+            AST_t member_decl_tree = member_declaration.parse_member(decl.get_ast(), decl.get_scope_link(), class_type);
+
+            decl.get_ast().append(member_decl_tree);
+        }
+
+        AST_t result;
+        result = outline_parallel.parse_global(function_definition.get_ast(), 
+                function_definition.get_scope_link());
+
+        return result;
+    }
+
+    ReplaceIdExpression OpenMPTransform::set_replacements_chunk(FunctionDefinition function_definition,
+            OpenMP::Directive directive,
+            Statement construct_body,
+            ObjectList<IdExpression>& captureaddress_references,
+            ObjectList<IdExpression>& capturevalue_references,
+            ObjectList<IdExpression>& local_references,
+            ObjectList<ParameterInfo>& parameter_info)
+    {
+        Symbol function_symbol = function_definition.get_function_name().get_symbol();
+        Scope function_scope = function_definition.get_scope();
+        ReplaceIdExpression result;
+
+        // CAPTUREADDRESS references
+        for (ObjectList<IdExpression>::iterator it = captureaddress_references.begin();
+                it != captureaddress_references.end();
+                it++)
+        {
+            // We ignore unqualified/qualified references that are function accessible
+            // or unqualified references that are data members of the same class
+            // of this function because they can be accessed magically
+            if (is_function_accessible(*it, function_definition)
+                    && !is_unqualified_member_symbol(*it, function_definition))
+                continue;
+
+            Symbol symbol = it->get_symbol();
+            if (!is_unqualified_member_symbol(*it, function_definition))
+            {
+                Type type = symbol.get_type();
+                Type pointer_type = type.get_pointer_to();
+
+                ParameterInfo parameter(it->mangle_id_expression(), 
+                        "&" + it->prettyprint(), *it, pointer_type, ParameterInfo::BY_POINTER);
+                parameter_info.append(parameter);
+                result.add_replacement(symbol, "(*" + it->mangle_id_expression() + ")", 
+                        it->get_ast(), it->get_scope_link());
+            }
+            else
+            {
+                // Only if this function is a nonstatic one we need _this access
+                if (is_nonstatic_member_function(function_definition))
+                {
+                    result.add_replacement(symbol, "_this->" + it->prettyprint(), 
+                            it->get_ast(), it->get_scope_link());
+                }
+            }
+        }
+        
+        // CAPTUREVALUE references
+        for (ObjectList<IdExpression>::iterator it = capturevalue_references.begin();
+                it != capturevalue_references.end();
+                it++)
+        {
+            Symbol symbol = it->get_symbol();
+            Type type = symbol.get_type();
+            Type pointer_type = type.get_pointer_to();
+
+            ParameterInfo parameter(it->mangle_id_expression(), 
+                    "&" + it->prettyprint(), *it, pointer_type, ParameterInfo::BY_VALUE);
+            parameter_info.append(parameter);
+
+            result.add_replacement(symbol, it->mangle_id_expression() + "[0]",
+                    it->get_ast(), it->get_scope_link());
+        }
+
+        // LOCAL references
+        for (ObjectList<IdExpression>::iterator it = local_references.begin();
+                it != local_references.end();
+                it++)
+        {
+            Symbol symbol = it->get_symbol();
+            Type type = symbol.get_type();
+
+            result.add_replacement(symbol, "p_" + it->mangle_id_expression(),
+                    it->get_ast(), it->get_scope_link());
+        }
+        
+        if (is_nonstatic_member_function(function_definition))
+        {
+            // Calls to nonstatic member functions within the body of the construct
+            // of a nonstatic member function
+            ObjectList<IdExpression> function_references = 
+                construct_body.non_local_symbol_occurrences(Statement::ONLY_FUNCTIONS);
+            for (ObjectList<IdExpression>::iterator it = function_references.begin();
+                    it != function_references.end();
+                    it++)
+            {
+                if (is_unqualified_member_symbol(*it, function_definition))
+                {
+                    Symbol symbol = it->get_symbol();
+                    result.add_replacement(symbol, "_this->" + it->prettyprint(),
+                            it->get_ast(), it->get_scope_link());
+                }
+            }
+        }
+
+        return result;
     }
 }
