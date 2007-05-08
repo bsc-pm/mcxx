@@ -559,7 +559,6 @@ namespace TL
             ;
 
         task_while_info.post_src
-            << "fprintf(stderr, \"Remaining chunk = %d\\n\", " << task_id << "_chunk);"
             << "if (" << task_id << "_chunk != 0)"
             << "{"
             <<    "*((int*)" << task_id << "_arg_addr[1]) = " << task_id << "_chunk;"
