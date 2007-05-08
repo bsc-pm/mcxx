@@ -160,7 +160,8 @@ namespace TL
                     Type type = sym.get_type();
 
                     // For real function nothing has to be done
-                    if (type.is_function())
+                    if (type.is_function()
+							|| type.is_enum())
                         return;
 
                     read_expression
@@ -507,6 +508,8 @@ namespace TL
                                 called_expression.get_ast(),
                                 called_expression.get_scope_link());
 
+                        expression.get_ast().replace_with(replace_call_tree);
+
                         Expression replaced_function_call(replace_call_tree, 
                                 called_expression.get_scope_link());
 
@@ -524,9 +527,6 @@ namespace TL
                             }
                             replace_expression(*it);
                         }
-
-
-                        expression.get_ast().replace_with(replace_call_tree);
                     }
 
                     return;
@@ -788,7 +788,8 @@ namespace TL
         {
             replaced_code
                 << "{"
-                << "   Transaction* __t = createtx();"
+                << "   Transaction* __t = createtx(\"" << protect_construct.get_ast().get_file() 
+				<< "\"," << protect_construct.get_ast().get_line() <<");"
                 << "   uint64_t _tx_start, _tx_end;"
                 << "   uint64_t _tx_commit_start, _tx_commit_end;"
                 << "   _tx_start = rdtscf();"
