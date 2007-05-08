@@ -281,7 +281,7 @@ namespace TL
         IdExpression nth_chunk_id_expression = nth_chunk_expr.get_id_expression();
 
         ParameterInfo chunking_parameter("_nth_chunk", 
-                task_id.get_source() + "_chunk",
+                "&" + task_id.get_source() + "_chunk",
                 nth_chunk_id_expression, 
                 Type::get_int_type().get_pointer_to(),
                 ParameterInfo::BY_VALUE);
@@ -559,8 +559,10 @@ namespace TL
             ;
 
         task_while_info.post_src
+            << "fprintf(stderr, \"Remaining chunk = %d\\n\", " << task_id << "_chunk);"
             << "if (" << task_id << "_chunk != 0)"
             << "{"
+            <<    "*((int*)" << task_id << "_arg_addr[1]) = " << task_id << "_chunk;"
             <<    "int nth_one_dep = 1;"
             <<    "nth_depsub(&" << task_id << ", &nth_one_dep);"
             << "}"
@@ -817,7 +819,7 @@ namespace TL
                     "&" + it->prettyprint(), *it, pointer_type, ParameterInfo::BY_VALUE);
             parameter_info.append(parameter);
 
-            result.add_replacement(symbol, it->mangle_id_expression() + "[0]",
+            result.add_replacement(symbol, it->mangle_id_expression() + "[_nth_chunk_iter]",
                     it->get_ast(), it->get_scope_link());
         }
 
