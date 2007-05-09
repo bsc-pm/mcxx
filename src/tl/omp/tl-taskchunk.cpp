@@ -608,7 +608,6 @@ namespace TL
             <<        "nth_depsub(&" << task_id << ", &nth_one_dep);"
             <<        "*((int*)" << task_id << "_arg_addr[1]) = " << task_id << "_chunk;"
             <<        task_id << "_chunk = 0;"
-            // <<        "nth_yield();" // REMOVE THIS
             <<    "}"
             << "}"
             ;
