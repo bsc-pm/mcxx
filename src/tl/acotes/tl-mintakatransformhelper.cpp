@@ -91,7 +91,11 @@ iteration_begin
 {
 	std::stringstream ss;
 
-	ss << "mintaka_event(" << ITERATION_EVENT << ", 1);";
+	ss	<< "{"
+		<<   "mintaka_event(" << ITERATION_EVENT << ", 1);"
+	 	<<   "mintaka_state_run();"
+	 	<< "}"
+	 	;
 	
 	return ss.str();
 }
@@ -105,7 +109,11 @@ iteration_end
 {
 	std::stringstream ss;
 
-	ss << "mintaka_event(" << ITERATION_EVENT << ", 0);";
+	ss	<< "{"
+		<<   "mintaka_event(" << ITERATION_EVENT << ", 0);"
+	 	<<   "mintaka_state_schedule();"
+	 	<< "}"
+	 	;
 	
 	return ss.str();
 }

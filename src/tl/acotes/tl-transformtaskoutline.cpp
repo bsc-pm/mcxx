@@ -161,10 +161,14 @@ generate_outline
 			<< "{"
 			<<   MintakaTransformHelper::initialize_task(_task_info)
 			<<   generate_declares()
-			<<   "while (" << generate_pops_expression() << ")"
+			<<   generate_pops()
+			<<   "while (" << generate_eos() << ")"
 			<<   "{"
+			<<     MintakaTransformHelper::iteration_begin()
 			<<     generate_body()
+			<<     MintakaTransformHelper::iteration_end()
 			<<     generate_pushes()
+			<<     generate_pops()
 			<<   "}"
 			<<   generate_closes()
 			<<   MintakaTransformHelper::finalize_task(_task_info)
