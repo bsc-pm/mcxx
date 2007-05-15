@@ -206,7 +206,7 @@ cxx-scanner.c : cxx03.l $(srcdir)/cxx-ast.h cxx-parser.h
 	flex -Pmcxx -d -ocxx-scanner.c -8 cxx03.l
 
 CLEANFILES += cxx03.l
-cxx03.l : ../lib/tpp $(srcdir)/cxx-lexer.l
+cxx03.l : ../lib/tpp $(srcdir)/cxx-lexer.l 
 	../lib/tpp -o cxx03.l -D CPLUSPLUS $(srcdir)/cxx-lexer.l
 endif
 
@@ -243,7 +243,6 @@ CLEANFILES += c99.y
 c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y
 	../lib/tpp -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
 endif
-
 
 # Install hooks
 # installs "mcc" as a copy of mcxx

@@ -430,13 +430,25 @@ subparsing : SUBPARSE_EXPRESSION expression
 {
 	$$ = $2;
 }
+| SUBPARSE_STATEMENT
+{
+	$$ = NULL;
+}
 | SUBPARSE_MEMBER member_specification_seq
 {
 	$$ = $2;
 }
+| SUBPARSE_MEMBER
+{
+	$$ = NULL;
+}
 | SUBPARSE_DECLARATION declaration_sequence
 {
 	$$ = $2;
+}
+| SUBPARSE_DECLARATION
+{
+    $$ = NULL;
 }
 ;
 

@@ -604,10 +604,10 @@ namespace TL
             <<    "}"
             <<    "if (" << task_id << "_chunk == (" << task_while_info.chunking << "))"
             <<    "{"
-            <<        "int nth_one_dep = 1;"
-            <<        "nth_depsub(&" << task_id << ", &nth_one_dep);"
             <<        "*((int*)" << task_id << "_arg_addr[1]) = " << task_id << "_chunk;"
             <<        task_id << "_chunk = 0;"
+            <<        "int nth_one_dep = 1;"
+            <<        "nth_depsub(&" << task_id << ", &nth_one_dep);"
             <<    "}"
             << "}"
             ;

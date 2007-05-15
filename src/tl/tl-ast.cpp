@@ -94,6 +94,18 @@ namespace TL
 
     void AST_t::replace(AST_t ast)
     {
+        if (ast._ast == NULL)
+        {
+            std::cerr << "Trying to replace with an empty tree" << std::endl;
+            return;
+        }
+
+        if (this->_ast == NULL)
+        {
+            std::cerr << "Trying to replace an empty tree" << std::endl;
+            return;
+        }
+
         if (ASTType(ast._ast) == AST_NODE_LIST)
         {
             // If the replacement is a list but the original is not, let's check two cases
@@ -144,6 +156,18 @@ namespace TL
 
     void AST_t::replace_with(AST_t ast)
     {
+        if (ast._ast == NULL)
+        {
+            std::cerr << "Warning, you are trying to replace using an empty tree. Skipping" << std::endl;
+            return;
+        }
+
+        if (this->_ast == NULL)
+        {
+            std::cerr << "Warning, you are trying to replace an empty tree. Skipping" << std::endl;
+            return;
+        }
+
         AST previous_parent = ASTParent(this->_ast);
         *(this->_ast) = *(ast._ast);
         ASTParent(this->_ast) = previous_parent;
@@ -224,6 +248,11 @@ namespace TL
 
     void AST_t::append_to_translation_unit(AST_t tree)
     {
+        if (tree._ast == NULL)
+        {
+            return;
+        }
+
         AST this_translation_unit = get_translation_unit(this->_ast);
 
         AST this_declaration_seq = ASTSon0(this_translation_unit);
@@ -241,6 +270,11 @@ namespace TL
 
     void AST_t::prepend_to_translation_unit(AST_t tree)
     {
+        if (tree._ast == NULL)
+        {
+            return;
+        }
+
         AST this_translation_unit = get_translation_unit(this->_ast);
 
         AST this_declaration_seq = ASTSon0(this_translation_unit);
@@ -494,6 +528,12 @@ namespace TL
 
     void AST_t::append(AST_t t)
     {
+        if (t._ast == NULL)
+        {
+            // Do nothing
+            return;
+        }
+
         if (ASTType(t._ast) != AST_NODE_LIST)
         {
             std::cerr << "The appended tree is not a list. No append performed" << std::endl;
@@ -514,6 +554,12 @@ namespace TL
 
     void AST_t::prepend(AST_t t)
     {
+        if (t._ast == NULL)
+        {
+            // Do nothing
+            return;
+        }
+
         if (ASTType(t._ast) != AST_NODE_LIST)
         {
             std::cerr << "The prepended tree is not a list. No prepend performed" << std::endl;
@@ -594,6 +640,11 @@ namespace TL
 
     AST AST_t::get_enclosing_list(AST ast)
     {
+        if (ast == NULL)
+        {
+            return NULL;
+        }
+
         AST list = ast;
 
         // Look for the enclosing list
@@ -608,6 +659,17 @@ namespace TL
 
     void AST_t::replace_in_list(AST_t ast)
     {
+        if (ast._ast == NULL)
+        {
+            std::cerr << "Cannot replace a list using an empty tree" << std::endl;
+            return;
+        }
+        if (this->_ast == NULL)
+        {
+            std::cerr << "This tree is empty" << std::endl;
+            return;
+        }
+
         if (ASTType(ast._ast) != AST_NODE_LIST)
         {
             std::cerr << "The replacement tree is not a list. No replacement performed" << std::endl;
@@ -641,6 +703,12 @@ namespace TL
 
     void AST_t::prepend_sibling_function(AST_t t)
     {
+        // Do nothing
+        if (t._ast == NULL)
+        {
+            return;
+        }
+
         AST_t enclosing_function = this->get_enclosing_function_definition(/*jump_templates*/true);
 
         AST list = ASTParent(enclosing_function._ast);
@@ -651,10 +719,14 @@ namespace TL
 
     void AST_t::append_sibling_function(AST_t t)
     {
+        // TODO
     }
 
     void AST_t::replace_text(const std::string& str)
     {
+        if (this->_ast == NULL)
+            return;
+
         ASTText(this->_ast) = strdup(str.c_str());
     }
 

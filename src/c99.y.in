@@ -348,9 +348,17 @@ subparsing : SUBPARSE_EXPRESSION expression
 {
 	$$ = $2;
 }
+| SUBPARSE_STATEMENT
+{
+	$$ = NULL;
+}
 | SUBPARSE_DECLARATION declaration_sequence
 {
 	$$ = $2;
+}
+| SUBPARSE_DECLARATION
+{
+	$$ = NULL;
 }
 ;
 
