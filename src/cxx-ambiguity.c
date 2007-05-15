@@ -1221,9 +1221,10 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                             }
                             else
                             {
-                                internal_error("More than one valid choice for expression (%s)\n'%s' vs '%s'\n", 
+                                internal_error("More than one valid choice for expression (%s)\n'%s' vs '%s'\n%s\n", 
                                         node_information(expression), ast_print_node_type(ASTType(expression->ambig[i])), 
-                                        ast_print_node_type(ASTType(expression->ambig[correct_choice])));
+                                        ast_print_node_type(ASTType(expression->ambig[correct_choice])),
+										prettyprint_in_buffer(expression));
                             }
                         }
                     }
@@ -2481,7 +2482,9 @@ static char check_for_sizeof_typeid(AST expr, scope_t* st, decl_context_t decl_c
 static char check_for_cast(AST expr, scope_t* st, decl_context_t decl_context)
 {
     AST type_id = ASTSon0(expr);
-    if (check_for_type_id_tree(type_id, st, decl_context))
+	AST casted_expression = ASTSon1(expr);
+    if (check_for_type_id_tree(type_id, st, decl_context)
+			&& check_for_expression(casted_expression, st, decl_context))
     {
         AST type_specifier = ASTSon0(type_id);
         AST abstract_declarator = ASTSon1(type_id);
@@ -2502,8 +2505,7 @@ static char check_for_cast(AST expr, scope_t* st, decl_context_t decl_context)
                     &declarator_type, decl_context);
         }
 
-        solve_possibly_ambiguous_expression(ASTSon1(expr), st, decl_context);
-
+        solve_possibly_ambiguous_expression(casted_expression, st, decl_context);
         return 1;
     }
     else

@@ -33,9 +33,9 @@ namespace TL
     FunctionFilterFile::FunctionFilterFile()
         {
             std::ifstream filter_file;
-            std::string filter_file_name = ExternalVars::get("function_filter_name", "./filter_function");
+            std::string filter_file_name = ExternalVars::get("function_filter_name", "./functions_to_replace_call_filter");
 
-            std::string filter_mode_var = ExternalVars::get("function_filter_mode", "normal");
+            std::string filter_mode_var = ExternalVars::get("function_filter_mode", "inverted");
 
             _filter_inverted = false;
             if (filter_mode_var == "inverted")
@@ -51,7 +51,7 @@ namespace TL
             filter_file.open(filter_file_name.c_str());
             if (!filter_file.good())
             {
-                std::cerr << "Could not open file '" << filter_file_name << "'. Skipping." << std::endl;
+                std::cerr << "Could not open call replacing filter file '" << filter_file_name << "'. Skipping." << std::endl;
                 return;
             }
 

@@ -64,6 +64,7 @@ compilation_options_t compilation_options;
 "                           compiler\n" \
 "  -y                       Only parsing will be performed\n" \
 "                           No file will be generated\n" \
+"  -x lang                  Override language detection to <lang>\n" \
 "  -k, --keep-files         Do not remove intermediate temporary\n" \
 "                           files\n" \
 "  -a, --check-dates        Checks dates before regenerating files\n" \
@@ -96,7 +97,7 @@ compilation_options_t compilation_options;
 "\n"
 
 // Remember to update GETOPT_STRING if needed
-#define GETOPT_STRING "vkadcho:m:W:EyI:L:l:gOD:"
+#define GETOPT_STRING "vkadcho:m:W:EyI:L:l:gOD:x:"
 struct option getopt_long_options[] =
 {
     {"help",        no_argument, NULL, 'h'},
@@ -396,6 +397,25 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                     add_to_parameter_list_str(&compilation_options.native_compiler_options, "-g");
                     break;
                 }
+			case 'x' :
+				{
+					if (strcasecmp(optarg, "C") == 0)
+					{
+						compilation_options.force_language = 1;
+						compilation_options.source_language = SOURCE_LANGUAGE_C;
+					}
+					else if (strcasecmp(optarg, "C++") == 0)
+					{
+						compilation_options.force_language = 1;
+						compilation_options.source_language = SOURCE_LANGUAGE_CXX;
+					}
+					else
+					{
+						fprintf(stderr, "Invalid language specification in -x, valid options are 'C' or 'C++'");
+					}
+					
+					break;
+				}
             case OPTION_PREPROCESSOR_NAME :
                 {
                     compilation_options.preprocessor_name = strdup(optarg);
@@ -786,7 +806,8 @@ static void compile_every_translation_unit(void)
             continue;
         }
 
-        if (current_extension->source_language != compilation_options.source_language)
+        if (!compilation_options.force_language 
+				&& (current_extension->source_language != compilation_options.source_language))
         {
             fprintf(stderr, "%s was configured for %s language but file '%s' looks %s language. Skipping it.\n",
                     compilation_options.exec_basename, 

@@ -139,6 +139,7 @@ struct compilation_options_tag
     char do_not_compile;
     char do_not_prettyprint;
     char disable_openmp;
+	char force_language;
 
     debug_options_t debug_options;
     
