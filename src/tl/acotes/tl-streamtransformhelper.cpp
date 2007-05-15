@@ -30,7 +30,7 @@
 namespace TL
 {
 
-// close -----------------------------------------------------------------------
+// close (stream) --------------------------------------------------------------
 std::string 
 StreamTransformHelper::
 close
@@ -49,7 +49,26 @@ close
 	return ss.str();
 }
 
-// close_all -------------------------------------------------------------------
+// close (symbol) --------------------------------------------------------------
+std::string 
+StreamTransformHelper::
+close
+		( const Symbol& s
+		)
+{
+	std::stringstream ss;
+	
+	ss
+		<< "ostream_close"
+		<< "( " << s.get_name()
+		<< ")"
+		<< ";"
+		;
+	
+	return ss.str();
+}
+
+// close_all (stream) ----------------------------------------------------------
 std::string 
 StreamTransformHelper::
 close_all
@@ -64,6 +83,27 @@ close_all
 			)
 	{
 		StreamInfo* s= *it;
+		ss << close(s);
+	} 
+	
+	return ss.str();
+}
+
+// close_all (symbol) ----------------------------------------------------------
+std::string 
+StreamTransformHelper::
+close_all
+		( const std::set<Symbol>& streams
+		)
+{
+	std::stringstream ss;
+	
+	for		( std::set<Symbol>::iterator it= streams.begin()
+			; it != streams.end()
+			; it++
+			)
+	{
+		const Symbol& s= *it;
 		ss << close(s);
 	} 
 	
@@ -315,7 +355,7 @@ destroy_all
 	return ss.str();
 }
 
-// eos -------------------------------------------------------------------------
+// eos (stream) ----------------------------------------------------------------
 std::string 
 StreamTransformHelper::
 eos
@@ -333,7 +373,25 @@ eos
 	return ss.str();
 }
 
-// eos_any ---------------------------------------------------------------------
+// eos (symbol) ----------------------------------------------------------------
+std::string 
+StreamTransformHelper::
+eos
+		( const Symbol& s
+		)
+{
+	std::stringstream ss;
+	
+	ss
+		<< "istream_eos"
+		<< "( " << s.get_name()
+		<< ")"
+		;
+	
+	return ss.str();
+}
+
+// eos_any (stream) ------------------------------------------------------------
 std::string 
 StreamTransformHelper::
 eos_any
@@ -349,6 +407,30 @@ eos_any
 			)
 	{
 		StreamInfo* s= *it;
+		ss << " || ";
+		ss << eos(s);
+	} 
+	ss << ")";
+	
+	return ss.str();
+}
+
+// eos_any (symbol) ------------------------------------------------------------
+std::string 
+StreamTransformHelper::
+eos_any
+		( const std::set<Symbol>& streams
+		)
+{
+	std::stringstream ss;
+
+	ss << "( 0";	
+	for		( std::set<Symbol>::iterator it= streams.begin()
+			; it != streams.end()
+			; it++
+			)
+	{
+		const Symbol& s= *it;
 		ss << " || ";
 		ss << eos(s);
 	} 

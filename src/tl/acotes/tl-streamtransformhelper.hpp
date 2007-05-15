@@ -30,12 +30,15 @@ namespace TL
 {
 
 class StreamInfo;
+class Symbol;
 
 class StreamTransformHelper
 {
 public:	
 	static std::string close(StreamInfo* s);
+	static std::string close(const Symbol& s);
 	static std::string close_all(const std::set<StreamInfo*>& ss);
+	static std::string close_all(const std::set<Symbol>& ss);
 	static std::string connect(StreamInfo* s);
 	static std::string connect_all(const std::set<StreamInfo*>& ss);
 	static std::string create(StreamInfo* s);
@@ -50,7 +53,9 @@ public:
 	static std::string destroy_ostream(StreamInfo* s);
 	static std::string destroy_all(const std::set<StreamInfo*>& ss);
 	static std::string eos(StreamInfo* s);
+	static std::string eos(const Symbol& s);
 	static std::string eos_any(const std::set<StreamInfo*>& ss);
+	static std::string eos_any(const std::set<Symbol>& ss);
 	static std::string peek(StreamInfo* s);
 	static std::string peek_all(const std::set<StreamInfo*>& ss);
 	static std::string peek_value(StreamInfo* s);

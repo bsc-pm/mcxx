@@ -108,6 +108,8 @@ generate_closes
 	
 	ss << StreamTransformHelper::
 			close_all(_task_info->get_loop_close_ostream_set());
+	ss << StreamTransformHelper::
+			close_all(_task_info->get_exports());
 			
 	return ss.str();
 }
@@ -140,6 +142,9 @@ generate_eos
 	ss		<< "(!("
 			<< StreamTransformHelper::
 					eos_any(_task_info->get_loop_control_istream_set())
+			<< ") || ("
+			<< StreamTransformHelper::
+					eos_any(_task_info->get_imports())
 			<< "))"
 			;
 			

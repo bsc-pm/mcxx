@@ -39,7 +39,9 @@ namespace TL
 	public:
 		TaskInfo(TaskgroupInfo* taskgroup_info); 
 
+		void                         add_export(const Symbol& symbol);
         void                         add_firstprivate(const Symbol& symbol);
+		void                         add_import(const Symbol& symbol);
 		void                         add_input(const Symbol& symbol);
 		void                         add_istream(StreamInfo* is);
         void                         add_lastprivate(const Symbol& symbol);
@@ -55,7 +57,9 @@ namespace TL
 		void                         add_replace_push_ostream(StreamInfo* os);
 		void                         add_task_info_child(TaskInfo* child); 
 		void                         compute_graph(void);
+		const std::set<Symbol>&      get_exports(void) const;
 		const std::set<Symbol>&      get_firstprivates(void) const;
+		const std::set<Symbol>&      get_imports(void) const;
 		const std::set<Symbol>&      get_lastprivates(void) const;
 		const std::set<StreamInfo*>& get_loop_pop_istream_set(void) const;
 		const std::set<StreamInfo*>& get_loop_push_ostream_set(void) const;
@@ -77,7 +81,9 @@ namespace TL
 
 	private:
 		std::string           _name;
+		std::set<Symbol>      _exports;
 		std::set<Symbol>      _firstprivates;
+		std::set<Symbol>      _imports;
 		std::set<Symbol>      _inputs;
 		std::set<StreamInfo*> _istream_set;
 		std::set<Symbol>      _lastprivates;

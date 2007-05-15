@@ -43,6 +43,18 @@ TaskInfo
 	init_name();
 }
 		
+// add_export ------------------------------------------------------------------
+void                    
+TaskInfo::     
+add_export
+		( const Symbol& symbol
+		)
+{
+	add_firstprivate(symbol);
+	
+	_exports.insert(symbol);
+}
+		
 // add_firstprivate ------------------------------------------------------------
 void                    
 TaskInfo::     
@@ -55,6 +67,18 @@ add_firstprivate
 	_firstprivates.insert(symbol);
 }
 
+// add_import ------------------------------------------------------------------
+void                    
+TaskInfo::     
+add_import
+		( const Symbol& symbol
+		)
+{
+	add_firstprivate(symbol);
+	
+	_imports.insert(symbol);
+}
+		
 // add_input -------------------------------------------------------------------
 void
 TaskInfo::
@@ -255,6 +279,16 @@ compute_graph
 	compute_graph_outputs();
 }
 
+// get_exports -----------------------------------------------------------------
+const std::set<Symbol>&      
+TaskInfo::
+get_exports
+		( void
+		) const
+{
+	return _exports;
+}
+
 // get_firstprivates -----------------------------------------------------------
 const std::set<Symbol>&      
 TaskInfo::
@@ -263,6 +297,16 @@ get_firstprivates
 		) const
 {
 	return _firstprivates;
+}
+
+// get_imports -----------------------------------------------------------------
+const std::set<Symbol>&      
+TaskInfo::
+get_imports
+		( void
+		) const
+{
+	return _imports;
 }
 
 // get_lastprivates ------------------------------------------------------------

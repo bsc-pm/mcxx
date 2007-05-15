@@ -168,6 +168,34 @@ namespace TL
 				
 				task_info->add_output(symbol);
 			} 
+			// Adds inputs to task information
+			vars= pragma_custom_construct
+					.get_clause("import")
+					.id_expressions();
+			for		( ObjectList<IdExpression>::iterator it= vars.begin()
+					; it != vars.end()
+					; it++
+					)
+			{
+				IdExpression var= *it;
+				Symbol symbol= var.get_symbol();
+				
+				task_info->add_import(symbol);
+			} 
+			// Adds output to task information
+			vars= pragma_custom_construct
+					.get_clause("export")
+					.id_expressions();
+			for		( ObjectList<IdExpression>::iterator it= vars.begin()
+					; it != vars.end()
+					; it++
+					)
+			{
+				IdExpression var= *it;
+				Symbol symbol= var.get_symbol();
+				
+				task_info->add_export(symbol);
+			} 
 			// Adds private to task information
 			vars= pragma_custom_construct
 					.get_clause("private")
