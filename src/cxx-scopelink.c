@@ -73,6 +73,9 @@ void scope_link_set(scope_link_t* sl, AST a, scope_t* st, decl_context_t decl_co
                 st);
     }
 
+    if (a == NULL)
+        return;
+
     scope_link_entry_t* new_entry = calloc(1, sizeof(*new_entry));
 
     new_entry->st = st;
