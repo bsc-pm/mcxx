@@ -70,6 +70,8 @@ namespace TL
 		const std::set<Symbol>&      get_references(void) const;
 		const std::set<StreamInfo*>& get_replace_pop_istream_set(void) const;
 		const std::set<StreamInfo*>& get_replace_push_ostream_set(void) const;
+		const std::string&           get_state_name(void) const;
+		const std::string&           get_struct_state_name(void) const;
 		const std::list<TaskInfo*>&  get_task_info_children(void) const;
 		TaskInfo*                    get_task_info_first_child(void) const;
 		TaskInfo*                    get_task_info_parent(void) const;
@@ -95,13 +97,17 @@ namespace TL
 		std::set<StreamInfo*> _ostream_set;
 		std::set<Symbol>      _privates;
 		std::set<Symbol>      _references;
+		std::string           _state_name;
+		std::string           _struct_state_name;
 		std::set<StreamInfo*> _replace_pop_istream_set;
 		std::set<StreamInfo*> _replace_push_ostream_set;
 		std::list<TaskInfo*>  _task_info_children;
 		TaskInfo*             _task_info_parent;
 		TaskgroupInfo* const  _taskgroup_info;
 		
-		void init_name();
+		void init_name(void);
+		void init_state_name(void);
+		void init_struct_state_name(void);
 
 		void compute_graph_input(const Symbol& symbol);
 		void compute_graph_inputs(void);

@@ -50,7 +50,7 @@
 #include "tl-taskgroupinfo.hpp"
 #include "tl-taskinfo.hpp"
 #include "tl-transformmintakaoutline.hpp"
-#include "tl-transformtaskdefinestate.hpp"
+#include "tl-transformtaskdeclarestate.hpp"
 #include "tl-transformtaskgroupdeclarestreams.hpp"
 #include "tl-transformtaskgroupreplace.hpp" 
 #include "tl-transformtaskoutline.hpp" 
@@ -258,9 +258,9 @@ namespace TL
 			//Statement task_body= pragma_custom_construct.get_statement();
 			//task_info->set_body(task_body.prettyprint());
 			
-			// Enquees the outline generation for that task
-			TransformTaskDefineState* transform_task_define_state=
-					new TransformTaskDefineState
+			// Enquees the generation for that task state
+			TransformTaskDeclareState* transform_task_define_state=
+					new TransformTaskDeclareState
 							( pragma_custom_construct
 							, task_info
 							);

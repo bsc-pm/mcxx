@@ -20,15 +20,16 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#include "tl-transformtaskdefinestate.hpp"
+#include "tl-transformtaskdeclarestate.hpp"
 
+#include "tl-symboltransformhelper.hpp"
 #include "tl-taskinfo.hpp"
 
 namespace TL
 {
 
-TransformTaskDefineState::
-TransformTaskDefineState
+TransformTaskDeclareState::
+TransformTaskDeclareState
 		( const PragmaCustomConstruct& pragma_custom_construct
 		, TaskInfo* task_info
 		)
@@ -37,18 +38,58 @@ TransformTaskDefineState
 {
 }
 
-TransformTaskDefineState::~TransformTaskDefineState()
+TransformTaskDeclareState::~TransformTaskDeclareState()
 {
 }
 
 // transform -------------------------------------------------------------------
 void
-TransformTaskDefineState::
+TransformTaskDeclareState::
 transform
 		( void
 		)
 {
+	Source declares_src= this->generate_declares();
 	
+	// Pragma code add
+	FunctionDefinition function_definition 
+		= _pragma_custom_construct.get_enclosing_function();
+		
+	AST_t function_ast = function_definition.get_ast();
+	ScopeLink function_scope_link = function_definition.get_scope_link();
+	
+	AST_t task_add_tree = declares_src
+			.parse_global(function_ast, function_scope_link);
+		
+	function_definition.get_ast().prepend_sibling_function(task_add_tree);	
+}
+
+// generate_declares -----------------------------------------------------------
+std::string
+TransformTaskDeclareState::
+generate_declares
+		( void
+		) const
+{
+	std::stringstream ss;
+	
+	const std::set<Symbol>& task_firstprivates= 
+			_task_info->get_firstprivates();
+	
+	ss << "struct " << _task_info->get_state_name() << " {";
+	
+	for		( std::set<Symbol>::iterator it= task_firstprivates.begin()
+			; it != task_firstprivates.end()
+			; it++)
+	{
+		const Symbol& s= *it;
+		
+		ss << SymbolTransformHelper::declare(s);
+	}
+	
+	ss << "};";
+
+	return ss.str();
 }
 
 }

@@ -1,8 +1,6 @@
 /*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2007 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-	Acotes Translation Phase
-	Copyright (C) 2007 - David Rodenas Pico <david.rodenas@bsc.es>
+    Acotes Translation Phase
+    Copyright (C) 2007 - David Rodenas Pico <david.rodenas@bsc.es>
     Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
     Universitat Politecnica de Catalunya
 
@@ -25,6 +23,7 @@
 #include <assert.h>
 
 #include "tl-mintakatransformhelper.hpp"
+#include "tl-statetransformhelper.hpp"
 #include "tl-streamtransformhelper.hpp"
 #include "tl-tasktransformhelper.hpp"
 #include "tl-threadtransformhelper.hpp"
@@ -114,6 +113,23 @@ generate_close_streams
 	return ss.str();
 }
 
+// generate_create_states ------------------------------------------------------
+std::string 
+TransformTaskgroupReplace::
+generate_create_states
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	ss << StateTransformHelper::
+			declare_all(_taskgroup_info->get_task_info_set());
+	ss << StateTransformHelper::
+			copy_to_state_all(_taskgroup_info->get_task_info_set());
+	
+	return ss.str();
+}
+
 // generate_create_streams -----------------------------------------------------
 std::string 
 TransformTaskgroupReplace::
@@ -194,6 +210,7 @@ generate_replace
 	
 	ss 		<< "{"
 			<< MintakaTransformHelper::initialize_taskgroup(_taskgroup_info)
+			<< generate_create_states()
 			<< generate_create_streams()
 			<< generate_connect_streams()
 			<< generate_declare_threads()

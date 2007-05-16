@@ -50,6 +50,7 @@ private:
 	std::string generate_body(void);
 	std::string generate_connect_streams(void);
 	std::string generate_close_streams(void);
+	std::string generate_create_states(void);
 	std::string generate_create_streams(void);
 	std::string generate_create_threads(void);
 	std::string generate_declare_threads(void);

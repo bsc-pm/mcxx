@@ -20,26 +20,26 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TLTRANSFORMTASKOUTLINE_HPP_
-#define TLTRANSFORMTASKOUTLINE_HPP_
-
-#include <string>
+#ifndef TLTRANSFORMTASKDEFINESTATE_HPP_
+#define TLTRANSFORMTASKDEFINESTATE_HPP_
 
 #include "tl-pragmasupport.hpp"
-#include "tl-taskinfo.hpp"
 #include "tl-transform.hpp"
 
-namespace TL 
+
+namespace TL
 {
 
-class TransformTaskOutline : public Transform
+class TaskInfo;
+
+class TransformTaskDeclareState : public TL::Transform
 {
 public:
-	TransformTaskOutline
-			( const PragmaCustomConstruct& pragma_custom_construct
-			, TaskInfo* task_info
-			);
-	virtual ~TransformTaskOutline();
+	TransformTaskDeclareState
+		( const PragmaCustomConstruct& pragma_custom_construct
+		, TaskInfo* task_info
+		);
+	virtual ~TransformTaskDeclareState();
 	
 	virtual void transform(void);
 	
@@ -47,23 +47,10 @@ private:
 	PragmaCustomConstruct _pragma_custom_construct;
 	TaskInfo*             _task_info;
 	
-	std::string generate_argument_name(void);
-	std::string generate_body(void);
-	std::string generate_closes(void);
-	std::string generate_declares(void);
-	std::string generate_eos(void);
-	std::string generate_outline(void);
-	std::string generate_peeks(void);
-	std::string generate_pops(void);
-	std::string generate_pops_expression(void);
-	std::string generate_pushes(void);
-	std::string generate_recover_state(void);
-	std::string generate_state(void);
-	std::string generate_state_name(void);
-	std::string generate_struct_state_name(void);
-	std::string generate_waits(void);
+	std::string  generate_declares(void) const;
+		
 };
 
 }
 
-#endif /*TLTRANSFORMTASKOUTLINE_HPP_*/
+#endif /*TLTRANSFORMTASKDEFINESTATE_HPP_*/

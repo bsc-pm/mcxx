@@ -98,6 +98,7 @@ close_all
 {
 	std::stringstream ss;
 	
+	ss << "{";
 	for		( std::set<Symbol>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
@@ -106,6 +107,7 @@ close_all
 		const Symbol& s= *it;
 		ss << close(s);
 	} 
+	ss << "}";
 	
 	return ss.str();
 }

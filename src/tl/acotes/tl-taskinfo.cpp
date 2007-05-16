@@ -41,6 +41,8 @@ TaskInfo
 	assert(taskgroup_info);
 	
 	init_name();
+	init_state_name();
+	init_struct_state_name();
 }
 		
 // add_export ------------------------------------------------------------------
@@ -408,7 +410,27 @@ get_replace_push_ostream_set
 {
 	return _replace_push_ostream_set;
 }
-		
+
+// get_state_name --------------------------------------------------------------
+const std::string&
+TaskInfo::
+get_state_name
+		( void
+		) const
+{
+	return _state_name;
+}
+
+// get_struct_state_name -------------------------------------------------------
+const std::string&
+TaskInfo::
+get_struct_state_name
+		( void
+		) const
+{
+	return _struct_state_name;
+}
+
 // get_task_info_children ------------------------------------------------------
 const std::list<TaskInfo*>& 
 TaskInfo::
@@ -510,7 +532,7 @@ has_task_info_children
 	return !empty_task_info_children;
 }		
 
-// initializatiors -------------------------------------------------------------
+// init_name -------------------------------------------------------------------
 void
 TaskInfo::
 init_name
@@ -525,6 +547,40 @@ init_name
 			;
 		
 		_name= ss.str();
+}
+
+// init_state_name -------------------------------------------------------------
+void
+TaskInfo::
+init_state_name
+		(
+		)
+{
+	std::stringstream ss;
+	
+	ss
+		<< "task_state_"
+			<< (long) this 
+			;
+		
+	_state_name= ss.str();
+}
+
+// init_struct_state_name ------------------------------------------------------
+void
+TaskInfo::
+init_struct_state_name
+		(
+		)
+{
+	std::stringstream ss;
+	
+	ss
+		<< "struct task_state_"
+		<< (long) this 
+		;
+		
+	_struct_state_name= ss.str();
 }
 
 // compute_graph_input ---------------------------------------------------------

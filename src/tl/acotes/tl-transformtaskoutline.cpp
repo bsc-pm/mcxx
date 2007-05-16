@@ -75,6 +75,20 @@ transform
 	function_definition.get_ast().prepend_sibling_function(task_add_tree);
 }
 
+// generate_argument_name ------------------------------------------------------
+std::string 
+TransformTaskOutline::
+generate_argument_name
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	ss << _task_info->get_state_name() << "_argument";
+	
+	return ss.str();
+}
+
 // generate_body ---------------------------------------------------------------
 std::string 
 TransformTaskOutline::
@@ -105,11 +119,14 @@ generate_closes
 		)
 {
 	std::stringstream ss;
-	
-	ss << StreamTransformHelper::
-			close_all(_task_info->get_loop_close_ostream_set());
-	ss << StreamTransformHelper::
-			close_all(_task_info->get_exports());
+
+	ss 	<< "{"
+		<<   StreamTransformHelper::
+				close_all(_task_info->get_loop_close_ostream_set())
+		<<   StreamTransformHelper::
+				close_all(_task_info->get_exports())
+		<< "}"
+		;
 			
 	return ss.str();
 }
@@ -142,7 +159,7 @@ generate_eos
 	ss		<< "(!("
 			<< StreamTransformHelper::
 					eos_any(_task_info->get_loop_control_istream_set())
-			<< ") || ("
+			<< " || "
 			<< StreamTransformHelper::
 					eos_any(_task_info->get_imports())
 			<< "))"
@@ -162,10 +179,11 @@ generate_outline
 	
 	ss		<< "static void* "
 			<< TaskTransformHelper::outline_name(_task_info)
-			<< "(void * arg)"
+			<< "(void * " << generate_argument_name() << ")"
 			<< "{"
 			<<   MintakaTransformHelper::initialize_task(_task_info)
 			<<   generate_declares()
+			<<   generate_state()
 			<<   generate_pops()
 			<<   "while (" << generate_eos() << ")"
 			<<   "{"
@@ -239,6 +257,75 @@ generate_pushes
 	
 	ss << StreamTransformHelper::
 			push_all(_task_info->get_loop_push_ostream_set());
+	
+	return ss.str();
+}
+
+// generate_recover_state ------------------------------------------------------
+std::string 
+TransformTaskOutline::
+generate_recover_state
+		( void
+		)
+{
+	std::stringstream ss;
+
+	ss	<< generate_struct_state_name() << " " << generate_state_name()
+		<< "= "
+		<< "(" << generate_struct_state_name() << "*) " 
+		<< generate_argument_name() 
+		<< ";" 	
+		;
+	
+	return ss.str();
+}
+
+// generate_state --------------------------------------------------------------
+std::string 
+TransformTaskOutline::
+generate_state
+		( void
+		)
+{
+	std::stringstream ss;
+
+	ss	<< "{"
+		<< generate_recover_state()
+		<< SymbolTransformHelper::
+				copy_all_from_struct
+						( _task_info->get_firstprivates()
+						, generate_state_name() 
+						)
+		<< "}"
+		;
+	
+	return ss.str();
+}
+
+// generate_state_name ---------------------------------------------------------
+std::string 
+TransformTaskOutline::
+generate_state_name
+		( void
+		)
+{	
+	std::stringstream ss;
+	
+	ss << "(*" << _task_info->get_state_name() << ")";
+	
+	return ss.str();
+}
+
+// generate_struct_state_name --------------------------------------------------
+std::string 
+TransformTaskOutline::
+generate_struct_state_name
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	ss << _task_info->get_struct_state_name();
 	
 	return ss.str();
 }

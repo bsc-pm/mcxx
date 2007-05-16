@@ -42,7 +42,7 @@ create
 			<< "( &(" << name(task) << ")"
 			<< ", (void*) 0"
 			<< ", " << TaskTransformHelper::outline_name(task)
-			<< ", (void*) 0"
+			<< ", (void*) &" << task->get_state_name()
 			<< ");"	
 			;
 
