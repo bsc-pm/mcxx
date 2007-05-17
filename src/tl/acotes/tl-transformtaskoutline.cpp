@@ -120,12 +120,12 @@ generate_closes
 {
 	std::stringstream ss;
 
-	ss 	<< "{"
+	ss 	<< ""
 		<<   StreamTransformHelper::
 				close_all(_task_info->get_loop_close_ostream_set())
 		<<   StreamTransformHelper::
 				close_all(_task_info->get_exports())
-		<< "}"
+		<< ""
 		;
 			
 	return ss.str();
@@ -156,13 +156,13 @@ generate_eos
 {
 	std::stringstream ss;
 	
-	ss		<< "(!("
+	ss		<< "!("
 			<< StreamTransformHelper::
 					eos_any(_task_info->get_loop_control_istream_set())
 			<< " || "
 			<< StreamTransformHelper::
 					eos_any(_task_info->get_imports())
-			<< "))"
+			<< ")"
 			;
 			
 	return ss.str();
@@ -290,14 +290,14 @@ generate_return_state
 {
 	std::stringstream ss;
 
-	ss	<< "{"
-		<< generate_recover_state()
+	ss	<< ""
+		//<< generate_recover_state()
 		<< SymbolTransformHelper::
 				copy_all_to_struct
 						( _task_info->get_lastprivates()
 						, generate_state_name() 
 						)
-		<< "}"
+		<< ""
 		;
 	
 	return ss.str();
@@ -312,14 +312,14 @@ generate_state
 {
 	std::stringstream ss;
 
-	ss	<< "{"
+	ss	<< ""
 		<< generate_recover_state()
 		<< SymbolTransformHelper::
 				copy_all_from_struct
 						( _task_info->get_firstprivates()
 						, generate_state_name() 
 						)
-		<< "}"
+		<< ""
 		;
 	
 	return ss.str();

@@ -31,7 +31,7 @@
 namespace TL
 {
 
-// TransformTaskgroupReplace ---------------------------------------------------
+// TransformTaskgroupReplace constructor ---------------------------------------
 TransformTaskgroupReplace::
 TransformTaskgroupReplace
 		( const PragmaCustomConstruct& pragma_custom_construct
@@ -43,7 +43,9 @@ TransformTaskgroupReplace
 	assert(taskgroup_info);
 }
 
-TransformTaskgroupReplace::~TransformTaskgroupReplace()
+// TransformTaskgroupReplace destructor ----------------------------------------
+TransformTaskgroupReplace::
+~TransformTaskgroupReplace()
 {
 }
 

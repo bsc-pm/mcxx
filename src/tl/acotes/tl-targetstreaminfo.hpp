@@ -18,8 +18,8 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TLSTREAMINFO_HPP_
-#define TLSTREAMINFO_HPP_
+#ifndef TLTARGETSTREAMINFO_HPP_
+#define TLTARGETSTREAMINFO_HPP_
 
 #include <string>
 
@@ -27,40 +27,34 @@
 
 namespace TL
 {
-	class TaskInfo;
+
+class TaskInfo;
+
+class TargetStreamInfo
+{
+public:
+	TargetStreamInfo(const Symbol& symbol, const std::string& label);
+	virtual ~TargetStreamInfo();
 	
-	class StreamInfo
-	{
-	public:
-		StreamInfo
-				( const Symbol& symbol
-				, TaskInfo* task_info_ostream
-				, TaskInfo* task_info_istream
-				);
-				
-		const std::string& get_istream_name(void) const;
-		const std::string& get_name(void) const;
-		const std::string& get_ostream_name(void) const;
-		const Symbol&      get_symbol(void) const;
-		const std::string& get_symbol_name(void) const;
-		TaskInfo*          get_task_info_istream(void) const;
-		TaskInfo*          get_task_info_ostream(void) const;
-				
-	private:
-		std::string     _istream_name;
-		std::string     _name;
-		std::string     _ostream_name;
-		const Symbol    _symbol;
-		std::string     _symbol_name;
-		TaskInfo* const _task_info_istream;
-		TaskInfo* const _task_info_ostream;
-		
-		void init_istream_name();
-		void init_name();
-		void init_ostream_name();
-		void init_symbol_name();
-	};
+	static std::string compute_name(const Symbol& symbol, const std::string& 
+			label);
+			
+	const std::string& get_label(void) const;
+	const std::string& get_name(void) const;
+	const Symbol&      get_symbol(void) const;
+	void               set_input_task_info(TaskInfo *input_task_info);
+	void               set_output_task_info(TaskInfo *input_task_info);
+	
+private:
+	TaskInfo*   _input_task_info;
+	std::string _label;
+	std::string _name;
+	TaskInfo*   _output_task_info;
+	Symbol      _symbol;
+	
+	void init_name(void);
+};
+
 }
 
-
-#endif /*TLSTREAMINFO_HPP_*/
+#endif /*TLTARGETSTREAMINFO_HPP_*/

@@ -54,7 +54,7 @@ copy_from_state_all
 {
 	std::stringstream ss;
 
-	ss << "{";
+	ss << "";
 	for		( std::set<TaskInfo*>::iterator it= task_info_set.begin()
 			; it != task_info_set.end()
 			; it++
@@ -64,7 +64,7 @@ copy_from_state_all
 		
 		ss << copy_from_state(task_info);
 	}
-	ss << "}";
+	ss << "";
 				
 	return ss.str();
 }
@@ -95,7 +95,7 @@ copy_to_state_all
 {
 	std::stringstream ss;
 
-	ss << "{";
+	ss << "";
 	for		( std::set<TaskInfo*>::iterator it= task_info_set.begin()
 			; it != task_info_set.end()
 			; it++
@@ -105,7 +105,7 @@ copy_to_state_all
 		
 		ss << copy_to_state(task_info);
 	}
-	ss << "}";
+	ss << "";
 				
 	return ss.str();
 }

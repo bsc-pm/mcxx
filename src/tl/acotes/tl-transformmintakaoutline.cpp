@@ -40,7 +40,8 @@ TransformMintakaOutline
 }
 
 // TransformMintakaOutline destructor ------------------------------------------
-TransformMintakaOutline::~TransformMintakaOutline()
+TransformMintakaOutline::
+~TransformMintakaOutline()
 {
 }
 

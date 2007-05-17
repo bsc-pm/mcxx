@@ -85,8 +85,6 @@ generate_declares
 	const std::set<StreamInfo*>& stream_info_set= 
 			_taskgroup_info->get_stream_info_set();
 	
-	ss << "extern int acotes__declare___dummy;";
-	
 	for		( std::set<StreamInfo*>::iterator it= stream_info_set.begin()
 			; it != stream_info_set.end()
 			; it++)

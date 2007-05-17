@@ -28,6 +28,7 @@
 namespace TL
 {
 
+// TransformTaskDeclareState constructor ---------------------------------------
 TransformTaskDeclareState::
 TransformTaskDeclareState
 		( const PragmaCustomConstruct& pragma_custom_construct
@@ -38,7 +39,9 @@ TransformTaskDeclareState
 {
 }
 
-TransformTaskDeclareState::~TransformTaskDeclareState()
+// TransformTaskDeclareState destructor ----------------------------------------
+TransformTaskDeclareState::
+~TransformTaskDeclareState()
 {
 }
 

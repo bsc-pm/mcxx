@@ -66,7 +66,7 @@ copy_all_to_struct
 {
 	std::stringstream ss;	
 	
-	ss << "{";
+	ss << "";
 	for		( std::set<Symbol>::iterator it= symbols.begin()
 			; it != symbols.end()
 			; it++)
@@ -75,7 +75,7 @@ copy_all_to_struct
 		
 		ss << copy_to_struct(symbol, struct_instance_name);
 	}
-	ss << "}";
+	ss << "";
 	
 	return ss.str();
 }

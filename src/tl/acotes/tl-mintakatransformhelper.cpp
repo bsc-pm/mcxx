@@ -68,7 +68,7 @@ initialize_taskgroup
 {
 	std::stringstream ss;
 	
-	ss		<< "{"
+	ss		<< ""
 			<<   initialized_condition_name() << "++;"
 			<<   "if (" << initialized_condition_name() << " == 1)"
 			<<   "{"
@@ -76,7 +76,7 @@ initialize_taskgroup
 			<<     "mintaka_app_begin();"
 			<<     "mintaka_thread_begin(1, 1);"
 			<<   "}"
-			<< "}"
+			<< ""
 			;
 	
 	return ss.str();
@@ -91,10 +91,10 @@ iteration_begin
 {
 	std::stringstream ss;
 
-	ss	<< "{"
+	ss	<< ""
 		<<   "mintaka_event(" << ITERATION_EVENT << ", 1);"
 	 	<<   "mintaka_state_run();"
-	 	<< "}"
+	 	<< ""
 	 	;
 	
 	return ss.str();
@@ -109,10 +109,10 @@ iteration_end
 {
 	std::stringstream ss;
 
-	ss	<< "{"
+	ss	<< ""
 		<<   "mintaka_event(" << ITERATION_EVENT << ", 0);"
 	 	<<   "mintaka_state_schedule();"
-	 	<< "}"
+	 	<< ""
 	 	;
 	
 	return ss.str();
@@ -145,7 +145,7 @@ finalize_taskgroup
 {
 	std::stringstream ss;
 	
-	ss		<< "{"
+	ss		<< ""
 			<<   initialized_condition_name() << "--;"
 			<<   "if (" << initialized_condition_name() << " == 0)"
 			<<   "{"
@@ -153,7 +153,7 @@ finalize_taskgroup
 			<<     "mintaka_app_end();"
 			<<     "mintaka_merge();"
 			<<   "}"			
-			<< "}"
+			<< ""
 			;
 	
 	return ss.str();

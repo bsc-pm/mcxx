@@ -98,7 +98,7 @@ close_all
 {
 	std::stringstream ss;
 	
-	ss << "{";
+	ss << "";
 	for		( std::set<Symbol>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
@@ -107,7 +107,7 @@ close_all
 		const Symbol& s= *it;
 		ss << close(s);
 	} 
-	ss << "}";
+	ss << "";
 	
 	return ss.str();
 }
@@ -402,7 +402,7 @@ eos_any
 {
 	std::stringstream ss;
 
-	ss << "( 0";	
+	ss << "0";	
 	for		( std::set<StreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
@@ -412,7 +412,7 @@ eos_any
 		ss << " || ";
 		ss << eos(s);
 	} 
-	ss << ")";
+	ss << "";
 	
 	return ss.str();
 }
@@ -426,7 +426,7 @@ eos_any
 {
 	std::stringstream ss;
 
-	ss << "( 0";	
+	ss << "0";	
 	for		( std::set<Symbol>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
@@ -436,7 +436,7 @@ eos_any
 		ss << " || ";
 		ss << eos(s);
 	} 
-	ss << ")";
+	ss << "";
 	
 	return ss.str();
 }
@@ -576,7 +576,7 @@ pop_all_expression
 {
 	std::stringstream ss;
 	
-	ss << "(";
+	ss << "";
 	ss << "1";
 	for		( std::set<StreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
@@ -586,7 +586,7 @@ pop_all_expression
 		StreamInfo* s= *it;
 		ss << " && " << pop_expression(s);
 	} 
-	ss << ")";
+	ss << "";
 	
 	return ss.str();
 }
@@ -785,13 +785,13 @@ wait_and_pop
 	std::stringstream ss;
 	
 	ss
-		<< "{"
+		<< ""
 		<<   wait_istream(s)
 		//<<   "if (!" << eos(s) << ") {"
 		<<     peek(s)
 		<<     pop(s)
 		//<<   "}"
-		<< "}"
+		<< ""
 		;
 	
 	return ss.str();
@@ -828,13 +828,13 @@ wait_and_pop_value
 	std::stringstream ss;
 	
 	ss
-		<< "{"
+		<< ""
 		<<   wait_istream(s)
 		//<<   "if (!" << eos(s) << ") {"
 		<<     peek_value(s)
 		<<     pop(s)
 		//<<   "}"
-		<< "}"
+		<< ""
 		;
 	
 	return ss.str();
@@ -871,10 +871,10 @@ wait_and_push
 	std::stringstream ss;
 	
 	ss
-		<< "{"
+		<< ""
 		<<   wait_ostream(s)
 		<<   push(s)
-		<< "}"
+		<< ""
 		;
 	
 	return ss.str();
@@ -911,10 +911,10 @@ wait_and_push_value
 	std::stringstream ss;
 	
 	ss
-		<< "{"
+		<< ""
 		<<   wait_ostream(s)
 		<<   push_value(s)
-		<< "}"
+		<< ""
 		;
 	
 	return ss.str();
