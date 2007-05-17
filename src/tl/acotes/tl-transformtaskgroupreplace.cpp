@@ -199,6 +199,21 @@ generate_join_threads(void)
 	return ss.str();
 }
 
+// generate_recover_states -----------------------------------------------------
+std::string 
+TransformTaskgroupReplace::
+generate_recover_states
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	ss << StateTransformHelper::
+			copy_from_state_all(_taskgroup_info->get_task_info_set());
+	
+	return ss.str();
+}
+
 // generate_replace ------------------------------------------------------------
 std::string
 TransformTaskgroupReplace::
@@ -222,6 +237,7 @@ generate_replace
 			<< generate_join_threads()
 			<< MintakaTransformHelper::finalize_taskgroup(_taskgroup_info)
 			<< generate_destroy_streams()
+			<< generate_recover_states()
 			<< "}"
 			;
 	

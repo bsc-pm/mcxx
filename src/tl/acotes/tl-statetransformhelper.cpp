@@ -28,6 +28,47 @@
 namespace TL
 {
 
+// copy_from_state -------------------------------------------------------------
+std::string 
+StateTransformHelper::
+copy_from_state
+		( TaskInfo* task_info
+		)
+{
+	std::stringstream ss;
+	
+	ss << SymbolTransformHelper::copy_all_from_struct
+			( task_info->get_lastprivates()
+			, task_info->get_state_name()
+			);
+	
+	return ss.str();
+}
+
+// copy_from_state_all ---------------------------------------------------------
+std::string 
+StateTransformHelper::
+copy_from_state_all
+		( const std::set<TaskInfo*>& task_info_set
+		)
+{
+	std::stringstream ss;
+
+	ss << "{";
+	for		( std::set<TaskInfo*>::iterator it= task_info_set.begin()
+			; it != task_info_set.end()
+			; it++
+			)
+	{
+		TaskInfo* task_info= *it;
+		
+		ss << copy_from_state(task_info);
+	}
+	ss << "}";
+				
+	return ss.str();
+}
+
 // copy_to_state ---------------------------------------------------------------
 std::string 
 StateTransformHelper::

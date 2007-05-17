@@ -78,6 +78,8 @@ namespace TL
 		bool                         has_istream(StreamInfo* is) const;
 		bool                         has_ostream(StreamInfo* os) const;		
 		bool                         has_task_info_children(void) const;
+		bool                         is_firstprivate(const Symbol& symbol)const;
+		bool                         is_lastprivate(const Symbol& symbol) const;
 		bool                         is_private(const Symbol& symbol) const;
 		bool                         is_reference(const Symbol& symbol) const;
 

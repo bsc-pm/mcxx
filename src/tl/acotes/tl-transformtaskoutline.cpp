@@ -194,6 +194,7 @@ generate_outline
 			<<     generate_pops()
 			<<   "}"
 			<<   generate_closes()
+			<<   generate_return_state()
 			<<   MintakaTransformHelper::finalize_task(_task_info)
 			<< "}"
 			;
@@ -275,6 +276,28 @@ generate_recover_state
 		<< "(" << generate_struct_state_name() << "*) " 
 		<< generate_argument_name() 
 		<< ";" 	
+		;
+	
+	return ss.str();
+}
+
+// generate_return_state -------------------------------------------------------
+std::string 
+TransformTaskOutline::
+generate_return_state
+		( void
+		)
+{
+	std::stringstream ss;
+
+	ss	<< "{"
+		<< generate_recover_state()
+		<< SymbolTransformHelper::
+				copy_all_to_struct
+						( _task_info->get_lastprivates()
+						, generate_state_name() 
+						)
+		<< "}"
 		;
 	
 	return ss.str();

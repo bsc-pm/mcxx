@@ -56,6 +56,7 @@ private:
 	std::string generate_declare_threads(void);
 	std::string generate_destroy_streams(void);
 	std::string generate_join_threads(void);
+	std::string generate_recover_states(void);
 	std::string generate_replace(void);
 };
 

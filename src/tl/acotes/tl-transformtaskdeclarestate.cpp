@@ -75,9 +75,12 @@ generate_declares
 	
 	const std::set<Symbol>& task_firstprivates= 
 			_task_info->get_firstprivates();
+	const std::set<Symbol>& task_lastprivates= 
+			_task_info->get_lastprivates();
 	
 	ss << "struct " << _task_info->get_state_name() << " {";
 	
+	// states are firstprivates
 	for		( std::set<Symbol>::iterator it= task_firstprivates.begin()
 			; it != task_firstprivates.end()
 			; it++)
@@ -85,6 +88,20 @@ generate_declares
 		const Symbol& s= *it;
 		
 		ss << SymbolTransformHelper::declare(s);
+	}
+
+	// states are also lastprivates
+	for		( std::set<Symbol>::iterator it= task_lastprivates.begin()
+			; it != task_lastprivates.end()
+			; it++)
+	{
+		const Symbol& s= *it;
+		
+		// warn! cannot be already defined 
+		if (!_task_info->is_firstprivate(s))
+		{
+			ss << SymbolTransformHelper::declare(s);
+		}
 	}
 	
 	ss << "};";

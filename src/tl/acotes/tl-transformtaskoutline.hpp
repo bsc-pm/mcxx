@@ -58,6 +58,7 @@ private:
 	std::string generate_pops_expression(void);
 	std::string generate_pushes(void);
 	std::string generate_recover_state(void);
+	std::string generate_return_state(void);
 	std::string generate_state(void);
 	std::string generate_state_name(void);
 	std::string generate_struct_state_name(void);

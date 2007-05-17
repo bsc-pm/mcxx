@@ -32,6 +32,9 @@ class TaskInfo;
 class StateTransformHelper
 {
 public:	
+	static std::string copy_from_state(TaskInfo* task_info);
+	static std::string copy_from_state_all(const std::set<TaskInfo*>& 
+			task_info_set);
 	static std::string copy_to_state(TaskInfo* task_info);
 	static std::string copy_to_state_all(const std::set<TaskInfo*>& 
 			task_info_set);

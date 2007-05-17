@@ -495,6 +495,30 @@ has_ostream
 	return in;
 }
 
+// is_firstprivate -------------------------------------------------------------
+bool
+TaskInfo::
+is_firstprivate
+		( const Symbol& symbol
+		) const
+{
+	bool in= _firstprivates.find(symbol) != _firstprivates.end();
+	
+	return in;
+}
+
+// is_lastprivate --------------------------------------------------------------
+bool
+TaskInfo::
+is_lastprivate
+		( const Symbol& symbol
+		) const
+{
+	bool in= _lastprivates.find(symbol) != _lastprivates.end();
+	
+	return in;
+}
+
 // is_private ------------------------------------------------------------------
 bool
 TaskInfo::
