@@ -35,12 +35,18 @@ libtlacotes_la_SOURCES = \
 						tl-tasktransformhelper.cpp \
 						tl-threadtransformhelper.hpp \
 						tl-threadtransformhelper.cpp \
+						tl-targetinfo.hpp \
+						tl-targetinfo.cpp \
 						tl-targetstreaminfo.hpp \
 						tl-targetstreaminfo.cpp \
 						tl-transform.hpp \
 						tl-transform.cpp \
 						tl-transformmintakaoutline.hpp \
 						tl-transformmintakaoutline.cpp \
+						tl-transformtargetdeclare.hpp \
+						tl-transformtargetdeclare.cpp \
+						tl-transformtargetreplace.hpp \
+						tl-transformtargetreplace.cpp \
 						tl-transformtaskdeclarestate.hpp \
 						tl-transformtaskdeclarestate.cpp \
 						tl-transformtaskgroupdeclarestreams.hpp \

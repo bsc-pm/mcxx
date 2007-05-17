@@ -85,6 +85,9 @@ namespace TL
 			on_directive_pre["task"].connect(
 				functor(&AcotesTransform::task_preorder, *this)
 			);
+			on_directive_post["target"].connect(
+				functor(&AcotesTransform::target_postorder, *this)
+			);
 			on_directive_post["task"].connect(
 				functor(&AcotesTransform::task_postorder, *this)
 			);
@@ -239,6 +242,69 @@ namespace TL
 				task_info->add_lastprivate(symbol);
 			} 
 						
+			
+		}
+
+		// target_postorder ----------------------------------------------
+		void 
+		target_postorder
+				( PragmaCustomConstruct pragma_custom_construct
+				)
+		{
+			// Retrieves the top taskgroup
+			TaskgroupInfo* taskgroup_info= _taskgroup_stack.top();
+
+			// Retrieves the top task
+			TaskInfo* task_info= _task_stack.top();
+
+			ObjectList<IdExpression> vars;
+			// Adds inputs to task information
+			vars= pragma_custom_construct
+					.get_clause("input")
+					.id_expressions();
+			for		( ObjectList<IdExpression>::iterator it= vars.begin()
+					; it != vars.end()
+					; it++
+					)
+			{
+				IdExpression var= *it;
+				Symbol symbol= var.get_symbol();
+				
+				std::cout << "input " << symbol.get_name() << std::endl;				
+				//task_info->add_input(symbol);
+			} 
+			// Adds output to task information
+			vars= pragma_custom_construct
+					.get_clause("output")
+					.id_expressions();
+			for		( ObjectList<IdExpression>::iterator it= vars.begin()
+					; it != vars.end()
+					; it++
+					)
+			{
+				IdExpression var= *it;
+				Symbol symbol= var.get_symbol();
+				
+				std::cout << "output " << symbol.get_name() << std::endl;				
+				//task_info->add_output(symbol);
+			}
+			// Adds output to task information
+			ObjectList<Expression> exprs= pragma_custom_construct
+					.get_clause("label")
+					.get_expression_list()
+					//.id_expressions()
+					;
+			for		( ObjectList<Expression>::iterator it= exprs.begin()
+					; it != exprs.end()
+					; it++
+					)
+			{
+				Expression expr= *it;
+				
+				std::cout << "label " << expr.prettyprint() << std::endl;				
+				//task_info->add_output(symbol);
+			}
+			
 			
 		}
 

@@ -1,8 +1,6 @@
 /*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2007 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-	Acotes Translation Phase
-	Copyright (C) 2007 - David Rodenas Pico <david.rodenas@bsc.es>
+    Acotes Translation Phase
+    Copyright (C) 2007 - David Rodenas Pico <david.rodenas@bsc.es>
     Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
     Universitat Politecnica de Catalunya
 
@@ -24,6 +22,7 @@
 #define TLTASKGROUPINFO_HPP_
 
 #include <list>
+#include <map>
 #include <set>
 #include <string>
 
@@ -34,6 +33,7 @@ namespace TL
 	class TaskInfo;
 	class Transform;
 	class StreamInfo;
+	class TargetStreamInfo;
 	
 	class TaskgroupInfo
 	{
@@ -44,6 +44,8 @@ namespace TL
 		void                         add_transform(Transform* transform);
 		const std::string&           get_name(void) const;
 		const std::set<StreamInfo*>& get_stream_info_set(void) const;
+		TargetStreamInfo*            get_target_stream_info(const Symbol& 
+				symbol, const std::string& label);
 		TaskInfo*                    get_task_info_phantom(void) const;
 		const std::set<TaskInfo*>&   get_task_info_set(void) const;
 		void                         compute_graph(void);
@@ -54,11 +56,12 @@ namespace TL
 		
 	private:
 		// TaskgroupInfo fields ------------------------------------------------
-		std::string           _name;
-		std::set<StreamInfo*> _stream_info_set;
-		TaskInfo*             _task_info_phantom;
-		std::set<TaskInfo*>   _task_info_set;
-		std::list<Transform*> _transform_list;
+		std::string                             _name;
+		std::set<StreamInfo*>                   _stream_info_set;
+		std::map<std::string,TargetStreamInfo*> _target_stream_info_map;
+		TaskInfo*                               _task_info_phantom;
+		std::set<TaskInfo*>                     _task_info_set;
+		std::list<Transform*>                   _transform_list;
 		
 		void init_name(void);
 	};

@@ -25,6 +25,7 @@
 #include <assert.h>
 
 #include "tl-streaminfo.hpp"
+#include "tl-targetinfo.hpp"
 #include "tl-taskgroupinfo.hpp"
 
 namespace TL
@@ -43,6 +44,21 @@ TaskInfo
 	init_name();
 	init_state_name();
 	init_struct_state_name();
+}
+
+// TaskInfo destructor ---------------------------------------------------------
+TaskInfo::
+~TaskInfo(void)
+{
+	for 	( std::set<TargetInfo*>::iterator it= _target_info_set.begin()
+			; it != _target_info_set.end()
+			; it++
+			)
+	{
+		TargetInfo* target_info= *it;
+		
+		delete target_info;
+	}
 }
 		
 // add_export ------------------------------------------------------------------
@@ -495,6 +511,19 @@ has_ostream
 	return in;
 }
 
+// has_task_info_children ------------------------------------------------------
+bool                        
+TaskInfo::
+has_task_info_children
+		( void
+		) const
+{
+	bool empty_task_info_children= _task_info_children
+			.empty();
+			
+	return !empty_task_info_children;
+}		
+
 // is_firstprivate -------------------------------------------------------------
 bool
 TaskInfo::
@@ -543,18 +572,20 @@ is_reference
 	return in;
 }
 
-// has_task_info_children ------------------------------------------------------
-bool                        
+// new_target_info -------------------------------------------------------------
+TargetInfo*                  
 TaskInfo::
-has_task_info_children
-		( void
-		) const
+new_target_info
+		( const std::string& label
+		)
 {
-	bool empty_task_info_children= _task_info_children
-			.empty();
-			
-	return !empty_task_info_children;
-}		
+	TargetInfo* target_info= new TargetInfo(_taskgroup_info, this, label);
+	
+	_target_info_set.insert(target_info);
+	
+	return target_info;
+}
+
 
 // init_name -------------------------------------------------------------------
 void
@@ -658,6 +689,7 @@ compute_graph_output
 	add_loop_push_ostream(stream_info);
 	add_replace_pop_istream(stream_info);
 }
+
 // compute_graph_outputs -------------------------------------------------------
 void 
 TaskInfo::

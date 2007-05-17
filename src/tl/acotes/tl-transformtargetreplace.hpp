@@ -18,37 +18,25 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TLTRANSFORMMINTAKAOUTLINE_HPP_
-#define TLTRANSFORMMINTAKAOUTLINE_HPP_
-
-#include "tl-transform.hpp"
-
-#include <string>
+#ifndef TLTRANSFORMTARGETREPLACE_HPP_
+#define TLTRANSFORMTARGETREPLACE_HPP_
 
 #include "tl-pragmasupport.hpp"
+#include "tl-transform.hpp"
 
 namespace TL
 {
 
-class TransformMintakaOutline : public TL::Transform
+class TransformTargetReplace : public TL::Transform
 {
 public:
-	TransformMintakaOutline
-			( const PragmaCustomConstruct& pragma_custom_construct
-			);
-	virtual ~TransformMintakaOutline();
-	
-	virtual void transform(void);
+	TransformTargetReplace(const PragmaCustomConstruct& pragma_custom_construct);
+	virtual ~TransformTargetReplace();
 	
 private:
-	std::string generate_declare_initialized_condition(void);
-
-	static bool s_global_condition_declared; 
-
 	PragmaCustomConstruct _pragma_custom_construct;
-
 };
 
 }
 
-#endif /*TLTRANSFORMMINTAKAOUTLINE_HPP_*/
+#endif /*TLTRANSFORMTARGETREPLACE_HPP_*/

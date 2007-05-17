@@ -28,6 +28,7 @@
 
 
 #include "tl-streaminfo.hpp"
+#include "tl-targetstreaminfo.hpp"
 #include "tl-taskinfo.hpp"
 #include "tl-transform.hpp"
 
@@ -85,6 +86,18 @@ TaskgroupInfo::
 		
 		delete transform;
 	}			
+	
+	// remove all target streams
+	for		( std::map<std::string,TargetStreamInfo*>::iterator it= 
+					_target_stream_info_map.begin()
+			; it != _target_stream_info_map.end()
+			; it++
+			)
+	{
+		TargetStreamInfo* target_stream_info= (*it).second;
+		
+		delete target_stream_info;
+	}
 }
 
 // add_transform ---------------------------------------------------------------
@@ -117,6 +130,30 @@ get_stream_info_set
 		) const
 {
 	return _stream_info_set;
+}
+
+// get_target_stream_info ------------------------------------------------------
+TargetStreamInfo*            
+TaskgroupInfo::
+get_target_stream_info
+		( const Symbol& symbol
+		, const std::string& label
+		)
+{
+	std::string key= TargetStreamInfo::compute_name(symbol, label);
+	TargetStreamInfo* target_stream_info;
+	
+	if (_target_stream_info_map.count(key) == 0)
+	{
+		target_stream_info= new TargetStreamInfo(symbol, label);
+		_target_stream_info_map[key]= target_stream_info;
+	}
+	else // if (_target_stream_info_map.count(key) != 0)
+	{
+		target_stream_info= _target_stream_info_map[key];
+	}
+	
+	return target_stream_info;
 }
 
 // get_task_info_phantom -------------------------------------------------------
