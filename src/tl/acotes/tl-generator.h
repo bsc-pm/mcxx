@@ -32,7 +32,7 @@ public:
 	Generator();
 	virtual ~Generator();
 	
-	std::string generate(void);
+	virtual std::string generate(void)= 0;
 };
 
 }

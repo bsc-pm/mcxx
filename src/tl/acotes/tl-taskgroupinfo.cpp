@@ -31,6 +31,7 @@
 #include "tl-targetstreaminfo.hpp"
 #include "tl-taskinfo.hpp"
 #include "tl-transform.hpp"
+#include "tl-transformtaskgroupreplace.hpp"
 
 namespace TL {
 
@@ -76,17 +77,6 @@ TaskgroupInfo::
 		delete task_info;
 	}			
 	
-	// remove all created transforms
-	for 	( std::list<Transform*>::iterator it= _transform_list.begin()
-			; it != _transform_list.end()
-			; it++
-			)
-	{
-		Transform* transform= *it;
-		
-		delete transform;
-	}			
-	
 	// remove all target streams
 	for		( std::map<std::string,TargetStreamInfo*>::iterator it= 
 					_target_stream_info_map.begin()
@@ -98,18 +88,8 @@ TaskgroupInfo::
 		
 		delete target_stream_info;
 	}
-}
-
-// add_transform ---------------------------------------------------------------
-void 
-TaskgroupInfo::
-add_transform
-		( Transform* transform
-		)
-{
-	assert(transform);
 	
-	_transform_list.push_back(transform);
+	delete _transform_taskgroup_replace;
 }
 
 // get_name --------------------------------------------------------------------
@@ -176,6 +156,17 @@ get_task_info_set
 	return _task_info_set;
 }
 
+// get_transform_taskgroup_replace ---------------------------------------------
+TransformTaskgroupReplace*   
+TaskgroupInfo::
+get_transform_taskgroup_replace
+		( void
+		) const
+{	
+	return _transform_taskgroup_replace;
+}
+
+
 // compute_graph ---------------------------------------------------------------
 void
 TaskgroupInfo::
@@ -225,23 +216,16 @@ new_task_info
 	return task_info;
 }
 
-// transform_all ---------------------------------------------------------------
-void
+// set_transform_taskgroup_replace ---------------------------------------------
+void   
 TaskgroupInfo::
-transform_all
-		( 
-		)
-{
-	// Apply all transformations and remove it
-	for 	( std::list<Transform*>::iterator it= _transform_list.begin()
-			; it != _transform_list.end()
-			; it++
-			)
-	{
-		Transform* transform= *it;
-		
-		transform->transform();
-	}			
+set_transform_taskgroup_replace
+		( TransformTaskgroupReplace* transform_taskgroup_replace
+		) 
+{	
+	assert(transform_taskgroup_replace);
+	
+	_transform_taskgroup_replace= transform_taskgroup_replace;
 }
 
 // initializatiors -------------------------------------------------------------

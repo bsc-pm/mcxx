@@ -47,6 +47,17 @@ TransformTaskgroupReplace
 TransformTaskgroupReplace::
 ~TransformTaskgroupReplace()
 {
+	_previous_transform_list.delete_all();
+}
+
+// add_previous_transform ------------------------------------------------------
+void         
+TransformTaskgroupReplace::
+add_previous_transform
+		( Transform* transform
+		)
+{
+	_previous_transform_list.add(transform);
 }
 
 // transform -------------------------------------------------------------------
@@ -56,6 +67,8 @@ transform
 		( void
 		)
 {
+	_previous_transform_list.transform();
+	
 	// Replaces the task
 	Source task_replace_src= this->generate_replace();
 	AST_t task_replace_tree= task_replace_src.parse_statement

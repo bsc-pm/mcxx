@@ -32,6 +32,7 @@ namespace TL
 {
 	class TaskInfo;
 	class Transform;
+	class TransformTaskgroupReplace;
 	class StreamInfo;
 	class TargetStreamInfo;
 	
@@ -41,18 +42,19 @@ namespace TL
 		TaskgroupInfo();
 		~TaskgroupInfo();
 		
-		void                         add_transform(Transform* transform);
 		const std::string&           get_name(void) const;
 		const std::set<StreamInfo*>& get_stream_info_set(void) const;
 		TargetStreamInfo*            get_target_stream_info(const Symbol& 
 				symbol, const std::string& label);
 		TaskInfo*                    get_task_info_phantom(void) const;
 		const std::set<TaskInfo*>&   get_task_info_set(void) const;
+		TransformTaskgroupReplace*   get_transform_taskgroup_replace(void) const;
 		void                         compute_graph(void);
 		StreamInfo*                  new_stream_info(const Symbol& symbol, 
 				TaskInfo* task_info_ostream, TaskInfo* task_info_istream);
 		TaskInfo*                    new_task_info(void);
-		void                         transform_all(void);
+		void                         set_transform_taskgroup_replace(
+				TransformTaskgroupReplace* transform_taskgroup_replace);
 		
 	private:
 		// TaskgroupInfo fields ------------------------------------------------
@@ -61,7 +63,7 @@ namespace TL
 		std::map<std::string,TargetStreamInfo*> _target_stream_info_map;
 		TaskInfo*                               _task_info_phantom;
 		std::set<TaskInfo*>                     _task_info_set;
-		std::list<Transform*>                   _transform_list;
+		TransformTaskgroupReplace*              _transform_taskgroup_replace;
 		
 		void init_name(void);
 	};

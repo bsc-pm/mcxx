@@ -116,13 +116,26 @@ namespace TL
 			// Pushes the phantom with no shortcuts
 			_task_stack.push(task_info_phantom);
 	
+			// Enquees the replaces the task
+			TransformTaskgroupReplace* transform_taskgroup_replace= 
+					new TransformTaskgroupReplace
+							( pragma_custom_construct
+							, taskgroup_info
+							);
+			taskgroup_info->
+					set_transform_taskgroup_replace
+					( transform_taskgroup_replace
+					);
+
+
 			// Enquees the stream declaration
 			TransformTaskgroupDeclareStreams* transform_task_replace= 
 					new TransformTaskgroupDeclareStreams
 							( pragma_custom_construct
 							, taskgroup_info
 							);
-			taskgroup_info->add_transform(transform_task_replace);
+			transform_taskgroup_replace->
+					add_previous_transform(transform_task_replace);
 			
 			// It has an implicit task
 			//task_preorder(pragma_custom_construct);
@@ -311,13 +324,17 @@ namespace TL
 				target_info->add_output(symbol);
 			}
 
+			// Transformation support
+			TransformTaskgroupReplace* transform_taskgroup=
+					taskgroup_info->get_transform_taskgroup_replace(); 
+
 			// Enquees the generation for that transform declarations
 			TransformTargetDeclare* transform_target_declare=
 					new TransformTargetDeclare
 							( pragma_custom_construct
 							, target_info
 							);
-			taskgroup_info->add_transform(transform_target_declare);
+			transform_taskgroup->add_previous_transform(transform_target_declare);
 			
 			// Enquees the outline generation for that task
 			TransformTargetReplace* transform_target_replace=
@@ -325,7 +342,7 @@ namespace TL
 							(pragma_custom_construct
 							, target_info
 							);
-			taskgroup_info->add_transform(transform_target_replace);
+			transform_taskgroup->add_previous_transform(transform_target_replace);
 		}
 
 		// task_postorder ------------------------------------------------------
@@ -344,13 +361,17 @@ namespace TL
 			//Statement task_body= pragma_custom_construct.get_statement();
 			//task_info->set_body(task_body.prettyprint());
 			
+			// Transformation support
+			TransformTaskgroupReplace* transform_taskgroup=
+					taskgroup_info->get_transform_taskgroup_replace();
+					 
 			// Enquees the generation for that task state
 			TransformTaskDeclareState* transform_task_define_state=
 					new TransformTaskDeclareState
 							( pragma_custom_construct
 							, task_info
 							);
-			taskgroup_info->add_transform(transform_task_define_state);
+			transform_taskgroup->add_previous_transform(transform_task_define_state);
 			
 			// Enquees the outline generation for that task
 			TransformTaskOutline* transform_task_outline=
@@ -358,7 +379,7 @@ namespace TL
 							(pragma_custom_construct
 							, task_info
 							);
-			taskgroup_info->add_transform(transform_task_outline);
+			transform_taskgroup->add_previous_transform(transform_task_outline);
 			
 			// Enquees the replaces the task
 			TransformTaskReplace* transform_task_replace= 
@@ -366,7 +387,7 @@ namespace TL
 							( pragma_custom_construct
 							, task_info
 							);
-			taskgroup_info->add_transform(transform_task_replace);
+			transform_taskgroup->add_previous_transform(transform_task_replace);
 			
 			// Removes the task from the top
 			_task_stack.pop();
@@ -384,28 +405,23 @@ namespace TL
 			// It has an implicit task
 			//task_postorder(pragma_custom_construct);
 
+			// Transformation support
+			TransformTaskgroupReplace* transform_taskgroup=
+					taskgroup_info->get_transform_taskgroup_replace();
+					 
 			// Enquees the mintaka services
 			TransformMintakaOutline* transform_mintaka_outline= 
 					new TransformMintakaOutline
 							( pragma_custom_construct
 							);
-			taskgroup_info->add_transform(transform_mintaka_outline);
-
-
-			// Enquees the replaces the task
-			TransformTaskgroupReplace* transform_taskgroup_replace= 
-					new TransformTaskgroupReplace
-							( pragma_custom_construct
-							, taskgroup_info
-							);
-			taskgroup_info->add_transform(transform_taskgroup_replace);
+			transform_taskgroup->add_previous_transform(transform_mintaka_outline);
 
 
 			// Compute graph
 			taskgroup_info->compute_graph();
 
 			// Apply all transformations
-			taskgroup_info->transform_all();
+			transform_taskgroup->transform();
 
 
 			// Popes the phantom with no shortcuts
