@@ -20,7 +20,7 @@
 */
 #include "tl-transformlist.hpp"
 
-#include <assert>
+#include <assert.h>
 
 namespace TL
 {
