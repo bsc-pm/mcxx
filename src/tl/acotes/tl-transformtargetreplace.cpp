@@ -20,6 +20,8 @@
 */
 #include "tl-transformtargetreplace.hpp"
 
+#include "tl-targetinfo.hpp"
+
 namespace TL
 {
 
@@ -27,14 +29,25 @@ namespace TL
 TransformTargetReplace::
 TransformTargetReplace
 		( const PragmaCustomConstruct& pragma_custom_construct
+		, TargetInfo* target_info
 		)
 		: _pragma_custom_construct(pragma_custom_construct)
+		, _target_info(target_info)
 {
 }
 
 // TransformTargetReplace destructor -------------------------------------------
 TransformTargetReplace::
 ~TransformTargetReplace()
+{
+}
+
+// transform -------------------------------------------------------------------
+void
+TransformTargetReplace::
+transform
+		( void
+		)
 {
 }
 

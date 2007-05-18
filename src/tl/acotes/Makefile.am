@@ -17,6 +17,10 @@ libtlacotes_la_CXXFLAGS = -Wall \
     -I ../../../lib
 
 libtlacotes_la_SOURCES = \
+						tl-generator.hpp \
+						tl-generator.cpp \
+						tl-generatorlist.hpp \
+						tl-generatorlist.cpp \
 						tl-mintakatransformhelper.hpp \
 						tl-mintakatransformhelper.cpp \
 						tl-statetransformhelper.hpp \

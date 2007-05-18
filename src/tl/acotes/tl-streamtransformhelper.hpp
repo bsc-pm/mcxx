@@ -31,6 +31,7 @@ namespace TL
 
 class StreamInfo;
 class Symbol;
+class TargetStreamInfo;
 
 class StreamTransformHelper
 {
@@ -46,8 +47,14 @@ public:
 	static std::string create_ostream(StreamInfo* s);
 	static std::string create_all(const std::set<StreamInfo*>& ss);
 	static std::string declare(StreamInfo* s);
+	static std::string declare_istream(const std::string& istream_name);
 	static std::string declare_istream(StreamInfo *is);
+	static std::string declare_istream(TargetStreamInfo *is);
+	static std::string declare_istream_all(const std::set<TargetStreamInfo*>&s);
+	static std::string declare_ostream(const std::string& ostream_name);
 	static std::string declare_ostream(StreamInfo *os);
+	static std::string declare_ostream(TargetStreamInfo *os);
+	static std::string declare_ostream_all(const std::set<TargetStreamInfo*>&s);
 	static std::string destroy(StreamInfo* s);
 	static std::string destroy_istream(StreamInfo* s);
 	static std::string destroy_ostream(StreamInfo* s);

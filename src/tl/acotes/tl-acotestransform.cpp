@@ -42,14 +42,18 @@
 #endif
 
 
+#include <assert.h>
 #include <stack>
 #include <string>
 
 #include "tl-pragmasupport.hpp"
 
+#include "tl-targetinfo.hpp"
 #include "tl-taskgroupinfo.hpp"
 #include "tl-taskinfo.hpp"
 #include "tl-transformmintakaoutline.hpp"
+#include "tl-transformtargetdeclare.hpp"
+#include "tl-transformtargetreplace.hpp"
 #include "tl-transformtaskdeclarestate.hpp"
 #include "tl-transformtaskgroupdeclarestreams.hpp"
 #include "tl-transformtaskgroupreplace.hpp" 
@@ -256,6 +260,26 @@ namespace TL
 
 			// Retrieves the top task
 			TaskInfo* task_info= _task_stack.top();
+			
+			// Retrieves the label for that target
+			ObjectList<Expression> exprs= pragma_custom_construct
+					.get_clause("label")
+					.get_expression_list()
+					;
+			if (exprs.size() != 1)
+			{
+				std::cerr
+						<< "ERROR: #pragma acotes target directive requires "
+						<< "one single label." 
+						<< std::endl
+						;
+				assert(0);
+			}
+			std::string label= (*exprs.begin()).prettyprint();
+			std::cout << "label " << label << std::endl;				
+			
+			// Create a new instance to work
+			TargetInfo* target_info= task_info->new_target_info(label);
 
 			ObjectList<IdExpression> vars;
 			// Adds inputs to task information
@@ -270,8 +294,7 @@ namespace TL
 				IdExpression var= *it;
 				Symbol symbol= var.get_symbol();
 				
-				std::cout << "input " << symbol.get_name() << std::endl;				
-				//task_info->add_input(symbol);
+				target_info->add_input(symbol);
 			} 
 			// Adds output to task information
 			vars= pragma_custom_construct
@@ -285,27 +308,24 @@ namespace TL
 				IdExpression var= *it;
 				Symbol symbol= var.get_symbol();
 				
-				std::cout << "output " << symbol.get_name() << std::endl;				
-				//task_info->add_output(symbol);
+				target_info->add_output(symbol);
 			}
-			// Adds output to task information
-			ObjectList<Expression> exprs= pragma_custom_construct
-					.get_clause("label")
-					.get_expression_list()
-					//.id_expressions()
-					;
-			for		( ObjectList<Expression>::iterator it= exprs.begin()
-					; it != exprs.end()
-					; it++
-					)
-			{
-				Expression expr= *it;
-				
-				std::cout << "label " << expr.prettyprint() << std::endl;				
-				//task_info->add_output(symbol);
-			}
+
+			// Enquees the generation for that transform declarations
+			TransformTargetDeclare* transform_target_declare=
+					new TransformTargetDeclare
+							( pragma_custom_construct
+							, target_info
+							);
+			taskgroup_info->add_transform(transform_target_declare);
 			
-			
+			// Enquees the outline generation for that task
+			TransformTargetReplace* transform_target_replace=
+					new TransformTargetReplace
+							(pragma_custom_construct
+							, target_info
+							);
+			taskgroup_info->add_transform(transform_target_replace);
 		}
 
 		// task_postorder ------------------------------------------------------

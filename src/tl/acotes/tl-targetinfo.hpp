@@ -21,11 +21,15 @@
 #ifndef TLTARGETINFO_HPP_
 #define TLTARGETINFO_HPP_
 
+#include <set>
 #include <string>
+
+#include "tl-symbol.hpp"
 
 namespace TL
 {
 
+class TargetStreamInfo;
 class TaskgroupInfo;
 class TaskInfo;
 
@@ -36,10 +40,18 @@ public:
 			std::string& label);
 	virtual ~TargetInfo();
 	
+	void                               add_input(const Symbol& symbol);
+	void                               add_output(const Symbol& symbol);
+	const std::set<TargetStreamInfo*>& get_istream_target_info_set(void) const;
+	const std::set<TargetStreamInfo*>& get_ostream_target_info_set(void) const;
+	
+	
 private:
-	std::string    _label;
-	TaskInfo*      _task_info;
-	TaskgroupInfo* _taskgroup_info;
+	std::set<TargetStreamInfo*> _istream_target_info_set;
+	std::string                 _label;
+	std::set<TargetStreamInfo*> _ostream_target_info_set;
+	TaskInfo*                   _task_info;
+	TaskgroupInfo*              _taskgroup_info;
 	
 	
 };

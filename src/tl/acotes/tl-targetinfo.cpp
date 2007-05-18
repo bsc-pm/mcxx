@@ -20,6 +20,10 @@
 */
 #include "tl-targetinfo.hpp"
 
+#include "tl-targetstreaminfo.hpp"
+//#include "tl-taskinfo.hpp"
+#include "tl-taskgroupinfo.hpp"
+
 namespace TL
 {
 
@@ -41,5 +45,58 @@ TargetInfo::
 ~TargetInfo()
 {
 }
+
+// add_input -------------------------------------------------------------------
+void 
+TargetInfo::
+add_input
+		( const Symbol& symbol
+		)
+{
+	TargetStreamInfo* target_stream_info;
+	
+	target_stream_info= _taskgroup_info->get_target_stream_info(symbol, _label);
+	target_stream_info->set_input_task_info(_task_info);
+	
+	_istream_target_info_set.insert(target_stream_info);
+}
+
+// add_output ------------------------------------------------------------------
+void 
+TargetInfo::
+add_output
+		( const Symbol& symbol
+		)
+{
+	TargetStreamInfo* target_stream_info;
+	
+	target_stream_info= _taskgroup_info->get_target_stream_info(symbol, _label);
+	target_stream_info->set_output_task_info(_task_info);
+	
+	_istream_target_info_set.insert(target_stream_info);
+}
+
+// get_istream_target_info_set -------------------------------------------------
+const 
+std::set<TargetStreamInfo*>& 
+TargetInfo::
+get_istream_target_info_set
+		( void
+		) const
+{
+	return _istream_target_info_set;
+}
+
+// get_ostream_target_info_set -------------------------------------------------
+const 
+std::set<TargetStreamInfo*>& 
+TargetInfo::
+get_ostream_target_info_set
+		( void
+		) const
+{
+	return _ostream_target_info_set;
+}
+
 
 }

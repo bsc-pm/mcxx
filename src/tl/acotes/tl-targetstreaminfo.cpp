@@ -37,6 +37,8 @@ TargetStreamInfo
 		, _symbol(symbol)
 {
 	init_name();
+	init_istream_name();
+	init_ostream_name();
 }
 
 // TargetStreamInfo destructor -------------------------------------------------
@@ -63,6 +65,16 @@ compute_name
 	return ss.str();
 }
 
+// get_istream_name ------------------------------------------------------------
+const std::string& 
+TargetStreamInfo::
+get_istream_name
+		( void
+		) const
+{
+	return _istream_name;
+}
+
 // get_label ------------------------------------------------------------------- 			
 const std::string& 
 TargetStreamInfo::
@@ -81,6 +93,16 @@ get_name
 		) const
 {
 	return _name;
+}
+
+// get_ostream_name ------------------------------------------------------------
+const std::string& 
+TargetStreamInfo::
+get_ostream_name
+		( void
+		) const
+{
+	return _ostream_name;
 }
 
 // get_symbol ------------------------------------------------------------------
@@ -117,6 +139,20 @@ set_output_task_info
 	_output_task_info= output_task_info;
 }
 
+// init_istream_name -----------------------------------------------------------
+void
+TargetStreamInfo::
+init_istream_name
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	ss << "istream_" << get_name();
+	
+	_istream_name= ss.str();
+}
+
 // init_name -------------------------------------------------------------------
 void
 TargetStreamInfo::
@@ -125,6 +161,20 @@ init_name
 		)
 {
 	_name= compute_name(_symbol, _label);
+}
+
+// init_ostream_name -----------------------------------------------------------
+void
+TargetStreamInfo::
+init_ostream_name
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	ss << "ostream_" << get_name();
+	
+	_ostream_name= ss.str();
 }
 
 

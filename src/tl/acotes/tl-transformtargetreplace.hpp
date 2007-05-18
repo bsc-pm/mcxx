@@ -27,14 +27,20 @@
 namespace TL
 {
 
+class TargetInfo;
+
 class TransformTargetReplace : public TL::Transform
 {
 public:
-	TransformTargetReplace(const PragmaCustomConstruct& pragma_custom_construct);
+	TransformTargetReplace(const PragmaCustomConstruct& pragma_custom_construct, 
+			TargetInfo* target_info);
 	virtual ~TransformTargetReplace();
+	
+	virtual void transform(void);
 	
 private:
 	PragmaCustomConstruct _pragma_custom_construct;
+	TargetInfo*           _target_info;
 };
 
 }
