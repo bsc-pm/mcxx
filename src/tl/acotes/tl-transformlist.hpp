@@ -18,21 +18,30 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
+#ifndef TLTRANSFORMLIST_HPP_
+#define TLTRANSFORMLIST_HPP_
+
+#include <list>
+
 #include "tl-transform.hpp"
 
-
-// Transform constructor -------------------------------------------------------
-TL::Transform::
-Transform
-		(
-		)
+namespace TL
 {
+
+class TransformList : public TL::Transform
+{
+public:
+	TransformList();
+	virtual ~TransformList();
+	
+	void         add(Transform* transform);
+	void         delete_all(void);	
+	virtual void transform(void);
+	
+private:
+	std::list<Transform*> _transform_list;
+};
+
 }
 
-// Transform destructor --------------------------------------------------------
-TL::Transform::
-~Transform
-		(
-		) 
-{
-}
+#endif /*TLTRANSFORMLIST_HPP_*/

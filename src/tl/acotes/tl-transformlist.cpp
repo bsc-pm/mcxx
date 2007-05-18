@@ -18,78 +18,73 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#include "tl-generatorlist.hpp"
+#include "tl-transformlist.hpp"
 
-#include <assert.h>
-#include <sstream>
+#include <assert>
 
 namespace TL
 {
 
-// GeneratorList constructor ---------------------------------------------------
-GeneratorList::
-GeneratorList()
+// TransformList constructor ---------------------------------------------------
+TransformList::
+TransformList()
 {
 }
 
-// GeneratorList destructor ----------------------------------------------------
-GeneratorList::
-~GeneratorList()
+// TransformList destructor ----------------------------------------------------
+TransformList::
+~TransformList()
 {
 }
 
 // add -------------------------------------------------------------------------
 void
-GeneratorList::
+TransformList::
 add
-		( Generator* generator
+		( Transform* transform
 		)
 {
-	assert(generator);
+	assert(transform);
 	
-	_generator_list.push_back(generator);
+	_transform_list.push_back(transform);
 }
 
 // delete_all ------------------------------------------------------------------
 void
-GeneratorList::
+TransformList::
 delete_all
 		( void
 		)
 {
-	for		( std::list<Generator*>::iterator it= _generator_list.begin()
-			; it != _generator_list.end()
+	for		( std::list<Transform*>::iterator it= _transform_list.begin()
+			; it != _transform_list.end()
 			; it++
 			)
 	{
-		Generator* generator= *it;
+		Transform* transform= *it;
 		
-		delete generator;
+		delete transform;
 	}
 	
-	_generator_list.clear();
+	_transform_list.clear();
 }
 
-// generate --------------------------------------------------------------------
-std::string
-GeneratorList::
-generate
+// transform -------------------------------------------------------------------
+void
+TransformList::
+transform
 		( void
 		)
 {
-	std::stringstream ss;
-	
-	for		( std::list<Generator*>::iterator it= _generator_list.begin()
-			; it != _generator_list.end()
+	for		( std::list<Transform*>::iterator it= _transform_list.begin()
+			; it != _transform_list.end()
 			; it++
 			)
 	{
-		Generator* generator= *it;
+		Transform* transform= *it;
 		
-		ss << generator->generate();
+		transform->transform();
 	}
-	
-	return ss.str();
 }
 
-}
+} // end namespace TL

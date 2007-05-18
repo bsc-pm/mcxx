@@ -45,6 +45,8 @@ libtlacotes_la_SOURCES = \
 						tl-targetstreaminfo.cpp \
 						tl-transform.hpp \
 						tl-transform.cpp \
+						tl-transformlist.hpp \
+						tl-transformlist.cpp \
 						tl-transformmintakaoutline.hpp \
 						tl-transformmintakaoutline.cpp \
 						tl-transformtargetdeclare.hpp \
