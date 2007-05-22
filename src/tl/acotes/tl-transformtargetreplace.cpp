@@ -20,7 +20,9 @@
 */
 #include "tl-transformtargetreplace.hpp"
 
+#include "tl-streamtransformhelper.hpp"
 #include "tl-targetinfo.hpp"
+#include "tl-targetstreaminfo.hpp"
 
 namespace TL
 {
@@ -49,6 +51,95 @@ transform
 		( void
 		)
 {
+	// Replaces the task
+	Source task_replace_src= this->generate_replace();
+	AST_t task_replace_tree= task_replace_src.parse_statement
+			( _pragma_custom_construct.get_ast()
+			, _pragma_custom_construct.get_scope_link()
+			);
+	_pragma_custom_construct.get_ast().replace(task_replace_tree);
+}
+
+// generate_body ---------------------------------------------------------------
+std::string 
+TransformTargetReplace::
+generate_body
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	Statement taskgroup_body= _pragma_custom_construct.get_statement();
+	ss << taskgroup_body.prettyprint();
+	
+	return ss.str();
+}
+
+// generate_pops ---------------------------------------------------------------
+std::string
+TransformTargetReplace::
+generate_pops
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	std::set<TargetStreamInfo*> tss= _target_info->get_istream_target_info_set();
+	for		( std::set<TargetStreamInfo*>::iterator it= tss.begin()
+			; it != tss.end()
+			; it++
+			)
+	{
+		TargetStreamInfo* s= *it;
+		
+		ss << StreamTransformHelper::pop(s->get_stream_info());
+	}
+	
+	
+	return ss.str();
+}
+
+// generate_pushes -------------------------------------------------------------
+std::string
+TransformTargetReplace::
+generate_pushes
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	std::set<TargetStreamInfo*> tss= _target_info->get_ostream_target_info_set();
+	for		( std::set<TargetStreamInfo*>::iterator it= tss.begin()
+			; it != tss.end()
+			; it++
+			)
+	{
+		TargetStreamInfo* s= *it;
+		
+		ss << StreamTransformHelper::push(s->get_stream_info());
+	}
+	
+	
+	return ss.str();
+}
+
+// generate_replace ------------------------------------------------------------
+std::string
+TransformTargetReplace::
+generate_replace
+		( void
+		)
+{
+	std::stringstream ss;
+	
+	ss	<< "{"
+		<< generate_pops()
+		<< generate_body()
+		<< generate_pushes()
+		<< "}"
+		;
+	
+	return ss.str();
 }
 
 }

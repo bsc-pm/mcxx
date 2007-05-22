@@ -115,12 +115,14 @@ void
 TargetStreamInfo::
 set_task_info_istream
 		( TaskInfo *input_task_info
+		, bool task_controled_stream
 		)
 {
 	assert(input_task_info);
 	assert(!_task_info_istream);
 	
 	_task_info_istream= input_task_info;
+	_task_info_istream_pop= task_controled_stream;
 	
 	if (_task_info_ostream) { init_stream_info(); } 
 }
@@ -130,12 +132,14 @@ void
 TargetStreamInfo::
 set_task_info_ostream
 		( TaskInfo *output_task_info
+		, bool task_controled_stream
 		)
 {
 	assert(output_task_info);
 	assert(!_task_info_ostream);
 	
 	_task_info_ostream= output_task_info;
+	_task_info_istream_pop= task_controled_stream;
 
 	if (_task_info_istream) { init_stream_info(); } 
 }
@@ -168,7 +172,24 @@ init_stream_info
 
 	TaskgroupInfo* taskgroup_info= _task_info_istream->get_taskgroup_info();
 	_stream_info= taskgroup_info->
-			new_stream_info(_symbol, _task_info_istream, _task_info_ostream);
+			new_stream_info(_symbol, _task_info_ostream, _task_info_istream);
+			
+	if (_task_info_istream_pop)
+	{
+		_task_info_istream->add_loop_pop_istream(_stream_info);
+	}
+	else
+	{
+	_task_info_istream->add_loop_control_istream(_stream_info);
+	}
+	if (_task_info_ostream_push)
+	{
+		_task_info_ostream->add_loop_push_ostream(_stream_info);
+	}
+	else
+	{
+	_task_info_ostream->add_loop_close_ostream(_stream_info);
+	}
 }
 
 

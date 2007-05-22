@@ -73,7 +73,7 @@ add_output
 	target_stream_info= _taskgroup_info->get_target_stream_info(symbol, _label);
 	target_stream_info->set_task_info_ostream(_task_info);
 	
-	_istream_target_info_set.insert(target_stream_info);
+	_ostream_target_info_set.insert(target_stream_info);
 }
 
 // get_istream_target_info_set -------------------------------------------------

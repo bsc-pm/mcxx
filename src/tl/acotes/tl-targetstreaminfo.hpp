@@ -44,14 +44,18 @@ public:
 	const std::string& get_name(void) const;
 	StreamInfo*        get_stream_info(void) const;
 	const Symbol&      get_symbol(void) const;
-	void               set_task_info_istream(TaskInfo *input_task_info);
-	void               set_task_info_ostream(TaskInfo *input_task_info);
+	void               set_task_info_istream(TaskInfo *input_task_info, bool 
+			task_controled_stream= false);
+	void               set_task_info_ostream(TaskInfo *input_task_info, bool
+			task_controled_stream= false);
 	
 private:
 	TaskInfo*   _task_info_istream;
+	bool        _task_info_istream_pop;
 	std::string _label;
 	std::string _name;
 	TaskInfo*   _task_info_ostream;
+	bool        _task_info_ostream_push;
 	StreamInfo* _stream_info;
 	Symbol      _symbol;
 	

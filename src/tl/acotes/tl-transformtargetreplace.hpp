@@ -21,6 +21,8 @@
 #ifndef TLTRANSFORMTARGETREPLACE_HPP_
 #define TLTRANSFORMTARGETREPLACE_HPP_
 
+#include <string>
+
 #include "tl-pragmasupport.hpp"
 #include "tl-transform.hpp"
 
@@ -41,6 +43,11 @@ public:
 private:
 	PragmaCustomConstruct _pragma_custom_construct;
 	TargetInfo*           _target_info;
+	
+	std::string generate_body(void);
+	std::string generate_pops(void);
+	std::string generate_pushes(void);
+	std::string generate_replace(void);
 };
 
 }

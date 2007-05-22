@@ -26,6 +26,7 @@
 
 #include "tl-streaminfo.hpp"
 #include "tl-targetinfo.hpp"
+#include "tl-targetstreaminfo.hpp"
 #include "tl-taskgroupinfo.hpp"
 
 namespace TL
@@ -261,6 +262,38 @@ add_replace_push_ostream
 	
 	_task_info_parent->add_loop_close_ostream(os);
 	_replace_push_ostream_set.insert(os);
+}
+
+// add_target_input ------------------------------------------------------------
+void                         
+TaskInfo::
+add_target_input
+		( const Symbol& symbol
+		, const std::string& label
+		)
+{
+	add_private(symbol);
+
+	TargetStreamInfo* target_stream_info= 
+			_taskgroup_info->get_target_stream_info(symbol, label);
+			
+	target_stream_info->set_task_info_istream(this, true);
+}
+
+// add_target_output -----------------------------------------------------------
+void
+TaskInfo::
+add_target_output
+		( const Symbol& symbol
+		, const std::string& label
+		)
+{
+	add_private(symbol);
+
+	TargetStreamInfo* target_stream_info= 
+			_taskgroup_info->get_target_stream_info(symbol, label);
+			
+	target_stream_info->set_task_info_ostream(this, true);
 }
 
 // add_task_info_children ------------------------------------------------------

@@ -159,6 +159,7 @@ namespace TL
 			_task_stack.push(task_info);
 
 			ObjectList<IdExpression> vars;
+			ObjectList<Expression> exprs;
 			// Adds inputs to task information
 			vars= pragma_custom_construct
 					.get_clause("input")
@@ -257,8 +258,62 @@ namespace TL
 				
 				task_info->add_lastprivate(symbol);
 			} 
-						
-			
+			// Adds targets inputs
+			exprs= pragma_custom_construct
+					.get_clause("targetinput")
+					.get_expression_list();
+			if ((exprs.size() % 2) != 0)
+			{
+				std::cerr 
+						<< "ERROR: task targetinput(symbol,label) must have "
+						<< "one symbol and one label"
+						<< std::endl;
+				assert(0);
+			}
+			for		( ObjectList<Expression>::iterator it= exprs.begin()
+					; it != exprs.end()
+					; it++
+					)
+			{
+				Expression var_expression= *it;
+				IdExpression var= var_expression.get_id_expression();
+				Symbol symbol= var.get_symbol();
+				
+				it++;
+				Expression label_expression= *it;
+				std::string label= label_expression.prettyprint();
+				
+				std::cout << "found " << label << std::endl;
+				
+				task_info->add_target_input(symbol, label);
+			} 
+			// Adds targets outputs
+			exprs= pragma_custom_construct
+					.get_clause("targetoutput")
+					.get_expression_list();
+			if ((exprs.size() % 2) != 0)
+			{
+				std::cerr 
+						<< "ERROR: task targetoutput(symbol,label) must have "
+						<< "one symbol and one label"
+						<< std::endl;
+				assert(0);
+			}
+			for		( ObjectList<Expression>::iterator it= exprs.begin()
+					; it != exprs.end()
+					; it++
+					)
+			{
+				Expression var_expression= *it;
+				IdExpression var= var_expression.get_id_expression();
+				Symbol symbol= var.get_symbol();
+				
+				it++;
+				Expression label_expression= *it;
+				std::string label= label_expression.prettyprint();
+				
+				task_info->add_target_output(symbol, label);
+			} 
 		}
 
 		// target_postorder ----------------------------------------------------
@@ -287,8 +342,8 @@ namespace TL
 						;
 				assert(0);
 			}
-			std::string label= (*exprs.begin()).prettyprint();
-			std::cout << "label " << label << std::endl;				
+			Expression expr= (*exprs.begin());
+			std::string label= expr.prettyprint();
 			
 			// Create a new instance to work
 			TargetInfo* target_info= task_info->new_target_info(label);

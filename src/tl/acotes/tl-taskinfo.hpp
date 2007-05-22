@@ -57,6 +57,10 @@ public:
 	void                         add_reference(const Symbol& symbol);
 	void                         add_replace_pop_istream(StreamInfo* is);
 	void                         add_replace_push_ostream(StreamInfo* os);
+	void                         add_target_input(const Symbol& symbol, const
+			std::string& label);
+	void                         add_target_output(const Symbol& symbol, const
+			std::string& label);
 	void                         add_task_info_child(TaskInfo* child); 
 	void                         compute_graph(void);
 	const std::set<Symbol>&      get_exports(void) const;
