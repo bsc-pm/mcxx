@@ -80,6 +80,16 @@ get_ostream_name
 	return _ostream_name;
 }
 
+// get_queue_length ------------------------------------------------------------
+int 
+StreamInfo::
+get_queue_length
+		( void
+		) const
+{
+	return 128;
+}
+
 // get_symbol ------------------------------------------------------------------
 const Symbol&      
 StreamInfo::

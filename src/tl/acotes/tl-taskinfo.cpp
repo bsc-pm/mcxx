@@ -483,6 +483,16 @@ get_task_info_parent
 	return _task_info_parent;
 } 		
 
+// get_taskgroup_info ----------------------------------------------------------
+TaskgroupInfo*
+TaskInfo::
+get_taskgroup_info
+		( void
+		) const
+{
+	return _taskgroup_info;
+}
+
 // has_istream -----------------------------------------------------------------
 bool
 TaskInfo::

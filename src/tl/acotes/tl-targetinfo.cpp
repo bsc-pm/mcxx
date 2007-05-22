@@ -56,7 +56,7 @@ add_input
 	TargetStreamInfo* target_stream_info;
 	
 	target_stream_info= _taskgroup_info->get_target_stream_info(symbol, _label);
-	target_stream_info->set_input_task_info(_task_info);
+	target_stream_info->set_task_info_istream(_task_info);
 	
 	_istream_target_info_set.insert(target_stream_info);
 }
@@ -71,7 +71,7 @@ add_output
 	TargetStreamInfo* target_stream_info;
 	
 	target_stream_info= _taskgroup_info->get_target_stream_info(symbol, _label);
-	target_stream_info->set_output_task_info(_task_info);
+	target_stream_info->set_task_info_ostream(_task_info);
 	
 	_istream_target_info_set.insert(target_stream_info);
 }

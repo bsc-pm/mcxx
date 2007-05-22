@@ -49,8 +49,6 @@ libtlacotes_la_SOURCES = \
 						tl-transformlist.cpp \
 						tl-transformmintakaoutline.hpp \
 						tl-transformmintakaoutline.cpp \
-						tl-transformtargetdeclare.hpp \
-						tl-transformtargetdeclare.cpp \
 						tl-transformtargetreplace.hpp \
 						tl-transformtargetreplace.cpp \
 						tl-transformtaskdeclarestate.hpp \

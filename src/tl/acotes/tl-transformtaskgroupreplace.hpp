@@ -25,8 +25,8 @@
 
 #include <string>
 
+#include "tl-generatorlist.hpp"
 #include "tl-pragmasupport.hpp"
-#include "tl-transform.hpp"
 #include "tl-transformlist.hpp"
 #include "tl-taskgroupinfo.hpp"
 
@@ -42,10 +42,12 @@ public:
 			);
 	virtual ~TransformTaskgroupReplace();
 		
+	void         add_create_generator(Generator* generator);
 	void         add_previous_transform(Transform* transform);
 	virtual void transform(void);
 	
 private:
+	GeneratorList         _create_generator_list;
 	PragmaCustomConstruct _pragma_custom_construct;
 	TransformList         _previous_transform_list;
 	TaskgroupInfo*        _taskgroup_info;

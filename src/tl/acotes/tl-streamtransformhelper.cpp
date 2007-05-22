@@ -182,10 +182,32 @@ create_istream
 	ss		<< "istream_create"
 			<< "( &(" << s->get_istream_name() << ")"
 			<< ", sizeof(" << s->get_symbol_name() << ")"
-			<< ", 128"
+			<< ", " << s->get_queue_length()
 			<< ")"
 			<< ";"
 			;
+	
+	return ss.str();
+}
+
+// create_istream_all ----------------------------------------------------------
+std::string 
+StreamTransformHelper::
+create_istream_all
+		( const std::set<TargetStreamInfo*>& s
+		)
+{
+	std::stringstream ss;
+	
+	for		( std::set<TargetStreamInfo*>::iterator it= s.begin()
+			; it != s.end()
+			; it++
+			)
+	{
+		TargetStreamInfo* target_stream_info= *it;
+		
+		ss << create_istream(target_stream_info->get_stream_info());
+	}
 	
 	return ss.str();
 }
@@ -205,6 +227,28 @@ create_ostream
 			<< ")"
 			<< ";"
 			;
+	
+	return ss.str();
+}
+
+// create_ostream_all ----------------------------------------------------------
+std::string 
+StreamTransformHelper::
+create_ostream_all
+		( const std::set<TargetStreamInfo*>& s
+		)
+{
+	std::stringstream ss;
+	
+	for		( std::set<TargetStreamInfo*>::iterator it= s.begin()
+			; it != s.end()
+			; it++
+			)
+	{
+		TargetStreamInfo* target_stream_info= *it;
+		
+		ss << create_ostream(target_stream_info->get_stream_info());
+	}
 	
 	return ss.str();
 }
@@ -248,42 +292,22 @@ declare
 	return ss.str();
 }
 
-// declare_istream (string name) -----------------------------------------------
-std::string 
-StreamTransformHelper::
-declare_istream
-		( const std::string& istream_name
-		)
-{
-	std::stringstream ss;
-	
-	ss
-		<< "istream_t "
-		<< istream_name
-		<< ";"
-		;
-	
-	return ss.str();
-}
-
-// declare_istream (stream_info) -----------------------------------------------
+// declare_istream -------------------------------------------------------------
 std::string 
 StreamTransformHelper::
 declare_istream
 		( StreamInfo *is
 		)
 {
-	return declare_istream(is->get_istream_name());
-}
-
-// declare_istream (target_stream_info) ----------------------------------------
-std::string 
-StreamTransformHelper::
-declare_istream
-		( TargetStreamInfo *is
-		)
-{
-	return declare_istream(is->get_istream_name());
+	std::stringstream ss;
+	
+	ss
+		<< "istream_t "
+		<< is->get_istream_name()
+		<< ";"
+		;
+	
+	return ss.str();
 }
 
 // declare_istream_all ---------------------------------------------------------
@@ -302,48 +326,28 @@ declare_istream_all
 	{
 		TargetStreamInfo* target_stream_info= *it;
 		
-		ss << declare_istream(target_stream_info);
+		ss << declare_istream(target_stream_info->get_stream_info());
 	}
 	
 	return ss.str();
 }
 
-// declare_ostream (string name) -----------------------------------------------
-std::string 
-StreamTransformHelper::
-declare_ostream
-		( const std::string& ostream_name
-		)
-{
-	std::stringstream ss;
-	
-	ss
-		<< "ostream_t "
-		<< ostream_name
-		<< ";"
-		;
-	
-	return ss.str();
-}
-
-// declare_ostream (stream_info) -----------------------------------------------
+// declare_ostream -------------------------------------------------------------
 std::string 
 StreamTransformHelper::
 declare_ostream
 		( StreamInfo *os
 		)
 {
-	return declare_ostream(os->get_ostream_name());
-}
-
-// declare_ostream (target_stream_info) ----------------------------------------
-std::string 
-StreamTransformHelper::
-declare_ostream
-		( TargetStreamInfo *os
-		)
-{
-	return declare_ostream(os->get_istream_name());
+	std::stringstream ss;
+	
+	ss
+		<< "ostream_t "
+		<< os->get_ostream_name()
+		<< ";"
+		;
+	
+	return ss.str();
 }
 
 // declare_ostream_all ---------------------------------------------------------
@@ -362,7 +366,7 @@ declare_ostream_all
 	{
 		TargetStreamInfo* target_stream_info= *it;
 		
-		ss << declare_ostream(target_stream_info);
+		ss << declare_ostream(target_stream_info->get_stream_info());
 	}
 	
 	return ss.str();

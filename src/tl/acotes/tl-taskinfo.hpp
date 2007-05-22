@@ -77,6 +77,7 @@ public:
 	const std::list<TaskInfo*>&  get_task_info_children(void) const;
 	TaskInfo*                    get_task_info_first_child(void) const;
 	TaskInfo*                    get_task_info_parent(void) const;
+	TaskgroupInfo*               get_taskgroup_info(void) const;
 	bool                         has_istream(StreamInfo* is) const;
 	bool                         has_ostream(StreamInfo* os) const;		
 	bool                         has_task_info_children(void) const;

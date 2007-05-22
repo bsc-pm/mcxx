@@ -29,6 +29,7 @@ namespace TL
 {
 
 class TaskInfo;
+class StreamInfo;
 
 class TargetStreamInfo
 {
@@ -39,26 +40,23 @@ public:
 	static std::string compute_name(const Symbol& symbol, const std::string& 
 			label);
 			
-	const std::string& get_istream_name(void) const;
 	const std::string& get_label(void) const;
 	const std::string& get_name(void) const;
-	const std::string& get_ostream_name(void) const;
+	StreamInfo*        get_stream_info(void) const;
 	const Symbol&      get_symbol(void) const;
-	void               set_input_task_info(TaskInfo *input_task_info);
-	void               set_output_task_info(TaskInfo *input_task_info);
+	void               set_task_info_istream(TaskInfo *input_task_info);
+	void               set_task_info_ostream(TaskInfo *input_task_info);
 	
 private:
-	TaskInfo*   _input_task_info;
-	std::string _istream_name;
+	TaskInfo*   _task_info_istream;
 	std::string _label;
 	std::string _name;
-	TaskInfo*   _output_task_info;
-	std::string _ostream_name;
+	TaskInfo*   _task_info_ostream;
+	StreamInfo* _stream_info;
 	Symbol      _symbol;
 	
-	void init_ostream_name(void);
 	void init_name(void);
-	void init_istream_name(void);
+	void init_stream_info(void);
 };
 
 }

@@ -52,7 +52,6 @@
 #include "tl-taskgroupinfo.hpp"
 #include "tl-taskinfo.hpp"
 #include "tl-transformmintakaoutline.hpp"
-#include "tl-transformtargetdeclare.hpp"
 #include "tl-transformtargetreplace.hpp"
 #include "tl-transformtaskdeclarestate.hpp"
 #include "tl-transformtaskgroupdeclarestreams.hpp"
@@ -262,7 +261,7 @@ namespace TL
 			
 		}
 
-		// target_postorder ----------------------------------------------
+		// target_postorder ----------------------------------------------------
 		void 
 		target_postorder
 				( PragmaCustomConstruct pragma_custom_construct
@@ -328,14 +327,6 @@ namespace TL
 			TransformTaskgroupReplace* transform_taskgroup=
 					taskgroup_info->get_transform_taskgroup_replace(); 
 
-			// Enquees the generation for that transform declarations
-			TransformTargetDeclare* transform_target_declare=
-					new TransformTargetDeclare
-							( pragma_custom_construct
-							, target_info
-							);
-			transform_taskgroup->add_previous_transform(transform_target_declare);
-			
 			// Enquees the outline generation for that task
 			TransformTargetReplace* transform_target_replace=
 					new TransformTargetReplace

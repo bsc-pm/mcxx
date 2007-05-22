@@ -22,6 +22,10 @@
 
 #include <assert.h>
 
+#include "tl-streaminfo.hpp"
+#include "tl-taskgroupinfo.hpp"
+#include "tl-taskinfo.hpp"
+
 namespace TL
 {
 
@@ -31,14 +35,12 @@ TargetStreamInfo
 		( const Symbol& symbol
 		, const std::string& label
 		)
-		: _input_task_info((TaskInfo*)0)
+		: _task_info_istream((TaskInfo*)0)
 		, _label(label)
-		, _output_task_info((TaskInfo*)0)
+		, _task_info_ostream((TaskInfo*)0)
 		, _symbol(symbol)
 {
 	init_name();
-	init_istream_name();
-	init_ostream_name();
 }
 
 // TargetStreamInfo destructor -------------------------------------------------
@@ -65,16 +67,6 @@ compute_name
 	return ss.str();
 }
 
-// get_istream_name ------------------------------------------------------------
-const std::string& 
-TargetStreamInfo::
-get_istream_name
-		( void
-		) const
-{
-	return _istream_name;
-}
-
 // get_label ------------------------------------------------------------------- 			
 const std::string& 
 TargetStreamInfo::
@@ -95,14 +87,17 @@ get_name
 	return _name;
 }
 
-// get_ostream_name ------------------------------------------------------------
-const std::string& 
+// get_target_info -------------------------------------------------------------
+StreamInfo*
 TargetStreamInfo::
-get_ostream_name
+get_stream_info
 		( void
 		) const
 {
-	return _ostream_name;
+	// is not setted until both target_info_ostream and istream are setted.
+	assert(_stream_info);
+	
+	return _stream_info;
 }
 
 // get_symbol ------------------------------------------------------------------
@@ -118,39 +113,31 @@ get_symbol
 // set_input_task_info ---------------------------------------------------------
 void               
 TargetStreamInfo::
-set_input_task_info
+set_task_info_istream
 		( TaskInfo *input_task_info
 		)
 {
-	assert(!_input_task_info);
+	assert(input_task_info);
+	assert(!_task_info_istream);
 	
-	_input_task_info= input_task_info;
+	_task_info_istream= input_task_info;
+	
+	if (_task_info_ostream) { init_stream_info(); } 
 }
 
 // set_output_task_info --------------------------------------------------------
 void               
 TargetStreamInfo::
-set_output_task_info
+set_task_info_ostream
 		( TaskInfo *output_task_info
 		)
 {
-	assert(!_output_task_info);
+	assert(output_task_info);
+	assert(!_task_info_ostream);
 	
-	_output_task_info= output_task_info;
-}
+	_task_info_ostream= output_task_info;
 
-// init_istream_name -----------------------------------------------------------
-void
-TargetStreamInfo::
-init_istream_name
-		( void
-		)
-{
-	std::stringstream ss;
-	
-	ss << "istream_" << get_name();
-	
-	_istream_name= ss.str();
+	if (_task_info_istream) { init_stream_info(); } 
 }
 
 // init_name -------------------------------------------------------------------
@@ -163,18 +150,25 @@ init_name
 	_name= compute_name(_symbol, _label);
 }
 
-// init_ostream_name -----------------------------------------------------------
+// init_stream_info ------------------------------------------------------------
 void
 TargetStreamInfo::
-init_ostream_name
+init_stream_info
 		( void
 		)
 {
-	std::stringstream ss;
+	assert(_task_info_istream);
+	assert(_task_info_ostream);
 	
-	ss << "ostream_" << get_name();
-	
-	_ostream_name= ss.str();
+	assert	(  
+			_task_info_istream->get_taskgroup_info()
+			== 
+			_task_info_ostream->get_taskgroup_info()
+			);	
+
+	TaskgroupInfo* taskgroup_info= _task_info_istream->get_taskgroup_info();
+	_stream_info= taskgroup_info->
+			new_stream_info(_symbol, _task_info_istream, _task_info_ostream);
 }
 
 

@@ -47,7 +47,18 @@ TransformTaskgroupReplace
 TransformTaskgroupReplace::
 ~TransformTaskgroupReplace()
 {
+	_create_generator_list.delete_all();
 	_previous_transform_list.delete_all();
+}
+
+// add_create_generator --------------------------------------------------------
+void         
+TransformTaskgroupReplace::
+add_create_generator
+		( Generator* generator
+		)
+{
+	_create_generator_list.add(generator);
 }
 
 // add_previous_transform ------------------------------------------------------
@@ -242,6 +253,7 @@ generate_replace
 			<< MintakaTransformHelper::initialize_taskgroup(_taskgroup_info)
 			<< generate_create_states()
 			<< generate_create_streams()
+			<< _create_generator_list.generate()
 			<< generate_connect_streams()
 			<< generate_declare_threads()
 			<< generate_create_threads()
