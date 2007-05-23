@@ -223,7 +223,8 @@ namespace TL
                 PREINCREMENT,
                 POSTINCREMENT,
                 PREDECREMENT,
-                POSTDECREMENT
+                POSTDECREMENT,
+				CONDITIONAL
             };
 
             Type get_type();
@@ -281,7 +282,18 @@ namespace TL
             // exprM
             IdExpression get_accessed_member();
 
+			// exprC ? exprA : exprB
+			bool is_conditional();
+			// exprC
+			Expression get_condition_expression();
+			// exprA
+			Expression get_true_expression();
+			// exprB
+			Expression get_false_expression();
+
             OperationKind get_operation_kind();
+
+			std::string get_operator_str();
     };
 
     class DeclaredEntity : public LangConstruct

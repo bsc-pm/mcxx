@@ -31,7 +31,7 @@ namespace TL
 
                     address_expression << "(" << expression.get_unary_operand().prettyprint() << ")";
                 }
-                // e1[e2] => READ(e1) + READ(e2)
+                // e1[e2] => READ(e1)[READ(e2)]
                 else if (expression.is_array_subscript())
                 {
 
@@ -49,10 +49,12 @@ namespace TL
 
                     address_expression
                         << "("
+						<< "&(("
                         << expression.get_subscripted_expression().prettyprint()
-                        << " + "
+						<< ")"
+                        << "["
                         << expression.get_subscript_expression().prettyprint()
-                        << ")"
+                        << "]))"
                         ;
 
 
@@ -145,13 +147,38 @@ namespace TL
                     replace_expression(expression.get_second_operand());
 
                     read_expression
-                        << "__stm_write(__t, "
+                        << "*(__stm_write(__t, "
                         << expression.get_first_operand().prettyprint()
                         << ","
                         << expression.get_second_operand().prettyprint()
-                        << ")"
+                        << "))"
                         ;
                 }
+				else if (expression.is_operation_assignment())
+				{
+					Source left_original_part;
+					left_original_part
+						<< expression.get_first_operand().prettyprint()
+						;
+
+					get_address(expression.get_first_operand());
+					replace_expression(expression.get_second_operand());
+
+					Source real_operator;
+
+					real_operator << expression.get_operator_str();
+					
+					read_expression
+                            << "({"
+                            << "__typeof__(" << left_original_part << ") "
+                            << "*__temp = " << expression.get_first_operand().prettyprint() << ";"
+							<< "*(__stm_write(__t, __temp, *__stm_read(__t, __temp) "
+							<< real_operator
+							<< "(" << expression.get_second_operand().prettyprint() << ")"
+							<< "));"
+                            << "})"
+							;
+				}
                 // var => *__stm_read(__t, &var)
                 else if (expression.is_id_expression())
                 {
@@ -182,7 +209,7 @@ namespace TL
                         << ")"
                         ;
                 }
-                // e1[e2] => *__stm_read(__t, READ(e1) + READ(e2))
+                // e1[e2] => *__stm_read(__t, READ(e1)[READ(e2)])
                 else if (expression.is_array_subscript())
                 {
                     // Source original_array;
@@ -205,15 +232,20 @@ namespace TL
                     // }
                     // else if (subscripted_type.is_pointer())
                     {
-                        replace_expression(expression.get_subscripted_expression());
-                        replace_expression(expression.get_subscript_expression());
+                        // replace_expression(expression.get_subscripted_expression());
+                        // replace_expression(expression.get_subscript_expression());
 
+
+						get_address(expression);
                         read_expression
-                            << "( *__stm_read(__t, "
-                            << expression.get_subscripted_expression().prettyprint()
-                            << " + "
-                            << expression.get_subscript_expression().prettyprint()
-                            << ") )"
+                            << "(*__stm_read(__t, "
+                            // << "(" 
+							// << expression.get_subscripted_expression().prettyprint()
+                            // << ")"
+                            // << "[" << expression.get_subscript_expression().prettyprint() << "]"
+							<< expression.prettyprint()
+							<< ")"
+							<< ")"
                             ;
                     }
                     // else if (subscripted_type.is_array())
@@ -341,7 +373,7 @@ namespace TL
                         replace_expression(flat_code_expr);
 
                         Source derref_write;
-                        derref_write << "*(" << flat_code_expr.prettyprint() << ")";
+                        derref_write << "(" << flat_code_expr.prettyprint() << ")";
 
                         AST_t derref_write_tree = derref_write.parse_expression(expression.get_ast(),
                                 expression.get_scope_link());
@@ -489,7 +521,10 @@ namespace TL
                                 ;
                         }
 
-                        if (is_replaced_function)
+                        if (is_replaced_function 
+								// If it is a pointer better we do not add
+								// transaction and hope it be a safe function :)
+								&& !function_type.is_pointer())
                         {
                             // Add a transaction argument
                             replace_args.append_with_separator("__t", ",");
@@ -537,6 +572,15 @@ namespace TL
                     // Don't do anything else
                     return;
                 } 
+				else if (expression.is_conditional())
+				{
+					replace_expression(expression.get_condition_expression());
+					replace_expression(expression.get_true_expression());
+					replace_expression(expression.get_false_expression());
+
+					// Do not anything else
+					return;
+				}
                 // Other expressions (function calls and literals)
                 else 
                 {
