@@ -36,10 +36,100 @@ Copyright @copyright{} 2007 Roger Ferrer Ib@'a@~nez.
 
 @menu
 * Introduction::
+* Overview of the compilation process::
 @end menu
 
 @node Introduction
 @chapter Introduction
 @cindex introduction
+
+@menu
+* What is this document about::
+* What is mcxx?::
+@end menu
+
+@node What is this document about
+@section What is this document about
+@cindex goal of the document
+
+This is the @acronym{mcxx, Mercurium C++ compiler} internals reference document. This document intends to give the
+reader a detailed explanation of the compiler, how it works and how it can be extended.
+The idea is not to give a course of compilers but allow any user with enough
+compilation process knowledge to modify the compiler.
+
+This is not a document to learn C or C++ and even in some places it requires good
+knowledge of these. 
+
+@node What is mcxx?
+@section What is mcxx?
+@cindex what is mcxx
+
+mcxx is a C/C++ research compiler oriented to source-to-source processing. The word
+research here means that it is not intended to be a commercial high-quality compiler
+(even if the developers would like it to be) and thus it may crash, eat your homework
+or wipe your hard disk. Normally, though, this is unlikely to happen.
+
+This compiler was developed to fill some needs when dealing with C++. There are
+not very much C++ compilers open source and none of them@footnote{At the time
+of writing this document} was useful for source-to-source processing.
+Commercial, or non source-to-source ones, compilers tend to lower as early as
+possible to intermediate representations that loose track of almost all the
+source so they are not very well suited for this kind of processing. C is
+supported as it is almost a subset of C++ and because many things are easier to
+do in C than in C++ when concerning to symbolic issues.
+
+The compiler started initially in the context of OpenMP research so
+some parts of it are really well suited for it. On the other hand, the
+compiler itself is rather generic and has been used in some contexts
+not related to OpenMP.
+
+@node Overview of the compilation process
+@chapter Overview of the compilation process
+@cindex overview
+
+@menu
+* Compilation flow revisited::
+@end menu
+
+In this chapter an overview of the compilation process and an explanation
+about layout of the files and directories is given.
+
+@node Compilation flow revisited
+@section Compilation flow revisited
+@cindex compilation flow
+
+@menu
+* Preprocessing::
+* Context free parsing::
+@end menu
+
+The compiler performs the following operations.
+
+@enumerate
+@item First the source code is preprocessed. This is normally done invoking a
+C/C++ preprocessor like @command{cpp} or @command{gcc -E}. This phase expands
+preprocessor lines like @code{#include} and @code{#define}. 
+
+@item The preprocessed source is parsed. This first parsing phase uses
+state-of-the-art parsing technology and the built abstract syntax tree may
+contain unresolved ambiguities.
+
+@item The ambiguous tree is then analyzed semantically. The compiler starts to
+build symbolic, mainly symbol tables, information that will be used to
+disambiguate the code. At the same moment, the compiler tags the tree with
+additional information to be used further. The abstract syntax tree is removed
+all the ambiguities.
+
+@item The pipeline of compilation phases is launched. Theses phases
+will modify the abstract syntax tree and have available the symbolical
+information gathered in the previous step.
+
+@item The modified abstract syntax tree is prettyprinted into a file.
+
+@item Depending on the exact arguments passed onto the compiler, the driver
+will invoke the native compiler to generated machine code and can also
+perform linking.
+@end enumerate
+
 
 @bye
