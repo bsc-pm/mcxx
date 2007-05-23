@@ -25,6 +25,7 @@
 #include "hash.h"
 #include "cxx-macros.h"
 #include "cxx-scope-decls.h"
+#include "cxx-buildscope-decls.h"
 
 MCXX_BEGIN_DECLS
 
