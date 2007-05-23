@@ -114,6 +114,24 @@ namespace TL
 			_taskgroup_stack.push(taskgroup_info);
 			// Pushes the phantom with no shortcuts
 			_task_stack.push(task_info_phantom);
+
+
+			ObjectList<IdExpression> vars;
+			// Adds shortcuts to task information
+			vars= pragma_custom_construct
+					.get_clause("shortcut")
+					.id_expressions();
+			for		( ObjectList<IdExpression>::iterator it= vars.begin()
+					; it != vars.end()
+					; it++
+					)
+			{
+				IdExpression var= *it;
+				Symbol symbol= var.get_symbol();
+				
+				task_info_phantom->add_shortcut(symbol);
+			} 
+
 	
 			// Enquees the replaces the task
 			TransformTaskgroupReplace* transform_taskgroup_replace= 
@@ -160,6 +178,20 @@ namespace TL
 
 			ObjectList<IdExpression> vars;
 			ObjectList<Expression> exprs;
+			// Adds shortcuts to task information
+			vars= pragma_custom_construct
+					.get_clause("shortcut")
+					.id_expressions();
+			for		( ObjectList<IdExpression>::iterator it= vars.begin()
+					; it != vars.end()
+					; it++
+					)
+			{
+				IdExpression var= *it;
+				Symbol symbol= var.get_symbol();
+				
+				task_info->add_shortcut(symbol);
+			} 
 			// Adds inputs to task information
 			vars= pragma_custom_construct
 					.get_clause("input")
@@ -282,8 +314,6 @@ namespace TL
 				it++;
 				Expression label_expression= *it;
 				std::string label= label_expression.prettyprint();
-				
-				std::cout << "found " << label << std::endl;
 				
 				task_info->add_target_input(symbol, label);
 			} 

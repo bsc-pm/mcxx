@@ -139,7 +139,7 @@ set_task_info_ostream
 	assert(!_task_info_ostream);
 	
 	_task_info_ostream= output_task_info;
-	_task_info_istream_pop= task_controled_stream;
+	_task_info_ostream_push= task_controled_stream;
 
 	if (_task_info_istream) { init_stream_info(); } 
 }
@@ -180,7 +180,7 @@ init_stream_info
 	}
 	else
 	{
-	_task_info_istream->add_loop_control_istream(_stream_info);
+		_task_info_istream->add_loop_control_istream(_stream_info);
 	}
 	if (_task_info_ostream_push)
 	{
@@ -188,7 +188,7 @@ init_stream_info
 	}
 	else
 	{
-	_task_info_ostream->add_loop_close_ostream(_stream_info);
+		_task_info_ostream->add_loop_close_ostream(_stream_info);
 	}
 }
 

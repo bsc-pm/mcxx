@@ -61,7 +61,8 @@ public:
 			std::string& label);
 	void                         add_target_output(const Symbol& symbol, const
 			std::string& label);
-	void                         add_task_info_child(TaskInfo* child); 
+	void                         add_task_info_child(TaskInfo* child);
+	void                         add_shortcut(const Symbol& symbol); 
 	void                         compute_graph(void);
 	const std::set<Symbol>&      get_exports(void) const;
 	const std::set<Symbol>&      get_firstprivates(void) const;
@@ -86,9 +87,12 @@ public:
 	bool                         has_ostream(StreamInfo* os) const;		
 	bool                         has_task_info_children(void) const;
 	bool                         is_firstprivate(const Symbol& symbol)const;
+	bool                         is_input(const Symbol& symbol) const;
 	bool                         is_lastprivate(const Symbol& symbol) const;
+	bool                         is_output(const Symbol& symbol) const;
 	bool                         is_private(const Symbol& symbol) const;
 	bool                         is_reference(const Symbol& symbol) const;
+	bool                         is_shortcut(const Symbol& symbol) const;
 	TargetInfo*                  new_target_info(const std::string& label);
 
 private:
@@ -107,6 +111,7 @@ private:
 	std::set<StreamInfo*> _ostream_set;
 	std::set<Symbol>      _privates;
 	std::set<Symbol>      _references;
+	std::set<Symbol>      _shortcuts;
 	std::string           _state_name;
 	std::string           _struct_state_name;
 	std::set<StreamInfo*> _replace_pop_istream_set;
@@ -120,10 +125,14 @@ private:
 	void init_state_name(void);
 	void init_struct_state_name(void);
 
-	void compute_graph_input(const Symbol& symbol);
-	void compute_graph_inputs(void);
-	void compute_graph_output(const Symbol& symbol);
-	void compute_graph_outputs(void);
+	void      compute_graph_input(const Symbol& symbol);
+	void      compute_graph_inputs(void);
+	void      compute_graph_output(const Symbol& symbol);
+	void      compute_graph_outputs(void);
+	void      compute_graph_shortcut(const Symbol& symbol);
+	TaskInfo* compute_graph_shortcut_output(const Symbol& symbol, TaskInfo* 
+			output);
+	void      compute_graph_shortcuts(void);
 };
 	
 }

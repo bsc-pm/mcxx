@@ -310,6 +310,16 @@ add_task_info_child
 	_task_info_children.push_back(child);
 }
 
+// add_shortcut ----------------------------------------------------------------
+void                         
+TaskInfo::
+add_shortcut
+		( const Symbol& symbol
+		)
+{
+	_shortcuts.insert(symbol);
+}
+
 // compute_graph ---------------------------------------------------------------
 void                        
 TaskInfo::
@@ -326,6 +336,7 @@ compute_graph
 		child->compute_graph();
 	}
 	
+	compute_graph_shortcuts();
 	compute_graph_inputs();
 	compute_graph_outputs();
 }
@@ -579,6 +590,18 @@ is_firstprivate
 	return in;
 }
 
+// is_input --------------------------------------------------------------------
+bool
+TaskInfo::
+is_input
+		( const Symbol& symbol
+		) const
+{
+	bool in= _inputs.find(symbol) != _inputs.end();
+	
+	return in;
+}
+
 // is_lastprivate --------------------------------------------------------------
 bool
 TaskInfo::
@@ -587,6 +610,18 @@ is_lastprivate
 		) const
 {
 	bool in= _lastprivates.find(symbol) != _lastprivates.end();
+	
+	return in;
+}
+
+// is_output -------------------------------------------------------------------
+bool
+TaskInfo::
+is_output
+		( const Symbol& symbol
+		) const
+{
+	bool in= _outputs.find(symbol) != _outputs.end();
 	
 	return in;
 }
@@ -615,6 +650,18 @@ is_reference
 	return in;
 }
 
+// is_shortcut -----------------------------------------------------------------
+bool
+TaskInfo::
+is_shortcut
+		( const Symbol& symbol
+		) const
+{
+	bool in= _shortcuts.find(symbol) != _shortcuts.end();
+	
+	return in;
+}
+
 // new_target_info -------------------------------------------------------------
 TargetInfo*                  
 TaskInfo::
@@ -629,7 +676,6 @@ new_target_info
 	return target_info;
 }
 
-
 // init_name -------------------------------------------------------------------
 void
 TaskInfo::
@@ -638,13 +684,15 @@ init_name
 		)
 {
 	std::stringstream ss;
+	static int last_num= 0;
 	
 	ss
 		<< "task_"
-			<< (long) this 
+		<< last_num 
 			;
+	last_num++;
 		
-		_name= ss.str();
+	_name= ss.str();
 }
 
 // init_state_name -------------------------------------------------------------
@@ -657,9 +705,9 @@ init_state_name
 	std::stringstream ss;
 	
 	ss
-		<< "task_state_"
-			<< (long) this 
-			;
+		<< "state_"
+		<< get_name() 
+		;
 		
 	_state_name= ss.str();
 }
@@ -674,8 +722,8 @@ init_struct_state_name
 	std::stringstream ss;
 	
 	ss
-		<< "struct task_state_"
-		<< (long) this 
+		<< "struct state_"
+		<< get_name() 
 		;
 		
 	_struct_state_name= ss.str();
@@ -690,12 +738,17 @@ compute_graph_input
 {
 	assert(_task_info_parent);
 	
-	StreamInfo* stream_info= _taskgroup_info
-			->new_stream_info(input, _task_info_parent, this);
-			
-	// is input for this task
-	add_loop_pop_istream(stream_info);
-	add_replace_push_ostream(stream_info);
+	if		(  !is_shortcut(input) 
+			&& !_task_info_parent->is_shortcut(input)
+			)
+	{
+		StreamInfo* stream_info= _taskgroup_info
+				->new_stream_info(input, _task_info_parent, this);
+				
+		// is input for this task
+		add_loop_pop_istream(stream_info);
+		add_replace_push_ostream(stream_info);
+	}
 }
 
 // compute_graph_inputs --------------------------------------------------------
@@ -724,13 +777,18 @@ compute_graph_output
 		)
 {
 	assert(_task_info_parent);
-
-	StreamInfo* stream_info= _taskgroup_info
-			->new_stream_info(output, this, _task_info_parent);
-			
-	// is output for this task
-	add_loop_push_ostream(stream_info);
-	add_replace_pop_istream(stream_info);
+	
+	if		(  !is_shortcut(output) 
+			&& !_task_info_parent->is_shortcut(output)
+			)
+	{
+		StreamInfo* stream_info= _taskgroup_info
+				->new_stream_info(output, this, _task_info_parent);
+				
+		// is output for this task
+		add_loop_push_ostream(stream_info);
+		add_replace_pop_istream(stream_info);
+	} 
 }
 
 // compute_graph_outputs -------------------------------------------------------
@@ -748,6 +806,84 @@ compute_graph_outputs
 		Symbol output= *it;
 		
 		compute_graph_output(output);
+	}
+}
+
+// compute_graph_shortcut ------------------------------------------------------
+void 
+TaskInfo::
+compute_graph_shortcut
+		( const Symbol& symbol
+		)
+{
+	TaskInfo* output= (TaskInfo*)0;
+
+	output= compute_graph_shortcut_output(symbol, output);	
+}
+
+// compute_graph_shortcut_output
+TaskInfo* 
+TaskInfo::
+compute_graph_shortcut_output
+		( const Symbol& symbol
+		, TaskInfo* output
+		)
+{
+	// if here is also shortcutted
+	if (is_shortcut(symbol))
+	{
+		// for each initial input before output 
+		for		( std::list<TaskInfo*>::iterator it= _task_info_children.begin()
+				; it != _task_info_children.end()
+				; it++
+				)
+		{
+			TaskInfo* child_task_info= *it;
+			
+			// if symbol is input calls to it as symbol/output
+			// if symbol is output overwrites it, 
+			// if both, do both
+			output= child_task_info->
+					compute_graph_shortcut_output(symbol, output); 
+		}
+	
+	// if not shortcutted output
+	} else /* if (!is_shortcut(symbol)) */ {
+		// if it is input shortcut
+		if (is_input(symbol) && output) {
+			StreamInfo* stream_info= _taskgroup_info
+					->new_stream_info(symbol, output, this);
+					
+			// connect!!
+			// is input for this task
+			this->add_loop_pop_istream(stream_info);
+			// output for the other task
+			output->add_loop_push_ostream(stream_info);
+		} 
+		// if it is output is the next output
+		if (is_output(symbol)) {
+			output= this;
+		}
+	}
+	
+	return output;
+}
+
+// compute_graph_shortcut ------------------------------------------------------
+void 
+TaskInfo::
+compute_graph_shortcuts
+		( void
+		)
+{
+	for		( std::set<Symbol>::iterator it= _shortcuts.begin()
+			; it != _shortcuts.end()
+			; it++
+			)
+	{
+		Symbol shortcut= *it;
+		
+		compute_graph_shortcut(shortcut);
 	}
 }
 
