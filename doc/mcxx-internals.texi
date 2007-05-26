@@ -36,7 +36,7 @@ Copyright @copyright{} 2007 Roger Ferrer Ib@'a@~nez.
 
 @menu
 * Introduction::
-* Overview of the compilation process::
+* Compilation process::
 @end menu
 
 @node Introduction
@@ -83,53 +83,146 @@ some parts of it are really well suited for it. On the other hand, the
 compiler itself is rather generic and has been used in some contexts
 not related to OpenMP.
 
-@node Overview of the compilation process
-@chapter Overview of the compilation process
-@cindex overview
+@node Compilation process
+@chapter Compilation process
+@cindex compilation process
 
 @menu
-* Compilation flow revisited::
+* Compilation flow overview::
+* Driver::
 @end menu
 
-In this chapter an overview of the compilation process and an explanation
+In this chapter a global vision of the compilation process and an explanation
 about layout of the files and directories is given.
 
-@node Compilation flow revisited
-@section Compilation flow revisited
+@node Compilation flow overview
+@section Compilation flow overview
 @cindex compilation flow
 
 @menu
 * Preprocessing::
 * Context free parsing::
+* Semantic analysis::
+* Compilation pipeline::
+* Prettyprinting::
+* Additional steps::
 @end menu
 
-The compiler performs the following operations.
+The compiler flow can be sketched as follows.
 
 @enumerate
-@item First the source code is preprocessed. This is normally done invoking a
-C/C++ preprocessor like @command{cpp} or @command{gcc -E}. This phase expands
-preprocessor lines like @code{#include} and @code{#define}. 
-
-@item The preprocessed source is parsed. This first parsing phase uses
-state-of-the-art parsing technology and the built abstract syntax tree may
-contain unresolved ambiguities.
-
-@item The ambiguous tree is then analyzed semantically. The compiler starts to
-build symbolic, mainly symbol tables, information that will be used to
-disambiguate the code. At the same moment, the compiler tags the tree with
-additional information to be used further. The abstract syntax tree is removed
-all the ambiguities.
-
-@item The pipeline of compilation phases is launched. Theses phases
-will modify the abstract syntax tree and have available the symbolical
-information gathered in the previous step.
-
+@item First the source code is preprocessed.
+@item The preprocessed source is parsed. 
+@item The ambiguous tree is then analyzed semantically. 
+@item The pipeline of compilation phases is launched. 
 @item The modified abstract syntax tree is prettyprinted into a file.
-
-@item Depending on the exact arguments passed onto the compiler, the driver
-will invoke the native compiler to generated machine code and can also
-perform linking.
+@item Additional steps depending on the exact arguments passed.
 @end enumerate
 
+@node Preprocessing
+@subsection Preprocessing
+@cindex preprocessing
+
+In this phase the input source files are preprocessed using the configured
+preprocessor. Normally @command{gcc -E} or @command{cpp} is used.
+
+This step is mandatory since non preprocessed input files can
+form incomplete or even invalid source files. The compiler recognizes
+location marks left by the GNU-style preprocessor. This information
+can be used further by the compiler to know which file the code came from.
+
+The compiler also recognizes @code{#pragma} lines. Note that pragmas are generally
+not macro expanded from the preprocessor. This is not a limitation of mcxx
+but the way the whole compilation system works.
+
+@node Context free parsing
+@subsection Context free parsing
+@cindex context free parsing
+
+Once the code has been preprocessed it is parsed. In this step a GLR 
+parser@footnote{Currently this parser requires a somewhat special version of @command{bison-2.3}
+with support for @code{default-merge} directive. This directive is just
+a productivity option to save some writing in the grammar but it does not
+add any other functionality not existing in @command{bison-2.3}.} is used.
+This parser is built after a somewhat modified standard grammar@footnote{For efficiency reasons
+following strictly the C/C++ standard grammar is not feasible, in particular for C++. Even though, the grammar
+is equivalent to the standard one.} and it accepts C99@footnote{ISO/IEC 9899:1999} and 
+C++@footnote{ISO/IEC 14882:2003} syntactically valid applications.
+
+The parser tries to support several syntactic GNU extensions@footnote{mcxx tries hard to
+accept anything accepted by GCC 4.1}, mainly the
+@code{__attribute__} notation but also some other GNU idioms. Support for this
+non-standard extensions normally does not go beyond the parser unless needed
+for some later process. Do not expect the compiler to do anything clever with these
+extensions.
+
+This phase constructs the @acronym{AST, Abstract Syntax Tree} that will be used
+in all the later processes. This step does a completely @emph{context-free}
+parsing, so the tree generated here is ambiguous. Being ambiguous has several
+drawbacks, mainly the tree is completely useless. It has some benefits too,
+allows to realize how deep some ambiguities in C++ (and C, but less) are. These
+ambiguities have to be fixed, but fixing them requires contextual knowledge.
+
+Main files involved in this step are @file{src/cxx-lexer.l},
+@file{src/c99.y.in}, @file{src/cxx03.y.in}, @file{src/cxx-construct.y},
+@file{src/cxx-omp.y} and @file{src/cxx-pragma.y}.
+
+@node Semantic analysis
+@subsection Semantic analysis
+@cindex semantic analysis
+
+In order to fix the AST generated in the previous phase, we need to gather
+symbolic information that will allow us to realize the exact meaning of the
+code. 
+
+Doing this process in two steps, first building the tree and then pruning
+it, allows easier maintenance of the grammar (always a tough part of any
+generated parser) and simplifies the semantic part (as one has to deal with
+syntactic elements always of the same shape). Doing both things at the same
+time is possible but is much more complex, on the other hand it saves memory
+(now we are wasting memory for all the potential interpretation of ambiguous
+parts of the code).
+
+This process builds the scope (symbol tables) information needed for
+disambiguation.  The main files involved in this phase are
+@file{src/cxx-buildscope.c} and @file{src/cxx-ambiguity.c}.
+
+@node Compilation pipeline
+@subsection Compilation pipeline
+@cindex compilation pipeline
+
+Once the tree has been fixed and symbolic information gathered from the source
+the compilation pipeline is started. 
+
+This compilation pipeline is a set of dynamic libraries loaded by the compiler.
+The compiler runs every phase sequentially, this phases can do anything to the
+code. Normally they modify the AST in order to make changes to the current
+code. These phases, as you will have guessed, are customizable to fit
+everyone's need. They are written in C++ and the compiler provides some sort of
+SDK to do it.
+
+These phases can be used in a sequential fashion, as the data they can compute
+can be passed to the next phases. This allows to have separate phases working
+on an additional intermediate information, besides the AST and the symbolic
+information.
+
+@node Prettyprinting
+@subsection Prettyprinting
+@cindex prettyprinting
+
+The last step done by the compiler is called prettyprinting. The resulting AST
+after the compilation pipeline phase it is prettyprinted into an output file,
+or the standard output.
+
+@node Additional steps
+@subsection Additional steps
+@cindex additional steps
+
+mcxx provides a full fledged driver that is able to invoke the native compiler
+and the linker if needed. This allows for easier usage in makefiles.
+
+@node Driver
+@section Driver
+@cindex driver
 
 @bye
