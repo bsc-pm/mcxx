@@ -27,24 +27,16 @@ namespace TL
         Source outlined_function_name = get_outlined_function_name(function_name);
 
         // Get references in local clause
-        ObjectList<std::string> local_names;
-        local_names.append("local");
-        local_names.append("taskprivate");
-        local_names.append("task_private");
-        OpenMP::CustomClause local_clause = directive.custom_clause(local_names);
-        ObjectList<IdExpression> local_references_in_clause = local_clause.id_expressions();
+        OpenMP::Clause private_clause = directive.private_clause();
+        ObjectList<IdExpression> local_references_in_clause = private_clause.id_expressions();
         // Those stated by the user to be local are local_references
         ObjectList<IdExpression> local_references = local_references_in_clause;
 
-        // Get references in captureaddress clause
-        ObjectList<std::string> captureaddress_names;
-        captureaddress_names.append("captureaddress");
-        captureaddress_names.append("capture_address");
-        OpenMP::CustomClause captureaddress_clause = directive.custom_clause(captureaddress_names);
+        OpenMP::Clause shared_clause = directive.shared_clause();
 
         // Get all the identifiers of the captureaddress clause
         ObjectList<IdExpression> captureaddress_references;
-        ObjectList<IdExpression> captureaddress_references_in_clause = captureaddress_clause.id_expressions();
+        ObjectList<IdExpression> captureaddress_references_in_clause = shared_clause.id_expressions();
         {
             // We discard symbols here referenced in captureaddress
             // clause that can be referenced in the outline (thus, they
@@ -69,48 +61,47 @@ namespace TL
             }
         }
 
-        ObjectList<std::string> capturevalue_names;
-        capturevalue_names.append("capturevalue");
-        capturevalue_names.append("capture_value");
-        OpenMP::CustomClause capturevalue_clause = directive.custom_clause(capturevalue_names);
+        ObjectList<std::string> captureprivate_names;
+        captureprivate_names.append("captureprivate");
+        OpenMP::CustomClause captureprivate_clause = directive.custom_clause(captureprivate_names);
         // Get the identifiers of the capturevalue clause
-        ObjectList<IdExpression> capturevalue_references_in_clause = capturevalue_clause.id_expressions();
+        ObjectList<IdExpression> captureprivate_references_in_clause = captureprivate_clause.id_expressions();
 
         // As stated by the user, everything in the clause is already
         // capturevalued (no pruning here as we did for captureaddress)
-        ObjectList<IdExpression> capturevalue_references = capturevalue_references_in_clause;
+        ObjectList<IdExpression> captureprivate_references = captureprivate_references_in_clause;
 
         OpenMP::DefaultClause default_clause = directive.default_clause();
 
         enum 
         {
             DK_TASK_INVALID = 0,
-            DK_TASK_CAPTUREADDRESS,
-            DK_TASK_CAPTUREVALUE,
-            DK_TASK_LOCAL,
+            DK_TASK_SHARED,
+            DK_TASK_CAPTUREPRIVATE,
+            DK_TASK_PRIVATE,
             DK_TASK_NONE
         } default_task_data_sharing = DK_TASK_INVALID;
 
         if (!default_clause.is_defined())
         {
-            // By default capturevalue
-            default_task_data_sharing = DK_TASK_CAPTUREVALUE;
+            // By default captureprivate
+            default_task_data_sharing = DK_TASK_CAPTUREPRIVATE;
         }
         else if (default_clause.is_none())
         {
             default_task_data_sharing = DK_TASK_NONE;
         }
-        else if (default_clause.is_custom(local_names))
+        else if (default_clause.is_private())
         {
-            default_task_data_sharing = DK_TASK_LOCAL;
+            default_task_data_sharing = DK_TASK_PRIVATE;
         }
-        else if (default_clause.is_custom(capturevalue_names))
+        else if (default_clause.is_custom(captureprivate_names))
         {
-            default_task_data_sharing = DK_TASK_CAPTUREVALUE;
+            default_task_data_sharing = DK_TASK_CAPTUREPRIVATE;
         }
-        else if (default_clause.is_custom(captureaddress_names))
+        else if (default_clause.is_shared())
         {
-            default_task_data_sharing = DK_TASK_CAPTUREADDRESS;
+            default_task_data_sharing = DK_TASK_SHARED;
         }
         else
         {
@@ -118,7 +109,7 @@ namespace TL
                 << default_clause.prettyprint() << "' at " << default_clause.get_ast().get_locus() << ". "
                 << "Assuming 'default(capturevalue)'."
                 << std::endl;
-            default_task_data_sharing = DK_TASK_CAPTUREVALUE;
+            default_task_data_sharing = DK_TASK_CAPTUREPRIVATE;
         }
 
         // Now deal with the references of the body
@@ -142,7 +133,7 @@ namespace TL
                 // 'captureaddress_references' might contain less of
                 // them if they are globally accessible
                 if (captureaddress_references_in_clause.contains(*it, functor(&IdExpression::get_symbol)) 
-                        || capturevalue_references_in_clause.contains(*it, functor(&IdExpression::get_symbol))
+                        || captureprivate_references_in_clause.contains(*it, functor(&IdExpression::get_symbol))
                         || local_references_in_clause.contains(*it, functor(&IdExpression::get_symbol)))
                     continue;
 
@@ -169,14 +160,14 @@ namespace TL
                             std::cerr << "Warning: '" << it->prettyprint() << "' in " << it->get_ast().get_locus() 
                                 << " does not have a data sharing attribute and 'default(none)' was specified. "
                                 << "It will be considered capturevalue." << std::endl;
-                            /* Fall through capturevalue */
+                            /* Fall through captureprivate */
                         }
-                    case DK_TASK_CAPTUREVALUE :
+                    case DK_TASK_CAPTUREPRIVATE :
                         {
-                            capturevalue_references.insert(*it, functor(&IdExpression::get_symbol));
+                            captureprivate_references.insert(*it, functor(&IdExpression::get_symbol));
                             break;
                         }
-                    case DK_TASK_CAPTUREADDRESS :
+                    case DK_TASK_SHARED :
                         {
                             // If is not visible from the outline (or
                             // if it is, it is an unqualified member)
@@ -188,7 +179,7 @@ namespace TL
                             }
                             break;
                         }
-                    case DK_TASK_LOCAL :
+                    case DK_TASK_PRIVATE :
                         {
                             local_references.insert(*it, functor(&IdExpression::get_symbol));
                             break;
@@ -206,7 +197,7 @@ namespace TL
 
         ObjectList<IdExpression> captured_references;
         captured_references.append(captureaddress_references);
-        captured_references.append(capturevalue_references);
+        captured_references.append(captureprivate_references);
 
         ReplaceIdExpression replace_references  = 
             set_replacements(function_definition,
@@ -225,7 +216,7 @@ namespace TL
 
         // Fix parameter_info_list
         // Currently set_replacement assumes that everything will be passed BY_POINTER
-        // for every entity found in capturevalue_references will be set to BY_VALUE
+        // for every entity found in captureprivate_references will be set to BY_VALUE
         //
         // The proper way should be fixing "set_replacements" one day, but already
         // takes too much parameters so a more creative approach will be required
@@ -233,7 +224,7 @@ namespace TL
                 it != parameter_info_list.end();
                 it++)
         {
-            if (capturevalue_references.contains(it->id_expression, functor(&IdExpression::get_symbol)))
+            if (captureprivate_references.contains(it->id_expression, functor(&IdExpression::get_symbol)))
             {
                 it->kind = ParameterInfo::BY_VALUE;
             }
@@ -331,7 +322,7 @@ namespace TL
 
         // 'switch' clause support
         Source task_type;
-        if (directive.custom_clause("switch").is_defined())
+        if (directive.custom_clause("untied").is_defined())
         {
             task_type << "0xa";
         }

@@ -118,14 +118,14 @@ namespace TL
         // #pragma omp construct transaction
         on_custom_construct_pre["transaction"].connect(functor(&OpenMPTransform::transaction_preorder, *this));
         on_custom_construct_post["transaction"].connect(functor(&OpenMPTransform::transaction_postorder, *this));
+        
+		// #pragma omp directive retry
+		on_custom_construct_post["retry"].connect(functor(&OpenMPTransform::retry_postorder, *this));
 
         // Experimental
         // #pragma omp construct while
         on_custom_construct_pre["task_while"].connect(functor(&OpenMPTransform::task_while_preorder, *this));
         on_custom_construct_post["task_while"].connect(functor(&OpenMPTransform::task_while_postorder, *this));
-
-		// #pragma omp directive retry
-		on_custom_construct_post["retry"].connect(functor(&OpenMPTransform::retry_postorder, *this));
     }
 }
 
