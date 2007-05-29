@@ -50,11 +50,19 @@ namespace TL
         if (criticals_defined.find(mutex_variable) == criticals_defined.end())
         {
             // Now declare, if not done before
-            Source critical_mutex_def_src;
+            Source critical_mutex_def_src, weak_attr;
 
             critical_mutex_def_src <<
-                "nth_word_t " << mutex_variable << ";"
+                "nth_word_t " << weak_attr << " " << mutex_variable << " = 0;"
                 ;
+
+            CXX_LANGUAGE()
+            {
+                // We need this because of the One Definition Rule
+                weak_attr 
+                    << "__attribute__((weak))"
+                    ;
+            }
 
             // AST_t translation_unit = critical_construct.get_ast().get_translation_unit();
             // Scope scope_translation_unit = scope_link.get_scope(translation_unit);
