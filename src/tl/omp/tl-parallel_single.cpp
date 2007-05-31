@@ -256,16 +256,7 @@ namespace TL
             ;
 
         task_block_code = get_task_block_code();
-
-        // std::cerr << "OUTLINE CODE" << std::endl;
-        // std::cerr << outline_parallel.get_source(true) << std::endl;
-        // std::cerr << "End OUTLINE CODE" << std::endl;
-
-        AST_t result;
-
-        result = outline_parallel.parse_global(function_definition.get_ast(), 
-                function_definition.get_scope_link());
-
-        return result;
+        
+        return finish_outline(function_definition, outline_parallel, parameter_info);
     }
 }

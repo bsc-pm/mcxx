@@ -248,7 +248,6 @@ namespace TL
 
         Source reduction_update = get_reduction_update(reduction_references);
 
-
         Source task_block_code;
 
         parallel_for_body 
@@ -261,16 +260,7 @@ namespace TL
             ;
 
         task_block_code = get_task_block_code();
-
-        // std::cerr << "OUTLINE PARALLEL FOR CODE" << std::endl;
-        // std::cerr << outline_parallel_for.get_source(true) << std::endl;
-        // std::cerr << "End OUTLINE PARALLEL FOR CODE" << std::endl;
-
-        AST_t result;
-
-        result = outline_parallel_for.parse_global(function_definition.get_ast(), 
-                function_definition.get_scope_link());
-
-        return result;
+        
+        return finish_outline(function_definition, outline_parallel_for, parameter_info_list);
     }
 }

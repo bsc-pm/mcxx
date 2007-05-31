@@ -357,6 +357,13 @@ namespace TL
                     ObjectList<IdExpression>& capturvalue_references,
                     ObjectList<IdExpression>& local_references,
                     ObjectList<ParameterInfo>& parameter_info);
+
+            void declare_member_if_needed(Symbol function_symbol,
+                    FunctionDefinition function_definition,
+                    IdExpression function_name,
+                    ObjectList<ParameterInfo> parameter_info_list);
+            AST_t finish_outline(FunctionDefinition function_definition, Source outline_parallel,
+                    ObjectList<ParameterInfo> parameter_info_list);
     };
 }
 

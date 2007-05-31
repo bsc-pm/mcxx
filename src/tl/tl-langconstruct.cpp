@@ -161,6 +161,11 @@ namespace TL
         return result;
     }
 
+    AST_t FunctionDefinition::get_point_of_declaration()
+    {
+        return _ref.get_enclosing_function_definition(/* jump templates */ true);
+    }
+
     bool Declaration::is_templated()
     {
         TL::Bool result = _ref.get_attribute(LANG_IS_TEMPLATED_DECLARATION);

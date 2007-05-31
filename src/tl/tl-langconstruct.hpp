@@ -186,6 +186,8 @@ namespace TL
 
             bool is_templated() const;
             ObjectList<AST_t> get_template_header();
+
+            AST_t get_point_of_declaration();
     };
 
     class Expression : public LangConstruct

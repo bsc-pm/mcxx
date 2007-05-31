@@ -720,34 +720,7 @@ namespace TL
             << instrumentation_code_after
             ;
 
-        IdExpression function_name = function_definition.get_function_name();
-        Symbol function_symbol = function_name.get_symbol();
-
-        if (function_symbol.is_member() 
-                && function_name.is_qualified())
-        {
-            Source outline_function_decl = get_outlined_function_name(function_name, /*qualified=*/false);
-
-            Declaration decl = function_name.get_declaration();
-            Scope class_scope = decl.get_scope();
-            Type class_type = function_symbol.get_class_type();
-
-            Source member_declaration = get_member_function_declaration(
-                    function_definition,
-                    decl,
-                    outline_function_decl,
-                    parameter_info_list);
-
-            AST_t member_decl_tree = member_declaration.parse_member(decl.get_ast(), decl.get_scope_link(), class_type);
-
-            decl.get_ast().append(member_decl_tree);
-        }
-
-        AST_t result;
-        result = outline_parallel.parse_global(function_definition.get_ast(), 
-                function_definition.get_scope_link());
-
-        return result;
+        return finish_outline(function_definition, outline_parallel, parameter_info_list);
     }
 
 }
