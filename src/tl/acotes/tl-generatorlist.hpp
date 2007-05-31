@@ -21,7 +21,7 @@
 #ifndef TLGENERATORLIST_HPP_
 #define TLGENERATORLIST_HPP_
 
-#include "tl-generator.h"
+#include "tl-generator.hpp"
 
 #include <list>
 
