@@ -30,6 +30,9 @@ namespace TL
         {
             return task_postorder_with_chunk(task_construct);
         }
+        
+        // One more parallel seen
+        num_parallels++;
 
         // Get the directive of the task construct
         OpenMP::Directive directive = task_construct.directive();
