@@ -682,6 +682,14 @@ namespace TL
                 && TL::Bool(_ref.get_attribute(OMP_IS_DEFAULT_SHARED_CLAUSE));
         }
 
+        bool DefaultClause::is_private() const
+        {
+            ObjectList<std::string> private_name;
+            private_name.append("private");
+
+            return this->is_custom(private_name);
+        }
+
         bool DefaultClause::is_custom(const std::string& str) const
         {
             ObjectList<std::string> list;

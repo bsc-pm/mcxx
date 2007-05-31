@@ -122,6 +122,8 @@ namespace TL
 
                 bool is_none() const;
                 bool is_shared() const;
+                bool is_private() const;
+                
                 bool is_custom(const std::string& str) const;
 
                 bool is_custom(ObjectList<std::string>& names) const;
