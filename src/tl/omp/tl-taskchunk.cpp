@@ -1146,7 +1146,7 @@ namespace TL
         AST_t outline_code  = get_outline_task_for(
                 function_definition,
                 outlined_function_name, 
-                construct_body,
+                construct_body.get_loop_body(),
                 replace_references,
                 parameter_info_list,
                 local_references,
@@ -1362,11 +1362,14 @@ namespace TL
 
         Source instrument_code_task_creation;
 
+        AST_t iterating_init = construct_body.get_iterating_init();
+
         Expression iterating_condition = construct_body.get_iterating_condition();
         Expression iterating_expression = construct_body.get_iterating_expression();
 
         task_queueing
             << "{"
+            <<   iterating_init.prettyprint()
             <<   "while (" << iterating_condition.prettyprint() << ")"
             <<   "{"
             <<       "nth_desc * nth;"
