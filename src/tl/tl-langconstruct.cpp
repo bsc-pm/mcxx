@@ -1055,4 +1055,25 @@ namespace TL
 
         return result;
     }
+
+
+    AST_t ForStatement::get_iterating_init()
+    {
+        AST_t result = _ref.get_attribute(LANG_FOR_INIT_CONSTRUCT);
+        return result;
+    }
+
+    Expression ForStatement::get_iterating_condition()
+    {
+        Expression result(_ref.get_attribute(LANG_FOR_CONDITION),
+                _scope_link);
+        return result;
+    }
+
+    Expression ForStatement::get_iterating_expression()
+    {
+        Expression result(_ref.get_attribute(LANG_FOR_ITERATION_EXPRESSION),
+                _scope_link);
+        return result;
+    }
 }

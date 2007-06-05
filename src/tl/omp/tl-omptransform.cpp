@@ -126,6 +126,9 @@ namespace TL
         // #pragma omp construct while
         on_custom_construct_pre["task_while"].connect(functor(&OpenMPTransform::task_while_preorder, *this));
         on_custom_construct_post["task_while"].connect(functor(&OpenMPTransform::task_while_postorder, *this));
+
+        on_custom_construct_pre["task_for"].connect(functor(&OpenMPTransform::task_for_preorder, *this));
+        on_custom_construct_post["task_for"].connect(functor(&OpenMPTransform::task_for_postorder, *this));
     }
 }
 

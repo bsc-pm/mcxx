@@ -169,6 +169,10 @@ namespace TL
             Statement get_loop_body();
 
             bool regular_loop();
+
+            AST_t get_iterating_init();
+            Expression get_iterating_condition();
+            Expression get_iterating_expression();
     };
 
     class FunctionDefinition : public LangConstruct

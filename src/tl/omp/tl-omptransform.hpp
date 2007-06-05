@@ -336,6 +336,15 @@ namespace TL
 
 			void retry_postorder(OpenMP::CustomConstruct protect_construct);
             
+
+
+            void declare_member_if_needed(Symbol function_symbol,
+                    FunctionDefinition function_definition,
+                    IdExpression function_name,
+                    ObjectList<ParameterInfo> parameter_info_list);
+            AST_t finish_outline(FunctionDefinition function_definition, Source outline_parallel,
+                    ObjectList<ParameterInfo> parameter_info_list);
+            
             // Experimental
             void task_while_postorder(OpenMP::CustomConstruct while_construct);
             void task_while_preorder(OpenMP::CustomConstruct while_construct);
@@ -358,12 +367,19 @@ namespace TL
                     ObjectList<IdExpression>& local_references,
                     ObjectList<ParameterInfo>& parameter_info);
 
-            void declare_member_if_needed(Symbol function_symbol,
+            void task_for_postorder(OpenMP::CustomConstruct for_construct);
+            void task_for_preorder(OpenMP::CustomConstruct for_construct);
+
+            AST_t get_outline_task_for(
                     FunctionDefinition function_definition,
-                    IdExpression function_name,
-                    ObjectList<ParameterInfo> parameter_info_list);
-            AST_t finish_outline(FunctionDefinition function_definition, Source outline_parallel,
-                    ObjectList<ParameterInfo> parameter_info_list);
+                    Source outlined_function_name,
+                    Statement construct_body,
+                    ReplaceIdExpression replace_references,
+                    ObjectList<ParameterInfo> parameter_info_list,
+                    ObjectList<IdExpression> local_references,
+                    ForStatement for_statement,
+                    std::string chunk_value
+                    );
     };
 }
 
