@@ -1392,12 +1392,12 @@ namespace TL
             <<          outlined_function_reference << "(" << fallback_arguments << ");"
             <<       "}"
             <<       copy_construction_part
-            <<       "}"
             <<       "int _nth_chunk;"
             <<       "for (_nth_chunk = 0; (_nth_chunk < " << chunk_value << ") && (" << iterating_condition.prettyprint() << "); _nth_chunk++)"
             <<       "{"
             <<           iterating_expression.prettyprint() << ";"
             <<       "}"
+            <<   "}"
             << "}"
             ;
 
