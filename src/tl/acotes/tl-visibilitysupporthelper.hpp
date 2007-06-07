@@ -1,6 +1,6 @@
 /*
-	Acotes Translation Phase
-	Copyright (C) 2007 - David Rodenas Pico <david.rodenas@bsc.es>
+    Acotes Translation Phase
+    Copyright (C) 2007 - David Rodenas Pico <david.rodenas@bsc.es>
     Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
     Universitat Politecnica de Catalunya
 
@@ -18,38 +18,28 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#include "tl-fordistributeinfo.hpp"
+#ifndef VISIBILITYSUPPORTHELPER_H_
+#define VISIBILITYSUPPORTHELPER_H_
+
+#include "tl-pragmasupport.hpp"
 
 namespace TL
 {
 
-// FordistributeInfo constructor -----------------------------------------------
-FordistributeInfo::
-FordistributeInfo(const ForStatement& for_statement)
-	: _for_statement(for_statement)
-{	
-    if (_for_statement.regular_loop())
-    {
-        Symbol induction_variable= 
-                _for_statement.get_induction_variable().get_symbol();
-                
-        add_private(induction_variable);
-    }    
-}
+class VisibilityInfo;
 
-// FordistributeInfo destructor ------------------------------------------------
-FordistributeInfo::
-~FordistributeInfo()
+class VisibilitySupportHelper
 {
+public:
+
+    static void add_clauses(VisibilityInfo* info, PragmaCustomConstruct 
+            pragma_custom_construct);
+    
+private:
+	VisibilitySupportHelper();
+	virtual ~VisibilitySupportHelper();
+};
+
 }
 
-
-// get_for_statement -----------------------------------------------------------
-const ForStatement& 
-FordistributeInfo::
-get_for_statement()
-{
-	return _for_statement;
-}
-
-}
+#endif /*VISIBILITYSUPPORTHELPER_H_*/

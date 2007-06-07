@@ -22,6 +22,7 @@
 
 #include <assert.h>
 
+#include "tl-fordistributetransformhelper.hpp"
 #include "tl-mintakatransformhelper.hpp"
 #include "tl-streamtransformhelper.hpp"
 #include "tl-symboltransformhelper.hpp"
@@ -99,12 +100,7 @@ generate_body
 	// original body
 	Statement task_body= _pragma_custom_construct.get_statement();
 	
-	// replace references
-	Statement modified_body= SymbolTransformHelper::
-			transform_all_to_reference(_task_info->get_references(), task_body);
-	
-	
-	ss << modified_body.prettyprint();
+	ss << task_body.prettyprint();
 	
 	return ss.str();
 }
@@ -139,8 +135,6 @@ generate_declares
 	std::stringstream ss;
 	
 	ss << SymbolTransformHelper::declare_all(_task_info->get_privates());
-	ss << SymbolTransformHelper::
-			declare_reference_all(_task_info->get_references());
 	
 	return ss.str();
 }
@@ -166,6 +160,21 @@ generate_eos
 	return ss.str();
 }
 
+// generate_fordistributes -----------------------------------------------------
+std::string 
+TransformTaskOutline::
+generate_fordistributes
+        ( void
+        )
+{
+    std::stringstream ss;
+    
+    ss << FordistributeTransformHelper::
+            headers(_task_info->get_fordistribute_info_set());
+    
+    return ss.str();
+}
+
 // generate_outline ------------------------------------------------------------
 std::string
 TransformTaskOutline::
@@ -184,6 +193,7 @@ generate_outline
 			<<   generate_state()
 			<<   generate_pops()
 			<<   "while (" << generate_eos() << ")"
+            <<   generate_fordistributes()
 			<<   "{"
 			<<     MintakaTransformHelper::iteration_begin()
 			<<     generate_body()

@@ -50,6 +50,7 @@ private:
 	std::string generate_closes(void);
 	std::string generate_declares(void);
 	std::string generate_eos(void);
+    std::string generate_fordistributes(void);
 	std::string generate_outline(void);
 	std::string generate_peeks(void);
 	std::string generate_pops(void);

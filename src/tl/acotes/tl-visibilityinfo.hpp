@@ -40,6 +40,7 @@ public:
 	const std::set<Symbol>& get_firstprivates(void) const;
 	const std::set<Symbol>& get_lastprivates(void) const;
 	const std::set<Symbol>& get_privates(void) const;
+    void                    inherit_visibilities(VisibilityInfo* info);
 	bool                    is_firstprivate(const Symbol& symbol)const;
 	bool                    is_lastprivate(const Symbol& symbol) const;
 	bool                    is_private(const Symbol& symbol) const;

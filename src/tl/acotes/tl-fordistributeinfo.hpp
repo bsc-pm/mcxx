@@ -24,10 +24,12 @@
 #include <set>
 #include "tl-langconstruct.hpp"
 
+#include "tl-visibilityinfo.hpp"
+
 namespace TL
 {
 
-class FordistributeInfo
+class FordistributeInfo : public VisibilityInfo
 {
 public:
 	FordistributeInfo(const ForStatement& for_statement);

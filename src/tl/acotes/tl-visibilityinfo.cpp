@@ -96,6 +96,41 @@ get_privates
 {
 	return _privates;
 }
+
+// inherit_visibilities --------------------------------------------------------
+void               
+VisibilityInfo::     
+inherit_visibilities
+        ( VisibilityInfo* other
+        )
+{
+    for     ( std::set<Symbol>::iterator it= other->_privates.begin() 
+            ; it != other->_privates.end()
+            ; it++
+            )
+    {
+        Symbol symbol= *it;
+        add_private(symbol);
+    }
+    for     ( std::set<Symbol>::iterator it= other->_firstprivates.begin() 
+            ; it != other->_firstprivates.end()
+            ; it++
+            )
+    {
+        Symbol symbol= *it;
+        add_firstprivate(symbol);
+    }
+    for     ( std::set<Symbol>::iterator it= other->_lastprivates.begin() 
+            ; it != other->_lastprivates.end()
+            ; it++
+            )
+    {
+        Symbol symbol= *it;
+        add_lastprivate(symbol);
+    }
+}
+
+// is_firstprivate -------------------------------------------------------------
 bool                    
 VisibilityInfo::
 is_firstprivate
@@ -106,6 +141,8 @@ is_firstprivate
 	
 	return in;
 }
+
+// is_lastprivate --------------------------------------------------------------
 bool                    
 VisibilityInfo::
 is_lastprivate
@@ -116,6 +153,8 @@ is_lastprivate
 	
 	return in;
 }
+
+// is_private ------------------------------------------------------------------
 bool                    
 VisibilityInfo::
 is_private(const Symbol& symbol) const

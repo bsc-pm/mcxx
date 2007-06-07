@@ -72,18 +72,6 @@ add_export
 	_exports.insert(symbol);
 }
 		
-// add_firstprivate ------------------------------------------------------------
-void                    
-TaskInfo::     
-add_firstprivate
-		( const Symbol& symbol
-		)
-{
-	add_private(symbol);
-	
-	_firstprivates.insert(symbol);
-}
-
 // add_fordistribute -----------------------------------------------------------
 void
 TaskInfo::
@@ -91,6 +79,7 @@ add_fordistribute(FordistributeInfo* fordistribute_info)
 {
 	assert(fordistribute_info);
 	
+    inherit_visibilities((VisibilityInfo*)fordistribute_info);
 	_fordistribute_info_set.insert(fordistribute_info);
 }
 
@@ -130,18 +119,6 @@ add_istream
 	assert(!has_istream(is));
 	
 	_istream_set.insert(is);
-}
-
-// add_lastprivate -------------------------------------------------------------
-void
-TaskInfo::                         
-add_lastprivate
-		( const Symbol& symbol
-		)
-{
-	add_private(symbol);
-	
-	_lastprivates.insert(symbol);
 }
 
 // add_loop_pop_istream --------------------------------------------------------
@@ -216,30 +193,6 @@ add_ostream
 	assert(!has_ostream(os));
 	
 	_ostream_set.insert(os);
-}
-
-// add_private -----------------------------------------------------------------
-void     
-TaskInfo::                    
-add_private
-		( const Symbol& symbol
-		)
-{
-	assert(!is_reference(symbol));
-	
-	_privates.insert(symbol);
-}
-
-// add_reference ---------------------------------------------------------------
-void     
-TaskInfo::                    
-add_reference
-		( const Symbol& symbol
-		)
-{
-	assert(!is_private(symbol));
-	
-	_references.insert(symbol);
 }
 
 // add_replace_pop_istream -----------------------------------------------------
@@ -359,16 +312,6 @@ get_exports
 	return _exports;
 }
 
-// get_firstprivates -----------------------------------------------------------
-const std::set<Symbol>&      
-TaskInfo::
-get_firstprivates
-		( void
-		) const
-{
-	return _firstprivates;
-}
-
 // get_fordistribute_info_set --------------------------------------------------
 const std::set<FordistributeInfo*>& 
 TaskInfo::
@@ -387,16 +330,6 @@ get_imports
 		) const
 {
 	return _imports;
-}
-
-// get_lastprivates ------------------------------------------------------------
-const std::set<Symbol>&      
-TaskInfo::
-get_lastprivates
-		( void
-		) const
-{
-	return _lastprivates;
 }
 
 // get_loop_pop_istream_set ----------------------------------------------------
@@ -447,26 +380,6 @@ get_name
 		) const
 {
 	return _name;
-}
-
-// get_privates ----------------------------------------------------------------
-const std::set<Symbol>&      
-TaskInfo::
-get_privates
-		( void
-		) const
-{
-	return _privates;
-}
-
-// get_references --------------------------------------------------------------
-const std::set<Symbol>&      
-TaskInfo::
-get_references
-		( void
-		) const
-{
-	return _references;
 }
 
 // get_replace_pop_istream_set -------------------------------------------------
@@ -596,18 +509,6 @@ has_task_info_children
 	return !empty_task_info_children;
 }		
 
-// is_firstprivate -------------------------------------------------------------
-bool
-TaskInfo::
-is_firstprivate
-		( const Symbol& symbol
-		) const
-{
-	bool in= _firstprivates.find(symbol) != _firstprivates.end();
-	
-	return in;
-}
-
 // is_input --------------------------------------------------------------------
 bool
 TaskInfo::
@@ -620,18 +521,6 @@ is_input
 	return in;
 }
 
-// is_lastprivate --------------------------------------------------------------
-bool
-TaskInfo::
-is_lastprivate
-		( const Symbol& symbol
-		) const
-{
-	bool in= _lastprivates.find(symbol) != _lastprivates.end();
-	
-	return in;
-}
-
 // is_output -------------------------------------------------------------------
 bool
 TaskInfo::
@@ -640,30 +529,6 @@ is_output
 		) const
 {
 	bool in= _outputs.find(symbol) != _outputs.end();
-	
-	return in;
-}
-
-// is_private ------------------------------------------------------------------
-bool
-TaskInfo::
-is_private
-		( const Symbol& symbol
-		) const
-{
-	bool in= _privates.find(symbol) != _privates.end();
-	
-	return in;
-}
-
-// is_reference ----------------------------------------------------------------
-bool
-TaskInfo::
-is_reference
-		( const Symbol& symbol
-		) const
-{
-	bool in= _references.find(symbol) != _references.end();
 	
 	return in;
 }

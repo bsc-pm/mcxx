@@ -21,12 +21,23 @@
 #ifndef TLFORDISTRIBUTETRANSFORMHELPER_HPP_
 #define TLFORDISTRIBUTETRANSFORMHELPER_HPP_
 
+#include <set>
+#include <string>
+
 namespace TL
 {
+    
+class FordistributeInfo;
 
 class FordistributeTransformHelper
 {
 public:
+    
+    static std::string header(FordistributeInfo* fordistribute_info);
+    static std::string headers(const std::set<FordistributeInfo*>& 
+            fordistribute_info_set);
+
+private:
 	FordistributeTransformHelper();
 	virtual ~FordistributeTransformHelper();
 };

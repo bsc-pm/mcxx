@@ -20,14 +20,69 @@
 */
 #include "tl-fordistributetransformhelper.hpp"
 
+#include <assert.h>
+
+#include "tl-langconstruct.hpp"
+#include "tl-fordistributeinfo.hpp"
+
 namespace TL
 {
 
-FordistributeTransformHelper::FordistributeTransformHelper()
+// header ----------------------------------------------------------------------
+std::string 
+FordistributeTransformHelper::
+header(FordistributeInfo* fordistribute_info)
 {
+    assert(fordistribute_info);
+    
+    std::stringstream ss;
+    
+    ForStatement for_statement= fordistribute_info->get_for_statement();
+    
+    ss      << "for"
+            << "("
+            << for_statement.get_iterating_init().prettyprint()
+//            << ";"
+            << for_statement.get_iterating_condition().prettyprint()
+            << ";"
+            << for_statement.get_iterating_expression().prettyprint()
+            << ")"
+            ;
+    
+    return ss.str();
 }
 
-FordistributeTransformHelper::~FordistributeTransformHelper()
+// headers ---------------------------------------------------------------------
+std::string
+FordistributeTransformHelper::
+headers(const std::set<FordistributeInfo*>& s)
+{
+    std::stringstream ss;
+    
+    for     ( std::set<FordistributeInfo*>::iterator it= s.begin()
+            ; it != s.end()
+            ; it++)
+    {
+        FordistributeInfo* fordistribute_info= *it;
+        
+        ss << header(fordistribute_info);
+    }
+        
+    return ss.str();
+}
+
+
+// FordistributeTransformHelper constructor ------------------------------------
+FordistributeTransformHelper::
+FordistributeTransformHelper()
+{
+    // is a helper
+    assert(0);
+}
+
+// FordistributeTransformHelper destructor -------------------------------------
+FordistributeTransformHelper::
+~FordistributeTransformHelper()
 {
 }
 

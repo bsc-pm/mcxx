@@ -69,5 +69,7 @@ libtlacotes_la_SOURCES = \
 						tl-transformtaskreplace.cpp \
 						tl-visibilityinfo.hpp \
 						tl-visibilityinfo.cpp \
+						tl-visibilitysupporthelper.hpp \
+						tl-visibilitysupporthelper.cpp \
 						tl-acotestransform.hpp \
 						tl-acotestransform.cpp

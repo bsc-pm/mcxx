@@ -27,6 +27,8 @@
 
 #include "tl-symbol.hpp"
 
+#include "tl-visibilityinfo.hpp"
+
 namespace TL
 {
 class FordistributeInfo;
@@ -34,86 +36,70 @@ class StreamInfo;
 class TargetInfo;
 class TaskgroupInfo;
 
-class TaskInfo
+class TaskInfo : public VisibilityInfo 
 {
 public:
 	TaskInfo(TaskgroupInfo* taskgroup_info);
 	virtual ~TaskInfo(void); 
 
-	void                         add_export(const Symbol& symbol);
-    void                         add_firstprivate(const Symbol& symbol);
-    void                         add_fordistribute(FordistributeInfo* 
+	void                                add_export(const Symbol& symbol);
+    void                                add_fordistribute(FordistributeInfo* 
     		fordistribute);
-	void                         add_import(const Symbol& symbol);
-	void                         add_input(const Symbol& symbol);
-	void                         add_istream(StreamInfo* is);
-    void                         add_lastprivate(const Symbol& symbol);
-	void                         add_loop_pop_istream(StreamInfo* is);
-	void                         add_loop_push_ostream(StreamInfo* os);
-	void                         add_loop_control_istream(StreamInfo* is);
-	void                         add_loop_close_ostream(StreamInfo* os);
-	void                         add_output(const Symbol& symbol);
-	void                         add_ostream(StreamInfo* os);
-	void                         add_private(const Symbol& symbol);
-	void                         add_reference(const Symbol& symbol);
-	void                         add_replace_pop_istream(StreamInfo* is);
-	void                         add_replace_push_ostream(StreamInfo* os);
-	void                         add_target_input(const Symbol& symbol, const
-			std::string& label);
-	void                         add_target_output(const Symbol& symbol, const
-			std::string& label);
-	void                         add_task_info_child(TaskInfo* child);
-	void                         add_shortcut(const Symbol& symbol); 
-	void                         compute_graph(void);
+	void                                add_import(const Symbol& symbol);
+	void                                add_input(const Symbol& symbol);
+	void                                add_istream(StreamInfo* is);
+	void                                add_loop_pop_istream(StreamInfo* is);
+	void                                add_loop_push_ostream(StreamInfo* os);
+	void                                add_loop_control_istream(StreamInfo* is);
+	void                                add_loop_close_ostream(StreamInfo* os);
+	void                                add_output(const Symbol& symbol);
+	void                                add_ostream(StreamInfo* os);
+	void                                add_replace_pop_istream(StreamInfo* is);
+	void                                add_replace_push_ostream(StreamInfo* os);
+	void                                add_target_input(const Symbol& symbol, 
+            const std::string& label);
+	void                                add_target_output(const Symbol& symbol, 
+            const std::string& label);
+	void                                add_task_info_child(TaskInfo* child);
+	void                                add_shortcut(const Symbol& symbol); 
+	void                                compute_graph(void);
 	const std::set<Symbol>&             get_exports(void) const;
-	const std::set<Symbol>&             get_firstprivates(void) const;
 	const std::set<FordistributeInfo*>& get_fordistribute_info_set(void) const;
 	const std::set<Symbol>&             get_imports(void) const;
-	const std::set<Symbol>&             get_lastprivates(void) const;
-	const std::set<StreamInfo*>& get_loop_pop_istream_set(void) const;
-	const std::set<StreamInfo*>& get_loop_push_ostream_set(void) const;
-	const std::set<StreamInfo*>& get_loop_control_istream_set(void) const;
-	const std::set<StreamInfo*>& get_loop_close_ostream_set(void) const;
-	const std::string&           get_name(void) const;
-	const std::set<Symbol>&      get_privates(void) const;
-	const std::set<Symbol>&      get_references(void) const;
-	const std::set<StreamInfo*>& get_replace_pop_istream_set(void) const;
-	const std::set<StreamInfo*>& get_replace_push_ostream_set(void) const;
-	const std::string&           get_state_name(void) const;
-	const std::string&           get_struct_state_name(void) const;
-	const std::list<TaskInfo*>&  get_task_info_children(void) const;
-	TaskInfo*                    get_task_info_first_child(void) const;
-	TaskInfo*                    get_task_info_parent(void) const;
-	TaskgroupInfo*               get_taskgroup_info(void) const;
-	bool                         has_istream(StreamInfo* is) const;
-	bool                         has_ostream(StreamInfo* os) const;		
-	bool                         has_task_info_children(void) const;
-	bool                         is_firstprivate(const Symbol& symbol)const;
-	bool                         is_input(const Symbol& symbol) const;
-	bool                         is_lastprivate(const Symbol& symbol) const;
-	bool                         is_output(const Symbol& symbol) const;
-	bool                         is_private(const Symbol& symbol) const;
-	bool                         is_reference(const Symbol& symbol) const;
-	bool                         is_shortcut(const Symbol& symbol) const;
-	TargetInfo*                  new_target_info(const std::string& label);
+	const std::set<StreamInfo*>&        get_loop_pop_istream_set(void) const;
+	const std::set<StreamInfo*>&        get_loop_push_ostream_set(void) const;
+	const std::set<StreamInfo*>&        get_loop_control_istream_set(void) const;
+	const std::set<StreamInfo*>&        get_loop_close_ostream_set(void) const;
+	const std::string&                  get_name(void) const;
+	const std::set<StreamInfo*>&        get_replace_pop_istream_set(void) const;
+	const std::set<StreamInfo*>&        get_replace_push_ostream_set(void) const;
+	const std::string&                  get_state_name(void) const;
+	const std::string&                  get_struct_state_name(void) const;
+	const std::list<TaskInfo*>&         get_task_info_children(void) const;
+	TaskInfo*                           get_task_info_first_child(void) const;
+	TaskInfo*                           get_task_info_parent(void) const;
+	TaskgroupInfo*                      get_taskgroup_info(void) const;
+	bool                                has_istream(StreamInfo* is) const;
+	bool                                has_ostream(StreamInfo* os) const;		
+	bool                                has_task_info_children(void) const;
+	bool                                is_input(const Symbol& symbol) const;
+	bool                                is_output(const Symbol& symbol) const;
+	bool                                is_shortcut(const Symbol& symbol) const;
+	TargetInfo*                         new_target_info(const std::string& label);
 
 private:
 	std::string                  _name;
 	std::set<Symbol>             _exports;
-	std::set<Symbol>             _firstprivates;
 	std::set<FordistributeInfo*> _fordistribute_info_set;
 	std::set<Symbol>             _imports;
 	std::set<Symbol>             _inputs;
 	std::set<StreamInfo*>        _istream_set;
-	std::set<Symbol>             _lastprivates;
 	std::set<StreamInfo*>        _loop_pop_istream_set;
 	std::set<StreamInfo*>        _loop_push_ostream_set;
 	std::set<StreamInfo*>        _loop_control_istream_set;
 	std::set<StreamInfo*>        _loop_close_ostream_set;
 	std::set<Symbol>             _outputs;
 	std::set<StreamInfo*>        _ostream_set;
-	std::set<Symbol>             _privates;
-	std::set<Symbol>             _references;
 	std::set<Symbol>             _shortcuts;
 	std::string                  _state_name;
 	std::string                  _struct_state_name;

@@ -36,6 +36,7 @@
 #include "tl-transformtaskgroupreplace.hpp" 
 #include "tl-transformtaskoutline.hpp" 
 #include "tl-transformtaskreplace.hpp" 
+#include "tl-visibilitysupporthelper.hpp"
 
 namespace TL 
 {
@@ -94,9 +95,11 @@ namespace TL
 			FordistributeInfo* fordistribute_info;
 			ForStatement for_statement= pragma_custom_construct.get_statement();
 			
-			fordistribute_info= new FordistributeInfo(for_statement);
-			
+			fordistribute_info= new FordistributeInfo(for_statement);			
 			_fordistribute_stack.push(fordistribute_info);
+            
+            VisibilitySupportHelper::
+                    add_clauses(fordistribute_info, pragma_custom_construct);
 		}
 
 		// fordistribute_postorder ---------------------------------------------
@@ -274,6 +277,7 @@ namespace TL
 			// Place the taskgroup on top of the stack
 			_task_stack.push(task_info);
 
+            VisibilitySupportHelper::add_clauses(task_info, pragma_custom_construct);
 			ObjectList<IdExpression> vars;
 			ObjectList<Expression> exprs;
 			// Adds shortcuts to task information
@@ -346,48 +350,6 @@ namespace TL
 				
 				task_info->add_export(symbol);
 			} 
-			// Adds private to task information
-			vars= pragma_custom_construct
-					.get_clause("private")
-					.id_expressions();
-			for		( ObjectList<IdExpression>::iterator it= vars.begin()
-					; it != vars.end()
-					; it++
-					)
-			{
-				IdExpression var= *it;
-				Symbol symbol= var.get_symbol();
-				
-				task_info->add_private(symbol);
-			} 
-			// Adds firstprivate to task information
-			vars= pragma_custom_construct
-					.get_clause("firstprivate")
-					.id_expressions();
-			for		( ObjectList<IdExpression>::iterator it= vars.begin()
-					; it != vars.end()
-					; it++
-					)
-			{
-				IdExpression var= *it;
-				Symbol symbol= var.get_symbol();
-				
-				task_info->add_firstprivate(symbol);
-			} 
-			// Adds lastprivate to task information
-			vars= pragma_custom_construct
-					.get_clause("lastprivate")
-					.id_expressions();
-			for		( ObjectList<IdExpression>::iterator it= vars.begin()
-					; it != vars.end()
-					; it++
-					)
-			{
-				IdExpression var= *it;
-				Symbol symbol= var.get_symbol();
-				
-				task_info->add_lastprivate(symbol);
-			} 
 			// Adds targets inputs
 			exprs= pragma_custom_construct
 					.get_clause("targetinput")
@@ -442,6 +404,16 @@ namespace TL
 				
 				task_info->add_target_output(symbol, label);
 			} 
+            // Adds fordistributes
+            for     ( std::stack<FordistributeInfo*> it= _fordistribute_stack
+                    ; it.size() > 0
+                    ; it.pop()
+                    )
+            {
+                FordistributeInfo* fordistribute_info= it.top();
+                
+                task_info->add_fordistribute(fordistribute_info);
+            }
 		}
 
 		// task_postorder ------------------------------------------------------
