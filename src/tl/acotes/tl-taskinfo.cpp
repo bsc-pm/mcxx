@@ -1,6 +1,4 @@
 /*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2007 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
 	Acotes Translation Phase
 	Copyright (C) 2007 - David Rodenas Pico <david.rodenas@bsc.es>
     Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
@@ -84,6 +82,16 @@ add_firstprivate
 	add_private(symbol);
 	
 	_firstprivates.insert(symbol);
+}
+
+// add_fordistribute -----------------------------------------------------------
+void
+TaskInfo::
+add_fordistribute(FordistributeInfo* fordistribute_info)
+{
+	assert(fordistribute_info);
+	
+	_fordistribute_info_set.insert(fordistribute_info);
 }
 
 // add_import ------------------------------------------------------------------
@@ -359,6 +367,16 @@ get_firstprivates
 		) const
 {
 	return _firstprivates;
+}
+
+// get_fordistribute_info_set --------------------------------------------------
+const std::set<FordistributeInfo*>& 
+TaskInfo::
+get_fordistribute_info_set
+		( void
+		) const
+{
+	return _fordistribute_info_set;
 }
 
 // get_imports -----------------------------------------------------------------

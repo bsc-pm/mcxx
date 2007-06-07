@@ -18,26 +18,38 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TLTASKTRANSFORMHELPER_HPP_
-#define TLTASKTRANSFORMHELPER_HPP_
+#ifndef TLVISIBILITYINFO_H_
+#define TLVISIBILITYINFO_H_
 
-#include <string>
+#include <set>
 
-#include "tl-taskinfo.hpp"
+#include "tl-symbol.hpp"
 
 namespace TL
 {
 
-class TaskTransformHelper
+class VisibilityInfo
 {
 public:
-	static std::string outline_name(TaskInfo* task);
-	
+	VisibilityInfo();
+	virtual ~VisibilityInfo();
+
+    void                    add_firstprivate(const Symbol& symbol);
+    void                    add_lastprivate(const Symbol& symbol);
+	void                    add_private(const Symbol& symbol);
+	const std::set<Symbol>& get_firstprivates(void) const;
+	const std::set<Symbol>& get_lastprivates(void) const;
+	const std::set<Symbol>& get_privates(void) const;
+	bool                    is_firstprivate(const Symbol& symbol)const;
+	bool                    is_lastprivate(const Symbol& symbol) const;
+	bool                    is_private(const Symbol& symbol) const;
+
 private:
-	TaskTransformHelper();
-	
+	std::set<Symbol> _firstprivates;
+	std::set<Symbol> _lastprivates;
+	std::set<Symbol> _privates;
 };
 
 }
 
-#endif /*TLTASKTRANSFORMHELPER_HPP_*/
+#endif /*TLVISIBILITYINFO_H_*/

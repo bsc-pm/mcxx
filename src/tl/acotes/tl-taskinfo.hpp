@@ -1,6 +1,4 @@
 /*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2007 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
 	Acotes Translation Phase
 	Copyright (C) 2007 - David Rodenas Pico <david.rodenas@bsc.es>
     Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
@@ -31,6 +29,7 @@
 
 namespace TL
 {
+class FordistributeInfo;
 class StreamInfo;
 class TargetInfo;
 class TaskgroupInfo;
@@ -43,6 +42,8 @@ public:
 
 	void                         add_export(const Symbol& symbol);
     void                         add_firstprivate(const Symbol& symbol);
+    void                         add_fordistribute(FordistributeInfo* 
+    		fordistribute);
 	void                         add_import(const Symbol& symbol);
 	void                         add_input(const Symbol& symbol);
 	void                         add_istream(StreamInfo* is);
@@ -64,10 +65,11 @@ public:
 	void                         add_task_info_child(TaskInfo* child);
 	void                         add_shortcut(const Symbol& symbol); 
 	void                         compute_graph(void);
-	const std::set<Symbol>&      get_exports(void) const;
-	const std::set<Symbol>&      get_firstprivates(void) const;
-	const std::set<Symbol>&      get_imports(void) const;
-	const std::set<Symbol>&      get_lastprivates(void) const;
+	const std::set<Symbol>&             get_exports(void) const;
+	const std::set<Symbol>&             get_firstprivates(void) const;
+	const std::set<FordistributeInfo*>& get_fordistribute_info_set(void) const;
+	const std::set<Symbol>&             get_imports(void) const;
+	const std::set<Symbol>&             get_lastprivates(void) const;
 	const std::set<StreamInfo*>& get_loop_pop_istream_set(void) const;
 	const std::set<StreamInfo*>& get_loop_push_ostream_set(void) const;
 	const std::set<StreamInfo*>& get_loop_control_istream_set(void) const;
@@ -96,30 +98,31 @@ public:
 	TargetInfo*                  new_target_info(const std::string& label);
 
 private:
-	std::string           _name;
-	std::set<Symbol>      _exports;
-	std::set<Symbol>      _firstprivates;
-	std::set<Symbol>      _imports;
-	std::set<Symbol>      _inputs;
-	std::set<StreamInfo*> _istream_set;
-	std::set<Symbol>      _lastprivates;
-	std::set<StreamInfo*> _loop_pop_istream_set;
-	std::set<StreamInfo*> _loop_push_ostream_set;
-	std::set<StreamInfo*> _loop_control_istream_set;
-	std::set<StreamInfo*> _loop_close_ostream_set;
-	std::set<Symbol>      _outputs;
-	std::set<StreamInfo*> _ostream_set;
-	std::set<Symbol>      _privates;
-	std::set<Symbol>      _references;
-	std::set<Symbol>      _shortcuts;
-	std::string           _state_name;
-	std::string           _struct_state_name;
-	std::set<StreamInfo*> _replace_pop_istream_set;
-	std::set<StreamInfo*> _replace_push_ostream_set;
-	std::set<TargetInfo*> _target_info_set;
-	std::list<TaskInfo*>  _task_info_children;
-	TaskInfo*             _task_info_parent;
-	TaskgroupInfo* const  _taskgroup_info;
+	std::string                  _name;
+	std::set<Symbol>             _exports;
+	std::set<Symbol>             _firstprivates;
+	std::set<FordistributeInfo*> _fordistribute_info_set;
+	std::set<Symbol>             _imports;
+	std::set<Symbol>             _inputs;
+	std::set<StreamInfo*>        _istream_set;
+	std::set<Symbol>             _lastprivates;
+	std::set<StreamInfo*>        _loop_pop_istream_set;
+	std::set<StreamInfo*>        _loop_push_ostream_set;
+	std::set<StreamInfo*>        _loop_control_istream_set;
+	std::set<StreamInfo*>        _loop_close_ostream_set;
+	std::set<Symbol>             _outputs;
+	std::set<StreamInfo*>        _ostream_set;
+	std::set<Symbol>             _privates;
+	std::set<Symbol>             _references;
+	std::set<Symbol>             _shortcuts;
+	std::string                  _state_name;
+	std::string                  _struct_state_name;
+	std::set<StreamInfo*>        _replace_pop_istream_set;
+	std::set<StreamInfo*>        _replace_push_ostream_set;
+	std::set<TargetInfo*>        _target_info_set;
+	std::list<TaskInfo*>         _task_info_children;
+	TaskInfo*                    _task_info_parent;
+	TaskgroupInfo* const         _taskgroup_info;
 	
 	void init_name(void);
 	void init_state_name(void);

@@ -1,6 +1,4 @@
 /*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2007 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
 	Acotes Translation Phase
 	Copyright (C) 2007 - David Rodenas Pico <david.rodenas@bsc.es>
     Barcelona Supercomputing Center - Centro Nacional de Supercomputacion

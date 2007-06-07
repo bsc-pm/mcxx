@@ -18,26 +18,36 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TLTASKTRANSFORMHELPER_HPP_
-#define TLTASKTRANSFORMHELPER_HPP_
+#ifndef TLTRANSFORMFORDISTRIBUTEREPLACE_HPP_
+#define TLTRANSFORMFORDISTRIBUTEREPLACE_HPP_
 
 #include <string>
 
-#include "tl-taskinfo.hpp"
+#include "tl-pragmasupport.hpp"
+#include "tl-transform.hpp"
 
 namespace TL
 {
 
-class TaskTransformHelper
+class FordistributeInfo;
+
+class TransformFordistributeReplace : public TL::Transform
 {
 public:
-	static std::string outline_name(TaskInfo* task);
+	TransformFordistributeReplace(PragmaCustomConstruct pragma_custom_construct, 
+			FordistributeInfo* fordistribute_info);
+	virtual ~TransformFordistributeReplace();
+	
+	virtual void transform(void);
 	
 private:
-	TaskTransformHelper();
+	FordistributeInfo*    _fordistribute_info;
+	PragmaCustomConstruct _pragma_custom_construct;
 	
+	std::string generate_body(void);
+	std::string generate_replace(void);
 };
 
 }
 
-#endif /*TLTASKTRANSFORMHELPER_HPP_*/
+#endif /*TLTRANSFORMFORDISTRIBUTEREPLACE_HPP_*/

@@ -17,6 +17,10 @@ libtlacotes_la_CXXFLAGS = -Wall \
     -I ../../../lib
 
 libtlacotes_la_SOURCES = \
+						tl-fordistributeinfo.hpp \
+						tl-fordistributeinfo.cpp \
+						tl-fordistributetransformhelper.hpp \
+						tl-fordistributetransformhelper.cpp \
 						tl-generator.hpp \
 						tl-generator.cpp \
 						tl-generatorlist.hpp \
@@ -45,6 +49,8 @@ libtlacotes_la_SOURCES = \
 						tl-targetstreaminfo.cpp \
 						tl-transform.hpp \
 						tl-transform.cpp \
+						tl-transformfordistributereplace.hpp \
+						tl-transformfordistributereplace.cpp \
 						tl-transformlist.hpp \
 						tl-transformlist.cpp \
 						tl-transformmintakaoutline.hpp \
@@ -61,5 +67,7 @@ libtlacotes_la_SOURCES = \
 						tl-transformtaskoutline.cpp \
 						tl-transformtaskreplace.hpp \
 						tl-transformtaskreplace.cpp \
+						tl-visibilityinfo.hpp \
+						tl-visibilityinfo.cpp \
 						tl-acotestransform.hpp \
 						tl-acotestransform.cpp

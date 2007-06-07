@@ -1,6 +1,4 @@
 /*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2007 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
 	Acotes Translation Phase
 	Copyright (C) 2007 - David Rodenas Pico <david.rodenas@bsc.es>
     Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
@@ -22,35 +20,15 @@
 */
 #include "tl-acotestransform.hpp"
 
-#if 0
-#include <list>
-#include <iostream>
-#include <sstream>
-#include <set>
-#include <stack>
-#include <vector>
-
-#include <assert.h>
-
-#include "tl-ast.hpp"
-#include "tl-compilerphase.hpp"
-#include "tl-functor.hpp"
-#include "tl-pragmasupport.hpp"
-#include "tl-scopelink.hpp"
-#include "tl-source.hpp"
-#include "tl-traverse.hpp"
-#endif
-
-
 #include <assert.h>
 #include <stack>
 #include <string>
 
-#include "tl-pragmasupport.hpp"
-
+#include "tl-fordistributeinfo.hpp"
 #include "tl-targetinfo.hpp"
 #include "tl-taskgroupinfo.hpp"
 #include "tl-taskinfo.hpp"
+#include "tl-transformfordistributereplace.hpp"
 #include "tl-transformmintakaoutline.hpp"
 #include "tl-transformtargetreplace.hpp"
 #include "tl-transformtaskdeclarestate.hpp"
@@ -72,6 +50,7 @@ namespace TL
 	{
 		// AcotesTransform fields ----------------------------------------------
 		private:
+		std::stack<FordistributeInfo*> _fordistribute_stack;
 		std::stack<TaskgroupInfo*>     _taskgroup_stack;
 		std::stack<TaskInfo*>          _task_stack;
 
@@ -85,6 +64,9 @@ namespace TL
 			on_directive_pre["taskgroup"].connect(
 				functor(&AcotesTransform::taskgroup_preorder, *this)
 			);
+			on_directive_pre["fordistribute"].connect(
+				functor(&AcotesTransform::fordistribute_preorder, *this)
+			);
 			on_directive_pre["task"].connect(
 				functor(&AcotesTransform::task_preorder, *this)
 			);
@@ -94,12 +76,128 @@ namespace TL
 			on_directive_post["task"].connect(
 				functor(&AcotesTransform::task_postorder, *this)
 			);
+			on_directive_post["fordistribute"].connect(
+				functor(&AcotesTransform::fordistribute_postorder, *this)
+			);
 			on_directive_post["taskgroup"].connect(
 				functor(&AcotesTransform::taskgroup_postorder, *this)
 			);
 		}
 		
 		private:
+		// fordistribute_preorder ----------------------------------------------
+		void 
+		fordistribute_preorder
+				( PragmaCustomConstruct pragma_custom_construct
+				)
+		{
+			FordistributeInfo* fordistribute_info;
+			ForStatement for_statement= pragma_custom_construct.get_statement();
+			
+			fordistribute_info= new FordistributeInfo(for_statement);
+			
+			_fordistribute_stack.push(fordistribute_info);
+		}
+
+		// fordistribute_postorder ---------------------------------------------
+		void 
+		fordistribute_postorder
+				( PragmaCustomConstruct pragma_custom_construct
+				)
+		{
+			// Retrieves the top taskgroup and fordistribute
+			TaskgroupInfo* taskgroup_info= _taskgroup_stack.top();
+			FordistributeInfo* fordistribute_info= _fordistribute_stack.top();
+			
+			// Transformation support
+			TransformTaskgroupReplace* transform_taskgroup=
+					taskgroup_info->get_transform_taskgroup_replace(); 
+
+			// Enquees the outline generation for that task
+			TransformFordistributeReplace* transform_fordistribute_replace=
+					new TransformFordistributeReplace(pragma_custom_construct, fordistribute_info); 
+
+			transform_taskgroup->
+					add_previous_transform(transform_fordistribute_replace);
+
+			_fordistribute_stack.pop();
+		}
+ 
+		// target_postorder ----------------------------------------------------
+		void 
+		target_postorder
+				( PragmaCustomConstruct pragma_custom_construct
+				)
+		{
+			// Retrieves the top taskgroup
+			TaskgroupInfo* taskgroup_info= _taskgroup_stack.top();
+
+			// Retrieves the top task
+			TaskInfo* task_info= _task_stack.top();
+			
+			// Retrieves the label for that target
+			ObjectList<Expression> exprs= pragma_custom_construct
+					.get_clause("label")
+					.get_expression_list()
+					;
+			if (exprs.size() != 1)
+			{
+				std::cerr
+						<< "ERROR: #pragma acotes target directive requires "
+						<< "one single label." 
+						<< std::endl
+						;
+				assert(0);
+			}
+			Expression expr= (*exprs.begin());
+			std::string label= expr.prettyprint();
+			
+			// Create a new instance to work
+			TargetInfo* target_info= task_info->new_target_info(label);
+
+			ObjectList<IdExpression> vars;
+			// Adds inputs to task information
+			vars= pragma_custom_construct
+					.get_clause("input")
+					.id_expressions();
+			for		( ObjectList<IdExpression>::iterator it= vars.begin()
+					; it != vars.end()
+					; it++
+					)
+			{
+				IdExpression var= *it;
+				Symbol symbol= var.get_symbol();
+				
+				target_info->add_input(symbol);
+			} 
+			// Adds output to task information
+			vars= pragma_custom_construct
+					.get_clause("output")
+					.id_expressions();
+			for		( ObjectList<IdExpression>::iterator it= vars.begin()
+					; it != vars.end()
+					; it++
+					)
+			{
+				IdExpression var= *it;
+				Symbol symbol= var.get_symbol();
+				
+				target_info->add_output(symbol);
+			}
+
+			// Transformation support
+			TransformTaskgroupReplace* transform_taskgroup=
+					taskgroup_info->get_transform_taskgroup_replace(); 
+
+			// Enquees the outline generation for that task
+			TransformTargetReplace* transform_target_replace=
+					new TransformTargetReplace
+							(pragma_custom_construct
+							, target_info
+							);
+			transform_taskgroup->add_previous_transform(transform_target_replace);
+		}
+
 		// taskgroup_preorder --------------------------------------------------
 		void 
 		taskgroup_preorder
@@ -344,81 +442,6 @@ namespace TL
 				
 				task_info->add_target_output(symbol, label);
 			} 
-		}
-
-		// target_postorder ----------------------------------------------------
-		void 
-		target_postorder
-				( PragmaCustomConstruct pragma_custom_construct
-				)
-		{
-			// Retrieves the top taskgroup
-			TaskgroupInfo* taskgroup_info= _taskgroup_stack.top();
-
-			// Retrieves the top task
-			TaskInfo* task_info= _task_stack.top();
-			
-			// Retrieves the label for that target
-			ObjectList<Expression> exprs= pragma_custom_construct
-					.get_clause("label")
-					.get_expression_list()
-					;
-			if (exprs.size() != 1)
-			{
-				std::cerr
-						<< "ERROR: #pragma acotes target directive requires "
-						<< "one single label." 
-						<< std::endl
-						;
-				assert(0);
-			}
-			Expression expr= (*exprs.begin());
-			std::string label= expr.prettyprint();
-			
-			// Create a new instance to work
-			TargetInfo* target_info= task_info->new_target_info(label);
-
-			ObjectList<IdExpression> vars;
-			// Adds inputs to task information
-			vars= pragma_custom_construct
-					.get_clause("input")
-					.id_expressions();
-			for		( ObjectList<IdExpression>::iterator it= vars.begin()
-					; it != vars.end()
-					; it++
-					)
-			{
-				IdExpression var= *it;
-				Symbol symbol= var.get_symbol();
-				
-				target_info->add_input(symbol);
-			} 
-			// Adds output to task information
-			vars= pragma_custom_construct
-					.get_clause("output")
-					.id_expressions();
-			for		( ObjectList<IdExpression>::iterator it= vars.begin()
-					; it != vars.end()
-					; it++
-					)
-			{
-				IdExpression var= *it;
-				Symbol symbol= var.get_symbol();
-				
-				target_info->add_output(symbol);
-			}
-
-			// Transformation support
-			TransformTaskgroupReplace* transform_taskgroup=
-					taskgroup_info->get_transform_taskgroup_replace(); 
-
-			// Enquees the outline generation for that task
-			TransformTargetReplace* transform_target_replace=
-					new TransformTargetReplace
-							(pragma_custom_construct
-							, target_info
-							);
-			transform_taskgroup->add_previous_transform(transform_target_replace);
 		}
 
 		// task_postorder ------------------------------------------------------

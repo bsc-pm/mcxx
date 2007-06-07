@@ -18,26 +18,19 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TLTASKTRANSFORMHELPER_HPP_
-#define TLTASKTRANSFORMHELPER_HPP_
-
-#include <string>
-
-#include "tl-taskinfo.hpp"
+#ifndef TLFORDISTRIBUTETRANSFORMHELPER_HPP_
+#define TLFORDISTRIBUTETRANSFORMHELPER_HPP_
 
 namespace TL
 {
 
-class TaskTransformHelper
+class FordistributeTransformHelper
 {
 public:
-	static std::string outline_name(TaskInfo* task);
-	
-private:
-	TaskTransformHelper();
-	
+	FordistributeTransformHelper();
+	virtual ~FordistributeTransformHelper();
 };
 
 }
 
-#endif /*TLTASKTRANSFORMHELPER_HPP_*/
+#endif /*TLFORDISTRIBUTETRANSFORMHELPER_HPP_*/
