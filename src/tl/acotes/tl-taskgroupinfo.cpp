@@ -118,7 +118,7 @@ get_target_stream_info
 		, const std::string& label
 		)
 {
-	std::string key= TargetStreamInfo::compute_name(symbol, label);
+	std::string key= label;
 	TargetStreamInfo* target_stream_info;
 	
 	if (_target_stream_info_map.count(key) == 0)
@@ -188,7 +188,7 @@ new_stream_info
 		)
 {
 	// Createa a new taskinfo for this taskgroup
-	StreamInfo* stream_info= new StreamInfo
+	StreamInfo* stream_info= StreamInfo::create
 			( symbol
 			, task_info_ostream
 			, task_info_istream

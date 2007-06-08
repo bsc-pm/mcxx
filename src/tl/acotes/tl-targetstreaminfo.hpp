@@ -28,6 +28,8 @@
 namespace TL
 {
 
+class InputStreamInfo;
+class OutputStreamInfo;
 class TaskInfo;
 class StreamInfo;
 
@@ -37,11 +39,10 @@ public:
 	TargetStreamInfo(const Symbol& symbol, const std::string& label);
 	virtual ~TargetStreamInfo();
 	
-	static std::string compute_name(const Symbol& symbol, const std::string& 
-			label);
-			
+    InputStreamInfo*   get_input_stream_info(void) const;
 	const std::string& get_label(void) const;
 	const std::string& get_name(void) const;
+    OutputStreamInfo*  get_output_stream_info(void) const;
 	StreamInfo*        get_stream_info(void) const;
 	const Symbol&      get_symbol(void) const;
 	void               set_task_info_istream(TaskInfo *input_task_info, bool 

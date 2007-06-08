@@ -23,6 +23,8 @@
 #include <assert.h>
 #include <sstream>
 
+#include "tl-inputstreaminfo.hpp"
+#include "tl-outputstreaminfo.hpp"
 #include "tl-streaminfo.hpp"
 #include "tl-targetstreaminfo.hpp"
 
@@ -33,14 +35,14 @@ namespace TL
 std::string 
 StreamTransformHelper::
 close
-		( StreamInfo* s
+		( OutputStreamInfo* s
 		)
 {
 	std::stringstream ss;
 	
 	ss
 		<< "ostream_close"
-		<< "( " << s->get_ostream_name()
+		<< "( " << s->get_name()
 		<< ")"
 		<< ";"
 		;
@@ -71,17 +73,17 @@ close
 std::string 
 StreamTransformHelper::
 close_all
-		( const std::set<StreamInfo*>& streams
+		( const std::set<OutputStreamInfo*>& streams
 		)
 {
 	std::stringstream ss;
 	
-	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+	for		( std::set<OutputStreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
 			)
 	{
-		StreamInfo* s= *it;
+		OutputStreamInfo* s= *it;
 		ss << close(s);
 	} 
 	
@@ -121,8 +123,8 @@ connect
 	std::stringstream ss;
 	
 	ss		<< "ostream_connect"
-			<< "( " << s->get_ostream_name()
-			<< ", " << s->get_istream_name()
+			<< "( " << s->get_output_stream_info()->get_name()
+			<< ", " << s->get_input_stream_info()->get_name()
 			<< ")"
 			<< ";"
 			;
@@ -161,8 +163,8 @@ create
 {
 	std::stringstream ss;
 	
-	ss		<< create_istream(s)
-			<< create_ostream(s)
+	ss		<< create_istream(s->get_input_stream_info())
+			<< create_ostream(s->get_output_stream_info())
 			;
 	
 	return ss.str();
@@ -172,13 +174,13 @@ create
 std::string 
 StreamTransformHelper::
 create_istream
-		( StreamInfo* s
+		( InputStreamInfo* s
 		)
 {
 	std::stringstream ss;
 	
 	ss		<< "istream_create"
-			<< "( &(" << s->get_istream_name() << ")"
+			<< "( &(" << s->get_name() << ")"
 			<< ", sizeof(" << s->get_symbol_name() << ")"
 			<< ", " << s->get_queue_length()
 			<< ")"
@@ -204,7 +206,7 @@ create_istream_all
 	{
 		TargetStreamInfo* target_stream_info= *it;
 		
-		ss << create_istream(target_stream_info->get_stream_info());
+		ss << create_istream(target_stream_info->get_stream_info()->get_input_stream_info());
 	}
 	
 	return ss.str();
@@ -214,13 +216,13 @@ create_istream_all
 std::string 
 StreamTransformHelper::
 create_ostream
-		( StreamInfo* s
+		( OutputStreamInfo* s
 		)
 {
 	std::stringstream ss;
 	
 	ss		<< "ostream_create"
-			<< "( &(" << s->get_ostream_name() << ")"
+			<< "( &(" << s->get_name() << ")"
 			<< ", sizeof(" << s->get_symbol_name() << ")"
 			<< ")"
 			<< ";"
@@ -245,7 +247,7 @@ create_ostream_all
 	{
 		TargetStreamInfo* target_stream_info= *it;
 		
-		ss << create_ostream(target_stream_info->get_stream_info());
+		ss << create_ostream(target_stream_info->get_stream_info()->get_output_stream_info());
 	}
 	
 	return ss.str();
@@ -283,8 +285,8 @@ declare
 	std::stringstream ss;
 	
 	ss
-		<< declare_istream(s)
-		<< declare_ostream(s)
+		<< declare_istream(s->get_input_stream_info())
+		<< declare_ostream(s->get_output_stream_info())
 		;
 	
 	return ss.str();
@@ -294,14 +296,14 @@ declare
 std::string 
 StreamTransformHelper::
 declare_istream
-		( StreamInfo *is
+		( InputStreamInfo *is
 		)
 {
 	std::stringstream ss;
 	
 	ss
 		<< "istream_t "
-		<< is->get_istream_name()
+		<< is->get_name()
 		<< ";"
 		;
 	
@@ -324,7 +326,7 @@ declare_istream_all
 	{
 		TargetStreamInfo* target_stream_info= *it;
 		
-		ss << declare_istream(target_stream_info->get_stream_info());
+		ss << declare_istream(target_stream_info->get_stream_info()->get_input_stream_info());
 	}
 	
 	return ss.str();
@@ -334,14 +336,14 @@ declare_istream_all
 std::string 
 StreamTransformHelper::
 declare_ostream
-		( StreamInfo *os
+		( OutputStreamInfo *os
 		)
 {
 	std::stringstream ss;
 	
 	ss
 		<< "ostream_t "
-		<< os->get_ostream_name()
+		<< os->get_name()
 		<< ";"
 		;
 	
@@ -364,7 +366,7 @@ declare_ostream_all
 	{
 		TargetStreamInfo* target_stream_info= *it;
 		
-		ss << declare_ostream(target_stream_info->get_stream_info());
+		ss << declare_ostream(target_stream_info->get_stream_info()->get_output_stream_info());
 	}
 	
 	return ss.str();
@@ -379,8 +381,8 @@ destroy
 {
 	std::stringstream ss;
 	
-	ss		<< destroy_istream(s)
-			<< destroy_ostream(s)
+	ss		<< destroy_istream(s->get_input_stream_info())
+			<< destroy_ostream(s->get_output_stream_info())
 			;
 	
 	return ss.str();
@@ -390,13 +392,13 @@ destroy
 std::string 
 StreamTransformHelper::
 destroy_istream
-		( StreamInfo* s
+		( InputStreamInfo* s
 		)
 {
 	std::stringstream ss;
 	
 	ss		<< "istream_destroy"
-			<< "( " << s->get_istream_name()
+			<< "( " << s->get_name()
 			<< ")"
 			<< ";"
 			;
@@ -408,13 +410,13 @@ destroy_istream
 std::string 
 StreamTransformHelper::
 destroy_ostream
-		( StreamInfo* s
+		( OutputStreamInfo* s
 		)
 {
 	std::stringstream ss;
 	
 	ss		<< "ostream_destroy"
-			<< "( " << s->get_ostream_name()
+			<< "( " << s->get_name()
 			<< ")"
 			<< ";"
 			;
@@ -448,14 +450,14 @@ destroy_all
 std::string 
 StreamTransformHelper::
 eos
-		( StreamInfo* s
+		( InputStreamInfo* s
 		)
 {
 	std::stringstream ss;
 	
 	ss
 		<< "istream_eos"
-		<< "( " << s->get_istream_name()
+		<< "( " << s->get_name()
 		<< ")"
 		;
 	
@@ -484,18 +486,18 @@ eos
 std::string 
 StreamTransformHelper::
 eos_any
-		( const std::set<StreamInfo*>& streams
+		( const std::set<InputStreamInfo*>& streams
 		)
 {
 	std::stringstream ss;
 
 	ss << "0";	
-	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+	for		( std::set<InputStreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
 			)
 	{
-		StreamInfo* s= *it;
+		InputStreamInfo* s= *it;
 		ss << " || ";
 		ss << eos(s);
 	} 
@@ -532,7 +534,7 @@ eos_any
 std::string 
 StreamTransformHelper::
 peek
-		( StreamInfo* s
+		( InputStreamInfo* s
 		)
 {
 	std::stringstream ss;
@@ -541,7 +543,7 @@ peek
 		<< s->get_symbol_name()
 		<< "= "
 		<< "istream_peek"
-		<<    "( " << s->get_istream_name()
+		<<    "( " << s->get_name()
 		<<    ", 0"
 		<<    ")"
 		<< ";"
@@ -554,17 +556,17 @@ peek
 std::string 
 StreamTransformHelper::
 peek_all
-		( const std::set<StreamInfo*>& streams
+		( const std::set<InputStreamInfo*>& streams
 		)
 {
 	std::stringstream ss;
 	
-	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+	for		( std::set<InputStreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
 			)
 	{
-		StreamInfo* s= *it;
+		InputStreamInfo* s= *it;
 		ss << peek(s);
 	} 
 	
@@ -575,7 +577,7 @@ peek_all
 std::string 
 StreamTransformHelper::
 peek_value
-		( StreamInfo* s
+		( InputStreamInfo* s
 		)
 {
 	std::stringstream ss;
@@ -584,7 +586,7 @@ peek_value
 		<< "memcpy"
 		<< "( &(" << s->get_symbol_name() << ")"
 		<< ", istream_peek"
-		<<    "( " << s->get_istream_name()
+		<<    "( " << s->get_name()
 		<<    ", 0"
 		<<    ")"
 		<< ", sizeof("<< s->get_symbol_name() <<")"
@@ -599,17 +601,17 @@ peek_value
 std::string 
 StreamTransformHelper::
 peek_value_all
-		( const std::set<StreamInfo*>& streams
+		( const std::set<InputStreamInfo*>& streams
 		)
 {
 	std::stringstream ss;
 	
-	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+	for		( std::set<InputStreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
 			)
 	{
-		StreamInfo* s= *it;
+		InputStreamInfo* s= *it;
 		ss << peek_value(s);
 	} 
 	
@@ -620,7 +622,7 @@ peek_value_all
 std::string 
 StreamTransformHelper::
 pop
-		( StreamInfo* s
+		( InputStreamInfo* s
 		)
 {
 	std::stringstream ss;
@@ -637,17 +639,17 @@ pop
 std::string 
 StreamTransformHelper::
 pop_all
-		( const std::set<StreamInfo*>& streams
+		( const std::set<InputStreamInfo*>& streams
 		)
 {
 	std::stringstream ss;
 	
-	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+	for		( std::set<InputStreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
 			)
 	{
-		StreamInfo* s= *it;
+		InputStreamInfo* s= *it;
 		ss << pop(s);
 	} 
 	
@@ -658,19 +660,19 @@ pop_all
 std::string 
 StreamTransformHelper::
 pop_all_expression
-		( const std::set<StreamInfo*>& streams
+		( const std::set<InputStreamInfo*>& streams
 		)
 {
 	std::stringstream ss;
 	
 	ss << "";
 	ss << "1";
-	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+	for		( std::set<InputStreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
 			)
 	{
-		StreamInfo* s= *it;
+		InputStreamInfo* s= *it;
 		ss << " && " << pop_expression(s);
 	} 
 	ss << "";
@@ -682,14 +684,14 @@ pop_all_expression
 std::string 
 StreamTransformHelper::
 pop_expression
-		( StreamInfo* s
+		( InputStreamInfo* s
 		)
 {
 	std::stringstream ss;
 	
 	ss
 		<< "istream_pop"
-		<< "( " << s->get_istream_name()
+		<< "( " << s->get_name()
 		<< ", &" << s->get_symbol_name()
 		<< ")"
 		;
@@ -701,14 +703,14 @@ pop_expression
 std::string 
 StreamTransformHelper::
 push
-		( StreamInfo* s
+		( OutputStreamInfo* s
 		)
 {
 	std::stringstream ss;
 	
 	ss
 		<< "ostream_push"
-		<< "( " << s->get_ostream_name()
+		<< "( " << s->get_name()
 		<< ", &(" << s->get_symbol_name() << ")"
 		<< ")"
 		<< ";"
@@ -721,17 +723,17 @@ push
 std::string 
 StreamTransformHelper::
 push_all
-		( const std::set<StreamInfo*>& streams
+		( const std::set<OutputStreamInfo*>& streams
 		)
 {
 	std::stringstream ss;
 	
-	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+	for		( std::set<OutputStreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
 			)
 	{
-		StreamInfo* s= *it;
+		OutputStreamInfo* s= *it;
 		ss << push(s);
 	} 
 	
@@ -742,14 +744,14 @@ push_all
 std::string 
 StreamTransformHelper::
 push_reference
-		( StreamInfo* s
+		( OutputStreamInfo* s
 		)
 {
 	std::stringstream ss;
 	
 	ss
 		<< "ostream_push"
-		<< "( " << s->get_ostream_name()
+		<< "( " << s->get_name()
 		<< ", " << s->get_symbol_name()
 		<< ")"
 		<< ";"
@@ -762,17 +764,17 @@ push_reference
 std::string 
 StreamTransformHelper::
 push_reference_all
-		( const std::set<StreamInfo*>& streams
+		( const std::set<OutputStreamInfo*>& streams
 		)
 {
 	std::stringstream ss;
 	
-	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+	for		( std::set<OutputStreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
 			)
 	{
-		StreamInfo* s= *it;
+		OutputStreamInfo* s= *it;
 		ss << push_reference(s);
 	} 
 	
@@ -783,14 +785,14 @@ push_reference_all
 std::string 
 StreamTransformHelper::
 wait_istream
-		( StreamInfo* s
+		( InputStreamInfo* s
 		)
 {
 	std::stringstream ss;
 	
 	ss
 		<< "istream_wait"
-		<< "( " << s->get_istream_name()
+		<< "( " << s->get_name()
 		<< ", 1"
 		<< ")"
 		<< ";"
@@ -803,17 +805,17 @@ wait_istream
 std::string 
 StreamTransformHelper::
 wait_istream_all
-		( const std::set<StreamInfo*>& streams
+		( const std::set<InputStreamInfo*>& streams
 		)
 {
 	std::stringstream ss;
 	
-	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+	for		( std::set<InputStreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
 			)
 	{
-		StreamInfo* s= *it;
+		InputStreamInfo* s= *it;
 		ss << wait_istream(s);
 	} 
 	
@@ -824,14 +826,14 @@ wait_istream_all
 std::string 
 StreamTransformHelper::
 wait_ostream
-		( StreamInfo* s
+		( OutputStreamInfo* s
 		)
 {
 	std::stringstream ss;
 	
 	ss
 		<< "ostream_wait"
-		<< "( " << s->get_ostream_name()
+		<< "( " << s->get_name()
 		<< ", 1"
 		<< ")"
 		<< ";"
@@ -844,17 +846,17 @@ wait_ostream
 std::string 
 StreamTransformHelper::
 wait_ostream_all
-		( const std::set<StreamInfo*>& streams
+		( const std::set<OutputStreamInfo*>& streams
 		)
 {
 	std::stringstream ss;
 	
-	for		( std::set<StreamInfo*>::iterator it= streams.begin()
+	for		( std::set<OutputStreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
 			)
 	{
-		StreamInfo* s= *it;
+		OutputStreamInfo* s= *it;
 		ss << wait_ostream(s);
 	} 
 	

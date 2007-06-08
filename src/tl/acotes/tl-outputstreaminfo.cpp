@@ -18,40 +18,26 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TLSTREAMINFO_HPP_
-#define TLSTREAMINFO_HPP_
-
-#include <string>
-
-#include "tl-symbol.hpp"
+#include "tl-outputstreaminfo.hpp"
 
 namespace TL
 {
-    class InputStreamInfo;
-    class OutputStreamInfo;
-	class TaskInfo;
-	
-	class StreamInfo
-	{
-	public:
-        static StreamInfo* create(const Symbol& symbol, TaskInfo* 
-                task_info_ostream, TaskInfo* task_info_istream);
-        static StreamInfo* create(OutputStreamInfo* output_stream_info,
-                InputStreamInfo* input_stream_info);
-                
-        ~StreamInfo();
-                
-        InputStreamInfo*  get_input_stream_info(void) const;
-        OutputStreamInfo* get_output_stream_info(void) const;    
-				
-	private:
-        StreamInfo(OutputStreamInfo* output_stream_info,
-                InputStreamInfo* input_stream_info);
-                
-        InputStreamInfo*  _input_stream_info;
-        OutputStreamInfo* _output_stream_info;
-	};
+
+// OutputStreamInfo constructor ------------------------------------------------
+OutputStreamInfo::
+OutputStreamInfo
+        ( const Symbol& symbol
+        , TaskInfo* task_info
+        , std::string label
+        ) 
+        : EndStreamInfo(symbol, task_info, "ostream", label)
+{
 }
 
+// OutputStreamInfo destructor -------------------------------------------------
+OutputStreamInfo::
+~OutputStreamInfo()
+{
+}
 
-#endif /*TLSTREAMINFO_HPP_*/
+}

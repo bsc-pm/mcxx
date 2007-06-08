@@ -17,6 +17,8 @@ libtlacotes_la_CXXFLAGS = -Wall \
     -I ../../../lib
 
 libtlacotes_la_SOURCES = \
+						tl-endstreaminfo.hpp \
+						tl-endstreaminfo.cpp \
 						tl-fordistributeinfo.hpp \
 						tl-fordistributeinfo.cpp \
 						tl-fordistributetransformhelper.hpp \
@@ -25,8 +27,12 @@ libtlacotes_la_SOURCES = \
 						tl-generator.cpp \
 						tl-generatorlist.hpp \
 						tl-generatorlist.cpp \
+						tl-inputstreaminfo.hpp \
+						tl-inputstreaminfo.cpp \
 						tl-mintakatransformhelper.hpp \
 						tl-mintakatransformhelper.cpp \
+						tl-outputstreaminfo.hpp \
+						tl-outputstreaminfo.cpp \
 						tl-statetransformhelper.hpp \
 						tl-statetransformhelper.cpp \
 						tl-streaminfo.hpp \

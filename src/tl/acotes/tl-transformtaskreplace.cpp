@@ -66,9 +66,11 @@ generate_replace_popes
 {
 	std::stringstream ss;
 	
-	const std::set<StreamInfo*>& streams= 
-			_task_info->get_replace_pop_istream_set();
+	const std::set<InputStreamInfo*>& streams= 
+			_task_info->get_replace_pop_set();
 			
+    ss << StreamTransformHelper::pop_all(streams);
+#if 0
 	for		( std::set<StreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
@@ -78,6 +80,7 @@ generate_replace_popes
 		
 		ss << StreamTransformHelper::pop(stream);
 	}
+#endif
 	
 	return ss.str();
 }
@@ -91,9 +94,11 @@ generate_replace_pushes
 {
 	std::stringstream ss;
 	
-	const std::set<StreamInfo*>& streams= 
-			_task_info->get_replace_push_ostream_set();
+	const std::set<OutputStreamInfo*>& streams= 
+			_task_info->get_replace_push_set();
 			
+    ss << StreamTransformHelper::push_all(streams);
+#if 0
 	for		( std::set<StreamInfo*>::iterator it= streams.begin()
 			; it != streams.end()
 			; it++
@@ -103,7 +108,7 @@ generate_replace_pushes
 
 		ss << StreamTransformHelper::push(stream);
 	}
-	
+#endif
 	return ss.str();
 }
 		

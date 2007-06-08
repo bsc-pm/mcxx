@@ -92,7 +92,7 @@ generate_pops
 	{
 		TargetStreamInfo* s= *it;
 		
-		ss << StreamTransformHelper::pop(s->get_stream_info());
+		ss << StreamTransformHelper::pop(s->get_input_stream_info());
 	}
 	
 	
@@ -116,7 +116,7 @@ generate_pushes
 	{
 		TargetStreamInfo* s= *it;
 		
-		ss << StreamTransformHelper::push(s->get_stream_info());
+		ss << StreamTransformHelper::push(s->get_output_stream_info());
 	}
 	
 	

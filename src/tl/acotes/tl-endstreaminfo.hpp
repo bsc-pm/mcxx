@@ -18,8 +18,8 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef TLSTREAMINFO_HPP_
-#define TLSTREAMINFO_HPP_
+#ifndef TLENDSTREAMINFO_HPP_
+#define TLENDSTREAMINFO_HPP_
 
 #include <string>
 
@@ -27,31 +27,31 @@
 
 namespace TL
 {
-    class InputStreamInfo;
-    class OutputStreamInfo;
-	class TaskInfo;
-	
-	class StreamInfo
-	{
-	public:
-        static StreamInfo* create(const Symbol& symbol, TaskInfo* 
-                task_info_ostream, TaskInfo* task_info_istream);
-        static StreamInfo* create(OutputStreamInfo* output_stream_info,
-                InputStreamInfo* input_stream_info);
-                
-        ~StreamInfo();
-                
-        InputStreamInfo*  get_input_stream_info(void) const;
-        OutputStreamInfo* get_output_stream_info(void) const;    
-				
-	private:
-        StreamInfo(OutputStreamInfo* output_stream_info,
-                InputStreamInfo* input_stream_info);
-                
-        InputStreamInfo*  _input_stream_info;
-        OutputStreamInfo* _output_stream_info;
-	};
+
+class TaskInfo;
+
+class EndStreamInfo
+{
+public:
+    EndStreamInfo(const Symbol& symbol, TaskInfo* task_info, std::string type,
+            std::string label);
+	virtual ~EndStreamInfo();
+    
+    std::string get_name(void) const;
+    Symbol      get_symbol(void) const;
+    std::string get_symbol_name(void) const;
+    TaskInfo*   get_task_info(void) const;
+    
+private:
+    std::string _name;
+    Symbol      _symbol;
+    std::string _symbol_name;
+    TaskInfo*   _task_info;
+
+    void init_name(std::string type, std::string label);
+    void init_symbol_name(void);
+};
+
 }
 
-
-#endif /*TLSTREAMINFO_HPP_*/
+#endif /*TLENDSTREAMINFO_HPP_*/

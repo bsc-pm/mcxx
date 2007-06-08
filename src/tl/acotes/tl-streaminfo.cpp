@@ -24,171 +24,86 @@
 #include <sstream>
 
 
-#include "tl-taskinfo.hpp"
+#include "tl-inputstreaminfo.hpp"
+#include "tl-outputstreaminfo.hpp"
 
 namespace TL {
+
+// create symbol,task,task -----------------------------------------------------
+StreamInfo* 
+StreamInfo
+::create
+        ( const Symbol& symbol
+        , TaskInfo* task_info_ostream
+        , TaskInfo* task_info_istream
+        )
+{
+    OutputStreamInfo* output_stream_info= 
+            new OutputStreamInfo(symbol, task_info_ostream, symbol.get_name()); 
+    InputStreamInfo* input_stream_info= 
+            new InputStreamInfo(symbol, task_info_istream, symbol.get_name());
+            
+    StreamInfo* stream_info= create(output_stream_info, input_stream_info); 
+    
+    return stream_info;
+}
+
+// create ostream,istream ------------------------------------------------------
+StreamInfo* 
+StreamInfo::
+create
+        ( OutputStreamInfo* output_stream_info
+        , InputStreamInfo* input_stream_info
+        )
+{
+    StreamInfo* stream_info= 
+            new StreamInfo(output_stream_info, input_stream_info);
+            
+    return stream_info;
+}
+
+
+// StreamInfo destructor -------------------------------------------------------
+StreamInfo::
+~StreamInfo()
+{
+    delete _output_stream_info;
+    delete _input_stream_info;
+}
+
+// get_input_stream_info -------------------------------------------------------
+InputStreamInfo*  
+StreamInfo::
+get_input_stream_info
+        ( void
+        ) const
+{
+    return _input_stream_info;
+}
+
+// get_output_stream_info ------------------------------------------------------
+OutputStreamInfo* 
+StreamInfo::
+get_output_stream_info
+        ( void
+        ) const
+{
+    return _output_stream_info;
+}    
+                
 
 // StreamInfo constructor ------------------------------------------------------
 StreamInfo::
 StreamInfo
-		( const Symbol& symbol
-		, TaskInfo* task_info_ostream
-		, TaskInfo* task_info_istream
-		)
-		: _symbol(symbol)
-		, _task_info_istream(task_info_istream)
-		, _task_info_ostream(task_info_ostream)
+        ( OutputStreamInfo* output_stream_info
+        , InputStreamInfo* input_stream_info
+        )
+        : _input_stream_info(input_stream_info)
+        , _output_stream_info(output_stream_info)
 {
-	assert(task_info_ostream);
-	assert(task_info_istream);
-	
-	init_name();
-	init_istream_name();
-	init_ostream_name();
-	init_symbol_name();
+    assert(output_stream_info);
+    assert(input_stream_info);
 }
-
-// get_istream_name ------------------------------------------------------------
-const std::string& 
-StreamInfo::
-get_istream_name
-		( void
-		) const
-{
-	return _istream_name;
-}
-
-// get_name --------------------------------------------------------------------
-const std::string& 
-StreamInfo::
-get_name
-		( void
-		) const
-{
-	return _name;
-}
-
-// get_ostream_name ------------------------------------------------------------
-const std::string& 
-StreamInfo::
-get_ostream_name
-		( void
-		) const
-{
-	return _ostream_name;
-}
-
-// get_queue_length ------------------------------------------------------------
-int 
-StreamInfo::
-get_queue_length
-		( void
-		) const
-{
-	return 128;
-}
-
-// get_symbol ------------------------------------------------------------------
-const Symbol&      
-StreamInfo::
-get_symbol(void) const
-{
-	return _symbol;
-}
-
-// get_symbol_name -------------------------------------------------------------
-const std::string&
-StreamInfo::
-get_symbol_name
-		( void
-		) const
-{
-	return _symbol_name;
-}
-
-// get_task_info_istream -------------------------------------------------------
-TaskInfo* 
-StreamInfo::
-get_task_info_istream
-		( void
-		) const
-{
-	return _task_info_istream;
-}
-
-// get_task_info_ostream
-TaskInfo* 
-StreamInfo::
-get_task_info_ostream
-		( void
-		) const
-{
-	return _task_info_ostream;
-}
-
-
-
-// init_istream_name -----------------------------------------------------------
-void
-StreamInfo::
-init_istream_name
-		(
-		)
-{
-	std::stringstream ss;
-	
-	ss
-		<< "istream_"
-		<< (long) this 
-		;
-	
-	_istream_name= ss.str();
-}
-
-// init_name -------------------------------------------------------------------
-void
-StreamInfo::
-init_name
-		(
-		)
-{
-	std::stringstream ss;
-	
-	ss
-		<< "stream_"
-		<< (long) this 
-		;
-	
-	_name= ss.str();
-}
-
-// init_ostream_name -----------------------------------------------------------
-void
-StreamInfo::
-init_ostream_name
-		(
-		)
-{
-	std::stringstream ss;
-	
-	ss
-		<< "ostream_"
-		<< (long) this 
-		;
-	
-	_ostream_name= ss.str();
-}
-
-// init_symbol_name ------------------------------------------------------------
-void
-StreamInfo::
-init_symbol_name
-		(
-		)
-{
-	_symbol_name= _symbol.get_name();
-}
-
-
+                
 
 } // end namespace TL

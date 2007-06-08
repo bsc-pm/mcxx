@@ -116,7 +116,7 @@ generate_closes
 
 	ss 	<< ""
 		<<   StreamTransformHelper::
-				close_all(_task_info->get_loop_close_ostream_set())
+				close_all(_task_info->get_loop_close_set())
 		<<   StreamTransformHelper::
 				close_all(_task_info->get_exports())
 		<< ""
@@ -150,7 +150,7 @@ generate_eos
 	
 	ss		<< "!("
 			<< StreamTransformHelper::
-					eos_any(_task_info->get_loop_control_istream_set())
+					eos_any(_task_info->get_loop_control_set())
 			<< " || "
 			<< StreamTransformHelper::
 					eos_any(_task_info->get_imports())
@@ -220,7 +220,7 @@ generate_peeks
 	std::stringstream ss;
 	
 	ss << StreamTransformHelper::
-			peek_all(_task_info->get_loop_pop_istream_set());
+			peek_all(_task_info->get_loop_pop_set());
 	
 	return ss.str();
 }
@@ -235,7 +235,7 @@ generate_pops
 	std::stringstream ss;
 	
 	ss << StreamTransformHelper::
-			pop_all(_task_info->get_loop_pop_istream_set());
+			pop_all(_task_info->get_loop_pop_set());
 	
 	return ss.str();
 }
@@ -250,7 +250,7 @@ generate_pops_expression
 	std::stringstream ss;
 	
 	ss << StreamTransformHelper::
-			pop_all_expression(_task_info->get_loop_pop_istream_set());
+			pop_all_expression(_task_info->get_loop_pop_set());
 	
 	return ss.str();
 }
@@ -265,7 +265,7 @@ generate_pushes
 	std::stringstream ss;
 	
 	ss << StreamTransformHelper::
-			push_all(_task_info->get_loop_push_ostream_set());
+			push_all(_task_info->get_loop_push_set());
 	
 	return ss.str();
 }
@@ -371,9 +371,9 @@ generate_waits
 	std::stringstream ss;
 	
 	ss << StreamTransformHelper::
-			wait_istream_all(_task_info->get_loop_pop_istream_set());
+			wait_istream_all(_task_info->get_loop_pop_set());
 	ss << StreamTransformHelper::
-			wait_ostream_all(_task_info->get_loop_push_ostream_set());
+			wait_ostream_all(_task_info->get_loop_push_set());
 	
 	return ss.str();
 }

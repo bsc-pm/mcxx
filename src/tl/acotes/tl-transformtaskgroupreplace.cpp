@@ -130,8 +130,8 @@ generate_close_streams
 	
 	TaskInfo* task_info_phantom= 
 			_taskgroup_info->get_task_info_phantom();
-	const std::set<StreamInfo*>& close_set=
-			task_info_phantom->get_loop_close_ostream_set();
+	const std::set<OutputStreamInfo*>& close_set=
+			task_info_phantom->get_loop_close_set();
 			
 	ss << StreamTransformHelper::
 			close_all(close_set);	

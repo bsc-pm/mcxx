@@ -49,22 +49,14 @@ TargetStreamInfo::
 {
 }
 
-// compute_name ----------------------------------------------------------------
-std::string 
+// get_input_stream_info -------------------------------------------------------
+InputStreamInfo*   
 TargetStreamInfo::
-compute_name
-		( const Symbol& symbol
-		, const std::string& label
-		)
+get_input_stream_info
+        ( void
+        ) const
 {
-	std::stringstream ss;
-	
-	ss 	<< "acolib__" 
-		<< symbol.get_name() 
-		<< "__" 
-		<< label; 
-	
-	return ss.str();
+    return get_stream_info()->get_input_stream_info();
 }
 
 // get_label ------------------------------------------------------------------- 			
@@ -85,6 +77,16 @@ get_name
 		) const
 {
 	return _name;
+}
+
+// get_output_stream_info ------------------------------------------------------
+OutputStreamInfo*   
+TargetStreamInfo::
+get_output_stream_info
+        ( void
+        ) const
+{
+    return get_stream_info()->get_output_stream_info();
 }
 
 // get_target_info -------------------------------------------------------------
@@ -151,7 +153,12 @@ init_name
 		( void
 		)
 {
-	_name= compute_name(_symbol, _label);
+    std::stringstream ss;
+    
+    ss  << "acolib__" 
+        << _label; 
+    
+    _name= ss.str();
 }
 
 // init_stream_info ------------------------------------------------------------
@@ -176,19 +183,19 @@ init_stream_info
 			
 	if (_task_info_istream_pop)
 	{
-		_task_info_istream->add_loop_pop_istream(_stream_info);
+		_task_info_istream->add_loop_pop(_stream_info->get_input_stream_info());
 	}
 	else
 	{
-		_task_info_istream->add_loop_control_istream(_stream_info);
+		_task_info_istream->add_loop_control(_stream_info->get_input_stream_info());
 	}
 	if (_task_info_ostream_push)
 	{
-		_task_info_ostream->add_loop_push_ostream(_stream_info);
+		_task_info_ostream->add_loop_push(_stream_info->get_output_stream_info());
 	}
 	else
 	{
-		_task_info_ostream->add_loop_close_ostream(_stream_info);
+		_task_info_ostream->add_loop_close(_stream_info->get_output_stream_info());
 	}
 }
 

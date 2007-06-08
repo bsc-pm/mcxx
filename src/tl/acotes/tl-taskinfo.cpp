@@ -22,6 +22,8 @@
 
 #include <assert.h>
 
+#include "tl-inputstreaminfo.hpp"
+#include "tl-outputstreaminfo.hpp"
 #include "tl-streaminfo.hpp"
 #include "tl-targetinfo.hpp"
 #include "tl-targetstreaminfo.hpp"
@@ -111,62 +113,62 @@ add_input
 void
 TaskInfo::
 add_istream
-		( StreamInfo* is      
+		( InputStreamInfo* is      
 		)
 {
 	assert(is);
-	assert(is->get_task_info_istream() == this);
+	assert(is->get_task_info() == this);
 	assert(!has_istream(is));
 	
 	_istream_set.insert(is);
 }
 
-// add_loop_pop_istream --------------------------------------------------------
+// add_loop_pop ----------------------------------------------------------------
 void
 TaskInfo::
-add_loop_pop_istream
-		( StreamInfo* is
+add_loop_pop
+		( InputStreamInfo* is
 		)
 {
-	add_loop_control_istream(is);
+	add_loop_control(is);
 		
-	_loop_pop_istream_set.insert(is);
+	_loop_pop_set.insert(is);
 }
 
-// add_loop_push_ostream -------------------------------------------------------
+// add_loop_push ---------------------------------------------------------------
 void
 TaskInfo::
-add_loop_push_ostream
-		( StreamInfo* os
+add_loop_push
+		( OutputStreamInfo* os
 		)
 {
-	add_loop_close_ostream(os);
+	add_loop_close(os);
 	
-	_loop_push_ostream_set.insert(os);
+	_loop_push_set.insert(os);
 }
 
-// add_loop_control_istream ----------------------------------------------------
+// add_loop_control ------------------------------------------------------------
 void                        
 TaskInfo::
-add_loop_control_istream
-		( StreamInfo* is
+add_loop_control
+		( InputStreamInfo* is
 		)
 {
 	add_istream(is);
 	
-	_loop_control_istream_set.insert(is);
+	_loop_control_set.insert(is);
 }
 
-// add_loop_close_ostream ------------------------------------------------------
+// add_loop_close --------------------------------------------------------------
 void                        
 TaskInfo::
-add_loop_close_ostream
-		( StreamInfo* os
+add_loop_close
+		( OutputStreamInfo* os
 		)
 {
 	add_ostream(os);
 	
-	_loop_close_ostream_set.insert(os);
+	_loop_close_set.insert(os);
 }
 
 // add_output ------------------------------------------------------------------
@@ -185,44 +187,44 @@ add_output
 void                        
 TaskInfo::
 add_ostream
-		( StreamInfo* os
+		( OutputStreamInfo* os
 		)
 {
 	assert(os);
-	assert(os->get_task_info_ostream() == this);
+	assert(os->get_task_info() == this);
 	assert(!has_ostream(os));
 	
 	_ostream_set.insert(os);
 }
 
-// add_replace_pop_istream -----------------------------------------------------
+// add_replace_pop -------------------------------------------------------------
 void                        
 TaskInfo::
-add_replace_pop_istream
-		( StreamInfo* is
+add_replace_pop
+		( InputStreamInfo* is
 		)
 {
 	assert(is);
-	assert(has_ostream(is));
+	//assert(has_ostream(is));
 	assert(_task_info_parent);
 	
 	_task_info_parent->add_istream(is);
-	_replace_pop_istream_set.insert(is);
+	_replace_pop_set.insert(is);
 }
 
-// add_replace_push_ostream ----------------------------------------------------
+// add_replace_push ------------------------------------------------------------
 void
 TaskInfo::
-add_replace_push_ostream
-		( StreamInfo* os
+add_replace_push
+		( OutputStreamInfo* os
 		)
 {
 	assert(os);
-	assert(has_istream(os));
+	//assert(has_istream(os));
 	assert(_task_info_parent);
 	
-	_task_info_parent->add_loop_close_ostream(os);
-	_replace_push_ostream_set.insert(os);
+	_task_info_parent->add_loop_close(os);
+	_replace_push_set.insert(os);
 }
 
 // add_target_input ------------------------------------------------------------
@@ -332,44 +334,44 @@ get_imports
 	return _imports;
 }
 
-// get_loop_pop_istream_set ----------------------------------------------------
-const std::set<StreamInfo*>&
+// get_loop_pop_set ------------------------------------------------------------
+const std::set<InputStreamInfo*>&
 TaskInfo:: 
-get_loop_pop_istream_set
+get_loop_pop_set
 		( void
 		) const
 {
-	return _loop_pop_istream_set;
+	return _loop_pop_set;
 }
 		
-// get_loop_push_ostream_set ---------------------------------------------------
-const std::set<StreamInfo*>& 
+// get_loop_push_set -----------------------------------------------------------
+const std::set<OutputStreamInfo*>& 
 TaskInfo:: 
-get_loop_push_ostream_set
+get_loop_push_set
 		( void
 		) const
 {
-	return _loop_push_ostream_set;
+	return _loop_push_set;
 }
 		
-// get_loop_control_istream_set ------------------------------------------------
-const std::set<StreamInfo*>& 
+// get_loop_control_set --------------------------------------------------------
+const std::set<InputStreamInfo*>& 
 TaskInfo:: 
-get_loop_control_istream_set
+get_loop_control_set
 		( void
 		) const
 {
-	return _loop_control_istream_set;
+	return _loop_control_set;
 }
 		
-// get_loop_close_ostream_set --------------------------------------------------
-const std::set<StreamInfo*>& 
+// get_loop_close_set ----------------------------------------------------------
+const std::set<OutputStreamInfo*>& 
 TaskInfo:: 
-get_loop_close_ostream_set
+get_loop_close_set
 		( void
 		) const
 {
-	return _loop_close_ostream_set;
+	return _loop_close_set;
 }
 
 // get_name --------------------------------------------------------------------
@@ -382,24 +384,24 @@ get_name
 	return _name;
 }
 
-// get_replace_pop_istream_set -------------------------------------------------
-const std::set<StreamInfo*>& 
+// get_replace_pop_set ---------------------------------------------------------
+const std::set<InputStreamInfo*>& 
 TaskInfo::
-get_replace_pop_istream_set
+get_replace_pop_set
 		( void
 		) const
 {
-	return _replace_pop_istream_set;
+	return _replace_pop_set;
 }
 
-// get_replace_push_ostream_set ------------------------------------------------
-const std::set<StreamInfo*>& 
+// get_replace_push_set --------------------------------------------------------
+const std::set<OutputStreamInfo*>& 
 TaskInfo::
-get_replace_push_ostream_set
+get_replace_push_set
 		( void
 		) const
 {
-	return _replace_push_ostream_set;
+	return _replace_push_set;
 }
 
 // get_state_name --------------------------------------------------------------
@@ -472,7 +474,7 @@ get_taskgroup_info
 bool
 TaskInfo::
 has_istream
-		( StreamInfo* is
+		( InputStreamInfo* is
 		) const
 {
 	assert(is);
@@ -486,7 +488,7 @@ has_istream
 bool
 TaskInfo::
 has_ostream
-		( StreamInfo* os
+		( OutputStreamInfo* os
 		) const
 {
 	assert(os);
@@ -629,8 +631,8 @@ compute_graph_input
 				->new_stream_info(input, _task_info_parent, this);
 				
 		// is input for this task
-		add_loop_pop_istream(stream_info);
-		add_replace_push_ostream(stream_info);
+		add_loop_pop(stream_info->get_input_stream_info());
+		add_replace_push(stream_info->get_output_stream_info());
 	}
 }
 
@@ -669,8 +671,8 @@ compute_graph_output
 				->new_stream_info(output, this, _task_info_parent);
 				
 		// is output for this task
-		add_loop_push_ostream(stream_info);
-		add_replace_pop_istream(stream_info);
+		add_loop_push(stream_info->get_output_stream_info());
+		add_replace_pop(stream_info->get_input_stream_info());
 	} 
 }
 
@@ -739,9 +741,9 @@ compute_graph_shortcut_output
 					
 			// connect!!
 			// is input for this task
-			this->add_loop_pop_istream(stream_info);
+			this->add_loop_pop(stream_info->get_input_stream_info());
 			// output for the other task
-			output->add_loop_push_ostream(stream_info);
+			output->add_loop_push(stream_info->get_output_stream_info());
 		} 
 		// if it is output is the next output
 		if (is_output(symbol)) {
