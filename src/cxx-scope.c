@@ -2165,7 +2165,22 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* i
             || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
     {
         result = strappend(result, get_unqualified_template_symbol_name(entry, st));
-        (*is_dependent) = 1;
+        if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
+        {
+            // They are always dependent
+            (*is_dependent) = 1;
+        }
+        else // if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+        {
+            simple_type_t* type = entry->type_information->type;
+
+            // They are only dependent if it is so in the template
+            if (type->template_nature == TPN_INCOMPLETE_DEPENDENT
+                    || type->template_nature == TPN_COMPLETE_DEPENDENT)
+            {
+                (*is_dependent) = 1;
+            }
+        }
     }
 
     if (entry->is_member)

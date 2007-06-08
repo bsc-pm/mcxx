@@ -23,6 +23,7 @@
 
 #include <vector>
 #include <stack>
+#include <cstdlib>
 
 namespace TL
 {
@@ -62,6 +63,8 @@ namespace TL
 
                 on_directive_pre["testB"].connect(functor(&MyPragmaPhase::testB_preorder, *this));
                 on_directive_post["testB"].connect(functor(&MyPragmaPhase::testB_postorder, *this));
+
+                on_directive_post["unroll"].connect(functor(&MyPragmaPhase::unroll_postorder, *this));
             }
 
             void testB_preorder(PragmaCustomConstruct pragma_custom_construct)
@@ -128,6 +131,102 @@ namespace TL
                 testb_info.pop();
 
                 // pragma_custom_construct.get_ast().replace(pragma_custom_construct.get_statement().get_ast());
+            }
+
+            /*
+             * For countable for-loops
+             *
+             * #pragma mypragma unroll times(4)
+             * for (i = 0; i < 100; i++)
+             * {
+             *   ...
+             * }
+             *
+             */
+            void unroll_postorder(PragmaCustomConstruct pragma_construct)
+            {
+                // Get the for-statement under the hood of the pragma
+                ForStatement for_statement = pragma_construct.get_statement();
+
+                // Get the 'times(...)' clause
+                PragmaCustomClause times_clause = pragma_construct.get_clause("times");
+
+                // Now get its expression arguments
+                ObjectList<Expression> times_arguments = times_clause.get_expression_list();
+                // And get the value for the first expression
+                int unroll_times = strtoint(times_arguments[0].prettyprint());
+
+                // Get the induction variable, lower bound and upper bound of the for-loop
+                IdExpression induction_var = for_statement.get_induction_variable();
+                Expression upper_bound = for_statement.get_upper_bound();
+                Expression loop_step = for_statement.get_step();
+                Statement loop_body = for_statement.get_loop_body();
+
+                // Create the layout of the resulting code
+                Source replaced_for, unrolled_for, unrolled_for_body, tail_for;
+
+                // The source code resulting of the transformation
+                replaced_for
+                    << "{"
+                          // The unrolled for, filled below
+                    <<    unrolled_for
+                          // The unrolled part, filled below
+                    <<    tail_for
+                    << "}"
+                    ;
+
+                // Write the unrolled loop
+                unrolled_for
+                    << "for (" << for_statement.get_iterating_init().prettyprint() 
+                    <<   "(" << induction_var.prettyprint() << " + " << unroll_times << " )<= (" << upper_bound.prettyprint() << ");"
+                    <<    induction_var.prettyprint() << "+= ((" << loop_step.prettyprint() << ")*" << unroll_times << "))"
+                    << "{"
+                          // This will be filled below
+                    <<    unrolled_for_body
+                    << "}"
+                    ;
+
+                // At least one iteration will be in the unrolled_for
+                unrolled_for_body << loop_body.prettyprint();
+
+                Symbol induction_var_symbol = induction_var.get_symbol();
+                for (int i = 1; i < unroll_times; i++)
+                {
+                    // Create a replacement map
+                    ReplaceIdExpression replacements;
+
+                    // Replace every 'ind-var' with its 'ind-var + i'
+                    Source induction_replacement;
+                    induction_replacement
+                        << "(" << induction_var.prettyprint() << "+" << i << ")"
+                        ;
+                    replacements.add_replacement(induction_var_symbol, induction_replacement);
+
+                    // Do tree replacement
+                    Statement replaced_statement = replacements.replace(loop_body);
+
+                    // And create the source
+                    unrolled_for_body << replaced_statement.prettyprint();
+                }
+
+                // Create the tail for 
+                tail_for
+                    << "for ( ; " << for_statement.get_iterating_condition().prettyprint() << ";" 
+                    <<     for_statement.get_iterating_expression().prettyprint() << ")"
+                    <<     loop_body.prettyprint()
+                    ;
+
+                // Now parse the newly created source. A reference tree is given together
+                // with its 'scope link'
+                AST_t replaced_tree = replaced_for.parse_statement(pragma_construct.get_ast(),
+                        pragma_construct.get_scope_link());
+
+                pragma_construct.get_ast().replace(replaced_tree);
+            }
+
+            int strtoint(const std::string& str)
+            {
+                return atoi(str.c_str());
             }
     };
 }
