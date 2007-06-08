@@ -65,6 +65,29 @@ namespace TL
                 on_directive_post["testB"].connect(functor(&MyPragmaPhase::testB_postorder, *this));
 
                 on_directive_post["unroll"].connect(functor(&MyPragmaPhase::unroll_postorder, *this));
+
+                on_directive_post["test"].connect(functor(&MyPragmaPhase::test_postorder, *this));
+            }
+
+            void test_postorder(PragmaCustomConstruct test_construct)
+            {
+                if (test_construct.is_parameterized())
+                {
+                    ObjectList<Expression> parameter = test_construct.get_parameter();
+
+                    for(ObjectList<Expression>::iterator it = parameter.begin();
+                            it != parameter.end();
+                            it++)
+                    {
+                        std::cerr << "-> " << it->prettyprint() << std::endl;
+                    }
+
+                    std::cerr << std::endl;
+                }
+                else
+                {
+                    std::cerr << "Not parameterized" << std::endl;
+                }
             }
 
             void testB_preorder(PragmaCustomConstruct pragma_custom_construct)
