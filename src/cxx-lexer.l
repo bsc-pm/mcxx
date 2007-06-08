@@ -141,6 +141,7 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 %x unknown_pragma
 %x pragma_custom_directive
 %x pragma_custom_clause
+%x pragma_custom_clause_first
 
 %s openmp_var_list
 %s openmp_schedule
@@ -332,13 +333,41 @@ threadprivate {
 <pragma_custom_directive>{
 
 {idnondigit}({idnondigit}|{digit})* {
-	BEGIN(pragma_custom_clause);
+	BEGIN(pragma_custom_clause_first);
 	parse_token_text(); 
 	return PRAGMA_CUSTOM_DIRECTIVE; 
 }
 
 [ \t] {
 	// This blank must be eaten and should be mandatory
+}
+
+}
+
+<pragma_custom_clause_first>{
+
+\n {
+    scanning_now.line_number++;
+	BEGIN(INITIAL);
+	return PRAGMA_CUSTOM_NEWLINE;
+}
+
+{idnondigit}({idnondigit}|{digit})* {
+	// Special case for custom clauses
+	BEGIN(pragma_custom_var_list);
+	parse_token_text(); 
+	return PRAGMA_CUSTOM_CLAUSE; 
+}
+
+[ \t] {
+	// This blank must be eaten
+}
+
+[(] {
+        // Parameter
+	pragma_custom_var_list_parentheses = 1;
+    BEGIN(pragma_custom_var_list);
+    return '(';
 }
 
 }
