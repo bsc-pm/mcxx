@@ -38,7 +38,11 @@ pragma_custom_directive : PRAGMA_CUSTOM pragma_custom_line declaration
 
 pragma_custom_line : PRAGMA_CUSTOM_DIRECTIVE pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
 {
-	$$ = ASTMake1(AST_PRAGMA_CUSTOM_LINE, $2, $1.token_line, $1.token_text);
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $2, NULL, $1.token_line, $1.token_text);
+}
+| PRAGMA_CUSTOM_DIRECTIVE '(' expression_list ')' pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
+{
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $5, $3, $1.token_line, $1.token_text);
 }
 ;
 

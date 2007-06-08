@@ -106,6 +106,35 @@ namespace TL
         return result;
     }
 
+    bool PragmaCustomConstruct::is_parameterized()
+    {
+        AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+        TL::Bool b = pragma_line.get_attribute(LANG_PRAGMA_CUSTOM_LINE_IS_PARAMETERIZED);
+
+        return b;
+    }
+
+    ObjectList<Expression> PragmaCustomConstruct::get_parameter()
+    {
+        AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+        AST_t parameter = pragma_line.get_attribute(LANG_PRAGMA_CUSTOM_LINE_PARAMETER);
+
+        PredicateBool<LANG_IS_EXPRESSION_NEST> expression_nest;
+        ObjectList<Expression> result;
+
+        ObjectList<AST_t> expression_nest_list = parameter.depth_subtrees(expression_nest, AST_t::NON_RECURSIVE);
+
+        for (ObjectList<AST_t>::iterator it = expression_nest_list.begin();
+                it != expression_nest_list.end();
+                it++)
+        {
+            Expression expr(*it, _scope_link);
+            result.append(expr);
+        }
+
+        return result;
+    }
+
     PragmaCustomCompilerPhase::PragmaCustomCompilerPhase(const std::string& pragma_handled)
         : _pragma_handled(pragma_handled), _pragma_dispatcher(pragma_handled, on_directive_pre, on_directive_post)
     {

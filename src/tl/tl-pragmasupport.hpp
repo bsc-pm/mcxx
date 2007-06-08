@@ -65,6 +65,9 @@ namespace TL
             Statement get_statement();
             AST_t get_declaration();
 
+            bool is_parameterized();
+            ObjectList<Expression> get_parameter();
+
             PragmaCustomClause get_clause(const std::string& name);
     };
 

@@ -6871,6 +6871,25 @@ static void build_scope_pragma_custom_line(AST a, scope_t* st, decl_context_t de
         }
     }
 
+    if (ASTSon1(a) != NULL)
+    {
+        AST list, iter;
+        list = ASTSon1(a);
+        if (list != NULL)
+        {
+            for_each_element(list, iter)
+            {
+                AST expression = ASTSon1(iter);
+
+                solve_possibly_ambiguous_expression(expression, st, decl_context);
+            }
+        }
+
+        ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE_PARAMETER, tl_type_t, tl_ast(ASTSon1(a)));
+    }
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE_IS_PARAMETERIZED, tl_type_t, 
+            tl_bool(ASTSon1(a) != NULL));
+
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_LINE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_string(ASTText(a)));
 }
