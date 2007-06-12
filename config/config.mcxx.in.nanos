@@ -1,0 +1,24 @@
+# This file controls how external programs are handled
+# For C
+[mcc.bin]
+language = C
+options =
+preprocessor_name = cc
+preprocessor_options = -E -I @NANOS_INCLUDES@ -include omp.h -include nthreads.h -include intone.h -D_OPENMP=200505
+compiler_name = cc
+compiler_options = 
+linker_name = cc
+linker_options = -L @NANOS_LIBS@ -lnthreads -Wl,-rpath,@NANOS_LIBS@
+compiler_phase = libtlomp.so
+
+# For C++
+[mcxx.bin]
+language = C++
+options = 
+preprocessor_name = c++
+preprocessor_options = -E -include new -I @NANOS_INCLUDES@ -include omp.h -include nthreads.h -include intone.h -D_OPENMP=200505
+compiler_name = c++
+compiler_options = 
+linker_name = c++
+linker_options = -L @NANOS_LIBS@ -lnthreads -Wl,-rpath,@NANOS_LIBS@
+compiler_phase = libtlomp.so
