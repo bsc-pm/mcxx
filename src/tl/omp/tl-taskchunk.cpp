@@ -656,10 +656,10 @@ namespace TL
                 << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
                 << "}"
                 << "mintaka_event(EVENT_TASK_ENQUEUE, _user_function_event);"
-                << "if (nth != NTH_CANNOT_ALLOCATE_TASK)"
+                << "if (" << task_id << " != NTH_CANNOT_ALLOCATE_TASK)"
                 << "{"
                 // Adjust to 32 bit
-                << "     uint32_t id_nth = (((intptr_t)(nth)) >> (32*((sizeof(nth)/4) - 1)));"
+                << "     uint32_t id_nth = (((intptr_t)(" << task_id << ")) >> (32*((sizeof(" << task_id << ")/4) - 1)));"
                 << "     mintaka_send(id_nth, 1);"
                 << "     mintaka_state_run();"
                 << "}"
