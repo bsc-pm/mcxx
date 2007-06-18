@@ -71,22 +71,32 @@ namespace TL
 
             void test_postorder(PragmaCustomConstruct test_construct)
             {
-                if (test_construct.is_parameterized())
+                PragmaCustomClause prova_clause = test_construct.get_clause("prova");
+
+                ObjectList<Expression> expressions = prova_clause.get_expression_list();
+                for (ObjectList<Expression>::iterator it = expressions.begin(); 
+                        it != expressions.end();
+                        it++)
                 {
-                    ObjectList<Expression> parameter = test_construct.get_parameter();
-
-                    for(ObjectList<Expression>::iterator it = parameter.begin();
-                            it != parameter.end();
-                            it++)
-                    {
-                        std::cerr << "-> " << it->prettyprint() << std::endl;
-                    }
-
-                    std::cerr << std::endl;
+                    std::cerr << " --> '" << it->prettyprint() << "'" << std::endl;
                 }
-                else
+
+                ObjectList<PragmaClauseExpression> clause_expressions = prova_clause.get_pragma_clause_expression_list();
+
+                for (ObjectList<PragmaClauseExpression>::iterator it = clause_expressions.begin();
+                        it != clause_expressions.end(); it++)
                 {
-                    std::cerr << "Not parameterized" << std::endl;
+                    std::cerr << "=";
+                    ObjectList<Expression> expression_list = it->get_expression_list();
+                    std::cerr << "=>";
+
+                    for(ObjectList<Expression>::iterator it2 = expression_list.begin();
+                            it2 != expression_list.end();
+                            it2++)
+                    {
+                        std::cerr << it2->prettyprint() << " || "; 
+                    }
+                    std::cerr << std::endl;
                 }
             }
 

@@ -12,6 +12,9 @@
 %type<ast> pragma_custom_clause_seq
 %type<ast> pragma_custom_clause_opt_seq
 
+%type<ast> pragma_expression_entity
+%type<ast> pragma_expression_entity_list
+
 /*!endif*/
 /*!if GRAMMAR_RULES*/
 
@@ -40,7 +43,7 @@ pragma_custom_line : PRAGMA_CUSTOM_DIRECTIVE pragma_custom_clause_opt_seq PRAGMA
 {
 	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $2, NULL, $1.token_line, $1.token_text);
 }
-| PRAGMA_CUSTOM_DIRECTIVE '(' expression_list ')' pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
+| PRAGMA_CUSTOM_DIRECTIVE '(' pragma_expression_entity_list ')' pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
 {
 	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $5, $3, $1.token_line, $1.token_text);
 }
@@ -76,7 +79,7 @@ pragma_custom_clause_seq : pragma_custom_clause
 }
 ;
 
-pragma_custom_clause : PRAGMA_CUSTOM_CLAUSE '(' expression_list ')'
+pragma_custom_clause : PRAGMA_CUSTOM_CLAUSE '(' pragma_expression_entity_list ')'
 {
 	$$ = ASTMake1(AST_PRAGMA_CUSTOM_CLAUSE, $3, $1.token_line, $1.token_text);
 }
@@ -87,6 +90,26 @@ pragma_custom_clause : PRAGMA_CUSTOM_CLAUSE '(' expression_list ')'
 | PRAGMA_CUSTOM_CLAUSE 
 {
 	$$ = ASTMake1(AST_PRAGMA_CUSTOM_CLAUSE, NULL, $1.token_line, $1.token_text);
+}
+;
+
+pragma_expression_entity_list : pragma_expression_entity
+{
+    $$ = ASTListLeaf($1);
+}
+| pragma_expression_entity_list ',' pragma_expression_entity
+{
+    $$ = ASTList($1, $3);
+}
+;
+
+pragma_expression_entity : assignment_expression
+{
+    $$ = ASTListLeaf($1);
+}
+| pragma_expression_entity ':' assignment_expression
+{
+    $$ = ASTList($1, $3);
 }
 ;
 

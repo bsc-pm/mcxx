@@ -30,6 +30,17 @@
 
 namespace TL
 {
+    class PragmaClauseExpression : public LangConstruct
+    {
+        public:
+            PragmaClauseExpression(AST_t ref, ScopeLink scope_link)
+                : LangConstruct(ref, scope_link)
+            {
+            }
+
+            ObjectList<Expression> get_expression_list();
+    };
+
     class PragmaCustomClause : public LangConstruct
     {
         private:
@@ -42,6 +53,7 @@ namespace TL
             {
             }
 
+            ObjectList<PragmaClauseExpression> get_pragma_clause_expression_list();
             ObjectList<Expression> get_expression_list();
             ObjectList<IdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
 

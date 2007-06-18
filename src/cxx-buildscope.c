@@ -6836,20 +6836,46 @@ static void build_scope_omp_critical_construct(AST a, scope_t* st, decl_context_
     ASTAttrSetValueType(a, OMP_IS_CRITICAL_CONSTRUCT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_pragma_custom_clause(AST a, scope_t* st, decl_context_t decl_context)
+static void build_scope_pragma_expression_entity(AST a, scope_t* st, decl_context_t decl_context)
 {
     AST list, iter;
+    list = a;
+
+    for_each_element(list, iter)
+    {
+        AST expression = ASTSon1(iter);
+
+        solve_possibly_ambiguous_expression(expression, st, decl_context);
+    }
+
+    ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE_EXPRESSION_ENTITY, tl_type_t, tl_bool(1));
+}
+
+static void build_scope_pragma_expression_entity_list(AST a, scope_t* st, decl_context_t decl_context)
+{
+    AST list, iter;
+    list = a;
+
+    for_each_element(list, iter)
+    {
+        AST pragma_expression_entity = ASTSon1(iter);
+
+        build_scope_pragma_expression_entity(pragma_expression_entity, st, decl_context);
+    }
+
+    ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE_EXPRESSION_ENTITY_LIST, tl_type_t, tl_bool(1));
+}
+
+static void build_scope_pragma_custom_clause(AST a, scope_t* st, decl_context_t decl_context)
+{
+    AST list;
 
     list = ASTSon0(a);
 
     if (list != NULL)
     {
-        for_each_element(list, iter)
-        {
-            AST expression = ASTSon1(iter);
+        build_scope_pragma_expression_entity_list(list, st, decl_context);
 
-            solve_possibly_ambiguous_expression(expression, st, decl_context);
-        }
     }
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
@@ -6873,17 +6899,7 @@ static void build_scope_pragma_custom_line(AST a, scope_t* st, decl_context_t de
 
     if (ASTSon1(a) != NULL)
     {
-        AST list, iter;
-        list = ASTSon1(a);
-        if (list != NULL)
-        {
-            for_each_element(list, iter)
-            {
-                AST expression = ASTSon1(iter);
-
-                solve_possibly_ambiguous_expression(expression, st, decl_context);
-            }
-        }
+        build_scope_pragma_expression_entity_list(ASTSon1(a), st, decl_context);
 
         ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE_PARAMETER, tl_type_t, tl_ast(ASTSon1(a)));
     }

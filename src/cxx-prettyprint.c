@@ -761,54 +761,37 @@ static void ambiguity_handler(FILE* f, AST a, int level)
     prettyprint_level(f, a->ambig[0], level);
 }
 
-static void spaced_sequence_handler(FILE* f, AST a, int level)
+static void character_separated_sequence_handler(FILE* f, AST a, int level, 
+        const char* separator, prettyprint_handler_t specific_handler)
 {
     if (ASTType(a) == AST_AMBIGUITY)
     {
-        spaced_sequence_handler(f, a->ambig[0], level);
+        character_separated_sequence_handler(f, a->ambig[0], level, separator, specific_handler);
         return;
     }
 
     if (ASTSon0(a) != NULL)
     {
-        spaced_sequence_handler(f, ASTSon0(a), level);
-        token_fprintf(f, a, " ");
+        character_separated_sequence_handler(f, ASTSon0(a), level, separator, specific_handler);
+        token_fprintf(f, a, separator);
     }
 
-    prettyprint_level(f, ASTSon1(a), level);
+    ((specific_handler == NULL) ? prettyprint_level : specific_handler)(f, ASTSon1(a), level);
 }
 
-static void sequence_handler(FILE* f, AST a, int level)
+static void spaced_sequence_handler(FILE* f, AST a, int level)
 {
-    if (ASTType(a) == AST_AMBIGUITY)
-    {
-        sequence_handler(f, a->ambig[0], level);
-        return;
-    }
-
-    if (ASTSon0(a) != NULL)
-    {
-        sequence_handler(f, ASTSon0(a), level);
-    }
-
-    prettyprint_level(f, ASTSon1(a), level);
+    character_separated_sequence_handler(f, a, level, " ", NULL);
 }
 
 static void list_handler(FILE* f, AST a, int level)
 {
-    if (ASTType(a) == AST_AMBIGUITY)
-    {
-        list_handler(f, a->ambig[0], level);
-        return;
-    }
+    character_separated_sequence_handler(f, a, level, ", ", NULL);
+}
 
-    if (ASTSon0(a) != NULL)
-    {
-        list_handler(f, ASTSon0(a), level);
-        token_fprintf(f, a, ", ");
-    }
-
-    prettyprint_level(f, ASTSon1(a), level);
+static void sequence_handler(FILE* f, AST a, int level)
+{
+    character_separated_sequence_handler(f, a, level, "", NULL);
 }
 
 static void simple_declaration_handler(FILE* f, AST a, int level)
@@ -2374,7 +2357,7 @@ static void custom_construct_parameter(FILE *f, AST a, int level)
 static void pragma_custom_line_handler(FILE* f, AST a, int level)
 {
     token_fprintf(f, a, "%s ", ASTText(a));
-    prettyprint_level(f, ASTSon0(a), level);
+    spaced_sequence_handler(f, ASTSon0(a), level);
     token_fprintf(f, a, "\n");
 }
 
@@ -2392,13 +2375,22 @@ static void pragma_custom_construct_handler(FILE* f, AST a, int level)
     prettyprint_level(f, ASTSon1(a), level);
 }
 
+static void pragma_custom_clause_entity_expression_handler(FILE* f, AST a, int level)
+{
+    character_separated_sequence_handler(f, a, level, " : ", NULL);
+}
+
 static void pragma_custom_clause_handler(FILE* f, AST a, int level)
 {
     token_fprintf(f, a, "%s", ASTText(a));
     if (ASTSon0(a) != NULL)
     {
         token_fprintf(f, a, "(");
-        list_handler(f, ASTSon0(a), level);
+
+        // This is a list inside another list, it cannot be 
+        // handled normally
+        character_separated_sequence_handler(f, ASTSon0(a), level, ", ", pragma_custom_clause_entity_expression_handler);
+
         token_fprintf(f, a, ")");
     }
 }

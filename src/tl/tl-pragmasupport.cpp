@@ -161,9 +161,50 @@ namespace TL
         depth_traverse.traverse(translation_unit, scope_link);
     }
 
+    ObjectList<PragmaClauseExpression> PragmaCustomClause::get_pragma_clause_expression_list()
+    {
+        PredicateBool<LANG_IS_PRAGMA_CUSTOM_CLAUSE_EXPRESSION_ENTITY> expression_nest;
+        ObjectList<PragmaClauseExpression> result;
+
+        ObjectList<AST_t> custom_clauses = filter_pragma_clause();
+        for (ObjectList<AST_t>::iterator it = custom_clauses.begin();
+                it != custom_clauses.end();
+                it++)
+        {
+            ObjectList<AST_t> expression_nest_list = it->depth_subtrees(expression_nest, AST_t::NON_RECURSIVE);
+
+            for (ObjectList<AST_t>::iterator it2 = expression_nest_list.begin();
+                    it2 != expression_nest_list.end();
+                    it2++)
+            {
+                PragmaClauseExpression pragma_clause_expression(*it2, _scope_link);
+                result.append(pragma_clause_expression);
+            }
+        }
+
+        return result;
+    }
+   
+    ObjectList<Expression> PragmaClauseExpression::get_expression_list()
+    {
+        ObjectList<Expression> result;
+
+        ASTIterator iterator = _ref.get_list_iterator();
+        iterator.rewind();
+
+        while (!iterator.end())
+        {
+            Expression expr(iterator.item(), _scope_link);
+            result.append(expr);
+            iterator.next();
+        }
+
+        return result;
+    }
+
     ObjectList<Expression> PragmaCustomClause::get_expression_list()
     {
-        PredicateBool<LANG_IS_EXPRESSION_NEST> expression_nest;
+        PredicateBool<LANG_IS_PRAGMA_CUSTOM_CLAUSE_EXPRESSION_ENTITY> expression_nest;
         ObjectList<Expression> result;
 
         ObjectList<AST_t> custom_clauses = filter_pragma_clause();
@@ -177,7 +218,11 @@ namespace TL
                     it2 != expression_nest_list.end();
                     it2++)
             {
-                Expression expr(*it2, _scope_link);
+                // Get the first element, it contains the first expression
+                ASTIterator list_iterator = it2->get_list_iterator();
+                list_iterator.rewind();
+
+                Expression expr(list_iterator.item(), _scope_link);
                 result.append(expr);
             }
         }
