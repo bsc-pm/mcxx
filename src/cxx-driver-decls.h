@@ -24,13 +24,13 @@
 #include "cxx-macros.h"
 #include "cxx-scope-decls.h"
 #include "cxx-scopelink-decls.h"
+#include <stddef.h>
 #include <getopt.h>
 
 MCXX_BEGIN_DECLS
 
 // Options for command line arguments
-typedef 
-enum COMMAND_LINE_OPTIONS_TAG
+typedef enum 
 {
     OPTION_UNDEFINED = 1024,
     OPTION_VERSION,
@@ -46,16 +46,14 @@ enum COMMAND_LINE_OPTIONS_TAG
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
-typedef 
-enum source_kind_tag
+typedef enum source_kind_tag
 {
     SOURCE_KIND_UNKNOWN = 0,
     SOURCE_KIND_NOT_PREPROCESSED,
     SOURCE_KIND_PREPROCESSED
 } source_kind_t;
 
-typedef 
-enum source_language_tag
+typedef enum source_language_tag
 {
     SOURCE_LANGUAGE_UNKNOWN = 0,
     SOURCE_LANGUAGE_C,
@@ -76,10 +74,14 @@ struct extensions_table_t
 // Valid command line parameters
 extern struct option getopt_long_options[];
 
+typedef struct top_level_include_tag
+{
+    char *included_file;
+    char system_include;
+} top_level_include_t;
 
 // Represents one translation unit
-typedef 
-struct translation_unit_tag
+typedef struct translation_unit_tag
 {
     char* input_filename;
     char* output_filename;
@@ -87,6 +89,9 @@ struct translation_unit_tag
     AST parsed_tree;
     scope_t* global_scope;
     scope_link_t* scope_link;
+
+    int num_top_level_includes;
+    top_level_include_t **top_level_include_list;
 } translation_unit_t;
 
 // Configuration file directives
@@ -99,12 +104,11 @@ struct configuration_directive_t
 struct debug_flags_list_t
 {
     char* name;
-    char* flag_pointer;
+    size_t flag_offset;
     char* description;
 };
 
-typedef 
-struct debug_options_tag
+typedef struct debug_options_tag
 {
     char abort_on_ice;
     char print_scope;
@@ -115,22 +119,47 @@ struct debug_options_tag
     char print_ast;
 } debug_options_t;
 
-typedef 
-struct external_var_tag 
-{
+typedef struct external_var_tag {
     char* name;
     char* value;
 } external_var_t;
 
-// Global compiler options
-typedef
-struct compilation_options_tag
+struct compilation_file_process_tag;
+
+typedef struct compilation_process_tag
 {
+    // Result of the execution
+    int execution_result;
+
+    // Config file
+    char *config_file;
+    
+    // List of translation units
+    struct compilation_file_process_tag** translation_units;
+    int num_translation_units;
+    
     // For further use
     int argc;
     char** argv;
     char* exec_basename;
 
+    // External vars for compiler pipeline
+    int num_external_vars;
+    external_var_t** external_vars;
+    
+    // The set of configurations as defined by the user in the configuration file
+    int num_configurations;
+    struct compilation_configuration_tag** configuration_set;
+
+    // The compiler will switch these because compilation is always serialized (never nest it!)
+    struct compilation_configuration_tag *current_compilation_configuration;
+    struct translation_unit_tag *current_translation_unit;
+} compilation_process_t;
+
+
+typedef struct compilation_configuration_tag
+{
+    char *configuration_name;
     // Options
     char verbose;
     char keep_files;
@@ -145,16 +174,6 @@ struct compilation_options_tag
     
     // Source language information
     source_language_t source_language;
-
-    // List of translation units
-    translation_unit_t** translation_units;
-    int num_translation_units;
-
-    // Result of the execution
-    int execution_result;
-
-    // Config file
-    char* config_file;
 
     // This makes things non reentrant (but globally accessable without
     // parameter cluttering)
@@ -182,11 +201,19 @@ struct compilation_options_tag
     // Pragma prefixes
     int num_pragma_custom_prefix;
     char** pragma_custom_prefix;
+} compilation_configuration_t;
 
-    // External vars for compiler pipeline
-    int num_external_vars;
-    external_var_t** external_vars;
-} compilation_options_t;
+
+typedef struct compilation_file_process_tag
+{
+    translation_unit_t *translation_unit;
+    compilation_configuration_t *compilation_configuration;
+
+    char already_compiled;
+} compilation_file_process_t;
+
+#define CURRENT_CONFIGURATION(x) (compilation_process.current_compilation_configuration->x)
+#define CURRENT_COMPILED_FILE(x) (compilation_process.current_translation_unit->x)
 
 MCXX_END_DECLS
 
