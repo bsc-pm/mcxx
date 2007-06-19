@@ -24,7 +24,7 @@
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 
-#define DEBUG_OPTION_REF(x) (&(compilation_options.debug_options.x))
+#define DEBUG_OPTION_REF(x) (offsetof(struct debug_options_tag, x))
 %}
 
 struct debug_flags_list_t;

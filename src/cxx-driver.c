@@ -41,7 +41,7 @@
 
 
 // Compilation options
-compilation_options_t compilation_options;
+compilation_process_t compilation_process;
 
 /* ------------------------------------------------------------------ */
 #define HELP_STRING \
@@ -184,8 +184,8 @@ int main(int argc, char* argv[])
     load_configuration();
     
     // Parse arguments
-    parse_arguments(compilation_options.argc, 
-        compilation_options.argv, /* from_command_line= */1);
+    parse_arguments(compilation_process.argc, 
+        compilation_process.argv, /* from_command_line= */1);
 
     // Loads the compiler phases
     load_compiler_phases();
@@ -201,13 +201,13 @@ int main(int argc, char* argv[])
     link_objects();
 
     timing_end(&timing_global);
-    if (compilation_options.verbose)
+    if (CURRENT_CONFIGURATION(verbose))
     {
         fprintf(stderr, "Whole process took %.2f seconds to complete\n",
                 timing_elapsed(&timing_global));
     }
 
-    return compilation_options.execution_result;
+    return compilation_process.execution_result;
 }
 
 static void driver_initialization(int argc, char* argv[])
@@ -219,10 +219,10 @@ static void driver_initialization(int argc, char* argv[])
     signal(SIGINT,  terminating_signal_handler);
     signal(SIGTERM, terminating_signal_handler);
 
-    memset(&compilation_options, 0, sizeof(compilation_options));
-    compilation_options.argc = argc;
-    compilation_options.argv = argv;
-    compilation_options.exec_basename = give_basename(argv[0]);
+    memset(&compilation_process, 0, sizeof(compilation_process));
+    compilation_process.argc = argc;
+    compilation_process.argv = argv;
+    compilation_process.exec_basename = give_basename(argv[0]);
 
     num_seen_file_names = 0;
     seen_file_names = 0;
@@ -230,7 +230,7 @@ static void driver_initialization(int argc, char* argv[])
 
 static void help_message(void)
 {
-    fprintf(stderr, "Usage: %s options file [file..]\n", compilation_options.argv[0]);
+    fprintf(stderr, "Usage: %s options file [file..]\n", compilation_process.argv[0]);
     fprintf(stderr, HELP_STRING);
 }
 
@@ -259,7 +259,7 @@ static void options_error(char* message)
 void parse_arguments(int argc, char* argv[], char from_command_line)
 {
     int c;
-    int indexptr;
+    int indexptr = 0;
     char* output_file = NULL;
 
     // Must be set zero
@@ -284,12 +284,12 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 }
             case 'v' : // --verbose || -v
                 {
-                    compilation_options.verbose = 1;
+                    CURRENT_CONFIGURATION(verbose) = 1;
                     break;
                 }
             case 'k' : // --keep-files || -k
                 {
-                    compilation_options.keep_files = 1;
+                    CURRENT_CONFIGURATION(keep_files) = 1;
                     break;
                 }
             case 'c' : // -c
@@ -301,7 +301,7 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 
                     c_specified = 1;
 
-                    compilation_options.do_not_link = 1;
+                    CURRENT_CONFIGURATION(do_not_link) = 1;
                     break;
                 }
             case 'E' : // -E
@@ -313,8 +313,8 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 
                     E_specified = 1;
 
-                    compilation_options.do_not_compile = 1;
-                    compilation_options.do_not_link = 1;
+                    CURRENT_CONFIGURATION(do_not_compile) = 1;
+                    CURRENT_CONFIGURATION(do_not_link) = 1;
                     break;
                 }
             case 'y' : // -y
@@ -326,14 +326,14 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 
                     y_specified = 1;
 
-                    compilation_options.do_not_compile = 1;
-                    compilation_options.do_not_link = 1;
-                    compilation_options.do_not_prettyprint = 1;
+                    CURRENT_CONFIGURATION(do_not_compile) = 1;
+                    CURRENT_CONFIGURATION(do_not_link) = 1;
+                    CURRENT_CONFIGURATION(do_not_prettyprint) = 1;
                     break;
                 }
             case 'a' : // --check-dates || -a
                 {
-                    compilation_options.check_dates = 1;
+                    CURRENT_CONFIGURATION(check_dates) = 1;
                     break;
                 }
             case 'm' :
@@ -361,53 +361,53 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 }
             case 'O' :
                 {
-                    add_to_parameter_list_str(&compilation_options.native_compiler_options, "-O");
+                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(native_compiler_options), "-O");
                     break;
                 }
             case 'I' :
                 {
                     char temp[256] = { 0 };
                     snprintf(temp, 255, "-I%s", optarg);
-                    add_to_parameter_list_str(&compilation_options.preprocessor_options, temp);
+                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(preprocessor_options), temp);
                     break;
                 }
             case 'L' :
                 {
                     char temp[256] = { 0 };
                     snprintf(temp, 255, "-L%s", optarg);
-                    add_to_parameter_list_str(&compilation_options.linker_options, temp);
+                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), temp);
                     break;
                 }
             case 'l' : 
                 {
                     char temp[256] = { 0 };
                     snprintf(temp, 255, "-l%s", optarg);
-                    add_to_parameter_list_str(&compilation_options.linker_options, temp);
+                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), temp);
                     break;
                 }
             case 'D' :
                 {
                     char temp[256] = { 0 };
                     snprintf(temp, 255, "-D%s", optarg);
-                    add_to_parameter_list_str(&compilation_options.preprocessor_options, temp);
+                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(preprocessor_options), temp);
                     break;
                 }
             case 'g' :
                 {
-                    add_to_parameter_list_str(&compilation_options.native_compiler_options, "-g");
+                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(native_compiler_options), "-g");
                     break;
                 }
 			case 'x' :
 				{
 					if (strcasecmp(optarg, "C") == 0)
 					{
-						compilation_options.force_language = 1;
-						compilation_options.source_language = SOURCE_LANGUAGE_C;
+						CURRENT_CONFIGURATION(force_language) = 1;
+						CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_C;
 					}
 					else if (strcasecmp(optarg, "C++") == 0)
 					{
-						compilation_options.force_language = 1;
-						compilation_options.source_language = SOURCE_LANGUAGE_CXX;
+						CURRENT_CONFIGURATION(force_language) = 1;
+						CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_CXX;
 					}
 					else
 					{
@@ -418,17 +418,17 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 				}
             case OPTION_PREPROCESSOR_NAME :
                 {
-                    compilation_options.preprocessor_name = strdup(optarg);
+                    CURRENT_CONFIGURATION(preprocessor_name) = strdup(optarg);
                     break;
                 }
             case OPTION_NATIVE_COMPILER_NAME :
                 {
-                    compilation_options.native_compiler_name = strdup(optarg);
+                    CURRENT_CONFIGURATION(native_compiler_name) = strdup(optarg);
                     break;
                 }
             case OPTION_LINKER_NAME :
                 {
-                    compilation_options.linker_name = strdup(optarg);
+                    CURRENT_CONFIGURATION(linker_name) = strdup(optarg);
                     break;
                 }
             case OPTION_DEBUG_FLAG :
@@ -438,12 +438,12 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 }
             case OPTION_OUTPUT_DIRECTORY :
                 {
-                    compilation_options.output_directory = strdup(optarg);
+                    CURRENT_CONFIGURATION(output_directory) = strdup(optarg);
                     break;
                 }
             case OPTION_NO_OPENMP :
                 {
-                    compilation_options.disable_openmp = 1;
+                    CURRENT_CONFIGURATION(disable_openmp) = 1;
                     break;
                 }
             case OPTION_HELP_DEBUG_FLAGS :
@@ -475,7 +475,7 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                     new_external_var->name = name;
                     new_external_var->value = value;
 
-                    P_LIST_ADD(compilation_options.external_vars, compilation_options.num_external_vars,
+                    P_LIST_ADD(compilation_process.external_vars, compilation_process.num_external_vars,
                             new_external_var);
                     break;
                 }
@@ -528,18 +528,7 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
             }
             else
             {
-                translation_unit_t* translation_unit = calloc(1, sizeof(*translation_unit));
-                translation_unit->input_filename = strdup(argv[optind]);
-
-                if (compilation_options.do_not_link
-                        || compilation_options.do_not_compile)
-                {
-                    translation_unit->output_filename = output_file;
-                }
-
-                P_LIST_ADD(compilation_options.translation_units, 
-                        compilation_options.num_translation_units, 
-                        translation_unit);
+                add_new_file_to_compilation_process(argv[optind], output_file, compilation_process.current_compilation_configuration);
             }
         }
         i++;
@@ -547,9 +536,9 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
     }
 
     if (output_file != NULL
-            && !compilation_options.do_not_link)
+            && !CURRENT_CONFIGURATION(do_not_link))
     {
-        compilation_options.linked_output_filename = output_file;
+        CURRENT_CONFIGURATION(linked_output_filename) = output_file;
     }
 }
 
@@ -568,7 +557,8 @@ static void enable_debug_flag(char* flags)
 
         if (flag_option != NULL)
         {
-            *(flag_option->flag_pointer) = 1;
+            // *(flag_option->flag_pointer) = 1;
+            *((char*)(&CURRENT_CONFIGURATION(debug_options)) + flag_option->flag_offset) = 1;
         }
         else
         {
@@ -577,8 +567,8 @@ static void enable_debug_flag(char* flags)
     }
 
     // Fix scope printing
-    compilation_options.debug_options.print_scope |= 
-        compilation_options.debug_options.print_scope_brief;
+    CURRENT_CONFIGURATION(debug_options.print_scope) |= 
+        CURRENT_CONFIGURATION(debug_options.print_scope_brief);
 }
 
 static void add_to_parameter_list_str(char*** existing_options, char* str)
@@ -620,13 +610,13 @@ static void parse_subcommand_arguments(char* arguments)
     switch (arguments[0])
     {
         case 'n' :
-            existing_options = &compilation_options.native_compiler_options;
+            existing_options = &CURRENT_CONFIGURATION(native_compiler_options);
             break;
         case 'p' :
-            existing_options = &compilation_options.preprocessor_options;
+            existing_options = &CURRENT_CONFIGURATION(preprocessor_options);
             break;
         case 'l' :
-            existing_options = &compilation_options.linker_options;
+            existing_options = &CURRENT_CONFIGURATION(linker_options);
             break;
         default:
             {
@@ -637,23 +627,28 @@ static void parse_subcommand_arguments(char* arguments)
     add_to_parameter_list(existing_options, parameters, num_parameters);
 }
 
+static compilation_configuration_t minimal_default_configuration;
 static void initialize_default_values(void)
 {
     int dummy = 0;
     // Initialize here all default values
-    compilation_options.config_file = PKGDATADIR "/config.mcxx";
-    compilation_options.num_translation_units = 0;
+    compilation_process.config_file = PKGDATADIR "/config.mcxx";
+    compilation_process.num_translation_units = 0;
 
-    compilation_options.source_language = SOURCE_LANGUAGE_CXX;
+    // The minimal default configuration
+    memset(&minimal_default_configuration, 0, sizeof(minimal_default_configuration));
+    compilation_process.current_compilation_configuration = &minimal_default_configuration;
 
-    compilation_options.preprocessor_name = strdup("c++");
-    compilation_options.preprocessor_options = comma_separate_values(strdup("-E"), &dummy);
+    CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_CXX;
 
-    compilation_options.native_compiler_name = strdup("c++");
-    compilation_options.native_compiler_options = NULL;
+    CURRENT_CONFIGURATION(preprocessor_name) = strdup("c++");
+    CURRENT_CONFIGURATION(preprocessor_options) = comma_separate_values(strdup("-E"), &dummy);
 
-    compilation_options.linker_name = strdup("c++");
-    compilation_options.linker_options = NULL;
+    CURRENT_CONFIGURATION(native_compiler_name) = strdup("c++");
+    CURRENT_CONFIGURATION(native_compiler_options) = NULL;
+
+    CURRENT_CONFIGURATION(linker_name) = strdup("c++");
+    CURRENT_CONFIGURATION(linker_options) = NULL;
 }
 
 static void register_default_initializers(void)
@@ -666,36 +661,57 @@ static void print_version(void)
     fprintf(stderr, PACKAGE " - " VERSION " " MCXX_BUILD_VERSION "\n");
 }
 
-static char section_name[128];
+// Callback called for every [section] in the config file
 static int section_callback(char* sname)
 {
+    char section_name[128];
     strncpy(section_name, sname, 127);
     section_name[127] = '\0';
+
+    // Create the new configuration
+    compilation_configuration_t* new_compilation_configuration = calloc(1, sizeof(*new_compilation_configuration));
+    new_compilation_configuration->configuration_name = strdup(section_name);
+
+    // Set now as the current compilation configuration
+    compilation_process.current_compilation_configuration = new_compilation_configuration;
+
+    // Check repeated configurations
+    int i;
+    for (i = 0; i < compilation_process.num_configurations; i++)
+    {
+        if (strcmp(compilation_process.configuration_set[i]->configuration_name, section_name) == 0)
+        {
+            fprintf(stderr, "Warning: configuration for '%s' defined more than once\n", section_name);
+        }
+    }
+
+    P_LIST_ADD(compilation_process.configuration_set, 
+            compilation_process.num_configurations, 
+            new_compilation_configuration);
+
     return 0;
 }
 
+// Callback called in every parameter=value line in the  config file
 static int parameter_callback(char* parameter, char* value)
 {
-    if (strcmp(compilation_options.exec_basename, section_name) == 0)
+    if (value == NULL)
     {
-        if (value == NULL)
-        {
-            fprintf(stderr, "Value of configuration directive '%s' is empty and will be ignored\n",
-                    parameter);
-            return 0;
-        }
-
-        struct configuration_directive_t* config_directive =
-            configoptions_lookup(parameter, strlen(parameter));
-
-        if (config_directive == NULL)
-        {
-            fprintf(stderr, "Configuration directive '%s' skipped since it is unknown\n", parameter);
-            return 0;
-        }
-
-        config_directive->funct(value);
+        fprintf(stderr, "Value of configuration directive '%s' is empty and will be ignored\n",
+                parameter);
+        return 0;
     }
+
+    struct configuration_directive_t* config_directive =
+        configoptions_lookup(parameter, strlen(parameter));
+
+    if (config_directive == NULL)
+    {
+        fprintf(stderr, "Configuration directive '%s' skipped since it is unknown\n", parameter);
+        return 0;
+    }
+
+    config_directive->funct(value);
     return 0;
 }
 
@@ -703,49 +719,49 @@ static void load_configuration(void)
 {
     // Solve here the egg and chicken problem of the option --config-file / -m
     int i;
-    for (i = 1; i < compilation_options.argc; i++)
+    for (i = 1; i < compilation_process.argc; i++)
     {
         // First case "-m" "file"
-        if (strcmp(compilation_options.argv[i], "-m") == 0)
+        if (strcmp(compilation_process.argv[i], "-m") == 0)
         {
-            if ((i + 1) < compilation_options.argc)
+            if ((i + 1) < compilation_process.argc)
             {
-                compilation_options.config_file = 
-                    strdup(compilation_options.argv[i+1]);
+                compilation_process.config_file = 
+                    strdup(compilation_process.argv[i+1]);
                 i++;
             }
         }
         // Second case -mfile
-        else if (strncmp(compilation_options.argv[i], "-m", strlen("-m")) == 0)
+        else if (strncmp(compilation_process.argv[i], "-m", strlen("-m")) == 0)
         {
-            compilation_options.config_file = 
-                strdup(&(compilation_options.argv[i][strlen("-m")]));
+            compilation_process.config_file = 
+                strdup(&(compilation_process.argv[i][strlen("-m")]));
         }
         // Third case --config-file=file
         // FIXME: GNU getopt_long is kind enough to allow you to specify just a
         // preffix of the option. At the moment do not try to emulate this feature here
-        else if (strncmp(compilation_options.argv[i], 
+        else if (strncmp(compilation_process.argv[i], 
                     "--config-file=", strlen("--config-file=")) == 0)
         {
-            compilation_options.config_file = 
-                strdup(&(compilation_options.argv[i][strlen("--config-file=") ]));
+            compilation_process.config_file = 
+                strdup(&(compilation_process.argv[i][strlen("--config-file=") ]));
         }
         // Fourth case --profile=name
         // FIXME: Again, the preffix option of GNU getopt_long is not
         // implemented
-        else if (strncmp(compilation_options.argv[i], 
+        else if (strncmp(compilation_process.argv[i], 
                     "--profile=", strlen("--profile=")) == 0)
         {
             // Change the basename, from now it will look like the compiler
             // has been called as this basename
-            compilation_options.exec_basename =
-                strdup(&(compilation_options.argv[i][strlen("--profile=") ]));
+            compilation_process.exec_basename =
+                strdup(&(compilation_process.argv[i][strlen("--profile=") ]));
         }
     }
 
     // Will invoke section_callback and parameter_callback for every section
     // and parameter
-    int result = param_process(compilation_options.config_file, MS_STYLE, 
+    int result = param_process(compilation_process.config_file, MS_STYLE, 
             section_callback, parameter_callback);
 
     switch (result)
@@ -776,14 +792,41 @@ static void load_configuration(void)
                 internal_error("Function param_process returned an invalid value %d", result);
             }
     }
+
+    // Now set the configuration as stated by the basename
+    compilation_process.current_compilation_configuration = NULL;
+    for (i = 0; i < compilation_process.num_configurations; i++)
+    {
+        if (strcmp(compilation_process.configuration_set[i]->configuration_name, 
+                    compilation_process.exec_basename) == 0)
+        {
+            compilation_process.current_compilation_configuration = compilation_process.configuration_set[i];
+        }
+    }
+
+    if (compilation_process.current_compilation_configuration == NULL)
+    {
+        fprintf(stderr, "No suitable configuration defined for %s. Setting to C++ built-in configuration\n",
+               compilation_process.exec_basename);
+        compilation_process.current_compilation_configuration = &minimal_default_configuration;
+    }
 }
 
 static void compile_every_translation_unit(void)
 {
     int i;
-    for (i = 0; i < compilation_options.num_translation_units; i++)
+    for (i = 0; i < compilation_process.num_translation_units; i++)
     {
-        translation_unit_t* translation_unit = compilation_options.translation_units[i];
+        compilation_file_process_t* file_process = compilation_process.translation_units[i];
+
+        // Ensure we do not get in a strange loop
+        if (file_process->already_compiled)
+            continue;
+
+        compilation_process.current_compilation_configuration = file_process->compilation_configuration;
+        compilation_process.current_translation_unit = file_process->translation_unit;
+
+        translation_unit_t* translation_unit = compilation_process.current_translation_unit;
         
         // First check the file type
         char* extension = get_extension_filename(translation_unit->input_filename);
@@ -806,18 +849,18 @@ static void compile_every_translation_unit(void)
             continue;
         }
 
-        if (!compilation_options.force_language 
-				&& (current_extension->source_language != compilation_options.source_language))
+        if (!CURRENT_CONFIGURATION(force_language)
+				&& (current_extension->source_language != CURRENT_CONFIGURATION(source_language)))
         {
             fprintf(stderr, "%s was configured for %s language but file '%s' looks %s language. Skipping it.\n",
-                    compilation_options.exec_basename, 
-                    source_language_names[compilation_options.source_language],
+                    compilation_process.exec_basename, 
+                    source_language_names[CURRENT_CONFIGURATION(source_language)],
                     translation_unit->input_filename,
                     source_language_names[current_extension->source_language]);
             continue;
         }
 
-        if (compilation_options.verbose)
+        if (CURRENT_CONFIGURATION(verbose))
         {
             fprintf(stderr, "Compiling file '%s'\n", translation_unit->input_filename);
         }
@@ -832,7 +875,7 @@ static void compile_every_translation_unit(void)
             timing_end(&timing_preprocessing);
 
             if (parsed_filename != NULL
-                    && compilation_options.verbose)
+                    && CURRENT_CONFIGURATION(verbose))
             {
                 fprintf(stderr, "File '%s' preprocessed in %.2f seconds\n",
                         translation_unit->input_filename, 
@@ -865,14 +908,14 @@ static void compile_every_translation_unit(void)
 
         compiler_phases_execution(translation_unit, parsed_filename);
 
-        if (compilation_options.debug_options.print_ast)
+        if (CURRENT_CONFIGURATION(debug_options.print_ast))
         {
             fprintf(stderr, "Printing AST in graphviz format\n");
 
             ast_dump_graphviz(translation_unit->parsed_tree, stdout);
         }
 
-        if (compilation_options.debug_options.print_scope)
+        if (CURRENT_CONFIGURATION(debug_options.print_scope))
         {
             fprintf(stderr, "============ SYMBOL TABLE ===============\n");
             print_scope(translation_unit->global_scope);
@@ -882,6 +925,8 @@ static void compile_every_translation_unit(void)
         char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);
 
         native_compilation(translation_unit, prettyprinted_filename);
+
+        file_process->already_compiled = 1;
     }
 }
 
@@ -897,7 +942,7 @@ static void compiler_phases_execution(translation_unit_t* translation_unit,
 
     timing_end(&time_phases);
 
-    if (compilation_options.verbose)
+    if (CURRENT_CONFIGURATION(verbose))
     {
         fprintf(stderr, "Compiler phases pipeline executed in %.2f seconds\n", timing_elapsed(&time_phases));
     }
@@ -905,8 +950,8 @@ static void compiler_phases_execution(translation_unit_t* translation_unit,
 
 static void parse_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
 {
-    mcxx_flex_debug = mc99_flex_debug = compilation_options.debug_options.debug_lexer;
-    mcxxdebug = mc99debug = compilation_options.debug_options.debug_parser;
+    mcxx_flex_debug = mc99_flex_debug = CURRENT_CONFIGURATION(debug_options.debug_lexer);
+    mcxxdebug = mc99debug = CURRENT_CONFIGURATION(debug_options.debug_parser);
 
     timing_t timing_parsing;
 
@@ -930,7 +975,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 
     timing_end(&timing_parsing);
 
-    if (compilation_options.verbose)
+    if (CURRENT_CONFIGURATION(verbose))
     {
         fprintf(stderr, "File '%s' ('%s') parsed in %.2f seconds\n", 
                 translation_unit->input_filename,
@@ -944,7 +989,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
     build_scope_translation_unit(translation_unit);
     timing_end(&timing_semantic);
 
-    if (compilation_options.verbose)
+    if (CURRENT_CONFIGURATION(verbose))
     {
         fprintf(stderr, "File '%s' ('%s') semantically analyzed in %.2f seconds\n", 
                 translation_unit->input_filename,
@@ -958,7 +1003,7 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
 
 static char* prettyprint_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
 {
-    if (compilation_options.do_not_prettyprint)
+    if (CURRENT_CONFIGURATION(do_not_prettyprint))
     {
         return NULL;
     }
@@ -966,8 +1011,8 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
     FILE* prettyprint_file;
     char* output_filename = NULL;
 
-    if (compilation_options.do_not_compile
-            && compilation_options.do_not_link
+    if (CURRENT_CONFIGURATION(do_not_compile)
+            && CURRENT_CONFIGURATION(do_not_link)
             && strcmp(translation_unit->output_filename, "-") == 0)
     {
         prettyprint_file = stdout;
@@ -978,13 +1023,13 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
         char* input_filename_basename = NULL;
         input_filename_basename = give_basename(translation_unit->input_filename);
 
-        char* preffix = strappend(compilation_options.exec_basename, "_");
+        char* preffix = strappend(compilation_process.exec_basename, "_");
 
         char* output_filename_basename = NULL; 
         output_filename_basename = strappend(preffix,
                 input_filename_basename);
 
-        if (compilation_options.output_directory == NULL)
+        if (CURRENT_CONFIGURATION(output_directory) == NULL)
         {
             char* input_filename_dirname = give_dirname(translation_unit->input_filename);
             input_filename_dirname = strappend(input_filename_dirname, "/");
@@ -994,7 +1039,7 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
         }
         else
         {
-            output_filename = strappend(compilation_options.output_directory, "/");
+            output_filename = strappend(CURRENT_CONFIGURATION(output_directory), "/");
             output_filename = strappend(output_filename, output_filename_basename);
         }
         prettyprint_file = fopen(output_filename, "w");
@@ -1011,10 +1056,12 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
     timing_t time_print;
     timing_start(&time_print);
 
+    // This will be used by a native compiler
+    prettyprint_set_not_internal_output();
     prettyprint(prettyprint_file, translation_unit->parsed_tree);
 
     timing_end(&time_print);
-    if (compilation_options.verbose)
+    if (CURRENT_CONFIGURATION(verbose))
     {
         fprintf(stderr, "Prettyprinted into file '%s' in %.2f seconds\n", output_filename, timing_elapsed(&time_print));
     }
@@ -1026,14 +1073,14 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
 
 static char* preprocess_file(translation_unit_t* translation_unit, char* input_filename)
 {
-    int num_arguments = count_null_ended_array((void**)compilation_options.preprocessor_options);
+    int num_arguments = count_null_ended_array((void**)CURRENT_CONFIGURATION(preprocessor_options));
 
     char** preprocessor_options = calloc(num_arguments + 3 + 1, sizeof(char*));
 
     int i;
     for (i = 0; i < num_arguments; i++)
     {
-        preprocessor_options[i] = compilation_options.preprocessor_options[i];
+        preprocessor_options[i] = CURRENT_CONFIGURATION(preprocessor_options[i]);
     }
 
     temporal_file_t preprocessed_file = new_temporal_file();
@@ -1043,7 +1090,7 @@ static char* preprocess_file(translation_unit_t* translation_unit, char* input_f
     i++;
     preprocessor_options[i] = input_filename;
 
-    int result_preprocess = execute_program(compilation_options.preprocessor_name,
+    int result_preprocess = execute_program(CURRENT_CONFIGURATION(preprocessor_name),
             preprocessor_options);
 
     if (result_preprocess == 0)
@@ -1061,13 +1108,13 @@ static char* preprocess_file(translation_unit_t* translation_unit, char* input_f
 static void native_compilation(translation_unit_t* translation_unit, 
         char* prettyprinted_filename)
 {
-    if (compilation_options.do_not_compile)
+    if (CURRENT_CONFIGURATION(do_not_compile))
         return;
 
     char* output_object_filename;
 
     if (translation_unit->output_filename == NULL
-            || !compilation_options.do_not_link)
+            || !CURRENT_CONFIGURATION(do_not_link))
     {
         output_object_filename = strdup(translation_unit->input_filename);
         char* extension = get_extension_filename(output_object_filename);
@@ -1082,14 +1129,14 @@ static void native_compilation(translation_unit_t* translation_unit,
         output_object_filename = translation_unit->output_filename;
     }
 
-    int num_args_compiler = count_null_ended_array((void**)compilation_options.native_compiler_options);
+    int num_args_compiler = count_null_ended_array((void**)CURRENT_CONFIGURATION(native_compiler_options));
 
     char** native_compilation_args = calloc(num_args_compiler + 4 + 1, sizeof(*native_compilation_args));
 
     int i;
     for (i = 0; i < num_args_compiler; i++)
     {
-        native_compilation_args[i] = compilation_options.native_compiler_options[i];
+        native_compilation_args[i] = CURRENT_CONFIGURATION(native_compiler_options[i]);
     }
 
     native_compilation_args[i] = strdup("-c");
@@ -1100,7 +1147,7 @@ static void native_compilation(translation_unit_t* translation_unit,
     i++;
     native_compilation_args[i] = prettyprinted_filename;
 
-    if (compilation_options.verbose)
+    if (CURRENT_CONFIGURATION(verbose))
     {
         fprintf(stderr, "Performing native compilation of '%s' into '%s'\n",
                 prettyprinted_filename, output_object_filename);
@@ -1109,13 +1156,13 @@ static void native_compilation(translation_unit_t* translation_unit,
     timing_t timing_compilation;
     timing_start(&timing_compilation);
 
-    if (execute_program(compilation_options.native_compiler_name, native_compilation_args) != 0)
+    if (execute_program(CURRENT_CONFIGURATION(native_compiler_name), native_compilation_args) != 0)
     {
         running_error("Native compilation failed for file '%s'", translation_unit->input_filename);
     }
     timing_end(&timing_compilation);
 
-    if (compilation_options.verbose)
+    if (CURRENT_CONFIGURATION(verbose))
     {
         fprintf(stderr, "File '%s' ('%s') natively compiled in %.2f seconds\n", 
                 translation_unit->input_filename,
@@ -1123,9 +1170,9 @@ static void native_compilation(translation_unit_t* translation_unit,
                 timing_elapsed(&timing_compilation));
     }
 
-    if (!compilation_options.keep_files)
+    if (!CURRENT_CONFIGURATION(keep_files))
     {
-        if (compilation_options.verbose)
+        if (CURRENT_CONFIGURATION(verbose))
         {
             fprintf(stderr, "Removing prettyprinted file '%s'\n", prettyprinted_filename);
         }
@@ -1135,47 +1182,47 @@ static void native_compilation(translation_unit_t* translation_unit,
 
 static void link_objects(void)
 {
-    if (compilation_options.do_not_link)
+    if (CURRENT_CONFIGURATION(do_not_link))
         return;
 
-    int num_args_linker = count_null_ended_array((void**)compilation_options.linker_options);
+    int num_args_linker = count_null_ended_array((void**)CURRENT_CONFIGURATION(linker_options));
 
     char** linker_args = calloc(num_args_linker
-            + compilation_options.num_translation_units + 2 + 1, 
+            + compilation_process.num_translation_units + 2 + 1, 
             sizeof(*linker_args));
 
     int i = 0;
     int j = 0;
 
-    if (compilation_options.linked_output_filename != NULL)
+    if (CURRENT_CONFIGURATION(linked_output_filename) != NULL)
     {
         linker_args[i] = strdup("-o");
         i++;
-        linker_args[i] = compilation_options.linked_output_filename;
+        linker_args[i] = CURRENT_CONFIGURATION(linked_output_filename);
         i++;
     }
 
-    for (j = 0; j < compilation_options.num_translation_units; j++)
+    for (j = 0; j < compilation_process.num_translation_units; j++)
     {
-        linker_args[i] = compilation_options.translation_units[j]->output_filename;
+        linker_args[i] = compilation_process.translation_units[j]->translation_unit->output_filename;
         i++;
     }
 
     for (j = 0; j < num_args_linker; j++)
     {
-        linker_args[i] = compilation_options.linker_options[j];
+        linker_args[i] = CURRENT_CONFIGURATION(linker_options)[j];
         i++;
     }
 
     timing_t timing_link;
     timing_start(&timing_link);
-    if (execute_program(compilation_options.linker_name, linker_args) != 0)
+    if (execute_program(CURRENT_CONFIGURATION(linker_name), linker_args) != 0)
     {
         running_error("Link failed", 0);
     }
     timing_end(&timing_link);
 
-    if (compilation_options.verbose)
+    if (CURRENT_CONFIGURATION(verbose))
     {
         fprintf(stderr, "Link performed in %.2f seconds\n", 
                 timing_elapsed(&timing_link));
@@ -1255,8 +1302,31 @@ static void load_compiler_phases(void)
 
     timing_end(&loading_phases);
 
-    if (compilation_options.verbose)
+    if (CURRENT_CONFIGURATION(verbose))
     {
         fprintf(stderr, "Compiler phases loaded in %.2f seconds\n", timing_elapsed(&loading_phases));
     }
+}
+
+void add_new_file_to_compilation_process(const char* file_path, const char* output_file, 
+        compilation_configuration_t* configuration)
+{
+    translation_unit_t* translation_unit = (translation_unit_t*)calloc(1, sizeof(*translation_unit));
+    translation_unit->input_filename = strdup(file_path);
+
+    compilation_file_process_t *new_compiled_file = (compilation_file_process_t*) calloc(1, sizeof(*new_compiled_file));
+
+    new_compiled_file->translation_unit = translation_unit;
+    new_compiled_file->compilation_configuration = configuration;
+
+    if ((configuration->do_not_link
+            || configuration->do_not_compile)
+            && output_file != NULL)
+    {
+        translation_unit->output_filename = strdup(output_file);
+    }
+
+    P_LIST_ADD(compilation_process.translation_units, 
+            compilation_process.num_translation_units, 
+            new_compiled_file);
 }

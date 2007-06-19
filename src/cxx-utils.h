@@ -38,7 +38,7 @@ void running_error(char* message, ...) NORETURN;
 #define internal_error(message, ...) \
 { \
     debug_message(message, "Internal compiler error. Please report bug:\n", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__ ); \
-    if (compilation_options.debug_options.abort_on_ice) \
+    if (CURRENT_CONFIGURATION(debug_options.abort_on_ice)) \
             raise(SIGABRT); \
     exit(EXIT_FAILURE); \
 }
@@ -54,7 +54,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 { if (!(cond)) \
     { \
         debug_message((message), "Assertion failed (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
-        if (compilation_options.debug_options.abort_on_ice) \
+        if (CURRENT_CONFIGURATION(debug_options.abort_on_ice)) \
             raise(SIGABRT); \
         exit(EXIT_FAILURE); \
     } \
@@ -64,7 +64,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 { if ((cond)) \
     { \
         debug_message((message), "Error condition (" #cond ")\n\t", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
-        if (compilation_options.debug_options.abort_on_ice) \
+        if (CURRENT_CONFIGURATION(debug_options.abort_on_ice)) \
             raise(SIGABRT); \
         exit(EXIT_FAILURE); \
     } \
@@ -107,11 +107,11 @@ do { \
     } \
 } while (0)
 
-#define DEBUG_CODE() if (compilation_options.debug_options.enable_debug_code)
-#define NOT_DEBUG_CODE() if (!compilation_options.debug_options.enable_debug_code)
+#define DEBUG_CODE() if (CURRENT_CONFIGURATION(debug_options.enable_debug_code))
+#define NOT_DEBUG_CODE() if (!CURRENT_CONFIGURATION(debug_options.enable_debug_code))
 
-#define CXX_LANGUAGE() if (compilation_options.source_language == SOURCE_LANGUAGE_CXX)
-#define C_LANGUAGE() if (compilation_options.source_language == SOURCE_LANGUAGE_C)
+#define CXX_LANGUAGE() if (CURRENT_CONFIGURATION(source_language) == SOURCE_LANGUAGE_CXX)
+#define C_LANGUAGE() if (CURRENT_CONFIGURATION(source_language) == SOURCE_LANGUAGE_C)
 
 // Gives a unique name for the identifier
 char* get_unique_name(void);

@@ -29,6 +29,7 @@
 #include <utility>
 #include "cxx-ast.h"
 #include "cxx-prettyprint.h"
+#include "tl-compilerpipeline.hpp"
 #include "tl-object.hpp"
 #include "tl-objectlist.hpp"
 #include "tl-predicate.hpp"
@@ -150,6 +151,7 @@ namespace TL
             AST_t& operator=(AST_t n);
 
             std::string prettyprint(bool with_commas = false) const;
+            void prettyprint_in_file(const CompiledFile& compiled_file,  bool internal = false) const;
 
             void replace(AST_t ast);
 

@@ -196,6 +196,7 @@ namespace TL
     };
 
     std::string comment(const std::string& str);
+    std::string preprocessor_line(const std::string& str);
 
     template <class T>
     std::string to_string(const ObjectList<T>& t, Functor<std::string, T>& to_str, const std::string& separator = "")

@@ -163,7 +163,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> UNKNOWN_PRAGMA
 
 %token<token_atrib> PP_COMMENT
-
+%token<token_atrib> PP_TOKEN
 
 // Lexical symbols
 %token<token_atrib> '!'
@@ -596,6 +596,11 @@ block_declaration : simple_declaration
 {
 	$$ = ASTLeaf(AST_PP_COMMENT, $1.token_line, $1.token_text);
 }
+// Prettyprinted preprocessor elements
+| PP_TOKEN
+{
+	$$ = ASTLeaf(AST_PP_TOKEN, $1.token_line, $1.token_text);
+}
 ;
 
 /* GNU Extension */
@@ -681,8 +686,6 @@ asm_definition : ASM '(' string_literal ')' ';'
 			$4, NULL, NULL, NULL, ASTLine($4), NULL);
 	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
 }
-// ( string_literal : asm_operand_list )
-// ( string_literal : )
 | ASM volatile_optional '(' string_literal ':' asm_operand_list ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 

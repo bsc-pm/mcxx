@@ -38,6 +38,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <errno.h>
+#include <libgen.h>
 #include "cxx-driver.h"
 #include "cxx-utils.h"
 #include "cxx-lexer.h"
@@ -79,6 +80,7 @@ static int num_new_lines(char* c)
     return result;
 }
 
+static int include_counter;
 
 %}
 
@@ -168,7 +170,7 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 	// OpenMP
 	if (strcmp(yytext, "omp") == 0)
 	{
-		if (compilation_options.disable_openmp)
+		if (CURRENT_CONFIGURATION(disable_openmp))
 		{
 			fprintf(stderr, "Ignoring OpenMP directive at %s:%d\n",
 					scanning_now.current_filename,
@@ -197,9 +199,9 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 
 	if (!matched)
 	{
-		for (i = 0; i < compilation_options.num_pragma_custom_prefix; i++)
+		for (i = 0; i < CURRENT_CONFIGURATION(num_pragma_custom_prefix); i++)
 		{
-			found |= (strcmp(yytext, compilation_options.pragma_custom_prefix[i]) == 0);
+			found |= (strcmp(yytext, CURRENT_CONFIGURATION(pragma_custom_prefix[i])) == 0);
 		}
 
 		if (!found)
@@ -725,7 +727,7 @@ runtime {
 	// Now directive is over the blank after the digits. Jump the blank
 	directive++;
 
-	// Now we are over the doublequote ". Jump it
+	// Now we are over the doublequote. Jump it
 	directive++;
 
 	char filename[256];
@@ -742,11 +744,111 @@ runtime {
 
 	// Now we have the new number line and the new file name
 
+    // Check include flags from GNU cpp and other preprocessors directive is on
+    // the doublequote
+    directive++;
+
+    // Advance the directive till the next nonblank
+    while (*directive == ' ')
+    {
+        directive++;
+    }
+
+    // Get the flags
+    char start_of_new_file = 0;
+    char return_of_a_file = 0;
+    char system_header_file = 0;
+    char extern_c_block = 0;
+    while (*directive == ' '
+            || isdigit(*directive))
+    {
+        int current_flag = 0;
+        while (isdigit(*directive))
+        {
+            current_flag = current_flag * 10 +  (*directive - '0');
+            directive++;
+        }
+
+        switch (current_flag)
+        {
+            case 1:
+                {
+                    start_of_new_file = 1;
+                    break;
+                }
+            case 2:
+                {
+                    return_of_a_file = 1;
+                    break;
+                }
+            case 3:
+                {
+                    system_header_file = 1;
+                    break;
+                }
+            case 4:
+                {
+                    extern_c_block = 1;
+                    break;
+                }
+            default:
+                // Ignore it
+                break;
+        }
+
+        // Advance the directive till the next nonblank
+        while (*directive == ' ')
+        {
+            directive++;
+        }
+    }
+
+    if (system_header_file)
+    {
+        char path[256];
+        strncpy(path, filename, 255);
+
+        char *name_without_path = basename(path);
+        strncpy(filename, name_without_path, 255);
+    }
+
+    if (start_of_new_file 
+            || system_header_file)
+    {
+        if (include_counter == 0)
+        {
+            top_level_include_t *new_top_level_include = calloc(1, sizeof(*new_top_level_include));
+
+            seen_filename(filename);
+            new_top_level_include->included_file = reference_to_seen_filename(filename);
+
+            if (system_header_file)
+            {
+                new_top_level_include->system_include = 1;
+            }
+
+            P_LIST_ADD(CURRENT_COMPILED_FILE(top_level_include_list),
+                    CURRENT_COMPILED_FILE(num_top_level_includes),
+                    new_top_level_include);
+        }
+    }
+
+    if (start_of_new_file)
+    {
+        include_counter++;
+    }
+
+    if (return_of_a_file)
+    {
+        include_counter = (include_counter > 0) ? (include_counter - 1) : 0;
+    }
+
 	// One less line because of the \n
 	scanning_now.line_number = (line_num - 1);
 	seen_filename(filename);
 	scanning_now.current_filename = reference_to_seen_filename(filename);
 }
+
 <preprocess>.       { /* ignore line */  }
 <preprocess>\n  { scanning_now.line_number++; BEGIN(INITIAL); }
 
@@ -902,8 +1004,9 @@ runtime {
  /*!if CPLUSPLUS*/
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/
- /* Special tokens for prettyprinted comments */
+ /* Special tokens for prettyprinted comments and preprocessor elements */
 @-C-@[^@]*@-CC-@ { parse_token_text(); return PP_COMMENT; }
+@-P-@[^@]*@-PP-@ { parse_token_text(); return PP_TOKEN; }
 
  /* A plain identifier */
 {idnondigit}({idnondigit}|{digit})* {parse_token_text(); return IDENTIFIER; }

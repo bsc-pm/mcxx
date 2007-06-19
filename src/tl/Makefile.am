@@ -61,4 +61,8 @@ libtl_la_SOURCES = \
 	tl-pragmasupport.cpp \
 	tl-omp.hpp \
 	tl-omp.cpp \
-	tl-refptr.hpp
+	tl-refptr.hpp \
+	tl-multifile.hpp \
+	tl-multifile.cpp \
+	tl-compilerpipeline.cpp \
+	tl-compilerpipeline.hpp

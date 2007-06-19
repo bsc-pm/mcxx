@@ -81,12 +81,12 @@ extern "C"
 {
     void load_compiler_phases_cxx(void)
     {
-        int num = compilation_options.num_compiler_phases;
+        int num = CURRENT_CONFIGURATION(num_compiler_phases);
 
         int i;
         for (i = 0; i < num; i++)
         {
-            char* library_name = compilation_options.compiler_phases[i];
+            char* library_name = CURRENT_CONFIGURATION(compiler_phases[i]);
 
              DEBUG_CODE()
              {
@@ -98,7 +98,7 @@ extern "C"
             {
                 fprintf(stderr, "Cannot open '%s'.\nReason: '%s'\n", library_name, dlerror());
                 fprintf(stderr, "Skipping '%s'\n", library_name);
-                return;
+                continue;
             }
             DEBUG_CODE()
             {

@@ -29,16 +29,16 @@ int config_set_language(char* value)
 {
     if (strcasecmp(value, "c") == 0)
     {
-        compilation_options.source_language = SOURCE_LANGUAGE_C;
+        CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_C;
     }
     else if (strcasecmp(value, "c++") == 0)
     {
-        compilation_options.source_language = SOURCE_LANGUAGE_CXX;
+        CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_CXX;
     }
     else
     {
         fprintf(stderr, "Unknown language '%s' assuming C++\n", value);
-        compilation_options.source_language = SOURCE_LANGUAGE_CXX;
+        CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_CXX;
     }
     return 0;
 }
@@ -69,7 +69,7 @@ int config_set_options(char* value)
 // Set preprocessor name
 int config_set_preprocessor_name(char* value)
 {
-    compilation_options.preprocessor_name = strdup(value);
+    CURRENT_CONFIGURATION(preprocessor_name) = strdup(value);
     return 0;
 }
 
@@ -77,14 +77,14 @@ int config_set_preprocessor_name(char* value)
 int config_set_preprocessor_options(char* value)
 {
     int num;
-    compilation_options.preprocessor_options = blank_separate_values(value, &num);
+    CURRENT_CONFIGURATION(preprocessor_options) = blank_separate_values(value, &num);
     return 0;
 }
 
 // Set native compiler name
 int config_set_compiler_name(char* value)
 {
-    compilation_options.native_compiler_name = strdup(value);
+    CURRENT_CONFIGURATION(native_compiler_name) = strdup(value);
     return 0;
 }
 
@@ -92,14 +92,14 @@ int config_set_compiler_name(char* value)
 int config_set_compiler_options(char* value)
 {
     int num;
-    compilation_options.native_compiler_options = blank_separate_values(value, &num);
+    CURRENT_CONFIGURATION(native_compiler_options) = blank_separate_values(value, &num);
     return 0;
 }
 
 // Set linker name
 int config_set_linker_name(char* value)
 {
-    compilation_options.linker_name = strdup(value);
+    CURRENT_CONFIGURATION(linker_name) = strdup(value);
     return 0;
 }
 
@@ -107,15 +107,15 @@ int config_set_linker_name(char* value)
 int config_set_linker_options(char* value)
 {
     int num;
-    compilation_options.linker_options = blank_separate_values(value, &num);
+    CURRENT_CONFIGURATION(linker_options) = blank_separate_values(value, &num);
     return 0;
 }
 
 int config_add_compiler_phase(char* value)
 {
     char* library_name = strdup(value);
-    P_LIST_ADD(compilation_options.compiler_phases, 
-            compilation_options.num_compiler_phases, 
+    P_LIST_ADD(CURRENT_CONFIGURATION(compiler_phases), 
+            CURRENT_CONFIGURATION(num_compiler_phases), 
             library_name);
 
     return 0;
@@ -134,8 +134,8 @@ int config_add_preprocessor_prefix(char* value)
         return 1;
     }
 
-    P_LIST_ADD(compilation_options.pragma_custom_prefix,
-            compilation_options.num_pragma_custom_prefix,
+    P_LIST_ADD(CURRENT_CONFIGURATION(pragma_custom_prefix),
+            CURRENT_CONFIGURATION(num_pragma_custom_prefix),
             strdup(value));
 
     return 0;

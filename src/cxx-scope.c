@@ -321,7 +321,7 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
     // unless we are told to start in the global scope
     if (global_op != NULL)
     {
-        lookup_scope = compilation_options.global_scope;
+        lookup_scope = CURRENT_COMPILED_FILE(global_scope);
     }
 
     lookup_scope = copy_scope(lookup_scope);

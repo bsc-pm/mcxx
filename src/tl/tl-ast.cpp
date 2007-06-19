@@ -23,7 +23,10 @@
 #include "tl-scopelink.hpp"
 #include "tl-predicate.hpp"
 #include "cxx-ast.h"
+#include "cxx-utils.h"
 #include <sstream>
+#include <cstdio>
+#include <cerrno>
 
 namespace TL
 {
@@ -90,6 +93,28 @@ namespace TL
             std::string result(c);
             return result;
         }
+    }
+
+    void AST_t::prettyprint_in_file(const CompiledFile& compiled_file, bool internal) const
+    {
+        if (!internal)
+        {
+            prettyprint_set_not_internal_output();
+        }
+        else
+        {
+            prettyprint_set_internal_output();
+        }
+
+        FILE *file = fopen(compiled_file.get_filename().c_str(), "a");
+        if (file == NULL)
+        {
+            running_error("Could not open output file '%s' (%s)\n", compiled_file.get_filename().c_str(), strerror(errno));
+        }
+
+        ::prettyprint(file, this->_ast);
+
+        fclose(file);
     }
 
     void AST_t::replace(AST_t ast)

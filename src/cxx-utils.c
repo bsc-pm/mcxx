@@ -67,7 +67,7 @@ void running_error(char* message, ...)
     va_end(ap);
     fprintf(stderr, "\n");
 
-    if (compilation_options.debug_options.abort_on_ice)
+    if (CURRENT_CONFIGURATION(debug_options.abort_on_ice))
         raise(SIGABRT);
 
     exit(EXIT_FAILURE);
@@ -196,7 +196,7 @@ temporal_file_t new_temporal_file()
 {
     char* template;
 #ifndef _WIN32
-    template = compilation_options.exec_basename;
+    template = compilation_process.exec_basename;
     template = strappend("/tmp/", template);
     template = strappend(template, "_XXXXXX");
 
@@ -246,11 +246,11 @@ void temporal_files_cleanup(void)
         fclose(iter->info->file);
 
         // If no keep, remove file
-        if (!compilation_options.keep_files)
+        if (!CURRENT_CONFIGURATION(keep_files))
         {
             if (iter->info != NULL)
             {
-                if (compilation_options.verbose)
+                if (CURRENT_CONFIGURATION(verbose))
                 {
                     fprintf(stderr, "Removing temporal filename '%s'\n", iter->info->name);
                 }
@@ -285,7 +285,7 @@ int execute_program(char* program_name, char** arguments)
 
     execvp_arguments[i+1] = NULL;
 
-    if (compilation_options.verbose)
+    if (CURRENT_CONFIGURATION(verbose))
     {
         int j = 0;
         while (execvp_arguments[j] != NULL)

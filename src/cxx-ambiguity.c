@@ -1294,11 +1294,9 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
 
                 if (c)
                 {
-                    if (symbol_scope != NULL && compilation_options.scope_link != NULL)
+                    if (symbol_scope != NULL && CURRENT_COMPILED_FILE(scope_link) != NULL)
                     {
-                        // scope_link_set(compilation_options.scope_link, expression, copy_scope(symbol_scope), decl_context);
-                        // ???
-                        scope_link_set(compilation_options.scope_link, expression, copy_scope(st), decl_context);
+                        scope_link_set(CURRENT_COMPILED_FILE(scope_link), expression, copy_scope(st), decl_context);
                     }
 
                     AST global_qualif = ASTSon0(expression);
@@ -1351,11 +1349,9 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
                 if (c)
                 {
                     // Should be always non null
-                    if (symbol_scope != NULL && compilation_options.scope_link != NULL)
+                    if (symbol_scope != NULL && CURRENT_COMPILED_FILE(scope_link) != NULL)
                     {
-                        // scope_link_set(compilation_options.scope_link, expression, copy_scope(symbol_scope), decl_context);
-                        // ???
-                        scope_link_set(compilation_options.scope_link, expression, copy_scope(st), decl_context);
+                        scope_link_set(CURRENT_COMPILED_FILE(scope_link), expression, copy_scope(st), decl_context);
                     }
                 }
 

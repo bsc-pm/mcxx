@@ -24,12 +24,12 @@
 #include "cxx-ast.h"
 #include "cxx-scope.h"
 #include "cxx-scopelink.h"
-#include "cxx-macros.h"
 #include "cxx-driver-decls.h"
+#include "cxx-macros.h"
 
 MCXX_BEGIN_DECLS
 
-extern compilation_options_t compilation_options;
+extern compilation_process_t compilation_process;
 
 extern int mcxx_flex_debug;
 extern int mc99_flex_debug;
@@ -59,6 +59,9 @@ struct debug_flags_list_t** list_of_debug_flags(void);
 
 struct debug_flags_list_t *
 debugflags_lookup (register const char *str, register unsigned int len);
+
+void add_new_file_to_compilation_process(const char* file_path, const char* output_file, 
+        compilation_configuration_t* configuration);
 
 MCXX_END_DECLS
 

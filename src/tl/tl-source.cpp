@@ -411,7 +411,7 @@ namespace TL
         // Get the scope and declarating context of the reference tree
         scope_t* scope = scope_link_get_scope(scope_link._scope_link, ref_tree._ast);
 
-        compilation_options.scope_link = scope_link._scope_link;
+        CURRENT_CONFIGURATION(scope_link) = scope_link._scope_link;
 
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
         if (a != NULL)
@@ -419,7 +419,7 @@ namespace TL
             solve_possibly_ambiguous_expression(a, scope, decl_context);
         }
 
-        compilation_options.scope_link = NULL;
+        CURRENT_CONFIGURATION(scope_link) = NULL;
 
         AST_t result(a);
 
@@ -590,6 +590,14 @@ namespace TL
         std::string result;
 
         result = "@-C-@" + str + "@-CC-@";
+        return result;
+    }
+
+    std::string preprocessor_line(const std::string& str)
+    {
+        std::string result;
+
+        result = "@-P-@" + str + "@-PP-@";
         return result;
     }
 

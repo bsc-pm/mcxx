@@ -18,24 +18,42 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#include <string>
-#include "cxx-driver.h"
-#include "tl-externalvars.hpp"
+#ifndef TL_MULTIFILE_CPP
+#define TL_MULTIFILE_CPP
+
+#include "tl-objectlist.hpp"
 
 namespace TL
 {
-    std::string ExternalVars::get(const std::string& name, const std::string& default_val)
+    class IncludeLine
     {
-        for (int i = 0; i < compilation_process.num_external_vars; i++)
-        {
-            std::string variable = compilation_process.external_vars[i]->name;
-            
-            if (variable == name)
+        private:
+            std::string _file;
+            bool _system;
+        public:
+            bool is_system()
             {
-                return compilation_process.external_vars[i]->value;
+                return _system;
             }
-        }
 
-        return default_val;
-    }
+            std::string get_included_file()
+            {
+                return _file;
+            }
+
+            std::string get_preprocessor_line();
+
+            IncludeLine(const std::string& file, bool is_system)
+                : _file(file), _system(is_system)
+            {
+            }
+    };
+
+    class CurrentFile
+    {
+        public:
+            static ObjectList<IncludeLine> get_top_level_included_files();
+    };
 }
+
+#endif // TL_MULTIFILE_CPP

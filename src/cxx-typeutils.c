@@ -751,7 +751,7 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
 
     if (t1_global_op != NULL) // t2_global_op != NULL too
     {
-        st = compilation_options.global_scope;
+        st = CURRENT_COMPILED_FILE(global_scope);
     }
 
 

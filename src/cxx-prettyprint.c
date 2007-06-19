@@ -158,6 +158,7 @@ HANDLER_PROTOTYPE(index_designator_handler);
 HANDLER_PROTOTYPE(field_designator_handler);
 
 HANDLER_PROTOTYPE(pp_comment_handler);
+HANDLER_PROTOTYPE(pp_prepro_token_handler);
 
 // Pragma custom support
 HANDLER_PROTOTYPE(pragma_custom_directive_handler);
@@ -510,6 +511,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_FIELD_DESIGNATOR, field_designator_handler, NULL),
     NODE_HANDLER(AST_UNKNOWN_PRAGMA, unknown_pragma_handler, NULL),
     NODE_HANDLER(AST_PP_COMMENT, pp_comment_handler, NULL),
+    NODE_HANDLER(AST_PP_TOKEN, pp_prepro_token_handler, NULL),
     // Pragma custom
     NODE_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, pragma_custom_directive_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
@@ -627,6 +629,31 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GCC_FUNCTIONAL_DECLARATOR, gcc_functional_declarator_handler, NULL), 
 };
 
+typedef
+struct prettyprint_behaviour_tag
+{
+    // States if the output is meant to be internal
+    // i.e.: comments and preprocessor tokens will be output with special
+    // keeping marks or will be converted to standard syntax
+    char internal_output;
+} prettyprint_behaviour_t;
+
+// Initial behaviour
+static prettyprint_behaviour_t prettyprint_behaviour = 
+{ 
+    /* .internal_output = */ 1 
+};
+
+void prettyprint_set_not_internal_output(void)
+{
+    prettyprint_behaviour.internal_output = 0;
+}
+
+void prettyprint_set_internal_output(void)
+{
+    prettyprint_behaviour.internal_output = 1;
+}
+
 static void prettyprint_level(FILE* f, AST a, int level);
 
 #define HELPER_PARAMETER \
@@ -644,6 +671,7 @@ char* prettyprint_in_buffer(AST a)
 {
     FILE* temporal_file = tmpfile();
 
+    prettyprint_set_internal_output();
     prettyprint(temporal_file, a);
 
     int bytes_file = ftell(temporal_file) + 20;
@@ -2283,47 +2311,82 @@ static void unknown_pragma_handler(FILE* f, AST a, int level)
     token_fprintf(f, a, "%s\n", ASTText(a));
 }
 
+static void pp_prepro_token_handler(FILE* f, AST a, int level)
+{
+    char* text = ASTText(a);
+
+    if (prettyprint_behaviour.internal_output)
+    {
+        // Do nothing special
+        token_fprintf(f, a, "%s", text);
+    }
+    else
+    {
+        char* start = text + strlen("@-P-@");
+        char* end = text + strlen(text) - strlen("@-PP-@");
+
+        // Save the end and make it the end of the string
+        char temp = *end;
+        *end = '\0';
+
+        // Print the preprocessing item
+        token_fprintf(f, a, "%s\n", start);
+
+        // And restore it back to the original character
+        *end = temp;
+    }
+}
+
 static void pp_comment_handler(FILE* f, AST a, int level)
 {
     char* text = ASTText(a);
 
-    char* end = text + strlen(text) - strlen("@-CC-@");
-
-    // The whole text
-    char* current_start = text + strlen("@-C-@");
-    char* current_end;
-
-    do
+    if (prettyprint_behaviour.internal_output)
     {
-        // Look for the first '\n'
-        current_end = strchr(current_start, '\n');
-
-        // If not found use the NULL character
-        if (current_end == NULL)
-        {
-            current_end = end;
-        }
-
-        // Now replace the end with an ending character
-        char temp = *current_end;
-        *current_end = '\0';
-
-        indent_at_level(f, a, level);
-        C_LANGUAGE()
-        {
-            token_fprintf(f, a, "/* %s */\n", current_start);
-        }
-        CXX_LANGUAGE()
-        {
-            token_fprintf(f, a, "// %s\n", current_start);
-        }
-
-        // And restore the modified character
-        *current_end = temp;
-        // The next string starts after the current end
-        current_start = current_end + 1;
+        // Do nothing special
+        token_fprintf(f, a, "%s", text);
     }
-    while (current_end != end);
+    else
+    {
+        // Convert it back into a normal comment
+        char* end = text + strlen(text) - strlen("@-CC-@");
+
+        // The whole text
+        char* current_start = text + strlen("@-C-@");
+        char* current_end;
+
+        do
+        {
+            // Look for the first '\n'
+            current_end = strchr(current_start, '\n');
+
+            // If not found use the NULL character
+            if (current_end == NULL)
+            {
+                current_end = end;
+            }
+
+            // Now replace the end with an ending character
+            char temp = *current_end;
+            *current_end = '\0';
+
+            indent_at_level(f, a, level);
+            C_LANGUAGE()
+            {
+                token_fprintf(f, a, "/* %s */\n", current_start);
+            }
+            CXX_LANGUAGE()
+            {
+                token_fprintf(f, a, "// %s\n", current_start);
+            }
+
+            // And restore the modified character
+            *current_end = temp;
+            // The next string starts after the current end
+            current_start = current_end + 1;
+        }
+        while (current_end != end);
+    }
 }
 
 static void custom_construct_statement_handler(FILE *f, AST a, int level)

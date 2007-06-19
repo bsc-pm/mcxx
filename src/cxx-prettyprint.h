@@ -31,6 +31,8 @@ void prettyprint_set_main_filename(char* filename);
 void prettyprint(FILE* f, AST a);
 char* prettyprint_in_buffer(AST a);
 char* list_handler_in_buffer(AST a);
+void prettyprint_set_not_internal_output(void);
+void prettyprint_set_internal_output(void);
 
 MCXX_END_DECLS
 

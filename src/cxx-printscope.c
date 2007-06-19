@@ -120,7 +120,7 @@ static void print_brief_lines(struct brief_lines_t** brief_lines)
 void print_scope(scope_t* st)
 {
     // print_scope_full(st, 0);
-    if (compilation_options.debug_options.print_scope_brief)
+    if (CURRENT_CONFIGURATION(debug_options.print_scope_brief))
     {
         num_brief_lines = 0;
         brief_lines = NULL;
