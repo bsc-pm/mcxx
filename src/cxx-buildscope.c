@@ -1653,23 +1653,30 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
         AST name;
 
         char is_virtual = 0;
+        char is_template_qualified = 0;
 
-        switch (ASTType(base_specifier))
+        int base_specifier_kind = ASTType(base_specifier);
+        switch (base_specifier_kind)
         {
             case AST_BASE_SPECIFIER :
+            case AST_BASE_SPECIFIER_TEMPLATE :
                 {
                     global_op = ASTSon0(base_specifier);
                     nested_name_specifier = ASTSon1(base_specifier);
                     name = ASTSon2(base_specifier);
+
                     break;
                 }
             case AST_BASE_SPECIFIER_VIRTUAL :
             case AST_BASE_SPECIFIER_ACCESS_VIRTUAL :
+            case AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE :
+            case AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE :
                 {
                     is_virtual = 1;
                     /* Fall through */
                 }
             case AST_BASE_SPECIFIER_ACCESS :
+            case AST_BASE_SPECIFIER_ACCESS_TEMPLATE :
                 {
                     access_spec = ASTSon0(base_specifier);
                     global_op = ASTSon1(base_specifier);
@@ -1679,6 +1686,23 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
                 }
             default :
                 internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(base_specifier)));
+        }
+
+        lookup_flags_t lookup_flags = LF_NONE;
+
+        switch (base_specifier_kind)
+        {
+            case AST_BASE_SPECIFIER_TEMPLATE :
+            case AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE :
+            case AST_BASE_SPECIFIER_ACCESS_TEMPLATE :
+            case AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE :
+                {
+                    is_template_qualified = 1;
+                    lookup_flags = LF_NO_FAIL;
+                    break;
+                }
+            default:
+                break;
         }
 
         enum cxx_symbol_kind filter[7] =
@@ -1693,14 +1717,34 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
         };
 
         scope_entry_list_t* result_list = query_nested_name_flags(st, global_op, nested_name_specifier, name, 
-                FULL_UNQUALIFIED_LOOKUP, LF_INSTANTIATE, decl_context);
+                FULL_UNQUALIFIED_LOOKUP, LF_INSTANTIATE | lookup_flags, decl_context);
         result_list = filter_symbol_kind_set(result_list, 7, filter);
+
+        if (result_list == NULL 
+                && is_template_qualified
+           )
+         {
+             // We did not find the exact type and it was marked as potentially dependent
+             if (decl_context.template_nesting == 0
+                     && !BITMAP_TEST(decl_context.decl_flags, DF_NO_FAIL))
+             {
+                 internal_error("Dependent typename '%s' not resolved outside of template scope (%s)\n", 
+                         prettyprint_in_buffer(base_specifier), node_information(base_specifier));
+             }
+
+             // Create a dependent entity
+             scope_entry_t* dependent_entity = calloc(1, sizeof(*dependent_entity));
+             dependent_entity->kind = SK_DEPENDENT_ENTITY;
+
+             result_list = create_list_from_entry(dependent_entity);
+         }
 
         ERROR_CONDITION((result_list == NULL), "Base class '%s' not found!\n", prettyprint_in_buffer(base_specifier));
         scope_entry_t* result = result_list->entry;
         result = give_real_entry(result);
 
-        if (!is_dependent_type(result->type_information, decl_context))
+        if (result->kind != SK_DEPENDENT_ENTITY // They do not have type so "is_dependent_type" cannot be used
+                && !is_dependent_type(result->type_information, decl_context))
         {
             DEBUG_CODE()
             {
@@ -1744,6 +1788,29 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
 
                 P_LIST_ADD(class_scope->base_scope, class_scope->num_base_scopes, base_scope);
             }
+
+            class_info_t* base_class_info = result->type_information->type->class_info;
+
+            if (base_class_info != NULL)
+            {
+                int i;
+                for (i = 0; i < base_class_info->num_bases; i++)
+                {
+                    base_class_info_t* base_of_base_class = base_class_info->base_classes_list[i];
+
+                    if (base_of_base_class->is_virtual)
+                    {
+                        P_LIST_ADD_ONCE(class_info->base_classes_list, class_info->num_bases, base_of_base_class);
+                    }
+                }
+            }
+
+            base_class_info_t* new_base_class = calloc(1, sizeof(*new_base_class));
+            new_base_class->class_symbol = result;
+            new_base_class->class_type = result->type_information;
+            new_base_class->is_virtual = is_virtual;
+
+            P_LIST_ADD(class_info->base_classes_list, class_info->num_bases, new_base_class);
         }
         else
         {
@@ -1752,30 +1819,6 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
                 fprintf(stderr, "Base class '%s' found IS a dependent type\n", prettyprint_in_buffer(base_specifier));
             }
         }
-
-        /* Now add virtual inherited classes */
-        class_info_t* base_class_info = result->type_information->type->class_info;
-
-        if (base_class_info != NULL)
-        {
-            int i;
-            for (i = 0; i < base_class_info->num_bases; i++)
-            {
-                base_class_info_t* base_of_base_class = base_class_info->base_classes_list[i];
-
-                if (base_of_base_class->is_virtual)
-                {
-                    P_LIST_ADD_ONCE(class_info->base_classes_list, class_info->num_bases, base_of_base_class);
-                }
-            }
-        }
-
-        base_class_info_t* new_base_class = calloc(1, sizeof(*new_base_class));
-        new_base_class->class_symbol = result;
-        new_base_class->class_type = result->type_information;
-        new_base_class->is_virtual = is_virtual;
-
-        P_LIST_ADD(class_info->base_classes_list, class_info->num_bases, new_base_class);
     }
 }
 

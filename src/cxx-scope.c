@@ -658,8 +658,11 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
     else
     {
         char is_dependent = 0;
-        if ((lookup_scope = query_nested_name_spec_flags(sc, global_op, nested_name, 
+        if (((lookup_scope = query_nested_name_spec_flags(sc, global_op, nested_name, 
                         NULL, &is_dependent, lookup_flags, decl_context)) != NULL)
+                // We cannot lookup things inside things that are dependent
+                // since they are not completely instantiated
+                && !is_dependent)
         {
             switch (ASTType(name))
             {

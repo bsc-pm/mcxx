@@ -2481,9 +2481,19 @@ base_specifier : type_name
 
 	$$ = ASTMake3(AST_BASE_SPECIFIER, global_op, $2, $3, $1.token_line, NULL);
 }
+| TWO_COLONS nested_name_specifier TEMPLATE template_id
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
+
+	$$ = ASTMake3(AST_BASE_SPECIFIER_TEMPLATE, global_op, $2, $4, $1.token_line, NULL);
+}
 | nested_name_specifier type_name
 {
 	$$ = ASTMake3(AST_BASE_SPECIFIER, NULL, $1, $2, ASTLine($1), NULL);
+}
+| nested_name_specifier TEMPLATE template_id
+{
+	$$ = ASTMake3(AST_BASE_SPECIFIER_TEMPLATE, NULL, $1, $3, ASTLine($1), NULL);
 }
 // without virtual but with access_specifier
 | access_specifier type_name
@@ -2500,11 +2510,21 @@ base_specifier : type_name
 {
 	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS, $1, NULL, $2, $3, ASTLine($1), NULL);
 }
+| access_specifier nested_name_specifier TEMPLATE template_id
+{
+	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_TEMPLATE, $1, NULL, $2, $4, ASTLine($1), NULL);
+}
 | access_specifier TWO_COLONS nested_name_specifier type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
 	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS, $1, global_op, $3, $4, ASTLine($1), NULL);
+}
+| access_specifier TWO_COLONS nested_name_specifier TEMPLATE template_id
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
+
+	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS, $1, global_op, $3, $5, ASTLine($1), NULL);
 }
 // with virtual and optionally access_specifier
 | VIRTUAL type_name
@@ -2531,9 +2551,17 @@ base_specifier : type_name
 {
 	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, NULL, NULL, $2, $3, $1.token_line, NULL);
 }
+| VIRTUAL nested_name_specifier TEMPLATE template_id
+{
+	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE, NULL, NULL, $2, $4, $1.token_line, NULL);
+}
 | VIRTUAL access_specifier nested_name_specifier type_name
 {
 	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, $2, NULL, $3, $4, $1.token_line, NULL);
+}
+| VIRTUAL access_specifier nested_name_specifier TEMPLATE template_id
+{
+	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE, $2, NULL, $3, $5, $1.token_line, NULL);
 }
 | VIRTUAL TWO_COLONS nested_name_specifier type_name
 {
@@ -2541,11 +2569,23 @@ base_specifier : type_name
 
 	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, NULL, global_op, $3, $4, $1.token_line, NULL);
 }
+| VIRTUAL TWO_COLONS nested_name_specifier TEMPLATE template_id
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
+
+	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE, NULL, global_op, $3, $5, $1.token_line, NULL);
+}
 | VIRTUAL access_specifier TWO_COLONS nested_name_specifier type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
 	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL, $2, global_op, $4, $5, $1.token_line, NULL);
+}
+| VIRTUAL access_specifier TWO_COLONS nested_name_specifier TEMPLATE template_id
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
+
+	$$ = ASTMake4(AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE, $2, global_op, $4, $6, $1.token_line, NULL);
 }
 // with access_specifier and then virtual
 | access_specifier VIRTUAL type_name
@@ -2562,11 +2602,21 @@ base_specifier : type_name
 {
 	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_VIRTUAL, $1, NULL, $3, $4, ASTLine($1), NULL);
 }
+| access_specifier VIRTUAL nested_name_specifier TEMPLATE template_id
+{
+	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE, $1, NULL, $3, $5, ASTLine($1), NULL);
+}
 | access_specifier VIRTUAL TWO_COLONS nested_name_specifier type_name
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
 
 	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_VIRTUAL, $1, global_op, $4, $5, ASTLine($1), NULL);
+}
+| access_specifier VIRTUAL TWO_COLONS nested_name_specifier TEMPLATE template_id
+{
+	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $3.token_line, NULL);
+
+	$$ = ASTMake4(AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE, $1, global_op, $4, $6, ASTLine($1), NULL);
 }
 ;
 

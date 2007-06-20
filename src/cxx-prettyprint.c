@@ -427,9 +427,13 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PUBLIC_SPEC, simple_parameter_handler, "public"),
     NODE_HANDLER(AST_BASE_CLAUSE, base_clause_handler, NULL),
     NODE_HANDLER(AST_BASE_SPECIFIER, base_specifier_handler, NULL),
+    NODE_HANDLER(AST_BASE_SPECIFIER_TEMPLATE, base_specifier_handler, NULL),
     NODE_HANDLER(AST_BASE_SPECIFIER_ACCESS, base_specifier_access_handler, NULL),
+    NODE_HANDLER(AST_BASE_SPECIFIER_ACCESS_TEMPLATE, base_specifier_access_handler, NULL),
     NODE_HANDLER(AST_BASE_SPECIFIER_VIRTUAL, base_specifier_virtual_handler, NULL),
+    NODE_HANDLER(AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE, base_specifier_virtual_handler, NULL),
     NODE_HANDLER(AST_BASE_SPECIFIER_ACCESS_VIRTUAL, base_specifier_access_virtual_handler, NULL),
+    NODE_HANDLER(AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE, base_specifier_access_virtual_handler, NULL),
     NODE_HANDLER(AST_ELABORATED_TYPE_CLASS, elaborated_type_class_handler, NULL),
     NODE_HANDLER(AST_ELABORATED_TYPE_TEMPLATE_CLASS, elaborated_type_template_class_handler, NULL),
     NODE_HANDLER(AST_ELABORATED_TYPE_TEMPLATE_TEMPLATE_CLASS, elaborated_type_template_template_class_handler, NULL),
@@ -1826,6 +1830,11 @@ static void base_specifier_handler(FILE* f, AST a, int level)
         prettyprint_level(f, ASTSon1(a), level);
     }
 
+    if (ASTType(a) == AST_BASE_SPECIFIER_TEMPLATE)
+    {
+        token_fprintf(f, a, "template ");
+    }
+
     prettyprint_level(f, ASTSon2(a), level);
 }
 
@@ -1842,6 +1851,11 @@ static void base_specifier_access_handler(FILE* f, AST a, int level)
     if (ASTSon2(a) != NULL)
     {
         prettyprint_level(f, ASTSon2(a), level);
+    }
+
+    if (ASTType(a) == AST_BASE_SPECIFIER_ACCESS_TEMPLATE)
+    {
+        token_fprintf(f, a, "template ");
     }
 
     prettyprint_level(f, ASTSon3(a), level);
@@ -1867,6 +1881,11 @@ static void base_specifier_virtual_handler(FILE* f, AST a, int level)
         prettyprint_level(f, ASTSon2(a), level);
     }
 
+    if (ASTType(a) == AST_BASE_SPECIFIER_VIRTUAL_TEMPLATE)
+    {
+        token_fprintf(f, a, "template ");
+    }
+
     prettyprint_level(f, ASTSon3(a), level);
 }
 
@@ -1885,6 +1904,11 @@ static void base_specifier_access_virtual_handler(FILE* f, AST a, int level)
     if (ASTSon2(a) != NULL)
     {
         prettyprint_level(f, ASTSon2(a), level);
+    }
+
+    if (ASTType(a) == AST_BASE_SPECIFIER_ACCESS_VIRTUAL_TEMPLATE)
+    {
+        token_fprintf(f, a, "template ");
     }
 
     prettyprint_level(f, ASTSon3(a), level);
