@@ -204,6 +204,14 @@ namespace TL
                 {
                     IdExpression id_expr = expression.get_id_expression();
                     Symbol sym = id_expr.get_symbol();
+
+					// FIXME: What to do with an inner transaction symbol?
+					if (!sym.is_valid())
+					{
+						std::cerr << "STM Warning: Unknown symbol '" << id_expr.prettyprint() << "' at " << id_expr.get_ast().get_locus() << ". Skipping" << std::endl;
+						return;
+					}
+					
                     Type type = sym.get_type();
 
                     // For real function nothing has to be done
