@@ -18,11 +18,20 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-// They are the same declaration type
-// so it is valid
+template <typename _K>
+struct C
+{
+    _K k;
+    template <typename _T = int>
+    struct D
+    {
+    };
+};
 
-typedef void f(int*);
-typedef void f(int[10]);
+template <typename _K>
+struct B : C<_K*>::template D<>
+{
+    typedef _K T;
+}; 
 
-typedef int P[10];
-typedef void f(P p);
+B<float>::T t;
