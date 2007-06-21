@@ -69,6 +69,9 @@ char equal_literal_values(literal_value_t v1, literal_value_t v2, scope_t* st);
 void gather_integer_literal_suffix(char* text, char* is_long, char* is_unsigned);
 void gather_float_literal_suffix(char* text, char* is_float, char* is_long_double);
 
+char unificable_values(AST expr1, scope_t* st1, AST expr2, scope_t* st2, decl_context_t decl_context);
+AST advance_expression_nest(AST expr);
+
 MCXX_END_DECLS
 
 #endif // CXX_CEXPR_H

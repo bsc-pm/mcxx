@@ -144,6 +144,11 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st, decl_context_t 
         case AST_DIV_OP :
             return binary_operation(ASTType(a), ASTSon0(a), ASTSon1(a), st, decl_context);
         case AST_CAST_EXPRESSION :
+            // They share a similar tree layout
+        case AST_STATIC_CAST : 
+        case AST_DYNAMIC_CAST : 
+        case AST_REINTERPRET_CAST : 
+        case AST_CONST_CAST : 
             {
                 AST type_id = ASTSon0(a);
                 AST type_spec = ASTSon0(type_id);
@@ -185,9 +190,32 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st, decl_context_t 
             }
         case AST_REFERENCE :
             {
-                WARNING_MESSAGE("Found an address expression in '%s' while evaluating a constant expression. Assuming zero.\n",
-                     node_information(a));
-                return literal_value_zero();
+                AST reference = advance_expression_nest(ASTSon0(a));
+
+                if (ASTType(reference) != AST_SYMBOL
+                        && ASTType(reference) != AST_QUALIFIED_ID)
+                {
+                    WARNING_MESSAGE("Unsolvable address expression in '%s' while evaluating a constant expression. Assuming zero.\n",
+                            node_information(a));
+                    return literal_value_zero();
+                }
+                else
+                {
+                    // Get the symbol and use its pointer in the symbol table as a value
+                    scope_entry_list_t* result = query_id_expression(st,
+                            reference, 
+                            FULL_UNQUALIFIED_LOOKUP,
+                            decl_context);
+
+                    ERROR_CONDITION(result == NULL, "Unknown expression '%s'\n", prettyprint_in_buffer(reference));
+
+                    // FIXME: Assuming that unsigned long is enough to hold a
+                    // pointer
+                    literal_value_t value;
+                    value.kind = LVK_UNSIGNED_LONG;
+                    value.value.unsigned_long = (unsigned long)(result->entry);
+                    return value;
+                }
             }
         case AST_AMBIGUITY :
         default :
@@ -624,10 +652,14 @@ static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* s
         return before_cast;
     }
 
+    simple_type_t _simple_type_info;
+    memset(&_simple_type_info, 0, sizeof(_simple_type_info));
+
     type_t simple_type_info;
     memset(&simple_type_info, 0, sizeof(simple_type_info));
+    simple_type_info.type = &_simple_type_info;
 
-    gather_type_spec_information(type_spec, st, &simple_type_info, default_decl_context);
+    gather_type_spec_information(ASTSon1(type_spec), st, &simple_type_info, default_decl_context);
 
     if (simple_type_info.type->kind != STK_BUILTIN_TYPE)
     {
@@ -880,7 +912,6 @@ char equal_literal_values(literal_value_t v1, literal_value_t v2, scope_t* st)
     if (v1.kind == LVK_DEPENDENT_EXPR
             || v2.kind == LVK_DEPENDENT_EXPR)
         return 0;
-
 
     literal_value_t result = equal_op(v1, v2);
 
@@ -1725,4 +1756,23 @@ static literal_value_t convert_to_char(literal_value_t e1)
             internal_error("Unknown value kind %d", e1.kind);
     }
     return result;
+}
+
+AST advance_expression_nest(AST expr)
+{
+    AST result = expr;
+
+    for ( ; ; )
+    {
+        switch (ASTType(result))
+        {
+            case AST_EXPRESSION : 
+            case AST_CONSTANT_EXPRESSION : 
+            case AST_PARENTHESIZED_EXPRESSION :
+                result = ASTSon0(result);
+                break;
+            default:
+                return result;
+        }
+    }
 }

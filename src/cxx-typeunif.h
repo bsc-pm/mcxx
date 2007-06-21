@@ -48,6 +48,9 @@ typedef struct
 
 char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, 
         unification_set_t** unif_set, decl_context_t decl_context);
+char unificate_two_expressions(unification_set_t **unif_set, 
+        AST left_tree, scope_t* left_scope, 
+        AST right_tree, scope_t* right_scope, decl_context_t decl_context);
 
 MCXX_END_DECLS
 

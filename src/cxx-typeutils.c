@@ -363,8 +363,8 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2, scope_t* s
     if (t1->array_expr != NULL
             && t2->array_expr != NULL)
     {
-        literal_value_t v1 = evaluate_constant_expression(t1->array_expr, st, decl_context);
-        literal_value_t v2 = evaluate_constant_expression(t2->array_expr, st, decl_context);
+        literal_value_t v1 = evaluate_constant_expression(t1->array_expr, t1->array_expr_scope, decl_context);
+        literal_value_t v2 = evaluate_constant_expression(t2->array_expr, t2->array_expr_scope, decl_context);
         if (!equal_literal_values(v1, v2, st))
             return 0;
     }
@@ -2809,6 +2809,11 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
             }
             // Cast expression
         case AST_CAST_EXPRESSION :
+            // They share the same tree layout
+        case AST_STATIC_CAST :
+        case AST_DYNAMIC_CAST :
+        case AST_REINTERPRET_CAST :
+        case AST_CONST_CAST :
             {
                 AST type_id = ASTSon0(expression);
 
@@ -2868,7 +2873,6 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
                     || is_dependent_expression(ASTSon1(expression), st, decl_context)
                     || is_dependent_expression(ASTSon2(expression), st, decl_context);
             }
-            // GCC Extension
         default :
             {
                 internal_error("Unexpected node '%s' %s", ast_print_node_type(ASTType(expression)), 

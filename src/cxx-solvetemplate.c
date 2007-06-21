@@ -188,25 +188,53 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
 
         unification_set_t* unification_set = calloc(1, sizeof(*unification_set));
 
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Comparing current best template %p (line %d) with %p (line %d)\n",
+                    min->entry,
+                    min->entry->line,
+                    current_entry->entry,
+                    current_entry->entry->line);
+        }
+
         if (!match_one_template(min_args, current_args, current_entry->entry, st, 
                     unification_set, decl_context))
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Template %p is more specialized than %p\n", current_entry->entry, min->entry);
+                fprintf(stderr, "Template %p (line %d) is more specialized than %p (line %d)\n", 
+                        current_entry->entry, 
+                        current_entry->entry->line,
+                        min->entry,
+                        min->entry->line);
             }
 
             min = current_entry;
 
             unification_set_t* unification_set_check = calloc(1, sizeof(*unification_set_check));
-            if (!give_exact_match)
-            {
-                if (!match_one_template(current_args, min_args, min->entry, st, 
-                            unification_set_check, decl_context))
-                {
-                    internal_error("Ambiguous specialization instantiation\n", 0);
-                }
-            }
+            // This is not correct because of cv-qualifiers 'const' and
+            // 'volatile' not having an order between them. So we get that
+            // "volatile T" and "const T" are both [temporarily] valid for
+            // "const volatile T", even if there is a third "const volatile T"
+            // specialization waiting to be matched
+            //
+            // We should check there is only one minimum, a way to do it would
+            // be creating a topological tree with "less than" relationship and
+            // watch for the deeper node, the minimum. Should be two nodes with
+            // the same minimum depth, an ambiguity would occur.
+            //
+            // if (!give_exact_match)
+            // {
+            //     DEBUG_CODE()
+            //     {
+            //         fprintf(stderr, "Checking non ambiguous specialization\n");
+            //     }
+            //     if (!match_one_template(current_args, min_args, min->entry, st, 
+            //                 unification_set_check, decl_context))
+            //     {
+            //         internal_error("Ambiguous specialization instantiation\n", 0);
+            //     }
+            // }
         }
     }
 
@@ -280,66 +308,21 @@ char match_one_template(template_argument_list_t* arguments,
                         {
                             fprintf(stderr, "==> Unificating expressions\n");
                         }
-                        // The key here is evaluating both expressions and checking they are the same
                         if (spec_arg->argument_tree == NULL)
                         {
                             internal_error("Expected an expression value for specialized argument", 0);
                         }
-                        literal_value_t spec_arg_value = 
-                            evaluate_constant_expression(spec_arg->argument_tree, 
-                                    spec_arg->scope, decl_context);
-
                         if (arg->argument_tree == NULL)
                         {
                             internal_error("Expected an expression value for argument", 0);
                         }
 
-                        literal_value_t arg_value = 
-                            evaluate_constant_expression(arg->argument_tree, 
-                                    arg->scope,
-                                    decl_context);
-
-                        if (spec_arg_value.kind != LVK_DEPENDENT_EXPR)
+                        if (!unificate_two_expressions(&unif_set, spec_arg->argument_tree, spec_arg->scope, 
+                                arg->argument_tree, arg->scope, decl_context))
                         {
-                            if (!equal_literal_values(spec_arg_value, arg_value, st))
-                            {
-                                DEBUG_CODE()
-                                {
-                                    fprintf(stderr, "==> They are different\n");
-                                    fprintf(stderr, "=== Unification failed\n");
-                                }
-                                return 0;
-                            }
-                            else
-                            {
-                                DEBUG_CODE()
-                                {
-                                    fprintf(stderr, "==> They are the same!\n");
-                                }
-                            }
+                            return 0;
                         }
-                        else
-                        {
-                            unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
-                            unif_item->expression = arg->argument_tree;
 
-                            if (arg_value.kind != LVK_INVALID
-                                    && arg_value.kind != LVK_DEPENDENT_EXPR)
-                            {
-                                unif_item->expression = tree_from_literal_value(arg_value);
-                            }
-
-                            // Set to -1 to early detect errors
-                            unif_item->parameter_num = -1;
-                            unif_item->parameter_nesting = -1;
-
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "==> Expression unified\n");
-                            }
-
-                            P_LIST_ADD(unif_set->unif_list, unif_set->num_elems, unif_item);
-                        }
                         break;
                     }
                 default :

@@ -27,8 +27,10 @@
 #include "cxx-utils.h"
 #include "cxx-driver.h"
 #include "cxx-solvetemplate.h"
+#include "cxx-prettyprint.h"
 
-static type_t* get_template_parameter_unification(unification_set_t* unif_set, int num, int nesting);
+static type_t* get_type_template_parameter_unification(unification_set_t* unif_set, int num, int nesting);
+static AST get_nontype_template_parameter_unification(unification_set_t* unif_set, int num, int nesting);
 
 // Will try to find a substitution to unificate t1 to t2
 //
@@ -38,9 +40,10 @@ static type_t* get_template_parameter_unification(unification_set_t* unif_set, i
 char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, 
         unification_set_t** unif_set, decl_context_t decl_context)
 {
-
-    t1 = advance_over_typedefs(t1);
-    t2 = advance_over_typedefs(t2);
+    cv_qualifier_t cv_qualif_1 = CV_NONE;
+    cv_qualifier_t cv_qualif_2 = CV_NONE;
+    t1 = advance_over_typedefs_with_cv_qualif(t1, &cv_qualif_1);
+    t2 = advance_over_typedefs_with_cv_qualif(t2, &cv_qualif_2);
 
     DEBUG_CODE()
     {
@@ -52,7 +55,6 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
     // Normalize types
     // If the user defined type points to a template parameter, we will use the
     // template parameter
-    type_t* original_t1 = t1;
     if (t1->kind == TK_DIRECT && 
             t1->type->kind == STK_USER_DEFINED)
     {
@@ -87,13 +89,12 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
             && t1->type->kind == STK_TYPE_TEMPLATE_PARAMETER)
     {
         // First check if this parameter has not been already unified
-        type_t* previous_unif = get_template_parameter_unification(*unif_set, t1->type->template_parameter_num,
+        type_t* previous_unif = get_type_template_parameter_unification(*unif_set, t1->type->template_parameter_num,
                 t1->type->template_parameter_nesting);
         if (previous_unif == NULL)
         {
             // Check that t1 is less cv-qualified than t2
-
-            if ((original_t1->cv_qualifier | t2->cv_qualifier) == (t2->cv_qualifier))
+            if ((cv_qualif_1 | cv_qualif_2) == (cv_qualif_2))
             {
                 unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
 
@@ -107,13 +108,23 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
                 unif_item->parameter_num = t1->type->template_parameter_num;
                 unif_item->parameter_nesting = t1->type->template_parameter_nesting;
                 unif_item->parameter_name = t1->type->template_parameter_name;
-                unif_item->value = t2;
+
+                // Copy the type
+                type_t* unified_type = copy_type(t2);
+                unif_item->value = unified_type;
+                
+                // We have to remove the inverse qualification. If t1 is const
+                // and t2 is const too, the unified type is not const
+                //
+                // const T <- const int [T = int] and not [T = const int]
+                //
+                unified_type->cv_qualifier = cv_qualif_2 & (~cv_qualif_1);
 
                 P_LIST_ADD((*unif_set)->unif_list, (*unif_set)->num_elems, unif_item);
             }
             else
             {
-                // We cannot unify 'const X' with 'Y' (even if we can unify 'X' with 'const Y')
+                // We cannot unify 'const X' with 'Y' (although we can unify 'X' with 'const Y')
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "Unification parameter is more cv-qualified than the argument\n");
@@ -171,7 +182,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
             return 0;
         }
 
-        type_t* previous_unif = get_template_parameter_unification(*unif_set, t1->type->template_parameter_num,
+        type_t* previous_unif = get_type_template_parameter_unification(*unif_set, t1->type->template_parameter_num,
                 t1->type->template_parameter_nesting);
         if (previous_unif != NULL)
         {
@@ -293,13 +304,28 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
             break;
         case TK_ARRAY :
             {
-                literal_value_t v1 = evaluate_constant_expression(t1->array->array_expr, st, decl_context);
-                literal_value_t v2 = evaluate_constant_expression(t2->array->array_expr, st, decl_context);
-
-                if (equal_literal_values(v1, v2, st))
+                // If t1 is NULL, check that t2 is NULL too
+                if (t1->array->array_expr == NULL)
                 {
-                    return unificate_two_types(t1->array->element_type, t2->array->element_type, st, unif_set,
-                            decl_context);
+                    return (t2->array->array_expr == NULL);
+                }
+                // If t1 is not NULL but t2 is, then this cannot be unified
+                if (t2->array->array_expr == NULL)
+                {
+                    return 0;
+                }
+
+                if (!unificate_two_expressions(unif_set, t1->array->array_expr,
+                            t1->array->array_expr_scope, t2->array->array_expr,
+                            t2->array->array_expr_scope, decl_context))
+                {
+                    return 0;
+                }
+                
+                if (!unificate_two_types(t1->array->element_type, t2->array->element_type, st, unif_set,
+                        decl_context))
+                {
+                    return 0;
                 }
                 break;
             }
@@ -340,7 +366,148 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
     return 1;
 }
 
-static type_t* get_template_parameter_unification(unification_set_t* unif_set, int num, int nesting)
+
+char unificate_two_expressions(unification_set_t **unif_set, 
+        AST left_tree, scope_t* left_scope, 
+        AST right_tree, scope_t* right_scope, decl_context_t decl_context)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Trying to unify expression '%s' <- '%s'\n",
+                prettyprint_in_buffer(left_tree),
+                prettyprint_in_buffer(right_tree));
+    }
+    literal_value_t left_value = 
+        evaluate_constant_expression(left_tree, 
+                left_scope,
+                decl_context);
+
+    literal_value_t right_value = 
+        evaluate_constant_expression(right_tree, 
+                right_scope,
+                decl_context);
+
+    if (left_value.kind != LVK_DEPENDENT_EXPR)
+    {
+        // The scope is unused in this function
+        if (!equal_literal_values(left_value, right_value, left_scope))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "==> They are different\n");
+                fprintf(stderr, "=== Unification failed\n");
+            }
+            return 0;
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "==> They are the same!\n");
+            }
+            return 1;
+        }
+    }
+    else // Left value is dependent
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Left part of the unification '%s' is dependent\n", prettyprint_in_buffer(left_tree));
+        }
+        // Should be a simple identifier, otherwise it is not unificable
+        left_tree = advance_expression_nest(left_tree);
+        if (ASTType(left_tree) == AST_SYMBOL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Left part '%s' is a simple expression\n", prettyprint_in_buffer(left_tree));
+            }
+            scope_entry_list_t *result = query_id_expression(left_scope, left_tree,
+                    FULL_UNQUALIFIED_LOOKUP, decl_context);
+
+            ERROR_CONDITION((result == NULL), "Template argument of specialization '%s', not found",
+                    prettyprint_in_buffer(left_tree));
+
+            scope_entry_t* entry = result->entry;
+
+            ERROR_CONDITION((entry->kind != SK_TEMPLATE_PARAMETER), "Symbol '%s' is not a nontype template parameter",
+                    entry->symbol_name);
+
+            // This can be a non simple type (currently only a pointer or function type)
+            int template_parameter_num = base_type(entry->type_information)->type->template_parameter_num;
+            int template_parameter_nesting = base_type(entry->type_information)->type->template_parameter_nesting;
+
+            AST previous_unif = get_nontype_template_parameter_unification(
+                    *unif_set, 
+                    template_parameter_num, 
+                    template_parameter_nesting);
+
+            if (previous_unif == NULL)
+            {
+                unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
+                unif_item->expression = right_tree;
+                unif_item->parameter_name = ASTText(left_tree);
+
+                unif_item->parameter_num = template_parameter_num;
+                unif_item->parameter_nesting = template_parameter_nesting;
+
+                if (right_value.kind != LVK_INVALID
+                        && right_value.kind != LVK_DEPENDENT_EXPR)
+                {
+                    unif_item->expression = tree_from_literal_value(right_value);
+                }
+
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "==> Expression unified\n");
+                }
+
+                P_LIST_ADD((*unif_set)->unif_list, (*unif_set)->num_elems, unif_item);
+                return 1;
+            }
+            else
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "==> Expression already unified before\n");
+                }
+
+                literal_value_t previous_value = 
+                    evaluate_constant_expression(previous_unif, 
+                            right_scope,
+                            decl_context);
+
+                if (equal_literal_values(previous_value, right_value, right_scope))
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "==> Previous expression is the same\n");
+                    }
+                    return 1;
+                }
+                else
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "==> Previous expression is different.\n");
+                        fprintf(stderr, "==> Unification failed\n");
+                    }
+                    return 0;
+                }
+            }
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Left part '%s' is not a simple expression, cannot be unified\n", prettyprint_in_buffer(left_tree));
+            }
+            return 0;
+        }
+    }
+}
+
+static type_t* get_type_template_parameter_unification(unification_set_t* unif_set, int num, int nesting)
 {
     int i;
     for (i = 0; i < unif_set->num_elems; i++)
@@ -354,3 +521,19 @@ static type_t* get_template_parameter_unification(unification_set_t* unif_set, i
 
     return NULL;
 }
+
+static AST get_nontype_template_parameter_unification(unification_set_t* unif_set, int num, int nesting)
+{
+    int i;
+    for (i = 0; i < unif_set->num_elems; i++)
+    {
+        if (unif_set->unif_list[i]->parameter_num == num
+                && unif_set->unif_list[i]->parameter_nesting == nesting)
+        {
+            return unif_set->unif_list[i]->expression;
+        }
+    }
+
+    return NULL;
+}
+
