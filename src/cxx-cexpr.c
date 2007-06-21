@@ -151,7 +151,8 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st, decl_context_t 
         case AST_CONST_CAST : 
             {
                 AST type_id = ASTSon0(a);
-                AST type_spec = ASTSon0(type_id);
+                AST type_spec_seq = ASTSon0(type_id);
+                AST type_spec = ASTSon1(type_spec_seq);
                 return cast_expression(type_spec, ASTSon1(a), st, decl_context);
             }
         case AST_CONDITIONAL_EXPRESSION :
@@ -659,7 +660,7 @@ static literal_value_t cast_expression(AST type_spec, AST expression, scope_t* s
     memset(&simple_type_info, 0, sizeof(simple_type_info));
     simple_type_info.type = &_simple_type_info;
 
-    gather_type_spec_information(ASTSon1(type_spec), st, &simple_type_info, default_decl_context);
+    gather_type_spec_information(type_spec, st, &simple_type_info, default_decl_context);
 
     if (simple_type_info.type->kind != STK_BUILTIN_TYPE)
     {

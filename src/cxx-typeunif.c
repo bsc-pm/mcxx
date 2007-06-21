@@ -430,8 +430,18 @@ char unificate_two_expressions(unification_set_t **unif_set,
 
             scope_entry_t* entry = result->entry;
 
-            ERROR_CONDITION((entry->kind != SK_TEMPLATE_PARAMETER), "Symbol '%s' is not a nontype template parameter",
-                    entry->symbol_name);
+            // Do not try to unify
+            if (entry->kind != SK_TEMPLATE_PARAMETER)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Left part is not a nontype template parameter\n");
+                    fprintf(stderr, "==> Unification failed\n");
+                }
+                return 0;
+            }
+            // ERROR_CONDITION((entry->kind != SK_TEMPLATE_PARAMETER), "Symbol '%s' in '%s' is not a nontype template parameter",
+            //         entry->symbol_name, node_information(left_tree));
 
             // This can be a non simple type (currently only a pointer or function type)
             int template_parameter_num = base_type(entry->type_information)->type->template_parameter_num;

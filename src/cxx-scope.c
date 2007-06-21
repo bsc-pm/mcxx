@@ -949,6 +949,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         }
     }
 
+    /// ???
     if (!BITMAP_TEST(decl_context.decl_flags, DF_ALWAYS_CREATE_SPECIALIZATION))
     {
         seen_dependent_args = 0;
