@@ -347,12 +347,6 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
                 simple_type_info, new_decl_context);
     }
 
-    // Restore scopes
-    // The symbol should keep the instance scope for further scope searches
-    // instance_symbol->related_scope->template_scope = NULL;
-    matched_template->scope->template_scope = instantiate_scope->template_scope;
-    instantiate_scope->template_scope = NULL;
-
     instance_symbol->defined = 1;
 
     DEBUG_CODE()

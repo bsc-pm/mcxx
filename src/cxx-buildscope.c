@@ -1019,8 +1019,6 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
     scope_t* declarating_scope = st;
 
-    lookup_flags_t lookup_flags = LF_ALWAYS_CREATE_SPECIALIZATION;
-
     CXX_LANGUAGE()
     {
         decl_context_t new_decl_context = decl_context;
@@ -1028,13 +1026,13 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, scope_t* st,
 
         if (!BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
         {
-            result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-                    NOFULL_UNQUALIFIED_LOOKUP, lookup_flags, new_decl_context);
+            result_list = query_nested_name(st, global_scope, nested_name_specifier, class_symbol,
+                    NOFULL_UNQUALIFIED_LOOKUP, new_decl_context);
         }
         else
         {
-            result_list = query_nested_name_flags(st, global_scope, nested_name_specifier, class_symbol,
-                    FULL_UNQUALIFIED_LOOKUP, lookup_flags, new_decl_context);
+            result_list = query_nested_name(st, global_scope, nested_name_specifier, class_symbol,
+                    FULL_UNQUALIFIED_LOOKUP, new_decl_context);
         }
     }
 
@@ -1873,10 +1871,9 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 decl_context_t new_decl_context = decl_context;
                 new_decl_context.decl_flags |= DF_ALWAYS_CREATE_SPECIALIZATION;
 
-                class_entry_list = query_nested_name_flags(st, NULL, 
+                class_entry_list = query_nested_name(st, NULL, 
                         class_head_nested_name, class_head_identifier,
-                        NOFULL_UNQUALIFIED_LOOKUP, LF_ALWAYS_CREATE_SPECIALIZATION,
-                        new_decl_context);
+                        NOFULL_UNQUALIFIED_LOOKUP, new_decl_context);
             }
 
             C_LANGUAGE()
@@ -1920,6 +1917,10 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
                 }
 
                 // Update the template_scope
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Updating template scope\n");
+                }
                 class_entry->scope->template_scope = copy_scope(st->template_scope);
 
                 st = class_entry->scope;
@@ -3553,6 +3554,10 @@ static void build_scope_template_declaration(AST a, AST top_template_decl, scope
     }
 
     // Save template scope
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Saving template scope\n");
+    }
     template_scope->template_scope = st->template_scope;
     st->template_scope = template_scope;
 
@@ -3598,6 +3603,10 @@ static void build_scope_template_declaration(AST a, AST top_template_decl, scope
     ASTAttrSetValueType(templated_decl, LANG_TEMPLATE_HEADER, tl_type_t, tl_ast(top_template_decl));
 
     // Restore template scope
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Restoring template scope\n");
+    }
     st->template_scope = template_scope->template_scope;
     template_scope->template_scope = NULL;
 }
@@ -3621,6 +3630,10 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
     new_decl_context.num_template_parameters = 0;
     
     // Save template scope
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Saving template scope\n");
+    }
     template_scope->template_scope = st->template_scope;
     st->template_scope = template_scope;
     
@@ -3655,6 +3668,10 @@ static void build_scope_explicit_template_specialization(AST a, scope_t* st, dec
     }
 
     // Restore template scope
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Restoring template scope\n");
+    }
     st->template_scope = template_scope->template_scope;
     template_scope->template_scope = NULL;
 }
@@ -4553,6 +4570,10 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     scope_t* scope_seen_so_far = st;
     
     // Update the template scope
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Updating template scope\n");
+    }
     entry->scope->template_scope = copy_scope(st->template_scope);
 
     // Switch the scope
@@ -4815,6 +4836,10 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
     }
     
     // Save template scope
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Saving template scope\n");
+    }
     template_scope->template_scope = st->template_scope;
     st->template_scope = template_scope;
 
@@ -4848,6 +4873,10 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
     ASTAttrSetValueType(ASTSon0(a), LANG_IS_TEMPLATE_HEADER, tl_type_t, tl_bool(true));
 
     // Restore template scope
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Restoring template scope\n");
+    }
     st->template_scope = template_scope->template_scope;
     template_scope->template_scope = NULL;
 }
@@ -5384,7 +5413,7 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
                     new_template_argument->type->type->kind = STK_USER_DEFINED;
                     new_template_argument->type->type->user_defined_type = template_parameter->template_parameter_symbol;
 
-                    new_template_argument->scope = template_scope; 
+                    new_template_argument->scope = copy_scope(template_scope);
                     new_template_argument->argument_tree = template_parameter->parameter_tree;
 
                     P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
@@ -5397,7 +5426,7 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
 
                     new_template_argument->kind = TAK_TEMPLATE;
                     // new_template_argument->type = template_parameter->type_info;
-                    new_template_argument->scope = template_scope; 
+                    new_template_argument->scope = copy_scope(template_scope); 
                     new_template_argument->argument_tree = template_parameter->parameter_tree;
 
                     new_template_argument->type = calloc(1, sizeof(*new_template_argument->type));
@@ -5433,11 +5462,13 @@ static void build_scope_template_arguments_for_primary_template(scope_t* st,
                     AST expression_tree = ASTMake1(AST_EXPRESSION, symbol_tree, 0, NULL);
 
                     new_template_argument->argument_tree = expression_tree;
-                    new_template_argument->scope = copy_scope(template_parameter->default_argument_scope->contained_in);
+                    new_template_argument->scope = copy_scope(template_scope);
 
-                    scope_t* old_template_scope = new_template_argument->scope->template_scope;
-                    new_template_argument->scope->template_scope = template_parameter->default_argument_scope;
-                    new_template_argument->scope->template_scope->template_scope = old_template_scope;
+                    // new_template_argument->scope = copy_scope(template_parameter->default_argument_scope->contained_in);
+
+                    // scope_t* old_template_scope = new_template_argument->scope->template_scope;
+                    // new_template_argument->scope->template_scope = template_parameter->default_argument_scope;
+                    // new_template_argument->scope->template_scope->template_scope = old_template_scope;
 
                     P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
                     break;
@@ -5670,6 +5701,11 @@ void build_scope_template_arguments(AST class_head_id,
                         {
                             new_template_argument->kind = TAK_TYPE;
                         }
+                        else if (curr_template_parameter->kind == TPK_NONTYPE)
+                        {
+                            // Some ambiguity is sliping here
+                            break;
+                        }
                         else
                         {
                             internal_error("Unknown template parameter kind=%d\n", 
@@ -5724,7 +5760,7 @@ void build_scope_template_arguments(AST class_head_id,
                         AST expr_template_argument = ASTSon0(template_argument);
 
                         new_template_argument->argument_tree = expr_template_argument;
-                        new_template_argument->scope = template_scope;
+                        new_template_argument->scope = copy_scope(template_scope);
 
                         // Finally add to the template argument list
                         P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);

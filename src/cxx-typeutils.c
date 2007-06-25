@@ -2873,6 +2873,58 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
                     || is_dependent_expression(ASTSon1(expression), st, decl_context)
                     || is_dependent_expression(ASTSon2(expression), st, decl_context);
             }
+        case AST_TEMPLATE_ID :
+            {
+                // You thought that  a template_id cannot designate an expression ?
+                // Wrong, template functions can be explicitly called with template_id
+
+                AST template_argument_list = ASTSon1(expression);
+
+                if (template_argument_list != NULL)
+                {
+                    AST list, iter;
+                    list = template_argument_list;
+
+                    for_each_element(list, iter)
+                    {
+                        AST template_argument = ASTSon1(iter);
+
+                        switch (ASTType(template_argument))
+                        {
+                            case AST_TEMPLATE_EXPRESSION_ARGUMENT : 
+                                {
+                                    AST template_argument_expression = ASTSon1(template_argument);
+                                    if (is_dependent_expression(template_argument_expression, st, decl_context))
+                                        return 1;
+                                    break;
+                                }
+                            case AST_TEMPLATE_TYPE_ARGUMENT :
+                                {
+                                    AST type_id = ASTSon0(template_argument);
+
+                                    AST type_specifier = ASTSon0(type_id);
+
+                                    gather_decl_spec_t gather_info;
+                                    memset(&gather_info, 0, sizeof(gather_info));
+
+                                    type_t* simple_type_info = NULL;
+                                    // Fix this
+                                    build_scope_decl_specifier_seq(type_specifier, st, &gather_info, &simple_type_info, 
+                                            decl_context);
+                                    if (is_dependent_type(simple_type_info, decl_context))
+                                        return 1;
+
+                                    break;
+                                }
+                            default:
+                                break;
+                        }
+                    }
+                }
+                
+                return 0;
+                break;
+            }
         default :
             {
                 internal_error("Unexpected node '%s' %s", ast_print_node_type(ASTType(expression)), 

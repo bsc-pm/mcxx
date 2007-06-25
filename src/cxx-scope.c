@@ -149,11 +149,7 @@ scope_t* new_class_scope(scope_t* enclosing_scope, char* qualification_name)
 scope_t* new_template_scope(scope_t* enclosing_scope)
 {
     scope_t* result = new_scope();
-
     result->kind = TEMPLATE_SCOPE;
-    // result->contained_in = enclosing_scope;
-    // result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
-
     return result;
 }
 
@@ -436,27 +432,8 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                                 matched_template = solve_template(candidates,
                                         current_template_arguments, entry->scope, 0, decl_context);
 
-                                // while (matched_template != NULL
-                                //      && matched_template->entry->type_information->type->template_class_body == NULL)
-                                // {
-                                //  DEBUG_CODE()
-                                //  {
-                                //      fprintf(stderr, "This specialization has empty body\n", 0);
-                                //  }
-                                //  candidates = filter_entry_from_list(candidates, matched_template->entry);
-                                //  matched_template = solve_template(candidates,
-                                //          current_template_arguments, entry->scope, 0, decl_context);
-                                // }
-
-                                // if (matched_template == NULL)
-                                // {
-                                //  internal_error("Sux\n", 0);
-                                // }
-                                // else
-                                {
-                                    instantiate_template_in_symbol(entry, matched_template, 
-                                            current_template_arguments, entry->scope, decl_context);
-                                }
+                                instantiate_template_in_symbol(entry, matched_template, 
+                                        current_template_arguments, entry->scope, decl_context);
                             }
                         }
                         else
@@ -730,6 +707,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         decl_context_t decl_context)
 {
     AST symbol = ASTSon0(template_id);
+    
+    // First search the primary template and all its specializations
     DEBUG_CODE()
     {
         fprintf(stderr, "Trying to resolve template '%s'\n", ASTText(symbol));
@@ -746,6 +725,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(symbol));
     }
 
+    // Filter things that may be used as template-id
     enum cxx_symbol_kind filter_templates[5] = {
         SK_TEMPLATE_PRIMARY_CLASS, 
         SK_TEMPLATE_SPECIALIZED_CLASS,
@@ -780,6 +760,7 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         return template_functions;
     }
 
+    // A template template parameter cannot be instantiated
     scope_entry_list_t* template_template_param = filter_symbol_kind(entry_list, SK_TEMPLATE_TEMPLATE_PARAMETER);
     if (template_template_param != NULL)
     {
@@ -812,10 +793,14 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
     }
 
     // Now readjust the scope to really find the templates and not just the
-    // injected class name
+    // injected class name.
     scope_t* previous_template_scope = lookup_scope->template_scope;
     lookup_scope = entry_list->entry->scope;
     lookup_scope->template_scope = previous_template_scope;
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Lookup scope adjusted\n");
+    }
 
     if (unqualified_lookup == FULL_UNQUALIFIED_LOOKUP)
     {
@@ -866,6 +851,8 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         will_not_instantiate = 1;
     }
 
+    // Now we check all the template arguments to see if any of them is
+    // dependent
     int i;
     char seen_dependent_args = 0;
     for (i = 0; (i < current_template_arguments->num_arguments)
@@ -919,7 +906,6 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
 
     // If this is considered in the context of an expression and dependent args
     // have been seen, create a dependent entity
-
     if (BITMAP_TEST(lookup_flags, LF_EXPRESSION) 
             && seen_dependent_args)
     {
@@ -942,14 +928,15 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
         will_not_instantiate |= seen_dependent_args;
         DEBUG_CODE()
         {
-            fprintf(stderr, "The template-id '%s' has dependent arguments and will not be instantiated here (df_always_create=%d || lf_always_create=%d)\n",
+            fprintf(stderr, "The template-id '%s' has dependent arguments and will not be instantiated here (df_always_create=%d)\n",
                     prettyprint_in_buffer(template_id),
-                    BITMAP_TEST(decl_context.decl_flags, DF_ALWAYS_CREATE_SPECIALIZATION), // always zero
-                    BITMAP_TEST(lookup_flags, LF_ALWAYS_CREATE_SPECIALIZATION));
+                    BITMAP_TEST(decl_context.decl_flags, DF_ALWAYS_CREATE_SPECIALIZATION) // always zero
+                    );
         }
     }
 
-    /// ???
+    // If this flag is enabled it means we always want the specialization be created.
+    // (note: this is unrelated to instatiation)
     if (!BITMAP_TEST(decl_context.decl_flags, DF_ALWAYS_CREATE_SPECIALIZATION))
     {
         seen_dependent_args = 0;
@@ -1076,7 +1063,6 @@ static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* 
                 decl_context);
 
         if (!seen_dependent_args
-                 || BITMAP_TEST(lookup_flags, LF_ALWAYS_CREATE_SPECIALIZATION)
                  || BITMAP_TEST(decl_context.decl_flags, DF_ALWAYS_CREATE_SPECIALIZATION))
         {
             DEBUG_CODE()
@@ -1976,8 +1962,16 @@ scope_t* enclosing_namespace_scope(scope_t* st)
 
 scope_t* copy_scope(scope_t* st)
 {
+    static int level = 0;
+
+    if (++level > 200)
+        internal_error("Too much recursion", 0);
+
     if (st == NULL)
+    {
+        --level;
         return NULL;
+    }
 
     scope_t* result = calloc(1, sizeof(*result));
 
@@ -1990,6 +1984,7 @@ scope_t* copy_scope(scope_t* st)
     //
     // result->contained_in = copy_scope(st->contained_in);
 
+    --level;
     return result;
 }
 
@@ -1997,10 +1992,10 @@ scope_t* copy_scope(scope_t* st)
 // in a nest of namespaces
 static char* get_fully_qualified_symbol_name_simple(scope_t* st, char* current_qualif_name)
 {
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "Getting qualification via scope current='%s'\n", current_qualif_name);
-    }
+    // DEBUG_CODE()
+    // {
+    //     fprintf(stderr, "Getting qualification via scope current='%s'\n", current_qualif_name);
+    // }
     char* result = current_qualif_name;
 
     scope_t* current_scope = st;
@@ -2016,10 +2011,10 @@ static char* get_fully_qualified_symbol_name_simple(scope_t* st, char* current_q
         current_scope = current_scope->contained_in;
     }
 
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "Fully qualified name simple '%s'\n", result);
-    }
+    // DEBUG_CODE()
+    // {
+    //     fprintf(stderr, "Fully qualified name simple '%s'\n", result);
+    // }
 
     return result;
 }
@@ -2142,10 +2137,10 @@ char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st)
 // Get the fully qualified symbol name in the scope of the ocurrence
 char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* is_dependent, int* max_qualif_level)
 {
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "Getting fully qualified symbol name for '%s'\n", entry->symbol_name);
-    }
+    // DEBUG_CODE()
+    // {
+    //     fprintf(stderr, "Getting fully qualified symbol name for '%s'\n", entry->symbol_name);
+    // }
 
     // If this is the injected symbol, ignore it and get the real entry
     if (entry->injected_class_name)
@@ -2189,10 +2184,10 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* i
 
     if (entry->is_member)
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "The symbol is a member, getting the qualified symbol name of the enclosing class\n");
-        }
+        // DEBUG_CODE()
+        // {
+        //     fprintf(stderr, "The symbol is a member, getting the qualified symbol name of the enclosing class\n");
+        // }
         // We need the qualification of the class
         scope_entry_t* class_symbol = get_class_symbol(entry->class_type);
 
@@ -2202,10 +2197,10 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* i
 
             char* class_qualification = get_fully_qualified_symbol_name(class_symbol, st, is_dependent, max_qualif_level);
 
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "The qualified name of the enclosing class of '%s' is '%s'\n", result, class_qualification);
-            }
+            // DEBUG_CODE()
+            // {
+            //     fprintf(stderr, "The qualified name of the enclosing class of '%s' is '%s'\n", result, class_qualification);
+            // }
 
             class_qualification = strappend(class_qualification, "::");
 
@@ -2218,10 +2213,10 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* i
         result = get_fully_qualified_symbol_name_simple(entry->scope, result);
     }
 
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "Fully qualified name is '%s'\n", result);
-    }
+    // DEBUG_CODE()
+    // {
+    //     fprintf(stderr, "Fully qualified name is '%s'\n", result);
+    // }
 
     return result;
 }

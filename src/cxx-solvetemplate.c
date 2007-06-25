@@ -32,9 +32,34 @@
 static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, 
         scope_t* st, char give_exact_match, decl_context_t decl_context);
 
+static
+char *template_nature_name[] =
+{
+    [TPN_UNKNOWN] = "TPN_UNKNOWN",
+    [TPN_COMPLETE_DEPENDENT] =  "TPN_COMPLETE_DEPENDENT",
+    [TPN_INCOMPLETE_INDEPENDENT] =  "TPN_INCOMPLETE_INDEPENDENT",
+    [TPN_INCOMPLETE_DEPENDENT] =  "TPN_INCOMPLETE_DEPENDENT",
+    [TPN_COMPLETE_INDEPENDENT] =  "TPN_COMPLETE_INDEPENDENT",
+};
+
 matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, template_argument_list_t* arguments, 
         scope_t* st, char give_exact_match, decl_context_t decl_context)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Solving template.\n - Candidate list:\n");
+        scope_entry_list_t* it = candidate_templates;
+        while (it != NULL)
+        {
+            scope_entry_t* entry = it->entry;
+            fprintf(stderr, "   * Symbol : '%s' Line: '%d' Status : %s\n", 
+                    entry->symbol_name, 
+                    entry->line,
+                    template_nature_name[entry->type_information->type->template_nature]);
+            it = it->next;
+        }
+        fprintf(stderr, " - End of candidate list\n");
+    }
     matching_pair_t* result = NULL;
 
     // In the worst of the cases the chosen template will be the primary one

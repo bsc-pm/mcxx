@@ -31,6 +31,11 @@
 
 static type_t* get_type_template_parameter_unification(unification_set_t* unif_set, int num, int nesting);
 static AST get_nontype_template_parameter_unification(unification_set_t* unif_set, int num, int nesting);
+static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope, AST
+        right_tree, scope_t* right_scope, unification_set_t** unif_set,
+        decl_context_t decl_context);
+static char equivalent_expression_trees(AST left_tree, scope_t* left_scope, AST right_tree, 
+        scope_t* right_scope, decl_context_t decl_context);
 
 // Will try to find a substitution to unificate t1 to t2
 //
@@ -47,7 +52,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Trying to unificate '%s' <- '%s'\n",
+        fprintf(stderr, "Trying to unificate type '%s' <- '%s'\n",
                 print_declarator(t1, st),
                 print_declarator(t2, st));
     }
@@ -371,150 +376,9 @@ char unificate_two_expressions(unification_set_t **unif_set,
         AST left_tree, scope_t* left_scope, 
         AST right_tree, scope_t* right_scope, decl_context_t decl_context)
 {
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "Trying to unify expression '%s' <- '%s'\n",
-                prettyprint_in_buffer(left_tree),
-                prettyprint_in_buffer(right_tree));
-    }
-    literal_value_t left_value = 
-        evaluate_constant_expression(left_tree, 
-                left_scope,
-                decl_context);
 
-    literal_value_t right_value = 
-        evaluate_constant_expression(right_tree, 
-                right_scope,
-                decl_context);
-
-    if (left_value.kind != LVK_DEPENDENT_EXPR)
-    {
-        // The scope is unused in this function
-        if (!equal_literal_values(left_value, right_value, left_scope))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "==> They are different\n");
-                fprintf(stderr, "=== Unification failed\n");
-            }
-            return 0;
-        }
-        else
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "==> They are the same!\n");
-            }
-            return 1;
-        }
-    }
-    else // Left value is dependent
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "Left part of the unification '%s' is dependent\n", prettyprint_in_buffer(left_tree));
-        }
-        // Should be a simple identifier, otherwise it is not unificable
-        left_tree = advance_expression_nest(left_tree);
-        if (ASTType(left_tree) == AST_SYMBOL)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "Left part '%s' is a simple expression\n", prettyprint_in_buffer(left_tree));
-            }
-            scope_entry_list_t *result = query_id_expression(left_scope, left_tree,
-                    FULL_UNQUALIFIED_LOOKUP, decl_context);
-
-            ERROR_CONDITION((result == NULL), "Template argument of specialization '%s', not found",
-                    prettyprint_in_buffer(left_tree));
-
-            scope_entry_t* entry = result->entry;
-
-            // Do not try to unify
-            if (entry->kind != SK_TEMPLATE_PARAMETER)
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Left part is not a nontype template parameter\n");
-                    fprintf(stderr, "==> Unification failed\n");
-                }
-                return 0;
-            }
-            // ERROR_CONDITION((entry->kind != SK_TEMPLATE_PARAMETER), "Symbol '%s' in '%s' is not a nontype template parameter",
-            //         entry->symbol_name, node_information(left_tree));
-
-            // This can be a non simple type (currently only a pointer or function type)
-            int template_parameter_num = base_type(entry->type_information)->type->template_parameter_num;
-            int template_parameter_nesting = base_type(entry->type_information)->type->template_parameter_nesting;
-
-            AST previous_unif = get_nontype_template_parameter_unification(
-                    *unif_set, 
-                    template_parameter_num, 
-                    template_parameter_nesting);
-
-            if (previous_unif == NULL)
-            {
-                unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
-                unif_item->expression = right_tree;
-                unif_item->parameter_name = ASTText(left_tree);
-
-                unif_item->parameter_num = template_parameter_num;
-                unif_item->parameter_nesting = template_parameter_nesting;
-
-                if (right_value.kind != LVK_INVALID
-                        && right_value.kind != LVK_DEPENDENT_EXPR)
-                {
-                    unif_item->expression = tree_from_literal_value(right_value);
-                }
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "==> Expression unified\n");
-                }
-
-                P_LIST_ADD((*unif_set)->unif_list, (*unif_set)->num_elems, unif_item);
-                return 1;
-            }
-            else
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "==> Expression already unified before\n");
-                }
-
-                literal_value_t previous_value = 
-                    evaluate_constant_expression(previous_unif, 
-                            right_scope,
-                            decl_context);
-
-                if (equal_literal_values(previous_value, right_value, right_scope))
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "==> Previous expression is the same\n");
-                    }
-                    return 1;
-                }
-                else
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "==> Previous expression is different.\n");
-                        fprintf(stderr, "==> Unification failed\n");
-                    }
-                    return 0;
-                }
-            }
-        }
-        else
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "Left part '%s' is not a simple expression, cannot be unified\n", prettyprint_in_buffer(left_tree));
-            }
-            return 0;
-        }
-    }
+    return equivalent_dependent_expressions(left_tree, left_scope, right_tree,
+            right_scope, unif_set, decl_context);
 }
 
 static type_t* get_type_template_parameter_unification(unification_set_t* unif_set, int num, int nesting)
@@ -547,3 +411,395 @@ static AST get_nontype_template_parameter_unification(unification_set_t* unif_se
     return NULL;
 }
 
+static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope, AST
+        right_tree, scope_t* right_scope, unification_set_t** unif_set,
+        decl_context_t decl_context)
+{
+    left_tree = advance_expression_nest(left_tree);
+    right_tree = advance_expression_nest(right_tree);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Trying to unify expression '%s' <- '%s'\n",
+                prettyprint_in_buffer(left_tree),
+                prettyprint_in_buffer(right_tree));
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Trying to match by means of plain constant evaluation\n");
+    }
+    
+    if (equivalent_expression_trees(left_tree, left_scope, right_tree, right_scope, decl_context))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Plain evaluation succeeded. They have the same value\n");
+        }
+        return 1;
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Plain evaluation failed. Trying structural equivalence\n");
+        }
+    }
+
+    char equal_trees = (ASTType(left_tree) == ASTType(right_tree));
+    if (!equal_trees && 
+            (ASTType(left_tree) != AST_SYMBOL))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Expression '%s' is different to '%s' and cannot be unified\n", 
+                    prettyprint_in_buffer(left_tree), prettyprint_in_buffer(right_tree));
+        }
+        return 0;
+    }
+
+    switch (ASTType(left_tree))
+    {
+        case AST_SYMBOL :
+            {
+                // We can reach here with ASTType(left_tree) !=
+                // ASTType(right_tree) but ASTType(left_tree) is always an
+                // AST_SYMBOL. So, do not assume they are the same!
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Left part '%s' is a simple expression\n", prettyprint_in_buffer(left_tree));
+                }
+                scope_entry_list_t *result = query_id_expression(left_scope, left_tree,
+                        FULL_UNQUALIFIED_LOOKUP, decl_context);
+
+                ERROR_CONDITION((result == NULL), "Template argument of specialization '%s', not found",
+                        prettyprint_in_buffer(left_tree));
+
+                scope_entry_t* entry = result->entry;
+                
+                if (entry->kind != SK_TEMPLATE_PARAMETER)
+                {
+                    // Do not try to unify if the left part is not a nontype template parameter
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Left part is not a nontype template parameter\n");
+                    }
+                    if (!equal_trees)
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "Trees are not equal, not unified\n");
+                        }
+                        return 0;
+                    }
+                    else
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "Trees are equal, trying plain comparison by constant evaluation\n");
+                        }
+
+                        return equivalent_expression_trees(left_tree, left_scope, right_tree, right_scope, decl_context);
+                    }
+                }
+                else
+                {
+                    // Left part is a nontype template parameter
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Left part is a nontype template parameter\n");
+                    }
+                    
+                    // This can be a non simple type (currently only a pointer or function type)
+                    int template_parameter_num = base_type(entry->type_information)->type->template_parameter_num;
+                    int template_parameter_nesting = base_type(entry->type_information)->type->template_parameter_nesting;
+
+                    AST previous_unif = get_nontype_template_parameter_unification(
+                            *unif_set, 
+                            template_parameter_num, 
+                            template_parameter_nesting);
+                    if (previous_unif == NULL)
+                    {
+                        unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
+                        unif_item->expression = right_tree;
+                        unif_item->parameter_name = ASTText(left_tree);
+
+                        unif_item->parameter_num = template_parameter_num;
+                        unif_item->parameter_nesting = template_parameter_nesting;
+
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "==> Expression unified\n");
+                        }
+
+                        P_LIST_ADD((*unif_set)->unif_list, (*unif_set)->num_elems, unif_item);
+                        return 1;
+                    }
+                    else
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "==> Expression already unified before\n");
+                        }
+
+                        // If both are AST_SYMBOL let's rely on plain comparison
+                        // otherwise we would start an infinite recursion
+                        char equivalent = 0;
+                        if ((ASTType(right_tree) == ASTType(previous_unif))
+                                && (ASTType(right_tree) == AST_SYMBOL))
+                        {
+                            scope_entry_list_t *right_entry_list = query_id_expression(right_scope, right_tree,
+                                    FULL_UNQUALIFIED_LOOKUP, decl_context);
+
+                            ERROR_CONDITION(right_entry_list == NULL, "Right symbol of unification not found", 0);
+
+                            scope_entry_list_t *previous_unif_entry_list = query_id_expression(right_scope, previous_unif,
+                                    FULL_UNQUALIFIED_LOOKUP, decl_context);
+
+                            ERROR_CONDITION(previous_unif_entry_list == NULL, "Previous unified symbol not found", 0);
+
+                            scope_entry_t* right_entry = right_entry_list->entry;
+                            scope_entry_t* previous_entry = previous_unif_entry_list->entry;
+
+                            if (right_entry->kind != SK_TEMPLATE_PARAMETER
+                                    || previous_entry->kind != SK_TEMPLATE_PARAMETER)
+                            {
+                                DEBUG_CODE()
+                                {
+                                    fprintf(stderr, "Checking previous unification using plain constant evaluation\n");
+                                }
+                                return equivalent_expression_trees(right_tree, right_scope, previous_unif, right_scope, decl_context);
+                            }
+                            else
+                            {
+                                int right_template_parameter_num = base_type(right_entry->type_information)->type->template_parameter_num;
+                                int right_template_parameter_nesting = base_type(right_entry->type_information)->type->template_parameter_nesting;
+
+                                int previous_template_parameter_num = base_type(previous_entry->type_information)->type->template_parameter_num;
+                                int previous_template_parameter_nesting = base_type(previous_entry->type_information)->type->template_parameter_nesting;
+
+                                if ((right_template_parameter_num == previous_template_parameter_num)
+                                        && (right_template_parameter_nesting == previous_template_parameter_nesting))
+                                {
+                                    DEBUG_CODE()
+                                    {
+                                        fprintf(stderr, "They are the same positional nontype template parameter\n");
+                                    }
+                                    return 1;
+                                }
+                            }
+                        }
+                        else
+                        {
+                            // Otherwise try a structural match
+                            equivalent = equivalent_dependent_expressions(previous_unif,
+                                    right_scope, right_tree, right_scope, unif_set, decl_context);
+                        }
+                        if (equivalent)
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "==> Previous expression is the same\n");
+                            }
+                            return 1;
+                        }
+                        else
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "==> They are different\n");
+                                fprintf(stderr, "=== Unification failed\n");
+                            }
+                            return 0;
+                        }
+                    }
+                }
+
+                break;
+            }
+        case AST_QUALIFIED_ID :
+            {
+                // There are several restrictions on what can happen here.
+                // Redundant code
+                //
+                // If this had to return 1, it should have been returned before
+                // so most of the times this will fail
+                return equivalent_expression_trees(left_tree, left_scope, right_tree, right_scope, decl_context);
+                break;
+            }
+        case AST_LOGICAL_OR :
+        case AST_LOGICAL_AND :
+        case AST_BITWISE_OR :
+        case AST_BITWISE_XOR :
+        case AST_BITWISE_AND :
+        case AST_DIFFERENT_OP :
+        case AST_EQUAL_OP :
+        case AST_LOWER_THAN :
+        case AST_GREATER_THAN :
+        case AST_GREATER_OR_EQUAL_THAN :
+        case AST_LOWER_OR_EQUAL_THAN :
+        case AST_SHL_OP :
+        case AST_SHR_OP :
+        case AST_ADD_OP :
+        case AST_MINUS_OP :
+        case AST_MULT_OP :
+        case AST_MOD_OP :
+        case AST_DIV_OP :
+            {
+                AST left_tree_0 = ASTSon0(left_tree);
+                AST left_tree_1 = ASTSon1(left_tree);
+
+                AST right_tree_0 = ASTSon0(right_tree);
+                AST right_tree_1 = ASTSon1(right_tree);
+
+                return equivalent_dependent_expressions(left_tree_0,
+                        left_scope, right_tree_0, right_scope, unif_set,
+                        decl_context) 
+                    && equivalent_dependent_expressions(left_tree_1, 
+                            left_scope, right_tree_1, right_scope, unif_set, 
+                            decl_context);
+                break;
+            }
+        case AST_CAST_EXPRESSION :
+            // They share a similar tree layout
+        case AST_STATIC_CAST : 
+        case AST_DYNAMIC_CAST : 
+        case AST_REINTERPRET_CAST : 
+        case AST_CONST_CAST : 
+            {
+                // Let's assume they cast onto the same thing
+                // otherwise we should check it too ...
+                //
+                // AST type_id = ASTSon0(a);
+                // AST type_spec_seq = ASTSon0(type_id);
+                // AST type_spec = ASTSon1(type_spec_seq);
+                WARNING_MESSAGE("Currently casting not considered when unificating expressions '%s' and '%s'\n",
+                        prettyprint_in_buffer(left_tree),
+                        prettyprint_in_buffer(right_tree));
+
+                AST left_cast = ASTSon1(left_tree);
+                AST right_cast = ASTSon1(right_tree);
+
+                return equivalent_dependent_expressions(left_cast, left_scope,
+                        right_cast, right_scope, unif_set, decl_context);
+                break;
+            }
+        case AST_CONDITIONAL_EXPRESSION :
+            {
+                AST left_condition = ASTSon0(left_tree);
+                AST left_true = ASTSon1(left_tree);
+                AST left_false = ASTSon2(left_tree);
+
+                AST right_condition = ASTSon0(right_tree);
+                AST right_true = ASTSon1(right_tree);
+                AST right_false = ASTSon2(right_tree);
+
+                return equivalent_dependent_expressions(left_condition, left_scope,
+                        right_condition, right_scope, unif_set, decl_context)
+                    && equivalent_dependent_expressions(left_true, left_scope,
+                            right_true, right_scope, unif_set, decl_context)
+                    && equivalent_dependent_expressions(left_false, left_scope,
+                            right_false, right_scope, unif_set, decl_context);
+                break;
+            }
+        case AST_DECIMAL_LITERAL :
+        case AST_OCTAL_LITERAL :
+        case AST_HEXADECIMAL_LITERAL :
+        case AST_CHARACTER_LITERAL :
+        case AST_BOOLEAN_LITERAL :
+            // Check literal values
+            return equivalent_expression_trees(left_tree, left_scope, right_tree, right_scope, decl_context);
+        case AST_PLUS_OP :
+        case AST_NOT_OP :
+        case AST_NEG_OP :
+        case AST_COMPLEMENT_OP :
+            {
+                AST left_operand = ASTSon0(left_tree);
+                AST right_operand = ASTSon0(right_tree);
+
+                return equivalent_dependent_expressions(left_operand, left_scope,
+                        right_operand, right_scope, unif_set, decl_context);
+            }
+        case AST_SIZEOF :
+            {
+                // If they are expressions they are still workable
+                AST left_sizeof = ASTSon0(left_tree);
+                AST right_sizeof = ASTSon0(right_tree);
+
+                return equivalent_dependent_expressions(left_sizeof, left_scope,
+                        right_sizeof, right_scope, unif_set, decl_context);
+            }
+        case AST_SIZEOF_TYPEID :
+            {
+                // We should unificate the types
+                internal_error("Unification of sizeof(type-id) not yet implemented\n", 0);
+                return 0;
+            }
+        case AST_EXPLICIT_TYPE_CONVERSION :
+            {
+                // Take the last one
+                AST left_expression_list = ASTSon1(left_tree);
+                ERROR_CONDITION((ASTSon0(left_expression_list) != NULL), 
+                        "In '%s' cannot cast left_tree constant expression formed with an expression list longer than 1", 
+                        node_information(left_tree));
+                AST left_first_expression = ASTSon1(left_expression_list);
+
+                AST right_expression_list = ASTSon1(right_tree);
+                ERROR_CONDITION((ASTSon0(right_expression_list) != NULL), 
+                        "In '%s' cannot cast right_tree constant expression formed with an expression list longer than 1", 
+                        node_information(right_tree));
+                AST right_first_expression = ASTSon1(right_expression_list);
+
+                return equivalent_dependent_expressions(left_first_expression,
+                        left_scope, right_first_expression, right_scope,
+                        unif_set, decl_context);
+            }
+        case AST_REFERENCE :
+            {
+                AST left_reference = advance_expression_nest(ASTSon0(left_tree));
+                AST right_reference = advance_expression_nest(ASTSon0(right_tree));
+
+                if (ASTType(left_reference) != AST_SYMBOL
+                        && ASTType(left_reference) != AST_QUALIFIED_ID
+                        && ASTType(right_reference) != AST_SYMBOL
+                        && ASTType(right_reference) != AST_QUALIFIED_ID)
+                {
+                    return 0;
+                }
+                else
+                {
+                    // Get the symbol and use its pointer in the symbol table as a value
+                    scope_entry_list_t* left_result_list = query_id_expression(left_scope,
+                            left_reference, 
+                            FULL_UNQUALIFIED_LOOKUP,
+                            decl_context);
+                    scope_entry_list_t* right_result_list = query_id_expression(right_scope,
+                            right_reference, 
+                            FULL_UNQUALIFIED_LOOKUP,
+                            decl_context);
+
+                    if (left_result_list == NULL
+                            || right_result_list == NULL)
+                    {
+                        return 0;
+                    }
+
+                    return (left_result_list->entry == right_result_list->entry);
+                }
+            }
+        default:
+            internal_error("Unknown node type '%s' in %s\n", ast_print_node_type(ASTType(right_tree)), 
+                    node_information(right_tree));
+            return 0;
+            break;
+    }
+}
+
+static char equivalent_expression_trees(AST left_tree, scope_t* left_scope, AST right_tree, 
+        scope_t* right_scope, decl_context_t decl_context)
+{
+    literal_value_t left_value = evaluate_constant_expression(left_tree, left_scope, decl_context);
+    literal_value_t right_value = evaluate_constant_expression(right_tree, right_scope, decl_context);
+
+    return equal_literal_values(left_value, right_value, right_scope);
+}

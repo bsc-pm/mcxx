@@ -907,12 +907,16 @@ AST tree_from_literal_value(literal_value_t e)
 
 char equal_literal_values(literal_value_t v1, literal_value_t v2, scope_t* st)
 {
-    // Promote
-    promote_values(v1, v2, &v1, &v2);
+    if (v1.kind == LVK_INVALID
+            || v2.kind == LVK_INVALID)
+        return 0;
 
     if (v1.kind == LVK_DEPENDENT_EXPR
             || v2.kind == LVK_DEPENDENT_EXPR)
         return 0;
+
+    // Promote
+    promote_values(v1, v2, &v1, &v2);
 
     literal_value_t result = equal_op(v1, v2);
 
