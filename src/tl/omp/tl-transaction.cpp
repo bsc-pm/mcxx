@@ -759,6 +759,7 @@ namespace TL
                             "__tx_retval") << ";"
                     << "     __tx_retval = " << returned_expression.prettyprint() << ";"
                     << cancel_source
+					<<       "invalidateFunctionLocalData(__t);"
                     << "     return __tx_retval;"
                     ;
             }
@@ -775,9 +776,13 @@ namespace TL
                     << "  if (0 == committx(__t))"
                     << "  {"
                     << "       _tx_commit_end = rdtscf();"
+					<< "       pthread_mutex_lock(&_l_commit_total); "
                     << "       _tx_commit_total += (_tx_commit_end - _tx_commit_start);"
+					<< "       pthread_mutex_unlock(&_l_commit_total);"
                     << "       _tx_end = rdtscf();"
+					<< "       pthread_mutex_lock(&_l_total_time);"
                     << "       _tx_total_time += (_tx_end - _tx_start);"
+					<< "       pthread_mutex_unlock(&_l_total_time);"
                     << "       destroytx(__t);"
                     // Assumption: transaction is completely inside the function.
                     // FIXME: Think about it
@@ -785,7 +790,9 @@ namespace TL
                     << "  }"
                     << "  else" 
                     << "  {"
+					<< "     pthread_mutex_lock(&_l_abort_count);"
                     << "     _tx_abort_count++;"
+					<< "     pthread_mutex_unlock(&_l_abort_count);"
                     << "     aborttx(__t);"
                     // TODO : This will break when the return is contained in another loop (while, for, do..while)
                     << "     continue;"
@@ -854,6 +861,8 @@ namespace TL
                             ;
                     }
                 }
+				return_from_function << "invalidateFunctionLocalData(__t);";
+				
             }
         }
         else
@@ -865,7 +874,9 @@ namespace TL
                 << "   uint64_t _tx_start, _tx_end;"
                 << "   uint64_t _tx_commit_start, _tx_commit_end;"
                 << "   _tx_start = rdtscf();"
+				<< "   pthread_mutex_lock(&_l_total_count);"
                 << "   _tx_total_count++;"
+				<< "   pthread_mutex_unlock(&_l_total_count);"
                 << "   while(1)"
                 << "   {"
                 << "     starttx(__t);"
@@ -879,23 +890,31 @@ namespace TL
                 << "       if (0 == committx(__t)) "
                 << "       {"
                 << "         _tx_commit_end = rdtscf();"
+				<< "         pthread_mutex_lock(&_l_commit_total);"
                 << "         _tx_commit_total += (_tx_commit_end - _tx_commit_start);"
+				<< "         pthread_mutex_unlock(&_l_commit_total);"
                 << "         break;"
                 << "       }"
                 << "       else"
                 << "       {"
+				<< "          pthread_mutex_lock(&_l_abort_count);"
                 << "          _tx_abort_count++;"
+				<< "          pthread_mutex_unlock(&_l_abort_count);"
                 << "          aborttx(__t);"
                 << "       }"
                 << "     }"
                 << "     else"
                 << "     {"
+				<< "        pthread_mutex_lock(&_l_abort_count);"
                 << "        _tx_abort_count++;"
+				<< "        pthread_mutex_unlock(&_l_abort_count);"
                 << "        aborttx(__t);"
                 << "     }"
                 << "   }"
                 << "   _tx_end = rdtscf();"
+				<< "   pthread_mutex_lock(&_l_total_time);"
                 << "   _tx_total_time += (_tx_end - _tx_start);"
+				<< "   pthread_mutex_unlock(&_l_total_time);"
                 << "   destroytx(__t);"
                 << "}"
                 ;
