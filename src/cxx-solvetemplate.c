@@ -96,14 +96,14 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
 
         template_argument_list_t* specialized = entry->type_information->type->template_arguments;
 
-        if (!give_exact_match
-                && (entry->type_information->type->template_nature == TPN_INCOMPLETE_INDEPENDENT
-                    || entry->type_information->type->template_nature == TPN_INCOMPLETE_DEPENDENT))
-        {
-            // If the user did not ask for an exact match, incomplete types are not eligible.
-            iter = iter->next;
-            continue;
-        }
+        // if (!give_exact_match
+        //         && (entry->type_information->type->template_nature == TPN_INCOMPLETE_INDEPENDENT
+        //             || entry->type_information->type->template_nature == TPN_INCOMPLETE_DEPENDENT))
+        // {
+        //     // If the user did not ask for an exact match, incomplete types are not eligible.
+        //     iter = iter->next;
+        //     continue;
+        // }
 
         // It is supposed that this will hold in correct code
         if (arguments->num_arguments != specialized->num_arguments)
@@ -158,7 +158,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "More than one template can be selected, determining more specialized (exact=%d)\n", give_exact_match);
+            fprintf(stderr, "More than one template can be selected, determining more specialized (give_exact_match=%d)\n", give_exact_match);
         }
         result = determine_more_specialized(num_matching_set, matching_set, st,
                 give_exact_match, decl_context);

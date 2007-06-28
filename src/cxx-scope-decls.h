@@ -352,6 +352,9 @@ enum template_nature_tag
     TPN_INCOMPLETE_INDEPENDENT
 } template_nature_t;
 
+// Used for instantiation
+typedef struct matching_pair_tag matching_pair_t;
+
 // Direct type covers types that are not pointers to something, neither
 // functions to something neither arrays to something.  So every basic type is
 // represented here including builtin types, classes, structs, enums, unions
@@ -436,6 +439,7 @@ struct simple_type_tag {
     // (kind == STK_TEMPLATE_DEPENDENT_TYPE)
     AST typeof_expr;
     struct scope_tag* typeof_scope;
+    char typeof_is_expr;
 
     // For instantiation purposes
     // 
@@ -447,6 +451,9 @@ struct simple_type_tag {
     // want to add new members by means of parsing)
     // (kind == STK_CLASS)
     struct decl_context_tag* decl_context;
+
+    // Used for instantiation
+    matching_pair_t* matching_pair;
 } simple_type_t;
 
 // Information of a parameter
@@ -747,7 +754,6 @@ enum lookup_flags_tag
     LF_NONE = 0,
     LF_CONSTRUCTOR = BITMAP(1),
     LF_EXPRESSION = BITMAP(2),
-    LF_INSTANTIATE = BITMAP(3),
     LF_IN_NAMESPACE_SCOPE = BITMAP(4),
     LF_FROM_QUALIFIED = BITMAP(5),
     // LF_ALWAYS_CREATE_SPECIALIZATION = BITMAP(6),

@@ -127,14 +127,26 @@ static char either_type(AST t1, AST t2, node_t n1, node_t n2)
  * Solution:
  *
  * Always favour type parameters (AST_TYPE_PARAMETER_CLASS)
+ *
+ * There is another ambiguity possible concerning the "unsigned ambiguity"
  */
-void solve_parameter_declaration_vs_type_parameter_class(AST a)
+void solve_parameter_declaration_vs_type_parameter_class(AST a, scope_t* st, decl_context_t decl_context)
 {
     EXPECT_OPTIONS(a, 2);
 
     int k = select_node_type(a, AST_TYPE_PARAMETER_CLASS);
 
-    choose_option(a, k);
+    if (k != -1)
+    {
+        choose_option(a, k);
+    }
+    // Try the unsigned ambiguity
+    else if (select_node_type(a, AST_PARAMETER_DECL) >= 0)
+    {
+        solve_ambiguous_parameter_decl(a, st, decl_context);
+        ERROR_CONDITION((ASTType(a) == AST_AMBIGUITY), "Ambiguity not solved %s", 
+                node_information(a));
+    }
 }
 
 /*

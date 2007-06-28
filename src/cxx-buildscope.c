@@ -529,7 +529,12 @@ static void build_scope_using_declaration(AST a, scope_t* st, decl_context_t dec
 
     while (used_entity != NULL)
     {
-        insert_entry(st, used_entity->entry);
+        scope_entry_t* entry = used_entity->entry;
+
+        if (entry->kind != SK_DEPENDENT_ENTITY)
+        {
+            insert_entry(st, entry);
+        }
 
         used_entity = used_entity->next;
     }
@@ -1001,6 +1006,8 @@ void gather_type_spec_information(AST a, scope_t* st, type_t* simple_type_info,
         case AST_GCC_TYPEOF_EXPR :
             simple_type_info->type->kind = STK_TYPEOF;
             simple_type_info->type->typeof_expr = ASTSon0(a);
+            simple_type_info->type->typeof_is_expr = (ASTType(a) == AST_GCC_TYPEOF_EXPR);
+            simple_type_info->type->typeof_scope = copy_scope(st);
             break;
         default:
             internal_error("Unknown node '%s'", ast_print_node_type(ASTType(a)));
@@ -1714,13 +1721,12 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
             SK_DEPENDENT_ENTITY
         };
 
+#warning Instantiate here if the returned entry is an incomplete independent template
         scope_entry_list_t* result_list = query_nested_name_flags(st, global_op, nested_name_specifier, name, 
-                FULL_UNQUALIFIED_LOOKUP, LF_INSTANTIATE | lookup_flags, decl_context);
+                FULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
         result_list = filter_symbol_kind_set(result_list, 7, filter);
 
-        if (result_list == NULL 
-                && is_template_qualified
-           )
+        if (result_list == NULL)
          {
              // We did not find the exact type and it was marked as potentially dependent
              if (decl_context.template_nesting == 0
@@ -1737,7 +1743,8 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
              result_list = create_list_from_entry(dependent_entity);
          }
 
-        ERROR_CONDITION((result_list == NULL), "Base class '%s' not found!\n", prettyprint_in_buffer(base_specifier));
+        ERROR_CONDITION((result_list == NULL), "Base class '%s' not found in '%s'!\n", prettyprint_in_buffer(base_specifier),
+                node_information(base_specifier));
         scope_entry_t* result = result_list->entry;
         result = give_real_entry(result);
 
@@ -1753,21 +1760,7 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
                 // If the entity (being an independent one) has not been completed, then instantiate it
                 if (result->type_information->type->template_nature == TPN_INCOMPLETE_INDEPENDENT)
                 {
-                    scope_entry_list_t* templates_available = query_unqualified_name(result->scope, result->symbol_name);
-                    ERROR_CONDITION((templates_available == NULL), "I did not find myself!\n", 0);
-
-                    templates_available = filter_entry_from_list(templates_available, result);
-
-                    matching_pair_t* match_pair = solve_template(templates_available, 
-                            result->type_information->type->template_arguments, result->scope, 
-                            /* give_exact_match = */ 0, decl_context);
-
-                    if (match_pair != NULL)
-                    {
-                        instantiate_template_in_symbol(result, match_pair, 
-                                result->type_information->type->template_arguments, result->scope,
-                                decl_context);
-                    }
+                    instantiate_template(result, result->scope, decl_context);
                 }
             }
 
@@ -2350,7 +2343,7 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
         {
             char is_dependent = 0;
             decl_st = query_nested_name_spec_flags(st, ASTSon0(declarator_name), ASTSon1(declarator_name), 
-                    NULL, &is_dependent, LF_INSTANTIATE, decl_context);
+                    NULL, &is_dependent, LF_NONE, decl_context);
 
             if (decl_st == NULL)
             {
@@ -3871,7 +3864,7 @@ static void build_scope_template_parameter(AST a, scope_t* st,
             break;
         case AST_AMBIGUITY :
             // The ambiguity here is parameter_class vs parameter_decl
-            solve_parameter_declaration_vs_type_parameter_class(a);
+            solve_parameter_declaration_vs_type_parameter_class(a, st, decl_context);
             // Restart this routine
             build_scope_template_parameter(a, st, template_parameters, num_parameter, decl_context);
             break;
@@ -4854,9 +4847,12 @@ static void build_scope_member_template_declaration(AST a, scope_t* st,
             break;
         case AST_SIMPLE_DECLARATION :
             {
-                build_scope_member_template_simple_declaration(ASTSon1(a), st, template_scope, num_parameters, template_parameters,
-                        current_access, class_info, new_decl_context);
-                ASTAttrSetValueType(ASTSon1(a), LANG_IS_TEMPLATED_DECLARATION, tl_type_t, tl_bool(1));
+                if (step == 0)
+                {
+                    build_scope_member_template_simple_declaration(ASTSon1(a), st, template_scope, num_parameters, template_parameters,
+                            current_access, class_info, new_decl_context);
+                    ASTAttrSetValueType(ASTSon1(a), LANG_IS_TEMPLATED_DECLARATION, tl_type_t, tl_bool(1));
+                }
                 break;
             }
             //      I think this is not possible

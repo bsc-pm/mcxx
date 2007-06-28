@@ -931,24 +931,24 @@ static char compare_template_dependent_types(simple_type_t* t1, simple_type_t* t
             scope_entry_list_t* t1_template_name_list;
             scope_entry_list_t* t2_template_name_list;
 
-            scope_t* extended_scope1 = copy_scope(st);
-            extended_scope1->template_scope = t1_scope->template_scope;
-            scope_t* extended_scope2 = copy_scope(st);
-            extended_scope2->template_scope = t2_scope->template_scope;
+            // scope_t* extended_scope1 = copy_scope(st);
+            // extended_scope1->template_scope = t1_scope->template_scope;
+            // scope_t* extended_scope2 = copy_scope(st);
+            // extended_scope2->template_scope = t2_scope->template_scope;
 
             if (qualification_level > 0)
             {
                 t1_template_name_list = query_template_id(t1_class_or_namespace, 
-                        extended_scope1, t1_scope, decl_context);
+                        t1->typeof_scope, t1_scope, decl_context);
                 t2_template_name_list = query_template_id(t2_class_or_namespace, 
-                        extended_scope2, t2_scope, decl_context);
+                        t2->typeof_scope, t2_scope, decl_context);
             }
             else
             {
                 t1_template_name_list = query_unqualified_template_id(t1_class_or_namespace, 
-                        extended_scope1, t1_scope, decl_context);
+                        t1->typeof_scope, t1_scope, decl_context);
                 t2_template_name_list = query_unqualified_template_id(t2_class_or_namespace, 
-                        extended_scope2, t2_scope, decl_context);
+                        t2->typeof_scope, t2_scope, decl_context);
             }
 
             if (t1_template_name_list == NULL || t2_template_name_list == NULL)
@@ -2163,6 +2163,11 @@ simple_type_t* copy_simple_type(simple_type_t* type_info)
         result->template_arguments = copy_template_argument_list(type_info->template_arguments);
     }
 
+    if (result->typeof_scope != NULL)
+    {
+        result->typeof_scope = copy_scope(result->typeof_scope);
+    }
+
     return result;
 }
 
@@ -2342,12 +2347,16 @@ char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
                                 user_defined_type->type_information->type->template_parameter_nesting);
                         break;
                     case SK_TEMPLATE_PRIMARY_CLASS :
-                        snprintf(user_defined_str, MAX_LENGTH, "primary template class %s (%p)", 
-                                user_defined_type->symbol_name, user_defined_type);
+                        snprintf(user_defined_str, MAX_LENGTH, "primary template class %s (%p, line %d)", 
+                                user_defined_type->symbol_name, 
+                                user_defined_type,
+                                user_defined_type->line);
                         break;
                     case SK_TEMPLATE_SPECIALIZED_CLASS :
-                        snprintf(user_defined_str, MAX_LENGTH, "specialized template class %s (%p)", 
-                                user_defined_type->symbol_name, user_defined_type);
+                        snprintf(user_defined_str, MAX_LENGTH, "specialized template class %s (%p, line %d)", 
+                                user_defined_type->symbol_name, 
+                                user_defined_type,
+                                user_defined_type->line);
                         break;
                     case SK_GCC_BUILTIN_TYPE :
                         snprintf(user_defined_str, MAX_LENGTH, "__builtin_va_list");
@@ -2392,7 +2401,12 @@ char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
             result = strappend(result, "__typeof");
             break;
         case STK_TEMPLATE_DEPENDENT_TYPE :
-            result = strappend(result, "template dependent type");
+            {
+                char c[256] = { 0 };
+                snprintf(c, 255, "template dependent type '%s'", 
+                        prettyprint_in_buffer(simple_type_info->typeof_expr));
+                result = strappend(result, c);
+            }
             break;
         case STK_TYPEDEF :
             result = strappend(result, print_declarator(advance_over_typedefs(simple_type_info->aliased_type), st));
@@ -3019,14 +3033,38 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
                     {
                         template_argument_t* curr_argument = simple_type->template_arguments->argument_list[i];
 
-                        if (curr_argument->kind != TAK_NONTYPE)
+                        if (curr_argument->kind == TAK_TYPE)
                         {
                             if (is_dependent_type(curr_argument->type, decl_context))
                             {
                                 return 1;
                             }
                         }
-                        else
+                        else if (curr_argument->kind == TAK_TEMPLATE)
+                        {
+                            type_t* arg_type = advance_over_typedefs(curr_argument->type);
+                            if (arg_type->kind != STK_USER_DEFINED)
+                            {
+                                scope_entry_t* entry = arg_type->type->user_defined_type;
+                                if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
+                                {
+                                    return 0;
+                                }
+                                else if (entry->kind == SK_DEPENDENT_ENTITY)
+                                {
+                                    return 1;
+                                }
+                                else
+                                {
+                                    internal_error("Unreachable code", 0);
+                                }
+                            }
+                            else
+                            {
+                                internal_error("Unreachable code", 0);
+                            }
+                        }
+                        else if (curr_argument->kind == TAK_NONTYPE)
                         {
                             if (is_dependent_expression(curr_argument->argument_tree,
                                         curr_argument->scope, decl_context))
@@ -3046,7 +3084,39 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
             }
         case STK_TYPEOF :
             {
-                internal_error("Not implemented yet\n", 0);
+                AST typeof_expr = simple_type->typeof_expr;
+                scope_t* typeof_scope = simple_type->typeof_scope;
+
+                if(simple_type->typeof_is_expr)
+                {
+                    return is_dependent_expression(typeof_expr, 
+                            typeof_scope, decl_context);
+                }
+                else
+                {
+                    AST type_id = typeof_expr;
+
+                    AST type_specifier = ASTSon0(type_id);
+                    AST abstract_declarator = ASTSon1(type_id);
+
+                    gather_decl_spec_t gather_info;
+                    memset(&gather_info, 0, sizeof(gather_info));
+
+                    type_t* simple_type_info = NULL;
+                    // Fix this
+                    build_scope_decl_specifier_seq(type_specifier, typeof_scope, &gather_info, &simple_type_info, 
+                            decl_context);
+
+                    if (abstract_declarator != NULL)
+                    {
+                        type_t* declarator_type = NULL;
+                        // Fix this
+                        build_scope_declarator(abstract_declarator, typeof_scope, &gather_info, simple_type_info, 
+                                &declarator_type, decl_context);
+                    }
+
+                    return (is_dependent_type(simple_type_info, decl_context));
+                }
             }
         default :
             {

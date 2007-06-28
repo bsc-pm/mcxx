@@ -29,7 +29,7 @@
 MCXX_BEGIN_DECLS
 
 // Non contextual
-void solve_parameter_declaration_vs_type_parameter_class(AST a);
+void solve_parameter_declaration_vs_type_parameter_class(AST a, scope_t* st, decl_context_t decl_context);
 
 // Contextual
 void solve_ambiguous_declaration(AST a, scope_t* st, decl_context_t decl_context);

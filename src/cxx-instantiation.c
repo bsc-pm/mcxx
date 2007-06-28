@@ -356,9 +356,11 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 }
 
 static void fill_template_specialized_info(scope_entry_t* instance_symbol, 
-        scope_entry_t* matched_template,
+        matching_pair_t* matching_pair,
         template_argument_list_t* arguments)
 {
+    scope_entry_t* matched_template = matching_pair->entry;
+
     int line = instance_symbol->line;
     scope_t* symbol_scope = instance_symbol->scope;
     char* symbol_name = instance_symbol->symbol_name;
@@ -374,6 +376,7 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
     instance_symbol->type_information->type->kind = STK_CLASS;
     instance_symbol->type_information->type->class_info = calloc(1, 
             sizeof(*(instance_symbol->type_information->type->class_info)));
+    instance_symbol->type_information->type->matching_pair = matching_pair;
 
     instance_symbol->is_member = matched_template->is_member;
     instance_symbol->class_type = matched_template->class_type;
@@ -384,7 +387,7 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "New inner_scope %p\n", inner_scope);
+        fprintf(stderr, "New inner_scope %p with qualification name '%s'\n", inner_scope, qualification_name);
     }
 
     instance_symbol->type_information->type->class_info->inner_scope = inner_scope;
@@ -405,10 +408,11 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
     instance_symbol->type_information->type->template_arguments = arguments;
 }
 
-scope_entry_t* create_holding_symbol_for_template(scope_entry_t* matched_template, template_argument_list_t*
+scope_entry_t* create_holding_symbol_for_template(matching_pair_t* matched_template, template_argument_list_t*
         arguments, scope_t* st, int instantiation_line, decl_context_t decl_context)
 {
-    scope_entry_t* instance_symbol = new_symbol(matched_template->scope, matched_template->symbol_name);
+    scope_entry_t* matched_template_entry = matched_template->entry;
+    scope_entry_t* instance_symbol = new_symbol(matched_template_entry->scope, matched_template_entry->symbol_name);
     // Fix the template scope
     instance_symbol->scope->template_scope = copy_scope(st->template_scope);
 
@@ -416,7 +420,7 @@ scope_entry_t* create_holding_symbol_for_template(scope_entry_t* matched_templat
     {
         fprintf(stderr, "Creating the holding symbol (%p) for '%s' due to instantiation in line %d\n", 
                 instance_symbol,
-                matched_template->symbol_name,
+                matched_template_entry->symbol_name,
                 instantiation_line);
     }
     instance_symbol->line = instantiation_line;
@@ -442,14 +446,14 @@ scope_entry_t* create_holding_symbol_for_template(scope_entry_t* matched_templat
     return instance_symbol;
 }
 
-void instantiate_template_in_symbol(scope_entry_t* instance_symbol, 
+static void instantiate_template_in_symbol(scope_entry_t* instance_symbol, 
         matching_pair_t* match_pair, template_argument_list_t* arguments, scope_t* st,
         decl_context_t decl_context)
 {
     scope_entry_t* matched_template = match_pair->entry;
     unification_set_t* unification_set = match_pair->unif_set;
 
-    fill_template_specialized_info(instance_symbol, matched_template, arguments);
+    fill_template_specialized_info(instance_symbol, match_pair, arguments);
 
     DEBUG_CODE()
     {
@@ -482,23 +486,20 @@ void instantiate_template_in_symbol(scope_entry_t* instance_symbol,
     }
 }
 
-void instantiate_template(matching_pair_t* match_pair, template_argument_list_t* arguments, 
-        scope_t* st, int instantiation_line, decl_context_t decl_context)
+// Instantiates a symbol if needed
+void instantiate_template(scope_entry_t* entry, scope_t* st, decl_context_t decl_context)
 {
-    scope_entry_t* matched_template = match_pair->entry;
-    // unification_set_t* unification_set = match_pair->unif_set;
-
-    scope_entry_t* instance_symbol = new_symbol(matched_template->scope, matched_template->symbol_name);
-    instance_symbol->scope->template_scope = new_template_scope(instance_symbol->scope);
-
-    DEBUG_CODE()
+    if (entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS)
     {
-        fprintf(stderr, "Creating the instantiated new symbol (%p) due to instantiation in line %d\n", 
-                instance_symbol,
-                instantiation_line);
+        internal_error("Symbol '%s' is not a specialized template", entry->symbol_name);
     }
-
-    instance_symbol->line = instantiation_line;
-
-    instantiate_template_in_symbol(instance_symbol, match_pair, arguments, st, decl_context);
+            
+    if (entry->type_information->type->template_nature != TPN_INCOMPLETE_INDEPENDENT)
+    {
+        internal_error("Symbol '%s' is not a specialized template suitable for full instantiation", 
+                entry->symbol_name);
+    }
+            
+    instantiate_template_in_symbol(entry, entry->type_information->type->matching_pair, 
+            entry->type_information->type->template_arguments, st, decl_context);
 }
