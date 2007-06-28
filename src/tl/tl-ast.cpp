@@ -226,30 +226,27 @@ namespace TL
         return result;
     }
 
-    void AST_t::tree_iterator(AST_t& a, const Predicate<AST_t>& predicate, 
-            RecursiveFlag recursive_flag, ObjectList<AST_t>& result)
+    void AST_t::tree_iterator(AST_t& a, const Functor<ASTTraversalResult, AST_t>& functor, 
+            ObjectList<AST_t>& result)
     {
         AST tree = a._ast;
         if (tree == NULL)
             return;
 
-        bool matched = false;
-        if (predicate(a))
+        ASTTraversalResult current_node = functor(a);
+        if (current_node.matches())
         {
-            matched = true;
             result.push_back(a);
         }
 
-        if ((recursive_flag == RECURSIVE)
-                || (recursive_flag == NON_RECURSIVE && !matched)
-                || (recursive_flag == LIST_TRIP && matched))
+        if (current_node.recurse())
         {
             for (int i = 0; i < ASTNumChildren(tree); i++)
             {
                 if (ASTChild(tree, i) != NULL)
                 {
                     AST_t iterate(ASTChild(tree, i));
-                    tree_iterator(iterate, predicate, recursive_flag, result);
+                    tree_iterator(iterate, functor, result);
                 }
             }
         }
@@ -259,7 +256,72 @@ namespace TL
     {
         ObjectList<AST_t> result;
 
-        tree_iterator(*this, pred, recursive_flag, result);
+        // Construct a functor that emulates old behaviour
+        class CompatibilityFunctor : public Functor<ASTTraversalResult, AST_t>
+        {
+            private:
+                const Predicate<AST_t>& _pred;
+                RecursiveFlag _rec;
+            public:
+                CompatibilityFunctor(const Predicate<AST_t>& pred, RecursiveFlag rec)
+                    : _pred(pred), _rec(rec)
+                {
+                }
+
+                virtual ASTTraversalResult operator()(AST_t& node) const
+                {
+                    bool matches = _pred(node);
+                    bool recurse = false;
+
+                    if (_rec == RECURSIVE)
+                    {
+                        recurse = true;
+                    }
+                    else if ((_rec == NON_RECURSIVE) && !matches)
+                    {
+                        recurse = true;
+                    }
+                    else if ((_rec == LIST_TRIP && matches))
+                    {
+                        recurse = true;
+                    }
+
+                    if (matches && recurse)
+                    {
+                        return ASTTraversalResult(ASTTraversalMatching::NODE_DOES_MATCH, 
+                                ASTTraversalRecursion::DO_RECURSE);
+                    }
+                    else if (!matches && recurse)
+                    {
+                        return ASTTraversalResult(ASTTraversalMatching::NODE_DOES_NOT_MATCH, 
+                                ASTTraversalRecursion::DO_RECURSE);
+                    }
+                    else if (matches && !recurse)
+                    {
+                        return ASTTraversalResult(ASTTraversalMatching::NODE_DOES_MATCH, 
+                                ASTTraversalRecursion::DO_NOT_RECURSE);
+                    }
+                    else /* if (!matches && !recurse) */
+                    {
+                        return ASTTraversalResult(ASTTraversalMatching::NODE_DOES_NOT_MATCH, 
+                                ASTTraversalRecursion::DO_NOT_RECURSE);
+                    }
+                }
+        };
+
+
+        CompatibilityFunctor compat_functor(pred, recursive_flag);
+
+        tree_iterator(*this, compat_functor, result);
+
+        return result;
+    }
+
+    ObjectList<AST_t> AST_t::depth_subtrees(const Functor<ASTTraversalResult, AST_t>& functor)
+    {
+        ObjectList<AST_t> result;
+
+        tree_iterator(*this, functor, result);
 
         return result;
     }

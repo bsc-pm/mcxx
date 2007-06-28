@@ -61,6 +61,54 @@ namespace TL
             friend class AST_t;
     };
 
+    struct ASTTraversalMatching
+    {
+        enum TraversalMatching
+        {
+            INVALID = 0,
+            NODE_DOES_MATCH,
+            NODE_DOES_NOT_MATCH,
+        } __value;
+
+        ASTTraversalMatching(TraversalMatching crit)
+            : __value(crit) { }
+    };
+
+    struct ASTTraversalRecursion
+    {
+        enum TraversalRecursion
+        {
+            INVALID = 0,
+            DO_RECURSE,
+            DO_NOT_RECURSE,
+        } __value;
+
+        ASTTraversalRecursion(TraversalRecursion rec)
+            : __value(rec) { }
+    };
+
+    struct ASTTraversalResult
+    {
+        private:
+            ASTTraversalMatching _match;
+            ASTTraversalRecursion _rec;
+        public:
+            ASTTraversalResult(ASTTraversalMatching match, ASTTraversalRecursion rec)
+                : _match(match), _rec(rec)
+            {
+            }
+
+            bool recurse() const
+            {
+                return (_rec.__value == ASTTraversalRecursion::DO_RECURSE);
+            }
+
+            bool matches() const
+            {
+                return (_match.__value == ASTTraversalMatching::NODE_DOES_MATCH);
+            }
+    };
+
     class AST_t : public Object
     {
         public:
@@ -73,8 +121,8 @@ namespace TL
         protected:
             AST _ast;
 
-            static void tree_iterator(AST_t& a, const Predicate<AST_t>& predicate, 
-                    RecursiveFlag recursive_flag, ObjectList<AST_t>& result);
+            static void tree_iterator(AST_t& a, const Functor<ASTTraversalResult, AST_t>& functor, 
+                    ObjectList<AST_t>& result);
 
             tl_type_t* get_extended_attribute(const std::string& name) const;
 
@@ -165,6 +213,8 @@ namespace TL
             std::pair<AST_t, ScopeLink> duplicate_with_scope(ScopeLink scope_link) const;
 
             ObjectList<AST_t> depth_subtrees(const Predicate<AST_t>& pred = AlwaysTrue<AST_t>(), RecursiveFlag recursive_flag = RECURSIVE);
+
+            ObjectList<AST_t> depth_subtrees(const Functor<ASTTraversalResult, AST_t>& functor);
 
             std::string internal_ast_type() const;
 
