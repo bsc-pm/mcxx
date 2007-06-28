@@ -286,26 +286,7 @@ namespace TL
                         recurse = true;
                     }
 
-                    if (matches && recurse)
-                    {
-                        return ASTTraversalResult(ASTTraversalMatching::NODE_DOES_MATCH, 
-                                ASTTraversalRecursion::DO_RECURSE);
-                    }
-                    else if (!matches && recurse)
-                    {
-                        return ASTTraversalResult(ASTTraversalMatching::NODE_DOES_NOT_MATCH, 
-                                ASTTraversalRecursion::DO_RECURSE);
-                    }
-                    else if (matches && !recurse)
-                    {
-                        return ASTTraversalResult(ASTTraversalMatching::NODE_DOES_MATCH, 
-                                ASTTraversalRecursion::DO_NOT_RECURSE);
-                    }
-                    else /* if (!matches && !recurse) */
-                    {
-                        return ASTTraversalResult(ASTTraversalMatching::NODE_DOES_NOT_MATCH, 
-                                ASTTraversalRecursion::DO_NOT_RECURSE);
-                    }
+                    return ast_traversal_result_helper(matches, recurse);
                 }
         };
 
@@ -956,5 +937,30 @@ namespace TL
     bool ASTIterator::end()
     {
         return (_current == NULL);
+    }
+
+    ASTTraversalResult ast_traversal_result_helper(bool matches, bool recurse)
+    {
+        if (matches && recurse)
+        {
+            return ASTTraversalResult(ASTTraversalMatching::NODE_DOES_MATCH, 
+                    ASTTraversalRecursion::DO_RECURSE);
+        }
+        else if (!matches && recurse)
+        {
+            return ASTTraversalResult(ASTTraversalMatching::NODE_DOES_NOT_MATCH, 
+                    ASTTraversalRecursion::DO_RECURSE);
+        }
+        else if (matches && !recurse)
+        {
+            return ASTTraversalResult(ASTTraversalMatching::NODE_DOES_MATCH, 
+                    ASTTraversalRecursion::DO_NOT_RECURSE);
+        }
+        else /* if (!matches && !recurse) */
+        {
+            return ASTTraversalResult(ASTTraversalMatching::NODE_DOES_NOT_MATCH, 
+                    ASTTraversalRecursion::DO_NOT_RECURSE);
+        }
+
     }
 }

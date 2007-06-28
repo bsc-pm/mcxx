@@ -109,6 +109,8 @@ namespace TL
             }
     };
 
+    ASTTraversalResult ast_traversal_result_helper(bool match, bool recurse);
+
     class AST_t : public Object
     {
         public:
@@ -279,6 +281,7 @@ namespace TL
                 return TL::Bool(ast.get_attribute(_attr_name));
             }
     };
+
 
 }
 

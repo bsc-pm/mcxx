@@ -629,6 +629,39 @@ namespace TL
         transaction_nesting++;
     }
 
+    // This ignores any node named 'preserve'
+    // It always recurses but for 'preserve' constructs
+    class IgnorePreserveFunctor : public Functor<ASTTraversalResult, AST_t>
+    {
+        private:
+            const Predicate<AST_t>& _pred;
+        public:
+            IgnorePreserveFunctor(const Predicate<AST_t>& pred)
+                : _pred(pred)
+            {
+            }
+
+            ASTTraversalResult operator()(AST_t& a) const
+            {
+                bool match = _pred(a);
+                bool recurse = !match;
+
+                TL::Bool is_custom_construct = a.get_attribute(OMP_IS_CUSTOM_CONSTRUCT);
+                if (is_custom_construct)
+                {
+                    AST_t directive = directive = a.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
+                    TL::String directive_name = directive.get_attribute(OMP_CUSTOM_DIRECTIVE_NAME);
+
+                    if (directive_name == "preserve")
+                    {
+                        recurse = false;
+                    }
+                }
+
+                return ast_traversal_result_helper(match, recurse);
+            }
+    };
+
     void OpenMPTransform::transaction_postorder(OpenMP::CustomConstruct protect_construct)
     {
         // Expect that the transaction_postorder == 1 will do
@@ -681,10 +714,11 @@ namespace TL
         considered_symbols = considered_symbols.filter(not_in_set(excluded_symbols));
 
         // For every expression, replace it properly with read and write
-        PredicateBool<LANG_IS_EXPRESSION_NEST> expression_pred;
+        PredicateBool<LANG_IS_EXPRESSION_NEST> expression_pred_;
         ExpressionReplacement expression_replacement(considered_symbols, function_filter);
 
-        ObjectList<AST_t> expressions = protect_statement.get_ast().depth_subtrees(expression_pred, AST_t::NON_RECURSIVE);
+        IgnorePreserveFunctor expression_pred(expression_pred_);
+        ObjectList<AST_t> expressions = protect_statement.get_ast().depth_subtrees(expression_pred);
 
         for (ObjectList<AST_t>::iterator it = expressions.begin();
                 it != expressions.end();
@@ -696,8 +730,10 @@ namespace TL
         }
 
         // And now find every 'return' statement and protect it
-        PredicateBool<LANG_IS_RETURN_STATEMENT> return_pred;
-        ObjectList<AST_t> returns = protect_statement.get_ast().depth_subtrees(return_pred, AST_t::NON_RECURSIVE);
+        PredicateBool<LANG_IS_RETURN_STATEMENT> return_pred_;
+
+        IgnorePreserveFunctor return_pred(return_pred_);
+        ObjectList<AST_t> returns = protect_statement.get_ast().depth_subtrees(return_pred);
         for (ObjectList<AST_t>::iterator it = returns.begin();
                 it != returns.end();
                 it++)
@@ -939,5 +975,12 @@ namespace TL
                 retry_directive.get_scope_link());
 
         retry_directive.get_ast().replace_with(retry_tree);
+    }
+
+    void OpenMPTransform::preserve_postorder(OpenMP::CustomConstruct preserve_construct)
+    {
+        std::cerr << "Warning: Construct in '" 
+            << preserve_construct.get_ast().get_locus() << "' will be preserved" <<
+            std::endl;
     }
 }

@@ -115,6 +115,7 @@ namespace TL
         // #pragma omp directive taskyield
         on_custom_construct_post["taskyield"].connect(functor(&OpenMPTransform::taskyield_postorder, *this));
 
+        // --- Transactional world --
         // #pragma omp construct transaction
         on_custom_construct_pre["transaction"].connect(functor(&OpenMPTransform::transaction_preorder, *this));
         on_custom_construct_post["transaction"].connect(functor(&OpenMPTransform::transaction_postorder, *this));
@@ -122,13 +123,19 @@ namespace TL
 		// #pragma omp directive retry
 		on_custom_construct_post["retry"].connect(functor(&OpenMPTransform::retry_postorder, *this));
 
-        // Experimental
+        // #pragma omp construct preserve
+        on_custom_construct_post["preserve"].connect(functor(&OpenMPTransform::preserve_postorder, *this));
+        // --- End of transactional world --
+
+        // --- Experimental directives ---
         // #pragma omp construct while
         on_custom_construct_pre["task_while"].connect(functor(&OpenMPTransform::task_while_preorder, *this));
         on_custom_construct_post["task_while"].connect(functor(&OpenMPTransform::task_while_postorder, *this));
 
         on_custom_construct_pre["task_for"].connect(functor(&OpenMPTransform::task_for_preorder, *this));
         on_custom_construct_post["task_for"].connect(functor(&OpenMPTransform::task_for_postorder, *this));
+        // --- End of experimental directives ---
+
     }
 }
 

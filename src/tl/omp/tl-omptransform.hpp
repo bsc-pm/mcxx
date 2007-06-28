@@ -328,7 +328,7 @@ namespace TL
             // Debug purposes
             IdExpression print_id_expression(IdExpression id_expression);
 
-            // STM support
+            // --- Transactional world --
             class ExpressionReplacement;
 
             void transaction_preorder(OpenMP::CustomConstruct protect_construct);
@@ -336,6 +336,8 @@ namespace TL
 
 			void retry_postorder(OpenMP::CustomConstruct protect_construct);
             
+			void preserve_postorder(OpenMP::CustomConstruct protect_construct);
+            // --- End of transactional world --
 
 
             void declare_member_if_needed(Symbol function_symbol,
