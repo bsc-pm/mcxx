@@ -646,16 +646,11 @@ namespace TL
                 bool match = _pred(a);
                 bool recurse = !match;
 
-                TL::Bool is_custom_construct = a.get_attribute(OMP_IS_CUSTOM_CONSTRUCT);
-                if (is_custom_construct)
-                {
-                    AST_t directive = directive = a.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
-                    TL::String directive_name = directive.get_attribute(OMP_CUSTOM_DIRECTIVE_NAME);
+                OpenMP::CustomConstructPredicate is_preserve_construct("preserve");
 
-                    if (directive_name == "preserve")
-                    {
-                        recurse = false;
-                    }
+                if (is_preserve_construct(a))
+                {
+                    recurse = false;
                 }
 
                 return ast_traversal_result_helper(match, recurse);
@@ -979,8 +974,38 @@ namespace TL
 
     void OpenMPTransform::preserve_postorder(OpenMP::CustomConstruct preserve_construct)
     {
-        std::cerr << "Warning: Construct in '" 
-            << preserve_construct.get_ast().get_locus() << "' will be preserved" <<
-            std::endl;
+        bool being_preserved = false;
+
+        OpenMP::Directive preserve_directive = preserve_construct.directive();
+        OpenMP::CustomClause on_tx_clause = preserve_directive.custom_clause("on_tx");
+        OpenMP::CustomClause off_tx_clause = preserve_directive.custom_clause("off_tx");
+
+        if (!on_tx_clause.is_defined()
+                && !off_tx_clause.is_defined())
+        {
+            being_preserved = true;
+        }
+        else if (on_tx_clause.is_defined()
+                && transaction_nesting > 0)
+        {
+            being_preserved = true;
+        }
+        else if (off_tx_clause.is_defined()
+                && transaction_nesting == 0)
+        {
+            being_preserved = true;
+        }
+        
+        if (being_preserved)
+        {
+            std::cerr << "Warning: Construct in '" 
+                << preserve_construct.get_ast().get_locus() << "' will be preserved" <<
+                std::endl;
+        }
+        else
+        {
+            // This is normally a bad idea but in this case it should work :)
+            preserve_construct.get_ast().remove_in_list();
+        }
     }
 }

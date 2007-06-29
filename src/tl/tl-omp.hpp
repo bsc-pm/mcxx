@@ -428,6 +428,41 @@ namespace TL
 
         typedef std::map<std::string, Signal1<CustomConstruct> > CustomFunctorMap;
 
+        class CustomConstructPredicate : Predicate<AST_t>
+        {
+            private:
+                std::string _construct_name;
+            public:
+                CustomConstructPredicate(const std::string construct_name)
+                    : _construct_name(construct_name)
+                {
+                }
+
+                bool operator()(AST_t& node) const
+                {
+                    TL::Bool is_directive = node.get_attribute(OMP_IS_CUSTOM_DIRECTIVE);
+                    TL::Bool is_construct = node.get_attribute(OMP_IS_CUSTOM_CONSTRUCT);
+
+                    if (!is_construct && !is_directive)
+                    {
+                        return false;
+                    }
+
+                    AST_t directive;
+                    if (is_construct)
+                    {
+                        directive = node.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
+                    }
+                    else
+                    {
+                        directive = node;
+                    }
+
+                    TL::String directive_name = directive.get_attribute(OMP_CUSTOM_DIRECTIVE_NAME);
+                    return (directive_name == _construct_name);
+                }
+        };
+
         class CustomConstructFunctor : public TraverseFunctor
         {
             private:
