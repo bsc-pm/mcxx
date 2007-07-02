@@ -624,10 +624,6 @@ namespace TL
             }
     };
 
-    void OpenMPTransform::transaction_preorder(OpenMP::CustomConstruct protect_construct)
-    {
-        transaction_nesting++;
-    }
 
     // This ignores any node named 'preserve'
     // It always recurses but for 'preserve' constructs
@@ -656,6 +652,53 @@ namespace TL
                 return ast_traversal_result_helper(match, recurse);
             }
     };
+
+    void OpenMPTransform::transaction_preorder(OpenMP::CustomConstruct protect_construct)
+    {
+        transaction_nesting++;
+
+		// Warn for initializers
+		PredicateBool<LANG_IS_DECLARATION> is_declaration_pred_;
+		IgnorePreserveFunctor is_declaration_pred(is_declaration_pred_);
+
+        Statement protect_statement = protect_construct.body();
+		ObjectList<AST_t> found_declarations = protect_statement.get_ast().depth_subtrees(is_declaration_pred);
+
+		for (ObjectList<AST_t>::iterator it = found_declarations.begin();
+				it != found_declarations.end();
+				it++)
+		{
+			Declaration declaration(*it, protect_construct.get_scope_link());
+
+			ObjectList<DeclaredEntity> declared_entities = declaration.get_declared_entities();
+			for (ObjectList<DeclaredEntity>::iterator p_decl = declared_entities.begin();
+					p_decl != declared_entities.end();
+					p_decl++)
+			{
+				if (p_decl->has_initializer())
+				{
+					std::cerr << "WARNING: Declared entity '" << p_decl->get_declared_entity().prettyprint() << "' "
+						<< "in '" << p_decl->get_initializer().get_ast().get_locus() << "' "
+						<< "has initializer. This is currently unsupported" 
+						<< std::endl;
+				}
+			}
+
+			DeclarationSpec declaration_spec = declaration.get_declaration_specifiers();
+			PredicateType pred_static(AST_STATIC_SPEC);
+
+			if (!declaration_spec
+					.get_ast()
+					.depth_subtrees(pred_static)
+					.empty())
+			{
+					std::cerr << "WARNING: Declaration '" << declaration.get_ast().prettyprint() << "' "
+						<< "in '" << declaration.get_ast().get_locus() << "' "
+						<< "defines a static entity. This might lead to incorrect code"
+						<< std::endl;
+			}
+		}
+    }
 
     void OpenMPTransform::transaction_postorder(OpenMP::CustomConstruct protect_construct)
     {
@@ -748,42 +791,43 @@ namespace TL
             ObjectList<AST_t> return_expression_list = return_statement.get_ast().depth_subtrees(
                     PredicateBool<LANG_IS_EXPRESSION_NEST>(), 
                     AST_t::NON_RECURSIVE);
+
+			AST_t node = enclosing_function_def.get_ast();
+			ObjectList<AST_t> functional_declarator = 
+				node.depth_subtrees(PredicateBool<LANG_IS_FUNCTIONAL_DECLARATOR>(), 
+						AST_t::NON_RECURSIVE);
+
+			AST_t first_functional_declarator = *(functional_declarator.begin());
+			ObjectList<AST_t> declared_parameters = 
+				first_functional_declarator.depth_subtrees(
+						PredicateBool<LANG_IS_DECLARED_PARAMETER>(),
+						AST_t::NON_RECURSIVE);
+
+			Source cancel_source;
+			{
+				ObjectList<AST_t>::iterator it = declared_parameters.begin();
+				if (converted_function.is_defined())
+				{
+					// Skip the first one if the converted_function clause
+					// was defined
+					it++;
+				}
+				for (; it != declared_parameters.end();
+						it++)
+				{
+					AST_t declared_name = it->get_attribute(LANG_DECLARED_PARAMETER);
+					cancel_source
+						<< "invalidateAdrInTx(__t, &" << declared_name.prettyprint() << ");"
+						;
+				}
+			}
+
             if (!return_expression_list.empty()
                     && !return_type.is_void())
             {
                 // Only if we have a value non-void
                 Expression returned_expression(*(return_expression_list.begin()), 
                         enclosing_function_def.get_scope_link());
-
-                AST_t node = enclosing_function_def.get_ast();
-                ObjectList<AST_t> functional_declarator = 
-                    node.depth_subtrees(PredicateBool<LANG_IS_FUNCTIONAL_DECLARATOR>(), 
-                            AST_t::NON_RECURSIVE);
-
-                AST_t first_functional_declarator = *(functional_declarator.begin());
-                ObjectList<AST_t> declared_parameters = 
-                    first_functional_declarator.depth_subtrees(
-                            PredicateBool<LANG_IS_DECLARED_PARAMETER>(),
-                            AST_t::NON_RECURSIVE);
-
-                Source cancel_source;
-                {
-                    ObjectList<AST_t>::iterator it = declared_parameters.begin();
-                    if (converted_function.is_defined())
-                    {
-                        // Skip the first one if the converted_function clause
-                        // was defined
-                        it++;
-                    }
-                    for (; it != declared_parameters.end();
-                            it++)
-                    {
-                        AST_t declared_name = it->get_attribute(LANG_DECLARED_PARAMETER);
-                        cancel_source
-                            << "invalidateAdrInTx(__t, &" << declared_name.prettyprint() << ");"
-                            ;
-                    }
-                }
 
                 return_value
                     << return_type.get_declaration(function_name.get_scope(), 
@@ -796,7 +840,13 @@ namespace TL
             }
             else
             {
-                return_value << return_statement.prettyprint();
+				return_value 
+					<< "{"
+					<< cancel_source
+					<<       "invalidateFunctionLocalData(__t);"
+					<< return_statement.prettyprint()
+					<< "}"
+					;
             }
 
             if (!converted_function.is_defined())

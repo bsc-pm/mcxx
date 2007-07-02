@@ -314,6 +314,11 @@ namespace TL
         return result;
     }
 
+    node_t AST_t::internal_ast_type_() const
+    {
+        return ASTType(this->_ast);
+    }
+
     void AST_t::append_to_translation_unit(AST_t tree)
     {
         if (tree._ast == NULL)

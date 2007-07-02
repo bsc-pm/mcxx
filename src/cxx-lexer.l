@@ -1147,7 +1147,7 @@ static void parse_token_text(void)
 #define TL_SOURCE_STRING mc99_tl_source_string
 /*!endif*/
 
-char* TL_SOURCE_STRING = "tl-source-string";
+char* TL_SOURCE_STRING = "(tl-source-string)";
 
 int PREPARE_STRING_FOR_SCANNING(const char* str)
 {
@@ -1159,8 +1159,11 @@ int PREPARE_STRING_FOR_SCANNING(const char* str)
 	memset(&scanning_now, 0, sizeof(scanning_now));
 	scanning_now.line_number = 1;
 
-	scanning_now.filename = calloc(strlen(TL_SOURCE_STRING) + 10, sizeof(char));
-    sprintf(scanning_now.filename, "%s-%d", TL_SOURCE_STRING, num_string);
+	const char* current_filename = CURRENT_COMPILED_FILE(input_filename);
+
+	scanning_now.filename = calloc(strlen(TL_SOURCE_STRING) 
+			+ strlen(current_filename) + 10, sizeof(char));
+    sprintf(scanning_now.filename, "%s%s-%d", TL_SOURCE_STRING, current_filename, num_string);
 
     scanning_now.current_filename = scanning_now.filename;
 
