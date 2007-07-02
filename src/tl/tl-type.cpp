@@ -28,19 +28,20 @@
 namespace TL
 {
     std::string Type::get_declaration_with_initializer(Scope sc, const std::string& symbol_name,
-            const std::string& initializer) const
+            const std::string& initializer, TypeDeclFlags flags) const
     {
         return get_declaration_string_internal(_type_info, sc._st, symbol_name.c_str(), 
-                initializer.c_str(), 0, NULL, NULL);
+                initializer.c_str(), 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 
     std::string Type::get_declaration_with_parameters(Scope sc,
-            const std::string& symbol_name, ObjectList<std::string>& parameters)
+            const std::string& symbol_name, ObjectList<std::string>& parameters,
+            TypeDeclFlags flags) const
     {
         char** parameter_names = NULL;
         int num_parameters = 0;
         char* result = get_declaration_string_internal(_type_info, sc._st, symbol_name.c_str(), 
-                "", 0, &num_parameters, &parameter_names);
+                "", 0, &num_parameters, &parameter_names, flags == PARAMETER_DECLARATION);
 
         for (int i = 0; i < num_parameters; i++)
         {
@@ -50,14 +51,18 @@ namespace TL
         return result;
     }
 
-    std::string Type::get_simple_declaration(Scope sc, const std::string& symbol_name) const
+    std::string Type::get_simple_declaration(Scope sc, const std::string&
+            symbol_name, TypeDeclFlags flags) const
     {
-        return get_declaration_string_internal(_type_info, sc._st, symbol_name.c_str(), "", 0, NULL, NULL);
+        return get_declaration_string_internal(_type_info, sc._st,
+                symbol_name.c_str(), "", 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 
-    std::string Type::get_declaration(Scope sc, const std::string& symbol_name) const
+    std::string Type::get_declaration(Scope sc, const std::string& symbol_name,
+            TypeDeclFlags flags) const
     {
-        return get_declaration_string_internal(_type_info, sc._st, symbol_name.c_str(), "", 0, NULL, NULL);
+        return get_declaration_string_internal(_type_info, sc._st,
+                symbol_name.c_str(), "", 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 
     Type Type::duplicate()

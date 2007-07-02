@@ -522,6 +522,7 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                     {
                         unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
                         unif_item->expression = right_tree;
+                        unif_item->expr_scope = right_scope;
                         unif_item->parameter_name = ASTText(left_tree);
 
                         unif_item->parameter_num = template_parameter_num;

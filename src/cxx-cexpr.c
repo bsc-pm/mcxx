@@ -175,9 +175,9 @@ literal_value_t evaluate_constant_expression(AST a, scope_t* st, decl_context_t 
         case AST_SIZEOF :
         case AST_SIZEOF_TYPEID :
             {
-                WARNING_MESSAGE("Found a sizeof expression in '%s' while evaluating a constant expression. Assuming zero.\n", 
+                WARNING_MESSAGE("Found a sizeof expression in '%s' while evaluating a constant expression. Assuming one.\n", 
                     node_information(a));
-                return literal_value_zero();
+                return literal_value_one();
             }
         case AST_EXPLICIT_TYPE_CONVERSION :
             {
@@ -810,7 +810,7 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st, decl_context_t d
     return evaluate_initializer(result->entry->expression_value, st, decl_context);
 }
 
-literal_value_t literal_value_zero()
+literal_value_t literal_value_zero(void)
 {
     literal_value_t result;
 
@@ -820,7 +820,17 @@ literal_value_t literal_value_zero()
     return result;
 }
 
-literal_value_t literal_value_minus_one()
+literal_value_t literal_value_one(void)
+{
+    literal_value_t result;
+
+    result.kind = LVK_SIGNED_INT;
+    result.value.signed_int = 1;
+
+    return result;
+}
+
+literal_value_t literal_value_minus_one(void)
 {
     literal_value_t result;
 
@@ -917,6 +927,13 @@ char equal_literal_values(literal_value_t v1, literal_value_t v2, scope_t* st)
 
     // Promote
     promote_values(v1, v2, &v1, &v2);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Comparing constant values of '%s' and '%s'\n", 
+                prettyprint_in_buffer(tree_from_literal_value(v1)),
+                prettyprint_in_buffer(tree_from_literal_value(v2)));
+    }
 
     literal_value_t result = equal_op(v1, v2);
 

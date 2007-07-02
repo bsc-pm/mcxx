@@ -552,10 +552,20 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                             && entry->type_information->type->template_nature == TPN_INCOMPLETE_INDEPENDENT)
                     {
                         instantiate_template(entry, entry->scope, decl_context);
+                        lookup_scope = copy_scope(entry->related_scope);
                     }
-                    
-                    scope_t* previous_scope = lookup_scope;
-                    lookup_scope = copy_scope(entry->related_scope);
+                    else if ((entry->kind == SK_TEMPLATE_PRIMARY_CLASS
+                            || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
+                            && entry->type_information->type->template_nature == TPN_INCOMPLETE_DEPENDENT)
+                    {
+                        // This must be dependent !
+                        *is_dependent = 1;
+                        break;
+                    }
+                    else
+                    {
+                        lookup_scope = copy_scope(entry->related_scope);
+                    }
 
                     seen_class = 1;
                     break;
@@ -718,7 +728,21 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
             scope_entry_t* dependent_entity = calloc(1, sizeof(*dependent_entity));
             dependent_entity->kind = SK_DEPENDENT_ENTITY;
 
-            return create_list_from_entry(dependent_entity);
+            result = create_list_from_entry(dependent_entity);
+        }
+
+        switch (ASTType(name))
+        {
+            // Solve pending ambiguities at the end of the qualified name
+            case AST_TEMPLATE_ID :
+                {
+                    solve_possibly_ambiguous_template_id(name, sc, decl_context);
+                    break;
+                }
+            default:
+                {
+                    break;
+                }
         }
     }
 
@@ -1886,7 +1910,7 @@ char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st)
                     char* abstract_declaration;
 
                     abstract_declaration = 
-                        get_declaration_string_internal(template_argument->type, st, "", "", 0, NULL, NULL);
+                        get_declaration_string_internal(template_argument->type, st, "", "", 0, NULL, NULL, 0);
 
                     result = strappend(result, abstract_declaration);
                     break;

@@ -26,6 +26,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-buildscope.h"
 #include "cxx-typeutils.h"
+#include "cxx-cexpr.h"
 
 #include "cxx-printscope.h"
 
@@ -116,9 +117,12 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
                         scope_entry_t* injected_nontype = new_symbol(instantiate_scope, name);
                         injected_nontype->kind = SK_VARIABLE;
                         injected_nontype->type_information = template_parameter->type_info;
-                        AST duplicated_tree = duplicate_ast(template_argument->argument_tree);
 
-                        AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, duplicated_tree, ASTLine(duplicated_tree), NULL);
+                        literal_value_t literal_value = evaluate_constant_expression(template_argument->argument_tree, 
+                                template_argument->scope, 
+                                decl_context);
+                        AST evaluated_tree = tree_from_literal_value(literal_value);
+                        AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, evaluated_tree, ASTLine(evaluated_tree), NULL);
                         injected_nontype->expression_value = fake_initializer;
                         break;
                     }
@@ -281,9 +285,13 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
                                 scope_entry_t* injected_nontype = new_symbol(instantiate_scope, name);
                                 injected_nontype->kind = SK_VARIABLE;
                                 injected_nontype->type_information = template_parameter->type_info;
-                                AST duplicated_tree = duplicate_ast(unification_item->expression);
 
-                                AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, duplicated_tree, ASTLine(duplicated_tree), NULL);
+                                literal_value_t literal_value = evaluate_constant_expression(unification_item->expression, 
+                                        unification_item->expr_scope,
+                                        decl_context);
+                                AST evaluated_tree = tree_from_literal_value(literal_value);
+                                AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, evaluated_tree, ASTLine(evaluated_tree), NULL);
+
                                 injected_nontype->expression_value = fake_initializer;
                                 break;
                             }
@@ -428,18 +436,23 @@ scope_entry_t* create_holding_symbol_for_template(matching_pair_t* matched_templ
     fill_template_specialized_info(instance_symbol, matched_template, arguments);
 
     // This should not come from instantiation
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "The holding symbol '%s' %p does not come from instantiation\n",
-                instance_symbol->symbol_name, instance_symbol);
-    }
 
     if (is_dependent_type(instance_symbol->type_information, decl_context))
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "The holding symbol '%s' line %d %p does not come from instantiation and is dependent\n",
+                    instance_symbol->symbol_name, instantiation_line, instance_symbol);
+        }
         instance_symbol->type_information->type->template_nature = TPN_INCOMPLETE_DEPENDENT;
     }
     else
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "The holding symbol '%s' line %d %p does not come from instantiation and is NOT dependent\n",
+                    instance_symbol->symbol_name, instantiation_line, instance_symbol);
+        }
         instance_symbol->type_information->type->template_nature = TPN_INCOMPLETE_INDEPENDENT;
     }
 

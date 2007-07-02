@@ -51,6 +51,13 @@ namespace TL
                     const std::string& symbol_name, const std::string& initializer, bool semicolon);
 
         public:
+
+            enum TypeDeclFlags
+            {
+                NORMAL_DECLARATION,
+                PARAMETER_DECLARATION
+            };
+
             Type(type_t* type_info)
                 : _type_info(type_info)
             {
@@ -77,14 +84,18 @@ namespace TL
 
             static Type get_int_type(void);
 
-            std::string get_simple_declaration(Scope sc, const std::string& symbol_name) const;
-            std::string get_declaration(Scope sc, const std::string& symbol_name) const;
+            std::string get_simple_declaration(Scope sc, const std::string& symbol_name, 
+                    TypeDeclFlags flags = NORMAL_DECLARATION) const;
+            std::string get_declaration(Scope sc, const std::string& symbol_name,
+                    TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
             std::string get_declaration_with_initializer(Scope sc, 
-                    const std::string& symbol_name, const std::string& initializer) const;
+                    const std::string& symbol_name, const std::string& initializer,
+                    TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
             std::string get_declaration_with_parameters(Scope sc,
-                    const std::string& symbol_name, ObjectList<std::string>& parameters);
+                    const std::string& symbol_name, ObjectList<std::string>& parameters,
+                    TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
             Type duplicate();
             Type get_pointer_to();

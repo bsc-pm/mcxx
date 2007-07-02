@@ -1721,7 +1721,6 @@ void build_scope_base_clause(AST base_clause, scope_t* st, scope_t* class_scope,
             SK_DEPENDENT_ENTITY
         };
 
-#warning Instantiate here if the returned entry is an incomplete independent template
         scope_entry_list_t* result_list = query_nested_name_flags(st, global_op, nested_name_specifier, name, 
                 FULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
         result_list = filter_symbol_kind_set(result_list, 7, filter);
@@ -2325,6 +2324,9 @@ scope_entry_t* build_scope_declarator(AST a, scope_t* st,
     return entry;
 }
 
+/*
+ * This is the actual implementation of 'build_scope_declarator'
+ */
 static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t* st, scope_t** parameters_scope, 
         gather_decl_spec_t* gather_info, type_t* simple_type_info, type_t** declarator_type,
         decl_context_t decl_context)
@@ -2355,6 +2357,9 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
         {
             decl_st = CURRENT_COMPILED_FILE(global_scope);
         }
+
+        decl_st = copy_scope(decl_st);
+        decl_st->template_scope = st->template_scope;
 
         ASTAttrSetValueType(a, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(a, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
@@ -4903,6 +4908,9 @@ static void build_scope_member_template_simple_declaration(AST a, scope_t* st, s
             new_decl_context);
 }
 
+/*
+ * This is a function definition inlined in a class
+ */
 static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st, 
         access_specifier_t current_access, type_t* class_info,
         int step, decl_context_t decl_context)
@@ -5032,6 +5040,9 @@ static scope_entry_t* build_scope_member_function_definition(AST a, scope_t*  st
     return entry;
 }
 
+/*
+ * This is a member declaration inlined in a class, not a function definition
+ */
 static void build_scope_simple_member_declaration(AST a, scope_t*  st, 
         access_specifier_t current_access, type_t* class_info, decl_context_t decl_context)
 {
@@ -7489,8 +7500,13 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st,
                 }
                 break;
             }
+        case STK_TEMPLATE_DEPENDENT_TYPE :
+            {
+                internal_error("Not yet implemented", 0);
+            }
         default :
-            internal_error("Unexpected simple type kind", 0);
+            internal_error("Unexpected simple type kind %d in '%s'", 
+                    simple_type_info->type->kind, node_information(conversion_function_id));
     }
 
     result = strappend(result, conversion_declarator_name);

@@ -2680,8 +2680,13 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
                     {
                         if (entry->expression_value != NULL)
                         {
-                            // if (is_dependent_expression(entry->expression_value, st, decl_context))
-                            if (is_dependent_expression(entry->expression_value, entry->scope, decl_context))
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "Computing dependency of expression '%s'\n", 
+                                        prettyprint_in_buffer(entry->expression_value));
+                            }
+                            if (is_dependent_expression(entry->expression_value, st, decl_context))
+                            // if (is_dependent_expression(entry->expression_value, entry->scope, decl_context))
                             {
                                 entry->dependency_info = DI_DEPENDENT;
                                 return 1;
@@ -3577,7 +3582,8 @@ static char* get_type_name_string(scope_t* st,
         type_t* type_info, 
         const char* symbol_name,
         int* num_parameter_names,
-        char*** parameter_names);
+        char*** parameter_names,
+        char is_parameter);
 
 // Returns a declaration string given a type, a symbol name, an optional initializer
 // and a semicolon
@@ -3586,11 +3592,12 @@ char* get_declaration_string_internal(type_t* type_info,
         const char* symbol_name, const char* initializer, 
         char semicolon,
         int* num_parameter_names,
-        char*** parameter_names)
+        char*** parameter_names,
+        char is_parameter)
 {
     char* base_type_name = get_simple_type_name_string(st, type_info);
     char* declarator_name = get_type_name_string(st, type_info, symbol_name, 
-            num_parameter_names, parameter_names);
+            num_parameter_names, parameter_names, is_parameter);
 
     char* result;
 
@@ -3620,18 +3627,20 @@ static void get_type_name_str_internal(scope_t* st,
         char** left,
         char** right,
         int* num_parameter_names,
-        char*** parameter_names);
+        char*** parameter_names,
+        char is_parameter);
 
 static char* get_type_name_string(scope_t* st,
         type_t* type_info, 
         const char* symbol_name,
         int* num_parameter_names,
-        char*** parameter_names)
+        char*** parameter_names,
+        char is_parameter)
 {
     char* left = strdup("");
     char* right = strdup("");
     get_type_name_str_internal(st, type_info, &left, &right, 
-            num_parameter_names, parameter_names);
+            num_parameter_names, parameter_names, is_parameter);
 
     char* result = strappend(left, symbol_name);
     result = strappend(result, right);
@@ -3646,7 +3655,8 @@ static void get_type_name_str_internal(scope_t* st,
         char** left,
         char** right,
         int* num_parameter_names,
-        char*** parameter_names)
+        char*** parameter_names,
+        char is_parameter)
 {
     switch (type_info->kind)
     {
@@ -3657,8 +3667,9 @@ static void get_type_name_str_internal(scope_t* st,
         case TK_POINTER :
             {
                 get_type_name_str_internal(st, type_info->pointer->pointee, left, right, 
-                        num_parameter_names, parameter_names);
+                        num_parameter_names, parameter_names, is_parameter);
 
+                // Should this change, change the case for TK_ARRAY and "is_parameter == 1"
                 if (declarator_needs_parentheses(type_info))
                 {
                     (*left) = strappend((*left), "(");
@@ -3677,7 +3688,7 @@ static void get_type_name_str_internal(scope_t* st,
             {
                 get_type_name_str_internal(st, type_info->pointer->pointee, left, right, 
                         num_parameter_names,
-                        parameter_names);
+                        parameter_names, is_parameter);
 
                 if (declarator_needs_parentheses(type_info))
                 {
@@ -3700,7 +3711,7 @@ static void get_type_name_str_internal(scope_t* st,
         case TK_REFERENCE :
             {
                 get_type_name_str_internal(st, type_info->pointer->pointee, left, right, 
-                        num_parameter_names, parameter_names);
+                        num_parameter_names, parameter_names, is_parameter);
 
                 if (declarator_needs_parentheses(type_info))
                 {
@@ -3717,20 +3728,42 @@ static void get_type_name_str_internal(scope_t* st,
             }
         case TK_ARRAY :
             {
-                char* array_expr = strappend("[", prettyprint_in_buffer(type_info->array->array_expr));
-                array_expr = strappend(array_expr, "]");
+                if (!is_parameter)
+                {
+                    char* array_expr = strappend("[", prettyprint_in_buffer(type_info->array->array_expr));
+                    array_expr = strappend(array_expr, "]");
 
-                (*right) = strappend((*right), array_expr);
+                    (*right) = strappend((*right), array_expr);
 
-                get_type_name_str_internal(st, type_info->array->element_type, left, right, 
-                        num_parameter_names, parameter_names);
+                    get_type_name_str_internal(st, type_info->array->element_type, left, right, 
+                            num_parameter_names, parameter_names, is_parameter);
+                }
+                else
+                {
+                    get_type_name_str_internal(st, type_info->array->element_type, left, right, 
+                            num_parameter_names, parameter_names, is_parameter);
+
+                    // Should this change, change the TK_POINTER case
+                    if (declarator_needs_parentheses(type_info))
+                    {
+                        (*left) = strappend((*left), "(");
+                    }
+
+                    (*left) = strappend((*left), "*");
+                    (*left) = strappend((*left), get_cv_qualifier_string(type_info));
+
+                    if (declarator_needs_parentheses(type_info))
+                    {
+                        (*right) = strappend(")", (*right));
+                    }
+                }
 
                 break;
             }
         case TK_FUNCTION :
             {
                 get_type_name_str_internal(st, type_info->function->return_type, left, right, 
-                        num_parameter_names, parameter_names);
+                        num_parameter_names, parameter_names, is_parameter);
 
                 char* prototype;
                 prototype = "(";
@@ -3753,7 +3786,7 @@ static void get_type_name_str_internal(scope_t* st,
                             // Abstract declarator
                             prototype = strappend(prototype,
                                     get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, st, 
-                                        "", "", 0, NULL, NULL));
+                                        "", "", 0, NULL, NULL, 1));
                         }
                         else
                         {
@@ -3765,7 +3798,7 @@ static void get_type_name_str_internal(scope_t* st,
 
                             prototype = strappend(prototype,
                                     get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, st, 
-                                        parameter_name, "", 0, NULL, NULL));
+                                        parameter_name, "", 0, NULL, NULL, 1));
                         }
                     }
                 }

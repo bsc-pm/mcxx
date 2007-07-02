@@ -102,7 +102,8 @@ namespace TL
 					stm_parameters.append_with_separator(
 							it->get_declaration(
 								function_def.get_scope(), 
-								declarator_name.prettyprint()
+								declarator_name.prettyprint(),
+                                Type::PARAMETER_DECLARATION
 								),
 							","
 							);

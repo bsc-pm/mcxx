@@ -119,7 +119,7 @@ namespace TL
             Type class_type = this_symbol.get_type();
             formal_parameters.append_with_separator(
                     // Fix this scope
-                    class_type.get_declaration(decl_scope, "_this"), 
+                    class_type.get_declaration(decl_scope, "_this", Type::PARAMETER_DECLARATION), 
                     ",");
             num_params++;
         }
@@ -137,7 +137,8 @@ namespace TL
             std::string name = it->parameter_name;
 
             formal_parameters.append_with_separator(
-                    type.get_declaration(decl_scope, name), ",");
+                    type.get_declaration(decl_scope, name, Type::PARAMETER_DECLARATION), 
+                    ",");
             num_params++;
         }
 
@@ -154,7 +155,8 @@ namespace TL
             std::string name = it->parameter_name;
 
             formal_parameters.append_with_separator(
-                    type.get_declaration(decl_scope, name), ",");
+                    type.get_declaration(decl_scope, name, Type::PARAMETER_DECLARATION)
+                    , ",");
             num_params++;
         }
 

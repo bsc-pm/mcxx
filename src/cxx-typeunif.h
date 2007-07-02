@@ -38,6 +38,7 @@ struct unification_item_tag
     
     type_t* value;
     AST expression;
+    scope_t* expr_scope;
 } unification_item_t;
 
 typedef struct 

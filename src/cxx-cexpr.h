@@ -61,8 +61,9 @@ typedef struct
 literal_value_t evaluate_constant_expression(AST a, scope_t* st, 
         decl_context_t decl_context);
 char value_is_zero(literal_value_t v);
-literal_value_t literal_value_zero();
-literal_value_t literal_value_minus_one();
+literal_value_t literal_value_zero(void);
+literal_value_t literal_value_one(void);
+literal_value_t literal_value_minus_one(void);
 literal_value_t increment_literal_value(literal_value_t e);
 AST tree_from_literal_value(literal_value_t e);
 char equal_literal_values(literal_value_t v1, literal_value_t v2, scope_t* st);
