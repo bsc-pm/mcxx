@@ -953,10 +953,29 @@ runtime {
 "goto"          { parse_token_text(); return GOTO; }
 "return"        { parse_token_text(); return RETURN; }
 
- /* A.2.41 */
  /*!if CPLUSPLUS*/
+ /* A.2.41 */
 "false"         { parse_token_text(); return BOOLEAN_LITERAL; }
 "true"          { parse_token_text(); return BOOLEAN_LITERAL; }
+ /*!endif*/
+
+ /*!if CPLUSPLUS*/
+ /* Alternative tokens */
+"<%" { parse_token_text(); return '{'; }
+"%>" { parse_token_text(); return '}'; }
+"<:" { parse_token_text(); return '['; }
+":>" { parse_token_text(); return ']'; }
+"and" { parse_token_text(); return ANDAND; }
+"bitor" { parse_token_text(); return '|'; }
+"or" { parse_token_text(); return OROR; }
+"xor" { parse_token_text(); return '^'; }
+"compl" { parse_token_text(); return '~'; }
+"bitand" { parse_token_text(); return '&'; }
+"and_eq" { parse_token_text(); return AND_ASSIGN; }
+"or_eq" { parse_token_text(); return OR_ASSIGN; }
+"xor_eq" { parse_token_text(); return XOR_ASSIGN; }
+"not" { parse_token_text(); return '!'; }
+"not_eq" { parse_token_text(); return NOT_EQUAL; }
  /*!endif*/
 
  /* GNU Extensions */
