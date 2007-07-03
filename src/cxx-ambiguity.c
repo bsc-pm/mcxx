@@ -2187,16 +2187,6 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st,
                 {
                     AST type_id = ASTSon0(current_template_argument);
 
-                    // Recursively fix if needed
-                    // AST type_id_type_spec = ASTSon0(type_id);
-                    // AST type_id_simple_type_spec = ASTSon1(type_id_type_spec);
-                    // 
-                    // if (ASTSon2(type_id_simple_type_spec) != NULL
-                    //         && ASTType(ASTSon2(type_id_simple_type_spec)) == AST_TEMPLATE_ID)
-                    // {
-                    //     solve_possibly_ambiguous_template_id(ASTSon2(type_id_simple_type_spec), st, decl_context);
-                    // }
-
                     current_option = check_for_type_id_tree(type_id, st, decl_context);
                     break;
                 }
@@ -2355,7 +2345,8 @@ static char check_for_simple_type_spec(AST type_spec, scope_t* st, decl_context_
             || entry_list->entry->kind == SK_CLASS
             || entry_list->entry->kind == SK_TEMPLATE_PRIMARY_CLASS
             || entry_list->entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-            || entry_list->entry->kind == SK_TEMPLATE_TYPE_PARAMETER);
+            || entry_list->entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+            || entry_list->entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER);
 }
 
 static char check_for_typeid(AST expr, scope_t* st, decl_context_t decl_context)

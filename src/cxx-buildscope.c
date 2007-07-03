@@ -4064,12 +4064,16 @@ static void build_scope_type_template_parameter(AST a, scope_t* st,
         AST def_arg_type_specifier = ASTSon0(type_id);
         AST def_arg_simple_type_spec = ASTSon1(def_arg_type_specifier);
 
-        if (ASTSon2(def_arg_simple_type_spec) != NULL
-                && ASTType(ASTSon2(def_arg_simple_type_spec)) == AST_TEMPLATE_ID)
-        {
-            solve_possibly_ambiguous_template_id(ASTSon2(def_arg_simple_type_spec), st,
-                    decl_context);
-        }
+        type_t type_info;
+        memset(&type_info, 0, sizeof(type_info));
+
+        simple_type_t simple_type_info;
+        memset(&simple_type_info, 0, sizeof(simple_type_info));
+
+        type_info.type = &simple_type_info;
+
+        // This will disambiguate for us
+        gather_type_spec_information(def_arg_simple_type_spec, st, &type_info, decl_context);
 
         template_parameters->default_argument_scope = copy_scope(st);
         template_parameters->default_tree = type_id;
@@ -4177,8 +4181,13 @@ static void build_scope_namespace_definition(AST a, scope_t* st, decl_context_t 
 
     if (namespace_name != NULL)
     {
-        // Register this namespace if it does not exist
-        scope_entry_list_t* list = query_unqualified_name(st, ASTText(namespace_name));
+        if (st->kind != NAMESPACE_SCOPE)
+        {
+            internal_error("Incorrect scope kind, should be a namespace one\n", 0);
+        }
+
+        // Register this namespace if it does not exist in this scope
+        scope_entry_list_t* list = query_in_symbols_of_scope(st, ASTText(namespace_name));
 
         scope_entry_list_t* check_list = filter_symbol_non_kind(list, SK_NAMESPACE);
         ERROR_CONDITION((check_list != NULL), "Identifier '%s' has already been declared as another symbol kind\n", ASTText(namespace_name));
