@@ -176,28 +176,52 @@ namespace TL
                 }
 				else if (expression.is_operation_assignment())
 				{
-					Source left_original_part;
-					left_original_part
-						<< expression.get_first_operand().prettyprint()
-						;
 
-					get_address(expression.get_first_operand());
-					replace_expression(expression.get_second_operand());
+                    Type left_original_part_type = expression.get_first_operand().get_type();
 
-					Source real_operator;
+                    get_address(expression.get_first_operand());
+                    replace_expression(expression.get_second_operand());
 
-					real_operator << expression.get_operator_str();
-					
-					read_expression
+                    Source real_operator;
+
+                    real_operator << expression.get_operator_str();
+
+                    if (!left_original_part_type.is_valid())
+                    {
+                        std::cerr << "WARNING: Could not compute type of expression '" << expression.get_first_operand().prettyprint() 
+                            << "' at '" << expression.get_first_operand().get_ast().get_locus() << " falling back to __typeof__" << std::endl;
+
+                        Source left_original_part;
+                        left_original_part
+                            << expression.get_first_operand().prettyprint()
+                            ;
+
+
+                        read_expression
                             << "({"
                             << "__typeof__(" << left_original_part << ") "
                             << "*__temp = " << expression.get_first_operand().prettyprint() << ";"
-							<< "*(__stm_write(__t, __temp, *__stm_read(__t, __temp) "
-							<< real_operator
-							<< "(" << expression.get_second_operand().prettyprint() << ")"
-							<< "));"
+                            << "*(__stm_write(__t, __temp, *__stm_read(__t, __temp) "
+                            << real_operator
+                            << "(" << expression.get_second_operand().prettyprint() << ")"
+                            << "));"
                             << "})"
-							;
+                            ;
+                    }
+                    else
+                    {
+                        Type pointer_type = left_original_part_type.get_pointer_to();
+                        read_expression
+                            << "({"
+                            << pointer_type.get_declaration(expression.get_scope(), "__temp")
+                            << " = " << expression.get_first_operand().prettyprint() << ";"
+                            << "*(__stm_write(__t, __temp, *__stm_read(__t, __temp) "
+                            << real_operator
+                            << "(" << expression.get_second_operand().prettyprint() << ")"
+                            << "));"
+                            << "})"
+                            ;
+                    }
 				}
                 // var => *__stm_read(__t, &var)
                 else if (expression.is_id_expression())
@@ -414,17 +438,10 @@ namespace TL
                         Source post_source;
                         Source incremented_operand, increment_operand;
 
+                        Type read_operand_type = expression.get_unary_operand().get_type();
+
                         Source read_operand_src;
                         read_operand_src << expression.get_unary_operand().prettyprint();
-
-                        post_source 
-                            << "({"
-                            << "__typeof__(" << read_operand_src << ") "
-                            << "__temp = " << incremented_operand << ";"
-                            << increment_operand << ";"
-                            << "__temp;"
-                            << "})"
-                            ;
 
                         AST_t read_operand_tree = 
                             read_operand_src.parse_expression(expression.get_ast(),
@@ -432,6 +449,31 @@ namespace TL
 
                         Expression read_operand_expr(read_operand_tree, expression.get_scope_link());
                         replace_expression(read_operand_expr);
+
+                        if (!read_operand_type.is_valid())
+                        {
+                            std::cerr << "WARNING: Could not compute type of expression '" << expression.get_unary_operand().prettyprint() 
+                                << "' at '" << expression.get_unary_operand().get_ast().get_locus() << " falling back to __typeof__" << std::endl;
+                            post_source 
+                                << "({"
+                                << "__typeof__(" << read_operand_src << ") "
+                                << "__temp = " << incremented_operand << ";"
+                                << increment_operand << ";"
+                                << "__temp;"
+                                << "})"
+                                ;
+                        }
+                        else
+                        {
+                            post_source
+                                << "({"
+                                << read_operand_type.get_declaration(expression.get_scope(), "__temp") 
+                                << " = " << incremented_operand << ";"
+                                << increment_operand << ";"
+                                << "__temp;"
+                                << "})"
+                                ;
+                        }
 
                         incremented_operand << read_operand_expr.prettyprint();
 
