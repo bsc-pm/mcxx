@@ -906,7 +906,7 @@ static void template_id_handler(FILE* f, AST a, int level)
 {
     prettyprint_level(f, ASTSon0(a), level);
 
-    token_fprintf(f, a, "<");
+    token_fprintf(f, a, "< ");
     if (ASTSon1(a) != NULL)
     {
         list_handler(f, ASTSon1(a), level);
