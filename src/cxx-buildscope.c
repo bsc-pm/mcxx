@@ -2399,9 +2399,10 @@ static scope_entry_t* build_scope_declarator_with_parameter_scope(AST a, scope_t
             if (conversion_function_id != NULL)
             {
                 type_t* conversion_function_type;
-                get_conversion_function_name(conversion_function_id, st, &conversion_function_type, decl_context);
+                get_conversion_function_name(conversion_function_id, decl_st, &conversion_function_type, decl_context);
 
                 (*declarator_type)->function->return_type = conversion_function_type;
+                (*declarator_type)->function->is_conversion = 1;
             }
         }
 
@@ -3086,7 +3087,7 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "Registering a conversion function ID !!!\n");
+                    fprintf(stderr, "Registering a conversion function in %s\n", node_information(declarator_id));
                 }
                 // Ok, according to the standard, this function returns the
                 // type defined in the conversion function id
@@ -7342,6 +7343,7 @@ AST get_leftmost_declarator_name(AST a, decl_context_t decl_context)
     }
 }
 
+// This function used to do very strange things
 char* get_conversion_function_name(AST conversion_function_id, scope_t* st, 
         type_t** result_conversion_type, decl_context_t decl_context)
 {
@@ -7381,6 +7383,9 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st,
         *result_conversion_type = type_info;
     }
 
+    return "$.operator";
+
+#if 0
     char* result = "";
 
     result = strappend(result, "operator ");
@@ -7517,6 +7522,7 @@ char* get_conversion_function_name(AST conversion_function_id, scope_t* st,
     }
 
     return result;
+#endif
 }
 
 static AST get_enclosing_declaration(AST point_of_declarator)

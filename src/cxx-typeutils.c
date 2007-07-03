@@ -455,57 +455,73 @@ char overloaded_function(type_t* ft1, type_t* ft2, scope_t* st,
     function_info_t* t1 = ft1->function;
     function_info_t* t2 = ft2->function;
 
-    if (t1->template_nesting != t2->template_nesting)
-        return 1;
-
-    if (t1->num_template_parameters_in_scope != t2->num_template_parameters_in_scope)
-        return 1;
-
-    int i = 0;
-    for (i = 0; i < t1->num_template_parameters_in_scope; i++)
+    if (t1->is_conversion != t2->is_conversion)
     {
-        template_parameter_t* t1_param = t1->template_parameter_in_scope_info[i];
-        template_parameter_t* t2_param = t2->template_parameter_in_scope_info[i];
-
-        if (t1_param->kind != t2_param->kind)
-        {
-            return 1;
-        }
+        internal_error("Type function conversion flag mismatch", 0);
+        return 0;
     }
 
-    if (!compatible_parameters(t1, t2, st, decl_context))
-        return 1;
-
-    // If one has return type but the other does not this is an overload
-    // (technically this is ill-formed)
-    if (((t1->return_type == NULL)
-                && (t2->return_type != NULL))
-            || ((t2->return_type == NULL)
-                && (t1->return_type != NULL)))
-        return 1;
-
-    if (!equivalent_cv_qualification(ft1->cv_qualifier, 
-                ft2->cv_qualifier))
-        return 1;
-            
-
-    // Destructors, constructors, operator functions and conversion functions
-    // will not have a full direct type
-    if (t1->return_type == NULL 
-            && t2->return_type == NULL)
-        return 0;
-
-    if (!equivalent_types(t1->return_type, t2->return_type, st, CVE_CONSIDER, decl_context))
+    if (!t1->is_conversion)
     {
-        if (!is_dependent_type(t1->return_type, decl_context)
-                && !is_dependent_type(t2->return_type, decl_context))
-        {
-            internal_error("You are trying to overload a function by only modifying its return type", 0);
-        }
-        else
-        {
+        if (t1->template_nesting != t2->template_nesting)
             return 1;
+
+        if (t1->num_template_parameters_in_scope != t2->num_template_parameters_in_scope)
+            return 1;
+
+        int i = 0;
+        for (i = 0; i < t1->num_template_parameters_in_scope; i++)
+        {
+            template_parameter_t* t1_param = t1->template_parameter_in_scope_info[i];
+            template_parameter_t* t2_param = t2->template_parameter_in_scope_info[i];
+
+            if (t1_param->kind != t2_param->kind)
+            {
+                return 1;
+            }
         }
+
+        if (!compatible_parameters(t1, t2, st, decl_context))
+            return 1;
+
+        // If one has return type but the other does not this is an overload
+        // (technically this is ill-formed)
+        if (((t1->return_type == NULL)
+                    && (t2->return_type != NULL))
+                || ((t2->return_type == NULL)
+                    && (t1->return_type != NULL)))
+            return 1;
+
+        if (!equivalent_cv_qualification(ft1->cv_qualifier, 
+                    ft2->cv_qualifier))
+            return 1;
+
+
+        // Destructors, constructors, operator functions and conversion functions
+        // will not have a full direct type
+        if (t1->return_type == NULL 
+                && t2->return_type == NULL)
+            return 0;
+
+        if (!equivalent_types(t1->return_type, t2->return_type, st, CVE_CONSIDER, decl_context))
+        {
+            if (!is_dependent_type(t1->return_type, decl_context)
+                    && !is_dependent_type(t2->return_type, decl_context))
+            {
+                internal_error("You are trying to overload a function by only modifying its return type", 0);
+            }
+            else
+            {
+                return 1;
+            }
+        }
+    }
+    else
+    {
+        // In case of conversion functions, overloading does not have sense,
+        // but we will distinguish them by the return type exclusively
+        return (!equivalent_types(t1->return_type, t2->return_type, st,
+                    CVE_CONSIDER, decl_context));
     }
 
     return 0;

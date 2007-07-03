@@ -476,6 +476,11 @@ struct function_tag
     // The returning type of the function
     struct type_tag* return_type;
 
+    // States if this is a conversion function
+    // If it is true, then 'return_type' is the destination type of the
+    // conversion
+    char is_conversion;
+
     // Parameter information
     int num_parameters;
     parameter_info_t** parameter_list;
