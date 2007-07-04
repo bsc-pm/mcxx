@@ -1316,6 +1316,11 @@ void add_new_file_to_compilation_process(const char* file_path, const char* outp
 
     compilation_file_process_t *new_compiled_file = (compilation_file_process_t*) calloc(1, sizeof(*new_compiled_file));
 
+    configuration->verbose = CURRENT_CONFIGURATION(verbose);
+    configuration->do_not_link = CURRENT_CONFIGURATION(do_not_link);
+    configuration->do_not_compile = CURRENT_CONFIGURATION(do_not_compile);
+    configuration->do_not_prettyprint = CURRENT_CONFIGURATION(do_not_prettyprint);
+
     new_compiled_file->translation_unit = translation_unit;
     new_compiled_file->compilation_configuration = configuration;
 

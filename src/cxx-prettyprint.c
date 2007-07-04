@@ -2444,7 +2444,10 @@ static void custom_construct_parameter(FILE *f, AST a, int level)
 static void pragma_custom_line_handler(FILE* f, AST a, int level)
 {
     token_fprintf(f, a, "%s ", ASTText(a));
-    spaced_sequence_handler(f, ASTSon0(a), level);
+    if (ASTSon0(a) != NULL)
+    {
+        spaced_sequence_handler(f, ASTSon0(a), level);
+    }
     token_fprintf(f, a, "\n");
 }
 
