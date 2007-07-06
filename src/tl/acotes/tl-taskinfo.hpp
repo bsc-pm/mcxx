@@ -17,6 +17,8 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
 #ifndef TLTASKINFO_HPP_
 #define TLTASKINFO_HPP_
@@ -31,7 +33,7 @@
 
 namespace TL
 {
-class FordistributeInfo;
+class ForreplicateInfo;
 class InputStreamInfo;
 class OutputStreamInfo;
 class TargetInfo;
@@ -44,7 +46,7 @@ public:
 	virtual ~TaskInfo(void); 
 
 	void  add_export(const Symbol& symbol);
-    void  add_fordistribute(FordistributeInfo* fordistribute);
+    void  add_forreplicate(ForreplicateInfo* forreplicate);
 	void  add_import(const Symbol& symbol);
 	void  add_input(const Symbol& symbol);
 	void  add_istream(InputStreamInfo* is);
@@ -64,7 +66,7 @@ public:
 	void compute_graph(void);
     
 	const std::set<Symbol>&             get_exports(void) const;
-	const std::set<FordistributeInfo*>& get_fordistribute_info_set(void) const;
+	const std::set<ForreplicateInfo*>& get_forreplicate_info_set(void) const;
 	const std::set<Symbol>&             get_imports(void) const;
 	const std::set<InputStreamInfo*>&   get_loop_pop_set(void) const;
 	const std::set<OutputStreamInfo*>&  get_loop_push_set(void) const;
@@ -87,12 +89,12 @@ public:
 	bool             is_output(const Symbol& symbol) const;
 	bool             is_shortcut(const Symbol& symbol) const;
     
-	TargetInfo*      new_target_info(const std::string& label);
+	TargetInfo*      new_target_info(void);
 
 private:
 	std::string                  _name;
 	std::set<Symbol>             _exports;
-	std::set<FordistributeInfo*> _fordistribute_info_set;
+	std::set<ForreplicateInfo*> _forreplicate_info_set;
 	std::set<Symbol>             _imports;
 	std::set<Symbol>             _inputs;
 	std::set<InputStreamInfo*>   _istream_set;

@@ -17,6 +17,8 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
 #include "tl-streamtransformhelper.hpp"
 
@@ -181,7 +183,7 @@ create_istream
 	
 	ss		<< "istream_create"
 			<< "( &(" << s->get_name() << ")"
-			<< ", sizeof(" << s->get_symbol_name() << ")"
+			<< ", sizeof(" << s->get_type_name() << ")"
 			<< ", " << s->get_queue_length()
 			<< ")"
 			<< ";"
@@ -206,7 +208,7 @@ create_istream_all
 	{
 		TargetStreamInfo* target_stream_info= *it;
 		
-		ss << create_istream(target_stream_info->get_stream_info()->get_input_stream_info());
+		ss << create_istream(target_stream_info->get_input_stream_info());
 	}
 	
 	return ss.str();
@@ -223,7 +225,7 @@ create_ostream
 	
 	ss		<< "ostream_create"
 			<< "( &(" << s->get_name() << ")"
-			<< ", sizeof(" << s->get_symbol_name() << ")"
+			<< ", sizeof(" << s->get_type_name() << ")"
 			<< ")"
 			<< ";"
 			;
@@ -247,7 +249,7 @@ create_ostream_all
 	{
 		TargetStreamInfo* target_stream_info= *it;
 		
-		ss << create_ostream(target_stream_info->get_stream_info()->get_output_stream_info());
+		ss << create_ostream(target_stream_info->get_output_stream_info());
 	}
 	
 	return ss.str();
@@ -326,7 +328,7 @@ declare_istream_all
 	{
 		TargetStreamInfo* target_stream_info= *it;
 		
-		ss << declare_istream(target_stream_info->get_stream_info()->get_input_stream_info());
+		ss << declare_istream(target_stream_info->get_input_stream_info());
 	}
 	
 	return ss.str();
@@ -366,7 +368,7 @@ declare_ostream_all
 	{
 		TargetStreamInfo* target_stream_info= *it;
 		
-		ss << declare_ostream(target_stream_info->get_stream_info()->get_output_stream_info());
+		ss << declare_ostream(target_stream_info->get_output_stream_info());
 	}
 	
 	return ss.str();

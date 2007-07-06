@@ -39,19 +39,22 @@ public:
             std::string label);
 	virtual ~EndStreamInfo();
     
-    std::string get_name(void) const;
-    Symbol      get_symbol(void) const;
-    std::string get_symbol_name(void) const;
-    TaskInfo*   get_task_info(void) const;
+    const std::string& get_name(void) const;
+    Symbol             get_symbol(void) const;
+    const std::string& get_symbol_name(void) const;
+    TaskInfo*          get_task_info(void) const;
+    const std::string& get_type_name(void) const;
     
 private:
     std::string _name;
     Symbol      _symbol;
     std::string _symbol_name;
     TaskInfo*   _task_info;
+    std::string _type_name;
 
     void init_name(std::string type, std::string label);
     void init_symbol_name(void);
+    void init_type_name(void);
 };
 
 }

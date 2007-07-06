@@ -17,6 +17,8 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
 #include "tl-targetinfo.hpp"
 
@@ -32,10 +34,8 @@ TargetInfo::
 TargetInfo
 		( TaskgroupInfo* taskgroup_info
 		, TaskInfo* task_info
-		, const std::string& label
 		)
-		: _label(label)
-		, _task_info(task_info)
+		: _task_info(task_info)
 		, _taskgroup_info(taskgroup_info)
 {
 }
@@ -51,14 +51,14 @@ void
 TargetInfo::
 add_input
 		( const Symbol& symbol
+        , const std::string& label
 		)
 {
-	TargetStreamInfo* target_stream_info;
-	
-	target_stream_info= _taskgroup_info->get_target_stream_info(symbol, _label);
-	target_stream_info->set_task_info_istream(_task_info);
-	
-	_istream_target_info_set.insert(target_stream_info);
+	TargetStreamInfo* target_stream_info=
+            _taskgroup_info->get_target_stream_info(label);
+            
+    target_stream_info->set_control_task(symbol, _task_info);
+	_input_stream_info_set.insert(target_stream_info->get_input_stream_info());
 }
 
 // add_output ------------------------------------------------------------------
@@ -66,36 +66,36 @@ void
 TargetInfo::
 add_output
 		( const Symbol& symbol
+        , const std::string& label
 		)
 {
-	TargetStreamInfo* target_stream_info;
-	
-	target_stream_info= _taskgroup_info->get_target_stream_info(symbol, _label);
-	target_stream_info->set_task_info_ostream(_task_info);
-	
-	_ostream_target_info_set.insert(target_stream_info);
+    TargetStreamInfo* target_stream_info=
+            _taskgroup_info->get_target_stream_info(label);
+            
+    target_stream_info->set_close_task(symbol, _task_info);
+	_output_stream_info_set.insert(target_stream_info->get_output_stream_info());
 }
 
-// get_istream_target_info_set -------------------------------------------------
+// get_input_stream_info_set ---------------------------------------------------
 const 
-std::set<TargetStreamInfo*>& 
+std::set<InputStreamInfo*>& 
 TargetInfo::
-get_istream_target_info_set
+get_input_stream_info_set
 		( void
 		) const
 {
-	return _istream_target_info_set;
+	return _input_stream_info_set;
 }
 
-// get_ostream_target_info_set -------------------------------------------------
+// get_output_stream_info_set -------------------------------------------------
 const 
-std::set<TargetStreamInfo*>& 
+std::set<OutputStreamInfo*>& 
 TargetInfo::
-get_ostream_target_info_set
+get_output_stream_info_set
 		( void
 		) const
 {
-	return _ostream_target_info_set;
+	return _output_stream_info_set;
 }
 
 

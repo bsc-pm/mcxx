@@ -17,27 +17,29 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
-#include "tl-fordistributetransformhelper.hpp"
+#include "tl-forreplicatetransformhelper.hpp"
 
 #include <assert.h>
 
 #include "tl-langconstruct.hpp"
-#include "tl-fordistributeinfo.hpp"
+#include "tl-forreplicateinfo.hpp"
 
 namespace TL
 {
 
 // header ----------------------------------------------------------------------
 std::string 
-FordistributeTransformHelper::
-header(FordistributeInfo* fordistribute_info)
+ForreplicateTransformHelper::
+header(ForreplicateInfo* forreplicate_info)
 {
-    assert(fordistribute_info);
+    assert(forreplicate_info);
     
     std::stringstream ss;
     
-    ForStatement for_statement= fordistribute_info->get_for_statement();
+    ForStatement for_statement= forreplicate_info->get_for_statement();
     
     ss      << "for"
             << "("
@@ -54,35 +56,35 @@ header(FordistributeInfo* fordistribute_info)
 
 // headers ---------------------------------------------------------------------
 std::string
-FordistributeTransformHelper::
-headers(const std::set<FordistributeInfo*>& s)
+ForreplicateTransformHelper::
+headers(const std::set<ForreplicateInfo*>& s)
 {
     std::stringstream ss;
     
-    for     ( std::set<FordistributeInfo*>::iterator it= s.begin()
+    for     ( std::set<ForreplicateInfo*>::iterator it= s.begin()
             ; it != s.end()
             ; it++)
     {
-        FordistributeInfo* fordistribute_info= *it;
+        ForreplicateInfo* forreplicate_info= *it;
         
-        ss << header(fordistribute_info);
+        ss << header(forreplicate_info);
     }
         
     return ss.str();
 }
 
 
-// FordistributeTransformHelper constructor ------------------------------------
-FordistributeTransformHelper::
-FordistributeTransformHelper()
+// ForreplicateTransformHelper constructor ------------------------------------
+ForreplicateTransformHelper::
+ForreplicateTransformHelper()
 {
     // is a helper
     assert(0);
 }
 
-// FordistributeTransformHelper destructor -------------------------------------
-FordistributeTransformHelper::
-~FordistributeTransformHelper()
+// ForreplicateTransformHelper destructor -------------------------------------
+ForreplicateTransformHelper::
+~ForreplicateTransformHelper()
 {
 }
 

@@ -17,6 +17,8 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
 #ifndef TLTASKGROUPINFO_HPP_
 #define TLTASKGROUPINFO_HPP_
@@ -30,10 +32,13 @@
 
 namespace TL
 {
+    
+    class InputStreamInfo;
+    class OutputStreamInfo;
 	class TaskInfo;
 	class Transform;
 	class TransformTaskgroupReplace;
-	class StreamInfo;
+    class StreamInfo;
 	class TargetStreamInfo;
 	
 	class TaskgroupInfo
@@ -44,14 +49,16 @@ namespace TL
 		
 		const std::string&           get_name(void) const;
 		const std::set<StreamInfo*>& get_stream_info_set(void) const;
-		TargetStreamInfo*            get_target_stream_info(const Symbol& 
-				symbol, const std::string& label);
+		TargetStreamInfo*            get_target_stream_info(const std::string& 
+                label);
 		TaskInfo*                    get_task_info_phantom(void) const;
 		const std::set<TaskInfo*>&   get_task_info_set(void) const;
 		TransformTaskgroupReplace*   get_transform_taskgroup_replace(void) const;
 		void                         compute_graph(void);
-		StreamInfo*                  new_stream_info(const Symbol& symbol, 
-				TaskInfo* task_info_ostream, TaskInfo* task_info_istream);
+        StreamInfo*                  new_stream_info(const Symbol& symbol, 
+                TaskInfo* task_info_ostream, TaskInfo* task_info_istream);
+		StreamInfo*                  new_stream_info(OutputStreamInfo*
+                output_stream_info, InputStreamInfo* input_stream_info);
 		TaskInfo*                    new_task_info(void);
 		void                         set_transform_taskgroup_replace(
 				TransformTaskgroupReplace* transform_taskgroup_replace);

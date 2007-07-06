@@ -18,13 +18,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
     
-    $Log$
     $Id$
-    $LastChangedDate$
-    $Rev$
-    $Rev$:     Revision of last commit
-    $Author$:  Author of last commit
-    $Date$:    Date of last commit
 */
 #ifndef TL_ACOTESTRANSFORM_HPP
 #define TL_ACOTESTRANSFORM_HPP

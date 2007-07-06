@@ -17,31 +17,39 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
-#ifndef TLFORDISTRIBUTETRANSFORMHELPER_HPP_
-#define TLFORDISTRIBUTETRANSFORMHELPER_HPP_
+#ifndef TLTRANSFORMFORREPLICATEREPLACE_HPP_
+#define TLTRANSFORMFORREPLICATEREPLACE_HPP_
 
-#include <set>
 #include <string>
+
+#include "tl-pragmasupport.hpp"
+#include "tl-transform.hpp"
 
 namespace TL
 {
-    
-class FordistributeInfo;
 
-class FordistributeTransformHelper
+class ForreplicateInfo;
+
+class TransformForreplicateReplace : public TL::Transform
 {
 public:
-    
-    static std::string header(FordistributeInfo* fordistribute_info);
-    static std::string headers(const std::set<FordistributeInfo*>& 
-            fordistribute_info_set);
-
+	TransformForreplicateReplace(PragmaCustomConstruct pragma_custom_construct, 
+			ForreplicateInfo* forreplicate_info);
+	virtual ~TransformForreplicateReplace();
+	
+	virtual void transform(void);
+	
 private:
-	FordistributeTransformHelper();
-	virtual ~FordistributeTransformHelper();
+	ForreplicateInfo*    _forreplicate_info;
+	PragmaCustomConstruct _pragma_custom_construct;
+	
+	std::string generate_body(void);
+	std::string generate_replace(void);
 };
 
 }
 
-#endif /*TLFORDISTRIBUTETRANSFORMHELPER_HPP_*/
+#endif /*TLTRANSFORMFORREPLICATEREPLACE_HPP_*/

@@ -17,6 +17,8 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
 #include "tl-taskgroupinfo.hpp"
 
@@ -114,21 +116,19 @@ get_stream_info_set
 TargetStreamInfo*            
 TaskgroupInfo::
 get_target_stream_info
-		( const Symbol& symbol
-		, const std::string& label
+		( const std::string& label
 		)
 {
-	std::string key= label;
 	TargetStreamInfo* target_stream_info;
 	
-	if (_target_stream_info_map.count(key) == 0)
+	if (_target_stream_info_map.count(label) == 0)
 	{
-		target_stream_info= new TargetStreamInfo(symbol, label);
-		_target_stream_info_map[key]= target_stream_info;
+		target_stream_info= new TargetStreamInfo(label);
+		_target_stream_info_map[label]= target_stream_info;
 	}
 	else // if (_target_stream_info_map.count(key) != 0)
 	{
-		target_stream_info= _target_stream_info_map[key];
+		target_stream_info= _target_stream_info_map[label];
 	}
 	
 	return target_stream_info;
@@ -178,25 +178,42 @@ compute_graph
 	_task_info_phantom->compute_graph();
 }
 
-// new_stream_info -------------------------------------------------------------
+// new_stream_info (symbol,task,task) ------------------------------------------
 StreamInfo*
 TaskgroupInfo::
 new_stream_info
-		( const Symbol& symbol
-		, TaskInfo* task_info_ostream
-		, TaskInfo* task_info_istream
-		)
+        ( const Symbol& symbol
+        , TaskInfo* task_info_ostream
+        , TaskInfo* task_info_istream
+        )
 {
-	// Createa a new taskinfo for this taskgroup
-	StreamInfo* stream_info= StreamInfo::create
-			( symbol
-			, task_info_ostream
-			, task_info_istream
-			);
-	
-	_stream_info_set.insert(stream_info);
-	
-	return stream_info;
+    // Createa a new taskinfo for this taskgroup
+    StreamInfo* stream_info= StreamInfo::create
+            ( symbol
+            , task_info_ostream
+            , task_info_istream
+            );
+    
+    _stream_info_set.insert(stream_info);
+    
+    return stream_info;
+}
+
+// new_stream_info (istream,ostream) -------------------------------------------
+StreamInfo*
+TaskgroupInfo::
+new_stream_info
+        ( OutputStreamInfo* output_stream_info
+        , InputStreamInfo* input_stream_info
+        )
+{
+    // Createa a new taskinfo for this taskgroup
+    StreamInfo* stream_info= StreamInfo::create
+            (output_stream_info, input_stream_info);
+    
+    _stream_info_set.insert(stream_info);
+    
+    return stream_info;
 }
 
 // new_task_info ---------------------------------------------------------------

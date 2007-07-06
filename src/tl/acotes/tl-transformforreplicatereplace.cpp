@@ -17,38 +17,40 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
-#include "tl-transformfordistributereplace.hpp"
+#include "tl-transformforreplicatereplace.hpp"
 
 #include <assert.h>
 
-#include "tl-fordistributeinfo.hpp"
+#include "tl-forreplicateinfo.hpp"
 
 namespace TL
 {
 
-// TransformFordistribute constructor ------------------------------------------
-TransformFordistributeReplace::
-TransformFordistributeReplace
+// TransformForreplicate constructor ------------------------------------------
+TransformForreplicateReplace::
+TransformForreplicateReplace
 		( PragmaCustomConstruct pragma_custom_construct
-		, FordistributeInfo* fordistribute_info
+		, ForreplicateInfo* forreplicate_info
 		)
-		: _fordistribute_info(fordistribute_info)
+		: _forreplicate_info(forreplicate_info)
 		, _pragma_custom_construct(pragma_custom_construct) 
 {
-	assert(fordistribute_info);
+	assert(forreplicate_info);
 }
 
-// TransformFordistribute destructor -------------------------------------------
-TransformFordistributeReplace::
-~TransformFordistributeReplace()
+// TransformForreplicate destructor -------------------------------------------
+TransformForreplicateReplace::
+~TransformForreplicateReplace()
 {
-	delete _fordistribute_info;
+	delete _forreplicate_info;
 }
 
 // transform -------------------------------------------------------------------
 void
-TransformFordistributeReplace::
+TransformForreplicateReplace::
 transform
 		( void
 		)
@@ -65,14 +67,14 @@ transform
 
 // generate_body ---------------------------------------------------------------
 std::string 
-TransformFordistributeReplace::
+TransformForreplicateReplace::
 generate_body
 		( void
 		)
 {
 	std::stringstream ss;
 	
-	ForStatement for_statement= _fordistribute_info->get_for_statement();
+	ForStatement for_statement= _forreplicate_info->get_for_statement();
 	ss << for_statement.prettyprint();
 	
 	return ss.str();
@@ -80,7 +82,7 @@ generate_body
 
 // generate_replace ------------------------------------------------------------
 std::string
-TransformFordistributeReplace::
+TransformForreplicateReplace::
 generate_replace
 		( void
 		)

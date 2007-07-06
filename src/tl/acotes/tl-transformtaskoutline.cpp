@@ -17,12 +17,14 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
 #include "tl-transformtaskoutline.hpp"
 
 #include <assert.h>
 
-#include "tl-fordistributetransformhelper.hpp"
+#include "tl-forreplicatetransformhelper.hpp"
 #include "tl-mintakatransformhelper.hpp"
 #include "tl-streamtransformhelper.hpp"
 #include "tl-symboltransformhelper.hpp"
@@ -160,17 +162,17 @@ generate_eos
 	return ss.str();
 }
 
-// generate_fordistributes -----------------------------------------------------
+// generate_forreplicates -----------------------------------------------------
 std::string 
 TransformTaskOutline::
-generate_fordistributes
+generate_forreplicates
         ( void
         )
 {
     std::stringstream ss;
     
-    ss << FordistributeTransformHelper::
-            headers(_task_info->get_fordistribute_info_set());
+    ss << ForreplicateTransformHelper::
+            headers(_task_info->get_forreplicate_info_set());
     
     return ss.str();
 }
@@ -193,7 +195,7 @@ generate_outline
 			<<   generate_state()
 			<<   generate_pops()
 			<<   "while (" << generate_eos() << ")"
-            <<   generate_fordistributes()
+            <<   generate_forreplicates()
 			<<   "{"
 			<<     MintakaTransformHelper::iteration_begin()
 			<<     generate_body()

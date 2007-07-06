@@ -17,6 +17,8 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
 #ifndef TLTARGETSTREAMINFO_HPP_
 #define TLTARGETSTREAMINFO_HPP_
@@ -36,32 +38,26 @@ class StreamInfo;
 class TargetStreamInfo
 {
 public:
-	TargetStreamInfo(const Symbol& symbol, const std::string& label);
+	TargetStreamInfo(const std::string& label);
 	virtual ~TargetStreamInfo();
 	
     InputStreamInfo*   get_input_stream_info(void) const;
 	const std::string& get_label(void) const;
-	const std::string& get_name(void) const;
     OutputStreamInfo*  get_output_stream_info(void) const;
-	StreamInfo*        get_stream_info(void) const;
-	const Symbol&      get_symbol(void) const;
-	void               set_task_info_istream(TaskInfo *input_task_info, bool 
-			task_controled_stream= false);
-	void               set_task_info_ostream(TaskInfo *input_task_info, bool
-			task_controled_stream= false);
+    void               set_control_task(const Symbol& symbol, TaskInfo* task_info); 
+    void               set_pop_task(const Symbol& symbol, TaskInfo* task_info);
+    void               set_push_task(const Symbol& symbol, TaskInfo* task_info);
+    void               set_close_task(const Symbol& symbol, TaskInfo* task_info); 
 	
 private:
-	TaskInfo*   _task_info_istream;
-	bool        _task_info_istream_pop;
-	std::string _label;
-	std::string _name;
-	TaskInfo*   _task_info_ostream;
-	bool        _task_info_ostream_push;
-	StreamInfo* _stream_info;
-	Symbol      _symbol;
+    InputStreamInfo*  _input_stream_info;
+    std::string       _label;
+    OutputStreamInfo* _output_stream_info;
+	StreamInfo*       _stream_info;
 	
-	void init_name(void);
-	void init_stream_info(void);
+	void init_stream_info(void);    
+    void set_input_task(const Symbol& symbol, TaskInfo* task_info);
+    void set_output_task(const Symbol& symbol, TaskInfo* task_info);
 };
 
 }

@@ -17,6 +17,8 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
 #ifndef TLTRANSFORMTASKOUTLINE_HPP_
 #define TLTRANSFORMTASKOUTLINE_HPP_
@@ -50,7 +52,7 @@ private:
 	std::string generate_closes(void);
 	std::string generate_declares(void);
 	std::string generate_eos(void);
-    std::string generate_fordistributes(void);
+    std::string generate_forreplicates(void);
 	std::string generate_outline(void);
 	std::string generate_peeks(void);
 	std::string generate_pops(void);

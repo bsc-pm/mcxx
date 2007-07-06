@@ -1,3 +1,5 @@
+#   $Id$
+
 lib_LTLIBRARIES = libtlacotes.la
 
 libtlacotes_la_CFLAGS = -Wall \
@@ -19,10 +21,10 @@ libtlacotes_la_CXXFLAGS = -Wall \
 libtlacotes_la_SOURCES = \
 						tl-endstreaminfo.hpp \
 						tl-endstreaminfo.cpp \
-						tl-fordistributeinfo.hpp \
-						tl-fordistributeinfo.cpp \
-						tl-fordistributetransformhelper.hpp \
-						tl-fordistributetransformhelper.cpp \
+						tl-forreplicateinfo.hpp \
+						tl-forreplicateinfo.cpp \
+						tl-forreplicatetransformhelper.hpp \
+						tl-forreplicatetransformhelper.cpp \
 						tl-generator.hpp \
 						tl-generator.cpp \
 						tl-generatorlist.hpp \
@@ -55,8 +57,8 @@ libtlacotes_la_SOURCES = \
 						tl-targetstreaminfo.cpp \
 						tl-transform.hpp \
 						tl-transform.cpp \
-						tl-transformfordistributereplace.hpp \
-						tl-transformfordistributereplace.cpp \
+						tl-transformforreplicatereplace.hpp \
+						tl-transformforreplicatereplace.cpp \
 						tl-transformlist.hpp \
 						tl-transformlist.cpp \
 						tl-transformmintakaoutline.hpp \

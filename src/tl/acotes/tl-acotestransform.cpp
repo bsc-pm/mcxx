@@ -17,6 +17,8 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
 #include "tl-acotestransform.hpp"
 
@@ -24,11 +26,11 @@
 #include <stack>
 #include <string>
 
-#include "tl-fordistributeinfo.hpp"
+#include "tl-forreplicateinfo.hpp"
 #include "tl-targetinfo.hpp"
 #include "tl-taskgroupinfo.hpp"
 #include "tl-taskinfo.hpp"
-#include "tl-transformfordistributereplace.hpp"
+#include "tl-transformforreplicatereplace.hpp"
 #include "tl-transformmintakaoutline.hpp"
 #include "tl-transformtargetreplace.hpp"
 #include "tl-transformtaskdeclarestate.hpp"
@@ -51,7 +53,7 @@ namespace TL
 	{
 		// AcotesTransform fields ----------------------------------------------
 		private:
-		std::stack<FordistributeInfo*> _fordistribute_stack;
+		std::stack<ForreplicateInfo*> _forreplicate_stack;
 		std::stack<TaskgroupInfo*>     _taskgroup_stack;
 		std::stack<TaskInfo*>          _task_stack;
 
@@ -65,8 +67,8 @@ namespace TL
 			on_directive_pre["taskgroup"].connect(
 				functor(&AcotesTransform::taskgroup_preorder, *this)
 			);
-			on_directive_pre["fordistribute"].connect(
-				functor(&AcotesTransform::fordistribute_preorder, *this)
+			on_directive_pre["forreplicate"].connect(
+				functor(&AcotesTransform::forreplicate_preorder, *this)
 			);
 			on_directive_pre["task"].connect(
 				functor(&AcotesTransform::task_preorder, *this)
@@ -77,8 +79,8 @@ namespace TL
 			on_directive_post["task"].connect(
 				functor(&AcotesTransform::task_postorder, *this)
 			);
-			on_directive_post["fordistribute"].connect(
-				functor(&AcotesTransform::fordistribute_postorder, *this)
+			on_directive_post["forreplicate"].connect(
+				functor(&AcotesTransform::forreplicate_postorder, *this)
 			);
 			on_directive_post["taskgroup"].connect(
 				functor(&AcotesTransform::taskgroup_postorder, *this)
@@ -86,44 +88,44 @@ namespace TL
 		}
 		
 		private:
-		// fordistribute_preorder ----------------------------------------------
+		// forreplicate_preorder ----------------------------------------------
 		void 
-		fordistribute_preorder
+		forreplicate_preorder
 				( PragmaCustomConstruct pragma_custom_construct
 				)
 		{
-			FordistributeInfo* fordistribute_info;
+			ForreplicateInfo* forreplicate_info;
 			ForStatement for_statement= pragma_custom_construct.get_statement();
 			
-			fordistribute_info= new FordistributeInfo(for_statement);			
-			_fordistribute_stack.push(fordistribute_info);
+			forreplicate_info= new ForreplicateInfo(for_statement);			
+			_forreplicate_stack.push(forreplicate_info);
             
             VisibilitySupportHelper::
-                    add_clauses(fordistribute_info, pragma_custom_construct);
+                    add_clauses(forreplicate_info, pragma_custom_construct);
 		}
 
-		// fordistribute_postorder ---------------------------------------------
+		// forreplicate_postorder ---------------------------------------------
 		void 
-		fordistribute_postorder
+		forreplicate_postorder
 				( PragmaCustomConstruct pragma_custom_construct
 				)
 		{
-			// Retrieves the top taskgroup and fordistribute
+			// Retrieves the top taskgroup and forreplicate
 			TaskgroupInfo* taskgroup_info= _taskgroup_stack.top();
-			FordistributeInfo* fordistribute_info= _fordistribute_stack.top();
+			ForreplicateInfo* forreplicate_info= _forreplicate_stack.top();
 			
 			// Transformation support
 			TransformTaskgroupReplace* transform_taskgroup=
 					taskgroup_info->get_transform_taskgroup_replace(); 
 
 			// Enquees the outline generation for that task
-			TransformFordistributeReplace* transform_fordistribute_replace=
-					new TransformFordistributeReplace(pragma_custom_construct, fordistribute_info); 
+			TransformForreplicateReplace* transform_forreplicate_replace=
+					new TransformForreplicateReplace(pragma_custom_construct, forreplicate_info); 
 
 			transform_taskgroup->
-					add_previous_transform(transform_fordistribute_replace);
+					add_previous_transform(transform_forreplicate_replace);
 
-			_fordistribute_stack.pop();
+			_forreplicate_stack.pop();
 		}
  
 		// target_postorder ----------------------------------------------------
@@ -139,54 +141,64 @@ namespace TL
 			TaskInfo* task_info= _task_stack.top();
 			
 			// Retrieves the label for that target
-			ObjectList<Expression> exprs= pragma_custom_construct
-					.get_clause("label")
-					.get_expression_list()
-					;
-			if (exprs.size() != 1)
-			{
-				std::cerr
-						<< "ERROR: #pragma acotes target directive requires "
-						<< "one single label." 
-						<< std::endl
-						;
-				assert(0);
-			}
-			Expression expr= (*exprs.begin());
-			std::string label= expr.prettyprint();
-			
 			// Create a new instance to work
-			TargetInfo* target_info= task_info->new_target_info(label);
+			TargetInfo* target_info= task_info->new_target_info();
 
-			ObjectList<IdExpression> vars;
-			// Adds inputs to task information
-			vars= pragma_custom_construct
-					.get_clause("input")
-					.id_expressions();
-			for		( ObjectList<IdExpression>::iterator it= vars.begin()
-					; it != vars.end()
-					; it++
-					)
-			{
-				IdExpression var= *it;
-				Symbol symbol= var.get_symbol();
-				
-				target_info->add_input(symbol);
-			} 
-			// Adds output to task information
-			vars= pragma_custom_construct
-					.get_clause("output")
-					.id_expressions();
-			for		( ObjectList<IdExpression>::iterator it= vars.begin()
-					; it != vars.end()
-					; it++
-					)
-			{
-				IdExpression var= *it;
-				Symbol symbol= var.get_symbol();
-				
-				target_info->add_output(symbol);
-			}
+            ObjectList<Expression> exprs;
+            // Adds targets inputs
+            exprs= pragma_custom_construct
+                    .get_clause("input")
+                    .get_expression_list();
+            if ((exprs.size() % 2) != 0)
+            {
+                std::cerr 
+                        << "ERROR: target input(symbol,label) must have "
+                        << "one symbol and one label"
+                        << std::endl;
+                assert(0);
+            }
+            for     ( ObjectList<Expression>::iterator it= exprs.begin()
+                    ; it != exprs.end()
+                    ; it++
+                    )
+            {
+                Expression var_expression= *it;
+                IdExpression var= var_expression.get_id_expression();
+                Symbol symbol= var.get_symbol();
+                
+                it++;
+                Expression label_expression= *it;
+                std::string label= label_expression.prettyprint();
+                
+                target_info->add_input(symbol, label);
+            } 
+            // Adds targets outputs
+            exprs= pragma_custom_construct
+                    .get_clause("output")
+                    .get_expression_list();
+            if ((exprs.size() % 2) != 0)
+            {
+                std::cerr 
+                        << "ERROR: target output(symbol,label) must have "
+                        << "one symbol and one label"
+                        << std::endl;
+                assert(0);
+            }
+            for     ( ObjectList<Expression>::iterator it= exprs.begin()
+                    ; it != exprs.end()
+                    ; it++
+                    )
+            {
+                Expression var_expression= *it;
+                IdExpression var= var_expression.get_id_expression();
+                Symbol symbol= var.get_symbol();
+                
+                it++;
+                Expression label_expression= *it;
+                std::string label= label_expression.prettyprint();
+                
+                target_info->add_output(symbol, label);
+            } 
 
 			// Transformation support
 			TransformTaskgroupReplace* transform_taskgroup=
@@ -404,15 +416,15 @@ namespace TL
 				
 				task_info->add_target_output(symbol, label);
 			} 
-            // Adds fordistributes
-            for     ( std::stack<FordistributeInfo*> it= _fordistribute_stack
+            // Adds forreplicates
+            for     ( std::stack<ForreplicateInfo*> it= _forreplicate_stack
                     ; it.size() > 0
                     ; it.pop()
                     )
             {
-                FordistributeInfo* fordistribute_info= it.top();
+                ForreplicateInfo* forreplicate_info= it.top();
                 
-                task_info->add_fordistribute(fordistribute_info);
+                task_info->add_forreplicate(forreplicate_info);
             }
 		}
 

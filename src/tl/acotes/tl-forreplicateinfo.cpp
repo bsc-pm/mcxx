@@ -17,15 +17,17 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
-#include "tl-fordistributeinfo.hpp"
+#include "tl-forreplicateinfo.hpp"
 
 namespace TL
 {
 
-// FordistributeInfo constructor -----------------------------------------------
-FordistributeInfo::
-FordistributeInfo(const ForStatement& for_statement)
+// ForreplicateInfo constructor -----------------------------------------------
+ForreplicateInfo::
+ForreplicateInfo(const ForStatement& for_statement)
 	: _for_statement(for_statement)
 {	
     if (_for_statement.regular_loop())
@@ -37,16 +39,16 @@ FordistributeInfo(const ForStatement& for_statement)
     }    
 }
 
-// FordistributeInfo destructor ------------------------------------------------
-FordistributeInfo::
-~FordistributeInfo()
+// ForreplicateInfo destructor ------------------------------------------------
+ForreplicateInfo::
+~ForreplicateInfo()
 {
 }
 
 
 // get_for_statement -----------------------------------------------------------
 const ForStatement& 
-FordistributeInfo::
+ForreplicateInfo::
 get_for_statement()
 {
 	return _for_statement;

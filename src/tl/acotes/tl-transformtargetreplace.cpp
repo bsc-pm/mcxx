@@ -17,6 +17,8 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
 #include "tl-transformtargetreplace.hpp"
 
@@ -84,6 +86,8 @@ generate_pops
 {
 	std::stringstream ss;
 	
+    ss << StreamTransformHelper::pop_all(_target_info->get_input_stream_info_set());
+#if 0
 	std::set<TargetStreamInfo*> tss= _target_info->get_istream_target_info_set();
 	for		( std::set<TargetStreamInfo*>::iterator it= tss.begin()
 			; it != tss.end()
@@ -94,7 +98,7 @@ generate_pops
 		
 		ss << StreamTransformHelper::pop(s->get_input_stream_info());
 	}
-	
+#endif	
 	
 	return ss.str();
 }
@@ -107,7 +111,10 @@ generate_pushes
 		)
 {
 	std::stringstream ss;
-	
+    
+    ss << StreamTransformHelper::push_all(_target_info->get_output_stream_info_set());
+        
+#if 0	
 	std::set<TargetStreamInfo*> tss= _target_info->get_ostream_target_info_set();
 	for		( std::set<TargetStreamInfo*>::iterator it= tss.begin()
 			; it != tss.end()
@@ -118,7 +125,7 @@ generate_pushes
 		
 		ss << StreamTransformHelper::push(s->get_output_stream_info());
 	}
-	
+#endif	
 	
 	return ss.str();
 }

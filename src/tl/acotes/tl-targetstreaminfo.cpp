@@ -17,11 +17,15 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
 #include "tl-targetstreaminfo.hpp"
 
 #include <assert.h>
 
+#include "tl-inputstreaminfo.hpp"
+#include "tl-outputstreaminfo.hpp"
 #include "tl-streaminfo.hpp"
 #include "tl-taskgroupinfo.hpp"
 #include "tl-taskinfo.hpp"
@@ -32,21 +36,21 @@ namespace TL
 // TargetStreamInfo constructor ------------------------------------------------
 TargetStreamInfo::
 TargetStreamInfo
-		( const Symbol& symbol
-		, const std::string& label
-		)
-		: _task_info_istream((TaskInfo*)0)
+		( const std::string& label
+		) 
+        : _input_stream_info((InputStreamInfo*)0)
 		, _label(label)
-		, _task_info_ostream((TaskInfo*)0)
-		, _symbol(symbol)
+        , _output_stream_info((OutputStreamInfo*)0)
+		, _stream_info((StreamInfo*)0)
 {
-	init_name();
 }
 
 // TargetStreamInfo destructor -------------------------------------------------
 TargetStreamInfo::
 ~TargetStreamInfo()
 {
+    // fails if no link created, !_input || !_output
+    assert(_stream_info);
 }
 
 // get_input_stream_info -------------------------------------------------------
@@ -56,7 +60,7 @@ get_input_stream_info
         ( void
         ) const
 {
-    return get_stream_info()->get_input_stream_info();
+    return _input_stream_info;
 }
 
 // get_label ------------------------------------------------------------------- 			
@@ -69,16 +73,6 @@ get_label
 	return _label;
 }
 
-// get_name --------------------------------------------------------------------
-const std::string& 
-TargetStreamInfo::
-get_name
-		( void
-		) const
-{
-	return _name;
-}
-
 // get_output_stream_info ------------------------------------------------------
 OutputStreamInfo*   
 TargetStreamInfo::
@@ -86,79 +80,59 @@ get_output_stream_info
         ( void
         ) const
 {
-    return get_stream_info()->get_output_stream_info();
+    return _output_stream_info;
 }
 
-// get_target_info -------------------------------------------------------------
-StreamInfo*
-TargetStreamInfo::
-get_stream_info
-		( void
-		) const
-{
-	// is not setted until both target_info_ostream and istream are setted.
-	assert(_stream_info);
-	
-	return _stream_info;
-}
-
-// get_symbol ------------------------------------------------------------------
-const Symbol&      
-TargetStreamInfo::
-get_symbol
-		( void
-		) const
-{
-	return _symbol;
-}
-
-// set_input_task_info ---------------------------------------------------------
+// set_close_task --------------------------------------------------------------
 void               
 TargetStreamInfo::
-set_task_info_istream
-		( TaskInfo *input_task_info
-		, bool task_controled_stream
-		)
+set_close_task
+        ( const Symbol& symbol
+        , TaskInfo* task_info
+        )
 {
-	assert(input_task_info);
-	assert(!_task_info_istream);
-	
-	_task_info_istream= input_task_info;
-	_task_info_istream_pop= task_controled_stream;
-	
-	if (_task_info_ostream) { init_stream_info(); } 
+    set_output_task(symbol, task_info);
+    
+    task_info->add_loop_close(_output_stream_info);
 }
 
-// set_output_task_info --------------------------------------------------------
+// set_control_task ------------------------------------------------------------
 void               
 TargetStreamInfo::
-set_task_info_ostream
-		( TaskInfo *output_task_info
-		, bool task_controled_stream
-		)
+set_control_task
+        ( const Symbol& symbol
+        , TaskInfo* task_info
+        )
 {
-	assert(output_task_info);
-	assert(!_task_info_ostream);
-	
-	_task_info_ostream= output_task_info;
-	_task_info_ostream_push= task_controled_stream;
-
-	if (_task_info_istream) { init_stream_info(); } 
+    set_input_task(symbol, task_info);
+    
+    task_info->add_loop_control(_input_stream_info);
+}
+ 
+// set_pop_task ----------------------------------------------------------------
+void               
+TargetStreamInfo::
+set_pop_task
+        ( const Symbol& symbol
+        , TaskInfo* task_info
+        )
+{
+    set_input_task(symbol, task_info);
+    
+    task_info->add_loop_pop(_input_stream_info);
 }
 
-// init_name -------------------------------------------------------------------
-void
+// set_push_stack --------------------------------------------------------------
+void               
 TargetStreamInfo::
-init_name
-		( void
-		)
+set_push_task
+        ( const Symbol& symbol
+        , TaskInfo* task_info
+        )
 {
-    std::stringstream ss;
+    set_output_task(symbol, task_info);
     
-    ss  << "acolib__" 
-        << _label; 
-    
-    _name= ss.str();
+    task_info->add_loop_push(_output_stream_info);
 }
 
 // init_stream_info ------------------------------------------------------------
@@ -168,36 +142,55 @@ init_stream_info
 		( void
 		)
 {
-	assert(_task_info_istream);
-	assert(_task_info_ostream);
+	assert(_input_stream_info);
+	assert(_output_stream_info);
+    assert(!_stream_info);
 	
 	assert	(  
-			_task_info_istream->get_taskgroup_info()
+			_input_stream_info->get_task_info()->get_taskgroup_info()
 			== 
-			_task_info_ostream->get_taskgroup_info()
+			_output_stream_info->get_task_info()->get_taskgroup_info()
 			);	
 
-	TaskgroupInfo* taskgroup_info= _task_info_istream->get_taskgroup_info();
+	TaskgroupInfo* taskgroup_info= 
+            _input_stream_info->get_task_info()->get_taskgroup_info();
 	_stream_info= taskgroup_info->
-			new_stream_info(_symbol, _task_info_ostream, _task_info_istream);
-			
-	if (_task_info_istream_pop)
-	{
-		_task_info_istream->add_loop_pop(_stream_info->get_input_stream_info());
-	}
-	else
-	{
-		_task_info_istream->add_loop_control(_stream_info->get_input_stream_info());
-	}
-	if (_task_info_ostream_push)
-	{
-		_task_info_ostream->add_loop_push(_stream_info->get_output_stream_info());
-	}
-	else
-	{
-		_task_info_ostream->add_loop_close(_stream_info->get_output_stream_info());
-	}
+			new_stream_info(_output_stream_info, _input_stream_info);
 }
 
+// set_input_task --------------------------------------------------------------
+void 
+TargetStreamInfo::
+set_input_task
+        ( const Symbol& symbol
+        , TaskInfo* task_info
+        )
+{
+    assert(task_info);
+    assert(!_input_stream_info);
+    
+    _input_stream_info= new InputStreamInfo(symbol, task_info, _label);
+    
+    if (_output_stream_info) {
+        init_stream_info();
+    }
+}
+
+// set_output_task -------------------------------------------------------------
+void 
+TargetStreamInfo::
+set_output_task
+        ( const Symbol& symbol
+        , TaskInfo* task_info)
+{
+    assert(task_info);
+    assert(!_output_stream_info);
+    
+    _output_stream_info= new OutputStreamInfo(symbol, task_info, _label);
+
+    if (_input_stream_info) {
+        init_stream_info();
+    }
+}
 
 }

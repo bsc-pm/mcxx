@@ -17,6 +17,8 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
 #include "tl-endstreaminfo.hpp"
 
@@ -36,6 +38,7 @@ EndStreamInfo
 {
     init_name(type, label);
     init_symbol_name();
+    init_type_name();
 }
 
 // EndStreamInfo destructor ----------------------------------------------------
@@ -44,7 +47,7 @@ EndStreamInfo::~EndStreamInfo()
 }
 
 // get_name --------------------------------------------------------------------
-std::string 
+const std::string& 
 EndStreamInfo::
 get_name
         ( void
@@ -64,7 +67,7 @@ get_symbol
 }
 
 // get_symbol_name -------------------------------------------------------------
-std::string 
+const std::string& 
 EndStreamInfo::
 get_symbol_name
         ( void
@@ -83,6 +86,15 @@ get_task_info
     return _task_info;
  }
     
+// get_type_name ---------------------------------------------------------------
+const std::string&
+EndStreamInfo::
+get_type_name
+        ( void
+        ) const
+{
+    return _type_name;
+}
 
 // init_name -------------------------------------------------------------------
 void 
@@ -110,5 +122,13 @@ EndStreamInfo::
 init_symbol_name(void)
 {
     _symbol_name= _symbol.get_name();
+} 
+
+// init_type_name ------------------------------------------------------------
+void
+EndStreamInfo::
+init_type_name(void)
+{
+    _type_name= _symbol.get_type().get_declaration(_symbol.get_scope(), "");
 } 
 }

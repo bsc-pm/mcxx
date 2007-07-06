@@ -17,6 +17,8 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+    
+    $Id$
 */
 #include "tl-taskinfo.hpp"
 
@@ -74,15 +76,15 @@ add_export
 	_exports.insert(symbol);
 }
 		
-// add_fordistribute -----------------------------------------------------------
+// add_forreplicate -----------------------------------------------------------
 void
 TaskInfo::
-add_fordistribute(FordistributeInfo* fordistribute_info)
+add_forreplicate(ForreplicateInfo* forreplicate_info)
 {
-	assert(fordistribute_info);
+	assert(forreplicate_info);
 	
-    inherit_visibilities((VisibilityInfo*)fordistribute_info);
-	_fordistribute_info_set.insert(fordistribute_info);
+    inherit_visibilities((VisibilityInfo*)forreplicate_info);
+	_forreplicate_info_set.insert(forreplicate_info);
 }
 
 // add_import ------------------------------------------------------------------
@@ -238,9 +240,9 @@ add_target_input
 	add_private(symbol);
 
 	TargetStreamInfo* target_stream_info= 
-			_taskgroup_info->get_target_stream_info(symbol, label);
+			_taskgroup_info->get_target_stream_info(label);
 			
-	target_stream_info->set_task_info_istream(this, true);
+	target_stream_info->set_pop_task(symbol, this);
 }
 
 // add_target_output -----------------------------------------------------------
@@ -254,9 +256,9 @@ add_target_output
 	add_private(symbol);
 
 	TargetStreamInfo* target_stream_info= 
-			_taskgroup_info->get_target_stream_info(symbol, label);
+			_taskgroup_info->get_target_stream_info(label);
 			
-	target_stream_info->set_task_info_ostream(this, true);
+	target_stream_info->set_push_task(symbol, this);
 }
 
 // add_task_info_children ------------------------------------------------------
@@ -314,14 +316,14 @@ get_exports
 	return _exports;
 }
 
-// get_fordistribute_info_set --------------------------------------------------
-const std::set<FordistributeInfo*>& 
+// get_forreplicate_info_set --------------------------------------------------
+const std::set<ForreplicateInfo*>& 
 TaskInfo::
-get_fordistribute_info_set
+get_forreplicate_info_set
 		( void
 		) const
 {
-	return _fordistribute_info_set;
+	return _forreplicate_info_set;
 }
 
 // get_imports -----------------------------------------------------------------
@@ -551,10 +553,10 @@ is_shortcut
 TargetInfo*                  
 TaskInfo::
 new_target_info
-		( const std::string& label
+		( void
 		)
 {
-	TargetInfo* target_info= new TargetInfo(_taskgroup_info, this, label);
+	TargetInfo* target_info= new TargetInfo(_taskgroup_info, this);
 	
 	_target_info_set.insert(target_info);
 	
