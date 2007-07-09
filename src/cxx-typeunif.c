@@ -356,6 +356,17 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
                     type_t* par1 = t1->function->parameter_list[i]->type_info;
                     type_t* par2 = t2->function->parameter_list[i]->type_info;
 
+                    char is_ellipse_1 = t1->function->parameter_list[i]->is_ellipsis;
+                    char is_ellipse_2 = t2->function->parameter_list[i]->is_ellipsis;
+
+                    // This cannot be unified
+                    if (is_ellipse_1 != is_ellipse_2)
+                        return 0;
+
+                    // This is OK "..." can be unified with "..."
+                    if (is_ellipse_1 && is_ellipse_2)
+                        continue;
+
                     if (!unificate_two_types(par1, par2, st, unif_set,
                                 decl_context))
                     {
