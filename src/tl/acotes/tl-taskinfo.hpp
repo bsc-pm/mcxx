@@ -66,7 +66,7 @@ public:
 	void compute_graph(void);
     
 	const std::set<Symbol>&             get_exports(void) const;
-	const std::set<ForreplicateInfo*>& get_forreplicate_info_set(void) const;
+	const std::set<ForreplicateInfo*>&  get_forreplicate_info_set(void) const;
 	const std::set<Symbol>&             get_imports(void) const;
 	const std::set<InputStreamInfo*>&   get_loop_pop_set(void) const;
 	const std::set<OutputStreamInfo*>&  get_loop_push_set(void) const;

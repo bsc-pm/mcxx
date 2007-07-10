@@ -47,6 +47,8 @@ libtlacotes_la_SOURCES = \
 						tl-taskgroupinfo.cpp \
 						tl-taskinfo.hpp \
 						tl-taskinfo.cpp \
+						tl-tasksupporthelper.hpp \
+						tl-tasksupporthelper.cpp \
 						tl-tasktransformhelper.hpp \
 						tl-tasktransformhelper.cpp \
 						tl-threadtransformhelper.hpp \
