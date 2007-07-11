@@ -210,10 +210,23 @@ int main(int argc, char* argv[])
     return compilation_process.execution_result;
 }
 
+static volatile char in_cleanup_routine = 0;
+
+static void cleanup_routine(void)
+{
+    in_cleanup_routine = 1;
+    signal(SIGSEGV, SIG_DFL);
+    signal(SIGQUIT, SIG_DFL);
+    signal(SIGINT,  SIG_DFL);
+    signal(SIGTERM, SIG_DFL);
+    temporal_files_cleanup();
+    in_cleanup_routine = 0;
+}
+
 static void driver_initialization(int argc, char* argv[])
 {
     // Basic initialization prior to argument parsing and configuration loading
-    atexit(temporal_files_cleanup);
+    atexit(cleanup_routine);
     signal(SIGSEGV, terminating_signal_handler);
     signal(SIGQUIT, terminating_signal_handler);
     signal(SIGINT,  terminating_signal_handler);
@@ -1240,8 +1253,8 @@ static void terminating_signal_handler(int sig)
     // If this routine SIGSEGVs exact behaviour
     // depends on the libc blocking this handler
     // or disabling it
-    signal(SIGSEGV, SIG_DFL);
-    temporal_files_cleanup();
+    if (!in_cleanup_routine)
+        cleanup_routine();
 
     // Reraise the signal
     raise(sig);
