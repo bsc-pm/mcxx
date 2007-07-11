@@ -129,8 +129,10 @@ namespace TL
 
         // Define here the bounds of the loop
         loop_initialization 
-            << "int nth_low;"
-            << "int nth_upper;"
+//            << "int nth_low;"
+//            << "int nth_upper;"
+	    << induction_var.get_symbol().get_type().get_declaration(induction_var.get_scope(),"nth_low") << ";"
+	    << induction_var.get_symbol().get_type().get_declaration(induction_var.get_scope(),"nth_upper") << ";"
             << "int nth_step;"
             << "int intone_start;"
             << "int intone_end;"
@@ -186,15 +188,21 @@ namespace TL
             //                    << "extern int in__tone_next_iters_(int*, int*, int*);"
             //                    << "extern void in__tone_end_for_(int*);"
 
-            << "in__tone_begin_for_(&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
+	    << "int nth_zero = 0;"
+	    << "int nth_iters;"
+	    << "if ( nth_step > 0 ) nth_iters =  nth_upper - nth_low + 1;"
+	    << "else nth_iters = nth_low - nth_upper + 1;"
+
+
+            << "in__tone_begin_for_(&nth_zero, &nth_iters, &nth_step, &nth_chunk, &nth_schedule);"
 
             // Get a slice of the iteration space
             << "while (in__tone_next_iters_(&intone_start, &intone_end, &intone_last) != 0)"
             << "{"
             << instrumentation_code_before
             // And do something with it
-            << "   for (" << induction_var_name << " = intone_start; "
-            << "        nth_step >= 1 ? " << induction_var_name << " <= intone_end : " << induction_var_name << ">= intone_end;"
+            << "   for (" << induction_var_name << " = nth_low+intone_start; "
+            << "        nth_step >= 1 ? " << induction_var_name << " <= nth_low+intone_end : " << induction_var_name << ">= nth_low+intone_end;"
             << "        " << induction_var_name << " += nth_step)"
             << "   {"
             << "   " << modified_loop_body
