@@ -1335,3 +1335,9 @@ void add_new_file_to_compilation_process(const char* file_path, const char* outp
             compilation_process.num_translation_units, 
             new_compiled_file);
 }
+
+// Useful for debugging sessions
+void _enable_debug(void)
+{
+    CURRENT_CONFIGURATION(debug_options.enable_debug_code) = 1;
+}

@@ -168,8 +168,6 @@ typedef struct template_parameter
     // Type info of nontype template parameters
     struct type_tag* type_info;
 
-    // struct type_tag* default_type;
-
     // Default parameter information
     //    template <int N = 10>   
     //    template <class T = int> 
@@ -178,6 +176,11 @@ typedef struct template_parameter
     AST default_tree;
     // and its scope
     struct scope_tag* default_argument_scope;
+
+    // We are saving this for nontype template parameters as their exact type
+    // might depend on previous template parameters. Its scope
+    // is the same as default_argument_scope
+    AST type_tree;
 } template_parameter_t;
 
 // Access specifier, saved but not enforced by the compiler
@@ -340,7 +343,6 @@ enum template_nature_tag
     //                             'C<T*>' should be TPN_INCOMPLETE_DEPENDENT
     // };
     TPN_INCOMPLETE_DEPENDENT, 
-
     // TPN_INCOMPLETE_INDEPENDENT includes explicit specializations and
     // typedefs of independent templates that are simply declared but not
     // defined and do not depend on any template argument

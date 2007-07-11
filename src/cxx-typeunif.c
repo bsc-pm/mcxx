@@ -29,7 +29,6 @@
 #include "cxx-solvetemplate.h"
 #include "cxx-prettyprint.h"
 
-static type_t* get_type_template_parameter_unification(unification_set_t* unif_set, int num, int nesting);
 static AST get_nontype_template_parameter_unification(unification_set_t* unif_set, int num, int nesting);
 static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope, AST
         right_tree, scope_t* right_scope, unification_set_t** unif_set,
@@ -387,12 +386,11 @@ char unificate_two_expressions(unification_set_t **unif_set,
         AST left_tree, scope_t* left_scope, 
         AST right_tree, scope_t* right_scope, decl_context_t decl_context)
 {
-
     return equivalent_dependent_expressions(left_tree, left_scope, right_tree,
             right_scope, unif_set, decl_context);
 }
 
-static type_t* get_type_template_parameter_unification(unification_set_t* unif_set, int num, int nesting)
+type_t* get_type_template_parameter_unification(unification_set_t* unif_set, int num, int nesting)
 {
     int i;
     for (i = 0; i < unif_set->num_elems; i++)

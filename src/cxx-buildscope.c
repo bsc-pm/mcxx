@@ -672,7 +672,14 @@ static void build_scope_simple_declaration(AST a, scope_t* st, decl_context_t de
                         fprintf(stderr, "Initializer: '%s'\n", ast_print_node_type(ASTType(initializer)));
                     }
 
-                    check_for_initialization(initializer, entry_list->entry->scope, decl_context);
+                    if (!check_for_initialization(initializer,
+                                entry_list->entry->scope, decl_context))
+                    {
+                        internal_error("Initializer '%s' in %s could not be disambiguated!\n",
+                                prettyprint_in_buffer(initializer),
+                                node_information(initializer));
+                    }
+
                     entry_list->entry->expression_value = initializer;
 
                     ASTAttrSetValueType(declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
@@ -3811,8 +3818,11 @@ static void build_scope_template_simple_declaration(AST a, scope_t* st, scope_t*
 
             if (initializer != NULL)
             {
-                check_for_initialization(initializer, entry_list->entry->scope,
-                        decl_context);
+                ERROR_CONDITION(!check_for_initialization(initializer,
+                            entry_list->entry->scope, decl_context),
+                        "Initializer '%s' in %s could not be disambiguated!\n",
+                        prettyprint_in_buffer(initializer),
+                        node_information(initializer));
                 entry_list->entry->expression_value = initializer;
             }
         }
@@ -4096,7 +4106,10 @@ static void build_scope_nontype_template_parameter(AST a, scope_t* st,
     AST parameter_declarator = ASTSon1(a);
     AST default_expression = ASTSon2(a);
 
+    // This is not needed as we'll rebuild it every time remove when it is
+    // clear that is not used anymore
     build_scope_decl_specifier_seq(decl_specifier_seq, st, &gather_info, &simple_type_info, decl_context);
+    template_parameters->type_tree = a;
 
     simple_type_info->type->template_parameter_nesting = decl_context.template_nesting;
     simple_type_info->type->template_parameter_num = num_parameter;
@@ -5287,7 +5300,11 @@ static void build_scope_simple_member_declaration(AST a, scope_t*  st,
                         {
                             if (initializer != NULL)
                             {
-                                check_for_initialization(initializer, entry->scope, decl_context);
+                                ERROR_CONDITION(!check_for_initialization(initializer,
+                                            entry->scope, decl_context),
+                                        "Initializer '%s' in %s could not be disambiguated!\n",
+                                        prettyprint_in_buffer(initializer),
+                                        node_information(initializer));
                                 entry->expression_value = initializer;
                             }
                         }
@@ -5402,6 +5419,18 @@ static exception_spec_t* build_exception_spec(scope_t* st, AST a,
     return result;
 }
 
+// This function builds template arguments with no specialization,
+// the idea is that a primary template like this one
+//
+// template <typename _T, typename _Q>
+// struct A { };
+//
+// can be understood as if it was a specialization
+//
+//    template <typename _T, typename _Q>
+//    struct A<_T, _Q> { };
+//
+// but the code above is not valid, as no specialization is actually done
 static void build_scope_template_arguments_for_primary_template(scope_t* st, 
         scope_t* template_scope,
         template_parameter_t** template_parameter_info, 
@@ -5606,6 +5635,7 @@ scope_t* replace_template_parameters_with_template_arguments(template_parameter_
     return replace_scope;
 }
 
+// This function computes template_arguments for a template-id
 void build_scope_template_arguments(AST class_head_id, 
         scope_t* primary_template_scope, // Where the primary template id is looked up 
                                          // (A::B<int>, the primary template is searched in A::)
@@ -5629,7 +5659,11 @@ void build_scope_template_arguments(AST class_head_id,
     int num_arguments = 0;
 
     list = ASTSon1(class_head_id);
-    // Count the arguments
+    // Count the arguments of the template-id, these may be less than the
+    // template parameters. So we will look for the primary template, which is
+    // the only template definition that can be given default template
+    // arguments for template parameters, specializations cannot (for our
+    // mental health :)
     if (list != NULL)
     {
         for_each_element(list, iter)
@@ -5640,9 +5674,8 @@ void build_scope_template_arguments(AST class_head_id,
 
     solve_possibly_ambiguous_template_id(class_head_id, arguments_scope, decl_context);
     
-    // Complete arguments with default ones
-    //
-    // First search primary template
+    // In order to complete template arguments with default template arguments we need the
+    // primary template. So, search it first.
     AST template_name = ASTSon0(class_head_id);
 
     DEBUG_CODE()
@@ -5672,6 +5705,8 @@ void build_scope_template_arguments(AST class_head_id,
     ERROR_CONDITION((primary_template_list == NULL), "Primary template for '%s' not found", ASTText(template_name));
 
     // If what is found is an alias, repeat the lookup with the aliased name
+    // Template alias are template names that are linked to template template
+    // arguments
     if (primary_template_list->entry->kind == SK_TEMPLATE_ALIAS)
     {
         type_t* alias_type_info = primary_template_list->entry->template_alias_type;
@@ -5691,12 +5726,15 @@ void build_scope_template_arguments(AST class_head_id,
     list = ASTSon1(class_head_id);
     if (list != NULL)
     {
+        // For every explicitly given template argument compute it
         for_each_element(list, iter)
         {
             AST template_argument = ASTSon1(iter);
 
             switch (ASTType(template_argument))
             {
+                // A<int> - type template arguments
+                // B<A> - template template arguments
                 case AST_TEMPLATE_TYPE_ARGUMENT:
                     {
                         if ((*template_arguments)->num_arguments >= 
@@ -5762,6 +5800,7 @@ void build_scope_template_arguments(AST class_head_id,
                         P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
                         break;
                     }
+                    // A<3> nontype template arguments
                 case AST_TEMPLATE_EXPRESSION_ARGUMENT :
                     {
                         if ((*template_arguments)->num_arguments >= 
@@ -5770,6 +5809,51 @@ void build_scope_template_arguments(AST class_head_id,
                             // Do nothing, we may be checking for ambiguities
                             break;
                         }
+
+                        template_parameter_t* curr_template_parameter = 
+                            primary_template->template_parameter_info[(*template_arguments)->num_arguments];
+                        // Create an interception scope when building the type.
+                        // Why are we recreating the type ?
+                        //
+                        // Normally it is not needed but it might depend on a
+                        // seen template parameter. Consider this case
+                        //
+                        // template<typename _T, _T _N>
+                        // struct A { };
+                        //
+                        // For the case 'A<int, 3>', '_T' is 'int' and this 3,
+                        // is a value of type 'int', not simply '_T'
+                        scope_t* replace_scope = replace_template_parameters_with_template_arguments(curr_template_parameter,
+                                primary_template->template_parameter_info,
+                                template_arguments);
+
+                        // We do not want to poison the current symbol table
+                        scope_t* interception_scope = new_namespace_scope(curr_template_parameter->default_argument_scope, "");
+                        interception_scope->template_scope = replace_scope;
+
+                        type_t* simple_type_info;
+                        gather_decl_spec_t gather_info;
+                        memset(&gather_info, 0, sizeof(gather_info));
+
+                        AST decl_specifier_seq = ASTSon0(curr_template_parameter->type_tree);
+                        AST parameter_declarator = ASTSon1(curr_template_parameter->type_tree);
+                        // AST default_expression = ASTSon2(curr_template_parameter->type_tree);
+
+                        // Build the real type
+                        build_scope_decl_specifier_seq(decl_specifier_seq, interception_scope, &gather_info, &simple_type_info, decl_context);
+                        type_t* type_info = NULL;
+                        if (parameter_declarator != NULL)
+                        {
+                            // This will add into the symbol table if it has a name
+                            build_scope_declarator(parameter_declarator, interception_scope, 
+                                    &gather_info, simple_type_info, &type_info,
+                                    decl_context);
+                        }
+                        else
+                        {
+                            type_info = simple_type_info;
+                        }
+
                         // This expression is of limited nature
                         template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
                         new_template_argument->kind = TAK_NONTYPE;
@@ -5778,6 +5862,7 @@ void build_scope_template_arguments(AST class_head_id,
 
                         new_template_argument->argument_tree = expr_template_argument;
                         new_template_argument->scope = copy_scope(template_scope);
+                        new_template_argument->type = type_info;
 
                         // Finally add to the template argument list
                         P_LIST_ADD((*template_arguments)->argument_list, (*template_arguments)->num_arguments, new_template_argument);
@@ -5798,7 +5883,8 @@ void build_scope_template_arguments(AST class_head_id,
 
     if (primary_template->num_template_parameters > num_arguments)
     {
-        // We have to complete with default arguments
+        // We have to complete with default template arguments, as defined
+        // in the primary template definition
         DEBUG_CODE()
         {
             fprintf(stderr, "Completing template arguments of '%s' with default arguments\n",
@@ -5819,7 +5905,6 @@ void build_scope_template_arguments(AST class_head_id,
             template_parameter_t* curr_template_parameter = primary_template->template_parameter_info[k];
             template_argument_t* curr_template_arg = calloc(1, sizeof(*curr_template_arg));
 
-
             if (curr_template_parameter->default_argument_scope == NULL)
             {
                 DEBUG_CODE()
@@ -5829,6 +5914,19 @@ void build_scope_template_arguments(AST class_head_id,
                 continue;
             }
 
+            // We create an interception scope, this scope is set as a
+            // template_scope just before any existing template_scope. Why are we doing this ?
+            //
+            // Consider this case
+            //
+            // template <typename _T> struct A;
+            // template <typename _T, typename _Q = A<_T> > struct B { };
+            //
+            // B<int>;
+            //
+            // In 'B<int>', we need that '_Q' be 'A<int>', so when building the
+            // type using the tree 'A<_T>' we will want '_T' to be 'int' and
+            // not a template parameter 
             scope_t* replace_scope = replace_template_parameters_with_template_arguments(curr_template_parameter,
                     primary_template->template_parameter_info,
                     template_arguments);
@@ -5932,7 +6030,32 @@ void build_scope_template_arguments(AST class_head_id,
                     {
                         curr_template_arg->kind = TAK_NONTYPE;
                         curr_template_arg->argument_tree = curr_template_parameter->default_tree;
-                        curr_template_arg->type = curr_template_parameter->type_info;
+
+                        type_t* simple_type_info;
+                        gather_decl_spec_t gather_info;
+                        memset(&gather_info, 0, sizeof(gather_info));
+
+                        AST decl_specifier_seq = ASTSon0(curr_template_parameter->type_tree);
+                        AST parameter_declarator = ASTSon1(curr_template_parameter->type_tree);
+                        // AST default_expression = ASTSon2(curr_template_parameter->type_tree);
+
+                        scope_t* interception_scope = new_namespace_scope(curr_template_arg->scope, "");
+
+                        // Build the real type
+                        build_scope_decl_specifier_seq(decl_specifier_seq, interception_scope, &gather_info, &simple_type_info, decl_context);
+                        type_t* type_info = NULL;
+                        if (parameter_declarator != NULL)
+                        {
+                            // This will add into the symbol table if it has a name
+                            build_scope_declarator(parameter_declarator, interception_scope,
+                                    &gather_info, simple_type_info, &type_info,
+                                    decl_context);
+                        }
+                        else
+                        {
+                            type_info = simple_type_info;
+                        }
+                        curr_template_arg->type = type_info;
                         break;
                     }
                 default:

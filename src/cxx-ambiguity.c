@@ -1398,6 +1398,8 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             }
         case AST_TEMPLATE_ID :
             {
+                // TODO This is not true, template functions might be values
+                // when passed as pointers
                 // This is never a value
                 solve_possibly_ambiguous_template_id(expression, st, decl_context);
 
@@ -2171,7 +2173,9 @@ static char check_for_explicit_type_conversion(AST expr, scope_t* st, decl_conte
     return result;
 }
 
-void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st, decl_context_t decl_context)
+// Returns if the template_argument could be disambiguated.
+// If it can be disambiguated, it is disambiguated here
+char solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st, decl_context_t decl_context)
 {
     int i;
 
@@ -2230,24 +2234,33 @@ void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st,
 
     if (selected_option < 0)
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "Template argument '");
-            prettyprint(stderr, ambig_template_argument);
-            fprintf(stderr, "'\n");
-        }
-        internal_error("No valid choice found in %s for '%s' ", node_information(ambig_template_argument),
-                prettyprint_in_buffer(ambig_template_argument));
+        // DEBUG_CODE()
+        // {
+        //     fprintf(stderr, "Template argument '");
+        //     prettyprint(stderr, ambig_template_argument);
+        //     fprintf(stderr, "'\n");
+        // }
+        // internal_error("No valid choice found in %s for '%s' ", node_information(ambig_template_argument),
+        //         prettyprint_in_buffer(ambig_template_argument));
+
+        // Could not be disambiguated
+        return 0;
     }
     else
     {
+        // Can be disambiguated, so we do it
         choose_option(ambig_template_argument, selected_option);
+        return 1;
     }
-
 }
 
-void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st, decl_context_t decl_context)
+static char check_for_template_argument_list(AST argument_list, scope_t* st, decl_context_t decl_context);
+
+// Returns false if expression arguments do not pass the check_for_expression test,
+// otherwise returns true.
+char solve_possibly_ambiguous_template_id(AST type_name, scope_t* st, decl_context_t decl_context)
 {
+    char result = 1;
     if (ASTType(type_name) != AST_TEMPLATE_ID
             && ASTType(type_name) != AST_OPERATOR_FUNCTION_ID_TEMPLATE)
     {
@@ -2256,6 +2269,51 @@ void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st, decl_conte
 
     // For every argument solve its possible ambiguities
     AST argument_list = ASTSon1(type_name);
+
+    if (argument_list != NULL)
+    {
+        if (ASTType(argument_list) == AST_AMBIGUITY)
+        {
+            // If this is ambiguous, check for the argument_list that is feasible, and choose it,
+            // if no feasible found, this is not a valid template_id
+            int i;
+            int feasible_list = -1;
+            for (i = 0; i < argument_list->num_ambig; i++)
+            {
+                if (check_for_template_argument_list(argument_list->ambig[i], st, decl_context))
+                {
+                    if (feasible_list < 0)
+                    {
+                        internal_error("Two feasible_list template argument lists!\n", 0);
+                    }
+                    else
+                    {
+                        feasible_list = i;
+                    }
+                }
+            }
+            if (feasible_list < 0)
+            {
+                result = 0;
+            }
+            else
+            {
+                choose_option(argument_list, feasible_list);
+            }
+        }
+        else
+        {
+            result = check_for_template_argument_list(argument_list, st, decl_context);
+        }
+    }
+    
+    return result;
+}
+
+static char check_for_template_argument_list(AST argument_list, scope_t* st, decl_context_t decl_context)
+{
+    ENSURE_TYPE(argument_list, AST_NODE_LIST);
+
     if (argument_list != NULL)
     {
         AST iter;
@@ -2265,12 +2323,16 @@ void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st, decl_conte
 
             if (ASTType(template_argument) == AST_AMBIGUITY)
             {
-                solve_ambiguous_template_argument(template_argument, st, decl_context);
+                char valid_template_argument = solve_ambiguous_template_argument(template_argument, st, decl_context);
+                if (!valid_template_argument)
+                    return 0;
             }
 
             if (ASTType(template_argument) == AST_TEMPLATE_EXPRESSION_ARGUMENT)
             {
-                solve_possibly_ambiguous_expression(ASTSon0(template_argument), st, decl_context);
+                char valid_template_argument = check_for_expression(ASTSon0(template_argument), st, decl_context);
+                if (!valid_template_argument)
+                    return 0;
             }
             else if (ASTType(template_argument) == AST_TEMPLATE_TYPE_ARGUMENT)
             {
@@ -2297,6 +2359,7 @@ void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st, decl_conte
             }
         }
     }
+    return 1;
 }
 
 static char check_for_simple_type_spec(AST type_spec, scope_t* st, decl_context_t decl_context)

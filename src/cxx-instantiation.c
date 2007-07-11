@@ -116,7 +116,7 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
                         }
                         scope_entry_t* injected_nontype = new_symbol(instantiate_scope, name);
                         injected_nontype->kind = SK_VARIABLE;
-                        injected_nontype->type_information = template_parameter->type_info;
+                        injected_nontype->type_information = template_argument->type;
 
                         literal_value_t literal_value = evaluate_constant_expression(template_argument->argument_tree, 
                                 template_argument->scope, 
@@ -284,6 +284,8 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
                                 }
                                 scope_entry_t* injected_nontype = new_symbol(instantiate_scope, name);
                                 injected_nontype->kind = SK_VARIABLE;
+                                // FIXME this type should be in the unification item
+                                // and not from the parameter
                                 injected_nontype->type_information = template_parameter->type_info;
 
                                 literal_value_t literal_value = evaluate_constant_expression(unification_item->expression, 
@@ -414,6 +416,7 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
     // State as instantiated
     instance_symbol->type_information->type->template_nature = TPN_COMPLETE_INDEPENDENT;
     instance_symbol->type_information->type->template_arguments = arguments;
+    
 }
 
 scope_entry_t* create_holding_symbol_for_template(matching_pair_t* matched_template, template_argument_list_t*
@@ -472,7 +475,7 @@ static void instantiate_template_in_symbol(scope_entry_t* instance_symbol,
     {
         fprintf(stderr, ">> instantiate_template over given symbol %p -> '%s'\n", instance_symbol, matched_template->symbol_name);
     }
-
+    
     switch (matched_template->kind)
     {
         case SK_TEMPLATE_PRIMARY_CLASS :

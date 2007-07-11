@@ -41,12 +41,13 @@ void solve_ambiguous_decl_specifier_seq(AST type_spec_seq, scope_t* st, decl_con
 void solve_ambiguous_for_init_statement(AST for_init_statement, scope_t* st, decl_context_t decl_context);
 void solve_ambiguous_parameter_decl(AST parameter_declaration, scope_t* st, decl_context_t decl_context);
 void solve_ambiguous_type_specifier(AST type_specifier, scope_t* st, decl_context_t decl_context);
-void solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st, decl_context_t decl_context);
 void solve_possibly_ambiguous_expression(AST a, scope_t* st, decl_context_t decl_context);
-void solve_possibly_ambiguous_template_id(AST type_name, scope_t* st, decl_context_t decl_context);
+
+// These two are misleading, should be 'check_for_' instead of 'solve_'
+char solve_ambiguous_template_argument(AST ambig_template_argument, scope_t* st, decl_context_t decl_context);
+char solve_possibly_ambiguous_template_id(AST type_name, scope_t* st, decl_context_t decl_context);
 
 char check_for_expression(AST a, scope_t* st, decl_context_t decl_context);
-
 char check_for_initialization(AST initializer, scope_t* st, decl_context_t decl_context);
 
 void solve_ambiguous_expression_list(AST expression_list, scope_t* st, decl_context_t decl_context);

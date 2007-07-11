@@ -388,10 +388,24 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                         return NULL;
                     }
 
-                    // Now filter for SK_CLASS or SK_NAMESPACE
-                    enum cxx_symbol_kind filter[5] = {SK_CLASS, SK_NAMESPACE, SK_TYPEDEF, 
-                        SK_TEMPLATE_TYPE_PARAMETER, SK_TEMPLATE_TEMPLATE_PARAMETER};
-                    entry_list = filter_symbol_kind_set(entry_list, 5, filter);
+                    // Now filter for things that can qualify
+                    // without using template-id's
+                    enum cxx_symbol_kind filter[6] = {
+                        // These two are obviou
+                        SK_CLASS, 
+                        SK_NAMESPACE, 
+                        // This one is somewhat annoying
+                        SK_TYPEDEF, 
+                        // These two are involved in 'typename _T::' things
+                        SK_TEMPLATE_TYPE_PARAMETER, 
+                        SK_TEMPLATE_TEMPLATE_PARAMETER,
+                        // SK_TEMPLATE_SPECIALIZED_CLASS seems odd here,
+                        // but it is possible like it is SK_CLASS. Again this
+                        // is due to the injected symbol of an instantiated
+                        // class
+                        SK_TEMPLATE_SPECIALIZED_CLASS 
+                    };
+                    entry_list = filter_symbol_kind_set(entry_list, 6, filter);
 
                     if (entry_list == NULL)
                     {
@@ -432,47 +446,43 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                             return NULL;
                         }
 
-                        // We need to instantiate it
-                        // If this is not an expression
-                        if (!BITMAP_TEST(lookup_flags, LF_EXPRESSION))
+                        // We need to instantiate it if possible
+                        // The entry is a specialized class
+                        if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
+                                // and the symbol is not complete but independent (thus it can be instantiated)
+                                && (entry->type_information->type->template_nature == TPN_INCOMPLETE_INDEPENDENT)
+                                && !BITMAP_TEST(lookup_flags, LF_NO_INSTANTIATE))
                         {
-                            // And the entry is a specialized class
-                            if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-                                    // and the symbol is not complete but independent (thus it can be instantiated)
-                                    && (entry->type_information->type->template_nature == TPN_INCOMPLETE_INDEPENDENT)
-                                    && !BITMAP_TEST(lookup_flags, LF_NO_INSTANTIATE))
+                            // Instantiation happenning here
+                            DEBUG_CODE()
                             {
-                                // Instantiation happenning here
-                                DEBUG_CODE()
-                                {
-                                    fprintf(stderr, "Instantiation of '%s' within qualified name lookup\n", entry->symbol_name);
-                                }
+                                fprintf(stderr, "Instantiation of '%s' within qualified name lookup\n", entry->symbol_name);
+                            }
 
-                                DEBUG_CODE()
-                                {
-                                    fprintf(stderr, "Filtering entry %p from candidate list\n", entry);
-                                }
-                                instantiate_template(entry, entry->scope, decl_context);
-                            }
-                        }
-                        else
-                        {
-                            // If we are in context of an expression lookup and the entity found is 
-                            // a dependent one, we return a dependent entity
-                            if ((entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-                                        || entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
-                                    && (entry->type_information->type->template_nature == TPN_INCOMPLETE_DEPENDENT
-                                        || entry->type_information->type->template_nature == TPN_COMPLETE_DEPENDENT))
+                            DEBUG_CODE()
                             {
-                                DEBUG_CODE()
-                                {
-                                    fprintf(stderr, "Returning a dependent entity due to the lookup of '%s'\n",
-                                            entry->symbol_name);
-                                }
-                                *is_dependent = 1;
-                                return NULL;
+                                fprintf(stderr, "Filtering entry %p from candidate list\n", entry);
                             }
+                            instantiate_template(entry, entry->scope, decl_context);
                         }
+
+                        // If this cannot be instantiated, well, notify that this is something dependent
+                        if ((entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
+                                    || entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
+                                && (entry->type_information->type->template_nature == TPN_INCOMPLETE_DEPENDENT
+                                    || entry->type_information->type->template_nature == TPN_COMPLETE_DEPENDENT))
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "Returning a dependent entity due to the lookup of '%s'\n",
+                                        entry->symbol_name);
+                            }
+                            *is_dependent = 1;
+                            return NULL;
+                        }
+
+                        // Other ways to reach here
+                        // typedef with a SK_CLASS, this always should work, nothing else has to be done
                     }
 
                     if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
@@ -509,7 +519,15 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                 }
             case AST_TEMPLATE_ID :
                 {
-                    solve_possibly_ambiguous_template_id(nested_name_spec, sc, decl_context);
+                    char valid_template_arguments = 
+                        solve_possibly_ambiguous_template_id(nested_name_spec, sc, decl_context);
+
+                    // If template arguments are not feasible, this will not lead
+                    // us to anywhere but havoc
+                    if (!valid_template_arguments)
+                    {
+                        return NULL;
+                    }
 
                     // Nothing else is necessary if we've seen that this was dependent
                     if (*is_dependent)
@@ -691,7 +709,15 @@ scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nest
                     break;
                 case AST_TEMPLATE_ID:
                     {
-                        solve_possibly_ambiguous_template_id(name, sc, decl_context);
+                        char valid_template_arguments =
+                            solve_possibly_ambiguous_template_id(name, sc,
+                                    decl_context);
+
+                        // If template arguments are not valid, skip
+                        if (!valid_template_arguments)
+                        {
+                            return NULL;
+                        }
                         result = query_template_id_flags(name, sc, lookup_scope, lookup_flags,
                                 decl_context);
                     }

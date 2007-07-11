@@ -2701,8 +2701,8 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
                                 fprintf(stderr, "Computing dependency of expression '%s'\n", 
                                         prettyprint_in_buffer(entry->expression_value));
                             }
-                            if (is_dependent_expression(entry->expression_value, st, decl_context))
-                            // if (is_dependent_expression(entry->expression_value, entry->scope, decl_context))
+                            // if (is_dependent_expression(entry->expression_value, st, decl_context))
+                            if (is_dependent_expression(entry->expression_value, entry->scope, decl_context))
                             {
                                 entry->dependency_info = DI_DEPENDENT;
                                 return 1;

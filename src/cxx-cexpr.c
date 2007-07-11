@@ -805,9 +805,11 @@ static literal_value_t evaluate_symbol(AST symbol, scope_t* st, decl_context_t d
     }
 
     ERROR_CONDITION((result->entry->expression_value == NULL), 
-            "Symbol '%s' does not have a value", prettyprint_in_buffer(symbol));
+            "Symbol '%s' in '%s' does not have a value", prettyprint_in_buffer(symbol),
+            node_information(symbol));
 
-    return evaluate_initializer(result->entry->expression_value, st, decl_context);
+    // return evaluate_initializer(result->entry->expression_value, st, decl_context);
+    return evaluate_initializer(result->entry->expression_value, result->entry->scope, decl_context);
 }
 
 literal_value_t literal_value_zero(void)
