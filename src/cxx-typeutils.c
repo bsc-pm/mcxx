@@ -3744,7 +3744,35 @@ static void get_type_name_str_internal(scope_t* st,
             }
         case TK_ARRAY :
             {
-                if (!is_parameter)
+                if (is_parameter
+                        && (type_info->array->array_expr == NULL))
+                {
+                    // // Get rid of those annoying unbounded arrays
+                    // // in parameters
+                    // get_type_name_str_internal(st, type_info->array->element_type, left, right, 
+                    //         num_parameter_names, parameter_names, is_parameter);
+
+                    // // Should this change, change the TK_POINTER case
+                    // if (declarator_needs_parentheses(type_info))
+                    // {
+                    //     (*left) = strappend((*left), "(");
+                    // }
+
+                    // (*left) = strappend((*left), "*");
+                    // (*left) = strappend((*left), get_cv_qualifier_string(type_info));
+
+                    // if (declarator_needs_parentheses(type_info))
+                    // {
+                    //     (*right) = strappend(")", (*right));
+                    // }
+                    char* array_expr = strdup("[0]");
+
+                    (*right) = strappend((*right), array_expr);
+
+                    get_type_name_str_internal(st, type_info->array->element_type, left, right, 
+                            num_parameter_names, parameter_names, is_parameter);
+                }
+                else
                 {
                     char* array_expr = strappend("[", prettyprint_in_buffer(type_info->array->array_expr));
                     array_expr = strappend(array_expr, "]");
@@ -3754,26 +3782,6 @@ static void get_type_name_str_internal(scope_t* st,
                     get_type_name_str_internal(st, type_info->array->element_type, left, right, 
                             num_parameter_names, parameter_names, is_parameter);
                 }
-                else
-                {
-                    get_type_name_str_internal(st, type_info->array->element_type, left, right, 
-                            num_parameter_names, parameter_names, is_parameter);
-
-                    // Should this change, change the TK_POINTER case
-                    if (declarator_needs_parentheses(type_info))
-                    {
-                        (*left) = strappend((*left), "(");
-                    }
-
-                    (*left) = strappend((*left), "*");
-                    (*left) = strappend((*left), get_cv_qualifier_string(type_info));
-
-                    if (declarator_needs_parentheses(type_info))
-                    {
-                        (*right) = strappend(")", (*right));
-                    }
-                }
-
                 break;
             }
         case TK_FUNCTION :
