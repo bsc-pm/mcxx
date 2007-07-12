@@ -129,10 +129,10 @@ namespace TL
 
         // Define here the bounds of the loop
         loop_initialization 
-//            << "int nth_low;"
-//            << "int nth_upper;"
-	    << induction_var.get_symbol().get_type().get_declaration(induction_var.get_scope(),"nth_low") << ";"
-	    << induction_var.get_symbol().get_type().get_declaration(induction_var.get_scope(),"nth_upper") << ";"
+            // Iterator type, normally an integer type
+            // but it can be a random_access_iterator
+            << induction_var.get_symbol().get_type().get_declaration(induction_var.get_scope(),"nth_low") << ";"
+            << induction_var.get_symbol().get_type().get_declaration(induction_var.get_scope(),"nth_upper") << ";"
             << "int nth_step;"
             << "int intone_start;"
             << "int intone_end;"

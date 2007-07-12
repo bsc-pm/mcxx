@@ -391,7 +391,7 @@ scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
                     // Now filter for things that can qualify
                     // without using template-id's
                     enum cxx_symbol_kind filter[6] = {
-                        // These two are obviou
+                        // These two are obvious
                         SK_CLASS, 
                         SK_NAMESPACE, 
                         // This one is somewhat annoying

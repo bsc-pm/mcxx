@@ -185,6 +185,7 @@ namespace TL
             AST_t parse_expression(AST_t ref_tree, TL::ScopeLink scope_link);
             AST_t parse_declaration(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
             AST_t parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Type class_type);
+            Type parse_type(AST_t ref_tree, TL::ScopeLink scope_link);
             // -- end of new family of parse_XXX
 
             bool empty() const;

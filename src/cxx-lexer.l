@@ -1020,6 +1020,7 @@ runtime {
 @EXPRESSION@ { parse_token_text(); return SUBPARSE_EXPRESSION; }
 @STATEMENT@ { parse_token_text(); return SUBPARSE_STATEMENT; }
 @DECLARATION@ { parse_token_text(); return SUBPARSE_DECLARATION; }
+@TYPE@ { parse_token_text(); return SUBPARSE_TYPE; }
  /*!if CPLUSPLUS*/
 @MEMBER@ { parse_token_text(); return SUBPARSE_MEMBER; }
  /*!endif*/

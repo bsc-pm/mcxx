@@ -504,6 +504,43 @@ namespace TL
         return AST_t(a);
     }
 
+    Type Source::parse_type(AST_t ref_tree, TL::ScopeLink scope_link)
+    {
+        std::string mangled_text = "@TYPE@ " + this->get_source(true);
+        char* str = strdup(mangled_text.c_str());
+
+        CXX_LANGUAGE()
+        {
+            mcxx_prepare_string_for_scanning(str);
+        }
+        C_LANGUAGE()
+        {
+            mc99_prepare_string_for_scanning(str);
+        }
+
+        int parse_result = 0;
+        AST type_specifier_seq;
+        parse_result = mcxxparse(&type_specifier_seq);
+
+        if (parse_result != 0)
+        {
+            running_error("Could not parse type specifier\n\n%s\n", this->get_source(true).c_str());
+        }
+
+        // Get the scope and declarating context of the reference tree
+        scope_t* scope = scope_link_get_scope(scope_link._scope_link, ref_tree._ast);
+        decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
+
+        type_t* type_info = NULL;
+        gather_decl_spec_t gather_info;
+        memset(&gather_info, 0, sizeof(gather_info));
+
+        build_scope_decl_specifier_seq(type_specifier_seq, scope, &gather_info, &type_info,
+                decl_context);
+
+        return Type(type_info);
+    }
+
     bool Source::operator==(const Source& src) const
     {
         return this->get_source() == src.get_source();
@@ -619,6 +656,4 @@ namespace TL
 
         return result;
     }
-
-
 }

@@ -319,7 +319,7 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
         case AST_FUNCTION_DEFINITION :
             {
                 // A function definition is of the form
-                //   [T] f(T1 t, T2 t, T3 t)
+                //   [T] f(T1 [t1], T2 [t2], T3 [t3])
                 //   {
                 //     ...
                 //   }
@@ -328,38 +328,47 @@ static void build_scope_declaration(AST a, scope_t* st, decl_context_t decl_cont
             }
         case AST_LINKAGE_SPEC :
             {
+                // extern "C" { ... }
                 build_scope_linkage_specifier(a, st, decl_context);
                 break;
             }
         case AST_LINKAGE_SPEC_DECL :
             {
+                // extern "C" int a;
                 build_scope_linkage_specifier_declaration(a, st, decl_context);
                 break;
             }
         case AST_EXPORT_TEMPLATE_DECLARATION :
         case AST_TEMPLATE_DECLARATION :
             {
+                // [export] template<typename _T> struct A;
+                // [export] template<typename _T> struct A { };
+                // [export] template<typename _T> void f(_T t);
                 build_scope_template_declaration(a, a, st, decl_context);
                 break;
             }
         case AST_EXPLICIT_INSTANTIATION :
             {
+                // template A<int>;
                 build_scope_explicit_instantiation(a, st, decl_context);
                 break;
             }
         case AST_EXPLICIT_SPECIALIZATION :
             {
+                // template<> struct A<int> { };
                 build_scope_explicit_template_specialization(a, st, decl_context);
                 break;
             }
         case AST_USING_DIRECTIVE :
             {
+                // using namespace std;
                 build_scope_using_directive(a, st, decl_context);
                 break;
             }
         case AST_USING_DECL :
         case AST_USING_DECL_TYPENAME :
             {
+                // using A::b;
                 build_scope_using_declaration(a, st, decl_context);
                 break;
             }
@@ -1491,8 +1500,16 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
     //         prettyprint_in_buffer(a), node_information(a));
     if (entry_list == NULL)
     {
-        running_error("The type name '%s' has not been found in the scope of %s. Did you forget to declare it ?\n",
-                prettyprint_in_buffer(a), node_information(a));
+        if (!BITMAP_TEST(decl_context.decl_flags, DF_NO_FAIL))
+        {
+            running_error("The type name '%s' has not been found in the scope of %s. Did you forget to declare it ?\n",
+                    prettyprint_in_buffer(a), node_information(a));
+        }
+        else
+        {
+            simple_type_info->type->kind = TK_UNKNOWN;
+            return;
+        }
     }
 
     // Filter for non types hiding this type name
