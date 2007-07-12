@@ -190,8 +190,8 @@ namespace TL
 
 	    << "int nth_zero = 0;"
 	    << "int nth_iters;"
-	    << "if ( nth_step > 0 ) nth_iters =  nth_upper - nth_low + 1;"
-	    << "else nth_iters = nth_low - nth_upper + 1;"
+	    << "if ( nth_step > 0 ) nth_iters =  nth_upper - nth_low;"
+	    << "else nth_iters = nth_low - nth_upper;"
 
 
             << "in__tone_begin_for_(&nth_zero, &nth_iters, &nth_step, &nth_chunk, &nth_schedule);"
