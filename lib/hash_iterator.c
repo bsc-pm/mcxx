@@ -18,16 +18,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-/***************************************************************************
-  PhantasienMud Development Team 2001 (c)
-
-  hash_iterator.c - hash iteration functions
-
-  ChangeLog:
-
-  Sat Jan 20 2001 - Created by Ingwe
-
-***************************************************************************/
 
 #include "hash_iterator.h"
 #include "mem_ctl.h"

@@ -18,17 +18,6 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-/***************************************************************************
- 
-  PhantasienMud Development Team 2001 (c)
-
-  list.c - Double linked list structure
-
-  ChangeLog:
-
-  Sat Jan 20 2001 - Created by Ingwe
-
-***************************************************************************/
 
 #include "list.h"
 
