@@ -76,13 +76,22 @@ namespace TL
         Type result = this->duplicate();
         type_t* result_type = result._type_info;
 
-        type_t* pointer_to = (type_t*)calloc(1, sizeof(*pointer_to));
+        if (result_type->kind == TK_REFERENCE)
+        {
+            // We cannot get a pointer to a reference, remove the reference and
+            // convert it into a pointer
+            result_type->kind = TK_POINTER;
+        }
+        else
+        {
+            type_t* pointer_to = (type_t*)calloc(1, sizeof(*pointer_to));
 
-        pointer_to->kind = TK_POINTER;
-        pointer_to->pointer = (pointer_info_t*)calloc(1, sizeof(*(pointer_to->pointer)));
-        pointer_to->pointer->pointee = result_type;
+            pointer_to->kind = TK_POINTER;
+            pointer_to->pointer = (pointer_info_t*)calloc(1, sizeof(*(pointer_to->pointer)));
+            pointer_to->pointer->pointee = result_type;
 
-        result._type_info = pointer_to;
+            result._type_info = pointer_to;
+        }
 
         return result;
     }
