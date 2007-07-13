@@ -338,6 +338,7 @@ namespace TL
 
             bool is_functional_declaration();
             ObjectList<ParameterDeclaration> get_parameter_declarations();
+            ObjectList<ParameterDeclaration> get_parameter_declarations(bool &has_ellipsis);
     };
 
     class DeclarationSpec : public LangConstruct

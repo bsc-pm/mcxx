@@ -1115,6 +1115,12 @@ namespace TL
 
     ObjectList<ParameterDeclaration> DeclaredEntity::get_parameter_declarations()
     {
+        bool _dummy;
+        return get_parameter_declarations(_dummy);
+    }
+
+    ObjectList<ParameterDeclaration> DeclaredEntity::get_parameter_declarations(bool &has_ellipsis)
+    {
         ObjectList<ParameterDeclaration> result;
 
         IdExpression entity = get_declared_entity();
@@ -1130,7 +1136,7 @@ namespace TL
                 << std::endl;
             return result;
         }
-        ObjectList<Type> parameter_types = type.parameters();
+        ObjectList<Type> parameter_types = type.parameters(has_ellipsis);
 
         TraverseParameters traverse_parameter_declarations;
         ObjectList<AST_t> parameter_declarations = _ref.depth_subtrees(traverse_parameter_declarations);
