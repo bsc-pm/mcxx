@@ -70,12 +70,11 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
                 scope_entry_t* entry = list->entry;
                 result = entry->type_information;
 
-                // This is always an lvalue except for functions and arrays
-                if (!is_function_type(result)
-                        && !is_array_type(result))
-                {
-                    (*is_lvalue) = 1;
-                }
+                // This is always an lvalue except for functions, arrays and
+                // enums
+                (*is_lvalue) = !is_function_type(result) 
+                    && !is_enumerated_type(result)
+                    && !is_array_type(result);
                 break;
             }
         case AST_DECIMAL_LITERAL :
