@@ -158,7 +158,7 @@ then
 
    if ! test x$nanos4_lib = x;
    then
-      MCXX_LIBS="${MCXX_LIBS} -L ${nanos4_lib} -l nthreads"
+      MCXX_LIBS="${MCXX_LIBS} -L${nanos4_lib} -lnthreads -Wl,-rpath,${nanos4_lib}"
    fi
 fi
 
