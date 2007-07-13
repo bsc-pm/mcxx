@@ -71,32 +71,50 @@ namespace TL
 
             void test_postorder(PragmaCustomConstruct test_construct)
             {
-                PragmaCustomClause prova_clause = test_construct.get_clause("prova");
-
-                ObjectList<Expression> expressions = prova_clause.get_expression_list();
-                for (ObjectList<Expression>::iterator it = expressions.begin(); 
-                        it != expressions.end();
-                        it++)
+                if (!test_construct.is_directive())
                 {
-                    std::cerr << " --> '" << it->prettyprint() << "'" << std::endl;
+                    std::cerr << "Is a construct. Not the case we are interested in" << std::endl;
+                    return;
                 }
 
-                ObjectList<PragmaClauseExpression> clause_expressions = prova_clause.get_pragma_clause_expression_list();
-
-                for (ObjectList<PragmaClauseExpression>::iterator it = clause_expressions.begin();
-                        it != clause_expressions.end(); it++)
+                ObjectList<ParameterDeclaration> parameters;
+                if (test_construct.is_function_definition())
                 {
-                    std::cerr << "=";
-                    ObjectList<Expression> expression_list = it->get_expression_list();
-                    std::cerr << "=>";
+                    std::cerr << "Function definition at '" << test_construct.get_ast().get_locus() << "'" << std::endl;
+                    FunctionDefinition function_def(test_construct.get_declaration(), test_construct.get_scope_link());
+                    DeclaredEntity entity = function_def.get_declared_entity();
+                    parameters = entity.get_parameter_declarations();
+                }
+                else
+                {
+                    // Assume there is only one function declaration
+                    std::cerr << "Function declaration at '" << test_construct.get_ast().get_locus() << "'" << std::endl;
+                    Declaration decl(test_construct.get_declaration(), test_construct.get_scope_link());
+                    ObjectList<DeclaredEntity> entities = decl.get_declared_entities();
+                    DeclaredEntity entity = entities[0];
+                    parameters = entity.get_parameter_declarations();
+                }
 
-                    for(ObjectList<Expression>::iterator it2 = expression_list.begin();
-                            it2 != expression_list.end();
-                            it2++)
+                for(ObjectList<ParameterDeclaration>::iterator it = parameters.begin();
+                        it != parameters.end();
+                        it++)
+                {
+                    ParameterDeclaration &param(*it);
+
+                    std::string parameter_name;
+                    if (param.is_named())
                     {
-                        std::cerr << it2->prettyprint() << " || "; 
+                        IdExpression name = param.get_name();
+                        parameter_name = name.prettyprint();
                     }
-                    std::cerr << std::endl;
+                    else
+                    {
+                        parameter_name = "<unnamed parameter>";
+                    }
+
+                    Type param_type = param.get_type();
+
+                    std::cerr << param_type.get_declaration(test_construct.get_scope(), parameter_name) << std::endl;
                 }
             }
 

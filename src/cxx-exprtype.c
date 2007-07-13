@@ -25,16 +25,17 @@
 #include <string.h>
 
 static
-type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_context);
+type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_context, char *is_lvalue);
 
-type_t *compute_expression_type(AST expr, scope_t *sc, decl_context_t decl_context)
+type_t *compute_expression_type(AST expr, scope_t *sc, decl_context_t decl_context, char *is_lvalue)
 {
     if (expr == NULL)
     {
         internal_error("Invalid null node\n", 0);
     }
 
-    type_t* result = compute_expression_type_rec(expr, sc, decl_context);
+    *is_lvalue = 0;
+    type_t* result = compute_expression_type_rec(expr, sc, decl_context, is_lvalue);
 
     return result;
 }
@@ -46,7 +47,7 @@ static type_t *string_literal(AST expr);
 static type_t *pointer_to_type(type_t* t);
 
 static
-type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_context)
+type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_context, char* is_lvalue)
 {
     type_t* result = NULL;
 
@@ -56,7 +57,8 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
         case AST_CONSTANT_EXPRESSION : 
         case AST_PARENTHESIZED_EXPRESSION :
             {
-                result = compute_expression_type_rec(ASTSon0(expr), sc, decl_context);
+                result = compute_expression_type_rec(ASTSon0(expr), sc, decl_context, is_lvalue);
+                // No change in the "lvalueness"
                 break;
             }
         case AST_SYMBOL :
@@ -66,8 +68,14 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
                     break;
 
                 scope_entry_t* entry = list->entry;
-
                 result = entry->type_information;
+
+                // This is always an lvalue except for functions and arrays
+                if (!is_function_type(result)
+                        && !is_array_type(result))
+                {
+                    (*is_lvalue) = 1;
+                }
                 break;
             }
         case AST_DECIMAL_LITERAL :
@@ -75,27 +83,35 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
         case AST_HEXADECIMAL_LITERAL :
             {
                 result = decimal_literal_type(expr);
+                // Literals are not lvalue
+                (*is_lvalue) = 0;
                 break;
             }
         case AST_CHARACTER_LITERAL :
             {
                 result = character_literal(expr);
+                // Literals are not lvalue
+                (*is_lvalue) = 0;
                 break;
             }
         case AST_FLOATING_LITERAL :
         case AST_HEXADECIMAL_FLOAT :
             {
                 result = floating_literal(expr);
+                // Literals are not lvalue
+                (*is_lvalue) = 0;
                 break;
             }
         case AST_STRING_LITERAL :
             {
                 result = string_literal(expr);
+                // Literals are not lvalue
+                (*is_lvalue) = 0;
                 break;
             }
         case AST_ARRAY_SUBSCRIPT :
             {
-                type_t* subscripted_type = compute_expression_type_rec(ASTSon0(expr), sc, decl_context);
+                type_t* subscripted_type = compute_expression_type_rec(ASTSon0(expr), sc, decl_context, is_lvalue);
 
                 if (subscripted_type == NULL)
                 {
@@ -113,11 +129,14 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
                     result = subscripted_type->array->element_type;
                 }
 
+                // This is always a lvalue
+                (*is_lvalue) = 1;
+
                 break;
             }
         case AST_FUNCTION_CALL :
             {
-                type_t* function_type = compute_expression_type_rec(ASTSon0(expr), sc, decl_context);
+                type_t* function_type = compute_expression_type_rec(ASTSon0(expr), sc, decl_context, is_lvalue);
 
                 if (function_type == NULL)
                     break;
@@ -134,13 +153,15 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
                     result = function_type->pointer->pointee;
                 }
 
+                // This is never a lvalue
+                (*is_lvalue) = 0;
                 break;
             }
         case AST_CLASS_MEMBER_ACCESS :
         case AST_POINTER_CLASS_MEMBER_ACCESS :
             {
                 // We have to lookup in the class scope
-                type_t* class_type = compute_expression_type_rec(ASTSon0(expr), sc, decl_context);
+                type_t* class_type = compute_expression_type_rec(ASTSon0(expr), sc, decl_context, is_lvalue);
 
                 if (class_type == NULL)
                     break;
@@ -184,6 +205,9 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
                 scope_entry_t* entry = list->entry;
 
                 result = entry->type_information;
+
+                // This is always a lvalue
+                (*is_lvalue) = 1;
                 break;
             }
         case AST_POSTINCREMENT :
@@ -191,24 +215,30 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
         case AST_PREINCREMENT :
         case AST_PREDECREMENT :
             {
-                result = compute_expression_type_rec(ASTSon0(expr), sc, decl_context);
+                result = compute_expression_type_rec(ASTSon0(expr), sc, decl_context, is_lvalue);
+                // This is always a lvalue
+                (*is_lvalue) = 1;
                 break;
             }
         case AST_SIZEOF :
             {
                 // Technically this is size_t
                 result = unsigned_integer_type();
+                // This is never a lvalue
+                (*is_lvalue) = 0;
                 break;
             }
         case AST_SIZEOF_TYPEID :
             {
                 // Technically this is size_t
                 result = unsigned_integer_type();
+                // This is never a lvalue
+                (*is_lvalue) = 0;
                 break;
             }
         case AST_DERREFERENCE :
             {
-                type_t* referenced_type = compute_expression_type_rec(ASTSon0(expr), sc, decl_context);
+                type_t* referenced_type = compute_expression_type_rec(ASTSon0(expr), sc, decl_context, is_lvalue);
 
                 if (referenced_type == NULL)
                     break;
@@ -227,16 +257,21 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
                     result = referenced_type;
                 }
 
+                // This is always an lvalue
+                (*is_lvalue) = 1;
                 break;
             }
         case AST_REFERENCE :
             {
-                type_t* referenced_type = compute_expression_type_rec(ASTSon0(expr), sc, decl_context);
+                type_t* referenced_type = compute_expression_type_rec(ASTSon0(expr), sc, decl_context, is_lvalue);
 
                 if (referenced_type == NULL)
                     break;
 
                 result = pointer_to_type(referenced_type);
+                
+                // This is never a lvalue
+                (*is_lvalue) = 0;
                 break;
             }
         case AST_PLUS_OP :
@@ -244,7 +279,10 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
         case AST_NOT_OP :
         case AST_COMPLEMENT_OP :
             {
-                result = compute_expression_type_rec(ASTSon0(expr), sc, decl_context);
+                result = compute_expression_type_rec(ASTSon0(expr), sc, decl_context, is_lvalue);
+                
+                // These should not be lvalues
+                (*is_lvalue) = 0;
                 break;
             }
         case AST_CAST_EXPRESSION :
@@ -276,6 +314,8 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
                     result = simple_type_info;
                 }
 
+                // Technically something casted is not an lvalue
+                (*is_lvalue) = 0;
                 break;
             }
         case AST_MULT_OP :
@@ -289,12 +329,29 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
         case AST_BITWISE_XOR :
         case AST_BITWISE_OR :
             {
-                type_t* result_lhs = compute_expression_type_rec(ASTSon0(expr), sc, decl_context);
-                type_t* result_rhs = compute_expression_type_rec(ASTSon1(expr), sc, decl_context);
+                type_t* result_lhs = compute_expression_type_rec(ASTSon0(expr), sc, decl_context, is_lvalue);
+                type_t* result_rhs = compute_expression_type_rec(ASTSon1(expr), sc, decl_context, is_lvalue);
 
                 if (result_lhs == NULL
                         || result_rhs == NULL)
                     break;
+
+                // This is never a lvalue
+                (*is_lvalue) = 0;
+
+                // Pointer arithmetic
+                if ((is_pointer_type(result_lhs) &&
+                            is_integral_type(result_rhs)))
+                {
+                    result = result_lhs;
+                    break;
+                }
+                if (is_integral_type(result_lhs) &&
+                        is_pointer_type(result_rhs))
+                {
+                    result = result_rhs;
+                    break;
+                }
 
                 // Order of arithmetic promotions
                 char (*ptr_is_type[])(type_t*) =
@@ -339,6 +396,8 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
             {
                 // In C this is always an int
                 result = integer_type();
+                // This is never a lvalue
+                (*is_lvalue) = 0;
                 break;
             }
         case AST_LOGICAL_AND :
@@ -346,12 +405,23 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
             {
                 // In C this is always an int
                 result = integer_type();
+                // This is never a lvalue
+                (*is_lvalue) = 0;
                 break;
             }
         case AST_CONDITIONAL_EXPRESSION :
             {
                 // Assume is the first one
-                result = compute_expression_type_rec(ASTSon1(expr), sc, decl_context);
+                char is_lvalue_1 = 0;
+                char is_lvalue_2 = 0;
+                type_t* true_type = compute_expression_type_rec(ASTSon1(expr), sc, decl_context, &is_lvalue_1);
+                /* type_t* false_type = */ compute_expression_type_rec(ASTSon2(expr), sc, decl_context, &is_lvalue_2);
+
+                // Let's assume the first one, even if we should promote
+                result = true_type;
+
+                // This is a lvalue if both are
+                (*is_lvalue) = (is_lvalue_1 && is_lvalue_2);
                 break;
             }
         case AST_ASSIGNMENT :
@@ -367,7 +437,9 @@ type_t *compute_expression_type_rec(AST expr, scope_t *sc, decl_context_t decl_c
         case AST_MOD_ASSIGNMENT :
             {
                 // The type is always the one of the left part of the assignment
-                result = compute_expression_type_rec(ASTSon0(expr), sc, decl_context);
+                result = compute_expression_type_rec(ASTSon0(expr), sc, decl_context, is_lvalue);
+                // This is never a lvalue
+                (*is_lvalue) = 0;
                 break;
             }
         default:

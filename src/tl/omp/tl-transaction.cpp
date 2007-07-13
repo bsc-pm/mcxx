@@ -673,9 +673,10 @@ namespace TL
     {
         private:
             const Predicate<AST_t>& _pred;
+            OpenMP::CustomConstructPredicate is_preserve_construct;
         public:
             IgnorePreserveFunctor(const Predicate<AST_t>& pred)
-                : _pred(pred)
+                : _pred(pred), is_preserve_construct("preserve")
             {
             }
 
@@ -683,8 +684,6 @@ namespace TL
             {
                 bool match = _pred(a);
                 bool recurse = !match;
-
-                OpenMP::CustomConstructPredicate is_preserve_construct("preserve");
 
                 if (is_preserve_construct(a))
                 {
@@ -830,40 +829,32 @@ namespace TL
             Type return_type = function_type.returns();
 
             Source return_value;
+            
+            ObjectList<ParameterDeclaration> declared_parameters = 
+                enclosing_function_def.get_declared_entity().get_parameter_declarations();
+
+            Source cancel_source;
+            {
+                ObjectList<ParameterDeclaration>::iterator it = declared_parameters.begin();
+                if (converted_function.is_defined())
+                {
+                    // Skip the first one if the converted_function clause
+                    // was defined
+                    it++;
+                }
+                for (; it != declared_parameters.end();
+                        it++)
+                {
+                    ParameterDeclaration &param(*it);
+                    cancel_source
+                        << "invalidateAdrInTx(__t, &" << param.get_name().prettyprint() << ");"
+                        ;
+                }
+            }
+
             ObjectList<AST_t> return_expression_list = return_statement.get_ast().depth_subtrees(
                     PredicateBool<LANG_IS_EXPRESSION_NEST>(), 
                     AST_t::NON_RECURSIVE);
-
-			AST_t node = enclosing_function_def.get_ast();
-			ObjectList<AST_t> functional_declarator = 
-				node.depth_subtrees(PredicateBool<LANG_IS_FUNCTIONAL_DECLARATOR>(), 
-						AST_t::NON_RECURSIVE);
-
-			AST_t first_functional_declarator = *(functional_declarator.begin());
-			ObjectList<AST_t> declared_parameters = 
-				first_functional_declarator.depth_subtrees(
-						PredicateBool<LANG_IS_DECLARED_PARAMETER>(),
-						AST_t::NON_RECURSIVE);
-
-			Source cancel_source;
-			{
-				ObjectList<AST_t>::iterator it = declared_parameters.begin();
-				if (converted_function.is_defined())
-				{
-					// Skip the first one if the converted_function clause
-					// was defined
-					it++;
-				}
-				for (; it != declared_parameters.end();
-						it++)
-				{
-					AST_t declared_name = it->get_attribute(LANG_DECLARED_PARAMETER);
-					cancel_source
-						<< "invalidateAdrInTx(__t, &" << declared_name.prettyprint() << ");"
-						;
-				}
-			}
-
             if (!return_expression_list.empty()
                     && !return_type.is_void())
             {
@@ -958,34 +949,27 @@ namespace TL
 
             if (function_type.returns().is_void())
             {
-                AST_t node = enclosing_function_def.get_ast();
-                ObjectList<AST_t> functional_declarator = 
-                    node.depth_subtrees(PredicateBool<LANG_IS_FUNCTIONAL_DECLARATOR>(), 
-                            AST_t::NON_RECURSIVE);
-
-                AST_t first_functional_declarator = *(functional_declarator.begin());
-                ObjectList<AST_t> declared_parameters = 
-                    first_functional_declarator.depth_subtrees(
-                            PredicateBool<LANG_IS_DECLARED_PARAMETER>(),
-                            AST_t::NON_RECURSIVE);
-
                 Source cancel_source;
                 {
-                    ObjectList<AST_t>::iterator it = declared_parameters.begin();
-                    // Skip the first one if the converted_function clause
-                    // was defined
-                    it++;
+                    ObjectList<ParameterDeclaration> declared_parameters = 
+                        enclosing_function_def.get_declared_entity().get_parameter_declarations();
+                    ObjectList<ParameterDeclaration>::iterator it = declared_parameters.begin();
+                    if (converted_function.is_defined())
+                    {
+                        // Skip the first one if the converted_function clause
+                        // was defined
+                        it++;
+                    }
                     for (; it != declared_parameters.end();
                             it++)
                     {
-                        AST_t declared_name = it->get_attribute(LANG_DECLARED_PARAMETER);
-                        return_from_function
-                            << "invalidateAdrInTx(__t, &" << declared_name.prettyprint() << ");"
+                        ParameterDeclaration &param(*it);
+                        cancel_source
+                            << "invalidateAdrInTx(__t, &" << param.get_name().prettyprint() << ");"
                             ;
                     }
                 }
-				return_from_function << "invalidateFunctionLocalData(__t);";
-				
+                return_from_function << "invalidateFunctionLocalData(__t);";
             }
         }
         else

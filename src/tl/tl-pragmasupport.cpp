@@ -106,6 +106,18 @@ namespace TL
         return result;
     }
 
+    bool PragmaCustomConstruct::is_function_definition()
+    {
+        if (is_directive())
+        {
+            AST_t declaration = get_declaration();
+            TL::Bool b = declaration.get_attribute(LANG_IS_FUNCTION_DEFINITION);
+            return b;
+        }
+        else 
+            return false;
+    }
+
     bool PragmaCustomConstruct::is_parameterized()
     {
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);

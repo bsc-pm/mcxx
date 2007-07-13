@@ -2631,6 +2631,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
             continue;
         }
 
+        ASTAttrSetValueType(parameter_declaration, LANG_IS_PARAMETER_DECLARATION, tl_type_t, tl_bool(1));
         // This is never null
         AST parameter_decl_spec_seq = ASTSon0(parameter_declaration);
         // Declarator can be null
@@ -2672,8 +2673,9 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
             AST declarator_name = get_declarator_name(parameter_declarator, st, decl_context);
             if (declarator_name != NULL)
             {
-                ASTAttrSetValueType(parameter_declarator, LANG_IS_DECLARED_PARAMETER, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(parameter_declarator, LANG_DECLARED_PARAMETER, 
+                ASTAttrSetValueType(parameter_declaration, LANG_IS_NAMED_PARAMETER_DECLARATION, 
+						tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(parameter_declaration, LANG_PARAMETER_DECLARATION_NAME, 
 						tl_type_t, tl_ast(declarator_name));
             }
         }
@@ -2872,6 +2874,7 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
             }
         case AST_DECLARATOR_FUNC :
             {
+                ASTAttrSetValueType(a, LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
                 set_function_type(declarator_type, st, parameters_scope, gather_info, ASTSon1(a), 
                         ASTSon2(a), ASTSon3(a), decl_context);
 
@@ -4551,8 +4554,6 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
             &gather_info, type_info, &declarator_type, new_decl_context);
     ERROR_CONDITION((entry == NULL), "Function '%s' does not exist! %s", prettyprint_in_buffer(ASTSon1(a)), node_information(a));
 
-    ASTAttrSetValueType(ASTSon1(a), LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
-    
     {
         // Function declaration name
         AST declarator_name = get_declarator_name(ASTSon1(a), st, decl_context);
@@ -4702,6 +4703,7 @@ static scope_entry_t* build_scope_function_definition(AST a, scope_t* st, decl_c
     // }
 
     ASTAttrSetValueType(a, LANG_IS_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_FUNCTION_DECLARATOR, tl_type_t, tl_ast(ASTSon1(a)));
     ASTAttrSetValueType(a, LANG_FUNCTION_BODY, tl_type_t, tl_ast(statement));
 
     ERROR_CONDITION((entry == NULL), "This symbol is undeclared here", 0);

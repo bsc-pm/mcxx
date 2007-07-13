@@ -119,14 +119,11 @@ namespace TL
                 : LangConstruct(ref, scope_link)
             {
             }
-
-
 //             ObjectList<Symbol> symbols();
              ObjectList<Symbol> non_local_symbols();
 
             bool is_compound_statement();
             ObjectList<Statement> get_inner_statements();
-
 //            ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
 //            ObjectList<IdExpression> local_symbol_occurrences();
     };
@@ -175,6 +172,7 @@ namespace TL
             Expression get_iterating_expression();
     };
 
+    class DeclaredEntity;
     class FunctionDefinition : public LangConstruct
     {
         public:
@@ -190,6 +188,8 @@ namespace TL
 
             bool is_templated() const;
             ObjectList<AST_t> get_template_header();
+
+            DeclaredEntity get_declared_entity();
 
             AST_t get_point_of_declaration();
     };
@@ -234,6 +234,7 @@ namespace TL
             };
 
             Type get_type();
+            Type get_type(bool &is_lvalue);
 
             Expression(AST_t ref, ScopeLink scope_link)
                 : LangConstruct(ref, scope_link)
@@ -302,6 +303,25 @@ namespace TL
 			std::string get_operator_str();
     };
 
+    class ParameterDeclaration : public LangConstruct
+    {
+        private:
+            Type _type;
+        public:
+            ParameterDeclaration(AST_t tree, ScopeLink sl, Type parameter_type)
+                : LangConstruct(tree, sl), _type(parameter_type)
+            {
+            }
+
+            bool is_named();
+            IdExpression get_name();
+
+            Type get_type()
+            {
+                return _type;
+            }
+    };
+
     class DeclaredEntity : public LangConstruct
     {
         private:
@@ -315,6 +335,9 @@ namespace TL
             IdExpression get_declared_entity();
             bool has_initializer();
             Expression get_initializer();
+
+            bool is_functional_declaration();
+            ObjectList<ParameterDeclaration> get_parameter_declarations();
     };
 
     class DeclarationSpec : public LangConstruct

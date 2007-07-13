@@ -163,7 +163,13 @@ namespace TL
 
     AST_t FunctionDefinition::get_point_of_declaration()
     {
-        return _ref.get_enclosing_function_definition(/* jump templates */ true);
+        return _ref.get_enclosing_function_definition(/*jump_templates=*/ true);
+    }
+
+    DeclaredEntity FunctionDefinition::get_declared_entity()
+    {
+        AST_t declarator = _ref.get_attribute(LANG_FUNCTION_DECLARATOR);
+        return DeclaredEntity(declarator, _scope_link);
     }
 
     bool Declaration::is_templated()
@@ -735,13 +741,22 @@ namespace TL
 
     Type Expression::get_type()
     {
+        bool _dummy;
+        return get_type(_dummy);
+    }
+
+    Type Expression::get_type(bool &is_lvalue)
+    {
         // We need access to the inner representation of the tree
         AST_t expr = this->_ref;
         AST expr_tree = expr._ast;
         Scope sc = this->get_scope();
 
         decl_context_t decl_context = scope_link_get_decl_context(_scope_link._scope_link, expr_tree);
-        type_t* expression_type = compute_expression_type(expr_tree, sc._st, decl_context);
+        char c_is_lvalue = 0;
+        type_t* expression_type = compute_expression_type(expr_tree, sc._st, decl_context, &c_is_lvalue);
+
+        is_lvalue = c_is_lvalue;
 
         Type result(expression_type);
         return result;
@@ -775,14 +790,12 @@ namespace TL
     bool DeclaredEntity::has_initializer()
     {
         AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
-        
         return initializer.is_valid();
     }
 
     Expression DeclaredEntity::get_initializer()
     {
         AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);
-
         return Expression(initializer, this->_scope_link);
     }
 
@@ -1075,5 +1088,76 @@ namespace TL
         Expression result(_ref.get_attribute(LANG_FOR_ITERATION_EXPRESSION),
                 _scope_link);
         return result;
+    }
+
+    bool DeclaredEntity::is_functional_declaration()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_FUNCTIONAL_DECLARATOR);
+        return b;
+    }
+
+    // A traverse functor only for the first level of parameter declarations
+    // (We want to avoid finding inner parameters of pointer-to-function
+    // parameters)
+    class TraverseParameters : public Functor<ASTTraversalResult, AST_t>
+    {
+        private:
+            PredicateBool<LANG_IS_PARAMETER_DECLARATION> _pred;
+        public:
+            ASTTraversalResult operator()(AST_t& a) const
+            {
+                bool match = _pred(a);
+                bool recurse = !match;
+
+                return ast_traversal_result_helper(match, recurse);
+            }
+    };
+
+    ObjectList<ParameterDeclaration> DeclaredEntity::get_parameter_declarations()
+    {
+        ObjectList<ParameterDeclaration> result;
+
+        IdExpression entity = get_declared_entity();
+        Symbol symbol = entity.get_symbol();
+        Type type = symbol.get_type();
+
+        if (!type.is_function())
+        {
+            std::cerr 
+                << "Error: Entity '" << entity.prettyprint() << "' in '" 
+                << entity.get_ast().get_locus() 
+                << " is not a function type" 
+                << std::endl;
+            return result;
+        }
+        ObjectList<Type> parameter_types = type.parameters();
+
+        TraverseParameters traverse_parameter_declarations;
+        ObjectList<AST_t> parameter_declarations = _ref.depth_subtrees(traverse_parameter_declarations);
+
+        ObjectList<Type>::iterator it_type = parameter_types.begin();
+        ObjectList<AST_t>::iterator it_tree = parameter_declarations.begin();
+        while (it_tree != parameter_declarations.end())
+        {
+            ParameterDeclaration parameter_decl(*it_tree, _scope_link, *it_type);
+            result.append(parameter_decl);
+
+            it_tree++;
+            it_type++;
+        }
+
+        return result;
+    }
+
+    bool ParameterDeclaration::is_named()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_NAMED_PARAMETER_DECLARATION);
+        return b;
+    }
+
+    IdExpression ParameterDeclaration::get_name()
+    {
+        AST_t declaration = _ref.get_attribute(LANG_PARAMETER_DECLARATION_NAME);
+        return IdExpression(declaration, _scope_link);
     }
 }

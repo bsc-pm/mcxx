@@ -73,27 +73,25 @@ namespace TL
 
     Type Type::get_pointer_to()
     {
-        Type result = this->duplicate();
-        type_t* result_type = result._type_info;
+        type_t* work_type = this->_type_info;
 
-        if (result_type->kind == TK_REFERENCE)
+        if (is_reference())
         {
-            // We cannot get a pointer to a reference, remove the reference and
-            // convert it into a pointer
-            result_type->kind = TK_POINTER;
-        }
-        else
-        {
-            type_t* pointer_to = (type_t*)calloc(1, sizeof(*pointer_to));
-
-            pointer_to->kind = TK_POINTER;
-            pointer_to->pointer = (pointer_info_t*)calloc(1, sizeof(*(pointer_to->pointer)));
-            pointer_to->pointer->pointee = result_type;
-
-            result._type_info = pointer_to;
+            // We cannot get a pointer to a reference, get the referenced
+            // type and make it pointer
+            work_type = reference_referenced_type(work_type);
         }
 
-        return result;
+        type_t* result_type = copy_type(work_type);
+        type_t* pointer_to = (type_t*)calloc(1, sizeof(*pointer_to));
+
+        pointer_to->kind = TK_POINTER;
+        pointer_to->pointer = (pointer_info_t*)calloc(1, sizeof(*(pointer_to->pointer)));
+        pointer_to->pointer->pointee = result_type;
+
+        result_type = pointer_to;
+
+        return result_type;
     }
 
     Type Type::get_array_to(AST_t array_expr, Scope scope)

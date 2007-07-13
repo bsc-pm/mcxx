@@ -77,6 +77,8 @@ namespace TL
             Statement get_statement();
             AST_t get_declaration();
 
+            bool is_function_definition();
+
             bool is_parameterized();
             ObjectList<Expression> get_parameter();
 

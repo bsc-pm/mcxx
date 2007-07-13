@@ -38,26 +38,6 @@ namespace TL
 				Symbol function_symbol = node.get_attribute(LANG_FUNCTION_SYMBOL);
 				Type function_type = function_symbol.get_type();
 
-				ObjectList<AST_t> functional_declarator = 
-					node.depth_subtrees(PredicateBool<LANG_IS_FUNCTIONAL_DECLARATOR>(), 
-						AST_t::NON_RECURSIVE);
-
-				AST_t first_functional_declarator = *(functional_declarator.begin());
-				ObjectList<AST_t> declared_parameters = 
-					first_functional_declarator.depth_subtrees(
-							PredicateBool<LANG_IS_DECLARED_PARAMETER>(),
-							AST_t::NON_RECURSIVE);
-
-				// std::cerr << "Found function -> " << function_def.get_function_name().prettyprint() << std::endl;
-				// for (ObjectList<AST_t>::iterator it = declared_parameters.begin();
-				// 		it != declared_parameters.end();
-				// 		it++)
-				// {
-				// 	AST_t declarator_name = it->get_attribute(LANG_DECLARED_PARAMETER);
-				// 	std::cerr << " -> param : '" << declarator_name.prettyprint() << "'" << std::endl;
-				// }
-				// std::cerr << std::endl;
-
 				Type return_type = function_type.returns();
 
 				Source stm_function_source;
@@ -92,23 +72,22 @@ namespace TL
 				bool has_ellipsis;
 				ObjectList<Type> parameter_types = function_type.parameters(has_ellipsis);
 
-				int parameter_num = 0;
-				for (ObjectList<Type>::iterator it = parameter_types.begin();
-						it != parameter_types.end();
+                DeclaredEntity declared_entity = function_def.get_declared_entity();
+                ObjectList<ParameterDeclaration> parameters = declared_entity.get_parameter_declarations();
+
+				for (ObjectList<ParameterDeclaration>::iterator it = parameters.begin();
+						it != parameters.end();
 						it++)
 				{
-					AST_t declarator_name = 
-						declared_parameters[parameter_num].get_attribute(LANG_DECLARED_PARAMETER);
+                    ParameterDeclaration &param(*it);
 					stm_parameters.append_with_separator(
-							it->get_declaration(
+							param.get_type().get_declaration(
 								function_def.get_scope(), 
-								declarator_name.prettyprint(),
+								param.get_name().prettyprint(),
                                 Type::PARAMETER_DECLARATION
 								),
 							","
 							);
-
-					parameter_num++;
 				}
 
 				if (has_ellipsis)
