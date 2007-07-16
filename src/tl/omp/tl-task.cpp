@@ -60,6 +60,25 @@ namespace TL
         // Get all the identifiers of the captureaddress clause
         ObjectList<IdExpression> captureaddress_references;
         ObjectList<IdExpression> captureaddress_references_in_clause = shared_clause.id_expressions();
+
+        {
+            // Legacy check
+            ObjectList<std::string> legacy_captureaddress_names;
+            legacy_captureaddress_names.append("captureaddress");
+            legacy_captureaddress_names.append("capture_address");
+
+            OpenMP::CustomClause legacy_captureaddress_clause = directive.custom_clause(legacy_captureaddress_names);
+
+            if (legacy_captureaddress_clause.is_defined())
+            {
+                std::cerr << "Warning: Clauses 'capturevalue' and 'capture_value' "
+                    << "(found in " << legacy_captureaddress_clause.get_ast().get_locus() << " ) are deprecated. "
+                    << "Instead use 'shared'." << std::endl;
+                // Now get the id-expressions for backward compatibility
+                captureaddress_references_in_clause.append(legacy_captureaddress_clause.id_expressions());
+            }
+        }
+
         {
             // We discard symbols here referenced in captureaddress
             // clause that can be referenced in the outline (thus, they
@@ -84,11 +103,30 @@ namespace TL
             }
         }
 
-        ObjectList<std::string> captureprivate_names;
-        captureprivate_names.append("captureprivate");
-        OpenMP::CustomClause captureprivate_clause = directive.custom_clause(captureprivate_names);
+        OpenMP::Clause captureprivate_clause = directive.firstprivate_clause();
         // Get the identifiers of the capturevalue clause
         ObjectList<IdExpression> captureprivate_references_in_clause = captureprivate_clause.id_expressions();
+
+        // Legacy check
+        {
+            ObjectList<std::string> legacy_captureprivate_names;
+            legacy_captureprivate_names.append("captureprivate");
+            legacy_captureprivate_names.append("capture_private");
+            legacy_captureprivate_names.append("capturevalue");
+            legacy_captureprivate_names.append("capture_value");
+
+            OpenMP::CustomClause legacy_captureprivate_clause 
+                = directive.custom_clause(legacy_captureprivate_names);
+
+            if (legacy_captureprivate_clause.is_defined())
+            {
+                std::cerr << "Warning: Clauses 'captureprivate', 'capturevalue', 'capture_private' and 'capture_value'"
+                    << "(found in '" << legacy_captureprivate_clause.get_ast().get_locus() << "')" 
+                    << " are deprecated. Instead use 'firstprivate'." << std::endl;
+                // Now append the found things for joy of the user (does not check for repeated things!)
+                captureprivate_references_in_clause.append(legacy_captureprivate_clause.id_expressions());
+            }
+        }
 
         // As stated by the user, everything in the clause is already
         // capturevalued (no pruning here as we did for captureaddress)
@@ -105,6 +143,8 @@ namespace TL
             DK_TASK_NONE
         } default_task_data_sharing = DK_TASK_INVALID;
 
+        ObjectList<std::string> captureprivate_names;
+        captureprivate_names.append("firstprivate");
         if (!default_clause.is_defined())
         {
             // By default captureprivate
