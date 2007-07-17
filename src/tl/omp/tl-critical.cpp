@@ -76,7 +76,8 @@ namespace TL
                 "nth_word_t " << weak_attr << " " << mutex_variable << " = 0;"
                 ;
 
-            CXX_LANGUAGE()
+            // It seems it is a good idea to do that also in C
+            // CXX_LANGUAGE()
             {
                 // We need this because of the One Definition Rule
                 weak_attr 
