@@ -49,6 +49,7 @@ namespace TL
                 }
                 else if (instrument_mode == "functions")
                 {
+                    std::cerr << "Instrumentation of functions disabled. Only calls can be instrumented at the moment" << std::endl;
                 }
                 else
                 {
