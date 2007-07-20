@@ -26,6 +26,10 @@ libmcxxtl_la_CFLAGS = \
     -I $(top_builddir)/lib
 
 libmcxxtl_la_LDFLAGS = \
+   -L$(top_builddir)/lib \
+   -L$(top_builddir)/src/frontend \
+   -L$(top_builddir)/src/tl
+
 libmcxxtl_la_LIBADD = \
 		-ltl \
 		-lmcxx-utils \
