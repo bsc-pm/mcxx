@@ -1,0 +1,40 @@
+bin_PROGRAMS = mcxx
+
+mcxx_CFLAGS=-fexceptions \
+			-I$(top_srcdir)/lib \
+			-I$(top_srcdir)/src/frontend \
+			-I$(top_srcdir)/src/mcxx_tl \
+			-I$(top_builddir)/lib \
+			-I$(top_builddir)/src/frontend \
+			-I$(top_builddir)/src/mcxx_tl \
+			-DPKGDATADIR=\"$(pkgdatadir)\" \
+			-Wall
+
+mcxx_SOURCES = \
+  cxx-driver.c \
+  cxx-driver-decls.h \
+  cxx-driver.h
+
+mcxx_LDFLAGS = \
+   -L. \
+   -L$(top_builddir)/lib \
+   -L$(top_builddir)/src/frontend \
+   -L$(top_builddir)/src/tl \
+   -L$(top_builddir)/src/mcxx_tl \
+   -Wl,-E
+
+mcxx_LDADD = \
+   -ldl \
+   -lmcxx \
+   -lmcxxtl \
+   -ltl \
+   -lmcxx-utils \
+   -lmcxx-extstruct \
+   -lmcxx-mcfg
+
+# Install hooks
+# installs "mcc" as a copy of mcxx
+.PHONY : mcc
+mcc :
+install-exec-local:
+	$(LIBTOOL) --mode=install --mode=install /usr/bin/install -c mcxx $(DESTDIR)/$(bindir)/mcc

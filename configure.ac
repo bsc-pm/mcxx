@@ -13,7 +13,7 @@ dnl Initialization of Automake
 AM_INIT_AUTOMAKE([dist-bzip2])
 
 dnl Simple check of code existence
-AC_CONFIG_SRCDIR(src/cxx03.y.in)
+AC_CONFIG_SRCDIR(src/frontend/cxx03.y.in)
 
 dnl Config header
 AC_CONFIG_HEADERS([config.h])
@@ -426,6 +426,9 @@ dnl Write makefiles
 AC_CONFIG_FILES([Makefile 
            lib/Makefile
            src/Makefile 
+           src/driver/Makefile 
+           src/frontend/Makefile 
+           src/mcxx_tl/Makefile 
            src/tl/Makefile 
            src/tl/omp/Makefile 
            src/tl/instr/Makefile 

@@ -1,20 +1,24 @@
 lib_LTLIBRARIES = libtlomp.la
 
 libtlomp_la_CFLAGS = -Wall \
-    -I $(srcdir)/../../../src \
-    -I $(srcdir)/../../../lib \
-    -I $(srcdir)/../../../src/tl \
-    -I ../../../src \
-    -I ../../../src/tl \
-    -I ../../../lib 
+    -I $(top_srcdir)/src/tl \
+    -I $(top_srcdir)/src/frontend \
+    -I $(top_srcdir)/src/driver \
+    -I $(top_srcdir)/lib \
+    -I $(top_builddir)/src/tl \
+    -I $(top_builddir)/src/frontend \
+    -I $(top_builddir)/src/driver \
+    -I $(top_builddir)/lib
 
 libtlomp_la_CXXFLAGS = -Wall \
-    -I $(srcdir)/../../../src \
-    -I $(srcdir)/../../../lib \
-    -I $(srcdir)/../../../src/tl \
-    -I ../../../src \
-    -I ../../../src/tl \
-    -I ../../../lib
+    -I $(top_srcdir)/src/tl \
+    -I $(top_srcdir)/src/frontend \
+    -I $(top_srcdir)/src/driver \
+    -I $(top_srcdir)/lib \
+    -I $(top_builddir)/src/tl \
+    -I $(top_builddir)/src/frontend \
+    -I $(top_builddir)/src/driver \
+    -I $(top_builddir)/lib
 
 libtlomp_la_SOURCES = \
    tl-atomic.cpp \

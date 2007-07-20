@@ -4,19 +4,23 @@ DIST_SUBDIRS=omp instr acotes mypragma stm_func
 
 lib_LTLIBRARIES = libtl.la
 
-BUILT_SOURCES = ../cxx-asttype.h
+BUILT_SOURCES = $(top_builddir)/src/frontend/cxx-asttype.h
 
 libtl_la_CXXFLAGS = -Wall \
-    -I $(srcdir)/../../src \
-    -I $(srcdir)/../../lib \
-    -I ../../src \
-    -I ../../lib
+    -I $(top_srcdir)/src/frontend \
+    -I $(top_srcdir)/src/driver \
+    -I $(top_srcdir)/lib \
+    -I $(top_builddir)/src/frontend \
+    -I $(top_builddir)/src/driver \
+    -I $(top_builddir)/lib
 
 libtl_la_CFLAGS = -Wall \
-    -I $(srcdir)/../../src \
-    -I $(srcdir)/../../lib \
-    -I ../../src \
-    -I ../../lib
+    -I $(top_srcdir)/src/frontend \
+    -I $(top_srcdir)/src/driver \
+    -I $(top_srcdir)/lib \
+    -I $(top_builddir)/src/frontend \
+    -I $(top_builddir)/src/driver \
+    -I $(top_builddir)/lib
 
 libtl_la_SOURCES = \
     tl-object.hpp \
