@@ -1,6 +1,6 @@
 load_lib target.exp
 
-set full_path_tool "../src/$tool"
+set full_path_tool "../src/driver/$tool"
 set testcases [lsort [find $srcdir/$subdir *.cpp]]
 
 foreach test $testcases {

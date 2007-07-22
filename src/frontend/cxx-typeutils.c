@@ -3063,26 +3063,57 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
                         }
                         else if (curr_argument->kind == TAK_TEMPLATE)
                         {
+                            // We are checking the arguments of a template
+                            // where the argument is template template.
+                            //
+                            // E.g.
+                            //
+                            // template <typename>
+                            // struct A {};
+                            //
+                            // template <template<typename> V = A>
+                            // struct B {};
+                            //
+                            // B<> is not a dependent type, because 'V' has a nondependent 'type' value,
+                            // the problem here, is that the argument is bound to a template-id rather
+                            // than a full typename so we have to ensure that this type is actually
+                            // a primary template. Other types are not possible, only other template template
+                            // parameters like this case below
+                            //
+                            // template <template<typename> V = A, template <typename> W = V>
+                            // struct C {};
                             type_t* arg_type = advance_over_typedefs(curr_argument->type);
-                            if (arg_type->kind != STK_USER_DEFINED)
+
+                            ERROR_CONDITION(arg_type->kind != TK_DIRECT, "Expecting a direct type here", 0);
+
+                            if (arg_type->type->kind == TK_DIRECT)
+                            {
+                                // Is dependent!
+                                return 1;
+                            }
+                            else if (arg_type->type->kind == STK_USER_DEFINED)
                             {
                                 scope_entry_t* entry = arg_type->type->user_defined_type;
+
                                 if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
                                 {
+                                    // Is not dependent, it depends on a real
+                                    // template
                                     return 0;
                                 }
-                                else if (entry->kind == SK_DEPENDENT_ENTITY)
+                                else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
                                 {
+                                    // Is dependent!
                                     return 1;
                                 }
                                 else
                                 {
-                                    internal_error("Unreachable code", 0);
+                                    internal_error("Code unreachable entry->kind==%d", entry->kind);
                                 }
                             }
                             else
                             {
-                                internal_error("Unreachable code", 0);
+                                internal_error("Code unreachable arg_type->kind==%d\n", arg_type->kind);
                             }
                         }
                         else if (curr_argument->kind == TAK_NONTYPE)

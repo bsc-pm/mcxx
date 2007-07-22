@@ -1398,15 +1398,20 @@ char check_for_expression(AST expression, scope_t* st, decl_context_t decl_conte
             }
         case AST_TEMPLATE_ID :
             {
-                // TODO This is not true, template functions might be values
-                // when passed as pointers
-                // This is never a value
                 solve_possibly_ambiguous_template_id(expression, st, decl_context);
 
-                ASTAttrSetValueType(expression, LANG_IS_TEMPLATE_ID, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(expression, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(ASTSon0(expression)));
-                ASTAttrSetValueType(expression, LANG_TEMPLATE_ARGS, tl_type_t, tl_ast(ASTSon1(expression)));
-                return 0;
+                if (check_for_expression(ASTSon0(expression), st, decl_context))
+                {
+                    return 1;
+                }
+                else
+                {
+                    // In this case, this is not a value
+                    ASTAttrSetValueType(expression, LANG_IS_TEMPLATE_ID, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_TEMPLATE_NAME, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_TEMPLATE_ARGS, tl_type_t, tl_ast(ASTSon1(expression)));
+                    return 0;
+                }
             }
             // Postfix expressions
         case AST_ARRAY_SUBSCRIPT :
@@ -1983,6 +1988,7 @@ static char check_for_symbol(AST expr, scope_t* st, decl_context_t decl_context,
             && (result->entry->kind == SK_VARIABLE
                 || result->entry->kind == SK_ENUMERATOR
                 || result->entry->kind == SK_FUNCTION
+                || result->entry->kind == SK_TEMPLATE_FUNCTION
                 || result->entry->kind == SK_TEMPLATE_PARAMETER))
     {
         *symbol_scope = result->entry->scope;

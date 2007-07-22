@@ -199,10 +199,6 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
     // Link the AST root node with the global scope
     scope_link_set(translation_unit->scope_link, a, translation_unit->global_scope, default_decl_context);
 
-    // Fix this one day (it makes thing non fully reentrant)
-    // CURRENT_COMPILED_FILE(global_scope) = CURRENT_COMPILED_FILE(global_scope);
-    // CURRENT_COMPILED_FILE(scope_link) = CURRENT_COMPILED_FILE(scope_link);
-
     initialize_builtin_symbols();
 
     // Refactor this and "build_scope_translation_unit_tree_with_global_scope" one day
@@ -1517,7 +1513,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, scope_t* st, type
     scope_entry_t* simple_type_entry = filter_simple_type_specifier(entry_list);
 
     ERROR_CONDITION((simple_type_entry == NULL), "Identifier '%s' in %s is not a type\n", 
-            ASTText(type_name), node_information(type_name));
+            prettyprint_in_buffer(a), node_information(a));
 
     ERROR_CONDITION((simple_type_entry->type_information == NULL 
                 || simple_type_entry->type_information->kind != TK_DIRECT 
@@ -1998,7 +1994,7 @@ void gather_type_spec_from_class_specifier(AST a, scope_t* st, type_t* simple_ty
             }
             else
             {
-                internal_error("Unreachable code", 0);
+                internal_error("Unreachable code caused by '%s'", node_information(a));
             }
 
             // This code is completely ugly

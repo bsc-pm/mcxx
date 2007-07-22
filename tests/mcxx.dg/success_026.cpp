@@ -30,4 +30,5 @@ struct M
 	typedef V<int> F;
 };
 
-M<int>::F k;
+typedef A<int> P;
+typedef M<int>::F P;
