@@ -6,7 +6,7 @@ tpp_SOURCES = \
               tpp.c
 endif
 
-noinst_LTLIBRARIES = libmcxx-utils.la libmcxx-mcfg.la libmcxx-extstruct.la
+lib_LTLIBRARIES = libmcxx-utils.la libmcxx-mcfg.la libmcxx-extstruct.la
 EXTRA_LTLIBRARIES=libmcxx-getopt.la
 
 libmcxx_getopt_la_CFLAGS= -Wall
@@ -15,7 +15,7 @@ libmcxx_getopt_la_SOURCES = \
                            getopt1.c \
                            getopt.h
 
-libmcxx_utils_la_CFLAGS = -Wall -I $(srcdir)/../gc/include
+libmcxx_utils_la_CFLAGS = -Wall 
 libmcxx_utils_la_SOURCES = \
                           iterator.c \
                           iterator.h \
@@ -35,12 +35,12 @@ libmcxx_utils_la_SOURCES = \
 						  mcxx_refcount.h
 
 
-libmcxx_mcfg_la_CFLAGS = -Wall -I $(srcdir)/../gc/include
+libmcxx_mcfg_la_CFLAGS = -Wall 
 libmcxx_mcfg_la_SOURCES = \
                           mcfg.h \
                           mcfg.c
 
-libmcxx_extstruct_la_CFLAGS = -Wall -I $(srcdir)/../gc/include
+libmcxx_extstruct_la_CFLAGS = -Wall 
 libmcxx_extstruct_la_SOURCES = \
                               extstruct.h \
                               extstruct.c 

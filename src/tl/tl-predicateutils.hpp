@@ -38,6 +38,17 @@ namespace TL
             }
     };
 
+    template<class T>
+    class AlwaysFalse : public Predicate<T>
+    {
+        private:
+        public:
+            virtual bool operator()(T& t) const
+            {
+                return false;
+            }
+    };
+
     template <class T>
     class FunctionPredicate : public Predicate<T>
     {

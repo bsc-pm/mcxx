@@ -73,19 +73,6 @@ void running_error(char* message, ...)
     exit(EXIT_FAILURE);
 }
 
-int prime_hash(char* key, int hash_size)
-{
-    int length = strlen(key);
-    int result = 0;
-    int i;
-
-    for (i = 0; i < length; i++)
-    {
-        result += key[i];
-    }
-
-    return (result % hash_size);
-}
 
 char* strappend(const char* orig, const char* appended)
 {

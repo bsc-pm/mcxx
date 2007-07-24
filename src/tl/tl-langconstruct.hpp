@@ -75,6 +75,12 @@ namespace TL
 
             ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
             ObjectList<IdExpression> local_symbol_occurrences();
+
+            const static AlwaysFalse<AST_t> predicate;
+
+            virtual ~LangConstruct()
+            {
+            }
     };
 
     class Declaration;
@@ -88,6 +94,7 @@ namespace TL
 
     class IdExpression : public LangConstruct
     {
+        private:
         public:
             IdExpression(AST_t ref, ScopeLink scope_link)
                 : LangConstruct(ref, scope_link)
@@ -110,10 +117,13 @@ namespace TL
             AST_t get_ast() const;
 
             Declaration get_declaration();
+
+            static const PredicateBool<LANG_IS_ID_EXPRESSION> predicate;
     };
 
     class Statement : public LangConstruct
     {
+        private:
         public:
             Statement(AST_t ref, ScopeLink scope_link)
                 : LangConstruct(ref, scope_link)
@@ -126,6 +136,9 @@ namespace TL
             ObjectList<Statement> get_inner_statements();
 //            ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
 //            ObjectList<IdExpression> local_symbol_occurrences();
+
+
+            const static PredicateBool<LANG_IS_STATEMENT> predicate;
     };
 
     class Expression;
@@ -170,11 +183,14 @@ namespace TL
             AST_t get_iterating_init();
             Expression get_iterating_condition();
             Expression get_iterating_expression();
+
+            const static PredicateBool<LANG_IS_FOR_STATEMENT> predicate;
     };
 
     class DeclaredEntity;
     class FunctionDefinition : public LangConstruct
     {
+        private:
         public:
             void prepend_sibling(AST_t);
 
@@ -192,6 +208,8 @@ namespace TL
             DeclaredEntity get_declared_entity();
 
             AST_t get_point_of_declaration();
+
+            static const PredicateBool<LANG_IS_FUNCTION_DEFINITION> predicate;
     };
 
     class Expression : public LangConstruct
@@ -301,6 +319,8 @@ namespace TL
             OperationKind get_operation_kind();
 
 			std::string get_operator_str();
+
+            static const PredicateBool<LANG_IS_EXPRESSION_NEST> predicate;
     };
 
     class ParameterDeclaration : public LangConstruct
@@ -320,6 +340,8 @@ namespace TL
             {
                 return _type;
             }
+
+            static const PredicateBool<LANG_IS_PARAMETER_DECLARATION> predicate;
     };
 
     class DeclaredEntity : public LangConstruct
@@ -339,6 +361,8 @@ namespace TL
             bool is_functional_declaration();
             ObjectList<ParameterDeclaration> get_parameter_declarations();
             ObjectList<ParameterDeclaration> get_parameter_declarations(bool &has_ellipsis);
+
+            static const PredicateBool<LANG_IS_DECLARED_NAME> predicate;
     };
 
     class DeclarationSpec : public LangConstruct
@@ -348,6 +372,8 @@ namespace TL
                 : LangConstruct(ast, scope_link)
             {
             }
+
+            // No predicate for this one at the moment
     };
 
     class Declaration : public LangConstruct
@@ -363,6 +389,8 @@ namespace TL
 
             bool is_templated();
             ObjectList<AST_t> get_template_header();
+
+            static const PredicateBool<LANG_IS_DECLARATION> predicate;
     };
 
     class ReplaceIdExpression : public ObjectList<std::pair<Symbol, AST_t> >

@@ -75,8 +75,6 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     debug_message(message, "Debug : ", __FILE__, __LINE__, __FUNCTION__, __VA_ARGS__); \
 }
 
-#define HASH_SIZE 23
-int prime_hash(char* key, int hash_size);
 
 char* strappend(const char* orig, const char* appended);
 char* strprepend(const char* orig, const char* prepended);

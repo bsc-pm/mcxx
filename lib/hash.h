@@ -82,6 +82,11 @@ void *hash_delete (Hash * h, void *key);
 int hash_string (char *name, int size);
 int hash_caseless_string (char *name, int size);
 
+// Useful things for string hashes
+#define HASH_SIZE (23)
+
+int prime_hash(char* key, int hash_size);
+
 #ifdef __cplusplus
 }
 #endif

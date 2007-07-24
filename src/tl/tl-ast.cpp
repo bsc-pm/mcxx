@@ -226,7 +226,7 @@ namespace TL
         return result;
     }
 
-    void AST_t::tree_iterator(AST_t& a, const Functor<ASTTraversalResult, AST_t>& functor, 
+    void AST_t::tree_iterator(AST_t& a, const TraverseASTFunctor& functor, 
             ObjectList<AST_t>& result)
     {
         AST tree = a._ast;
@@ -257,48 +257,14 @@ namespace TL
         ObjectList<AST_t> result;
 
         // Construct a functor that emulates old behaviour
-        class CompatibilityFunctor : public Functor<ASTTraversalResult, AST_t>
-        {
-            private:
-                const Predicate<AST_t>& _pred;
-                RecursiveFlag _rec;
-            public:
-                CompatibilityFunctor(const Predicate<AST_t>& pred, RecursiveFlag rec)
-                    : _pred(pred), _rec(rec)
-                {
-                }
-
-                virtual ASTTraversalResult operator()(AST_t& node) const
-                {
-                    bool matches = _pred(node);
-                    bool recurse = false;
-
-                    if (_rec == RECURSIVE)
-                    {
-                        recurse = true;
-                    }
-                    else if ((_rec == NON_RECURSIVE) && !matches)
-                    {
-                        recurse = true;
-                    }
-                    else if ((_rec == LIST_TRIP && matches))
-                    {
-                        recurse = true;
-                    }
-
-                    return ast_traversal_result_helper(matches, recurse);
-                }
-        };
-
-
-        CompatibilityFunctor compat_functor(pred, recursive_flag);
+        TraverseASTPredicate compat_functor(pred, recursive_flag);
 
         tree_iterator(*this, compat_functor, result);
 
         return result;
     }
 
-    ObjectList<AST_t> AST_t::depth_subtrees(const Functor<ASTTraversalResult, AST_t>& functor)
+    ObjectList<AST_t> AST_t::depth_subtrees(const TraverseASTFunctor& functor)
     {
         ObjectList<AST_t> result;
 

@@ -1058,13 +1058,47 @@ functional_direct_declarator : functional_declarator_id
 {
 	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTLine($1), NULL);
 }
-| functional_direct_declarator '[' constant_expression ']'
-{
-	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ASTLine($1), NULL);
-}
 | functional_direct_declarator '[' ']'
 {
-	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ASTLine($1), NULL);
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, NULL, NULL, NULL, ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' assignment_expression ']'
+{
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $3, NULL, NULL,  ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' cv_qualifier_seq assignment_expression ']'
+{
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $4, $3, NULL, ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' STATIC assignment_expression ']'
+{
+    AST static_qualif = ASTLeaf(AST_STATIC_SPEC, $3.token_line, $3.token_text);
+
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $4, NULL, static_qualif, ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' STATIC cv_qualifier_seq assignment_expression ']'
+{
+    AST static_qualif = ASTLeaf(AST_STATIC_SPEC, $3.token_line, $3.token_text);
+
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $5, $4, static_qualif, ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' cv_qualifier_seq STATIC assignment_expression ']'
+{
+    AST static_qualif = ASTLeaf(AST_STATIC_SPEC, $4.token_line, $4.token_text);
+
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $5, $3, static_qualif, ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' '*' ']'
+{
+    AST vla_expr = ASTLeaf(AST_VLA_EXPRESSION, $3.token_line, $3.token_text);
+
+    $$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, vla_expr, NULL, NULL, ASTLine($1), NULL);
+}
+| functional_direct_declarator '[' cv_qualifier_seq '*' ']'
+{
+    AST vla_expr = ASTLeaf(AST_VLA_EXPRESSION, $4.token_line, $4.token_text);
+
+    $$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, vla_expr, $3, NULL, ASTLine($1), NULL);
 }
 | '(' functional_declarator ')'
 {

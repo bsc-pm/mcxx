@@ -64,7 +64,7 @@ knowledge of these.
 @section What is mcxx?
 @cindex what is mcxx
 
-mcxx is a C/C++ research compiler oriented to source-to-source processing. The word
+mcxx is a C/C++ research compiler targeted at source-to-source processing. The word
 research here means that it is not intended to be a commercial high-quality compiler
 (even if the developers would like it to be) and thus it may crash, eat your homework
 or wipe your hard disk. Normally, though, this is unlikely to happen.
@@ -81,7 +81,7 @@ do in C than in C++ when concerning to symbolic issues.
 The compiler started initially in the context of OpenMP research so
 some parts of it are really well suited for it. On the other hand, the
 compiler itself is rather generic and has been used in some contexts
-not related to OpenMP.
+not strictly related to OpenMP.
 
 @node Compilation process
 @chapter Compilation process
@@ -145,8 +145,8 @@ with support for @code{default-merge} directive. This directive is just
 a productivity option to save some writing in the grammar but it does not
 add any other functionality not existing in @command{bison-2.3}.} is used.
 This parser is built after a somewhat modified standard grammar@footnote{For efficiency reasons
-following strictly the C/C++ standard grammar is not feasible, in particular for C++. Even though, the grammar
-is equivalent to the standard one.} and it accepts C99@footnote{ISO/IEC 9899:1999} and 
+following strictly the C/C++ standard grammar is not feasible, in particular for C++. However, the grammar
+is designed to be equivalent to the standard one.} and it accepts C99@footnote{ISO/IEC 9899:1999} and 
 C++@footnote{ISO/IEC 14882:2003} syntactically valid applications.
 
 The parser tries to support several syntactic GNU extensions@footnote{mcxx tries hard to
@@ -163,9 +163,9 @@ drawbacks, mainly the tree is completely useless. It has some benefits too,
 allows to realize how deep some ambiguities in C++ (and C, but less) are. These
 ambiguities have to be fixed, but fixing them requires contextual knowledge.
 
-Main files involved in this step are @file{src/cxx-lexer.l},
-@file{src/c99.y.in}, @file{src/cxx03.y.in}, @file{src/cxx-construct.y},
-@file{src/cxx-omp.y} and @file{src/cxx-pragma.y}.
+Main files involved in this step are @file{src/frontend/cxx-lexer.l},
+@file{src/frontend/c99.y.in}, @file{src/frontend/cxx03.y.in}, @file{src/frontend/cxx-construct.y},
+@file{src/frontend/cxx-omp.y} and @file{src/frontend/cxx-pragma.y}.
 
 @node Semantic analysis
 @subsection Semantic analysis
@@ -175,17 +175,17 @@ In order to fix the AST generated in the previous phase, we need to gather
 symbolic information that will allow us to realize the exact meaning of the
 code. 
 
-Doing this process in two steps, first building the tree and then pruning
-it, allows easier maintenance of the grammar (always a tough part of any
-generated parser) and simplifies the semantic part (as one has to deal with
-syntactic elements always of the same shape). Doing both things at the same
-time is possible but is much more complex, on the other hand it saves memory
-(now we are wasting memory for all the potential interpretation of ambiguous
-parts of the code).
+Doing this process in two steps, first building the tree in the parsing phase
+and then pruning it, allows easier maintenance of the grammar (always a tough
+part of any generated parser) and simplifies the semantic part (as one has to
+deal with syntactic elements always of the same shape). Doing both things at
+the same time is possible but is much more complex, on the other hand it saves
+memory (now we are wasting memory for all the potential interpretation of
+ambiguous parts of the code).
 
 This process builds the scope (symbol tables) information needed for
 disambiguation.  The main files involved in this phase are
-@file{src/cxx-buildscope.c} and @file{src/cxx-ambiguity.c}.
+@file{src/frontend/cxx-buildscope.c} and @file{src/frontend/cxx-ambiguity.c}.
 
 @node Compilation pipeline
 @subsection Compilation pipeline
@@ -224,5 +224,65 @@ and the linker if needed. This allows for easier usage in makefiles.
 @node Driver
 @section Driver
 @cindex driver
+
+The driver code is located exclusively in the files
+@file{src/driver/cxx-driver.c}, @file{src/driver/cxx-driver-decls.h} and
+@file{src/driver/cxx-driver.h}. It is a command-line application that
+handles all the compilation flow described in @ref{Compilation flow overview}.
+
+@menu
+* Configuration::
+* Extension handling::
+@end menu
+
+@node Configuration
+@subsection Configuration
+@cindex configuration
+
+mcxx is a `configurable' compiler this means that its behaviour can be modified by several
+means, the main being the configuration file.
+
+By default, the configuration file is in @file{@emph{pkgdatadir}/config.mcxx}. Directory
+@file{@emph{pkgdatadir}} is defined at @command{configure} time and by default it is
+@file{/usr/local/mcxx/share}.
+
+This file allows defining several profiles. The profile modifies the compiler behaviour. The
+exact profile used when running the compiler can be chosen implicitly, using the basename
+of the invocation of the compiler (this is, how it has been named to invoke it) or using
+@option{--profile=@emph{name}}. The following is an example of configuration file.
+
+@example
+# For C
+[mcc]
+language = C
+options =
+preprocessor_name = gcc
+preprocessor_options = -E 
+compiler_name = gcc
+compiler_options = 
+linker_name = gcc
+linker_options = 
+compiler_phase = libtlinstr.so
+compiler_phase = libtlomp.so
+
+# For C++
+[mcxx]
+language = C++
+options = 
+preprocessor_name = g++
+preprocessor_options = -E 
+compiler_name = g++
+compiler_options = 
+linker_name = g++
+linker_options = 
+compiler_phase = libtlinstr.so
+compiler_phase = libtlomp.so
+@end example
+
+@node Extension handling
+@subsection Extension handling
+@cindex extensions
+
+mcxx tries to make sensible choices when concerning extension types.
 
 @bye

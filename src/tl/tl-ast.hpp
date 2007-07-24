@@ -111,6 +111,8 @@ namespace TL
 
     ASTTraversalResult ast_traversal_result_helper(bool match, bool recurse);
 
+    typedef Functor<ASTTraversalResult, AST_t> TraverseASTFunctor;
+
     class AST_t : public Object
     {
         public:
@@ -123,7 +125,7 @@ namespace TL
         protected:
             AST _ast;
 
-            static void tree_iterator(AST_t& a, const Functor<ASTTraversalResult, AST_t>& functor, 
+            static void tree_iterator(AST_t& a, const TraverseASTFunctor& functor, 
                     ObjectList<AST_t>& result);
 
             tl_type_t* get_extended_attribute(const std::string& name) const;
@@ -150,7 +152,7 @@ namespace TL
             {
             }
 
-            AST_t(AST _wrapped_tree)
+            AST_t(AST _wrapped_tree) 
                 : _ast(_wrapped_tree)
             {
             }
@@ -216,7 +218,7 @@ namespace TL
 
             ObjectList<AST_t> depth_subtrees(const Predicate<AST_t>& pred = AlwaysTrue<AST_t>(), RecursiveFlag recursive_flag = RECURSIVE);
 
-            ObjectList<AST_t> depth_subtrees(const Functor<ASTTraversalResult, AST_t>& functor);
+            ObjectList<AST_t> depth_subtrees(const TraverseASTFunctor& functor);
 
 			/* Debug functions - Do not use */
             std::string internal_ast_type() const;
@@ -255,6 +257,39 @@ namespace TL
             friend class Source;
             // mmm
             friend class Expression;
+    };
+
+    class TraverseASTPredicate : public TraverseASTFunctor
+    {
+        private:
+            const Predicate<AST_t>& _pred;
+            AST_t::RecursiveFlag _rec;
+        public:
+            TraverseASTPredicate(const Predicate<AST_t>& pred, AST_t::RecursiveFlag rec = AST_t::RECURSIVE)
+                : _pred(pred), _rec(rec)
+            {
+            }
+
+            virtual ASTTraversalResult operator()(AST_t& node) const
+            {
+                bool matches = _pred(node);
+                bool recurse = false;
+
+                if (_rec == AST_t::RECURSIVE)
+                {
+                    recurse = true;
+                }
+                else if ((_rec == AST_t::NON_RECURSIVE) && !matches)
+                {
+                    recurse = true;
+                }
+                else if ((_rec == AST_t::LIST_TRIP && matches))
+                {
+                    recurse = true;
+                }
+
+                return ast_traversal_result_helper(matches, recurse);
+            }
     };
 
     template<const char* _ATTR>

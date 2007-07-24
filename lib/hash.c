@@ -230,3 +230,17 @@ hash_caseless_string (char *name, int size)
 
   return (tolower (name[0]) + tolower (name[1]) + tolower (name[3])) % size;
 }
+
+int prime_hash(char* key, int hash_size)
+{
+    int length = strlen(key);
+    int result = 0;
+    int i;
+
+    for (i = 0; i < length; i++)
+    {
+        result += key[i];
+    }
+
+    return (result % hash_size);
+}

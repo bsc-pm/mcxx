@@ -26,6 +26,19 @@
 
 namespace TL
 {
+    // Remove it once all LangConstruct sons have their own
+    const AlwaysFalse<AST_t> LangConstruct::predicate;
+
+    // Static predicates for LangConstructs
+    const PredicateBool<LANG_IS_ID_EXPRESSION> IdExpression::predicate;
+    const PredicateBool<LANG_IS_STATEMENT> Statement::predicate;
+    const PredicateBool<LANG_IS_FOR_STATEMENT> ForStatement::predicate;
+    const PredicateBool<LANG_IS_FUNCTION_DEFINITION> FunctionDefinition::predicate;
+    const PredicateBool<LANG_IS_EXPRESSION_NEST> Expression::predicate;
+    const PredicateBool<LANG_IS_PARAMETER_DECLARATION> ParameterDeclaration::predicate;
+    const PredicateBool<LANG_IS_DECLARED_NAME> DeclaredEntity::predicate;
+    const PredicateBool<LANG_IS_DECLARATION> Declaration::predicate;
+
     std::string LangConstruct::prettyprint()
     {
         return _ref.prettyprint();

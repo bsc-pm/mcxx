@@ -24,43 +24,84 @@ namespace TL
 {
     void DepthTraverse::add_predicate(Predicate<AST_t>& pred, TraverseFunctor& functor)
     {
-        CondAction c(&pred, &functor);
+        TraverseASTFunctor* ast_functor = new TraverseASTPredicate(pred);
+        // Save this, otherwise we will leak memory
+        _to_be_freed.push_back(ast_functor);
+
+        CondAction c(ast_functor, &functor);
+        _pred_list.push_back(c);
+    }
+
+    DepthTraverse::~DepthTraverse()
+    {
+        // Free helpers created in 
+        // DepthTraverse::add_predicate(Predicate<AST_t>& pred, TraverseFunctor& functor)
+        for (std::vector<TraverseASTFunctor*>::iterator it = _to_be_freed.begin();
+                it != _to_be_freed.end(); 
+                it++)
+        {
+            delete (*it);
+        }
+    }
+
+    void DepthTraverse::add_functor(TraverseASTFunctor& ast_functor, TraverseFunctor& functor)
+    {
+        CondAction c(&ast_functor, &functor);
         _pred_list.push_back(c);
     }
 
     void DepthTraverse::traverse(TL::AST_t node, ScopeLink scope_link)
     {
-        TraverseFunctor no_op;
-        TraverseFunctor* functor = &no_op;
+        bool match = false;
+        // By default always recurse if no matching happens, otherwise it is
+        // the matching functor the one who decides if recursion on this node
+        // will be done. If a node is used for just 'prunning' the traversal,
+        // then use a no-op functor for it
+        bool recurse = true;
+        TraverseFunctor* functor = NULL;
 
-        for (unsigned int i = 0; i < _pred_list.size(); i++)
+        for (std::vector<CondAction>::iterator it = _pred_list.begin();
+                it != _pred_list.end();
+                it++)
         {
-            Predicate<AST_t>* pred = _pred_list[i].first;
+            TraverseASTFunctor& pred = *(it->first);
+            ASTTraversalResult result = pred(node);
 
-            if ((*pred)(node))
+            match = result.matches();
+            // Only the first matching predicate will be run
+            if (match)
             {
-                functor = _pred_list[i].second;
+                recurse = result.recurse();
+                functor = it->second;
                 break;
             }
         }
 
-        AST ast = node._ast;
-
-        Context ctx(scope_link);
-
-        functor->preorder(ctx, node);
-
-        for (int i = 0; i < ASTNumChildren(ast); i++)
+        Context* ctx = NULL;
+        if (functor != NULL)
         {
-            AST child = ASTChild(ast, i);
+            ctx = new Context(scope_link);
+            functor->preorder(*ctx, node);
+        }
 
-            if (child != NULL)
+        if (recurse)
+        {
+            AST ast = node._ast;
+            for (int i = 0; i < ASTNumChildren(ast); i++)
             {
-                AST_t w_child(child);
-                traverse(w_child, scope_link);
+                AST child = ASTChild(ast, i);
+
+                if (child != NULL)
+                {
+                    AST_t w_child(child);
+                    traverse(w_child, scope_link);
+                }
             }
         }
 
-        functor->postorder(ctx, node);
+        if (functor != NULL)
+        {
+            functor->postorder(*ctx, node);
+        }
     }
 }

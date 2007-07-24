@@ -2255,335 +2255,6 @@ cv_qualifier_t get_cv_qualifier(type_t* type_info)
     return type_info->cv_qualifier;
 }
 
-/** 
- * Debugging functions
- * **/
-
-// Gives the name of a builtin type
-char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
-{
-    char* result = "";
-
-    if (simple_type_info->is_long)
-    {
-        result = strappend(result, "long ");
-    }
-
-    if (simple_type_info->is_short)
-    {
-        result = strappend(result, "short ");
-    }
-
-    if (simple_type_info->is_unsigned)
-    {
-        result = strappend(result, "unsigned ");
-    }
-
-    switch (simple_type_info->kind)
-    {
-        case STK_BUILTIN_TYPE :
-            {
-                switch (simple_type_info->builtin_type)
-                {
-                    case BT_INT :
-                        result = strappend(result, "int");
-                        break;
-                    case BT_BOOL :
-                        result = strappend(result, "bool");
-                        break;
-                    case BT_FLOAT :
-                        result = strappend(result, "float");
-                        break;
-                    case BT_DOUBLE :
-                        result = strappend(result, "double");
-                        break;
-                    case BT_WCHAR :
-                        result = strappend(result, "wchar_t");
-                        break;
-                    case BT_CHAR :
-                        result = strappend(result, "char");
-                        break;
-                    case BT_VOID :
-                        result = strappend(result, "void");
-                        break;
-                    case BT_UNKNOWN :
-                    default :
-                        result = strappend(result, "¿¿¿unknown builtin type???");
-                        break;
-                }
-                break;
-            }
-        case STK_USER_DEFINED :
-            {
-                const int MAX_LENGTH = 1023;
-                char* user_defined_str = calloc(MAX_LENGTH + 1, sizeof(char));
-                scope_entry_t* user_defined_type = simple_type_info->user_defined_type;
-                switch (user_defined_type->kind)
-                {
-                    case SK_ENUM :
-                        {
-                            int max_level = 0;
-                            char is_dependent = 0;
-                            snprintf(user_defined_str, MAX_LENGTH, "enum %s", 
-                                    get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope, 
-                                        &is_dependent, &max_level));
-                            break;
-                        }
-                    case SK_CLASS :
-                        {
-                            int max_level = 0;
-                            char is_dependent = 0;
-                            snprintf(user_defined_str, MAX_LENGTH, "class %s", 
-                                    get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope,
-                                    &is_dependent, &max_level));
-                            break;
-                        }
-                    case SK_TYPEDEF :
-                        snprintf(user_defined_str, MAX_LENGTH, "%s", 
-                                print_declarator(advance_over_typedefs(user_defined_type->type_information), st));
-                        // snprintf(user_defined_str, MAX_LENGTH, "typedef %s (aliased type: %s)", user_defined_type->symbol_name,
-                        //         print_declarator(advance_over_typedefs(user_defined_type->type_information), st));
-                        break;
-                    case SK_TEMPLATE_TYPE_PARAMETER :
-                        snprintf(user_defined_str, MAX_LENGTH, "type template parameter %s #%d nesting=%d", 
-                                user_defined_type->symbol_name,
-                                user_defined_type->type_information->type->template_parameter_num,
-                                user_defined_type->type_information->type->template_parameter_nesting);
-                        break;
-                    case SK_TEMPLATE_TEMPLATE_PARAMETER :
-                        snprintf(user_defined_str, MAX_LENGTH, "template template parameter %s #%d nesting=%d",
-                                user_defined_type->symbol_name,
-                                user_defined_type->type_information->type->template_parameter_num,
-                                user_defined_type->type_information->type->template_parameter_nesting);
-                        break;
-                    case SK_TEMPLATE_PARAMETER :
-                        snprintf(user_defined_str, MAX_LENGTH, "nontype template parameter %s #%d nesting=%d", 
-                                user_defined_type->symbol_name,
-                                user_defined_type->type_information->type->template_parameter_num,
-                                user_defined_type->type_information->type->template_parameter_nesting);
-                        break;
-                    case SK_TEMPLATE_PRIMARY_CLASS :
-                        snprintf(user_defined_str, MAX_LENGTH, "primary template class %s (%p, line %d)", 
-                                user_defined_type->symbol_name, 
-                                user_defined_type,
-                                user_defined_type->line);
-                        break;
-                    case SK_TEMPLATE_SPECIALIZED_CLASS :
-                        snprintf(user_defined_str, MAX_LENGTH, "specialized template class %s (%p, line %d)", 
-                                user_defined_type->symbol_name, 
-                                user_defined_type,
-                                user_defined_type->line);
-                        break;
-                    case SK_GCC_BUILTIN_TYPE :
-                        snprintf(user_defined_str, MAX_LENGTH, "__builtin_va_list");
-                        break;
-                    case SK_DEPENDENT_ENTITY :
-                        snprintf(user_defined_str, MAX_LENGTH, "dependent entity");
-                        break;
-                    default :
-                        snprintf(user_defined_str, MAX_LENGTH, "¿¿¿unknown user defined type??? (kind=%d)", user_defined_type->kind);
-                }
-                result = strappend(result, user_defined_str);
-                break;
-            }
-        case STK_ENUM :
-            result = strappend(result, "enum <anonymous>");
-            break;
-        case STK_CLASS :
-            result = strappend(result, "class <anonymous>");
-            break;
-        case STK_TEMPLATE_TEMPLATE_PARAMETER :
-            {
-                char temp[256];
-                snprintf(temp, 255, "template template parameter #%d nesting=%d", 
-                        simple_type_info->template_parameter_num, simple_type_info->template_parameter_nesting);
-
-                result = strappend(result, temp);
-            }
-            break;
-        case STK_TYPE_TEMPLATE_PARAMETER :
-            {
-                char temp[256];
-                snprintf(temp, 255, "template type parameter #%d nesting=%d", 
-                        simple_type_info->template_parameter_num, simple_type_info->template_parameter_nesting);
-
-                result = strappend(result, temp);
-            }
-            break;
-        case STK_VA_LIST :
-            result = strappend(result, "__builtin_va_list");
-            break;
-        case STK_TYPEOF :
-            result = strappend(result, "__typeof");
-            break;
-        case STK_TEMPLATE_DEPENDENT_TYPE :
-            {
-                char c[256] = { 0 };
-                snprintf(c, 255, "template dependent type '%s'", 
-                        prettyprint_in_buffer(simple_type_info->typeof_expr));
-                result = strappend(result, c);
-            }
-            break;
-        case STK_TYPEDEF :
-            result = strappend(result, print_declarator(advance_over_typedefs(simple_type_info->aliased_type), st));
-            break;
-        default :
-            {
-                char c[50];
-                snprintf(c, 49, "(unknown simple type = %d)", simple_type_info->kind);
-                result = strappend(result, c);
-                break;
-            }
-    }
-
-    return result;
-}
-
-// This prints a declarator in English. It is intended for debugging purposes
-char* print_declarator(type_t* printed_declarator, scope_t* st)
-{
-    char* tmp_result = "";
-
-    do 
-    {
-        if ((printed_declarator->cv_qualifier & CV_CONST) == CV_CONST)
-        {
-            tmp_result = strappend(tmp_result, "const ");
-        }
-        if ((printed_declarator->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
-        {
-            tmp_result = strappend(tmp_result, "volatile ");
-        }
-        switch (printed_declarator->kind)
-        {
-            case TK_DIRECT :
-                if (printed_declarator->type != NULL)
-                {
-                    tmp_result = strappend(tmp_result, get_builtin_type_name(printed_declarator->type, st));
-                }
-                else
-                {
-                    tmp_result = strappend(tmp_result, "(nothing)");
-                }
-                printed_declarator = NULL;
-                break;
-            case TK_POINTER :
-                tmp_result = strappend(tmp_result, "pointer to ");
-                printed_declarator = printed_declarator->pointer->pointee;
-                break;
-            case TK_REFERENCE :
-                tmp_result = strappend(tmp_result, "reference to ");
-                printed_declarator = printed_declarator->pointer->pointee;
-                break;
-            case TK_POINTER_TO_MEMBER :
-                tmp_result = strappend(tmp_result, "pointer to member of ");
-                if (printed_declarator->pointer->pointee_class != NULL)
-                {
-                    // print_declarator(printed_declarator->pointer->pointee_class->type_information, st);
-                    tmp_result = strappend(tmp_result,
-                            print_declarator(printed_declarator->pointer->pointee_class->type_information, st)
-                          );
-                }
-                else
-                {
-                    tmp_result = strappend(tmp_result, "(unknown class)");
-                }
-                tmp_result = strappend(tmp_result, " to ");
-                printed_declarator = printed_declarator->pointer->pointee;
-                break;
-            case TK_ARRAY :
-                tmp_result = strappend(tmp_result, "array ");
-                if (printed_declarator->array->array_expr != NULL)
-                {
-                    tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->array_expr));
-                    tmp_result = strappend(tmp_result, " of ");
-                }
-                else
-                {
-                    tmp_result = strappend(tmp_result, " of ");
-                }
-                printed_declarator = printed_declarator->array->element_type;
-                break;
-            case TK_FUNCTION :
-                {
-                    int i;
-                    tmp_result = strappend(tmp_result, "function");
-                    
-                    if (printed_declarator->function->num_template_parameters > 0)
-                    {
-                        tmp_result = strappend(tmp_result, "<");
-                        for (i = 0; i < printed_declarator->function->num_template_parameters; i++)
-                        {
-                            template_parameter_t* template_param = printed_declarator->function->template_parameter_info[i];
-                            if (template_param->template_parameter_name != NULL)
-                            {
-                                tmp_result = strappend(tmp_result, template_param->template_parameter_name);
-                            }
-                            else
-                            {
-                                switch (template_param->kind)
-                                {
-                                    case TPK_NONTYPE :
-                                        {
-                                            tmp_result = strappend(tmp_result, "(non-type)");
-                                            break;
-                                        }
-                                    case TPK_TYPE :
-                                        {
-                                            tmp_result = strappend(tmp_result, "(type)");
-                                            break;
-                                        }
-                                    case TPK_TEMPLATE :
-                                        {
-                                            tmp_result = strappend(tmp_result, "(template)");
-                                            break;
-                                        }
-                                    default :
-                                        {
-                                        }
-                                }
-                            }
-
-                            if ((i + 1) < printed_declarator->function->num_template_parameters)
-                            {
-                                tmp_result = strappend(tmp_result, ", ");
-                            }
-                        }
-                        tmp_result = strappend(tmp_result, ">");
-                    }
-
-                    tmp_result = strappend(tmp_result, " (");
-                    for (i = 0; i < printed_declarator->function->num_parameters; i++)
-                    {
-                        if (!printed_declarator->function->parameter_list[i]->is_ellipsis)
-                        {
-                            tmp_result = strappend(tmp_result, 
-                                    print_declarator(printed_declarator->function->parameter_list[i]->type_info, st)
-                                  );
-                        }
-                        else
-                        {
-                            tmp_result = strappend(tmp_result, "...");
-                        }
-                        if ((i+1) < printed_declarator->function->num_parameters)
-                        {
-                            tmp_result = strappend(tmp_result, ", ");
-                        }
-                    }
-                    tmp_result = strappend(tmp_result, ")");
-                    tmp_result = strappend(tmp_result, " returning ");
-                    printed_declarator = printed_declarator->function->return_type;
-                    break;
-                }
-                // GCC Extension
-            default :
-                internal_error("Unhandled type kind '%d'\n", printed_declarator->kind);
-                break;
-        }
-    } while (printed_declarator != NULL);
-
-    return tmp_result;
-}
 
 // Expression that may appear here are of very limited nature
 char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_context)
@@ -3869,4 +3540,345 @@ static void get_type_name_str_internal(scope_t* st,
                 break;
             }
     }
+}
+
+/** 
+ * Debugging functions
+ * **/
+
+// Gives the name of a builtin type
+char* get_builtin_type_name(simple_type_t* simple_type_info, scope_t* st)
+{
+    char* result = "";
+
+    if (simple_type_info->is_long)
+    {
+        result = strappend(result, "long ");
+    }
+
+    if (simple_type_info->is_short)
+    {
+        result = strappend(result, "short ");
+    }
+
+    if (simple_type_info->is_unsigned)
+    {
+        result = strappend(result, "unsigned ");
+    }
+
+    switch (simple_type_info->kind)
+    {
+        case STK_BUILTIN_TYPE :
+            {
+                switch (simple_type_info->builtin_type)
+                {
+                    case BT_INT :
+                        result = strappend(result, "int");
+                        break;
+                    case BT_BOOL :
+                        result = strappend(result, "bool");
+                        break;
+                    case BT_FLOAT :
+                        result = strappend(result, "float");
+                        break;
+                    case BT_DOUBLE :
+                        result = strappend(result, "double");
+                        break;
+                    case BT_WCHAR :
+                        result = strappend(result, "wchar_t");
+                        break;
+                    case BT_CHAR :
+                        result = strappend(result, "char");
+                        break;
+                    case BT_VOID :
+                        result = strappend(result, "void");
+                        break;
+                    case BT_UNKNOWN :
+                    default :
+                        result = strappend(result, "¿¿¿unknown builtin type???");
+                        break;
+                }
+                break;
+            }
+        case STK_USER_DEFINED :
+            {
+                const int MAX_LENGTH = 1023;
+                char* user_defined_str = calloc(MAX_LENGTH + 1, sizeof(char));
+                scope_entry_t* user_defined_type = simple_type_info->user_defined_type;
+                switch (user_defined_type->kind)
+                {
+                    case SK_ENUM :
+                        {
+                            int max_level = 0;
+                            char is_dependent = 0;
+                            snprintf(user_defined_str, MAX_LENGTH, "enum %s", 
+                                    get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope, 
+                                        &is_dependent, &max_level));
+                            break;
+                        }
+                    case SK_CLASS :
+                        {
+                            int max_level = 0;
+                            char is_dependent = 0;
+                            snprintf(user_defined_str, MAX_LENGTH, "class %s", 
+                                    get_fully_qualified_symbol_name(user_defined_type, user_defined_type->scope,
+                                    &is_dependent, &max_level));
+                            break;
+                        }
+                    case SK_TYPEDEF :
+                        snprintf(user_defined_str, MAX_LENGTH, "%s", 
+                                print_declarator(advance_over_typedefs(user_defined_type->type_information), st));
+                        // snprintf(user_defined_str, MAX_LENGTH, "typedef %s (aliased type: %s)", user_defined_type->symbol_name,
+                        //         print_declarator(advance_over_typedefs(user_defined_type->type_information), st));
+                        break;
+                    case SK_TEMPLATE_TYPE_PARAMETER :
+                        snprintf(user_defined_str, MAX_LENGTH, "type template parameter %s #%d nesting=%d", 
+                                user_defined_type->symbol_name,
+                                user_defined_type->type_information->type->template_parameter_num,
+                                user_defined_type->type_information->type->template_parameter_nesting);
+                        break;
+                    case SK_TEMPLATE_TEMPLATE_PARAMETER :
+                        snprintf(user_defined_str, MAX_LENGTH, "template template parameter %s #%d nesting=%d",
+                                user_defined_type->symbol_name,
+                                user_defined_type->type_information->type->template_parameter_num,
+                                user_defined_type->type_information->type->template_parameter_nesting);
+                        break;
+                    case SK_TEMPLATE_PARAMETER :
+                        snprintf(user_defined_str, MAX_LENGTH, "nontype template parameter %s #%d nesting=%d", 
+                                user_defined_type->symbol_name,
+                                user_defined_type->type_information->type->template_parameter_num,
+                                user_defined_type->type_information->type->template_parameter_nesting);
+                        break;
+                    case SK_TEMPLATE_PRIMARY_CLASS :
+                        snprintf(user_defined_str, MAX_LENGTH, "primary template class %s (%p, line %d)", 
+                                user_defined_type->symbol_name, 
+                                user_defined_type,
+                                user_defined_type->line);
+                        break;
+                    case SK_TEMPLATE_SPECIALIZED_CLASS :
+                        snprintf(user_defined_str, MAX_LENGTH, "specialized template class %s (%p, line %d)", 
+                                user_defined_type->symbol_name, 
+                                user_defined_type,
+                                user_defined_type->line);
+                        break;
+                    case SK_GCC_BUILTIN_TYPE :
+                        snprintf(user_defined_str, MAX_LENGTH, "__builtin_va_list");
+                        break;
+                    case SK_DEPENDENT_ENTITY :
+                        snprintf(user_defined_str, MAX_LENGTH, "dependent entity");
+                        break;
+                    default :
+                        snprintf(user_defined_str, MAX_LENGTH, "¿¿¿unknown user defined type??? (kind=%d)", user_defined_type->kind);
+                }
+                result = strappend(result, user_defined_str);
+                break;
+            }
+        case STK_ENUM :
+            result = strappend(result, "enum <anonymous>");
+            break;
+        case STK_CLASS :
+            result = strappend(result, "class <anonymous>");
+            break;
+        case STK_TEMPLATE_TEMPLATE_PARAMETER :
+            {
+                char temp[256];
+                snprintf(temp, 255, "template template parameter #%d nesting=%d", 
+                        simple_type_info->template_parameter_num, simple_type_info->template_parameter_nesting);
+
+                result = strappend(result, temp);
+            }
+            break;
+        case STK_TYPE_TEMPLATE_PARAMETER :
+            {
+                char temp[256];
+                snprintf(temp, 255, "template type parameter #%d nesting=%d", 
+                        simple_type_info->template_parameter_num, simple_type_info->template_parameter_nesting);
+
+                result = strappend(result, temp);
+            }
+            break;
+        case STK_VA_LIST :
+            result = strappend(result, "__builtin_va_list");
+            break;
+        case STK_TYPEOF :
+            result = strappend(result, "__typeof");
+            break;
+        case STK_TEMPLATE_DEPENDENT_TYPE :
+            {
+                char c[256] = { 0 };
+                snprintf(c, 255, "template dependent type '%s'", 
+                        prettyprint_in_buffer(simple_type_info->typeof_expr));
+                result = strappend(result, c);
+            }
+            break;
+        case STK_TYPEDEF :
+            result = strappend(result, print_declarator(advance_over_typedefs(simple_type_info->aliased_type), st));
+            break;
+        default :
+            {
+                char c[50];
+                snprintf(c, 49, "(unknown simple type = %d)", simple_type_info->kind);
+                result = strappend(result, c);
+                break;
+            }
+    }
+
+    return result;
+}
+
+// This prints a declarator in English. It is intended for debugging purposes
+char* print_declarator(type_t* printed_declarator, scope_t* st)
+{
+    char* tmp_result = "";
+
+    do 
+    {
+        if ((printed_declarator->cv_qualifier & CV_CONST) == CV_CONST)
+        {
+            tmp_result = strappend(tmp_result, "const ");
+        }
+        if ((printed_declarator->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
+        {
+            tmp_result = strappend(tmp_result, "volatile ");
+        }
+        if ((printed_declarator->cv_qualifier & CV_RESTRICT) == CV_RESTRICT)
+        {
+            CXX_LANGUAGE()
+            {
+                tmp_result = strappend(tmp_result, "__restrict ");
+            }
+            C_LANGUAGE()
+            {
+                tmp_result = strappend(tmp_result, "restrict ");
+            }
+        }
+        switch (printed_declarator->kind)
+        {
+            case TK_DIRECT :
+                if (printed_declarator->type != NULL)
+                {
+                    tmp_result = strappend(tmp_result, get_builtin_type_name(printed_declarator->type, st));
+                }
+                else
+                {
+                    tmp_result = strappend(tmp_result, "(nothing)");
+                }
+                printed_declarator = NULL;
+                break;
+            case TK_POINTER :
+                tmp_result = strappend(tmp_result, "pointer to ");
+                printed_declarator = printed_declarator->pointer->pointee;
+                break;
+            case TK_REFERENCE :
+                tmp_result = strappend(tmp_result, "reference to ");
+                printed_declarator = printed_declarator->pointer->pointee;
+                break;
+            case TK_POINTER_TO_MEMBER :
+                tmp_result = strappend(tmp_result, "pointer to member of ");
+                if (printed_declarator->pointer->pointee_class != NULL)
+                {
+                    // print_declarator(printed_declarator->pointer->pointee_class->type_information, st);
+                    tmp_result = strappend(tmp_result,
+                            print_declarator(printed_declarator->pointer->pointee_class->type_information, st)
+                          );
+                }
+                else
+                {
+                    tmp_result = strappend(tmp_result, "(unknown class)");
+                }
+                tmp_result = strappend(tmp_result, " to ");
+                printed_declarator = printed_declarator->pointer->pointee;
+                break;
+            case TK_ARRAY :
+                tmp_result = strappend(tmp_result, "array ");
+                if (printed_declarator->array->array_expr != NULL)
+                {
+                    tmp_result = strappend(tmp_result, prettyprint_in_buffer(printed_declarator->array->array_expr));
+                    tmp_result = strappend(tmp_result, " of ");
+                }
+                else
+                {
+                    tmp_result = strappend(tmp_result, " of ");
+                }
+                printed_declarator = printed_declarator->array->element_type;
+                break;
+            case TK_FUNCTION :
+                {
+                    int i;
+                    tmp_result = strappend(tmp_result, "function");
+                    
+                    if (printed_declarator->function->num_template_parameters > 0)
+                    {
+                        tmp_result = strappend(tmp_result, "<");
+                        for (i = 0; i < printed_declarator->function->num_template_parameters; i++)
+                        {
+                            template_parameter_t* template_param = printed_declarator->function->template_parameter_info[i];
+                            if (template_param->template_parameter_name != NULL)
+                            {
+                                tmp_result = strappend(tmp_result, template_param->template_parameter_name);
+                            }
+                            else
+                            {
+                                switch (template_param->kind)
+                                {
+                                    case TPK_NONTYPE :
+                                        {
+                                            tmp_result = strappend(tmp_result, "(non-type)");
+                                            break;
+                                        }
+                                    case TPK_TYPE :
+                                        {
+                                            tmp_result = strappend(tmp_result, "(type)");
+                                            break;
+                                        }
+                                    case TPK_TEMPLATE :
+                                        {
+                                            tmp_result = strappend(tmp_result, "(template)");
+                                            break;
+                                        }
+                                    default :
+                                        {
+                                        }
+                                }
+                            }
+
+                            if ((i + 1) < printed_declarator->function->num_template_parameters)
+                            {
+                                tmp_result = strappend(tmp_result, ", ");
+                            }
+                        }
+                        tmp_result = strappend(tmp_result, ">");
+                    }
+
+                    tmp_result = strappend(tmp_result, " (");
+                    for (i = 0; i < printed_declarator->function->num_parameters; i++)
+                    {
+                        if (!printed_declarator->function->parameter_list[i]->is_ellipsis)
+                        {
+                            tmp_result = strappend(tmp_result, 
+                                    print_declarator(printed_declarator->function->parameter_list[i]->type_info, st)
+                                  );
+                        }
+                        else
+                        {
+                            tmp_result = strappend(tmp_result, "...");
+                        }
+                        if ((i+1) < printed_declarator->function->num_parameters)
+                        {
+                            tmp_result = strappend(tmp_result, ", ");
+                        }
+                    }
+                    tmp_result = strappend(tmp_result, ")");
+                    tmp_result = strappend(tmp_result, " returning ");
+                    printed_declarator = printed_declarator->function->return_type;
+                    break;
+                }
+                // GCC Extension
+            default :
+                internal_error("Unhandled type kind '%d'\n", printed_declarator->kind);
+                break;
+        }
+    } while (printed_declarator != NULL);
+
+    return tmp_result;
 }

@@ -139,6 +139,7 @@ cxx-attrnames.c : $(srcdir)/cxx-attrnames.def cxx-attrnames.h
 	echo "/* AST attributes */" >> cxx-attrnames.c
 	echo "void register_ast_extended_attributes(void)" >> cxx-attrnames.c
 	echo "{" >> cxx-attrnames.c
+	echo "    extensible_schema_init(&ast_extensible_schema);" >> cxx-attrnames.c
 	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/    extensible_schema_add_field(\&ast_extensible_schema, \1, sizeof(tl_type_t));/" < $< >> cxx-attrnames.c
 	echo "}" >> cxx-attrnames.c
 

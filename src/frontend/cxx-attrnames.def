@@ -103,6 +103,7 @@ LANG_IS_SHIFT_LEFT_OP lang.is_shift_left_op
 LANG_IS_SHIFT_RIGHT_OP lang.is_shift_right_op
 LANG_IS_SHL_ASSIGNMENT lang.is_shl_assignment
 LANG_IS_SHR_ASSIGNMENT lang.is_shr_assignment
+LANG_IS_STATEMENT lang.is_statement
 LANG_IS_STRING_LITERAL lang.is_string_literal
 LANG_IS_SUB_ASSIGNMENT lang.is_sub_assignment
 LANG_IS_SUBSTRACTION_OP lang.is_substraction_op

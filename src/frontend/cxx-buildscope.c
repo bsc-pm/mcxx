@@ -2538,7 +2538,8 @@ static void set_pointer_type(type_t** declarator_type, scope_t* st, AST pointer_
  * This function converts a type "T" to a "array x of T"
  */
 static void set_array_type(type_t** declarator_type, scope_t* st, 
-        AST constant_expr, decl_context_t decl_context)
+        AST constant_expr, AST static_qualifier, AST cv_qualifier_seq,
+        decl_context_t decl_context)
 {
     type_t* element_type = *declarator_type;
 
@@ -2553,6 +2554,13 @@ static void set_array_type(type_t** declarator_type, scope_t* st,
     (*declarator_type)->array->element_type = element_type;
     (*declarator_type)->array->array_expr = constant_expr;
     (*declarator_type)->array->array_expr_scope = copy_scope(st);
+
+    C_LANGUAGE()
+    {
+        /* C99 static qualifier for arrays is ignored */
+        /* C99 cv_qualifier_seq */
+        (*declarator_type)->cv_qualifier = compute_cv_qualifier(cv_qualifier_seq);
+    }
 
     (*declarator_type)->function = NULL;
     (*declarator_type)->type = NULL;
@@ -2713,6 +2721,7 @@ static void set_function_parameter_clause(type_t* declarator_type, scope_t* st,
             type_info->pointer = calloc(1, sizeof(*type_info->pointer));
             type_info->pointer->pointee = type_info->array->element_type;
             type_info->array = NULL;
+            /* C99 - cv-qualification is retained in this conversion */
         }
 
         if (entry != NULL)
@@ -2822,7 +2831,11 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
             }
         case AST_ABSTRACT_ARRAY :
             {
-                set_array_type(declarator_type, st, ASTSon1(a), decl_context);
+                set_array_type(declarator_type, st, 
+                        /* expr */ASTSon1(a), 
+                        /* (C99)static_qualif */ ASTSon3(a),
+                        /* (C99)cv_qualifier_seq */ ASTSon2(a),
+                        decl_context);
                 if (ASTSon0(a) != NULL)
                 {
                     build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, 
@@ -2832,7 +2845,11 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
             }
         case AST_DIRECT_NEW_DECLARATOR :
             {
-                set_array_type(declarator_type, st, ASTSon1(a), decl_context);
+                set_array_type(declarator_type, st, 
+                        /* expr */ ASTSon1(a),
+                        /* N/A */ NULL,
+                        /* N/A */ NULL, 
+                        decl_context);
                 if (ASTSon0(a) != NULL)
                 {
                     build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, 
@@ -2852,7 +2869,11 @@ static void build_scope_declarator_rec(AST a, scope_t* st, scope_t** parameters_
             }
         case AST_DECLARATOR_ARRAY :
             {
-                set_array_type(declarator_type, st, ASTSon1(a), decl_context);
+                set_array_type(declarator_type, st, 
+                        /* expr */ASTSon1(a), 
+                        /* (C99)static_qualif */ ASTSon3(a),
+                        /* (C99)cv_qualifier_seq */ ASTSon2(a),
+                        decl_context);
                 build_scope_declarator_rec(ASTSon0(a), st, parameters_scope, declarator_type, 
                         gather_info, declarator_name, decl_context);
                 break;
@@ -7308,6 +7329,8 @@ void build_scope_statement(AST a, scope_t* st, decl_context_t decl_context)
         WARNING_MESSAGE("Statement node type '%s' does not have handler in %s", ast_print_node_type(ASTType(a)),
                 node_information(a));
     }
+
+    ASTAttrSetValueType(a, LANG_IS_STATEMENT, tl_type_t, tl_bool(1));
 }
 
 AST get_function_declarator_parameter_list(AST funct_declarator, scope_t* st, decl_context_t decl_context)

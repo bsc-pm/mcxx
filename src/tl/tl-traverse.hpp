@@ -44,11 +44,15 @@ namespace TL
     class DepthTraverse : public Traverse
     {
         private:
-            typedef std::pair<Predicate<AST_t>*, TraverseFunctor*> CondAction;
+            typedef std::pair<TraverseASTFunctor*, TraverseFunctor*> CondAction;
             std::vector<CondAction> _pred_list;
+            std::vector<TraverseASTFunctor*> _to_be_freed;
         public:
             void add_predicate(Predicate<AST_t>& pred, TraverseFunctor& functor);
+            void add_functor(TraverseASTFunctor& ast_functor, TraverseFunctor& functor);
             void traverse(AST_t node, ScopeLink scope_link);
+
+            ~DepthTraverse();
     };
 }
 

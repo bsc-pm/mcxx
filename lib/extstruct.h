@@ -22,6 +22,7 @@
 #define EXTSTRUCT_H
 
 #include <stdlib.h>
+#include "hash.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,11 +37,18 @@ extern "C" {
  * is a size_t*
  */
 
+struct extensible_schema_item_tag
+{
+    size_t size;
+    int field_order;
+};
+
+typedef struct extensible_schema_item_tag extensible_schema_item_t;
+
 struct extensible_schema_tag
 {
+    Hash *hash;
     int num_fields;
-    char** field_names;
-    size_t* field_sizes;
 };
 
 typedef struct extensible_schema_tag extensible_schema_t;
@@ -68,22 +76,13 @@ struct extensible_struct_tag
 typedef struct extensible_struct_tag extensible_struct_t;
 
 // Schema operations
-extensible_schema_t extensible_schema_new();
 void extensible_schema_init(extensible_schema_t* schema);
 int extensible_schema_add_field(extensible_schema_t* schema, 
         const char* field_name, 
         size_t field_size);
-int extensible_schema_get_field_order(extensible_schema_t* schema,
-        const char* field_name);
 
 // Extensible struct operations
 void extensible_struct_init(extensible_struct_t* extensible_struct, extensible_schema_t* schema);
-void extensible_struct_allocate_field(extensible_schema_t* schema,
-        extensible_struct_t* extensible_struct,
-        int schema_field_order);
-void extensible_struct_activate_field(extensible_schema_t* schema,
-        extensible_struct_t* extensible_struct,
-        int schema_field_order);
 void* extensible_struct_get_field_pointer(extensible_schema_t* schema,
         extensible_struct_t* extensible_struct,
         const char* field_name);

@@ -986,6 +986,7 @@ static void abstract_array_declarator_handler(FILE* f, AST a, int level)
     if (ASTSon2(a) != NULL)
     {
         prettyprint_level(f, ASTSon2(a), level);
+        fprintf(f, " ");
     }
 
     // expression
