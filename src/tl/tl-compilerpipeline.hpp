@@ -41,10 +41,9 @@ namespace TL
         private:
             std::string _filename;
         protected:
-            CompiledFile(const std::string &str);
-            friend class CompilationProcess;
         public:
             std::string get_filename(bool fullpath = false) const;
+            CompiledFile(const std::string &str);
 
             bool operator==(const CompiledFile& rhs)
             {

@@ -71,6 +71,85 @@ namespace TL
             {
                 compiler_phases.push_back(new_phase);
             }
+
+            static void phases_help(void)
+            {
+                if (!compiler_phases.empty())
+                {
+                    std::cerr << std::endl;
+                    std::cerr << "Loaded compiler phases in this profile" << std::endl;
+                    std::cerr << std::endl;
+                    for (compiler_phases_t::iterator it = compiler_phases.begin();
+                            it != compiler_phases.end();
+                            it++)
+                    {
+#define BLANK_INDENT "   "
+                        TL::CompilerPhase* phase = (*it);
+
+                        std::cerr 
+                            << "Phase: " << phase->get_phase_name() << std::endl 
+                            << std::endl
+                            << BLANK_INDENT << phase->get_phase_description() << std::endl
+                            << std::endl;
+
+                        // TODO - For every registered parameter, print it and its description
+                        std::vector<CompilerPhaseParameter*> parameters = phase->get_parameters();
+                        if (!parameters.empty())
+                        {
+                            for (std::vector<CompilerPhaseParameter*>::iterator it = parameters.begin();
+                                    it != parameters.end();
+                                    it++)
+                            {
+                                CompilerPhaseParameter *parameter(*it);
+                                std::cerr << BLANK_INDENT << "--variable:" << parameter->name() << std::endl
+                                    << std::endl;
+                                std::cerr << BLANK_INDENT << parameter->description() << std::endl;
+                                std::cerr << BLANK_INDENT << "Default value : '" << parameter->get_value() << "'" << std::endl;
+                            }
+                        }
+                        else
+                        {
+                            std::cerr << BLANK_INDENT << "No parameters registered by the phase" << std::endl;
+                        }
+
+                        std::cerr << std::endl;
+#undef BLANK_INDENT
+                    }
+                }
+                else
+                {
+                    std::cerr << "No phases loaded in this profile" << std::endl;
+                }
+            }
+
+            static void phases_update_parameters(void)
+            {
+                for (compiler_phases_t::iterator it = compiler_phases.begin();
+                        it != compiler_phases.end();
+                        it++)
+                {
+                    TL::CompilerPhase* phase = (*it);
+                    std::vector<CompilerPhaseParameter*> parameters = phase->get_parameters();
+                    
+                    // This is blatantly inefficient, I know
+                    for (int i = 0; i < compilation_process.num_external_vars; i++)
+                    {
+                        external_var_t* ext_var = compilation_process.external_vars[i];
+
+                        for (std::vector<CompilerPhaseParameter*>::iterator it = parameters.begin();
+                                it != parameters.end();
+                                it++)
+                        {
+                            CompilerPhaseParameter* param(*it);
+
+                            if (param->name() == std::string(ext_var->name))
+                            {
+                                param->set_value(ext_var->value);
+                            }
+                        }
+                    }
+                }
+            }
     };
 
     CompilerPhaseRunner::compiler_phases_t CompilerPhaseRunner::compiler_phases;
@@ -133,6 +212,18 @@ extern "C"
             {
                 fprintf(stderr, "Adding '%s' phase object to the compiler pipeline\n", library_name);
             }
+
+            // If the phase did not set its own phase name, use the DSO name
+            if (new_phase->get_phase_name() == "")
+            {
+                new_phase->set_phase_name(library_name);
+            }
+            // Likewise for the phase description
+            if (new_phase->get_phase_description() == "")
+            {
+                new_phase->set_phase_description("No description available");
+            }
+
             TL::CompilerPhaseRunner::add_compiler_phase(new_phase);
         }
     }
@@ -143,6 +234,12 @@ extern "C"
         {
             fprintf(stderr, "Starting the compiler phase pipeline\n");
         }
+        TL::CompilerPhaseRunner::phases_update_parameters();
         TL::CompilerPhaseRunner::start_compiler_phase_execution(translation_unit);
+    }
+
+    void phases_help(void)
+    {
+        TL::CompilerPhaseRunner::phases_help();
     }
 }

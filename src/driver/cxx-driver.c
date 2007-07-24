@@ -37,6 +37,8 @@
 #include "cxx-lexer.h"
 #include "cxx-dyninit.h"
 #include "cxx-printscope.h"
+// It does not include any C++ code in the header
+#include "cxx-compilerphases.hpp"
 #include "mcfg.h"
 
 
@@ -166,6 +168,8 @@ static void load_compiler_phases(void);
 
 static void register_default_initializers(void);
 
+static void help_message(void);
+
 int main(int argc, char* argv[])
 {
     timing_t timing_global;
@@ -184,11 +188,18 @@ int main(int argc, char* argv[])
     load_configuration();
     
     // Parse arguments
-    parse_arguments(compilation_process.argc, 
-        compilation_process.argv, /* from_command_line= */1);
-
+    char parse_arguments_error;
+    parse_arguments_error = parse_arguments(compilation_process.argc,
+            compilation_process.argv, /* from_command_line= */1);
+    
     // Loads the compiler phases
     load_compiler_phases();
+
+    if (parse_arguments_error)
+    {
+        help_message();
+        exit(EXIT_FAILURE);
+    }
 
     // Compiler phases can define additional dynamic initializers
     // (besides the built in ones)
@@ -245,6 +256,10 @@ static void help_message(void)
 {
     fprintf(stderr, "Usage: %s options file [file..]\n", compilation_process.argv[0]);
     fprintf(stderr, HELP_STRING);
+
+    phases_help();
+
+    fprintf(stderr, "\n");
 }
 
 static void print_debug_flags_list(void)
@@ -269,7 +284,8 @@ static void options_error(char* message)
     exit(EXIT_FAILURE);
 }
 
-void parse_arguments(int argc, char* argv[], char from_command_line)
+// Returns nonzero if an error happened. In that case we would show the help
+int parse_arguments(int argc, char* argv[], char from_command_line)
 {
     int c;
     int indexptr = 0;
@@ -291,8 +307,9 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
         {
             case OPTION_VERSION : // --version
                 {
+                    // Special case where nothing should be done
                     print_version();
-                    exit(0);
+                    exit(EXIT_SUCCESS);
                     break;
                 }
             case 'v' : // --verbose || -v
@@ -309,7 +326,8 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 {
                     if (y_specified || E_specified)
                     {
-                        running_error("Parameter -c cannot be used together with -E or -y");
+                        fprintf(stderr, "Parameter -c cannot be used together with -E or -y");
+                        return 1;
                     }
 
                     c_specified = 1;
@@ -321,7 +339,8 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 {
                     if (c_specified || y_specified)
                     {
-                        running_error("Parameter -E cannot be used together with -c or -y");
+                        fprintf(stderr, "Parameter -E cannot be used together with -c or -y");
+                        return 1;
                     }
 
                     E_specified = 1;
@@ -334,7 +353,8 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 {
                     if (c_specified || E_specified)
                     {
-                        running_error("Parameter -y cannot be used together with -c or -E");
+                        fprintf(stderr, "Parameter -y cannot be used together with -c or -E");
+                        return 1;
                     }
 
                     y_specified = 1;
@@ -359,7 +379,8 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 {
                     if (output_file != NULL)
                     {
-                        running_error("Output file specified twice", 0);
+                        fprintf(stderr, "Output file specified twice\n");
+                        return 1;
                     }
                     else
                     {
@@ -424,7 +445,7 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
 					}
 					else
 					{
-						fprintf(stderr, "Invalid language specification in -x, valid options are 'C' or 'C++'");
+						fprintf(stderr, "Invalid language specification in -x, valid options are 'C' or 'C++'. Ignoring");
 					}
 					
 					break;
@@ -494,20 +515,20 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                 }
             case 'h' :
                 {
-                    help_message();
-                    exit(EXIT_SUCCESS);
+                    return 1;
                 }
         }
     }
 
     if (!from_command_line)
     {
-        return;
+        return 1;
     }
 
     if (argc == optind)
     {
-        options_error("You must specify an input file.");
+        fprintf(stderr, "You must specify an input file.");
+        return 1;
     }
 
     // "-o -" is not valid when compilation or linking will be done
@@ -515,7 +536,8 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
             && (strcmp(output_file, "-") == 0)
             && !E_specified)
     {
-        running_error("You must use -E if you want to use stdout as output");
+        fprintf(stderr, "You must specify an input file.");
+        return 1;
     }
 
     // If -E has been specified and no output file has been, assume it is "-"
@@ -537,7 +559,8 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
                     && c_specified
                     && output_file != NULL)
             {
-                running_error("Cannot specify -o with -c with multiple files (second file '%s')", argv[optind]);
+                fprintf(stderr, "Cannot specify -o with -c with multiple files (second file '%s')", argv[optind]);
+                return 1;
             }
             else
             {
@@ -553,6 +576,8 @@ void parse_arguments(int argc, char* argv[], char from_command_line)
     {
         CURRENT_CONFIGURATION(linked_output_filename) = output_file;
     }
+
+    return 0;
 }
 
 static void enable_debug_flag(char* flags)
@@ -942,8 +967,6 @@ static void compile_every_translation_unit(void)
         file_process->already_compiled = 1;
     }
 }
-
-void start_compiler_phase_execution(translation_unit_t* translation_unit);
 
 static void compiler_phases_execution(translation_unit_t* translation_unit, 
         char* parsed_filename)

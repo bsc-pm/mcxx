@@ -36,8 +36,6 @@ void extensible_schema_init(extensible_schema_t* schema)
 {
     memset(schema, 0, sizeof(*schema));
     schema->hash = hash_create(HASH_SIZE, HASHFUNC(prime_hash), KEYCMPFUNC(strcmp));
-
-    fprintf(stderr, "HASH -> %p\n", schema->hash);
 }
 
 // Adds a new field into the schema

@@ -19,3 +19,58 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "tl-compilerphase.hpp"
+
+namespace TL
+{
+    void CompilerPhase::set_phase_name(const std::string& phase_name)
+    {
+        _phase_name = phase_name;
+    }
+
+    const std::string& CompilerPhase::get_phase_name() const
+    {
+        return _phase_name;
+    }
+
+    void CompilerPhase::set_phase_description(const std::string& phase_description)
+    {
+        _phase_description = phase_description;
+    }
+
+    const std::string& CompilerPhase::get_phase_description() const
+    {
+        return _phase_description;
+    }
+
+    // Returns a reference to the setter signal
+    Signal1<std::string>& CompilerPhase::register_parameter(const std::string& parameter_name,
+            const std::string& parameter_description, 
+            std::string &parameter_reference,
+            const std::string& default_value)
+    {
+        CompilerPhaseParameter *compiler_phase_parameter = new CompilerPhaseParameter(parameter_name,
+                parameter_description, 
+                parameter_reference, 
+                default_value);
+
+        _parameters.push_back(compiler_phase_parameter);
+
+        return compiler_phase_parameter->on_change;
+    }
+
+    std::vector<CompilerPhaseParameter*> CompilerPhase::get_parameters() const
+    {
+        // Returns a copy
+        return _parameters;
+    }
+
+    CompilerPhase::~CompilerPhase()
+    {
+        for(std::vector<CompilerPhaseParameter*>::iterator it = _parameters.begin();
+                it != _parameters.end();
+                it++)
+        {
+            delete (*it);
+        }
+    }
+}
