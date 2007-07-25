@@ -78,7 +78,7 @@ namespace TL
             virtual void run(DTO& data_flow);
 
             virtual ~InstrumentCalls();
-            InstrumentCalls();
+            InstrumentCalls(const std::string& instrument_file_name, const std::string& instrument_filter_mode);
     };
 }
 

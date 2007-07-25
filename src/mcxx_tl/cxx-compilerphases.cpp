@@ -77,7 +77,7 @@ namespace TL
                 if (!compiler_phases.empty())
                 {
                     std::cerr << std::endl;
-                    std::cerr << "Loaded compiler phases in this profile" << std::endl;
+                    std::cerr << "Loaded compiler phases in this profile (in the order they will be run)" << std::endl;
                     std::cerr << std::endl;
                     for (compiler_phases_t::iterator it = compiler_phases.begin();
                             it != compiler_phases.end();
@@ -101,10 +101,10 @@ namespace TL
                                     it++)
                             {
                                 CompilerPhaseParameter *parameter(*it);
-                                std::cerr << BLANK_INDENT << "--variable:" << parameter->name() << std::endl
-                                    << std::endl;
+                                std::cerr << BLANK_INDENT << "--variable:" << parameter->name() << std::endl;
                                 std::cerr << BLANK_INDENT << parameter->description() << std::endl;
                                 std::cerr << BLANK_INDENT << "Default value : '" << parameter->get_value() << "'" << std::endl;
+                                std::cerr << std::endl;
                             }
                         }
                         else

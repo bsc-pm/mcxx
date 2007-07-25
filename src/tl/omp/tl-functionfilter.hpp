@@ -32,10 +32,11 @@ namespace TL
             bool _filter_inverted;
             std::set<std::string> _filter_set;
         public:
-            FunctionFilterFile();
+            FunctionFilterFile() { }
             bool match(const std::string& function_name);
 
 			void set_inverted(bool b);
+            void init(const std::string& filter_file_name, const std::string& filter_mode_var);
     };
 }
 

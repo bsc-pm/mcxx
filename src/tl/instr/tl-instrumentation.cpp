@@ -37,19 +37,51 @@ namespace TL
     class Instrumentation : public CompilerPhase
     {
         private:
+            std::string instrument_enabled_str;
+            std::string instrument_mode;
+            std::string instrument_file_name;
+            std::string instrument_filter_mode;
         public:
+            Instrumentation()
+            {
+                // Phase description"
+                set_phase_name("Mintaka instrumentation");
+                set_phase_description("This phase adds instrumentation to either "
+                        "function calls or function definitions using the mintaka runtime");
+
+                // Phase parameters
+                register_parameter("instrument", 
+                        "If set to '1' enables instrumentation, otherwise it is disabled",
+                        instrument_enabled_str, 
+                        "0");
+
+                register_parameter("instrument_mode", 
+                        "It sets the kind of instrumentation done. Valid values are 'calls' or 'functions'. Currently only 'calls' is valid",
+                        instrument_mode,
+                        "calls");
+
+                register_parameter("instrument_file_name", 
+                        "Sets the filtering file for instrumentation",
+                        instrument_file_name,
+                        "./filter_instrument");
+
+                register_parameter("instrument_filter_mode",
+                        "Sets the filtering mode. It can be either 'normal' or 'inverted'",
+                        instrument_filter_mode,
+                        "normal");
+            }
+
             void virtual run(DTO& dto)
             {
                 CompilerPhase* instrument_phase = NULL;
 
-                std::string instrument_mode = ExternalVars::get("instrument_mode", "calls");
                 if (instrument_mode == "calls")
                 {
-                    instrument_phase = new InstrumentCalls();
+                    instrument_phase = new InstrumentCalls(instrument_file_name, instrument_filter_mode);
                 }
                 else if (instrument_mode == "functions")
                 {
-                    std::cerr << "Instrumentation of functions disabled. Only calls can be instrumented at the moment" << std::endl;
+                    std::cerr << "Instrumentation of functions disabled. Only 'calls' can be instrumented at the moment" << std::endl;
                 }
                 else
                 {
@@ -62,7 +94,9 @@ namespace TL
                     return;
                 }
 
-                if (ExternalVars::get("instrument", "0") == "1")
+                if (instrument_enabled_str == "1"
+                        || instrument_enabled_str == "yes"
+                        || instrument_enabled_str == "true")
                 {
                     instrument_phase->run(dto);
                 }

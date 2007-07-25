@@ -24,13 +24,76 @@
 namespace TL
 {
     OpenMPTransform::OpenMPTransform()
-        : parallel_nesting(0), transaction_nesting(0)
+        : already_initialized(false), parallel_nesting(0), transaction_nesting(0)
     {
+        // Set phase info
+        set_phase_name("Nanos 4 OpenMP implementation");
+        set_phase_description("Implementation of OpenMP for Nanos 4 runtime");
+
+        // Register parameters for this phase
+        register_parameter("nanos_new_interface", 
+                "If set to '1' will use the new interface for all parallel constructs",
+                nanos_new_interface_str,
+                "0").connect(functor(&OpenMPTransform::set_parallel_interface, *this));
+        register_parameter("instrument",
+                "Enables mintaka instrumentation if set to '1'",
+                enable_mintaka_instr_str,
+                "0")/*.connect(functor(&OpenMPTransform::set_instrumentation, *this))*/;
+
+        // No signals for these as their values are passed to the object initialization function
+        register_parameter("function_filter_name", 
+                "File for filtering function calls within #pragma transaction",
+                function_filter_name_str,
+                "./functions_to_replace_call_filter");
+        register_parameter("function_filter_mode",
+                "Filter mode for filtering function calls within '#pragma transaction'. It can be 'normal' or 'inverted'",
+                function_filter_mode_str,
+                "normal");
+    }
+
+    void OpenMPTransform::set_parallel_interface(const std::string& str)
+    {
+        enable_nth_create = 0;
+        if (str == "1"
+                || str == "yes"
+                || str == "true")
+        {
+            enable_nth_create = 1;
+        }
+        else if (str != "0"
+                && str != "no"
+                && str != "false")
+        {
+            std::cerr 
+                << get_phase_name() << ": Invalid value '" << str << "'" <<
+                "for parameter 'nanos_new_interface'. Old interface will be used for parallel spawns." 
+                << std::endl;
+        }
+    }
+
+    void OpenMPTransform::set_instrumentation(const std::string& str)
+    {
+        enable_mintaka_instr = 0;
+        if (str == "1"
+                || str == "yes"
+                || str == "true")
+        {
+            enable_mintaka_instr = 1;
+        }
+        else if (str != "0"
+                && str != "no"
+                && str != "false")
+        {
+            std::cerr 
+                << get_phase_name() << ": Invalid value '" << str << "'" <<
+                "for parameter 'instrument'. Instrumentation disabled" 
+                << std::endl;
+        }
     }
 
     bool OpenMPTransform::instrumentation_requested()
     {
-        return (ExternalVars::get("instrument", "0") == "1");
+        return enable_mintaka_instr;
     }
 
     OpenMPTransform::~OpenMPTransform()
@@ -40,17 +103,16 @@ namespace TL
 
     void OpenMPTransform::init()
     {
-        if (ExternalVars::get("nanos_new_interface", "0") != "1")
-        {
-            std::cerr << "OpenMP: Using old interface 'nthf_create_1s_vp_' for parallel spawn." << std::endl;
-            std::cerr << "OpenMP: Use '--variable=nanos_new_interface:1' to enable the newer interface" << std::endl;
-        }
-
         // This function is called in OpenMPPhase::run. The user
         // can register here the handlers that will be called for
         // every construction (in preorder and postorder)
         //
         // Register the handlers (callbacks) for every construction
+        if (already_initialized)
+            return;
+        already_initialized = true;
+
+        function_filter.init(function_filter_name_str, function_filter_mode_str);
 
         // #pragma omp parallel
         on_parallel_pre.connect(functor(&OpenMPTransform::parallel_preorder, *this));

@@ -38,6 +38,9 @@ namespace TL
     class OpenMPTransform : public OpenMP::OpenMPPhase
     {
         private:
+            // States whether OpenMPTransform::init has been already called once
+            bool already_initialized;
+
             // Here we declare "persistent" variables
 
             // The number of parallel regions seen so far
@@ -65,6 +68,24 @@ namespace TL
 			// Function filter for STM
 			FunctionFilterFile function_filter;
 			int transaction_nesting;
+
+            /*
+             * Parameters of the phase where the textual parameter is stored
+             */
+            std::string nanos_new_interface_str;
+            std::string enable_mintaka_instr_str;
+            std::string function_filter_name_str;
+            std::string function_filter_mode_str;
+
+            /* Parameter set_XXX functions */
+            void set_instrumentation(const std::string& str);
+            void set_parallel_interface(const std::string& str);
+
+            /*
+             * Logical values of parameters computed by the set_XXX functions
+             */
+            bool enable_mintaka_instr;
+            bool enable_nth_create;
         public:
             OpenMPTransform();
 

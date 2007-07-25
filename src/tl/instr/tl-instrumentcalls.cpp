@@ -366,7 +366,8 @@ namespace TL
     {
     }
 
-    InstrumentCalls::InstrumentCalls()
+    InstrumentCalls::InstrumentCalls(const std::string& instrument_file_name, const std::string& instrument_filter_mode)
+        : _instrument_filter(instrument_file_name, instrument_filter_mode)
     {
         std::cerr << "Instrumentation of calls support loaded" << std::endl;
     }

@@ -21,6 +21,8 @@ libtlomp_la_CXXFLAGS = -Wall \
     -I $(top_builddir)/lib
 
 libtlomp_la_SOURCES = \
+   tl-omptransform.cpp \
+   tl-omptransform.hpp \
    tl-atomic.cpp \
    tl-barrier.cpp \
    tl-critical.cpp \
@@ -34,8 +36,6 @@ libtlomp_la_SOURCES = \
    tl-debug.cpp \
    tl-symbols.cpp \
    tl-transaction.cpp \
-   tl-omptransform.cpp \
-   tl-omptransform.hpp \
    tl-warning.cpp \
    tl-ordered.cpp \
    tl-outline.cpp \

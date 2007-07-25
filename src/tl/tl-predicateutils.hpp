@@ -74,7 +74,7 @@ namespace TL
     class MemberFunctionPredicate : public Predicate<T>
     {
         private:
-            MemberFunctionAdapter<bool, T, Q> mem_funct_adapter;
+            MemberFunctionAdapterVal<bool, T, Q> mem_funct_adapter;
         public:
             MemberFunctionPredicate(bool (Q::*pmf)(T& t), Q& q)
                 : mem_funct_adapter(pmf, q)

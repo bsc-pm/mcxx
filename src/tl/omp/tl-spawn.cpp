@@ -175,7 +175,7 @@ namespace TL
 
 
         if ((num_args_val == 0)
-                && (ExternalVars::get("nanos_new_interface", "0") != "1"))
+                && (enable_nth_create))
         {
             nth_creation_function
                 << "     nthf_create_1s_vp_((void*)(" << outlined_function_name_decl << "), &nth_num_deps, &nth_p, &nth_selfv, 0, "
@@ -184,12 +184,12 @@ namespace TL
         }
         else
         {
-            if (ExternalVars::get("nanos_new_interface", "0") == "0")
+            if (!enable_nth_create)
             {
                 // FIXME. We are giving an approximate locus but this
                 // should not be very important since in some near 
                 // future we will remove the old interface :)
-                std::cerr << "Warning, OpenMP construct in function '" 
+                std::cerr << get_phase_name() << ": Warning, OpenMP construct in function '" 
                     << function_definition.get_function_name().prettyprint() 
                     << "' at " 
                     << function_definition.get_ast().get_locus() 

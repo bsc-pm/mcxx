@@ -32,7 +32,7 @@ namespace TL
             bool _filter_inverted;
             std::set<std::string> _filter_set;
         public:
-            InstrumentFilterFile();
+            InstrumentFilterFile(const std::string& instrument_file_name, const std::string& instrument_filter_mode);
             bool match(const std::string& function_name);
     };
 }
