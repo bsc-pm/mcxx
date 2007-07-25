@@ -438,36 +438,6 @@ namespace TL
 
                 return result;
             }
-
-            Expression replace(Expression orig_expr)
-            {
-                PredicateBool<LANG_IS_ID_EXPRESSION> id_expression_pred;
-
-                std::pair<AST_t, ScopeLink> modified_statement = 
-                    orig_expr.get_ast().duplicate_with_scope(orig_expr.get_scope_link());
-
-                Expression result(modified_statement.first, modified_statement.second);
-
-                ObjectList<AST_t> id_expressions = result.get_ast().depth_subtrees(id_expression_pred);
-
-                for (ObjectList<AST_t>::iterator it = id_expressions.begin();
-                        it != id_expressions.end();
-                        it++)
-                {
-                    IdExpression id_expr(*it, orig_expr.get_scope_link());
-
-                    Symbol sym = id_expr.get_symbol();
-
-                    if (_repl_map.find(sym) != _repl_map.end())
-                    {
-                        AST_t repl_ast = _repl_map[sym];
-                        AST_t orig_ast = id_expr.get_ast();
-
-                        orig_ast.replace_with(repl_ast);
-                    }
-                }
-                return result;
-            }
     };
 
     // This is something common, it is a good candidate to be taken off here
