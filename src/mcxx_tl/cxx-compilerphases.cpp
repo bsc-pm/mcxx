@@ -109,7 +109,7 @@ namespace TL
                                     it++)
                             {
                                 CompilerPhaseParameter *parameter(*it);
-                                std::cerr << BLANK_INDENT << "--variable:" << parameter->name() << std::endl;
+                                std::cerr << BLANK_INDENT << "--variable=" << parameter->name() << std::endl;
                                 std::cerr << BLANK_INDENT << parameter->description() << std::endl;
                                 std::cerr << BLANK_INDENT << "Default value : '" << parameter->get_value() << "'" << std::endl;
                                 std::cerr << std::endl;
