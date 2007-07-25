@@ -73,9 +73,16 @@ namespace TL
 
     class CompilerPhase : Object
     {
+        public:
+            enum PhaseStatus
+            {
+                PHASE_STATUS_OK = 0,
+                PHASE_STATUS_ERROR
+            };
         private :
             std::string _phase_name;
             std::string _phase_description;
+            PhaseStatus _phase_status;
             std::vector<CompilerPhaseParameter*> _parameters;
         protected:
             virtual tl_type_t* get_extended_attribute(const std::string& str) const
@@ -83,6 +90,7 @@ namespace TL
                 return NULL;
             }
         public:
+            CompilerPhase();
             virtual ~CompilerPhase();
 
             virtual void run(DTO& data_flow) = 0;
@@ -97,6 +105,9 @@ namespace TL
                     const std::string& parameter_description,
                     std::string &parameter_reference,
                     const std::string& default_value = "");
+
+            void set_phase_status(PhaseStatus status);
+            PhaseStatus get_phase_status() const;
 
             // Used for help only
             std::vector<CompilerPhaseParameter*> get_parameters() const;

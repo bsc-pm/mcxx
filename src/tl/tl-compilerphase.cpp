@@ -64,6 +64,13 @@ namespace TL
         return _parameters;
     }
 
+    CompilerPhase::CompilerPhase()
+        : _phase_name(""), 
+        _phase_description(""),
+        _phase_status(PHASE_STATUS_OK)
+    {
+    }
+
     CompilerPhase::~CompilerPhase()
     {
         for(std::vector<CompilerPhaseParameter*>::iterator it = _parameters.begin();
@@ -72,5 +79,15 @@ namespace TL
         {
             delete (*it);
         }
+    }
+
+    void CompilerPhase::set_phase_status(PhaseStatus status)
+    {
+        _phase_status = status;
+    }
+
+    CompilerPhase::PhaseStatus CompilerPhase::get_phase_status() const
+    {
+        return _phase_status;
     }
 }

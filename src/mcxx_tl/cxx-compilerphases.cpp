@@ -64,6 +64,14 @@ namespace TL
                 {
                     TL::CompilerPhase* phase = (*it);
                     phase->run(dto);
+
+                    if (phase->get_phase_status() != CompilerPhase::PHASE_STATUS_OK)
+                    {
+                        // Ideas to improve this are welcome :)
+                        running_error("Phase '%s' did not end successfully. Ending compilation", 
+                                phase->get_phase_name().c_str());
+                    }
+
                 }
             }
 
