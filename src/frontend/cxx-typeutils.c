@@ -2256,7 +2256,6 @@ cv_qualifier_t get_cv_qualifier(type_t* type_info)
 }
 
 
-// Expression that may appear here are of very limited nature
 char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_context)
 {
     switch (ASTType(expression))
@@ -2335,6 +2334,7 @@ char is_dependent_expression(AST expression, scope_t* st, decl_context_t decl_co
         case AST_BOOLEAN_LITERAL :
         case AST_CHARACTER_LITERAL :
         case AST_STRING_LITERAL :
+            // FIXME : "this" depends exclusively on the current context
         case AST_THIS_VARIABLE :
             {
                 return 0;
