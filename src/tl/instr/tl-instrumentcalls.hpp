@@ -25,7 +25,6 @@
 #include "tl-traverse.hpp"
 #include "tl-instrumentfilter.hpp"
 #include "tl-langconstruct.hpp"
-#include "tl-externalvars.hpp"
 
 namespace TL
 {

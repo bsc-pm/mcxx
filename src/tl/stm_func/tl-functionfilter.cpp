@@ -22,20 +22,16 @@
 
 #include "tl-functionfilter.hpp"
 
-#include "tl-externalvars.hpp"
-
 #include <fstream>
 #include <string>
 #include <iostream>
 
 namespace TL
 {
-    FunctionFilterFile::FunctionFilterFile()
+    FunctionFilterFile::FunctionFilterFile(const std::string& filter_file_name, 
+            const std::string& filter_mode_var)
         {
             std::ifstream filter_file;
-            std::string filter_file_name = ExternalVars::get("function_filter_name", "./functions_to_wrap_filter");
-
-            std::string filter_mode_var = ExternalVars::get("function_filter_mode", "inverted");
 
             _filter_inverted = false;
             if (filter_mode_var == "inverted")

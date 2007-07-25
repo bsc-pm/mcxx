@@ -26,7 +26,6 @@
 #include "tl-langconstruct.hpp"
 #include "tl-traverse.hpp"
 #include "tl-scopelink.hpp"
-#include "tl-externalvars.hpp"
 
 #include <iostream>
 #include <fstream>

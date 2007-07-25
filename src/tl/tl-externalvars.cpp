@@ -20,7 +20,9 @@
 */
 #include <string>
 #include "cxx-driver.h"
+#define FROM_TL_EXTERNALVARS_CPP
 #include "tl-externalvars.hpp"
+#undef FROM_TL_EXTERNALVARS_CPP
 
 namespace TL
 {

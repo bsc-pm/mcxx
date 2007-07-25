@@ -22,8 +22,6 @@
 
 #include "tl-functionfilter.hpp"
 
-#include "tl-externalvars.hpp"
-
 #include <fstream>
 #include <string>
 #include <iostream>
@@ -47,7 +45,7 @@ namespace TL
         filter_file.open(filter_file_name.c_str());
         if (!filter_file.good())
         {
-            // std::cerr << "Could not open call replacing filter file '" << filter_file_name << "'. Skipping." << std::endl;
+            std::cerr << "Could not open call replacing filter file '" << filter_file_name << "'. Skipping." << std::endl;
             return;
         }
 

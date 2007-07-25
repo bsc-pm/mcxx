@@ -21,6 +21,10 @@
 #ifndef TL_EXTERNALVARS_HPP
 #define TL_EXTERNALVARS_HPP
 
+#ifndef FROM_TL_EXTERNALVARS_CPP
+#warning "This is a deprecated interface and should not be used anymore"
+#endif
+
 namespace TL
 {
     class ExternalVars

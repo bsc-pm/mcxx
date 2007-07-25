@@ -25,7 +25,6 @@
 #include "tl-omp.hpp"
 #include "tl-predicateutils.hpp"
 #include "tl-source.hpp"
-#include "tl-externalvars.hpp"
 #include "tl-functionfilter.hpp"
 #include "tl-parameterinfo.hpp"
 #include <iostream>

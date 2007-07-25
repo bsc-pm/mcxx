@@ -38,11 +38,11 @@ namespace TL
         register_parameter("instrument",
                 "Enables mintaka instrumentation if set to '1'",
                 enable_mintaka_instr_str,
-                "0")/*.connect(functor(&OpenMPTransform::set_instrumentation, *this))*/;
+                "0").connect(functor(&OpenMPTransform::set_instrumentation, *this));
 
         // No signals for these as their values are passed to the object initialization function
         register_parameter("function_filter_name", 
-                "File for filtering function calls within #pragma transaction",
+                "File for filtering function calls within '#pragma transaction'",
                 function_filter_name_str,
                 "./functions_to_replace_call_filter");
         register_parameter("function_filter_mode",

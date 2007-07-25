@@ -102,11 +102,36 @@ namespace TL
 			}
 
             virtual ~STMFunctionDefFunctor() { }
+
+            STMFunctionDefFunctor(const std::string& filter_file_name, 
+                    const std::string& filter_mode_var)
+                : function_filter(filter_file_name, filter_mode_var)
+            {
+            }
     };
 
 	class STMFunctionTransform : public CompilerPhase
 	{
+        private:
+            std::string filter_file_name_str;
+            std::string filter_file_mode_str;
 		public:
+            STMFunctionTransform()
+            {
+                set_phase_name("STM Function Transform");
+                set_phase_description("This phase creates STM versions of existing function definitions suitable "
+                        "to be called from a transaction environment.");
+
+                register_parameter("function_filter_name",
+                        "Filter file of wrapped functions",
+                        filter_file_name_str,
+                        "./functions_to_wrap_filter");
+                register_parameter("function_filter_mode",
+                        "Filter mode when wrapping functions. It can be either 'normal' or 'inverted'",
+                        filter_file_mode_str,
+                        "normal");
+            }
+
 			virtual void run(DTO& dto)
 			{
 				AST_t root_node = dto["translation_unit"];
@@ -115,7 +140,8 @@ namespace TL
 				PredicateBool<LANG_IS_FUNCTION_DEFINITION> function_def_pred;
 				DepthTraverse depth_traverse;
 
-				STMFunctionDefFunctor function_def_functor;
+				STMFunctionDefFunctor function_def_functor(filter_file_name_str, 
+                        filter_file_mode_str);
 
 				depth_traverse.add_predicate(function_def_pred, function_def_functor);
 

@@ -698,7 +698,9 @@ namespace TL
     {
         transaction_nesting++;
 
-		// Warn for initializers
+        /*
+         * Warn for initializers as they are not currently stmized
+         */
 		PredicateBool<LANG_IS_DECLARATION> is_declaration_pred_;
 		IgnorePreserveFunctor is_declaration_pred(is_declaration_pred_);
 
@@ -969,7 +971,9 @@ namespace TL
                             ;
                     }
                 }
-                return_from_function << "invalidateFunctionLocalData(__t);";
+                return_from_function 
+                    << cancel_source
+                    << "invalidateFunctionLocalData(__t);";
             }
         }
         else

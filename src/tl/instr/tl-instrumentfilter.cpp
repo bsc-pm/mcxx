@@ -22,8 +22,6 @@
 
 #include "tl-instrumentfilter.hpp"
 
-#include "tl-externalvars.hpp"
-
 #include <fstream>
 #include <string>
 #include <iostream>
