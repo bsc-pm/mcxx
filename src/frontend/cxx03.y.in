@@ -217,6 +217,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 
 // Nonterminals
 %type<ast> abstract_declarator
+%type<ast> abstract_direct_declarator
 %type<ast> access_specifier
 %type<ast> additive_expression
 %type<ast> and_expression
@@ -255,16 +256,14 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> declaration_sequence
 %type<ast> declaration_statement
 %type<ast> declarator
-%type<ast> functional_declarator
 %type<ast> declarator_id
-%type<ast> functional_declarator_id
-// %type<ast> decl_specifier
-%type<ast> decl_specifier_seq
 %type<ast> decl_specifier_alone_seq
+%type<ast> decl_specifier_seq
 %type<ast> delete_expression
-%type<ast> direct_abstract_declarator
+%type<ast> designation
+%type<ast> designator
+%type<ast> designator_list
 %type<ast> direct_declarator
-%type<ast> functional_direct_declarator
 %type<ast> direct_new_declarator
 %type<ast> elaborated_type_specifier
 %type<ast> enumeration_definition
@@ -281,6 +280,9 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> expression_list
 %type<ast> expression_statement
 %type<ast> for_init_statement
+%type<ast> functional_declarator
+%type<ast> functional_declarator_id
+%type<ast> functional_direct_declarator
 %type<ast> function_body
 %type<ast> function_definition
 %type<ast> function_specifier
@@ -308,8 +310,8 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> member_declaration
 %type<ast> member_declarator
 %type<ast> member_declarator_list
-%type<ast> member_specification_seq
 %type<ast> member_specification
+%type<ast> member_specification_seq
 %type<ast> mem_initializer
 %type<ast> mem_initializer_id
 %type<ast> mem_initializer_list
@@ -324,6 +326,12 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> new_placement
 %type<ast> new_type_id
 %type<ast> no_if_statement
+%type<ast> nonabstract_declarator
+%type<ast> nonabstract_direct_declarator
+%type<ast> nontype_specifier
+%type<ast> nontype_specifier_no_end_attrib_seq
+%type<ast> nontype_specifier_seq
+%type<ast> nontype_specifier_without_attribute
 %type<ast> operator
 %type<ast> operator_function_id
 %type<ast> parameter_declaration
@@ -351,8 +359,8 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> template_argument_list
 %type<ast> template_assignment_expression
 %type<ast> template_conditional_expression
-%type<ast> template_declaration
 %type<ast> templated_declaration
+%type<ast> template_declaration
 %type<ast> template_equality_expression
 %type<ast> template_exclusive_or_expression
 %type<ast> template_expression
@@ -375,19 +383,12 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> type_specifier_alone
 %type<ast> type_specifier_seq
 %type<ast> unary_expression
+%type<ast> unknown_pragma
 %type<ast> unnamed_namespace_definition
 %type<ast> unqualified_id
 %type<ast> using_declaration
 %type<ast> using_directive
-%type<ast> nontype_specifier_seq
-%type<ast> nontype_specifier_no_end_attrib_seq
-%type<ast> nontype_specifier
-%type<ast> nontype_specifier_without_attribute
 %type<ast> volatile_optional
-%type<ast> unknown_pragma
-%type<ast> designation
-%type<ast> designator_list
-%type<ast> designator
 
 %type<node_type> unary_operator
 %type<node_type> assignment_operator
@@ -1833,7 +1834,7 @@ abstract_declarator : ptr_operator
 {
 	$$ = ASTMake2(AST_ABSTRACT_DECLARATOR, $1, $2, ASTLine($1), NULL);
 }
-| direct_abstract_declarator
+| abstract_direct_declarator
 {
 	$$ = $1;
 }
@@ -1846,13 +1847,13 @@ abstract_declarator : ptr_operator
 {
 	$$ = ASTMake2(AST_GCC_PTR_ABSTRACT_DECLARATOR, $1, $2, ASTLine($1), NULL);
 }
-| attributes direct_abstract_declarator
+| attributes abstract_direct_declarator
 {
 	$$ = ASTMake2(AST_GCC_ABSTRACT_DECLARATOR, $1, $2, ASTLine($1), NULL);
 }
 ;
 
-direct_abstract_declarator : '(' abstract_declarator ')'
+abstract_direct_declarator : '(' abstract_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_ABSTRACT_DECLARATOR, $2, $1.token_line, NULL);
 }
@@ -1872,19 +1873,19 @@ direct_abstract_declarator : '(' abstract_declarator ')'
 {
 	$$ = ASTMake4(AST_ABSTRACT_DECLARATOR_FUNC, NULL, $2, $4, $5, $1.token_line, NULL);
 }
-| direct_abstract_declarator '(' parameter_declaration_clause ')'
+| abstract_direct_declarator '(' parameter_declaration_clause ')'
 {
 	$$ = ASTMake4(AST_ABSTRACT_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTLine($1), NULL);
 }
-| direct_abstract_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq
+| abstract_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq
 {
 	$$ = ASTMake4(AST_ABSTRACT_DECLARATOR_FUNC, $1, $3, $5, NULL, ASTLine($1), NULL);
 }
-| direct_abstract_declarator '(' parameter_declaration_clause ')' exception_specification
+| abstract_direct_declarator '(' parameter_declaration_clause ')' exception_specification
 {
 	$$ = ASTMake4(AST_ABSTRACT_DECLARATOR_FUNC, $1, $3, NULL, $5, ASTLine($1), NULL);
 }
-| direct_abstract_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
+| abstract_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
 {
 	$$ = ASTMake4(AST_ABSTRACT_DECLARATOR_FUNC, $1, $3, $5, $6, ASTLine($1), NULL);
 }
@@ -1896,11 +1897,11 @@ direct_abstract_declarator : '(' abstract_declarator ')'
 {
 	$$ = ASTMake2(AST_ABSTRACT_ARRAY, NULL, NULL, $1.token_line, NULL);
 }
-| direct_abstract_declarator '[' constant_expression ']'
+| abstract_direct_declarator '[' constant_expression ']'
 {
 	$$ = ASTMake2(AST_ABSTRACT_ARRAY, $1, $3, ASTLine($1), NULL);
 }
-| direct_abstract_declarator '[' ']'
+| abstract_direct_declarator '[' ']'
 {
 	$$ = ASTMake2(AST_ABSTRACT_ARRAY, $1, NULL, ASTLine($1), NULL);
 }
@@ -1950,11 +1951,11 @@ parameter_declaration_list : parameter_declaration
 }
 ;
 
-parameter_declaration : decl_specifier_seq declarator 
+parameter_declaration : decl_specifier_seq nonabstract_declarator 
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, NULL, ASTLine($1), NULL);
 }
-| decl_specifier_seq declarator '=' assignment_expression 
+| decl_specifier_seq nonabstract_declarator '=' assignment_expression 
 {
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, $4, ASTLine($1), NULL);
 }
@@ -1975,11 +1976,11 @@ parameter_declaration : decl_specifier_seq declarator
 	$$ = ASTMake3(AST_PARAMETER_DECL, $1, $2, $4, ASTLine($1), NULL);
 }
 // GCC Extension
-| decl_specifier_seq declarator attributes
+| decl_specifier_seq nonabstract_declarator attributes
 {
 	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, NULL, $3, ASTLine($1), NULL);
 }
-| decl_specifier_seq declarator attributes '=' assignment_expression 
+| decl_specifier_seq nonabstract_declarator attributes '=' assignment_expression 
 {
 	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, $5, $3, ASTLine($1), NULL);
 }
@@ -1990,6 +1991,60 @@ parameter_declaration : decl_specifier_seq declarator
 | decl_specifier_seq abstract_declarator attributes '=' assignment_expression
 {
 	$$ = ASTMake4(AST_GCC_PARAMETER_DECL, $1, $2, $5, $3, ASTLine($1), NULL);
+}
+;
+
+nonabstract_declarator : nonabstract_direct_declarator
+{
+	$$ = ASTMake1(AST_DECLARATOR, $1, ASTLine($1), NULL);
+}
+| ptr_operator nonabstract_declarator
+{
+	$$ = ASTMake2(AST_POINTER_DECL, $1, $2, ASTLine($1), NULL);
+}
+/* GNU Extension */
+| attributes nonabstract_direct_declarator
+{
+    $$ = ASTMake2(AST_GCC_DECLARATOR, $1, $2, ASTLine($1), NULL);
+}
+| attributes ptr_operator nonabstract_declarator
+{
+    $$ = ASTMake3(AST_GCC_POINTER_DECL, $1, $2, $3, ASTLine($1), NULL);
+}
+;
+
+nonabstract_direct_declarator : IDENTIFIER
+{
+	AST symbol = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
+    $$ = ASTMake1(AST_DECLARATOR_ID_EXPR, symbol, ASTLine(symbol), NULL);
+}
+| nonabstract_direct_declarator '(' parameter_declaration_clause ')'
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTLine($1), NULL);
+}
+| nonabstract_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, NULL, ASTLine($1), NULL);
+}
+| nonabstract_direct_declarator '(' parameter_declaration_clause ')' exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, NULL, $5, ASTLine($1), NULL);
+}
+| nonabstract_direct_declarator '(' parameter_declaration_clause ')' cv_qualifier_seq exception_specification
+{
+	$$ = ASTMake4(AST_DECLARATOR_FUNC, $1, $3, $5, $6, ASTLine($1), NULL);
+}
+| nonabstract_direct_declarator '[' constant_expression ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, $3, ASTLine($1), NULL);
+}
+| nonabstract_direct_declarator '[' ']'
+{
+	$$ = ASTMake2(AST_DECLARATOR_ARRAY, $1, NULL, ASTLine($1), NULL);
+}
+| '(' nonabstract_declarator ')'
+{
+	$$ = ASTMake1(AST_PARENTHESIZED_DECLARATOR, $2, $1.token_line, NULL);
 }
 ;
 
@@ -2140,6 +2195,10 @@ function_definition : functional_declarator function_body
 function_body : compound_statement
 {
 	$$ = ASTMake1(AST_FUNCTION_BODY, $1, ASTLine($1), NULL);
+}
+| try_block
+{
+    $$ = ASTMake1(AST_FUNCTION_BODY, $1, ASTLine($1), NULL);
 }
 ;
 
@@ -4481,7 +4540,7 @@ handler : CATCH '(' exception_declaration ')' compound_statement
 }
 ;
 
-exception_declaration : type_specifier_seq declarator  
+exception_declaration : type_specifier_seq nonabstract_declarator  
 {
 	$$ = ASTMake2(AST_EXCEPTION_DECLARATION, $1, $2, ASTLine($1), NULL);
 }

@@ -23,6 +23,7 @@
 
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
+#include "cxx-buildscope-decls.h"
 #include "hash.h"
 
 MCXX_BEGIN_DECLS
@@ -60,13 +61,10 @@ enum cxx_symbol_kind
     SK_TEMPLATE_PARAMETER, // [13] nontype parameters like N in "template<int N>"
     SK_TEMPLATE_TYPE_PARAMETER, // [14] plain type parameters like T in "template <class T>"
     SK_TEMPLATE_TEMPLATE_PARAMETER, // [15] template template parameters like Q in "template<template<typename P> class Q>"
-    // Artificial symbol representing scopes - used only for debugging purposes
-    // should not be considered as a symbol
-    SK_SCOPE, // [16]
     // GCC Extension for builtin types
-    SK_GCC_BUILTIN_TYPE, // [17]
+    SK_GCC_BUILTIN_TYPE, // [16]
     // Dependent entity that is named but nothing is known at the moment
-    SK_DEPENDENT_ENTITY // [18]
+    SK_DEPENDENT_ENTITY // [17]
 };
 
 #define BITMAP(x) (1 << x)
@@ -151,7 +149,7 @@ enum template_parameter_kind
 // A template parameter
 //
 // template <class T, int N> <-- these are parameters
-typedef struct template_parameter 
+typedef struct template_parameter_tag
 {
     // Kind of the parameter
     enum template_parameter_kind kind;
@@ -174,8 +172,8 @@ typedef struct template_parameter
     //    template <template <typename Q> class V = std::vector>
     // The tree (10, int, std::vector)
     AST default_tree;
-    // and its scope
-    struct scope_tag* default_argument_scope;
+    // and its declarative context
+    decl_context_t decl_context;
 
     // We are saving this for nontype template parameters as their exact type
     // might depend on previous template parameters. Its scope
@@ -200,24 +198,6 @@ enum class_kind_t {
     CK_UNION // union 
 };
 
-// Conversion function info
-//
-// class B
-// {
-//   operator T() { ... }
-// };
-typedef 
-struct conversion_function_info_tag
-{
-    // Which type it converts to
-    struct type_tag* conversion_type;
-
-    // Its cv-qualifier
-    //
-    //  operator T() const 
-    cv_qualifier_t cv_qualifier;
-} conversion_function_t;
-
 // Base class info (parent classes of a given class)
 typedef 
 struct base_class_info_tag
@@ -241,15 +221,15 @@ struct class_information_tag {
     // Kind of class {struct, class}
     enum class_kind_t class_kind;
 
-    // Related inner scope to this class
-    struct scope_tag* inner_scope;
+    // The inner decl context created by this class
+    decl_context_t inner_decl_context;
 
-    // Special functions
+    // Destructor
     struct scope_entry_tag* destructor;
 
     // Conversion functions info
     int num_conversion_functions;
-    struct conversion_function_info_tag** conversion_function_list;
+    struct scope_entry_tag** conversion_functions;
 
     // Operator function info
     int num_operator_functions;
@@ -258,6 +238,14 @@ struct class_information_tag {
     // Class constructors info
     int num_constructors;
     struct scope_entry_tag** constructor_list;
+
+    // Nonstatic data members
+    int num_nonstatic_data_members;
+    struct scope_entry_tag** nonstatic_data_members;
+    
+    // Static data members
+    int num_static_data_members;
+    struct scope_entry_tag** static_data_members;
 
     // Base (parent classes) info
     int num_bases;
@@ -285,8 +273,8 @@ struct template_argument_tag
     // Argument tree. Used for nontype template arguments
     AST argument_tree;
 
-    // Scope for the expression
-    struct scope_tag* scope;
+    // Declarative environment for the template argument
+    decl_context_t decl_context;
 
     // If the template argument is a type template argument (or a template
     // template one) the type should be here
@@ -433,14 +421,18 @@ struct simple_type_tag {
     int template_parameter_nesting;
     int template_parameter_num;
 
-    // Scope where this type was declared if not builtin
-    struct scope_tag* type_scope;
+    // Decl environment where this type was declared if not builtin The scope
+    // where this type was declared since sometimes, types do not have any name
+    // related to them
+    // (kind == STK_ENUM)
+    // (kind == STK_CLASS)
+    decl_context_t type_decl_context;
 
     // For typeof and template dependent types
     // (kind == STK_TYPEOF)
     // (kind == STK_TEMPLATE_DEPENDENT_TYPE)
     AST typeof_expr;
-    struct scope_tag* typeof_scope;
+    decl_context_t typeof_decl_context;
     char typeof_is_expr;
 
     // For instantiation purposes
@@ -449,11 +441,6 @@ struct simple_type_tag {
     // (kind == STK_CLASS)
     template_nature_t template_nature;
     
-    // Saved decl_context for classes (this is used in later phases when we
-    // want to add new members by means of parsing)
-    // (kind == STK_CLASS)
-    struct decl_context_tag* decl_context;
-
     // Used for instantiation
     matching_pair_t* matching_pair;
 } simple_type_t;
@@ -528,10 +515,6 @@ struct function_tag
     int num_template_parameters;
     template_parameter_t** template_parameter_info;
 
-    // This is for template functions
-    int num_template_parameters_in_scope;
-    template_parameter_t** template_parameter_in_scope_info;
-
     // Information about the nesting of this function within templates
     int template_nesting;
 } function_info_t;
@@ -556,7 +539,7 @@ struct array_tag
     AST array_expr;
 
     // Scope of the array size expression
-    struct scope_tag* array_expr_scope;
+    decl_context_t array_expr_decl_context;
 
     // The type of the array elements
     struct type_tag* element_type;
@@ -626,14 +609,16 @@ struct scope_entry_tag
     // This allows us to enforce the one-definition-rule within a translation unit
     int defined;
 
-    // Scope of this entry when declared
-    struct scope_tag* scope;
+    // Decl context when the symbol was declared it contains the scope where
+    // the symbol was declared
+    decl_context_t decl_context;
 
     // Type information of this symbol
     type_t* type_information;
 
-    // Related scope. This is the scope defined within a class or a function.
-    struct scope_tag* related_scope;
+    // Related decl_context. This is the declarative region created
+    // by either a class or a namespace
+    decl_context_t related_decl_context;
 
     // Initializations of several kind are saved here
     //  - initialization of const objects
@@ -649,7 +634,8 @@ struct scope_entry_tag
     // Unused field
     char* linkage_spec;
 
-    // Line where this simbol was signed up
+    // File and line where this simbol was signed up
+    char *file;
     int line;
 
     // Do not print this symbol (because of recursion, hiding, etc) Used
@@ -659,7 +645,7 @@ struct scope_entry_tag
 
     // States if this is the injected class name of every class
     char injected_class_name;
-    // and its symbol
+    // and its real symbol :?
     struct scope_entry_tag* injected_class_referred_symbol;
     
     // For template-alias
@@ -675,6 +661,9 @@ struct scope_entry_tag
     // find the simple_declaration, member_declaration or function_definition
     // holding this one
     AST point_of_declaration;
+
+    // States if the variable is a parameter (kind == SK_VARIABLE)
+    char is_parameter;
 
     // Dependency info. It states if this symbol has a template-dependent nature
     // A value of DI_UNKNOWN means this has not been already computed
@@ -692,7 +681,6 @@ typedef struct scope_entry_list
 {
     // The current entry
     scope_entry_t* entry;
-    
     // Next entry under this name (NULL if last)
     struct scope_entry_list* next;
 } scope_entry_list_t;
@@ -701,12 +689,12 @@ typedef struct scope_entry_list
 enum scope_kind
 {
     UNDEFINED_SCOPE = 0, // Undefined scope, to early catch errors
-    NAMESPACE_SCOPE, // Scope of a namespace
+    NAMESPACE_SCOPE, // Scope of a namespace (including the global one)
     FUNCTION_SCOPE, // Label declarations and gotos 
     PROTOTYPE_SCOPE, // Scope of a prototype
     BLOCK_SCOPE, // Corresponds to the scope of a compound statement
     CLASS_SCOPE, // Class scope
-    TEMPLATE_SCOPE // Template scope, will get inherited everywhere if necessary
+    TEMPLATE_SCOPE // Template scope, where template parameters live
 };
 
 // This is the scope
@@ -725,49 +713,31 @@ struct scope_tag
     char* qualification_name;
 
     // Relationships with other scopes
-    // Nesting relationship is expressed by "contained_in"
+    // Nesting relationship is expressed by "contained_in". This relationship is
+    // valid in all kinds of scopes except for FUNCTION_SCOPE (where there is
+    // not any nesting)
     struct scope_tag* contained_in; 
 
     // using namespace statements (using directives) will fill this
+    // Only valid for BLOCK_SCOPE, CLASS_SCOPE and NAMESPACE_SCOPE
     int num_used_namespaces;
     struct scope_tag** use_namespace;
 
     // Base scopes
+    // Only valid in CLASS_SCOPE
     int num_base_scopes;
     struct scope_tag** base_scope;
-
-    // Prototype scope
-    struct scope_tag* prototype_scope;
-    
-    // Function scope
-    struct scope_tag* function_scope;
-
-    // Template scope
-    struct scope_tag* template_scope;
 } scope_t;
 
-typedef 
-enum unqualified_lookup_behaviour_tag
+/*
+ * Used for function overloading and Koenig lookup
+ */
+typedef
+struct argument_type_info_tag
 {
-    NOFULL_UNQUALIFIED_LOOKUP = 0,
-    FULL_UNQUALIFIED_LOOKUP = 1
-} unqualified_lookup_behaviour_t;
-
-#define BITMAP(x) (1 << x)
-
-typedef 
-enum lookup_flags_tag
-{
-    LF_NONE = 0,
-    LF_CONSTRUCTOR = BITMAP(1),
-    LF_EXPRESSION = BITMAP(2),
-    LF_IN_NAMESPACE_SCOPE = BITMAP(3),
-    LF_FROM_QUALIFIED = BITMAP(4),
-    LF_NO_FAIL = BITMAP(5),
-    LF_NO_INSTANTIATE = BITMAP(6)
-} lookup_flags_t ;
-
-#undef BITMAP
+    type_t* type;
+    char is_lvalue;
+} argument_type_info_t;
 
 MCXX_END_DECLS
 

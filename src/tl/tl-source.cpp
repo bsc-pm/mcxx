@@ -150,7 +150,7 @@ namespace TL
             running_error("Could not parse the expression '%s'", this->get_source(true).c_str());
         }
 
-        solve_possibly_ambiguous_expression(a, ctx._st, default_decl_context);
+        solve_possibly_ambiguous_expression(a, ctx._decl_context);
 
         AST_t result(a);
         return result;
@@ -188,13 +188,12 @@ namespace TL
             running_error("Could not parse the expression '%s'", this->get_source(true).c_str());
         }
 
-        solve_possibly_ambiguous_expression(a, ctx._st, default_decl_context);
+        solve_possibly_ambiguous_expression(a, ctx._decl_context);
 
         AST_t result(a);
 
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, a);
-
-        scope_link_set(scope_link._scope_link, a, ctx._st, default_decl_context);
+        scope_link_set(scope_link._scope_link, a, decl_context);
 
         return result;
     }
@@ -218,8 +217,8 @@ namespace TL
 
         if (a != NULL)
         {
-            build_scope_member_specification_with_scope_link(ctx._st, a, AS_PUBLIC, 
-                    class_type._type_info, default_decl_context, scope_link._scope_link);
+            build_scope_member_specification_with_scope_link(ctx._decl_context, scope_link._scope_link, a, AS_PUBLIC, 
+                    class_type._type_info);
         }
 
         return AST_t(a);
@@ -259,7 +258,7 @@ namespace TL
 
         if (a != NULL)
         {
-            build_scope_statement_seq_with_scope_link(a, ctx._st, default_decl_context, scope_link._scope_link);
+            build_scope_statement_seq_with_scope_link(a, ctx._decl_context, scope_link._scope_link);
         }
 
         AST_t result(a);
@@ -298,7 +297,7 @@ namespace TL
             running_error("Could not parse declaration\n\n%s\n", this->get_source(true).c_str());
         }
 
-        decl_context_tag decl_context = default_decl_context;
+        decl_context_tag decl_context = ctx._decl_context;
 
         int parse_flags_int = (int)parse_flags;
         if ((parse_flags_int & Source::ALLOW_REDECLARATION) == Source::ALLOW_REDECLARATION)
@@ -308,7 +307,7 @@ namespace TL
 
         if (a != NULL)
         {
-            build_scope_declaration_sequence_with_scope_link(a, ctx._st, decl_context, scope_link._scope_link);
+            build_scope_declaration_sequence_with_scope_link(a, decl_context, scope_link._scope_link);
         }
 
         AST_t result(a);
@@ -365,12 +364,10 @@ namespace TL
         }
         
         // Get the scope and declarating context of the reference tree
-        scope_t* scope = scope_link_get_scope(scope_link._scope_link, ref_tree._ast);
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
-
         if (a != NULL)
         {
-            build_scope_statement_seq_with_scope_link(a, scope, decl_context, scope_link._scope_link);
+            build_scope_statement_seq_with_scope_link(a, decl_context, scope_link._scope_link);
         }
 
         AST_t result(a);
@@ -409,21 +406,18 @@ namespace TL
         }
 
         // Get the scope and declarating context of the reference tree
-        scope_t* scope = scope_link_get_scope(scope_link._scope_link, ref_tree._ast);
-
         CURRENT_CONFIGURATION(scope_link) = scope_link._scope_link;
-
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
         if (a != NULL)
         {
-            solve_possibly_ambiguous_expression(a, scope, decl_context);
+            solve_possibly_ambiguous_expression(a, decl_context);
         }
 
         CURRENT_CONFIGURATION(scope_link) = NULL;
 
         AST_t result(a);
 
-        scope_link_set(scope_link._scope_link, a, scope, decl_context);
+        scope_link_set(scope_link._scope_link, a, decl_context);
 
         return result;
     }
@@ -460,7 +454,6 @@ namespace TL
         }
         
         // Get the scope and declarating context of the reference tree
-        scope_t* scope = scope_link_get_scope(scope_link._scope_link, ref_tree._ast);
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
 
         int parse_flags_int = (int)parse_flags;
@@ -471,7 +464,7 @@ namespace TL
 
         if (a != NULL)
         {
-            build_scope_declaration_sequence_with_scope_link(a, scope, decl_context, scope_link._scope_link);
+            build_scope_declaration_sequence_with_scope_link(a, decl_context, scope_link._scope_link);
         }
 
         AST_t result(a);
@@ -495,11 +488,10 @@ namespace TL
         }
         
         // Get the scope and declarating context of the reference tree
-        scope_t* scope = scope_link_get_scope(scope_link._scope_link, ref_tree._ast);
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
 
-        build_scope_member_specification_with_scope_link(scope, a, AS_PUBLIC, 
-                class_type._type_info, decl_context, scope_link._scope_link);
+        build_scope_member_specification_with_scope_link(decl_context, scope_link._scope_link, a, AS_PUBLIC, 
+                class_type._type_info);
 
         return AST_t(a);
     }
@@ -528,14 +520,13 @@ namespace TL
         }
 
         // Get the scope and declarating context of the reference tree
-        scope_t* scope = scope_link_get_scope(scope_link._scope_link, ref_tree._ast);
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
 
         type_t* type_info = NULL;
         gather_decl_spec_t gather_info;
         memset(&gather_info, 0, sizeof(gather_info));
 
-        build_scope_decl_specifier_seq(type_specifier_seq, scope, &gather_info, &type_info,
+        build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
                 decl_context);
 
         return Type(type_info);

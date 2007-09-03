@@ -31,7 +31,6 @@ struct debug_flags_list_t;
 %%
 "abort_on_ice", DEBUG_OPTION_REF(abort_on_ice), "When an error condition is detected, compiler will raise SIGABRT signal"
 "print_scope", DEBUG_OPTION_REF(print_scope), "Prints scope of the translation unit"
-"print_scope_brief", DEBUG_OPTION_REF(print_scope_brief), "Prints scope of the translation unit in a more brief format"
 "enable_debug_code", DEBUG_OPTION_REF(enable_debug_code), "Enable debug code, in general these are debug messages"
 "debug_lexer", DEBUG_OPTION_REF(debug_lexer), "Enables lexer debug"
 "debug_parser", DEBUG_OPTION_REF(debug_parser), "Enables parser debug"

@@ -60,7 +60,9 @@ libmcxx_la_SOURCES = \
   cxx-scopelink-decls.h \
   cxx-scopelink.h \
   cxx-exprtype.h \
-  cxx-exprtype.c
+  cxx-exprtype.c \
+  cxx-koenig.h \
+  cxx-koenig.c
 
 libmcxx_la_LDFLAGS = -Wl,-rpath,$(libdir)
 

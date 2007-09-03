@@ -25,24 +25,22 @@
 #include "hash.h"
 #include "cxx-macros.h"
 #include "cxx-scope-decls.h"
+#include "cxx-buildscope-decls.h"
 
 MCXX_BEGIN_DECLS
 
-scope_t* new_namespace_scope(scope_t* enclosing_scope, char* qualification_name);
-scope_t* new_prototype_scope(scope_t* enclosing_scope);
-scope_t* new_block_scope(scope_t* enclosing_scope, scope_t* prototype_scope, scope_t* function_scope);
-scope_t* new_function_scope(scope_t* enclosing_scope, scope_t* prototype_scope);
-scope_t* new_class_scope(scope_t* enclosing_scope, char* qualification_name);
-scope_t* new_template_scope(scope_t* enclosing_scope);
+decl_context_t new_global_context(void);
+decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, char* qualification_name);
+decl_context_t new_prototype_context(decl_context_t enclosing_decl_context);
+decl_context_t new_block_context(decl_context_t enclosing_decl_context);
+decl_context_t new_function_context(decl_context_t enclosing_decl_context);
+decl_context_t new_class_context(decl_context_t enclosing_decl_context, char* qualification_name);
+decl_context_t new_template_context(decl_context_t enclosing_decl_context);
 
-// Functions to handle scope
-scope_entry_t* new_symbol(scope_t* st, char* name);
+// Functions to handle scopes
+scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* st, char* name);
 void remove_entry(scope_t* st, scope_entry_t* entry);
 void insert_entry(scope_t* st, scope_entry_t* entry);
-
-
-// Higher level functions when dealing with the scope
-scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list);
 
 // Given a list of symbols, purge all those that are not of symbol_kind kind
 scope_entry_list_t* filter_symbol_kind(scope_entry_list_t* entry_list, enum cxx_symbol_kind symbol_kind);
@@ -53,61 +51,46 @@ scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int n
 scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum cxx_symbol_kind symbol_kind);
 scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set);
 
-scope_entry_list_t* filter_entry_from_list(scope_entry_list_t* entry_list, scope_entry_t* entry);
-
 scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list, char (*f)(scope_entry_t*));
 
-// Everything built by an id_expression can be queried with this function
-scope_entry_list_t* query_id_expression(scope_t* st, AST id_expr, 
-        unqualified_lookup_behaviour_t unqualified_lookup, struct decl_context_tag decl_context);
+// Query functions
+scope_entry_list_t* query_unqualified_name_str_flags(decl_context_t decl_context,
+        char* unqualified_name, decl_flags_t decl_flags);
+#define query_unqualified_name_str(_decl_context, _unqualified_name) \
+    query_unqualified_name_str_flags(_decl_context, _unqualified_name, DF_NONE)
 
-scope_entry_list_t* query_id_expression_flags(scope_t* st, AST id_expr, 
-        unqualified_lookup_behaviour_t unqualified_lookup, 
-        lookup_flags_t lookup_flags, struct decl_context_tag decl_context);
+// There is no query_unqualified_name as it is the same as query_nested_name with global_op == NULL
+// and nested_name == NULL
+scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context, 
+        AST global_op, 
+        AST nested_name, 
+        AST unqualified_name,
+        decl_flags_t decl_flags);
+#define query_nested_name(_decl_context, _global_op, _nested_name, _unqualified_name) \
+    query_nested_name_flags(_decl_context, _global_op, _nested_name, _unqualified_name, DF_NONE)
 
-// Performs a full unqualified lookup
-scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name);
-scope_entry_list_t* query_unqualified_name_flags(scope_t* st, char* unqualified_name, 
-        lookup_flags_t lookup_flags);
+// Only in the current scope
+scope_entry_list_t* query_in_scope_str_flags(decl_context_t decl_context,
+        char *name, decl_flags_t decl_flags);
+#define query_in_scope_str(_decl_context, _name) \
+    query_in_scope_str_flags(_decl_context, _name, DF_NONE)
 
-// Nested names
-//    This one should be enough for most cases
-scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name, 
-        unqualified_lookup_behaviour_t unqualified_lookup, struct decl_context_tag decl_context);
+scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
+        AST unqualified_name, decl_flags_t decl_flags);
+#define query_in_scope(_decl_context, _unqualified_name) \
+    query_in_scope_flags(_decl_context, _unqualified_name, DF_NONE)
 
-scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nested_name, AST name, 
-        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags,
-        struct decl_context_tag decl_context);
-//    These are here for the purpose of flexibility but should be rarely needed
-scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list, 
-        char* is_dependent, struct decl_context_tag decl_context);
-scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST nested_name, scope_entry_list_t** result_entry_list,
-        char* is_dependent, lookup_flags_t lookup_flags, struct decl_context_tag decl_context);
-// char incompatible_symbol_exists(scope_t* st, AST id_expr, enum cxx_symbol_kind symbol_kind);
-scope_entry_list_t* query_template_id(AST nested_name_spec, scope_t* st, scope_t* lookup_scope,
-        struct decl_context_tag decl_context);
-scope_entry_list_t* query_template_id_flags(AST nested_name_spec, scope_t* st, scope_t* lookup_scope,
-        lookup_flags_t lookup_flags, struct decl_context_tag decl_context);
-scope_entry_list_t* query_unqualified_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope,
-        struct decl_context_tag decl_context);
-scope_entry_list_t* query_unqualified_template_id_flags(AST template_id, scope_t* sc, scope_t* lookup_scope, 
-        lookup_flags_t lookup_flags,
-        struct decl_context_tag decl_context);
-scope_entry_list_t* query_in_symbols_of_scope(scope_t* sc, char* name);
+// Convenience function
+scope_entry_list_t* query_id_expression_flags(decl_context_t decl_context, AST id_expression, decl_flags_t decl_flags);
+#define query_id_expression(_decl_context, _id_expression) \
+    query_id_expression_flags(_decl_context, _id_expression, DF_NONE)
 
 // Manipulators
 scope_entry_list_t* create_list_from_entry(scope_entry_t* entry);
-scope_entry_list_t* append_scope_entry_lists(scope_entry_list_t* a, scope_entry_list_t* b);
-
-// Looking for scopes
-scope_t* enclosing_namespace_scope(scope_t* st);
-
-// Copy scope
-scope_t* copy_scope(scope_t* st);
 
 // Get the fully qualified symbol name in the scope of the ocurrence
-char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* is_dependent, int* max_qualif_level);
-char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st);
+char* get_fully_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context, char* is_dependent, int* max_qualif_level);
+char* get_unqualified_template_symbol_name(scope_entry_t* entry, decl_context_t decl_context);
 char same_scope(scope_t* stA, scope_t* stB);
 
 MCXX_END_DECLS

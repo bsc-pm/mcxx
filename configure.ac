@@ -408,15 +408,22 @@ AC_SUBST([MCXX_LIBS])
 AC_SUBST([INSTRUMENTATION_PHASE])
 
 dnl Versioning things
-
 build_version=""
 if test -d $srcdir/.svn;
 then
+    AC_PATH_PROG([svnversionpath], [svnversion], [])
     AC_MSG_CHECKING([build release])
-    build_version="\"`svnversion $srcdir` (developer version)\""
-    if test $? != 0;
+    run_svnversion=""
+    if test x"$svnversionpath" != x;
     then
-      build_version="\"(developer version)\""
+       echo "$svnversionpath" "$srcdir" >&5
+       run_svnversion=`env LC_ALL=C "$svnversionpath" "$srcdir" 2>&5`
+       build_version="\"$run_svnversion (developer version)\""
+    fi
+
+    if test x"$svnversionpath" = x -o x"$run_svnversion" = x;
+    then
+       build_version="\"unknown svn revision (developer version)\""
     fi
     AC_MSG_RESULT($build_version)
 fi

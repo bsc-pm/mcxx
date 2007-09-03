@@ -18,9 +18,10 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-template <typename T>
+template <typename _T>
 struct A
 {
+    typedef _T *Q;
 };
 
 template <typename T, 
@@ -32,3 +33,7 @@ struct M
 
 typedef A<int> P;
 typedef M<int>::F P;
+
+typedef A<int>::Q P1;
+typedef M<int>::F::Q P1;
+typedef int *P1;

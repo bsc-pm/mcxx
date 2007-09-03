@@ -27,7 +27,7 @@
 
 MCXX_BEGIN_DECLS
 
-void print_scope(scope_t* st);
+void print_scope(decl_context_t decl_context);
 
 MCXX_END_DECLS
 

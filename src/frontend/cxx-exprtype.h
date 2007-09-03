@@ -36,7 +36,7 @@ MCXX_BEGIN_DECLS
 type_t *integer_type(void);
 type_t *unsigned_integer_type(void);
 
-type_t *compute_expression_type(AST expr, scope_t *sc, decl_context_t decl_context, char *is_lvalue);
+type_t *compute_expression_type(AST expr, decl_context_t decl_context, char *is_lvalue);
 
 MCXX_END_DECLS
 

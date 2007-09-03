@@ -221,7 +221,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> functional_declarator_id
 // %type<ast> decl_specifier
 %type<ast> decl_specifier_seq
-%type<ast> direct_abstract_declarator
+%type<ast> abstract_direct_declarator
 %type<ast> direct_declarator
 %type<ast> functional_direct_declarator
 %type<ast> elaborated_type_specifier
@@ -1295,7 +1295,7 @@ abstract_declarator : ptr_operator
 {
 	$$ = ASTMake2(AST_ABSTRACT_DECLARATOR, $1, $2, ASTLine($1), NULL);
 }
-| direct_abstract_declarator
+| abstract_direct_declarator
 {
 	$$ = $1;
 }
@@ -1308,13 +1308,13 @@ abstract_declarator : ptr_operator
 {
 	$$ = ASTMake2(AST_GCC_PTR_ABSTRACT_DECLARATOR, $1, $2, ASTLine($1), NULL);
 }
-| attributes direct_abstract_declarator
+| attributes abstract_direct_declarator
 {
 	$$ = ASTMake2(AST_GCC_ABSTRACT_DECLARATOR, $1, $2, ASTLine($1), NULL);
 }
 ;
 
-direct_abstract_declarator : '(' abstract_declarator ')'
+abstract_direct_declarator : '(' abstract_declarator ')'
 {
 	$$ = ASTMake1(AST_PARENTHESIZED_ABSTRACT_DECLARATOR, $2, $1.token_line, NULL);
 }
@@ -1322,7 +1322,7 @@ direct_abstract_declarator : '(' abstract_declarator ')'
 {
 	$$ = ASTMake4(AST_ABSTRACT_DECLARATOR_FUNC, NULL, $2, NULL, NULL, $1.token_line, NULL);
 }
-| direct_abstract_declarator '(' parameter_type_list ')'
+| abstract_direct_declarator '(' parameter_type_list ')'
 {
 	$$ = ASTMake4(AST_ABSTRACT_DECLARATOR_FUNC, $1, $3, NULL, NULL, ASTLine($1), NULL);
 }
@@ -1332,7 +1332,7 @@ direct_abstract_declarator : '(' abstract_declarator ')'
 
 	$$ = ASTMake4(AST_ABSTRACT_DECLARATOR_FUNC, NULL, empty_parameter, NULL, NULL, $1.token_line, NULL);
 }
-| direct_abstract_declarator '(' ')'
+| abstract_direct_declarator '(' ')'
 {
 	AST empty_parameter = ASTLeaf(AST_EMPTY_PARAMETER_DECLARATION_CLAUSE, 0, NULL);
 
@@ -1352,15 +1352,15 @@ direct_abstract_declarator : '(' abstract_declarator ')'
 
     $$ = ASTMake2(AST_ABSTRACT_ARRAY, NULL, vla_expr, $1.token_line, NULL);
 }
-| direct_abstract_declarator '[' assignment_expression ']'
+| abstract_direct_declarator '[' assignment_expression ']'
 {
 	$$ = ASTMake2(AST_ABSTRACT_ARRAY, $1, $3, ASTLine($1), NULL);
 }
-| direct_abstract_declarator '[' ']'
+| abstract_direct_declarator '[' ']'
 {
 	$$ = ASTMake2(AST_ABSTRACT_ARRAY, $1, NULL, ASTLine($1), NULL);
 }
-| direct_abstract_declarator '[' '*' ']'
+| abstract_direct_declarator '[' '*' ']'
 {
     AST vla_expr = ASTLeaf(AST_VLA_EXPRESSION, $3.token_line, $3.token_text);
 

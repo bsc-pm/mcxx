@@ -25,9 +25,9 @@ namespace TL
 Scope ScopeLink::get_scope(AST_t ast) const
 {
     AST _ast = ast._ast;
-    scope_t* st = scope_link_get_scope(_scope_link, _ast);
+    decl_context_t decl_context = scope_link_get_decl_context(_scope_link, _ast);
 
-    Scope result(st);
+    Scope result(decl_context);
     return result;
 }
 

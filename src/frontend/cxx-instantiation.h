@@ -26,10 +26,10 @@
 
 MCXX_BEGIN_DECLS
 
-void instantiate_template(scope_entry_t* entry, scope_t* st, decl_context_t decl_context);
+void instantiate_template(scope_entry_t* entry, decl_context_t decl_context);
 
 scope_entry_t* create_holding_symbol_for_template(matching_pair_t* matched_template, template_argument_list_t*
-        arguments, scope_t* st, int instantiation_line, decl_context_t decl_context);
+        arguments, int instantiation_line, char* instantiation_file, decl_context_t decl_context);
 
 MCXX_END_DECLS
 

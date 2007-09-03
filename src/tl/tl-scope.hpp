@@ -37,25 +37,36 @@ namespace TL
     class Scope : public Object
     {
         private:
-            scope_t* _st;
+            // This class used to save scope_t* but not it holds
+            // decl_context_t, that allows us to reach all the implied scopes
+            // in some place
+            bool _valid;
+            decl_context_t _decl_context;
             static void convert_to_vector(scope_entry_list_t* entry_list, ObjectList<Symbol>& out);
             static void get_head(const ObjectList<Symbol>& in, Symbol& out);
         protected:
             virtual tl_type_t* get_extended_attribute(const std::string& str) const;
         public:
             Scope()
-                : _st(NULL)
+                : _valid(0)
             {
             }
 
-            Scope(scope_t* st)
-                : _st(st)
+            Scope(const decl_context_t& decl_context)
+                : _valid(1), _decl_context(decl_context)
             {
             }
 
             Scope(const Scope& sc)
-                : _st(sc._st)
+                : _valid(1), _decl_context(sc._decl_context)
             {
+            }
+
+            bool is_valid() const
+            {
+                if (_valid)
+                    return false;
+                return _decl_context.current_scope != NULL;
             }
 
             Scope(RefPtr<Object> obj)
@@ -63,7 +74,7 @@ namespace TL
                 RefPtr<Scope> sc = RefPtr<Scope>::cast_dynamic(obj);
                 if (sc.get_pointer() != NULL)
                 {
-                    this->_st = sc->_st;
+                    this->_decl_context = sc->_decl_context;
                 }
                 else
                 {

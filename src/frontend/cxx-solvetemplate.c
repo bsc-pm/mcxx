@@ -30,7 +30,7 @@
 #include "cxx-driver.h"
 
 static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, 
-        scope_t* st, char give_exact_match, decl_context_t decl_context);
+        char give_exact_match, decl_context_t decl_context);
 
 static
 char *template_nature_name[] =
@@ -42,8 +42,10 @@ char *template_nature_name[] =
     [TPN_COMPLETE_INDEPENDENT] =  "TPN_COMPLETE_INDEPENDENT",
 };
 
-matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, template_argument_list_t* arguments, 
-        scope_t* st, char give_exact_match, decl_context_t decl_context)
+matching_pair_t* solve_template(decl_context_t decl_context,
+        scope_entry_list_t* candidate_templates, 
+        template_argument_list_t* arguments, 
+        char give_exact_match)
 {
     DEBUG_CODE()
     {
@@ -52,8 +54,9 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
         while (it != NULL)
         {
             scope_entry_t* entry = it->entry;
-            fprintf(stderr, "   * Symbol : '%s' Line: '%d' Status : %s\n", 
+            fprintf(stderr, "   * Symbol : '%s' Place: '%s:%d' Status : %s\n", 
                     entry->symbol_name, 
+                    entry->file,
                     entry->line,
                     template_nature_name[entry->type_information->type->template_nature]);
             it = it->next;
@@ -80,7 +83,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
 
     if (!seen_primary_template)
     {
-        internal_error("No primary template was found", 0);
+        internal_error("No primary template was among the candidates", 0);
     }
 
     // Now, for every specialization try to unificate its template_argument_list with ours
@@ -113,7 +116,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
         }
 
         unification_set_t* unification_set = calloc(1, sizeof(*unification_set));
-        if (match_one_template(arguments, specialized, entry, st, unification_set, decl_context))
+        if (match_one_template(arguments, specialized, entry, unification_set, decl_context))
         {
             matching_pair_t* match_pair = calloc(1, sizeof(*match_pair));
 
@@ -140,7 +143,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
             }
 
             unification_set_t* unification_set = calloc(1, sizeof(*unification_set));
-            if (!match_one_template(specialized, arguments, NULL, st, unification_set, decl_context))
+            if (!match_one_template(specialized, arguments, NULL, unification_set, decl_context))
             {
                 return NULL;
             }
@@ -160,11 +163,12 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
         {
             fprintf(stderr, "More than one template can be selected, determining more specialized (give_exact_match=%d)\n", give_exact_match);
         }
-        result = determine_more_specialized(num_matching_set, matching_set, st,
+        result = determine_more_specialized(num_matching_set, matching_set, 
                 give_exact_match, decl_context);
         DEBUG_CODE()
         {
-            fprintf(stderr, "More specialized determined result=%p (line %d)\n", result->entry,
+            fprintf(stderr, "More specialized determined result=%p (%s:%d)\n", result->entry,
+                    result->entry->file,
                     result->entry->line);
         }
     }
@@ -181,7 +185,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
         }
 
         unification_set_t* unification_set = calloc(1, sizeof(*unification_set));
-        if (!match_one_template(specialized, arguments, NULL, st, unification_set, decl_context))
+        if (!match_one_template(specialized, arguments, NULL, unification_set, decl_context))
         {
             return NULL;
         }
@@ -192,7 +196,7 @@ matching_pair_t* solve_template(scope_entry_list_t* candidate_templates, templat
 
 // This function assumes that only one minimum will exist
 static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, 
-        scope_t* st, char give_exact_match, decl_context_t decl_context)
+        char give_exact_match, decl_context_t decl_context)
 {
     matching_pair_t* min = matching_set[0];
 
@@ -222,7 +226,7 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
                     current_entry->entry->line);
         }
 
-        if (!match_one_template(min_args, current_args, current_entry->entry, st, 
+        if (!match_one_template(min_args, current_args, current_entry->entry, 
                     unification_set, decl_context))
         {
             DEBUG_CODE()
@@ -273,7 +277,7 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
 
 char match_one_template(template_argument_list_t* arguments, 
         template_argument_list_t* specialized, scope_entry_t* specialized_entry, 
-        scope_t* st, unification_set_t* unif_set,
+        unification_set_t* unif_set,
         decl_context_t decl_context)
 {
     int i;
@@ -283,8 +287,8 @@ char match_one_template(template_argument_list_t* arguments,
     {
         if (specialized_entry != NULL)
         {
-            fprintf(stderr, "=== Starting unification with %p (line %d)\n", specialized_entry,
-                    specialized_entry->line);
+            fprintf(stderr, "=== Starting unification with %p (%s:%d)\n", specialized_entry,
+                    specialized_entry->file, specialized_entry->line);
         }
         else
         {
@@ -309,7 +313,7 @@ char match_one_template(template_argument_list_t* arguments,
                         {
                             fprintf(stderr, "=== Unificating types\n");
                         }
-                        if (!unificate_two_types(spec_arg->type, arg->type, st, &unif_set,
+                        if (!unificate_two_types(spec_arg->type, arg->type, &unif_set,
                                     decl_context))
                         {
                             DEBUG_CODE()
@@ -342,8 +346,8 @@ char match_one_template(template_argument_list_t* arguments,
                             internal_error("Expected an expression value for argument", 0);
                         }
 
-                        if (!unificate_two_expressions(&unif_set, spec_arg->argument_tree, spec_arg->scope, 
-                                arg->argument_tree, arg->scope, decl_context))
+                        if (!unificate_two_expressions(&unif_set, spec_arg->argument_tree, spec_arg->decl_context, 
+                                arg->argument_tree, arg->decl_context))
                         {
                             return 0;
                         }
@@ -377,7 +381,7 @@ char match_one_template(template_argument_list_t* arguments,
                     unif_item->parameter_num, unif_item->parameter_nesting, unif_item->parameter_name);
             if (unif_item->value != NULL)
             {
-                fprintf(stderr, "[type] %s", print_declarator(unif_item->value, st));
+                fprintf(stderr, "[type] %s", print_declarator(unif_item->value, decl_context));
             }
             else if (unif_item->expression != NULL)
             {

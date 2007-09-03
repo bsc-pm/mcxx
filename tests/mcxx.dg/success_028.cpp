@@ -23,6 +23,7 @@ namespace C
 	template <typename S>
 	struct A
 	{
+        typedef S *Q;
 	};
 }
 
@@ -32,5 +33,9 @@ struct B
 	typedef V<int> T;
 };
 
-B<C::A>::T t;
-B<C::A> b;
+typedef B<C::A>::T P;
+typedef C::A<int> P;
+
+typedef B<C::A>::T::Q P2;
+typedef C::A<int>::Q P2;
+typedef int *P2;

@@ -102,7 +102,6 @@ void _mcxx_decrement(void *p)
     // Reduce the reference counter
     refp->_mcxx_refcount--;
 
-
     // If no references where hold
     if (refp->_mcxx_refcount == 0)
     {

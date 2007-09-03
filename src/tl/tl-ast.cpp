@@ -215,7 +215,7 @@ namespace TL
 
     std::pair<AST_t, ScopeLink> AST_t::duplicate_with_scope(ScopeLink scope_link) const
     {
-        scope_link_t* new_sl = scope_link_new();
+        scope_link_t* new_sl = scope_link_new(scope_link._scope_link->global_decl_context);
 
         AST duplicated_tree = duplicate_ast_with_scope_link(this->_ast, scope_link._scope_link, new_sl);
 

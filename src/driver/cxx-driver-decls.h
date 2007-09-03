@@ -24,6 +24,7 @@
 #include "cxx-macros.h"
 #include "cxx-scope-decls.h"
 #include "cxx-scopelink-decls.h"
+#include "cxx-buildscope-decls.h"
 #include <stddef.h>
 #include <getopt.h>
 
@@ -87,7 +88,7 @@ typedef struct translation_unit_tag
     char* output_filename;
 
     AST parsed_tree;
-    scope_t* global_scope;
+    decl_context_t global_decl_context;
     scope_link_t* scope_link;
 
     int num_top_level_includes;
@@ -112,7 +113,6 @@ typedef struct debug_options_tag
 {
     char abort_on_ice;
     char print_scope;
-    char print_scope_brief;
     char enable_debug_code;
     char debug_lexer;
     char debug_parser;
@@ -177,7 +177,6 @@ typedef struct compilation_configuration_tag
 
     // This makes things non reentrant (but globally accessable without
     // parameter cluttering)
-    scope_t* global_scope;
     scope_link_t* scope_link;
 
     // Output filename

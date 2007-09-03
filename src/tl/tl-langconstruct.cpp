@@ -767,7 +767,7 @@ namespace TL
 
         decl_context_t decl_context = scope_link_get_decl_context(_scope_link._scope_link, expr_tree);
         char c_is_lvalue = 0;
-        type_t* expression_type = compute_expression_type(expr_tree, sc._st, decl_context, &c_is_lvalue);
+        type_t* expression_type = compute_expression_type(expr_tree, sc._decl_context, &c_is_lvalue);
 
         is_lvalue = c_is_lvalue;
 

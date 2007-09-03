@@ -25,7 +25,7 @@ namespace TL
 {
     void Scope::printscope()
     {
-        print_scope(_st);
+        print_scope(_decl_context);
     }
 
     void Scope::convert_to_vector(scope_entry_list_t* entry_list, ObjectList<Symbol>& out)
@@ -60,7 +60,7 @@ namespace TL
     {
         ObjectList<Symbol> result;
         // Fix this for C++
-        scope_entry_list_t* entry_list = query_unqualified_name(_st, const_cast<char*>(str.c_str()));
+        scope_entry_list_t* entry_list = query_unqualified_name_str(_decl_context, const_cast<char*>(str.c_str()));
 
         convert_to_vector(entry_list, result);
 
@@ -82,8 +82,7 @@ namespace TL
         ObjectList<Symbol> result;
         AST _ast = ast._ast;
 
-        scope_entry_list_t* entry_list = query_id_expression(_st, _ast, 
-                FULL_UNQUALIFIED_LOOKUP, default_decl_context);
+        scope_entry_list_t* entry_list = query_id_expression(_decl_context, _ast);
 
         convert_to_vector(entry_list, result);
 
@@ -102,25 +101,25 @@ namespace TL
 
     Scope Scope::temporal_scope() const
     {
-        scope_t* st = new_block_scope(_st, _st->prototype_scope, _st->function_scope);
+        decl_context_t block_context = new_block_context(_decl_context);
 
-        return Scope(st);
+        return Scope(block_context);
     }
 
     Scope& Scope::operator=(Scope sc)
     {
-        this->_st = sc._st;
+        this->_decl_context = sc._decl_context;
         return (*this);
     }
 
     bool Scope::operator<(Scope sc) const
     {
-        return (this->_st < sc._st);
+        return (this->_decl_context.current_scope < sc._decl_context.current_scope);
     }
 
     bool Scope::operator==(Scope sc) const
     {
-        return (this->_st == sc._st);
+        return (this->_decl_context.current_scope == sc._decl_context.current_scope);
     }
 
     bool Scope::operator!=(Scope sc) const

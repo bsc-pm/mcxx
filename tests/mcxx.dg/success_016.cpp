@@ -54,7 +54,7 @@ namespace A
 
 namespace B
 {
-  template<typename _Tp>
+  template<typename _Tp1>
     class new_allocator
     {
     };
@@ -62,7 +62,7 @@ namespace B
 
 namespace A
 {
-	template<typename _Tp>
+	template<typename _Tp2>
 		struct allocator;
 
 	template<>
@@ -70,25 +70,25 @@ namespace A
 		{
 			public:
 				typedef size_t size_type;
-				template<typename _Tp1>
+				template<typename _Tp3>
 					struct rebind
 					{ 
-						typedef allocator<_Tp1> other; 
+						typedef allocator<_Tp3> other; 
 					};
 		};
 
-	template<typename _Tp>
-		struct allocator: public B::new_allocator<_Tp>
+	template<typename _Tp4>
+		struct allocator: public B::new_allocator<_Tp4>
 		{
 			public:
 				typedef size_t size_type;
-				template<typename _Tp1>
+				template<typename _Tp5>
 					struct rebind
 					{ 
-						typedef allocator<_Tp1> other; 
+						typedef allocator<_Tp5> other; 
 					};
 				allocator(const allocator& __a) throw()
-					: B::new_allocator<_Tp>(__a) { }
+					: B::new_allocator<_Tp4>(__a) { }
 		};
 }
 

@@ -38,7 +38,7 @@ struct unification_item_tag
     
     type_t* value;
     AST expression;
-    scope_t* expr_scope;
+    decl_context_t decl_context;
 } unification_item_t;
 
 typedef struct 
@@ -47,11 +47,10 @@ typedef struct
     unification_item_t** unif_list;
 } unification_set_t;
 
-char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, 
-        unification_set_t** unif_set, decl_context_t decl_context);
+char unificate_two_types(type_t* t1, type_t* t2, unification_set_t** unif_set, decl_context_t decl_context);
 char unificate_two_expressions(unification_set_t **unif_set, 
-        AST left_tree, scope_t* left_scope, 
-        AST right_tree, scope_t* right_scope, decl_context_t decl_context);
+        AST left_tree, decl_context_t left_decl_context, 
+        AST right_tree, decl_context_t right_decl_context);
 type_t* get_type_template_parameter_unification(unification_set_t* unif_set,
         int num, int nesting);
 

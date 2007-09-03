@@ -35,90 +35,103 @@
 #include "hash.h"
 #include "hash_iterator.h"
 
+// Lookup of a simple name within a given declaration context
+static scope_entry_list_t* name_lookup(decl_context_t decl_context, char* name);
+
+// Solve a template given a template-id, a list of found names for the template-id and the declaration context
+// static scope_entry_list_t* solve_template(decl_context_t decl_context, scope_entry_list_t* found_names, AST template_id);
+
+// Looks up the qualification scope for a nested-name-spec
+static scope_t* lookup_qualification_scope(decl_context_t decl_context, AST nested_name, char *is_dependent);
+
+static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_name_context, scope_entry_t* namespace, 
+        AST nested_name_spec, char *is_dependent);
+static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_context, scope_entry_t* class_name, 
+        AST nested_name_spec, char *is_dependent);
+
+static scope_entry_list_t* query_template_id(AST template_id, decl_context_t lookup_context, 
+        decl_context_t nested_name_context, decl_flags_t decl_flags);
+
+// Appends scope entry lists
+static scope_entry_list_t* append_scope_entry_list(scope_entry_list_t* orig, scope_entry_list_t* appended);
+
+// Scope creation functions
+static scope_t* new_scope(void);
+static scope_t* new_namespace_scope(scope_t* st, char* qualification_name);
+static scope_t* new_prototype_scope(scope_t* st);
+static scope_t* new_block_scope(scope_t* enclosing_scope);
+static scope_t* new_class_scope(scope_t* enclosing_scope, char* qualification_name);
+static scope_t* new_template_scope(scope_t* enclosing_scope);
+
+static scope_entry_list_t* name_lookup_bases(scope_t* current_scope, char* name);
+static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_context, 
+        scope_t* current_scope, char* name);
+
+/* Scope creation functions */
+/*
+ * There was a time when the compiler worked directly with scopes instead
+ * of declarative context, that these were the functions used
+ * to create them.
+ */
+
+// Any new scope should be created using this one
 static scope_t* new_scope(void)
 {
-    scope_t* sc = calloc(1, sizeof(*sc));
-    sc->hash = hash_create(HASH_SIZE, HASHFUNC(prime_hash), KEYCMPFUNC(strcmp));
+    scope_t* result = calloc(1, sizeof(*result));
 
-    return sc;
+    result->hash = hash_create(HASH_SIZE, HASHFUNC(prime_hash), KEYCMPFUNC(strcmp));
+
+    return result;
 }
 
-char same_scope(scope_t* stA, scope_t* stB)
-{
-    return (stA->hash == stB->hash);
-}
-
-// static char is_not_incomplete(scope_entry_t* entry)
-// {
-//     return (entry->type_information->type->incomplete == 0);
-// }
-
-// Creates a new namespace scope, a new global scope is created by just
-// passing a NULL enclosing namespace
-scope_t* new_namespace_scope(scope_t* enclosing_scope, char* qualification_name)
+// Creates a new namespace scope and optionally it gives it a
+// qualification_name. Global scope has st == NULL and qualification_name == NULL
+static scope_t* new_namespace_scope(scope_t* st, char* qualification_name)
 {
     scope_t* result = new_scope();
 
+    result->kind = NAMESPACE_SCOPE;
+    result->contained_in = st;
     if (qualification_name != NULL)
     {
         result->qualification_name = strdup(qualification_name);
     }
 
-    result->kind = NAMESPACE_SCOPE;
-    result->contained_in = enclosing_scope;
-
-    result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
-
     DEBUG_CODE()
     {
-        fprintf(stderr, "%s: New namespace scope '%p' created\n", __FUNCTION__, result);
+        fprintf(stderr, "%s: New namespace scope '%p' (qualification='%s') created\n", 
+                __FUNCTION__, result, result->qualification_name);
     }
 
     return result;
 }
 
-// Creates a new prototype scope
-scope_t* new_prototype_scope(scope_t* enclosing_scope)
+// Prototype scope, it is used only in function declarations (but not in function
+// definitions where parameters go in a block scope
+static scope_t* new_prototype_scope(scope_t* enclosing_scope)
 {
     scope_t* result = new_scope();
+
     result->kind = PROTOTYPE_SCOPE;
-
     result->contained_in = enclosing_scope;
-
-    result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "%s: New prototype scope '%p' created\n", __FUNCTION__, result);
+        fprintf(stderr, "%s: new prototype scope '%p' created\n", __FUNCTION__, result);
     }
 
     return result;
 }
 
-// Creates a new block scope
-scope_t* new_block_scope(scope_t* enclosing_scope, scope_t* prototype_scope, scope_t* function_scope)
+// Creates a new block scope. In the standard this is a local scope and it is
+// the scope implicitly created by a function_definition or a compound
+// statement
+static scope_t* new_block_scope(scope_t* enclosing_scope)
 {
     scope_t* result = new_scope();
 
     result->kind = BLOCK_SCOPE;
-    result->prototype_scope = prototype_scope;
-    result->function_scope = function_scope;
     result->contained_in = enclosing_scope;
-
-    result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
-    
-    // Create artificial entry for the block scope
-    static int scope_number = 0;
-    char* c = calloc(256, sizeof(char));
-    sprintf(c, "(#%d)", scope_number);
-    scope_number++;
-
-    scope_entry_t* new_block_scope_entry = new_symbol(enclosing_scope, c);
-    new_block_scope_entry->kind = SK_SCOPE;
-
-    new_block_scope_entry->related_scope = result;
-
-    new_block_scope_entry->defined = 1;
 
     DEBUG_CODE()
     {
@@ -128,16 +141,13 @@ scope_t* new_block_scope(scope_t* enclosing_scope, scope_t* prototype_scope, sco
     return result;
 }
 
-// Creates a new function scope
-scope_t* new_function_scope(scope_t* enclosing_scope, scope_t* prototype_scope)
+// Creates a new function scope. This is the scope where labels (goto) are signed up.
+// Should not be used too much :)
+static scope_t* new_function_scope(void)
 {
     scope_t* result = new_scope();
     
     result->kind = FUNCTION_SCOPE;
-    result->prototype_scope = prototype_scope;
-    result->contained_in = enclosing_scope;
-
-    result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
 
     DEBUG_CODE()
     {
@@ -147,34 +157,38 @@ scope_t* new_function_scope(scope_t* enclosing_scope, scope_t* prototype_scope)
     return result;
 }
 
-// Creates a new class scope
-scope_t* new_class_scope(scope_t* enclosing_scope, char* qualification_name)
+// Creates a new class scope and optionally it is given a qualification name
+static scope_t* new_class_scope(scope_t* enclosing_scope, char* qualification_name)
 {
     scope_t* result = new_scope();
 
     result->kind = CLASS_SCOPE;
+    result->contained_in = enclosing_scope;
 
     if (qualification_name != NULL)
     {
         result->qualification_name = strdup(qualification_name);
     }
 
-    result->contained_in = enclosing_scope;
-
-    result->template_scope = (enclosing_scope != NULL) ? enclosing_scope->template_scope : NULL;
-
     DEBUG_CODE()
     {
-        fprintf(stderr, "%s: New class scope '%p' created\n", __FUNCTION__, result);
+        fprintf(stderr, "%s: New class scope '%p' (qualif=%s) scope created\n", __FUNCTION__, 
+                result, result->qualification_name);
     }
     
     return result;
 }
 
-scope_t* new_template_scope(scope_t* enclosing_scope)
+// A template scope is an aside scope where all template parameters are stored
+// it is inherited everywhere and only created/updated in templated declarations
+// They form a specific stack of template_scopes and they are never current_scope
+// (so functions working on template parameters must work explicitly in the template_scope
+// of decl_context_t)
+static scope_t* new_template_scope(scope_t* enclosing_scope)
 {
     scope_t* result = new_scope();
     result->kind = TEMPLATE_SCOPE;
+    result->contained_in = enclosing_scope;
 
     DEBUG_CODE()
     {
@@ -184,7 +198,139 @@ scope_t* new_template_scope(scope_t* enclosing_scope)
     return result;
 }
 
-scope_entry_t* new_symbol(scope_t* sc, char* name)
+/*
+ * Decl context creation functions. Use it in cxx-buildscope.c
+ * to properly create contexts
+ */
+
+// Creates an anew decl_context_t
+static decl_context_t new_decl_context(void)
+{
+    decl_context_t result;
+    memset(&result, 0, sizeof(result));
+
+    return result;
+}
+
+// Creates a new global context
+decl_context_t new_global_context(void)
+{
+    decl_context_t result = new_decl_context();
+
+    // Create global scope
+    result.namespace_scope = new_namespace_scope(NULL, NULL);
+    // Make it the global one
+    result.global_scope = result.namespace_scope;
+    // and the current one
+    result.current_scope = result.namespace_scope;
+
+    return result;
+}
+
+decl_context_t new_namespace_context(decl_context_t enclosing_decl_context, char* qualification_name)
+{
+    ERROR_CONDITION((enclosing_decl_context.current_scope->kind != NAMESPACE_SCOPE),
+            "Enclosing scope must be namespace scope", 0);
+    ERROR_CONDITION((enclosing_decl_context.current_scope != enclosing_decl_context.namespace_scope), 
+            "Enclosing namespace scope has a mismatch between its current scope and its namespace scope", 0);
+
+    // Inherit current context
+    decl_context_t result = enclosing_decl_context;
+
+    // Create a new namespace scope contained in the previous one
+    result.namespace_scope = new_namespace_scope(enclosing_decl_context.namespace_scope, qualification_name);
+    // And make it the current one
+    result.current_scope = result.namespace_scope;
+
+    return result;
+}
+
+decl_context_t new_prototype_context(decl_context_t enclosing_decl_context)
+{
+    // Inherit current context
+    decl_context_t result = enclosing_decl_context;
+
+    // Create the prototype scope
+    result.prototype_scope = new_prototype_scope(enclosing_decl_context.current_scope);
+    // and make it the current scope
+    result.current_scope = result.prototype_scope;
+
+    return result;
+}
+
+
+decl_context_t new_block_context(decl_context_t enclosing_context)
+{
+    ERROR_CONDITION(enclosing_context.current_scope->kind != NAMESPACE_SCOPE
+            && enclosing_context.current_scope->kind != CLASS_SCOPE
+            && enclosing_context.current_scope->kind != BLOCK_SCOPE,
+            "Enclosing scope is neither namespace nor class scope", 0);
+
+    // Inherit block context
+    decl_context_t result = enclosing_context;
+
+    // Create new block scope
+    result.block_scope = new_block_scope(enclosing_context.current_scope);
+
+    // And update the current scope
+    result.current_scope = result.block_scope;
+
+    return result;
+}
+
+
+decl_context_t new_function_context(decl_context_t enclosing_context)
+{
+    // Inherit the scope
+    decl_context_t result = enclosing_context;
+    // Create a new function scope for it
+    result.function_scope = new_function_scope();
+    // Note that we are not changing the current_scope, since nothing
+    // works on it.
+    return result;
+}
+
+decl_context_t new_class_context(decl_context_t enclosing_context, char* qualification_name)
+{
+    ERROR_CONDITION(enclosing_context.current_scope->kind != NAMESPACE_SCOPE
+            && enclosing_context.current_scope->kind != CLASS_SCOPE
+            && enclosing_context.current_scope->kind != BLOCK_SCOPE, /* The last case yields a local class */
+            "Enclosing scope is neither namespace, class or local", 0
+            );
+
+    // Inherit the scope
+    decl_context_t result = enclosing_context;
+
+    // Create new class scope
+    result.class_scope = new_class_scope(enclosing_context.current_scope, qualification_name);
+
+    // And make it the current one
+    result.current_scope = result.class_scope;
+
+    return result;
+}
+
+decl_context_t new_template_context(decl_context_t enclosing_context)
+{
+    ERROR_CONDITION(enclosing_context.template_scope != NULL
+            && enclosing_context.template_scope->kind != TEMPLATE_SCOPE,
+            "Enclosing template-scope is not a template scope", 0);
+
+    // Inherit the current decl context
+    decl_context_t result = enclosing_context;
+
+    // And stack another template_scope
+    result.template_scope = new_template_scope(enclosing_context.template_scope);
+    // But do not make it the current! Remember, it is an aside template
+    // orthogonal to the current context
+
+    return result;
+}
+
+
+// Normally we work on decl_context.current_scope but for template parameters
+// sc != decl_context.current_scope so allow the user such freedom
+scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, char* name)
 {
     scope_entry_list_t* result_set = (scope_entry_list_t*) hash_get(sc->hash, name);
 
@@ -192,7 +338,9 @@ scope_entry_t* new_symbol(scope_t* sc, char* name)
 
     result = calloc(1, sizeof(*result));
     result->symbol_name = strdup(name);
-    result->scope = copy_scope(sc);
+    // Remember, for template parameters, .current_scope will not contain
+    // its declaration scope but will be in .template_scope
+    result->decl_context = decl_context;
 
     if (result_set != NULL)
     {
@@ -216,6 +364,11 @@ scope_entry_t* new_symbol(scope_t* sc, char* name)
     return result;
 }
 
+char same_scope(scope_t* stA, scope_t* stB)
+{
+    return (stA->hash == stB->hash);
+}
+
 static char* scope_names[] =
 {
     [UNDEFINED_SCOPE] = "UNDEFINED_SCOPE",
@@ -227,11 +380,22 @@ static char* scope_names[] =
     [TEMPLATE_SCOPE] = "TEMPLATE_SCOPE",
 };
 
-scope_entry_list_t* query_in_symbols_of_scope(scope_t* sc, char* name)
+static scope_entry_list_t* query_name_in_scope(scope_t* sc, char* name)
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "Looking symbol '%s' in %s '%p' [%p]...\n", name, scope_names[sc->kind], sc, sc->hash);
+        if (sc->qualification_name == NULL)
+        {
+        fprintf(stderr, "Looking symbol '%s' in %s (scope=%p, hash=%p)...\n", 
+                name, scope_names[sc->kind], sc, sc->hash);
+        }
+        else
+        {
+        fprintf(stderr, "Looking symbol '%s' in %s (qualification=%s, scope=%p, hash=%p)...\n", 
+                name, scope_names[sc->kind], 
+                sc->qualification_name,
+                sc, sc->hash);
+        }
     }
     scope_entry_list_t* result = (scope_entry_list_t*) hash_get(sc->hash, name);
 
@@ -312,888 +476,6 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
     }
 }
 
-/*
- * Returns the scope of this nested name specification
- */
-scope_t* query_nested_name_spec(scope_t* sc, AST global_op, AST nested_name,
-        scope_entry_list_t** result_entry_list, char* is_dependent,
-        decl_context_t decl_context)
-{
-    return query_nested_name_spec_flags(sc, global_op, nested_name, 
-            result_entry_list, is_dependent, LF_NONE,
-            decl_context);
-}
-
-scope_t* query_nested_name_spec_flags(scope_t* sc, AST global_op, AST
-        param_nested_name, scope_entry_list_t** result_entry_list, char*
-        is_dependent, lookup_flags_t lookup_flags, decl_context_t decl_context)
-{
-    int qualif_level = 0;
-    // We'll start the search in "sc"
-    scope_t* lookup_scope = sc;
-    scope_entry_list_t* entry_list = NULL;
-
-    *is_dependent = 0;
-
-    // We've been told to look up in the first enclosing namespace scope
-    if (BITMAP_TEST(lookup_flags, LF_IN_NAMESPACE_SCOPE))
-    {
-        lookup_scope = copy_scope(enclosing_namespace_scope(lookup_scope));
-
-        ERROR_CONDITION((lookup_scope == NULL), "Namespace scope not found!\n", 0);
-
-        lookup_scope->template_scope = sc->template_scope;
-    }
-
-    // unless we are told to start in the global scope
-    if (global_op != NULL)
-    {
-        lookup_scope = CURRENT_COMPILED_FILE(global_scope);
-    }
-
-    lookup_scope = copy_scope(lookup_scope);
-    lookup_scope->template_scope = sc->template_scope;
-
-    AST nested_name = param_nested_name;
-    char seen_class = 0;
-    // Traverse the qualification tree
-    char dependent_template = 0;
-    while (nested_name != NULL)
-    {
-
-        AST nested_name_spec = ASTSon0(nested_name);
-
-        switch (ASTType(nested_name_spec))
-        {
-            case AST_SYMBOL :
-                {
-                    // Do nothing if we have seen that this is dependent
-                    if (*is_dependent)
-                    {
-                        break;
-                    }
-
-                    if (qualif_level == 0)
-                    {
-                        entry_list = query_unqualified_name(lookup_scope, ASTText(nested_name_spec));
-                    }
-                    else
-                    {
-                        entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(nested_name_spec));
-                    }
-
-                    // If not found, null
-                    if (entry_list == NULL)
-                    {
-                        return NULL;
-                    }
-
-                    // Now filter for things that can qualify
-                    // without using template-id's
-                    enum cxx_symbol_kind filter[6] = {
-                        // These two are obvious
-                        SK_CLASS, 
-                        SK_NAMESPACE, 
-                        // This one is somewhat annoying
-                        SK_TYPEDEF, 
-                        // These two are involved in 'typename _T::' things
-                        SK_TEMPLATE_TYPE_PARAMETER, 
-                        SK_TEMPLATE_TEMPLATE_PARAMETER,
-                        // SK_TEMPLATE_SPECIALIZED_CLASS seems odd here,
-                        // but it is possible like it is SK_CLASS. Again this
-                        // is due to the injected symbol of an instantiated
-                        // class
-                        SK_TEMPLATE_SPECIALIZED_CLASS 
-                    };
-                    entry_list = filter_symbol_kind_set(entry_list, 6, filter);
-
-                    if (entry_list == NULL)
-                    {
-                        return NULL;
-                    }
-
-                    scope_entry_t* entry = entry_list->entry;
-
-
-                    if (entry->kind == SK_TYPEDEF)
-                    {
-                        // Advance over typedefs
-                        type_t* aliased_type = entry->type_information;
-                        aliased_type = advance_over_typedefs(aliased_type);
-
-                        // Now get the entry_t*
-                        // If this is a typedef it can only be a typedef
-                        // against a type that should be a typename or a
-                        // template dependent type
-                        if (aliased_type->kind != TK_DIRECT
-                                || (aliased_type->type->kind != STK_USER_DEFINED
-                                    && aliased_type->type->kind != STK_TEMPLATE_DEPENDENT_TYPE))
-                        {
-                            return NULL;
-                        }
-
-                        if ((aliased_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE)
-                                && BITMAP_TEST(lookup_flags, LF_EXPRESSION))
-                        {
-                            *is_dependent = 1;
-                            return NULL;
-                        }
-
-                        entry = aliased_type->type->user_defined_type;
-
-                        if (entry == NULL)
-                        {
-                            return NULL;
-                        }
-
-                        // We need to instantiate it if possible
-                        // The entry is a specialized class
-                        if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-                                // and the symbol is not complete but independent (thus it can be instantiated)
-                                && (entry->type_information->type->template_nature == TPN_INCOMPLETE_INDEPENDENT)
-                                && !BITMAP_TEST(lookup_flags, LF_NO_INSTANTIATE))
-                        {
-                            // Instantiation happenning here
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "Instantiation of '%s' within qualified name lookup\n", entry->symbol_name);
-                            }
-
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "Filtering entry %p from candidate list\n", entry);
-                            }
-                            instantiate_template(entry, entry->scope, decl_context);
-                        }
-
-                        // If this cannot be instantiated, well, notify that this is something dependent
-                        if ((entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-                                    || entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
-                                && (entry->type_information->type->template_nature == TPN_INCOMPLETE_DEPENDENT
-                                    || entry->type_information->type->template_nature == TPN_COMPLETE_DEPENDENT))
-                        {
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "Returning a dependent entity due to the lookup of '%s'\n",
-                                        entry->symbol_name);
-                            }
-                            *is_dependent = 1;
-                            return NULL;
-                        }
-
-                        // Other ways to reach here
-                        // typedef with a SK_CLASS, this always should work, nothing else has to be done
-                    }
-
-                    if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-                            || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-                    {
-                        *is_dependent = 1;
-                        break;
-                    }
-
-                    // Classes do not have namespaces within them
-                    if (seen_class && (entry->kind == SK_NAMESPACE))
-                    {
-                        return NULL;
-                    }
-
-                    // Once seen a class no more namespaces can appear
-                    if (entry->kind == SK_CLASS)
-                    {
-                        seen_class = 1;
-                    }
-
-                    // It looks fine, update the scope
-                    scope_t* previous_scope = lookup_scope;
-                    lookup_scope = copy_scope(entry->related_scope);
-
-                    // This can be null if the type is incomplete and we are
-                    // declaring a pointer to member
-                    if (lookup_scope != NULL)
-                    {
-                        lookup_scope->template_scope = previous_scope->template_scope;
-                    }
-
-                    break;
-                }
-            case AST_TEMPLATE_ID :
-                {
-                    char valid_template_arguments = 
-                        solve_possibly_ambiguous_template_id(nested_name_spec, sc, decl_context);
-
-                    // If template arguments are not feasible, this will not lead
-                    // us to anywhere but havoc
-                    if (!valid_template_arguments)
-                    {
-                        return NULL;
-                    }
-
-                    // Nothing else is necessary if we've seen that this was dependent
-                    if (*is_dependent)
-                    {
-                        break;
-                    }
-
-                    if (dependent_template)
-                    {
-                        lookup_flags |= LF_NO_FAIL;
-                    }
-
-                    if (qualif_level == 0)
-                    {
-                        entry_list = query_unqualified_template_id_flags(nested_name_spec, sc, lookup_scope, 
-                                lookup_flags, decl_context);
-                    }
-                    else
-                    {
-                        entry_list = query_template_id_flags(nested_name_spec, sc, lookup_scope, 
-                                lookup_flags, decl_context);
-                    }
-
-                    if (entry_list == NULL)
-                    {
-                        return NULL;
-                    }
-
-                    scope_entry_t* entry = entry_list->entry;
-
-                    if (entry->kind == SK_DEPENDENT_ENTITY
-                            || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
-                    {
-                        *is_dependent = 1;
-                        break;
-                    }
-
-                    // Instantiate the template if it is possible to do
-                    if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-                            && entry->type_information->type->template_nature == TPN_INCOMPLETE_INDEPENDENT)
-                    {
-                        instantiate_template(entry, entry->scope, decl_context);
-                        lookup_scope = copy_scope(entry->related_scope);
-                    }
-                    else if ((entry->kind == SK_TEMPLATE_PRIMARY_CLASS
-                            || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-                            && entry->type_information->type->template_nature == TPN_INCOMPLETE_DEPENDENT)
-                    {
-                        // This must be dependent !
-                        *is_dependent = 1;
-                        break;
-                    }
-                    else
-                    {
-                        lookup_scope = copy_scope(entry->related_scope);
-                    }
-
-                    seen_class = 1;
-                    break;
-                }
-            default:
-                {
-                    internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(nested_name_spec)));
-                    break;
-                }
-        }
-
-        qualif_level++;
-        // Update now the dependent template flag because it applies after now
-        dependent_template = (ASTType(nested_name) == AST_NESTED_NAME_SPECIFIER_TEMPLATE);
-        nested_name = ASTSon1(nested_name);
-    }
-
-    // If this was seen as dependent, do not return anything
-    if (*is_dependent)
-    {
-        return NULL;
-    }
-
-    if (result_entry_list != NULL)
-    {
-        *result_entry_list = entry_list;
-    }
-
-    return lookup_scope;
-}
-
-scope_entry_list_t* query_nested_name(scope_t* sc, AST global_op, AST nested_name, AST name, 
-        unqualified_lookup_behaviour_t unqualified_lookup,
-        decl_context_t decl_context)
-{
-    return query_nested_name_flags(sc, global_op, nested_name, name, unqualified_lookup, 
-            LF_NONE, decl_context);
-}
-
-// Similar to query_nested_name_spec but searches the name
-scope_entry_list_t* query_nested_name_flags(scope_t* sc, AST global_op, AST nested_name, AST name, 
-        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags,
-        decl_context_t decl_context)
-{
-    scope_entry_list_t* result = NULL;
-    scope_t* lookup_scope;
-
-    if (global_op == NULL && nested_name == NULL)
-    {
-        char* symbol_name = ASTText(name);
-
-        lookup_scope = sc;
-
-        if (BITMAP_TEST(lookup_flags, LF_CONSTRUCTOR))
-        {
-            symbol_name = strprepend(symbol_name, "constructor ");
-        }
-
-        if (BITMAP_TEST(lookup_flags, LF_IN_NAMESPACE_SCOPE))
-        {
-            lookup_scope = copy_scope(enclosing_namespace_scope(sc));
-            ERROR_CONDITION((lookup_scope == NULL), "Enclosing namespace not found\n", 0);
-
-            lookup_scope->template_scope = sc->template_scope;
-        }
-
-        // This is an unqualified identifier
-        switch (ASTType(name))
-        {
-            case AST_SYMBOL :
-                switch (unqualified_lookup)
-                {
-                    case FULL_UNQUALIFIED_LOOKUP :
-                        {
-                            result = query_unqualified_name(lookup_scope, symbol_name);
-                            break;
-                        }
-                    case NOFULL_UNQUALIFIED_LOOKUP :
-                        {
-                            result = query_in_symbols_of_scope(lookup_scope, symbol_name);
-                            break;
-                        }
-                    default :
-                        {
-                            internal_error("Invalid lookup behaviour", 0);
-                        }
-                }
-                break;
-            case AST_TEMPLATE_ID:
-                {
-                    solve_possibly_ambiguous_template_id(name, sc, decl_context);
-
-                    result = query_unqualified_template_id_flags(name, sc, 
-                            lookup_scope, lookup_flags, decl_context);
-                }
-                break;
-            default :
-                internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(name)));
-        }
-    }
-    else
-    {
-        char is_dependent = 0;
-        if (((lookup_scope = query_nested_name_spec_flags(sc, global_op, nested_name, 
-                        NULL, &is_dependent, lookup_flags, decl_context)) != NULL)
-                // We cannot lookup things inside things that are dependent
-                // since they are not completely instantiated
-                && !is_dependent)
-        {
-            switch (ASTType(name))
-            {
-                case AST_SYMBOL :
-                    {
-                        char* symbol_name = ASTText(name);
-
-                        if (BITMAP_TEST(lookup_flags, LF_CONSTRUCTOR))
-                        {
-                            symbol_name = strprepend(symbol_name, "constructor ");
-                        }
-
-                        result = query_unqualified_name_flags(lookup_scope, symbol_name, lookup_flags | LF_FROM_QUALIFIED);
-                    }
-                    break;
-                case AST_TEMPLATE_ID:
-                    {
-                        char valid_template_arguments =
-                            solve_possibly_ambiguous_template_id(name, sc,
-                                    decl_context);
-
-                        // If template arguments are not valid, skip
-                        if (!valid_template_arguments)
-                        {
-                            return NULL;
-                        }
-                        result = query_template_id_flags(name, sc, lookup_scope, lookup_flags,
-                                decl_context);
-                    }
-                    break;
-                case AST_CONVERSION_FUNCTION_ID :
-                    {
-                        char* conversion_function_name = get_conversion_function_name(name, lookup_scope, NULL,
-                                decl_context);
-                        result = query_unqualified_name_flags(lookup_scope, conversion_function_name, lookup_flags | LF_FROM_QUALIFIED);
-                        break;
-                    }
-                case AST_DESTRUCTOR_TEMPLATE_ID :
-                case AST_DESTRUCTOR_ID :
-                    {
-                        char* symbol_name = ASTText(ASTSon0(name));
-                        result = query_unqualified_name_flags(lookup_scope, symbol_name, lookup_flags | LF_FROM_QUALIFIED);
-                        break;
-                    }
-                case AST_OPERATOR_FUNCTION_ID  :
-                    {
-                        // An unqualified operator_function_id "operator +"
-                        char* operator_function_name = get_operator_function_name(name);
-
-                        result = query_unqualified_name_flags(lookup_scope, operator_function_name, 
-                                lookup_flags | LF_FROM_QUALIFIED);
-                        break;
-                    }
-                default :
-                    internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(name)));
-            }
-        }
-        else if (is_dependent)
-        {
-            scope_entry_t* dependent_entity = calloc(1, sizeof(*dependent_entity));
-            dependent_entity->kind = SK_DEPENDENT_ENTITY;
-
-            result = create_list_from_entry(dependent_entity);
-        }
-
-        switch (ASTType(name))
-        {
-            // Solve pending ambiguities at the end of the qualified name
-            case AST_TEMPLATE_ID :
-                {
-                    solve_possibly_ambiguous_template_id(name, sc, decl_context);
-                    break;
-                }
-            default:
-                {
-                    break;
-                }
-        }
-    }
-
-    return result;
-}
-
-
-// This function never instantiates a template, it might create a specialization though
-static scope_entry_list_t* query_template_id_internal(AST template_id, scope_t* sc, scope_t* lookup_scope, 
-        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags,
-        decl_context_t decl_context)
-{
-    AST symbol = ASTSon0(template_id);
-    
-    // First search the primary template and all its specializations
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "Trying to resolve template '%s'\n", ASTText(symbol));
-    }
-
-    scope_entry_list_t* entry_list; 
-    
-    if (unqualified_lookup == FULL_UNQUALIFIED_LOOKUP)
-    {
-        entry_list = query_unqualified_name(lookup_scope, ASTText(symbol));
-    }
-    else
-    {
-        entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(symbol));
-    }
-
-    // Filter things that may be used as template-id
-    enum cxx_symbol_kind filter_templates[5] = {
-        SK_TEMPLATE_PRIMARY_CLASS, 
-        SK_TEMPLATE_SPECIALIZED_CLASS,
-        SK_TEMPLATE_FUNCTION,
-        SK_TEMPLATE_TEMPLATE_PARAMETER,
-        SK_TEMPLATE_ALIAS
-    };
-
-    entry_list = filter_symbol_kind_set(entry_list, 5, filter_templates);
-
-    if (entry_list == NULL)
-    {
-        if (BITMAP_TEST(lookup_flags, LF_NO_FAIL))
-        {
-            return NULL;
-        }
-        else
-        {
-            internal_error("Template '%s' not found! (line=%d)\n", 
-                prettyprint_in_buffer(template_id),
-                ASTLine(template_id));
-        }
-    }
-
-    scope_entry_list_t* template_functions = filter_symbol_kind(entry_list, SK_TEMPLATE_FUNCTION);
-    if (template_functions != NULL)
-    {
-        // This is naming a template function
-        // Just return them, do not do anything else
-        solve_possibly_ambiguous_template_id(template_id, sc, decl_context);
-
-        return template_functions;
-    }
-
-    // A template template parameter does not need anything else
-    scope_entry_list_t* template_template_param = filter_symbol_kind(entry_list, SK_TEMPLATE_TEMPLATE_PARAMETER);
-    if (template_template_param != NULL)
-    {
-        return template_template_param;
-    }
-
-    // Solve template_alias properly
-    scope_entry_list_t* template_alias_list = filter_symbol_kind(entry_list, SK_TEMPLATE_ALIAS);
-    if (template_alias_list != NULL)
-    {
-        scope_entry_t* template_alias = template_alias_list->entry;
-
-        type_t* alias_type_info = template_alias->template_alias_type;
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "Symbol '%s' is a template alias\n", ASTText(symbol));
-        }
-
-        if (alias_type_info->kind != TK_DIRECT
-                || alias_type_info->type->kind != STK_USER_DEFINED)
-        {
-            internal_error("Expected a template name type\n", 0);
-        }
-        
-        entry_list = create_list_from_entry(alias_type_info->type->user_defined_type);
-        symbol = ASTLeaf(AST_SYMBOL, 
-                alias_type_info->type->user_defined_type->line,
-                alias_type_info->type->user_defined_type->symbol_name);
-    }
-
-    // Now readjust the scope to really find the templates and not just the
-    // injected class name.
-    scope_t* previous_template_scope = lookup_scope->template_scope;
-    lookup_scope = entry_list->entry->scope;
-    lookup_scope->template_scope = previous_template_scope;
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "Lookup scope adjusted\n");
-    }
-
-    if (unqualified_lookup == FULL_UNQUALIFIED_LOOKUP)
-    {
-        entry_list = query_unqualified_name(lookup_scope, ASTText(symbol));
-    }
-    else
-    {
-        entry_list = query_in_symbols_of_scope(lookup_scope, ASTText(symbol));
-    }
-
-    enum cxx_symbol_kind filter_template_classes[3] = {
-        SK_TEMPLATE_PRIMARY_CLASS, 
-        SK_TEMPLATE_SPECIALIZED_CLASS,
-        SK_TEMPLATE_TEMPLATE_PARAMETER
-    };
-
-    entry_list = filter_symbol_kind_set(entry_list, 3, filter_template_classes);
-
-    if (entry_list == NULL)
-    {
-        if (BITMAP_TEST(lookup_flags, LF_NO_FAIL))
-        {
-            return NULL;
-        }
-        else
-        {
-            internal_error("Template not found! (line=%d)\n", ASTLine(template_id));
-        }
-    }
-
-    template_argument_list_t* current_template_arguments = NULL;
-    // Note the scope being different here
-    build_scope_template_arguments(template_id, lookup_scope, sc, sc, 
-            &current_template_arguments, decl_context);
-
-    // Now we check all the template arguments to see if any of them is
-    // dependent
-    int i;
-    char seen_dependent_args = 0;
-    for (i = 0; (i < current_template_arguments->num_arguments)
-            && !seen_dependent_args; i++)
-    {
-        template_argument_t* argument = current_template_arguments->argument_list[i];
-        if (argument->kind == TAK_TYPE)
-        {
-            if (is_dependent_type(argument->type, decl_context))
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "-> Dependent type template argument '%s'\n",
-                            prettyprint_in_buffer(argument->argument_tree));
-                }
-                seen_dependent_args = 1;
-            }
-        }
-        else if (argument->kind == TAK_TEMPLATE)
-        {
-            // Fix this
-        }
-        else if (argument->kind == TAK_NONTYPE)
-        {
-            if (is_dependent_expression(argument->argument_tree, argument->scope, decl_context))
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "-> Dependent expression template argument '%s'\n",
-                            prettyprint_in_buffer(argument->argument_tree));
-                }
-                seen_dependent_args = 1;
-            }
-        }
-    }
-
-    // If this is considered in the context of an expression and dependent args
-    // have been seen, create a dependent entity
-    if (BITMAP_TEST(lookup_flags, LF_EXPRESSION) 
-            && seen_dependent_args)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "This is a dependent template-id used in an expression\n");
-        }
-
-        scope_entry_t* dependent_entity = calloc(1, sizeof(*dependent_entity));
-        dependent_entity->kind = SK_DEPENDENT_ENTITY;
-
-        return create_list_from_entry(dependent_entity);
-    }
-
-    // If we have seen dependent arguments, we will not create any
-    // specialization unless we are asked to
-    if (BITMAP_TEST(decl_context.decl_flags, DF_ALWAYS_CREATE_SPECIALIZATION))
-    {
-        // Forget we saw dependent arguments
-        seen_dependent_args = 0;
-    }
-    
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "-> Looking for exact match templates\n");
-    }
-
-    matching_pair_t* matched_template = solve_template(entry_list,
-            current_template_arguments, sc, /* exact = */ 1, decl_context);
-    if (matched_template != NULL)
-    {
-        // There is an exact match
-        scope_entry_t* matched_entry = matched_template->entry;
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "-> Just returning the exact matching template %p in line %d\n", 
-                    matched_entry, matched_entry->line);
-        }
-        return create_list_from_entry(matched_entry);
-    }
-    else
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "-> No exact match found\n");
-        }
-    }
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "-> Looking for an unificable template\n");
-    }
-
-    // Look for an unificable template
-    matched_template = solve_template(entry_list, current_template_arguments, sc, /* exact= */ 0,
-            decl_context);
-
-    if (matched_template != NULL)
-    {
-        // If the template-id is independent or it was dependent but we have been
-        // asked to create a specialization, create it
-        if (!seen_dependent_args
-                || BITMAP_TEST(decl_context.decl_flags, DF_ALWAYS_CREATE_SPECIALIZATION))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "-> Creating an incomplete specialization\n");
-            }
-            scope_entry_t* holding_symbol = create_holding_symbol_for_template(matched_template,
-                    current_template_arguments,
-                    sc, ASTLine(template_id), decl_context);
-            return create_list_from_entry(holding_symbol);
-
-        }
-        else
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "-> Returning the unificable template %p in line %d. No specialization has been created\n",
-                        matched_template, 
-                        matched_template->entry->line);
-            }
-            return create_list_from_entry(matched_template->entry);
-        }
-    }
-    else
-    {
-        // There is always a template that matches, the primary one
-        internal_error("Unreachable code", 0);
-        return NULL;
-    }
-}
-
-scope_entry_list_t* query_unqualified_template_id(AST template_id, scope_t* sc, 
-        scope_t* lookup_scope, decl_context_t decl_context)
-{
-    return query_template_id_internal(template_id, sc, lookup_scope, FULL_UNQUALIFIED_LOOKUP, LF_NONE,
-            decl_context);
-}
-
-scope_entry_list_t* query_unqualified_template_id_flags(AST template_id, scope_t* sc, scope_t* lookup_scope,
-        lookup_flags_t lookup_flags, decl_context_t decl_context)
-{
-    return query_template_id_internal(template_id, sc, lookup_scope, FULL_UNQUALIFIED_LOOKUP, lookup_flags,
-            decl_context);
-}
-
-scope_entry_list_t* query_template_id(AST template_id, scope_t* sc, scope_t* lookup_scope,
-        decl_context_t decl_context)
-{
-    return query_template_id_internal(template_id, sc, lookup_scope, 
-            NOFULL_UNQUALIFIED_LOOKUP, LF_NONE, decl_context);
-}
-
-scope_entry_list_t* query_template_id_flags(AST template_id, scope_t* sc, 
-        scope_t* lookup_scope, lookup_flags_t lookup_flags, 
-        decl_context_t decl_context)
-{
-    return query_template_id_internal(template_id, sc, lookup_scope, 
-            NOFULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
-}
-
-scope_entry_list_t* query_id_expression(scope_t* sc, AST id_expr, 
-        unqualified_lookup_behaviour_t unqualified_lookup, decl_context_t decl_context)
-{
-    return query_id_expression_flags(sc, id_expr, unqualified_lookup, LF_NONE, decl_context);
-}
-
-scope_entry_list_t* query_id_expression_flags(scope_t* sc, AST id_expr, 
-        unqualified_lookup_behaviour_t unqualified_lookup, lookup_flags_t lookup_flags,
-        decl_context_t decl_context)
-{
-    switch (ASTType(id_expr))
-    {
-        // Unqualified ones
-        case AST_SYMBOL :
-            {
-                char* id_expr_name = ASTText(id_expr);
-
-                if (BITMAP_TEST(lookup_flags, LF_CONSTRUCTOR))
-                {
-                    id_expr_name = strprepend(id_expr_name, "constructor ");
-                }
-
-                scope_entry_list_t* result = NULL;
-                switch (unqualified_lookup)
-                {
-                    case FULL_UNQUALIFIED_LOOKUP :
-                        {
-                            result = query_unqualified_name(sc, id_expr_name);
-                            break;
-                        }
-                    case NOFULL_UNQUALIFIED_LOOKUP :
-                        {
-                            result = query_in_symbols_of_scope(sc, id_expr_name);
-                            break;
-                        }
-                    default :
-                        {
-                            internal_error("Invalid lookup behaviour", 0);
-                        }
-                }
-                return result;
-                break;
-            }
-        case AST_DESTRUCTOR_TEMPLATE_ID :
-        case AST_DESTRUCTOR_ID :
-            {
-                // An unqualified destructor name "~name"
-                // 'name' should be a class in this scope
-                AST symbol = ASTSon0(id_expr);
-                scope_entry_list_t* result = query_in_symbols_of_scope(sc, ASTText(symbol));
-
-                return result;
-
-                break;
-            }
-        case AST_TEMPLATE_ID :
-            {
-                // An unqualified template_id "identifier<stuff>"
-                AST symbol = ASTSon0(id_expr);
-
-                solve_possibly_ambiguous_template_id(id_expr, sc, decl_context);
-
-                scope_entry_list_t* result = query_unqualified_name(sc, ASTText(symbol));
-
-                return result;
-                break;
-            }
-        case AST_OPERATOR_FUNCTION_ID :
-            {
-                // An unqualified operator_function_id "operator +"
-                char* operator_function_name = get_operator_function_name(id_expr);
-
-                scope_entry_list_t* result = query_in_symbols_of_scope(sc, operator_function_name);
-
-                return result;
-                break;
-            }
-        case AST_CONVERSION_FUNCTION_ID :
-            {
-                char* conversion_function_name = get_conversion_function_name(id_expr, sc, NULL,
-                        decl_context);
-                scope_entry_list_t* result = query_unqualified_name(sc, conversion_function_name);
-                return result;
-                break;
-            }
-            // Qualified ones
-        case AST_QUALIFIED_ID :
-            {
-                // A qualified id "a::b::c"
-                AST global_op = ASTSon0(id_expr);
-                AST nested_name = ASTSon1(id_expr);
-                AST symbol = ASTSon2(id_expr);
-
-                scope_entry_list_t* result = query_nested_name_flags(sc, global_op, nested_name, 
-                        symbol, FULL_UNQUALIFIED_LOOKUP, lookup_flags, decl_context);
-
-                return result;
-                break;
-            }
-        case AST_QUALIFIED_TEMPLATE :
-            {
-                // A qualified template "a::b::template c<a>"
-                internal_error("Unsupported qualified template", 0);
-                break;
-            }
-        case AST_QUALIFIED_OPERATOR_FUNCTION_ID :
-            {
-                // A qualified operator function_id "a::b::operator +"
-                internal_error("Unsupported qualified operator id", 0);
-                break;
-            }
-        default :
-            {
-                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(id_expr)));
-                break;
-            }
-    }
-
-    return NULL;
-}
-
 scope_entry_list_t* create_list_from_entry(scope_entry_t* entry)
 {
     scope_entry_list_t* result = calloc(1, sizeof(*result));
@@ -1202,331 +484,6 @@ scope_entry_list_t* create_list_from_entry(scope_entry_t* entry)
 
     return result;
 }
-
-static scope_entry_list_t* query_in_template_nesting(scope_t* st, char* unqualified_name, lookup_flags_t lookup_flags)
-{
-    scope_entry_list_t* result = NULL;
-
-    while (st != NULL && result == NULL)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "Looking up '%s' in template scope '%p'\n", unqualified_name, st);
-        }
-        result = query_in_symbols_of_scope(st, unqualified_name);
-        st = st->template_scope;
-    }
-
-    return result;
-}
-
-static scope_entry_list_t* lookup_block_scope(scope_t* st, char* unqualified_name, lookup_flags_t lookup_flags)
-{
-    // First check the scope
-    scope_entry_list_t* result = NULL;
-    result = query_in_symbols_of_scope(st, unqualified_name);
-
-    if (result != NULL)
-    {
-        return result;
-    }
-
-    int i;
-    for (i = 0; i < st->num_used_namespaces; i++)
-    {
-        result = query_in_symbols_of_scope(st->use_namespace[i], unqualified_name);
-        if (result != NULL)
-        {
-            return result;
-        }
-    }
-
-    // Search in the scope of labels
-    if (st->function_scope != NULL)
-    {
-        result = query_in_symbols_of_scope(st->function_scope, unqualified_name);
-        if (result != NULL)
-        {
-            return result;
-        }
-    }
-    
-    // Search in the scope of parameters
-    if (st->prototype_scope != NULL)
-    {
-        result = query_in_symbols_of_scope(st->prototype_scope, unqualified_name);
-        if (result != NULL)
-        {
-            return result;
-        }
-    }
-
-    if (!BITMAP_TEST(lookup_flags, LF_FROM_QUALIFIED))
-    {
-        // If the name is unqualified
-        // Otherwise, if template scoping is available, check in the template scope
-        if (st->template_scope != NULL)
-        {
-            result = query_in_template_nesting(st->template_scope, unqualified_name, lookup_flags);
-            if (result != NULL)
-            {
-                return result;
-            }
-        }
-
-        // Otherwise try to find anything in the enclosing scope
-        if (st->contained_in != NULL)
-        {
-            result = query_unqualified_name_flags(st->contained_in, unqualified_name, lookup_flags);
-        }
-    }
-
-    return result;
-}
-
-static scope_entry_list_t* lookup_prototype_scope(scope_t* st, char* unqualified_name, lookup_flags_t lookup_flags)
-{
-    scope_entry_list_t* result = NULL;
-
-    result = query_in_symbols_of_scope(st, unqualified_name);
-    if (result != NULL)
-    {
-        return result;
-    }
-
-    // Otherwise, if template scoping is available, check in the template scope
-    if (st->template_scope != NULL)
-    {
-        result = query_in_template_nesting(st->template_scope, unqualified_name, lookup_flags);
-        if (result != NULL)
-        {
-            return result;
-        }
-    }
-
-    // Otherwise try to find anything in the enclosing scope
-    if (st->contained_in != NULL)
-    {
-        result = query_unqualified_name_flags(st->contained_in, unqualified_name, lookup_flags);
-    }
-
-    return result;
-}
-
-static scope_entry_list_t* lookup_namespace_scope(scope_t* st, char* unqualified_name, lookup_flags_t lookup_flags)
-{
-    // First check the scope
-    scope_entry_list_t* result = NULL;
-
-    result = query_in_symbols_of_scope(st, unqualified_name);
-
-    if (result != NULL)
-    {
-        return result;
-    }
-    
-    // Otherwise, if template scoping is available, check in the template scope
-    if (st->template_scope != NULL)
-    {
-        result = query_in_template_nesting(st->template_scope, unqualified_name, lookup_flags);
-        if (result != NULL)
-        {
-            return result;
-        }
-    }
-
-    int i;
-    for (i = 0; i < st->num_used_namespaces; i++)
-    {
-        result = query_in_symbols_of_scope(st->use_namespace[i], unqualified_name);
-        if (result != NULL)
-        {
-            return result;
-        }
-    }
-
-    if (!BITMAP_TEST(lookup_flags, LF_FROM_QUALIFIED))
-    {
-        // Otherwise try to find anything in the enclosing scope
-        // but only if it is unqualified
-        if (st->contained_in != NULL)
-        {
-            result = query_unqualified_name_flags(st->contained_in, unqualified_name, lookup_flags);
-        }
-    }
-
-    return result;
-}
-
-static scope_entry_list_t* lookup_function_scope(scope_t* st, char* unqualified_name, lookup_flags_t lookup_flags)
-{
-    // First check the scope
-    scope_entry_list_t* result = NULL;
-    result = query_in_symbols_of_scope(st, unqualified_name);
-    
-    if (result != NULL)
-    {
-        return result;
-    }
-    
-    // Search in the namespaces
-    int i;
-    for (i = 0; i < st->num_used_namespaces; i++)
-    {
-        result = query_in_symbols_of_scope(st->use_namespace[i], unqualified_name);
-        if (result != NULL)
-        {
-            return result;
-        }
-    }
-
-    // Otherwise try to find anything in the enclosing scope
-    if (st->contained_in != NULL)
-    {
-        result = query_unqualified_name_flags(st->contained_in, unqualified_name, lookup_flags);
-    }
-
-    return result;
-}
-
-static scope_entry_list_t* lookup_class_scope(scope_t* st, char* unqualified_name, lookup_flags_t lookup_flags)
-{
-    // First check the scope
-    scope_entry_list_t* result = NULL;
-    result = query_in_symbols_of_scope(st, unqualified_name);
-
-    if (result != NULL)
-    {
-        return result;
-    }
-
-    // Search in the namespaces
-    int i;
-    for (i = 0; i < st->num_used_namespaces; i++)
-    {
-        result = query_in_symbols_of_scope(st->use_namespace[i], unqualified_name);
-        if (result != NULL)
-        {
-            return result;
-        }
-    }
-    
-    // Search in the bases
-    for (i = 0; i < st->num_base_scopes; i++)
-    {
-        result = query_unqualified_name_flags(st->base_scope[i], unqualified_name, lookup_flags);
-        if (result != NULL)
-        {
-            return result;
-        }
-    }
-
-    if (!BITMAP_TEST(lookup_flags, LF_FROM_QUALIFIED))
-    {
-        // If it is unqualified
-        // Otherwise, if template scoping is available, check in the template scope
-        if (st->template_scope != NULL)
-        {
-            result = query_in_template_nesting(st->template_scope, unqualified_name, lookup_flags);
-            if (result != NULL)
-            {
-                return result;
-            }
-        }
-
-        // Otherwise try to find anything in the enclosing scope
-        if (st->contained_in != NULL)
-        {
-            result = query_unqualified_name_flags(st->contained_in, unqualified_name, lookup_flags);
-        }
-    }
-
-    return result;
-}
-
-static scope_entry_list_t* lookup_template_scope(scope_t* st, char* unqualified_name, lookup_flags_t lookup_flags)
-{
-    // First check the scope
-    scope_entry_list_t* result = NULL;
-    result = query_in_symbols_of_scope(st, unqualified_name);
-
-    if (result != NULL)
-    {
-        return result;
-    }
-
-    // Otherwise, if template scoping is available, check in the template scope
-    if (st->template_scope != NULL)
-    {
-        result = query_in_template_nesting(st->template_scope, unqualified_name, lookup_flags);
-        if (result != NULL)
-        {
-            return result;
-        }
-    }
-
-    // Otherwise try to find anything in the enclosing scope
-    if (st->contained_in != NULL)
-    {
-        result = query_unqualified_name_flags(st->contained_in, unqualified_name, lookup_flags);
-    }
-
-    return result;
-}
-
-scope_entry_list_t* query_unqualified_name_flags(scope_t* st, char* unqualified_name, 
-        lookup_flags_t lookup_flags)
-{
-    scope_entry_list_t* result = NULL;
-
-    switch (st->kind)
-    {
-        case PROTOTYPE_SCOPE :
-            result = lookup_prototype_scope(st, unqualified_name, lookup_flags);
-            break;
-        case NAMESPACE_SCOPE :
-            result = lookup_namespace_scope(st, unqualified_name, lookup_flags);
-            break;
-        case FUNCTION_SCOPE :
-            result = lookup_function_scope(st, unqualified_name, lookup_flags);
-            break;
-        case BLOCK_SCOPE :
-            result = lookup_block_scope(st, unqualified_name, lookup_flags);
-            break;
-        case CLASS_SCOPE :
-            result = lookup_class_scope(st, unqualified_name, lookup_flags);
-            break;
-        case TEMPLATE_SCOPE :
-            result = lookup_template_scope(st, unqualified_name, lookup_flags);
-            break;
-        case UNDEFINED_SCOPE :
-        default :
-            internal_error("Invalid scope kind=%d!\n", st->kind);
-    }
-
-    return result;
-}
-
-scope_entry_list_t* query_unqualified_name(scope_t* st, char* unqualified_name)
-{
-    return query_unqualified_name_flags(st, unqualified_name, LF_NONE);
-}
-
-// char incompatible_symbol_exists(scope_t* sc, AST id_expr, enum cxx_symbol_kind symbol_kind)
-// {
-//  scope_entry_list_t* entry_list = query_id_expression(sc, id_expr);
-//  char found_incompatible = 0;
-// 
-//  while (!found_incompatible && entry_list != NULL)
-//  {
-//      found_incompatible = (entry_list->entry->kind != symbol_kind);
-// 
-//      entry_list = entry_list->next;
-//  }
-// 
-//  return found_incompatible;
-// }
-
 
 scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int num_kinds, enum cxx_symbol_kind* symbol_kind_set)
 {
@@ -1605,32 +562,6 @@ scope_entry_list_t* filter_symbol_non_kind(scope_entry_list_t* entry_list, enum 
     return result;
 }
 
-scope_entry_list_t* filter_entry_from_list(scope_entry_list_t* entry_list, scope_entry_t* entry)
-{
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "Filtering %p (line %d) from candidate list %p\n", 
-                entry, entry->line, entry_list);
-    }
-    scope_entry_list_t* result = NULL;
-    scope_entry_list_t* iter = entry_list;
-    
-    while (iter != NULL)
-    {
-        if (iter->entry != entry)
-        {
-            scope_entry_list_t* new_item = calloc(1, sizeof(*new_item));
-            new_item->entry = iter->entry;
-            new_item->next = result;
-            result = new_item;
-        }
-
-        iter = iter->next;
-    }
-
-    return result;
-}
-
 scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list, char (*f)(scope_entry_t*))
 {
     scope_entry_list_t* result = NULL;
@@ -1653,169 +584,1173 @@ scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list
 }
 
 /*
- * Returns a type if and only if this entry_list contains just one type
- * specifier. If another identifier is found it returns NULL
+ * Query functions
+ *
+ * This is the only one that should be used
  */
-scope_entry_t* filter_simple_type_specifier(scope_entry_list_t* entry_list)
+static scope_entry_list_t* query_qualified_name(decl_context_t decl_context,
+        AST global_op,
+        AST nested_name,
+        AST unqualified_name);
+static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
+        AST unqualified_name);
+
+scope_entry_list_t* query_id_expression_flags(decl_context_t decl_context,
+        AST id_expression, decl_flags_t decl_flags)
 {
-    int non_type_name = 0;
-    scope_entry_t* result = NULL;
-
-    char seen_class_name = 0;
-    char seen_function_name = 0;
-
-    while (entry_list != NULL)
+    switch (ASTType(id_expression))
     {
-        scope_entry_t* simple_type_entry = entry_list->entry;
-
-        if (simple_type_entry->kind != SK_ENUM 
-                && simple_type_entry->kind != SK_CLASS 
-                && simple_type_entry->kind != SK_TYPEDEF 
-                && simple_type_entry->kind != SK_TEMPLATE_TYPE_PARAMETER
-                && simple_type_entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
-                && simple_type_entry->kind != SK_TEMPLATE_PRIMARY_CLASS
-                && simple_type_entry->kind != SK_TEMPLATE_SPECIALIZED_CLASS
-                && simple_type_entry->kind != SK_GCC_BUILTIN_TYPE)
-        {
-            // Functions with name of a class are constructors and do not hide
-            // the class symbol
-            seen_function_name |= (simple_type_entry->kind == SK_FUNCTION);
-            DEBUG_CODE()
+        case AST_SYMBOL :
+        case AST_DESTRUCTOR_ID :
+        case AST_DESTRUCTOR_TEMPLATE_ID :
+        case AST_CONVERSION_FUNCTION_ID :
+        case AST_OPERATOR_FUNCTION_ID :
+        case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
+            return query_nested_name_flags(decl_context, NULL, NULL, id_expression, decl_flags);
+        case AST_QUALIFIED_OPERATOR_FUNCTION_ID :
+        case AST_QUALIFIED_ID :
+        case AST_QUALIFIED_TEMPLATE :
+            return query_nested_name_flags(decl_context, ASTSon0(id_expression),
+                    ASTSon1(id_expression),
+                    ASTSon2(id_expression), decl_flags);
+        default:
             {
-                fprintf(stderr, "Found a '%d' that is non type\n", simple_type_entry->kind);
+                internal_error("Invalid tree '%s'", ast_print_node_type(ASTType(id_expression)));
             }
-            non_type_name++;
-        }
-        else
-        {
-            seen_class_name |= simple_type_entry->kind == SK_CLASS;
-            result = simple_type_entry;
-        }
+    }
+}
 
-        entry_list = entry_list->next;
+scope_entry_list_t* query_nested_name_flags(decl_context_t decl_context, 
+        AST global_op, 
+        AST nested_name, 
+        AST unqualified_name,
+        decl_flags_t decl_flags)
+{
+    decl_context.decl_flags = DF_NONE;
+    decl_context.decl_flags |= decl_flags;
+    char is_unqualified = (nested_name == NULL) && (global_op == NULL);
+
+    if (is_unqualified)
+    {
+        decl_context.decl_flags |= DF_UNQUALIFIED_NAME;
+        return query_unqualified_name(decl_context, unqualified_name);
+    }
+    else
+    {
+        decl_context.decl_flags |= DF_QUALIFIED_NAME;
+        // Friend lookups are not spec
+        return query_qualified_name(decl_context, global_op, nested_name, unqualified_name);
+    }
+}
+
+scope_entry_list_t* query_in_scope_str_flags(decl_context_t decl_context,
+        char* name, decl_flags_t decl_flags)
+{
+    decl_context.decl_flags = DF_NONE;
+    decl_context.decl_flags |= decl_flags;
+    decl_context.decl_flags |= DF_ONLY_CURRENT_SCOPE;
+    return query_unqualified_name_str_flags(decl_context, name, decl_flags);
+}
+
+scope_entry_list_t* query_in_scope_flags(decl_context_t decl_context,
+        AST unqualified_name, decl_flags_t decl_flags)
+{
+    decl_context.decl_flags = DF_NONE;
+    decl_context.decl_flags |= decl_flags;
+    decl_context.decl_flags |= DF_ONLY_CURRENT_SCOPE;
+    return query_unqualified_name(decl_context, unqualified_name);
+}
+
+scope_entry_list_t* query_unqualified_name_str_flags(decl_context_t decl_context,
+        char* unqualified_name, decl_flags_t decl_flags)
+{
+    decl_context.decl_flags = DF_NONE;
+    decl_context.decl_flags |= decl_flags;
+
+    // Adjust scopes
+    if (BITMAP_TEST(decl_context.decl_flags, DF_LABEL))
+    {
+        // If we are looking for a label, use the function scope
+        decl_context.current_scope = decl_context.function_scope;
     }
 
-    // There is something that is not a type name here and hides this simple type spec
-    if (non_type_name != 0 
-            && !seen_class_name 
-            && !seen_function_name)
+    return name_lookup(decl_context, unqualified_name);
+}
+
+static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
+        AST unqualified_name)
+{
+    // Adjust scopes
+    if (BITMAP_TEST(decl_context.decl_flags, DF_LABEL))
     {
+        // If we are looking for a label, use the function scope
+        decl_context.current_scope = decl_context.function_scope;
+    }
+
+    scope_entry_list_t *result = NULL;
+    switch (ASTType(unqualified_name))
+    {
+        case AST_SYMBOL:
+            {
+                char* name = ASTText(unqualified_name);
+                if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
+                {
+                    name = strprepend(name, "constructor ");
+                }
+                result = name_lookup(decl_context, name);
+            }
+            break;
+        case AST_TEMPLATE_ID:
+            {
+                // Note that here we are assuming that A<e> both 'A' and 'e' will
+                // can be found in the same context. This holds for simply unqualified
+                // searches but does not for qualified lookups
+                ERROR_CONDITION(
+                        BITMAP_TEST(decl_context.decl_flags, DF_QUALIFIED_NAME),
+                        "Do not use this function when solving a template-id in a qualified name. "
+                        "It is likely that the template-name and its arguments will not be in the same context", 
+                        0);
+                result = query_template_id(unqualified_name, decl_context, decl_context, DF_NONE);
+            }
+            break;
+        case AST_DESTRUCTOR_ID:
+        case AST_DESTRUCTOR_TEMPLATE_ID:
+            // They have as a name ~name
+            {
+                AST symbol = ASTSon0(unqualified_name);
+                char *name = ASTText(symbol);
+                result = name_lookup(decl_context, name);
+            }
+            break;
+        case AST_CONVERSION_FUNCTION_ID:
+            {
+                char* conversion_function_name = 
+                    get_conversion_function_name(decl_context, unqualified_name, /* result_type */ NULL);
+                result = name_lookup(decl_context, conversion_function_name);
+            }
+            break;
+        case AST_OPERATOR_FUNCTION_ID :
+        case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
+            {
+                char *operator_function_name = get_operator_function_name(unqualified_name);
+                result = name_lookup(decl_context, operator_function_name);
+                break;
+            }
+        default:
+            {
+                internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(unqualified_name)));
+            }
+    }
+
+    return result;
+}
+
+
+static scope_entry_list_t* query_qualified_name(decl_context_t nested_name_context,
+        AST global_op,
+        AST nested_name,
+        AST unqualified_name)
+{
+    DEBUG_CODE()
+    {
+        char* c = prettyprint_in_buffer(unqualified_name);
+
+        if (ASTType(unqualified_name) != AST_TEMPLATE_ID)
+        {
+            if (BITMAP_TEST(nested_name_context.decl_flags, DF_CONSTRUCTOR))
+            {
+                c = strprepend(c, "constructor ");
+            }
+        }
+
+        fprintf(stderr, "Solving qualified-id '%s%s%s'\n", prettyprint_in_buffer(global_op), 
+                prettyprint_in_buffer(nested_name),
+                c);
+    }
+
+    // Ignore invalid nested name specs
+    if (!check_nested_name_spec(nested_name, nested_name_context))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "This nested-name-spec '%s' is not valid\n", prettyprint_in_buffer(nested_name));
+        }
         return NULL;
     }
     else
     {
-        return result;
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Nested-name-spec '%s' seems fine\n", prettyprint_in_buffer(nested_name));
+        }
     }
-}
 
-scope_entry_list_t* append_scope_entry_lists(scope_entry_list_t* a, scope_entry_list_t* b)
-{
+    if (ASTType(unqualified_name) == AST_TEMPLATE_ID)
+    {
+        solve_possibly_ambiguous_template_id(unqualified_name, nested_name_context);
+    }
+
+    scope_t* qualified_scope = NULL;
+    decl_context_t nested_part_context = nested_name_context;
+    nested_part_context.decl_flags &= ~DF_CONSTRUCTOR;
     scope_entry_list_t* result = NULL;
-    scope_entry_list_t* iter;
-
-    iter = a;
-    while (iter != NULL)
+    if (global_op != NULL)
     {
-        scope_entry_list_t* new_entry = calloc(1, sizeof(*new_entry));
-
-        new_entry->entry = iter->entry;
-        new_entry->next = result;
-
-        result = new_entry;
-
-        iter = iter->next;
+        nested_part_context.current_scope = nested_name_context.global_scope;
     }
 
-    iter = b;
-    while (iter != NULL)
+    qualified_scope = nested_part_context.current_scope;
+
+    // Looking up a nested name has a twofold process.  First we determine the
+    // looking up scope by resolving all but the 'unqualified name' part
+    char is_dependent = 0;
+
+    if (nested_name != NULL)
     {
-        scope_entry_list_t* new_entry = calloc(1, sizeof(*new_entry));
+        qualified_scope = lookup_qualification_scope(nested_part_context, nested_name, &is_dependent);
+    }
 
-        new_entry->entry = iter->entry;
-        new_entry->next = result;
+    if (qualified_scope == NULL)
+    {
+        if (is_dependent)
+        {
+            // Create a SK_DEPENDENT_ENTITY just to acknowledge that this was
+            // dependent
+            scope_entry_t* dependent_entity = calloc(1, sizeof(*dependent_entity));
+            dependent_entity->kind = SK_DEPENDENT_ENTITY;
 
-        result = new_entry;
+            result = create_list_from_entry(dependent_entity);
+            return result;
+        }
+        else
+        {
+            // Well, this was not dependent, so do not return anything
+            return NULL;
+        }
+    }
 
-        iter = iter->next;
+    // Given the scope now we can lookup the symbol in it. Note that if some
+    // scope was given we have to be able to find something there
+    decl_context_t lookup_context = nested_name_context;
+    lookup_context.current_scope = qualified_scope;
+    if (ASTType(unqualified_name) != AST_TEMPLATE_ID)
+    {
+        result = query_in_scope_flags(lookup_context, unqualified_name, nested_name_context.decl_flags);
+        // If this is a class_scope we have too give a try to bases
+        if (lookup_context.current_scope->kind == CLASS_SCOPE
+                && result == NULL)
+        {
+            result = name_lookup_bases(lookup_context.current_scope, ASTText(unqualified_name));
+        }
+    }
+    else
+    {
+        decl_flags_t decl_flags = DF_ONLY_CURRENT_SCOPE;
+
+        if (is_dependent)
+            decl_flags |= DF_NO_FAIL;
+
+        result = query_template_id(unqualified_name, lookup_context, nested_name_context, decl_flags);
+    }
+
+    // Make it dependent if the last component was not found
+    if (result == NULL
+            && is_dependent)
+    {
+        scope_entry_t* dependent_entity = calloc(1, sizeof(*dependent_entity));
+        dependent_entity->kind = SK_DEPENDENT_ENTITY;
+
+        result = create_list_from_entry(dependent_entity);
     }
 
     return result;
 }
 
-scope_t* enclosing_namespace_scope(scope_t* st)
+static enum cxx_symbol_kind classes_or_namespaces_filter[] = {
+    // These two are obvious
+    SK_CLASS, 
+    SK_NAMESPACE, 
+    // This one is somewhat annoying
+    SK_TYPEDEF, 
+    // These two are involved in 'typename _T::' things
+    SK_TEMPLATE_TYPE_PARAMETER, 
+    SK_TEMPLATE_TEMPLATE_PARAMETER,
+    // SK_TEMPLATE_SPECIALIZED_CLASS seems odd here,
+    // but it is possible like it is SK_CLASS. Again this
+    // is due to the injected symbol of an instantiated
+    // class
+    SK_TEMPLATE_SPECIALIZED_CLASS,
+    // This one only happens when there is an exact match
+    SK_TEMPLATE_PRIMARY_CLASS,
+    // Inner functions might return this
+    SK_DEPENDENT_ENTITY
+};
+
+static int classes_or_namespaces_filter_num_elements =
+    sizeof(classes_or_namespaces_filter) / sizeof(classes_or_namespaces_filter[0]);
+
+static scope_t* lookup_qualification_scope(decl_context_t nested_name_context, 
+        AST nested_name_spec, char *is_dependent)
 {
-    if (st == NULL)
-        return NULL;
-
-    if (st->contained_in == NULL)
-    {
-        return NULL;
-    }
-
-    while (st != NULL
-            && st->kind != NAMESPACE_SCOPE)
-    {
-        st = st->contained_in;
-    }
-
-    return st;
-}
-
-// Copy scope. It preserves the structure of the scopes but not the contents.
-// Useful for dynamic scopes like templates that might appear and disappear
-// FIXME - ???
-// scope_t* copy_scope(scope_t* st)
-// {
-//     if (st == NULL)
-//         return NULL;
-// 
-//     scope_t* result = calloc(1, sizeof(*result));
-// 
-//     // bitwise copy
-//     *result = *st;
-// 
-//     return result;
-// }
-
-scope_t* copy_scope(scope_t* st)
-{
-    static int level = 0;
-
-    if (++level > 200)
-        internal_error("Too much recursion", 0);
-
-    if (st == NULL)
-    {
-        --level;
-        return NULL;
-    }
-
-    scope_t* result = calloc(1, sizeof(*result));
-
-    // bitwise copy
-    *result = *st;
-
-    result->template_scope = copy_scope(st->template_scope);
-
-    // It is not needed since the "contained_in" relationship does not change
-    //
-    // result->contained_in = copy_scope(st->contained_in);
-
-    --level;
+    /*
+     * A nested-name-spec is of the form
+     *
+     * class-or-namespace :: nested-name-spec
+     * class-or-namespace :: template nested-name-spec (nested-name-spec here should be a template-id)
+     *
+     * where class-or-namespace is of the form
+     *
+     *   IDENTIFIER (class-name or namespace-name)
+     *   template-id (class-name only)
+     *
+     * Several 'disgusting' things might happen here. The most obvious one,
+     * when the nested-name-spec has a dependent component (most of the time
+     * is the first one, but we cannot assume such a thing)
+     *
+     * These are examples of dependent things 
+     *
+     * template <typename _T, typename _Q>
+     * struct A
+     * {
+     *   typedef typename _T::X P1;
+     *   typedef typename _T::template Y<_Q> P2;
+     * };
+     */
+    ERROR_CONDITION(is_dependent == NULL, "Invalid argument is_dependent", 0);
+    *is_dependent = 0;
+    ERROR_CONDITION(nested_name_spec == NULL, "The first nested-name-spec is null", 0);
+    scope_t* result = NULL;
 
     DEBUG_CODE()
     {
-        if (level == 0)
+        fprintf(stderr, "Solving nested-name-spec '%s'\n", prettyprint_in_buffer(nested_name_spec));
+    }
+
+    AST first_qualification = ASTSon0(nested_name_spec);
+    AST next_nested_name_spec = ASTSon1(nested_name_spec);
+    
+    ERROR_CONDITION((ASTType(first_qualification) != AST_SYMBOL 
+                && (ASTType(first_qualification) != AST_TEMPLATE_ID)), 
+            "The qualification part is neither a symbol nor a template-id", 0);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Solving first component '%s' of qualified-id '%s'\n", 
+                prettyprint_in_buffer(first_qualification), 
+                prettyprint_in_buffer(nested_name_spec));
+    }
+
+    // The first is solved as an unqualified entity, taking into account that it might be
+    // a dependent entity (like '_T' above)
+    scope_entry_list_t* starting_symbol_list = NULL;
+    if (ASTType(first_qualification) == AST_TEMPLATE_ID)
+    {
+        starting_symbol_list = query_template_id(first_qualification, 
+                nested_name_context, nested_name_context, DF_NONE);
+    }
+    else
+    {
+        starting_symbol_list = query_unqualified_name(nested_name_context, first_qualification);
+    }
+    // Filter found symbols
+    starting_symbol_list = filter_symbol_kind_set(starting_symbol_list, 
+            classes_or_namespaces_filter_num_elements, classes_or_namespaces_filter);
+
+
+    // Nothing was found
+    if (starting_symbol_list == NULL)
+    {
+        DEBUG_CODE()
         {
-            fprintf(stderr, "Scope %s '%p' copied in '%p'\n", scope_names[st->kind], st, result);
+            fprintf(stderr, "First component '%s' not found\n", prettyprint_in_buffer(first_qualification));
+        }
+        return NULL;
+    }
+
+    scope_entry_t* starting_symbol = starting_symbol_list->entry;
+
+    if (starting_symbol->kind == SK_DEPENDENT_ENTITY)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Component '%s' is a dependent entity\n", prettyprint_in_buffer(first_qualification));
+        }
+        *is_dependent = 1;
+        return NULL;
+    }
+    else if (starting_symbol->kind == SK_NAMESPACE)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Component '%s' found to be a namespace\n", prettyprint_in_buffer(first_qualification));
+        }
+        // If it is a namespace work on the namespace
+        result = lookup_qualification_scope_in_namespace(nested_name_context, starting_symbol, 
+                next_nested_name_spec, is_dependent);
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Component '%s' found to be a class-name\n", prettyprint_in_buffer(first_qualification));
+        }
+        // Otherwise deal with classes
+        result = lookup_qualification_scope_in_class(nested_name_context, starting_symbol, 
+                next_nested_name_spec, is_dependent);
+    }
+
+    return result;
+}
+
+// Lookup qualification within namespaces
+static scope_t* lookup_qualification_scope_in_namespace(decl_context_t nested_name_context, scope_entry_t* namespace, 
+        AST nested_name_spec, char *is_dependent)
+{
+    // Lookup the name in the related scope of this namespace
+    scope_t* namespace_scope = namespace->related_decl_context.current_scope;
+
+    ERROR_CONDITION(namespace_scope->kind != NAMESPACE_SCOPE, 
+            "Scope is not a namespace one", 0);
+
+    // No more nested-name-spec left
+    if (nested_name_spec == NULL)
+        return namespace_scope;
+
+    // Update the context
+    decl_context_t decl_context = namespace->related_decl_context;
+
+    AST current_name = ASTSon0(nested_name_spec);
+    AST next_nested_name_spec = ASTSon1(nested_name_spec);
+
+    ERROR_CONDITION(((ASTType(current_name) != AST_SYMBOL)
+            && (ASTType(current_name) != AST_TEMPLATE_ID)), 
+            "nested-name-spec is neither an identifier nor a template-id", 0);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Solving component of nested-name '%s'\n", prettyprint_in_buffer(current_name));
+    }
+
+    scope_entry_list_t* symbol_list = NULL;
+    if (ASTType(current_name) != AST_TEMPLATE_ID)
+    {
+        symbol_list = query_in_scope(decl_context, current_name);
+    }
+    else
+    {
+        symbol_list = query_template_id(current_name, decl_context, nested_name_context, DF_ONLY_CURRENT_SCOPE);
+    }
+
+    symbol_list = filter_symbol_kind_set(symbol_list, classes_or_namespaces_filter_num_elements, classes_or_namespaces_filter);
+
+    if (symbol_list == NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Component '%s' not found\n", prettyprint_in_buffer(current_name));
+        }
+        return NULL;
+    }
+
+    scope_entry_t* symbol = symbol_list->entry;
+
+    if (symbol->kind == SK_DEPENDENT_ENTITY)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Component '%s' is a dependent entity\n", prettyprint_in_buffer(current_name));
+        }
+        *is_dependent = 1;
+        return NULL;
+    }
+    else if (symbol->kind == SK_NAMESPACE)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Component '%s' found to be a namespace\n", prettyprint_in_buffer(current_name));
+        }
+        return lookup_qualification_scope_in_namespace(nested_name_context, symbol, 
+                next_nested_name_spec, is_dependent);
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Component '%s' found to be a class-name\n", prettyprint_in_buffer(current_name));
+        }
+        return lookup_qualification_scope_in_class(nested_name_context, symbol, 
+                next_nested_name_spec, is_dependent);
+    }
+}
+
+static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_context, scope_entry_t* class_name, 
+        AST nested_name_spec, char *is_dependent)
+{
+    ERROR_CONDITION(class_name == NULL, "The class name cannot be null", 0);
+
+    scope_t* class_scope = NULL;
+    type_t* class_type = NULL;
+
+    /*
+     * typedefs are handled twice because they might be naming other
+     * named entities
+     */
+    if (class_name->kind == SK_TYPEDEF)
+    {
+        class_type = advance_over_typedefs(class_name->type_information);
+        if (is_named_type(class_type))
+        {
+            class_name = get_symbol_of_named_type(class_type);
         }
     }
+
+    if (class_name->kind == SK_CLASS)
+    {
+        // Normal, non-template classes
+        class_type = class_name->type_information;
+    }
+    else if (class_name->kind == SK_TYPEDEF)
+    {
+        // Only unnamed typedefs should reach here, and definitely they cannot
+        // be templates
+        /*
+         * typedefs are annoying because they might name unnamed classes
+         * or templated ones
+         *
+         * typedef struct
+         * {
+         *     typedef int T;
+         *     typedef struct
+         *     {
+         *         typedef int P;
+         *     } B;
+         * } A;
+         * 
+         * A::T t1;
+         * A::B::P t2;
+         *
+         * but, fortunately, this only concerns to the scope considered
+         * which, since this is a qualified-name, must have some name, even
+         * if it is by means of a typedef.
+         */
+        /*
+         * We will work on the types. First advance the type over any typedef
+         */
+        class_type = advance_over_typedefs(class_name->type_information);
+        ERROR_CONDITION(is_named_type(class_type), "This type must already be unnamed", 0);
+    }
+    // templated classes (both primaries and specializations)
+    else if ((class_name->kind == SK_TEMPLATE_PRIMARY_CLASS)
+            || (class_name->kind == SK_TEMPLATE_SPECIALIZED_CLASS))
+    {
+        class_type = class_name->type_information;
+
+        if (class_type->type->template_nature == TPN_INCOMPLETE_INDEPENDENT)
+        {
+            instantiate_template(class_name, nested_name_context);
+        }
+        else if (class_type->type->template_nature == TPN_COMPLETE_DEPENDENT
+                || class_type->type->template_nature == TPN_INCOMPLETE_DEPENDENT)
+        {
+            // Others will be dependent entities
+            *is_dependent = 1;
+        }
+        // Complete independent are not a problem
+    }
+    else if (class_name->kind == SK_TEMPLATE_TYPE_PARAMETER
+            || class_name->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+    {
+        // We cannot do anything else here but returning NULL
+        // and stating that it is dependent
+        *is_dependent = 1;
+    }
+    else
+    {
+        internal_error("Symbol kind %d not valid", class_name->kind);
+    }
+
+    decl_context_t decl_context = class_name->related_decl_context;
+
+    if (class_type != NULL
+            && class_type->kind == TK_DIRECT
+            && (class_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
+                || class_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER
+                || class_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE))
+    {
+        *is_dependent = 1;
+        return NULL;
+    }
+
+    // In this case, nothing to do remains
+    if (*is_dependent 
+            && decl_context.current_scope == NULL)
+        return NULL;
+
+    ERROR_CONDITION((class_type == NULL), "Class type null", 0);
+
+    ERROR_CONDITION(!is_class_type(class_type), "The class_type is not a class type actually", 0);
+
+    // This gives the _real_ class type (not any indirection by means of class names)
+    class_type = get_class_type(class_type);
+
+    class_scope = decl_context.current_scope;
+
+    ERROR_CONDITION((class_scope == NULL), "No class scope was in that class", 0);
+    ERROR_CONDITION((class_scope->kind != CLASS_SCOPE), "Class scope is not CLASS_SCOPE", 0);
+
+    // Nothing else to be done
+    if (nested_name_spec == NULL)
+    {
+        return class_scope;
+    }
+
+    // Look up the next qualification item
+    AST current_name = ASTSon0(nested_name_spec);
+    AST next_nested_name_spec = ASTSon1(nested_name_spec);
+
+    // Note, that once a class-name has been designed in a nested-name-spec only classes
+    // can appear, since classes cannot have namespaces inside them
+    scope_entry_list_t* symbol_list = NULL;
+    if (ASTType(current_name) != AST_TEMPLATE_ID)
+    {
+        symbol_list = query_in_scope(decl_context, current_name);
+        if (symbol_list == NULL)
+        {
+            // This is a class scope, we have to lookup bases too
+            symbol_list = name_lookup_bases(decl_context.current_scope, ASTText(current_name));
+        }
+    }
+    else
+    {
+        decl_flags_t decl_flags = DF_ONLY_CURRENT_SCOPE;
+
+        // If this is true here we DO have a related_decl_context 
+        // but we do not want to fail if nothing found there
+        if (*is_dependent)
+            decl_flags |= DF_NO_FAIL;
+
+        symbol_list = query_template_id(current_name, decl_context, nested_name_context, decl_flags);
+    }
+
+    symbol_list = filter_symbol_kind_set(symbol_list, classes_or_namespaces_filter_num_elements, classes_or_namespaces_filter);
+
+    if (symbol_list == NULL)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "No class-name found for component '%s'\n", prettyprint_in_buffer(current_name));
+        }
+        return NULL;
+    }
+
+    ERROR_CONDITION(symbol_list->next != NULL, "More than one class found", 0);
+
+    scope_entry_t* symbol = symbol_list->entry;
+
+    if (symbol->kind == SK_DEPENDENT_ENTITY)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Component '%s' is a dependent entity\n", prettyprint_in_buffer(current_name));
+        }
+        *is_dependent = 1;
+        return NULL;
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Component '%s' found to be a class-name\n", prettyprint_in_buffer(current_name));
+    }
+
+    return lookup_qualification_scope_in_class(decl_context, symbol, next_nested_name_spec, is_dependent);
+}
+
+static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_context, 
+        scope_t* current_scope, char* name)
+{
+    ERROR_CONDITION(current_scope == NULL, "Current scope is null", 0);
+    ERROR_CONDITION(name == NULL, "name is null", 0);
+
+    scope_entry_list_t* result = NULL;
+
+    // Look up in directly used namespaces, this always has to be performed
+    int i;
+    for (i = 0; i < current_scope->num_used_namespaces; i++)
+    {
+        scope_t* used_namespace = current_scope->use_namespace[i];
+        scope_entry_list_t* used_namespace_search = query_name_in_scope(used_namespace, name);
+
+        result = append_scope_entry_list(result, used_namespace_search);
+    }
+
+    // Lookup to indirectly used namespaces is only performed if unqualified
+    // name or if qualified name but nothing was found in the directly used namespaces
+    if (BITMAP_TEST(decl_context.decl_flags, DF_UNQUALIFIED_NAME)
+            || (BITMAP_TEST(decl_context.decl_flags, DF_QUALIFIED_NAME)
+                && result == NULL))
+    {
+        for (i = 0; i < current_scope->num_used_namespaces; i++)
+        {
+            scope_t* used_namespace = current_scope->use_namespace[i];
+            scope_entry_list_t* recursed_search = name_lookup_used_namespaces(decl_context, used_namespace, name);
+
+            result = append_scope_entry_list(result, recursed_search);
+        }
+    }
+
     return result;
+}
+
+static scope_entry_list_t* name_lookup_bases(scope_t* current_scope, char* name)
+{
+    scope_entry_list_t* result = NULL;
+    ERROR_CONDITION(current_scope->kind != CLASS_SCOPE, "Current scope is not class-scope", 0);
+
+    int i;
+    for (i = 0; i < current_scope->num_base_scopes; i++)
+    {
+        scope_t* base_scope = current_scope->base_scope[i];
+        scope_entry_list_t* base_scope_search = query_name_in_scope(base_scope, name);
+
+        result = append_scope_entry_list(result, base_scope_search);
+
+        // Recursively find bases of bases
+        scope_entry_list_t* recursive_base_search = 
+            name_lookup_bases(base_scope, name);
+
+        result = append_scope_entry_list(result, recursive_base_search);
+    }
+
+    return result;
+}
+
+static scope_entry_list_t* filter_any_non_type(scope_entry_list_t* entry_list)
+{
+    // Filter the types
+    enum cxx_symbol_kind type_filter[] = {
+        SK_ENUM ,
+        SK_CLASS ,
+        SK_TYPEDEF ,
+        SK_TEMPLATE_TYPE_PARAMETER,
+        SK_TEMPLATE_TEMPLATE_PARAMETER,
+        SK_TEMPLATE_PRIMARY_CLASS,
+        SK_TEMPLATE_SPECIALIZED_CLASS,
+        SK_GCC_BUILTIN_TYPE
+    };
+
+    int type_filter_num = sizeof(type_filter) / sizeof(type_filter[0]);
+
+    return filter_symbol_kind_set(entry_list, type_filter_num, type_filter);
+}
+
+static scope_entry_list_t* name_lookup(decl_context_t decl_context, char* name)
+{
+    ERROR_CONDITION(name == NULL, "Name cannot be null!", 0);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Name lookup of '%s'\n", name);
+    }
+
+    scope_entry_list_t *result = NULL;
+
+    if (!BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+    {
+        // This one has higher priority
+        scope_t* template_scope = decl_context.template_scope;
+        // The frontend should keep the template scope always up to date
+        while (template_scope != NULL)
+        {
+            ERROR_CONDITION((template_scope->kind != TEMPLATE_SCOPE), "This is not a template scope!", 0);
+
+            scope_entry_list_t *template_query = query_name_in_scope(template_scope, name);
+
+            // If something is found in template query
+            // it has higher priority
+            if (template_query != NULL)
+            {
+                return template_query;
+            }
+
+            // If nothing was found, look up in the enclosing template_scope
+            // (they form a stack of template_scopes)
+            template_scope = template_scope->contained_in;
+        }
+    }
+    // Otherwise continue with normal lookup
+    ERROR_CONDITION((result != NULL), "The symbols found here should be NULL!", 0);
+
+    scope_t* current_scope = decl_context.current_scope;
+    while (current_scope != NULL)
+    {
+        result = query_name_in_scope(current_scope, name);
+
+        if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
+        {
+            result = filter_any_non_type(result);
+        }
+
+        // This object would hide any other in the enclosing scopes
+        if (result != NULL)
+            return result;
+        
+        // Do not look anything else
+        if (BITMAP_TEST(decl_context.decl_flags, DF_ONLY_CURRENT_SCOPE))
+            return NULL;
+
+        // Otherwise, if this is a NAMESPACE_SCOPE, lookup in the used namespaces
+        // note that the objects here are not hidden, but added
+        if (current_scope->kind == NAMESPACE_SCOPE
+                && current_scope->num_used_namespaces > 0)
+        {
+            result = name_lookup_used_namespaces(decl_context, current_scope, name);
+            if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
+            {
+                result = filter_any_non_type(result);
+            }
+            // If this yields any result, return them, no more search needed
+            if (result != NULL)
+                return result;
+        }
+
+        ERROR_CONDITION((result != NULL), "The symbols found here should be NULL!", 0);
+
+        // If this is a CLASS_SCOPE, lookup in the base classes, similarly
+        // to the used namespaces
+        if (current_scope->kind == CLASS_SCOPE
+                && (current_scope->num_base_scopes > 0))
+        {
+            result = name_lookup_bases(current_scope, name);
+            if (BITMAP_TEST(decl_context.decl_flags, DF_ELABORATED_NAME))
+            {
+                result = filter_any_non_type(result);
+            }
+            // if this yields any result, return them, no more search needed
+            if (result != NULL)
+                return result;
+        }
+
+        ERROR_CONDITION((result != NULL), "The symbols found here should be NULL!", 0);
+
+        current_scope = current_scope->contained_in;
+    }
+
+    return result;
+}
+
+// This function never instantiates a template, it might create a specialization though
+static scope_entry_list_t* query_template_id(AST template_id, decl_context_t lookup_context, 
+        decl_context_t nested_name_context, decl_flags_t decl_flags)
+{
+    AST symbol = ASTSon0(template_id);
+
+    // Mix all flags in one variable
+    decl_flags |= lookup_context.decl_flags;
+    decl_flags |= nested_name_context.decl_flags;
+    
+    // First search the primary template and all its specializations
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Trying to resolve template '%s'\n", ASTText(symbol));
+    }
+
+    scope_entry_list_t* entry_list; 
+    if (BITMAP_TEST(decl_flags, DF_ONLY_CURRENT_SCOPE))
+    {
+        entry_list = query_in_scope_str(lookup_context, ASTText(symbol));
+    }
+    else
+    {
+        entry_list = query_unqualified_name_str(lookup_context, ASTText(symbol));
+    }
+    
+    // Sometimes we end with the injected symbol, that is fairly useless here
+    // so readjust the lookup_context and lookup again
+    if (entry_list != NULL
+            && entry_list->entry->injected_class_name)
+    {
+        scope_entry_t* injected_symbol = entry_list->entry;
+        lookup_context = injected_symbol->injected_class_referred_symbol->decl_context;
+        if (BITMAP_TEST(decl_flags, DF_ONLY_CURRENT_SCOPE))
+        {
+            entry_list = query_in_scope_str(lookup_context, ASTText(symbol));
+        }
+        else
+        {
+            entry_list = query_unqualified_name_str(lookup_context, ASTText(symbol));
+        }
+    }
+
+    // Filter things that may be used as template-id
+    enum cxx_symbol_kind filter_templates[5] = {
+        SK_TEMPLATE_PRIMARY_CLASS, 
+        SK_TEMPLATE_SPECIALIZED_CLASS,
+        SK_TEMPLATE_FUNCTION,
+        SK_TEMPLATE_TEMPLATE_PARAMETER,
+        SK_TEMPLATE_ALIAS
+    };
+
+    entry_list = filter_symbol_kind_set(entry_list, 5, filter_templates);
+
+    if (entry_list == NULL)
+    {
+        if (BITMAP_TEST(decl_flags, DF_NO_FAIL))
+        {
+            return NULL;
+        }
+        else
+        {
+            internal_error("Template '%s' not found! (%s)\n", 
+                prettyprint_in_buffer(template_id),
+                node_information(template_id));
+        }
+    }
+
+    scope_entry_list_t* template_functions = filter_symbol_kind(entry_list, SK_TEMPLATE_FUNCTION);
+    if (template_functions != NULL)
+    {
+        // This is naming a template function
+        // Just return them, do not do anything else
+        solve_possibly_ambiguous_template_id(template_id, nested_name_context);
+
+        return template_functions;
+    }
+
+    // A template template parameter does not need anything else
+    scope_entry_list_t* template_template_param = filter_symbol_kind(entry_list, SK_TEMPLATE_TEMPLATE_PARAMETER);
+    if (template_template_param != NULL)
+    {
+        return template_template_param;
+    }
+
+    // Solve template_alias properly
+    scope_entry_list_t* template_alias_list = filter_symbol_kind(entry_list, SK_TEMPLATE_ALIAS);
+    if (template_alias_list != NULL)
+    {
+        scope_entry_t* template_alias = template_alias_list->entry;
+
+        type_t* alias_type_info = template_alias->template_alias_type;
+
+        ERROR_CONDITION(!is_named_type(alias_type_info),
+                "A template alias should refer to a template-name", 0);
+        scope_entry_t *referred_template = get_symbol_of_named_type(alias_type_info);
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Symbol '%s' is a template alias that refers to '%s'\n", ASTText(symbol),
+                    referred_template->symbol_name);
+        }
+
+        entry_list = query_in_scope_str(referred_template->decl_context, referred_template->symbol_name);
+    }
+
+    enum cxx_symbol_kind filter_template_classes[3] = {
+        SK_TEMPLATE_PRIMARY_CLASS, 
+        SK_TEMPLATE_SPECIALIZED_CLASS,
+        SK_TEMPLATE_TEMPLATE_PARAMETER
+    };
+
+    entry_list = filter_symbol_kind_set(entry_list, 3, filter_template_classes);
+
+    if (entry_list == NULL)
+    {
+        if (BITMAP_TEST(decl_flags, DF_NO_FAIL))
+        {
+            return NULL;
+        }
+        else
+        {
+            internal_error("template-id in '%s' not found\n", node_information(template_id));
+        }
+    }
+
+    template_argument_list_t* current_template_arguments = NULL;
+    // Note the scope being different here
+    build_scope_template_arguments(lookup_context, nested_name_context,
+            template_id,
+            &current_template_arguments);
+
+    // Now we check all the template arguments to see if any of them is
+    // dependent
+    int i;
+    char seen_dependent_args = 0;
+    for (i = 0; (i < current_template_arguments->num_arguments)
+            && !seen_dependent_args; i++)
+    {
+        template_argument_t* argument = current_template_arguments->argument_list[i];
+        if (argument->kind == TAK_TYPE)
+        {
+            if (is_dependent_type(argument->type, nested_name_context))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "-> Dependent type template argument '%s'\n",
+                            prettyprint_in_buffer(argument->argument_tree));
+                }
+                seen_dependent_args = 1;
+            }
+        }
+        else if (argument->kind == TAK_TEMPLATE)
+        {
+            // Fix this
+        }
+        else if (argument->kind == TAK_NONTYPE)
+        {
+            if (is_dependent_expression(argument->argument_tree, argument->decl_context))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "-> Dependent expression template argument '%s'\n",
+                            prettyprint_in_buffer(argument->argument_tree));
+                }
+                seen_dependent_args = 1;
+            }
+        }
+    }
+
+    // If this is considered in the context of an expression and dependent args
+    // have been seen, create a dependent entity
+    if (BITMAP_TEST(decl_flags, DF_EXPRESSION) 
+            && seen_dependent_args)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "This is a dependent template-id used in an expression\n");
+        }
+
+        scope_entry_t* dependent_entity = calloc(1, sizeof(*dependent_entity));
+        dependent_entity->kind = SK_DEPENDENT_ENTITY;
+
+        return create_list_from_entry(dependent_entity);
+    }
+
+    // If we have seen dependent arguments, we will not create any
+    // specialization unless we are asked to
+    if (BITMAP_TEST(decl_flags, DF_ALWAYS_CREATE_SPECIALIZATION))
+    {
+        // Forget we saw dependent arguments
+        seen_dependent_args = 0;
+    }
+    
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "-> Looking for exact match templates\n");
+    }
+
+    matching_pair_t* matched_template = solve_template(nested_name_context, 
+            entry_list, current_template_arguments, /* exact = */ 1);
+    if (matched_template != NULL)
+    {
+        // There is an exact match
+        scope_entry_t* matched_entry = matched_template->entry;
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "-> Just returning the exact matching template %p in line %d\n", 
+                    matched_entry, matched_entry->line);
+        }
+        return create_list_from_entry(matched_entry);
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "-> No exact match found\n");
+        }
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "-> Looking for an unificable template\n");
+    }
+
+    // Look for an unificable template
+    matched_template = solve_template(nested_name_context, entry_list, current_template_arguments, /* exact= */ 0);
+
+    if (matched_template != NULL)
+    {
+        // If it is a nested class, check it is actually dependent
+        if (matched_template->entry->is_member)
+        {
+            seen_dependent_args |= is_dependent_type(matched_template->entry->class_type, lookup_context);
+        }
+        // If the template-id is independent or it was dependent but we have been
+        // asked to create a specialization, create it
+        if (!seen_dependent_args
+                || BITMAP_TEST(decl_flags, DF_ALWAYS_CREATE_SPECIALIZATION))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "-> Creating an incomplete specialization\n");
+            }
+            scope_entry_t* holding_symbol = create_holding_symbol_for_template(matched_template,
+                    current_template_arguments,
+                    ASTLine(template_id), ASTFileName(template_id),
+                    nested_name_context);
+            return create_list_from_entry(holding_symbol);
+
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "-> Returning the unificable template %p in line %d. No specialization has been created\n",
+                        matched_template, 
+                        matched_template->entry->line);
+            }
+            return create_list_from_entry(matched_template->entry);
+        }
+    }
+    else
+    {
+        // There is always a template that matches, the primary one
+        internal_error("Unreachable code", 0);
+        return NULL;
+    }
+}
+
+static scope_entry_list_t *copy_entry_list(scope_entry_list_t* orig)
+{
+    scope_entry_list_t* result = NULL;
+    if (orig == NULL)
+        return result;
+
+    result = calloc(1, sizeof(*result));
+
+    result->entry = orig->entry;
+    result->next = copy_entry_list(orig->next);
+
+    return result;
+}
+
+static scope_entry_list_t* append_scope_entry_list(scope_entry_list_t* orig, scope_entry_list_t* appended)
+{
+    // This avoids some copies
+    if (orig == NULL)
+    {
+        return appended;
+    }
+    if (appended == NULL)
+    {
+        return orig;
+    }
+
+    // We have to copy the list to avoid modifying the orig one
+    // that might be referenced in the scopes
+    scope_entry_list_t* copy_orig = copy_entry_list(orig);
+    scope_entry_list_t* it = copy_orig;
+    while (it->next != NULL)
+    {
+        it = it->next;
+    }
+
+    it->next = appended;
+
+    return copy_orig;
 }
 
 // Only for "simple" symbols, this is, that are not members and they are simply contained
 // in a nest of namespaces
-static char* get_fully_qualified_symbol_name_simple(scope_t* st, char* current_qualif_name)
+static char* get_fully_qualified_symbol_name_simple(decl_context_t decl_context, char* current_qualif_name)
 {
     // DEBUG_CODE()
     // {
@@ -1823,7 +1758,7 @@ static char* get_fully_qualified_symbol_name_simple(scope_t* st, char* current_q
     // }
     char* result = current_qualif_name;
 
-    scope_t* current_scope = st;
+    scope_t* current_scope = decl_context.current_scope;
 
     while (current_scope != NULL)
     {
@@ -1876,15 +1811,11 @@ static scope_entry_t* find_template_parameter(scope_t* st, scope_entry_t* templa
     return NULL;
 }
 
-static char* give_name_for_template_parameter(scope_entry_t* entry, scope_t* st)
+static char* give_name_for_template_parameter(scope_entry_t* entry, decl_context_t decl_context)
 {
-    if (st->kind != TEMPLATE_SCOPE)
-    {
-        st = st->template_scope;
-    }
-
     char found = 0;
 
+    scope_t* st = decl_context.template_scope;
     while (st != NULL)
     {
         scope_entry_t* template_parameter = find_template_parameter(st, entry);
@@ -1893,7 +1824,7 @@ static char* give_name_for_template_parameter(scope_entry_t* entry, scope_t* st)
             return template_parameter->symbol_name;
         }
 
-        st = st->template_scope;
+        st = st->contained_in;
     }
 
     if (!found)
@@ -1904,7 +1835,7 @@ static char* give_name_for_template_parameter(scope_entry_t* entry, scope_t* st)
     return NULL;
 }
 
-char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st)
+char* get_unqualified_template_symbol_name(scope_entry_t* entry, decl_context_t decl_context)
 {
     char* result = "";
 
@@ -1936,7 +1867,7 @@ char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st)
                     char* abstract_declaration;
 
                     abstract_declaration = 
-                        get_declaration_string_internal(template_argument->type, st, "", "", 0, NULL, NULL, 0);
+                        get_declaration_string_internal(template_argument->type, decl_context, "", "", 0, NULL, NULL, 0);
 
                     result = strappend(result, abstract_declaration);
                     break;
@@ -1948,7 +1879,7 @@ char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st)
                 }
             default:
                 {
-                    fprintf(stderr, "Undefined template argument\n");
+                    internal_error("Undefined template argument\n", 0);
                     break;
                 }
         }
@@ -1960,7 +1891,7 @@ char* get_unqualified_template_symbol_name(scope_entry_t* entry, scope_t* st)
 }
 
 // Get the fully qualified symbol name in the scope of the ocurrence
-char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* is_dependent, int* max_qualif_level)
+char* get_fully_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_context, char* is_dependent, int* max_qualif_level)
 {
     // DEBUG_CODE()
     // {
@@ -1979,16 +1910,16 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* i
             || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
     {
         // This symbol must be looked up for the proper real name
-        result = give_name_for_template_parameter(entry, st);
+        result = give_name_for_template_parameter(entry, decl_context);
 
-        (*is_dependent) |= is_dependent_type(entry->type_information, default_decl_context);
+        (*is_dependent) |= is_dependent_type(entry->type_information, decl_context);
         return result;
     }
 
     if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS
             || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
     {
-        result = strappend(result, get_unqualified_template_symbol_name(entry, st));
+        result = strappend(result, get_unqualified_template_symbol_name(entry, decl_context));
         if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
         {
             // They are always dependent
@@ -2020,7 +1951,7 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* i
         {
             (*max_qualif_level)++;
 
-            char* class_qualification = get_fully_qualified_symbol_name(class_symbol, st, is_dependent, max_qualif_level);
+            char* class_qualification = get_fully_qualified_symbol_name(class_symbol, decl_context, is_dependent, max_qualif_level);
 
             // DEBUG_CODE()
             // {
@@ -2035,7 +1966,7 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* i
     else if (!entry->is_member)
     {
         // This symbol is already simple enough
-        result = get_fully_qualified_symbol_name_simple(entry->scope, result);
+        result = get_fully_qualified_symbol_name_simple(entry->decl_context, result);
     }
 
     // DEBUG_CODE()
@@ -2045,3 +1976,4 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, scope_t* st, char* i
 
     return result;
 }
+

@@ -30,7 +30,7 @@ namespace TL
     std::string Type::get_declaration_with_initializer(Scope sc, const std::string& symbol_name,
             const std::string& initializer, TypeDeclFlags flags) const
     {
-        return get_declaration_string_internal(_type_info, sc._st, symbol_name.c_str(), 
+        return get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
                 initializer.c_str(), 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 
@@ -40,7 +40,7 @@ namespace TL
     {
         char** parameter_names = NULL;
         int num_parameters = 0;
-        char* result = get_declaration_string_internal(_type_info, sc._st, symbol_name.c_str(), 
+        char* result = get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
                 "", 0, &num_parameters, &parameter_names, flags == PARAMETER_DECLARATION);
 
         for (int i = 0; i < num_parameters; i++)
@@ -54,14 +54,14 @@ namespace TL
     std::string Type::get_simple_declaration(Scope sc, const std::string&
             symbol_name, TypeDeclFlags flags) const
     {
-        return get_declaration_string_internal(_type_info, sc._st,
+        return get_declaration_string_internal(_type_info, sc._decl_context,
                 symbol_name.c_str(), "", 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 
     std::string Type::get_declaration(Scope sc, const std::string& symbol_name,
             TypeDeclFlags flags) const
     {
-        return get_declaration_string_internal(_type_info, sc._st,
+        return get_declaration_string_internal(_type_info, sc._decl_context,
                 symbol_name.c_str(), "", 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 
@@ -105,7 +105,7 @@ namespace TL
         array_to->array = (array_info_t*)calloc(1, sizeof(*(array_to->array)));
         array_to->array->element_type = result_type;
         array_to->array->array_expr = array_expr._ast;
-        array_to->array->array_expr_scope = scope._st;
+        array_to->array->array_expr_decl_context = scope._decl_context;
 
         result._type_info = array_to;
 
@@ -238,7 +238,8 @@ namespace TL
     bool Type::is_dependent() const
     {
         type_t* type_info = advance_over_typedefs(_type_info);
-        return (is_dependent_type(type_info, default_decl_context));
+        type_t* _base_type = base_type(type_info);
+        return (is_dependent_type(type_info, _base_type->type->typeof_decl_context));
     }
 
     Type Type::returns() const

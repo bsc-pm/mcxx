@@ -603,10 +603,6 @@ static void enable_debug_flag(char* flags)
             fprintf(stderr, "Debug flag '%s' unknown. Ignoring it\n", flag);
         }
     }
-
-    // Fix scope printing
-    CURRENT_CONFIGURATION(debug_options.print_scope) |= 
-        CURRENT_CONFIGURATION(debug_options.print_scope_brief);
 }
 
 static void add_to_parameter_list_str(char*** existing_options, char* str)
@@ -956,7 +952,7 @@ static void compile_every_translation_unit(void)
         if (CURRENT_CONFIGURATION(debug_options.print_scope))
         {
             fprintf(stderr, "============ SYMBOL TABLE ===============\n");
-            print_scope(translation_unit->global_scope);
+            print_scope(translation_unit->global_decl_context);
             fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
         }
 

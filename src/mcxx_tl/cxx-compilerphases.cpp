@@ -132,17 +132,19 @@ namespace TL
 
             static void phases_update_parameters(void)
             {
-                for (compiler_phases_t::iterator it = compiler_phases.begin();
-                        it != compiler_phases.end();
-                        it++)
+                // This is blatantly inefficient, I know
+                // For every external variable
+                for (int i = 0; i < compilation_process.num_external_vars; i++)
                 {
-                    TL::CompilerPhase* phase = (*it);
-                    std::vector<CompilerPhaseParameter*> parameters = phase->get_parameters();
-                    
-                    // This is blatantly inefficient, I know
-                    for (int i = 0; i < compilation_process.num_external_vars; i++)
+                    // And for every phase
+                    external_var_t* ext_var = compilation_process.external_vars[i];
+                    bool registered = false;
+                    for (compiler_phases_t::iterator it = compiler_phases.begin();
+                            it != compiler_phases.end();
+                            it++)
                     {
-                        external_var_t* ext_var = compilation_process.external_vars[i];
+                        TL::CompilerPhase* phase = (*it);
+                        std::vector<CompilerPhaseParameter*> parameters = phase->get_parameters();
 
                         for (std::vector<CompilerPhaseParameter*>::iterator it = parameters.begin();
                                 it != parameters.end();
@@ -150,11 +152,20 @@ namespace TL
                         {
                             CompilerPhaseParameter* param(*it);
 
+                            // Udate every variable of the phase if needed
                             if (param->name() == std::string(ext_var->name))
                             {
                                 param->set_value(ext_var->value);
+                                registered = true;
                             }
                         }
+                    }
+
+                    if (!registered)
+                    {
+                        std::cerr << "Variable --variable=" 
+                            << std::string(ext_var->name) 
+                            << " it is not registered by any phase" << std::endl;
                     }
                 }
             }

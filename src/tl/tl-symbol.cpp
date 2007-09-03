@@ -47,7 +47,7 @@ namespace TL
             // FIXME -> the scope should be the occurrence one
             int max_level = 0;
             char is_dependent = 0;
-            char* qualified_name = get_fully_qualified_symbol_name(_symbol, _symbol->scope, 
+            char* qualified_name = get_fully_qualified_symbol_name(_symbol, _symbol->decl_context, 
                     &is_dependent, &max_level);
             return std::string(qualified_name);
         }
@@ -60,7 +60,7 @@ namespace TL
 
     Scope Symbol::get_scope() const
     {
-        Scope result(_symbol->scope);
+        Scope result(_symbol->decl_context);
 
         return result;
     }
@@ -140,11 +140,12 @@ namespace TL
 
     bool Symbol::is_parameter() const
     {
-        if (_symbol != NULL)
-        {
-            return (_symbol->scope->kind == PROTOTYPE_SCOPE);
-        }
-        else
+        // if (_symbol != NULL)
+        // {
+        //     // FIXME
+        //     return (_symbol->scope->kind == PROTOTYPE_SCOPE);
+        // }
+        // else
         {
             return false;
         }

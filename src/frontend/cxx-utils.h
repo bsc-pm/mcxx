@@ -105,6 +105,22 @@ do { \
     } \
 } while (0)
 
+// This is a bit inefficient. Should not be used for large lists
+// Like P_LIST_ADD_ONCE_FUN but using fun as an equality function
+#define P_LIST_ADD_ONCE_FUN(list, size, elem, fun) \
+do { \
+    int _i; \
+    char _found = 0; \
+    for (_i = 0; (_i < (size)) && !_found; _i++) \
+    { \
+         _found = (fun)((list)[_i], (elem)); \
+    } \
+    if (!_found) \
+    { \
+        P_LIST_ADD((list), (size), (elem)); \
+    } \
+} while (0)
+
 #define DEBUG_CODE() if (CURRENT_CONFIGURATION(debug_options.enable_debug_code))
 #define NOT_DEBUG_CODE() if (!CURRENT_CONFIGURATION(debug_options.enable_debug_code))
 

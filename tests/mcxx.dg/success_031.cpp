@@ -18,22 +18,26 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-template <class _T>
+template <class _T1>
 struct A
 {
 	enum { __value = false };
-	typedef _T T1;
+	typedef _T1 T1;
 };
 
 template <>
 struct A<int>
 {
 	enum { __value = true };
-
 	typedef int *T1;
 };
 
-template<typename _T, typename _S = typename A<_T>::T1, bool _B = A<_T>::__value>
+template<
+          typename _T2, 
+          typename _S = 
+          typename A<_T2>::T1, 
+          bool _B = A<_T2>::__value
+        >
 struct M
 {
 	typedef _S S;

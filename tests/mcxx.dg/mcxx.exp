@@ -23,7 +23,7 @@ foreach test $testcases {
     if {
         [catch { 
             set output_execution [exec "$full_path_tool" "--verbose" "--output-dir=." "--cxx=c++" "-c" \
-                "-o" "${rootname_test}.o" "--debug-flag=print_scope_brief" "$test" "|&" "cat"] 
+                "-o" "${rootname_test}.o" "$test" "|&" "cat"] 
         } output_execution ]
     } {
         if [expr { $kind_of_test == "xfailure" }] {

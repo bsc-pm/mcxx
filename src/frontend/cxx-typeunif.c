@@ -30,19 +30,17 @@
 #include "cxx-prettyprint.h"
 
 static AST get_nontype_template_parameter_unification(unification_set_t* unif_set, int num, int nesting);
-static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope, AST
-        right_tree, scope_t* right_scope, unification_set_t** unif_set,
-        decl_context_t decl_context);
-static char equivalent_expression_trees(AST left_tree, scope_t* left_scope, AST right_tree, 
-        scope_t* right_scope, decl_context_t decl_context);
+static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_context, AST
+        right_tree, decl_context_t right_decl_context, unification_set_t** unif_set);
+static char equivalent_expression_trees(AST left_tree, decl_context_t left_decl_context, AST right_tree, 
+        decl_context_t right_decl_context);
 
 // Will try to find a substitution to unificate t1 to t2
 //
 // e.g.   Q*    can    be unificated to   T**    with   [Q <- T*]
 //        T**   cannot be unificated to   Q*
 //
-char unificate_two_types(type_t* t1, type_t* t2, scope_t* st, 
-        unification_set_t** unif_set, decl_context_t decl_context)
+char unificate_two_types(type_t* t1, type_t* t2, unification_set_t** unif_set, decl_context_t decl_context)
 {
     cv_qualifier_t cv_qualif_1 = CV_NONE;
     cv_qualifier_t cv_qualif_2 = CV_NONE;
@@ -52,8 +50,8 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
     DEBUG_CODE()
     {
         fprintf(stderr, "Trying to unificate type '%s' <- '%s'\n",
-                print_declarator(t1, st),
-                print_declarator(t2, st));
+                print_declarator(t1, decl_context),
+                print_declarator(t2, decl_context));
     }
 
     // Normalize types
@@ -144,14 +142,14 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
                         t1->type->template_parameter_num, t1->type->template_parameter_name);
             }
             // Check is the same unification we are going to do
-            if (!equivalent_types(previous_unif, t2, st, CVE_CONSIDER, decl_context))
+            if (!equivalent_types(previous_unif, t2, CVE_CONSIDER, decl_context))
             {
                 // They're not equivalent, thus not unificable
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "Previous unification type '%s' does not match the current one '%s'\n",
-                            print_declarator(previous_unif, st),
-                            print_declarator(t2, st));
+                            print_declarator(previous_unif, decl_context),
+                            print_declarator(t2, decl_context));
                 }
                 return 0;
             }
@@ -191,7 +189,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
         if (previous_unif != NULL)
         {
             // Check is the same unification we are going to do
-            if (!equivalent_types(previous_unif, t2, st, CVE_CONSIDER, decl_context))
+            if (!equivalent_types(previous_unif, t2,  CVE_CONSIDER, decl_context))
             {
                 // They're not equivalent, thus not unificable
                 DEBUG_CODE()
@@ -244,7 +242,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
                 && (entry_t2->kind == SK_TEMPLATE_PRIMARY_CLASS
                     || entry_t2->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
                 && (strcmp(entry_t1->symbol_name, entry_t2->symbol_name) == 0)
-                && same_scope(entry_t1->scope, entry_t2->scope))
+                && same_scope(entry_t1->decl_context.current_scope, entry_t2->decl_context.current_scope))
         {
             DEBUG_CODE()
             {
@@ -272,7 +270,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
 
             char unificable = 0;
 
-            unificable = match_one_template(arguments, specialized, entry_t1, st, *unif_set, decl_context);
+            unificable = match_one_template(arguments, specialized, entry_t1, *unif_set, decl_context);
 
             return unificable;
         }
@@ -289,22 +287,22 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
         case TK_DIRECT :
             {
                 // If they were unificable they would have been unified before
-                return equivalent_types(t1, t2, st, CVE_CONSIDER, decl_context);
+                return equivalent_types(t1, t2, CVE_CONSIDER, decl_context);
                 // return equivalent_simple_types(t1->type, t2->type, st);
                 break;
             }
         case TK_REFERENCE :
         case TK_POINTER :
             {
-                return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, st, unif_set,
+                return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, unif_set,
                         decl_context);
                 break;
             }
         case TK_POINTER_TO_MEMBER :
-            return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, st, unif_set,
+            return unificate_two_types(t1->pointer->pointee, t2->pointer->pointee, unif_set,
                     decl_context)
                 && unificate_two_types(t1->pointer->pointee_class->type_information,
-                        t2->pointer->pointee_class->type_information, st, unif_set, decl_context);
+                        t2->pointer->pointee_class->type_information, unif_set, decl_context);
             break;
         case TK_ARRAY :
             {
@@ -320,13 +318,13 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
                 }
 
                 if (!unificate_two_expressions(unif_set, t1->array->array_expr,
-                            t1->array->array_expr_scope, t2->array->array_expr,
-                            t2->array->array_expr_scope, decl_context))
+                            t1->array->array_expr_decl_context, t2->array->array_expr,
+                            t2->array->array_expr_decl_context))
                 {
                     return 0;
                 }
                 
-                if (!unificate_two_types(t1->array->element_type, t2->array->element_type, st, unif_set,
+                if (!unificate_two_types(t1->array->element_type, t2->array->element_type, unif_set,
                         decl_context))
                 {
                     return 0;
@@ -337,7 +335,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
             // A function will be unified by steps. First unify the return
             // then the parameters
             {
-                if (!unificate_two_types(t1->function->return_type, t2->function->return_type, st, 
+                if (!unificate_two_types(t1->function->return_type, t2->function->return_type, 
                             unif_set, decl_context))
                 {
                     return 0;
@@ -366,7 +364,7 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
                     if (is_ellipse_1 && is_ellipse_2)
                         continue;
 
-                    if (!unificate_two_types(par1, par2, st, unif_set,
+                    if (!unificate_two_types(par1, par2, unif_set,
                                 decl_context))
                     {
                         return 0;
@@ -383,11 +381,11 @@ char unificate_two_types(type_t* t1, type_t* t2, scope_t* st,
 
 
 char unificate_two_expressions(unification_set_t **unif_set, 
-        AST left_tree, scope_t* left_scope, 
-        AST right_tree, scope_t* right_scope, decl_context_t decl_context)
+        AST left_tree, decl_context_t left_decl_context, 
+        AST right_tree, decl_context_t right_decl_context)
 {
-    return equivalent_dependent_expressions(left_tree, left_scope, right_tree,
-            right_scope, unif_set, decl_context);
+    return equivalent_dependent_expressions(left_tree, left_decl_context, right_tree,
+            right_decl_context, unif_set);
 }
 
 type_t* get_type_template_parameter_unification(unification_set_t* unif_set, int num, int nesting)
@@ -420,9 +418,8 @@ static AST get_nontype_template_parameter_unification(unification_set_t* unif_se
     return NULL;
 }
 
-static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope, AST
-        right_tree, scope_t* right_scope, unification_set_t** unif_set,
-        decl_context_t decl_context)
+static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_context, AST
+        right_tree, decl_context_t right_decl_context, unification_set_t** unif_set)
 {
     left_tree = advance_expression_nest(left_tree);
     right_tree = advance_expression_nest(right_tree);
@@ -439,7 +436,7 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
         fprintf(stderr, "Trying to match by means of plain constant evaluation\n");
     }
     
-    if (equivalent_expression_trees(left_tree, left_scope, right_tree, right_scope, decl_context))
+    if (equivalent_expression_trees(left_tree, left_decl_context, right_tree, right_decl_context))
     {
         DEBUG_CODE()
         {
@@ -478,8 +475,7 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                 {
                     fprintf(stderr, "Left part '%s' is a simple expression\n", prettyprint_in_buffer(left_tree));
                 }
-                scope_entry_list_t *result = query_id_expression(left_scope, left_tree,
-                        FULL_UNQUALIFIED_LOOKUP, decl_context);
+                scope_entry_list_t *result = query_id_expression(left_decl_context, left_tree);
 
                 ERROR_CONDITION((result == NULL), "Template argument of specialization '%s', not found",
                         prettyprint_in_buffer(left_tree));
@@ -508,7 +504,7 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                             fprintf(stderr, "Trees are equal, trying plain comparison by constant evaluation\n");
                         }
 
-                        return equivalent_expression_trees(left_tree, left_scope, right_tree, right_scope, decl_context);
+                        return equivalent_expression_trees(left_tree, left_decl_context, right_tree, right_decl_context);
                     }
                 }
                 else
@@ -531,7 +527,7 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                     {
                         unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
                         unif_item->expression = right_tree;
-                        unif_item->expr_scope = right_scope;
+                        unif_item->decl_context = right_decl_context;
                         unif_item->parameter_name = ASTText(left_tree);
 
                         unif_item->parameter_num = template_parameter_num;
@@ -558,13 +554,11 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                         if ((ASTType(right_tree) == ASTType(previous_unif))
                                 && (ASTType(right_tree) == AST_SYMBOL))
                         {
-                            scope_entry_list_t *right_entry_list = query_id_expression(right_scope, right_tree,
-                                    FULL_UNQUALIFIED_LOOKUP, decl_context);
+                            scope_entry_list_t *right_entry_list = query_id_expression(right_decl_context, right_tree);
 
                             ERROR_CONDITION(right_entry_list == NULL, "Right symbol of unification not found", 0);
 
-                            scope_entry_list_t *previous_unif_entry_list = query_id_expression(right_scope, previous_unif,
-                                    FULL_UNQUALIFIED_LOOKUP, decl_context);
+                            scope_entry_list_t *previous_unif_entry_list = query_id_expression(right_decl_context, previous_unif);
 
                             ERROR_CONDITION(previous_unif_entry_list == NULL, "Previous unified symbol not found", 0);
 
@@ -578,7 +572,7 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                                 {
                                     fprintf(stderr, "Checking previous unification using plain constant evaluation\n");
                                 }
-                                return equivalent_expression_trees(right_tree, right_scope, previous_unif, right_scope, decl_context);
+                                return equivalent_expression_trees(right_tree, right_decl_context, previous_unif, right_decl_context);
                             }
                             else
                             {
@@ -603,7 +597,7 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                         {
                             // Otherwise try a structural match
                             equivalent = equivalent_dependent_expressions(previous_unif,
-                                    right_scope, right_tree, right_scope, unif_set, decl_context);
+                                    right_decl_context, right_tree, right_decl_context, unif_set);
                         }
                         if (equivalent)
                         {
@@ -634,7 +628,7 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                 //
                 // If this had to return 1, it should have been returned before
                 // so most of the times this will fail
-                return equivalent_expression_trees(left_tree, left_scope, right_tree, right_scope, decl_context);
+                return equivalent_expression_trees(left_tree, left_decl_context, right_tree, right_decl_context);
                 break;
             }
         case AST_LOGICAL_OR :
@@ -663,11 +657,9 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                 AST right_tree_1 = ASTSon1(right_tree);
 
                 return equivalent_dependent_expressions(left_tree_0,
-                        left_scope, right_tree_0, right_scope, unif_set,
-                        decl_context) 
+                        left_decl_context, right_tree_0, right_decl_context, unif_set)
                     && equivalent_dependent_expressions(left_tree_1, 
-                            left_scope, right_tree_1, right_scope, unif_set, 
-                            decl_context);
+                            left_decl_context, right_tree_1, right_decl_context, unif_set);
                 break;
             }
         case AST_CAST_EXPRESSION :
@@ -690,8 +682,8 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                 AST left_cast = ASTSon1(left_tree);
                 AST right_cast = ASTSon1(right_tree);
 
-                return equivalent_dependent_expressions(left_cast, left_scope,
-                        right_cast, right_scope, unif_set, decl_context);
+                return equivalent_dependent_expressions(left_cast, left_decl_context,
+                        right_cast, right_decl_context, unif_set);
                 break;
             }
         case AST_CONDITIONAL_EXPRESSION :
@@ -704,12 +696,12 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                 AST right_true = ASTSon1(right_tree);
                 AST right_false = ASTSon2(right_tree);
 
-                return equivalent_dependent_expressions(left_condition, left_scope,
-                        right_condition, right_scope, unif_set, decl_context)
-                    && equivalent_dependent_expressions(left_true, left_scope,
-                            right_true, right_scope, unif_set, decl_context)
-                    && equivalent_dependent_expressions(left_false, left_scope,
-                            right_false, right_scope, unif_set, decl_context);
+                return equivalent_dependent_expressions(left_condition, left_decl_context,
+                        right_condition, right_decl_context, unif_set)
+                    && equivalent_dependent_expressions(left_true, left_decl_context,
+                            right_true, right_decl_context, unif_set)
+                    && equivalent_dependent_expressions(left_false, left_decl_context,
+                            right_false, right_decl_context, unif_set);
                 break;
             }
         case AST_DECIMAL_LITERAL :
@@ -718,7 +710,7 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
         case AST_CHARACTER_LITERAL :
         case AST_BOOLEAN_LITERAL :
             // Check literal values
-            return equivalent_expression_trees(left_tree, left_scope, right_tree, right_scope, decl_context);
+            return equivalent_expression_trees(left_tree, left_decl_context, right_tree, right_decl_context);
         case AST_PLUS_OP :
         case AST_NOT_OP :
         case AST_NEG_OP :
@@ -727,8 +719,8 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                 AST left_operand = ASTSon0(left_tree);
                 AST right_operand = ASTSon0(right_tree);
 
-                return equivalent_dependent_expressions(left_operand, left_scope,
-                        right_operand, right_scope, unif_set, decl_context);
+                return equivalent_dependent_expressions(left_operand, left_decl_context,
+                        right_operand, right_decl_context, unif_set);
             }
         case AST_SIZEOF :
             {
@@ -736,8 +728,8 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                 AST left_sizeof = ASTSon0(left_tree);
                 AST right_sizeof = ASTSon0(right_tree);
 
-                return equivalent_dependent_expressions(left_sizeof, left_scope,
-                        right_sizeof, right_scope, unif_set, decl_context);
+                return equivalent_dependent_expressions(left_sizeof, left_decl_context,
+                        right_sizeof, right_decl_context, unif_set);
             }
         case AST_SIZEOF_TYPEID :
             {
@@ -761,8 +753,8 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                 AST right_first_expression = ASTSon1(right_expression_list);
 
                 return equivalent_dependent_expressions(left_first_expression,
-                        left_scope, right_first_expression, right_scope,
-                        unif_set, decl_context);
+                        left_decl_context, right_first_expression, right_decl_context,
+                        unif_set);
             }
         case AST_REFERENCE :
             {
@@ -779,14 +771,10 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
                 else
                 {
                     // Get the symbol and use its pointer in the symbol table as a value
-                    scope_entry_list_t* left_result_list = query_id_expression(left_scope,
-                            left_reference, 
-                            FULL_UNQUALIFIED_LOOKUP,
-                            decl_context);
-                    scope_entry_list_t* right_result_list = query_id_expression(right_scope,
-                            right_reference, 
-                            FULL_UNQUALIFIED_LOOKUP,
-                            decl_context);
+                    scope_entry_list_t* left_result_list = query_id_expression(left_decl_context,
+                            left_reference);
+                    scope_entry_list_t* right_result_list = query_id_expression(right_decl_context,
+                            right_reference);
 
                     if (left_result_list == NULL
                             || right_result_list == NULL)
@@ -805,11 +793,11 @@ static char equivalent_dependent_expressions(AST left_tree, scope_t* left_scope,
     }
 }
 
-static char equivalent_expression_trees(AST left_tree, scope_t* left_scope, AST right_tree, 
-        scope_t* right_scope, decl_context_t decl_context)
+static char equivalent_expression_trees(AST left_tree, decl_context_t left_decl_context, AST right_tree, 
+        decl_context_t right_decl_context)
 {
-    literal_value_t left_value = evaluate_constant_expression(left_tree, left_scope, decl_context);
-    literal_value_t right_value = evaluate_constant_expression(right_tree, right_scope, decl_context);
+    literal_value_t left_value = evaluate_constant_expression(left_tree, left_decl_context);
+    literal_value_t right_value = evaluate_constant_expression(right_tree, right_decl_context);
 
-    return equal_literal_values(left_value, right_value, right_scope);
+    return equal_literal_values(left_value, right_value, right_decl_context);
 }
