@@ -171,6 +171,8 @@ static char* current_linkage = "\"C++\"";
 
 static void initialize_builtin_symbols(decl_context_t decl_context);
 
+static AST advance_over_declarator_nests(AST a, decl_context_t decl_context);
+
 void build_scope_dynamic_initializer(void)
 {
     // Defined in cxx-attrnames.c
@@ -637,6 +639,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                     && declarator_type->kind != TK_FUNCTION)
             {
                 AST declarator_name = get_declarator_name(declarator, decl_context);
+                ERROR_CONDITION(declarator_name == NULL, "This cannot be null!", 0);
                 scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name);
 
                 ERROR_CONDITION((entry_list == NULL), "Symbol '%s' just declared has not been found in the scope",
@@ -678,7 +681,10 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
 
                     entry_list->entry->expression_value = initializer;
 
-                    ASTAttrSetValueType(declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                    {
+                        AST non_nested_declarator = advance_over_declarator_nests(declarator, decl_context);
+                        ASTAttrSetValueType(non_nested_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                    }
                 }
             }
             else
@@ -2441,8 +2447,11 @@ static scope_entry_t* build_scope_declarator_with_parameter_context(AST a,
             }
         }
 
-        ASTAttrSetValueType(a, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
-        ASTAttrSetValueType(a, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+        {
+            AST non_nested_declarator = advance_over_declarator_nests(a, decl_context);
+            ASTAttrSetValueType(non_nested_declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(non_nested_declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+        }
 
         scope_link_set(CURRENT_COMPILED_FILE(scope_link), a, entity_context);
     }
@@ -5271,13 +5280,14 @@ static void build_scope_simple_member_declaration(decl_context_t decl_context, A
                 case AST_GCC_MEMBER_DECLARATOR :
                     {
                         AST declarator_name = get_declarator_name(declarator, decl_context);
-
-                        ASTAttrSetValueType(declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
-                        ASTAttrSetValueType(declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
-
                         AST initializer = ASTSon1(declarator);
 
-                        ASTAttrSetValueType(declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                        {
+                            AST non_nested_declarator = advance_over_declarator_nests(declarator, decl_context);
+                            ASTAttrSetValueType(non_nested_declarator, LANG_IS_DECLARED_NAME, tl_type_t, tl_bool(1));
+                            ASTAttrSetValueType(non_nested_declarator, LANG_DECLARED_NAME, tl_type_t, tl_ast(declarator_name));
+                            ASTAttrSetValueType(non_nested_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                        }
                         
                         // Change name of constructors
                         AST decl_spec_seq = ASTSon0(a);
@@ -7477,6 +7487,29 @@ AST get_declarator_name(AST a, decl_context_t decl_context)
             {
                 internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
             }
+    }
+}
+
+static AST advance_over_declarator_nests(AST a, decl_context_t decl_context)
+{
+    ERROR_CONDITION(a == NULL, "This node cannot be null", 0);
+    ERROR_CONDITION(ASTType(a) == AST_AMBIGUITY, "This node should not be ambiguous here", 0);
+    ERROR_CONDITION(get_declarator_name(a, decl_context) == NULL, "This should be a non-abstract declarator", 0);
+
+    switch(ASTType(a))
+    {
+        case AST_INIT_DECLARATOR :
+        case AST_MEMBER_DECLARATOR :
+        case AST_GCC_MEMBER_DECLARATOR :
+        case AST_DECLARATOR :
+        case AST_GCC_DECLARATOR :
+        case AST_PARENTHESIZED_DECLARATOR :
+            {
+                return advance_over_declarator_nests(ASTSon0(a), decl_context); 
+                break;
+            }
+        default:
+            return a;
     }
 }
 

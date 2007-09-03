@@ -443,6 +443,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/stm_func/Makefile
            src/tl/examples/Makefile
            src/tl/examples/mypragma/Makefile
+           src/tl/examples/declarations/Makefile
            config/Makefile
            config/config.mcxx
            tests/Makefile
