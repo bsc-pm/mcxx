@@ -1151,6 +1151,13 @@ namespace TL
         }
         ObjectList<Type> parameter_types = type.parameters(has_ellipsis);
 
+        // This avoids problems with the case 'f(void)' where we have
+        // some sort of declarations but the computed type does not.
+        if (parameter_types.empty())
+        {
+            return result;
+        }
+
         TraverseParameters traverse_parameter_declarations;
         ObjectList<AST_t> parameter_declarations = _ref.depth_subtrees(traverse_parameter_declarations);
 
