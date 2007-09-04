@@ -175,14 +175,14 @@ namespace TL
 
 
         if ((num_args_val == 0)
-                && (enable_nth_create))
+                && (!enable_nth_create))
         {
             nth_creation_function
                 << "     nthf_create_1s_vp_((void*)(" << outlined_function_name_decl << "), &nth_num_deps, &nth_p, &nth_selfv, 0, "
                 << "        &nth_nargs_ref " << referenced_parameters << ");"
                 ;
         }
-        else
+        else // (num_args_val != 0 || enable_nth_create)
         {
             if (!enable_nth_create)
             {

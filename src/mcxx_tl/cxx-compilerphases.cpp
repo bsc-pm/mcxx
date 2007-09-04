@@ -186,11 +186,13 @@ extern "C"
         {
             char* library_name = CURRENT_CONFIGURATION(compiler_phases[i]);
 
-             DEBUG_CODE()
-             {
+            DEBUG_CODE()
+            {
                 fprintf(stderr, "Loading compiler phase '%s'\n", library_name);
             }
-            void* handle = dlopen(library_name, RTLD_NOW | RTLD_LOCAL);
+
+            // RTLD_GLOBAL is needed for RTTI among libraries
+            void* handle = dlopen(library_name, RTLD_NOW | RTLD_GLOBAL);
 
             if (handle == NULL)
             {
