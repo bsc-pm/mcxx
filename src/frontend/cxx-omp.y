@@ -38,8 +38,7 @@
 %token<token_atrib> OMP_THREADPRIVATE
 %token<token_atrib> OMP_CUSTOM_CLAUSE
 %token<token_atrib> OMP_CUSTOM_DIRECTIVE
-%token<token_atrib> OMP_CONSTRUCT_TOKEN
-%token<token_atrib> OMP_DIRECTIVE_TOKEN
+%token<token_atrib> OMP_CUSTOM_CONSTRUCT
 
 // OpenMP 2.5 semantic values
 %type<ast> openmp_construct
@@ -127,13 +126,14 @@
 
 %type<ast> user_defined_reduction
 
-%type<ast> omp_custom_construct
-%type<ast> omp_custom_construct_directive
+%type<ast> omp_custom_construct_statement
+%type<ast> omp_custom_construct_declaration
 %type<ast> omp_custom_directive
 %type<ast> omp_custom_clause_opt_seq
 %type<ast> omp_custom_clause_seq
 %type<ast> omp_custom_parameter_clause
 %type<ast> omp_custom_clause
+%type<ast> omp_custom_construct_line
 /*!endif*/
 /*!if GRAMMAR_RULES*/
 /* OpenMP 2.5 grammar rules */
@@ -162,6 +162,10 @@ declaration : threadprivate_directive
 | omp_custom_directive
 {
 	$$ = $1;
+}
+| omp_custom_construct_declaration
+{
+    $$ = $1;
 }
 ;
 
@@ -220,7 +224,7 @@ openmp_construct : parallel_construct
 {
 	$$ = $1;
 }
-| omp_custom_construct
+| omp_custom_construct_statement
 {
 	$$ = $1;
 }
@@ -237,25 +241,27 @@ openmp_directive : barrier_directive
 ;
 
 // Custom OpenMP support
-omp_custom_directive : OMP_PRAGMA OMP_DIRECTIVE_TOKEN OMP_CUSTOM_DIRECTIVE omp_custom_clause_opt_seq OMP_NEWLINE
+omp_custom_directive : OMP_PRAGMA OMP_CUSTOM_DIRECTIVE omp_custom_clause_opt_seq OMP_NEWLINE
 {
-	$$ = ASTMake1(AST_OMP_CUSTOM_DIRECTIVE, $4, $1.token_line, $3.token_text);
+ 	$$ = ASTMake1(AST_OMP_CUSTOM_DIRECTIVE, $3, $1.token_line, $2.token_text);
 }
 ;
 
-omp_custom_construct : omp_custom_construct_directive structured_block
+omp_custom_construct_line : OMP_PRAGMA OMP_CUSTOM_CONSTRUCT omp_custom_clause_opt_seq OMP_NEWLINE
 {
-	$$ = ASTMake2(AST_OMP_CUSTOM_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+ 	$$ = ASTMake1(AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE, $3, $1.token_line, $2.token_text);
 }
 ;
 
-omp_custom_construct_directive : OMP_PRAGMA OMP_CUSTOM_DIRECTIVE omp_custom_clause_opt_seq OMP_NEWLINE
+omp_custom_construct_statement : omp_custom_construct_line structured_block
 {
-	$$ = ASTMake1(AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE, $3, $1.token_line, $2.token_text);
+    $$ = ASTMake2(AST_OMP_CUSTOM_CONSTRUCT, $1, $2, ASTLine($1), NULL);
 }
-| OMP_PRAGMA OMP_CONSTRUCT_TOKEN OMP_CUSTOM_DIRECTIVE omp_custom_clause_opt_seq OMP_NEWLINE
+;
+
+omp_custom_construct_declaration : omp_custom_construct_line declaration
 {
-	$$ = ASTMake1(AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE, $4, $1.token_line, $3.token_text);
+    $$ = ASTMake2(AST_OMP_CUSTOM_CONSTRUCT, $1, $2, ASTLine($1), NULL);
 }
 ;
 
@@ -303,6 +309,8 @@ omp_custom_clause : OMP_CUSTOM_CLAUSE '(' expression_list ')'
 	$$ = ASTMake1(AST_OMP_CUSTOM_CLAUSE, NULL, $1.token_line, $1.token_text);
 }
 ;
+
+// End of custom support
 
 structured_block : statement
 {

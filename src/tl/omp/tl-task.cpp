@@ -585,7 +585,6 @@ namespace TL
     void OpenMPTransform::taskwait_postorder(OpenMP::CustomConstruct taskwait_construct)
     {
         Source taskwait_source;
-        Statement taskwait_body = taskwait_construct.body();
 
         Source instrumentation_code_before, instrumentation_code_after;
 
@@ -606,7 +605,6 @@ namespace TL
             <<    instrumentation_code_before
             <<    "nthf_task_block_();"
             <<    instrumentation_code_after
-            <<    taskwait_body.prettyprint() // This will avoid breakage if you did not write ';' after the taskwait pragma
             << "}"
             ;
 

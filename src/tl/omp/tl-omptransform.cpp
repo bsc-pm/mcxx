@@ -24,7 +24,7 @@
 namespace TL
 {
     OpenMPTransform::OpenMPTransform()
-        : already_initialized(false), parallel_nesting(0), transaction_nesting(0)
+        : parallel_nesting(0), transaction_nesting(0)
     {
         // Set phase info
         set_phase_name("Nanos 4 OpenMP implementation");
@@ -49,6 +49,102 @@ namespace TL
                 "Filter mode for filtering function calls within '#pragma transaction'. It can be 'normal' or 'inverted'",
                 function_filter_mode_str,
                 "normal");
+
+        // Register callbacks for constructs and directives
+        //
+        // #pragma omp parallel
+        on_parallel_pre.connect(functor(&OpenMPTransform::parallel_preorder, *this));
+        on_parallel_post.connect(functor(&OpenMPTransform::parallel_postorder, *this));
+
+        // #pragma omp parallel for
+        on_parallel_for_pre.connect(functor(&OpenMPTransform::parallel_for_preorder, *this));
+        on_parallel_for_post.connect(functor(&OpenMPTransform::parallel_for_postorder, *this));
+
+        // #pragma omp for
+        on_for_pre.connect(functor(&OpenMPTransform::for_preorder, *this));
+        on_for_post.connect(functor(&OpenMPTransform::for_postorder, *this));
+
+        // #pragma omp parallel sections 
+        on_parallel_sections_pre.connect(functor(&OpenMPTransform::parallel_sections_preorder, *this));
+        on_parallel_sections_post.connect(functor(&OpenMPTransform::parallel_sections_postorder, *this));
+
+        // #pragma omp sections
+        on_sections_pre.connect(functor(&OpenMPTransform::sections_preorder, *this));
+        on_sections_pre.connect(functor(&OpenMPTransform::sections_postorder, *this));
+
+        // #pragma omp section
+        on_section_post.connect(functor(&OpenMPTransform::section_postorder, *this));
+
+        // #pragma omp barrier
+        on_barrier_post.connect(functor(&OpenMPTransform::barrier_postorder, *this));
+
+        // #pragma omp atomic
+        on_atomic_post.connect(functor(&OpenMPTransform::atomic_postorder, *this));
+
+        // #pragma omp ordered
+        on_ordered_post.connect(functor(&OpenMPTransform::ordered_postorder, *this));
+
+        // #pragma omp master
+        on_master_post.connect(functor(&OpenMPTransform::master_postorder, *this));
+
+        // #pragma omp single
+        on_single_post.connect(functor(&OpenMPTransform::single_postorder, *this));
+
+        // #pragma omp parallel single
+        on_parallel_single_pre.connect(functor(&OpenMPTransform::parallel_single_preorder, *this));
+        on_parallel_single_post.connect(functor(&OpenMPTransform::parallel_single_postorder, *this));
+
+        // #pragma omp critical
+        on_critical_post.connect(functor(&OpenMPTransform::critical_postorder, *this));
+
+        // #pragma omp flush
+        on_flush_post.connect(functor(&OpenMPTransform::flush_postorder, *this));
+
+        // #pragma omp threadprivate
+        on_threadprivate_post.connect(functor(&OpenMPTransform::threadprivate_postorder, *this));
+
+        // OMP 3.0 tasks
+        register_construct("task");
+        on_custom_construct_post["task"].connect(functor(&OpenMPTransform::task_postorder, *this));
+
+        // #pragma omp taskwait
+        register_directive("taskwait");
+        on_custom_construct_post["taskwait"].connect(functor(&OpenMPTransform::taskwait_postorder, *this));
+
+        // #pragma omp taskgroup
+        register_directive("taskgroup");
+        on_custom_construct_post["taskgroup"].connect(functor(&OpenMPTransform::taskgroup_postorder, *this));
+
+        // #pragma omp taskyield
+        register_directive("taskyield");
+        on_custom_construct_post["taskyield"].connect(functor(&OpenMPTransform::taskyield_postorder, *this));
+        // End of OMP 3.0 tasks
+
+        // --- Transactional world --
+        // #pragma omp transaction
+        register_construct("transaction");
+        on_custom_construct_pre["transaction"].connect(functor(&OpenMPTransform::transaction_preorder, *this));
+        on_custom_construct_post["transaction"].connect(functor(&OpenMPTransform::transaction_postorder, *this));
+        
+		// #pragma omp retry
+        register_directive("retry");
+		on_custom_construct_post["retry"].connect(functor(&OpenMPTransform::retry_postorder, *this));
+
+        // #pragma omp preserve
+        register_construct("preserve");
+        on_custom_construct_post["preserve"].connect(functor(&OpenMPTransform::preserve_postorder, *this));
+        // --- End of transactional world --
+
+        // --- Experimental directives ---
+        // #pragma omp while
+        register_construct("task_while");
+        on_custom_construct_pre["task_while"].connect(functor(&OpenMPTransform::task_while_preorder, *this));
+        on_custom_construct_post["task_while"].connect(functor(&OpenMPTransform::task_while_postorder, *this));
+
+        register_construct("task_for");
+        on_custom_construct_pre["task_for"].connect(functor(&OpenMPTransform::task_for_preorder, *this));
+        on_custom_construct_post["task_for"].connect(functor(&OpenMPTransform::task_for_postorder, *this));
+        // --- End of experimental directives ---
     }
 
     void OpenMPTransform::set_parallel_interface(const std::string& str)
@@ -103,101 +199,8 @@ namespace TL
 
     void OpenMPTransform::init()
     {
-        // This function is called in OpenMPPhase::run. The user
-        // can register here the handlers that will be called for
-        // every construction (in preorder and postorder)
-        //
-        // Register the handlers (callbacks) for every construction
-        if (already_initialized)
-            return;
-        already_initialized = true;
-
+        // This function is called in OpenMPPhase::run
         function_filter.init(function_filter_name_str, function_filter_mode_str);
-
-        // #pragma omp parallel
-        on_parallel_pre.connect(functor(&OpenMPTransform::parallel_preorder, *this));
-        on_parallel_post.connect(functor(&OpenMPTransform::parallel_postorder, *this));
-
-        // #pragma omp parallel for
-        on_parallel_for_pre.connect(functor(&OpenMPTransform::parallel_for_preorder, *this));
-        on_parallel_for_post.connect(functor(&OpenMPTransform::parallel_for_postorder, *this));
-
-        // #pragma omp for
-        on_for_pre.connect(functor(&OpenMPTransform::for_preorder, *this));
-        on_for_post.connect(functor(&OpenMPTransform::for_postorder, *this));
-
-        // #pragma omp parallel sections 
-        on_parallel_sections_pre.connect(functor(&OpenMPTransform::parallel_sections_preorder, *this));
-        on_parallel_sections_post.connect(functor(&OpenMPTransform::parallel_sections_postorder, *this));
-
-        // #pragma omp sections
-        on_sections_pre.connect(functor(&OpenMPTransform::sections_preorder, *this));
-        on_sections_pre.connect(functor(&OpenMPTransform::sections_postorder, *this));
-
-        // #pragma omp section
-        on_section_post.connect(functor(&OpenMPTransform::section_postorder, *this));
-
-        // #pragma omp barrier
-        on_barrier_post.connect(functor(&OpenMPTransform::barrier_postorder, *this));
-
-        // #pragma omp atomic
-        on_atomic_post.connect(functor(&OpenMPTransform::atomic_postorder, *this));
-
-        // #pragma omp ordered
-        on_ordered_post.connect(functor(&OpenMPTransform::ordered_postorder, *this));
-
-        // #pragma omp master
-        on_master_post.connect(functor(&OpenMPTransform::master_postorder, *this));
-
-        // #pragma omp single
-        on_single_post.connect(functor(&OpenMPTransform::single_postorder, *this));
-
-        // #pragma omp parallel single
-        on_parallel_single_pre.connect(functor(&OpenMPTransform::parallel_single_preorder, *this));
-        on_parallel_single_post.connect(functor(&OpenMPTransform::parallel_single_postorder, *this));
-
-        // #pragma omp critical
-        on_critical_post.connect(functor(&OpenMPTransform::critical_postorder, *this));
-
-        // #pragma omp flush
-        on_flush_post.connect(functor(&OpenMPTransform::flush_postorder, *this));
-
-        // #pragma omp threadprivate
-        on_threadprivate_post.connect(functor(&OpenMPTransform::threadprivate_postorder, *this));
-
-        // #pragma omp task
-        on_custom_construct_post["task"].connect(functor(&OpenMPTransform::task_postorder, *this));
-
-        // #pragma omp directive taskwait
-        on_custom_construct_post["taskwait"].connect(functor(&OpenMPTransform::taskwait_postorder, *this));
-
-        // #pragma omp directive taskgroup
-        on_custom_construct_post["taskgroup"].connect(functor(&OpenMPTransform::taskgroup_postorder, *this));
-
-        // #pragma omp directive taskyield
-        on_custom_construct_post["taskyield"].connect(functor(&OpenMPTransform::taskyield_postorder, *this));
-
-        // --- Transactional world --
-        // #pragma omp construct transaction
-        on_custom_construct_pre["transaction"].connect(functor(&OpenMPTransform::transaction_preorder, *this));
-        on_custom_construct_post["transaction"].connect(functor(&OpenMPTransform::transaction_postorder, *this));
-        
-		// #pragma omp directive retry
-		on_custom_construct_post["retry"].connect(functor(&OpenMPTransform::retry_postorder, *this));
-
-        // #pragma omp construct preserve
-        on_custom_construct_post["preserve"].connect(functor(&OpenMPTransform::preserve_postorder, *this));
-        // --- End of transactional world --
-
-        // --- Experimental directives ---
-        // #pragma omp construct while
-        on_custom_construct_pre["task_while"].connect(functor(&OpenMPTransform::task_while_preorder, *this));
-        on_custom_construct_post["task_while"].connect(functor(&OpenMPTransform::task_while_postorder, *this));
-
-        on_custom_construct_pre["task_for"].connect(functor(&OpenMPTransform::task_for_preorder, *this));
-        on_custom_construct_post["task_for"].connect(functor(&OpenMPTransform::task_for_postorder, *this));
-        // --- End of experimental directives ---
-
     }
 }
 

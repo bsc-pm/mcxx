@@ -133,10 +133,19 @@ int config_add_preprocessor_prefix(char* value)
         fprintf(stderr, "omp is a reserved pragma prefix\n");
         return 1;
     }
+    
+    // Reuse P_LIST_ADD
+    int num_prefixes = CURRENT_CONFIGURATION(num_pragma_custom_prefix);
 
     P_LIST_ADD(CURRENT_CONFIGURATION(pragma_custom_prefix),
             CURRENT_CONFIGURATION(num_pragma_custom_prefix),
             strdup(value));
+
+    // Allocate pragma directive info
+    pragma_directive_set_t* new_info = calloc(1, sizeof(*new_info));
+
+    P_LIST_ADD(CURRENT_CONFIGURATION(pragma_custom_prefix_info),
+            num_prefixes, new_info);
 
     return 0;
 }

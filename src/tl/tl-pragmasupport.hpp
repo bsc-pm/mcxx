@@ -26,37 +26,38 @@
 #include "tl-langconstruct.hpp"
 #include "tl-handler.hpp"
 #include "tl-traverse.hpp"
+#include "tl-source.hpp"
 #include "cxx-attrnames.h"
 
 namespace TL
 {
-    class PragmaClauseExpression : public LangConstruct
-    {
-        public:
-            PragmaClauseExpression(AST_t ref, ScopeLink scope_link)
-                : LangConstruct(ref, scope_link)
-            {
-            }
-
-            ObjectList<Expression> get_expression_list();
-    };
-
     class PragmaCustomClause : public LangConstruct
     {
         private:
             std::string _clause_name;
 
             ObjectList<AST_t> filter_pragma_clause();
+
+            bool _parsed_expressions;
+            ObjectList<Expression> _expressions;
+
         public:
             PragmaCustomClause(const std::string& src, AST_t ref, ScopeLink scope_link)
-                : LangConstruct(ref, scope_link), _clause_name(src)
+                : LangConstruct(ref, scope_link), _clause_name(src), _parsed_expressions(false)
             {
             }
 
-            ObjectList<PragmaClauseExpression> get_pragma_clause_expression_list();
+            // Convenience function, it returns all the arguments parsed as expressions
             ObjectList<Expression> get_expression_list();
+
+            // Convenience function, it returns all the id-expressions of the arguments when 
+            // parsed as expressions
             ObjectList<IdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
 
+            // Raw clause arguments for custom parsing
+            ObjectList<std::string> get_arguments();
+
+            // States whether the clause was in the pragma
             bool is_defined();
     };
 
@@ -80,7 +81,8 @@ namespace TL
             bool is_function_definition();
 
             bool is_parameterized();
-            ObjectList<Expression> get_parameter();
+            ObjectList<Expression> get_parameter_expressions();
+            ObjectList<std::string> get_parameter_arguments();
 
             PragmaCustomClause get_clause(const std::string& name);
     };
@@ -96,7 +98,8 @@ namespace TL
 
             void dispatch_pragma_construct(CustomFunctorMap& search_map, Context ctx, AST_t node);
         public:
-            PragmaCustomDispatcher(const std::string& pragma_handled, CustomFunctorMap& pre_map,
+            PragmaCustomDispatcher(const std::string& pragma_handled, 
+                    CustomFunctorMap& pre_map,
                     CustomFunctorMap& post_map);
 
             virtual void preorder(Context ctx, AST_t node);
@@ -108,12 +111,16 @@ namespace TL
         private:
             std::string _pragma_handled;
             PragmaCustomDispatcher _pragma_dispatcher;
+
         public:
             PragmaCustomCompilerPhase(const std::string& pragma_handled);
             virtual void run(DTO& data_flow);
 
             CustomFunctorMap on_directive_pre;
             CustomFunctorMap on_directive_post;
+
+            void register_directive(const std::string& name);
+            void register_construct(const std::string& name);
     };
 }
 

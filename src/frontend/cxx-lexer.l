@@ -66,6 +66,8 @@ static char omp_seen_schedule_kind = 0;
 
 static int pragma_custom_var_list_parentheses = 0;
 
+static char *current_pragma_prefix = NULL;
+
 static int num_new_lines(char* c)
 {
     int result = 0;
@@ -201,7 +203,11 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 	{
 		for (i = 0; i < CURRENT_CONFIGURATION(num_pragma_custom_prefix); i++)
 		{
-			found |= (strcmp(yytext, CURRENT_CONFIGURATION(pragma_custom_prefix[i])) == 0);
+			if (strcmp(yytext, CURRENT_CONFIGURATION(pragma_custom_prefix[i])) == 0)
+            {
+                found = 1;
+                break;
+            }
 		}
 
 		if (!found)
@@ -219,6 +225,7 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 		{
 			BEGIN(pragma_custom_directive);
 			parse_token_text();
+            current_pragma_prefix = CURRENT_CONFIGURATION(pragma_custom_prefix[i]);
 			return PRAGMA_CUSTOM;
 		}
 	}
@@ -238,14 +245,6 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 <openmp_directive>{
 
 [ \t] { }
-
-construct {
-	return OMP_CONSTRUCT_TOKEN;
-}
-
-directive {
-	return OMP_DIRECTIVE_TOKEN;
-}
 
 parallel {
 	BEGIN(openmp_clause);
@@ -324,10 +323,38 @@ threadprivate {
 }
 
 {idnondigit}({idnondigit}|{digit})* {
-	// Special case for custom clauses
+	// Special case for custom constructs/directives
 	BEGIN(openmp_clause);
+    pragma_directive_kind_t directive_kind = lookup_pragma_directive("omp", yytext);
+
 	parse_token_text(); 
-	return OMP_CUSTOM_DIRECTIVE; 
+
+    int token = 0;
+    switch (directive_kind)
+    {
+        case PDK_DIRECTIVE : 
+            {
+                token = OMP_CUSTOM_DIRECTIVE;
+                break;
+            }
+        case PDK_CONSTRUCT :
+            {
+                token = OMP_CUSTOM_CONSTRUCT;
+                break;
+            }
+        case PDK_NONE :
+            {
+                running_error("Unknown OpenMP directive '%s'"
+                        " at %s:%d. Maybe you forgot to register it?", 
+                        yytext,
+                        scanning_now.current_filename, 
+                        scanning_now.line_number);
+            }
+        default:
+            internal_error("Invalid pragma directive kind kind=%d", directive_kind);
+    }
+
+    return token;
 }
 
 }
@@ -336,8 +363,39 @@ threadprivate {
 
 {idnondigit}({idnondigit}|{digit})* {
 	BEGIN(pragma_custom_clause_first);
+
+    pragma_directive_kind_t directive_kind = lookup_pragma_directive(current_pragma_prefix, yytext);
+
 	parse_token_text(); 
-	return PRAGMA_CUSTOM_DIRECTIVE; 
+
+    int token = 0;
+    switch (directive_kind)
+    {
+        case PDK_DIRECTIVE : 
+            {
+                token = PRAGMA_CUSTOM_DIRECTIVE;
+                break;
+            }
+        case PDK_CONSTRUCT :
+            {
+                token = PRAGMA_CUSTOM_CONSTRUCT;
+                break;
+            }
+        case PDK_NONE :
+            {
+                running_error("Unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?"
+                        " at %s:%d.", 
+                        yytext,
+                        current_pragma_prefix,
+                        scanning_now.current_filename, 
+                        scanning_now.line_number);
+            }
+        default:
+            internal_error("Invalid pragma directive kind kind=%d", directive_kind);
+    }
+
+    current_pragma_prefix = NULL;
+    return token;
 }
 
 [ \t] {
@@ -413,19 +471,19 @@ threadprivate {
 	return ')';
 }
 
-{idnondigit}({idnondigit}|{digit})* {
-	// Special case for custom clauses 
-	if (pragma_custom_var_list_parentheses == 0)
-	{
-		BEGIN(pragma_custom_clause);
-		parse_token_text(); 
-		return PRAGMA_CUSTOM_CLAUSE; 
-	}
-	else
-	{
-		// This will fallback to normal lexing
-		REJECT;
-	}
+[^,({[\]})\n ]+ {
+    parse_token_text();
+    return PRAGMA_CLAUSE_ARG_TEXT;
+}
+
+[,][ \t]* {
+    parse_token_text();
+    return ',';
+}
+
+[ \t] { 
+    parse_token_text();
+    return PRAGMA_CLAUSE_ARG_TEXT;
 }
 
 }

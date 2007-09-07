@@ -124,6 +124,20 @@ typedef struct external_var_tag {
     char* value;
 } external_var_t;
 
+typedef enum pragma_directive_kind_tag
+{
+    PDK_NONE = 0,
+    PDK_DIRECTIVE,
+    PDK_CONSTRUCT
+} pragma_directive_kind_t;
+
+typedef struct pragma_directive_set_tag
+{
+    int num_directives;
+    char **directive_names;
+    pragma_directive_kind_t *directive_kinds;
+} pragma_directive_set_t;
+
 struct compilation_file_process_tag;
 
 typedef struct compilation_process_tag
@@ -155,7 +169,6 @@ typedef struct compilation_process_tag
     struct compilation_configuration_tag *current_compilation_configuration;
     struct translation_unit_tag *current_translation_unit;
 } compilation_process_t;
-
 
 typedef struct compilation_configuration_tag
 {
@@ -197,9 +210,13 @@ typedef struct compilation_configuration_tag
     int num_compiler_phases;
     char** compiler_phases;
 
-    // Pragma prefixes
+    // Pragma configuration
+    // OMP pragmae
+    pragma_directive_set_t pragma_omp_info;
+    // Custom pragmae
     int num_pragma_custom_prefix;
     char** pragma_custom_prefix;
+    pragma_directive_set_t **pragma_custom_prefix_info;
 } compilation_configuration_t;
 
 
@@ -213,6 +230,7 @@ typedef struct compilation_file_process_tag
 
 #define CURRENT_CONFIGURATION(x) (compilation_process.current_compilation_configuration->x)
 #define CURRENT_COMPILED_FILE(x) (compilation_process.current_translation_unit->x)
+
 
 MCXX_END_DECLS
 

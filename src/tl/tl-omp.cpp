@@ -240,6 +240,16 @@ namespace TL
         {
         }
 
+        void OpenMPPhase::register_directive(const std::string& str)
+        {
+            register_new_directive("omp", str.c_str(), false);
+        }
+
+        void OpenMPPhase::register_construct(const std::string& str)
+        {
+            register_new_directive("omp", str.c_str(), true);
+        }
+
         Clause Directive::nowait_clause()
         {
             Clause result(_ref, _scope_link, OMP_IS_NOWAIT_CLAUSE);
@@ -846,4 +856,5 @@ namespace TL
             return result;
         }
     }
+
 }

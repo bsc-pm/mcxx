@@ -1373,3 +1373,87 @@ void _enable_debug(void)
 {
     CURRENT_CONFIGURATION(debug_options.enable_debug_code) = 1;
 }
+
+static void register_new_directive_inner(pragma_directive_set_t* pragma_directive_set,
+        const char* directive, pragma_directive_kind_t kind)
+{
+    int num_directives = pragma_directive_set->num_directives;
+    P_LIST_ADD(pragma_directive_set->directive_names,
+            num_directives,
+            strdup(directive));
+    P_LIST_ADD(pragma_directive_set->directive_kinds,
+            pragma_directive_set->num_directives,
+            kind);
+}
+
+void register_new_directive(const char* prefix, const char* directive, char is_construct)
+{
+    pragma_directive_kind_t kind = (is_construct ? PDK_CONSTRUCT : PDK_DIRECTIVE);
+
+    if (strcmp(prefix, "omp") == 0)
+    {
+        // OpenMP is handled special
+        register_new_directive_inner(&CURRENT_CONFIGURATION(pragma_omp_info), directive, kind);
+        return;
+    }
+
+    int i;
+    for (i = 0; i < CURRENT_CONFIGURATION(num_pragma_custom_prefix); i++)
+    {
+        if (strcmp(CURRENT_CONFIGURATION(pragma_custom_prefix)[i], prefix) == 0)
+        {
+            pragma_directive_set_t* pragma_directive_set = CURRENT_CONFIGURATION(pragma_custom_prefix_info)[i];
+
+            int j;
+            for (j = 0; j < pragma_directive_set->num_directives; j++)
+            {
+                if (strcmp(pragma_directive_set->directive_names[j], directive) == 0)
+                {
+                    fprintf(stderr, "Warning, directive or construct "
+                            "'%s' already registered for pragma '%s'"
+                            ", ignoring additional registrations",
+                            directive, prefix);
+                    return;
+                }
+            }
+
+            register_new_directive_inner(pragma_directive_set, directive, kind);
+        }
+    }
+}
+
+static pragma_directive_kind_t lookup_pragma_directive_inner(pragma_directive_set_t* pragma_directive_set, 
+        const char *directive)
+{
+    int j;
+    for (j = 0; j < pragma_directive_set->num_directives; j++)
+    {
+        if (strcmp(pragma_directive_set->directive_names[j], directive) == 0)
+        {
+            return pragma_directive_set->directive_kinds[j];
+        }
+    }
+
+    return PDK_NONE;
+}
+
+pragma_directive_kind_t lookup_pragma_directive(const char* prefix, const char* directive)
+{
+    if (strcmp(prefix, "omp") == 0)
+    {
+        // OpenMP is handled special
+        return lookup_pragma_directive_inner(&CURRENT_CONFIGURATION(pragma_omp_info), directive);
+    }
+
+    int i;
+    for (i = 0; i < CURRENT_CONFIGURATION(num_pragma_custom_prefix); i++)
+    {
+        if (strcmp(CURRENT_CONFIGURATION(pragma_custom_prefix)[i], prefix) == 0)
+        {
+            pragma_directive_set_t* pragma_directive_set = CURRENT_CONFIGURATION(pragma_custom_prefix_info)[i];
+            return lookup_pragma_directive_inner(pragma_directive_set, directive);
+        }
+    }
+
+    return PDK_NONE;
+}

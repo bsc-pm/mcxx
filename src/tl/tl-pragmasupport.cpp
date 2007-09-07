@@ -22,6 +22,35 @@
 
 namespace TL
 {
+    static ObjectList<Expression> parse_as_expressions(ObjectList<AST_t> clause_list, AST_t ref_tree, ScopeLink scope_link)
+    {
+        ObjectList<Expression> result;
+        PredicateBool<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_argument_pred;
+
+        for (ObjectList<AST_t>::iterator it = clause_list.begin();
+                it != clause_list.end();
+                it++)
+        {
+            ObjectList<AST_t> argument_list = it->depth_subtrees(clause_argument_pred, AST_t::NON_RECURSIVE);
+
+            for (ObjectList<AST_t>::iterator it2 = argument_list.begin();
+                    it2 != argument_list.end();
+                    it2++)
+            {
+                Source src;
+                src << it2->prettyprint();
+
+                AST_t parsed_expr = src.parse_expression(ref_tree, scope_link);
+
+                Expression expr(parsed_expr, scope_link);
+
+                result.push_back(expr);
+            }
+        }
+
+        return result;
+    }
+
     PragmaCustomDispatcher::PragmaCustomDispatcher(const std::string& pragma_handled, 
             CustomFunctorMap& pre_map, CustomFunctorMap& post_map)
         : _pragma_handled(pragma_handled), _pre_map(pre_map), _post_map(post_map)
@@ -126,22 +155,35 @@ namespace TL
         return b;
     }
 
-    ObjectList<Expression> PragmaCustomConstruct::get_parameter()
+    ObjectList<Expression> PragmaCustomConstruct::get_parameter_expressions()
     {
+        ObjectList<Expression> result;
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
         AST_t parameter = pragma_line.get_attribute(LANG_PRAGMA_CUSTOM_LINE_PARAMETER);
 
-        PredicateBool<LANG_IS_EXPRESSION_NEST> expression_nest;
-        ObjectList<Expression> result;
+        ObjectList<AST_t> parameter_list;
+        parameter_list.append(parameter);
 
-        ObjectList<AST_t> expression_nest_list = parameter.depth_subtrees(expression_nest, AST_t::NON_RECURSIVE);
+        result = parse_as_expressions(parameter_list, this->_ref, this->_scope_link);
 
-        for (ObjectList<AST_t>::iterator it = expression_nest_list.begin();
-                it != expression_nest_list.end();
+        return result;
+    }
+
+    ObjectList<std::string> PragmaCustomConstruct::get_parameter_arguments()
+    {
+        ObjectList<std::string> result;
+        AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+        AST_t parameter = pragma_line.get_attribute(LANG_PRAGMA_CUSTOM_LINE_PARAMETER);
+
+        PredicateBool<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_argument_pred;
+
+        ObjectList<AST_t> argument_list = parameter.depth_subtrees(clause_argument_pred, AST_t::NON_RECURSIVE);
+
+        for (ObjectList<AST_t>::iterator it = argument_list.begin();
+                it != argument_list.end();
                 it++)
         {
-            Expression expr(*it, _scope_link);
-            result.append(expr);
+            result.append(it->prettyprint());
         }
 
         return result;
@@ -173,74 +215,28 @@ namespace TL
         depth_traverse.traverse(translation_unit, scope_link);
     }
 
-    ObjectList<PragmaClauseExpression> PragmaCustomClause::get_pragma_clause_expression_list()
+    void PragmaCustomCompilerPhase::register_directive(const std::string& str)
     {
-        PredicateBool<LANG_IS_PRAGMA_CUSTOM_CLAUSE_EXPRESSION_ENTITY> expression_nest;
-        ObjectList<PragmaClauseExpression> result;
+        register_new_directive(_pragma_handled.c_str(), str.c_str(), 0);
+    }
 
-        ObjectList<AST_t> custom_clauses = filter_pragma_clause();
-        for (ObjectList<AST_t>::iterator it = custom_clauses.begin();
-                it != custom_clauses.end();
-                it++)
-        {
-            ObjectList<AST_t> expression_nest_list = it->depth_subtrees(expression_nest, AST_t::NON_RECURSIVE);
-
-            for (ObjectList<AST_t>::iterator it2 = expression_nest_list.begin();
-                    it2 != expression_nest_list.end();
-                    it2++)
-            {
-                PragmaClauseExpression pragma_clause_expression(*it2, _scope_link);
-                result.append(pragma_clause_expression);
-            }
-        }
-
-        return result;
+    void PragmaCustomCompilerPhase::register_construct(const std::string& str)
+    {
+        register_new_directive(_pragma_handled.c_str(), str.c_str(), 1);
     }
    
-    ObjectList<Expression> PragmaClauseExpression::get_expression_list()
-    {
-        ObjectList<Expression> result;
-
-        ASTIterator iterator = _ref.get_list_iterator();
-        iterator.rewind();
-
-        while (!iterator.end())
-        {
-            Expression expr(iterator.item(), _scope_link);
-            result.append(expr);
-            iterator.next();
-        }
-
-        return result;
-    }
-
     ObjectList<Expression> PragmaCustomClause::get_expression_list()
     {
-        PredicateBool<LANG_IS_PRAGMA_CUSTOM_CLAUSE_EXPRESSION_ENTITY> expression_nest;
-        ObjectList<Expression> result;
-
-        ObjectList<AST_t> custom_clauses = filter_pragma_clause();
-        for (ObjectList<AST_t>::iterator it = custom_clauses.begin();
-                it != custom_clauses.end();
-                it++)
+        if (!_parsed_expressions)
         {
-            ObjectList<AST_t> expression_nest_list = it->depth_subtrees(expression_nest, AST_t::NON_RECURSIVE);
-
-            for (ObjectList<AST_t>::iterator it2 = expression_nest_list.begin();
-                    it2 != expression_nest_list.end();
-                    it2++)
-            {
-                // Get the first element, it contains the first expression
-                ASTIterator list_iterator = it2->get_list_iterator();
-                list_iterator.rewind();
-
-                Expression expr(list_iterator.item(), _scope_link);
-                result.append(expr);
-            }
+            _expressions.clear();
+            _expressions = parse_as_expressions(filter_pragma_clause(), this->_ref, this->_scope_link);
+            _parsed_expressions = true;
         }
 
-        return result;
+        return _expressions;
     }
+
 
     ObjectList<AST_t> PragmaCustomClause::filter_pragma_clause()
     {
@@ -275,20 +271,43 @@ namespace TL
         return result;
     }
 
+    ObjectList<std::string> PragmaCustomClause::get_arguments()
+    {
+        ObjectList<std::string> result;
+
+        PredicateBool<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_arg_pred;
+
+        ObjectList<AST_t> clause_list = filter_pragma_clause();
+        for (ObjectList<AST_t>::iterator it = clause_list.begin();
+                it != clause_list.end();
+                it++)
+        {
+            ObjectList<AST_t> arguments = it->depth_subtrees(clause_arg_pred, AST_t::NON_RECURSIVE);
+            for (ObjectList<AST_t>::iterator jt = arguments.begin();
+                    jt != arguments.end();
+                    jt++)
+            {
+                result.append(jt->prettyprint());
+            }
+        }
+
+        return result;
+    }
+
     ObjectList<IdExpression> PragmaCustomClause::id_expressions(IdExpressionCriteria criteria)
     {
         PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
 
-        ObjectList<AST_t> clauses = filter_pragma_clause();
+        ObjectList<Expression> expressions = get_expression_list();
 
         ObjectList<IdExpression> result;
         GetSymbolFromAST get_symbol_from_ast(this->_scope_link);
 
-        for(ObjectList<AST_t>::iterator it = clauses.begin();
-                it != clauses.end();
+        for(ObjectList<Expression>::iterator it = expressions.begin();
+                it != expressions.end();
                 it++)
         {
-            ObjectList<AST_t> id_expressions = it->depth_subtrees().filter(id_expr_pred);
+            ObjectList<AST_t> id_expressions = it->get_ast().depth_subtrees().filter(id_expr_pred);
 
             for (ObjectList<AST_t>::iterator jt = id_expressions.begin();
                     jt != id_expressions.end();

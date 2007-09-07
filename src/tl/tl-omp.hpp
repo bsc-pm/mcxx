@@ -553,6 +553,9 @@ namespace TL
                 std::map<std::string, Signal1<CustomConstruct> > on_custom_construct_pre;
                 std::map<std::string, Signal1<CustomConstruct> > on_custom_construct_post;
 
+                void register_directive(const std::string& str);
+                void register_construct(const std::string& str);
+
                 virtual void run(DTO& data_flow);
                 virtual void init();
 

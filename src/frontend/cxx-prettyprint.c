@@ -521,6 +521,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, pragma_custom_construct_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_CLAUSE, pragma_custom_clause_handler, NULL),
     NODE_HANDLER(AST_PRAGMA_CUSTOM_LINE, pragma_custom_line_handler, NULL),
+    NODE_HANDLER(AST_PRAGMA_CLAUSE_ARG, simple_text_handler, NULL),
     // Custom code constructs
     NODE_HANDLER(AST_CUSTOM_CONSTRUCT_STATEMENT, custom_construct_statement_handler, NULL),
     NODE_HANDLER(AST_CUSTOM_CONSTRUCT_HEADER, custom_construct_header_handler, NULL),
@@ -2466,11 +2467,6 @@ static void pragma_custom_construct_handler(FILE* f, AST a, int level)
     prettyprint_level(f, ASTSon1(a), level);
 }
 
-static void pragma_custom_clause_entity_expression_handler(FILE* f, AST a, int level)
-{
-    character_separated_sequence_handler(f, a, level, " : ", NULL);
-}
-
 static void pragma_custom_clause_handler(FILE* f, AST a, int level)
 {
     token_fprintf(f, a, "%s", ASTText(a));
@@ -2480,7 +2476,7 @@ static void pragma_custom_clause_handler(FILE* f, AST a, int level)
 
         // This is a list inside another list, it cannot be 
         // handled normally
-        character_separated_sequence_handler(f, ASTSon0(a), level, ", ", pragma_custom_clause_entity_expression_handler);
+        list_handler(f, ASTSon0(a), level);
 
         token_fprintf(f, a, ")");
     }

@@ -37,9 +37,6 @@ namespace TL
     class OpenMPTransform : public OpenMP::OpenMPPhase
     {
         private:
-            // States whether OpenMPTransform::init has been already called once
-            bool already_initialized;
-
             // Here we declare "persistent" variables
 
             // The number of parallel regions seen so far

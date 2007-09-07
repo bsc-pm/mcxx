@@ -33,6 +33,7 @@
 #include <stdint.h>
 #include "cxx-lexer.h"
 #include "cxx-ast.h"
+#include "cxx-utils.h"
 
 #define YYDEBUG 1
 #define YYERROR_VERBOSE 1
@@ -51,6 +52,7 @@ extern int yylex(void);
 	token_atrib_t token_atrib;
 	AST ast;
 	node_t node_type;
+    char *text;
 };
 
 

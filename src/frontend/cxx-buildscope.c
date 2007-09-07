@@ -161,8 +161,10 @@ static AST get_enclosing_declaration(AST point_of_declarator);
 // OpenMP functions needed here
 static void build_scope_omp_custom_directive(AST a, decl_context_t decl_context, char* attr_name);
 static void build_scope_omp_threadprivate(AST a, decl_context_t decl_context, char* attr_name);
+static void build_scope_omp_custom_construct_declaration(AST a, decl_context_t decl_context);
 
-static void build_scope_pragma_custom_directive(AST a, decl_context_t decl_context);
+static void build_scope_pragma_custom_directive(AST a, decl_context_t decl_context, char* _dummy);
+static void build_scope_pragma_custom_construct_declaration(AST a, decl_context_t decl_context, char* attr_name);
 
 static void mix_template_parameters(decl_context_t decl_context, scope_entry_t* newly_declarated_class, AST a);
 
@@ -376,7 +378,12 @@ static void build_scope_declaration(AST a, decl_context_t decl_context)
             }
         case AST_PRAGMA_CUSTOM_DIRECTIVE :
             {
-                build_scope_pragma_custom_directive(a, decl_context);
+                build_scope_pragma_custom_directive(a, decl_context, NULL);
+                break;
+            }
+        case AST_PRAGMA_CUSTOM_CONSTRUCT: 
+            {
+                build_scope_pragma_custom_construct_declaration(a, decl_context, NULL);
                 break;
             }
             // OpenMP 2.5 constructs
@@ -388,6 +395,11 @@ static void build_scope_declaration(AST a, decl_context_t decl_context)
         case AST_OMP_CUSTOM_DIRECTIVE :
             {
                 build_scope_omp_custom_directive(a, decl_context, NULL);
+                break;
+            }
+        case AST_OMP_CUSTOM_CONSTRUCT :
+            {
+                build_scope_omp_custom_construct_declaration(a, decl_context);
                 break;
             }
             // GCC Extensions
@@ -7047,7 +7059,22 @@ static void build_scope_omp_construct(AST a, decl_context_t decl_context, char* 
     }
 }
 
-static void build_scope_omp_custom_construct(AST a, decl_context_t decl_context, char* attr_name)
+static void build_scope_omp_custom_construct_declaration(AST a, decl_context_t decl_context)
+{
+    ASTAttrSetValueType(a, OMP_IS_OMP_CONSTRUCT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, OMP_IS_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
+
+    ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(ASTSon0(a)));
+
+    build_scope_omp_custom_directive(ASTSon0(a), decl_context, NULL);
+    if (ASTSon1(a) != NULL)
+    {
+        build_scope_declaration(ASTSon1(a), decl_context);
+        ASTAttrSetValueType(a, OMP_CONSTRUCT_DECLARATION, tl_type_t, tl_ast(ASTSon1(a)));
+    }
+}
+
+static void build_scope_omp_custom_construct_statement(AST a, decl_context_t decl_context, char* attr_name)
 {
     ASTAttrSetValueType(a, OMP_IS_OMP_CONSTRUCT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
@@ -7057,8 +7084,8 @@ static void build_scope_omp_custom_construct(AST a, decl_context_t decl_context,
     build_scope_omp_custom_directive(ASTSon0(a), decl_context, NULL);
     if (ASTSon1(a) != NULL)
     {
-        ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(ASTSon1(a)));
         build_scope_statement(ASTSon1(a), decl_context);
+        ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(ASTSon1(a)));
     }
 }
 
@@ -7133,47 +7160,20 @@ static void build_scope_omp_critical_construct(AST a, decl_context_t decl_contex
     ASTAttrSetValueType(a, OMP_IS_CRITICAL_CONSTRUCT, tl_type_t, tl_bool(1));
 }
 
-static void build_scope_pragma_expression_entity(AST a, decl_context_t decl_context)
+static void build_scope_pragma_custom_clause_argument(AST a, decl_context_t decl_context)
 {
     AST list, iter;
     list = a;
 
     for_each_element(list, iter)
     {
-        AST expression = ASTSon1(iter);
-
-        solve_possibly_ambiguous_expression(expression, decl_context);
+        ASTAttrSetValueType(ASTSon1(iter), LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT, tl_type_t, tl_bool(1));
     }
-
-    ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE_EXPRESSION_ENTITY, tl_type_t, tl_bool(1));
-}
-
-static void build_scope_pragma_expression_entity_list(AST a, decl_context_t decl_context)
-{
-    AST list, iter;
-    list = a;
-
-    for_each_element(list, iter)
-    {
-        AST pragma_expression_entity = ASTSon1(iter);
-
-        build_scope_pragma_expression_entity(pragma_expression_entity, decl_context);
-    }
-
-    ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE_EXPRESSION_ENTITY_LIST, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_pragma_custom_clause(AST a, decl_context_t decl_context)
 {
-    AST list;
-
-    list = ASTSon0(a);
-
-    if (list != NULL)
-    {
-        build_scope_pragma_expression_entity_list(list, decl_context);
-
-    }
+    build_scope_pragma_custom_clause_argument(ASTSon0(a), decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_string(ASTText(a)));
@@ -7196,10 +7196,11 @@ static void build_scope_pragma_custom_line(AST a, decl_context_t decl_context, c
 
     if (ASTSon1(a) != NULL)
     {
-        build_scope_pragma_expression_entity_list(ASTSon1(a), decl_context);
+        build_scope_pragma_custom_clause_argument(ASTSon1(a), decl_context);
 
         ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE_PARAMETER, tl_type_t, tl_ast(ASTSon1(a)));
     }
+
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE_IS_PARAMETERIZED, tl_type_t, 
             tl_bool(ASTSon1(a) != NULL));
 
@@ -7207,19 +7208,16 @@ static void build_scope_pragma_custom_line(AST a, decl_context_t decl_context, c
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_string(ASTText(a)));
 }
 
-static void build_scope_pragma_custom_directive(AST a, decl_context_t decl_context)
+static void build_scope_pragma_custom_directive(AST a, decl_context_t decl_context, char* _dummy)
 {
     build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE);
-    build_scope_declaration(ASTSon1(a), decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_DIRECTIVE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
-
-    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DECLARATION, tl_type_t, tl_ast(ASTSon1(a)));
 }
 
-static void build_scope_pragma_custom_construct(AST a, decl_context_t decl_context, char* attr_name)
+static void build_scope_pragma_custom_construct_statement(AST a, decl_context_t decl_context, char* attr_name)
 {
     build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE);
     build_scope_statement(ASTSon1(a), decl_context);
@@ -7228,6 +7226,17 @@ static void build_scope_pragma_custom_construct(AST a, decl_context_t decl_conte
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_STATEMENT, tl_type_t, tl_ast(ASTSon1(a)));
+}
+
+static void build_scope_pragma_custom_construct_declaration(AST a, decl_context_t decl_context, char* attr_name)
+{
+    build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE);
+    build_scope_declaration(ASTSon1(a), decl_context);
+
+    ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_LINE, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_DECLARATION, tl_type_t, tl_ast(ASTSon1(a)));
 }
 
 static void build_scope_custom_construct_statement(AST a, decl_context_t decl_context, char *attr_name)
@@ -7280,7 +7289,8 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_null, LANG_IS_CONTINUE_STATEMENT),
     STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_goto_statement, LANG_IS_GOTO_STATEMENT),
     // Pragma custom support
-    STMT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, build_scope_pragma_custom_construct, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT),
+    STMT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, build_scope_pragma_custom_construct_statement, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT),
+    STMT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, build_scope_pragma_custom_directive, LANG_IS_PRAGMA_CUSTOM_DIRECTIVE),
     // Custom construct
     STMT_HANDLER(AST_CUSTOM_CONSTRUCT_STATEMENT, build_scope_custom_construct_statement, /*LANG_IS_CUSTOM_CONSTRUCT*/ ""),
     // OpenMP 2.5 constructs
@@ -7298,7 +7308,7 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_OMP_FLUSH_DIRECTIVE, build_scope_omp_flush_directive, OMP_IS_FLUSH_DIRECTIVE),
     STMT_HANDLER(AST_OMP_BARRIER_DIRECTIVE, build_scope_omp_directive, OMP_IS_BARRIER_DIRECTIVE),
     STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate, OMP_IS_THREADPRIVATE_DIRECTIVE),
-    STMT_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, build_scope_omp_custom_construct, OMP_IS_CUSTOM_CONSTRUCT),
+    STMT_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, build_scope_omp_custom_construct_statement, OMP_IS_CUSTOM_CONSTRUCT),
     STMT_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, build_scope_omp_custom_directive, NULL)
 };
 

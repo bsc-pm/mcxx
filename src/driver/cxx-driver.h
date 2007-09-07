@@ -63,6 +63,10 @@ debugflags_lookup (register const char *str, register unsigned int len);
 void add_new_file_to_compilation_process(const char* file_path, const char* output_file, 
         compilation_configuration_t* configuration);
 
+pragma_directive_kind_t lookup_pragma_directive(const char* prefix, const char* directive);
+
+void register_new_directive(const char* prefix, const char* directive, char is_construct);
+
 MCXX_END_DECLS
 
 #endif // CXX_DRIVER_H
