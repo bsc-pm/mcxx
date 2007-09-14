@@ -285,6 +285,7 @@ static void options_error(char* message)
 }
 
 // Returns nonzero if an error happened. In that case we would show the help
+// Messages issued here must be ended with \n for sthetic reasons
 int parse_arguments(int argc, char* argv[], char from_command_line)
 {
     int c;
@@ -326,7 +327,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
                 {
                     if (y_specified || E_specified)
                     {
-                        fprintf(stderr, "Parameter -c cannot be used together with -E or -y");
+                        fprintf(stderr, "Parameter -c cannot be used together with -E or -y\n");
                         return 1;
                     }
 
@@ -339,7 +340,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
                 {
                     if (c_specified || y_specified)
                     {
-                        fprintf(stderr, "Parameter -E cannot be used together with -c or -y");
+                        fprintf(stderr, "Parameter -E cannot be used together with -c or -y\n");
                         return 1;
                     }
 
@@ -353,7 +354,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
                 {
                     if (c_specified || E_specified)
                     {
-                        fprintf(stderr, "Parameter -y cannot be used together with -c or -E");
+                        fprintf(stderr, "Parameter -y cannot be used together with -c or -E\n");
                         return 1;
                     }
 
@@ -445,7 +446,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
 					}
 					else
 					{
-						fprintf(stderr, "Invalid language specification in -x, valid options are 'C' or 'C++'. Ignoring");
+						fprintf(stderr, "Invalid language specification in -x, valid options are 'C' or 'C++'. Ignoring\n");
 					}
 					
 					break;
@@ -527,7 +528,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
 
     if (argc == optind)
     {
-        fprintf(stderr, "You must specify an input file.");
+        fprintf(stderr, "You must specify an input file.\n");
         return 1;
     }
 
@@ -536,7 +537,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
             && (strcmp(output_file, "-") == 0)
             && !E_specified)
     {
-        fprintf(stderr, "You must specify an input file.");
+        fprintf(stderr, "You must specify an input file.\n");
         return 1;
     }
 
@@ -1411,7 +1412,7 @@ void register_new_directive(const char* prefix, const char* directive, char is_c
                 {
                     fprintf(stderr, "Warning, directive or construct "
                             "'%s' already registered for pragma '%s'"
-                            ", ignoring additional registrations",
+                            ", ignoring additional registrations\n",
                             directive, prefix);
                     return;
                 }
