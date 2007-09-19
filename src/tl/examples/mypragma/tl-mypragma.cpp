@@ -59,6 +59,22 @@ namespace TL
                     FunctionDefinition function_def(decl, pragma_custom_construct.get_scope_link());
                     Statement st = function_def.get_function_body();
 
+                    DeclaredEntity declared_entity = function_def.get_declared_entity();
+                    bool has_ellipsis = false;
+                    ObjectList<ParameterDeclaration> parameters = declared_entity.get_parameter_declarations(has_ellipsis);
+
+                    for (ObjectList<ParameterDeclaration>::iterator it = parameters.begin();
+                            it != parameters.end();
+                            it++)
+                    {
+                        ParameterDeclaration& parameter = *it;
+
+                        if (it->is_named())
+                        {
+                            std::cerr << "name -> " << parameter.get_name().prettyprint() << std::endl;
+                        }
+                    }
+
                     reference_tree = st.get_ast();
 
                 }

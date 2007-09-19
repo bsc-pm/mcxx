@@ -4871,7 +4871,10 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
     scope_link_set(CURRENT_COMPILED_FILE(scope_link), statement, block_context);
 
     ASTAttrSetValueType(a, LANG_IS_FUNCTION_DEFINITION, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(a, LANG_FUNCTION_DECLARATOR, tl_type_t, tl_ast(ASTSon1(a)));
+    {
+        AST non_nested_declarator = advance_over_declarator_nests(ASTSon1(a), decl_context);
+        ASTAttrSetValueType(a, LANG_FUNCTION_DECLARATOR, tl_type_t, tl_ast(non_nested_declarator));
+    }
     ASTAttrSetValueType(a, LANG_FUNCTION_BODY, tl_type_t, tl_ast(statement));
 
     DEBUG_CODE()
