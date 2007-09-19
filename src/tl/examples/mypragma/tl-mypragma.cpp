@@ -34,74 +34,100 @@ namespace TL
             MyPragmaPhase()
                 : PragmaCustomCompilerPhase("mypragma")
             {
-                register_directive("directive");
-                on_directive_post["directive"].connect(functor(&MyPragmaPhase::directive_post, *this));
-
                 register_construct("construct");
-                on_directive_post["construct"].connect(functor(&MyPragmaPhase::directive_post, *this));
+                on_directive_post["construct"].connect(functor(&MyPragmaPhase::construct_post, *this));
             }
 
-            void directive_post(PragmaCustomConstruct pragma_custom_directive)
+            void construct_post(PragmaCustomConstruct pragma_custom_construct)
             {
-                std::cerr << "Location -> " << pragma_custom_directive.get_ast().get_locus() << std::endl;
+                std::cerr << "Construct found at " << pragma_custom_construct.get_ast().get_locus() << std::endl;
+                PragmaCustomClause input_clause = pragma_custom_construct.get_clause("input");
 
-                if (pragma_custom_directive.is_parameterized())
+                // This is an invalid tree
+                AST_t reference_tree;
+
+                if (pragma_custom_construct.is_function_definition())
                 {
-                    std::cerr << "Construct has a parameter" << std::endl;
-                    ObjectList<std::string> parameter_arguments = pragma_custom_directive.get_parameter_arguments();
+                    /*
+                     * In a function definition parameters are signed up in the compound statement that
+                     * is the body of the function (this is the reason why local variables cannot be named
+                     * like parameters if they are in the outermost compound statement)
+                     */
+                    std::cerr << "It is a function definition" << std::endl;
 
-                    for (ObjectList<std::string>::iterator it = parameter_arguments.begin();
-                            it != parameter_arguments.end();
-                            it++)
-                    {
-                        std::cerr << "  '" << *it << "'" << std::endl;
-                    }
+                    AST_t decl = pragma_custom_construct.get_declaration();
+                    FunctionDefinition function_def(decl, pragma_custom_construct.get_scope_link());
+                    Statement st = function_def.get_function_body();
 
-                    ObjectList<Expression> parameter_expressions = pragma_custom_directive.get_parameter_expressions();
-                    for (ObjectList<Expression>::iterator it = parameter_expressions.begin();
-                            it != parameter_expressions.end();
-                            it++)
+                    reference_tree = st.get_ast();
+
+                }
+                else // Function declaration
+                {
+                    /*
+                     * In a function declaration parameters are signed up in a prototype scope that
+                     * is completely unrelated (except for "nested in" relationship) with the enclosing
+                     * scope. So we have to parse things using the scope of parameters (if any) because
+                     * they are in this "aside" prototype.
+                     */
+                    std::cerr << "It should be a function declaration" << std::endl;
+                    AST_t ast_decl = pragma_custom_construct.get_declaration();
+
+                    Declaration decl(ast_decl, pragma_custom_construct.get_scope_link());
+
+                    ObjectList<DeclaredEntity> declared_entities = decl.get_declared_entities();
+
+                    if (declared_entities.size() == 1)
                     {
-                        std::cerr << "  Expr: '" << it->prettyprint() << "'" << std::endl;
+                        DeclaredEntity& decl_entity = declared_entities[0];
+
+                        if (decl_entity.is_functional_declaration())
+                        {
+                            bool has_ellipsis = false;
+                            ObjectList<ParameterDeclaration> parameter_declarations = 
+                                decl_entity.get_parameter_declarations(has_ellipsis);
+
+                            if (!parameter_declarations.empty())
+                            {
+                                // Use the first one
+                                reference_tree = parameter_declarations[0].get_ast();
+                            }
+                        }
                     }
                 }
 
-                PragmaCustomClause clause = pragma_custom_directive.get_clause("clause");
-                if (clause.is_defined())
-                {
-                    std::cerr << "Clause 'clause' has been given" << std::endl;
-                    ObjectList<std::string> arguments = clause.get_arguments();
+                ObjectList<std::string> list = input_clause.get_arguments();
 
-                    if (arguments.empty())
+                for (ObjectList<std::string>::iterator it = list.begin();
+                        it != list.end();
+                        it++)
+                {
+                    Source src;
+                    src << *it;
+
+                    std::cerr << "Parsing '" << *it << "'" << std::endl;
+
+                    AST_t tree = src.parse_expression(reference_tree, pragma_custom_construct.get_scope_link());
+
+                    Expression expr(tree, pragma_custom_construct.get_scope_link());
+                    IdExpression id_expr = expr.get_id_expression();
+                    Symbol symbol = id_expr.get_symbol();
+
+                    if (symbol.is_valid() && symbol.is_parameter())
                     {
-                        std::cerr << "Empty list of arguments" << std::endl;
+                        Type type = symbol.get_type();
+                        std::cerr << "Symbol -> " << symbol.get_name() 
+                            << " position = " << symbol.get_parameter_position() 
+                            <<  " type = " << "'" << type.get_declaration(pragma_custom_construct.get_scope(), "") << "'"
+                            << std::endl;
                     }
                     else
                     {
-                        std::cerr << "List of arguments" << std::endl;
-                        for (ObjectList<std::string>::iterator it = arguments.begin();
-                                it != arguments.end();
-                                it++)
-                        {
-                            std::cerr << "  '" << *it << "'" << std::endl;
-                        }
-
-                        ObjectList<Expression> expression_list = clause.get_expression_list();
-                        for (ObjectList<Expression>::iterator it = expression_list.begin();
-                                it != expression_list.end();
-                                it++)
-                        {
-                            std::cerr << "Expr:  '" << it->prettyprint() << "'" << std::endl;
-                        }
+                        std::cerr << "'" << *it << "' is not valid symbol?" << std::endl;
                     }
-
-                    
-                }
-                else
-                {
-                    std::cerr << "Clause 'clause' has not been given" << std::endl;
                 }
             }
+
     };
 }
 

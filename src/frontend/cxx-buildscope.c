@@ -2690,6 +2690,7 @@ static void set_function_parameter_clause(type_t* declarator_type,
     // Link the scope of the parameters
     scope_link_set(CURRENT_COMPILED_FILE(scope_link), parameters, decl_context);
 
+    int parameter_position = 0;
     for_each_element(list, iter)
     {
         AST parameter_declaration = ASTSon1(iter);
@@ -2804,6 +2805,7 @@ static void set_function_parameter_clause(type_t* declarator_type,
             // A parameter is always a variable entity
             entry->kind = SK_VARIABLE;
             entry->is_parameter = 1;
+            entry->parameter_position = parameter_position;
 
             // Update the type info
             entry->type_information = type_info;
@@ -2815,6 +2817,8 @@ static void set_function_parameter_clause(type_t* declarator_type,
 
         P_LIST_ADD(declarator_type->function->parameter_list, 
                 declarator_type->function->num_parameters, new_parameter);
+
+        parameter_position++;
     }
 
     if (declarator_type->function->num_parameters == 1

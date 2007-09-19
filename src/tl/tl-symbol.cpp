@@ -140,14 +140,11 @@ namespace TL
 
     bool Symbol::is_parameter() const
     {
-        // if (_symbol != NULL)
-        // {
-        //     // FIXME
-        //     return (_symbol->scope->kind == PROTOTYPE_SCOPE);
-        // }
-        // else
-        {
-            return false;
-        }
+        return (_symbol->is_parameter);
+    }
+
+    int Symbol::get_parameter_position() const
+    {
+        return (_symbol->parameter_position);
     }
 }

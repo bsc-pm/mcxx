@@ -663,7 +663,9 @@ struct scope_entry_tag
     AST point_of_declaration;
 
     // States if the variable is a parameter (kind == SK_VARIABLE)
+    // and its position
     char is_parameter;
+    int parameter_position;
 
     // Dependency info. It states if this symbol has a template-dependent nature
     // A value of DI_UNKNOWN means this has not been already computed
