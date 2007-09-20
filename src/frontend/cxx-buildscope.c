@@ -2789,14 +2789,19 @@ static void set_function_parameter_clause(type_t* declarator_type,
             type_info->kind = TK_POINTER;
             type_info->pointer = calloc(1, sizeof(*type_info->pointer));
             type_info->pointer->pointee = function_type;
+            type_info->original_type = function_type;
         }
         // Array to pointer standard conversion
         else if (type_info->kind == TK_ARRAY)
         {
+            type_t* array_type = copy_type(type_info);
+
             type_info->kind = TK_POINTER;
             type_info->pointer = calloc(1, sizeof(*type_info->pointer));
             type_info->pointer->pointee = type_info->array->element_type;
             type_info->array = NULL;
+
+            type_info->original_type = array_type;
             /* C99 - cv-qualification is retained in this conversion */
         }
 

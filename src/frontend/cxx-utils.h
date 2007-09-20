@@ -33,7 +33,7 @@
 
 MCXX_BEGIN_DECLS
 
-void running_error(char* message, ...) NORETURN;
+void running_error(const char* message, ...) NORETURN;
 
 #define internal_error(message, ...) \
 { \

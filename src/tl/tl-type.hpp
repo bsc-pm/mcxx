@@ -139,9 +139,20 @@ namespace TL
 
             bool is_void() const;
 
+            // Returns the original type, if any, otherwise
+            // returns the same
+            Type original_type(void) const;
+
+            /* We should consider to remove this one day */
             friend class Symbol;
             friend class Source;
             friend class Scope;
+
+            /* Do not use it unless directed to do so */
+            type_t* get_internal_type()
+            {
+                return _type_info;
+            }
     };
 
     struct Type::BuiltinType

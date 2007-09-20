@@ -581,6 +581,9 @@ struct type_tag
     // cv-qualifier related to this type
     // The cv-qualifier is in the type
     cv_qualifier_t cv_qualifier;
+
+    // For parameter types, if not null it means some adjustement was done
+    struct type_tag* original_type;
 } type_t;
 
 // Dependent entity means it depends somehow on a template parameter

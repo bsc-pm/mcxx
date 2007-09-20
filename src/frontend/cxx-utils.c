@@ -57,7 +57,7 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     fprintf(stderr, "\n");
 }
 
-void running_error(char* message, ...)
+void running_error(const char* message, ...)
 {
     va_list ap;
     

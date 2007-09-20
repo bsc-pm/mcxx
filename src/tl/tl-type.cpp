@@ -341,4 +341,16 @@ namespace TL
     {
         return Type(integer_type());
     }
+
+    Type Type::original_type(void) const
+    {
+        if (_type_info->original_type != NULL)
+        {
+            return Type(_type_info->original_type);
+        }
+        else
+        {
+            return Type(_type_info);
+        }
+    }
 }
