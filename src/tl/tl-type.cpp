@@ -350,7 +350,7 @@ namespace TL
         }
         else
         {
-            return Type(_type_info);
+            return *this;
         }
     }
 }
