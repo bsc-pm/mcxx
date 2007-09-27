@@ -70,8 +70,7 @@ namespace TL
 
             bool is_valid() const
             {
-                return (_type_info == NULL)
-                    || (_type_info->kind != TK_UNKNOWN);
+                return (_type_info != NULL);
             }
 
             virtual ~Type()
