@@ -816,8 +816,10 @@ namespace TL
     {
         PredicateBool<LANG_IS_DECLARED_NAME> lang_declared_name_pred;
 
+		AST_t declarators_tree = this->_ref.get_attribute(LANG_DECLARATION_DECLARATORS);
+
         ObjectList<AST_t> declared_symbols =
-            this->_ref.depth_subtrees(lang_declared_name_pred, AST_t::NON_RECURSIVE);
+            declarators_tree.depth_subtrees(lang_declared_name_pred, AST_t::NON_RECURSIVE);
 
         ObjectList<DeclaredEntity> result;
         for (ObjectList<AST_t>::iterator it = declared_symbols.begin();
@@ -1145,7 +1147,7 @@ namespace TL
             std::cerr 
                 << "Error: Entity '" << entity.prettyprint() << "' in '" 
                 << entity.get_ast().get_locus() 
-                << " is not a function type" 
+                << "' is not a function type" 
                 << std::endl;
             return result;
         }

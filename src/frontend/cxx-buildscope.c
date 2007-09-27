@@ -618,6 +618,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
 
     ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, LANG_DECLARATION_DECLARATORS, tl_type_t, tl_ast(ASTSon1(a)));
 
     // A type has been specified and there are declarators ahead
     if (simple_type_info != NULL && (ASTSon1(a) != NULL))
@@ -5263,6 +5264,7 @@ static void build_scope_simple_member_declaration(decl_context_t decl_context, A
     {
         ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
+        ASTAttrSetValueType(a, LANG_DECLARATION_DECLARATORS, tl_type_t, tl_ast(ASTSon1(a)));
 
         AST list = ASTSon1(a);
         AST iter;
