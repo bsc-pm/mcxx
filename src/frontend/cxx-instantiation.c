@@ -39,7 +39,10 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     
     // Fix the template context, this symbol has one less template scope than the matching
     // template.
-    instance_symbol->decl_context.template_scope = instance_symbol->decl_context.template_scope->contained_in;
+    // instance_symbol->decl_context.template_scope = 
+    //     instance_symbol->decl_context.template_scope->contained_in;
+    // instance_symbol->related_decl_context.template_scope = 
+    //     instance_symbol->related_decl_context.template_scope->contained_in;
 
     template_parameter_t** template_parameter_list = matched_template->template_parameter_info;
     int num_template_parameters = matched_template->num_template_parameters;
@@ -51,17 +54,22 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
                 template_argument_list->num_arguments, num_template_parameters);
     }
 
-    AST instantiate_tree = duplicate_ast(matched_template->type_information->type->template_class_body);
+    AST instantiation_body = NULL;
+    AST instantiation_base_clause = NULL;
+    
+    class_type_get_instantiation_trees(matched_template->type_information, &instantiation_body, &instantiation_base_clause);
+
+    instantiation_body = duplicate_ast(instantiation_body);
+    instantiation_base_clause = duplicate_ast(instantiation_base_clause);
 
     // Now create a new class context and inject template parameters with its argument value
-    decl_context_t new_related_decl_context = instance_symbol->related_decl_context;
-    new_related_decl_context = new_template_context(new_related_decl_context);
+    decl_context_t new_related_decl_context = new_template_context(instance_symbol->related_decl_context);
 
     for (i = 0; i < num_template_parameters; i++)
     {
         template_argument_t* template_argument = template_argument_list->argument_list[i];
         template_parameter_t* template_parameter = template_parameter_list[i];
-        char* name = template_parameter->template_parameter_name;
+        char* name = template_parameter->entry->symbol_name;
 
         if (name != NULL)
         {
@@ -79,22 +87,16 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
 
                         // We use a typedef
                         injected_type->kind = SK_TYPEDEF;
-
-                        injected_type->type_information = calloc(1, sizeof(*(injected_type->type_information)));
-                        injected_type->type_information->kind = TK_DIRECT;
-
-                        injected_type->type_information->type = calloc(1, 
-                                sizeof(*(injected_type->type_information->type)));
-                        injected_type->type_information->type->kind = STK_TYPEDEF;
-
-                        injected_type->type_information->type->aliased_type = template_argument->type;
+                        injected_type->type_information = get_new_typedef(template_argument->type);
                         break;
                     }
                 case TPK_TEMPLATE :
                     {
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "Injecting template-alias '%s' into the instantiate scope\n", name);
+                            fprintf(stderr, "Injecting template-alias of %s' -> '%s' into the instantiate scope\n", 
+                                    name,
+                                    print_declarator(template_argument->type, new_related_decl_context));
                         }
 
                         // Note that we sign in the symbol in template_scope and not in current_scope
@@ -120,10 +122,16 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
                         injected_nontype->type_information = template_argument->type;
 
                         // Fold it, as it makes thing easier later
-                        literal_value_t literal_value = evaluate_constant_expression(template_argument->argument_tree, 
-                                template_argument->decl_context);
+                        literal_value_t literal_value = evaluate_constant_expression(template_argument->expression, 
+                                template_argument->expression_context);
                         AST evaluated_tree = tree_from_literal_value(literal_value);
                         AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, evaluated_tree, ASTLine(evaluated_tree), NULL);
+
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "Fake initializer for nontype '%s' is '%s'\n", name, prettyprint_in_buffer(fake_initializer));
+                        }
+
                         injected_nontype->expression_value = fake_initializer;
                         break;
                     }
@@ -141,19 +149,12 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
 
     instance_symbol->related_decl_context = new_related_decl_context;
 
-    type_t* simple_type_info = calloc(1, sizeof(*simple_type_info));
+    type_t* simple_type_info = get_user_defined_type(instance_symbol);
 
-    simple_type_info->kind = TK_DIRECT;
-    simple_type_info->type = calloc(1, sizeof(*(simple_type_info->type)));
-    simple_type_info->type->kind = STK_USER_DEFINED;
-    simple_type_info->type->user_defined_type = instance_symbol;
-
-    AST template_class_base_clause = matched_template->type_information->type->template_class_base_clause;
-
-    if (template_class_base_clause != NULL)
+    if (instantiation_base_clause != NULL)
     {
-        build_scope_base_clause(template_class_base_clause, 
-                instance_symbol->type_information->type->class_info, new_related_decl_context);
+        build_scope_base_clause(instantiation_base_clause, 
+                instance_symbol->type_information, new_related_decl_context);
     }
 
     // Inject the class name
@@ -166,10 +167,10 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     injected_symbol->injected_class_name = 1;
     injected_symbol->injected_class_referred_symbol = instance_symbol;
 
-    if (instantiate_tree != NULL)
+    if (instantiation_body != NULL)
     {
         // Fix this 'AS_PUBLIC' one day
-        build_scope_member_specification(instance_symbol->related_decl_context, instantiate_tree, AS_PUBLIC,
+        build_scope_member_specification(instance_symbol->related_decl_context, instantiation_body, AS_PUBLIC,
                 simple_type_info);
     }
 
@@ -191,17 +192,25 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
     
     // Fix the template context, this symbol has one less template scope than the matching
     // template.
-    instance_symbol->decl_context.template_scope = instance_symbol->decl_context.template_scope->contained_in;
+    // instance_symbol->decl_context.template_scope = 
+    //     instance_symbol->decl_context.template_scope->contained_in;
+    // instance_symbol->related_decl_context.template_scope = 
+    //     instance_symbol->related_decl_context.template_scope->contained_in;
 
     template_parameter_t** template_parameter_list = matched_template->template_parameter_info;
     int num_template_parameters = matched_template->num_template_parameters;
     int i;
 
-    AST instantiate_tree = duplicate_ast(matched_template->type_information->type->template_class_body);
+    AST instantiation_body = NULL;
+    AST instantiation_base_clause = NULL;
+    
+    class_type_get_instantiation_trees(matched_template->type_information, &instantiation_body, &instantiation_base_clause);
+
+    instantiation_body = duplicate_ast(instantiation_body);
+    instantiation_base_clause = duplicate_ast(instantiation_base_clause);
 
     // Now create a new class context and inject template parameters with its argument value
-    decl_context_t new_related_decl_context = instance_symbol->related_decl_context;
-    new_related_decl_context = new_template_context(new_related_decl_context);
+    decl_context_t new_related_decl_context = new_template_context(instance_symbol->related_decl_context);
 
     DEBUG_CODE()
     {
@@ -211,7 +220,7 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
     for (i = 0; i < num_template_parameters; i++)
     {
         template_parameter_t* template_parameter = template_parameter_list[i];
-        char* name = template_parameter->template_parameter_name;
+        char* name = template_parameter->entry->symbol_name;
 
         if (name != NULL)
         {
@@ -225,10 +234,8 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
                         {
                             unification_item_t* unification_item = unification_set->unif_list[j];
 
-                            type_t* template_parameter_type = template_parameter->type_info;
-
-                            if ((unification_item->parameter_num == template_parameter_type->type->template_parameter_num)
-                                    && (unification_item->parameter_nesting == template_parameter_type->type->template_parameter_nesting))
+                            if ((unification_item->parameter_position == template_parameter->entry->template_parameter_position)
+                                    && (unification_item->parameter_nesting == template_parameter->entry->template_parameter_nesting))
                             {
                                 DEBUG_CODE()
                                 {
@@ -241,13 +248,8 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
                                 // We use a typedef
                                 injected_type->kind = SK_TYPEDEF;
 
-                                injected_type->type_information = calloc(1, sizeof(*(injected_type->type_information)));
-                                injected_type->type_information->kind = TK_DIRECT;
+                                injected_type->type_information = get_new_typedef(unification_item->value);
 
-                                injected_type->type_information->type = calloc(1, 
-                                        sizeof(*(injected_type->type_information->type)));
-                                injected_type->type_information->type->kind = STK_TYPEDEF;
-                                injected_type->type_information->type->aliased_type = unification_item->value;
                                 break;
                             }
                         }
@@ -273,10 +275,8 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
                         {
                             unification_item_t* unification_item = unification_set->unif_list[j];
 
-                            type_t* template_parameter_type = template_parameter->type_info;
-
-                            if ((unification_item->parameter_num == template_parameter_type->type->template_parameter_num)
-                                    && (unification_item->parameter_nesting == template_parameter_type->type->template_parameter_nesting))
+                            if ((unification_item->parameter_position == template_parameter->entry->template_parameter_position)
+                                    && (unification_item->parameter_nesting == template_parameter->entry->template_parameter_nesting))
                             {
                                 DEBUG_CODE()
                                 {
@@ -287,13 +287,19 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
                                 injected_nontype->kind = SK_VARIABLE;
                                 // FIXME this type should be in the unification item
                                 // and not from the parameter
-                                injected_nontype->type_information = template_parameter->type_info;
+                                injected_nontype->type_information = template_parameter->entry->type_information;
 
                                 // Fold it, as makes thing easier
                                 literal_value_t literal_value = evaluate_constant_expression(unification_item->expression, 
                                         unification_item->decl_context);
                                 AST evaluated_tree = tree_from_literal_value(literal_value);
                                 AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, evaluated_tree, ASTLine(evaluated_tree), NULL);
+
+                                DEBUG_CODE()
+                                {
+                                    fprintf(stderr, "Fake initializer for nontype '%s' is '%s'\n", name, 
+                                            prettyprint_in_buffer(fake_initializer));
+                                }
 
                                 injected_nontype->expression_value = fake_initializer;
                                 break;
@@ -321,19 +327,12 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
 
     instance_symbol->related_decl_context = new_related_decl_context;
 
-    type_t* simple_type_info = calloc(1, sizeof(*simple_type_info));
+    type_t* simple_type_info = get_user_defined_type(instance_symbol);
 
-    simple_type_info->kind = TK_DIRECT;
-    simple_type_info->type = calloc(1, sizeof(*(simple_type_info->type)));
-    simple_type_info->type->kind = STK_USER_DEFINED;
-    simple_type_info->type->user_defined_type = instance_symbol;
-
-    AST template_class_base_clause = matched_template->type_information->type->template_class_base_clause;
-
-    if (template_class_base_clause != NULL)
+    if (instantiation_base_clause != NULL)
     {
-        build_scope_base_clause(template_class_base_clause, 
-                instance_symbol->type_information->type->class_info, instance_symbol->related_decl_context);
+        build_scope_base_clause(instantiation_base_clause, 
+                instance_symbol->type_information, instance_symbol->related_decl_context);
     }
     
     // Inject the class name
@@ -346,10 +345,10 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
     injected_symbol->injected_class_name = 1;
     injected_symbol->injected_class_referred_symbol = instance_symbol;
 
-    if (instantiate_tree != NULL)
+    if (instantiation_body != NULL)
     {
         // Fix this AS_PUBLIC one day
-        build_scope_member_specification(instance_symbol->related_decl_context, instantiate_tree, AS_PUBLIC,
+        build_scope_member_specification(instance_symbol->related_decl_context, instantiation_body, AS_PUBLIC,
                 simple_type_info);
     }
 
@@ -369,20 +368,14 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
     scope_entry_t* matched_template = matching_pair->entry;
 
     instance_symbol->kind = SK_TEMPLATE_SPECIALIZED_CLASS;
-    instance_symbol->type_information = calloc(1, sizeof(*(instance_symbol->type_information)));
-    instance_symbol->type_information->kind = TK_DIRECT;
-    instance_symbol->type_information->type = calloc(1, sizeof(*(instance_symbol->type_information->type)));
-    instance_symbol->type_information->type->kind = STK_CLASS;
-    instance_symbol->type_information->type->type_decl_context = instance_symbol->decl_context;
-    instance_symbol->type_information->type->class_info = calloc(1, 
-            sizeof(*(instance_symbol->type_information->type->class_info)));
-    instance_symbol->type_information->type->matching_pair = matching_pair;
+    instance_symbol->type_information = get_new_class_type(instance_symbol->decl_context);
+
+    template_type_set_template_match_pair(instance_symbol->type_information, matching_pair);
 
     instance_symbol->is_member = matched_template->is_member;
     instance_symbol->class_type = matched_template->class_type;
 
     char* qualification_name = matched_template->symbol_name;
-
 
     // Create its new class context
     decl_context_t class_context = new_class_context(instance_symbol->decl_context, qualification_name);
@@ -392,7 +385,7 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
         fprintf(stderr, "New inner_scope %p with qualification name '%s'\n", class_context.current_scope, qualification_name);
     }
 
-    instance_symbol->type_information->type->class_info->inner_decl_context = class_context;
+    class_type_set_inner_context(instance_symbol->type_information, class_context);
     instance_symbol->related_decl_context = class_context;
 
     DEBUG_CODE()
@@ -402,8 +395,19 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
     }
 
     // State as instantiated
-    instance_symbol->type_information->type->template_nature = TPN_COMPLETE_INDEPENDENT;
-    instance_symbol->type_information->type->template_arguments = arguments;
+    class_type_set_complete_independent(instance_symbol->type_information);
+    template_type_set_template_arguments(instance_symbol->type_information, arguments);
+    
+    if (instance_symbol->decl_context.template_scope != NULL)
+    {
+        instance_symbol->decl_context.template_scope = 
+            instance_symbol->decl_context.template_scope->contained_in;
+    }
+    if (instance_symbol->related_decl_context.template_scope != NULL)
+    {
+        instance_symbol->related_decl_context.template_scope = 
+            instance_symbol->related_decl_context.template_scope->contained_in;
+    }
 }
 
 scope_entry_t* create_holding_symbol_for_template(matching_pair_t* matched_template, template_argument_list_t*
@@ -441,7 +445,7 @@ scope_entry_t* create_holding_symbol_for_template(matching_pair_t* matched_templ
             fprintf(stderr, "The holding symbol '%s' line %d %p does not come from instantiation and is dependent\n",
                     instance_symbol->symbol_name, instantiation_line, instance_symbol);
         }
-        instance_symbol->type_information->type->template_nature = TPN_INCOMPLETE_DEPENDENT;
+        class_type_set_incomplete_dependent(instance_symbol->type_information);
     }
     else
     {
@@ -450,7 +454,7 @@ scope_entry_t* create_holding_symbol_for_template(matching_pair_t* matched_templ
             fprintf(stderr, "The holding symbol '%s' line %d %p does not come from instantiation and is NOT dependent\n",
                     instance_symbol->symbol_name, instantiation_line, instance_symbol);
         }
-        instance_symbol->type_information->type->template_nature = TPN_INCOMPLETE_INDEPENDENT;
+        class_type_set_incomplete_independent(instance_symbol->type_information);
     }
 
     return instance_symbol;
@@ -504,12 +508,12 @@ void instantiate_template(scope_entry_t* entry, decl_context_t decl_context)
         internal_error("Symbol '%s' is not a specialized template", entry->symbol_name);
     }
             
-    if (entry->type_information->type->template_nature != TPN_INCOMPLETE_INDEPENDENT)
+    if (!class_type_is_incomplete_independent(entry->type_information))
     {
         internal_error("Symbol '%s' is not a specialized template suitable for full instantiation", 
                 entry->symbol_name);
     }
             
-    instantiate_template_in_symbol(entry, entry->type_information->type->matching_pair, 
-            entry->type_information->type->template_arguments, decl_context);
+    instantiate_template_in_symbol(entry, template_type_get_template_match_pair(entry->type_information), 
+            template_type_get_template_arguments(entry->type_information), decl_context);
 }

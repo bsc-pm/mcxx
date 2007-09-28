@@ -31,34 +31,11 @@ typedef struct scope_link_entry_tag
     decl_context_t decl_context;
 } scope_link_entry_t;
 
-static int integer_comp (void *key1, void *key2)
-{
-    intptr_t a = (intptr_t)(key1);
-    intptr_t b = (intptr_t)(key2);
-
-    if (a == b)
-    {
-        return 0;
-    }
-    else if (a < b)
-    {
-        return -1;
-    }
-    else return 1;
-}
-
-static int pointer_hash(void* key, int size)
-{
-    intptr_t v = (intptr_t)(key);
-
-    return (v % size);
-}
-
 scope_link_t* scope_link_new(decl_context_t global_decl_context)
 {
     scope_link_t* result = calloc(1, sizeof(*result));
 
-    result->h = hash_create(23, pointer_hash, integer_comp);
+    result->h = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
     result->global_decl_context = global_decl_context;
 
     return result;

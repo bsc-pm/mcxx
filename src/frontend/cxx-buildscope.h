@@ -42,12 +42,11 @@ scope_entry_t* build_scope_declarator(AST a, gather_decl_spec_t* gather_info,
         type_t* type_info, type_t** declarator_type, decl_context_t dctx);
 
 void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info);
-void gather_type_spec_information(AST a, type_t* type_info, decl_context_t dctx);
+void gather_type_spec_information(AST a, type_t** type_info, decl_context_t dctx);
 
 void build_scope_member_specification(decl_context_t inner_decl_context, AST member_specification_tree, 
         access_specifier_t current_access, type_t* simple_type_info);
-void build_scope_base_clause(AST base_clause, class_info_t* class_info,
-        decl_context_t decl_context);
+void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t decl_context);
 
 AST get_declarator_name(AST a, decl_context_t decl_context);
 AST get_function_declarator_parameter_list(AST funct_declarator, decl_context_t decl_context);

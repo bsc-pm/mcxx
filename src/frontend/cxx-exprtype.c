@@ -70,7 +70,6 @@ static type_t *decimal_literal_type(AST expr);
 static type_t *character_literal(AST expr);
 static type_t *floating_literal(AST expr);
 static type_t *string_literal(AST expr);
-static type_t *pointer_to_type(type_t* t);
 
 static int number_of_types(type_set_t type_set)
 {
@@ -221,13 +220,13 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
                 subscripted_type = advance_over_typedefs(subscripted_type);
 
                 type_t* element_type = NULL;
-                if (subscripted_type->kind == TK_POINTER)
+                if (is_pointer_type(subscripted_type))
                 {
-                    element_type = subscripted_type->pointer->pointee;
+                    element_type = pointer_type_get_pointee_type(subscripted_type);
                 }
-                else if (subscripted_type->kind == TK_ARRAY)
+                else if (is_array_type(subscripted_type))
                 {
-                    element_type = subscripted_type->array->element_type;
+                    element_type = array_type_get_element_type(subscripted_type);
                 }
 
                 cv_qualifier_t cv_qualif = CV_NONE;
@@ -252,14 +251,16 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
                     function_type = advance_over_typedefs(function_type);
 
                     type_t* result_type = NULL;
-                    if (function_type->kind == TK_FUNCTION)
+                    if (is_function_type(function_type))
                     {
-                        result_type = function_type->function->return_type;
+                        result_type = function_type_get_return_type(function_type);
                     }
-                    else if (function_type->kind == TK_POINTER
-                            && function_type->pointer->pointee->kind == TK_FUNCTION)
+                    else if (is_pointer_type(function_type)
+                            && is_function_type(pointer_type_get_pointee_type(function_type)))
                     {
-                        result_type = function_type->pointer->pointee;
+                        result_type = function_type_get_return_type(
+                                pointer_type_get_pointee_type(function_type)
+                                );
                     }
 
                     // In C this is never a lvalue
@@ -322,7 +323,7 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
 
                     if (koenig_can_be_used(called_expression, decl_context))
                     {
-                        scope_entry_list_t* found_by_koenig = koenig_lookup(
+                        /* scope_entry_list_t* found_by_koenig = */ koenig_lookup(
                                 argument_types.num_types,
                                 argument_types.types, 
                                 decl_context);
@@ -351,9 +352,9 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
                 // An additional indirection here
                 if (ASTType(expr) == AST_POINTER_CLASS_MEMBER_ACCESS)
                 {
-                    if (class_type->kind == TK_POINTER)
+                    if (is_pointer_type(class_type))
                     {
-                        class_type = class_type->pointer->pointee;
+                        class_type = pointer_type_get_pointee_type(class_type);
                     }
                     else break;
 
@@ -366,14 +367,13 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
                 {
                     // Get the class itself
                     class_context = 
-                        class_type->type->user_defined_type // The user defined type
-                        ->type_information // its type information TK_DIRECT and STK_CLASS
-                        ->type->class_info->inner_decl_context;
+                        class_type_get_inner_context(
+                                named_type_get_symbol(class_type)->type_information 
+                                );
                 }
                 else if (is_unnamed_class_type(class_type))
                 {
-                    // class_type->type->kind == STK_CLASS
-                    class_context = class_type->type->class_info->inner_decl_context;
+                    class_context = class_type_get_inner_context(class_type);
                 }
                 else 
                     break;
@@ -425,14 +425,14 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
             {
                 // Technically this is size_t and it is not a lvalue
                 P_LIST_ADD(result.types, result.num_types,
-                        new_argument_type(unsigned_integer_type(), 0));
+                        new_argument_type(get_unsigned_int_type(), 0));
                 break;
             }
         case AST_SIZEOF_TYPEID :
             {
                 // Technically this is size_t and it is not a lvalue
                 P_LIST_ADD(result.types, result.num_types,
-                        new_argument_type(unsigned_integer_type(), 0));
+                        new_argument_type(get_unsigned_int_type(), 0));
                 break;
             }
         case AST_DERREFERENCE :
@@ -450,15 +450,15 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
                 referenced_type = advance_over_typedefs(referenced_type);
 
                 type_t* result_type = NULL;
-                if (referenced_type->kind == TK_POINTER)
+                if (is_pointer_type(referenced_type))
                 {
-                    result_type = referenced_type->pointer->pointee;
+                    result_type = pointer_type_get_pointee_type(referenced_type);
                 }
-                else if (referenced_type->type->kind == TK_ARRAY)
+                else if (is_array_type(referenced_type))
                 {
-                    result_type = referenced_type->array->element_type;
+                    result_type = array_type_get_element_type(referenced_type);
                 }
-                else if (referenced_type->type->kind == TK_FUNCTION)
+                else if (is_function_type(referenced_type))
                 {
                     // Stupid case since here (*f) is the same as (f)
                     result_type = referenced_type;
@@ -484,7 +484,7 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
                 ERROR_CONDITION(number_of_types(referenced_type_set) > 1,
                         "Error, the types of a reference cannot be more than one", 0);
 
-                type_t* pointer_type = pointer_to_type(get_type_from_set(referenced_type_set));
+                type_t* pointer_type = get_pointer_type(get_type_from_set(referenced_type_set));
                 
                 // This is never a lvalue
                 P_LIST_ADD(result.types, result.num_types,
@@ -588,12 +588,12 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
                 // Order of arithmetic promotions
                 char (*ptr_is_type[])(type_t*) =
                 { 
-                    is_long_double,
-                    is_float,
-                    is_unsigned_long_long_int,
-                    is_long_long_int,
-                    is_unsigned_long_int,
-                    is_long_int
+                    is_long_double_type,
+                    is_float_type,
+                    is_unsigned_long_long_int_type,
+                    is_signed_long_long_int_type,
+                    is_unsigned_long_int_type,
+                    is_signed_long_int_type
                 };
                 int num_ptr_functs = sizeof(ptr_is_type) / sizeof(*ptr_is_type);
 
@@ -616,7 +616,7 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
                     break;
 
                 // As we were supposed to do integral promotions only int remains here
-                result_type = integer_type();
+                result_type = get_signed_int_type();
 
                 P_LIST_ADD(result.types, result.num_types, 
                         new_argument_type(result_type, 0));
@@ -632,7 +632,7 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
 // #warning Overload of relational operators not considered
                 // In C++ should be bool for builtin ones
                 P_LIST_ADD(result.types, result.num_types,
-                        new_argument_type(integer_type(), 0));
+                        new_argument_type(get_signed_int_type(), 0));
                 break;
             }
         case AST_LOGICAL_AND :
@@ -641,7 +641,7 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
 // #warning Overload of logical operators not considered
                 // In C++ should be bool for builtin ones
                 P_LIST_ADD(result.types, result.num_types,
-                        new_argument_type(integer_type(), 0));
+                        new_argument_type(get_signed_int_type(), 0));
                 break;
             }
         case AST_CONDITIONAL_EXPRESSION :
@@ -704,234 +704,7 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
     return result;
 }
 
-
-// Signed
-type_t *integer_type(void)
-{
-    static type_t* result = NULL;
-    if (result == NULL)
-    {
-        result = calloc(1, sizeof(*result));
-        result->kind = TK_DIRECT;
-
-        result->type = calloc(1, sizeof(*result->type));
-        result->type->kind = STK_BUILTIN_TYPE;
-        result->type->builtin_type = BT_INT;
-    }
-
-    return result;
-}
-
-static type_t *long_integer_type(void)
-{
-    static type_t* result = NULL;
-
-    if (result == NULL)
-    {
-        result = copy_type(integer_type());
-        result->type->is_long = 1;
-    }
-
-    return result;
-}
-
-static type_t *long_long_integer_type(void)
-{
-    static type_t* result = NULL;
-
-    if (result == NULL)
-    {
-        result = copy_type(integer_type());
-        result->type->is_long = 2;
-    }
-
-    return result;
-}
-
-static type_t *short_integer_type(void)
-{
-    static type_t* result = NULL;
-
-    if (result == NULL)
-    {
-        result = copy_type(integer_type());
-        result->type->is_short = 1;
-    }
-
-    return result;
-}
-
-// Unsigned
-
-type_t *unsigned_integer_type(void)
-{
-    static type_t* result = NULL;
-    if (result == NULL)
-    {
-        result = copy_type(integer_type());
-        result->type->is_unsigned = 1;
-    }
-
-    return result;
-}
-
-static type_t *unsigned_long_integer_type(void)
-{
-    static type_t* result = NULL;
-
-    if (result == NULL)
-    {
-        result = copy_type(long_integer_type());
-        result->type->is_unsigned = 1;
-    }
-
-    return result;
-}
-
-static type_t *unsigned_long_long_integer_type(void)
-{
-    static type_t* result = NULL;
-
-    if (result == NULL)
-    {
-        result = copy_type(long_long_integer_type());
-        result->type->is_unsigned = 1;
-    }
-
-    return result;
-}
-
-static type_t *unsigned_short_integer_type(void)
-{
-    static type_t* result = NULL;
-
-    if (result == NULL)
-    {
-        result = copy_type(short_integer_type());
-        result->type->is_unsigned = 1;
-    }
-
-    return result;
-}
-
-static type_t* character_type(void)
-{
-    static type_t* result = NULL;
-    if (result == NULL)
-    {
-        result = calloc(1, sizeof(*result));
-        result->kind = TK_DIRECT;
-
-        result->type = calloc(1, sizeof(*result->type));
-        result->type->kind = STK_BUILTIN_TYPE;
-        result->type->builtin_type = BT_CHAR;
-    }
-
-    return result;
-}
-
-static type_t* wide_character_type(void)
-{
-    static type_t* result = NULL;
-    if (result == NULL)
-    {
-        result = calloc(1, sizeof(*result));
-        result->kind = TK_DIRECT;
-
-        result->type = calloc(1, sizeof(*result->type));
-        result->type->kind = STK_BUILTIN_TYPE;
-        result->type->builtin_type = BT_WCHAR;
-    }
-
-    return result;
-}
-
-static type_t* float_type(void)
-{
-    static type_t* result = NULL;
-    if (result == NULL)
-    {
-        result = calloc(1, sizeof(*result));
-        result->kind = TK_DIRECT;
-
-        result->type = calloc(1, sizeof(*result->type));
-        result->type->kind = STK_BUILTIN_TYPE;
-        result->type->builtin_type = BT_FLOAT;
-    }
-
-    return result;
-}
-
-static type_t* double_type(void)
-{
-    static type_t* result = NULL;
-    if (result == NULL)
-    {
-        result = calloc(1, sizeof(*result));
-        result->kind = TK_DIRECT;
-
-        result->type = calloc(1, sizeof(*result->type));
-        result->type->kind = STK_BUILTIN_TYPE;
-        result->type->builtin_type = BT_DOUBLE;
-    }
-
-    return result;
-}
-
-static type_t* long_double_type(void)
-{
-    static type_t* result = NULL;
-    if (result == NULL)
-    {
-        result = copy_type(double_type());
-        result->type->is_long = 1;
-    }
-
-    return result;
-}
-
-static type_t *pointer_to_char_type(void)
-{
-    static type_t* result = NULL;
-    if (result == NULL)
-    {
-        result = calloc(1, sizeof(*result));
-        result->kind = TK_POINTER;
-        result->pointer = calloc(1, sizeof(*result->pointer));
-        result->pointer->pointee = character_type();
-    }
-
-    CXX_LANGUAGE()
-    {
-        // In C++, literals are always 'const char*'
-        result->pointer->pointee->cv_qualifier = CV_CONST;
-    }
-
-    return result;
-}
-
-static type_t *pointer_to_wchar_type(void)
-{
-    static type_t* result = NULL;
-    if (result == NULL)
-    {
-        result = calloc(1, sizeof(*result));
-        result->kind = TK_POINTER;
-        result->pointer = calloc(1, sizeof(*result->pointer));
-        result->pointer->pointee = wide_character_type();
-    }
-
-    CXX_LANGUAGE()
-    {
-        // In C++, literals are always 'const wchar_t*'
-        result->pointer->pointee->cv_qualifier = CV_CONST;
-    }
-
-    return result;
-}
-
 // Compute type of literals
-
 static type_t* decimal_literal_type(AST expr)
 {
     char *literal = ASTText(expr);
@@ -963,15 +736,15 @@ static type_t* decimal_literal_type(AST expr)
     {
         case 0 :
             {
-                return is_unsigned == 0 ? integer_type() : unsigned_integer_type();
+                return is_unsigned == 0 ? get_signed_int_type() : get_unsigned_int_type();
             }
         case 1 : 
             {
-                return is_unsigned == 0 ? long_integer_type() : unsigned_long_integer_type();
+                return is_unsigned == 0 ? get_signed_long_int_type() : get_unsigned_long_int_type();
             }
         default :
             {
-                return is_unsigned == 0 ? long_long_integer_type() : unsigned_long_long_integer_type();
+                return is_unsigned == 0 ? get_signed_long_long_int_type() : get_unsigned_long_long_int_type();
             }
     }
 }
@@ -983,11 +756,11 @@ static type_t *character_literal(AST expr)
     type_t* result = NULL;
     if (*literal != 'L')
     {
-        result = character_type();
+        result = get_char_type();
     }
     else
     {
-        result = wide_character_type();
+        result = get_wchar_t_type();
     }
 
     return result;
@@ -1022,14 +795,14 @@ static type_t *floating_literal(AST expr)
 
     if (is_long_double)
     {
-        return long_double_type();
+        return get_long_double_type();
     }
     else if (is_float)
     {
-        return float_type();
+        return get_float_type();
     }
     else 
-        return double_type();
+        return get_double_type();
 }
 
 static type_t *string_literal(AST expr)
@@ -1038,32 +811,12 @@ static type_t *string_literal(AST expr)
 
     if (*literal != 'L')
     {
-        return pointer_to_char_type();
+        return get_pointer_type(get_char_type());
     }
     else
     {
-        return pointer_to_wchar_type();
+        return get_pointer_type(get_wchar_t_type());
     }
 
     
-}
-
-static type_t *pointer_to_type(type_t* t)
-{
-    type_t* result = calloc(1, sizeof(*result));
-    type_t* real_type = advance_over_typedefs(t);
-
-    result->kind = TK_POINTER;
-    result->pointer = calloc(1, sizeof(*result->pointer));
-
-    if (real_type->kind != TK_REFERENCE)
-    {
-        result->pointer->pointee = t;
-    }
-    else
-    {
-        result->pointer->pointee = real_type->pointer->pointee;
-    }
-
-    return result;
 }

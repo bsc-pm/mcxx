@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.2.0.95],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.2.0.96],[rferrer@ac.upc.edu])
 
 dnl Where are we ?
 AC_CANONICAL_BUILD

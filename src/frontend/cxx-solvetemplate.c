@@ -28,19 +28,44 @@
 #include "cxx-typeutils.h"
 #include "cxx-prettyprint.h"
 #include "cxx-driver.h"
+#include "cxx-instantiation.h"
 
 static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, 
         char give_exact_match, decl_context_t decl_context);
 
-static
-char *template_nature_name[] =
+// static
+// char *template_nature_name[] =
+// {
+//     [TPN_UNKNOWN] = "TPN_UNKNOWN",
+//     [TPN_COMPLETE_DEPENDENT] =  "TPN_COMPLETE_DEPENDENT",
+//     [TPN_INCOMPLETE_INDEPENDENT] =  "TPN_INCOMPLETE_INDEPENDENT",
+//     [TPN_INCOMPLETE_DEPENDENT] =  "TPN_INCOMPLETE_DEPENDENT",
+//     [TPN_COMPLETE_INDEPENDENT] =  "TPN_COMPLETE_INDEPENDENT",
+// };
+
+static const char* get_template_nature_name(type_t* t)
 {
-    [TPN_UNKNOWN] = "TPN_UNKNOWN",
-    [TPN_COMPLETE_DEPENDENT] =  "TPN_COMPLETE_DEPENDENT",
-    [TPN_INCOMPLETE_INDEPENDENT] =  "TPN_INCOMPLETE_INDEPENDENT",
-    [TPN_INCOMPLETE_DEPENDENT] =  "TPN_INCOMPLETE_DEPENDENT",
-    [TPN_COMPLETE_INDEPENDENT] =  "TPN_COMPLETE_INDEPENDENT",
-};
+    if (class_type_is_incomplete_dependent(t))
+    {
+        return "TPN_INCOMPLETE_DEPENDENT";
+    }
+    else if (class_type_is_incomplete_independent(t))
+    {
+        return "TPN_INCOMPLETE_INDEPENDENT";
+    }
+    else if (class_type_is_complete_dependent(t))
+    {
+        return "TPN_COMPLETE_DEPENDENT";
+    }
+    else if (class_type_is_complete_independent(t))
+    {
+        return "TPN_COMPLETE_INDEPENDENT";
+    }
+    else
+    {
+        return "TPN_UNKNOWN";
+    }
+}
 
 matching_pair_t* solve_template(decl_context_t decl_context,
         scope_entry_list_t* candidate_templates, 
@@ -58,7 +83,7 @@ matching_pair_t* solve_template(decl_context_t decl_context,
                     entry->symbol_name, 
                     entry->file,
                     entry->line,
-                    template_nature_name[entry->type_information->type->template_nature]);
+                    get_template_nature_name(entry->type_information));
             it = it->next;
         }
         fprintf(stderr, " - End of candidate list\n");
@@ -97,7 +122,7 @@ matching_pair_t* solve_template(decl_context_t decl_context,
     {
         scope_entry_t* entry = iter->entry;
 
-        template_argument_list_t* specialized = entry->type_information->type->template_arguments;
+        template_argument_list_t* specialized = template_type_get_template_arguments(entry->type_information);
 
         // if (!give_exact_match
         //         && (entry->type_information->type->template_nature == TPN_INCOMPLETE_INDEPENDENT
@@ -135,7 +160,7 @@ matching_pair_t* solve_template(decl_context_t decl_context,
         result = matching_set[0];
         if (give_exact_match)
         {
-            template_argument_list_t* specialized = result->entry->type_information->type->template_arguments;
+            template_argument_list_t* specialized = template_type_get_template_arguments(result->entry->type_information);
 
             DEBUG_CODE()
             {
@@ -177,7 +202,7 @@ matching_pair_t* solve_template(decl_context_t decl_context,
             && result != NULL)
     {
         // Result will be an exact match if it can be unified with the original
-        template_argument_list_t* specialized = result->entry->type_information->type->template_arguments;
+        template_argument_list_t* specialized = template_type_get_template_arguments(result->entry->type_information);
 
         DEBUG_CODE()
         {
@@ -211,9 +236,9 @@ static matching_pair_t* determine_more_specialized(int num_matching_set, matchin
         matching_pair_t* current_entry = matching_set[i];
 
         template_argument_list_t* min_args =
-            min->entry->type_information->type->template_arguments;
+            template_type_get_template_arguments(min->entry->type_information);
         template_argument_list_t* current_args =
-            current_entry->entry->type_information->type->template_arguments;
+            template_type_get_template_arguments(current_entry->entry->type_information);
 
         unification_set_t* unification_set = calloc(1, sizeof(*unification_set));
 
@@ -337,17 +362,17 @@ char match_one_template(template_argument_list_t* arguments,
                         {
                             fprintf(stderr, "==> Unificating expressions\n");
                         }
-                        if (spec_arg->argument_tree == NULL)
+                        if (spec_arg->expression == NULL)
                         {
                             internal_error("Expected an expression value for specialized argument", 0);
                         }
-                        if (arg->argument_tree == NULL)
+                        if (arg->expression == NULL)
                         {
                             internal_error("Expected an expression value for argument", 0);
                         }
 
-                        if (!unificate_two_expressions(&unif_set, spec_arg->argument_tree, spec_arg->decl_context, 
-                                arg->argument_tree, arg->decl_context))
+                        if (!unificate_two_expressions(&unif_set, spec_arg->expression, spec_arg->expression_context, 
+                                arg->expression, arg->expression_context))
                         {
                             return 0;
                         }
@@ -377,8 +402,10 @@ char match_one_template(template_argument_list_t* arguments,
         for (i = 0; i < unif_set->num_elems; i++)
         {
             unification_item_t* unif_item = unif_set->unif_list[i];
-            fprintf(stderr, "Parameter num: %d || Parameter nesting: %d || Parameter name: %s <- ",
-                    unif_item->parameter_num, unif_item->parameter_nesting, unif_item->parameter_name);
+            fprintf(stderr, "(%s) (%d,%d) <- ",
+                    unif_item->parameter_name,
+                    unif_item->parameter_nesting,
+                    unif_item->parameter_position);
             if (unif_item->value != NULL)
             {
                 fprintf(stderr, "[type] %s", print_declarator(unif_item->value, decl_context));
@@ -397,4 +424,60 @@ char match_one_template(template_argument_list_t* arguments,
     }
 
     return 1;
+}
+
+scope_entry_t* get_specialization_of_template(decl_context_t template_name_context, 
+        char *template_name, template_argument_list_t* template_arguments,
+        int line, char *filename)
+{
+    /* Now get a list of candidates */
+    scope_entry_list_t* candidate_templates = query_unqualified_name_str(
+            template_name_context,
+            template_name);
+
+    char arguments_are_dependent = 0;
+    int i;
+    for (i = 0; i < template_arguments->num_arguments; i++)
+    {
+        template_argument_t* template_argument = template_arguments->argument_list[i];
+
+        template_argument_t* updated_template_argument = calloc(1, sizeof(*updated_template_argument));
+
+        switch (template_argument->kind)
+        {
+            case TAK_TEMPLATE :
+            case TAK_TYPE :
+                {
+                    arguments_are_dependent |= is_dependent_type(template_argument->type, template_name_context);
+                }
+                break;
+            case TAK_NONTYPE:
+                {
+                    arguments_are_dependent |= is_dependent_expression(template_argument->expression, template_argument->expression_context);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    ERROR_CONDITION(candidate_templates == NULL, "Candidate templates not found!", 0);
+
+    matching_pair_t* match_pair = solve_template(template_name_context,
+            candidate_templates,
+            template_arguments,
+            /* give_exact_match */ 0);
+
+    ERROR_CONDITION(match_pair == NULL, "Matching pair not found", 0);
+
+    scope_entry_t *result = match_pair->entry;
+
+    if (!arguments_are_dependent
+            && !class_type_is_complete_independent(result->type_information)
+            && !class_type_is_incomplete_independent(result->type_information))
+    {
+        // Create a holding symbol only if all are nondependent
+        result = create_holding_symbol_for_template(match_pair, template_arguments, line, filename, template_name_context);
+    }
+    return result;
 }

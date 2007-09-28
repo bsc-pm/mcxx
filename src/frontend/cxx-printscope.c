@@ -73,16 +73,16 @@ static char* symbol_kind_names[] =
     [SK_GCC_BUILTIN_TYPE] = "SK_GCC_BUILTIN_TYPE",
 };
 
-static char* scope_names[] =
-{
-    [UNDEFINED_SCOPE] = "UNDEFINED_SCOPE",
-    [NAMESPACE_SCOPE] = "NAMESPACE_SCOPE",
-    [FUNCTION_SCOPE] = "FUNCTION_SCOPE",
-    [PROTOTYPE_SCOPE] = "PROTOTYPE_SCOPE",
-    [BLOCK_SCOPE] = "BLOCK_SCOPE",
-    [CLASS_SCOPE] = "CLASS_SCOPE",
-    [TEMPLATE_SCOPE] = "TEMPLATE_SCOPE",
-};
+// static char* scope_names[] =
+// {
+//     [UNDEFINED_SCOPE] = "UNDEFINED_SCOPE",
+//     [NAMESPACE_SCOPE] = "NAMESPACE_SCOPE",
+//     [FUNCTION_SCOPE] = "FUNCTION_SCOPE",
+//     [PROTOTYPE_SCOPE] = "PROTOTYPE_SCOPE",
+//     [BLOCK_SCOPE] = "BLOCK_SCOPE",
+//     [CLASS_SCOPE] = "CLASS_SCOPE",
+//     [TEMPLATE_SCOPE] = "TEMPLATE_SCOPE",
+// };
 
 void print_scope(decl_context_t decl_context)
 {
@@ -165,13 +165,17 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
 
     PRINT_INDENTED_LINE(stderr, global_indent+1, "Declared in %s:%d\n", entry->file, entry->line);
 
-    if (entry->kind == SK_VARIABLE
-            || entry->kind == SK_TEMPLATE_PARAMETER
+    if (entry->kind == SK_VARIABLE)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n", 
+                print_declarator(entry->type_information, entry->decl_context));
+    }
+    if (entry->kind == SK_TEMPLATE_PARAMETER
             || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
             || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n", 
-                print_declarator(entry->type_information, entry->decl_context));
+                get_named_type_name(entry));
     }
     if (entry->kind == SK_VARIABLE && entry->is_parameter)
     {
@@ -181,7 +185,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
     if (entry->kind == SK_TYPEDEF)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1,  "Aliased type: %s\n",
-                print_declarator(entry->type_information->type->aliased_type, entry->decl_context));
+                print_declarator(typedef_type_get_aliased_type(entry->type_information), entry->decl_context));
     }
 
     if (entry->kind == SK_GCC_BUILTIN_TYPE)
@@ -198,24 +202,26 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
     if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
             || entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
     {
-        switch (entry->type_information->type->template_nature)
+        if (class_type_is_complete_dependent(entry->type_information))
         {
-            case TPN_COMPLETE_DEPENDENT:
-                PRINT_INDENTED_LINE(stderr, global_indent+1, "Dependent complete template\n");
-                break;
-            case TPN_COMPLETE_INDEPENDENT:
-                PRINT_INDENTED_LINE(stderr, global_indent+1, "Independent complete template\n");
-                break;
-            case TPN_INCOMPLETE_DEPENDENT:
-                PRINT_INDENTED_LINE(stderr, global_indent+1, "Dependent incomplete template\n");
-                break;
-            case TPN_INCOMPLETE_INDEPENDENT:
-                PRINT_INDENTED_LINE(stderr, global_indent+1, "Independent incomplete template\n");
-                break;
-            default:
-                PRINT_INDENTED_LINE(stderr, global_indent+1, "Template nature unknown\n");
-                break;
-        };
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "Dependent complete template\n");
+        }
+        else if (class_type_is_complete_independent(entry->type_information))
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "Independent complete template\n");
+        }
+        else if (class_type_is_incomplete_dependent(entry->type_information))
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "Dependent incomplete template\n");
+        }
+        else if (class_type_is_incomplete_independent(entry->type_information))
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "Independent incomplete template\n");
+        }
+        else
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "Template nature unknown\n");
+        }
     }
 
     if (entry->kind == SK_ENUMERATOR)
@@ -239,14 +245,14 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
         // print_scope_full(entry->related_decl_context.current_scope, global_indent+1);
         C_LANGUAGE()
         {
-            if (entry->type_information->function->lacks_prototype)
+            if (function_type_get_lacking_prototype(entry->type_information))
             {
                 PRINT_INDENTED_LINE(stderr, global_indent+1, "This function does not have prototype yet\n");
             }
         }
         CXX_LANGUAGE()
         {
-            if (entry->type_information->function->is_conversion)
+            if (function_type_is_conversion(entry->type_information))
             {
                 PRINT_INDENTED_LINE(stderr, global_indent+1, "Conversion function\n");
             }

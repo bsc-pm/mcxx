@@ -35,8 +35,11 @@ enum literal_value_kind_t
     LVK_UNSIGNED_INT,
     LVK_SIGNED_LONG,
     LVK_UNSIGNED_LONG,
+    LVK_SIGNED_LONG_LONG,
+    LVK_UNSIGNED_LONG_LONG,
     LVK_BOOL,
-    LVK_CHARACTER
+    LVK_SIGNED_CHAR,
+    LVK_UNSIGNED_CHAR,
     // TODO - Float values ?
 };
 
@@ -52,8 +55,11 @@ typedef struct
         unsigned int unsigned_int;
         signed long int signed_long;
         unsigned long int unsigned_long;
+        signed long long int signed_long_long;
+        unsigned long long int unsigned_long_long;
         char boolean_value;
-        char character_value;
+        signed char signed_char;
+        unsigned char unsigned_char;
         // TODO - Float values ?
     } value;
 } literal_value_t;

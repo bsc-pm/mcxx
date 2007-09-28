@@ -209,6 +209,7 @@ hash_delete (Hash * h, void *key)
 
 #include <ctype.h>
 #include <string.h>
+#include <stdint.h>
 
 int
 hash_string (char *name, int size)
@@ -221,6 +222,12 @@ hash_string (char *name, int size)
   return (name[0] + name[1] + name[3]) % size;
 }
 
+int pointer_hash(void* key, int size)
+{
+    intptr_t v = (intptr_t)(key);
+
+    return (v % size);
+}
 
 int
 hash_caseless_string (char *name, int size)
@@ -243,4 +250,20 @@ int prime_hash(char* key, int hash_size)
     }
 
     return (result % hash_size);
+}
+
+int integer_comp (void *key1, void *key2)
+{
+    intptr_t a = (intptr_t)(key1);
+    intptr_t b = (intptr_t)(key2);
+
+    if (a == b)
+    {
+        return 0;
+    }
+    else if (a < b)
+    {
+        return -1;
+    }
+    else return 1;
 }

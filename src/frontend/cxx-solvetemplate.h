@@ -29,11 +29,12 @@ MCXX_BEGIN_DECLS
 #include "cxx-buildscope-decls.h"
 #include "cxx-scope-decls.h"
 
+typedef
 struct matching_pair_tag
 {
     scope_entry_t* entry;
     unification_set_t* unif_set;
-};
+} matching_pair_t;
 
 matching_pair_t* solve_template(decl_context_t decl_context,
         scope_entry_list_t* candidate_templates, 
@@ -44,6 +45,10 @@ char match_one_template(template_argument_list_t* arguments,
         template_argument_list_t* specialized, scope_entry_t* specialized_entry, 
         unification_set_t* unif_set,
         decl_context_t decl_context);
+
+scope_entry_t* get_specialization_of_template(decl_context_t template_name_context, 
+        char *template_name, template_argument_list_t* template_arguments,
+        int line, char *filename);
 
 MCXX_END_DECLS
 

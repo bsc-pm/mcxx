@@ -1100,7 +1100,7 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
         class_type = advance_over_typedefs(class_name->type_information);
         if (is_named_type(class_type))
         {
-            class_name = get_symbol_of_named_type(class_type);
+            class_name = named_type_get_symbol(class_type);
         }
     }
 
@@ -1145,12 +1145,12 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
     {
         class_type = class_name->type_information;
 
-        if (class_type->type->template_nature == TPN_INCOMPLETE_INDEPENDENT)
+        if (class_type_is_incomplete_independent(class_type))
         {
             instantiate_template(class_name, nested_name_context);
         }
-        else if (class_type->type->template_nature == TPN_COMPLETE_DEPENDENT
-                || class_type->type->template_nature == TPN_INCOMPLETE_DEPENDENT)
+        else if (class_type_is_complete_dependent(class_type)
+                || class_type_is_incomplete_dependent(class_type))
         {
             // Others will be dependent entities
             *is_dependent = 1;
@@ -1163,23 +1163,20 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
         // We cannot do anything else here but returning NULL
         // and stating that it is dependent
         *is_dependent = 1;
+        class_type = NULL;
     }
     else
     {
         internal_error("Symbol kind %d not valid", class_name->kind);
     }
 
-    decl_context_t decl_context = class_name->related_decl_context;
-
-    if (class_type != NULL
-            && class_type->kind == TK_DIRECT
-            && (class_type->type->kind == STK_TYPE_TEMPLATE_PARAMETER
-                || class_type->type->kind == STK_TEMPLATE_TEMPLATE_PARAMETER
-                || class_type->type->kind == STK_TEMPLATE_DEPENDENT_TYPE))
+    // The type might be a dependent one
+    if (is_template_dependent_type(class_type))
     {
         *is_dependent = 1;
-        return NULL;
     }
+
+    decl_context_t decl_context = class_name->related_decl_context;
 
     // In this case, nothing to do remains
     if (*is_dependent 
@@ -1191,7 +1188,7 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
     ERROR_CONDITION(!is_class_type(class_type), "The class_type is not a class type actually", 0);
 
     // This gives the _real_ class type (not any indirection by means of class names)
-    class_type = get_class_type(class_type);
+    class_type = get_actual_class_type(class_type);
 
     class_scope = decl_context.current_scope;
 
@@ -1533,7 +1530,7 @@ static scope_entry_list_t* query_template_id(AST template_id, decl_context_t loo
 
         ERROR_CONDITION(!is_named_type(alias_type_info),
                 "A template alias should refer to a template-name", 0);
-        scope_entry_t *referred_template = get_symbol_of_named_type(alias_type_info);
+        scope_entry_t *referred_template = named_type_get_symbol(alias_type_info);
 
         DEBUG_CODE()
         {
@@ -1584,8 +1581,8 @@ static scope_entry_list_t* query_template_id(AST template_id, decl_context_t loo
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "-> Dependent type template argument '%s'\n",
-                            prettyprint_in_buffer(argument->argument_tree));
+                    // fprintf(stderr, "-> Dependent type template argument '%s'\n",
+                    //         prettyprint_in_buffer(argument->argument_tree));
                 }
                 seen_dependent_args = 1;
             }
@@ -1596,12 +1593,12 @@ static scope_entry_list_t* query_template_id(AST template_id, decl_context_t loo
         }
         else if (argument->kind == TAK_NONTYPE)
         {
-            if (is_dependent_expression(argument->argument_tree, argument->decl_context))
+            if (is_dependent_expression(argument->expression, argument->expression_context))
             {
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "-> Dependent expression template argument '%s'\n",
-                            prettyprint_in_buffer(argument->argument_tree));
+                            prettyprint_in_buffer(argument->expression));
                 }
                 seen_dependent_args = 1;
             }
@@ -1703,7 +1700,7 @@ static scope_entry_list_t* query_template_id(AST template_id, decl_context_t loo
     else
     {
         // There is always a template that matches, the primary one
-        internal_error("Unreachable code", 0);
+        internal_error("No template found that matches and at least primary one should", 0);
         return NULL;
     }
 }
@@ -1779,7 +1776,7 @@ static char* get_fully_qualified_symbol_name_simple(decl_context_t decl_context,
     return result;
 }
 
-static scope_entry_t* find_template_parameter(scope_t* st, scope_entry_t* template_param)
+static scope_entry_t* find_template_parameter(scope_t* st, scope_entry_t* template_param, decl_context_t decl_context)
 {
     Iterator* it = (Iterator*) hash_iterator_create(st->hash);
     for ( iterator_first(it); 
@@ -1797,11 +1794,8 @@ static scope_entry_t* find_template_parameter(scope_t* st, scope_entry_t* templa
             type_t* type_current = entry->type_information;
             type_t* type_param = template_param->type_information;
 
-            simple_type_t* t1 = type_current->type;
-            simple_type_t* t2 = type_param->type;
 
-            if ((t1->template_parameter_num == t2->template_parameter_num)
-                        && (t1->template_parameter_nesting == t2->template_parameter_nesting))
+            if (equivalent_types(type_current, type_param, CVE_CONSIDER, decl_context))
             {
                 return entry;
             }
@@ -1818,7 +1812,7 @@ static char* give_name_for_template_parameter(scope_entry_t* entry, decl_context
     scope_t* st = decl_context.template_scope;
     while (st != NULL)
     {
-        scope_entry_t* template_parameter = find_template_parameter(st, entry);
+        scope_entry_t* template_parameter = find_template_parameter(st, entry, decl_context);
         if (template_parameter != NULL)
         {
             return template_parameter->symbol_name;
@@ -1841,7 +1835,7 @@ char* get_unqualified_template_symbol_name(scope_entry_t* entry, decl_context_t 
 
     // It is not enough with the name, we have to print the arguments
     result = strappend(result, "<");
-    template_argument_list_t* template_arguments = entry->type_information->type->template_arguments;
+    template_argument_list_t* template_arguments = template_type_get_template_arguments(entry->type_information);
 
     int i;
     for (i = 0; i < template_arguments->num_arguments; i++)
@@ -1874,7 +1868,7 @@ char* get_unqualified_template_symbol_name(scope_entry_t* entry, decl_context_t 
                 }
             case TAK_NONTYPE:
                 {
-                    result = strappend(result, prettyprint_in_buffer(template_argument->argument_tree));
+                    result = strappend(result, prettyprint_in_buffer(template_argument->expression));
                     break;
                 }
             default:
@@ -1927,11 +1921,9 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_
         }
         else // if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
         {
-            simple_type_t* type = entry->type_information->type;
-
             // They are only dependent if it is so in the template
-            if (type->template_nature == TPN_INCOMPLETE_DEPENDENT
-                    || type->template_nature == TPN_COMPLETE_DEPENDENT)
+            if (class_type_is_incomplete_dependent(entry->type_information)
+                    || class_type_is_complete_dependent(entry->type_information))
             {
                 (*is_dependent) = 1;
             }
@@ -1945,10 +1937,10 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_
         //     fprintf(stderr, "The symbol is a member, getting the qualified symbol name of the enclosing class\n");
         // }
         // We need the qualification of the class
-        scope_entry_t* class_symbol = get_class_symbol(entry->class_type);
-
-        if (class_symbol != NULL)
+        if (is_named_class_type(entry->class_type))
         {
+            scope_entry_t* class_symbol = named_type_get_symbol(entry->class_type);
+
             (*max_qualif_level)++;
 
             char* class_qualification = get_fully_qualified_symbol_name(class_symbol, decl_context, is_dependent, max_qualif_level);

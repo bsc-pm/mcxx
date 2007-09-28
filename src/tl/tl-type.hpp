@@ -31,6 +31,7 @@
 namespace TL
 {
     class Scope;
+    class Symbol;
     class Type : public Object
     {
         private:
@@ -44,7 +45,7 @@ namespace TL
             static void get_type_name_str_internal(type_t* type_info, 
                     const std::string &symbol_name, std::string& left, std::string& right);
             static std::string get_cv_qualifier_str(type_t* type_info);
-            static std::string get_simple_type_name_str_internal(simple_type_t* simple_type);
+            static std::string get_simple_type_name_str_internal(type_t* simple_type);
             static std::string get_simple_type_name_str(type_t* simple_type);
             static bool declarator_needs_parentheses(type_t* type_info);
             static std::string get_declaration_str_internal(type_t* type_info, 
@@ -97,7 +98,6 @@ namespace TL
                     const std::string& symbol_name, ObjectList<std::string>& parameters,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
-            Type duplicate();
             Type get_pointer_to();
             Type get_array_to(AST_t expression_array, Scope scope);
 
@@ -106,25 +106,47 @@ namespace TL
             Type& operator=(Type t);
             bool operator<(Type t) const;
 
-            struct BuiltinType;
+            // Basic types
+            bool is_integral_type() const;
+            bool is_signed_int() const;
+            bool is_unsigned_int() const;
+            bool is_signed_short_int() const;
+            bool is_unsigned_short_int() const;
+            bool is_signed_long_int() const;
+            bool is_unsigned_long_int() const;
+            bool is_signed_long_long_int() const;
+            bool is_unsigned_long_long_int() const;
 
-            struct TypeModifier;
+            bool is_char() const;
+            bool is_signed_char() const;
+            bool is_unsigned_char() const;
 
-            bool is_builtin_type() const;
-            BuiltinType builtin_type() const;
-            BuiltinType builtin_type(TypeModifier& type_modif) const;
+            bool is_wchar_t() const;
 
-            bool is_direct_type() const;
+            bool is_floating_type() const;
+            bool is_long_double() const;
+            bool is_float() const;
+
+            bool is_bool() const;
+            
+            // Direct types
+            bool is_direct_type() const DEPRECATED;
+            bool is_non_derived_type() const;
             bool is_class() const;
             bool is_enum() const;
 
+            // Functions
             bool is_function() const;
             Type returns() const;
             ObjectList<Type> parameters() const;
             ObjectList<Type> parameters(bool& has_ellipsis) const;
 
+            // Pointers
             bool is_pointer() const;
             Type points_to() const;
+
+            bool is_pointer_to_member() const;
+            Type pointed_class() const;
 
             bool is_array() const;
             Type array_element() const;
@@ -152,134 +174,6 @@ namespace TL
             {
                 return _type_info;
             }
-    };
-
-    struct Type::BuiltinType
-    {
-        enum _enum_type
-        {
-            UNKNOWN = 0,
-            INT,
-            BOOL,
-            FLOAT,
-            DOUBLE,
-            CHAR,
-            WCHAR,
-            VOID
-        };
-
-        BuiltinType()
-            : _val(UNKNOWN)
-        {
-        }
-
-        BuiltinType(const _enum_type& t)
-            : _val(t) { }
-
-        BuiltinType& operator=(const _enum_type& t)
-        {
-            _val = t;
-            return (*this);
-        }
-
-        bool operator==(const _enum_type& t)
-        {
-            return (_val == t);
-        }
-
-        bool operator!=(const _enum_type& t)
-        {
-            return !(this->operator==(t));
-        }
-
-        bool operator==(const BuiltinType& t)
-        {
-            return _val == t._val;
-        }
-
-        bool operator!=(const BuiltinType& t)
-        {
-            return !(this->operator==(t));
-        }
-
-        private:
-        _enum_type _val;
-    };
-
-    struct Type::TypeModifier
-    {
-        enum _enum_type
-        {
-            NONE = 0,
-            SHORT = 1,
-            LONG = 2,
-            LONG_LONG = 4,
-            UNSIGNED = 8,
-            CONST = 16,
-            VOLATILE = 32,
-            RESTRICT = 64,
-        };
-
-        TypeModifier()
-            : _val(NONE)
-        {
-        }
-
-        TypeModifier(const _enum_type& t)
-            : _val(t) { }
-
-        TypeModifier& operator=(const _enum_type& t)
-        {
-            _val = t;
-            return (*this);
-        }
-
-        bool operator==(const _enum_type& t)
-        {
-            return (_val == t);
-        }
-
-        bool operator!=(const _enum_type& t)
-        {
-            return !(this->operator==(t));
-        }
-
-        bool operator==(const TypeModifier& t)
-        {
-            return _val == t._val;
-        }
-
-        bool operator!=(const TypeModifier& t)
-        {
-            return !(this->operator==(t));
-        }
-
-        void operator|=(const _enum_type& t)
-        {
-            _val = (_enum_type)((int)(_val) | (int)(t));
-        }
-
-        void operator|=(const TypeModifier& t)
-        {
-            _val = (_enum_type)((int)(_val) | (int)(t._val));
-        }
-        
-        TypeModifier operator&(const _enum_type& t)
-        {
-            TypeModifier result;
-            result._val = (_enum_type)((int)(_val) & ((int)t));
-            return result;
-        }
-
-        TypeModifier operator&(const TypeModifier& t)
-        {
-            TypeModifier result;
-            result._val = (_enum_type)((int)(_val) & ((int)t._val));
-            return result;
-        }
-
-        private:
-        _enum_type _val;
     };
 }
 

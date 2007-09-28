@@ -65,12 +65,6 @@ namespace TL
                 symbol_name.c_str(), "", 0, NULL, NULL, flags == PARAMETER_DECLARATION);
     }
 
-    Type Type::duplicate()
-    {
-        type_t* new_type_info = copy_type(_type_info);
-        return Type(new_type_info);
-    }
-
     Type Type::get_pointer_to()
     {
         type_t* work_type = this->_type_info;
@@ -79,37 +73,23 @@ namespace TL
         {
             // We cannot get a pointer to a reference, get the referenced
             // type and make it pointer
-            work_type = reference_referenced_type(work_type);
+            work_type = reference_type_get_referenced_type(work_type);
         }
 
-        type_t* result_type = copy_type(work_type);
-        type_t* pointer_to = (type_t*)calloc(1, sizeof(*pointer_to));
-
-        pointer_to->kind = TK_POINTER;
-        pointer_to->pointer = (pointer_info_t*)calloc(1, sizeof(*(pointer_to->pointer)));
-        pointer_to->pointer->pointee = result_type;
-
-        result_type = pointer_to;
+        type_t* result_type = get_pointer_type(work_type);
 
         return result_type;
     }
 
     Type Type::get_array_to(AST_t array_expr, Scope scope)
     {
-        Type result = this->duplicate();
-        type_t* result_type = result._type_info;
+        type_t* result_type = this->_type_info;
 
-        type_t* array_to = (type_t*)calloc(1, sizeof(*array_to));
+        // FIXME
+        decl_context_t decl_context;
+        type_t* array_to = get_array_type(result_type, array_expr._ast, decl_context);
 
-        array_to->kind = TK_ARRAY;
-        array_to->array = (array_info_t*)calloc(1, sizeof(*(array_to->array)));
-        array_to->array->element_type = result_type;
-        array_to->array->array_expr = array_expr._ast;
-        array_to->array->array_expr_decl_context = scope._decl_context;
-
-        result._type_info = array_to;
-
-        return result;
+        return Type(result_type);
     }
 
     bool Type::operator==(Type t) const
@@ -131,84 +111,6 @@ namespace TL
     {
         this->_type_info = t._type_info;
         return (*this);
-    }
-
-    bool Type::is_builtin_type() const
-    {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return (is_fundamental_type(type_info));
-    }
-
-    Type::BuiltinType Type::builtin_type(TypeModifier& type_modif) const
-    {
-        if (is_builtin_type())
-        {
-            type_t* type_info = advance_over_typedefs(_type_info);
-
-            if ((type_info->cv_qualifier & CV_CONST) == CV_CONST)
-            {
-                type_modif |= TypeModifier::CONST;
-            }
-
-            if ((type_info->cv_qualifier & CV_VOLATILE) == CV_VOLATILE)
-            {
-                type_modif |= TypeModifier::VOLATILE;
-            }
-
-            if ((type_info->cv_qualifier & CV_RESTRICT) == CV_RESTRICT)
-            {
-                type_modif |= TypeModifier::RESTRICT;
-            }
-
-            if (type_info->type->is_short)
-            {
-                type_modif |= TypeModifier::SHORT;
-            }
-            else if (type_info->type->is_long)
-            {
-                if (type_info->type->is_long == 1)
-                {
-                    type_modif |= TypeModifier::LONG;
-                }
-                else
-                {
-                    type_modif |= TypeModifier::LONG_LONG;
-                }
-            }
-
-            if (type_info->type->is_unsigned)
-            {
-                type_modif |= TypeModifier::UNSIGNED;
-            }
-
-            switch ((int)(type_info->type->builtin_type))
-            {
-                case BT_INT:
-                    return BuiltinType::INT;
-                case BT_BOOL:
-                    return BuiltinType::BOOL;
-                case BT_FLOAT:
-                    return BuiltinType::FLOAT;
-                case BT_DOUBLE:
-                    return BuiltinType::DOUBLE;
-                case BT_CHAR:
-                    return BuiltinType::CHAR;
-                case BT_WCHAR:
-                    return BuiltinType::WCHAR;
-                case BT_VOID:
-                    return BuiltinType::VOID;
-                default:
-                    return BuiltinType::UNKNOWN;
-            }
-        }
-
-        return BuiltinType::UNKNOWN;
-    }
-
-    Type::BuiltinType Type::builtin_type() const
-    {
-        TypeModifier type_modif;
-        return builtin_type(type_modif);
     }
 
     bool Type::is_pointer() const
@@ -237,15 +139,18 @@ namespace TL
 
     bool Type::is_dependent() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        type_t* _base_type = base_type(type_info);
-        return (is_dependent_type(type_info, _base_type->type->typeof_decl_context));
+        // type_t* type_info = advance_over_typedefs(_type_info);
+        // type_t* _base_type = base_type(type_info);
+        // return (is_dependent_type(type_info, _base_type->type->typeof_decl_context));
+
+        // FIXME
+        return 0;
     }
 
     Type Type::returns() const
     {
         type_t* type_info = advance_over_typedefs(_type_info);
-        return function_return_type(type_info);
+        return function_type_get_return_type(type_info);
     }
 
     ObjectList<Type> Type::parameters() const
@@ -257,17 +162,13 @@ namespace TL
     ObjectList<Type> Type::parameters(bool& has_ellipsis) const
     {
         type_t* type_info = advance_over_typedefs(_type_info);
-        type_t** parameter_list;
-        int num_params = 0;
-        char ellipsis = 0;
 
-        parameter_list = function_parameter_types(type_info, &num_params, &ellipsis);
-        has_ellipsis = ellipsis;
+        has_ellipsis = function_type_get_has_ellipsis(type_info);
 
         ObjectList<Type> result;
-        for (int i = 0; i < num_params; i++)
+        for (int i = 0; i < function_type_get_num_parameters(type_info); i++)
         {
-            Type t(parameter_list[i]);
+            Type t(function_type_get_parameter_type_num(type_info, i));
             result.push_back(t);
         }
 
@@ -277,45 +178,48 @@ namespace TL
     Type Type::points_to() const
     {
         type_t* type_info = advance_over_typedefs(_type_info);
-        return pointer_pointee_type(type_info);
+        return pointer_type_get_pointee_type(type_info);
     }
 
     Type Type::array_element() const
     {
         type_t* type_info = advance_over_typedefs(_type_info);
-        return array_element_type(type_info);
+        return array_type_get_element_type(type_info);
     }
 
     Type Type::references_to() const
     {
         type_t* type_info = advance_over_typedefs(_type_info);
-        return reference_referenced_type(type_info);
+        return reference_type_get_referenced_type(type_info);
+    }
+
+    bool Type::is_non_derived_type() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return ::is_non_derived_type(type_info);
     }
 
     bool Type::is_direct_type() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return ::is_direct_type(type_info);
+        return this->is_non_derived_type();
     }
 
     bool Type::is_void() const
     {
-        return (is_builtin_type() &&
-                builtin_type() == BuiltinType::VOID);
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_void_type(type_info);
     }
 
     bool Type::is_enum() const
     {
         type_t* type_info = advance_over_typedefs(_type_info);
-        return (this->is_direct_type()
-                && is_enumerated_type(type_info));
+        return (is_enumerated_type(type_info));
     }
 
     bool Type::is_class() const
     {
         type_t* type_info = advance_over_typedefs(_type_info);
-        return (this->is_direct_type()
-                && is_named_class_type(type_info));
+        return (is_named_class_type(type_info));
     }
 
     bool Type::explicit_array_dimension() const
@@ -323,7 +227,7 @@ namespace TL
         if (is_array())
         {
             type_t* type_info = advance_over_typedefs(_type_info);
-            return (type_info->array->array_expr != NULL);
+            return (array_type_get_array_size_expr(type_info));
         }
 
         return false;
@@ -332,25 +236,144 @@ namespace TL
     AST_t Type::array_dimension() const
     {
         type_t* type_info = advance_over_typedefs(_type_info);
-        AST expression = type_info->array->array_expr;
+        AST expression = array_type_get_array_size_expr(type_info);
         return expression;
     }
 
 
     Type Type::get_int_type(void)
     {
-        return Type(integer_type());
+        return Type(get_signed_int_type());
     }
 
     Type Type::original_type(void) const
     {
-        if (_type_info->original_type != NULL)
-        {
-            return Type(_type_info->original_type);
-        }
-        else
+        // if (_type_info->original_type != NULL)
+        // {
+        //     return Type(_type_info->original_type);
+        // }
+        // else
+        // FIXME
         {
             return *this;
         }
+    }
+
+
+    bool Type::is_integral_type() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return ::is_integral_type(type_info);
+    }
+
+    bool Type::is_signed_int() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_signed_int_type(type_info);
+    }
+
+    bool Type::is_unsigned_int() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_unsigned_int_type(type_info);
+    }
+
+    bool Type::is_signed_short_int() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_signed_short_int_type(type_info);
+    }
+
+    bool Type::is_unsigned_short_int() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_unsigned_short_int_type(type_info);
+    }
+
+    bool Type::is_signed_long_int() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_signed_long_int_type(type_info);
+    }
+
+    bool Type::is_unsigned_long_int() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_unsigned_long_int_type(type_info);
+    }
+
+    bool Type::is_signed_long_long_int() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_signed_long_long_int_type(type_info);
+    }
+
+    bool Type::is_unsigned_long_long_int() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_unsigned_long_long_int_type(type_info);
+    }
+
+
+    bool Type::is_char() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_char_type(type_info);
+    }
+
+    bool Type::is_signed_char() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_signed_char_type(type_info);
+    }
+
+    bool Type::is_unsigned_char() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_unsigned_char_type(type_info);
+    }
+
+    bool Type::is_wchar_t() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_wchar_t_type(type_info);
+    }
+
+
+    bool Type::is_floating_type() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return ::is_floating_type(type_info);
+    }
+
+    bool Type::is_long_double() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_long_double_type(type_info);
+    }
+
+    bool Type::is_float() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_float_type(type_info);
+    }
+
+
+    bool Type::is_bool() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_bool_type(type_info);
+    }
+
+    bool Type::is_pointer_to_member() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_pointer_to_member_type(type_info);
+    }
+
+    Type Type::pointed_class() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return pointer_to_member_type_get_class_type(type_info);
     }
 }

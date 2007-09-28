@@ -175,13 +175,13 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
     {
         compute_set_of_associated_classes_scope(argument_type, associated_scopes);
 
-        simple_type_t* simple_type = argument_type->type;
+        template_argument_list_t* template_arguments = template_type_get_template_arguments(argument_type);
 
         // Now for every parameter 
         int i;
-        for (i = 0; i < simple_type->template_arguments->num_arguments; i++)
+        for (i = 0; i < template_arguments->num_arguments; i++)
         {
-            template_argument_t* curr_argument = simple_type->template_arguments->argument_list[i];
+            template_argument_t* curr_argument = template_arguments->argument_list[i];
             if (curr_argument->kind == TAK_NONTYPE)
             {
                 // Non-type arguments do not contribute in the scopes
@@ -203,7 +203,7 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
      */
     if (is_enumerated_type(argument_type))
     {
-        scope_t* outer_namespace = argument_type->type->type_decl_context.namespace_scope;
+        scope_t* outer_namespace = enum_type_get_context(argument_type).namespace_scope;
 
         ERROR_CONDITION(outer_namespace == NULL, "The enclosing namespace scope is NULL!", 0);
 
@@ -212,7 +212,7 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
 
         if (is_named_type(argument_type))
         {
-            scope_entry_t* symbol = get_symbol_of_named_type(argument_type);
+            scope_entry_t* symbol = named_type_get_symbol(argument_type);
             if (symbol->is_member)
             {
                 type_t* class_type = symbol->class_type;
@@ -234,11 +234,11 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
         type_t* pointed_type = NULL;
         if (is_pointer_type(argument_type))
         {
-            pointed_type = argument_type->pointer->pointee;
+            pointed_type = pointer_type_get_pointee_type(argument_type);
         }
         else
         {
-            pointed_type = argument_type->array->element_type;
+            pointed_type = array_type_get_element_type(argument_type);
         }
 
         compute_associated_scopes_rec(associated_scopes, pointed_type);
@@ -255,15 +255,15 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
     {
         // Parameter types
         int i;
-        for (i = 0; i < argument_type->function->num_parameters; i++)
+        for (i = 0; i < function_type_get_num_parameters(argument_type); i++)
         {
-            parameter_info_t* current_parameter = argument_type->function->parameter_list[i];
+            type_t* current_parameter = function_type_get_parameter_type_num(argument_type, i);
 
-            compute_associated_scopes_rec(associated_scopes, current_parameter->type_info);
+            compute_associated_scopes_rec(associated_scopes, current_parameter);
         }
 
         // Return type
-        compute_associated_scopes_rec(associated_scopes, argument_type->function->return_type);
+        compute_associated_scopes_rec(associated_scopes, function_type_get_return_type(argument_type));
         
         // Nothing else to be done
         return;
@@ -280,11 +280,12 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
          * If T is a pointer to a data member of class X, its associated namespaces and classes
          * are those associated with the member type together with those associated with X
          */
-        compute_associated_scopes_rec(associated_scopes, argument_type->pointer->pointee);
+        compute_associated_scopes_rec(associated_scopes, 
+                pointer_type_get_pointee_type(argument_type));
 
-        scope_entry_t* pointed_class = argument_type->pointer->pointee_class;
+        type_t* pointed_class_type = pointer_to_member_type_get_class_type(argument_type);
 
-        compute_associated_scopes_rec(associated_scopes, pointed_class->type_information);
+        compute_associated_scopes_rec(associated_scopes, pointed_class_type);
         return;
     }
 }
@@ -302,9 +303,9 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
         associated_scopes_t* associated_scopes)
 {
     // Add the scope of the current class
-    ERROR_CONDITION(type_info->type->type_decl_context.current_scope == NULL, "Error, this scope should not be NULL", 0);
+    ERROR_CONDITION(class_type_get_context(type_info).current_scope == NULL, "Error, this scope should not be NULL", 0);
 
-    scope_t* outer_namespace = type_info->type->type_decl_context.namespace_scope;
+    scope_t* outer_namespace = class_type_get_context(type_info).namespace_scope;
 
     ERROR_CONDITION(outer_namespace == NULL, "Enclosing namespace not found", 0);
 
@@ -315,7 +316,7 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
 
     if (is_named_type(type_info))
     {
-        scope_entry_t* symbol = get_symbol_of_named_type(type_info);
+        scope_entry_t* symbol = named_type_get_symbol(type_info);
         if (symbol->is_member)
         {
             type_t* class_type = symbol->class_type;
@@ -324,14 +325,13 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
         }
     }
 
-    type_t* class_type = get_class_type(type_info);
-    class_info_t* class_info = class_type->type->class_info;
+    type_t* class_type = get_actual_class_type(type_info);
 
     // Add the bases
     int i;
-    for (i = 0; i < class_info->num_bases; i++)
+    for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {
-        scope_entry_t* base_symbol = class_info->base_classes_list[i]->class_symbol;
+        scope_entry_t* base_symbol = class_type_get_base_num(class_type, i, NULL);
         type_t* type_info = base_symbol->type_information;
 
         compute_set_of_associated_classes_scope_rec(type_info, associated_scopes);

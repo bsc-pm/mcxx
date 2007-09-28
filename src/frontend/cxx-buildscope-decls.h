@@ -42,6 +42,7 @@ struct gather_decl_spec_tag {
     char is_long;
     char is_const;
     char is_volatile;
+    char is_restrict;
     char is_inline;
     char is_virtual;
     char is_explicit;

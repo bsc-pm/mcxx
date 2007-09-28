@@ -2401,13 +2401,11 @@ static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
         case AST_CLASS_SPECIFIER :
         case AST_ENUM_SPECIFIER :
             {
-                type_t* simple_type_info;
-                simple_type_info = calloc(1, sizeof(*simple_type_info));
-                simple_type_info->type = calloc(1, sizeof(*(simple_type_info->type)));
+                type_t* type_info = NULL;
 
                 decl_context.decl_flags |= DF_NO_FAIL;
 
-                gather_type_spec_information(type_id, simple_type_info, decl_context);
+                gather_type_spec_information(type_id, &type_info, decl_context);
                 return 1;
             }
         case AST_ELABORATED_TYPENAME :

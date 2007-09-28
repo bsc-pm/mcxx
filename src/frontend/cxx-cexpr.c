@@ -28,6 +28,7 @@
 #include "cxx-utils.h"
 #include "cxx-prettyprint.h"
 #include "cxx-ambiguity.h"
+#include "cxx-typeutils.h"
 
 /*
  * This file implements an evaluator of constant expressions in C++
@@ -48,8 +49,11 @@ static literal_value_t convert_to_signed_int(literal_value_t e1);
 static literal_value_t convert_to_unsigned_int(literal_value_t e1);
 static literal_value_t convert_to_signed_long(literal_value_t e1);
 static literal_value_t convert_to_unsigned_long(literal_value_t e1);
+static literal_value_t convert_to_signed_long_long(literal_value_t e1);
+static literal_value_t convert_to_unsigned_long_long(literal_value_t e1);
 static literal_value_t convert_to_bool(literal_value_t e1);
-static literal_value_t convert_to_char(literal_value_t e1);
+static literal_value_t convert_to_signed_char(literal_value_t e1);
+static literal_value_t convert_to_unsigned_char(literal_value_t e1);
 
 typedef literal_value_t (*binary_op_fun)(literal_value_t e1, literal_value_t e2);
 typedef struct 
@@ -112,7 +116,6 @@ binary_operation_t binary_ops[] =
     BINARY_STRICT(AST_MOD_OP, module),
     BINARY_STRICT(AST_DIV_OP, division),
 };
-
 
 literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
 {
@@ -210,6 +213,12 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
                             reference);
 
                     ERROR_CONDITION(result == NULL, "Unknown expression '%s'\n", prettyprint_in_buffer(reference));
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Symbolic address of symbol '%s' solved to '%lu'\n", prettyprint_in_buffer(reference), 
+                                (unsigned long)result->entry);
+                    }
 
                     // FIXME: Assuming that unsigned long is enough to hold a
                     // pointer
@@ -329,14 +338,20 @@ char value_is_zero(literal_value_t v)
     {
         case LVK_UNSIGNED_LONG :
             return (v.value.unsigned_long == 0);
-        case LVK_UNSIGNED_INT :
-            return (v.value.unsigned_int == 0);
         case LVK_SIGNED_LONG :
             return (v.value.signed_long == 0);
+        case LVK_UNSIGNED_LONG_LONG :
+            return (v.value.unsigned_long_long == 0);
+        case LVK_SIGNED_LONG_LONG :
+            return (v.value.signed_long_long == 0);
+        case LVK_UNSIGNED_INT :
+            return (v.value.unsigned_int == 0);
         case LVK_SIGNED_INT :
             return (v.value.signed_int == 0);
-        case LVK_CHARACTER :
-            return (v.value.character_value == 0);
+        case LVK_SIGNED_CHAR :
+            return (v.value.signed_char == 0);
+        case LVK_UNSIGNED_CHAR :
+            return (v.value.unsigned_char == 0);
         case LVK_BOOL :
             return (v.value.boolean_value == 0);
         case LVK_DEPENDENT_EXPR :
@@ -363,7 +378,7 @@ static literal_value_t create_value_from_literal(AST a)
         case AST_HEXADECIMAL_LITERAL :
         case AST_FLOATING_LITERAL :
             gather_integer_literal_suffix(literal_text, &is_long, &is_unsigned);
-            if (is_long) 
+            if (is_long == 1) 
             {
                 if (is_unsigned)
                 {
@@ -374,6 +389,19 @@ static literal_value_t create_value_from_literal(AST a)
                 {
                     result.kind = LVK_SIGNED_LONG;
                     result.value.signed_long = strtol(literal_text, NULL, 0);
+                }
+            }
+            else if (is_long == 2)
+            {
+                if (is_unsigned)
+                {
+                    result.kind = LVK_UNSIGNED_LONG_LONG;
+                    result.value.unsigned_long_long = strtoull(literal_text, NULL, 0);
+                }
+                else
+                {
+                    result.kind = LVK_SIGNED_LONG_LONG;
+                    result.value.signed_long_long = strtoll(literal_text, NULL, 0);
                 }
             }
             else // Is not long
@@ -407,10 +435,11 @@ static literal_value_t create_value_from_literal(AST a)
             }
             else
             {
-                result.kind = LVK_CHARACTER;
+                // FIXME: Make a flag signed/unsigned char
+                result.kind = LVK_SIGNED_CHAR;
                 if (literal_text[1] != '\\')
                 {
-                    result.value.character_value = literal_text[1];
+                    result.value.signed_char = literal_text[1];
                 }
                 else
                 {
@@ -477,6 +506,7 @@ static void promote_values(literal_value_t v1, literal_value_t v2,
     *out_v2 = v2;
     if (v1.kind == v2.kind)
     {
+        // Nothing has to be done
         return;
     }
 
@@ -491,73 +521,159 @@ static void promote_values(literal_value_t v1, literal_value_t v2,
         literal_value_t* in = in_val[i];
         literal_value_t* out = out_val[i];
 
-        if (in->kind == LVK_CHARACTER)
+        if (in->kind == LVK_SIGNED_CHAR)
         {
             out->kind = LVK_SIGNED_INT;
-            out->value.unsigned_int = (unsigned int) in->value.character_value;
+            out->value.unsigned_int = (unsigned int) in->value.signed_char;
         }
-
-        if (in->kind == LVK_BOOL)
+        if (in->kind == LVK_UNSIGNED_CHAR)
+        {
+            out->kind = LVK_SIGNED_INT;
+            out->value.unsigned_int = (unsigned int) in->value.unsigned_char;
+        }
+        else if (in->kind == LVK_BOOL)
         {
             out->kind = LVK_SIGNED_INT;
             out->value.unsigned_int = (unsigned int) in->value.boolean_value;
         }
     }
 
-    // After this everything is either a LVK_*_LONG or LVK_*_INT
+    // After this everything is either a LVK_*_LONG_LONG, LVK_*_LONG or LVK_*_INT
 
-    // if either one operand is "unsigned long" convert the other to "unsigned
-    // long"
-    if ((v1.kind == LVK_UNSIGNED_LONG)
-            ^ (v2.kind == LVK_UNSIGNED_LONG))
+    // if either one operands is 'unsigned long long' convert the other to
+    // 'unsigned long long'
+    if ((v1.kind == LVK_UNSIGNED_LONG_LONG)
+            ^ (v2.kind == LVK_UNSIGNED_LONG_LONG))
     {
-        if (v1.kind == LVK_UNSIGNED_LONG)
+        literal_value_t* out = NULL;
+        literal_value_t* in = NULL;
+        if (v1.kind == LVK_UNSIGNED_LONG_LONG)
         {
-            out_v2->kind = LVK_UNSIGNED_LONG;
-            switch (v2.kind)
-            {
-                case LVK_SIGNED_LONG :
-                    out_v2->value.unsigned_long = (unsigned long) v2.value.signed_long;
-                    break;
-                case LVK_SIGNED_INT :
-                    out_v2->value.unsigned_long = (unsigned long) v2.value.signed_int;
-                    break;
-                case LVK_UNSIGNED_INT :
-                    out_v2->value.unsigned_long = (unsigned long) v2.value.unsigned_int;
-                    break;
-                default :
-                    internal_error("Unknown literal value type", v2.kind);
-            }
+            in = &v2;
+            out = out_v2;
         }
         else
         {
-            out_v1->kind = LVK_UNSIGNED_LONG;
-            switch (v1.kind)
-            {
-                case LVK_SIGNED_LONG :
-                    out_v1->value.unsigned_long = (unsigned long) v1.value.signed_long;
-                    break;
-                case LVK_SIGNED_INT :
-                    out_v1->value.unsigned_long = (unsigned long) v1.value.signed_int;
-                    break;
-                case LVK_UNSIGNED_INT :
-                    out_v1->value.unsigned_long = (unsigned long) v1.value.unsigned_int;
-                    break;
-                default :
-                    internal_error("Unknown literal value type", v1.kind);
-            }
+            in = &v1;
+            out = out_v1;
+        }
+
+        out->kind = LVK_UNSIGNED_LONG_LONG;
+        switch (in->kind)
+        {
+            case LVK_SIGNED_LONG_LONG :
+                out->value.unsigned_long_long = (unsigned long long) in->value.signed_long_long;
+                break;
+            case LVK_SIGNED_LONG :
+                out->value.unsigned_long_long = (unsigned long long) in->value.signed_long;
+                break;
+            case LVK_SIGNED_INT :
+                out->value.unsigned_long_long = (unsigned long long) in->value.signed_int;
+                break;
+            case LVK_UNSIGNED_INT :
+                out->value.unsigned_long_long = (unsigned long long) in->value.unsigned_int;
+                break;
+            default :
+                internal_error("Unknown literal value type", in->kind);
         }
     }
+    // If one of the operands is 'signed long long' and the other one a
+    // 'unsigned long', convert to 'signed long long' (if a 'signed long long'
+    // cannot hold all 'unsigned long' values we should use an 'unsigned long
+    // long' instead, as it happens in 64-bit)
+    // FIXME: make a flag for such things
+    else if (((v1.kind == LVK_SIGNED_LONG_LONG) && (v2.kind == LVK_UNSIGNED_LONG))
+            || ((v1.kind == LVK_UNSIGNED_LONG) && (v2.kind == LVK_SIGNED_LONG_LONG)))
+    {
+        if (v1.kind == LVK_SIGNED_LONG_LONG
+                && v2.kind == LVK_UNSIGNED_LONG)
+        {
+            out_v2->kind = LVK_SIGNED_LONG_LONG;
+            out_v2->value.signed_long_long = (signed long long) v2.value.unsigned_long;
+        }
+        else
+        {
+            out_v1->kind = LVK_SIGNED_LONG_LONG;
+            out_v1->value.signed_long_long = (signed long long) v1.value.unsigned_long;
+        }
+    }
+    // if either 'signed long long' convert to 'signed long long'
+    else if ((v1.kind == LVK_SIGNED_LONG_LONG) 
+            ^ (v2.kind == LVK_SIGNED_LONG_LONG))
+    {
+        literal_value_t *in = NULL;
+        literal_value_t *out = NULL;
+        if (v1.kind == LVK_SIGNED_LONG_LONG)
+        {
+            in = &v2;
+            out = out_v2;
+        }
+        else
+        {
+            in = &v1;
+            out = out_v1;
+        }
+        out->kind = LVK_SIGNED_LONG_LONG;
+        switch (in->kind)
+        {
+            case LVK_SIGNED_LONG_LONG :
+                out->value.signed_long_long = (signed long long) in->value.unsigned_long_long;
+                break;
+            case LVK_UNSIGNED_LONG :
+                out->value.signed_long_long = (signed long long) in->value.unsigned_long;
+                break;
+            case LVK_SIGNED_INT :
+                out->value.signed_long_long = (signed long long) in->value.signed_int;
+                break;
+            case LVK_UNSIGNED_INT :
+                out->value.signed_long_long = (signed long long) in->value.unsigned_int;
+                break;
+            default :
+                internal_error("Unknown literal value type", in->kind);
+        }
+    }
+    // if either one operand is "unsigned long int" convert the other to "unsigned
+    // long int"
+    else if ((v1.kind == LVK_UNSIGNED_LONG)
+            ^ (v2.kind == LVK_UNSIGNED_LONG))
+    {
+        literal_value_t* out = NULL;
+        literal_value_t* in = NULL;
+        if (v1.kind == LVK_UNSIGNED_LONG)
+        {
+            in = &v2;
+            out = out_v2;
+        }
+        else
+        {
+            in = &v1;
+            out = out_v1;
+        }
 
+        out->kind = LVK_UNSIGNED_LONG;
+        switch (in->kind)
+        {
+            case LVK_SIGNED_LONG :
+                out->value.unsigned_long = (unsigned long) in->value.signed_long;
+                break;
+            case LVK_SIGNED_INT :
+                out->value.unsigned_long = (unsigned long) in->value.signed_int;
+                break;
+            case LVK_UNSIGNED_INT :
+                out->value.unsigned_long = (unsigned long) in->value.unsigned_int;
+                break;
+            default :
+                internal_error("Unknown literal value type %d", in->kind);
+        }
+    }
     // If one operand is "signed long" and the other "unsigned int" convert to
     // "signed long" the "unsigned int" if a "signed long" can represent every
     // value of a "signed long", otherwise convert the "signed long" to a
     // "unsigned long"
-    if ((v1.kind == LVK_SIGNED_LONG && v2.kind == LVK_UNSIGNED_INT)
-            || (v2.kind == LVK_SIGNED_LONG && v1.kind == LVK_UNSIGNED_INT))
+    // FIXME: make a flag for such things
+    else if (((v1.kind == LVK_SIGNED_LONG) && (v2.kind == LVK_UNSIGNED_INT))
+            || ((v2.kind == LVK_SIGNED_LONG) && v1.kind == (LVK_UNSIGNED_INT)))
     {
-        // Assume that a long int can hold any unsigned int. Otherwise
-        // they should be converted to unsigned long int
         if (v1.kind == LVK_SIGNED_LONG 
                 && v2.kind == LVK_UNSIGNED_INT)
         {
@@ -570,67 +686,40 @@ static void promote_values(literal_value_t v1, literal_value_t v2,
             out_v1->value.signed_long = (signed long) v1.value.unsigned_int;
         }
     }
-
-    // either one operand is long int
-    if ((v1.kind == LVK_SIGNED_LONG)
+    // either one operand is 'signed long int' convert all to 'signed long'
+    else if ((v1.kind == LVK_SIGNED_LONG)
             ^ (v2.kind == LVK_SIGNED_LONG))
     {
+        literal_value_t *in = NULL;
+        literal_value_t *out = NULL;
         if (v1.kind == LVK_SIGNED_LONG)
         {
-            out_v2->kind = LVK_SIGNED_LONG;
-            switch (v2.kind)
-            {
-                case LVK_UNSIGNED_LONG :
-                    out_v2->value.signed_long = (signed long) v2.value.unsigned_long;
-                    break;
-                case LVK_SIGNED_INT :
-                    out_v2->value.signed_long = (signed long) v2.value.signed_int;
-                    break;
-                case LVK_UNSIGNED_INT :
-                    out_v2->value.signed_long = (signed long) v2.value.unsigned_int;
-                    break;
-                default :
-                    internal_error("Unknown literal value type", v2.kind);
-            }
+            in = &v2;
+            out = out_v2;
         }
         else
         {
-            out_v1->kind = LVK_SIGNED_LONG;
-            switch (v1.kind)
-            {
-                case LVK_UNSIGNED_LONG :
-                    out_v1->value.signed_long = (signed long) v1.value.unsigned_long;
-                    break;
-                case LVK_SIGNED_INT :
-                    out_v1->value.signed_long = (signed long) v1.value.signed_int;
-                    break;
-                case LVK_UNSIGNED_INT :
-                    out_v1->value.signed_long = (signed long) v1.value.unsigned_int;
-                    break;
-                default :
-                    internal_error("Unknown literal value type", v1.kind);
-            }
+            in = &v1;
+            out = out_v1;
+        }
+        out->kind = LVK_SIGNED_LONG;
+        switch (in->kind)
+        {
+            case LVK_UNSIGNED_LONG :
+                out->value.signed_long = (signed long) in->value.unsigned_long;
+                break;
+            case LVK_SIGNED_INT :
+                out->value.signed_long = (signed long) in->value.signed_int;
+                break;
+            case LVK_UNSIGNED_INT :
+                out->value.signed_long = (signed long) in->value.unsigned_int;
+                break;
+            default :
+                internal_error("Unknown literal value type", in->kind);
         }
     }
-
-    // either one operand is "unsigned" the other shall be converted to "unsigned"
-    if ((v1.kind == LVK_UNSIGNED_LONG 
-                && v2.kind == LVK_SIGNED_LONG)
-            || (v1.kind == LVK_SIGNED_LONG
-                && v2.kind == LVK_UNSIGNED_LONG))
-    {
-        if (v1.kind == LVK_SIGNED_LONG)
-        {
-            out_v1->kind = LVK_UNSIGNED_LONG;
-            out_v1->value.unsigned_long = (unsigned long) v1.value.signed_long;
-        }
-        else
-        {
-            out_v2->kind = LVK_UNSIGNED_LONG;
-            out_v2->value.unsigned_long = (unsigned long) v2.value.signed_long;
-        }
-    }
-    if ((v1.kind == LVK_UNSIGNED_INT 
+    // If one is 'unsigned int' and the other 'int', convert to 'unsigned int'
+    else if ((v1.kind == LVK_UNSIGNED_INT 
                 && v2.kind == LVK_SIGNED_INT)
             || (v1.kind == LVK_SIGNED_INT
                 && v2.kind == LVK_UNSIGNED_INT))
@@ -646,6 +735,17 @@ static void promote_values(literal_value_t v1, literal_value_t v2,
             out_v2->value.unsigned_int = (unsigned int) v2.value.signed_int;
         }
     }
+    // Both should be int if we get here
+    else if (v1.kind != LVK_SIGNED_INT
+            || v2.kind != LVK_SIGNED_INT)
+    {
+        internal_error("Unreachable code", 0);
+    }
+
+    if (out_v1->kind != out_v2->kind)
+    {
+        internal_error("Ill performed conversion", 0);
+    }
 }
 
 static literal_value_t cast_expression(AST type_spec, AST expression, 
@@ -659,16 +759,11 @@ static literal_value_t cast_expression(AST type_spec, AST expression,
         return before_cast;
     }
 
-    simple_type_t _simple_type_info;
-    memset(&_simple_type_info, 0, sizeof(_simple_type_info));
+    type_t *type_info = NULL;
 
-    type_t simple_type_info;
-    memset(&simple_type_info, 0, sizeof(simple_type_info));
-    simple_type_info.type = &_simple_type_info;
+    gather_type_spec_information(type_spec, &type_info, decl_context);
 
-    gather_type_spec_information(type_spec, &simple_type_info, decl_context);
-
-    if (simple_type_info.type->kind != STK_BUILTIN_TYPE)
+    if (!is_builtin_type(type_info))
     {
         literal_value_t invalid_type;
         memset(&invalid_type, 0, sizeof(invalid_type));
@@ -679,52 +774,57 @@ static literal_value_t cast_expression(AST type_spec, AST expression,
     {
         literal_value_t after_cast;
 
-        switch (simple_type_info.type->builtin_type)
+        if (is_signed_int_type(type_info))
         {
-            case BT_INT :
-                {
-                    if (simple_type_info.type->is_unsigned)
-                    {
-                        if (simple_type_info.type->is_long)
-                        {
-                            after_cast = convert_to_unsigned_long(before_cast);
-                        }
-                        else
-                        {
-                            after_cast = convert_to_unsigned_int(before_cast);
-                        }
-                    }
-                    else
-                    {
-                        if (simple_type_info.type->is_long)
-                        {
-                            after_cast = convert_to_signed_long(before_cast);
-                        }
-                        else 
-                        {
-                            after_cast = convert_to_signed_int(before_cast);
-                        }
-                    }
-                    break;
-                }
-            case BT_CHAR :
-                {
-                    after_cast = convert_to_char(before_cast);
-                    break;
-                }
-            case BT_BOOL :
-                {
-                    after_cast = convert_to_bool(before_cast);
-                    break;
-                }
-            case BT_WCHAR :
-                {
-                    internal_error("Wide characters are not supported", 0);
-                    break;
-                }
-            default:
-                internal_error("Cannot cast constant expression to something that is not an integer type", 0);
-                break;
+            after_cast = convert_to_signed_int(before_cast);
+        }
+        else if (is_unsigned_int_type(type_info))
+        {
+            after_cast = convert_to_unsigned_int(before_cast);
+        }
+        // else if (is_signed_short_int_type(type_info))
+        // {
+        //     after_cast = convert_to_signed_short(before_cast);
+        // }
+        // else if (is_unsigned_short_int_type(type_info))
+        // {
+        //     after_cast = convert_to_unsigned_short(before_cast);
+        // }
+        else if (is_signed_long_int_type(type_info))
+        {
+            after_cast = convert_to_signed_long(before_cast);
+        }
+        else if (is_unsigned_long_int_type(type_info))
+        {
+            after_cast = convert_to_unsigned_long(before_cast);
+        }
+        else if (is_signed_long_long_int_type(type_info))
+        {
+            after_cast = convert_to_signed_long_long(before_cast);
+        }
+        else if (is_unsigned_long_long_int_type(type_info))
+        {
+            after_cast = convert_to_unsigned_long_long(before_cast);
+        }
+        else if (is_signed_char_type(type_info))
+        {
+            after_cast = convert_to_signed_char(before_cast);
+        }
+        else if (is_unsigned_char_type(type_info))
+        {
+            after_cast = convert_to_unsigned_char(before_cast);
+        }
+        else if (is_bool_type(type_info))
+        {
+            after_cast = convert_to_bool(before_cast);
+        }
+        else if (is_wchar_t_type(type_info))
+        {
+            internal_error("Wide characters are not supported", 0);
+        }
+        else
+        {
+            internal_error("Cannot cast constant expression to type '%s'", print_declarator(type_info, decl_context));
         }
 
         return after_cast;
@@ -772,7 +872,11 @@ static literal_value_t evaluate_initializer(AST initializer,
 
 static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
 {
-    // Fix this
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Trying to evaluate symbol '%s'\n", prettyprint_in_buffer(symbol));
+    }
+
     scope_entry_list_t* result = 
         query_id_expression(decl_context, symbol);
 
@@ -807,9 +911,26 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
         return invalid_type;
     }
 
-    ERROR_CONDITION((result->entry->expression_value == NULL), 
-            "Symbol '%s' in '%s' does not have a value", prettyprint_in_buffer(symbol),
-            node_information(symbol));
+    // ERROR_CONDITION((result->entry->expression_value == NULL), 
+    //         "Symbol '%s' in '%s' does not have a value", prettyprint_in_buffer(symbol),
+    //         node_information(symbol));
+
+    if (result->entry->expression_value == NULL)
+    {
+        literal_value_t dependent_entity;
+        memset(&dependent_entity, 0, sizeof(dependent_entity));
+        dependent_entity.kind = LVK_DEPENDENT_EXPR;
+        return dependent_entity;
+    }
+    else
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Symbol '%s' has associated value '%s'\n", prettyprint_in_buffer(symbol),
+                    prettyprint_in_buffer(result->entry->expression_value));
+        }
+
+    }
 
     return evaluate_initializer(result->entry->expression_value, result->entry->decl_context);
 }
@@ -861,8 +982,11 @@ literal_value_t increment_literal_value(literal_value_t e)
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long++;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value++;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char++;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char++;
             break;
         default :
             internal_error("This is not a valid value to be incremented", 0);
@@ -897,9 +1021,18 @@ AST tree_from_literal_value(literal_value_t e)
             snprintf(buffer, 99, "%luLU", e.value.unsigned_long);
             result = ASTLeaf(AST_DECIMAL_LITERAL, 0, buffer);
             break;
-        case LVK_CHARACTER :
-            snprintf(buffer, 99, "'%c'", e.value.character_value);
-            result = ASTLeaf(AST_CHARACTER_LITERAL, 0, buffer);
+        case LVK_UNSIGNED_CHAR :
+        case LVK_SIGNED_CHAR :
+            {
+                unsigned int num = 0;
+                if (e.kind == LVK_SIGNED_CHAR)
+                    num = e.value.signed_char;
+                else 
+                    num = e.value.unsigned_char;
+
+                snprintf(buffer, 99, "'\\%u'", num);
+                result = ASTLeaf(AST_CHARACTER_LITERAL, 0, buffer);
+            }
             break;
         case LVK_BOOL :
             if (e.value.boolean_value == 0)
@@ -954,6 +1087,12 @@ literal_value_t not_operation(AST a, decl_context_t decl_context)
     literal_value_t result = evaluate_constant_expression(a, decl_context);
     switch (result.kind)
     {
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = ! result.value.unsigned_long_long;
+            break;
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = ! result.value.signed_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = ! result.value.unsigned_long;
             break;
@@ -966,8 +1105,11 @@ literal_value_t not_operation(AST a, decl_context_t decl_context)
         case LVK_SIGNED_INT :
             result.value.signed_int = ! result.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = ! result.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = ! result.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = ! result.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = ! result.value.boolean_value;
@@ -986,6 +1128,12 @@ literal_value_t negate_operation(AST a, decl_context_t decl_context)
     literal_value_t result = evaluate_constant_expression(a, decl_context);
     switch (result.kind)
     {
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = - result.value.unsigned_long_long;
+            break;
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = - result.value.signed_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = - result.value.unsigned_long;
             break;
@@ -998,8 +1146,11 @@ literal_value_t negate_operation(AST a, decl_context_t decl_context)
         case LVK_SIGNED_INT :
             result.value.signed_int = - result.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = - result.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = - result.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = - result.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = - result.value.boolean_value;
@@ -1018,6 +1169,12 @@ literal_value_t complement_operation(AST a, decl_context_t decl_context)
     literal_value_t result = evaluate_constant_expression(a, decl_context);
     switch (result.kind)
     {
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = ~ result.value.unsigned_long_long;
+            break;
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = ~ result.value.signed_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = ~ result.value.unsigned_long;
             break;
@@ -1030,8 +1187,11 @@ literal_value_t complement_operation(AST a, decl_context_t decl_context)
         case LVK_SIGNED_INT :
             result.value.signed_int = ~ result.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = ~ result.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = ~ result.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = ~ result.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = ~ result.value.boolean_value;
@@ -1046,9 +1206,12 @@ literal_value_t complement_operation(AST a, decl_context_t decl_context)
 }
 
 
-/* ************************* *
- *    Binary operations      *
- * ************************* */
+/* ************************************************************* *
+ *    Binary operations                                          *
+ *                                                               *
+ * Limitation: This operates on the machine where the compiler   *
+ * has been built                                                *
+ * ************************************************************* */
 
 static literal_value_t logical_and(literal_value_t e1, literal_value_t e2)
 {
@@ -1056,6 +1219,12 @@ static literal_value_t logical_and(literal_value_t e1, literal_value_t e2)
     result.kind = LVK_BOOL;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.signed_long_long && e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.unsigned_long_long && e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.boolean_value = e1.value.unsigned_long && e2.value.unsigned_long;
             break;
@@ -1068,8 +1237,11 @@ static literal_value_t logical_and(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.boolean_value = e1.value.signed_int && e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.boolean_value = e1.value.character_value && e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.boolean_value = e1.value.signed_char && e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.boolean_value = e1.value.unsigned_char && e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value && e2.value.boolean_value;
@@ -1086,6 +1258,12 @@ static literal_value_t bitwise_and(literal_value_t e1, literal_value_t e2)
     literal_value_t result = e1;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = e1.value.signed_long_long & e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = e1.value.unsigned_long_long & e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = e1.value.unsigned_long & e2.value.unsigned_long;
             break;
@@ -1098,8 +1276,11 @@ static literal_value_t bitwise_and(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.signed_int = e1.value.signed_int & e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = e1.value.character_value & e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = e1.value.signed_char & e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = e1.value.unsigned_char & e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value & e2.value.boolean_value;
@@ -1117,6 +1298,12 @@ static literal_value_t logical_or(literal_value_t e1, literal_value_t e2)
     result.kind = LVK_BOOL;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.signed_long_long || e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.unsigned_long_long || e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.boolean_value = e1.value.unsigned_long || e2.value.unsigned_long;
             break;
@@ -1129,8 +1316,11 @@ static literal_value_t logical_or(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.boolean_value = e1.value.signed_int || e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.boolean_value = e1.value.character_value || e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.boolean_value = e1.value.signed_char || e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.boolean_value = e1.value.unsigned_char || e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value || e2.value.boolean_value;
@@ -1147,6 +1337,12 @@ static literal_value_t bitwise_or(literal_value_t e1, literal_value_t e2)
     literal_value_t result = e1;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = e1.value.signed_long_long | e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = e1.value.unsigned_long_long | e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = e1.value.unsigned_long | e2.value.unsigned_long;
             break;
@@ -1159,8 +1355,11 @@ static literal_value_t bitwise_or(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.signed_int = e1.value.signed_int | e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = e1.value.character_value | e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = e1.value.signed_char | e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = e1.value.unsigned_char | e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value | e2.value.boolean_value;
@@ -1177,6 +1376,12 @@ static literal_value_t bitwise_xor(literal_value_t e1, literal_value_t e2)
     literal_value_t result = e1;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = e1.value.signed_long_long ^ e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = e1.value.unsigned_long_long ^ e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = e1.value.unsigned_long ^ e2.value.unsigned_long;
             break;
@@ -1189,8 +1394,11 @@ static literal_value_t bitwise_xor(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.signed_int = e1.value.signed_int ^ e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = e1.value.character_value ^ e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = e1.value.signed_char ^ e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = e1.value.unsigned_char ^ e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value ^ e2.value.boolean_value;
@@ -1208,6 +1416,12 @@ static literal_value_t different_op(literal_value_t e1, literal_value_t e2)
     result.kind = LVK_BOOL;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.signed_long_long != e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.unsigned_long_long != e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.boolean_value = e1.value.unsigned_long != e2.value.unsigned_long;
             break;
@@ -1220,8 +1434,11 @@ static literal_value_t different_op(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.boolean_value = e1.value.signed_int != e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.boolean_value = e1.value.character_value != e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.boolean_value = e1.value.signed_char != e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.boolean_value = e1.value.unsigned_char != e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value != e2.value.boolean_value;
@@ -1239,6 +1456,12 @@ static literal_value_t equal_op(literal_value_t e1, literal_value_t e2)
     result.kind = LVK_BOOL;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = e1.value.signed_long_long == e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = e1.value.unsigned_long_long == e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.boolean_value = e1.value.unsigned_long == e2.value.unsigned_long;
             break;
@@ -1251,8 +1474,11 @@ static literal_value_t equal_op(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.boolean_value = e1.value.signed_int == e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.boolean_value = e1.value.character_value == e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.boolean_value = e1.value.signed_char == e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.boolean_value = e1.value.unsigned_char == e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value == e2.value.boolean_value;
@@ -1270,6 +1496,12 @@ static literal_value_t lower_than(literal_value_t e1, literal_value_t e2)
     result.kind = LVK_BOOL;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.signed_long_long < e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.unsigned_long_long < e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.boolean_value = e1.value.unsigned_long < e2.value.unsigned_long;
             break;
@@ -1282,8 +1514,11 @@ static literal_value_t lower_than(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.boolean_value = e1.value.signed_int < e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.boolean_value = e1.value.character_value < e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.boolean_value = e1.value.signed_char < e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.boolean_value = e1.value.unsigned_char < e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value < e2.value.boolean_value;
@@ -1301,6 +1536,12 @@ static literal_value_t greater_than(literal_value_t e1, literal_value_t e2)
     result.kind = LVK_BOOL;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.signed_long_long > e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.unsigned_long_long > e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.boolean_value = e1.value.unsigned_long > e2.value.unsigned_long;
             break;
@@ -1313,8 +1554,11 @@ static literal_value_t greater_than(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.boolean_value = e1.value.signed_int > e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.boolean_value = e1.value.character_value > e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.boolean_value = e1.value.signed_char > e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.boolean_value = e1.value.unsigned_char > e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value > e2.value.boolean_value;
@@ -1332,6 +1576,12 @@ static literal_value_t lower_or_equal_than(literal_value_t e1, literal_value_t e
     result.kind = LVK_BOOL;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.signed_long_long <= e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.unsigned_long_long <= e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.boolean_value = e1.value.unsigned_long <= e2.value.unsigned_long;
             break;
@@ -1344,8 +1594,11 @@ static literal_value_t lower_or_equal_than(literal_value_t e1, literal_value_t e
         case LVK_SIGNED_INT :
             result.value.boolean_value = e1.value.signed_int <= e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.boolean_value = e1.value.character_value <= e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.boolean_value = e1.value.signed_char <= e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.boolean_value = e1.value.unsigned_char <= e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value <= e2.value.boolean_value;
@@ -1363,6 +1616,12 @@ static literal_value_t greater_or_equal_than(literal_value_t e1, literal_value_t
     result.kind = LVK_BOOL;
     switch (e1.kind)
     {
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.unsigned_long_long >= e2.value.unsigned_long_long;
+            break;
+        case LVK_SIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.signed_long_long >= e2.value.signed_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.boolean_value = e1.value.unsigned_long >= e2.value.unsigned_long;
             break;
@@ -1375,8 +1634,11 @@ static literal_value_t greater_or_equal_than(literal_value_t e1, literal_value_t
         case LVK_SIGNED_INT :
             result.value.boolean_value = e1.value.signed_int >= e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.boolean_value = e1.value.character_value >= e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.boolean_value = e1.value.signed_char >= e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.boolean_value = e1.value.unsigned_char >= e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value >= e2.value.boolean_value;
@@ -1393,6 +1655,12 @@ static literal_value_t shift_left(literal_value_t e1, literal_value_t e2)
     literal_value_t result = e1;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = e1.value.signed_long_long << e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = e1.value.unsigned_long_long << e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = e1.value.unsigned_long << e2.value.unsigned_long;
             break;
@@ -1405,8 +1673,11 @@ static literal_value_t shift_left(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.signed_int = e1.value.signed_int << e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = e1.value.character_value << e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = e1.value.signed_char << e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = e1.value.unsigned_char << e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value << e2.value.boolean_value;
@@ -1423,6 +1694,12 @@ static literal_value_t shift_right(literal_value_t e1, literal_value_t e2)
     literal_value_t result = e1;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = e1.value.signed_long_long >> e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = e1.value.unsigned_long_long >> e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = e1.value.unsigned_long >> e2.value.unsigned_long;
             break;
@@ -1435,8 +1712,11 @@ static literal_value_t shift_right(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.signed_int = e1.value.signed_int >> e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = e1.value.character_value >> e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = e1.value.signed_char >> e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = e1.value.unsigned_char >> e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value >> e2.value.boolean_value;
@@ -1453,6 +1733,12 @@ static literal_value_t addition(literal_value_t e1, literal_value_t e2)
     literal_value_t result = e1;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = e1.value.signed_long_long + e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = e1.value.unsigned_long_long + e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = e1.value.unsigned_long + e2.value.unsigned_long;
             break;
@@ -1465,8 +1751,11 @@ static literal_value_t addition(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.signed_int = e1.value.signed_int + e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = e1.value.character_value + e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = e1.value.signed_char + e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = e1.value.unsigned_char + e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value + e2.value.boolean_value;
@@ -1483,6 +1772,12 @@ static literal_value_t substraction(literal_value_t e1, literal_value_t e2)
     literal_value_t result = e1;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = e1.value.signed_long_long - e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = e1.value.unsigned_long_long - e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = e1.value.unsigned_long - e2.value.unsigned_long;
             break;
@@ -1495,8 +1790,11 @@ static literal_value_t substraction(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.signed_int = e1.value.signed_int - e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = e1.value.character_value - e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = e1.value.signed_char - e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = e1.value.unsigned_char - e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value - e2.value.boolean_value;
@@ -1513,6 +1811,12 @@ static literal_value_t multiplication(literal_value_t e1, literal_value_t e2)
     literal_value_t result = e1;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = e1.value.signed_long_long * e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = e1.value.unsigned_long_long * e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = e1.value.unsigned_long * e2.value.unsigned_long;
             break;
@@ -1525,8 +1829,11 @@ static literal_value_t multiplication(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.signed_int = e1.value.signed_int * e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = e1.value.character_value * e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = e1.value.signed_char * e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = e1.value.unsigned_char * e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value * e2.value.boolean_value;
@@ -1543,6 +1850,12 @@ static literal_value_t division(literal_value_t e1, literal_value_t e2)
     literal_value_t result = e1;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = e1.value.signed_long_long / e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = e1.value.unsigned_long_long / e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = e1.value.unsigned_long / e2.value.unsigned_long;
             break;
@@ -1555,8 +1868,11 @@ static literal_value_t division(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.signed_int = e1.value.signed_int / e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = e1.value.character_value / e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = e1.value.signed_char / e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = e1.value.unsigned_char / e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value / e2.value.boolean_value;
@@ -1573,6 +1889,12 @@ static literal_value_t module(literal_value_t e1, literal_value_t e2)
     literal_value_t result = e1;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = e1.value.signed_long_long % e2.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = e1.value.unsigned_long_long % e2.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = e1.value.unsigned_long % e2.value.unsigned_long;
             break;
@@ -1585,8 +1907,11 @@ static literal_value_t module(literal_value_t e1, literal_value_t e2)
         case LVK_SIGNED_INT :
             result.value.signed_int = e1.value.signed_int % e2.value.signed_int;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = e1.value.character_value % e2.value.character_value;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = e1.value.signed_char % e2.value.signed_char;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = e1.value.unsigned_char % e2.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value % e2.value.boolean_value;
@@ -1605,6 +1930,12 @@ static literal_value_t convert_to_bool(literal_value_t e1)
     result.kind = LVK_BOOL;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.boolean_value = e1.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.boolean_value = e1.value.unsigned_long;
             break;
@@ -1617,8 +1948,11 @@ static literal_value_t convert_to_bool(literal_value_t e1)
         case LVK_SIGNED_INT :
             result.value.boolean_value = e1.value.signed_int ;
             break;
-        case LVK_CHARACTER :
-            result.value.boolean_value = e1.value.character_value ;
+        case LVK_SIGNED_CHAR :
+            result.value.boolean_value = e1.value.signed_char ;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.boolean_value = e1.value.unsigned_char;
             break;
         case LVK_BOOL :
             result.value.boolean_value = e1.value.boolean_value ;
@@ -1636,6 +1970,12 @@ static literal_value_t convert_to_unsigned_int(literal_value_t e1)
     result.kind = LVK_UNSIGNED_INT;
     switch (e1.kind)
     {
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_int = (unsigned int) e1.value.unsigned_long_long;
+            break;
+        case LVK_SIGNED_LONG_LONG :
+            result.value.unsigned_int = (unsigned int) e1.value.signed_long_long ;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_int = (unsigned int) e1.value.unsigned_long;
             break;
@@ -1648,8 +1988,11 @@ static literal_value_t convert_to_unsigned_int(literal_value_t e1)
         case LVK_SIGNED_INT :
             result.value.unsigned_int = (unsigned int) e1.value.signed_int ;
             break;
-        case LVK_CHARACTER :
-            result.value.unsigned_int = (unsigned int) e1.value.character_value ;
+        case LVK_SIGNED_CHAR :
+            result.value.unsigned_int = (unsigned int) e1.value.signed_char ;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_int = (unsigned int) e1.value.unsigned_char ;
             break;
         case LVK_BOOL :
             result.value.unsigned_int = (unsigned int) e1.value.boolean_value ;
@@ -1667,6 +2010,12 @@ static literal_value_t convert_to_signed_int(literal_value_t e1)
     result.kind = LVK_SIGNED_INT;
     switch (e1.kind)
     {
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.signed_int = (signed int) e1.value.unsigned_long_long;
+            break;
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_int = (signed int) e1.value.signed_long_long ;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.signed_int = (signed int) e1.value.unsigned_long;
             break;
@@ -1679,8 +2028,11 @@ static literal_value_t convert_to_signed_int(literal_value_t e1)
         case LVK_SIGNED_INT :
             result.value.signed_int = (signed int) e1.value.signed_int ;
             break;
-        case LVK_CHARACTER :
-            result.value.signed_int = (signed int) e1.value.character_value ;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_int = (signed int) e1.value.signed_char ;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.signed_int = (unsigned int) e1.value.signed_char ;
             break;
         case LVK_BOOL :
             result.value.signed_int = (signed int) e1.value.boolean_value ;
@@ -1698,6 +2050,12 @@ static literal_value_t convert_to_unsigned_long(literal_value_t e1)
     result.kind = LVK_UNSIGNED_LONG;
     switch (e1.kind)
     {
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long = (unsigned long) e1.value.unsigned_long_long;
+            break;
+        case LVK_SIGNED_LONG_LONG :
+            result.value.unsigned_long = (unsigned long) e1.value.signed_long_long ;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.unsigned_long = (unsigned long) e1.value.unsigned_long;
             break;
@@ -1710,8 +2068,11 @@ static literal_value_t convert_to_unsigned_long(literal_value_t e1)
         case LVK_SIGNED_INT :
             result.value.unsigned_long = (unsigned long) e1.value.signed_int ;
             break;
-        case LVK_CHARACTER :
-            result.value.unsigned_long = (unsigned long) e1.value.character_value ;
+        case LVK_SIGNED_CHAR :
+            result.value.unsigned_long = (unsigned long) e1.value.signed_char ;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_long = (unsigned long) e1.value.unsigned_char ;
             break;
         case LVK_BOOL :
             result.value.unsigned_long = (unsigned long) e1.value.boolean_value ;
@@ -1729,6 +2090,12 @@ static literal_value_t convert_to_signed_long(literal_value_t e1)
     result.kind = LVK_SIGNED_LONG;
     switch (e1.kind)
     {
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.signed_long = (signed long) e1.value.unsigned_long_long;
+            break;
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long = (signed long) e1.value.signed_long_long ;
+            break;
         case LVK_UNSIGNED_LONG :
             result.value.signed_long = (signed long) e1.value.unsigned_long;
             break;
@@ -1741,8 +2108,11 @@ static literal_value_t convert_to_signed_long(literal_value_t e1)
         case LVK_SIGNED_INT :
             result.value.signed_long = (signed long) e1.value.signed_int ;
             break;
-        case LVK_CHARACTER :
-            result.value.signed_long = (signed long) e1.value.character_value ;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_long = (signed long) e1.value.signed_char ;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.signed_long = (signed long) e1.value.unsigned_char ;
             break;
         case LVK_BOOL :
             result.value.signed_long = (signed long) e1.value.boolean_value ;
@@ -1753,30 +2123,159 @@ static literal_value_t convert_to_signed_long(literal_value_t e1)
     return result;
 }
 
-static literal_value_t convert_to_char(literal_value_t e1)
+static literal_value_t convert_to_unsigned_long_long(literal_value_t e1)
 {
     literal_value_t result = e1;
     
-    result.kind = LVK_CHARACTER;
+    result.kind = LVK_UNSIGNED_LONG_LONG;
     switch (e1.kind)
     {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.unsigned_long_long = (unsigned long long) e1.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_long_long = (unsigned long long) e1.value.unsigned_long_long;
+            break;
         case LVK_UNSIGNED_LONG :
-            result.value.character_value = (char) e1.value.unsigned_long;
+            result.value.unsigned_long_long = (unsigned long long) e1.value.unsigned_long;
             break;
         case LVK_SIGNED_LONG :
-            result.value.character_value = (char) e1.value.signed_long ;
+            result.value.unsigned_long_long = (unsigned long long) e1.value.signed_long ;
             break;
         case LVK_UNSIGNED_INT :
-            result.value.character_value = (char) e1.value.unsigned_int ;
+            result.value.unsigned_long_long = (unsigned long long) e1.value.unsigned_int ;
             break;
         case LVK_SIGNED_INT :
-            result.value.character_value = (char) e1.value.signed_int ;
+            result.value.unsigned_long_long = (unsigned long long) e1.value.signed_int ;
             break;
-        case LVK_CHARACTER :
-            result.value.character_value = (char) e1.value.character_value ;
+        case LVK_SIGNED_CHAR :
+            result.value.unsigned_long_long = (unsigned long long) e1.value.signed_char ;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_long_long = (unsigned long long) e1.value.unsigned_char ;
             break;
         case LVK_BOOL :
-            result.value.character_value = (char) e1.value.boolean_value ;
+            result.value.unsigned_long_long = (unsigned long long) e1.value.boolean_value ;
+            break;
+        default:
+            internal_error("Unknown value kind %d", e1.kind);
+    }
+    return result;
+}
+
+static literal_value_t convert_to_signed_long_long(literal_value_t e1)
+{
+    literal_value_t result = e1;
+    
+    result.kind = LVK_SIGNED_LONG_LONG;
+    switch (e1.kind)
+    {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_long_long = (signed long long) e1.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.signed_long_long = (signed long long) e1.value.unsigned_long_long;
+            break;
+        case LVK_UNSIGNED_LONG :
+            result.value.signed_long_long = (signed long long) e1.value.unsigned_long;
+            break;
+        case LVK_SIGNED_LONG :
+            result.value.signed_long_long = (signed long long) e1.value.signed_long ;
+            break;
+        case LVK_UNSIGNED_INT :
+            result.value.signed_long_long = (signed long long) e1.value.unsigned_int ;
+            break;
+        case LVK_SIGNED_INT :
+            result.value.signed_long_long = (signed long long) e1.value.signed_int ;
+            break;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_long_long = (signed long long) e1.value.signed_char ;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.signed_long_long = (signed long long) e1.value.unsigned_char ;
+            break;
+        case LVK_BOOL :
+            result.value.signed_long_long = (signed long long) e1.value.boolean_value ;
+            break;
+        default:
+            internal_error("Unknown value kind %d", e1.kind);
+    }
+    return result;
+}
+
+static literal_value_t convert_to_unsigned_char(literal_value_t e1)
+{
+    literal_value_t result = e1;
+    
+    result.kind = LVK_UNSIGNED_CHAR;
+    switch (e1.kind)
+    {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.unsigned_char = (unsigned char) e1.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.unsigned_char = (unsigned char) e1.value.unsigned_long_long;
+            break;
+        case LVK_UNSIGNED_LONG :
+            result.value.unsigned_char = (unsigned char) e1.value.unsigned_long;
+            break;
+        case LVK_SIGNED_LONG :
+            result.value.unsigned_char = (unsigned char) e1.value.signed_long ;
+            break;
+        case LVK_UNSIGNED_INT :
+            result.value.unsigned_char = (unsigned char) e1.value.unsigned_int ;
+            break;
+        case LVK_SIGNED_INT :
+            result.value.unsigned_char = (unsigned char) e1.value.signed_int ;
+            break;
+        case LVK_SIGNED_CHAR :
+            result.value.unsigned_char = (unsigned char) e1.value.signed_char ;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.unsigned_char = (unsigned char) e1.value.unsigned_char ;
+            break;
+        case LVK_BOOL :
+            result.value.unsigned_char = (unsigned char) e1.value.boolean_value ;
+            break;
+        default:
+            internal_error("Unknown value kind %d", e1.kind);
+    }
+    return result;
+}
+
+static literal_value_t convert_to_signed_char(literal_value_t e1)
+{
+    literal_value_t result = e1;
+    
+    result.kind = LVK_SIGNED_CHAR;
+    switch (e1.kind)
+    {
+        case LVK_SIGNED_LONG_LONG :
+            result.value.signed_char = (signed char) e1.value.signed_long_long;
+            break;
+        case LVK_UNSIGNED_LONG_LONG :
+            result.value.signed_char = (signed char) e1.value.unsigned_long_long;
+            break;
+        case LVK_UNSIGNED_LONG :
+            result.value.signed_char = (signed char) e1.value.unsigned_long;
+            break;
+        case LVK_SIGNED_LONG :
+            result.value.signed_char = (signed char) e1.value.signed_long ;
+            break;
+        case LVK_UNSIGNED_INT :
+            result.value.signed_char = (signed char) e1.value.unsigned_int ;
+            break;
+        case LVK_SIGNED_INT :
+            result.value.signed_char = (signed char) e1.value.signed_int ;
+            break;
+        case LVK_SIGNED_CHAR :
+            result.value.signed_char = (signed char) e1.value.signed_char ;
+            break;
+        case LVK_UNSIGNED_CHAR :
+            result.value.signed_char = (signed char) e1.value.unsigned_char ;
+            break;
+        case LVK_BOOL :
+            result.value.signed_char = (signed char) e1.value.boolean_value ;
             break;
         default:
             internal_error("Unknown value kind %d", e1.kind);

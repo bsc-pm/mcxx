@@ -32,7 +32,7 @@ typedef
 struct unification_item_tag
 {
     // parameter type <- value
-    int parameter_num;
+    int parameter_position;
     int parameter_nesting;
     char* parameter_name;
     
@@ -51,8 +51,6 @@ char unificate_two_types(type_t* t1, type_t* t2, unification_set_t** unif_set, d
 char unificate_two_expressions(unification_set_t **unif_set, 
         AST left_tree, decl_context_t left_decl_context, 
         AST right_tree, decl_context_t right_decl_context);
-type_t* get_type_template_parameter_unification(unification_set_t* unif_set,
-        int num, int nesting);
 
 MCXX_END_DECLS
 
