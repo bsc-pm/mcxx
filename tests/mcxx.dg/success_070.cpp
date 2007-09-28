@@ -18,21 +18,41 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
-#ifndef CXX_KOENIG_H
-#define CXX_KOENIG_H
+/*
+ * Unnamed structures are always forgotten 
+ */
+typedef
+struct
+{
+    int a;
+} T1;
 
-#include "cxx-scope.h"
-#include "cxx-buildscope.h"
+typedef
+class
+{
+    int a;
+} T2;
 
-MCXX_BEGIN_DECLS
+typedef
+union
+{
+    int a;
+} T3;
 
-char koenig_can_be_used(AST called_expression, decl_context_t decl_context);
+typedef
+struct
+{
+    struct
+    {
+        int a;
+        int b;
+    } c;
+} T4;
 
-scope_entry_list_t* koenig_lookup(
-        int num_arguments,
-        argument_type_info_t** argument_type_list, 
-        decl_context_t decl_context);
+typedef int T5;
 
-MCXX_END_DECLS
-
-#endif // CXX_KOENIG_H
+T1 t1;
+T2 t2;
+T3 t3;
+T4 t4;
+T5 t5;

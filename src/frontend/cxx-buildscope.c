@@ -1505,13 +1505,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_inf
                 "While adjusting template-name, the primary template was not found", 0);
     }
     
-    {
-        (*type_info) = get_user_defined_type(simple_type_entry);
-
-        // It is useful to save this when printing types
-        // (*type_info)->type->typeof_expr = a;
-        // (*type_info)->type->typeof_decl_context = decl_context;
-    }
+    (*type_info) = get_user_defined_type(simple_type_entry);
 }
 
 /*
@@ -4994,11 +4988,19 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
         access_specifier_t current_access, type_t* class_info,
         int step)
 {
-    type_t* class_type = class_info;
+    type_t* class_type = NULL;
 
-    if (is_named_type(class_type))
+    if (is_named_type(class_info))
     {
-        class_type = named_type_get_symbol(class_type)->type_information;
+        class_type = named_type_get_symbol(class_info)->type_information;
+    }
+    else if (is_unnamed_class_type(class_info))
+    {
+        class_type = class_info;
+    }
+    else
+    {
+        internal_error("Type is not a class type", 0);
     }
 
     scope_entry_t* entry = NULL;
@@ -5125,6 +5127,16 @@ static void build_scope_simple_member_declaration(decl_context_t decl_context, A
         class_type = named_type_get_symbol(class_info)->type_information;
         class_name = named_type_get_symbol(class_info)->symbol_name;
     }
+    else if (is_unnamed_class_type(class_info))
+    {
+        class_type = class_info;
+        // class_name remains as empty 
+    }
+    else
+    {
+        internal_error("Type is not a class type", 0);
+    }
+
 
     type_t* member_type = NULL;
 

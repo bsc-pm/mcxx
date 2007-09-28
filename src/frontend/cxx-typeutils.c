@@ -845,7 +845,7 @@ type_t* get_new_typedef(type_t* t)
     return result;
 }
 
-static Hash *_qualification[8];
+static Hash *_qualification[(CV_CONST | CV_VOLATILE | CV_RESTRICT) + 1];
 static void init_qualification_hash(void)
 {
     static char _qualif_hash_initialized = 0;
