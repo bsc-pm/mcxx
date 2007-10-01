@@ -72,6 +72,13 @@ namespace TL
             {
             }
 
+            /* Do not use it unless directed to do so */
+            scope_link_t* get_internal_scope_link()
+            {
+                return _scope_link;
+            }
+
+
             ScopeLink& operator=(ScopeLink sl);
             bool operator==(ScopeLink sl);
             bool operator!=(ScopeLink sl);

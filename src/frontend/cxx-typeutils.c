@@ -237,6 +237,10 @@ struct simple_type_tag {
     // __Complex float
     char is_complex;
 
+    // GCC extension (altivec)
+    // vector float
+    char is_vector;
+
     // This type exists after another symbol, for
     // instance
     //

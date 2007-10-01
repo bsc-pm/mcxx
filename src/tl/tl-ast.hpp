@@ -220,10 +220,17 @@ namespace TL
 
             ObjectList<AST_t> depth_subtrees(const TraverseASTFunctor& functor);
 
-			/* Debug functions - Do not use */
+            /* Debug functions - Do not use */
             std::string internal_ast_type() const;
-			node_t internal_ast_type_() const;
-			/* End debug functions */
+            node_t internal_ast_type_() const;
+
+            /* Do not use it unless directed to do so */
+            AST get_internal_ast()
+            {
+                return _ast;
+            }
+
+            /* End debug functions */
 
             virtual bool is_ast() const
             {
@@ -320,20 +327,20 @@ namespace TL
             }
     };
 
-	class PredicateType : public Predicate<AST_t>
-	{
-		private:
-			node_t _type;
-		public:
-			PredicateType(node_t type)
-				: _type(type)
-				{
-				}
+    class PredicateType : public Predicate<AST_t>
+    {
+        private:
+            node_t _type;
+        public:
+            PredicateType(node_t type)
+                : _type(type)
+                {
+                }
             virtual bool operator()(AST_t& ast) const
             {
                 return (ast.internal_ast_type_() == _type);
             }
-	};
+    };
 }
 
 #endif // TL_AST_HPP
