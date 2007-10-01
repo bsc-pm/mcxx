@@ -228,6 +228,18 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
                     return value;
                 }
             }
+            // Cannot evaluate these
+        case AST_CLASS_MEMBER_ACCESS :
+        case AST_POINTER_CLASS_MEMBER_ACCESS :
+        case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
+        case AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS :
+        case AST_FUNCTION_CALL :
+            {
+                literal_value_t dependent_entity;
+                memset(&dependent_entity, 0, sizeof(dependent_entity));
+                dependent_entity.kind = LVK_DEPENDENT_EXPR;
+                return dependent_entity;
+            }
         case AST_AMBIGUITY :
         default :
             internal_error("Unsupported node '%s' when evaluating constant expression (%s)", 
@@ -504,13 +516,12 @@ static void promote_values(literal_value_t v1, literal_value_t v2,
 {
     *out_v1 = v1;
     *out_v2 = v2;
-    if (v1.kind == v2.kind)
+    if (out_v1->kind == out_v2->kind)
     {
         // Nothing has to be done
         return;
     }
 
-    literal_value_t* in_val[] = {&v1, &v2, NULL};
     literal_value_t* out_val[] = {out_v1, out_v2, NULL};
 
     // Float and double are not considered
@@ -518,23 +529,22 @@ static void promote_values(literal_value_t v1, literal_value_t v2,
     int i;
     for (i = 0; i < 2; i++)
     {
-        literal_value_t* in = in_val[i];
         literal_value_t* out = out_val[i];
 
-        if (in->kind == LVK_SIGNED_CHAR)
+        if (out->kind == LVK_SIGNED_CHAR)
         {
             out->kind = LVK_SIGNED_INT;
-            out->value.unsigned_int = (unsigned int) in->value.signed_char;
+            out->value.unsigned_int = (unsigned int) out->value.signed_char;
         }
-        if (in->kind == LVK_UNSIGNED_CHAR)
+        if (out->kind == LVK_UNSIGNED_CHAR)
         {
             out->kind = LVK_SIGNED_INT;
-            out->value.unsigned_int = (unsigned int) in->value.unsigned_char;
+            out->value.unsigned_int = (unsigned int) out->value.unsigned_char;
         }
-        else if (in->kind == LVK_BOOL)
+        else if (out->kind == LVK_BOOL)
         {
             out->kind = LVK_SIGNED_INT;
-            out->value.unsigned_int = (unsigned int) in->value.boolean_value;
+            out->value.unsigned_int = (unsigned int) out->value.boolean_value;
         }
     }
 
@@ -542,202 +552,190 @@ static void promote_values(literal_value_t v1, literal_value_t v2,
 
     // if either one operands is 'unsigned long long' convert the other to
     // 'unsigned long long'
-    if ((v1.kind == LVK_UNSIGNED_LONG_LONG)
-            ^ (v2.kind == LVK_UNSIGNED_LONG_LONG))
+    if ((out_v1->kind == LVK_UNSIGNED_LONG_LONG)
+            ^ (out_v2->kind == LVK_UNSIGNED_LONG_LONG))
     {
         literal_value_t* out = NULL;
-        literal_value_t* in = NULL;
-        if (v1.kind == LVK_UNSIGNED_LONG_LONG)
+        if (out_v1->kind == LVK_UNSIGNED_LONG_LONG)
         {
-            in = &v2;
             out = out_v2;
         }
         else
         {
-            in = &v1;
             out = out_v1;
         }
 
-        out->kind = LVK_UNSIGNED_LONG_LONG;
-        switch (in->kind)
+        switch (out->kind)
         {
             case LVK_SIGNED_LONG_LONG :
-                out->value.unsigned_long_long = (unsigned long long) in->value.signed_long_long;
+                out->value.unsigned_long_long = (unsigned long long) out->value.signed_long_long;
                 break;
             case LVK_SIGNED_LONG :
-                out->value.unsigned_long_long = (unsigned long long) in->value.signed_long;
+                out->value.unsigned_long_long = (unsigned long long) out->value.signed_long;
                 break;
             case LVK_SIGNED_INT :
-                out->value.unsigned_long_long = (unsigned long long) in->value.signed_int;
+                out->value.unsigned_long_long = (unsigned long long) out->value.signed_int;
                 break;
             case LVK_UNSIGNED_INT :
-                out->value.unsigned_long_long = (unsigned long long) in->value.unsigned_int;
+                out->value.unsigned_long_long = (unsigned long long) out->value.unsigned_int;
                 break;
             default :
-                internal_error("Unknown literal value type", in->kind);
+                internal_error("Unknown literal value type", out->kind);
         }
+        out->kind = LVK_UNSIGNED_LONG_LONG;
     }
     // If one of the operands is 'signed long long' and the other one a
     // 'unsigned long', convert to 'signed long long' (if a 'signed long long'
     // cannot hold all 'unsigned long' values we should use an 'unsigned long
     // long' instead, as it happens in 64-bit)
     // FIXME: make a flag for such things
-    else if (((v1.kind == LVK_SIGNED_LONG_LONG) && (v2.kind == LVK_UNSIGNED_LONG))
-            || ((v1.kind == LVK_UNSIGNED_LONG) && (v2.kind == LVK_SIGNED_LONG_LONG)))
+    else if (((out_v1->kind == LVK_SIGNED_LONG_LONG) && (out_v2->kind == LVK_UNSIGNED_LONG))
+            || ((out_v1->kind == LVK_UNSIGNED_LONG) && (out_v2->kind == LVK_SIGNED_LONG_LONG)))
     {
-        if (v1.kind == LVK_SIGNED_LONG_LONG
-                && v2.kind == LVK_UNSIGNED_LONG)
+        if (out_v1->kind == LVK_SIGNED_LONG_LONG
+                && out_v2->kind == LVK_UNSIGNED_LONG)
         {
             out_v2->kind = LVK_SIGNED_LONG_LONG;
-            out_v2->value.signed_long_long = (signed long long) v2.value.unsigned_long;
+            out_v2->value.signed_long_long = (signed long long) out_v2->value.unsigned_long;
         }
         else
         {
             out_v1->kind = LVK_SIGNED_LONG_LONG;
-            out_v1->value.signed_long_long = (signed long long) v1.value.unsigned_long;
+            out_v1->value.signed_long_long = (signed long long) out_v1->value.unsigned_long;
         }
     }
     // if either 'signed long long' convert to 'signed long long'
-    else if ((v1.kind == LVK_SIGNED_LONG_LONG) 
-            ^ (v2.kind == LVK_SIGNED_LONG_LONG))
+    else if ((out_v1->kind == LVK_SIGNED_LONG_LONG) 
+            ^ (out_v2->kind == LVK_SIGNED_LONG_LONG))
     {
-        literal_value_t *in = NULL;
         literal_value_t *out = NULL;
-        if (v1.kind == LVK_SIGNED_LONG_LONG)
+        if (out_v1->kind == LVK_SIGNED_LONG_LONG)
         {
-            in = &v2;
             out = out_v2;
         }
         else
         {
-            in = &v1;
             out = out_v1;
         }
-        out->kind = LVK_SIGNED_LONG_LONG;
-        switch (in->kind)
+        switch (out->kind)
         {
             case LVK_SIGNED_LONG_LONG :
-                out->value.signed_long_long = (signed long long) in->value.unsigned_long_long;
+                out->value.signed_long_long = (signed long long) out->value.unsigned_long_long;
                 break;
             case LVK_UNSIGNED_LONG :
-                out->value.signed_long_long = (signed long long) in->value.unsigned_long;
+                out->value.signed_long_long = (signed long long) out->value.unsigned_long;
                 break;
             case LVK_SIGNED_INT :
-                out->value.signed_long_long = (signed long long) in->value.signed_int;
+                out->value.signed_long_long = (signed long long) out->value.signed_int;
                 break;
             case LVK_UNSIGNED_INT :
-                out->value.signed_long_long = (signed long long) in->value.unsigned_int;
+                out->value.signed_long_long = (signed long long) out->value.unsigned_int;
                 break;
             default :
-                internal_error("Unknown literal value type", in->kind);
+                internal_error("Unknown literal value type", out->kind);
         }
+        out->kind = LVK_SIGNED_LONG_LONG;
     }
     // if either one operand is "unsigned long int" convert the other to "unsigned
     // long int"
-    else if ((v1.kind == LVK_UNSIGNED_LONG)
-            ^ (v2.kind == LVK_UNSIGNED_LONG))
+    else if ((out_v1->kind == LVK_UNSIGNED_LONG)
+            ^ (out_v2->kind == LVK_UNSIGNED_LONG))
     {
         literal_value_t* out = NULL;
-        literal_value_t* in = NULL;
-        if (v1.kind == LVK_UNSIGNED_LONG)
+        if (out_v1->kind == LVK_UNSIGNED_LONG)
         {
-            in = &v2;
             out = out_v2;
         }
         else
         {
-            in = &v1;
             out = out_v1;
         }
 
-        out->kind = LVK_UNSIGNED_LONG;
-        switch (in->kind)
+        switch (out->kind)
         {
             case LVK_SIGNED_LONG :
-                out->value.unsigned_long = (unsigned long) in->value.signed_long;
+                out->value.unsigned_long = (unsigned long) out->value.signed_long;
                 break;
             case LVK_SIGNED_INT :
-                out->value.unsigned_long = (unsigned long) in->value.signed_int;
+                out->value.unsigned_long = (unsigned long) out->value.signed_int;
                 break;
             case LVK_UNSIGNED_INT :
-                out->value.unsigned_long = (unsigned long) in->value.unsigned_int;
+                out->value.unsigned_long = (unsigned long) out->value.unsigned_int;
                 break;
             default :
-                internal_error("Unknown literal value type %d", in->kind);
+                internal_error("Unknown literal value type %d", out->kind);
         }
+        out->kind = LVK_UNSIGNED_LONG;
     }
     // If one operand is "signed long" and the other "unsigned int" convert to
     // "signed long" the "unsigned int" if a "signed long" can represent every
     // value of a "signed long", otherwise convert the "signed long" to a
     // "unsigned long"
     // FIXME: make a flag for such things
-    else if (((v1.kind == LVK_SIGNED_LONG) && (v2.kind == LVK_UNSIGNED_INT))
-            || ((v2.kind == LVK_SIGNED_LONG) && v1.kind == (LVK_UNSIGNED_INT)))
+    else if (((out_v1->kind == LVK_SIGNED_LONG) && (out_v2->kind == LVK_UNSIGNED_INT))
+            || ((out_v2->kind == LVK_SIGNED_LONG) && out_v1->kind == (LVK_UNSIGNED_INT)))
     {
-        if (v1.kind == LVK_SIGNED_LONG 
-                && v2.kind == LVK_UNSIGNED_INT)
+        if (out_v1->kind == LVK_SIGNED_LONG 
+                && out_v2->kind == LVK_UNSIGNED_INT)
         {
             out_v2->kind = LVK_SIGNED_LONG;
-            out_v2->value.signed_long = (signed long) v2.value.unsigned_int;
+            out_v2->value.signed_long = (signed long) out_v2->value.unsigned_int;
         }
         else
         {
             out_v1->kind = LVK_SIGNED_LONG;
-            out_v1->value.signed_long = (signed long) v1.value.unsigned_int;
+            out_v1->value.signed_long = (signed long) out_v1->value.unsigned_int;
         }
     }
     // either one operand is 'signed long int' convert all to 'signed long'
-    else if ((v1.kind == LVK_SIGNED_LONG)
-            ^ (v2.kind == LVK_SIGNED_LONG))
+    else if ((out_v1->kind == LVK_SIGNED_LONG)
+            ^ (out_v2->kind == LVK_SIGNED_LONG))
     {
-        literal_value_t *in = NULL;
         literal_value_t *out = NULL;
-        if (v1.kind == LVK_SIGNED_LONG)
+        if (out_v1->kind == LVK_SIGNED_LONG)
         {
-            in = &v2;
             out = out_v2;
         }
         else
         {
-            in = &v1;
             out = out_v1;
         }
-        out->kind = LVK_SIGNED_LONG;
-        switch (in->kind)
+        switch (out->kind)
         {
             case LVK_UNSIGNED_LONG :
-                out->value.signed_long = (signed long) in->value.unsigned_long;
+                out->value.signed_long = (signed long) out->value.unsigned_long;
                 break;
             case LVK_SIGNED_INT :
-                out->value.signed_long = (signed long) in->value.signed_int;
+                out->value.signed_long = (signed long) out->value.signed_int;
                 break;
             case LVK_UNSIGNED_INT :
-                out->value.signed_long = (signed long) in->value.unsigned_int;
+                out->value.signed_long = (signed long) out->value.unsigned_int;
                 break;
             default :
-                internal_error("Unknown literal value type", in->kind);
+                internal_error("Unknown literal value type", out->kind);
         }
+        out->kind = LVK_SIGNED_LONG;
     }
     // If one is 'unsigned int' and the other 'int', convert to 'unsigned int'
-    else if ((v1.kind == LVK_UNSIGNED_INT 
-                && v2.kind == LVK_SIGNED_INT)
-            || (v1.kind == LVK_SIGNED_INT
-                && v2.kind == LVK_UNSIGNED_INT))
+    else if ((out_v1->kind == LVK_UNSIGNED_INT 
+                && out_v2->kind == LVK_SIGNED_INT)
+            || (out_v1->kind == LVK_SIGNED_INT
+                && out_v2->kind == LVK_UNSIGNED_INT))
     {
-        if (v1.kind == LVK_SIGNED_INT)
+        if (out_v1->kind == LVK_SIGNED_INT)
         {
             out_v1->kind = LVK_UNSIGNED_INT;
-            out_v1->value.unsigned_int = (unsigned int) v1.value.signed_int;
+            out_v1->value.unsigned_int = (unsigned int) out_v1->value.signed_int;
         }
         else
         {
             out_v2->kind = LVK_UNSIGNED_INT;
-            out_v2->value.unsigned_int = (unsigned int) v2.value.signed_int;
+            out_v2->value.unsigned_int = (unsigned int) out_v2->value.signed_int;
         }
     }
     // Both should be int if we get here
-    else if (v1.kind != LVK_SIGNED_INT
-            || v2.kind != LVK_SIGNED_INT)
+    else if (out_v1->kind != LVK_SIGNED_INT
+            || out_v2->kind != LVK_SIGNED_INT)
     {
         internal_error("Unreachable code", 0);
     }

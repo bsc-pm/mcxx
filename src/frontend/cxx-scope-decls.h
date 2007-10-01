@@ -101,15 +101,17 @@ typedef struct template_parameter_tag
     // symbol did not have name, we are mainly interested in their type
     struct scope_entry_tag* entry;
 
-    // Default type for type/template template parameters
-    type_t* default_type;
-
-    // Default expression for nontype template parameters
-    decl_context_t default_expr_context;
-    AST default_expr;
+    // Default expression for template parameters
+    // it can be both an expression or a type,
+    // for kind == TPK_NONTYPE it will be an expression
+    // otherwise it will be an expression
+    decl_context_t default_argument_context;
+    AST default_argument;
 
     char has_default_argument;
 
+    decl_context_t nontype_param_typename_context;
+    AST nontype_param_typename;
 } template_parameter_t;
 
 // Access specifier, saved but not enforced by the compiler

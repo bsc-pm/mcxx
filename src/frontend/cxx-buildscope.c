@@ -1803,41 +1803,25 @@ static void mix_template_parameters(decl_context_t decl_context, scope_entry_t* 
             {
                 case TPK_TYPE :
                 case TPK_TEMPLATE :
-                    {
-                        if ((newly_declarated_class->template_parameter_info[i]->default_type != NULL
-                                    && decl_context.template_parameters[i]->default_type == NULL))
-                        {
-                            decl_context.template_parameters[i]->default_type = 
-                                newly_declarated_class->template_parameter_info[i]->default_type;
-                            decl_context.template_parameters[i]->has_default_argument = 1;
-                        }
-                        else if ((newly_declarated_class->template_parameter_info[i]->default_type == NULL
-                                    && decl_context.template_parameters[i]->default_type != NULL))
-                        {
-                            newly_declarated_class->template_parameter_info[i]->default_type = 
-                                decl_context.template_parameters[i]->default_type;
-                            newly_declarated_class->template_parameter_info[i]->has_default_argument = 1;
-                        }
-                        break;
-                    }
                 case TPK_NONTYPE :
                     {
-                        if (newly_declarated_class->template_parameter_info[i]->default_expr != NULL
-                                && decl_context.template_parameters[i]->default_expr == NULL)
+                        // Mix the information
+                        if (newly_declarated_class->template_parameter_info[i]->default_argument != NULL
+                                && decl_context.template_parameters[i]->default_argument == NULL)
                         {
-                            decl_context.template_parameters[i]->default_expr = 
-                                newly_declarated_class->template_parameter_info[i]->default_expr;
-                            decl_context.template_parameters[i]->default_expr_context = 
-                                newly_declarated_class->template_parameter_info[i]->default_expr_context;
+                            decl_context.template_parameters[i]->default_argument = 
+                                newly_declarated_class->template_parameter_info[i]->default_argument;
+                            decl_context.template_parameters[i]->default_argument_context = 
+                                newly_declarated_class->template_parameter_info[i]->default_argument_context;
                             decl_context.template_parameters[i]->has_default_argument = 1;
                         }
-                        else if (newly_declarated_class->template_parameter_info[i]->default_expr == NULL
-                                && decl_context.template_parameters[i]->default_expr != NULL)
+                        else if (newly_declarated_class->template_parameter_info[i]->default_argument == NULL
+                                && decl_context.template_parameters[i]->default_argument != NULL)
                         {
-                            newly_declarated_class->template_parameter_info[i]->default_expr = 
-                                decl_context.template_parameters[i]->default_expr;
-                            newly_declarated_class->template_parameter_info[i]->default_expr_context = 
-                                decl_context.template_parameters[i]->default_expr_context;
+                            newly_declarated_class->template_parameter_info[i]->default_argument = 
+                                decl_context.template_parameters[i]->default_argument;
+                            newly_declarated_class->template_parameter_info[i]->default_argument_context = 
+                                decl_context.template_parameters[i]->default_argument_context;
                             newly_declarated_class->template_parameter_info[i]->has_default_argument = 1;
                         }
                         break;
@@ -4038,23 +4022,25 @@ static void build_scope_template_template_parameter(AST a,
     if (id_expr != NULL)
     {
         // This might be ambiguous
-        solve_possibly_ambiguous_expression(id_expr, template_context);
+        // solve_possibly_ambiguous_expression(id_expr, template_context);
 
-        scope_entry_list_t* entry_list = query_id_expression(template_context, id_expr);
+        // scope_entry_list_t* entry_list = query_id_expression(template_context, id_expr);
 
-        ERROR_CONDITION((entry_list == NULL), "Default argument expression id not found\n", 0);
+        // ERROR_CONDITION((entry_list == NULL), "Default argument expression id not found\n", 0);
 
-        enum cxx_symbol_kind valid_templates_arguments[2] = 
-        { 
-            SK_TEMPLATE_PRIMARY_CLASS, 
-            SK_TEMPLATE_TEMPLATE_PARAMETER,
-        };
-        // specializations are not necessary here
-        entry_list = filter_symbol_kind_set(entry_list, 2, valid_templates_arguments);
+        // enum cxx_symbol_kind valid_templates_arguments[2] = 
+        // { 
+        //     SK_TEMPLATE_PRIMARY_CLASS, 
+        //     SK_TEMPLATE_TEMPLATE_PARAMETER,
+        // };
+        // // specializations are not necessary here
+        // entry_list = filter_symbol_kind_set(entry_list, 2, valid_templates_arguments);
 
-        ERROR_CONDITION((entry_list == NULL), "No primary template or template template parameter found", 0);
+        // ERROR_CONDITION((entry_list == NULL), "No primary template or template template parameter found", 0);
 
-        template_parameters->default_type = get_user_defined_type(entry_list->entry);
+        // Even if we looked up something, just save the tree
+        template_parameters->default_argument = id_expr;
+        template_parameters->default_argument_context = template_context;
         template_parameters->has_default_argument = 1;
     }
 
@@ -4117,14 +4103,14 @@ static void build_scope_type_template_parameter(AST a,
 
         new_entry->is_template_parameter = 1;
         new_entry->template_parameter_nesting = template_context.template_nesting;
-        new_entry->template_parameter_nesting = num_parameter;
+        new_entry->template_parameter_position = num_parameter;
 
         template_parameters->entry = new_entry;
     }
 
     if (type_id != NULL)
     {
-        // This might be ambiguous
+        // This might be ambiguous, disambiguate
         AST type_specifier_seq = ASTSon0(type_id);
         AST abstract_decl = ASTSon1(type_id);
 
@@ -4143,7 +4129,8 @@ static void build_scope_type_template_parameter(AST a,
                     template_context);
         }
 
-        template_parameters->default_type = declarator_type;
+        template_parameters->default_argument = type_id;
+        template_parameters->default_argument_context = template_context;
         template_parameters->has_default_argument = 1;
     }
 
@@ -4156,47 +4143,35 @@ static void build_scope_nontype_template_parameter(AST a,
 {
     // As usual there are three parts
     //     decl_specifier_seq [declarator] [ = expression ]
-    type_t* type_info = NULL;
-    gather_decl_spec_t gather_info;
-    memset(&gather_info, 0, sizeof(gather_info));
-
-    AST decl_specifier_seq = ASTSon0(a);
+    // AST decl_specifier_seq = ASTSon0(a);
     AST parameter_declarator = ASTSon1(a);
     AST default_expression = ASTSon2(a);
-
-    // This is not needed as we'll rebuild it every time. Remove when it is
-    // clear that is not used anymore
-    build_scope_decl_specifier_seq(decl_specifier_seq, &gather_info, &type_info, template_context);
 
     decl_context_t adjusted_template_context = template_context;
     adjusted_template_context.current_scope = adjusted_template_context.template_scope;
 
+    scope_entry_t* entry = NULL;
     if (parameter_declarator != NULL)
     {
-        // This will add into the symbol table if it has a name. We need to fix
-        // a bit template_context here otherwise the symbol will appear in the
-        // wrong context, we want it in the template_scope
+        AST declarator_name = get_declarator_name(parameter_declarator, template_context);
 
-        type_t* declarator_type = NULL;
-        scope_entry_t* entry = build_scope_declarator(parameter_declarator, 
-                &gather_info, type_info, &declarator_type,
-                adjusted_template_context);
-
-        if (entry != NULL)
+        if (declarator_name != NULL)
         {
+            char *declarator_name_str = prettyprint_in_buffer(declarator_name);
             DEBUG_CODE()
             {
                 fprintf(stderr, "[%d] Remembering '%s' as a non-type template parameter in %p\n", 
                         num_parameter,
-                        entry->symbol_name, template_context.template_scope);
+                        declarator_name_str, 
+                        template_context.template_scope);
             }
             // This is not a variable, but a template parameter
+            entry = new_symbol(adjusted_template_context, adjusted_template_context.current_scope, declarator_name_str);
             entry->kind = SK_TEMPLATE_PARAMETER;
 
             entry->is_template_parameter = 1;
             entry->template_parameter_nesting = template_context.template_nesting;
             entry->template_parameter_position = num_parameter;
-            
         }
         else
         {
@@ -4208,17 +4183,12 @@ static void build_scope_nontype_template_parameter(AST a,
 
             entry->kind = SK_TEMPLATE_PARAMETER;
 
-            entry->type_information = declarator_type;
-
             entry->is_template_parameter = 1;
             entry->template_parameter_nesting = template_context.template_nesting;
             entry->template_parameter_position = num_parameter;
-            
         }
         // Save its symbol
         template_parameters->entry = entry;
-
-        AST declarator_name = get_declarator_name(parameter_declarator, template_context);
 
         ASTAttrSetValueType(declarator_name, LANG_IS_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
     }
@@ -4233,9 +4203,6 @@ static void build_scope_nontype_template_parameter(AST a,
 
         entry->kind = SK_TEMPLATE_PARAMETER;
 
-        // The base type
-        entry->type_information = type_info;
-
         entry->is_template_parameter = 1;
         entry->template_parameter_nesting = template_context.template_nesting;
         entry->template_parameter_position = num_parameter;
@@ -4248,11 +4215,15 @@ static void build_scope_nontype_template_parameter(AST a,
     {
         solve_possibly_ambiguous_expression(default_expression, template_context);
 
-        template_parameters->default_expr_context = template_context;
-        template_parameters->default_expr = default_expression;
+        template_parameters->default_argument_context = template_context;
+        template_parameters->default_argument = default_expression;
         template_parameters->has_default_argument = 1;
+
     }
 
+    // Save the typename
+    template_parameters->nontype_param_typename_context = template_context;
+    template_parameters->nontype_param_typename = a;
     template_parameters->kind = TPK_NONTYPE;
 }
 
@@ -5156,7 +5127,10 @@ static void build_scope_simple_member_declaration(decl_context_t decl_context, A
                 &member_type, new_decl_context);
 
         if (member_type != NULL
-                && is_named_type(member_type))
+                && is_named_type(member_type)
+                && (is_enumerated_type(member_type)
+                    || is_class_type(member_type)))
+                
         {
             scope_entry_t* type_symbol = named_type_get_symbol(member_type);
             if (same_scope(type_symbol->decl_context.current_scope,
@@ -5515,6 +5489,11 @@ static void build_scope_template_arguments_for_primary_template(decl_context_t d
         {
             // This is a template parameter from an outer template declaration
             // ignore it
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Ignoring template parameter '%s' coming from outer template declaration\n",
+                        template_parameter->entry->symbol_name);
+            }
             continue;
         }
 
@@ -5522,6 +5501,11 @@ static void build_scope_template_arguments_for_primary_template(decl_context_t d
         {
             case TPK_TYPE :
                 {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Creating unspecialized template argument for type template parameter '%s'\n",
+                                template_parameter->entry->symbol_name);
+                    }
                     template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
 
                     new_template_argument->kind = TAK_TYPE;
@@ -5532,6 +5516,11 @@ static void build_scope_template_arguments_for_primary_template(decl_context_t d
                 }
             case TPK_TEMPLATE :
                 {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Creating unspecialized template argument for template template parameter '%s'\n",
+                                template_parameter->entry->symbol_name);
+                    }
                     template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
 
                     new_template_argument->kind = TAK_TEMPLATE;
@@ -5543,10 +5532,51 @@ static void build_scope_template_arguments_for_primary_template(decl_context_t d
                 }
             case TPK_NONTYPE :
                 {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "Creating unspecialized template argument for nontype template parameter '%s'\n",
+                                template_parameter->entry->symbol_name);
+                    }
+
                     template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
 
                     new_template_argument->kind = TAK_NONTYPE;
-                    new_template_argument->type = template_parameter->entry->type_information;
+                    //
+                    // We have to rebuild the actual type of this nontype template argument because
+                    // we did not save it
+                    type_t* declarator_type = NULL;
+                    {
+                        type_t* type_info = NULL;
+
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "Rebuilding type for '%s'\n", 
+                                    template_parameter->entry->symbol_name);
+                        }
+
+                        AST nontype_template_parameter_tree = 
+                            template_parameter->nontype_param_typename;
+                        AST decl_specifier_seq = ASTSon0(nontype_template_parameter_tree);
+                        AST parameter_declarator = ASTSon1(nontype_template_parameter_tree);
+                        // AST default_expression = ASTSon2(nontype_template_parameter_tree);
+
+                        gather_decl_spec_t gather_info;
+                        memset(&gather_info, 0, sizeof(gather_info));
+
+                        // Create fake context to avoid polluting the current one
+                        decl_context_t fake_context = 
+                            new_block_context(template_parameter->nontype_param_typename_context);
+                        build_scope_decl_specifier_seq(decl_specifier_seq, &gather_info, &type_info, fake_context);
+
+                        declarator_type = type_info;
+                        if (parameter_declarator != NULL)
+                        {
+                            build_scope_declarator(parameter_declarator, 
+                                    &gather_info, type_info, &declarator_type,
+                                    fake_context);
+                        }
+                    }
+                    new_template_argument->type = declarator_type;
 
                     // Fake an expression
                     new_template_argument->expression = ASTLeaf(AST_SYMBOL, 
@@ -5566,9 +5596,6 @@ static void build_scope_template_arguments_for_primary_template(decl_context_t d
 }
 
 // Replaces symbols of template parameters with template arguments seen so far
-//
-// This is only useful for expressions involved in default template arguments,
-// for types we use update_template_argument_type
 //
 decl_context_t replace_template_parameters_with_template_arguments(
         template_argument_list_t* template_arguments,
@@ -5673,229 +5700,6 @@ decl_context_t replace_template_parameters_with_template_arguments(
     }
 
     return fake_context;
-}
-
-
-/*
- * These functions update types of parameters
- *
- * template <typename _T, typename _Q = _T*>
- * struct A
- * {
- * };
- *
- * A<int> must be A<int, int*>  (not A<int, _T*>)
- *
- * This function cannot be used on template templates!
- */
-static
-type_t* update_template_argument_type_rec(type_t* current_type, 
-        template_argument_list_t* given_template_argument_list,
-        decl_context_t decl_context,
-        int line,
-        char* filename)
-{
-    if (is_named_type(current_type))
-    {
-        scope_entry_t* entry = named_type_get_symbol(current_type);
-
-        if (entry->is_template_parameter)
-        {
-            // Let's assume template parameter nesting is fine here
-            if (entry->template_parameter_position >= given_template_argument_list->num_arguments)
-            {
-                internal_error("This template parameter position is out of range", 0);
-            }
-            
-            // Update accordingly
-            return given_template_argument_list->argument_list[entry->template_parameter_position]->type;
-        }
-        else if (entry->kind == SK_TEMPLATE_PRIMARY_CLASS
-                || entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "This update involves asking for a specialization of '%s'\n", entry->symbol_name);
-            }
-            /*
-             * We are dealing with these cases
-             *
-             * template <typename _T, typename _Q = A<_T> >
-             * struct B { };
-             *
-             * template <typename _T, typename _Q = A<_T*> >
-             * struct C { };
-             *
-             * We have to ask for a proper specialization.
-             * First updated the template arguments recursively
-             */
-            template_argument_list_t* template_arguments = 
-                template_type_get_template_arguments(entry->type_information);
-
-            template_argument_list_t* updated_template_arguments = calloc(1, sizeof(*updated_template_arguments));
-
-            int i;
-            for (i = 0; i < template_arguments->num_arguments; i++)
-            {
-                template_argument_t* template_argument = template_arguments->argument_list[i];
-
-                template_argument_t* updated_template_argument = calloc(1, sizeof(*updated_template_argument));
-
-                switch (template_argument->kind)
-                {
-                    case TAK_TEMPLATE :
-                    case TAK_TYPE :
-                        {
-                            type_t* updated_type_template_argument = update_template_argument_type_rec(
-                                    template_argument->type, given_template_argument_list, decl_context,
-                                    line, filename);
-
-                            updated_template_argument->kind = template_argument->kind;
-                            updated_template_argument->type = updated_type_template_argument;
-                        }
-                        break;
-                    case TAK_NONTYPE:
-                        {
-                            internal_error("Not implemented yet", 0);
-                        }
-                        break;
-                    default:
-                        break;
-                }
-
-                P_LIST_ADD(updated_template_arguments->argument_list, 
-                        updated_template_arguments->num_arguments, 
-                        updated_template_argument);
-            }
-
-            scope_entry_t* specialized_template = get_specialization_of_template(entry->decl_context,
-                    entry->symbol_name, updated_template_arguments, line, filename);
-
-            return get_user_defined_type(specialized_template);
-        }
-    }
-    else if (is_pointer_type(current_type))
-    {
-        type_t* pointee_type = pointer_type_get_pointee_type(current_type);
-
-        type_t* updated_pointee_type = update_template_argument_type_rec(
-                pointee_type,
-                given_template_argument_list,
-                decl_context,
-                line,
-                filename
-                );
-
-        updated_pointee_type = get_cv_qualified_type(updated_pointee_type, get_cv_qualifier(pointee_type));
-
-        type_t* updated_type = get_pointer_type(updated_pointee_type);
-
-        updated_type = get_cv_qualified_type(updated_type, get_cv_qualifier(current_type));
-
-        return updated_type;
-    }
-    else if (is_pointer_to_member_type(current_type))
-    {
-        type_t* pointee_type = pointer_type_get_pointee_type(current_type);
-
-        type_t* updated_pointee_type = update_template_argument_type_rec(
-                pointee_type,
-                given_template_argument_list,
-                decl_context,
-                line,
-                filename
-                );
-
-        updated_pointee_type = get_cv_qualified_type(updated_pointee_type, get_cv_qualifier(pointee_type));
-
-        internal_error("Unhandled case yet", 0);
-
-        return NULL;
-    }
-    else if (is_array_type(current_type))
-    {
-        type_t* element_type = array_type_get_element_type(current_type);
-
-        type_t* updated_element_type = update_template_argument_type_rec(
-                element_type,
-                given_template_argument_list,
-                decl_context,
-                line,
-                filename
-                );
-
-        updated_element_type = get_cv_qualified_type(updated_element_type, 
-                get_cv_qualifier(element_type));
-
-        AST expression = array_type_get_array_size_expr(current_type);
-
-        decl_context_t fake_context = replace_template_parameters_with_template_arguments(given_template_argument_list,
-                array_type_get_array_size_expr_context(current_type));
-
-        type_t* updated_type = get_array_type(updated_element_type, expression, fake_context);
-        
-        updated_type = get_cv_qualified_type(updated_type, 
-                get_cv_qualifier(current_type));
-
-        return updated_type;
-    }
-    else if (is_function_type(current_type))
-    {
-        type_t* return_type = function_type_get_return_type(current_type);
-        type_t* updated_return_type = update_template_argument_type_rec(
-                return_type,
-                given_template_argument_list,
-                decl_context,
-                line,
-                filename
-                );
-        updated_return_type = get_cv_qualified_type(updated_return_type,
-                get_cv_qualifier(return_type));
-
-        type_t* updated_type = get_function_type(return_type);
-
-        int i;
-        for (i = 0; i < function_type_get_num_parameters(current_type); i++)
-        {
-            type_t* parameter_type = function_type_get_parameter_type_num(
-                    current_type, i
-                    );
-            type_t* updated_parameter_type = update_template_argument_type_rec(
-                    parameter_type,
-                    given_template_argument_list,
-                    decl_context,
-                    line,
-                    filename
-                    );
-
-            updated_parameter_type = get_cv_qualified_type(updated_parameter_type, 
-                    get_cv_qualifier(parameter_type));
-
-            // #warning FIXME, this prototype is not adjusted
-            function_type_add_parameter(updated_type, updated_parameter_type, updated_parameter_type, NULL,
-                    decl_context);
-        }
-
-        updated_type = get_cv_qualified_type(updated_type,
-                get_cv_qualifier(current_type));
-
-        return updated_type;
-    }
-    else 
-        return current_type;
-
-    internal_error("Unreachable code", 0);
-    return NULL;
-}
-
-static
-type_t* update_template_argument_type(template_parameter_t* curr_template_parameter, 
-        template_argument_list_t* template_argument_list,
-        decl_context_t decl_context, int line, char *filename)
-{
-    return update_template_argument_type_rec(curr_template_parameter->default_type,
-            template_argument_list,
-            decl_context, line, filename);
 }
 
 void build_scope_template_arguments(
@@ -6081,8 +5885,9 @@ void build_scope_template_arguments(
                         template_parameter_t* curr_template_parameter = 
                             primary_template->template_parameter_info[(*template_arguments)->num_arguments];
 
-                        // This type must be updated
-                        // Because of this case
+                        // We have to rebuild the actual type of this nontype template argument because
+                        // we did not save it
+                        // Because of cases like these
                         //
                         // template <typename _T, _T _N>
                         // struct A
@@ -6091,12 +5896,50 @@ void build_scope_template_arguments(
                         //
                         // A<int, 3> b;
                         //
-                        type_t* type_info = 
-                            update_template_argument_type_rec(curr_template_parameter->entry->type_information,
-                                    (*template_arguments),
-                                    argument_context,
-                                    ASTLine(class_head_id),
-                                    ASTFileName(class_head_id));
+                        // template <typename _T, typename _T::M _N>
+                        // struct B
+                        // {
+                        // };
+                        //
+                        // struct C { typedef int M; };
+                        //
+                        // B<C, 5> c;
+                        //
+                        //
+                        type_t* declarator_type = NULL;
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "Rebuilding type for nontype template argument '%s'\n", 
+                                        curr_template_parameter->entry->symbol_name);
+                            }
+
+                            type_t* type_info = NULL;
+                            AST nontype_template_parameter_tree = 
+                                curr_template_parameter->nontype_param_typename;
+                            AST decl_specifier_seq = ASTSon0(nontype_template_parameter_tree);
+                            AST parameter_declarator = ASTSon1(nontype_template_parameter_tree);
+                            // AST default_expression = ASTSon2(nontype_template_parameter_tree);
+
+                            gather_decl_spec_t gather_info;
+                            memset(&gather_info, 0, sizeof(gather_info));
+
+                            // Create fake context to avoid polluting the current one
+                            decl_context_t fake_context = 
+                                replace_template_parameters_with_template_arguments(
+                                        (*template_arguments),
+                                        curr_template_parameter->nontype_param_typename_context
+                                        );
+                            build_scope_decl_specifier_seq(decl_specifier_seq, &gather_info, &type_info, fake_context);
+
+                            declarator_type = type_info;
+                            if (parameter_declarator != NULL)
+                            {
+                                build_scope_declarator(parameter_declarator, 
+                                        &gather_info, type_info, &declarator_type,
+                                        fake_context);
+                            }
+                        }
 
                         // This expression is of limited nature
                         template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
@@ -6104,7 +5947,7 @@ void build_scope_template_arguments(
 
                         AST expr_template_argument = ASTSon0(template_argument);
 
-                        new_template_argument->type = type_info;
+                        new_template_argument->type = declarator_type;
                         new_template_argument->expression = expr_template_argument;
                         new_template_argument->expression_context = argument_context;
 
@@ -6186,9 +6029,33 @@ void build_scope_template_arguments(
                         //
                         // template <typename _T, typename _Q = _T>
                         // struct A { };
-                        type_t* updated_type = update_template_argument_type(curr_template_parameter, 
-                                (*template_arguments), argument_context, ASTLine(class_head_id), 
-                                ASTFileName(class_head_id));
+                        type_t* updated_type = NULL;
+                        // Build the whole type info in the faked context
+                        {
+                            AST type_id = curr_template_parameter->default_argument;
+
+                            decl_context_t faked_context = replace_template_parameters_with_template_arguments(
+                                    (*template_arguments),
+                                    curr_template_parameter->default_argument_context);
+
+                            AST type_specifier_seq = ASTSon0(type_id);
+                            AST abstract_decl = ASTSon1(type_id);
+
+                            type_t *type_info = NULL;
+
+                            gather_decl_spec_t gather_info;
+                            memset(&gather_info, 0, sizeof(gather_info));
+
+                            build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, faked_context);
+
+                            updated_type = type_info;
+                            if (abstract_decl != NULL)
+                            {
+                                build_scope_declarator(abstract_decl, 
+                                        &gather_info, type_info, &updated_type,
+                                        faked_context);
+                            }
+                        }
 
                         DEBUG_CODE()
                         {
@@ -6204,27 +6071,53 @@ void build_scope_template_arguments(
                 // this should be a simple name
                 case TPK_TEMPLATE :
                     {
-                        type_t* current_type = curr_template_parameter->default_type;
-                        type_t* updated_type = current_type;
-
-                        // Manual update because update_template_argument_type cannot be used for template
-                        // template arguments
-                        if (is_named_type(current_type))
+                        decl_context_t faked_context = replace_template_parameters_with_template_arguments(
+                                (*template_arguments),
+                                curr_template_parameter->default_argument_context);
+                        
+                        type_t* updated_type = NULL;
                         {
-                            scope_entry_t* entry = named_type_get_symbol(current_type);
+                            // Lookup the name
+                            AST id_expr = curr_template_parameter->default_argument;
 
-                            if (entry->is_template_parameter)
+                            scope_entry_list_t* entry_list = query_id_expression(faked_context, id_expr);
+
+                            ERROR_CONDITION((entry_list == NULL), "Default argument expression id not found\n", 0);
+
+                            enum cxx_symbol_kind valid_templates_arguments[3] = 
+                            { 
+                                SK_TEMPLATE_PRIMARY_CLASS, 
+                                SK_TEMPLATE_TEMPLATE_PARAMETER,
+                                SK_TEMPLATE_ALIAS,
+                            };
+                            // specializations are not necessary here
+                            entry_list = filter_symbol_kind_set(entry_list, 3, valid_templates_arguments);
+
+                            ERROR_CONDITION((entry_list == NULL), "No primary template or template template parameter found", 0);
+
+                            scope_entry_t* entry = entry_list->entry;
+
+                            // Flatten the template alias to avoid chains of template-alias
+                            if (entry->kind == SK_TEMPLATE_ALIAS)
                             {
-                                ERROR_CONDITION(entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER, "This should be "
-                                        "a template template parameter", 0);
-                                // Let's assume template parameter nesting is fine here
-                                if (entry->template_parameter_position >= (*template_arguments)->num_arguments)
-                                {
-                                    internal_error("This template parameter position is out of range", 0);
-                                }
+                                type_t* template_alias_type = entry->template_alias_type;
+                                // Check things are OK here
+                                ERROR_CONDITION(!is_named_type(template_alias_type),
+                                        "Template alias should be named entities", 0);
 
-                                updated_type = (*template_arguments)->argument_list[entry->template_parameter_position]->type;
+                                scope_entry_t* aliased_entry = named_type_get_symbol(template_alias_type);
+
+                                ERROR_CONDITION( (aliased_entry->kind != SK_TEMPLATE_PRIMARY_CLASS
+                                        && aliased_entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER),
+                                        "This template alias is ill-formed", 0);
+
+                                updated_type = entry->template_alias_type;
                             }
+                            else
+                            {
+                                updated_type = get_user_defined_type(entry);
+                            }
+
                         }
 
                         curr_template_arg->kind = TAK_TEMPLATE;
@@ -6243,24 +6136,57 @@ void build_scope_template_arguments(
                         //
                         // It is rather odd but valid anyway
                         //
-                        type_t* type_info = 
-                            update_template_argument_type_rec(curr_template_parameter->entry->type_information,
-                                    (*template_arguments),
-                                    argument_context,
-                                    ASTLine(class_head_id),
-                                    ASTFileName(class_head_id));
+                        type_t* declarator_type = NULL;
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "Rebuilding type for default nontype template argument '%s'\n", 
+                                        curr_template_parameter->entry->symbol_name);
+                            }
+
+                            type_t* type_info = NULL;
+                            AST nontype_template_parameter_tree = 
+                                curr_template_parameter->nontype_param_typename;
+                            AST decl_specifier_seq = ASTSon0(nontype_template_parameter_tree);
+                            AST parameter_declarator = ASTSon1(nontype_template_parameter_tree);
+                            // AST default_expression = ASTSon2(nontype_template_parameter_tree);
+
+                            gather_decl_spec_t gather_info;
+                            memset(&gather_info, 0, sizeof(gather_info));
+
+                            // Create fake context to avoid polluting the current one
+                            decl_context_t fake_context = 
+                                replace_template_parameters_with_template_arguments(
+                                        (*template_arguments),
+                                        curr_template_parameter->nontype_param_typename_context
+                                        );
+                            build_scope_decl_specifier_seq(decl_specifier_seq, &gather_info, &type_info, fake_context);
+
+                            declarator_type = type_info;
+                            if (parameter_declarator != NULL)
+                            {
+                                build_scope_declarator(parameter_declarator, 
+                                        &gather_info, type_info, &declarator_type,
+                                        fake_context);
+                            }
+                        }
+                        //     update_template_argument_type_rec(curr_template_parameter->entry->type_information,
+                        //             (*template_arguments),
+                        //             argument_context,
+                        //             ASTLine(class_head_id),
+                        //             ASTFileName(class_head_id));
 
                         // Create a fake context for this expression to cover this case
                         // template <int _N, int _M = _N + 1>
                         // struct A { };
                         //
-                        curr_template_arg->expression = curr_template_parameter->default_expr;
+                        curr_template_arg->expression = curr_template_parameter->default_argument;
                         curr_template_arg->expression_context = 
                             replace_template_parameters_with_template_arguments(
                                     (*template_arguments),
-                                    curr_template_parameter->default_expr_context);
+                                    curr_template_parameter->default_argument_context);
 
-                        curr_template_arg->type = type_info;
+                        curr_template_arg->type = declarator_type;
                         break;
                     }
                 default:

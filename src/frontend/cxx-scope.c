@@ -1700,7 +1700,7 @@ static scope_entry_list_t* query_template_id(AST template_id, decl_context_t loo
     else
     {
         // There is always a template that matches, the primary one
-        internal_error("No template found that matches '%s' in %s (while primary template always mathes)", 
+        internal_error("No template found that matches '%s' in %s (but primary template always matches)", 
                 prettyprint_in_buffer(template_id), node_information(template_id));
         return NULL;
     }

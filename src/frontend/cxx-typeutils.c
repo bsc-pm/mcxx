@@ -1030,16 +1030,6 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     //
     //
     // Fold if possible the expression
-    if (expression != NULL)
-    {
-        literal_value_t literal_value = evaluate_constant_expression(expression, decl_context);
-
-        if (literal_value.kind != LVK_DEPENDENT_EXPR)
-        {
-            expression = tree_from_literal_value(literal_value);
-        }
-    }
-
     type_t* result = calloc(1, sizeof(*result));
     result->kind = TK_ARRAY;
     result->unqualified_type = result;
@@ -3146,12 +3136,15 @@ char is_enumerated_type(type_t* t)
     t = advance_over_typedefs(t);
 
     return (t != NULL
-            && t->kind == TK_DIRECT
-            && ((t->type->kind == STK_USER_DEFINED
-                    && t->type->user_defined_type != NULL
-                    && t->type->user_defined_type->type_information->kind == TK_DIRECT
-                    && t->type->user_defined_type->type_information->type->kind == STK_ENUM)
-                || (t->type->kind == STK_ENUM)));
+            && ( 
+                (t->kind == TK_DIRECT 
+                 && t->type->kind == STK_ENUM)
+                || (is_named_type(t) 
+                    && is_enumerated_type(
+                        named_type_get_symbol(t)
+                        ->type_information))
+               )
+           );
 }
 
 char is_named_type(type_t* t)
@@ -3477,6 +3470,7 @@ char is_named_class_type(type_t* possible_class)
             && possible_class->kind == TK_DIRECT
             && possible_class->type->kind == STK_USER_DEFINED
             && possible_class->type->user_defined_type != NULL
+            && possible_class->type->user_defined_type->type_information != NULL
             && possible_class->type->user_defined_type->type_information->kind == TK_DIRECT
             && possible_class->type->user_defined_type->type_information->type->kind == STK_CLASS);
 }
@@ -3651,6 +3645,13 @@ cv_qualifier_t get_cv_qualifier(type_t* type_info)
 char is_dependent_expression(AST expression, decl_context_t decl_context)
 {
     ERROR_CONDITION(expression == NULL, "This cannot be null", 0);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "Checking whether '%s' expression is dependent\n", 
+                prettyprint_in_buffer(expression));
+    }
+
     switch (ASTType(expression))
     {
         case AST_EXPRESSION : 
@@ -3727,7 +3728,7 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
         case AST_BOOLEAN_LITERAL :
         case AST_CHARACTER_LITERAL :
         case AST_STRING_LITERAL :
-            // FIXME : "this" depends exclusively on the current context
+            // FIXME : 'this' depends exclusively on the current context
         case AST_THIS_VARIABLE :
             {
                 return 0;
@@ -3743,48 +3744,41 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
                     internal_error("Symbol '%s' in '%s' not found\n", prettyprint_in_buffer(expression),
                             node_information(expression));
                 }
+
                 scope_entry_t* entry = entry_list->entry;
-
-                if (entry->kind == SK_DEPENDENT_ENTITY
-                        || entry->kind == SK_TEMPLATE_PARAMETER)
+                if(entry->dependency_info == DI_UNKNOWN)
                 {
-                    entry->dependency_info = DI_DEPENDENT;
-                    return 1;
-                }
-
-                // Maybe this is a const-variable initialized with a dependent expression
-                if ((entry->kind == SK_VARIABLE
-                        || entry->kind == SK_ENUMERATOR))
-                {
-                    if(entry->dependency_info == DI_UNKNOWN)
+                    // Maybe this is a const-variable initialized with a dependent expression
+                    char result = 0;
+                    if (entry->kind == SK_DEPENDENT_ENTITY
+                            || entry->kind == SK_TEMPLATE_PARAMETER)
+                    {
+                        result = 1;
+                    }
+                    else if ((entry->kind == SK_VARIABLE
+                                || entry->kind == SK_ENUMERATOR))
                     {
                         if (entry->expression_value != NULL)
                         {
                             DEBUG_CODE()
                             {
-                                fprintf(stderr, "Computing dependency of expression '%s'\n", 
+                                fprintf(stderr, "Computing initialization dependency of expression '%s'\n", 
                                         prettyprint_in_buffer(entry->expression_value));
                             }
-                            // if (is_dependent_expression(entry->expression_value, decl_context))
-                            if (is_dependent_expression(entry->expression_value, entry->decl_context))
-                            {
-                                entry->dependency_info = DI_DEPENDENT;
-                                return 1;
-                            }
+                            entry->dependency_info = DI_BUSY;
+                            result |= is_dependent_expression(entry->expression_value, entry->decl_context);
                         }
                     }
-                    else
+
+                    if (entry->type_information != NULL)
                     {
-                        // Dependency information has already been computed or
-                        // it is being computed now
-                        return (entry->dependency_info == DI_DEPENDENT);
+                        result |= is_dependent_type(entry->type_information, decl_context);
                     }
+
+                    entry->dependency_info = (result ? DI_DEPENDENT : DI_NOT_DEPENDENT);
                 }
 
-                char result;
-                result = is_dependent_type(entry->type_information, decl_context);
-                entry->dependency_info = result ? DI_DEPENDENT : DI_NOT_DEPENDENT;
-                return result;
+                return (entry->dependency_info == DI_DEPENDENT);
             }
             // Postfix expressions
         case AST_ARRAY_SUBSCRIPT :
@@ -4059,10 +4053,10 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
             }
         case STK_USER_DEFINED :
             {
-                if (simple_type->user_defined_type->dependency_info == DI_UNKNOWN)
+                scope_entry_t* symbol = simple_type->user_defined_type;
+                if (symbol->dependency_info == DI_UNKNOWN)
                 {
                     // We have to compute it
-                    scope_entry_t* symbol = simple_type->user_defined_type;
                     symbol->dependency_info = DI_BUSY;
 
                     char result = 0;
@@ -4079,7 +4073,6 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
                         result = is_dependent_type(symbol->type_information, decl_context);
                     }
 
-
                     // If the symbol type is member, we have to check the class
                     // where it belongs
                     if (!result && symbol->is_member)
@@ -4087,14 +4080,10 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
                         result |= is_dependent_type(symbol->class_type, decl_context);
                     }
                     
-                    symbol->dependency_info =
-                        (result ? DI_DEPENDENT : DI_NOT_DEPENDENT);
-                    return result;
+                    symbol->dependency_info = (result ? DI_DEPENDENT : DI_NOT_DEPENDENT);
                 }
-                else
-                {
-                    return (simple_type->user_defined_type->dependency_info == DI_DEPENDENT);
-                }
+
+                return (symbol->dependency_info == DI_DEPENDENT);
                 break;
             }
         case STK_ENUM :
@@ -4111,20 +4100,12 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
                     {
                         if (is_dependent_expression(entry->expression_value, entry->decl_context))
                         {
-                            entry->dependency_info = DI_DEPENDENT;
                             return 1;
-                        }
-                        else
-                        {
-                            entry->dependency_info = DI_NOT_DEPENDENT;
                         }
                     }
                     else
                     {
-                        if (entry->dependency_info == DI_DEPENDENT)
-                        {
-                            return 1;
-                        }
+                        return (entry->dependency_info == DI_DEPENDENT);
                     }
                 }
 
@@ -5048,9 +5029,7 @@ char* print_declarator(type_t* printed_declarator, decl_context_t decl_context)
                 tmp_result = strappend(tmp_result, "pointer to member of ");
                 if (printed_declarator->pointer->pointee_class != NULL)
                 {
-                    tmp_result = strappend(tmp_result,
-                            print_declarator(printed_declarator->pointer->pointee_class->type_information, decl_context)
-                          );
+                    tmp_result = get_named_type_name(printed_declarator->pointer->pointee_class);
                 }
                 else
                 {
