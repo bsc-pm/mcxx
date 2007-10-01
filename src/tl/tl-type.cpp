@@ -383,7 +383,7 @@ namespace TL
         return Type(type_info);
     }
 
-    Type get_unqualified_type()
+    Type Type::get_unqualified_type()
     {
         // Might return itself if not qualified
         return get_cv_qualified_type(this->_type_info, CV_NONE);
