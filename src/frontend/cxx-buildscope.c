@@ -2645,6 +2645,9 @@ static void set_function_parameter_clause(type_t* function_type,
         
         type_t* simple_type_info;
 
+        decl_context_t param_decl_context = decl_context;
+        param_decl_context.decl_flags |= DF_PARAMETER_DECLARATION;
+
         build_scope_decl_specifier_seq(parameter_decl_spec_seq, &gather_info, &simple_type_info,
                 decl_context);
 
@@ -2663,9 +2666,9 @@ static void set_function_parameter_clause(type_t* function_type,
         if (parameter_declarator != NULL)
         {
             entry = build_scope_declarator(parameter_declarator, 
-                    &gather_info, simple_type_info, &type_info, decl_context);
+                    &gather_info, simple_type_info, &type_info, param_decl_context);
 
-            AST declarator_name = get_declarator_name(parameter_declarator, decl_context);
+            AST declarator_name = get_declarator_name(parameter_declarator, param_decl_context);
             if (declarator_name != NULL)
             {
                 ASTAttrSetValueType(parameter_declaration, LANG_IS_NAMED_PARAMETER_DECLARATION, 
@@ -2721,7 +2724,7 @@ static void set_function_parameter_clause(type_t* function_type,
             entry->type_information = original_type;
         }
 
-        function_type_add_parameter(function_type, type_info, original_type, default_argument, decl_context);
+        function_type_add_parameter(function_type, type_info, original_type, default_argument, param_decl_context);
         parameter_position++;
     }
 
@@ -3282,7 +3285,11 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
 static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* declarator_type, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context)
 {
-    if (!is_function_type(declarator_type))
+    if (!is_function_type(declarator_type)
+            // A parameter might have function type but we do not want to do
+            // anything special on it, later on its type will be adjusted
+            // to pointer to function
+            || BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
     {
         decl_flags_t decl_flags = DF_NONE;
         if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))

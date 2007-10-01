@@ -1065,12 +1065,16 @@ int function_type_get_num_parameters(type_t* function_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
 
+    function_type = advance_over_typedefs(function_type);
+
     return function_type->function->num_parameters;
 }
 
 type_t* function_type_get_parameter_type_num(type_t* function_type, int num_param)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
 
     return function_type->function->parameter_list[num_param]->type_info;
 }
@@ -1081,6 +1085,8 @@ void function_type_set_template_information(type_t* function_type,
         template_parameter_t** template_parameters)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
 
     function_type->function->template_nesting = template_nesting;
     function_type->function->num_template_parameters = num_template_parameters;
@@ -1459,7 +1465,8 @@ char function_type_get_is_constructor(type_t* function_type)
 
 void function_type_set_template_body(type_t* type, AST function_body)
 {
-    ERROR_CONDITION(!is_function_type(type), "Typs ies not function type", 0);
+    ERROR_CONDITION(!is_function_type(type), "Type is not function type", 0);
+    type = advance_over_typedefs(type);
     type->function->function_body = function_body;
 }
 

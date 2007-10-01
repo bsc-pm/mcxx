@@ -91,7 +91,9 @@ enum decl_flags_tag
     // Disables instantiation of symbols. Used in dependent contexts
     DF_NO_INSTANTIATE = BITMAP(13),
     // Enables weird lookup for 'struct X'/'union X'/'enum X'
-    DF_ELABORATED_NAME = BITMAP(14)
+    DF_ELABORATED_NAME = BITMAP(14),
+    // States that we are under parameter declaration
+    DF_PARAMETER_DECLARATION = BITMAP(15)
 } decl_flags_t;
 
 #undef BITMAP
