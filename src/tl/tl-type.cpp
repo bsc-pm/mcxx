@@ -89,7 +89,7 @@ namespace TL
         decl_context_t decl_context;
         type_t* array_to = get_array_type(result_type, array_expr._ast, decl_context);
 
-        return Type(result_type);
+        return Type(array_to);
     }
 
     bool Type::operator==(Type t) const
@@ -375,5 +375,35 @@ namespace TL
     {
         type_t* type_info = advance_over_typedefs(_type_info);
         return pointer_to_member_type_get_class_type(type_info);
+    }
+
+    Type Type::get_reference_to()
+    {
+        type_t* type_info = get_reference_type(_type_info);
+        return Type(type_info);
+    }
+
+    Type get_unqualified_type()
+    {
+        // Might return itself if not qualified
+        return get_cv_qualified_type(this->_type_info, CV_NONE);
+    }
+
+    Type Type::get_const_type()
+    {
+        // Might return itself if already const qualified
+        return get_cv_qualified_type(this->_type_info, CV_CONST);
+    }
+
+    Type Type::get_volatile_type()
+    {
+        // Might return itself if already volatile qualified
+        return get_cv_qualified_type(_type_info, CV_VOLATILE);
+    }
+
+    Type Type::get_restrict_type()
+    {
+        // Might return itself if already restrict qualified
+        return get_cv_qualified_type(_type_info, CV_RESTRICT);
     }
 }

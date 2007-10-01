@@ -48,4 +48,18 @@ namespace TL
             return std::string("#include \"") + _file + std::string("\"");
         }
     }
+
+    std::string CurrentFile::get_top_level_included_files_str()
+    {
+        ObjectList<IncludeLine> lines = CurrentFile::get_top_level_included_files();
+
+        std::string result;
+
+        for (ObjectList<IncludeLine>::iterator it = lines.begin(); it++; it != lines.end())
+        {
+            result << lines->get_preprocessor_line();
+        }
+
+        return result;
+    }
 }

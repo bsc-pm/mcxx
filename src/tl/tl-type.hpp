@@ -100,6 +100,12 @@ namespace TL
 
             Type get_pointer_to();
             Type get_array_to(AST_t expression_array, Scope scope);
+            Type get_reference_to();
+
+            Type get_unqualified_type();
+            Type get_const_type();
+            Type get_volatile_type();
+            Type get_restrict_type();
 
             bool operator==(Type t) const;
             bool operator!=(Type t) const;

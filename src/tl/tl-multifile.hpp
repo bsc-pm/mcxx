@@ -53,6 +53,7 @@ namespace TL
     {
         public:
             static ObjectList<IncludeLine> get_top_level_included_files();
+            static std::string get_top_level_included_files_str();
     };
 }
 
