@@ -55,9 +55,11 @@ namespace TL
 
         std::string result;
 
-        for (ObjectList<IncludeLine>::iterator it = lines.begin(); it++; it != lines.end())
+        for (ObjectList<IncludeLine>::iterator it = lines.begin(); 
+                it != lines.end();
+                it++)
         {
-            result << lines->get_preprocessor_line();
+            result += it->get_preprocessor_line();
         }
 
         return result;
