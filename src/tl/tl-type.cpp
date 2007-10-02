@@ -386,7 +386,7 @@ namespace TL
     bool Type::is_complex() const
     {
         type_t* type_info = advance_over_typedefs(_type_info);
-        return is_complex_type(_type_info);
+        return is_complex_type(type_info);
     }
 
     Type Type::get_reference_to()
