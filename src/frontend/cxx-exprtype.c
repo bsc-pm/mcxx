@@ -529,7 +529,7 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
                 if (abstract_declarator != NULL)
                 {
                     type_t* declarator_type = NULL;
-                    build_scope_declarator(abstract_declarator, &gather_info, simple_type_info, 
+                    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
                             &declarator_type, decl_context);
 
                     result_type = declarator_type;

@@ -1491,7 +1491,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     decl_context_t nofail_context = decl_context;
                     nofail_context.decl_flags |= DF_NO_FAIL;
                     type_t* declarator_type = NULL;
-                    build_scope_declarator(abstract_declarator, &gather_info, simple_type_info, 
+                    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
                             &declarator_type, nofail_context);
                 }
 
@@ -1835,7 +1835,7 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
     if (new_declarator != NULL)
     {
         type_t* declarator_type = NULL;
-        build_scope_declarator(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context);
+        compute_declarator_type(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context);
     }
 
     if (new_initializer != NULL)
@@ -2305,7 +2305,7 @@ static char check_for_template_argument_list(AST argument_list, decl_context_t d
                 if (abstract_declarator != NULL)
                 {
                     type_t* declarator_type = NULL;
-                    build_scope_declarator(abstract_declarator, &gather_info, simple_type_info, 
+                    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
                             &declarator_type, decl_context);
                 }
             }
@@ -2513,7 +2513,7 @@ static char check_for_cast(AST expr, decl_context_t decl_context)
         if (abstract_declarator != NULL)
         {
             type_t* declarator_type = NULL;
-            build_scope_declarator(abstract_declarator, &gather_info, simple_type_info, 
+            compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
                     &declarator_type, decl_context);
         }
 
