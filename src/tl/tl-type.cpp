@@ -352,6 +352,12 @@ namespace TL
         return is_long_double_type(type_info);
     }
 
+    bool Type::is_double() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_double_type(type_info);
+    }
+
     bool Type::is_float() const
     {
         type_t* type_info = advance_over_typedefs(_type_info);
@@ -375,6 +381,12 @@ namespace TL
     {
         type_t* type_info = advance_over_typedefs(_type_info);
         return pointer_to_member_type_get_class_type(type_info);
+    }
+
+    bool Type::is_complex() const
+    {
+        type_t* type_info = advance_over_typedefs(_type_info);
+        return is_complex_type(_type_info);
     }
 
     Type Type::get_reference_to()

@@ -50,7 +50,6 @@ namespace TL
             static bool declarator_needs_parentheses(type_t* type_info);
             static std::string get_declaration_str_internal(type_t* type_info, 
                     const std::string& symbol_name, const std::string& initializer, bool semicolon);
-
         public:
 
             enum TypeDeclFlags
@@ -131,9 +130,13 @@ namespace TL
 
             bool is_floating_type() const;
             bool is_long_double() const;
+            bool is_double() const;
             bool is_float() const;
 
             bool is_bool() const;
+
+            // C99 complex numbers (a pair of real numbers)
+            bool is_complex() const;
             
             // Direct types
             bool is_direct_type() const DEPRECATED;

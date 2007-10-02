@@ -166,6 +166,7 @@ char is_unsigned_char_type(type_t* t);
 char is_wchar_t_type(type_t* t);
 
 char is_floating_type(type_t* t);
+char is_double_type(type_t* t);
 char is_long_double_type(type_t* t);
 char is_float_type(type_t* t);
 

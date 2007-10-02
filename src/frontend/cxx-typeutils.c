@@ -3206,6 +3206,16 @@ char is_floating_type(type_t* t)
                 || t->type->builtin_type == BT_DOUBLE));
 }
 
+char is_double_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+
+    return (t != NULL
+            && is_floating_type(t) 
+            && t->type->builtin_type == BT_DOUBLE
+            && !t->type->is_long);
+}
+
 char is_long_double_type(type_t* t)
 {
     t = advance_over_typedefs(t);
