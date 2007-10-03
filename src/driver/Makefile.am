@@ -11,6 +11,8 @@ mcxx_CFLAGS=-fexceptions \
 			-Wall
 
 mcxx_SOURCES = \
+  cxx-parameters.c \
+  cxx-parameters.h \
   cxx-driver.c \
   cxx-driver-decls.h \
   cxx-driver.h

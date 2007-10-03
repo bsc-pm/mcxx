@@ -27,7 +27,6 @@
 #include <string.h>
 #include <libgen.h>
 
-#include "getopt.h"
 #include "cxx-utils.h"
 #include "cxx-driver.h"
 #include "cxx-ast.h"
@@ -62,8 +61,8 @@ compilation_process_t compilation_process;
 "  -l <name>                Adds lib<name> into the final link\n" \
 "  -g                       Enables debug for the native compilation\n" \
 "  -D<macro>                Passes <macro> to the preprocessor\n" \
-"  -O                       Enables -O optimization to the native\n" \
-"                           compiler\n" \
+"  -O -O0 -O1 -O2 -O3       Sets optimization level to the\n" \
+"                           preprocessor and native compiler\n" \
 "  -y                       Only parsing will be performed\n" \
 "                           No file will be generated\n" \
 "  -x lang                  Override language detection to <lang>\n" \
@@ -96,38 +95,43 @@ compilation_process_t compilation_process;
 "  --variable=<name:value>  Defines variable 'name' with value\n" \
 "                           'value' to be used in the compiler\n" \
 "                           phases pipeline\n" \
+"  -f<name>, -m<name>       For compatibility with gcc, these options\n" \
+"                           will be passed verbatim to the\n" \
+"                           preprocessor, compiler and linker\n" \
 "\n"
+/* ------------------------------------------------------------------ */
 
-// Remember to update GETOPT_STRING if needed
-#define GETOPT_STRING "vkadcho:m:W:EyI:L:l:gOD:x:"
-struct option getopt_long_options[] =
+// It mimics getopt
+#define SHORT_OPTIONS_STRING "vkadcho:m:W:EyI:L:l:gD:x:"
+// This one mimics getopt_long but with one less field (the third one is not given)
+struct command_line_long_options command_line_long_options[] =
 {
-    {"help",        no_argument, NULL, 'h'},
-    {"version",     no_argument, NULL, OPTION_VERSION},
-    {"verbose",     no_argument, NULL, 'v'},
-    {"keep-files",  no_argument, NULL, 'k'},
-    {"check-dates", no_argument, NULL, 'a'},
-    {"debug",       no_argument, NULL, 'd'},
-    {"output",      required_argument, NULL, 'o'},
+    {"help",        CLP_NO_ARGUMENT, 'h'},
+    {"version",     CLP_NO_ARGUMENT, OPTION_VERSION},
+    {"verbose",     CLP_NO_ARGUMENT, 'v'},
+    {"keep-files",  CLP_NO_ARGUMENT, 'k'},
+    {"check-dates", CLP_NO_ARGUMENT, 'a'},
+    {"debug",       CLP_NO_ARGUMENT, 'd'},
+    {"output",      CLP_REQUIRED_ARGUMENT, 'o'},
     // This option has a chicken-and-egg problem. If we delay till getopt_long
     // to open the configuration file we overwrite variables defined in the
     // command line. Thus "load_configuration" is invoked before command line parsing
     // and looks for "--config-file" / "-m" in the arguments
-    {"config-file", required_argument, NULL, 'm'},
+    {"config-file", CLP_REQUIRED_ARGUMENT, 'm'},
     // This option has a chicken-and-egg similar to the --config-file.
     // It is handled in "load_configuration"
-    {"profile", required_argument, NULL, OPTION_PROFILE},
-    {"output-dir",  required_argument, NULL, OPTION_OUTPUT_DIRECTORY},
-    {"cc", required_argument, NULL, OPTION_NATIVE_COMPILER_NAME},
-    {"cxx", required_argument, NULL, OPTION_NATIVE_COMPILER_NAME},
-    {"cpp", required_argument, NULL, OPTION_PREPROCESSOR_NAME},
-    {"ld", required_argument, NULL, OPTION_LINKER_NAME},
-    {"debug-flags",  required_argument, NULL, OPTION_DEBUG_FLAG},
-    {"help-debug-flags", no_argument, NULL, OPTION_HELP_DEBUG_FLAGS},
-    {"no-openmp", no_argument, NULL, OPTION_NO_OPENMP},
-    {"variable-name", required_argument, NULL, OPTION_EXTERNAL_VAR},
+    {"profile", CLP_REQUIRED_ARGUMENT, OPTION_PROFILE},
+    {"output-dir",  CLP_REQUIRED_ARGUMENT, OPTION_OUTPUT_DIRECTORY},
+    {"cc", CLP_REQUIRED_ARGUMENT, OPTION_NATIVE_COMPILER_NAME},
+    {"cxx", CLP_REQUIRED_ARGUMENT, OPTION_NATIVE_COMPILER_NAME},
+    {"cpp", CLP_REQUIRED_ARGUMENT, OPTION_PREPROCESSOR_NAME},
+    {"ld", CLP_REQUIRED_ARGUMENT, OPTION_LINKER_NAME},
+    {"debug-flags",  CLP_REQUIRED_ARGUMENT, OPTION_DEBUG_FLAG},
+    {"help-debug-flags", CLP_NO_ARGUMENT, OPTION_HELP_DEBUG_FLAGS},
+    {"no-openmp", CLP_NO_ARGUMENT, OPTION_NO_OPENMP},
+    {"variable-name", CLP_REQUIRED_ARGUMENT, OPTION_EXTERNAL_VAR},
     // sentinel
-    {NULL, 0, NULL, 0}
+    {NULL, 0, 0}
 };
 
 char* source_language_names[] =
@@ -169,6 +173,8 @@ static void load_compiler_phases(void);
 static void register_default_initializers(void);
 
 static void help_message(void);
+
+static int parse_special_parameters(int *index, int argc, char* argv[]);
 
 int main(int argc, char* argv[])
 {
@@ -284,254 +290,308 @@ static void options_error(char* message)
     exit(EXIT_FAILURE);
 }
 
+
+
 // Returns nonzero if an error happened. In that case we would show the help
 // Messages issued here must be ended with \n for sthetic reasons
 int parse_arguments(int argc, char* argv[], char from_command_line)
 {
-    int c;
-    int indexptr = 0;
     char* output_file = NULL;
 
-    // Must be set zero
-    optind = 0;
+    // It is 1 because we ignore the first argument, since it is the name of
+    // the program invocation
+    int parameter_index = 1;
 
     // Flags -E/-y and -c are incompatible
     static char c_specified = 0;
     static char E_specified = 0;
     static char y_specified = 0;
 
-    while ((c = getopt_long (argc, argv, GETOPT_STRING, 
-                    getopt_long_options, 
-                    &indexptr)) != -1)
+    struct command_line_parameter_t parameter_info;
+
+    int number_of_files = 0;
+
+    while (command_line_get_next_parameter(&parameter_index, 
+                &parameter_info,
+                SHORT_OPTIONS_STRING,
+                command_line_long_options,
+                argc, argv))
     {
-        switch (c)
+        // An invalid option 
+        // It might be -fXXX -mXXX options that we freely
+        // allow for better compatibility with gcc
+        if (parameter_info.flag == CLP_INVALID)
         {
-            case OPTION_VERSION : // --version
+            // This function should advance parameter_index if needed
+            if (parse_special_parameters(&parameter_index, argc, argv))
+            {
+                fprintf(stderr, "Unknown parameter '%s'\n", argv[parameter_index]);
+                return 1;
+            }
+        }
+        // A plain parameter (not under the hood of any option)
+        else if (parameter_info.flag == CLP_PLAIN_PARAMETER)
+        {
+            if (!from_command_line)
+            {
+                fprintf(stderr, "Invalid non-option binded argument '%s'"
+                        " specified in the configuration file\n",
+                        parameter_info.argument);
+                continue;
+            }
+            // Ignore spurious parameters
+            if ((parameter_info.argument != NULL)
+                    && (strlen(parameter_info.argument) > 0))
+            {
+                if ((number_of_files > 1) 
+                        && c_specified
+                        && output_file != NULL)
                 {
-                    // Special case where nothing should be done
-                    print_version();
-                    exit(EXIT_SUCCESS);
-                    break;
-                }
-            case 'v' : // --verbose || -v
-                {
-                    CURRENT_CONFIGURATION(verbose) = 1;
-                    break;
-                }
-            case 'k' : // --keep-files || -k
-                {
-                    CURRENT_CONFIGURATION(keep_files) = 1;
-                    break;
-                }
-            case 'c' : // -c
-                {
-                    if (y_specified || E_specified)
-                    {
-                        fprintf(stderr, "Parameter -c cannot be used together with -E or -y\n");
-                        return 1;
-                    }
-
-                    c_specified = 1;
-
-                    CURRENT_CONFIGURATION(do_not_link) = 1;
-                    break;
-                }
-            case 'E' : // -E
-                {
-                    if (c_specified || y_specified)
-                    {
-                        fprintf(stderr, "Parameter -E cannot be used together with -c or -y\n");
-                        return 1;
-                    }
-
-                    E_specified = 1;
-
-                    CURRENT_CONFIGURATION(do_not_compile) = 1;
-                    CURRENT_CONFIGURATION(do_not_link) = 1;
-                    break;
-                }
-            case 'y' : // -y
-                {
-                    if (c_specified || E_specified)
-                    {
-                        fprintf(stderr, "Parameter -y cannot be used together with -c or -E\n");
-                        return 1;
-                    }
-
-                    y_specified = 1;
-
-                    CURRENT_CONFIGURATION(do_not_compile) = 1;
-                    CURRENT_CONFIGURATION(do_not_link) = 1;
-                    CURRENT_CONFIGURATION(do_not_prettyprint) = 1;
-                    break;
-                }
-            case 'a' : // --check-dates || -a
-                {
-                    CURRENT_CONFIGURATION(check_dates) = 1;
-                    break;
-                }
-            case 'm' :
-                {
-                    // This option is handled in "load_configuration"
-                    // and ignored here for getopt_long happiness
-                    break;
-                }
-            case 'o' :
-                {
-                    if (output_file != NULL)
-                    {
-                        fprintf(stderr, "Output file specified twice\n");
-                        return 1;
-                    }
-                    else
-                    {
-                        output_file = strdup(optarg);
-                    }
-                    break;
-                }
-            case 'W' :
-                {
-                    parse_subcommand_arguments(optarg);
-                    break;
-                }
-            case 'O' :
-                {
-                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(native_compiler_options), "-O");
-                    break;
-                }
-            case 'I' :
-                {
-                    char temp[256] = { 0 };
-                    snprintf(temp, 255, "-I%s", optarg);
-                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(preprocessor_options), temp);
-                    break;
-                }
-            case 'L' :
-                {
-                    char temp[256] = { 0 };
-                    snprintf(temp, 255, "-L%s", optarg);
-                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), temp);
-                    break;
-                }
-            case 'l' : 
-                {
-                    char temp[256] = { 0 };
-                    snprintf(temp, 255, "-l%s", optarg);
-                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), temp);
-                    break;
-                }
-            case 'D' :
-                {
-                    char temp[256] = { 0 };
-                    snprintf(temp, 255, "-D%s", optarg);
-                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(preprocessor_options), temp);
-                    break;
-                }
-            case 'g' :
-                {
-                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(native_compiler_options), "-g");
-                    break;
-                }
-			case 'x' :
-				{
-					if (strcasecmp(optarg, "C") == 0)
-					{
-						CURRENT_CONFIGURATION(force_language) = 1;
-						CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_C;
-					}
-					else if (strcasecmp(optarg, "C++") == 0)
-					{
-						CURRENT_CONFIGURATION(force_language) = 1;
-						CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_CXX;
-					}
-					else
-					{
-						fprintf(stderr, "Invalid language specification in -x, valid options are 'C' or 'C++'. Ignoring\n");
-					}
-					
-					break;
-				}
-            case OPTION_PREPROCESSOR_NAME :
-                {
-                    CURRENT_CONFIGURATION(preprocessor_name) = strdup(optarg);
-                    break;
-                }
-            case OPTION_NATIVE_COMPILER_NAME :
-                {
-                    CURRENT_CONFIGURATION(native_compiler_name) = strdup(optarg);
-                    break;
-                }
-            case OPTION_LINKER_NAME :
-                {
-                    CURRENT_CONFIGURATION(linker_name) = strdup(optarg);
-                    break;
-                }
-            case OPTION_DEBUG_FLAG :
-                {
-                    enable_debug_flag(strdup(optarg));
-                    break;
-                }
-            case OPTION_OUTPUT_DIRECTORY :
-                {
-                    CURRENT_CONFIGURATION(output_directory) = strdup(optarg);
-                    break;
-                }
-            case OPTION_NO_OPENMP :
-                {
-                    CURRENT_CONFIGURATION(disable_openmp) = 1;
-                    break;
-                }
-            case OPTION_HELP_DEBUG_FLAGS :
-                {
-                    print_debug_flags_list();
-                    exit(EXIT_SUCCESS);
-                    break;
-                }
-            case OPTION_PROFILE :
-                {
-                    break;
-                }
-            case OPTION_EXTERNAL_VAR :
-                {
-                    if (strchr(optarg, ':') == NULL)
-                    {
-                        fprintf(stderr, "External variable '%s' definition is missing a colon. It will be ignored\n",
-                                optarg);
-                        break;
-                    }
-
-                    char* name = strdup(optarg);
-                    char* value = strchr(name, ':');
-                    *value = '\0';
-                    value++;
-
-                    external_var_t* new_external_var = calloc(1, sizeof(*new_external_var));
-
-                    new_external_var->name = name;
-                    new_external_var->value = value;
-
-                    P_LIST_ADD(compilation_process.external_vars, compilation_process.num_external_vars,
-                            new_external_var);
-                    break;
-                }
-            case 'h' :
-                {
+                    fprintf(stderr, "Cannot specify -o with -c with multiple files (second file '%s')", 
+                            argv[(parameter_index - 1)]);
                     return 1;
                 }
+                else
+                {
+                    add_new_file_to_compilation_process(parameter_info.argument, 
+                            output_file, compilation_process.current_compilation_configuration);
+                    number_of_files++;
+                }
+            }
+        }
+        // A known option
+        else 
+        {
+            switch (parameter_info.value)
+            {
+                case OPTION_VERSION : // --version
+                    {
+                        // Special case where nothing should be done
+                        print_version();
+                        exit(EXIT_SUCCESS);
+                        break;
+                    }
+                case 'v' : // --verbose || -v
+                    {
+                        CURRENT_CONFIGURATION(verbose) = 1;
+                        break;
+                    }
+                case 'k' : // --keep-files || -k
+                    {
+                        CURRENT_CONFIGURATION(keep_files) = 1;
+                        break;
+                    }
+                case 'c' : // -c
+                    {
+                        if (y_specified || E_specified)
+                        {
+                            fprintf(stderr, "Parameter -c cannot be used together with -E or -y\n");
+                            return 1;
+                        }
+
+                        c_specified = 1;
+
+                        CURRENT_CONFIGURATION(do_not_link) = 1;
+                        break;
+                    }
+                case 'E' : // -E
+                    {
+                        if (c_specified || y_specified)
+                        {
+                            fprintf(stderr, "Parameter -E cannot be used together with -c or -y\n");
+                            return 1;
+                        }
+
+                        E_specified = 1;
+
+                        CURRENT_CONFIGURATION(do_not_compile) = 1;
+                        CURRENT_CONFIGURATION(do_not_link) = 1;
+                        break;
+                    }
+                case 'y' : // -y
+                    {
+                        if (c_specified || E_specified)
+                        {
+                            fprintf(stderr, "Parameter -y cannot be used together with -c or -E\n");
+                            return 1;
+                        }
+
+                        y_specified = 1;
+
+                        CURRENT_CONFIGURATION(do_not_compile) = 1;
+                        CURRENT_CONFIGURATION(do_not_link) = 1;
+                        CURRENT_CONFIGURATION(do_not_prettyprint) = 1;
+                        break;
+                    }
+                case 'a' : // --check-dates || -a
+                    {
+                        CURRENT_CONFIGURATION(check_dates) = 1;
+                        break;
+                    }
+                case 'm' :
+                    {
+                        // This option is handled in "load_configuration"
+                        // and ignored here for getopt_long happiness
+                        break;
+                    }
+                case 'o' :
+                    {
+                        if (output_file != NULL)
+                        {
+                            fprintf(stderr, "Output file specified twice\n");
+                            return 1;
+                        }
+                        else
+                        {
+                            output_file = strdup(parameter_info.argument);
+                        }
+                        break;
+                    }
+                case 'W' :
+                    {
+                        parse_subcommand_arguments(parameter_info.argument);
+                        break;
+                    }
+                case 'I' :
+                    {
+                        char temp[256] = { 0 };
+                        snprintf(temp, 255, "-I%s", parameter_info.argument);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION(preprocessor_options), temp);
+                        break;
+                    }
+                case 'L' :
+                    {
+                        char temp[256] = { 0 };
+                        snprintf(temp, 255, "-L%s", parameter_info.argument);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), temp);
+                        break;
+                    }
+                case 'l' : 
+                    {
+                        char temp[256] = { 0 };
+                        snprintf(temp, 255, "-l%s", parameter_info.argument);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), temp);
+                        break;
+                    }
+                case 'D' :
+                    {
+                        char temp[256] = { 0 };
+                        snprintf(temp, 255, "-D%s", parameter_info.argument);
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION(preprocessor_options), temp);
+                        break;
+                    }
+                case 'g' :
+                    {
+                        add_to_parameter_list_str(&CURRENT_CONFIGURATION(native_compiler_options), "-g");
+                        break;
+                    }
+                case 'x' :
+                    {
+                        if (strcasecmp(parameter_info.argument, "C") == 0)
+                        {
+                            CURRENT_CONFIGURATION(force_language) = 1;
+                            CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_C;
+                        }
+                        else if (strcasecmp(parameter_info.argument, "C++") == 0)
+                        {
+                            CURRENT_CONFIGURATION(force_language) = 1;
+                            CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_CXX;
+                        }
+                        else
+                        {
+                            fprintf(stderr, "Invalid language specification in -x, valid options are 'C' or 'C++'. Ignoring\n");
+                        }
+
+                        break;
+                    }
+                case OPTION_PREPROCESSOR_NAME :
+                    {
+                        CURRENT_CONFIGURATION(preprocessor_name) = strdup(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_NATIVE_COMPILER_NAME :
+                    {
+                        CURRENT_CONFIGURATION(native_compiler_name) = strdup(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_LINKER_NAME :
+                    {
+                        CURRENT_CONFIGURATION(linker_name) = strdup(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_DEBUG_FLAG :
+                    {
+                        enable_debug_flag(strdup(parameter_info.argument));
+                        break;
+                    }
+                case OPTION_OUTPUT_DIRECTORY :
+                    {
+                        CURRENT_CONFIGURATION(output_directory) = strdup(parameter_info.argument);
+                        break;
+                    }
+                case OPTION_NO_OPENMP :
+                    {
+                        CURRENT_CONFIGURATION(disable_openmp) = 1;
+                        break;
+                    }
+                case OPTION_HELP_DEBUG_FLAGS :
+                    {
+                        print_debug_flags_list();
+                        exit(EXIT_SUCCESS);
+                        break;
+                    }
+                case OPTION_PROFILE :
+                    {
+                        break;
+                    }
+                case OPTION_EXTERNAL_VAR :
+                    {
+                        if (strchr(parameter_info.argument, ':') == NULL)
+                        {
+                            fprintf(stderr, "External variable '%s' definition is missing a colon. It will be ignored\n",
+                                    parameter_info.argument);
+                            break;
+                        }
+
+                        char* name = strdup(parameter_info.argument);
+                        char* value = strchr(name, ':');
+                        *value = '\0';
+                        value++;
+
+                        external_var_t* new_external_var = calloc(1, sizeof(*new_external_var));
+
+                        new_external_var->name = name;
+                        new_external_var->value = value;
+
+                        P_LIST_ADD(compilation_process.external_vars, compilation_process.num_external_vars,
+                                new_external_var);
+                        break;
+                    }
+                case 'h' :
+                    {
+                        return 1;
+                    }
+                default:
+                    {
+                        internal_error("Unhandled option\n", 0);
+                    }
+            }
         }
     }
 
     if (!from_command_line)
     {
-        return 1;
+        return 0;
     }
 
-    if (argc == optind)
+    if (number_of_files == 0)
     {
-        fprintf(stderr, "You must specify an input file.\n");
+        fprintf(stderr, "You must specify an input file\n");
         return 1;
     }
 
+    // Additional sanity checks
+    //
     // "-o -" is not valid when compilation or linking will be done
     if (output_file != NULL
             && (strcmp(output_file, "-") == 0)
@@ -549,29 +609,6 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
         output_file = strdup("-");
     }
 
-    int i = 1;
-    while (optind < argc)
-    {
-        // Ignore spurious blank parameters
-        if (strlen(argv[optind]) != 0
-                && !is_blank_string(argv[optind]))
-        {
-            if ((i > 1) 
-                    && c_specified
-                    && output_file != NULL)
-            {
-                fprintf(stderr, "Cannot specify -o with -c with multiple files (second file '%s')", argv[optind]);
-                return 1;
-            }
-            else
-            {
-                add_new_file_to_compilation_process(argv[optind], output_file, compilation_process.current_compilation_configuration);
-            }
-        }
-        i++;
-        optind++;
-    }
-
     if (output_file != NULL
             && !CURRENT_CONFIGURATION(do_not_link))
     {
@@ -579,6 +616,61 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
     }
 
     return 0;
+}
+
+static int parse_special_parameters(int *index, int argc, char* argv[])
+{
+    int failure = 0;
+
+    char *argument = argv[*index];
+
+    // argument[0] == '-'
+    switch (argument[1])
+    {
+        // GCC parameters
+        case 'f':
+        case 'm':
+            {
+                add_to_parameter_list_str(&CURRENT_CONFIGURATION(preprocessor_options), argument);
+                add_to_parameter_list_str(&CURRENT_CONFIGURATION(native_compiler_options), argument);
+                add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), argument);
+
+                (*index)++;
+
+                break;
+            }
+        // Optimization is a special one since it can be -O or -Os -O0 -O1 -O2 -O3
+        case 'O' :
+            {
+                if (argument[2] != '\0'
+                        && argument[2] != 's')
+                {
+                    char *error = NULL;
+                    strtol(&(argument[2]), &error, 10);
+
+                    if (*error != '\0')
+                    {
+                        failure = 1;
+                    }
+                }
+
+                if (!failure)
+                {
+                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(preprocessor_options), argument);
+                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(native_compiler_options), argument);
+                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), argument);
+                    (*index)++;
+                }
+                break;
+            }
+        default:
+            {
+                failure = 1;
+                break;
+            }
+    }
+
+    return failure;
 }
 
 static void enable_debug_flag(char* flags)

@@ -7,13 +7,6 @@ tpp_SOURCES = \
 endif
 
 lib_LTLIBRARIES = libmcxx-utils.la libmcxx-mcfg.la libmcxx-extstruct.la
-EXTRA_LTLIBRARIES=libmcxx-getopt.la
-
-libmcxx_getopt_la_CFLAGS= -Wall
-libmcxx_getopt_la_SOURCES = \
-                           getopt.c \
-                           getopt1.c \
-                           getopt.h
 
 libmcxx_utils_la_CFLAGS = -Wall 
 libmcxx_utils_la_SOURCES = \

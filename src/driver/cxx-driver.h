@@ -26,6 +26,7 @@
 #include "cxx-scopelink.h"
 #include "cxx-driver-decls.h"
 #include "cxx-macros.h"
+#include "cxx-parameters.h"
 
 MCXX_BEGIN_DECLS
 

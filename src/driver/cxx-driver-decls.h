@@ -26,7 +26,6 @@
 #include "cxx-scopelink-decls.h"
 #include "cxx-buildscope-decls.h"
 #include <stddef.h>
-#include <getopt.h>
 
 MCXX_BEGIN_DECLS
 
@@ -71,9 +70,6 @@ struct extensions_table_t
     source_language_t source_language;
     source_kind_t source_kind;
 };
-
-// Valid command line parameters
-extern struct option getopt_long_options[];
 
 typedef struct top_level_include_tag
 {

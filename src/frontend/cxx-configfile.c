@@ -58,7 +58,10 @@ int config_set_options(char* value)
         real_options[i] = comma_options[i - 1];
     }
 
-    // This is a fake argument name that getopt_long requires
+    // FIXME
+    //
+    // This is a fake argument name required, maybe this is a problem
+    // when dealing with profiles
     real_options[0] = strdup("mcxx");
 
     parse_arguments(num, real_options, /* from_command_line= */ 0);
