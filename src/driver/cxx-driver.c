@@ -102,7 +102,7 @@ compilation_process_t compilation_process;
 /* ------------------------------------------------------------------ */
 
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkadcho:m:W:EyI:L:l:gD:x:"
+#define SHORT_OPTIONS_STRING "vkadcho:W:EyI:L:l:gD:x:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
@@ -117,7 +117,7 @@ struct command_line_long_options command_line_long_options[] =
     // to open the configuration file we overwrite variables defined in the
     // command line. Thus "load_configuration" is invoked before command line parsing
     // and looks for "--config-file" / "-m" in the arguments
-    {"config-file", CLP_REQUIRED_ARGUMENT, 'm'},
+    {"config-file", CLP_REQUIRED_ARGUMENT, OPTION_CONFIG_FILE},
     // This option has a chicken-and-egg similar to the --config-file.
     // It is handled in "load_configuration"
     {"profile", CLP_REQUIRED_ARGUMENT, OPTION_PROFILE},
@@ -428,7 +428,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
                         CURRENT_CONFIGURATION(check_dates) = 1;
                         break;
                     }
-                case 'm' :
+                case OPTION_CONFIG_FILE :
                     {
                         // This option is handled in "load_configuration"
                         // and ignored here for getopt_long happiness
@@ -848,34 +848,12 @@ static void load_configuration(void)
     int i;
     for (i = 1; i < compilation_process.argc; i++)
     {
-        // First case "-m" "file"
-        if (strcmp(compilation_process.argv[i], "-m") == 0)
-        {
-            if ((i + 1) < compilation_process.argc)
-            {
-                compilation_process.config_file = 
-                    strdup(compilation_process.argv[i+1]);
-                i++;
-            }
-        }
-        // Second case -mfile
-        else if (strncmp(compilation_process.argv[i], "-m", strlen("-m")) == 0)
-        {
-            compilation_process.config_file = 
-                strdup(&(compilation_process.argv[i][strlen("-m")]));
-        }
-        // Third case --config-file=file
-        // FIXME: GNU getopt_long is kind enough to allow you to specify just a
-        // preffix of the option. At the moment do not try to emulate this feature here
-        else if (strncmp(compilation_process.argv[i], 
+        if (strncmp(compilation_process.argv[i], 
                     "--config-file=", strlen("--config-file=")) == 0)
         {
             compilation_process.config_file = 
                 strdup(&(compilation_process.argv[i][strlen("--config-file=") ]));
         }
-        // Fourth case --profile=name
-        // FIXME: Again, the preffix option of GNU getopt_long is not
-        // implemented
         else if (strncmp(compilation_process.argv[i], 
                     "--profile=", strlen("--profile=")) == 0)
         {
