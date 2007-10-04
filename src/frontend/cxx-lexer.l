@@ -951,6 +951,8 @@ runtime {
 "int"           { parse_token_text(); return INT; }
 "long"          { parse_token_text(); return LONG; }
 "signed"        { parse_token_text(); return SIGNED; }
+"__signed"        { parse_token_text(); return SIGNED; }
+"__signed__"        { parse_token_text(); return SIGNED; }
 "unsigned"      { parse_token_text(); return UNSIGNED; }
 "float"         { parse_token_text(); return FLOAT; }
 "double"        { parse_token_text(); return DOUBLE; }
@@ -1039,11 +1041,14 @@ runtime {
  /* GNU Extensions */
 "__builtin_va_arg" { parse_token_text(); return BUILTIN_VA_ARG; }
 "__extension__" { parse_token_text(); return EXTENSION; }
+"__alignof" { parse_token_text(); return ALIGNOF; }
 "__alignof__" { parse_token_text(); return ALIGNOF; }
 "__ALIGNOF__" { parse_token_text(); return ALIGNOF; }
+"__real" { parse_token_text(); return REAL; }
 "__real__" { parse_token_text(); return REAL; }
 "__imag__" { parse_token_text(); return IMAG; }
 "__label__" { parse_token_text(); return LABEL; }
+"__complex" { parse_token_text(); return COMPLEX; }
 "__complex__" { parse_token_text(); return COMPLEX; }
 "_Complex" { parse_token_text(); return COMPLEX; }
  /*!if C99*/

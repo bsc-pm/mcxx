@@ -723,20 +723,25 @@ char* list_handler_in_buffer(AST a)
     return result;
 }
 
-
 static int character_level_vfprintf(FILE* stream, const char* format, va_list args)
 {
     int result;
-    int size = 512;
+    unsigned int size = 512;
     char* c = calloc(size, sizeof(char));
-    result = vsnprintf(c, size, format, args);
+    va_list va;
+
+    va_copy(va, args);
+    result = vsnprintf(c, size, format, va);
+    va_end(va);
 
     while (result < 0 || result >= size)
     {
+        va_copy(va, args);
         size *= 2;
         free(c);
         c = calloc(size, sizeof(char));
-        result = vsnprintf(c, size, format, args);
+        result = vsnprintf(c, size, format, va);
+        va_end(va);
     }
 
     fprintf(stream, "%s", c);
@@ -744,6 +749,7 @@ static int character_level_vfprintf(FILE* stream, const char* format, va_list ar
 
     return result;
 }
+
 
 
 int token_fprintf(FILE *stream, AST node, const char *format, ...)
