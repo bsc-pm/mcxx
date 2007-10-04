@@ -1163,6 +1163,9 @@ void class_type_add_conversion_function(type_t* class_type, scope_entry_t* entry
 void function_type_set_is_constructor(type_t* function_type, char is_constructor)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
     function_type->function->is_constructor = is_constructor;
 }
 
@@ -1198,10 +1201,13 @@ void class_type_set_complete_independent(type_t* t)
     t->type->template_nature = TPN_COMPLETE_INDEPENDENT;
 }
 
-char is_conversion_type(type_t* t)
+char is_conversion_type(type_t* function_type)
 {
-    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
-    return t->function->is_conversion;
+    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
+    return function_type->function->is_conversion;
 }
 
 char function_type_is_conversion(type_t* t)
@@ -1264,6 +1270,8 @@ void function_type_add_parameter(type_t* function_type,
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
 
+    function_type = advance_over_typedefs(function_type);
+
     parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
 
     new_parameter->type_info = prototype_type;
@@ -1278,18 +1286,26 @@ void function_type_add_parameter(type_t* function_type,
 void function_type_set_lacking_prototype(type_t* function_type, char lacks_prototype)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
     function_type->function->lacks_prototype = lacks_prototype;
 }
 
 char function_type_get_lacking_prototype(type_t* function_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
     return function_type->function->lacks_prototype;
 }
 
 void function_type_set_no_parameters(type_t* function_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
 
     // Discard parameters
     function_type->function->num_parameters = 0;
@@ -1299,6 +1315,9 @@ void function_type_set_no_parameters(type_t* function_type)
 void function_type_set_has_ellipsis(type_t* function_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
     parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
     new_parameter->is_ellipsis = 1;
 
@@ -1308,6 +1327,8 @@ void function_type_set_has_ellipsis(type_t* function_type)
 char function_type_get_has_ellipsis(type_t* function_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
 
     if (function_type->function->num_parameters == 0)
         return 0;
@@ -1321,48 +1342,72 @@ char function_type_get_has_ellipsis(type_t* function_type)
 void function_type_set_static(type_t* function_type, char is_static)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
     function_type->function->is_static = is_static;
 }
 
 void function_type_set_inline(type_t* function_type, char is_inline)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
     function_type->function->is_inline = is_inline;
 }
 
 void function_type_set_virtual(type_t* function_type, char is_virtual)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
     function_type->function->is_virtual = is_virtual;
 }
 
 void function_type_set_explicit(type_t* function_type, char is_explicit)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
     function_type->function->is_explicit = is_explicit;
 }
 
 char function_type_get_static(type_t* function_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
     return function_type->function->is_static;
 }
 
 char function_type_get_inline(type_t* function_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
     return function_type->function->is_inline;
 }
 
 char function_type_get_virtual(type_t* function_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
     return function_type->function->is_virtual;
 }
 
 char function_type_get_explicit(type_t* function_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
     return function_type->function->is_explicit;
 }
 
@@ -1393,12 +1438,17 @@ void template_type_set_template_arguments(type_t* t, template_argument_list_t* l
 void function_type_set_exception_spec(type_t* function_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
     function_type->function->exception_spec = calloc(1, sizeof(*function_type->function->exception_spec));
 }
 
 void function_type_add_exception_spec(type_t* function_type, type_t* exception_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
 
     ERROR_CONDITION(function_type->function->exception_spec == NULL, "This cannot be NULL", 0);
 
@@ -1464,14 +1514,18 @@ char function_type_get_is_constructor(type_t* function_type)
 {
     ERROR_CONDITION(!is_function_type(function_type), "Type is not function type", 0);
 
+    function_type = advance_over_typedefs(function_type);
+
     return function_type->function->is_constructor;
 }
 
-void function_type_set_template_body(type_t* type, AST function_body)
+void function_type_set_template_body(type_t* function_type, AST function_body)
 {
-    ERROR_CONDITION(!is_function_type(type), "Type is not function type", 0);
-    type = advance_over_typedefs(type);
-    type->function->function_body = function_body;
+    ERROR_CONDITION(!is_function_type(function_type), "Type is not function function_type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
+    function_type->function->function_body = function_body;
 }
 
 /*

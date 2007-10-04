@@ -3489,9 +3489,13 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
                     entry->line);
         }
 
-        type_t* current_function = entry->type_information;
+        type_t* current_function_type = entry->type_information;
+        current_function_type = advance_over_typedefs(current_function_type);
 
-        found_equal = !overloaded_function(function_being_declared, current_function, decl_context);
+        ERROR_CONDITION(!is_function_type(current_function_type),
+                "This is not a function type!", 0);
+
+        found_equal = !overloaded_function(function_being_declared, current_function_type, decl_context);
         if (found_equal)
         {
             equal_entry = entry;
@@ -3506,7 +3510,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
             C_LANGUAGE()
             {
                 if (!function_type_get_lacking_prototype(function_being_declared)
-                         && !function_type_get_lacking_prototype(current_function))
+                         && !function_type_get_lacking_prototype(current_function_type))
                 {
                     internal_error("Function '%s' has been declared with different prototype", 
                             ASTText(declarator_id));
