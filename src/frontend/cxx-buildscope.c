@@ -787,16 +787,16 @@ void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info,
             {
                 *type_info = get_signed_long_int_type();
             }
+            else if (*type_info == get_double_type())
+            {
+                *type_info = get_long_double_type();
+            }
         }
-        else if (gather_info->is_long == 2)
+        else if (gather_info->is_long >= 2)
         {
             if (*type_info == get_signed_int_type())
             {
                 *type_info = get_signed_long_long_int_type();
-            }
-            else if (*type_info == get_double_type())
-            {
-                *type_info = get_long_double_type();
             }
         }
         // Second signed/usigned

@@ -967,7 +967,12 @@ decl_specifier_seq : nontype_specifier_seq type_specifier nontype_specifier_no_e
 ;
 
 // This does not declare an object, maybe just types, so restrict it a bit
-decl_specifier_alone_seq : nontype_specifier_seq type_specifier_alone nontype_specifier_no_end_attrib_seq
+// 
+// Note that, in contrast to decl_specifier_seq, we allow here to end with an attribute
+// ('nontype_specifier_seq' instead of 'nontype_specifier_no_end_attrib_seq')
+// In these cases there is not any declarator, so a trailing __attribute__ would not be
+// valid
+decl_specifier_alone_seq : nontype_specifier_seq type_specifier_alone nontype_specifier_seq
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, $3, ASTLine($1), NULL);
 }
@@ -975,7 +980,7 @@ decl_specifier_alone_seq : nontype_specifier_seq type_specifier_alone nontype_sp
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, $1, $2, NULL, ASTLine($1), NULL);
 }
-| type_specifier_alone nontype_specifier_no_end_attrib_seq
+| type_specifier_alone nontype_specifier_seq
 {
 	$$ = ASTMake3(AST_DECL_SPECIFIER_SEQ, NULL, $1, $2, ASTLine($1), NULL);
 }

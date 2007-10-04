@@ -4902,15 +4902,20 @@ char* get_named_type_name(scope_entry_t* entry)
     return get_named_simple_type_name(entry);
 }
 
-// Gives the name of a builtin type
-char* get_builtin_type_name(simple_type_t* simple_type_info, decl_context_t decl_context)
+// Gives the name of a builtin type. This routine is for debugging
+static char* get_builtin_type_name(simple_type_t* simple_type_info, decl_context_t decl_context)
 {
     ERROR_CONDITION(simple_type_info == NULL, "This cannot be null", 0);
     char* result = "";
 
-    if (simple_type_info->is_long)
+    if (simple_type_info->is_long == 1)
     {
         result = strappend(result, "long ");
+    }
+
+    if (simple_type_info->is_long >= 2)
+    {
+        result = strappend(result, "long long ");
     }
 
     if (simple_type_info->is_short)
