@@ -229,9 +229,6 @@ void temporal_files_cleanup(void)
 
     while (iter != NULL)
     {
-        // close the descriptor
-        fclose(iter->info->file);
-
         // If no keep, remove file
         if (!CURRENT_CONFIGURATION(keep_files))
         {

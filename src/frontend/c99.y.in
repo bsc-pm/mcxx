@@ -498,17 +498,11 @@ attribute_value : IDENTIFIER
 ;
 /* End of GNU extension */
 
-asm_definition : ASM '(' string_literal ')' ';'
+asm_definition : ASM volatile_optional '(' string_literal ')' ';'
 {
-	$$ = ASTMake1(AST_ASM_DEFINITION, $3, $1.token_line, $1.token_text);
+	$$ = ASTMake2(AST_ASM_DEFINITION, $4, $2, $1.token_line, $1.token_text);
 }
-// GNU Extensions
-| ASM volatile_optional '(' string_literal ')' ';'
-{
-	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
-			$4, NULL, NULL, NULL, ASTLine($4), NULL);
-	$$ = ASTMake2(AST_GCC_ASM_DEFINITION, $2, asm_parms, $1.token_line, $1.token_text);
-}
+// From here, none of these asm-definitions are standard but gcc only
 | ASM volatile_optional '(' string_literal ':' asm_operand_list ')' ';'
 {
 	AST asm_parms = ASTMake4(AST_GCC_ASM_DEF_PARMS, 
@@ -2429,14 +2423,6 @@ string_literal : STRING_LITERAL
 	char* text = calloc(strlen(str1) + strlen(str2) + 1, sizeof(*text));
 
 	strcat(text, str1);
-
-	// Remove "
-	text[strlen(text)-1] = '\0';
-
-	// Jump 'L', if any
-	if (*str2 == 'L' || *str2 == 'l') str2++;
-	// Jump '"'
-	str2++;
 
 	// Append the second string
 	strcat(text, str2);

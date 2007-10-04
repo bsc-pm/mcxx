@@ -2900,6 +2900,8 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
                 set_function_type(declarator_type, gather_info, ASTSon1(a), 
                         ASTSon2(a), ASTSon3(a), entity_context, prototype_context);
 
+// Too pedantic sometimes
+#if 0
                 C_LANGUAGE()
                 {
                     if (function_type_get_lacking_prototype(*declarator_type))
@@ -2914,6 +2916,7 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
                         }
                     }
                 }
+#endif
 
                 build_scope_declarator_rec(ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);

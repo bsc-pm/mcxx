@@ -2085,7 +2085,16 @@ static void operator_function_id_handler(FILE* f, AST a, int level)
 static void asm_definition_handler(FILE* f, AST a, int level)
 {
     indent_at_level(f, a, level);
-    token_fprintf(f, a, "asm (");
+    // Use the exact token (asm or __asm__)
+    token_fprintf(f, a, "%s ", ASTText(a));
+
+    // Optional 'volatile' for GCC
+    if (ASTSon1(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon1(a), level);
+    }
+
+    token_fprintf(f, a, "(");
     prettyprint_level(f, ASTSon0(a), level);
     token_fprintf(f, a, ");\n");
 }
@@ -2543,6 +2552,7 @@ static void gcc_asm_definition_handler(FILE* f, AST a, int level)
 static void gcc_asm_def_parameters(FILE* f, AST a, int level)
 {
     prettyprint_level(f, ASTSon0(a), level);
+
     token_fprintf(f, a, ": ");
 
     if (ASTSon1(a) != NULL)
@@ -2555,10 +2565,11 @@ static void gcc_asm_def_parameters(FILE* f, AST a, int level)
     {
         list_handler(f, ASTSon2(a), level);
     }
-    token_fprintf(f, a, ": ");
 
     if (ASTSon3(a) != NULL)
     {
+        // This can appear only if explicitly given
+        token_fprintf(f, a, ": ");
         list_handler(f, ASTSon3(a), level);
     }
 }

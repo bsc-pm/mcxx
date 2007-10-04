@@ -81,11 +81,11 @@ compilation_process_t compilation_process;
 "                           compilation\n" \
 "  --cc=<name>              Another name for --cxx=<name>\n" \
 "  --ld=<name>              Linker <name> will be used for linking\n" \
-"  -Wp,<options>            Pass comma-separated <options> on to\n" \
+"  --Wp,<options>           Pass comma-separated <options> on to\n" \
 "                           the preprocessor\n" \
-"  -Wn,<options>            Pass comma-separated <options> on to\n" \
+"  --Wn,<options>           Pass comma-separated <options> on to\n" \
 "                           the native compiler\n" \
-"  -Wl,<options>            Pass comma-separated <options> on to\n" \
+"  --Wl,<options>           Pass comma-separated <options> on to\n" \
 "                           the linker\n" \
 "  --no-openmp              Disables OpenMP 2.5 support\n" \
 "  --config-file=<file>     Uses <file> as config file, otherwise\n" \
@@ -95,14 +95,24 @@ compilation_process_t compilation_process;
 "  --variable=<name:value>  Defines variable 'name' with value\n" \
 "                           'value' to be used in the compiler\n" \
 "                           phases pipeline\n" \
-"  -f<name>, -m<name>       For compatibility with gcc, these options\n" \
-"                           will be passed verbatim to the\n" \
-"                           preprocessor, compiler and linker\n" \
+"\n" \
+"gcc compatibility flags:\n" \
+"\n" \
+"  -f<name>\n" \
+"  -m<name>\n" \
+"  -static\n" \
+"  -shared\n" \
+"  -rdynamic\n" \
+"  -export-dynamic\n" \
+"  -W<option>\n" \
+"\n" \
+"These gcc flags are passed verbatim to preprocessor, compiler and\n" \
+"linker.\n" \
 "\n"
 /* ------------------------------------------------------------------ */
 
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkadcho:W:EyI:L:l:gD:x:"
+#define SHORT_OPTIONS_STRING "vkadcho:EyI:L:l:gD:x:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
@@ -447,11 +457,6 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
                         }
                         break;
                     }
-                case 'W' :
-                    {
-                        parse_subcommand_arguments(parameter_info.argument);
-                        break;
-                    }
                 case 'I' :
                     {
                         char temp[256] = { 0 };
@@ -618,8 +623,17 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
     return 0;
 }
 
+static void add_parameter_all_toolchain(char *argument)
+{
+    add_to_parameter_list_str(&CURRENT_CONFIGURATION(preprocessor_options), argument);
+    add_to_parameter_list_str(&CURRENT_CONFIGURATION(native_compiler_options), argument);
+    add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), argument);
+}
+
 static int parse_special_parameters(int *index, int argc, char* argv[])
 {
+    // FIXME: This function should use gperf-ectionated
+    // This code can be written better
     int failure = 0;
 
     char *argument = argv[*index];
@@ -631,17 +645,51 @@ static int parse_special_parameters(int *index, int argc, char* argv[])
         case 'f':
         case 'm':
             {
-                add_to_parameter_list_str(&CURRENT_CONFIGURATION(preprocessor_options), argument);
-                add_to_parameter_list_str(&CURRENT_CONFIGURATION(native_compiler_options), argument);
-                add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), argument);
 
                 (*index)++;
 
                 break;
             }
-        // Optimization is a special one since it can be -O or -Os -O0 -O1 -O2 -O3
+        case 's':
+            {
+                // -std=xx
+                if ((strlen(argument) > strlen("-std="))
+                        && argument[2] == 't'
+                        && argument[3] == 'd'
+                        && argument[4] == '=') { }
+                else if (strcmp(argument, "-static") == 0) { }
+                else if (strcmp(argument, "-shared") == 0) { }
+                else
+                {
+                    failure = 1;
+                }
+
+                if (!failure)
+                {
+                    add_parameter_all_toolchain(argument);
+                    (*index)++;
+                }
+
+                break;
+            }
+        case 'r' :
+            {
+                if (strcmp(argument, "-rdynamic") == 0) { }
+                else
+                {
+                    failure = 1;
+                }
+
+                if (!failure)
+                {
+                    add_parameter_all_toolchain(argument);
+                    (*index)++;
+                }
+                break;
+            }
         case 'O' :
             {
+                // Optimization is a special one since it can be -O or -Os -O0 -O1 -O2 -O3
                 if (argument[2] != '\0'
                         && argument[2] != 's')
                 {
@@ -656,13 +704,56 @@ static int parse_special_parameters(int *index, int argc, char* argv[])
 
                 if (!failure)
                 {
-                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(preprocessor_options), argument);
-                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(native_compiler_options), argument);
-                    add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), argument);
+                    add_parameter_all_toolchain(argument);
                     (*index)++;
                 }
                 break;
             }
+        case 'e' :
+            {
+                if (strcmp(argument, "-export-dynamic") == 0)
+                {
+                }
+                else
+                {
+                    failure = 1;
+                }
+
+                if (!failure)
+                {
+                    add_parameter_all_toolchain(argument);
+                    (*index)++;
+                }
+                break;
+            }
+        case 'W' :
+            {
+                if (strlen(argument) > strlen("-W"))
+                {
+                    add_parameter_all_toolchain(argument);
+                    (*index)++;
+                }
+                else
+                {
+                    failure = 1;
+                }
+                break;
+            }
+        case '-' :
+        {
+            if (argument[2] == 'W'
+                    && (strlen(argument) > strlen("--Wx,")))
+            {
+                parse_subcommand_arguments(&argument[3]);
+                (*index)++;
+                break;
+            }
+            else
+            {
+                failure = 1;
+            }
+            break;
+        }
         default:
             {
                 failure = 1;
