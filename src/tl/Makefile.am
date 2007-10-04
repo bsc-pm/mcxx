@@ -1,6 +1,6 @@
-SUBDIRS = . examples @tlextensions@ stm_func
+SUBDIRS = . examples @tlextensions@ 
 
-DIST_SUBDIRS=omp instr acotes examples
+DIST_SUBDIRS=omp instr acotes examples stm_func
 
 lib_LTLIBRARIES = libtl.la
 
