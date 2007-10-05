@@ -645,9 +645,8 @@ static int parse_special_parameters(int *index, int argc, char* argv[])
         case 'f':
         case 'm':
             {
-
+                add_parameter_all_toolchain(argument);
                 (*index)++;
-
                 break;
             }
         case 's':
