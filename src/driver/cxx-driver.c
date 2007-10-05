@@ -100,8 +100,17 @@ compilation_process_t compilation_process;
 "\n" \
 "  -f<name>\n" \
 "  -m<name>\n" \
+"  -M\n" \
+"  -MM\n" \
+"  -MF <file>\n" \
+"  -MG <file>\n" \
+"  -MP\n" \
+"  -MT <target>\n" \
+"  -MD\n" \
+"  -MMD\n" \
 "  -static\n" \
 "  -shared\n" \
+"  -std=<option>\n" \
 "  -rdynamic\n" \
 "  -export-dynamic\n" \
 "  -W<option>\n" \
@@ -647,6 +656,34 @@ static int parse_special_parameters(int *index, int argc, char* argv[])
             {
                 add_parameter_all_toolchain(argument);
                 (*index)++;
+                break;
+            }
+        case 'M' :
+            {
+                if ((argument[2] == '\0') // -M
+                        || ((argument[2] == 'P') && (argument[3] == '\0')) // -MP
+                        || ((argument[2] == 'D') && (argument[3] == '\0')) // -MD
+                        || ((argument[2] == 'M') && (argument[3] == 'D') && (argument[4] == '\0'))) // -MMD
+                {
+                    (*index)++;
+                    add_parameter_all_toolchain(argument);
+                }
+                else if (((argument[2] == 'F') && (argument[3] == '\0')) // -MF
+                        || ((argument[2] == 'G') && (argument[3] == '\0')) // -MG
+                        || ((argument[2] == 'T') && (argument[3] == '\0'))) // -MT
+                {
+                    add_parameter_all_toolchain(argument);
+                    (*index)++;
+
+                    // Pass the next argument too
+                    argument = argv[*index];
+                    add_parameter_all_toolchain(argument);
+                    (*index)++;
+                }
+                else
+                {
+                    failure = 1;
+                }
                 break;
             }
         case 's':
