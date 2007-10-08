@@ -143,6 +143,8 @@ void template_type_set_template_match_pair(type_t* t, matching_pair_t* match_pai
 
 void enum_type_add_enumerator(type_t* t, scope_entry_t* entry);
 
+type_t* unnamed_class_enum_type_set_name(type_t* t, scope_entry_t* entry);
+
 /* Query functions: is-a-kind-of-type functions */
 char is_builtin_type(type_t* t);
 char is_fundamental_type(type_t* t);

@@ -1238,6 +1238,24 @@ void enum_type_add_enumerator(type_t* t, scope_entry_t* enumeration_item)
             enum_type->enum_info->num_enumeration,
             enumeration_item);
 }
+
+// This function returns a copy of the old type
+type_t* unnamed_class_enum_type_set_name(type_t* t, scope_entry_t* entry)
+{
+    ERROR_CONDITION (!(t->kind == TK_DIRECT 
+                && (t->type->kind == STK_CLASS
+                    || t->type->kind == STK_ENUM)), 
+            "This should be an unnamed enum or class\n", 0);
+
+    type_t* new_type = calloc(1, sizeof(*new_type));
+
+    // Wild copy
+    *new_type = *t;
+
+    *t = *(get_user_defined_type(entry));
+
+    return new_type;
+}
 // ---
 
 type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qualif)

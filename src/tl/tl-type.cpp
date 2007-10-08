@@ -168,6 +168,12 @@ namespace TL
         ObjectList<Type> result;
         for (int i = 0; i < function_type_get_num_parameters(type_info); i++)
         {
+            // The last one is the ellipsis and lacks type
+            if (has_ellipsis
+                    && ((i + 1) == function_type_get_num_parameters(type_info)))
+            {
+                break;
+            }
             Type t(function_type_get_parameter_type_num(type_info, i));
             result.push_back(t);
         }

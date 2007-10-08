@@ -3279,11 +3279,35 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
     entry->line = ASTLine(declarator_id);
     entry->file = ASTFileName(declarator_id);
     entry->point_of_declaration = get_enclosing_declaration(declarator_id);
-    // Save aliased type under the type of this declaration
-    entry->kind = SK_TYPEDEF;
 
-    // We saved decl_context before, but now we are not
-    entry->type_information = get_new_typedef(declarator_type);
+    // If the type is unnamed, update it
+    if (is_unnamed_class_type(declarator_type) 
+            && (is_class_type(declarator_type) 
+                || is_enumerated_type(declarator_type)))
+    {
+        if (is_class_type(declarator_type))
+        {
+            entry->kind = SK_CLASS;
+        }
+        else if (is_enumerated_type(declarator_type))
+        {
+            entry->kind = SK_ENUM;
+        }
+        else
+        {
+            internal_error("This is not a class or enum type", 0);
+        }
+        //
+        // This actually makes a copy of 'declarator_type' into 'previous_unnamed_type'
+        type_t* previous_unnamed_type = unnamed_class_enum_type_set_name(declarator_type, entry);
+        entry->type_information = previous_unnamed_type;
+    }
+    else
+    {
+        entry->kind = SK_TYPEDEF;
+        entry->type_information = get_new_typedef(declarator_type);
+    }
+
 
     return entry;
 }
