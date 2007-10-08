@@ -300,7 +300,7 @@ namespace TL
     };
 
     template<const char* _ATTR>
-    class PredicateBool : public Predicate<AST_t>
+    class PredicateAST : public Predicate<AST_t>
     {
         public:
             virtual bool operator()(AST_t& ast) const
@@ -308,6 +308,25 @@ namespace TL
                 TL::Bool attr = ast.get_attribute(_ATTR);
                 return attr;
             }
+
+            PredicateAST()
+                : Predicate<AST_t>()
+            {
+            }
+
+            virtual ~PredicateAST() { }
+    };
+
+    // This name is deprecated
+    template<const char* _ATTR>
+    class PredicateBool : public PredicateAST<_ATTR>
+    {
+        public:
+            PredicateBool() DEPRECATED
+                : PredicateAST<_ATTR>()
+            {
+            }
+
             virtual ~PredicateBool() { }
     };
 

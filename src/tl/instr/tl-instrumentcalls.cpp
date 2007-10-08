@@ -349,7 +349,7 @@ namespace TL
         // Traversal of LANG_IS_FUNCTION_CALLs
         DepthTraverse depth_traverse;
 
-        PredicateBool<LANG_IS_FUNCTION_CALL> function_call_pred;
+        PredicateAST<LANG_IS_FUNCTION_CALL> function_call_pred;
         InstrumentCallsFunctor instrumentation_functor(_instrument_filter);
 
         MainWrapper mainwrapper_functor(scope_link);

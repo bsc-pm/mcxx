@@ -68,7 +68,7 @@ namespace TL
 
                 DeclarationTraverseFunctor declaration_traverse_functor;
 
-                PredicateBool<LANG_IS_DECLARATION> declaration_predicate;
+                PredicateAST<LANG_IS_DECLARATION> declaration_predicate;
 
                 depth_traverse.add_predicate(declaration_predicate,
                         declaration_traverse_functor);

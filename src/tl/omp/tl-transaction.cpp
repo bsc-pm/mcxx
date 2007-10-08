@@ -701,7 +701,7 @@ namespace TL
         /*
          * Warn for initializers as they are not currently stmized
          */
-		PredicateBool<LANG_IS_DECLARATION> is_declaration_pred_;
+		PredicateAST<LANG_IS_DECLARATION> is_declaration_pred_;
 		IgnorePreserveFunctor is_declaration_pred(is_declaration_pred_);
 
         Statement protect_statement = protect_construct.body();
@@ -795,7 +795,7 @@ namespace TL
         considered_symbols = considered_symbols.filter(not_in_set(excluded_symbols));
 
         // For every expression, replace it properly with read and write
-        PredicateBool<LANG_IS_EXPRESSION_NEST> expression_pred_;
+        PredicateAST<LANG_IS_EXPRESSION_NEST> expression_pred_;
         ExpressionReplacement expression_replacement(considered_symbols, function_filter);
 
         IgnorePreserveFunctor expression_pred(expression_pred_);
@@ -811,7 +811,7 @@ namespace TL
         }
 
         // And now find every 'return' statement and protect it
-        PredicateBool<LANG_IS_RETURN_STATEMENT> return_pred_;
+        PredicateAST<LANG_IS_RETURN_STATEMENT> return_pred_;
 
         IgnorePreserveFunctor return_pred(return_pred_);
         ObjectList<AST_t> returns = protect_statement.get_ast().depth_subtrees(return_pred);
@@ -855,7 +855,7 @@ namespace TL
             }
 
             ObjectList<AST_t> return_expression_list = return_statement.get_ast().depth_subtrees(
-                    PredicateBool<LANG_IS_EXPRESSION_NEST>(), 
+                    PredicateAST<LANG_IS_EXPRESSION_NEST>(), 
                     AST_t::NON_RECURSIVE);
             if (!return_expression_list.empty()
                     && !return_type.is_void())

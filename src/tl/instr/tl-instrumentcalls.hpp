@@ -65,7 +65,7 @@ namespace TL
             {
                 private:
                     ScopeLink _sl;
-                    PredicateBool<LANG_IS_FUNCTION_DEFINITION> is_function_def;
+                    PredicateAST<LANG_IS_FUNCTION_DEFINITION> is_function_def;
                 public:
                     MainPredicate(ScopeLink& sl);
 

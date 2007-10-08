@@ -25,7 +25,7 @@ namespace TL
     static ObjectList<Expression> parse_as_expressions(ObjectList<AST_t> clause_list, AST_t ref_tree, ScopeLink scope_link)
     {
         ObjectList<Expression> result;
-        PredicateBool<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_argument_pred;
+        PredicateAST<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_argument_pred;
 
         for (ObjectList<AST_t>::iterator it = clause_list.begin();
                 it != clause_list.end();
@@ -174,7 +174,7 @@ namespace TL
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
         AST_t parameter = pragma_line.get_attribute(LANG_PRAGMA_CUSTOM_LINE_PARAMETER);
 
-        PredicateBool<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_argument_pred;
+        PredicateAST<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_argument_pred;
 
         ObjectList<AST_t> argument_list = parameter.depth_subtrees(clause_argument_pred, AST_t::NON_RECURSIVE);
 
@@ -205,8 +205,8 @@ namespace TL
         // Instantiate a DepthTraverse
         DepthTraverse depth_traverse;
 
-        PredicateBool<LANG_IS_PRAGMA_CUSTOM_DIRECTIVE> pragma_custom_directive_pred;
-        PredicateBool<LANG_IS_PRAGMA_CUSTOM_CONSTRUCT> pragma_custom_construct_pred;
+        PredicateAST<LANG_IS_PRAGMA_CUSTOM_DIRECTIVE> pragma_custom_directive_pred;
+        PredicateAST<LANG_IS_PRAGMA_CUSTOM_CONSTRUCT> pragma_custom_construct_pred;
 
         depth_traverse.add_predicate(pragma_custom_directive_pred, _pragma_dispatcher);
         depth_traverse.add_predicate(pragma_custom_construct_pred, _pragma_dispatcher);
@@ -274,7 +274,7 @@ namespace TL
     {
         ObjectList<std::string> result;
 
-        PredicateBool<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_arg_pred;
+        PredicateAST<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_arg_pred;
 
         ObjectList<AST_t> clause_list = filter_pragma_clause();
         for (ObjectList<AST_t>::iterator it = clause_list.begin();
@@ -295,7 +295,7 @@ namespace TL
 
     ObjectList<IdExpression> PragmaCustomClause::id_expressions(IdExpressionCriteria criteria)
     {
-        PredicateBool<LANG_IS_ID_EXPRESSION> id_expr_pred;
+        PredicateAST<LANG_IS_ID_EXPRESSION> id_expr_pred;
 
         ObjectList<Expression> expressions = get_expression_list();
 
