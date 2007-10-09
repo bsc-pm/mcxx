@@ -4711,6 +4711,7 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
 
     ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, LANG_DECLARATION_DECLARATORS, tl_type_t, tl_ast(ASTSon1(a)));
     ASTAttrSetValueType(a, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(entry));
 
     // Function_body
