@@ -26,8 +26,13 @@
 struct template_parameter_tag;
 struct scope_tag;
 
+// This structure gather things of a declaration in one place so we can use
+// along a whole declaration. Parts of a declaration belong just to type while
+// others belong to the symbol but they do not appear syntactically in the same
+// place
 typedef 
 struct gather_decl_spec_tag {
+    // type-specifiers and decl-specifiers
     char is_auto;
     char is_register;
     char is_static;
@@ -47,6 +52,12 @@ struct gather_decl_spec_tag {
     char is_virtual;
     char is_explicit;
     char is_complex;
+
+    // exception-specifiers
+    int num_exceptions;
+    struct type_tag** exceptions;
+
+    // Default arguments of function declarations
 } gather_decl_spec_t;
 
 #define BITMAP(x) (1 << (x))

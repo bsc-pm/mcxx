@@ -240,6 +240,10 @@ typedef struct entity_specifiers_tag
     // SK_TEMPLATE_PRIMARY_CLASS or SK_TEMPLATE_FUNCTION)
     int num_template_parameters;
     template_parameter_t** template_parameter_info;
+
+    // Exception specifier for functions
+    int num_exceptions;
+    type_t** exceptions;
 } entity_specifiers_t;
 
 // This is an entry in the scope

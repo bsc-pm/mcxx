@@ -148,7 +148,7 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context);
 
 static cv_qualifier_t compute_cv_qualifier(AST a);
 
-static void build_exception_spec(type_t* function_type, AST a, decl_context_t decl_context);
+static void build_exception_spec(type_t* function_type, AST a, gather_decl_spec_t *gather_info, decl_context_t decl_context);
 
 static char is_constructor_declarator(AST a);
 
@@ -2760,7 +2760,7 @@ static void set_function_type(type_t** declarator_type,
 
     *declarator_type = get_cv_qualified_type(*declarator_type, cv_qualif);
 
-    build_exception_spec(*declarator_type, except_spec, decl_context);
+    build_exception_spec(*declarator_type, except_spec, gather_info, decl_context);
 }
 
 /*
@@ -3428,9 +3428,11 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.is_extern = gather_info->is_extern;
         new_entry->entity_specs.is_inline = gather_info->is_inline;
         new_entry->entity_specs.is_virtual = gather_info->is_virtual;
+        
+        // "is_pure" of a function is computed in "build_scope_simple_member_declaration"
 
-        // How to know if it is pure ? (have to check that initializer "= 0;")
-        // new_entry->is_pure = ...
+        new_entry->entity_specs.num_exceptions = gather_info->num_exceptions;
+        new_entry->entity_specs.exceptions = gather_info->exceptions;
 
         return new_entry;
     }
@@ -5489,7 +5491,9 @@ static cv_qualifier_t compute_cv_qualifier(AST a)
 // This function fills returns an exception_spec_t* It returns NULL if no
 // exception spec has been defined. Note that 'throw ()' is an exception spec
 // and non-NULL is returned in this case.
-static void build_exception_spec(type_t* function_type, AST a, decl_context_t decl_context)
+static void build_exception_spec(type_t* function_type, 
+        AST a, gather_decl_spec_t *gather_info, 
+        decl_context_t decl_context)
 {
     // No exception specifier at all
     if (a == NULL)
@@ -5516,19 +5520,20 @@ static void build_exception_spec(type_t* function_type, AST a, decl_context_t de
         // A type_specifier_seq is essentially a subset of a
         // declarator_specifier_seq so we can reuse existing functions
         type_t* type_info = NULL;
-        gather_decl_spec_t gather_info;
-        memset(&gather_info, 0, sizeof(gather_info));
+        gather_decl_spec_t inner_gather_info;
+        memset(&inner_gather_info, 0, sizeof(inner_gather_info));
     
-        build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info,
+        build_scope_decl_specifier_seq(type_specifier_seq, &inner_gather_info, &type_info,
                 decl_context);
 
         type_t* declarator_type = type_info;
         if (abstract_decl != NULL)
         {
-            compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
+            compute_declarator_type(abstract_decl, &inner_gather_info, type_info, &declarator_type,
                     decl_context);
         }
-        // function_type_add_exception_spec(function_type, declarator_type);
+
+        P_LIST_ADD_ONCE(gather_info->exceptions, gather_info->num_exceptions, declarator_type);
     }
 }
 
