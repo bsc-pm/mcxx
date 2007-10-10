@@ -1463,18 +1463,21 @@ static scope_entry_list_t* query_template_id(AST template_id, decl_context_t loo
     
     // Sometimes we end with the injected symbol, that is fairly useless here
     // so readjust the lookup_context and lookup again
-    if (entry_list != NULL
-            && entry_list->entry->injected_class_name)
+    if (entry_list != NULL)
     {
-        scope_entry_t* injected_symbol = entry_list->entry;
-        lookup_context = injected_symbol->injected_class_referred_symbol->decl_context;
-        if (BITMAP_TEST(decl_flags, DF_ONLY_CURRENT_SCOPE))
+        scope_entry_t* entry = entry_list->entry;
+        if (entry->entity_specs.is_injected_class_name)
         {
-            entry_list = query_in_scope_str(lookup_context, ASTText(symbol));
-        }
-        else
-        {
-            entry_list = query_unqualified_name_str(lookup_context, ASTText(symbol));
+            scope_entry_t* injected_symbol = entry;
+            lookup_context = injected_symbol->entity_specs.injected_class_referred_symbol->decl_context;
+            if (BITMAP_TEST(decl_flags, DF_ONLY_CURRENT_SCOPE))
+            {
+                entry_list = query_in_scope_str(lookup_context, ASTText(symbol));
+            }
+            else
+            {
+                entry_list = query_unqualified_name_str(lookup_context, ASTText(symbol));
+            }
         }
     }
 
@@ -1666,9 +1669,9 @@ static scope_entry_list_t* query_template_id(AST template_id, decl_context_t loo
     if (matched_template != NULL)
     {
         // If it is a nested class, check it is actually dependent
-        if (matched_template->entry->is_member)
+        if (matched_template->entry->entity_specs.is_member)
         {
-            seen_dependent_args |= is_dependent_type(matched_template->entry->class_type, lookup_context);
+            seen_dependent_args |= is_dependent_type(matched_template->entry->entity_specs.class_type, lookup_context);
         }
         // If the template-id is independent or it was dependent but we have been
         // asked to create a specialization, create it
@@ -1894,9 +1897,9 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_
     // }
 
     // If this is the injected symbol, ignore it and get the real entry
-    if (entry->injected_class_name)
+    if (entry->entity_specs.is_injected_class_name)
     {
-        entry = entry->injected_class_referred_symbol;
+        entry = entry->entity_specs.injected_class_referred_symbol;
     }
 
     char* result = strdup(entry->symbol_name);
@@ -1931,16 +1934,16 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_
         }
     }
 
-    if (entry->is_member)
+    if (entry->entity_specs.is_member)
     {
         // DEBUG_CODE()
         // {
         //     fprintf(stderr, "The symbol is a member, getting the qualified symbol name of the enclosing class\n");
         // }
         // We need the qualification of the class
-        if (is_named_class_type(entry->class_type))
+        if (is_named_class_type(entry->entity_specs.class_type))
         {
-            scope_entry_t* class_symbol = named_type_get_symbol(entry->class_type);
+            scope_entry_t* class_symbol = named_type_get_symbol(entry->entity_specs.class_type);
 
             (*max_qualif_level)++;
 
@@ -1956,7 +1959,7 @@ char* get_fully_qualified_symbol_name(scope_entry_t* entry, decl_context_t decl_
             result = strappend(class_qualification, result);
         }
     } 
-    else if (!entry->is_member)
+    else if (!entry->entity_specs.is_member)
     {
         // This symbol is already simple enough
         result = get_fully_qualified_symbol_name_simple(entry->decl_context, result);

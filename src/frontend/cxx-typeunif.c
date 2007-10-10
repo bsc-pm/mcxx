@@ -70,8 +70,8 @@ char unificate_two_types(type_t* t1, type_t* t2, unification_set_t** unif_set, d
 
         // First check if this parameter has not been already unified
         type_t* previous_unif = get_type_template_parameter_unification(*unif_set, 
-                s1->template_parameter_nesting,
-                s1->template_parameter_position);
+                s1->entity_specs.template_parameter_nesting,
+                s1->entity_specs.template_parameter_position);
         if (previous_unif == NULL)
         {
             // Check that t1 is less cv-qualified than t2
@@ -91,11 +91,11 @@ char unificate_two_types(type_t* t1, type_t* t2, unification_set_t** unif_set, d
                 {
                     fprintf(stderr, "Unified template parameter (%s) (%d,%d) \n", 
                             s1->symbol_name,
-                            s1->template_parameter_nesting,
-                            s1->template_parameter_position);
+                            s1->entity_specs.template_parameter_nesting,
+                            s1->entity_specs.template_parameter_position);
                 }
-                unif_item->parameter_position = s1->template_parameter_position;
-                unif_item->parameter_nesting = s1->template_parameter_nesting;
+                unif_item->parameter_position = s1->entity_specs.template_parameter_position;
+                unif_item->parameter_nesting = s1->entity_specs.template_parameter_nesting;
                 unif_item->parameter_name = s1->symbol_name;
 
                 // Copy the type
@@ -126,8 +126,8 @@ char unificate_two_types(type_t* t1, type_t* t2, unification_set_t** unif_set, d
             {
                 fprintf(stderr, "Parameter (%s) (%d,%d) already unified\n", 
                         s1->symbol_name,
-                        s1->template_parameter_nesting,
-                        s1->template_parameter_position);
+                        s1->entity_specs.template_parameter_nesting,
+                        s1->entity_specs.template_parameter_position);
             }
             // Check is the same unification we are going to do
             if (!equivalent_types(previous_unif, t2, CVE_CONSIDER, decl_context))
@@ -175,8 +175,8 @@ char unificate_two_types(type_t* t1, type_t* t2, unification_set_t** unif_set, d
         scope_entry_t* s1 = named_type_get_symbol(t1);
 
         type_t* previous_unif = get_type_template_parameter_unification(*unif_set, 
-                s1->template_parameter_nesting,
-                s1->template_parameter_position);
+                s1->entity_specs.template_parameter_nesting,
+                s1->entity_specs.template_parameter_position);
         if (previous_unif != NULL)
         {
             // Check is the same unification we are going to do
@@ -208,11 +208,11 @@ char unificate_two_types(type_t* t1, type_t* t2, unification_set_t** unif_set, d
             {
                 fprintf(stderr, "Unified template template parameter (%s) (%d,%d)\n", 
                         s1->symbol_name,
-                        s1->template_parameter_nesting,
-                        s1->template_parameter_position);
+                        s1->entity_specs.template_parameter_nesting,
+                        s1->entity_specs.template_parameter_position);
             }
-            unif_item->parameter_nesting = s1->template_parameter_nesting;
-            unif_item->parameter_position = s1->template_parameter_position;
+            unif_item->parameter_nesting = s1->entity_specs.template_parameter_nesting;
+            unif_item->parameter_position = s1->entity_specs.template_parameter_position;
             unif_item->parameter_name = s1->symbol_name;
             unif_item->value = t2;
 
@@ -503,9 +503,9 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
                 {
                     // This can be a non simple type (currently only a pointer or function type)
                     int template_parameter_position = 
-                        entry->template_parameter_position;
+                        entry->entity_specs.template_parameter_position;
                     int template_parameter_nesting = 
-                        entry->template_parameter_nesting;
+                        entry->entity_specs.template_parameter_nesting;
                     
                     // Left part is a nontype template parameter
                     DEBUG_CODE()
@@ -574,14 +574,14 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
                             else
                             {
                                 int right_template_parameter_position = 
-                                    right_entry->template_parameter_position;
+                                    right_entry->entity_specs.template_parameter_position;
                                 int right_template_parameter_nesting = 
-                                    right_entry->template_parameter_nesting;
+                                    right_entry->entity_specs.template_parameter_nesting;
 
                                 int previous_template_parameter_position = 
-                                    previous_entry->template_parameter_position;
+                                    previous_entry->entity_specs.template_parameter_position;
                                 int previous_template_parameter_nesting = 
-                                    previous_entry->template_parameter_nesting;
+                                    previous_entry->entity_specs.template_parameter_nesting;
 
                                 if ((right_template_parameter_position == previous_template_parameter_position)
                                         && (right_template_parameter_nesting == previous_template_parameter_nesting))

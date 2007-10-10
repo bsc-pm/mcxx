@@ -299,21 +299,6 @@ struct simple_type_tag {
     matching_pair_t* matching_pair;
 } simple_type_t;
 
-// Information of a parameter
-typedef 
-struct parameter_info_tag
-{
-    // This parameter is '...'
-    char is_ellipsis;
-    // Otherwise it has the type here
-    struct type_tag* type_info;
-    // If not null, original_type holds the original type (array or function)
-    struct type_tag* original_type;
-    // Default argument tree for the parameter
-    //    int f(int a = 10);
-    AST default_argument;
-    decl_context_t default_arg_context;
-} parameter_info_t;
 
 // Function information
 typedef 
@@ -322,58 +307,14 @@ struct function_tag
     // The returning type of the function
     struct type_tag* return_type;
 
-    // States if this is a conversion function
-    // If it is true, then 'return_type' is the destination type of the
-    // conversion
-    char is_conversion;
-
     // Parameter information
     int num_parameters;
     parameter_info_t** parameter_list;
-
-    // Exception specifier for this function
-    exception_spec_t* exception_spec;
-
-    // For instantiating template function purposes
-    AST function_body;
-
-    // static (local linkage or static member)
-    int is_static; 
-
-    // inline
-    int is_inline;
-
-    // virtual
-    int is_virtual;
-
-    // virtual void f() = 0;
-    // pure implies virtual (not the opposite, though)
-    int is_pure; 
-
-    // explicit constructor
-    // only meaningful in constructors invokable with one parameter
-    //
-    // class A
-    // {
-    //   explicit A(int n) { }
-    // };
-    int is_explicit;
 
     // States if this function has been declared or defined without prototype.
     // This is only meaningful in C but not in C++ where all functions do have
     // prototype
     int lacks_prototype;
-
-    // States if this functions is a constructor hence it will lack
-    // returning type (returning_type == NULL)
-    int is_constructor; 
-
-    // For template parameters
-    int num_template_parameters;
-    template_parameter_t** template_parameter_info;
-
-    // Information about the nesting of this function within templates
-    int template_nesting;
 } function_info_t;
 
 // Pointers, references and pointers to members
@@ -1045,14 +986,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     return result;
 }
 
-type_t* get_conversion_type(type_t* t)
-{
-    type_t* result = get_function_type(t);
-    result->function->is_conversion = 1;
-    return result;
-}
-
-type_t* get_function_type(type_t* t)
+type_t* get_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)
 {
     // This type is not efficiently managed
     type_t* result = calloc(1, sizeof(*result));
@@ -1061,6 +995,43 @@ type_t* get_function_type(type_t* t)
     result->unqualified_type = result;
     result->function = calloc(1, sizeof(*(result->function)));
     result->function->return_type = t;
+
+    int i;
+    for (i = 0; i < num_parameters; i++)
+    {
+        parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
+
+        *new_parameter = parameter_info[i];
+
+        P_LIST_ADD(result->function->parameter_list, 
+                result->function->num_parameters, new_parameter);
+    }
+
+    return result;
+}
+
+type_t* get_nonproto_function_type(type_t* t, int num_parameters)
+{
+    // This type is not efficiently managed
+    type_t* result = calloc(1, sizeof(*result));
+
+    result->kind = TK_FUNCTION;
+    result->unqualified_type = result;
+    result->function = calloc(1, sizeof(*(result->function)));
+    result->function->return_type = t;
+    result->function->lacks_prototype = 1;
+
+    int i;
+    for (i = 0; i < num_parameters; i++)
+    {
+        parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
+
+        new_parameter->type_info = get_signed_int_type();
+        new_parameter->original_type = get_signed_int_type();
+
+        P_LIST_ADD(result->function->parameter_list, 
+                result->function->num_parameters, new_parameter);
+    }
 
     return result;
 }
@@ -1082,21 +1053,6 @@ type_t* function_type_get_parameter_type_num(type_t* function_type, int num_para
 
     return function_type->function->parameter_list[num_param]->type_info;
 }
-
-void function_type_set_template_information(type_t* function_type,
-        int template_nesting,
-        int num_template_parameters,
-        template_parameter_t** template_parameters)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    function_type->function->template_nesting = template_nesting;
-    function_type->function->num_template_parameters = num_template_parameters;
-    function_type->function->template_parameter_info = template_parameters;
-}
-
 
 char class_type_is_incomplete_dependent(type_t* t)
 {
@@ -1160,15 +1116,6 @@ void class_type_add_conversion_function(type_t* class_type, scope_entry_t* entry
             class_type->type->class_info->num_conversion_functions, entry);
 }
 
-void function_type_set_is_constructor(type_t* function_type, char is_constructor)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    function_type->function->is_constructor = is_constructor;
-}
-
 void class_type_add_nonstatic_data_member(type_t* class_type, scope_entry_t* entry)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
@@ -1199,20 +1146,6 @@ void class_type_set_complete_independent(type_t* t)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
     t->type->template_nature = TPN_COMPLETE_INDEPENDENT;
-}
-
-char is_conversion_type(type_t* function_type)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    return function_type->function->is_conversion;
-}
-
-char function_type_is_conversion(type_t* t)
-{
-    return is_conversion_type(t);
 }
 
 void class_type_set_instantiation_trees(type_t* t, AST body, AST base_clause)
@@ -1280,35 +1213,6 @@ type_t* advance_over_typedefs_with_cv_qualif(type_t* t1, cv_qualifier_t* cv_qual
     return t1;
 }
 
-void function_type_add_parameter(type_t* function_type, 
-        type_t* prototype_type, 
-        type_t* parameter_type, 
-        AST default_argument, 
-        decl_context_t default_arg_context)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
-
-    new_parameter->type_info = prototype_type;
-    new_parameter->original_type = parameter_type;
-    new_parameter->default_argument = default_argument;
-    new_parameter->default_arg_context = default_arg_context;
-
-    P_LIST_ADD(function_type->function->parameter_list, 
-            function_type->function->num_parameters, new_parameter);
-}
-
-void function_type_set_lacking_prototype(type_t* function_type, char lacks_prototype)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    function_type->function->lacks_prototype = lacks_prototype;
-}
 
 char function_type_get_lacking_prototype(type_t* function_type)
 {
@@ -1317,29 +1221,6 @@ char function_type_get_lacking_prototype(type_t* function_type)
     function_type = advance_over_typedefs(function_type);
 
     return function_type->function->lacks_prototype;
-}
-
-void function_type_set_no_parameters(type_t* function_type)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    // Discard parameters
-    function_type->function->num_parameters = 0;
-    function_type->function->parameter_list = NULL;
-}
-
-void function_type_set_has_ellipsis(type_t* function_type)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
-    new_parameter->is_ellipsis = 1;
-
-    P_LIST_ADD(function_type->function->parameter_list, function_type->function->num_parameters, new_parameter);
 }
 
 char function_type_get_has_ellipsis(type_t* function_type)
@@ -1355,78 +1236,6 @@ char function_type_get_has_ellipsis(type_t* function_type)
         ->function
         ->parameter_list[function_type->function->num_parameters - 1]
         ->is_ellipsis;
-}
-
-void function_type_set_static(type_t* function_type, char is_static)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    function_type->function->is_static = is_static;
-}
-
-void function_type_set_inline(type_t* function_type, char is_inline)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    function_type->function->is_inline = is_inline;
-}
-
-void function_type_set_virtual(type_t* function_type, char is_virtual)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    function_type->function->is_virtual = is_virtual;
-}
-
-void function_type_set_explicit(type_t* function_type, char is_explicit)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    function_type->function->is_explicit = is_explicit;
-}
-
-char function_type_get_static(type_t* function_type)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    return function_type->function->is_static;
-}
-
-char function_type_get_inline(type_t* function_type)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    return function_type->function->is_inline;
-}
-
-char function_type_get_virtual(type_t* function_type)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    return function_type->function->is_virtual;
-}
-
-char function_type_get_explicit(type_t* function_type)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    return function_type->function->is_explicit;
 }
 
 template_argument_list_t* template_type_get_template_arguments(type_t* t)
@@ -1451,28 +1260,6 @@ void template_type_set_template_arguments(type_t* t, template_argument_list_t* l
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
     t->type->template_arguments = list;
-}
-
-void function_type_set_exception_spec(type_t* function_type)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    function_type->function->exception_spec = calloc(1, sizeof(*function_type->function->exception_spec));
-}
-
-void function_type_add_exception_spec(type_t* function_type, type_t* exception_type)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    ERROR_CONDITION(function_type->function->exception_spec == NULL, "This cannot be NULL", 0);
-
-    P_LIST_ADD(function_type->function->exception_spec->exception_type_seq, 
-            function_type->function->exception_spec->num_exception_types,
-            exception_type);
 }
 
 void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, char is_virtual)
@@ -1526,24 +1313,6 @@ scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_vir
 type_t* advance_over_typedefs(type_t* t1)
 {
     return advance_over_typedefs_with_cv_qualif(t1, NULL);
-}
-
-char function_type_get_is_constructor(type_t* function_type)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "Type is not function type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    return function_type->function->is_constructor;
-}
-
-void function_type_set_template_body(type_t* function_type, AST function_body)
-{
-    ERROR_CONDITION(!is_function_type(function_type), "Type is not function function_type", 0);
-
-    function_type = advance_over_typedefs(function_type);
-
-    function_type->function->function_body = function_body;
 }
 
 /*
@@ -1691,11 +1460,11 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2);
 
 static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2, decl_context_t decl_context)
 {
-    if (s1->is_template_parameter
-            && s2->is_template_parameter)
+    if (s1->entity_specs.is_template_parameter
+            && s2->entity_specs.is_template_parameter)
     {
-        return ((s1->template_parameter_nesting == s2->template_parameter_nesting)
-                && (s1->template_parameter_position == s2->template_parameter_position));
+        return ((s1->entity_specs.template_parameter_nesting == s2->entity_specs.template_parameter_nesting)
+                && (s1->entity_specs.template_parameter_position == s2->entity_specs.template_parameter_position));
     }
     else
     {
@@ -1950,58 +1719,39 @@ char overloaded_function(type_t* ft1, type_t* ft2, decl_context_t decl_context)
     function_info_t* t1 = ft1->function;
     function_info_t* t2 = ft2->function;
 
-    if (t1->is_conversion != t2->is_conversion)
-    {
-        internal_error("Type function conversion flag mismatch", 0);
+    if (!compatible_parameters(t1, t2, decl_context))
+        return 1;
+
+    // If one has return type but the other does not this is an overload
+    // (technically this is ill-formed)
+    if (((t1->return_type == NULL)
+                && (t2->return_type != NULL))
+            || ((t2->return_type == NULL)
+                && (t1->return_type != NULL)))
+        return 1;
+
+    if (!equivalent_cv_qualification(ft1->cv_qualifier, 
+                ft2->cv_qualifier))
+        return 1;
+
+
+    // Destructors, constructors, operator functions and conversion functions
+    // will not have a full direct type
+    if (t1->return_type == NULL 
+            && t2->return_type == NULL)
         return 0;
-    }
 
-    if (!t1->is_conversion)
+    if (!equivalent_types(t1->return_type, t2->return_type, CVE_CONSIDER, decl_context))
     {
-        if (t1->template_nesting != t2->template_nesting)
-            return 1;
-
-        if (!compatible_parameters(t1, t2, decl_context))
-            return 1;
-
-        // If one has return type but the other does not this is an overload
-        // (technically this is ill-formed)
-        if (((t1->return_type == NULL)
-                    && (t2->return_type != NULL))
-                || ((t2->return_type == NULL)
-                    && (t1->return_type != NULL)))
-            return 1;
-
-        if (!equivalent_cv_qualification(ft1->cv_qualifier, 
-                    ft2->cv_qualifier))
-            return 1;
-
-
-        // Destructors, constructors, operator functions and conversion functions
-        // will not have a full direct type
-        if (t1->return_type == NULL 
-                && t2->return_type == NULL)
-            return 0;
-
-        if (!equivalent_types(t1->return_type, t2->return_type, CVE_CONSIDER, decl_context))
+        if (!is_dependent_type(t1->return_type, decl_context)
+                && !is_dependent_type(t2->return_type, decl_context))
         {
-            if (!is_dependent_type(t1->return_type, decl_context)
-                    && !is_dependent_type(t2->return_type, decl_context))
-            {
-                internal_error("You are trying to overload a function by only modifying its return type", 0);
-            }
-            else
-            {
-                return 1;
-            }
+            internal_error("You are trying to overload a function by only modifying its return type", 0);
         }
-    }
-    else
-    {
-        // In case of conversion functions, overloading does not have sense,
-        // but we will distinguish them by the return type exclusively
-        return (!equivalent_types(t1->return_type, t2->return_type, 
-                    CVE_CONSIDER, decl_context));
+        else
+        {
+            return 1;
+        }
     }
 
     return 0;
@@ -2461,21 +2211,21 @@ static char compare_template_dependent_types(type_t* p_t1, type_t* p_t2,
 
             if (t1_template_name->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
             {
-                if ((t1_template_name->template_parameter_position != 
-                            t2_template_name->template_parameter_position)
-                        || (t1_template_name->template_parameter_nesting != 
-                            t2_template_name->template_parameter_nesting))
+                if ((t1_template_name->entity_specs.template_parameter_position != 
+                            t2_template_name->entity_specs.template_parameter_position)
+                        || (t1_template_name->entity_specs.template_parameter_nesting != 
+                            t2_template_name->entity_specs.template_parameter_nesting))
                 {
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "Template template parameter '%s' (%d-%d) is not the same as the\
                                 template template parameter '%s' (%d-%d)\n",
                                 t1_template_name->symbol_name,
-                                t1_template_name->template_parameter_nesting,
-                                t1_template_name->template_parameter_position,
+                                t1_template_name->entity_specs.template_parameter_nesting,
+                                t1_template_name->entity_specs.template_parameter_position,
                                 t2_template_name->symbol_name,
-                                t2_template_name->template_parameter_nesting,
-                                t2_template_name->template_parameter_position);
+                                t2_template_name->entity_specs.template_parameter_nesting,
+                                t2_template_name->entity_specs.template_parameter_position);
                     }
                     return 0;
                 }
@@ -2740,21 +2490,21 @@ static char compare_template_dependent_types(type_t* p_t1, type_t* p_t2,
 
             if (t1_template_name->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
             {
-                if ((t1_template_name->template_parameter_position != 
-                            t2_template_name->template_parameter_position)
-                        || (t1_template_name->template_parameter_nesting != 
-                            t2_template_name->template_parameter_nesting))
+                if ((t1_template_name->entity_specs.template_parameter_position != 
+                            t2_template_name->entity_specs.template_parameter_position)
+                        || (t1_template_name->entity_specs.template_parameter_nesting != 
+                            t2_template_name->entity_specs.template_parameter_nesting))
                 {
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "Template template parameter '%s' (%d-%d) is not the same as the\
                                 template template parameter '%s' (%d-%d)\n",
                                 t1_template_name->symbol_name,
-                                t1_template_name->template_parameter_nesting,
-                                t1_template_name->template_parameter_position,
+                                t1_template_name->entity_specs.template_parameter_nesting,
+                                t1_template_name->entity_specs.template_parameter_position,
                                 t2_template_name->symbol_name,
-                                t2_template_name->template_parameter_nesting,
-                                t2_template_name->template_parameter_position);
+                                t2_template_name->entity_specs.template_parameter_nesting,
+                                t2_template_name->entity_specs.template_parameter_position);
                     }
                     return 0;
                 }
@@ -4166,9 +3916,9 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
 
                     // If the symbol type is member, we have to check the class
                     // where it belongs
-                    if (!result && symbol->is_member)
+                    if (!result && symbol->entity_specs.is_member)
                     {
-                        result |= is_dependent_type(symbol->class_type, decl_context);
+                        result |= is_dependent_type(symbol->entity_specs.class_type, decl_context);
                     }
                     
                     symbol->dependency_info = (result ? DI_DEPENDENT : DI_NOT_DEPENDENT);
@@ -4403,9 +4153,9 @@ scope_entry_t* give_real_entry(scope_entry_t* entry)
         }
     }
 
-    if (result->injected_class_name)
+    if (result->entity_specs.is_injected_class_name)
     {
-        result = result->injected_class_referred_symbol;
+        result = result->entity_specs.injected_class_referred_symbol;
     }
 
     return result;
@@ -4925,20 +4675,20 @@ char *get_named_simple_type_name(scope_entry_t* user_defined_type)
         case SK_TEMPLATE_TYPE_PARAMETER :
             snprintf(user_defined_str, MAX_LENGTH, "type-template parameter (%s) (%d,%d)",
                     user_defined_type->symbol_name,
-                    user_defined_type->template_parameter_nesting,
-                    user_defined_type->template_parameter_position);
+                    user_defined_type->entity_specs.template_parameter_nesting,
+                    user_defined_type->entity_specs.template_parameter_position);
             break;
         case SK_TEMPLATE_TEMPLATE_PARAMETER :
             snprintf(user_defined_str, MAX_LENGTH, "template-template parameter (%s) (%d,%d)",
                     user_defined_type->symbol_name,
-                    user_defined_type->template_parameter_nesting,
-                    user_defined_type->template_parameter_position);
+                    user_defined_type->entity_specs.template_parameter_nesting,
+                    user_defined_type->entity_specs.template_parameter_position);
             break;
         case SK_TEMPLATE_PARAMETER :
             snprintf(user_defined_str, MAX_LENGTH, "nontype-template parameter (%s) (%d,%d)", 
                     user_defined_type->symbol_name,
-                    user_defined_type->template_parameter_nesting,
-                    user_defined_type->template_parameter_position);
+                    user_defined_type->entity_specs.template_parameter_nesting,
+                    user_defined_type->entity_specs.template_parameter_position);
             break;
         case SK_TEMPLATE_PRIMARY_CLASS :
             snprintf(user_defined_str, MAX_LENGTH, "primary template class %s {%p, %s:%d}", 
@@ -5151,21 +4901,21 @@ char* print_declarator(type_t* printed_declarator, decl_context_t decl_context)
                     int i;
                     tmp_result = strappend(tmp_result, "function");
                     
-                    if (printed_declarator->function->num_template_parameters > 0)
-                    {
-                        tmp_result = strappend(tmp_result, "<");
-                        for (i = 0; i < printed_declarator->function->num_template_parameters; i++)
-                        {
-                            template_parameter_t* template_param = printed_declarator->function->template_parameter_info[i];
-                            tmp_result = strappend(tmp_result, template_param->entry->symbol_name);
+                    // if (printed_declarator->function->num_template_parameters > 0)
+                    // {
+                    //     tmp_result = strappend(tmp_result, "<");
+                    //     for (i = 0; i < printed_declarator->function->num_template_parameters; i++)
+                    //     {
+                    //         template_parameter_t* template_param = printed_declarator->function->template_parameter_info[i];
+                    //         tmp_result = strappend(tmp_result, template_param->entry->symbol_name);
 
-                            if ((i + 1) < printed_declarator->function->num_template_parameters)
-                            {
-                                tmp_result = strappend(tmp_result, ", ");
-                            }
-                        }
-                        tmp_result = strappend(tmp_result, ">");
-                    }
+                    //         if ((i + 1) < printed_declarator->function->num_template_parameters)
+                    //         {
+                    //             tmp_result = strappend(tmp_result, ", ");
+                    //         }
+                    //     }
+                    //     tmp_result = strappend(tmp_result, ">");
+                    // }
 
                     tmp_result = strappend(tmp_result, " (");
                     for (i = 0; i < printed_declarator->function->num_parameters; i++)

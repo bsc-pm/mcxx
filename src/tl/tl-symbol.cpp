@@ -125,12 +125,12 @@ namespace TL
 
     bool Symbol::is_member() const
     {
-        return _symbol->is_member;
+        return _symbol->entity_specs.is_member;
     }
 
     Type Symbol::get_class_type() const
     {
-        return Type(_symbol->class_type);
+        return Type(_symbol->entity_specs.class_type);
     }
 
     AST_t Symbol::get_point_of_declaration() const
@@ -140,11 +140,11 @@ namespace TL
 
     bool Symbol::is_parameter() const
     {
-        return (_symbol->is_parameter);
+        return (_symbol->entity_specs.is_parameter);
     }
 
     int Symbol::get_parameter_position() const
     {
-        return (_symbol->parameter_position);
+        return (_symbol->entity_specs.parameter_position);
     }
 }

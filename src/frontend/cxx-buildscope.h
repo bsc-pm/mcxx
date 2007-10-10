@@ -38,8 +38,6 @@ void build_scope_template_arguments(
         template_argument_list_t** template_arguments);
 void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info, 
         type_t** type_info, decl_context_t dctx);
-scope_entry_t* build_scope_declarator(AST a, gather_decl_spec_t* gather_info, 
-        type_t* type_info, type_t** declarator_type, decl_context_t dctx) DEPRECATED;
 
 void compute_declarator_type(AST a, gather_decl_spec_t* gather_info,
         type_t* type_info, type_t** declarator_type, decl_context_t dctx);

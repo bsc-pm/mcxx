@@ -177,9 +177,10 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n", 
                 get_named_type_name(entry));
     }
-    if (entry->kind == SK_VARIABLE && entry->is_parameter)
+    if (entry->kind == SK_VARIABLE && entry->entity_specs.is_parameter)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is parameter of the function\n");
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is parameter %d of the function\n",
+                entry->entity_specs.parameter_position);
     }
 
     if (entry->kind == SK_TYPEDEF)
@@ -252,14 +253,18 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
         }
         CXX_LANGUAGE()
         {
-            if (function_type_is_conversion(entry->type_information))
+            if (entry->entity_specs.is_conversion)
             {
                 PRINT_INDENTED_LINE(stderr, global_indent+1, "Conversion function\n");
             }
         }
+        if (!entry->defined)
+        {
+            print_scope_full(entry->decl_context.prototype_scope, global_indent+1);
+        }
     }
 
-    if (entry->is_member)
+    if (entry->entity_specs.is_member)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member\n");
     }

@@ -169,22 +169,95 @@ enum dependency_info_tag
         // if no care is taken
 } dependency_info_t;
 
+struct scope_entry_tag;
+
+typedef struct entity_specifiers_tag
+{
+    // States if this a static variable
+    char is_static;
+
+    // Register variable
+    char is_register;
+
+    // States if it is an extern declaration (explicitly given)
+    char is_extern;
+
+    // States if it is a mutable entity of a class
+    char is_mutable;
+
+    // States is a exported template (unused at all)
+    char is_export;
+
+    // Inlined function
+    char is_inline;
+
+    // Virtual function
+    char is_virtual;
+
+    // Pure function
+    char is_pure;
+
+    // Visibility attributes
+    char is_public;
+    char is_private;
+    char is_protected;
+
+    // Is a conversion function
+    char is_conversion;
+
+    // Is a constructor
+    char is_constructor;
+
+    // Is an explicit constructor
+    char is_explicit;
+    
+    // States if the symbol is a template parameter name and its nesting and
+    // position
+    char is_template_parameter;
+    int template_parameter_nesting;
+    int template_parameter_position;
+
+    // States if the variable is parameter of a function (kind == SK_VARIABLE)
+    // and its position
+    char is_parameter;
+    int parameter_position;
+    
+    // Is a member entity (function or data)
+    char is_member;
+    // and its class
+    struct type_tag* class_type;
+
+    // States if this is the injected class name of every class
+    char is_injected_class_name;
+    // and its real symbol class
+    struct scope_entry_tag* injected_class_referred_symbol;
+    
+    // Linkage specifier ("C" or "C++")
+    // Unused field
+    char* linkage_spec;
+    
+    // For template parameters alive in the declaration of this entity (only
+    // SK_TEMPLATE_PRIMARY_CLASS or SK_TEMPLATE_FUNCTION)
+    int num_template_parameters;
+    template_parameter_t** template_parameter_info;
+} entity_specifiers_t;
+
 // This is an entry in the scope
 typedef 
 struct scope_entry_tag
 {
-    // The symbol name
-    char* symbol_name;
-
     // Kind of this symbol
     enum cxx_symbol_kind kind;
-
-    // This allows us to enforce the one-definition-rule within a translation unit
-    int defined;
-
+    
     // Decl context when the symbol was declared it contains the scope where
     // the symbol was declared
     decl_context_t decl_context;
+
+    // The symbol name
+    char* symbol_name;
+
+    // This allows us to enforce the one-definition-rule within a translation unit
+    int defined;
 
     // Type information of this symbol
     type_t* type_information;
@@ -198,15 +271,6 @@ struct scope_entry_tag
     //  - enumerator values
     AST expression_value;
 
-    // For template parameters alive in the declaration
-    // of this entity
-    int num_template_parameters;
-    template_parameter_t** template_parameter_info;
-
-    // Linkage specifier ("C" or "C++")
-    // Unused field
-    char* linkage_spec;
-
     // File and line where this simbol was signed up
     char *file;
     int line;
@@ -216,35 +280,17 @@ struct scope_entry_tag
     // routines would create an infinite recursion.
     char do_not_print;
 
-    // States if this is the injected class name of every class
-    char injected_class_name;
-    // and its real symbol :?
-    struct scope_entry_tag* injected_class_referred_symbol;
-    
+    // All entity specifiers are in this structure
+    entity_specifiers_t entity_specs;
+
     // For template-alias
     // Used for template template parameters
     struct type_tag* template_alias_type;
-
-    // Is a member entity (function or data)
-    char is_member;
-    // and its class
-    struct type_tag* class_type;
 
     // Point in the AST where this was declared. This is approximate, just to
     // find the simple_declaration, member_declaration or function_definition
     // holding this one
     AST point_of_declaration;
-
-    // States if the symbol is a template parameter name
-    // and its nesting and position
-    char is_template_parameter;
-    int template_parameter_nesting;
-    int template_parameter_position;
-
-    // States if the variable is a parameter (kind == SK_VARIABLE)
-    // and its position
-    char is_parameter;
-    int parameter_position;
 
     // Dependency info. It states if this symbol has a template-dependent nature
     // A value of DI_UNKNOWN means this has not been already computed

@@ -632,65 +632,38 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
             // This will create the symbol if it is unqualified
             compute_declarator_type(declarator, &gather_info, 
                     simple_type_info, &declarator_type, decl_context);
-            build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context);
+            scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context);
 
-            // This is a simple declaration, thus if it does not declare an
-            // extern variable or function, the symbol is already defined here
-            if (!gather_info.is_extern
-                    && !is_function_type(declarator_type))
+            ERROR_CONDITION(entry == NULL, "Declaration '%s' in '%s' did not declare anything!", 
+                    prettyprint_in_buffer(a),
+                    node_information(a));
+
+            if (initializer != NULL
+                    && gather_info.is_extern)
             {
-                AST declarator_name = get_declarator_name(declarator, decl_context);
-                ERROR_CONDITION(declarator_name == NULL, "This cannot be null!", 0);
-                scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name);
-
-                ERROR_CONDITION((entry_list == NULL), "Symbol '%s' just declared has not been found in the scope",
-                        prettyprint_in_buffer(declarator_name));
-
-                CXX_LANGUAGE()
-                {
-                    ERROR_CONDITION((entry_list->entry->defined 
-                                && entry_list->entry->kind != SK_TYPEDEF
-                                && !BITMAP_TEST(decl_context.decl_flags, DF_ALLOW_REDEFINITION)),
-                            "Symbol '%s' in %s has already been defined", prettyprint_in_buffer(declarator_name),
-                            node_information(declarator_name));
-                }
-
-                CXX_LANGUAGE()
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "Defining symbol '");
-                        prettyprint(stderr, declarator_name);
-                        fprintf(stderr, "'\n");
-                    }
-                    entry_list->entry->defined = 1;
-                }
-
-                if (initializer != NULL)
-                {
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "Initializer: '%s'\n", ast_print_node_type(ASTType(initializer)));
-                    }
-
-                    if (!check_for_initialization(initializer, entry_list->entry->decl_context))
-                    {
-                        internal_error("Initializer '%s' in %s could not be disambiguated!\n",
-                                prettyprint_in_buffer(initializer),
-                                node_information(initializer));
-                    }
-
-                    entry_list->entry->expression_value = initializer;
-
-                    {
-                        AST non_nested_declarator = advance_over_declarator_nests(declarator, decl_context);
-                        ASTAttrSetValueType(non_nested_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
-                    }
-                }
+                running_error("Cannot initialize an 'extern' declaration %s\n", node_information(a));
             }
-            else
+
+            if (initializer != NULL)
             {
-                ERROR_CONDITION((initializer != NULL), "An extern symbol cannot be initialized", 0);
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Initializer: '%s'\n", ast_print_node_type(ASTType(initializer)));
+                }
+
+                if (!check_for_initialization(initializer, entry->decl_context))
+                {
+                    internal_error("Initializer '%s' in %s could not be disambiguated!\n",
+                            prettyprint_in_buffer(initializer),
+                            node_information(initializer));
+                }
+
+                entry->expression_value = initializer;
+
+                {
+                    AST non_nested_declarator = advance_over_declarator_nests(declarator, decl_context);
+                    ASTAttrSetValueType(non_nested_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                }
             }
         }
     }
@@ -1154,13 +1127,13 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                 if (ASTType(class_symbol) != AST_TEMPLATE_ID)
                 {
                     // If this is new, there is no mix to be performed
-                    new_class->template_parameter_info = decl_context.template_parameters;
-                    new_class->num_template_parameters = decl_context.num_template_parameters;
+                    new_class->entity_specs.template_parameter_info = decl_context.template_parameters;
+                    new_class->entity_specs.num_template_parameters = decl_context.num_template_parameters;
 
                     new_class->kind = SK_TEMPLATE_PRIMARY_CLASS;
                     build_scope_template_arguments_for_primary_template(decl_context,
-                            new_class->template_parameter_info,
-                            new_class->num_template_parameters, 
+                            new_class->entity_specs.template_parameter_info,
+                            new_class->entity_specs.num_template_parameters, 
                             &template_argument_list);
 
                 }
@@ -1207,14 +1180,14 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     if (decl_context.template_parameters != NULL)
     {
         // Mix parameter templates, but only for primary templates
-        if (new_class->template_parameter_info != NULL
+        if (new_class->entity_specs.template_parameter_info != NULL
             && new_class->kind == SK_TEMPLATE_PRIMARY_CLASS)
         {
             mix_template_parameters(decl_context, new_class, a);
         }
         // Just overwrite since they are in sync now
-        new_class->template_parameter_info = decl_context.template_parameters;
-        new_class->num_template_parameters = decl_context.num_template_parameters;
+        new_class->entity_specs.template_parameter_info = decl_context.template_parameters;
+        new_class->entity_specs.num_template_parameters = decl_context.num_template_parameters;
     }
 }
 
@@ -1484,7 +1457,7 @@ static void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_inf
     // injected one (because it refers to the current specialization)
     if (ASTType(type_name) != AST_TEMPLATE_ID
             && simple_type_entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-            && !simple_type_entry->injected_class_name)
+            && !simple_type_entry->entity_specs.is_injected_class_name)
     {
         DEBUG_CODE()
         {
@@ -1787,51 +1760,51 @@ static void mix_template_parameters(decl_context_t decl_context, scope_entry_t* 
 {
     // Mix parameter templates of a previous primary template declaration
     if (newly_declarated_class->kind == SK_TEMPLATE_PRIMARY_CLASS
-            && newly_declarated_class->template_parameter_info != NULL)
+            && newly_declarated_class->entity_specs.template_parameter_info != NULL)
     {
-        ERROR_CONDITION((newly_declarated_class->num_template_parameters != decl_context.num_template_parameters), 
+        ERROR_CONDITION((newly_declarated_class->entity_specs.num_template_parameters != decl_context.num_template_parameters), 
                 "The number of template parameters declared in %s is %d and does not match with a previous " 
                 "declaration in %s:%d of %d parameters\n", 
                 node_information(a), 
                 decl_context.num_template_parameters,
                 newly_declarated_class->file,
                 newly_declarated_class->line,
-                newly_declarated_class->num_template_parameters);
+                newly_declarated_class->entity_specs.num_template_parameters);
 
         int i;
         for (i = 0; i < decl_context.num_template_parameters; i++)
         {
-            switch (newly_declarated_class->template_parameter_info[i]->kind)
+            switch (newly_declarated_class->entity_specs.template_parameter_info[i]->kind)
             {
                 case TPK_TYPE :
                 case TPK_TEMPLATE :
                 case TPK_NONTYPE :
                     {
                         // Mix the information
-                        if (newly_declarated_class->template_parameter_info[i]->default_argument != NULL
+                        if (newly_declarated_class->entity_specs.template_parameter_info[i]->default_argument != NULL
                                 && decl_context.template_parameters[i]->default_argument == NULL)
                         {
                             decl_context.template_parameters[i]->default_argument = 
-                                newly_declarated_class->template_parameter_info[i]->default_argument;
+                                newly_declarated_class->entity_specs.template_parameter_info[i]->default_argument;
                             decl_context.template_parameters[i]->default_argument_context = 
-                                newly_declarated_class->template_parameter_info[i]->default_argument_context;
+                                newly_declarated_class->entity_specs.template_parameter_info[i]->default_argument_context;
                             decl_context.template_parameters[i]->has_default_argument = 1;
                         }
-                        else if (newly_declarated_class->template_parameter_info[i]->default_argument == NULL
+                        else if (newly_declarated_class->entity_specs.template_parameter_info[i]->default_argument == NULL
                                 && decl_context.template_parameters[i]->default_argument != NULL)
                         {
-                            newly_declarated_class->template_parameter_info[i]->default_argument = 
+                            newly_declarated_class->entity_specs.template_parameter_info[i]->default_argument = 
                                 decl_context.template_parameters[i]->default_argument;
-                            newly_declarated_class->template_parameter_info[i]->default_argument_context = 
+                            newly_declarated_class->entity_specs.template_parameter_info[i]->default_argument_context = 
                                 decl_context.template_parameters[i]->default_argument_context;
-                            newly_declarated_class->template_parameter_info[i]->has_default_argument = 1;
+                            newly_declarated_class->entity_specs.template_parameter_info[i]->has_default_argument = 1;
                         }
                         break;
                     }
                 default :
                     {
                         internal_error("Unexpected template parameter type %d\n", 
-                                newly_declarated_class->template_parameter_info[i]->kind);
+                                newly_declarated_class->entity_specs.template_parameter_info[i]->kind);
                     }
             }
         }
@@ -2045,15 +2018,15 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             {
                 // If the class already had template information and
                 // it is a primary template
-                if (class_entry->template_parameter_info != NULL
+                if (class_entry->entity_specs.template_parameter_info != NULL
                         && class_entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
                 {
                     // Mix template parameters
                     mix_template_parameters(decl_context, class_entry, a);
                 }
                 // Just overwrite since now are in sync
-                class_entry->template_parameter_info = decl_context.template_parameters;
-                class_entry->num_template_parameters = decl_context.num_template_parameters;
+                class_entry->entity_specs.template_parameter_info = decl_context.template_parameters;
+                class_entry->entity_specs.num_template_parameters = decl_context.num_template_parameters;
             }
 
             // Gather template argument information
@@ -2064,8 +2037,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     {
                         build_scope_template_arguments_for_primary_template(
                                 decl_context,
-                                class_entry->template_parameter_info, 
-                                class_entry->num_template_parameters,
+                                class_entry->entity_specs.template_parameter_info, 
+                                class_entry->entity_specs.num_template_parameters,
                                 &template_argument_list);
 
                         template_type_set_template_arguments((*type_info), template_argument_list);
@@ -2097,8 +2070,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             // Save the decl that will be instantiated
             class_type_set_instantiation_trees((*type_info), /*body*/ASTSon1(a), base_clause);
 
-            // Copy the type because we are creating it and we would clobber it
-            // otherwise
+            // Remember the inner context
             class_entry->related_decl_context = inner_decl_context;
 
             // Clear this flag
@@ -2195,8 +2167,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             *injected_symbol = *class_entry;
             injected_symbol->do_not_print = 1;
 
-            injected_symbol->injected_class_name = 1;
-            injected_symbol->injected_class_referred_symbol = class_entry;
+            injected_symbol->entity_specs.is_injected_class_name = 1;
+            injected_symbol->entity_specs.injected_class_referred_symbol = class_entry;
         }
     }
 
@@ -2311,38 +2283,6 @@ void build_scope_member_specification(decl_context_t inner_decl_context, AST mem
 
 
 /*
- * This function computes the type of a declarator
- *
- * If the declarator is not abstract, therefore it has a name,
- * build_scope_declarator_name is called to sign it up in the symbol table.
- */
-scope_entry_t* build_scope_declarator(AST a, 
-        gather_decl_spec_t* gather_info, type_t* type_info, type_t** declarator_type,
-        decl_context_t decl_context)
-{
-    /* To be removed soon */
-    static char _warning_deprecated = 0;
-    if (!_warning_deprecated)
-    {
-        fprintf(stderr, "%s",
-                "Please do not use function 'build_scope_declarator'.\n"
-                "If you only need to compute the type use 'compute_declarator_type'.\n"
-                "If you need both the computed type of a declarator and register a symbol\n"
-                "use first 'compute_declarator_type' and then 'build_scope_declarator_name'\n");
-        _warning_deprecated = 1;
-    }
-    /* end - To be removed soon */
-
-    scope_entry_t* entry = NULL;
-
-    compute_declarator_type(a, gather_info, type_info, declarator_type, decl_context);
-
-    entry = build_scope_declarator_name(a, *declarator_type, gather_info, decl_context);
-
-    return entry;
-}
-
-/*
  * This function just computes the type of a declarator
  * it does not sign in any entry
  */
@@ -2358,7 +2298,7 @@ void compute_declarator_type(AST a, gather_decl_spec_t* gather_info,
 }
 
 /*
- * This is the actual implementation of 'build_scope_declarator'
+ * This is the actual implementation of 'compute_declarator_type'
  */
 static void build_scope_declarator_with_parameter_context(AST a, 
         gather_decl_spec_t* gather_info, type_t* type_info, type_t** declarator_type,
@@ -2450,10 +2390,20 @@ static void build_scope_declarator_with_parameter_context(AST a,
 
             if (conversion_function_id != NULL)
             {
+                // Make that conversion functions only receive one parameter
+                // type (standard says that their type is only return type, but
+                // this would make overloading code awkward)
                 type_t* conversion_function_type;
                 get_conversion_function_name(decl_context, conversion_function_id, &conversion_function_type);
 
-                *declarator_type = get_conversion_type(conversion_function_type);
+                parameter_info_t parameter_info[1];
+                memset(&parameter_info[0], 0, sizeof(parameter_info[0]));
+
+                parameter_info[0].is_ellipsis = 0;
+                parameter_info[0].type_info = conversion_function_type;
+                parameter_info[0].original_type = conversion_function_type;
+
+                *declarator_type = get_function_type(/*return_type=*/NULL, parameter_info, /*num_parameters=*/1);
             }
         }
     }
@@ -2583,17 +2533,31 @@ static void set_array_type(type_t** declarator_type,
  * This function fetches information for every declarator in the
  * parameter_declaration_clause of a functional declarator
  */
-static void set_function_parameter_clause(type_t* function_type, 
+static void set_function_parameter_clause(type_t** function_type, 
         AST parameters, decl_context_t decl_context)
 {
+    // Remove these lest they are defined
+    decl_context.decl_flags &= ~DF_TEMPLATE;
+    decl_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
+
+#define MAX_PARAMETERS (256)
+    // Hope 256 will be enough
+    parameter_info_t parameter_info[MAX_PARAMETERS];
+    int num_parameters = 0;
+
     if (ASTType(parameters) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
     {
         C_LANGUAGE()
         {
             // In C this is a function definition lacking a prototype
-            function_type_set_lacking_prototype(function_type, 1);
+            *function_type = get_nonproto_function_type(*function_type, /*num_parameters=*/0);
         }
         // An empty parameter declaration clause is like (void) in C++
+        CXX_LANGUAGE()
+        {
+            // In C++ this is a function with 0 parameters
+            *function_type = get_function_type(*function_type, parameter_info, /*num_parameters=*/0);
+        }
         return;
     }
 
@@ -2603,24 +2567,40 @@ static void set_function_parameter_clause(type_t* function_type,
     // Do not contaminate the current symbol table if we are in
     // a function declaration, otherwise this should already be 
     // a block scope
+    
+    // Link the scope of the parameters
+    scope_link_set(CURRENT_COMPILED_FILE(scope_link), parameters, decl_context);
 
     C_LANGUAGE()
     {
         // Nothing to do here with K&R parameters
         if (ASTType(parameters) == AST_KR_PARAMETER_LIST)
         {
-            // It will lack a prototype
-            function_type_set_lacking_prototype(function_type, 1);
+            // Count them and create a function lacking prototype
+            for_each_element(list, iter)
+            {
+                num_parameters++;
+            }
+
+            *function_type = get_nonproto_function_type(*function_type, num_parameters);
+
+            // Nothing else to do
             return;
         }
     }
 
-    // Link the scope of the parameters
-    scope_link_set(CURRENT_COMPILED_FILE(scope_link), parameters, decl_context);
-
-    int parameter_position = 0;
     for_each_element(list, iter)
     {
+        if (num_parameters > MAX_PARAMETERS)
+        {
+            running_error("Too much parameters (more than %d) in function declaration at %s", 
+                    num_parameters,
+                    node_information(parameters));
+        }
+
+        // Clear this parameter_info 
+        memset(&(parameter_info[num_parameters]), 0, sizeof(parameter_info[num_parameters]));
+
         AST parameter_declaration = ASTSon1(iter);
 
         if (ASTType(parameter_declaration) == AST_AMBIGUITY)
@@ -2632,7 +2612,9 @@ static void set_function_parameter_clause(type_t* function_type,
 
         if (ASTType(parameter_declaration) == AST_VARIADIC_ARG)
         {
-            function_type_set_has_ellipsis(function_type);
+            // Nothing more to do
+            parameter_info[num_parameters].is_ellipsis = 1;
+            num_parameters++;
             continue;
         }
 
@@ -2729,28 +2711,36 @@ static void set_function_parameter_clause(type_t* function_type,
         {
             // A parameter is always a variable entity
             entry->kind = SK_VARIABLE;
-            entry->is_parameter = 1;
-            entry->parameter_position = parameter_position;
+            entry->entity_specs.is_parameter = 1;
+            entry->entity_specs.parameter_position = num_parameters;
 
             // Update the type info
             entry->type_information = original_type;
         }
 
-        function_type_add_parameter(function_type, type_info, original_type, default_argument, param_decl_context);
-        parameter_position++;
+        // function_type_add_parameter(function_type, type_info, original_type, default_argument, param_decl_context);
+        parameter_info[num_parameters].is_ellipsis = 0;
+        parameter_info[num_parameters].type_info = type_info;
+        parameter_info[num_parameters].original_type = original_type;
+
+        num_parameters++;
     }
 
-    if ((function_type_get_num_parameters(function_type) == 1)
-            && (!function_type_get_has_ellipsis(function_type)))
+    if ((num_parameters == 1)
+            && !parameter_info[0].is_ellipsis)
     {
-        type_t* parameter_type = function_type_get_parameter_type_num(function_type, 0);
+        type_t* parameter_type = parameter_info[0].type_info;
 
         if (is_void_type(parameter_type))
         {
             // This list was really empty
-            function_type_set_no_parameters(function_type);
+            num_parameters = 0;
         }
     }
+#undef MAX_PARAMETERS
+
+    // Now create the type
+    *function_type = get_function_type(*function_type, parameter_info, num_parameters);
 }
 
 /*
@@ -2764,23 +2754,13 @@ static void set_function_type(type_t** declarator_type,
      * FIXME - Many things saved in the type actually belong to the symbol thus
      * hindering type information sharing accross symbols
      */
-
-    type_t* returning_type = *declarator_type;
-
-    *declarator_type = get_function_type(returning_type);
-
-    set_function_parameter_clause(*declarator_type, parameter, prototype_context);
+    set_function_parameter_clause(declarator_type, parameter, prototype_context);
 
     cv_qualifier_t cv_qualif = compute_cv_qualifier(cv_qualif_tree);
 
     *declarator_type = get_cv_qualified_type(*declarator_type, cv_qualif);
 
     build_exception_spec(*declarator_type, except_spec, decl_context);
-
-    function_type_set_static(*declarator_type, gather_info->is_static);
-    function_type_set_inline(*declarator_type, gather_info->is_inline);
-    function_type_set_virtual(*declarator_type, gather_info->is_virtual);
-    function_type_set_explicit(*declarator_type, gather_info->is_explicit);
 }
 
 /*
@@ -3325,7 +3305,7 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
             || BITMAP_TEST(decl_context.decl_flags, DF_PARAMETER_DECLARATION))
     {
         decl_flags_t decl_flags = DF_NONE;
-        if (BITMAP_TEST(decl_context.decl_flags, DF_FRIEND))
+        if (gather_info->is_friend)
         {
             decl_flags |= DF_FRIEND;
         }
@@ -3334,6 +3314,7 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
 
         scope_entry_list_t* check_list = filter_symbol_kind(entry_list, SK_VARIABLE);
 
+        // Return the found symbol
         if (check_list != NULL)
         {
             scope_entry_t* entry = check_list->entry;
@@ -3362,6 +3343,16 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
         entry->point_of_declaration = get_enclosing_declaration(declarator_id);
         entry->kind = SK_VARIABLE;
         entry->type_information = declarator_type;
+
+        entry->entity_specs.is_static = gather_info->is_static;
+        entry->entity_specs.is_mutable = gather_info->is_mutable;
+        entry->entity_specs.is_extern = gather_info->is_extern;
+        entry->entity_specs.is_register = gather_info->is_register;
+
+        if (!entry->entity_specs.is_extern)
+        {
+            entry->defined = 1;
+        }
 
         return entry;
     }
@@ -3433,6 +3424,14 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             }
         }
 
+        new_entry->entity_specs.is_static = gather_info->is_static;
+        new_entry->entity_specs.is_extern = gather_info->is_extern;
+        new_entry->entity_specs.is_inline = gather_info->is_inline;
+        new_entry->entity_specs.is_virtual = gather_info->is_virtual;
+
+        // How to know if it is pure ? (have to check that initializer "= 0;")
+        // new_entry->is_pure = ...
+
         return new_entry;
     }
     else
@@ -3480,8 +3479,9 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
 
     type_t* function_being_declared = declarator_type;
 
-    function_type_set_template_information(function_being_declared, decl_context.template_nesting,
-            decl_context.num_template_parameters, decl_context.template_parameters);
+    // FIXME
+    // function_type_set_template_information(function_being_declared, decl_context.template_nesting,
+    //         decl_context.num_template_parameters, decl_context.template_parameters);
 
     scope_entry_t* equal_entry = NULL;
 
@@ -3893,42 +3893,26 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         compute_declarator_type(declarator,
                 &gather_info, simple_type_info, &declarator_type,
                 new_decl_context);
-        build_scope_declarator_name(declarator, declarator_type, &gather_info, new_decl_context);
+        scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, new_decl_context);
         
         // This is a simple declaration, thus if it does not declare an
         // extern variable or function, the symbol is already defined here
         if (!gather_info.is_extern
                 && !is_function_type(declarator_type))
         {
-            AST declarator_name = get_declarator_name(declarator, decl_context);
-            scope_entry_list_t* entry_list = query_id_expression(decl_context, declarator_name);
-
-            ERROR_CONDITION((entry_list == NULL), "Symbol just declared has not been found in the scope!", 0);
-
-            // The last entry will hold our symbol, no need to look for it in the list
-            ERROR_CONDITION((entry_list->entry->defined), "Symbol '%s' in '%s' has already been defined", 
-                    prettyprint_in_buffer(declarator_name), node_information(declarator_name));
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "Defining symbol '%s'\n", prettyprint_in_buffer(declarator_name));
-            }
-
-            entry_list->entry->defined = 1;
-
             if (initializer != NULL)
             {
                 ERROR_CONDITION(!check_for_initialization(initializer,
-                            entry_list->entry->decl_context),
+                            entry->decl_context),
                         "Initializer '%s' in %s could not be disambiguated!\n",
                         prettyprint_in_buffer(initializer),
                         node_information(initializer));
-                entry_list->entry->expression_value = initializer;
+                entry->expression_value = initializer;
             }
         }
         else if (is_function_type(declarator_type))
         {
-            // ???
+            // At the moment do nothing for it
         }
     }
 }
@@ -4030,12 +4014,12 @@ static void build_scope_template_template_parameter(AST a,
 
         new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
 
-        new_entry->is_template_parameter = 1;
-        new_entry->template_parameter_nesting = template_context.template_nesting;
-        new_entry->template_parameter_position = num_parameter;
+        new_entry->entity_specs.is_template_parameter = 1;
+        new_entry->entity_specs.template_parameter_nesting = template_context.template_nesting;
+        new_entry->entity_specs.template_parameter_position = num_parameter;
 
-        new_entry->template_parameter_info = template_params_context.template_parameters;
-        new_entry->num_template_parameters = template_params_context.num_template_parameters;
+        new_entry->entity_specs.template_parameter_info = template_params_context.template_parameters;
+        new_entry->entity_specs.num_template_parameters = template_params_context.num_template_parameters;
 
         template_parameters->entry = new_entry;
     }
@@ -4053,12 +4037,12 @@ static void build_scope_template_template_parameter(AST a,
 
         new_entry->kind = SK_TEMPLATE_TEMPLATE_PARAMETER;
 
-        new_entry->is_template_parameter = 1;
-        new_entry->template_parameter_nesting = template_context.template_nesting;
-        new_entry->template_parameter_position = num_parameter;
+        new_entry->entity_specs.is_template_parameter = 1;
+        new_entry->entity_specs.template_parameter_nesting = template_context.template_nesting;
+        new_entry->entity_specs.template_parameter_position = num_parameter;
 
-        new_entry->template_parameter_info = template_params_context.template_parameters;
-        new_entry->num_template_parameters = template_params_context.num_template_parameters;
+        new_entry->entity_specs.template_parameter_info = template_params_context.template_parameters;
+        new_entry->entity_specs.num_template_parameters = template_params_context.num_template_parameters;
 
         template_parameters->entry = new_entry;
     }
@@ -4125,9 +4109,9 @@ static void build_scope_type_template_parameter(AST a,
         new_entry->point_of_declaration = name;
         new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
 
-        new_entry->is_template_parameter = 1;
-        new_entry->template_parameter_nesting = template_context.template_nesting;
-        new_entry->template_parameter_position = num_parameter;
+        new_entry->entity_specs.is_template_parameter = 1;
+        new_entry->entity_specs.template_parameter_nesting = template_context.template_nesting;
+        new_entry->entity_specs.template_parameter_position = num_parameter;
 
         ASTAttrSetValueType(name, LANG_IS_TEMPLATE_PARAMETER, tl_type_t, tl_bool(1));
 
@@ -4146,9 +4130,9 @@ static void build_scope_type_template_parameter(AST a,
         new_entry->point_of_declaration = a;
         new_entry->kind = SK_TEMPLATE_TYPE_PARAMETER;
 
-        new_entry->is_template_parameter = 1;
-        new_entry->template_parameter_nesting = template_context.template_nesting;
-        new_entry->template_parameter_position = num_parameter;
+        new_entry->entity_specs.is_template_parameter = 1;
+        new_entry->entity_specs.template_parameter_nesting = template_context.template_nesting;
+        new_entry->entity_specs.template_parameter_position = num_parameter;
 
         template_parameters->entry = new_entry;
     }
@@ -4214,9 +4198,9 @@ static void build_scope_nontype_template_parameter(AST a,
             entry = new_symbol(adjusted_template_context, adjusted_template_context.current_scope, declarator_name_str);
             entry->kind = SK_TEMPLATE_PARAMETER;
 
-            entry->is_template_parameter = 1;
-            entry->template_parameter_nesting = template_context.template_nesting;
-            entry->template_parameter_position = num_parameter;
+            entry->entity_specs.is_template_parameter = 1;
+            entry->entity_specs.template_parameter_nesting = template_context.template_nesting;
+            entry->entity_specs.template_parameter_position = num_parameter;
         }
         else
         {
@@ -4228,9 +4212,9 @@ static void build_scope_nontype_template_parameter(AST a,
 
             entry->kind = SK_TEMPLATE_PARAMETER;
 
-            entry->is_template_parameter = 1;
-            entry->template_parameter_nesting = template_context.template_nesting;
-            entry->template_parameter_position = num_parameter;
+            entry->entity_specs.is_template_parameter = 1;
+            entry->entity_specs.template_parameter_nesting = template_context.template_nesting;
+            entry->entity_specs.template_parameter_position = num_parameter;
         }
         // Save its symbol
         template_parameters->entry = entry;
@@ -4248,9 +4232,9 @@ static void build_scope_nontype_template_parameter(AST a,
 
         entry->kind = SK_TEMPLATE_PARAMETER;
 
-        entry->is_template_parameter = 1;
-        entry->template_parameter_nesting = template_context.template_nesting;
-        entry->template_parameter_position = num_parameter;
+        entry->entity_specs.is_template_parameter = 1;
+        entry->entity_specs.template_parameter_nesting = template_context.template_nesting;
+        entry->entity_specs.template_parameter_position = num_parameter;
 
         // Save its symbol
         template_parameters->entry = entry;
@@ -4509,8 +4493,6 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
     AST declaration_list = kr_parameter_declaration;
     AST iter;
 
-    type_t* declarator_type = function_entry->type_information;
-
     // This can be empty, but undefined parameters must be signed up
     if (kr_parameter_declaration != NULL)
     {
@@ -4522,50 +4504,52 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry,
         }
     }
 
+    // DON'T DO THIS because it is wrong conceptually in C
+    //
     // Now for every symbol in kr_parameter_list get its type and sign it up
     // in the parameters of the type
     //
     // Clear previous prototype
-    function_type_set_no_parameters(declarator_type);
+    // function_type_set_no_parameters(declarator_type);
 
-    if (kr_parameter_list != NULL)
-    {
-        for_each_element(kr_parameter_list, iter)
-        {
-            AST symbol = ASTSon1(iter);
+    // if (kr_parameter_list != NULL)
+    // {
+    //     for_each_element(kr_parameter_list, iter)
+    //     {
+    //         AST symbol = ASTSon1(iter);
 
-            scope_entry_list_t* entry_list = query_in_scope_str(decl_context, ASTText(symbol));
-            scope_entry_t* entry;
+    //         scope_entry_list_t* entry_list = query_in_scope_str(decl_context, ASTText(symbol));
+    //         scope_entry_t* entry;
 
-            if (entry_list == NULL)
-            {
-                fprintf(stderr, "Warning: Parameter '%s' of K&R-style function '%s' in '%s' not defined, defaulting to 'int'\n",
-                        ASTText(symbol), function_entry->symbol_name, node_information(kr_parameters));
+    //         if (entry_list == NULL)
+    //         {
+    //             fprintf(stderr, "Warning: Parameter '%s' of K&R-style function '%s' in '%s' not defined, defaulting to 'int'\n",
+    //                     ASTText(symbol), function_entry->symbol_name, node_information(kr_parameters));
 
-                scope_entry_t* new_entry = new_symbol(decl_context, decl_context.current_scope, ASTText(symbol));
+    //             scope_entry_t* new_entry = new_symbol(decl_context, decl_context.current_scope, ASTText(symbol));
 
-                new_entry->kind = SK_VARIABLE;
-                new_entry->line = ASTLine(symbol);
-                new_entry->file = ASTFileName(symbol);
-                new_entry->type_information = get_signed_int_type();
+    //             new_entry->kind = SK_VARIABLE;
+    //             new_entry->line = ASTLine(symbol);
+    //             new_entry->file = ASTFileName(symbol);
+    //             new_entry->type_information = get_signed_int_type();
 
-                entry = new_entry;
-            }
-            else
-            {
-                entry = entry_list->entry;
-            }
+    //             entry = new_entry;
+    //         }
+    //         else
+    //         {
+    //             entry = entry_list->entry;
+    //         }
 
-            // FIXME - We have to adjust the types, like we did for prototyped ones.
-            function_type_add_parameter(declarator_type, entry->type_information, entry->type_information, NULL, decl_context);
-        }
-    }
+    //         // FIXME - We have to adjust the types, like we did for prototyped ones.
+    //         function_type_add_parameter(declarator_type, entry->type_information, entry->type_information, NULL, decl_context);
+    //     }
+    // }
 
-    // Should not lack prototype no more
-    if (kr_parameter_list != NULL)
-    {
-        function_type_set_lacking_prototype(declarator_type, 0);
-    }
+    // // Should not lack prototype no more
+    // if (kr_parameter_list != NULL)
+    // {
+    //     function_type_set_lacking_prototype(declarator_type, 0);
+    // }
 }
 
 /*
@@ -4739,11 +4723,11 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
         }
     }
 
-    if (entry->is_member)
+    if (entry->entity_specs.is_member)
     {
         // If is a member function sign up additional information
-        if (!function_type_get_static(entry->type_information)
-                && !function_type_get_is_constructor(entry->type_information))
+        if (!entry->entity_specs.is_static
+                && !entry->entity_specs.is_constructor)
         {
             // type_t* this_type = calloc(1, sizeof(*this_type));
             // this_type->kind = TK_POINTER;
@@ -4756,7 +4740,7 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
             // this_type->pointer->pointee->cv_qualifier = entry->type_information->cv_qualifier;
             
             // The class we belong to
-            type_t* pointed_this = entry->class_type;
+            type_t* pointed_this = entry->entity_specs.class_type;
             // Qualify likewise the function
             pointed_this = get_cv_qualified_type(pointed_this, get_cv_qualifier(entry->type_information));
 
@@ -4821,7 +4805,6 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
 
     if (BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
     {
-        function_type_set_template_body(entry->type_information, function_body);
         entry->defined = 1;
     }
 
@@ -5085,7 +5068,6 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                     {
                         // This is a constructor
                         class_type_add_constructor(get_actual_class_type(class_type), entry);
-                        function_type_set_is_constructor(entry->type_information, 1);
                     }
                     break;
                 }
@@ -5117,8 +5099,8 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
         {
             fprintf(stderr, "Setting member function definition of '%s' as a member\n", entry->symbol_name); 
         }
-        entry->is_member = 1;
-        entry->class_type = class_info;
+        entry->entity_specs.is_member = 1;
+        entry->entity_specs.class_type = class_info;
     }
     else
     {
@@ -5180,18 +5162,18 @@ static void build_scope_simple_member_declaration(decl_context_t decl_context, A
                     || is_class_type(member_type)))
                 
         {
-            scope_entry_t* type_symbol = named_type_get_symbol(member_type);
-            if (same_scope(type_symbol->decl_context.current_scope,
+            scope_entry_t* entry = named_type_get_symbol(member_type);
+            if (same_scope(entry->decl_context.current_scope,
                         decl_context.current_scope))
             {
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "Setting type '%s' as member\n", 
-                            type_symbol->symbol_name);
+                            entry->symbol_name);
                 }
 
-                type_symbol->is_member = 1;
-                type_symbol->class_type = class_info;
+                entry->entity_specs.is_member = 1;
+                entry->entity_specs.class_type = class_info;
             }
         }
 
@@ -5324,8 +5306,8 @@ static void build_scope_simple_member_declaration(decl_context_t decl_context, A
                             fprintf(stderr, "Setting symbol '%s' as a member of class '%s'\n", entry->symbol_name, 
                                     class_name);
                         }
-                        entry->is_member = 1;
-                        entry->class_type = class_info;
+                        entry->entity_specs.is_member = 1;
+                        entry->entity_specs.class_type = class_info;
 
                         // Function declarations (these are not members)
                         if (entry->kind == SK_FUNCTION
@@ -5340,7 +5322,7 @@ static void build_scope_simple_member_declaration(decl_context_t decl_context, A
                                         {
                                             // This is a constructor
                                             class_type_add_constructor(class_type, entry);
-                                            function_type_set_is_constructor(entry->type_information, 1);
+                                            entry->entity_specs.is_constructor = 1;
                                         }
                                         break;
                                     }
@@ -5412,6 +5394,41 @@ static void build_scope_simple_member_declaration(decl_context_t decl_context, A
                                         prettyprint_in_buffer(initializer),
                                         node_information(initializer));
                                 entry->expression_value = initializer;
+
+                                if (is_function_type(entry->type_information))
+                                {
+                                    // Check that it is '= 0'
+                                    char wrong_initializer = 1;
+                                    if (!entry->entity_specs.is_virtual)
+                                    {
+                                        if (ASTType(initializer) == AST_CONSTANT_INITIALIZER)
+                                        {
+                                            AST constant_expr = ASTSon0(initializer);
+                                            if (ASTType(constant_expr) == AST_CONSTANT_EXPRESSION)
+                                            {
+                                                AST octal_literal = ASTSon0(constant_expr);
+                                                if (ASTType(octal_literal) == AST_OCTAL_LITERAL)
+                                                {
+                                                    if (strcmp(ASTText(octal_literal), "0") == 0)
+                                                    {
+                                                        // It is pure and the initializer was fine
+                                                        entry->entity_specs.is_pure = 1;
+                                                        wrong_initializer = 0;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    if (wrong_initializer)
+                                    {
+                                        running_error("Function declaration '%s' at %s has an invalid initializer '%s'"
+                                                " or has not been declared as a virtual function\n", 
+                                                prettyprint_in_buffer(declarator),
+                                                prettyprint_in_buffer(initializer),
+                                                node_information(declarator));
+                                    }
+                                }
                             }
                         }
                         break;
@@ -5478,7 +5495,7 @@ static void build_exception_spec(type_t* function_type, AST a, decl_context_t de
     if (a == NULL)
         return;
 
-    function_type_set_exception_spec(function_type);
+    // function_type_set_exception_spec(function_type);
 
     AST type_id_list = ASTSon0(a);
 
@@ -5511,7 +5528,7 @@ static void build_exception_spec(type_t* function_type, AST a, decl_context_t de
             compute_declarator_type(abstract_decl, &gather_info, type_info, &declarator_type,
                     decl_context);
         }
-        function_type_add_exception_spec(function_type, declarator_type);
+        // function_type_add_exception_spec(function_type, declarator_type);
     }
 }
 
@@ -5540,7 +5557,7 @@ static void build_scope_template_arguments_for_primary_template(decl_context_t d
     {
         template_parameter_t* template_parameter = template_parameter_info[i];
 
-        if (template_parameter->entry->template_parameter_nesting != decl_context.template_nesting)
+        if (template_parameter->entry->entity_specs.template_parameter_nesting != decl_context.template_nesting)
         {
             // This is a template parameter from an outer template declaration
             // ignore it
@@ -5678,7 +5695,7 @@ decl_context_t replace_template_parameters_with_template_arguments(
             fprintf(stderr, "Considering template parameter '%s'\n", entry->symbol_name);
         }
 
-        if (entry->template_parameter_position >= template_arguments->num_arguments)
+        if (entry->entity_specs.template_parameter_position >= template_arguments->num_arguments)
         {
             // Ignore it, it has not been binded yet
             continue;
@@ -5699,7 +5716,7 @@ decl_context_t replace_template_parameters_with_template_arguments(
             new_entry->kind = SK_TYPEDEF;
 
             type_t* argument_type = 
-                template_arguments->argument_list[entry->template_parameter_position]->type;
+                template_arguments->argument_list[entry->entity_specs.template_parameter_position]->type;
 
             new_entry->type_information = get_new_typedef(argument_type);
 
@@ -5716,13 +5733,13 @@ decl_context_t replace_template_parameters_with_template_arguments(
             // This is no more a SK_TEMPLATE_PARAMETER
             new_entry->kind = SK_VARIABLE;
             AST expression = duplicate_ast(
-                    template_arguments->argument_list[entry->template_parameter_position]->expression);
+                    template_arguments->argument_list[entry->entity_specs.template_parameter_position]->expression);
             AST constant_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, expression, ASTLine(expression), 
                     NULL);
 
             new_entry->expression_value = constant_initializer;
 
-            new_entry->type_information = template_arguments->argument_list[entry->template_parameter_position]->type;
+            new_entry->type_information = template_arguments->argument_list[entry->entity_specs.template_parameter_position]->type;
 
             DEBUG_CODE()
             {
@@ -5736,7 +5753,7 @@ decl_context_t replace_template_parameters_with_template_arguments(
         {
             new_entry->kind = SK_TEMPLATE_ALIAS;
             type_t* template_argument_type = 
-                template_arguments->argument_list[entry->template_parameter_position]->type;
+                template_arguments->argument_list[entry->entity_specs.template_parameter_position]->type;
 
             new_entry->template_alias_type = template_argument_type;
 
@@ -5806,10 +5823,10 @@ void build_scope_template_arguments(
     // Sometimes we end with the injected symbol, that is fairly useless here
     // so readjust the lookup_context and lookup again
     if (templates_list != NULL
-           && templates_list->entry->injected_class_name)
+           && templates_list->entry->entity_specs.is_injected_class_name)
     {
         scope_entry_t* injected_symbol = templates_list->entry;
-        lookup_context = injected_symbol->injected_class_referred_symbol->decl_context;
+        lookup_context = injected_symbol->entity_specs.injected_class_referred_symbol->decl_context;
         templates_list = query_unqualified_name_str(lookup_context, ASTText(template_name));
     }
     
@@ -5865,7 +5882,7 @@ void build_scope_template_arguments(
                 case AST_TEMPLATE_TYPE_ARGUMENT:
                     {
                         if ((*template_arguments)->num_arguments >= 
-                                primary_template->num_template_parameters)
+                                primary_template->entity_specs.num_template_parameters)
                         {
                             // Do nothing, we may be checking for ambiguities
                             break;
@@ -5873,7 +5890,7 @@ void build_scope_template_arguments(
                         template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
 
                         template_parameter_t* curr_template_parameter = 
-                            primary_template->template_parameter_info[(*template_arguments)->num_arguments];
+                            primary_template->entity_specs.template_parameter_info[(*template_arguments)->num_arguments];
 
                         if (curr_template_parameter->kind == TPK_TEMPLATE)
                         {
@@ -5930,14 +5947,14 @@ void build_scope_template_arguments(
                 case AST_TEMPLATE_EXPRESSION_ARGUMENT :
                     {
                         if ((*template_arguments)->num_arguments >= 
-                                primary_template->num_template_parameters)
+                                primary_template->entity_specs.num_template_parameters)
                         {
                             // Do nothing, we may be checking for ambiguities
                             break;
                         }
 
                         template_parameter_t* curr_template_parameter = 
-                            primary_template->template_parameter_info[(*template_arguments)->num_arguments];
+                            primary_template->entity_specs.template_parameter_info[(*template_arguments)->num_arguments];
 
                         // We have to rebuild the actual type of this nontype template argument because
                         // we did not save it
@@ -6026,12 +6043,12 @@ void build_scope_template_arguments(
     // Check number of parameter templates
     {
         int mandatory_num_arguments = 0;
-        mandatory_num_arguments = primary_template->num_template_parameters;
+        mandatory_num_arguments = primary_template->entity_specs.num_template_parameters;
 
         while (mandatory_num_arguments >= 1)
         {
             template_parameter_t* curr_template_parameter = 
-                primary_template->template_parameter_info[mandatory_num_arguments - 1];
+                primary_template->entity_specs.template_parameter_info[mandatory_num_arguments - 1];
 
             if (curr_template_parameter->has_default_argument)
             {
@@ -6050,7 +6067,7 @@ void build_scope_template_arguments(
         }
     }
 
-    if (primary_template->num_template_parameters > num_arguments)
+    if (primary_template->entity_specs.num_template_parameters > num_arguments)
     {
         // We have to complete with default template arguments, as defined
         // in the primary template definition
@@ -6062,7 +6079,7 @@ void build_scope_template_arguments(
 
         int k;
         for (k = num_arguments; 
-                k < (primary_template->num_template_parameters);
+                k < (primary_template->entity_specs.num_template_parameters);
                 k++)
         {
             DEBUG_CODE()
@@ -6071,7 +6088,7 @@ void build_scope_template_arguments(
                         k, prettyprint_in_buffer(class_head_id));
             }
 
-            template_parameter_t* curr_template_parameter = primary_template->template_parameter_info[k];
+            template_parameter_t* curr_template_parameter = primary_template->entity_specs.template_parameter_info[k];
             template_argument_t* curr_template_arg = calloc(1, sizeof(*curr_template_arg));
 
             switch (curr_template_parameter->kind)

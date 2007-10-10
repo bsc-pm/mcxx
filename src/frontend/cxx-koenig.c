@@ -79,7 +79,7 @@ char koenig_can_be_used(AST called_expression, decl_context_t decl_context)
         scope_entry_t* entry = iter->entry;
 
         // If the function found is a member one, Koenig cannot be done
-        if (entry->is_member)
+        if (entry->entity_specs.is_member)
             return 0;
         // If the function found is a block-scope declared one, Koenig cannot
         // be done (TODO: check that using function declarations are not considered
@@ -233,9 +233,9 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
         if (is_named_type(argument_type))
         {
             scope_entry_t* symbol = named_type_get_symbol(argument_type);
-            if (symbol->is_member)
+            if (symbol->entity_specs.is_member)
             {
-                type_t* class_type = symbol->class_type;
+                type_t* class_type = symbol->entity_specs.class_type;
                 compute_associated_scopes_rec(associated_scopes, class_type);
             }
         }
@@ -337,9 +337,9 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
     if (is_named_type(type_info))
     {
         scope_entry_t* symbol = named_type_get_symbol(type_info);
-        if (symbol->is_member)
+        if (symbol->entity_specs.is_member)
         {
-            type_t* class_type = symbol->class_type;
+            type_t* class_type = symbol->entity_specs.class_type;
 
             compute_associated_scopes_rec(associated_scopes, class_type);
         }

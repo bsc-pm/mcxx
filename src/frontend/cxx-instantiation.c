@@ -44,8 +44,8 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     // instance_symbol->related_decl_context.template_scope = 
     //     instance_symbol->related_decl_context.template_scope->contained_in;
 
-    template_parameter_t** template_parameter_list = matched_template->template_parameter_info;
-    int num_template_parameters = matched_template->num_template_parameters;
+    template_parameter_t** template_parameter_list = matched_template->entity_specs.template_parameter_info;
+    int num_template_parameters = matched_template->entity_specs.num_template_parameters;
     int i;
 
     if (template_argument_list->num_arguments != num_template_parameters)
@@ -164,8 +164,8 @@ static void instantiate_primary_template(scope_entry_t* matched_template,
     *injected_symbol = *instance_symbol;
 
     injected_symbol->do_not_print = 1;
-    injected_symbol->injected_class_name = 1;
-    injected_symbol->injected_class_referred_symbol = instance_symbol;
+    injected_symbol->entity_specs.is_injected_class_name = 1;
+    injected_symbol->entity_specs.injected_class_referred_symbol = instance_symbol;
 
     if (instantiation_body != NULL)
     {
@@ -197,8 +197,8 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
     // instance_symbol->related_decl_context.template_scope = 
     //     instance_symbol->related_decl_context.template_scope->contained_in;
 
-    template_parameter_t** template_parameter_list = matched_template->template_parameter_info;
-    int num_template_parameters = matched_template->num_template_parameters;
+    template_parameter_t** template_parameter_list = matched_template->entity_specs.template_parameter_info;
+    int num_template_parameters = matched_template->entity_specs.num_template_parameters;
     int i;
 
     AST instantiation_body = NULL;
@@ -234,8 +234,10 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
                         {
                             unification_item_t* unification_item = unification_set->unif_list[j];
 
-                            if ((unification_item->parameter_position == template_parameter->entry->template_parameter_position)
-                                    && (unification_item->parameter_nesting == template_parameter->entry->template_parameter_nesting))
+                            if ((unification_item->parameter_position 
+                                        == template_parameter->entry->entity_specs.template_parameter_position)
+                                    && (unification_item->parameter_nesting 
+                                        == template_parameter->entry->entity_specs.template_parameter_nesting))
                             {
                                 DEBUG_CODE()
                                 {
@@ -275,8 +277,10 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
                         {
                             unification_item_t* unification_item = unification_set->unif_list[j];
 
-                            if ((unification_item->parameter_position == template_parameter->entry->template_parameter_position)
-                                    && (unification_item->parameter_nesting == template_parameter->entry->template_parameter_nesting))
+                            if ((unification_item->parameter_position 
+                                        == template_parameter->entry->entity_specs.template_parameter_position)
+                                    && (unification_item->parameter_nesting 
+                                        == template_parameter->entry->entity_specs.template_parameter_nesting))
                             {
                                 DEBUG_CODE()
                                 {
@@ -342,8 +346,8 @@ static void instantiate_specialized_template(scope_entry_t* matched_template,
     *injected_symbol = *instance_symbol;
 
     injected_symbol->do_not_print = 1;
-    injected_symbol->injected_class_name = 1;
-    injected_symbol->injected_class_referred_symbol = instance_symbol;
+    injected_symbol->entity_specs.is_injected_class_name = 1;
+    injected_symbol->entity_specs.injected_class_referred_symbol = instance_symbol;
 
     if (instantiation_body != NULL)
     {
@@ -372,8 +376,8 @@ static void fill_template_specialized_info(scope_entry_t* instance_symbol,
 
     template_type_set_template_match_pair(instance_symbol->type_information, matching_pair);
 
-    instance_symbol->is_member = matched_template->is_member;
-    instance_symbol->class_type = matched_template->class_type;
+    instance_symbol->entity_specs.is_member = matched_template->entity_specs.is_member;
+    instance_symbol->entity_specs.class_type = matched_template->entity_specs.class_type;
 
     char* qualification_name = matched_template->symbol_name;
 

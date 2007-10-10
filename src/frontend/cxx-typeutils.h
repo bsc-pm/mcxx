@@ -29,6 +29,18 @@
 
 MCXX_BEGIN_DECLS
 
+// Information of a parameter feeded to get_function_type
+typedef 
+struct parameter_info_tag
+{
+    // This parameter is '...'
+    char is_ellipsis;
+    // Otherwise it has the type here
+    type_t* type_info;
+    // If not null, original_type holds the original type (array or function)
+    type_t* original_type;
+} parameter_info_t;
+
 /* Type constructors: Builtins */
 type_t* get_char_type(void);
 type_t* get_signed_char_type(void);
@@ -83,8 +95,8 @@ type_t* get_reference_type(type_t* t);
 
 type_t* get_array_type(type_t*, AST expression, decl_context_t decl_context);
 
-type_t* get_function_type(type_t* t);
-type_t* get_conversion_type(type_t* t);
+type_t* get_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters);
+type_t* get_nonproto_function_type(type_t* t, int num_parameters);
 
 /* Type comparison functions */
 enum cv_equivalence_t
@@ -101,26 +113,6 @@ char overloaded_function(type_t* f1, type_t* f2,
 char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 
 /* Modifiers used when the type is still being built */
-void function_type_set_lacking_prototype(type_t* function_type, char lacks_prototype);
-void function_type_set_has_ellipsis(type_t* function_type);
-void function_type_add_parameter(type_t* function_type, 
-        type_t* prototype_type, 
-        type_t* parameter_type, 
-        AST default_argument, 
-        decl_context_t default_arg_context);
-void function_type_set_no_parameters(type_t* function_type);
-void function_type_set_static(type_t* function_type, char is_static);
-void function_type_set_inline(type_t* function_type, char is_inline);
-void function_type_set_virtual(type_t* function_type, char is_virtual);
-void function_type_set_explicit(type_t* function_type, char is_explicit);
-void function_type_set_exception_spec(type_t* function_type);
-void function_type_add_exception_spec(type_t* function_type, type_t* exception_type);
-void function_type_set_template_information(type_t* function_type,
-        int template_nesting,
-        int num_template_parameters,
-        template_parameter_t** template_parameters);
-void function_type_set_template_body(type_t* type, AST function_body);
-void function_type_set_is_constructor(type_t* entry, char is_constructor);
 
 void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, char is_virtual);
 void class_type_set_inner_context(type_t* class_type, decl_context_t decl_context);
@@ -177,7 +169,6 @@ char is_pointer_type(type_t* t1);
 char is_array_type(type_t* t1);
 
 char is_function_type(type_t* t);
-char is_conversion_type(type_t* t);
 
 char is_reference_type(type_t* t1);
 
@@ -206,16 +197,10 @@ type_t* get_unqualified_type(type_t* t);
 cv_qualifier_t get_cv_qualifier(type_t* type_info);
 
 /* Query functions: specific ones */
-char function_type_get_static(type_t* function_type);
-char function_type_get_inline(type_t* function_type);
-char function_type_get_virtual(type_t* function_type);
-char function_type_get_explicit(type_t* function_type);
-char function_type_get_is_constructor(type_t* function_type);
 int function_type_get_num_parameters(type_t* function_type);
 type_t* function_type_get_parameter_type_num(type_t* function_type, int num_param);
 char function_type_get_lacking_prototype(type_t* function_type);
 char function_type_get_has_ellipsis(type_t* function_type);
-char function_type_is_conversion(type_t* t);
 type_t* function_type_get_return_type(type_t* t);
 
 type_t* pointer_type_get_pointee_type(type_t *t);
