@@ -24,6 +24,7 @@
 #include "cxx-macros.h"
 #include "cxx-ast.h"
 #include "cxx-scope-decls.h"
+#include "cxx-typeutils.h"
 
 MCXX_BEGIN_DECLS
 
@@ -45,18 +46,20 @@ union tl_type_data_tag
     tl_type_array_t _array;
     char* _string;
     scope_entry_t* _entry;
+    type_t* _type;
 } tl_type_data_t;
 
 typedef 
 enum tl_type_kind_tag
 {
     TL_UNDEFINED = 0,
-    TL_INTEGER,
-    TL_BOOL,
-    TL_AST,
-    TL_STRING,
-    TL_ARRAY,
-    TL_SYMBOL
+    TL_INTEGER, // int
+    TL_BOOL, // char
+    TL_AST, // AST
+    TL_STRING, // char*
+    TL_ARRAY, // array of tl_types [unimplemented]
+    TL_SYMBOL, // scope_entry_t*
+    TL_TYPE,  // type_t*
 } tl_type_kind_t;
 
 typedef 

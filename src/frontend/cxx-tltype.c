@@ -51,6 +51,16 @@ tl_type_t tl_ast(AST a)
     return result;
 }
 
+tl_type_t tl_type(type_t* t)
+{
+    tl_type_t result;
+    
+    result.kind = TL_TYPE;
+    result.data._type = t;
+
+    return result;
+}
+
 tl_type_t tl_string(const char* str)
 {
     tl_type_t result;
