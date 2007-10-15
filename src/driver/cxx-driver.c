@@ -148,7 +148,7 @@ struct command_line_long_options command_line_long_options[] =
     {"debug-flags",  CLP_REQUIRED_ARGUMENT, OPTION_DEBUG_FLAG},
     {"help-debug-flags", CLP_NO_ARGUMENT, OPTION_HELP_DEBUG_FLAGS},
     {"no-openmp", CLP_NO_ARGUMENT, OPTION_NO_OPENMP},
-    {"variable-name", CLP_REQUIRED_ARGUMENT, OPTION_EXTERNAL_VAR},
+    {"variable", CLP_REQUIRED_ARGUMENT, OPTION_EXTERNAL_VAR},
     // sentinel
     {NULL, 0, 0}
 };

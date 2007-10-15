@@ -419,9 +419,21 @@ static type_t* get_simple_type(void)
 
 type_t* get_char_type(void)
 {
-    // This might be modified by a compiler flag
-    return get_signed_char_type();
+    // TODO: This  should be modified by a compiler flag
+    // return get_signed_char_type();
+
+    static type_t* _type = NULL;
+
+    if (_type == NULL)
+    {
+        _type = get_simple_type();
+        _type->type->kind = STK_BUILTIN_TYPE;
+        _type->type->builtin_type = BT_CHAR;
+    }
+
+    return _type;
 }
+
 
 type_t* get_signed_char_type(void)
 {

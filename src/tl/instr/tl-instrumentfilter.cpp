@@ -43,6 +43,12 @@ namespace TL
                 << filter_mode_var << "')" << std::endl;
         }
 
+        if (!_filter_inverted)
+        {
+            // Always include this
+            _filter_set.insert("mintaka*");
+        }
+
         filter_file.open(filter_file_name.c_str());
         if (!filter_file.good())
         {
