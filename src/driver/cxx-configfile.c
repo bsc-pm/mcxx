@@ -47,7 +47,7 @@ int config_set_language(char* value)
 int config_set_options(char* value)
 {
     int num;
-    char** comma_options = blank_separate_values(value, &num);
+    char** blank_separated_options = blank_separate_values(value, &num);
 
     num++;
     char** real_options = calloc(num, sizeof(*real_options));
@@ -55,7 +55,7 @@ int config_set_options(char* value)
     int i;
     for (i = 1; i < num; i++)
     {
-        real_options[i] = comma_options[i - 1];
+        real_options[i] = blank_separated_options[i - 1];
     }
 
     // FIXME
@@ -79,8 +79,13 @@ int config_set_preprocessor_name(char* value)
 // Set preprocessor options
 int config_set_preprocessor_options(char* value)
 {
+    // CURRENT_CONFIGURATION(preprocessor_options) = blank_separate_values(value, &num);
+
     int num;
-    CURRENT_CONFIGURATION(preprocessor_options) = blank_separate_values(value, &num);
+    char** blank_separated_options = blank_separate_values(value, &num);
+
+    add_to_parameter_list(&CURRENT_CONFIGURATION(preprocessor_options), blank_separated_options, num);
+
     return 0;
 }
 
@@ -95,7 +100,9 @@ int config_set_compiler_name(char* value)
 int config_set_compiler_options(char* value)
 {
     int num;
-    CURRENT_CONFIGURATION(native_compiler_options) = blank_separate_values(value, &num);
+    char **blank_separated_options = blank_separate_values(value, &num);
+
+    add_to_parameter_list(&CURRENT_CONFIGURATION(native_compiler_options), blank_separated_options, num);
     return 0;
 }
 
@@ -110,7 +117,9 @@ int config_set_linker_name(char* value)
 int config_set_linker_options(char* value)
 {
     int num;
-    CURRENT_CONFIGURATION(linker_options) = blank_separate_values(value, &num);
+    char **blank_separated_options = blank_separate_values(value, &num);
+
+    add_to_parameter_list(&CURRENT_CONFIGURATION(linker_options), blank_separated_options, num);
     return 0;
 }
 

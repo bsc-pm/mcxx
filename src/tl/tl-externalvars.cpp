@@ -28,13 +28,13 @@ namespace TL
 {
     std::string ExternalVars::get(const std::string& name, const std::string& default_val)
     {
-        for (int i = 0; i < compilation_process.num_external_vars; i++)
+        for (int i = 0; i < CURRENT_CONFIGURATION(num_external_vars); i++)
         {
-            std::string variable = compilation_process.external_vars[i]->name;
+            std::string variable = CURRENT_CONFIGURATION(external_vars)[i]->name;
             
             if (variable == name)
             {
-                return compilation_process.external_vars[i]->value;
+                return CURRENT_CONFIGURATION(external_vars)[i]->value;
             }
         }
 

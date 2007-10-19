@@ -154,10 +154,6 @@ typedef struct compilation_process_tag
     char** argv;
     char* exec_basename;
 
-    // External vars for compiler pipeline
-    int num_external_vars;
-    external_var_t** external_vars;
-    
     // The set of configurations as defined by the user in the configuration file
     int num_configurations;
     struct compilation_configuration_tag** configuration_set;
@@ -206,6 +202,10 @@ typedef struct compilation_configuration_tag
 
     int num_compiler_phases;
     char** compiler_phases;
+    
+    // External vars for compiler pipeline of this configuration
+    int num_external_vars;
+    external_var_t** external_vars;
 
     // Pragma configuration
     // OMP pragmae

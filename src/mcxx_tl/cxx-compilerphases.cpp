@@ -134,10 +134,10 @@ namespace TL
             {
                 // This is blatantly inefficient, I know
                 // For every external variable
-                for (int i = 0; i < compilation_process.num_external_vars; i++)
+                for (int i = 0; i < CURRENT_CONFIGURATION(num_external_vars); i++)
                 {
                     // And for every phase
-                    external_var_t* ext_var = compilation_process.external_vars[i];
+                    external_var_t* ext_var = CURRENT_CONFIGURATION(external_vars)[i];
                     bool registered = false;
                     for (compiler_phases_t::iterator it = compiler_phases.begin();
                             it != compiler_phases.end();

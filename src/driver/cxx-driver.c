@@ -182,7 +182,6 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node);
 static void link_objects(void);
 
 static void add_to_parameter_list_str(char*** existing_options, char* str);
-static void add_to_parameter_list(char*** existing_options, char **parameters, int num_parameters);
 static void parse_subcommand_arguments(char* arguments);
 
 static void enable_debug_flag(char* flag);
@@ -577,7 +576,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
                         new_external_var->name = name;
                         new_external_var->value = value;
 
-                        P_LIST_ADD(compilation_process.external_vars, compilation_process.num_external_vars,
+                        P_LIST_ADD(CURRENT_CONFIGURATION(external_vars), CURRENT_CONFIGURATION(num_external_vars),
                                 new_external_var);
                         break;
                     }
@@ -831,7 +830,7 @@ static void add_to_parameter_list_str(char*** existing_options, char* str)
     add_to_parameter_list(existing_options, &d_str, 1);
 }
 
-static void add_to_parameter_list(char*** existing_options, char **parameters, int num_parameters)
+void add_to_parameter_list(char*** existing_options, char **parameters, int num_parameters)
 {
     int num_existing_options = count_null_ended_array((void**)(*existing_options));
 

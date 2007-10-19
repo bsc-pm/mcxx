@@ -68,6 +68,9 @@ pragma_directive_kind_t lookup_pragma_directive(const char* prefix, const char* 
 
 void register_new_directive(const char* prefix, const char* directive, char is_construct);
 
+// Internal between cxx-driver.c and cxx-configfile.c, do not use elsewhere
+void add_to_parameter_list(char*** existing_options, char **parameters, int num_parameters);
+
 MCXX_END_DECLS
 
 #endif // CXX_DRIVER_H

@@ -48,9 +48,6 @@ libmcxx_la_SOURCES = \
   cxx-instantiation.h \
   cxx-instantiation.c \
   cxx-fileextensions.c \
-  cxx-configfile.h \
-  cxx-configfile.c \
-  cxx-configoptions.c \
   cxx-debugflags.c \
   cxx-dyninit.c \
   cxx-dyninit.h \
@@ -151,12 +148,6 @@ cxx-fileextensions.c : $(srcdir)/cxx-fileextensions.gperf $(top_srcdir)/src/driv
 	gperf --language=ANSI-C --hash-function-name=fileextensions_hash --struct-type \
       --lookup-function-name=fileextensions_lookup --output=cxx-fileextensions.c \
       $(srcdir)/cxx-fileextensions.gperf
-
-CLEANFILES += cxx-configoptions.c
-cxx-configoptions.c : $(srcdir)/cxx-configoptions.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/cxx-configfile.h
-	gperf --language=ANSI-C --hash-function-name=configoptions_hash --struct-type \
-      --lookup-function-name=configoptions_lookup --output=cxx-configoptions.c \
-      $(srcdir)/cxx-configoptions.gperf
 
 CLEANFILES += cxx-debugflags.c
 cxx-debugflags.c : $(srcdir)/cxx-debugflags.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/cxx-utils.h

@@ -54,13 +54,21 @@ namespace TL
 
     class TraverseDecls : public CompilerPhase
     {
+        private:
+            std::string test_parameter;
         public:
             TraverseDecls()
             {
+                register_parameter("test",
+                        "This is a test parameter",
+                        test_parameter,
+                        "no-given-test-parameter");
             }
 
             void run(DTO& dto)
             {
+                std::cerr << "TEST PARAMETR '" << test_parameter << "'" << std::endl;
+
                 AST_t ast = dto["translation_unit"];
                 ScopeLink scope_link = dto["scope_link"];
 
