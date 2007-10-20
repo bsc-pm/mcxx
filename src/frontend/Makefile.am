@@ -47,8 +47,6 @@ libmcxx_la_SOURCES = \
   cxx-printscope.h \
   cxx-instantiation.h \
   cxx-instantiation.c \
-  cxx-fileextensions.c \
-  cxx-debugflags.c \
   cxx-dyninit.c \
   cxx-dyninit.h \
   cxx-tltype.h \
@@ -71,9 +69,6 @@ libmcxx_la_CFLAGS = -Wall \
 
 EXTRA_DIST += cxx-lexer.l
 EXTRA_DIST += cxx-asttype.def
-EXTRA_DIST += cxx-fileextensions.gperf
-EXTRA_DIST += cxx-configoptions.gperf
-EXTRA_DIST += cxx-debugflags.gperf
 EXTRA_DIST += cxx-attrnames.def
 EXTRA_DIST += c99.y.in
 EXTRA_DIST += cxx03.y.in
@@ -141,21 +136,6 @@ cxx-attrnames.c : $(srcdir)/cxx-attrnames.def cxx-attrnames.h
 	echo "    extensible_schema_init(&ast_extensible_schema);" >> cxx-attrnames.c
 	sed -e "s/^\([^[:blank:]]*\)[[:blank:]]*\([^[:blank:]]*\)/    extensible_schema_add_field(\&ast_extensible_schema, \1, sizeof(tl_type_t));/" < $< >> cxx-attrnames.c
 	echo "}" >> cxx-attrnames.c
-
-if GPERF_BUILDING
-CLEANFILES += cxx-fileextensions.c
-cxx-fileextensions.c : $(srcdir)/cxx-fileextensions.gperf $(top_srcdir)/src/driver/cxx-driver.h
-	gperf --language=ANSI-C --hash-function-name=fileextensions_hash --struct-type \
-      --lookup-function-name=fileextensions_lookup --output=cxx-fileextensions.c \
-      $(srcdir)/cxx-fileextensions.gperf
-
-CLEANFILES += cxx-debugflags.c
-cxx-debugflags.c : $(srcdir)/cxx-debugflags.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/cxx-utils.h
-	gperf --language=ANSI-C --hash-function-name=debugflags_hash --struct-type \
-      --lookup-function-name=debugflags_lookup --output=cxx-debugflags.c \
-      --global-table --word-array-name=debugflags_list\
-	  $(srcdir)/cxx-debugflags.gperf
-endif
 
 if FLEX_BUILDING
 CLEANFILES += cxx-scanner.c

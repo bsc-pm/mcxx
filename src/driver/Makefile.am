@@ -19,6 +19,8 @@ mcxx_SOURCES = \
   cxx-configoptions.c \
   cxx-parameters.c \
   cxx-parameters.h \
+  cxx-fileextensions.c \
+  cxx-debugflags.c \
   cxx-driver.c \
   cxx-driver-decls.h \
   cxx-driver.h
@@ -41,6 +43,8 @@ mcxx_LDADD = \
    -lmcxx-mcfg
 
 EXTRA_DIST += cxx-configoptions.gperf
+EXTRA_DIST += cxx-fileextensions.gperf
+EXTRA_DIST += cxx-debugflags.gperf
 
 if GPERF_BUILDING
 CLEANFILES += cxx-configoptions.c
@@ -48,6 +52,19 @@ cxx-configoptions.c : $(srcdir)/cxx-configoptions.gperf $(top_srcdir)/src/driver
 	gperf --language=ANSI-C --hash-function-name=configoptions_hash --struct-type \
       --lookup-function-name=configoptions_lookup --output=cxx-configoptions.c \
       $(srcdir)/cxx-configoptions.gperf
+
+CLEANFILES += cxx-fileextensions.c
+cxx-fileextensions.c : $(srcdir)/cxx-fileextensions.gperf $(top_srcdir)/src/driver/cxx-driver.h
+	gperf --language=ANSI-C --hash-function-name=fileextensions_hash --struct-type \
+      --lookup-function-name=fileextensions_lookup --output=cxx-fileextensions.c \
+      $(srcdir)/cxx-fileextensions.gperf
+
+CLEANFILES += cxx-debugflags.c
+cxx-debugflags.c : $(srcdir)/cxx-debugflags.gperf $(top_srcdir)/src/driver/cxx-driver.h $(top_srcdir)/src/frontend/cxx-utils.h
+	gperf --language=ANSI-C --hash-function-name=debugflags_hash --struct-type \
+      --lookup-function-name=debugflags_lookup --output=cxx-debugflags.c \
+      --global-table --word-array-name=debugflags_list\
+	  $(srcdir)/cxx-debugflags.gperf
 endif
 
 # Install hooks
