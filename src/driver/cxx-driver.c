@@ -325,9 +325,10 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
     static char E_specified = 0;
     static char y_specified = 0;
 
-    struct command_line_parameter_t parameter_info;
+    char **input_files = NULL;
+    int num_input_files = 0;
 
-    int number_of_files = 0;
+    struct command_line_parameter_t parameter_info;
 
     while (command_line_get_next_parameter(&parameter_index, 
                 &parameter_info,
@@ -361,20 +362,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
             if ((parameter_info.argument != NULL)
                     && (strlen(parameter_info.argument) > 0))
             {
-                if ((number_of_files > 1) 
-                        && c_specified
-                        && output_file != NULL)
-                {
-                    fprintf(stderr, "Cannot specify -o with -c with multiple files (second file '%s')", 
-                            argv[(parameter_index - 1)]);
-                    return 1;
-                }
-                else
-                {
-                    add_new_file_to_compilation_process(parameter_info.argument, 
-                            output_file, compilation_process.current_compilation_configuration);
-                    number_of_files++;
-                }
+                P_LIST_ADD(input_files, num_input_files, parameter_info.argument);
             }
         }
         // A known option
@@ -461,6 +449,12 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
                         }
                         else
                         {
+                            if ((num_input_files > 1) 
+                                    && c_specified)
+                            {
+                                fprintf(stderr, "Cannot specify -o when -c once given more than one file");
+                                return 1;
+                            }
                             output_file = strdup(parameter_info.argument);
                         }
                         break;
@@ -597,23 +591,22 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
         return 0;
     }
 
-    if (number_of_files == 0)
+
+    // Create translation units
+    
+    if (num_input_files == 0)
     {
         fprintf(stderr, "You must specify an input file\n");
         return 1;
     }
-
-    // Additional sanity checks
-    //
     // "-o -" is not valid when compilation or linking will be done
     if (output_file != NULL
             && (strcmp(output_file, "-") == 0)
             && !E_specified)
     {
-        fprintf(stderr, "You must specify an input file.\n");
+        fprintf(stderr, "You must specify an output file.\n");
         return 1;
     }
-
     // If -E has been specified and no output file has been, assume it is "-"
     if (output_file == NULL
             && E_specified)
@@ -622,10 +615,33 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
         output_file = strdup("-");
     }
 
+    // When -c and -o are given only one file is valid
     if (output_file != NULL
-            && !CURRENT_CONFIGURATION(do_not_link))
+            && c_specified
+            && (num_input_files > 1))
     {
-        CURRENT_CONFIGURATION(linked_output_filename) = output_file;
+        fprintf(stderr, "Cannot specify -o and -c with multiple files (second file '%s')", 
+                argv[(parameter_index - 1)]);
+        return 1;
+    }
+
+    // This is the right place to sign in input files, never before of complete
+    // command parsing
+    int i;
+    for (i = 0; i < num_input_files; i++)
+    {
+        add_new_file_to_compilation_process(input_files[i],
+                output_file, compilation_process.current_compilation_configuration);
+    }
+
+    // If some output was given by means of -o and we are linking (so no -c neither -E)
+    // then, this output is the overall compilation process output
+    if (output_file != NULL)
+    {
+        if (!CURRENT_CONFIGURATION(do_not_link))
+        {
+            CURRENT_CONFIGURATION(linked_output_filename) = output_file;
+        }
     }
 
     return 0;
