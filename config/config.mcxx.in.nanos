@@ -22,3 +22,17 @@ compiler_options =
 linker_name = c++
 linker_options = -L @NANOS_LIBS@ -lnthreads -Wl,-rpath,@NANOS_LIBS@
 compiler_phase = libtlomp.so
+
+# For C & icc
+[imcc]
+language = C
+options =
+preprocessor_name = icc
+preprocessor_options = -E -I @NANOS_INCLUDES@ -include omp.h -include nthreads.h -include intone.h -D_OPENMP=200505 -include mintaka.h
+compiler_name = icc
+compiler_options = 
+linker_name = icc
+linker_options = -L @NANOS_LIBS@ -lnthreads -Wl,-rpath,@NANOS_LIBS@
+compiler_phase = libtlinstr.so
+compiler_phase = libtlomp.so
+

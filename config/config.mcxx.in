@@ -25,6 +25,19 @@ linker_options = @MCXX_LIBS@
 @INSTRUMENTATION_PHASE@
 compiler_phase = libtlomp.so
 
+# For C and icc
+[imcc]
+language = C
+options =
+preprocessor_name = icc
+preprocessor_options = -E  @MCXX_INCLUDES@
+compiler_name = icc
+compiler_options =
+linker_name = icc
+linker_options = @MCXX_LIBS@
+@INSTRUMENTATION_PHASE@
+compiler_phase = libtlomp.so
+
 [acotescc]
 language = C
 options =
