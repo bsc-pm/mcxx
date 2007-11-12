@@ -38,14 +38,14 @@ namespace TL
         }
         else if (filter_mode_var != "normal")
         {
-            std::cerr << "Variable 'function_filter_mode' only can be 'inverted' or 'normal' (you set '" 
+            std::cerr << "Warning, filter mode can only be 'inverted' or 'normal' (you set '" 
                 << filter_mode_var << "')" << std::endl;
         }
 
         filter_file.open(filter_file_name.c_str());
-        if (!filter_file.good())
+        if (filter_file.good())
         {
-            std::cerr << "Could not open call replacing filter file '" << filter_file_name << "'. Skipping." << std::endl;
+            std::cerr << "Using file '" << filter_file_name << "' as a filter." << std::endl;
             return;
         }
 

@@ -22,16 +22,52 @@
 
 namespace TL
 {
-    class OpenMPTransform::ExpressionReplacement 
+    class STMFunctionFiltering
+    {
+        private:
+            FunctionFilterFile _replace_filter;
+            FunctionFilterFile _wrap_filter;
+        public:
+            STMFunctionFiltering(const std::string& replace_filename, const std::string& replace_filter_mode,
+                    const std::string& wrap_filename, const std::string& wrap_filter_mode)
+            {
+                _replace_filter.init(replace_filename, replace_filter_mode);
+                _wrap_filter.init(wrap_filename, wrap_filter_mode);
+            }
+
+            bool not_wrapped(const std::string& name)
+            {
+                return _wrap_filter.match(name);
+            }
+
+            bool wrapped(const std::string& name)
+            {
+                return !not_wrapped(name);
+            }
+
+            bool not_replaced(const std::string& name)
+            {
+                return _replace_filter.match(name);
+            }
+
+            bool replaced(const std::string& name)
+            {
+                return !not_replaced(name);
+            }
+    };
+
+    class OpenMPTransform::STMExpressionReplacement 
     {
         private:
             ObjectList<Symbol> _considered_symbols;
-            FunctionFilterFile &_filter_file;
+            STMFunctionFiltering _stm_function_filtering;
         public:
-            ExpressionReplacement(ObjectList<Symbol>& considered_symbols,
-                    FunctionFilterFile& filter_file)
+            STMExpressionReplacement(ObjectList<Symbol>& considered_symbols,
+                    const std::string& replace_filename, const std::string& replace_filter_mode,
+                    const std::string& wrap_filename, const std::string& wrap_filter_mode)
                 : _considered_symbols(considered_symbols),
-                _filter_file(filter_file)
+                _stm_function_filtering(replace_filename, replace_filter_mode,
+                        wrap_filename, wrap_filter_mode)
         {
         }
 
@@ -525,14 +561,15 @@ namespace TL
                         // A simple function call of the form "f(...)"
                         Source replace_call, replace_args;
 
-                        bool is_replaced_function = 
-                            !_filter_file.match(called_expression.prettyprint());
+                        bool must_replace_function = 
+                            _stm_function_filtering.wrapped(called_expression.prettyprint())
+                            || _stm_function_filtering.replaced(called_expression.prettyprint());
 
                         Symbol function_symbol = called_expression.
                             get_id_expression().get_symbol();
                         Type function_type = function_symbol.get_type();
 
-                        if (is_replaced_function && function_type.is_function())
+                        if (must_replace_function && function_type.is_function())
                         {
                             wrapped_function = true;
 
@@ -591,7 +628,7 @@ namespace TL
                                 ;
                         }
 
-                        if (is_replaced_function 
+                        if (must_replace_function 
 								// If it is a pointer better we do not add
 								// transaction and hope it be a safe function :)
 								&& !function_type.is_pointer())
@@ -624,7 +661,7 @@ namespace TL
                                 it != arguments.end();
                                 it++)
                         {
-                            if (is_replaced_function)
+                            if (must_replace_function)
                             {
                                 // Ignore the transaction argument
                                 if (it == arguments.begin())
@@ -694,7 +731,7 @@ namespace TL
             }
     };
 
-    void OpenMPTransform::transaction_preorder(OpenMP::CustomConstruct protect_construct)
+    void OpenMPTransform::stm_transaction_preorder(OpenMP::CustomConstruct transaction_construct)
     {
         transaction_nesting++;
 
@@ -704,14 +741,14 @@ namespace TL
 		PredicateAST<LANG_IS_DECLARATION> is_declaration_pred_;
 		IgnorePreserveFunctor is_declaration_pred(is_declaration_pred_);
 
-        Statement protect_statement = protect_construct.body();
-		ObjectList<AST_t> found_declarations = protect_statement.get_ast().depth_subtrees(is_declaration_pred);
+        Statement transaction_statement = transaction_construct.body();
+		ObjectList<AST_t> found_declarations = transaction_statement.get_ast().depth_subtrees(is_declaration_pred);
 
 		for (ObjectList<AST_t>::iterator it = found_declarations.begin();
 				it != found_declarations.end();
 				it++)
 		{
-			Declaration declaration(*it, protect_construct.get_scope_link());
+			Declaration declaration(*it, transaction_construct.get_scope_link());
 
 			ObjectList<DeclaredEntity> declared_entities = declaration.get_declared_entities();
 			for (ObjectList<DeclaredEntity>::iterator p_decl = declared_entities.begin();
@@ -722,7 +759,7 @@ namespace TL
 				{
 					std::cerr << "WARNING: Declared entity '" << p_decl->get_declared_entity().prettyprint() << "' "
 						<< "in '" << p_decl->get_initializer().get_ast().get_locus() << "' "
-						<< "has initializer. This is currently unsupported" 
+						<< "has initializer. This is currently unsupported." 
 						<< std::endl;
 				}
 			}
@@ -737,50 +774,50 @@ namespace TL
 			{
 					std::cerr << "WARNING: Declaration '" << declaration.get_ast().prettyprint() << "' "
 						<< "in '" << declaration.get_ast().get_locus() << "' "
-						<< "defines a static entity. This might lead to incorrect code"
+						<< "defines a static entity. This might lead to incorrect code."
 						<< std::endl;
 			}
 		}
     }
 
-    void OpenMPTransform::transaction_postorder(OpenMP::CustomConstruct protect_construct)
+    void OpenMPTransform::stm_transaction_postorder(OpenMP::CustomConstruct transaction_construct)
     {
-        // Expect that the transaction_postorder == 1 will do
-        // all the transformation
-
         ObjectList<Symbol> considered_symbols;
         ObjectList<Symbol> excluded_symbols;
 
-        Statement protect_statement = protect_construct.body();
-        OpenMP::Directive protect_directive = protect_construct.directive();
+        // The "transacted" statement
+        Statement transaction_statement = transaction_construct.body();
+        OpenMP::Directive transaction_directive = transaction_construct.directive();
 
-        OpenMP::CustomClause exclude_clause = protect_directive.custom_clause("exclude");
+        // This is a flag telling that this function was wrapped in stm_funct phase
         OpenMP::CustomClause converted_function = 
-            protect_directive.custom_clause("converted_function");
+            transaction_directive.custom_clause("converted_function");
 
         // Expect the transformation to be done when transaction_nesting == 1
         // Here we only remove the pragma itself
         if (transaction_nesting > 1)
         {
             Source replaced_code;
-            replaced_code << protect_statement.prettyprint();
+            replaced_code << transaction_statement.prettyprint();
 
-            AST_t replaced_tree = replaced_code.parse_statement(protect_statement.get_ast(),
-                    protect_statement.get_scope_link());
+            AST_t replaced_tree = replaced_code.parse_statement(transaction_statement.get_ast(),
+                    transaction_statement.get_scope_link());
 
-            protect_construct.get_ast().replace(replaced_tree);
+            transaction_construct.get_ast().replace(replaced_tree);
             transaction_nesting--;
             return;
         }
 
+        // Exclude clause
+        OpenMP::CustomClause exclude_clause = transaction_directive.custom_clause("exclude");
         if (exclude_clause.is_defined())
         {
             excluded_symbols = 
                 exclude_clause.id_expressions().map(functor(&IdExpression::get_symbol));
         }
 
-        OpenMP::CustomClause only_clause = protect_directive.custom_clause("only");
-
+        // Only clause
+        OpenMP::CustomClause only_clause = transaction_directive.custom_clause("only");
         if (only_clause.is_defined())
         {
             considered_symbols = 
@@ -789,39 +826,45 @@ namespace TL
         else
         {
             considered_symbols = 
-                protect_statement.non_local_symbol_occurrences().map(functor(&IdExpression::get_symbol));
+                transaction_statement.non_local_symbol_occurrences().map(functor(&IdExpression::get_symbol));
         }
 
         considered_symbols = considered_symbols.filter(not_in_set(excluded_symbols));
 
         // For every expression, replace it properly with read and write
         PredicateAST<LANG_IS_EXPRESSION_NEST> expression_pred_;
-        ExpressionReplacement expression_replacement(considered_symbols, function_filter);
+        // Parameters of the phase
+        STMExpressionReplacement expression_replacement(considered_symbols, 
+                stm_replace_functions_file, stm_replace_functions_mode,
+                stm_wrap_functions_file, stm_wrap_functions_mode);
 
         IgnorePreserveFunctor expression_pred(expression_pred_);
-        ObjectList<AST_t> expressions = protect_statement.get_ast().depth_subtrees(expression_pred);
+        ObjectList<AST_t> expressions = transaction_statement.get_ast().depth_subtrees(expression_pred);
 
         for (ObjectList<AST_t>::iterator it = expressions.begin();
                 it != expressions.end();
                 it++)
         {
-            Expression expression(*it, protect_statement.get_scope_link());
+            Expression expression(*it, transaction_statement.get_scope_link());
 
             expression_replacement.replace_expression(expression);
         }
 
-        // And now find every 'return' statement and protect it
+        // And now find every 'return' statement and convert it
+        //
+        // We have to invalidate every parameter of the function
+        // just before the return
         PredicateAST<LANG_IS_RETURN_STATEMENT> return_pred_;
 
         IgnorePreserveFunctor return_pred(return_pred_);
-        ObjectList<AST_t> returns = protect_statement.get_ast().depth_subtrees(return_pred);
+        ObjectList<AST_t> returns = transaction_statement.get_ast().depth_subtrees(return_pred);
         for (ObjectList<AST_t>::iterator it = returns.begin();
                 it != returns.end();
                 it++)
         {
             Source return_replace_code;
 
-            Statement return_statement(*it, protect_statement.get_scope_link());
+            Statement return_statement(*it, transaction_statement.get_scope_link());
 
             FunctionDefinition enclosing_function_def = return_statement.get_enclosing_function();
 
@@ -838,6 +881,7 @@ namespace TL
             Source cancel_source;
             {
                 ObjectList<ParameterDeclaration>::iterator it = declared_parameters.begin();
+                // For automatically wrapped functions, first parameter must be ignored
                 if (converted_function.is_defined())
                 {
                     // Skip the first one if the converted_function clause
@@ -886,6 +930,7 @@ namespace TL
 
             if (!converted_function.is_defined())
             {
+                // WTF?
                 return_replace_code
                     << "{"
                     << "  _tx_commit_start = rdtscf();"
@@ -938,12 +983,12 @@ namespace TL
             Source return_from_function;
             replaced_code
                 << "{"
-                <<         protect_statement.prettyprint()
+                <<         transaction_statement.prettyprint()
                 <<         return_from_function
                 << "}"
                 ;
 
-            FunctionDefinition enclosing_function_def = protect_construct.get_enclosing_function();
+            FunctionDefinition enclosing_function_def = transaction_construct.get_enclosing_function();
 
             IdExpression function_name = enclosing_function_def.get_function_name();
             Symbol function_symbol = function_name.get_symbol();
@@ -980,8 +1025,8 @@ namespace TL
         {
             replaced_code
                 << "{"
-                << "   Transaction* __t = createtx(\"" << protect_construct.get_ast().get_file() 
-				<< "\"," << protect_construct.get_ast().get_line() <<");"
+                << "   Transaction* __t = createtx(\"" << transaction_construct.get_ast().get_file() 
+				<< "\"," << transaction_construct.get_ast().get_line() <<");"
                 << "   uint64_t _tx_start, _tx_end;"
                 << "   uint64_t _tx_commit_start, _tx_commit_end;"
                 << "   _tx_start = rdtscf();"
@@ -994,9 +1039,9 @@ namespace TL
                 // << "     int ret = setjmp(__t->context);"
                 << "     if((__t->nestingLevel > 0) || (0 == setjmp(__t->context)))"
                 << "     {"
-                <<         comment("Protected code")
-                <<         protect_statement.prettyprint()
-                <<         comment("End of protected code")
+                <<         comment("Transaction code")
+                <<         transaction_statement.prettyprint()
+                <<         comment("End of transaction code")
                 << "       _tx_commit_start = rdtscf();"
                 << "       if (0 == committx(__t)) "
                 << "       {"
@@ -1031,14 +1076,14 @@ namespace TL
                 ;
         }
 
-        AST_t replaced_tree = replaced_code.parse_statement(protect_statement.get_ast(),
-                protect_statement.get_scope_link());
+        AST_t replaced_tree = replaced_code.parse_statement(transaction_statement.get_ast(),
+                transaction_statement.get_scope_link());
 
-        protect_construct.get_ast().replace(replaced_tree);
+        transaction_construct.get_ast().replace(replaced_tree);
         transaction_nesting--;
     }
 
-    void OpenMPTransform::retry_postorder(OpenMP::CustomConstruct retry_directive)
+    void OpenMPTransform::stm_retry_postorder(OpenMP::CustomConstruct retry_directive)
     {
         Source retry_src;
 
@@ -1052,7 +1097,7 @@ namespace TL
         retry_directive.get_ast().replace_with(retry_tree);
     }
 
-    void OpenMPTransform::preserve_postorder(OpenMP::CustomConstruct preserve_construct)
+    void OpenMPTransform::stm_preserve_postorder(OpenMP::CustomConstruct preserve_construct)
     {
         bool being_preserved = false;
 

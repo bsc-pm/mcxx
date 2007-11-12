@@ -118,16 +118,16 @@ namespace TL
 		public:
             STMFunctionTransform()
             {
-                set_phase_name("STM Function Transform");
+                set_phase_name("STM Function Wrapper");
                 set_phase_description("This phase creates STM versions of existing function definitions suitable "
-                        "to be called from a transaction environment.");
+                        "to be called from a transaction environment. It must be run before OMP phase");
 
-                register_parameter("function_filter_name",
-                        "Filter file of wrapped functions",
+                register_parameter("STM_wrap_functions_file",
+                        "Filter file of STM-wrapped functions",
                         filter_file_name_str,
-                        "./functions_to_wrap_filter");
-                register_parameter("function_filter_mode",
-                        "Filter mode when wrapping functions. It can be either 'normal' or 'inverted'",
+                        "./stm_wrap_functions_file");
+                register_parameter("STM_wrap_functions_mode",
+                        "Filter mode when STM-wrapping functions. It can be either 'normal' or 'inverted'",
                         filter_file_mode_str,
                         "normal");
             }

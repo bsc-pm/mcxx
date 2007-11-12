@@ -150,7 +150,13 @@ namespace TL
             running_error("Could not parse the expression '%s'", this->get_source(true).c_str());
         }
 
-        solve_possibly_ambiguous_expression(a, ctx._decl_context);
+        // solve_possibly_ambiguous_expression(a, ctx._decl_context);
+
+        if (!check_for_expression(a, ctx._decl_context))
+        {
+            WARNING_MESSAGE("Internally parsed expression '%s' could not be properly checked\n",
+                    prettyprint_in_buffer(a));
+        }
 
         AST_t result(a);
         return result;
@@ -188,7 +194,11 @@ namespace TL
             running_error("Could not parse the expression '%s'", this->get_source(true).c_str());
         }
 
-        solve_possibly_ambiguous_expression(a, ctx._decl_context);
+        if (!check_for_expression(a, ctx._decl_context))
+        {
+            WARNING_MESSAGE("Internally parsed expression '%s' could not be properly checked\n",
+                    prettyprint_in_buffer(a));
+        }
 
         AST_t result(a);
 
@@ -410,7 +420,11 @@ namespace TL
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
         if (a != NULL)
         {
-            solve_possibly_ambiguous_expression(a, decl_context);
+            if (!check_for_expression(a, decl_context))
+            {
+                internal_error("Could not check expression '%s'\n", 
+                        prettyprint_in_buffer(a));
+            }
         }
 
         CURRENT_CONFIGURATION(scope_link) = NULL;

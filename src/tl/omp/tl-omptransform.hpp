@@ -62,7 +62,6 @@ namespace TL
             std::set<std::string> criticals_defined;
 
 			// Function filter for STM
-			FunctionFilterFile function_filter;
 			int transaction_nesting;
 
             /*
@@ -70,8 +69,11 @@ namespace TL
              */
             std::string nanos_new_interface_str;
             std::string enable_mintaka_instr_str;
-            std::string function_filter_name_str;
-            std::string function_filter_mode_str;
+
+            std::string stm_replace_functions_file;
+            std::string stm_replace_functions_mode;
+            std::string stm_wrap_functions_file;
+            std::string stm_wrap_functions_mode;
 
             /* Parameter set_XXX functions */
             void set_instrumentation(const std::string& str);
@@ -346,14 +348,14 @@ namespace TL
             IdExpression print_id_expression(IdExpression id_expression);
 
             // --- Transactional world --
-            class ExpressionReplacement;
+            class STMExpressionReplacement;
 
-            void transaction_preorder(OpenMP::CustomConstruct protect_construct);
-            void transaction_postorder(OpenMP::CustomConstruct protect_construct);
+            void stm_transaction_preorder(OpenMP::CustomConstruct protect_construct);
+            void stm_transaction_postorder(OpenMP::CustomConstruct protect_construct);
 
-			void retry_postorder(OpenMP::CustomConstruct protect_construct);
+			void stm_retry_postorder(OpenMP::CustomConstruct protect_construct);
             
-			void preserve_postorder(OpenMP::CustomConstruct protect_construct);
+			void stm_preserve_postorder(OpenMP::CustomConstruct protect_construct);
             // --- End of transactional world --
 
 

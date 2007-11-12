@@ -41,13 +41,21 @@ namespace TL
                 "0").connect(functor(&OpenMPTransform::set_instrumentation, *this));
 
         // No signals for these as their values are passed to the object initialization function
-        register_parameter("function_filter_name", 
-                "File for filtering function calls within '#pragma transaction'",
-                function_filter_name_str,
-                "./functions_to_replace_call_filter");
-        register_parameter("function_filter_mode",
-                "Filter mode for filtering function calls within '#pragma transaction'. It can be 'normal' or 'inverted'",
-                function_filter_mode_str,
+        register_parameter("STM_replace_functions_file", 
+                "Filter file of STM-replaced function calls",
+                stm_replace_functions_file,
+                "./stm_replace_functions_file");
+        register_parameter("STM_replace_functions_mode",
+                "Filter mode when STM-replacing function calls. It can be 'normal' or 'inverted'",
+                stm_replace_functions_mode,
+                "normal");
+        register_parameter("STM_wrap_functions_file",
+                "Filter file of STM-wrapped functions",
+                stm_wrap_functions_file,
+                "./stm_wrap_functions_file");
+        register_parameter("STM_wrap_functions_mode",
+                "Filter mode when STM-wrapping functions. It can be either 'normal' or 'inverted'",
+                stm_wrap_functions_mode,
                 "normal");
 
         // Register callbacks for constructs and directives
@@ -123,16 +131,16 @@ namespace TL
         // --- Transactional world --
         // #pragma omp transaction
         register_construct("transaction");
-        on_custom_construct_pre["transaction"].connect(functor(&OpenMPTransform::transaction_preorder, *this));
-        on_custom_construct_post["transaction"].connect(functor(&OpenMPTransform::transaction_postorder, *this));
+        on_custom_construct_pre["transaction"].connect(functor(&OpenMPTransform::stm_transaction_preorder, *this));
+        on_custom_construct_post["transaction"].connect(functor(&OpenMPTransform::stm_transaction_postorder, *this));
         
 		// #pragma omp retry
         register_directive("retry");
-		on_custom_construct_post["retry"].connect(functor(&OpenMPTransform::retry_postorder, *this));
+		on_custom_construct_post["retry"].connect(functor(&OpenMPTransform::stm_retry_postorder, *this));
 
         // #pragma omp preserve
         register_construct("preserve");
-        on_custom_construct_post["preserve"].connect(functor(&OpenMPTransform::preserve_postorder, *this));
+        on_custom_construct_post["preserve"].connect(functor(&OpenMPTransform::stm_preserve_postorder, *this));
         // --- End of transactional world --
 
         // --- Experimental directives ---
@@ -200,7 +208,6 @@ namespace TL
     void OpenMPTransform::init()
     {
         // This function is called in OpenMPPhase::run
-        function_filter.init(function_filter_name_str, function_filter_mode_str);
     }
 }
 
