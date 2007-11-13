@@ -31,6 +31,7 @@
 #include <utility>
 #include <stack>
 #include <set>
+#include <fstream>
 
 namespace TL
 {
@@ -61,8 +62,12 @@ namespace TL
             // translation unit level
             std::set<std::string> criticals_defined;
 
-			// Function filter for STM
+			// Transactional world
 			int transaction_nesting;
+			std::fstream stm_log_file;
+			bool stm_log_file_opened;
+			// End of Transactional world
+
 
             /*
              * Parameters of the phase where the textual parameter is stored

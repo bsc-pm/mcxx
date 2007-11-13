@@ -20,6 +20,8 @@
 */
 #include "tl-omptransform.hpp"
 
+#include "tl-compilerpipeline.hpp"
+
 namespace TL
 {
     class STMFunctionFiltering
@@ -35,24 +37,24 @@ namespace TL
                 _wrap_filter.init(wrap_filename, wrap_filter_mode);
             }
 
-            bool not_wrapped(const std::string& name)
+            bool wrapped(const std::string& name)
             {
                 return _wrap_filter.match(name);
             }
 
-            bool wrapped(const std::string& name)
+            bool not_wrapped(const std::string& name)
             {
-                return !not_wrapped(name);
-            }
-
-            bool not_replaced(const std::string& name)
-            {
-                return _replace_filter.match(name);
+                return !wrapped(name);
             }
 
             bool replaced(const std::string& name)
             {
-                return !not_replaced(name);
+                return _replace_filter.match(name);
+            }
+
+            bool not_replaced(const std::string& name)
+            {
+                return !replaced(name);
             }
     };
 
@@ -61,13 +63,16 @@ namespace TL
         private:
             ObjectList<Symbol> _considered_symbols;
             STMFunctionFiltering _stm_function_filtering;
+			std::fstream &_log_file;
         public:
             STMExpressionReplacement(ObjectList<Symbol>& considered_symbols,
                     const std::string& replace_filename, const std::string& replace_filter_mode,
-                    const std::string& wrap_filename, const std::string& wrap_filter_mode)
+                    const std::string& wrap_filename, const std::string& wrap_filter_mode,
+					std::fstream & log_file)
                 : _considered_symbols(considered_symbols),
                 _stm_function_filtering(replace_filename, replace_filter_mode,
-                        wrap_filename, wrap_filter_mode)
+                        wrap_filename, wrap_filter_mode),
+				_log_file(log_file)
         {
         }
 
@@ -561,15 +566,21 @@ namespace TL
                         // A simple function call of the form "f(...)"
                         Source replace_call, replace_args;
 
-                        bool must_replace_function = 
+                        bool must_replace_function_call = 
                             _stm_function_filtering.wrapped(called_expression.prettyprint())
                             || _stm_function_filtering.replaced(called_expression.prettyprint());
+
+						if (!must_replace_function_call)
+						{
+							_log_file << "'" << called_expression.prettyprint() << "' at " << 
+								called_expression.get_ast().get_locus() << std::endl;
+						}
 
                         Symbol function_symbol = called_expression.
                             get_id_expression().get_symbol();
                         Type function_type = function_symbol.get_type();
 
-                        if (must_replace_function && function_type.is_function())
+                        if (must_replace_function_call && function_type.is_function())
                         {
                             wrapped_function = true;
 
@@ -628,7 +639,7 @@ namespace TL
                                 ;
                         }
 
-                        if (must_replace_function 
+                        if (must_replace_function_call 
 								// If it is a pointer better we do not add
 								// transaction and hope it be a safe function :)
 								&& !function_type.is_pointer())
@@ -661,7 +672,7 @@ namespace TL
                                 it != arguments.end();
                                 it++)
                         {
-                            if (must_replace_function)
+                            if (must_replace_function_call)
                             {
                                 // Ignore the transaction argument
                                 if (it == arguments.begin())
@@ -833,10 +844,21 @@ namespace TL
 
         // For every expression, replace it properly with read and write
         PredicateAST<LANG_IS_EXPRESSION_NEST> expression_pred_;
+
+		if (!stm_log_file_opened)
+		{
+			std::string str = "stm_unhandled_functions_" + 
+				CompilationProcess::get_current_file().get_filename()
+				+ ".log";
+			stm_log_file.open(str.c_str(), std::ios_base::out | std::ios_base::trunc);
+			stm_log_file_opened = true;
+		}
+		
         // Parameters of the phase
         STMExpressionReplacement expression_replacement(considered_symbols, 
                 stm_replace_functions_file, stm_replace_functions_mode,
-                stm_wrap_functions_file, stm_wrap_functions_mode);
+                stm_wrap_functions_file, stm_wrap_functions_mode,
+				stm_log_file);
 
         IgnorePreserveFunctor expression_pred(expression_pred_);
         ObjectList<AST_t> expressions = transaction_statement.get_ast().depth_subtrees(expression_pred);
@@ -1053,6 +1075,9 @@ namespace TL
                 << "       }"
                 << "       else"
                 << "       {"
+				<< "          if (__t->status == 10) {"
+				<< "            break;"
+				<< "          }"
 				<< "          pthread_mutex_lock(&_l_abort_count);"
                 << "          _tx_abort_count++;"
 				<< "          pthread_mutex_unlock(&_l_abort_count);"
@@ -1061,6 +1086,9 @@ namespace TL
                 << "     }"
                 << "     else"
                 << "     {"
+				<< "        if (__t->status == 10){"
+				<< "            break;"
+				<< "        }"
 				<< "        pthread_mutex_lock(&_l_abort_count);"
                 << "        _tx_abort_count++;"
 				<< "        pthread_mutex_unlock(&_l_abort_count);"

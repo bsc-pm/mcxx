@@ -1,4 +1,4 @@
-SUBDIRS = . examples @tlextensions@ 
+SUBDIRS = . examples @tlextensions@  stm_func
 
 DIST_SUBDIRS=omp instr acotes examples stm_func
 

@@ -45,13 +45,19 @@ namespace TL
 				Source stm_function_body;
 				Statement function_tree = function_def.get_function_body();
 
-				if (function_filter.match(function_name.prettyprint())
+				if (!function_filter.match(function_name.prettyprint())
 						|| function_symbol.is_member())
 				{
+					// std::cerr << "NOT wrapping function '" << function_name.prettyprint() << " in " << function_name.get_ast().get_locus() << std::endl;
 					return;
 				}
-
-                std::cerr << "Wrapping function '" << function_name.prettyprint() << " in " << function_name.get_ast().get_locus() << std::endl;
+				else
+				{
+					// MM. added when he was desperate
+					// return;
+					// printf("Function name: %s\n", function_name.prettyprint());	
+					std::cerr << "Wrapping function '" << function_name.prettyprint() << " in " << function_name.get_ast().get_locus() << std::endl;
+				}
 
 				stm_function_source
 					<< return_type.get_declaration(function_def.get_scope(), "") 
@@ -129,7 +135,7 @@ namespace TL
                 register_parameter("STM_wrap_functions_mode",
                         "Filter mode when STM-wrapping functions. It can be either 'normal' or 'inverted'",
                         filter_file_mode_str,
-                        "normal");
+                        "normal"); // MM. changed from "normal" to "inverted"
             }
 
 			virtual void run(DTO& dto)

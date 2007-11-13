@@ -24,7 +24,7 @@
 namespace TL
 {
     OpenMPTransform::OpenMPTransform()
-        : parallel_nesting(0), transaction_nesting(0)
+        : parallel_nesting(0), transaction_nesting(0), stm_log_file_opened(false)
     {
         // Set phase info
         set_phase_name("Nanos 4 OpenMP implementation");

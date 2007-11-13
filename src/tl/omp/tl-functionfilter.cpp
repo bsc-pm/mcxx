@@ -46,7 +46,6 @@ namespace TL
         if (filter_file.good())
         {
             std::cerr << "Using file '" << filter_file_name << "' as a filter." << std::endl;
-            return;
         }
 
         // Read all lines of the file

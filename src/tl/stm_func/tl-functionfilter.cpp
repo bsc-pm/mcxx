@@ -48,7 +48,6 @@ namespace TL
             if (filter_file.good())
             {
                 std::cerr << "Using file '" << filter_file_name << "' as a filter." << std::endl;
-                return;
             }
 
             // Read all lines of the file
@@ -58,6 +57,9 @@ namespace TL
                 filter_file.getline(line, 256);
 
                 char* p = line;
+
+				if (*p == '\0')
+					continue;
 
                 while (*p == ' ' || *p == '\t')
                 {
@@ -123,16 +125,19 @@ namespace TL
                 }
             }
 
+			bool result = false;
             if (!_filter_inverted)
             {
                 // If found it does have to be filtered
-                return found ? true : false;
+                result = found ? true : false;
             }
             else
             {
                 // If not found it does not have to be filtered
-                return found ? false : true;
+                result = found ? false : true;
             }
+
+			return result;
         }
 
 }
