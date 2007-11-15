@@ -422,8 +422,7 @@ namespace TL
         {
             if (!check_for_expression(a, decl_context))
             {
-                internal_error("Could not check expression '%s'\n", 
-                        prettyprint_in_buffer(a));
+                WARNING_MESSAGE("Could not check expression '%s'\n", prettyprint_in_buffer(a));
             }
         }
 
