@@ -329,7 +329,7 @@ namespace TL
             if (it->kind != ParameterInfo::BY_POINTER)
                 continue;
 
-            task_parameter_list.append_with_separator("&" + it->id_expression.prettyprint(), ",");
+            task_parameter_list.append_with_separator(it->argument_name, ",");
             num_reference_args++;
         }
 
@@ -358,7 +358,7 @@ namespace TL
 
             // First an address with the size must be passed
             task_parameter_list.append_with_separator(vector_ref.get_source(), ",");
-            task_parameter_list.append_with_separator("&" + it->id_expression.prettyprint(), ",");
+            task_parameter_list.append_with_separator(it->argument_name, ",");
 
             CXX_LANGUAGE()
             {
@@ -413,7 +413,7 @@ namespace TL
             if (it->kind != ParameterInfo::BY_POINTER)
                 continue;
 
-            fallback_arguments.append_with_separator("&" + it->id_expression.prettyprint(), ",");
+            fallback_arguments.append_with_separator(it->argument_name, ",");
         }
 
         // For capture value we will be passing pointers to local copies
@@ -436,6 +436,7 @@ namespace TL
                             it->id_expression.prettyprint()) 
                     << ";"
                     ;
+                fallback_arguments.append_with_separator("&cval_" + it->id_expression.mangle_id_expression(), ",");
             }
             else
             {
@@ -448,9 +449,8 @@ namespace TL
                     << ";"
                     << src_array_copy
                     ;
+                fallback_arguments.append_with_separator("cval_" + it->id_expression.mangle_id_expression(), ",");
             }
-
-            fallback_arguments.append_with_separator("&cval_" + it->id_expression.mangle_id_expression(), ",");
         }
 
         Source task_dependency;

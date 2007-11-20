@@ -252,13 +252,32 @@ namespace TL
             if (!is_unqualified_member_symbol(*it, function_definition))
             {
                 Type type = symbol.get_type();
-                Type pointer_type = type.get_pointer_to();
+                // Type pointer_type = type.get_pointer_to();
 
-                ParameterInfo parameter(it->mangle_id_expression(), 
-                        "&" + it->prettyprint(), *it, pointer_type, ParameterInfo::BY_POINTER);
-                parameter_info.append(parameter);
-                result.add_replacement(symbol, "(*" + it->mangle_id_expression() + ")", 
-                        it->get_ast(), it->get_scope_link());
+                // C/C++ oddity
+                Type pointer_type(NULL);
+
+                if (type.is_array())
+                {
+                    pointer_type = type;
+
+                    ParameterInfo parameter(it->mangle_id_expression(), 
+                            it->prettyprint(), *it, pointer_type, ParameterInfo::BY_POINTER);
+                    parameter_info.append(parameter);
+                    // result.add_replacement(symbol, "(*" + it->mangle_id_expression() + ")", 
+                    //         it->get_ast(), it->get_scope_link());
+                }
+                else
+                {
+                    pointer_type = type.get_pointer_to();
+
+                    ParameterInfo parameter(it->mangle_id_expression(), 
+                            "&" + it->prettyprint(), *it, pointer_type, ParameterInfo::BY_POINTER);
+                    parameter_info.append(parameter);
+                    result.add_replacement(symbol, "(*" + it->mangle_id_expression() + ")", 
+                            it->get_ast(), it->get_scope_link());
+                }
+
             }
             else
             {
