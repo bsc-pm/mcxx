@@ -3075,7 +3075,7 @@ static void omp_custom_parameter_clause_handler(FILE* f, AST a, int level)
 
 static void omp_custom_directive_handler(FILE* f, AST a, int level)
 {
-    token_fprintf(f, a, "#pragma omp directive %s", ASTText(a));
+    token_fprintf(f, a, "#pragma omp %s", ASTText(a));
     if (ASTSon0(a) != NULL)
     {
         token_fprintf(f, a, " ");
@@ -3086,7 +3086,7 @@ static void omp_custom_directive_handler(FILE* f, AST a, int level)
 
 static void omp_custom_construct_directive_handler(FILE* f, AST a, int level)
 {
-    token_fprintf(f, a, "#pragma omp construct %s", ASTText(a));
+    token_fprintf(f, a, "#pragma omp %s", ASTText(a));
     if (ASTSon0(a) != NULL)
     {
         token_fprintf(f, a, " ");
