@@ -659,12 +659,15 @@ none {
 	// Special case for custom clauses 
 	if (omp_var_list_parentheses == 0)
 	{
+        // We want to tokenize this one again
 		BEGIN(openmp_clause);
-		parse_token_text(); 
-		return OMP_CUSTOM_CLAUSE; 
+        // Note that we are not doing REJECT because we do not want it to be
+        // matched below but against under openmp_clause start condition
+        yyless(0);
 	}
 	else
 	{
+        // Not handled here but below
 		REJECT;
 	}
 }
