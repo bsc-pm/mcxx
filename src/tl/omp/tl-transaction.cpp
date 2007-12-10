@@ -791,7 +791,7 @@ namespace TL
 		}
     }
 
-    void OpenMPTransform::stm_transaction_postorder(OpenMP::CustomConstruct transaction_construct)
+    void OpenMPTransform::stm_transaction_full_stm(OpenMP::CustomConstruct transaction_construct)
     {
         ObjectList<Symbol> considered_symbols;
         ObjectList<Symbol> excluded_symbols;
@@ -815,7 +815,6 @@ namespace TL
                     transaction_statement.get_scope_link());
 
             transaction_construct.get_ast().replace(replaced_tree);
-            transaction_nesting--;
             return;
         }
 
@@ -845,6 +844,7 @@ namespace TL
         // For every expression, replace it properly with read and write
         PredicateAST<LANG_IS_EXPRESSION_NEST> expression_pred_;
 
+        // Open the log file for unhandled function calls
 		if (!stm_log_file_opened)
 		{
 			std::string str = "stm_unhandled_functions_" + 
@@ -1138,6 +1138,52 @@ namespace TL
                 transaction_statement.get_scope_link());
 
         transaction_construct.get_ast().replace(replaced_tree);
+    }
+
+    void OpenMPTransform::stm_transaction_global_lock(OpenMP::CustomConstruct transaction_construct)
+    {
+        // The "transacted" statement
+        Statement transaction_statement = transaction_construct.body();
+        // OpenMP::Directive transaction_directive = transaction_construct.directive();
+
+        // If lexical nesting is higher than one, ignore the innermost one
+        if (transaction_nesting > 1)
+        {
+            Source replaced_code;
+            replaced_code << transaction_statement.prettyprint();
+
+            AST_t replaced_tree = replaced_code.parse_statement(transaction_statement.get_ast(),
+                    transaction_statement.get_scope_link());
+
+            transaction_construct.get_ast().replace(replaced_tree);
+            return;
+        }
+
+        Source global_lock_tx;
+        global_lock_tx 
+            << "{"
+            << "__stm_gl_startTransaction();"
+            << transaction_statement.prettyprint()
+            << "__stm_gl_endTransaction();"
+            << "}"
+            ;
+
+        AST_t replaced_tree = global_lock_tx.parse_statement(transaction_statement.get_ast(),
+                transaction_statement.get_scope_link());
+
+        transaction_construct.get_ast().replace(replaced_tree);
+    }
+
+    void OpenMPTransform::stm_transaction_postorder(OpenMP::CustomConstruct transaction_construct)
+    {
+        if (!stm_global_lock_enabled)
+        {
+            stm_transaction_full_stm(transaction_construct);
+        }
+        else
+        {
+            stm_transaction_global_lock(transaction_construct);
+        }
         transaction_nesting--;
     }
 

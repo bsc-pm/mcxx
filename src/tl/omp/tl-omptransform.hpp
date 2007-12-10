@@ -62,11 +62,12 @@ namespace TL
             // translation unit level
             std::set<std::string> criticals_defined;
 
-			// Transactional world
+			// -- Transactional world
 			int transaction_nesting;
 			std::fstream stm_log_file;
 			bool stm_log_file_opened;
-			// End of Transactional world
+
+			// -- End of Transactional world
 
 
             /*
@@ -79,16 +80,20 @@ namespace TL
             std::string stm_replace_functions_mode;
             std::string stm_wrap_functions_file;
             std::string stm_wrap_functions_mode;
+            std::string stm_global_lock_enabled_str;
 
             /* Parameter set_XXX functions */
             void set_instrumentation(const std::string& str);
             void set_parallel_interface(const std::string& str);
+            void set_stm_global_lock(const std::string& str);
 
             /*
              * Logical values of parameters computed by the set_XXX functions
              */
             bool enable_mintaka_instr;
             bool enable_nth_create;
+
+            bool stm_global_lock_enabled;
         public:
             OpenMPTransform();
 
@@ -361,6 +366,9 @@ namespace TL
 			void stm_retry_postorder(OpenMP::CustomConstruct protect_construct);
             
 			void stm_preserve_postorder(OpenMP::CustomConstruct protect_construct);
+
+            void stm_transaction_full_stm(OpenMP::CustomConstruct transaction_construct);
+            void stm_transaction_global_lock(OpenMP::CustomConstruct transaction_construct);
             // --- End of transactional world --
 
 

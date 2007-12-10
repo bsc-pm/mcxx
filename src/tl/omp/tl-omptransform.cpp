@@ -41,6 +41,10 @@ namespace TL
                 "0").connect(functor(&OpenMPTransform::set_instrumentation, *this));
 
         // No signals for these as their values are passed to the object initialization function
+        register_parameter("STM_global_lock",
+                "Enables global lock interface for '#pragma omp transaction' regions. Disables STM memory tracking.",
+                stm_global_lock_enabled_str,
+                "0").connect(functor(&OpenMPTransform::set_stm_global_lock, *this));
         register_parameter("STM_replace_functions_file", 
                 "Filter file of STM-replaced function calls",
                 stm_replace_functions_file,
@@ -191,6 +195,26 @@ namespace TL
             std::cerr 
                 << get_phase_name() << ": Invalid value '" << str << "'" <<
                 "for parameter 'instrument'. Instrumentation disabled" 
+                << std::endl;
+        }
+    }
+
+    void OpenMPTransform::set_stm_global_lock(const std::string& str)
+    {
+        stm_global_lock_enabled = 0;
+        if (str == "1"
+                || str == "yes"
+                || str == "true")
+        {
+            stm_global_lock_enabled = 1;
+        }
+        else if (str != "0"
+                && str != "no"
+                && str != "false")
+        {
+            std::cerr 
+                << get_phase_name() << ": Invalid value '" << str << "'" <<
+                "for parameter 'STM_global_lock'. Instrumentation disabled" 
                 << std::endl;
         }
     }
