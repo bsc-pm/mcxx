@@ -73,7 +73,7 @@ namespace TL
             << "  nth_selfv = nthf_self_();"
             << "  nthf_team_set_nplayers_ (&nth_nprocs);"
             << "  nth_num_deps = 0;"
-            << "  for (nth_p = 0; nth_p < nth_nprocs; nth_p++)"
+            << "  for (nth_p = nth_nprocs-1; nth_p >= 0 ; nth_p-- ) "
             << "  {"
             <<       nth_creation_function
             << "  }"
