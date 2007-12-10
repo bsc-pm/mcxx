@@ -804,6 +804,8 @@ namespace TL
         OpenMP::CustomClause converted_function = 
             transaction_directive.custom_clause("converted_function");
 
+        bool from_wrapped_function = converted_function.is_defined();
+
         // Expect the transformation to be done when transaction_nesting == 1
         // Here we only remove the pragma itself
         if (transaction_nesting > 1)
@@ -904,9 +906,9 @@ namespace TL
             {
                 ObjectList<ParameterDeclaration>::iterator it = declared_parameters.begin();
                 // For automatically wrapped functions, first parameter must be ignored
-                if (converted_function.is_defined())
+                if (from_wrapped_function)
                 {
-                    // Skip the first one if the converted_function clause
+                    // Skip the first one if we are in a wrapped function tx
                     // was defined
                     it++;
                 }
@@ -950,7 +952,7 @@ namespace TL
 					;
             }
 
-            if (!converted_function.is_defined())
+            if (!from_wrapped_function)
             {
                 // WTF?
                 return_replace_code
@@ -1014,7 +1016,7 @@ namespace TL
 
         Source replaced_code;
 
-        if (converted_function.is_defined())
+        if (from_wrapped_function)
         {
             Source return_from_function;
             replaced_code
@@ -1037,7 +1039,7 @@ namespace TL
                     ObjectList<ParameterDeclaration> declared_parameters = 
                         enclosing_function_def.get_declared_entity().get_parameter_declarations();
                     ObjectList<ParameterDeclaration>::iterator it = declared_parameters.begin();
-                    if (converted_function.is_defined())
+                    // if (from_wrapped_function)
                     {
                         // Skip the first one if the converted_function clause
                         // was defined
