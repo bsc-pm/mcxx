@@ -127,7 +127,8 @@ namespace TL
 
         Source instrument_code_before;
         Source instrument_code_after;
-        if (instrumentation_requested())
+        if (instrumentation_requested()
+                && !noinstr_clause.is_defined())
         {
             instrument_code_before
                 << "const int EVENT_PARALLEL = 60000001;"
