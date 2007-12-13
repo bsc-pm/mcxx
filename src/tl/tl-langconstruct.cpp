@@ -775,9 +775,10 @@ namespace TL
         return result;
     }
 
+    // Do not use this one, instead use get_declared_symbol
+    // since this one will not work for type-names
     IdExpression DeclaredEntity::get_declared_entity()
     {
-        // We convert it into an expression for commodity
         AST_t declared_name = _ref.get_attribute(LANG_DECLARED_NAME);
 
         Source declared_name_str = declared_name.prettyprint();
@@ -789,6 +790,23 @@ namespace TL
         Expression expression(expression_ast, this->_scope_link);
 
         return expression.get_id_expression();
+    }
+
+    AST_t DeclaredEntity::get_declared_tree()
+    {
+        AST_t declared_name = _ref.get_attribute(LANG_DECLARED_NAME);
+        return declared_name;
+    }
+
+    Symbol DeclaredEntity::get_declared_symbol()
+    {
+        AST_t declared_name = _ref.get_attribute(LANG_DECLARED_NAME);
+
+        Scope sc = this->_scope_link.get_scope(declared_name);
+
+        Symbol symbol = sc.get_symbol_from_id_expr(declared_name);
+
+        return symbol;
     }
 
     DeclarationSpec Declaration::get_declaration_specifiers()

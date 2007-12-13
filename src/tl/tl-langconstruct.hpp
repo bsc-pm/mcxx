@@ -346,15 +346,16 @@ namespace TL
 
     class DeclaredEntity : public LangConstruct
     {
-        private:
-            AST_t get_basic_declaration();
         public :
             DeclaredEntity(AST_t ast, ScopeLink scope_link)
                 : LangConstruct(ast, scope_link)
             {
             }
 
-            IdExpression get_declared_entity();
+            IdExpression get_declared_entity() DEPRECATED;
+            Symbol get_declared_symbol();
+            AST_t get_declared_tree();
+
             bool has_initializer();
             Expression get_initializer();
 
