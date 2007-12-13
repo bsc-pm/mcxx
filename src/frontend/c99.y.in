@@ -317,6 +317,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 /*!include cxx-omp.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/
+/*!include cxx-superscalar.y*/
 /*!undefine GRAMMAR_PROLOGUE*/
 
 %type<ast> subparsing
@@ -2435,6 +2436,7 @@ string_literal : STRING_LITERAL
 /*!include cxx-omp.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/
+/*!include cxx-superscalar.y*/
 /*!undefine GRAMMAR_RULES*/
 
 %%

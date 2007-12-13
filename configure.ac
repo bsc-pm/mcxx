@@ -43,6 +43,7 @@ tlextensions=""
 is_enabled_tl_omp="no"
 is_enabled_tl_instr="no"
 is_enabled_tl_acotes="no"
+is_enabled_tl_superscalar="no"
 
 AC_MSG_CHECKING([if enabled OpenMP TL support])
 AC_ARG_ENABLE([tl-openmp],
@@ -115,6 +116,33 @@ AC_ARG_ENABLE([tl-acotes],
       AC_MSG_RESULT([yes])
   ]
 )
+
+AC_MSG_CHECKING([if Cell/SMP superscalar TL support is enabled])
+AC_ARG_ENABLE([tl-superscalar],
+  AS_HELP_STRING([--disable-tl-superscalar], [Disables generation of Cell/SMP superscalar TL support]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        tlextensions="${tlextensions} superscalar"
+        is_enabled_tl_superscalar="yes"
+        is_enabled_pkglib_install="yes"
+        AC_MSG_RESULT([yes])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([no])
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      tlextensions="${tlextensions} superscalar"
+      is_enabled_tl_superscalar="yes"
+      is_enabled_pkglib_install="yes"
+      AC_MSG_RESULT([yes])
+  ]
+)
+AM_CONDITIONAL(ENABLE_PKGLIB_INSTALL, test x"$is_enabled_pkglib_install" = x"yes")
 
 AC_SUBST([tlextensions])
 
@@ -444,6 +472,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/examples/Makefile
            src/tl/examples/mypragma/Makefile
            src/tl/examples/declarations/Makefile
+           src/tl/superscalar/Makefile
            config/Makefile
            config/config.mcxx
            tests/Makefile
