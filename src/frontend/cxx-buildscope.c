@@ -174,6 +174,9 @@ static void initialize_builtin_symbols(decl_context_t decl_context);
 
 static AST advance_over_declarator_nests(AST a, decl_context_t decl_context);
 
+static void gather_decl_spec_information(AST a, 
+        gather_decl_spec_t* gather_info, decl_context_t decl_context);
+
 void build_scope_dynamic_initializer(void)
 {
     // Defined in cxx-attrnames.c
@@ -714,7 +717,7 @@ void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info,
         for_each_element(list, iter)
         {
             AST spec = ASTSon1(iter);
-            gather_decl_spec_information(spec, gather_info);
+            gather_decl_spec_information(spec, gather_info, decl_context);
         }
     }
 
@@ -725,7 +728,7 @@ void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info,
         for_each_element(list, iter)
         {
             AST spec = ASTSon1(iter);
-            gather_decl_spec_information(spec, gather_info);
+            gather_decl_spec_information(spec, gather_info, decl_context);
         }
     }
 
@@ -841,7 +844,7 @@ void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info,
 /*
  * This function gathers everything that is in a decl_spec and fills gather_info
  */
-void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info)
+static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info, decl_context_t decl_context)
 {
     switch (ASTType(a))
     {
@@ -907,7 +910,32 @@ void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info)
             gather_info->is_restrict = 1;
             break;
         case AST_GCC_ATTRIBUTE :
-            // Happily ignore them :)
+            {
+                // Remove any ambiguity lurking there
+                // but they are ignored
+                AST iter;
+                AST list = ASTSon0(a);
+
+                if (list != NULL)
+                {
+                    for_each_element(list, iter)
+                    {
+                        AST gcc_attribute_expr = ASTSon1(iter);
+
+                        if (ASTSon0(gcc_attribute_expr) != NULL)
+                        {
+                            AST expression_list = ASTSon2(gcc_attribute_expr);
+                            AST iter2;
+
+                            for_each_element(expression_list, iter2)
+                            {
+                                AST expression = ASTSon1(iter2);
+                                solve_possibly_ambiguous_expression(expression, decl_context);
+                            }
+                        }
+                    }
+                }
+            }
             break;
         case AST_GCC_COMPLEX_TYPE :
             gather_info->is_complex = 1;

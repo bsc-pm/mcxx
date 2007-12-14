@@ -42,7 +42,6 @@ void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info,
 void compute_declarator_type(AST a, gather_decl_spec_t* gather_info,
         type_t* type_info, type_t** declarator_type, decl_context_t dctx);
 
-void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info);
 void gather_type_spec_information(AST a, type_t** type_info, decl_context_t dctx);
 
 void build_scope_member_specification(decl_context_t inner_decl_context, AST member_specification_tree, 

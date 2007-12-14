@@ -478,6 +478,7 @@ attribute_list : attribute_value
 }
 ;
 
+// Why on earth ASTSon1 is always null ?
 attribute_value : IDENTIFIER
 {
 	AST identif = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
