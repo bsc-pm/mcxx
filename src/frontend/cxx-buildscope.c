@@ -922,9 +922,9 @@ static void gather_decl_spec_information(AST a, gather_decl_spec_t* gather_info,
                     {
                         AST gcc_attribute_expr = ASTSon1(iter);
 
-                        if (ASTSon0(gcc_attribute_expr) != NULL)
+                        AST expression_list = ASTSon2(gcc_attribute_expr);
+                        if (expression_list != NULL)
                         {
-                            AST expression_list = ASTSon2(gcc_attribute_expr);
                             AST iter2;
 
                             for_each_element(expression_list, iter2)
