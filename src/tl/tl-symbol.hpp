@@ -98,13 +98,40 @@ namespace TL
             bool is_typename() const;
             bool is_function() const;
             bool is_template_function() const;
-            bool is_member() const;
             bool is_parameter() const;
             int get_parameter_position() const;
 
+            bool is_member() const;
             Type get_class_type() const;
 
             AST_t get_point_of_declaration() const;
+
+            bool is_static() const;
+            bool is_register() const;
+
+            // FIXME : This only holds if the 'extern' qualifier was given
+            // in the declaration of the symbol but global symbols
+            // without it are 'extern' too. Using 'is_static' is better
+            // till this gets fixed
+            bool is_extern() const;
+
+            bool is_mutable() const;
+            // The compiler does not honour this flag (it will always return false)
+            bool is_exported_template() const;
+
+            bool is_inline() const;
+
+            // Virtual function. This does not concern
+            // to call sites only declarations
+            bool is_virtual() const;
+
+            bool is_pure() const;
+            bool is_conversion_function() const;
+
+            // Is a constructor
+            bool is_constructor() const;
+            // Is an explicit constructor
+            bool is_explicit_constructor() const;
     };
 }
 

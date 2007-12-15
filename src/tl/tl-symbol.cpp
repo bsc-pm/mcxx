@@ -147,4 +147,68 @@ namespace TL
     {
         return (_symbol->entity_specs.parameter_position);
     }
+
+    bool Symbol::is_static() const
+    {
+        return (_symbol->entity_specs.is_static);
+    }
+
+    bool Symbol::is_register() const
+    {
+        return (_symbol->entity_specs.is_register);
+    }
+
+    // FIXME : This only holds if the 'extern' qualifier was given
+    // in the declaration of the symbol but global symbols
+    // without it are 'extern' too. Using 'is_static' is better
+    // till this gets fixed
+    bool Symbol::is_extern() const
+    {
+        return (_symbol->entity_specs.is_extern);
+    }
+
+    bool Symbol::is_mutable() const
+    {
+        return (_symbol->entity_specs.is_mutable);
+    }
+
+    // States is a exported template (unused at all)
+    bool Symbol::is_exported_template() const
+    {
+        return (_symbol->entity_specs.is_export);
+    }
+
+    // Inlined function
+    bool Symbol::is_inline() const
+    {
+        return (_symbol->entity_specs.is_inline);
+    }
+
+    // Virtual function
+    bool Symbol::is_virtual() const
+    {
+        return (_symbol->entity_specs.is_virtual);
+    }
+
+    bool Symbol::is_pure() const
+    {
+        return (_symbol->entity_specs.is_pure);
+    }
+
+    bool Symbol::is_conversion_function() const
+    {
+        return (_symbol->entity_specs.is_conversion);
+    }
+
+    // Is a constructor
+    bool Symbol::is_constructor() const
+    {
+        return (_symbol->entity_specs.is_constructor);
+    }
+
+    // Is an explicit constructor
+    bool Symbol::is_explicit_constructor() const
+    {
+        return (_symbol->entity_specs.is_explicit);
+    }
 }
