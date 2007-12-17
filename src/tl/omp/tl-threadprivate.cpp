@@ -81,7 +81,7 @@ namespace TL
                 //
                 // Note that it must be at the end of the declaration
                 // specifiers (this is a gcc requirement)
-                if (it2->get_declared_entity().get_symbol() == it->get_symbol())
+                if (it2->get_declared_symbol() == it->get_symbol())
                 {
                     remade_declaration << " __thread ";
                 }
