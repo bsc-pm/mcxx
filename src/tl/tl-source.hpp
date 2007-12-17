@@ -118,7 +118,8 @@ namespace TL
             {
                 UNKNOWN = 0,
                 DEFAULT = 1 << 0,
-                ALLOW_REDECLARATION = 1 << 1
+                ALLOW_REDECLARATION = 1 << 1,
+                DO_NOT_CHECK_EXPRESSION = 2 << 1,
             };
         private:
             chunk_list_ref_t _chunk_list;
@@ -128,6 +129,8 @@ namespace TL
 
             bool all_blanks() const;
             AST_t parse_declaration_inner(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+
+            std::string format_source(const std::string&);
         public:
             Source()
                 : _chunk_list(0)
@@ -182,7 +185,7 @@ namespace TL
             // declaration context of the reference tree (ref_tree)
             AST_t parse_global(AST_t ref_tree, TL::ScopeLink scope_link);
             AST_t parse_statement(AST_t ref_tree, TL::ScopeLink scope_link);
-            AST_t parse_expression(AST_t ref_tree, TL::ScopeLink scope_link);
+            AST_t parse_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
             AST_t parse_declaration(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
             AST_t parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Type class_type);
             Type parse_type(AST_t ref_tree, TL::ScopeLink scope_link);
