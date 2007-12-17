@@ -5237,17 +5237,46 @@ static void build_scope_simple_member_declaration(decl_context_t decl_context, A
                 case AST_BITFIELD_DECLARATOR :
                     {
                         AST identifier = ASTSon0(declarator);
+                        type_t* declarator_type = member_type;
+
+                        scope_entry_t* bitfield_symbol = NULL;
                         if (identifier != NULL)
                         {
-                            type_t* declarator_type = NULL;
                             compute_declarator_type(identifier, &gather_info, 
-                                     member_type, &declarator_type, 
-                                     decl_context);
-                            build_scope_declarator_name(identifier, declarator_type, &gather_info, decl_context);
+                                    member_type, &declarator_type, 
+                                    decl_context);
+                            bitfield_symbol = build_scope_declarator_name(identifier, declarator_type, &gather_info, decl_context);
                         }
+                        else
+                        {
+                            // Invent some name to sign it up because we will
+                            // need it when computing the size of a class
+                            bitfield_symbol = new_symbol(decl_context, decl_context.current_scope, 
+                                    get_unique_name());
+                            bitfield_symbol->kind = SK_VARIABLE;
+                            bitfield_symbol->type_information = declarator_type;
+                        }
+
+                        bitfield_symbol->entity_specs.is_member = 1;
+                        bitfield_symbol->entity_specs.class_type = class_info;
+
+                        if (gather_info.is_static)
+                        {
+                            running_error("%s: error: a bitfield declaration cannot be static", 
+                                    node_information(declarator));
+                        }
+
+                        // This is a nonstatic data member
+                        class_type_add_nonstatic_data_member(get_actual_class_type(class_type), 
+                                bitfield_symbol);
 
                         AST expression = ASTSon1(declarator);
                         solve_possibly_ambiguous_expression(expression, decl_context);
+
+                        bitfield_symbol->entity_specs.is_bitfield = 1;
+                        bitfield_symbol->entity_specs.bitfield_expr = expression;
+                        bitfield_symbol->entity_specs.bitfield_expr_context = decl_context;
+
                         break;
                     }
                     // init declarator may appear here because of templates

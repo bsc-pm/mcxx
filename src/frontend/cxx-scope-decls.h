@@ -244,6 +244,11 @@ typedef struct entity_specifiers_tag
     // Exception specifier for functions
     int num_exceptions;
     type_t** exceptions;
+
+    // Bitfields
+    char is_bitfield;
+    AST bitfield_expr;
+    decl_context_t bitfield_expr_context;
 } entity_specifiers_t;
 
 // This is an entry in the scope

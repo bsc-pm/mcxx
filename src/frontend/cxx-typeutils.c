@@ -387,6 +387,94 @@ struct type_tag
 };
 
 /*
+ * Typing environment
+ */
+
+typedef unsigned int _size_t;
+
+typedef
+struct type_environment_tag
+{
+    // The type of sizeof
+    type_t* sizeof_expr_type;
+    
+    // short
+    _size_t sizeof_unsigned_short;
+    _size_t sizeof_signed_short;
+
+    // int
+    _size_t sizeof_signed_int;
+    _size_t sizeof_unsigned_int;
+    
+    // long
+    _size_t sizeof_signed_long;
+    _size_t sizeof_unsigned_long;
+    
+    // long long
+    _size_t sizeof_signed_long_long;
+    _size_t sizeof_unsigned_long_long;
+    
+    // float
+    _size_t sizeof_float;
+    
+    // double
+    _size_t sizeof_double;
+
+    // long double
+    _size_t sizeof_long_double;
+
+    // pointer
+    _size_t sizeof_pointer;
+    // this one exists because a pointer to function
+    // does not have to be compatible with a regular
+    // pointer to data
+    _size_t sizeof_function_pointer;
+
+    // function that computes the size of a class type
+    // this typically will follow some underlying ABI
+    _size_t (*sizeof_class)(type_t*);
+    
+    // function that computes the size of a union type
+    _size_t (*sizeof_union)(type_t*);
+} type_environment_t;
+
+// Linux IA-32
+static type_environment_t type_environment_linux_ia32 = 
+{
+    // FIXME
+    // .sizeof_expr_type = get_unsigned_int_type(),
+    .sizeof_unsigned_short = 2,
+    .sizeof_signed_short = 2,
+
+    .sizeof_unsigned_int = 4,
+    .sizeof_signed_int = 4,
+
+    .sizeof_unsigned_long = 4,
+    .sizeof_signed_long = 4,
+
+    .sizeof_unsigned_long_long = 8,
+    .sizeof_signed_long_long = 8,
+
+    .sizeof_float = 4,
+
+    .sizeof_double = 8,
+
+    // This in PowerPC is 16. In Intel IA32 it is 12 This is the type that is
+    // likely to have the most bizarre values out there
+    .sizeof_long_double = 12,
+
+    .sizeof_pointer = 4,
+    .sizeof_function_pointer = 4,
+
+    // Not yet implemented but sizeof_class will both implement
+    // the underlying C ABI and the C++ ABI 
+    // (likely System V and Itanium C++ since they are the most usual
+    //  in Linux systems)
+    .sizeof_class = NULL,
+    .sizeof_union = NULL,
+};
+
+/*
  * --
  */
 
