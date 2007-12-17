@@ -904,9 +904,7 @@ namespace TL
                 // std::cerr << "Only one declared, ok" << std::endl;
                 DeclaredEntity declared_name = *(declared_symbols.begin());
 
-                IdExpression declared_entity = declared_name.get_declared_entity();
-
-                _induction_variable = declared_entity.get_ast();
+                _induction_variable = declared_name.get_ast();
                 AST_t initializer = declared_name.get_initializer().get_ast();
 
                 PredicateAST<LANG_IS_EXPRESSION_NEST> expression_pred;
@@ -1156,15 +1154,14 @@ namespace TL
     {
         ObjectList<ParameterDeclaration> result;
 
-        IdExpression entity = get_declared_entity();
-        Symbol symbol = entity.get_symbol();
+        Symbol symbol = get_declared_symbol();
         Type type = symbol.get_type();
 
         if (!type.is_function())
         {
             std::cerr 
-                << "Error: Entity '" << entity.prettyprint() << "' in '" 
-                << entity.get_ast().get_locus() 
+                << "Error: Entity '" << _ref.prettyprint() << "' in '" 
+                << _ref.get_locus() 
                 << "' is not a function type" 
                 << std::endl;
             return result;
