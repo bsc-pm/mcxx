@@ -330,7 +330,7 @@ namespace TL
                     else if (_local_symbols.contains(sym))
                     {
                         read_expression
-                            << "__local_" << id_expr.prettyprint()
+                            << "(__local_" << id_expr.prettyprint() << ")"
                             ;
                     }
                     else 
@@ -970,8 +970,10 @@ namespace TL
             ObjectList<Symbol> &local_symbols,
             bool from_wrapped_function)
     {
-        // Create declarations of local symbols
+        // Create code for handling local symbols
         Source local_declarations;
+        Source local_rollback;
+        Source local_commit;
         for (ObjectList<Symbol>::iterator it = local_symbols.begin();
                 it != local_symbols.end();
                 it++)
@@ -980,18 +982,14 @@ namespace TL
             Type t = sym.get_type();
 
             local_declarations
-                << t.get_declaration_with_initializer(transaction_construct.get_scope(),
-                        "__local_" + sym.get_name(), sym.get_name())
+                << t.get_declaration(transaction_construct.get_scope(),
+                        "__local_" + sym.get_name()) << ";"
                 ;
-        }
 
-        // Local commit
-        Source local_commit;
-        for (ObjectList<Symbol>::iterator it = local_symbols.begin();
-                it != local_symbols.end();
-                it++)
-        {
-            Symbol &sym(*it);
+            local_rollback
+                << "__local_" + sym.get_name() << " = " << sym.get_name() << ";"
+                ;
+
             local_commit
                 << sym.get_name() << " = " << "__local_" + sym.get_name() << ";"
                 ;
@@ -1006,6 +1004,7 @@ namespace TL
             replaced_code
                 << "{"
                 <<      local_declarations
+                <<      local_rollback
                 <<      transaction_statement.prettyprint()
                 <<      local_commit
                 <<      return_from_function
@@ -1065,6 +1064,7 @@ namespace TL
                 << "       if (__t->nestingLevel == 0)"
                 << "         __t->startEfectiveTime = rdtscf();"
 
+                <<         local_rollback
                 <<         comment("Transaction code")
                 <<         transaction_statement.prettyprint()
                 <<         comment("End of transaction code")
