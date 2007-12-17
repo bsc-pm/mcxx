@@ -318,6 +318,7 @@ namespace TL
     };
 
     // This name is deprecated
+    // use better PredicateAST
     template<const char* _ATTR>
     class PredicateBool : public PredicateAST<_ATTR>
     {
