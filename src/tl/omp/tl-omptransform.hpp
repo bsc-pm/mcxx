@@ -369,6 +369,18 @@ namespace TL
 
             void stm_transaction_full_stm(OpenMP::CustomConstruct transaction_construct);
             void stm_transaction_global_lock(OpenMP::CustomConstruct transaction_construct);
+
+            void stm_replace_returns(Statement transaction_statement, 
+                    bool from_wrapped_function);
+            void stm_replace_expressions(Statement &transaction_statement, 
+                    STMExpressionReplacement& expression_replacement);
+            void stm_replace_code(
+                    OpenMP::CustomConstruct transaction_construct,
+                    Source &replaced_code, 
+                    Statement &transaction_statement, 
+                    ObjectList<Symbol> &local_symbols,
+                    bool from_wrapped_function);
+
             // --- End of transactional world --
 
 

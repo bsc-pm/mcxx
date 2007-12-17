@@ -61,28 +61,58 @@ namespace TL
     class OpenMPTransform::STMExpressionReplacement 
     {
         private:
-            ObjectList<Symbol> _considered_symbols;
+            ObjectList<Symbol> &_unmanaged_symbols;
+            ObjectList<Symbol> &_local_symbols;
             STMFunctionFiltering _stm_function_filtering;
 			std::fstream &_log_file;
+
+            static bool _dummy;
         public:
-            STMExpressionReplacement(ObjectList<Symbol>& considered_symbols,
+            STMExpressionReplacement(
+                    ObjectList<Symbol>& unmanaged_symbols,
+                    ObjectList<Symbol>& local_symbols,
                     const std::string& replace_filename, const std::string& replace_filter_mode,
                     const std::string& wrap_filename, const std::string& wrap_filter_mode,
 					std::fstream & log_file)
-                : _considered_symbols(considered_symbols),
+                : _unmanaged_symbols(unmanaged_symbols),
+                _local_symbols(local_symbols),
                 _stm_function_filtering(replace_filename, replace_filter_mode,
                         wrap_filename, wrap_filter_mode),
 				_log_file(log_file)
         {
         }
 
-            void get_address(Expression expression)
+            void get_address(Expression expression, bool &no_conversion_performed = _dummy)
             {
                 Source address_expression;
                 // var => (&var) 
                 if (expression.is_id_expression())
                 {
-                    address_expression << "(&" << expression.prettyprint() << ")";
+                    IdExpression id_expr = expression.get_id_expression();
+                    Symbol sym = id_expr.get_symbol();
+
+					if (!sym.is_valid())
+					{
+						std::cerr << "STM Warning: Unknown symbol '" << id_expr.prettyprint() 
+                            << "' at " << id_expr.get_ast().get_locus() << ". Skipping" << std::endl;
+						return;
+					}
+
+                    if (_unmanaged_symbols.contains(sym))
+                    {
+                        no_conversion_performed = true;
+                        // Don't do anything else if the symbol is unmanaged
+                        return;
+                    }
+                    else if(_local_symbols.contains(sym))
+                    {
+                        no_conversion_performed = true;
+                        address_expression << "(__local_" << expression.prettyprint() << ")";
+                    }
+                    else
+                    {
+                        address_expression << "(&" << expression.prettyprint() << ")";
+                    }
                 }
                 // *e1 => READ(e1)
                 else if (expression.is_unary_operation()
@@ -198,14 +228,23 @@ namespace TL
                 expression.get_ast().replace(address_expression_tree);
             }
 
-            void replace_expression(Expression expression, bool replace_outermost = true)
+            void replace_expression(Expression expression)
             {
                 Source read_expression;
                 // e1 = e2 => __stm_write(__t, ADDR(e1), READ(e2))
                 if (expression.is_assignment())
                 {
-                    get_address(expression.get_first_operand());
+                    bool no_conversion_performed = false;
+
+                    get_address(expression.get_first_operand(), no_conversion_performed);
+
                     replace_expression(expression.get_second_operand());
+
+                    if (no_conversion_performed)
+                    {
+                        // Don't do anything else if the left part was not converted
+                        return;
+                    }
 
                     read_expression
                         << "*(__stm_write(__t, "
@@ -217,11 +256,17 @@ namespace TL
                 }
 				else if (expression.is_operation_assignment())
 				{
-
                     Type left_original_part_type = expression.get_first_operand().get_type();
+                    bool no_conversion_performed = false;
 
-                    get_address(expression.get_first_operand());
+                    get_address(expression.get_first_operand(), no_conversion_performed);
                     replace_expression(expression.get_second_operand());
+
+                    if (no_conversion_performed)
+                    {
+                        // Don't do anything else if the left part was not converted
+                        return;
+                    }
 
                     Source real_operator;
 
@@ -236,7 +281,6 @@ namespace TL
                         left_original_part
                             << expression.get_first_operand().prettyprint()
                             ;
-
 
                         read_expression
                             << "({"
@@ -273,22 +317,36 @@ namespace TL
 					// FIXME: What to do with an inner transaction symbol?
 					if (!sym.is_valid())
 					{
-						std::cerr << "STM Warning: Unknown symbol '" << id_expr.prettyprint() << "' at " << id_expr.get_ast().get_locus() << ". Skipping" << std::endl;
+						std::cerr << "STM Warning: Unknown symbol '" << id_expr.prettyprint() 
+                            << "' at " << id_expr.get_ast().get_locus() << ". Skipping" << std::endl;
 						return;
 					}
-					
-                    Type type = sym.get_type();
 
-                    // For real function nothing has to be done
-                    if (type.is_function()
-							|| type.is_enum())
+                    if (_unmanaged_symbols.contains(sym))
+                    {
+                        // Don't do anything if the symbol is unmanaged
                         return;
+                    }
+                    else if (_local_symbols.contains(sym))
+                    {
+                        read_expression
+                            << "__local_" << id_expr.prettyprint()
+                            ;
+                    }
+                    else 
+                    {
+                        Type type = sym.get_type();
+                        // For address of functions or enums nothing has to be done
+                        if (type.is_function()
+                                || type.is_enum())
+                            return;
 
-                    read_expression
-                        << "*__stm_read(__t, "
-                        << "&" << expression.prettyprint()
-                        << ")"
-                        ;
+                        read_expression
+                            << "*__stm_read(__t, "
+                            << "&" << expression.prettyprint()
+                            << ")"
+                            ;
+                    }
                 }
                 // *e =>  *__stm_read(__t, READ(e))
                 else if (expression.is_unary_operation()
@@ -305,73 +363,22 @@ namespace TL
                 // e1[e2] => *__stm_read(__t, READ(e1)[READ(e2)])
                 else if (expression.is_array_subscript())
                 {
-                    // Source original_array;
-                    // original_array << expression.get_subscripted_expression().prettyprint();
-
-                    // Expression read_array_expression(
-                    //      original_array.parse_expression(expression.get_ast(),
-                    //          expression.get_scope_link()), expression.get_scope_link());
-
-                    // get_address(read_array_expression);
-
-                    // Expression subscripted_expr = expression.get_subscripted_expression();
-
-                    // Type subscripted_type = subscripted_expr.get_type();
-
-                    // if (!subscripted_type.is_valid())
-                    // {
-                    //     std::cerr << "Could not compute the type of the subscripted expression" 
-                    //         << "'" << expression.prettyprint() << "'" << std::endl;
-                    // }
-                    // else if (subscripted_type.is_pointer())
-                    {
-                        // replace_expression(expression.get_subscripted_expression());
-                        // replace_expression(expression.get_subscript_expression());
+                    // NOTE: We rely on C++ templates to make this work without
+                    // taking into account if the subscripted part is actually
+                    // an array or not
 
 
-						get_address(expression);
-                        read_expression
-                            << "(*__stm_read(__t, "
-                            // << "(" 
-							// << expression.get_subscripted_expression().prettyprint()
-                            // << ")"
-                            // << "[" << expression.get_subscript_expression().prettyprint() << "]"
-							<< expression.prettyprint()
-							<< ")"
-							<< ")"
-                            ;
-                    }
-                    // else if (subscripted_type.is_array())
-                    // {
-                    //     get_address(expression.get_subscripted_expression());
-                    //     replace_expression(expression.get_subscript_expression());
-
-                    //     read_expression
-                    //         << "( *__stm_read(__t, "
-                    //         << "*(" << expression.get_subscripted_expression().prettyprint() << ")"
-                    //         << " + "
-                    //         << expression.get_subscript_expression().prettyprint()
-                    //         << ") )"
-                    //         ;
-                    // }
-                    // else
-                    // {
-                    //     std::cerr << "The type of subscripted expression '" << expression.prettyprint() << "'"
-                    //         << " is neither a pointer nor an array ?. Skipping" 
-                    //         << std::endl;
-                    // }
-
-
-                    //read_expression
-                    //    << "((void*)&(" << original_array << ") == ((void*)&(" << original_array << "[0])) ? "
-                    //    << "*read (__t, *(" << read_array_expression.prettyprint() << ") + " << expression.get_subscript_expression().prettyprint()  << ")"
-                    //    << ": *__stm_read(__t, "
-                    //    << expression.get_subscripted_expression().prettyprint()
-                    //    << " + "
-                    //    << expression.get_subscript_expression().prettyprint()
-                    //    << ")"
-                    //    << ")"
-                    //    ;
+                    get_address(expression);
+                    read_expression
+                        << "(*__stm_read(__t, "
+                        // << "(" 
+                        // << expression.get_subscripted_expression().prettyprint()
+                        // << ")"
+                        // << "[" << expression.get_subscript_expression().prettyprint() << "]"
+                        << expression.prettyprint()
+                        << ")"
+                        << ")"
+                        ;
                 }
                 // e1->e2 => *__stm_read(__t, (READ(e1))->e2)
                 else if (expression.is_pointer_member_access())
@@ -578,6 +585,14 @@ namespace TL
 
                         Symbol function_symbol = called_expression.
                             get_id_expression().get_symbol();
+
+                        if (!function_symbol.is_valid())
+                        {
+                            std::cerr << "STM Warning: Unknown function name '" << called_expression.prettyprint() 
+                                << "' at '" << called_expression.get_ast().get_locus() << "'. Skipping" << std::endl;
+                            return;
+                        }
+
                         Type function_type = function_symbol.get_type();
 
                         if (must_replace_function_call && function_type.is_function())
@@ -699,20 +714,24 @@ namespace TL
 					// Do not anything else
 					return;
 				}
-                // Other expressions (function calls and literals)
+                // Other expressions 
                 else 
                 {
                     // Don't do anything else
                     return;
                 }
 
-                // Replace the expression
+                // Replace the expression, it might temporarily be invalid
+                // because of local variables that will be actually declared later
                 AST_t read_expression_tree = read_expression.parse_expression(expression.get_ast(),
-                        expression.get_scope_link());
+                        expression.get_scope_link(), Source::DO_NOT_CHECK_EXPRESSION);
 
                 expression.get_ast().replace(read_expression_tree);
             }
     };
+
+    // Define this field
+    bool OpenMPTransform::STMExpressionReplacement::_dummy;
 
 
     // This ignores any node named 'preserve'
@@ -768,103 +787,33 @@ namespace TL
 			{
 				if (p_decl->has_initializer())
 				{
-					std::cerr << "WARNING: Declared entity '" << p_decl->get_declared_entity().prettyprint() << "' "
-						<< "in '" << p_decl->get_initializer().get_ast().get_locus() << "' "
+					std::cerr << "WARNING: Declared entity '" << p_decl->prettyprint() << "' "
+						<< "at '" << p_decl->get_initializer().get_ast().get_locus() << "' "
 						<< "has initializer. This is currently unsupported." 
 						<< std::endl;
 				}
-			}
 
-			DeclarationSpec declaration_spec = declaration.get_declaration_specifiers();
-			PredicateType pred_static(AST_STATIC_SPEC);
+                Symbol declared_sym = p_decl->get_declared_symbol();
 
-			if (!declaration_spec
-					.get_ast()
-					.depth_subtrees(pred_static)
-					.empty())
-			{
-					std::cerr << "WARNING: Declaration '" << declaration.get_ast().prettyprint() << "' "
-						<< "in '" << declaration.get_ast().get_locus() << "' "
-						<< "defines a static entity. This might lead to incorrect code."
-						<< std::endl;
+                if (declared_sym.is_static())
+                {
+                    std::cerr << "WARNING: Declaration of '" << declared_sym.get_name() << "' "
+                        << "at '" << declaration.get_ast().get_locus() << "' "
+                        << "defines a static entity. This might lead to incorrect code."
+                        << std::endl;
+                }
 			}
 		}
     }
 
-    void OpenMPTransform::stm_transaction_full_stm(OpenMP::CustomConstruct transaction_construct)
+    void OpenMPTransform::stm_replace_expressions(Statement &transaction_statement,
+            STMExpressionReplacement &expression_replacement)
     {
-        ObjectList<Symbol> considered_symbols;
-        ObjectList<Symbol> excluded_symbols;
-
-        // The "transacted" statement
-        Statement transaction_statement = transaction_construct.body();
-        OpenMP::Directive transaction_directive = transaction_construct.directive();
-
-        // This is a flag telling that this function was wrapped in stm_funct phase
-        OpenMP::CustomClause converted_function = 
-            transaction_directive.custom_clause("converted_function");
-
-        bool from_wrapped_function = converted_function.is_defined();
-
-        // Expect the transformation to be done when transaction_nesting == 1
-        // Here we only remove the pragma itself
-        if (transaction_nesting > 1)
-        {
-            Source replaced_code;
-            replaced_code << transaction_statement.prettyprint();
-
-            AST_t replaced_tree = replaced_code.parse_statement(transaction_statement.get_ast(),
-                    transaction_statement.get_scope_link());
-
-            transaction_construct.get_ast().replace(replaced_tree);
-            return;
-        }
-
-        // Exclude clause
-        OpenMP::CustomClause exclude_clause = transaction_directive.custom_clause("exclude");
-        if (exclude_clause.is_defined())
-        {
-            excluded_symbols = 
-                exclude_clause.id_expressions().map(functor(&IdExpression::get_symbol));
-        }
-
-        // Only clause
-        OpenMP::CustomClause only_clause = transaction_directive.custom_clause("only");
-        if (only_clause.is_defined())
-        {
-            considered_symbols = 
-                only_clause.id_expressions().map(functor(&IdExpression::get_symbol));
-        }
-        else
-        {
-            considered_symbols = 
-                transaction_statement.non_local_symbol_occurrences().map(functor(&IdExpression::get_symbol));
-        }
-
-        considered_symbols = considered_symbols.filter(not_in_set(excluded_symbols));
-
         // For every expression, replace it properly with read and write
         PredicateAST<LANG_IS_EXPRESSION_NEST> expression_pred_;
 
-        // Open the log file for unhandled function calls
-		if (!stm_log_file_opened)
-		{
-			std::string str = "stm_unhandled_functions_" + 
-				CompilationProcess::get_current_file().get_filename()
-				+ ".log";
-			stm_log_file.open(str.c_str(), std::ios_base::out | std::ios_base::trunc);
-			stm_log_file_opened = true;
-		}
-		
-        // Parameters of the phase
-        STMExpressionReplacement expression_replacement(considered_symbols, 
-                stm_replace_functions_file, stm_replace_functions_mode,
-                stm_wrap_functions_file, stm_wrap_functions_mode,
-				stm_log_file);
-
         IgnorePreserveFunctor expression_pred(expression_pred_);
         ObjectList<AST_t> expressions = transaction_statement.get_ast().depth_subtrees(expression_pred);
-
         for (ObjectList<AST_t>::iterator it = expressions.begin();
                 it != expressions.end();
                 it++)
@@ -873,9 +822,10 @@ namespace TL
 
             expression_replacement.replace_expression(expression);
         }
+    }
 
-        // And now find every 'return' statement and convert it
-        //
+    void OpenMPTransform::stm_replace_returns(Statement transaction_statement, bool from_wrapped_function)
+    {
         // We have to invalidate every parameter of the function
         // just before the return
         PredicateAST<LANG_IS_RETURN_STATEMENT> return_pred_;
@@ -954,7 +904,6 @@ namespace TL
 
             if (!from_wrapped_function)
             {
-                // WTF?
                 return_replace_code
                     << "{"
 					<< "  if (__t->nestingLevel == 0){"
@@ -978,11 +927,10 @@ namespace TL
 					<< "       pthread_mutex_unlock(&_l_total_time);"
 					<< "       fprintf(stderr, \"Transaction %ld: number of aborts %ld. Total abort time: %lld\\n\",__t->ID, __t->numberOfAborts, __t->totalAbortTime);"
                     << "       destroytx(__t);"
-
-                    // Assumption: transaction is completely inside the function.
-                    // FIXME: Think about it
                     << return_value
                     << "  }"
+                    // Assumption: transaction is completely inside the function.
+                    // FIXME: Think about it
                     << "  else" 
                     << "  {"
      				<< "     __t->endEfectiveTime = rdtscf();"
@@ -1013,16 +961,54 @@ namespace TL
 
             it->replace(return_tree);
         }
+    }
 
-        Source replaced_code;
+    void OpenMPTransform::stm_replace_code(
+            OpenMP::CustomConstruct transaction_construct,
+            Source &replaced_code, 
+            Statement &transaction_statement, 
+            ObjectList<Symbol> &local_symbols,
+            bool from_wrapped_function)
+    {
+        // Create declarations of local symbols
+        Source local_declarations;
+        for (ObjectList<Symbol>::iterator it = local_symbols.begin();
+                it != local_symbols.end();
+                it++)
+        {
+            Symbol &sym(*it);
+            Type t = sym.get_type();
 
+            local_declarations
+                << t.get_declaration_with_initializer(transaction_construct.get_scope(),
+                        "__local_" + sym.get_name(), sym.get_name())
+                ;
+        }
+
+        // Local commit
+        Source local_commit;
+        for (ObjectList<Symbol>::iterator it = local_symbols.begin();
+                it != local_symbols.end();
+                it++)
+        {
+            Symbol &sym(*it);
+            local_commit
+                << sym.get_name() << " = " << "__local_" + sym.get_name() << ";"
+                ;
+        }
+
+        // Replace code
+        //
+        // If this is a wrapped function, just create local symbols and the local commit code
         if (from_wrapped_function)
         {
             Source return_from_function;
             replaced_code
                 << "{"
-                <<         transaction_statement.prettyprint()
-                <<         return_from_function
+                <<      local_declarations
+                <<      transaction_statement.prettyprint()
+                <<      local_commit
+                <<      return_from_function
                 << "}"
                 ;
 
@@ -1064,80 +1050,159 @@ namespace TL
             replaced_code
                 << "{"
                 << "   Transaction* __t = createtx(\"" << transaction_construct.get_ast().get_file() 
-				<< "\"," << transaction_construct.get_ast().get_line() <<");"
+                << "\"," << transaction_construct.get_ast().get_line() <<");"
                 << "   uint64_t _tx_commit_start, _tx_commit_end;"
-				<< "   pthread_mutex_lock(&_l_total_count);"
+                << "   pthread_mutex_lock(&_l_total_count);"
                 << "   _tx_total_count++;"
-				<< "   pthread_mutex_unlock(&_l_total_count);"
+                << "   pthread_mutex_unlock(&_l_total_count);"
                 << "   __t->startResponseTime = rdtscf();"
                 << "   while(1)"
                 << "   {"
+                <<       local_declarations
                 << "     starttx(__t);"
                 << "     if((__t->nestingLevel > 0) || (0 == setjmp(__t->context)))"
                 << "     {"
-				<< "       if (__t->nestingLevel == 0)"
-				<< "         __t->startEfectiveTime = rdtscf();"
-				<< ""
+                << "       if (__t->nestingLevel == 0)"
+                << "         __t->startEfectiveTime = rdtscf();"
+
                 <<         comment("Transaction code")
                 <<         transaction_statement.prettyprint()
                 <<         comment("End of transaction code")
-				<< "       if (__t->nestingLevel == 0){"
+
+                << "       if (__t->nestingLevel == 0){"
                 << "         __t->endEfectiveTime = rdtscf();"
-				<< "         __t->efectiveExecutionTime = (__t->endEfectiveTime - __t->startEfectiveTime);"
-				<< "         __t->totalExecutionTime += __t->efectiveExecutionTime;"
-				<< "       }"
-				<< "       _tx_commit_start = rdtscf();"
+                << "         __t->efectiveExecutionTime = (__t->endEfectiveTime - __t->startEfectiveTime);"
+                << "         __t->totalExecutionTime += __t->efectiveExecutionTime;"
+                << "       }"
+                << "       _tx_commit_start = rdtscf();"
                 << "       if (0 == committx(__t)) "
                 << "       {"
                 << "         _tx_commit_end = rdtscf();"
-				<< "         pthread_mutex_lock(&_l_commit_total);"
+                << "         pthread_mutex_lock(&_l_commit_total);"
                 << "         _tx_commit_total += (_tx_commit_end - _tx_commit_start);"
-				<< "         pthread_mutex_unlock(&_l_commit_total);"
+                << "         pthread_mutex_unlock(&_l_commit_total);"
+                <<           local_commit
                 << "         break;"
                 << "       }"
                 << "       else"
                 << "       {"
-				<< "          if (__t->status == 10) {"
-				<< "            break;"
-				<< "          }"
-     			<< "         __t->endEfectiveTime = rdtscf();"
-				<< "         __t->efectiveExecutionTime = (__t->endEfectiveTime - __t->startEfectiveTime);"
-				<< "         __t->totalExecutionTime += __t->efectiveExecutionTime;"
-				<< "          pthread_mutex_lock(&_l_abort_count);"
+                << "          if (__t->status == 10) {"
+                << "            break;"
+                << "          }"
+                << "         __t->endEfectiveTime = rdtscf();"
+                << "         __t->efectiveExecutionTime = (__t->endEfectiveTime - __t->startEfectiveTime);"
+                << "         __t->totalExecutionTime += __t->efectiveExecutionTime;"
+                << "          pthread_mutex_lock(&_l_abort_count);"
                 << "          _tx_abort_count++;"
-				<< "          pthread_mutex_unlock(&_l_abort_count);"
+                << "          pthread_mutex_unlock(&_l_abort_count);"
                 << "          aborttx(__t);"
                 << "       }"
                 << "     }"
                 << "     else"
                 << "     {"
-				<< "        if (__t->status == 10){"
-				<< "            break;"
-				<< "        }"
-     			<< "         __t->endEfectiveTime = rdtscf();"
-				<< "         __t->efectiveExecutionTime = (__t->endEfectiveTime - __t->startEfectiveTime);"
-				<< "         __t->totalExecutionTime += __t->efectiveExecutionTime;"
-				<< "        pthread_mutex_lock(&_l_abort_count);"
+                << "        if (__t->status == 10){"
+                << "            break;"
+                << "        }"
+                << "         __t->endEfectiveTime = rdtscf();"
+                << "         __t->efectiveExecutionTime = (__t->endEfectiveTime - __t->startEfectiveTime);"
+                << "         __t->totalExecutionTime += __t->efectiveExecutionTime;"
+                << "        pthread_mutex_lock(&_l_abort_count);"
                 << "        _tx_abort_count++;"
-				<< "        pthread_mutex_unlock(&_l_abort_count);"
+                << "        pthread_mutex_unlock(&_l_abort_count);"
                 << "        aborttx(__t);"
                 << "     }"
                 << "   }"
                 << "   __t->endResponseTime = rdtscf();"
-				<< "   pthread_mutex_lock(&_l_total_time);"
+                << "   pthread_mutex_lock(&_l_total_time);"
                 << "   _tx_total_response_time += (__t->endResponseTime - __t->startResponseTime);"
-				<< "   _tx_total_execution_time += __t->totalExecutionTime;"
-				<< "   _tx_total_efective_execution_time += __t->efectiveExecutionTime;"
-				<< "   _tx_total_abort_time += __t->totalAbortTime;"
-				<< "   pthread_mutex_unlock(&_l_total_time);"
-				<< "   fprintf(stderr, \"Transaction %ld: number of aborts %ld. Total abort time: %lld\\n\",__t->ID, __t->numberOfAborts, __t->totalAbortTime);"
+                << "   _tx_total_execution_time += __t->totalExecutionTime;"
+                << "   _tx_total_efective_execution_time += __t->efectiveExecutionTime;"
+                << "   _tx_total_abort_time += __t->totalAbortTime;"
+                << "   pthread_mutex_unlock(&_l_total_time);"
+                << "   fprintf(stderr, \"Transaction %ld: number of aborts %ld. Total abort time: %lld\\n\",__t->ID, __t->numberOfAborts, __t->totalAbortTime);"
                 << "   destroytx(__t);"
                 << "}"
                 ;
         }
+    }
 
-        AST_t replaced_tree = replaced_code.parse_statement(transaction_statement.get_ast(),
-                transaction_statement.get_scope_link());
+    void OpenMPTransform::stm_transaction_full_stm(OpenMP::CustomConstruct transaction_construct)
+    {
+        static int transaction_id = 0;
+        transaction_id++;
+
+        // The "transacted" statement
+        Statement transaction_statement = transaction_construct.body();
+        OpenMP::Directive transaction_directive = transaction_construct.directive();
+
+        // This is a flag telling that this function was wrapped in stm_funct phase
+        OpenMP::CustomClause converted_function = 
+            transaction_directive.custom_clause("converted_function");
+
+        bool from_wrapped_function = converted_function.is_defined();
+
+        // Expect the transformation to be done when transaction_nesting == 1
+        // Here we only remove the pragma itself
+        if (transaction_nesting > 1)
+        {
+            Source replaced_code;
+            replaced_code << transaction_statement.prettyprint();
+
+            AST_t replaced_tree = replaced_code.parse_statement(transaction_statement.get_ast(),
+                    transaction_statement.get_scope_link());
+
+            transaction_construct.get_ast().replace(replaced_tree);
+            return;
+        }
+
+        ObjectList<Symbol> unmanaged_symbols;
+        OpenMP::CustomClause unmanaged_clause = transaction_directive.custom_clause("unmanaged");
+        if (unmanaged_clause.is_defined())
+        {
+            unmanaged_symbols = 
+                unmanaged_clause.id_expressions().map(functor(&IdExpression::get_symbol));
+        }
+
+        ObjectList<Symbol> local_symbols;
+        OpenMP::CustomClause local_clause = transaction_directive.custom_clause("local");
+        if (local_clause.is_defined())
+        {
+            local_symbols = 
+                local_clause.id_expressions().map(functor(&IdExpression::get_symbol));
+        }
+
+
+        // Open the log file for unhandled function calls
+		if (!stm_log_file_opened)
+		{
+			std::string str = "stm_unhandled_functions_" + 
+				CompilationProcess::get_current_file().get_filename()
+				+ ".log";
+			stm_log_file.open(str.c_str(), std::ios_base::out | std::ios_base::trunc);
+			stm_log_file_opened = true;
+		}
+		
+        STMExpressionReplacement expression_replacement(
+                unmanaged_symbols, local_symbols, 
+                stm_replace_functions_file, stm_replace_functions_mode,
+                stm_wrap_functions_file, stm_wrap_functions_mode,
+				stm_log_file);
+
+        // First convert all expressions
+        stm_replace_expressions(transaction_statement, expression_replacement);
+
+        // Now replace all local symbols
+
+        // And now find every 'return' statement and convert it
+        // into something suitable for STM
+        stm_replace_returns(transaction_statement, from_wrapped_function);
+
+        Source replaced_code;
+        stm_replace_code(transaction_construct, replaced_code, 
+                transaction_statement, local_symbols, from_wrapped_function);
+
+        AST_t replaced_tree = replaced_code.parse_statement(transaction_construct.get_ast(),
+                transaction_construct.get_scope_link());
 
         transaction_construct.get_ast().replace(replaced_tree);
     }
