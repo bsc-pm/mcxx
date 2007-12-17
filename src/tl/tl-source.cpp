@@ -22,6 +22,7 @@
 #include "cxx-ambiguity.h"
 #include <iostream>
 #include <sstream>
+#include <iomanip>
 #include "cxx-printscope.h"
 #include "cxx-utils.h"
 
@@ -147,7 +148,8 @@ namespace TL
 
         if (parse_result != 0)
         {
-            running_error("Could not parse the expression '%s'", this->get_source(true).c_str());
+            running_error("Could not parse the expression '%s'", 
+                    format_source(this->get_source(true)).c_str());
         }
 
         // solve_possibly_ambiguous_expression(a, ctx._decl_context);
@@ -191,7 +193,8 @@ namespace TL
 
         if (parse_result != 0)
         {
-            running_error("Could not parse the expression '%s'", this->get_source(true).c_str());
+            running_error("Could not parse the expression '%s'", 
+                    format_source(this->get_source(true)).c_str());
         }
 
         if (!check_for_expression(a, ctx._decl_context))
@@ -222,7 +225,8 @@ namespace TL
 
         if (parse_result != 0)
         {
-            running_error("Could not parse member declaration\n\n%s\n", this->get_source(true).c_str());
+            running_error("Could not parse member declaration\n\n%s\n", 
+                    format_source(this->get_source(true)).c_str());
         }
 
         if (a != NULL)
@@ -263,7 +267,8 @@ namespace TL
 
         if (parse_result != 0)
         {
-            running_error("Could not parse statement\n\n%s\n", this->get_source(true).c_str());
+            running_error("Could not parse statement\n\n%s\n", 
+                    format_source(this->get_source(true)).c_str());
         }
 
         if (a != NULL)
@@ -304,7 +309,8 @@ namespace TL
 
         if (parse_result != 0)
         {
-            running_error("Could not parse declaration\n\n%s\n", this->get_source(true).c_str());
+            running_error("Could not parse declaration\n\n%s\n", 
+                    format_source(this->get_source(true)).c_str());
         }
 
         decl_context_tag decl_context = ctx._decl_context;
@@ -370,7 +376,8 @@ namespace TL
 
         if (parse_result != 0)
         {
-            running_error("Could not parse statement\n\n%s\n", this->get_source(true).c_str());
+            running_error("Could not parse statement\n\n%s\n", 
+                    format_source(this->get_source(true)).c_str());
         }
         
         // Get the scope and declarating context of the reference tree
@@ -412,7 +419,8 @@ namespace TL
 
         if (parse_result != 0)
         {
-            running_error("Could not parse the expression '%s'", this->get_source(true).c_str());
+            running_error("Could not parse the expression '%s'", 
+                    format_source(this->get_source(true)).c_str());
         }
 
         bool do_not_check_expression = false;
@@ -471,7 +479,8 @@ namespace TL
 
         if (parse_result != 0)
         {
-            running_error("Could not parse declaration\n\n%s\n", this->get_source(true).c_str());
+            running_error("Could not parse declaration\n\n%s\n", 
+                    format_source(this->get_source(true)).c_str());
         }
         
         // Get the scope and declarating context of the reference tree
@@ -505,7 +514,8 @@ namespace TL
 
         if (parse_result != 0)
         {
-            running_error("Could not parse member declaration\n\n%s\n", this->get_source(true).c_str());
+            running_error("Could not parse member declaration\n\n%s\n", 
+                    format_source(this->get_source(true)).c_str());
         }
         
         // Get the scope and declarating context of the reference tree
@@ -537,7 +547,8 @@ namespace TL
 
         if (parse_result != 0)
         {
-            running_error("Could not parse type specifier\n\n%s\n", this->get_source(true).c_str());
+            running_error("Could not parse type specifier\n\n%s\n", 
+                    format_source(this->get_source(true)).c_str());
         }
 
         // Get the scope and declarating context of the reference tree
@@ -667,5 +678,30 @@ namespace TL
         }
 
         return result;
+    }
+
+    // This is quite inefficient but will do
+    std::string Source::format_source(const std::string& src)
+    {
+        int line = 1;
+
+        std::stringstream ss;
+
+        ss << "[" << std::setw(5) << line << std::setw(0) << "] ";
+
+
+        for (std::string::const_iterator it = src.begin();
+                it != src.end();
+                it++)
+        {
+            ss << *it;
+            if (*it == '\n')
+            {
+                line++;
+                ss << "[" << std::setw(5) << line << std::setw(0) << "] ";
+            }
+        }
+
+        return ss.str();
     }
 }
