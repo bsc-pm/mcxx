@@ -207,6 +207,8 @@ cv_qualifier_t* get_outermost_cv_qualifier(type_t* t);
 type_t* get_unqualified_type(type_t* t);
 cv_qualifier_t get_cv_qualifier(type_t* type_info);
 
+int get_sizeof_type(type_t* t);
+
 /* Query functions: specific ones */
 int function_type_get_num_parameters(type_t* function_type);
 type_t* function_type_get_parameter_type_num(type_t* function_type, int num_param);

@@ -526,18 +526,9 @@ type_set_t compute_expression_type_rec(AST expr, decl_context_t decl_context)
                         decl_context);
 
                 type_t* result_type = NULL;
-                if (abstract_declarator != NULL)
-                {
-                    type_t* declarator_type = NULL;
-                    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-                            &declarator_type, decl_context);
-
-                    result_type = declarator_type;
-                }
-                else
-                {
-                    result_type = simple_type_info;
-                }
+                type_t* declarator_type = NULL;
+                compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+                        &declarator_type, decl_context);
 
                 // A casted entity is not an lvalue
                 P_LIST_ADD(result.types, result.num_types,

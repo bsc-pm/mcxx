@@ -57,7 +57,9 @@ libmcxx_la_SOURCES = \
   cxx-exprtype.h \
   cxx-exprtype.c \
   cxx-koenig.h \
-  cxx-koenig.c
+  cxx-koenig.c \
+  cxx-gccsupport.h \
+  cxx-gccsupport.c
 
 libmcxx_la_LDFLAGS = -Wl,-rpath,$(libdir)
 

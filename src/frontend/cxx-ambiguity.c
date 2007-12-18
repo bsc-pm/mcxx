@@ -1486,14 +1486,9 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
                         decl_context);
 
-                if (abstract_declarator != NULL)
-                {
-                    decl_context_t nofail_context = decl_context;
-                    nofail_context.decl_flags |= DF_NO_FAIL;
-                    type_t* declarator_type = NULL;
-                    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-                            &declarator_type, nofail_context);
-                }
+                type_t* declarator_type = NULL;
+                compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+                        &declarator_type, decl_context);
 
                 AST casted_expression = ASTSon1(expression);
 
@@ -1832,11 +1827,8 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
 
     build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &dummy_type, decl_context);
 
-    if (new_declarator != NULL)
-    {
-        type_t* declarator_type = NULL;
-        compute_declarator_type(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context);
-    }
+    type_t* declarator_type = NULL;
+    compute_declarator_type(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context);
 
     if (new_initializer != NULL)
     {
@@ -2302,12 +2294,9 @@ static char check_for_template_argument_list(AST argument_list, decl_context_t d
                 build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
                         decl_context);
 
-                if (abstract_declarator != NULL)
-                {
-                    type_t* declarator_type = NULL;
-                    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-                            &declarator_type, decl_context);
-                }
+                type_t* declarator_type = NULL;
+                compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+                        &declarator_type, decl_context);
             }
         }
     }
@@ -2510,12 +2499,9 @@ static char check_for_cast(AST expr, decl_context_t decl_context)
         build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
                 decl_context);
 
-        if (abstract_declarator != NULL)
-        {
-            type_t* declarator_type = NULL;
-            compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-                    &declarator_type, decl_context);
-        }
+        type_t* declarator_type = NULL;
+        compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+                &declarator_type, decl_context);
 
         solve_possibly_ambiguous_expression(casted_expression, decl_context);
         return 1;

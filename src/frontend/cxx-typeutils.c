@@ -501,6 +501,7 @@ static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2,
 static char equivalent_array_type(array_info_t* t1, array_info_t* t2, 
         decl_context_t decl_context);
 static char equivalent_function_type(type_t* t1, type_t* t2, decl_context_t decl_context);
+static char equivalent_vector_type(type_t* t1, type_t* t2, decl_context_t decl_context);
 static char compatible_parameters(function_info_t* t1, function_info_t* t2,
         decl_context_t decl_context);
 static char compare_template_dependent_types(type_t* t1, type_t* t2,
@@ -1606,6 +1607,8 @@ char equivalent_types(type_t* t1, type_t* t2,
         case TK_FUNCTION :
             result = equivalent_function_type(t1, t2, decl_context);
             break;
+        case TK_VECTOR :
+            result = equivalent_vector_type(t1, t2, decl_context);
         default :
             internal_error("Unknown type kind (%d)\n", t1->kind);
     }
@@ -1956,6 +1959,14 @@ char overloaded_function(type_t* ft1, type_t* ft2, decl_context_t decl_context)
     }
 
     return 0;
+}
+
+static char equivalent_vector_type(type_t* t1, type_t* t2, decl_context_t decl_context)
+{
+    // This mimics gcc behaviour
+    return ((equivalent_types(t1->vector->element_type, t2->vector->element_type, 
+                    CVE_CONSIDER, decl_context)))
+        && (t1->vector->vector_size == t2->vector->vector_size);
 }
 
 static char equivalent_function_type(type_t* ft1, type_t* ft2, 
@@ -4252,12 +4263,9 @@ char is_dependent_simple_type(type_t* type_info, decl_context_t decl_context)
                     build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
                             typeof_decl_context);
 
-                    if (abstract_declarator != NULL)
-                    {
-                        type_t* declarator_type = NULL;
-                        compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
-                                &declarator_type, typeof_decl_context);
-                    }
+                    type_t* declarator_type = NULL;
+                    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+                            &declarator_type, typeof_decl_context);
 
                     return (is_dependent_type(simple_type_info, decl_context));
                 }
@@ -4320,6 +4328,11 @@ char is_dependent_type(type_t* type, decl_context_t decl_context)
             {
                 return is_dependent_type(type->pointer->pointee, decl_context)
                     || is_dependent_type(type->pointer->pointee_class->type_information, decl_context);
+                break;
+            }
+        case TK_VECTOR :
+            {
+                return is_dependent_type(type->vector->element_type, decl_context);
                 break;
             }
         default:
@@ -5141,7 +5154,16 @@ char* print_declarator(type_t* printed_declarator, decl_context_t decl_context)
                     printed_declarator = printed_declarator->function->return_type;
                     break;
                 }
-                // GCC Extension
+            case TK_VECTOR:
+                {
+                    char c[256];
+                    snprintf(c, 255, "vector of size %d of ", 
+                            printed_declarator->vector->vector_size);
+                    c[255] = '\0';
+                    tmp_result = strappend(tmp_result, c);
+                    printed_declarator = printed_declarator->vector->element_type;
+                    break;
+                }
             default :
                 internal_error("Unhandled type kind '%d'\n", printed_declarator->kind);
                 break;
@@ -5149,4 +5171,9 @@ char* print_declarator(type_t* printed_declarator, decl_context_t decl_context)
     } while (printed_declarator != NULL);
 
     return tmp_result;
+}
+
+int get_sizeof_type(type_t* t)
+{
+    return t->size;
 }

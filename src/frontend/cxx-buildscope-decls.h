@@ -57,7 +57,10 @@ struct gather_decl_spec_tag {
     int num_exceptions;
     struct type_tag** exceptions;
 
-    // Default arguments of function declarations
+    // Vector info
+    unsigned int vector_size;
+    struct type_tag* vector_mode_type;
+    char is_vector;
 } gather_decl_spec_t;
 
 #define BITMAP(x) (1 << (x))
