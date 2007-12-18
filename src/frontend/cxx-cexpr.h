@@ -76,6 +76,8 @@ char equal_literal_values(literal_value_t v1, literal_value_t v2, decl_context_t
 void gather_integer_literal_suffix(char* text, char* is_long, char* is_unsigned);
 void gather_float_literal_suffix(char* text, char* is_float, char* is_long_double);
 
+unsigned int literal_value_to_uint(literal_value_t v);
+
 char unificable_values(AST expr1, decl_context_t decl_context1, AST expr2, decl_context_t decl_context2);
 AST advance_expression_nest(AST expr);
 

@@ -214,6 +214,9 @@ typedef struct compilation_configuration_tag
     int num_pragma_custom_prefix;
     char** pragma_custom_prefix;
     pragma_directive_set_t **pragma_custom_prefix_info;
+
+    // Type environment
+    struct type_environment_tag* type_environment;
 } compilation_configuration_t;
 
 

@@ -41,6 +41,13 @@ struct parameter_info_tag
     type_t* original_type;
 } parameter_info_t;
 
+// Type environment 
+// - This is yet very EXPERIMENTAL. Ignore it for now -
+typedef struct type_environment_tag type_environment_t;
+// An hypothetical type environment for Linux IA32
+extern type_environment_t* type_environment_linux_ia32;
+// End of the type environment related stuff
+
 /* Type constructors: Builtins */
 type_t* get_char_type(void);
 type_t* get_signed_char_type(void);

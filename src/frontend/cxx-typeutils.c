@@ -31,6 +31,7 @@
 /*
  * --
  */
+typedef unsigned int _size_t;
 
 // An exception specifier used in function info
 typedef struct {
@@ -384,20 +385,26 @@ struct type_tag
 
     // For parameter types, if not null it means some adjustement was done
     struct type_tag* original_type;
+
+    // The sizeof of the type
+    _size_t size;
 };
 
 /*
  * Typing environment
  */
 
-typedef unsigned int _size_t;
-
-typedef
 struct type_environment_tag
 {
     // The type of sizeof
     type_t* sizeof_expr_type;
-    
+
+    // bool
+    _size_t sizeof_bool;
+
+    // wchar_t
+    _size_t sizeof_wchar_t;
+
     // short
     _size_t sizeof_unsigned_short;
     _size_t sizeof_signed_short;
@@ -425,10 +432,12 @@ struct type_environment_tag
 
     // pointer
     _size_t sizeof_pointer;
+    _size_t sizeof_pointer_to_data_member;
     // this one exists because a pointer to function
     // does not have to be compatible with a regular
     // pointer to data
     _size_t sizeof_function_pointer;
+    _size_t sizeof_pointer_to_member_function;
 
     // function that computes the size of a class type
     // this typically will follow some underlying ABI
@@ -436,15 +445,17 @@ struct type_environment_tag
     
     // function that computes the size of a union type
     _size_t (*sizeof_union)(type_t*);
-} type_environment_t;
+};
 
 // Linux IA-32
-static type_environment_t type_environment_linux_ia32 = 
+static type_environment_t type_environment_linux_ia32_ = 
 {
     // FIXME
     // .sizeof_expr_type = get_unsigned_int_type(),
     .sizeof_unsigned_short = 2,
     .sizeof_signed_short = 2,
+
+    .sizeof_wchar_t = 2,
 
     .sizeof_unsigned_int = 4,
     .sizeof_signed_int = 4,
@@ -464,15 +475,18 @@ static type_environment_t type_environment_linux_ia32 =
     .sizeof_long_double = 12,
 
     .sizeof_pointer = 4,
+    .sizeof_pointer_to_data_member = 4,
     .sizeof_function_pointer = 4,
+    .sizeof_pointer_to_member_function = 4,
 
-    // Not yet implemented but sizeof_class will both implement
-    // the underlying C ABI and the C++ ABI 
-    // (likely System V and Itanium C++ since they are the most usual
-    //  in Linux systems)
+    // Not yet implemented but sizeof_class will both implement the underlying
+    // C ABI and the C++ ABI (likely System V ABI and Itanium C++ ABI since
+    // they are the most usual in Linux systems)
     .sizeof_class = NULL,
     .sizeof_union = NULL,
 };
+
+type_environment_t* type_environment_linux_ia32 = &type_environment_linux_ia32_;
 
 /*
  * --
@@ -517,6 +531,7 @@ type_t* get_char_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_CHAR;
+        _type->size = 1;
     }
 
     return _type;
@@ -533,6 +548,7 @@ type_t* get_signed_char_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_CHAR;
         _type->type->is_signed = 1;
+        _type->size = 1;
     }
 
     return _type;
@@ -548,6 +564,7 @@ type_t* get_unsigned_char_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_CHAR;
         _type->type->is_unsigned = 1;
+        _type->size = 1;
     }
 
     return _type;
@@ -562,6 +579,7 @@ type_t* get_wchar_t_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_WCHAR;
+        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_wchar_t;
     }
 
     return _type;
@@ -576,6 +594,7 @@ type_t* get_bool_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_BOOL;
+        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_bool;
     }
 
     return _type;
@@ -590,6 +609,7 @@ type_t* get_signed_int_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
+        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_int;
     }
 
     return _type;
@@ -605,6 +625,7 @@ type_t* get_signed_short_int_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
         _type->type->is_short = 1;
+        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_short;
     }
 
     return _type;
@@ -620,6 +641,7 @@ type_t* get_signed_long_int_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
         _type->type->is_long = 1;
+        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long;
     }
 
     return _type;
@@ -635,6 +657,7 @@ type_t* get_signed_long_long_int_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
         _type->type->is_long = 2;
+        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_signed_long_long;
     }
 
     return _type;
@@ -651,6 +674,7 @@ type_t* get_unsigned_int_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_INT;
         _type->type->is_unsigned = 1;
+        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_int;
     }
 
     return _type;
@@ -667,6 +691,7 @@ type_t* get_unsigned_short_int_type(void)
         _type->type->builtin_type = BT_INT;
         _type->type->is_unsigned = 1;
         _type->type->is_short = 1;
+        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_short;
     }
 
     return _type;
@@ -683,6 +708,7 @@ type_t* get_unsigned_long_int_type(void)
         _type->type->builtin_type = BT_INT;
         _type->type->is_unsigned = 1;
         _type->type->is_long = 1;
+        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_long;
     }
 
     return _type;
@@ -699,6 +725,7 @@ type_t* get_unsigned_long_long_int_type(void)
         _type->type->builtin_type = BT_INT;
         _type->type->is_unsigned = 1;
         _type->type->is_long = 2;
+        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_unsigned_long_long;
     }
 
     return _type;
@@ -713,6 +740,7 @@ type_t* get_float_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_FLOAT;
+        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_float;
     }
 
     return _type;
@@ -727,6 +755,7 @@ type_t* get_double_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_DOUBLE;
+        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_double;
     }
 
     return _type;
@@ -742,6 +771,7 @@ type_t* get_long_double_type(void)
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_DOUBLE;
         _type->type->is_long = 1;
+        _type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_long_double;
     }
 
     return _type;
@@ -756,6 +786,9 @@ type_t* get_void_type(void)
         _type = get_simple_type();
         _type->type->kind = STK_BUILTIN_TYPE;
         _type->type->builtin_type = BT_VOID;
+
+        // This is an incomplete type but gcc in C returns 1 for sizeof(void)
+        _type->size = 1;
     }
 
     return _type;
@@ -984,6 +1017,15 @@ type_t* get_pointer_type(type_t* t)
         pointed_type->pointer = calloc(1, sizeof(*pointed_type->pointer));
         pointed_type->pointer->pointee = t;
 
+        if (is_function_type(t))
+        {
+            pointed_type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_function_pointer;
+        }
+        else
+        {
+            pointed_type->size = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer;
+        }
+
         hash_put(_pointer_types, t, pointed_type);
     }
 
@@ -1046,6 +1088,17 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
         pointer_to_member->pointer->pointee = t;
         pointer_to_member->pointer->pointee_class = class_entry;
 
+        if (is_function_type(t))
+        {
+            pointer_to_member->size 
+                = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer_to_member_function;
+        }
+        else
+        {
+            pointer_to_member->size 
+                = CURRENT_CONFIGURATION(type_environment)->sizeof_pointer_to_data_member;
+        }
+
         hash_put(class_type_hash, t, pointer_to_member);
     }
 
@@ -1063,6 +1116,7 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     // // C99
     // void f(int x, int y, int v[x][y]);
     // {
+    //    // This one is only valid in GCC
     //    int k[x + y];
     // }
     //
@@ -1082,6 +1136,13 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     result->array->element_type = element_type;
     result->array->array_expr = expression;
     result->array->array_expr_decl_context = decl_context;
+
+    if (!is_dependent_expression(expression, decl_context))
+    {
+        literal_value_t literal_val 
+            = evaluate_constant_expression(expression, decl_context);
+        result->size = element_type->size * literal_value_to_uint(literal_val);
+    }
 
     return result;
 }

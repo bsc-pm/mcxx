@@ -33,6 +33,7 @@
 #include "cxx-graphviz.h"
 #include "cxx-prettyprint.h"
 #include "cxx-buildscope.h"
+#include "cxx-typeutils.h"
 #include "cxx-lexer.h"
 #include "cxx-dyninit.h"
 #include "cxx-printscope.h"
@@ -908,6 +909,10 @@ static void initialize_default_values(void)
     memset(&minimal_default_configuration, 0, sizeof(minimal_default_configuration));
     compilation_process.current_compilation_configuration = &minimal_default_configuration;
 
+    // Experimental - type environment
+    CURRENT_CONFIGURATION(type_environment) = type_environment_linux_ia32;
+    // Type environment
+
     CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_CXX;
 
     CURRENT_CONFIGURATION(preprocessor_name) = strdup("c++");
@@ -940,6 +945,11 @@ static int section_callback(char* sname)
     // Create the new configuration
     compilation_configuration_t* new_compilation_configuration = calloc(1, sizeof(*new_compilation_configuration));
     new_compilation_configuration->configuration_name = strdup(section_name);
+
+    // Typing environment - Highly experimental - Ignore it for now
+    // Set to an hypothetic Linux IA32 type environment
+    new_compilation_configuration->type_environment = type_environment_linux_ia32;
+    // End of typing environment 
 
     // Set now as the current compilation configuration
     compilation_process.current_compilation_configuration = new_compilation_configuration;

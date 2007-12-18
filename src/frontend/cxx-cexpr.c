@@ -2299,3 +2299,9 @@ AST advance_expression_nest(AST expr)
         }
     }
 }
+
+unsigned int literal_value_to_uint(literal_value_t v)
+{
+    literal_value_t v1 = convert_to_unsigned_long(v);
+    return v1.value.unsigned_int;
+}
