@@ -343,7 +343,7 @@ struct array_tag
 // Vector type
 typedef struct vector_tag
 {
-    unsigned int vector_type;
+    unsigned int vector_size;
     struct type_tag* element_type;
 } vector_info_t;
 
@@ -1171,7 +1171,7 @@ char is_vector_type(type_t* t)
             && t->kind != TK_VECTOR);
 }
 
-int vector_type_get_vector_size(type_t*)
+int vector_type_get_vector_size(type_t* t)
 {
     ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
     t = advance_over_typedefs(t);
@@ -1179,7 +1179,7 @@ int vector_type_get_vector_size(type_t*)
     return t->vector->vector_size;
 }
 
-type_t* vector_type_get_element_type(type_t*)
+type_t* vector_type_get_element_type(type_t* t)
 {
     ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
     t = advance_over_typedefs(t);
