@@ -105,6 +105,8 @@ type_t* get_array_type(type_t*, AST expression, decl_context_t decl_context);
 type_t* get_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters);
 type_t* get_nonproto_function_type(type_t* t, int num_parameters);
 
+type_t* get_vector_type(type_t* element_type, unsigned int vector_size);
+
 /* Type comparison functions */
 enum cv_equivalence_t
 {
@@ -179,6 +181,8 @@ char is_function_type(type_t* t);
 
 char is_reference_type(type_t* t1);
 
+char is_vector_type(type_t* t);
+
 char is_class_type(type_t* possible_class);
 char is_unnamed_class_type(type_t* possible_class);
 char is_named_class_type(type_t* possible_class);
@@ -235,6 +239,9 @@ decl_context_t enum_type_get_context(type_t* t);
 scope_entry_t* named_type_get_symbol(type_t* t);
 
 type_t* get_foundational_type(type_t* t);
+
+int vector_type_get_vector_size(type_t*);
+type_t* vector_type_get_element_type(type_t*);
 
 /* Query functions: Miscelaneous stuff not classified otherwise */
 char is_base_class_of(type_t* possible_base, type_t* possible_derived);

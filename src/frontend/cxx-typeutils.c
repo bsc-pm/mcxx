@@ -49,6 +49,7 @@ enum type_kind
     TK_POINTER_TO_MEMBER,  // 4
     TK_ARRAY,              // 5
     TK_FUNCTION,           // 6
+    TK_VECTOR,             // 7
 };
 
 // For simple_type_t
@@ -238,10 +239,6 @@ struct simple_type_tag {
     // __Complex float
     char is_complex;
 
-    // GCC extension (altivec)
-    // vector float
-    char is_vector;
-
     // This type exists after another symbol, for
     // instance
     //
@@ -336,7 +333,6 @@ struct array_tag
 {
     // Array sizes
     AST array_expr;
-
     // Scope of the array size expression
     decl_context_t array_expr_decl_context;
 
@@ -344,13 +340,12 @@ struct array_tag
     struct type_tag* element_type;
 } array_info_t;
 
-// States the "temporarieness" of a type
-typedef enum 
+// Vector type
+typedef vector_tag
 {
-    VT_UNDEFINED = 0,
-    VT_LVALUE, // a lvalue
-    VT_RVALUE  // a rvalue
-} value_type_t;
+    unsigned int vector_type;
+    struct type_tag* element_type;
+} vector_info_t;
 
 // This structure is able to hold type information for a given symbol
 // note it being decoupled from its declarator 
@@ -375,6 +370,10 @@ struct type_tag
     // "Simple" type
     // (kind == TK_DIRECT)
     simple_type_t* type;
+
+    // Vector Type
+    // (kind == TK_VECTOR)
+    vector_info_t* vector;
 
     // cv-qualifier related to this type
     // The cv-qualifier is in the type
@@ -1137,14 +1136,55 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     result->array->array_expr = expression;
     result->array->array_expr_decl_context = decl_context;
 
+#if 0
+    // FIX THIS - We need "is_constant_expression" in cxx-cexpr.c
     if (!is_dependent_expression(expression, decl_context))
     {
         literal_value_t literal_val 
             = evaluate_constant_expression(expression, decl_context);
         result->size = element_type->size * literal_value_to_uint(literal_val);
     }
+#endif
 
     return result;
+}
+
+type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
+{
+    // This type is not efficiently managed
+    type_t* result = calloc(1, sizeof(*result));
+    
+    result->kind = TK_VECTOR;
+    result->unqualified_type = result;
+
+    result->vector = calloc(1, sizeof(*(result->vector)));
+    result->vector->element_type = element_type;
+    result->vector->vector_size = vector_size;
+
+    return result;
+}
+
+char is_vector_type(type_t* t)
+{
+    t = advance_over_typedefs(t);
+    return (t != NULL
+            && t->kind != TK_VECTOR);
+}
+
+int vector_type_get_vector_size(type_t*)
+{
+    ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->vector->vector_size;
+}
+
+type_t* vector_type_get_element_type(type_t*)
+{
+    ERROR_CONDITION(!is_vector_type(t), "This is not a vector type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->vector->element_type;
 }
 
 type_t* get_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)
