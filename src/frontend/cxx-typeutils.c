@@ -341,7 +341,7 @@ struct array_tag
 } array_info_t;
 
 // Vector type
-typedef vector_tag
+typedef struct vector_tag
 {
     unsigned int vector_type;
     struct type_tag* element_type;
