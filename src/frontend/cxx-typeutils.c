@@ -1169,7 +1169,7 @@ char is_vector_type(type_t* t)
 {
     t = advance_over_typedefs(t);
     return (t != NULL
-            && t->kind != TK_VECTOR);
+            && t->kind == TK_VECTOR);
 }
 
 int vector_type_get_vector_size(type_t* t)
