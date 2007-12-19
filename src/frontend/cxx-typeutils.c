@@ -1609,6 +1609,7 @@ char equivalent_types(type_t* t1, type_t* t2,
             break;
         case TK_VECTOR :
             result = equivalent_vector_type(t1, t2, decl_context);
+            break;
         default :
             internal_error("Unknown type kind (%d)\n", t1->kind);
     }
