@@ -407,7 +407,6 @@ namespace TL
 			return;
 		}
 		
-std::cout << "Emitting adapter for '" << function_name << "' definition." << std::endl;
 		// Generate the task identifier if generating non task side
 		if (_generate_non_task_side)
 		{
@@ -489,13 +488,11 @@ std::cout << "Emitting adapter for '" << function_name << "' definition." << std
 	
 	void CodeConversion::TaskDeclarationHandler::postorder(Context ctx, AST_t node, FunctionInfo &function_info)
 	{
-		if (function_info._task_definition_count != 0)
+		if (function_info._definition_count != 0)
 		{
-std::cout << "Skipping adapter for '" << function_info._name << "' declaration." << std::endl;
 			// Emmit adaptors only once per translation unit (preferably for the task definition)
 			return;
 		}
-std::cout << "Emitting adapter for '" << function_info._name << "' declaration." << std::endl;
 		
 		
 		if (_generate_non_task_side)
@@ -587,14 +584,14 @@ std::cout << "Emitting adapter for '" << function_info._name << "' declaration."
 			TaskDeclarationHandler task_declaration_handler(_function_map, ctx, node, _generate_task_side, _generate_non_task_side);
 			
 			DeclaredEntity &first_entity = *(declared_entities.begin());
-			Symbol symbol = first_entity.get_declared_entity().get_symbol();
+			Symbol symbol = first_entity.get_declared_symbol();
 			Type declaration_type = symbol.get_type();
 			
 			// Handle all the declarators
 			for (ObjectList<DeclaredEntity>::iterator it = declared_entities.begin(); it != declared_entities.end(); it++)
 			{
 				DeclaredEntity &entity = *it;
-				Symbol symbol = entity.get_declared_entity().get_symbol();
+				Symbol symbol = entity.get_declared_symbol();
 				
 				if (symbol.is_function())
 				{

@@ -318,9 +318,11 @@ namespace TL
 		}
 		
 		std::string function_name = function_called_expresion.get_id_expression().mangle_id_expression();
+
 		if (!_function_map.contains(function_name))
 		{
-			if (function_name.find("__builtin_") == 0)
+			// FIXME: Should have a list of valid spu_ function names
+			if (function_name.find("__builtin_") == 0 || function_name.find("spu_") == 0)
 			{
 				// Do not warn about builtin functions
 			}

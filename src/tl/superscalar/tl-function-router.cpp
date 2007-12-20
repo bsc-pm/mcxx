@@ -47,11 +47,11 @@ namespace TL
 	}
 	
 	
-	void TL::FunctionRouter::mark_task_side_recursively(RefPtr<FunctionMap> function_map, std::string const &task_side_function_name)
+	void TL::FunctionRouter::mark_task_side_recursively(RefPtr<FunctionMap> function_map, std::string const &task_side_function_name, bool is_task)
 	{
 		FunctionInfo &function_info = (*function_map.get_pointer())[task_side_function_name];
 		
-		if (function_info._is_on_task_side || function_info._has_coherced_sides)
+		if (!is_task && (function_info._is_task || function_info._is_on_task_side || function_info._has_coherced_sides))
 		{
 			// End of recursion
 			return;
@@ -113,7 +113,7 @@ namespace TL
 		for (FunctionMap::iterator it = function_map->begin(); it != function_map->end(); it++)
 		{
 			FunctionInfo &function_info = it->second;
-			if (function_info._is_on_task_side)
+			if (function_info._is_task)
 			{
 				result.push_back(function_info._name);
 			}
@@ -162,15 +162,25 @@ namespace TL
 		for (ObjectList<std::string>::iterator it = task_names.begin(); it != task_names.end(); it++)
 		{
 			std::string const &task_name = *it;
-			mark_task_side_recursively(function_map, task_name);
+			mark_task_side_recursively(function_map, task_name, true);
 		}
 		
-		// Mark non task side from non called functions
+		// Mark non task side from non called functions unless it is a static function like spu_re.
+		// In that case we do not mark it since it is not used and we do not know which side it should be in.
 		ObjectList<std::string> non_called_functions = get_non_called_functions(function_map);
 		for (ObjectList<std::string>::iterator it = non_called_functions.begin(); it != non_called_functions.end(); it++)
 		{
 			std::string const &function_name = *it;
-			mark_non_task_side_recursively(function_map, function_name);
+			FunctionInfo &function_info = (*function_map.get_pointer())[function_name];
+			
+			if (function_info._definition_count != 0)
+			{
+				Symbol symbol = function_info._definition_scope.get_symbol_from_name(function_name);
+				if (!symbol.is_static())
+				{
+					function_info._is_on_non_task_side = true;
+				}
+			}
 		}
 		
 		// Mark the rest as non task side

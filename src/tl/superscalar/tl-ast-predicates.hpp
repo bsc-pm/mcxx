@@ -85,12 +85,9 @@ namespace TL
 				}
 				
 				DeclaredEntity declared_entity(ast, _scope_link);
-				IdExpression id = declared_entity.get_declared_entity();
-				Symbol symbol = id.get_symbol();
+				Symbol symbol = declared_entity.get_declared_symbol();
 				
 				return symbol.is_function();
-				//return declared_entity.is_functional_declaration();
-				
 			}
 	};
 	
