@@ -986,13 +986,25 @@ namespace TL
                         "__local_" + sym.get_name()) << ";"
                 ;
 
-            local_rollback
-                << "__local_" + sym.get_name() << " = " << sym.get_name() << ";"
+            local_rollback 
+                << "__builtin_memcpy(&__local_" + sym.get_name() 
+                <<          ", &" << sym.get_name() 
+                <<          ", sizeof(" << sym.get_name() << "));"
                 ;
 
-            local_commit
-                << sym.get_name() << " = " << "__local_" + sym.get_name() << ";"
+            local_commit 
+                << "__builtin_memcpy(&" + sym.get_name() 
+                <<          ", &__local_" << sym.get_name() 
+                <<          ", sizeof(" << sym.get_name() << "));"
                 ;
+
+                // local_rollback
+                //     << "__local_" + sym.get_name() << " = " << sym.get_name() << ";"
+                //     ;
+
+                // local_commit
+                //     << sym.get_name() << " = " << "__local_" + sym.get_name() << ";"
+                //     ;
         }
 
         // Replace code
