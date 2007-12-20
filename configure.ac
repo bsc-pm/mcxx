@@ -117,6 +117,29 @@ AC_ARG_ENABLE([tl-acotes],
   ]
 )
 
+AC_MSG_CHECKING([if binaries should be installed in pkgdir])
+AC_ARG_ENABLE([pkgdir-install],
+  AS_HELP_STRING([--enable-pkgdir-install], [Enables installation of binaries in pkgdir instead of bindir]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        is_enabled_pkgdir_install="yes"
+        AC_MSG_RESULT([yes])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([no])
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      is_enabled_pkgdir_install="no"
+      AC_MSG_RESULT([no])
+  ]
+)
+AM_CONDITIONAL(ENABLE_PKGLIB_INSTALL, test x"$is_enabled_pkgdir_install" = x"yes")
+
 AC_MSG_CHECKING([if Cell/SMP superscalar TL support is enabled])
 AC_ARG_ENABLE([tl-superscalar],
   AS_HELP_STRING([--disable-tl-superscalar], [Disables generation of Cell/SMP superscalar TL support]),
@@ -125,7 +148,6 @@ AC_ARG_ENABLE([tl-superscalar],
     then
         tlextensions="${tlextensions} superscalar"
         is_enabled_tl_superscalar="yes"
-        is_enabled_pkglib_install="yes"
         AC_MSG_RESULT([yes])
     else if test x"$enableval" = x"no";
          then
@@ -138,11 +160,9 @@ AC_ARG_ENABLE([tl-superscalar],
   [
       tlextensions="${tlextensions} superscalar"
       is_enabled_tl_superscalar="yes"
-      is_enabled_pkglib_install="yes"
       AC_MSG_RESULT([yes])
   ]
 )
-AM_CONDITIONAL(ENABLE_PKGLIB_INSTALL, test x"$is_enabled_pkglib_install" = x"yes")
 
 AC_SUBST([tlextensions])
 

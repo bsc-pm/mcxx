@@ -1,4 +1,12 @@
-bin_PROGRAMS = mcxx
+# mcxxexec can't be changed to simply 'bin' or 'mcxx' (otherwise things won't
+# work)
+mcxxexec_PROGRAMS = mcxx
+
+if ENABLE_PKGLIB_INSTALL
+mcxxexecdir = $(pkglibdir)
+else
+mcxxexecdir = @bindir@
+endif
 
 EXTRA_DIST =
 CLEANFILES = 
@@ -68,8 +76,10 @@ cxx-debugflags.c : $(srcdir)/cxx-debugflags.gperf $(top_srcdir)/src/driver/cxx-d
 endif
 
 # Install hooks
-# installs "mcc" as a copy of mcxx
-.PHONY : mcc
-mcc :
-install-exec-local:
-	$(LIBTOOL) --mode=install --mode=install /usr/bin/install -c mcxx $(DESTDIR)/$(bindir)/mcc
+# installs "mcc" as a soft link of mcxx
+install-exec-hook: 
+	-(cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) mcxx mcc)
+
+uninstall-local:
+	rm -f $(DESTDIR)/$(mcxxexecdir)/mcc
+
