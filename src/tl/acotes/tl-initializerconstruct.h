@@ -21,28 +21,27 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   tl-taskconstruct.h
+// File:   tl-initializerconstruct.h
 // Author: drodenas
 //
-// Created on 19 / desembre / 2007, 16:01
+// Created on 26 / desembre / 2007, 13:06
 //
 
-#ifndef _TL_TASKCONSTRUCT_H
-#define	_TL_TASKCONSTRUCT_H
+#ifndef _TL_INITIALIZERCONSTRUCT_H
+#define	_TL_INITIALIZERCONSTRUCT_H
+
 
 #include <tl-langconstruct.hpp>
 #include <tl-pragmasupport.hpp>
 
 namespace TL { namespace Acotes {
     
-    class Task;
-    
-    class TaskConstruct
-    : public TL::PragmaCustomConstruct
+    class InitializerConstruct
+    : TL::PragmaCustomConstruct
     {
     // -- LangConstruct support
     public:
-        TaskConstruct(TL::LangConstruct langConstruct);
+        InitializerConstruct(TL::LangConstruct langConstruct);
     private:
         TL::LangConstruct getBody();
         TL::LangConstruct getConstruct();
@@ -51,16 +50,10 @@ namespace TL { namespace Acotes {
     public:
         void onPre();
         void onPost();
-    private:
-        void onPreState(Task* task);
-        void onPreCopyInState(Task* task);
-        void onPreCopyOutState(Task* task);
-        void onPreInitializeState(Task* task);
-        void onPreFinalizeState(Task* task);
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */
 
 
-#endif	/* _TL_TASKCONSTRUCT_H */
+#endif	/* _TL_INITIALIZERCONSTRUCT_H */
 

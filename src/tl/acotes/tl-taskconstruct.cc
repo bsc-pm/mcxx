@@ -33,6 +33,7 @@
 
 #include "ac-task.h"
 #include "ac-state.h"
+#include "ac-variable.h"
 #include "tl-acotesstack.h"
 #include "tl-variableclause.h"
 
@@ -75,6 +76,8 @@ namespace TL { namespace Acotes {
         onPreState(task);
         onPreCopyInState(task);
         onPreCopyOutState(task);
+        onPreInitializeState(task);
+        onPreFinalizeState(task);
     }
     
     void TaskConstruct::onPost() {
@@ -106,6 +109,26 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
             Variable* variable= stateClause.getVariable(i);
             State::createCopyOut(variable);
+        }
+    }
+    
+    void TaskConstruct::onPreInitializeState(Task* task) {
+        VariableClause stateClause(get_clause("initializestate"), task);
+        
+        for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
+            Variable* variable= stateClause.getVariable(i);
+            State::create(variable);
+            task->addInitializer(variable->getSymbol()[0]);
+        }
+    }
+    
+    void TaskConstruct::onPreFinalizeState(Task* task) {
+        VariableClause stateClause(get_clause("finalizestate"), task);
+        
+        for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
+            Variable* variable= stateClause.getVariable(i);
+            State::create(variable);
+            task->addFinalizer(variable->getSymbol()[0]);
         }
     }
     

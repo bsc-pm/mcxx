@@ -116,6 +116,16 @@ namespace TL { namespace Acotes {
     private:
         std::vector<Variable*> variableVector;
         
+    // -- Initializer/Finalizer relationship
+    public:
+        void addInitializer(TL::Symbol symbol) { initializerVector.push_back(symbol); }
+        void addFinalizer(TL::Symbol symbol) { finalizerVector.push_back(symbol); }
+        const std::vector<TL::Symbol>& getInitializerVector() { return initializerVector; }
+        const std::vector<TL::Symbol>& getFinalizerVector() { return finalizerVector; }
+    private:
+        std::vector<TL::Symbol> initializerVector;
+        std::vector<TL::Symbol> finalizerVector;
+        
     // -- Team support
     public:
         int getTeam() const { return 0; }

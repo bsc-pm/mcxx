@@ -29,6 +29,8 @@
 #include "ac-state.h"
 #include "ac-task.h"
 #include "tl-acoteslogger.h"
+#include "tl-initializertransform.h"
+#include "tl-finalizertransform.h"
 #include "tl-porttransform.h"
 #include "tl-statetransform.h"
 #include "tl-variabletransform.h"
@@ -113,6 +115,7 @@ namespace TL { namespace Acotes {
         ss << "void " << task->getName() << "_outline(task_t __task)"
                 << "{"
                 <<   generateVariable(task)
+                <<   generateInitializer(task)
                 <<   generateCopyInAcquire(task)
                 <<   generateControlAcquire(task)
                 <<   "while (task_allopen())"
@@ -124,6 +127,7 @@ namespace TL { namespace Acotes {
                 <<      generateControlAcquire(task)
                 <<   "}"
                 <<   generateCopyOutAcquire(task)
+                <<   generateFinalizer(task)
                 <<   "task_close();"
                 << "}"
                 ;
@@ -146,6 +150,14 @@ namespace TL { namespace Acotes {
         }
         
         return ss.str();
+    }
+    
+    std::string TaskTransform::generateInitializer(Task* task) {
+        return InitializerTransform::generate(task);
+    }
+    
+    std::string TaskTransform::generateFinalizer(Task* task) {
+        return FinalizerTransform::generate(task);
     }
     
     /**

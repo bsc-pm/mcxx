@@ -21,46 +21,44 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   tl-taskconstruct.h
+// File:   tl-FINalizertransform.h
 // Author: drodenas
 //
-// Created on 19 / desembre / 2007, 16:01
+// Created on 26 / desembre / 2007, 12:37
 //
 
-#ifndef _TL_TASKCONSTRUCT_H
-#define	_TL_TASKCONSTRUCT_H
+#ifndef _TL_FINALIZERTRANSFORM_H
+#define	_TL_FINALIZERTRANSFORM_H
 
-#include <tl-langconstruct.hpp>
-#include <tl-pragmasupport.hpp>
+#include <string>
 
 namespace TL { namespace Acotes {
     
+    class Finalizer;
     class Task;
     
-    class TaskConstruct
-    : public TL::PragmaCustomConstruct
-    {
-    // -- LangConstruct support
+    class FinalizerTransform {
+        
+    // -- Transform
     public:
-        TaskConstruct(TL::LangConstruct langConstruct);
+        static void transform(Finalizer* finalizer);
     private:
-        TL::LangConstruct getBody();
-        TL::LangConstruct getConstruct();
+        static void transformReplaceConstruct(Finalizer* finalizer);
+        static std::string generateReplacement(Finalizer* finalizer);
 
-    // -- CompilerPhase events
+    // -- Generators
     public:
-        void onPre();
-        void onPost();
+        static std::string generate(Task* task);
     private:
-        void onPreState(Task* task);
-        void onPreCopyInState(Task* task);
-        void onPreCopyOutState(Task* task);
-        void onPreInitializeState(Task* task);
-        void onPreFinalizeState(Task* task);
+        static std::string generate(Finalizer* finalizer);
+        
+    // -- No Constructor
+    private:
+        FinalizerTransform();
     };
     
-} /* end namespace Acotes */ } /* end namespace TL */
+} /* end namespace TL */ } /* end namespace Acotes */ 
 
 
-#endif	/* _TL_TASKCONSTRUCT_H */
+#endif	/* _TL_FINALIZERTRANSFORM_H */
 

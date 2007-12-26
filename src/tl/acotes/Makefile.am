@@ -23,6 +23,10 @@ libtlacotes_la_CXXFLAGS = -Wall \
     -I $(top_builddir)/lib
 
 libtlacotes_la_SOURCES = \
+    ac-finalizer.cc \
+    ac-finalizer.h \
+    ac-initializer.cc \
+    ac-initializer.h \
     ac-port.cc \
     ac-port.h \
     ac-portconnection.cc \
@@ -43,6 +47,14 @@ libtlacotes_la_SOURCES = \
     tl-acotesstack.h \
     tl-acotestransform.cc \
     tl-acotestransform.h \
+    tl-finalizerconstruct.cc \
+    tl-finalizerconstruct.h \
+    tl-finalizertransform.cc \
+    tl-finalizertransform.h \
+    tl-initializerconstruct.cc \
+    tl-initializerconstruct.h \
+    tl-initializertransform.cc \
+    tl-initializertransform.h \
     tl-portconnectiontransform.cc \
     tl-portconnectiontransform.h \
     tl-porttransform.cc \

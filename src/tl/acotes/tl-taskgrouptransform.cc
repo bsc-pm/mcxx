@@ -47,8 +47,6 @@ namespace TL { namespace Acotes {
         
         TaskTransform::transform(taskgroup->getImplicitTask());
         transformReplaceConstruct(taskgroup);
-        
-        AcotesLogger::debug(taskgroup->getConstruct()) << "unimplemented Taskgroup...transform" << std::endl;
     }
     
     void TaskgroupTransform::transformReplaceConstruct(Taskgroup* taskgroup) {

@@ -20,50 +20,55 @@
     
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
-#include "tl-acotestransform.h"
+#include <tl-finalizerconstruct.h>
 
-#include <assert.h>
 #include "ac-finalizer.h"
-#include "ac-initializer.h"
-#include "ac-taskgroup.h"
-#include "tl-finalizertransform.h"
-#include "tl-initializertransform.h"
-#include "tl-taskgrouptransform.h"
 
 namespace TL { namespace Acotes {
     
     /* ****************************************************************
-     * * Transforms everything.
+     * * LangConstruct support
      * ****************************************************************/
     
-    void AcotesTransform::transform() {
-        const std::vector<Taskgroup*> &taskgroups= Taskgroup::getInstanceVector();
-        const std::vector<Initializer*> &initializers= Initializer::getInstanceVector();
-        const std::vector<Finalizer*> &finalizers= Finalizer::getInstanceVector();
-        
-        for (unsigned i= 0; i < taskgroups.size(); i++) {
-            Taskgroup* taskgroup= taskgroups.at(i);
-            TaskgroupTransform::transform(taskgroup);
-        }
-
-        for (unsigned i= 0; i < initializers.size(); i++) {
-            Initializer* initializer= initializers.at(i);
-            InitializerTransform::transform(initializer);
-        }
-
-        for (unsigned i= 0; i < finalizers.size(); i++) {
-            Finalizer* finalizer= finalizers.at(i);
-            FinalizerTransform::transform(finalizer);
-        }
+    FinalizerConstruct::FinalizerConstruct(TL::LangConstruct langConstruct)
+    : TL::PragmaCustomConstruct(langConstruct.get_ast(), langConstruct.get_scope_link())
+    {
     }
-        
+
+    TL::LangConstruct FinalizerConstruct::getBody() {
+        PragmaCustomConstruct construct(getConstruct().get_ast(), getConstruct().get_scope_link());
+        return construct.get_statement();
+    }
+    
+    TL::LangConstruct FinalizerConstruct::getConstruct() {
+        return *this;
+    }
+
+    
     /* ****************************************************************
-     * * Construct.
+     * * CompilerPhase events
      * ****************************************************************/
-
-    AcotesTransform::AcotesTransform() {
-        assert(0);
+    
+    void FinalizerConstruct::onPre() {
+        // retrieve information
+        TL::LangConstruct* construct= new TL::LangConstruct(getConstruct());
+        TL::LangConstruct* body= new TL::LangConstruct(getBody());
+        
+        // create and register current task
+        Finalizer* finalizer= Finalizer::create(construct, body);
+        
+        PragmaCustomClause symbolClause= this->get_clause("symbol");
+        ObjectList<IdExpression> idExpressions= symbolClause.id_expressions();
+        for (unsigned i= 0; i < idExpressions.size(); i++) {
+            IdExpression idExpression= idExpressions.at(i);
+            TL::Symbol symbol= idExpression.get_symbol();
+            finalizer->addSymbol(symbol);
+        }
     }
     
+    void FinalizerConstruct::onPost() {
+        // pop current task
+    }
     
+
 } /* end namespace Acotes */ } /* end namespace TL */

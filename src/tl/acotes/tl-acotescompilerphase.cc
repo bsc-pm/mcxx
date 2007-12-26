@@ -23,6 +23,8 @@
 #include "tl-acotescompilerphase.h"
 
 #include "tl-acotestransform.h"
+#include "tl-finalizerconstruct.h"
+#include "tl-initializerconstruct.h"
 #include "tl-taskconstruct.h"
 #include "tl-taskgroupconstruct.h"
 
@@ -55,6 +57,22 @@ namespace TL { namespace Acotes {
             functor(&AcotesCompilerPhase::onPostTaskConstruct, *this)
             );
         register_construct("task");
+        
+        on_directive_pre["initializer"].connect(
+            functor(&AcotesCompilerPhase::onPreInitializerConstruct, *this)
+            );
+        on_directive_post["initializer"].connect(
+            functor(&AcotesCompilerPhase::onPostInitializerConstruct, *this)
+            );
+        register_construct("initializer");
+        
+        on_directive_pre["finalizer"].connect(
+            functor(&AcotesCompilerPhase::onPreFinalizerConstruct, *this)
+            );
+        on_directive_post["finalizer"].connect(
+            functor(&AcotesCompilerPhase::onPostFinalizerConstruct, *this)
+            );
+        register_construct("finalizer");
     }
     
     /**
@@ -125,6 +143,30 @@ namespace TL { namespace Acotes {
     {
         TaskgroupConstruct taskgroup(construct);
         taskgroup.onPost();
+    }
+    
+    void AcotesCompilerPhase::onPreInitializerConstruct(PragmaCustomConstruct construct)
+    {
+        InitializerConstruct initializer(construct);
+        initializer.onPre();
+    }
+
+    void AcotesCompilerPhase::onPostInitializerConstruct(PragmaCustomConstruct construct)
+    {
+        InitializerConstruct initializer(construct);
+        initializer.onPost();
+    }
+    
+    void AcotesCompilerPhase::onPreFinalizerConstruct(PragmaCustomConstruct construct)
+    {
+        FinalizerConstruct finalizer(construct);
+        finalizer.onPre();
+    }
+    
+    void AcotesCompilerPhase::onPostFinalizerConstruct(PragmaCustomConstruct construct)
+    {
+        FinalizerConstruct finalizer(construct);
+        finalizer.onPost();
     }
  
     

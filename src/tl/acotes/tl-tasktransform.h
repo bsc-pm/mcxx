@@ -49,6 +49,8 @@ namespace TL { namespace Acotes {
     private:
         static std::string generateOutline(Task* task);
         static std::string generateVariable(Task* task);
+        static std::string generateInitializer(Task* task);
+        static std::string generateFinalizer(Task* task);
         static std::string generateCopyInAcquire(Task* task);
         static std::string generateCopyOutAcquire(Task* task);
         static std::string generateBody(Task* task);
