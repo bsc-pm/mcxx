@@ -120,8 +120,9 @@ namespace TL { namespace Acotes {
                 <<   generateControlAcquire(task)
                 <<   "while (task_allopen())"
                 <<   "{"
-                <<      generateControlPeek(task)
+                <<      generateControlInputPeek(task)
                 <<      generateBody(task)
+                <<      generateControlOutputPeek(task)
                 <<      generateControlPush(task)
                 <<      generateControlPop(task)
                 <<      generateControlAcquire(task)
@@ -228,7 +229,7 @@ namespace TL { namespace Acotes {
         return ss.str();
     }
 
-    std::string TaskTransform::generateControlPeek(Task* task) {
+    std::string TaskTransform::generateControlInputPeek(Task* task) {
         assert(task);
         
         std::stringstream ss;
@@ -236,8 +237,24 @@ namespace TL { namespace Acotes {
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
-            if (port->isControl()) {
-                ss << PortTransform::generatePeek(port);
+            if (port->isControl() && port->isInput()) {
+                ss << PortTransform::generateInputPeek(port);
+            }
+        }
+        
+        return ss.str();
+    }
+
+    std::string TaskTransform::generateControlOutputPeek(Task* task) {
+        assert(task);
+        
+        std::stringstream ss;
+        
+        const std::vector<Port*> &ports= task->getPortVector();
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            if (port->isControl() && port->isOutput()) {
+                ss << PortTransform::generateOutputPeek(port);
             }
         }
         
@@ -306,7 +323,7 @@ namespace TL { namespace Acotes {
             Port* artificialCounterpart= port->getArtificialCounterpart();
             if (artificialCounterpart && artificialCounterpart->isOutput()) {
                 ss << PortTransform::generateAcquire(artificialCounterpart);
-                ss << PortTransform::generatePeek(artificialCounterpart);
+                ss << PortTransform::generateOutputPeek(artificialCounterpart);
                 ss << PortTransform::generatePush(artificialCounterpart);
             }
         }
@@ -325,7 +342,7 @@ namespace TL { namespace Acotes {
             Port* artificialCounterpart= port->getArtificialCounterpart();
             if (artificialCounterpart && artificialCounterpart->isInput()) {
                 ss << PortTransform::generateAcquire(artificialCounterpart);
-                ss << PortTransform::generatePeek(artificialCounterpart);
+                ss << PortTransform::generateInputPeek(artificialCounterpart);
                 ss << PortTransform::generatePop(artificialCounterpart);
             }
         }

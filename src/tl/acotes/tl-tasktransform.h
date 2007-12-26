@@ -55,7 +55,8 @@ namespace TL { namespace Acotes {
         static std::string generateCopyOutAcquire(Task* task);
         static std::string generateBody(Task* task);
         static std::string generateControlAcquire(Task* task);
-        static std::string generateControlPeek(Task* task);
+        static std::string generateControlInputPeek(Task* task);
+        static std::string generateControlOutputPeek(Task* task);
         static std::string generateControlPop(Task* task);
         static std::string generateControlPush(Task* task);
     

@@ -43,14 +43,13 @@ namespace TL { namespace Acotes {
     public:
         static std::string generatePort(Port* port);
         static std::string generateAcquire(Port* port);
-        static std::string generatePeek(Port* port);
+        static std::string generateInputPeek(Port* port);
+        static std::string generateOutputPeek(Port* port);
         static std::string generatePop(Port* port);
         static std::string generatePush(Port* port);
     private:
         static std::string generateInputPort(Port* port);
-        static std::string generateVirtualInputPort(Port* port);
         static std::string generateOutputPort(Port* port);
-        static std::string generateVirtualOutputPort(Port* port);
                 
     // -- No constructor    
     private:

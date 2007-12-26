@@ -27,6 +27,7 @@
 #include "ac-portconnection.h"
 #include "ac-task.h"
 #include "ac-taskgroup.h"
+#include "ac-variable.h"
 
 namespace TL { namespace Acotes {
     
@@ -40,7 +41,7 @@ namespace TL { namespace Acotes {
     Port* Port::createVirtualInputPort(Task* task)
     {
         Port* port= createPort(task);
-        port->input= true;
+        port->setInput(true);
         
         return port;
     }
@@ -51,7 +52,73 @@ namespace TL { namespace Acotes {
     Port* Port::createVirtualOutputPort(Task* task)
     {
         Port* port= createPort(task);
-        port->output= true;
+        port->setOutput(true);
+        
+        return port;
+    }   
+    
+    /**
+     * Create a new instance of a virtual input port.
+     */
+    Port* Port::createControlInputPort(Variable* variable)
+    {
+        Port* port= createInputPort(variable);
+        port->setControl(true);
+        
+        return port;
+    }
+    
+    /** 
+     * Create a new instance of a virtual output port.
+     */
+    Port* Port::createControlOutputPort(Variable* variable)
+    {
+        Port* port= createOutputPort(variable);
+        port->setControl(true);
+        
+        return port;
+    }
+    
+    /**
+     * Create a new instance of a artifial input port.
+     */
+    Port* Port::createArtificialInputPort(Variable* variable)
+    {
+        Port* port= createInputPort(variable);
+        port->setArtificial(true);
+        
+        return port;
+    }
+    
+    /** 
+     * Create a new instance of a virtual output port.
+     */
+    Port* Port::createArtificialOutputPort(Variable* variable)
+    {
+        Port* port= createOutputPort(variable);
+        port->setArtificial(true);
+        
+        return port;
+    }
+    
+    /**
+     * Create a new instance of a virtual input port.
+     */
+    Port* Port::createInputPort(Variable* variable)
+    {
+        Port* port= createPort(variable);
+        port->setInput(true);
+        
+        return port;
+    }
+    
+    /** 
+     * Create a new instance of a virtual output port.
+     */
+    Port* Port::createOutputPort(Variable* variable)
+    {
+        Port* port= createPort(variable);
+        port->setOutput(true);
         
         return port;
     }
@@ -68,6 +135,22 @@ namespace TL { namespace Acotes {
         
         return port;
     }
+    
+    
+    /** 
+     * Create a new instance of a port.
+     */
+    Port* Port::createPort(Variable* variable)
+    {
+        assert(variable);
+        assert(variable->hasTask());
+        
+        Port* port= createPort(variable->getTask());
+        port->setVariable(variable);
+        
+        return port;
+    }
+
     
     /**
      * Port constructor.
@@ -156,6 +239,20 @@ namespace TL { namespace Acotes {
         }
         
         return result;
+    }
+    
+    
+    
+    /* ****************************************************************
+     * * Variable relationship
+     * ****************************************************************/
+    
+    void Port::setVariable(Variable* variable) 
+    {
+        assert(variable);
+        assert(!this->variable /* set only once */);
+        
+        this->variable= variable;
     }
     
 } /* end namespace Acotes */ } /* end namespace TL */

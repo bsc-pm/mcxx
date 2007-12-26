@@ -31,15 +31,18 @@
 #define	_TL_TASKGROUPCONSTRUCT_H
 
 #include <tl-langconstruct.hpp>
+#include <tl-pragmasupport.hpp>
 
 namespace TL { namespace Acotes {
     
+    class Taskgroup;
+    
     class TaskgroupConstruct
-    : public TL::LangConstruct
+    : public TL::PragmaCustomConstruct
     {
     // -- LangConstruct support
     public:
-        TaskgroupConstruct(const TL::LangConstruct& langConstruct);
+        TaskgroupConstruct(TL::LangConstruct langConstruct);
     private:
         TL::LangConstruct getBody();
         TL::LangConstruct getConstruct() { return *this; }
@@ -48,7 +51,8 @@ namespace TL { namespace Acotes {
     public:
         void onPre();
         void onPost();
-        
+    private:
+        void onPreBypass(Taskgroup* taskgroup);
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */

@@ -29,6 +29,7 @@
 #include "ac-port.h"
 #include "ac-task.h"
 #include "ac-variable.h"
+#include "tl-variabletransform.h"
 
 namespace TL { namespace Acotes {
     
@@ -71,19 +72,39 @@ namespace TL { namespace Acotes {
         return ss.str();
     }
     
-    std::string PortTransform::generatePeek(Port* port)
+    std::string PortTransform::generateInputPeek(Port* port)
     {
         assert(port);
-        
+        assert(port->isInput());
+
         std::stringstream ss;
         
         Variable* variable= port->getVariable();
         if (variable) {
-            ss  << variable->getName() << "= ";
-            if (port->isInput()) { ss << 'i'; }
-            else if (port->isOutput()) { ss << 'o'; }
-            else { assert(0); }
-            ss  << "port_peek(" << port->getNumber() << ", 0);";
+            ss << "memcpy"
+                << "( " << VariableTransform::generateReference(variable)
+                << ", iport_peek(" << port->getNumber() << ", 0)"
+                << ", " << VariableTransform::generateSizeof(variable)
+                << ");";
+        }
+        
+        return ss.str();
+    }
+    
+    std::string PortTransform::generateOutputPeek(Port* port)
+    {
+        assert(port);
+        assert(port->isOutput());
+
+        std::stringstream ss;
+        
+        Variable* variable= port->getVariable();
+        if (variable) {
+            ss << "memcpy"
+                << "( oport_peek(" << port->getNumber() << ", 0)"
+                << ", " << VariableTransform::generateReference(variable)
+                << ", " << VariableTransform::generateSizeof(variable)
+                << ");";
         }
         
         return ss.str();
@@ -132,26 +153,19 @@ namespace TL { namespace Acotes {
         
         std::stringstream ss;
         
-        if (!port->hasVariable()) {
-            ss << generateVirtualInputPort(port);
-        } else {
-            assert(0);
-        }
-        
-        return ss.str();
-    }
-    
-    std::string PortTransform::generateVirtualInputPort(Port* port) {
-        assert(port);
-        assert(port->isInput());
-        assert(!port->hasVariable());
-        
-        std::stringstream ss;
-        
         ss << "task_iport"
                 << "( " << port->getTask()->getName()
                 << ", " << port->getNumber()
-                << ", 0, 0, (void*) 0, 0"
+                ;
+        if (port->hasVariable()) {
+            ss  << ", " << VariableTransform::generateSizeof(port->getVariable())
+                << ", " << port->getPeekWindow()
+                ;
+        } else {
+            ss  << ", 0, 0";
+        }
+
+        ss      << ", (void*) 0, 0"
                 << ");";
         
         return ss.str();
@@ -163,31 +177,23 @@ namespace TL { namespace Acotes {
         
         std::stringstream ss;
         
-        if (!port->hasVariable()) {
-            ss << generateVirtualOutputPort(port);
+        ss << "task_oport"
+                << "( " << port->getTask()->getName()
+                << ", " << port->getNumber()
+                ;
+        if (port->hasVariable()) {
+            ss  << ", " << VariableTransform::generateSizeof(port->getVariable())
+                << ", " << port->getPeekWindow()
+                ;
         } else {
-            assert(0);
+            ss  << ", 0, 0";
         }
+
+        ss      << ");";
         
         return ss.str();
     }
     
-    std::string PortTransform::generateVirtualOutputPort(Port* port) {
-        assert(port);
-        assert(port->isOutput());
-        assert(!port->hasVariable());
-        
-        std::stringstream ss;
-        
-        ss << "task_oport"
-                << "( " << port->getTask()->getName()
-                << ", " << port->getNumber()
-                << ", 0, 0"
-                << ");";
-        
-        return ss.str();
-    }
-
     
     
     /* ******************************************************

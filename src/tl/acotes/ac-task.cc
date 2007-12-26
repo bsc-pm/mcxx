@@ -190,8 +190,42 @@ namespace TL { namespace Acotes {
         
         return result;
     }
+       
+    /**
+     * Ask if this task has any input control port.
+     */
+    Port* Task::getInputControlPort(TL::Symbol symbol) const
+    {
+        Port* result= NULL;
+        
+        for (unsigned i= 0; i < portVector.size() && !result; i++) {
+            Port* port= portVector.at(i);
+            if (port->isInput() && port->getVariable()->hasSymbol(symbol)) {
+                result= port;
+            }
+        }
+        
+        return result;
+    }
+       
+    /**
+     * Ask if this task has any input control port.
+     */
+    Port* Task::getOutputControlPort(TL::Symbol symbol) const
+    {
+        Port* result= NULL;
+        
+        for (unsigned i= 0; i < portVector.size() && !result; i++) {
+            Port* port= portVector.at(i);
+            if (port->isOutput() && port->getVariable()->hasSymbol(symbol)) {
+                result= port;
+            }
+        }
+        
+        return result;
+    }
 
-    
+
     
     /* ****************************************************************
      * * State relationship
@@ -226,6 +260,10 @@ namespace TL { namespace Acotes {
         
         if (!hasInputControlPort() && hasParent()) {
             createVirtualPortandConnection();
+        } else {
+            createBypassConnection();
+            createArtificalPortandConnection();
+            // compute_graph_outputs();
         }
     }
 
@@ -251,7 +289,99 @@ namespace TL { namespace Acotes {
         virtualOutput->setArtificial(true);
         PortConnection::create(virtualOutput, virtualInput);
     }
- 
+  
+    void Task::createArtificalPortandConnection() 
+    {
+        const std::vector<Port*> ports= getPortVector();
+        
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            if (port->isControl() && !port->hasPortConnection()) {
+                createArtificalPortandConnection(port);
+            }
+        }
+    }
+    
+    void Task::createArtificalPortandConnection(Port* port)
+    {
+        assert(port);
+        assert(port->getVariable());
+        assert(port->isControl());
+        assert(!port->hasPortConnection());
+        
+        Variable* parentVariable= getParentVariable(port->getVariable());
+        if (!parentVariable) {
+            if (hasParent() && getParent()->isImplicitTask()) {
+                parentVariable= Variable::create(getParent(), port->getVariable()->getSymbol()[0]);
+            } else {
+                assert(0 /* TODO: user error */); 
+            }
+        }
+        if (!isBypass(port->getVariable()) && !getParent()->isBypass(parentVariable)) {
+            if (port->isInput()) {
+                Port* counterpart= Port::createArtificialOutputPort(parentVariable);
+                PortConnection::create(counterpart, port);
+            } else if (port->isOutput()) {
+                Port* counterpart= Port::createArtificialInputPort(parentVariable);
+                PortConnection::create(port, counterpart);
+            } else {
+                assert(0);
+            }
+        }
+    }
+    
+    void Task::createBypassConnection()
+    {
+        const std::vector<TL::Symbol> &bypasses= getBypassVector();
+        
+        for (unsigned i= 0; i < bypasses.size(); i++) {
+            TL::Symbol bypass= bypasses.at(i);
+            createBypassConnection(bypass);
+        }
+    }
+    
+    void Task::createBypassConnection(TL::Symbol symbol)
+    {
+        Task* output= NULL;
+        
+        output= createBypassConnection(symbol, output);
+    }
+     
+    Task* Task::createBypassConnection(TL::Symbol symbol, Task* output)
+    {
+        // if here is also shortcutted
+        if (isBypass(symbol))
+        {
+            // for each initial input before output 
+            const std::vector<Task*> &children= getChildVector();
+            for (unsigned i= 0; i < children.size(); i++) {
+                Task* child= children.at(i);
+                
+                // if symbol is input calls to it as symbol/output
+                // if symbol is output overwrites it, 
+                // if both, do both
+                output= child->createBypassConnection(symbol, output);
+            }
+	
+	// if not shortcutted output
+	} else /* if (!isBypass(symbol)) */ {
+            // if it is input shortcut
+            if (hasInputControlPort(symbol) && output) {                  
+                    // connect!!
+                    Port* inport= getInputControlPort(symbol);
+                    Port* outport= output->getOutputControlPort(symbol);
+                    
+                    PortConnection::create(outport, inport);
+            } 
+            // if it is output is the next output
+            if (hasOutputControlPort(symbol)) {
+                    output= this;
+            }
+	}
+	
+	return output;
+    }
+
     
     
     /* ****************************************************************
@@ -286,185 +416,49 @@ namespace TL { namespace Acotes {
         variableVector.push_back(variable);
     }
    
+    Variable* Task::getParentVariable(Variable* variable) const 
+    {
+        assert(variable);
+        assert(variable->hasSymbol());
+        assert(hasParent());
+        
+        Variable* result= parent->getVariable(variable->getSymbol()[0]);
+        return result;
+    }
+    
+    
+    
+    /* ****************************************************************
+     * * Bypass symbols
+     * ****************************************************************/
+    
+    bool Task::isBypass(TL::Symbol symbol) const 
+    {
+        bool result= false;
+        
+        for (unsigned i= 0; i < bypassVector.size() && !result; i++) {
+            TL::Symbol other= bypassVector.at(i);
+            result= other == symbol;
+        }
+        
+        return result;
+    }
+    
+    bool Task::isBypass(Variable* variable) const 
+    {
+        assert(variable);
+        assert(variable->hasSymbol());
+        
+        TL::Symbol other= variable->getSymbol()[0];
+        bool result= false;
+        
+        for (unsigned i= 0; i < bypassVector.size() && !result; i++) {
+            TL::Symbol symbol= bypassVector.at(i);
+            result= other == symbol;
+        }
+        
+        return result;
+    }
+    
 } /* end namespace Acotes */ } /* end namespace TL */
 
-#if 0
-void                        
-TaskInfo::
-compute_graph
-		( void
-		)
-{
-	for		( std::list<TaskInfo*>::iterator it= _task_info_children.begin()
-			; it != _task_info_children.end()
-			; it++)
-	{
-		TaskInfo* child= *it;
-		
-		child->compute_graph();
-	}
-	
-	compute_graph_shortcuts();
-	compute_graph_inputs();
-	compute_graph_outputs();
-}
-
-// compute_graph_input ---------------------------------------------------------
-void 
-TaskInfo::
-compute_graph_input
-		( const Symbol& input
-		)
-{
-	assert(_task_info_parent);
-	
-	if		(  !is_shortcut(input) 
-			&& !_task_info_parent->is_shortcut(input)
-			)
-	{
-		StreamInfo* stream_info= _taskgroup_info
-				->new_stream_info(input, _task_info_parent, this);
-				
-		// is input for this task
-		add_loop_pop(stream_info->get_input_stream_info());
-		add_replace_push(stream_info->get_output_stream_info());
-	}
-}
-
-// compute_graph_inputs --------------------------------------------------------
-void 
-TaskInfo::
-compute_graph_inputs
-		( void
-		)
-{
-	for		( std::set<Symbol>::iterator it= _inputs.begin()
-			; it != _inputs.end()
-			; it++
-			)
-	{
-		Symbol input= *it;
-		
-		compute_graph_input(input);
-	}
-}
-
-// compute_graph_output --------------------------------------------------------
-void 
-TaskInfo::
-compute_graph_output
-		( const Symbol& output
-		)
-{
-	assert(_task_info_parent);
-	
-	if		(  !is_shortcut(output) 
-			&& !_task_info_parent->is_shortcut(output)
-			)
-	{
-		StreamInfo* stream_info= _taskgroup_info
-				->new_stream_info(output, this, _task_info_parent);
-				
-		// is output for this task
-		add_loop_push(stream_info->get_output_stream_info());
-		add_replace_pop(stream_info->get_input_stream_info());
-	} 
-}
-
-// compute_graph_outputs -------------------------------------------------------
-void 
-TaskInfo::
-compute_graph_outputs
-		( void
-		)
-{
-	for		( std::set<Symbol>::iterator it= _outputs.begin()
-			; it != _outputs.end()
-			; it++
-			)
-	{
-		Symbol output= *it;
-		
-		compute_graph_output(output);
-	}
-}
-
-// compute_graph_shortcut ------------------------------------------------------
-void 
-TaskInfo::
-compute_graph_shortcut
-		( const Symbol& symbol
-		)
-{
-	TaskInfo* output= (TaskInfo*)0;
-
-	output= compute_graph_shortcut_output(symbol, output);	
-}
-
-// compute_graph_shortcut_output
-TaskInfo* 
-TaskInfo::
-compute_graph_shortcut_output
-		( const Symbol& symbol
-		, TaskInfo* output
-		)
-{
-	// if here is also shortcutted
-	if (is_shortcut(symbol))
-	{
-		// for each initial input before output 
-		for		( std::list<TaskInfo*>::iterator it= _task_info_children.begin()
-				; it != _task_info_children.end()
-				; it++
-				)
-		{
-			TaskInfo* child_task_info= *it;
-			
-			// if symbol is input calls to it as symbol/output
-			// if symbol is output overwrites it, 
-			// if both, do both
-			output= child_task_info->
-					compute_graph_shortcut_output(symbol, output); 
-		}
-	
-	// if not shortcutted output
-	} else /* if (!is_shortcut(symbol)) */ {
-		// if it is input shortcut
-		if (is_input(symbol) && output) {
-			StreamInfo* stream_info= _taskgroup_info
-					->new_stream_info(symbol, output, this);
-					
-			// connect!!
-			// is input for this task
-			this->add_loop_pop(stream_info->get_input_stream_info());
-			// output for the other task
-			output->add_loop_push(stream_info->get_output_stream_info());
-		} 
-		// if it is output is the next output
-		if (is_output(symbol)) {
-			output= this;
-		}
-	}
-	
-	return output;
-}
-
-// compute_graph_shortcut ------------------------------------------------------
-void 
-TaskInfo::
-compute_graph_shortcuts
-		( void
-		)
-{
-	for		( std::set<Symbol>::iterator it= _shortcuts.begin()
-			; it != _shortcuts.end()
-			; it++
-			)
-	{
-		Symbol shortcut= *it;
-		
-		compute_graph_shortcut(shortcut);
-	}
-}
-
-#endif

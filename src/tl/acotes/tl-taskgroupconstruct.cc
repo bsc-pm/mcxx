@@ -31,6 +31,7 @@
 
 #include <tl-pragmasupport.hpp>
 
+#include "ac-task.h"
 #include "ac-taskgroup.h"
 #include "tl-acotesstack.h"
 
@@ -40,8 +41,8 @@ namespace TL { namespace Acotes {
      * * LangConstruct support
      * ****************************************************************/
     
-    TaskgroupConstruct::TaskgroupConstruct(const TL::LangConstruct& langConstruct)
-    : TL::LangConstruct(langConstruct)
+    TaskgroupConstruct::TaskgroupConstruct(TL::LangConstruct langConstruct)
+    : TL::PragmaCustomConstruct(langConstruct.get_ast(), langConstruct.get_scope_link())
     {
     }
 
@@ -66,6 +67,8 @@ namespace TL { namespace Acotes {
         // Push the implicit task
         Task* task= taskgroup->getImplicitTask();
         AcotesStack::taskPush(task);
+        
+        onPreBypass(taskgroup);
     }
     
     void TaskgroupConstruct::onPost() {
@@ -80,6 +83,16 @@ namespace TL { namespace Acotes {
         AcotesStack::taskgroupPop();
     }
     
+    void TaskgroupConstruct::onPreBypass(Taskgroup* taskgroup) {      
+        Task* task= taskgroup->getImplicitTask();
+        PragmaCustomClause symbolClause= get_clause("bypass");
+        ObjectList<IdExpression> idExpressions= symbolClause.id_expressions();
+        for (unsigned i= 0; i < idExpressions.size(); i++) {
+            IdExpression idExpression= idExpressions.at(i);
+            TL::Symbol symbol= idExpression.get_symbol();
+            task->addBypass(symbol);
+        }
+    }
     
     
 } /* end namespace Acotes */ } /* end namespace TL */

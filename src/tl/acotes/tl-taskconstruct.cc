@@ -31,6 +31,7 @@
 
 #include <tl-pragmasupport.hpp>
 
+#include "ac-port.h"
 #include "ac-task.h"
 #include "ac-state.h"
 #include "ac-variable.h"
@@ -78,6 +79,9 @@ namespace TL { namespace Acotes {
         onPreCopyOutState(task);
         onPreInitializeState(task);
         onPreFinalizeState(task);
+        onPreInputPort(task);
+        onPreOutputPort(task);
+        onPreBypass(task);
     }
     
     void TaskConstruct::onPost() {
@@ -129,6 +133,34 @@ namespace TL { namespace Acotes {
             Variable* variable= stateClause.getVariable(i);
             State::create(variable);
             task->addFinalizer(variable->getSymbol()[0]);
+        }
+    }
+    
+    void TaskConstruct::onPreInputPort(Task* task) {
+        VariableClause stateClause(get_clause("input"), task);
+        
+        for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
+            Variable* variable= stateClause.getVariable(i);
+            Port::createControlInputPort(variable);
+        }
+    }
+    
+    void TaskConstruct::onPreOutputPort(Task* task) {
+        VariableClause stateClause(get_clause("output"), task);
+        
+        for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
+            Variable* variable= stateClause.getVariable(i);
+            Port::createControlOutputPort(variable);
+        }
+    }
+    
+    void TaskConstruct::onPreBypass(Task* task) {      
+        PragmaCustomClause symbolClause= get_clause("bypass");
+        ObjectList<IdExpression> idExpressions= symbolClause.id_expressions();
+        for (unsigned i= 0; i < idExpressions.size(); i++) {
+            IdExpression idExpression= idExpressions.at(i);
+            TL::Symbol symbol= idExpression.get_symbol();
+            task->addBypass(symbol);
         }
     }
     

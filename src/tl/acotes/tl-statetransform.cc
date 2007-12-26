@@ -64,7 +64,6 @@ namespace TL { namespace Acotes {
         
         std::stringstream ss;
         
-        Task* task= state->getTask();
         Variable* variable= state->getVariable();
         ss << "memcpy"
                 << "( " << VariableTransform::generateReference(variable)
@@ -86,7 +85,6 @@ namespace TL { namespace Acotes {
         
         std::stringstream ss;
         
-        Task* task= state->getTask();
         Variable* variable= state->getVariable();
         ss << "memcpy"
                 << "( copyout_acquire(" << state->getNumber() << ")"

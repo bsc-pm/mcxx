@@ -43,8 +43,15 @@ namespace TL { namespace Acotes {
     public:
         static Port* createVirtualInputPort(Task* task);
         static Port* createVirtualOutputPort(Task* task);
+        static Port* createControlInputPort(Variable* variable);
+        static Port* createControlOutputPort(Variable* variable);
+        static Port* createArtificialInputPort(Variable* variable);
+        static Port* createArtificialOutputPort(Variable* variable);
     private:
+        static Port* createInputPort(Variable* variable);
+        static Port* createOutputPort(Variable* variable);
         static Port* createPort(Task* task);
+        static Port* createPort(Variable* variable);
         Port();
         
     // -- Task relationship
@@ -61,6 +68,8 @@ namespace TL { namespace Acotes {
         bool isInput() const { return input; }
         bool isOutput() const { return output; } 
     private:
+        void setInput(bool value) { input= value; }
+        void setOutput(bool value) { output= value; }
         bool input; // default false
         bool output; // default false
         
@@ -78,6 +87,7 @@ namespace TL { namespace Acotes {
         Variable* getVariable() const { return variable; } 
         bool hasVariable() const { return variable; }
     private:
+        void setVariable(Variable* variable);
         Variable* variable;
         
     // -- Control port
@@ -93,6 +103,10 @@ namespace TL { namespace Acotes {
         void setArtificial(bool artificial) { this->artificial= artificial; }
     private:
         bool artificial;
+        
+    // -- Peek window
+    public:
+        int getPeekWindow() const { return 1; }
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */

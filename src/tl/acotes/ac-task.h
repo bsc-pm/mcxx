@@ -91,6 +91,10 @@ namespace TL { namespace Acotes {
         int addPort(Port* port);
         const std::vector<Port*> &getPortVector() const { return portVector; }
         bool hasInputControlPort() const;
+        bool hasInputControlPort(TL::Symbol symbol) const { return getInputControlPort(symbol); };
+        Port* getInputControlPort(TL::Symbol symbol) const;
+        bool hasOutputControlPort(TL::Symbol symbol) const { return getOutputControlPort(symbol); };
+        Port* getOutputControlPort(TL::Symbol symbol) const;
     private:
         std::vector<Port*> portVector;
 
@@ -107,12 +111,18 @@ namespace TL { namespace Acotes {
     private:
         void createChildPortConnections();
         void createVirtualPortandConnection();
+        void createArtificalPortandConnection();
+        void createArtificalPortandConnection(Port* port);
+        void createBypassConnection();
+        void createBypassConnection(TL::Symbol symbol);
+        Task* createBypassConnection(TL::Symbol symbol, Task* output);
         
     // -- Variable relationship
     public:
         Variable* getVariable(TL::Symbol symbol);
         const std::vector<Variable*> &getVariableVector() const { return variableVector; }
         void addVariable(Variable* variable);
+        Variable* getParentVariable(Variable* variable) const;
     private:
         std::vector<Variable*> variableVector;
         
@@ -125,6 +135,15 @@ namespace TL { namespace Acotes {
     private:
         std::vector<TL::Symbol> initializerVector;
         std::vector<TL::Symbol> finalizerVector;
+        
+    // -- Bypass symbols
+    public:
+        void addBypass(TL::Symbol symbol) { bypassVector.push_back(symbol); }
+        bool isBypass(TL::Symbol symbol) const;
+        bool isBypass(Variable* variable) const;
+        const std::vector<TL::Symbol> &getBypassVector() const { return bypassVector; }
+    private:
+        std::vector<TL::Symbol> bypassVector;
         
     // -- Team support
     public:

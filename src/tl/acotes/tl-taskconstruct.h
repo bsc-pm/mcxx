@@ -57,6 +57,9 @@ namespace TL { namespace Acotes {
         void onPreCopyOutState(Task* task);
         void onPreInitializeState(Task* task);
         void onPreFinalizeState(Task* task);
+        void onPreInputPort(Task* task);
+        void onPreOutputPort(Task* task);
+        void onPreBypass(Task* task);
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */
