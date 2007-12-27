@@ -31,6 +31,7 @@
 #define	_AC_PORT_H
 
 #include <vector>
+#include <string>
 
 namespace TL { namespace Acotes {
     
@@ -47,9 +48,9 @@ namespace TL { namespace Acotes {
         static Port* createControlOutputPort(Variable* variable);
         static Port* createArtificialInputPort(Variable* variable);
         static Port* createArtificialOutputPort(Variable* variable);
-    private:
         static Port* createInputPort(Variable* variable);
         static Port* createOutputPort(Variable* variable);
+    private:
         static Port* createPort(Task* task);
         static Port* createPort(Variable* variable);
         Port();
@@ -57,6 +58,7 @@ namespace TL { namespace Acotes {
     // -- Task relationship
     public:
         Task* getTask() const { return task; }
+        bool hasTask() const { return task; }
         int getNumber() const { return number; }
     private:
         void setTask(Task* task);
@@ -103,6 +105,15 @@ namespace TL { namespace Acotes {
         void setArtificial(bool artificial) { this->artificial= artificial; }
     private:
         bool artificial;
+        
+    // -- Name
+    public:
+        void setName(const std::string& name);
+        bool isNamed() const { return named; }
+        const std::string &getName() const;
+    private:
+        std::string name;
+        bool named;
         
     // -- Peek window
     public:

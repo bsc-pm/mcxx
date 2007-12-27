@@ -52,8 +52,7 @@ namespace TL { namespace Acotes {
     {
         assert(position < getVariableCount());
         
-        TL::IdExpression idExpression= id_expressions().at(position);
-        TL::Symbol symbol= idExpression.get_symbol();
+        TL::Symbol symbol= getSymbol(position);
         Variable* result= task->getVariable(symbol);
         if (!result) {
             result= Variable::create(task, symbol);
@@ -62,12 +61,51 @@ namespace TL { namespace Acotes {
         return result;
     }
     
+    bool VariableClause::hasLabel(unsigned position) 
+    {
+        assert(position < getVariableCount());
+        std::string text= this->get_arguments().at(position);
+        
+        bool result= text.find(':') != std::string::npos;
+        
+        return result;
+    }
+    
+    std::string VariableClause::getLabel(unsigned position)
+    {
+        assert(position < getVariableCount());
+        assert(hasLabel(position));
+        
+        std::string text= this->get_arguments().at(position);
+        
+        text= text.substr(text.find(':', 0) + 1);
+        return text;
+    }
+    
     unsigned VariableClause::getVariableCount()
     {
-        unsigned count= id_expressions().size();
+        unsigned count= this->get_arguments().size();
         
         return count;
     }
+
+    TL::Symbol VariableClause::getSymbol(unsigned position)
+    {
+        assert(position < getVariableCount());
+        std::string text= this->get_arguments().at(position);
+        
+        text= text.substr(0, text.find(':', 0));
+        
+        Source symbolSource= text;
+        AST_t symbolAST= symbolSource.parse_expression(get_ast(), get_scope_link());
+        Expression expression= Expression(symbolAST, get_scope_link());
+        assert(expression.is_id_expression()); /* TODO: user error future... */
+        IdExpression idExpression= expression.get_id_expression();
+        TL::Symbol symbol= idExpression.get_symbol();
+        
+        return symbol;
+    }
+    
 
 
 } /* end namespace Acotes */ } /* end namespace TL */

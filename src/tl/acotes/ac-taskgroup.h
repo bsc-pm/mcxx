@@ -37,6 +37,7 @@
 
 namespace TL { namespace Acotes {
     
+    class Port;
     class PortConnection;
     class State;
     class Task;
@@ -84,6 +85,14 @@ namespace TL { namespace Acotes {
     private:
         bool checkCopyOutSymbol(TL::Symbol symbol) const;
         std::vector<State*> copyStateVector;
+        
+    // -- NamedPorts support
+    public:
+        void addNamedPort(Port* port);
+    private:
+        void createNamedPortConnections();
+        void createNamedPortConnections(Port* output);
+        std::vector<Port*> namedPortVector;
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */

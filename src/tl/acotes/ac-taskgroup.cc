@@ -26,6 +26,8 @@
 #include <assert.h>
 #include <sstream>
 
+#include "ac-port.h"
+#include "ac-portconnection.h"
 #include "ac-state.h"
 #include "ac-task.h"
 #include "ac-variable.h"
@@ -122,9 +124,15 @@ namespace TL { namespace Acotes {
     void Taskgroup::createPortConnections() {
         assert(getImplicitTask());
         
+        std::cerr << "BEGIN connect... " << std::endl;
+
+        createNamedPortConnections();
+
         Task* implicitTask= getImplicitTask();
-        
+        std::cerr << "... connect... " << std::endl;
         implicitTask->createPortConnections();
+        std::cerr << "END connect... " << std::endl;
+
     }
     
     /**
@@ -175,7 +183,50 @@ namespace TL { namespace Acotes {
         
         return result;
     }
-
     
+    
+
+    /* ****************************************************************
+     * * NamedPorts support
+     * ****************************************************************/
+    
+    void Taskgroup::addNamedPort(Port* port)
+    {
+        assert(port);
+        assert(port->isNamed());
+        assert(port->hasTask());
+        assert(port->getTask()->getTaskgroup() == this);
+        
+        namedPortVector.push_back(port);
+    }
+    
+    void Taskgroup::createNamedPortConnections()
+    {
+        for (unsigned i= 0; i < namedPortVector.size(); i++) {
+            Port* port= namedPortVector.at(i);
+            if (port->isOutput()) {
+                createNamedPortConnections(port);
+            }
+        }
+    }
+        
+    void Taskgroup::createNamedPortConnections(Port* output)
+    {
+        for (unsigned i= 0; i < namedPortVector.size(); i++) {
+            Port* port= namedPortVector.at(i);
+            if (port->getName() == output->getName()) {
+                if (port->isOutput() && port != output) {
+                    assert(0); /* TODO: two outputs, user error... */
+                } else
+                if (port->isInput() && !port->hasPortConnection()) {
+                    PortConnection::create(output, port);
+                } else if (port != output) {
+                    assert(0); /* internal error. */
+                }
+            }
+        }
+    }
+    
+     
 } /* end namespace Acotes */ } /* end namespace TL */
 

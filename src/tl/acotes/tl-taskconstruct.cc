@@ -141,7 +141,10 @@ namespace TL { namespace Acotes {
         
         for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
             Variable* variable= stateClause.getVariable(i);
-            Port::createControlInputPort(variable);
+            Port* port= Port::createControlInputPort(variable);
+            if (stateClause.hasLabel(i)) {
+                port->setName(stateClause.getLabel(i));
+            }
         }
     }
     
@@ -150,7 +153,10 @@ namespace TL { namespace Acotes {
         
         for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
             Variable* variable= stateClause.getVariable(i);
-            Port::createControlOutputPort(variable);
+            Port* port= Port::createControlOutputPort(variable);
+            if (stateClause.hasLabel(i)) {
+                port->setName(stateClause.getLabel(i));
+            }
         }
     }
     

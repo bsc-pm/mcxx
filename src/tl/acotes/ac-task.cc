@@ -200,7 +200,7 @@ namespace TL { namespace Acotes {
         
         for (unsigned i= 0; i < portVector.size() && !result; i++) {
             Port* port= portVector.at(i);
-            if (port->isInput() && port->getVariable()->hasSymbol(symbol)) {
+            if (port->isInput() && port->hasVariable() && port->getVariable()->hasSymbol(symbol)) {
                 result= port;
             }
         }
@@ -256,15 +256,20 @@ namespace TL { namespace Acotes {
      * Creates the local required port connections for this task.
      */
     void Task::createPortConnections() {
+        std::cerr << "BEGIN task connect... " << (void*)this << std::endl;
         createChildPortConnections();
         
         if (!hasInputControlPort() && hasParent()) {
+            std::cerr << "... task connect virtual... " << (void*)this << std::endl;
             createVirtualPortandConnection();
         } else {
+            std::cerr << "... task connect bypass... " << (void*)this << std::endl;
             createBypassConnection();
+            std::cerr << "... task connect artifical... " << (void*)this << std::endl;
             createArtificalPortandConnection();
             // compute_graph_outputs();
         }
+        std::cerr << "END task connect... " << (void*)this << std::endl;
     }
 
     /**
@@ -296,7 +301,8 @@ namespace TL { namespace Acotes {
         
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
-            if (port->isControl() && !port->hasPortConnection()) {
+            std::cerr << "... task connect virtual... " << (void*)this << " port: " << i << ", " << (void*) port << std::endl;
+            if (port->isControl() && !port->hasPortConnection() && !port->isNamed()) {
                 createArtificalPortandConnection(port);
             }
         }
@@ -352,6 +358,7 @@ namespace TL { namespace Acotes {
         // if here is also shortcutted
         if (isBypass(symbol))
         {
+            std::cerr << "... task bypass bypasses... " << (void*)this << " outport: " << output << std::endl;
             // for each initial input before output 
             const std::vector<Task*> &children= getChildVector();
             for (unsigned i= 0; i < children.size(); i++) {
@@ -365,18 +372,27 @@ namespace TL { namespace Acotes {
 	
 	// if not shortcutted output
 	} else /* if (!isBypass(symbol)) */ {
+            std::cerr << "... task bypass inputs... " << (void*)this << " outport: " << output << std::endl;
+            std::cerr << " name:" << symbol.get_name() << std::endl;
+            std::cerr << " hasInputControlPort:" << hasInputControlPort(symbol) << std::endl;
+            std::cerr << " getInputControlPort:" << (void*)getInputControlPort(symbol) << std::endl;
             // if it is input shortcut
-            if (hasInputControlPort(symbol) && output) {                  
+            if (hasInputControlPort(symbol) && !getInputControlPort(symbol)->isNamed() && output) {                  
                     // connect!!
+            std::cerr << "... task bypass inputs(2)... " << (void*)this << " outport: " << output << std::endl;
                     Port* inport= getInputControlPort(symbol);
+            std::cerr << "... task bypass inputs(3)... " << (void*)this << " outport: " << output << std::endl;
                     Port* outport= output->getOutputControlPort(symbol);
+            std::cerr << "... task bypass inputs(4)... " << (void*)this << " outport: " << output << std::endl;
                     
                     PortConnection::create(outport, inport);
             } 
+            std::cerr << "... task bypass outputs... " << (void*)this << " outport: " << output << std::endl;
             // if it is output is the next output
-            if (hasOutputControlPort(symbol)) {
+            if (hasOutputControlPort(symbol) && !getOutputControlPort(symbol)->isNamed()) {
                     output= this;
             }
+            std::cerr << "... task bypass end... " << (void*)this << " outport: " << output << std::endl;
 	}
 	
 	return output;

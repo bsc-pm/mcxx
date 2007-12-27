@@ -49,7 +49,11 @@ namespace TL { namespace Acotes {
     // -- Variable support
     public:
         Variable* getVariable(unsigned position);
+        bool hasLabel(unsigned position);
+        std::string getLabel(unsigned position);
         unsigned getVariableCount();
+    private:
+        TL::Symbol getSymbol(unsigned position);
         
     };
     

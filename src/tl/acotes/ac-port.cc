@@ -161,6 +161,7 @@ namespace TL { namespace Acotes {
     , variable(NULL)
     , control(false)
     , artificial(false)
+    , named(false)
     {
     }
     
@@ -254,5 +255,30 @@ namespace TL { namespace Acotes {
         
         this->variable= variable;
     }
+   
+    
+    
+    /* ****************************************************************
+     * * Name
+     * ****************************************************************/
+    
+    void Port::setName(const std::string& name)
+    {
+        assert(!named);
+        assert(this->hasTask());
+        assert(this->getTask()->hasTaskgroup());
+        
+        this->named= true;
+        this->name= name;
+        getTask()->getTaskgroup()->addNamedPort(this);
+    }
+        
+    const std::string &Port::getName() const
+    {
+        assert(named);
+        
+        return name;
+    }
+    
     
 } /* end namespace Acotes */ } /* end namespace TL */
