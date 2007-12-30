@@ -1131,7 +1131,6 @@ namespace TL
                 << "   _tx_total_efective_execution_time += __t->efectiveExecutionTime;"
                 << "   _tx_total_abort_time += __t->totalAbortTime;"
                 << "   pthread_mutex_unlock(&_l_total_time);"
-                << "   fprintf(stderr, \"Transaction %ld: number of aborts %ld. Total abort time: %lld\\n\",__t->ID, __t->numberOfAborts, __t->totalAbortTime);"
                 << "   destroytx(__t);"
                 << "}"
                 ;
