@@ -31,12 +31,18 @@ libtlacotes_la_SOURCES = \
     ac-port.h \
     ac-portconnection.cc \
     ac-portconnection.h \
+    ac-sharedcheck.cc \
+    ac-sharedcheck.h \
+    ac-sharedupdate.cc \
+    ac-sharedupdate.h \
     ac-state.cc \
     ac-state.h \
     ac-task.cc \
     ac-task.h \
     ac-taskgroup.cc \
     ac-taskgroup.h \
+    ac-userport.cc \
+    ac-userport.h \
     ac-variable.cc \
     ac-variable.h \
     tl-acotescompilerphase.cc \
@@ -59,6 +65,10 @@ libtlacotes_la_SOURCES = \
     tl-portconnectiontransform.h \
     tl-porttransform.cc \
     tl-porttransform.h \
+    tl-sharedconstruct.cc \
+    tl-sharedconstruct.h \
+    tl-sharedtransform.cc \
+    tl-sharedtransform.h \
     tl-statetransform.cc \
     tl-statetransform.h \
     tl-taskconstruct.cc \
@@ -69,6 +79,10 @@ libtlacotes_la_SOURCES = \
     tl-taskgrouptransform.h \
     tl-tasktransform.cc \
     tl-tasktransform.h \
+    tl-userportconstruct.cc \
+    tl-userportconstruct.h \
+    tl-userporttransform.cc \
+    tl-userporttransform.h \
     tl-variableclause.cc \
     tl-variableclause.h \
     tl-variabletransform.cc \

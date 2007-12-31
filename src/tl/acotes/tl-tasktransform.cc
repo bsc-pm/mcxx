@@ -33,6 +33,7 @@
 #include "tl-finalizertransform.h"
 #include "tl-porttransform.h"
 #include "tl-statetransform.h"
+#include "tl-userporttransform.h"
 #include "tl-variabletransform.h"
 
 namespace TL { namespace Acotes {
@@ -75,6 +76,8 @@ namespace TL { namespace Acotes {
     void TaskTransform::transformAddOutline(Task* task) {
         assert(task);
         
+        transformReplaceUserPort(task);
+        
         TL::LangConstruct* taskConstruct= task->getConstruct();
         AST_t taskAST= taskConstruct->get_ast();
         ScopeLink taskScopeLink= taskConstruct->get_scope_link();
@@ -83,6 +86,16 @@ namespace TL { namespace Acotes {
         Source outlineSource= generateOutline(task);
         AST_t outlineTree= outlineSource.parse_global(taskAST, taskScopeLink);
         taskAST.prepend_sibling_function(outlineTree);
+    }
+    
+    void TaskTransform::transformReplaceUserPort(Task* task) {
+        assert(task);
+        
+        const std::vector<UserPort*> &uports= task->getUserPortVector();
+        for (unsigned i= 0; i < uports.size(); i++) {
+            UserPort* userPort= uports.at(i);
+            UserPortTransform::transform(userPort);
+        }
     }
 
     /**

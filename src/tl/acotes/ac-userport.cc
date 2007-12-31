@@ -20,62 +20,56 @@
     
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
-#include "ac-variable.h"
+#include "ac-userport.h"
 
 #include <assert.h>
-#include <ac-task.h>
+#include "ac-port.h"
+#include "ac-task.h"
+#include "tl-variableclause.h"
 
 namespace TL { namespace Acotes {
     
-
     /* ****************************************************************
-     * * Creation support
+     * * UserPort creation
      * ****************************************************************/
     
-    /** 
-     * Variable creator.
-     * <p>
-     * Creates the variable with the requested symbol at task.
-     */
-    Variable* Variable::create(Task* task, TL::Symbol symbol) 
+    UserPort* UserPort::create(TL::LangConstruct* construct, TL::LangConstruct* body, Task* task)
     {
-        assert(task);
-        assert(!task->getVariable(symbol));
+        UserPort* result= new UserPort();
         
-        Variable* variable= new Variable();
-        variable->setSymbol(new TL::Symbol(symbol));
-        variable->setTask(task);
+        result->setConstruct(construct);
+        result->setBody(body);
+        result->setTask(task);
         
-        variable->setName(symbol.get_name());
-        variable->setArray(false);
-        variable->setElementType(new TL::Type(symbol.get_type()));
-        variable->setElementCount(1);
-        
-        return variable;
+        return result;
     }
     
-    /**
-     * Variable default constructor.
-     */
-    Variable::Variable()
-    : task(NULL)
-    , symbol(NULL)
-    , array(false), elementType(NULL), elementCount(0)
+    UserPort::UserPort()
+    : construct(NULL), body(NULL)
+    , task(NULL)
     {
-        
     }
     
     
+        
     /* ****************************************************************
-     * * Name
+     * * LangConstruct support
      * ****************************************************************/
-
-    /**
-     * Sets the name for this variable.
-     */
-    void Variable::setName(const std::string &name)
+    
+    void UserPort::setConstruct(TL::LangConstruct* construct)
     {
-        this->name= name;
+        assert(construct);
+        assert(!this->construct /* call only once */);
+        
+        this->construct= construct;
+    }
+    
+    void UserPort::setBody(TL::LangConstruct* body)
+    {
+        assert(body);
+        assert(!this->body /*call only once */);
+        
+        this->body= body;
     }
     
     
@@ -84,59 +78,36 @@ namespace TL { namespace Acotes {
      * * Task relationship
      * ****************************************************************/
     
-    /**
-     * Set the task for this variable instance.
-     * <p>
-     * It calls to addVariable of task.
-     * Method called by the creator.
-     */
-    void Variable::setTask(Task* task)
+    void UserPort::setTask(Task* task) 
     {
         assert(task);
-        assert(!this->task /* Call once */);
+        assert(!this->task /* call only once */);
         
         this->task= task;
-        task->addVariable(this);
+        task->addUserPort(this);
     }
         
-    
-    
+        
     /* ****************************************************************
-     * * Symbol support
+     * * UserPort creation
      * ****************************************************************/
-
-    /**
-     * Query if it has the same symbol.
-     */
-    bool Variable::hasSymbol(TL::Symbol symbol) const {
-        bool result;
+    
+    void UserPort::addInputPort(Port* inport)
+    {
+        assert(inport);
+        assert(inport->getTask() == this->getTask());
+        assert(inport->isNamed());
         
-        result= this->symbol && *this->symbol == symbol;
-        
-        return result;
+        inputPortVector.push_back(inport);
     }
     
-    /**
-     * Gets the symbol of this variable.
-     * <p>
-     * 
-     */
-    TL::Symbol Variable::getSymbol() const
+    void UserPort::addOutputPort(Port* outport)
     {
-        assert(hasSymbol());
+        assert(outport);
+        assert(outport->getTask() == this->getTask());
+        assert(outport->isNamed());
         
-        return symbol[0];
-    }
-    
-    /**
-     * Sets the symbol of this variable.
-     * <p>
-     * Method called by the creator.
-     */
-    void Variable::setSymbol(TL::Symbol* symbol)
-    {
-        this->symbol= symbol;
+        outputPortVector.push_back(outport);
     }
     
 } /* end namespace Acotes */ } /* end namespace TL */
-

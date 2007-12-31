@@ -122,7 +122,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
             Variable* variable= stateClause.getVariable(i);
             State::create(variable);
-            task->addInitializer(variable->getSymbol()[0]);
+            task->addInitializer(variable->getSymbol());
         }
     }
     
@@ -132,7 +132,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
             Variable* variable= stateClause.getVariable(i);
             State::create(variable);
-            task->addFinalizer(variable->getSymbol()[0]);
+            task->addFinalizer(variable->getSymbol());
         }
     }
     

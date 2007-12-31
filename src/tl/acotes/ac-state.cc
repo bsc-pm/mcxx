@@ -40,10 +40,15 @@ namespace TL { namespace Acotes {
     {
         assert(variable);
         assert(variable->hasTask());
+        assert(variable->hasSymbol());
         
-        State* state= new State();
-        state->setVariable(variable);
-        state->setTask(variable->getTask());
+        Task* task= variable->getTask();
+        State* state= task->getState(variable->getSymbol());
+        if (!state) {
+            state= new State();
+            state->setVariable(variable);
+            state->setTask(variable->getTask());
+        }
         
         return state;
     }
@@ -73,6 +78,47 @@ namespace TL { namespace Acotes {
         
         return state;
     }
+    
+    /** 
+     * Creates a fully functional new state variable.
+     */
+    State* State::createUpdateShared(Variable* variable)
+    {
+        assert(variable);
+        
+        State* state= create(variable);
+        if (!state->isUpdateShared()) {
+            state->setUpdateShared(true);
+        }
+        
+        return state;
+    }
+ 
+    /** 
+     * Creates a fully functional new state variable.
+     */
+    State* State::createAsyncShared(Variable* variable)
+    {
+        assert(variable);
+        
+        State* state= create(variable);
+        state->setAsyncShared(true);
+        
+        return state;
+    }
+ 
+    /** 
+     * Creates a fully functional new state variable.
+     */
+    State* State::createSyncShared(Variable* variable)
+    {
+        assert(variable);
+        
+        State* state= create(variable);
+        state->setSyncShared(true);
+        
+        return state;
+    }
  
     /**
      * Default private constructor.
@@ -81,6 +127,7 @@ namespace TL { namespace Acotes {
     : task(NULL), number(-1)
     , variable(NULL)
     , copyIn(false), copyOut(false)
+    , updateShared(false), asyncShared(false), syncShared(false)
     {   
     }
     
@@ -129,21 +176,68 @@ namespace TL { namespace Acotes {
         assert(variable);
         assert(variable->hasTask());
         assert(variable->getTask()->hasTaskgroup());
+        assert(!isUpdateShared()); /* FIXME: report to user */
         
         this->copyIn= value;
-        variable->getTask()->getTaskgroup()->addCopyStateVector(this);
+        variable->getTask()->getTaskgroup()->addCopyState(this);
     }
     
     void State::setCopyOut(bool value) {
         assert(value);
-        assert(!this->copyIn /* call only once */);
+        assert(!this->copyOut /* call only once */);
         assert(variable);
         assert(variable->hasTask());
         assert(variable->getTask()->hasTaskgroup());
+        assert(!isUpdateShared()); /* FIXME: report to user */
         
         this->copyOut= value;
-        variable->getTask()->getTaskgroup()->addCopyStateVector(this);
+        variable->getTask()->getTaskgroup()->addCopyState(this);
     }
 
+    
+    
+    /* ****************************************************************
+     * * UpdateShared, AsyncShared or SyncShared
+     * ****************************************************************/
+    
+    void State::setUpdateShared(bool value) {
+        assert(value);
+        assert(!this->updateShared /* call only once */);
+        assert(variable);
+        assert(variable->hasTask());
+        assert(variable->getTask()->hasTaskgroup());
+        assert(!isCopyIn()); /* FIXME: report to user */
+        assert(!isCopyOut()); /* FIXME: report to user */
+        
+        this->updateShared= value;
+        variable->getTask()->getTaskgroup()->addSharedState(this);
+    }
+
+    void State::setAsyncShared(bool value) {
+        assert(value);
+        assert(!this->asyncShared /* call only once */);
+        assert(variable);
+        assert(variable->hasTask());
+        assert(variable->getTask()->hasTaskgroup());
+        assert(!isSyncShared()); /* FIXME: report to user */
+        
+        this->asyncShared= value;
+        variable->getTask()->getTaskgroup()->addSharedState(this);
+    }
+
+    void State::setSyncShared(bool value) {
+        assert(value);
+        assert(!this->syncShared /* call only once */);
+        assert(variable);
+        assert(variable->hasTask());
+        assert(variable->getTask()->hasTaskgroup());
+        assert(!isAsyncShared()); /* FIXME: report to user */
+        
+        this->syncShared= value;
+        variable->getTask()->getTaskgroup()->addSharedState(this);
+    }
+
+    
+    
 } /* end namespace Acotes */ } /* end namespace TL */
 

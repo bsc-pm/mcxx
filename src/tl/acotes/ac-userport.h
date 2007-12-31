@@ -21,71 +21,66 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   ac-variable.h
+// File:   ac-userport.h
 // Author: drodenas
 //
-// Created on 22 / desembre / 2007, 18:06
+// Created on 29 / desembre / 2007, 11:33
 //
 
-#ifndef _AC_VARIABLE_H
-#define	_AC_VARIABLE_H
+#ifndef _AC_USERPORT_H
+#define	_AC_USERPORT_H
 
-#include <string.h>
-#include <tl-symbol.hpp>
+
+#include <vector>
+
+
+#include <tl-langconstruct.hpp>
+
 
 namespace TL { namespace Acotes {
-    
-    class Task;
-    
-    class Variable {
-    
-    // -- Creation support
-    public:
-        static Variable* create(Task* task, TL::Symbol symbol);
-    private:
-        Variable();
 
-    // -- Name
+    class Task;
+    class Port;
+    
+    class UserPort {
+    // -- UserPort creation
     public:
-        std::string getName() const { return name; };
+        static UserPort* create(TL::LangConstruct* construct, TL::LangConstruct* body, Task* task);
     private:
-        void setName(const std::string &name);
-        std::string name;
+        UserPort();
+        
+    // -- LangConstruct support
+    public:
+        TL::LangConstruct* getConstruct() const { return construct; }
+        TL::LangConstruct* getBody() const { return body; }
+    private:
+        void setConstruct(TL::LangConstruct* construct);
+        void setBody(TL::LangConstruct* body);
+        TL::LangConstruct* construct;
+        TL::LangConstruct* body;
         
     // -- Task relationship
     public:
         Task* getTask() const { return task; }
-        bool hasTask() const { return task; }
     private:
         void setTask(Task* task);
         Task* task;
         
-    // -- Symbol support
+    // -- Ports relationships
     public:
-        bool hasSymbol() const { return symbol; }
-        bool hasSymbol(TL::Symbol symbol) const;
-        TL::Symbol getSymbol() const;
+        void addInputPort(Port* inport);
+        void addOutputPort(Port* outport);
+        const std::vector<Port*> &getInputPortVector() const { return inputPortVector; }
+        const std::vector<Port*> &getOutputPortVector() const { return outputPortVector; }
     private:
-        void setSymbol(TL::Symbol* symbol);
-        TL::Symbol* symbol;
-        
-    // -- Array support
-    public:
-        bool isArray() const { return array; }
-        TL::Type getElementType() const { return elementType[0]; }
-        bool hasElementType() const { return elementType; }
-        int getElementCount() const { return elementCount; }
-    private:
-        void setArray(bool array) { this->array= array; }
-        void setElementType(TL::Type* type) { this->elementType= type; }
-        void setElementCount(int elementCount) { this->elementCount= elementCount; }
-        bool array;
-        TL::Type* elementType;
-        int elementCount;
+        std::vector<Port*> inputPortVector;
+        std::vector<Port*> outputPortVector;
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */
 
 
-#endif	/* _AC_VARIABLE_H */
+
+
+#endif	/* _AC_USERPORT_H */
 

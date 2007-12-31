@@ -25,8 +25,10 @@
 #include "tl-acotestransform.h"
 #include "tl-finalizerconstruct.h"
 #include "tl-initializerconstruct.h"
+#include "tl-sharedconstruct.h"
 #include "tl-taskconstruct.h"
 #include "tl-taskgroupconstruct.h"
+#include "tl-userportconstruct.h"
 
 namespace TL { namespace Acotes {
 
@@ -73,6 +75,22 @@ namespace TL { namespace Acotes {
             functor(&AcotesCompilerPhase::onPostFinalizerConstruct, *this)
             );
         register_construct("finalizer");
+        
+        on_directive_pre["port"].connect(
+            functor(&AcotesCompilerPhase::onPreUserPortConstruct, *this)
+            );
+        on_directive_post["port"].connect(
+            functor(&AcotesCompilerPhase::onPostUserPortConstruct, *this)
+            );
+        register_construct("port");
+         
+        on_directive_pre["shared"].connect(
+            functor(&AcotesCompilerPhase::onPreSharedConstruct, *this)
+            );
+        on_directive_post["shared"].connect(
+            functor(&AcotesCompilerPhase::onPostSharedConstruct, *this)
+            );
+        register_construct("shared");
     }
     
     /**
@@ -167,6 +185,30 @@ namespace TL { namespace Acotes {
     {
         FinalizerConstruct finalizer(construct);
         finalizer.onPost();
+    }
+ 
+    void AcotesCompilerPhase::onPreUserPortConstruct(PragmaCustomConstruct construct)
+    {
+        UserPortConstruct userPort(construct);
+        userPort.onPre();
+    }
+    
+    void AcotesCompilerPhase::onPostUserPortConstruct(PragmaCustomConstruct construct)
+    {
+        UserPortConstruct userPort(construct);
+        userPort.onPost();
+    }
+
+    void AcotesCompilerPhase::onPreSharedConstruct(PragmaCustomConstruct construct)
+    {
+        SharedConstruct shared(construct);
+        shared.onPre();
+    }
+    
+    void AcotesCompilerPhase::onPostSharedConstruct(PragmaCustomConstruct construct)
+    {
+        SharedConstruct shared(construct);
+        shared.onPost();
     }
  
     

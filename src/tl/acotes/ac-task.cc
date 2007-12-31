@@ -246,6 +246,23 @@ namespace TL { namespace Acotes {
         return stateNumber;
     }
 
+    /**
+     * 
+     */
+    State* Task::getState(TL::Symbol symbol) const
+    {
+       State* result= NULL;
+       
+       for (unsigned i= 0; i < stateVector.size() && !result; i++) {
+           State* state= stateVector.at(i);
+           if (state->getVariable()->hasSymbol(symbol)) {
+               result= state;
+           }
+       }
+       
+       return result;
+    }
+    
     
     
     /* ****************************************************************
@@ -256,20 +273,15 @@ namespace TL { namespace Acotes {
      * Creates the local required port connections for this task.
      */
     void Task::createPortConnections() {
-        std::cerr << "BEGIN task connect... " << (void*)this << std::endl;
         createChildPortConnections();
         
         if (!hasInputControlPort() && hasParent()) {
-            std::cerr << "... task connect virtual... " << (void*)this << std::endl;
             createVirtualPortandConnection();
         } else {
-            std::cerr << "... task connect bypass... " << (void*)this << std::endl;
             createBypassConnection();
-            std::cerr << "... task connect artifical... " << (void*)this << std::endl;
             createArtificalPortandConnection();
             // compute_graph_outputs();
         }
-        std::cerr << "END task connect... " << (void*)this << std::endl;
     }
 
     /**
@@ -301,7 +313,6 @@ namespace TL { namespace Acotes {
         
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
-            std::cerr << "... task connect virtual... " << (void*)this << " port: " << i << ", " << (void*) port << std::endl;
             if (port->isControl() && !port->hasPortConnection() && !port->isNamed()) {
                 createArtificalPortandConnection(port);
             }
@@ -318,7 +329,7 @@ namespace TL { namespace Acotes {
         Variable* parentVariable= getParentVariable(port->getVariable());
         if (!parentVariable) {
             if (hasParent() && getParent()->isImplicitTask()) {
-                parentVariable= Variable::create(getParent(), port->getVariable()->getSymbol()[0]);
+                parentVariable= Variable::create(getParent(), port->getVariable()->getSymbol());
             } else {
                 assert(0 /* TODO: user error */); 
             }
@@ -358,7 +369,6 @@ namespace TL { namespace Acotes {
         // if here is also shortcutted
         if (isBypass(symbol))
         {
-            std::cerr << "... task bypass bypasses... " << (void*)this << " outport: " << output << std::endl;
             // for each initial input before output 
             const std::vector<Task*> &children= getChildVector();
             for (unsigned i= 0; i < children.size(); i++) {
@@ -372,27 +382,18 @@ namespace TL { namespace Acotes {
 	
 	// if not shortcutted output
 	} else /* if (!isBypass(symbol)) */ {
-            std::cerr << "... task bypass inputs... " << (void*)this << " outport: " << output << std::endl;
-            std::cerr << " name:" << symbol.get_name() << std::endl;
-            std::cerr << " hasInputControlPort:" << hasInputControlPort(symbol) << std::endl;
-            std::cerr << " getInputControlPort:" << (void*)getInputControlPort(symbol) << std::endl;
             // if it is input shortcut
             if (hasInputControlPort(symbol) && !getInputControlPort(symbol)->isNamed() && output) {                  
                     // connect!!
-            std::cerr << "... task bypass inputs(2)... " << (void*)this << " outport: " << output << std::endl;
                     Port* inport= getInputControlPort(symbol);
-            std::cerr << "... task bypass inputs(3)... " << (void*)this << " outport: " << output << std::endl;
                     Port* outport= output->getOutputControlPort(symbol);
-            std::cerr << "... task bypass inputs(4)... " << (void*)this << " outport: " << output << std::endl;
                     
                     PortConnection::create(outport, inport);
             } 
-            std::cerr << "... task bypass outputs... " << (void*)this << " outport: " << output << std::endl;
             // if it is output is the next output
             if (hasOutputControlPort(symbol) && !getOutputControlPort(symbol)->isNamed()) {
                     output= this;
             }
-            std::cerr << "... task bypass end... " << (void*)this << " outport: " << output << std::endl;
 	}
 	
 	return output;
@@ -438,7 +439,7 @@ namespace TL { namespace Acotes {
         assert(variable->hasSymbol());
         assert(hasParent());
         
-        Variable* result= parent->getVariable(variable->getSymbol()[0]);
+        Variable* result= parent->getVariable(variable->getSymbol());
         return result;
     }
     
@@ -465,7 +466,7 @@ namespace TL { namespace Acotes {
         assert(variable);
         assert(variable->hasSymbol());
         
-        TL::Symbol other= variable->getSymbol()[0];
+        TL::Symbol other= variable->getSymbol();
         bool result= false;
         
         for (unsigned i= 0; i < bypassVector.size() && !result; i++) {

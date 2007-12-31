@@ -80,11 +80,18 @@ namespace TL { namespace Acotes {
         
     // -- CopyInOut state relationship
     public:
-        void addCopyStateVector(State* state);
+        void addCopyState(State* state);
         const std::vector<State*> &getCopyStateVector() const { return copyStateVector; }
     private:
         bool checkCopyOutSymbol(TL::Symbol symbol) const;
         std::vector<State*> copyStateVector;
+        
+    // -- Shared state relationship
+    public:
+        void addSharedState(State* state);
+        const std::vector<State*> &getSharedStateVector() const { return sharedStateVector; }
+    private:
+        std::vector<State*> sharedStateVector;
         
     // -- NamedPorts support
     public:

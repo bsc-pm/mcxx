@@ -42,6 +42,9 @@ namespace TL { namespace Acotes {
         static State* create(Variable* variable);
         static State* createCopyIn(Variable* variable);
         static State* createCopyOut(Variable* variable);
+        static State* createUpdateShared(Variable* variable);
+        static State* createAsyncShared(Variable* variable);
+        static State* createSyncShared(Variable* variable);
     private:
         State();
         
@@ -73,6 +76,20 @@ namespace TL { namespace Acotes {
         void setCopyOut(bool value);
         bool copyIn;
         bool copyOut;
+        
+    // -- UpdateShared, AsyncShared or SyncShared
+    public:
+        bool isShared() const { return isAsyncShared() || isSyncShared(); }
+        bool isUpdateShared() const { return updateShared; }
+        bool isAsyncShared() const { return asyncShared; }
+        bool isSyncShared() const { return syncShared; }
+    private:
+        void setUpdateShared(bool value);
+        void setAsyncShared(bool value);
+        void setSyncShared(bool value);
+        bool updateShared;
+        bool asyncShared;
+        bool syncShared;
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */

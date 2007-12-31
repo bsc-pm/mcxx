@@ -43,6 +43,7 @@ namespace TL { namespace Acotes {
     private:
         static void transformChildren(Task* task);
         static void transformAddOutline(Task* task);
+        static void transformReplaceUserPort(Task* task);
         static void transformReplaceConstruct(Task* task);
         
     // -- Outline generation

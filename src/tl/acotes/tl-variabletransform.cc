@@ -43,11 +43,11 @@ namespace TL { namespace Acotes {
         
         std::stringstream ss;
         
-        TL::Symbol* symbol= variable->getSymbol();
-        TL::Scope scope= symbol->get_scope();
+        TL::Symbol symbol= variable->getSymbol();
+        TL::Scope scope= symbol.get_scope();
         std::string name= variable->getName();
         
-        ss << symbol->get_type().get_declaration(scope, name) << ";";
+        ss << symbol.get_type().get_declaration(scope, name) << ";";
         
         return ss.str();
     }
@@ -74,10 +74,10 @@ namespace TL { namespace Acotes {
         
         std::stringstream ss;
         
-        TL::Scope scope= variable->getSymbol()->get_scope();
-        TL::Type* type= variable->getElementType();
+        TL::Scope scope= variable->getSymbol().get_scope();
+        TL::Type type= variable->getElementType();
         
-        ss << "(sizeof(" << type->get_declaration(scope, "") << ")"
+        ss << "(sizeof(" << type.get_declaration(scope, "") << ")"
                 << " * " << variable->getElementCount()
                 << ")";
         

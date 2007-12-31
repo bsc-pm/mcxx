@@ -124,14 +124,11 @@ namespace TL { namespace Acotes {
     void Taskgroup::createPortConnections() {
         assert(getImplicitTask());
         
-        std::cerr << "BEGIN connect... " << std::endl;
 
         createNamedPortConnections();
 
         Task* implicitTask= getImplicitTask();
-        std::cerr << "... connect... " << std::endl;
         implicitTask->createPortConnections();
-        std::cerr << "END connect... " << std::endl;
 
     }
     
@@ -156,13 +153,14 @@ namespace TL { namespace Acotes {
      * <p>
      * Method called by state.
      */
-    void Taskgroup::addCopyStateVector(State* state) 
+    void Taskgroup::addCopyState(State* state) 
     {
         assert(state);
         assert(state->hasTask());
         assert(state->getTask()->getTaskgroup() == this);
+        assert(state->isCopyIn() || state->isCopyOut());
         
-        if (!state->isCopyOut() || checkCopyOutSymbol(*state->getVariable()->getSymbol())) {
+        if (!state->isCopyOut() || checkCopyOutSymbol(state->getVariable()->getSymbol())) {
             copyStateVector.push_back(state);        
         }
     }
@@ -173,7 +171,7 @@ namespace TL { namespace Acotes {
         
         for (unsigned i= 0; i < copyStateVector.size() && result; i++) {
             State* state= copyStateVector.at(i);
-            if (state->isCopyOut() && *state->getVariable()->getSymbol() == symbol) {
+            if (state->isCopyOut() && state->getVariable()->getSymbol() == symbol) {
                 AcotesLogger::error(NULL) 
                         << "symbol " << symbol.get_point_of_declaration()
                         .get_locus() << " defined twice as copyout." << std::endl;
@@ -182,6 +180,27 @@ namespace TL { namespace Acotes {
         }
         
         return result;
+    }
+    
+    
+
+    /* ****************************************************************
+     * * Shared state relationship
+     * ****************************************************************/
+   
+    /**
+     * Adds a state as copyin or copyout state.
+     * <p>
+     * Method called by state.
+     */
+    void Taskgroup::addSharedState(State* state) 
+    {
+        assert(state);
+        assert(state->isUpdateShared() || state->isAsyncShared() || state->isSyncShared());
+        assert(state->hasTask());
+        assert(state->getTask()->getTaskgroup() == this);
+        
+        sharedStateVector.push_back(state);        
     }
     
     

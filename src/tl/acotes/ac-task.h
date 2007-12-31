@@ -39,8 +39,11 @@
 namespace TL { namespace Acotes {
     
     class Port;
+    class SharedCheck;
+    class SharedUpdate;
     class State;
     class Taskgroup;
+    class UserPort;
     class Variable;
     
     class Task {
@@ -101,6 +104,8 @@ namespace TL { namespace Acotes {
     // -- State relationship
     public:
         int addState(State* state);
+        bool hasState(TL::Symbol symbol) const { return getState(symbol); }
+        State* getState(TL::Symbol symbol) const;
         const std::vector<State*> &getStateVector() const { return stateVector; }
     private:
         std::vector<State*> stateVector;
@@ -144,6 +149,23 @@ namespace TL { namespace Acotes {
         const std::vector<TL::Symbol> &getBypassVector() const { return bypassVector; }
     private:
         std::vector<TL::Symbol> bypassVector;
+        
+    // -- UserPort relationship
+    public:
+        void addUserPort(UserPort* userPort) { userPortVector.push_back(userPort); }
+        const std::vector<UserPort*> &getUserPortVector() const { return userPortVector; }
+    private:
+        std::vector<UserPort*> userPortVector;
+        
+    // -- SharedUpdate/SharedCheck relationship
+    public:
+        void addSharedCheck(SharedCheck* sharedCheck) { sharedCheckVector.push_back(sharedCheck); }
+        void addSharedUpdate(SharedUpdate* sharedUpdate) { sharedUpdateVector.push_back(sharedUpdate); }
+        const std::vector<SharedCheck*>& getSharedCheckVector() { return sharedCheckVector; }
+        const std::vector<SharedUpdate*>& getSharedUpdateVector() { return sharedUpdateVector; }
+    private:
+        std::vector<SharedCheck*> sharedCheckVector;
+        std::vector<SharedUpdate*> sharedUpdateVector;
         
     // -- Team support
     public:
