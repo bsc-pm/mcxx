@@ -44,6 +44,8 @@ namespace TL { namespace Acotes {
         static void transformChildren(Task* task);
         static void transformAddOutline(Task* task);
         static void transformReplaceUserPort(Task* task);
+        static void transformReplaceSharedCheck(Task* task);
+        static void transformReplaceSharedUpdate(Task* task);
         static void transformReplaceConstruct(Task* task);
         
     // -- Outline generation
@@ -54,8 +56,10 @@ namespace TL { namespace Acotes {
         static std::string generateFinalizer(Task* task);
         static std::string generateCopyInAcquire(Task* task);
         static std::string generateCopyOutAcquire(Task* task);
+        static std::string generateSharedAcquire(Task* task);
         static std::string generateBody(Task* task);
         static std::string generateControlAcquire(Task* task);
+        static std::string generateControlSharedCheck(Task* task);
         static std::string generateControlInputPeek(Task* task);
         static std::string generateControlOutputPeek(Task* task);
         static std::string generateControlPop(Task* task);
@@ -71,6 +75,7 @@ namespace TL { namespace Acotes {
     public:
         static std::string generateInit(Task* task);
         static std::string generatePorts(Task* task);
+        static std::string generateShareds(Task* task);
         static std::string generateStart(Task* task);
         static std::string generateWait(Task* task);
         

@@ -33,6 +33,8 @@ libtlacotes_la_SOURCES = \
     ac-portconnection.h \
     ac-sharedcheck.cc \
     ac-sharedcheck.h \
+    ac-sharedconnection.cc \
+    ac-sharedconnection.h \
     ac-sharedupdate.cc \
     ac-sharedupdate.h \
     ac-state.cc \

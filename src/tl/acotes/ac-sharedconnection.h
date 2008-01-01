@@ -21,51 +21,38 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   tl-taskconstruct.h
+// File:   ac-sharedconnection.h
 // Author: drodenas
 //
-// Created on 19 / desembre / 2007, 16:01
+// Created on 31 / desembre / 2007, 11:05
 //
 
-#ifndef _TL_TASKCONSTRUCT_H
-#define	_TL_TASKCONSTRUCT_H
-
-#include <tl-langconstruct.hpp>
-#include <tl-pragmasupport.hpp>
+#ifndef _AC_SHAREDCONNECTION_H
+#define	_AC_SHAREDCONNECTION_H
 
 namespace TL { namespace Acotes {
     
-    class Task;
+    class State;
     
-    class TaskConstruct
-    : public TL::PragmaCustomConstruct
-    {
-    // -- LangConstruct support
+    class SharedConnection {
+    // -- Creation
     public:
-        TaskConstruct(TL::LangConstruct langConstruct);
+        static SharedConnection* create(State* source, State* target);
     private:
-        TL::LangConstruct getBody();
-        TL::LangConstruct getConstruct();
-
-    // -- CompilerPhase events
+        SharedConnection();
+        
+    // -- State handling
     public:
-        void onPre();
-        void onPost();
+        State* getSource() const { return source; }
+        State* getTarget() const { return target; }
     private:
-        void onPreState(Task* task);
-        void onPreCopyInState(Task* task);
-        void onPreCopyOutState(Task* task);
-        void onPreInitializeState(Task* task);
-        void onPreFinalizeState(Task* task);
-        void onPreInputPort(Task* task);
-        void onPreOutputPort(Task* task);
-        void onPreBypass(Task* task);
-        void onPreAsync(Task* task);
-        void onPreSync(Task* task);
+        void setSource(State* state);
+        void setTarget(State* state);
+        State* source;
+        State* target;
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */
 
-
-#endif	/* _TL_TASKCONSTRUCT_H */
+#endif	/* _AC_SHAREDCONNECTION_H */
 

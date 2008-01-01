@@ -82,6 +82,8 @@ namespace TL { namespace Acotes {
         onPreInputPort(task);
         onPreOutputPort(task);
         onPreBypass(task);
+        onPreAsync(task);
+        onPreSync(task);
     }
     
     void TaskConstruct::onPost() {
@@ -169,6 +171,26 @@ namespace TL { namespace Acotes {
             task->addBypass(symbol);
         }
     }
+        
+    void TaskConstruct::onPreAsync(Task* task) {
+        VariableClause stateClause(get_clause("async"), task);
+        
+        for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
+            Variable* variable= stateClause.getVariable(i);
+            State::createAsyncShared(variable);
+        }
+    }
+    
+    void TaskConstruct::onPreSync(Task* task) {
+        VariableClause stateClause(get_clause("sync"), task);
+        
+        for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
+            Variable* variable= stateClause.getVariable(i);
+            State::createSyncShared(variable);
+        }
+    }
+    
+
     
 } /* end namespace Acotes */ } /* end namespace TL */
 

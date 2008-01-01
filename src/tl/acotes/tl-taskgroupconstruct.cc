@@ -74,6 +74,7 @@ namespace TL { namespace Acotes {
     void TaskgroupConstruct::onPost() {
         Taskgroup* taskgroup= AcotesStack::taskgroupTop();
         taskgroup->createPortConnections();
+        taskgroup->createSharedConnections();
         
         
         // pop implicit task

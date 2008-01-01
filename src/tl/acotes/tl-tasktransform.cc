@@ -32,6 +32,7 @@
 #include "tl-initializertransform.h"
 #include "tl-finalizertransform.h"
 #include "tl-porttransform.h"
+#include "tl-sharedtransform.h"
 #include "tl-statetransform.h"
 #include "tl-userporttransform.h"
 #include "tl-variabletransform.h"
@@ -50,7 +51,10 @@ namespace TL { namespace Acotes {
         
         // First transform all the children, recursive call
         transformChildren(task);
-        
+        transformReplaceUserPort(task);
+        transformReplaceSharedCheck(task);
+        transformReplaceSharedUpdate(task);
+                
         if (!task->isImplicitTask()) {
             transformAddOutline(task);
             transformReplaceConstruct(task);
@@ -76,8 +80,6 @@ namespace TL { namespace Acotes {
     void TaskTransform::transformAddOutline(Task* task) {
         assert(task);
         
-        transformReplaceUserPort(task);
-        
         TL::LangConstruct* taskConstruct= task->getConstruct();
         AST_t taskAST= taskConstruct->get_ast();
         ScopeLink taskScopeLink= taskConstruct->get_scope_link();
@@ -95,6 +97,26 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < uports.size(); i++) {
             UserPort* userPort= uports.at(i);
             UserPortTransform::transform(userPort);
+        }
+    }
+    
+    void TaskTransform::transformReplaceSharedCheck(Task* task) {
+        assert(task);
+        
+        const std::vector<SharedCheck*> &shareds= task->getSharedCheckVector();
+        for (unsigned i= 0; i < shareds.size(); i++) {
+            SharedCheck* sharedCheck= shareds.at(i);
+            SharedTransform::transform(sharedCheck);
+        }
+    }
+    
+    void TaskTransform::transformReplaceSharedUpdate(Task* task) {
+        assert(task);
+        
+        const std::vector<SharedUpdate*> &shareds= task->getSharedUpdateVector();
+        for (unsigned i= 0; i < shareds.size(); i++) {
+            SharedUpdate* sharedUpdate= shareds.at(i);
+            SharedTransform::transform(sharedUpdate);
         }
     }
 
@@ -130,9 +152,11 @@ namespace TL { namespace Acotes {
                 <<   generateVariable(task)
                 <<   generateInitializer(task)
                 <<   generateCopyInAcquire(task)
+                <<   generateSharedAcquire(task)
                 <<   generateControlAcquire(task)
                 <<   "while (task_allopen())"
                 <<   "{"
+                <<      generateControlSharedCheck(task)
                 <<      generateControlInputPeek(task)
                 <<      generateBody(task)
                 <<      generateControlOutputPeek(task)
@@ -213,6 +237,25 @@ namespace TL { namespace Acotes {
     }
     
     /**
+     * 
+     */
+    std::string TaskTransform::generateSharedAcquire(Task* task) {
+        assert(task);
+        
+        std::stringstream ss;
+        
+        const std::vector<State*> &states= task->getStateVector();
+        for (unsigned i= 0; i < states.size(); i++) {
+            State* state= states.at(i);
+            if (state->isShared() || state->isUpdateShared()) {
+                ss << SharedTransform::generateAcquire(state);
+            }
+        }
+        
+        return ss.str();
+    }
+    
+    /**
      * Generates the taskbody.
      */
     std::string TaskTransform::generateBody(Task* task) 
@@ -236,6 +279,22 @@ namespace TL { namespace Acotes {
             Port* port= ports.at(i);
             if (port->isControl()) {
                 ss << PortTransform::generateAcquire(port);
+            }
+        }
+        
+        return ss.str();
+    }
+
+    std::string TaskTransform::generateControlSharedCheck(Task* task) {
+        assert(task);
+        
+        std::stringstream ss;
+        
+        const std::vector<State*> &states= task->getStateVector();
+        for (unsigned i= 0; i < states.size(); i++) {
+            State* state= states.at(i);
+            if (state->isShared() || state->isUpdateShared()) {
+                ss << SharedTransform::generateCheck(state);
             }
         }
         
@@ -404,6 +463,25 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
             ss << PortTransform::generatePort(port);
+        }
+        
+        return ss.str();
+    }
+    
+    /**
+     * Generates the start code for the taskgroup.
+     */
+    std::string TaskTransform::generateShareds(Task* task) {
+        assert(task);
+        
+        std::stringstream ss;
+        
+        const std::vector<State*> &states= task->getStateVector();
+        for (unsigned i= 0; i < states.size(); i++) {
+            State* state= states.at(i);
+            if (state->isShared() || state->isUpdateShared()) {
+                ss << SharedTransform::generateShared(state);
+            }            
         }
         
         return ss.str();

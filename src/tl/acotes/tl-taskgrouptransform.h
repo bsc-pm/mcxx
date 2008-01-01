@@ -48,8 +48,10 @@ namespace TL { namespace Acotes {
         static std::string generateReplacement(Taskgroup* taskgroup);
         static std::string generateTasksInit(Taskgroup* taskgroup);
         static std::string generateTasksPorts(Taskgroup* taskgroup);
+        static std::string generateTasksShareds(Taskgroup* taskgroup);
         static std::string generatePortConnections(Taskgroup* taskgroup);
         static std::string generateCopyState(Taskgroup* taskgroup);
+        static std::string generateSharedConnections(Taskgroup* taskgroup);
         static std::string generateTasksStart(Taskgroup* taskgroup);
         static std::string generateTasksWait(Taskgroup* taskgroup);
         static std::string generateBody(Taskgroup* taskgroup);

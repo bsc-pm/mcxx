@@ -39,6 +39,7 @@ namespace TL { namespace Acotes {
     
     class Port;
     class PortConnection;
+    class SharedConnection;
     class State;
     class Task;
     
@@ -92,8 +93,17 @@ namespace TL { namespace Acotes {
         const std::vector<State*> &getSharedStateVector() const { return sharedStateVector; }
     private:
         std::vector<State*> sharedStateVector;
-        
-    // -- NamedPorts support
+                
+    // -- Shared Connections support
+    public:
+        void createSharedConnections();
+        void addSharedConnection(SharedConnection* sharedConnection);
+        const std::vector<SharedConnection*> &getSharedConnectionVector() const { return sharedConnectionVector; }
+    private:
+        void createSharedConnections(State* state);
+        std::vector<SharedConnection*> sharedConnectionVector;
+
+        // -- NamedPorts support
     public:
         void addNamedPort(Port* port);
     private:

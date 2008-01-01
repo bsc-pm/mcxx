@@ -27,6 +27,7 @@
 #include "ac-taskgroup.h"
 #include "tl-acoteslogger.h"
 #include "tl-portconnectiontransform.h"
+#include "tl-sharedtransform.h"
 #include "tl-statetransform.h"
 #include "tl-tasktransform.h"
 
@@ -77,8 +78,10 @@ namespace TL { namespace Acotes {
         ss      << "{"
                 << generateTasksInit(taskgroup)
                 << generateTasksPorts(taskgroup)
+                << generateTasksShareds(taskgroup)
                 << generatePortConnections(taskgroup)
                 << generateCopyState(taskgroup)
+                << generateSharedConnections(taskgroup)
                 << generateTasksStart(taskgroup)
                 << generateBody(taskgroup)
                 << "task_close();"
@@ -130,6 +133,25 @@ namespace TL { namespace Acotes {
     /**
      * Generates the ports of the tasks.
      */
+    std::string TaskgroupTransform::generateTasksShareds(Taskgroup* taskgroup)
+    {
+        assert(taskgroup);
+        
+        std::stringstream ss;
+        const std::vector<Task*> &tasks= taskgroup->getTaskVector();
+        
+        for (unsigned i= 0; i < tasks.size(); i++)
+        {
+            Task* task= tasks.at(i);
+            ss << TaskTransform::generateShareds(task);
+        }
+                        
+        return ss.str();
+    }
+    
+    /**
+     * Generates the ports of the tasks.
+     */
     std::string TaskgroupTransform::generatePortConnections(Taskgroup* taskgroup)
     {
         assert(taskgroup);
@@ -160,6 +182,25 @@ namespace TL { namespace Acotes {
         {
             State* state= states.at(i);
             ss << StateTransform::generateCopy(state);
+        }
+                        
+        return ss.str();
+    }
+    
+    /**
+     * Generates the ports of the tasks.
+     */
+    std::string TaskgroupTransform::generateSharedConnections(Taskgroup* taskgroup)
+    {
+        assert(taskgroup);
+        
+        std::stringstream ss;
+        const std::vector<SharedConnection*> &connections= taskgroup->getSharedConnectionVector();
+        
+        for (unsigned i= 0; i < connections.size(); i++)
+        {
+            SharedConnection* sharedConnection= connections.at(i);
+            ss << SharedTransform::generateSharedConnection(sharedConnection);
         }
                         
         return ss.str();

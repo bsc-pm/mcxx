@@ -29,6 +29,7 @@
 #include "ac-port.h"
 #include "ac-portconnection.h"
 #include "ac-state.h"
+#include "ac-sharedconnection.h"
 #include "ac-task.h"
 #include "ac-variable.h"
 #include "tl-acoteslogger.h"
@@ -204,6 +205,49 @@ namespace TL { namespace Acotes {
     }
     
     
+
+    /* ****************************************************************
+     * * Shared Connections support
+     * ****************************************************************/
+    
+    void Taskgroup::createSharedConnections() {
+        assert(getImplicitTask());
+
+        const std::vector<State*> &states= getSharedStateVector();
+        
+        for (unsigned i= 0; i < states.size(); i++) {
+            State* state= states.at(i);
+            if (state->isUpdateShared()) {
+                createSharedConnections(state);
+            }
+        }
+        
+    }
+    
+    /**
+     * Adds a port connection to the taskgroup.
+     * <p>
+     * Method called by PortConnection.
+     */
+    void Taskgroup::addSharedConnection(SharedConnection* sharedConnection) {
+        assert(sharedConnection);
+        
+        sharedConnectionVector.push_back(sharedConnection);
+    }
+    
+    void Taskgroup::createSharedConnections(State* source)
+    {
+        const std::vector<State*> &states= getSharedStateVector();
+        
+        for (unsigned i= 0; i < states.size(); i++) {
+            State* state= states.at(i);
+            if (state->isShared() && state->getTask() != source->getTask()) {
+                SharedConnection::create(source, state);
+            }
+        }
+    }
+    
+ 
 
     /* ****************************************************************
      * * NamedPorts support

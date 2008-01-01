@@ -34,25 +34,40 @@
 
 namespace TL { namespace Acotes {
 
-    class UserPort;
+    class SharedCheck;
+    class SharedConnection;
+    class SharedUpdate;
+    class State;
     
-    class UserPortTransform {
+    class SharedTransform {
     // -- Transform
     public:
-        static void transform(UserPort* userPort);
+        static void transform(SharedCheck* sharedCheck);
+        static void transform(SharedUpdate* sharedUpdate);
     private:
-        static void transformReplacement(UserPort* userPort);
+        static void transformReplacement(SharedCheck* sharedCheck);
+        static std::string generateReplacement(SharedCheck* sharedCheck);
+        static std::string generateCheck(SharedCheck* sharedCheck);
+        static std::string generateBody(SharedCheck* sharedCheck);
+        static void transformReplacement(SharedUpdate* sharedUpdate);
+        static std::string generateReplacement(SharedUpdate* sharedUpdate);
+        static std::string generateUpdate(SharedUpdate* sharedUpdate);
+        static std::string generateBody(SharedUpdate* sharedUpdate);
+        
+        
         
     // -- Generator
+    public:
+        static std::string generateShared(State* state);
+        static std::string generateSharedConnection(SharedConnection* sharedConnection);
+        static std::string generateAcquire(State* state);
+        static std::string generateCheck(State* state);
+        static std::string generateUpdate(State* state);
     private:
-        static std::string generateReplacement(UserPort* userPort);
-        static std::string generateInputPort(UserPort* userPort);
-        static std::string generateBody(UserPort* userPort);
-        static std::string generateOutputPort(UserPort* userPort);
         
     // -- No Constructor
     private:
-        UserPortTransform();
+        SharedTransform();
     };
 
 } /* end namespace Acotes */ } /* end namespace TL */
