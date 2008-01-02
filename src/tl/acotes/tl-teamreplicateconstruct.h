@@ -21,28 +21,26 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   tl-taskconstruct.h
+// File:   tl-teamreplicateconstruct.h
 // Author: drodenas
 //
-// Created on 19 / desembre / 2007, 16:01
+// Created on 1 / gener / 2008, 17:41
 //
 
-#ifndef _TL_TASKCONSTRUCT_H
-#define	_TL_TASKCONSTRUCT_H
+#ifndef _TL_TEAMREPLICATECONSTRUCT_H
+#define	_TL_TEAMREPLICATECONSTRUCT_H
 
-#include <tl-langconstruct.hpp>
-#include <tl-pragmasupport.hpp>
+#include "tl-langconstruct.hpp"
+#include "tl-pragmasupport.hpp"
 
 namespace TL { namespace Acotes {
     
-    class Task;
-    
-    class TaskConstruct
-    : public TL::PragmaCustomConstruct
+    class TeamReplicateConstruct 
+    : TL::PragmaCustomConstruct
     {
     // -- LangConstruct support
     public:
-        TaskConstruct(TL::LangConstruct langConstruct);
+        TeamReplicateConstruct(TL::LangConstruct langConstruct);
     private:
         TL::LangConstruct getBody();
         TL::LangConstruct getConstruct();
@@ -51,23 +49,10 @@ namespace TL { namespace Acotes {
     public:
         void onPre();
         void onPost();
-    private:
-        void onPreTeam(Task* task);
-        void onPreState(Task* task);
-        void onPreCopyInState(Task* task);
-        void onPreCopyOutState(Task* task);
-        void onPreInitializeState(Task* task);
-        void onPreFinalizeState(Task* task);
-        void onPreInputPort(Task* task);
-        void onPreInputReplicatePort(Task* task);
-        void onPreOutputPort(Task* task);
-        void onPreBypass(Task* task);
-        void onPreAsync(Task* task);
-        void onPreSync(Task* task);
     };
-    
+
 } /* end namespace Acotes */ } /* end namespace TL */
 
 
-#endif	/* _TL_TASKCONSTRUCT_H */
+#endif	/* _TL_TEAMREPLICATECONSTRUCT_H */
 

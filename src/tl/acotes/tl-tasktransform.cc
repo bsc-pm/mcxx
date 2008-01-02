@@ -34,6 +34,7 @@
 #include "tl-porttransform.h"
 #include "tl-sharedtransform.h"
 #include "tl-statetransform.h"
+#include "tl-teamreplicatetransform.h"
 #include "tl-userporttransform.h"
 #include "tl-variabletransform.h"
 
@@ -54,6 +55,7 @@ namespace TL { namespace Acotes {
         transformReplaceUserPort(task);
         transformReplaceSharedCheck(task);
         transformReplaceSharedUpdate(task);
+        transformReplaceTeamReplicate(task);
                 
         if (!task->isImplicitTask()) {
             transformAddOutline(task);
@@ -120,6 +122,16 @@ namespace TL { namespace Acotes {
         }
     }
 
+    void TaskTransform::transformReplaceTeamReplicate(Task* task) {
+        assert(task);
+        
+        const std::vector<TeamReplicate*> &replicates= task->getTeamReplicateVector();
+        for (unsigned i= 0; i < replicates.size(); i++) {
+            TeamReplicate* replicate= replicates.at(i);
+            TeamReplicateTransform::transform(replicate);
+        }
+    }
+
     /**
      * Adds the outline.
      */
@@ -157,13 +169,29 @@ namespace TL { namespace Acotes {
                 <<   "while (task_allopen())"
                 <<   "{"
                 <<      generateControlSharedCheck(task)
-                <<      generateControlInputPeek(task)
-                <<      generateBody(task)
-                <<      generateControlOutputPeek(task)
-                <<      generateControlPush(task)
-                <<      generateControlPop(task)
-                <<      generateControlAcquire(task)
-                <<   "}"
+                ;
+        if (task->hasLeader()) {
+            ss  <<      "if (task_leader())"
+                <<      "{"
+                ;
+        }
+        ss      <<         generateControlInputPeek(task)
+                <<         generateBody(task)
+                <<         generateControlOutputPeek(task)
+                <<         generateControlPush(task)
+                <<         generateControlPop(task)
+                <<         generateControlAcquire(task)
+                ;
+        if (task->hasLeader()) {
+            ss  <<      "} else { "
+                <<         generateReplicatePeek(task)
+                <<         generateReplicateBody(task)
+                <<         generateReplicatePop(task)
+                <<         generateReplicateAcquire(task)
+                <<      "}"
+                ;
+        }
+        ss      <<   "}"
                 <<   generateCopyOutAcquire(task)
                 <<   generateFinalizer(task)
                 <<   "task_close();"
@@ -365,6 +393,70 @@ namespace TL { namespace Acotes {
         return ss.str();
     }
     
+    std::string TaskTransform::generateReplicatePeek(Task* task) {
+        assert(task);
+        
+        std::stringstream ss;
+        
+        const std::vector<Port*> &ports= task->getPortVector();
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            if (port->isControl() && port->isInput() && port->isReplicate()) {
+                ss << PortTransform::generateInputPeek(port);
+            }
+        }
+        
+        return ss.str();
+    }
+        
+    std::string TaskTransform::generateReplicateBody(Task* task) {
+        assert(task);
+        
+        std::stringstream ss;
+
+        const std::vector<TeamReplicate*> &replicates= task->getTeamReplicateVector();
+        for (unsigned i= 0; i < replicates.size(); i++) {
+            TeamReplicate* teamReplicate= replicates.at(i);
+            ss << TeamReplicateTransform::generateReplicate(teamReplicate);
+        }
+        
+        return ss.str();
+    }
+
+    std::string TaskTransform::generateReplicatePop(Task* task) {
+        assert(task);
+        
+        std::stringstream ss;
+        
+        const std::vector<Port*> &ports= task->getPortVector();
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            if (port->isControl() && port->isInput() && port->isReplicate()) {
+                ss << PortTransform::generatePop(port);
+            }
+        }
+        
+        return ss.str();
+    }
+
+    std::string TaskTransform::generateReplicateAcquire(Task* task) {
+        assert(task);
+        
+        std::stringstream ss;
+        
+        const std::vector<Port*> &ports= task->getPortVector();
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            if (port->isControl() && port->isReplicate()) {
+                assert(port->isInput());
+                ss << PortTransform::generateAcquire(port);
+            }
+        }
+        
+        return ss.str();
+    }
+
+
             
     /* ****************************************************************
      * * Replacement generation

@@ -27,6 +27,7 @@
 #include "ac-portconnection.h"
 #include "ac-state.h"
 #include "ac-taskgroup.h"
+#include "ac-teamreplicate.h"
 #include "ac-variable.h"
 
 namespace TL { namespace Acotes {
@@ -66,6 +67,7 @@ namespace TL { namespace Acotes {
     , body(NULL), construct(NULL)
     , taskgroup(NULL)
     , parent(NULL) 
+    , team(0)
     {    
     }
     
@@ -476,6 +478,41 @@ namespace TL { namespace Acotes {
         
         return result;
     }
+
     
+    
+    /* ****************************************************************
+     * * Team support
+     * ****************************************************************/
+    
+    bool Task::hasLeader() const
+    {
+        bool result= false;
+        
+        const std::vector<Port*> &ports= getPortVector();
+        for (unsigned i= 0; i < ports.size() && !result; i++) {
+            Port* port= ports.at(i);
+            result= port->isReplicate();
+        }
+        
+        return result;
+    }
+
+    
+
+    /* ****************************************************************
+     * * TeamReplicate relationship
+     * ****************************************************************/
+    
+    void Task::addTeamReplicate(TeamReplicate* teamReplicate) 
+    { 
+        assert(teamReplicate);
+        assert(teamReplicate->getTask() == this);
+        assert(hasLeader());
+        
+        teamReplicateVector.push_back(teamReplicate); 
+    }
+
+
 } /* end namespace Acotes */ } /* end namespace TL */
 

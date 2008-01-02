@@ -162,6 +162,7 @@ namespace TL { namespace Acotes {
     , control(false)
     , artificial(false)
     , named(false)
+    , replicate(false)
     {
     }
     

@@ -21,53 +21,42 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   tl-taskconstruct.h
+// File:   tl-teamreplicatetransform.h
 // Author: drodenas
 //
-// Created on 19 / desembre / 2007, 16:01
+// Created on 1 / gener / 2008, 18:35
 //
 
-#ifndef _TL_TASKCONSTRUCT_H
-#define	_TL_TASKCONSTRUCT_H
+#ifndef _TL_TEAMREPLICATETRANSFORM_H
+#define	_TL_TEAMREPLICATETRANSFORM_H
 
-#include <tl-langconstruct.hpp>
-#include <tl-pragmasupport.hpp>
+#include <string>
 
 namespace TL { namespace Acotes {
     
-    class Task;
+    class TeamReplicate;
     
-    class TaskConstruct
-    : public TL::PragmaCustomConstruct
-    {
-    // -- LangConstruct support
+    class TeamReplicateTransform {
+    // -- Transform
     public:
-        TaskConstruct(TL::LangConstruct langConstruct);
+        static void transform(TeamReplicate* teamReplicate);
     private:
-        TL::LangConstruct getBody();
-        TL::LangConstruct getConstruct();
+        static void transformReplacement(TeamReplicate* teamReplicate);
+        
+    // -- Generation
+    public:
+        static std::string generateReplicate(TeamReplicate* teamReplicate);
+    private:
+        static std::string generateReplacement(TeamReplicate* teamReplicate);
 
-    // -- CompilerPhase events
-    public:
-        void onPre();
-        void onPost();
+    // -- No Constructor
     private:
-        void onPreTeam(Task* task);
-        void onPreState(Task* task);
-        void onPreCopyInState(Task* task);
-        void onPreCopyOutState(Task* task);
-        void onPreInitializeState(Task* task);
-        void onPreFinalizeState(Task* task);
-        void onPreInputPort(Task* task);
-        void onPreInputReplicatePort(Task* task);
-        void onPreOutputPort(Task* task);
-        void onPreBypass(Task* task);
-        void onPreAsync(Task* task);
-        void onPreSync(Task* task);
+        TeamReplicateTransform();
     };
+    
     
 } /* end namespace Acotes */ } /* end namespace TL */
 
 
-#endif	/* _TL_TASKCONSTRUCT_H */
+#endif	/* _TL_TEAMREPLICATETRANSFORM_H */
 

@@ -168,6 +168,13 @@ namespace TL { namespace Acotes {
         ss      << ", (void*) 0, 0"
                 << ");";
         
+        if (port->isReplicate()) {
+            ss << "iport_replicate"
+                    << "( " << port->getTask()->getName()
+                    << ", " << port->getNumber()
+                    << ");";
+        }
+        
         return ss.str();
     }
     

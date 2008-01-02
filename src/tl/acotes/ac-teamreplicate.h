@@ -21,53 +21,50 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   tl-taskconstruct.h
+// File:   ac-teamreplicate.h
 // Author: drodenas
 //
-// Created on 19 / desembre / 2007, 16:01
+// Created on 1 / gener / 2008, 16:35
 //
 
-#ifndef _TL_TASKCONSTRUCT_H
-#define	_TL_TASKCONSTRUCT_H
+#ifndef _AC_TEAMREPLICATE_H
+#define	_AC_TEAMREPLICATE_H
 
-#include <tl-langconstruct.hpp>
-#include <tl-pragmasupport.hpp>
+#include "tl-langconstruct.hpp"
+
 
 namespace TL { namespace Acotes {
     
     class Task;
     
-    class TaskConstruct
-    : public TL::PragmaCustomConstruct
-    {
-    // -- LangConstruct support
+    class TeamReplicate {
+    // -- Creator
     public:
-        TaskConstruct(TL::LangConstruct langConstruct);
+        static TeamReplicate* create(TL::LangConstruct* construct, TL::LangConstruct* body, Task* task);
     private:
-        TL::LangConstruct getBody();
-        TL::LangConstruct getConstruct();
-
-    // -- CompilerPhase events
+        TeamReplicate();
+        
+    // -- LangConstruct handling 
     public:
-        void onPre();
-        void onPost();
+        TL::LangConstruct* getConstruct() const { return construct; }
+        TL::LangConstruct* getBody() const { return body; }
     private:
-        void onPreTeam(Task* task);
-        void onPreState(Task* task);
-        void onPreCopyInState(Task* task);
-        void onPreCopyOutState(Task* task);
-        void onPreInitializeState(Task* task);
-        void onPreFinalizeState(Task* task);
-        void onPreInputPort(Task* task);
-        void onPreInputReplicatePort(Task* task);
-        void onPreOutputPort(Task* task);
-        void onPreBypass(Task* task);
-        void onPreAsync(Task* task);
-        void onPreSync(Task* task);
+        void setConstruct(TL::LangConstruct* construct);
+        void setBody(TL::LangConstruct* body);
+        TL::LangConstruct* construct;
+        TL::LangConstruct* body;
+        
+    // -- Task relationship
+    public:
+        Task* getTask() const { return task; }
+    private:
+        void setTask(Task* task);
+        Task* task;
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */
 
 
-#endif	/* _TL_TASKCONSTRUCT_H */
+
+#endif	/* _AC_TEAMREPLICATE_H */
 

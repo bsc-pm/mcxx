@@ -43,6 +43,7 @@ namespace TL { namespace Acotes {
     class SharedUpdate;
     class State;
     class Taskgroup;
+    class TeamReplicate;
     class UserPort;
     class Variable;
     
@@ -169,7 +170,19 @@ namespace TL { namespace Acotes {
         
     // -- Team support
     public:
-        int getTeam() const { return 0; }
+        void setTeam(int team) { this->team= team; } 
+        int getTeam() const { return team; }
+        bool isTeam() const { return team; }
+        bool hasLeader() const;
+    private:
+        int team;
+        
+    // -- TeamReplicate relationship
+    public:
+        void addTeamReplicate(TeamReplicate* teamReplicate);
+        const std::vector<TeamReplicate*> &getTeamReplicateVector() { return teamReplicateVector; }        
+    private:
+        std::vector<TeamReplicate*> teamReplicateVector;
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */
