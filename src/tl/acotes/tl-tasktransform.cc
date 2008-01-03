@@ -52,6 +52,7 @@ namespace TL { namespace Acotes {
         
         // First transform all the children, recursive call
         transformChildren(task);
+        transformReplaceVariable(task);
         transformReplaceUserPort(task);
         transformReplaceSharedCheck(task);
         transformReplaceSharedUpdate(task);
@@ -90,6 +91,16 @@ namespace TL { namespace Acotes {
         Source outlineSource= generateOutline(task);
         AST_t outlineTree= outlineSource.parse_global(taskAST, taskScopeLink);
         taskAST.prepend_sibling_function(outlineTree);
+    }
+    
+    void TaskTransform::transformReplaceVariable(Task* task) {
+        assert(task);
+        
+        const std::vector<Variable*> &variables= task->getVariableVector();
+        for (unsigned i= 0; i < variables.size(); i++) {
+            Variable* variable= variables.at(i);
+            VariableTransform::transformReplacement(variable);
+        }
     }
     
     void TaskTransform::transformReplaceUserPort(Task* task) {

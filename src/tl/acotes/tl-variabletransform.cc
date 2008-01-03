@@ -25,10 +25,44 @@
 #include <assert.h>
 #include <sstream>
 
+#include <tl-langconstruct.hpp>
+#include <ac-task.h>
 #include <ac-variable.h>
 
 namespace TL { namespace Acotes {
 
+    /* ****************************************************************
+     * * Transform
+     * ****************************************************************/
+    
+    void VariableTransform::transformReplacement(Variable* variable)
+    {
+        assert(variable);
+        assert(variable->hasTask());
+        
+#if 0
+        //TL::Type type= symbol->get_type();
+        //TL::Type ptr_type= type.get_pointer_to();
+        //Task* task= variable->getTask();
+        //TL::LangConstruct body= task->getBody()[0];
+        //TL::Source replaceExpression= ptr_type.get_declaration(body.get_scope(), symbol.get_name());
+        
+        TL::Symbol symbol= variable->getSymbol();
+        Task* task= variable->getTask();
+        TL::LangConstruct& body= task->getBody()[0];
+        TL::Source replaceExpression;
+        replaceExpression << "(*" << symbol.get_name() << ")";
+        AST_t replaceAST= replaceExpression.parse_expression(body.get_ast(), body.get_scope_link());
+
+        std::cerr << "replacing " << symbol.get_name() << ": " << replaceAST.prettyprint() << std::endl;
+        TL::ReplaceIdExpression replaceIdExpression;
+        replaceIdExpression.add_replacement(symbol, replaceAST);
+        body= replaceIdExpression.replace(body);
+#endif
+    }
+    
+    
+    
     /* ****************************************************************
      * * Generation
      * ****************************************************************/
