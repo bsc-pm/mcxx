@@ -1,6 +1,6 @@
 /*
     Mercurium C/C++ Compiler
-    Copyright (C) 2006-2007 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
+    Copyright (C) 2006-2008 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
     Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
     Universitat Politecnica de Catalunya
 
