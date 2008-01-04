@@ -22,7 +22,7 @@
 
 namespace TL
 {
-    void OpenMPTransform::sections_preorder(OpenMP::SectionsConstruct sections_construct)
+    void OpenMPTransform::sections_preorder(OpenMP::SectionsConstruct /* sections_construct */)
     {
         // We push a new level of sections with zero "section" counted
         // so far

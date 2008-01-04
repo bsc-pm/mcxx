@@ -45,8 +45,8 @@ union tl_type_data_tag
     AST _ast;
     tl_type_array_t _array;
     char* _string;
-    scope_entry_t* _entry;
-    type_t* _type;
+    struct scope_entry_tag* _entry;
+    struct type_tag* _type;
 } tl_type_data_t;
 
 typedef 
@@ -58,8 +58,8 @@ enum tl_type_kind_tag
     TL_AST, // AST
     TL_STRING, // char*
     TL_ARRAY, // array of tl_types [unimplemented]
-    TL_SYMBOL, // scope_entry_t*
-    TL_TYPE,  // type_t*
+    TL_SYMBOL, // struct scope_entry_tag*
+    TL_TYPE,  // struct type_tag*
 } tl_type_kind_t;
 
 typedef 
@@ -73,7 +73,8 @@ tl_type_t tl_bool(char c);
 tl_type_t tl_integer(int i);
 tl_type_t tl_ast(AST a);
 tl_type_t tl_string(const char* str);
-tl_type_t tl_symbol(scope_entry_t* entry);
+tl_type_t tl_symbol(struct scope_entry_tag* entry);
+tl_type_t tl_type(struct type_tag* t);
 
 MCXX_END_DECLS
 

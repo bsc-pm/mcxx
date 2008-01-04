@@ -21,36 +21,29 @@
 #ifndef CXX_TYPEUNIF_H
 #define CXX_TYPEUNIF_H
 
-#include "cxx-ast.h"
-#include "cxx-scope.h"
-#include "cxx-buildscope.h"
 #include "cxx-macros.h"
+
+#include "cxx-ast-decls.h"
+#include "cxx-scope-decls.h"
+#include "cxx-buildscope-decls.h"
+#include "cxx-scope-decls.h"
+#include "cxx-typeunif-decls.h"
 
 MCXX_BEGIN_DECLS
 
-typedef 
-struct unification_item_tag
-{
-    // parameter type <- value
-    int parameter_position;
-    int parameter_nesting;
-    char* parameter_name;
-    
-    type_t* value;
-    AST expression;
-    decl_context_t decl_context;
-} unification_item_t;
 
-typedef struct 
-{
-    int num_elems;
-    unification_item_t** unif_list;
-} unification_set_t;
+void unificate_two_types(struct type_tag* t1, struct type_tag* t2, deduction_set_t** unif_set, decl_context_t decl_context, 
+        const char* filename, int line);
+void unificate_two_expressions(deduction_set_t **unif_set, 
+        struct AST_tag* left_tree, decl_context_t left_decl_context, 
+        struct AST_tag* right_tree, decl_context_t right_decl_context);
+char equivalent_dependent_expressions(struct AST_tag* left_tree, decl_context_t left_decl_context, struct AST_tag*
+        right_tree, decl_context_t right_decl_context, deduction_set_t** unif_set);
+char same_functional_expression(struct AST_tag* left_tree, decl_context_t left_decl_context, struct AST_tag* right_tree, 
+        decl_context_t right_decl_context);
 
-char unificate_two_types(type_t* t1, type_t* t2, unification_set_t** unif_set, decl_context_t decl_context);
-char unificate_two_expressions(unification_set_t **unif_set, 
-        AST left_tree, decl_context_t left_decl_context, 
-        AST right_tree, decl_context_t right_decl_context);
+deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction_set, 
+        struct scope_entry_tag* s1);
 
 MCXX_END_DECLS
 

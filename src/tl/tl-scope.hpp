@@ -58,7 +58,7 @@ namespace TL
             }
 
             Scope(const Scope& sc)
-                : _valid(1), _decl_context(sc._decl_context)
+                : Object(sc), _valid(1), _decl_context(sc._decl_context)
             {
             }
 

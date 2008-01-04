@@ -47,7 +47,7 @@ namespace TL
             // FIXME -> the scope should be the occurrence one
             int max_level = 0;
             char is_dependent = 0;
-            char* qualified_name = get_fully_qualified_symbol_name(_symbol, _symbol->decl_context, 
+            const char* qualified_name = get_fully_qualified_symbol_name(_symbol, _symbol->decl_context, 
                     &is_dependent, &max_level);
             return std::string(qualified_name);
         }
@@ -104,13 +104,13 @@ namespace TL
 
     bool Symbol::is_function() const
     {
-        return (this->_symbol->kind == SK_FUNCTION
-                || this->_symbol->kind == SK_TEMPLATE_FUNCTION);
+        return (this->_symbol->kind == SK_FUNCTION);
     }
 
     bool Symbol::is_template_function() const
     {
-        return (this->_symbol->kind == SK_TEMPLATE_FUNCTION);
+        return (this->_symbol->kind == SK_FUNCTION
+                && is_template_specialized_type(this->_symbol->type_information));
     }
 
     bool Symbol::is_typename() const
@@ -118,8 +118,6 @@ namespace TL
         return (this->_symbol->kind == SK_TYPEDEF
                 || this->_symbol->kind == SK_ENUM
                 || this->_symbol->kind == SK_CLASS
-                || this->_symbol->kind == SK_TEMPLATE_PRIMARY_CLASS
-                || this->_symbol->kind == SK_TEMPLATE_SPECIALIZED_CLASS
                 || this->_symbol->kind == SK_TEMPLATE_TYPE_PARAMETER);
     }
 

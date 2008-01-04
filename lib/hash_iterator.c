@@ -22,8 +22,12 @@
 #include "hash_iterator.h"
 #include "mem_ctl.h"
 
+#ifdef __GNUC__
+  #define UNUSED_PARAM __attribute__((unused))
+#endif
+
 static void
-hash_iterator_end (HashIterator * i)
+hash_iterator_end (HashIterator * i UNUSED_PARAM)
 {
 }
 
@@ -62,7 +66,7 @@ hash_iterator_item (HashIterator * i)
 }
 
 static void
-hash_iterator_remove (HashIterator * i)
+hash_iterator_remove (HashIterator * i UNUSED_PARAM)
 {
 /* Not implemented until be have iterator locking support for hashing */
 }
@@ -74,7 +78,8 @@ IteratorOps hash_iterator_ops = {
   (void (*)(Iterator *)) hash_iterator_next,
   (void (*)(Iterator *)) hash_iterator_remove,
   (void (*)(Iterator *)) hash_iterator_end,
-  (void (*)(Iterator *)) noop_free
+  (void (*)(Iterator *)) noop_free,
+  (int (*)(Iterator *)) NULL
 };
 
 void

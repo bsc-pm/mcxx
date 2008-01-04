@@ -31,17 +31,12 @@
 #define	_TL_VARIABLETRANSFORM_H
 
 #include <string>
-#include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
     
     class Variable;
     
     class VariableTransform {
-    // -- Transform
-    public:
-        static void transformReplacement(Variable* variable);
-        
     // -- Generation
     public:
         static std::string generateVariable(Variable* variable);

@@ -96,6 +96,8 @@ compilation_process_t compilation_process;
 "  --variable=<name:value>  Defines variable 'name' with value\n" \
 "                           'value' to be used in the compiler\n" \
 "                           phases pipeline\n" \
+"  --typecheck              Strict typechecking. If an expression\n" \
+"                           cannot be checked compilation fails.\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -150,6 +152,7 @@ struct command_line_long_options command_line_long_options[] =
     {"help-debug-flags", CLP_NO_ARGUMENT, OPTION_HELP_DEBUG_FLAGS},
     {"no-openmp", CLP_NO_ARGUMENT, OPTION_NO_OPENMP},
     {"variable", CLP_REQUIRED_ARGUMENT, OPTION_EXTERNAL_VAR},
+    {"typecheck", CLP_NO_ARGUMENT, OPTION_TYPECHECK},
     // sentinel
     {NULL, 0, 0}
 };
@@ -575,6 +578,12 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
                                 new_external_var);
                         break;
                     }
+                case OPTION_TYPECHECK :
+                    {
+                        CURRENT_CONFIGURATION(strict_typecheck) = 1;
+
+                        break;
+                    }
                 case 'h' :
                     {
                         return 1;
@@ -655,7 +664,8 @@ static void add_parameter_all_toolchain(char *argument)
     add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), argument);
 }
 
-static int parse_special_parameters(int *index, int argc, char* argv[])
+static int parse_special_parameters(int *index, int argc UNUSED_PARAMETER,
+        char* argv[])
 {
     // FIXME: This function should use gperf-ectionated
     // This code can be written better
@@ -1188,7 +1198,7 @@ static void compile_every_translation_unit(void)
 }
 
 static void compiler_phases_execution(translation_unit_t* translation_unit, 
-        char* parsed_filename)
+        char* parsed_filename UNUSED_PARAMETER)
 {
     timing_t time_phases;
     timing_start(&time_phases);
@@ -1256,7 +1266,8 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
     check_tree(translation_unit->parsed_tree);
 }
 
-static char* prettyprint_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
+static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
+        char* parsed_filename UNUSED_PARAMETER)
 {
     if (CURRENT_CONFIGURATION(do_not_prettyprint))
     {
@@ -1321,12 +1332,16 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
         fprintf(stderr, "Prettyprinted into file '%s' in %.2f seconds\n", output_filename, timing_elapsed(&time_print));
     }
 
-    fclose(prettyprint_file);
+    if (prettyprint_file != stdout)
+    {
+        fclose(prettyprint_file);
+    }
 
     return output_filename;
 }
 
-static char* preprocess_file(translation_unit_t* translation_unit, char* input_filename)
+static char* preprocess_file(translation_unit_t* translation_unit UNUSED_PARAMETER, 
+        char* input_filename)
 {
     int num_arguments = count_null_ended_array((void**)CURRENT_CONFIGURATION(preprocessor_options));
 
@@ -1512,13 +1527,19 @@ static char check_tree(AST a)
         fprintf(stderr, "============================\n");
         prettyprint(stderr, ambiguous_node);
         fprintf(stderr, "\n============================\n");
-        fprintf(stderr, " at %s\n", node_information(ambiguous_node));
+        fprintf(stderr, " at %s\n", ast_location(ambiguous_node));
         fprintf(stderr, "============================\n");
         ast_dump_graphviz(ambiguous_node, stderr);
         fprintf(stderr, "============================\n");
         internal_error("Tree still contains ambiguities", 0);
 
         return 0;
+    }
+
+    // Check consistency of links
+    if (!ast_check(a))
+    {
+        internal_error(stderr, "Tree is inconsistent\n", 0);
     }
 
     return 1;

@@ -69,9 +69,13 @@ static int fi = 0;
 static void list_iterator_free(ListIterator * i)
 {
     if (i == &fast_it)
+    {
         fi = 0;
+    }
     else
+    {
         FREE(i);
+    }
 }
 
 #if 1                           /* JAIRO */
@@ -147,7 +151,8 @@ IteratorOps list_riterator_ops = {
     (void (*)(Iterator *)) list_riterator_next,
     (void (*)(Iterator *)) list_iterator_remove,
     (void (*)(Iterator *)) list_iterator_end,
-    (void (*)(Iterator *)) noop_free
+    (void (*)(Iterator *)) noop_free,
+    (int (*)(Iterator *)) NULL
 };
 
 void list_riterator_init(ListIterator * i, List * l)

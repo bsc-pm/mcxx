@@ -57,7 +57,7 @@ namespace TL
         //  First get the extended attribute
         char found = 0;
         void* p = extensible_struct_get_field_pointer_lazy(&ast_extensible_schema,
-                this->_ast->extended_data,
+                ast_get_extensible_struct(this->_ast),
                 name.c_str(),
                 &found);
 
@@ -196,30 +196,31 @@ namespace TL
         }
 
         AST previous_parent = ASTParent(this->_ast);
-        *(this->_ast) = *(ast._ast);
-        ASTParent(this->_ast) = previous_parent;
+        ast_replace(this->_ast, ast._ast);
+        ast_set_parent(this->_ast, previous_parent);
 
         // Relink sons
         for (int i = 0; i < ASTNumChildren(this->_ast); i++)
         {
             if (ASTChild(this->_ast, i) != NULL)
             {
-                ASTParent(ASTChild(this->_ast, i)) = this->_ast;
+                ast_set_parent(ASTChild(this->_ast, i), this->_ast);
             }
         }
     }
 
     AST_t AST_t::duplicate() const
     {
-        AST_t result(duplicate_ast(this->_ast));
+        AST_t result(ast_copy(this->_ast));
         return result;
     }
 
     std::pair<AST_t, ScopeLink> AST_t::duplicate_with_scope(ScopeLink scope_link) const
     {
-        scope_link_t* new_sl = scope_link_new(scope_link._scope_link->global_decl_context);
+        scope_link_t* new_sl = scope_link_new(
+                scope_link_get_global_decl_context(scope_link._scope_link));
 
-        AST duplicated_tree = duplicate_ast_with_scope_link(this->_ast, scope_link._scope_link, new_sl);
+        AST duplicated_tree = ast_copy_with_scope_link(this->_ast, scope_link._scope_link, new_sl);
 
         ScopeLink sl(new_sl);
         AST_t ast(duplicated_tree);
@@ -301,7 +302,7 @@ namespace TL
 
         if (this_declaration_seq == NULL)
         {
-            ASTSon0(this_translation_unit) = tree_declaration_seq;
+            ast_set_child(this_translation_unit, 0, tree_declaration_seq);
         }
         else
         {
@@ -330,7 +331,7 @@ namespace TL
 
         if (this_declaration_seq == NULL)
         {
-            ASTSon0(this_translation_unit) = tree_declaration_seq;
+            ast_set_child(this_translation_unit, 0, tree_declaration_seq);
         }
         else
         {
@@ -357,7 +358,7 @@ namespace TL
             {
                 if (ASTChild(parent, i) == prepended_list)
                 {
-                    ASTChild(parent, i) = NULL;
+                    ast_set_child(parent, i, NULL);
                     break;
                 }
             }
@@ -366,8 +367,7 @@ namespace TL
         // Now make the prepended_list as the son
         AST original_previous = ASTSon0(orig_list);
 
-        ASTSon0(orig_list) = prepended_list;
-        ASTParent(prepended_list) = orig_list;
+        ast_set_child(orig_list, 0, prepended_list);
 
         // Go to the deeper node of prepended_list
         AST iter = prepended_list;
@@ -376,11 +376,7 @@ namespace TL
             iter = ASTSon0(iter);
         }
 
-        ASTSon0(iter) = original_previous;
-        if (original_previous != NULL)
-        {
-            ASTParent(original_previous) = iter;
-        }
+        ast_set_child(iter, 0, original_previous);
     }
 
     void AST_t::append_list(AST orig_list, AST appended_list)
@@ -405,8 +401,7 @@ namespace TL
             iter = ASTSon0(iter);
         }
 
-        ASTSon0(iter) = orig_list;
-        ASTParent(orig_list) = iter;
+        ast_set_child(iter, 0, orig_list);
     }
 
     void AST_t::relink_parent(AST previous_child, AST new_child)
@@ -440,12 +435,11 @@ namespace TL
             }
 
             // Disable for sanity this son now
-            ASTChild(parent, j) = NULL;
+            ast_set_child(parent, j, NULL);
         }
 
         // Relink
-        ASTChild(parent, i) = new_child;
-        ASTParent(new_child) = parent;
+        ast_set_child(parent, i, new_child);
     }
 
     // AST AST_t::get_translation_unit()
@@ -527,44 +521,12 @@ namespace TL
     }
 
 
-    void AST_t::append_to_member_spec(AST member_spec, AST member_decl)
+    void AST_t::append_to_member_spec(AST, AST)
     {
-        // AST new_member_spec = ASTMake3(AST_MEMBER_SPEC, NULL, member_decl, 
-        //         ASTSon2(member_spec), ASTLine(member_spec), NULL);
-        // ASTSon2(member_spec) = new_member_spec;
-        // ASTParent(new_member_spec) = member_spec;
     }
 
-    void AST_t::prepend_to_member_spec(AST member_spec, AST member_decl)
+    void AST_t::prepend_to_member_spec(AST, AST)
     {
-        // AST orig_parent = ASTParent(member_spec);
-        // AST new_member_spec = NULL;
-        // if (ASTSon0(member_spec) != NULL)
-        // {
-        //     AST aux_member_spec = ASTMake3(AST_MEMBER_SPEC, NULL, member_decl, member_spec, 
-        //             ASTLine(member_spec), NULL);
-        //     new_member_spec = ASTMake3(AST_MEMBER_SPEC, ASTSon0(member_spec),
-        //             NULL, aux_member_spec, ASTLine(aux_member_spec), NULL);
-        //     ASTSon0(member_spec) = NULL;
-        // }
-        // else
-        // {
-        //     new_member_spec = ASTMake3(AST_MEMBER_SPEC, NULL, member_decl, member_spec,
-        //             ASTLine(member_spec), NULL);
-        // }
-
-        // ASTParent(new_member_spec) = orig_parent;
-
-        // if (orig_parent != NULL)
-        // {
-        //     for (int i = 0; i < ASTNumChildren(orig_parent); i++)
-        //     {
-        //         if (ASTChild(orig_parent, i) == member_spec)
-        //         {
-        //             ASTChild(orig_parent, i) = new_member_spec;
-        //         }
-        //     }
-        // }
     }
 
     void AST_t::append(AST_t t)
@@ -665,7 +627,7 @@ namespace TL
 
         if (next != NULL)
         {
-            ASTParent(next) = parent;
+            ast_set_parent(next, parent);
         }
 
         int i;
@@ -673,7 +635,7 @@ namespace TL
         {
             if (ASTChild(parent, i) == list)
             {
-                ASTChild(parent, i) = next;
+                ast_set_child(parent, i, next);
                 break;
             }
         }
@@ -735,11 +697,7 @@ namespace TL
             list = ASTSon0(list);
         }
 
-        ASTSon0(list) = previous;
-        if (previous != NULL)
-        {
-            ASTParent(previous) = list;
-        }
+        ast_set_child(list, 0, previous);
     }
 
     void AST_t::prepend_sibling_function(AST_t t)
@@ -758,9 +716,8 @@ namespace TL
         prepend_list(list, prepended_list);
     }
 
-    void AST_t::append_sibling_function(AST_t t)
+    void AST_t::append_sibling_function(AST_t)
     {
-        // TODO
     }
 
     void AST_t::replace_text(const std::string& str)
@@ -768,7 +725,7 @@ namespace TL
         if (this->_ast == NULL)
             return;
 
-        ASTText(this->_ast) = strdup(str.c_str());
+        ast_set_text(this->_ast, str.c_str());
     }
 
     int AST_t::get_line() const
@@ -791,7 +748,7 @@ namespace TL
         }
         else
         {
-            return this->_ast->filename;
+            return ast_get_filename(this->_ast);
         }
     }
 
@@ -825,7 +782,7 @@ namespace TL
             if (ast != NULL)
             {
                 std::cerr << "Node at '" 
-                    << ast->filename << ":" << ASTLine(ast) 
+                    << ast_get_filename(ast) << ":" << ASTLine(ast) 
                     << "' is not a list" << std::endl;
             }
             _ast = NULL;

@@ -19,6 +19,7 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "tl-source.hpp"
+#include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
 #include <iostream>
 #include <sstream>
@@ -152,9 +153,11 @@ namespace TL
                     format_source(this->get_source(true)).c_str());
         }
 
-        // solve_possibly_ambiguous_expression(a, ctx._decl_context);
+        enter_test_expression();
+        char c = check_for_expression(a, ctx._decl_context);
+        leave_test_expression();
 
-        if (!check_for_expression(a, ctx._decl_context))
+        if (!c)
         {
             WARNING_MESSAGE("Internally parsed expression '%s' could not be properly checked\n",
                     prettyprint_in_buffer(a));
@@ -197,7 +200,11 @@ namespace TL
                     format_source(this->get_source(true)).c_str());
         }
 
-        if (!check_for_expression(a, ctx._decl_context))
+        enter_test_expression();
+        char c = check_for_expression(a, ctx._decl_context);
+        leave_test_expression();
+
+        if (!c)
         {
             WARNING_MESSAGE("Internally parsed expression '%s' could not be properly checked\n",
                     prettyprint_in_buffer(a));
@@ -330,7 +337,7 @@ namespace TL
         return result;
     }
 
-    AST_t Source::parse_declaration(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags parse_flags)
+    AST_t Source::parse_declaration(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags)
     {
         return parse_declaration_inner(ctx, scope_link);
     }
@@ -434,9 +441,14 @@ namespace TL
         // Get the scope and declarating context of the reference tree
         CURRENT_CONFIGURATION(scope_link) = scope_link._scope_link;
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
-        if (a != NULL && !do_not_check_expression)
+
+        if (a != NULL)
         {
-            if (!check_for_expression(a, decl_context))
+            enter_test_expression();
+            char c = check_for_expression(a, decl_context);
+            leave_test_expression();
+
+            if (!c && !do_not_check_expression)
             {
                 WARNING_MESSAGE("Could not check expression '%s'\n", prettyprint_in_buffer(a));
             }

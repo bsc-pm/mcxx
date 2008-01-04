@@ -21,8 +21,8 @@
 #ifndef CXX_GRAPHVIZ_H
 #define CXX_GRAPHVIZ_H
 
-#include "cxx-ast.h"
 #include "cxx-macros.h"
+#include "cxx-ast-decls.h"
 
 MCXX_BEGIN_DECLS
 

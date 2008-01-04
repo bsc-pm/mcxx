@@ -2420,8 +2420,8 @@ string_literal : STRING_LITERAL
 {
 	// Let's concatenate here, it will ease everything
 
-	char* str1 = ASTText($1);
-	char* str2 = $2.token_text;
+	const char* str1 = ASTText($1);
+	const char* str2 = $2.token_text;
 	char* text = calloc(strlen(str1) + strlen(str2) + 1, sizeof(*text));
 
 	strcat(text, str1);
@@ -2442,69 +2442,9 @@ string_literal : STRING_LITERAL
 
 %%
 
-static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
-{
-	// return ASTMake2(AST_AMBIGUITY, x0.ast, x1.ast, 0, NULL);
-	AST son0 = x0.ast;
-	AST son1 = x1.ast;
+/*!include cxx-ambig-handler.y */
 
-	if (son0 == son1) 
-	{
-		fprintf(stderr, "Ambiguity function received two trees that are the same!");
-		exit(EXIT_FAILURE);
-	}
-
-	if (ASTType(son0) == AST_AMBIGUITY)
-	{
-		if (ASTType(son1) == AST_AMBIGUITY)
-		{
-			int original_son0 = son0->num_ambig;
-
-			son0->num_ambig += son1->num_ambig;
-			son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
-			
-			int i;
-			for (i = 0; i < son1->num_ambig; i++)
-			{
-				son0->ambig[original_son0 + i] = son1->ambig[i];
-			}
-
-			return son0;
-		}
-		else
-		{
-			son0->num_ambig++;
-			son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
-			son0->ambig[son0->num_ambig-1] = duplicate_ast(son1);
-
-			return son0;
-		}
-	}
-	else if (ASTType(son1) == AST_AMBIGUITY)
-	{
-		son1->num_ambig++;
-		son1->ambig = (AST*) realloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
-		son1->ambig[son1->num_ambig-1] = duplicate_ast(son0);
-
-		return son1;
-	}
-	else
-	{
-		AST result = ASTLeaf(AST_AMBIGUITY, 0, NULL);
-
-		result->num_ambig = 2;
-		result->ambig = calloc(sizeof(*(result->ambig)), result->num_ambig);
-		// This avoids some problems with bison reusing stacks
-		result->ambig[0] = duplicate_ast(son0);
-		result->ambig[1] = duplicate_ast(son1);
-		result->line = son0->line;
-		result->filename = son0->filename;
-
-		return result;
-	}
-}
-
-void yyerror(AST* parsed_tree, const char* c)
+void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
 	// Current token
 	extern char* mc99text;

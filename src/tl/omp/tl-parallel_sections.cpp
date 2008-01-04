@@ -22,7 +22,7 @@
 
 namespace TL
 {
-    void OpenMPTransform::parallel_sections_preorder(OpenMP::ParallelSectionsConstruct parallel_sections_construct)
+    void OpenMPTransform::parallel_sections_preorder(OpenMP::ParallelSectionsConstruct /* parallel_sections_construct */)
     {
         ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
         inner_reductions_stack.push(inner_reductions);

@@ -42,9 +42,13 @@ void iterator_destroy(Iterator * i)
 
     iterator_end(i);
     if (i->ops->free)
+    {
         i->ops->free(i);
+    }
     else
+    {
         FREE(i);
+    }
 }
 
 void iterator_first(Iterator * i)

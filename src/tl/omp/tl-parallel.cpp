@@ -22,7 +22,7 @@
 
 namespace TL
 {
-    void OpenMPTransform::parallel_preorder(OpenMP::ParallelConstruct parallel_construct)
+    void OpenMPTransform::parallel_preorder(OpenMP::ParallelConstruct)
     {
         ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
         inner_reductions_stack.push(inner_reductions);
@@ -174,7 +174,7 @@ namespace TL
             ObjectList<IdExpression> lastprivate_references,
             ObjectList<OpenMP::ReductionIdExpression> reduction_references,
             ObjectList<IdExpression> copyin_references,
-            ObjectList<IdExpression> copyprivate_references,
+            ObjectList<IdExpression> /* copyprivate_references - ???*/,
             bool never_instrument /* = false */
             )
     {

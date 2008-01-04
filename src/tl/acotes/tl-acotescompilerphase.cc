@@ -28,7 +28,6 @@
 #include "tl-sharedconstruct.h"
 #include "tl-taskconstruct.h"
 #include "tl-taskgroupconstruct.h"
-#include "tl-teamreplicateconstruct.h"
 #include "tl-userportconstruct.h"
 
 namespace TL { namespace Acotes {
@@ -92,14 +91,6 @@ namespace TL { namespace Acotes {
             functor(&AcotesCompilerPhase::onPostSharedConstruct, *this)
             );
         register_construct("shared");
-         
-        on_directive_pre["teamreplicate"].connect(
-            functor(&AcotesCompilerPhase::onPreTeamReplicateConstruct, *this)
-            );
-        on_directive_post["teamreplicate"].connect(
-            functor(&AcotesCompilerPhase::onPostTeamReplicateConstruct, *this)
-            );
-        register_construct("teamreplicate");
     }
     
     /**
@@ -220,18 +211,6 @@ namespace TL { namespace Acotes {
         shared.onPost();
     }
  
-    void AcotesCompilerPhase::onPreTeamReplicateConstruct(PragmaCustomConstruct construct)
-    {
-        TeamReplicateConstruct custom(construct);
-        custom.onPre();
-    }
-    
-    void AcotesCompilerPhase::onPostTeamReplicateConstruct(PragmaCustomConstruct construct)
-    {
-        TeamReplicateConstruct custom(construct);
-        custom.onPost();
-    }
-    
     
     
     /* ****************************************************************

@@ -59,27 +59,34 @@ CLEANFILES += cxx-configoptions.c
 cxx-configoptions.c : $(srcdir)/cxx-configoptions.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/cxx-configfile.h
 	gperf --language=ANSI-C --hash-function-name=configoptions_hash --struct-type \
       --lookup-function-name=configoptions_lookup --output=cxx-configoptions.c \
-      $(srcdir)/cxx-configoptions.gperf
+      --initializer-suffix=,NULL $(srcdir)/cxx-configoptions.gperf
 
 CLEANFILES += cxx-fileextensions.c
 cxx-fileextensions.c : $(srcdir)/cxx-fileextensions.gperf $(top_srcdir)/src/driver/cxx-driver.h
 	gperf --language=ANSI-C --hash-function-name=fileextensions_hash --struct-type \
       --lookup-function-name=fileextensions_lookup --output=cxx-fileextensions.c \
-      $(srcdir)/cxx-fileextensions.gperf
+      --initializer-suffix=,SOURCE_LANGUAGE_UNKNOWN,SOURCE_KIND_UNKNOWN $(srcdir)/cxx-fileextensions.gperf
 
 CLEANFILES += cxx-debugflags.c
 cxx-debugflags.c : $(srcdir)/cxx-debugflags.gperf $(top_srcdir)/src/driver/cxx-driver.h $(top_srcdir)/src/frontend/cxx-utils.h
 	gperf --language=ANSI-C --hash-function-name=debugflags_hash --struct-type \
       --lookup-function-name=debugflags_lookup --output=cxx-debugflags.c \
-      --global-table --word-array-name=debugflags_list\
-	  $(srcdir)/cxx-debugflags.gperf
+      --global-table --word-array-name=debugflags_list \
+	  "--initializer-suffix=,0,\"\"" $(srcdir)/cxx-debugflags.gperf
 endif
 
 # Install hooks
 # installs "mcc" as a soft link of mcxx
 install-exec-hook: 
-	-(cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) mcxx mcc)
+	for compiler_name in @COMPILER_NAMES@; \
+		do \
+			(cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) mcxx $${compiler_name}) \
+		done
+	
 
 uninstall-local:
-	rm -f $(DESTDIR)/$(mcxxexecdir)/mcc
+	for compiler_name in @COMPILER_NAMES@; \
+		do \
+			rm -f $(DESTDIR)/$(mcxxexecdir)/$${compiler_name}
+		done
 

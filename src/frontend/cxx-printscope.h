@@ -21,9 +21,10 @@
 #ifndef CXX_PRINTSCOPE_H
 #define CXX_PRINTSCOPE_H
 
-#include "cxx-scope.h"
-#include "cxx-ast.h"
 #include "cxx-macros.h"
+
+#include "cxx-scope-decls.h"
+#include "cxx-ast-decls.h"
 
 MCXX_BEGIN_DECLS
 

@@ -782,7 +782,7 @@ namespace TL
     }
 
     ReplaceIdExpression OpenMPTransform::set_replacements_chunk(FunctionDefinition function_definition,
-            OpenMP::Directive directive,
+            OpenMP::Directive /* directive */,
             Statement construct_body,
             ObjectList<IdExpression>& captureaddress_references,
             ObjectList<IdExpression>& capturevalue_references,
@@ -889,7 +889,7 @@ namespace TL
      * 
      */
 
-    void OpenMPTransform::task_for_preorder(OpenMP::CustomConstruct task_for_construct)
+    void OpenMPTransform::task_for_preorder(OpenMP::CustomConstruct /* task_for_construct */)
     {
         // ??
     }

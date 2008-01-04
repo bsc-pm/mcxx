@@ -1,0 +1,40 @@
+#ifndef CXX_TYPEUNIF_DECLS_H
+#define CXX_TYPEUNIF_DECLS_H
+
+#include "cxx-macros.h"
+
+#include "cxx-type-decls.h"
+#include "cxx-ast-decls.h"
+#include "cxx-buildscope-decls.h"
+
+MCXX_BEGIN_DECLS
+
+typedef
+struct deduced_parameter_tag
+{
+    struct type_tag* type;
+    struct AST_tag* expression;
+    decl_context_t decl_context;
+} deduced_parameter_t;
+
+typedef 
+struct deduction_tag
+{
+    enum template_parameter_kind kind;
+    int parameter_position;
+    int parameter_nesting;
+    const char* parameter_name;
+    
+    int num_deduced_parameters;
+    deduced_parameter_t** deduced_parameters;
+} deduction_t;
+
+typedef struct deduction_set_tag
+{
+    int num_deductions;
+    deduction_t** deduction_list;
+} deduction_set_t;
+
+MCXX_END_DECLS
+
+#endif // CXX_TYPEUNIF_DECLS_H

@@ -39,7 +39,7 @@ namespace TL
             scope_entry_t* _symbol;
 
         private:
-            virtual tl_type_t* get_extended_attribute(const std::string& str) const
+            virtual tl_type_t* get_extended_attribute(const std::string&) const
             {
                 return NULL;
             }

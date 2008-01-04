@@ -23,6 +23,8 @@
 
 #include "cxx-graphviz.h"
 
+#include "cxx-ast.h"
+
 /*
    ****************************************************
    Graphviz Output
@@ -55,12 +57,12 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
         if (ASTText(a))
         {
             fprintf(f, "n%d[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: -%s-\"]\n", 
-                    node_actual, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), node_information(a), ASTText(a));
+                    node_actual, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a), ASTText(a));
         }
         else
         {
             fprintf(f, "n%d[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\"]\n", 
-                    node_actual, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), node_information(a));
+                    node_actual, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a));
         }
 
         if (parent_node != 0)
@@ -72,7 +74,7 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
         if (ASTType(a) != AST_AMBIGUITY)
         {
             int i;
-            for(i = 0; i < a->num_children; i++)
+            for(i = 0; i < ASTNumChildren(a); i++)
             {
                 ast_dump_graphviz_rec(ASTChild(a, i),f,  node_actual, i);
             }
@@ -80,9 +82,9 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
         else if (ASTType(a) == AST_AMBIGUITY)
         {
             int i;
-            for(i = 0; i < a->num_ambig; i++)
+            for(i = 0; i < ast_get_num_ambiguities(a); i++)
             {
-                ast_dump_graphviz_rec(a->ambig[i], f, node_actual, i);
+                ast_dump_graphviz_rec(ast_get_ambiguity(a, i), f, node_actual, i);
             }
         }
     }

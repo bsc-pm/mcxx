@@ -22,7 +22,7 @@
 
 namespace TL
 {
-    void OpenMPTransform::parallel_single_preorder(OpenMP::ParallelSingleConstruct parallel_single_construct)
+    void OpenMPTransform::parallel_single_preorder(OpenMP::ParallelSingleConstruct /* parallel_single_construct */)
     {
         // Allocate a new element for inner reductions
         ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
@@ -172,7 +172,7 @@ namespace TL
             ObjectList<IdExpression> lastprivate_references,
             ObjectList<OpenMP::ReductionIdExpression> reduction_references,
             ObjectList<IdExpression> copyin_references,
-            ObjectList<IdExpression> copyprivate_references
+            ObjectList<IdExpression> /* copyprivate_references --?? */
             )
     {
         ObjectList<IdExpression> pass_by_value;

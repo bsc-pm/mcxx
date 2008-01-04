@@ -44,6 +44,7 @@ typedef enum
     OPTION_EXTERNAL_VAR,
     OPTION_CONFIG_FILE,
     OPTION_PROFILE,
+    OPTION_TYPECHECK,
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
@@ -84,7 +85,7 @@ typedef struct translation_unit_tag
     char* input_filename;
     char* output_filename;
 
-    AST parsed_tree;
+    struct AST_tag* parsed_tree;
     decl_context_t global_decl_context;
     scope_link_t* scope_link;
 
@@ -214,6 +215,9 @@ typedef struct compilation_configuration_tag
     int num_pragma_custom_prefix;
     char** pragma_custom_prefix;
     pragma_directive_set_t **pragma_custom_prefix_info;
+
+    // Enable strict typecheck (will fail if something can't be verified or fails)
+    char strict_typecheck;
 
     // Type environment
     struct type_environment_tag* type_environment;

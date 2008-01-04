@@ -348,7 +348,7 @@ namespace TL
         Source src;
         src << str;
 
-        AST_t tree = src.parse_expression(ref_tree, scope_link);
+        AST_t tree = src.parse_expression(ref_tree, scope_link, Source::DO_NOT_CHECK_EXPRESSION);
 
         _repl_map[sym] = tree;
     }
@@ -763,13 +763,9 @@ namespace TL
         // We need access to the inner representation of the tree
         AST_t expr = this->_ref;
         AST expr_tree = expr._ast;
-        Scope sc = this->get_scope();
 
-        decl_context_t decl_context = scope_link_get_decl_context(_scope_link._scope_link, expr_tree);
-        char c_is_lvalue = 0;
-        type_t* expression_type = compute_expression_type(expr_tree, sc._decl_context, &c_is_lvalue);
-
-        is_lvalue = c_is_lvalue;
+        type_t* expression_type = ASTExprType(expr_tree);
+        is_lvalue = ASTExprLvalue(expr_tree);
 
         Type result(expression_type);
         return result;

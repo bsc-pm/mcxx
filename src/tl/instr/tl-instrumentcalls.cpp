@@ -39,7 +39,7 @@ namespace TL
     {
     }
 
-    void InstrumentCalls::InstrumentCallsFunctor::preorder(Context ctx, AST_t node)
+    void InstrumentCalls::InstrumentCallsFunctor::preorder(Context, AST_t)
     {
         // Do nothing
     }
@@ -237,12 +237,12 @@ namespace TL
     {
     }
 
-    void InstrumentCalls::MainWrapper::preorder(Context ctx, AST_t node)
+    void InstrumentCalls::MainWrapper::preorder(Context, AST_t)
     {
         // Do nothing
     }
 
-    void InstrumentCalls::MainWrapper::postorder(Context ctx, AST_t node)
+    void InstrumentCalls::MainWrapper::postorder(Context, AST_t node)
     {
         FunctionDefinition function_def(node, _sl);
         IdExpression function_name = function_def.get_function_name();

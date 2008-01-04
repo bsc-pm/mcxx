@@ -22,8 +22,8 @@
 #define CXX_PRETTYPRINT_H
 
 #include <stdio.h>
-#include "cxx-ast.h"
 #include "cxx-macros.h"
+#include "cxx-ast-decls.h"
 
 MCXX_BEGIN_DECLS
 

@@ -30,8 +30,8 @@ extern "C" {
 
 typedef struct _hashnode HashNode;
 typedef struct _hash Hash;
-typedef int HASH_FUNC (void *key, int size);
-typedef int KEYCMP_FUNC (void *key1, void *key2);
+typedef int HASH_FUNC (const void *key, int size);
+typedef int KEYCMP_FUNC (const void *key1, const void *key2);
 
 enum HashOps_tag
 { HASH_FREE_KEYS, HASH_FREE_ITEMS, HASH_KEYS_DESTRUCTOR,
@@ -43,7 +43,7 @@ enum HashOps_tag
 
 struct _hashnode
 {
-  void *key;
+  const void *key;
   void *item;
 
   HashNode *next;
@@ -72,17 +72,17 @@ Hash *hash_create (int size, HASH_FUNC * hash_func,
            KEYCMP_FUNC * keycmp_func);
 void hash_dump (Hash * h);
 void hash_destroy (Hash * h);
-void hash_put (Hash * h, void *key, void *item);
-HashNode *hash_getnode (Hash * h, int i, void *key);
-void *hash_get (Hash * h, void *key);
-void *hash_delete (Hash * h, void *key);
+void hash_put (Hash * h, const void *key, void *item);
+HashNode *hash_getnode (Hash * h, int i, const void *key);
+void *hash_get (Hash * h, const void *key);
+void *hash_delete (Hash * h, const void *key);
 
 /* useful hash functions */
 
-int hash_string (char *name, int size);
-int hash_caseless_string (char *name, int size);
-int prime_hash(char* key, int hash_size);
-int pointer_hash(void* key, int size);
+int hash_string (const char *name, int size);
+int hash_caseless_string (const char *name, int size);
+int prime_hash(const char* key, int hash_size);
+int pointer_hash(const void* key, int size);
 
 // Useful things for string hashes
 #define HASH_SIZE (23)

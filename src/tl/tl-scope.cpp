@@ -51,7 +51,7 @@ namespace TL
         }
     }
 
-    tl_type_t* Scope::get_extended_attribute(const std::string& str) const
+    tl_type_t* Scope::get_extended_attribute(const std::string&) const
     {
         return NULL;
     }

@@ -124,8 +124,13 @@ do { \
 #define DEBUG_CODE() if (CURRENT_CONFIGURATION(debug_options.enable_debug_code))
 #define NOT_DEBUG_CODE() if (!CURRENT_CONFIGURATION(debug_options.enable_debug_code))
 
-#define CXX_LANGUAGE() if (CURRENT_CONFIGURATION(source_language) == SOURCE_LANGUAGE_CXX)
-#define C_LANGUAGE() if (CURRENT_CONFIGURATION(source_language) == SOURCE_LANGUAGE_C)
+#define IS_CXX_LANGUAGE (CURRENT_CONFIGURATION(source_language) == SOURCE_LANGUAGE_CXX)
+#define IS_C_LANGUAGE (CURRENT_CONFIGURATION(source_language) == SOURCE_LANGUAGE_C)
+
+#define CXX_LANGUAGE() if (IS_CXX_LANGUAGE)
+#define C_LANGUAGE() if (IS_C_LANGUAGE)
+
+#define STATIC_ARRAY_LENGTH(_v) (sizeof(_v)/sizeof(_v[0]))
 
 // Gives a unique name for the identifier
 char* get_unique_name(void);

@@ -62,10 +62,7 @@ static char* symbol_kind_names[] =
     [SK_NAMESPACE] = "SK_NAMESPACE",
     [SK_VARIABLE] = "SK_VARIABLE",
     [SK_TYPEDEF] = "SK_TYPEDEF",
-    [SK_TEMPLATE_PRIMARY_CLASS] = "SK_TEMPLATE_PRIMARY_CLASS",
-    [SK_TEMPLATE_SPECIALIZED_CLASS] = "SK_TEMPLATE_SPECIALIZED_CLASS",
-    [SK_TEMPLATE_FUNCTION] = "SK_TEMPLATE_FUNCTION",
-    [SK_TEMPLATE_ALIAS] = "SK_TEMPLATE_ALIAS",
+    [SK_TEMPLATE] = "SK_TEMPLATE",
     [SK_TEMPLATE_PARAMETER] = "SK_TEMPLATE_PARAMETER", 
     [SK_TEMPLATE_TYPE_PARAMETER] = "SK_TEMPLATE_TYPE_PARAMETER", 
     [SK_TEMPLATE_TEMPLATE_PARAMETER] = "SK_TEMPLATE_TEMPLATE_PARAMETER", 
@@ -99,7 +96,7 @@ static void print_scope_full_context(decl_context_t decl_context, int global_ind
     print_scope_full(st, global_indent);
 
     scope_t* template_scope = decl_context.template_scope;
-    int k = 1;
+    int k = 0;
     while (template_scope != NULL)
     {
         PRINT_INDENTED_LINE(stderr, global_indent + k, "[TEMPLATE_SCOPE - %p]\n", 
@@ -144,8 +141,6 @@ static void print_scope_entry_list(scope_entry_list_t* entry_list, int global_in
         scope_entry_t* entry = entry_list->entry;
         print_scope_entry(entry, global_indent);
 
-        print_scope_full_context(entry->related_decl_context, global_indent + 1);
-
         entry_list = entry_list->next;
     }
 }
@@ -183,6 +178,97 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
                 entry->entity_specs.parameter_position);
     }
 
+    if (entry->kind == SK_TEMPLATE)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent + 1, "Related specializations:\n");
+        int i;
+        for (i = 0; i < template_type_get_num_specializations(entry->type_information); i++)
+        {
+            type_t* named_type = template_type_get_specialization_num(entry->type_information, i);
+            scope_entry_t* specialization = named_type_get_symbol(named_type);
+
+            PRINT_INDENTED_LINE(stderr, global_indent + 1, "Specialization: [%d] %p\n", i, specialization->type_information);
+
+            print_scope_entry(specialization, global_indent + 1);
+        }
+
+    }
+
+    if (entry->kind == SK_CLASS)
+    {
+        print_scope_full_context(class_type_get_inner_context(entry->type_information),
+                global_indent + 1);
+    }
+
+    if (entry->kind == SK_NAMESPACE)
+    {
+        print_scope_full_context(entry->namespace_decl_context, global_indent + 1);
+    }
+
+    if (entry->type_information != NULL 
+            && is_template_specialized_type(entry->type_information))
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Type is specialized:\n");
+
+        template_argument_list_t* arguments = 
+            template_specialized_type_get_template_arguments(entry->type_information);
+
+        int j;
+        for (j = 0; j < arguments->num_arguments; j++)
+        {
+            template_argument_t* current_argument = arguments->argument_list[j];
+
+            char* argument_kind[] =
+            {
+                [TAK_NONTYPE] = "nontype template argument",
+                [TAK_TYPE] = "type template argument",
+                [TAK_TEMPLATE] = "template template argument",
+            };
+
+            char *template_arg_info = NULL;
+
+            if (current_argument->kind == TAK_TYPE
+                    || current_argument->kind == TAK_TEMPLATE)
+            {
+                template_arg_info = print_declarator(current_argument->type, entry->decl_context);
+            }
+            else if (current_argument->kind == TAK_NONTYPE)
+            {
+                template_arg_info = prettyprint_in_buffer(current_argument->expression);
+            }
+
+            PRINT_INDENTED_LINE(stderr, global_indent+2, "[%d] : %s - %s\n", 
+                    j,
+                    argument_kind[current_argument->kind],
+                    template_arg_info);
+        }
+
+        if (is_class_type(entry->type_information))
+        {
+            type_t* actual = get_actual_class_type(entry->type_information);
+            if (class_type_is_complete_dependent(actual))
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent + 1, "%s", "Complete dependent\n");
+            }
+            else if (class_type_is_complete_independent(actual))
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent + 1, "%s", "Complete independent\n");
+            }
+            else if (class_type_is_incomplete_independent(actual))
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent + 1, "%s", "Incomplete independent\n");
+            }
+            else if (class_type_is_incomplete_dependent(actual))
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent + 1, "%s", "Incomplete dependent\n");
+            }
+            else
+            {
+                PRINT_INDENTED_LINE(stderr, global_indent + 1, "%s", "No template nature known\n");
+            }
+        }
+    }
+
     if (entry->kind == SK_TYPEDEF)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1,  "Aliased type: %s\n",
@@ -192,37 +278,6 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
     if (entry->kind == SK_GCC_BUILTIN_TYPE)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "(builtin type)\n");
-    }
-
-    if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-            || entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
-    {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "Template: %p\n", entry);
-    }
-
-    if (entry->kind == SK_TEMPLATE_SPECIALIZED_CLASS
-            || entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
-    {
-        if (class_type_is_complete_dependent(entry->type_information))
-        {
-            PRINT_INDENTED_LINE(stderr, global_indent+1, "Dependent complete template\n");
-        }
-        else if (class_type_is_complete_independent(entry->type_information))
-        {
-            PRINT_INDENTED_LINE(stderr, global_indent+1, "Independent complete template\n");
-        }
-        else if (class_type_is_incomplete_dependent(entry->type_information))
-        {
-            PRINT_INDENTED_LINE(stderr, global_indent+1, "Dependent incomplete template\n");
-        }
-        else if (class_type_is_incomplete_independent(entry->type_information))
-        {
-            PRINT_INDENTED_LINE(stderr, global_indent+1, "Independent incomplete template\n");
-        }
-        else
-        {
-            PRINT_INDENTED_LINE(stderr, global_indent+1, "Template nature unknown\n");
-        }
     }
 
     if (entry->kind == SK_ENUMERATOR)
@@ -238,8 +293,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
                 prettyprint_in_buffer(entry->expression_value));
     }
 
-    if (entry->kind == SK_FUNCTION
-            || entry->kind == SK_TEMPLATE_FUNCTION)
+    if (entry->kind == SK_FUNCTION)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Prototype: %s\n",
                 print_declarator(entry->type_information, entry->decl_context));
@@ -257,15 +311,27 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
             {
                 PRINT_INDENTED_LINE(stderr, global_indent+1, "Conversion function\n");
             }
-        }
-        if (!entry->defined)
-        {
-            print_scope_full(entry->decl_context.prototype_scope, global_indent+1);
+
+            int i;
+            for (i = 0; i < entry->entity_specs.num_parameters; i++)
+            {
+                if (entry->entity_specs.default_argument_info[i] != NULL)
+                {
+                    PRINT_INDENTED_LINE(stderr, global_indent + 1, "Default argument for parameter '%d' is '%s' \n", 
+                            i,
+                            prettyprint_in_buffer(entry->entity_specs.default_argument_info[i]->argument));
+                }
+            }
         }
     }
 
     if (entry->entity_specs.is_member)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member\n");
+    }
+
+    if (entry->entity_specs.is_conversion)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is conversion\n");
     }
 }

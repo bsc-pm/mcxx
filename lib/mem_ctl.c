@@ -20,7 +20,11 @@
 */
 #include "mem_ctl.h"
 
-void noop_free(void* v)
+#ifdef __GNUC__
+  #define UNUSED_PARAM __attribute__((unused))
+#endif
+
+void noop_free(void* v UNUSED_PARAM)
 {
 }
 

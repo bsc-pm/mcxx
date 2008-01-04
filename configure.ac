@@ -39,11 +39,14 @@ AC_PROG_CPP
 dnl Check c++
 AC_PROG_CXX
 
-tlextensions=""
-is_enabled_tl_omp="no"
-is_enabled_tl_instr="no"
-is_enabled_tl_acotes="no"
-is_enabled_tl_superscalar="no"
+TLEXTENSIONS=""
+
+COMPILER_NAMES="plaincxx plaincc"
+ENABLED_PROFILES="PLAIN"
+
+dnl --------------------- Support for OpenMP ---------------------
+
+is_enabled_tl_omp="yes"
 
 AC_MSG_CHECKING([if enabled OpenMP TL support])
 AC_ARG_ENABLE([tl-openmp],
@@ -51,7 +54,6 @@ AC_ARG_ENABLE([tl-openmp],
   [
     if test x$enableval = xyes -o x$enableval = x;
     then
-        tlextensions="${tlextensions} omp"
         is_enabled_tl_omp="yes"
         AC_MSG_RESULT([yes])
     else if test x$enableval = xno;
@@ -63,113 +65,15 @@ AC_ARG_ENABLE([tl-openmp],
     fi
   ],
   [
-      tlextensions="${tlextensions} omp"
       is_enabled_tl_omp="yes"
       AC_MSG_RESULT([yes])
   ]
 )
 
-AC_MSG_CHECKING([if enabled Mintaka instrumentation TL support])
-AC_ARG_ENABLE([tl-instrumentation],
-  AS_HELP_STRING([--disable-tl-instrumentation], [Disables generation of Mintaka instrumentation TL support]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-        tlextensions="${tlextensions} instr"
-        is_enabled_tl_instr="yes"
-        AC_MSG_RESULT([yes])
-    else if test x$enableval = xno;
-         then
-            AC_MSG_RESULT([no])
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-      tlextensions="${tlextensions} instr"
-      is_enabled_tl_instr="yes"
-      AC_MSG_RESULT([yes])
-  ]
-)
-
-AC_MSG_CHECKING([if enabled ACOTES TL support])
-AC_ARG_ENABLE([tl-acotes],
-  AS_HELP_STRING([--disable-tl-acotes], [Disables generation of ACOTES TL Support]),
-  [
-    if test x$enableval = xyes -o x$enableval = x;
-    then
-        tlextensions="${tlextensions} acotes"
-        is_enabled_tl_acotes="yes"
-        AC_MSG_RESULT([yes])
-    else if test x$enableval = xno;
-         then
-            AC_MSG_RESULT([no])
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-      tlextensions="${tlextensions} acotes"
-      is_enabled_tl_acotes="yes"
-      AC_MSG_RESULT([yes])
-  ]
-)
-
-AC_MSG_CHECKING([if binaries should be installed in pkgdir])
-AC_ARG_ENABLE([pkgdir-install],
-  AS_HELP_STRING([--enable-pkgdir-install], [Enables installation of binaries in pkgdir instead of bindir]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        is_enabled_pkgdir_install="yes"
-        AC_MSG_RESULT([yes])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([no])
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-      is_enabled_pkgdir_install="no"
-      AC_MSG_RESULT([no])
-  ]
-)
-AM_CONDITIONAL(ENABLE_PKGLIB_INSTALL, test x"$is_enabled_pkgdir_install" = x"yes")
-
-AC_MSG_CHECKING([if Cell/SMP superscalar TL support is enabled])
-AC_ARG_ENABLE([tl-superscalar],
-  AS_HELP_STRING([--disable-tl-superscalar], [Disables generation of Cell/SMP superscalar TL support]),
-  [
-    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
-    then
-        tlextensions="${tlextensions} superscalar"
-        is_enabled_tl_superscalar="yes"
-        AC_MSG_RESULT([yes])
-    else if test x"$enableval" = x"no";
-         then
-            AC_MSG_RESULT([no])
-         else
-            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
-         fi
-    fi
-  ],
-  [
-      tlextensions="${tlextensions} superscalar"
-      is_enabled_tl_superscalar="yes"
-      AC_MSG_RESULT([yes])
-  ]
-)
-
-AC_SUBST([tlextensions])
-
 nanos4_include=""
 nanos4_lib=""
-MCXX_INCLUDES=""
-MCXX_LIBS=""
+NANOS_INCLUDES=""
+NANOS_LIBS=""
 if test x$is_enabled_tl_omp = xyes;
 then
    AC_ARG_WITH([nanos4],
@@ -194,25 +98,56 @@ then
            ]
    )
 
-   if test x$nanos4_include = x -a x$nanos4_lib = x;
+   if test x$nanos4_include = x -o x$nanos4_lib = x;
    then
-      AC_MSG_NOTICE([You may want to use --with-nanos4 for better configuration of mcxx. See --help.])
+      AC_MSG_ERROR([OpenMP support requires '--with-nanos4'. See --help.])
    fi
 
-   if ! test x$nanos4_include = x;
-   then
-      MCXX_INCLUDES="${MCXX_INCLUDES} -D_OPENMP=200505 -I ${nanos4_include} -include nthreads.h -include omp.h -include intone.h"
-   fi
+   NANOS_INCLUDES="-D_OPENMP=200505 -I ${nanos4_include} -include nthreads.h -include omp.h -include intone.h"
+   NANOS_LIBS="-L${nanos4_lib} -lnthreads -Wl,-rpath,${nanos4_lib}"
 
-   if ! test x$nanos4_lib = x;
-   then
-      MCXX_LIBS="${MCXX_LIBS} -L${nanos4_lib} -lnthreads -Wl,-rpath,${nanos4_lib}"
-   fi
+   TLEXTENSIONS="${TLEXTENSIONS} omp"
+   ENABLED_PROFILES="${ENABLED_PROFILES} NANOS"
+# mcxx always gets installed
+   COMPILER_NAMES="${COMPILER_NAMES} mcc"
 fi
+
+AC_SUBST([NANOS_INCLUDES])
+AC_SUBST([NANOS_LIBS])
+
+dnl --------------------- End Support for OpenMP ---------------------
+
+dnl --------------------- Support for Mintaka ---------------------
+
+is_enabled_tl_instr="yes"
+
+AC_MSG_CHECKING([if enabled Mintaka instrumentation TL support])
+AC_ARG_ENABLE([tl-instrumentation],
+  AS_HELP_STRING([--disable-tl-instrumentation], [Disables generation of Mintaka instrumentation TL support]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_tl_instr="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      is_enabled_tl_instr="yes"
+      AC_MSG_RESULT([yes])
+  ]
+)
 
 mintaka_include=""
 mintaka_lib=""
 INSTRUMENTATION_PHASE=""
+MINTAKA_LIBS=""
+MINTAKA_INCLUDES=""
 if test x$is_enabled_tl_instr = xyes;
 then
    AC_ARG_WITH([mintaka],
@@ -237,23 +172,203 @@ then
            ]
    )
 
-   if test x$mintaka_include = x -a x$mintaka_lib = x;
+   if test x$mintaka_include = x -o x$mintaka_lib = x;
    then
-      AC_MSG_NOTICE([You may want to use --with-mintaka for better configuration of mcxx. See --help.])
+      AC_MSG_ERROR([Mintaka support requires '--with-mintaka'. See --help.])
    fi
 
-   if ! test x$mintaka_include = x;
-   then
-      MCXX_INCLUDES="${MCXX_INCLUDES} -I ${mintaka_include} -include mintaka.h"
-   fi
+   TLEXTENSIONS="${TLEXTENSIONS} instr"
 
-   if ! test x$mintaka_lib = x;
-   then
-      MCXX_LIBS="${MCXX_LIBS} -L ${mintaka_lib} -l mintaka"
-   fi
+   MINTAKA_INCLUDES="-I ${mintaka_include} -include mintaka.h"
+   MINTAKA_LIBS="-L ${mintaka_lib} -lmintaka"
 
    INSTRUMENTATION_PHASE="compiler_phase = libtlinstr.so"
 fi
+
+AC_SUBST([INSTRUMENTATION_PHASE])
+AC_SUBST([MINTAKA_INCLUDES])
+AC_SUBST([MINTAKA_LIBS])
+
+dnl --------------------- End Support for Mintaka ---------------------
+
+dnl --------------------- Acotes support ---------------------
+
+is_enabled_tl_acotes="no"
+
+AC_MSG_CHECKING([if enabled ACOTES TL support])
+AC_ARG_ENABLE([tl-acotes],
+  AS_HELP_STRING([--enable-tl-acotes], [Enables generation of ACOTES TL Support]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_tl_acotes="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      is_enabled_tl_acotes="no"
+      AC_MSG_RESULT([no])
+  ]
+)
+
+if test x$is_enabled_tl_acotes = xyes;
+then
+   ENABLED_PROFILES="${ENABLED_PROFILES} ACOTES"
+   COMPILER_NAMES="${COMPILER_NAMES} acotescc"
+
+   TLEXTENSIONS="${TLEXTENSIONS} acotes"
+fi
+
+dnl --------------------- End of Acotes support ---------------------
+
+dnl --------------------- Support for Nebeling ---------------------
+
+is_enabled_tl_nebelung="no"
+AC_MSG_CHECKING([if enabled Nebelung STM TL support])
+AC_ARG_ENABLE([tl-nebelung],
+  AS_HELP_STRING([--enable-tl-nebelung], [Enables generation of Nebelung STM TL support]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_tl_nebelung="yes"
+        AC_MSG_RESULT([yes])
+    else if test x$enableval = xno;
+         then
+            AC_MSG_RESULT([no])
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      is_enabled_tl_nebelung="no"
+      AC_MSG_RESULT([no])
+  ]
+)
+
+nebelung_include=""
+nebelung_lib=""
+NEBELUNG_LIBS=""
+NEBELUNG_INCLUDES=""
+if test x$is_enabled_tl_nebelung = xyes;
+then
+   AC_ARG_WITH([nebelung],
+           AS_HELP_STRING([--with-nebelung=dir], [Directory of Nebelung installation]),
+           [
+            nebelung_include="${withval}/include"
+            nebelung_lib="${withval}/lib"
+           ]
+   )
+
+   AC_ARG_WITH([nebelung-include],
+           AS_HELP_STRING([--with-nebelung-include=dir], [Directory of Nebelung headers]),
+           [
+            nebelung_include="${withval}"
+           ]
+   )
+
+   AC_ARG_WITH([nebelung-lib],
+           AS_HELP_STRING([--with-nebelung-lib=dir], [Directory of Nebelung libraries]),
+           [
+            nebelung_lib="${withval}"
+           ]
+   )
+
+   if test x$nanos4_include = x -o x$nanos4_lib = x;
+   then
+      AC_MSG_ERROR([Nebelung support requires '--with-nanos4'. See --help.])
+   fi
+
+   if test x$nebelung_include = x -o x$nebelung_lib = x;
+   then
+      AC_MSG_ERROR([Nebelung support requires '--with-nebelung'. See --help.])
+   fi
+
+   NEBELUNG_INCLUDES="-I ${nebelung_include} -include nebelung.h"
+   NEBELUNG_LIBS="-L ${nebelung_lib} -lnebelung"
+
+   TLEXTENSIONS="${TLEXTENSIONS} stm_func"
+
+   ENABLED_PROFILES="${ENABLED_PROFILES} NEBELUNG"
+   COMPILER_NAMES="${COMPILER_NAMES} stmcxx"
+fi
+
+AC_SUBST([NEBELUNG_INCLUDES])
+AC_SUBST([NEBELUNG_LIBS])
+
+dnl --------------------- End Support for Mintaka ---------------------
+
+dnl --------------------- Superscalar support ---------------------
+
+is_enabled_tl_superscalar="no"
+AC_MSG_CHECKING([if Cell/SMP superscalar TL support is enabled])
+AC_ARG_ENABLE([tl-superscalar],
+  AS_HELP_STRING([--enable-tl-superscalar], [Enables generation of Cell/SMP superscalar TL support]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        is_enabled_tl_superscalar="yes"
+        AC_MSG_RESULT([yes])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([no])
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      is_enabled_tl_superscalar="no"
+      AC_MSG_RESULT([no])
+  ]
+)
+
+if test x$is_enabled_tl_superscalar = xyes;
+then
+   TLEXTENSIONS="${TLEXTENSIONS} superscalar"
+   ENABLED_PROFILES="${ENABLED_PROFILES} SUPERSCALAR"
+# Ask JM about this
+# COMPILER_NAMES="${COMPILER_NAMES} "
+fi
+
+dnl --------------------- End of superscalar support ---------------------
+
+dnl --------------------- Installation of binaries in pkgdir ---------------------
+
+AC_MSG_CHECKING([if binaries should be installed in pkgdir])
+AC_ARG_ENABLE([pkgdir-install],
+  AS_HELP_STRING([--enable-pkgdir-install], [Enables installation of binaries in pkgdir instead of bindir]),
+  [
+    if test x"$enableval" = x"yes" -o x"$enableval" = x"";
+    then
+        is_enabled_pkgdir_install="yes"
+        AC_MSG_RESULT([yes])
+    else if test x"$enableval" = x"no";
+         then
+            AC_MSG_RESULT([no])
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      is_enabled_pkgdir_install="no"
+      AC_MSG_RESULT([no])
+  ]
+)
+AM_CONDITIONAL(ENABLE_PKGLIB_INSTALL, test x"$is_enabled_pkgdir_install" = x"yes")
+
+dnl --------------------- End of Installation of binaries in pkgdir ---------------------
+
+
+
+dnl --------------------- Regeneration files ---------------------
 
 enable_regeneration=yes
 dnl Enable bundled regex
@@ -442,18 +557,17 @@ AM_CONDITIONAL(BISON_BUILDING, test x$bison_good = xyes)
 AM_CONDITIONAL(FLEX_BUILDING, test x$flex_good = xyes)
 AM_CONDITIONAL(GPERF_BUILDING, test x$gperf_good = xyes)
 
+dnl --------------------- End of Regeneration files ---------------------
+
 dnl Additional checks
 AC_HEADER_STDC
+AC_CHECK_HEADERS(stdint.h)
 AC_CHECK_HEADERS(string.h)
 
 dnl Hum
 AC_FUNC_ALLOCA
 
 AC_C_CONST
-
-AC_SUBST([MCXX_INCLUDES])
-AC_SUBST([MCXX_LIBS])
-AC_SUBST([INSTRUMENTATION_PHASE])
 
 dnl Versioning things
 build_version=""
@@ -477,6 +591,10 @@ then
 fi
 AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
 
+AC_SUBST([TLEXTENSIONS])
+AC_SUBST([COMPILER_NAMES])
+AC_SUBST([ENABLED_PROFILES])
+
 dnl Write makefiles
 AC_CONFIG_FILES([Makefile 
            lib/Makefile
@@ -494,8 +612,42 @@ AC_CONFIG_FILES([Makefile
            src/tl/examples/declarations/Makefile
            src/tl/superscalar/Makefile
            config/Makefile
-           config/config.mcxx
+           config/config.plain
+           config/config.nanos_omp
+           config/config.acotes
+           config/config.stm_nebelung
+           config/config.superscalar
            tests/Makefile
            doc/Makefile
            ])
 AC_OUTPUT
+
+echo ""
+echo "Mercurium configuration summary"
+echo "==============================="
+echo ""
+echo " * OpenMP :" $is_enabled_tl_omp
+if test x$is_enabled_tl_omp = xyes;
+then
+  echo "   Nanos 4 includes :" $nanos4_include
+  echo "   Nanos 4 libraries:" $nanos4_lib
+fi
+echo ""
+echo " * Mintaka :" $is_enabled_tl_instr
+if test x$is_enabled_tl_instr = xyes;
+then
+  echo "   Mintaka includes :" $mintaka_include
+  echo "   Mintaka libraries:" $mintaka_lib
+fi
+echo ""
+echo " * ACOTES :" $is_enabled_tl_acotes
+echo ""
+echo " * Nebelung :" $is_enabled_tl_nebelung
+if test x$is_enabled_tl_nebelung = xyes;
+then
+  echo "   Nebelung includes :" $nebelung_include
+  echo "   Nebelung libraries:" $nebelung_lib
+fi
+echo ""
+echo " * Superscalar :" $is_enabled_tl_superscalar
+echo ""

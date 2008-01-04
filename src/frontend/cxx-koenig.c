@@ -27,91 +27,116 @@
 #include "cxx-typeutils.h"
 #include "cxx-utils.h"
 
+#define MAX_ASSOCIATED_SCOPES (256)
+
 typedef 
 struct associated_scopes_tag
 {
     int num_associated_scopes;
-    scope_t** associated_scopes;
+    scope_t* associated_scopes[256];
 } associated_scopes_t;
 
-static associated_scopes_t compute_associated_scopes(int num_arguments, argument_type_info_t** argument_type_list);
-
-
-char koenig_can_be_used(AST called_expression, decl_context_t decl_context)
-{
-    switch (ASTType(called_expression))
-    {
-        // At the moment consider only this case but let room for non-member
-        // operators
-        case AST_SYMBOL :
-            break;
-        default:
-            // Koenig cannot be used here
-            return 0;
-    }
-
-    // Now lookup for the symbol and check if we find a member function
-    // where we will state that it cannot be used there
-    scope_entry_list_t* list = query_id_expression(decl_context, called_expression);
-
-    // If nothing found it might be due to Koenig
-    if (list == NULL)
-        return 1;
-
-    enum cxx_symbol_kind valid_functions[] =
-    {
-        SK_FUNCTION,
-        SK_TEMPLATE_FUNCTION
-    };
-
-    list = filter_symbol_kind_set(list, 2, valid_functions);
-
-    if (list == NULL)
-    {
-        // This means that something that is not a function was found so Koenig
-        // should not be applied here
-        return 0;
-    }
-
-    scope_entry_list_t* iter = list;
-    while (iter != NULL)
-    {
-        scope_entry_t* entry = iter->entry;
-
-        // If the function found is a member one, Koenig cannot be done
-        if (entry->entity_specs.is_member)
-            return 0;
-        // If the function found is a block-scope declared one, Koenig cannot
-        // be done (TODO: check that using function declarations are not considered
-        // here)
-        if (entry->decl_context.current_scope->kind == BLOCK_SCOPE)
-            return 0;
-
-        iter = iter->next;
-    }
-
-    // Nothing prevents us to do Koenig
-    return 1;
-}
+static associated_scopes_t compute_associated_scopes(int num_arguments, type_t** argument_type_list);
 
 scope_entry_list_t* koenig_lookup(
         int num_arguments,
-        argument_type_info_t** argument_type_list, 
-        decl_context_t decl_context)
+        type_t** argument_type_list,
+        decl_context_t normal_decl_context,
+        AST id_expression)
 {
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "KOENIG: Doing argument dependent lookup using the given parameters types\n");
+
+        if (num_arguments > 0)
+        {
+            int i = 0;
+            for (i = 0; i < num_arguments; i++)
+            {
+                fprintf(stderr, "KOENIG:    [%d] %s\n", i, print_declarator(argument_type_list[i], normal_decl_context));
+            }
+        }
+        else
+        {
+                fprintf(stderr, "KOENIG:    <No arguments>\n");
+        }
+    }
+
     associated_scopes_t associated_scopes;
     associated_scopes = compute_associated_scopes(num_arguments, argument_type_list);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "KOENIG: Besides the normal lookup, %d associated "
+                "scopes will be considered too\n",
+                associated_scopes.num_associated_scopes);
+    }
+
+    scope_entry_list_t *result = NULL;
+
+    // First do normal lookup
+    result = query_id_expression(normal_decl_context, id_expression);
+
+    // For every associated scope
+    int i;
+    for (i = 0; i < associated_scopes.num_associated_scopes; i++)
+    {
+        scope_t* current_scope = associated_scopes.associated_scopes[i];
+
+        // Query only the scope
+        // Wrap the scope (this is a design quirk of decl_context_t)
+        decl_context_t current_context;
+        memset(&current_context, 0, sizeof(current_context));
+        current_context.current_scope = current_scope;
+        
+        scope_entry_list_t* current_result = query_in_scope(current_context, id_expression);
+
+        scope_entry_list_t* it = current_result;
+        while (it != NULL)
+        {
+            char found = 0;
+            // This is very inefficient
+            scope_entry_list_t* it2 = result;
+            while ((it2 != NULL) && (!found))
+            {
+                if (it2->entry == it->entry)
+                {
+                    found = 1;
+                }
+                it2 = it2->next;
+            }
+
+            if (!found)
+            {
+                scope_entry_list_t* current = it;
+                it = it->next;
+
+                // Add to the result
+                current->next = result;
+                result = current;
+            }
+            else
+            {
+                it = it->next;
+            }
+        }
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "KOENIG: Argument dependent lookup ended\n");
+    }
     
-    return NULL;
+    return result;
 }
 
 static void compute_associated_scopes_aux(associated_scopes_t* associated_scopes, 
-        int num_arguments, argument_type_info_t** argument_type_list);
+        int num_arguments, type_t** argument_type_list);
 
 static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes, 
         type_t* argument_type);
 
-static associated_scopes_t compute_associated_scopes(int num_arguments, argument_type_info_t** argument_type_list)
+static associated_scopes_t compute_associated_scopes(int num_arguments, type_t** argument_type_list)
 {
     associated_scopes_t result;
     memset(&result, 0, sizeof(result));
@@ -122,22 +147,42 @@ static associated_scopes_t compute_associated_scopes(int num_arguments, argument
 }
 
 static void compute_associated_scopes_aux(associated_scopes_t* associated_scopes, 
-        int num_arguments, argument_type_info_t** argument_type_list)
+        int num_arguments, type_t** argument_type_list)
 {
     int i;
     for (i = 0; i < num_arguments; i++)
     {
-        type_t* argument_type = argument_type_list[i]->type;
+        type_t* argument_type = argument_type_list[i];
         compute_associated_scopes_rec(associated_scopes, argument_type);
     }
 }
 
-static scope_entry_t** compute_set_of_associated_classes_scope(type_t* type_info, associated_scopes_t* associated_scopes);
+static void compute_set_of_associated_classes_scope(type_t* type_info, associated_scopes_t* associated_scopes);
+
+static void add_associated_scope(associated_scopes_t* associated_scopes, scope_t* sc)
+{
+    ERROR_CONDITION(associated_scopes->num_associated_scopes >= MAX_ASSOCIATED_SCOPES,
+            "Too many associated scopes", 0);
+    
+    ERROR_CONDITION(sc->kind != NAMESPACE_SCOPE, 
+            "Associated scopes by means of Koenig only can be namespace scopes", 0);
+
+    int i;
+    for (i = 0; i < associated_scopes->num_associated_scopes; i++)
+    {
+        // Do not add if already there
+        if (associated_scopes->associated_scopes[i] == sc)
+            return;
+    }
+
+    associated_scopes->associated_scopes[associated_scopes->num_associated_scopes] = sc;
+    associated_scopes->num_associated_scopes++;
+}
 
 static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes, 
         type_t* argument_type)
 {
-    argument_type = advance_over_typedefs(argument_type);
+    argument_type = no_ref(advance_over_typedefs(argument_type));
 
     /*
      * If T is a fundamental type, its associated sets of namespaces and classes are empty
@@ -154,7 +199,7 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
      */
     if (is_class_type(argument_type))
     {
-        compute_set_of_associated_classes_scope(argument_type, associated_scopes);
+        compute_set_of_associated_classes_scope(get_actual_class_type(argument_type), associated_scopes);
 
         // Nothing else to be done
         return;
@@ -191,9 +236,12 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
      *   f(a);
      * }
      */
-    if (is_specialized_class_type(argument_type))
+    if (is_template_specialized_type(argument_type))
     {
-        compute_set_of_associated_classes_scope(argument_type, associated_scopes);
+        internal_error("Not implemented", 0);
+    }
+#if 0
+        compute_set_of_associated_classes_scope(get_actual_class_type(argument_type), associated_scopes);
 
         template_argument_list_t* template_arguments = template_type_get_template_arguments(argument_type);
 
@@ -215,6 +263,7 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
             }
         }
     }
+#endif
 
     /*
      * If T is an enumeration type its associated namespace is the namespace in which it
@@ -223,12 +272,13 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
      */
     if (is_enumerated_type(argument_type))
     {
-        scope_t* outer_namespace = enum_type_get_context(argument_type).namespace_scope;
+        decl_context_t type_decl_context = enum_type_get_context(argument_type);
+        scope_t* outer_namespace = type_decl_context.namespace_scope;
 
         ERROR_CONDITION(outer_namespace == NULL, "The enclosing namespace scope is NULL!", 0);
 
-        P_LIST_ADD_ONCE_FUN(associated_scopes->associated_scopes, associated_scopes->num_associated_scopes,
-                outer_namespace, same_scope);
+        add_associated_scope(associated_scopes,
+                outer_namespace);
 
         if (is_named_type(argument_type))
         {
@@ -313,10 +363,9 @@ static void compute_associated_scopes_rec(associated_scopes_t* associated_scopes
 static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
         associated_scopes_t* associated_scopes);
 
-static scope_entry_t** compute_set_of_associated_classes_scope(type_t* type_info, associated_scopes_t* associated_scopes)
+static void compute_set_of_associated_classes_scope(type_t* type_info, associated_scopes_t* associated_scopes)
 {
     compute_set_of_associated_classes_scope_rec(type_info, associated_scopes);
-    return NULL;
 }
 
 static void compute_set_of_associated_classes_scope_rec(type_t* type_info, 
@@ -329,10 +378,8 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
 
     ERROR_CONDITION(outer_namespace == NULL, "Enclosing namespace not found", 0);
 
-    P_LIST_ADD_ONCE_FUN(associated_scopes->associated_scopes, 
-            associated_scopes->num_associated_scopes, 
-            outer_namespace,
-            same_scope);
+    add_associated_scope(associated_scopes,
+            outer_namespace);
 
     if (is_named_type(type_info))
     {
@@ -352,8 +399,8 @@ static void compute_set_of_associated_classes_scope_rec(type_t* type_info,
     for (i = 0; i < class_type_get_num_bases(class_type); i++)
     {
         scope_entry_t* base_symbol = class_type_get_base_num(class_type, i, NULL);
-        type_t* type_info = base_symbol->type_information;
+        type_t* base_type_info = base_symbol->type_information;
 
-        compute_set_of_associated_classes_scope_rec(type_info, associated_scopes);
+        compute_set_of_associated_classes_scope_rec(base_type_info, associated_scopes);
     }
 }

@@ -118,13 +118,6 @@ namespace TL { namespace Acotes {
     // -- Peek window
     public:
         int getPeekWindow() const { return 1; }
-        
-    // -- Replicate property
-    public:
-        void setReplicate(bool value) { replicate= value; }
-        bool isReplicate() const { return replicate; }
-    private:
-        bool replicate;
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */

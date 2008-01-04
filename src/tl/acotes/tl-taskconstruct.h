@@ -52,14 +52,12 @@ namespace TL { namespace Acotes {
         void onPre();
         void onPost();
     private:
-        void onPreTeam(Task* task);
         void onPreState(Task* task);
         void onPreCopyInState(Task* task);
         void onPreCopyOutState(Task* task);
         void onPreInitializeState(Task* task);
         void onPreFinalizeState(Task* task);
         void onPreInputPort(Task* task);
-        void onPreInputReplicatePort(Task* task);
         void onPreOutputPort(Task* task);
         void onPreBypass(Task* task);
         void onPreAsync(Task* task);

@@ -22,17 +22,11 @@
 #define CXX_SCOPELINK_DECLS_H
 
 #include "cxx-macros.h"
-#include "hash.h"
-#include "cxx-buildscope-decls.h"
 
 MCXX_BEGIN_DECLS
 
-typedef 
-struct scope_link_tag
-{
-    Hash* h;
-    decl_context_t global_decl_context;
-} scope_link_t;
+struct scope_link_tag;
+typedef struct scope_link_tag scope_link_t;
 
 MCXX_END_DECLS
 

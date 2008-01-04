@@ -110,7 +110,7 @@ hash_destroy (Hash * h)
 }
 
 void
-hash_put (Hash * h, void *key, void *item)
+hash_put (Hash * h, const void *key, void *item)
 {
   int i;
   HashNode *node;
@@ -133,7 +133,7 @@ hash_put (Hash * h, void *key, void *item)
 }
 
 HashNode *
-hash_getnode (Hash * h, int i, void *key)
+hash_getnode (Hash * h, int i, const void *key)
 {
   HashNode *node;
 
@@ -147,7 +147,7 @@ hash_getnode (Hash * h, int i, void *key)
 }
 
 void *
-hash_get (Hash * h, void *key)
+hash_get (Hash * h, const void *key)
 {
   HashNode *node;
 
@@ -161,7 +161,7 @@ hash_get (Hash * h, void *key)
 }
 
 void *
-hash_delete (Hash * h, void *key)
+hash_delete (Hash * h, const void *key)
 {
   HashNode *node;
   void *item;
@@ -212,7 +212,7 @@ hash_delete (Hash * h, void *key)
 #include <stdint.h>
 
 int
-hash_string (char *name, int size)
+hash_string (const char *name, int size)
 {
   if (!name || name[0] == '\0')
     return 0;
@@ -222,7 +222,7 @@ hash_string (char *name, int size)
   return (name[0] + name[1] + name[3]) % size;
 }
 
-int pointer_hash(void* key, int size)
+int pointer_hash(const void* key, int size)
 {
     intptr_t v = (intptr_t)(key);
 
@@ -230,7 +230,7 @@ int pointer_hash(void* key, int size)
 }
 
 int
-hash_caseless_string (char *name, int size)
+hash_caseless_string (const char *name, int size)
 {
   if (!name || name[0] == '\0')
     return 0;
@@ -238,7 +238,7 @@ hash_caseless_string (char *name, int size)
   return (tolower (name[0]) + tolower (name[1]) + tolower (name[3])) % size;
 }
 
-int prime_hash(char* key, int hash_size)
+int prime_hash(const char* key, int hash_size)
 {
     int length = strlen(key);
     int result = 0;

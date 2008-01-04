@@ -36,7 +36,7 @@ namespace TL
     {
         private:
             type_t* _type_info;
-            virtual tl_type_t* get_extended_attribute(const std::string& str) const
+            virtual tl_type_t* get_extended_attribute(const std::string&) const
             {
                 return NULL;
             }
@@ -64,7 +64,7 @@ namespace TL
             }
 
             Type(const Type& type)
-                : _type_info(type._type_info)
+                : Object(type), _type_info(type._type_info)
             {
             }
 

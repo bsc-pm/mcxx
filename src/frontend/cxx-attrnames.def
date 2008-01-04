@@ -14,7 +14,6 @@ LANG_DECLARED_PARAMETER lang.declared_parameter
 LANG_EXPRESSION_DECREMENTED lang.expression_decremented
 LANG_EXPRESSION_INCREMENTED lang.expression_incremented
 LANG_EXPRESSION_NESTED lang.expression_nested
-LANG_EXPRESSION_TYPE lang.expression_type
 LANG_FOR_BODY_STATEMENT lant.for_body_statement
 LANG_FOR_CONDITION lang.for_condition
 LANG_FOR_INIT_CONSTRUCT lang.for_init_construct

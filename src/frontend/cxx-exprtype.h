@@ -21,9 +21,9 @@
 #ifndef CXX_EXPRTYPE_H
 #define CXX_EXPRTYPE_H
 
-#include "cxx-ast.h"
-#include "cxx-scope.h"
-#include "cxx-buildscope.h"
+#include "cxx-ast-decls.h"
+#include "cxx-scope-decls.h"
+#include "cxx-buildscope-decls.h"
 
 MCXX_BEGIN_DECLS
 
@@ -33,10 +33,21 @@ MCXX_BEGIN_DECLS
  * Only implemented for C
  *
  */
-type_t *integer_type(void);
-type_t *unsigned_integer_type(void);
+struct type_tag* decimal_literal_type(AST expr);
+struct type_tag* character_literal_type(AST expr);
+struct type_tag* floating_literal_type(AST expr);
+struct type_tag* string_literal_type(AST expr);
 
-type_t *compute_expression_type(AST expr, decl_context_t decl_context, char *is_lvalue);
+struct type_tag *compute_expression_type(AST expr, decl_context_t decl_context, 
+        char *is_lvalue) __attribute__((deprecated));
+
+char check_for_initialization(AST initializer, decl_context_t decl_context);
+
+AST advance_expression_nest(AST expr);
+
+char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_arguments);
+
+char check_for_expression(AST a, decl_context_t decl_context);
 
 MCXX_END_DECLS
 

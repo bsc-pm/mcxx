@@ -35,7 +35,7 @@ namespace TL
         private:
             int _refcount;
         protected:
-            virtual tl_type_t* get_extended_attribute(const std::string& name) const
+            virtual tl_type_t* get_extended_attribute(const std::string&) const
             {
                 return NULL;
             }
@@ -111,7 +111,7 @@ namespace TL
     class Undefined : public Object
     {
         protected:
-            virtual tl_type_t* get_extended_attribute(const std::string& name) const
+            virtual tl_type_t* get_extended_attribute(const std::string&) const
             {
                 return NULL;
             }

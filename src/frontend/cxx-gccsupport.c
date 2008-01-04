@@ -9,12 +9,13 @@
 #include "cxx-cexpr.h"
 #include "cxx-typeutils.h"
 #include "cxx-ambiguity.h"
+#include "cxx-exprtype.h"
 
 /*
  * Very specific bits of gcc support should be in this file
  */
 
-static void gather_one_gcc_attribute(char* attribute_name,
+static void gather_one_gcc_attribute(const char* attribute_name,
         AST expression_list,
         gather_decl_spec_t* gather_info,
         decl_context_t decl_context)
@@ -27,7 +28,7 @@ static void gather_one_gcc_attribute(char* attribute_name,
         if (ASTSon0(expression_list) != NULL)
         {
             running_error("%s: error: attribute 'vector_size' only allows one argument",
-                    node_information(expression_list));
+                    ast_location(expression_list));
         }
 
         AST argument = advance_expression_nest(ASTSon1(expression_list));
@@ -43,7 +44,7 @@ static void gather_one_gcc_attribute(char* attribute_name,
         else
         {
             fprintf(stderr, "%s: warning: ignoring attribute 'vector_size'\n",
-                    node_information(expression_list));
+                    ast_location(expression_list));
         }
     }
     else if (strcmp(attribute_name, "mode") == 0)
@@ -51,7 +52,7 @@ static void gather_one_gcc_attribute(char* attribute_name,
         if (ASTSon0(expression_list) != NULL)
         {
             running_error("%s: error: attribute 'vector_size' only allows one argument",
-                    node_information(expression_list));
+                    ast_location(expression_list));
         }
 
         AST argument = advance_expression_nest(ASTSon1(expression_list));
@@ -59,7 +60,7 @@ static void gather_one_gcc_attribute(char* attribute_name,
         char ignored = 0;
         if (ASTType(argument) == AST_SYMBOL)
         {
-            char *vector_mode = ASTText(argument);
+            const char *vector_mode = ASTText(argument);
 
             if (vector_mode[0] != 'V')
             {
@@ -182,12 +183,12 @@ static void gather_one_gcc_attribute(char* attribute_name,
         if (ignored)
         {
             fprintf(stderr, "%s: warning: ignoring attribute 'mode'\n",
-                    node_information(expression_list));
+                    ast_location(expression_list));
         }
         else
         {
             fprintf(stderr, "%s: warning: attribute 'mode' is deprecated better use 'vector_size'\n", 
-                    node_information(expression_list));
+                    ast_location(expression_list));
         }
     }
     else 
@@ -202,8 +203,6 @@ void gather_gcc_attribute(AST attribute,
 {
     ERROR_CONDITION(ASTType(attribute) != AST_GCC_ATTRIBUTE,
             "This cannot be NULL", 0);
-    // Remove any ambiguity lurking there
-    // but they are ignored
     AST iter;
     AST list = ASTSon0(attribute);
 
@@ -214,20 +213,20 @@ void gather_gcc_attribute(AST attribute,
             AST gcc_attribute_expr = ASTSon1(iter);
 
             AST expression_list = ASTSon2(gcc_attribute_expr);
-            if (expression_list != NULL)
-            {
-                AST iter2;
+            // if (expression_list != NULL)
+            // {
+            //     AST iter2;
 
-                for_each_element(expression_list, iter2)
-                {
-                    AST expression = ASTSon1(iter2);
-                    solve_possibly_ambiguous_expression(expression, decl_context);
-                }
-            }
+            //     for_each_element(expression_list, iter2)
+            //     {
+            //         AST expression = ASTSon1(iter2);
+            //         check_for_expression(expression, decl_context);
+            //     }
+            // }
 
             // This might be gperf-ectionated
             AST identif = ASTSon0(gcc_attribute_expr);
-            char *attribute_name = ASTText(identif);
+            const char *attribute_name = ASTText(identif);
 
             gather_one_gcc_attribute(attribute_name, expression_list, gather_info, decl_context);
         }

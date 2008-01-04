@@ -24,460 +24,410 @@
 #include "cxx-cexpr.h"
 #include "cxx-scope.h"
 #include "cxx-solvetemplate.h"
-#include "cxx-typeunif.h"
+#include "cxx-typededuc.h"
 #include "cxx-typeutils.h"
+#include "cxx-typeorder.h"
 #include "cxx-prettyprint.h"
 #include "cxx-driver.h"
 #include "cxx-instantiation.h"
 
-static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, 
-        char give_exact_match, decl_context_t decl_context);
+static type_t* determine_most_specialized_template_class(type_t* template_type, 
+        type_t** matching_specializations, int num_specializations,
+        decl_context_t decl_context,
+        const char *filename, int line);
 
-// static
-// char *template_nature_name[] =
-// {
-//     [TPN_UNKNOWN] = "TPN_UNKNOWN",
-//     [TPN_COMPLETE_DEPENDENT] =  "TPN_COMPLETE_DEPENDENT",
-//     [TPN_INCOMPLETE_INDEPENDENT] =  "TPN_INCOMPLETE_INDEPENDENT",
-//     [TPN_INCOMPLETE_DEPENDENT] =  "TPN_INCOMPLETE_DEPENDENT",
-//     [TPN_COMPLETE_INDEPENDENT] =  "TPN_COMPLETE_INDEPENDENT",
-// };
-
-static const char* get_template_nature_name(type_t* t)
+type_t* solve_class_template(decl_context_t decl_context,
+        type_t* template_type,
+        type_t* specialized_type,
+        deduction_set_t** unification_set,
+        const char *filename,
+        int line)
 {
-    if (class_type_is_incomplete_dependent(t))
+    template_argument_list_t* specialized
+        = template_specialized_type_get_template_arguments(
+                get_actual_class_type(specialized_type));
+
+    int i;
+    int num_specializations = template_type_get_num_specializations(template_type);
+
+    type_t** matching_set = NULL;
+    int num_matching_set = 0;
+
+    deduction_set_t **deduction_results = NULL;
+    int num_deductions = 0;
+
+    for (i = 0; i < num_specializations; i++)
     {
-        return "TPN_INCOMPLETE_DEPENDENT";
+        type_t* current_specialized_type = 
+            template_type_get_specialization_num(template_type, i);
+
+        DEBUG_CODE()
+        {
+            scope_entry_t* entry = named_type_get_symbol(current_specialized_type);
+            fprintf(stderr, "SOLVETEMPLATE: Checking with specialization defined in '%s:%d'\n",
+                    entry->file, entry->line);
+        }
+
+        // We do not want these for instantiation purposes
+        if (class_type_is_incomplete_independent(
+                    get_actual_class_type(current_specialized_type))
+                || class_type_is_incomplete_dependent(
+                    get_actual_class_type(current_specialized_type)))
+        {
+            DEBUG_CODE()
+            {
+                scope_entry_t* entry = named_type_get_symbol(current_specialized_type);
+                fprintf(stderr, "SOLVETEMPLATE: Discarding '%s:%d' since it is incomplete\n",
+                        entry->file, entry->line);
+            }
+            continue;
+        }
+
+        template_argument_list_t *arguments = 
+            template_specialized_type_get_template_arguments(
+                    get_actual_class_type(current_specialized_type));
+
+        // It is supposed that this will hold in correct code
+        ERROR_CONDITION((arguments->num_arguments != specialized->num_arguments),
+            "Template argument lists are not of equal length", 0);
+
+        deduction_set_t* deduction_result = NULL;
+
+        if (is_less_or_equal_specialized_template_class(
+                    current_specialized_type,
+                    specialized_type,
+                    decl_context,
+                    &deduction_result,
+                    filename, line))
+        {
+            P_LIST_ADD(matching_set, num_matching_set, current_specialized_type);
+            P_LIST_ADD(deduction_results, num_deductions, deduction_result);
+        }
     }
-    else if (class_type_is_incomplete_independent(t))
+
+    if (num_matching_set >= 1)
     {
-        return "TPN_INCOMPLETE_INDEPENDENT";
-    }
-    else if (class_type_is_complete_dependent(t))
-    {
-        return "TPN_COMPLETE_DEPENDENT";
-    }
-    else if (class_type_is_complete_independent(t))
-    {
-        return "TPN_COMPLETE_INDEPENDENT";
+        type_t* more_specialized = 
+            determine_most_specialized_template_class(template_type, matching_set, 
+                num_matching_set, decl_context, filename, line);
+
+        if (more_specialized == NULL)
+            return NULL;
+
+        for (i = 0; i < num_matching_set; i++)
+        {
+            if (matching_set[i] == more_specialized)
+            {
+                *unification_set = deduction_results[i];
+            }
+        }
+
+        return more_specialized;
     }
     else
     {
-        return "TPN_UNKNOWN";
+        return NULL;
     }
-}
-
-matching_pair_t* solve_template(decl_context_t decl_context,
-        scope_entry_list_t* candidate_templates, 
-        template_argument_list_t* arguments, 
-        char give_exact_match)
-{
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "Solving template.\n - Candidate list:\n");
-        scope_entry_list_t* it = candidate_templates;
-        while (it != NULL)
-        {
-            scope_entry_t* entry = it->entry;
-            fprintf(stderr, "   * Symbol : '%s' Place: '%s:%d' Status : %s\n", 
-                    entry->symbol_name, 
-                    entry->file,
-                    entry->line,
-                    get_template_nature_name(entry->type_information));
-            it = it->next;
-        }
-        fprintf(stderr, " - End of candidate list\n");
-    }
-    matching_pair_t* result = NULL;
-
-    // In the worst of the cases the chosen template will be the primary one
-    scope_entry_list_t* iter = candidate_templates;
-
-    if (iter == NULL)
-    {
-        internal_error("No templates were given to solve the current one", 0);
-    }
-
-    char seen_primary_template = 0;
-    while (iter != NULL && !seen_primary_template)
-    {
-        seen_primary_template |= ((iter->entry->kind == SK_TEMPLATE_PRIMARY_CLASS)
-                || (iter->entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER));
-        iter = iter->next;
-    }
-
-    if (!seen_primary_template)
-    {
-        internal_error("No primary template was among the candidates", 0);
-    }
-
-    // Now, for every specialization try to unificate its template_argument_list with ours
-    iter = candidate_templates;
-
-    int num_matching_set = 0;
-
-    matching_pair_t** matching_set = NULL;
-
-    while (iter != NULL)
-    {
-        scope_entry_t* entry = iter->entry;
-
-        template_argument_list_t* specialized = template_type_get_template_arguments(entry->type_information);
-
-        // if (!give_exact_match
-        //         && (entry->type_information->type->template_nature == TPN_INCOMPLETE_INDEPENDENT
-        //             || entry->type_information->type->template_nature == TPN_INCOMPLETE_DEPENDENT))
-        // {
-        //     // If the user did not ask for an exact match, incomplete types are not eligible.
-        //     iter = iter->next;
-        //     continue;
-        // }
-
-        // It is supposed that this will hold in correct code
-        if (arguments->num_arguments != specialized->num_arguments)
-        {
-            // internal_error("Template argument lists are not of equal length", 0);
-            return NULL;
-        }
-
-        unification_set_t* unification_set = calloc(1, sizeof(*unification_set));
-        if (match_one_template(arguments, specialized, entry, unification_set, decl_context))
-        {
-            matching_pair_t* match_pair = calloc(1, sizeof(*match_pair));
-
-            match_pair->entry = entry;
-            match_pair->unif_set = unification_set;
-
-            P_LIST_ADD(matching_set, num_matching_set, match_pair);
-        }
-
-        iter = iter->next;
-    }
-
-    // There is no more than one candidate
-    if (num_matching_set == 1)
-    {
-        result = matching_set[0];
-        if (give_exact_match)
-        {
-            template_argument_list_t* specialized = template_type_get_template_arguments(result->entry->type_information);
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "Checking match with the unique %p %p\n", specialized, arguments);
-            }
-
-            unification_set_t* unification_set = calloc(1, sizeof(*unification_set));
-            if (!match_one_template(specialized, arguments, NULL, unification_set, decl_context))
-            {
-                return NULL;
-            }
-            else
-            {
-                return result;
-            }
-        }
-        else
-        {
-            result = matching_set[0];
-        }
-    }
-    else if (num_matching_set > 0)
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "More than one template can be selected, determining more specialized (give_exact_match=%d)\n", give_exact_match);
-        }
-        result = determine_more_specialized(num_matching_set, matching_set, 
-                give_exact_match, decl_context);
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "More specialized determined result=%p (%s:%d)\n", result->entry,
-                    result->entry->file,
-                    result->entry->line);
-        }
-    }
-
-    if (give_exact_match 
-            && result != NULL)
-    {
-        // Result will be an exact match if it can be unified with the original
-        template_argument_list_t* specialized = template_type_get_template_arguments(result->entry->type_information);
-
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "Checking match %p %p\n", specialized, arguments);
-        }
-
-        unification_set_t* unification_set = calloc(1, sizeof(*unification_set));
-        if (!match_one_template(specialized, arguments, NULL, unification_set, decl_context))
-        {
-            return NULL;
-        }
-    }
-
-    return result;
 }
 
 // This function assumes that only one minimum will exist
-static matching_pair_t* determine_more_specialized(int num_matching_set, matching_pair_t** matching_set, 
-        char give_exact_match, decl_context_t decl_context)
+static type_t* determine_most_specialized_template_class(
+        type_t* template_type UNUSED_PARAMETER, 
+        type_t** matching_specializations, int num_specializations,
+        decl_context_t decl_context,
+        const char *filename, int line)
 {
-    matching_pair_t* min = matching_set[0];
+    int current_i = 0;
+    type_t* current_most_specialized = matching_specializations[0];
+
+    deduction_set_t* deduce_result = NULL;
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Have to select the best template among %d templates\n", num_matching_set);
+        fprintf(stderr, "SOLVETEMPLATE: Unification has found '%d' matching template specializations, "
+                " looking for the best one among the following:\n", num_specializations
+                );
+        int j;
+        for (j = 0; j < num_specializations; j++)
+        {
+            scope_entry_t* current = named_type_get_symbol(matching_specializations[j]);
+            fprintf(stderr, "SOLVETEMPLATE:     Matching specialization: [%d] '%s:%d'\n",
+                    j,
+                    current->file, current->line);
+        }
+        fprintf(stderr, "SOLVETEMPLATE: No more specializations matched\n");
     }
 
     int i;
-    for (i = 1; i < num_matching_set; i++)
+    for (i = 1; i < num_specializations; i++)
     {
-        matching_pair_t* current_entry = matching_set[i];
+        DEBUG_CODE()
+        {
+            scope_entry_t* minimum = named_type_get_symbol(current_most_specialized);
+            scope_entry_t* current = named_type_get_symbol(matching_specializations[i]);
+            fprintf(stderr, "SOLVETEMPLATE: Checking current most specialized template [%d] '%s:%d' against [%d] '%s:%d'\n",
+                    current_i,
+                    minimum->file, minimum->line, 
+                    i,
+                    current->file, current->line);
+        }
+        if (!is_less_or_equal_specialized_template_class(
+                    matching_specializations[i],
+                    current_most_specialized,
+                    decl_context,
+                    &deduce_result, filename, line))
+        {
+            // It is more specialized
+            DEBUG_CODE()
+            {
+                scope_entry_t* minimum = named_type_get_symbol(current_most_specialized);
+                scope_entry_t* current = named_type_get_symbol(matching_specializations[i]);
+                fprintf(stderr, "SOLVETEMPLATE: Template specialization '%s:%d' is more specialized than '%s:%d'\n",
+                        current->file, current->line,
+                        minimum->file, minimum->line);
+            }
+            current_i = i;
+            current_most_specialized = matching_specializations[i];
+        }
+    }
 
-        template_argument_list_t* min_args =
-            template_type_get_template_arguments(min->entry->type_information);
-        template_argument_list_t* current_args =
-            template_type_get_template_arguments(current_entry->entry->type_information);
+    DEBUG_CODE()
+    {
+        scope_entry_t* minimum = named_type_get_symbol(current_most_specialized);
+        fprintf(stderr, "SOLVETEMPLATE: Checking that [%d] %s:%d is actually the most specialized template class\n", 
+                current_i,
+                minimum->file, minimum->line);
+    }
 
-        unification_set_t* unification_set = calloc(1, sizeof(*unification_set));
+    // Now check it is actually the minimum
+    for (i = 0; i < num_specializations; i++)
+    {
+        if (current_most_specialized == matching_specializations[i])
+            continue;
+
+        if (is_less_or_equal_specialized_template_class(
+                    current_most_specialized,
+                    matching_specializations[i],
+                    decl_context,
+                    &deduce_result, filename, line))
+        {
+            DEBUG_CODE()
+            {
+                scope_entry_t* minimum = named_type_get_symbol(current_most_specialized);
+                scope_entry_t* current = named_type_get_symbol(matching_specializations[i]);
+                fprintf(stderr, "SOLVETEMPLATE: There is not a most specialized template since '%s:%d' is as "
+                        "specialized as '%s:%d'\n", 
+                        current->file, current->line,
+                        minimum->file, minimum->line);
+            }
+            return NULL;
+        }
+    }
+
+    DEBUG_CODE()
+    {
+        scope_entry_t* minimum = named_type_get_symbol(current_most_specialized);
+        fprintf(stderr, "SOLVETEMPLATE: Most specialized template is [%d] '%s:%d'\n",
+                current_i, minimum->file, minimum->line);
+    }
+
+    return current_most_specialized;
+}
+
+static
+type_t* determine_most_specialized_template_function(int num_feasible_templates, 
+        type_t** feasible_templates, decl_context_t decl_context,
+        const char *filename, int line)
+{
+    if (num_feasible_templates == 0)
+        return NULL;
+
+    // Now select the best one among all feasible_templates
+    type_t* most_specialized = feasible_templates[0];
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "SOLVETEMPLATE: Starting with '%s' at '%s:%d' as the most specialized template-function\n",
+                    named_type_get_symbol(most_specialized)->symbol_name,
+                    named_type_get_symbol(most_specialized)->file,
+                    named_type_get_symbol(most_specialized)->line);
+    }
+
+    int i;
+    for (i = 1; i < num_feasible_templates; i++)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SOLVETEMPLATE: Comparing '%s' at '%s:%d' against '%s' at '%s:%d'\n",
+                    named_type_get_symbol(most_specialized)->symbol_name,
+                    named_type_get_symbol(most_specialized)->file,
+                    named_type_get_symbol(most_specialized)->line,
+                    named_type_get_symbol(feasible_templates[i])->symbol_name,
+                    named_type_get_symbol(feasible_templates[i])->file,
+                    named_type_get_symbol(feasible_templates[i])->line);
+        }
+
+        char is_conversion = 
+            named_type_get_symbol(feasible_templates[i])->entity_specs.is_conversion;
+        type_t* f = named_type_get_symbol(feasible_templates[i])->type_information;
+        type_t* g = named_type_get_symbol(most_specialized)->type_information;
+
+        if (!is_less_or_equal_specialized_template_function(
+                    f,
+                    g,
+                    decl_context, 
+                    /* deduction_set */ NULL,
+                    /* explicit_template_arguments */ NULL, 
+                    filename, line,
+                    is_conversion))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SOLVETEMPLATE: Found that '%s' at '%s:%d' is "
+                        "more specialized than '%s' at '%s:%d'\n",
+                        named_type_get_symbol(feasible_templates[i])->symbol_name,
+                        named_type_get_symbol(feasible_templates[i])->file,
+                        named_type_get_symbol(feasible_templates[i])->line,
+                        named_type_get_symbol(most_specialized)->symbol_name,
+                        named_type_get_symbol(most_specialized)->file,
+                        named_type_get_symbol(most_specialized)->line);
+            }
+
+            most_specialized = feasible_templates[i];
+        }
+    }
+
+    // Now check it is actually the best one
+    for (i = 0; i < num_feasible_templates; i++)
+    {
+        if (most_specialized == feasible_templates[i])
+            continue;
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "Comparing current best template %p (line %d) with %p (line %d)\n",
-                    min->entry,
-                    min->entry->line,
-                    current_entry->entry,
-                    current_entry->entry->line);
+            fprintf(stderr, "SOLVETEMPLATE: Checking that '%s' at '%s:%d' is "
+                    "more specialized than '%s' at '%s:%d'\n",
+                    named_type_get_symbol(most_specialized)->symbol_name,
+                    named_type_get_symbol(most_specialized)->file,
+                    named_type_get_symbol(most_specialized)->line,
+                    named_type_get_symbol(feasible_templates[i])->symbol_name,
+                    named_type_get_symbol(feasible_templates[i])->file,
+                    named_type_get_symbol(feasible_templates[i])->line);
         }
 
-        if (!match_one_template(min_args, current_args, current_entry->entry, 
-                    unification_set, decl_context))
+        char is_conversion = 
+            named_type_get_symbol(most_specialized)->entity_specs.is_conversion;
+        type_t* f = named_type_get_symbol(most_specialized)->type_information;
+        type_t* g = named_type_get_symbol(feasible_templates[i])->type_information;
+
+        if (is_less_or_equal_specialized_template_function(
+                    f,
+                    g,
+                    decl_context, 
+                    /* deduction_set */ NULL,
+                    /* explicit_template_arguments */ NULL, 
+                    filename, line,
+                    is_conversion))
         {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "Template %p (line %d) is more specialized than %p (line %d)\n", 
-                        current_entry->entry, 
-                        current_entry->entry->line,
-                        min->entry,
-                        min->entry->line);
-            }
-
-            min = current_entry;
-
-            unification_set_t* unification_set_check = calloc(1, sizeof(*unification_set_check));
-            // This is not correct because of cv-qualifiers 'const' and
-            // 'volatile' not having an order between them. So we get that
-            // "volatile T" and "const T" are both [temporarily] valid for
-            // "const volatile T", even if there is a third "const volatile T"
-            // specialization waiting to be matched
-            //
-            // We should check there is only one minimum, a way to do it would
-            // be creating a topological tree with "less than" relationship and
-            // watch for the deeper node, the minimum. Should be two nodes with
-            // the same minimum depth, an ambiguity would occur.
-            //
-            // if (!give_exact_match)
-            // {
-            //     DEBUG_CODE()
-            //     {
-            //         fprintf(stderr, "Checking non ambiguous specialization\n");
-            //     }
-            //     if (!match_one_template(current_args, min_args, min->entry, st, 
-            //                 unification_set_check, decl_context))
-            //     {
-            //         internal_error("Ambiguous specialization instantiation\n", 0);
-            //     }
-            // }
+            fprintf(stderr, "SOLVETEMPLATE: Found that '%s' at '%s:%d' is "
+                    "not the most specialized. It is as good as '%s' at '%s:%d'\n",
+                    named_type_get_symbol(most_specialized)->symbol_name,
+                    named_type_get_symbol(most_specialized)->file,
+                    named_type_get_symbol(most_specialized)->line,
+                    named_type_get_symbol(feasible_templates[i])->symbol_name,
+                    named_type_get_symbol(feasible_templates[i])->file,
+                    named_type_get_symbol(feasible_templates[i])->line);
+            return NULL;
         }
     }
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Best template selected\n");
+        fprintf(stderr, "SOLVETEMPLATE: Determined '%s' at '%s:%d' as the most specialized template-function\n",
+                    named_type_get_symbol(most_specialized)->symbol_name,
+                    named_type_get_symbol(most_specialized)->file,
+                    named_type_get_symbol(most_specialized)->line);
     }
 
-    return min;
+    return most_specialized;
 }
 
-char match_one_template(template_argument_list_t* arguments, 
-        template_argument_list_t* specialized, scope_entry_t* specialized_entry, 
-        unification_set_t* unif_set,
-        decl_context_t decl_context)
+scope_entry_t* solve_template_function(scope_entry_list_t* template_set,
+        template_argument_list_t* explicit_template_arguments,
+        type_t* function_type, decl_context_t decl_context,
+        const char *filename, int line)
 {
+    scope_entry_list_t *it = template_set;
+
+#define MAX_FEASIBLE_SPECIALIZATIONS (256)
+    type_t* feasible_templates[MAX_FEASIBLE_SPECIALIZATIONS];
+    deduction_set_t *feasible_deductions[MAX_FEASIBLE_SPECIALIZATIONS];
+    int num_feasible_templates = 0;
+
+    while (it != NULL)
+    {
+        scope_entry_t* entry = it->entry;
+        if (entry->kind != SK_TEMPLATE)
+        {
+            // Skip nontemplates
+            it = it->next;
+            continue;
+        }
+
+        type_t* primary_named_type = template_type_get_primary_type(entry->type_information);
+        scope_entry_t* primary_symbol = named_type_get_symbol(primary_named_type);
+        type_t* primary_type = primary_symbol->type_information;
+
+        deduction_set_t *feasible_deduction = NULL;
+        if (is_less_or_equal_specialized_template_function(
+                    primary_type,
+                    function_type,
+                    decl_context,
+                    &feasible_deduction,
+                    explicit_template_arguments,
+                    filename, line, 
+                    primary_symbol->entity_specs.is_conversion))
+        {
+            ERROR_CONDITION(num_feasible_templates >= MAX_FEASIBLE_SPECIALIZATIONS,
+                    "Too many feasible deductions", 0);
+            feasible_templates[num_feasible_templates] = primary_named_type;
+            feasible_deductions[num_feasible_templates] = feasible_deduction;
+            num_feasible_templates++;
+        }
+
+        it = it->next;
+    }
+
+    type_t* result = determine_most_specialized_template_function(num_feasible_templates,
+            feasible_templates, decl_context, filename, line);
+
+    if (result == NULL)
+        return NULL;
+
+    deduction_set_t* selected_deduction = NULL;
+    // Now we have to find which one is the selected deduction
     int i;
-    // unification_set_t* unif_set = calloc(1, sizeof(*unif_set));
-    
-    DEBUG_CODE()
+    for (i = 0; i < num_feasible_templates; i++)
     {
-        if (specialized_entry != NULL)
+        if (feasible_templates[i] == result)
         {
-            fprintf(stderr, "=== Starting unification with %p (%s:%d)\n", specialized_entry,
-                    specialized_entry->file, specialized_entry->line);
-        }
-        else
-        {
-            // For reverse unifications
-            fprintf(stderr, "=== Starting unification\n");
+            selected_deduction = feasible_deductions[i];
+            break;
         }
     }
 
-    for (i = 0; i < arguments->num_arguments; i++)
-    {
-        template_argument_t* spec_arg = specialized->argument_list[i];
-        template_argument_t* arg = arguments->argument_list[i];
+    ERROR_CONDITION((selected_deduction == NULL), "Selected deduction cannot be NULL", 0);
 
-        if (spec_arg->kind == arg->kind)
-        {
-            switch (spec_arg->kind)
-            {
-                case TAK_TEMPLATE :
-                case TAK_TYPE :
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "=== Unificating types\n");
-                        }
-                        if (!unificate_two_types(spec_arg->type, arg->type, &unif_set,
-                                    decl_context))
-                        {
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "=== Unification failed\n");
-                            }
-                            return 0;
-                        }
-                        else
-                        {
-                            DEBUG_CODE()
-                            {
-                                fprintf(stderr, "=== Types unificated\n");
-                            }
-                        }
-                        break;
-                    }
-                case TAK_NONTYPE :
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "==> Unificating expressions\n");
-                        }
-                        if (spec_arg->expression == NULL)
-                        {
-                            internal_error("Expected an expression value for specialized argument", 0);
-                        }
-                        if (arg->expression == NULL)
-                        {
-                            internal_error("Expected an expression value for argument", 0);
-                        }
+    // Build the specialized type
+    template_argument_list_t* template_arguments = 
+        build_template_argument_list_from_deduction_set(selected_deduction);
 
-                        if (!unificate_two_expressions(&unif_set, spec_arg->expression, spec_arg->expression_context, 
-                                arg->expression, arg->expression_context))
-                        {
-                            return 0;
-                        }
+    type_t* result_specialized = template_type_get_specialized_type(
+            template_specialized_type_get_related_template_type(
+                named_type_get_symbol(result)->type_information
+                ),
+            template_arguments, /* no template parameters */ NULL,
+            decl_context, line, filename);
 
-                        break;
-                    }
-                default :
-                    {
-                        internal_error("Unknown template argument type %d", spec_arg->kind);
-                    }
-            }
-        }
-        else
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "=== Unification failed\n");
-            }
-            return 0;
-        }
-    }
-
-    DEBUG_CODE()
-    {
-        fprintf(stderr, "=== Unification succeeded!\n");
-        fprintf(stderr, "=== Unification details\n");
-        for (i = 0; i < unif_set->num_elems; i++)
-        {
-            unification_item_t* unif_item = unif_set->unif_list[i];
-            fprintf(stderr, "(%s) (%d,%d) <- ",
-                    unif_item->parameter_name,
-                    unif_item->parameter_nesting,
-                    unif_item->parameter_position);
-            if (unif_item->value != NULL)
-            {
-                fprintf(stderr, "[type] %s", print_declarator(unif_item->value, decl_context));
-            }
-            else if (unif_item->expression != NULL)
-            {
-                fprintf(stderr, "[expr] %s", prettyprint_in_buffer(unif_item->expression));
-            }
-            else
-            {
-                fprintf(stderr, "(unknown)");
-            }
-            fprintf(stderr, "\n");
-        }
-        fprintf(stderr, "=== End of unification details\n");
-    }
-
-    return 1;
-}
-
-scope_entry_t* get_specialization_of_template(decl_context_t template_name_context, 
-        char *template_name, template_argument_list_t* template_arguments,
-        int line, char *filename)
-{
-    /* Now get a list of candidates */
-    scope_entry_list_t* candidate_templates = query_unqualified_name_str(
-            template_name_context,
-            template_name);
-
-    char arguments_are_dependent = 0;
-    int i;
-    for (i = 0; i < template_arguments->num_arguments; i++)
-    {
-        template_argument_t* template_argument = template_arguments->argument_list[i];
-
-        template_argument_t* updated_template_argument = calloc(1, sizeof(*updated_template_argument));
-
-        switch (template_argument->kind)
-        {
-            case TAK_TEMPLATE :
-            case TAK_TYPE :
-                {
-                    arguments_are_dependent |= is_dependent_type(template_argument->type, template_name_context);
-                }
-                break;
-            case TAK_NONTYPE:
-                {
-                    arguments_are_dependent |= is_dependent_expression(template_argument->expression, template_argument->expression_context);
-                }
-                break;
-            default:
-                break;
-        }
-    }
-
-    ERROR_CONDITION(candidate_templates == NULL, "Candidate templates not found!", 0);
-
-    matching_pair_t* match_pair = solve_template(template_name_context,
-            candidate_templates,
-            template_arguments,
-            /* give_exact_match */ 0);
-
-    ERROR_CONDITION(match_pair == NULL, "Matching pair not found", 0);
-
-    scope_entry_t *result = match_pair->entry;
-
-    if (!arguments_are_dependent
-            && !class_type_is_complete_independent(result->type_information)
-            && !class_type_is_incomplete_independent(result->type_information))
-    {
-        // Create a holding symbol only if all are nondependent
-        result = create_holding_symbol_for_template(match_pair, template_arguments, line, filename, template_name_context);
-    }
-    return result;
+    return named_type_get_symbol(result_specialized);
 }

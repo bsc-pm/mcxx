@@ -25,7 +25,7 @@ namespace TL
     AST_t OpenMPTransform::get_parallel_spawn_code(
             AST_t ref_tree, // Reference tree, needed for correct parsing
             FunctionDefinition function_definition,
-            Scope scope,
+            Scope /* scope */,
             ScopeLink scope_link,
             ObjectList<ParameterInfo> parameter_info_list,
             ObjectList<OpenMP::ReductionIdExpression> reduction_references,

@@ -142,7 +142,7 @@ static struct command_line_parameter_t parse_long_option(int *current_index,
     current_arg = &current_arg[2];
 
     char *p = current_arg;
-    int length_option_name = 0;
+    unsigned int length_option_name = 0;
 
     while (((*p) != '\0')
             && ((*p) != '='))

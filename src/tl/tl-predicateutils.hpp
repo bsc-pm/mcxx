@@ -32,7 +32,7 @@ namespace TL
     {
         private:
         public:
-            virtual bool operator()(T& t) const
+            virtual bool operator()(T&) const
             {
                 return true;
             }
@@ -43,7 +43,7 @@ namespace TL
     {
         private:
         public:
-            virtual bool operator()(T& t) const
+            virtual bool operator()(T&) const
             {
                 return false;
             }

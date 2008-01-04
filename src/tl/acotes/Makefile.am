@@ -43,8 +43,6 @@ libtlacotes_la_SOURCES = \
     ac-task.h \
     ac-taskgroup.cc \
     ac-taskgroup.h \
-    ac-teamreplicate.cc \
-    ac-teamreplicate.h \
     ac-userport.cc \
     ac-userport.h \
     ac-variable.cc \
@@ -83,10 +81,6 @@ libtlacotes_la_SOURCES = \
     tl-taskgrouptransform.h \
     tl-tasktransform.cc \
     tl-tasktransform.h \
-    tl-teamreplicateconstruct.cc \
-    tl-teamreplicateconstruct.h \
-    tl-teamreplicatetransform.cc \
-    tl-teamreplicatetransform.h \
     tl-userportconstruct.cc \
     tl-userportconstruct.h \
     tl-userporttransform.cc \

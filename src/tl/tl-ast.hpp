@@ -177,7 +177,7 @@ namespace TL
             }
 
             AST_t(const AST_t& ast)
-                : _ast(ast._ast)
+                : Object(ast), _ast(ast._ast)
             {
             }
 

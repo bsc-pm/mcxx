@@ -151,7 +151,7 @@ namespace TL
 
             Source(const Source& src)
                 // This is fine, we want to share the same source list for both
-                : _chunk_list(src._chunk_list)
+                : Object(src), _chunk_list(src._chunk_list)
             {
             }
 

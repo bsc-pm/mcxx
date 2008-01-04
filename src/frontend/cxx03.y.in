@@ -3134,7 +3134,7 @@ qualified_id : nested_name_specifier unqualified_id
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_line, NULL);
 	
-	$$ = ASTMake2(AST_QUALIFIED_OPERATOR_FUNCTION_ID, global_op, $2, $1.token_line, NULL);
+	$$ = ASTMake3(AST_QUALIFIED_ID, global_op, NULL, $2, $1.token_line, NULL);
 }
 ;
 
@@ -3253,43 +3253,43 @@ postfix_expression : primary_expression
 }
 | TYPENAME nested_name_specifier template_id '(' ')'
 {
-	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, NULL, $2, $3, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_EXPLICIT_TYPE_CONVERSION, NULL, $2, $3, NULL, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier template_id '(' expression_list ')'
 {
-	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, NULL, $2, $3, $5, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_EXPLICIT_TYPE_CONVERSION, NULL, $2, $3, $5, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier TEMPLATE template_id '(' ')'
 {
-	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE, NULL, $2, $4, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE_EXPLICIT_TYPE_CONVERSION, NULL, $2, $4, NULL, $1.token_line, NULL);
 }
 | TYPENAME nested_name_specifier TEMPLATE template_id '(' expression_list ')'
 {
-	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE, NULL, $2, $4, $6, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE_EXPLICIT_TYPE_CONVERSION, NULL, $2, $4, $6, $1.token_line, NULL);
 }
 | TYPENAME TWO_COLONS nested_name_specifier template_id '(' ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, global_op, $3, $4, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_EXPLICIT_TYPE_CONVERSION, global_op, $3, $4, NULL, $1.token_line, NULL);
 }
 | TYPENAME TWO_COLONS nested_name_specifier template_id '(' expression_list ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_TYPENAME_TEMPLATE, global_op, $3, $4, $6, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_EXPLICIT_TYPE_CONVERSION, global_op, $3, $4, $6, $1.token_line, NULL);
 }
 | TYPENAME TWO_COLONS nested_name_specifier TEMPLATE template_id '(' ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE, global_op, $3, $5, NULL, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE_EXPLICIT_TYPE_CONVERSION, global_op, $3, $5, NULL, $1.token_line, NULL);
 }
 | TYPENAME TWO_COLONS nested_name_specifier TEMPLATE template_id '(' expression_list ')'
 {
 	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $2.token_line, NULL);
 
-	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE, global_op, $3, $5, $7, $1.token_line, NULL);
+	$$ = ASTMake4(AST_TYPENAME_TEMPLATE_TEMPLATE_EXPLICIT_TYPE_CONVERSION, global_op, $3, $5, $7, $1.token_line, NULL);
 }
 | postfix_expression '.' id_expression
 {
@@ -4335,10 +4335,11 @@ explicit_specialization : TEMPLATE '<' '>' templated_declaration
 {
 	$$ = ASTMake1(AST_EXPLICIT_SPECIALIZATION, $4, $1.token_line, NULL);
 }
-| TEMPLATE '<' '>' template_declaration
-{
-	$$ = ASTMake1(AST_EXPLICIT_SPECIALIZATION, $4, $1.token_line, NULL);
-}
+// This is invalid, all enclosed things must be explicitly specialized
+// | TEMPLATE '<' '>' template_declaration
+// {
+// 	$$ = ASTMake1(AST_EXPLICIT_SPECIALIZATION, $4, $1.token_line, NULL);
+// }
 ;
 
 
@@ -4609,8 +4610,8 @@ string_literal : STRING_LITERAL
 }
 | string_literal STRING_LITERAL
 {
-	char* str1 = ASTText($1);
-	char* str2 = $2.token_text;
+	const char* str1 = ASTText($1);
+	const char* str2 = $2.token_text;
 	char* text = calloc(strlen(str1) + strlen(str2) + 1, sizeof(*text));
 
 	// Append the second string
@@ -4629,69 +4630,9 @@ string_literal : STRING_LITERAL
 
 %%
 
-static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
-{
-	// return ASTMake2(AST_AMBIGUITY, x0.ast, x1.ast, 0, NULL);
-	AST son0 = x0.ast;
-	AST son1 = x1.ast;
+/*!include cxx-ambig-handler.y */
 
-	if (son0 == son1) 
-	{
-		fprintf(stderr, "Ambiguity function received two trees that are the same!");
-		exit(EXIT_FAILURE);
-	}
-
-	if (ASTType(son0) == AST_AMBIGUITY)
-	{
-		if (ASTType(son1) == AST_AMBIGUITY)
-		{
-			int original_son0 = son0->num_ambig;
-
-			son0->num_ambig += son1->num_ambig;
-			son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
-			
-			int i;
-			for (i = 0; i < son1->num_ambig; i++)
-			{
-				son0->ambig[original_son0 + i] = son1->ambig[i];
-			}
-
-			return son0;
-		}
-		else
-		{
-			son0->num_ambig++;
-			son0->ambig = (AST*) realloc(son0->ambig, sizeof(*(son0->ambig)) * son0->num_ambig);
-			son0->ambig[son0->num_ambig-1] = duplicate_ast(son1);
-
-			return son0;
-		}
-	}
-	else if (ASTType(son1) == AST_AMBIGUITY)
-	{
-		son1->num_ambig++;
-		son1->ambig = (AST*) realloc(son1->ambig, sizeof(*(son1->ambig)) * son1->num_ambig);
-		son1->ambig[son1->num_ambig-1] = duplicate_ast(son0);
-
-		return son1;
-	}
-	else
-	{
-		AST result = ASTLeaf(AST_AMBIGUITY, 0, NULL);
-
-		result->num_ambig = 2;
-		result->ambig = calloc(sizeof(*(result->ambig)), result->num_ambig);
-		// This avoids some problems with bison reusing stacks
-		result->ambig[0] = duplicate_ast(son0);
-		result->ambig[1] = duplicate_ast(son1);
-		result->line = son0->line;
-		result->filename = son0->filename;
-
-		return result;
-	}
-}
-
-void yyerror(AST* parsed_tree, const char* c)
+void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
 	// Current token
 	extern char* mcxxtext;

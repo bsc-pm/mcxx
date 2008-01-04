@@ -916,7 +916,7 @@ namespace TL
                     << "  {"
                     << "       _tx_commit_end = rdtscf();"
 					<< "       pthread_mutex_lock(&_l_commit_total); "
-                    << "       _tx_total_commit_time += (_tx_commit_end - _tx_commit_start);"
+                    << "       _tx_commit_total += (_tx_commit_end - _tx_commit_start);"
 					<< "       pthread_mutex_unlock(&_l_commit_total);"
                 	<< "       __t->endResponseTime = rdtscf();"
 					<< "       pthread_mutex_lock(&_l_total_time);"
@@ -1091,7 +1091,7 @@ namespace TL
                 << "       {"
                 << "         _tx_commit_end = rdtscf();"
                 << "         pthread_mutex_lock(&_l_commit_total);"
-                << "         _tx_total_commit_time += (_tx_commit_end - _tx_commit_start);"
+                << "         _tx_commit_total += (_tx_commit_end - _tx_commit_start);"
                 << "         pthread_mutex_unlock(&_l_commit_total);"
                 <<           local_commit
                 << "         break;"

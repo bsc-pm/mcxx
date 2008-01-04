@@ -23,9 +23,9 @@
 namespace TL
 {
     void OpenMPTransform::get_data_explicit_attributes(
-            Scope function_scope,
+            Scope,
             OpenMP::Directive directive,
-            Statement construct_body,
+            Statement,
             ObjectList<IdExpression>& shared_references,
             ObjectList<IdExpression>& private_references,
             ObjectList<IdExpression>& firstprivate_references,
@@ -218,7 +218,7 @@ namespace TL
     }
 
     ReplaceIdExpression OpenMPTransform::set_replacements(FunctionDefinition function_definition,
-            OpenMP::Directive directive,
+            OpenMP::Directive,
             Statement construct_body,
             ObjectList<IdExpression>& shared_references,
             ObjectList<IdExpression>& private_references,

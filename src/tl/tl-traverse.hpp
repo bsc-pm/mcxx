@@ -33,8 +33,8 @@ namespace TL
     {
         private:
         public:
-            virtual void preorder(Context ctx, AST_t node) { }
-            virtual void postorder(Context ctx, AST_t node) { }
+            virtual void preorder(Context, AST_t) { }
+            virtual void postorder(Context, AST_t) { }
 
             virtual ~TraverseFunctor() { }
     };

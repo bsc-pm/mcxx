@@ -1,0 +1,36 @@
+# OpenMP + Nanos 4
+[mcc]
+language = C
+options =
+preprocessor_name = gcc
+preprocessor_options = -E @NANOS_INCLUDES@ @MINTAKA_INCLUDES@
+compiler_name = gcc
+compiler_options = 
+linker_name = gcc
+linker_options = @NANOS_LIBS@ @MINTAKA_LIBS@
+@INSTRUMENTATION_PHASE@
+compiler_phase = libtlomp.so
+
+[mcxx]
+language = C++
+options = 
+preprocessor_name = g++
+preprocessor_options = -E -include new @NANOS_INCLUDES@ @MINTAKA_INCLUDES@
+compiler_name = g++
+compiler_options = 
+linker_name = g++
+linker_options = @NANOS_LIBS@ @MINTAKA_LIBS@
+@INSTRUMENTATION_PHASE@
+compiler_phase = libtlomp.so
+
+[imcc]
+language = C
+options =
+preprocessor_name = icc
+preprocessor_options = -E  @NANOS_INCLUDES@
+compiler_name = icc
+compiler_options =
+linker_name = icc
+linker_options = @NANOS_LIBS@
+@INSTRUMENTATION_PHASE@
+compiler_phase = libtlomp.so

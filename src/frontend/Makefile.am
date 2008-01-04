@@ -35,8 +35,12 @@ libmcxx_la_SOURCES = \
   cxx-buildscope.h \
   cxx-typeutils.c \
   cxx-typeutils.h \
+  cxx-type-decls.h \
   cxx-typeunif.c \
   cxx-typeunif.h \
+  cxx-typeunif-decls.h \
+  cxx-typededuc.c \
+  cxx-typededuc.h \
   cxx-cexpr.c \
   cxx-cexpr.h \
   cxx-ambiguity.c \
@@ -59,11 +63,18 @@ libmcxx_la_SOURCES = \
   cxx-koenig.h \
   cxx-koenig.c \
   cxx-gccsupport.h \
-  cxx-gccsupport.c
+  cxx-gccsupport.c \
+  cxx-gccbuiltins.h \
+  cxx-gccbuiltins.c \
+  cxx-typeorder.h \
+  cxx-typeorder.c \
+  cxx-overload.c \
+  cxx-overload.h
 
 libmcxx_la_LDFLAGS = -Wl,-rpath,$(libdir)
 
 libmcxx_la_CFLAGS = -Wall \
+					-Wshadow \
 				  -I$(top_srcdir)/lib \
 				  -I$(top_srcdir)/src/driver \
                    -fexceptions \
@@ -78,6 +89,7 @@ EXTRA_DIST += cxx-omp.y
 EXTRA_DIST += cxx-pragma.y
 EXTRA_DIST += cxx-construct.y
 EXTRA_DIST += cxx-superscalar.y
+EXTRA_DIST += cxx-ambig-handler.y
 
 # BUILT_SOURCES += cxx-attrnames.h
 # BUILT_SOURCES += cxx-asttype.h
@@ -158,7 +170,7 @@ cxx-parser.c cxx-parser.h cxx-parser.output : cxx03.y
 	bison -pmcxx --debug --defines --report=all --output=cxx-parser.c cxx03.y
 
 CLEANFILES += cxx03.y
-cxx03.y : $(srcdir)/cxx03.y.in $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y
+cxx03.y : $(srcdir)/cxx03.y.in $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y
 	$(TPP) -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in
 endif
 
@@ -180,6 +192,6 @@ c99-parser.c c99-parser.h c99-parser.output : c99.y
 	bison -pmc99 --debug --defines --report=all --output=c99-parser.c c99.y
 
 CLEANFILES += c99.y
-c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y
+c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y
 	$(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
 endif

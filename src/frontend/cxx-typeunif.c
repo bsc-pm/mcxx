@@ -22,6 +22,8 @@
 #include <string.h>
 #include "cxx-typeunif.h"
 #include "cxx-typeutils.h"
+#include "cxx-typededuc.h"
+#include "cxx-exprtype.h"
 #include "cxx-cexpr.h"
 #include "cxx-scope.h"
 #include "cxx-utils.h"
@@ -29,21 +31,20 @@
 #include "cxx-solvetemplate.h"
 #include "cxx-prettyprint.h"
 
-static AST get_nontype_template_parameter_unification(unification_set_t* unif_set, int nesting, int position);
-static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_context, AST
-        right_tree, decl_context_t right_decl_context, unification_set_t** unif_set);
 static char equivalent_expression_trees(AST left_tree, decl_context_t left_decl_context, AST right_tree, 
         decl_context_t right_decl_context);
 
-static type_t* get_type_template_parameter_unification(unification_set_t* unif_set,
-        int nesting, int position);
+static void unificate_unresolved_overloaded(type_t* t1, type_t* t2, 
+        deduction_set_t** deduction_set, decl_context_t decl_context, 
+        const char *filename, int line);
 
 // Will try to find a substitution to unificate t1 to t2
 //
 // e.g.   Q*    can    be unificated to   T**    with   [Q <- T*]
 //        T**   cannot be unificated to   Q*
 //
-char unificate_two_types(type_t* t1, type_t* t2, unification_set_t** unif_set, decl_context_t decl_context)
+void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set, 
+        decl_context_t decl_context, const char *filename, int line)
 {
     cv_qualifier_t cv_qualif_1 = CV_NONE;
     cv_qualifier_t cv_qualif_2 = CV_NONE;
@@ -52,395 +53,387 @@ char unificate_two_types(type_t* t1, type_t* t2, unification_set_t** unif_set, d
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Trying to unificate type '%s' <- '%s'\n",
+        fprintf(stderr, "TYPEUNIF: Trying to unificate type '%s' <- '%s'\n",
                 print_declarator(t1, decl_context),
                 print_declarator(t2, decl_context));
     }
 
-    // Normalize types
-    // If the user defined type points to a template parameter, we will use the
-    // template parameter
+    if (is_unresolved_overloaded_type(t2))
+    {
+        // Special case for unresolved overloaded function types:
+        //  - try all cases in the hope that any will match
+        unificate_unresolved_overloaded(t1, t2, deduction_set, decl_context, filename, line);
+        // Nothing else must be done with this t2
+        return;
+    }
 
     // 1. If it is a template parameter (or a user defined type pointing to it)
-    // then perform unification
-    if (is_named_type(t1) &&
-            named_type_get_symbol(t1)->kind == SK_TEMPLATE_TYPE_PARAMETER)
+    // then save a deduction
+    if (is_named_type(t1) 
+            && named_type_get_symbol(t1)->kind == SK_TEMPLATE_TYPE_PARAMETER
+            /* && is_less_or_equal_cv_qualified(cv_qualif_1, cv_qualif_2) */)
     {
         scope_entry_t* s1 = named_type_get_symbol(t1);
+        deduction_t* deduction = get_unification_item_template_parameter(
+                deduction_set, s1);
 
-        // First check if this parameter has not been already unified
-        type_t* previous_unif = get_type_template_parameter_unification(*unif_set, 
-                s1->entity_specs.template_parameter_nesting,
-                s1->entity_specs.template_parameter_position);
-        if (previous_unif == NULL)
+        deduced_parameter_t current_deduced_parameter;
+        memset(&current_deduced_parameter, 0, sizeof(current_deduced_parameter));
+
+        current_deduced_parameter.type = get_cv_qualified_type(t2, cv_qualif_2 & (~cv_qualif_1));
+
+        char found = 0;
+        int i;
+        for (i = 0; i < deduction->num_deduced_parameters; i++)
         {
-            // Check that t1 is less cv-qualified than t2
-            if ((cv_qualif_1 | cv_qualif_2) == (cv_qualif_2))
+            deduced_parameter_t* previous_deduced_parameter = deduction->deduced_parameters[i];
+
+            type_t* previous_deduced_type = previous_deduced_parameter->type;
+
+            if (equivalent_types(previous_deduced_type, t2, decl_context))
             {
-                unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
-
-                // This number will be the position of the argument
-                // within the specialization ! Not of the whole template
-                //
-                // e.g: template <typename _T> struct A;
-                //      template <int _N, typename _Q> struct A<_Q[_N]>;
-                //
-                // the position here is the one for _N and _Q not the one for _T
-                // (because what is being unified is _N <-- ?? and _Q <-- ??)
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Unified template parameter (%s) (%d,%d) \n", 
-                            s1->symbol_name,
-                            s1->entity_specs.template_parameter_nesting,
-                            s1->entity_specs.template_parameter_position);
-                }
-                unif_item->parameter_position = s1->entity_specs.template_parameter_position;
-                unif_item->parameter_nesting = s1->entity_specs.template_parameter_nesting;
-                unif_item->parameter_name = s1->symbol_name;
-
-                // Copy the type
-                type_t* unified_type = t2;
-                // We have to remove the inverse qualification. If t1 is const
-                // and t2 is const too, the unified type is not const
-                //
-                // const T <- const int [T = int] and not [T = const int]
-                // 
-                unified_type = get_cv_qualified_type(unified_type, cv_qualif_2 & (~cv_qualif_1));
-
-                unif_item->value = unified_type;
-                P_LIST_ADD((*unif_set)->unif_list, (*unif_set)->num_elems, unif_item);
-            }
-            else
-            {
-                // We cannot unify 'const X' with 'Y' (although we can unify 'X' with 'const Y')
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Unification parameter is more cv-qualified than the argument\n");
-                }
-                return 0;
+                found = 1;
+                break;
             }
         }
-        else
+
+        if (!found)
         {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Parameter (%s) (%d,%d) already unified\n", 
+                fprintf(stderr, "TYPEUNIF: Type deduction for type template parameter (%s) (%d,%d) with value '%s' \n", 
                         s1->symbol_name,
                         s1->entity_specs.template_parameter_nesting,
-                        s1->entity_specs.template_parameter_position);
+                        s1->entity_specs.template_parameter_position,
+                        print_declarator(current_deduced_parameter.type, decl_context));
             }
-            // Check is the same unification we are going to do
-            if (!equivalent_types(previous_unif, t2, CVE_CONSIDER, decl_context))
-            {
-                // They're not equivalent, thus not unificable
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Previous unification type '%s' does not match the current one '%s'\n",
-                            print_declarator(previous_unif, decl_context),
-                            print_declarator(t2, decl_context));
-                }
-                return 0;
-            }
-            else
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Previous unification DOES match the current one\n");
-                }
-            }
-        }
 
-        // They have been unified
-        return 1;
+            deduced_parameter_t* new_deduced_parameter = calloc(1, sizeof(*new_deduced_parameter));
+            *new_deduced_parameter = current_deduced_parameter;
+
+            P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
+        }
+        // Nothing else to do
+        return;
     }
     // template template parameters are handled a bit different
     else if (is_named_type(t1)
             && (named_type_get_symbol(t1)->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
     {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "Unificating template template parameter\n");
-        }
-
+        // Only other template-template parameters are valid here or template-names of
+        // classes
         if (!is_named_type(t2)
-                || (named_type_get_symbol(t2)->kind != SK_TEMPLATE_PRIMARY_CLASS
-                    && named_type_get_symbol(t2)->kind != SK_TEMPLATE_SPECIALIZED_CLASS
+                || (named_type_get_symbol(t2)->kind != SK_TEMPLATE
                     && named_type_get_symbol(t2)->kind != SK_TEMPLATE_TEMPLATE_PARAMETER))
-
         {
-            // This cannot be unified at all, only templates are valid here
-            return 0;
+            // Nothing else to do
+            return;
         }
 
         scope_entry_t* s1 = named_type_get_symbol(t1);
 
-        type_t* previous_unif = get_type_template_parameter_unification(*unif_set, 
-                s1->entity_specs.template_parameter_nesting,
-                s1->entity_specs.template_parameter_position);
-        if (previous_unif != NULL)
+        deduction_t* deduction = get_unification_item_template_parameter(
+                deduction_set, s1);
+
+        deduced_parameter_t current_deduced_parameter;
+        memset(&current_deduced_parameter, 0, sizeof(current_deduced_parameter));
+
+        current_deduced_parameter.type = t2;
+
+        char found = 0;
+        int i;
+        for (i = 0; i < deduction->num_deduced_parameters; i++)
         {
-            // Check is the same unification we are going to do
-            if (!equivalent_types(previous_unif, t2,  CVE_CONSIDER, decl_context))
+            deduced_parameter_t* previous_deduced_parameter = deduction->deduced_parameters[i];
+
+            type_t* previous_deduced_type = previous_deduced_parameter->type;
+
+            if (equivalent_types(previous_deduced_type, t2, decl_context))
             {
-                // They're not equivalent, thus not unificable
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Previous unification does not match the current one\n");
-                }
-                return 0;
-            }
-            else
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Previous unification DOES match the current one\n");
-                }
+                found = 1;
+                break;
             }
         }
-        else
-        {
-            unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
 
-            // This number will be the position of the argument
-            // within the specialization ! Not of the whole template
-            // (see a similar comment above)
+        if (!found)
+        {
             DEBUG_CODE()
             {
-                fprintf(stderr, "Unified template template parameter (%s) (%d,%d)\n", 
+                fprintf(stderr, "TYPEUNIF: Type deduction for template template parameter (%s) (%d,%d) with value '%s' \n", 
                         s1->symbol_name,
                         s1->entity_specs.template_parameter_nesting,
-                        s1->entity_specs.template_parameter_position);
+                        s1->entity_specs.template_parameter_position,
+                        print_declarator(current_deduced_parameter.type, decl_context));
             }
-            unif_item->parameter_nesting = s1->entity_specs.template_parameter_nesting;
-            unif_item->parameter_position = s1->entity_specs.template_parameter_position;
-            unif_item->parameter_name = s1->symbol_name;
-            unif_item->value = t2;
 
-            P_LIST_ADD((*unif_set)->unif_list, (*unif_set)->num_elems, unif_item);
+            deduced_parameter_t* new_deduced_parameter = calloc(1, sizeof(*new_deduced_parameter));
+            *new_deduced_parameter = current_deduced_parameter;
+
+            P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
         }
-        
-        // They have been unified
-        return 1;
-    }
 
-    if (is_named_type(t1) 
-            && is_named_type(t2))
-    {
-        scope_entry_t* entry_t1 = named_type_get_symbol(t1);
-        scope_entry_t* entry_t2 = named_type_get_symbol(t2);
-
-        if ((entry_t1->kind == SK_TEMPLATE_PRIMARY_CLASS
-                    || entry_t1->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-                && (entry_t2->kind == SK_TEMPLATE_PRIMARY_CLASS
-                    || entry_t2->kind == SK_TEMPLATE_SPECIALIZED_CLASS)
-                && (strcmp(entry_t1->symbol_name, entry_t2->symbol_name) == 0)
-                && same_scope(entry_t1->decl_context.current_scope, entry_t2->decl_context.current_scope))
+        DEBUG_CODE()
         {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "Arguments are both the same template '%s', unificating via arguments\n",
-                        entry_t1->symbol_name);
-            }
-            // If they are the same templates they might be unified via its arguments
-            //
-            //   A<T> can be unified with A<int>   with   [T <- int]
-            //
-
-            template_argument_list_t* arguments = 
-                template_type_get_template_arguments(get_actual_class_type(t2));
-            template_argument_list_t* specialized = 
-                template_type_get_template_arguments(get_actual_class_type(t1));
-
-            if (arguments->num_arguments 
-                    != specialized->num_arguments)
-            {
-                internal_error("Number of template arguments differs %d != %d", 
-                        arguments->num_arguments,
-                        specialized->num_arguments);
-            }
-
-
-            char unificable = 0;
-
-            unificable = match_one_template(arguments, specialized, entry_t1, *unif_set, decl_context);
-
-            return unificable;
+            fprintf(stderr, "TYPEUNIF: Unificating template template parameter\n");
         }
-    }
 
+        // Nothing else to do
+        return;
+    }
 
     // Structural unification, one of them must succeed
     if (is_non_derived_type(t1)
             && is_non_derived_type(t2))
     {
-        // If they were unificable they would have been unified before
-        return equivalent_types(t1, t2, CVE_CONSIDER, decl_context);
+        // Unificate template types
+        if (is_named_class_type(t1)
+                && is_named_class_type(t2)
+                && is_template_specialized_type(get_actual_class_type(t1))
+                && is_template_specialized_type(get_actual_class_type(t2))
+                && (template_specialized_type_get_related_template_type(get_actual_class_type(t1)) == 
+                    template_specialized_type_get_related_template_type(get_actual_class_type(t2))))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUNIF: Class type is a specialized one, unificating arguments\n");
+            }
+            template_argument_list_t *targ_list_1 
+                = template_specialized_type_get_template_arguments(get_actual_class_type(t1));
+            template_argument_list_t *targ_list_2 
+                = template_specialized_type_get_template_arguments(get_actual_class_type(t2));
+
+            int i;
+            for (i = 0; i < targ_list_1->num_arguments; i++)
+            {
+                template_argument_t* current_arg_1 = targ_list_1->argument_list[i];
+                template_argument_t* current_arg_2 = targ_list_2->argument_list[i];
+
+                switch (current_arg_1->kind)
+                {
+                    case TAK_TEMPLATE:
+                    case TAK_TYPE:
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "TYPEUNIF: Unificating template/type-template argument %d\n",
+                                        i);
+                            }
+                            unificate_two_types(current_arg_1->type, current_arg_2->type, 
+                                    deduction_set, decl_context, filename, line);
+                        }
+                        break;
+                    case TAK_NONTYPE:
+                        {
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "TYPEUNIF: Unificating nontype-template argument %d\n",
+                                        i);
+                            }
+                            unificate_two_expressions(deduction_set, 
+                                    current_arg_1->expression,
+                                    current_arg_1->expression_context,
+                                    current_arg_2->expression,
+                                    current_arg_2->expression_context);
+                        }
+                        break;
+                    default:
+                        {
+                            internal_error("Invalid template argument kind", 0);
+                        }
+                }
+            }
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUNIF: Arguments unificated\n");
+            }
+            // Nothing else to do
+            return;
+        }
+
+        // Nothing else to do
+        return;
     }
     else if (is_pointer_type(t1)
             && is_pointer_type(t2))
     {
-        return unificate_two_types(pointer_type_get_pointee_type(t1), pointer_type_get_pointee_type(t2), unif_set,
-                decl_context);
+        unificate_two_types(pointer_type_get_pointee_type(t1), pointer_type_get_pointee_type(t2), deduction_set,
+                decl_context, filename, line);
+        return;
+    }
+    else if (is_reference_type(t1)
+            && is_reference_type(t2))
+    {
+        unificate_two_types(reference_type_get_referenced_type(t1), reference_type_get_referenced_type(t2), deduction_set,
+                decl_context, filename, line);
+        return;
     }
     else if (is_pointer_to_member_type(t1)
             && is_pointer_to_member_type(t2))
     {
-        return unificate_two_types(pointer_type_get_pointee_type(t1), pointer_type_get_pointee_type(t2), unif_set,
-                decl_context)
-            && unificate_two_types(pointer_to_member_type_get_class_type(t1),
-                    pointer_to_member_type_get_class_type(t2), unif_set, decl_context);
+        unificate_two_types(pointer_type_get_pointee_type(t1), pointer_type_get_pointee_type(t2), deduction_set,
+                decl_context, filename, line);
+        unificate_two_types(pointer_to_member_type_get_class_type(t1),
+                pointer_to_member_type_get_class_type(t2), deduction_set, decl_context, filename, line);
+        return;
     }
     else if (is_array_type(t1)
             && is_array_type(t2))
     {
-        // If t1 is NULL, check that t2 is NULL too
-        if (array_type_get_array_size_expr(t1) == NULL
-                && array_type_get_array_size_expr(t2) != NULL)
-        {
-            return 0;
-        }
-        // If t1 is not NULL but t2 is, then this cannot be unified
-        if (array_type_get_array_size_expr(t1) != NULL
-                && array_type_get_array_size_expr(t2) == NULL)
-        {
-            return 0;
-        }
-
         if (array_type_get_array_size_expr(t1) != NULL
                 && array_type_get_array_size_expr(t2) != NULL)
         {
-            if (!unificate_two_expressions(unif_set, 
-                        array_type_get_array_size_expr(t1),
-                        array_type_get_array_size_expr_context(t1), 
-                        array_type_get_array_size_expr(t2),
-                        array_type_get_array_size_expr_context(t2)))
-            {
-                return 0;
-            }
+            unificate_two_expressions(deduction_set, 
+                    array_type_get_array_size_expr(t1),
+                    array_type_get_array_size_expr_context(t1), 
+                    array_type_get_array_size_expr(t2),
+                    array_type_get_array_size_expr_context(t2));
         }
 
-        if (!unificate_two_types(array_type_get_element_type(t1), 
-                    array_type_get_element_type(t2), 
-                    unif_set,
-                    decl_context))
-        {
-            return 0;
-        }
+        unificate_two_types(array_type_get_element_type(t1), 
+                array_type_get_element_type(t2), 
+                deduction_set,
+                decl_context,
+                filename, line);
 
-        return 1;
+        return;
     }
     else if (is_function_type(t1)
             && is_function_type(t2))
     {
-        if (!unificate_two_types(function_type_get_return_type(t1), 
-                    function_type_get_return_type(t2), 
-                    unif_set, 
-                    decl_context))
-        {
-            return 0;
-        }
+        unificate_two_types(function_type_get_return_type(t1), 
+                function_type_get_return_type(t2), 
+                deduction_set, 
+                decl_context,
+                filename, line);
 
-        if (function_type_get_num_parameters(t1) != function_type_get_num_parameters(t2))
+        if (function_type_get_num_parameters(t1) == function_type_get_num_parameters(t2)
+                && (function_type_get_has_ellipsis(t1) == function_type_get_has_ellipsis(t2)))
         {
-            return 0;
-        }
+            int num_parameters = function_type_get_num_parameters(t1);
+            if (function_type_get_has_ellipsis(t1))
+                num_parameters--;
 
-        if (function_type_get_has_ellipsis(t1) != function_type_get_has_ellipsis(t2))
-        {
-            return 0;
-        }
-
-        int i;
-        for (i = 0; i < function_type_get_num_parameters(t1); i++)
-        {
-            // Fix this should ignore outermost cv qualifier
-            type_t* par1 = function_type_get_parameter_type_num(t1, i);
-            type_t* par2 = function_type_get_parameter_type_num(t2, i);
-
-            if (!unificate_two_types(par1, par2, unif_set,
-                        decl_context))
+            int i;
+            for (i = 0; i < num_parameters; i++)
             {
-                return 0;
+                // Fix this should ignore outermost cv qualifier
+                type_t* par1 = function_type_get_parameter_type_num(t1, i);
+                type_t* par2 = function_type_get_parameter_type_num(t2, i);
+
+                unificate_two_types(par1, par2, deduction_set,
+                        decl_context, filename, line);
             }
         }
 
-        return 1;
+        return;
     }
-
-    // None was structurally unificable
-    return 0;
 }
 
-
-char unificate_two_expressions(unification_set_t **unif_set, 
+void unificate_two_expressions(deduction_set_t **deduction_set, 
         AST left_tree, decl_context_t left_decl_context, 
         AST right_tree, decl_context_t right_decl_context)
 {
-    return equivalent_dependent_expressions(left_tree, left_decl_context, right_tree,
-            right_decl_context, unif_set);
+    equivalent_dependent_expressions(left_tree, left_decl_context, right_tree,
+            right_decl_context, deduction_set);
 }
 
-static type_t* get_type_template_parameter_unification(unification_set_t* unif_set, int nesting, int position)
+deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction_set, scope_entry_t* s1)
 {
-    int i;
-    for (i = 0; i < unif_set->num_elems; i++)
+    int position = s1->entity_specs.template_parameter_position;
+    int nesting = s1->entity_specs.template_parameter_nesting;
+
+    DEBUG_CODE()
     {
-        if (unif_set->unif_list[i]->parameter_position == position
-                && unif_set->unif_list[i]->parameter_nesting == nesting)
+        fprintf(stderr, "TYPEUNIF: Getting unification item for template parameter '%s'\n",
+                s1->symbol_name);
+    }
+
+    int i;
+    for (i = 0; i < (*deduction_set)->num_deductions; i++)
+    {
+        if ((*deduction_set)->deduction_list[i]->parameter_position == position
+                && (*deduction_set)->deduction_list[i]->parameter_nesting == nesting)
         {
-            return unif_set->unif_list[i]->value;
+            return (*deduction_set)->deduction_list[i];
         }
     }
 
-    return NULL;
-}
-
-static AST get_nontype_template_parameter_unification(unification_set_t* unif_set, int nesting, int position)
-{
-    int i;
-    for (i = 0; i < unif_set->num_elems; i++)
+    deduction_t* result = calloc(1, sizeof(*result));
+    switch (s1->kind)
     {
-        if (unif_set->unif_list[i]->parameter_position == position
-                && unif_set->unif_list[i]->parameter_nesting == nesting)
-        {
-            return unif_set->unif_list[i]->expression;
-        }
+        case SK_TEMPLATE_PARAMETER:
+            {
+                result->kind = TPK_NONTYPE;
+                break;
+            }
+        case SK_TEMPLATE_TYPE_PARAMETER :
+            {
+                result->kind = TPK_TYPE;
+                break;
+            }
+        case SK_TEMPLATE_TEMPLATE_PARAMETER:
+            {
+                result->kind = TPK_TEMPLATE;
+                break;
+            }
+        default:
+            internal_error("Invalid symbol kind", 0);
     }
 
-    return NULL;
+    result->parameter_position = s1->entity_specs.template_parameter_position;
+    result->parameter_nesting = s1->entity_specs.template_parameter_nesting;
+    result->parameter_name = s1->symbol_name;
+
+    P_LIST_ADD((*deduction_set)->deduction_list, (*deduction_set)->num_deductions, result);
+
+    return result;
 }
 
-static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_context, AST
-        right_tree, decl_context_t right_decl_context, unification_set_t** unif_set)
+char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_context, AST
+        right_tree, decl_context_t right_decl_context, deduction_set_t** unif_set)
 {
     left_tree = advance_expression_nest(left_tree);
     right_tree = advance_expression_nest(right_tree);
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Trying to unify expression '%s' <- '%s'\n",
+        fprintf(stderr, "TYPEUNIF: Trying to unify expression '%s' <- '%s'\n",
                 prettyprint_in_buffer(left_tree),
                 prettyprint_in_buffer(right_tree));
     }
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Trying to match by means of plain constant evaluation\n");
+        fprintf(stderr, "TYPEUNIF: Trying to match by means of plain constant evaluation\n");
     }
-    
-    if (equivalent_expression_trees(left_tree, left_decl_context, right_tree, right_decl_context))
+
+    type_t* left_type = ASTExprType(left_tree);
+    type_t* right_type = ASTExprType(right_tree);
+
+    if ((left_type != NULL && is_dependent_expr_type(left_type))
+            || (right_type != NULL && is_dependent_expr_type(right_type)))
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "Plain evaluation succeeded. They have the same value\n");
+            fprintf(stderr, "TYPEUNIF: Some of the expressions is dependent, falling back to structural equivalence\n");
         }
-        return 1;
     }
     else
     {
-        DEBUG_CODE()
+        if (equivalent_expression_trees(left_tree, left_decl_context, right_tree, right_decl_context))
         {
-            fprintf(stderr, "Plain evaluation failed. Trying structural equivalence\n");
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUNIF: Plain evaluation succeeded. They have the same value\n");
+            }
+            return 1;
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUNIF: Plain evaluation failed. Trying structural equivalence\n");
+            }
         }
     }
 
@@ -450,7 +443,7 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "Expression '%s' is different to '%s' and cannot be unified\n", 
+            fprintf(stderr, "TYPEUNIF: Expression '%s' is different to '%s' and cannot be unified\n", 
                     prettyprint_in_buffer(left_tree), prettyprint_in_buffer(right_tree));
         }
         return 0;
@@ -465,171 +458,216 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
                 // AST_SYMBOL. So, do not assume they are the same!
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "Left part '%s' is a simple expression\n", prettyprint_in_buffer(left_tree));
+                    fprintf(stderr, "TYPEUNIF: Left part '%s' is a simple expression\n", prettyprint_in_buffer(left_tree));
                 }
-                scope_entry_list_t *result = query_id_expression(left_decl_context, left_tree);
 
-                ERROR_CONDITION((result == NULL), "Template argument of specialization '%s', not found",
-                        prettyprint_in_buffer(left_tree));
-
-                scope_entry_t* entry = result->entry;
-                
-                if (entry->kind != SK_TEMPLATE_PARAMETER)
+                // If left part is a nontype template parameter, then try to unify
+                type_t* expr_type = ASTExprType(left_tree);
+                if (expr_type != NULL
+                        && is_dependent_expr_type(expr_type)
+                        && is_named_type(expr_type)
+                        && named_type_get_symbol(expr_type)->kind == SK_TEMPLATE_PARAMETER)
                 {
-                    // Do not try to unify if the left part is not a nontype template parameter
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "Left part is not a nontype template parameter\n");
+                        fprintf(stderr, "TYPEUNIF: Left part '%s' found to be a nontype template parameter\n", 
+                                prettyprint_in_buffer(left_tree));
                     }
-                    if (!equal_trees)
+                    scope_entry_t* left_symbol = named_type_get_symbol(expr_type);
+                    deduction_t* deduction = get_unification_item_template_parameter(unif_set,
+                            left_symbol);
+
+                    deduced_parameter_t current_deduced_parameter;
+                    memset(&current_deduced_parameter, 0, sizeof(current_deduced_parameter));
+
+                    current_deduced_parameter.expression = right_tree;
+                    current_deduced_parameter.decl_context = right_decl_context;
+                    current_deduced_parameter.type = left_symbol->type_information;
+
+                    // Fold if possible
+                    {
+                        type_t* right_tree_type = ASTExprType(right_tree);
+                        if (!is_dependent_expression(right_tree, right_decl_context)
+                                && (right_tree_type == NULL
+                                    || !is_unresolved_overloaded_type(right_tree_type)))
+                        {
+                            literal_value_t literal 
+                                = evaluate_constant_expression(right_tree, right_decl_context);
+                            current_deduced_parameter.expression = tree_from_literal_value(literal);
+                        }
+                    }
+
+                    char found = 0;
+                    int i;
+                    for (i = 0; i < deduction->num_deduced_parameters; i++)
                     {
                         DEBUG_CODE()
                         {
-                            fprintf(stderr, "Trees are not equal, not unified\n");
+                            fprintf(stderr, "TYPEUNIF: Checking previous deductions\n");
                         }
-                        return 0;
-                    }
-                    else
-                    {
-                        DEBUG_CODE()
+                        deduced_parameter_t* previous_deduced_parameter = deduction->deduced_parameters[i];
+
+                        AST previous_deduced_expression = previous_deduced_parameter->expression;
+                        type_t* previous_deduced_expr_type = ASTExprType(previous_deduced_expression);
+                        type_t* right_tree_type = ASTExprType(right_tree);
+
+                        if (previous_deduced_expr_type != NULL
+                                && is_dependent_expr_type(previous_deduced_expr_type)
+                                && is_named_type(previous_deduced_expr_type)
+                                && named_type_get_symbol(previous_deduced_expr_type)->kind == SK_TEMPLATE_PARAMETER
+
+                                && right_tree_type != NULL
+                                && is_dependent_expr_type(right_tree_type)
+                                && is_named_type(right_tree_type)
+                                && named_type_get_symbol(right_tree_type)->kind == SK_TEMPLATE_PARAMETER)
                         {
-                            fprintf(stderr, "Trees are equal, trying plain comparison by constant evaluation\n");
-                        }
+                            scope_entry_t* previous_unified_template_param = 
+                                named_type_get_symbol(previous_deduced_expr_type);
+                            int previous_unified_expr_parameter_position = 
+                                previous_unified_template_param->entity_specs.template_parameter_position;
+                            int previous_unified_expr_parameter_nesting = 
+                                previous_unified_template_param->entity_specs.template_parameter_nesting;
 
-                        return equivalent_expression_trees(left_tree, left_decl_context, right_tree, right_decl_context);
-                    }
-                }
-                else
-                {
-                    // This can be a non simple type (currently only a pointer or function type)
-                    int template_parameter_position = 
-                        entry->entity_specs.template_parameter_position;
-                    int template_parameter_nesting = 
-                        entry->entity_specs.template_parameter_nesting;
-                    
-                    // Left part is a nontype template parameter
-                    DEBUG_CODE()
-                    {
-                        fprintf(stderr, "Left part '%s' is nontype template parameter pos=%d nest=%d\n", 
-                                prettyprint_in_buffer(left_tree),
-                                template_parameter_position,
-                                template_parameter_nesting);
-                    }
+                            scope_entry_t* right_tree_symbol = 
+                                named_type_get_symbol(right_tree_type);
+                            int currently_unified_template_param_position = 
+                                right_tree_symbol->entity_specs.template_parameter_position;
+                            int currently_unified_template_param_nesting = 
+                                right_tree_symbol->entity_specs.template_parameter_nesting;
 
-                    AST previous_unif = get_nontype_template_parameter_unification(
-                            *unif_set, 
-                            template_parameter_nesting,
-                            template_parameter_position);
-                    if (previous_unif == NULL)
-                    {
-                        unification_item_t* unif_item = calloc(1, sizeof(*unif_item));
-                        unif_item->expression = right_tree;
-                        unif_item->decl_context = right_decl_context;
-                        unif_item->parameter_name = ASTText(left_tree);
-
-                        unif_item->parameter_position = template_parameter_position;
-                        unif_item->parameter_nesting = template_parameter_nesting;
-
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "==> Expression unified\n");
-                        }
-
-                        P_LIST_ADD((*unif_set)->unif_list, (*unif_set)->num_elems, unif_item);
-                        return 1;
-                    }
-                    else
-                    {
-                        DEBUG_CODE()
-                        {
-                            fprintf(stderr, "==> Expression already unified before\n");
-                        }
-
-                        // If both are AST_SYMBOL let's rely on plain comparison
-                        // otherwise we would start an infinite recursion
-                        char equivalent = 0;
-                        if ((ASTType(right_tree) == ASTType(previous_unif))
-                                && (ASTType(right_tree) == AST_SYMBOL))
-                        {
-                            scope_entry_list_t *right_entry_list = query_id_expression(right_decl_context, right_tree);
-
-                            ERROR_CONDITION(right_entry_list == NULL, "Right symbol of unification not found", 0);
-
-                            scope_entry_list_t *previous_unif_entry_list = query_id_expression(right_decl_context, previous_unif);
-
-                            ERROR_CONDITION(previous_unif_entry_list == NULL, "Previous unified symbol not found", 0);
-
-                            scope_entry_t* right_entry = right_entry_list->entry;
-                            scope_entry_t* previous_entry = previous_unif_entry_list->entry;
-
-                            if (right_entry->kind != SK_TEMPLATE_PARAMETER
-                                    || previous_entry->kind != SK_TEMPLATE_PARAMETER)
+                            DEBUG_CODE()
                             {
+                                fprintf(stderr, "TYPEUNIF: In previous deduction both left tree '%s' and right tree '%s'"
+                                        " are nontype template parameters. Checking if they are the same\n", 
+                                        prettyprint_in_buffer(left_tree),
+                                        prettyprint_in_buffer(right_tree));
+                            }
+
+                            if ((currently_unified_template_param_position == previous_unified_expr_parameter_position)
+                                    && (currently_unified_template_param_nesting == previous_unified_expr_parameter_nesting))
+                            {
+                                found = 1;
                                 DEBUG_CODE()
                                 {
-                                    fprintf(stderr, "Checking previous unification using plain constant evaluation\n");
+                                    fprintf(stderr, "TYPEUNIF: They are the same\n");
                                 }
-                                return equivalent_expression_trees(right_tree, right_decl_context, previous_unif, right_decl_context);
                             }
                             else
                             {
-                                int right_template_parameter_position = 
-                                    right_entry->entity_specs.template_parameter_position;
-                                int right_template_parameter_nesting = 
-                                    right_entry->entity_specs.template_parameter_nesting;
-
-                                int previous_template_parameter_position = 
-                                    previous_entry->entity_specs.template_parameter_position;
-                                int previous_template_parameter_nesting = 
-                                    previous_entry->entity_specs.template_parameter_nesting;
-
-                                if ((right_template_parameter_position == previous_template_parameter_position)
-                                        && (right_template_parameter_nesting == previous_template_parameter_nesting))
+                                DEBUG_CODE()
                                 {
-                                    DEBUG_CODE()
-                                    {
-                                        fprintf(stderr, "They are the same positional nontype template parameter\n");
-                                    }
-                                    return 1;
+                                    fprintf(stderr, "TYPEUNIF: They are different\n");
                                 }
                             }
                         }
                         else
                         {
-                            // Otherwise try a structural match
-                            equivalent = equivalent_dependent_expressions(previous_unif,
-                                    right_decl_context, right_tree, right_decl_context, unif_set);
-                        }
-                        if (equivalent)
-                        {
                             DEBUG_CODE()
                             {
-                                fprintf(stderr, "==> Previous expression is the same\n");
+                                fprintf(stderr, "TYPEUNIF: Checking if previous deduced expression '%s' and right part '%s'"
+                                        " are the same\n", 
+                                        prettyprint_in_buffer(previous_deduced_expression),
+                                        prettyprint_in_buffer(right_tree));
                             }
-                            return 1;
+                            if (equivalent_dependent_expressions(previous_deduced_expression,
+                                        right_decl_context, right_tree, right_decl_context, unif_set))
+                            {
+                                found = 1;
+                                DEBUG_CODE()
+                                {
+                                    fprintf(stderr, "TYPEUNIF: They are the same\n");
+                                }
+                            }
+                            else
+                            {
+                                DEBUG_CODE()
+                                {
+                                    fprintf(stderr, "TYPEUNIF: They are different\n");
+                                }
+                            }
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        deduced_parameter_t* new_deduced_parameter = calloc(1, sizeof(*new_deduced_parameter));
+                        *new_deduced_parameter = current_deduced_parameter;
+
+                        P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
+                    }
+
+                    char equivalent = 1;
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEUNIF: Checking if it is exactly the same template parameter '%s' and '%s'\n",
+                                prettyprint_in_buffer(left_tree),
+                                prettyprint_in_buffer(right_tree));
+                    }
+                    type_t* right_tree_type = ASTExprType(right_tree);
+
+                    if (right_tree_type != NULL
+                            && is_dependent_expr_type(right_tree_type)
+                            && is_named_type(right_tree_type)
+                            && named_type_get_symbol(right_tree_type)->kind == SK_TEMPLATE_PARAMETER)
+                    {
+                        scope_entry_t* right_symbol = named_type_get_symbol(right_tree_type);
+
+                        if ((right_symbol->entity_specs.template_parameter_nesting 
+                                    == left_symbol->entity_specs.template_parameter_nesting)
+                                && (right_symbol->entity_specs.template_parameter_position 
+                                    == left_symbol->entity_specs.template_parameter_position))
+                        {
+                            found = 1;
+                            DEBUG_CODE()
+                            {
+                                fprintf(stderr, "TYPEUNIF: They are the same\n");
+                            }
+                            equivalent = 1;
                         }
                         else
                         {
                             DEBUG_CODE()
                             {
-                                fprintf(stderr, "==> They are different\n");
-                                fprintf(stderr, "=== Unification failed\n");
+                                fprintf(stderr, "TYPEUNIF: They are different\n");
                             }
-                            return 0;
+                            equivalent = 0;
                         }
                     }
+
+                    return equivalent;
                 }
+
+                // If it had to much it would have done before
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUNIF: Left part '%s' is not a nontype template parameter\n", 
+                            prettyprint_in_buffer(left_tree));
+                }
+                return 0;
 
                 break;
             }
         case AST_QUALIFIED_ID :
             {
-                // There are several restrictions on what can happen here.
-                // Redundant code
-                //
-                // If this had to return 1, it should have been returned before
-                // so most of the times this will fail
-                return equivalent_expression_trees(left_tree, left_decl_context, right_tree, right_decl_context);
+                AST global_op_1 = ASTSon0(left_tree);
+                AST nested_name_1 = ASTSon1(left_tree);
+                AST unqualified_part_1 = ASTSon2(left_tree);
+
+                AST global_op_2 = ASTSon0(right_tree);
+                AST nested_name_2 = ASTSon1(right_tree);
+                AST unqualified_part_2 = ASTSon2(right_tree);
+
+                if ((global_op_1 == NULL
+                        || global_op_2 == NULL)
+                        &&  (global_op_1 != global_op_2))
+                {
+                    return 0;
+                }
+
+                // Doing a syntactic comparison since anything else can be compared here
+                // as an expression ...
+                return syntactic_comparison_of_nested_names(nested_name_1, nested_name_2, 
+                        unqualified_part_1, unqualified_part_2, left_decl_context);
                 break;
             }
         case AST_LOGICAL_OR :
@@ -744,13 +782,13 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
                 AST left_expression_list = ASTSon1(left_tree);
                 ERROR_CONDITION((ASTSon0(left_expression_list) != NULL), 
                         "In '%s' cannot cast left_tree constant expression formed with an expression list longer than 1", 
-                        node_information(left_tree));
+                        ast_location(left_tree));
                 AST left_first_expression = ASTSon1(left_expression_list);
 
                 AST right_expression_list = ASTSon1(right_tree);
                 ERROR_CONDITION((ASTSon0(right_expression_list) != NULL), 
                         "In '%s' cannot cast right_tree constant expression formed with an expression list longer than 1", 
-                        node_information(right_tree));
+                        ast_location(right_tree));
                 AST right_first_expression = ASTSon1(right_expression_list);
 
                 return equivalent_dependent_expressions(left_first_expression,
@@ -788,7 +826,7 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
             }
         default:
             internal_error("Unknown node type '%s' in %s\n", ast_print_node_type(ASTType(right_tree)), 
-                    node_information(right_tree));
+                    ast_location(right_tree));
             return 0;
             break;
     }
@@ -797,8 +835,117 @@ static char equivalent_dependent_expressions(AST left_tree, decl_context_t left_
 static char equivalent_expression_trees(AST left_tree, decl_context_t left_decl_context, AST right_tree, 
         decl_context_t right_decl_context)
 {
-    literal_value_t left_value = evaluate_constant_expression(left_tree, left_decl_context);
-    literal_value_t right_value = evaluate_constant_expression(right_tree, right_decl_context);
+    literal_value_t literal1 = evaluate_constant_expression(left_tree, left_decl_context);
+    literal_value_t literal2 = evaluate_constant_expression(right_tree, right_decl_context);
 
-    return equal_literal_values(left_value, right_value, right_decl_context);
+    return equal_literal_values(literal1, literal2, right_decl_context);
+}
+
+char same_functional_expression(AST left_tree, decl_context_t left_decl_context, AST right_tree, 
+        decl_context_t right_decl_context)
+{
+    deduction_set_t* deduction_set = calloc(1, sizeof(*deduction_set));
+
+    return equivalent_dependent_expressions(left_tree, left_decl_context, right_tree, right_decl_context, 
+            &deduction_set);
+}
+
+static void unificate_unresolved_overloaded(type_t* t1, type_t* t2, 
+        deduction_set_t** deduction_set, decl_context_t decl_context,
+        const char *filename, int line)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUNIF: Unifying with an unresolved overloaded type. Unfolding it\n");
+    }
+    scope_entry_list_t* it = unresolved_overloaded_type_get_overload_set(t2);
+
+    template_argument_list_t* explicit_template_arguments 
+        = unresolved_overloaded_type_get_explicit_template_arguments(t2);
+
+    while (it != NULL)
+    {
+        scope_entry_t* entry = it->entry;
+
+        type_t* function_type = NULL;
+
+        if (entry->kind == SK_FUNCTION)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUNIF: Trying unification with '%s' at '%s:%d' of type '%s'\n",
+                        entry->symbol_name,
+                        entry->file,
+                        entry->line,
+                        print_declarator(entry->type_information, decl_context));
+            }
+            function_type = entry->type_information;
+        }
+        else if (entry->kind == SK_TEMPLATE)
+        {
+            // Try to deduce it with what we are given
+            type_t* specialization_type = template_type_get_primary_type(entry->type_information);
+            scope_entry_t* specialization_symbol = named_type_get_symbol(specialization_type);
+            type_t* specialized_function_type = specialization_symbol->type_information;
+
+            template_parameter_list_t* template_parameters = 
+                template_specialized_type_get_template_parameters(specialized_function_type);
+
+            deduction_set_t* deduction_result = NULL;
+            if (deduce_arguments_from_call_to_specific_template_function(/* no arguments */ NULL,
+                        /* num_arguments */ 0, specialization_type, template_parameters,
+                        decl_context, &deduction_result, filename, line, 
+                        explicit_template_arguments))
+            {
+                template_argument_list_t* argument_list = build_template_argument_list_from_deduction_set(
+                        deduction_result);
+
+                // Now get a specialized template type for this
+                // function (this will sign it in if it does not exist)
+                type_t* named_specialization_type = template_type_get_specialized_type(entry->type_information,
+                        argument_list, /* no template parameters */ template_parameters,
+                        decl_context, line, filename);
+
+                // Update entry and its function type
+                entry = named_type_get_symbol(named_specialization_type);
+                function_type = entry->type_information;
+
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUNIF: Trying unification with [template] '%s' at '%s:%d' of type '%s'\n",
+                            entry->symbol_name,
+                            entry->file,
+                            entry->line,
+                            print_declarator(entry->type_information, decl_context));
+                }
+            }
+            else
+            {
+                // Ignore this one
+                it = it->next;
+                continue;
+            }
+        }
+        else
+        {
+            internal_error("Code unreachable", 0);
+        }
+
+        if (entry->entity_specs.is_member
+                && !entry->entity_specs.is_static)
+        {
+            function_type = get_pointer_to_member_type(function_type,
+                    named_type_get_symbol(entry->entity_specs.class_type));
+        }
+
+        // Now perform deduction
+        unificate_two_types(t1, function_type, deduction_set, decl_context, filename, line);
+
+        it = it->next;
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUNIF: Unification of unresolved overloaded types ended\n");
+    }
 }

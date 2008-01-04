@@ -41,7 +41,7 @@ typedef bool bool_type;
  *     
  */
 
-typedef void delete_func (void *object);
+typedef void delete_func (const void *object);
 
 #ifdef __cplusplus
 }

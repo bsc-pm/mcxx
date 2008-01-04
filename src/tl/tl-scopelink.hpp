@@ -34,7 +34,7 @@ namespace TL
         private:
             scope_link_t* _scope_link;
         protected :
-            virtual tl_type_t* get_extended_attribute(const std::string& str) const
+            virtual tl_type_t* get_extended_attribute(const std::string&) const
             {
                 return NULL;
             }
@@ -68,7 +68,7 @@ namespace TL
             }
 
             ScopeLink(const ScopeLink& sl)
-                : _scope_link(sl._scope_link)
+                : Object(sl), _scope_link(sl._scope_link)
             {
             }
 

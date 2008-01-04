@@ -1,5 +1,28 @@
+TPP=$(top_builddir)/lib/tpp
+CLEANFILES=
+
+CONFIG_FILES_IN =  \
+       config.acotes.in \
+       config.mcxx.in \
+       config.nanos_omp.in \
+       config.plain.in \
+       config.stm_nebelung.in \
+       config.superscalar.in \
+	   $(END)
+
 EXTRA_DIST = \
-   config.mcxx.in
+	   $(CONFIG_FILES_IN) \
+	   $(END)
+
+CONFIG_FILES=$(pathsubst %.in,%,$(CONFIG_FILES_IN))
 
 dist_pkgdata_DATA = \
-   config.mcxx
+		config.mcxx \
+		$(END)
+
+DEFINES=$(addprefix -D,@ENABLED_PROFILES@)
+
+CLEANFILES+=config.mcxx
+
+config.mcxx : $(TPP) config.mcxx.in $(CONFIG_FILES)
+	$(TPP) -o $@ -I $(srcdir) $(DEFINES) $(srcdir)/config.mcxx.in

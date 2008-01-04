@@ -23,9 +23,9 @@
 
 #include "cxx-macros.h"
 #include "cxx-scopelink-decls.h"
-#include "cxx-buildscope.h"
-#include "cxx-ast.h"
-#include "cxx-scope.h"
+#include "cxx-buildscope-decls.h"
+#include "cxx-ast-decls.h"
+#include "cxx-scope-decls.h"
 
 MCXX_BEGIN_DECLS
 
@@ -33,9 +33,12 @@ scope_link_t* scope_link_new(decl_context_t global_decl_context);
 
 void scope_link_set(scope_link_t* sl, AST a, decl_context_t decl_context);
 
+decl_context_t scope_link_get_global_decl_context(scope_link_t* sl);
+
 decl_context_t scope_link_get_decl_context(scope_link_t* sl, AST a);
 
-AST duplicate_ast_with_scope_link(AST a, scope_link_t* orig, scope_link_t* new_sl);
+char scope_link_direct_get_scope(scope_link_t* sl, AST a, 
+        decl_context_t *decl_result);
 
 MCXX_END_DECLS
 

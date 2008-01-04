@@ -35,7 +35,7 @@ namespace TL
             int _i;
 
         protected:
-            virtual tl_type_t* get_extended_attribute(const std::string& name) const
+            virtual tl_type_t* get_extended_attribute(const std::string&) const
             {
                 return NULL;
             }
@@ -46,7 +46,7 @@ namespace TL
             }
 
             Integer(const Integer& i)
-                : _i(i._i)
+                : Object(i), _i(i._i)
             {
             }
 
@@ -121,7 +121,7 @@ namespace TL
             }
 
             // Postfix
-            Integer operator++(int n)
+            Integer operator++(int) 
             {
                 Integer t(this->_i);
 
@@ -137,7 +137,7 @@ namespace TL
             }
 
             // Postfix
-            Integer operator--(int n)
+            Integer operator--(int)
             {
                 Integer t(this->_i);
                 (this->_i)--;
@@ -168,7 +168,7 @@ namespace TL
             bool _b;
 
         protected:
-            virtual tl_type_t* get_extended_attribute(const std::string& name) const
+            virtual tl_type_t* get_extended_attribute(const std::string&) const
             {
                 return NULL;
             }
@@ -180,7 +180,7 @@ namespace TL
             }
 
             Bool(const Bool& b)
-                : _b(b._b)
+                : Object(b), _b(b._b)
             {
             }
 
@@ -255,7 +255,7 @@ namespace TL
             }
 
         protected:
-            virtual tl_type_t* get_extended_attribute(const std::string& name) const
+            virtual tl_type_t* get_extended_attribute(const std::string&) const
             {
                 return NULL;
             }
@@ -266,7 +266,7 @@ namespace TL
             }
 
             String( const String& s )
-                : std::string(s)
+                : Object(s), std::string(s)
             {
             }
             String( size_type length, const char& ch )

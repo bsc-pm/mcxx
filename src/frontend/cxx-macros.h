@@ -33,8 +33,10 @@
 
      #if __GNUC_MINOR__ >= 1
         #define DEPRECATED __attribute__((deprecated))
+        #define UNUSED_PARAMETER __attribute__((unused))
      #else
         #define DEPRECATED
+        #define UNUSED_PARAMETER
      #endif
      #if __GNUC_MINOR__ >= 4
          #define WARN_UNUSED __attribute__((warn_unused_result))
@@ -44,13 +46,18 @@
   #elif __GNUC__ == 4
      #define NORETURN __attribute__((noreturn))
      #define WARN_UNUSED __attribute__((warn_unused_result))
-        #define DEPRECATED __attribute__((deprecated))
+     #define DEPRECATED __attribute__((deprecated))
+     #define UNUSED_PARAMETER __attribute__((unused))
   #elif __GNUC__ == 2
      #error "This code will not compile with GCC 2"
+  #else
+     #error "Unsupported version of GCC"
   #endif
 #else
   #define NORETURN
   #define WARN_UNUSED
+  #define UNUSED_PARAMETER
+  #define DEPRECATED
 #endif
 
 #ifdef __cplusplus

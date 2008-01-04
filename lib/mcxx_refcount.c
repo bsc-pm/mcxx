@@ -29,6 +29,10 @@
  #endif
 #endif
 
+#ifdef __GNUC__
+  #define UNUSED_PARAM __attribute__((unused))
+#endif
+
 static void _mcxx_nochildren(void *p, void (*_mcxx_do)(void*));
 
 static void _mcxx_release(void *p);
@@ -70,7 +74,7 @@ _mcxx_children_fun *_mcxx_children(void *p)
 	return &(refp->_mcxx_children);
 }
 
-static void _mcxx_nochildren(void *p, void (*_mcxx_do)(void*))
+static void _mcxx_nochildren(void *p UNUSED_PARAM, void (*_mcxx_do)(void*) UNUSED_PARAM)
 {
     // Do nothing
 }

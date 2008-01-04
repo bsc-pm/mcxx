@@ -35,7 +35,6 @@
 #include "ac-task.h"
 #include "ac-state.h"
 #include "ac-variable.h"
-#include "tl-acoteslogger.h"
 #include "tl-acotesstack.h"
 #include "tl-variableclause.h"
 
@@ -75,14 +74,12 @@ namespace TL { namespace Acotes {
         Task* task= Task::create(taskgroup, parentTask, construct, body);
         AcotesStack::taskPush(task);
         
-        onPreTeam(task);
         onPreState(task);
         onPreCopyInState(task);
         onPreCopyOutState(task);
         onPreInitializeState(task);
         onPreFinalizeState(task);
         onPreInputPort(task);
-        onPreInputReplicatePort(task);
         onPreOutputPort(task);
         onPreBypass(task);
         onPreAsync(task);
@@ -92,21 +89,6 @@ namespace TL { namespace Acotes {
     void TaskConstruct::onPost() {
         // pop current task
         AcotesStack::taskPop();
-    }
-    
-    void TaskConstruct::onPreTeam(Task* task) {
-        const ObjectList<std::string> arguments= get_clause("team").get_arguments();
-        
-        if (arguments.size() == 0) {
-        } else if (arguments.size() == 1) {
-            std::stringstream ss;
-            int team;
-            ss << arguments.at(0);
-            ss >> team;
-            task->setTeam(team);
-        } else {
-            AcotesLogger::error(this) << "team clause has more than one argument." << std::endl;
-        }
     }
     
     void TaskConstruct::onPreState(Task* task) {
@@ -165,19 +147,6 @@ namespace TL { namespace Acotes {
             if (stateClause.hasLabel(i)) {
                 port->setName(stateClause.getLabel(i));
             }
-        }
-    }
-    
-    void TaskConstruct::onPreInputReplicatePort(Task* task) {
-        VariableClause stateClause(get_clause("inputreplicate"), task);
-        
-        for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
-            Variable* variable= stateClause.getVariable(i);
-            Port* port= Port::createControlInputPort(variable);
-            if (stateClause.hasLabel(i)) {
-                port->setName(stateClause.getLabel(i));
-            }
-            port->setReplicate(true);
         }
     }
     

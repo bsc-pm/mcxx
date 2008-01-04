@@ -188,7 +188,7 @@ namespace TL
             FunctionDefinition function_definition,
             Source outlined_function_name,
             ForStatement for_statement,
-            Statement loop_body,
+            Statement /* loop_body */,
             ReplaceIdExpression replace_references,
             ObjectList<ParameterInfo> parameter_info_list,
             ObjectList<IdExpression> private_references,

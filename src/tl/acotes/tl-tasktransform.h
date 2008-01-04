@@ -43,11 +43,9 @@ namespace TL { namespace Acotes {
     private:
         static void transformChildren(Task* task);
         static void transformAddOutline(Task* task);
-        static void transformReplaceVariable(Task* task);
         static void transformReplaceUserPort(Task* task);
         static void transformReplaceSharedCheck(Task* task);
         static void transformReplaceSharedUpdate(Task* task);
-        static void transformReplaceTeamReplicate(Task* task);
         static void transformReplaceConstruct(Task* task);
         
     // -- Outline generation
@@ -66,10 +64,6 @@ namespace TL { namespace Acotes {
         static std::string generateControlOutputPeek(Task* task);
         static std::string generateControlPop(Task* task);
         static std::string generateControlPush(Task* task);
-        static std::string generateReplicatePeek(Task* task);
-        static std::string generateReplicateBody(Task* task);
-        static std::string generateReplicatePop(Task* task);
-        static std::string generateReplicateAcquire(Task* task);
     
     // -- Replacement generation
     private:

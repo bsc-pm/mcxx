@@ -21,29 +21,114 @@
 #ifndef CXX_SCOPE_DECLS_H
 #define CXX_SCOPE_DECLS_H
 
+#include "hash.h"
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
 #include "cxx-buildscope-decls.h"
-#include "hash.h"
 
 MCXX_BEGIN_DECLS
 
 /*
- * A scope is represented by a scope_t*
+ * A scope is represented by a struct scope_tag*
  *
- * Entries in the scope are scope_entry_t*
+ * Entries in the scope are struct scope_entry_tag*
  *
- * Every entry can have a non-null type_information field type_t*
+ * Every entry can have a non-null type_information field struct type_tag*
  * 
- * A type_t* represents a full C++ type in a hierarchical way.
+ * A struct type_tag* represents a full C++ type in a hierarchical way.
  *   -> pointer
  *   -> array
  *   -> function
  *   -> type (direct type including builtin's, class, enums, typedef)
  */
 
-struct type_tag;
-typedef struct type_tag type_t;
+
+#define BITMAP(x) (1 << (x))
+
+typedef 
+enum decl_flags_tag
+{
+    DF_NONE = 0,
+    // If this is enable, declarations are under the hood of a template.  It is
+    // cleared for members of a class, which in turn can be templated too
+    DF_TEMPLATE = BITMAP(0), 
+    // It states that the current declaration is a constructor, so no
+    // type-specifier is expected and a special name 'constructor class-name'
+    // is used when looking up in the scope
+    DF_CONSTRUCTOR = BITMAP(1),
+    // It states that the current declaration does not have any declaration.
+    // It is mainly used for elaborate-type-specifiers and templated-declarations
+    DF_NO_DECLARATORS = BITMAP(2),
+    // It states that the declaration has a 'friend' specifier
+    DF_FRIEND = BITMAP(3),
+    // It states that, under the same scope as DF_TEMPLATE, the declaration
+    // is under a 'template<>'
+    DF_EXPLICIT_SPECIALIZATION = BITMAP(4),
+    // Allows redefinition of an identifier already defined, used in compiler
+    // phases since they might need to redeclare something
+    DF_ALLOW_REDEFINITION = BITMAP(5),
+    // Lookup is being performed on a unqualified name
+    DF_UNQUALIFIED_NAME = BITMAP(6), 
+    // Lookup is being performed on a qualified name
+    DF_QUALIFIED_NAME = BITMAP(7), 
+    // We are looking up a label
+    DF_LABEL = BITMAP(8), 
+    // Lookup will consider only the current scope
+    DF_ONLY_CURRENT_SCOPE = BITMAP(9),
+    // Disables examining dependent types (used for dependent typenames)
+    DF_DEPENDENT_TYPENAME = BITMAP(10),
+    // Enables weird lookup for 'struct X'/'union X'/'enum X'
+    DF_ELABORATED_NAME = BITMAP(11),
+    // States that we are under parameter declaration
+    DF_PARAMETER_DECLARATION = BITMAP(12),
+    // States that the lookup should ignore injected class-names
+    DF_NO_INJECTED_CLASS_NAME = BITMAP(13),
+    // Updates template arguments for a given specialization, used
+    // only when defining an already declared template specialization
+    // (since we want the names be updated)
+    DF_UPDATE_TEMPLATE_ARGUMENTS = BITMAP(14),
+    // We are instantiating: some bits are skipped 
+    DF_INSTANTIATING = BITMAP(15),
+} decl_flags_t;
+
+#undef BITMAP
+
+// Inherited attributes
+typedef struct decl_context_tag
+{
+    // Several declaration flags
+    // telling us some context
+    decl_flags_t decl_flags;
+    
+    // First enclosing available namespace scope
+    struct scope_tag* namespace_scope;
+    // Global scope, should not change along a translation unit
+    struct scope_tag* global_scope;
+
+    // Current block scope, if any
+    struct scope_tag* block_scope;
+
+    // Current template_scope, if any
+    struct scope_tag* template_scope;
+    // Template parameter information without taking
+    // into account the current scope
+    struct template_parameter_list_tag *template_parameters;
+    // Template nesting level
+    int template_nesting;
+
+    // Current class scope, if any
+    struct scope_tag* class_scope;
+
+    // For labels, if any
+    struct scope_tag* function_scope;
+
+    // Prototype scope, if any
+    struct scope_tag* prototype_scope;
+
+    // Scope of the declaration,
+    // should never be null
+    struct scope_tag* current_scope;
+} decl_context_t;
 
 enum cxx_symbol_kind
 {
@@ -57,17 +142,14 @@ enum cxx_symbol_kind
     SK_VARIABLE, // [7] this names an object
     SK_TYPEDEF, // [8] this names a typedef
     // Lots of stuff related to the C++ "template madness"
-    SK_TEMPLATE_PRIMARY_CLASS, // [9] this names a primary template
-    SK_TEMPLATE_SPECIALIZED_CLASS, // [10] this names a specialized template class
-    SK_TEMPLATE_FUNCTION, // [11] this names a template function
-    SK_TEMPLATE_ALIAS, // [12] this names something that aliases a template-name (used solely in instantiation)
-    SK_TEMPLATE_PARAMETER, // [13] nontype parameters like N in "template<int N>"
-    SK_TEMPLATE_TYPE_PARAMETER, // [14] plain type parameters like T in "template <class T>"
-    SK_TEMPLATE_TEMPLATE_PARAMETER, // [15] template template parameters like Q in "template<template<typename P> class Q>"
+    SK_TEMPLATE, // [9] this names a template (either function or class)
+    SK_TEMPLATE_PARAMETER, // [10] nontype parameters like N in "template<int N>"
+    SK_TEMPLATE_TYPE_PARAMETER, // [11] plain type parameters like T in "template <class T>"
+    SK_TEMPLATE_TEMPLATE_PARAMETER, // [12] template template parameters like Q in "template<template<typename P> class Q>"
     // GCC Extension for builtin types
-    SK_GCC_BUILTIN_TYPE, // [16]
+    SK_GCC_BUILTIN_TYPE, // [13]
     // Dependent entity that is named but nothing is known at the moment
-    SK_DEPENDENT_ENTITY // [17]
+    SK_DEPENDENT_ENTITY // [14]
 };
 
 #define BITMAP(x) (1 << x)
@@ -81,6 +163,43 @@ typedef enum {
 } cv_qualifier_t;
 
 #undef BITMAP
+
+enum template_argument_kind
+{
+    TAK_UNDEFINED = 0,
+    TAK_NONTYPE, // an nontype template argument (basically an int or pointer)
+    TAK_TYPE, // a type template argument (the common case)
+    TAK_TEMPLATE // template template argument (not very usual)
+};
+
+typedef 
+struct template_argument_tag
+{
+    // Kind of the template argument
+    enum template_argument_kind kind;
+
+    // Argument tree. Used for nontype template arguments
+    struct AST_tag* expression;
+    decl_context_t expression_context;
+
+    // If the template argument is a type template argument (or a template
+    // template one) the type should be here
+    struct type_tag* type;
+
+    // This argument was implicitly defined by default template argument
+    char implicit;
+
+    // "Identifier" of this template argument
+    int position;
+    int nesting;
+} template_argument_t;
+
+// List of template arguments
+typedef 
+struct template_argument_list_tag {
+    int num_arguments;
+    template_argument_t** argument_list;
+} template_argument_list_t;
 
 enum template_parameter_kind
 {
@@ -101,18 +220,18 @@ typedef struct template_parameter_tag
     // symbol did not have name, we are mainly interested in their type
     struct scope_entry_tag* entry;
 
-    // Default expression for template parameters
-    // it can be both an expression or a type,
-    // for kind == TPK_NONTYPE it will be an expression
-    // otherwise it will be an expression
-    decl_context_t default_argument_context;
-    AST default_argument;
-
     char has_default_argument;
+    template_argument_t* default_template_argument;
 
     decl_context_t nontype_param_typename_context;
-    AST nontype_param_typename;
+    struct AST_tag* nontype_param_typename;
 } template_parameter_t;
+
+typedef struct template_parameter_list_tag
+{
+    int num_template_parameters;
+    template_parameter_t** template_parameters;
+} template_parameter_list_t;
 
 // Access specifier, saved but not enforced by the compiler
 typedef enum access_specifier_t
@@ -123,38 +242,6 @@ typedef enum access_specifier_t
     AS_PROTECTED // protected
 } access_specifier_t;
 
-enum template_argument_kind
-{
-    TAK_UNDEFINED = 0,
-    TAK_NONTYPE, // an nontype template argument (basically an int or pointer)
-    TAK_TYPE, // a type template argument (the common case)
-    TAK_TEMPLATE // template template argument (not very usual)
-};
-
-typedef 
-struct template_argument_tag
-{
-    // Kind of the template argument
-    enum template_argument_kind kind;
-
-    // Argument tree. Used for nontype template arguments
-    AST expression;
-    decl_context_t expression_context;
-
-    // If the template argument is a type template argument (or a template
-    // template one) the type should be here
-    struct type_tag* type;
-
-    // This argument was implicitly defined by default template argument
-    char implicit;
-} template_argument_t;
-
-// List of template arguments
-typedef 
-struct template_argument_list_tag {
-    int num_arguments;
-    template_argument_t** argument_list;
-} template_argument_list_t;
 
 // Dependent entity means it depends somehow on a template parameter
 typedef 
@@ -170,6 +257,13 @@ enum dependency_info_tag
 } dependency_info_t;
 
 struct scope_entry_tag;
+
+typedef
+struct default_argument_info_tag
+{
+    struct AST_tag* argument;
+    decl_context_t context;
+} default_argument_info_t;
 
 typedef struct entity_specifiers_tag
 {
@@ -202,11 +296,16 @@ typedef struct entity_specifiers_tag
     char is_private;
     char is_protected;
 
+    // Builtin function created when solving overload
+    char is_builtin_function;
+
     // Is a conversion function
     char is_conversion;
 
     // Is a constructor
     char is_constructor;
+    // Is a conversor one
+    char is_conversor_constructor;
 
     // Is an explicit constructor
     char is_explicit;
@@ -224,7 +323,7 @@ typedef struct entity_specifiers_tag
     
     // Is a member entity (function or data)
     char is_member;
-    // and its class
+    // and its class 
     struct type_tag* class_type;
 
     // States if this is the injected class name of every class
@@ -234,20 +333,19 @@ typedef struct entity_specifiers_tag
     
     // Linkage specifier ("C" or "C++")
     // Unused field
-    char* linkage_spec;
+    const char* linkage_spec;
     
-    // For template parameters alive in the declaration of this entity (only
-    // SK_TEMPLATE_PRIMARY_CLASS or SK_TEMPLATE_FUNCTION)
-    int num_template_parameters;
-    template_parameter_t** template_parameter_info;
-
     // Exception specifier for functions
     int num_exceptions;
-    type_t** exceptions;
+    struct type_tag** exceptions;
+
+    // Default arguments for functions
+    int num_parameters;
+    default_argument_info_t **default_argument_info;
 
     // Bitfields
     char is_bitfield;
-    AST bitfield_expr;
+    struct AST_tag* bitfield_expr;
     decl_context_t bitfield_expr_context;
 
 } entity_specifiers_t;
@@ -264,25 +362,25 @@ struct scope_entry_tag
     decl_context_t decl_context;
 
     // The symbol name
-    char* symbol_name;
+    const char* symbol_name;
 
     // This allows us to enforce the one-definition-rule within a translation unit
     int defined;
 
     // Type information of this symbol
-    type_t* type_information;
+    struct type_tag* type_information;
 
-    // Related decl_context. This is the declarative region created
-    // by either a class or a namespace
-    decl_context_t related_decl_context;
-
+    // Related decl_context of a namespace. This is the declarative region
+    // created by a namespace
+    decl_context_t namespace_decl_context;
+    
     // Initializations of several kind are saved here
     //  - initialization of const objects
     //  - enumerator values
-    AST expression_value;
+    struct AST_tag* expression_value;
 
     // File and line where this simbol was signed up
-    char *file;
+    const char *file;
     int line;
 
     // Do not print this symbol (because of recursion, hiding, etc) Used
@@ -297,10 +395,10 @@ struct scope_entry_tag
     // Used for template template parameters
     struct type_tag* template_alias_type;
 
-    // Point in the AST where this was declared. This is approximate, just to
+    // Point in the struct AST_tag* where this was declared. This is approximate, just to
     // find the simple_declaration, member_declaration or function_definition
     // holding this one
-    AST point_of_declaration;
+    struct AST_tag* point_of_declaration;
 
     // Dependency info. It states if this symbol has a template-dependent nature
     // A value of DI_UNKNOWN means this has not been already computed
@@ -314,12 +412,12 @@ struct scope_entry_tag
 
 // This is what the scope returns a list of symbols due to function overloading
 // and template class specialization
-typedef struct scope_entry_list
+typedef struct scope_entry_list_tag
 {
     // The current entry
-    scope_entry_t* entry;
+    struct scope_entry_tag* entry;
     // Next entry under this name (NULL if last)
-    struct scope_entry_list* next;
+    struct scope_entry_list_tag* next;
 } scope_entry_list_t;
 
 // Scope kind
@@ -347,7 +445,7 @@ struct scope_tag
     // Qualification name of this scope this holds the name we have to prepend
     // to an entity of this scope in order to qualify it in the enclosing
     // scope.
-    char* qualification_name;
+    const char* qualification_name;
 
     // Relationships with other scopes
     // Nesting relationship is expressed by "contained_in". This relationship is
@@ -360,21 +458,13 @@ struct scope_tag
     int num_used_namespaces;
     struct scope_tag** use_namespace;
 
-    // Base scopes
-    // Only valid in CLASS_SCOPE
-    int num_base_scopes;
-    struct scope_tag** base_scope;
-} scope_t;
+    // Only valid for CLASS_SCOPE, the actual class related to this class scope
+    struct type_tag* class_type;
 
-/*
- * Used for function overloading and Koenig lookup
- */
-typedef
-struct argument_type_info_tag
-{
-    type_t* type;
-    char is_lvalue;
-} argument_type_info_t;
+    // Only valid for BLOCK_SCOPE. The function definition
+    // holding this BLOCK_SCOPE. Currently unused
+    struct scope_entry_tag* function_entry;
+} scope_t;
 
 MCXX_END_DECLS
 

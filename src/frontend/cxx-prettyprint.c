@@ -79,15 +79,14 @@ HANDLER_PROTOTYPE(array_subscript_handler);
 HANDLER_PROTOTYPE(function_call_handler);
 HANDLER_PROTOTYPE(function_call_handler);
 HANDLER_PROTOTYPE(typename_explicit_type_conversion);
-HANDLER_PROTOTYPE(typename_template_handler);
-HANDLER_PROTOTYPE(typename_template_template_handler);
+HANDLER_PROTOTYPE(typename_template_explicit_type_conversion_handler);
+HANDLER_PROTOTYPE(typename_template_template_explicit_type_conversion_handler);
 HANDLER_PROTOTYPE(infix_parameter_handler);
 HANDLER_PROTOTYPE(template_member_access);
 HANDLER_PROTOTYPE(son_handler_then_suffix_parameter);
 HANDLER_PROTOTYPE(templated_cast_handler);
 HANDLER_PROTOTYPE(qualified_id_handler);
 HANDLER_PROTOTYPE(qualified_template_handler);
-HANDLER_PROTOTYPE(qualified_operator_function_id_handler);
 HANDLER_PROTOTYPE(conversion_type_id_handler);
 HANDLER_PROTOTYPE(conversion_declarator_handler);
 HANDLER_PROTOTYPE(constructor_initializer_handler);
@@ -259,7 +258,6 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PARENTHESIZED_INITIALIZER, parenthesized_initializer_handler, NULL),
     NODE_HANDLER(AST_INITIALIZER_EXPR, unary_container_handler, NULL),
     NODE_HANDLER(AST_INITIALIZER_BRACES, braced_initializer_handler, NULL),
-    NODE_HANDLER(AST_POINTER_DECL, pointer_decl_handler, NULL),
     NODE_HANDLER(AST_POINTER_SPEC, pointer_spec_handler, NULL),
     NODE_HANDLER(AST_REFERENCE_SPEC, simple_parameter_handler, "&"),
     NODE_HANDLER(AST_CONST_SPEC, simple_text_handler, NULL),
@@ -352,8 +350,8 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_FUNCTION_CALL, function_call_handler, NULL),
     NODE_HANDLER(AST_EXPLICIT_TYPE_CONVERSION, function_call_handler, NULL),
     NODE_HANDLER(AST_TYPENAME_EXPLICIT_TYPE_CONVERSION, typename_explicit_type_conversion, NULL),
-    NODE_HANDLER(AST_TYPENAME_TEMPLATE, typename_template_handler, NULL),
-    NODE_HANDLER(AST_TYPENAME_TEMPLATE_TEMPLATE, typename_template_template_handler, NULL),
+    NODE_HANDLER(AST_TYPENAME_TEMPLATE_EXPLICIT_TYPE_CONVERSION, typename_template_explicit_type_conversion_handler, NULL),
+    NODE_HANDLER(AST_TYPENAME_TEMPLATE_TEMPLATE_EXPLICIT_TYPE_CONVERSION, typename_template_template_explicit_type_conversion_handler, NULL),
     NODE_HANDLER(AST_CLASS_MEMBER_ACCESS, infix_parameter_handler, "."),
     NODE_HANDLER(AST_POINTER_CLASS_MEMBER_ACCESS, infix_parameter_handler, "->"),
     NODE_HANDLER(AST_CLASS_TEMPLATE_MEMBER_ACCESS, template_member_access, "."),
@@ -372,7 +370,6 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_PARENTHESIZED_EXPRESSION, parenthesized_son_handler, NULL),
     NODE_HANDLER(AST_QUALIFIED_ID, qualified_id_handler, NULL),
     NODE_HANDLER(AST_QUALIFIED_TEMPLATE, qualified_template_handler, NULL),
-    NODE_HANDLER(AST_QUALIFIED_OPERATOR_FUNCTION_ID, qualified_operator_function_id_handler, NULL),
     NODE_HANDLER(AST_DESTRUCTOR_ID, unary_container_handler, NULL),
     NODE_HANDLER(AST_DESTRUCTOR_TEMPLATE_ID, prefix_with_parameter_then_son_handler, "~"),
     NODE_HANDLER(AST_CONVERSION_FUNCTION_ID, prefix_with_parameter_then_son_handler, "operator "),
@@ -626,7 +623,6 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GCC_MEM_INITIALIZER, gcc_mem_initializer_handler, NULL),
     NODE_HANDLER(AST_GCC_BUILTIN_VA_ARG, gcc_builtin_va_arg_handler, NULL),
     NODE_HANDLER(AST_GCC_POSTFIX_EXPRESSION, gcc_postfix_expression, NULL),
-    NODE_HANDLER(AST_GCC_ALIGNOF_TYPE, gcc_alignof_type_handler, NULL),
     NODE_HANDLER(AST_GCC_CONDITIONAL_EXPRESSION, gcc_conditional_expression, NULL),
     NODE_HANDLER(AST_GCC_PARAMETER_DECL, gcc_parameter_decl_handler, NULL),
     NODE_HANDLER(AST_GCC_USING_DIRECTIVE, gcc_using_directive_handler, NULL),
@@ -726,7 +722,7 @@ char* list_handler_in_buffer(AST a)
 static int character_level_vfprintf(FILE* stream, const char* format, va_list args)
 {
     int result;
-    unsigned int size = 512;
+    int size = 512;
     char* c = calloc(size, sizeof(char));
     va_list va;
 
@@ -752,7 +748,7 @@ static int character_level_vfprintf(FILE* stream, const char* format, va_list ar
 
 
 
-int token_fprintf(FILE *stream, AST node, const char *format, ...)
+int token_fprintf(FILE *stream, AST node UNUSED_PARAMETER, const char *format, ...)
 {
     int result = 0;
     va_list args;
@@ -797,7 +793,9 @@ static void prettyprint_level(FILE* f, AST a, int level)
 static void ambiguity_handler(FILE* f, AST a, int level)
 {
     // fprintf(f, "/* Ambiguous node with %d options */ ", a->num_ambig);
-    prettyprint_level(f, a->ambig[0], level);
+    // Print the first ambiguity because all "look like" the same, no matter
+    // which one is actually printed
+    prettyprint_level(f, ast_get_ambiguity(a, 0), level);
 }
 
 static void character_separated_sequence_handler(FILE* f, AST a, int level, 
@@ -805,7 +803,7 @@ static void character_separated_sequence_handler(FILE* f, AST a, int level,
 {
     if (ASTType(a) == AST_AMBIGUITY)
     {
-        character_separated_sequence_handler(f, a->ambig[0], level, separator, specific_handler);
+        character_separated_sequence_handler(f, ast_get_ambiguity(a, 0), level, separator, specific_handler);
         return;
     }
 
@@ -854,7 +852,7 @@ static void simple_declaration_handler(FILE* f, AST a, int level)
     token_fprintf(f, a, ";\n");
 }
 
-static void simple_parameter_handler(FILE* f, AST a, int level)
+static void simple_parameter_handler(FILE* f, AST a, int level UNUSED_PARAMETER)
 {
     token_fprintf(f, a, "%s", HELPER_PARAMETER);
 }
@@ -904,7 +902,7 @@ static void nested_name_handler(FILE* f, AST a, int level)
     }
 }
 
-static void simple_text_handler(FILE* f, AST a, int level)
+static void simple_text_handler(FILE* f, AST a, int level UNUSED_PARAMETER)
 {
     token_fprintf(f, a, "%s", ASTText(a));
 }
@@ -1004,7 +1002,7 @@ static void abstract_array_declarator_handler(FILE* f, AST a, int level)
     token_fprintf(f, a, "]");
 }
 
-static void null_handler(FILE* f, AST a, int level) { }
+static void null_handler(FILE* f UNUSED_PARAMETER, AST a UNUSED_PARAMETER, int level UNUSED_PARAMETER) { }
 
 static void parameter_decl_handler(FILE* f, AST a, int level)
 {
@@ -1272,7 +1270,7 @@ static void typename_explicit_type_conversion(FILE* f, AST a, int level)
     token_fprintf(f, a, ")");
 }
 
-static void typename_template_handler(FILE* f, AST a, int level)
+static void typename_template_explicit_type_conversion_handler(FILE* f, AST a, int level)
 {
     token_fprintf(f, a, "typename ");
 
@@ -1293,7 +1291,7 @@ static void typename_template_handler(FILE* f, AST a, int level)
     token_fprintf(f, a, ")");
 }
 
-static void typename_template_template_handler(FILE* f, AST a, int level)
+static void typename_template_template_explicit_type_conversion_handler(FILE* f, AST a, int level)
 {
     token_fprintf(f, a, "typename ");
 
@@ -1371,13 +1369,6 @@ static void qualified_template_handler(FILE* f, AST a, int level)
     token_fprintf(f, a, "template ");
     prettyprint_level(f, ASTSon2(a), level);
 }
-
-static void qualified_operator_function_id_handler(FILE* f, AST a, int level)
-{
-    prettyprint_level(f, ASTSon0(a), level);
-    prettyprint_level(f, ASTSon1(a), level);
-}
-
 
 static void conversion_type_id_handler(FILE* f, AST a, int level)
 {
@@ -1816,6 +1807,7 @@ static void exception_declaration_handler(FILE* f, AST a, int level)
 
     if (ASTSon1(a) != NULL)
     {
+        token_fprintf(f, a, " ");
         prettyprint_level(f, ASTSon1(a), level);
     }
 }
@@ -2346,15 +2338,15 @@ static void field_designator_handler(FILE* f, AST a, int level)
 }
 
 
-static void unknown_pragma_handler(FILE* f, AST a, int level)
+static void unknown_pragma_handler(FILE* f, AST a, int level UNUSED_PARAMETER)
 {
     token_fprintf(f, a, "#pragma ");
     token_fprintf(f, a, "%s\n", ASTText(a));
 }
 
-static void pp_prepro_token_handler(FILE* f, AST a, int level)
+static void pp_prepro_token_handler(FILE* f, AST a, int level UNUSED_PARAMETER)
 {
-    char* text = ASTText(a);
+    char* text = strdup(ASTText(a));
 
     if (prettyprint_behaviour.internal_output)
     {
@@ -2376,11 +2368,13 @@ static void pp_prepro_token_handler(FILE* f, AST a, int level)
         // And restore it back to the original character
         *end = temp;
     }
+
+    free(text);
 }
 
 static void pp_comment_handler(FILE* f, AST a, int level)
 {
-    char* text = ASTText(a);
+    char* text = strdup(ASTText(a));
 
     if (prettyprint_behaviour.internal_output)
     {
@@ -2428,6 +2422,8 @@ static void pp_comment_handler(FILE* f, AST a, int level)
         }
         while (current_end != end);
     }
+
+    free(text);
 }
 
 static void custom_construct_statement_handler(FILE *f, AST a, int level)
@@ -3185,7 +3181,7 @@ static void omp_threadprivate_directive_handler(FILE* f, AST a, int level)
     token_fprintf(f, a, "\n");
 }
 
-static void omp_default_custom_clause_handler(FILE* f, AST a, int level)
+static void omp_default_custom_clause_handler(FILE* f, AST a, int level UNUSED_PARAMETER)
 {
     token_fprintf(f, a, "default(%s)", ASTText(a));
 }

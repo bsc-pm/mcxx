@@ -85,7 +85,7 @@ namespace TL
             PhaseStatus _phase_status;
             std::vector<CompilerPhaseParameter*> _parameters;
         protected:
-            virtual tl_type_t* get_extended_attribute(const std::string& str) const
+            virtual tl_type_t* get_extended_attribute(const std::string&) const
             {
                 return NULL;
             }

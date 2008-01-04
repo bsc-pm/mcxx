@@ -23,32 +23,23 @@
 
 #include "cxx-macros.h"
 
-MCXX_BEGIN_DECLS
-
 #include "cxx-typeunif.h"
 #include "cxx-buildscope-decls.h"
 #include "cxx-scope-decls.h"
 
-typedef
-struct matching_pair_tag
-{
-    scope_entry_t* entry;
-    unification_set_t* unif_set;
-} matching_pair_t;
+MCXX_BEGIN_DECLS
 
-matching_pair_t* solve_template(decl_context_t decl_context,
-        scope_entry_list_t* candidate_templates, 
-        template_argument_list_t* arguments, 
-        char give_exact_match);
+struct type_tag* solve_class_template(decl_context_t decl_context,
+        struct type_tag* template_type,
+        struct type_tag* specialized_type,
+        deduction_set_t** deduction_set,
+        const char *filename,
+        int line);
 
-char match_one_template(template_argument_list_t* arguments, 
-        template_argument_list_t* specialized, scope_entry_t* specialized_entry, 
-        unification_set_t* unif_set,
-        decl_context_t decl_context);
-
-scope_entry_t* get_specialization_of_template(decl_context_t template_name_context, 
-        char *template_name, template_argument_list_t* template_arguments,
-        int line, char *filename);
+struct scope_entry_tag* solve_template_function(struct scope_entry_list_tag* template_set,
+        template_argument_list_t* explicit_template_arguments,
+        struct type_tag* function_type, decl_context_t decl_context,
+        const char *filename, int line);
 
 MCXX_END_DECLS
 

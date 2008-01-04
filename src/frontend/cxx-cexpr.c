@@ -29,6 +29,8 @@
 #include "cxx-prettyprint.h"
 #include "cxx-ambiguity.h"
 #include "cxx-typeutils.h"
+#include "cxx-exprtype.h"
+#include "cxx-overload.h"
 
 /*
  * This file implements an evaluator of constant expressions in C++
@@ -121,6 +123,8 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
 {
     switch (ASTType(a))
     {
+        case AST_INITIALIZER :
+        case AST_CONSTANT_INITIALIZER :
         case AST_INITIALIZER_EXPR :
         case AST_EXPRESSION :
         case AST_CONSTANT_EXPRESSION :
@@ -182,7 +186,7 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
         case AST_SIZEOF_TYPEID :
             {
                 WARNING_MESSAGE("Found a sizeof expression in '%s' while evaluating a constant expression. Assuming one.\n", 
-                    node_information(a));
+                    ast_location(a));
                 return literal_value_one();
             }
         case AST_EXPLICIT_TYPE_CONVERSION :
@@ -191,40 +195,74 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
                 AST expression_list = ASTSon1(a);
                 ERROR_CONDITION((ASTSon0(expression_list) != NULL), 
                         "In '%s' cannot cast a constant expression formed with an expression list longer than 1", 
-                        node_information(a));
+                        ast_location(a));
                 AST first_expression = ASTSon1(expression_list);
                 return cast_expression(ASTSon0(a), first_expression, decl_context);
             }
         case AST_REFERENCE :
             {
-                AST reference = advance_expression_nest(ASTSon0(a));
+                AST symbol = advance_expression_nest(ASTSon0(a));
 
-                if (ASTType(reference) != AST_SYMBOL
-                        && ASTType(reference) != AST_QUALIFIED_ID)
+                if (ASTType(symbol) != AST_SYMBOL
+                        && ASTType(symbol) != AST_QUALIFIED_ID)
                 {
                     WARNING_MESSAGE("Unsolvable address expression in '%s' while evaluating a constant expression. Assuming zero.\n",
-                            node_information(a));
+                            ast_location(a));
                     return literal_value_zero();
                 }
                 else
                 {
                     // Get the symbol and use its pointer in the symbol table as a value
                     scope_entry_list_t* result = query_id_expression(decl_context,
-                            reference);
+                            symbol);
 
-                    ERROR_CONDITION(result == NULL, "Unknown expression '%s'\n", prettyprint_in_buffer(reference));
+                    ERROR_CONDITION(result == NULL, "Unknown expression '%s'\n", prettyprint_in_buffer(symbol));
 
                     DEBUG_CODE()
                     {
-                        fprintf(stderr, "Symbolic address of symbol '%s' solved to '%lu'\n", prettyprint_in_buffer(reference), 
+                        fprintf(stderr, "Symbolic address of symbol '%s' solved to '%lu'\n", prettyprint_in_buffer(symbol), 
                                 (unsigned long)result->entry);
                     }
 
-                    // FIXME: Assuming that unsigned long is enough to hold a
-                    // pointer
                     literal_value_t value;
                     value.kind = LVK_UNSIGNED_LONG;
-                    value.value.unsigned_long = (unsigned long)(result->entry);
+                    if (result->entry->kind != SK_FUNCTION
+                            && result->entry->kind != SK_TEMPLATE)
+                    {
+                        // FIXME: Assuming that unsigned long is enough to hold a
+                        // pointer
+                        value.value.unsigned_long = (unsigned long)(result->entry);
+                    }
+                    else 
+                    {
+                        if (result->next == NULL
+                                && result->entry->kind == SK_FUNCTION)
+                        {
+                            value.value.unsigned_long = (unsigned long)(result->entry);
+                        }
+                        else
+                        {
+                            ERROR_CONDITION(ASTExprType(symbol) == NULL,
+                                    "This expression lacks a type", 0);
+                            ERROR_CONDITION(!is_unresolved_overloaded_type(ASTExprType(symbol))
+                                    && !is_function_type(ASTExprType(symbol)),
+                                    "This expression has the wrong type", 0);
+                            // This case can only be a template-argument
+                            scope_entry_t* solved_function =
+                                address_of_overloaded_function(
+                                        result,
+                                        /* explicit_template_arguments */ NULL, // FIXME
+                                        ASTExprType(symbol),
+                                        decl_context,
+                                        ASTFileName(symbol),
+                                        ASTLine(symbol));
+
+                            if (solved_function != NULL)
+                            {
+                                value.value.unsigned_long = (unsigned long)(result->entry);
+                            }
+                        }
+                    }
                     return value;
                 }
             }
@@ -243,7 +281,7 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
         case AST_AMBIGUITY :
         default :
             internal_error("Unsupported node '%s' when evaluating constant expression (%s)", 
-                    ast_print_node_type(ASTType(a)), node_information(a));
+                    ast_print_node_type(ASTType(a)), ast_location(a));
     }
 }
 
@@ -274,7 +312,7 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs,
         // Operator ||
         if (bop.if_lhs_zero_eval_rhs)
         {
-            if (value_is_zero(val_lhs))
+            if (literal_value_is_zero(val_lhs))
             {
                 val_rhs = evaluate_constant_expression(rhs, decl_context);
                 return val_rhs;
@@ -286,7 +324,7 @@ static literal_value_t binary_operation(node_t op, AST lhs, AST rhs,
         }
         else
         {
-            if (!value_is_zero(val_lhs))
+            if (!literal_value_is_zero(val_lhs))
             {
                 val_rhs = evaluate_constant_expression(rhs, decl_context);
                 return val_rhs;
@@ -334,7 +372,7 @@ static literal_value_t evaluate_conditional_expression(AST condition, AST value_
 {
     literal_value_t condition_value = evaluate_constant_expression(condition, decl_context);
 
-    if (value_is_zero(condition_value))
+    if (literal_value_is_zero(condition_value))
     {
         return evaluate_constant_expression(value_if_false, decl_context);
     }
@@ -344,7 +382,7 @@ static literal_value_t evaluate_conditional_expression(AST condition, AST value_
     }
 }
 
-char value_is_zero(literal_value_t v)
+char literal_value_is_zero(literal_value_t v)
 {
     switch (v.kind)
     {
@@ -375,13 +413,44 @@ char value_is_zero(literal_value_t v)
     }
 }
 
+char literal_value_is_negative(literal_value_t v)
+{
+    switch (v.kind)
+    {
+        case LVK_UNSIGNED_LONG :
+            return 0;
+        case LVK_SIGNED_LONG :
+            return (v.value.signed_long < 0);
+        case LVK_UNSIGNED_LONG_LONG :
+            return 0;
+        case LVK_SIGNED_LONG_LONG :
+            return (v.value.signed_long_long < 0);
+        case LVK_UNSIGNED_INT :
+            return 0;
+        case LVK_SIGNED_INT :
+            return (v.value.signed_int < 0);
+        case LVK_SIGNED_CHAR :
+            return (v.value.signed_char < 0);
+        case LVK_UNSIGNED_CHAR :
+            return 0;
+        case LVK_BOOL :
+            return (v.value.boolean_value < 0);
+        case LVK_DEPENDENT_EXPR :
+            return 0;
+        case LVK_INVALID :
+            return 0;
+        default:
+            internal_error("Invalid value kind %d\n", v.kind);
+    }
+}
+
 static literal_value_t create_value_from_literal(AST a)
 {
     literal_value_t result;
     memset(&result, 0, sizeof(result));
 
     char is_long, is_unsigned;
-    char* literal_text = ASTText(a);
+    const char* literal_text = ASTText(a);
     // literal rule
     switch (ASTType(a))
     {
@@ -467,10 +536,10 @@ static literal_value_t create_value_from_literal(AST a)
     return result;
 }
 
-void gather_integer_literal_suffix(char* text, char* is_long, char* is_unsigned)
+void gather_integer_literal_suffix(const char* text, char* is_long, char* is_unsigned)
 {
     int i = 0;
-    char* suffix = &text[strlen(text) - 1];
+    const char* suffix = &text[strlen(text) - 1];
 
     *is_long = 0;
     *is_unsigned = 0;
@@ -492,9 +561,9 @@ void gather_integer_literal_suffix(char* text, char* is_long, char* is_unsigned)
     }
 }
 
-void gather_float_literal_suffix(char* text, char* is_float, char* is_long_double)
+void gather_float_literal_suffix(const char* text, char* is_float, char* is_long_double)
 {
-    char suffix = text[strlen(text)-1];
+    const char suffix = text[strlen(text)-1];
 
     *is_float = 0;
     *is_long_double = 0;
@@ -759,7 +828,10 @@ static literal_value_t cast_expression(AST type_spec, AST expression,
 
     type_t *type_info = NULL;
 
-    gather_type_spec_information(type_spec, &type_info, decl_context);
+    gather_decl_spec_t gather_info;
+    memset(&gather_info, 0, sizeof(gather_info));
+
+    gather_type_spec_information(type_spec, &type_info, &gather_info, decl_context);
 
     if (!is_builtin_type(type_info))
     {
@@ -829,45 +901,6 @@ static literal_value_t cast_expression(AST type_spec, AST expression,
     }
 }
 
-static literal_value_t evaluate_initializer_clause(AST initializer_clause, 
-        decl_context_t decl_context)
-{
-    switch (ASTType(initializer_clause))
-    {
-        case AST_INITIALIZER_EXPR :
-            {
-                AST expression = ASTSon0(initializer_clause);
-                return evaluate_constant_expression(expression, decl_context);
-            }
-        default :
-            {
-                internal_error("Unexpected node '%s' while evaluating initializer clause\n", 
-                        ast_print_node_type(ASTType(initializer_clause)));
-            }
-    }
-}
-
-static literal_value_t evaluate_initializer(AST initializer, 
-        decl_context_t decl_context)
-{
-    switch (ASTType(initializer))
-    {
-        case AST_CONSTANT_INITIALIZER :
-            {
-                AST expression = ASTSon0(initializer);
-                return evaluate_constant_expression(expression, decl_context);
-                break;
-            }
-        case AST_INITIALIZER :
-            {
-                AST initializer_clause = ASTSon0(initializer);
-                return evaluate_initializer_clause(initializer_clause, decl_context);
-            }
-        default :
-            internal_error("Unexpected node '%s' while evaluating initializer\n", ast_print_node_type(ASTType(initializer)));
-    }
-}
-
 static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
 {
     DEBUG_CODE()
@@ -879,7 +912,7 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
         query_id_expression(decl_context, symbol);
 
     ERROR_CONDITION((result == NULL), "Cannot evaluate unknown symbol '%s' %s", 
-            prettyprint_in_buffer(symbol), node_information(symbol));
+            prettyprint_in_buffer(symbol), ast_location(symbol));
 
     if (result->entry->kind == SK_DEPENDENT_ENTITY
             || result->entry->kind == SK_TEMPLATE_PARAMETER)
@@ -894,7 +927,9 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
 
     if (result->entry->kind != SK_ENUMERATOR
             && result->entry->kind != SK_VARIABLE
-            && result->entry->kind != SK_TEMPLATE_PARAMETER)
+            && result->entry->kind != SK_TEMPLATE_PARAMETER
+            && result->entry->kind != SK_FUNCTION
+            && result->entry->kind != SK_TEMPLATE)
     {
         DEBUG_CODE()
         {
@@ -909,28 +944,69 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
         return invalid_type;
     }
 
-    // ERROR_CONDITION((result->entry->expression_value == NULL), 
-    //         "Symbol '%s' in '%s' does not have a value", prettyprint_in_buffer(symbol),
-    //         node_information(symbol));
-
-    if (result->entry->expression_value == NULL)
+    if (result->entry->kind != SK_FUNCTION
+            && result->entry->kind != SK_TEMPLATE)
     {
-        literal_value_t dependent_entity;
-        memset(&dependent_entity, 0, sizeof(dependent_entity));
-        dependent_entity.kind = LVK_DEPENDENT_EXPR;
-        return dependent_entity;
+        if (result->entry->expression_value == NULL)
+        {
+            literal_value_t dependent_entity;
+            memset(&dependent_entity, 0, sizeof(dependent_entity));
+            dependent_entity.kind = LVK_DEPENDENT_EXPR;
+            return dependent_entity;
+        }
+        else
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "Symbol '%s' has associated value '%s'\n", prettyprint_in_buffer(symbol),
+                        prettyprint_in_buffer(result->entry->expression_value));
+            }
+        }
     }
     else
     {
-        DEBUG_CODE()
+        if (result->next == NULL
+                && result->entry->kind == SK_FUNCTION)
         {
-            fprintf(stderr, "Symbol '%s' has associated value '%s'\n", prettyprint_in_buffer(symbol),
-                    prettyprint_in_buffer(result->entry->expression_value));
-        }
+            // FIXME: Assuming that unsigned long is enough to hold a
+            // pointer
+            literal_value_t value;
+            value.kind = LVK_UNSIGNED_LONG;
+            value.value.unsigned_long = (unsigned long)(result->entry);
 
+            return value;
+        }
+        else
+        {
+            ERROR_CONDITION(ASTExprType(symbol) == NULL,
+                    "This expression lacks a type", 0);
+            ERROR_CONDITION(!is_unresolved_overloaded_type(ASTExprType(symbol))
+                    && !is_function_type(ASTExprType(symbol)),
+                    "This expression has the wrong type", 0);
+            // This case can only be a template-argument
+            scope_entry_t* solved_function =
+                address_of_overloaded_function(
+                        result,
+                        /* explicit_template_arguments */ NULL, // FIXME
+                        ASTExprType(symbol),
+                        decl_context,
+                        ASTFileName(symbol),
+                        ASTLine(symbol));
+
+            if (solved_function != NULL)
+            {
+                literal_value_t value;
+                value.kind = LVK_UNSIGNED_LONG;
+                value.value.unsigned_long = (unsigned long)(result->entry);
+
+                return value;
+            }
+            ERROR_CONDITION((solved_function == NULL), "Cannot solve function name '%s' at '%s'", 
+                    prettyprint_in_buffer(symbol), ast_location(symbol));
+        }
     }
 
-    return evaluate_initializer(result->entry->expression_value, result->entry->decl_context);
+    return evaluate_constant_expression(result->entry->expression_value, result->entry->decl_context);
 }
 
 literal_value_t literal_value_zero(void)
@@ -1050,7 +1126,9 @@ AST tree_from_literal_value(literal_value_t e)
     return result;
 }
 
-char equal_literal_values(literal_value_t v1, literal_value_t v2, decl_context_t decl_context)
+char equal_literal_values(literal_value_t v1, 
+        literal_value_t v2, 
+        decl_context_t decl_context UNUSED_PARAMETER)
 {
     if (v1.kind == LVK_INVALID
             || v2.kind == LVK_INVALID)
@@ -1072,7 +1150,7 @@ char equal_literal_values(literal_value_t v1, literal_value_t v2, decl_context_t
 
     literal_value_t result = equal_op(v1, v2);
 
-    return !value_is_zero(result);
+    return !literal_value_is_zero(result);
 }
 
 /* ************************* *
@@ -2279,25 +2357,6 @@ static literal_value_t convert_to_signed_char(literal_value_t e1)
             internal_error("Unknown value kind %d", e1.kind);
     }
     return result;
-}
-
-AST advance_expression_nest(AST expr)
-{
-    AST result = expr;
-
-    for ( ; ; )
-    {
-        switch (ASTType(result))
-        {
-            case AST_EXPRESSION : 
-            case AST_CONSTANT_EXPRESSION : 
-            case AST_PARENTHESIZED_EXPRESSION :
-                result = ASTSon0(result);
-                break;
-            default:
-                return result;
-        }
-    }
 }
 
 unsigned int literal_value_to_uint(literal_value_t v)

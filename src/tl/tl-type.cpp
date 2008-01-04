@@ -81,11 +81,10 @@ namespace TL
         return result_type;
     }
 
-    Type Type::get_array_to(AST_t array_expr, Scope scope)
+    Type Type::get_array_to(AST_t array_expr, Scope)
     {
         type_t* result_type = this->_type_info;
 
-        // FIXME
         decl_context_t decl_context;
         type_t* array_to = get_array_type(result_type, array_expr._ast, decl_context);
 

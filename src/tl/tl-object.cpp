@@ -75,6 +75,7 @@ RefPtr<Object> Object::get_attribute(const std::string& name) const
                 std::cerr << "Unimplemented TL Array" << std::endl;
                 break;
             }
+        case TL_TYPE:
         case TL_UNDEFINED :
             {
                 break;

@@ -22,16 +22,16 @@
 #define CXX_KOENIG_H
 
 #include "cxx-scope.h"
-#include "cxx-buildscope.h"
+#include "cxx-type-decls.h"
+#include "cxx-buildscope-decls.h"
 
 MCXX_BEGIN_DECLS
 
-char koenig_can_be_used(AST called_expression, decl_context_t decl_context);
-
-scope_entry_list_t* koenig_lookup(
+struct scope_entry_list_tag* koenig_lookup(
         int num_arguments,
-        argument_type_info_t** argument_type_list, 
-        decl_context_t decl_context);
+        struct type_tag** argument_type_list,
+        decl_context_t normal_decl_context,
+        AST id_expression);
 
 MCXX_END_DECLS
 

@@ -21,10 +21,11 @@
 #ifndef CXX_AMBIGUITY
 #define CXX_AMBIGUITY
 
-#include "cxx-ast.h"
-#include "cxx-scope.h"
-#include "cxx-buildscope.h"
 #include "cxx-macros.h"
+#include "cxx-ast-decls.h"
+#include "cxx-asttype.h"
+#include "cxx-scope-decls.h"
+#include "cxx-buildscope-decls.h"
 
 MCXX_BEGIN_DECLS
 
@@ -42,17 +43,25 @@ void solve_ambiguous_for_init_statement(AST for_init_statement, decl_context_t d
 void solve_ambiguous_parameter_decl(AST parameter_declaration, decl_context_t decl_context);
 void solve_ambiguous_exception_decl(AST exception_decl, decl_context_t decl_context);
 void solve_ambiguous_type_specifier(AST type_specifier, decl_context_t decl_context);
-void solve_possibly_ambiguous_expression(AST a, decl_context_t decl_context);
 
 // These two are misleading, should be 'check_for_' instead of 'solve_'
 char solve_ambiguous_template_argument(AST ambig_template_argument, decl_context_t decl_context);
 char solve_possibly_ambiguous_template_id(AST type_name, decl_context_t decl_context);
 
-char check_for_expression(AST a, decl_context_t decl_context);
-char check_for_initialization(AST initializer, decl_context_t decl_context);
 char check_nested_name_spec(AST nested_name_spec, decl_context_t decl_context);
+char check_for_type_id_tree(AST type_id, decl_context_t decl_context);
+char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, struct type_tag** computed_type);
+char check_for_parenthesized_initializer(AST initializer_list, decl_context_t decl_context);
 
 void solve_ambiguous_expression_list(AST expression_list, decl_context_t decl_context);
+char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_context);
+
+char either_type(AST t1, AST t2, node_t n1, node_t n2);
+
+// States if we are checking ambiguities
+char checking_ambiguity(void);
+void enter_test_expression(void);
+void leave_test_expression(void);
 
 MCXX_END_DECLS
 
