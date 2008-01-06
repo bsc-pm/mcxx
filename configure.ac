@@ -59,6 +59,7 @@ AC_ARG_ENABLE([tl-openmp],
     else if test x$enableval = xno;
          then
             AC_MSG_RESULT([no])
+            is_enabled_tl_omp="no"
          else
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
          fi
@@ -132,6 +133,7 @@ AC_ARG_ENABLE([tl-instrumentation],
     else if test x$enableval = xno;
          then
             AC_MSG_RESULT([no])
+            is_enabled_tl_instr="no"
          else
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
          fi
@@ -206,6 +208,7 @@ AC_ARG_ENABLE([tl-acotes],
     else if test x$enableval = xno;
          then
             AC_MSG_RESULT([no])
+            is_enabled_tl_acotes="no"
          else
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
          fi
@@ -241,6 +244,7 @@ AC_ARG_ENABLE([tl-nebelung],
     else if test x$enableval = xno;
          then
             AC_MSG_RESULT([no])
+            is_enabled_tl_nebelung="no"
          else
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
          fi
@@ -318,6 +322,7 @@ AC_ARG_ENABLE([tl-superscalar],
     else if test x"$enableval" = x"no";
          then
             AC_MSG_RESULT([no])
+            is_enabled_tl_superscalar="no"
          else
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
          fi
@@ -341,6 +346,8 @@ dnl --------------------- End of superscalar support ---------------------
 
 dnl --------------------- Installation of binaries in pkgdir ---------------------
 
+is_enabled_pkgdir_install="no"
+
 AC_MSG_CHECKING([if binaries should be installed in pkgdir])
 AC_ARG_ENABLE([pkgdir-install],
   AS_HELP_STRING([--enable-pkgdir-install], [Enables installation of binaries in pkgdir instead of bindir]),
@@ -352,6 +359,7 @@ AC_ARG_ENABLE([pkgdir-install],
     else if test x"$enableval" = x"no";
          then
             AC_MSG_RESULT([no])
+            is_enabled_pkgdir_install="no"
          else
             AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
          fi
@@ -539,18 +547,6 @@ then
 
 fi
 
-if test x$flex_good = xno; 
-then
-  AC_MSG_WARN([flex files (*.l) will not be considered for regeneration])
-fi
-if test x$bison_good = xno; 
-then
-  AC_MSG_WARN([bison files (*.y) will not be considered for regeneration])
-fi
-if test x$gperf_good = xno;
-then
-   AC_MSG_WARN([gperf files (*.gperf) will not be considered for regeneration])
-fi
 
 AM_CONDITIONAL(TPP_BUILDING, test "(" x$bison_good = xyes ")" -o "(" x$flex_good = xyes ")")
 AM_CONDITIONAL(BISON_BUILDING, test x$bison_good = xyes)
@@ -651,3 +647,16 @@ fi
 echo ""
 echo " * Superscalar :" $is_enabled_tl_superscalar
 echo ""
+
+if test x$flex_good = xno; 
+then
+  AC_MSG_WARN([flex files (*.l) will not be considered for regeneration])
+fi
+if test x$bison_good = xno; 
+then
+  AC_MSG_WARN([bison files (*.y) will not be considered for regeneration])
+fi
+if test x$gperf_good = xno;
+then
+   AC_MSG_WARN([gperf files (*.gperf) will not be considered for regeneration])
+fi
