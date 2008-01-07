@@ -39,6 +39,9 @@ AC_PROG_CPP
 dnl Check c++
 AC_PROG_CXX
 
+dnl Check LN_S
+AC_PROG_LN_S
+
 TLEXTENSIONS=""
 
 COMPILER_NAMES="plaincxx plaincc"
