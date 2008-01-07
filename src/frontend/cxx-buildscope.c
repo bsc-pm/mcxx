@@ -1639,6 +1639,19 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
     
     if (list != NULL)
     {
+        decl_context_t enumerators_context = decl_context;
+
+        C_LANGUAGE()
+        {
+            // In C, enumerators are ALWAYS in global scope since CLASS_SCOPE
+            // can't be nested actually
+            if (enumerators_context.current_scope->kind == CLASS_SCOPE)
+            {
+                // Switch to the enclosing NAMESPACE scope
+                enumerators_context.current_scope = enumerators_context.namespace_scope;
+            }
+        }
+
         // For every enumeration, sign them up in the symbol table
         for_each_element(list, iter)
         {
@@ -1652,7 +1665,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
                 fprintf(stderr, "Registering enumerator '%s'\n", ASTText(enumeration_name));
             }
 
-            scope_entry_t* enumeration_item = new_symbol(decl_context, decl_context.current_scope, ASTText(enumeration_name));
+            scope_entry_t* enumeration_item = new_symbol(enumerators_context, enumerators_context.current_scope, ASTText(enumeration_name));
             enumeration_item->line = ASTLine(enumeration_name);
             enumeration_item->file = ASTFileName(enumeration_name);
             enumeration_item->point_of_declaration = get_enclosing_declaration(enumeration_name);
@@ -1661,7 +1674,7 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
             if (enumeration_expr != NULL)
             {
-                if (!check_for_expression(enumeration_expr, decl_context))
+                if (!check_for_expression(enumeration_expr, enumerators_context))
                 {
                     internal_error("Could not check expression '%s'\n",
                             prettyprint_in_buffer(enumeration_expr));
