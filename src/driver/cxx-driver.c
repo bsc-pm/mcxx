@@ -1539,7 +1539,7 @@ static char check_tree(AST a)
     // Check consistency of links
     if (!ast_check(a))
     {
-        internal_error(stderr, "Tree is inconsistent\n", 0);
+        internal_error("Tree is inconsistent\n", 0);
     }
 
     return 1;
