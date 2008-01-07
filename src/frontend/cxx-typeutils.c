@@ -4746,9 +4746,6 @@ char is_restrict_qualified(cv_qualifier_t cv)
 char is_less_cv_qualified(cv_qualifier_t cv1, cv_qualifier_t cv2)
 {
     // Let's ignore __restrict for now
-    // FIXME : check what gcc does with restrict
-    cv1 &= ~(CV_RESTRICT);
-    cv2 &= ~(CV_RESTRICT);
 
     if ((cv1 == CV_NONE)
             && (cv2 != CV_NONE))
@@ -4756,24 +4753,30 @@ char is_less_cv_qualified(cv_qualifier_t cv1, cv_qualifier_t cv2)
 
     if (cv1 != cv2)
     {
-        if ((cv1 == CV_CONST)
-                && ((cv2 & CV_CONST) == CV_CONST))
-            return 1;
+        cv_qualifier_t cv_qualifiers[] =
+        {
+            CV_CONST,
+            CV_VOLATILE,
+            CV_RESTRICT,
+            CV_CONST | CV_VOLATILE,
+            CV_CONST | CV_RESTRICT,
+            CV_VOLATILE | CV_RESTRICT,
+            CV_CONST | CV_VOLATILE | CV_RESTRICT
+        };
 
-        if ((cv1 == CV_VOLATILE)
-                && ((cv2 & CV_VOLATILE) == CV_VOLATILE))
-            return 1;
+        int i;
+        for (i = 0; i < STATIC_ARRAY_LENGTH(cv_qualifiers); i++)
+        {
+            if ((cv1 == cv_qualifiers[i])
+                    && ((cv2 & cv_qualifiers[i]) == cv_qualifiers[i]))
+                return 1;
+        }
     }
     return 0;
 }
 
 char is_equal_cv_qualified(cv_qualifier_t cv1, cv_qualifier_t cv2)
 {
-    // Let's ignore __restrict for now
-    // FIXME : check what gcc does with restrict
-    cv1 &= ~(CV_RESTRICT);
-    cv2 &= ~(CV_RESTRICT);
-
     return (cv1 == cv2);
 }
 
@@ -6065,13 +6068,13 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     //
     //  qualification-conversion
     //
-    if ((is_pointer_type(orig) 
-                && is_pointer_type(dest))
-            || (is_pointer_to_member_type(orig) 
-                && is_pointer_to_member_type(dest)))
+    if (!equivalent_types(orig, dest, decl_context) 
+            && ((is_pointer_type(orig) 
+                    && is_pointer_type(dest))
+                || (is_pointer_to_member_type(orig) 
+                    && is_pointer_to_member_type(dest))))
     {
-        if (!equivalent_types(orig, dest, decl_context) // This avoids unnecessary qualification conversions
-                && pointer_types_can_be_converted(orig, dest, decl_context))
+        if (pointer_types_can_be_converted(orig, dest, decl_context))
         {
             DEBUG_CODE()
             {
@@ -6093,6 +6096,25 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
     }
 
+    // Here being restrict does not matter
+    if (is_restrict_qualified_type(orig))
+    {
+        orig = get_cv_qualified_type(orig, get_cv_qualifier(orig) & (~CV_RESTRICT));
+    }
+    if (is_restrict_qualified_type(dest))
+    {
+        dest = get_cv_qualified_type(dest, get_cv_qualifier(dest) & (~CV_RESTRICT));
+    }
+
+    // Here being volatile does not matter
+    if (is_volatile_qualified_type(orig))
+    {
+        orig = get_cv_qualified_type(orig, get_cv_qualifier(orig) & (~CV_VOLATILE));
+    }
+    if (is_volatile_qualified_type(dest))
+    {
+        dest = get_cv_qualified_type(dest, get_cv_qualifier(dest) & (~CV_VOLATILE));
+    }
     
     // Drop any cv-qualification of the original since it does not prevent
     // from converting it to a less qualified one dest
@@ -6103,6 +6125,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     //   n = m; <-- error (orig: int | dest: const int)
     //   m = n; <-- ok (orig: const int | dest: int)
     orig = get_unqualified_type(orig);
+
     DEBUG_CODE()
     {
         fprintf(stderr, "SCS: Checking types converted so far '%s' and '%s' are equivalent\n",
@@ -6120,7 +6143,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                     print_declarator(t_dest, decl_context));
         }
         (*result) = no_scs_conversion;
-
     }
     else
     {
