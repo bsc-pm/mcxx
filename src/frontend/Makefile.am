@@ -1,5 +1,7 @@
 lib_LTLIBRARIES = libmcxx.la
 
+END=
+
 EXTRA_DIST =
 CLEANFILES =
 # BUILT_SOURCES = 
@@ -69,9 +71,14 @@ libmcxx_la_SOURCES = \
   cxx-typeorder.h \
   cxx-typeorder.c \
   cxx-overload.c \
-  cxx-overload.h
+  cxx-overload.h \
+  $(END)
 
-libmcxx_la_LDFLAGS = -Wl,-rpath,$(libdir)
+# libmcxx_la_LDFLAGS = -Wl,-rpath,$(libdir)
+
+libmcxx_la_LIBADD = \
+					$(top_builddir)/lib/libmcxx-utils.la \
+					$(END)
 
 libmcxx_la_CFLAGS = -Wall \
 					-Wshadow \

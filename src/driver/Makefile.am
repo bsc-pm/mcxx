@@ -33,22 +33,25 @@ mcxx_SOURCES = \
   cxx-driver-decls.h \
   cxx-driver.h
 
-mcxx_LDFLAGS = \
-   -L. \
-   -L$(top_builddir)/lib \
-   -L$(top_builddir)/src/frontend \
-   -L$(top_builddir)/src/tl \
-   -L$(top_builddir)/src/mcxx_tl \
-   -Wl,-E
+# mcxx_LDFLAGS = \
+#    -L. \
+#    -L$(top_builddir)/lib \
+#    -L$(top_builddir)/src/frontend \
+#    -L$(top_builddir)/src/tl \
+#    -L$(top_builddir)/src/mcxx_tl \
+#    -Wl,-E
+
+END=
 
 mcxx_LDADD = \
+   $(top_builddir)/lib/libmcxx-utils.la \
+   $(top_builddir)/lib/libmcxx-extstruct.la \
+   $(top_builddir)/lib/libmcxx-mcfg.la \
+   $(top_builddir)/src/frontend/libmcxx.la \
+   $(top_builddir)/src/tl/libtl.la \
+   $(top_builddir)/src/mcxx_tl/libmcxxtl.la \
    -ldl \
-   -lmcxx \
-   -lmcxxtl \
-   -ltl \
-   -lmcxx-utils \
-   -lmcxx-extstruct \
-   -lmcxx-mcfg
+   $(END)
 
 EXTRA_DIST += cxx-configoptions.gperf
 EXTRA_DIST += cxx-fileextensions.gperf
@@ -80,7 +83,7 @@ endif
 install-exec-hook: 
 	for compiler_name in @COMPILER_NAMES@; \
 		do \
-			(cd $(DESTDIR)/$(mcxxexecdir); $(LN_S) mcxx $${compiler_name}) \
+			(cd $(DESTDIR)/$(mcxxexecdir); test -e $${compiler_name} || $(LN_S) mcxx $${compiler_name}) \
 		done
 	
 

@@ -1,5 +1,7 @@
 SUBDIRS = . examples @TLEXTENSIONS@
 
+END=
+
 DIST_SUBDIRS=omp instr acotes examples stm_func superscalar stm_func
 
 lib_LTLIBRARIES = libtl.la
@@ -69,4 +71,9 @@ libtl_la_SOURCES = \
 	tl-multifile.hpp \
 	tl-multifile.cpp \
 	tl-compilerpipeline.cpp \
-	tl-compilerpipeline.hpp
+	tl-compilerpipeline.hpp \
+	$(END)
+
+libtl_la_LIBADD = \
+	$(top_builddir)/src/frontend/libmcxx.la \
+	$(END)
