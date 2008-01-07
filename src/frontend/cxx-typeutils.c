@@ -5552,6 +5552,26 @@ char pointer_types_are_similar(type_t* t_orig, type_t* t_dest, decl_context_t de
         dest = get_pointer_type(array_type_get_element_type(dest));
     }
 
+    // C, C++
+    if ((is_void_pointer_type(orig)
+                && is_pointer_type(dest))
+            || (is_pointer_type(orig)
+                && is_void_pointer_type(dest)))
+    {
+        return 1;
+    }
+
+    C_LANGUAGE()
+    {
+        // Just in C
+        if (is_pointer_type(orig)
+                && is_pointer_type(dest))
+        {
+            return 1;
+        }
+    }
+
+    // This additional comparison is just for C++
     while (is_pointer_type(orig)
             && is_pointer_type(dest))
     {
@@ -5559,9 +5579,9 @@ char pointer_types_are_similar(type_t* t_orig, type_t* t_dest, decl_context_t de
         dest = pointer_type_get_pointee_type(dest);
     }
 
-    // Zero type
+    // Zero type of C++
     if ((is_zero_type(orig)
-            && is_pointer_type(dest))
+                && is_pointer_type(dest))
             || (is_zero_type(dest)
                 && is_pointer_type(orig)))
     {
