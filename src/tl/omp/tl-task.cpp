@@ -134,6 +134,9 @@ namespace TL
 
         OpenMP::DefaultClause default_clause = directive.default_clause();
 
+        // FIXME - The way we compute data environment _MUST_ be overhauled
+        // because currently fails in annoying ways when directives are nested
+        // (things become too much captured)
         enum 
         {
             DK_TASK_INVALID = 0,
@@ -227,7 +230,14 @@ namespace TL
                         }
                     case DK_TASK_CAPTUREPRIVATE :
                         {
-                            captureprivate_references.insert(*it, functor(&IdExpression::get_symbol));
+                            if (!will_be_visible_from_outline)
+                            {
+                                captureprivate_references.insert(*it, functor(&IdExpression::get_symbol));
+                            }
+                            else
+                            {
+                                // Otherwise do nothing. FIXME This is plainly wrong
+                            }
                             break;
                         }
                     case DK_TASK_SHARED :
