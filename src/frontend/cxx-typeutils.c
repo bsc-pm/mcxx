@@ -5550,9 +5550,18 @@ char pointer_types_are_similar(type_t* t_orig, type_t* t_dest, decl_context_t de
     {
         orig = get_pointer_type(array_type_get_element_type(orig));
     }
+    else if (is_function_type(orig))
+    {
+        orig = get_pointer_type(orig);
+    }
+
     if (is_array_type(dest))
     {
         dest = get_pointer_type(array_type_get_element_type(dest));
+    }
+    else if (is_function_type(dest))
+    {
+        dest = get_pointer_type(dest);
     }
 
     // C, C++
@@ -5569,6 +5578,14 @@ char pointer_types_are_similar(type_t* t_orig, type_t* t_dest, decl_context_t de
         // Just in C
         if (is_pointer_type(orig)
                 && is_pointer_type(dest))
+        {
+            return 1;
+        }
+
+        if ((is_integer_type(orig)
+                && is_pointer_type(dest))
+                || (is_integer_type(dest)
+                    && is_pointer_type(orig)))
         {
             return 1;
         }
