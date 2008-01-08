@@ -4764,7 +4764,7 @@ char is_less_cv_qualified(cv_qualifier_t cv1, cv_qualifier_t cv2)
             CV_CONST | CV_VOLATILE | CV_RESTRICT
         };
 
-        int i;
+        unsigned int i;
         for (i = 0; i < STATIC_ARRAY_LENGTH(cv_qualifiers); i++)
         {
             if ((cv1 == cv_qualifiers[i])
