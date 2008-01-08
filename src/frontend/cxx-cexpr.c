@@ -57,6 +57,9 @@ static literal_value_t convert_to_bool(literal_value_t e1);
 static literal_value_t convert_to_signed_char(literal_value_t e1);
 static literal_value_t convert_to_unsigned_char(literal_value_t e1);
 
+static literal_value_t literal_value_gcc_builtin_types_compatible(AST expression, 
+        decl_context_t decl_context);
+
 typedef literal_value_t (*binary_op_fun)(literal_value_t e1, literal_value_t e2);
 typedef struct 
 {
@@ -277,6 +280,11 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
                 memset(&dependent_entity, 0, sizeof(dependent_entity));
                 dependent_entity.kind = LVK_DEPENDENT_EXPR;
                 return dependent_entity;
+            }
+        case AST_GCC_BUILTIN_TYPES_COMPATIBLE_P :
+            {
+                return literal_value_gcc_builtin_types_compatible(a, decl_context);
+                break;
             }
         case AST_AMBIGUITY :
         default :
@@ -2363,4 +2371,71 @@ unsigned int literal_value_to_uint(literal_value_t v)
 {
     literal_value_t v1 = convert_to_unsigned_long(v);
     return v1.value.unsigned_int;
+}
+
+static literal_value_t literal_value_gcc_builtin_types_compatible(AST expression,
+        decl_context_t decl_context)
+{
+    AST first_type_tree = ASTSon0(expression);
+    AST second_type_tree = ASTSon1(expression);
+
+    type_t* first_type = NULL;
+    type_t* second_type = NULL;
+
+    type_t** types[] = { &first_type, &second_type };
+    AST trees[] = { first_type_tree, second_type_tree };
+
+    int i;
+    for (i = 0; i < 2; i++)
+    {
+        AST type_id = trees[i];
+        AST type_specifier = ASTSon0(type_id);
+        AST abstract_declarator = ASTSon1(type_id);
+
+        gather_decl_spec_t gather_info;
+        memset(&gather_info, 0, sizeof(gather_info));
+
+        type_t* simple_type_info = NULL;
+        build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
+                decl_context);
+
+        *(types[i]) = simple_type_info;
+        compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+                types[i], decl_context);
+    }
+
+    ERROR_CONDITION(first_type == NULL
+            || second_type == NULL, "Something is wrong here", 0);
+
+    // Advance over typedefs
+    first_type = advance_over_typedefs(first_type);
+    second_type = advance_over_typedefs(second_type);
+
+    // Now remove top cv qualifiers
+    first_type = get_unqualified_type(first_type);
+    second_type = get_unqualified_type(second_type);
+
+    // 'int[]' is compatible with 'int[5]' so ignore
+    // the top level array if any. Note that 'int[][10]' is not 
+    // compatible with 'int[][5]' but it is with 'int[5][10]'
+    if (is_array_type(first_type)
+            && is_array_type(second_type))
+    {
+        first_type = array_type_get_element_type(first_type);
+        second_type = array_type_get_element_type(second_type);
+
+        // Remove the top level again qualifier (gcc makes compatible 'const
+        // int[]' and 'int[]' but not compatible 'const int*' and 'int*')
+        first_type = get_unqualified_type(first_type);
+        second_type = get_unqualified_type(second_type);
+    }
+
+    if (equivalent_types(first_type, second_type, decl_context))
+    {
+        return literal_value_one();
+    }
+    else
+    {
+        return literal_value_zero();
+    }
 }

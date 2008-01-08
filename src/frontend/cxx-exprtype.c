@@ -32,6 +32,7 @@
 #include "cxx-prettyprint.h"
 #include "cxx-instantiation.h"
 #include "cxx-buildscope.h"
+#include "cxx-cexpr.h"
 #include <ctype.h>
 #include <string.h>
 
@@ -342,6 +343,10 @@ static char check_for_comma_operand(AST expression, decl_context_t decl_context)
 static char check_for_pointer_to_member(AST expression, decl_context_t decl_context);
 static char check_for_pointer_to_pointer_to_member(AST expression, decl_context_t decl_context);
 static char check_for_conversion_function_id_expression(AST expression, decl_context_t decl_context);
+
+static char check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_context);
+static char check_for_gcc_builtin_choose_expr(AST expression, decl_context_t decl_context);
+static char check_for_gcc_builtin_types_compatible_p(AST expression, decl_context_t decl_context);
 
 static char* assig_op_attr[] =
 {
@@ -1089,6 +1094,21 @@ char check_for_expression(AST expression, decl_context_t decl_context)
 
                     ast_set_expression_type(expression, declarator_type);
                 }
+                break;
+            }
+        case AST_GCC_BUILTIN_OFFSETOF :
+            {
+                return check_for_gcc_builtin_offsetof(expression, decl_context);
+                break;
+            }
+        case AST_GCC_BUILTIN_CHOOSE_EXPR :
+            {
+                return check_for_gcc_builtin_choose_expr(expression, decl_context);
+                break;
+            }
+        case AST_GCC_BUILTIN_TYPES_COMPATIBLE_P :
+            {
+                return check_for_gcc_builtin_types_compatible_p(expression, decl_context);
                 break;
             }
         case AST_GCC_PARENTHESIZED_EXPRESSION :
@@ -5444,8 +5464,6 @@ static char check_for_function_call(AST expr, decl_context_t decl_context)
     return 1;
 }
 
-
-
 static char check_for_cast_expr(AST expr, AST type_id, AST casted_expression, decl_context_t decl_context)
 {
     if (check_for_type_id_tree(type_id, decl_context)
@@ -7071,4 +7089,93 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
         return 1;
     }
     return 0;
+}
+
+static char check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_context)
+{
+    // We are not checking that the designated member is correct
+    AST type_id = ASTSon0(expression);
+    AST member_designator = ASTSon1(expression);
+
+    char result = check_for_type_id_tree(type_id, decl_context);
+
+    if (!result)
+        return 0;
+
+    // Remove ambiguities
+    AST designator_list = ASTSon1(member_designator);
+    if (designator_list != NULL)
+    {
+        AST iter;
+        for_each_element(designator_list, iter)
+        {
+            AST designator = ASTSon1(iter);
+
+            if (ASTType(designator) == AST_INDEX_DESIGNATOR)
+            {
+                AST constant_expr = ASTSon0(designator);
+                if (!check_for_expression(constant_expr, decl_context))
+                {
+                    return 0;
+                }
+            }
+        }
+    }
+
+    ast_set_expression_type(expression, get_size_t_type());
+    return 1;
+}
+
+static char check_for_gcc_builtin_choose_expr(AST expression, decl_context_t decl_context)
+{
+    AST selector_expr = ASTSon0(expression);
+    AST first_expr = ASTSon1(expression);
+    AST second_expr = ASTSon2(expression);
+
+    // Since the exact type of this expression depends on the value yield by selector_expr
+    // we will check the selector_expr and then evaluate it. 
+    //
+    // Note that this is only valid for C so we do not need to check
+    // whether the expression is dependent
+
+    if (!check_for_expression(selector_expr, decl_context))
+        return 0;
+
+    literal_value_t selector_value = 
+        evaluate_constant_expression(selector_expr, decl_context);
+
+    AST selected_expr = NULL;
+    if (!literal_value_is_zero(selector_value))
+    {
+        if (!check_for_expression(first_expr, decl_context))
+            return 0;
+
+        selected_expr = first_expr;
+    }
+    else
+    {
+        if (!check_for_expression(second_expr, decl_context))
+            return 0;
+
+        selected_expr = second_expr;
+    }
+
+    ast_set_expression_type(expression, ast_get_expression_type(selected_expr));
+    ast_set_expression_is_lvalue(expression, ast_get_expression_is_lvalue(selected_expr));
+    return 1;
+}
+
+static char check_for_gcc_builtin_types_compatible_p(AST expression, decl_context_t decl_context)
+{
+    // This builtin always returns an integer type
+    AST first_type = ASTSon0(expression);
+    AST second_type = ASTSon1(expression);
+
+    if (!check_for_type_id_tree(first_type, decl_context)
+            || !check_for_type_id_tree(second_type, decl_context))
+        return 0;
+
+    ast_set_expression_type(expression, get_signed_int_type());
+    ast_set_expression_is_lvalue(expression, 0);
+    return 1;
 }

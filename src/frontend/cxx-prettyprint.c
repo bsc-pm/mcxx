@@ -219,6 +219,9 @@ HANDLER_PROTOTYPE(gcc_condition_handler);
 HANDLER_PROTOTYPE(gcc_goto_statement_handler);
 HANDLER_PROTOTYPE(gcc_mem_initializer_handler);
 HANDLER_PROTOTYPE(gcc_builtin_va_arg_handler);
+HANDLER_PROTOTYPE(gcc_builtin_offsetof_handler);
+HANDLER_PROTOTYPE(gcc_builtin_choose_expr_handler);
+HANDLER_PROTOTYPE(gcc_builtin_types_compatible_p_handler);
 HANDLER_PROTOTYPE(gcc_postfix_expression);
 HANDLER_PROTOTYPE(gcc_conditional_expression);
 HANDLER_PROTOTYPE(gcc_extension_preffix_handler);
@@ -226,6 +229,7 @@ HANDLER_PROTOTYPE(gcc_parameter_decl_handler);
 HANDLER_PROTOTYPE(gcc_using_directive_handler);
 HANDLER_PROTOTYPE(gcc_namespace_definition_handler);
 HANDLER_PROTOTYPE(gcc_functional_declarator_handler);
+HANDLER_PROTOTYPE(gcc_offsetof_member_designator_handler);
 
 prettyprint_entry_t handlers_list[] =
 {
@@ -622,6 +626,10 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GCC_GOTO_STATEMENT, gcc_goto_statement_handler, NULL),
     NODE_HANDLER(AST_GCC_MEM_INITIALIZER, gcc_mem_initializer_handler, NULL),
     NODE_HANDLER(AST_GCC_BUILTIN_VA_ARG, gcc_builtin_va_arg_handler, NULL),
+    NODE_HANDLER(AST_GCC_BUILTIN_OFFSETOF, gcc_builtin_offsetof_handler, NULL),
+    NODE_HANDLER(AST_GCC_OFFSETOF_MEMBER_DESIGNATOR , gcc_offsetof_member_designator_handler, NULL),
+    NODE_HANDLER(AST_GCC_BUILTIN_CHOOSE_EXPR, gcc_builtin_choose_expr_handler, NULL),
+    NODE_HANDLER(AST_GCC_BUILTIN_TYPES_COMPATIBLE_P, gcc_builtin_types_compatible_p_handler, NULL),
     NODE_HANDLER(AST_GCC_POSTFIX_EXPRESSION, gcc_postfix_expression, NULL),
     NODE_HANDLER(AST_GCC_CONDITIONAL_EXPRESSION, gcc_conditional_expression, NULL),
     NODE_HANDLER(AST_GCC_PARAMETER_DECL, gcc_parameter_decl_handler, NULL),
@@ -2922,6 +2930,35 @@ static void gcc_builtin_va_arg_handler(FILE* f, AST a, int level)
     token_fprintf(f, a, ")");
 }
 
+static void gcc_builtin_offsetof_handler(FILE *f, AST a, int level)
+{
+    token_fprintf(f, a, "__builtin_offsetof(");
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, ", ");
+    prettyprint_level(f, ASTSon1(a), level);
+    token_fprintf(f, a, ")");
+}
+
+static void gcc_builtin_choose_expr_handler(FILE *f, AST a, int level)
+{
+    token_fprintf(f, a, "__builtin_choose_expr(");
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, ", ");
+    prettyprint_level(f, ASTSon1(a), level);
+    token_fprintf(f, a, ", ");
+    prettyprint_level(f, ASTSon2(a), level);
+    token_fprintf(f, a, ")");
+}
+
+static void gcc_builtin_types_compatible_p_handler(FILE *f, AST a, int level)
+{
+    token_fprintf(f, a, "__builtin_types_compatible_p(");
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, ", ");
+    prettyprint_level(f, ASTSon1(a), level);
+    token_fprintf(f, a, ")");
+}
+
 static void gcc_postfix_expression(FILE* f, AST a, int level)
 {
     token_fprintf(f, a, "(");
@@ -3038,6 +3075,15 @@ static void gcc_functional_declarator_handler(FILE* f, AST a, int level)
     prettyprint_level(f, ASTSon0(a), level);
     token_fprintf(f, a, " ");
     spaced_sequence_handler(f, ASTSon1(a), level);
+}
+
+static void gcc_offsetof_member_designator_handler(FILE *f, AST a, int level)
+{
+    prettyprint_level(f, ASTSon0(a), level);
+    if (ASTSon1(a) != NULL)
+    {
+        prettyprint_level(f, ASTSon1(a), level);
+    }
 }
 
 // OpenMP 2.5

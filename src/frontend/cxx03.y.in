@@ -195,6 +195,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 
 // GNU Extensions
 %token<token_atrib> BUILTIN_VA_ARG
+%token<token_atrib> BUILTIN_OFFSETOF
 %token<token_atrib> ALIGNOF
 %token<token_atrib> EXTENSION
 %token<token_atrib> REAL
@@ -265,6 +266,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> designation
 %type<ast> designator
 %type<ast> designator_list
+%type<ast> offsetof_member_designator
 %type<ast> direct_declarator
 %type<ast> direct_new_declarator
 %type<ast> elaborated_type_specifier
@@ -1210,7 +1212,7 @@ simple_type_specifier : type_name
 }
 ;
 
-// Regla simplificada
+// Simplified rule
 type_name : IDENTIFIER
 {
 	$$ = ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text);
@@ -3077,6 +3079,11 @@ primary_expression : literal
 	$$ = $1;
 }
 // GNU Extensions
+/*
+     ( compound-statement )
+     __builtin_va_arg ( assignment-expression , type-name )
+     __builtin_offsetof ( type-name , offsetof-member-designator )
+*/
 | '(' compound_statement ')'
 {
 	$$ = ASTMake1(AST_GCC_PARENTHESIZED_EXPRESSION, $2, $1.token_line, NULL);
@@ -3084,6 +3091,31 @@ primary_expression : literal
 | BUILTIN_VA_ARG '(' assignment_expression ',' type_id ')'
 {
 	$$ = ASTMake2(AST_GCC_BUILTIN_VA_ARG, $3, $5, $1.token_line, NULL);
+}
+| BUILTIN_OFFSETOF '(' type_id ',' offsetof_member_designator ')'
+{
+    $$ = ASTMake2(AST_GCC_BUILTIN_OFFSETOF, $3, $5, $1.token_line, NULL);
+}
+;
+
+/* GNU extension */
+/*
+   offsetof-member-designator:
+     identifier
+     offsetof-member-designator . identifier
+     offsetof-member-designator [ expression ]
+*/
+offsetof_member_designator :  IDENTIFIER designator_list
+{
+    $$ = ASTMake2(AST_GCC_OFFSETOF_MEMBER_DESIGNATOR,
+            ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text),
+            $2, $1.token_line, NULL);
+}
+| IDENTIFIER
+{
+    $$ = ASTMake2(AST_GCC_OFFSETOF_MEMBER_DESIGNATOR,
+            ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text),
+            NULL, $1.token_line, NULL);
 }
 ;
 

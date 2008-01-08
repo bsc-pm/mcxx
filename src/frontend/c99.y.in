@@ -165,6 +165,9 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 
 // GNU Extensions
 %token<token_atrib> BUILTIN_VA_ARG
+%token<token_atrib> BUILTIN_OFFSETOF
+%token<token_atrib> BUILTIN_CHOOSE_EXPR
+%token<token_atrib> BUILTIN_TYPES_COMPATIBLE_P
 %token<token_atrib> ALIGNOF
 %token<token_atrib> EXTENSION
 %token<token_atrib> REAL
@@ -298,6 +301,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> designation
 %type<ast> designator_list
 %type<ast> designator
+%type<ast> offsetof_member_designator
 
 %type<ast> old_style_parameter_list
 %type<ast> old_style_parameter
@@ -1963,6 +1967,15 @@ primary_expression : literal
 	$$ = $1;
 }
 // GNU Extensions
+/*
+     ( compound-statement )
+     __builtin_va_arg ( assignment-expression , type-name )
+     __builtin_offsetof ( type-name , offsetof-member-designator )
+     __builtin_choose_expr ( assignment-expression ,
+			     assignment-expression ,
+			     assignment-expression )
+     __builtin_types_compatible_p ( type-name , type-name )
+*/
 | '(' compound_statement ')'
 {
 	$$ = ASTMake1(AST_GCC_PARENTHESIZED_EXPRESSION, $2, $1.token_line, NULL);
@@ -1970,6 +1983,39 @@ primary_expression : literal
 | BUILTIN_VA_ARG '(' assignment_expression ',' type_id ')'
 {
 	$$ = ASTMake2(AST_GCC_BUILTIN_VA_ARG, $3, $5, $1.token_line, NULL);
+}
+| BUILTIN_OFFSETOF '(' type_id ',' offsetof_member_designator ')'
+{
+    $$ = ASTMake2(AST_GCC_BUILTIN_OFFSETOF, $3, $5, $1.token_line, NULL);
+}
+| BUILTIN_CHOOSE_EXPR '(' assignment_expression ',' assignment_expression ',' assignment_expression ')'
+{
+    $$ = ASTMake3(AST_GCC_BUILTIN_CHOOSE_EXPR, $3, $5, $7, $1.token_line, NULL);
+}
+| BUILTIN_TYPES_COMPATIBLE_P '(' type_id ',' type_id ')'
+{
+    $$ = ASTMake2(AST_GCC_BUILTIN_TYPES_COMPATIBLE_P, $3, $5, $1.token_line, NULL);
+}
+;
+
+/* GNU extension */
+/*
+   offsetof-member-designator:
+     identifier
+     offsetof-member-designator . identifier
+     offsetof-member-designator [ expression ]
+*/
+offsetof_member_designator :  IDENTIFIER designator_list
+{
+    $$ = ASTMake2(AST_GCC_OFFSETOF_MEMBER_DESIGNATOR,
+            ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text),
+            $2, $1.token_line, NULL);
+}
+| IDENTIFIER
+{
+    $$ = ASTMake2(AST_GCC_OFFSETOF_MEMBER_DESIGNATOR,
+            ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text),
+            NULL, $1.token_line, NULL);
 }
 ;
 

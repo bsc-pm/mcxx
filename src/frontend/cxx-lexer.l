@@ -1043,6 +1043,11 @@ runtime {
 
  /* GNU Extensions */
 "__builtin_va_arg" { parse_token_text(); return BUILTIN_VA_ARG; }
+"__builtin_offsetof" { parse_token_text(); return BUILTIN_OFFSETOF; }
+ /*!if C99*/
+"__builtin_choose_expr" { parse_token_text(); return BUILTIN_CHOOSE_EXPR; }
+"__builtin_types_compatible_p" { parse_token_text(); return BUILTIN_TYPES_COMPATIBLE_P; }
+ /*!endif*/
 "__extension__" { parse_token_text(); return EXTENSION; }
 "__alignof" { parse_token_text(); return ALIGNOF; }
 "__alignof__" { parse_token_text(); return ALIGNOF; }
