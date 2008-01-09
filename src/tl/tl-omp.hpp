@@ -21,6 +21,8 @@
 #ifndef TL_OMP_HPP
 #define TL_OMP_HPP
 
+#include "cxx-utils.h"
+
 #include "tl-compilerphase.hpp"
 #include "tl-ast.hpp"
 #include "tl-scope.hpp"
@@ -30,6 +32,7 @@
 #include "tl-traverse.hpp"
 #include "tl-dto.hpp"
 
+#include <map>
 #include <set>
 #include <stack>
 #include <utility>
@@ -38,20 +41,86 @@ namespace TL
 {
     namespace OpenMP
     {
+#define BITMAP(x) (1<<x)
+        enum DataAttribute
+        {
+            DA_INVALID = 0,
+            DA_UNDEFINED = BITMAP(1),
+            DA_SHARED = BITMAP(2),
+            DA_PRIVATE = BITMAP(3),
+            DA_FIRSTPRIVATE = BITMAP(4) | DA_PRIVATE,
+            DA_LASTPRIVATE = BITMAP(5) | DA_PRIVATE,
+            DA_THREADPRIVATE = BITMAP(6)
+        };
+#undef BITMAP
+
+        class DataSharing
+        {
+            private:
+                std::map<Symbol, DataAttribute> _map;
+            public:
+                void set(Symbol sym, DataAttribute data_attr)
+                {
+                    if (_map.find(sym) != _map.end())
+                    {
+                        std::cerr << "Warning, symbol '" 
+                            << sym.get_name() 
+                            << "' has been redefined its data sharing attributes" << std::endl;
+                    }
+
+                    _map[sym] = data_attr;
+                }
+
+                DataAttribute get(Symbol sym)
+                {
+                    std::map<Symbol, DataAttribute>::iterator it = _map.find(sym);
+                    if (it == _map.end())
+                    {
+                        return DA_UNDEFINED;
+                    }
+                    else
+                    {
+                        return it->second;
+                    }
+                }
+        };
+
         class Directive;
         class Construct : public LangConstruct
         {
+            protected:
+                Construct *_enclosing_construct;
+                DataSharing *_data_sharing;
+
             public:
-                Construct(AST_t ref, ScopeLink scope_link)
-                    : LangConstruct(ref, scope_link)
+                Construct(AST_t ref, ScopeLink scope_link,
+                        Construct* enclosing_construct)
+                    : LangConstruct(ref, scope_link),
+                    _enclosing_construct(enclosing_construct),
+                    _data_sharing(NULL)
                 {
+                    // By default constructs inherit the data sharing from
+                    // their enclosing constructs
+                    if (_enclosing_construct != NULL)
+                    {
+                        _data_sharing = _enclosing_construct->_data_sharing;
+                    }
                 }
+
+                DataSharing& get_data_sharing() const;
+                void set_data_sharing(DataSharing&);
+
+                Construct& get_enclosing_construct() const;
+                bool is_orphaned() const;
+
+                DataAttribute get_data_attribute(Symbol sym) const;
 
                 ~Construct() { }
 
                 Statement body();
                 Directive directive();
         };
+
 
         class Clause;
         class DefaultClause;
@@ -221,20 +290,31 @@ namespace TL
                 bool is_defined();
         };
 
-        class ParallelConstruct : public Construct
+        class ParallelConstructCommon : public Construct
         {
             public:
-                ParallelConstruct(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                ParallelConstructCommon(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : Construct(ref, scope_link, enclosing)
+                {
+                    // Create a new data sharing instead of the inherited one
+                    _data_sharing = new DataSharing();
+                }
+        };
+
+        class ParallelConstruct : public ParallelConstructCommon
+        {
+            public:
+                ParallelConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : ParallelConstructCommon(ref, scope_link, enclosing)
                 {
                 }
         };
 
-        class ParallelForConstruct : public Construct
+        class ParallelForConstruct : public ParallelConstructCommon
         {
             public:
-                ParallelForConstruct(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                ParallelForConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : ParallelConstructCommon(ref, scope_link, enclosing)
                 {
                 }
         };
@@ -242,8 +322,8 @@ namespace TL
         class ForConstruct : public Construct
         {
             public:
-                ForConstruct(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                ForConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : Construct(ref, scope_link, enclosing)
                 {
                 }
         };
@@ -251,8 +331,8 @@ namespace TL
         class BarrierDirective : public Construct
         {
             public:
-                BarrierDirective(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                BarrierDirective(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : Construct(ref, scope_link, enclosing)
                 {
                 }
         };
@@ -260,8 +340,8 @@ namespace TL
         class AtomicConstruct : public Construct
         {
             public:
-                AtomicConstruct(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                AtomicConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : Construct(ref, scope_link, enclosing)
                 {
                 }
         };
@@ -269,17 +349,17 @@ namespace TL
         class MasterConstruct : public Construct
         {
             public:
-                MasterConstruct(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                MasterConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : Construct(ref, scope_link, enclosing)
                 {
                 }
         };
 
-        class ParallelSingleConstruct : public Construct
+        class ParallelSingleConstruct : public ParallelConstructCommon
         {
             public:
-                ParallelSingleConstruct(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                ParallelSingleConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : ParallelConstructCommon(ref, scope_link, enclosing)
                 {
                 }
         };
@@ -287,8 +367,8 @@ namespace TL
         class SingleConstruct : public Construct
         {
             public:
-                SingleConstruct(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                SingleConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : Construct(ref, scope_link, enclosing)
                 {
                 }
         };
@@ -296,8 +376,8 @@ namespace TL
         class CriticalConstruct : public Construct
         {
             public:
-                CriticalConstruct(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                CriticalConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : Construct(ref, scope_link, enclosing)
                 {
                 }
         };
@@ -305,17 +385,17 @@ namespace TL
         class FlushDirective : public Construct
         {
             public:
-                FlushDirective(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                FlushDirective(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : Construct(ref, scope_link, enclosing)
                 {
                 }
         };
 
-        class ParallelSectionsConstruct : public Construct
+        class ParallelSectionsConstruct : public ParallelConstructCommon
         {
             public:
-                ParallelSectionsConstruct(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                ParallelSectionsConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : ParallelConstructCommon(ref, scope_link, enclosing)
                 {
                 }
         };
@@ -323,8 +403,8 @@ namespace TL
         class SectionsConstruct : public Construct
         {
             public:
-                SectionsConstruct(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                SectionsConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : Construct(ref, scope_link, enclosing)
                 {
                 }
         };
@@ -332,8 +412,8 @@ namespace TL
         class ThreadPrivateDirective : public Construct
         {
             public:
-                ThreadPrivateDirective(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                ThreadPrivateDirective(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : Construct(ref, scope_link, enclosing)
                 {
                 }
         };
@@ -341,8 +421,8 @@ namespace TL
         class SectionConstruct : public Construct
         {
             public:
-                SectionConstruct(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                SectionConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : Construct(ref, scope_link, enclosing)
                 {
                 }
         };
@@ -350,8 +430,8 @@ namespace TL
         class OrderedConstruct : public Construct
         {
             public:
-                OrderedConstruct(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                OrderedConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : Construct(ref, scope_link, enclosing)
                 {
                 }
         };
@@ -359,16 +439,24 @@ namespace TL
         class CustomConstruct : public Construct
         {
             public:
-                CustomConstruct(AST_t ref, ScopeLink scope_link)
-                    : Construct(ref, scope_link)
+                CustomConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
+                    : Construct(ref, scope_link, enclosing)
                 {
                 }
         };
 
         // Stores information of the used clauses (this is ugly)
-        typedef std::pair<std::string, std::string> construct_map_locus_t;
-        typedef std::stack<ObjectList<construct_map_locus_t> > construct_map_t;
-        extern construct_map_t construct_map;
+        typedef std::pair<std::string, std::string> clause_locus_t;
+
+        class ConstructInfo
+        {
+            public:
+                Construct *current_construct;
+                ObjectList<clause_locus_t> clause_list;
+        };
+
+        typedef std::stack<ConstructInfo> construct_stack_t;
+        extern construct_stack_t construct_stack;
 
         template<class T>
             class OpenMPConstructFunctor : public TraverseFunctor
@@ -376,52 +464,75 @@ namespace TL
             private:
                 Signal1<T>& _on_construct_pre;
                 Signal1<T>& _on_construct_post;
+                DataSharing &_global_data_sharing;
             public:
                 virtual void preorder(Context ctx, AST_t node) 
                 {
-                    T parallel_construct(node, ctx.scope_link);
+                    Construct* enclosing_construct = NULL;
+                    if (!construct_stack.empty())
+                    {
+                        enclosing_construct = construct_stack.top().current_construct;
+                    }
 
-                    // Empty set of strings
-                    Directive directive = parallel_construct.directive();
+                    T *parallel_construct = new T(node, ctx.scope_link, enclosing_construct);
 
-                    ObjectList<construct_map_locus_t> current_custom_clauses;
-                    
+                    // If the stack was empty this new construct does not have any data sharing
+                    // so set it to the global one
+                    if (construct_stack.empty())
+                    {
+                        parallel_construct->set_data_sharing(_global_data_sharing);
+                    }
+
+                    Directive directive = parallel_construct->directive();
+
+                    // Fill the construct info
+                    ConstructInfo current_construct_info;
+                    current_construct_info.current_construct = parallel_construct;
+
                     ObjectList<std::string> clauses_names = directive.get_all_custom_clauses();
                     for (ObjectList<std::string>::iterator it = clauses_names.begin();
                             it != clauses_names.end();
                             it++)
                     {
-                        construct_map_locus_t p(*it, directive.get_ast().get_locus());
-                        current_custom_clauses.push_back(p);
+                        clause_locus_t p(*it, directive.get_ast().get_locus());
+                        current_construct_info.clause_list.push_back(p);
                     }
 
-                    construct_map.push(current_custom_clauses);
+                    construct_stack.push(current_construct_info);
 
-                    _on_construct_pre.signal(parallel_construct);
+                    _on_construct_pre.signal(*parallel_construct);
                 }
 
-                virtual void postorder(Context ctx, AST_t node) 
+                // These two parameters are not used because we use a stack
+                virtual void postorder(Context /*ctx*/, AST_t /*node*/) 
                 {
-                    T parallel_construct(node, ctx.scope_link);
+                    ERROR_CONDITION( (construct_stack.empty()),
+                            "Stack of OpenMP constructs is empty in the postorder", 0);
+                    
+                    ConstructInfo &current_construct_info = construct_stack.top();
 
-                    _on_construct_post.signal(parallel_construct);
+                    T *parallel_construct = static_cast<T*>(current_construct_info.current_construct);
+                    _on_construct_post.signal(*parallel_construct);
 
                     // Emit a warning for every unused one
-                    ObjectList<construct_map_locus_t> &unhandled_clauses = construct_map.top();
-                    for (ObjectList<construct_map_locus_t>::iterator it = unhandled_clauses.begin();
-                            it != unhandled_clauses.end();
+                    for (ObjectList<clause_locus_t>::iterator it = current_construct_info.clause_list.begin();
+                            it != current_construct_info.clause_list.end();
                             it++)
                     {
                         std::cerr << "Warning: Clause '" << it->first << "' unused in OpenMP directive at " << it->second << std::endl;
                     }
 
-                    construct_map.pop();
+                    delete parallel_construct;
+                    construct_stack.pop();
                 }
 
                 OpenMPConstructFunctor(Signal1<T>& on_construct_pre,
-                        Signal1<T>& on_construct_post)
+                        Signal1<T>& on_construct_post,
+                        DataSharing& global_data_sharing
+                        )
                     : _on_construct_pre(on_construct_pre),
-                    _on_construct_post(on_construct_post)
+                    _on_construct_post(on_construct_post),
+                    _global_data_sharing(global_data_sharing)
                 {
                 }
         };
@@ -468,6 +579,7 @@ namespace TL
             private:
                 CustomFunctorMap& _custom_functor_pre;
                 CustomFunctorMap& _custom_functor_post;
+                DataSharing &_global_data_sharing;
 
                 void dispatch_custom_construct(CustomFunctorMap& search_map, Context ctx, AST_t node);
             public:
@@ -475,9 +587,11 @@ namespace TL
                 virtual void postorder(Context ctx, AST_t node);
 
                 CustomConstructFunctor(CustomFunctorMap& custom_functor_pre, 
-                        CustomFunctorMap& custom_functor_post)
+                        CustomFunctorMap& custom_functor_post,
+                        DataSharing &global_data_sharing)
                     : _custom_functor_pre(custom_functor_pre),
-                    _custom_functor_post(custom_functor_post)
+                    _custom_functor_post(custom_functor_post),
+                    _global_data_sharing(global_data_sharing)
             {
             }
         };
@@ -504,6 +618,7 @@ namespace TL
                 AST_t translation_unit;
                 ScopeLink scope_link;
                 Scope global_scope;
+                DataSharing global_data_sharing;
             public:
                 Signal1<ParallelConstruct> on_parallel_pre;
                 Signal1<ParallelConstruct> on_parallel_post;

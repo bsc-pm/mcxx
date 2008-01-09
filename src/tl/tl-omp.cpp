@@ -31,7 +31,7 @@ namespace TL
 {
 
     namespace OpenMP
-    {
+   {
         Directive Construct::directive()
         {
             AST_t ast = _ref.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
@@ -42,6 +42,45 @@ namespace TL
         {
             AST_t ast = _ref.get_attribute(OMP_CONSTRUCT_BODY);
             Statement result(ast, _scope_link);
+
+            return result;
+        }
+
+        bool Construct::is_orphaned() const
+        {
+            return _enclosing_construct == NULL;
+        }
+
+        Construct& Construct::get_enclosing_construct() const
+        {
+            return *_enclosing_construct;
+        }
+
+        void Construct::set_data_sharing(DataSharing& ds)
+        {
+            _data_sharing = &ds;
+        }
+
+        DataSharing& Construct::get_data_sharing() const
+        {
+            return *_data_sharing;
+        }
+
+        DataAttribute Construct::get_data_attribute(Symbol sym) const
+        {
+            DataAttribute result = DA_UNDEFINED;
+
+            const Construct* current_construct = this;
+
+            while (result == DA_UNDEFINED
+                    && current_construct != NULL)
+            {
+                DataSharing *current_data_sharing = current_construct->_data_sharing;
+
+                result = current_data_sharing->get(sym);
+
+                current_construct = current_construct->_enclosing_construct;
+            }
 
             return result;
         }
@@ -62,26 +101,60 @@ namespace TL
             }
 
             TL::String directive_name = directive.get_attribute(OMP_CUSTOM_DIRECTIVE_NAME);
+            CustomConstruct *custom_construct = NULL; 
 
-            CustomConstruct custom_construct(node, ctx.scope_link);
-            // We are in preorder
             if (&search_map == &_custom_functor_pre)
             {
-                Directive directive = custom_construct.directive();
+                Construct* enclosing_construct = NULL;
+
+                if (!construct_stack.empty())
+                {
+                    enclosing_construct = construct_stack.top().current_construct;
+                }
+
+                // We are in preorder
+                custom_construct = new CustomConstruct(node, ctx.scope_link, 
+                        enclosing_construct);
+                
+                // If the stack was empty this new construct does not have any data sharing
+                // so set it to the global one
+                if (construct_stack.empty())
+                {
+                   custom_construct->set_data_sharing(_global_data_sharing);
+                }
+
+                ConstructInfo current_construct_info;
+                current_construct_info.current_construct = custom_construct;
+
+                Directive directive = custom_construct->directive();
 
                 ObjectList<std::string> clauses_names = directive.get_all_custom_clauses();
 
-                ObjectList<construct_map_locus_t> current_custom_clauses;
                 for (ObjectList<std::string>::iterator it = clauses_names.begin();
                         it != clauses_names.end();
                         it++)
                 {
-                    construct_map_locus_t p(*it, directive.get_ast().get_locus());
-                    current_custom_clauses.push_back(p);
+                    clause_locus_t p(*it, directive.get_ast().get_locus());
+                    current_construct_info.clause_list.push_back(p);
                 }
 
-                construct_map.push(current_custom_clauses);
+                construct_stack.push(current_construct_info);
             }
+            else if (&search_map == &_custom_functor_post)
+            {
+                ERROR_CONDITION( (construct_stack.empty()),
+                        "Stack of OpenMP constructs is empty in the postorder", 0);
+
+                // We are in postorder
+                custom_construct = static_cast<CustomConstruct*>(construct_stack.top().current_construct);
+            }
+            else
+            {
+                internal_error("Unreachable code", 0);
+            }
+
+            ERROR_CONDITION(custom_construct == NULL,
+                    "Custom construct is NULL", 0);
 
             // Find this directive in custom map
             if (search_map.find(directive_name) != search_map.end())
@@ -89,12 +162,12 @@ namespace TL
                 // Invoke its functor if found
                 Signal1<CustomConstruct>& functor = search_map[directive_name];
 
-                functor.signal(custom_construct);
+                functor.signal(*custom_construct);
             }
             else
             {
-                // Kludge: If we are in preorder and not handled, and in postorder it is not handled too
-                // then warning
+                // Kludge: If we are in preorder and not handled, and postorder
+                // it is not handled either then warning
                 if (&search_map == &_custom_functor_pre)
                 {
                     if (_custom_functor_post.find(directive_name) == _custom_functor_post.end())
@@ -103,22 +176,21 @@ namespace TL
                             << node.get_locus() << " is not currently handled" << std::endl;
                     }
                 }
-
             }
             
             // We are in postorder
             if (&search_map == &_custom_functor_post)
             {
+                ConstructInfo &current_construct_info = construct_stack.top();
                 // Emit a warning for every unused one
-                ObjectList<construct_map_locus_t> &unhandled_clauses = construct_map.top();
-                for (ObjectList<construct_map_locus_t>::iterator it = unhandled_clauses.begin();
-                        it != unhandled_clauses.end();
+                for (ObjectList<clause_locus_t>::iterator it = current_construct_info.clause_list.begin();
+                        it != current_construct_info.clause_list.end();
                         it++)
                 {
                     std::cerr << "Warning: Clause '" << it->first << "' unused in OpenMP directive at " << it->second << std::endl;
                 }
 
-                construct_map.pop();
+                construct_stack.pop();
             }
         }
 
@@ -146,21 +218,21 @@ namespace TL
 
             // Functor for #pragma omp parallel
             PredicateAST<OMP_IS_PARALLEL_CONSTRUCT> parallel_construct;
-            ParallelFunctor parallel_functor(on_parallel_pre, on_parallel_post);
+            ParallelFunctor parallel_functor(on_parallel_pre, on_parallel_post, global_data_sharing);
             // Register the #pragma omp parallel 
             // filter with its functor
             depth_traverse.add_predicate(parallel_construct, parallel_functor);
 
             // Functor for #pragma omp parallel for
             PredicateAST<OMP_IS_PARALLEL_FOR_CONSTRUCT> parallel_for_construct;
-            ParallelForFunctor parallel_for_functor(on_parallel_for_pre, on_parallel_for_post);
+            ParallelForFunctor parallel_for_functor(on_parallel_for_pre, on_parallel_for_post, global_data_sharing);
             // Register the #pragma omp parallel for
             // filter with its functor 
             depth_traverse.add_predicate(parallel_for_construct, parallel_for_functor);
 
             // Functor for #pragma omp for
             PredicateAST<OMP_IS_FOR_CONSTRUCT> for_construct;
-            ForFunctor for_functor(on_for_pre, on_for_post);
+            ForFunctor for_functor(on_for_pre, on_for_post, global_data_sharing);
             // Register the #pragma omp parallel for
             // filter with its functor 
             depth_traverse.add_predicate(for_construct, for_functor);
@@ -168,63 +240,63 @@ namespace TL
             // #pragma omp parallel sections
             PredicateAST<OMP_IS_PARALLEL_SECTIONS_CONSTRUCT> parallel_sections_construct;
             ParallelSectionsFunctor parallel_sections_functor(on_parallel_sections_pre, 
-                    on_parallel_sections_post);
+                    on_parallel_sections_post, global_data_sharing);
             depth_traverse.add_predicate(parallel_sections_construct, parallel_sections_functor);
 
             // #pragma omp section
             PredicateAST<OMP_IS_SECTION_CONSTRUCT> section_construct;
-            SectionFunctor section_functor(on_section_pre, on_section_post);
+            SectionFunctor section_functor(on_section_pre, on_section_post, global_data_sharing);
             depth_traverse.add_predicate(section_construct, section_functor);
             
             // #pragma omp barrier
             PredicateAST<OMP_IS_BARRIER_DIRECTIVE> barrier_directive;
-            BarrierFunctor barrier_functor(on_barrier_pre, on_barrier_post);
+            BarrierFunctor barrier_functor(on_barrier_pre, on_barrier_post, global_data_sharing);
             depth_traverse.add_predicate(barrier_directive, barrier_functor);
 
             // #pragma omp atomic
             PredicateAST<OMP_IS_ATOMIC_CONSTRUCT> atomic_construct;
-            AtomicFunctor atomic_functor(on_atomic_pre, on_atomic_post);
+            AtomicFunctor atomic_functor(on_atomic_pre, on_atomic_post, global_data_sharing);
             depth_traverse.add_predicate(atomic_construct, atomic_functor);
             
             // #pragma omp critical
             PredicateAST<OMP_IS_CRITICAL_CONSTRUCT> critical_construct;
-            CriticalFunctor critical_functor(on_critical_pre, on_critical_post);
+            CriticalFunctor critical_functor(on_critical_pre, on_critical_post, global_data_sharing);
             depth_traverse.add_predicate(critical_construct, critical_functor);
             
             // #pragma omp parallel single
             PredicateAST<OMP_IS_PARALLEL_SINGLE_CONSTRUCT> parallel_single_construct;
-            ParallelSingleFunctor parallel_single_functor(on_parallel_single_pre, on_parallel_single_post);
+            ParallelSingleFunctor parallel_single_functor(on_parallel_single_pre, on_parallel_single_post, global_data_sharing);
             depth_traverse.add_predicate(parallel_single_construct, parallel_single_functor);
 
             // #pragma omp single
             PredicateAST<OMP_IS_SINGLE_CONSTRUCT> single_construct;
-            SingleFunctor single_functor(on_single_pre, on_single_post);
+            SingleFunctor single_functor(on_single_pre, on_single_post, global_data_sharing);
             depth_traverse.add_predicate(single_construct, single_functor);
 
             // #pragma omp flush
             PredicateAST<OMP_IS_FLUSH_DIRECTIVE> flush_directive;
-            FlushFunctor flush_functor(on_flush_pre, on_flush_post);
+            FlushFunctor flush_functor(on_flush_pre, on_flush_post, global_data_sharing);
             depth_traverse.add_predicate(flush_directive, flush_functor);
 
             // #pragma omp threadprivate
             PredicateAST<OMP_IS_THREADPRIVATE_DIRECTIVE> threadprivate_directive;
-            ThreadPrivateFunctor threadprivate_functor(on_threadprivate_pre, on_threadprivate_post);
+            ThreadPrivateFunctor threadprivate_functor(on_threadprivate_pre, on_threadprivate_post, global_data_sharing);
             depth_traverse.add_predicate(threadprivate_directive, threadprivate_functor);
 
             // #pragma omp ordered
             PredicateAST<OMP_IS_ORDERED_CONTRUCT> ordered_construct;
-            OrderedFunctor ordered_functor(on_ordered_pre, on_ordered_post);
+            OrderedFunctor ordered_functor(on_ordered_pre, on_ordered_post, global_data_sharing);
             depth_traverse.add_predicate(ordered_construct, ordered_functor);
 
             // #pragma omp master
             PredicateAST<OMP_IS_MASTER_CONSTRUCT> master_construct;
-            MasterFunctor master_functor(on_master_pre, on_master_post);
+            MasterFunctor master_functor(on_master_pre, on_master_post, global_data_sharing);
             depth_traverse.add_predicate(master_construct, master_functor);
 
             // #pragma omp constructs|directives
             // (custom constructions)
             PredicateAST<OMP_IS_CUSTOM_CONSTRUCT> custom_construct;
-            CustomConstructFunctor custom_construct_functor(on_custom_construct_pre, on_custom_construct_post);
+            CustomConstructFunctor custom_construct_functor(on_custom_construct_pre, on_custom_construct_post, global_data_sharing);
             depth_traverse.add_predicate(custom_construct, custom_construct_functor);
             PredicateAST<OMP_IS_CUSTOM_DIRECTIVE> custom_directive;
             depth_traverse.add_predicate(custom_directive, custom_construct_functor);
@@ -356,25 +428,26 @@ namespace TL
             return custom_clause(names);
         }
 
-        construct_map_t construct_map;
+        // Definition of construct_stack
+        construct_stack_t construct_stack;
 
         CustomClause Directive::custom_clause(ObjectList<std::string>& names)
         {
             CustomClause result(names, _ref, _scope_link);
 
             // Copy
-            ObjectList<construct_map_locus_t> new_referenced_clauses = construct_map.top();
+            ObjectList<clause_locus_t> new_referenced_clauses = construct_stack.top().clause_list;
 
             // And put again only those that were not mentioned
-            construct_map.top().clear();
+            construct_stack.top().clause_list.clear();
 
-            for (ObjectList<construct_map_locus_t>::iterator it = new_referenced_clauses.begin();
+            for (ObjectList<clause_locus_t>::iterator it = new_referenced_clauses.begin();
                     it != new_referenced_clauses.end();
                     it++)
             {
                 if (!names.contains(it->first))
                 {
-                    construct_map.top().push_back(*it);
+                    construct_stack.top().clause_list.push_back(*it);
                 }
             }
 

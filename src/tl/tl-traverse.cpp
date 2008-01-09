@@ -103,5 +103,8 @@ namespace TL
         {
             functor->postorder(*ctx, node);
         }
+        
+        // Delete it
+        delete ctx;
     }
 }
