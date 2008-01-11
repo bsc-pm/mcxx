@@ -141,6 +141,7 @@ namespace TL
 
             void threadprivate_postorder(OpenMP::ThreadPrivateDirective threadprivate_directive);
 
+            void task_preorder(OpenMP::CustomConstruct task_construct);
             void task_postorder(OpenMP::CustomConstruct task_construct);
 
             void taskwait_postorder(OpenMP::CustomConstruct taskwait_construct);
@@ -150,6 +151,8 @@ namespace TL
             void taskgroup_postorder(OpenMP::CustomConstruct taskgroup_construct);
 
             void flush_postorder(OpenMP::FlushDirective flush_directive);
+
+            void common_parallel_data_sharing_code(OpenMP::Construct &parallel_construct);
 
             AST_t get_parallel_spawn_code(
                     AST_t ref_tree, 
@@ -266,9 +269,8 @@ namespace TL
                     );
 
             void get_data_explicit_attributes(
-                    Scope function_scope,
+                    OpenMP::Construct &construct,
                     OpenMP::Directive directive,
-                    Statement construct_body,
                     ObjectList<IdExpression>& shared_references,
                     ObjectList<IdExpression>& private_references,
                     ObjectList<IdExpression>& firstprivate_references,
@@ -278,7 +280,7 @@ namespace TL
                     ObjectList<IdExpression>& copyprivate_references);
 
             void get_data_attributes(
-                    Scope function_scope,
+                    OpenMP::Construct &construct,
                     OpenMP::Directive directive,
                     Statement construct_body,
                     ObjectList<IdExpression>& shared_references,
@@ -353,6 +355,11 @@ namespace TL
 
             Source debug_parameter_info(
                     ObjectList<ParameterInfo> parameter_info_list);
+
+            void add_data_attribute_to_list(
+                    OpenMP::Construct &construct,
+                    ObjectList<IdExpression> list_id_expressions,
+                    OpenMP::DataAttribute data_attrib);
 
             // Debug purposes
             IdExpression print_id_expression(IdExpression id_expression);

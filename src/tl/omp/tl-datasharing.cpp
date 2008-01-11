@@ -22,10 +22,23 @@
 
 namespace TL
 {
+    void OpenMPTransform::add_data_attribute_to_list(
+            OpenMP::Construct &construct,
+            ObjectList<IdExpression> list_id_expressions,
+            OpenMP::DataAttribute data_attrib)
+    {
+        for (ObjectList<IdExpression>::iterator it = list_id_expressions.begin();
+                it != list_id_expressions.end();
+                it++)
+        {
+            Symbol sym = it->get_symbol();
+            construct.add_data_attribute(sym, data_attrib);
+        }
+    }
+
     void OpenMPTransform::get_data_explicit_attributes(
-            Scope,
+            OpenMP::Construct & construct,
             OpenMP::Directive directive,
-            Statement,
             ObjectList<IdExpression>& shared_references,
             ObjectList<IdExpression>& private_references,
             ObjectList<IdExpression>& firstprivate_references,
@@ -38,34 +51,50 @@ namespace TL
         OpenMP::Clause shared_clause = directive.shared_clause();
         shared_references = shared_clause.id_expressions();
 
+        add_data_attribute_to_list(construct, shared_references, OpenMP::DA_SHARED);
+
         // Get references in private_clause
         OpenMP::Clause private_clause = directive.private_clause();
         private_references = private_clause.id_expressions();
+
+        add_data_attribute_to_list(construct, private_references, OpenMP::DA_PRIVATE);
 
         // Get references in firstprivate clause
         OpenMP::Clause firstprivate_clause = directive.firstprivate_clause();
         firstprivate_references = firstprivate_clause.id_expressions();
 
+        add_data_attribute_to_list(construct, firstprivate_references, OpenMP::DA_FIRSTPRIVATE);
+
         // Get references in lastprivate clause
         OpenMP::Clause lastprivate_clause = directive.lastprivate_clause();
         lastprivate_references = lastprivate_clause.id_expressions();
+
+        add_data_attribute_to_list(construct, lastprivate_references, OpenMP::DA_LASTPRIVATE);
 
         // Get references in reduction clause
         OpenMP::ReductionClause reduction_clause = directive.reduction_clause();
         reduction_references = reduction_clause.id_expressions();
 
+        add_data_attribute_to_list(construct, 
+                reduction_references.map(functor(&OpenMP::ReductionIdExpression::get_id_expression)), 
+                OpenMP::DA_REDUCTION);
+
         // Get references in copyin
         OpenMP::Clause copyin_clause = directive.copyin_clause();
         copyin_references = copyin_clause.id_expressions();
 
+        add_data_attribute_to_list(construct, copyin_references, OpenMP::DA_COPYIN);
+
         // Get references in copyprivate
         OpenMP::Clause copyprivate_clause = directive.copyprivate_clause();
         copyprivate_references = copyprivate_clause.id_expressions();
+
+        add_data_attribute_to_list(construct, copyprivate_references, OpenMP::DA_COPYPRIVATE);
     }
 
 
     void OpenMPTransform::get_data_attributes(
-            Scope function_scope,
+            OpenMP::Construct &construct,
             OpenMP::Directive directive,
             Statement construct_body,
             ObjectList<IdExpression>& shared_references,
@@ -77,9 +106,8 @@ namespace TL
             ObjectList<IdExpression>& copyprivate_references)
     {
         get_data_explicit_attributes(
-                function_scope,
+                construct,
                 directive,
-                construct_body,
                 shared_references,
                 private_references,
                 firstprivate_references,
@@ -202,11 +230,13 @@ namespace TL
             case PK_DATA_SHARED :
                 {
                     shared_references.insert(non_local_references, functor(&IdExpression::get_symbol));
+                    add_data_attribute_to_list(construct, non_local_references, OpenMP::DA_SHARED);
                     break;
                 }
             case PK_DATA_PRIVATE :
                 {
                     private_references.insert(non_local_references, functor(&IdExpression::get_symbol));
+                    add_data_attribute_to_list(construct, non_local_references, OpenMP::DA_PRIVATE);
                     break;
                 }
             case PK_DATA_INVALID :

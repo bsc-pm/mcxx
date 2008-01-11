@@ -117,6 +117,7 @@ namespace TL
 
         // OMP 3.0 tasks
         register_construct("task");
+        on_custom_construct_pre["task"].connect(functor(&OpenMPTransform::task_preorder, *this));
         on_custom_construct_post["task"].connect(functor(&OpenMPTransform::task_postorder, *this));
 
         // #pragma omp taskwait

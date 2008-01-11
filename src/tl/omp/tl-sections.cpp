@@ -50,7 +50,7 @@ namespace TL
         Scope function_scope = function_definition.get_scope();
 
         // Get the data attributes for every entity
-        get_data_attributes(function_scope,
+        get_data_attributes(sections_construct,
                 directive,
                 construct_body,
                 shared_references,

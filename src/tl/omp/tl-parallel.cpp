@@ -22,13 +22,53 @@
 
 namespace TL
 {
-    void OpenMPTransform::parallel_preorder(OpenMP::ParallelConstruct)
+    void OpenMPTransform::common_parallel_data_sharing_code(OpenMP::Construct &parallel_construct)
     {
+        // They will hold the entities as they appear in the clauses
+        ObjectList<IdExpression>& shared_references = 
+            parallel_construct.get_data<ObjectList<IdExpression> >("shared_references");
+        ObjectList<IdExpression>& private_references = 
+            parallel_construct.get_data<ObjectList<IdExpression> >("private_references");
+        ObjectList<IdExpression>& firstprivate_references = 
+            parallel_construct.get_data<ObjectList<IdExpression> >("firstprivate_references");
+        ObjectList<IdExpression>& lastprivate_references = 
+            parallel_construct.get_data<ObjectList<IdExpression> >("lastprivate_references");
+        ObjectList<OpenMP::ReductionIdExpression>& reduction_references =
+            parallel_construct.get_data<ObjectList<OpenMP::ReductionIdExpression> >("reduction_references");
+        ObjectList<IdExpression>& copyin_references = 
+            parallel_construct.get_data<ObjectList<IdExpression> >("copyin_references");
+        ObjectList<IdExpression>& copyprivate_references = 
+            parallel_construct.get_data<ObjectList<IdExpression> >("copyprivate_references");
+        
+        // Get the directive
+        OpenMP::Directive directive = parallel_construct.directive();
+
+        // Get the construct_body of the statement
+        Statement construct_body = parallel_construct.body();
+
+        // Get the data attributes for every entity
+        get_data_attributes(parallel_construct,
+                directive,
+                construct_body,
+                shared_references,
+                private_references,
+                firstprivate_references,
+                lastprivate_references,
+                reduction_references,
+                copyin_references,
+                copyprivate_references);
+    }
+
+    void OpenMPTransform::parallel_preorder(OpenMP::ParallelConstruct parallel_construct)
+    {
+        // Inner reductions stack
         ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
         inner_reductions_stack.push(inner_reductions);
 
         // Increase the parallel nesting value
         parallel_nesting++;
+
+        common_parallel_data_sharing_code(parallel_construct);
     }
 
     void OpenMPTransform::parallel_postorder(OpenMP::ParallelConstruct parallel_construct)
@@ -41,6 +81,9 @@ namespace TL
 
         // Get the directive
         OpenMP::Directive directive = parallel_construct.directive();
+        
+        // Get the construct_body of the statement
+        Statement construct_body = parallel_construct.body();
 
         // Get the enclosing function definition
         FunctionDefinition function_definition = parallel_construct.get_enclosing_function();
@@ -49,32 +92,25 @@ namespace TL
         // and the id-expression of the function name
         IdExpression function_name = function_definition.get_function_name();
 
-        // They will hold the entities as they appear in the clauses
-        ObjectList<IdExpression> shared_references;
-        ObjectList<IdExpression> private_references;
-        ObjectList<IdExpression> firstprivate_references;
-        ObjectList<IdExpression> lastprivate_references;
-        ObjectList<OpenMP::ReductionIdExpression> reduction_references;
-        ObjectList<IdExpression> copyin_references;
-        ObjectList<IdExpression> copyprivate_references;
-
-        // Get the construct_body of the statement
-        Statement construct_body = parallel_construct.body();
-
-        // Get the data attributes for every entity
-        get_data_attributes(function_scope,
-                directive,
-                construct_body,
-                shared_references,
-                private_references,
-                firstprivate_references,
-                lastprivate_references,
-                reduction_references,
-                copyin_references,
-                copyprivate_references);
+        // This was computed in the preorder
+        ObjectList<IdExpression>& shared_references = 
+            parallel_construct.get_data<ObjectList<IdExpression> >("shared_references");
+        ObjectList<IdExpression>& private_references = 
+            parallel_construct.get_data<ObjectList<IdExpression> >("private_references");
+        ObjectList<IdExpression>& firstprivate_references = 
+            parallel_construct.get_data<ObjectList<IdExpression> >("firstprivate_references");
+        ObjectList<IdExpression>& lastprivate_references = 
+            parallel_construct.get_data<ObjectList<IdExpression> >("lastprivate_references");
+        ObjectList<OpenMP::ReductionIdExpression>& reduction_references =
+            parallel_construct.get_data<ObjectList<OpenMP::ReductionIdExpression> >("reduction_references");
+        ObjectList<IdExpression>& copyin_references = 
+            parallel_construct.get_data<ObjectList<IdExpression> >("copyin_references");
+        ObjectList<IdExpression>& copyprivate_references = 
+            parallel_construct.get_data<ObjectList<IdExpression> >("copyprivate_references");
 
         ObjectList<ParameterInfo> parameter_info_list;
 
+        // Compute the replacements
         ReplaceIdExpression replace_references = 
             set_replacements(function_definition,
                     directive,

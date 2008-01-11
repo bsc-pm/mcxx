@@ -30,14 +30,33 @@ namespace TL
         // Increase the parallel nesting value
         parallel_nesting++;
 
+        common_parallel_data_sharing_code(parallel_for_construct);
+        
         Statement construct_body = parallel_for_construct.body();
-        // The construct is in fact a ForStatement in a #pragma omp parallel do
+        // The construct is in fact a ForStatement in a #pragma omp parallel for
         ForStatement for_statement(construct_body);
-
+        
+        // The induction variable deserves special treatment
         IdExpression induction_var = for_statement.get_induction_variable();
-
-        // Save this induction var in the stack
         induction_var_stack.push(induction_var);
+
+        // Set it private if it was not
+        if ((parallel_for_construct.get_data_attribute(induction_var.get_symbol()) & OpenMP::DA_PRIVATE) != OpenMP::DA_PRIVATE)
+        {
+            ObjectList<IdExpression>& private_references = 
+                parallel_for_construct.get_data<ObjectList<IdExpression> >("private_references");
+            // Set private
+            parallel_for_construct.add_data_attribute(induction_var.get_symbol(), OpenMP::DA_PRIVATE);
+
+            // And insert into private references as well
+            private_references.insert(induction_var, functor(&TL::IdExpression::get_symbol));
+
+            ObjectList<IdExpression>& shared_references = 
+                parallel_for_construct.get_data<ObjectList<IdExpression> >("shared_references");
+            // Remove from shared references if it appears there
+            shared_references = shared_references.not_find(functor(&IdExpression::get_symbol), 
+                    induction_var.get_symbol());
+        }
     }
 
     void OpenMPTransform::parallel_for_postorder(OpenMP::ParallelForConstruct parallel_for_construct)
@@ -59,51 +78,27 @@ namespace TL
         Scope function_scope = function_definition.get_scope();
         IdExpression function_name = function_definition.get_function_name();
 
-        // They will hold the entities as they appear in the clauses
-        ObjectList<IdExpression> shared_references;
-        ObjectList<IdExpression> private_references;
-        ObjectList<IdExpression> firstprivate_references;
-        ObjectList<IdExpression> lastprivate_references;
-        ObjectList<OpenMP::ReductionIdExpression> reduction_references;
-        ObjectList<IdExpression> copyin_references;
-        ObjectList<IdExpression> copyprivate_references;
+        // This was computed in the preorder
+        ObjectList<IdExpression>& shared_references = 
+            parallel_for_construct.get_data<ObjectList<IdExpression> >("shared_references");
+        ObjectList<IdExpression>& private_references = 
+            parallel_for_construct.get_data<ObjectList<IdExpression> >("private_references");
+        ObjectList<IdExpression>& firstprivate_references = 
+            parallel_for_construct.get_data<ObjectList<IdExpression> >("firstprivate_references");
+        ObjectList<IdExpression>& lastprivate_references = 
+            parallel_for_construct.get_data<ObjectList<IdExpression> >("lastprivate_references");
+        ObjectList<OpenMP::ReductionIdExpression>& reduction_references =
+            parallel_for_construct.get_data<ObjectList<OpenMP::ReductionIdExpression> >("reduction_references");
+        ObjectList<IdExpression>& copyin_references = 
+            parallel_for_construct.get_data<ObjectList<IdExpression> >("copyin_references");
+        ObjectList<IdExpression>& copyprivate_references = 
+            parallel_for_construct.get_data<ObjectList<IdExpression> >("copyprivate_references");
 
         // Get the construct_body of the statement
         Statement construct_body = parallel_for_construct.body();
         // The construct is in fact a ForStatement in a #pragma omp parallel do
         ForStatement for_statement(construct_body);
         Statement loop_body = for_statement.get_loop_body();
-
-        // Get the data attributes for every entity
-        get_data_attributes(function_scope,
-                directive,
-                construct_body,
-                shared_references,
-                private_references,
-                firstprivate_references,
-                lastprivate_references,
-                reduction_references,
-                copyin_references,
-                copyprivate_references);
-
-        // The induction variable deserves special treatment
-        IdExpression induction_var = for_statement.get_induction_variable();
-        // If private_references does not contain an IdExpression whose
-        // related symbol is the induction variable symbol, then
-        // privatize here (FIXME: I've seen codes where the induction
-        // variable appears in lastprivate)
-        if (!private_references.contains(functor(&IdExpression::get_symbol), induction_var.get_symbol()))
-        {
-            // Add the induction variale onto the private references
-            private_references.append(induction_var);
-            // And now remove, if it was already there, any reference
-            // to the induction variable symbol from the set of shared
-            // references
-            shared_references = shared_references.not_find(functor(&IdExpression::get_symbol), 
-                    induction_var.get_symbol());
-        }
-
-        ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
 
         // Create the replacement map and the pass_by_pointer set
         ObjectList<ParameterInfo> parameter_info_list;

@@ -51,6 +51,10 @@ namespace TL
                 it != threadprivate_references.end();
                 it++)
         {
+            // Register the symbol in the DataSharing of threadprivate 
+            Symbol symbol = it->get_symbol();
+            threadprivate_directive.add_data_attribute(symbol, OpenMP::DA_THREADPRIVATE);
+
             // Get its declaration
             Declaration decl = it->get_declaration();
 
@@ -108,7 +112,7 @@ namespace TL
             // Now parse the remade declarations
             AST_t redeclaration_tree = remade_declaration.parse_declaration(decl.get_ast(),
                     // And explicitly allow to redeclarate objects otherwise the compiler
-                    // will complain (for debugging purposes)
+                    // will complain 
                     scope_link, Source::ALLOW_REDECLARATION);
 
             // Now replace the whole declaration with this new one

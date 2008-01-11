@@ -24,6 +24,7 @@
 #include <typeinfo>
 #include <iostream>
 #include <string>
+#include <map>
 #include <strings.h>
 #include "tl-object.hpp"
 
@@ -345,6 +346,77 @@ namespace TL
             }
     };
 
+    class LinkData
+    {
+        private:
+            struct data_info
+            {
+                void *data;
+                void (*destructor)(void*);
+            };
+            // This is a pointer so this class can be copied
+            std::map<std::string, data_info> *_data_list;
+            int *_num_copies;
+        public:
+
+            LinkData()
+            {
+                _data_list = new std::map<std::string, data_info>;
+                _num_copies = new int(1);
+            }
+
+            LinkData(const LinkData& l)
+            {
+                _data_list = l._data_list;
+                _num_copies = l._num_copies;
+
+                (*_num_copies)++;
+            }
+
+        template <typename _T>
+            static void destroy_adapter(void* p)
+            {
+                _T* t = reinterpret_cast<_T*>(p);
+                t->_T::~_T();
+            }
+
+        template <typename _T>
+            _T& get_data(const std::string& str)
+            {
+                _T* result = NULL;
+                if (_data_list->find(str) == _data_list->end())
+                {
+                    result = new _T();
+
+                    data_info d;
+                    d.data = result;
+                    d.destructor = destroy_adapter<_T>;
+
+                    (*_data_list)[str] = d;
+                }
+
+                data_info d = (*_data_list)[str];
+                return *(reinterpret_cast<_T*>(d.data));
+            }
+
+        ~LinkData()
+        {
+            (*_num_copies)--;
+            if (*_num_copies == 0)
+            {
+                for (std::map<std::string, data_info>::iterator it = _data_list->begin();
+                        it != _data_list->end();
+                        it ++)
+                {
+                    data_info d = it->second;
+                    d.destructor(d.data);
+                }
+
+                delete _num_copies;
+                delete _data_list;
+            }
+        }
+    };
 }
 
 #endif // TL_BUILTIN_HPP

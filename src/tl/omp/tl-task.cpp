@@ -23,42 +23,36 @@
 
 namespace TL
 {
-    void OpenMPTransform::task_postorder(OpenMP::CustomConstruct task_construct)
+    void OpenMPTransform::task_preorder(OpenMP::CustomConstruct task_construct)
     {
-        // EXPERIMENTAL. Task chunking enabled
-        if (!task_while_stack.empty())
-        {
-            return task_postorder_with_chunk(task_construct);
-        }
-        
-        // One more parallel seen
-        num_parallels++;
-
         // Get the directive of the task construct
         OpenMP::Directive directive = task_construct.directive();
 
         // Get the related statement of this task construct
         Statement construct_body = task_construct.body();
-
+        
         // Get the enclosing function definition
         FunctionDefinition function_definition = task_construct.get_enclosing_function();
         // and its scope
         Scope function_scope = function_definition.get_scope();
-        // and the id-expression of the function name
-        IdExpression function_name = function_definition.get_function_name();
-        // create the outlined function name
-        Source outlined_function_name = get_outlined_function_name(function_name);
+
+        // Data sharing information
+        ObjectList<IdExpression> & captureaddress_references = 
+            task_construct.get_data<ObjectList<IdExpression> >("captureaddress_references");
+        ObjectList<IdExpression> & local_references = 
+            task_construct.get_data<ObjectList<IdExpression> >("local_references");
+        ObjectList<IdExpression> & captureprivate_references = 
+            task_construct.get_data<ObjectList<IdExpression> >("captureprivate_references");
 
         // Get references in local clause
         OpenMP::Clause private_clause = directive.private_clause();
         ObjectList<IdExpression> local_references_in_clause = private_clause.id_expressions();
         // Those stated by the user to be local are local_references
-        ObjectList<IdExpression> local_references = local_references_in_clause;
+        local_references = local_references_in_clause;
 
         OpenMP::Clause shared_clause = directive.shared_clause();
 
         // Get all the identifiers of the captureaddress clause
-        ObjectList<IdExpression> captureaddress_references;
         ObjectList<IdExpression> captureaddress_references_in_clause = shared_clause.id_expressions();
 
         {
@@ -103,6 +97,9 @@ namespace TL
             }
         }
 
+        // Set the data sharing attribute 'shared' to all captureaddress
+        add_data_attribute_to_list(task_construct, captureaddress_references, OpenMP::DA_SHARED);
+
         OpenMP::Clause captureprivate_clause = directive.firstprivate_clause();
         // Get the identifiers of the capturevalue clause
         ObjectList<IdExpression> captureprivate_references_in_clause = captureprivate_clause.id_expressions();
@@ -130,18 +127,19 @@ namespace TL
 
         // As stated by the user, everything in the clause is already
         // capturevalued (no pruning here as we did for captureaddress)
-        ObjectList<IdExpression> captureprivate_references = captureprivate_references_in_clause;
+        captureprivate_references = captureprivate_references_in_clause;
+        
+        // Set the data sharing attribute 'firstprivate' to all captureaddress
+        add_data_attribute_to_list(task_construct, captureprivate_references, OpenMP::DA_FIRSTPRIVATE);
 
+        // Default calculus
         OpenMP::DefaultClause default_clause = directive.default_clause();
-
-        // FIXME - The way we compute data environment _MUST_ be overhauled
-        // because currently fails in annoying ways when directives are nested
-        // (things become too much captured)
         enum 
         {
             DK_TASK_INVALID = 0,
+            DK_TASK_UNDEFINED,
             DK_TASK_SHARED,
-            DK_TASK_CAPTUREPRIVATE,
+            DK_TASK_FIRSTPRIVATE,
             DK_TASK_PRIVATE,
             DK_TASK_NONE
         } default_task_data_sharing = DK_TASK_INVALID;
@@ -150,8 +148,10 @@ namespace TL
         captureprivate_names.append("firstprivate");
         if (!default_clause.is_defined())
         {
-            // By default captureprivate
-            default_task_data_sharing = DK_TASK_CAPTUREPRIVATE;
+            // If not given then DK_TASK_UNDEFINED will trigger a more
+            // complex calculus of the data sharing involving inherited
+            // attributes
+            default_task_data_sharing = DK_TASK_UNDEFINED;
         }
         else if (default_clause.is_none())
         {
@@ -163,7 +163,7 @@ namespace TL
         }
         else if (default_clause.is_custom(captureprivate_names))
         {
-            default_task_data_sharing = DK_TASK_CAPTUREPRIVATE;
+            default_task_data_sharing = DK_TASK_FIRSTPRIVATE;
         }
         else if (default_clause.is_shared())
         {
@@ -173,9 +173,9 @@ namespace TL
         {
             std::cerr << "Warning: Unknown default clause '" 
                 << default_clause.prettyprint() << "' at " << default_clause.get_ast().get_locus() << ". "
-                << "Assuming 'default(capturevalue)'."
+                << "Assuming 'default(firstprivate)'."
                 << std::endl;
-            default_task_data_sharing = DK_TASK_CAPTUREPRIVATE;
+            default_task_data_sharing = DK_TASK_FIRSTPRIVATE;
         }
 
         // Now deal with the references of the body
@@ -188,6 +188,14 @@ namespace TL
                     it != references_body_all.end();
                     it++)
             {
+                // If the variable has a sharing attribute of 'threadprivate' do not consider
+                // it for anything
+                if ((task_construct.get_data_attribute(it->get_symbol()) & OpenMP::DA_THREADPRIVATE)
+                        == OpenMP::DA_THREADPRIVATE)
+                {
+                    continue;
+                }
+
                 Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
 
                 // If this symbol appears in any data-sharing clause,
@@ -203,6 +211,7 @@ namespace TL
                         || local_references_in_clause.contains(*it, functor(&IdExpression::get_symbol)))
                     continue;
 
+
                 bool will_be_visible_from_outline = false;
                 bool is_unqualified_member = false;
                 if (global_sym.is_valid()
@@ -214,13 +223,96 @@ namespace TL
                     //
                     // As an exception member symbols must be passed as
                     // captureaddress and they will be converted to
-                    // _this->member
+                    // "_this->member"
                     will_be_visible_from_outline = true;
                     is_unqualified_member = is_unqualified_member_symbol(*it, function_definition);
                 }
-
+                
                 switch ((int)default_task_data_sharing)
                 {
+                    case DK_TASK_UNDEFINED :
+                        {
+                            /*
+                             * According to the standard when a variable is
+                             * referenced inside a task construct and no
+                             * default is given and the variable does not
+                             * appear in any data-sharing clause:
+                             *
+                             *  (1) if the task is orphaned and the variable is a
+                             *  parameter then it is 'firstprivate'
+                             *
+                             *  (2) otherwise, if the task is not orphaned and
+                             *  nested inside a parallel and the variable is
+                             *  private in that construct, then it is
+                             *  firstprivate in this task construct
+                             *
+                             *  (3) otherwise, if the task is not nested in a
+                             *  parallel and the variable is private in the
+                             *  enclosing function (this might happen because
+                             *  the induction variable of an enclosing loop or
+                             *  simply because the variable is local)
+                             *
+                             *  (4) otherwise the variable is shared in this
+                             *  task construct
+                             */
+                            Symbol sym = it->get_symbol();
+                            // This will use the inherited scope if any
+                            OpenMP::DataAttribute data_attrib = task_construct.get_data_attribute(sym);
+
+                            if (data_attrib != OpenMP::DA_UNDEFINED)
+                            {
+                                if ((data_attrib & OpenMP::DA_PRIVATE) == OpenMP::DA_PRIVATE)
+                                {
+                                    // (2) and (3)
+                                    captureprivate_references.insert(*it, functor(&IdExpression::get_symbol));
+                                    task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_FIRSTPRIVATE);
+                                }
+                                else if ((data_attrib & OpenMP::DA_SHARED) == OpenMP::DA_SHARED)
+                                {
+                                    if (will_be_visible_from_outline)
+                                    {
+                                        // (4)
+                                        // Do nothing, will be shared by scope
+                                    }
+                                    else 
+                                    {
+                                        // (4)
+                                        captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
+                                        task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_SHARED);
+                                    }
+                                }
+                                else
+                                {
+                                    // (4)
+                                    captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
+                                    task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_SHARED);
+                                }
+                            }
+                            else
+                            {
+                                // It is undefined, thus if the variable is visible from the outline
+                                // or it is a static
+                                if (will_be_visible_from_outline)
+                                {
+                                    // (4)
+                                    // Do nothing, will be shared by scope
+                                }
+                                else if (sym.is_static())
+                                {
+                                    // (4)
+                                    captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
+                                    task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_SHARED);
+                                }
+                                else
+                                {
+                                    // (3)
+                                    captureprivate_references.insert(*it, functor(&IdExpression::get_symbol));
+                                    task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_FIRSTPRIVATE);
+                                }
+                            }
+
+                            break;
+                        }
                     case DK_TASK_NONE :
                         {
                             std::cerr << "Warning: '" << it->prettyprint() << "' in " << it->get_ast().get_locus() 
@@ -228,16 +320,10 @@ namespace TL
                                 << "It will be considered capturevalue." << std::endl;
                             /* Fall through captureprivate */
                         }
-                    case DK_TASK_CAPTUREPRIVATE :
+                    case DK_TASK_FIRSTPRIVATE :
                         {
-                            if (!will_be_visible_from_outline)
-                            {
-                                captureprivate_references.insert(*it, functor(&IdExpression::get_symbol));
-                            }
-                            else
-                            {
-                                // Otherwise do nothing. FIXME This is plainly wrong
-                            }
+                            captureprivate_references.insert(*it, functor(&IdExpression::get_symbol));
+                            task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_FIRSTPRIVATE);
                             break;
                         }
                     case DK_TASK_SHARED :
@@ -249,6 +335,7 @@ namespace TL
                                     || is_unqualified_member)
                             {
                                 captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
+                                task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_SHARED);
                             }
                             break;
                         }
@@ -263,21 +350,54 @@ namespace TL
                 }
             }
         }
+    }
+
+    void OpenMPTransform::task_postorder(OpenMP::CustomConstruct task_construct)
+    {
+        // EXPERIMENTAL. Task chunking enabled
+        if (!task_while_stack.empty())
+        {
+            return task_postorder_with_chunk(task_construct);
+        }
+        
+        // Get the directive of the task construct
+        OpenMP::Directive directive = task_construct.directive();
+
+        // Get the related statement of this task construct
+        Statement construct_body = task_construct.body();
+
+        // Get the enclosing function definition
+        FunctionDefinition function_definition = task_construct.get_enclosing_function();
+        // and its scope
+        Scope function_scope = function_definition.get_scope();
+        // and the id-expression of the function name
+        IdExpression function_name = function_definition.get_function_name();
+        // create the outlined function name
+        Source outlined_function_name = get_outlined_function_name(function_name);
+        
+        // Data sharing information as filled by task_preorder
+        ObjectList<IdExpression> & captureaddress_references = 
+            task_construct.get_data<ObjectList<IdExpression> >("captureaddress_references");
+        ObjectList<IdExpression> & local_references = 
+            task_construct.get_data<ObjectList<IdExpression> >("local_references");
+        ObjectList<IdExpression> & captureprivate_references = 
+            task_construct.get_data<ObjectList<IdExpression> >("captureprivate_references");
 
         ObjectList<IdExpression> empty;
         ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
-        ObjectList<ParameterInfo> parameter_info_list;
 
         ObjectList<IdExpression> captured_references;
         captured_references.append(captureaddress_references);
         captured_references.append(captureprivate_references);
 
+        ObjectList<ParameterInfo> parameter_info_list;
+
         ReplaceIdExpression replace_references  = 
             set_replacements(function_definition,
                     directive,
                     construct_body,
-                    captured_references, // Captured entities (captureaddress and capturevalue)
-                    local_references, // Private entities (local clause)
+                    captured_references, // Captured entities (firstprivate and shared)
+                    local_references, // Private entities (private clause)
                     empty,
                     empty,
                     reduction_empty,

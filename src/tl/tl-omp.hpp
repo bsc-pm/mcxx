@@ -44,75 +44,75 @@ namespace TL
 #define BITMAP(x) (1<<x)
         enum DataAttribute
         {
-            DA_INVALID = 0,
-            DA_UNDEFINED = BITMAP(1),
-            DA_SHARED = BITMAP(2),
-            DA_PRIVATE = BITMAP(3),
-            DA_FIRSTPRIVATE = BITMAP(4) | DA_PRIVATE,
-            DA_LASTPRIVATE = BITMAP(5) | DA_PRIVATE,
-            DA_THREADPRIVATE = BITMAP(6)
+            DA_UNDEFINED = 0,
+            DA_SHARED = BITMAP(1),
+            DA_PRIVATE = BITMAP(2),
+            DA_FIRSTPRIVATE = BITMAP(3) | DA_PRIVATE,
+            DA_LASTPRIVATE = BITMAP(4) | DA_PRIVATE,
+            DA_FIRSTLASTPRIVATE = DA_FIRSTPRIVATE | DA_LASTPRIVATE,
+            DA_REDUCTION = BITMAP(5),
+            DA_THREADPRIVATE = BITMAP(6),
+            DA_COPYIN = BITMAP(7),
+            DA_COPYPRIVATE = BITMAP(8)
         };
 #undef BITMAP
 
         class DataSharing
         {
             private:
-                std::map<Symbol, DataAttribute> _map;
+                int *_num_refs;
+                std::map<Symbol, DataAttribute>  *_map;
+                DataSharing *_enclosing;
+
+                DataAttribute get_internal(Symbol sym);
             public:
-                void set(Symbol sym, DataAttribute data_attr)
-                {
-                    if (_map.find(sym) != _map.end())
-                    {
-                        std::cerr << "Warning, symbol '" 
-                            << sym.get_name() 
-                            << "' has been redefined its data sharing attributes" << std::endl;
-                    }
+                DataSharing(DataSharing *enclosing);
+                ~DataSharing();
 
-                    _map[sym] = data_attr;
-                }
-
-                DataAttribute get(Symbol sym)
-                {
-                    std::map<Symbol, DataAttribute>::iterator it = _map.find(sym);
-                    if (it == _map.end())
-                    {
-                        return DA_UNDEFINED;
-                    }
-                    else
-                    {
-                        return it->second;
-                    }
-                }
+                DataSharing(const DataSharing& ds);
+                void set(Symbol sym, DataAttribute data_attr);
+                DataAttribute get(Symbol sym);
         };
 
         class Directive;
-        class Construct : public LangConstruct
+        class Construct : public LangConstruct, public LinkData
         {
             protected:
                 Construct *_enclosing_construct;
                 DataSharing *_data_sharing;
-
             public:
-                Construct(AST_t ref, ScopeLink scope_link,
-                        Construct* enclosing_construct)
+                Construct(AST_t ref, 
+                        ScopeLink scope_link,
+                        Construct* enclosing_construct,
+                        DataSharing* enclosing_data_sharing)
                     : LangConstruct(ref, scope_link),
                     _enclosing_construct(enclosing_construct),
-                    _data_sharing(NULL)
+                    _data_sharing(enclosing_data_sharing)
                 {
-                    // By default constructs inherit the data sharing from
-                    // their enclosing constructs
-                    if (_enclosing_construct != NULL)
-                    {
-                        _data_sharing = _enclosing_construct->_data_sharing;
-                    }
                 }
 
-                DataSharing& get_data_sharing() const;
-                void set_data_sharing(DataSharing&);
+                DataSharing& get_data_sharing() const
+                {
+                    return *_data_sharing;
+                }
 
-                Construct& get_enclosing_construct() const;
-                bool is_orphaned() const;
+                Construct& get_enclosing_construct() const
+                {
+                    return *_enclosing_construct;
+                }
 
+                bool is_orphaned() const
+                {
+                    return _enclosing_construct == NULL;
+                }
+
+                bool no_data_sharing() const
+                {
+                    return _data_sharing == NULL;
+                }
+
+                void set_data_attribute(Symbol sym, DataAttribute data_attr);
+                void add_data_attribute(Symbol sym, DataAttribute data_attr);
                 DataAttribute get_data_attribute(Symbol sym) const;
 
                 ~Construct() { }
@@ -290,160 +290,60 @@ namespace TL
                 bool is_defined();
         };
 
-        class ParallelConstructCommon : public Construct
+        class DataEnvironmentConstruct : public Construct
         {
             public:
-                ParallelConstructCommon(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : Construct(ref, scope_link, enclosing)
+                DataEnvironmentConstruct(AST_t ref, 
+                        ScopeLink scope_link, 
+                        Construct *enclosing_construct,
+                        DataSharing* enclosing_data_sharing)
+                    : Construct(ref, scope_link, enclosing_construct, enclosing_data_sharing)
                 {
-                    // Create a new data sharing instead of the inherited one
-                    _data_sharing = new DataSharing();
+                    // Do not inherit but create a new data sharing
+                    _data_sharing = new DataSharing(enclosing_data_sharing);
                 }
         };
 
-        class ParallelConstruct : public ParallelConstructCommon
-        {
-            public:
-                ParallelConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : ParallelConstructCommon(ref, scope_link, enclosing)
-                {
-                }
-        };
+#define DEFINE_CONSTRUCT_CLASS(_name, _derives_from) \
+        class _name : public _derives_from  \
+        { \
+            public: \
+                _name(AST_t ref,  \
+                        ScopeLink scope_link,  \
+                        Construct *enclosing_construct, \
+                        DataSharing* enclosing_data_sharing) \
+                    : _derives_from(ref, scope_link,  \
+                            enclosing_construct,  \
+                            enclosing_data_sharing) \
+                { \
+                } \
+        }
 
-        class ParallelForConstruct : public ParallelConstructCommon
-        {
-            public:
-                ParallelForConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : ParallelConstructCommon(ref, scope_link, enclosing)
-                {
-                }
-        };
+        DEFINE_CONSTRUCT_CLASS(ParallelConstruct, DataEnvironmentConstruct);
 
-        class ForConstruct : public Construct
-        {
-            public:
-                ForConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : Construct(ref, scope_link, enclosing)
-                {
-                }
-        };
+        DEFINE_CONSTRUCT_CLASS(ParallelForConstruct, DataEnvironmentConstruct);
+        DEFINE_CONSTRUCT_CLASS(ForConstruct, DataEnvironmentConstruct);
 
-        class BarrierDirective : public Construct
-        {
-            public:
-                BarrierDirective(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : Construct(ref, scope_link, enclosing)
-                {
-                }
-        };
+        DEFINE_CONSTRUCT_CLASS(BarrierDirective, Construct);
+        DEFINE_CONSTRUCT_CLASS(AtomicConstruct, Construct);
+        DEFINE_CONSTRUCT_CLASS(MasterConstruct, Construct);
 
-        class AtomicConstruct : public Construct
-        {
-            public:
-                AtomicConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : Construct(ref, scope_link, enclosing)
-                {
-                }
-        };
+        DEFINE_CONSTRUCT_CLASS(ParallelSingleConstruct, DataEnvironmentConstruct);
+        DEFINE_CONSTRUCT_CLASS(SingleConstruct, DataEnvironmentConstruct);
 
-        class MasterConstruct : public Construct
-        {
-            public:
-                MasterConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : Construct(ref, scope_link, enclosing)
-                {
-                }
-        };
+        DEFINE_CONSTRUCT_CLASS(CriticalConstruct, DataEnvironmentConstruct);
+        DEFINE_CONSTRUCT_CLASS(FlushDirective, Construct);
 
-        class ParallelSingleConstruct : public ParallelConstructCommon
-        {
-            public:
-                ParallelSingleConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : ParallelConstructCommon(ref, scope_link, enclosing)
-                {
-                }
-        };
+        DEFINE_CONSTRUCT_CLASS(ParallelSectionsConstruct, DataEnvironmentConstruct);
+        DEFINE_CONSTRUCT_CLASS(SectionsConstruct, DataEnvironmentConstruct);
 
-        class SingleConstruct : public Construct
-        {
-            public:
-                SingleConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : Construct(ref, scope_link, enclosing)
-                {
-                }
-        };
+        DEFINE_CONSTRUCT_CLASS(ThreadPrivateDirective, Construct);
 
-        class CriticalConstruct : public Construct
-        {
-            public:
-                CriticalConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : Construct(ref, scope_link, enclosing)
-                {
-                }
-        };
+        DEFINE_CONSTRUCT_CLASS(SectionConstruct, Construct);
 
-        class FlushDirective : public Construct
-        {
-            public:
-                FlushDirective(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : Construct(ref, scope_link, enclosing)
-                {
-                }
-        };
+        DEFINE_CONSTRUCT_CLASS(OrderedConstruct, Construct);
 
-        class ParallelSectionsConstruct : public ParallelConstructCommon
-        {
-            public:
-                ParallelSectionsConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : ParallelConstructCommon(ref, scope_link, enclosing)
-                {
-                }
-        };
-
-        class SectionsConstruct : public Construct
-        {
-            public:
-                SectionsConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : Construct(ref, scope_link, enclosing)
-                {
-                }
-        };
-
-        class ThreadPrivateDirective : public Construct
-        {
-            public:
-                ThreadPrivateDirective(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : Construct(ref, scope_link, enclosing)
-                {
-                }
-        };
-
-        class SectionConstruct : public Construct
-        {
-            public:
-                SectionConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : Construct(ref, scope_link, enclosing)
-                {
-                }
-        };
-
-        class OrderedConstruct : public Construct
-        {
-            public:
-                OrderedConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : Construct(ref, scope_link, enclosing)
-                {
-                }
-        };
-
-        class CustomConstruct : public Construct
-        {
-            public:
-                CustomConstruct(AST_t ref, ScopeLink scope_link, Construct *enclosing)
-                    : Construct(ref, scope_link, enclosing)
-                {
-                }
-        };
+        DEFINE_CONSTRUCT_CLASS(CustomConstruct, DataEnvironmentConstruct);
 
         // Stores information of the used clauses (this is ugly)
         typedef std::pair<std::string, std::string> clause_locus_t;
@@ -469,19 +369,17 @@ namespace TL
                 virtual void preorder(Context ctx, AST_t node) 
                 {
                     Construct* enclosing_construct = NULL;
+                    DataSharing* enclosing_data_sharing = &_global_data_sharing;
                     if (!construct_stack.empty())
                     {
                         enclosing_construct = construct_stack.top().current_construct;
+                        enclosing_data_sharing = &(enclosing_construct->get_data_sharing());
                     }
 
-                    T *parallel_construct = new T(node, ctx.scope_link, enclosing_construct);
-
-                    // If the stack was empty this new construct does not have any data sharing
-                    // so set it to the global one
-                    if (construct_stack.empty())
-                    {
-                        parallel_construct->set_data_sharing(_global_data_sharing);
-                    }
+                    T *parallel_construct = new T(node, 
+                            ctx.scope_link, 
+                            enclosing_construct,
+                            enclosing_data_sharing);
 
                     Directive directive = parallel_construct->directive();
 
@@ -673,6 +571,11 @@ namespace TL
 
                 virtual void run(DTO& data_flow);
                 virtual void init();
+
+                OpenMPPhase() 
+                    : global_data_sharing(NULL) 
+                { 
+                }
 
                 virtual ~OpenMPPhase() { }
         };
