@@ -306,8 +306,18 @@ namespace TL
                                 else
                                 {
                                     // (3)
-                                    captureprivate_references.insert(*it, functor(&IdExpression::get_symbol));
-                                    task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_FIRSTPRIVATE);
+                                    Type t = sym.get_type();
+
+                                    if (t.is_const())
+                                    {
+                                        captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
+                                        task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_SHARED);
+                                    }
+                                    else
+                                    {
+                                        captureprivate_references.insert(*it, functor(&IdExpression::get_symbol));
+                                        task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_FIRSTPRIVATE);
+                                    }
                                 }
                             }
 

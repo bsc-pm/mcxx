@@ -169,6 +169,11 @@ namespace TL
 
             bool is_void() const;
 
+            // cv qualifier
+            bool is_const() const;
+            bool is_volatile() const;
+            bool is_restrict() const;
+
             // Returns the original type, if any, otherwise
             // returns the same
             Type original_type(void) const;

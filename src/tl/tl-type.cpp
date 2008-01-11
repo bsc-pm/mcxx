@@ -114,42 +114,32 @@ namespace TL
 
     bool Type::is_pointer() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return (is_pointer_type(type_info));
+        return (is_pointer_type(_type_info));
     }
 
     bool Type::is_array() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return (is_array_type(type_info));
+        return (is_array_type(_type_info));
     }
 
     bool Type::is_reference() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return (is_reference_type(type_info));
+        return (is_reference_type(_type_info));
     }
 
     bool Type::is_function() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_function_type(type_info);
+        return is_function_type(_type_info);
     }
 
     bool Type::is_dependent() const
     {
-        // type_t* type_info = advance_over_typedefs(_type_info);
-        // type_t* _base_type = base_type(type_info);
-        // return (is_dependent_type(type_info, _base_type->type->typeof_decl_context));
-
-        // FIXME
         return 0;
     }
 
     Type Type::returns() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return function_type_get_return_type(type_info);
+        return function_type_get_return_type(_type_info);
     }
 
     ObjectList<Type> Type::parameters() const
@@ -160,20 +150,18 @@ namespace TL
 
     ObjectList<Type> Type::parameters(bool& has_ellipsis) const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-
-        has_ellipsis = function_type_get_has_ellipsis(type_info);
+        has_ellipsis = function_type_get_has_ellipsis(_type_info);
 
         ObjectList<Type> result;
-        for (int i = 0; i < function_type_get_num_parameters(type_info); i++)
+        for (int i = 0; i < function_type_get_num_parameters(_type_info); i++)
         {
             // The last one is the ellipsis and lacks type
             if (has_ellipsis
-                    && ((i + 1) == function_type_get_num_parameters(type_info)))
+                    && ((i + 1) == function_type_get_num_parameters(_type_info)))
             {
                 break;
             }
-            Type t(function_type_get_parameter_type_num(type_info, i));
+            Type t(function_type_get_parameter_type_num(_type_info, i));
             result.push_back(t);
         }
 
@@ -182,26 +170,22 @@ namespace TL
 
     Type Type::points_to() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return pointer_type_get_pointee_type(type_info);
+        return pointer_type_get_pointee_type(_type_info);
     }
 
     Type Type::array_element() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return array_type_get_element_type(type_info);
+        return array_type_get_element_type(_type_info);
     }
 
     Type Type::references_to() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return reference_type_get_referenced_type(type_info);
+        return reference_type_get_referenced_type(_type_info);
     }
 
     bool Type::is_non_derived_type() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return ::is_non_derived_type(type_info);
+        return ::is_non_derived_type(_type_info);
     }
 
     bool Type::is_direct_type() const
@@ -211,28 +195,24 @@ namespace TL
 
     bool Type::is_void() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_void_type(type_info);
+        return is_void_type(_type_info);
     }
 
     bool Type::is_enum() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return (is_enumerated_type(type_info));
+        return (is_enumerated_type(_type_info));
     }
 
     bool Type::is_class() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return (is_named_class_type(type_info));
+        return (is_named_class_type(_type_info));
     }
 
     bool Type::explicit_array_dimension() const
     {
         if (is_array())
         {
-            type_t* type_info = advance_over_typedefs(_type_info);
-            return (array_type_get_array_size_expr(type_info));
+            return (array_type_get_array_size_expr(_type_info));
         }
 
         return false;
@@ -240,8 +220,7 @@ namespace TL
 
     AST_t Type::array_dimension() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        AST expression = array_type_get_array_size_expr(type_info);
+        AST expression = array_type_get_array_size_expr(_type_info);
         return expression;
     }
 
@@ -267,137 +246,116 @@ namespace TL
 
     bool Type::is_integral_type() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return ::is_integral_type(type_info);
+        return ::is_integral_type(_type_info);
     }
 
     bool Type::is_signed_int() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_signed_int_type(type_info);
+        return is_signed_int_type(_type_info);
     }
 
     bool Type::is_unsigned_int() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_unsigned_int_type(type_info);
+        return is_unsigned_int_type(_type_info);
     }
 
     bool Type::is_signed_short_int() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_signed_short_int_type(type_info);
+        return is_signed_short_int_type(_type_info);
     }
 
     bool Type::is_unsigned_short_int() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_unsigned_short_int_type(type_info);
+        return is_unsigned_short_int_type(_type_info);
     }
 
     bool Type::is_signed_long_int() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_signed_long_int_type(type_info);
+        return is_signed_long_int_type(_type_info);
     }
 
     bool Type::is_unsigned_long_int() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_unsigned_long_int_type(type_info);
+        return is_unsigned_long_int_type(_type_info);
     }
 
     bool Type::is_signed_long_long_int() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_signed_long_long_int_type(type_info);
+        return is_signed_long_long_int_type(_type_info);
     }
 
     bool Type::is_unsigned_long_long_int() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_unsigned_long_long_int_type(type_info);
+        return is_unsigned_long_long_int_type(_type_info);
     }
 
 
     bool Type::is_char() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_char_type(type_info);
+        return is_char_type(_type_info);
     }
 
     bool Type::is_signed_char() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_signed_char_type(type_info);
+        return is_signed_char_type(_type_info);
     }
 
     bool Type::is_unsigned_char() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_unsigned_char_type(type_info);
+        return is_unsigned_char_type(_type_info);
     }
 
     bool Type::is_wchar_t() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_wchar_t_type(type_info);
+        return is_wchar_t_type(_type_info);
     }
 
 
     bool Type::is_floating_type() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return ::is_floating_type(type_info);
+        return ::is_floating_type(_type_info);
     }
 
     bool Type::is_long_double() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_long_double_type(type_info);
+        return is_long_double_type(_type_info);
     }
 
     bool Type::is_double() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_double_type(type_info);
+        return is_double_type(_type_info);
     }
 
     bool Type::is_float() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_float_type(type_info);
+        return is_float_type(_type_info);
     }
 
 
     bool Type::is_bool() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_bool_type(type_info);
+        return is_bool_type(_type_info);
     }
 
     bool Type::is_pointer_to_member() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_pointer_to_member_type(type_info);
+        return is_pointer_to_member_type(_type_info);
     }
 
     Type Type::pointed_class() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return pointer_to_member_type_get_class_type(type_info);
+        return pointer_to_member_type_get_class_type(_type_info);
     }
 
     bool Type::is_complex() const
     {
-        type_t* type_info = advance_over_typedefs(_type_info);
-        return is_complex_type(type_info);
+        return is_complex_type(_type_info);
     }
 
     Type Type::get_reference_to()
     {
-        type_t* type_info = get_reference_type(_type_info);
-        return Type(type_info);
+        type_t* _type_info = get_reference_type(_type_info);
+        return Type(_type_info);
     }
 
     Type Type::get_unqualified_type()
@@ -422,5 +380,20 @@ namespace TL
     {
         // Might return itself if already restrict qualified
         return get_cv_qualified_type(_type_info, CV_RESTRICT);
+    }
+
+    bool Type::is_const() const
+    {
+        return is_const_qualified_type(_type_info);
+    }
+
+    bool Type::is_volatile() const
+    {
+        return is_volatile_qualified_type(_type_info);
+    }
+
+    bool Type::is_restrict() const
+    {
+        return is_restrict_qualified_type(_type_info);
     }
 }
