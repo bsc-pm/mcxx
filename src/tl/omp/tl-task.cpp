@@ -308,7 +308,9 @@ namespace TL
                                     // (3)
                                     Type t = sym.get_type();
 
-                                    if (t.is_const())
+                                    if (t.is_const()
+                                            && (!t.is_class()
+                                                || !t.some_member_is_mutable()))
                                     {
                                         captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
                                         task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_SHARED);

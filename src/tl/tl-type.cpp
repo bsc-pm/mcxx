@@ -396,4 +396,51 @@ namespace TL
     {
         return is_restrict_qualified_type(_type_info);
     }
+
+    unsigned int Type::get_number_of_fields() const
+    {
+        return get_number_of_nonstatic_data_members();
+    }
+
+    Symbol Type::get_field(unsigned int n) const
+    {
+        return get_nonstatic_data_member(n);
+    }
+
+    unsigned int Type::get_number_of_nonstatic_data_members() const
+    {
+        return class_type_get_num_nonstatic_data_members(_type_info);
+    }
+
+    Symbol Type::get_nonstatic_data_member(unsigned int n) const
+    {
+        return class_type_get_nonstatic_data_member_num(_type_info, n);
+    }
+
+    unsigned int Type::get_number_of_static_data_members() const
+    {
+        return class_type_get_num_static_data_members(_type_info);
+    }
+
+    Symbol Type::get_static_data_member(unsigned int n) const
+    {
+        return class_type_get_static_data_member_num(_type_info, n);
+    }
+
+    bool Type::some_member_is_mutable() const
+    {
+        unsigned int nonstatic_members = get_number_of_nonstatic_data_members();
+
+        for (unsigned int i = 0; i < nonstatic_members; i++)
+        {
+            Symbol sym = get_nonstatic_data_member(i);
+
+            if (sym.is_mutable())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

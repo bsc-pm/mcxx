@@ -169,6 +169,18 @@ namespace TL
 
             bool is_void() const;
 
+            // Synonym of 'get_number_of_nonstatic_data_members'
+            unsigned int get_number_of_fields() const;
+            Symbol get_field(unsigned int n) const;
+
+            unsigned int get_number_of_nonstatic_data_members() const;
+            Symbol get_nonstatic_data_member(unsigned int n) const;
+
+            unsigned int get_number_of_static_data_members() const;
+            Symbol get_static_data_member(unsigned int n) const;
+
+            bool some_member_is_mutable() const;
+
             // cv qualifier
             bool is_const() const;
             bool is_volatile() const;
