@@ -1,0 +1,4 @@
+#ifndef TL_DECL_CLOSURE_HPP
+#define TL_DECL_CLOSURE_HPP
+
+#endif // TL_DECL_CLOSURE_HPP

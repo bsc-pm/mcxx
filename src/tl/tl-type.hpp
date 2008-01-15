@@ -142,7 +142,17 @@ namespace TL
             bool is_direct_type() const DEPRECATED;
             bool is_non_derived_type() const;
             bool is_class() const;
+            bool is_unnamed_class() const;
+            bool is_named_class() const;
             bool is_enum() const;
+            bool is_unnamed_enum() const;
+            bool is_named_enum() const;
+
+            // Named types
+            Symbol get_symbol() const;
+            bool is_named() const;
+            bool is_typedef() const;
+            Type aliased_type() const;
 
             // Functions
             bool is_function() const;
@@ -169,15 +179,11 @@ namespace TL
 
             bool is_void() const;
 
-            // Synonym of 'get_number_of_nonstatic_data_members'
-            unsigned int get_number_of_fields() const;
-            Symbol get_field(unsigned int n) const;
+            // Synonym of 'get_nonstatic_data_members'
+            ObjectList<Symbol> get_fields() const;
 
-            unsigned int get_number_of_nonstatic_data_members() const;
-            Symbol get_nonstatic_data_member(unsigned int n) const;
-
-            unsigned int get_number_of_static_data_members() const;
-            Symbol get_static_data_member(unsigned int n) const;
+            ObjectList<Symbol> get_nonstatic_data_members() const;
+            ObjectList<Symbol> get_static_data_members() const;
 
             bool some_member_is_mutable() const;
 

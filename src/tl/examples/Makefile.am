@@ -1,1 +1,1 @@
-SUBDIRS = mypragma declarations
+SUBDIRS = mypragma declarations decl_closure

@@ -95,6 +95,7 @@ namespace TL
             Symbol& operator=(Symbol s);
 
             bool is_variable() const;
+            bool is_typedef() const;
             bool is_typename() const;
             bool is_function() const;
             bool is_template_function() const;
@@ -105,6 +106,9 @@ namespace TL
             Type get_class_type() const;
 
             AST_t get_point_of_declaration() const;
+
+            bool has_initialization() const;
+            AST_t get_initialization() const;
 
             bool is_static() const;
             bool is_register() const;

@@ -113,6 +113,11 @@ namespace TL
                 && is_template_specialized_type(this->_symbol->type_information));
     }
 
+    bool Symbol::is_typedef() const
+    {
+        return (this->_symbol->kind == SK_TYPEDEF);
+    }
+
     bool Symbol::is_typename() const
     {
         return (this->_symbol->kind == SK_TYPEDEF
@@ -208,5 +213,15 @@ namespace TL
     bool Symbol::is_explicit_constructor() const
     {
         return (_symbol->entity_specs.is_explicit);
+    }
+
+    bool Symbol::has_initialization() const
+    {
+        return (_symbol->expression_value != NULL);
+    }
+
+    AST_t Symbol::get_initialization() const
+    {
+        return _symbol->expression_value;
     }
 }

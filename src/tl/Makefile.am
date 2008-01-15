@@ -72,6 +72,8 @@ libtl_la_SOURCES = \
 	tl-multifile.cpp \
 	tl-compilerpipeline.cpp \
 	tl-compilerpipeline.hpp \
+	tl-declarationclosure.hpp \
+	tl-declarationclosure.cpp \
 	$(END)
 
 libtl_la_LIBADD = \

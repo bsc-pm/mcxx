@@ -366,6 +366,21 @@ namespace TL
             static const PredicateAST<LANG_IS_DECLARED_NAME> predicate;
     };
 
+    class TypeSpec : public LangConstruct
+    {
+        public:
+            TypeSpec(AST_t ast, ScopeLink scope_link)
+                : LangConstruct(ast, scope_link)
+            {
+            }
+
+            bool is_class_specifier();
+            Symbol get_class_symbol();
+
+            bool is_enum_specifier();
+            Symbol get_enum_symbol();
+    };
+
     class DeclarationSpec : public LangConstruct
     {
         public:
@@ -373,6 +388,8 @@ namespace TL
                 : LangConstruct(ast, scope_link)
             {
             }
+
+            TypeSpec get_type_spec();
 
             // No predicate for this one at the moment
     };

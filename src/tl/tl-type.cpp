@@ -203,9 +203,41 @@ namespace TL
         return (is_enumerated_type(_type_info));
     }
 
+    bool Type::is_unnamed_enum() const
+    {
+        return (is_enumerated_type(_type_info)
+                && !is_named_type(_type_info));
+    }
+
+    bool Type::is_named_enum() const
+    {
+        return (is_enumerated_type(_type_info)
+                && is_named_type(_type_info));
+    }
+
+    bool Type::is_named() const
+    {
+        return is_named_type(_type_info);
+    }
+
+    Symbol Type::get_symbol() const
+    {
+        return named_type_get_symbol(_type_info);
+    }
+
     bool Type::is_class() const
     {
+        return (is_class_type(_type_info));
+    }
+
+    bool Type::is_named_class() const
+    {
         return (is_named_class_type(_type_info));
+    }
+
+    bool Type::is_unnamed_class() const
+    {
+        return (is_unnamed_class_type(_type_info));
     }
 
     bool Type::explicit_array_dimension() const
@@ -397,43 +429,46 @@ namespace TL
         return is_restrict_qualified_type(_type_info);
     }
 
-    unsigned int Type::get_number_of_fields() const
+    ObjectList<Symbol> Type::get_fields() const
     {
-        return get_number_of_nonstatic_data_members();
+        return get_nonstatic_data_members();
     }
 
-    Symbol Type::get_field(unsigned int n) const
+    ObjectList<Symbol> Type::get_nonstatic_data_members() const
     {
-        return get_nonstatic_data_member(n);
+        ObjectList<Symbol> result;
+        unsigned int n = class_type_get_num_nonstatic_data_members(_type_info);
+
+        for (unsigned int i = 0; i < n; i++)
+        {
+            result.push_back(class_type_get_nonstatic_data_member_num(_type_info, i));
+        }
+
+        return result;
     }
 
-    unsigned int Type::get_number_of_nonstatic_data_members() const
+    ObjectList<Symbol> Type::get_static_data_members() const
     {
-        return class_type_get_num_nonstatic_data_members(_type_info);
-    }
+        ObjectList<Symbol> result;
+        unsigned int n = class_type_get_num_static_data_members(_type_info);
 
-    Symbol Type::get_nonstatic_data_member(unsigned int n) const
-    {
-        return class_type_get_nonstatic_data_member_num(_type_info, n);
-    }
+        for (unsigned int i = 0; i < n; i++)
+        {
+            result.push_back(class_type_get_static_data_member_num(_type_info, i));
+        }
 
-    unsigned int Type::get_number_of_static_data_members() const
-    {
-        return class_type_get_num_static_data_members(_type_info);
-    }
-
-    Symbol Type::get_static_data_member(unsigned int n) const
-    {
-        return class_type_get_static_data_member_num(_type_info, n);
+        return result;
     }
 
     bool Type::some_member_is_mutable() const
     {
-        unsigned int nonstatic_members = get_number_of_nonstatic_data_members();
+        ObjectList<Symbol> nonstatic_data_members = get_nonstatic_data_members();
 
-        for (unsigned int i = 0; i < nonstatic_members; i++)
+        for (ObjectList<Symbol>::iterator it = nonstatic_data_members.begin();
+                it != nonstatic_data_members.end();
+                it++)
         {
-            Symbol sym = get_nonstatic_data_member(i);
+            Symbol &sym(*it);
 
             if (sym.is_mutable())
             {
@@ -442,5 +477,15 @@ namespace TL
         }
 
         return false;
+    }
+
+    bool Type::is_typedef() const
+    {
+        return is_typedef_type(_type_info);
+    }
+
+    Type Type::aliased_type() const
+    {
+        return typedef_type_get_aliased_type(_type_info);
     }
 }

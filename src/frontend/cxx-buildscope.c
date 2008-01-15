@@ -760,6 +760,8 @@ void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info,
     // Now gather information of the type_spec
     if (ASTSon1(a) != NULL) 
     {
+        ASTAttrSetValueType(a, LANG_TYPE_SPECIFIER, tl_type_t, tl_ast(ASTSon1(a)));
+
         decl_context_t new_decl_context = decl_context;
 
         if (gather_info->is_friend)
@@ -1577,6 +1579,8 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
 void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         decl_context_t decl_context)
 {
+    ASTAttrSetValueType(a, LANG_IS_ENUM_SPECIFIER, tl_type_t, tl_ast(a));
+
     type_t* enum_type = NULL;
 
     AST enum_name = ASTSon0(a);
@@ -1627,6 +1631,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
         // Since this type is not anonymous we'll want that type_info
         // refers to this newly created type
         *type_info = get_user_defined_type(new_entry);
+
+        ASTAttrSetValueType(a, LANG_ENUM_SPECIFIER_SYMBOL, tl_type_t, tl_symbol(new_entry));
     }
     else
     {
@@ -2160,6 +2166,7 @@ void leave_class_specifier(void)
 void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
         decl_context_t decl_context)
 {
+    ASTAttrSetValueType(a, LANG_IS_CLASS_SPECIFIER, tl_type_t, tl_bool(1));
     /*
      * This function should strictly maintain these two variables.
      *
@@ -2424,10 +2431,13 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     ERROR_CONDITION(inner_decl_context.current_scope == NULL,
             "The inner context was incorrectly set", 0);
     
-    // Compute *type_info as it is needed by buuild_scope_member_specification
+    // Compute *type_info as it is needed by build_scope_member_specification
     if (class_entry != NULL)
     {
         *type_info = get_user_defined_type(class_entry);
+
+        // Save the class symbol
+        ASTAttrSetValueType(a, LANG_CLASS_SPECIFIER_SYMBOL, tl_type_t, tl_symbol(class_entry));
     }
     else
     {

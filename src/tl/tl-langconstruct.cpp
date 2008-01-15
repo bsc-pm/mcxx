@@ -814,6 +814,37 @@ namespace TL
         return result;
     }
 
+    TypeSpec DeclarationSpec::get_type_spec()
+    {
+        AST_t tree = _ref.get_attribute(LANG_TYPE_SPECIFIER);
+
+        return TypeSpec(tree, this->_scope_link);
+    }
+   
+    bool TypeSpec::is_class_specifier()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_CLASS_SPECIFIER);
+        return b;
+    }
+
+    Symbol TypeSpec::get_class_symbol()
+    {
+        TL::Symbol sym = _ref.get_attribute(LANG_CLASS_SPECIFIER_SYMBOL);
+        return sym;
+    }
+
+    bool TypeSpec::is_enum_specifier()
+    {
+        TL::Bool b = _ref.get_attribute(LANG_IS_ENUM_SPECIFIER);
+        return b;
+    }
+
+    Symbol TypeSpec::get_enum_symbol()
+    {
+        TL::Symbol sym = _ref.get_attribute(LANG_ENUM_SPECIFIER_SYMBOL);
+        return sym;
+    }
+
     bool DeclaredEntity::has_initializer()
     {
         AST_t initializer = _ref.get_attribute(LANG_INITIALIZER);

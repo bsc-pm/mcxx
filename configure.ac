@@ -609,6 +609,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/examples/Makefile
            src/tl/examples/mypragma/Makefile
            src/tl/examples/declarations/Makefile
+           src/tl/examples/decl_closure/Makefile
            src/tl/superscalar/Makefile
            config/Makefile
            config/config.plain

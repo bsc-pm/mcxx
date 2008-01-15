@@ -3,6 +3,7 @@ LANG_ACCESSED_MEMBER lang.accessed_member
 LANG_CALLED_EXPRESSION lang.called_expression
 LANG_CASTED_EXPRESSION lang.casted_expression
 LANG_CAST_TYPE lang.cast_type
+LANG_CLASS_SPECIFIER_SYMBOL lang.class_specifier_symbol
 LANG_COMPOUND_STATEMENT_LIST lang.compound_statement_list
 LANG_CONDITIONAL_EXPRESSION lang.conditional_expression
 LANG_CONDITIONAL_FALSE_EXPRESSION lang.conditional_false_expression
@@ -11,6 +12,7 @@ LANG_DECLARATION_DECLARATORS lang.declaration_declarators
 LANG_DECLARATION_SPECIFIERS lang.declaration_specifiers
 LANG_DECLARED_NAME lang.declared_name
 LANG_DECLARED_PARAMETER lang.declared_parameter
+LANG_ENUM_SPECIFIER_SYMBOL lang.enum_specifier_symbol
 LANG_EXPRESSION_DECREMENTED lang.expression_decremented
 LANG_EXPRESSION_INCREMENTED lang.expression_incremented
 LANG_EXPRESSION_NESTED lang.expression_nested
@@ -39,6 +41,7 @@ LANG_IS_BREAK_STATEMENT lang.is_break_statement
 LANG_IS_CASE_STATEMENT lang.is_case_statement
 LANG_IS_CAST lang.is_cast
 LANG_IS_CHARACTER_LITERAL lang.is_character_literal
+LANG_IS_CLASS_SPECIFIER lang.is_class_specifier
 LANG_IS_COMMA_OP lang.is_comma_op
 LANG_IS_COMPLEMENT_OP lang.is_complement_op
 LANG_IS_COMPOUND_STATEMENT lang.is_compound_statement
@@ -54,6 +57,7 @@ LANG_IS_DIV_ASSIGNMENT lang.is_div_assignment
 LANG_IS_DIVISION_OP lang.is_division_op
 LANG_IS_DO_STATEMENT lang.is_do_statement
 LANG_IS_EMPTY_STATEMENT lang.is_empty_statement
+LANG_IS_ENUM_SPECIFIER lang.is_enum_specifier
 LANG_IS_EQUAL_OP lang.is_equal_op
 LANG_IS_EXPRESSION_NEST lang.is_expression_nest
 LANG_IS_EXPRESSION_STATEMENT lang.is_expression_statement
@@ -137,6 +141,7 @@ LANG_SUBSCRIPT_EXPRESSION lang.subscript_expression
 LANG_TEMPLATE_ARGS lang.template_args
 LANG_TEMPLATE_HEADER lang.template_header
 LANG_TEMPLATE_NAME lang.template_name
+LANG_TYPE_SPECIFIER lang.type_specifier
 LANG_UNARY_OPERAND lang.unary_operand
 LANG_UNQUALIFIED_ID lang.unqualified_id
 OMP_CONSTRUCT_BODY omp.construct_body
