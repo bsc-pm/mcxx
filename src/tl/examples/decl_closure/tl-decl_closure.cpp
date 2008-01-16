@@ -22,6 +22,29 @@ namespace TL
 
                 register_directive("closure");
                 on_directive_pre["closure"].connect(functor(&DeclClosurePragma::closure_pre, *this));
+
+                register_directive("test");
+                on_directive_pre["test"].connect(functor(&DeclClosurePragma::test_pre, *this));
+            }
+
+            void test_pre(PragmaCustomConstruct pragma_custom_construct)
+            {
+                if (pragma_custom_construct.is_parameterized())
+                {
+                    std::cerr << "Parameterized" << std::endl;
+                    ObjectList<std::string> parameters = pragma_custom_construct.get_parameter_arguments();
+
+                    for (ObjectList<std::string>::iterator it = parameters.begin();
+                            it != parameters.end();
+                            it++)
+                    {
+                        std::cerr << "-> '" << *it << "'" << std::endl;
+                    }
+                }
+                else
+                {
+                    std::cerr << "Not parameterized" << std::endl;
+                }
             }
 
             void closure_pre(PragmaCustomConstruct pragma_custom_construct)

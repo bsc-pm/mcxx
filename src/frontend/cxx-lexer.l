@@ -471,7 +471,16 @@ threadprivate {
 	return ')';
 }
 
-[^,({[\]})\n ]+ {
+[ \t]+ {
+    // Ignore the blank if we are not yet within any parentheses
+	if (pragma_custom_var_list_parentheses > 0)
+    {
+        parse_token_text();
+        return PRAGMA_CLAUSE_ARG_TEXT;
+    }
+}
+
+[^,({[\]})\n]+ {
     parse_token_text();
     return PRAGMA_CLAUSE_ARG_TEXT;
 }
