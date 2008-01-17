@@ -36,8 +36,6 @@ namespace TL
            _map(new std::map<Symbol, DataAttribute>),
            _enclosing(enclosing)
        {
-           std::cerr << "Creating DS -> " << _map << std::endl;
-
            if (_enclosing != NULL)
            {
                (*_enclosing->_num_refs)++;
@@ -49,8 +47,6 @@ namespace TL
            (*_num_refs)--;
            if (*_num_refs == 0)
            {
-               std::cerr << "Destroying DS -> " << _map << std::endl;
-
                if (_enclosing != NULL)
                {
                    (*_enclosing->_num_refs)--;
@@ -75,13 +71,11 @@ namespace TL
 
        void DataSharing::set(Symbol sym, DataAttribute data_attr)
        {
-           std::cerr << "Setting " << sym.get_name() << "' in -> " << _map << std::endl;
            (_map->operator[](sym)) = data_attr;
        }
 
        DataAttribute DataSharing::get_internal(Symbol sym)
        {
-           std::cerr << "Internal Retrieving " << sym.get_name() << "' from -> " << _map << std::endl;
            std::map<Symbol, DataAttribute>::iterator it = _map->find(sym);
            if (it == _map->end())
            {
@@ -95,7 +89,6 @@ namespace TL
 
        DataAttribute DataSharing::get(Symbol sym)
        {
-           std::cerr << "Retrieving " << sym.get_name() << "' from -> " << _map << std::endl;
            DataSharing *current = this;
 
            DataAttribute result = OpenMP::DA_UNDEFINED;

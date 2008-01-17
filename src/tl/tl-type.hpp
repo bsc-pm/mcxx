@@ -101,11 +101,6 @@ namespace TL
             Type get_array_to(AST_t expression_array, Scope scope);
             Type get_reference_to();
 
-            Type get_unqualified_type();
-            Type get_const_type();
-            Type get_volatile_type();
-            Type get_restrict_type();
-
             bool operator==(Type t) const;
             bool operator!=(Type t) const;
             Type& operator=(Type t);
@@ -187,10 +182,15 @@ namespace TL
 
             bool some_member_is_mutable() const;
 
-            // cv qualifier
+            // cv qualification
             bool is_const() const;
             bool is_volatile() const;
             bool is_restrict() const;
+
+            Type get_unqualified_type();
+            Type get_const_type();
+            Type get_volatile_type();
+            Type get_restrict_type();
 
             // Returns the original type, if any, otherwise
             // returns the same
