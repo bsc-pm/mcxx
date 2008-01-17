@@ -43,6 +43,7 @@ dnl Check LN_S
 AC_PROG_LN_S
 
 TLEXTENSIONS=""
+ADDITIONAL_TESTSUITES=""
 
 COMPILER_NAMES="plaincxx plaincc"
 ENABLED_PROFILES="PLAIN"
@@ -114,6 +115,8 @@ then
    ENABLED_PROFILES="${ENABLED_PROFILES} NANOS"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
+
+   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.openmp"
 fi
 
 AC_SUBST([NANOS_INCLUDES])
@@ -593,6 +596,7 @@ AC_DEFINE_UNQUOTED([MCXX_BUILD_VERSION], $build_version, [Build version])
 AC_SUBST([TLEXTENSIONS])
 AC_SUBST([COMPILER_NAMES])
 AC_SUBST([ENABLED_PROFILES])
+AC_SUBST([ADDITIONAL_TESTSUITES])
 
 dnl Write makefiles
 AC_CONFIG_FILES([Makefile 
@@ -618,6 +622,7 @@ AC_CONFIG_FILES([Makefile
            config/config.stm_nebelung
            config/config.superscalar
            tests/Makefile
+           tests/mcc.openmp.dg/config.mcxx
            doc/Makefile
            ])
 AC_OUTPUT

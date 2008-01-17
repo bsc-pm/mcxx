@@ -1,0 +1,11 @@
+# This file controls how external programs are handled
+[lt-mcxx]
+language = C
+options =
+preprocessor_name = gcc
+preprocessor_options = -E @NANOS_INCLUDES@
+compiler_name = gcc
+compiler_options = 
+linker_name = gcc
+linker_options = @NANOS_LIBS@ 
+compiler_phase = libtlomp.so
