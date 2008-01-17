@@ -352,7 +352,9 @@ namespace TL
 
     AST_t Source::parse_global(AST_t ref_tree, TL::ScopeLink scope_link)
     {
-        return parse_declaration(ref_tree, scope_link);
+        AST_t global_tree = ref_tree.get_translation_unit();
+
+        return parse_declaration(global_tree, scope_link);
     }
 
     AST_t Source::parse_statement(AST_t ref_tree, TL::ScopeLink scope_link)

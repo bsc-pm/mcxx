@@ -237,6 +237,8 @@ namespace TL
                 return true;
             }
 
+            AST_t get_translation_unit();
+
             void prepend_sibling_function(AST_t t);
             void append_sibling_function(AST_t t);
 

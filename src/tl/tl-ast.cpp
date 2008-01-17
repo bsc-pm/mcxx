@@ -447,6 +447,11 @@ namespace TL
     //     return this->get_translation_unit(this->_ast);
     // }
 
+    AST_t AST_t::get_translation_unit()
+    {
+        return get_translation_unit(this->_ast);
+    }
+
     AST AST_t::get_translation_unit(AST node)
     {
         if  (node == NULL)
