@@ -104,7 +104,7 @@ then
 
    if test x$nanos4_include = x -o x$nanos4_lib = x;
    then
-      AC_MSG_ERROR([OpenMP support requires '--with-nanos4'. See --help.])
+      AC_MSG_ERROR([OpenMP support requires '--with-nanos4=dir'. See --help.])
    fi
 
    NANOS_INCLUDES="-D_OPENMP=200505 -I ${nanos4_include} -include nthreads.h -include omp.h -include intone.h"
@@ -179,7 +179,7 @@ then
 
    if test x$mintaka_include = x -o x$mintaka_lib = x;
    then
-      AC_MSG_ERROR([Mintaka support requires '--with-mintaka'. See --help.])
+      AC_MSG_ERROR([Mintaka support requires '--with-mintaka=dir'. See --help.])
    fi
 
    TLEXTENSIONS="${TLEXTENSIONS} instr"
@@ -289,12 +289,12 @@ then
 
    if test x$nanos4_include = x -o x$nanos4_lib = x;
    then
-      AC_MSG_ERROR([Nebelung support requires '--with-nanos4'. See --help.])
+      AC_MSG_ERROR([Nebelung support requires '--with-nanos4=dir'. See --help.])
    fi
 
    if test x$nebelung_include = x -o x$nebelung_lib = x;
    then
-      AC_MSG_ERROR([Nebelung support requires '--with-nebelung'. See --help.])
+      AC_MSG_ERROR([Nebelung support requires '--with-nebelung=dir'. See --help.])
    fi
 
    NEBELUNG_INCLUDES="-I ${nebelung_include} -include nebelung.h"
