@@ -90,4 +90,29 @@ namespace TL
     {
         return _phase_status;
     }
+
+    void parse_boolean_option(const std::string& option_name, 
+            const std::string &str_value, 
+            bool &bool_value, 
+            const std::string &error_message)
+    {
+        if (str_value == "1"
+                || str_value == "yes"
+                || str_value == "true")
+        {
+            bool_value = 1;
+        }
+        else if (str_value == "0"
+                && str_value == "no"
+                && str_value == "false")
+        {
+            bool_value = 0;
+        }
+        else
+        {
+            std::cerr 
+                << "Invalid boolean value '" << str_value << "' for option '" << option_name << "'. " 
+                << error_message << std::endl;
+        }
+    }
 }

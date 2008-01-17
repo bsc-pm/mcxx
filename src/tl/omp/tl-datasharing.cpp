@@ -289,17 +289,27 @@ namespace TL
 
                 if (type.is_array())
                 {
-                    pointer_type = type;
+                    // Make an array to pointer conversion because it can be
+                    // restricted (C99 allows restricting arrays though but
+                    // with a strange syntax)
+                    pointer_type = type.array_element().get_pointer_to();
+                    if (!disable_restrict_pointers)
+                    {
+                        pointer_type = pointer_type.get_restrict_type();
+                    }
 
                     ParameterInfo parameter(it->mangle_id_expression(), 
                             it->prettyprint(), *it, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
-                    // result.add_replacement(symbol, "(*" + it->mangle_id_expression() + ")", 
-                    //         it->get_ast(), it->get_scope_link());
                 }
                 else
                 {
                     pointer_type = type.get_pointer_to();
+
+                    if (!disable_restrict_pointers)
+                    {
+                        pointer_type = pointer_type.get_restrict_type();
+                    }
 
                     ParameterInfo parameter(it->mangle_id_expression(), 
                             "&" + it->prettyprint(), *it, pointer_type, ParameterInfo::BY_POINTER);
@@ -307,7 +317,6 @@ namespace TL
                     result.add_replacement(symbol, "(*" + it->mangle_id_expression() + ")", 
                             it->get_ast(), it->get_scope_link());
                 }
-
             }
             else
             {
@@ -340,12 +349,32 @@ namespace TL
             Symbol symbol = it->get_symbol();
             Type type = symbol.get_type();
 
-            Type pointer_type = type.get_pointer_to();
+            if (type.is_array())
+            {
+                Type pointer_type = type.array_element().get_pointer_to();
+                if (!disable_restrict_pointers)
+                {
+                    pointer_type = pointer_type.get_restrict_type();
+                }
 
-            ParameterInfo parameter("flp_" + it->mangle_id_expression(), 
-                    "&" + it->prettyprint(), 
-                    *it, pointer_type, ParameterInfo::BY_POINTER);
-            parameter_info.append(parameter);
+                ParameterInfo parameter("flp_" + it->mangle_id_expression(), 
+                        it->prettyprint(), 
+                        *it, pointer_type, ParameterInfo::BY_POINTER);
+                parameter_info.append(parameter);
+            }
+            else
+            {
+                Type pointer_type = type.get_pointer_to();
+                if (!disable_restrict_pointers)
+                {
+                    pointer_type = pointer_type.get_restrict_type();
+                }
+
+                ParameterInfo parameter("flp_" + it->mangle_id_expression(), 
+                        "&" + it->prettyprint(), 
+                        *it, pointer_type, ParameterInfo::BY_POINTER);
+                parameter_info.append(parameter);
+            }
 
             result.add_replacement(symbol, "p_" + it->mangle_id_expression(),
                     it->get_ast(), it->get_scope_link());
@@ -359,12 +388,32 @@ namespace TL
             Symbol symbol = it->get_symbol();
             Type type = symbol.get_type();
 
-            Type pointer_type = type.get_pointer_to();
+            if (type.is_array())
+            {
+                Type pointer_type = type.array_element().get_pointer_to();
+                if (!disable_restrict_pointers)
+                {
+                    pointer_type = pointer_type.get_restrict_type();
+                }
 
-            ParameterInfo parameter("flp_" + it->mangle_id_expression(), 
-                    "&" + it->prettyprint(),
-                    *it, pointer_type, ParameterInfo::BY_POINTER);
-            parameter_info.append(parameter);
+                ParameterInfo parameter("flp_" + it->mangle_id_expression(), 
+                        it->prettyprint(), 
+                        *it, pointer_type, ParameterInfo::BY_POINTER);
+                parameter_info.append(parameter);
+            }
+            else
+            {
+                Type pointer_type = type.get_pointer_to();
+                if (!disable_restrict_pointers)
+                {
+                    pointer_type = pointer_type.get_restrict_type();
+                }
+
+                ParameterInfo parameter("flp_" + it->mangle_id_expression(), 
+                        "&" + it->prettyprint(),
+                        *it, pointer_type, ParameterInfo::BY_POINTER);
+                parameter_info.append(parameter);
+            }
 
             result.add_replacement(symbol, "p_" + it->mangle_id_expression(),
                     it->get_ast(), it->get_scope_link());
@@ -380,6 +429,10 @@ namespace TL
             Type type = symbol.get_type();
 
             Type pointer_type = type.get_pointer_to();
+            if (!disable_restrict_pointers)
+            {
+                pointer_type = pointer_type.get_restrict_type();
+            }
 
             ParameterInfo parameter("rdv_" + id_expr.mangle_id_expression(), 
                     "rdv_" + id_expr.mangle_id_expression(),
@@ -400,6 +453,10 @@ namespace TL
             Type type = symbol.get_type();
 
             Type pointer_type = type.get_pointer_to();
+            if (!disable_restrict_pointers)
+            {
+                pointer_type = pointer_type.get_restrict_type();
+            }
 
             ParameterInfo reduction_vector_parameter("rdv_" + id_expr.mangle_id_expression(), 
                     "rdv_" + id_expr.mangle_id_expression(),
@@ -424,6 +481,10 @@ namespace TL
             Type type = symbol.get_type();
 
             Type pointer_type = type.get_pointer_to();
+            if (!disable_restrict_pointers)
+            {
+                pointer_type = pointer_type.get_restrict_type();
+            }
 
             ParameterInfo parameter("cin_" + it->mangle_id_expression(), 
                     "&" + it->prettyprint(),
@@ -440,6 +501,10 @@ namespace TL
             Type type = symbol.get_type();
 
             Type pointer_type = type.get_pointer_to();
+            if (!disable_restrict_pointers)
+            {
+                pointer_type = pointer_type.get_restrict_type();
+            }
 
             ParameterInfo parameter("cout_" + it->mangle_id_expression(), 
                     "&" + it->prettyprint(),

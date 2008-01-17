@@ -39,12 +39,18 @@ namespace TL
                 "Enables mintaka instrumentation if set to '1'",
                 enable_mintaka_instr_str,
                 "0").connect(functor(&OpenMPTransform::set_instrumentation, *this));
+        register_parameter("disable_restrict",
+                "Disables restricted pointers in outlines if set to '1'", 
+                disable_restrict_str,
+                "0").connect(functor(&OpenMPTransform::set_disable_restrict_pointers, *this));
 
-        // No signals for these as their values are passed to the object initialization function
+        // STM options
         register_parameter("STM_global_lock",
                 "Enables global lock interface for '#pragma omp transaction' regions. Disables STM memory tracking.",
                 stm_global_lock_enabled_str,
                 "0").connect(functor(&OpenMPTransform::set_stm_global_lock, *this));
+        
+        // No signals for these as their values are passed to the object initialization function
         register_parameter("STM_replace_functions_file", 
                 "Filter file of STM-replaced function calls",
                 stm_replace_functions_file,
@@ -160,64 +166,40 @@ namespace TL
         // --- End of experimental directives ---
     }
 
+    void OpenMPTransform::set_disable_restrict_pointers(const std::string& str)
+    {
+        disable_restrict_pointers = false;
+        parse_boolean_option(/* Parameter name */ "disable_restrict", 
+                /* Given value */ str, 
+                /* Computed bool */ disable_restrict_pointers, 
+                /* Error message */  "Restrict pointers will be enabled");
+    }
+
     void OpenMPTransform::set_parallel_interface(const std::string& str)
     {
-        enable_nth_create = 0;
-        if (str == "1"
-                || str == "yes"
-                || str == "true")
-        {
-            enable_nth_create = 1;
-        }
-        else if (str != "0"
-                && str != "no"
-                && str != "false")
-        {
-            std::cerr 
-                << get_phase_name() << ": Invalid value '" << str << "'" <<
-                "for parameter 'nanos_new_interface'. Old interface will be used for parallel spawns." 
-                << std::endl;
-        }
+        enable_nth_create = false;
+        parse_boolean_option(/* Parameter name */ "nanos_new_interface", 
+                /* Given value */ str, 
+                /* Computed bool */ enable_nth_create, 
+                /* Error message */  "Old interface will be used for parallel spawns");
     }
 
     void OpenMPTransform::set_instrumentation(const std::string& str)
     {
-        enable_mintaka_instr = 0;
-        if (str == "1"
-                || str == "yes"
-                || str == "true")
-        {
-            enable_mintaka_instr = 1;
-        }
-        else if (str != "0"
-                && str != "no"
-                && str != "false")
-        {
-            std::cerr 
-                << get_phase_name() << ": Invalid value '" << str << "'" <<
-                "for parameter 'instrument'. Instrumentation disabled" 
-                << std::endl;
-        }
+        enable_mintaka_instr = false;
+        parse_boolean_option(/* Parameter name */ "instrument", 
+                /* Given value */ str, 
+                /* Computed bool */ enable_mintaka_instr, 
+                /* Error message */  "Instrumentation disabled");
     }
 
     void OpenMPTransform::set_stm_global_lock(const std::string& str)
     {
-        stm_global_lock_enabled = 0;
-        if (str == "1"
-                || str == "yes"
-                || str == "true")
-        {
-            stm_global_lock_enabled = 1;
-        }
-        else if (str != "0"
-                && str != "no"
-                && str != "false")
-        {
-            std::cerr 
-                << get_phase_name() << ": Invalid value '" << str << "'" <<
-                "for parameter 'STM_global_lock'. Instrumentation disabled" 
-                << std::endl;
-        }
+        stm_global_lock_enabled = false;
+        parse_boolean_option(/* Parameter name */ "STM_global_lock", 
+                /* Given value */ str, 
+                /* Computed bool */ stm_global_lock_enabled, 
+                /* Error message */  "STM global lock disabled");
     }
 
     bool OpenMPTransform::instrumentation_requested()
