@@ -386,8 +386,7 @@ namespace TL
 
     Type Type::get_reference_to()
     {
-        type_t* _type_info = get_reference_type(_type_info);
-        return Type(_type_info);
+        return get_reference_type(this->_type_info);
     }
 
     Type Type::get_unqualified_type()
