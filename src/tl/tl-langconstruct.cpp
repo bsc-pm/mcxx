@@ -931,7 +931,7 @@ namespace TL
                 // std::cerr << "Only one declared, ok" << std::endl;
                 DeclaredEntity declared_name = *(declared_symbols.begin());
 
-                _induction_variable = declared_name.get_ast();
+                _induction_variable = declared_name.get_declared_tree();
                 AST_t initializer = declared_name.get_initializer().get_ast();
 
                 PredicateAST<LANG_IS_EXPRESSION_NEST> expression_pred;
