@@ -179,6 +179,11 @@ namespace TL
     {
         Source private_declarations;
 
+        ObjectList<IdExpression> pruned_lastprivate_references;
+        pruned_lastprivate_references
+            .append(lastprivate_references.filter(
+                        not_in_set(firstprivate_references, functor(&IdExpression::get_symbol))));
+
         // PRIVATE
         for (ObjectList<IdExpression>::iterator it = private_references.begin();
                 it != private_references.end();
@@ -209,7 +214,15 @@ namespace TL
 
             if (parameter_info_list.contains(functor(&ParameterInfo::symbol), it->get_symbol()))
             {
-                initializer_value << "(*flp_" << it->prettyprint() << ")";
+                Type t = it->get_symbol().get_type();
+                if (t.is_array())
+                {
+                    initializer_value << "flp_" + it->mangle_id_expression();
+                }
+                else
+                {
+                    initializer_value << "(*flp_" + it->mangle_id_expression() + ")";
+                }
             }
             else
             {
@@ -282,8 +295,8 @@ namespace TL
         }
 
         // LASTPRIVATE
-        for (ObjectList<IdExpression>::iterator it = lastprivate_references.begin();
-                it != lastprivate_references.end();
+        for (ObjectList<IdExpression>::iterator it = pruned_lastprivate_references.begin();
+                it != pruned_lastprivate_references.end();
                 it++)
         {
             Symbol sym = it->get_symbol();
@@ -337,7 +350,6 @@ namespace TL
             ObjectList<ParameterInfo> parameter_info_list)
     {
         Source lastprivate_assignments;
-
         // LASTPRIVATE
         for (ObjectList<IdExpression>::iterator it = lastprivate_references.begin();
                 it != lastprivate_references.end();
@@ -350,7 +362,16 @@ namespace TL
 
             if (parameter_info_list.contains(functor(&ParameterInfo::symbol), it->get_symbol()))
             {
-                output_object = "(*flp_" + it->mangle_id_expression() + ")";
+                Type t = it->get_symbol().get_type();
+
+                if (t.is_array())
+                {
+                    output_object = "flp_" + it->mangle_id_expression();
+                }
+                else
+                {
+                    output_object = "(*flp_" + it->mangle_id_expression() + ")";
+                }
             }
             else
             {

@@ -129,8 +129,7 @@ namespace TL
         }
         else
         {
-            reduction_code = get_noncritical_inlined_reduction_code(reduction_references);
-
+            reduction_code = get_noncritical_inlined_reduction_code(reduction_references, construct_body);
         }
 
         Source sections_source;

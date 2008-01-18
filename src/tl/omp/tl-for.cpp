@@ -177,18 +177,25 @@ namespace TL
             ;
 
         bool orphaned = (parallel_nesting == 0);
+
+        TL::Source::ParseFlags parse_flags = TL::Source::DEFAULT;
+
         if (orphaned)
         {
             reduction_code = get_critical_reduction_code(reduction_references);
         }
         else
         {
-            reduction_code = get_noncritical_inlined_reduction_code(reduction_references);
+            reduction_code = get_noncritical_inlined_reduction_code(reduction_references,
+                    loop_body);
+            // This will reference variables already not declared
+            // so do not fail when parsing them
+            parse_flags = TL::Source::DO_NOT_CHECK_EXPRESSION;
         }
 
         AST_t result;
         result = parallel_for_body.parse_statement(loop_body.get_ast(), 
-                loop_body.get_scope_link());
+                loop_body.get_scope_link(), parse_flags);
 
         for_construct.get_ast().replace(result);
     }

@@ -381,42 +381,50 @@ namespace TL
         }
 
         // LASTPRIVATE references
-        for (ObjectList<IdExpression>::iterator it = lastprivate_references.begin();
-                it != lastprivate_references.end();
-                it++)
+        // that do not already appear in FIRSTPRIVATE
         {
-            Symbol symbol = it->get_symbol();
-            Type type = symbol.get_type();
+            ObjectList<IdExpression> pruned_lastprivate_references;
+            pruned_lastprivate_references
+                .append(lastprivate_references.filter(
+                            not_in_set(firstprivate_references, functor(&IdExpression::get_symbol))));
 
-            if (type.is_array())
+            for (ObjectList<IdExpression>::iterator it = pruned_lastprivate_references.begin();
+                    it != pruned_lastprivate_references.end();
+                    it++)
             {
-                Type pointer_type = type.array_element().get_pointer_to();
-                if (!disable_restrict_pointers)
+                Symbol symbol = it->get_symbol();
+                Type type = symbol.get_type();
+
+                if (type.is_array())
                 {
-                    pointer_type = pointer_type.get_restrict_type();
+                    Type pointer_type = type.array_element().get_pointer_to();
+                    if (!disable_restrict_pointers)
+                    {
+                        pointer_type = pointer_type.get_restrict_type();
+                    }
+
+                    ParameterInfo parameter("flp_" + it->mangle_id_expression(), 
+                            it->prettyprint(), 
+                            *it, pointer_type, ParameterInfo::BY_POINTER);
+                    parameter_info.append(parameter);
+                }
+                else
+                {
+                    Type pointer_type = type.get_pointer_to();
+                    if (!disable_restrict_pointers)
+                    {
+                        pointer_type = pointer_type.get_restrict_type();
+                    }
+
+                    ParameterInfo parameter("flp_" + it->mangle_id_expression(), 
+                            "&" + it->prettyprint(),
+                            *it, pointer_type, ParameterInfo::BY_POINTER);
+                    parameter_info.append(parameter);
                 }
 
-                ParameterInfo parameter("flp_" + it->mangle_id_expression(), 
-                        it->prettyprint(), 
-                        *it, pointer_type, ParameterInfo::BY_POINTER);
-                parameter_info.append(parameter);
+                result.add_replacement(symbol, "p_" + it->mangle_id_expression(),
+                        it->get_ast(), it->get_scope_link());
             }
-            else
-            {
-                Type pointer_type = type.get_pointer_to();
-                if (!disable_restrict_pointers)
-                {
-                    pointer_type = pointer_type.get_restrict_type();
-                }
-
-                ParameterInfo parameter("flp_" + it->mangle_id_expression(), 
-                        "&" + it->prettyprint(),
-                        *it, pointer_type, ParameterInfo::BY_POINTER);
-                parameter_info.append(parameter);
-            }
-
-            result.add_replacement(symbol, "p_" + it->mangle_id_expression(),
-                    it->get_ast(), it->get_scope_link());
         }
 
         // REDUCTION references

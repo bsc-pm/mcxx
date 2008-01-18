@@ -175,7 +175,8 @@ namespace TL
             Source get_critical_reduction_code(ObjectList<OpenMP::ReductionIdExpression> reduction_references);
             Source get_noncritical_reduction_code(ObjectList<OpenMP::ReductionIdExpression> reduction_references);
             Source get_noncritical_inlined_reduction_code(
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references);
+                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
+                    Statement inner_statement);
             Source get_reduction_update(ObjectList<OpenMP::ReductionIdExpression> reduction_references);
             Source get_reduction_gathering(ObjectList<OpenMP::ReductionIdExpression> reduction_references);
 

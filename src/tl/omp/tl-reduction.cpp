@@ -103,13 +103,54 @@ namespace TL
     }
 
     Source OpenMPTransform::get_noncritical_inlined_reduction_code(
-            ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+            ObjectList<OpenMP::ReductionIdExpression> reduction_references,
+            Statement inner_statement)
     {
         Source reduction_code;
 
         if (reduction_references.empty())
         {
             return reduction_code;
+        }
+
+        /*
+         * We have a problem here, we are referencing a symbol that will be
+         * declared in an enclosing context but at the moment we want to parse this
+         * so we have to declare the enclosing symbols
+         */
+        {
+            for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
+                    it != reduction_references.end();
+                    it++)
+            {
+                Source temporal_reduction_vectors;
+                // create a reduction vector after the name of the mangled entity
+                std::string reduction_vector_name = "rdv_" + it->get_id_expression().mangle_id_expression();
+
+                // get its type
+                Symbol reduction_symbol = it->get_symbol();
+                Type reduction_type = reduction_symbol.get_type();
+
+                // create a tree of expression 128
+                // FIXME: hardcoded to 128 processors
+                Source array_length;
+                array_length << "128";
+                AST_t array_length_tree = array_length.parse_expression(it->get_id_expression().get_ast(), 
+                        it->get_id_expression().get_scope_link());
+
+                // and get an array of 128 elements
+                Type reduction_vector_type = reduction_type.get_array_to(array_length_tree, 
+                        it->get_id_expression().get_scope());
+
+                // now get the code that declares this reduction vector
+                temporal_reduction_vectors
+                    << reduction_vector_type.get_declaration(it->get_id_expression().get_scope(), 
+                            reduction_vector_name) << ";";
+
+                // Now parse this in the context of the construct
+                /* AST_t unused_tree = */ temporal_reduction_vectors.parse_statement(inner_statement.get_ast(),
+                        inner_statement.get_scope_link());
+            }
         }
 
         Source reduction_update;
