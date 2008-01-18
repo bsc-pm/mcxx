@@ -184,7 +184,7 @@ namespace TL
             // These should work correctly in C++ as they are able to get the exact
             // declaration context of the reference tree (ref_tree)
             AST_t parse_global(AST_t ref_tree, TL::ScopeLink scope_link);
-            AST_t parse_statement(AST_t ref_tree, TL::ScopeLink scope_link);
+            AST_t parse_statement(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
             AST_t parse_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
             AST_t parse_declaration(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
             AST_t parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Type class_type);

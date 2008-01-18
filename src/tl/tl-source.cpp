@@ -357,7 +357,7 @@ namespace TL
         return parse_declaration(global_tree, scope_link);
     }
 
-    AST_t Source::parse_statement(AST_t ref_tree, TL::ScopeLink scope_link)
+    AST_t Source::parse_statement(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags)
     {
         std::string mangled_text = "@STATEMENT@ " + this->get_source(true);
         char* str = strdup(mangled_text.c_str());
@@ -388,12 +388,28 @@ namespace TL
             running_error("Could not parse statement\n\n%s\n", 
                     format_source(this->get_source(true)).c_str());
         }
+
+        bool do_not_check_expression = false;
+        int parse_flags_int = (int)parse_flags;
+        if ((parse_flags_int & Source::DO_NOT_CHECK_EXPRESSION) 
+                == Source::DO_NOT_CHECK_EXPRESSION)
+        {
+            do_not_check_expression = true;
+        }
         
         // Get the scope and declarating context of the reference tree
         decl_context_t decl_context = scope_link_get_decl_context(scope_link._scope_link, ref_tree._ast);
         if (a != NULL)
         {
+            if (do_not_check_expression)
+            {
+                enter_test_expression();
+            }
             build_scope_statement_seq_with_scope_link(a, decl_context, scope_link._scope_link);
+            if (do_not_check_expression)
+            {
+                leave_test_expression();
+            }
         }
 
         AST_t result(a);
