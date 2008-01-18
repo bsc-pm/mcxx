@@ -7374,7 +7374,7 @@ static void build_scope_omp_construct(AST a, decl_context_t decl_context, char* 
     if (ASTSon1(a) != NULL)
     {
         ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(ASTSon1(a)));
-        build_scope_statement(ASTSon1(a), decl_context);
+        build_scope_statement(ASTSon1(a), new_block_context(decl_context));
     }
 }
 
@@ -7405,7 +7405,7 @@ static void build_scope_omp_custom_construct_statement(AST a,
     build_scope_omp_custom_directive(ASTSon0(a), decl_context, NULL);
     if (ASTSon1(a) != NULL)
     {
-        build_scope_statement(ASTSon1(a), decl_context);
+        build_scope_statement(ASTSon1(a), new_block_context(decl_context));
         ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(ASTSon1(a)));
     }
 }
@@ -7452,7 +7452,7 @@ static void build_scope_omp_sections_construct(AST a,
             // build_scope_omp_directive(ASTSon0(omp_section), decl_context)
 
             AST omp_section_body = ASTSon1(omp_section);
-            build_scope_statement(omp_section_body, decl_context);
+            build_scope_statement(omp_section_body, new_block_context(decl_context));
 
             ASTAttrSetValueType(omp_section, OMP_IS_SECTION_CONSTRUCT, tl_type_t, tl_bool(1));
             ASTAttrSetValueType(omp_section, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(omp_section_body));
@@ -7475,7 +7475,7 @@ static void build_scope_omp_critical_construct(AST a,
     if (body_construct != NULL)
     {
         ASTAttrSetValueType(a, OMP_CONSTRUCT_BODY, tl_type_t, tl_ast(body_construct));
-        build_scope_statement(body_construct, decl_context);
+        build_scope_statement(body_construct, new_block_context(decl_context));
     }
 
     AST region_phrase = ASTSon0(critical_directive);
@@ -7556,7 +7556,8 @@ static void build_scope_pragma_custom_construct_statement(AST a,
         char* attr_name UNUSED_PARAMETER)
 {
     build_scope_pragma_custom_line(ASTSon0(a), decl_context, LANG_IS_PRAGMA_CUSTOM_LINE);
-    build_scope_statement(ASTSon1(a), decl_context);
+
+    build_scope_statement(ASTSon1(a), new_block_context(decl_context));
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM, tl_type_t, tl_string(ASTText(a)));
@@ -7603,7 +7604,7 @@ static void build_scope_custom_construct_statement(AST a,
     }
 
     // Statement
-    build_scope_statement(ASTSon1(a), decl_context);
+    build_scope_statement(ASTSon1(a), new_block_context(decl_context));
 
     // TODO - Fill attributes
 }
