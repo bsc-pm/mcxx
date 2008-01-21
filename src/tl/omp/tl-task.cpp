@@ -37,18 +37,18 @@ namespace TL
         Scope function_scope = function_definition.get_scope();
 
         // Data sharing information
-        ObjectList<IdExpression> & captureaddress_references = 
-            task_construct.get_data<ObjectList<IdExpression> >("captureaddress_references");
-        ObjectList<IdExpression> & local_references = 
-            task_construct.get_data<ObjectList<IdExpression> >("local_references");
-        ObjectList<IdExpression> & captureprivate_references = 
-            task_construct.get_data<ObjectList<IdExpression> >("captureprivate_references");
+        ObjectList<Symbol> & captureaddress_references = 
+            task_construct.get_data<ObjectList<Symbol> >("captureaddress_references");
+        ObjectList<Symbol> & local_references = 
+            task_construct.get_data<ObjectList<Symbol> >("local_references");
+        ObjectList<Symbol> & captureprivate_references = 
+            task_construct.get_data<ObjectList<Symbol> >("captureprivate_references");
 
         // Get references in local clause
         OpenMP::Clause private_clause = directive.private_clause();
         ObjectList<IdExpression> local_references_in_clause = private_clause.id_expressions();
         // Those stated by the user to be local are local_references
-        local_references = local_references_in_clause;
+        local_references.insert(local_references_in_clause.map(functor(&IdExpression::get_symbol)));
 
         OpenMP::Clause shared_clause = directive.shared_clause();
 
@@ -85,14 +85,14 @@ namespace TL
 
                 if (!global_sym.is_valid() 
                         || global_sym != it->get_symbol()
-                        || is_unqualified_member_symbol(*it, function_definition))
+                        || is_unqualified_member_symbol(it->get_symbol(), function_definition))
                 {
                     // If the symbol found in the function scope is not
                     // the same as the one referenced in the
                     // captureaddress it will be really
                     // 'captureaddressed', otherwise it can be
                     // referenced from the outline
-                    captureaddress_references.append(*it);
+                    captureaddress_references.insert(it->get_symbol());
                 }
             }
         }
@@ -127,7 +127,7 @@ namespace TL
 
         // As stated by the user, everything in the clause is already
         // capturevalued (no pruning here as we did for captureaddress)
-        captureprivate_references = captureprivate_references_in_clause;
+        captureprivate_references.insert(captureprivate_references_in_clause.map(functor(&IdExpression::get_symbol)));
         
         // Set the data sharing attribute 'firstprivate' to all captureaddress
         add_data_attribute_to_list(task_construct, captureprivate_references, OpenMP::DA_FIRSTPRIVATE);
@@ -225,7 +225,7 @@ namespace TL
                     // captureaddress and they will be converted to
                     // "_this->member"
                     will_be_visible_from_outline = true;
-                    is_unqualified_member = is_unqualified_member_symbol(*it, function_definition);
+                    is_unqualified_member = is_unqualified_member_symbol(it->get_symbol(), function_definition);
                 }
                 
                 switch ((int)default_task_data_sharing)
@@ -264,8 +264,8 @@ namespace TL
                                 if ((data_attrib & OpenMP::DA_PRIVATE) == OpenMP::DA_PRIVATE)
                                 {
                                     // (2) and (3)
-                                    captureprivate_references.insert(*it, functor(&IdExpression::get_symbol));
-                                    task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_FIRSTPRIVATE);
+                                    captureprivate_references.insert(sym);
+                                    task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
                                 }
                                 else if ((data_attrib & OpenMP::DA_SHARED) == OpenMP::DA_SHARED)
                                 {
@@ -277,15 +277,15 @@ namespace TL
                                     else 
                                     {
                                         // (4)
-                                        captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
-                                        task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_SHARED);
+                                        captureaddress_references.insert(sym);
+                                        task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
                                     }
                                 }
                                 else
                                 {
                                     // (4)
-                                    captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
-                                    task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_SHARED);
+                                    captureaddress_references.insert(sym);
+                                    task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
                                 }
                             }
                             else
@@ -300,8 +300,8 @@ namespace TL
                                 else if (sym.is_static())
                                 {
                                     // (4)
-                                    captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
-                                    task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_SHARED);
+                                    captureaddress_references.insert(sym);
+                                    task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
                                 }
                                 else
                                 {
@@ -312,13 +312,13 @@ namespace TL
                                             && (!t.is_class()
                                                 || !t.some_member_is_mutable()))
                                     {
-                                        captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
-                                        task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_SHARED);
+                                        captureaddress_references.insert(sym);
+                                        task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
                                     }
                                     else
                                     {
-                                        captureprivate_references.insert(*it, functor(&IdExpression::get_symbol));
-                                        task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_FIRSTPRIVATE);
+                                        captureprivate_references.insert(sym);
+                                        task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
                                     }
                                 }
                             }
@@ -334,7 +334,7 @@ namespace TL
                         }
                     case DK_TASK_FIRSTPRIVATE :
                         {
-                            captureprivate_references.insert(*it, functor(&IdExpression::get_symbol));
+                            captureprivate_references.insert(it->get_symbol());
                             task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_FIRSTPRIVATE);
                             break;
                         }
@@ -346,14 +346,14 @@ namespace TL
                             if (!will_be_visible_from_outline
                                     || is_unqualified_member)
                             {
-                                captureaddress_references.insert(*it, functor(&IdExpression::get_symbol));
+                                captureaddress_references.insert(it->get_symbol());
                                 task_construct.add_data_attribute(it->get_symbol(), OpenMP::DA_SHARED);
                             }
                             break;
                         }
                     case DK_TASK_PRIVATE :
                         {
-                            local_references.insert(*it, functor(&IdExpression::get_symbol));
+                            local_references.insert(it->get_symbol());
                             break;
                         }
                     case DK_TASK_INVALID :
@@ -366,12 +366,6 @@ namespace TL
 
     void OpenMPTransform::task_postorder(OpenMP::CustomConstruct task_construct)
     {
-        // EXPERIMENTAL. Task chunking enabled
-        if (!task_while_stack.empty())
-        {
-            return task_postorder_with_chunk(task_construct);
-        }
-
         // Another parallel
         num_parallels++;
         
@@ -391,19 +385,19 @@ namespace TL
         Source outlined_function_name = get_outlined_function_name(function_name);
         
         // Data sharing information as filled by task_preorder
-        ObjectList<IdExpression> & captureaddress_references = 
-            task_construct.get_data<ObjectList<IdExpression> >("captureaddress_references");
-        ObjectList<IdExpression> & local_references = 
-            task_construct.get_data<ObjectList<IdExpression> >("local_references");
-        ObjectList<IdExpression> & captureprivate_references = 
-            task_construct.get_data<ObjectList<IdExpression> >("captureprivate_references");
+        ObjectList<Symbol> & captureaddress_references = 
+            task_construct.get_data<ObjectList<Symbol> >("captureaddress_references");
+        ObjectList<Symbol> & local_references = 
+            task_construct.get_data<ObjectList<Symbol> >("local_references");
+        ObjectList<Symbol> & captureprivate_references = 
+            task_construct.get_data<ObjectList<Symbol> >("captureprivate_references");
 
-        ObjectList<IdExpression> empty;
-        ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
+        ObjectList<Symbol> empty;
+        ObjectList<OpenMP::ReductionSymbol> reduction_empty;
 
-        ObjectList<IdExpression> captured_references;
-        captured_references.append(captureaddress_references);
-        captured_references.append(captureprivate_references);
+        ObjectList<Symbol> captured_references;
+        captured_references.insert(captureaddress_references);
+        captured_references.insert(captureprivate_references);
 
         ObjectList<ParameterInfo> parameter_info_list;
 
@@ -432,7 +426,7 @@ namespace TL
                 it != parameter_info_list.end();
                 it++)
         {
-            if (captureprivate_references.contains(it->id_expression, functor(&IdExpression::get_symbol)))
+            if (captureprivate_references.contains(it->symbol))
             {
                 it->kind = ParameterInfo::BY_VALUE;
             }
@@ -440,6 +434,7 @@ namespace TL
 
         // Get the code of the outline
         AST_t outline_code  = get_outline_task(
+                task_construct,
                 function_definition,
                 outlined_function_name, 
                 construct_body,
@@ -493,7 +488,7 @@ namespace TL
                 continue;
 
             // Add the size in the vector
-            size_vector << ", sizeof(" << it->id_expression.prettyprint() << ")"
+            size_vector << ", sizeof(" << it->symbol.get_name() << ")"
                 ;
 
             // A reference to the vector
@@ -507,7 +502,7 @@ namespace TL
 
             CXX_LANGUAGE()
             {
-                Symbol sym = it->id_expression.get_symbol();
+                Symbol sym = it->symbol;
                 Type type = sym.get_type();
 
                 if (type.is_class())
@@ -569,32 +564,32 @@ namespace TL
             if (it->kind != ParameterInfo::BY_VALUE)
                 continue;
 
-            Symbol sym = it->id_expression.get_symbol();
+            Symbol sym = it->symbol;
             Type type = sym.get_type();
 
             if (!type.is_array())
             {
                 fallback_capture_values
                     << type.get_declaration_with_initializer(
-                            it->id_expression.get_scope(),
-                            "cval_" + it->id_expression.mangle_id_expression(), 
-                            it->id_expression.prettyprint()) 
+                            task_construct.get_scope(),
+                            "cval_" + it->symbol.get_name(),
+                            it->symbol.get_name()) 
                     << ";"
                     ;
-                fallback_arguments.append_with_separator("&cval_" + it->id_expression.mangle_id_expression(), ",");
+                fallback_arguments.append_with_separator("&cval_" + it->symbol.get_name(), ",");
             }
             else
             {
-                Source src_array_copy = array_copy(type, "cval_" + it->id_expression.mangle_id_expression(),
-                        it->id_expression.prettyprint(), 0);
+                Source src_array_copy = array_copy(type, "cval_" + it->symbol.get_name(),
+                        it->symbol.get_name(), 0);
 
                 fallback_capture_values
-                    << type.get_declaration(it->id_expression.get_scope(),
-                            "cval_" + it->id_expression.mangle_id_expression())
+                    << type.get_declaration(task_construct.get_scope(),
+                            "cval_" + it->symbol.get_name())
                     << ";"
                     << src_array_copy
                     ;
-                fallback_arguments.append_with_separator("cval_" + it->id_expression.mangle_id_expression(), ",");
+                fallback_arguments.append_with_separator("cval_" + it->symbol.get_name(), ",");
             }
         }
 
@@ -627,15 +622,15 @@ namespace TL
                 if (it->kind != ParameterInfo::BY_VALUE)
                     continue;
 
-                Symbol sym = it->id_expression.get_symbol();
+                Symbol sym = it->symbol;
                 Type type = sym.get_type();
 
                 if (type.is_class())
                 {
                     copy_sequence
                         << "new (nth_arg_addr[" << vector_index << "])" 
-                        << type.get_declaration(it->id_expression.get_scope(), "")
-                        << "(" << it->id_expression.prettyprint() << ");"
+                        << type.get_declaration(task_construct.get_scope(), "")
+                        << "(" << sym.get_name() << ");"
                         ;
                 }
 
@@ -841,15 +836,16 @@ namespace TL
     }
 
     AST_t OpenMPTransform::get_outline_task(
+            OpenMP::Construct &construct,
             FunctionDefinition function_definition,
             Source outlined_function_name,
             Statement construct_body,
             ReplaceIdExpression replace_references,
             ObjectList<ParameterInfo> parameter_info_list,
-            ObjectList<IdExpression> local_references
+            ObjectList<Symbol> local_references
             )
     {
-        ObjectList<OpenMP::ReductionIdExpression> reduction_references;
+        ObjectList<OpenMP::ReductionSymbol> reduction_references;
 
         Source outline_parallel;
         Source parallel_body;
@@ -863,9 +859,10 @@ namespace TL
         // Replace references using set "replace_references" over construct body
         Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
 
-        ObjectList<IdExpression> empty;
-        ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
+        ObjectList<Symbol> empty;
+        ObjectList<OpenMP::ReductionSymbol> reduction_empty;
         Source private_declarations = get_privatized_declarations(
+                construct,
                 local_references,
                 empty,
                 empty,

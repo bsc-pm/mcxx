@@ -25,10 +25,10 @@ namespace TL
     AST_t OpenMPTransform::get_parallel_spawn_code(
             AST_t ref_tree, // Reference tree, needed for correct parsing
             FunctionDefinition function_definition,
-            Scope /* scope */,
+            Scope scope,
             ScopeLink scope_link,
             ObjectList<ParameterInfo> parameter_info_list,
-            ObjectList<OpenMP::ReductionIdExpression> reduction_references,
+            ObjectList<OpenMP::ReductionSymbol> reduction_references,
             OpenMP::Clause num_threads_clause,
             OpenMP::CustomClause groups_clause,
             Source &instrument_code_before,
@@ -94,17 +94,17 @@ namespace TL
         }
 
         // For every entity in the reduction_references list
-        ObjectList<OpenMP::ReductionIdExpression> merged_reduction_references;
+        ObjectList<OpenMP::ReductionSymbol> merged_reduction_references;
 
         merged_reduction_references.append(reduction_references);
         merged_reduction_references.append(inner_reductions_stack.top());
 
-        for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = merged_reduction_references.begin();
+        for (ObjectList<OpenMP::ReductionSymbol>::iterator it = merged_reduction_references.begin();
                 it != merged_reduction_references.end();
                 it++)
         {
             // create a reduction vector after the name of the mangled entity
-            std::string reduction_vector_name = "rdv_" + it->get_id_expression().mangle_id_expression();
+            std::string reduction_vector_name = "rdv_" + it->get_symbol().get_name();
 
             // get its type
             Symbol reduction_symbol = it->get_symbol();
@@ -114,17 +114,17 @@ namespace TL
             // FIXME: hardcoded to 128 processors
             Source array_length;
             array_length << "128";
-            AST_t array_length_tree = array_length.parse_expression(it->get_id_expression().get_ast(), 
-                    it->get_id_expression().get_scope_link());
+            AST_t array_length_tree = array_length.parse_expression(ref_tree,
+                    scope_link);
 
             // and get an array of 128 elements
             Type reduction_vector_type = reduction_type.get_array_to(array_length_tree, 
-                    it->get_id_expression().get_scope());
+                    scope);
 
             // now get the code that declares this reduction vector
             reduction_vectors
-                << comment("Reduction vector for '" + it->get_id_expression().prettyprint() + "'")
-                << reduction_vector_type.get_declaration(it->get_id_expression().get_scope(), 
+                << comment("Reduction vector for '" + it->get_symbol().get_name() + "'")
+                << reduction_vector_type.get_declaration(scope, 
                         reduction_vector_name) << ";";
         }
 
@@ -162,12 +162,11 @@ namespace TL
             if (it->kind != ParameterInfo::BY_VALUE)
                 continue;
 
-            IdExpression id_expr = it->id_expression;
-
             // Size and reference
-            size_vector << ", sizeof(" << id_expr.prettyprint() << ")";
+            size_vector << ", sizeof(" << it->symbol.get_name() << ")";
 
-            referenced_parameters << ", &nth_sizes[" << (num_args_val + 1) << "], &" << id_expr.prettyprint();
+            referenced_parameters << ", &nth_sizes[" << (num_args_val + 1) << "], &" 
+                << it->symbol.get_name();
 
             num_args_val++;
         }

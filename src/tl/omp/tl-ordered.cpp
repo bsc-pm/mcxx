@@ -24,16 +24,16 @@ namespace TL
 {
     void OpenMPTransform::ordered_postorder(OpenMP::OrderedConstruct ordered_construct)
     {
-        IdExpression induction_var = induction_var_stack.top();
+        Symbol induction_var = induction_var_stack.top();
 
         Statement construct_body = ordered_construct.body();
         Source ordered_source;
 
         ordered_source
             << "{"
-            <<   "in__tone_enter_ordered_ (& "<< induction_var.prettyprint() << ");"
+            <<   "in__tone_enter_ordered_ (& "<< induction_var.get_name() << ");"
             <<   construct_body.prettyprint()
-            <<   "in__tone_leave_ordered_ (&" << induction_var.prettyprint() << ");"
+            <<   "in__tone_leave_ordered_ (&" << induction_var.get_name() << ");"
             << "}"
             ;
 

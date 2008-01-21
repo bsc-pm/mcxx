@@ -147,7 +147,7 @@ namespace TL
 
                 if (!global_sym.is_valid() 
                         || global_sym != it->get_symbol()
-                        || is_unqualified_member_symbol(*it, function_definition))
+                        || is_unqualified_member_symbol(it->get_symbol(), function_definition))
                 {
                     // If the symbol found in the function scope is not
                     // the same as the one referenced in the
@@ -249,7 +249,7 @@ namespace TL
                     // captureaddress and they will be converted to
                     // _this->member
                     will_be_visible_from_outline = true;
-                    is_unqualified_member = is_unqualified_member_symbol(*it, function_definition);
+                    is_unqualified_member = is_unqualified_member_symbol(it->get_symbol(), function_definition);
                 }
 
                 switch ((int)default_task_data_sharing)
@@ -290,8 +290,8 @@ namespace TL
             }
         }
 
-        ObjectList<IdExpression> empty;
-        ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
+        ObjectList<Symbol> empty;
+        ObjectList<OpenMP::ReductionSymbol> reduction_empty;
         ObjectList<ParameterInfo> parameter_info_list;
 
         // Add the chunking_parameter
@@ -305,7 +305,7 @@ namespace TL
 
         ParameterInfo chunking_parameter("_nth_chunk", 
                 "&" + task_id.get_source() + "_chunk",
-                nth_chunk_id_expression, 
+                nth_chunk_id_expression.get_symbol(), 
                 Type::get_int_type().get_pointer_to(),
                 ParameterInfo::BY_VALUE);
         parameter_info_list.append(chunking_parameter);
@@ -784,9 +784,9 @@ namespace TL
     ReplaceIdExpression OpenMPTransform::set_replacements_chunk(FunctionDefinition function_definition,
             OpenMP::Directive /* directive */,
             Statement construct_body,
-            ObjectList<IdExpression>& captureaddress_references,
-            ObjectList<IdExpression>& capturevalue_references,
-            ObjectList<IdExpression>& local_references,
+            ObjectList<Symbol>& captureaddress_references,
+            ObjectList<Symbol>& capturevalue_references,
+            ObjectList<Symbol>& local_references,
             ObjectList<ParameterInfo>& parameter_info)
     {
         Symbol function_symbol = function_definition.get_function_name().get_symbol();

@@ -132,7 +132,6 @@ namespace TL
             if (it->kind != ParameterInfo::BY_POINTER)
                 continue;
 
-            IdExpression id_expr = it->id_expression;
             Type type = it->type;
             std::string name = it->parameter_name;
 
@@ -150,7 +149,6 @@ namespace TL
             if (it->kind != ParameterInfo::BY_VALUE)
                 continue;
 
-            IdExpression id_expr = it->id_expression;
             Type type = it->type;
             std::string name = it->parameter_name;
 
@@ -169,83 +167,84 @@ namespace TL
     }
 
     Source OpenMPTransform::get_privatized_declarations(
-            ObjectList<IdExpression> private_references,
-            ObjectList<IdExpression> firstprivate_references,
-            ObjectList<IdExpression> lastprivate_references,
-            ObjectList<OpenMP::ReductionIdExpression> reduction_references,
-            ObjectList<IdExpression> copyin_references,
+            OpenMP::Construct &construct,
+            ObjectList<Symbol> private_references,
+            ObjectList<Symbol> firstprivate_references,
+            ObjectList<Symbol> lastprivate_references,
+            ObjectList<OpenMP::ReductionSymbol> reduction_references,
+            ObjectList<Symbol> copyin_references,
             ObjectList<ParameterInfo> parameter_info_list
             )
     {
         Source private_declarations;
 
-        ObjectList<IdExpression> pruned_lastprivate_references;
+        ObjectList<Symbol> pruned_lastprivate_references;
         pruned_lastprivate_references
             .append(lastprivate_references.filter(
-                        not_in_set(firstprivate_references, functor(&IdExpression::get_symbol))));
+                        not_in_set(firstprivate_references)));
 
         // PRIVATE
-        for (ObjectList<IdExpression>::iterator it = private_references.begin();
+        for (ObjectList<Symbol>::iterator it = private_references.begin();
                 it != private_references.end();
                 it++)
         {
-            Symbol sym = it->get_symbol();
+            Symbol &sym(*it);
             Type type = sym.get_type();
 
             private_declarations << 
-                comment("Private entity : '" + it->mangle_id_expression() + "'");
+                comment("Private entity : '" + sym.get_name() + "'");
             private_declarations
                 << type.get_declaration(
-                        it->get_scope(),
-                        "p_" + it->mangle_id_expression())
+                        construct.get_scope(),
+                        "p_" + sym.get_name())
                 << ";"
                 ;
         }
 
         // FIRSTPRIVATE
-        for (ObjectList<IdExpression>::iterator it = firstprivate_references.begin();
+        for (ObjectList<Symbol>::iterator it = firstprivate_references.begin();
                 it != firstprivate_references.end();
                 it++)
         {
-            Symbol sym = it->get_symbol();
+            Symbol &sym(*it);
             Type type = sym.get_type();
 
             Source initializer_value;
 
-            if (parameter_info_list.contains(functor(&ParameterInfo::symbol), it->get_symbol()))
+            if (parameter_info_list.contains(functor(&ParameterInfo::symbol), sym))
             {
-                Type t = it->get_symbol().get_type();
+                Type t = sym.get_type();
                 if (t.is_array())
                 {
-                    initializer_value << "flp_" + it->mangle_id_expression();
+                    initializer_value << "flp_" + sym.get_name();
                 }
                 else
                 {
-                    initializer_value << "(*flp_" + it->mangle_id_expression() + ")";
+                    initializer_value << "(*flp_" + sym.get_name() + ")";
                 }
             }
             else
             {
-                initializer_value << it->prettyprint();
+                initializer_value << sym.get_name();
             }
 
             private_declarations << 
-                comment("Firstprivate entity : 'p_" + it->mangle_id_expression() + "'");
+                comment("Firstprivate entity : 'p_" + sym.get_name() + "'");
 
             if (type.is_array())
             {
                 // Both in C and C++ the firstprivatized array must be properly copied
                 private_declarations 
                     << type.get_declaration(
-                            it->get_scope(),
-                            "p_" + it->mangle_id_expression())
+                            construct.get_scope(),
+                            "p_" + sym.get_name())
                     << ";"
                     ;
 
                 private_declarations 
                     << comment("This firstprivate entity is an array and must be initialized element-wise");
 
-                Source array_assignment = array_copy(type, "p_" + it->mangle_id_expression(),
+                Source array_assignment = array_copy(type, "p_" + sym.get_name(),
                         initializer_value.get_source(), 0);
 
                 private_declarations << array_assignment;
@@ -257,11 +256,11 @@ namespace TL
                     // If it is not an array just assign
                     private_declarations 
                         << type.get_declaration(
-                                it->get_scope(),
-                                "p_" + it->mangle_id_expression())
+                                construct.get_scope(),
+                                "p_" + sym.get_name())
                         << ";"
                         << comment("Using plain assignment to initialize firstprivate entity")
-                        << "p_" + it->mangle_id_expression() << "=" << initializer_value.get_source() << ";"
+                        << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
                         ;
                 }
                 CXX_LANGUAGE()
@@ -272,8 +271,8 @@ namespace TL
                         private_declarations 
                             << comment("Using copy constructor to initialize firstprivate entity")
                             << type.get_declaration(
-                                    it->get_scope(),
-                                    "p_" + it->mangle_id_expression())
+                                    construct.get_scope(),
+                                    "p_" + sym.get_name())
                             << "(" << initializer_value.get_source() << ")"
                             << ";"
                             ;
@@ -283,11 +282,11 @@ namespace TL
                         // Otherwise simply assign
                         private_declarations 
                             << type.get_declaration(
-                                    it->get_scope(),
-                                    "p_" + it->mangle_id_expression())
+                                    construct.get_scope(),
+                                    "p_" + sym.get_name())
                             << ";"
                             << comment("Using assignment operator to initialize firstprivate entity")
-                            << "p_" + it->mangle_id_expression() << "=" << initializer_value.get_source() << ";"
+                            << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
                             ;
                     }
                 }
@@ -295,49 +294,49 @@ namespace TL
         }
 
         // LASTPRIVATE
-        for (ObjectList<IdExpression>::iterator it = pruned_lastprivate_references.begin();
+        for (ObjectList<Symbol>::iterator it = pruned_lastprivate_references.begin();
                 it != pruned_lastprivate_references.end();
+                it++)
+        {
+            Symbol &sym(*it);
+            Type type = sym.get_type();
+
+            private_declarations
+                << comment("Lastprivate entity : 'p_" + sym.get_name() + "'")
+                << type.get_declaration(
+                        construct.get_scope(),
+                        "p_" + sym.get_name())
+                << ";"
+                ;
+        }
+
+        // REDUCTION
+        for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_references.begin();
+                it != reduction_references.end();
                 it++)
         {
             Symbol sym = it->get_symbol();
             Type type = sym.get_type();
 
             private_declarations
-                << comment("Lastprivate entity : 'p_" + it->mangle_id_expression() + "'")
-                << type.get_declaration(
-                        it->get_scope(),
-                        "p_" + it->mangle_id_expression())
-                << ";"
-                ;
-        }
-
-        // REDUCTION
-        for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
-                it != reduction_references.end();
-                it++)
-        {
-            IdExpression id_expr = it->get_id_expression();
-            Symbol sym = id_expr.get_symbol();
-            Type type = sym.get_type();
-
-            private_declarations
-                << comment("Reduction private entity : 'rdp_" + id_expr.mangle_id_expression() + "'")
+                << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
                 << type.get_declaration_with_initializer(
-                        id_expr.get_scope(),
-                        "rdp_" + id_expr.mangle_id_expression(),
+                        construct.get_scope(),
+                        "rdp_" + sym.get_name(),
                         it->get_neuter().prettyprint())
                 << ";"
                 ;
         }
 
         // COPYIN
-        for (ObjectList<IdExpression>::iterator it = copyin_references.begin();
+        for (ObjectList<Symbol>::iterator it = copyin_references.begin();
                 it != copyin_references.end();
                 it++)
         {
+            Symbol &sym (*it);
             private_declarations
-                << comment("Initializing copyin entity '" + it->prettyprint() + "'")
-                << it->prettyprint() << " = " << "(*cin_" + it->mangle_id_expression() << ");"
+                << comment("Initializing copyin entity '" + sym.get_name() + "'")
+                << sym.get_name() << " = " << "(*cin_" + sym.get_name() << ");"
                 ;
         }
 
@@ -345,37 +344,37 @@ namespace TL
     }
 
     Source OpenMPTransform::get_lastprivate_assignments(
-            ObjectList<IdExpression> lastprivate_references,
-            ObjectList<IdExpression> copyprivate_references,
+            ObjectList<Symbol> lastprivate_references,
+            ObjectList<Symbol> copyprivate_references,
             ObjectList<ParameterInfo> parameter_info_list)
     {
         Source lastprivate_assignments;
         // LASTPRIVATE
-        for (ObjectList<IdExpression>::iterator it = lastprivate_references.begin();
+        for (ObjectList<Symbol>::iterator it = lastprivate_references.begin();
                 it != lastprivate_references.end();
                 it++)
         {
-            Symbol symbol = it->get_symbol();
+            Symbol &symbol(*it);
             Type type = symbol.get_type();
 
             std::string output_object;
 
-            if (parameter_info_list.contains(functor(&ParameterInfo::symbol), it->get_symbol()))
+            if (parameter_info_list.contains(functor(&ParameterInfo::symbol), symbol))
             {
-                Type t = it->get_symbol().get_type();
+                Type t = symbol.get_type();
 
                 if (t.is_array())
                 {
-                    output_object = "flp_" + it->mangle_id_expression();
+                    output_object = "flp_" + symbol.get_name();
                 }
                 else
                 {
-                    output_object = "(*flp_" + it->mangle_id_expression() + ")";
+                    output_object = "(*flp_" + symbol.get_name() + ")";
                 }
             }
             else
             {
-                output_object = it->prettyprint();
+                output_object = symbol.get_name();
             }
 
             lastprivate_assignments
@@ -384,7 +383,7 @@ namespace TL
             if (type.is_array())
             {
                 Source array_assignment = array_copy(type, output_object,
-                        "p_" + it->mangle_id_expression(), 0);
+                        "p_" + symbol.get_name(), 0);
 
                 lastprivate_assignments 
                     << comment("Entity is an array and must be assigned element-wise")
@@ -393,19 +392,20 @@ namespace TL
             else
             {
                 lastprivate_assignments
-                    << output_object << " = p_" << it->mangle_id_expression() << ";"
+                    << output_object << " = p_" << symbol.get_name() << ";"
                     ;
             }
         }
 
         // COPYPRIVATE
-        for (ObjectList<IdExpression>::iterator it = copyprivate_references.begin();
+        for (ObjectList<Symbol>::iterator it = copyprivate_references.begin();
                 it != copyprivate_references.end();
                 it++)
         {
+            Symbol &symbol(*it);
             lastprivate_assignments
-                << comment("Assignment of copyprivate entity 'cout_" + it->mangle_id_expression() + "'")
-                << "(*cout_" << it->mangle_id_expression() << ")" << " = p_" << it->mangle_id_expression() << ";"
+                << comment("Assignment of copyprivate entity 'cout_" + symbol.get_name() + "'")
+                << "(*cout_" << symbol.get_name() << ")" << " = p_" << symbol.get_name() << ";"
                 ;
         }
 

@@ -22,18 +22,18 @@
 
 namespace TL
 {
-    IdExpression OpenMPTransform::warn_unreferenced_data(IdExpression id_expr)
+    Symbol OpenMPTransform::warn_unreferenced_data(Symbol sym)
     {
-        std::cerr << "Warning: Entity '" << id_expr.prettyprint() << "' in " << id_expr.get_ast().get_locus() 
-            << " is not referenced in the body of the construct" << std::endl;
-        return id_expr;
+        std::cerr << "Warning: Entity '" << sym.get_name() << "' "
+            << "is not referenced in the body of the construct" << std::endl;
+        return sym;
     }
 
-    IdExpression OpenMPTransform::warn_no_data_sharing(IdExpression id_expr)
+    Symbol OpenMPTransform::warn_no_data_sharing(Symbol sym)
     {
-        std::cerr << "Warning: '" << id_expr.prettyprint() << "' in " << id_expr.get_ast().get_locus() 
+        std::cerr << "Warning: '" << sym.get_name() << "' "
             << " does not have a data sharing attribute and 'default(none)' was specified. "
             << "It will be considered shared." << std::endl;
-        return id_expr;
+        return sym;
     }
 }

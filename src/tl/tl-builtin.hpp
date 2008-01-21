@@ -396,7 +396,9 @@ namespace TL
                 }
 
                 data_info d = (*_data_list)[str];
-                return *(reinterpret_cast<_T*>(d.data));
+                result = reinterpret_cast<_T*>(d.data);
+
+                return *result;
             }
 
         ~LinkData()

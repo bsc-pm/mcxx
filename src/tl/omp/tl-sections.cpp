@@ -32,13 +32,13 @@ namespace TL
     void OpenMPTransform::sections_postorder(OpenMP::SectionsConstruct sections_construct)
     {
         // They will hold the entities as they appear in the clauses
-        ObjectList<IdExpression> shared_references;
-        ObjectList<IdExpression> private_references;
-        ObjectList<IdExpression> firstprivate_references;
-        ObjectList<IdExpression> lastprivate_references;
-        ObjectList<OpenMP::ReductionIdExpression> reduction_references;
-        ObjectList<IdExpression> copyin_references;
-        ObjectList<IdExpression> copyprivate_references;
+        ObjectList<Symbol> shared_references;
+        ObjectList<Symbol> private_references;
+        ObjectList<Symbol> firstprivate_references;
+        ObjectList<Symbol> lastprivate_references;
+        ObjectList<OpenMP::ReductionSymbol> reduction_references;
+        ObjectList<Symbol> copyin_references;
+        ObjectList<Symbol> copyprivate_references;
 
         // Get the construct_body of the statement
         OpenMP::Directive directive = sections_construct.directive();
@@ -63,7 +63,7 @@ namespace TL
 
         ObjectList<ParameterInfo> parameter_info_list;
 
-        ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
+        ObjectList<OpenMP::ReductionSymbol> reduction_empty;
 
         ReplaceIdExpression replace_references = 
             set_replacements(function_definition,
@@ -92,6 +92,7 @@ namespace TL
         parameter_info_list.clear();
 
         Source private_declarations = get_privatized_declarations(
+                sections_construct,
                 private_references,
                 firstprivate_references,
                 lastprivate_references,

@@ -46,9 +46,8 @@ namespace TL
         return true;
     }
 
-    bool OpenMPTransform::is_unqualified_member_symbol(IdExpression id_expression, FunctionDefinition function_definition)
+    bool OpenMPTransform::is_unqualified_member_symbol(Symbol current_symbol, FunctionDefinition function_definition)
     {
-        Symbol current_symbol = id_expression.get_symbol();
         Symbol function_symbol = function_definition.get_function_name().get_symbol();
 
         if (function_symbol.is_member()
@@ -62,15 +61,11 @@ namespace TL
         return 0;
     }
 
-    bool OpenMPTransform::is_function_accessible(IdExpression id_expression, 
-            FunctionDefinition function_definition)
+    bool OpenMPTransform::is_function_accessible(Symbol current_symbol)
     {
-        Symbol current_symbol = id_expression.get_symbol();
-
-        Scope function_scope = function_definition.get_scope();
-        Symbol function_visible_symbol = function_scope.get_symbol_from_id_expr(id_expression.get_ast());
-
-        return (function_visible_symbol.is_valid()
-                && function_visible_symbol == current_symbol);
+        return (current_symbol.has_namespace_scope()
+                || current_symbol.has_template_scope()
+                || (current_symbol.has_class_scope()
+                    && current_symbol.is_static()));
     }
 }

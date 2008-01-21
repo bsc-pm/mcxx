@@ -50,6 +50,4 @@ libtlomp_la_SOURCES = \
    tl-single.cpp \
    tl-spawn.cpp \
    tl-task.cpp \
-   tl-taskchunk.cpp \
-   tl-taskchunk.hpp \
    tl-threadprivate.cpp

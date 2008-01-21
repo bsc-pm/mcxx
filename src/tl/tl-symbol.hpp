@@ -136,6 +136,14 @@ namespace TL
             bool is_constructor() const;
             // Is an explicit constructor
             bool is_explicit_constructor() const;
+
+            /* Kind of scope */
+            bool has_namespace_scope() const;
+            bool has_block_scope() const;
+            bool has_local_scope() const; // alias for has_block_scope
+            bool has_class_scope() const;
+            bool has_template_scope() const;
+            bool has_prototype_scope() const;
     };
 }
 

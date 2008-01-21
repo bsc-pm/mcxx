@@ -200,15 +200,15 @@ namespace TL
                 bool is_defined() const;
         };
 
-        class ReductionIdExpression
+        class ReductionSymbol
         {
             private:
-                IdExpression _symbol;
+                Symbol _symbol;
                 AST_t _op;
                 AST_t _neuter;
                 bool _is_user_defined;
             public:
-                ReductionIdExpression(IdExpression s, AST_t op, AST_t neuter, bool is_user_defined = false)
+                ReductionSymbol(Symbol s, AST_t op, AST_t neuter, bool is_user_defined = false)
                     : _symbol(s), _op(op), _neuter(neuter), _is_user_defined(is_user_defined)
                 {
                 }
@@ -218,14 +218,9 @@ namespace TL
                     return _is_user_defined;
                 }
 
-                IdExpression get_id_expression() const
-                {
-                    return _symbol;
-                }
-
                 Symbol get_symbol() const
                 {
-                    return _symbol.get_symbol();
+                    return _symbol;
                 }
 
                 AST_t get_neuter() const
@@ -236,11 +231,6 @@ namespace TL
                 AST_t get_operation() const
                 {
                     return _op;
-                }
-
-                IdExpression get_user_defined_reductor()
-                {
-                    return IdExpression(_op, _symbol.get_scope_link());
                 }
         };
 
@@ -269,7 +259,7 @@ namespace TL
                 {
                 }
 
-                ObjectList<ReductionIdExpression> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
+                ObjectList<ReductionSymbol> id_expressions(IdExpressionCriteria criteria = VALID_SYMBOLS);
         };
 
         class CustomClause : public LangConstruct

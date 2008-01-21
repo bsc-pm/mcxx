@@ -934,11 +934,11 @@ namespace TL
            return result;
        }
 
-       ObjectList<ReductionIdExpression> ReductionClause::id_expressions(IdExpressionCriteria criteria)
+       ObjectList<ReductionSymbol> ReductionClause::id_expressions(IdExpressionCriteria criteria)
        {
            PredicateAST<LANG_IS_ID_EXPRESSION> id_expr_pred;
 
-           ObjectList<ReductionIdExpression> result;
+           ObjectList<ReductionSymbol> result;
            GetSymbolFromAST get_symbol_from_ast(this->_scope_link);
 
            PredicateAttr reduction_clause_predicate(OMP_IS_REDUCTION_CLAUSE);
@@ -995,7 +995,7 @@ namespace TL
                    if (eligible)
                    {
                        IdExpression id_expr(*jt, this->_scope_link);
-                       ReductionIdExpression reduct_id_expr(id_expr, reduct_entity, reduct_neuter, is_user_defined);
+                       ReductionSymbol reduct_id_expr(sym, reduct_entity, reduct_neuter, is_user_defined);
 
                        result.append(reduct_id_expr);
                    }

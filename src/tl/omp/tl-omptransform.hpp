@@ -53,10 +53,10 @@ namespace TL
             std::stack<int> num_sections_stack;
 
             // Stores the innermost induction variable of a parallel for or for construct
-            std::stack<IdExpression> induction_var_stack;
+            std::stack<Symbol> induction_var_stack;
 
             // Stores the non orphaned reduction of the enclosing parallel (if any)
-            std::stack<ObjectList<OpenMP::ReductionIdExpression> > inner_reductions_stack;
+            std::stack<ObjectList<OpenMP::ReductionSymbol> > inner_reductions_stack;
 
             // A set to save what critical names have been defined in
             // translation unit level
@@ -68,7 +68,6 @@ namespace TL
 			bool stm_log_file_opened;
 
 			// -- End of Transactional world
-
 
             /*
              * Parameters of the phase where the textual parameter is stored
@@ -163,7 +162,7 @@ namespace TL
                     Scope scope,
                     ScopeLink scope_link,
                     ObjectList<ParameterInfo> parameter_info_list,
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
+                    ObjectList<OpenMP::ReductionSymbol> reduction_references,
                     OpenMP::Clause num_threads_clause,
                     OpenMP::CustomClause groups_clause,
                     Source& instrument_code_before,
@@ -172,15 +171,13 @@ namespace TL
             std::string get_outline_function_reference(FunctionDefinition function_definition,
                     ObjectList<ParameterInfo>& parameter_info_list);
 
-            Source get_critical_reduction_code(ObjectList<OpenMP::ReductionIdExpression> reduction_references);
-            Source get_noncritical_reduction_code(ObjectList<OpenMP::ReductionIdExpression> reduction_references);
+            Source get_critical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references);
+            Source get_noncritical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references);
             Source get_noncritical_inlined_reduction_code(
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
+                    ObjectList<OpenMP::ReductionSymbol> reduction_references,
                     Statement inner_statement);
-            Source get_reduction_update(ObjectList<OpenMP::ReductionIdExpression> reduction_references);
-            Source get_reduction_gathering(ObjectList<OpenMP::ReductionIdExpression> reduction_references);
-
-            Source get_one_user_defined_gathering(OpenMP::ReductionIdExpression reduction_id_expr);
+            Source get_reduction_update(ObjectList<OpenMP::ReductionSymbol> reduction_references);
+            Source get_reduction_gathering(ObjectList<OpenMP::ReductionSymbol> reduction_references);
 
             Source get_member_function_declaration(
                     FunctionDefinition function_definition,
@@ -202,110 +199,115 @@ namespace TL
                     Scope decl_scope);
 
             AST_t get_outline_parallel(
+                    OpenMP::Construct &construct,
                     FunctionDefinition function_definition,
                     Source outlined_function_name,
                     Statement construct_body,
                     ReplaceIdExpression replace_references,
                     ObjectList<ParameterInfo> parameter_info_list,
-                    ObjectList<IdExpression> private_references,
-                    ObjectList<IdExpression> firstprivate_references,
-                    ObjectList<IdExpression> lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
-                    ObjectList<IdExpression> copyin_references,
-                    ObjectList<IdExpression> copyprivate_references,
+                    ObjectList<Symbol> private_references,
+                    ObjectList<Symbol> firstprivate_references,
+                    ObjectList<Symbol> lastprivate_references,
+                    ObjectList<OpenMP::ReductionSymbol> reduction_references,
+                    ObjectList<Symbol> copyin_references,
+                    ObjectList<Symbol> copyprivate_references,
                     bool never_instrument = false
                     );
 
             AST_t get_outline_task(
+                    OpenMP::Construct &construct,
                     FunctionDefinition function_definition,
                     Source outlined_function_name,
                     Statement construct_body,
                     ReplaceIdExpression replace_references,
                     ObjectList<ParameterInfo> parameter_info_list,
-                    ObjectList<IdExpression> local_references
+                    ObjectList<Symbol> local_references
                     );
 
 
             AST_t get_outline_parallel_sections(
+                    OpenMP::Construct &construct,
                     FunctionDefinition function_definition,
                     Source outlined_function_name, 
                     Statement construct_body,
                     ReplaceIdExpression replace_references,
                     ObjectList<ParameterInfo> parameter_info_list,
-                    ObjectList<IdExpression> private_references,
-                    ObjectList<IdExpression> firstprivate_references,
-                    ObjectList<IdExpression> lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
-                    ObjectList<IdExpression> copyin_references,
-                    ObjectList<IdExpression> copyprivate_references);
+                    ObjectList<Symbol> private_references,
+                    ObjectList<Symbol> firstprivate_references,
+                    ObjectList<Symbol> lastprivate_references,
+                    ObjectList<OpenMP::ReductionSymbol> reduction_references,
+                    ObjectList<Symbol> copyin_references,
+                    ObjectList<Symbol> copyprivate_references);
 
             AST_t get_outline_parallel_single(
+                    OpenMP::Construct &construct,
                     FunctionDefinition function_definition,
                     Source outlined_function_name,
                     Statement construct_body,
                     ReplaceIdExpression replace_references,
                     ObjectList<ParameterInfo> parameter_info,
-                    ObjectList<IdExpression> private_references,
-                    ObjectList<IdExpression> firstprivate_references,
-                    ObjectList<IdExpression> lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
-                    ObjectList<IdExpression> copyin_references,
-                    ObjectList<IdExpression> copyprivate_references
+                    ObjectList<Symbol> private_references,
+                    ObjectList<Symbol> firstprivate_references,
+                    ObjectList<Symbol> lastprivate_references,
+                    ObjectList<OpenMP::ReductionSymbol> reduction_references,
+                    ObjectList<Symbol> copyin_references,
+                    ObjectList<Symbol> copyprivate_references
                     );
 
             Source get_task_block_code();
 
             // Create outline for parallel for
             AST_t get_outline_parallel_for(
+                    OpenMP::Construct &construct,
                     FunctionDefinition function_definition,
                     Source outlined_function_name,
                     ForStatement for_statement,
                     Statement loop_body,
                     ReplaceIdExpression replace_references,
                     ObjectList<ParameterInfo> parameter_info_list,
-                    ObjectList<IdExpression> private_references,
-                    ObjectList<IdExpression> firstprivate_references,
-                    ObjectList<IdExpression> lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
-                    ObjectList<IdExpression> copyin_references,
-                    ObjectList<IdExpression> copyprivate_references,
+                    ObjectList<Symbol> private_references,
+                    ObjectList<Symbol> firstprivate_references,
+                    ObjectList<Symbol> lastprivate_references,
+                    ObjectList<OpenMP::ReductionSymbol> reduction_references,
+                    ObjectList<Symbol> copyin_references,
+                    ObjectList<Symbol> copyprivate_references,
                     OpenMP::Directive directive
                     );
 
             void get_data_explicit_attributes(
                     OpenMP::Construct &construct,
                     OpenMP::Directive directive,
-                    ObjectList<IdExpression>& shared_references,
-                    ObjectList<IdExpression>& private_references,
-                    ObjectList<IdExpression>& firstprivate_references,
-                    ObjectList<IdExpression>& lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression>& reduction_references,
-                    ObjectList<IdExpression>& copyin_references,
-                    ObjectList<IdExpression>& copyprivate_references);
+                    ObjectList<Symbol>& shared_references,
+                    ObjectList<Symbol>& private_references,
+                    ObjectList<Symbol>& firstprivate_references,
+                    ObjectList<Symbol>& lastprivate_references,
+                    ObjectList<OpenMP::ReductionSymbol>& reduction_references,
+                    ObjectList<Symbol>& copyin_references,
+                    ObjectList<Symbol>& copyprivate_references);
 
             void get_data_attributes(
                     OpenMP::Construct &construct,
                     OpenMP::Directive directive,
                     Statement construct_body,
-                    ObjectList<IdExpression>& shared_references,
-                    ObjectList<IdExpression>& private_references,
-                    ObjectList<IdExpression>& firstprivate_references,
-                    ObjectList<IdExpression>& lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression>& reduction_references,
-                    ObjectList<IdExpression>& copyin_references,
-                    ObjectList<IdExpression>& copyprivate_references);
+                    ObjectList<Symbol>& shared_references,
+                    ObjectList<Symbol>& private_references,
+                    ObjectList<Symbol>& firstprivate_references,
+                    ObjectList<Symbol>& lastprivate_references,
+                    ObjectList<OpenMP::ReductionSymbol>& reduction_references,
+                    ObjectList<Symbol>& copyin_references,
+                    ObjectList<Symbol>& copyprivate_references);
 
             ReplaceIdExpression set_replacements(FunctionDefinition function_definition,
                     OpenMP::Directive directive,
                     Statement construct_body,
-                    ObjectList<IdExpression>& shared_references,
-                    ObjectList<IdExpression>& private_references,
-                    ObjectList<IdExpression>& firstprivate_references,
-                    ObjectList<IdExpression>& lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression>& reduction_references,
-                    ObjectList<OpenMP::ReductionIdExpression>& inner_reduction_references,
-                    ObjectList<IdExpression>& copyin_references,
-                    ObjectList<IdExpression>& copyprivate_references,
+                    ObjectList<Symbol>& shared_references,
+                    ObjectList<Symbol>& private_references,
+                    ObjectList<Symbol>& firstprivate_references,
+                    ObjectList<Symbol>& lastprivate_references,
+                    ObjectList<OpenMP::ReductionSymbol>& reduction_references,
+                    ObjectList<OpenMP::ReductionSymbol>& inner_reduction_references,
+                    ObjectList<Symbol>& copyin_references,
+                    ObjectList<Symbol>& copyprivate_references,
                     ObjectList<ParameterInfo>& parameter_info,
                     bool share_always = false);
 
@@ -322,17 +324,18 @@ namespace TL
             Source get_loop_finalization(bool do_barrier);
 
             Source get_privatized_declarations(
-                    ObjectList<IdExpression> private_references,
-                    ObjectList<IdExpression> firstprivate_references,
-                    ObjectList<IdExpression> lastprivate_references,
-                    ObjectList<OpenMP::ReductionIdExpression> reduction_references,
-                    ObjectList<IdExpression> copyin_references,
+                    OpenMP::Construct &construct,
+                    ObjectList<Symbol> private_references,
+                    ObjectList<Symbol> firstprivate_references,
+                    ObjectList<Symbol> lastprivate_references,
+                    ObjectList<OpenMP::ReductionSymbol> reduction_references,
+                    ObjectList<Symbol> copyin_references,
                     ObjectList<ParameterInfo> parameter_info_list
                     );
 
             Source get_lastprivate_assignments(
-                    ObjectList<IdExpression> lastprivate_references,
-                    ObjectList<IdExpression> copyprivate_references,
+                    ObjectList<Symbol> lastprivate_references,
+                    ObjectList<Symbol> copyprivate_references,
                     ObjectList<ParameterInfo> parameter_info_list);
 
             Source get_outlined_function_name(IdExpression function_name, 
@@ -343,26 +346,25 @@ namespace TL
 
             Source array_copy(Type t, const std::string& dest, const std::string& orig, int level);
 
-            bool is_unqualified_member_symbol(IdExpression id_expression, FunctionDefinition function_definition);
+            bool is_unqualified_member_symbol(Symbol current_symbol, FunctionDefinition function_definition);
 
-            bool is_function_accessible(IdExpression id_expression, 
-                    FunctionDefinition function_definition);
+            bool is_function_accessible(Symbol current_symbol);
 
             void instrumentation_outline(Source& instrumentation_code_before,
                     Source& instrumentation_code_after,
                     FunctionDefinition function_definition,
                     Statement construct_body);
 
-            IdExpression warn_unreferenced_data(IdExpression id_expr);
+            Symbol warn_unreferenced_data(Symbol sym);
 
-            IdExpression warn_no_data_sharing(IdExpression id_expr);
+            Symbol warn_no_data_sharing(Symbol sym);
 
             Source debug_parameter_info(
                     ObjectList<ParameterInfo> parameter_info_list);
 
             void add_data_attribute_to_list(
                     OpenMP::Construct &construct,
-                    ObjectList<IdExpression> list_id_expressions,
+                    ObjectList<Symbol> list_id_expressions,
                     OpenMP::DataAttribute data_attrib);
 
             // Debug purposes
@@ -393,50 +395,12 @@ namespace TL
                     bool from_wrapped_function);
 
             // --- End of transactional world --
-
-
             void declare_member_if_needed(Symbol function_symbol,
                     FunctionDefinition function_definition,
                     IdExpression function_name,
                     ObjectList<ParameterInfo> parameter_info_list);
             AST_t finish_outline(FunctionDefinition function_definition, Source outline_parallel,
                     ObjectList<ParameterInfo> parameter_info_list);
-            
-            // Experimental
-            void task_while_postorder(OpenMP::CustomConstruct while_construct);
-            void task_while_preorder(OpenMP::CustomConstruct while_construct);
-
-            void task_postorder_with_chunk(OpenMP::CustomConstruct task_construct);
-            AST_t get_outline_task_chunked(
-                    FunctionDefinition function_definition,
-                    Source outlined_function_name,
-                    Statement construct_body,
-                    ReplaceIdExpression replace_references,
-                    ObjectList<ParameterInfo> parameter_info_list,
-                    ObjectList<IdExpression> local_references
-                    );
-
-            ReplaceIdExpression set_replacements_chunk(FunctionDefinition function_definition,
-                    OpenMP::Directive directive,
-                    Statement construct_body,
-                    ObjectList<IdExpression>& capturaddress_references,
-                    ObjectList<IdExpression>& capturvalue_references,
-                    ObjectList<IdExpression>& local_references,
-                    ObjectList<ParameterInfo>& parameter_info);
-
-            void task_for_postorder(OpenMP::CustomConstruct for_construct);
-            void task_for_preorder(OpenMP::CustomConstruct for_construct);
-
-            AST_t get_outline_task_for(
-                    FunctionDefinition function_definition,
-                    Source outlined_function_name,
-                    Statement construct_body,
-                    ReplaceIdExpression replace_references,
-                    ObjectList<ParameterInfo> parameter_info_list,
-                    ObjectList<IdExpression> local_references,
-                    ForStatement for_statement,
-                    std::string chunk_value
-                    );
     };
 }
 

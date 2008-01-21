@@ -33,23 +33,23 @@ namespace TL
         IdExpression induction_var = for_statement.get_induction_variable();
 
         // Save this induction var in the stack
-        induction_var_stack.push(induction_var);
+        induction_var_stack.push(induction_var.get_symbol());
         
         // They will hold the entities as they appear in the clauses
-        ObjectList<IdExpression>& shared_references = 
-            for_construct.get_data<ObjectList<IdExpression> >("shared_references");
-        ObjectList<IdExpression>& private_references = 
-            for_construct.get_data<ObjectList<IdExpression> >("private_references");
-        ObjectList<IdExpression>& firstprivate_references = 
-            for_construct.get_data<ObjectList<IdExpression> >("firstprivate_references");
-        ObjectList<IdExpression>& lastprivate_references = 
-            for_construct.get_data<ObjectList<IdExpression> >("lastprivate_references");
-        ObjectList<OpenMP::ReductionIdExpression>& reduction_references =
-            for_construct.get_data<ObjectList<OpenMP::ReductionIdExpression> >("reduction_references");
-        ObjectList<IdExpression>& copyin_references = 
-            for_construct.get_data<ObjectList<IdExpression> >("copyin_references");
-        ObjectList<IdExpression>& copyprivate_references = 
-            for_construct.get_data<ObjectList<IdExpression> >("copyprivate_references");
+        ObjectList<Symbol>& shared_references = 
+            for_construct.get_data<ObjectList<Symbol> >("shared_references");
+        ObjectList<Symbol>& private_references = 
+            for_construct.get_data<ObjectList<Symbol> >("private_references");
+        ObjectList<Symbol>& firstprivate_references = 
+            for_construct.get_data<ObjectList<Symbol> >("firstprivate_references");
+        ObjectList<Symbol>& lastprivate_references = 
+            for_construct.get_data<ObjectList<Symbol> >("lastprivate_references");
+        ObjectList<OpenMP::ReductionSymbol>& reduction_references =
+            for_construct.get_data<ObjectList<OpenMP::ReductionSymbol> >("reduction_references");
+        ObjectList<Symbol>& copyin_references = 
+            for_construct.get_data<ObjectList<Symbol> >("copyin_references");
+        ObjectList<Symbol>& copyprivate_references = 
+            for_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
 
         // Get the data attributes for every entity
         get_data_explicit_attributes(
@@ -62,17 +62,17 @@ namespace TL
                 reduction_references,
                 copyin_references,
                 copyprivate_references);
-        
+
         // Set it private if it was not
         if ((for_construct.get_data_attribute(induction_var.get_symbol()) & OpenMP::DA_PRIVATE) != OpenMP::DA_PRIVATE)
         {
-            ObjectList<IdExpression>& private_references = 
-                for_construct.get_data<ObjectList<IdExpression> >("private_references");
+            ObjectList<Symbol>& private_references = 
+                for_construct.get_data<ObjectList<Symbol> >("private_references");
 
             for_construct.add_data_attribute(induction_var.get_symbol(), OpenMP::DA_PRIVATE);
 
             // And insert into private references as well
-            private_references.insert(induction_var, functor(&TL::IdExpression::get_symbol));
+            private_references.insert(induction_var.get_symbol());
         }
     }
 
@@ -91,23 +91,23 @@ namespace TL
         // Remove the induction var from the stack
         induction_var_stack.pop();
 
-        ObjectList<OpenMP::ReductionIdExpression> reduction_empty;
+        ObjectList<OpenMP::ReductionSymbol> reduction_empty;
 
         // This has been computed in the preorder
-        ObjectList<IdExpression>& shared_references = 
-            for_construct.get_data<ObjectList<IdExpression> >("shared_references");
-        ObjectList<IdExpression>& private_references = 
-            for_construct.get_data<ObjectList<IdExpression> >("private_references");
-        ObjectList<IdExpression>& firstprivate_references = 
-            for_construct.get_data<ObjectList<IdExpression> >("firstprivate_references");
-        ObjectList<IdExpression>& lastprivate_references = 
-            for_construct.get_data<ObjectList<IdExpression> >("lastprivate_references");
-        ObjectList<OpenMP::ReductionIdExpression>& reduction_references =
-            for_construct.get_data<ObjectList<OpenMP::ReductionIdExpression> >("reduction_references");
-        ObjectList<IdExpression>& copyin_references = 
-            for_construct.get_data<ObjectList<IdExpression> >("copyin_references");
-        ObjectList<IdExpression>& copyprivate_references = 
-            for_construct.get_data<ObjectList<IdExpression> >("copyprivate_references");
+        ObjectList<Symbol>& shared_references = 
+            for_construct.get_data<ObjectList<Symbol> >("shared_references");
+        ObjectList<Symbol>& private_references = 
+            for_construct.get_data<ObjectList<Symbol> >("private_references");
+        ObjectList<Symbol>& firstprivate_references = 
+            for_construct.get_data<ObjectList<Symbol> >("firstprivate_references");
+        ObjectList<Symbol>& lastprivate_references = 
+            for_construct.get_data<ObjectList<Symbol> >("lastprivate_references");
+        ObjectList<OpenMP::ReductionSymbol>& reduction_references =
+            for_construct.get_data<ObjectList<OpenMP::ReductionSymbol> >("reduction_references");
+        ObjectList<Symbol>& copyin_references = 
+            for_construct.get_data<ObjectList<Symbol> >("copyin_references");
+        ObjectList<Symbol>& copyprivate_references = 
+            for_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
 
         // The lists of entities passed by pointer and entities
         // privatized in the outline
@@ -132,6 +132,7 @@ namespace TL
         parameter_info_list.clear();
 
         Source private_declarations = get_privatized_declarations(
+                for_construct,
                 private_references,
                 firstprivate_references,
                 lastprivate_references,

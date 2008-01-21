@@ -45,7 +45,7 @@ namespace TL
                     it != parameter_info_list.end();
                     it++)
             {
-                info << "'" << it->parameter_name << "' ";
+                info << "Symbol: '" << it->parameter_name << "' ";
 
                 if (it->kind == ParameterInfo::BY_VALUE)
                 {
@@ -56,11 +56,11 @@ namespace TL
                     info << "Passed by reference (global pointer). ";
                 }
 
-                info << "Original type: " 
-                    << it->type.get_declaration(it->id_expression.get_scope(), "") << ". ";
+                // info << "Original type: " 
+                //     << it->type.get_declaration(it->id_expression.get_scope(), "") << ". ";
 
-                info << "Related id-expression: " 
-                    << it->id_expression.get_ast().get_locus() << ". ";
+                // info << "Related id-expression: " 
+                //     << it->id_expression.get_ast().get_locus() << ". ";
 
                 info << std::endl;
             }

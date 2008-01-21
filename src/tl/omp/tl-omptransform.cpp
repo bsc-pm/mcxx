@@ -153,17 +153,6 @@ namespace TL
         register_construct("preserve");
         on_custom_construct_post["preserve"].connect(functor(&OpenMPTransform::stm_preserve_postorder, *this));
         // --- End of transactional world --
-
-        // --- Experimental directives ---
-        // #pragma omp while
-        register_construct("task_while");
-        on_custom_construct_pre["task_while"].connect(functor(&OpenMPTransform::task_while_preorder, *this));
-        on_custom_construct_post["task_while"].connect(functor(&OpenMPTransform::task_while_postorder, *this));
-
-        register_construct("task_for");
-        on_custom_construct_pre["task_for"].connect(functor(&OpenMPTransform::task_for_preorder, *this));
-        on_custom_construct_post["task_for"].connect(functor(&OpenMPTransform::task_for_postorder, *this));
-        // --- End of experimental directives ---
     }
 
     void OpenMPTransform::set_disable_restrict_pointers(const std::string& str)

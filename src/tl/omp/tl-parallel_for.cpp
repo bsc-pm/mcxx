@@ -24,7 +24,7 @@ namespace TL
 {
     void OpenMPTransform::parallel_for_preorder(OpenMP::ParallelForConstruct parallel_for_construct)
     {
-        ObjectList<OpenMP::ReductionIdExpression> inner_reductions;
+        ObjectList<OpenMP::ReductionSymbol> inner_reductions;
         inner_reductions_stack.push(inner_reductions);
 
         // Increase the parallel nesting value
@@ -37,25 +37,24 @@ namespace TL
         ForStatement for_statement(construct_body);
         
         // The induction variable deserves special treatment
-        IdExpression induction_var = for_statement.get_induction_variable();
+        Symbol induction_var = for_statement.get_induction_variable().get_symbol();
         induction_var_stack.push(induction_var);
 
         // Set it private if it was not
-        if ((parallel_for_construct.get_data_attribute(induction_var.get_symbol()) & OpenMP::DA_PRIVATE) != OpenMP::DA_PRIVATE)
+        if ((parallel_for_construct.get_data_attribute(induction_var) & OpenMP::DA_PRIVATE) != OpenMP::DA_PRIVATE)
         {
-            ObjectList<IdExpression>& private_references = 
-                parallel_for_construct.get_data<ObjectList<IdExpression> >("private_references");
+            ObjectList<Symbol>& private_references = 
+                parallel_for_construct.get_data<ObjectList<Symbol> >("private_references");
             // Set private
-            parallel_for_construct.add_data_attribute(induction_var.get_symbol(), OpenMP::DA_PRIVATE);
+            parallel_for_construct.add_data_attribute(induction_var, OpenMP::DA_PRIVATE);
 
             // And insert into private references as well
-            private_references.insert(induction_var, functor(&TL::IdExpression::get_symbol));
+            private_references.insert(induction_var);
 
-            ObjectList<IdExpression>& shared_references = 
-                parallel_for_construct.get_data<ObjectList<IdExpression> >("shared_references");
+            ObjectList<Symbol>& shared_references = 
+                parallel_for_construct.get_data<ObjectList<Symbol> >("shared_references");
             // Remove from shared references if it appears there
-            shared_references = shared_references.not_find(functor(&IdExpression::get_symbol), 
-                    induction_var.get_symbol());
+            shared_references = shared_references.not_find(induction_var);
         }
     }
 
@@ -79,20 +78,20 @@ namespace TL
         IdExpression function_name = function_definition.get_function_name();
 
         // This was computed in the preorder
-        ObjectList<IdExpression>& shared_references = 
-            parallel_for_construct.get_data<ObjectList<IdExpression> >("shared_references");
-        ObjectList<IdExpression>& private_references = 
-            parallel_for_construct.get_data<ObjectList<IdExpression> >("private_references");
-        ObjectList<IdExpression>& firstprivate_references = 
-            parallel_for_construct.get_data<ObjectList<IdExpression> >("firstprivate_references");
-        ObjectList<IdExpression>& lastprivate_references = 
-            parallel_for_construct.get_data<ObjectList<IdExpression> >("lastprivate_references");
-        ObjectList<OpenMP::ReductionIdExpression>& reduction_references =
-            parallel_for_construct.get_data<ObjectList<OpenMP::ReductionIdExpression> >("reduction_references");
-        ObjectList<IdExpression>& copyin_references = 
-            parallel_for_construct.get_data<ObjectList<IdExpression> >("copyin_references");
-        ObjectList<IdExpression>& copyprivate_references = 
-            parallel_for_construct.get_data<ObjectList<IdExpression> >("copyprivate_references");
+        ObjectList<Symbol>& shared_references = 
+            parallel_for_construct.get_data<ObjectList<Symbol> >("shared_references");
+        ObjectList<Symbol>& private_references = 
+            parallel_for_construct.get_data<ObjectList<Symbol> >("private_references");
+        ObjectList<Symbol>& firstprivate_references = 
+            parallel_for_construct.get_data<ObjectList<Symbol> >("firstprivate_references");
+        ObjectList<Symbol>& lastprivate_references = 
+            parallel_for_construct.get_data<ObjectList<Symbol> >("lastprivate_references");
+        ObjectList<OpenMP::ReductionSymbol>& reduction_references =
+            parallel_for_construct.get_data<ObjectList<OpenMP::ReductionSymbol> >("reduction_references");
+        ObjectList<Symbol>& copyin_references = 
+            parallel_for_construct.get_data<ObjectList<Symbol> >("copyin_references");
+        ObjectList<Symbol>& copyprivate_references = 
+            parallel_for_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
 
         // Get the construct_body of the statement
         Statement construct_body = parallel_for_construct.body();
@@ -121,6 +120,7 @@ namespace TL
 
         // Create the outline for parallel for
         AST_t outline_code = get_outline_parallel_for(
+                parallel_for_construct,
                 function_definition,
                 outlined_function_name, 
                 for_statement,
@@ -180,18 +180,19 @@ namespace TL
     
     // Create outline for parallel for
     AST_t OpenMPTransform::get_outline_parallel_for(
+            OpenMP::Construct &construct,
             FunctionDefinition function_definition,
             Source outlined_function_name,
             ForStatement for_statement,
             Statement /* loop_body */,
             ReplaceIdExpression replace_references,
             ObjectList<ParameterInfo> parameter_info_list,
-            ObjectList<IdExpression> private_references,
-            ObjectList<IdExpression> firstprivate_references,
-            ObjectList<IdExpression> lastprivate_references,
-            ObjectList<OpenMP::ReductionIdExpression> reduction_references,
-            ObjectList<IdExpression> copyin_references,
-            ObjectList<IdExpression> copyprivate_references,
+            ObjectList<Symbol> private_references,
+            ObjectList<Symbol> firstprivate_references,
+            ObjectList<Symbol> lastprivate_references,
+            ObjectList<OpenMP::ReductionSymbol> reduction_references,
+            ObjectList<Symbol> copyin_references,
+            ObjectList<Symbol> copyprivate_references,
             OpenMP::Directive directive
             )
     {
@@ -210,6 +211,7 @@ namespace TL
                 parameter_info_list);
 
         Source private_declarations = get_privatized_declarations(
+                construct,
                 private_references,
                 firstprivate_references,
                 lastprivate_references,

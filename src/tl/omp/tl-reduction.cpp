@@ -22,7 +22,7 @@
 
 namespace TL
 {
-    Source OpenMPTransform::get_critical_reduction_code(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+    Source OpenMPTransform::get_critical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references)
     {
         Source reduction_code;
 
@@ -47,34 +47,26 @@ namespace TL
             << "}"
             ; 
 
-        for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
+        for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_references.begin();
                 it != reduction_references.end();
                 it++)
         {
-            if (!it->is_user_defined())
-            {
-                // get the operator involved
-                std::string reduced_var_name = it->get_id_expression().mangle_id_expression();
-                std::string reduction_var_name = "rdp_" + it->get_id_expression().mangle_id_expression();
+            // get the operator involved
+            std::string reduced_var_name = it->get_symbol().get_name();
+            std::string reduction_var_name = "rdp_" + it->get_symbol().get_name();
 
-                std::string op = it->get_operation().prettyprint();
+            std::string op = it->get_operation().prettyprint();
 
-                reduction_gathering 
-                    << reduced_var_name << " = " << reduced_var_name << op << reduction_var_name << ";"
-                    ;
-            }
-            else
-            {
-                Source one_urd_reduction = get_one_user_defined_gathering(*it);
-                reduction_gathering << one_urd_reduction;
-            }
+            reduction_gathering 
+                << reduced_var_name << " = " << reduced_var_name << op << reduction_var_name << ";"
+                ;
         }
 
         return reduction_code;
     }
 
 
-    Source OpenMPTransform::get_noncritical_reduction_code(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+    Source OpenMPTransform::get_noncritical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references)
     {
         Source reduction_code;
 
@@ -103,7 +95,7 @@ namespace TL
     }
 
     Source OpenMPTransform::get_noncritical_inlined_reduction_code(
-            ObjectList<OpenMP::ReductionIdExpression> reduction_references,
+            ObjectList<OpenMP::ReductionSymbol> reduction_references,
             Statement inner_statement)
     {
         Source reduction_code;
@@ -119,13 +111,13 @@ namespace TL
          * so we have to declare the enclosing symbols
          */
         {
-            for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
+            for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_references.begin();
                     it != reduction_references.end();
                     it++)
             {
                 Source temporal_reduction_vectors;
                 // create a reduction vector after the name of the mangled entity
-                std::string reduction_vector_name = "rdv_" + it->get_id_expression().mangle_id_expression();
+                std::string reduction_vector_name = "rdv_" + it->get_symbol().get_name();
 
                 // get its type
                 Symbol reduction_symbol = it->get_symbol();
@@ -135,16 +127,16 @@ namespace TL
                 // FIXME: hardcoded to 128 processors
                 Source array_length;
                 array_length << "128";
-                AST_t array_length_tree = array_length.parse_expression(it->get_id_expression().get_ast(), 
-                        it->get_id_expression().get_scope_link());
+                AST_t array_length_tree = array_length.parse_expression(inner_statement.get_ast(), 
+                        inner_statement.get_scope_link());
 
                 // and get an array of 128 elements
                 Type reduction_vector_type = reduction_type.get_array_to(array_length_tree, 
-                        it->get_id_expression().get_scope());
+                        inner_statement.get_scope());
 
                 // now get the code that declares this reduction vector
                 temporal_reduction_vectors
-                    << reduction_vector_type.get_declaration(it->get_id_expression().get_scope(), 
+                    << reduction_vector_type.get_declaration(inner_statement.get_scope(), 
                             reduction_vector_name) << ";";
 
                 // Now parse this in the context of the construct
@@ -181,19 +173,19 @@ namespace TL
 
         // We push them onto the stack of inner_reductions because this
         // functions is only called when this for is not orphaned
-        ObjectList<OpenMP::ReductionIdExpression>& inner_reductions = inner_reductions_stack.top();
-        inner_reductions.insert(reduction_references, functor(&OpenMP::ReductionIdExpression::get_symbol));
+        ObjectList<OpenMP::ReductionSymbol>& inner_reductions = inner_reductions_stack.top();
+        inner_reductions.insert(reduction_references, functor(&OpenMP::ReductionSymbol::get_symbol));
 
         return reduction_code;
     }
 
-    Source OpenMPTransform::get_reduction_update(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+    Source OpenMPTransform::get_reduction_update(ObjectList<OpenMP::ReductionSymbol> reduction_references)
     {
         Source reduction_update;
 
         // Discard those that came from inner constructions
         reduction_references = reduction_references.filter(
-                not_in_set(inner_reductions_stack.top(), functor(&OpenMP::ReductionIdExpression::get_symbol)));
+                not_in_set(inner_reductions_stack.top(), functor(&OpenMP::ReductionSymbol::get_symbol)));
 
         if (reduction_references.empty())
         {
@@ -206,13 +198,13 @@ namespace TL
             <<    "int nth_thread_id = in__tone_thread_id_();"
             ;
 
-        for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
+        for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_references.begin();
                 it != reduction_references.end();
                 it++)
         {
             reduction_update
-                << "rdv_" << it->get_id_expression().mangle_id_expression() << "[nth_thread_id] = "
-                << "rdp_" << it->get_id_expression().mangle_id_expression() << ";";
+                << "rdv_" << it->get_symbol().get_name() << "[nth_thread_id] = "
+                << "rdp_" << it->get_symbol().get_name() << ";";
         }
 
         reduction_update
@@ -223,101 +215,25 @@ namespace TL
         return reduction_update;
     }
 
-    Source OpenMPTransform::get_reduction_gathering(ObjectList<OpenMP::ReductionIdExpression> reduction_references)
+    Source OpenMPTransform::get_reduction_gathering(ObjectList<OpenMP::ReductionSymbol> reduction_references)
     {
         Source reduction_gathering;
 
         // For every entity being reduced
-        for (ObjectList<OpenMP::ReductionIdExpression>::iterator it = reduction_references.begin();
+        for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_references.begin();
                 it != reduction_references.end();
                 it++)
         {
-            // And reduce for this element of the reduction vector
-            if (!it->is_user_defined())
-            {
-                // If it is not a user defined one it is easy
+            // If it is not a user defined one it is easy
 
-                // Construct the name of its related reduction vector
-                std::string reduced_var_name = it->get_id_expression().prettyprint();
-                std::string reduction_vector_name = "rdv_" + it->get_id_expression().mangle_id_expression();
+            // Construct the name of its related reduction vector
+            std::string reduced_var_name = it->get_symbol().get_name();
+            std::string reduction_vector_name = "rdv_" + it->get_symbol().get_name();
 
-                // get the operator involved
-                std::string op = it->get_operation().prettyprint();
-                reduction_gathering
-                    << reduced_var_name << " = " << reduced_var_name << op << reduction_vector_name << "[rdv_i]" << ";";
-            }
-            else
-            {
-                Source one_urd_reduction = get_one_user_defined_gathering(*it);
-                reduction_gathering << one_urd_reduction;
-            }
-        }
-
-        return reduction_gathering;
-    }
-
-    Source OpenMPTransform::get_one_user_defined_gathering(OpenMP::ReductionIdExpression reduction_id_expr)
-    {
-        IdExpression reductor = reduction_id_expr.get_user_defined_reductor();
-        Symbol reductor_symbol = reductor.get_symbol();
-
-        Type reductor_type = reductor_symbol.get_type();
-
-        if (!reductor_type.is_function())
-        {
-            std::cerr << "User defined reduction in " 
-                << reductor.get_ast().get_locus() << " does not refer a function. Ignoring" << std::endl;
-            return Source("");
-        }
-
-        // Construct the name of its related reduction vector
-        std::string reduced_var_name = reduction_id_expr.get_id_expression().prettyprint();
-        std::string reduction_vector_name = "rdv_" + reduction_id_expr.get_id_expression().mangle_id_expression();
-
-        Source reduction_gathering;
-
-        // FIXME - For C++ this is more difficult. Currently not implemented
-        // Extract the unqualified part of the id-expression
-        // and if it is a member construct a member-access with function call
-        //
-        // The id-expression
-        //
-        // Lets "happily" assume that if the reductor returns void is of the form
-        //
-        //    void f(T*, T);
-        //    void f(T&, T);
-        //
-        // otherwise we will assume it is of type 
-        //
-        //    T f(T, T);
-        //
-        if (reductor_type.returns().is_void())
-        {
-            // If the first parameter is a pointer we will assume that the reductor is of this form
-            //
-            //    void f(T*, t);
-            //
-            // otherwise it will be assumed to be
-            //
-            //    void f(T&, t);
-            //
-            ObjectList<Type> parameters = reductor_type.parameters();
-
-            if (parameters[0].is_pointer())
-            {
-                reduction_gathering
-                    << reductor.prettyprint() << "(&" << reduced_var_name << "," << reduction_vector_name << "[rdv_i]" << ");";
-            }
-            else
-            {
-                reduction_gathering
-                    << reductor.prettyprint() << "(" << reduced_var_name << "," << reduction_vector_name << "[rdv_i]" << ");";
-            }
-        }
-        else
-        {
+            // get the operator involved
+            std::string op = it->get_operation().prettyprint();
             reduction_gathering
-                << reduced_var_name << " = " << reductor.prettyprint() << "(" << reduced_var_name << "," << reduction_vector_name << "[rdv_i]" << ");";
+                << reduced_var_name << " = " << reduced_var_name << op << reduction_vector_name << "[rdv_i]" << ";";
         }
 
         return reduction_gathering;

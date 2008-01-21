@@ -224,4 +224,39 @@ namespace TL
     {
         return _symbol->expression_value;
     }
+
+    bool Symbol::has_namespace_scope() const
+    {
+        return _symbol->decl_context.current_scope != NULL
+            && _symbol->decl_context.current_scope->kind == NAMESPACE_SCOPE;
+    }
+
+    bool Symbol::has_block_scope() const
+    {
+        return _symbol->decl_context.current_scope != NULL
+            && _symbol->decl_context.current_scope->kind == BLOCK_SCOPE;
+    }
+
+    bool Symbol::has_local_scope() const
+    {
+        return has_block_scope();
+    }
+
+    bool Symbol::has_class_scope() const
+    {
+        return _symbol->decl_context.current_scope != NULL
+            && _symbol->decl_context.current_scope->kind == CLASS_SCOPE;
+    }
+
+    bool Symbol::has_template_scope() const
+    {
+        return _symbol->decl_context.current_scope != NULL
+            && _symbol->decl_context.current_scope->kind == TEMPLATE_SCOPE;
+    }
+
+    bool Symbol::has_prototype_scope() const
+    {
+        return _symbol->decl_context.current_scope != NULL
+            && _symbol->decl_context.current_scope->kind == PROTOTYPE_SCOPE;
+    }
 }
