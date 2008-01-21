@@ -1,0 +1,12 @@
+# This file controls how external programs are handled
+[lt-mcxx]
+language = C++
+options = 
+preprocessor_name = g++
+preprocessor_options = -E @NANOS_INCLUDES@ @NEBELUNG_INCLUDES@ 
+compiler_name = g++
+compiler_options = 
+linker_name = g++
+linker_options = @NANOS_LIBS@ @NEBELUNG_LIBS@
+compiler_phase = libtlstmfunc.so
+compiler_phase = libtlomp.so

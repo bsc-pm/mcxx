@@ -307,6 +307,8 @@ then
 
    ENABLED_PROFILES="${ENABLED_PROFILES} NEBELUNG"
    COMPILER_NAMES="${COMPILER_NAMES} stmcxx"
+
+   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcxx.stm"
 fi
 
 AC_SUBST([NEBELUNG_INCLUDES])
@@ -623,6 +625,7 @@ AC_CONFIG_FILES([Makefile
            config/config.superscalar
            tests/Makefile
            tests/mcc.openmp.dg/config.mcxx
+           tests/mcxx.stm.dg/config.mcxx
            doc/Makefile
            ])
 AC_OUTPUT
