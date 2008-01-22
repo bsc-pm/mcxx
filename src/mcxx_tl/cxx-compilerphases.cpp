@@ -27,6 +27,7 @@
 #include "tl-compilerphase.hpp"
 #include "tl-ast.hpp"
 #include "tl-scopelink.hpp"
+#include "tl-objectlist.hpp"
 #include "tl-refptr.hpp"
 
 /*
@@ -52,6 +53,11 @@ namespace TL
                 // Create the DTO
                 TL::DTO dto;
 
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "[DTO] Created\n");
+                }
+
                 RefPtr<TL::AST_t> ast(new TL::AST_t(translation_unit->parsed_tree));
                 dto.set_object("translation_unit", ast);
 
@@ -62,7 +68,26 @@ namespace TL
                         it != compiler_phases.end();
                         it++)
                 {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "[DTO] Contains following keys: \n");
+                        ObjectList<std::string> _keys = dto.get_keys();
+                        for (ObjectList<std::string>::iterator it2 = _keys.begin();
+                                it2 != _keys.end();
+                                it2++)
+                        {
+                            fprintf(stderr, "[DTO]    '%s'\n", it2->c_str());
+                        }
+                        fprintf(stderr, "[DTO] - No more keys\n");
+                    }
+
                     TL::CompilerPhase* phase = (*it);
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "[PHASE] Running phase '%s'\n", phase->get_phase_name().c_str());
+                    }
+
                     phase->run(dto);
 
                     if (phase->get_phase_status() != CompilerPhase::PHASE_STATUS_OK)
@@ -72,6 +97,10 @@ namespace TL
                                 phase->get_phase_name().c_str());
                     }
 
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "[PHASE] Phase '%s' has been run\n", phase->get_phase_name().c_str());
+                    }
                 }
             }
 

@@ -44,6 +44,49 @@ namespace TL
         return _ref.prettyprint();
     }
 
+    ObjectList<IdExpression> LangConstruct::all_symbol_occurrences(SymbolsWanted symbol_filter)
+    {
+        PredicateAST<LANG_IS_ID_EXPRESSION> id_expr_pred;
+        PredicateAST<LANG_IS_ACCESSED_MEMBER> member_access;
+        ObjectList<AST_t> id_expressions = _ref.depth_subtrees()
+            .filter(id_expr_pred)
+            .filter(negate(member_access));
+
+        ObjectList<IdExpression> result;
+
+        for (ObjectList<AST_t>::iterator it = id_expressions.begin();
+                it != id_expressions.end();
+                it++)
+        {
+            AST_t& ref = *it;
+
+            Scope ref_scope = _scope_link.get_scope(ref);
+            Symbol symbol = ref_scope.get_symbol_from_id_expr(ref);
+
+            if (symbol.is_valid())
+            {
+                IdExpression id_expression(*it, _scope_link);
+
+                bool eligible = true;
+                if (symbol_filter == ONLY_OBJECTS)
+                {
+                    eligible = symbol.is_variable();
+                }
+                else if (symbol_filter == ONLY_FUNCTIONS)
+                {
+                    eligible = symbol.is_function();
+                }
+
+                if (eligible)
+                {
+                    result.push_back(id_expression);
+                }
+            }
+        }
+
+        return result;
+    }
+
     ObjectList<IdExpression> LangConstruct::non_local_symbol_occurrences(SymbolsWanted symbol_filter)
     {
         PredicateAST<LANG_IS_ID_EXPRESSION> id_expr_pred;

@@ -24,6 +24,7 @@
 #include <string>
 #include <map>
 #include "tl-object.hpp"
+#include "tl-objectlist.hpp"
 #include "tl-refptr.hpp"
 
 namespace TL
@@ -50,6 +51,20 @@ namespace TL
             void set_object(const std::string& str, RefPtr<Object> obj)
             {
                 _dto[str] = obj;
+            }
+
+            ObjectList<std::string> get_keys() const
+            {
+                ObjectList<std::string> result;
+
+                for (DTO_inner::const_iterator it = _dto.begin();
+                        it != _dto.end();
+                        it++)
+                {
+                    result.insert(it->first);
+                }
+
+                return result;
             }
     };
 }
