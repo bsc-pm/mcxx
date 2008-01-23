@@ -22,50 +22,53 @@
 
 namespace TL
 {
-    bool OpenMPTransform::is_nonstatic_member_function(FunctionDefinition function_definition)
+    namespace Nanos4
     {
-        IdExpression function_name = function_definition.get_function_name();
-        Symbol function_symbol = function_name.get_symbol();
-
-        // It must be a member
-        if (!function_symbol.is_member())
+        bool OpenMPTransform::is_nonstatic_member_function(FunctionDefinition function_definition)
         {
-            return false;
+            IdExpression function_name = function_definition.get_function_name();
+            Symbol function_symbol = function_name.get_symbol();
+
+            // It must be a member
+            if (!function_symbol.is_member())
+            {
+                return false;
+            }
+
+            Statement function_body = function_definition.get_function_body();
+            Scope function_body_scope = function_body.get_scope();
+
+            Symbol sym = function_body_scope.get_symbol_from_name("this");
+
+            if (!sym.is_valid())
+            {
+                return false;
+            }
+
+            return true;
         }
 
-        Statement function_body = function_definition.get_function_body();
-        Scope function_body_scope = function_body.get_scope();
-
-        Symbol sym = function_body_scope.get_symbol_from_name("this");
-
-        if (!sym.is_valid())
+        bool OpenMPTransform::is_unqualified_member_symbol(Symbol current_symbol, FunctionDefinition function_definition)
         {
-            return false;
+            Symbol function_symbol = function_definition.get_function_name().get_symbol();
+
+            if (function_symbol.is_member()
+                    && current_symbol.is_member()
+                    && (function_symbol.get_class_type() 
+                        == current_symbol.get_class_type()))
+            {
+                return 1;
+            }
+
+            return 0;
         }
 
-        return true;
-    }
-
-    bool OpenMPTransform::is_unqualified_member_symbol(Symbol current_symbol, FunctionDefinition function_definition)
-    {
-        Symbol function_symbol = function_definition.get_function_name().get_symbol();
-
-        if (function_symbol.is_member()
-                && current_symbol.is_member()
-                && (function_symbol.get_class_type() 
-                    == current_symbol.get_class_type()))
+        bool OpenMPTransform::is_function_accessible(Symbol current_symbol)
         {
-            return 1;
+            return (current_symbol.has_namespace_scope()
+                    || current_symbol.has_template_scope()
+                    || (current_symbol.has_class_scope()
+                        && current_symbol.is_static()));
         }
-
-        return 0;
-    }
-
-    bool OpenMPTransform::is_function_accessible(Symbol current_symbol)
-    {
-        return (current_symbol.has_namespace_scope()
-                || current_symbol.has_template_scope()
-                || (current_symbol.has_class_scope()
-                    && current_symbol.is_static()));
     }
 }

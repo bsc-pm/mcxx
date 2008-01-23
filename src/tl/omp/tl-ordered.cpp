@@ -22,25 +22,28 @@
 
 namespace TL
 {
-    void OpenMPTransform::ordered_postorder(OpenMP::OrderedConstruct ordered_construct)
+    namespace Nanos4
     {
-        Symbol induction_var = induction_var_stack.top();
+        void OpenMPTransform::ordered_postorder(OpenMP::OrderedConstruct ordered_construct)
+        {
+            Symbol induction_var = induction_var_stack.top();
 
-        Statement construct_body = ordered_construct.body();
-        Source ordered_source;
+            Statement construct_body = ordered_construct.body();
+            Source ordered_source;
 
-        ordered_source
-            << "{"
-            <<   "in__tone_enter_ordered_ (& "<< induction_var.get_name() << ");"
-            <<   construct_body.prettyprint()
-            <<   "in__tone_leave_ordered_ (&" << induction_var.get_name() << ");"
-            << "}"
-            ;
+            ordered_source
+                << "{"
+                <<   "in__tone_enter_ordered_ (& "<< induction_var.get_name() << ");"
+                <<   construct_body.prettyprint()
+                <<   "in__tone_leave_ordered_ (&" << induction_var.get_name() << ");"
+                << "}"
+                ;
 
-        AST_t ordered_code = ordered_source.parse_statement(ordered_construct.get_ast(),
-                ordered_construct.get_scope_link());
+            AST_t ordered_code = ordered_source.parse_statement(ordered_construct.get_ast(),
+                    ordered_construct.get_scope_link());
 
-        ordered_construct.get_ast().replace(ordered_code);
+            ordered_construct.get_ast().replace(ordered_code);
+        }
     }
 }
 

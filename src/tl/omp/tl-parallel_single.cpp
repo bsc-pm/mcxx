@@ -22,241 +22,244 @@
 
 namespace TL
 {
-    void OpenMPTransform::parallel_single_preorder(OpenMP::ParallelSingleConstruct parallel_single_construct)
+    namespace Nanos4
     {
-        // Allocate a new element for inner reductions
-        ObjectList<OpenMP::ReductionSymbol> inner_reductions;
-        inner_reductions_stack.push(inner_reductions);
+        void OpenMPTransform::parallel_single_preorder(OpenMP::ParallelSingleConstruct parallel_single_construct)
+        {
+            // Allocate a new element for inner reductions
+            ObjectList<OpenMP::ReductionSymbol> inner_reductions;
+            inner_reductions_stack.push(inner_reductions);
 
-        // Increase the parallel nesting value
-        parallel_nesting++;
+            // Increase the parallel nesting value
+            parallel_nesting++;
 
-        common_parallel_data_sharing_code(parallel_single_construct);
-    }
+            common_parallel_data_sharing_code(parallel_single_construct);
+        }
 
-    void OpenMPTransform::parallel_single_postorder(OpenMP::ParallelSingleConstruct parallel_single_construct)
-    {
-        // One more parallel seen
-        num_parallels++;
+        void OpenMPTransform::parallel_single_postorder(OpenMP::ParallelSingleConstruct parallel_single_construct)
+        {
+            // One more parallel seen
+            num_parallels++;
 
-        // Decrease the parallel nesting
-        parallel_nesting--;
+            // Decrease the parallel nesting
+            parallel_nesting--;
 
-        // Get the directive
-        OpenMP::Directive directive = parallel_single_construct.directive();
+            // Get the directive
+            OpenMP::Directive directive = parallel_single_construct.directive();
 
-        // Get the enclosing function definition
-        FunctionDefinition function_definition = parallel_single_construct.get_enclosing_function();
-        // its scope
-        Scope function_scope = function_definition.get_scope();
-        // and the id-expression of the function name
-        IdExpression function_name = function_definition.get_function_name();
+            // Get the enclosing function definition
+            FunctionDefinition function_definition = parallel_single_construct.get_enclosing_function();
+            // its scope
+            Scope function_scope = function_definition.get_scope();
+            // and the id-expression of the function name
+            IdExpression function_name = function_definition.get_function_name();
 
-        // This was computed in the preorder
-        ObjectList<Symbol>& shared_references = 
-            parallel_single_construct.get_data<ObjectList<Symbol> >("shared_references");
-        ObjectList<Symbol>& private_references = 
-            parallel_single_construct.get_data<ObjectList<Symbol> >("private_references");
-        ObjectList<Symbol>& firstprivate_references = 
-            parallel_single_construct.get_data<ObjectList<Symbol> >("firstprivate_references");
-        ObjectList<Symbol>& lastprivate_references = 
-            parallel_single_construct.get_data<ObjectList<Symbol> >("lastprivate_references");
-        ObjectList<OpenMP::ReductionSymbol>& reduction_references =
-            parallel_single_construct.get_data<ObjectList<OpenMP::ReductionSymbol> >("reduction_references");
-        ObjectList<Symbol>& copyin_references = 
-            parallel_single_construct.get_data<ObjectList<Symbol> >("copyin_references");
-        ObjectList<Symbol>& copyprivate_references = 
-            parallel_single_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
+            // This was computed in the preorder
+            ObjectList<Symbol>& shared_references = 
+                parallel_single_construct.get_data<ObjectList<Symbol> >("shared_references");
+            ObjectList<Symbol>& private_references = 
+                parallel_single_construct.get_data<ObjectList<Symbol> >("private_references");
+            ObjectList<Symbol>& firstprivate_references = 
+                parallel_single_construct.get_data<ObjectList<Symbol> >("firstprivate_references");
+            ObjectList<Symbol>& lastprivate_references = 
+                parallel_single_construct.get_data<ObjectList<Symbol> >("lastprivate_references");
+            ObjectList<OpenMP::ReductionSymbol>& reduction_references =
+                parallel_single_construct.get_data<ObjectList<OpenMP::ReductionSymbol> >("reduction_references");
+            ObjectList<Symbol>& copyin_references = 
+                parallel_single_construct.get_data<ObjectList<Symbol> >("copyin_references");
+            ObjectList<Symbol>& copyprivate_references = 
+                parallel_single_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
 
-        // Get the construct_body of the statement
-        Statement construct_body = parallel_single_construct.body();
+            // Get the construct_body of the statement
+            Statement construct_body = parallel_single_construct.body();
 
-        // Create the replacement map and fill the parameter info list
-        ObjectList<ParameterInfo> parameter_info_list;
-        ReplaceIdExpression replace_references = 
-            set_replacements(function_definition,
-                    directive,
+            // Create the replacement map and fill the parameter info list
+            ObjectList<ParameterInfo> parameter_info_list;
+            ReplaceIdExpression replace_references = 
+                set_replacements(function_definition,
+                        directive,
+                        construct_body,
+                        shared_references,
+                        private_references,
+                        firstprivate_references,
+                        lastprivate_references,
+                        reduction_references,
+                        inner_reductions_stack.top(),
+                        copyin_references,
+                        copyprivate_references,
+                        parameter_info_list);
+
+            // Get the outline function name
+            Source outlined_function_name = get_outlined_function_name(function_name);
+
+            // Create the outline for parallel for using 
+            // the privatized entities and pass by pointer
+            // lists.
+            // Additionally {first|last}private and reduction
+            // entities are needed for proper initializations
+            // and assignments.
+            AST_t outline_code = get_outline_parallel_single(
+                    parallel_single_construct,
+                    function_definition,
+                    outlined_function_name, 
                     construct_body,
-                    shared_references,
+                    replace_references,
+                    parameter_info_list,
                     private_references,
                     firstprivate_references,
                     lastprivate_references,
                     reduction_references,
-                    inner_reductions_stack.top(),
                     copyin_references,
-                    copyprivate_references,
-                    parameter_info_list);
+                    copyprivate_references);
 
-        // Get the outline function name
-        Source outlined_function_name = get_outlined_function_name(function_name);
+            // In the AST of the function definition, prepend outline_code
+            // as a sibling (at the same level)
+            function_definition.get_ast().prepend_sibling_function(outline_code);
 
-        // Create the outline for parallel for using 
-        // the privatized entities and pass by pointer
-        // lists.
-        // Additionally {first|last}private and reduction
-        // entities are needed for proper initializations
-        // and assignments.
-        AST_t outline_code = get_outline_parallel_single(
-                parallel_single_construct,
-                function_definition,
-                outlined_function_name, 
-                construct_body,
-                replace_references,
-                parameter_info_list,
-                private_references,
-                firstprivate_references,
-                lastprivate_references,
-                reduction_references,
-                copyin_references,
-                copyprivate_references);
+            // Now create the spawning code. Pass by pointer list and
+            // reductions are needed for proper pass of data and reduction
+            // vectors declaration
 
-        // In the AST of the function definition, prepend outline_code
-        // as a sibling (at the same level)
-        function_definition.get_ast().prepend_sibling_function(outline_code);
+            OpenMP::Clause num_threads = directive.num_threads_clause();
+            OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
 
-        // Now create the spawning code. Pass by pointer list and
-        // reductions are needed for proper pass of data and reduction
-        // vectors declaration
+            Source instrument_code_before;
+            Source instrument_code_after;
 
-        OpenMP::Clause num_threads = directive.num_threads_clause();
-        OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
+            if (instrumentation_requested())
+            {
+                instrument_code_before
+                    << "const int EVENT_PARALLEL = 60000001;"
+                    << "const int VALUE_PARALLEL_SINGLE = 4;"
+                    << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SINGLE);"
+                    << "mintaka_state_schedule();"
+                    ;
+                instrument_code_after
+                    << "const int VALUE_PARALLEL_CLOSE = 0;"
+                    << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
+                    << "mintaka_state_run();"
+                    ;
+            }
 
-        Source instrument_code_before;
-        Source instrument_code_after;
+            AST_t spawn_code = get_parallel_spawn_code(
+                    parallel_single_construct.get_ast(),
+                    function_definition,
+                    parallel_single_construct.get_scope(),
+                    parallel_single_construct.get_scope_link(),
+                    parameter_info_list,
+                    reduction_references,
+                    num_threads,
+                    groups_clause,
+                    instrument_code_before,
+                    instrument_code_after
+                    );
 
-        if (instrumentation_requested())
-        {
-            instrument_code_before
-                << "const int EVENT_PARALLEL = 60000001;"
-                << "const int VALUE_PARALLEL_SINGLE = 4;"
-                << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SINGLE);"
-                << "mintaka_state_schedule();"
-                ;
-            instrument_code_after
-                << "const int VALUE_PARALLEL_CLOSE = 0;"
-                << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
-                << "mintaka_state_run();"
-                ;
+            // Discard inner reductions information
+            inner_reductions_stack.pop();
+
+            // Now replace the whole construct with spawn_code
+            parallel_single_construct.get_ast().replace(spawn_code);
         }
 
-        AST_t spawn_code = get_parallel_spawn_code(
-                parallel_single_construct.get_ast(),
-                function_definition,
-                parallel_single_construct.get_scope(),
-                parallel_single_construct.get_scope_link(),
-                parameter_info_list,
-                reduction_references,
-                num_threads,
-                groups_clause,
-                instrument_code_before,
-                instrument_code_after
-                );
+        AST_t OpenMPTransform::get_outline_parallel_single(
+                OpenMP::Construct &construct,
+                FunctionDefinition function_definition,
+                Source outlined_function_name,
+                Statement construct_body,
+                ReplaceIdExpression replace_references,
+                ObjectList<ParameterInfo> parameter_info,
+                ObjectList<Symbol> private_references,
+                ObjectList<Symbol> firstprivate_references,
+                ObjectList<Symbol> lastprivate_references,
+                ObjectList<OpenMP::ReductionSymbol> reduction_references,
+                ObjectList<Symbol> copyin_references,
+                ObjectList<Symbol> /* copyprivate_references --?? */
+                )
+        {
+            ObjectList<IdExpression> pass_by_value;
 
-        // Discard inner reductions information
-        inner_reductions_stack.pop();
+            Source outline_parallel;
+            Source parallel_body;
+            Source empty;
 
-        // Now replace the whole construct with spawn_code
-        parallel_single_construct.get_ast().replace(spawn_code);
-    }
+            outline_parallel = get_outline_common(
+                    function_definition,
+                    parallel_body, // The body of the outline
+                    outlined_function_name,
+                    parameter_info);
 
-    AST_t OpenMPTransform::get_outline_parallel_single(
-            OpenMP::Construct &construct,
-            FunctionDefinition function_definition,
-            Source outlined_function_name,
-            Statement construct_body,
-            ReplaceIdExpression replace_references,
-            ObjectList<ParameterInfo> parameter_info,
-            ObjectList<Symbol> private_references,
-            ObjectList<Symbol> firstprivate_references,
-            ObjectList<Symbol> lastprivate_references,
-            ObjectList<OpenMP::ReductionSymbol> reduction_references,
-            ObjectList<Symbol> copyin_references,
-            ObjectList<Symbol> /* copyprivate_references --?? */
-            )
-    {
-        ObjectList<IdExpression> pass_by_value;
+            // Replace references using set "replace_references" over construct body
+            Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
 
-        Source outline_parallel;
-        Source parallel_body;
-        Source empty;
+            Source private_declarations = get_privatized_declarations(
+                    construct,
+                    private_references,
+                    firstprivate_references,
+                    lastprivate_references,
+                    reduction_references,
+                    copyin_references,
+                    parameter_info
+                    ); 
 
-        outline_parallel = get_outline_common(
-                function_definition,
-                parallel_body, // The body of the outline
-                outlined_function_name,
-                parameter_info);
+            Source reduction_update = get_reduction_update(reduction_references);
 
-        // Replace references using set "replace_references" over construct body
-        Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
+            Source single_source;
 
-        Source private_declarations = get_privatized_declarations(
-                construct,
-                private_references,
-                firstprivate_references,
-                lastprivate_references,
-                reduction_references,
-                copyin_references,
-                parameter_info
-                ); 
+            Source barrier_code;
 
-        Source reduction_update = get_reduction_update(reduction_references);
+            Source instrumentation_code_before, instrumentation_code_after;
+            single_source
+                << "{"
+                <<   "int nth_low;"
+                <<   "int nth_upper;"
+                <<   "int nth_step;"
+                <<   "int nth_chunk;"
+                <<   "int nth_schedule;"
+                <<   "int nth_dummy1;"
+                <<   "int nth_dummy2;"
+                <<   "int nth_dummy3;"
+                <<   "int nth_barrier; "
 
-        Source single_source;
+                <<   "nth_low = 0;"
+                <<   "nth_upper = 0;"
+                <<   "nth_step = 1;"
+                <<   "nth_schedule = 2;" // Dynamic
+                <<   "nth_chunk = 1;"
 
-        Source barrier_code;
+                //                    <<   "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
+                //                    <<   "extern int in__tone_next_iters_(int*, int*, int*);"
+                //                    <<   "extern void in__tone_end_for_(int*);"
 
-        Source instrumentation_code_before, instrumentation_code_after;
-        single_source
-            << "{"
-            <<   "int nth_low;"
-            <<   "int nth_upper;"
-            <<   "int nth_step;"
-            <<   "int nth_chunk;"
-            <<   "int nth_schedule;"
-            <<   "int nth_dummy1;"
-            <<   "int nth_dummy2;"
-            <<   "int nth_dummy3;"
-            <<   "int nth_barrier; "
+                <<   "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
+                <<   "while (in__tone_next_iters_ (&nth_dummy1, &nth_dummy2, &nth_dummy3) != 0)"
+                <<   "{"
+                <<       instrumentation_code_before
+                <<       modified_parallel_body_stmt.prettyprint()
+                <<       instrumentation_code_after
+                <<   "}"
+                <<   barrier_code
+                << "}"
+                ;
 
-            <<   "nth_low = 0;"
-            <<   "nth_upper = 0;"
-            <<   "nth_step = 1;"
-            <<   "nth_schedule = 2;" // Dynamic
-            <<   "nth_chunk = 1;"
+            barrier_code << "nth_barrier = 1;";
+            barrier_code << "in__tone_end_for_(&nth_barrier);";
 
-            //                    <<   "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
-            //                    <<   "extern int in__tone_next_iters_(int*, int*, int*);"
-            //                    <<   "extern void in__tone_end_for_(int*);"
+            instrumentation_outline(instrumentation_code_before,
+                    instrumentation_code_after, 
+                    function_definition,
+                    construct_body);
 
-            <<   "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
-            <<   "while (in__tone_next_iters_ (&nth_dummy1, &nth_dummy2, &nth_dummy3) != 0)"
-            <<   "{"
-            <<       instrumentation_code_before
-            <<       modified_parallel_body_stmt.prettyprint()
-            <<       instrumentation_code_after
-            <<   "}"
-            <<   barrier_code
-            << "}"
-            ;
+            Source task_block_code;
 
-        barrier_code << "nth_barrier = 1;";
-        barrier_code << "in__tone_end_for_(&nth_barrier);";
+            parallel_body 
+                << private_declarations
+                << single_source
+                << task_block_code
+                ;
 
-        instrumentation_outline(instrumentation_code_before,
-                instrumentation_code_after, 
-                function_definition,
-                construct_body);
+            task_block_code = get_task_block_code();
 
-        Source task_block_code;
-
-        parallel_body 
-            << private_declarations
-            << single_source
-            << task_block_code
-            ;
-
-        task_block_code = get_task_block_code();
-        
-        return finish_outline(function_definition, outline_parallel, parameter_info);
+            return finish_outline(function_definition, outline_parallel, parameter_info);
+        }
     }
 }

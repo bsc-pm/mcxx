@@ -26,18 +26,21 @@
 
 namespace TL
 {
-    class FunctionFilterFile 
+    namespace Nanos4
     {
-        private:
-            bool _filter_inverted;
-            std::set<std::string> _filter_set;
-        public:
-            FunctionFilterFile() { }
-            bool match(const std::string& function_name);
+        class FunctionFilterFile 
+        {
+            private:
+                bool _filter_inverted;
+                std::set<std::string> _filter_set;
+            public:
+                FunctionFilterFile() { }
+                bool match(const std::string& function_name);
 
-			void set_inverted(bool b);
-            void init(const std::string& filter_file_name, const std::string& filter_mode_var);
-    };
+                void set_inverted(bool b);
+                void init(const std::string& filter_file_name, const std::string& filter_mode_var);
+        };
+    }
 }
 
 #endif // TL_INSTRUMENTFILTER_HPP
