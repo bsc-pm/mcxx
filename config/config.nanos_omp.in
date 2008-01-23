@@ -8,6 +8,8 @@ compiler_name = gcc
 compiler_options = 
 linker_name = gcc
 linker_options = @NANOS_LIBS@ @MINTAKA_LIBS@
+pragma_prefix = nanos
+compiler_phase = libtlnanos.so
 @INSTRUMENTATION_PHASE@
 compiler_phase = libtlomp.so
 
@@ -20,6 +22,8 @@ compiler_name = g++
 compiler_options = 
 linker_name = g++
 linker_options = @NANOS_LIBS@ @MINTAKA_LIBS@
+pragma_prefix = nanos
+compiler_phase = libtlnanos.so
 @INSTRUMENTATION_PHASE@
 compiler_phase = libtlomp.so
 
@@ -32,5 +36,7 @@ compiler_name = icc
 compiler_options =
 linker_name = icc
 linker_options = @NANOS_LIBS@
+pragma_prefix = nanos
+compiler_phase = libtlnanos.so
 @INSTRUMENTATION_PHASE@
 compiler_phase = libtlomp.so

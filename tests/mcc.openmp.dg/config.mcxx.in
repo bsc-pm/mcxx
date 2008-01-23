@@ -8,4 +8,6 @@ compiler_name = gcc
 compiler_options = 
 linker_name = gcc
 linker_options = @NANOS_LIBS@ 
+pragma_prefix = nanos
+compiler_phase = libtlnanos.so
 compiler_phase = libtlomp.so

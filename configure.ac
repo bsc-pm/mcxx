@@ -111,7 +111,7 @@ then
    NANOS_INCLUDES="-D_OPENMP=200505 -I ${nanos4_include} -include nthreads.h -include omp.h -include intone.h"
    NANOS_LIBS="-L${nanos4_lib} -lnthreads -Wl,-rpath,${nanos4_lib}"
 
-   TLEXTENSIONS="${TLEXTENSIONS} omp"
+   TLEXTENSIONS="${TLEXTENSIONS} nanos omp"
    ENABLED_PROFILES="${ENABLED_PROFILES} NANOS"
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
@@ -608,6 +608,7 @@ AC_CONFIG_FILES([Makefile
            src/frontend/Makefile 
            src/mcxx_tl/Makefile 
            src/tl/Makefile 
+           src/tl/nanos/Makefile 
            src/tl/omp/Makefile 
            src/tl/instr/Makefile 
            src/tl/acotes/Makefile
