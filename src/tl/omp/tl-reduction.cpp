@@ -51,10 +51,11 @@ namespace TL
                 it != reduction_references.end();
                 it++)
         {
-            // get the operator involved
-            std::string reduced_var_name = it->get_symbol().get_name();
+            // We lack a scope here for the qualified name
+            std::string reduced_var_name = it->get_symbol().get_qualified_name();
             std::string reduction_var_name = "rdp_" + it->get_symbol().get_name();
 
+            // get the operator involved
             std::string op = it->get_operation().prettyprint();
 
             reduction_gathering 
@@ -227,7 +228,8 @@ namespace TL
             // If it is not a user defined one it is easy
 
             // Construct the name of its related reduction vector
-            std::string reduced_var_name = it->get_symbol().get_name();
+            // We are lacking a scope here for the qualified name
+            std::string reduced_var_name = it->get_symbol().get_qualified_name();
             std::string reduction_vector_name = "rdv_" + it->get_symbol().get_name();
 
             // get the operator involved

@@ -53,6 +53,23 @@ namespace TL
         }
     }
 
+    std::string Symbol::get_qualified_name(Scope sc) const
+    {
+        if (_symbol->symbol_name == NULL)
+        {
+            return std::string("");
+        }
+        else
+        {
+            // FIXME -> the scope should be the occurrence one
+            int max_level = 0;
+            char is_dependent = 0;
+            const char* qualified_name = get_fully_qualified_symbol_name(_symbol, sc._decl_context, 
+                    &is_dependent, &max_level);
+            return std::string(qualified_name);
+        }
+    }
+
     bool Symbol::operator<(Symbol s) const
     {
         return this->_symbol < s._symbol;

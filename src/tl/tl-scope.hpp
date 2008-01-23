@@ -107,6 +107,7 @@ namespace TL
             bool operator==(Scope sc) const;
             bool operator!=(Scope sc) const;
 
+            friend class Symbol;
             friend class Type;
             friend class Source;
             friend class Expression;

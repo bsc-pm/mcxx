@@ -488,7 +488,7 @@ namespace TL
                 continue;
 
             // Add the size in the vector
-            size_vector << ", sizeof(" << it->symbol.get_name() << ")"
+            size_vector << ", sizeof(" << it->symbol.get_qualified_name(task_construct.get_scope()) << ")"
                 ;
 
             // A reference to the vector
@@ -573,7 +573,7 @@ namespace TL
                     << type.get_declaration_with_initializer(
                             task_construct.get_scope(),
                             "cval_" + it->symbol.get_name(),
-                            it->symbol.get_name()) 
+                            it->symbol.get_qualified_name(task_construct.get_scope())) 
                     << ";"
                     ;
                 fallback_arguments.append_with_separator("&cval_" + it->symbol.get_name(), ",");
@@ -581,7 +581,7 @@ namespace TL
             else
             {
                 Source src_array_copy = array_copy(type, "cval_" + it->symbol.get_name(),
-                        it->symbol.get_name(), 0);
+                        it->symbol.get_qualified_name(task_construct.get_scope()), 0);
 
                 fallback_capture_values
                     << type.get_declaration(task_construct.get_scope(),
@@ -630,7 +630,7 @@ namespace TL
                     copy_sequence
                         << "new (nth_arg_addr[" << vector_index << "])" 
                         << type.get_declaration(task_construct.get_scope(), "")
-                        << "(" << sym.get_name() << ");"
+                        << "(" << sym.get_qualified_name(task_construct.get_scope()) << ");"
                         ;
                 }
 

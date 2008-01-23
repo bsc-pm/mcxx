@@ -299,7 +299,8 @@ namespace TL
                     }
 
                     ParameterInfo parameter(symbol.get_name(), 
-                            symbol.get_name(), symbol, pointer_type, ParameterInfo::BY_POINTER);
+                            symbol.get_qualified_name(construct_body.get_scope()), 
+                            symbol, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
                 }
                 else
@@ -312,7 +313,8 @@ namespace TL
                     }
 
                     ParameterInfo parameter(symbol.get_name(), 
-                            "&" + symbol.get_name(), symbol, pointer_type, ParameterInfo::BY_POINTER);
+                            "&" + symbol.get_qualified_name(construct_body.get_scope()), 
+                            symbol, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
                     result.add_replacement(symbol, "(*" + symbol.get_name() + ")", 
                             construct_body.get_ast(), construct_body.get_scope_link());
@@ -358,7 +360,7 @@ namespace TL
                 }
 
                 ParameterInfo parameter("flp_" + symbol.get_name(), 
-                        symbol.get_name(),
+                        symbol.get_qualified_name(construct_body.get_scope()),
                         symbol, pointer_type, ParameterInfo::BY_POINTER);
                 parameter_info.append(parameter);
             }
@@ -371,7 +373,7 @@ namespace TL
                 }
 
                 ParameterInfo parameter("flp_" + symbol.get_name(), 
-                        "&" + symbol.get_name(),
+                        "&" + symbol.get_qualified_name(construct_body.get_scope()),
                         symbol, pointer_type, ParameterInfo::BY_POINTER);
                 parameter_info.append(parameter);
             }
@@ -404,7 +406,7 @@ namespace TL
                     }
 
                     ParameterInfo parameter("flp_" + symbol.get_name(), 
-                            symbol.get_name(), 
+                            symbol.get_qualified_name(construct_body.get_scope()), 
                             symbol, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
                 }
@@ -417,7 +419,7 @@ namespace TL
                     }
 
                     ParameterInfo parameter("flp_" + symbol.get_name(), 
-                            "&" + symbol.get_name(),
+                            "&" + symbol.get_qualified_name(construct_body.get_scope()), 
                             *it, pointer_type, ParameterInfo::BY_POINTER);
                     parameter_info.append(parameter);
                 }
@@ -494,7 +496,7 @@ namespace TL
             }
 
             ParameterInfo parameter("cin_" + symbol.get_name(), 
-                    "&" + symbol.get_name(),
+                    "&" + symbol.get_qualified_name(construct_body.get_scope()),
                     *it, type, ParameterInfo::BY_POINTER);
             parameter_info.append(parameter);
         }
@@ -514,7 +516,7 @@ namespace TL
             }
 
             ParameterInfo parameter("cout_" + symbol.get_name(),
-                    "&" + symbol.get_name(),
+                    "&" + symbol.get_qualified_name(construct_body.get_scope()),
                     *it, pointer_type, ParameterInfo::BY_POINTER);
             parameter_info.append(parameter);
         }

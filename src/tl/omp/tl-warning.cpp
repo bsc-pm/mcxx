@@ -24,14 +24,14 @@ namespace TL
 {
     Symbol OpenMPTransform::warn_unreferenced_data(Symbol sym)
     {
-        std::cerr << "Warning: Entity '" << sym.get_name() << "' "
+        std::cerr << "Warning: Entity '" << sym.get_qualified_name() << "' "
             << "is not referenced in the body of the construct" << std::endl;
         return sym;
     }
 
     Symbol OpenMPTransform::warn_no_data_sharing(Symbol sym)
     {
-        std::cerr << "Warning: '" << sym.get_name() << "' "
+        std::cerr << "Warning: '" << sym.get_qualified_name() << "' "
             << " does not have a data sharing attribute and 'default(none)' was specified. "
             << "It will be considered shared." << std::endl;
         return sym;

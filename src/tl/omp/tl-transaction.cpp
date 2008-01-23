@@ -797,7 +797,7 @@ namespace TL
 
                 if (declared_sym.is_static())
                 {
-                    std::cerr << "WARNING: Declaration of '" << declared_sym.get_name() << "' "
+                    std::cerr << "WARNING: Declaration of '" << declared_sym.get_qualified_name() << "' "
                         << "at '" << declaration.get_ast().get_locus() << "' "
                         << "defines a static entity. This might lead to incorrect code."
                         << std::endl;

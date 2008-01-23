@@ -192,7 +192,7 @@ namespace TL
             Type type = sym.get_type();
 
             private_declarations << 
-                comment("Private entity : '" + sym.get_name() + "'");
+                comment("Private entity : '" + sym.get_qualified_name() + "'");
             private_declarations
                 << type.get_declaration(
                         construct.get_scope(),
@@ -225,7 +225,7 @@ namespace TL
             }
             else
             {
-                initializer_value << sym.get_name();
+                initializer_value << sym.get_qualified_name(construct.get_scope());
             }
 
             private_declarations << 
@@ -336,7 +336,7 @@ namespace TL
             Symbol &sym (*it);
             private_declarations
                 << comment("Initializing copyin entity '" + sym.get_name() + "'")
-                << sym.get_name() << " = " << "(*cin_" + sym.get_name() << ");"
+                << sym.get_qualified_name(construct.get_scope()) << " = " << "(*cin_" + sym.get_name() << ");"
                 ;
         }
 

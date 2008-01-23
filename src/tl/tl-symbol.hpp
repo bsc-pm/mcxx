@@ -76,7 +76,10 @@ namespace TL
             Type get_type() const;
             std::string get_name() const;
 
+            // This function will lack context when templates are involved
             std::string get_qualified_name() const;
+            // This one requires a proper scope when templates are involved
+            std::string get_qualified_name(Scope sc) const;
 
             Scope get_scope() const;
 

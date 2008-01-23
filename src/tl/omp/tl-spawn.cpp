@@ -123,7 +123,7 @@ namespace TL
 
             // now get the code that declares this reduction vector
             reduction_vectors
-                << comment("Reduction vector for '" + it->get_symbol().get_name() + "'")
+                << comment("Reduction vector for '" + it->get_symbol().get_qualified_name() + "'")
                 << reduction_vector_type.get_declaration(scope, 
                         reduction_vector_name) << ";";
         }
@@ -163,10 +163,10 @@ namespace TL
                 continue;
 
             // Size and reference
-            size_vector << ", sizeof(" << it->symbol.get_name() << ")";
+            size_vector << ", sizeof(" << it->symbol.get_qualified_name(scope) << ")";
 
             referenced_parameters << ", &nth_sizes[" << (num_args_val + 1) << "], &" 
-                << it->symbol.get_name();
+                << it->symbol.get_qualified_name(scope);
 
             num_args_val++;
         }
