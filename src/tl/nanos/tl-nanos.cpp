@@ -12,7 +12,7 @@ namespace TL
     {
         // Definition of static members
         const int Version::DEFAULT_VERSION = 399;
-        const char* Version::DEFAULT_FAMILY = "trunk";
+        const char* Version::DEFAULT_FAMILY = "\"trunk\"";
 
         int Version::version(Version::DEFAULT_VERSION);
         std::string Version::family(Version::DEFAULT_FAMILY);

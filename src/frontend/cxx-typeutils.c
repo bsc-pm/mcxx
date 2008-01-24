@@ -2626,9 +2626,37 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2,
     if (t1->array_expr != NULL
             && t2->array_expr != NULL)
     {
-        if (!same_functional_expression(t1->array_expr, t1->array_expr_decl_context, 
-                t2->array_expr, t2->array_expr_decl_context))
-            return 0;
+        CXX_LANGUAGE()
+        {
+            if (!same_functional_expression(t1->array_expr, t1->array_expr_decl_context, 
+                        t2->array_expr, t2->array_expr_decl_context))
+                return 0;
+        }
+        C_LANGUAGE()
+        {
+            literal_value_t literal_1 
+                = evaluate_constant_expression(t1->array_expr, t1->array_expr_decl_context);
+            literal_value_t literal_2
+                = evaluate_constant_expression(t2->array_expr, t2->array_expr_decl_context);
+
+            if (literal_1.kind != LVK_DEPENDENT_EXPR
+                    && literal_1.kind != LVK_INVALID
+                    && literal_2.kind != LVK_DEPENDENT_EXPR
+                    && literal_2.kind != LVK_INVALID
+                    && !equal_literal_values(literal_1, literal_2, decl_context))
+            {
+                return 0;
+            }
+            else
+            {
+                // Otherwise do nothing since VLA's are sort of a flexible thing
+                //
+                // void f(int n, int a[10][n]);
+                // void f(int n, int a[10][n+1]);
+                //
+                // They are not incompatible
+            }
+        }
     }
     else
     {
