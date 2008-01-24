@@ -4906,6 +4906,11 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
             decl_context,
             called_expression);
 
+    // Set these attributes
+    ASTAttrSetValueType(called_expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(called_expression, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(called_expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(called_expression));
+
     if (entry_list != NULL)
     {
         ast_set_expression_type(called_expression, get_unresolved_overloaded_type(entry_list, 

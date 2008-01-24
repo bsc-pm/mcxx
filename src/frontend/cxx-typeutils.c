@@ -4465,26 +4465,16 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                 // Fix this
                 scope_entry_t* entry = simple_type->user_defined_type;
 
-                // They do not have type
-                if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-                        || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER
-                        || entry->kind == SK_TEMPLATE_PARAMETER)
-                {
-                    result = entry->symbol_name;
-                }
-                else
-                {
-                    char is_dependent = 0;
-                    int max_level = 0;
-                    result = get_fully_qualified_symbol_name(simple_type->user_defined_type,
-                            decl_context, &is_dependent, &max_level);
+                char is_dependent = 0;
+                int max_level = 0;
+                result = get_fully_qualified_symbol_name(entry,
+                        decl_context, &is_dependent, &max_level);
 
-                    // If is a dependent name and it is qualified then it can be
-                    // given a "typename" keyword (in some cases one must do that)
-                    if (is_dependent && max_level > 0)
-                    {
-                        result = strappend("typename ", result);
-                    }
+                // If is a dependent name and it is qualified then it can be
+                // given a "typename" keyword (in some cases one must do that)
+                if (is_dependent && max_level > 0)
+                {
+                    result = strappend("typename ", result);
                 }
                 break;
             }

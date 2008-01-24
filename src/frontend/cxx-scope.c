@@ -2991,7 +2991,7 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
     return result;
 }
 
-static scope_entry_t* find_template_parameter(scope_t* st, scope_entry_t* template_param, decl_context_t decl_context)
+static scope_entry_t* find_template_parameter(scope_t* st, scope_entry_t* template_param)
 {
     Iterator* it = (Iterator*) hash_iterator_create(st->hash);
     for ( iterator_first(it); 
@@ -3004,16 +3004,13 @@ static scope_entry_t* find_template_parameter(scope_t* st, scope_entry_t* templa
 
         if (entry->kind == template_param->kind
                 && (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
-                    || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER))
+                    || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+                && (entry->entity_specs.template_parameter_position 
+                    == template_param->entity_specs.template_parameter_position)
+                && (entry->entity_specs.template_parameter_nesting 
+                    == template_param->entity_specs.template_parameter_nesting))
         {
-            type_t* type_current = entry->type_information;
-            type_t* type_param = template_param->type_information;
-
-
-            if (equivalent_types(type_current, type_param, decl_context))
-            {
-                return entry;
-            }
+            return entry;
         }
     }
 
@@ -3027,7 +3024,7 @@ static const char* give_name_for_template_parameter(scope_entry_t* entry, decl_c
     scope_t* st = decl_context.template_scope;
     while (st != NULL)
     {
-        scope_entry_t* template_parameter = find_template_parameter(st, entry, decl_context);
+        scope_entry_t* template_parameter = find_template_parameter(st, entry);
         if (template_parameter != NULL)
         {
             return template_parameter->symbol_name;
@@ -3044,7 +3041,7 @@ static const char* give_name_for_template_parameter(scope_entry_t* entry, decl_c
     return NULL;
 }
 
-const char* get_unqualified_template_symbol_name(scope_entry_t* entry, 
+static const char* get_unqualified_template_symbol_name(scope_entry_t* entry, 
         decl_context_t decl_context)
 {
     char* result = "";
@@ -3117,14 +3114,23 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
 
     const char* result = strdup(entry->symbol_name);
 
-    if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
+    if (entry->kind == SK_TEMPLATE_PARAMETER
+            || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
             || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
     {
         // This symbol must be looked up for the proper real name
         result = give_name_for_template_parameter(entry, decl_context);
 
-        (*is_dependent) |= is_dependent_type(entry->type_information, decl_context);
+        // This is obviously dependent
+        (*is_dependent) |= 1;
         return result;
+    }
+    else if (entry->type_information != NULL
+            && is_template_specialized_type(entry->type_information)
+            && !is_function_type(entry->type_information))
+    {
+        const char *template_arguments = get_unqualified_template_symbol_name(entry, decl_context);
+        result = strappend(result, template_arguments);
     }
 
 

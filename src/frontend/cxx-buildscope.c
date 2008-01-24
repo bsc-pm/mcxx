@@ -679,12 +679,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                     fprintf(stderr, "Initializer: '%s'\n", ast_print_node_type(ASTType(initializer)));
                 }
 
-                if (!check_for_initialization(initializer, entry->decl_context))
-                {
-                    internal_error("Initializer '%s' in %s could not be disambiguated!\n",
-                            prettyprint_in_buffer(initializer),
-                            ast_location(initializer));
-                }
+                // This will yield a warning if needed but do not make it an error
+                check_for_initialization(initializer, entry->decl_context);
 
                 entry->expression_value = initializer;
 
@@ -6781,9 +6777,12 @@ static void build_scope_expression_statement(AST a,
 
     if (ASTExprType(expr) == NULL)
     {
-        WARNING_MESSAGE("Expression '%s' at '%s' does not have any computed type\n",
-                prettyprint_in_buffer(expr),
-                ast_location(expr));
+        if (!checking_ambiguity())
+        {
+            WARNING_MESSAGE("Expression '%s' at '%s' does not have any computed type\n",
+                    prettyprint_in_buffer(expr),
+                    ast_location(expr));
+        }
     }
     else
     {

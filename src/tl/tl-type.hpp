@@ -196,6 +196,10 @@ namespace TL
             // returns the same
             Type original_type(void) const;
 
+            // Template types
+            bool is_template_specialized_type() const;
+            ObjectList<Symbol> get_template_parameters() const;
+
             /* We should consider to remove this one day */
             friend class Symbol;
             friend class Source;

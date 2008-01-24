@@ -487,4 +487,26 @@ namespace TL
     {
         return typedef_type_get_aliased_type(_type_info);
     }
+
+    bool Type::is_template_specialized_type() const
+    {
+        return (::is_template_specialized_type(_type_info));
+    }
+
+    ObjectList<Symbol> Type::get_template_parameters() const
+    {
+        ObjectList<Symbol> result;
+        template_parameter_list_t* template_parameters = template_specialized_type_get_template_parameters(_type_info);
+
+        int i;
+        for (i = 0; i < template_parameters->num_template_parameters; i++)
+        {
+            template_parameter_t* template_parameter = template_parameters->template_parameters[i];
+
+            Symbol sym(template_parameter->entry);
+            result.append(sym);
+        }
+
+        return result;
+    }
 }

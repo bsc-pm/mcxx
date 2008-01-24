@@ -93,7 +93,6 @@ struct scope_entry_list_tag* create_list_from_entry(struct scope_entry_tag* entr
 
 // Get the fully qualified symbol name in the scope of the ocurrence
 const char* get_fully_qualified_symbol_name(struct scope_entry_tag* entry, decl_context_t decl_context, char* is_dependent, int* max_qualif_level);
-const char* get_unqualified_template_symbol_name(struct scope_entry_tag* entry, decl_context_t decl_context);
 
 // Class scopes
 struct scope_entry_list_tag* class_context_lookup(decl_context_t decl_context, const char* name);
