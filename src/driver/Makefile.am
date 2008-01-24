@@ -83,13 +83,13 @@ endif
 install-exec-hook: 
 	for compiler_name in @COMPILER_NAMES@; \
 		do \
-			(cd $(DESTDIR)/$(mcxxexecdir); test -e $${compiler_name} || $(LN_S) mcxx $${compiler_name}) \
+			(cd $(DESTDIR)/$(mcxxexecdir); test -e $${compiler_name} || $(LN_S) mcxx $${compiler_name}) ; \
 		done
 	
-
 uninstall-local:
 	for compiler_name in @COMPILER_NAMES@; \
 		do \
-			rm -f $(DESTDIR)/$(mcxxexecdir)/$${compiler_name}
+			rm -f $(DESTDIR)/$(mcxxexecdir)/$${compiler_name} ; \
 		done
+
 
