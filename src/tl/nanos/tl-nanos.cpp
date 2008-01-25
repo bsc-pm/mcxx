@@ -58,8 +58,8 @@ namespace TL
             }
 
             versioning_symbols
-                << "const char* const __nanos_family __attribute__((weak)) = " << Version::family << ";"
-                << "const int __nanos_version __attribute__((weak)) = " << Version::version << ";"
+                << "char* const __nanos_family __attribute__((weak)) = " << Version::family << ";"
+                << "int __nanos_version __attribute__((weak)) = " << Version::version << ";"
                 ;
 
             CXX_LANGUAGE()
