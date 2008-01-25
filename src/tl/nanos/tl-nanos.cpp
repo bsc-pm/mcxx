@@ -58,7 +58,7 @@ namespace TL
             }
 
             versioning_symbols
-                << "char* const __nanos_family __attribute__((weak)) = " << Version::family << ";"
+                << "const char* __nanos_family __attribute__((weak)) = " << Version::family << ";"
                 << "int __nanos_version __attribute__((weak)) = " << Version::version << ";"
                 ;
 
