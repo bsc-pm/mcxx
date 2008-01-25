@@ -848,7 +848,7 @@ DEF_FUNCTION_TYPE_0(0, BT_VOID)
       scope_entry_t* new_builtin = new_symbol(global_context, global_context.global_scope, NAME); \
       new_builtin->kind = SK_FUNCTION; \
       new_builtin->type_information = (__mcxx_builtin_type__##TYPE)(); \
-      new_builtin->entity_specs.is_builtin_function = 1; \
+      new_builtin->entity_specs.is_builtin = 1; \
       new_builtin->do_not_print = 1; \
       new_builtin->file = "(builtin-function)"; \
       new_builtin->line = 0; \

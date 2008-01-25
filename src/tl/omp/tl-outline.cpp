@@ -53,7 +53,7 @@ namespace TL
                 << "}"
                 ;
 
-            Symbol function_symbol = function_name.get_symbol();
+            Symbol function_symbol = function_definition.get_ast().get_attribute(LANG_FUNCTION_SYMBOL);
 
             if (function_definition.is_templated())
             {
@@ -559,7 +559,7 @@ namespace TL
                 ObjectList<ParameterInfo>& parameter_info_list)
         {
             IdExpression function_name = function_definition.get_function_name();
-            Symbol function_symbol = function_name.get_symbol();
+            Symbol function_symbol = function_definition.get_ast().get_attribute(LANG_FUNCTION_SYMBOL);
 
             Source outlined_function_name_decl;
 
@@ -698,7 +698,7 @@ namespace TL
                 ObjectList<ParameterInfo> parameter_info_list)
         {
             IdExpression function_name = function_definition.get_function_name();
-            Symbol function_symbol = function_name.get_symbol();
+            Symbol function_symbol = function_definition.get_ast().get_attribute(LANG_FUNCTION_SYMBOL);
             declare_member_if_needed(function_symbol, function_definition, function_name, parameter_info_list);
 
             AST_t result;

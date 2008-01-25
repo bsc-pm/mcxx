@@ -6816,7 +6816,7 @@ void build_unary_builtin_operators(type_t* t1,
                 // Fill the minimum needed for this 'faked' function symbol
                 (*result).entry[(*result).num_builtins].kind = SK_FUNCTION;
                 (*result).entry[(*result).num_builtins].symbol_name = get_operator_function_name(operator);
-                (*result).entry[(*result).num_builtins].entity_specs.is_builtin_function = 1;
+                (*result).entry[(*result).num_builtins].entity_specs.is_builtin = 1;
                 (*result).entry[(*result).num_builtins].type_information = function_type;
 
                 // Add to the results and properly chain things
@@ -6915,7 +6915,7 @@ void build_binary_builtin_operators(type_t* t1,
                     // Fill the minimum needed for this 'faked' function symbol
                     (*result).entry[(*result).num_builtins].kind = SK_FUNCTION;
                     (*result).entry[(*result).num_builtins].symbol_name = get_operator_function_name(operator);
-                    (*result).entry[(*result).num_builtins].entity_specs.is_builtin_function = 1;
+                    (*result).entry[(*result).num_builtins].entity_specs.is_builtin = 1;
                     (*result).entry[(*result).num_builtins].type_information = function_type;
 
                     DEBUG_CODE()
@@ -7047,7 +7047,7 @@ void build_ternary_builtin_operators(type_t* t1,
                         // Fill the minimum needed for this 'faked' function symbol
                         (*result).entry[(*result).num_builtins].kind = SK_FUNCTION;
                         (*result).entry[(*result).num_builtins].symbol_name = operator_name;
-                        (*result).entry[(*result).num_builtins].entity_specs.is_builtin_function = 1;
+                        (*result).entry[(*result).num_builtins].entity_specs.is_builtin = 1;
                         (*result).entry[(*result).num_builtins].type_information = function_type;
 
                         DEBUG_CODE()

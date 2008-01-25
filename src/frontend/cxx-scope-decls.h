@@ -296,8 +296,8 @@ typedef struct entity_specifiers_tag
     char is_private;
     char is_protected;
 
-    // Builtin function created when solving overload
-    char is_builtin_function;
+    // Builtin symbol
+    char is_builtin;
 
     // Is a conversion function
     char is_conversion;

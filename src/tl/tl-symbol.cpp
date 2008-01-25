@@ -276,4 +276,10 @@ namespace TL
         return _symbol->decl_context.current_scope != NULL
             && _symbol->decl_context.current_scope->kind == PROTOTYPE_SCOPE;
     }
+
+    bool Symbol::is_builtin() const
+    {
+        // Despite the name this applies to variables too
+        return _symbol->entity_specs.is_builtin;
+    }
 }

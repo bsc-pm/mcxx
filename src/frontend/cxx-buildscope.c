@@ -247,6 +247,8 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
         null_keyword->expression_value = ASTLeaf(AST_OCTAL_LITERAL, 0, "0");
         null_keyword->defined = 1;
         null_keyword->do_not_print = 1;
+        // This should be renamed one day into 'builtin_symbol'
+        null_keyword->entity_specs.is_builtin = 1;
     }
 
     gcc_sign_in_builtins(decl_context);
@@ -5395,6 +5397,7 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
             func_var->kind = SK_VARIABLE;
             func_var->type_information = const_char_ptr_const_type;
             func_var->expression_value = function_name_tree;
+            func_var->entity_specs.is_builtin = 1;
         }
     }
 

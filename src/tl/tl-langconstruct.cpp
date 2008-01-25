@@ -63,7 +63,8 @@ namespace TL
             Scope ref_scope = _scope_link.get_scope(ref);
             Symbol symbol = ref_scope.get_symbol_from_id_expr(ref);
 
-            if (symbol.is_valid())
+            if (symbol.is_valid() 
+                    && !symbol.is_builtin())
             {
                 IdExpression id_expression(*it, _scope_link);
 
@@ -107,7 +108,8 @@ namespace TL
 
             Symbol symbol = statement_scope.get_symbol_from_id_expr(ref);
 
-            if (symbol.is_valid())
+            if (symbol.is_valid() 
+                    && !symbol.is_builtin())
             {
                 Scope ref_scope = _scope_link.get_scope(ref);
                 Symbol local_symbol = ref_scope.get_symbol_from_id_expr(ref);

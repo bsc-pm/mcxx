@@ -3033,12 +3033,7 @@ static const char* give_name_for_template_parameter(scope_entry_t* entry, decl_c
         st = st->contained_in;
     }
 
-    if (!found)
-    {
-        internal_error("Template parameter '%s' not found in scope\n", entry->symbol_name);
-    }
-
-    return NULL;
+    return entry->symbol_name;
 }
 
 static const char* get_unqualified_template_symbol_name(scope_entry_t* entry, 

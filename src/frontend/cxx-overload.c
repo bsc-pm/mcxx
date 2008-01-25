@@ -1553,7 +1553,7 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
                         it->entry->file,
                         it->entry->line,
                         print_declarator(it->entry->type_information, decl_context),
-                        (it->entry->entity_specs.is_builtin_function ? "<builtin function>" : ""));
+                        (it->entry->entity_specs.is_builtin ? "<builtin function>" : ""));
 
                 it = it->next;
             }
@@ -1629,16 +1629,19 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
                         decl_context, argument_types, num_arguments,
                         filename, line))
             {
-                fprintf(stderr, "Ambiguous call to '%s'\n",
-                        get_declaration_string_internal(current->type_information,
-                            current->decl_context,
-                            current->symbol_name, 
-                            "", // initializer
-                            0, // semicolon
-                            NULL, // num_parameter_names
-                            NULL, // parameter_names
-                            0 // is_parameter
-                            ));
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "Ambiguous call to '%s'\n",
+                            get_declaration_string_internal(current->type_information,
+                                current->decl_context,
+                                current->symbol_name, 
+                                "", // initializer
+                                0, // semicolon
+                                NULL, // num_parameter_names
+                                NULL, // parameter_names
+                                0 // is_parameter
+                                ));
+                }
                 best_found = 0;
             }
         }
@@ -1649,27 +1652,9 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
     if (!best_found)
     {
         // Write also the one that was the best
-        fprintf(stderr, "Ambiguous call to '%s'\n",
-                get_declaration_string_internal(best_viable->entry->type_information,
-                    best_viable->entry->decl_context,
-                    best_viable->entry->symbol_name, 
-                    "", // initializer
-                    0, // semicolon
-                    NULL, // num_parameter_names
-                    NULL, // parameter_names
-                    0 // is_parameter
-                    ));
         DEBUG_CODE()
         {
-            fprintf(stderr, "OVERLOAD: There is no best function\n");
-        }
-        return NULL;
-    }
-    else
-    {
-        if (best_viable->requires_ambiguous_ics)
-        {
-            fprintf(stderr, "Call to '%s' requires ambiguous conversion\n",
+            fprintf(stderr, "Ambiguous call to '%s'\n",
                     get_declaration_string_internal(best_viable->entry->type_information,
                         best_viable->entry->decl_context,
                         best_viable->entry->symbol_name, 
@@ -1679,8 +1664,26 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
                         NULL, // parameter_names
                         0 // is_parameter
                         ));
+            fprintf(stderr, "OVERLOAD: There is no best function\n");
+        }
+        return NULL;
+    }
+    else
+    {
+        if (best_viable->requires_ambiguous_ics)
+        {
             DEBUG_CODE()
             {
+                fprintf(stderr, "Call to '%s' requires ambiguous conversion\n",
+                        get_declaration_string_internal(best_viable->entry->type_information,
+                            best_viable->entry->decl_context,
+                            best_viable->entry->symbol_name, 
+                            "", // initializer
+                            0, // semicolon
+                            NULL, // num_parameter_names
+                            NULL, // parameter_names
+                            0 // is_parameter
+                            ));
                 fprintf(stderr, "OVERLOAD: There is no best function because ambiguous conversion\n");
             }
             return NULL;

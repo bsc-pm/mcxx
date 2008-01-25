@@ -147,6 +147,8 @@ namespace TL
             bool has_class_scope() const;
             bool has_template_scope() const;
             bool has_prototype_scope() const;
+
+            bool is_builtin() const;
     };
 }
 

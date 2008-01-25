@@ -5063,53 +5063,9 @@ char *get_named_simple_type_name(scope_entry_t* user_defined_type)
                 int max_level = 0;
                 char is_dependent = 0;
 
-                char *template_arguments = "";
-                {
-                    int i;
-                    type_t* actual_class = get_actual_class_type(user_defined_type->type_information);
-                    if (actual_class->is_template_specialized_type
-                            && actual_class->template_arguments != NULL)
-                    {
-                        template_arguments = strappend(template_arguments, "<");
-                        for (i = 0; i < actual_class->template_arguments->num_arguments; i++)
-                        {
-                            template_argument_t* template_argument = 
-                                actual_class->template_arguments->argument_list[i];
-
-                            switch (template_argument->kind)
-                            {
-                                case TAK_TYPE:
-                                case TAK_TEMPLATE:
-                                    {
-                                        template_arguments = strappend(template_arguments, 
-                                                print_declarator(template_argument->type, decl_context));
-                                        break;
-                                    }
-                                case TAK_NONTYPE:
-                                    {
-                                        template_arguments = strappend(template_arguments, 
-                                                prettyprint_in_buffer(template_argument->expression));
-                                        break;
-                                    }
-                                default:
-                                    {
-                                        template_arguments = strappend(template_arguments,
-                                                " << unknown template argument >> ");
-                                        break;
-                                    }
-                            }
-                            if ((i + 1) < actual_class->template_arguments->num_arguments)
-                            {
-                                template_arguments = strappend(template_arguments, ", ");
-                            }
-                        }
-                        template_arguments = strappend(template_arguments, ">");
-                    }
-                }
-                snprintf(user_defined_str, MAX_LENGTH, "class %s%s {%s:%d}", 
+                snprintf(user_defined_str, MAX_LENGTH, "class %s {%s:%d}", 
                         get_fully_qualified_symbol_name(user_defined_type, user_defined_type->decl_context,
                             &is_dependent, &max_level),
-                        template_arguments,
                         user_defined_type->file,
                         user_defined_type->line);
                 break;
@@ -6277,8 +6233,8 @@ type_t* get_literal_string_type(void)
         char_type->type->kind = STK_BUILTIN_TYPE;
         char_type->type->builtin_type = BT_CHAR;
 
+        char_type = get_cv_qualified_type(char_type, CV_CONST);
         _literal_string = get_pointer_type(char_type);
-        _literal_string = get_cv_qualified_type(_literal_string, CV_CONST);
     }
 
     return _literal_string;
