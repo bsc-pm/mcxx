@@ -5929,10 +5929,13 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             fprintf(stderr, "SCS: Applying pointer-conversion to void*\n");
         }
         (*result).conv[1] = SCI_POINTER_CONVERSION;
-        // Note that we make orig to be 'void*' instead of the dest
-        // because the dest might be 'const void*' and we want
-        // to state a qualification-conversion
-        orig = get_pointer_type(get_void_type());
+
+        // We need to keep the cv-qualification of the original pointer
+        // e.g.: 'const int*' -> 'void*'
+        // will conver the original into 'const void*'
+        orig = get_pointer_type(
+                get_cv_qualified_type(get_void_type(),
+                    get_cv_qualifier(pointer_type_get_pointee_type(orig))));
     }
     else if (IS_C_LANGUAGE
             && is_pointer_type(dest) 
