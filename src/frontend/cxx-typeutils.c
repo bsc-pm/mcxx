@@ -4544,37 +4544,37 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                 {
                     case BT_INT :
                         {
-                            result = strappend(result, "int ");
+                            result = strappend(result, "int");
                             break;
                         }
                     case BT_CHAR :
                         {
-                            result = strappend(result, "char ");
+                            result = strappend(result, "char");
                             break;
                         }
                     case BT_WCHAR :
                         {
-                            result = strappend(result, "wchar_t ");
+                            result = strappend(result, "wchar_t");
                             break;
                         }
                     case BT_FLOAT :
                         {
-                            result = strappend(result, "float ");
+                            result = strappend(result, "float");
                             break;
                         }
                     case BT_DOUBLE :
                         {
-                            result = strappend(result, "double ");
+                            result = strappend(result, "double");
                             break;
                         }
                     case BT_BOOL :
                         {
-                            result = strappend(result, "bool ");
+                            result = strappend(result, "bool");
                             break;
                         }
                     case BT_VOID :
                         {
-                            result = strappend(result, "void ");
+                            result = strappend(result, "void");
                             break;
                         }
                     case BT_UNKNOWN :
@@ -4671,9 +4671,11 @@ char* get_declaration_string_internal(type_t* type_info,
     char* result;
 
     result = base_type_name;
-    result = strappend(result, " ");
-
-    result = strappend(result, declarator_name);
+    if (strcmp(declarator_name, "") != 0)
+    {
+        result = strappend(result, " ");
+        result = strappend(result, declarator_name);
+    }
 
     // FIXME Should check if copy-constructor is not flagged as "explicit"
     // (for parameters this can be useful to declare default arguments)
@@ -5201,7 +5203,7 @@ static char* get_builtin_type_name(type_t* type_info, decl_context_t decl_contex
                     if (actual_class->is_template_specialized_type
                             && actual_class->template_arguments != NULL)
                     {
-                        template_arguments = strappend(template_arguments, "<");
+                        template_arguments = strappend(template_arguments, "< ");
                         for (i = 0; i < actual_class->template_arguments->num_arguments; i++)
                         {
                             template_argument_t* template_argument = 
@@ -5234,7 +5236,7 @@ static char* get_builtin_type_name(type_t* type_info, decl_context_t decl_contex
                                 template_arguments = strappend(template_arguments, ", ");
                             }
                         }
-                        template_arguments = strappend(template_arguments, ">");
+                        template_arguments = strappend(template_arguments, " >");
                     }
                 }
 
@@ -5387,7 +5389,7 @@ char* print_declarator(type_t* printed_declarator, decl_context_t decl_context)
                     if (printed_declarator->is_template_specialized_type
                             && printed_declarator->template_arguments != NULL)
                     {
-                        tmp_result = strappend(tmp_result, "<");
+                        tmp_result = strappend(tmp_result, "< ");
                         for (i = 0; i < printed_declarator->template_arguments->num_arguments; i++)
                         {
                             template_argument_t* template_argument = 
@@ -5420,25 +5422,9 @@ char* print_declarator(type_t* printed_declarator, decl_context_t decl_context)
                                 tmp_result = strappend(tmp_result, ", ");
                             }
                         }
-                        tmp_result = strappend(tmp_result, ">");
+                        tmp_result = strappend(tmp_result, " >");
                     }
                     
-                    // if (printed_declarator->function->num_template_parameters > 0)
-                    // {
-                    //     tmp_result = strappend(tmp_result, "<");
-                    //     for (i = 0; i < printed_declarator->function->num_template_parameters; i++)
-                    //     {
-                    //         template_parameter_t* template_param = printed_declarator->function->template_parameter_info[i];
-                    //         tmp_result = strappend(tmp_result, template_param->entry->symbol_name);
-
-                    //         if ((i + 1) < printed_declarator->function->num_template_parameters)
-                    //         {
-                    //             tmp_result = strappend(tmp_result, ", ");
-                    //         }
-                    //     }
-                    //     tmp_result = strappend(tmp_result, ">");
-                    // }
-
                     tmp_result = strappend(tmp_result, " (");
                     for (i = 0; i < printed_declarator->function->num_parameters; i++)
                     {
