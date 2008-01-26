@@ -836,8 +836,8 @@ static standard_conversion_rank_t standard_conversion_get_rank(standard_conversi
 
 static char standard_conversion_is_pointer_to_bool(standard_conversion_t scs)
 {
-    return ((is_pointer_type(scs.orig) || is_pointer_to_member_type(scs.orig))
-            && is_bool_type(scs.dest));
+    return ((is_pointer_type(no_ref(scs.orig)) || is_pointer_to_member_type(no_ref(scs.orig)))
+            && is_bool_type(no_ref(scs.dest)));
 }
 
 static char standard_conversion_has_better_rank(standard_conversion_t scs1, 
