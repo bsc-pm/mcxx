@@ -1708,7 +1708,9 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
 {
     DEBUG_CODE()
     {
-        fprintf(stderr, "OVERLOAD: Solving the address of overload function-name at '%s:%d'\n",
+        fprintf(stderr, "OVERLOAD: Solving the address of overload function-name '%s' at '%s:%d'\n",
+                /* use the first in the set */
+                overload_set != NULL ? overload_set->entry->symbol_name : "<overload set empty>",
                 filename, line);
     }
     // Check sanity of the target type
