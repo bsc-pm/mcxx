@@ -703,7 +703,7 @@ namespace TL
 
             AST_t result;
 
-            result = outline_parallel.parse_global(function_definition.get_point_of_declaration(), 
+            result = outline_parallel.parse_declaration(function_definition.get_point_of_declaration(), 
                     function_definition.get_scope_link());
 
             return result;
