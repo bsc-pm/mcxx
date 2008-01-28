@@ -5583,8 +5583,8 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
             internal_error("Unknown node type '%s'\n", ast_print_node_type(ASTType(a)));
     }
 
-    ASTAttrSetValueType(ASTSon1(a), LANG_TEMPLATE_HEADER, tl_type_t, tl_ast(ASTSon0(a)));
     ASTAttrSetValueType(ASTSon0(a), LANG_IS_TEMPLATE_HEADER, tl_type_t, tl_bool(true));
+    ASTAttrSetValueType(ASTSon1(a), LANG_TEMPLATE_HEADER, tl_type_t, tl_ast(a));
 }
 
 static void build_scope_member_template_function_definition(decl_context_t decl_context,

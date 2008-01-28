@@ -221,7 +221,7 @@ namespace TL
 
     AST_t FunctionDefinition::get_point_of_declaration()
     {
-        return _ref.get_enclosing_function_definition(/*jump_templates=*/ true);
+        return _ref.get_enclosing_function_definition_declaration();
     }
 
     DeclaredEntity FunctionDefinition::get_declared_entity()
@@ -244,6 +244,22 @@ namespace TL
 
         ObjectList<AST_t> result = start.depth_subtrees(template_header_pred);
         return result;
+    }
+
+    AST_t Declaration::get_point_of_declaration()
+    {
+        if (is_templated())
+        {
+            // If it is templated we want to spring over the template headers
+            TL::AST_t start = _ref.get_attribute(LANG_TEMPLATE_HEADER);
+            AST inner_tree = start.get_internal_ast();
+            return ASTParent(inner_tree);
+        }
+        else
+        {
+            // Otherwise this is fine
+            return _ref;
+        }
     }
 
     // Returns a flattened version of this id-expression

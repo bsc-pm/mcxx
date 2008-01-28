@@ -338,6 +338,20 @@ decl_context_t new_template_context(decl_context_t enclosing_context)
     // But do not make it the current! Remember, it is an aside template
     // orthogonal to the current context
 
+    DEBUG_CODE()
+    {
+        int n = 0;
+        scope_t* template_scope = result.template_scope;
+
+        while (template_scope != NULL)
+        {
+            n++;
+            template_scope = template_scope->contained_in;
+        }
+
+        fprintf(stderr, "SCOPE: Template context has depth '%d'\n", n);
+    }
+
     return result;
 }
 

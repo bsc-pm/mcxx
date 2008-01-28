@@ -586,6 +586,12 @@ namespace TL
         prepend_list(enclosing_list, prepended_list);
     }
 
+    AST_t AST_t::get_enclosing_function_definition_declaration()
+    {
+        AST_t result = ASTParent(get_enclosing_function_definition(true)._ast);
+        return result;
+    }
+
     AST_t AST_t::get_enclosing_function_definition(bool jump_templates)
     {
         AST node = _ast;

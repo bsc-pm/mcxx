@@ -686,7 +686,7 @@ namespace TL
                         outline_function_decl,
                         parameter_info_list);
 
-                AST_t member_decl_tree = member_declaration.parse_member(decl.get_ast(), 
+                AST_t member_decl_tree = member_declaration.parse_member(decl.get_point_of_declaration(), 
                         decl.get_scope_link(), class_type);
 
                 decl.get_ast().append(member_decl_tree);

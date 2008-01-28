@@ -251,6 +251,10 @@ namespace TL
             AST_t get_enclosing_block();
             AST_t get_enclosing_function_definition(bool jump_templates = false);
 
+            // Use this one to get the place where the whole function definition was actually 
+            // 'written'
+            AST_t get_enclosing_function_definition_declaration();
+
             // AST get_translation_unit();
 
             void replace_text(const std::string& str);

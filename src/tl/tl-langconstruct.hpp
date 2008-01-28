@@ -405,6 +405,8 @@ namespace TL
             bool is_templated();
             ObjectList<AST_t> get_template_header();
 
+            AST_t get_point_of_declaration();
+
             static const PredicateAST<LANG_IS_DECLARATION> predicate;
     };
 
