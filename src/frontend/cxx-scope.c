@@ -2964,29 +2964,23 @@ static scope_entry_list_t* append_scope_entry_list(scope_entry_list_t* orig, sco
 static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_context, 
         const char* current_qualif_name)
 {
-    // DEBUG_CODE()
-    // {
-    //     fprintf(stderr, "SCOPE: Getting qualification via scope current='%s'\n", current_qualif_name);
-    // }
     const char* result = current_qualif_name;
 
     scope_t* current_scope = decl_context.current_scope;
 
-    while (current_scope != NULL)
+    if (current_scope->kind == NAMESPACE_SCOPE)
     {
-        if (current_scope->qualification_name != NULL)
+        while (current_scope != NULL)
         {
-            char* nested_name = strappend(current_scope->qualification_name, "::");
-            result = strappend(nested_name, result);
+            if (current_scope->qualification_name != NULL)
+            {
+                char* nested_name = strappend(current_scope->qualification_name, "::");
+                result = strappend(nested_name, result);
+            }
+
+            current_scope = current_scope->contained_in;
         }
-
-        current_scope = current_scope->contained_in;
     }
-
-    // DEBUG_CODE()
-    // {
-    //     fprintf(stderr, "SCOPE: Fully qualified name simple '%s'\n", result);
-    // }
 
     return result;
 }
@@ -3019,8 +3013,6 @@ static scope_entry_t* find_template_parameter(scope_t* st, scope_entry_t* templa
 
 static const char* give_name_for_template_parameter(scope_entry_t* entry, decl_context_t decl_context)
 {
-    char found = 0;
-
     scope_t* st = decl_context.template_scope;
     while (st != NULL)
     {
@@ -3131,10 +3123,6 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
 
     if (entry->entity_specs.is_member)
     {
-        // DEBUG_CODE()
-        // {
-        //     fprintf(stderr, "SCOPE: The symbol is a member, getting the qualified symbol name of the enclosing class\n");
-        // }
         // We need the qualification of the class
         if (is_named_class_type(entry->entity_specs.class_type))
         {
@@ -3144,11 +3132,6 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
 
             const char* class_qualification = 
                 get_fully_qualified_symbol_name(class_symbol, decl_context, is_dependent, max_qualif_level);
-
-            // DEBUG_CODE()
-            // {
-            //     fprintf(stderr, "The qualified name of the enclosing class of '%s' is '%s'\n", result, class_qualification);
-            // }
 
             class_qualification = strappend(class_qualification, "::");
 
@@ -3160,11 +3143,6 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
         // This symbol is already simple enough
         result = get_fully_qualified_symbol_name_simple(entry->decl_context, result);
     }
-
-    // DEBUG_CODE()
-    // {
-    //     fprintf(stderr, "Fully qualified name is '%s'\n", result);
-    // }
 
     return result;
 }
