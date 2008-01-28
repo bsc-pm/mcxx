@@ -116,7 +116,7 @@ then
 # mcxx always gets installed
    COMPILER_NAMES="${COMPILER_NAMES} mcc"
 
-   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.openmp"
+   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.openmp mcxx.openmp"
 fi
 
 AC_SUBST([NANOS_INCLUDES])
@@ -626,6 +626,7 @@ AC_CONFIG_FILES([Makefile
            config/config.superscalar
            tests/Makefile
            tests/mcc.openmp.dg/config.mcxx
+           tests/mcxx.openmp.dg/config.mcxx
            tests/mcxx.stm.dg/config.mcxx
            doc/Makefile
            ])
