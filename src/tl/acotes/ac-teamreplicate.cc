@@ -20,50 +20,76 @@
     
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
-#include "tl-acotestransform.h"
+#include "ac-teamreplicate.h"
 
 #include <assert.h>
-#include "ac-finalizer.h"
-#include "ac-initializer.h"
-#include "ac-taskgroup.h"
-#include "tl-finalizertransform.h"
-#include "tl-initializertransform.h"
-#include "tl-taskgrouptransform.h"
+#include "ac-task.h"
 
 namespace TL { namespace Acotes {
-    
+ 
     /* ****************************************************************
-     * * Transforms everything.
+     * * Creator
      * ****************************************************************/
     
-    void AcotesTransform::transform() {
-        const std::vector<Taskgroup*> &taskgroups= Taskgroup::getInstanceVector();
-        const std::vector<Initializer*> &initializers= Initializer::getInstanceVector();
-        const std::vector<Finalizer*> &finalizers= Finalizer::getInstanceVector();
+    TeamReplicate* TeamReplicate::create(TL::LangConstruct* construct, TL::LangConstruct* body, Task* task)
+    {
+        assert(construct);
+        assert(body);
+        assert(task);
         
-        for (int i= taskgroups.size() - 1; i >= 0; i--) {
-            Taskgroup* taskgroup= taskgroups.at(i);
-            TaskgroupTransform::transform(taskgroup);
-        }
-
-        for (unsigned i= 0; i < initializers.size(); i++) {
-            Initializer* initializer= initializers.at(i);
-            InitializerTransform::transform(initializer);
-        }
-
-        for (unsigned i= 0; i < finalizers.size(); i++) {
-            Finalizer* finalizer= finalizers.at(i);
-            FinalizerTransform::transform(finalizer);
-        }
+        TeamReplicate* result= new TeamReplicate();
+        result->setConstruct(construct);
+        result->setBody(body);
+        result->setTask(task);
+        
+        return result;
     }
+    
+    TeamReplicate::TeamReplicate()
+    : construct(NULL), body(NULL)
+    , task(NULL)
+    {        
+    }
+    
         
+  
     /* ****************************************************************
-     * * Construct.
+     * * LangConstruct handling 
      * ****************************************************************/
-
-    AcotesTransform::AcotesTransform() {
-        assert(0);
+    
+    void TeamReplicate::setConstruct(TL::LangConstruct* construct)
+    {
+        assert(construct);
+        assert(!this->construct);
+        
+        this->construct= construct;
     }
+    
+    void TeamReplicate::setBody(TL::LangConstruct* body)
+    {
+        assert(body);
+        assert(!this->body);
+        
+        this->body= body;
+    }
+
+    
+    
+    /* ****************************************************************
+     * * Task relationship
+     * ****************************************************************/
+    
+    void TeamReplicate::setTask(Task* task)
+    {
+        assert(task);
+        assert(task->isTeam());
+        assert(!this->task);
+        
+        this->task= task;
+        task->addTeamReplicate(this);
+    }
+
     
     
 } /* end namespace Acotes */ } /* end namespace TL */
+

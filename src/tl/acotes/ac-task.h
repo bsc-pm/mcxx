@@ -38,11 +38,14 @@
 
 namespace TL { namespace Acotes {
     
+    class ForReplicate;
+    class Peek;
     class Port;
     class SharedCheck;
     class SharedUpdate;
     class State;
     class Taskgroup;
+    class TeamReplicate;
     class UserPort;
     class Variable;
     
@@ -124,7 +127,8 @@ namespace TL { namespace Acotes {
         
     // -- Variable relationship
     public:
-        Variable* getVariable(TL::Symbol symbol);
+        bool hasVariable(TL::Symbol symbol) const { return getVariable(symbol); }
+        Variable* getVariable(TL::Symbol symbol) const;
         const std::vector<Variable*> &getVariableVector() const { return variableVector; }
         void addVariable(Variable* variable);
         Variable* getParentVariable(Variable* variable) const;
@@ -167,9 +171,36 @@ namespace TL { namespace Acotes {
         std::vector<SharedCheck*> sharedCheckVector;
         std::vector<SharedUpdate*> sharedUpdateVector;
         
+    // -- Peek support
+    public:
+        void addPeek(Peek* peek) { peekVector.push_back(peek); }
+        const std::vector<Peek*> &getPeekVector() const { return peekVector; }
+    private:
+        std::vector<Peek*> peekVector;
+        
+    // -- ForReplicate support
+    public:
+        void addForReplicate(ForReplicate* forReplicate) { forReplicateVector.push_back(forReplicate); }
+        int hasForReplicate() const { return forReplicateVector.size() > 0; }
+        const std::vector<ForReplicate*>& getForReplicateVector() const { return forReplicateVector; }
+    private:
+        std::vector<ForReplicate*> forReplicateVector;
+        
     // -- Team support
     public:
-        int getTeam() const { return 0; }
+        void setTeam(int team) { this->team= team; } 
+        int getTeam() const { return team; }
+        bool isTeam() const { return team; }
+        bool hasLeader() const;
+    private:
+        int team;
+        
+    // -- TeamReplicate relationship
+    public:
+        void addTeamReplicate(TeamReplicate* teamReplicate);
+        const std::vector<TeamReplicate*> &getTeamReplicateVector() { return teamReplicateVector; }        
+    private:
+        std::vector<TeamReplicate*> teamReplicateVector;
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */

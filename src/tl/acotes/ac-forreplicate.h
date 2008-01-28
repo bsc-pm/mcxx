@@ -21,46 +21,49 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   tl-variableclause.h
+// File:   ac-forreplicate.h
 // Author: drodenas
 //
-// Created on 24 / desembre / 2007, 12:04
+// Created on 3 / gener / 2008, 15:08
 //
 
-#ifndef _TL_VARIABLECLAUSE_H
-#define	_TL_VARIABLECLAUSE_H
+#ifndef _AC_FORREPLICATE_H
+#define	_AC_FORREPLICATE_H
 
-#include "tl-pragmasupport.hpp"
+
+#include <tl-langconstruct.hpp>
+
 
 namespace TL { namespace Acotes {
 
     class Task;
-    class Variable;
     
-    class VariableClause
-    : public TL::PragmaCustomClause
-    {
-    // -- Constructor
+    class ForReplicate {
+        
+    // -- Creation
     public:
-        VariableClause(TL::PragmaCustomClause clause, Task* task);
+        static ForReplicate* create(TL::ForStatement* forStatement, Task* task);
     private:
+        ForReplicate();
+        
+    // -- Task relationship
+    public:
+        Task* getTask() const { return task; }
+    private:
+        void setTask(Task* task);
         Task* task;
         
-    // -- Variable support
+    // -- ForStatement handling
     public:
-        Variable* getVariable(unsigned position);
-        bool hasLabel(unsigned position);
-        std::string getLabel(unsigned position);
-        unsigned getVariableCount();
+        TL::ForStatement getForStatement() const { return forStatement[0]; }
     private:
-        TL::Expression getExpression(unsigned position);
-        Variable* getNonArrayVariable(TL::Expression e);
-        Variable* getArrayVariable(TL::Expression e);
-        
+        void setForStatement(TL::ForStatement* forStatement);
+        TL::ForStatement* forStatement;
     };
     
-} /* end namespace Acotes */ } /* end namespace TL */
+    
+} /* end namespace TL */ } /* end namespace Acotes */
 
 
-#endif	/* _TL_VARIABLECLAUSE_H */
+#endif	/* _AC_FORREPLICATE_H */
 

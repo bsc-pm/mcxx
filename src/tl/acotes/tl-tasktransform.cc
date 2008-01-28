@@ -24,16 +24,19 @@
 
 #include <assert.h>
 #include <sstream>
-#include "tl-source.hpp"
+#include <tl-source.hpp>
 #include "ac-port.h"
 #include "ac-state.h"
 #include "ac-task.h"
 #include "tl-acoteslogger.h"
 #include "tl-initializertransform.h"
+#include "tl-forreplicatetransform.h"
 #include "tl-finalizertransform.h"
+#include "tl-peektransform.h"
 #include "tl-porttransform.h"
 #include "tl-sharedtransform.h"
 #include "tl-statetransform.h"
+#include "tl-teamreplicatetransform.h"
 #include "tl-userporttransform.h"
 #include "tl-variabletransform.h"
 
@@ -51,9 +54,12 @@ namespace TL { namespace Acotes {
         
         // First transform all the children, recursive call
         transformChildren(task);
+        transformReplacePeek(task);
+        transformReplaceVariable(task);
         transformReplaceUserPort(task);
         transformReplaceSharedCheck(task);
         transformReplaceSharedUpdate(task);
+        transformReplaceTeamReplicate(task);
                 
         if (!task->isImplicitTask()) {
             transformAddOutline(task);
@@ -90,6 +96,26 @@ namespace TL { namespace Acotes {
         taskAST.prepend_sibling_function(outlineTree);
     }
     
+    void TaskTransform::transformReplacePeek(Task* task) {
+        assert(task);
+        
+        const std::vector<Peek*> &peeks= task->getPeekVector();
+        for (unsigned i= 0; i < peeks.size(); i++) {
+            Peek* peek= peeks.at(i);
+            PeekTransform::transform(peek);
+        }
+    }
+    
+    void TaskTransform::transformReplaceVariable(Task* task) {
+        assert(task);
+        
+        const std::vector<Variable*> &variables= task->getVariableVector();
+        for (unsigned i= 0; i < variables.size(); i++) {
+            Variable* variable= variables.at(i);
+            VariableTransform::transformReplacement(variable);
+        }
+    }
+    
     void TaskTransform::transformReplaceUserPort(Task* task) {
         assert(task);
         
@@ -117,6 +143,16 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < shareds.size(); i++) {
             SharedUpdate* sharedUpdate= shareds.at(i);
             SharedTransform::transform(sharedUpdate);
+        }
+    }
+
+    void TaskTransform::transformReplaceTeamReplicate(Task* task) {
+        assert(task);
+        
+        const std::vector<TeamReplicate*> &replicates= task->getTeamReplicateVector();
+        for (unsigned i= 0; i < replicates.size(); i++) {
+            TeamReplicate* replicate= replicates.at(i);
+            TeamReplicateTransform::transform(replicate);
         }
     }
 
@@ -149,26 +185,59 @@ namespace TL { namespace Acotes {
         
         ss << "void " << task->getName() << "_outline(task_t __task)"
                 << "{"
+                <<   "trace_instance_begin();"
                 <<   generateVariable(task)
                 <<   generateInitializer(task)
                 <<   generateCopyInAcquire(task)
                 <<   generateSharedAcquire(task)
                 <<   generateControlAcquire(task)
                 <<   "while (task_allopen())"
+                <<   generateForReplicate(task)
                 <<   "{"
                 <<      generateControlSharedCheck(task)
-                <<      generateControlInputPeek(task)
-                <<      generateBody(task)
-                <<      generateControlOutputPeek(task)
-                <<      generateControlPush(task)
-                <<      generateControlPop(task)
-                <<      generateControlAcquire(task)
-                <<   "}"
+                ;
+        if (task->hasLeader()) {
+            ss  <<      "if (task_leader())"
+                <<      "{"
+                ;
+        }
+        ss      <<         generateControlInputPeek(task)
+                <<         generateBody(task)
+                <<         generateControlOutputPeek(task)
+                <<         generateControlPop(task)
+                <<         generateControlPush(task)
+                <<         generateControlAcquire(task)
+                ;
+        if (task->hasLeader()) {
+            ss  <<      "} else { "
+                <<         generateReplicatePeek(task)
+                <<         generateReplicateBody(task)
+                <<         generateReplicatePop(task)
+                <<         generateReplicateAcquire(task)
+                <<      "}"
+                ;
+        }
+        ss      <<   "}"
                 <<   generateCopyOutAcquire(task)
                 <<   generateFinalizer(task)
                 <<   "task_close();"
+                <<   "trace_instance_end();"
                 << "}"
                 ;
+        
+        return ss.str();
+    }
+    
+    std::string TaskTransform::generateForReplicate(Task* task) {
+        assert(task);
+        
+        std::stringstream ss;
+
+        const std::vector<ForReplicate*> &replicates= task->getForReplicateVector();
+        for (unsigned i= 0; i < replicates.size(); i++) {
+            ForReplicate* forReplicate= replicates.at(i);
+            ss << ForReplicateTransform::generateFor(forReplicate);
+        }
         
         return ss.str();
     }
@@ -264,7 +333,9 @@ namespace TL { namespace Acotes {
         
        std::stringstream ss;
        
+       ss << "trace_iteration_begin();";
        ss << task->getBody()->prettyprint();
+       ss << "trace_iteration_end();";
        
        return ss.str();
     }
@@ -341,7 +412,7 @@ namespace TL { namespace Acotes {
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
-            if (port->isControl() && port->isInput()) {
+            if (port->isControl() && port->isInput() && !port->hasPeek()) {
                 ss << PortTransform::generatePop(port);
             }
         }
@@ -365,6 +436,72 @@ namespace TL { namespace Acotes {
         return ss.str();
     }
     
+    std::string TaskTransform::generateReplicatePeek(Task* task) {
+        assert(task);
+        
+        std::stringstream ss;
+        
+        const std::vector<Port*> &ports= task->getPortVector();
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            if (port->isControl() && port->isInput() && port->isReplicate()) {
+                ss << PortTransform::generateInputPeek(port);
+            }
+        }
+        
+        return ss.str();
+    }
+        
+    std::string TaskTransform::generateReplicateBody(Task* task) {
+        assert(task);
+        
+        std::stringstream ss;
+
+        ss << "trace_teamreplicate_begin();";
+        const std::vector<TeamReplicate*> &replicates= task->getTeamReplicateVector();
+        for (unsigned i= 0; i < replicates.size(); i++) {
+            TeamReplicate* teamReplicate= replicates.at(i);
+            ss << TeamReplicateTransform::generateReplicate(teamReplicate);
+        }
+        ss << "trace_teamreplicate_end();";
+        
+        return ss.str();
+    }
+
+    std::string TaskTransform::generateReplicatePop(Task* task) {
+        assert(task);
+        
+        std::stringstream ss;
+        
+        const std::vector<Port*> &ports= task->getPortVector();
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            if (port->isControl() && port->isInput() && port->isReplicate()) {
+                ss << PortTransform::generatePop(port);
+            }
+        }
+        
+        return ss.str();
+    }
+
+    std::string TaskTransform::generateReplicateAcquire(Task* task) {
+        assert(task);
+        
+        std::stringstream ss;
+        
+        const std::vector<Port*> &ports= task->getPortVector();
+        for (unsigned i= 0; i < ports.size(); i++) {
+            Port* port= ports.at(i);
+            if (port->isControl() && port->isReplicate()) {
+                assert(port->isInput());
+                ss << PortTransform::generateAcquire(port);
+            }
+        }
+        
+        return ss.str();
+    }
+
+
             
     /* ****************************************************************
      * * Replacement generation

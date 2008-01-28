@@ -23,8 +23,10 @@
 #include "tl-variableclause.h"
 
 #include <assert.h>
+#include <sstream>
 #include "ac-task.h"
 #include "ac-variable.h"
+#include "tl-acoteslogger.h"
 
 namespace TL { namespace Acotes {
     
@@ -52,10 +54,14 @@ namespace TL { namespace Acotes {
     {
         assert(position < getVariableCount());
         
-        TL::Symbol symbol= getSymbol(position);
-        Variable* result= task->getVariable(symbol);
-        if (!result) {
-            result= Variable::create(task, symbol);
+        TL::Expression e= getExpression(position);
+        Variable* result;
+        if (e.is_id_expression()) {
+            result= getNonArrayVariable(e);
+        } else if(e.is_array_subscript()) {
+            result= getArrayVariable(e);
+        } else {
+            assert(0); /* TODO: report to the user this case */
         }
         
         return result;
@@ -89,7 +95,7 @@ namespace TL { namespace Acotes {
         return count;
     }
 
-    TL::Symbol VariableClause::getSymbol(unsigned position)
+    TL::Expression VariableClause::getExpression(unsigned position)
     {
         assert(position < getVariableCount());
         std::string text= this->get_arguments().at(position);
@@ -99,11 +105,56 @@ namespace TL { namespace Acotes {
         Source symbolSource= text;
         AST_t symbolAST= symbolSource.parse_expression(get_ast(), get_scope_link());
         Expression expression= Expression(symbolAST, get_scope_link());
-        assert(expression.is_id_expression()); /* TODO: user error future... */
-        IdExpression idExpression= expression.get_id_expression();
-        TL::Symbol symbol= idExpression.get_symbol();
         
-        return symbol;
+        return expression;
+    }
+    
+    Variable* VariableClause::getNonArrayVariable(TL::Expression e)
+    {
+        assert(e.is_id_expression());
+        
+        TL::IdExpression ide= e.get_id_expression();
+        TL::Symbol symbol= ide.get_symbol();
+        Variable* result= task->getVariable(symbol);
+        if (!result) {
+            result= Variable::create(task, symbol);
+        }
+        if (symbol.get_type().is_array() || symbol.get_type().is_array()) {
+            AcotesLogger::error(this) 
+                    << "variable '" << e.prettyprint() << "' is an array "
+                    << "but size is not specified."
+                    << std::endl;
+        }
+        
+        return result;
+    }
+    
+    Variable* VariableClause::getArrayVariable(TL::Expression e)
+    {
+        assert(e.is_array_subscript());
+
+        TL::Expression subscripted= e.get_subscripted_expression();
+        TL::Expression subscript= e.get_subscript_expression();
+        
+        assert(subscripted.is_id_expression()); // TODO: warn user
+        assert(subscript.is_literal()); // TODO: warn user
+        
+        IdExpression ide= subscripted.get_id_expression();
+        TL::Symbol symbol= ide.get_symbol();
+        Variable* result= task->getVariable(symbol);
+        if (!result) {
+            result= Variable::create(task, symbol);
+        }
+        
+        std::stringstream ss;
+        int n;
+        ss << subscript.prettyprint();
+        ss >> n;
+        
+        assert(n > 0); // TODO: warn user
+        result->setArray(n);
+        
+        return result;
     }
     
 

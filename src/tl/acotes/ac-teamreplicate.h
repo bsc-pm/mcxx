@@ -21,46 +21,50 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   tl-variableclause.h
+// File:   ac-teamreplicate.h
 // Author: drodenas
 //
-// Created on 24 / desembre / 2007, 12:04
+// Created on 1 / gener / 2008, 16:35
 //
 
-#ifndef _TL_VARIABLECLAUSE_H
-#define	_TL_VARIABLECLAUSE_H
+#ifndef _AC_TEAMREPLICATE_H
+#define	_AC_TEAMREPLICATE_H
 
-#include "tl-pragmasupport.hpp"
+#include "tl-langconstruct.hpp"
+
 
 namespace TL { namespace Acotes {
-
-    class Task;
-    class Variable;
     
-    class VariableClause
-    : public TL::PragmaCustomClause
-    {
-    // -- Constructor
+    class Task;
+    
+    class TeamReplicate {
+    // -- Creator
     public:
-        VariableClause(TL::PragmaCustomClause clause, Task* task);
+        static TeamReplicate* create(TL::LangConstruct* construct, TL::LangConstruct* body, Task* task);
     private:
+        TeamReplicate();
+        
+    // -- LangConstruct handling 
+    public:
+        TL::LangConstruct* getConstruct() const { return construct; }
+        TL::LangConstruct* getBody() const { return body; }
+    private:
+        void setConstruct(TL::LangConstruct* construct);
+        void setBody(TL::LangConstruct* body);
+        TL::LangConstruct* construct;
+        TL::LangConstruct* body;
+        
+    // -- Task relationship
+    public:
+        Task* getTask() const { return task; }
+    private:
+        void setTask(Task* task);
         Task* task;
-        
-    // -- Variable support
-    public:
-        Variable* getVariable(unsigned position);
-        bool hasLabel(unsigned position);
-        std::string getLabel(unsigned position);
-        unsigned getVariableCount();
-    private:
-        TL::Expression getExpression(unsigned position);
-        Variable* getNonArrayVariable(TL::Expression e);
-        Variable* getArrayVariable(TL::Expression e);
-        
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */
 
 
-#endif	/* _TL_VARIABLECLAUSE_H */
+
+#endif	/* _AC_TEAMREPLICATE_H */
 

@@ -21,46 +21,42 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   tl-variableclause.h
+// File:   tl-teamreplicatetransform.h
 // Author: drodenas
 //
-// Created on 24 / desembre / 2007, 12:04
+// Created on 1 / gener / 2008, 18:35
 //
 
-#ifndef _TL_VARIABLECLAUSE_H
-#define	_TL_VARIABLECLAUSE_H
+#ifndef _TL_TEAMREPLICATETRANSFORM_H
+#define	_TL_TEAMREPLICATETRANSFORM_H
 
-#include "tl-pragmasupport.hpp"
+#include <string>
 
 namespace TL { namespace Acotes {
-
-    class Task;
-    class Variable;
     
-    class VariableClause
-    : public TL::PragmaCustomClause
-    {
-    // -- Constructor
+    class TeamReplicate;
+    
+    class TeamReplicateTransform {
+    // -- Transform
     public:
-        VariableClause(TL::PragmaCustomClause clause, Task* task);
+        static void transform(TeamReplicate* teamReplicate);
     private:
-        Task* task;
+        static void transformReplacement(TeamReplicate* teamReplicate);
         
-    // -- Variable support
+    // -- Generation
     public:
-        Variable* getVariable(unsigned position);
-        bool hasLabel(unsigned position);
-        std::string getLabel(unsigned position);
-        unsigned getVariableCount();
+        static std::string generateReplicate(TeamReplicate* teamReplicate);
     private:
-        TL::Expression getExpression(unsigned position);
-        Variable* getNonArrayVariable(TL::Expression e);
-        Variable* getArrayVariable(TL::Expression e);
-        
+        static std::string generateReplacement(TeamReplicate* teamReplicate);
+
+    // -- No Constructor
+    private:
+        TeamReplicateTransform();
     };
+    
     
 } /* end namespace Acotes */ } /* end namespace TL */
 
 
-#endif	/* _TL_VARIABLECLAUSE_H */
+#endif	/* _TL_TEAMREPLICATETRANSFORM_H */
 

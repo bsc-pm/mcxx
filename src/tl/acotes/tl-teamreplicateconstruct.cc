@@ -20,35 +20,30 @@
     
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
-#include <tl-userportconstruct.h>
+#include "tl-teamreplicateconstruct.h"
 
-#include <assert.h>
-#include "ac-port.h"
-#include "ac-userport.h"
-#include "ac-variable.h"
+#include "ac-task.h"
+#include "ac-teamreplicate.h"
 #include "tl-acoteslogger.h"
 #include "tl-acotesstack.h"
-#include "tl-variableclause.h"
 
 namespace TL { namespace Acotes {
-    
-    class Task;
     
     /* ****************************************************************
      * * LangConstruct support
      * ****************************************************************/
     
-    UserPortConstruct::UserPortConstruct(TL::LangConstruct langConstruct)
+    TeamReplicateConstruct::TeamReplicateConstruct(TL::LangConstruct langConstruct)
     : TL::PragmaCustomConstruct(langConstruct.get_ast(), langConstruct.get_scope_link())
     {
     }
 
-    TL::LangConstruct UserPortConstruct::getBody() {
+    TL::LangConstruct TeamReplicateConstruct::getBody() {
         PragmaCustomConstruct construct(getConstruct().get_ast(), getConstruct().get_scope_link());
         return construct.get_statement();
     }
     
-    TL::LangConstruct UserPortConstruct::getConstruct() {
+    TL::LangConstruct TeamReplicateConstruct::getConstruct() {
         return *this;
     }
 
@@ -57,57 +52,22 @@ namespace TL { namespace Acotes {
      * * CompilerPhase events
      * ****************************************************************/
     
-    void UserPortConstruct::onPre() {
+    void TeamReplicateConstruct::onPre() {
         // retrieve information
         TL::LangConstruct* construct= new TL::LangConstruct(getConstruct());
         TL::LangConstruct* body= new TL::LangConstruct(getBody());
         
         Task* task= AcotesStack::taskTop();
-        UserPort* userPort= UserPort::create(construct, body, task);
-
-        onPreInputPort(userPort);
-        onPreOutputPort(userPort);
-    }
-
-    void UserPortConstruct::onPost() {
-    }
-
-    void UserPortConstruct::onPreInputPort(UserPort* userPort) {
-        VariableClause stateClause(get_clause("input"), userPort->getTask());
-        
-        for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
-            Variable* variable= stateClause.getVariable(i);
-            Port* port= Port::createInputPort(variable);
-            if (stateClause.hasLabel(i)) {
-                port->setName(stateClause.getLabel(i));
-                userPort->addInputPort(port);
-            } else {
-                AcotesLogger::error(this)
-                        << "input variable '" << variable->getName() << "'"
-                        << "has no label"
-                        << std::endl;
-            }
-        }
-    }
-    
-    void UserPortConstruct::onPreOutputPort(UserPort* userPort) {
-        VariableClause stateClause(get_clause("output"), userPort->getTask());
-        
-        for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
-            Variable* variable= stateClause.getVariable(i);
-            Port* port= Port::createOutputPort(variable);
-            if (stateClause.hasLabel(i)) {
-                port->setName(stateClause.getLabel(i));
-                userPort->addOutputPort(port);
-            } else {
-                AcotesLogger::error(this)
-                        << "output variable '" << variable->getName() << "'"
-                        << "has no label"
-                        << std::endl;
-            }
+        if (task->hasLeader()) {
+            TeamReplicate::create(construct, body, task);
+        } else {
+            AcotesLogger::error(this) 
+                    << "no replicated inputs for teamreplicate." 
+                    << std::endl;
         }
     }
 
-
+    void TeamReplicateConstruct::onPost() {
+    }
 
 } /* end namespace Acotes */ } /* end namespace TL */

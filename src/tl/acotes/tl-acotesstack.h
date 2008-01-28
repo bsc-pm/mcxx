@@ -27,10 +27,13 @@
 // Created on 19 / desembre / 2007, 12:21
 //
 
-#include <stack>
-
 #ifndef _TL_ACOTESSTACK_H
 #define	_TL_ACOTESSTACK_H
+
+#include <stack>
+#include <vector>
+
+#include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
 
@@ -38,20 +41,33 @@ namespace TL { namespace Acotes {
     class Taskgroup;
 
     class AcotesStack {
+    // -- Task stack
     public:
         static Task* taskTop();
         static void taskPush(Task* task);
         static void taskPop();
+    private:
+        static std::stack<Task*> taskStack;
         
+                
+    // -- Taskgroup stack
+    public:
         static Taskgroup* taskgroupTop();
         static void taskgroupPush(Taskgroup* taskgroup);
         static void taskgroupPop();
-        
-        
     private:
-        static std::stack<Task*> taskStack;
         static std::stack<Taskgroup*> taskgroupStack;
         
+    // -- ForReplicate list
+    public:
+        static void forStatementPush(TL::ForStatement forStatement);
+        static void forStatementPop();
+        static bool hasForStatement(TL::Symbol symbol);
+        static TL::ForStatement getForStatement(TL::Symbol symbol);
+    private:
+        static std::vector<TL::ForStatement> forStatementVector;
+        
+    // -- No Constructor
         AcotesStack();
     };
     

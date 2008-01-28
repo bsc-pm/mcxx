@@ -21,46 +21,43 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   tl-variableclause.h
+// File:   tl-peektransform.h
 // Author: drodenas
 //
-// Created on 24 / desembre / 2007, 12:04
+// Created on 7 / gener / 2008, 10:35
 //
 
-#ifndef _TL_VARIABLECLAUSE_H
-#define	_TL_VARIABLECLAUSE_H
+#ifndef _TL_PEEKTRANSFORM_H
+#define	_TL_PEEKTRANSFORM_H
 
-#include "tl-pragmasupport.hpp"
+#include <string>
 
 namespace TL { namespace Acotes {
-
-    class Task;
-    class Variable;
     
-    class VariableClause
-    : public TL::PragmaCustomClause
+    class Peek;
+    
+    class PeekTransform
     {
-    // -- Constructor
+    // -- Transform 
     public:
-        VariableClause(TL::PragmaCustomClause clause, Task* task);
+        static void transform(Peek* peek);
     private:
-        Task* task;
-        
-    // -- Variable support
+        static void transformConstruct(Peek* peek);
+        static void transformHistory(Peek* peek);
+        static void transformIndex(Peek* peek);
+
+    // -- Generation
     public:
-        Variable* getVariable(unsigned position);
-        bool hasLabel(unsigned position);
-        std::string getLabel(unsigned position);
-        unsigned getVariableCount();
     private:
-        TL::Expression getExpression(unsigned position);
-        Variable* getNonArrayVariable(TL::Expression e);
-        Variable* getArrayVariable(TL::Expression e);
-        
+
+    // -- No Constructor
+    private:
+        PeekTransform();
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */
 
 
-#endif	/* _TL_VARIABLECLAUSE_H */
+
+#endif	/* _TL_PEEKTRANSFORM_H */
 

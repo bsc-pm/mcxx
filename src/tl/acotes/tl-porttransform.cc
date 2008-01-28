@@ -26,7 +26,9 @@
 #include <assert.h>
 #include <sstream>
 
+#include "ac-peek.h"
 #include "ac-port.h"
+#include "ac-state.h"
 #include "ac-task.h"
 #include "ac-variable.h"
 #include "tl-variabletransform.h"
@@ -83,7 +85,7 @@ namespace TL { namespace Acotes {
         if (variable) {
             ss << "memcpy"
                 << "( " << VariableTransform::generateReference(variable)
-                << ", iport_peek(" << port->getNumber() << ", 0)"
+                << ", iport_peek(" << port->getNumber() << ", " << port->getPeekWindow() << ")"
                 << ", " << VariableTransform::generateSizeof(variable)
                 << ");";
         }
@@ -159,14 +161,28 @@ namespace TL { namespace Acotes {
                 ;
         if (port->hasVariable()) {
             ss  << ", " << VariableTransform::generateSizeof(port->getVariable())
-                << ", " << port->getPeekWindow()
+                << ", " << (port->getPeekWindow() + 1)
                 ;
         } else {
             ss  << ", 0, 0";
         }
 
-        ss      << ", (void*) 0, 0"
-                << ");";
+        if (port->hasPeek()) {
+            Peek* peek= port->getPeek();
+            ss  << ", " << VariableTransform::generateReference(peek->getHistory()->getVariable())
+                << ", " << port->getPeekWindow()
+                ;
+        } else {
+            ss  << ", (void*) 0, 0";
+        }
+        ss      << ");";
+        
+        if (port->isReplicate()) {
+            ss << "iport_replicate"
+                    << "( " << port->getTask()->getName()
+                    << ", " << port->getNumber()
+                    << ");";
+        }
         
         return ss.str();
     }
@@ -183,7 +199,7 @@ namespace TL { namespace Acotes {
                 ;
         if (port->hasVariable()) {
             ss  << ", " << VariableTransform::generateSizeof(port->getVariable())
-                << ", " << port->getPeekWindow()
+                << ", 1"
                 ;
         } else {
             ss  << ", 0, 0";

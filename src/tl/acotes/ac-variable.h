@@ -75,8 +75,8 @@ namespace TL { namespace Acotes {
         TL::Type getElementType() const { return elementType[0]; }
         bool hasElementType() const { return elementType; }
         int getElementCount() const { return elementCount; }
+        void setArray(int n);
     private:
-        void setArray(bool array) { this->array= array; }
         void setElementType(TL::Type* type) { this->elementType= type; }
         void setElementCount(int elementCount) { this->elementCount= elementCount; }
         bool array;

@@ -24,6 +24,7 @@
 
 #include <assert.h>
 
+#include "ac-peek.h"
 #include "ac-portconnection.h"
 #include "ac-task.h"
 #include "ac-taskgroup.h"
@@ -162,6 +163,8 @@ namespace TL { namespace Acotes {
     , control(false)
     , artificial(false)
     , named(false)
+    , peek(NULL)
+    , replicate(false)
     {
     }
     
@@ -278,6 +281,36 @@ namespace TL { namespace Acotes {
         assert(named);
         
         return name;
+    }
+    
+
+    
+    /* ****************************************************************
+     * * Peek support
+     * ****************************************************************/
+    
+    void Port::setPeek(Peek* peek)
+    {
+        assert(peek);
+        assert(!this->peek);
+        assert(isInput());
+        assert(isControl());
+        
+        this->peek= peek;
+        getTask()->addPeek(peek);
+    }
+    
+    int Port::getPeekWindow() const
+    {
+        int result;
+    
+        if (hasPeek()) {
+            result= getPeek()->getPeekWindow();
+        } else {
+            result= 0;
+        }
+        
+        return result;
     }
     
     

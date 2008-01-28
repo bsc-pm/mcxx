@@ -210,7 +210,9 @@ namespace TL { namespace Acotes {
         assert(!isCopyOut()); /* FIXME: report to user */
         
         this->updateShared= value;
-        variable->getTask()->getTaskgroup()->addSharedState(this);
+        if (!isShared()) {
+            variable->getTask()->getTaskgroup()->addSharedState(this);
+        }
     }
 
     void State::setAsyncShared(bool value) {

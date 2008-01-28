@@ -21,46 +21,38 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   tl-variableclause.h
+// File:   tl-teamreplicateconstruct.h
 // Author: drodenas
 //
-// Created on 24 / desembre / 2007, 12:04
+// Created on 1 / gener / 2008, 17:41
 //
 
-#ifndef _TL_VARIABLECLAUSE_H
-#define	_TL_VARIABLECLAUSE_H
+#ifndef _TL_TEAMREPLICATECONSTRUCT_H
+#define	_TL_TEAMREPLICATECONSTRUCT_H
 
+#include "tl-langconstruct.hpp"
 #include "tl-pragmasupport.hpp"
 
 namespace TL { namespace Acotes {
-
-    class Task;
-    class Variable;
     
-    class VariableClause
-    : public TL::PragmaCustomClause
+    class TeamReplicateConstruct 
+    : TL::PragmaCustomConstruct
     {
-    // -- Constructor
+    // -- LangConstruct support
     public:
-        VariableClause(TL::PragmaCustomClause clause, Task* task);
+        TeamReplicateConstruct(TL::LangConstruct langConstruct);
     private:
-        Task* task;
-        
-    // -- Variable support
+        TL::LangConstruct getBody();
+        TL::LangConstruct getConstruct();
+
+    // -- CompilerPhase events
     public:
-        Variable* getVariable(unsigned position);
-        bool hasLabel(unsigned position);
-        std::string getLabel(unsigned position);
-        unsigned getVariableCount();
-    private:
-        TL::Expression getExpression(unsigned position);
-        Variable* getNonArrayVariable(TL::Expression e);
-        Variable* getArrayVariable(TL::Expression e);
-        
+        void onPre();
+        void onPost();
     };
-    
+
 } /* end namespace Acotes */ } /* end namespace TL */
 
 
-#endif	/* _TL_VARIABLECLAUSE_H */
+#endif	/* _TL_TEAMREPLICATECONSTRUCT_H */
 

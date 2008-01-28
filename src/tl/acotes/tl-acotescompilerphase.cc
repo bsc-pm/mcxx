@@ -22,12 +22,19 @@
 */
 #include "tl-acotescompilerphase.h"
 
+#include <assert.h>
+#include "tl-acotesinlinecompilerphase.h"
+#include "tl-acotesmaincompilerphase.h"
+#include "tl-acoteslogger.h"
+#include "tl-acotesstack.h"
 #include "tl-acotestransform.h"
 #include "tl-finalizerconstruct.h"
 #include "tl-initializerconstruct.h"
+#include "tl-peekconstruct.h"
 #include "tl-sharedconstruct.h"
 #include "tl-taskconstruct.h"
 #include "tl-taskgroupconstruct.h"
+#include "tl-teamreplicateconstruct.h"
 #include "tl-userportconstruct.h"
 
 namespace TL { namespace Acotes {
@@ -91,6 +98,23 @@ namespace TL { namespace Acotes {
             functor(&AcotesCompilerPhase::onPostSharedConstruct, *this)
             );
         register_construct("shared");
+         
+        on_directive_pre["peek"].connect(
+            functor(&AcotesCompilerPhase::onPrePeekConstruct, *this)
+            );
+        on_directive_post["peek"].connect(
+            functor(&AcotesCompilerPhase::onPostPeekConstruct, *this)
+            );
+        register_construct("peek");
+         
+        on_directive_pre["teamreplicate"].connect(
+            functor(&AcotesCompilerPhase::onPreTeamReplicateConstruct, *this)
+            );
+        on_directive_post["teamreplicate"].connect(
+            functor(&AcotesCompilerPhase::onPostTeamReplicateConstruct, *this)
+            );
+        register_construct("teamreplicate");
+        register_directive("inline");
     }
     
     /**
@@ -106,6 +130,11 @@ namespace TL { namespace Acotes {
     void 
     AcotesCompilerPhase::run(DTO& data_flow)
     {
+        AcotesInlineCompilerPhase inlinePhase;
+        inlinePhase.run(data_flow);
+        AcotesMainCompilerPhase mainPhase;
+        mainPhase.run(data_flow);
+        
         std::cout << "AcotesCompilerPhase run"<< std::endl;
         
         // get the translation_unit tree
@@ -120,17 +149,26 @@ namespace TL { namespace Acotes {
 
         PredicateAST<LANG_IS_PRAGMA_CUSTOM_DIRECTIVE> pragmaCustomDirectivePred;
         PredicateAST<LANG_IS_PRAGMA_CUSTOM_CONSTRUCT> pragmaCustomConstructPred;
+        PredicateAST<LANG_IS_FOR_STATEMENT> forStatementPred;
 //        PredicateAST<LANG_IS_FUNCTION_CALL> function_call_pred;
 
         depth_traverse.add_predicate(pragmaCustomDirectivePred, pragmaDispatcher);
         depth_traverse.add_predicate(pragmaCustomConstructPred, pragmaDispatcher);
-//        depth_traverse.add_predicate(function_call_pred, *this);
+        depth_traverse.add_predicate(forStatementPred, *this);
 
         // Parse everything
         depth_traverse.traverse(translation_unit, scope_link);
         
         // Transform parsed source
         AcotesTransform::transform();
+        
+        if (AcotesLogger::wasAnyError()) {
+            TL::LangConstruct file(translation_unit, scope_link);
+            AcotesLogger::error(&file)
+                    << AcotesLogger::getErrorCount() << " error(s) found."
+                    << std::endl;
+            exit(1);
+        }
     }
 
 
@@ -211,6 +249,30 @@ namespace TL { namespace Acotes {
         shared.onPost();
     }
  
+    void AcotesCompilerPhase::onPrePeekConstruct(PragmaCustomConstruct construct)
+    {
+        PeekConstruct custom(construct);
+        custom.onPre();
+    }
+    
+    void AcotesCompilerPhase::onPostPeekConstruct(PragmaCustomConstruct construct)
+    {
+        PeekConstruct custom(construct);
+        custom.onPost();
+    }
+ 
+    void AcotesCompilerPhase::onPreTeamReplicateConstruct(PragmaCustomConstruct construct)
+    {
+        TeamReplicateConstruct custom(construct);
+        custom.onPre();
+    }
+    
+    void AcotesCompilerPhase::onPostTeamReplicateConstruct(PragmaCustomConstruct construct)
+    {
+        TeamReplicateConstruct custom(construct);
+        custom.onPost();
+    }
+    
     
     
     /* ****************************************************************
@@ -223,6 +285,16 @@ namespace TL { namespace Acotes {
     void 
     AcotesCompilerPhase::preorder(Context ctx, AST_t node)
     {
+        PredicateAST<LANG_IS_FOR_STATEMENT> forStatementPred;
+        
+        if (forStatementPred(node)) {
+            ForStatement forStatement(node, ctx.scope_link);
+            if (forStatement.regular_loop()) {
+                AcotesStack::forStatementPush(forStatement);
+            }
+        } else {
+            assert(0);
+        }
 //        AcotesTaskCall acotes_task_call(node, ctx.scope_link);
 //        Task* task= acotes_task_call.get_task();
 //        if (task) 
@@ -245,6 +317,16 @@ namespace TL { namespace Acotes {
     void 
     AcotesCompilerPhase::postorder(Context ctx, AST_t node)
     {
+        PredicateAST<LANG_IS_FOR_STATEMENT> forStatementPred;
+        
+        if (forStatementPred(node)) {
+            ForStatement forStatement(node, ctx.scope_link);
+            if (forStatement.regular_loop()) {
+                AcotesStack::forStatementPop();
+            }
+        } else {
+            assert(0);
+        }
 //        AcotesTaskCall acotes_task_call(node, ctx.scope_link);
 //        Task* task= acotes_task_call.get_task();
 //        if (task)

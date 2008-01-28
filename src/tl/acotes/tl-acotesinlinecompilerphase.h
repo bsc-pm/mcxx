@@ -21,46 +21,50 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   tl-variableclause.h
+// File:   tl-acotesinlinecompilerphase.h
 // Author: drodenas
 //
-// Created on 24 / desembre / 2007, 12:04
+// Created on 16 / gener / 2008, 15:11
 //
 
-#ifndef _TL_VARIABLECLAUSE_H
-#define	_TL_VARIABLECLAUSE_H
+#ifndef _TL_ACOTESINLINECOMPILERPHASE_H
+#define	_TL_ACOTESINLINECOMPILERPHASE_H
 
-#include "tl-pragmasupport.hpp"
+#include <tl-pragmasupport.hpp>
+
+#include <string>
+#include <vector>
 
 namespace TL { namespace Acotes {
-
-    class Task;
-    class Variable;
     
-    class VariableClause
-    : public TL::PragmaCustomClause
+    class AcotesInlineCompilerPhase
+    : public TL::PragmaCustomCompilerPhase
+    , private TL::TraverseFunctor
     {
-    // -- Constructor
+    // -- CompilerPhase management
     public:
-        VariableClause(TL::PragmaCustomClause clause, Task* task);
+        AcotesInlineCompilerPhase();
+        virtual ~AcotesInlineCompilerPhase();
+       	virtual void run(DTO& data_flow);
     private:
-        Task* task;
+        PragmaCustomDispatcher pragmaDispatcher;
         
-    // -- Variable support
-    public:
-        Variable* getVariable(unsigned position);
-        bool hasLabel(unsigned position);
-        std::string getLabel(unsigned position);
-        unsigned getVariableCount();
+    // -- AST_t to duplicate
+    std::map<TL::Symbol,TL::FunctionDefinition*> functionMap;
+        
+    // -- CompilerPhase events        
     private:
-        TL::Expression getExpression(unsigned position);
-        Variable* getNonArrayVariable(TL::Expression e);
-        Variable* getArrayVariable(TL::Expression e);
-        
+        void onPreInlineConstruct(PragmaCustomConstruct construct);
+        void onPostInlineConstruct(PragmaCustomConstruct construct);
+
+    // -- TraverseFunction management
+    private:
+        virtual void preorder(Context ctx, AST_t node);
+        virtual void postorder(Context ctx, AST_t node);
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */
 
 
-#endif	/* _TL_VARIABLECLAUSE_H */
+#endif	/* _TL_ACOTESINLINECOMPILERPHASE_H */
 

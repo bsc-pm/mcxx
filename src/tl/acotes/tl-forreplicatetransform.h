@@ -21,46 +21,31 @@
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
 // 
-// File:   tl-variableclause.h
+// File:   tl-forreplicatetransform.h
 // Author: drodenas
 //
-// Created on 24 / desembre / 2007, 12:04
+// Created on 3 / gener / 2008, 15:09
 //
 
-#ifndef _TL_VARIABLECLAUSE_H
-#define	_TL_VARIABLECLAUSE_H
+#ifndef _TL_FORREPLICATETRANSFORM_H
+#define	_TL_FORREPLICATETRANSFORM_H
 
-#include "tl-pragmasupport.hpp"
+#include <string>
 
 namespace TL { namespace Acotes {
-
-    class Task;
-    class Variable;
     
-    class VariableClause
-    : public TL::PragmaCustomClause
-    {
-    // -- Constructor
-    public:
-        VariableClause(TL::PragmaCustomClause clause, Task* task);
-    private:
-        Task* task;
+    class ForReplicate;
+    
+    class ForReplicateTransform {
         
-    // -- Variable support
+    // -- Generate
     public:
-        Variable* getVariable(unsigned position);
-        bool hasLabel(unsigned position);
-        std::string getLabel(unsigned position);
-        unsigned getVariableCount();
-    private:
-        TL::Expression getExpression(unsigned position);
-        Variable* getNonArrayVariable(TL::Expression e);
-        Variable* getArrayVariable(TL::Expression e);
+        static std::string generateFor(ForReplicate* forReplicate);
         
     };
     
+    
 } /* end namespace Acotes */ } /* end namespace TL */
 
-
-#endif	/* _TL_VARIABLECLAUSE_H */
+#endif	/* _TL_FORREPLICATETRANSFORM_H */
 

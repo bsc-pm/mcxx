@@ -81,7 +81,61 @@ namespace TL { namespace Acotes {
     
     
     /* ****************************************************************
-     * * Taskgroup stack manipulation.
+     * * Task stack manipulation.
+     * ****************************************************************/
+    
+    std::vector<TL::ForStatement> AcotesStack::forStatementVector;
+    
+    void AcotesStack::forStatementPush(TL::ForStatement forStatement)
+    {
+        assert(forStatement.regular_loop());
+        
+        forStatementVector.push_back(forStatement);
+    }
+    
+    void AcotesStack::forStatementPop()
+    {
+        assert(forStatementVector.size() > 0);
+        
+        forStatementVector.pop_back();
+    }
+    
+    bool AcotesStack::hasForStatement(TL::Symbol symbol)
+    {
+        bool result= false;
+        
+        for (unsigned i= 0; i < forStatementVector.size() && !result; i++) {
+            TL::ForStatement forStatement= forStatementVector.at(i);
+            IdExpression idExpression= forStatement.get_induction_variable();
+            result= idExpression.get_symbol() == symbol;
+        }
+        
+        return result;
+    }
+    
+    TL::ForStatement AcotesStack::getForStatement(TL::Symbol symbol)
+    {
+        assert(hasForStatement(symbol));
+
+        int position= -1;
+        for (int i= forStatementVector.size() - 1; i >= 0 && position == -1; i--) {
+            TL::ForStatement forStatement= forStatementVector.at(i);
+            IdExpression idExpression= forStatement.get_induction_variable();
+            if (idExpression.get_symbol() == symbol) {
+                position= i;
+            }
+        }
+        assert(position >= 0);
+        
+        TL::ForStatement result= forStatementVector.at(position);
+        return result;
+    }
+
+
+    
+    
+    /* ****************************************************************
+     * * No Constructor.
      * ****************************************************************/
     
     AcotesStack::AcotesStack() {

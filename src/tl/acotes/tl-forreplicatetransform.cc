@@ -20,47 +20,38 @@
     
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
-// 
-// File:   tl-variableclause.h
-// Author: drodenas
-//
-// Created on 24 / desembre / 2007, 12:04
-//
+#include "tl-forreplicatetransform.h"
 
-#ifndef _TL_VARIABLECLAUSE_H
-#define	_TL_VARIABLECLAUSE_H
+#include <assert.h>
+#include <sstream>
+#include "ac-forreplicate.h"
 
-#include "tl-pragmasupport.hpp"
 
 namespace TL { namespace Acotes {
-
-    class Task;
-    class Variable;
     
-    class VariableClause
-    : public TL::PragmaCustomClause
+        
+    /* ****************************************************************
+     * * Generate
+     * ****************************************************************/
+    
+    std::string ForReplicateTransform::generateFor(ForReplicate* forReplicate)
     {
-    // -- Constructor
-    public:
-        VariableClause(TL::PragmaCustomClause clause, Task* task);
-    private:
-        Task* task;
+        assert(forReplicate);
         
-    // -- Variable support
-    public:
-        Variable* getVariable(unsigned position);
-        bool hasLabel(unsigned position);
-        std::string getLabel(unsigned position);
-        unsigned getVariableCount();
-    private:
-        TL::Expression getExpression(unsigned position);
-        Variable* getNonArrayVariable(TL::Expression e);
-        Variable* getArrayVariable(TL::Expression e);
+        std::stringstream ss;
         
-    };
+        TL::ForStatement forStatement= forReplicate->getForStatement();
+        
+        ss << "for" 
+                << "( " << forStatement.get_iterating_init().prettyprint()
+                << " " << forStatement.get_iterating_condition().prettyprint()
+                << "; " << forStatement.get_iterating_expression().prettyprint()
+                << ")"
+                ;
+        
+        return ss.str();
+    }
+    
     
 } /* end namespace Acotes */ } /* end namespace TL */
-
-
-#endif	/* _TL_VARIABLECLAUSE_H */
 

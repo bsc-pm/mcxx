@@ -253,7 +253,9 @@ namespace TL { namespace Acotes {
         
        std::stringstream ss;
        
+       ss << "trace_iteration_begin();" << std::endl;
        ss << taskgroup->getBody()->prettyprint();
+       ss << "trace_iteration_end();" << std::endl;
        
        return ss.str();
     }

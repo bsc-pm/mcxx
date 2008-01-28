@@ -40,16 +40,14 @@ namespace TL { namespace Acotes {
     Variable* Variable::create(Task* task, TL::Symbol symbol) 
     {
         assert(task);
-        assert(!task->getVariable(symbol));
+        assert(!task->hasVariable(symbol));
         
         Variable* variable= new Variable();
         variable->setSymbol(new TL::Symbol(symbol));
         variable->setTask(task);
         
         variable->setName(symbol.get_name());
-        variable->setArray(false);
-        variable->setElementType(new TL::Type(symbol.get_type()));
-        variable->setElementCount(1);
+        variable->setArray(0);
         
         return variable;
     }
@@ -136,6 +134,34 @@ namespace TL { namespace Acotes {
     void Variable::setSymbol(TL::Symbol* symbol)
     {
         this->symbol= symbol;
+    }
+        
+    
+    
+    /* ****************************************************************
+     * * Array support
+     * ****************************************************************/
+
+    void Variable::setArray(int n)
+    {
+        assert(n >= 0);
+        
+        if (n == 0) {
+            assert(!array);
+            
+            elementType= new TL::Type(getSymbol().get_type());
+            elementCount= 1;
+        } else if (!array) {
+            array= true;
+            if (elementType->is_array()) {
+                *elementType= elementType->array_element();
+            } else if (elementType->is_pointer()) {
+                *elementType= elementType->points_to();
+            } else {
+                assert(0); // TODO: warn to the user
+            }
+            elementCount= n;
+        }
     }
     
 } /* end namespace Acotes */ } /* end namespace TL */

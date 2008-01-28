@@ -27,7 +27,10 @@
 #include "ac-portconnection.h"
 #include "ac-state.h"
 #include "ac-taskgroup.h"
+#include "ac-teamreplicate.h"
 #include "ac-variable.h"
+
+#include "tl-acoteslogger.h"
 
 namespace TL { namespace Acotes {
 
@@ -66,6 +69,7 @@ namespace TL { namespace Acotes {
     , body(NULL), construct(NULL)
     , taskgroup(NULL)
     , parent(NULL) 
+    , team(0)
     {    
     }
     
@@ -313,7 +317,11 @@ namespace TL { namespace Acotes {
         
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
-            if (port->isControl() && !port->hasPortConnection() && !port->isNamed()) {
+            if (port->isControl() 
+                    && !port->hasPortConnection() 
+                    && !port->isNamed()
+                    && !isBypass(port->getVariable())
+                    && (!hasParent() || !getParent()->isBypass(port->getVariable()))) {
                 createArtificalPortandConnection(port);
             }
         }
@@ -331,7 +339,19 @@ namespace TL { namespace Acotes {
             if (hasParent() && getParent()->isImplicitTask()) {
                 parentVariable= Variable::create(getParent(), port->getVariable()->getSymbol());
             } else {
-                assert(0 /* TODO: user error */); 
+                AcotesLogger::error(port->getTask()->getConstruct())
+                       << " variable '" << port->getVariable()->getName() << "'"
+                       << " undefined on parent task"
+                        << std::endl
+                       << port->getTask()->getConstruct()->prettyprint()
+                        << std::endl
+                       ;
+                AcotesLogger::info(port->getTask()->getParent()->getConstruct())
+                       << " this is the parent"
+                        << std::endl
+                       << port->getTask()->getParent()->getConstruct()->prettyprint()
+                        << std::endl
+                        ;
             }
         }
         if (!isBypass(port->getVariable()) && !getParent()->isBypass(parentVariable)) {
@@ -388,7 +408,14 @@ namespace TL { namespace Acotes {
                     Port* inport= getInputControlPort(symbol);
                     Port* outport= output->getOutputControlPort(symbol);
                     
-                    PortConnection::create(outport, inport);
+                    if (outport->getVariable()->getElementType() == inport->getVariable()->getElementType()
+                            && outport->getVariable()->getElementCount() == inport->getVariable()->getElementCount()
+                            ) {
+                        PortConnection::create(outport, inport);
+                    } else {
+                        assert(0); // TODO: report to the user or FIXME
+                    }
+                    
             } 
             // if it is output is the next output
             if (hasOutputControlPort(symbol) && !getOutputControlPort(symbol)->isNamed()) {
@@ -408,7 +435,7 @@ namespace TL { namespace Acotes {
     /** 
      * Get the variable with the requested symbol.
      */
-    Variable* Task::getVariable(TL::Symbol symbol) {
+    Variable* Task::getVariable(TL::Symbol symbol) const {
         
         Variable* result= NULL;
         
@@ -476,6 +503,41 @@ namespace TL { namespace Acotes {
         
         return result;
     }
+
     
+    
+    /* ****************************************************************
+     * * Team support
+     * ****************************************************************/
+    
+    bool Task::hasLeader() const
+    {
+        bool result= false;
+        
+        const std::vector<Port*> &ports= getPortVector();
+        for (unsigned i= 0; i < ports.size() && !result; i++) {
+            Port* port= ports.at(i);
+            result= port->isReplicate();
+        }
+        
+        return result;
+    }
+
+    
+
+    /* ****************************************************************
+     * * TeamReplicate relationship
+     * ****************************************************************/
+    
+    void Task::addTeamReplicate(TeamReplicate* teamReplicate) 
+    { 
+        assert(teamReplicate);
+        assert(teamReplicate->getTask() == this);
+        assert(hasLeader());
+        
+        teamReplicateVector.push_back(teamReplicate); 
+    }
+
+
 } /* end namespace Acotes */ } /* end namespace TL */
 

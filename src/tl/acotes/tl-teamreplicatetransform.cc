@@ -20,72 +20,74 @@
     
     $Id: tl-acotestransform.cpp 1611 2007-07-10 09:28:44Z drodenas $
 */
-#include "tl-acoteslogger.h"
+#include "tl-teamreplicatetransform.h"
 
 #include <assert.h>
+#include <sstream>
+#include "ac-teamreplicate.h"
 
 namespace TL { namespace Acotes {
-
+    
     /* ****************************************************************
-     * * Log methods
+     * * Transform
      * ****************************************************************/
     
-    int AcotesLogger::errorCount= 0;
-    
-    std::ostream& AcotesLogger::info(TL::LangConstruct* langConstruct)
+    void TeamReplicateTransform::transform(TeamReplicate* teamReplicate)
     {
-        if (langConstruct) {
-            std::cout << langConstruct->get_ast().get_locus() << ": ";
-        } else {
-            std::cout << "internal: ";
-        }
-        std::cout << "info: ";
-        return std::cout;
-    }
-    
-    std::ostream& AcotesLogger::debug(TL::LangConstruct* langConstruct)
-    {
-        if (langConstruct) {
-            std::cout << langConstruct->get_ast().get_locus() << ": ";
-        } else {
-            std::cout << "internal: ";
-        }
-        std::cout << "debug: ";
-        return std::cout;
-    }
-    
-    std::ostream& AcotesLogger::warning(TL::LangConstruct* langConstruct)
-    {
-        if (langConstruct) {
-            std::cerr << langConstruct->get_ast().get_locus() << ": ";
-        } else {
-            std::cerr << "internal: ";
-        }
-        std::cerr << "warning: ";
-        return std::cerr;
-    }
-    
-    std::ostream& AcotesLogger::error(TL::LangConstruct* langConstruct)
-    {
-        errorCount++;
+        assert(teamReplicate);
         
-        if (langConstruct) {
-            std::cerr << langConstruct->get_ast().get_locus() << ": ";
-        } else {
-            std::cerr << "internal: ";
-        }
-        std::cerr << "error: ";
-        return std::cerr;
+        transformReplacement(teamReplicate);
     }
     
+    void TeamReplicateTransform::transformReplacement(TeamReplicate* teamReplicate)
+    {
+        assert(teamReplicate);
+        
+        TL::LangConstruct* construct= teamReplicate->getConstruct();
+        AST_t ast= construct->get_ast();
+        ScopeLink scopeLink= construct->get_scope_link();
+    
+        // Replace taskgroup construct
+        Source replaceSource= generateReplacement(teamReplicate);
+        AST_t replaceTree= replaceSource.parse_statement(ast, scopeLink);
+        ast.replace(replaceTree);
+    }
+     
     
     
     /* ****************************************************************
-     * * No instance
+     * * Generation
      * ****************************************************************/
     
-    AcotesLogger::AcotesLogger() {
+    std::string TeamReplicateTransform::generateReplicate(TeamReplicate* teamReplicate)
+    {
+        std::stringstream ss;
+     
+        ss << teamReplicate->getBody()->prettyprint();
+        
+        return ss.str();
+    }
+    
+    std::string TeamReplicateTransform::generateReplacement(TeamReplicate* teamReplicate)
+    {
+        std::stringstream ss;
+     
+        ss << teamReplicate->getBody()->prettyprint();
+        
+        return ss.str();
+    }
+        
+
+    
+    /* ****************************************************************
+     * * No Constructor
+     * ****************************************************************/
+    
+    TeamReplicateTransform::TeamReplicateTransform()
+    {
         assert(0);
     }
     
+    
 } /* end namespace Acotes */ } /* end namespace TL */
+

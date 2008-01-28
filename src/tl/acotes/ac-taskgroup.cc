@@ -241,7 +241,9 @@ namespace TL { namespace Acotes {
         
         for (unsigned i= 0; i < states.size(); i++) {
             State* state= states.at(i);
-            if (state->isShared() && state->getTask() != source->getTask()) {
+            if (state->isShared() 
+                    && state->getTask() != source->getTask()
+                    && state->getVariable()->getSymbol() == source->getVariable()->getSymbol()) {
                 SharedConnection::create(source, state);
             }
         }

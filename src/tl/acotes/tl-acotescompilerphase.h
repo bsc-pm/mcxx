@@ -61,6 +61,10 @@ namespace TL { namespace Acotes {
         void onPostUserPortConstruct(PragmaCustomConstruct construct);
         void onPreSharedConstruct(PragmaCustomConstruct construct);
         void onPostSharedConstruct(PragmaCustomConstruct construct);
+        void onPrePeekConstruct(PragmaCustomConstruct construct);
+        void onPostPeekConstruct(PragmaCustomConstruct construct);
+        void onPreTeamReplicateConstruct(PragmaCustomConstruct construct);
+        void onPostTeamReplicateConstruct(PragmaCustomConstruct construct);
 
     // -- TraverseFunction management
     private:

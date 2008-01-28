@@ -34,7 +34,8 @@
 #include <string>
 
 namespace TL { namespace Acotes {
-    
+
+    class Peek;
     class PortConnection;
     class Task;
     class Variable;
@@ -115,9 +116,21 @@ namespace TL { namespace Acotes {
         std::string name;
         bool named;
         
-    // -- Peek window
+    // -- Peek support
     public:
-        int getPeekWindow() const { return 1; }
+        bool hasPeek() const { return getPeek(); }
+        Peek* getPeek() const { return peek; }
+        void setPeek(Peek* peek);
+        int getPeekWindow() const;
+    private:
+        Peek* peek;
+        
+    // -- Replicate property
+    public:
+        void setReplicate(bool value) { replicate= value; }
+        bool isReplicate() const { return replicate; }
+    private:
+        bool replicate;
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */
