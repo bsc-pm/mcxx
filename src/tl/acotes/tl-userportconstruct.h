@@ -45,7 +45,6 @@ namespace TL { namespace Acotes {
     public:
         UserPortConstruct(TL::LangConstruct langConstruct);
     private:
-        TL::LangConstruct getBody();
         TL::LangConstruct getConstruct();
 
     // -- CompilerPhase events

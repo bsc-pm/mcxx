@@ -45,19 +45,16 @@ namespace TL { namespace Acotes {
     class UserPort {
     // -- UserPort creation
     public:
-        static UserPort* create(TL::LangConstruct* construct, TL::LangConstruct* body, Task* task);
+        static UserPort* create(TL::LangConstruct* construct, Task* task);
     private:
         UserPort();
         
     // -- LangConstruct support
     public:
         TL::LangConstruct* getConstruct() const { return construct; }
-        TL::LangConstruct* getBody() const { return body; }
     private:
         void setConstruct(TL::LangConstruct* construct);
-        void setBody(TL::LangConstruct* body);
         TL::LangConstruct* construct;
-        TL::LangConstruct* body;
         
     // -- Task relationship
     public:

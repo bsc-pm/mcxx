@@ -47,7 +47,6 @@ namespace TL { namespace Acotes {
     private:
         static std::string generateReplacement(UserPort* userPort);
         static std::string generateInputPort(UserPort* userPort);
-        static std::string generateBody(UserPort* userPort);
         static std::string generateOutputPort(UserPort* userPort);
         
     // -- No Constructor

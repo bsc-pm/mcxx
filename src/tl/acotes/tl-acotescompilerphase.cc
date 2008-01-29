@@ -89,7 +89,7 @@ namespace TL { namespace Acotes {
         on_directive_post["port"].connect(
             functor(&AcotesCompilerPhase::onPostUserPortConstruct, *this)
             );
-        register_construct("port");
+        register_directive("port");
          
         on_directive_pre["shared"].connect(
             functor(&AcotesCompilerPhase::onPreSharedConstruct, *this)

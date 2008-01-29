@@ -65,7 +65,6 @@ namespace TL { namespace Acotes {
         
         ss      << "{"
                 <<    generateInputPort(userPort)
-                <<    generateBody(userPort)
                 <<    generateOutputPort(userPort)
                 << "}"
                 ;
@@ -84,15 +83,6 @@ namespace TL { namespace Acotes {
             ss << PortTransform::generateInputPeek(port);
             ss << PortTransform::generatePop(port);
         }
-        
-        return ss.str();
-    }
-    
-    std::string UserPortTransform::generateBody(UserPort* userPort)
-    {
-        std::stringstream ss;
-        
-        ss << userPort->getBody()->prettyprint();
         
         return ss.str();
     }

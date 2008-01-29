@@ -43,11 +43,6 @@ namespace TL { namespace Acotes {
     {
     }
 
-    TL::LangConstruct UserPortConstruct::getBody() {
-        PragmaCustomConstruct construct(getConstruct().get_ast(), getConstruct().get_scope_link());
-        return construct.get_statement();
-    }
-    
     TL::LangConstruct UserPortConstruct::getConstruct() {
         return *this;
     }
@@ -60,10 +55,9 @@ namespace TL { namespace Acotes {
     void UserPortConstruct::onPre() {
         // retrieve information
         TL::LangConstruct* construct= new TL::LangConstruct(getConstruct());
-        TL::LangConstruct* body= new TL::LangConstruct(getBody());
         
         Task* task= AcotesStack::taskTop();
-        UserPort* userPort= UserPort::create(construct, body, task);
+        UserPort* userPort= UserPort::create(construct, task);
 
         onPreInputPort(userPort);
         onPreOutputPort(userPort);

@@ -33,19 +33,18 @@ namespace TL { namespace Acotes {
      * * UserPort creation
      * ****************************************************************/
     
-    UserPort* UserPort::create(TL::LangConstruct* construct, TL::LangConstruct* body, Task* task)
+    UserPort* UserPort::create(TL::LangConstruct* construct, Task* task)
     {
         UserPort* result= new UserPort();
         
         result->setConstruct(construct);
-        result->setBody(body);
         result->setTask(task);
         
         return result;
     }
     
     UserPort::UserPort()
-    : construct(NULL), body(NULL)
+    : construct(NULL)
     , task(NULL)
     {
     }
@@ -62,14 +61,6 @@ namespace TL { namespace Acotes {
         assert(!this->construct /* call only once */);
         
         this->construct= construct;
-    }
-    
-    void UserPort::setBody(TL::LangConstruct* body)
-    {
-        assert(body);
-        assert(!this->body /*call only once */);
-        
-        this->body= body;
     }
     
     
