@@ -116,6 +116,7 @@ namespace TL { namespace Acotes {
     // -- Port connection creation
     public:
         void createPortConnections();
+        void verifyPortConnections();
     private:
         void createChildPortConnections();
         void createVirtualPortandConnection();

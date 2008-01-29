@@ -131,6 +131,7 @@ namespace TL { namespace Acotes {
         Task* implicitTask= getImplicitTask();
         implicitTask->createPortConnections();
 
+        verifyPortConnections();
     }
     
     /**
@@ -142,6 +143,16 @@ namespace TL { namespace Acotes {
         assert(portConnection);
         
         portConnectionVector.push_back(portConnection);
+    }
+
+    /**
+     * Verifies that all ports has a connection.
+     */
+    void Taskgroup::verifyPortConnections() {
+        assert(getImplicitTask());
+        
+        Task* implicitTask= getImplicitTask();
+        implicitTask->verifyPortConnections();
     }
     
     
@@ -291,7 +302,7 @@ namespace TL { namespace Acotes {
             }
         }
     }
-    
+        
      
 } /* end namespace Acotes */ } /* end namespace TL */
 

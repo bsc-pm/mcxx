@@ -29,6 +29,7 @@
 #include "ac-task.h"
 #include "ac-taskgroup.h"
 #include "ac-variable.h"
+#include "tl-acoteslogger.h"
 
 namespace TL { namespace Acotes {
     
@@ -133,6 +134,7 @@ namespace TL { namespace Acotes {
         
         Port* port= new Port();
         port->setTask(task);
+        port->setLocus(task->getConstruct()->get_ast().get_locus());
         
         return port;
     }
@@ -165,6 +167,7 @@ namespace TL { namespace Acotes {
     , named(false)
     , peek(NULL)
     , replicate(false)
+    , locus("noportlocus")
     {
     }
     
@@ -243,6 +246,24 @@ namespace TL { namespace Acotes {
         }
         
         return result;
+    }
+    
+    /**
+     * Verifies that the port is connected.
+     */
+    void Port::verifyConnection() {
+        if (portConnectionVector.size() == 0) {
+            AcotesLogger::error(getLocus())
+                    << "unconnected "
+                    << (isInput()? "input " : "")
+                    << (isOutput()? "output " : "")
+                    << "port "
+                    << (isNamed()? "named '" : "") 
+                    << (isNamed()? getName() : "")
+                    << (isNamed()? "' " : "") 
+                    << "symbol: '" << getVariable()->getName() << "'"
+                    << std::endl;
+        }
     }
     
     

@@ -77,6 +77,7 @@ namespace TL { namespace Acotes {
         void addPortConnection(PortConnection* portConnection);
         const std::vector<PortConnection*> &getPortConnectionVector() const { return portConnectionVector; }
     private:
+        void verifyPortConnections();
         std::vector<PortConnection*> portConnectionVector;
         
     // -- CopyInOut state relationship

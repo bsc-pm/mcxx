@@ -99,6 +99,7 @@ namespace TL { namespace Acotes {
         assert(inport->isNamed());
         
         inputPortVector.push_back(inport);
+        inport->setLocus(getConstruct()->get_ast().get_locus());
     }
     
     void UserPort::addOutputPort(Port* outport)
@@ -108,6 +109,7 @@ namespace TL { namespace Acotes {
         assert(outport->isNamed());
         
         outputPortVector.push_back(outport);
+        outport->setLocus(getConstruct()->get_ast().get_locus());
     }
     
 } /* end namespace Acotes */ } /* end namespace TL */

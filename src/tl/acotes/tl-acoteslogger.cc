@@ -65,16 +65,23 @@ namespace TL { namespace Acotes {
         return std::cerr;
     }
     
+    std::ostream& AcotesLogger::error(const std::string& location)
+    {
+        errorCount++;
+        
+        std::cerr << location << ": error: ";
+        return std::cerr;
+    }
+    
     std::ostream& AcotesLogger::error(TL::LangConstruct* langConstruct)
     {
         errorCount++;
         
         if (langConstruct) {
-            std::cerr << langConstruct->get_ast().get_locus() << ": ";
+            return error(langConstruct->get_ast().get_locus());
         } else {
-            std::cerr << "internal: ";
+            return error(std::string("internal"));
         }
-        std::cerr << "error: ";
         return std::cerr;
     }
     

@@ -82,6 +82,7 @@ namespace TL { namespace Acotes {
         PortConnection* getPortConnection();
         bool hasPortConnection() const { return portConnectionVector.size() > 0; };
         Port* getArtificialCounterpart();
+        void verifyConnection();
     private:
         std::vector<PortConnection*> portConnectionVector;
         
@@ -131,6 +132,14 @@ namespace TL { namespace Acotes {
         bool isReplicate() const { return replicate; }
     private:
         bool replicate;
+            
+    // -- Locus
+    public:
+        const std::string &getLocus() const { return locus; };
+        void setLocus(const std::string& locus) { this->locus= locus; };
+    private:
+        std::string locus;
+
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */

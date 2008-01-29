@@ -426,6 +426,25 @@ namespace TL { namespace Acotes {
 	return output;
     }
 
+    /**
+     * Verifies that all ports are connected.
+     */
+    void Task::verifyPortConnections() {
+
+        // Verifies the connections of all children
+        for (unsigned i= 0; i < childVector.size(); i++) {
+            Task* child= childVector.at(i);
+            child->verifyPortConnections();
+        }
+        
+        // Verifies the connection of its ports
+        // Verifies the connections of all children
+        for (unsigned i= 0; i < portVector.size(); i++) {
+            Port* port= portVector.at(i);
+            port->verifyConnection();
+        }
+    }
+
     
     
     /* ****************************************************************

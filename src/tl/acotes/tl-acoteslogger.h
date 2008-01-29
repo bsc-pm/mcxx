@@ -31,6 +31,7 @@
 #define	_TL_ACOTESLOGGER_H
 
 #include <iostream>
+#include <string>
 #include <tl-langconstruct.hpp>
 
 namespace TL { namespace Acotes {
@@ -42,6 +43,7 @@ namespace TL { namespace Acotes {
         static std::ostream& info(TL::LangConstruct* langConstruct);
         static std::ostream& debug(TL::LangConstruct* langConstruct);
         static std::ostream& warning(TL::LangConstruct* langConstruct);
+        static std::ostream& error(const std::string& locus);
         static std::ostream& error(TL::LangConstruct* langConstruct);
         static int  getErrorCount() { return errorCount; }
         static bool wasAnyError() { return errorCount; }
