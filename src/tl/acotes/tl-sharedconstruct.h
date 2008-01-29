@@ -20,7 +20,6 @@ namespace TL { namespace Acotes {
     public:
         SharedConstruct(TL::LangConstruct langConstruct);
     private:
-        TL::LangConstruct getBody();
         TL::LangConstruct getConstruct();
 
     // -- CompilerPhase events

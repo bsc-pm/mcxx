@@ -97,7 +97,7 @@ namespace TL { namespace Acotes {
         on_directive_post["shared"].connect(
             functor(&AcotesCompilerPhase::onPostSharedConstruct, *this)
             );
-        register_construct("shared");
+        register_directive("shared");
          
         on_directive_pre["peek"].connect(
             functor(&AcotesCompilerPhase::onPrePeekConstruct, *this)

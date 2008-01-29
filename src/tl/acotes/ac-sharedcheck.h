@@ -43,19 +43,16 @@ namespace TL { namespace Acotes {
         
     // -- Constructor
     public:
-        static SharedCheck* create(TL::LangConstruct* construct, TL::LangConstruct* body, Task* task);
+        static SharedCheck* create(TL::LangConstruct* construct, Task* task);
     private:
         SharedCheck();
         
     // -- Body
     public:
-        TL::LangConstruct* getBody() const { return body; }
         TL::LangConstruct* getConstruct() const { return construct; }
     private:
         void setConstruct(TL::LangConstruct* construct);
-        void setBody(TL::LangConstruct* body);
         TL::LangConstruct* construct;
-        TL::LangConstruct* body;
         
     // -- Task relationship
     private:

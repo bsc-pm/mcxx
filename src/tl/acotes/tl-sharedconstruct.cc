@@ -38,11 +38,6 @@ namespace TL { namespace Acotes {
     {
     }
 
-    TL::LangConstruct SharedConstruct::getBody() {
-        PragmaCustomConstruct construct(getConstruct().get_ast(), getConstruct().get_scope_link());
-        return construct.get_statement();
-    }
-    
     TL::LangConstruct SharedConstruct::getConstruct() {
         return *this;
     }
@@ -68,9 +63,8 @@ namespace TL { namespace Acotes {
         if (stateClause.getVariableCount() > 0) {
             // retrieve information
             TL::LangConstruct* construct= new TL::LangConstruct(getConstruct());
-            TL::LangConstruct* body= new TL::LangConstruct(getBody());            
             
-            SharedCheck* sharedCheck= SharedCheck::create(construct, body, task);
+            SharedCheck* sharedCheck= SharedCheck::create(construct, task);
 
             for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
                 Variable* variable= stateClause.getVariable(i);
@@ -86,9 +80,8 @@ namespace TL { namespace Acotes {
         if (stateClause.getVariableCount() > 0) {
             // retrieve information
             TL::LangConstruct* construct= new TL::LangConstruct(getConstruct());
-            TL::LangConstruct* body= new TL::LangConstruct(getBody());
             
-            SharedUpdate* sharedUpdate= SharedUpdate::create(construct, body, task);
+            SharedUpdate* sharedUpdate= SharedUpdate::create(construct, task);
 
             for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
                 Variable* variable= stateClause.getVariable(i);

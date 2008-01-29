@@ -33,22 +33,20 @@ namespace TL { namespace Acotes {
      * * Constructor
      * ****************************************************************/
     
-    SharedCheck* SharedCheck::create(TL::LangConstruct* construct, TL::LangConstruct* body, Task* task)
+    SharedCheck* SharedCheck::create(TL::LangConstruct* construct, Task* task)
     {
         assert(construct);
-        assert(body);
         assert(task);
         
         SharedCheck* result= new SharedCheck();
         result->setConstruct(construct);
-        result->setBody(body);
         result->setTask(task);
         
         return result;
     }
     
     SharedCheck::SharedCheck()
-    : construct(NULL), body(NULL)
+    : construct(NULL)
     , task(NULL)
     {
     }
@@ -65,14 +63,6 @@ namespace TL { namespace Acotes {
         assert(!this->construct);
         
         this->construct= construct;
-    }
-    
-    void SharedCheck::setBody(TL::LangConstruct* body)
-    {
-        assert(body);
-        assert(!this->body);
-        
-        this->body= body;
     }
         
     

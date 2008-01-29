@@ -48,11 +48,9 @@ namespace TL { namespace Acotes {
         static void transformReplacement(SharedCheck* sharedCheck);
         static std::string generateReplacement(SharedCheck* sharedCheck);
         static std::string generateCheck(SharedCheck* sharedCheck);
-        static std::string generateBody(SharedCheck* sharedCheck);
         static void transformReplacement(SharedUpdate* sharedUpdate);
         static std::string generateReplacement(SharedUpdate* sharedUpdate);
         static std::string generateUpdate(SharedUpdate* sharedUpdate);
-        static std::string generateBody(SharedUpdate* sharedUpdate);
         
         
         

@@ -34,22 +34,20 @@ namespace TL { namespace Acotes {
      * * Constructor
      * ****************************************************************/
     
-    SharedUpdate* SharedUpdate::create(TL::LangConstruct* construct, TL::LangConstruct* body, Task* task)
+    SharedUpdate* SharedUpdate::create(TL::LangConstruct* construct, Task* task)
     {
         assert(construct);
-        assert(body);
         assert(task);
 
         SharedUpdate* result= new SharedUpdate();
         result->setConstruct(construct);
-        result->setBody(body);
         result->setTask(task);
         
         return result;
     }
     
     SharedUpdate::SharedUpdate()
-    : construct(NULL), body(NULL)
+    : construct(NULL)
     , task(NULL)
     {
     }
@@ -66,14 +64,6 @@ namespace TL { namespace Acotes {
         assert(!this->construct);
         
         this->construct= construct;
-    }
-    
-    void SharedUpdate::setBody(TL::LangConstruct* body)
-    {
-        assert(body);
-        assert(!this->body);
-        
-        this->body= body;
     }
         
     

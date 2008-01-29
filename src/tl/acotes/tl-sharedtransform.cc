@@ -73,7 +73,6 @@ namespace TL { namespace Acotes {
         
         ss      << "{"
                 <<   generateCheck(shared)
-                <<   generateBody(shared)
                 << "}"
                 ;
         
@@ -89,14 +88,6 @@ namespace TL { namespace Acotes {
             State* state= states.at(i);
             ss << SharedTransform::generateCheck(state);
         }
-        
-        return ss.str();
-    }
-    
-    std::string SharedTransform::generateBody(SharedCheck* shared) {
-        std::stringstream ss;
-        
-        ss << shared->getBody()->prettyprint();
         
         return ss.str();
     }
@@ -121,7 +112,6 @@ namespace TL { namespace Acotes {
         std::stringstream ss;
         
         ss      << "{"
-                <<   generateBody(shared)
                 <<   generateUpdate(shared)
                 << "}"
                 ;
@@ -138,14 +128,6 @@ namespace TL { namespace Acotes {
             State* state= states.at(i);
             ss << SharedTransform::generateUpdate(state);
         }
-        
-        return ss.str();
-    }
-    
-    std::string SharedTransform::generateBody(SharedUpdate* shared) {
-        std::stringstream ss;
-        
-        ss << shared->getBody()->prettyprint();
         
         return ss.str();
     }
