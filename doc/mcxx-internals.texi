@@ -2111,9 +2111,137 @@ struct A <_W<_F>, 3, B> @{ @};
 @subsection Template representation
 @cindex template representation
 
+When the compiler finds a template declaration it signs in a @emph{template-name},
+this is, a symbol with kind @code{SK_TEMPLATE}. In its template type, it
+registers first the primary specialized template. Additional specializations
+can be signed later by means of partial specializations, explicit specializations
+or implicit specializations caused by semantic analysis.
+
+For instance, consider
+
+@example
+template <typename _T> // (1)
+struct A @{ @};
+
+template <typename _T> // (2)
+struct A<_T*> @{ typedef _T T; @};
+
+template <> // (3)
+struct A<float> @{ @};
+
+void f(A<int*> a); // (4)
+
+A<int*>::T k; // (5)
+@end example
+
+Declaration @code{(1)} will cause the creation of a symbol @code{A} with kind
+@code{SK_TEMPLATE} in the current scope. It has only one type template
+parameter as its template signature. Its primary specialization (@pxref{Direct types}) will be
+constructed by using the class definition. Note that this primary specialization
+is a complete but dependent template specialized class type. @xref{Template nature}.
+
+Declaration @code{(2)} will cause a new specialization be added to the template
+type of @code{A}. This is also a complete but dependent template specialized
+class type.
+
+Declaration @code{(3)} will cause, again, that a new specialization be added
+to the template type of @code{A}. This time is a complete independent template
+(since there is not any template parameter enclosing this declaration).
+
+Declaration @code{(4)} will sign in function @code{f}, but one of its parameters
+is an implicit specialization of the template @code{A}. In this case, since the
+specialization has not been referred previously, it will be added in the 
+list of specializations of @code{A}. This is an incomplete independent template.
+
+Declaration @code{(5)} will require an instantiation of @code{A<int*>}. Recall
+that declaration @code{(4)} already created such specialization, so it will not
+be created again but instantiated. Instantiation will convert @code{A<int*>}
+into a complete independent template. Instantiation will choose the
+partial template specialization declared in @code{(2)}, so @code{T} is a valid
+member typename of @code{A<int*>}.
+
 @node Template nature
 @subsection Template nature
 @cindex template nature
+
+The example in @ref{Template representation} already shown that, for template classes (at the moment, but it could
+be extended to template functions too) there are four template natures@footnote{This is a rather bad name, maybe template
+specialization status is something better...} represented in the field @code{template_nature}
+of @code{simple_type_t}. @xref{Direct types}.
+
+Complete means that the template specialization type has been defined, either
+by an explicit or partial specialization or either by an instantiation.
+Independent means that the type can be described without using any template
+parameter.
+
+@table @code
+@item TPN_COMPLETE_DEPENDENT
+The specialization class type has been defined. For instance
+
+@example
+template <typename _T>
+struct A @{ @}; // Complete dependent
+
+template <typename _T> 
+struct A<_T*> @{ typedef _T T; @}; // Complete dependent
+@end example
+
+@item TPN_COMPLETE_INDEPENDENT
+The specialization is an explicit specialization or has been made
+complete because of instantiation.
+
+@example
+template <typename _T> 
+struct A // Complete dependent
+@{ 
+  typedef _T T; 
+@}; 
+
+template <> 
+struct A<int> // Complete independent
+@{ 
+@}; 
+
+A<float>::T k; 
+// 'A<float>' will be complete independent after instantiation
+@end example
+
+@item TPN_INCOMPLETE_DEPENDENT
+This specialization has not been defined, just declared or named. Some spurious incomplete
+dependent can appear because of templated types but they are harmless because
+incomplete types do not play any role in instantiation.
+
+@example
+template <typename _T>
+struct A; // Incomplete dependent
+
+template <typename _T>
+void f(A<_T*>); 
+// A new specialization 'A<_T*>' will be created
+// to represent the type of the first parameter
+// and it will be incomplete dependent
+@end example
+
+@item TPN_INCOMPLETE_INDEPENDENT
+This specialization is independent but has not been defined, just declared or named. Many
+spurious incomplete types can appear but they do not play any role in instantiation, except
+for being instantiatable.
+
+@example
+template <typename _T>
+struct A; // Incomplete dependent
+
+template <>
+struct A<int>; // Incomplete independent
+
+void f(A<int*>); 
+// A new specialization 'A<_T*>' will be created
+// to represent the type of the first parameter
+// and it will be incomplete independent
+@end example
+
+
+@end table
 
 @node Scopes and contexts
 @chapter Scopes and contexts
