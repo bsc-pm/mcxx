@@ -1958,7 +1958,6 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             {
                 parameter_info[0].type_info = get_reference_type(type_info);
             }
-            parameter_info[0].original_type = NULL;
 
             type_t* copy_constructor_type = get_new_function_type(
                     NULL, // Constructors do not return anything
@@ -2044,7 +2043,6 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             {
                 parameter_info[0].type_info = get_reference_type(type_info);
             }
-            parameter_info[0].original_type = NULL;
 
             type_t* copy_assignment_type = get_new_function_type(
                     /* returns T& */ get_reference_type(type_info), 
@@ -3127,7 +3125,6 @@ static void set_function_parameter_clause(type_t** function_type,
 
         parameter_info[num_parameters].is_ellipsis = 0;
         parameter_info[num_parameters].type_info = type_info;
-        parameter_info[num_parameters].original_type = original_type;
 
         {
             /* 

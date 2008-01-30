@@ -36,8 +36,6 @@ struct parameter_info_tag
     char is_ellipsis;
     // Otherwise it has the type here
     struct type_tag* type_info;
-    // If not null, original_type holds the original type (array or function)
-    struct type_tag* original_type;
 } parameter_info_t;
 
 // Standard conversions info

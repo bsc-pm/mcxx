@@ -6791,7 +6791,6 @@ void build_unary_builtin_operators(type_t* t1,
                 { 
                     .is_ellipsis = 0,
                     .type_info = adjusted_t1,
-                    .original_type = NULL
                 },
             };
 
@@ -6885,12 +6884,10 @@ void build_binary_builtin_operators(type_t* t1,
                     { 
                         .is_ellipsis = 0,
                         .type_info = adjusted_t1,
-                        .original_type = NULL
                     },
                     {
                         .is_ellipsis = 0,
                         .type_info = adjusted_t2,
-                        .original_type = NULL
                     }
                 };
 
@@ -7012,17 +7009,14 @@ void build_ternary_builtin_operators(type_t* t1,
                         { 
                             .is_ellipsis = 0,
                             .type_info = adjusted_t1,
-                            .original_type = NULL
                         },
                         {
                             .is_ellipsis = 0,
                             .type_info = adjusted_t2,
-                            .original_type = NULL
                         },
                         {
                             .is_ellipsis = 0,
                             .type_info = adjusted_t3,
-                            .original_type = NULL
                         }
                     };
 

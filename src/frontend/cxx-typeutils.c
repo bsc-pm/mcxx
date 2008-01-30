@@ -248,10 +248,6 @@ struct simple_type_tag {
     // signed
     char is_signed;
 
-    // This is something not strictly related to the type...
-    // static
-    char is_static; 
-
     // GCC extension
     // __Complex float
     char is_complex;
@@ -1812,7 +1808,6 @@ type_t* get_nonproto_function_type(type_t* t, int num_parameters)
         parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
 
         new_parameter->type_info = get_signed_int_type();
-        new_parameter->original_type = get_signed_int_type();
 
         P_LIST_ADD(result->function->parameter_list, 
                 result->function->num_parameters, new_parameter);
@@ -3041,43 +3036,8 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
                 print_declarator(p_t1, decl_context),
                 print_declarator(p_t2, decl_context));
     }
-    // Try to save some work because some time these types can't actually be
-    // compared syntactically because the user reintroduced a symbol hiding
-    // a template-name. Consider this case:
-    //
-    // template <typename _T> 
-    // struct A;
-    //
-    // template <typename _M>
-    // struct C
-    // {
-    //     typedef typename _M::template T< A <_M> >::C N;
-    // 
-    //     typedef A<_M> A; <-- this hides template-name 'A' used in the previous declaration
-    // 
-    //     void f(N) { }
-    //     void g(N);
-    //     void h(N);
-    // };
-    // 
-    // template <typename _T>
-    // void C<_T>::g(
-    //    typename C<_T>::N  <-- this uses the typedef declared inside the class
-    // ) { }
-    //
-    // template <typename _T>
-    // void C<_T>::h(
-    //   typename _T::template T< A<_T> >::C <-- this is not valid, since here 'A' is not a template-name
-    //                                           (because of the context we found 'C<_T>::A', not '::A<_T>')
-    //   ) { }
-    //
-    // The right thing (TM) to do here should be saving a sequence of
-    // 'typenames' optionally followed by a list of template-arguments
-    // instead of saving a tree in a dependent typename
-    //
-    // (It is likely that in these contrived cases the user will use a typedef
-    // to help himself so most of the time this fast path will be fired)
-    //
+    // It is likely that in these contrived cases the user will use a typedef
+    // to help himself so most of the time this fast path will be fired
     if (p_t1 == p_t2)
         return 1;
 
