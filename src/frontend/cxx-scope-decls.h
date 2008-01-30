@@ -391,10 +391,6 @@ struct scope_entry_tag
     // All entity specifiers are in this structure
     entity_specifiers_t entity_specs;
 
-    // For template-alias
-    // Used for template template parameters
-    struct type_tag* template_alias_type;
-
     // Point in the struct AST_tag* where this was declared. This is approximate, just to
     // find the simple_declaration, member_declaration or function_definition
     // holding this one

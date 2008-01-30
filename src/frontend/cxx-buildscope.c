@@ -6416,20 +6416,7 @@ decl_context_t replace_template_parameters_with_template_arguments(
         // template template parameter
         else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
         {
-#if 0
-            new_entry->kind = SK_TEMPLATE_ALIAS;
-            type_t* template_argument_type = 
-                template_arguments->argument_list[entry->entity_specs.template_parameter_position]->type;
-
-            new_entry->template_alias_type = template_argument_type;
-
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "Making template template parameter '%s' to be an alias to %s\n", 
-                        new_entry->symbol_name,
-                        print_declarator(template_argument_type, new_entry->decl_context));
-            }
-#endif
+            // Do nothing (?)
         }
         else
         {

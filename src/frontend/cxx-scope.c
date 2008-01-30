@@ -2026,10 +2026,8 @@ static decl_context_t replace_template_parameters_with_values(
         else if (entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
         {
             new_entry->kind = SK_TEMPLATE;
-            type_t* template_argument_type = 
-                current_argument->type;
-
-            new_entry->template_alias_type = template_argument_type;
+            // type_t* template_argument_type = 
+            //     current_argument->type;
 
             DEBUG_CODE()
             {
@@ -2037,6 +2035,7 @@ static decl_context_t replace_template_parameters_with_values(
                         new_entry->symbol_name,
                         print_declarator(new_entry->type_information, new_entry->decl_context));
             }
+            internal_error("Not yet implemented", 0);
         }
         else
         {
