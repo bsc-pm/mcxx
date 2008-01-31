@@ -59,6 +59,9 @@ namespace TL
 
             // States whether the clause was in the pragma
             bool is_defined();
+            
+            // return the name of the current clause
+            std::string get_clause_name() { return _clause_name; }
     };
 
     class PragmaCustomConstruct : public LangConstruct
