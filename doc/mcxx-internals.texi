@@ -328,7 +328,7 @@ considered once for compilation.
 
 Abstract Syntax Tree, from now AST, is the synthesized representation of the
 source code. In contrast to many other compilers, mcxx's AST will try to capture
-many syntactic details (normally uneeded or actually lowered).  This adds
+many syntactic details (normally unneeded or actually lowered).  This adds
 complexity to the compiler but makes happier users, specially when they have to
 check the output code. Trying to realize what is wrong when some information
 has just disappeared tends to upset the debugging user.
@@ -1617,7 +1617,7 @@ The type of the elements of the vector.
 
 Unresolved function reference types (@code{TK_OVERLOAD}) are only used in the
 context of expression type checking. They synthesize in one type a set of
-symbols that are candidate of overloading.
+symbols that are candidates of overload resolution.
 
 @node Ellipsis type
 @section Ellipsis type
@@ -2416,6 +2416,10 @@ Its enclosing template scope is the one that we created to keep @code{_T}.
 @section Contexts
 @cindex contexts
 
+@menu
+* Context definition::
+@end menu
+
 Contexts synthesize a set of scopes that are relevant in a given region of code. If we were
 to develop a C-only compiler the exact context would require just knowing the file scope.
 In function definitions we would need also a nesting of block scopes and a function scope. 
@@ -2430,6 +2434,250 @@ classes) of the class are involved in the context.
 
 Some declarations do not declare anything in the current (natural) scope but in an enclosing scope, like
 enumerators that are declared in the first enclosing namespace scope.
+
+@node Context definition
+@subsection Context definition
+@cindex context definition
+
+@menu
+* Current scope in a context::
+* Declaration context flags::
+@end menu
+
+Contexts are represented by @code{decl_context_t}. In contrast to many other
+internal structures seen so far, this one is always used by value. Using a
+value has the benefit that it is easier to take a snapshot of the exact context
+in any given place. This is useful, for instance, when we want to evaluate a
+constant expression later or when we want to parse something in a specific
+context. This type is defined in @file{frontend/cxx-scope-decls.h}.
+
+@example
+typedef struct decl_context_tag
+@{
+    decl_flags_t decl_flags;
+    
+    struct scope_tag* namespace_scope;
+    struct scope_tag* global_scope;
+    struct scope_tag* block_scope;
+
+    struct scope_tag* template_scope;
+    struct template_parameter_list_tag *template_parameters;
+    int template_nesting;
+
+    struct scope_tag* class_scope;
+    struct scope_tag* function_scope;
+    struct scope_tag* prototype_scope;
+
+    struct scope_tag* current_scope;
+@} decl_context_t;
+@end example
+
+@table @code
+@item decl_flags
+This is a set of declaration flags that influence the way things are looked up or signed in
+the scopes. @xref{Declaration context flags}.
+@item namespace_scope
+The innermost enclosing namespace scope in the current context. In global scope
+it is the same as @code{global_scope}.
+@item global_scope
+The global namespace scope.
+@item block_scope
+The innermost enclosing block scope. It is null in namespace scope and
+class scope.
+@item template_scope
+The innermost enclosing template scope. It is null if we are not in a template
+declaration.
+@item template_parameters
+List of template parameters of the innermost enclosing template scope.
+It is null if we are not in a template declaration.
+@item template_nesting
+The nesting level of the innermost enclosing template scope. Zero
+if we are not in a template declaration.
+@item class_scope
+The innermost enclosing class scope. It is null in namespace scope
+and in block scopes of non member functions.
+@item function_scope
+Current function scope. It is null in namespace scope and class scope.
+@item current_scope
+This is the current scope where new entities will be signed in. @xref{Current scope in a context}.
+@end table
+
+@node Current scope in a context
+@subsubsection Current scope in a context
+@cindex current scope in a context
+
+Field @code{current_scope} stores the current scope where new entities will be signed in. This field
+is updated to point one of the previous fields, except for @code{template_scope}, as long as the
+scope changes.
+
+Consider the following example
+
+@example
+// (1)
+int a; 
+
+namespace B
+@{
+    // (2)
+    int b; 
+
+    class C
+    @{
+        // (3)
+        int c;
+    @};
+
+    namespace D
+    @{
+        // (4)
+        int d;
+    @}
+@}
+@end example
+
+In @code{(1)} the context will have only one scope that will be pointed at the
+same time by @code{global_scope}, @code{namespace_scope} and
+@code{current_scope}. This makes that @code{a} gets signed in the global scope
+has it has to be. 
+
+Namespace @code{B} is also signed in global scope but it
+creates a new context, @code{(2)}, where @code{namespace_scope} points to a newly created
+namespace scope (wich its @code{contained_in} field points to the global scope).
+The @code{current_scope} of the namespace context created by @code{B} refers
+to this newly created namespace scope. Thus, @code{b} is signed in the namespace
+@code{B} (@code{B::b}).
+
+Class name @code{C} is also signed in as @code{B::C}. Since it is a class
+it creates a class scope, @code{(3)}. This time @code{current_scope} will point to a 
+newly created @code{class_scope} (which its @code{contained_in} will
+point to the scope of namespace @code{B}). Within the class, this is the
+@code{current_scope} so nonstatic member @code{c} is signed in the class
+scope of @code{C}.
+
+The same applies for @code{D} and @code{d}. The former is signed in the
+namespace of @code{B}, thus @code{B::D}. The latter is signed in the namespace
+of @code{D}, thus @code{B::D::d}.
+
+Template scopes form their own stack.
+
+@example
+template <typename _T>
+struct A
+@{
+  template <typename _Q>
+  void f(_T, _Q);
+@};
+
+template <typename _T1>
+// (1)
+template <typename _Q1>
+// (2)
+void A<_T1>::f(_T1, _Q1);
+@end example
+
+In @code{(1)}, @code{current_scope} is still the global scope but
+@code{template_scope} will contain @code{_T1}. In @code{(2)},
+@code{current_scope} of the context is still the global scope as well. Its
+@code{template_scope} will contain @code{_Q1} and the @code{contained_in} field
+of this template scope will refer to the template scope where @code{_T1} was
+signed in.
+
+@node Declaration context flags
+@subsubsection Declaration context flags
+@cindex declaration context flags
+
+Sometimes, operations with contexts and scopes must be slightly modified
+because of language requirements or implementation issues. Flags in
+contexts are used for this. 
+
+Since contexts are always passed by value, many of these flags have a transient
+life just to be useful in scope query functions and functions that create new
+symbols.
+
+These flags are bitmaps, and more than one can be enabled at the same time. They can
+take one or more of the following values.
+
+@example
+DF_TEMPLATE
+DF_CONSTRUCTOR
+DF_NO_DECLARATORS
+DF_FRIEND
+DF_EXPLICIT_SPECIALIZATION
+DF_ALLOW_REDEFINITION
+DF_UNQUALIFIED_NAME
+DF_QUALIFIED_NAME
+DF_LABEL
+DF_ONLY_CURRENT_SCOPE
+DF_DEPENDENT_TYPENAME
+DF_ELABORATED_NAME
+DF_PARAMETER_DECLARATION
+DF_NO_INJECTED_CLASS_NAME
+DF_UPDATE_TEMPLATE_ARGUMENTS
+DF_INSTANTIATING
+@end example
+
+@table @code
+@item DF_TEMPLATE
+If this is enabled, declarations are within a template declaration.
+This flag is cleared for members of a class, which in turn
+can be ``template declarated".
+@item DF_CONSTRUCTOR
+It states that the current declaration is a constructor, so no
+type-specifier is expected and a special name ``@code{constructor @r{class-name}}''
+is used when looking up in the scope
+@item DF_NO_DECLARATORS
+It states that the current declaration does not have any declarator.
+It is mainly used for elaborate-type-specifiers (which change their behaviour
+depending on having or not declarators) and templated-declarations
+@item DF_FRIEND
+It states that the declaration has a 'friend' specifier
+@item DF_EXPLICIT_SPECIALIZATION
+It states that, under the same scope as @code{DF_TEMPLATE}, the declaration
+is under a @code{template<>}
+@item DF_ALLOW_REDEFINITION
+Allows redefinition of an identifier already defined, used in compiler
+phases since they might need to redefine some symbols.
+@item DF_UNQUALIFIED_NAME
+Lookup is being performed on an unqualified name
+@item DF_QUALIFIED_NAME
+Lookup is being performed on a qualified name.
+@item DF_LABEL
+We are looking up a label
+@item DF_ONLY_CURRENT_SCOPE
+Lookup will consider only the current scope and not any other
+scope in the context.
+@item DF_DEPENDENT_TYPENAME
+Enables examining dependent types (used for dependent typenames)
+@item DF_ELABORATED_NAME
+Enables C++ weird lookup for @code{struct}s, @code{union}s and @code{enum}s. This filters
+any non type symbol that might clash the name. 
+
+@example
+struct A @{ @};
+A A; 
+// Previous declaration hid typename 'A' so
+// 'A b;' is wrong and we need to use
+// 'struct A' instead
+struct A b; 
+@end example
+
+This is only needed in C++, since in C, the class key is prepended in the
+symbol name, so what it is actually signed in is @code{struct A} and not just
+@code{A} like in C++
+
+@item DF_PARAMETER_DECLARATION 
+States that we are under parameter declaration. This avoids declaring new functions
+when the parameter type is a function type.
+@item DF_NO_INJECTED_CLASS_NAME
+States that the lookup should ignore injected class-names
+@item DF_UPDATE_TEMPLATE_ARGUMENTS = BITMAP(14),
+Updates template arguments for a given specialization, used
+only when defining an already declared template specialization
+(since we want the names be updated)
+@item DF_INSTANTIATING
+We are instantiating thus some bits of the instantiated class will be skipped.
+In particular inlined function definitions are not examined their function body.
+@end table
 
 @node Extensible structure
 @chapter Extensible structure
