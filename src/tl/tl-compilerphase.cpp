@@ -103,8 +103,8 @@ namespace TL
             bool_value = 1;
         }
         else if (str_value == "0"
-                && str_value == "no"
-                && str_value == "false")
+                || str_value == "no"
+                || str_value == "false")
         {
             bool_value = 0;
         }
