@@ -3586,6 +3586,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 // An unqualified operator_function_id "operator +"
                 const char* operator_function_name = get_operator_function_name(declarator_id);
                 AST operator_id = ASTLeaf(AST_SYMBOL, ASTLine(declarator_id), operator_function_name);
+                // Keep the parent of the original declarator
+                ast_set_parent(operator_id, ast_get_parent(declarator_id)); 
 
                 if (ASTType(declarator_id) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
                 {
@@ -3614,6 +3616,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 char* conversion_function_name = get_conversion_function_name(decl_context, declarator_id, 
                         &conversion_type_info);
                 AST conversion_id = ASTLeaf(AST_SYMBOL, ASTLine(declarator_id), conversion_function_name);
+                // Keep the parent of the original declarator
+                ast_set_parent(conversion_id, ast_get_parent(declarator_id));
                 return register_new_variable_name(conversion_id, declarator_type, gather_info, decl_context);
                 break;
             }
@@ -4225,6 +4229,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
         it = it->next;
     }
 
+    // Second attempt, match an specialization of a template function
     if (templates_available
             && BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
     {
@@ -7971,14 +7976,20 @@ char* get_conversion_function_name(decl_context_t decl_context,
 
 static AST get_enclosing_declaration(AST point_of_declarator)
 {
-    while (point_of_declarator != NULL
-            && ASTType(point_of_declarator) != AST_SIMPLE_DECLARATION
-            && ASTType(point_of_declarator) != AST_MEMBER_DECLARATION
-            && ASTType(point_of_declarator) != AST_FUNCTION_DEFINITION
-            && ASTType(point_of_declarator) != AST_PARAMETER_DECL)
+    AST point = point_of_declarator;
+
+    while (point != NULL
+            && ASTType(point) != AST_SIMPLE_DECLARATION
+            && ASTType(point) != AST_MEMBER_DECLARATION
+            && ASTType(point) != AST_FUNCTION_DEFINITION
+            && ASTType(point) != AST_PARAMETER_DECL
+            && ASTType(point) != AST_EXPLICIT_INSTANTIATION)
     {
-        point_of_declarator = ASTParent(point_of_declarator);
+        point = ASTParent(point);
     }
 
-    return point_of_declarator;
+    ERROR_CONDITION(point == NULL,
+            "This cannot be NULL!", 0);
+
+    return point;
 }

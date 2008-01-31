@@ -1248,7 +1248,7 @@ two enumerators @code{A} and @code{C}.
 @end menu
 
 
-Class types require lots of informations to be stored, in particular in C++. This information
+Class types require lots of informations to be stored, in special in C++. This information
 is represented in @code{class_info_t}.
 
 @example
@@ -2166,13 +2166,17 @@ member typename of @code{A<int*>}.
 
 The example in @ref{Template representation} already shown that, for template classes (at the moment, but it could
 be extended to template functions too) there are four template natures@footnote{This is a rather bad name, maybe template
-specialization status is something better...} represented in the field @code{template_nature}
+specialization status would be better.} represented in the field @code{template_nature}
 of @code{simple_type_t}. @xref{Direct types}.
 
 Complete means that the template specialization type has been defined, either
 by an explicit or partial specialization or either by an instantiation.
 Independent means that the type can be described without using any template
-parameter.
+parameter. 
+
+Complete, dependent or independent, template specialized class types are eligible
+for instantiation of incomplete independent template specialized class type. Complete
+independent template specialized class types are already ``instantiated'' in the code.
 
 @table @code
 @item TPN_COMPLETE_DEPENDENT
@@ -2225,7 +2229,7 @@ void f(A<_T*>);
 @item TPN_INCOMPLETE_INDEPENDENT
 This specialization is independent but has not been defined, just declared or named. Many
 spurious incomplete types can appear but they do not play any role in instantiation, except
-for being instantiatable.
+for the fact that they can be instantiated if needed.
 
 @example
 template <typename _T>
@@ -2247,6 +2251,185 @@ void f(A<int*>);
 @chapter Scopes and contexts
 @cindex scopes
 @cindex contexts
+
+@menu
+* Scopes::
+* Contexts::
+@end menu
+
+Scopes are the places where the compiler registers symbols. Contexts define the
+set of available scopes that determine which names can actually be used in a
+given place.
+
+@node Scopes
+@section Scopes
+@cindex scopes
+
+@menu
+* Relationships between scopes::
+@end menu
+
+In mcxx a scope is just a symbol table where symbols can be signed in. Scopes in mcxx
+allow overloading of names. This is only effectively used in C++. Scopes are
+represented by @code{scope_t} type declared in @file{cxx-scope-decls.h}.
+
+@example
+typedef 
+struct scope_tag
+@{
+    enum scope_kind kind;
+
+    Hash* hash;
+
+    const char* qualification_name;
+
+    struct scope_tag* contained_in; 
+
+    int num_used_namespaces;
+    struct scope_tag** use_namespace;
+
+    struct type_tag* class_type;
+
+    struct scope_entry_tag* function_entry;
+@} scope_t;
+@end example
+
+@table @code
+@item kind
+This is the kind of the scope. Although all scopes are created equal, their kind
+shows the intent of their existence. This field can have the following values
+@table @code
+@item NAMESPACE_SCOPE
+This is the scope for @emph{file-scope} (in C) and for
+@emph{namespace-scope} (in C++), this includes the @emph{global scope}.
+@item FUNCTION_SCOPE
+This the scope for label identifiers both for C and C++.
+@item PROTOTYPE_SCOPE
+This is the scope where parameter identifiers are signed in in function
+declarations, both in C and C++.
+@item BLOCK_SCOPE
+This is the scope of statements both in C and C++.
+@item CLASS_SCOPE
+This is the scope created by a class definition in C++.
+@item TEMPLATE_SCOPE
+This is a scope where all template parameter names of a given template declaration nest
+are signed in. Only for C++. There is one template scope for every non empty template header
+seen during a template declaration.
+@end table
+@item hash
+This is the hashmap storing all the symbols.
+@item qualification_name
+For C++ only, this is the basic qualification name of this scope. For scopes
+of kind @code{NAMESPACE_SCOPE} this is the unqualified name of the related namespace
+(unless it is the global scope, where this will be null). For scopes
+of kind @code{CLASS_SCOPE} this is the unqualified name of the class. If the class
+is a template specialized class, it will only include the template-name (not its
+specialization template arguments).
+
+All other kinds of scopes have this field set to null.
+@item contained_in
+The logically enclosing scope. @xref{Relationships between scopes}.
+
+@item  num_used_namespaces
+@itemx use_namespace
+The @emph{used} namespaces by means of @code{using namespace} directives.
+
+@item class_type
+In scopes with kind of @code{CLASS_SCOPE} the class type after this scope was
+created.
+@item function_entry
+In scopes with kind of @code{FUNCTION_SCOPE} the function symbol after this
+scope was created.
+@end table
+
+@node Relationships between scopes
+@subsection Relationships between scopes
+@cindex scope relationships
+
+Scopes show in structured languages an obvious nesting relationship. To
+represent this basic relationship the field @code{contained_in} of
+@code{scope_t} is used. Although, this field is somewhat overloaded. Scopes of
+kind @code{FUNCTION_SCOPE} are never nested into any other scope. All
+other scopes can be nested but the meaning depends on the scope.
+
+All scopes except for @code{TEMPLATE_SCOPE}, the lexically enclosing @emph{data
+environment}@footnote{Data environment is used here instead of `scope' or
+`context'.} in the code is their @code{contained_in} scope.
+
+@example
+int a;
+
+void f(int b);
+void g(int c)
+@{
+  int d;
+  @{
+    int e;
+  @}
+  @{
+    int h;
+  @}
+@}
+@end example
+
+Symbol of variable @code{a} is signed in a @code{NAMESPACE_SCOPE}, let us call it @code{scope:global}.
+It does not have any enclosing scope since it is the global scope. 
+
+Symbol of function @code{f} is signed also in @code{scope:global}. Since it is a function declaration
+its parameter are signed in a @code{PROTOTYPE_SCOPE}, let us call it @code{scope:proto:f:1}, so
+@code{b} will be signed in @code{PROTOTYPE_SCOPE}. The enclosing scope of @code{scope:proto:f:1} is
+@code{scope:global}.
+
+For the function definition of @code{g}, the symbol @code{g} itself will be
+signed in @code{scope:global}.  Since it is a function definition it does not
+have a prototype scope but directly a block scope where all parameters and its
+outermost compound statement declarations are signed in. Let us call it
+@code{scope:block:f:0}. Symbols @code{c} and @code{d} are signed in @code{scope:block:f:0}.
+The enclosing scope of @code{scope:block:f} is @code{scope:global}.
+
+Every compound statement, and some other constructs like @code{if}, @code{for} and @code{while} (in C++ and
+some of them in C99 too), define their own block scope. Thus, symbol @code{e} within function @code{g}
+will be declared in a scope @code{scope:block:f:0:0} and symbol @code{h} in a scope @code{scope:block:h:0:1}.
+Both scopes will have @code{scope:block:f:0} as their enclosing scope@footnote{Unintentionally, this explanation devises
+a form to internally name scopes in a plain global symbol table}.
+
+Template scopes, those with kind @code{TEMPLATE_SCOPE}, are used in contexts (@pxref{Contexts})
+as side scopes that keep their own template scope hierarchy. An enclosing scope of a template scope
+if any, is always another template scope.
+
+@example
+template <typename _T>
+/* (1) */
+struct A
+@{
+  template <typename _Q>
+  /* (2) */
+  void f(_T, _Q);
+@};
+@end example
+
+In @code{(1)} a template scope is created to register @code{_T}. It does not have any other
+enclosing template scope. In @code{(2)} another template scope is created to register @code{_Q}.
+Its enclosing template scope is the one that we created to keep @code{_T}.
+
+@node Contexts
+@section Contexts
+@cindex contexts
+
+Contexts synthesize a set of scopes that are relevant in a given region of code. If we were
+to develop a C-only compiler the exact context would require just knowing the file scope.
+In function definitions we would need also a nesting of block scopes and a function scope. 
+In function declarations a nest of prototype scopes would be also needed. But after all, just
+simple hierarchic nests would be needed.
+
+C++ makes this more difficult since several other scopes, not only those defined naturally
+by the language structure, have to be taken into account. In addition to those scopes
+for C, we need to know which scopes are being @emph{used} (by means of @code{use namespace} directives).
+Furthermore, within a class, not only the current class scope is considered but also the bases (or parent
+classes) of the class are involved in the context.
+
+Some declarations do not declare anything in the current (natural) scope but in an enclosing scope, like
+enumerators that are declared in the first enclosing namespace scope.
 
 @node Extensible structure
 @chapter Extensible structure

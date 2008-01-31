@@ -653,6 +653,17 @@ namespace TL
 
             Source instrument_code_task_creation;
 
+            Source increment_task_level;
+            Source decrement_task_level;
+
+            if (Nanos4::Version::version >= 400)
+            {
+                increment_task_level <<  "nth_inc_task_level();"
+                    ;
+                decrement_task_level <<  "nth_dec_task_level();"
+                    ;
+            }
+
             task_queueing
                 << "{"
                 <<    "nth_desc * nth;"
@@ -675,7 +686,9 @@ namespace TL
                 <<    "{"
                 // <<       "fprintf(stderr, \"Cannot allocate task at '%s'\\n\", \"" << task_construct.get_ast().get_locus() << "\");"
                 <<       fallback_capture_values
+                <<       increment_task_level
                 <<       outlined_function_reference << "(" << fallback_arguments << ");"
+                <<       decrement_task_level
                 <<    "}"
                 <<    copy_construction_part
                 << "}"

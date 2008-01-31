@@ -1,24 +1,19 @@
 lib_LTLIBRARIES = libtlomp.la
 
-libtlomp_la_CFLAGS = -Wall \
+tl_omp_flags = -Wall \
     -I $(top_srcdir)/src/tl \
+    -I $(top_srcdir)/src/tl/nanos \
     -I $(top_srcdir)/src/frontend \
     -I $(top_srcdir)/src/driver \
     -I $(top_srcdir)/lib \
     -I $(top_builddir)/src/tl \
+    -I $(top_builddir)/src/tl/nanos \
     -I $(top_builddir)/src/frontend \
     -I $(top_builddir)/src/driver \
     -I $(top_builddir)/lib
 
-libtlomp_la_CXXFLAGS = -Wall \
-    -I $(top_srcdir)/src/tl \
-    -I $(top_srcdir)/src/frontend \
-    -I $(top_srcdir)/src/driver \
-    -I $(top_srcdir)/lib \
-    -I $(top_builddir)/src/tl \
-    -I $(top_builddir)/src/frontend \
-    -I $(top_builddir)/src/driver \
-    -I $(top_builddir)/lib
+libtlomp_la_CFLAGS = $(tl_omp_flags)
+libtlomp_la_CXXFLAGS = $(tl_omp_flags)
 
 libtlomp_la_SOURCES = \
    tl-omptransform.cpp \

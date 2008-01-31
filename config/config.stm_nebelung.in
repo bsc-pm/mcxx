@@ -7,5 +7,7 @@ compiler_name = g++
 compiler_options = 
 linker_name = g++
 linker_options = @NANOS_LIBS@ @NEBELUNG_LIBS@
+pragma_prefix = nanos
 compiler_phase = libtlstmfunc.so
+compiler_phase = libtlnanos.so
 compiler_phase = libtlomp.so
