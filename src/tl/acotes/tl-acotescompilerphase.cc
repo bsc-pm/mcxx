@@ -131,7 +131,10 @@ namespace TL { namespace Acotes {
     AcotesCompilerPhase::run(DTO& data_flow)
     {        
         std::cout << "AcotesCompilerPhase run"<< std::endl;
-        
+
+        AcotesInlineCompilerPhase inlinePhase;
+        inlinePhase.run(data_flow);
+
         // get the translation_unit tree
         AST_t translation_unit = data_flow["translation_unit"];
         // get the scope_link
@@ -165,8 +168,6 @@ namespace TL { namespace Acotes {
             exit(1);
         }
 
-        //AcotesInlineCompilerPhase inlinePhase;
-        //inlinePhase.run(data_flow);
         AcotesMainCompilerPhase mainPhase;
         mainPhase.run(data_flow);
     }

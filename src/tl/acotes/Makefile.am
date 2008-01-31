@@ -61,6 +61,8 @@ libtlacotes_la_SOURCES = \
     tl-acotesmaincompilerphase.h \
     tl-acoteslogger.cc \
     tl-acoteslogger.h \
+    tl-acotesreplaceidexpression.cc \
+    tl-acotesreplaceidexpression.h \
     tl-acotesstack.cc \
     tl-acotesstack.h \
     tl-acotestransform.cc \

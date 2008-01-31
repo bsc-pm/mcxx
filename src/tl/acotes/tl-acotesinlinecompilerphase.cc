@@ -23,6 +23,8 @@
 #include "tl-acotesinlinecompilerphase.h"
 
 #include <assert.h>
+#include <tl-traverse.hpp>
+#include "tl-acotesreplaceidexpression.h"
 
 namespace TL { namespace Acotes {
 
@@ -113,32 +115,11 @@ namespace TL { namespace Acotes {
     void 
     AcotesInlineCompilerPhase::preorder(Context ctx, AST_t node)
     {
-#if 0
-        PredicateAST<LANG_IS_FOR_STATEMENT> forStatementPred;
+        PredicateAST<LANG_IS_FUNCTION_CALL> isFunctionCall;
         
-        if (forStatementPred(node)) {
-            ForStatement forStatement(node, ctx.scope_link);
-            if (forStatement.regular_loop()) {
-                AcotesStack::forStatementPush(forStatement);
-            }
-        } else {
-            assert(0);
+        if (isFunctionCall(node)) {
+            
         }
-//        AcotesTaskCall acotes_task_call(node, ctx.scope_link);
-//        Task* task= acotes_task_call.get_task();
-//        if (task) 
-//        {
-//            if (TaskStack::top()) {
-//                on_task_call_pre(acotes_task_call);
-//            } else {
-//                ErrorReport::I()->warning(node)
-//                    << "found function call to task "
-//                    << "'" << task->get_name() << "'"
-//                    << " outside to task or taskgroup, will not be streamized"
-//                    << std::endl;
-//            }
-//        }
-#endif
     }
 
     /**
@@ -147,60 +128,59 @@ namespace TL { namespace Acotes {
     void 
     AcotesInlineCompilerPhase::postorder(Context ctx, AST_t node)
     {
-        Expression expression(node, ctx.scope_link);
-        assert(expression.is_function_call());
-        Expression calledExpression= expression.get_called_expression();
+        // f(something) expression from node
+        Expression functionCall(node, ctx.scope_link);
+        assert(functionCall.is_function_call());
+        
+        // obtain the f if it is a symbol, it shouldn't be something like t[n]()
+        Expression calledExpression= functionCall.get_called_expression();
         if (calledExpression.is_id_expression())
         {
+            // Obtaint f identifier expression and symbol
             IdExpression idExpression= calledExpression.get_id_expression();
             Symbol callSymbol= idExpression.get_symbol();
+            
+            // If f is an inline function replace it
             if (functionMap.count(callSymbol)) {
+                // Function definition to be replaced
                 FunctionDefinition functionDefinition= *functionMap[callSymbol];
                 DeclaredEntity declaredEntity= functionDefinition.get_declared_entity();
                 ObjectList<ParameterDeclaration> parameterDeclarations= declaredEntity.get_parameter_declarations();
-                ObjectList<Expression> argumentList= expression.get_argument_list();
+                ObjectList<Expression> argumentList= functionCall.get_argument_list();
                 
+                // Ensure formar parameters and arguments matchs
                 assert(parameterDeclarations.size() == argumentList.size());
                 
-                ReplaceIdExpression replace;
+                // Create the replacement of parameters for arguments
+                AcotesReplaceIdExpression replace;
                 for (unsigned i= 0; i < parameterDeclarations.size(); i++) {
+                    // For each paramater symbol...
                     ParameterDeclaration parameter= parameterDeclarations.at(i);
-                    Expression argument= argumentList.at(i);
-                    
                     IdExpression parameterId= parameter.get_name();
                     Symbol parameterSymbol= parameterId.get_symbol();
+
+                    // ...replace by the argument ast
+                    Expression argument= argumentList.at(i);
+                    AST_t argumentAST= argument.get_ast();
                     
-                    replace.add_replacement(parameterSymbol, argument.get_ast());
+                    // Request the replacement of parameter<-argument
+                    replace.add(parameterSymbol, argumentAST);
                 }
                 
+                // Create a new instance of the function body...
                 Statement body= functionDefinition.get_function_body();
-                Statement replacement= replace.replace(body);
+                Source replacementSource= body.prettyprint();
+                AST_t replacementAST= replacementSource.parse_statement(body.get_ast(), body.get_scope_link());
+                // ...replacing the parameters with the arguments
+                replace.setRefTree(functionCall.get_ast());
+                replace.replace(replacementAST, functionCall.get_scope_link());
                 
-                Source source= replacement.prettyprint();
-                AST_t s= source.parse_statement(expression.get_ast(), expression.get_scope_link());
-                expression.get_ast().replace(s);
+                Source finallySource= replacementAST.prettyprint();
+                AST_t finallyAST= finallySource.parse_statement(functionCall.get_ast(), functionCall.get_scope_link());
+                // Replace the function call with the modified function body
+                functionCall.get_ast().replace(finallyAST);
             }
         }
-        #if 0
-        PredicateAST<LANG_IS_FOR_STATEMENT> forStatementPred;
-        
-        if (forStatementPred(node)) {
-            ForStatement forStatement(node, ctx.scope_link);
-            if (forStatement.regular_loop()) {
-                AcotesStack::forStatementPop();
-            }
-        } else {
-            assert(0);
-        }
-        #endif
-//        AcotesTaskCall acotes_task_call(node, ctx.scope_link);
-//        Task* task= acotes_task_call.get_task();
-//        if (task)
-//        {
-//            if (TaskStack::top()) {
-//                on_task_call_post(acotes_task_call);
-//            } 
-//        }
     }
 
     

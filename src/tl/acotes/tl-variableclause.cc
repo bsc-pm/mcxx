@@ -61,6 +61,10 @@ namespace TL { namespace Acotes {
         } else if(e.is_array_subscript()) {
             result= getArrayVariable(e);
         } else {
+            AcotesLogger::error(&e)
+                    << "illegal expression: "
+                    << e.prettyprint()
+                    << std::endl;
             assert(0); /* TODO: report to the user this case */
         }
         
