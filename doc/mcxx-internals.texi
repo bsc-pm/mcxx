@@ -41,7 +41,7 @@ Copyright @copyright{} 2007 Roger Ferrer Ib@'a@~nez.
 * Type system::
 * Symbols::
 * Scopes and contexts::
-* Extensible structure::
+* Extensible structures and schemas::
 @end menu
 
 @node Introduction
@@ -1639,7 +1639,7 @@ the context of overload resolution.
 
 The source code not only defines types but also symbolic names, symbols, that
 link a name in the program with some piece of information. These symbols
-represent the entities of the program like functions, variables, templates etc.
+represent the entities of the program like functions, variables, templates, etc.
 
 @node Symbol definition
 @section Symbol definition
@@ -2679,10 +2679,96 @@ We are instantiating thus some bits of the instantiated class will be skipped.
 In particular inlined function definitions are not examined their function body.
 @end table
 
+@node Extensible structures and schemas
+@chapter Extensible structures and schemas
+@cindex extensible structure and schema
+
+@menu
+* Extensible schema::
+* Extensible structure::
+@end menu
+
+All the previous structures are probably enough for a typechecking frontend but might
+turn insufficient for later compiler phases. These phases might need to synthesize more
+information and being able to extend the existing structures, e.g. a new attribute
+for symbols, makes them easier to develop.
+
+To provide this functionality an extensible structure mechanism exists in the
+compiler. Although at the time of writing this document it is only used for AST
+(@pxref{Abstract Syntax Tree}) the original idea was to add this feature to the
+most of the structures seen in previous chapters.
+
+@node Extensible schema
+@section Extensible schema
+@cindex extensible schema
+
+Any extensible structure has a schema, that can be extended at run-time, 
+
+@example
+typedef
+struct extensible_schema_item_tag
+@{
+    size_t size;
+    int field_order;
+@} extensible_schema_item_t;
+
+typedef
+struct extensible_schema_tag
+@{
+    Hash *hash;
+    int num_fields;
+@} extensible_schema_t;
+@end example
+
+Data type @code{extensible_schema_item_t} represents an item in the schema,
+represented by @code{extensible_schema_t}. A schema is a set of these items
+identified by a name. A schema item belongs to only one schema, i.e. it cannot
+be reused in several schemas.
+
+Fields of a schema item are
+
+@table @code
+@item size
+This is the size in memory of the entity represented in the extensible structure.
+@item field_order
+This is the field order within the schema. This number is set when a new 
+schema item is added to a schema.
+@end table
+
+Fields of a schema are
+
+@table @code
+@item hash
+A hash providing the map between a name and a schema item.
+@item num_fields
+The number of schema items linked to this schema.
+@end table
+
 @node Extensible structure
-@chapter Extensible structure
+@section Extensible structure
 @cindex extensible structure
 
-@c @printindex
+Once we have a schema we can define extensible structs on top of it.
+
+@example
+typedef
+struct extensible_data_item_tag
+{
+    // Index of the field in the schema
+    int schema_index;
+
+    // The data
+    char* data;
+} extensible_data_item_t;
+
+typedef
+struct extensible_struct_tag
+{
+    extensible_schema_t *schema;
+
+    int num_items;
+    extensible_data_item_t *items;
+} extensible_struct_t;
+@end example
 
 @bye

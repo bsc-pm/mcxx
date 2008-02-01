@@ -5726,6 +5726,32 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         (*result).conv[0] = SCI_ARRAY_TO_POINTER;
         orig = get_pointer_type(array_type_get_element_type(no_ref(orig)));
     }
+    else if (is_literal_string_type(orig)
+            && is_pointer_type(dest)
+            && is_char_type(pointer_type_get_pointee_type(dest)))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCS: Applying (faked) string literal conversion to pointer of char\n");
+        }
+        // String literals do not have their own specific type,
+        // they are just special 'const char*' that can be
+        // distinguished from other plain 'const char*'.
+        //
+        // Technically speaking type of "aa" is 'const char[3]' but we assume
+        // directly that they are 'const char*'. In C 'const' qualifier is not
+        // applied. If we did that the previous conversion would have applied
+        //
+        // Standard says that "a" when converted to 'char*' must be assumed to
+        // be two conversions, a first array-to-pointer ('const char[N]' to
+        // 'const char *') and a second qualification-conversion ('const char*'
+        // to 'char*'). I think this is the only case where we can drop a
+        // 'const' in C++ in a standard conversion)
+        //
+        // So first register the array to pointer conversion
+        (*result).conv[0] = SCI_ARRAY_TO_POINTER;
+        // Later on we will register the qualification conversion
+    }
     else if (is_function_type(no_ref(orig)))
     {
         DEBUG_CODE()
@@ -6020,6 +6046,21 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Applying qualification conversion\n");
             }
+            (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
+            orig = dest;
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_literal_string_type(orig)
+                && is_pointer_type(dest)
+                && is_char_type(pointer_type_get_pointee_type(dest))
+                && !is_const_qualified_type(pointer_type_get_pointee_type(dest)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying deprecated string literal conversion to 'char*'\n");
+            }
+            // See a comment in lvalue-transformations related to literal strings
+            // ans how are they handled in C++
             (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             orig = dest;
         }

@@ -483,8 +483,9 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
 
-                ast_set_expression_type(expression, lvalue_ref(string_literal_type(expression)));
-                // This is a lvalue surprisingly
+                ast_set_expression_type(expression, string_literal_type(expression));
+                // This is a lvalue surprisingly because it can't be bound to a
+                // reference in C++
                 ast_set_expression_is_lvalue(expression, 1);
 
                 result = 1;
