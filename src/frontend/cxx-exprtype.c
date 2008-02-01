@@ -310,7 +310,15 @@ scope_entry_list_t* get_member_function_of_class_type(type_t* class_type,
 
     ERROR_CONDITION(name == NULL, "Name not properly computed", 0);
 
-    return class_context_lookup(class_type_get_inner_context(class_type), name);
+    decl_context_t class_context = class_type_get_inner_context(class_type);
+    if (class_context.class_scope != NULL)
+    {
+        return class_context_lookup(class_context, name);
+    }
+    else
+    {
+        return NULL;
+    }
 }
 
 // Typechecking function
@@ -5672,7 +5680,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         }
     }
 
-    // This not need to be a member function but 'get_member_function_of_class_type' works
+    // This need not to be a member function but 'get_member_function_of_class_type' works
     // also for data members
     scope_entry_list_t* entry_list = get_member_function_of_class_type(accessed_type,
             id_expression, decl_context);
