@@ -42,6 +42,9 @@ Copyright @copyright{} 2007 Roger Ferrer Ib@'a@~nez.
 * Symbols::
 * Scopes and contexts::
 * Extensible structures and schemas::
+* Function Index::
+* Type Index::
+* Concept Index::
 @end menu
 
 @node Introduction
@@ -372,6 +375,8 @@ struct AST_tag
     extensible_struct_t* extended_data;
 @};
 @end example
+@tindex AST
+@tindex AST_tag
 
 @table @code
 @item node_type
@@ -722,6 +727,8 @@ struct type_tag
     _size_t size;
 @};
 @end example
+@tindex type_t
+@tindex type_tag
 
 Its fields are documented below.
 
@@ -935,6 +942,8 @@ struct simple_type_tag @{
     AST dependent_unqualifed_part;
 @} simple_type_t;
 @end example
+@tindex simple_type_tag
+@tindex simple_type_t
 
 @table @code
 @item kind
@@ -1221,6 +1230,8 @@ struct enum_information_tag
     struct scope_entry_tag** enumeration_list; 
 @} enum_info_t;
 @end example
+@tindex enum_information_tag
+@tindex enum_info_t
 
 @table @code
 @item num_enumeration
@@ -1287,6 +1298,8 @@ struct class_information_tag @{
     base_class_info_t** base_classes_list;
 @} class_info_t;
 @end example
+@tindex class_info_t
+@tindex class_information_tag
 
 @table @code
 @item class_kind
@@ -1409,6 +1422,8 @@ struct base_class_info_tag
     char is_virtual;
 @} base_class_info_t;
 @end example
+@tindex base_class_info_t
+@tindex base_class_info_tag
 
 @table @code
 @item class_type
@@ -1494,6 +1509,8 @@ struct pointer_tag
     struct scope_entry_tag* pointee_class;
 @} pointer_info_t;
 @end example
+@tindex pointer_info_t
+@tindex pointer_info_tag
 
 @table @code
 @item pointee
@@ -1520,6 +1537,8 @@ struct array_tag
     struct type_tag* element_type;
 @} array_info_t;
 @end example
+@tindex array_info_t
+@tindex array_tag
 
 @table @code
 @item array_expr
@@ -1547,6 +1566,8 @@ struct function_tag
     int lacks_prototype;
 @} function_info_t;
 @end example
+@tindex function_tag
+@tindex function_info_t
 
 @table @code
 @item return_type
@@ -1576,6 +1597,8 @@ struct parameter_info_tag
     struct type_tag* type_info;
 @} parameter_info_t;
 @end example
+@tindex parameter_info_t
+@tindex parameter_info_tag
 
 @table @code
 @item is_ellipsis
@@ -1603,6 +1626,8 @@ typedef struct vector_tag
     struct type_tag* element_type;
 @} vector_info_t;
 @end example
+@tindex vector_tag
+@tindex vector_info_t
 
 @table @code
 @item vector_size
@@ -1683,6 +1708,8 @@ struct scope_entry_tag
     dependency_info_t dependency_info;
 @} scope_entry_t;
 @end example
+@tindex scope_entry_t
+@tindex scope_entry_tag
 
 @table @code
 @item kind
@@ -1877,6 +1904,8 @@ typedef struct entity_specifiers_tag
 
 @} entity_specifiers_t;
 @end example
+@tindex entity_specifiers_t
+@tindex entity_specifiers_tag
 
 @table @code
 @item is_static
@@ -2255,6 +2284,7 @@ void f(A<int*>);
 @menu
 * Scopes::
 * Contexts::
+* Scope link::
 @end menu
 
 Scopes are the places where the compiler registers symbols. Contexts define the
@@ -2293,6 +2323,8 @@ struct scope_tag
     struct scope_entry_tag* function_entry;
 @} scope_t;
 @end example
+@tindex scope_tag
+@tindex scope_t
 
 @table @code
 @item kind
@@ -2317,7 +2349,7 @@ are signed in. Only for C++. There is one template scope for every non empty tem
 seen during a template declaration.
 @end table
 @item hash
-This is the hashmap storing all the symbols.
+This is the hashmap storing all the symbols (@code{scope_entry_list_t}). @xref{Symbols}.
 @item qualification_name
 For C++ only, this is the basic qualification name of this scope. For scopes
 of kind @code{NAMESPACE_SCOPE} this is the unqualified name of the related namespace
@@ -2471,6 +2503,8 @@ typedef struct decl_context_tag
     struct scope_tag* current_scope;
 @} decl_context_t;
 @end example
+@tindex decl_context_t
+@tindex decl_context_tag
 
 @table @code
 @item decl_flags
@@ -2679,6 +2713,56 @@ We are instantiating thus some bits of the instantiated class will be skipped.
 In particular inlined function definitions are not examined their function body.
 @end table
 
+@node Scope link
+@section Scope link
+@cindex scope link
+
+Since we are not storing the related context@footnote{In fact, this structure
+should be called context link} in the AST
+(@pxref{Abstract Syntax Tree}), just having a reference to a tree is quite
+useless because no symbolic information is available.
+
+Instead of storing the scope in a tree, doing so would carry contextual
+information that might be problematic when freely moving trees around, we
+define a scope link structure that is able, given a tree, to retrieve its scope
+by using a map.
+
+In this map all tree defining or referring contexts are stored. When a given
+tree is asked its context, a traversal towards its root is performed looking
+for a tree with a known related context.
+
+This structure is declared in @file{frontend/cxx-scopelink-decls.h} as an opaque
+type defined in @file{frontend/cxx-scopelink.c}.
+
+@example
+typedef
+struct scope_link_tag
+@{
+    Hash* h;
+    decl_context_t global_decl_context;
+@} scope_link_t;
+@end example
+@tindex scope_link_tag
+@tindex scope_link_t
+
+@table @code
+@item h
+The hash storing @code{scope_link_entry_t} entries.
+@item global_decl_context
+A global context used when no other context found in the tree.
+@end table
+
+Scope link entries only keep a context.
+
+@example
+typedef struct scope_link_entry_tag
+@{
+    decl_context_t decl_context;
+@} scope_link_entry_t;
+@end example
+@tindex scope_link_entry_tag
+@tindex scope_link_entry_t
+
 @node Extensible structures and schemas
 @chapter Extensible structures and schemas
 @cindex extensible structure and schema
@@ -2686,6 +2770,7 @@ In particular inlined function definitions are not examined their function body.
 @menu
 * Extensible schema::
 * Extensible structure::
+* Using the extensible structure::
 @end menu
 
 All the previous structures are probably enough for a typechecking frontend but might
@@ -2697,6 +2782,9 @@ To provide this functionality an extensible structure mechanism exists in the
 compiler. Although at the time of writing this document it is only used for AST
 (@pxref{Abstract Syntax Tree}) the original idea was to add this feature to the
 most of the structures seen in previous chapters.
+
+Files implementing the extensible structure are @file{lib/extstruct.c} and
+@file{lib/extstruct.h}.
 
 @node Extensible schema
 @section Extensible schema
@@ -2719,6 +2807,10 @@ struct extensible_schema_tag
     int num_fields;
 @} extensible_schema_t;
 @end example
+@tindex extensible_schema_item_tag
+@tindex extensible_schema_item_t
+@tindex extensible_schema_tag
+@tindex extensible_schema_t
 
 Data type @code{extensible_schema_item_t} represents an item in the schema,
 represented by @code{extensible_schema_t}. A schema is a set of these items
@@ -2753,22 +2845,118 @@ Once we have a schema we can define extensible structs on top of it.
 @example
 typedef
 struct extensible_data_item_tag
-{
+@{
     // Index of the field in the schema
     int schema_index;
 
     // The data
     char* data;
-} extensible_data_item_t;
+@} extensible_data_item_t;
 
 typedef
 struct extensible_struct_tag
-{
+@{
     extensible_schema_t *schema;
 
     int num_items;
     extensible_data_item_t *items;
-} extensible_struct_t;
+@} extensible_struct_t;
 @end example
+@tindex extensible_struct_t
+@tindex extensible_struct_tag
+@tindex extensible_data_item_t
+@tindex extensible_data_item_tag
+
+Fields of @code{extensible_struct_t} are
+
+@table @code
+@item schema
+The related schema of this extensible struct. A given schema can have several structs related to it.
+@item num_items
+@item items
+Set of data items, of type @code{extensible_data_item_t}, stored in current extensible struct.
+@end table
+
+The extensible structure contains data items, of type @code{extensible_data_item_t}, with
+the following fields
+
+@table @code
+@item schema_index
+The field index in the schema of the related extensible struct.
+@item data
+A pointer to raw data of this field.
+@end table
+
+@node Using the extensible structure
+@section Using the extensible structure
+@cindex using extensible structure
+
+To use an extensible schema just add a field to the structure that you want extensible. 
+
+@example
+struct my_struct
+@{
+  extensible_struct_t* extended_struct;
+@};
+@end example
+
+@deftypefun void extensible_schema_init (extensible_schema_t* @var{schema});
+Initializes the schema pointed by @var{schema}.
+@end deftypefun
+
+@deftypefun int extensible_schema_add_field (extensible_schema_t* @var{schema}, @
+        const char* @var{field_name}, @
+        size_t @var{field_size});
+Adds a field named @var{field_name} to the schema @var{schema} with size @var{field_size}.
+@end deftypefun
+
+@deftypefun void extensible_struct_init (extensible_struct_t* @var{extensible_struct}, @
+             extensible_schema_t* @var{schema});
+Initializes the extensible struct @var{extensible_struct} with the given schema @var{schema}.
+@end deftypefun
+
+@deftypefun void* extensible_struct_get_field_pointer (extensible_schema_t* @var{schema}, @
+        extensible_struct_t* @var{extensible_struct}, @
+        const char* @var{field_name});
+Gets a pointer to storage in the extended struct @var{extensible_struct} under the given
+schema @var{schema}. Note that @var{schema} parameter should be the @code{schema} field of
+@var{extensible_struct}.
+
+This function allocates space if this is the first time this field is requested. Otherwise
+it returns the previous allocated space.
+
+If the field @var{field_name} does not exist it returns null.
+@end deftypefun
+
+@deftypefun void* extensible_struct_get_field_pointer_lazy (extensible_schema_t* @var{schema}, @
+        extensible_struct_t* @var{extensible_struct}, @
+        const char* @var{field_name}, @
+        char* @var{is_found}); 
+
+This function is equivalent to @code{extensible_struct_get_field_pointer}
+except that it does not allocate any space. 
+
+Thus, unless a member has been given any storage using
+@code{extensible_struct_get_field_pointer}, it will return null. To distinguish
+this null from the case of an nonexistent field in the schema, @var{is_found}
+will be set to 1 when the field is found.
+
+@end deftypefun
+
+@node Function Index
+@unnumbered Function Index
+
+@printindex fn
+
+@node Type Index
+@unnumbered Type Index
+
+@printindex tp
+
+@node Concept Index
+@unnumbered Concept Index
+
+@printindex cp
+
 
 @bye
