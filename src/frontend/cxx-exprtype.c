@@ -4976,12 +4976,25 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             {
                 scope_entry_list_t *entry_list = query_id_expression(decl_context, 
                         advanced_called_expression);
+
+                char names_a_builtin = 0;
+                const char *name = ASTText(advanced_called_expression);
+                const char builtin_prefix[] = "__builtin_";
+
+                if (name != NULL
+                        && strncmp(name, builtin_prefix, strlen(builtin_prefix)) == 0)
+                {
+                    names_a_builtin = 1;
+                }
                 // Maybe it named a type
                 if (entry_list == NULL)
                 {
-                    fprintf(stderr, "Warning: function '%s' called at %s has not been declared\n", 
-                            prettyprint_in_buffer(called_expression),
-                            ast_location(called_expression));
+                    if (!names_a_builtin)
+                    {
+                        fprintf(stderr, "Warning: function '%s' called at %s has not been declared\n", 
+                                prettyprint_in_buffer(called_expression),
+                                ast_location(called_expression));
+                    }
                     ast_set_expression_type(called_expression, get_nonproto_function_type(get_signed_int_type(),
                             /* FIXME - This should be the real number of parameters! */ 0));
                 }
