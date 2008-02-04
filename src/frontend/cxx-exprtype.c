@@ -39,6 +39,8 @@
 // The policy in this file is avoiding (except for queries) to dynamically allocate things.
 // If needed raise the defined limits.
 
+static const char builtin_prefix[] = "__builtin_";
+
 #define MAX_BUILTINS (256)
 typedef
 struct builtin_operators_set_tag
@@ -3774,6 +3776,15 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
 {
     scope_entry_list_t* result = query_nested_name(decl_context, NULL, NULL, expr); 
 
+    char names_a_builtin = 0;
+    const char *name = ASTText(expr);
+
+    if (name != NULL
+            && strncmp(name, builtin_prefix, strlen(builtin_prefix)) == 0)
+    {
+        names_a_builtin = 1;
+    }
+
     if (result != NULL 
             && (result->entry->kind == SK_VARIABLE
                 || result->entry->kind == SK_ENUMERATOR
@@ -3865,7 +3876,17 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
     }
     else
     {
-        return 0;
+        if (!names_a_builtin)
+        {
+            return 0;
+        }
+        else
+        {
+            // Do not know anything about this type so set to something that is
+            // never considered an error (even in C)
+            ast_set_expression_type(expr, get_dependent_expr_type());
+            return 1;
+        }
     }
 }
 
@@ -4979,7 +5000,6 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
                 char names_a_builtin = 0;
                 const char *name = ASTText(advanced_called_expression);
-                const char builtin_prefix[] = "__builtin_";
 
                 if (name != NULL
                         && strncmp(name, builtin_prefix, strlen(builtin_prefix)) == 0)
