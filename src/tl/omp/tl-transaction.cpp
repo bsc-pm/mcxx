@@ -519,6 +519,10 @@ namespace TL
                             }
                             else
                             {
+                                if (read_operand_type.is_reference())
+                                {
+                                    read_operand_type = read_operand_type.references_to();
+                                }
                                 post_source
                                     << "({"
                                     << read_operand_type.get_declaration(expression.get_scope(), "__temp") 
