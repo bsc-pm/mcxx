@@ -760,12 +760,12 @@ namespace TL
 			DepthTraverse depth_traverse;
 			
 			// WARNING: order is important since function definitions appear to be also declarations
-			PredicateBool<LANG_IS_FUNCTION_DEFINITION> function_definition_predicate;
+			PredicateAST<LANG_IS_FUNCTION_DEFINITION> function_definition_predicate;
 			TraverseASTPredicate function_definition_traverser(function_definition_predicate, AST_t::NON_RECURSIVE);
 			FunctionDefinitionHandler function_definition_handler(function_map, kill_list, scope_link, generate_task_side, generate_non_task_side, align_memory);
 			depth_traverse.add_functor(function_definition_traverser, function_definition_handler);
 			
-			PredicateBool<LANG_IS_DECLARATION> declaration_predicate;
+			PredicateAST<LANG_IS_DECLARATION> declaration_predicate;
 			TraverseASTPredicate declaration_traverser(declaration_predicate, AST_t::NON_RECURSIVE);
 			DeclarationHandler declaration_handler(function_map, kill_list, generate_task_side, generate_non_task_side);
 			depth_traverse.add_functor(declaration_traverser, declaration_handler);

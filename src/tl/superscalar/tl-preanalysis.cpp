@@ -142,7 +142,7 @@ namespace TL
 		// Fill in the list of callees
 		DepthTraverse depth_traverse;
 		
-		PredicateBool<LANG_IS_FUNCTION_CALL> function_call_predicate;
+		PredicateAST<LANG_IS_FUNCTION_CALL> function_call_predicate;
 		FunctionCallHandler function_call_handler(function_info, _function_map);
 		depth_traverse.add_predicate(function_call_predicate, function_call_handler);
 		
@@ -355,7 +355,7 @@ namespace TL
 			
 			DepthTraverse depth_traverse;
 			
-			PredicateBool<LANG_IS_FUNCTION_DEFINITION> function_definition_predicate;
+			PredicateAST<LANG_IS_FUNCTION_DEFINITION> function_definition_predicate;
 			TraverseASTPredicate function_definition_traverser(function_definition_predicate, AST_t::NON_RECURSIVE);
 			FunctionDefinitionHandler function_definition_handler(function_map);
 			depth_traverse.add_functor(function_definition_traverser, function_definition_handler);
