@@ -3,7 +3,7 @@
 language = C
 options =
 preprocessor_name = gcc
-preprocessor_options = -E -include pthread.h -I @prefix@/include -include mintaka.h -include acolib.h
+preprocessor_options = -E -include pthread.h -I @prefix@/include -include mintaka.h -include acolib.h -include string.h
 compiler_name = gcc
 compiler_options =  -g -ggdb3  
 linker_name = gcc
