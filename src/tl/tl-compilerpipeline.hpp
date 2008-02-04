@@ -28,21 +28,44 @@
 
 namespace TL
 {
+    //! Class containing the configurations registered in the compiler configuration
+    /*!
+     * This class allows to retrieve the available configurations of the compiler. 
+     * It also is useful to get the name of the current configuration.
+     */
     class CompilationConfiguration
     {
         public:
+            //! List of available configurations
             static ObjectList<std::string> get_configuration_names();
 
+            //! Current compiler configuration
             static std::string get_current_configuration();
     };
 
+    //! This class represents a compiled file.
+    /*!
+     * This class is useful when dealing with multifile
+     * or when some information about the current compiled file is required
+     */
     class CompiledFile
     {
         private:
+            //! The file name of the current compiled file
             std::string _filename;
         protected:
         public:
+            //! Returns the full filename
+            /*!
+             * \param fullpath States whether the result should contain a full * path or just the base name of the file
+             */
             std::string get_filename(bool fullpath = false) const;
+
+            //! Creates a new CompiledFile object
+            /*!
+             * This does not influence the compiler pipeline. It justs creates
+             * the wrapper
+             */
             CompiledFile(const std::string &str);
 
             bool operator==(const CompiledFile& rhs)
@@ -51,27 +74,55 @@ namespace TL
             }
     };
 
+    //! This class represents the compilation process
+    /*!
+     * This class allows adding new files to the compilation process.
+     * Besides returning CompiledFile objects, add_file functions
+     * will add the file for further compilation. This is useful in
+     * multifile
+     */
     class CompilationProcess
     {
         private:
             static std::map<std::string, CompiledFile> _file_map;
         public:
+            //! Add a file to the compiler pipeline
+            /*!
+             * \param file_path The file path of the added file
+             */
             static CompiledFile add_file(
                     const std::string& file_path
                     );
+            //! Add a file to the compiler pipeline
+            /*!
+             * \param file_path The file path of the added file
+             * \param new_file It will be set to true if the file is the first time is referenced in the compiler pipeline
+             */
             static CompiledFile add_file(
                     const std::string& file_path,
                     bool &new_file
                     );
+            //! Add a file to the compiler pipeline with a given configuration
+            /*!
+             * \param file_path The file path of the added file
+             * \param configuration_name The name of a configuration as returned by CompilationConfiguration::get_configuration_names
+             */
             static CompiledFile add_file(
                     const std::string& file_path,
                     const std::string& configuration_name
                     );
+            //! Add a file to the compiler pipeline with a given configuration
+            /*!
+             * \param file_path The file path of the added file
+             * \param configuration_name The name of a configuration as returned by CompilationConfiguration::get_configuration_names
+             * \param new_file It will be set to true if the file is the first time is referenced in the compiler pipeline
+             */
             static CompiledFile add_file(
                     const std::string& file_path, 
                     const std::string& configuration_name, 
                     bool &new_file
                     );
+            //! Gets the current compiled file
             static CompiledFile get_current_file();
     };
 

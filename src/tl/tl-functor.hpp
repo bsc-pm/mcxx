@@ -25,15 +25,23 @@
 
 namespace TL
 {
+    //! Function representing a callable entity with only one argument
+    /*!
+     * \param Ret The returning type of this callable entity
+     * \param T The first parameter of this entity
+     */
     template <class Ret, class T>
     class Functor
     {
         public:
+            //! Call function operator implemented by non-abstract derived types
             virtual Ret operator()(T& t) const = 0; 
 
-            // Adapters never define this one but we want it to work anyway
-            // This method should be final and your functors should be effect
-            // free when given a "const T&"
+            //! Call function operator for const reference arguments
+            /*! Adapters never define this one but we want it to work anyway
+            * This method should be final and your functors should be effect
+            * free when given a "const T&"
+            */
             virtual Ret operator()(const T& t) const
             {
                 return this->operator()(const_cast<T&>(t));
@@ -42,6 +50,7 @@ namespace TL
             virtual ~Functor() { }
     };
 
+    //! Adapter class for non-member functions
     template <class Ret, class T>
     class FunctionAdapter : Functor<Ret, T>
     {
@@ -63,6 +72,8 @@ namespace TL
             }
     };
 
+    //! Adapter class for non-member functions expecting a value instead of a
+    // reference type
     template <class Ret, class T>
     class FunctionByValueAdapter : Functor<Ret, T>
     {
@@ -85,6 +96,7 @@ namespace TL
     };
 
     // Ret (Q::*pmf)(T& t)
+    //! Adapter class for member functions of a given object
     template <class Ret, class T, class Q>
     class MemberFunctionAdapterRef : public Functor<Ret, T>
     {
@@ -108,6 +120,7 @@ namespace TL
     };
 
     // Ret (Q::*pmf)(const T& t)
+    //! Adapter class for member functions of a given object expecting a const reference parameter
     template <class Ret, class T, class Q>
     class MemberFunctionAdapterConstRef : public Functor<Ret, T>
     {
@@ -131,6 +144,7 @@ namespace TL
     };
 
     // Ret (Q::*pmf)(T t)
+    //! Adapter class for member functions of a given object expecting value parameter
     template <class Ret, class T, class Q>
     class MemberFunctionAdapterVal : public Functor<Ret, T>
     {
@@ -154,6 +168,7 @@ namespace TL
     };
 
     // Ret (Q::*pmf)(T& t) const
+    //! Adapter class for member functions of a given constant object
     template <class Ret, class T, class Q>
     class MemberConstFunctionAdapterRef : public Functor<Ret, T>
     {
@@ -177,6 +192,7 @@ namespace TL
     };
     
     // Ret (Q::*pmf)(const T& t) const
+    //! Adapter class for member functions of a given constant object expecting a const reference parameter
     template <class Ret, class T, class Q>
     class MemberConstFunctionAdapterConstRef : public Functor<Ret, T>
     {
@@ -200,6 +216,7 @@ namespace TL
     };
 
     // Ret (Q::*pmf)(T t) const
+    //! Adapter class for member functions of a given constant object expecting a value parameter
     template <class Ret, class T, class Q>
     class MemberConstFunctionAdapterVal : public Functor<Ret, T>
     {
@@ -222,6 +239,7 @@ namespace TL
             }
     };
 
+    //! Adapter class for data member functions
     template <class Ret, class T>
     class DataMemberAdapter : public Functor<Ret, T>
     {
@@ -243,6 +261,7 @@ namespace TL
             }
     };
 
+    //! Adapter class for this same object
     template <class Ret, class T>
     class ThisMemberFunctionAdapter : public Functor<Ret, T>
     {
@@ -264,6 +283,7 @@ namespace TL
             }
     };
 
+    //! Adapter class for this same const object
     template <class Ret, class T>
     class ThisMemberFunctionConstAdapter : public Functor<Ret, T>
     {
@@ -285,13 +305,14 @@ namespace TL
             }
     };
 
+    //! Adaptor to create functors of non-member functions
     template <class Ret, class T>
     FunctionAdapter<Ret, T> functor(Ret (*pf)(T&))
     {
         FunctionAdapter<Ret, T> result(pf);
         return result;
     }
-    // This one is FunctionAdapter but it removes the const
+    //! Adaptor to create functors of non-member functions with const reference parameter
     template <class Ret, class T>
     FunctionAdapter<Ret, T> functor(Ret (*pf)(const T&))
     {
@@ -299,7 +320,7 @@ namespace TL
         return result;
     }
 
-    // This one does not need the const to be removed
+    //! Adaptor to create functors of non-member functions with value parameter
     template <class Ret, class T>
     FunctionByValueAdapter<Ret, T> functor(Ret (*pf)(T))
     {
@@ -308,6 +329,7 @@ namespace TL
     }
 
     // Ret (Q::*pmf)(T& t)
+    //! Adaptor to create functors of member functions of a given object
     template <class Ret, class T, class Q>
     MemberFunctionAdapterRef<Ret, T, Q> functor(Ret (Q::*pmf)(T& t), Q& q)
     {
@@ -316,6 +338,7 @@ namespace TL
     }
 
     // Ret (Q::*pmf)(const T& t)
+    //! Adaptor to create functors of member functions of a given object receiving a const reference
     template <class Ret, class T, class Q>
     MemberFunctionAdapterConstRef<Ret, T, Q> functor(Ret (Q::*pmf)(const T& t), Q& q)
     {
@@ -324,6 +347,7 @@ namespace TL
     }
 
     // Ret (Q::*pmf)(T t)
+    //! Adaptor to create functors of member functions of a given object receiving a value
     template <class Ret, class T, class Q>
     MemberFunctionAdapterVal<Ret, T, Q> functor(Ret (Q::*pmf)(T t), Q& q)
     {
@@ -332,6 +356,7 @@ namespace TL
     }
 
     // Ret (Q::*pmf)(T& t) const
+    //! Adaptor to create functors of member functions of a given const object
     template <class Ret, class T, class Q>
     MemberConstFunctionAdapterRef<Ret, T, Q> functor(Ret (Q::*pmf)(T& t) const, Q& q)
     {
@@ -340,6 +365,7 @@ namespace TL
     }
     
     // Ret (Q::*pmf)(const T& t) const
+    //! Adaptor to create functors of member functions of a given const object receiving a const reference
     template <class Ret, class T, class Q>
     MemberConstFunctionAdapterConstRef<Ret, T, Q> functor(Ret (Q::*pmf)(const T& t) const, Q& q)
     {
@@ -348,6 +374,7 @@ namespace TL
     }
 
     // Ret (Q::*pmf)(T t) const
+    //! Adaptor to create functors of member functions of a given const object receiving a value
     template <class Ret, class T, class Q>
     MemberConstFunctionAdapterVal<Ret, T, Q> functor(Ret (Q::*pmf)(T t) const, Q& q)
     {
@@ -355,6 +382,7 @@ namespace TL
         return result;
     }
 
+    //! Adaptor to create functors of this same object
     template <class Ret, class T>
     ThisMemberFunctionAdapter<Ret, T> functor(Ret (T::*pmf)())
     {
@@ -362,6 +390,7 @@ namespace TL
         return result;
     }
 
+    //! Adaptor to create functors of this same const object
     template <class Ret, class T>
     ThisMemberFunctionConstAdapter<Ret, T> functor(Ret (T::*pmf)() const)
     {
@@ -369,6 +398,7 @@ namespace TL
         return result;
     }
 
+    //! Adaptor to create data member functors of a given object
     template <class Ret, class T>
     DataMemberAdapter<Ret, T> functor (Ret T::*pdm)
     {

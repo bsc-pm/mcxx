@@ -30,6 +30,11 @@
 
 namespace TL
 {
+    //! This class wraps an int within an Object. It behaves like a plain int.
+    /*!
+     * This class allows to get integer types from extended structures and pass
+     * them into TL::DTO objects
+     */
     class Integer : public Object
     {
         private:
@@ -163,6 +168,11 @@ namespace TL
             ~Integer() { }
     };
 
+    //! This class wraps a bool within an Object. It behaves like a plain bool.
+    /*!
+     * This class allows to get bool types from extended structures and pass
+     * them into TL::DTO objects
+     */
     class Bool : public Object
     {
         private:
@@ -241,6 +251,11 @@ namespace TL
             ~Bool() { }
     };
 
+    //! This class wraps a std::string within an Object. It behaves like a plain std::string.
+    /*!
+     * This class allows to get std::string types from extended structures and pass
+     * them into TL::DTO objects
+     */
     class String : public Object, public std::string
     {
         private:
@@ -346,12 +361,25 @@ namespace TL
             }
     };
 
+    //! This class allows linking arbitrary named data into any class.
+    /*!
+     * This class is used in TL::OpenMP::Construct to store information
+     * in preorder that can be retrieved in postorder.
+     *
+     * This class has its own memory management. It can be copied but
+     * it will not duplicate its contents but increase a number of copies
+     * counter. In destruction this number is decreased, when it reaches zero
+     * the whole structure will be deleted.
+     */
     class LinkData
     {
         private:
+            //! Data info structure
             struct data_info
             {
+                //! The data itself
                 void *data;
+                //! The destructor function
                 void (*destructor)(void*);
             };
             // This is a pointer so this class can be copied
@@ -359,12 +387,22 @@ namespace TL
             int *_num_copies;
         public:
 
+            //! Creates a new LinkData object.
+            /*
+             * Will set the number of copies counter to 1 and
+             * create the map of data.
+             */
             LinkData()
             {
                 _data_list = new std::map<std::string, data_info>;
                 _num_copies = new int(1);
             }
 
+            //! Copy constructor
+            /*!
+             * It does not duplicate the data, but increases a shared number of
+             * copies counter.
+             */
             LinkData(const LinkData& l)
             {
                 _data_list = l._data_list;
@@ -373,6 +411,11 @@ namespace TL
                 (*_num_copies)++;
             }
 
+            //! Destructor adaptor of any given type
+            /*!
+             * This function is used to preserve type safety in C++ and to
+             * allow proper constructors be called.
+             */
         template <typename _T>
             static void destroy_adapter(void* p)
             {
@@ -380,6 +423,15 @@ namespace TL
                 t->_T::~_T();
             }
 
+        //! Retrieves the data with name str
+        /*!
+         * \param str The name of the data. If it was not retrieved never
+         * before, a default construction will happen.
+         *
+         * The requested type must be default constructible. Calling
+         * this function with a same name and different types with same (or
+         * shared) LinkData objects will fail miserably.
+         */
         template <typename _T>
             _T& get_data(const std::string& str)
             {
@@ -401,6 +453,11 @@ namespace TL
                 return *result;
             }
 
+        //! Destroy object
+        /*!
+         * This destructor decreases the number of copies counter.
+         * If it reaches zero, all data information is properly freed.
+         */
         ~LinkData()
         {
             (*_num_copies)--;

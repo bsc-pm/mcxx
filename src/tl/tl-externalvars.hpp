@@ -27,9 +27,22 @@
 
 namespace TL
 {
+    //! External variables interface
+    /*!
+     * \deprecated This class is deprecated, instead use the interface of compiler parameter phases
+     * as defined in TL::CompilerPhase
+     */
     class ExternalVars
     {
         public:
+            // Gets the value of a variable passed in the command line
+            /*!
+             * \deprecated This function is deprecated. Instead use the interface of compiler parameter
+             * phases as defined in TL::CompilerPhase
+             *
+             * \param name The name of the external parameter passed in the command line
+             * \param default_val If the parameter is not actually passed then return this value
+             */
             static std::string get(const std::string& name, const std::string& default_val = "") DEPRECATED;
     };
 }

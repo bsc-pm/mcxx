@@ -29,12 +29,26 @@
 
 namespace TL
 {
+    //! Class type of the object used to pass information along the compiler phase pipeline
+    /*!
+     * This class implements in some way the pattern Data Transfer Object, hence the name,
+     * to pass data in a generic way among objects.
+     */
     class DTO 
     {
         private:
             typedef std::map<std::string, RefPtr<Object> > DTO_inner;
+            //! Inner representation of the data transfer object
             DTO_inner _dto;
         public :
+            //! Returns a reference to a named object
+            /*!
+             * \param str The name to retrieve the object.
+             *
+             * This function can only be used to get data
+             * previously registered in the DTO using
+             * set_object.
+             */
             RefPtr<Object> operator[](const std::string& str)
             {
                 DTO_inner::iterator it = _dto.find(str);
@@ -48,11 +62,18 @@ namespace TL
                 }
             }
 
+            //! Adds an object into the DTO so it is available
+            //to further phases.
+            /*!
+             * \param str The key name used to retrieve later this object
+             * \param obj The object stored under the name \a str
+             */
             void set_object(const std::string& str, RefPtr<Object> obj)
             {
                 _dto[str] = obj;
             }
 
+            //! Returns all the keys registered in this DTO
             ObjectList<std::string> get_keys() const
             {
                 ObjectList<std::string> result;

@@ -30,30 +30,45 @@
 
 namespace TL
 {
+    //! Base class for objects that wrap compiler structures.
+    /*!
+     * This class is used for all classes that wrap internal compiler structures.
+     * It is also used for data passed along the compiler pipeline structure using
+     * a TL::DTO object.
+     */
     class Object 
     { 
         private:
+            //! Internal reference counter when a RefPtr<Object> is used.
             int _refcount;
         protected:
+            //! Returns a pointer to an internal extended attribute type.
             virtual tl_type_t* get_extended_attribute(const std::string&) const
             {
                 return NULL;
             }
 
         public:
-            /* do not override */
+            //! Returns a reference to an Object representing the attribute name.
+            /*!
+             * \param name The name of the requested extended struct field.
+             * \return A reference to an Object representing the requested attribute
+             */
             RefPtr<Object> get_attribute(const std::string& name) const;
 
+            //! Default constructor for Object
             Object()
                 : _refcount(1)
             {
             }
 
+            //! Increases a reference to this entity. Required by RefPtr.
             void obj_reference()
             {
                 _refcount++;
             }
 
+            //! Decreases a reference to this entity. Required by RefPtr.
             void obj_unreference()
             {
                 _refcount--;
@@ -63,51 +78,66 @@ namespace TL
                 }
             }
 
+            //! Destructor of Object
             virtual ~Object() { }
 
+            //! Checks whether this object has an extended structure field.
+            /*!
+             * \param name The name of the attribute.
+             * \return true if the attribute is in the extended struct of this object.
+             */
             bool has_attribute(const std::string& name) const;
 
+            //! States whether this TL::Object is a TL::Bool
             virtual bool is_bool() const
             {
                 return false;
             }
 
+            //! States whether this TL::Object is a TL::Integer
             virtual bool is_integer() const
             {
                 return false;
             }
 
+            //! States whether this TL::Object is a TL::AST_t
             virtual bool is_ast() const
             {
                 return false;
             }
 
+            //! States whether this TL::Object is a TL::Symbol
             virtual bool is_symbol() const
             {
                 return false;
             }
 
+            //! States whether this TL::Object is a TL::Type
             virtual bool is_type() const
             {
                 return false;
             }
 
+            //! States whether this TL::Object is a TL::Scope
             virtual bool is_scope() const
             {
                 return false;
             }
 
+            //! States whether this TL::Object is a TL::String
             virtual bool is_string() const
             {
                 return false;
             }
 
+            //! States whether this TL::Object is a TL::Source
             virtual bool is_source() const
             {
                 return false;
             }
     };
 
+    //! Class used when a non existant attribute is requested
     class Undefined : public Object
     {
         protected:

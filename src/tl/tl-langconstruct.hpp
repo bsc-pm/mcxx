@@ -35,48 +35,90 @@ namespace TL
 {
     class FunctionDefinition;
     class IdExpression;
+
+    //! Base class representing a distinguished language construct
+    /*!
+     * A LangConstruct is always composed of a tree, TL::AST_t, and a
+     * scope link, TL::ScopeLink.
+     *
+     * This is the base class for all classes wrapping distinguished
+     * language constructs.
+     */
     class LangConstruct
     {
         protected:
+            //! Wrapped tree
             AST_t _ref;
+            //! Wrapped scope link
             ScopeLink _scope_link;
         public:
+            //! Constructor
             LangConstruct(AST_t ref, ScopeLink scope_link)
                 : _ref(ref), _scope_link(scope_link)
             {
             }
 
+            //! Used when requesting referenced symbols in a construct
             enum SymbolsWanted
             {
+                //! All symbols wanted
                 ALL_SYMBOLS = 0,
+                //! Only variables (or objects)
                 ONLY_OBJECTS,
+                //! Synonym for ONLY_OBJECTS
                 ONLY_VARIABLES = ONLY_OBJECTS, // A useful alias
+                //! Only function references
                 ONLY_FUNCTIONS
             };
 
+            //! Convenience function to prettyprint the tree
+            /*!
+             * This function just calls AST_t::prettyprint(bool) on the underlying
+             * tree
+             */
             std::string prettyprint();
 
+            //! Returns the wrapped tree of this LangConstruct
             AST_t get_ast()
             {
                 return _ref;
             }
 
+            //! Returns the scope link of this LangConstruct
             ScopeLink get_scope_link()
             {
                 return _scope_link;
             }
 
+            //! Returns the scope of this LangConstruct
             Scope get_scope()
             {
                 return _scope_link.get_scope(_ref);
             }
 
+            //! Returns the enclosing function definition
             FunctionDefinition get_enclosing_function();
 
+            //! Returns a list of all symbolic occurrences
             ObjectList<IdExpression> all_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
+            //! Returns a list of all symbolic occurrences that are not defined
+            //within this construction
             ObjectList<IdExpression> non_local_symbol_occurrences(SymbolsWanted symbols = ALL_SYMBOLS);
+            /*!
+             * \bug Not implemented
+             */
             ObjectList<IdExpression> local_symbol_occurrences();
 
+            //! Common predicate to all LangConstruct
+            /*!
+             * All LangConstruct classes should have a predicate that
+             * states whether the tree is valid to be wrapped in such
+             * a LangConstruct. 
+             *
+             * Currently this is not used too much since some trees
+             * have complex predicates stating their validity
+             * (e.g. TL::Expression)
+             */
             const static AlwaysFalse<AST_t> predicate;
 
             virtual ~LangConstruct()
@@ -86,13 +128,24 @@ namespace TL
 
     class Declaration;
 
+    //! Used in OpenMP and custom pragma constructs
+    //to get symbols named in clauses 
     enum IdExpressionCriteria
     {
+        // Only consider the valid symbols
         VALID_SYMBOLS = 0,
+        // Consider only invalid names
         INVALID_SYMBOLS,
+        // Consider any symbolic name, either valid or invalid
         ALL_FOUND_SYMBOLS
     };
 
+    //! Wraps an id-expression in C++ or a symbol name in C
+    /*!
+     * This is an "all-pervasive" class throughout all the TL namespace.  It
+     * actually wraps a reference (or occurence) to an identifier.  Here
+     * identifier can be either a type or variable
+     */
     class IdExpression : public LangConstruct
     {
         private:
@@ -102,26 +155,101 @@ namespace TL
             {
             }
 
+            //! Returns a string that mangles a complex id-expression
+            /*!
+             * This function can be used to get unique names of complex
+             * id-expression references. For instance,
+             *
+             *  '%A::%B::%C\<int\>::%D' will be converted into 'A__B__C_int___D'
+             *
+             * Note that this only concerns to occurrences. The fact that in
+             * C++ a same entity can be named in different ways is not the
+             * a responsability of this class.
+             */
             std::string mangle_id_expression() const;
 
+            //! Gets the qualified part of an id-expression
+            /*! Use this function to get all but the unqualified last part
+             * of any id-expression. So,
+             *
+             *  '%A::%B::%C::%D' will return '%A::%B::%C::'
+             */
             std::string get_qualified_part() const;
+            //! Gets the unqualified part of an id-expression
+            /*! Use this function to get the last unqualified part
+             * of any id-expression.
+             * \param with_template_id If set to true the last template-id will be
+             * included too.
+             *
+             * '%A::%B::%C\<int\>' will return '%C' unless \a with_template_id is set to true,
+             * in this latter case it would return 'C\<int\>'
+             */
             std::string get_unqualified_part(bool with_template_id = false) const;
 
+            //! States whether this id-expression is qualified
+            /*!
+             *   '%A::%B' is qualified
+             *   '%C' is not qualified
+             */
             bool is_qualified() const;
+            //! States whether this id-expression is unqualified
+            /*!
+             *   '%A::%B' is not unqualified
+             *   '%C' is unqualified
+             */
             bool is_unqualified() const;
 
+            //! States whether this id-expression is a template-id
+            /*!
+             *   '%A\<int\>' is a template-id
+             */
             bool is_template_id() const;
+            //! Returns the template-name of the template-id
+            /*!  
+             *   '%A\<int\>' would return 'A'
+             */
             std::string get_template_name() const;
+            //! Returns the template-name of the template-id
+            /*!  
+             *   '%A\<int\>' would return '\<int\>'
+             */
             std::string get_template_arguments() const;
 
+            //! Returns the symbol using a lookup
+            /*!
+             * \bug Note that this function is not quite exact
+             * because some symbols are hidden within the same
+             * context
+             *
+             *   {
+             *     int %a;
+             *     {
+             *       %a = 3;
+             *
+             *       float a;
+             *       %a = 4.3;
+             *     }
+             *   }
+             *
+             * Both id-expression of 'a' would solve to the innermost 'float a'
+             * Maybe in the future a more exact approach will be used.
+             */
             Symbol get_symbol() const;
+
+            //! Returns the AST of this id-expression
             AST_t get_ast() const;
 
+            //! Returns a declaration of the symbol
+            /*!
+             * \bug This function uses get_symbol
+             */
             Declaration get_declaration();
 
+            //! Predicate for an IdExpression
             static const PredicateAST<LANG_IS_ID_EXPRESSION> predicate;
     };
 
+    //! LangConstruct that wraps a statement in the code
     class Statement : public LangConstruct
     {
         private:
@@ -130,7 +258,10 @@ namespace TL
                 : LangConstruct(ref, scope_link)
             {
             }
-             ObjectList<Symbol> non_local_symbols();
+
+            //! Returns all non local referenced symbols
+            //in the statement
+            ObjectList<Symbol> non_local_symbols();
 
             bool is_compound_statement();
             ObjectList<Statement> get_inner_statements();

@@ -26,6 +26,11 @@
 
 namespace TL
 {
+    //! Context class used in traversals
+    /*!
+     * Currently it only stores the scope link available when the traversal
+     * started.
+     */
     struct Context
     {
         public:

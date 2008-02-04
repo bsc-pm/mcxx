@@ -40,33 +40,69 @@ namespace TL
     class ScopeLink;
 
     class AST_t;
+
+    //! Class that wraps an AST node of type AST_NODE_LIST
     class ASTIterator
     {
         private:
+            //! The wrapped list AST
             AST _ast;
+            //! The current iterator
             AST _current;
+            //! Private constructor only accessible from TL::AST_t
             ASTIterator(AST ast);
         public:
+            //! Destructor of an ASTIterator
             ~ASTIterator() { }
 
+            //! Get the current tree in the list
             AST_t item();
+
+            //! Move the iterator forward in the list
             void next();
+
+            //! Move the iterator backwards in the list
             void previous();
+
+            //! Restart the iterator in the position of the list
+            // where the wrapper was created.
+            /*! */
             void reset();
+
+            //! Rewind the iterator to the beginning of the whole list.
+            /*! This is different to reset in that reset justs restores
+             * the iterator to the position where this ASTIterator was
+             * created while rewind can go before that position if it
+             * was no the beginning of the whole list.
+             *
+             * If the wrapped list element was the beginning, this
+             * is equivalent to reset.
+             */
             void rewind();
+
+            //! States whether this is the first element in the list
             bool is_first();
+            //! States whether this is the last element in the list
             bool is_last();
+            //! States whether we have gone beyond the last element
+            // in the list
             bool end();
 
+            //! Only AST_t can create an ASTIterator
             friend class AST_t;
     };
 
+    //! Class used for traversals along the tree
+    /*! This class contains the value of the match
+     * of a given tree */
     struct ASTTraversalMatching
     {
         enum TraversalMatching
         {
             INVALID = 0,
+            //! This tree matches any of the predicates of the traversal
             NODE_DOES_MATCH,
+            //! This tree does not match any of the predicates of the traversal
             NODE_DOES_NOT_MATCH,
         } __value;
 
@@ -74,12 +110,17 @@ namespace TL
             : __value(crit) { }
     };
 
+    //! Class used for traversals along the tree
+    /*! This class contains the value of the recursivity
+     * behaviour of a givene tree */
     struct ASTTraversalRecursion
     {
         enum TraversalRecursion
         {
             INVALID = 0,
+            //! In this tree, recursively traverse its children
             DO_RECURSE,
+            //! In this tree, do not recurse its children
             DO_NOT_RECURSE,
         } __value;
 
@@ -87,6 +128,11 @@ namespace TL
             : __value(rec) { }
     };
 
+    //! Class used for traversals along the tree
+    /*! This class represents the result of a traversal
+     * functor. It contains both a matching result and a recursivity
+     * behaviour values.
+     */
     struct ASTTraversalResult
     {
         private:
@@ -109,54 +155,85 @@ namespace TL
             }
     };
 
+    //! Helper function to build values of ASTTraversalResult given the match and the recurse
+    // values
+    /*!
+     * \param match The matching value. A true value means NODE_DOES_MATCH. A false value means NODE_DOES_NOT_MATCH
+     * \param recurse The recursivity behaviour. A true value means DO_RECURSE. A false value means DO_NOT_RECURSE
+     */
     ASTTraversalResult ast_traversal_result_helper(bool match, bool recurse);
 
+    //! Functor used when traversing trees
+    /*! This functor specifies a AST_t as a parameter and a ASTTraversalResult as result.
+     */
     typedef Functor<ASTTraversalResult, AST_t> TraverseASTFunctor;
 
+    //! Class that wraps AST trees in the compiler
     class AST_t : public Object
     {
         public:
+            /*! \deprecated Do not use. Instead use TraverseASTFunctor */
             enum RecursiveFlag
             {
-                RECURSIVE = 0, // All nodes are visited
-                NON_RECURSIVE, // Only non-matching nodes have their sons visited
-                LIST_TRIP      // Only matching nodes have their sons visited
+                //! All nodes will be visited, regardless the boolean result
+                //! of the predicate
+                RECURSIVE = 0, 
+                //! Only those nodes that do not yield a true result after the
+                //! functor, will have their children visited
+                NON_RECURSIVE, 
+                //! Only those nodes that yield a true result after the functor,
+                //! will have their children visited
+                LIST_TRIP     
             };
         protected:
+            //! Wrapped tree
             AST _ast;
 
+            //! Helper function for traversing the tree
             static void tree_iterator(AST_t& a, const TraverseASTFunctor& functor, 
                     ObjectList<AST_t>& result);
 
+            //! Implements the access to extended attributes
             tl_type_t* get_extended_attribute(const std::string& name) const;
 
+            //! Given a tree it moves towards the root until it reached the translation unit node
             static AST get_translation_unit(AST node);
+            //! Given a list, prepend another before it
             static void prepend_list(AST orig_list, AST prepended_list);
+            //! Given a list, append another after it
             static void append_list(AST orig_list, AST appended_list);
+            //! Function that relinks properly a child with its parent when replacing it
             static void relink_parent(AST previous_child, AST new_child);
 
+            //! States if given tree is either a compound statement, a class specifier, a translation unit
+            //! or a namespace definition
             static bool is_extensible_block(AST node);
+            //! Given a tree of extensible nature, returns the list that can be extended
             static AST get_list_of_extensible_block(AST node);
 
+            //! Returns the innermost enclosing list of a given tree
             static AST get_enclosing_list(AST node);
 
+            //! Given a member specificacion of a class definition, append a member declaration to it
             static void append_to_member_spec(AST member_spec, AST member_decl);
+            //! Given a member specificacion of a class definition, prepend a member declaration to it
             static void prepend_to_member_spec(AST member_spec, AST member_decl);
 
         public:
-            /*
-             * Constructor
-             */
+            //! Constructor that wraps an invalid or empty tree
             AST_t()
                 : _ast(NULL)
             {
             }
 
+            //! Constructor to wrap AST trees
             AST_t(AST _wrapped_tree) 
                 : _ast(_wrapped_tree)
             {
             }
 
+            //! Given a RefPtr<Object> try to cast it to RefPtr<AST_t> and
+            //! wrap the contained tree.
             AST_t(RefPtr<Object> obj)
             {
                 RefPtr<AST_t> cast = RefPtr<AST_t>::cast_dynamic(obj);
@@ -176,11 +253,11 @@ namespace TL
                 }
             }
 
+            //! Copy constructor
             AST_t(const AST_t& ast)
                 : Object(ast), _ast(ast._ast)
             {
             }
-
 
             /*
              * Destructor
@@ -189,12 +266,15 @@ namespace TL
             {
             }
 
+            //! States if the tree is valid (or non empty)
             bool is_valid() const
             {
                 return (_ast != NULL);
             }
 
+            //! States whether the tree is a list
             bool is_list() const;
+            //! Returns an ASTIterator of this list
             ASTIterator get_list_iterator();
 
             bool operator<(AST_t n) const;
@@ -202,29 +282,95 @@ namespace TL
             bool operator!=(AST_t n) const;
             AST_t& operator=(AST_t n);
 
+            //! Prettyprints the tree
+            /*! 
+             * \param with_commas Means that this list should be printed with commas, 
+             * otherwise it will be printed as a sequence with only interspersing blanks
+             */
             std::string prettyprint(bool with_commas = false) const;
+
+            //! Prettyprints a tree in a given CompiledFile. 
+            /*!
+             * \param compiled_file The file where this tree will be prettyprinted on
+             * \param internal Means that some special trees will not be
+             * expanded to their real representation. This affects to internal
+             * generated comments and preprocessor lines.
+             */
             void prettyprint_in_file(const CompiledFile& compiled_file,  bool internal = false) const;
 
+            //! Replaces current tree in a smart way
+            /*
+             * \param ast The tree used to replace the current one 
+             *
+             * This function takes care of replacements performed
+             * within lists. Lists replaced within lists will be inlined
+             * to the enclosing list, instead of creating a new nested 
+             * list item.
+             */
             void replace(AST_t ast);
 
+            //! This function should not be used directly, instead use replace
+            /*
+             * \param ast The tree used to replace the current one 
+             *
+             * This function directly replaces current tree without considering
+             * whether it is a list or not
+             */
             void replace_with(AST_t ast);
+
+            //! This function should not be used directly, instead use replace(AST_t)
+            /*
+             * \param ast The tree used to replace the current one 
+             *
+             * This function expects current tree to be a list.
+             */
             void replace_in_list(AST_t ast);
 
+            //! This function is used to remove an element from the innermost enclosing list
+            /*
+             * This function cannot be used in trees that are not actually
+             * enclosed in anything (though in practice most are).
+             */
             void remove_in_list();
 
+            //! Duplicates a tree.
+            /*!
+             * This function does not copy the extended structure of the tree.
+             */
             AST_t duplicate() const;
 
+            //! Duplicates a tree and makes it to be in the same context as the original one
+            /*!
+             * This function does not copy the extended structure of the tree
+             * \param scope_link The scope link considered
+             * \return A pair with the duplicated tree and an updated scope link
+             */
             std::pair<AST_t, ScopeLink> duplicate_with_scope(ScopeLink scope_link) const;
 
+            /*!
+             * \deprecated Do not use, instead use depth_subtrees(const TraverseASTFunctor&)
+             * \param pred A predicate receiving an AST_t
+             * \param recursive_flag Specifies how the recursive traverse is performed depending on the result of pred
+             * \return A list of visited trees that matched the predicate
+             */
             ObjectList<AST_t> depth_subtrees(const Predicate<AST_t>& pred = AlwaysTrue<AST_t>(), RecursiveFlag recursive_flag = RECURSIVE);
 
+            //! Returns a list of visited trees that matched the traverse functor
+            /*!
+             * \param functor A traverse functor specifying the visited nodes and whose ones match
+             * \return A list of visited trees that matched the predicate
+             */
             ObjectList<AST_t> depth_subtrees(const TraverseASTFunctor& functor);
 
-            /* Debug functions - Do not use */
+            //! Debug function - Do not use 
+            /*! Returns a string with the name of the internal ast kind */
             std::string internal_ast_type() const;
+            //! Debug function - Do not use 
+            /*! Returns the internal ast kind */
             node_t internal_ast_type_() const;
 
-            /* Do not use it unless directed to do so */
+            //! Debug function - Do not use 
+            /*! Returns the wrapped tree */
             AST get_internal_ast()
             {
                 return _ast;
@@ -232,35 +378,61 @@ namespace TL
 
             /* End debug functions */
 
+            //! States that this is an AST_t
             virtual bool is_ast() const
             {
                 return true;
             }
 
+            //! Returns the translation unit tree
             AST_t get_translation_unit();
 
+            //! Prepends a tree as a sibling of the current enclosing function
             void prepend_sibling_function(AST_t t);
+            //! Appends a tree as a sibling of the current enclosing function
             void append_sibling_function(AST_t t);
 
+            //! Adds tree to the very beginning of all declarations of current translation unit
             void prepend_to_translation_unit(AST_t t);
+            //! Adds tree to the very end of all declarations of current translation unit
             void append_to_translation_unit(AST_t t);
 
+            //! Appends an item to the current list
+            /*!
+             * Current tree must be a list.
+             * \param t The appended tree
+             */
             void append(AST_t t);
+            //! Prepends an item to the current list
+            /*!
+             * Current tree must be a list.
+             * \param t The prepended tree
+             */
             void prepend(AST_t t);
 
+            //! Returns the innermost enclosing block (compound statement) of this tree
             AST_t get_enclosing_block();
+
+            //! Returns the enclosing function definition. 
+            /*!
+             * \param jump_templates Tells whether template headers of this function definition must be skipped too
+             */
             AST_t get_enclosing_function_definition(bool jump_templates = false);
 
-            // Use this one to get the place where the whole function definition was actually 
-            // 'written'
+            //! Returns the point where the function definition begins its whole declaration
+            /*!
+             * This is equivalent to the parent of get_enclosing_function_definition(true)
+             */
             AST_t get_enclosing_function_definition_declaration();
 
-            // AST get_translation_unit();
-
+            //! Replaces the text item of the tree.
             void replace_text(const std::string& str);
 
+            //! Gets the line of this tree
             int get_line() const;
+            //! Gets the file of this tree
             std::string get_file() const;
+            //! Gets a string of the form "file:line" with the file and line of this tree
             std::string get_locus() const;
 
             friend class Type;
@@ -272,17 +444,22 @@ namespace TL
             friend class Expression;
     };
 
+    //! Wrap class for deprecated Predicate<AST_t> traversals 
     class TraverseASTPredicate : public TraverseASTFunctor
     {
         private:
+            //! The predicate
             const Predicate<AST_t>& _pred;
+            //! The specified recursive flag
             AST_t::RecursiveFlag _rec;
         public:
+            //! Constructor given a Predicate<AST_t> and a RecursiveFlags
             TraverseASTPredicate(const Predicate<AST_t>& pred, AST_t::RecursiveFlag rec = AST_t::RECURSIVE)
                 : _pred(pred), _rec(rec)
             {
             }
 
+            //! Function imiting the behaviour of deprecated traversals with Predicate<AST_t>
             virtual ASTTraversalResult operator()(AST_t& node) const
             {
                 bool matches = _pred(node);
@@ -305,6 +482,7 @@ namespace TL
             }
     };
 
+    //! Convenience template class for predicates after a given AST attribute
     template<const char* _ATTR>
     class PredicateAST : public Predicate<AST_t>
     {
@@ -323,8 +501,8 @@ namespace TL
             virtual ~PredicateAST() { }
     };
 
-    // This name is deprecated
-    // use better PredicateAST
+    /*! \deprecated Do not use it instead use PredicateAST
+     */
     template<const char* _ATTR>
     class PredicateBool : public PredicateAST<_ATTR>
     {
@@ -337,6 +515,11 @@ namespace TL
             virtual ~PredicateBool() { }
     };
 
+    //! Convenience class for matching nodes after an attribute.
+    /*!
+     * This class is similar to PredicateAST but here the
+     * requested attribute can be defined in runtime
+     */
     class PredicateAttr : public Predicate<AST_t>
     {
         private:
@@ -353,6 +536,7 @@ namespace TL
             }
     };
 
+    //! Convenience class for matching nodes that have a given computed type
     class PredicateType : public Predicate<AST_t>
     {
         private:
