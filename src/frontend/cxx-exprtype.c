@@ -430,6 +430,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
         case AST_PARENTHESIZED_EXPRESSION :
             {
                 result = check_for_expression(ASTSon0(expression), decl_context);
+
                 if (result)
                 {
                     ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
@@ -6707,7 +6708,16 @@ char check_for_initialization(AST initializer, decl_context_t decl_context)
         case AST_INITIALIZER :
             {
                 AST initializer_clause = ASTSon0(initializer);
-                return check_for_initializer_clause(initializer_clause, decl_context);
+                char result = check_for_initializer_clause(initializer_clause, decl_context);
+
+                if (result
+                        && ASTType(ASTSon0(initializer)) == AST_INITIALIZER_EXPR)
+                { 
+                    ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(initializer)));
+                }
+
+                return result;
                 break;
             }
         case AST_PARENTHESIZED_INITIALIZER :
