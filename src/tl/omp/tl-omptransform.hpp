@@ -386,6 +386,8 @@ namespace TL
                 void stm_transaction_full_stm(OpenMP::CustomConstruct transaction_construct);
                 void stm_transaction_global_lock(OpenMP::CustomConstruct transaction_construct);
 
+                void stm_replace_init_declarators(Statement& transaction_statement, 
+                        STMExpressionReplacement &expression_replacement);
                 void stm_replace_returns(Statement transaction_statement, 
                         bool from_wrapped_function);
                 void stm_replace_expressions(Statement &transaction_statement, 

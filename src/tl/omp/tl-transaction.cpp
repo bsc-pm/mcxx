@@ -749,7 +749,6 @@ namespace TL
         // Define this field
         bool OpenMPTransform::STMExpressionReplacement::_dummy;
 
-
         // This ignores any node named 'preserve'
         // It always recurses but for 'preserve' constructs
         class IgnorePreserveFunctor : public Functor<ASTTraversalResult, AST_t>
@@ -801,14 +800,6 @@ namespace TL
                         p_decl != declared_entities.end();
                         p_decl++)
                 {
-                    if (p_decl->has_initializer())
-                    {
-                        std::cerr << "WARNING: Declared entity '" << p_decl->prettyprint() << "' "
-                            << "at '" << p_decl->get_initializer().get_ast().get_locus() << "' "
-                            << "has initializer. This is currently unsupported." 
-                            << std::endl;
-                    }
-
                     Symbol declared_sym = p_decl->get_declared_symbol();
 
                     if (declared_sym.is_static())
@@ -817,6 +808,51 @@ namespace TL
                             << "at '" << declaration.get_ast().get_locus() << "' "
                             << "defines a static entity. This might lead to incorrect code."
                             << std::endl;
+                    }
+                }
+            }
+        }
+
+        void OpenMPTransform::stm_replace_init_declarators(Statement& transaction_statement, 
+                STMExpressionReplacement &expression_replacement)
+        {
+            PredicateAST<LANG_IS_DECLARATION> is_declaration_pred_;
+            IgnorePreserveFunctor is_declaration_pred(is_declaration_pred_);
+
+            ObjectList<AST_t> found_declarations = transaction_statement.get_ast().depth_subtrees(is_declaration_pred);
+
+            for (ObjectList<AST_t>::iterator it = found_declarations.begin();
+                    it != found_declarations.end();
+                    it++)
+            {
+                Declaration declaration(*it, transaction_statement.get_scope_link());
+
+                ObjectList<DeclaredEntity> declared_entities = declaration.get_declared_entities();
+                for (ObjectList<DeclaredEntity>::iterator p_decl = declared_entities.begin();
+                        p_decl != declared_entities.end();
+                        p_decl++)
+                {
+                    if (p_decl->has_initializer())
+                    {
+                        // Transform the initializer
+                        std::pair<TL::AST_t, TL::ScopeLink> dupl_tree = 
+                            p_decl->get_initializer().get_ast().duplicate_with_scope(p_decl->get_scope_link());
+
+                        Expression dupl_expression(dupl_tree.first, dupl_tree.second);
+                        expression_replacement.replace_expression(dupl_expression);
+
+                        Symbol declared_symbol = p_decl->get_declared_symbol();
+
+                        Source repl_init_source;
+                        repl_init_source
+                            << "(invalidateAdrInTx(__t, &" << declared_symbol.get_name() << "), "
+                            <<  dupl_expression.prettyprint() << ")"
+                            ;
+
+                        AST_t expr = repl_init_source.parse_expression(p_decl->get_initializer().get_ast(),
+                                p_decl->get_initializer().get_scope_link(),
+                                Source::DO_NOT_CHECK_EXPRESSION);
+                        p_decl->get_initializer().get_ast().replace(expr);
                     }
                 }
             }
@@ -1214,6 +1250,9 @@ namespace TL
                     stm_replace_functions_file, stm_replace_functions_mode,
                     stm_wrap_functions_file, stm_wrap_functions_mode,
                     stm_log_file);
+
+            // Update all init-declarators
+            stm_replace_init_declarators(transaction_statement, expression_replacement);
 
             // First convert all expressions
             stm_replace_expressions(transaction_statement, expression_replacement);
