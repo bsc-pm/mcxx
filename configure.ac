@@ -32,6 +32,7 @@ AC_PROG_LIBTOOL
 
 dnl Check cc
 AC_PROG_CC
+AM_PROG_CC_C_O
 
 dnl Check cpp
 AC_PROG_CPP
@@ -341,6 +342,36 @@ AC_ARG_ENABLE([tl-superscalar],
       AC_MSG_RESULT([no])
   ]
 )
+
+AC_MSG_CHECKING([which Cell/SMP superscalar runtime API version to use])
+AC_ARG_WITH([superscalar-runtime-api-version],
+	AS_HELP_STRING([--with-superscalar-runtime-api-version=VERSION], [Selects the version number of the Cell/SMP superscalar internal runtime API]),
+	[
+		if test $is_enabled_tl_superscalar = "yes" ; then
+			case $withval in
+			1|2)
+				use_tl_superscalar_version=$withval
+				;;
+			*)
+				AC_MSG_ERROR([Invalid Cell/SMP superscalar version specified. Available versions are 1 and 2.])
+				;;
+			esac
+		else
+			use_tl_superscalar_version=none
+		fi
+	],
+	[
+		if test $is_enabled_tl_superscalar = "yes" ; then
+			use_tl_superscalar_version=2
+		else
+			use_tl_superscalar_version=none
+		fi
+	]
+)
+AM_CONDITIONAL(USE_TL_SUPERSCALAR_V1, test x"$use_tl_superscalar_version" = x"1")
+AM_CONDITIONAL(USE_TL_SUPERSCALAR_V2, test x"$use_tl_superscalar_version" = x"2")
+AC_MSG_RESULT([$use_tl_superscalar_version])
+
 
 if test x$is_enabled_tl_superscalar = xyes;
 then

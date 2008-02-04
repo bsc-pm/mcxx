@@ -54,8 +54,15 @@ libtlsuperscalar_function_router_la_SOURCES = \
 libtlsuperscalar_transform_directives_la_SOURCES = \
 	tl-transform-directives.cpp
 
-libtlsuperscalar_code_conversion_la_SOURCES = \
+libtlsuperscalar_code_conversion_la_SOURCES = 
+if USE_TL_SUPERSCALAR_V1
+libtlsuperscalar_code_conversion_la_SOURCES += \
 	tl-code-conversion.cpp
+endif
+if USE_TL_SUPERSCALAR_V2
+libtlsuperscalar_code_conversion_la_SOURCES += \
+	tl-code-conversion-v2.cpp
+endif
 
 libtlsuperscalar_task_manifest_la_SOURCES = \
 	tl-task-manifest.cpp
@@ -74,6 +81,7 @@ noinst_HEADERS = \
 	tl-function-router.hpp \
 	tl-transform-directives.hpp \
 	tl-code-conversion.hpp \
+	tl-code-conversion-v2.hpp \
 	tl-task-manifest.hpp
 
 AM_LDFLAGS = -avoid-version
