@@ -629,6 +629,7 @@ AC_CONFIG_FILES([Makefile
            tests/mcxx.openmp.dg/config.mcxx
            tests/mcxx.stm.dg/config.mcxx
            doc/Makefile
+           doc/doxygen_tl
            ])
 AC_OUTPUT
 
