@@ -4021,7 +4021,7 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
     type_t* subscripted_type = ASTExprType(subscripted_expr);
     type_t* subscript_type = ASTExprType(subscript_expr);
 
-    CXX_LANGUAGE()
+    // CXX_LANGUAGE()
     {
         if (is_dependent_expr_type(subscripted_type))
         {
@@ -5473,7 +5473,7 @@ static char check_for_function_call(AST expr, decl_context_t decl_context)
     }
 
     type_t* function_type = ASTExprType(called_expression);
-    CXX_LANGUAGE()
+    // CXX_LANGUAGE()
     {
         // 3. If is a dependent expression nothing else has to be computed
         //    tag all the expression as dependent
