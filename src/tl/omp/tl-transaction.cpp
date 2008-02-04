@@ -580,7 +580,10 @@ namespace TL
                     {
                         bool wrapped_function = false;
                         Expression called_expression = expression.get_called_expression();
-                        if (called_expression.is_id_expression())
+                        if (called_expression.is_id_expression()
+                                && called_expression.prettyprint() != "__builtin_va_start"
+                                && called_expression.prettyprint() != "__builtin_va_arg"
+                                && called_expression.prettyprint() != "__builtin_va_end")
                         {
                             // A simple function call of the form "f(...)"
                             Source replace_call, replace_args;
