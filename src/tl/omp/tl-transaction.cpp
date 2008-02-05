@@ -272,7 +272,6 @@ namespace TL
                         }
 
                         Source real_operator;
-
                         real_operator << expression.get_operator_str();
 
                         if (!left_original_part_type.is_valid())

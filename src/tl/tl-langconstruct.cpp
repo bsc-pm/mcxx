@@ -701,10 +701,7 @@ namespace TL
                 return LOGICAL_AND;
             else if (TL::Bool(_ref.get_attribute(LANG_IS_LOGICAL_OR_OP)))
                 return LOGICAL_OR;
-        }
-        else if (is_operation_assignment())
-        {
-            if (TL::Bool(_ref.get_attribute(LANG_IS_MUL_ASSIGNMENT)))
+            else if (TL::Bool(_ref.get_attribute(LANG_IS_MUL_ASSIGNMENT)))
                 return MULTIPLICATION;
             else if (TL::Bool(_ref.get_attribute(LANG_IS_DIV_ASSIGNMENT)))
                 return DIVISION;
@@ -733,28 +730,28 @@ namespace TL
 	{
 		switch ((int)this->get_operation_kind())
 		{
-			case  ADDITION :
-			case  PLUS :
+			case ADDITION :
+			case PLUS :
 				return "+";
-			case  MINUS :
-			case  SUBSTRACTION :
+			case MINUS :
+			case SUBSTRACTION :
 				return "-";
-			case  LOGICAL_NOT :
+			case LOGICAL_NOT :
 				return "!";
-			case  BITWISE_NOT :
+			case BITWISE_NOT :
 				return "~";
-			case  REFERENCE :
+			case REFERENCE :
 				return "&";
-			case  MULTIPLICATION :
-			case  DERREFERENCE :
+			case MULTIPLICATION :
+			case DERREFERENCE :
 				return "*";
-			case  POSTDECREMENT :
-			case  PREDECREMENT :
+			case POSTDECREMENT :
+			case PREDECREMENT :
 				return "--";
-			case  PREINCREMENT :
-			case  POSTINCREMENT :
+			case PREINCREMENT :
+			case POSTINCREMENT :
 				return "++";
-			case  DIVISION :
+			case DIVISION :
 				return "/";
 			case  MODULUS :
 				return "%";
