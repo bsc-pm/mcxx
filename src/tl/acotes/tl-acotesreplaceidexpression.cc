@@ -52,13 +52,17 @@ namespace TL { namespace Acotes {
         PredicateAST<LANG_IS_PRAGMA_CUSTOM_DIRECTIVE> isPragmaCustomDirective;
         PredicateAST<LANG_IS_PRAGMA_CUSTOM_CONSTRUCT> isPragmaCustomConstruct;
         PredicateAST<LANG_IS_ID_EXPRESSION> isIdExpression;
+        PredicateAST<LANG_IS_DECLARED_NAME> isDeclaredEntity;
 
         depthTraverse.add_predicate(isPragmaCustomDirective, *this);
         depthTraverse.add_predicate(isPragmaCustomConstruct, *this);
         depthTraverse.add_predicate(isIdExpression, *this);
+        depthTraverse.add_predicate(isDeclaredEntity, *this);
 
         // Parse everything
         depthTraverse.traverse(ast, scopeLink);
+        
+        //std::cerr << "--- DEBUG replace result:" << ast.prettyprint() << std::endl;
     }
         
         
@@ -73,6 +77,7 @@ namespace TL { namespace Acotes {
         
         //std::cerr << "--- DEBUG add symbol:" << symbol.get_name() << " ast:" << ast.prettyprint() << std::endl;
         replaceMap[symbol]= ast;
+        replaceNameSet.insert(ast.prettyprint());
     }
         
     
@@ -80,6 +85,8 @@ namespace TL { namespace Acotes {
     /* ****************************************************************
      * * TraverseFunction management
      * ****************************************************************/
+    
+    int  AcotesReplaceIdExpression::nextLocalNumber= 1;
     
     void AcotesReplaceIdExpression::preorder(Context ctx, AST_t node)
     {
@@ -94,6 +101,7 @@ namespace TL { namespace Acotes {
         PredicateAST<LANG_IS_PRAGMA_CUSTOM_CONSTRUCT> isPragmaCustomConstruct;
         PredicateAST<LANG_IS_ID_EXPRESSION> isIdExpression;
         PredicateAST<LANG_IS_ACCESSED_MEMBER> isAccessedMember;
+        PredicateAST<LANG_IS_DECLARED_NAME> isDeclaredEntity;
         
         /*std::cerr << "--- DEBUG postorder" 
                 <<  " isPCD:" << isPragmaCustomDirective(node)
@@ -108,6 +116,9 @@ namespace TL { namespace Acotes {
         } else if (isIdExpression(node) && !isAccessedMember(node)) {
             IdExpression idExpression(node, scopeLink);
             onIdExpression(idExpression);
+        } else if (isDeclaredEntity(node)) {
+            DeclaredEntity declaredEntity(node, scopeLink);
+            onDeclaredEntity(declaredEntity);
         }
     }
     
@@ -117,16 +128,49 @@ namespace TL { namespace Acotes {
         //std::cerr << "--- DEBUG onIdExpression:" << idExpression.prettyprint() << std::endl; 
         if (symbol.is_valid() && !symbol.is_builtin())
         {
+            AST_t originalAST= idExpression.get_ast();
+            ScopeLink scopeLink= idExpression.get_scope_link();
             if (replaceMap.count(symbol) > 0)
             {
+                // If it is a asked replacement, replaces the parameter
                 AST_t replaceAST= replaceMap[symbol];
-                AST_t originalAST= idExpression.get_ast();
 
-                //std::cerr << "--- DEBUG     symbol:" << symbol.get_name() << " replaceAst:" << replaceAST.prettyprint() << std::endl; 
+                //std::cerr << "--- DEBUG     replace symbol:" << symbol.get_name() << " replaceAst:" << replaceAST.prettyprint() << std::endl; 
                 originalAST.replace_with(replaceAST);
             } else {
-
+                //std::cerr << "--- DEBUG     noreplace symbol:" << symbol.get_name() << std::endl;
             }
+        }
+    }
+    
+    void AcotesReplaceIdExpression::onDeclaredEntity(DeclaredEntity declaredEntity) 
+    {
+        AST_t originalAST= declaredEntity.get_ast();
+        ScopeLink scopeLink= declaredEntity.get_scope_link();
+        Symbol symbol= declaredEntity.get_declared_symbol();
+        
+        if (!declaredEntity.is_functional_declaration()
+                &&  replaceNameSet.count(symbol.get_name()) > 0) 
+        {
+            // If it is a local variable aliasing the replacing original one, replaces the local
+            std::stringstream newname;
+
+            newname << "acotescc__" << nextLocalNumber << "__" << symbol.get_name();
+            nextLocalNumber++;
+
+            declaredEntity.get_declared_tree().replace_text(newname.str());
+            
+            Type localType= symbol.get_type();
+            Source localDeclarationSource;
+            localDeclarationSource= localType.get_declaration(declaredEntity.get_scope(), newname.str());
+            localDeclarationSource << ";";
+            AST_t localDeclarationAST= localDeclarationSource.parse_statement(originalAST, scopeLink);
+
+            Source localSymbolSource= newname.str();
+            AST_t localSymbolAST= localSymbolSource.parse_expression(localDeclarationAST, scopeLink);
+
+            replaceMap[symbol]= localSymbolAST;
+            //std::cerr << "--- DEBUG     newreplace symbol:" << symbol.get_name() << " ast:" << localSymbolAST.prettyprint() << std::endl;
         }
     }
 

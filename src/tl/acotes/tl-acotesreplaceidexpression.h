@@ -30,6 +30,7 @@
 #define	_TL_ACOTESREPLACEIDEXPRESSION_H
 
 #include <map>
+#include <set>
 #include <tl-ast.hpp>
 #include <tl-context.hpp>
 #include <tl-pragmasupport.hpp>
@@ -58,6 +59,8 @@ namespace TL { namespace Acotes {
         void add(TL::Symbol symbol, AST_t ast);
     private:
         std::map<TL::Symbol,AST_t> replaceMap;
+        std::set<std::string> replaceNameSet;
+        static int nextLocalNumber;
         
     // -- Reference tree
     public:
@@ -71,6 +74,7 @@ namespace TL { namespace Acotes {
         virtual void preorder(Context ctx, AST_t node);
         virtual void postorder(Context ctx, AST_t node);
         void onIdExpression(IdExpression idExpression);
+        void onDeclaredEntity(DeclaredEntity declaredEntity);
         void onPragmaCustomConstruct(PragmaCustomConstruct pragmaCustomConstruct);
         void onPragmaCustomClause(PragmaCustomClause pragmaCustomClause);
         std::string generateReplace(PragmaCustomConstruct pragmaCustomConstruct);
