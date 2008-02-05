@@ -32,6 +32,11 @@ namespace TL
 {
     class Scope;
     class Symbol;
+    
+    //! \addtogroup Wrap
+    //! @{
+    
+    //! This class wraps a type in the compiler type system
     class Type : public Object
     {
         private:
@@ -68,6 +73,7 @@ namespace TL
             {
             }
 
+            //! States whether the type is valid
             bool is_valid() const
             {
                 return (_type_info != NULL);
@@ -77,28 +83,41 @@ namespace TL
             {
             }
 
+            //! States that this is a type
             virtual bool is_type() const
             {
                 return true;
             }
 
+            //! Convenience function that returns a wrapped 'signed int'
             static Type get_int_type(void);
 
+            //! Returns a string with a declaration
             std::string get_simple_declaration(Scope sc, const std::string& symbol_name, 
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
+            //! Returns a string with a declaration
             std::string get_declaration(Scope sc, const std::string& symbol_name,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
+            //! Returns a string with a declaration and suitable initializer
             std::string get_declaration_with_initializer(Scope sc, 
                     const std::string& symbol_name, const std::string& initializer,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
+            //! Returns a string with a function declaration and parameter names
             std::string get_declaration_with_parameters(Scope sc,
                     const std::string& symbol_name, ObjectList<std::string>& parameters,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
+            //! Returns a pointer to the current type
             Type get_pointer_to();
+            //! Returns an array to the current type
+            /*! 
+             * \param expression_array The expression of the array. Can be an invalid tree if the array is unbounded.
+             * \param scope Scope of \a expression_array
+             */
             Type get_array_to(AST_t expression_array, Scope scope);
+            //! Gets a reference (C++) to the current type
             Type get_reference_to();
 
             bool operator==(Type t) const;
@@ -107,97 +126,178 @@ namespace TL
             bool operator<(Type t) const;
 
             // Basic types
+            //! States whether this type is an integral type 
+            /*!
+             * An integral type is any 'int', 'bool', 'character',
+             * 'wchar_t'. In C, it also includes enum types.
+             */
             bool is_integral_type() const;
+            //! States whether this type is 'int' or 'signed int'
             bool is_signed_int() const;
+            //! States whether this type is 'unsigned int'
             bool is_unsigned_int() const;
+            //! States whether this type is 'short int' or 'signed short int'
             bool is_signed_short_int() const;
+            //! States whether this type is 'unsigned short int'
             bool is_unsigned_short_int() const;
+            //! States whether this type is 'long int' or 'signed long int'
             bool is_signed_long_int() const;
+            //! States whether this type is 'unsigned long int'
             bool is_unsigned_long_int() const;
+            //! States whether this type is 'long long int' or 'signed long long int'
             bool is_signed_long_long_int() const;
+            //! States whether this type is 'unsigned long long int'
             bool is_unsigned_long_long_int() const;
 
+            //! States whether this type is 'char' type
             bool is_char() const;
+            //! States whether this type is 'signed char' type
             bool is_signed_char() const;
+            //! States whether this type is 'unsigned char' type
             bool is_unsigned_char() const;
 
+            //! States whether this type is 'wchar_t'
             bool is_wchar_t() const;
 
+            //! States whether this type is either 'float', 'double' or 'long double'
             bool is_floating_type() const;
+            //! States whether this type is 'long double'
             bool is_long_double() const;
+            //! States whether this type is 'double'
             bool is_double() const;
+            //! States whether this type is 'float'
             bool is_float() const;
 
+            //! States whether this type is 'bool'
             bool is_bool() const;
 
-            // C99 complex numbers (a pair of real numbers)
+            //! States whether this type is '_Complex' qualified
             bool is_complex() const;
             
-            // Direct types
+            //! States wheter this is a direct type
+            /*!
+             * \deprecated Use instead is_non_derived_type
+             */
             bool is_direct_type() const DEPRECATED;
+            //! States that this type is not structurally derived
+            /*!
+             * Structurally derived means any of pointer, references,
+             * pointer-to-member, arrays or functions types
+             */
             bool is_non_derived_type() const;
+            //! States that this type is a class-type (either named or unnamed)
             bool is_class() const;
+            //! States that this type is an unnamed class-type
             bool is_unnamed_class() const;
+            //! States that this type is an named class-type
             bool is_named_class() const;
+            //! States that this type is an enum-type (either named or unnamed)
             bool is_enum() const;
+            //! States that this type is an unnamed enum-type
             bool is_unnamed_enum() const;
+            //! States that this type is a named enum-type
             bool is_named_enum() const;
 
-            // Named types
+            //! Returns the related symbol of this named type
             Symbol get_symbol() const;
+            //! States whether current type is named
             bool is_named() const;
+            //! States whether current type is a typedef
             bool is_typedef() const;
+            //! For a typedef, it returns the aliased type
             Type aliased_type() const;
 
-            // Functions
+            //! States whether current type type is a function-type
             bool is_function() const;
+            //! For a function-type, it gives the returned type
             Type returns() const;
+            //! For a function type, it gives a list of parameter types
+            /*!
+             * \return A list of types of the parameters
+             */
             ObjectList<Type> parameters() const;
+            //! For a function type, it gives a list of parameter types
+            /*!
+             * \param has_ellipsis Will be set to true if the function type has ellipsis
+             * \return A list of types of the parameters
+             */
             ObjectList<Type> parameters(bool& has_ellipsis) const;
 
-            // Pointers
+            //! States whether current type is a pointer type
             bool is_pointer() const;
+            //! In pointer-types or pointer-to-member types returns the referenced type
             Type points_to() const;
 
+            //! States whether current type is a pointer-to-member type
             bool is_pointer_to_member() const;
+            //! In pointer-to-member types returns the class of the pointer
             Type pointed_class() const;
 
+            //! States whether current type is an array-type
             bool is_array() const;
+            //! Returns the element type of an array-type
             Type array_element() const;
+            //! States whether this array-type has an explicit array dimension
             bool explicit_array_dimension() const;
+            //! Returns the expression of the array dimension
             AST_t array_dimension() const;
 
+            //! States whether the type is a dependent one
+            /*!
+             * Symbol t below will have a dependent type
+             * \code
+             * template <typename _T>
+             * struct A
+             * {
+             *   typename _T::B t;
+             * };
+             * \endcode
+             */
             bool is_dependent() const;
 
+            //! States whether the type is a reference type
             bool is_reference() const;
+            //! Returns the referenced type
             Type references_to() const;
 
+            //! States whether this type is void
             bool is_void() const;
 
-            // Synonym of 'get_nonstatic_data_members'
+            //! Synonim of get_nonstatic_data_members
             ObjectList<Symbol> get_fields() const;
 
+            //! Returns a list with the nonstatic data members of a class-type
             ObjectList<Symbol> get_nonstatic_data_members() const;
+            //! Returns a list with the static data members of a class-type
             ObjectList<Symbol> get_static_data_members() const;
 
+            //! States whether any nonstatic member of class-type is defined as mutable
             bool some_member_is_mutable() const;
 
-            // cv qualification
+            //! States whether this type is const qualified
             bool is_const() const;
+            //! States whether this type is volatile qualified
             bool is_volatile() const;
+            //! States whether this type is restrict qualified
             bool is_restrict() const;
 
+            //! Returns the unqualified type of current type
             Type get_unqualified_type();
+            //! Returns a const qualified type of current type
             Type get_const_type();
+            //! Returns a volatile qualified type of current type
             Type get_volatile_type();
+            //! Returns a restrict qualified type of current type
             Type get_restrict_type();
 
-            // Returns the original type, if any, otherwise
-            // returns the same
+            /*!
+             * \bug What does this function do?
+             */
             Type original_type(void) const;
 
-            // Template types
+            //! States whether the type is a template specialized one
             bool is_template_specialized_type() const;
+            //! For a template-specialized type return the list of template-parameters
             ObjectList<Symbol> get_template_parameters() const;
 
             /* We should consider to remove this one day */
@@ -211,6 +311,8 @@ namespace TL
                 return _type_info;
             }
     };
+    
+    //! @}
 }
 
 #endif // TL_TYPE_HPP

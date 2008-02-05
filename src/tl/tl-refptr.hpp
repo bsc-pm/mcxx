@@ -60,8 +60,8 @@ namespace TL
  * to delete the object.
  *
  * RefPtr<> can store any class that has reference() and unreference() methods.
- * In gtkmm, that is anything derived from Glib::ObjectBase, such as
- * Gdk::Pixmap.
+ * In gtkmm, that is anything derived from %Glib::%ObjectBase, such as
+ * %Gdk::%Pixmap.
  *
  * See the "Memory Management" section in the "Programming with gtkmm"
  * book for further information.
@@ -251,7 +251,7 @@ RefPtr<T_CppObject>& RefPtr<T_CppObject>::operator=(const RefPtr<T_CppObject>& s
   // In case you haven't seen the swap() technique to implement copy
   // assignment before, here's what it does:
   //
-  // 1) Create a temporary RefPtr<> instance via the copy ctor, thereby
+  // 1) Create a temporary %RefPtr<> instance via the copy ctor, thereby
   //    increasing the reference count of the source object.
   //
   // 2) Swap the internal object pointers of *this and the temporary
@@ -353,7 +353,6 @@ RefPtr<T_CppObject> RefPtr<T_CppObject>::cast_const(const RefPtr<T_CastFrom>& sr
 
 #endif /* DOXYGEN_SHOULD_SKIP_THIS */
 
-/** @relates Glib::RefPtr */
 template <class T_CppObject> inline
 void swap(RefPtr<T_CppObject>& lhs, RefPtr<T_CppObject>& rhs)
 {

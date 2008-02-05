@@ -36,6 +36,9 @@ namespace TL
     class FunctionDefinition;
     class IdExpression;
 
+    //! \addtogroup LangConstruct Language construction wrappers
+    //! @{
+
     //! Base class representing a distinguished language construct
     /*!
      * A LangConstruct is always composed of a tree, TL::AST_t, and a
@@ -263,22 +266,36 @@ namespace TL
             //in the statement
             ObjectList<Symbol> non_local_symbols();
 
+            //! States whether this Statement is actually a compound statement
             bool is_compound_statement();
+            //! Returns a list of inner statements
+            /*! This function is only valid if is_compound_statement returned true
+             */
             ObjectList<Statement> get_inner_statements();
 
             const static PredicateAST<LANG_IS_STATEMENT> predicate;
     };
 
     class Expression;
+    //! This LangConstruct wraps a for-statement in the code
     class ForStatement : public Statement
     {
         private:
+            //! Gathers the induction variable
             AST_t _induction_variable;
+            //! The lower bound of a regular loop
             AST_t _lower_bound;
+            //! The upper bound of a regular loop
             AST_t _upper_bound;
+            //! The step of a regular loop
             AST_t _step;
 
+            //! Gathers information of regular loops
+            /*! This function is only called when check_statement returns true
+             */
             void gather_for_information();
+
+            //! Checks for a regular loop
             bool check_statement();
         public:
             ForStatement(AST_t ref, ScopeLink scope_link)
@@ -299,87 +316,192 @@ namespace TL
                 }
             }
 
+            //! Returns an id-expression with the induction variable
             IdExpression get_induction_variable();
+            
+            //! Returns a computed lower bound of a regular loop
             Expression get_lower_bound();
+            
+            //! Returns a computed upper bound of a regular loop
             Expression get_upper_bound();
+            
+            //! Returns a computed step of a regular loop
             Expression get_step();
 
+            //! Returns the loop body
             Statement get_loop_body();
 
+            //! States whether this loop is a regular one
+            /*!
+             * A regular loop is that where computing the lower and upper
+             * bounds and its step is easy after the syntax.
+             */
             bool regular_loop();
 
+            //! Returns the iterating initialization
+            /*!
+             * Given loops 
+             *
+             *   '%for(%i = 0; %i < 10; %i++)' 
+             *
+             * and
+             *
+             *   '%for(int %i = 0; %i < 10; %i++)' 
+             *
+             * get_iterating_init will return 
+             *    '%i = 0' 
+             *
+             *    and 
+             *
+             *    'int i = 0' 
+             *
+             * respectively
+             */
             AST_t get_iterating_init();
+
+            //! Returns the iterating condition
+            /*!
+             * Given loop
+             *
+             *  '%for(%i = 0; %i < 10; %i++)' 
+             *
+             * this function will return 'i < 10'
+             */
             Expression get_iterating_condition();
+            //! Returns the iterating expression
+            /*!
+             * Given loop
+             *
+             *  '%for(%i = 0; %i < 10; %i++)' 
+             *
+             * this function will return 'i++'
+             */
             Expression get_iterating_expression();
 
             const static PredicateAST<LANG_IS_FOR_STATEMENT> predicate;
     };
 
     class DeclaredEntity;
+    //! This function wraps a whol function definition
     class FunctionDefinition : public LangConstruct
     {
         private:
         public:
-            void prepend_sibling(AST_t);
-
             FunctionDefinition(AST_t ref, ScopeLink scope_link)
                 : LangConstruct(ref, scope_link)
             {
             }
+            
+            //! Prepends a tree as a sibling of this function definition
+            void prepend_sibling(AST_t);
 
+            //! Returns an id-expression with the function name as it appears
+            //in the function definition.
+            /*!
+             * Member functions defined outside the class will return a qualified id-expression
+             */
             IdExpression get_function_name();
+
+            //! Returns the function body
             Statement get_function_body();
 
+            //! States whether this function definition is templated
             bool is_templated() const;
+            //! Returns a list of templated headers for this template declaration
             ObjectList<AST_t> get_template_header();
 
+            //! Returns the declared entity of this function definition.
+            /*!
+             * This is the function name itself
+             */
             DeclaredEntity get_declared_entity();
 
+            //! Returns the point of declaration
             AST_t get_point_of_declaration();
 
             static const PredicateAST<LANG_IS_FUNCTION_DEFINITION> predicate;
     };
 
+    //! This LangConstruct wraps an expression in the language
+    /*!
+     * This wrapper ignores all parentheses and nested constructions.
+     */
     class Expression : public LangConstruct
     {
         private:
+            //! Advances over expression nests
             static AST_t advance_over_nests(AST_t);
         public :
+            //! Enum used to get the kind of an operation
             enum OperationKind
             {
                 UNKNOWN = 0,
+                //! Derreference operator
                 DERREFERENCE,
+                //! Reference operator
                 REFERENCE,
+                //! Unary plus
                 PLUS,
+                //! Unary minus
                 MINUS,
+                //! Arithmetic addition
                 ADDITION,
+                //! Arithmetic substraction
                 SUBSTRACTION,
+                //! Arithmetic multiplication
                 MULTIPLICATION,
+                //! Arithmetic division
                 DIVISION,
+                //! Integer modulus
                 MODULUS,
+                //! Integer shift left
                 SHIFT_LEFT,
+                //! Integer shift right
                 SHIFT_RIGHT,
+                //! Logical or ||
                 LOGICAL_OR,
+                //! Logical and &&
                 LOGICAL_AND,
+                //! Logical not !
                 LOGICAL_NOT,
+                //! Bitwise or |
                 BITWISE_OR,
+                //! Bitwise and &
                 BITWISE_AND,
+                //! Bitwise xor ^
                 BITWISE_XOR,
+                //! Bitwise not ~
                 BITWISE_NOT,
+                //! Lower than operator \<
                 LOWER_THAN,
+                //! Greater than operator \>
                 GREATER_THAN,
+                //! Lower equal than operator \<=
                 LOWER_EQUAL_THAN,
+                //! Greater equal than operator \>=
                 GREATER_EQUAL_THAN,
+                //! Comparison operator ==
                 COMPARISON,
+                //! Different operator !=
                 DIFFERENT,
+                //! Preincrement ++a
                 PREINCREMENT,
+                //! Postincrement a++
                 POSTINCREMENT,
+                //! Predecrement --a
                 PREDECREMENT,
+                //! Postdecrement a--
                 POSTDECREMENT,
+                //! Conditional expression a ? b : c
 				CONDITIONAL
             };
 
+            //! Computes the type of the expression
             Type get_type();
+            //! Computes the type of the expression
+            /*!
+             * \param is_lvalue Will hold whether this is a lvalue
+             */
             Type get_type(bool &is_lvalue);
 
             Expression(AST_t ref, ScopeLink scope_link)
@@ -388,69 +510,115 @@ namespace TL
                 this->_ref = advance_over_nests(this->_ref);
             }
 
+            //! States whether this is an id-expression
             bool is_id_expression();
+            //! Returns an id-expression
             IdExpression get_id_expression();
 
+            //! States whether this is a binary operation
             bool is_binary_operation();
+            //! Returns the first operand of a binary operation
             Expression get_first_operand();
+            //! Returns the second operand of a binary operation
             Expression get_second_operand();
 
+            //! States whether this is an unary operation
             bool is_unary_operation();
+            //! Returns the unary operand of this unary operation
             Expression get_unary_operand();
 
-            // Casting
+            //! States whether this is a casting
             bool is_casting();
+            //! Returns the cast type
             AST_t get_cast_type();
+            //! Returns the casted expression
             Expression get_casted_expression();
 
-            // Literal
+            //! States whether the expression is a literal
             bool is_literal();
 
-            // exprC(expr-list)
+            //! States whether this is a function call
             bool is_function_call();
-            // exprC
+            //! Returns the called expression
+            /*!
+             * This returns part before the parentheses of the arguments
+             */
             Expression get_called_expression();
-            // expr-list
+            //! Returns the argument list
             ObjectList<Expression> get_argument_list();
 
-            // expr = expr
+            //! States whether this is an assignment expression
             bool is_assignment();
 
-            // expr op= expr
+            //! States whether this is an assignment operation expression
             bool is_operation_assignment();
 
-            // exprA[exprB]
+            //! States whether this is an array subscript expression
             bool is_array_subscript();
-            // exprB
+            //! Returns the subscript expression
+            /*!
+             * Of an expression 'e1[e2]', this function returns 'e2'
+             */
             Expression get_subscript_expression();
-            // exprA
+            //! Returns the subscripted expression
+            /*!
+             * Of an expression 'e1[e2]', this function returns 'e1'
+             */
             Expression get_subscripted_expression();
 
-            // exprA.exprM
+            //! States whether this is a member access expression
+            /*!
+             * \return True if the expression is of the form 'a.b'
+             */
             bool is_member_access();
-            // exprA->exprM
+            //! States whether this is a pointer member access expression
+            /*!
+             * \return True if the expression is of the form 'a->b'
+             */
             bool is_pointer_member_access();
-            // exprA
+            // Return the accessed entity
+            /*
+             * In both 'a.b' and 'a->b' this function returns 'a'.
+             */
             Expression get_accessed_entity();
-            // exprM
+            // Return the accessed field/member
+            /*
+             * In both 'a.b' and 'a->b' this function returns 'b'
+             */
             IdExpression get_accessed_member();
 
-			// exprC ? exprA : exprB
+            //! States whether this is a conditional expression
 			bool is_conditional();
-			// exprC
+			//! Returns the condition expression of a conditional expression
+            /*!
+             * Given an expression 'a ? b : c', this function returns 'a'
+             */
 			Expression get_condition_expression();
-			// exprA
+            //! Returns the expression evaluated when the condition expression is true
+            /*!
+             * Given an expression 'a ? b : c', this function returns 'b'
+             */
 			Expression get_true_expression();
-			// exprB
+            //! Returns the expression evaluated when the condition expression is false
+            /*!
+             * Given an expression 'a ? b : c', this function returns 'c'
+             */
 			Expression get_false_expression();
 
+            //! Returns the operation kind
             OperationKind get_operation_kind();
 
+            //! Returns a string representing the involved operator
+            /*!
+             * Operator assignment expressions like '+=' will return '+'
+             * as the involved operator.
+             */
 			std::string get_operator_str();
 
             static const PredicateAST<LANG_IS_EXPRESSION_NEST> predicate;
     };
 
+    //! This LangConstruct wraps a parameter declaration in a function declarator
     class ParameterDeclaration : public LangConstruct
     {
         private:
@@ -461,9 +629,12 @@ namespace TL
             {
             }
 
+            //! States whether the parameter is named
             bool is_named();
+            //! Returns an id-expression for the name
             IdExpression get_name();
 
+            // Returns the type of the parameter declaration
             Type get_type()
             {
                 return _type;
@@ -472,6 +643,10 @@ namespace TL
             static const PredicateAST<LANG_IS_PARAMETER_DECLARATION> predicate;
     };
 
+    //! This LangConstruct wraps a declaration of an entity
+    /*!
+     * This is roughly equivalent to the declarator part of any declaration in C/C++
+     */
     class DeclaredEntity : public LangConstruct
     {
         public :
@@ -480,20 +655,38 @@ namespace TL
             {
             }
 
+            //! Returns an id-expression of the declared entity
+            /*!
+             * Do not use this function as it does not work for declarations involving typenames
+             * like typedefs.
+             */
             IdExpression get_declared_entity() DEPRECATED;
+
+            //! Returns the declared symbol in this declaration
             Symbol get_declared_symbol();
+
+            //! Returns the declaration tree
             AST_t get_declared_tree();
 
+            //! States whether this declaration has initializer
             bool has_initializer();
+            //! Returns an expression with the initializer itself
             Expression get_initializer();
 
+            //! States whether this declaration is a functional one
             bool is_functional_declaration();
+            //! Returns all the parameter declarations
             ObjectList<ParameterDeclaration> get_parameter_declarations();
+            //! Returns all the parameter declarations
+            /*!
+             * \param has_ellipsis Will be set to true if the function receives an ellipsis
+             */
             ObjectList<ParameterDeclaration> get_parameter_declarations(bool &has_ellipsis);
 
             static const PredicateAST<LANG_IS_DECLARED_NAME> predicate;
     };
 
+    //! This class wraps a type specifier in a declaration
     class TypeSpec : public LangConstruct
     {
         public:
@@ -502,13 +695,22 @@ namespace TL
             {
             }
 
+            //! States whether this type-specifier defines a class
             bool is_class_specifier();
+            //! Returns the class symbol defined in the class-specifier
+            /*!
+             * This function can only be used when is_class_specifier returned true
+             */
             Symbol get_class_symbol();
 
+            //! States whether this type-specifier defines an enumerator
             bool is_enum_specifier();
+            //! Returns the enym symbol defined in the enum-specifier
             Symbol get_enum_symbol();
     };
 
+    //! This class wraps a declaration-specifier sequence
+    //in a declaration
     class DeclarationSpec : public LangConstruct
     {
         public:
@@ -517,11 +719,28 @@ namespace TL
             {
             }
 
+            //! Returns the type-specifier in the declaration-specifier sequence
             TypeSpec get_type_spec();
-
-            // No predicate for this one at the moment
     };
 
+    //! This class wraps a whole declaration
+    /*!
+     * Any declaration has two parts. A first DeclarationSpec part
+     * where the type-specifier will be defined and a list of DeclaredEntity.
+     *
+     * For instance,
+     *
+     * const int a, *b;
+     *
+     * Will contain 'const int' in the DeclarationSpec and 'a', and 'b' in the 
+     * DeclaredEntity list.
+     *
+     * \remark LangConstruct classes wrap trees, they are not the best way to 
+     * gather symbolic information of symbols. In the example above, checking
+     * for 'const' is better achieved by asking this to symbols 'a' and 'b' instead
+     * of checking the tree (even if for most properties this would be equivalent).
+     *
+     */
     class Declaration : public LangConstruct
     {
         public:
@@ -530,17 +749,38 @@ namespace TL
             {
             }
 
+            //! Returns the list of declared entities in this declaration
             ObjectList<DeclaredEntity> get_declared_entities();
+            //! Returns the declaration-specifier sequence of the declaration
             DeclarationSpec get_declaration_specifiers();
 
+            //! States whether this declaration is templated
             bool is_templated();
+            //! Returns a list of template-haders
             ObjectList<AST_t> get_template_header();
 
+            //! Returns the point where all the declaration
+            //started
+            /*!
+             * This function only is useful when is_templated returned true
+             */
             AST_t get_point_of_declaration();
 
             static const PredicateAST<LANG_IS_DECLARATION> predicate;
     };
+    
+    //! @}
 
+    //! This class eases replacing references to entities within a LangConstruct
+    /*!
+     * Since replacing entities in a tree is easier than using other approaches,
+     * this class allows replacing a whole LangConstruct symbolic references
+     * with other given entities.
+     *
+     * For instance, expression 'a + b' can be converted into '(*p_a) + p_b[0]' 
+     * by just registering that Symbol 'a' has to be replaced with expression '(*p_a)' and Symbol
+     * 'b' with expression 'p_b[0]'
+     */
     class ReplaceIdExpression : public ObjectList<std::pair<Symbol, AST_t> >
     {
         private:
@@ -550,15 +790,61 @@ namespace TL
             {
             }
 
+            //! Sets a replacement for symbol with a tree
+            /*!
+             * \param sym The symbol to be replaced
+             * \param ast The expression tree used for the replacement
+             */
             void add_replacement(Symbol sym, AST_t ast);
+
+            //! Sets a replacement for the symbol with a tree
+            /*!
+             * \deprecated This function is deprecated. Instead use add_replacement(Symbol, AST_t)
+             *
+             * \param sym The symbol to be replaced
+             * \param str A string containing the expression used for the replacement
+             */
             void add_replacement(Symbol sym, std::string str) DEPRECATED;
+            
+            //! Sets a replacement for the symbol with a tree
+            /*!
+             * \deprecated This function is deprecated. Instead use add_replacement(Symbol, AST_t)
+             *
+             * \param sym The symbol to be replaced
+             * \param src A Source containing an expression
+             */
             void add_replacement(Symbol sym, Source src) DEPRECATED;
 
+            //! Sets a replacement for the symbol with a tree
+            /*!
+             * \param sym The symbol to be replaced
+             * \param str A string containing the expression used for the replacement
+             * \param ref_tree Reference tree to perform the parsing of \a str
+             * \param scope_link The ScopeLink used to parse the expression \a str
+             */
             void add_replacement(Symbol sym, std::string str, AST_t ref_tree, ScopeLink scope_link);
+            //! Sets a replacement for the symbol with a tree
+            /*!
+             * \param sym The symbol to be replaced
+             * \param src A Source containing an expression
+             * \param ref_tree Reference tree to perform the parsing of \a src
+             * \param scope_link The ScopeLink used to parse the Source \a src
+             */
             void add_replacement(Symbol sym, Source src, AST_t ref_tree, ScopeLink scope_link);
 
+            //! States whether a replacement for a given symbol has been set
+            /*
+             * \param sym The symbol for which we request whether there is a replacement
+             */
             bool has_replacement(Symbol sym);
 
+            //! Replaces all non local symbols with the given replacements
+            /*
+             * \item orig_stmt The original LangConstruct
+             *
+             * \remark Any LangConstruct could be used to do the replacement though usual cases
+             * are Statement and Expression.
+             */
             template <class T>
             T replace(T orig_stmt)
             {
@@ -588,12 +874,20 @@ namespace TL
             }
     };
 
-    // This is something common, it is a good candidate to be taken off here
+    //! \addtogroup Functors
+    //! @{
+    
+    //! Convenience Functor that applied to an AST_t returns
+    // its related symbol.
     class GetSymbolFromAST : public Functor<Symbol, AST_t>
     {
         private:
             ScopeLink scope_link;
         public:
+            //! Returns a symbol after a tree
+            /*!
+             * \param ast This must be an id-expression
+             */
             virtual Symbol operator()(AST_t& ast) const 
             {
                 Scope sc = scope_link.get_scope(ast);
@@ -612,6 +906,7 @@ namespace TL
             {
             }
     };
+    //! @}
 }
 
 #endif // TL_LANGCONSTRUCT_HPP

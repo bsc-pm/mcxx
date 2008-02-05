@@ -36,6 +36,7 @@ namespace TL
 {
     class Source;
 
+    //! Auxiliar class used by Source
     class SourceChunk
     {
         private:
@@ -67,6 +68,7 @@ namespace TL
             }
     };
 
+    //! A chunk of literal text
     class SourceText : public SourceChunk
     {
         private:
@@ -89,6 +91,7 @@ namespace TL
             friend class Source;
     };
 
+    //! A chunk that references another Source
     class SourceRef : public SourceChunk
     {
         private:
@@ -111,14 +114,18 @@ namespace TL
 
     typedef RefPtr<ObjectList<SourceChunkRef> > chunk_list_ref_t;
 
+    //! A class used to generate in, a convenient way, code in the compiler
     class Source : public Object
     {
         public:
+            //! Flags that modify the behaviour of parsing
             enum ParseFlags
             {
                 UNKNOWN = 0,
                 DEFAULT = 1 << 0,
+                //! Allows symbols be redefined, thus overwriting previous definitions
                 ALLOW_REDECLARATION = 1 << 1,
+                //! Does not check an expression
                 DO_NOT_CHECK_EXPRESSION = 2 << 1,
             };
         private:
@@ -132,6 +139,10 @@ namespace TL
 
             std::string format_source(const std::string&);
         public:
+            //! Constructor
+            /*!
+             * Creates an empty source
+             */
             Source()
                 : _chunk_list(0)
             {
@@ -142,6 +153,10 @@ namespace TL
             {
             }
 
+            //! Constructor
+            /*!
+             * Creates a source after a string.
+             */
             Source(const std::string& str)
                 : _chunk_list(0)
             {
@@ -149,48 +164,130 @@ namespace TL
                 _chunk_list->push_back(SourceChunkRef(new SourceText(str)));
             }
 
+            //! Copy-constructor
             Source(const Source& src)
                 // This is fine, we want to share the same source list for both
                 : Object(src), _chunk_list(src._chunk_list)
             {
             }
 
+            //! States that this is a source
             virtual bool is_source() const
             {
                 return true;
             }
             
+            //! Returns the textual information held by this Source
+            /*!
+             * Referenced Source objects in this one are recursively called their get_source
+             * to form the whole text.
+             */
             std::string get_source(bool with_newlines = false) const;
             
+            //! Convenience function to build lists with separators
+            /*!
+             * If the original source is empty, no separator will be added.
+             */
             Source& append_with_separator(const std::string& src, const std::string& separator);
+            //! Convenience function to build lists with separators
+            /*!
+             * If the original source is empty, no separator will be added.
+             */
             Source& append_with_separator(Source& src, const std::string& separator);
 
+            //! Appends a reference to a Source in this object
+            /*!
+             * Do not create cyclic dependences of sources
+             */
             Source& operator<<(Source& src);
+            //! Appends a text chunk
             Source& operator<<(const std::string& str);
+            //! Appends a text chunk after an integer
+            /*!
+             * \param n This integer is: converted into decimal base and appended as a string
+             */
             Source& operator<<(int n);
 
             // -- deprecated family of parse_XXX
-            // These are deprecated and only work reasonably well in C, in C++
-            // they do not get the proper declarating context
+            //! Parses a top-level declaration in context of global scope
+            /*!
+             * \deprecated Instead use parse_global(AST_t, TL::ScopeLink)
+             */
             AST_t parse_global(TL::Scope ctx, TL::ScopeLink scope_link) DEPRECATED;
+            //! Parses this source as a statement
+            /*!
+             * \deprecated Instead use parse_statement(AST_t, TL::ScopeLink)
+             */
             AST_t parse_statement(TL::Scope ctx, TL::ScopeLink scope_link) DEPRECATED;
+            //! Parses this source as an expression
+            /*!
+             * \deprecated Instead use parse_expression(AST_t, TL::ScopeLink)
+             */
             AST_t parse_expression(TL::Scope ctx) DEPRECATED;
+            //! Parses this source as an expression
+            /*!
+             * \deprecated Instead use parse_expression(AST_t, TL::ScopeLink)
+             */
             AST_t parse_expression(TL::Scope ctx, TL::ScopeLink scope_link) DEPRECATED;
+            //! Parses this source as a declaration
+            /*!
+             * \deprecated Instead use parse_declaration(AST_t, TL::ScopeLink)
+             */
             AST_t parse_declaration(TL::Scope ctx, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT) DEPRECATED;
+            //! Parses this source as a member declaration
+            /*!
+             * \deprecated Instead use parse_member(AST_t, TL::ScopeLink)
+             */
             AST_t parse_member(TL::Scope ctx, TL::ScopeLink scope_link, Type class_type) DEPRECATED;
             // -- end of deprecated family
 
             // -- new family of parse_XXX
             // These should work correctly in C++ as they are able to get the exact
             // declaration context of the reference tree (ref_tree)
+            //! Parses a top-level declaration in context of global scope
+            /*!
+             * \param ref_tree Reference tree used when parsing this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             */
             AST_t parse_global(AST_t ref_tree, TL::ScopeLink scope_link);
+            //! Parses a statement
+            /*!
+             * \param ref_tree Reference tree used when parsing this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \param parse_flags Parsing flags
+             */
             AST_t parse_statement(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+            //! Parses an expression
+            /*!
+             * \param ref_tree Reference tree used when parsing this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \param parse_flags Parsing flags
+             */
             AST_t parse_expression(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+            //! Parses a declaration
+            /*!
+             * \param ref_tree Reference tree used when parsing this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \param parse_flags Parsing flags
+             */
             AST_t parse_declaration(AST_t ref_tree, TL::ScopeLink scope_link, ParseFlags parse_flags = DEFAULT);
+            //! Parses a member declaration
+            /*!
+             * \param ref_tree Reference tree used when parsing this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \param class_type Class type where this member should belong to
+             */
             AST_t parse_member(AST_t ref_tree, TL::ScopeLink scope_link, Type class_type);
+            //! Convenience function to parse a type and synthesize it
+            /*!
+             * \param ref_tree Reference tree used when parsing this code
+             * \param scope_link Scope link used to get the scope of \a ref_tree
+             * \return The synthesized type
+             */
             Type parse_type(AST_t ref_tree, TL::ScopeLink scope_link);
             // -- end of new family of parse_XXX
 
+            //! States whether this Source is empty
             bool empty() const;
 
             bool operator==(const Source& src) const;
@@ -199,9 +296,26 @@ namespace TL
             Source& operator=(const Source& src);
     };
 
+    //! Creates an inner comment in the code
+    /*!
+     * When these are prettyprinted onto the output file
+     * they are converted into normal C or C++ comments
+     */
     std::string comment(const std::string& str);
+    //! Creates an inner preprocessor line
+    /*!
+     * When these are prettyprinted onto the output file
+     * they are converted into normal C or C++ preprocessor lines
+     */
     std::string preprocessor_line(const std::string& str);
 
+    //! Convenience function to convert a list into a string
+    /*!
+     * \param t List of elements of type T
+     * \param to_str Function that gives a std::string after an object of type T
+     * \param separator Separator that will be used to separe the strings
+     * \return A single string with the result of \a to_str applied to all elements of \a t separated with \a separator
+     */
     template <class T>
     std::string to_string(const ObjectList<T>& t, Functor<std::string, T>& to_str, const std::string& separator = "")
     {

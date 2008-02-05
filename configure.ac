@@ -692,6 +692,10 @@ then
 fi
 echo ""
 echo " * Superscalar :" $is_enabled_tl_superscalar
+if test x$is_enabled_tl_superscalar = xyes;
+then
+  echo "   Supercalar version :" $use_tl_superscalar_version
+fi
 echo ""
 
 if test x$flex_good = xno; 

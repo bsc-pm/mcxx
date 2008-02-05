@@ -33,6 +33,11 @@ namespace TL
 {
     class Type;
     class Scope;
+    
+    //! \addtogroup Wrap 
+    //! @{
+    
+    //! This class wraps a symbolic entity in the compiler
     class Symbol : public Object
     {
         public:
@@ -45,10 +50,13 @@ namespace TL
             }
 
         public:
+            //! Returns an invalid symbol
             static const Symbol invalid();
 
+            //! States whether this is an invalid symbol
             bool is_invalid() const;
 
+            //! States whether this is a valid symbol
             bool is_valid() const;
 
             Symbol(scope_entry_t* symbol)
@@ -56,6 +64,7 @@ namespace TL
             {
             }
 
+            //! Constructs a Symbol after a reference to Object
             Symbol(RefPtr<Object> obj)
             {
                 RefPtr<Symbol> pint = RefPtr<Symbol>::cast_dynamic(obj);
@@ -73,20 +82,31 @@ namespace TL
                 }
             }
 
+            //! Gets the type related to this symbol
             Type get_type() const;
+            //! Gets the unqualified name of the symbol
             std::string get_name() const;
 
-            // This function will lack context when templates are involved
+            //! Returns a fully qualified name
+            /*
+             * \remark This function will give bogus names to templates parameters. Use get_qualified_name(Scope)
+             * instead.
+             */
             std::string get_qualified_name() const;
-            // This one requires a proper scope when templates are involved
+            //! Returns a fully qualified name
+            /*
+             * \param sc Scope used to lookup template parameter names
+             */
             std::string get_qualified_name(Scope sc) const;
 
+            //! Gets the scope where this symbol is defined
             Scope get_scope() const;
 
             virtual ~Symbol()
             {
             }
 
+            //! States whether is a symbol
             virtual bool is_symbol() const
             {
                 return true;
@@ -97,59 +117,103 @@ namespace TL
             bool operator!=(Symbol s) const;
             Symbol& operator=(Symbol s);
 
+            //! States whether this symbol is a variable
             bool is_variable() const;
+            //! States whether this symbol is a typedef
             bool is_typedef() const;
+            //! States whether this symbol is a name of a type
             bool is_typename() const;
+            //! States whether this symbol is a function
             bool is_function() const;
+            //! States whether this symbol is a template function
             bool is_template_function() const;
+            //! States whether this symbol is a parameter of a function
             bool is_parameter() const;
+            //! Returns the position of this parameter
             int get_parameter_position() const;
 
+            //! States if this is a member entity
             bool is_member() const;
+            //! Returns the class to which this member belongs
             Type get_class_type() const;
 
+            //! Returns the point where this symbol was declared
             AST_t get_point_of_declaration() const;
 
+            //! States whether this symbol has been initialized
             bool has_initialization() const;
+            //! Returns the initialization tree
             AST_t get_initialization() const;
 
+            //! States whether this symbol is static
             bool is_static() const;
+            //! States whether this symbol is register
             bool is_register() const;
 
-            // FIXME : This only holds if the 'extern' qualifier was given
-            // in the declaration of the symbol but global symbols
-            // without it are 'extern' too. Using 'is_static' is better
-            // till this gets fixed
+            //! States whether this symbol is extern
+            /*!
+            * \bug : This only holds if the 'extern' qualifier was given
+            * in the declaration of the symbol but global symbols
+            * without it are 'extern' too. Using 'is_static' is better
+            * till this gets fixed
+            */
             bool is_extern() const;
 
+            //! States whether this symbol is mutable
             bool is_mutable() const;
-            // The compiler does not honour this flag (it will always return false)
+            // States whether this template is exported
+            /*
+             * \bug The compiler does not honour this flag (it will always return false)
+             */
             bool is_exported_template() const;
 
+            //! States whether this function was defined inline
             bool is_inline() const;
 
-            // Virtual function. This does not concern
-            // to call sites only declarations
+            //! States whether this member function was defined as virtual
             bool is_virtual() const;
 
+            //! States whether this member function is a pure virtual function
             bool is_pure() const;
+
+            //! States whether this member function is a conversion function
             bool is_conversion_function() const;
 
-            // Is a constructor
+            //! States whether this member function is a constructor
             bool is_constructor() const;
-            // Is an explicit constructor
+
+            //! States whether this member function is a constructor flagged as explicit
             bool is_explicit_constructor() const;
 
-            /* Kind of scope */
+            //! States whether the symbol has been defined in namespace scope
             bool has_namespace_scope() const;
+            //! States whether the symbol has been defined in block scope
             bool has_block_scope() const;
-            bool has_local_scope() const; // alias for has_block_scope
+            //! This is an alias for has_block_scope
+            bool has_local_scope() const; 
+            //! States whether the symbol has been defined in class scope
+            /*!
+             * This is roughly equivalent to a member symbol
+             */
             bool has_class_scope() const;
+            //! States whether this symbol has template scope
+            /*!
+             * Only template parameters should have template scope
+             */
             bool has_template_scope() const;
+            //! States whether this symbol has prototype scope
+            /*!
+             * Named parameter declarations of functional declarators have
+             * prototype scope only if the declaration itself is not a function
+             * definition.
+             */
             bool has_prototype_scope() const;
 
+            //! States whether the symbol is actually a builtin of the compiler
             bool is_builtin() const;
     };
+    
+    //! @}
 }
 
 #endif // TL_SYMBOL_HPP

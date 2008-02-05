@@ -25,6 +25,9 @@
 
 namespace TL
 {
+    //! \addtogroup Functors Functors and Predicates
+    //! @{
+    
     //! Function representing a callable entity with only one argument
     /*!
      * \param Ret The returning type of this callable entity
@@ -405,6 +408,8 @@ namespace TL
         DataMemberAdapter<Ret, T> result(pdm);
         return result;
     }
+    
+    //! @}
 }
 
 #endif // TL_FUNCTOR_HPP

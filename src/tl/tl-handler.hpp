@@ -30,6 +30,8 @@
  */
 namespace TL
 {
+    //! \addtogroup Functors
+    //! @{
 
     //! Class representing a Signal with only one parameter
     template <class Param1>
@@ -68,6 +70,8 @@ namespace TL
             {
             }
     };
+    
+    //! @}
 }
 
 #endif // TL_HANDLER_HPP

@@ -109,6 +109,13 @@ namespace TL
             virtual void postorder(Context ctx, AST_t node);
     };
 
+    //! Base class for all compiler phases working on user defined pragma lines
+    /*!
+     * Configuration of mcxx will require a 'pragma_prefix' line in order
+     * to properly parse these pragma lines. In addition, the phases
+     * will have to call register_directive and register_construct
+     * accordingly to register specific constructs and directives.
+     */
     class PragmaCustomCompilerPhase : public CompilerPhase
     {
         private:
@@ -116,13 +123,32 @@ namespace TL
             PragmaCustomDispatcher _pragma_dispatcher;
 
         public:
+            //! Constructor
+            /*!
+             * \param pragma_handled The pragma prefix actually handled in this phase.
+             */
             PragmaCustomCompilerPhase(const std::string& pragma_handled);
+            //! Entry point of the phase
+            /*!
+             * This function registers traverse functors to perform
+             * a traversal on all the constructs and directives.
+             */
             virtual void run(DTO& data_flow);
 
+            //! Custom functor map for directives found in preorder
             CustomFunctorMap on_directive_pre;
+            //! Custom functor map for directives found in preorder
             CustomFunctorMap on_directive_post;
 
+            //! Function to register a directive
+            /*!
+             * This is required for successful parsing of directives
+             */
             void register_directive(const std::string& name);
+            //! Function to register a construct
+            /*!
+             * This is required for successful parsing of construct
+             */
             void register_construct(const std::string& name);
     };
 }

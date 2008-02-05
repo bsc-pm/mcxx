@@ -29,6 +29,10 @@
 
 namespace TL
 {
+    //! \addtogroup Wrap 
+    //! @{
+
+    //! This function wraps the internal compiler scope link
     class ScopeLink : public Object
     {
         private:
@@ -39,6 +43,10 @@ namespace TL
                 return NULL;
             }
         public:
+            //! Given a tree it returns its related Scope
+            /*
+             * \return If no scope is found, the global scope of the scope link will be returned
+             */
             Scope get_scope(AST_t ast) const;
 
             ScopeLink()
@@ -51,6 +59,7 @@ namespace TL
             {
             }
 
+            //! Creates a ScopeLink after a reference to Object
             ScopeLink(RefPtr<Object> obj)
             {
                 RefPtr<ScopeLink> sl = RefPtr<ScopeLink>::cast_dynamic(obj);
@@ -88,6 +97,8 @@ namespace TL
             friend class CompilerPhaseRunner;
             friend class Expression;
     };
+    
+    //! @}
 }
 
 #endif // TL_SCOPELINK_HPP

@@ -37,9 +37,13 @@
 
 namespace TL
 {
+
     class ScopeLink;
 
     class AST_t;
+    
+    //! \addtogroup Wrap Wrapping classes
+    //! @{
 
     //! Class that wraps an AST node of type AST_NODE_LIST
     class ASTIterator
@@ -66,7 +70,6 @@ namespace TL
 
             //! Restart the iterator in the position of the list
             // where the wrapper was created.
-            /*! */
             void reset();
 
             //! Rewind the iterator to the beginning of the whole list.
@@ -443,6 +446,11 @@ namespace TL
             // mmm
             friend class Expression;
     };
+    
+    //! @}
+   
+    //! \addtogroup Traverse
+    //! @{
 
     //! Wrap class for deprecated Predicate<AST_t> traversals 
     class TraverseASTPredicate : public TraverseASTFunctor
@@ -481,7 +489,12 @@ namespace TL
                 return ast_traversal_result_helper(matches, recurse);
             }
     };
+    
+    //! @}
 
+    //! \addtogroup Functors
+    //! @{
+    
     //! Convenience template class for predicates after a given AST attribute
     template<const char* _ATTR>
     class PredicateAST : public Predicate<AST_t>
@@ -551,6 +564,8 @@ namespace TL
                 return (ast.internal_ast_type_() == _type);
             }
     };
+    
+    //! @}
 }
 
 #endif // TL_AST_HPP

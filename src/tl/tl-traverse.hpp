@@ -29,18 +29,45 @@
 
 namespace TL
 {
+    //! \addtogroup Traverse Traverse classes
+    //! @{
+
+    //! This class is the 'functor' used when traversing a tree
     class TraverseFunctor
     {
         private:
         public:
+            //! Method invoked when the node is found in preorder. \see DepthTraverse
             virtual void preorder(Context, AST_t) { }
+            //! Method invoked when the node is found in postorder. \see DepthTraverse
             virtual void postorder(Context, AST_t) { }
 
             virtual ~TraverseFunctor() { }
     };
 
+    //! Base class for traversals
     class Traverse { };
 
+    //! Class that implements a depth-first traverse along the tree
+    /*!
+     * This class implements the traversal as follows. By using function
+     * add_functor, several TraverseASTFunctor are registered each one with
+     * a, possibly repeated, TraverseFunctor.
+     *
+     * Then with function traverse, the traversal starts. Every node is checked
+     * against every TraverseASTFunctor registered. If the functor returns
+     * match then the associated TraverseFunctor will be run its methods
+     * TraverseFunctor::preorder and TraverseFunctor::postorder.
+     *
+     * Since this is a depth-traverse, preorder means the moment when a
+     * matching node is found for the first time. Then, preorder is run.  After
+     * this, recursively, its children are traversed.  Once all children have
+     * been traversed, postorder is run.
+     *
+     * Preorder can be also understood as when going from root to leaves and
+     * postorder when coming back from leaves and going towards root.
+     *
+     */
     class DepthTraverse : public Traverse
     {
         private:
@@ -48,12 +75,37 @@ namespace TL
             std::vector<CondAction> _pred_list;
             std::vector<TraverseASTFunctor*> _to_be_freed;
         public:
+            //! Adds a predicate for the traversal
+            /*!
+             * \param pred Predicate telling whether a node matches
+             * \param functor TraverseFunctor used to handle nodes that match \a pred
+             *
+             * A TraverseASTFunctor is built after \a pred .
+             *
+             * \deprecated Use add_functor instead.
+             */
             void add_predicate(Predicate<AST_t>& pred, TraverseFunctor& functor);
+            //! Adds a functor for the traversal
+            /*!
+             * \param ast_functor TraverseASTFunctor telling whether the current node matches or not and whether it must recurse or not
+             * \param functor TraverseFunctor used to handle nodes that match \a ast_functor
+             *
+             * \remark If \a ast_functor does not match children will be traversed. Only when \a ast_functor returns a match it can change
+             * the recursion behaviour.
+             */
             void add_functor(TraverseASTFunctor& ast_functor, TraverseFunctor& functor);
+
+            //! Traverses the tree
+            /*!
+             * \param node Tree where the traversal will start
+             * \param scope_link ScopeLink used for the traversal
+             */
             void traverse(AST_t node, ScopeLink scope_link);
 
             ~DepthTraverse();
     };
+    
+    //! @}
 }
 
 #endif // TL_TRAVERSE_HPP
