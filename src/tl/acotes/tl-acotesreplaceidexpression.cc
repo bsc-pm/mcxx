@@ -71,6 +71,7 @@ namespace TL { namespace Acotes {
     {
         assert(replaceMap.count(symbol) == 0);
         
+        //std::cerr << "--- DEBUG add symbol:" << symbol.get_name() << " ast:" << ast.prettyprint() << std::endl;
         replaceMap[symbol]= ast;
     }
         
@@ -94,12 +95,12 @@ namespace TL { namespace Acotes {
         PredicateAST<LANG_IS_ID_EXPRESSION> isIdExpression;
         PredicateAST<LANG_IS_ACCESSED_MEMBER> isAccessedMember;
         
-        std::cerr << "--- DEBUG postorder" 
+        /*std::cerr << "--- DEBUG postorder" 
                 <<  " isPCD:" << isPragmaCustomDirective(node)
                 <<  " isPCC:" << isPragmaCustomConstruct(node)
                 <<  " isIdE:" << isIdExpression(node)
                 <<  " isAcM:" << isAccessedMember(node)
-                << std::endl; 
+                << std::endl; */
         if (isPragmaCustomConstruct(node) || isPragmaCustomDirective(node)) {
             PragmaCustomConstruct pragmaCustomConstruct(node, scopeLink);
             onPragmaCustomConstruct(pragmaCustomConstruct);
@@ -113,14 +114,19 @@ namespace TL { namespace Acotes {
     void AcotesReplaceIdExpression::onIdExpression(IdExpression idExpression) 
     {
         Symbol symbol= idExpression.get_symbol();
-        std::cerr << "--- DEBUG onIdExpression:" << idExpression.prettyprint() << std::endl; 
-        if (symbol.is_valid() && !symbol.is_builtin() && replaceMap.count(symbol) > 0)
+        //std::cerr << "--- DEBUG onIdExpression:" << idExpression.prettyprint() << std::endl; 
+        if (symbol.is_valid() && !symbol.is_builtin())
         {
-            AST_t replaceAST= replaceMap[symbol];
-            AST_t originalAST= idExpression.get_ast();
-            
-            std::cerr << "--- DEBUG     symbol:" << symbol.get_name() << " replaceAst:" << replaceAST.prettyprint() << std::endl; 
-            originalAST.replace_with(replaceAST);
+            if (replaceMap.count(symbol) > 0)
+            {
+                AST_t replaceAST= replaceMap[symbol];
+                AST_t originalAST= idExpression.get_ast();
+
+                //std::cerr << "--- DEBUG     symbol:" << symbol.get_name() << " replaceAst:" << replaceAST.prettyprint() << std::endl; 
+                originalAST.replace_with(replaceAST);
+            } else {
+
+            }
         }
     }
 
@@ -149,6 +155,11 @@ namespace TL { namespace Acotes {
         ss << generateReplace(pragmaCustomConstruct.get_clause("bypass"));
         ss << generateReplace(pragmaCustomConstruct.get_clause("input"));
         ss << generateReplace(pragmaCustomConstruct.get_clause("output"));
+        ss << generateReplace(pragmaCustomConstruct.get_clause("state"));
+        ss << generateReplace(pragmaCustomConstruct.get_clause("copyinstate"));
+        ss << generateReplace(pragmaCustomConstruct.get_clause("copyoutstate"));
+        ss << generateReplace(pragmaCustomConstruct.get_clause("initializestate"));
+        ss << generateReplace(pragmaCustomConstruct.get_clause("finalizestate"));
         ss << generateReplace(pragmaCustomConstruct.get_clause("history"));
         ss << generateReplace(pragmaCustomConstruct.get_clause("index"));
         ss << generateReplace(pragmaCustomConstruct.get_clause("inputreplicate"));
@@ -166,7 +177,7 @@ namespace TL { namespace Acotes {
             ss << pragmaCustomConstruct.get_statement().prettyprint();
         }
         
-        std::cerr << "--- DEBUG ss:" << ss.str();
+        //std::cerr << "--- DEBUG ss:" << ss.str() << std::endl;
         
         return ss.str();
     }
@@ -180,6 +191,9 @@ namespace TL { namespace Acotes {
             ss << " " << pragmaCustomClause.get_clause_name();
             ss << "(";
             for (unsigned i= 0; i < argumentList.size(); i++) {
+                if (i > 0) {
+                    ss << ", ";
+                }
                 ss << generateReplace(pragmaCustomClause, i);
             }
             ss << ")";
