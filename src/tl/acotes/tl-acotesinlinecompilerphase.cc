@@ -24,6 +24,7 @@
 
 #include <assert.h>
 #include <tl-traverse.hpp>
+#include "tl-acoteslogger.h"
 #include "tl-acotesreplaceidexpression.h"
 
 namespace TL { namespace Acotes {
@@ -149,7 +150,16 @@ namespace TL { namespace Acotes {
                 ObjectList<Expression> argumentList= functionCall.get_argument_list();
                 
                 // Ensure formar parameters and arguments matchs
-                assert(parameterDeclarations.size() == argumentList.size());
+                if (parameterDeclarations.size() != argumentList.size()) {
+                    AcotesLogger::error(&functionCall)
+                            << "arguments doesn't match width declaration"
+                            << std::endl;
+                    AcotesLogger::info(&functionDefinition)
+                            << "this is the function definition"
+                            << "[" << declaredEntity.prettyprint() << "]"
+                            << std::endl;
+                    return;
+                }
                 
                 // Create the replacement of parameters for arguments
                 AcotesReplaceIdExpression replace;
@@ -159,12 +169,16 @@ namespace TL { namespace Acotes {
                     IdExpression parameterId= parameter.get_name();
                     Symbol parameterSymbol= parameterId.get_symbol();
 
-                    // ...replace by the argument ast
+                    // ...replace by the argument ast of the expression...
                     Expression argument= argumentList.at(i);
-                    AST_t argumentAST= argument.get_ast();
+                    
+                    // ... with parentesis
+                    Source parentesisSource;
+                    parentesisSource << "(" << argument.prettyprint() << ")";
+                    AST_t parentesisAST= parentesisSource.parse_expression(argument.get_ast(), argument.get_scope_link());
                     
                     // Request the replacement of parameter<-argument
-                    replace.add(parameterSymbol, argumentAST);
+                    replace.add(parameterSymbol, parentesisAST);
                 }
                 
                 // Create a new instance of the function body...
