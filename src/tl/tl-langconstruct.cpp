@@ -992,13 +992,7 @@ namespace TL
                 _induction_variable = declared_name.get_declared_tree();
                 AST_t initializer = declared_name.get_initializer().get_ast();
 
-                PredicateAST<LANG_IS_EXPRESSION_NEST> expression_pred;
-
-                ObjectList<AST_t> expressions = initializer.depth_subtrees().filter(expression_pred);
-                if (!expressions.empty())
-                {
-                    _lower_bound = *(expressions.begin());
-                }
+                _lower_bound = initializer;
             }
         }
 
