@@ -52,13 +52,9 @@ namespace TL
 
     void DepthTraverse::traverse(TL::AST_t node, ScopeLink scope_link)
     {
-        bool match = false;
-        // By default always recurse if no matching happens, otherwise it is
-        // the matching functor the one who decides if recursion on this node
-        // will be done. If a node is used for just 'prunning' the traversal,
-        // then use a no-op functor for it
         bool recurse = true;
-        TraverseFunctor* functor = NULL;
+
+        std::vector<TraverseFunctor*> matching_functors;
 
         for (std::vector<CondAction>::iterator it = _pred_list.begin();
                 it != _pred_list.end();
@@ -67,21 +63,26 @@ namespace TL
             TraverseASTFunctor& pred = *(it->first);
             ASTTraversalResult result = pred(node);
 
-            match = result.matches();
-            // Only the first matching predicate will be run
+            bool match = result.matches();
+
+            // Only recurse if no matching functor objected to recursion
             if (match)
             {
-                recurse = result.recurse();
-                functor = it->second;
+                recurse &= result.recurse();
+                matching_functors.push_back(it->second);
                 break;
             }
         }
 
-        Context* ctx = NULL;
-        if (functor != NULL)
+        // Create context
+        Context* ctx = new Context(scope_link);
+
+        // Run all matching preorders
+        for (std::vector<TraverseFunctor*>::iterator it = matching_functors.begin();
+                it != matching_functors.end();
+                it++)
         {
-            ctx = new Context(scope_link);
-            functor->preorder(*ctx, node);
+            (*it)->preorder(*ctx, node);
         }
 
         if (recurse)
@@ -99,11 +100,14 @@ namespace TL
             }
         }
 
-        if (functor != NULL)
+        // Run all matching postorders
+        for (std::vector<TraverseFunctor*>::iterator it = matching_functors.begin();
+                it != matching_functors.end();
+                it++)
         {
-            functor->postorder(*ctx, node);
+            (*it)->postorder(*ctx, node);
         }
-        
+
         // Delete it
         delete ctx;
     }
