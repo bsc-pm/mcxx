@@ -65,10 +65,20 @@ namespace TL { namespace Acotes {
         
         Variable* variable= port->getVariable();
         if (variable || port->isInput()) {
-            if (port->isInput()) { ss << 'i'; }
-            else if (port->isOutput()) { ss << 'o'; }
+            if (port->isInput()) 
+            { 
+                ss << "iport_"; 
+            }
+            else if (port->isOutput()) 
+            { 
+                ss << "oport_"; 
+            }
             else { assert(0); }
-            ss << "port_acquire(" << port->getNumber() << ", 1);";
+            
+            ss  << "acquire"
+                << "(" << port->getNumber() 
+                << ", " << VariableTransform::generateElementCount(variable)
+                << ");";
         }
         
         return ss.str();
@@ -83,11 +93,25 @@ namespace TL { namespace Acotes {
         
         Variable* variable= port->getVariable();
         if (variable) {
-            ss << "memcpy"
-                << "( " << VariableTransform::generateReference(variable)
-                << ", iport_peek(" << port->getNumber() << ", " << port->getPeekWindow() << ")"
-                << ", " << VariableTransform::generateSizeof(variable)
-                << ");";
+            ss  << "{"
+                << "  int acotescc__for_peek_index;"
+                << "  for (acotescc__for_peek_index= 0"
+                << "      ; acotescc__for_peek_index < " << VariableTransform::generateElementCount(variable)
+                << "      ; acotescc__for_peek_index++"
+                << "      ) {"
+                // for each element copies the value
+                << "      memcpy"
+                << "          ( &((" << VariableTransform::generateReference(variable) << ")[acotescc__for_peek_index])"
+                << "          , iport_peek"
+                << "               (" << port->getNumber() 
+                // if we have peek we need to read from the beggining
+                << "               , " << port->getPeekWindow() << " + acotescc__for_peek_index"
+                << "               )"
+                // peeks the size of one element
+                << "          , " << VariableTransform::generateSizeof(variable)
+                << "      );"
+                << "  }"
+                << "}";
         }
         
         return ss.str();
@@ -102,11 +126,24 @@ namespace TL { namespace Acotes {
         
         Variable* variable= port->getVariable();
         if (variable) {
-            ss << "memcpy"
-                << "( oport_peek(" << port->getNumber() << ", 0)"
-                << ", " << VariableTransform::generateReference(variable)
-                << ", " << VariableTransform::generateSizeof(variable)
-                << ");";
+            ss  << "{"
+                << "  int acotescc__for_peek_index;"
+                << "  for (acotescc__for_peek_index= 0"
+                << "      ; acotescc__for_peek_index < " << VariableTransform::generateElementCount(variable)
+                << "      ; acotescc__for_peek_index++"
+                << "      ) {"
+                // for each element copies the value
+                << "      memcpy"
+                << "          ( oport_peek"
+                << "               (" << port->getNumber() 
+                << "               , acotescc__for_peek_index"
+                << "               )"
+                << "          , &((" << VariableTransform::generateReference(variable) << ")[acotescc__for_peek_index])"
+                // peeks the size of one element
+                << "          , " << VariableTransform::generateSizeof(variable)
+                << "      );"
+                << "  }"
+                << "}";
         }
         
         return ss.str();
@@ -121,10 +158,19 @@ namespace TL { namespace Acotes {
         
         Variable* variable= port->getVariable();
         if (variable) {
-            if (port->isInput()) { ss << 'i'; }
-            else if (port->isOutput()) { ss << 'o'; }
+            if (port->isInput()) 
+            { 
+                ss << "iport_"; 
+            }
+            else if (port->isOutput()) 
+            { 
+                ss << "oport_"; 
+            }
             else { assert(0); }
-            ss << "port_pop(" << port->getNumber() << ", 1);";
+            ss  << "pop"
+                << "(" << port->getNumber() 
+                << ", " << VariableTransform::generateElementCount(variable)
+                << ");";
         }
         
         return ss.str();
@@ -139,10 +185,19 @@ namespace TL { namespace Acotes {
         
         Variable* variable= port->getVariable();
         if (variable || port->isOutput()) {
-            if (port->isInput()) { ss << 'i'; }
-            else if (port->isOutput()) { ss << 'o'; }
+            if (port->isInput()) 
+            { 
+                ss << "iport_"; 
+            }
+            else if (port->isOutput()) 
+            { 
+                ss << "oport_"; 
+            }
             else { assert(0); }
-            ss << "port_push(" << port->getNumber() << ", 1);";
+            ss  << "push"
+                << "(" << port->getNumber() 
+                << ", " << VariableTransform::generateElementCount(variable)
+                << ");";
         }
         
         return ss.str();
@@ -155,18 +210,19 @@ namespace TL { namespace Acotes {
         
         std::stringstream ss;
         
+        Variable* variable= port->getVariable();
         ss << "task_iport"
                 << "( " << port->getTask()->getName()
                 << ", " << port->getNumber()
                 ;
         if (port->hasVariable()) {
-            ss  << ", " << VariableTransform::generateSizeof(port->getVariable())
-                << ", " << (port->getPeekWindow() + 1)
+            ss  << ", " << VariableTransform::generateSizeof(variable)
+                << ", " << port->getPeekWindow() << "+" << VariableTransform::generateElementCount(variable)
                 ;
         } else {
             ss  << ", 0, 0";
         }
-
+        
         if (port->hasPeek()) {
             Peek* peek= port->getPeek();
             ss  << ", " << VariableTransform::generateReference(peek->getHistory()->getVariable())
@@ -193,13 +249,14 @@ namespace TL { namespace Acotes {
         
         std::stringstream ss;
         
+        Variable* variable= port->getVariable();
         ss << "task_oport"
                 << "( " << port->getTask()->getName()
                 << ", " << port->getNumber()
                 ;
-        if (port->hasVariable()) {
-            ss  << ", " << VariableTransform::generateSizeof(port->getVariable())
-                << ", 1"
+        if (variable) {
+            ss  << ", " << VariableTransform::generateSizeof(variable)
+                << ", " << VariableTransform::generateElementCount(variable)
                 ;
         } else {
             ss  << ", 0, 0";

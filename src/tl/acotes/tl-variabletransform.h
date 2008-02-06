@@ -47,6 +47,7 @@ namespace TL { namespace Acotes {
         static std::string generateVariable(Variable* variable);
         static std::string generateReference(Variable* variable);
         static std::string generateSizeof(Variable* variable);
+        static std::string generateElementCount(Variable* variable);
         
     // -- No Constructor
     private:

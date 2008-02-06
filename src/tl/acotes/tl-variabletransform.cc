@@ -114,10 +114,25 @@ namespace TL { namespace Acotes {
         TL::Scope scope= variable->getSymbol().get_scope();
         TL::Type type= variable->getElementType();
         
-        ss << "(sizeof(" << type.get_declaration(scope, "") << ")"
-                << " * " << variable->getElementCount()
-                << ")";
+        ss << "sizeof(" << type.get_declaration(scope, "") << ")";
         
+        return ss.str();
+    }
+
+    std::string VariableTransform::generateElementCount(Variable* variable) 
+    {
+        std::stringstream ss;
+
+        if (variable) {
+            assert(variable->hasSymbol());
+            assert(variable->hasElementType());
+
+            ss << variable->getElementCount();
+            
+        } else {
+            
+            ss << "1";
+        }
         return ss.str();
     }
 

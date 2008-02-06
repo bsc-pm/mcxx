@@ -69,6 +69,7 @@ namespace TL { namespace Acotes {
                 << "( " << VariableTransform::generateReference(variable)
                 << ", copyin_acquire(" << state->getNumber() << ")"
                 << ", " << VariableTransform::generateSizeof(variable)
+                << "   * " << VariableTransform::generateElementCount(variable)
                 << ");";
         
         return ss.str();
@@ -90,6 +91,7 @@ namespace TL { namespace Acotes {
                 << "( copyout_acquire(" << state->getNumber() << ")"
                 << ", " << VariableTransform::generateReference(variable)
                 << ", " << VariableTransform::generateSizeof(variable)
+                << "   * " << VariableTransform::generateElementCount(variable)
                 << ");";
         
         return ss.str();
@@ -113,6 +115,7 @@ namespace TL { namespace Acotes {
                 << ", " << state->getNumber()
                 << ", " << VariableTransform::generateReference(variable)
                 << ", " << VariableTransform::generateSizeof(variable)
+                << "   * " << VariableTransform::generateElementCount(variable)
                 << ");";
         
         return ss.str();
@@ -136,6 +139,7 @@ namespace TL { namespace Acotes {
                 << ", " << state->getNumber()
                 << ", " << VariableTransform::generateReference(variable)
                 << ", " << VariableTransform::generateSizeof(variable)
+                << "   * " << VariableTransform::generateElementCount(variable)
                 << ");";
         
         return ss.str();
