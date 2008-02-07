@@ -125,6 +125,7 @@ namespace TL
         std::string shadow_declaration;
 
         shadow_declaration = function_type.returns().get_declaration(function_symbol.get_scope(), "");
+        shadow_declaration += " ";
         shadow_declaration += shadow_function_name;
         shadow_declaration += "(";
         shadow_declaration += "const char* __file, int __line";
