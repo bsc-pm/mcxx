@@ -93,11 +93,13 @@ typedef struct translation_unit_tag
     top_level_include_t **top_level_include_list;
 } translation_unit_t;
 
+struct compilation_configuration_tag;
+
 // Configuration file directives
 struct configuration_directive_t
 {
     char* name;
-    int (*funct)(char* value);
+    int (*funct)(struct compilation_configuration_tag*, char* value);
 };
 
 struct debug_flags_list_t
@@ -138,6 +140,12 @@ typedef struct pragma_directive_set_tag
 
 struct compilation_file_process_tag;
 
+typedef struct parameter_flags_tag
+{
+    char *name;
+    char value;
+} parameter_flags_t;
+
 typedef struct compilation_process_tag
 {
     // Result of the execution
@@ -159,14 +167,40 @@ typedef struct compilation_process_tag
     int num_configurations;
     struct compilation_configuration_tag** configuration_set;
 
+    // The set of flags as defined implicitly in the configuration file
+    int num_parameter_flags;
+    struct parameter_flags_tag **parameter_flags;
+
     // The compiler will switch these because compilation is always serialized (never nest it!)
     struct compilation_configuration_tag *current_compilation_configuration;
     struct translation_unit_tag *current_translation_unit;
 } compilation_process_t;
 
+typedef struct compilation_configuration_conditional_flags
+{
+    char *flag;
+    char value;
+} compilation_configuration_conditional_flags_t;
+
+typedef struct compilation_configuration_line
+{
+    char *name;
+    char *value;
+
+    int num_flags;
+    struct compilation_configuration_conditional_flags *flags;
+} compilation_configuration_line_t;
+
 typedef struct compilation_configuration_tag
 {
     char *configuration_name;
+
+    // Configuration lines, this information is used
+    // before configuration commit
+    int num_configuration_lines;
+    struct compilation_configuration_line ** configuration_lines;
+
+    // These options are filled in configuration commit time
     // Options
     char verbose;
     char keep_files;

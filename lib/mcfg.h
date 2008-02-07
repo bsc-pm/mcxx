@@ -30,9 +30,6 @@
 extern "C" {
 #endif
 
-#define     MS_STYLE            1
-#define     NOT_MS_STYLE        2
-
 /*
 ** function prototypes
 */
@@ -45,10 +42,9 @@ enum param_process_result_tag
     PPR_PARSE_ERROR = -3
 } param_process_t;
 
-int param_process(char *filename,int style,
+int param_process(char *filename,
         int (*sfunc)(char *),
-        int (*pfunc)(char *,char *));
-char *getCurrentSection(void);
+        int (*pfunc)(char * option,char * value, int num_flags, char** flags));
 
 #ifdef __cplusplus
 }

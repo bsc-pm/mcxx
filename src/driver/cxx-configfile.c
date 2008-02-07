@@ -25,26 +25,26 @@
 #include <string.h>
 
 // Set source language
-int config_set_language(char* value)
+int config_set_language(struct compilation_configuration_tag* config, char* value)
 {
     if (strcasecmp(value, "c") == 0)
     {
-        CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_C;
+        config->source_language = SOURCE_LANGUAGE_C;
     }
     else if (strcasecmp(value, "c++") == 0)
     {
-        CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_CXX;
+        config->source_language = SOURCE_LANGUAGE_CXX;
     }
     else
     {
         fprintf(stderr, "Unknown language '%s' assuming C++\n", value);
-        CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_CXX;
+        config->source_language = SOURCE_LANGUAGE_CXX;
     }
     return 0;
 }
 
 // Set additional mcxx options
-int config_set_options(char* value)
+int config_set_options(struct compilation_configuration_tag* config, char* value)
 {
     int num;
     char** blank_separated_options = blank_separate_values(value, &num);
@@ -58,82 +58,87 @@ int config_set_options(char* value)
         real_options[i] = blank_separated_options[i - 1];
     }
 
-    // FIXME
-    //
-    // This is a fake argument name required, maybe this is a problem
-    // when dealing with profiles
+    
+    // Change the current configuration otherwise we will handle the parameters
+    // in the wrong profile
+    struct compilation_configuration_tag* previous = compilation_process.current_compilation_configuration;
+    compilation_process.current_compilation_configuration = config;
+
     real_options[0] = strdup("mcxx");
 
     parse_arguments(num, real_options, /* from_command_line= */ 0);
+
+    // Restore the original one
+    compilation_process.current_compilation_configuration = previous;
 
     return 0;
 }
 
 // Set preprocessor name
-int config_set_preprocessor_name(char* value)
+int config_set_preprocessor_name(struct compilation_configuration_tag* config, char* value)
 {
-    CURRENT_CONFIGURATION(preprocessor_name) = strdup(value);
+    config->preprocessor_name = strdup(value);
     return 0;
 }
 
 // Set preprocessor options
-int config_set_preprocessor_options(char* value)
+int config_set_preprocessor_options(struct compilation_configuration_tag* config, char* value)
 {
-    // CURRENT_CONFIGURATION(preprocessor_options) = blank_separate_values(value, &num);
+    // config->preprocessor_options = blank_separate_values(value, &num);
 
     int num;
     char** blank_separated_options = blank_separate_values(value, &num);
 
-    add_to_parameter_list(&CURRENT_CONFIGURATION(preprocessor_options), blank_separated_options, num);
+    add_to_parameter_list(&config->preprocessor_options, blank_separated_options, num);
 
     return 0;
 }
 
 // Set native compiler name
-int config_set_compiler_name(char* value)
+int config_set_compiler_name(struct compilation_configuration_tag* config, char* value)
 {
-    CURRENT_CONFIGURATION(native_compiler_name) = strdup(value);
+    config->native_compiler_name = strdup(value);
     return 0;
 }
 
 // Set native compiler options
-int config_set_compiler_options(char* value)
+int config_set_compiler_options(struct compilation_configuration_tag* config, char* value)
 {
     int num;
     char **blank_separated_options = blank_separate_values(value, &num);
 
-    add_to_parameter_list(&CURRENT_CONFIGURATION(native_compiler_options), blank_separated_options, num);
+    add_to_parameter_list(&config->native_compiler_options, blank_separated_options, num);
     return 0;
 }
 
 // Set linker name
-int config_set_linker_name(char* value)
+int config_set_linker_name(struct compilation_configuration_tag* config, char* value)
 {
-    CURRENT_CONFIGURATION(linker_name) = strdup(value);
+    config->linker_name = strdup(value);
     return 0;
 }
 
 // Set linker options
-int config_set_linker_options(char* value)
+int config_set_linker_options(struct compilation_configuration_tag* config, char* value)
 {
     int num;
     char **blank_separated_options = blank_separate_values(value, &num);
 
-    add_to_parameter_list(&CURRENT_CONFIGURATION(linker_options), blank_separated_options, num);
+    add_to_parameter_list(&config->linker_options, blank_separated_options, num);
     return 0;
 }
 
-int config_add_compiler_phase(char* value)
+int config_add_compiler_phase(struct compilation_configuration_tag* config, char* value)
 {
     char* library_name = strdup(value);
-    P_LIST_ADD(CURRENT_CONFIGURATION(compiler_phases), 
-            CURRENT_CONFIGURATION(num_compiler_phases), 
+    P_LIST_ADD(config->compiler_phases, 
+            config->num_compiler_phases, 
             library_name);
 
     return 0;
 }
 
-int config_add_preprocessor_prefix(char* value)
+int config_add_preprocessor_prefix(struct compilation_configuration_tag* config, char* value)
 {
     if (strcasecmp(value, "gcc") == 0)
     {
@@ -147,16 +152,16 @@ int config_add_preprocessor_prefix(char* value)
     }
     
     // Reuse P_LIST_ADD
-    int num_prefixes = CURRENT_CONFIGURATION(num_pragma_custom_prefix);
+    int num_prefixes = config->num_pragma_custom_prefix;
 
-    P_LIST_ADD(CURRENT_CONFIGURATION(pragma_custom_prefix),
-            CURRENT_CONFIGURATION(num_pragma_custom_prefix),
+    P_LIST_ADD(config->pragma_custom_prefix,
+            config->num_pragma_custom_prefix,
             strdup(value));
 
     // Allocate pragma directive info
     pragma_directive_set_t* new_info = calloc(1, sizeof(*new_info));
 
-    P_LIST_ADD(CURRENT_CONFIGURATION(pragma_custom_prefix_info),
+    P_LIST_ADD(config->pragma_custom_prefix_info,
             num_prefixes, new_info);
 
     return 0;

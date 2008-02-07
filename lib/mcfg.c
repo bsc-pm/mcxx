@@ -17,28 +17,32 @@
     You should have received a copy of the GNU General Public License
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+
+    // This file derives from Samba source but now it has been heavily modified
+    // so just little bits of the original code remain
 */
 #include "mcfg.h"
+#include <string.h>
 
 #define BUFR_INC    1024
 
-static char *bufr = (char *) NULL;
-static int bsize = 0;
-static char *cursec = (char *) NULL;
+#define MAX_FLAG_LENGTH (256)
+#define MAX_FLAG_NUM (32)
+
+#define SECTION_LENGTH (256)
+#define OPTION_LENGTH (256)
+#define VALUE_LENGTH (1024)
 
 /*
 ** local function prototypes
 */
 static FILE *openConfFile (char *filename);
-static int Parse (FILE * fp, int style, int (*sfunc) (char *),
-          int (*pfunc) (char *, char *));
+static int Parse (FILE * fp, int (*sfunc) (char *),
+          int (*pfunc) (char * option, char * value, int num_flags, char** flags));
 static int Section (FILE * fp, int (*sfunc) (char *));
-static int Continuation (char *line, int pos);
 static char *loc_realloc (char *p, int size);
 static int eatWhitespace (FILE * fp);
-static int Parameter (FILE * fp, int style,
-              int (*pfunc) (char *, char *), int c);
-// static void regSection (char **s);
+static int Parameter (FILE * fp, int (*pfunc) (char * option, char * value, int num_flags, char** flags), int c);
 
 /*
 **  Parameter()
@@ -52,24 +56,6 @@ static int Parameter (FILE * fp, int style,
 **      c       - the first character of the parameter name, which would
 **                have been read by Parse(). unlike comment line or a section
 **                header, there's no lead-in character can be discarded.
-**
-**      style   - the style of the config file. it can be MS_STYLE, that is
-**                parameter must follows by = and the value. If it is
-**                NOT_MS_STYLE, then parameter does not follows by = or the
-**                value.
-**                  Example of MS_STYLE config file:
-**                      [section]
-**                          version = 2.4
-**                      [foo]
-**                          bar=hello
-**                          foobar=world
-**
-**                  Example of NOT_MS_STYLE config file:
-**                      [section]
-**                           2.4
-**                      [foo]
-**                          hello
-**                          world
 **
 **  Return Values:
 **      0       on success
@@ -85,154 +71,277 @@ static int Parameter (FILE * fp, int style,
 */
 
 static int
-Parameter (FILE * fp, int style, int (*pfunc) (char *, char *), int c)
+Parameter (FILE * fp, int (*pfunc) (char * option, char * value, int num_flags, char **flags), int c)
 {
-  int i = 0;            /* position withing bufr */
-  int end = 0;          /* bufr[end] is current end-of-string */
-  int vstart = 0;       /* starting position of the parameter */
+    int option_length = 0;
+    char option[OPTION_LENGTH];
 
-  char *func = "params.c:Parameter() -";
 
-  if (style == MS_STYLE)
+    int num_flags = 0;
+    char _flags[MAX_FLAG_NUM][MAX_FLAG_LENGTH];
+
+    char *flags[MAX_FLAG_NUM];
     {
-      /*
-       ** loop until we found the start of the value 
-       */
-      while (vstart == 0)
-    {
-      /*
-       ** ensure there's space for next char 
-       */
-      if (i > (bsize - 2))
+        // Initialize the array of pointers with the static storage
+        int i;
+        for (i = 0; i < MAX_FLAG_NUM; i++)
         {
-          bsize += BUFR_INC;
-          bufr = loc_realloc (bufr, bsize);
-          if (bufr == NULL)
-        {
-          (void) fprintf (stderr, "%s malloc failed\n", func);
-          return (-1);
-        }
-        }
-
-      switch (c)
-        {
-        case '=':
-          {
-        if (end == 0)
-          {
-            (void) fprintf (stderr, "%s invalid parameter name\n",
-                    func);
-            return (-1);
-          }
-        bufr[end++] = '\0';
-        i = end;
-        vstart = end;
-        bufr[i] = '\0';
-        break;
-          }
-
-        case '\n':
-          {
-        i = Continuation (bufr, i);
-        if (i < 0)
-          {
-            bufr[end] = '\0';
-            (void) fprintf (stderr,
-                    "%s ignoring badly formed line in config file\n",
-                    func);
-            return (0);
-          }
-
-        end = ((i > 0) && (bufr[i - 1] == ' ')) ? (i - 1) : (i);
-        c = getc (fp);
-        break;
-          }
-
-        case '\0':
-        case EOF:
-          {
-        bufr[i] = '\0';
-        (void) fprintf (stderr,
-                "%s unexpected end-of-file at %s: func\n",
-                func, bufr);
-        return (0);
-        break;
-          }
-
-        default:
-          {
-        if (isspace (c))
-          {
-            bufr[end] = ' ';
-            i = end + 1;
-            c = eatWhitespace (fp);
-          }
-        else
-          {
-            bufr[i++] = c;
-            end = i;
-            c = getc (fp);
-          }
-        break;
-          }
+            flags[i] = _flags[i];
         }
     }
 
-      /*
-       ** now parse the value
-       */
-      c = eatWhitespace (fp);
-    }               /* MS_STYLE */
 
-  while ((c != EOF) && (c > 0))
+    // First parse flags if any
+    int p = c;
+
+    // This is the beginning of a flag
+    if (p == '{')
     {
-      if (i > (bsize - 2))
-    {
-      bsize += BUFR_INC;
-      bufr = loc_realloc (bufr, bsize);
-      if (bufr == NULL)
+        char flags_finished = 0;
+
+        int current_flag_length = 0;
+        char current_flag[MAX_FLAG_LENGTH];
+
+        // After '{' there may be blanks
+        p = eatWhitespace(fp);
+        while (!flags_finished)
         {
-          (void) fprintf (stderr, "%s malloc failed\n", func);
-          return (-1);
+            switch (p)
+            {
+                case EOF : 
+                    {
+                        fprintf(stderr, "Unexpected end of file while parsing parameter of configuration file\n");
+                        return (-1);
+                    }
+                case '}' :
+                    {
+                        // No more parameters
+                        flags_finished = 1;
+                        /* Fall-through! */
+                    }
+                case ',' :
+                    {
+                        if (current_flag_length == MAX_FLAG_LENGTH)
+                        {
+                            fprintf(stderr, "Flag too long\n");
+                            return -1;
+                        }
+                        if (current_flag_length == 0
+                                || (current_flag_length == 1 
+                                    && current_flag[0] == '!'))
+                        {
+                            fprintf(stderr, "Empty flag\n");
+                            return -1;
+                        }
+
+                        // Terminate the string
+                        current_flag[current_flag_length] = '\0';
+                        current_flag_length++;
+
+                        if (num_flags == MAX_FLAG_NUM)
+                        {
+                            fprintf(stderr, "Too many flags\n");
+                            return (-1);
+                        }
+
+                        strncpy(flags[num_flags], current_flag, current_flag_length);
+                        num_flags++;
+
+                        // Restart the flag
+                        current_flag_length = 0;
+
+                        // After a ',' or '}' we allow blanks
+                        p = eatWhitespace(fp);
+                        break;
+                    }
+                case '\n':
+                    {
+                        fprintf(stderr, "Invalid newline in flags\n");
+                        return -1;
+                        break;
+                    }
+                case ' ':
+                case '\t':
+                    {
+                        fprintf(stderr, "Invalid whitespace in flags\n");
+                        return -1;
+                        break;
+                    }
+                default:
+                    {
+                        if (p == '!') // Negation
+                        {
+                            if (current_flag_length == MAX_FLAG_LENGTH)
+                            {
+                                fprintf(stderr, "Flag too long\n");
+                                return -1;
+                            }
+
+                            current_flag[current_flag_length] = p;
+                            current_flag_length++;
+
+                            p = eatWhitespace(fp);
+                        }
+
+                        // Advance as many as possible
+                        while (p != ' ' // Blank
+                                && p != '\t' // Blank
+                                && p != '\n' // newline
+                                && p != ',' // Comma
+                                && p != '}' // End of flags
+                                && p != '!' // Negation
+                                && p != EOF
+                              )
+                        {
+                            if (current_flag_length == MAX_FLAG_LENGTH)
+                            {
+                                fprintf(stderr, "Flag too long\n");
+                                return -1;
+                            }
+
+                            current_flag[current_flag_length] = p;
+                            current_flag_length++;
+
+                            p = getc(fp);
+                        }
+
+                        // Maybe this is the end of a flag
+                        if (p == ' ' || p == '\t')
+                        {
+                            p = eatWhitespace(fp);
+                        }
+                        break;
+                    }
+            }
         }
     }
 
-      switch (c)
+    char option_finished = 0;
+    while (!option_finished)
     {
-    case '\r':
-      {
-        c = getc (fp);
-        break;
-      }
+        switch (p)
+        {
+            case EOF :
+                {
+                    fprintf(stderr, "Unexpected end of file when parsing option\n");
+                    return -1;
+                    break;
+                }
+            case '=' :
+                {
+                    if (option_length == 0)
+                    {
+                        fprintf(stderr, "Empty option\n");
+                        return -1;
+                    }
 
-    case '\n':
-      {
-        i = Continuation (bufr, i);
-        if (i < 0)
-          c = 0;
-        else
-          {
-        for (end = i; (end >= 0) && isspace (bufr[end]); end--)
-          ;
-        c = getc (fp);
-          }
-        break;
-      }
+                    if (option_length == OPTION_LENGTH)
+                    {
+                        fprintf(stderr, "Option too long\n");
+                        return -1;
+                    }
 
-    default:
-      {
-        bufr[i++] = c;
-        if (!isspace (c))
-          end = i;
-        c = getc (fp);
-        break;
-      }
+                    // Terminate the string
+                    option[option_length] = '\0';
+                    option_length++;
 
+                    option_finished = 1;
+
+                    // Allow whitespaces after the finished option
+                    p = eatWhitespace(fp);
+                    break;
+                }
+            case '\n':
+                {
+                    fprintf(stderr, "Unexpected end of line when parsing option\n");
+                    return -1;
+                    break;
+                }
+            case ' ' :
+            case '\t' :
+                {
+                    fprintf(stderr, "Invalid whitespace when parsing option\n");
+                    return -1;
+                    break;
+                }
+            default:
+                {
+                    while (p != EOF
+                            && p != '='
+                            && p != '\n'
+                            && p != ' '
+                            && p != '\t')
+                    {
+                        if (option_length == OPTION_LENGTH)
+                        {
+                            fprintf(stderr, "Option too long\n");
+                            return -1;
+                        }
+
+                        option[option_length] = p;
+                        option_length++;
+
+                        p = getc(fp);
+                    }
+
+                    // Maybe this is the end of the option
+                    if (p == ' ' || p == '\t')
+                    {
+                        p = eatWhitespace(fp);
+                    }
+                    break;
+                }
+        }
     }
+
+    int value_length = 0;
+    char value[VALUE_LENGTH];
+
+    // Get the rest of the line and trim at the same time
+    // This is -1 because in empty strings there is no last non blank
+    // but there will be '\0' so when incremented it will be 0
+    int last_nonblank = -1;
+    while (p != '\n'
+            && p != EOF)
+    {
+        if (value_length == VALUE_LENGTH)
+        {
+            fprintf(stderr, "Value for option too long\n");
+            return -1;
+        }
+
+        // Store if this is nonblank
+        if (p != ' '
+                && p != '\t')
+        {
+            last_nonblank = value_length;
+        }
+
+        value[value_length] = p;
+        value_length++;
+
+        p = getc(fp);
     }
 
-  bufr[end] = '\0';
-  return (pfunc (bufr, &bufr[vstart]));
+    // Terminate the string
+    value[last_nonblank + 1] = '\0';
+    value_length = last_nonblank + 1;
+
+    /*
+    fprintf(stderr, "[MCFG] Option -> '%s'\n", option);
+    fprintf(stderr, "[MCFG] Value -> '%s'\n", value);
+    fprintf(stderr, "[MCFG] num_flags -> '%d'\n", num_flags);
+    {
+        int i;
+        for (i = 0; i < num_flags; i++)
+        {
+            fprintf(stderr, "[MCFG] flags[%d] -> '%s'\n", i, flags[i]);
+        }
+    }
+    fprintf(stderr, "[MCFG] \n");
+    */
+
+    return pfunc(option, value, num_flags, flags);
 }
 
 /*
@@ -258,22 +367,22 @@ Parameter (FILE * fp, int style, int (*pfunc) (char *, char *), int c)
 static FILE *
 openConfFile (char *filename)
 {
-  FILE *fp = (FILE *) NULL;
+    FILE *fp = (FILE *) NULL;
 
-  if ((filename == NULL) || (*filename == '\0'))
+    if ((filename == NULL) || (*filename == '\0'))
     {
-      (void) fprintf (stderr, "No config file specified.\n");
-      return ((FILE *) NULL);
+        (void) fprintf (stderr, "No config file specified.\n");
+        return ((FILE *) NULL);
     }
 
-  fp = fopen (filename, "r");
-  if (fp == (FILE *) NULL)
+    fp = fopen (filename, "r");
+    if (fp == (FILE *) NULL)
     {
-      (void) fprintf (stderr, "Unable to open config file '%s'\n", filename);
-      return ((FILE *) NULL);
+        (void) fprintf (stderr, "Unable to open config file '%s'\n", filename);
+        return ((FILE *) NULL);
     }
 
-  return (fp);
+    return (fp);
 
 }
 
@@ -284,23 +393,6 @@ openConfFile (char *filename)
 **
 **  Parameters:
 **      filename    - the pathname of the file to be opened
-**      style   - the style of the config file. it can be MS_STYLE, that is
-**                parameter must follows by = and the value. If it is
-**                NOT_MS_STYLE, then parameter does not follows by = or the
-**                value.
-**                  Example of MS_STYLE config file:
-**                      [section]
-**                          version = 2.4
-**                      [foo]
-**                          bar=hello
-**                          foobar=world
-**
-**                  Example of NOT_MS_STYLE config file:
-**                      [section]
-**                           2.4
-**                      [foo]
-**                          hello=foo
-**                          world
 **
 **      sfunc       - a pointer to a function that will be called when a 
 **                    section name is discovered.
@@ -324,45 +416,30 @@ openConfFile (char *filename)
 
 int
 param_process (char *filename,
-          int style, int (*sfunc) (char *), int (*pfunc) (char *, char *))
+          int (*sfunc) (char *), int (*pfunc) (char * option, char * value, int num_flags, char** flags))
 {
-  char *func = "params.c:param_process() -";
+    char *func = "params.c:param_process() -";
 
-  int result;
+    int result;
 
-  FILE *fp;
+    FILE *fp;
 
-  /* open the conf file */
-  fp = openConfFile (filename);
-  if (fp == (FILE *) NULL)
-    return (PPR_OPEN_FILE_ERROR);
+    /* open the conf file */
+    fp = openConfFile (filename);
+    if (fp == (FILE *) NULL)
+        return (PPR_OPEN_FILE_ERROR);
 
-  if (bufr != NULL)
-    result = Parse (fp, style, sfunc, pfunc);
-  else
+    result = Parse (fp, sfunc, pfunc);
+
+    fclose (fp);
+    if (result < 0)
     {
-      bsize = BUFR_INC;
-      bufr = (char *) malloc (bsize);
-      if (bufr == NULL)
-    {
-      (void) fprintf (stderr, "%s malloc failed\n", func);
-      (void) fclose (fp);
-      return (PPR_MALLOC_ERROR);
-    }
-      result = Parse (fp, style, sfunc, pfunc);
-      // free(bufr);
-      bufr = NULL;
-      bsize = 0;
-    }
-  (void) fclose (fp);
-  if (result < 0)
-    {
-      (void) fprintf (stderr, "%s failed. error returned from Parse()\n",
-              func);
-      return (PPR_PARSE_ERROR);
+        fprintf (stderr, "%s failed. error returned from Parse()\n",
+                func);
+        return (PPR_PARSE_ERROR);
     }
 
-  return (PPR_SUCCESS);
+    return (PPR_SUCCESS);
 }
 
 /*
@@ -371,57 +448,29 @@ param_process (char *filename,
 static int
 eatComment (FILE * fp)
 {
-  int c;
-  for (c = getc (fp); ('\n' != c) && (EOF != c) && (c > 0); c = getc (fp))
-    ;
+    int c;
+    for (c = getc (fp); ('\n' != c) && (EOF != c) && (c > 0); c = getc (fp))
+        ;
 
-  return (c);
+    return (c);
 }
 
 
 static int
 eatWhitespace (FILE * fp)
 {
-  int c;
+    int c;
 
-  for (c = getc (fp); isspace (c) && ('\n' != c); c = getc (fp))
-    ;
-  return (c);
+    for (c = getc (fp); isspace (c) && ('\n' != c); c = getc (fp))
+        ;
+    return (c);
 }
-
-static int
-Continuation (char *line, int pos)
-{
-  pos--;
-  while ((pos >= 0) && isspace (line[pos]))
-    pos--;
-
-  return (((pos >= 0) && (line[pos] == '\\')) ? pos : -1);
-}
-
 
 /*
 **  
 **
 **  Parameters:
 **      fp      - open FILE pointer
-**      style   - the style of the config file. it can be MS_STYLE, that is
-**                parameter must follows by = and the value. If it is
-**                NOT_MS_STYLE, then parameter does not follows by = or the
-**                value.
-**                  Example of MS_STYLE config file:
-**                      [section]
-**                          version = 2.4
-**                      [foo]
-**                          bar=hello
-**                          foobar=world
-**
-**                  Example of NOT_MS_STYLE config file:
-**                      [section]
-**                           2.4
-**                      [foo]
-**                          hello
-**                          world
 **      sfunc   - function to be called when a section name is scanned.
 **      pfunc   - function to be called when a parameter is scanned.
 **
@@ -439,57 +488,48 @@ Continuation (char *line, int pos)
 */
 
 static int
-Parse (FILE * fp,
-       int style, int (*sfunc) (char *), int (*pfunc) (char *, char *))
+Parse (FILE * fp, int (*sfunc) (char *), int (*pfunc) (char * option, char * value, int num_flags, char** flags))
 {
-  int c;
+    int c;
+    c = eatWhitespace (fp);
 
-  c = eatWhitespace (fp);
-
-  while ((c != EOF) && (c > 0))
+    while ((c != EOF) && (c > 0))
     {
 
-      switch (c)
-    {
-    case '\n':      /* blank line */
-      {
-        c = eatWhitespace (fp);
-        break;
-      }
+        switch (c)
+        {
+            case '\n':      /* blank line */
+                {
+                    c = eatWhitespace (fp);
+                    break;
+                }
 
-    case ';':       /* comment line */
-    case '#':
-      {
-        c = eatComment (fp);
-        break;
-      }
+            case ';':       /* comment line */
+            case '#':
+                {
+                    c = eatComment (fp);
+                    break;
+                }
 
-    case '[':       /* section header */
-      {
-        if (Section (fp, sfunc) < 0)
-          {
-        return (-1);
-          }
-        c = eatWhitespace (fp);
-        break;
-      }
-
-    case '\\':      /* bogus backslash */
-      {
-        c = eatWhitespace (fp);
-        break;
-      }
-
-    default:        /* parameter line */
-      {
-        if (Parameter (fp, style, pfunc, c) < 0)
-          return (-1);
-        c = eatWhitespace (fp);
-      }
-    }
+            case '[':       /* section header */
+                {
+                    if (Section (fp, sfunc) < 0)
+                    {
+                        return (-1);
+                    }
+                    c = eatWhitespace (fp);
+                    break;
+                }
+            default:        /* parameter line */
+                {
+                    if (Parameter (fp, pfunc, c) < 0)
+                        return (-1);
+                    c = eatWhitespace (fp);
+                }
+        }
     }
 
-  return (0);
+    return 0;
 }
 
 /*
@@ -516,179 +556,94 @@ Parse (FILE * fp,
 
 static int Section (FILE * fp, int (*sfunc) (char *))
 {
-  int c, i, end;
+    int p;
+    p = eatWhitespace (fp);   /* 
+                               ** we've already got the '['. scan past initial
+                               ** white space
+                               */
 
-  char *func = "params.c:Section() -";
+    char section[SECTION_LENGTH];
+    int section_length = 0;
 
-  i = 0;
-  end = 0;
-
-  c = eatWhitespace (fp);   /* 
-                 ** we've already got the '['. scan past initial
-                 ** white space
-                 */
-
-  while ((c != EOF) && (c > 0))
+    char section_finished = 0;
+    while (!section_finished)
     {
-      if (i > (bsize - 2))
-    {
-      bsize += BUFR_INC;
-      bufr = loc_realloc (bufr, bsize);
-      if (bufr == NULL)
+        switch (p)
         {
-          (void) fprintf (stderr, "%s malloc failed\n", func);
-          return (-1);
+            case ']' :
+                {
+                    if (section_length == 0)
+                    {
+                        fprintf(stderr, "Empty section length\n");
+                        return -1;
+                        break;
+                    }
+
+                    if (section_length == SECTION_LENGTH)
+                    {
+                        fprintf(stderr, "Section name too long\n");
+                        return -1;
+                    }
+
+                    // Terminate the string
+                    section[section_length] = '\0';
+                    section_length++;
+
+                    section_finished = 1;
+                    break;
+                }
+            case ' ' :
+            case '\t' :
+                {
+                    fprintf(stderr, "Unexpected whitespace in section name\n");
+                    return -1;
+                    break;
+                }
+            case EOF :
+                {
+                    fprintf(stderr, "Unexpected end of file\n");
+                    return -1;
+                    break;
+                }
+            case '\n':
+                {
+                    fprintf(stderr, "Unexpected end of file\n");
+                    return -1;
+                    break;
+                }
+            default:
+                {
+                    while (p != ']'
+                            && p != '\n'
+                            && p != ' '
+                            && p != '\t'
+                            && p != EOF)
+                    {
+                        if (section_length == SECTION_LENGTH)
+                        {
+                            fprintf(stderr, "Section name too long\n");
+                        }
+
+                        section[section_length] = p;
+                        section_length++;
+
+                        p = getc(fp);
+                    }
+
+                    // Maybe this is the end of name
+                    if (p == ' '
+                            || p == '\t')
+                    {
+                        p = eatWhitespace(fp);
+                    }
+                }
         }
     }
 
-      switch (c)
-    {
-    case ']':       /* found the closing bracked */
-      {
-        bufr[end] = '\0';
-        if (end == 0)
-          {
-        (void) fprintf (stderr, "%s empty section name\n", func);
-        return (-1);
-          }
+    /*
+    fprintf(stderr, "[MCFG] Section -> '%s'\n", section);
+    fprintf(stderr, "[MCFG] \n");
+    */
 
-        /*
-         ** register
-         ** regSection(&bufr);
-         */
-
-        if (sfunc (bufr) < 0)
-          {
-        return (-1);
-          }
-        (void) eatComment (fp);
-        return (0);
-        break;
-      }
-
-    case '\n':
-      {
-        i = Continuation (bufr, i);
-        if (i < 0)
-          {
-        bufr[end] = '\0';
-        (void) fprintf (stderr, "%s badly formed line in cfg file\n",
-                func);
-
-        return (-1);
-          }
-        end = ((i > 0) && (bufr[i - 1] == ' ')) ? (i - 1) : (i);
-        c = getc (fp);
-        break;
-      }
-    default:
-      {
-        if (isspace (c))
-          {
-        bufr[end] = ' ';
-        i = end + 1;
-        c = eatWhitespace (fp);
-          }
-        else
-          {
-        bufr[i++] = c;
-        end = i;
-        c = getc (fp);
-          }
-        break;
-      }
-    }
-    }
-
-  return (0);
-}
-
-/*
-** expand a pointer to be a particular size
-*/
-static char *
-loc_realloc (char *p, int size)
-{
-  char *ret = NULL;
-
-  if (size == 0)
-    {
-      if (p)
-    {
-      // (void) free(p);
-      (void) fprintf (stderr, "loc_realloc() asked for 0 bytes\n");
-      return (NULL);
-    }
-    }
-
-  if (!p)
-    ret = (char *) malloc (size);
-  else
-    ret = (char *) realloc (p, size);
-
-  if (!ret)
-    (void) fprintf (stderr,
-            "malloc problem, failed to expand to %d bytes\n",
-            size);
-  return (ret);
-}
-
-
-/*
-**  register a section, it's really a convinient function for users. 
-**  supposed to be called from section handling routine written by the
-**  user
-**
-**  Parameters:
-**  char **s
-**
-**  Return Values:
-**  none
-**
-**  Limitations and Comments:
-**  uses the staic variable cursec.
-**
-**
-**  Development History:
-**      who                  when           why
-**      ma_muquit@fccc.edu   Apr-10-1998    first cut
-*/
-
-
-// static void
-// regSection (char **s)
-// {
-//   if (cursec != (char *) NULL)
-//     {
-//       (void) fprintf (stderr, "Freeing cursec\n");
-//       // (void) free(cursec);
-//       cursec = (char *) NULL;
-//     }
-//   if (*s)
-//     cursec = strdup (*s);
-// }
-
-/*
-**  
-**
-**  Parameters:
-**
-**
-**  Return Values:
-**
-**
-**  Limitations and Comments:
-**
-**
-**
-**  Development History:
-**      who                  when           why
-**      ma_muquit@fccc.edu   Apr-10-1998    
-*/
-
-
-char *
-getCurrentSection (void)
-{
-  return (cursec);
+    return sfunc(section);
 }

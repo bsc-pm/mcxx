@@ -133,7 +133,6 @@ struct command_line_long_options command_line_long_options[] =
     {"verbose",     CLP_NO_ARGUMENT, 'v'},
     {"keep-files",  CLP_NO_ARGUMENT, 'k'},
     {"check-dates", CLP_NO_ARGUMENT, 'a'},
-    {"debug",       CLP_NO_ARGUMENT, 'd'},
     {"output",      CLP_REQUIRED_ARGUMENT, 'o'},
     // This option has a chicken-and-egg problem. If we delay till getopt_long
     // to open the configuration file we overwrite variables defined in the
@@ -171,6 +170,7 @@ static void print_version(void);
 static void driver_initialization(int argc, char* argv[]);
 static void initialize_default_values(void);
 static void load_configuration(void);
+static void commit_configuration(void);
 static void compile_every_translation_unit(void);
 
 static void compiler_phases_execution(translation_unit_t* translation_unit, char* parsed_filename);
@@ -196,7 +196,8 @@ static void register_default_initializers(void);
 
 static void help_message(void);
 
-static int parse_special_parameters(int *index, int argc, char* argv[]);
+static int parse_special_parameters(int *should_advance, int argc, char* argv[]);
+static int parse_parameter_flag(int *should_advance, char *special_parameter);
 
 int main(int argc, char* argv[])
 {
@@ -219,6 +220,8 @@ int main(int argc, char* argv[])
     char parse_arguments_error;
     parse_arguments_error = parse_arguments(compilation_process.argc,
             compilation_process.argv, /* from_command_line= */1);
+
+    commit_configuration();
     
     // Loads the compiler phases
     load_compiler_phases();
@@ -346,10 +349,28 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
         if (parameter_info.flag == CLP_INVALID)
         {
             // This function should advance parameter_index if needed
-            if (parse_special_parameters(&parameter_index, argc, argv))
+            char used_flag = 0;
+
+            int should_advance_1 = 0;
+            used_flag |= !parse_parameter_flag(&should_advance_1, argv[parameter_index]);
+            int should_advance_2 = 0;
+            used_flag |= !parse_special_parameters(&should_advance_2, argc, argv);
+
+            if (!used_flag)
             {
-                fprintf(stderr, "Unknown parameter '%s'\n", argv[parameter_index]);
-                return 1;
+                fprintf(stderr, "Warning: Parameter '%s' skipped.\n", argv[parameter_index]);
+                // Advance one parameter if we do not know anything
+                parameter_index++;
+            }
+            else
+            {
+                // Advance the maximum one
+                int actual_advance = 
+                    (should_advance_1 > should_advance_2) 
+                    ? should_advance_1 
+                    : should_advance_2;
+
+                parameter_index += actual_advance;
             }
         }
         // A plain parameter (not under the hood of any option)
@@ -590,7 +611,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
                     }
                 default:
                     {
-                        internal_error("Unhandled option\n", 0);
+                        internal_error("Unhandled known option\n", 0);
                     }
             }
         }
@@ -664,14 +685,89 @@ static void add_parameter_all_toolchain(char *argument)
     add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), argument);
 }
 
-static int parse_special_parameters(int *index, int argc UNUSED_PARAMETER,
+static int parse_parameter_flag(int * should_advance, char *parameter_flag)
+{
+    // Check whether this flag is of the implicitly registered flags 
+    // because of the configuration
+    int failure = 0;
+
+    // Always advance one
+    *should_advance = 1;
+
+    char *p = parameter_flag;
+
+    char negative_flag = 0;
+
+    if (strlen(parameter_flag) <= 1)
+    {
+        failure = 1;
+    }
+    else
+    {
+        // Check that this actually starts with '-'
+        if (*p != '-')
+        {
+            failure = 1;
+        }
+        else
+        {
+            p++;
+
+            // Allow a second optional '-'
+            if (*p == '-')
+            {
+                p++;
+            }
+
+            // Check if this is a negative flag
+            char * no_prefix = "no-";
+            unsigned int length_of_no_prefix = strlen(no_prefix);
+
+            if ((strlen(p) >= length_of_no_prefix)
+                    && (strncmp(p, no_prefix, length_of_no_prefix) == 0))
+            {
+                negative_flag = 1;
+                p += length_of_no_prefix;
+            }
+
+            // Now check parameter flags
+            int i;
+            char found = 0;
+            for (i = 0; !found && (i < compilation_process.num_parameter_flags); i++)
+            {
+                struct parameter_flags_tag *parameter_flag = compilation_process.parameter_flags[i];
+                if (strcmp(parameter_flag->name, p) == 0)
+                {
+                    found = 1;
+                    if (!negative_flag)
+                    {
+                        parameter_flag->value = 1;
+                    }
+                    else
+                    {
+                        parameter_flag->value = 0;
+                    }
+                }
+            }
+
+            if (!found)
+            {
+                failure = 1;
+            }
+        }
+    }
+
+    return failure;
+}
+
+static int parse_special_parameters(int *should_advance, int argc UNUSED_PARAMETER,
         char* argv[])
 {
     // FIXME: This function should use gperf-ectionated
     // This code can be written better
     int failure = 0;
 
-    char *argument = argv[*index];
+    char *argument = argv[*should_advance];
 
     // argument[0] == '-'
     switch (argument[1])
@@ -681,7 +777,7 @@ static int parse_special_parameters(int *index, int argc UNUSED_PARAMETER,
         case 'm':
             {
                 add_parameter_all_toolchain(argument);
-                (*index)++;
+                (*should_advance)++;
                 break;
             }
         case 'M' :
@@ -691,7 +787,7 @@ static int parse_special_parameters(int *index, int argc UNUSED_PARAMETER,
                         || ((argument[2] == 'D') && (argument[3] == '\0')) // -MD
                         || ((argument[2] == 'M') && (argument[3] == 'D') && (argument[4] == '\0'))) // -MMD
                 {
-                    (*index)++;
+                    (*should_advance)++;
                     add_parameter_all_toolchain(argument);
                 }
                 else if (((argument[2] == 'F') && (argument[3] == '\0')) // -MF
@@ -699,12 +795,12 @@ static int parse_special_parameters(int *index, int argc UNUSED_PARAMETER,
                         || ((argument[2] == 'T') && (argument[3] == '\0'))) // -MT
                 {
                     add_parameter_all_toolchain(argument);
-                    (*index)++;
+                    (*should_advance)++;
 
                     // Pass the next argument too
-                    argument = argv[*index];
+                    argument = argv[*should_advance];
                     add_parameter_all_toolchain(argument);
-                    (*index)++;
+                    (*should_advance)++;
                 }
                 else
                 {
@@ -729,7 +825,7 @@ static int parse_special_parameters(int *index, int argc UNUSED_PARAMETER,
                 if (!failure)
                 {
                     add_parameter_all_toolchain(argument);
-                    (*index)++;
+                    (*should_advance)++;
                 }
 
                 break;
@@ -745,7 +841,7 @@ static int parse_special_parameters(int *index, int argc UNUSED_PARAMETER,
                 if (!failure)
                 {
                     add_parameter_all_toolchain(argument);
-                    (*index)++;
+                    (*should_advance)++;
                 }
                 break;
             }
@@ -767,7 +863,7 @@ static int parse_special_parameters(int *index, int argc UNUSED_PARAMETER,
                 if (!failure)
                 {
                     add_parameter_all_toolchain(argument);
-                    (*index)++;
+                    (*should_advance)++;
                 }
                 break;
             }
@@ -784,7 +880,7 @@ static int parse_special_parameters(int *index, int argc UNUSED_PARAMETER,
                 if (!failure)
                 {
                     add_parameter_all_toolchain(argument);
-                    (*index)++;
+                    (*should_advance)++;
                 }
                 break;
             }
@@ -793,7 +889,7 @@ static int parse_special_parameters(int *index, int argc UNUSED_PARAMETER,
                 if (strlen(argument) > strlen("-W"))
                 {
                     add_parameter_all_toolchain(argument);
-                    (*index)++;
+                    (*should_advance)++;
                 }
                 else
                 {
@@ -807,7 +903,7 @@ static int parse_special_parameters(int *index, int argc UNUSED_PARAMETER,
                     && (strlen(argument) > strlen("--Wx,")))
             {
                 parse_subcommand_arguments(&argument[3]);
-                (*index)++;
+                (*should_advance)++;
                 break;
             }
             else
@@ -908,6 +1004,9 @@ static void parse_subcommand_arguments(char* arguments)
 }
 
 static compilation_configuration_t minimal_default_configuration;
+
+// This functions initializes a minimal configuration and the default
+// path to search the configuration file
 static void initialize_default_values(void)
 {
     int dummy = 0;
@@ -961,7 +1060,7 @@ static int section_callback(char* sname)
     new_compilation_configuration->type_environment = type_environment_linux_ia32;
     // End of typing environment 
 
-    // Set now as the current compilation configuration
+    // Set now as the current compilation configuration (kludgy)
     compilation_process.current_compilation_configuration = new_compilation_configuration;
 
     // Check repeated configurations
@@ -982,7 +1081,7 @@ static int section_callback(char* sname)
 }
 
 // Callback called in every parameter=value line in the  config file
-static int parameter_callback(char* parameter, char* value)
+static int parameter_callback(char* parameter, char* value, int num_flags, char** flags)
 {
     if (value == NULL)
     {
@@ -991,22 +1090,78 @@ static int parameter_callback(char* parameter, char* value)
         return 0;
     }
 
-    struct configuration_directive_t* config_directive =
-        configoptions_lookup(parameter, strlen(parameter));
+    struct compilation_configuration_line * new_configuration_line;
 
-    if (config_directive == NULL)
+    // Create a new configuration line
+    new_configuration_line = calloc(1, sizeof(*new_configuration_line));
+
+    new_configuration_line->name = strdup(parameter);
+    new_configuration_line->value = strdup(value);
+
+    new_configuration_line->num_flags = num_flags;
+    new_configuration_line->flags = 
+        calloc(new_configuration_line->num_flags, sizeof(*new_configuration_line->flags));
+
+    // Associate its flags
     {
-        fprintf(stderr, "Configuration directive '%s' skipped since it is unknown\n", parameter);
-        return 0;
+        int i;
+        for (i = 0; i < new_configuration_line->num_flags; i++)
+        {
+            char *current_flag = NULL;
+            char is_negative = 0;
+
+            // If the flag is '!flag'
+            if (flags[i][0] == '!')
+            {
+                // Do not copy '!'
+                current_flag = strdup(&(flags[i][1]));
+                // And state it is negative
+                is_negative = 1;
+            }
+            else
+            {
+                // Otherwise just keep the flag
+                current_flag = strdup(flags[i]);
+            }
+
+            new_configuration_line->flags[i].flag = current_flag;
+            new_configuration_line->flags[i].value = !is_negative;
+
+            {
+                // Now register in compilation process as valid flag
+                char found = 0;
+                int j;
+                for (j = 0; !found && (j < compilation_process.num_parameter_flags); j++)
+                {
+                    found |= (strcmp(current_flag, compilation_process.parameter_flags[j]->name) == 0);
+                }
+
+                if (!found)
+                {
+                    struct parameter_flags_tag *new_parameter_flag = calloc(1, sizeof(*new_parameter_flag));
+
+                    new_parameter_flag->name = current_flag;
+                    // This is redundant because of calloc, but make it explicit here anyway
+                    new_parameter_flag->value = 0;
+
+                    P_LIST_ADD(compilation_process.parameter_flags, 
+                            compilation_process.num_parameter_flags,
+                            new_parameter_flag);
+                }
+            }
+        }
     }
 
-    config_directive->funct(value);
+    P_LIST_ADD(CURRENT_CONFIGURATION(configuration_lines),
+            CURRENT_CONFIGURATION(num_configuration_lines),
+            new_configuration_line);
+
     return 0;
 }
 
 static void load_configuration(void)
 {
-    // Solve here the egg and chicken problem of the option --config-file / -m
+    // Solve here the egg and chicken problem of the option --config-file
     int i;
     for (i = 1; i < compilation_process.argc; i++)
     {
@@ -1028,8 +1183,7 @@ static void load_configuration(void)
 
     // Will invoke section_callback and parameter_callback for every section
     // and parameter
-    int result = param_process(compilation_process.config_file, MS_STYLE, 
-            section_callback, parameter_callback);
+    int result = param_process(compilation_process.config_file, section_callback, parameter_callback);
 
     switch (result)
     {
@@ -1059,7 +1213,7 @@ static void load_configuration(void)
                 internal_error("Function param_process returned an invalid value %d", result);
             }
     }
-
+    
     // Now set the configuration as stated by the basename
     compilation_process.current_compilation_configuration = NULL;
     for (i = 0; i < compilation_process.num_configurations; i++)
@@ -1076,6 +1230,71 @@ static void load_configuration(void)
         fprintf(stderr, "No suitable configuration defined for %s. Setting to C++ built-in configuration\n",
                compilation_process.exec_basename);
         compilation_process.current_compilation_configuration = &minimal_default_configuration;
+    }
+    
+}
+
+static void commit_configuration(void)
+{
+    // For every configuration commit its options depending on flags
+    int i;
+    for (i = 0; i < compilation_process.num_configurations; i++)
+    {
+        struct compilation_configuration_tag* configuration = NULL;
+        configuration = compilation_process.configuration_set[i];
+
+        int j;
+        for (j = 0; j < configuration->num_configuration_lines; j++)
+        {
+            struct compilation_configuration_line* configuration_line = configuration->configuration_lines[j];
+
+            struct configuration_directive_t* config_directive =
+                configoptions_lookup(configuration_line->name, strlen(configuration_line->name));
+
+            if (config_directive == NULL)
+            {
+                fprintf(stderr, "Configuration directive '%s' skipped since it is unknown\n", configuration_line->name);
+                continue;
+            }
+
+            // Check the value of flags before processing this configuration line
+            char can_be_committed = 1;
+
+            {
+                // This is an ugly and stupid O(n^2) algorithm
+                int k;
+                // For every flag of this configuration line
+                for (k = 0; can_be_committed && (k < configuration_line->num_flags); k++)
+                {
+                    // Check it against every seen parameter flag
+                    int q;
+                    char found = 0;
+                    for (q = 0; can_be_committed && (q < compilation_process.num_parameter_flags); q++)
+                    {
+                        struct parameter_flags_tag *parameter_flag = compilation_process.parameter_flags[q];
+
+                        if (strcmp(parameter_flag->name, configuration_line->flags[k].flag) == 0)
+                        {
+                            found = 1;
+                            can_be_committed = can_be_committed && 
+                                (parameter_flag->value == configuration_line->flags[k].value);
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        // If not found, then this is an error, so do not commit
+                        WARNING_MESSAGE("Not found an implicit flag '%s'", configuration_line->flags[k].flag);
+                        can_be_committed = 0;
+                    }
+                }
+            }
+
+            if (can_be_committed)
+            {
+                config_directive->funct(configuration, configuration_line->value);
+            }
+        }
     }
 }
 

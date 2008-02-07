@@ -21,12 +21,12 @@
 #ifndef CXX_CONFIGFILE
 #define CXX_CONFIGFILE
 
-#include "cxx-driver.h"
+#include "cxx-driver-decls.h"
 #include "cxx-macros.h"
 
 MCXX_BEGIN_DECLS
 
-typedef int (option_function_t)(char* value);
+typedef int (option_function_t)(struct compilation_configuration_tag*, char* value);
 
 option_function_t config_set_language;
 option_function_t config_set_options;
