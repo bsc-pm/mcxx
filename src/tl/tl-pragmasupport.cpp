@@ -293,6 +293,30 @@ namespace TL
         return result;
     }
 
+    ObjectList<AST_t> PragmaCustomClause::get_arguments_tree()
+    {
+        ObjectList<AST_t> result;
+
+        PredicateAST<LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT> clause_arg_pred;
+
+        ObjectList<AST_t> clause_list = filter_pragma_clause();
+        for (ObjectList<AST_t>::iterator it = clause_list.begin();
+                it != clause_list.end();
+                it++)
+        {
+            ObjectList<AST_t> arguments = it->depth_subtrees(clause_arg_pred, AST_t::NON_RECURSIVE);
+            for (ObjectList<AST_t>::iterator jt = arguments.begin();
+                    jt != arguments.end();
+                    jt++)
+            {
+                AST_t tree= *jt;
+                result.append(tree);
+            }
+        }
+
+        return result;
+    }
+
     ObjectList<IdExpression> PragmaCustomClause::id_expressions(IdExpressionCriteria criteria)
     {
         PredicateAST<LANG_IS_ID_EXPRESSION> id_expr_pred;

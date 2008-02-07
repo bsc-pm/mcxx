@@ -57,6 +57,9 @@ namespace TL
             // Raw clause arguments for custom parsing
             ObjectList<std::string> get_arguments();
 
+            // Raw clause arguments tree for custom parsing
+            ObjectList<AST_t> get_arguments_tree();
+
             // States whether the clause was in the pragma
             bool is_defined();
             
