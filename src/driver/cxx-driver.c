@@ -124,7 +124,7 @@ compilation_process_t compilation_process;
 /* ------------------------------------------------------------------ */
 
 // It mimics getopt
-#define SHORT_OPTIONS_STRING "vkadcho:EyI:L:l:gD:x:"
+#define SHORT_OPTIONS_STRING "vkacho:EyI:L:l:gD:x:"
 // This one mimics getopt_long but with one less field (the third one is not given)
 struct command_line_long_options command_line_long_options[] =
 {
