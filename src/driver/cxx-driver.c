@@ -354,7 +354,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
             int should_advance_1 = 0;
             used_flag |= !parse_parameter_flag(&should_advance_1, argv[parameter_index]);
             int should_advance_2 = 0;
-            used_flag |= !parse_special_parameters(&should_advance_2, argc, argv);
+            used_flag |= !parse_special_parameters(&should_advance_2, parameter_index, argv);
 
             if (!used_flag)
             {
@@ -760,14 +760,14 @@ static int parse_parameter_flag(int * should_advance, char *parameter_flag)
     return failure;
 }
 
-static int parse_special_parameters(int *should_advance, int argc UNUSED_PARAMETER,
+static int parse_special_parameters(int *should_advance, int parameter_index,
         char* argv[])
 {
     // FIXME: This function should use gperf-ectionated
     // This code can be written better
     int failure = 0;
 
-    char *argument = argv[*should_advance];
+    char *argument = argv[parameter_index];
 
     // argument[0] == '-'
     switch (argument[1])
@@ -787,8 +787,8 @@ static int parse_special_parameters(int *should_advance, int argc UNUSED_PARAMET
                         || ((argument[2] == 'D') && (argument[3] == '\0')) // -MD
                         || ((argument[2] == 'M') && (argument[3] == 'D') && (argument[4] == '\0'))) // -MMD
                 {
-                    (*should_advance)++;
                     add_parameter_all_toolchain(argument);
+                    (*should_advance)++;
                 }
                 else if (((argument[2] == 'F') && (argument[3] == '\0')) // -MF
                         || ((argument[2] == 'G') && (argument[3] == '\0')) // -MG
@@ -798,7 +798,7 @@ static int parse_special_parameters(int *should_advance, int argc UNUSED_PARAMET
                     (*should_advance)++;
 
                     // Pass the next argument too
-                    argument = argv[*should_advance];
+                    argument = argv[parameter_index + 1];
                     add_parameter_all_toolchain(argument);
                     (*should_advance)++;
                 }
