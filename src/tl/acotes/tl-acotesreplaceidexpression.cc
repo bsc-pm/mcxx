@@ -25,6 +25,8 @@
 #include <assert.h>
 #include <sstream>
 
+#define IDEXRPLDBG 0
+
 namespace TL { namespace Acotes {
     
     
@@ -59,10 +61,12 @@ namespace TL { namespace Acotes {
         depthTraverse.add_predicate(isIdExpression, *this);
         depthTraverse.add_predicate(isDeclaredEntity, *this);
 
+        if (IDEXRPLDBG) std::cerr << "--- DEBUG REPLACE request:" << ast.prettyprint() << std::endl;
+
         // Parse everything
         depthTraverse.traverse(ast, scopeLink);
         
-        //std::cerr << "--- DEBUG replace result:" << ast.prettyprint() << std::endl;
+        if (IDEXRPLDBG) std::cerr << "--- DEBUG REPLACE result:" << ast.prettyprint() << std::endl;
     }
         
         
@@ -75,7 +79,7 @@ namespace TL { namespace Acotes {
     {
         assert(replaceMap.count(symbol) == 0);
         
-        //std::cerr << "--- DEBUG add symbol:" << symbol.get_name() << " ast:" << ast.prettyprint() << std::endl;
+        if (IDEXRPLDBG) std::cerr << "--- DEBUG ADD symbol:" << symbol.get_name() << " ast:" << ast.prettyprint() << std::endl;
         replaceMap[symbol]= ast;
         replaceNameSet.insert(ast.prettyprint());
     }
@@ -164,13 +168,14 @@ namespace TL { namespace Acotes {
             Source localDeclarationSource;
             localDeclarationSource= localType.get_declaration(declaredEntity.get_scope(), newname.str());
             localDeclarationSource << ";";
-            AST_t localDeclarationAST= localDeclarationSource.parse_statement(originalAST, scopeLink);
+            AST_t localDeclarationAST= localDeclarationSource.parse_statement(getRefTree(), scopeLink);
+            setRefTree(localDeclarationAST);
 
             Source localSymbolSource= newname.str();
             AST_t localSymbolAST= localSymbolSource.parse_expression(localDeclarationAST, scopeLink);
 
             replaceMap[symbol]= localSymbolAST;
-            //std::cerr << "--- DEBUG     newreplace symbol:" << symbol.get_name() << " ast:" << localSymbolAST.prettyprint() << std::endl;
+            if (IDEXRPLDBG) std::cerr << "--- DEBUG     newreplace symbol:" << symbol.get_name() << " ast:" << localSymbolAST.prettyprint() << std::endl;
         }
     }
 
@@ -179,75 +184,35 @@ namespace TL { namespace Acotes {
         // It is only applied on acotes pragma
         if (pragmaCustomConstruct.get_pragma() == std::string("acotes")) 
         {
-            AST_t originalAST= pragmaCustomConstruct.get_ast();
-            ScopeLink scopeLink= pragmaCustomConstruct.get_scope_link();
-            
-            Source replaceSource= generateReplace(pragmaCustomConstruct);
-            AST_t replaceAST= replaceSource.parse_statement(getRefTree(), scopeLink);
-            originalAST.replace_with(replaceAST);
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("bypass"));
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("input"));
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("output"));
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("state"));
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("copyinstate"));
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("copyoutstate"));
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("initializestate"));
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("finalizestate"));
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("history"));
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("index"));
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("inputreplicate"));
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("check"));
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("async"));
+            onPragmaCustomConstruct(pragmaCustomConstruct.get_clause("sync"));
         }
     }
     
-    std::string AcotesReplaceIdExpression::generateReplace(PragmaCustomConstruct pragmaCustomConstruct) 
-    {
-        std::stringstream ss;
-
-        // Generate pragma
-        ss << "#pragma acotes " << pragmaCustomConstruct.get_directive();
-
-        // Replaces the symbols of requested clauses
-        ss << generateReplace(pragmaCustomConstruct.get_clause("bypass"));
-        ss << generateReplace(pragmaCustomConstruct.get_clause("input"));
-        ss << generateReplace(pragmaCustomConstruct.get_clause("output"));
-        ss << generateReplace(pragmaCustomConstruct.get_clause("state"));
-        ss << generateReplace(pragmaCustomConstruct.get_clause("copyinstate"));
-        ss << generateReplace(pragmaCustomConstruct.get_clause("copyoutstate"));
-        ss << generateReplace(pragmaCustomConstruct.get_clause("initializestate"));
-        ss << generateReplace(pragmaCustomConstruct.get_clause("finalizestate"));
-        ss << generateReplace(pragmaCustomConstruct.get_clause("history"));
-        ss << generateReplace(pragmaCustomConstruct.get_clause("index"));
-        ss << generateReplace(pragmaCustomConstruct.get_clause("inputreplicate"));
-        ss << generateReplace(pragmaCustomConstruct.get_clause("check"));
-        ss << generateReplace(pragmaCustomConstruct.get_clause("async"));
-        ss << generateReplace(pragmaCustomConstruct.get_clause("sync"));
-
-        ss << regenerate(pragmaCustomConstruct.get_clause("team"));
-
-        // adds the end of line
-        ss << std::endl;
-
-        // If it is a construct, it needs a body
-        if (pragmaCustomConstruct.is_construct()) {
-            ss << pragmaCustomConstruct.get_statement().prettyprint();
+    void AcotesReplaceIdExpression::onPragmaCustomConstruct(PragmaCustomClause pragmaCustomClause) {
+        ObjectList<AST_t> argumentList= pragmaCustomClause.get_arguments_tree();
+        ScopeLink scopeLink= pragmaCustomClause.get_scope_link();
+        
+        for (unsigned i= 0; i < argumentList.size(); i++) {
+            AST_t tree= argumentList.at(i);
+            replacePragmaCustomClauseArgument(tree ,scopeLink);
         }
-        
-        //std::cerr << "--- DEBUG ss:" << ss.str() << std::endl;
-        
-        return ss.str();
-    }
-
-    std::string AcotesReplaceIdExpression::generateReplace(PragmaCustomClause pragmaCustomClause) {
-        std::stringstream ss;
-        
-        if (pragmaCustomClause.is_defined()) {
-            ObjectList<std::string> argumentList= pragmaCustomClause.get_arguments();
-            
-            ss << " " << pragmaCustomClause.get_clause_name();
-            ss << "(";
-            for (unsigned i= 0; i < argumentList.size(); i++) {
-                if (i > 0) {
-                    ss << ", ";
-                }
-                ss << generateReplace(pragmaCustomClause, i);
-            }
-            ss << ")";
-        }
-        
-        return ss.str();
     }
     
-    std::string AcotesReplaceIdExpression::generateReplace(PragmaCustomClause pragmaCustomClause, unsigned number) {
-        std::string argument= pragmaCustomClause.get_arguments().at(number);
+    void AcotesReplaceIdExpression::replacePragmaCustomClauseArgument(AST_t tree, ScopeLink scopeLink) {
+        std::string argument= tree.prettyprint();
         std::string head;
         std::string tail;
         
@@ -262,33 +227,15 @@ namespace TL { namespace Acotes {
         }
         
         // Parse head without labels
-        ScopeLink scopeLink= pragmaCustomClause.get_scope_link();
         Source expressionSource= head;
-        AST_t expressionAST= expressionSource.parse_expression(pragmaCustomClause.get_ast(), scopeLink);
+        AST_t expressionAST= expressionSource.parse_expression(tree, scopeLink);
         
         // Replace in the expression the variables
         replace(expressionAST, scopeLink);
-        
-        // Generate replaced code
-        std::stringstream ss;
-        
-        ss << expressionAST.prettyprint() << tail;
-        
-        return ss.str();
+
+        // Replace original tree text by the resulting text
+        tree.replace_text(expressionAST.prettyprint());
     }
-    
-    std::string AcotesReplaceIdExpression::regenerate(PragmaCustomClause pragmaCustomClause)
-    {
-        std::stringstream ss;
-        
-        if (pragmaCustomClause.is_defined()) {
-            ss << " " << pragmaCustomClause.prettyprint();
-        }
-        
-        return ss.str();
-    }
-    
-    
     
 } /* end Acotes namespace */ } /* end TL namespace */
 

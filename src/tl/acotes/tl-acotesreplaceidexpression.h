@@ -77,10 +77,8 @@ namespace TL { namespace Acotes {
         void onDeclaredEntity(DeclaredEntity declaredEntity);
         void onPragmaCustomConstruct(PragmaCustomConstruct pragmaCustomConstruct);
         void onPragmaCustomClause(PragmaCustomClause pragmaCustomClause);
-        std::string generateReplace(PragmaCustomConstruct pragmaCustomConstruct);
-        std::string generateReplace(PragmaCustomClause pragmaCustomClause);
-        std::string generateReplace(PragmaCustomClause pragmaCustomClause, unsigned number);
-        std::string regenerate(PragmaCustomClause pragmaCustomClause);
+        void onPragmaCustomConstruct(PragmaCustomClause pragmaCustomClause);
+        void replacePragmaCustomClauseArgument(AST_t tree, ScopeLink scopeLink);
     };
     
 } /* end Acotes namespace */ } /* end TL namespace */
