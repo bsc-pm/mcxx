@@ -186,7 +186,7 @@ then
       AC_MSG_ERROR([Mintaka support requires '--with-mintaka=dir'. See --help.])
    fi
 
-   TLEXTENSIONS="${TLEXTENSIONS} instr"
+   TLEXTENSIONS="${TLEXTENSIONS} instr instr_pthreads"
 
    MINTAKA_INCLUDES="-I ${mintaka_include} -include mintaka.h"
    MINTAKA_LIBS="-L ${mintaka_lib} -lmintaka"
@@ -642,6 +642,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/nanos/Makefile 
            src/tl/omp/Makefile 
            src/tl/instr/Makefile 
+           src/tl/instr_pthreads/Makefile 
            src/tl/acotes/Makefile
            src/tl/stm_func/Makefile
            src/tl/examples/Makefile
