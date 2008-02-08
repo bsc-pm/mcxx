@@ -190,7 +190,7 @@ static scope_entry_list_t* unfold_and_mix_candidate_functions(
                 overload_set = new_candidate;
             }
         }
-        else
+        else if (entry->kind == SK_FUNCTION)
         {
             scope_entry_list_t* new_candidate = calloc(1, sizeof(*new_candidate));
             new_candidate->entry = entry;
@@ -4834,6 +4834,15 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
     // First try to do a normal lookup
     scope_entry_list_t* entry_list = query_id_expression(decl_context, called_expression);
 
+    enum cxx_symbol_kind filter_function_names[] = 
+    {
+        SK_FUNCTION,
+        SK_TEMPLATE, 
+    };
+
+    entry_list = filter_symbol_kind_set(entry_list,
+            STATIC_ARRAY_LENGTH(filter_function_names), filter_function_names);
+
     char still_requires_koenig = 1;
 
     if (entry_list != NULL)
@@ -4847,6 +4856,7 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
         {
             scope_entry_t* entry = it->entry;
             type_t* type = no_ref(advance_over_typedefs(entry->type_information));
+
 
             if (entry->kind != SK_FUNCTION
                     && (entry->kind != SK_VARIABLE
