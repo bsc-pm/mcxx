@@ -84,12 +84,6 @@ namespace TL
         }
 
         filter_file.close();
-
-        if (!_filter_inverted)
-        {
-            // Always include this
-            _filter_set.insert("mintaka*");
-        }
     }
 
     bool InstrumentFilterFile::match(const std::string& function_name)
