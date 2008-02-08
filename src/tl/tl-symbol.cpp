@@ -282,4 +282,9 @@ namespace TL
         // Despite the name this applies to variables too
         return _symbol->entity_specs.is_builtin;
     }
+
+    bool Symbol::is_created_after_typedef() const
+    {
+        return _symbol->entity_specs.after_typedef;
+    }
 }

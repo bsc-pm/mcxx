@@ -348,6 +348,22 @@ typedef struct entity_specifiers_tag
     struct AST_tag* bitfield_expr;
     decl_context_t bitfield_expr_context;
 
+    // This symbol has been created because of a typedef
+    // of an unnamed struct/class/enum/union type
+    //
+    // typedef struct { } A;
+    //
+    // A will be signed in as 'SK_CLASS'
+    //
+    // (
+    // like if in C++ we had done
+    //
+    // struct A { };
+    // )
+    //
+    // And sometimes we need to distinguish whether is
+    // 'struct A { }' or 'typedef struct { } A';
+    char after_typedef;
 } entity_specifiers_t;
 
 // This is an entry in the scope

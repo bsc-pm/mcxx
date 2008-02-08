@@ -3829,6 +3829,11 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
     }
 
     // If the type is unnamed, update it
+    // FIXME - What about
+    //
+    // typedef enum { B = 3 } A;
+    //
+    // ??
     if (is_unnamed_class_type(declarator_type) 
             && (is_class_type(declarator_type) 
                 || is_enumerated_type(declarator_type)))
@@ -3856,6 +3861,10 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             decl_context_t inner_class = class_type_get_inner_context(get_actual_class_type(entry->type_information));
             inner_class.current_scope->class_type = get_actual_class_type(entry->type_information);
         }
+
+        // Remember this symbol has been created because of
+        // a typedef against an unnamed struct/enum
+        entry->entity_specs.after_typedef = 1;
     }
     else
     {

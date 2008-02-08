@@ -211,6 +211,18 @@ namespace TL
 
             //! States whether the symbol is actually a builtin of the compiler
             bool is_builtin() const;
+
+            //! States whether the symbol has been create because of a typedef
+            //against an unnamed struct/enum
+            /*!
+             * @code
+             * typedef struct { int b; } A;
+             * @end code
+             *
+             * Symbol 'A' will be created as a class-name (and not as a
+             * typedef-name) because of typedef against the unnamed struct
+             */
+            bool is_created_after_typedef() const;
     };
     
     //! @}
