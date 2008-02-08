@@ -342,6 +342,16 @@ namespace TL
 
         Source instrumented_main_declaration = function_type.get_declaration(function_symbol.get_scope(),
                 "__instrumented_main");
+        Source null_expr;
+
+        C_LANGUAGE()
+        {
+            null_expr << "(void*)0";
+        }
+        CXX_LANGUAGE()
+        {
+            null_expr << "0";
+        }
 
         Source new_main;
         new_main
@@ -351,7 +361,7 @@ namespace TL
             << main_declaration
             << "{"
             // Begin
-            << "  pthread_mutex_init(&__mintaka_instr_global_lock, (void*)0);"
+            << "  pthread_mutex_init(&__mintaka_instr_global_lock, " <<  null_expr << ");"
             << "  __mintaka_pthread_global_counter = 0;"
             << "  mintaka_app_begin();"
             << "  mintaka_set_filebase(_p_1[0]);"
