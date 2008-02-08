@@ -61,7 +61,7 @@ namespace TL
 
         IdExpression called_id_expression = called_expression.get_id_expression();
 
-        if (_instrument_filter.match(called_id_expression.prettyprint()))
+        if (!_instrument_filter.match(called_id_expression.prettyprint()))
             return;
 
         std::string shadow_function_name = 
@@ -468,9 +468,10 @@ namespace TL
     {
     }
 
-    InstrumentCalls::InstrumentCalls(const std::string& instrument_file_name, const std::string& instrument_filter_mode)
+    InstrumentCalls::InstrumentCalls(const std::string& instrument_file_name, const std::string& instrument_filter_mode,
+            const std::string& pthread_functions_file)
         : _instrument_filter(instrument_file_name, instrument_filter_mode),
-        _pthread_functions("./pthread_functions", "normal")
+        _pthread_functions(pthread_functions_file, "normal")
     {
         // Kludge
         _instrument_filter.avoid_mintaka();

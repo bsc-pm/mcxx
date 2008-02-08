@@ -60,12 +60,16 @@ namespace TL
                         "calls");
 
                 register_parameter("instrument_file_name", 
-                        "Sets the filtering file for instrumentation",
+                        "Sets the filtering file for instrumentation. This file contains a of functions to "
+                        "be instrumented or not, depending on 'instrument_filter_mode'",
                         instrument_file_name,
                         "./filter_instrument");
 
                 register_parameter("instrument_filter_mode",
-                        "Sets the filtering mode. It can be either 'normal' or 'inverted'",
+                        "Sets the filtering mode. It can be either 'normal' or 'inverted'. "
+                        "A function is instrumented only if 'instrument_filter_mode' is 'normal' and the function name "
+                        "is listed in the file of option 'instrument_file_name' or if 'instrument_filter_mode' is 'inverted' "
+                        "and the function is not listed in that file'",
                         instrument_filter_mode,
                         "normal");
             }

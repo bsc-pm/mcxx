@@ -40,11 +40,12 @@ namespace TL
             std::string instrument_mode;
             std::string instrument_file_name;
             std::string instrument_filter_mode;
+            std::string pthread_functions_file;
         public:
             InstrumentationPthreads()
             {
                 // Phase description"
-                set_phase_name("Mintaka instrumentation");
+                set_phase_name("Mintaka instrumentation using pthreads");
                 set_phase_description("This phase adds instrumentation to either "
                         "function calls or function definitions using the mintaka runtime");
 
@@ -60,14 +61,24 @@ namespace TL
                         "calls");
 
                 register_parameter("instrument_file_name", 
-                        "Sets the filtering file for instrumentation",
+                        "Sets the filtering file for instrumentation. This file contains a of functions to "
+                        "be instrumented or not, depending on 'instrument_filter_mode'",
                         instrument_file_name,
                         "./filter_instrument");
 
                 register_parameter("instrument_filter_mode",
-                        "Sets the filtering mode. It can be either 'normal' or 'inverted'",
+                        "Sets the filtering mode. It can be either 'normal' or 'inverted'. "
+                        "A function is instrumented only if 'instrument_filter_mode' is 'normal' and the function name "
+                        "is listed in the file of option 'instrument_file_name' or if 'instrument_filter_mode' is 'inverted' "
+                        "and the function is not listed in that file'",
                         instrument_filter_mode,
                         "normal");
+
+                register_parameter("pthread_functions_file",
+                        "Sets a filename with a list of functions that are involved in a 'pthread_create' function. "
+                        "This phase will add code to their function definition for instrumenting the created thread",
+                        pthread_functions_file,
+                        "./pthread_functions");
             }
 
             void virtual run(DTO& dto)
@@ -76,7 +87,7 @@ namespace TL
 
                 if (instrument_mode == "calls")
                 {
-                    instrument_phase = new InstrumentCalls(instrument_file_name, instrument_filter_mode);
+                    instrument_phase = new InstrumentCalls(instrument_file_name, instrument_filter_mode, pthread_functions_file);
                 }
                 else if (instrument_mode == "functions")
                 {

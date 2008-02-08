@@ -61,7 +61,7 @@ namespace TL
 
         IdExpression called_id_expression = called_expression.get_id_expression();
 
-        if (_instrument_filter.match(called_id_expression.prettyprint()))
+        if (!_instrument_filter.match(called_id_expression.prettyprint()))
             return;
 
         std::string shadow_function_name = 

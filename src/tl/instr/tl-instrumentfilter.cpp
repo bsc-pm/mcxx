@@ -43,9 +43,9 @@ namespace TL
                 << filter_mode_var << "')" << std::endl;
         }
 
-        if (!_filter_inverted)
+        if (_filter_inverted)
         {
-            // Always include this
+            // Always include this to avoid matching mintaka functions
             _filter_set.insert("mintaka*");
         }
 
@@ -125,13 +125,13 @@ namespace TL
 
         if (!_filter_inverted)
         {
-            // If found it does have to be filtered
+            // If found -> true
             return found ? true : false;
         }
         else
         {
-            // If not found it does not have to be filtered
-            return found ? false : true;
+            // If not found -> true
+            return !found ? true : false;
         }
     }
 
