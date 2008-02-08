@@ -156,6 +156,7 @@ namespace TL
 
         if (has_ellipsis)
         {
+            // This will never trigger
             shadow_declaration += ", ...";
         }
 
@@ -255,11 +256,35 @@ namespace TL
 
         Source new_function_body, begin_mintaka_src, end_mintaka_src;
 
+        // Replace all returns
+        PredicateAST<LANG_IS_RETURN_STATEMENT> return_statement_pred;
+        ObjectList<AST_t> return_statements = function_body.get_ast().depth_subtrees(return_statement_pred);
+        for (ObjectList<AST_t>::iterator it = return_statements.begin();
+                it != return_statements.end();
+                it++)
+        {
+            Source replaced_return;
+
+            replaced_return
+                << "{"
+                <<    comment("Intercepted return")
+                <<    "mintaka_thread_end();"
+                <<    it->prettyprint()
+                << "}"
+                ;
+
+            AST_t replaced_return_tree = replaced_return.parse_statement((*it),
+                    ctx.scope_link);
+
+            it->replace(replaced_return_tree);
+        }
+
         new_function_body
             << "{"
-            << begin_mintaka_src
-            << function_body.prettyprint()
-            << end_mintaka_src
+            <<    comment("Begin of thread code")
+            <<    begin_mintaka_src
+            <<    function_body.prettyprint()
+            <<    end_mintaka_src
             << "}"
             ;
 
@@ -279,6 +304,7 @@ namespace TL
 
         end_mintaka_src
             << "{"
+            << comment("Fallback exit")
             << "mintaka_thread_end();"
             << "}"
             ;
@@ -319,40 +345,6 @@ namespace TL
 
         Source new_main;
         new_main
-            // << "static void __begin_mintaka(char* exec_basename)"
-            // << "{"
-            // << "  mintaka_app_begin();"
-            // << "  mintaka_set_filebase(exec_basename);"
-            // // Register events
-            // // TODO - OpenMP events descriptions
-            // << "  static const char* EVENT_CALL_USER_FUNCTION_DESCR = \"User function call\";"
-            // << "  const int EVENT_CALL_USER_FUNCTION = 60000018;"
-            // << "  static const char* EVENT_TASK_ENQUEUE_DESCR = \"Task enqueue\";"
-			// << "  const int EVENT_TASK_ENQUEUE = 60000010;"
-            // << "  mintaka_index_event(EVENT_CALL_USER_FUNCTION, EVENT_CALL_USER_FUNCTION_DESCR);"
-            // << "  mintaka_index_event(EVENT_TASK_ENQUEUE, EVENT_TASK_ENQUEUE_DESCR);"
-            // // Initialize every thread
-            // <<    "#pragma omp parallel noinstr\n"
-            // <<    "{"
-            // <<    "   mintaka_thread_begin(1, omp_get_thread_num() + 1);"
-            // <<    "   if (omp_get_thread_num() != 0)"
-            // <<    "        mintaka_state_idle();"
-            // <<    "   else"
-            // <<    "        mintaka_state_run();"
-            // <<    "}"
-            // << "}"
-
-            // << "static void __end_mintaka(void)"
-            // << "{"
-            // << "  #pragma omp parallel noinstr\n"
-            // << "  {"
-            // << "     mintaka_thread_end();"
-            // << "  }"
-            // << "  mintaka_app_end();"
-            // << "  mintaka_merge();"
-            // << "  mintaka_index_generate();"
-            // << "}"
-
             << instrumented_main_declaration << ";"
             << "pthread_mutex_t __mintaka_instr_global_lock;"
             << "int __mintaka_pthread_global_counter;"
@@ -364,6 +356,7 @@ namespace TL
             << "  mintaka_app_begin();"
             << "  mintaka_set_filebase(_p_1[0]);"
             << "  mintaka_thread_begin(1, ++__mintaka_pthread_global_counter);"
+            << "  mintaka_state_run();"
             // Event definition
             << "  static const char* EVENT_CALL_USER_FUNCTION_DESCR = \"User function call\";"
             << "  const int EVENT_CALL_USER_FUNCTION = 60000018;"
@@ -427,7 +420,6 @@ namespace TL
 
             if (_pthread_functions.match(function_name.mangle_id_expression()))
             {
-                std::cerr << "Ei -> " << function_name.mangle_id_expression() << std::endl;
                 Symbol function_symbol = function_name.get_symbol();
 
                 if (!function_symbol.is_member())
