@@ -4836,6 +4836,7 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
 
     enum cxx_symbol_kind filter_function_names[] = 
     {
+        SK_VARIABLE,
         SK_FUNCTION,
         SK_TEMPLATE, 
     };
