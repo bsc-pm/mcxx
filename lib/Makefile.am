@@ -1,10 +1,18 @@
-noinst_PROGRAMS = 
+noinst_PROGRAMS = tpp
 
-if TPP_BUILDING
-noinst_PROGRAMS += tpp
-tpp_SOURCES = \
-              tpp.c
-endif
+CC_FOR_BUILD=@CC_FOR_BUILD@
+
+# tpp
+tpp_SOURCES = tpp.c
+
+tpp$(EXEEXT): tpp.o
+	$(CC_FOR_BUILD) -o $@ $+ $(LDFLAGS)
+
+tpp.o : tpp.c
+	$(CC_FOR_BUILD) -c -o $@ $(srcdir)/tpp.c $(CFLAGS) $(DEFAULT_INCLUDES) \
+	         -DPACKAGE=\"$(PACKAGE)\" -DVERSION=\"$(PACKAGE_VERSION)\"
+#end of tpp
+
 
 lib_LTLIBRARIES = libmcxx-utils.la libmcxx-mcfg.la libmcxx-extstruct.la
 

@@ -43,6 +43,18 @@ AC_PROG_CXX
 dnl Check LN_S
 AC_PROG_LN_S
 
+dnl --------------------- Basic toolchain setup -----------------
+CC_FOR_BUILD=$CC
+dnl If we are cross compiling ensure that we are using
+dnl the proper build cc
+if test x$cross_compiling = xyes; 
+then
+     dnl This will only work with gcc
+     CC_FOR_BUILD=gcc
+fi
+AC_SUBST([CC_FOR_BUILD])
+dnl --------------------- End Basic toolchain setup -----------------
+
 TLEXTENSIONS=""
 ADDITIONAL_TESTSUITES=""
 
