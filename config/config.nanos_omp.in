@@ -2,41 +2,83 @@
 [mcc]
 language = C
 options =
+{debug} options = -g
+{instrument,!debug} options = --variable=instrument:1
 preprocessor_name = gcc
-preprocessor_options = -E @NANOS_INCLUDES@ @MINTAKA_INCLUDES@
+preprocessor_options = -E @NANOS_INCLUDES@ 
+{instrument,!debug} preprocessor_options = @MINTAKA_INCLUDES@
 compiler_name = gcc
 compiler_options = 
 linker_name = gcc
-linker_options = @NANOS_LIBS@ @MINTAKA_LIBS@
+linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@
+{!nanos-dev,!debug,!instrument} linker_options = -lnthreads 
+{nanos-dev,!debug,!instrument} linker_options = -lnthreads-dev 
+{instrument,!debug} linker_options = -lnthreads-prv @MINTAKA_LIBS@
+{debug} linker_options = -g -lnthreads-dbg
 pragma_prefix = nanos
 compiler_phase = libtlnanos.so
-@INSTRUMENTATION_PHASE@
+{instrument,!debug} @INSTRUMENTATION_PHASE@
 compiler_phase = libtlomp.so
 
 [mcxx]
 language = C++
 options = 
+{debug} options = -g
+{instrument,!debug} options = --variable=instrument:1
 preprocessor_name = g++
-preprocessor_options = -E -include new @NANOS_INCLUDES@ @MINTAKA_INCLUDES@
+preprocessor_options = -E -include new @NANOS_INCLUDES@ 
+{instrument,!debug} preprocessor_options = @MINTAKA_INCLUDES@
 compiler_name = g++
 compiler_options = 
 linker_name = g++
-linker_options = @NANOS_LIBS@ @MINTAKA_LIBS@
+linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@
+{!nanos-dev,!debug,!instrument} linker_options = -lnthreads 
+{nanos-dev,!debug,!instrument} linker_options = -lnthreads-dev 
+{instrument,!debug} linker_options = -lnthreads-prv @MINTAKA_LIBS@
+{debug} linker_options = -g -lnthreads-dbg
 pragma_prefix = nanos
 compiler_phase = libtlnanos.so
-@INSTRUMENTATION_PHASE@
+{instrument,!debug} @INSTRUMENTATION_PHASE@
 compiler_phase = libtlomp.so
 
 [imcc]
 language = C
 options =
+{debug} options = -g
+{instrument,!debug} options = --variable=instrument:1
 preprocessor_name = icc
 preprocessor_options = -E  @NANOS_INCLUDES@
+{instrument,!debug} preprocessor_options = @MINTAKA_INCLUDES@
 compiler_name = icc
 compiler_options =
 linker_name = icc
-linker_options = @NANOS_LIBS@
+linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@
+{!nanos-dev,!debug,!instrument} linker_options = -lnthreads 
+{nanos-dev,!debug,!instrument} linker_options = -lnthreads-dev 
+{instrument,!debug} linker_options = -lnthreads-prv @MINTAKA_LIBS@
+{debug} linker_options = -g -lnthreads-dbg
 pragma_prefix = nanos
 compiler_phase = libtlnanos.so
-@INSTRUMENTATION_PHASE@
+{instrument,!debug} @INSTRUMENTATION_PHASE@
+compiler_phase = libtlomp.so
+
+[imcxx]
+language = C++
+options =
+{debug} options = -g
+{instrument,!debug} options = --variable=instrument:1
+preprocessor_name = icc
+preprocessor_options = -E  @NANOS_INCLUDES@
+{instrument,!debug} preprocessor_options = @MINTAKA_INCLUDES@
+compiler_name = icc
+compiler_options =
+linker_name = icc
+linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@
+{!nanos-dev,!debug,!instrument} linker_options = -lnthreads 
+{nanos-dev,!debug,!instrument} linker_options = -lnthreads-dev 
+{instrument,!debug} linker_options = -lnthreads-prv @MINTAKA_LIBS@
+{debug} linker_options = -g -lnthreads-dbg
+pragma_prefix = nanos
+compiler_phase = libtlnanos.so
+{instrument,!debug} @INSTRUMENTATION_PHASE@
 compiler_phase = libtlomp.so

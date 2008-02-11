@@ -40,7 +40,6 @@ static FILE *openConfFile (char *filename);
 static int Parse (FILE * fp, int (*sfunc) (char *),
           int (*pfunc) (char * option, char * value, int num_flags, char** flags));
 static int Section (FILE * fp, int (*sfunc) (char *));
-static char *loc_realloc (char *p, int size);
 static int eatWhitespace (FILE * fp);
 static int Parameter (FILE * fp, int (*pfunc) (char * option, char * value, int num_flags, char** flags), int c);
 
@@ -214,6 +213,14 @@ Parameter (FILE * fp, int (*pfunc) (char * option, char * value, int num_flags, 
                     }
             }
         }
+    }
+    
+    // We allow this because it is more flexible when autogenerating the
+    // configure
+    if (p == '\n')
+    {
+        // Do not do anything but returning success
+        return 0;
     }
 
     char option_finished = 0;

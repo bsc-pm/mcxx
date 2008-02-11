@@ -122,7 +122,7 @@ then
    fi
 
    NANOS_INCLUDES="-D_OPENMP=200505 -I ${nanos4_include} -include nthreads.h -include omp.h -include intone.h"
-   NANOS_LIBS="-L${nanos4_lib} -lnthreads -Wl,-rpath,${nanos4_lib}"
+   NANOS_LIBS="${nanos4_lib}"
 
    TLEXTENSIONS="${TLEXTENSIONS} nanos omp"
    ENABLED_PROFILES="${ENABLED_PROFILES} NANOS"
