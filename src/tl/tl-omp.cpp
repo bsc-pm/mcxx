@@ -318,6 +318,11 @@ namespace TL
            ParallelSectionsFunctor parallel_sections_functor(on_parallel_sections_pre, 
                    on_parallel_sections_post, global_data_sharing);
            depth_traverse.add_predicate(parallel_sections_construct, parallel_sections_functor);
+           
+           // pragma omp sections
+           PredicateAST<OMP_IS_SECTIONS_CONSTRUCT> sections_construct;
+           SectionsFunctor sections_functor(on_sections_pre, on_sections_post, global_data_sharing);
+           depth_traverse.add_predicate(sections_construct, sections_functor);
 
            // #pragma omp section
            PredicateAST<OMP_IS_SECTION_CONSTRUCT> section_construct;

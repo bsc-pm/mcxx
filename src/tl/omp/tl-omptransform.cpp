@@ -90,7 +90,7 @@ namespace TL
 
             // #pragma omp sections
             on_sections_pre.connect(functor(&OpenMPTransform::sections_preorder, *this));
-            on_sections_pre.connect(functor(&OpenMPTransform::sections_postorder, *this));
+            on_sections_post.connect(functor(&OpenMPTransform::sections_postorder, *this));
 
             // #pragma omp section
             on_section_post.connect(functor(&OpenMPTransform::section_postorder, *this));
