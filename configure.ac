@@ -121,7 +121,7 @@ then
       AC_MSG_ERROR([OpenMP support requires '--with-nanos4=dir'. See --help.])
    fi
 
-   NANOS_INCLUDES="${nanos4_include}
+   NANOS_INCLUDES="${nanos4_include}"
    NANOS_LIBS="${nanos4_lib}"
 
    TLEXTENSIONS="${TLEXTENSIONS} nanos omp"
