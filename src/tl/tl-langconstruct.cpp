@@ -38,6 +38,7 @@ namespace TL
     const PredicateAST<LANG_IS_PARAMETER_DECLARATION> ParameterDeclaration::predicate;
     const PredicateAST<LANG_IS_DECLARED_NAME> DeclaredEntity::predicate;
     const PredicateAST<LANG_IS_DECLARATION> Declaration::predicate;
+    const PredicateAST<LANG_IS_GCC_ATTRIBUTE> GCCAttributeSpecifier::predicate;
 
     std::string LangConstruct::prettyprint()
     {
@@ -1281,5 +1282,60 @@ namespace TL
     {
         AST_t declaration = _ref.get_attribute(LANG_PARAMETER_DECLARATION_NAME);
         return IdExpression(declaration, _scope_link);
+    }
+
+    ObjectList<GCCAttribute> GCCAttributeSpecifier::get_gcc_attribute_list()
+    {
+        ObjectList<GCCAttribute> result;
+
+        AST_t list = _ref.get_attribute(LANG_GCC_ATTRIBUTE_LIST);
+
+        if (list.is_valid())
+        {
+            ASTIterator iterator = list.get_list_iterator();
+
+            iterator.rewind();
+            while (!iterator.end())
+            {
+                GCCAttribute current_attribute(iterator.item(), _scope_link);
+                result.append(current_attribute);
+
+                iterator.next();
+            }
+        }
+
+        return result;
+    }
+
+    std::string GCCAttribute::get_name()
+    {
+        AST_t tree = _ref.get_attribute(LANG_GCC_ATTRIBUTE_VALUE_NAME);
+        return _ref.get_text();
+    }
+
+    bool GCCAttribute::has_argument_list() const
+    {
+        AST_t tree = _ref.get_attribute(LANG_GCC_ATTRIBUTE_VALUE_ARGS);
+
+        return tree.is_valid();
+    }
+
+    ObjectList<Expression> GCCAttribute::get_argument_list()
+    {
+        ObjectList<Expression> result;
+        AST_t tree = _ref.get_attribute(LANG_GCC_ATTRIBUTE_VALUE_ARGS);
+
+        ASTIterator it = tree.get_list_iterator();
+        it.rewind();
+
+        while (!it.end())
+        {
+            Expression expr(it.item(), _scope_link);
+            result.append(expr);
+
+            it.next();
+        }
+
+        return result;
     }
 }

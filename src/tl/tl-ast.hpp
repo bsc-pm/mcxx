@@ -73,13 +73,8 @@ namespace TL
             void reset();
 
             //! Rewind the iterator to the beginning of the whole list.
-            /*! This is different to reset in that reset justs restores
-             * the iterator to the position where this ASTIterator was
-             * created while rewind can go before that position if it
-             * was no the beginning of the whole list.
-             *
-             * If the wrapped list element was the beginning, this
-             * is equivalent to reset.
+            /*!
+             * Use this function before traversing a list
              */
             void rewind();
 
@@ -428,6 +423,12 @@ namespace TL
              */
             AST_t get_enclosing_function_definition_declaration();
 
+            //! States whether this tree has a related text
+            bool has_text() const;
+
+            //! Returns the text of this tree
+            std::string get_text();
+            
             //! Replaces the text item of the tree.
             void replace_text(const std::string& str);
 

@@ -30,6 +30,8 @@
 #include "cxx-typeutils.h"
 #include "cxx-ambiguity.h"
 #include "cxx-exprtype.h"
+#include "cxx-attrnames.h"
+#include "cxx-tltype.h"
 
 /*
  * Very specific bits of gcc support should be in this file
@@ -71,7 +73,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
     {
         if (ASTSon0(expression_list) != NULL)
         {
-            running_error("%s: error: attribute 'vector_size' only allows one argument",
+            running_error("%s: error: attribute 'mode' only allows one argument",
                     ast_location(expression_list));
         }
 
@@ -222,9 +224,12 @@ void gather_gcc_attribute(AST attribute,
         decl_context_t decl_context)
 {
     ERROR_CONDITION(ASTType(attribute) != AST_GCC_ATTRIBUTE,
-            "This cannot be NULL", 0);
+            "Invalid node", 0);
     AST iter;
     AST list = ASTSon0(attribute);
+
+    ASTAttrSetValueType(attribute, LANG_IS_GCC_ATTRIBUTE, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(attribute, LANG_GCC_ATTRIBUTE_LIST, tl_type_t, tl_ast(list));
 
     if (list != NULL)
     {
@@ -232,21 +237,14 @@ void gather_gcc_attribute(AST attribute,
         {
             AST gcc_attribute_expr = ASTSon1(iter);
 
-            AST expression_list = ASTSon2(gcc_attribute_expr);
-            // if (expression_list != NULL)
-            // {
-            //     AST iter2;
-
-            //     for_each_element(expression_list, iter2)
-            //     {
-            //         AST expression = ASTSon1(iter2);
-            //         check_for_expression(expression, decl_context);
-            //     }
-            // }
-
-            // This might be gperf-ectionated
             AST identif = ASTSon0(gcc_attribute_expr);
+            AST expression_list = ASTSon2(gcc_attribute_expr);
+
             const char *attribute_name = ASTText(identif);
+
+            ASTAttrSetValueType(gcc_attribute_expr, LANG_IS_GCC_ATTRIBUTE_VALUE, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(gcc_attribute_expr, LANG_GCC_ATTRIBUTE_VALUE_NAME, tl_type_t, tl_ast(identif));
+            ASTAttrSetValueType(gcc_attribute_expr, LANG_GCC_ATTRIBUTE_VALUE_ARGS, tl_type_t, tl_ast(expression_list));
 
             gather_one_gcc_attribute(attribute_name, expression_list, gather_info, decl_context);
         }

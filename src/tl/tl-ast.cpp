@@ -904,4 +904,16 @@ namespace TL
         }
 
     }
+    
+    //! States whether this tree has a related text
+    bool AST_t::has_text() const
+    {
+        return ASTText(_ast) != NULL;
+    }
+
+    //! Returns the text of this tree
+    std::string AST_t::get_text()
+    {
+        return ASTText(_ast);
+    }
 }

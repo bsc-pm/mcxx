@@ -768,6 +768,62 @@ namespace TL
 
             static const PredicateAST<LANG_IS_DECLARATION> predicate;
     };
+
+    //! This class wraps a particular attribute in a GCCAttributeSpecifier
+    /*!
+     * This class wraps one of the attributes in a gcc attribute specifier,
+     * the last wrapped in GCCAttributeSpecifier.
+     *
+     * @code
+     * void f() __attribute__((a, b));
+     * @end code
+     *
+     * Will have two GCCAttribute, one for 'a' and one for 'b'
+     */
+    class GCCAttribute : LangConstruct
+    {
+        private:
+        public:
+            GCCAttribute(AST_t ast, ScopeLink scope_link)
+                : LangConstruct(ast, scope_link)
+            {
+            }
+
+            //! Returns the name of the attribute
+            std::string get_name();
+
+            //! States whether it has a list of expressions related to it
+            bool has_argument_list() const;
+
+            //! Returns the attribute argument list
+            ObjectList<Expression> get_argument_list();
+    };
+
+    //! This class wraps a gcc attribute specifier
+    /*!
+     * This class wraps a gcc attribute specifier like the one below.
+     *
+     * @code
+     * void f() __attribute__((a, b));
+     * @end code
+     *
+     * Will have two GCCAttribute, one for 'a' and one for 'b'
+     */
+    class GCCAttributeSpecifier : LangConstruct
+    {
+        private:
+        public:
+            GCCAttributeSpecifier(AST_t ast, ScopeLink scope_link)
+                : LangConstruct(ast, scope_link)
+            {
+            }
+
+            //! Returns the list of attributes specified in this
+            //attribute-specifier
+            ObjectList<GCCAttribute> get_gcc_attribute_list();
+
+            static const PredicateAST<LANG_IS_GCC_ATTRIBUTE> predicate;
+    };
     
     //! @}
 
