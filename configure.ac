@@ -121,7 +121,7 @@ then
       AC_MSG_ERROR([OpenMP support requires '--with-nanos4=dir'. See --help.])
    fi
 
-   NANOS_INCLUDES="-D_OPENMP=200505 -I ${nanos4_include} -include nthreads.h -include omp.h -include intone.h"
+   NANOS_INCLUDES="${nanos4_include}
    NANOS_LIBS="${nanos4_lib}"
 
    TLEXTENSIONS="${TLEXTENSIONS} nanos omp"
@@ -200,8 +200,8 @@ then
 
    TLEXTENSIONS="${TLEXTENSIONS} instr instr_pthreads"
 
-   MINTAKA_INCLUDES="-I ${mintaka_include} -include mintaka.h"
-   MINTAKA_LIBS="-L ${mintaka_lib} -lmintaka"
+   MINTAKA_INCLUDES="${mintaka_include}"
+   MINTAKA_LIBS="${mintaka_lib}"
 
    INSTRUMENTATION_PHASE="compiler_phase = libtlinstr.so"
 fi
