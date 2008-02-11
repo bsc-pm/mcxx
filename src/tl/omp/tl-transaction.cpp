@@ -579,10 +579,12 @@ namespace TL
                     {
                         bool wrapped_function = false;
                         Expression called_expression = expression.get_called_expression();
+                        // FIXME: Improve this
                         if (called_expression.is_id_expression()
                                 && called_expression.prettyprint() != "__builtin_va_start"
                                 && called_expression.prettyprint() != "__builtin_va_arg"
-                                && called_expression.prettyprint() != "__builtin_va_end")
+                                && called_expression.prettyprint() != "__builtin_va_end"
+                                && called_expression.prettyprint() != "retrytx")
                         {
                             // A simple function call of the form "f(...)"
                             Source replace_call, replace_args;
@@ -1326,6 +1328,16 @@ namespace TL
             retry_src
                 << "retrytx(__t);"
                 ;
+
+            /* KLUDGE: We need __t to exist */
+            {
+                Source fake_t;
+                
+                fake_t  << "Transaction *__t;"; 
+
+                fake_t.parse_statement(retry_directive.get_ast(),
+                        retry_directive.get_scope_link());
+            }
 
             AST_t retry_tree = retry_src.parse_statement(retry_directive.get_ast(),
                     retry_directive.get_scope_link());
