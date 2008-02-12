@@ -122,7 +122,14 @@ namespace TL
                                 return;
                             }
 
-                            address_expression << "(&" << expression.prettyprint() << ")";
+                            if (type.is_array())
+                            {
+                                address_expression << "(&" << expression.prettyprint() << ")";
+                            }
+                            else
+                            {
+                                address_expression << expression.prettyprint();
+                            }
                         }
                     }
                     // *e1 => READ(e1)
@@ -136,18 +143,38 @@ namespace TL
                     // e1[e2] => READ(e1)[READ(e2)]
                     else if (expression.is_array_subscript())
                     {
+                        Type expr_type = expression.get_type();
+                        if (expr_type.is_reference())
+                        {
+                            expr_type = expr_type.references_to();
+                        }
+
                         replace_expression(expression.get_subscripted_expression());
                         replace_expression(expression.get_subscript_expression());
 
-                        address_expression
-                            << "("
-                            << "&(("
-                            << expression.get_subscripted_expression().prettyprint()
-                            << ")"
-                            << "["
-                            << expression.get_subscript_expression().prettyprint()
-                            << "]))"
-                            ;
+                        if (!expr_type.is_array())
+                        {
+                            address_expression
+                                << "("
+                                << "&(("
+                                << expression.get_subscripted_expression().prettyprint()
+                                << ")"
+                                << "["
+                                << expression.get_subscript_expression().prettyprint()
+                                << "]))"
+                                ;
+                        }
+                        else
+                        {
+                            address_expression
+                                << "(("
+                                << expression.get_subscripted_expression().prettyprint()
+                                << ")"
+                                << "["
+                                << expression.get_subscript_expression().prettyprint()
+                                << "])"
+                                ;
+                        }
                     }
                     // e1->e2 => (&(READ(e1)->e2))
                     else if (expression.is_pointer_member_access())
@@ -342,24 +369,55 @@ namespace TL
                     else if (expression.is_unary_operation()
                             && expression.get_operation_kind() == Expression::DERREFERENCE)
                     {
+                        Type expr_type = expression.get_type();
+                        if (expr_type.is_reference())
+                        {
+                            expr_type = expr_type.references_to();
+                        }
+
                         replace_expression(expression.get_unary_operand());
 
-                        read_expression
-                            << "*__stm_read(__t, "
-                            << expression.get_unary_operand().prettyprint()
-                            << ")"
-                            ;
+                        if (!expr_type.is_array())
+                        {
+                            read_expression
+                                << "*__stm_read(__t, "
+                                << expression.get_unary_operand().prettyprint()
+                                << ")"
+                                ;
+                        }
+                        else
+                        {
+                            read_expression
+                                << expression.get_unary_operand().prettyprint()
+                                ;
+                        }
                     }
                     // e1[e2] => *__stm_read(__t, READ(e1)[READ(e2)])
                     else if (expression.is_array_subscript())
                     {
+                        Type expr_type = expression.get_type();
+                        if (expr_type.is_reference())
+                        {
+                            expr_type = expr_type.references_to();
+                        }
+
                         get_address(expression);
-                        read_expression
-                            << "(*__stm_read(__t, "
-                            << expression.prettyprint()
-                            << ")"
-                            << ")"
-                            ;
+
+                        if (!expr_type.is_array())
+                        {
+                            read_expression
+                                << "(*__stm_read(__t, "
+                                << expression.prettyprint()
+                                << ")"
+                                << ")"
+                                ;
+                        }
+                        else
+                        {
+                            read_expression
+                                << expression.prettyprint()
+                                ;
+                        }
                     }
                     // e1->e2 => *__stm_read(__t, (READ(e1))->e2)
                     else if (expression.is_pointer_member_access())
