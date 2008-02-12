@@ -122,7 +122,7 @@ namespace TL
                                 return;
                             }
 
-                            if (type.is_array())
+                            if (!type.is_array())
                             {
                                 address_expression << "(&" << expression.prettyprint() << ")";
                             }
