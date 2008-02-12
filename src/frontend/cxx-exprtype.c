@@ -4857,8 +4857,6 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
         {
             scope_entry_t* entry = it->entry;
             type_t* type = no_ref(advance_over_typedefs(entry->type_information));
-
-
             if (entry->kind != SK_FUNCTION
                     && (entry->kind != SK_VARIABLE
                         || (!is_class_type(type)
@@ -4947,6 +4945,39 @@ static char check_for_koenig_expression(AST called_expression, AST arguments, de
             argument_types,
             decl_context,
             called_expression);
+
+    entry_list = filter_symbol_kind_set(entry_list,
+            STATIC_ARRAY_LENGTH(filter_function_names), filter_function_names);
+
+    // Filter the list again
+    if (entry_list != NULL)
+    {
+        // If no member is found we still have to perform member
+        scope_entry_list_t* it = entry_list;
+        while (it != NULL)
+        {
+            scope_entry_t* entry = it->entry;
+            type_t* type = no_ref(advance_over_typedefs(entry->type_information));
+            if (entry->kind != SK_FUNCTION
+                    && (entry->kind != SK_VARIABLE
+                        || (!is_class_type(type)
+                            && !is_pointer_to_function_type(type)
+                            && !is_dependent_type(type, decl_context)))
+                    && (entry->kind != SK_TEMPLATE
+                        || !is_function_type(
+                            named_type_get_symbol(template_type_get_primary_type(type))
+                            ->type_information)))
+            {
+                // This can't be called!
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "EXPRTYPE: Trying to call something not callable (it is not a function, template function or object)\n");
+                }
+                return 0;
+            }
+            it = it->next;
+        }
+    }
 
     // Set these attributes
     ASTAttrSetValueType(called_expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));

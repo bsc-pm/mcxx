@@ -120,7 +120,7 @@ static void instantiate_specialized_template(type_t* selected_template,
 
                         // The template type has to be used here
                         injected_type->kind = SK_TEMPLATE;
-                        // Template-names are named-types, so we need the actual underlying type
+                        // These are always kept as named types in the compiler
                         injected_type->type_information = 
                             named_type_get_symbol(current_deduction->deduced_parameters[0]->type)->type_information;
                         break;

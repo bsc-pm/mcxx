@@ -306,6 +306,8 @@ struct simple_type_tag {
     template_parameter_list_t* template_parameter_list;
     // This is a STK_USER_DEFINED
     type_t* primary_specialization;
+    // Sometimes we need the original symbol defining this template type
+    scope_entry_t* related_template_symbol;
 
     // Specialized types
     int num_specialized_types;
@@ -1081,6 +1083,18 @@ char is_template_type(type_t* t)
             && t->type->kind == STK_TEMPLATE_TYPE);
 }
 
+void template_type_set_related_symbol(type_t* t, scope_entry_t* entry)
+{
+    ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
+    t->type->related_template_symbol = entry;
+}
+
+scope_entry_t* template_type_get_related_symbol(type_t* t)
+{
+    ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
+    return t->type->related_template_symbol;
+}
+
 int template_type_get_nesting_level(type_t* t)
 {
     ERROR_CONDITION(!is_template_type(t), "This is not a template type", 0);
@@ -1264,7 +1278,8 @@ type_t* template_type_get_specialized_type(type_t* t,
     type_t* specialized_type = NULL;
     scope_entry_t* primary_symbol = named_type_get_symbol(t->type->primary_specialization);
 
-    if (primary_symbol->kind == SK_CLASS)
+    if (primary_symbol->kind == SK_CLASS
+            || primary_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
     {
         specialized_type = get_new_class_type(primary_symbol->decl_context);
     }
@@ -1289,7 +1304,8 @@ type_t* template_type_get_specialized_type(type_t* t,
     // State the class type nature
     if (specialized_type->kind == SK_CLASS)
     {
-        if (has_dependent_template_arguments(template_argument_list, decl_context))
+        if (has_dependent_template_arguments(template_argument_list, decl_context)
+                || primary_symbol->entity_specs.is_template_parameter)
         {
             class_type_set_incomplete_dependent(specialized_type);
             class_type_set_is_dependent(specialized_type, 1);
@@ -5225,7 +5241,7 @@ static char* get_builtin_type_name(type_t* type_info, decl_context_t decl_contex
             {
                 // FIXME - this should be much more informative
                 char c[256] = { 0 };
-                snprintf(c, 255, "<template type - specialization = %p>", 
+                snprintf(c, 255, "<template type %p>", 
                         type_info);
                 result = strappend(result, c);
                 break;

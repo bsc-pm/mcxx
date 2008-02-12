@@ -2093,9 +2093,6 @@ type_t* update_type(template_argument_list_t* given_template_args,
         if (entry->kind == SK_TEMPLATE_TYPE_PARAMETER
                 || entry->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
         {
-            // template_argument_t* argument = 
-            //     given_template_args->argument_list[entry->entity_specs.template_parameter_position];
-
             template_argument_t* argument =
                 get_corresponding_template_argument(given_template_args, 
                         entry->entity_specs.template_parameter_position,
@@ -2152,6 +2149,25 @@ type_t* update_type(template_argument_list_t* given_template_args,
             // {
             // };
 
+            type_t* template_type = 
+                template_specialized_type_get_related_template_type(entry->type_information);
+            scope_entry_t* template_related_symbol =
+                template_type_get_related_symbol(template_type);
+
+            if (template_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+            {
+                // This specialized template type comes after a template template parameter,
+                // so we have to update it using the template arguments
+                // We need to update this template type too
+                template_argument_t* argument =
+                    get_corresponding_template_argument(given_template_args, 
+                            template_related_symbol->entity_specs.template_parameter_position,
+                            template_related_symbol->entity_specs.template_parameter_nesting);
+
+                // Now update the template_type with the new one
+                template_type = named_type_get_symbol(argument->type)->type_information;
+            }
+
             cv_qualifier_t cv_qualif = CV_NONE;
 
             advance_over_typedefs_with_cv_qualif(orig_type, &cv_qualif);
@@ -2184,8 +2200,6 @@ type_t* update_type(template_argument_list_t* given_template_args,
             }
             
             // Once the types have been updated, reask for a specialization
-            type_t* template_type = 
-                template_specialized_type_get_related_template_type(entry->type_information);
 
             DEBUG_CODE()
             {

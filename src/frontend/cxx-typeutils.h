@@ -158,6 +158,8 @@ void enum_type_add_enumerator(struct type_tag* t, struct scope_entry_tag* entry)
 
 struct type_tag* unnamed_class_enum_type_set_name(struct type_tag* t, struct scope_entry_tag* entry);
 
+void template_type_set_related_symbol(struct type_tag* t, struct scope_entry_tag*);
+
 /* Query functions: is-a-kind-of-type functions */
 char is_builtin_type(struct type_tag* t);
 char is_fundamental_type(struct type_tag* t);
@@ -343,6 +345,8 @@ int template_type_get_num_specializations(struct type_tag* t);
 struct type_tag* template_type_get_specialization_num(struct type_tag* t, int i);
 
 int template_type_get_nesting_level(struct type_tag* t);
+
+scope_entry_t* template_type_get_related_symbol(struct type_tag* t);
 
 void template_type_update_template_parameters(struct type_tag* t, template_parameter_list_t*);
 

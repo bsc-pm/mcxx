@@ -1274,6 +1274,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                             ASTText(class_symbol), decl_context,
                             ASTLine(class_symbol),
                             ASTFileName(class_symbol));
+                    template_type_set_related_symbol(new_class->type_information, new_class);
+
                     new_class->line = ASTLine(a);
                     new_class->file = ASTFileName(a);
 
@@ -2372,6 +2374,8 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                                 ASTText(class_head_identifier), decl_context,
                                 ASTLine(class_head_identifier), 
                                 ASTFileName(class_head_identifier));
+
+                        template_type_set_related_symbol(class_entry->type_information, class_entry);
 
                         // Now update class_entry to be a real class
                         class_entry = named_type_get_symbol(
@@ -4008,6 +4012,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry = new_symbol(decl_context, decl_context.current_scope, function_name);
             new_entry->type_information = template_type;
 
+            template_type_set_related_symbol(template_type, new_entry);
+
             // This is a template, not a plain function
             new_entry->kind = SK_TEMPLATE;
             new_entry->line = ASTLine(declarator_id);
@@ -4774,6 +4780,8 @@ static void build_scope_template_template_parameter(AST a,
     new_entry->type_information = get_new_template_type(template_params_context.template_parameters, 
             /* primary_type = */ primary_type, template_parameter_name, template_context,
             new_entry->line, new_entry->file);
+
+    template_type_set_related_symbol(new_entry->type_information, new_entry);
 
     template_parameters->entry = new_entry;
 

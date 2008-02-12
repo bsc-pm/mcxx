@@ -90,7 +90,9 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
 
             type_t* previous_deduced_type = previous_deduced_parameter->type;
 
-            if (equivalent_types(previous_deduced_type, t2, decl_context))
+            if (equivalent_types(previous_deduced_type, 
+                        current_deduced_parameter.type, 
+                        decl_context))
             {
                 found = 1;
                 break;
@@ -148,7 +150,9 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
 
             type_t* previous_deduced_type = previous_deduced_parameter->type;
 
-            if (equivalent_types(previous_deduced_type, t2, decl_context))
+            if (equivalent_types(previous_deduced_type, 
+                        current_deduced_parameter.type,
+                        decl_context))
             {
                 found = 1;
                 break;
@@ -186,17 +190,99 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
             && is_non_derived_type(t2))
     {
         // Unificate template types
+        //
+        // A<_T> <- A<int>
+        //
+        // or
+        //
+        // _V<_T> <- A<int>
+        //
         if (is_named_class_type(t1)
                 && is_named_class_type(t2)
                 && is_template_specialized_type(get_actual_class_type(t1))
                 && is_template_specialized_type(get_actual_class_type(t2))
-                && (template_specialized_type_get_related_template_type(get_actual_class_type(t1)) == 
-                    template_specialized_type_get_related_template_type(get_actual_class_type(t2))))
+                && ((template_specialized_type_get_related_template_type(get_actual_class_type(t1)) 
+                        == template_specialized_type_get_related_template_type(get_actual_class_type(t2)))
+                    // Allow t1 to be a template-template parameter
+                    || (template_type_get_related_symbol(
+                            template_specialized_type_get_related_template_type(
+                                get_actual_class_type(t1)))->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+                    )
+           )
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "TYPEUNIF: Class type is a specialized one, unificating arguments\n");
             }
+
+            scope_entry_t* t1_related_symbol =
+                template_type_get_related_symbol(
+                        template_specialized_type_get_related_template_type(
+                            get_actual_class_type(t1)));
+
+            // If t1 is a template-template parameter it means that t1 can be
+            // unified to the template type of t2
+            if (t1_related_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUNIF: This is a template-id built after a template-template parameter\n");
+                }
+
+                // Now we request an unification item for this template-parameter
+                deduction_t* deduction = get_unification_item_template_parameter(
+                        deduction_set, t1_related_symbol);
+
+                deduced_parameter_t current_deduced_parameter;
+                memset(&current_deduced_parameter, 0, sizeof(current_deduced_parameter));
+
+                scope_entry_t* t2_related_symbol = 
+                    template_type_get_related_symbol(
+                            template_specialized_type_get_related_template_type(
+                                get_actual_class_type(t2)));
+
+                current_deduced_parameter.type = get_user_defined_type(t2_related_symbol);
+
+                char found = 0;
+                int i;
+                for (i = 0; i < deduction->num_deduced_parameters; i++)
+                {
+                    deduced_parameter_t* previous_deduced_parameter = deduction->deduced_parameters[i];
+
+                    type_t* previous_deduced_type = previous_deduced_parameter->type;
+
+                    if (equivalent_types(previous_deduced_type, 
+                                current_deduced_parameter.type,
+                                decl_context))
+                    {
+                        found = 1;
+                        break;
+                    }
+                }
+
+                if (!found)
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEUNIF: Type deduction for template template parameter (%s) (%d,%d) with value '%s' \n", 
+                                t1_related_symbol->symbol_name,
+                                t1_related_symbol->entity_specs.template_parameter_nesting,
+                                t1_related_symbol->entity_specs.template_parameter_position,
+                                print_declarator(current_deduced_parameter.type, decl_context));
+                    }
+
+                    deduced_parameter_t* new_deduced_parameter = calloc(1, sizeof(*new_deduced_parameter));
+                    *new_deduced_parameter = current_deduced_parameter;
+
+                    P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
+                }
+
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUNIF: Unificating template template parameter against template-name in a template-id\n");
+                }
+            }
+
             template_argument_list_t *targ_list_1 
                 = template_specialized_type_get_template_arguments(get_actual_class_type(t1));
             template_argument_list_t *targ_list_2 
@@ -341,6 +427,9 @@ deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction
 {
     int position = s1->entity_specs.template_parameter_position;
     int nesting = s1->entity_specs.template_parameter_nesting;
+
+    ERROR_CONDITION(!s1->entity_specs.is_template_parameter,
+            "This must be a template-parameter", 0);
 
     DEBUG_CODE()
     {
