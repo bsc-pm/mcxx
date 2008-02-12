@@ -3,11 +3,11 @@
 language = C++
 options =
 preprocessor_name = g++
-preprocessor_options = -E -include new @NANOS_INCLUDES@
+preprocessor_options = -E -include new -I@NANOS_INCLUDES@ -D_OPENMP=200505 -include nthreads.h -include omp.h -include intone.h 
 compiler_name = g++
 compiler_options = 
 linker_name = g++
-linker_options = @NANOS_LIBS@ 
+linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@
 pragma_prefix = nanos
 compiler_phase = libtlnanos.so
 compiler_phase = libtlomp.so
