@@ -785,8 +785,20 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
                 if ((argument[2] == '\0') // -M
                         || ((argument[2] == 'P') && (argument[3] == '\0')) // -MP
                         || ((argument[2] == 'D') && (argument[3] == '\0')) // -MD
+                        || ((argument[2] == 'M') && (argument[3] == '\0')) // -MM
                         || ((argument[2] == 'M') && (argument[3] == 'D') && (argument[4] == '\0'))) // -MMD
                 {
+                    // -M and -MM are special since they disable 
+                    // mcxx parsing, native compilation and linking
+                    // since it is more of a preprocessor 'affair' 
+                    if (strcmp(&argument[1], "M") == 0
+                            || strcmp(&argument[1], "MM") == 0)
+                    {
+                        CURRENT_CONFIGURATION(do_not_parse) = 1;
+                        CURRENT_CONFIGURATION(do_not_compile) = 1;
+                        CURRENT_CONFIGURATION(do_not_link) = 1;
+                    }
+
                     add_parameter_all_toolchain(argument);
                     (*should_advance)++;
                 }
@@ -1374,43 +1386,45 @@ static void compile_every_translation_unit(void)
             }
         }
 
-        CXX_LANGUAGE()
+        if (!CURRENT_CONFIGURATION(do_not_parse))
         {
-            if (mcxx_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+            CXX_LANGUAGE()
             {
-                running_error("Could not open file '%s'", parsed_filename);
+                if (mcxx_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+                {
+                    running_error("Could not open file '%s'", parsed_filename);
+                }
             }
-        }
 
-        C_LANGUAGE()
-        {
-            if (mc99_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+            C_LANGUAGE()
             {
-                running_error("Could not open file '%s'", parsed_filename);
+                if (mc99_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+                {
+                    running_error("Could not open file '%s'", parsed_filename);
+                }
             }
+
+            parse_translation_unit(translation_unit, parsed_filename);
+
+            compiler_phases_execution(translation_unit, parsed_filename);
+
+            if (CURRENT_CONFIGURATION(debug_options.print_ast))
+            {
+                fprintf(stderr, "Printing AST in graphviz format\n");
+
+                ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+            }
+
+            if (CURRENT_CONFIGURATION(debug_options.print_scope))
+            {
+                fprintf(stderr, "============ SYMBOL TABLE ===============\n");
+                print_scope(translation_unit->global_decl_context);
+                fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
+            }
+
+            char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);
+            native_compilation(translation_unit, prettyprinted_filename);
         }
-
-        parse_translation_unit(translation_unit, parsed_filename);
-
-        compiler_phases_execution(translation_unit, parsed_filename);
-
-        if (CURRENT_CONFIGURATION(debug_options.print_ast))
-        {
-            fprintf(stderr, "Printing AST in graphviz format\n");
-
-            ast_dump_graphviz(translation_unit->parsed_tree, stdout);
-        }
-
-        if (CURRENT_CONFIGURATION(debug_options.print_scope))
-        {
-            fprintf(stderr, "============ SYMBOL TABLE ===============\n");
-            print_scope(translation_unit->global_decl_context);
-            fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
-        }
-
-        char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);
-
-        native_compilation(translation_unit, prettyprinted_filename);
 
         file_process->already_compiled = 1;
     }
@@ -1559,7 +1573,7 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit,
     return output_filename;
 }
 
-static char* preprocess_file(translation_unit_t* translation_unit UNUSED_PARAMETER, 
+static char* preprocess_file(translation_unit_t* translation_unit,
         char* input_filename)
 {
     int num_arguments = count_null_ended_array((void**)CURRENT_CONFIGURATION(preprocessor_options));
@@ -1572,10 +1586,31 @@ static char* preprocess_file(translation_unit_t* translation_unit UNUSED_PARAMET
         preprocessor_options[i] = CURRENT_CONFIGURATION(preprocessor_options[i]);
     }
 
-    temporal_file_t preprocessed_file = new_temporal_file();
+    char *preprocessed_filename = NULL;
+
+    if (!CURRENT_CONFIGURATION(do_not_parse))
+    {
+        temporal_file_t preprocessed_file = new_temporal_file();
+        preprocessed_filename = preprocessed_file->name;
+    }
+    else
+    {
+        // If we are not going to parse use the original output filename
+        if (translation_unit->output_filename == NULL)
+        {
+            // Send it to stdout
+            preprocessed_filename = strdup("-");
+        }
+        else
+        {
+            // Or to the specified output
+            preprocessed_filename = translation_unit->output_filename;
+        }
+    }
+
     preprocessor_options[i] = strdup("-o"); 
     i++;
-    preprocessor_options[i] = preprocessed_file->name;
+    preprocessor_options[i] = preprocessed_filename;
     i++;
     preprocessor_options[i] = input_filename;
 
@@ -1584,7 +1619,7 @@ static char* preprocess_file(translation_unit_t* translation_unit UNUSED_PARAMET
 
     if (result_preprocess == 0)
     {
-        return preprocessed_file->name;
+        return preprocessed_filename;
     }
     else
     {

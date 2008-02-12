@@ -205,9 +205,10 @@ typedef struct compilation_configuration_tag
     char verbose;
     char keep_files;
     char check_dates;
-    char do_not_link;
-    char do_not_compile;
+    char do_not_parse;
     char do_not_prettyprint;
+    char do_not_compile;
+    char do_not_link;
     char disable_openmp;
 	char force_language;
 
