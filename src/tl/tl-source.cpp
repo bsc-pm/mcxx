@@ -103,12 +103,38 @@ namespace TL
         else
         {
             // Eases debugging
+            bool inside_string = false;
+            char current_string = ' ';
             for (unsigned int i = 0; i < temp_result.size(); i++)
             {
                 char c = temp_result[i];
 
+                if (!inside_string)
+                {
+                    if (c == '\'' 
+                            || c == '"')
+                    {
+                        inside_string = true;
+                        current_string = c;
+                    }
+                }
+                else
+                {
+                    if (c == current_string
+                            && ((i == 1 && temp_result[i-1] != '\\')
+                                || (i > 1 && 
+                                    (temp_result[i-1] != '\\'
+                                     || temp_result[i-2] == '\\')))
+                       )
+                    {
+                        inside_string = false;
+                    }
+                }
+
                 result += c;
-                if (c == ';' || c == '{' || c == '}')
+                // Do not split if we are inside a string!
+                if (!inside_string
+                        && (c == ';' || c == '{' || c == '}'))
                 {
                     result += '\n';
                 }
