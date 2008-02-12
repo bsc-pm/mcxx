@@ -579,23 +579,29 @@ namespace TL
                     {
                         bool wrapped_function = false;
                         Expression called_expression = expression.get_called_expression();
-                        // FIXME: Improve this
+                        std::string called_function_name = called_expression.prettyprint();
+
                         if (called_expression.is_id_expression()
-                                && called_expression.prettyprint() != "__builtin_va_start"
-                                && called_expression.prettyprint() != "__builtin_va_arg"
-                                && called_expression.prettyprint() != "__builtin_va_end"
-                                && called_expression.prettyprint() != "retrytx")
+                                && called_function_name != "__builtin_va_start"
+                                && called_function_name != "__builtin_va_arg"
+                                && called_function_name != "__builtin_va_end"
+                                && called_function_name != "retrytx")
                         {
                             // A simple function call of the form "f(...)"
                             Source replace_call, replace_args;
 
                             bool must_replace_function_call = 
-                                _stm_function_filtering.wrapped(called_expression.prettyprint())
-                                || _stm_function_filtering.replaced(called_expression.prettyprint());
+                                _stm_function_filtering.wrapped(called_function_name)
+                                || _stm_function_filtering.replaced(called_function_name)
+                                || called_function_name == "malloc"
+                                || called_function_name == "realloc"
+                                || called_function_name == "calloc"
+                                || called_function_name == "free";
+
 
                             if (!must_replace_function_call)
                             {
-                                _log_file << "'" << called_expression.prettyprint() << "' at " << 
+                                _log_file << "'" << called_function_name << "' at " << 
                                     called_expression.get_ast().get_locus() << std::endl;
                             }
 
@@ -604,7 +610,7 @@ namespace TL
 
                             if (!function_symbol.is_valid())
                             {
-                                std::cerr << "STM Warning: Unknown function name '" << called_expression.prettyprint() 
+                                std::cerr << "STM Warning: Unknown function name '" << called_function_name
                                     << "' at '" << called_expression.get_ast().get_locus() << "'. Skipping" << std::endl;
                                 return;
                             }
@@ -613,6 +619,22 @@ namespace TL
 
                             if (must_replace_function_call && function_type.is_function())
                             {
+                                Source stm_called_function_name;
+
+                                if (called_function_name == "malloc"
+                                        || called_function_name == "realloc"
+                                        || called_function_name == "calloc"
+                                        || called_function_name == "free")
+                                {
+                                    stm_called_function_name << "__tm_" << called_function_name 
+                                        ;
+                                }
+                                else
+                                {
+                                    stm_called_function_name << "__stm_" << called_function_name << "_"
+                                        ;
+                                }
+
                                 wrapped_function = true;
 
                                 Type return_type = function_type.returns();
@@ -623,8 +645,7 @@ namespace TL
                                 declare_header 
                                     << return_type.get_declaration(function_def.get_scope(), "") 
                                     << " "
-                                    << "__stm_" << called_expression.prettyprint() << "_"
-                                    << "(" << stm_parameters << ");"
+                                    << stm_called_function_name << "(" << stm_parameters << ");"
                                     ;
 
                                 stm_parameters.append_with_separator("Transaction *", ",");
@@ -656,7 +677,7 @@ namespace TL
                                 expression.get_ast().prepend_sibling_function(stm_function_decl);
 
                                 replace_call
-                                    << "__stm_" << called_expression.prettyprint() << "_"
+                                    << stm_called_function_name
                                     << "(" << replace_args << ")"
                                     ;
                             }
@@ -665,19 +686,19 @@ namespace TL
                                 replace_expression(called_expression);
 
                                 replace_call
-                                    << "(" << called_expression.prettyprint() << ")"
+                                    << called_function_name
                                     << "(" << replace_args << ")"
                                     ;
                             }
 
+                            // If it is a pointer better we do not add
+                            // transaction and hope it be a safe function :)
                             if (must_replace_function_call 
-                                    // If it is a pointer better we do not add
-                                    // transaction and hope it be a safe function :)
-                                && !function_type.is_pointer())
-                                {
-                                    // Add a transaction argument
-                                    replace_args.append_with_separator("__t", ",");
-                                }
+                                    && !function_type.is_pointer())
+                            {
+                                // Add a transaction argument
+                                replace_args.append_with_separator("__t", ",");
+                            }
 
                             ObjectList<Expression> arguments = expression.get_argument_list();
                             for (ObjectList<Expression>::iterator it = arguments.begin();
