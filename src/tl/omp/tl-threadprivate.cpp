@@ -101,7 +101,7 @@ namespace TL
                     //  then, write it down
                     if (it2->has_initializer())
                     {
-                        remade_declaration << it2->get_initializer().prettyprint()
+                        remade_declaration << " = " << it2->get_initializer().prettyprint()
                             ;
                     }
 
