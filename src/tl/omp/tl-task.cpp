@@ -656,9 +656,20 @@ namespace TL
             Source increment_task_level;
             Source decrement_task_level;
 
-            if (Nanos4::Version::version >= 400)
+            if (Nanos4::Version::is_family("trunk") &&
+		Nanos4::Version::version >= 400)
             {
                 increment_task_level <<  "nth_inc_task_level();"
+                    ;
+                decrement_task_level <<  "nth_dec_task_level();"
+                    ;
+            }
+            if (Nanos4::Version::is_family("aduran") &&
+		Nanos4::Version::version >= 401)
+            {
+		increment_task_level <<  "nth_task_ctx_t nth_ctx;"
+		    ;
+                increment_task_level <<  "nth_inc_task_level(&nth_ctx);"
                     ;
                 decrement_task_level <<  "nth_dec_task_level();"
                     ;
