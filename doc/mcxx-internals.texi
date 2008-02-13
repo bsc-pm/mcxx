@@ -933,6 +933,7 @@ struct simple_type_tag @{
 
     template_parameter_list_t* template_parameter_list;
     type_t* primary_specialization;
+    scope_entry_t* related_template_symbol;
 
     int num_specialized_types;
     type_t** specialized_types;
@@ -1200,6 +1201,20 @@ the declaration. Thus the first one, @code{f-a-1}, will have as primary
 specialization type @code{void (_T)} and the second one, @code{f-b-1},
 @code{void (_T*)}.
 
+@item related_template_symbol
+
+If this type kind is @code{STK_TEMPLATE_TYPE} then this field contains the symbol that 
+caused this type to exist. This is only needed to implement the following case.
+
+@example
+template <template <typename> class _V, typename _T> // (A-3)
+struct A<_V<_T> > @{ @};
+@end example
+
+During unification we need to know whether @code{_V<_T>} is a @code{template-id} built
+after a template template parameter (like in this case, symbol @code{_V}) or not (like
+@code{A<int>}, built after template-class @code{A}).
+
 @item num_specialized_types
 @itemx specialized_types
 
@@ -1434,8 +1449,8 @@ The symbol of the base class
 @item access_specifier
 States the kind of inheritance. This field is currently unused.
 @item is_virtual
-Holds if the inheritance is virtual. This field is used when performing class scope lookup.
-in the inheritance hierarchy
+Holds if the inheritance is virtual. This field is used when performing class
+scope lookup in the inheritance hierarchy
 @end table
 
 @node Dependent typenames
@@ -1902,6 +1917,7 @@ typedef struct entity_specifiers_tag
     struct AST_tag* bitfield_expr;
     decl_context_t bitfield_expr_context;
 
+    char after_typedef;
 @} entity_specifiers_t;
 @end example
 @tindex entity_specifiers_t
@@ -1992,7 +2008,36 @@ Correct code will hold that the first non-null element implies the remaining ele
 @itemx bitfield_expr_context
 States whether the symbol is a bitfield. Field @code{bitfield_expr} contains
 the expression of the bitfield width and its context is found in @code{bitfield_expr_context}.
+
+@item after_typedef
+For a symbol of kind @code{SK_CLASS}, this field is @code{1} only if the symbol was created because
+it is the name of an unnamed class, like the following example.
+
+@example
+typedef struct 
+@{ 
+  int a; 
+@} A;
+typedef struct 
+@{ 
+  float b; 
+@} B, C;
+struct D 
+@{ 
+  char c; 
+@};
+@end example
 @end table
+
+Both @code{A} and @code{B} will be symbols of kind @code{SK_CLASS} but they
+would be indistinguishable in C++ from the symbol @code{D} of kind
+@code{SK_CLASS}, as well. This field allows such distinction when is 
+needed. Symbol @code{C} is a @code{SK_TYPEDEF} because now the defined
+type is named, so it is an alias for the type of @code{B}.
+
+Note that in C, above example would have created symbols @code{A} and
+@code{B} of kind @code{SK_CLASS}, @code{C} of kind @code{SK_TYPEDEF} 
+and @code{struct D} (instead of plain @code{D}) of kind @code{SK_CLASS}.
 
 @node Types and symbols
 @section Types and symbols

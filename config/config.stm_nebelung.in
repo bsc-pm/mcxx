@@ -6,7 +6,7 @@ preprocessor_options = -E -I@NANOS_INCLUDES@ -D_OPENMP=200505 -include nthreads.
 compiler_name = g++
 compiler_options = 
 linker_name = g++
-linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@ @NEBELUNG_LIBS@
+linker_options = -L@NANOS_LIBS@ -lnthreads-pfm -Wl,-rpath,@NANOS_LIBS@ @NEBELUNG_LIBS@
 pragma_prefix = nanos
 compiler_phase = libtlstmfunc.so
 compiler_phase = libtlnanos.so
