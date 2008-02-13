@@ -309,7 +309,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_AND_ASSIGNMENT, binary_operator_handler, "&="),
     NODE_HANDLER(AST_OR_ASSIGNMENT, binary_operator_handler, "|="),
     NODE_HANDLER(AST_XOR_ASSIGNMENT, binary_operator_handler, "^="),
-    NODE_HANDLER(AST_MOD_ASSIGNMENT, binary_operator_handler, "+="),
+    NODE_HANDLER(AST_MOD_ASSIGNMENT, binary_operator_handler, "%="),
     NODE_HANDLER(AST_THROW_EXPRESSION, throw_expression_handler, NULL),
     NODE_HANDLER(AST_LOGICAL_OR, binary_operator_handler, "||"),
     NODE_HANDLER(AST_LOGICAL_AND, binary_operator_handler, "&&"),
