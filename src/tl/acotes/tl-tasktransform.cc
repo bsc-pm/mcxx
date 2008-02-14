@@ -187,9 +187,9 @@ namespace TL { namespace Acotes {
                 << "{"
                 <<   "trace_instance_begin();"
                 <<   generateVariable(task)
-                <<   generateInitializer(task)
                 <<   generateCopyInAcquire(task)
                 <<   generateSharedAcquire(task)
+                <<   generateInitializer(task)
                 <<   generateControlAcquire(task)
                 <<   "while (task_allopen())"
                 <<   generateForReplicate(task)
@@ -218,8 +218,8 @@ namespace TL { namespace Acotes {
                 ;
         }
         ss      <<   "}"
-                <<   generateCopyOutAcquire(task)
                 <<   generateFinalizer(task)
+                <<   generateCopyOutAcquire(task)
                 <<   "task_close();"
                 <<   "trace_instance_end();"
                 << "}"

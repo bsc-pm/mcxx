@@ -221,7 +221,7 @@ namespace TL { namespace Acotes {
         
         for (unsigned i= 0; i < portVector.size() && !result; i++) {
             Port* port= portVector.at(i);
-            if (port->isOutput() && port->getVariable()->hasSymbol(symbol)) {
+            if (port->isOutput() && port->hasVariable() && port->getVariable()->hasSymbol(symbol)) {
                 result= port;
             }
         }
@@ -338,6 +338,9 @@ namespace TL { namespace Acotes {
         if (!parentVariable) {
             if (hasParent() && getParent()->isImplicitTask()) {
                 parentVariable= Variable::create(getParent(), port->getVariable()->getSymbol());
+                if (port->getVariable()->isArray()) {
+                    parentVariable->setArray(port->getVariable()->getElementCount());
+                }
             } else {
                 AcotesLogger::error(port->getTask()->getConstruct())
                        << " variable '" << port->getVariable()->getName() << "'"
@@ -352,6 +355,15 @@ namespace TL { namespace Acotes {
                        << port->getTask()->getParent()->getConstruct()->prettyprint()
                         << std::endl
                         ;
+            }
+        } else {
+            if (parentVariable->getElementCount() != port->getVariable()->getElementCount()) {
+                AcotesLogger::error(port->getTask()->getConstruct())
+                       << " variable '" << port->getVariable()->getName() << "'"
+                       << " defined as diferent size in the parent task"
+                        << std::endl
+                       << port->getTask()->getConstruct()->prettyprint()
+                        << std::endl;
             }
         }
         if (!isBypass(port->getVariable()) && !getParent()->isBypass(parentVariable)) {

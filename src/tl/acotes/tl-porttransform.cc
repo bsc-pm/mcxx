@@ -217,10 +217,11 @@ namespace TL { namespace Acotes {
                 ;
         if (port->hasVariable()) {
             ss  << ", " << VariableTransform::generateSizeof(variable)
+                << ", " << VariableTransform::generateElementCount(variable)
                 << ", " << port->getPeekWindow() << "+" << VariableTransform::generateElementCount(variable)
                 ;
         } else {
-            ss  << ", 0, 0";
+            ss  << ", 0, 1, 0";
         }
         
         if (port->hasPeek()) {
@@ -257,9 +258,10 @@ namespace TL { namespace Acotes {
         if (variable) {
             ss  << ", " << VariableTransform::generateSizeof(variable)
                 << ", " << VariableTransform::generateElementCount(variable)
+                << ", " << VariableTransform::generateElementCount(variable)
                 ;
         } else {
-            ss  << ", 0, 0";
+            ss  << ", 0, 1, 0";
         }
 
         ss      << ");";

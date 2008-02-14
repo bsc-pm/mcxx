@@ -264,7 +264,7 @@ namespace TL { namespace Acotes {
                     << "symbol: '" << getVariable()->getName() << "'"
                     << std::endl;
         }
-    }
+}
     
     
     
