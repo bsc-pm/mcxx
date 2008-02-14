@@ -494,9 +494,8 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 ASTAttrSetValueType(expression, LANG_IS_LITERAL, tl_type_t, tl_bool(1));
                 ASTAttrSetValueType(expression, LANG_IS_STRING_LITERAL, tl_type_t, tl_bool(1));
 
-                ast_set_expression_type(expression, string_literal_type(expression));
-                // This is a lvalue surprisingly because it can't be bound to a
-                // reference in C++
+                ast_set_expression_type(expression, 
+                        lvalue_ref(string_literal_type(expression)));
                 ast_set_expression_is_lvalue(expression, 1);
 
                 result = 1;
@@ -1382,29 +1381,208 @@ type_t *floating_literal_type(AST expr)
         return get_double_type();
 }
 
-type_t *string_literal_type(AST expr)
+#define IS_OCTA_CHAR(_c) \
+(((_c) >= '0') \
+  && ((_c) <= '7'))
+
+#define IS_HEXA_CHAR(_c) \
+((((_c) >= '0') \
+  && ((_c) <= '9')) \
+ || (((_c) >= 'a') \
+     && ((_c) <= 'f')) \
+ || (((_c) >= 'A') \
+     && ((_c) <= 'F')))
+
+static void compute_length_of_literal_string(AST expr, int* length, char *is_wchar)
 {
+    // We allow the parser not to mix the two strings
     const char *literal = ASTText(expr);
 
-    type_t* result = NULL;
+    int num_of_strings_seen = 0;
 
-    if (*literal != 'L')
+    *is_wchar = 0;
+    // At least the NULL is there
+    *length = 1;
+
+    // Beginning of a string
+    while (*literal != '\0')
     {
-        result = get_pointer_type(get_char_type());
-        CXX_LANGUAGE()
+        // C99 says that "a" L"b" is L"ab"
+        // C++ says it is undefined
+        // 
+        // Do it like C99
+        if ((*literal) == 'L')
         {
-            result = get_literal_string_type();
+            (*is_wchar) = 1;
+            // Advance L
+            literal++;
         }
+
+        ERROR_CONDITION(*literal != '"',
+                "Lexic problem in the literal '%s'\n", ASTText(expr));
+
+        // Advance the "
+        literal++;
+
+        // Advance till we find a '"'
+        while (*literal != '"')
+        {
+            switch (*literal)
+            {
+                case '\\' :
+                    {
+                        // This is used for diagnostics
+                        const char *beginning_of_escape = literal;
+
+                        // A scape sequence
+                        literal++;
+                        switch (*literal)
+                        {
+                            case '\'' :
+                            case '"' :
+                            case '?' :
+                            case '\\' :
+                            case 'a' :
+                            case 'b' :
+                            case 'f' :
+                            case 'n' :
+                            case 'r' :
+                            case 't' :
+                            case 'v' :
+                            case 'e' : // GNU Extension: A synonim for \033
+                                {
+                                    break;
+                                }
+                            case '0' :
+                            case '1' :
+                            case '2' :
+                            case '3' :
+                            case '4' :
+                            case '5' :
+                            case '6' :
+                            case '7' :
+                                // This is an octal
+                                // Advance up to three octals
+                                {
+                                    // Advance this octal, so the remaining figures are 2
+                                    literal++;
+                                    int remaining_figures = 2;
+
+                                    while (IS_OCTA_CHAR(*literal)
+                                            && (remaining_figures > 0))
+                                    {
+                                        remaining_figures--;
+                                        literal++;
+                                    }
+                                    // Go backwards because we have already
+                                    // advanced the last element of this
+                                    // escaped entity
+                                    literal--;
+                                    break;
+                                }
+                            case 'x' :
+                                // This is an hexadecimal
+                                {
+                                    // Jump 'x' itself
+                                    literal++;
+
+                                    while (IS_HEXA_CHAR(*literal))
+                                    {
+                                            literal++;
+                                    }
+
+                                    // Go backwards because we have already
+                                    // advanced the last element of this
+                                    // escaped entity
+                                    literal--;
+                                    break;
+                                }
+                            case 'u' :
+                            case 'U' :
+                                {
+                                    // Universal names are followed by 4 hexa digits
+                                    // or 8 depending on 'u' or 'U' respectively
+                                    char remaining_hexa_digits = 8;
+                                    if (*literal == 'u')
+                                    {
+                                        remaining_hexa_digits = 4;
+                                    }
+
+                                    // Advance 'u'/'U'
+                                    literal++;
+
+                                    while (remaining_hexa_digits > 0)
+                                    {
+                                        if (!IS_HEXA_CHAR(*literal))
+                                        {
+                                            char ill_literal[11];
+                                            strncpy(ill_literal, beginning_of_escape, /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
+                                            running_error("Invalid universal literal name '%s' at  '%s:%d", 
+                                                    ill_literal, ast_get_filename(expr),
+                                                    ast_get_line(expr));
+                                        }
+
+                                        literal++;
+                                        remaining_hexa_digits--;
+                                    }
+
+                                    // Go backwards one
+                                    literal--;
+                                }
+                            default:
+                                {
+                                    char c[3];
+
+                                    strncpy(c, beginning_of_escape, 3);
+                                    running_error("Invalid escape sequence '%s' at '%s:%d'\n",
+                                            c,
+                                            ast_get_filename(expr),
+                                            ast_get_line(expr));
+                                }
+                        }
+                        break;
+                    }
+                default:
+                    {
+                        // Do nothing with this one
+                        break;
+                    }
+            }
+
+            // The idea is that we will loop as many as real characters so the body
+            // of this loop should ensure that \034 is just like one character (so
+            // it advances literal so (*literal) becomes '4').
+            literal++;
+
+            (*length)++;
+        }
+
+        // Advance the "
+        literal++;
+
+        num_of_strings_seen++;
     }
-    else
+
+    ERROR_CONDITION(num_of_strings_seen == 0, "Empty string literal '%s'\n", ASTText(expr));
+}
+
+type_t *string_literal_type(AST expr)
+{
+    char is_wchar = 0;
+    int length = 0;
+
+    compute_length_of_literal_string(expr, &length, &is_wchar);
+
+    DEBUG_CODE()
     {
-        // L"a"
-        result = get_pointer_type(get_wchar_t_type());
-        CXX_LANGUAGE()
-        {
-            result = get_cv_qualified_type(result, CV_CONST);
-        }
+        fprintf(stderr, "[EXPRTYPE] String literal %s type is '%s[%d]'\n",
+                ASTText(expr),
+                !is_wchar ? "char" : "wchar_t",
+                length);
     }
+
+    type_t* result = get_literal_string_type(length, is_wchar);
+
     return result;
 }
 

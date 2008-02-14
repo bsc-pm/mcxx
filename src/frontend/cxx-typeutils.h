@@ -99,7 +99,7 @@ struct type_tag* get_zero_type(void);
 
 struct type_tag* get_pseudo_destructor_call_type(void);
 
-struct type_tag* get_literal_string_type(void);
+type_t* get_literal_string_type(int length, char is_wchar);
 
 struct type_tag* get_throw_expr_type(void);
 

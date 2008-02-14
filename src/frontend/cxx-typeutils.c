@@ -361,6 +361,9 @@ struct array_tag
 
     // The type of the array elements
     struct type_tag* element_type;
+
+    // Is literal string type ?
+    char is_literal_string;
 } array_info_t;
 
 // Vector type
@@ -5733,6 +5736,9 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     //   array-to-pointer
     //   function-to-pointer
     //
+    // We remember whether the original was a string because we will lose this
+    // information when we drop the array type
+    char is_literal_string = is_literal_string_type(no_ref(orig));
     if (is_array_type(no_ref(orig)))
     {
         DEBUG_CODE()
@@ -5741,32 +5747,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         }
         (*result).conv[0] = SCI_ARRAY_TO_POINTER;
         orig = get_pointer_type(array_type_get_element_type(no_ref(orig)));
-    }
-    else if (is_literal_string_type(orig)
-            && is_pointer_type(dest)
-            && is_char_type(pointer_type_get_pointee_type(dest)))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying (faked) string literal conversion to pointer of char\n");
-        }
-        // String literals do not have their own specific type,
-        // they are just special 'const char*' that can be
-        // distinguished from other plain 'const char*'.
-        //
-        // Technically speaking type of "aa" is 'const char[3]' but we assume
-        // directly that they are 'const char*'. In C 'const' qualifier is not
-        // applied. If we did that the previous conversion would have applied
-        //
-        // Standard says that "a" when converted to 'char*' must be assumed to
-        // be two conversions, a first array-to-pointer ('const char[N]' to
-        // 'const char *') and a second qualification-conversion ('const char*'
-        // to 'char*'). I think this is the only case where we can drop a
-        // 'const' in C++ in a standard conversion)
-        //
-        // So first register the array to pointer conversion
-        (*result).conv[0] = SCI_ARRAY_TO_POINTER;
-        // Later on we will register the qualification conversion
     }
     else if (is_function_type(no_ref(orig)))
     {
@@ -6066,7 +6046,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             orig = dest;
         }
         else if (IS_CXX_LANGUAGE
-                && is_literal_string_type(orig)
+                && is_literal_string // We saved this before dropping the array
                 && is_pointer_type(dest)
                 && is_char_type(pointer_type_get_pointee_type(dest))
                 && !is_const_qualified_type(pointer_type_get_pointee_type(dest)))
@@ -6075,8 +6055,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             {
                 fprintf(stderr, "SCS: Applying deprecated string literal conversion to 'char*'\n");
             }
-            // See a comment in lvalue-transformations related to literal strings
-            // ans how are they handled in C++
             (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             orig = dest;
         }
@@ -6229,27 +6207,88 @@ char is_zero_type(type_t* t)
             && (t == _zero_type));
 }
 
-static type_t* _literal_string = NULL;
+static int _literal_string_set_num_elements = 0;
+static type_t** _literal_string_set = NULL;
 
-type_t* get_literal_string_type(void)
+static int _literal_wide_string_set_num_elements = 0;
+static type_t** _literal_wide_string_set = NULL;
+
+type_t* get_literal_string_type(int length, char is_wchar)
 {
-    if (_literal_string == NULL)
-    {
-        type_t* char_type = get_simple_type();
-        char_type->type->kind = STK_BUILTIN_TYPE;
-        char_type->type->builtin_type = BT_CHAR;
+    int *max_length = &_literal_string_set_num_elements;
+    type_t*** set = &_literal_string_set;
 
-        char_type = get_cv_qualified_type(char_type, CV_CONST);
-        _literal_string = get_pointer_type(char_type);
+    if (is_wchar)
+    {
+        max_length = &_literal_wide_string_set_num_elements;
+        set = &_literal_wide_string_set;
     }
 
-    return _literal_string;
+    // Allocate exponentially
+    while ((*max_length) < length)
+    {
+        // The +1 is important or we will never grow
+        int previous_max_length = (*max_length);
+        (*max_length) = (*max_length) * 2 + 1;
+
+        // +1 is because of zero position (never used)
+        (*set) = realloc(*set, sizeof(type_t*) * ((*max_length) + 1));
+
+        // Clear new slots
+        int i;
+        for (i = previous_max_length; i <= (*max_length); i++)
+        {
+            (*set)[i] = NULL;
+        }
+    }
+
+    if ((*set)[length] == NULL)
+    {
+
+        /* Create an array type */
+        char c[256];
+        snprintf(c, 255, "%d", length); c[255] = '\0';
+        AST integer_literal = ASTLeaf(AST_DECIMAL_LITERAL, 0, c);
+
+        type_t* char_type = NULL;
+
+        if (!is_wchar)
+        {
+            char_type = get_char_type();
+        }
+        else
+        {
+            char_type = get_wchar_t_type();
+        }
+        CXX_LANGUAGE()
+        {
+            char_type = get_cv_qualified_type(char_type, CV_CONST);
+        }
+
+        /*
+         * FIXME - We need a decl context here 
+         */
+        decl_context_t decl_context;
+        memset(&decl_context, 0, sizeof(decl_context));
+
+        type_t* array_type = get_array_type(char_type, integer_literal, decl_context);
+
+        if (!is_wchar)
+        {
+            // Set that this array is actually a string literal
+            array_type->array->is_literal_string = 1;
+        }
+
+        (*set)[length] = array_type;
+    }
+
+    return (*set)[length];
 }
 
 char is_literal_string_type(type_t* t)
 {
-    return ((_literal_string != NULL)
-            && (t == _literal_string));
+    return (is_array_type(t)
+            && t->array->is_literal_string);
 }
 
 static type_t* _ellipsis_type = NULL;
