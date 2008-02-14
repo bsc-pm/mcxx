@@ -1549,9 +1549,10 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                     }
             }
 
-            // The idea is that we will loop as many as real characters so the body
-            // of this loop should ensure that \034 is just like one character (so
-            // it advances literal so (*literal) becomes '4').
+            // Make 'literal' always point to the last thing that represents one char/wchar_t
+            //
+            // For instance, for "\n", "\002", "\uabcd" and "\U98abcdef" (*literal) should
+            // be 'n', '2', 'd' and 'f' respectively.
             literal++;
 
             (*length)++;

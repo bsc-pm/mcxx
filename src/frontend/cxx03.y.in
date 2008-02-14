@@ -4646,7 +4646,7 @@ string_literal : STRING_LITERAL
 	const char* str2 = $2.token_text;
 	char* text = calloc(strlen(str1) + strlen(str2) + 1, sizeof(*text));
 
-	// Append the second string
+	strcat(text, str1);
 	strcat(text, str2);
 
 	$$ = ASTLeaf(AST_STRING_LITERAL, ASTLine($1), text);
