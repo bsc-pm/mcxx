@@ -6289,6 +6289,7 @@ type_t* get_literal_string_type(int length, char is_wchar)
 
 char is_literal_string_type(type_t* t)
 {
+    t = advance_over_typedefs(t);
     return (is_array_type(t)
             && t->array->is_literal_string);
 }

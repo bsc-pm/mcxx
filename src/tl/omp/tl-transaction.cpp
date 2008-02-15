@@ -762,8 +762,8 @@ namespace TL
 
                                 AST_t stm_function_decl = 
                                     declare_header.parse_declaration(
-                                            expression.get_ast(), 
-                                            expression.get_scope_link());
+                                            function_def.get_ast(), 
+                                            function_def.get_scope_link());
 
                                 expression.get_ast().prepend_sibling_function(stm_function_decl);
 
