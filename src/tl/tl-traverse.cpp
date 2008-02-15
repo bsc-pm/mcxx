@@ -54,6 +54,9 @@ namespace TL
     {
         bool recurse = true;
 
+        if (!node.is_valid())
+            return;
+
         std::vector<TraverseFunctor*> matching_functors;
 
         for (std::vector<CondAction>::iterator it = _pred_list.begin();

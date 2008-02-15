@@ -389,7 +389,7 @@ namespace TL
         Source src;
         src << str;
 
-        AST_t tree = src.parse_expression(sym.get_scope());
+        AST_t tree = src.parse_expression(sym.get_scope(), Source::DO_NOT_CHECK_EXPRESSION);
 
         _repl_map[sym] = tree;
     }
