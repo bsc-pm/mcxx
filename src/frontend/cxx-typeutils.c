@@ -3676,7 +3676,6 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
             || !is_class_type(possible_derived), 
             "This function expects class types", 0);
 
-
     if (is_named_class_type(possible_base))
     {
         possible_base = named_type_get_symbol(possible_base)->type_information;
@@ -5782,248 +5781,251 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
      * FIXME, enums can be promoted to different underlying types
      * Now assuming that all are int
      */
-    if (is_signed_int_type(dest)
-            && (is_char_type(orig)
-                || is_signed_char_type(orig)
-                || is_unsigned_char_type(orig)
-                || is_signed_short_int_type(orig)
-                || is_unsigned_short_int_type(orig)
-                || is_wchar_t_type(orig)
-                || is_enumerated_type(orig)
-                || is_bool_type(orig)))
+    if (!equivalent_types(dest, orig, decl_context))
     {
-        DEBUG_CODE()
+        if (is_signed_int_type(dest)
+                && (is_char_type(orig)
+                    || is_signed_char_type(orig)
+                    || is_unsigned_char_type(orig)
+                    || is_signed_short_int_type(orig)
+                    || is_unsigned_short_int_type(orig)
+                    || is_wchar_t_type(orig)
+                    || is_enumerated_type(orig)
+                    || is_bool_type(orig)))
         {
-            fprintf(stderr, "SCS: Applying integral promotion\n");
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying integral promotion\n");
+            }
+            (*result).conv[1] = SCI_INTEGRAL_PROMOTION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
         }
-        (*result).conv[1] = SCI_INTEGRAL_PROMOTION;
-        // Direct conversion, no cv-qualifiers can be involved here
-        orig = dest;
-    }
-    /* vector type - this is to make overload mechanism happy */
-    else if (is_vector_type(dest)
-            && is_vector_type(orig)
-            && vector_types_can_be_converted(dest, orig, decl_context)
-            && !equivalent_types(vector_type_get_element_type(dest),
-                vector_type_get_element_type(orig), decl_context))
-    {
-        DEBUG_CODE()
+        /* vector type - this is to make overload mechanism happy */
+        else if (is_vector_type(dest)
+                && is_vector_type(orig)
+                && vector_types_can_be_converted(dest, orig, decl_context)
+                && !equivalent_types(vector_type_get_element_type(dest),
+                    vector_type_get_element_type(orig), decl_context))
         {
-            fprintf(stderr, "SCS: Applying vectorial integral promotion\n");
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying vectorial integral promotion\n");
+            }
+            (*result).conv[1] = SCI_VECTOR_INTEGRAL_PROMOTION;
+            orig = dest;
         }
-        (*result).conv[1] = SCI_VECTOR_INTEGRAL_PROMOTION;
-        orig = dest;
-    }
-    else if ((is_double_type(dest)
-                && is_float_type(orig))
-            || (is_long_double_type(dest)
-                && (is_float_type(orig) 
-                    || is_double_type(orig))))
-    {
-        DEBUG_CODE()
+        else if ((is_double_type(dest)
+                    && is_float_type(orig))
+                || (is_long_double_type(dest)
+                    && (is_float_type(orig) 
+                        || is_double_type(orig))))
         {
-            fprintf(stderr, "SCS: Applying floating promotion\n");
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying floating promotion\n");
+            }
+            (*result).conv[1] = SCI_FLOATING_PROMOTION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
         }
-        (*result).conv[1] = SCI_FLOATING_PROMOTION;
-        // Direct conversion, no cv-qualifiers can be involved here
-        orig = dest;
-    }
-    else if (is_integer_type(dest)
-            && (is_integer_type(orig) 
-                || is_enumerated_type(orig))
+        else if (is_integer_type(dest)
+                && (is_integer_type(orig) 
+                    || is_enumerated_type(orig))
                 && !is_bool_type(dest)
                 && !is_bool_type(orig)
                 && !equivalent_types(dest, orig, decl_context))
-    {
-        DEBUG_CODE()
         {
-            fprintf(stderr, "SCS: Applying integral conversion\n");
-        }
-        (*result).conv[1] = SCI_INTEGRAL_CONVERSION;
-        // Direct conversion, no cv-qualifiers can be involved here
-        orig = dest;
-    }
-    else if (is_integer_type(dest)
-            && is_bool_type(orig))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying integral conversion from bool\n");
-        }
-        (*result).conv[1] = SCI_INTEGRAL_CONVERSION;
-        // Direct conversion, no cv-qualifiers can be involved here
-        orig = dest;
-    }
-    else if (is_floating_type(dest)
-            && is_floating_type(orig))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying floating conversion\n");
-        }
-        (*result).conv[1] = SCI_FLOATING_CONVERSION;
-        // Direct conversion, no cv-qualifiers can be involved here
-        orig = dest;
-    }
-    else if ((is_floating_type(orig)
-                && is_integer_type(dest))
-            || (is_integer_type(orig)
-                && is_floating_type(dest)))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying floating-integral conversion\n");
-        }
-        (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
-        // Direct conversion, no cv-qualifiers can be involved here
-        orig = dest;
-    }
-    else if (is_floating_type(dest)
-            && is_bool_type(orig))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying floating-integral conversion from bool\n");
-        }
-        (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
-        // Direct conversion, no cv-qualifiers can be involved here
-        orig = dest;
-    }
-    else if (IS_CXX_LANGUAGE
-            && is_zero_type(orig)
-            && (is_pointer_type(dest)
-                || is_pointer_to_member_type(dest)))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying pointer-conversion from 0 to pointer\n");
-        }
-
-        (*result).conv[1] = SCI_POINTER_CONVERSION;
-        // Direct conversion, no cv-qualifiers can be involved here
-        orig = dest;
-    }
-    else if (is_pointer_type(orig)
-            && is_pointer_to_void_type(dest))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying pointer-conversion to void*\n");
-        }
-        (*result).conv[1] = SCI_POINTER_CONVERSION;
-
-        // We need to keep the cv-qualification of the original pointer
-        // e.g.: 'const int*' -> 'void*'
-        // will conver the original into 'const void*'
-        orig = get_pointer_type(
-                get_cv_qualified_type(get_void_type(),
-                    get_cv_qualifier(pointer_type_get_pointee_type(orig))));
-    }
-    else if (IS_C_LANGUAGE
-            && is_pointer_type(dest) 
-            && !is_pointer_to_void_type(dest)
-            && is_pointer_to_void_type(orig))
-    {
-        // The following is valid in C
-        //
-        // int* c = malloc(sizeof(int)); 
-        //
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying pointer-conversion from void* to another pointer type\n");
-        }
-
-        (*result).conv[1] = SCI_POINTER_CONVERSION;
-        dest = orig;
-    }
-    else if (IS_C_LANGUAGE
-            && is_integral_type(orig)
-            && is_pointer_type(dest))
-    {
-        // This should deserve a warning, but allow it anyway
-        // This is not valid in C++ but "tolerated" in C
-        //
-        // int * p;
-        //
-        // p = 3;
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying integer to pointer conversion.\n");
-            fprintf(stderr, "SCS: Warning: This conversion should be explicited by means of a cast!\n");
-        }
-
-        (*result).conv[1] = SCI_POINTER_CONVERSION;
-        dest = orig;
-    }
-    else if (IS_C_LANGUAGE
-            && is_integral_type(dest)
-            && is_pointer_type(orig))
-    {
-        // This should deserve a warning, but allow it anyway
-        // This is not valid in C++ but "tolerated" in C
-        //
-        // int a;
-        // int *p;
-        //
-        // a = *p;
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying pointer to integer conversion.\n");
-            fprintf(stderr, "SCS: Warning: This conversion should be explicited by means of a cast!\n");
-        }
-
-        (*result).conv[1] = SCI_POINTER_CONVERSION;
-        dest = orig;
-    }
-    else if (is_pointer_to_class_type(orig)
-            && is_pointer_to_class_type(dest)
-            && pointer_to_class_type_is_base(dest, orig))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying pointer conversion to pointer to base class\n");
-        }
-        (*result).conv[1] = SCI_POINTER_CONVERSION;
-        // Note that we make orig to be the dest class pointer, because we want
-        // to state qualification conversion later
-        orig = get_pointer_type(
-                get_unqualified_type(
-                    pointer_type_get_pointee_type(dest) // given 'cv1 A cv2*' this returns 'cv1 A'
-                    )  // This returns 'A', not cv-qualified
-                ); // This returns 'A*'
-    }
-    else if (is_pointer_to_member_type(orig)
-            && is_pointer_to_member_type(dest)
-            // Note: we will check that they are valid pointer-to-members later, in qualification conversion
-            // Note: inverted logic here, since pointers to member are compatible downwards the class hierarchy
-            && class_type_is_base(pointer_to_member_type_get_class_type(orig), pointer_to_member_type_get_class_type(dest)))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying pointer-to-member conversion to pointer-to-member of derived class\n");
-        }
-        (*result).conv[1] = SCI_POINTER_TO_MEMBER_CONVERSION;
-        // Note that orig is converted to an unqualified version of the dest type.
-        // Given dest as 'cv1 T (A::* cv2)' we will set orig to 'T (A::*)'
-        orig = get_pointer_to_member_type(
-                get_unqualified_type(pointer_type_get_pointee_type(dest)), // This gives us 'T'
-                pointer_to_member_type_get_class(dest) // This is 'A'
-                );
-    }
-    else if (is_bool_type(dest)
-            && !is_bool_type(orig)
-            && (is_integral_type(orig)
-                || is_enumerated_type(orig)
-                || is_pointer_type(orig)
-                || is_pointer_to_member_type(orig)))
-    {
-        DEBUG_CODE()
-        {
-            fprintf(stderr, "SCS: Applying boolean conversion\n");
-        }
-        (*result).conv[1] = SCI_BOOLEAN_CONVERSION;
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying integral conversion\n");
+            }
+            (*result).conv[1] = SCI_INTEGRAL_CONVERSION;
             // Direct conversion, no cv-qualifiers can be involved here
-        orig = dest;
+            orig = dest;
+        }
+        else if (is_integer_type(dest)
+                && is_bool_type(orig))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying integral conversion from bool\n");
+            }
+            (*result).conv[1] = SCI_INTEGRAL_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_floating_type(dest)
+                && is_floating_type(orig))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying floating conversion\n");
+            }
+            (*result).conv[1] = SCI_FLOATING_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if ((is_floating_type(orig)
+                    && is_integer_type(dest))
+                || (is_integer_type(orig)
+                    && is_floating_type(dest)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying floating-integral conversion\n");
+            }
+            (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_floating_type(dest)
+                && is_bool_type(orig))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying floating-integral conversion from bool\n");
+            }
+            (*result).conv[1] = SCI_FLOATING_INTEGRAL_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (IS_CXX_LANGUAGE
+                && is_zero_type(orig)
+                && (is_pointer_type(dest)
+                    || is_pointer_to_member_type(dest)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying pointer-conversion from 0 to pointer\n");
+            }
+
+            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
+        else if (is_pointer_type(orig)
+                && is_pointer_to_void_type(dest))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying pointer-conversion to void*\n");
+            }
+            (*result).conv[1] = SCI_POINTER_CONVERSION;
+
+            // We need to keep the cv-qualification of the original pointer
+            // e.g.: 'const int*' -> 'void*'
+            // will conver the original into 'const void*'
+            orig = get_pointer_type(
+                    get_cv_qualified_type(get_void_type(),
+                        get_cv_qualifier(pointer_type_get_pointee_type(orig))));
+        }
+        else if (IS_C_LANGUAGE
+                && is_pointer_type(dest) 
+                && !is_pointer_to_void_type(dest)
+                && is_pointer_to_void_type(orig))
+        {
+            // The following is valid in C
+            //
+            // int* c = malloc(sizeof(int)); 
+            //
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying pointer-conversion from void* to another pointer type\n");
+            }
+
+            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            dest = orig;
+        }
+        else if (IS_C_LANGUAGE
+                && is_integral_type(orig)
+                && is_pointer_type(dest))
+        {
+            // This should deserve a warning, but allow it anyway
+            // This is not valid in C++ but "tolerated" in C
+            //
+            // int * p;
+            //
+            // p = 3;
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying integer to pointer conversion.\n");
+                fprintf(stderr, "SCS: Warning: This conversion should be explicited by means of a cast!\n");
+            }
+
+            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            dest = orig;
+        }
+        else if (IS_C_LANGUAGE
+                && is_integral_type(dest)
+                && is_pointer_type(orig))
+        {
+            // This should deserve a warning, but allow it anyway
+            // This is not valid in C++ but "tolerated" in C
+            //
+            // int a;
+            // int *p;
+            //
+            // a = *p;
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying pointer to integer conversion.\n");
+                fprintf(stderr, "SCS: Warning: This conversion should be explicited by means of a cast!\n");
+            }
+
+            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            dest = orig;
+        }
+        else if (is_pointer_to_class_type(orig)
+                && is_pointer_to_class_type(dest)
+                && pointer_to_class_type_is_base(dest, orig))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying pointer conversion to pointer to base class\n");
+            }
+            (*result).conv[1] = SCI_POINTER_CONVERSION;
+            // Note that we make orig to be the dest class pointer, because we want
+            // to state qualification conversion later
+            orig = get_pointer_type(
+                    get_unqualified_type(
+                        pointer_type_get_pointee_type(dest) // given 'cv1 A cv2*' this returns 'cv1 A'
+                        )  // This returns 'A', not cv-qualified
+                    ); // This returns 'A*'
+        }
+        else if (is_pointer_to_member_type(orig)
+                && is_pointer_to_member_type(dest)
+                // Note: we will check that they are valid pointer-to-members later, in qualification conversion
+                // Note: inverted logic here, since pointers to member are compatible downwards the class hierarchy
+                && class_type_is_base(pointer_to_member_type_get_class_type(orig), pointer_to_member_type_get_class_type(dest)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying pointer-to-member conversion to pointer-to-member of derived class\n");
+            }
+            (*result).conv[1] = SCI_POINTER_TO_MEMBER_CONVERSION;
+            // Note that orig is converted to an unqualified version of the dest type.
+            // Given dest as 'cv1 T (A::* cv2)' we will set orig to 'T (A::*)'
+            orig = get_pointer_to_member_type(
+                    get_unqualified_type(pointer_type_get_pointee_type(dest)), // This gives us 'T'
+                    pointer_to_member_type_get_class(dest) // This is 'A'
+                    );
+        }
+        else if (is_bool_type(dest)
+                && !is_bool_type(orig)
+                && (is_integral_type(orig)
+                    || is_enumerated_type(orig)
+                    || is_pointer_type(orig)
+                    || is_pointer_to_member_type(orig)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying boolean conversion\n");
+            }
+            (*result).conv[1] = SCI_BOOLEAN_CONVERSION;
+            // Direct conversion, no cv-qualifiers can be involved here
+            orig = dest;
+        }
     }
 
     // Third kind of conversion
