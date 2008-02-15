@@ -45,6 +45,9 @@ namespace TL
 
             void get_loop_nest_rec(AST_t loop_nest_tree, ScopeLink sl, ObjectList<ForStatement> &result, int max_level)
             {
+                if (max_level <= 0)
+                    return;
+
                 Statement st(loop_nest_tree, sl);
 
                 if (st.is_compound_statement())
@@ -130,7 +133,7 @@ namespace TL
 
                     Source blocked_ivar = std::string("_blk_" + sym.get_name());
                     AST_t replacing_tree = blocked_ivar.parse_expression(induction_var.get_ast(), 
-                            induction_var.get_scope_link());
+                            induction_var.get_scope_link(), Source::DO_NOT_CHECK_EXPRESSION);
                     replace_blocked_exprs.add_replacement(sym, replacing_tree);
 
                     // Add the proper declaration of the blocked induction var
@@ -147,14 +150,50 @@ namespace TL
                         << "{"
                         ;
 
+                    Source normal_bound;
+                    normal_bound
+                        << "(" << for_statement.get_upper_bound().prettyprint() << ")"
+                        ;
+
+                    Source blocked_bound;
+                    blocked_bound
+                        << "(" 
+                        <<    induction_var.prettyprint() 
+                        <<    " + (" <<  for_statement.get_step().prettyprint() << ")*(" << current_block_factor << " - 1)"
+                        << ")"
+                        ;
+
+                    Source minimum_code;
+                    minimum_code
+                        << blocked_ivar << " <= ("
+                        << normal_bound << " < " << blocked_bound << "?"
+                        << normal_bound 
+                        << ":"
+                        << blocked_bound
+                        << ")"
+                        ;
+
+                    Source maximum_code;
+                    maximum_code
+                        << blocked_ivar << " >= ("
+                        << normal_bound << " > " << blocked_bound << "?"
+                        << normal_bound 
+                        << ":"
+                        << blocked_bound
+                        << ")"
+                        ;
+
+                    Source condition_check;
+                    // Why is this check always so awful ?
+                    condition_check
+                        << "(" << for_statement.get_step().prettyprint() << ") > 0 ? "
+                        << minimum_code << ":" << maximum_code
+                        ;
+
                     within_strip_loops
                         << "for(" << blocked_ivar << " = " << induction_var.prettyprint() << ";"
-                        <<        blocked_ivar << " <= " 
-                        << "min(" << for_statement.get_upper_bound().prettyprint() << "," 
-                        << induction_var.prettyprint() 
-                        << " + (" <<  for_statement.get_step().prettyprint() << ")*(" << current_block_factor << " - 1)"
-                        << ");"
-                        <<        blocked_ivar << "++" << ")"
+                        <<        condition_check << ";"
+                        <<        blocked_ivar << "+=" << for_statement.get_step().prettyprint() << ")"
                         << "{"
                         ;
 
@@ -195,12 +234,20 @@ namespace TL
 
                 int max_level = INT_MAX;
 
-                PragmaCustomClause max_depth = pragma_custom_construct.get_clause("max_depth");
-                if (max_depth.is_defined())
+                PragmaCustomClause max_level_clause = pragma_custom_construct.get_clause("max_nest");
+                if (max_level_clause.is_defined())
                 {
                     std::stringstream ss;
-                    ss << max_depth.get_arguments()[0];
+                    ss << max_level_clause.get_arguments()[0];
                     ss >> max_level;
+
+                    if (max_level <= 1)
+                    {
+                        std::cerr << "Warning: 'max_nest' clause at "
+                            << "'" << pragma_custom_construct.get_ast().get_locus() << "' must be 2 or greater. Assuming 2."
+                            << std::endl;
+                        max_level = 2;
+                    }
                 }
 
                 ObjectList<std::string> block_factors;
