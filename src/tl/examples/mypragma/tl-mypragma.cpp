@@ -24,7 +24,7 @@
 
 #include <vector>
 #include <stack>
-#include <cstdlib>
+#include <sstream>
 
 namespace TL
 {
@@ -74,7 +74,8 @@ namespace TL
                 return result;
             }
 
-            Source build_blocked_loop_nest(ObjectList<ForStatement> loop_nest)
+            Source build_blocked_loop_nest(ObjectList<ForStatement> loop_nest,
+                    ObjectList<std::string> &block_factors)
             {
                 Source result, additional_declarations, blocked_loops;
 
@@ -85,8 +86,6 @@ namespace TL
                     << "}"
                     ;
 
-                Source block_factor;
-                block_factor << 25;
 
                 Source by_strip_loops, 
                        within_strip_loops, 
@@ -102,10 +101,27 @@ namespace TL
 
                 ReplaceIdExpression replace_blocked_exprs;
 
+                std::string current_block_factor;
+                if (block_factors.empty())
+                {
+                    current_block_factor = "32";
+                }
+
+                ObjectList<std::string>::iterator block_factor_it = block_factors.begin();
                 for (ObjectList<ForStatement>::iterator it = loop_nest.begin();
                         it != loop_nest.end();
                         it++)
                 {
+                    if (block_factor_it != block_factors.end())
+                    {
+                        current_block_factor = *block_factor_it;
+                    }
+                    else
+                    {
+                        std::cerr << "Warning: Block factor for loop at '" << it->get_ast().get_locus() 
+                            << "' not specified. Using '" << current_block_factor << "' as block factor" << std::endl;
+                    }
+
                     ForStatement &for_statement(*it);
                     IdExpression induction_var = for_statement.get_induction_variable();
 
@@ -126,7 +142,7 @@ namespace TL
                     by_strip_loops
                         << "for(" << for_statement.get_iterating_init().prettyprint() /* << ";" */
                         <<        for_statement.get_iterating_condition().prettyprint() << ";"
-                        <<        induction_var.prettyprint() << " += ((" << block_factor << ")*(" << for_statement.get_step().prettyprint() << "))"
+                        <<        induction_var.prettyprint() << " += ((" << current_block_factor << ")*(" << for_statement.get_step().prettyprint() << "))"
                         <<    ")"
                         << "{"
                         ;
@@ -134,10 +150,10 @@ namespace TL
                     within_strip_loops
                         << "for(" << blocked_ivar << " = " << induction_var.prettyprint() << ";"
                         <<        blocked_ivar << " <= " 
-                                  << "min(" << for_statement.get_upper_bound().prettyprint() << "," 
-                                      << induction_var.prettyprint() 
-                                           << " + (" <<  for_statement.get_step().prettyprint() << ")*(" << block_factor << " - 1)"
-                                      << ");"
+                        << "min(" << for_statement.get_upper_bound().prettyprint() << "," 
+                        << induction_var.prettyprint() 
+                        << " + (" <<  for_statement.get_step().prettyprint() << ")*(" << current_block_factor << " - 1)"
+                        << ");"
                         <<        blocked_ivar << "++" << ")"
                         << "{"
                         ;
@@ -147,6 +163,11 @@ namespace TL
                         << "}"
                         << "}"
                         ;
+
+                    if (block_factor_it != block_factors.end())
+                    {
+                        block_factor_it++;
+                    }
                 }
 
                 // Get the body of the innermost loop
@@ -172,9 +193,32 @@ namespace TL
                     return;
                 }
 
+                int max_level = INT_MAX;
+
+                PragmaCustomClause max_depth = pragma_custom_construct.get_clause("max_depth");
+                if (max_depth.is_defined())
+                {
+                    std::stringstream ss;
+                    ss << max_depth.get_arguments()[0];
+                    ss >> max_level;
+                }
+
+                ObjectList<std::string> block_factors;
+                PragmaCustomClause block_factor = pragma_custom_construct.get_clause("block_factor");
+                if (block_factor.is_defined())
+                {
+                    block_factors = block_factor.get_arguments();
+                }
+                else
+                {
+                    std::cerr << "Warning: block_factor clause not given in " 
+                        << pragma_custom_construct.get_ast().get_locus()
+                        << ", assuming a block factor of 32" << std::endl;
+                }
+
                 ObjectList<ForStatement> loop_nest = get_loop_nest(loop_nest_tree, pragma_custom_construct.get_scope_link(),
-                        /* reserved */ 0);
-                Source blocked_loop_nest = build_blocked_loop_nest(loop_nest);
+                        max_level);
+                Source blocked_loop_nest = build_blocked_loop_nest(loop_nest, block_factors);
 
                 AST_t blocked_loop_nest_tree = blocked_loop_nest.parse_statement(pragma_custom_construct.get_ast(),
                         pragma_custom_construct.get_scope_link());
