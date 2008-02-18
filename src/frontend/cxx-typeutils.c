@@ -6060,6 +6060,19 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
             orig = dest;
         }
+        else if (IS_CXX_LANGUAGE
+                && is_literal_string // We saved this before dropping the array
+                && is_pointer_type(dest)
+                && is_wchar_t_type(pointer_type_get_pointee_type(dest))
+                && !is_const_qualified_type(pointer_type_get_pointee_type(dest)))
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "SCS: Applying deprecated wide string literal conversion to 'wchar_t*'\n");
+            }
+            (*result).conv[2] = SCI_QUALIFICATION_CONVERSION;
+            orig = dest;
+        }
         else if (IS_C_LANGUAGE)
         {
             // C allows such cases
@@ -6275,11 +6288,8 @@ type_t* get_literal_string_type(int length, char is_wchar)
 
         type_t* array_type = get_array_type(char_type, integer_literal, decl_context);
 
-        if (!is_wchar)
-        {
-            // Set that this array is actually a string literal
-            array_type->array->is_literal_string = 1;
-        }
+        // Set that this array is actually a string literal
+        array_type->array->is_literal_string = 1;
 
         (*set)[length] = array_type;
     }
