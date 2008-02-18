@@ -11,7 +11,7 @@ Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
 notice and this notice are preserved.
 
-Copyright @copyright{} 2007 Roger Ferrer Ib@'a@~nez.
+Copyright @copyright{} 2008 Roger Ferrer Ib@'a@~nez.
 @end copying
 
 @titlepage
@@ -42,6 +42,7 @@ Copyright @copyright{} 2007 Roger Ferrer Ib@'a@~nez.
 * Symbols::
 * Scopes and contexts::
 * Extensible structures and schemas::
+* Introduction to TL::
 * Function Index::
 * Type Index::
 * Concept Index::
@@ -54,6 +55,7 @@ Copyright @copyright{} 2007 Roger Ferrer Ib@'a@~nez.
 @menu
 * What is this document about::
 * What is mcxx?::
+* Structure of this document::
 @end menu
 
 @node What is this document about
@@ -92,6 +94,38 @@ some parts of it are really well suited for it. On the other hand, the
 compiler itself is rather generic and has been used in some contexts
 not strictly related to OpenMP.
 
+@node Structure of this document
+@section Structure of this document
+@cindex structure document
+
+This document describes several aspects of the compile. The first part
+describes the core of the representation.
+
+@itemize @bullet
+@item @ref{Compilation process} outlines the whole process performed by
+the compiler. This chapter is a must read to understand how the compiler is
+actually laid out.
+@item @ref{Abstract Syntax Tree} introduces the structure used by the compiler
+to represent parsed source code.
+@item @ref{Type system} explains with detail the type system used in the compiler.
+Although this information can be always obtained from the tree, having it in a
+synthesized form eases using it.
+@item @ref{Symbols} explains the internal representation of the compiler for symbols
+and other named entities declared in the source code.
+@item @ref{Scopes and contexts} details the information that represents scopes
+and contexts, entities that represent where a given name is valid and give its
+meaning.
+@item @ref{Extensible structures and schemas} detail a feature of some structures
+in the compiler to allow storing additional information not considered originally
+by the compiler.
+@end itemize
+
+The second part concerns TL, the part intended to be extended more frequently.
+
+@itemize @bullet
+@item @ref{Introduction to TL}.
+@end itemize
+
 @node Compilation process
 @chapter Compilation process
 @cindex compilation process
@@ -100,6 +134,7 @@ not strictly related to OpenMP.
 * Compilation flow overview::
 * Driver::
 @end menu
+
 
 In this chapter a global vision of the compilation process and an explanation
 about layout of the files and directories is given.
@@ -1550,6 +1585,8 @@ struct array_tag
     decl_context_t array_expr_decl_context;
 
     struct type_tag* element_type;
+
+    char is_literal_string;
 @} array_info_t;
 @end example
 @tindex array_info_t
@@ -1561,7 +1598,24 @@ struct array_tag
 This is the size expression of the array. @code{array_expr} can be null if the array type is unbounded.
 @item element_type
 The type of the element of the array. If the array is multidimensional this will be another array.
+@item is_literal_string
+This flag states whether this type is a literal string. Literal strings have array type both in C 
+and C++. But C++ allows an additional deprecated conversion from a literal string type
+to a plain pointer to char. So the following is valid in C++
+
+@example
+void f(char *c);
+
+void g(void)
+@{
+    f("hello");
+@}
+@end example
 @end table
+
+The type of @code{"hello"} is @code{const char[5]} (it is not 4 because of the additional @code{NULL} at the end) and a plain
+array-to-pointer conversion would yield @code{const char*} which in C++ cannot be converted to @code{char*},
+the type of parameter @code{c} in function @code{f}. So we need a way to distinguish this special case.
 
 @node Function types
 @section Function types
@@ -2988,7 +3042,261 @@ will be set to 1 when the field is found.
 
 @end deftypefun
 
-@node Function Index
+@node Introduction to TL
+@chapter Introduction to TL
+@cindex introduction TL
+
+@menu
+* History::
+* Compiler phases::
+* Wrapper classes::
+* Creating source::
+* Dealing with common language constructs::
+* Functors and signals::
+* Traversing trees::
+@end menu
+
+@node History
+@section History
+@cindex history
+
+Previous incarnations of Mercurium compilers used a template language to drive
+the transformations. This template language was usually called @code{TPL}.
+Although this kind of template-driven language, a sort of interpreted language
+interspersed with chunks of code, allowed quick tests for some constructions it
+always fell short in expressivity. So we decided to push for a more generic and
+common approach: compiler phases written in C++.
+
+Although this name is completely unofficial, TL stands for Transformation Library.
+
+@node Compiler phases
+@section Compiler phases
+@cindex compiler phases
+
+Compiler phases are run after the compiler has successfully parsed the input
+code (together with the creation of its related symbolic information and the
+needed types). Compiler phases are written in C++ and are dynamically loaded
+libraries, loaded by the compiler as stated by the configuration. They are
+run in the same order as they appear in the compiler configuration.
+
+Every compiler phase receives a @acronym{DTO, Data Transfer Object} with the basic
+information to work: the translation unit abstract syntax tree (@pxref{Abstract Syntax Tree})
+and a suitable scope link (@pxref{Scope link}).
+
+Phases can add information to this DTO, so subsequent phases can use
+information synthesized by previous ones. This makes this part behave more like
+a compiler phase pipeline.
+
+A phase that wants to implement a transformation has to modify the given
+abstract syntax tree. To achieve this it can use several approaches but the
+main approach used in mcxx is creating source code on the fly. This new source
+can then later be parsed and used as any other tree coming from the original
+source. The newly generated trees are commonly used to replace existing ones but
+can also be used as an intermediate step for other transforms.
+
+@node Wrapper classes
+@section Wrapper classes
+@cindex wrapper classes
+
+Instead of working with the internal compiler structures (detailed in
+@ref{Abstract Syntax Tree}, @ref{Type system}, @ref{Symbols}, @ref{Scopes and
+contexts} and @ref{Extensible structures and schemas}) TL provides several C++
+classes wrapping all these structures. Their goal is to be a nicer interface
+and also to provide an extra freedom degree, allowing to change the internals
+of the compiler without disturbing too much the already written compiler
+phases. 
+
+Following table summarizes relationship between classes and the wrapped
+entity.
+
+@multitable @columnfractions .20 .20 
+@headitem Compiler entity @tab Wrap class 
+@item @code{AST} @tab @code{TL::AST_t} 
+@item @code{type_t*} @tab @code{TL::Type} 
+@item @code{scope_entry_t*} @tab @code{TL::Symbol} 
+@item @code{decl_context_t} @tab @code{TL::Scope} 
+@item @code{scope_link_t*} @tab @code{TL::ScopeLink} 
+@end multitable
+
+Class @code{TL::Object} is a base class for all these types and provides
+virtual methods to implement access to the extensible structure
+(@pxref{Extensible structures and schemas}.  Currently, only @code{TL::AST_t}
+provides such facility since at the moment is the only compiler structure using
+it@footnote{Though the idea is that all the others do use it}.
+
+@node Creating source
+@section Creating source
+@cindex creating source
+
+@menu
+* Parsing the created source::
+@end menu
+
+When performing transformations, the main technique involves class
+@code{TL::Source}. This class, that can be viewed as a powerful
+string, is used to create source code on the fly. 
+
+An interesting feature of this class is the fact that it allows either
+a top-down or bottom-up approach when creating code. A top-down approach
+allows first to lay out the code and then fill it. For instance.
+
+@example
+Source src;
+Source initialization_src, execution_src;
+
+src
+  << initialization_src
+  << execution_src
+  ;
+
+initialization_src
+  << "int a;"
+  ;
+
+execution_src
+  << "a = 3;"
+  ;
+@end example
+
+When @code{src} is parsed it will use the contents of @code{initialization_src}
+and @code{execution_src} at the moment of parsing.
+@code{TL::Source::operator<<} is used to append either another
+@code{TL::Source}, a @code{std::string} (or something convertible into it) or a
+@code{int} that will be represented in base-10.
+
+@node Parsing the created source
+@subsection Parsing the created source
+@cindex parsing the created source
+
+A @code{TL::AST_t} can be obtained by parsing a @code{TL::Source}. Parsing is 
+a somewhat fragile operation and it requires context. While some structures
+are less ``context-demanding" than others, parsed code should be, at the maximum
+extent possible, always valid@footnote{
+Sometimes this is not possible (for instance, because we are referencing a
+variable that does not already exist in the original context, it will be
+actually declared later). When parsing fails because of this, parsing a fake
+code defining a new context with the needed information can be used
+as a workaround.}.
+
+Two things are always required when parsing a code. A reference tree
+(@code{TL::AST_t}) and a valid scope link (@code{TL::ScopeLink}). The reference
+tree plus the scope link is used to retrieve the valid context where the new
+tree will be parsed. Notice that code that declares entities, will create new
+symbols in the parsing context, and so will do code that create new contexts.
+
+Scope link can always be obtained from the DTO (there is, actually, only one
+scope link in the compiler). Reference tree is a tree with the same context as
+the parsed code, normally it is the tree being replaced or a surrounding tree,
+otherwise.
+
+@node Dealing with common language constructs
+@section Dealing with common language constructs
+@cindex dealing common language constructs
+
+In order to deal with common language constructs in C and C++, TL provides additional
+wrapping classes. They all derive from @code{TL::LangConstruct}. Every @code{TL::LangConstruct}
+is built using a tree and a scope link. Following table summarizes these classes:
+
+@table @code
+@item TL::Declaration 
+A declaration of an entity in C or C++. A declaration is always defined by one
+@code{TL::DeclarationSpec} and zero or more @code{TL::DeclarationEntity}.
+@item TL::DeclarationEntity
+A declared entity in a declaration.
+@item TL::DeclarationSpec 
+Wraps the declaraton specifiers of a given declaration. It allows to get the 
+@code{TL::TypeSpec} involved in the declaration.
+@item TL::Expression
+Represents any expression in C/C++. This class allows navigating easily through the expression
+and getting its related type (provided it has been properly computed).
+@item TL::FunctionDefinition
+This class wraps an entire function definition. This is commonly used to get the name of the
+enclosing function definition.
+@item TL::IdExpression
+This class wraps an occurrence of a reference to a symbol.
+@item TL::ParameterDeclaration
+A special kind of declaration just for parameters obtained using @code{TL::DeclarationEntity}
+that represent function declarations.
+@item TL::Statement
+A generic statement. Allows to know whether the statement is a compound statement and getting
+its inner statements.
+@item TL::ForStatement
+A specialized @code{TL::Statement} to deal with for-loops.
+@item TL::TypeSpec
+In @code{TL::DeclarationSpec}, the tree that represents the basic type of the
+declaration.
+@end table
+
+@node Functors and signals
+@section Functors and signals
+@cindex functors signals
+
+@menu
+* Predicates over AST::
+@end menu
+
+In several places the compiler defines a callback-strategy. To safely implement
+callbacks in C++, TL provides a subset of callback facilities, namely
+@code{TL::Functor} and @code{TL::Signal1}. 
+
+@code{TL::Signal1} is the entity firing a callback. To it several functors can
+be connected and their code will be run when signaled. A @code{TL::Functor}
+wraps a function receiving one parameter (or one plus the implicit object, for
+member functions). This allows an homogeneous approach when dealing with this
+callback style. 
+
+A functor can be explicitly created, by defining a new class inheriting from
+@code{Functor<Ret, Type>} where @code{Ret} is the return type and @code{Type}
+is the parameter type. Most of the time @code{Ret} is left @code{void}. An
+important exception to this are @code{TL::Predicate<T>} that are exactly
+@code{Functor<bool, T>} and are normally used to test properties, in particular
+when traversing trees. 
+
+Another way to get a functor is using the auxiliar function @code{TL::functor}
+that can be applied to many kinds of functor-like objects and returns a
+suitable @code{TL::Functor} for it.
+
+@node Predicates over AST
+@subsection Predicates over AST
+@cindex predicates ast
+
+The most usual use for predicates are @code{TL::PredicateAST<ATTR-NAME>}.
+Parameter @code{ATTR-NAME} is an attribute of the AST stating a boolean
+property of it. For instance @code{TL::PredicateAST<LANG_IS_FOR_STATEMENT>}
+returns @code{true} for trees representing a for-statement. 
+
+The list of attributes related to trees is defined in file
+@file{cxx-attrnames.def}. Most of the attributes there are self documenting and
+are linked to the tree by the semantic phase in @file{cxx-buildscope.c} and
+@file{cxx-exprtype.c}.
+
+@node Traversing trees
+@section Traversing trees
+@cindex Traversing trees
+
+Traversals in the tree, to find items to potentially be transformed, are implemented
+using @code{TL::DepthTraverse} (a subclass of @code{TL::Traverse}, although no other
+derived class of it exists). 
+
+A @code{TL::TraverseFunctor} is a class defining two methods @code{preorder}
+and @code{postorder} that will be run in preorder and postorder moment when
+performing the traversal of a node that matches the related functor. 
+
+Matching of a tree is defined by @code{TL::TraverseASTFunctor}. This functor
+receives a @code{AST_t} and returns a @code{ASTTraversalResult}. This value
+states whether the current node matches (if it does, then its @code{postorder}
+and @code{preorder} functions of the related functor, see below, will be
+called) and if the traverse must recurse for it (sometimes we are not
+interested in matching anything but the outermost matching entity of a nested
+tree).
+
+A @code{TL::TraverseASTFunctor} is related to a @code{TL::TraverseFunctor} by means
+of method @code{TL::DepthTraverse::add_functor}.
+
+Once all functors we are interested in are added in the @code{TL::DepthTraverse} object,
+we can fire the traversal using @code{TL::DepthTraverse::traverse}.
+
+@node Function Index 
 @unnumbered Function Index
 
 @printindex fn

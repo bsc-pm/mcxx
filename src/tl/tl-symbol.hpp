@@ -217,7 +217,7 @@ namespace TL
             /*!
              * @code
              * typedef struct { int b; } A;
-             * @end code
+             * @endcode
              *
              * Symbol 'A' will be created as a class-name (and not as a
              * typedef-name) because of typedef against the unnamed struct

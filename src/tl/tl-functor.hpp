@@ -55,7 +55,7 @@ namespace TL
 
     //! Adapter class for non-member functions
     template <class Ret, class T>
-    class FunctionAdapter : Functor<Ret, T>
+    class FunctionAdapter : public Functor<Ret, T>
     {
         private:
             Ret (*_pf)(T&);
@@ -78,7 +78,7 @@ namespace TL
     //! Adapter class for non-member functions expecting a value instead of a
     // reference type
     template <class Ret, class T>
-    class FunctionByValueAdapter : Functor<Ret, T>
+    class FunctionByValueAdapter : public Functor<Ret, T>
     {
         private:
             Ret (*_pf)(T);

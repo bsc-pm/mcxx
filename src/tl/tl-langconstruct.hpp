@@ -776,11 +776,11 @@ namespace TL
      *
      * @code
      * void f() __attribute__((a, b));
-     * @end code
+     * @endcode
      *
      * Will have two GCCAttribute, one for 'a' and one for 'b'
      */
-    class GCCAttribute : LangConstruct
+    class GCCAttribute : public LangConstruct
     {
         private:
         public:
@@ -805,11 +805,11 @@ namespace TL
      *
      * @code
      * void f() __attribute__((a, b));
-     * @end code
+     * @endcode
      *
      * Will have two GCCAttribute, one for 'a' and one for 'b'
      */
-    class GCCAttributeSpecifier : LangConstruct
+    class GCCAttributeSpecifier : public LangConstruct
     {
         private:
         public:
