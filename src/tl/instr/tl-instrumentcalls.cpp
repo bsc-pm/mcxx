@@ -273,7 +273,7 @@ namespace TL
             << "  static const char* EVENT_CALL_USER_FUNCTION_DESCR = \"User function call\";"
             << "  const int EVENT_CALL_USER_FUNCTION = 60000018;"
             << "  static const char* EVENT_TASK_ENQUEUE_DESCR = \"Task enqueue\";"
-			<< "  const int EVENT_TASK_ENQUEUE = 60000010;"
+            << "  const int EVENT_TASK_ENQUEUE = 60000010;"
             << "  mintaka_index_event(EVENT_CALL_USER_FUNCTION, EVENT_CALL_USER_FUNCTION_DESCR);"
             << "  mintaka_index_event(EVENT_TASK_ENQUEUE, EVENT_TASK_ENQUEUE_DESCR);"
             // Initialize every thread

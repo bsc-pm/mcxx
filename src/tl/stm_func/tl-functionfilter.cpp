@@ -58,8 +58,8 @@ namespace TL
 
                 char* p = line;
 
-				if (*p == '\0')
-					continue;
+                if (*p == '\0')
+                    continue;
 
                 while (*p == ' ' || *p == '\t')
                 {
@@ -84,7 +84,7 @@ namespace TL
 
             if (!_filter_inverted)
             {
-				// Add default things
+                // Add default things
             }
         }
 
@@ -125,7 +125,7 @@ namespace TL
                 }
             }
 
-			bool result = false;
+            bool result = false;
             if (!_filter_inverted)
             {
                 // If found it does have to be filtered
@@ -137,7 +137,7 @@ namespace TL
                 result = found ? false : true;
             }
 
-			return result;
+            return result;
         }
 
 }

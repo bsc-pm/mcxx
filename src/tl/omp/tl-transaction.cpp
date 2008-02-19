@@ -1072,7 +1072,7 @@ namespace TL
                     return_replace_code
                         << "{"
                         << "  if (__t->nestingLevel == 0){"
-                        << "  	__t->endEfectiveTime = rdtscf();"
+                        << "    __t->endEfectiveTime = rdtscf();"
                         << "    __t->efectiveExecutionTime = (__t->endEfectiveTime - __t->startEfectiveTime);"
                         << "    __t->totalExecutionTime += __t->efectiveExecutionTime;"
                         << "  }"
@@ -1265,7 +1265,7 @@ namespace TL
                     << "          if (__t->status == 10) {" // Check this!
                     << "            break;"
                     << "          }"
-								  // Commit failed in this moment, so we added the effective execution already!
+                                  // Commit failed in this moment, so we added the effective execution already!
 /*                    << "         __t->endEfectiveTime = rdtscf();"
                     << "         __t->efectiveExecutionTime = (__t->endEfectiveTime - __t->startEfectiveTime);"
                     << "         __t->totalExecutionTime += __t->efectiveExecutionTime;"

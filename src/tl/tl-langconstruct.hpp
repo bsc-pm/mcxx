@@ -493,7 +493,7 @@ namespace TL
                 //! Postdecrement a--
                 POSTDECREMENT,
                 //! Conditional expression a ? b : c
-				CONDITIONAL
+                CONDITIONAL
             };
 
             //! Computes the type of the expression
@@ -588,22 +588,22 @@ namespace TL
             IdExpression get_accessed_member();
 
             //! States whether this is a conditional expression
-			bool is_conditional();
-			//! Returns the condition expression of a conditional expression
+            bool is_conditional();
+            //! Returns the condition expression of a conditional expression
             /*!
              * Given an expression 'a ? b : c', this function returns 'a'
              */
-			Expression get_condition_expression();
+            Expression get_condition_expression();
             //! Returns the expression evaluated when the condition expression is true
             /*!
              * Given an expression 'a ? b : c', this function returns 'b'
              */
-			Expression get_true_expression();
+            Expression get_true_expression();
             //! Returns the expression evaluated when the condition expression is false
             /*!
              * Given an expression 'a ? b : c', this function returns 'c'
              */
-			Expression get_false_expression();
+            Expression get_false_expression();
 
             //! Returns the operation kind
             OperationKind get_operation_kind();
@@ -613,7 +613,7 @@ namespace TL
              * Operator assignment expressions like '+=' will return '+'
              * as the involved operator.
              */
-			std::string get_operator_str();
+            std::string get_operator_str();
 
             static const PredicateAST<LANG_IS_EXPRESSION_NEST> predicate;
     };

@@ -5737,7 +5737,7 @@ static char check_for_function_call(AST expr, decl_context_t decl_context)
 static char check_for_cast_expr(AST expr, AST type_id, AST casted_expression, decl_context_t decl_context)
 {
     if (check_for_type_id_tree(type_id, decl_context)
-			&& check_for_expression(casted_expression, decl_context))
+            && check_for_expression(casted_expression, decl_context))
     {
         AST type_specifier = ASTSon0(type_id);
         AST abstract_declarator = ASTSon1(type_id);

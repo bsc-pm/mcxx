@@ -521,17 +521,17 @@ namespace TL
 
         ObjectList<Expression> result;
 
-		if (expression_list.is_list())
-		{
-			ASTIterator it = expression_list.get_list_iterator();
-			it.rewind();
-			while (!it.end())
-			{
-				Expression expr(it.item(), _scope_link);
-				result.push_back(expr);
-				it.next();
-			}
-		}
+        if (expression_list.is_list())
+        {
+            ASTIterator it = expression_list.get_list_iterator();
+            it.rewind();
+            while (!it.end())
+            {
+                Expression expr(it.item(), _scope_link);
+                result.push_back(expr);
+                it.next();
+            }
+        }
 
         return result;
     }
@@ -727,89 +727,89 @@ namespace TL
         return UNKNOWN;
     }
 
-	std::string Expression::get_operator_str()
-	{
-		switch ((int)this->get_operation_kind())
-		{
-			case ADDITION :
-			case PLUS :
-				return "+";
-			case MINUS :
-			case SUBSTRACTION :
-				return "-";
-			case LOGICAL_NOT :
-				return "!";
-			case BITWISE_NOT :
-				return "~";
-			case REFERENCE :
-				return "&";
-			case MULTIPLICATION :
-			case DERREFERENCE :
-				return "*";
-			case POSTDECREMENT :
-			case PREDECREMENT :
-				return "--";
-			case PREINCREMENT :
-			case POSTINCREMENT :
-				return "++";
-			case DIVISION :
-				return "/";
-			case  MODULUS :
-				return "%";
-			case  SHIFT_LEFT :
-				return "<<";
-			case  SHIFT_RIGHT :
-				return ">>";
-			case  LOWER_THAN :
-				return "<";
-			case  GREATER_THAN :
-				return ">";
-			case  GREATER_EQUAL_THAN :
-				return ">=";
-			case  LOWER_EQUAL_THAN :
-				return "<=";
-			case  COMPARISON :
-				return "==";
-			case  DIFFERENT :
-				return "!=";
-			case  BITWISE_AND :
-				return "&";
-			case  BITWISE_XOR :
-				return "^";
-			case  BITWISE_OR :
-				return "|";
-			case  LOGICAL_AND :
-				return "&&";
-			case  LOGICAL_OR :
-				return "||";
-			default:
-				return "??";
-		}
-	}
+    std::string Expression::get_operator_str()
+    {
+        switch ((int)this->get_operation_kind())
+        {
+            case ADDITION :
+            case PLUS :
+                return "+";
+            case MINUS :
+            case SUBSTRACTION :
+                return "-";
+            case LOGICAL_NOT :
+                return "!";
+            case BITWISE_NOT :
+                return "~";
+            case REFERENCE :
+                return "&";
+            case MULTIPLICATION :
+            case DERREFERENCE :
+                return "*";
+            case POSTDECREMENT :
+            case PREDECREMENT :
+                return "--";
+            case PREINCREMENT :
+            case POSTINCREMENT :
+                return "++";
+            case DIVISION :
+                return "/";
+            case  MODULUS :
+                return "%";
+            case  SHIFT_LEFT :
+                return "<<";
+            case  SHIFT_RIGHT :
+                return ">>";
+            case  LOWER_THAN :
+                return "<";
+            case  GREATER_THAN :
+                return ">";
+            case  GREATER_EQUAL_THAN :
+                return ">=";
+            case  LOWER_EQUAL_THAN :
+                return "<=";
+            case  COMPARISON :
+                return "==";
+            case  DIFFERENT :
+                return "!=";
+            case  BITWISE_AND :
+                return "&";
+            case  BITWISE_XOR :
+                return "^";
+            case  BITWISE_OR :
+                return "|";
+            case  LOGICAL_AND :
+                return "&&";
+            case  LOGICAL_OR :
+                return "||";
+            default:
+                return "??";
+        }
+    }
 
-	bool Expression::is_conditional()
-	{
+    bool Expression::is_conditional()
+    {
         TL::Bool b = _ref.get_attribute(LANG_IS_CONDITIONAL_EXPRESSION);
         return b;
-	}
+    }
 
-	Expression Expression::get_condition_expression()
-	{
-		TL::AST_t condition_expr = _ref.get_attribute(LANG_CONDITIONAL_EXPRESSION);
-		return Expression(condition_expr, this->get_scope_link());
-	}
+    Expression Expression::get_condition_expression()
+    {
+        TL::AST_t condition_expr = _ref.get_attribute(LANG_CONDITIONAL_EXPRESSION);
+        return Expression(condition_expr, this->get_scope_link());
+    }
 
-	Expression Expression::get_true_expression()
-	{
-		TL::AST_t condition_expr = _ref.get_attribute(LANG_CONDITIONAL_TRUE_EXPRESSION);
-		return Expression(condition_expr, this->get_scope_link());
-	}
+    Expression Expression::get_true_expression()
+    {
+        TL::AST_t condition_expr = _ref.get_attribute(LANG_CONDITIONAL_TRUE_EXPRESSION);
+        return Expression(condition_expr, this->get_scope_link());
+    }
 
-	Expression Expression::get_false_expression()
-	{
-		TL::AST_t condition_expr = _ref.get_attribute(LANG_CONDITIONAL_FALSE_EXPRESSION);
-		return Expression(condition_expr, this->get_scope_link());
-	}
+    Expression Expression::get_false_expression()
+    {
+        TL::AST_t condition_expr = _ref.get_attribute(LANG_CONDITIONAL_FALSE_EXPRESSION);
+        return Expression(condition_expr, this->get_scope_link());
+    }
 
     Type Expression::get_type()
     {
@@ -920,7 +920,7 @@ namespace TL
     {
         PredicateAST<LANG_IS_DECLARED_NAME> lang_declared_name_pred;
 
-		AST_t declarators_tree = this->_ref.get_attribute(LANG_DECLARATION_DECLARATORS);
+        AST_t declarators_tree = this->_ref.get_attribute(LANG_DECLARATION_DECLARATORS);
 
         ObjectList<AST_t> declared_symbols =
             declarators_tree.depth_subtrees(lang_declared_name_pred, AST_t::NON_RECURSIVE);

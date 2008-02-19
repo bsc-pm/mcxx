@@ -658,7 +658,7 @@ namespace TL
                 << "mintaka_event(EVENT_TASK_ENQUEUE, _user_function_event);"
                 // << "if (" << task_id << " != NTH_CANNOT_ALLOCATE_TASK)"
                 << "{"
-				<<       "nth_desc* nth2 = (" << task_id << " == NTH_CANNOT_ALLOCATE_TASK) ? nthf_self_() : " << task_id << ";"
+                <<       "nth_desc* nth2 = (" << task_id << " == NTH_CANNOT_ALLOCATE_TASK) ? nthf_self_() : " << task_id << ";"
                 // Adjust to 32 bit
                 << "     uint32_t id_nth = (((intptr_t)(nth2)) >> (32*((sizeof(nth2)/4) - 1)));"
                 << "     mintaka_send(id_nth, 1);"
@@ -1428,7 +1428,7 @@ namespace TL
                 << "mintaka_event(EVENT_TASK_ENQUEUE, _user_function_event);"
                 // << "if (nth != NTH_CANNOT_ALLOCATE_TASK)"
                 << "{"
-				<< "     nth_desc* nth2 = (nth == NTH_CANNOT_ALLOCATE_TASK) ? nthf_self_() : nth;"
+                << "     nth_desc* nth2 = (nth == NTH_CANNOT_ALLOCATE_TASK) ? nthf_self_() : nth;"
                 // Adjust to 32 bit
                 << "     uint32_t id_nth = (((intptr_t)(nth2)) >> (32*((sizeof(nth2)/4) - 1)));"
                 << "     mintaka_send(id_nth, 1);"
