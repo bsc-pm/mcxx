@@ -990,7 +990,7 @@ init_declarator : declarator
 /* GNU Extension */
 asm_specification : ASM '(' string_literal ')'
 {
-	$$ = ASTMake1(AST_GCC_ASM_SPEC, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_GCC_ASM_SPEC, $3, $1.token_line, $1.token_text);
 }
 ;
 /* End of GNU Extension */

@@ -2758,7 +2758,7 @@ static void gcc_init_declarator_handler(FILE* f, AST a, int level)
 
 static void gcc_asm_specification_handler(FILE* f, AST a, int level)
 {
-    token_fprintf(f, a, "asm (");
+    token_fprintf(f, a, "%s (", ASTText(a));
     prettyprint_level(f, ASTSon0(a), level);
     token_fprintf(f, a, ")");
 }
