@@ -78,8 +78,9 @@ namespace TL
 		
 		source
 			<< "{"
+				<< constant_redirection_source
 				<< "css_parameter_t __css_parameters[] = {" << parameter_initializers_source << "};"
-				<< constant_redirection_source << add_task_code
+				<< add_task_code
 			<< "}";
 		
 		add_task_code
@@ -237,8 +238,9 @@ namespace TL
 								ctx.scope_link.get_scope(argument.get_ast()),
 								temporary_name.str(),
 								argument.prettyprint()
-							);
-						address_source << temporary_name.str();
+							)
+							<< ";";
+						address_source << "&" << temporary_name.str();
 					} // scalar lvalue
 				} // non pointer scalar
 			}
@@ -295,9 +297,10 @@ namespace TL
 								ctx.scope_link.get_scope(argument.get_ast()),
 								temporary_name.str(),
 								argument.prettyprint()
-							);
+							)
+							<< ";";
 						address_source
-							<< temporary_name.str();
+							<< "&" << temporary_name.str();
 					} // struct lvalue
 				} // non pointer struct
 				
