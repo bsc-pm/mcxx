@@ -43,6 +43,8 @@ Copyright @copyright{} 2008 Roger Ferrer Ib@'a@~nez.
 * Scopes and contexts::
 * Extensible structures and schemas::
 * Introduction to TL::
+* Examples of TL::
+* Installation of mcxx::
 * Function Index::
 * Type Index::
 * Concept Index::
@@ -3054,6 +3056,7 @@ will be set to 1 when the field is found.
 * Dealing with common language constructs::
 * Functors and signals::
 * Traversing trees::
+* Reference counted objects::
 @end menu
 
 @node History
@@ -3256,6 +3259,12 @@ Another way to get a functor is using the auxiliar function @code{TL::functor}
 that can be applied to many kinds of functor-like objects and returns a
 suitable @code{TL::Functor} for it.
 
+Any class inheriting from @code{TL::Functor<Ret, Type>} will have to implement
+@code{Ret TL::Functor<Ret, Type>::operator()(Type& t) const}. This function
+should not have effects on the parameter @code{Type& t} because it is valid to
+call the functor with a @code{const Type&} (and the overriden method will be
+called).
+
 @node Predicates over AST
 @subsection Predicates over AST
 @cindex predicates ast
@@ -3295,6 +3304,434 @@ of method @code{TL::DepthTraverse::add_functor}.
 
 Once all functors we are interested in are added in the @code{TL::DepthTraverse} object,
 we can fire the traversal using @code{TL::DepthTraverse::traverse}.
+
+@node Reference counted objects
+@section Reference counted objects
+@cindex reference counted objects
+
+In several contexts the compiler needs shared objects with hard to predict
+lifetimes. This makes unsuitable the use of pointers, so reference counted
+pointers are used.
+
+The class implementing a reference counted pointer is @code{RefPtr<Class>}, where
+@code{Class} is a class with two member functions @code{obj_reference} and
+@code{obj_unreference} that are called everytime somebody keeps a new reference
+to this object and everytime somebody discards one of this references, respectively.
+Most of the time the implementation of a class designed to be reference counted will
+be as simple as
+
+@example
+void obj_reference()
+@{
+  this->_refcount++;
+@}
+
+void obj_unreference()
+@{
+  this->_refcount--;
+
+  if (this->_refcount == 0)
+  @{
+    delete this;
+  @}
+@}
+@end example
+
+Note that with the previous schema, cycles will not be properly freed. If you ever have
+cycles you will need a fairly more sophisticated approach not covered here.
+
+@node Examples of TL
+@chapter Examples of TL
+@cindex examples TL
+
+@menu
+* Hello world::
+* Static call graph::
+@end menu
+
+This chapter is devoted to introduce you several examples when using TL, trying to cover
+the most popular transformations.
+
+This chapter does not give any detail on specific issues like how to compile
+and build the phases, this is later addressed in @ref{Installation of mcxx}.
+
+@node Hello world
+@section Hello world
+@cindex hello world
+
+@menu
+* Phase information::
+* Phase parameters::
+@end menu
+
+In order to get familiar with the shape of a new compiler phase we will write
+one phase that just writes @code{Hello world} when loaded and when run.
+Following code is to be written in a file called @file{tl-helloworld.cpp}.
+
+@example
+#include "tl-compilerphase.hpp"
+#include <iostream>
+
+namespace TL
+@{
+    class HelloWorld : public CompilerPhase
+    @{
+        public:
+            HelloWorld()
+            @{
+                std::cout 
+                    << "Hello world (phase loaded)" 
+                    << std::endl;
+            @}
+
+            void run(DTO& dto)
+            @{
+                std::cout 
+                    << "Hello world (phase run)" 
+                    << std::endl;
+            @}
+    @};
+@}
+
+EXPORT_PHASE(TL::HelloWorld);
+@end example
+
+A compiler phase is just a class that inherits from @code{TL::CompilerPhase}.
+Its constructor is invoked when the compiler loads the phase, just before
+parsing anything. This is done this way in order for phases to influence the
+parsing (for instance, they might register new constructions). The constructor
+must be invokeable with zero arguments.
+
+Every derived class of @code{TL::CompilerPhase} must implement member function
+@code{run(DTO&)}. This is the entry point of the compiler phase. The phase
+starts in this function and ends leaving it. This function is invoked by the
+compiler for every file compiled (normally one).
+
+Every phase, even if split in several files, must have one (and only one)
+@code{EXPORT_PHASE} definition. This declares a factory function that the
+compiler uses to create an instance of the phase. This definition must be
+located in the global scope (not in any namespace).
+
+This example has set the class within namespace @code{TL}. This is not mandated
+at all but eases writing code that makes use of TL classes. You can define your
+compiler phase in any namespace of your own.
+
+In order to use this phase you have to add a new @code{compiler_phase} in the
+compiler configuration file (@pxref{Configuration}) with the name of the shared
+object file, in this example likely to be @file{tl-helloworld.so}.
+
+@node Phase information
+@subsection Phase information
+@cindex phase information
+
+In order to better integrate with the rest of the compiler, a compiler phase
+should describe itself to the compiler. This is achieved with functions
+@code{TL::CompilerPhase::set_phase_name},
+@code{TL::CompilerPhase::set_phase_description}. These functions if called,
+must be invoked in the constructor. 
+
+The previous constructor can be rewritten like this:
+
+@example
+HelloWorld()
+@{
+    set_phase_name("Hello world phase");
+    set_phase_description("This phase greets the user "
+        "both when loaded and when invoked per file.");
+
+    std::cout 
+        << "Hello world (phase loaded)" 
+        << std::endl;
+@}
+@end example
+
+When the compiler prints the help message (because of an error in the command
+line or a @code{--help} parameter) it will print the loaded phases under the
+current profile. The name of the phase and its description will be printed
+as well, if given.
+
+@node Phase parameters
+@subsection Phase parameters
+@cindex phase parameters
+
+Sometimes we want to allow that some aspects of a given phase be tweaked by the user. For instance, we could
+improve the hello world to greet somebody instead of the world itself. 
+
+To achieve this, in the constructor, we can call @code{register_parameter}. This function receives four parameters,
+namely the parameter name, a description of the parameter, a related storage value and a default value. In addition
+it returns a @code{TL::Signal1} (@pxref{Functors and signals}) that can be connected to a function that will be invoked
+when the parameter is explicitly set from the command line.
+
+@example
+#include "tl-compilerphase.hpp"
+#include <iostream>
+#include <string>
+
+namespace TL
+@{
+    class HelloWorld : public CompilerPhase
+    @{
+        private:
+            std::string _hello_name;
+        public:
+            HelloWorld()
+            @{
+                set_phase_name("Hello world phase");
+                set_phase_description("This phase greets the user "
+                    "both when loaded and when invoked per file.");
+
+                register_parameter("hello-name", 
+                    "Name to be greeted",
+                    _hello_name,
+                    "world");
+
+                std::cout 
+                    << "Hello " << _hello_name << " (phase loaded)" 
+                    << std::endl;
+            @}
+
+            void run(DTO& dto)
+            @{
+                std::cout 
+                    << "Hello " << _hello_name << " (phase run)" 
+                    << std::endl;
+            @}
+    @};
+@}
+@end example
+
+In the previous example @code{_hello_name} will be the reference where the given
+parameter will be stored. Sometimes we have to synthesize something after the
+given parameter (for instance a true or false flag or an integer value). Using
+a functor is useful. For instance, imagine that we want to have an integer
+parameter, having it stored in an integer rather than a plain string makes things
+easier.
+
+@example
+#include <sstream>
+...
+class HelloWorld : public CompilerPhase
+@{
+    private:
+        std::string _hello_age_str;
+        int _hello_age;
+    public:
+        HelloWorld()
+        @{
+            ...
+            register_parameter("hello-age",
+                    "Age reminder",
+                    _hello_age_str 
+                    "-1")
+               .connect(functor(&HelloWorld::set_age, *this));
+            ...
+        @}
+
+        void set_age(std::string value)
+        @{
+            std::stringstream ss;
+
+            ss << value;
+            ss >> _hello_age;
+        @}
+@};
+@end example
+
+In member function @code{set_age} we could check that the given number
+parameter is valid, enable other flags etc. There is a convenience function for
+boolean flags that eases parsing boolean options after strings, it is called
+@code{parse_boolean_option} declared in @file{tl-compilerphase.hpp}.
+
+Parameters are documented when the compiler shows help message after the phase
+description. The default value is also shown. A parameter is passed by the compiler
+when the user specifies in the command line @code{--variable=name:value}. A @code{name}
+can be shared among several phases, each one will receive the specified @code{value}.
+
+@node Static call graph
+@section Static call graph
+@cindex static call graph
+
+@menu
+* Traversing the tree::
+* Static call graph compiler phase::
+* Getting function calls in a function definition::
+@end menu
+
+This example concentrates on how to walk through the tree. There are several ways of finding
+things in a tree. The most powerful implies using a @code{DepthTraverse} but a given
+@code{AST_t} can also be used to get in a quicker way all the sons that satisfy a predicate.
+
+In this example we will write a compiler phase that prints on the standard
+output a simple Graphviz (@uref{http://www.graphviz.org}) graph with the static
+call graph. To do this we will find each function definition in the code and
+find in it all function calls that we know they refer to existing functions.
+
+@node Traversing the tree
+@subsection Traversing the tree
+@cindex traversing the tree
+
+First thing we have to do is creating a @code{TraverseASTFunctor}. This
+@emph{functor} states whether a given tree matches. It also specifies if the
+traversal must recurse in this node. We will use
+@code{FunctionDefinition::predicate} that is a convenience predicate that
+matches function definitions.
+
+@example
+class FunctionDefinitionASTFunctor : public TraverseASTFunctor
+@{
+  public:
+    ASTTraversalResult operator()(AST_t &a) const
+    @{
+       if (FunctionDefinition::predicate(a))
+       @{
+          return ast_traversal_result_helper(/* match */ true, 
+              /* recurse */ false);
+       @}
+       else
+       @{
+          return ast_traversal_result_helper(/* match */ false, 
+              /* recurse */ true);
+       @}
+    @}
+@};
+@end example
+
+A @code{TraverseASTFunctor} is a synonim for @code{Functor<ASTTraversalResult, AST_t>} so
+@code{ASTTraversalResult operator()(AST_t& a) const} needs to be implemented. Function
+@code{ast_traversal_result_helper} is a helper function to build values of 
+@code{ASTTraversalResult} type. Basically it says to recurse always when a
+function definition tree is not found, and not to recurse when not found. Only function
+definitions will match, thus the traverse functors will be called only for function
+definitions.
+
+@node Static call graph compiler phase
+@subsection Static call graph compiler phase
+
+The compiler phase itself is defined as follows. It basically registers an
+object of the class above and links it with a functor of type
+@code{FunctionDefinitionFunctor}, we will define it later.  This is done with
+@code{TL::DepthTraverse::add_functor}.
+
+@example
+class StaticCallGraph : public CompilerPhase
+@{
+  public:
+    StaticCallGraph()
+    @{
+    @}
+
+    void run(DTO& dto)
+    @{
+      std::cout << "digraph static_callgraph @{" << std::endl;
+
+      AST_t ast = dto["translation_unit"];
+      ScopeLink scope_link = dto["scope_link"];
+
+      DepthTraverse depth_traverse;
+      FunctionDefinitionFunctor function_definition_functor;
+      FunctionDefinitionASTFunctor traverse_ast_functor;
+
+      depth_traverse.add_functor(traverse_ast_functor, 
+        function_definition_functor);
+      depth_traverse.traverse(ast, scope_link);
+
+      std::cout << "@}" << std::endl;
+    @}
+@};
+@end example
+
+Objects stored in the DTO are identified by name. Compiler guarantees that at
+least @code{translation_unit} and @code{scope_link} will be always available.
+They contain, respectively, the root tree of all the current file source and a
+suitable scope link. To add an object to the DTO use @code{add_object} with
+a @code{RefPtr<T>} object (@pxref{Reference counted objects}).
+
+@node Getting function calls in a function definition
+@subsection Getting function calls in a function definition
+
+Once we have found a function definition we have to do something with it.
+
+@example
+class FunctionDefinitionFunctor : public TraverseFunctor
+@{
+  public:
+    void preorder(Context ctx, AST_t ast) 
+    @{ 
+      ScopeLink sl = ctx.scope_link;
+      // Wrap into a FunctionDefinition since we know it is
+      FunctionDefinition function_definition(ast, sl);
+
+      // Get the function name
+      IdExpression function_name = 
+        function_definition.get_function_name();
+
+      // Get the body of the function definition
+      Statement stm = function_definition.get_function_body();
+
+      // Now get all function calls
+      ObjectList<AST_t> function_calls = 
+        stm.get_ast().depth_subtrees(
+            PredicateAST<LANG_IS_FUNCTION_CALL>()
+            );
+
+      std::cout 
+        << function_name.prettyprint() 
+        << " [label=\"" 
+        << function_name.prettyprint() 
+        << "\"]"
+        << std::endl;
+
+      // For every function call
+      for (ObjectList<AST_t>::iterator it = function_calls.begin();
+          it != function_calls.end();
+          it++)
+      @{
+        // Wrap it as an expression
+        Expression expr(*it, sl);
+
+        // Check if the called entity is a simple name
+        if (expr.get_called_expression().is_id_expression())
+        @{
+          IdExpression id_expression = 
+            expr.get_called_expression().get_id_expression();
+          Symbol sym = id_expression.get_symbol();
+
+          // And check if it is a function (and not a pointer to
+          // function)
+          if (sym.is_function())
+          @{
+            std::cout 
+              << function_name.prettyprint() 
+              << " -> " 
+              << id_expression.prettyprint()
+              << " [label=\"" 
+              << id_expression.get_ast().get_locus() 
+              << "\"]"
+              << std::endl;
+          @}
+        @}
+      @}
+    @}
+    void postorder(Context, AST_t) @{ @}
+@};
+@end example
+
+For a given functor we can choose where to perform work, either at postorder
+or preorder. As a rule of thumb, when traversing trees most of the information
+gathering has to be done in preorder. Then in postorder we can use this 
+information to implement transformations.
+
+In the example above we first wrap in a @code{FunctionDefinition} the tree and
+then we get its body to get all function calls there. This is another way to
+traverse a tree, using @code{TL::AST_t::dept_subtrees} and a @code{Predicate<AST_t>}.
+Then we check if the called expression is a simple thing, like @code{a} (an id-expression),
+and then we check using the related symbol if this is a function@footnote{Note that this
+code would not work properly in C++ when calling overloads since all overloads would
+get mixed against one name}.
+
+@node Installation of mcxx
+@chapter Installation of mcxx
+@cindex installation mcxx
 
 @node Function Index 
 @unnumbered Function Index
