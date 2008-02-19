@@ -125,6 +125,29 @@ namespace TL
 	}
 	
 	
+	void TL::TransformDirectives::process_restart(PragmaCustomConstruct directive)
+	{
+		if (directive.is_construct())
+		{
+			std::cerr << directive.get_ast().get_locus() << " Error: 'restart' directive used as a construct." << std::endl;
+			TransformDirectives::fail();
+			return;
+		}
+		
+		if (!directive.is_directive())
+		{
+			std::cerr << directive.get_ast().get_locus() << " Error: 'restart' directive used as a construct." << std::endl;
+			return;
+		}
+		
+		Source source;
+		source << "css_restart();";
+		
+		AST_t tree = source.parse_statement(directive.get_ast(), directive.get_scope_link());
+		directive.get_ast().replace_with(tree);
+	}
+	
+	
 	void TL::TransformDirectives::process_task(PragmaCustomConstruct construct)
 	{
 		if (construct.is_directive())
