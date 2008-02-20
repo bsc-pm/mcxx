@@ -5250,6 +5250,40 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             else
                 return 0;
         }
+
+        if (is_computed_function_type(ASTExprType(called_expression)))
+        {
+            computed_function_type_t compute_type_function = 
+                computed_function_type_get_computing_function(ASTExprType(called_expression));
+
+            scope_entry_list_t *entry_list = query_id_expression(decl_context, 
+                    advanced_called_expression);
+
+            scope_entry_t *entry = entry_list->entry;
+
+            AST* argument_list = NULL;
+            int num_arguments = 0;
+
+            // Create the argument array
+            AST iter;
+            for_each_element(arguments, iter)
+            {
+                AST current_arg = ASTSon1(iter);
+                P_LIST_ADD(argument_list, num_arguments, current_arg);
+            }
+
+            type_t* t = compute_type_function(entry, argument_list, num_arguments);
+
+            if (t != NULL)
+            {
+                ast_set_expression_type(called_expression, t);
+            }
+            else
+            {
+                fprintf(stderr, "Warning: match not found for computed function type\n");
+            }
+        }
+
         DEBUG_CODE()
         {
             fprintf(stderr, "EXPRTYPE: Function call seems fine in C semantics\n");

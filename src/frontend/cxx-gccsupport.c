@@ -69,6 +69,12 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                     ast_location(expression_list));
         }
     }
+    else if (strcmp(attribute_name, "spu_vector") == 0)
+    {
+        // Hardcoded to what a SPU can do
+        gather_info->is_vector = 1;
+        gather_info->vector_size = 16;
+    }
     else if (strcmp(attribute_name, "mode") == 0)
     {
         if (ASTSon0(expression_list) != NULL)

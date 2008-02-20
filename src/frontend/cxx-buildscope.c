@@ -40,6 +40,7 @@
 #include "cxx-attrnames.h"
 #include "cxx-gccsupport.h"
 #include "cxx-gccbuiltins.h"
+#include "cxx-gccspubuiltins.h"
 #include "hash_iterator.h"
 
 /*
@@ -252,6 +253,12 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
     }
 
     gcc_sign_in_builtins(decl_context);
+
+    C_LANGUAGE()
+    {
+        // This is reserved for C only
+        gcc_sign_in_spu_builtins(decl_context);
+    }
 }
 
 static void build_scope_declaration_sequence(AST list, decl_context_t decl_context)

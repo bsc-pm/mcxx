@@ -295,33 +295,40 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
 
     if (entry->kind == SK_FUNCTION)
     {
-        PRINT_INDENTED_LINE(stderr, global_indent+1, "Prototype: %s\n",
-                print_declarator(entry->type_information, entry->decl_context));
-        // print_scope_full(entry->related_decl_context.current_scope, global_indent+1);
-        C_LANGUAGE()
+        if (!is_computed_function_type(entry->type_information))
         {
-            if (function_type_get_lacking_prototype(entry->type_information))
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "Prototype: %s\n",
+                    print_declarator(entry->type_information, entry->decl_context));
+            // print_scope_full(entry->related_decl_context.current_scope, global_indent+1);
+            C_LANGUAGE()
             {
-                PRINT_INDENTED_LINE(stderr, global_indent+1, "This function does not have prototype yet\n");
-            }
-        }
-        CXX_LANGUAGE()
-        {
-            if (entry->entity_specs.is_conversion)
-            {
-                PRINT_INDENTED_LINE(stderr, global_indent+1, "Conversion function\n");
-            }
-
-            int i;
-            for (i = 0; i < entry->entity_specs.num_parameters; i++)
-            {
-                if (entry->entity_specs.default_argument_info[i] != NULL)
+                if (function_type_get_lacking_prototype(entry->type_information))
                 {
-                    PRINT_INDENTED_LINE(stderr, global_indent + 1, "Default argument for parameter '%d' is '%s' \n", 
-                            i,
-                            prettyprint_in_buffer(entry->entity_specs.default_argument_info[i]->argument));
+                    PRINT_INDENTED_LINE(stderr, global_indent+1, "This function does not have prototype yet\n");
                 }
             }
+            CXX_LANGUAGE()
+            {
+                if (entry->entity_specs.is_conversion)
+                {
+                    PRINT_INDENTED_LINE(stderr, global_indent+1, "Conversion function\n");
+                }
+
+                int i;
+                for (i = 0; i < entry->entity_specs.num_parameters; i++)
+                {
+                    if (entry->entity_specs.default_argument_info[i] != NULL)
+                    {
+                        PRINT_INDENTED_LINE(stderr, global_indent + 1, "Default argument for parameter '%d' is '%s' \n", 
+                                i,
+                                prettyprint_in_buffer(entry->entity_specs.default_argument_info[i]->argument));
+                    }
+                }
+            }
+        }
+        else 
+        {
+            PRINT_INDENTED_LINE(stderr, global_indent+1, "Computed function type\n");
         }
     }
 

@@ -55,6 +55,7 @@ enum type_kind
     TK_OVERLOAD,           // 7
     TK_VECTOR,             // 8
     TK_ELLIPSIS,           // 9
+    TK_COMPUTED,           // 10
 };
 
 // For simple_type_t
@@ -426,6 +427,9 @@ struct type_tag
 
     // The sizeof of the type
     _size_t size;
+
+    // (kind == TK_COMPUTED)
+    computed_function_type_t compute_type_function;
 };
 
 
@@ -1779,11 +1783,6 @@ type_t* vector_type_get_element_type(type_t* t)
     return t->vector->element_type;
 }
 
-type_t* get_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)
-{
-    return get_new_function_type(t, parameter_info, num_parameters);
-}
-
 type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)
 {
     type_t* result = calloc(1, sizeof(*result));
@@ -2724,6 +2723,7 @@ cv_qualifier_t* get_innermost_cv_qualifier(type_t* t)
     }
 }
 
+#if 0
 /*
  * This function just checks functional types
  */
@@ -2761,6 +2761,7 @@ char overloaded_function(type_t* ft1, type_t* ft2, decl_context_t decl_context)
 
     return 0;
 }
+#endif
 
 static char equivalent_vector_type(type_t* t1, type_t* t2, decl_context_t decl_context)
 {
@@ -3717,11 +3718,6 @@ char class_type_is_base(type_t* possible_base, type_t* possible_derived)
 }
 
 char class_type_is_derived(type_t* possible_derived, type_t* possible_base)
-{
-    return class_type_is_base(possible_base, possible_derived);
-}
-
-char is_base_class_of(type_t* possible_base, type_t* possible_derived)
 {
     return class_type_is_base(possible_base, possible_derived);
 }
@@ -5436,6 +5432,14 @@ char* print_declarator(type_t* printed_declarator, decl_context_t decl_context)
                     printed_declarator = printed_declarator->vector->element_type;
                     break;
                 }
+            case TK_COMPUTED:
+                {
+                    char c[256];
+                    snprintf(c, 255, "<computed function type>");
+                    c[255] = '\0';
+                    printed_declarator = NULL;
+                    break;
+                }
             default :
                 internal_error("Unhandled type kind '%d'\n", printed_declarator->kind);
                 break;
@@ -6389,4 +6393,28 @@ char vector_types_can_be_converted(type_t* t1, type_t* t2, decl_context_t decl_c
         return 0;
     }
     return 1;
+}
+
+struct type_tag* get_computed_function_type(computed_function_type_t compute_type_function)
+{
+    type_t* result = calloc(1, sizeof( *result ));
+
+    result->kind = TK_COMPUTED;
+    result->unqualified_type = result;
+    result->compute_type_function = compute_type_function;
+
+    return result;
+}
+
+char is_computed_function_type(type_t* t)
+{
+    return (t != NULL
+            && t->kind == TK_COMPUTED);
+}
+
+computed_function_type_t computed_function_type_get_computing_function(type_t* t)
+{
+    ERROR_CONDITION(!is_computed_function_type(t),
+            "This is not a computed function type!", 0);
+    return t->compute_type_function;
 }

@@ -41,6 +41,8 @@ char standard_conversion_between_types(standard_conversion_t *result,
         struct type_tag* orig, struct type_tag* dest, 
         decl_context_t decl_context);
 
+typedef type_t* (*computed_function_type_t)(scope_entry_t* symbol, AST* argument, int num_arguments);
+
 // Type environment 
 // - This is yet very EXPERIMENTAL. Ignore it for now -
 typedef struct type_environment_tag type_environment_t;
@@ -121,17 +123,15 @@ struct type_tag* get_reference_type(struct type_tag* t);
 
 struct type_tag* get_array_type(struct type_tag*, struct AST_tag* expression, decl_context_t decl_context);
 
-struct type_tag* get_function_type(struct type_tag* t, parameter_info_t* parameter_info, int num_parameters) DEPRECATED;
 struct type_tag* get_new_function_type(struct type_tag* t, parameter_info_t* parameter_info, int num_parameters);
 struct type_tag* get_nonproto_function_type(struct type_tag* t, int num_parameters);
 
 struct type_tag* get_vector_type(struct type_tag* element_type, unsigned int vector_size);
 
+struct type_tag* get_computed_function_type(computed_function_type_t compute_type_function);
 
 /* Type comparison functions */
 char equivalent_types(struct type_tag* t1, struct type_tag* t2, decl_context_t decl_context);
-char overloaded_function(struct type_tag* f1, struct type_tag* f2,
-        decl_context_t decl_context) DEPRECATED;
 char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 
 /* Modifiers used when the type is still being built */
@@ -278,6 +278,8 @@ char is_const_qualified(cv_qualifier_t cv);
 char is_volatile_qualified(cv_qualifier_t cv);
 char is_restrict_qualified(cv_qualifier_t cv);
 
+char is_computed_function_type(type_t* t);
+
 int get_sizeof_type(struct type_tag* t);
 
 /* Query functions: specific ones */
@@ -312,6 +314,8 @@ int class_type_get_num_conversions(struct type_tag* t);
 struct scope_entry_tag* class_type_get_conversion_num(struct type_tag* t, int num);
 
 char class_type_get_is_dependent(struct type_tag* t);
+
+computed_function_type_t computed_function_type_get_computing_function(type_t* t);
 
 // Gives all the conversions related to a class
 struct scope_entry_list_tag* class_type_get_all_conversions(struct type_tag* class_type, 
@@ -364,7 +368,6 @@ int vector_type_get_vector_size(struct type_tag*);
 struct type_tag* vector_type_get_element_type(struct type_tag*);
 
 /* Query functions: Miscelaneous stuff not classified otherwise */
-char is_base_class_of(struct type_tag* possible_base, struct type_tag* possible_derived) DEPRECATED;
 char class_type_is_base(struct type_tag* possible_base, struct type_tag* possible_derived);
 char class_type_is_derived(struct type_tag* possible_base, struct type_tag* possible_derived);
 // char class_type_is_directly_derived(struct type_tag* possible_base, struct type_tag* possible_derived);

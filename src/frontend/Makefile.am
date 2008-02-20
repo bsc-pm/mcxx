@@ -68,6 +68,8 @@ libmcxx_la_SOURCES = \
   cxx-gccsupport.c \
   cxx-gccbuiltins.h \
   cxx-gccbuiltins.c \
+  cxx-gccspubuiltins.h \
+  cxx-gccspubuiltins.c \
   cxx-typeorder.h \
   cxx-typeorder.c \
   cxx-overload.c \
@@ -97,6 +99,8 @@ EXTRA_DIST += cxx-pragma.y
 EXTRA_DIST += cxx-construct.y
 EXTRA_DIST += cxx-superscalar.y
 EXTRA_DIST += cxx-ambig-handler.y
+
+EXTRA_DIST += cxx-gccspubuiltins.def
 
 # BUILT_SOURCES += cxx-attrnames.h
 # BUILT_SOURCES += cxx-asttype.h
