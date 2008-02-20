@@ -204,6 +204,8 @@ then
    MINTAKA_LIBS="${mintaka_lib}"
 
    INSTRUMENTATION_PHASE="compiler_phase = libtlinstr.so"
+
+   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.openmp.instr mcxx.openmp.instr"
 fi
 
 AC_SUBST([INSTRUMENTATION_PHASE])
@@ -671,6 +673,8 @@ AC_CONFIG_FILES([Makefile
            tests/Makefile
            tests/mcc.openmp.dg/config.mcxx
            tests/mcxx.openmp.dg/config.mcxx
+           tests/mcc.openmp.instr.dg/config.mcxx
+           tests/mcxx.openmp.instr.dg/config.mcxx
            tests/mcxx.stm.dg/config.mcxx
            doc/Makefile
            doc/doxygen_tl

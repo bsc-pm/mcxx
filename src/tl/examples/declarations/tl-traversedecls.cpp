@@ -21,67 +21,111 @@
 #include "tl-compilerphase.hpp"
 #include "tl-traverse.hpp"
 #include "tl-langconstruct.hpp"
+#include "tl-ast.hpp"
 
 namespace TL
 {
-    class DeclarationTraverseFunctor : public TraverseFunctor
+    // This is a TraverseASTFunctor, something that gets an AST_t
+    // and returns an ASTTraversalResult
+    class FunctionDefinitionASTFunctor : public TraverseASTFunctor
     {
         public:
-            virtual void postorder(Context ctx, AST_t node) 
-            { 
-                Declaration declaration(node, ctx.scope_link);
-
-                std::cerr << "Found a declaration '" << node.prettyprint() << "' in '" << node.get_locus() << std::endl;
-
-                ObjectList<DeclaredEntity> declared_entities = declaration.get_declared_entities();;
-
-                for (ObjectList<DeclaredEntity>::iterator it = declared_entities.begin();
-                        it != declared_entities.end();
-                        it++)
+            ASTTraversalResult operator()(AST_t &a) const
+            {
+                if (FunctionDefinition::predicate(a))
                 {
-                    DeclaredEntity& entity = *it;
-                    std::cerr << "  Declared '" << entity.get_declared_entity().prettyprint() << "'" << std::endl;
-                    std::cerr << "  Is functional decl ? " << 
-                        (entity.is_functional_declaration() ? "yes" : "no" )
-                        << std::endl;
-                    std::cerr << "  Has initializer ? " << 
-                        (entity.has_initializer() ? "yes" : "no")
-                        << std::endl;
-                    std::cerr << std::endl;
+                    return ast_traversal_result_helper(/* match */ true, /* recurse */ false);
+                }
+                else
+                {
+                    return ast_traversal_result_helper(/* match */ false, /* recurse */ true);
                 }
             }
     };
 
+    // This is a traverse functor, it will have the preorder
+    // and postorder methods
+    class FunctionDefinitionFunctor : public TraverseFunctor
+    {
+        public:
+            void preorder(Context ctx, AST_t ast) 
+            { 
+                ScopeLink sl = ctx.scope_link;
+                // Wrap into a FunctionDefinition since we know it is
+                FunctionDefinition function_definition(ast, sl);
+
+                // Get the function name
+                IdExpression function_name = 
+                    function_definition.get_function_name();
+
+                // Get the body of the function definition
+                Statement stm = function_definition.get_function_body();
+
+                // Now get all function calls
+                ObjectList<AST_t> function_calls = 
+                    stm.get_ast().depth_subtrees(
+                            PredicateAST<LANG_IS_FUNCTION_CALL>()
+                            );
+
+                std::cout 
+                    << function_name.prettyprint() 
+                    << " [label=\"" 
+                    << function_name.prettyprint() 
+                    << "\"]"
+                    << std::endl;
+
+                for (ObjectList<AST_t>::iterator it = function_calls.begin();
+                        it != function_calls.end();
+                        it++)
+                {
+                    Expression expr(*it, sl);
+
+                    // Check if the called entity is a simple name
+                    if (expr.get_called_expression().is_id_expression())
+                    {
+                        IdExpression id_expression = 
+                            expr.get_called_expression().get_id_expression();
+                        Symbol sym = id_expression.get_symbol();
+
+                        // And check if it is a function (and not a pointer to
+                        // function)
+                        if (sym.is_function())
+                        {
+                            std::cout 
+                                << function_name.prettyprint() 
+                                << " -> " 
+                                << id_expression.prettyprint()
+                                << " [label=\"" << id_expression.get_ast().get_locus() << "\"]"
+                                << std::endl;
+                        }
+                    }
+                }
+            }
+            void postorder(Context, AST_t) { }
+    };
+
     class TraverseDecls : public CompilerPhase
     {
-        private:
-            std::string test_parameter;
         public:
             TraverseDecls()
             {
-                register_parameter("test",
-                        "This is a test parameter",
-                        test_parameter,
-                        "no-given-test-parameter");
             }
 
             void run(DTO& dto)
             {
-                std::cerr << "TEST PARAMETR '" << test_parameter << "'" << std::endl;
+                std::cout << "digraph static_callgraph {" << std::endl;
 
                 AST_t ast = dto["translation_unit"];
                 ScopeLink scope_link = dto["scope_link"];
 
                 DepthTraverse depth_traverse;
+                FunctionDefinitionFunctor function_definition_functor;
+                FunctionDefinitionASTFunctor traverse_ast_functor;
 
-                DeclarationTraverseFunctor declaration_traverse_functor;
-
-                PredicateAST<LANG_IS_DECLARATION> declaration_predicate;
-
-                depth_traverse.add_predicate(declaration_predicate,
-                        declaration_traverse_functor);
-
+                depth_traverse.add_functor(traverse_ast_functor, function_definition_functor);
                 depth_traverse.traverse(ast, scope_link);
+
+                std::cout << "}" << std::endl;
             }
     };
 }

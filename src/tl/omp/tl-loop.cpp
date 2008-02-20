@@ -33,10 +33,7 @@ namespace TL
             // Replace references using set "replace_references" over construct body
             Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
 
-            Source instrumentation_before, instrumentation_after;
-
             loop_distribution 
-                << instrumentation_before
                 << "int nth_low;"
                 << "int nth_upper;"
                 << "int nth_step;"
@@ -70,18 +67,7 @@ namespace TL
                 <<         "}"
                 <<    "}"
                 << "}"
-                << instrumentation_after
                 ;
-
-            if (instrumentation_requested())
-            {
-                instrumentation_before
-                    << "mintaka_state_synch();"
-                    ;
-                instrumentation_after
-                    << "mintaka_state_run();"
-                    ;
-            }
 
             return loop_distribution;
         }
@@ -109,12 +95,6 @@ namespace TL
                 ;
 
             Statement loop_body = for_statement.get_loop_body();
-
-            Source instrumentation_code_before, instrumentation_code_after;
-            instrumentation_outline(instrumentation_code_before,
-                    instrumentation_code_after, 
-                    function_definition,
-                    loop_body);
 
             IdExpression induction_var = for_statement.get_induction_variable();
             Source induction_var_name;
@@ -201,22 +181,38 @@ namespace TL
                 // Get a slice of the iteration space
                 << "while (in__tone_next_iters_(&intone_start, &intone_end, &intone_last) != 0)"
                 << "{"
-                << instrumentation_code_before
                 // And do something with it
                 << "   for (" << induction_var_name << " = nth_low+intone_start; "
                 << "        nth_step >= 1 ? " << induction_var_name << " <= nth_low+intone_end : " << induction_var_name << ">= nth_low+intone_end;"
                 << "        " << induction_var_name << " += nth_step)"
                 << "   {"
-                << "   " << modified_loop_body
+                <<        modified_loop_body
                 << "   }"
-                << instrumentation_code_after
                 << "}"
                 ;
 
             // Replace references using set "replace_references" over loop body
             Statement modified_loop_body_stmt = replace_references.replace(loop_body);
             // and get the source of the modified tree
-            modified_loop_body << modified_loop_body_stmt.prettyprint();
+            Source instrument_code_before,
+                   instrument_code_after;
+
+            modified_loop_body 
+                << instrument_code_before
+                << modified_loop_body_stmt.prettyprint()
+                << instrument_code_after;
+
+            if (instrumentation_requested())
+            {
+                instrument_code_before
+                    << "int __previous_state = mintaka_get_state();"
+                    << "mintaka_state_run();"
+                    ;
+
+                instrument_code_after 
+                    << "mintaka_set_state(__previous_state);"
+                    ;
+            }
 
             return parallel_for_body;
         }
@@ -224,25 +220,10 @@ namespace TL
         Source OpenMPTransform::get_loop_finalization(bool do_barrier)
         {
             Source loop_finalization;
-
-            if (do_barrier 
-                    && instrumentation_requested())
-            {
-                loop_finalization
-                    << "mintaka_state_synch();"
-                    << "nth_barrier = " << (int)(do_barrier) << ";"
-                    << "in__tone_end_for_(&nth_barrier);"
-                    << "mintaka_state_run();"
-                    ;
-            }
-            else
-            {
-                loop_finalization
-                    << "nth_barrier = " << (int)(do_barrier) << ";"
-                    << "in__tone_end_for_(&nth_barrier);"
-                    ;
-            }
-
+            loop_finalization
+                << "nth_barrier = " << (int)(do_barrier) << ";"
+                << "in__tone_end_for_(&nth_barrier);"
+                ;
             return loop_finalization;
         }
     }

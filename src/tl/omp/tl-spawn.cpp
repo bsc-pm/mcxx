@@ -43,9 +43,6 @@ namespace TL
 
             Source reduction_code;
 
-            // FIXME. This should be moved out of here like
-            // instrument_code_before and instrument_code_after
-            Source instrument_code_block;
             Source size_vector;
 
             Source src_num_args_val;
@@ -79,21 +76,12 @@ namespace TL
                 << "  {"
                 <<       nth_creation_function
                 << "  }"
-                <<    instrument_code_block // This is crummy here
                 << "  nthf_block_();"
                 <<    reduction_code
                 <<    instrument_code_after
                 << "}"
                 ;
 
-
-            // I don't like this
-            if (instrumentation_requested())
-            {
-                instrument_code_block 
-                    << "mintaka_state_synch();"
-                    ;
-            }
 
             // For every entity in the reduction_references list
             ObjectList<OpenMP::ReductionSymbol> merged_reduction_references;
