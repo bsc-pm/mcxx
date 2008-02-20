@@ -89,7 +89,7 @@ namespace TL
 
                 AST_t critical_mutex_def_tree = critical_mutex_def_src.parse_global(ref_tree, sl);
 
-                ref_tree.prepend_sibling_function(critical_mutex_def_tree);
+                ref_tree.prepend_sibling_global(critical_mutex_def_tree);
 
                 criticals_defined.insert(mutex_variable);
             }

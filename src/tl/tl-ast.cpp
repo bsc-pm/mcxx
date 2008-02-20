@@ -498,8 +498,7 @@ namespace TL
                 }
             case AST_CLASS_SPECIFIER :
                 {
-                    // This one has to be handled specially because of its
-                    // special nature
+                    // This can be null
                     return ASTSon1(node);
                     break;
                 }
@@ -554,7 +553,7 @@ namespace TL
 
         if (enclosing_list == NULL)
         {
-            std::cerr << "Cannot found a suitable list to append" << std::endl;
+            std::cerr << "Cannot find a suitable list to append" << std::endl;
         }
 
         append_list(enclosing_list, appended_list);
@@ -588,8 +587,47 @@ namespace TL
 
     AST_t AST_t::get_enclosing_function_definition_declaration()
     {
-        AST_t result = ASTParent(get_enclosing_function_definition(true)._ast);
+        AST_t result = get_enclosing_function_definition(true).get_parent();
         return result;
+    }
+
+    AST_t AST_t::get_enclosing_class_specifier(bool jump_templates)
+    {
+        AST node = _ast;
+
+        while (node != NULL
+                && ASTType(node) != AST_CLASS_SPECIFIER)
+        {
+            node = ASTParent(node);
+        }
+
+        if (jump_templates)
+        {
+            while (node != NULL
+                    && ASTParent(node) != NULL
+                    && ASTType(ASTParent(node)) == AST_TEMPLATE_DECLARATION)
+            {
+                node = ASTParent(node);
+            }
+        }
+
+        AST_t result(node);
+        return node;
+    }
+
+    AST_t AST_t::get_enclosing_namespace_definition()
+    {
+        AST node = _ast;
+
+        while (node != NULL
+                && ASTType(node) != AST_NAMESPACE_DEFINITION
+                && ASTType(node) != AST_GCC_NAMESPACE_DEFINITION)
+        {
+            node = ASTParent(node);
+        }
+
+        AST_t result(node);
+        return node;
     }
 
     AST_t AST_t::get_enclosing_function_definition(bool jump_templates)
@@ -606,7 +644,8 @@ namespace TL
         if (jump_templates)
         {
             // Now the node is an AST_FUNCTION_DEFINITION
-            while (ASTParent(node) != NULL
+            while (node != NULL 
+                    && ASTParent(node) != NULL
                     && ASTType(ASTParent(node)) == AST_TEMPLATE_DECLARATION)
             {
                 node = ASTParent(node);
@@ -729,6 +768,43 @@ namespace TL
 
     void AST_t::append_sibling_function(AST_t)
     {
+    }
+
+    void AST_t::prepend_sibling_global(AST_t t)
+    {
+        if (t._ast == NULL)
+        {
+            return;
+        }
+
+        AST_t enclosing_global_tree = *this;
+        AST_t enclosing_function = enclosing_global_tree.get_enclosing_function_definition(/*jump_templates*/true);
+
+        if (enclosing_function.is_valid())
+        {
+            enclosing_global_tree = enclosing_function.get_parent();
+        }
+
+        AST_t enclosing_class = enclosing_global_tree.get_enclosing_class_specifier(/*jump_templates*/ true);
+        while (enclosing_class.is_valid())
+        {
+            enclosing_global_tree = enclosing_class.get_parent();
+            enclosing_class = 
+                enclosing_global_tree.get_enclosing_class_specifier(/*jump_templates*/ true);
+        }
+
+        AST_t enclosing_namespace = enclosing_global_tree.get_enclosing_namespace_definition();
+        while (enclosing_namespace.is_valid())
+        {
+            enclosing_global_tree = enclosing_namespace.get_parent();
+            enclosing_namespace = 
+                enclosing_global_tree.get_enclosing_namespace_definition();
+        }
+
+        AST list = get_enclosing_list(enclosing_global_tree._ast);
+        AST prepended_list = get_list_of_extensible_block(t._ast);
+
+        prepend_list(list, prepended_list);
     }
 
     void AST_t::replace_text(const std::string& str)
@@ -905,15 +981,18 @@ namespace TL
 
     }
     
-    //! States whether this tree has a related text
     bool AST_t::has_text() const
     {
         return ASTText(_ast) != NULL;
     }
 
-    //! Returns the text of this tree
     std::string AST_t::get_text()
     {
         return ASTText(_ast);
+    }
+
+    AST_t AST_t::get_parent() const
+    {
+        return ASTParent(this->_ast);
     }
 }

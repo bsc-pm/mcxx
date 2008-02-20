@@ -388,7 +388,13 @@ namespace TL
             //! Prepends a tree as a sibling of the current enclosing function
             void prepend_sibling_function(AST_t t);
             //! Appends a tree as a sibling of the current enclosing function
+            /*!
+             * \bug Not yet implemented
+             */
             void append_sibling_function(AST_t t);
+
+            //! Prepends a tree in the previous global point
+            void prepend_sibling_global(AST_t t);
 
             //! Adds tree to the very beginning of all declarations of current translation unit
             void prepend_to_translation_unit(AST_t t);
@@ -411,7 +417,7 @@ namespace TL
             //! Returns the innermost enclosing block (compound statement) of this tree
             AST_t get_enclosing_block();
 
-            //! Returns the enclosing function definition. 
+            //! Returns the enclosing function definition tree
             /*!
              * \param jump_templates Tells whether template headers of this function definition must be skipped too
              */
@@ -419,9 +425,21 @@ namespace TL
 
             //! Returns the point where the function definition begins its whole declaration
             /*!
-             * This is equivalent to the parent of get_enclosing_function_definition(true)
+             * This is equivalent to call
+             * @code
+             * a.get_enclosing_function_definition(true).get_parent();
+             * @end code
              */
             AST_t get_enclosing_function_definition_declaration();
+
+            //! Returns the enclosing class specifier
+            /*!
+             * \param jump_templates Tells whether template headers of this class specifier must be skipped too
+             */
+            AST_t get_enclosing_class_specifier(bool jump_templates = false);
+
+            //! Returns the enclosing namespace definition
+            AST_t get_enclosing_namespace_definition();
 
             //! States whether this tree has a related text
             bool has_text() const;
@@ -438,6 +456,9 @@ namespace TL
             std::string get_file() const;
             //! Gets a string of the form "file:line" with the file and line of this tree
             std::string get_locus() const;
+
+            //! Returns the parent tree
+            AST_t get_parent() const;
 
             friend class Type;
             friend class Scope;
