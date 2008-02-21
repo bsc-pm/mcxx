@@ -89,6 +89,8 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type_info,
         decl_context_t decl_context);
 
+static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info, 
+        decl_context_t declarator_context);
 static void build_scope_declarator_rec(AST a, type_t** declarator_type, 
         gather_decl_spec_t* gather_info,
         decl_context_t declarator_context,
@@ -2747,6 +2749,26 @@ static void build_scope_declarator_with_parameter_context(AST a,
             scope_link_set(CURRENT_COMPILED_FILE(scope_link), a, entity_context);
         }
 
+        // First traversal along the declarator
+        // just to get all attributes
+        gather_gcc_attributes_spread(a, gather_info, decl_context);
+        
+        // Now we can update the base type if needed
+        if (gather_info->is_vector)
+        {
+            if (gather_info->vector_mode_type != NULL)
+            {
+                *declarator_type = get_vector_type(gather_info->vector_mode_type, 
+                        gather_info->vector_size);
+            }
+            else
+            {
+                *declarator_type = get_vector_type(type_info,
+                        gather_info->vector_size);
+            }
+        }
+
+        // Second traversal, here we build the type
         build_scope_declarator_rec(a, declarator_type, 
                 gather_info, decl_context, entity_context, *prototype_context);
 
@@ -2794,20 +2816,6 @@ static void build_scope_declarator_with_parameter_context(AST a,
         }
     }
 
-    // We do this here because attributes may appear elsewhere in a declarator
-    if (gather_info->is_vector)
-    {
-        if (gather_info->vector_mode_type != NULL)
-        {
-            *declarator_type = get_vector_type(gather_info->vector_mode_type, 
-                    gather_info->vector_size);
-        }
-        else
-        {
-            *declarator_type = get_vector_type(type_info,
-                    gather_info->vector_size);
-        }
-    }
 }
 
 static void convert_tree_from_nested_name_to_qualified_id(AST tree, 
@@ -3201,6 +3209,153 @@ static void set_function_type(type_t** declarator_type,
     }
 }
 
+// This function traverses the declarator tree gathering all attributes that might appear there
+// We need to traverse the declarator twice because of gcc allowing attributes appear in many
+// places
+static void gather_gcc_attributes_spread(AST a, gather_decl_spec_t* gather_info, decl_context_t declarator_context)
+{
+    ERROR_CONDITION((a == NULL), "This function does not admit NULL trees", 0);
+
+    switch(ASTType(a))
+    {
+        case AST_DECLARATOR :
+        case AST_PARENTHESIZED_ABSTRACT_DECLARATOR :
+        case AST_PARENTHESIZED_DECLARATOR :
+            {
+                gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
+                break;
+            }
+        case AST_CONVERSION_DECLARATOR :
+        case AST_ABSTRACT_DECLARATOR :
+            {
+                if (ASTSon1(a) != NULL)
+                {
+                    gather_gcc_attributes_spread(ASTSon1(a), gather_info, declarator_context);
+                }
+                break;
+            }
+        case AST_POINTER_DECL :
+            {
+                gather_gcc_attributes_spread(ASTSon1(a), gather_info, declarator_context);
+                break;
+            }
+        case AST_ABSTRACT_ARRAY :
+            {
+                if (ASTSon0(a) != NULL)
+                {
+                    gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
+                }
+                break;
+            }
+        case AST_DIRECT_NEW_DECLARATOR :
+            {
+                if (ASTSon0(a) != NULL)
+                {
+                    gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
+                }
+                break;
+            }
+        case AST_NEW_DECLARATOR :
+            {
+                if (ASTSon1(a) != NULL)
+                {
+                    gather_gcc_attributes_spread(ASTSon1(a), gather_info, declarator_context);
+                }
+                break;
+            }
+        case AST_DECLARATOR_ARRAY :
+            {
+                gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
+                break;
+            }
+        case AST_ABSTRACT_DECLARATOR_FUNC :
+            {
+                if (ASTSon0(a) != NULL)
+                {
+                    gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
+                }
+                break;
+            }
+        case AST_DECLARATOR_FUNC :
+            {
+                gather_gcc_attributes_spread(ASTSon0(a), gather_info, declarator_context);
+                break;
+            }
+        case AST_DECLARATOR_ID_EXPR :
+            {
+                // Do nothing
+                break;
+            }
+            // GNU extensions
+            // attribute declarator
+        case AST_GCC_DECLARATOR :
+            {
+                AST attribute_list = ASTSon0(a);
+                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
+
+                gather_gcc_attributes_spread(ASTSon1(a), 
+                        gather_info, declarator_context); 
+                break;
+            }
+            // attribute * declarator
+            // attribute & declarator
+        case AST_GCC_POINTER_DECL :
+            {
+                AST attribute_list = ASTSon0(a);
+                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
+
+                gather_gcc_attributes_spread(ASTSon2(a), 
+                        gather_info, declarator_context);
+                break;
+            }
+            // attribute abstract-declarator
+        case AST_GCC_ABSTRACT_DECLARATOR :
+            {
+                AST attribute_list = ASTSon0(a);
+                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
+
+                gather_gcc_attributes_spread(ASTSon0(a), 
+                        gather_info, declarator_context); 
+                break;
+            }
+            // attribute * abstract-declarator
+            // attribute & abstract-declarator
+        case AST_GCC_PTR_ABSTRACT_DECLARATOR :
+            {
+                AST attribute_list = ASTSon0(a);
+                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
+
+                if (ASTSon2(a) != NULL)
+                {
+                    gather_gcc_attributes_spread(ASTSon2(a), 
+                            gather_info, declarator_context);
+                }
+                break;
+            }
+            // functional-declarator attribute
+        case AST_GCC_FUNCTIONAL_DECLARATOR :
+            {
+                AST attribute_list = ASTSon1(a);
+                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
+
+                gather_gcc_attributes_spread(ASTSon0(a), 
+                        gather_info, declarator_context);
+                break;
+            }
+        case AST_AMBIGUITY :
+            {
+                solve_ambiguous_declarator(a, declarator_context);
+                // Restart function
+                gather_gcc_attributes_spread(a, gather_info, declarator_context);
+                break;
+            }
+        default:
+            {
+                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(a)));
+            }
+    }
+}
+
 /*
  * This function builds the full type a declarator is representing.  For
  * instance
@@ -3349,9 +3504,6 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
             // attribute declarator
         case AST_GCC_DECLARATOR :
             {
-                AST attribute_list = ASTSon0(a);
-                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
-
                 build_scope_declarator_rec(ASTSon1(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context); 
                 break;
@@ -3360,9 +3512,6 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
             // attribute & declarator
         case AST_GCC_POINTER_DECL :
             {
-                AST attribute_list = ASTSon0(a);
-                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
-
                 set_pointer_type(declarator_type, ASTSon1(a), declarator_context);
                 build_scope_declarator_rec(ASTSon2(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
@@ -3371,9 +3520,6 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
             // attribute abstract-declarator
         case AST_GCC_ABSTRACT_DECLARATOR :
             {
-                AST attribute_list = ASTSon0(a);
-                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
-
                 build_scope_declarator_rec(ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context); 
                 break;
@@ -3382,9 +3528,6 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
             // attribute & abstract-declarator
         case AST_GCC_PTR_ABSTRACT_DECLARATOR :
             {
-                AST attribute_list = ASTSon0(a);
-                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
-
                 set_pointer_type(declarator_type, ASTSon1(a), declarator_context);
                 if (ASTSon2(a) != NULL)
                 {
@@ -3396,9 +3539,6 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
             // functional-declarator attribute
         case AST_GCC_FUNCTIONAL_DECLARATOR :
             {
-                AST attribute_list = ASTSon1(a);
-                gather_gcc_attribute_list(attribute_list, gather_info, declarator_context);
-
                 build_scope_declarator_rec(ASTSon0(a), declarator_type,
                         gather_info, declarator_context, entity_context, prototype_context);
                 break;

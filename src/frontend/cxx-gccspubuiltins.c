@@ -315,7 +315,7 @@ static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* 
         new_spu_builtin->type_information = TYPE; \
     } \
     new_spu_builtin->entity_specs.is_builtin = 1; \
-    new_spu_builtin->do_not_print = 0; \
+    new_spu_builtin->do_not_print = 1; \
 }
 
 void gcc_sign_in_spu_builtins(decl_context_t global_context)
