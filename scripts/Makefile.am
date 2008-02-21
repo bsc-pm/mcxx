@@ -1,0 +1,1 @@
+EXTRA_DIST=patch_rofi_bison

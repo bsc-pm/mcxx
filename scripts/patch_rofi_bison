@@ -1,0 +1,98 @@
+diff -bu -Xexclude bison-2.3/src/getargs.c bison-2.3-rofi/src/getargs.c
+--- bison-2.3/src/getargs.c	2006-05-30 18:11:45.000000000 +0200
++++ bison-2.3-rofi/src/getargs.c	2006-08-07 15:57:07.000000000 +0200
+@@ -65,6 +65,10 @@
+ const char *skeleton = NULL;
+ const char *include = NULL;
+ 
++// rofi
++char* default_merger_name = NULL;
++// end rofi
++
+ extern char *program_name;
+ 
+ 
+diff -bu -Xexclude bison-2.3/src/parse-gram.y bison-2.3-rofi/src/parse-gram.y
+--- bison-2.3/src/parse-gram.y	2006-05-14 21:14:10.000000000 +0200
++++ bison-2.3-rofi/src/parse-gram.y	2006-08-07 16:10:19.000000000 +0200
+@@ -57,6 +57,8 @@
+ static location current_lhs_location;
+ static int current_prec = 0;
+ 
++extern uniqstr default_merger_name;
++
+ #ifdef UINT_FAST8_MAX
+ # define YYTYPE_UINT8 uint_fast8_t
+ #endif
+@@ -121,6 +123,9 @@
+ %token PERCENT_PREC          "%prec"
+ %token PERCENT_DPREC         "%dprec"
+ %token PERCENT_MERGE         "%merge"
++// rofi
++%token PERCENT_DEFAULT_MERGE         "%default-merge"
++// end rofi
+ 
+ 
+ /*----------------------.
+@@ -249,6 +254,7 @@
+ | "%token-table"                           { token_table_flag = true; }
+ | "%verbose"                               { report_flag = report_states; }
+ | "%yacc"                                  { yacc_flag = true; }
++| "%default-merge" TYPE                    { default_merger_name = $2; }
+ | /*FIXME: Err?  What is this horror doing here? */ ";"
+ ;
+ 
+diff -bu -Xexclude bison-2.3/src/reader.c bison-2.3-rofi/src/reader.c
+--- bison-2.3/src/reader.c	2006-05-14 21:14:10.000000000 +0200
++++ bison-2.3-rofi/src/reader.c	2006-08-07 16:10:48.000000000 +0200
+@@ -117,8 +117,10 @@
+       merge_functions = head.next;
+     }
+   else if (!UNIQSTR_EQ (type, syms->next->type))
+-    warn_at (loc, _("result type clash on merge function %s: <%s> != <%s>"),
+-	     name, type, syms->next->type);
++  {
++     /* warn_at (loc, _("result type clash on merge function %s: <%s> != <%s>"),
++	     name, type, syms->next->type); */
++  }
+   return n;
+ }
+ 
+@@ -281,6 +283,7 @@
+ /*-------------------------------------.
+ | End the currently being grown rule.  |
+ `-------------------------------------*/
++extern uniqstr default_merger_name;
+ 
+ void
+ grammar_current_rule_end (location loc)
+@@ -288,6 +291,16 @@
+   /* Put an empty link in the list to mark the end of this rule  */
+   grammar_symbol_append (NULL, grammar_end->location);
+   current_rule->location = loc;
++
++  // rofi
++  if (default_merger_name != NULL && current_rule->merger == 0)
++  {
++  	// fprintf(stderr, "Setting default merger to '%s'\n", default_merger_name);
++  	current_rule->merger = 
++  		get_merge_function(default_merger_name, current_rule->sym->type_name, loc);
++  }
++  // end rofi
++
+   grammar_rule_check (current_rule);
+ }
+ 
+diff -bu -Xexclude bison-2.3/src/scan-gram.l bison-2.3-rofi/src/scan-gram.l
+--- bison-2.3/src/scan-gram.l	2006-04-03 15:50:10.000000000 +0200
++++ bison-2.3-rofi/src/scan-gram.l	2006-08-07 15:57:07.000000000 +0200
+@@ -256,6 +256,9 @@
+   "%union"		  token_type = PERCENT_UNION; BEGIN SC_PRE_CODE;
+   "%verbose"              return PERCENT_VERBOSE;
+   "%yacc"                 return PERCENT_YACC;
++ /* rofi */
++  "%default-merge"        return PERCENT_DEFAULT_MERGE;
++ /* end rofi */ 
+ 
+   {directive} {
+     complain_at (*loc, _("invalid directive: %s"), quote (yytext));
