@@ -1,1 +1,2 @@
-EXTRA_DIST=patch_rofi_bison
+EXTRA_DIST= \
+			bison-2.3-rofi-patch
