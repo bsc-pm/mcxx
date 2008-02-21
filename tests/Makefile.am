@@ -13,4 +13,3 @@ DEJATOOL = \
   mcxx.torture \
   $(ADDITIONAL_TESTS) \
   $(NULL)
-

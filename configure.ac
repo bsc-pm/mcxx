@@ -205,7 +205,7 @@ then
 
    INSTRUMENTATION_PHASE="compiler_phase = libtlinstr.so"
 
-   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.openmp.instr mcxx.openmp.instr"
+   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.instr.openmp mcxx.instr.openmp"
 fi
 
 AC_SUBST([INSTRUMENTATION_PHASE])
