@@ -1,1 +1,1 @@
-SUBDIRS = lib src config tests doc
+SUBDIRS = lib src config tests doc scripts

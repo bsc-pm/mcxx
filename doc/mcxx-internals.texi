@@ -638,6 +638,7 @@ list, so making more explicit what to do when no elements are in a list.
 * Vector types::
 * Unresolved function reference types::
 * Ellipsis type::
+* Computed builtin function types::
 @end menu
 
 The second most important thing handled by the compiler, beside the source code, are types. The type system is
@@ -656,7 +657,8 @@ specialized type.
 
 The C type representing a C type is @code{type_t} and it is declared in @file{frontend/cxx-typeutils.h}. It is an 
 opaque data type so only pointers to it can be used (except for the implementation file @file{frontend/cxx-typeutils.c}
-which can access the inner representation of a type).
+which can access the inner representation of a type). Functions to deal with types are described in the reference
+manual.
 
 Types in the type system are most of the time immutable. This means that once we are given a reference to a type
 it will not change. This paragraph reads @emph{most of the time} because there are some moments where a type has a transient
@@ -695,9 +697,10 @@ into the dreaded @code{std::basic_string<char, std::char_traits<char>,
 std::allocator<char> >}, which, is, admittedly, rather harsh to read when
 debugging output code. 
 
-So, although these three functions below have the same underlying function type,
-none of them will share a common type. This does not pose any functional
-limitation to the compiler, it will just waste more memory.
+So, although these three functions below have the same underlying function
+type, none of them will share a common type. This does not pose any functional
+limitation to the compiler since it knows they are the same, it will just
+waste more memory.
 
 @example
 void f1(int, float);
@@ -724,6 +727,7 @@ Types can be one of the following:
 @item Vector type. @xref{Vector types}.
 @item Unresolved function reference type. @xref{Unresolved function reference types}.
 @item Ellipsis type. @xref{Ellipsis type}.
+@item Computed builtin function type. @xref{Computed builtin function types}.
 @end itemize
 
 @node Type definition
@@ -791,6 +795,8 @@ Unresolved function reference.
 Vector types.
 @item TK_ELLIPSIS
 Ellipsis type (...)
+@item TK_COMPUTED
+Computed builtin function types.
 @end table
 @item pointer
 
@@ -886,6 +892,26 @@ These store template parameters and are only used for templated types. @xref{Tem
 
 This field should contain the size in bytes of the underlying type. This is a experimental
 feature and it is not expected to work nor to be useful. 
+
+@item compute_type_function
+
+This is a pointer to a function with the following prototype
+
+@example
+typedef type_t* (*computed_function_type_t)(scope_entry_t* symbol, AST* argument, int num_arguments);
+@end example
+
+This field is only used when @code{kind} is @code{TK_COMPUTED}. Only builtin
+functions in C (not C++) can have a type of @code{TK_COMPUTED}.
+
+Function pointed by @code{compute_type_function} will be invoked everytime the
+compiler needs to know the exact type resulting of the builtin function call. This function receives
+the builtin function symbol (@pxref{Symbols}) and an array of trees (@pxref{Abstract Syntax Tree})
+with @code{num_arguments} elements. 
+
+The function returns a function type (@pxref{Function types}) and the result
+type of this function type will be the one used as a result type of the whole
+call. @xref{Computed builtin function types}.
 
 @end table
 
@@ -1722,6 +1748,17 @@ symbols that are candidates of overload resolution.
 Ellipsis type (@code{TK_ELLIPSIS}) is a singleton type@footnote{Only one
 instance of it will exist} that represents an ellipsis type. It is only used in
 the context of overload resolution.
+
+@node Computed builtin function types
+@section Computed builtin function types
+@cindex computed builtin function types
+
+Sometimes it is useful to have some sort of limited overloading support in C. To achieve this, 
+since the overloading C++ machinery is disabled when compiling C, mcxx allows creating a special
+kind of type where a function defines the exact functional type. 
+
+This kind of types are not supported in C++, because such builtins would cause
+undesirable interferences to the already complex overload machinery.
 
 @node Symbols
 @chapter Symbols
@@ -3350,7 +3387,7 @@ cycles you will need a fairly more sophisticated approach not covered here.
 @end menu
 
 This chapter is devoted to introduce you several examples when using TL, trying to cover
-the most popular transformations.
+the most popular transformations and uses of the compiler.
 
 This chapter does not give any detail on specific issues like how to compile
 and build the phases, this is later addressed in @ref{Installation of mcxx}.
@@ -3732,6 +3769,99 @@ get mixed against one name}.
 @node Installation of mcxx
 @chapter Installation of mcxx
 @cindex installation mcxx
+
+@menu
+* Building from source::
+* Installing::
+@end menu
+
+@node Building from source
+@section Building from source
+@cindex building from source
+
+@menu
+* Required tools::
+* configure flags::
+@end menu
+
+By default, distribution tarballs do not require any tool except for @code{gcc}
+and @code{g++} compilers. mcxx uses a fairly standard autotools setup for
+building. 
+
+Minimal configuration of the package is as follows.
+
+@example
+$ ./configure
+$ make
+$ make install
+@end example
+
+It is likely that you want to specify @code{--prefix} and some of the flags
+described in @ref{configure flags}.
+
+@node Required tools
+@subsection Required tools
+@cindex required tools
+
+A number of tools may be required to build the compiler.
+
+@table @strong
+@item Bison 2.3-rofi
+A special version of bison is required to compile the two parsers (C99 and C++) of
+the compiler.
+@end table
+
+@node configure flags
+@subsection @code{configure} flags
+@cindex configure flags
+
+@table @code
+@item --disable-tl-openmp 
+Disables generation of OpenMP TL support. This is enabled by default.
+@item --disable-tl-instrumentation
+Disables generation of Mintaka instrumentation TL support
+@item --enable-tl-acotes 
+Enables generation of ACOTES TL Support
+@item --enable-tl-nebelung
+Enables generation of Nebelung STM TL support
+@item --enable-tl-superscalar 
+Enables generation of Cell/SMP superscalar TL support
+@item --disable-file-regeneration
+Disables any file regeneration using flex, bison or gperf.
+@item --enable-flex-regeneration
+Forces flex regeneration, even if the version is not recommended or properly
+detected.
+@item --enable-bison-regeneration
+Forces bison regeneration, even if the version is not recommended or properly
+detected.
+@item --enable-gperf-regeneration
+Forces gperf regeneration, even if the version is not recommended or properly
+detected.
+@item --with-nanos4=dir
+Directory of NANOS 4 installation. This option is mandatory if OpenMP is enabled.
+@item --with-nanos4-include=dir
+Directory of NANOS 4 headers.
+@item --with-nanos4-lib=dir
+Directory of NANOS 4 libraries.
+@item --with-mintaka=dir
+Directory of Mintaka installation. This option is mandatory if instrumentation is enabled.
+@item --with-mintaka-include=dir
+Directory of Mintaka headers. 
+@item --with-mintaka-lib=dir
+Directory of Mintaka libraries. 
+@item --with-nebelung=dir
+Directory of Nebelung installation. This option is mandatory if Nebelung STM is enabled.
+@item --with-nebelung-include=dir
+Directory of Nebelung headers
+@item --with-nebelung-lib=dir
+Directory of Nebelung libraries
+@item --with-superscalar-runtime-api-version=VERSION
+Selects the version number of the Cell/SMP superscalar internal runtime API
+@end table
+
+@node Installing
+@section Installing
+@cindex installing
 
 @node Function Index 
 @unnumbered Function Index
