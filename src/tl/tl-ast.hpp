@@ -428,7 +428,7 @@ namespace TL
              * This is equivalent to call
              * @code
              * a.get_enclosing_function_definition(true).get_parent();
-             * @end code
+             * @endcode
              */
             AST_t get_enclosing_function_definition_declaration();
 
