@@ -30,8 +30,6 @@
 
 MCXX_BEGIN_DECLS
 
-standard_conversion_t identity_scs(struct type_tag* orig, struct type_tag* dest);
-
 char standard_conversion_is_identity(standard_conversion_t);
 char standard_conversion_is_invalid(standard_conversion_t);
 struct type_tag* standard_conversion_get_orig_type(standard_conversion_t scs);

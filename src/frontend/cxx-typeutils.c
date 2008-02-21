@@ -5450,7 +5450,7 @@ char* print_declarator(type_t* printed_declarator, decl_context_t decl_context)
 }
 
 
-standard_conversion_t identity_scs(type_t* t_orig, type_t* t_dest)
+static standard_conversion_t identity_scs(type_t* t_orig, type_t* t_dest)
 {
     standard_conversion_t result = {
         .orig = t_orig,
