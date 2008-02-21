@@ -673,8 +673,8 @@ AC_CONFIG_FILES([Makefile
            tests/Makefile
            tests/mcc.openmp.dg/config.mcxx
            tests/mcxx.openmp.dg/config.mcxx
-           tests/mcc.openmp.instr.dg/config.mcxx
-           tests/mcxx.openmp.instr.dg/config.mcxx
+           tests/mcc.instr.openmp.dg/config.mcxx
+           tests/mcxx.instr.openmp.dg/config.mcxx
            tests/mcxx.stm.dg/config.mcxx
            doc/Makefile
            doc/doxygen_tl
