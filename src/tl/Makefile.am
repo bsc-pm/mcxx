@@ -2,7 +2,7 @@ SUBDIRS = . examples @TLEXTENSIONS@
 
 END=
 
-DIST_SUBDIRS=omp instr instr_pthreads acotes examples stm_func superscalar stm_func nanos
+DIST_SUBDIRS=omp instr instr_pthreads acotes examples stm_func superscalar nanos
 
 lib_LTLIBRARIES = libtl.la
 
