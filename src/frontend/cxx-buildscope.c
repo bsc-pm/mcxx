@@ -666,12 +666,13 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
             AST declarator = ASTSon0(init_declarator);
             AST initializer = ASTSon1(init_declarator);
 
-            type_t* declarator_type;
+            type_t* declarator_type = NULL;
 
             // This will create the symbol if it is unqualified
             compute_declarator_type(declarator, &current_gather_info, 
                     simple_type_info, &declarator_type, decl_context);
-            scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, &current_gather_info, decl_context);
+            scope_entry_t *entry = build_scope_declarator_name(declarator, declarator_type, 
+                    &current_gather_info, decl_context);
 
             ERROR_CONDITION(entry == NULL, "Declaration '%s' in '%s' did not declare anything!", 
                     prettyprint_in_buffer(a),
@@ -1068,12 +1069,9 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 build_scope_decl_specifier_seq(type_specifier_seq, &typeof_gather_info, &type_info, decl_context);
 
                 type_t* declarator_type = type_info;
-                if (abstract_decl != NULL)
-                {
-                    compute_declarator_type(abstract_decl, 
-                            &typeof_gather_info, type_info, &declarator_type,
-                            decl_context);
-                }
+                compute_declarator_type(abstract_decl, 
+                        &typeof_gather_info, type_info, &declarator_type,
+                        decl_context);
 
                 *simple_type_info = declarator_type;
                 break;
@@ -2692,6 +2690,28 @@ static void build_scope_declarator_with_parameter_context(AST a,
         decl_context_t decl_context, decl_context_t *prototype_context)
 {
     *declarator_type = type_info;
+    
+    if (a != NULL)
+    {
+        // First traversal along the declarator
+        // just to get all attributes
+        gather_gcc_attributes_spread(a, gather_info, decl_context);
+    }
+    
+    // Now we can update the base type because of attributes if needed
+    if (gather_info->is_vector)
+    {
+        if (gather_info->vector_mode_type != NULL)
+        {
+            *declarator_type = get_vector_type(gather_info->vector_mode_type, 
+                    gather_info->vector_size);
+        }
+        else
+        {
+            *declarator_type = get_vector_type(type_info,
+                    gather_info->vector_size);
+        }
+    }
 
     if (a != NULL)
     {
@@ -2747,25 +2767,6 @@ static void build_scope_declarator_with_parameter_context(AST a,
             }
 
             scope_link_set(CURRENT_COMPILED_FILE(scope_link), a, entity_context);
-        }
-
-        // First traversal along the declarator
-        // just to get all attributes
-        gather_gcc_attributes_spread(a, gather_info, decl_context);
-        
-        // Now we can update the base type if needed
-        if (gather_info->is_vector)
-        {
-            if (gather_info->vector_mode_type != NULL)
-            {
-                *declarator_type = get_vector_type(gather_info->vector_mode_type, 
-                        gather_info->vector_size);
-            }
-            else
-            {
-                *declarator_type = get_vector_type(type_info,
-                        gather_info->vector_size);
-            }
         }
 
         // Second traversal, here we build the type
@@ -3078,12 +3079,10 @@ static void set_function_parameter_clause(type_t** function_type,
         scope_entry_t* entry = NULL;
         type_t* type_info = NULL;
 
-        // If we have a declarator compute its type
+        compute_declarator_type(parameter_declarator, 
+                &param_decl_gather_info, simple_type_info, &type_info, param_decl_context);
         if (parameter_declarator != NULL)
         {
-            compute_declarator_type(parameter_declarator, 
-                    &param_decl_gather_info, simple_type_info, &type_info, param_decl_context);
-
             entry = build_scope_declarator_name(parameter_declarator, type_info, &param_decl_gather_info, param_decl_context);
 
             AST declarator_name = get_declarator_name(parameter_declarator, param_decl_context);
@@ -3094,11 +3093,6 @@ static void set_function_parameter_clause(type_t** function_type,
                 ASTAttrSetValueType(parameter_declaration, LANG_PARAMETER_DECLARATION_NAME, 
                         tl_type_t, tl_ast(declarator_name));
             }
-        }
-        // If we don't have a declarator just save the base type
-        else
-        {
-            type_info = simple_type_info;
         }
 
         // Now normalize the types
@@ -5042,12 +5036,9 @@ static void build_scope_type_template_parameter(AST a,
         build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, template_context);
 
         type_t* declarator_type = type_info;
-        if (abstract_decl != NULL)
-        {
-            compute_declarator_type(abstract_decl, 
-                    &gather_info, type_info, &declarator_type,
-                    template_context);
-        }
+        compute_declarator_type(abstract_decl, 
+                &gather_info, type_info, &declarator_type,
+                template_context);
 
         template_argument_t *default_template_argument = calloc(1, sizeof(*default_template_argument));
 
@@ -5085,12 +5076,9 @@ static void build_scope_nontype_template_parameter(AST a,
     scope_entry_t* entry = NULL;
 
     type_t* declarator_type = type_info;
-    if (parameter_declarator != NULL)
-    {
-        compute_declarator_type(parameter_declarator, 
-                &gather_info, type_info, &declarator_type,
-                template_context);
-    }
+    compute_declarator_type(parameter_declarator, 
+            &gather_info, type_info, &declarator_type,
+            template_context);
 
     if (parameter_declarator != NULL)
     {
@@ -6093,11 +6081,11 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         type_t* declarator_type = member_type;
 
                         scope_entry_t* bitfield_symbol = NULL;
+                        compute_declarator_type(identifier, &gather_info, 
+                                member_type, &declarator_type, 
+                                decl_context);
                         if (identifier != NULL)
                         {
-                            compute_declarator_type(identifier, &gather_info, 
-                                    member_type, &declarator_type, 
-                                    decl_context);
                             bitfield_symbol = build_scope_declarator_name(identifier, declarator_type, &gather_info, decl_context);
                         }
                         else
@@ -6490,11 +6478,8 @@ static void build_exception_spec(type_t* function_type UNUSED_PARAMETER,
                 decl_context);
 
         type_t* declarator_type = type_info;
-        if (abstract_decl != NULL)
-        {
-            compute_declarator_type(abstract_decl, &inner_gather_info, type_info, &declarator_type,
-                    decl_context);
-        }
+        compute_declarator_type(abstract_decl, &inner_gather_info, type_info, &declarator_type,
+                decl_context);
 
         P_LIST_ADD_ONCE(gather_info->exceptions, gather_info->num_exceptions, declarator_type);
     }

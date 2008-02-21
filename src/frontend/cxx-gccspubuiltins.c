@@ -80,7 +80,7 @@ static type_t* spu_builtin_types[SPU_BTI_MAX];
 #define float_type_node (get_float_type())
 #define double_type_node (get_double_type())
 
-#define unsigned_intQI_type_node (get_unsigned_char_type())
+#define unsigned_intQI_type_node (get_char_type())
 #define unsigned_intHI_type_node (get_unsigned_short_int_type())
 #define unsigned_intSI_type_node (get_unsigned_int_type())
 #define unsigned_intDI_type_node (get_unsigned_long_long_int_type())
