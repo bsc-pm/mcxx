@@ -122,10 +122,18 @@ in the compiler to allow storing additional information not considered originall
 by the compiler.
 @end itemize
 
-The second part concerns TL, the part intended to be extended more frequently.
+A second part concerns TL, the part intended to be extended more frequently.
 
 @itemize @bullet
-@item @ref{Introduction to TL}.
+@item @ref{Introduction to TL}. Introduces TL and how it works.
+@item @ref{Examples of TL}. Shows several examples and use cases of TL.
+@end itemize
+
+Finally, some other ``less" internals documentation, but also worthy
+of documentation.
+
+@itemize @bullet
+@item @ref{Installation of mcxx}. Gives some details about how to install mcxx.
 @end itemize
 
 @node Compilation process
@@ -3772,7 +3780,7 @@ get mixed against one name}.
 
 @menu
 * Building from source::
-* Installing::
+* Generating documentation::
 @end menu
 
 @node Building from source
@@ -3803,13 +3811,37 @@ described in @ref{configure flags}.
 @subsection Required tools
 @cindex required tools
 
-A number of tools may be required to build the compiler.
+A number of tools may be required to build the compiler if you modify
+some specific parts of it.
 
 @table @strong
-@item Bison 2.3-rofi
-A special version of bison is required to compile the two parsers (C99 and C++) of
-the compiler.
+@item GNU Flex 2.5.4 or 2.5.3x
+Scanner generator @code{flex} is required if file @code{cxx-lexer.l} is
+modified.
+@item GNU Bison 2.3-rofi
+A slightly modified version of parser generator tool @code{bison} is @strong{required} if you modify the
+C++ and C parsers @file{src/cxx03.y} and @file{src/c99.y}, respectively.  
+The patch against the version 2.3 of @code{bison} can be found in
+@file{scripts/bison-2.3-rofi-patch}. 
+@item GNU gperf 3.0.x
+Perfect hash generator @code{gperf} is required if you modify files
+@file{driver/cxx-configoptions.gperf}, @file{driver/cxx-fileextensions.gperf}
+and @file{driver(cxx-debugflags.gperf}.
+@item GNU Texinfo
+This tool is used to generated the document you are reading.
+@item Doxygen
+Source code documentation extraction tool @code{doxygen} is required to build
+the internal reference documentation.
 @end table
+
+@code{configure} script will try to find suitable versions of these tools.
+If they are found, additional regeneration rules are enabled in makefiles,
+otherwise these rules are disabled and modifying input files will not be
+considered for rebuild. See @ref{configure flags} to see which flags
+can be used to override @code{configure} autodetection.
+
+Other source code files are created at build time but they do not
+require special tools since are shell-script based.
 
 @node configure flags
 @subsection @code{configure} flags
@@ -3859,9 +3891,21 @@ Directory of Nebelung libraries
 Selects the version number of the Cell/SMP superscalar internal runtime API
 @end table
 
-@node Installing
-@section Installing
-@cindex installing
+@node Generating documentation
+@section Generating documentation
+@cindex generating documentation
+
+Directory @file{doc} contains several documentation resources of mcxx.
+
+The document you are reading can be generated in @code{info} form by typing
+@code{make} in that directory, this requires @code{texinfo} (@code{configure}
+does not check this). This info file is automatically installed along the
+compiler when you type @code{make install}.  To get @acronym{PDF, Portable
+Document Format} version of this document just type @code{make pdf}.  
+
+To generate reference code, both in @acronym{HTML, HyperText Mark-up Language}
+and @LaTeX{} just type @code{make doxygen}, this last operation requires
+@code{doxygen} installed (@code{configure} does not check this).
 
 @node Function Index 
 @unnumbered Function Index
