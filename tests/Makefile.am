@@ -24,3 +24,9 @@ dist-hook:
 		cp -v $(srcdir)/$${DIR}/*.c $(distdir)/$${DIR} ; \
 		cp -v $(srcdir)/$${DIR}/*.cpp $(distdir)/$${DIR} ; \
 	done
+
+distclean-local:
+	rm -vf lt-mcxx_success*.c
+	rm -vf lt-mcxx_failure*.c
+	rm -vf lt-mcxx_success*.cpp
+	rm -vf lt-mcxx_failure*.cpp
