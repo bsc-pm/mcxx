@@ -6,6 +6,9 @@ set testcases [lsort [find $srcdir/$subdir/../mcxx.openmp.dg *.cpp]]
 
 send_user "\n"
 
+# Mandatory for OpenMP tests
+source "${srcdir}/openmp_libs.conf"
+
 foreach test $testcases {
     set basename_test [file tail $test]
     set dirname_test [file dirname $test]
