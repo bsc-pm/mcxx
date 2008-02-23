@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <libgen.h>
+#include <malloc.h>
 
 #include "cxx-utils.h"
 #include "cxx-driver.h"
@@ -196,6 +197,8 @@ static void register_default_initializers(void);
 
 static void help_message(void);
 
+static void print_memory_report(void);
+
 static int parse_special_parameters(int *should_advance, int argc, char* argv[]);
 static int parse_parameter_flag(int *should_advance, char *special_parameter);
 
@@ -247,6 +250,11 @@ int main(int argc, char* argv[])
     {
         fprintf(stderr, "Whole process took %.2f seconds to complete\n",
                 timing_elapsed(&timing_global));
+    }
+
+    if (CURRENT_CONFIGURATION(debug_options.print_memory_report))
+    {
+        print_memory_report();
     }
 
     return compilation_process.execution_result;
@@ -1955,3 +1963,77 @@ pragma_directive_kind_t lookup_pragma_directive(const char* prefix, const char* 
 
     return PDK_NONE;
 }
+
+static char* power_suffixes[9] = 
+{
+    "",
+    "K",
+    "M",
+    "G",
+    "T",
+    "P",
+    "E",
+    "Z",
+    "Y"
+};
+
+static void print_human(char *dest, int num_bytes_)
+{
+    float num_bytes = num_bytes_;
+    int i = 0;
+
+    while ((num_bytes > 1024) && (i <= 8))
+    {
+        i++;
+        num_bytes /= 1024;
+    }
+
+    if (i == 0)
+    {
+        sprintf(dest, "%d", num_bytes_);
+    }
+    else
+    {
+        sprintf(dest, "%.2f%s", num_bytes, power_suffixes[i]);
+    }
+}
+
+static void print_memory_report(void)
+{
+    char c[256];
+
+    struct mallinfo mallinfo_report = mallinfo();
+
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Memory report\n");
+    fprintf(stderr, "-------------\n");
+    fprintf(stderr, "\n");
+
+    print_human(c, mallinfo_report.arena);
+    fprintf(stderr, " - Total size of memory allocated with sbrk: %s\n",
+            c);
+
+    fprintf(stderr, " - Number of chunks not in use: %d\n",
+            mallinfo_report.ordblks);
+    fprintf(stderr, " - Number of chunks allocated with mmap: %d\n",
+            mallinfo_report.hblks);
+
+    print_human(c, mallinfo_report.hblkhd);
+    fprintf(stderr, " - Total size allocated with mmap: %s\n",
+            c);
+
+    print_human(c, mallinfo_report.uordblks);
+    fprintf(stderr, " - Total size of memory occupied by chunks handed out by malloc: %s\n",
+            c);
+
+    print_human(c, mallinfo_report.fordblks);
+    fprintf(stderr, " - Total size of memory occupied by free (not in use) chunks: %s\n",
+            c);
+
+    print_human(c, mallinfo_report.keepcost);
+    fprintf(stderr, " - Size of the top most releasable chunk: %s\n",
+            c);
+
+    fprintf(stderr, "\n");
+}
+

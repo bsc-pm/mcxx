@@ -35,6 +35,7 @@ struct debug_flags_list_t;
 "debug_lexer", DEBUG_OPTION_REF(debug_lexer), "Enables lexer debug"
 "debug_parser", DEBUG_OPTION_REF(debug_parser), "Enables parser debug"
 "print_ast", DEBUG_OPTION_REF(print_ast), "Prints ast in graphviz format"
+"memory_report", DEBUG_OPTION_REF(print_memory_report), "Prints a memory report at the end"
 %%
 
 static int cmpstringp(const void *p1, const void *p2)

@@ -117,6 +117,7 @@ typedef struct debug_options_tag
     char debug_lexer;
     char debug_parser;
     char print_ast;
+    char print_memory_report;
 } debug_options_t;
 
 typedef struct external_var_tag {
