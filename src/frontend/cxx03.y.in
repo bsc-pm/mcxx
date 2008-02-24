@@ -54,7 +54,7 @@ extern int yylex(void);
 	token_atrib_t token_atrib;
 	AST ast;
 	node_t node_type;
-    char *text;
+    const char *text;
 };
 
 

@@ -225,7 +225,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
                 [TAK_TEMPLATE] = "template template argument",
             };
 
-            char *template_arg_info = NULL;
+            const char *template_arg_info = NULL;
 
             if (current_argument->kind == TAK_TYPE
                     || current_argument->kind == TAK_TEMPLATE)

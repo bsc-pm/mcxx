@@ -33,7 +33,9 @@ libmcxx_utils_la_SOURCES = \
                           hash_iterator.c \
                           stack.h \
 						  mcxx_refcount.c \
-						  mcxx_refcount.h
+						  mcxx_refcount.h \
+						  uniquestr.h \
+						  char_trie.c
 
 
 libmcxx_mcfg_la_CFLAGS = -Wall 

@@ -55,6 +55,9 @@ void debug_message(const char* message, const char* kind, const char* source_fil
     vfprintf(stderr, sanitized_message, ap);
     va_end(ap);
     fprintf(stderr, "\n");
+
+    free(source_file_copy);
+    free(sanitized_message);
 }
 
 void running_error(const char* message, ...)
@@ -74,46 +77,37 @@ void running_error(const char* message, ...)
 }
 
 
-char* strappend(const char* orig, const char* appended)
+const char* strappend(const char* orig, const char* appended)
 {
     int total = strlen(orig) + strlen(appended) + 1;
 
-    char* result = calloc(total, sizeof(*result));
+    char append_tmp[total];
+    append_tmp[0] = '\0';
 
-    strcat(result, orig);
-    strcat(result, appended);
-    
-    return result;
+    strcat(append_tmp, orig);
+    strcat(append_tmp, appended);
+
+    return uniquestr(append_tmp);
 }
 
-char* strprepend(const char* orig, const char* prepended)
+const char* strprepend(const char* orig, const char* prepended)
 {
-    int total = strlen(orig) + strlen(prepended) + 1;
-
-    char* result = calloc(total, sizeof(*result));
-
-    strcat(result, prepended);
-    strcat(result, orig);
-
-    return result;
+    return strappend(prepended, orig);
 }
 
-
-char* get_unique_name(void)
+const char* get_unique_name(void)
 {
     static int num_var = 100;
-    char* result = calloc(15, sizeof(char));
+    char result[15];
 
     snprintf(result, 14, "$.anon%05d", num_var);
 
-    num_var++;
-
-    return result;
+    return uniquestr(result);
 }
 
-char** comma_separate_values(char* value, int *num_elems)
+const char** comma_separate_values(const char* value, int *num_elems)
 {
-    char** result = NULL;
+    const char** result = NULL;
     *num_elems = 0;
 
     if (value != NULL)
@@ -123,9 +117,11 @@ char** comma_separate_values(char* value, int *num_elems)
 
         while (current != NULL)
         {
-            P_LIST_ADD(result, *num_elems, strdup(current));
+            P_LIST_ADD(result, *num_elems, uniquestr(current));
             current = strtok(NULL, ",");
         }
+
+        free(comma_string);
     }
 
     P_LIST_ADD(result, *num_elems, NULL);
@@ -134,9 +130,9 @@ char** comma_separate_values(char* value, int *num_elems)
     return result;
 }
 
-char** blank_separate_values(char* value, int *num_elems)
+const char** blank_separate_values(const char* value, int *num_elems)
 {
-    char** result = NULL;
+    const char** result = NULL;
     *num_elems = 0;
 
     if (value != NULL)
@@ -149,6 +145,8 @@ char** blank_separate_values(char* value, int *num_elems)
             P_LIST_ADD(result, *num_elems, strdup(current));
             current = strtok(NULL, " \t");
         }
+
+        free(comma_string);
     }
 
     P_LIST_ADD(result, *num_elems, NULL);
@@ -157,16 +155,26 @@ char** blank_separate_values(char* value, int *num_elems)
     return result;
 }
 
-char* give_basename(const char* c)
+const char* give_basename(const char* c)
 {
-    char* result = basename(strdup(c));
-    return strdup(result);
+    char *tmp = strdup(c);
+    char *basename_tmp = basename(tmp);
+
+    const char* result = uniquestr(basename_tmp);
+    free(tmp);
+
+    return result;
 }
 
-char* give_dirname(const char* c)
+const char* give_dirname(const char* c)
 {
-    char* result = dirname(strdup(c));
-    return strdup(result);
+    char *tmp = strdup(c);
+    char *dirname_tmp = dirname(tmp);
+
+    const char* result = uniquestr(dirname_tmp);
+    free(tmp);
+
+    return result;
 }
 
 // Temporal files handling routines
@@ -181,11 +189,9 @@ static temporal_file_list_t temporal_file_list = NULL;
 
 temporal_file_t new_temporal_file()
 {
-    char* template;
-#ifndef _WIN32
-    template = compilation_process.exec_basename;
-    template = strappend("/tmp/", template);
-    template = strappend(template, "_XXXXXX");
+    char template[256];
+    snprintf(template, 255, "/tmp/%s_XXXXXX", compilation_process.exec_basename);
+    template[255] = '\0';
 
     // Create the temporal file
     int file_descriptor = mkstemp(template);
@@ -194,21 +200,12 @@ temporal_file_t new_temporal_file()
     {
         return NULL;
     }
-#else
-    template = _tempnam(NULL, "mcxx");
-    if (template == NULL)
-        return NULL;
-#endif
 
     // Save the info of the new file
     temporal_file_t result = calloc(sizeof(*result), 1);
-    result->name = template;
+    result->name = uniquestr(template);
     // Get a FILE* descriptor
-#ifndef _WIN32
     result->file = fdopen(file_descriptor, "w+");
-#else
-    result->file = fopen(template, "w+");
-#endif
     if (result->file == NULL)
     {
         running_error("Cannot create temporary file (%s)", strerror(errno));
@@ -248,16 +245,16 @@ void temporal_files_cleanup(void)
     temporal_file_list = NULL;
 }
 
-char* get_extension_filename(char* filename)
+const char* get_extension_filename(const char* filename)
 {
     return strrchr(filename, '.');
 }
 
-int execute_program(char* program_name, char** arguments)
+int execute_program(const char* program_name, const char** arguments)
 {
     int num = count_null_ended_array((void**)arguments);
 
-    char** execvp_arguments = calloc(num + 1 + 1, sizeof(char*));
+    const char** execvp_arguments = calloc(num + 1 + 1, sizeof(char*));
 
     execvp_arguments[0] = program_name;
 
@@ -289,7 +286,9 @@ int execute_program(char* program_name, char** arguments)
     }
     else if (spawned_process == 0) // I'm the spawned process
     {
-        execvp(program_name, execvp_arguments);
+        // The cast is here because execvp prototype does not get 
+        // 'const char* const*' but 'char *const*'
+        execvp(program_name, (char**)execvp_arguments);
 
         // Execvp should not return
         running_error("Execution of subprocess '%s' failed (%s)", program_name, strerror(errno));
@@ -335,26 +334,10 @@ int count_null_ended_array(void** v)
     return result;
 }
 
-void seen_filename(char* filename)
+// Deprecated function that should be removed soon
+const char* reference_to_seen_filename(const char* filename)
 {
-    if (reference_to_seen_filename(filename) != NULL)
-        return;
-
-    P_LIST_ADD(seen_file_names, num_seen_file_names, strdup(filename));
-}
-
-char* reference_to_seen_filename(char* filename)
-{
-    int i;
-    for (i = 0; i < num_seen_file_names; i++)
-    {
-        if (strcmp(seen_file_names[i], filename) == 0)
-        {
-            return seen_file_names[i];
-        }
-    }
-
-    return NULL;
+    return uniquestr(filename);
 }
 
 void timing_start(timing_t* t)

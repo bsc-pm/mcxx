@@ -38,9 +38,9 @@ namespace TL
             const std::string& symbol_name, ObjectList<std::string>& parameters,
             TypeDeclFlags flags) const
     {
-        char** parameter_names = NULL;
+        const char** parameter_names = NULL;
         int num_parameters = 0;
-        char* result = get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
+        const char* result = get_declaration_string_internal(_type_info, sc._decl_context, symbol_name.c_str(), 
                 "", 0, &num_parameters, &parameter_names, flags == PARAMETER_DECLARATION);
 
         for (int i = 0; i < num_parameters; i++)

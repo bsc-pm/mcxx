@@ -19,6 +19,7 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include <string.h>
+#include "cxx-utils.h"
 #include "cxx-tltype.h"
 
 tl_type_t tl_bool(char c)
@@ -66,7 +67,7 @@ tl_type_t tl_string(const char* str)
     tl_type_t result;
     
     result.kind = TL_STRING;
-    result.data._string = strdup(str);
+    result.data._string = uniquestr(str);
 
     return result;
 }

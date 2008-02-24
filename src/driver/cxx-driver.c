@@ -164,21 +164,18 @@ char* source_language_names[] =
     [SOURCE_LANGUAGE_CXX] = "C++"
 };
 
-int num_seen_file_names;
-char** seen_file_names;
-
 static void print_version(void);
-static void driver_initialization(int argc, char* argv[]);
+static void driver_initialization(int argc, const char* argv[]);
 static void initialize_default_values(void);
 static void load_configuration(void);
 static void commit_configuration(void);
 static void compile_every_translation_unit(void);
 
-static void compiler_phases_execution(translation_unit_t* translation_unit, char* parsed_filename);
-static char* preprocess_file(translation_unit_t* translation_unit, char* input_filename);
-static void parse_translation_unit(translation_unit_t* translation_unit, char* parsed_filename);
-static char* prettyprint_translation_unit(translation_unit_t* translation_unit, char* parsed_filename);
-static void native_compilation(translation_unit_t* translation_unit, char* prettyprinted_filename);
+static void compiler_phases_execution(translation_unit_t* translation_unit, const char* parsed_filename);
+static const char* preprocess_file(translation_unit_t* translation_unit, const char* input_filename);
+static void parse_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
+static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
+static void native_compilation(translation_unit_t* translation_unit, const char* prettyprinted_filename);
 
 static void terminating_signal_handler(int sig);
 static char check_tree(AST a);
@@ -186,10 +183,10 @@ static char check_for_ambiguities(AST a, AST* ambiguous_node);
 
 static void link_objects(void);
 
-static void add_to_parameter_list_str(char*** existing_options, char* str);
-static void parse_subcommand_arguments(char* arguments);
+static void add_to_parameter_list_str(const char*** existing_options, const char* str);
+static void parse_subcommand_arguments(const char* arguments);
 
-static void enable_debug_flag(char* flag);
+static void enable_debug_flag(const char* flag);
 
 static void load_compiler_phases(void);
 
@@ -199,8 +196,8 @@ static void help_message(void);
 
 static void print_memory_report(void);
 
-static int parse_special_parameters(int *should_advance, int argc, char* argv[]);
-static int parse_parameter_flag(int *should_advance, char *special_parameter);
+static int parse_special_parameters(int *should_advance, int argc, const char* argv[]);
+static int parse_parameter_flag(int *should_advance, const char *special_parameter);
 
 int main(int argc, char* argv[])
 {
@@ -208,7 +205,7 @@ int main(int argc, char* argv[])
     timing_start(&timing_global);
 
     // Initialization of the driver
-    driver_initialization(argc, argv);
+    driver_initialization(argc, (const char**)argv);
 
     // Default values
     initialize_default_values();
@@ -273,7 +270,7 @@ static void cleanup_routine(void)
     in_cleanup_routine = 0;
 }
 
-static void driver_initialization(int argc, char* argv[])
+static void driver_initialization(int argc, const char* argv[])
 {
     // Basic initialization prior to argument parsing and configuration loading
     atexit(cleanup_routine);
@@ -284,11 +281,8 @@ static void driver_initialization(int argc, char* argv[])
 
     memset(&compilation_process, 0, sizeof(compilation_process));
     compilation_process.argc = argc;
-    compilation_process.argv = argv;
+    compilation_process.argv = (const char**)argv;
     compilation_process.exec_basename = give_basename(argv[0]);
-
-    num_seen_file_names = 0;
-    seen_file_names = 0;
 }
 
 static void help_message(void)
@@ -327,9 +321,9 @@ static void options_error(char* message)
 
 // Returns nonzero if an error happened. In that case we would show the help
 // Messages issued here must be ended with \n for sthetic reasons
-int parse_arguments(int argc, char* argv[], char from_command_line)
+int parse_arguments(int argc, const char* argv[], char from_command_line)
 {
-    char* output_file = NULL;
+    const char* output_file = NULL;
 
     // It is 1 because we ignore the first argument, since it is the name of
     // the program invocation
@@ -340,7 +334,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
     static char E_specified = 0;
     static char y_specified = 0;
 
-    char **input_files = NULL;
+    const char **input_files = NULL;
     int num_input_files = 0;
 
     struct command_line_parameter_t parameter_info;
@@ -488,7 +482,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
                                 fprintf(stderr, "Cannot specify -o when -c once given more than one file");
                                 return 1;
                             }
-                            output_file = strdup(parameter_info.argument);
+                            output_file = uniquestr(parameter_info.argument);
                         }
                         break;
                     }
@@ -546,27 +540,27 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
                     }
                 case OPTION_PREPROCESSOR_NAME :
                     {
-                        CURRENT_CONFIGURATION(preprocessor_name) = strdup(parameter_info.argument);
+                        CURRENT_CONFIGURATION(preprocessor_name) = uniquestr(parameter_info.argument);
                         break;
                     }
                 case OPTION_NATIVE_COMPILER_NAME :
                     {
-                        CURRENT_CONFIGURATION(native_compiler_name) = strdup(parameter_info.argument);
+                        CURRENT_CONFIGURATION(native_compiler_name) = uniquestr(parameter_info.argument);
                         break;
                     }
                 case OPTION_LINKER_NAME :
                     {
-                        CURRENT_CONFIGURATION(linker_name) = strdup(parameter_info.argument);
+                        CURRENT_CONFIGURATION(linker_name) = uniquestr(parameter_info.argument);
                         break;
                     }
                 case OPTION_DEBUG_FLAG :
                     {
-                        enable_debug_flag(strdup(parameter_info.argument));
+                        enable_debug_flag(uniquestr(parameter_info.argument));
                         break;
                     }
                 case OPTION_OUTPUT_DIRECTORY :
                     {
-                        CURRENT_CONFIGURATION(output_directory) = strdup(parameter_info.argument);
+                        CURRENT_CONFIGURATION(output_directory) = uniquestr(parameter_info.argument);
                         break;
                     }
                 case OPTION_NO_OPENMP :
@@ -593,18 +587,24 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
                             break;
                         }
 
-                        char* name = strdup(parameter_info.argument);
+                        char temp[256];
+                        strncpy(temp, parameter_info.argument, 255);
+                        temp[255] = '\0';
+
+                        char* name = temp;
                         char* value = strchr(name, ':');
                         *value = '\0';
                         value++;
 
                         external_var_t* new_external_var = calloc(1, sizeof(*new_external_var));
 
-                        new_external_var->name = name;
-                        new_external_var->value = value;
+                        new_external_var->name = uniquestr(name);
+                        new_external_var->value = uniquestr(value);
 
                         P_LIST_ADD(CURRENT_CONFIGURATION(external_vars), CURRENT_CONFIGURATION(num_external_vars),
                                 new_external_var);
+
+                        free(name);
                         break;
                     }
                 case OPTION_TYPECHECK :
@@ -651,7 +651,7 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
             && E_specified)
     {
         fprintf(stderr, "Assuming stdout as default output since -E has been specified\n");
-        output_file = strdup("-");
+        output_file = uniquestr("-");
     }
 
     // When -c and -o are given only one file is valid
@@ -686,14 +686,14 @@ int parse_arguments(int argc, char* argv[], char from_command_line)
     return 0;
 }
 
-static void add_parameter_all_toolchain(char *argument)
+static void add_parameter_all_toolchain(const char *argument)
 {
     add_to_parameter_list_str(&CURRENT_CONFIGURATION(preprocessor_options), argument);
     add_to_parameter_list_str(&CURRENT_CONFIGURATION(native_compiler_options), argument);
     add_to_parameter_list_str(&CURRENT_CONFIGURATION(linker_options), argument);
 }
 
-static int parse_parameter_flag(int * should_advance, char *parameter_flag)
+static int parse_parameter_flag(int * should_advance, const char *parameter_flag)
 {
     // Check whether this flag is of the implicitly registered flags 
     // because of the configuration
@@ -702,7 +702,7 @@ static int parse_parameter_flag(int * should_advance, char *parameter_flag)
     // Always advance one
     *should_advance = 1;
 
-    char *p = parameter_flag;
+    const char *p = parameter_flag;
 
     char negative_flag = 0;
 
@@ -769,13 +769,13 @@ static int parse_parameter_flag(int * should_advance, char *parameter_flag)
 }
 
 static int parse_special_parameters(int *should_advance, int parameter_index,
-        char* argv[])
+        const char* argv[])
 {
     // FIXME: This function should use gperf-ectionated
     // This code can be written better
     int failure = 0;
 
-    char *argument = argv[parameter_index];
+    const char *argument = argv[parameter_index];
 
     // argument[0] == '-'
     switch (argument[1])
@@ -942,15 +942,15 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
     return failure;
 }
 
-static void enable_debug_flag(char* flags)
+static void enable_debug_flag(const char* flags)
 {
     int num_flags = 0;
-    char** flag_list = comma_separate_values(flags, &num_flags);
+    const char** flag_list = comma_separate_values(flags, &num_flags);
 
     int i;
     for (i = 0; i < num_flags; i++)
     {
-        char* flag = flag_list[i];
+        const char* flag = flag_list[i];
 
         struct debug_flags_list_t* flag_option = 
             debugflags_lookup (flag, strlen(flag));
@@ -967,13 +967,13 @@ static void enable_debug_flag(char* flags)
     }
 }
 
-static void add_to_parameter_list_str(char*** existing_options, char* str)
+static void add_to_parameter_list_str(const char*** existing_options, const char* str)
 {
-    char* d_str = strdup(str);
+    const char* d_str = uniquestr(str);
     add_to_parameter_list(existing_options, &d_str, 1);
 }
 
-void add_to_parameter_list(char*** existing_options, char **parameters, int num_parameters)
+void add_to_parameter_list(const char*** existing_options, const char **parameters, int num_parameters)
 {
     int num_existing_options = count_null_ended_array((void**)(*existing_options));
 
@@ -987,7 +987,7 @@ void add_to_parameter_list(char*** existing_options, char **parameters, int num_
     (*existing_options)[num_existing_options + i] = NULL;
 }
 
-static void parse_subcommand_arguments(char* arguments)
+static void parse_subcommand_arguments(const char* arguments)
 {
     if ((strlen(arguments) <= 2)
             || (arguments[1] != ',')
@@ -999,9 +999,9 @@ static void parse_subcommand_arguments(char* arguments)
     }
 
     int num_parameters = 0;
-    char** parameters = comma_separate_values(&arguments[2], &num_parameters);
+    const char** parameters = comma_separate_values(&arguments[2], &num_parameters);
 
-    char*** existing_options = NULL;
+    const char*** existing_options = NULL;
 
     switch (arguments[0])
     {
@@ -1044,13 +1044,13 @@ static void initialize_default_values(void)
 
     CURRENT_CONFIGURATION(source_language) = SOURCE_LANGUAGE_CXX;
 
-    CURRENT_CONFIGURATION(preprocessor_name) = strdup("c++");
-    CURRENT_CONFIGURATION(preprocessor_options) = comma_separate_values(strdup("-E"), &dummy);
+    CURRENT_CONFIGURATION(preprocessor_name) = uniquestr("c++");
+    CURRENT_CONFIGURATION(preprocessor_options) = comma_separate_values(uniquestr("-E"), &dummy);
 
-    CURRENT_CONFIGURATION(native_compiler_name) = strdup("c++");
+    CURRENT_CONFIGURATION(native_compiler_name) = uniquestr("c++");
     CURRENT_CONFIGURATION(native_compiler_options) = NULL;
 
-    CURRENT_CONFIGURATION(linker_name) = strdup("c++");
+    CURRENT_CONFIGURATION(linker_name) = uniquestr("c++");
     CURRENT_CONFIGURATION(linker_options) = NULL;
 }
 
@@ -1065,7 +1065,7 @@ static void print_version(void)
 }
 
 // Callback called for every [section] in the config file
-static int section_callback(char* sname)
+static int section_callback(const char* sname)
 {
     char section_name[128];
     strncpy(section_name, sname, 127);
@@ -1073,7 +1073,7 @@ static int section_callback(char* sname)
 
     // Create the new configuration
     compilation_configuration_t* new_compilation_configuration = calloc(1, sizeof(*new_compilation_configuration));
-    new_compilation_configuration->configuration_name = strdup(section_name);
+    new_compilation_configuration->configuration_name = uniquestr(section_name);
 
     // Typing environment - Highly experimental - Ignore it for now
     // Set to an hypothetic Linux IA32 type environment
@@ -1101,7 +1101,7 @@ static int section_callback(char* sname)
 }
 
 // Callback called in every parameter=value line in the  config file
-static int parameter_callback(char* parameter, char* value, int num_flags, char** flags)
+static int parameter_callback(const char* parameter, const char* value, int num_flags, const char** flags)
 {
     if (value == NULL)
     {
@@ -1115,8 +1115,8 @@ static int parameter_callback(char* parameter, char* value, int num_flags, char*
     // Create a new configuration line
     new_configuration_line = calloc(1, sizeof(*new_configuration_line));
 
-    new_configuration_line->name = strdup(parameter);
-    new_configuration_line->value = strdup(value);
+    new_configuration_line->name = uniquestr(parameter);
+    new_configuration_line->value = uniquestr(value);
 
     new_configuration_line->num_flags = num_flags;
     new_configuration_line->flags = 
@@ -1127,21 +1127,21 @@ static int parameter_callback(char* parameter, char* value, int num_flags, char*
         int i;
         for (i = 0; i < new_configuration_line->num_flags; i++)
         {
-            char *current_flag = NULL;
+            const char *current_flag = NULL;
             char is_negative = 0;
 
             // If the flag is '!flag'
             if (flags[i][0] == '!')
             {
                 // Do not copy '!'
-                current_flag = strdup(&(flags[i][1]));
+                current_flag = uniquestr(&(flags[i][1]));
                 // And state it is negative
                 is_negative = 1;
             }
             else
             {
                 // Otherwise just keep the flag
-                current_flag = strdup(flags[i]);
+                current_flag = uniquestr(flags[i]);
             }
 
             new_configuration_line->flags[i].flag = current_flag;
@@ -1189,7 +1189,7 @@ static void load_configuration(void)
                     "--config-file=", strlen("--config-file=")) == 0)
         {
             compilation_process.config_file = 
-                strdup(&(compilation_process.argv[i][strlen("--config-file=") ]));
+                uniquestr(&(compilation_process.argv[i][strlen("--config-file=") ]));
         }
         else if (strncmp(compilation_process.argv[i], 
                     "--profile=", strlen("--profile=")) == 0)
@@ -1197,7 +1197,7 @@ static void load_configuration(void)
             // Change the basename, from now it will look like the compiler
             // has been called as this basename
             compilation_process.exec_basename =
-                strdup(&(compilation_process.argv[i][strlen("--profile=") ]));
+                uniquestr(&(compilation_process.argv[i][strlen("--profile=") ]));
         }
     }
 
@@ -1335,7 +1335,7 @@ static void compile_every_translation_unit(void)
         translation_unit_t* translation_unit = compilation_process.current_translation_unit;
         
         // First check the file type
-        char* extension = get_extension_filename(translation_unit->input_filename);
+        const char* extension = get_extension_filename(translation_unit->input_filename);
 
         struct extensions_table_t* current_extension = NULL;
 
@@ -1371,7 +1371,7 @@ static void compile_every_translation_unit(void)
             fprintf(stderr, "Compiling file '%s'\n", translation_unit->input_filename);
         }
 
-        char* parsed_filename = translation_unit->input_filename;
+        const char* parsed_filename = translation_unit->input_filename;
         if (current_extension->source_kind == SOURCE_KIND_NOT_PREPROCESSED)
         {
             timing_t timing_preprocessing;
@@ -1430,7 +1430,7 @@ static void compile_every_translation_unit(void)
                 fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
             }
 
-            char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);
+            const char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);
             native_compilation(translation_unit, prettyprinted_filename);
         }
 
@@ -1439,7 +1439,7 @@ static void compile_every_translation_unit(void)
 }
 
 static void compiler_phases_execution(translation_unit_t* translation_unit, 
-        char* parsed_filename UNUSED_PARAMETER)
+        const char* parsed_filename UNUSED_PARAMETER)
 {
     timing_t time_phases;
     timing_start(&time_phases);
@@ -1454,7 +1454,7 @@ static void compiler_phases_execution(translation_unit_t* translation_unit,
     }
 }
 
-static void parse_translation_unit(translation_unit_t* translation_unit, char* parsed_filename)
+static void parse_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename)
 {
     mcxx_flex_debug = mc99_flex_debug = CURRENT_CONFIGURATION(debug_options.debug_lexer);
     mcxxdebug = mc99debug = CURRENT_CONFIGURATION(debug_options.debug_parser);
@@ -1507,8 +1507,8 @@ static void parse_translation_unit(translation_unit_t* translation_unit, char* p
     check_tree(translation_unit->parsed_tree);
 }
 
-static char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
-        char* parsed_filename UNUSED_PARAMETER)
+static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, 
+        const char* parsed_filename UNUSED_PARAMETER)
 {
     if (CURRENT_CONFIGURATION(do_not_prettyprint))
     {
@@ -1516,7 +1516,7 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit,
     }
 
     FILE* prettyprint_file;
-    char* output_filename = NULL;
+    const char* output_filename = NULL;
 
     if (CURRENT_CONFIGURATION(do_not_compile)
             && CURRENT_CONFIGURATION(do_not_link)
@@ -1527,18 +1527,18 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit,
     }
     else
     {
-        char* input_filename_basename = NULL;
+        const char* input_filename_basename = NULL;
         input_filename_basename = give_basename(translation_unit->input_filename);
 
-        char* preffix = strappend(compilation_process.exec_basename, "_");
+        const char* preffix = strappend(compilation_process.exec_basename, "_");
 
-        char* output_filename_basename = NULL; 
+        const char* output_filename_basename = NULL; 
         output_filename_basename = strappend(preffix,
                 input_filename_basename);
 
         if (CURRENT_CONFIGURATION(output_directory) == NULL)
         {
-            char* input_filename_dirname = give_dirname(translation_unit->input_filename);
+            const char* input_filename_dirname = give_dirname(translation_unit->input_filename);
             input_filename_dirname = strappend(input_filename_dirname, "/");
 
             output_filename = strappend(input_filename_dirname,
@@ -1581,12 +1581,12 @@ static char* prettyprint_translation_unit(translation_unit_t* translation_unit,
     return output_filename;
 }
 
-static char* preprocess_file(translation_unit_t* translation_unit,
-        char* input_filename)
+static const char* preprocess_file(translation_unit_t* translation_unit,
+        const char* input_filename)
 {
     int num_arguments = count_null_ended_array((void**)CURRENT_CONFIGURATION(preprocessor_options));
 
-    char** preprocessor_options = calloc(num_arguments + 3 + 1, sizeof(char*));
+    const char** preprocessor_options = calloc(num_arguments + 3 + 1, sizeof(char*));
 
     int i;
     for (i = 0; i < num_arguments; i++)
@@ -1594,7 +1594,7 @@ static char* preprocess_file(translation_unit_t* translation_unit,
         preprocessor_options[i] = CURRENT_CONFIGURATION(preprocessor_options[i]);
     }
 
-    char *preprocessed_filename = NULL;
+    const char *preprocessed_filename = NULL;
 
     if (!CURRENT_CONFIGURATION(do_not_parse))
     {
@@ -1607,7 +1607,7 @@ static char* preprocess_file(translation_unit_t* translation_unit,
         if (translation_unit->output_filename == NULL)
         {
             // Send it to stdout
-            preprocessed_filename = strdup("-");
+            preprocessed_filename = uniquestr("-");
         }
         else
         {
@@ -1616,7 +1616,7 @@ static char* preprocess_file(translation_unit_t* translation_unit,
         }
     }
 
-    preprocessor_options[i] = strdup("-o"); 
+    preprocessor_options[i] = uniquestr("-o"); 
     i++;
     preprocessor_options[i] = preprocessed_filename;
     i++;
@@ -1638,21 +1638,26 @@ static char* preprocess_file(translation_unit_t* translation_unit,
 }
 
 static void native_compilation(translation_unit_t* translation_unit, 
-        char* prettyprinted_filename)
+        const char* prettyprinted_filename)
 {
     if (CURRENT_CONFIGURATION(do_not_compile))
         return;
 
-    char* output_object_filename;
+    const char* output_object_filename;
 
     if (translation_unit->output_filename == NULL
             || !CURRENT_CONFIGURATION(do_not_link))
     {
-        output_object_filename = strdup(translation_unit->input_filename);
-        char* extension = get_extension_filename(output_object_filename);
-        *extension = '\0';
+        char temp[256];
+        strncpy(temp, translation_unit->input_filename, 255);
+        temp[255] = '\0';
+        char* p = strrchr(temp, '.');
+        if (p != NULL)
+        {
+            *p = '\0';
+        }
 
-        output_object_filename = strappend(output_object_filename, ".o");
+        output_object_filename = strappend(temp, ".o");
 
         translation_unit->output_filename = output_object_filename;
     }
@@ -1663,7 +1668,7 @@ static void native_compilation(translation_unit_t* translation_unit,
 
     int num_args_compiler = count_null_ended_array((void**)CURRENT_CONFIGURATION(native_compiler_options));
 
-    char** native_compilation_args = calloc(num_args_compiler + 4 + 1, sizeof(*native_compilation_args));
+    const char** native_compilation_args = calloc(num_args_compiler + 4 + 1, sizeof(*native_compilation_args));
 
     int i;
     for (i = 0; i < num_args_compiler; i++)
@@ -1671,9 +1676,9 @@ static void native_compilation(translation_unit_t* translation_unit,
         native_compilation_args[i] = CURRENT_CONFIGURATION(native_compiler_options[i]);
     }
 
-    native_compilation_args[i] = strdup("-c");
+    native_compilation_args[i] = uniquestr("-c");
     i++;
-    native_compilation_args[i] = strdup("-o");
+    native_compilation_args[i] = uniquestr("-o");
     i++;
     native_compilation_args[i] = output_object_filename;
     i++;
@@ -1719,7 +1724,7 @@ static void link_objects(void)
 
     int num_args_linker = count_null_ended_array((void**)CURRENT_CONFIGURATION(linker_options));
 
-    char** linker_args = calloc(num_args_linker
+    const char** linker_args = calloc(num_args_linker
             + compilation_process.num_translation_units + 2 + 1, 
             sizeof(*linker_args));
 
@@ -1728,7 +1733,7 @@ static void link_objects(void)
 
     if (CURRENT_CONFIGURATION(linked_output_filename) != NULL)
     {
-        linker_args[i] = strdup("-o");
+        linker_args[i] = uniquestr("-o");
         i++;
         linker_args[i] = CURRENT_CONFIGURATION(linked_output_filename);
         i++;
@@ -1850,7 +1855,7 @@ void add_new_file_to_compilation_process(const char* file_path, const char* outp
         compilation_configuration_t* configuration)
 {
     translation_unit_t* translation_unit = (translation_unit_t*)calloc(1, sizeof(*translation_unit));
-    translation_unit->input_filename = strdup(file_path);
+    translation_unit->input_filename = uniquestr(file_path);
 
     compilation_file_process_t *new_compiled_file = (compilation_file_process_t*) calloc(1, sizeof(*new_compiled_file));
 
@@ -1866,7 +1871,7 @@ void add_new_file_to_compilation_process(const char* file_path, const char* outp
             || configuration->do_not_compile)
             && output_file != NULL)
     {
-        translation_unit->output_filename = strdup(output_file);
+        translation_unit->output_filename = uniquestr(output_file);
     }
 
     P_LIST_ADD(compilation_process.translation_units, 
@@ -1886,7 +1891,7 @@ static void register_new_directive_inner(pragma_directive_set_t* pragma_directiv
     int num_directives = pragma_directive_set->num_directives;
     P_LIST_ADD(pragma_directive_set->directive_names,
             num_directives,
-            strdup(directive));
+            uniquestr(directive));
     P_LIST_ADD(pragma_directive_set->directive_kinds,
             pragma_directive_set->num_directives,
             kind);

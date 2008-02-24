@@ -213,7 +213,7 @@ extern "C"
         int i;
         for (i = 0; i < num; i++)
         {
-            char* library_name = CURRENT_CONFIGURATION(compiler_phases[i]);
+            const char* library_name = CURRENT_CONFIGURATION(compiler_phases[i]);
 
             DEBUG_CODE()
             {

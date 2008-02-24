@@ -44,12 +44,12 @@ struct command_line_parameter_t
 {
     enum command_line_parameters_flag_t flag;
     int value;
-    char *argument;
+    const char *argument;
 };
 
 struct command_line_long_options
 {
-    char *option_name;
+    const char *option_name;
     enum command_line_parameters_flag_t flag;
     int value;
 };
@@ -57,9 +57,9 @@ struct command_line_long_options
 char command_line_get_next_parameter(
         int *index, 
         struct command_line_parameter_t *parameter_info,
-        char *short_options_spec,
+        const char *short_options_spec,
         struct command_line_long_options *long_options, 
-        int argc, char *argv[]
+        int argc, const char *argv[]
         );
 
 MCXX_END_DECLS

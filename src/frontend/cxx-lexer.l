@@ -58,7 +58,7 @@ static void parse_token_text(void);
 
 struct scan_file_descriptor scanning_now;
 
-static char* main_input_filename;
+static const char* main_input_filename;
 
 static int omp_var_list_parentheses = 0;
 static int omp_schedule_parentheses = 0;
@@ -66,9 +66,9 @@ static char omp_seen_schedule_kind = 0;
 
 static int pragma_custom_var_list_parentheses = 0;
 
-static char *current_pragma_prefix = NULL;
+static const char *current_pragma_prefix = NULL;
 
-static int num_new_lines(char* c)
+static int num_new_lines(const char* c)
 {
     int result = 0;
 
@@ -889,7 +889,6 @@ runtime {
         {
             top_level_include_t *new_top_level_include = calloc(1, sizeof(*new_top_level_include));
 
-            seen_filename(filename);
             new_top_level_include->included_file = reference_to_seen_filename(filename);
 
             if (system_header_file)
@@ -915,7 +914,6 @@ runtime {
 
 	// One less line because of the \n
 	scanning_now.line_number = (line_num - 1);
-	seen_filename(filename);
 	scanning_now.current_filename = reference_to_seen_filename(filename);
 }
 
@@ -1236,7 +1234,7 @@ static int yywrap(void)
 static void parse_token_text(void)
 {
     FLEX_LVAL.token_atrib.token_line = scanning_now.line_number;
-    FLEX_LVAL.token_atrib.token_text = strdup(yytext);
+    FLEX_LVAL.token_atrib.token_text = uniquestr(yytext);
 }
 
 /*!if CPLUSPLUS*/
@@ -1264,9 +1262,10 @@ int PREPARE_STRING_FOR_SCANNING(const char* str)
 
 	const char* current_filename = CURRENT_COMPILED_FILE(input_filename);
 
-	scanning_now.filename = calloc(strlen(TL_SOURCE_STRING) 
-			+ strlen(current_filename) + 10, sizeof(char));
-    sprintf(scanning_now.filename, "%s%s-%d", TL_SOURCE_STRING, current_filename, num_string);
+    char c[256];
+    sprintf(c, "%s%s-%d", TL_SOURCE_STRING, current_filename, num_string);
+    c[255] = '\0';
+    scanning_now.filename = uniquestr(c);
 
     scanning_now.current_filename = scanning_now.filename;
 
@@ -1280,7 +1279,7 @@ int PREPARE_STRING_FOR_SCANNING(const char* str)
 	return 0;
 }
 
-int OPEN_FILE_FOR_SCANNING(char* scanned_filename, char* input_filename)
+int OPEN_FILE_FOR_SCANNING(const char* scanned_filename, const char* input_filename)
 {
 	FILE* file;
 
@@ -1292,11 +1291,10 @@ int OPEN_FILE_FOR_SCANNING(char* scanned_filename, char* input_filename)
 	}
 
 	memset(&scanning_now, 0, sizeof(scanning_now));
-	scanning_now.filename = strdup(scanned_filename);
+	scanning_now.filename = uniquestr(scanned_filename);
 	scanning_now.file_descriptor = file;
 	scanning_now.line_number = 1;
 
-	seen_filename(input_filename);
 	main_input_filename = reference_to_seen_filename(input_filename);
     scanning_now.current_filename = main_input_filename;
 

@@ -416,22 +416,22 @@ void set_as_template_specialized_type(struct type_tag* type_to_specialize,
         struct type_tag* template_type);
 
 /* Naming types functions */
-char* get_declaration_string_internal(struct type_tag* type_info, 
+const char* get_declaration_string_internal(struct type_tag* type_info, 
         decl_context_t decl_context,
         const char* symbol_name, 
         const char* initializer, 
         char semicolon,
         int *num_parameter_names,
-        char ***parameter_names,
+        const char ***parameter_names,
         char is_parameter);
-char* get_simple_type_name_string(decl_context_t decl_context, struct type_tag* type_info);
-char* get_named_type_name(struct scope_entry_tag* entry);
+const char* get_simple_type_name_string(decl_context_t decl_context, struct type_tag* type_info);
+const char* get_named_type_name(struct scope_entry_tag* entry);
 
 struct type_tag* get_ellipsis_type(void);
 char is_ellipsis_type(struct type_tag* t);
 
 /* Debug purpose functions */
-char* print_declarator(struct type_tag* printed_declarator, decl_context_t decl_context);
+const char* print_declarator(struct type_tag* printed_declarator, decl_context_t decl_context);
 
 char has_dependent_template_arguments(template_argument_list_t* template_arguments,
         decl_context_t decl_context);

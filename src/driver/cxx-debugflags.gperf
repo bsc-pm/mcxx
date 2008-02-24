@@ -56,7 +56,7 @@ struct debug_flags_list_t** list_of_debug_flags(void)
     int j = 0;
     while (i < TOTAL_KEYWORDS)
     {
-        char* keyword = debugflags_list[j].name;
+        const char* keyword = debugflags_list[j].name;
 
         if (keyword != NULL && *keyword != '\0')
         {

@@ -19,6 +19,7 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "extstruct.h"
+#include "uniquestr.h"
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,7 +49,7 @@ int extensible_schema_add_field(extensible_schema_t* schema,
     schema_item->size = field_size;
     schema_item->field_order = schema->num_fields;
 
-    char* c = strdup(field_name);
+    const char* c = uniquestr(field_name);
     hash_put(schema->hash, c, schema_item);
 
     schema->num_fields++;

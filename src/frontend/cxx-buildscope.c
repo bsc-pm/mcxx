@@ -4862,7 +4862,7 @@ static void build_scope_template_template_parameter(AST a,
         decl_context_t template_context)
 {
     // These parameters have the form
-    //
+    
     //    TEMPLATE < template_param_list > CLASS [identifier] [= id_expr]
     //
     // "identifier" is then a template-name
@@ -4885,12 +4885,12 @@ static void build_scope_template_template_parameter(AST a,
     }
     else
     {
-        char* artificial_template_param_name = calloc(256, sizeof(char));
+        char artificial_template_param_name[256];
 
         sprintf(artificial_template_param_name, 
                 " <template-template-param-%d-%d> ", template_context.template_nesting, num_parameter+1);
 
-        template_parameter_name = artificial_template_param_name;
+        template_parameter_name = uniquestr(artificial_template_param_name);
     }
     
     // Note that we sign up the symbol in the template_scope !
@@ -5000,9 +5000,9 @@ static void build_scope_type_template_parameter(AST a,
     }
     else
     {
-        char* template_param_name = calloc(256, sizeof(char));
+        char template_param_name[256];
         sprintf(template_param_name, " <type-template-param-%d-%d> ", template_context.template_nesting, num_parameter+1);
-        template_parameter_name = template_param_name;
+        template_parameter_name = uniquestr(template_param_name);
 
         line = ASTLine(a);
         file = ASTFileName(a);
@@ -5096,7 +5096,7 @@ static void build_scope_nontype_template_parameter(AST a,
     }
     else
     {
-        char* template_param_name = calloc(256, sizeof(char));
+        char template_param_name[256];
 
         sprintf(template_param_name, " <nontype-template-param-%d-%d> ", template_context.template_nesting, num_parameter+1);
         entry = new_symbol(template_context, template_context.template_scope, template_param_name);

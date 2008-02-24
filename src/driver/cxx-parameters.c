@@ -31,32 +31,33 @@ struct command_line_parameter_t invalid_parameter = {
     .argument = (void*)0
 };
 
-char starts_short_option(char* str)
+char starts_short_option(const char* str)
 {
     return (str[0] == '-'
             && str[1] != '-'
             && str[1] != '\0');
 }
 
-char starts_long_option(char* str)
+char starts_long_option(const char* str)
 {
     return (str[0] == '-'
             && str[1] == '-'
             && str[2] != '\n');
 }
 
-char starts_option(char *str)
+char starts_option(const char *str)
 {
     return starts_short_option(str)
         || starts_long_option(str);
 }
 
-static struct command_line_parameter_t parse_short_option(int *current_index, char *short_options_spec, int argc, char *argv[])
+static struct command_line_parameter_t parse_short_option(int *current_index, 
+       const char *short_options_spec, int argc, const char *argv[])
 {
     /*
      * Precondition: starts_short_option(argv[*current_index]) is true
      */
-    char *current_arg = argv[*current_index];
+    const char *current_arg = argv[*current_index];
     char option = current_arg[1];
 
     struct command_line_parameter_t result = invalid_parameter;
@@ -147,13 +148,13 @@ static struct command_line_parameter_t parse_short_option(int *current_index, ch
 
 static struct command_line_parameter_t parse_long_option(int *current_index, 
         struct command_line_long_options *long_options, 
-        int argc, char *argv[])
+        int argc, const char *argv[])
 {
     /*
      * Precondition: starts_long_option(argv[*current_index]) is true
      */
 
-    char *current_arg = argv[*current_index];
+    const char *current_arg = argv[*current_index];
 
     // Get the option name
     // current_arg[0] == '-'
@@ -161,7 +162,7 @@ static struct command_line_parameter_t parse_long_option(int *current_index,
     // current_arg[2] != '\0'
     current_arg = &current_arg[2];
 
-    char *p = current_arg;
+    const char *p = current_arg;
     unsigned int length_option_name = 0;
 
     while (((*p) != '\0')
@@ -192,7 +193,7 @@ static struct command_line_parameter_t parse_long_option(int *current_index,
                         || result.flag == CLP_REQUIRED_ARGUMENT)
                 {
                     // Note 'p' is still meaningful here
-                    char *argument = NULL;
+                    const char *argument = NULL;
                     if (*p == '=')
                     {
                         argument = (p + 1);
@@ -244,9 +245,9 @@ static struct command_line_parameter_t parse_long_option(int *current_index,
 char command_line_get_next_parameter(
         int *index, 
         struct command_line_parameter_t *parameter_info,
-        char *short_options_spec,
+        const char *short_options_spec,
         struct command_line_long_options *long_options, 
-        int argc, char *argv[]
+        int argc, const char *argv[]
         )
 {
     if (*index >= argc)

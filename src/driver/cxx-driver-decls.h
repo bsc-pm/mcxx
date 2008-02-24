@@ -68,22 +68,22 @@ extern char* source_language_names[];
 // File extensions table
 struct extensions_table_t
 {
-    char* name;
+    const char* name;
     source_language_t source_language;
     source_kind_t source_kind;
 };
 
 typedef struct top_level_include_tag
 {
-    char *included_file;
+    const char *included_file;
     char system_include;
 } top_level_include_t;
 
 // Represents one translation unit
 typedef struct translation_unit_tag
 {
-    char* input_filename;
-    char* output_filename;
+    const char* input_filename;
+    const char* output_filename;
 
     struct AST_tag* parsed_tree;
     decl_context_t global_decl_context;
@@ -98,15 +98,15 @@ struct compilation_configuration_tag;
 // Configuration file directives
 struct configuration_directive_t
 {
-    char* name;
-    int (*funct)(struct compilation_configuration_tag*, char* value);
+    const char* name;
+    int (*funct)(struct compilation_configuration_tag*, const char* value);
 };
 
 struct debug_flags_list_t
 {
-    char* name;
+    const char* name;
     size_t flag_offset;
-    char* description;
+    const char* description;
 };
 
 typedef struct debug_options_tag
@@ -121,8 +121,8 @@ typedef struct debug_options_tag
 } debug_options_t;
 
 typedef struct external_var_tag {
-    char* name;
-    char* value;
+    const char* name;
+    const char* value;
 } external_var_t;
 
 typedef enum pragma_directive_kind_tag
@@ -135,7 +135,7 @@ typedef enum pragma_directive_kind_tag
 typedef struct pragma_directive_set_tag
 {
     int num_directives;
-    char **directive_names;
+    const char **directive_names;
     pragma_directive_kind_t *directive_kinds;
 } pragma_directive_set_t;
 
@@ -143,7 +143,7 @@ struct compilation_file_process_tag;
 
 typedef struct parameter_flags_tag
 {
-    char *name;
+    const char *name;
     char value;
 } parameter_flags_t;
 
@@ -153,7 +153,7 @@ typedef struct compilation_process_tag
     int execution_result;
 
     // Config file
-    char *config_file;
+    const char *config_file;
     
     // List of translation units
     struct compilation_file_process_tag** translation_units;
@@ -161,8 +161,8 @@ typedef struct compilation_process_tag
     
     // For further use
     int argc;
-    char** argv;
-    char* exec_basename;
+    const char** argv;
+    const char* exec_basename;
 
     // The set of configurations as defined by the user in the configuration file
     int num_configurations;
@@ -179,14 +179,14 @@ typedef struct compilation_process_tag
 
 typedef struct compilation_configuration_conditional_flags
 {
-    char *flag;
+    const char *flag;
     char value;
 } compilation_configuration_conditional_flags_t;
 
 typedef struct compilation_configuration_line
 {
-    char *name;
-    char *value;
+    const char *name;
+    const char *value;
 
     int num_flags;
     struct compilation_configuration_conditional_flags *flags;
@@ -194,7 +194,7 @@ typedef struct compilation_configuration_line
 
 typedef struct compilation_configuration_tag
 {
-    char *configuration_name;
+    const char *configuration_name;
 
     // Configuration lines, this information is used
     // before configuration commit
@@ -223,22 +223,22 @@ typedef struct compilation_configuration_tag
     scope_link_t* scope_link;
 
     // Output filename
-    char* linked_output_filename;
+    const char* linked_output_filename;
     
     // Toolchain information
-    char* preprocessor_name;
-    char** preprocessor_options;
+    const char* preprocessor_name;
+    const char** preprocessor_options;
 
-    char* native_compiler_name;
-    char** native_compiler_options;
+    const char* native_compiler_name;
+    const char** native_compiler_options;
 
-    char* linker_name;
-    char** linker_options;
+    const char* linker_name;
+    const char** linker_options;
 
-    char* output_directory;
+    const char* output_directory;
 
     int num_compiler_phases;
-    char** compiler_phases;
+    const char** compiler_phases;
     
     // External vars for compiler pipeline of this configuration
     int num_external_vars;
@@ -249,7 +249,7 @@ typedef struct compilation_configuration_tag
     pragma_directive_set_t pragma_omp_info;
     // Custom pragmae
     int num_pragma_custom_prefix;
-    char** pragma_custom_prefix;
+    const char** pragma_custom_prefix;
     pragma_directive_set_t **pragma_custom_prefix_info;
 
     // Enable strict typecheck (will fail if something can't be verified or fails)

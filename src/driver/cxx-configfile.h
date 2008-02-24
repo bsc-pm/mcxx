@@ -26,7 +26,7 @@
 
 MCXX_BEGIN_DECLS
 
-typedef int (option_function_t)(struct compilation_configuration_tag*, char* value);
+typedef int (option_function_t)(struct compilation_configuration_tag*, const char* value);
 
 option_function_t config_set_language;
 option_function_t config_set_options;

@@ -42,9 +42,9 @@ enum param_process_result_tag
     PPR_PARSE_ERROR = -3
 } param_process_t;
 
-int param_process(char *filename,
-        int (*sfunc)(char *),
-        int (*pfunc)(char * option,char * value, int num_flags, char** flags));
+int param_process(const char *filename,
+        int (*sfunc)(const char *),
+        int (*pfunc)(const char * option, const char * value, int num_flags, const char** flags));
 
 #ifdef __cplusplus
 }

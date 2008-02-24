@@ -36,12 +36,12 @@
 /*
 ** local function prototypes
 */
-static FILE *openConfFile (char *filename);
-static int Parse (FILE * fp, int (*sfunc) (char *),
-          int (*pfunc) (char * option, char * value, int num_flags, char** flags));
-static int Section (FILE * fp, int (*sfunc) (char *));
+static FILE *openConfFile (const char *filename);
+static int Parse (FILE * fp, int (*sfunc) (const char *),
+          int (*pfunc) (const char * option, const char * value, int num_flags, const char** flags));
+static int Section (FILE * fp, int (*sfunc) (const char *));
 static int eatWhitespace (FILE * fp);
-static int Parameter (FILE * fp, int (*pfunc) (char * option, char * value, int num_flags, char** flags), int c);
+static int Parameter (FILE * fp, int (*pfunc) (const char * option, const char * value, int num_flags, const char** flags), int c);
 
 /*
 **  Parameter()
@@ -70,7 +70,7 @@ static int Parameter (FILE * fp, int (*pfunc) (char * option, char * value, int 
 */
 
 static int
-Parameter (FILE * fp, int (*pfunc) (char * option, char * value, int num_flags, char **flags), int c)
+Parameter (FILE * fp, int (*pfunc) (const char * option, const char * value, int num_flags, const char **flags), int c)
 {
     int option_length = 0;
     char option[OPTION_LENGTH];
@@ -348,7 +348,7 @@ Parameter (FILE * fp, int (*pfunc) (char * option, char * value, int num_flags, 
     fprintf(stderr, "[MCFG] \n");
     */
 
-    return pfunc(option, value, num_flags, flags);
+    return pfunc(option, value, num_flags, (const char**)flags);
 }
 
 /*
@@ -372,7 +372,7 @@ Parameter (FILE * fp, int (*pfunc) (char * option, char * value, int num_flags, 
 
 
 static FILE *
-openConfFile (char *filename)
+openConfFile (const char *filename)
 {
     FILE *fp = (FILE *) NULL;
 
@@ -422,8 +422,8 @@ openConfFile (char *filename)
 */
 
 int
-param_process (char *filename,
-          int (*sfunc) (char *), int (*pfunc) (char * option, char * value, int num_flags, char** flags))
+param_process (const char *filename,
+          int (*sfunc) (const char *), int (*pfunc) (const char * option, const char * value, int num_flags, const char** flags))
 {
     char *func = "params.c:param_process() -";
 
@@ -495,7 +495,8 @@ eatWhitespace (FILE * fp)
 */
 
 static int
-Parse (FILE * fp, int (*sfunc) (char *), int (*pfunc) (char * option, char * value, int num_flags, char** flags))
+Parse (FILE * fp, int (*sfunc) (const char *), 
+        int (*pfunc) (const char * option, const char * value, int num_flags, const char** flags))
 {
     int c;
     c = eatWhitespace (fp);
@@ -561,7 +562,7 @@ Parse (FILE * fp, int (*sfunc) (char *), int (*pfunc) (char * option, char * val
 **      ma_muquit@fccc.edu   Apr-10-1998    first cut
 */
 
-static int Section (FILE * fp, int (*sfunc) (char *))
+static int Section (FILE * fp, int (*sfunc) (const char *))
 {
     int p;
     p = eatWhitespace (fp);   /* 

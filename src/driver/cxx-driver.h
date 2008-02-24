@@ -45,10 +45,7 @@ struct configuration_directive_t*
 configoptions_lookup (register const char *str, 
         register unsigned int len);
 
-int parse_arguments(int argc, char* argv[], char from_command_line);
-
-extern int num_seen_file_names;
-extern char** seen_file_names;
+int parse_arguments(int argc, const char* argv[], char from_command_line);
 
 extern int mcxxdebug;
 extern int mcxxparse(AST* a);
@@ -69,7 +66,7 @@ pragma_directive_kind_t lookup_pragma_directive(const char* prefix, const char* 
 void register_new_directive(const char* prefix, const char* directive, char is_construct);
 
 // Internal between cxx-driver.c and cxx-configfile.c, do not use elsewhere
-void add_to_parameter_list(char*** existing_options, char **parameters, int num_parameters);
+void add_to_parameter_list(const char*** existing_options, const char **parameters, int num_parameters);
 
 MCXX_END_DECLS
 

@@ -44,7 +44,7 @@ union tl_type_data_tag
     char _boolean;
     AST _ast;
     tl_type_array_t _array;
-    char* _string;
+    const char* _string;
     struct scope_entry_tag* _entry;
     struct type_tag* _type;
 } tl_type_data_t;

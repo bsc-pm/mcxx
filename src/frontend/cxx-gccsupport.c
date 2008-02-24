@@ -96,7 +96,9 @@ static void gather_one_gcc_attribute(const char* attribute_name,
             }
             else
             {
-                char *number_of_elements_str = strdup(&(vector_mode[1]));
+                char number_of_elements_str[256];
+                strncpy(number_of_elements_str, &(vector_mode[1]), 255);
+                number_of_elements_str[255] = '\0';
                 char *p = number_of_elements_str;
 
                 while (isdigit(*p))
@@ -201,6 +203,7 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                         }
                     }
                 }
+
             }
         }
         else

@@ -103,7 +103,7 @@ AST ast_make(node_t type, int num_children,
     result->text = NULL;
     if (text != NULL)
     {
-        result->text = strdup(text);
+        result->text = uniquestr(text);
     }
 
     return result;
@@ -131,7 +131,7 @@ const char* ast_get_text(const_AST a)
 
 void ast_set_text(AST a, const char* str)
 {
-    a->text = strdup(str);
+    a->text = uniquestr(str);
 }
 
 AST ast_get_child(const_AST a, int num_child)
@@ -245,7 +245,7 @@ AST ast_copy(const_AST a)
 
     if (a->text != NULL)
     {
-        result->text = strdup(a->text);
+        result->text = uniquestr(a->text);
     }
 
     result->parent = NULL;
@@ -294,7 +294,7 @@ AST ast_copy_for_instantiation(const_AST a)
 
     if (a->text != NULL)
     {
-        result->text = strdup(a->text);
+        result->text = uniquestr(a->text);
     }
 
     result->parent = NULL;
@@ -632,7 +632,7 @@ static AST ast_copy_with_scope_link_rec(AST a, scope_link_t* orig, scope_link_t*
 
     if (ASTText(a) != NULL)
     {
-        ast_set_text(result, strdup(ASTText(a)));
+        ast_set_text(result, uniquestr(ASTText(a)));
     }
     ast_set_parent(result, NULL);
 

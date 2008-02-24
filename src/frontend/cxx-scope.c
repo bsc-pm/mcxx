@@ -101,7 +101,7 @@ static scope_t* new_namespace_scope(scope_t* st, const char* qualification_name)
     result->contained_in = st;
     if (qualification_name != NULL)
     {
-        result->qualification_name = strdup(qualification_name);
+        result->qualification_name = uniquestr(qualification_name);
     }
 
     DEBUG_CODE()
@@ -177,7 +177,7 @@ static scope_t* new_class_scope(scope_t* enclosing_scope, const char* qualificat
 
     if (qualification_name != NULL)
     {
-        result->qualification_name = strdup(qualification_name);
+        result->qualification_name = uniquestr(qualification_name);
     }
 
     DEBUG_CODE()
@@ -368,7 +368,7 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
     scope_entry_t* result;
 
     result = calloc(1, sizeof(*result));
-    result->symbol_name = strdup(name);
+    result->symbol_name = uniquestr(name);
     // Remember, for template parameters, .current_scope will not contain
     // its declaration scope but will be in .template_scope
     result->decl_context = decl_context;
@@ -755,13 +755,12 @@ static scope_entry_list_t* query_unqualified_name(decl_context_t decl_context,
     {
         case AST_SYMBOL:
             {
-                char* name = strdup(ASTText(unqualified_name));
+                const char* name = uniquestr(ASTText(unqualified_name));
                 if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
                 {
                     name = strprepend(name, "constructor ");
                 }
                 result = name_lookup(decl_context, name);
-                free(name);
             }
             break;
         case AST_TEMPLATE_ID:
@@ -817,7 +816,7 @@ static scope_entry_list_t* query_qualified_name(decl_context_t nested_name_conte
 {
     DEBUG_CODE()
     {
-        char* c = prettyprint_in_buffer(unqualified_name);
+        const char* c = prettyprint_in_buffer(unqualified_name);
 
         if (ASTType(unqualified_name) != AST_TEMPLATE_ID)
         {
@@ -3001,7 +3000,7 @@ static const char* get_fully_qualified_symbol_name_simple(decl_context_t decl_co
         {
             if (current_scope->qualification_name != NULL)
             {
-                char* nested_name = strappend(current_scope->qualification_name, "::");
+                const char* nested_name = strappend(current_scope->qualification_name, "::");
                 result = strappend(nested_name, result);
             }
 
@@ -3058,7 +3057,7 @@ static const char* give_name_for_template_parameter(scope_entry_t* entry, decl_c
 static const char* get_unqualified_template_symbol_name(scope_entry_t* entry, 
         decl_context_t decl_context)
 {
-    char* result = "";
+    const char* result = "";
 
     // It is not enough with the name, we have to print the arguments
     result = strappend(result, "< ");
@@ -3085,7 +3084,7 @@ static const char* get_unqualified_template_symbol_name(scope_entry_t* entry,
             case TAK_TEMPLATE:
             case TAK_TYPE:
                 {
-                    char* abstract_declaration;
+                    const char* abstract_declaration;
 
                     abstract_declaration = 
                         get_declaration_string_internal(template_argument->type, decl_context, "", "", 0, NULL, NULL, 0);
@@ -3126,7 +3125,7 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
         entry = entry->entity_specs.injected_class_referred_symbol;
     }
 
-    const char* result = strdup(entry->symbol_name);
+    const char* result = uniquestr(entry->symbol_name);
 
     if (entry->kind == SK_TEMPLATE_PARAMETER
             || entry->kind == SK_TEMPLATE_TYPE_PARAMETER

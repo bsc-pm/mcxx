@@ -4403,9 +4403,9 @@ scope_entry_t* give_real_entry(scope_entry_t* entry)
     return result;
 }
 
-static char* get_cv_qualifier_string(type_t* type_info)
+static const char* get_cv_qualifier_string(type_t* type_info)
 {
-    char* result = "";
+    const char* result = "";
 
     if (BITMAP_TEST(type_info->cv_qualifier, CV_CONST))
     {
@@ -4459,7 +4459,7 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 {
     ERROR_CONDITION(simple_type == NULL, "This cannot be null", 0);
 
-    const char* result = strdup("");
+    const char* result = "";
     switch ((int)simple_type->kind)
     {
         case STK_USER_DEFINED :
@@ -4582,11 +4582,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
 }
 
 // Gives the simple type name of a full fledged type
-char* get_simple_type_name_string(decl_context_t decl_context, type_t* type_info)
+const char* get_simple_type_name_string(decl_context_t decl_context, type_t* type_info)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
-    char* result = strdup("");
+    const char* result = "";
     switch ((int)(type_info->kind))
     {
         case TK_DIRECT :
@@ -4619,30 +4619,30 @@ char* get_simple_type_name_string(decl_context_t decl_context, type_t* type_info
     return result;
 }
 
-static char* get_type_name_string(decl_context_t decl_context,
+static const char* get_type_name_string(decl_context_t decl_context,
         type_t* type_info, 
         const char* symbol_name,
         int* num_parameter_names,
-        char*** parameter_names,
+        const char*** parameter_names,
         char is_parameter);
 
 // Returns a declaration string given a type, a symbol name, an optional initializer
 // and a semicolon
-char* get_declaration_string_internal(type_t* type_info, 
+const char* get_declaration_string_internal(type_t* type_info, 
         decl_context_t decl_context,
         const char* symbol_name, const char* initializer, 
         char semicolon,
         int* num_parameter_names,
-        char*** parameter_names,
+        const char*** parameter_names,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
-    char* base_type_name = get_simple_type_name_string(decl_context, type_info);
-    char* declarator_name = get_type_name_string(decl_context, type_info, symbol_name, 
+    const char* base_type_name = get_simple_type_name_string(decl_context, type_info);
+    const char* declarator_name = get_type_name_string(decl_context, type_info, symbol_name, 
             num_parameter_names, parameter_names, is_parameter);
 
-    char* result;
+    const char* result;
 
     result = base_type_name;
     if (strcmp(declarator_name, "") != 0)
@@ -4669,27 +4669,27 @@ char* get_declaration_string_internal(type_t* type_info,
 
 static void get_type_name_str_internal(decl_context_t decl_context,
         type_t* type_info, 
-        char** left,
-        char** right,
+        const char** left,
+        const char** right,
         int* num_parameter_names,
-        char*** parameter_names,
+        const char*** parameter_names,
         char is_parameter);
 
-static char* get_type_name_string(decl_context_t decl_context,
+static const char* get_type_name_string(decl_context_t decl_context,
         type_t* type_info, 
         const char* symbol_name,
         int* num_parameter_names,
-        char*** parameter_names,
+        const char*** parameter_names,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
 
-    char* left = strdup("");
-    char* right = strdup("");
+    const char* left = "";
+    const char* right = "";
     get_type_name_str_internal(decl_context, type_info, &left, &right, 
             num_parameter_names, parameter_names, is_parameter);
 
-    char* result = strappend(left, symbol_name);
+    const char* result = strappend(left, symbol_name);
     result = strappend(result, right);
 
     return result;
@@ -4832,10 +4832,10 @@ char is_more_or_equal_cv_qualified_type(type_t* t1, type_t* t2)
 // Constructs a proper declarator
 static void get_type_name_str_internal(decl_context_t decl_context,
         type_t* type_info, 
-        char** left,
-        char** right,
+        const char** left,
+        const char** right,
         int* num_parameter_names,
-        char*** parameter_names,
+        const char*** parameter_names,
         char is_parameter)
 {
     ERROR_CONDITION(type_info == NULL, "This cannot be null", 0);
@@ -4917,7 +4917,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                     // in parameters
                     //
                     // This is not valid, but works most of the time...
-                    char* array_expr = strdup("[0]");
+                    const char* array_expr = uniquestr("[0]");
 
                     (*right) = strappend((*right), array_expr);
 
@@ -4926,7 +4926,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 }
                 else
                 {
-                    char* array_expr = strappend("[", prettyprint_in_buffer(type_info->array->array_expr));
+                    const char* array_expr = strappend("[", prettyprint_in_buffer(type_info->array->array_expr));
                     array_expr = strappend(array_expr, "]");
 
                     (*right) = strappend((*right), array_expr);
@@ -4941,7 +4941,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 get_type_name_str_internal(decl_context, type_info->function->return_type, left, right, 
                         num_parameter_names, parameter_names, is_parameter);
 
-                char* prototype;
+                const char* prototype;
                 prototype = "(";
                 int i;
                 for (i = 0; i < type_info->function->num_parameters; i++)
@@ -4967,10 +4967,11 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                         else
                         {
                             // We create a name
-                            char* parameter_name = calloc(20, sizeof(char));
+                            char parameter_name[20];
                             snprintf(parameter_name, 19, "_p_%d", i);
+                            parameter_name[19] = '\0';
 
-                            P_LIST_ADD((*parameter_names), (*num_parameter_names), parameter_name);
+                            P_LIST_ADD((*parameter_names), (*num_parameter_names), uniquestr(parameter_name));
 
                             prototype = strappend(prototype,
                                     get_declaration_string_internal(type_info->function->parameter_list[i]->type_info, decl_context, 
@@ -5011,11 +5012,11 @@ static void get_type_name_str_internal(decl_context_t decl_context,
  * **/
 
 static
-char *get_named_simple_type_name(scope_entry_t* user_defined_type)
+const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
 {
     ERROR_CONDITION(user_defined_type == NULL, "This cannot be null", 0);
 
-    char* result = "";
+    const char* result = uniquestr("");
     decl_context_t decl_context = user_defined_type->decl_context;
 
     const int MAX_LENGTH = 1023;
@@ -5091,18 +5092,18 @@ char *get_named_simple_type_name(scope_entry_t* user_defined_type)
     return result;
 }
 
-char* get_named_type_name(scope_entry_t* entry)
+const char* get_named_type_name(scope_entry_t* entry)
 {
     ERROR_CONDITION(entry == NULL, "This cannot be null", 0);
     return get_named_simple_type_name(entry);
 }
 
 // Gives the name of a builtin type. This routine is for debugging
-static char* get_builtin_type_name(type_t* type_info, decl_context_t decl_context)
+static const char* get_builtin_type_name(type_t* type_info, decl_context_t decl_context)
 {
     simple_type_t* simple_type_info = type_info->type;
     ERROR_CONDITION(simple_type_info == NULL, "This cannot be null", 0);
-    char* result = "";
+    const char* result = uniquestr("");
 
     if (simple_type_info->is_long == 1)
     {
@@ -5170,7 +5171,7 @@ static char* get_builtin_type_name(type_t* type_info, decl_context_t decl_contex
             break;
         case STK_CLASS :
             {
-                char *template_arguments = "";
+                const char *template_arguments = "";
                 {
                     int i;
                     type_t* actual_class = type_info;
@@ -5260,10 +5261,10 @@ static char* get_builtin_type_name(type_t* type_info, decl_context_t decl_contex
 }
 
 // This prints a declarator in English. It is intended for debugging purposes
-char* print_declarator(type_t* printed_declarator, decl_context_t decl_context)
+const char* print_declarator(type_t* printed_declarator, decl_context_t decl_context)
 {
     ERROR_CONDITION(printed_declarator == NULL, "This cannot be null", 0);
-    char* tmp_result = "";
+    const char* tmp_result = "";
 
     if (is_ellipsis_type(printed_declarator))
     {

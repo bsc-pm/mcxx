@@ -30,6 +30,7 @@
 
 #include "cxx-driver.h"
 #include "cxx-macros.h"
+#include "uniquestr.h"
 
 MCXX_BEGIN_DECLS
 
@@ -76,8 +77,8 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 }
 
 
-char* strappend(const char* orig, const char* appended);
-char* strprepend(const char* orig, const char* prepended);
+const char* strappend(const char* orig, const char* appended);
+const char* strprepend(const char* orig, const char* prepended);
 
 // Routine to ease adding pointers to a pointer list
 //   list is a T**
@@ -133,14 +134,13 @@ do { \
 #define STATIC_ARRAY_LENGTH(_v) (sizeof(_v)/sizeof(_v[0]))
 
 // Gives a unique name for the identifier
-char* get_unique_name(void);
-
+const char* get_unique_name(void);
 
 // Temporal handling routines
 typedef struct 
 {
     FILE* file;
-    char* name;
+    const char* name;
 }* temporal_file_t;
 
 // Gives you a new temporal file that will be removed when
@@ -152,18 +152,17 @@ temporal_file_t new_temporal_file();
 // file is closed and erased.
 void temporal_files_cleanup(void);
 
-char* get_extension_filename(char* filename);
+const char* get_extension_filename(const char* filename);
 
-int execute_program(char* program_name, char** arguments);
+int execute_program(const char* program_name, const char** arguments);
 
 // char** routines
-char** comma_separate_values(char* value, int* num_elems);
-char** blank_separate_values(char* value, int *num_elems);
+const char** comma_separate_values(const char* value, int* num_elems);
+const char** blank_separate_values(const char* value, int *num_elems);
 int count_null_ended_array(void** v);
 
 // Table of seen filenames
-void seen_filename(char* filename);
-char* reference_to_seen_filename(char* filename);
+const char* reference_to_seen_filename(const char* filename);
 
 typedef struct
 {
@@ -180,8 +179,8 @@ double timing_elapsed(const timing_t* t);
 
 char is_blank_string(const char* c);
 
-char* give_dirname(const char* c);
-char* give_basename(const char* c);
+const char* give_dirname(const char* c);
+const char* give_basename(const char* c);
 
 MCXX_END_DECLS
 
