@@ -32,6 +32,7 @@ namespace TL
     {
         private:
             InstrumentFilterFile _instrument_filter;
+            bool _instrument_main;
             class InstrumentCallsFunctor : public TraverseFunctor
             {
                 private:
@@ -77,7 +78,9 @@ namespace TL
             virtual void run(DTO& data_flow);
 
             virtual ~InstrumentCalls();
-            InstrumentCalls(const std::string& instrument_file_name, const std::string& instrument_filter_mode);
+            InstrumentCalls(const std::string& instrument_file_name, 
+                    const std::string& instrument_filter_mode,
+                    bool instrument_main);
     };
 }
 

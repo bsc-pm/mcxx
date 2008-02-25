@@ -40,6 +40,7 @@ namespace TL
             std::string instrument_mode;
             std::string instrument_file_name;
             std::string instrument_filter_mode;
+            std::string instrument_main;
         public:
             Instrumentation()
             {
@@ -58,6 +59,11 @@ namespace TL
                         "It sets the kind of instrumentation done. Valid values are 'calls' or 'functions'. Currently only 'calls' is valid",
                         instrument_mode,
                         "calls");
+
+                register_parameter("instrument_main",
+                        "It enables mintaka initialization in the main. Valid values are '0' or '1'.",
+                        instrument_main,
+                        "1");
 
                 register_parameter("instrument_file_name", 
                         "Sets the filtering file for instrumentation. This file contains a of functions to "
@@ -80,7 +86,8 @@ namespace TL
 
                 if (instrument_mode == "calls")
                 {
-                    instrument_phase = new InstrumentCalls(instrument_file_name, instrument_filter_mode);
+                    instrument_phase = new InstrumentCalls(instrument_file_name, instrument_filter_mode,
+                            instrument_main != "0");
                 }
                 else if (instrument_mode == "functions")
                 {

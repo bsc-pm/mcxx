@@ -353,11 +353,15 @@ namespace TL
         PredicateAST<LANG_IS_FUNCTION_CALL> function_call_pred;
         InstrumentCallsFunctor instrumentation_functor(_instrument_filter);
 
-        MainWrapper mainwrapper_functor(scope_link);
-        MainPredicate main_function_def(scope_link);
 
         depth_traverse.add_predicate(function_call_pred, instrumentation_functor);
-        depth_traverse.add_predicate(main_function_def, mainwrapper_functor);
+
+        if (_instrument_main)
+        {
+            MainWrapper mainwrapper_functor(scope_link);
+            MainPredicate main_function_def(scope_link);
+            depth_traverse.add_predicate(main_function_def, mainwrapper_functor);
+        }
 
         depth_traverse.traverse(root_node, scope_link);
     }
@@ -366,8 +370,10 @@ namespace TL
     {
     }
 
-    InstrumentCalls::InstrumentCalls(const std::string& instrument_file_name, const std::string& instrument_filter_mode)
-        : _instrument_filter(instrument_file_name, instrument_filter_mode)
+    InstrumentCalls::InstrumentCalls(const std::string& instrument_file_name, const std::string& instrument_filter_mode,
+            bool instrument_main)
+        : _instrument_filter(instrument_file_name, instrument_filter_mode),
+        _instrument_main(instrument_main)
     {
         std::cerr << "Instrumentation of calls support loaded" << std::endl;
     }
