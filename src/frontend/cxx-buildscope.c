@@ -6814,6 +6814,8 @@ static void build_scope_compound_statement(AST a,
 
 static void build_scope_condition(AST a, decl_context_t decl_context)
 {
+    ASTAttrSetValueType(a, LANG_IS_CONDITION, tl_type_t, tl_bool(1));
+
     if (ASTSon0(a) != NULL 
             && ASTSon1(a) != NULL)
     {
@@ -6850,8 +6852,10 @@ static void build_scope_condition(AST a, decl_context_t decl_context)
             internal_error("Could not check expression '%s'\n", 
                     prettyprint_in_buffer(ASTSon2(a)));
         }
-        
+
         entry->expression_value = ASTSon2(a);
+
+        ASTAttrSetValueType(a, LANG_IS_CONDITION_DECLARATION, tl_type_t, tl_bool(1));
     }
     else
     {
@@ -6860,6 +6864,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context)
             internal_error("Could not check expression '%s'\n",
                     prettyprint_in_buffer(ASTSon2(a)));
         }
+
+        ASTAttrSetValueType(a, LANG_IS_CONDITION_EXPRESSION, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
         ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon2(a)));
     }
@@ -6881,6 +6887,8 @@ static void build_scope_while_statement(AST a,
     }
 
     ASTAttrSetValueType(a, LANG_IS_WHILE_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_WHILE_STATEMENT_CONDITION, tl_type_t, tl_ast(ASTSon0(a)));
+    ASTAttrSetValueType(a, LANG_WHILE_STATEMENT_BODY, tl_type_t, tl_ast(ASTSon1(a)));
 }
 
 static void build_scope_ambiguity_handler(AST a, 
@@ -6958,6 +6966,9 @@ static void build_scope_if_else_statement(AST a,
     }
 
     ASTAttrSetValueType(a, LANG_IS_IF_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IF_STATEMENT_CONDITION, tl_type_t, tl_ast(condition));
+    ASTAttrSetValueType(a, LANG_IF_STATEMENT_THEN_BODY, tl_type_t, tl_ast(then_branch));
+    ASTAttrSetValueType(a, LANG_IF_STATEMENT_ELSE_BODY, tl_type_t, tl_ast(else_branch));
 }
 
 static void build_scope_for_statement(AST a, 
@@ -7028,6 +7039,8 @@ static void build_scope_switch_statement(AST a,
     scope_link_set(CURRENT_COMPILED_FILE(scope_link), statement, block_context);
 
     ASTAttrSetValueType(a, LANG_IS_SWITCH_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_SWITCH_STATEMENT_CONDITION, tl_type_t, tl_ast(condition));
+    ASTAttrSetValueType(a, LANG_SWITCH_STATEMENT_BODY, tl_type_t, tl_ast(statement));
 }
 
 static void add_label_if_not_found(AST label, decl_context_t decl_context)
@@ -7052,6 +7065,7 @@ static void build_scope_goto_statement(AST a,
     add_label_if_not_found(label, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_GOTO_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_GOTO_STATEMENT_LABEL, tl_type_t, tl_ast(label));
 }
 
 static void build_scope_labeled_statement(AST a, 
@@ -7065,7 +7079,10 @@ static void build_scope_labeled_statement(AST a,
 
     build_scope_statement(statement, decl_context);
 
-    ASTAttrSetValueType(a, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
+    // Note that we flag 'statement' and not 'a', it is
+    // more useful this way
+    ASTAttrSetValueType(statement, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(statement, LANG_STATEMENT_LABEL, tl_type_t, tl_bool(1));
 }
 
 static void build_scope_default_statement(AST a, 
@@ -7177,6 +7194,8 @@ static void build_scope_do_statement(AST a,
     }
 
     ASTAttrSetValueType(a, LANG_IS_DO_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_DO_STATEMENT_BODY, tl_type_t, tl_ast(statement));
+    ASTAttrSetValueType(a, LANG_DO_STATEMENT_EXPRESSION, tl_type_t, tl_ast(expression));
 }
 
 static void build_scope_null(AST a UNUSED_PARAMETER, 
@@ -7755,28 +7774,28 @@ static void build_scope_custom_construct_statement(AST a,
 static stmt_scope_handler_map_t stmt_scope_handlers[] =
 {
     STMT_HANDLER(AST_AMBIGUITY, build_scope_ambiguity_handler, NULL),
-    STMT_HANDLER(AST_EXPRESSION_STATEMENT, build_scope_expression_statement, LANG_IS_EXPRESSION_STATEMENT),
-    STMT_HANDLER(AST_DECLARATION_STATEMENT, build_scope_declaration_statement, LANG_IS_DECLARATION_STATEMENT),
-    STMT_HANDLER(AST_COMPOUND_STATEMENT, build_scope_compound_statement, LANG_IS_COMPOUND_STATEMENT),
-    STMT_HANDLER(AST_DO_STATEMENT, build_scope_do_statement, LANG_IS_DO_STATEMENT),
-    STMT_HANDLER(AST_WHILE_STATEMENT, build_scope_while_statement, LANG_IS_WHILE_STATEMENT),
-    STMT_HANDLER(AST_IF_ELSE_STATEMENT, build_scope_if_else_statement, LANG_IS_IF_STATEMENT),
-    STMT_HANDLER(AST_FOR_STATEMENT, build_scope_for_statement, LANG_IS_FOR_STATEMENT),
-    STMT_HANDLER(AST_LABELED_STATEMENT, build_scope_labeled_statement, LANG_IS_LABELED_STATEMENT),
-    STMT_HANDLER(AST_DEFAULT_STATEMENT, build_scope_default_statement, LANG_IS_DEFAULT_STATEMENT),
-    STMT_HANDLER(AST_CASE_STATEMENT, build_scope_case_statement, LANG_IS_CASE_STATEMENT),
-    STMT_HANDLER(AST_RETURN_STATEMENT, build_scope_return_statement, LANG_IS_RETURN_STATEMENT),
-    STMT_HANDLER(AST_TRY_BLOCK, build_scope_try_block, LANG_IS_TRY_BLOCK),
-    STMT_HANDLER(AST_SWITCH_STATEMENT, build_scope_switch_statement, LANG_IS_SWITCH_STATEMENT),
-    STMT_HANDLER(AST_EMPTY_STATEMENT, build_scope_null, LANG_IS_EMPTY_STATEMENT),
-    STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_null, LANG_IS_BREAK_STATEMENT),
-    STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_null, LANG_IS_CONTINUE_STATEMENT),
-    STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_goto_statement, LANG_IS_GOTO_STATEMENT),
+    STMT_HANDLER(AST_EXPRESSION_STATEMENT, build_scope_expression_statement, NULL),
+    STMT_HANDLER(AST_DECLARATION_STATEMENT, build_scope_declaration_statement, NULL),
+    STMT_HANDLER(AST_COMPOUND_STATEMENT, build_scope_compound_statement, NULL),
+    STMT_HANDLER(AST_DO_STATEMENT, build_scope_do_statement, NULL),
+    STMT_HANDLER(AST_WHILE_STATEMENT, build_scope_while_statement, NULL),
+    STMT_HANDLER(AST_IF_ELSE_STATEMENT, build_scope_if_else_statement, NULL),
+    STMT_HANDLER(AST_FOR_STATEMENT, build_scope_for_statement, NULL),
+    STMT_HANDLER(AST_LABELED_STATEMENT, build_scope_labeled_statement, NULL),
+    STMT_HANDLER(AST_DEFAULT_STATEMENT, build_scope_default_statement, NULL),
+    STMT_HANDLER(AST_CASE_STATEMENT, build_scope_case_statement, NULL),
+    STMT_HANDLER(AST_RETURN_STATEMENT, build_scope_return_statement, NULL),
+    STMT_HANDLER(AST_TRY_BLOCK, build_scope_try_block, NULL),
+    STMT_HANDLER(AST_SWITCH_STATEMENT, build_scope_switch_statement, NULL),
+    STMT_HANDLER(AST_EMPTY_STATEMENT, build_scope_null, NULL),
+    STMT_HANDLER(AST_BREAK_STATEMENT, build_scope_null, NULL),
+    STMT_HANDLER(AST_CONTINUE_STATEMENT, build_scope_null, NULL),
+    STMT_HANDLER(AST_GOTO_STATEMENT, build_scope_goto_statement, NULL),
     // Pragma custom support
-    STMT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, build_scope_pragma_custom_construct_statement, LANG_IS_PRAGMA_CUSTOM_CONSTRUCT),
-    STMT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, build_scope_pragma_custom_directive, LANG_IS_PRAGMA_CUSTOM_DIRECTIVE),
+    STMT_HANDLER(AST_PRAGMA_CUSTOM_CONSTRUCT, build_scope_pragma_custom_construct_statement, NULL),
+    STMT_HANDLER(AST_PRAGMA_CUSTOM_DIRECTIVE, build_scope_pragma_custom_directive, NULL),
     // Custom construct
-    STMT_HANDLER(AST_CUSTOM_CONSTRUCT_STATEMENT, build_scope_custom_construct_statement, /*LANG_IS_CUSTOM_CONSTRUCT*/ ""),
+    STMT_HANDLER(AST_CUSTOM_CONSTRUCT_STATEMENT, build_scope_custom_construct_statement, NULL),
     // OpenMP 2.5 constructs
     STMT_HANDLER(AST_OMP_PARALLEL_CONSTRUCT, build_scope_omp_construct, OMP_IS_PARALLEL_CONSTRUCT),
     STMT_HANDLER(AST_OMP_FOR_CONSTRUCT, build_scope_omp_construct, OMP_IS_FOR_CONSTRUCT),
@@ -7788,10 +7807,10 @@ static stmt_scope_handler_map_t stmt_scope_handlers[] =
     STMT_HANDLER(AST_OMP_MASTER_CONSTRUCT, build_scope_omp_construct, OMP_IS_MASTER_CONSTRUCT),
     STMT_HANDLER(AST_OMP_ATOMIC_CONSTRUCT, build_scope_omp_construct, OMP_IS_ATOMIC_CONSTRUCT),
     STMT_HANDLER(AST_OMP_ORDERED_CONSTRUCT, build_scope_omp_construct, OMP_IS_ORDERED_CONTRUCT),
-    STMT_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, build_scope_omp_critical_construct, OMP_IS_CRITICAL_CONSTRUCT),
-    STMT_HANDLER(AST_OMP_FLUSH_DIRECTIVE, build_scope_omp_flush_directive, OMP_IS_FLUSH_DIRECTIVE),
+    STMT_HANDLER(AST_OMP_CRITICAL_CONSTRUCT, build_scope_omp_critical_construct, NULL),
+    STMT_HANDLER(AST_OMP_FLUSH_DIRECTIVE, build_scope_omp_flush_directive, NULL),
     STMT_HANDLER(AST_OMP_BARRIER_DIRECTIVE, build_scope_omp_directive, OMP_IS_BARRIER_DIRECTIVE),
-    STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate, OMP_IS_THREADPRIVATE_DIRECTIVE),
+    STMT_HANDLER(AST_OMP_THREADPRIVATE_DIRECTIVE, build_scope_omp_threadprivate, NULL),
     STMT_HANDLER(AST_OMP_CUSTOM_CONSTRUCT, build_scope_omp_custom_construct_statement, OMP_IS_CUSTOM_CONSTRUCT),
     STMT_HANDLER(AST_OMP_CUSTOM_DIRECTIVE, build_scope_omp_custom_directive, NULL)
 };
