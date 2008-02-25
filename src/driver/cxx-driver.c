@@ -604,7 +604,6 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                         P_LIST_ADD(CURRENT_CONFIGURATION(external_vars), CURRENT_CONFIGURATION(num_external_vars),
                                 new_external_var);
 
-                        free(name);
                         break;
                     }
                 case OPTION_TYPECHECK :
