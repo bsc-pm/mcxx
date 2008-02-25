@@ -252,134 +252,9 @@ namespace TL
             static const PredicateAST<LANG_IS_ID_EXPRESSION> predicate;
     };
 
-    //! LangConstruct that wraps a statement in the code
-    class Statement : public LangConstruct
-    {
-        private:
-        public:
-            Statement(AST_t ref, ScopeLink scope_link)
-                : LangConstruct(ref, scope_link)
-            {
-            }
-
-            //! Returns all non local referenced symbols
-            //in the statement
-            ObjectList<Symbol> non_local_symbols();
-
-            //! States whether this Statement is actually a compound statement
-            bool is_compound_statement();
-            //! Returns a list of inner statements
-            /*! This function is only valid if is_compound_statement returned true
-             */
-            ObjectList<Statement> get_inner_statements();
-
-            const static PredicateAST<LANG_IS_STATEMENT> predicate;
-    };
 
     class Expression;
-    //! This LangConstruct wraps a for-statement in the code
-    class ForStatement : public Statement
-    {
-        private:
-            //! Gathers the induction variable
-            AST_t _induction_variable;
-            //! The lower bound of a regular loop
-            AST_t _lower_bound;
-            //! The upper bound of a regular loop
-            AST_t _upper_bound;
-            //! The step of a regular loop
-            AST_t _step;
-
-            //! Gathers information of regular loops
-            /*! This function is only called when check_statement returns true
-             */
-            void gather_for_information();
-
-            //! Checks for a regular loop
-            bool check_statement();
-        public:
-            ForStatement(AST_t ref, ScopeLink scope_link)
-                : Statement(ref, scope_link)
-            {
-                if (check_statement())
-                {
-                    gather_for_information();
-                }
-            }
-
-            ForStatement(const Statement& st)
-                 : Statement(st)
-            {
-                if (check_statement())
-                {
-                    gather_for_information();
-                }
-            }
-
-            //! Returns an id-expression with the induction variable
-            IdExpression get_induction_variable();
-            
-            //! Returns a computed lower bound of a regular loop
-            Expression get_lower_bound();
-            
-            //! Returns a computed upper bound of a regular loop
-            Expression get_upper_bound();
-            
-            //! Returns a computed step of a regular loop
-            Expression get_step();
-
-            //! Returns the loop body
-            Statement get_loop_body();
-
-            //! States whether this loop is a regular one
-            /*!
-             * A regular loop is that where computing the lower and upper
-             * bounds and its step is easy after the syntax.
-             */
-            bool regular_loop();
-
-            //! Returns the iterating initialization
-            /*!
-             * Given loops 
-             *
-             *   '%for(%i = 0; %i < 10; %i++)' 
-             *
-             * and
-             *
-             *   '%for(int %i = 0; %i < 10; %i++)' 
-             *
-             * get_iterating_init will return 
-             *    '%i = 0' 
-             *
-             *    and 
-             *
-             *    'int i = 0' 
-             *
-             * respectively
-             */
-            AST_t get_iterating_init();
-
-            //! Returns the iterating condition
-            /*!
-             * Given loop
-             *
-             *  '%for(%i = 0; %i < 10; %i++)' 
-             *
-             * this function will return 'i < 10'
-             */
-            Expression get_iterating_condition();
-            //! Returns the iterating expression
-            /*!
-             * Given loop
-             *
-             *  '%for(%i = 0; %i < 10; %i++)' 
-             *
-             * this function will return 'i++'
-             */
-            Expression get_iterating_expression();
-
-            const static PredicateAST<LANG_IS_FOR_STATEMENT> predicate;
-    };
+    class Statement;
 
     class DeclaredEntity;
     //! This function wraps a whol function definition
@@ -966,3 +841,6 @@ namespace TL
 }
 
 #endif // TL_LANGCONSTRUCT_HPP
+
+// This makes compatible old code with the new header
+#include "tl-statement.hpp"
