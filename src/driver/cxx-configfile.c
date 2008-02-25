@@ -28,18 +28,22 @@
 // Set source language
 int config_set_language(struct compilation_configuration_tag* config, const char* value)
 {
-    if (strcasecmp(value, "c") == 0)
+    // If it was set in the command line, do not overwrite
+    if (config->source_language == SOURCE_LANGUAGE_UNKNOWN)
     {
-        config->source_language = SOURCE_LANGUAGE_C;
-    }
-    else if (strcasecmp(value, "c++") == 0)
-    {
-        config->source_language = SOURCE_LANGUAGE_CXX;
-    }
-    else
-    {
-        fprintf(stderr, "Unknown language '%s' assuming C++\n", value);
-        config->source_language = SOURCE_LANGUAGE_CXX;
+        if (strcasecmp(value, "c") == 0)
+        {
+            config->source_language = SOURCE_LANGUAGE_C;
+        }
+        else if (strcasecmp(value, "c++") == 0)
+        {
+            config->source_language = SOURCE_LANGUAGE_CXX;
+        }
+        else
+        {
+            fprintf(stderr, "Unknown language '%s' assuming C++\n", value);
+            config->source_language = SOURCE_LANGUAGE_CXX;
+        }
     }
     return 0;
 }
@@ -78,7 +82,11 @@ int config_set_options(struct compilation_configuration_tag* config, const char*
 // Set preprocessor name
 int config_set_preprocessor_name(struct compilation_configuration_tag* config, const char* value)
 {
-    config->preprocessor_name = uniquestr(value);
+    // If it was set in command line, do not set it here
+    if (config->preprocessor_name == NULL)
+    {
+        config->preprocessor_name = uniquestr(value);
+    }
     return 0;
 }
 
@@ -96,7 +104,11 @@ int config_set_preprocessor_options(struct compilation_configuration_tag* config
 // Set native compiler name
 int config_set_compiler_name(struct compilation_configuration_tag* config, const char* value)
 {
-    config->native_compiler_name = uniquestr(value);
+    // If it was set in command line, do not set it here
+    if (config->native_compiler_name == NULL)
+    {
+        config->native_compiler_name = uniquestr(value);
+    }
     return 0;
 }
 
@@ -113,7 +125,11 @@ int config_set_compiler_options(struct compilation_configuration_tag* config, co
 // Set linker name
 int config_set_linker_name(struct compilation_configuration_tag* config, const char* value)
 {
-    config->linker_name = uniquestr(value);
+    // If it was set in command line, do not set it here
+    if (config->linker_name == NULL)
+    {
+        config->linker_name = uniquestr(value);
+    }
     return 0;
 }
 
