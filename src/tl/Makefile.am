@@ -59,6 +59,8 @@ libtl_la_SOURCES = \
 	tl-predicateutils.cpp \
 	tl-langconstruct.hpp \
 	tl-langconstruct.cpp \
+	tl-statement.hpp \
+	tl-statement.cpp \
 	tl-externalvars.hpp \
 	tl-externalvars.cpp \
 	tl-handler.hpp \

@@ -6845,8 +6845,6 @@ static void build_scope_condition(AST a, decl_context_t decl_context)
                 decl_context);
         scope_entry_t* entry = build_scope_declarator_name(declarator, declarator_type, &gather_info, decl_context);
 
-        // solve_possibly_ambiguous_expression(ASTSon2(a), decl_context);
-
         if (!check_for_expression(ASTSon2(a), decl_context))
         {
             internal_error("Could not check expression '%s'\n", 
@@ -6854,6 +6852,10 @@ static void build_scope_condition(AST a, decl_context_t decl_context)
         }
 
         entry->expression_value = ASTSon2(a);
+
+        ASTAttrSetValueType(a, LANG_IS_DECLARATION, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(a, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(type_specifier_seq));
+        ASTAttrSetValueType(a, LANG_DECLARATION_DECLARATORS, tl_type_t, tl_ast(declarator));
 
         ASTAttrSetValueType(a, LANG_IS_CONDITION_DECLARATION, tl_type_t, tl_bool(1));
     }
@@ -7082,7 +7084,7 @@ static void build_scope_labeled_statement(AST a,
     // Note that we flag 'statement' and not 'a', it is
     // more useful this way
     ASTAttrSetValueType(statement, LANG_IS_LABELED_STATEMENT, tl_type_t, tl_bool(1));
-    ASTAttrSetValueType(statement, LANG_STATEMENT_LABEL, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(statement, LANG_STATEMENT_LABEL, tl_type_t, tl_ast(label));
 }
 
 static void build_scope_default_statement(AST a, 
@@ -7109,6 +7111,8 @@ static void build_scope_case_statement(AST a,
     build_scope_statement(statement, decl_context);
 
     ASTAttrSetValueType(a, LANG_IS_CASE_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_CASE_EXPRESSION, tl_type_t, tl_ast(constant_expression));
+    ASTAttrSetValueType(a, LANG_CASE_STATEMENT_BODY, tl_type_t, tl_ast(statement));
 }
 
 static void build_scope_return_statement(AST a, 

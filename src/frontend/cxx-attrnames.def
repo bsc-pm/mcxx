@@ -1,6 +1,8 @@
 LANG_ACCESSED_ENTITY lang.accessed_entity
 LANG_ACCESSED_MEMBER lang.accessed_member
 LANG_CALLED_EXPRESSION lang.called_expression
+LANG_CASE_EXPRESSION lang.case_expression
+LANG_CASE_STATEMENT_BODY lang.case_statement_body
 LANG_CASTED_EXPRESSION lang.casted_expression
 LANG_CAST_TYPE lang.cast_type
 LANG_CLASS_SPECIFIER_SYMBOL lang.class_specifier_symbol
