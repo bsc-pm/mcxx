@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "cxx-gccspubuiltins.h"
 #include "cxx-utils.h"
 #include "cxx-typeutils.h"
@@ -213,6 +214,22 @@ enum spu_builtin_types {
     B_INTERNAL
 };
 
+static char is_scalar_type(type_t* t)
+{
+    return is_integral_type(t) 
+        || is_floating_type(t)
+        || is_pointer_type(t);
+}
+
+static type_t* main_variant(type_t* t)
+{
+    if (is_vector_type(t))
+    {
+        return vector_type_get_element_type(t);
+    }
+    return t;
+}
+
 static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* arguments, int num_arguments)
 {
     // Why people insists on having overload in C?
@@ -278,10 +295,38 @@ static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* 
         for (j = 0; (j < num_arguments) && all_arguments_matched; j++)
         {
             type_t* argument_type = ASTExprType(arguments[j]);
+            type_t* parameter_type = function_type_get_parameter_type_num(current_function_type, j);
 
+            //  We try to mimic this
+            //
+            // 	  if ((!SCALAR_TYPE_P (param_type)
+            // 	       || !SCALAR_TYPE_P (arg_type)
+            // 	       || ((fcode == SPU_SPLATS || fcode == SPU_PROMOTE
+            // 		    || fcode == SPU_HCMPEQ || fcode == SPU_HCMPGT
+            // 		    || fcode == SPU_MASKB || fcode == SPU_MASKH
+            // 		    || fcode == SPU_MASKW) && p == 0))
+            // 	      && !comptypes (TYPE_MAIN_VARIANT (param_type),
+            // 			     TYPE_MAIN_VARIANT (arg_type)))
+            //
+            // standard_conversion_t scs;
+            // if ((!is_scalar_type (parameter_type)
+            //             || !is_scalar_type (argument_type)
+            //             || ((strcmp(overloaded_function->symbol_name, "__builtin_spu_splats") == 0 
+            //                     || strcmp(overloaded_function->symbol_name, "__builtin_spu_promote") == 0
+            //                     || strcmp(overloaded_function->symbol_name, "__builtin_spu_hcmpeq") == 0 
+            //                     || strcmp(overloaded_function->symbol_name, "__builtin_spu_hcmpgt") == 0
+            //                     || strcmp(overloaded_function->symbol_name, "__builtin_spu_maskb") == 0 
+            //                     || strcmp(overloaded_function->symbol_name, "__builtin_spu_maskh") == 0
+            //                     || strcmp(overloaded_function->symbol_name, "__builtin_spu_maskw") == 0) 
+            //                 && j == 0))
+            //         && !standard_conversion_between_types(&scs, main_variant(argument_type),
+            //                 main_variant(parameter_type), overloaded_function->decl_context))
+            // {
+            //     all_arguments_matched = 0;
+            // }
             all_arguments_matched = all_arguments_matched 
                 && equivalent_types(argument_type,
-                        function_type_get_parameter_type_num(current_function_type, j),
+                        parameter_type,
                         overloaded_function->decl_context);
         }
 

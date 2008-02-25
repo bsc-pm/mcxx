@@ -75,6 +75,21 @@ static void gather_one_gcc_attribute(const char* attribute_name,
         gather_info->is_vector = 1;
         gather_info->vector_size = 16;
     }
+    else if (strcmp(attribute_name, "altivec") == 0)
+    {
+        AST argument = advance_expression_nest(ASTSon1(expression_list));
+        if (ASTType(argument) == AST_SYMBOL)
+        {
+            const char *argument_text = ASTText(argument);
+            if (strcmp(argument_text, "vector__") == 0)
+            {
+                // Hardcoded to what an Altivec unit can do
+                // that (oh, miracle!) is the same as a SPU
+                gather_info->is_vector = 1;
+                gather_info->vector_size = 16;
+            }
+        }
+    }
     else if (strcmp(attribute_name, "mode") == 0)
     {
         if (ASTSon0(expression_list) != NULL)
