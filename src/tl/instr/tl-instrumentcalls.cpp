@@ -356,10 +356,10 @@ namespace TL
 
         depth_traverse.add_predicate(function_call_pred, instrumentation_functor);
 
+        MainWrapper mainwrapper_functor(scope_link);
+        MainPredicate main_function_def(scope_link);
         if (_instrument_main)
         {
-            MainWrapper mainwrapper_functor(scope_link);
-            MainPredicate main_function_def(scope_link);
             depth_traverse.add_predicate(main_function_def, mainwrapper_functor);
         }
 
