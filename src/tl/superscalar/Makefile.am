@@ -63,6 +63,10 @@ if USE_TL_SUPERSCALAR_V2
 libtlsuperscalar_code_conversion_la_SOURCES += \
 	tl-code-conversion-v2.cpp
 endif
+if USE_TL_SUPERSCALAR_V3
+libtlsuperscalar_code_conversion_la_SOURCES += \
+	tl-code-conversion-v3.cpp
+endif
 
 libtlsuperscalar_task_manifest_la_SOURCES = \
 	tl-task-manifest.cpp
@@ -82,6 +86,7 @@ noinst_HEADERS = \
 	tl-transform-directives.hpp \
 	tl-code-conversion.hpp \
 	tl-code-conversion-v2.hpp \
+	tl-code-conversion-v3.hpp \
 	tl-task-manifest.hpp
 
 AM_LDFLAGS = -avoid-version
