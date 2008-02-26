@@ -175,13 +175,13 @@ namespace TL
 			// Redeclaration
 			if (function_info._declaration_count != 0)
 			{
-				std::cerr << function_declaration.get_ast().get_locus() << " Warning: redeclaration of function '" << function_name << "'." << std::endl;
-				std::cerr << function_info._declaration_locus << " previously declared here." << std::endl;
+				// std::cerr << function_declaration.get_ast().get_locus() << " Warning: redeclaration of function '" << function_name << "'." << std::endl;
 				
 				// Check parameter compatibility with previous declaration
 				if (has_ellipsis != function_info._has_ellipsis || parameters.size() != function_info._parameters.size())
 				{
 					std::cerr << function_declaration.get_ast().get_locus() << " Error: redeclaration of function '" << function_name << "' with different number of parameters than previous declaration." << std::endl;
+					std::cerr << function_info._declaration_locus << " Previous declaration." << std::endl;
 					function_info._has_errors = true;
 					PreAnalysis::fail();
 				}
@@ -203,6 +203,7 @@ namespace TL
 							<< "' differs from previous declaration with type '"
 							<< parameter_info._declaration_type.get_simple_declaration(function_info._declaration_scope, "")
 							<< "'." << std::endl;
+							std::cerr << function_info._declaration_locus << " Previous declaration." << std::endl;
 						}
 						else
 						{
@@ -211,6 +212,7 @@ namespace TL
 							<< " differs from previous declaration with type '"
 							<< parameter_info._declaration_type.get_simple_declaration(function_info._declaration_scope, "")
 							<< "'." << std::endl;
+							std::cerr << function_info._declaration_locus << " Previous declaration." << std::endl;
 						}
 						function_info._has_errors = true;
 						PreAnalysis::fail();
