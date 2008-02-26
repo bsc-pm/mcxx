@@ -184,6 +184,8 @@ namespace TL
 
             //! Returns the body of the while statement
             Statement get_body();
+
+            const static PredicateAST<LANG_IS_WHILE_STATEMENT> predicate;
     };
 
     //! This class wraps an is statement
@@ -206,6 +208,8 @@ namespace TL
 
             //! Returns the body of "else"
             Statement get_else_body();
+
+            const static PredicateAST<LANG_IS_IF_STATEMENT> predicate;
     };
 
     //! This class wraps a do-statement
@@ -222,6 +226,8 @@ namespace TL
 
             //! Returns the iterating expression
             Expression get_expression();
+
+            const static PredicateAST<LANG_IS_DO_STATEMENT> predicate;
     };
 
     //! This class wraps a case-statement
@@ -254,6 +260,8 @@ namespace TL
 
             //! Returns a list of case statements
             ObjectList<CaseStatement> get_cases();
+
+            const static PredicateAST<LANG_IS_SWITCH_STATEMENT> predicate;
     };
 
     //! @}

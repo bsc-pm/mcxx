@@ -4,6 +4,10 @@ namespace TL
 {
     const PredicateAST<LANG_IS_STATEMENT> Statement::predicate;
     const PredicateAST<LANG_IS_FOR_STATEMENT> ForStatement::predicate;
+    const PredicateAST<LANG_IS_WHILE_STATEMENT> WhileStatement::predicate;
+    const PredicateAST<LANG_IS_IF_STATEMENT> IfStatement::predicate;
+    const PredicateAST<LANG_IS_DO_STATEMENT> DoWhileStatement::predicate;
+    const PredicateAST<LANG_IS_SWITCH_STATEMENT> SwitchStatement::predicate;
 
     bool Condition::is_expression()
     {
