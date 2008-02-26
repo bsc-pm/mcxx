@@ -3392,6 +3392,7 @@ cycles you will need a fairly more sophisticated approach not covered here.
 @menu
 * Hello world::
 * Static call graph::
+* Loop lowering::
 @end menu
 
 This chapter is devoted to introduce you several examples when using TL, trying to cover
@@ -3774,6 +3775,223 @@ and then we check using the related symbol if this is a function@footnote{Note t
 code would not work properly in C++ when calling overloads since all overloads would
 get mixed against one name}.
 
+@node Loop lowering
+@section Loop lowering
+@cindex loop lowering
+
+In this example we will lower several high level loop constructs in a simpler
+form involving just if statements and gotos. This example shows how to generate
+new code.
+
+We will convert a while statement of the form
+
+@example
+while (e)
+    s;
+@end example
+
+into something of the form
+
+@example
+@{
+  loop_start_00: if (!e) goto loop_end_00;
+    s;
+    goto loop_start_00;
+  loop_end_00:
+@}
+@end example
+
+Like in the previous example, we have to find all while statements and then perform the
+transform. So we need a @code{TraverseASTFunctor} for while-statements.
+
+@example
+class WhileStatementASTFunctor : public TraverseASTFunctor
+@{
+  public:
+    ASTTraversalResult operator()(AST_t &a) const
+    @{
+      if (WhileStatement::predicate(a))
+      @{
+        return ast_traversal_result_helper(/* match */ true, 
+            /* recurse */ true);
+      @}
+      else
+      @{
+        return ast_traversal_result_helper(/* match */ false, 
+            /* recurse */ true);
+      @}
+    @}
+@};
+@end example
+
+In contrast to the previous example, though, when we find a while statement we
+want to recurse because there might be other while statements in it that we
+want to transform too. Remember that rule of thumb is that analysis is
+performed in preorder and transformations in postorder.
+
+In this example we have to create arbitrary labels. If we choose to enumerate
+while statements in the order that they appear in the code we will need to
+number them first in preorder. So we have to be able to get back this number
+(typically using a stack). If we choose to not to do this, we can count while
+statements in postorder, this gives an unusual numbering where outermost loops
+have higher numbers while inner ones have lower numbers. This last solution
+does not require any stack. In this example, for simplicity we will develop
+the latter approach.
+
+A first version of this transformation is sketched in the following functor
+for while statements. As said before, we are not doing anything in preorder.
+
+@example
+class WhileStatementFunctor : public TraverseFunctor
+@{
+  private:
+    int num_whiles;
+  public:
+    WhileStatementFunctor()
+      : num_whiles(0) @{ @}
+
+    void preorder(Context, AST_t) 
+    @{ 
+    @}
+
+    void postorder(Context ctx, AST_t ast) 
+    @{ 
+      num_whiles++;
+
+      // Wrap the tree
+      WhileStatement while_statement(ast, ctx.scope_link);
+
+      Source lowered_while, condition, while_body;
+
+      lowered_while
+        << "@{"
+        <<   "loop_start_" << num_whiles << ": "
+        <<       "if (!(" << condition << ")) goto loop_end_" << num_whiles << ";"
+        <<   while_body
+        <<   "goto loop_start_" << num_whiles << ";"
+        <<   "loop_end_" << num_whiles << ":"
+        <<       ";"
+        << "@}"
+        ;
+
+      condition << while_statement.get_condition().prettyprint();
+      while_body << while_statement.get_body().prettyprint();
+
+      TL::AST_t lowered_while_tree 
+          = lowered_while.parse_statement(ast, ctx.scope_link);
+
+      ast.replace(lowered_while_tree);
+    @}
+@};
+@end example
+
+As you can se creating code is rather easy. @code{TL::Source} class works like
+a powerful string but it allows to specify other @code{TL::Source} objects so
+we can take a top down approach when laying out the newly created code. In this
+example @code{condition} and @code{while_body} are filled later.
+
+Once the source is created it must be eventually parsed to get a tree. This is
+achieved with @code{parse_statement}. Note that since we are replacing only one
+statement the replaced code should also be one statement. In this example we
+achieve this because we are creating a big compound statement containing the
+lowered code@footnote{Note also that a list of statements cannot be replaced
+easily, instead all statements but one have to be removed and then replace
+the left statmeent with a list of statements. @code{parse_statement} allows
+parsing a sequence of statements. On the other hand, this is an uncommon
+scenario since statements are normally grouped syntactically.}.
+
+The class implementing the phase is as follows.
+
+@example
+class WhileLowering : public CompilerPhase
+@{
+  public:
+    WhileLowering()
+    @{
+    @}
+
+    void run(DTO& dto)
+    @{
+      AST_t ast = dto["translation_unit"];
+      ScopeLink scope_link = dto["scope_link"];
+
+      DepthTraverse depth_traverse;
+      WhileStatementFunctor while_statement_functor;
+      WhileStatementASTFunctor traverse_ast_functor;
+
+      depth_traverse.add_functor(traverse_ast_functor, 
+        while_statement_functor);
+      depth_traverse.traverse(ast, scope_link);
+    @}
+@};
+@end example
+
+Do not forget to export it using @code{EXPORT_PHASE} fully qualifying the class with 
+the phase. For instance,
+
+@example
+EXPORT_PHASE(TL::WhileLowering);
+@end example
+
+if it is defined in the @code{TL} namespace.
+
+Following code,
+
+@example
+void g(int);
+
+void f(void)
+@{
+    int i = 0;
+
+    while (i < 10)
+    @{
+        g(i);
+        i++;
+        int j = 0;
+
+        while (j < 20)
+        @{
+            j++;
+        @}
+    @}
+@}
+@end example
+
+will be converted into
+
+@example
+void g(int);
+void f(void)
+@{
+  int i = 0;
+  @{
+loop_start_2 : 
+    if (!(i < 10))
+      goto loop_end_2;
+    @{
+      g(i);
+      i++;
+      int j = 0;
+      @{
+loop_start_1 : 
+        if (!(j < 20))
+          goto loop_end_1;
+        @{
+          j++;
+        @}
+        goto loop_start_1;
+loop_end_1 : 
+        ;
+      @}
+    @}
+    goto loop_start_2;
+loop_end_2 : 
+    ;
+  @}
+@}
+@end example
+
 @node Installation of mcxx
 @chapter Installation of mcxx
 @cindex installation mcxx
@@ -3816,7 +4034,7 @@ some specific parts of it.
 
 @table @strong
 @item GNU Flex 2.5.4 or 2.5.3x
-Scanner generator @code{flex} is required if file @code{cxx-lexer.l} is
+Scanner generator @code{flex} is required if file @file{cxx-lexer.l} is
 modified.
 @item GNU Bison 2.3-rofi
 A slightly modified version of parser generator tool @code{bison} is @strong{required} if you modify the
