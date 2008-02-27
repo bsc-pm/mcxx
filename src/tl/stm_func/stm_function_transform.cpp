@@ -26,6 +26,8 @@
 
 namespace TL
 {
+
+
     class STMFunctionDefFunctor : public TraverseFunctor
     {
         private:
@@ -45,18 +47,46 @@ namespace TL
                 Source stm_function_body;
                 Statement function_tree = function_def.get_function_body();
 
-                if (!function_filter.match(function_name.prettyprint())
-                        || function_symbol.is_member())
+                // Look for gcc attributes with 'tm_callable' in it
+                ObjectList<AST_t> gcc_attributes = function_def.get_ast().depth_subtrees(
+                        GCCAttributeSpecifier::predicate);
+
+                bool tm_callable = false;
+
+                for (ObjectList<AST_t>::iterator it = gcc_attributes.begin();
+                        it != gcc_attributes.end();
+                        it++)
                 {
-                    // std::cerr << "NOT wrapping function '" << function_name.prettyprint() << " in " << function_name.get_ast().get_locus() << std::endl;
-                    return;
+                    GCCAttributeSpecifier gcc_attribute_spec(*it, ctx.scope_link);
+                    ObjectList<GCCAttribute> attribute_list = gcc_attribute_spec.get_gcc_attribute_list();
+
+                    for (ObjectList<GCCAttribute>::iterator it = attribute_list.begin();
+                            it != attribute_list.end();
+                            it++)
+                    {
+                        if (it->get_name() == "tm_callable")
+                        {
+                            tm_callable = true;
+                            // Remove this attribute since it is alien to gcc
+                            it->get_ast().remove_in_list();
+                        }
+                    }
+                }
+
+                if (tm_callable
+                        || (function_filter.match(function_name.prettyprint())
+                            // We do not wrap member functions! (yet :)
+                            && !function_symbol.is_member()))
+                {
+                    std::cerr << "Wrapping function '" 
+                        << function_name.prettyprint() 
+                        << " in " 
+                        << function_name.get_ast().get_locus() << std::endl;
                 }
                 else
                 {
-                    // MM. added when he was desperate
-                    // return;
-                    // printf("Function name: %s\n", function_name.prettyprint());  
-                    std::cerr << "Wrapping function '" << function_name.prettyprint() << " in " << function_name.get_ast().get_locus() << std::endl;
+                    // Do not do anything else
+                    return;
                 }
 
                 stm_function_source
