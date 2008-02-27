@@ -502,9 +502,9 @@ namespace TL
                     <<                file_line << "," << mangled_function_name << ", EVENT_CALL_USER_FUNCTION);"
                     << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
                     << "}"
-                    << "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
                     << "int __previous_state = mintaka_get_state();"
                     << "mintaka_state_run();"
+                    << "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
                     ;
 
                 instrumentation_code_after

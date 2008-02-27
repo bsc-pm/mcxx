@@ -835,26 +835,9 @@ namespace TL
         Source OpenMPTransform::get_task_block_code()
         {
             Source task_block_code;
-            Source instrumentation_task_block_before, instrumentation_task_block_after;
-
-            if (instrumentation_requested())
-            {
-                instrumentation_task_block_before
-                    << "{"
-                    << "   int __previous_state = mintaka_get_state();"
-                    << "   mintaka_state_synch();"
-                    ;
-
-                instrumentation_task_block_after
-                    << "   mintaka_set_state(__previous_state);"
-                    << "}"
-                    ;
-            }
 
             task_block_code
-                << instrumentation_task_block_before
                 << "nthf_task_block_();"
-                << instrumentation_task_block_after
                 ;
 
             return task_block_code;
