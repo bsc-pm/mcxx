@@ -497,6 +497,8 @@ static void ast_free(AST a)
         // This will uncover dangling references
         memset(a, 0, sizeof(*a));
         free(a);
+
+        _bytes_due_to_ast -= sizeof(*a);
     }
 }
 
