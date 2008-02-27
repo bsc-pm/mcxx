@@ -38,6 +38,7 @@
 #include "cxx-lexer.h"
 #include "cxx-dyninit.h"
 #include "cxx-printscope.h"
+#include "cxx-exprtype.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 #include "mcfg.h"
@@ -1981,9 +1982,9 @@ static char* power_suffixes[9] =
     "Y"
 };
 
-static void print_human(char *dest, int num_bytes_)
+static void print_human(char *dest, unsigned long long num_bytes_)
 {
-    float num_bytes = num_bytes_;
+    double num_bytes = num_bytes_;
     int i = 0;
 
     while ((num_bytes > 1024) && (i <= 8))
@@ -1994,7 +1995,7 @@ static void print_human(char *dest, int num_bytes_)
 
     if (i == 0)
     {
-        sprintf(dest, "%d", num_bytes_);
+        sprintf(dest, "%llu", num_bytes_);
     }
     else
     {
@@ -2037,6 +2038,35 @@ static void print_memory_report(void)
     print_human(c, mallinfo_report.keepcost);
     fprintf(stderr, " - Size of the top most releasable chunk: %s\n",
             c);
+
+    fprintf(stderr, "\n");
+
+    print_human(c, ast_used_memory());
+    fprintf(stderr, " - Memory usage due to AST nodes: %s\n", c);
+
+    print_human(c, type_system_used_memory());
+    fprintf(stderr, " - Memory usage due to type system: %s\n", c);
+    
+    print_human(c, char_trie_used_memory());
+    fprintf(stderr, " - Memory usage due to global string table: %s\n", c);
+
+    print_human(c, buildscope_used_memory());
+    fprintf(stderr, " - Memory usage due to scope building: %s\n", c);
+
+    print_human(c, symbols_used_memory());
+    fprintf(stderr, " - Memory usage due to symbols: %s\n", c);
+
+    print_human(c, scope_used_memory());
+    fprintf(stderr, " - Memory usage due to scopes: %s\n", c);
+
+    print_human(c, exprtype_used_memory());
+    fprintf(stderr, " - Memory usage due to expression type check: %s\n", c);
+
+    print_human(c, hash_used_memory());
+    fprintf(stderr, " - Memory usage due to hash tables: %s\n", c);
+
+    print_human(c, dynamic_lists_used_memory());
+    fprintf(stderr, " - Memory usage due to dynamic lists: %s\n", c);
 
     fprintf(stderr, "\n");
 }

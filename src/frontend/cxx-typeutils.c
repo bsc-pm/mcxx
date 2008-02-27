@@ -559,13 +559,20 @@ static char compare_template_dependent_typename_types(type_t* t1, type_t* t2,
 static char equivalent_pointer_to_member_type(type_t* t1, type_t* t2,
         decl_context_t decl_context);
 
+static long long unsigned int _bytes_due_to_type_system = 0;
+
+long long unsigned int type_system_used_memory(void)
+{
+    return _bytes_due_to_type_system;
+}
+
 /* Type constructors : Builtins */
 
 static type_t* get_simple_type(void)
 {
-    type_t* result = calloc(1, sizeof(*result));
+    type_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
     result->kind = TK_DIRECT;
-    result->type = calloc(1, sizeof(*result->type));
+    result->type = counted_calloc(1, sizeof(*result->type), &_bytes_due_to_type_system);
     result->unqualified_type = result;
     return result;
 }
@@ -938,7 +945,7 @@ type_t* get_new_enum_type(decl_context_t decl_context)
 {
     type_t* type_info = get_simple_type();
 
-    type_info->type->enum_info = (enum_info_t*) calloc(1, sizeof(*type_info->type->enum_info));
+    type_info->type->enum_info = (enum_info_t*) counted_calloc(1, sizeof(*type_info->type->enum_info), &_bytes_due_to_type_system);
     type_info->type->kind = STK_ENUM;
     type_info->type->type_decl_context = decl_context;
 
@@ -949,7 +956,7 @@ type_t* get_new_class_type(decl_context_t decl_context)
 {
     type_t* type_info = get_simple_type();
 
-    type_info->type->class_info = calloc(1, sizeof(*type_info->type->class_info));
+    type_info->type->class_info = counted_calloc(1, sizeof(*type_info->type->class_info), &_bytes_due_to_type_system);
     type_info->type->kind = STK_CLASS;
     type_info->type->type_decl_context = decl_context;
 
@@ -960,13 +967,13 @@ static template_argument_list_t* compute_arguments_primary(template_parameter_li
 {
     int i;
 
-    template_argument_list_t* result = calloc(1, sizeof(*result));
+    template_argument_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
 
     for (i = 0; i < template_parameter_list->num_template_parameters; i++)
     {
         template_parameter_t* template_parameter = template_parameter_list->template_parameters[i];
 
-        template_argument_t* new_template_argument = calloc(1, sizeof(*new_template_argument));
+        template_argument_t* new_template_argument = counted_calloc(1, sizeof(*new_template_argument), &_bytes_due_to_type_system);
 
         switch (template_parameter->kind)
         {
@@ -1027,7 +1034,7 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
 
     // Primary "specialization"
     scope_entry_t* primary_symbol = NULL;
-    primary_symbol = calloc(1, sizeof(*primary_symbol));
+    primary_symbol = counted_calloc(1, sizeof(*primary_symbol), &_bytes_due_to_type_system);
     primary_symbol->symbol_name = template_name;
     if (is_unnamed_class_type(primary_type))
     {
@@ -1325,7 +1332,7 @@ type_t* template_type_get_specialized_type(type_t* t,
     }
 
     // Create a fake symbol with the just created specialized type
-    scope_entry_t* specialized_symbol = calloc(1, sizeof(*specialized_symbol));
+    scope_entry_t* specialized_symbol = counted_calloc(1, sizeof(*specialized_symbol), &_bytes_due_to_type_system);
 
     specialized_symbol->symbol_name = primary_symbol->symbol_name;
     specialized_symbol->kind = primary_symbol->kind;
@@ -1546,7 +1553,7 @@ type_t* get_qualified_type(type_t* original, cv_qualifier_t cv_qualification)
 
     if (qualified_type == NULL)
     {
-        qualified_type = calloc(1, sizeof(*qualified_type));
+        qualified_type = counted_calloc(1, sizeof(*qualified_type), &_bytes_due_to_type_system);
         *qualified_type = *original;
         qualified_type->cv_qualifier = cv_qualification;
         qualified_type->unqualified_type = original->unqualified_type;
@@ -1592,10 +1599,10 @@ type_t* get_pointer_type(type_t* t)
 
     if (pointed_type == NULL)
     {
-        pointed_type = calloc(1, sizeof(*pointed_type));
+        pointed_type = counted_calloc(1, sizeof(*pointed_type), &_bytes_due_to_type_system);
         pointed_type->kind = TK_POINTER;
         pointed_type->unqualified_type = pointed_type;
-        pointed_type->pointer = calloc(1, sizeof(*pointed_type->pointer));
+        pointed_type->pointer = counted_calloc(1, sizeof(*pointed_type->pointer), &_bytes_due_to_type_system);
         pointed_type->pointer->pointee = t;
 
         if (is_function_type(t))
@@ -1640,10 +1647,10 @@ type_t* get_reference_type(type_t* t)
 
     if (referenced_type == NULL)
     {
-        referenced_type = calloc(1, sizeof(*referenced_type));
+        referenced_type = counted_calloc(1, sizeof(*referenced_type), &_bytes_due_to_type_system);
         referenced_type->kind = TK_REFERENCE;
         referenced_type->unqualified_type = referenced_type;
-        referenced_type->pointer = calloc(1, sizeof(*referenced_type->pointer));
+        referenced_type->pointer = counted_calloc(1, sizeof(*referenced_type->pointer), &_bytes_due_to_type_system);
         referenced_type->pointer->pointee = t;
 
         hash_put(_reference_types, t, referenced_type);
@@ -1676,10 +1683,10 @@ type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
 
     if (pointer_to_member == NULL)
     {
-        pointer_to_member = calloc(1, sizeof(*pointer_to_member));
+        pointer_to_member = counted_calloc(1, sizeof(*pointer_to_member), &_bytes_due_to_type_system);
         pointer_to_member->kind = TK_POINTER_TO_MEMBER;
         pointer_to_member->unqualified_type = pointer_to_member;
-        pointer_to_member->pointer = calloc(1, sizeof(*pointer_to_member->pointer));
+        pointer_to_member->pointer = counted_calloc(1, sizeof(*pointer_to_member->pointer), &_bytes_due_to_type_system);
         pointer_to_member->pointer->pointee = t;
         pointer_to_member->pointer->pointee_class = class_entry;
 
@@ -1724,10 +1731,10 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
     //
     //
     // Fold if possible the expression
-    type_t* result = calloc(1, sizeof(*result));
+    type_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
     result->kind = TK_ARRAY;
     result->unqualified_type = result;
-    result->array = calloc(1, sizeof(*(result->array)));
+    result->array = counted_calloc(1, sizeof(*(result->array)), &_bytes_due_to_type_system);
     result->array->element_type = element_type;
     result->array->array_expr = expression;
     result->array->array_expr_decl_context = decl_context;
@@ -1748,12 +1755,12 @@ type_t* get_array_type(type_t* element_type, AST expression, decl_context_t decl
 type_t* get_vector_type(type_t* element_type, unsigned int vector_size)
 {
     // This type is not efficiently managed
-    type_t* result = calloc(1, sizeof(*result));
+    type_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
     
     result->kind = TK_VECTOR;
     result->unqualified_type = result;
 
-    result->vector = calloc(1, sizeof(*(result->vector)));
+    result->vector = counted_calloc(1, sizeof(*(result->vector)), &_bytes_due_to_type_system);
     result->vector->element_type = element_type;
     result->vector->vector_size = vector_size;
 
@@ -1785,20 +1792,20 @@ type_t* vector_type_get_element_type(type_t* t)
 
 type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int num_parameters)
 {
-    type_t* result = calloc(1, sizeof(*result));
+    type_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
 
     result->kind = TK_FUNCTION;
     result->unqualified_type = result;
-    result->function = calloc(1, sizeof(*(result->function)));
+    result->function = counted_calloc(1, sizeof(*(result->function)), &_bytes_due_to_type_system);
     result->function->return_type = t;
 
-    result->function->parameter_list = calloc(num_parameters, sizeof(*( result->function->parameter_list )));
+    result->function->parameter_list = counted_calloc(num_parameters, sizeof(*( result->function->parameter_list )), &_bytes_due_to_type_system);
     result->function->num_parameters = num_parameters;
 
     int i;
     for (i = 0; i < num_parameters; i++)
     {
-        parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
+        parameter_info_t* new_parameter = counted_calloc(1, sizeof(*new_parameter), &_bytes_due_to_type_system);
 
         *new_parameter = parameter_info[i];
 
@@ -1812,18 +1819,18 @@ type_t* get_new_function_type(type_t* t, parameter_info_t* parameter_info, int n
 type_t* get_nonproto_function_type(type_t* t, int num_parameters)
 {
     // This type is not efficiently managed
-    type_t* result = calloc(1, sizeof(*result));
+    type_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
 
     result->kind = TK_FUNCTION;
     result->unqualified_type = result;
-    result->function = calloc(1, sizeof(*(result->function)));
+    result->function = counted_calloc(1, sizeof(*(result->function)), &_bytes_due_to_type_system);
     result->function->return_type = t;
     result->function->lacks_prototype = 1;
 
     int i;
     for (i = 0; i < num_parameters; i++)
     {
-        parameter_info_t* new_parameter = calloc(1, sizeof(*new_parameter));
+        parameter_info_t* new_parameter = counted_calloc(1, sizeof(*new_parameter), &_bytes_due_to_type_system);
 
         new_parameter->type_info = get_signed_int_type();
 
@@ -2031,7 +2038,7 @@ type_t* unnamed_class_enum_type_set_name(type_t* t, scope_entry_t* entry)
                     || t->type->kind == STK_ENUM)), 
             "This should be an unnamed enum or class\n", 0);
 
-    type_t* new_type = calloc(1, sizeof(*new_type));
+    type_t* new_type = counted_calloc(1, sizeof(*new_type), &_bytes_due_to_type_system);
 
     // Wild copy
     *new_type = *t;
@@ -2144,7 +2151,7 @@ void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, ch
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
 
-    base_class_info_t* new_base_class = calloc(1, sizeof(*new_base_class));
+    base_class_info_t* new_base_class = counted_calloc(1, sizeof(*new_base_class), &_bytes_due_to_type_system);
     new_base_class->class_symbol = base_class;
     /* redundant */ new_base_class->class_type = base_class->type_information;
     new_base_class->is_virtual = is_virtual;
@@ -2311,7 +2318,7 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
 
         // At the same time build the conversor list of this class
         {
-            scope_entry_list_t* new_item = calloc(1, sizeof(*new_item));
+            scope_entry_list_t* new_item = counted_calloc(1, sizeof(*new_item), &_bytes_due_to_type_system);
             new_item->entry = entry;
             new_item->next = this_class_conversors;
 
@@ -5020,7 +5027,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
     decl_context_t decl_context = user_defined_type->decl_context;
 
     const int MAX_LENGTH = 1023;
-    char* user_defined_str = calloc(MAX_LENGTH + 1, sizeof(char));
+    char* user_defined_str = counted_calloc(MAX_LENGTH + 1, sizeof(char), &_bytes_due_to_type_system);
 
     switch (user_defined_type->kind)
     {
@@ -6155,7 +6162,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
 type_t* get_unresolved_overloaded_type(scope_entry_list_t* overload_set,
         template_argument_list_t* explicit_template_arguments)
 {
-    type_t* result = calloc(1, sizeof(*result));
+    type_t* result = counted_calloc(1, sizeof(*result), &_bytes_due_to_type_system);
 
     result->kind = TK_OVERLOAD;
 
@@ -6315,7 +6322,7 @@ type_t* get_ellipsis_type(void)
 {
     if (_ellipsis_type == NULL)
     {
-        _ellipsis_type = calloc(1, sizeof(*_ellipsis_type));
+        _ellipsis_type = counted_calloc(1, sizeof(*_ellipsis_type), &_bytes_due_to_type_system);
         _ellipsis_type->kind = TK_ELLIPSIS;
     }
 
@@ -6398,7 +6405,7 @@ char vector_types_can_be_converted(type_t* t1, type_t* t2, decl_context_t decl_c
 
 struct type_tag* get_computed_function_type(computed_function_type_t compute_type_function)
 {
-    type_t* result = calloc(1, sizeof( *result ));
+    type_t* result = counted_calloc(1, sizeof( *result ), &_bytes_due_to_type_system);
 
     result->kind = TK_COMPUTED;
     result->unqualified_type = result;

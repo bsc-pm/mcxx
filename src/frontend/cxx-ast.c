@@ -73,12 +73,18 @@ struct AST_tag
 // Define the extensible schema of AST's
 extensible_schema_t ast_extensible_schema;
 
+static long long unsigned int _bytes_due_to_ast = 0;
+
+long long unsigned int ast_used_memory(void)
+{
+    return _bytes_due_to_ast;
+}
 
 AST ast_make(node_t type, int num_children, 
         AST child0, AST child1, AST child2, AST child3, 
         int line, const char *text)
 {
-    AST result = calloc(1, sizeof(*result));
+    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_ast);
 
     result->parent = NULL;
 
@@ -88,8 +94,10 @@ AST ast_make(node_t type, int num_children,
     result->line = line;
     result->filename = scanning_now.current_filename;
 
-    result->extended_data = calloc(1, sizeof(*(result->extended_data)));
+    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_ast);
+
     extensible_struct_init(result->extended_data, &ast_extensible_schema);
+
 
 #define ADD_SON(n) \
     ast_set_child(result, n, child##n);
@@ -215,14 +223,15 @@ AST ast_copy(const_AST a)
     if (a == NULL)
         return NULL;
 
-    AST result = calloc(1, sizeof(*result));
+    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_ast);
 
     // extensible_struct_t orig_extended_data = result->extended_data;
 
     // Copy everything by value
     *result = *a;
 
-    result->extended_data = calloc(1, sizeof(*(result->extended_data)));
+    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_ast);
+
     extensible_struct_init(result->extended_data, &ast_extensible_schema);
 
     int i;
@@ -236,7 +245,7 @@ AST ast_copy(const_AST a)
             (a->num_ambig > 0))
     {
         result->num_ambig = a->num_ambig;
-        result->ambig = calloc(a->num_ambig, sizeof(*(result->ambig)));
+        result->ambig = counted_calloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_ast);
         for (i = 0; i < a->num_ambig; i++)
         {
             result->ambig[i] = ast_copy(a->ambig[i]);
@@ -258,7 +267,7 @@ AST ast_copy_for_instantiation(const_AST a)
     if (a == NULL)
         return NULL;
 
-    AST result = calloc(1, sizeof(*result));
+    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_ast);
 
     // Copy everything by value
     *result = *a;
@@ -271,7 +280,7 @@ AST ast_copy_for_instantiation(const_AST a)
         result->expr_is_lvalue = 0;
     }
 
-    result->extended_data = calloc(1, sizeof(*(result->extended_data)));
+    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_ast);
     extensible_struct_init(result->extended_data, &ast_extensible_schema);
 
     int i;
@@ -285,7 +294,7 @@ AST ast_copy_for_instantiation(const_AST a)
             (a->num_ambig > 0))
     {
         result->num_ambig = a->num_ambig;
-        result->ambig = calloc(a->num_ambig, sizeof(*(result->ambig)));
+        result->ambig = counted_calloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_ast);
         for (i = 0; i < a->num_ambig; i++)
         {
             result->ambig[i] = ast_copy_for_instantiation(a->ambig[i]);
@@ -376,12 +385,12 @@ char ast_equal (const_AST ast1, const_AST ast2)
     return 1;
 }
 
-char* ast_location(const_AST a)
+const char* ast_location(const_AST a)
 {
     if (a == NULL)
         return "";
 
-    char* result = calloc(256, sizeof(char));
+    char result[256];
 
     if (a->filename == NULL)
     {
@@ -394,7 +403,7 @@ char* ast_location(const_AST a)
 
     result[255] = '\0';
 
-    return result;
+    return uniquestr(result);
 }
 
 // Trees are copied
@@ -439,7 +448,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
         AST result = ASTLeaf(AST_AMBIGUITY, 0, NULL);
 
         result->num_ambig = 2;
-        result->ambig = calloc(sizeof(*(result->ambig)), result->num_ambig);
+        result->ambig = counted_calloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_ast);
         result->ambig[0] = ast_copy(son0);
         result->ambig[1] = ast_copy(son1);
         result->line = son0->line;
@@ -487,7 +496,6 @@ static void ast_free(AST a)
 
         // This will uncover dangling references
         memset(a, 0, sizeof(*a));
-
         free(a);
     }
 }
@@ -610,7 +618,7 @@ static AST ast_copy_with_scope_link_rec(AST a, scope_link_t* orig, scope_link_t*
     if (a == NULL)
         return NULL;
 
-    AST result = calloc(1, sizeof(*result));
+    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_ast);
 
     // extensible_struct_t orig_extended_data = result->extended_data;
 

@@ -89,6 +89,8 @@ int pointer_hash(const void* key, int size);
 
 int integer_comp(void *, void*);
 
+unsigned long long hash_used_memory(void);
+
 #ifdef __cplusplus
 }
 #endif

@@ -430,14 +430,15 @@ const char* get_named_type_name(struct scope_entry_tag* entry);
 struct type_tag* get_ellipsis_type(void);
 char is_ellipsis_type(struct type_tag* t);
 
-/* Debug purpose functions */
-const char* print_declarator(struct type_tag* printed_declarator, decl_context_t decl_context);
-
 char has_dependent_template_arguments(template_argument_list_t* template_arguments,
         decl_context_t decl_context);
 
 char syntactic_comparison_of_nested_names(struct AST_tag* nested_name_1, struct AST_tag* nested_name_2, 
         struct AST_tag* unqualified_part_1, struct AST_tag* unqualified_part_2, decl_context_t decl_context);
+
+/* Debug purpose functions */
+const char* print_declarator(struct type_tag* printed_declarator, decl_context_t decl_context);
+long long unsigned int type_system_used_memory(void);
 
 MCXX_END_DECLS
 

@@ -49,6 +49,8 @@ char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_argume
 
 char check_for_expression(AST a, decl_context_t decl_context);
 
+unsigned long long exprtype_used_memory(void);
+
 MCXX_END_DECLS
 
 #endif

@@ -180,6 +180,13 @@ static AST advance_over_declarator_nests(AST a, decl_context_t decl_context);
 static void gather_decl_spec_information(AST a, 
         gather_decl_spec_t* gather_info, decl_context_t decl_context);
 
+static unsigned long long _bytes_used_buildscope = 0;
+
+unsigned long long int buildscope_used_memory(void)
+{
+    return _bytes_used_buildscope;
+}
+
 void build_scope_dynamic_initializer(void)
 {
     // Defined in cxx-attrnames.c
@@ -2613,7 +2620,7 @@ void build_scope_member_specification_first_step(decl_context_t inner_decl_conte
 
     // Start afresh, no template parameters here (but template_scope is still available)
     new_inner_decl_context.template_parameters = 
-        calloc(1, sizeof(*new_inner_decl_context.template_parameters));
+        counted_calloc(1, sizeof(*new_inner_decl_context.template_parameters), &_bytes_used_buildscope);
 
     AST iter;
 
@@ -3146,7 +3153,7 @@ static void set_function_parameter_clause(type_t** function_type,
             default_argument_info_t *new_default_arg = NULL; 
             if (default_argument != NULL)
             {
-                new_default_arg = calloc(1, sizeof(*new_default_arg));
+                new_default_arg = counted_calloc(1, sizeof(*new_default_arg), &_bytes_used_buildscope);
                 new_default_arg->argument = default_argument;
                 new_default_arg->context = decl_context;
             }
@@ -4511,7 +4518,7 @@ static void build_scope_template_declaration(AST a, AST top_template_decl, decl_
     template_context.decl_flags |= DF_TEMPLATE;
     // A new level of template nesting
     template_context.template_nesting++;
-    template_context.template_parameters = calloc(1, sizeof(*template_context.template_parameters));
+    template_context.template_parameters = counted_calloc(1, sizeof(*template_context.template_parameters), &_bytes_used_buildscope);
 
     build_scope_template_parameter_list(ASTSon0(a), template_context.template_parameters, 
             template_context);
@@ -4807,7 +4814,7 @@ static void build_scope_template_parameter_list(AST a,
     {
         AST template_parameter_tree = ASTSon1(iter);
 
-        template_parameter_t* new_template_param = calloc(1, sizeof(*new_template_param));
+        template_parameter_t* new_template_param = counted_calloc(1, sizeof(*new_template_param), &_bytes_used_buildscope);
 
         DEBUG_CODE()
         {
@@ -4870,8 +4877,8 @@ static void build_scope_template_template_parameter(AST a,
     // Construct parameter information
     decl_context_t template_params_context = new_template_context(template_context);
 
-    template_params_context.template_parameters = calloc(1, 
-            sizeof(*template_params_context.template_parameters));
+    template_params_context.template_parameters = counted_calloc(1, 
+            sizeof(*template_params_context.template_parameters), &_bytes_used_buildscope);
 
     build_scope_template_parameter_list(ASTSon0(a), template_params_context.template_parameters,
             template_params_context);
@@ -4945,7 +4952,8 @@ static void build_scope_template_template_parameter(AST a,
 
         ERROR_CONDITION((entry_list == NULL), "No template-name was found", 0);
 
-        template_argument_t* default_template_argument = calloc(1, sizeof(*default_template_argument));
+        template_argument_t* default_template_argument = counted_calloc(1, sizeof(*default_template_argument), 
+                &_bytes_used_buildscope);
 
         default_template_argument->kind = TAK_TEMPLATE;
         // We need a named type
@@ -5040,7 +5048,7 @@ static void build_scope_type_template_parameter(AST a,
                 &gather_info, type_info, &declarator_type,
                 template_context);
 
-        template_argument_t *default_template_argument = calloc(1, sizeof(*default_template_argument));
+        template_argument_t *default_template_argument = counted_calloc(1, sizeof(*default_template_argument), &_bytes_used_buildscope);
 
         default_template_argument->kind = TAK_TYPE;
         default_template_argument->type = declarator_type;
@@ -5118,7 +5126,7 @@ static void build_scope_nontype_template_parameter(AST a,
                     prettyprint_in_buffer(default_expression));
         }
 
-        template_argument_t *default_template_argument = calloc(1, sizeof(*default_template_argument));
+        template_argument_t *default_template_argument = counted_calloc(1, sizeof(*default_template_argument), &_bytes_used_buildscope);
 
         default_template_argument->kind = TAK_NONTYPE;
         default_template_argument->type = declarator_type;
@@ -5520,7 +5528,7 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
     // Fix inherited template context
     block_context.decl_flags &= ~DF_TEMPLATE;
     block_context.decl_flags &= ~DF_EXPLICIT_SPECIALIZATION;
-    block_context.template_parameters = calloc(1, sizeof(*block_context.template_parameters));
+    block_context.template_parameters = counted_calloc(1, sizeof(*block_context.template_parameters), &_bytes_used_buildscope);
 
     // Sign in __func__ (C99) and GCC's __FUNCTION__ and __PRETTY_FUNCTION__
     {
@@ -5699,7 +5707,7 @@ static void build_scope_member_template_declaration(decl_context_t decl_context,
     template_context.decl_flags |= DF_TEMPLATE;
     // A new level of template nesting
     template_context.template_nesting++;
-    template_context.template_parameters = calloc(1, sizeof(*template_context.template_parameters));
+    template_context.template_parameters = counted_calloc(1, sizeof(*template_context.template_parameters), &_bytes_used_buildscope);
 
     build_scope_template_parameter_list(ASTSon0(a), template_context.template_parameters, 
             template_context);

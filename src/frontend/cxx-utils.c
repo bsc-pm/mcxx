@@ -381,3 +381,20 @@ char is_blank_string(const char* c)
 
     return result;
 }
+
+void *counted_calloc(size_t nmemb, size_t size, unsigned long long *counter)
+{
+    if (counter != NULL)
+    {
+        (*counter) += size;
+    }
+
+    return calloc(nmemb, size);
+}
+
+unsigned long long int _bytes_dynamic_lists = 0;
+
+unsigned long long dynamic_lists_used_memory(void)
+{
+    return _bytes_dynamic_lists;
+}

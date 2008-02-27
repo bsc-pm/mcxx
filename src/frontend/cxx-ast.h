@@ -126,9 +126,8 @@ AST ast_copy_for_instantiation(const_AST a);
 // are doing here! *dest = *src
 void ast_replace(AST dest, const_AST src);
 
-// Returns a newly allocated string with a pair 'filename:line'
-// of the node
-char* ast_location(const_AST a);
+// Returns a string with a pair 'filename:line'
+const char* ast_location(const_AST a);
 
 // Returns a printed version of the node name
 const char* ast_node_type_name(node_t n);
@@ -149,6 +148,9 @@ AST ast_make_ambiguous(AST son0, AST son1);
 
 // Returns the number of ambiguities
 int ast_get_num_ambiguities(const_AST a);
+
+// Memory used by trees
+long long unsigned int ast_used_memory(void);
 
 // Returns the ambiguity 'num'
 AST ast_get_ambiguity(const_AST a, int num);

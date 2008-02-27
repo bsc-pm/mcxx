@@ -20,6 +20,13 @@
 */
 #include "hash.h"
 
+static unsigned long long _bytes_used_hash = 0;
+
+unsigned long long hash_used_memory(void)
+{
+    return _bytes_used_hash;
+}
+
 void
 hash_init (Hash * h, int size, HASH_FUNC * hash_func,
        KEYCMP_FUNC * keycmp_func)
@@ -29,6 +36,7 @@ hash_init (Hash * h, int size, HASH_FUNC * hash_func,
   h->hash_func = hash_func;
   h->keycmp_func = keycmp_func;
   h->table = NEW_ARRAY (HashNode *, size);
+  _bytes_used_hash += size * (sizeof(HashNode*));
   for (i = 0; i < size; i++)
     h->table[i] = NULL;
   h->no_items = 0;
@@ -64,6 +72,7 @@ hash_create (int size, HASH_FUNC * hash_func, KEYCMP_FUNC * keycmp_func)
   Hash *new_hash;
 
   new_hash = NEW (Hash);
+  _bytes_used_hash += (sizeof(Hash));
   hash_init (new_hash, size, hash_func, keycmp_func);
 
   return new_hash;
@@ -121,6 +130,7 @@ hash_put (Hash * h, const void *key, void *item)
   i = (*h->hash_func) (key, h->size);
 
   node = NEW (HashNode);
+  _bytes_used_hash += (sizeof(HashNode));
   node->key = key;
   node->item = item;
   node->prev = NULL;

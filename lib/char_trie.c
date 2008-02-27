@@ -4,6 +4,13 @@
 
 // See below for public interface of uniqstr
 // -- Private implementation of uniqstr
+//
+static unsigned long long int _bytes_used_char_trie = 0;
+
+unsigned long long int char_trie_used_memory(void)
+{
+    return _bytes_used_char_trie;
+}
 
 typedef 
 struct char_trie_tag char_trie_t;
@@ -137,6 +144,7 @@ static const char* create_elements(char_trie_t* char_trie, const char* orig_str,
         char_trie->elements[char_trie->num_elements - 1].next = NULL;
         // Store the original string (this should be the unique strdup ever)
         char_trie->elements[char_trie->num_elements - 1].str = strdup(orig_str);
+        _bytes_used_char_trie += (strlen(orig_str) + 1);
 
         return char_trie->elements[char_trie->num_elements - 1].str;
     }
@@ -144,6 +152,7 @@ static const char* create_elements(char_trie_t* char_trie, const char* orig_str,
     {
         char_trie->elements[char_trie->num_elements - 1].elem = *str;
         char_trie->elements[char_trie->num_elements - 1].next = calloc(1, sizeof(char_trie_t));
+        _bytes_used_char_trie += sizeof(char_trie_t);
 
         const char* result =
         create_elements(char_trie->elements[char_trie->num_elements - 1].next,

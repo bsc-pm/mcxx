@@ -41,6 +41,13 @@
 
 static const char builtin_prefix[] = "__builtin_";
 
+static unsigned long long int _bytes_used_expr_check = 0;
+
+unsigned long long exprtype_used_memory(void)
+{
+    return _bytes_used_expr_check;
+}
+
 #define MAX_BUILTINS (256)
 typedef
 struct builtin_operators_set_tag
@@ -184,7 +191,7 @@ static scope_entry_list_t* unfold_and_mix_candidate_functions(
 
             if (specialized_symbol != NULL)
             {
-                scope_entry_list_t* new_candidate = calloc(1, sizeof(*new_candidate));
+                scope_entry_list_t* new_candidate = counted_calloc(1, sizeof(*new_candidate), &_bytes_used_expr_check);
                 new_candidate->entry = specialized_symbol;
                 new_candidate->next = overload_set;
                 overload_set = new_candidate;
@@ -192,7 +199,7 @@ static scope_entry_list_t* unfold_and_mix_candidate_functions(
         }
         else if (entry->kind == SK_FUNCTION)
         {
-            scope_entry_list_t* new_candidate = calloc(1, sizeof(*new_candidate));
+            scope_entry_list_t* new_candidate = counted_calloc(1, sizeof(*new_candidate), &_bytes_used_expr_check);
             new_candidate->entry = entry;
             new_candidate->next = overload_set;
             overload_set = new_candidate;

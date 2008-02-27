@@ -117,6 +117,9 @@ struct type_tag* update_type(template_argument_list_t* given_template_args,
         decl_context_t template_arguments_context,
         const char* filename, int line);
 
+unsigned long long scope_used_memory(void);
+unsigned long long symbols_used_memory(void);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H

@@ -27,14 +27,14 @@ namespace TL
 {
     // This is a TraverseASTFunctor, something that gets an AST_t
     // and returns an ASTTraversalResult
-    class FunctionDefinitionASTFunctor : public TraverseASTFunctor
+    class WhileStatementASTFunctor : public TraverseASTFunctor
     {
         public:
             ASTTraversalResult operator()(AST_t &a) const
             {
-                if (FunctionDefinition::predicate(a))
+                if (WhileStatement::predicate(a))
                 {
-                    return ast_traversal_result_helper(/* match */ true, /* recurse */ false);
+                    return ast_traversal_result_helper(/* match */ true, /* recurse */ true);
                 }
                 else
                 {
@@ -45,63 +45,66 @@ namespace TL
 
     // This is a traverse functor, it will have the preorder
     // and postorder methods
-    class FunctionDefinitionFunctor : public TraverseFunctor
+    class WhileStatementFunctor : public TraverseFunctor
     {
+        private:
+            int num_whiles;
         public:
-            void preorder(Context ctx, AST_t ast) 
+            WhileStatementFunctor()
+                : num_whiles(0) { }
+
+            void preorder(Context, AST_t) 
             { 
-                ScopeLink sl = ctx.scope_link;
-                // Wrap into a FunctionDefinition since we know it is
-                FunctionDefinition function_definition(ast, sl);
-
-                // Get the function name
-                IdExpression function_name = 
-                    function_definition.get_function_name();
-
-                // Get the body of the function definition
-                Statement stm = function_definition.get_function_body();
-
-                // Now get all function calls
-                ObjectList<AST_t> function_calls = 
-                    stm.get_ast().depth_subtrees(
-                            PredicateAST<LANG_IS_FUNCTION_CALL>()
-                            );
-
-                std::cout 
-                    << function_name.prettyprint() 
-                    << " [label=\"" 
-                    << function_name.prettyprint() 
-                    << "\"]"
-                    << std::endl;
-
-                for (ObjectList<AST_t>::iterator it = function_calls.begin();
-                        it != function_calls.end();
-                        it++)
-                {
-                    Expression expr(*it, sl);
-
-                    // Check if the called entity is a simple name
-                    if (expr.get_called_expression().is_id_expression())
-                    {
-                        IdExpression id_expression = 
-                            expr.get_called_expression().get_id_expression();
-                        Symbol sym = id_expression.get_symbol();
-
-                        // And check if it is a function (and not a pointer to
-                        // function)
-                        if (sym.is_function())
-                        {
-                            std::cout 
-                                << function_name.prettyprint() 
-                                << " -> " 
-                                << id_expression.prettyprint()
-                                << " [label=\"" << id_expression.get_ast().get_locus() << "\"]"
-                                << std::endl;
-                        }
-                    }
-                }
             }
-            void postorder(Context, AST_t) { }
+
+            void postorder(Context ctx, AST_t ast) 
+            { 
+                num_whiles++;
+
+                // Wrap the tree
+                WhileStatement while_statement(ast, ctx.scope_link);
+
+                Source lowered_while, 
+                       condition_declaration, 
+                       condition_expression,
+                       while_body;
+
+                lowered_while
+                    << "loop_start_" << num_whiles << " : {"
+                    <<  condition_declaration
+                    <<   "if (" << condition_expression << ")"
+                    <<   "{"
+                    <<         while_body
+                    <<         "goto loop_start_" << num_whiles << ";"
+                    <<   "}"
+                    << "}"
+                    ;
+
+                Condition condition = while_statement.get_condition();
+
+                if (condition.is_declaration())
+                {
+                    Declaration declaration = condition.get_declaration();
+                    ObjectList<DeclaredEntity> declared_entities = declaration.get_declared_entities();
+
+                    condition_declaration 
+                        << condition.prettyprint() << ";"
+                        ;
+                    condition_expression
+                        << declared_entities[0].prettyprint()
+                        ;
+                }
+                else if (condition.is_expression())
+                {
+                    condition_expression << condition.prettyprint();
+                }
+
+                while_body << while_statement.get_body().prettyprint();
+
+                TL::AST_t lowered_while_tree = lowered_while.parse_statement(ast, ctx.scope_link);
+
+                ast.replace(lowered_while_tree);
+            }
     };
 
     class TraverseDecls : public CompilerPhase
@@ -113,19 +116,15 @@ namespace TL
 
             void run(DTO& dto)
             {
-                std::cout << "digraph static_callgraph {" << std::endl;
-
                 AST_t ast = dto["translation_unit"];
                 ScopeLink scope_link = dto["scope_link"];
 
                 DepthTraverse depth_traverse;
-                FunctionDefinitionFunctor function_definition_functor;
-                FunctionDefinitionASTFunctor traverse_ast_functor;
+                WhileStatementFunctor while_statement_functor;
+                WhileStatementASTFunctor traverse_ast_functor;
 
-                depth_traverse.add_functor(traverse_ast_functor, function_definition_functor);
+                depth_traverse.add_functor(traverse_ast_functor, while_statement_functor);
                 depth_traverse.traverse(ast, scope_link);
-
-                std::cout << "}" << std::endl;
             }
     };
 }

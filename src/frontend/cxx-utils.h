@@ -80,6 +80,10 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 const char* strappend(const char* orig, const char* appended);
 const char* strprepend(const char* orig, const char* prepended);
 
+extern unsigned long long int _bytes_dynamic_lists;
+
+unsigned long long dynamic_lists_used_memory(void);
+
 // Routine to ease adding pointers to a pointer list
 //   list is a T**
 //   size is an int
@@ -88,6 +92,7 @@ const char* strprepend(const char* orig, const char* prepended);
 do { \
     (size)++; \
     (list) = realloc((list), sizeof(*(list))*(size)); \
+    _bytes_dynamic_lists += sizeof(*(list)); \
     (list)[((size)-1)] = (elem); \
 } while(0)
 
@@ -181,6 +186,8 @@ char is_blank_string(const char* c);
 
 const char* give_dirname(const char* c);
 const char* give_basename(const char* c);
+
+void *counted_calloc(size_t nmemb, size_t size, unsigned long long *counter);
 
 MCXX_END_DECLS
 

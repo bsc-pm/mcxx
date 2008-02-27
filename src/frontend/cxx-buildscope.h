@@ -84,6 +84,8 @@ void build_scope_delayed_clear_pending(void);
 void enter_class_specifier(void);
 void leave_class_specifier(void);
 
+unsigned long long int buildscope_used_memory(void);
+
 MCXX_END_DECLS
 
 #endif // CXX_BUILDSCOPE_H

@@ -37,6 +37,20 @@
 #include "hash.h"
 #include "hash_iterator.h"
 
+static unsigned long long _bytes_used_scopes = 0;
+
+unsigned long long scope_used_memory(void)
+{
+    return _bytes_used_scopes;
+}
+
+static unsigned long long _bytes_used_symbols = 0;
+
+unsigned long long symbols_used_memory(void)
+{
+    return _bytes_used_symbols;
+}
+
 // Lookup of a simple name within a given declaration context
 static scope_entry_list_t* name_lookup(decl_context_t decl_context, const char* name);
 
@@ -84,7 +98,7 @@ static scope_entry_list_t* name_lookup_used_namespaces(decl_context_t decl_conte
 // Any new scope should be created using this one
 static scope_t* new_scope(void)
 {
-    scope_t* result = calloc(1, sizeof(*result));
+    scope_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
 
     result->hash = hash_create(HASH_SIZE, HASHFUNC(prime_hash), KEYCMPFUNC(strcmp));
 
@@ -367,7 +381,7 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
 
     scope_entry_t* result;
 
-    result = calloc(1, sizeof(*result));
+    result = counted_calloc(1, sizeof(*result), &_bytes_used_symbols);
     result->symbol_name = uniquestr(name);
     // Remember, for template parameters, .current_scope will not contain
     // its declaration scope but will be in .template_scope
@@ -375,7 +389,7 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
 
     if (result_set != NULL)
     {
-        scope_entry_list_t* new_set = (scope_entry_list_t*) calloc(1, sizeof(*new_set));
+        scope_entry_list_t* new_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*new_set), &_bytes_used_symbols);
 
         // Put the new entry in front of the previous
         *new_set = *result_set;
@@ -385,7 +399,7 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
     }
     else
     {
-        result_set = (scope_entry_list_t*) calloc(1, sizeof(*result_set));
+        result_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*result_set), &_bytes_used_symbols);
         result_set->entry = result;
         result_set->next = NULL; // redundant, though
 
@@ -457,7 +471,7 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
 
     if (result_set != NULL)
     {
-        scope_entry_list_t* new_set = (scope_entry_list_t*) calloc(1, sizeof(*new_set));
+        scope_entry_list_t* new_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*new_set), &_bytes_used_scopes);
 
         // Put the new entry in front of the previous
         *new_set = *result_set;
@@ -467,7 +481,7 @@ void insert_entry(scope_t* sc, scope_entry_t* entry)
     }
     else
     {
-        result_set = (scope_entry_list_t*) calloc(1, sizeof(*result_set));
+        result_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*result_set), &_bytes_used_scopes);
         result_set->entry = entry;
         result_set->next = NULL; // redundant, though
 
@@ -509,7 +523,7 @@ void remove_entry(scope_t* sc, scope_entry_t* entry)
 
 scope_entry_list_t* create_list_from_entry(scope_entry_t* entry)
 {
-    scope_entry_list_t* result = calloc(1, sizeof(*result));
+    scope_entry_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
     result->entry = entry;
     result->next = NULL;
 
@@ -529,7 +543,7 @@ scope_entry_list_t* filter_symbol_kind_set(scope_entry_list_t* entry_list, int n
         {
             if (iter->entry->kind == symbol_kind_set[i])
             {
-                scope_entry_list_t* new_item = calloc(1, sizeof(*new_item));
+                scope_entry_list_t* new_item = counted_calloc(1, sizeof(*new_item), &_bytes_used_scopes);
                 new_item->entry = iter->entry;
                 new_item->next = result;
                 result = new_item;
@@ -572,7 +586,7 @@ scope_entry_list_t* filter_symbol_non_kind_set(scope_entry_list_t* entry_list, i
 
         if (!found)
         {
-            scope_entry_list_t* new_item = calloc(1, sizeof(*new_item));
+            scope_entry_list_t* new_item = counted_calloc(1, sizeof(*new_item), &_bytes_used_scopes);
             new_item->entry = iter->entry;
             new_item->next = result;
             result = new_item;
@@ -607,7 +621,7 @@ scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list
         {
             if (f(iter->entry))
             {
-                scope_entry_list_t* new_item = calloc(1, sizeof(*new_item));
+                scope_entry_list_t* new_item = counted_calloc(1, sizeof(*new_item), &_bytes_used_scopes);
                 new_item->entry = iter->entry;
                 new_item->next = result;
                 result = new_item;
@@ -633,7 +647,7 @@ scope_entry_list_t* filter_symbol_using_predicate(scope_entry_list_t* entry_list
 
                 while (iter_copy != iter)
                 {
-                    scope_entry_list_t* new_item = calloc(1, sizeof(*new_item));
+                    scope_entry_list_t* new_item = counted_calloc(1, sizeof(*new_item), &_bytes_used_scopes);
                     new_item->entry = iter_copy->entry;
                     new_item->next = result;
                     result = new_item;
@@ -883,7 +897,7 @@ static scope_entry_list_t* query_qualified_name(decl_context_t nested_name_conte
         {
             // Create a SK_DEPENDENT_ENTITY just to acknowledge that this was
             // dependent
-            scope_entry_t* dependent_entity = calloc(1, sizeof(*dependent_entity));
+            scope_entry_t* dependent_entity = counted_calloc(1, sizeof(*dependent_entity), &_bytes_used_scopes);
             dependent_entity->kind = SK_DEPENDENT_ENTITY;
             dependent_entity->type_information = dependent_type;
 
@@ -2178,7 +2192,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
             }
 
             template_argument_list_t* updated_template_arguments = 
-                calloc(1, sizeof(*updated_template_arguments));
+                counted_calloc(1, sizeof(*updated_template_arguments), &_bytes_used_scopes);
 
             template_argument_list_t* template_arguments = 
                 template_specialized_type_get_template_arguments(entry->type_information);
@@ -2465,7 +2479,7 @@ template_argument_t* update_template_argument(template_argument_list_t* given_te
         decl_context_t template_arguments_context,
         const char *filename, int line)
 {
-    template_argument_t* result = calloc(1, sizeof(*result));
+    template_argument_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
     result->kind = current_template_arg->kind;
 
     switch (current_template_arg->kind)
@@ -2540,7 +2554,7 @@ template_argument_list_t* get_template_arguments_from_syntax(
         decl_context_t template_arguments_context,
         int nesting_level)
 {
-    template_argument_list_t *result = calloc(1, sizeof(*result));
+    template_argument_list_t *result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
 
     if (template_arguments_list == NULL)
         return result;
@@ -2551,7 +2565,7 @@ template_argument_list_t* get_template_arguments_from_syntax(
     {
         AST template_argument = ASTSon1(iter);
 
-        template_argument_t* t_argument = calloc(1, sizeof(*t_argument));
+        template_argument_t* t_argument = counted_calloc(1, sizeof(*t_argument), &_bytes_used_scopes);
 
         switch (ASTType(template_argument))
         {
@@ -2915,7 +2929,7 @@ static scope_entry_list_t* query_template_id(AST template_id,
         ERROR_CONDITION(!is_named_type(specialized_type), "This should be a named type", 0);
 
         // Crappy
-        scope_entry_list_t* result = calloc(1, sizeof(*result));
+        scope_entry_list_t* result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
         result->entry = named_type_get_symbol(specialized_type);
 
         return result;
@@ -2951,7 +2965,7 @@ static scope_entry_list_t *copy_entry_list(scope_entry_list_t* orig)
     if (orig == NULL)
         return result;
 
-    result = calloc(1, sizeof(*result));
+    result = counted_calloc(1, sizeof(*result), &_bytes_used_scopes);
 
     result->entry = orig->entry;
     result->next = copy_entry_list(orig->next);
