@@ -39,6 +39,8 @@
 #include "cxx-dyninit.h"
 #include "cxx-printscope.h"
 #include "cxx-exprtype.h"
+#include "cxx-typededuc.h"
+#include "cxx-overload.h"
 // It does not include any C++ code in the header
 #include "cxx-compilerphases.hpp"
 #include "mcfg.h"
