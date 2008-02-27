@@ -725,7 +725,6 @@ namespace TL
                     << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
                     << "}"
                     << "mintaka_event(EVENT_TASK_ENQUEUE, _user_function_event);"
-                    // << "if (nth != NTH_CANNOT_ALLOCATE_TASK)"
                     << "{"
                     << "     nth_desc* nth2 = (nth == NTH_CANNOT_ALLOCATE_TASK) ? nthf_self_() : nth;"
                     << "     intptr_t id_nth = (intptr_t)nth2;"
@@ -891,19 +890,19 @@ namespace TL
             {
                 instrumentation_start_task
                     << "{"
+                    << "   mintaka_state_run();"
                     << "   nth_desc * nth;"
                     << "   nth = nthf_self_();"
                     << "   intptr_t id_nth = (intptr_t)nth;"
                     << "   mintaka_receive(id_nth, 1);"
-                    << "   mintaka_state_run();"
                     << "}"
                     ;
             }
 
             parallel_body 
                 << private_declarations
-                << instrumentation_code_before
                 << instrumentation_start_task
+                << instrumentation_code_before
                 << modified_parallel_body_stmt.prettyprint()
                 << instrumentation_code_after
                 ;
