@@ -1008,7 +1008,7 @@ namespace TL
     std::string GCCAttribute::get_name()
     {
         AST_t tree = _ref.get_attribute(LANG_GCC_ATTRIBUTE_VALUE_NAME);
-        return _ref.get_text();
+        return tree.get_text();
     }
 
     bool GCCAttribute::has_argument_list() const
