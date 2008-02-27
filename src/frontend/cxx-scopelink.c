@@ -26,6 +26,13 @@
 #include "cxx-scope.h"
 #include "cxx-utils.h"
 
+static unsigned long long _bytes_scopelink = 0;
+
+unsigned long long scopelink_used_memory(void)
+{
+    return _bytes_scopelink;
+}
+
 struct scope_link_tag
 {
     Hash* h;
@@ -39,7 +46,7 @@ typedef struct scope_link_entry_tag
 
 scope_link_t* scope_link_new(decl_context_t global_decl_context)
 {
-    scope_link_t* result = calloc(1, sizeof(*result));
+    scope_link_t* result = counted_calloc(1, sizeof(*result), &_bytes_scopelink);
 
     result->h = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
     result->global_decl_context = global_decl_context;
@@ -64,7 +71,7 @@ void scope_link_set(scope_link_t* sl, AST a, decl_context_t decl_context)
     if (a == NULL)
         return;
 
-    scope_link_entry_t* new_entry = calloc(1, sizeof(*new_entry));
+    scope_link_entry_t* new_entry = counted_calloc(1, sizeof(*new_entry), &_bytes_scopelink);
 
     new_entry->decl_context = decl_context;
 

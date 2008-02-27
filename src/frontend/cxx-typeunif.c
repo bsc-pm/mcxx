@@ -31,6 +31,13 @@
 #include "cxx-solvetemplate.h"
 #include "cxx-prettyprint.h"
 
+unsigned long long int _bytes_typeunif = 0;
+
+long long int typeunif_used_memory(void)
+{
+    return _bytes_typeunif;
+}
+
 static char equivalent_expression_trees(AST left_tree, decl_context_t left_decl_context, AST right_tree, 
         decl_context_t right_decl_context);
 
@@ -110,7 +117,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                         print_declarator(current_deduced_parameter.type, decl_context));
             }
 
-            deduced_parameter_t* new_deduced_parameter = calloc(1, sizeof(*new_deduced_parameter));
+            deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
             *new_deduced_parameter = current_deduced_parameter;
 
             P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
@@ -170,7 +177,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                         print_declarator(current_deduced_parameter.type, decl_context));
             }
 
-            deduced_parameter_t* new_deduced_parameter = calloc(1, sizeof(*new_deduced_parameter));
+            deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
             *new_deduced_parameter = current_deduced_parameter;
 
             P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
@@ -271,7 +278,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                                 print_declarator(current_deduced_parameter.type, decl_context));
                     }
 
-                    deduced_parameter_t* new_deduced_parameter = calloc(1, sizeof(*new_deduced_parameter));
+                    deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
                     *new_deduced_parameter = current_deduced_parameter;
 
                     P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
@@ -447,7 +454,7 @@ deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction
         }
     }
 
-    deduction_t* result = calloc(1, sizeof(*result));
+    deduction_t* result = counted_calloc(1, sizeof(*result), &_bytes_typeunif);
     switch (s1->kind)
     {
         case SK_TEMPLATE_PARAMETER:
@@ -679,7 +686,7 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
 
                     if (!found)
                     {
-                        deduced_parameter_t* new_deduced_parameter = calloc(1, sizeof(*new_deduced_parameter));
+                        deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
                         *new_deduced_parameter = current_deduced_parameter;
 
                         P_LIST_ADD(deduction->deduced_parameters, deduction->num_deduced_parameters, new_deduced_parameter);
@@ -933,7 +940,7 @@ static char equivalent_expression_trees(AST left_tree, decl_context_t left_decl_
 char same_functional_expression(AST left_tree, decl_context_t left_decl_context, AST right_tree, 
         decl_context_t right_decl_context)
 {
-    deduction_set_t* deduction_set = calloc(1, sizeof(*deduction_set));
+    deduction_set_t* deduction_set = counted_calloc(1, sizeof(*deduction_set), &_bytes_typeunif);
 
     return equivalent_dependent_expressions(left_tree, left_decl_context, right_tree, right_decl_context, 
             &deduction_set);

@@ -40,6 +40,8 @@ decl_context_t scope_link_get_decl_context(scope_link_t* sl, AST a);
 char scope_link_direct_get_scope(scope_link_t* sl, AST a, 
         decl_context_t *decl_result);
 
+unsigned long long scopelink_used_memory(void);
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPELINK_H

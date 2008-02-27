@@ -40,4 +40,6 @@ struct scope_entry_tag* address_of_overloaded_function(struct scope_entry_list_t
         const char *filename,
         int line);
 
+unsigned long long overload_used_memory(void);
+
 #endif // CXX_OVERLOAD_H

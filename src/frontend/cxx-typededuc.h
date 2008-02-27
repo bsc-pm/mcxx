@@ -51,4 +51,6 @@ char deduce_arguments_of_conversion(
 template_argument_list_t* build_template_argument_list_from_deduction_set(
         deduction_set_t* deduction_set);
 
+unsigned long long int typededuc_used_memory(void);
+
 #endif // CXX_TYPEDEDUC_H

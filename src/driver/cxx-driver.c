@@ -2041,32 +2041,64 @@ static void print_memory_report(void)
 
     fprintf(stderr, "\n");
 
+    unsigned long long accounted_memory = 0;
+
+    accounted_memory += ast_used_memory();
     print_human(c, ast_used_memory());
     fprintf(stderr, " - Memory usage due to AST nodes: %s\n", c);
 
+    accounted_memory += type_system_used_memory();
     print_human(c, type_system_used_memory());
     fprintf(stderr, " - Memory usage due to type system: %s\n", c);
     
+    accounted_memory += char_trie_used_memory();
     print_human(c, char_trie_used_memory());
     fprintf(stderr, " - Memory usage due to global string table: %s\n", c);
 
+    accounted_memory += buildscope_used_memory();
     print_human(c, buildscope_used_memory());
     fprintf(stderr, " - Memory usage due to scope building: %s\n", c);
 
+    accounted_memory += symbols_used_memory();
     print_human(c, symbols_used_memory());
     fprintf(stderr, " - Memory usage due to symbols: %s\n", c);
 
+    accounted_memory += scope_used_memory();
     print_human(c, scope_used_memory());
     fprintf(stderr, " - Memory usage due to scopes: %s\n", c);
 
+    accounted_memory += scopelink_used_memory();
+    print_human(c, scopelink_used_memory());
+    fprintf(stderr, " - Memory usage due to scope links: %s\n", c);
+
+    accounted_memory += exprtype_used_memory();
     print_human(c, exprtype_used_memory());
     fprintf(stderr, " - Memory usage due to expression type check: %s\n", c);
 
+    accounted_memory += hash_used_memory();
     print_human(c, hash_used_memory());
     fprintf(stderr, " - Memory usage due to hash tables: %s\n", c);
 
+    accounted_memory += dynamic_lists_used_memory();
     print_human(c, dynamic_lists_used_memory());
     fprintf(stderr, " - Memory usage due to dynamic lists: %s\n", c);
+
+    accounted_memory += typeunif_used_memory();
+    print_human(c, typeunif_used_memory());
+    fprintf(stderr, " - Memory usage due to type unification: %s\n", c);
+
+    accounted_memory += typededuc_used_memory();
+    print_human(c, typededuc_used_memory());
+    fprintf(stderr, " - Memory usage due to type deduction: %s\n", c);
+
+    accounted_memory += overload_used_memory();
+    print_human(c, overload_used_memory());
+    fprintf(stderr, " - Memory usage due to overload resolution: %s\n", c);
+
+    fprintf(stderr, "\n");
+
+    print_human(c, accounted_memory);
+    fprintf(stderr, " - Total accounted memory: %s\n", c);
 
     fprintf(stderr, "\n");
 }

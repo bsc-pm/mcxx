@@ -45,6 +45,8 @@ char same_functional_expression(struct AST_tag* left_tree, decl_context_t left_d
 deduction_t* get_unification_item_template_parameter(deduction_set_t** deduction_set, 
         struct scope_entry_tag* s1);
 
+long long int typeunif_used_memory(void);
+
 MCXX_END_DECLS
 
 #endif

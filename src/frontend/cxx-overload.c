@@ -30,6 +30,13 @@
 
 #include <string.h>
 
+static unsigned long long int _bytes_overload = 0;
+
+unsigned long long overload_used_memory(void)
+{
+    return _bytes_overload;
+}
+
 typedef
 enum implicit_conversion_sequence_kind_tag
 {
@@ -1249,7 +1256,7 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
 
             if (still_viable)
             {
-                overload_entry_list_t* new_result = calloc(1, sizeof(*new_result));
+                overload_entry_list_t* new_result = counted_calloc(1, sizeof(*new_result), &_bytes_overload);
                 new_result->entry = candidate;
                 new_result->next = result;
                 new_result->requires_ambiguous_ics = requires_ambiguous_conversion;
@@ -1802,7 +1809,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                             current_fun->file,
                             current_fun->line);
                 }
-                scope_entry_list_t* new_viable_fun = calloc(1, sizeof(*viable_functions));
+                scope_entry_list_t* new_viable_fun = counted_calloc(1, sizeof(*viable_functions), &_bytes_overload);
                 new_viable_fun->entry = current_fun;
                 new_viable_fun->next = viable_functions;
                 viable_functions = new_viable_fun;
@@ -1901,7 +1908,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                     }
 
                     scope_entry_list_t* new_viable_fun 
-                        = calloc(1, sizeof(*viable_functions));
+                        = counted_calloc(1, sizeof(*viable_functions), &_bytes_overload);
                     new_viable_fun->entry = named_symbol;
                     new_viable_fun->next = viable_functions;
                     viable_functions = new_viable_fun;
