@@ -214,6 +214,7 @@ enum spu_builtin_types {
     B_INTERNAL
 };
 
+#if 0
 static char is_scalar_type(type_t* t)
 {
     return is_integral_type(t) 
@@ -229,6 +230,7 @@ static type_t* main_variant(type_t* t)
     }
     return t;
 }
+#endif
 
 static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* arguments, int num_arguments)
 {
