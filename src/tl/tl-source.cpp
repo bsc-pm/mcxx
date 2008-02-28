@@ -599,7 +599,14 @@ namespace TL
 
         int parse_result = 0;
         AST type_specifier_seq;
-        parse_result = mcxxparse(&type_specifier_seq);
+        CXX_LANGUAGE()
+        {
+            parse_result = mcxxparse(&type_specifier_seq);
+        }
+        C_LANGUAGE()
+        {
+            parse_result = mc99parse(&type_specifier_seq);
+        }
 
         if (parse_result != 0)
         {
