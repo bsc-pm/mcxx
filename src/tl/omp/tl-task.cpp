@@ -729,8 +729,7 @@ namespace TL
                     << "{"
                     << "     nth_desc* nth2 = (nth == NTH_CANNOT_ALLOCATE_TASK) ? nthf_self_() : nth;"
                     << "     intptr_t id_nth = (intptr_t)nth2;"
-                    << "     mintaka_send(id_nth, 1);"
-                    << "     mintaka_state_run();"
+                    << "     mintaka_send_and_state(id_nth, 1, MINTAKA_STATE_RUN);"
                     << "}"
                     ;
 
@@ -894,8 +893,7 @@ namespace TL
                     << "   nth_desc * nth;"
                     << "   nth = nthf_self_();"
                     << "   intptr_t id_nth = (intptr_t)nth;"
-                    << "   mintaka_receive(id_nth, 1);"
-                    << "   mintaka_state_run();"
+                    << "   mintaka_receive_and_state(id_nth, 1, MINTAKA_STATE_RUN);"
                     << "}"
                     ;
             }

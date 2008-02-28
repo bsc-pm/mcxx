@@ -131,13 +131,11 @@ namespace TL
                 instrument_code_before
                     << "const int EVENT_PARALLEL = 60000001;"
                     << "const int VALUE_PARALLEL_SECTIONS = 2;"
-                    << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_SECTIONS);"
-                    << "mintaka_state_schedule();"
+                    << "mintaka_state_and_event(MINTAKA_STATE_SCHEDULE, EVENT_PARALLEL, VALUE_PARALLEL_SECTIONS);"
                     ;
                 instrument_code_after
                     << "const int VALUE_PARALLEL_CLOSE = 0;"
-                    << "mintaka_event(EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
-                    << "mintaka_state_run();"
+                    << "mintaka_state_and_event(MINTAKA_STATE_RUN, EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
                     ;
             }
 

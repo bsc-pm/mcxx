@@ -656,13 +656,10 @@ namespace TL
                 << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
                 << "}"
                 << "mintaka_event(EVENT_TASK_ENQUEUE, _user_function_event);"
-                // << "if (" << task_id << " != NTH_CANNOT_ALLOCATE_TASK)"
                 << "{"
                 <<       "nth_desc* nth2 = (" << task_id << " == NTH_CANNOT_ALLOCATE_TASK) ? nthf_self_() : " << task_id << ";"
-                // Adjust to 32 bit
-                << "     uint32_t id_nth = (((intptr_t)(nth2)) >> (32*((sizeof(nth2)/4) - 1)));"
-                << "     mintaka_send(id_nth, 1);"
-                << "     mintaka_state_run();"
+                <<       "inptr_t id_nth = (intptr_t)nth2;"
+                <<       "mintaka_send_and_state(id_nth, 1, MINTAKA_STATE_RUN);"
                 << "}"
                 ;
 
@@ -726,9 +723,8 @@ namespace TL
                 << "{"
                 << "   nth_desc * nth;"
                 << "   nth = nthf_self_();"
-                << "   uint32_t id_nth = (((intptr_t)(nth)) >> (32*((sizeof(nth)/4) - 1)));"
-                << "   mintaka_receive(id_nth, 1);"
-                << "   mintaka_state_run();"
+                << "   inptr_t id_nth = (intptr_t)nth;"
+                << "   mintaka_receive_and_state(id_nth, 1, MINTAKA_STATE_RUN);"
                 << "}"
                 ;
         }
@@ -1430,9 +1426,8 @@ namespace TL
                 << "{"
                 << "     nth_desc* nth2 = (nth == NTH_CANNOT_ALLOCATE_TASK) ? nthf_self_() : nth;"
                 // Adjust to 32 bit
-                << "     uint32_t id_nth = (((intptr_t)(nth2)) >> (32*((sizeof(nth2)/4) - 1)));"
-                << "     mintaka_send(id_nth, 1);"
-                << "     mintaka_state_run();"
+                << "     intptr_t id_nth = (intptr_t)nth2;"
+                << "     mintaka_send_and_state(id_nth, 1, MINTAKA_STATE_RUN);"
                 << "}"
                 ;
 
@@ -1504,9 +1499,8 @@ namespace TL
                 << "{"
                 << "   nth_desc * nth;"
                 << "   nth = nthf_self_();"
-                << "   uint32_t id_nth = (((intptr_t)(nth)) >> (32*((sizeof(nth)/4) - 1)));"
-                << "   mintaka_receive(id_nth, 1);"
-                << "   mintaka_state_run();"
+                << "   intptr_t id_nth = (intptr_t)nth;"
+                << "   mintaka_receive_and_state(id_nth, 1, MINTAKA_STATE_RUN);"
                 << "}"
                 ;
         }

@@ -503,13 +503,11 @@ namespace TL
                     << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
                     << "}"
                     << "int __previous_state = mintaka_get_state();"
-                    << "mintaka_state_run();"
-                    << "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
+                    << "mintaka_state_and_event(MINTAKA_STATE_RUN, EVENT_CALL_USER_FUNCTION, _user_function_event);"
                     ;
 
                 instrumentation_code_after
-                    << "mintaka_event(EVENT_CALL_USER_FUNCTION, 0);"
-                    << "mintaka_set_state(__previous_state);"
+                    << "mintaka_state_and_event(__previous_state, EVENT_CALL_USER_FUNCTION, 0);"
                     ;
 
                 // Ensure that it has been defined
