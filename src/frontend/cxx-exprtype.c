@@ -103,8 +103,8 @@ static type_t* lvalue_ref(type_t* t)
 {
     CXX_LANGUAGE()
     {
-        if (!is_reference_type(t))
-            return get_reference_type(t);
+        if (!is_lvalue_reference_type(t))
+            return get_lvalue_reference_type(t);
     }
     return t;
 }
@@ -520,7 +520,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     {
                         if (!is_dependent_type(entry->type_information, decl_context))
                         {
-                            ast_set_expression_type(expression, get_reference_type(entry->type_information));
+                            ast_set_expression_type(expression, get_lvalue_reference_type(entry->type_information));
                             ast_set_expression_is_lvalue(expression, 1);
                         }
                         else
@@ -1885,7 +1885,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         if (overloaded_member_op_type != NULL)
         {
             ast_set_expression_type(expr, function_type_get_return_type(overloaded_member_op_type));
-            ast_set_expression_is_lvalue(expr, is_reference_type(ASTExprType(expr)));
+            ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
             return overloaded_member_op_type;
         }
     }
@@ -1913,7 +1913,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         overloaded_type = overloaded_call->type_information;
 
         ast_set_expression_type(expr, function_type_get_return_type(overloaded_type));
-        ast_set_expression_is_lvalue(expr, is_reference_type(ASTExprType(expr)));
+        ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
     }
     return overloaded_type;
 }
@@ -1969,7 +1969,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
     type_t* op_type = ASTExprType(op);
 
     if (is_class_type(op_type)
-            || is_reference_to_class_type(op_type))
+            || is_lvalue_reference_to_class_type(op_type))
     {
         // Try to make a member operator lookup
         type_t* overloaded_member_op_type = compute_member_user_defined_unary_operator_type(operator_name,
@@ -1979,7 +1979,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
         if (overloaded_member_op_type != NULL)
         {
             ast_set_expression_type(expr, function_type_get_return_type(overloaded_member_op_type));
-            ast_set_expression_is_lvalue(expr, is_reference_type(ASTExprType(expr)));
+            ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
 
             return overloaded_member_op_type;
         }
@@ -2008,7 +2008,7 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
         overloaded_type = overloaded_call->type_information;
 
         ast_set_expression_type(expr, function_type_get_return_type(overloaded_type));
-        ast_set_expression_is_lvalue(expr, is_reference_type(ASTExprType(expr)));
+        ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
     }
     return overloaded_type;
 }
@@ -2830,7 +2830,7 @@ static type_t* compute_bin_operator_bitwise_xor_type(AST expr, AST lhs, AST rhs,
 static char operator_bin_assign_only_integer_pred(type_t* lhs, type_t* rhs, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
-    return (is_reference_type(lhs)
+    return (is_lvalue_reference_type(lhs)
             && is_integral_type(reference_type_get_referenced_type(lhs))
             && !is_const_qualified_type(reference_type_get_referenced_type(lhs))
             && is_integral_type(no_ref(rhs)));
@@ -2847,7 +2847,7 @@ static type_t* operator_bin_assign_only_integer_result(type_t** lhs, type_t** rh
     if (is_promoteable_integral_type(*rhs))
         *rhs = promote_integral_type(*rhs);
 
-    type_t* result = get_reference_type(
+    type_t* result = get_lvalue_reference_type(
             get_cv_qualified_type(ref_type, cv_qualif));
 
     return result;
@@ -2877,7 +2877,7 @@ static type_t* compute_bin_operator_assig_only_integral_type(AST expr, AST lhs, 
 
         CXX_LANGUAGE()
         {
-            if (!is_reference_type(lhs_type)
+            if (!is_lvalue_reference_type(lhs_type)
                     || is_const_qualified_type(reference_type_get_referenced_type(lhs_type)))
                 return NULL;
         }
@@ -2913,7 +2913,7 @@ static type_t* compute_bin_operator_assig_only_integral_type(AST expr, AST lhs, 
 static char operator_bin_assign_arithmetic_or_pointer_pred(type_t* lhs, type_t* rhs, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
-    return (is_reference_type(lhs)
+    return (is_lvalue_reference_type(lhs)
             && !is_const_qualified_type(reference_type_get_referenced_type(lhs))
             && (both_operands_are_arithmetic(reference_type_get_referenced_type(lhs), no_ref(rhs))
                 || is_pointer_arithmetic(reference_type_get_referenced_type(lhs), no_ref(rhs))));
@@ -2966,7 +2966,7 @@ static type_t* compute_bin_operator_assig_arithmetic_or_pointer_type(AST expr, A
 
         CXX_LANGUAGE()
         {
-            if (!is_reference_type(lhs_type)
+            if (!is_lvalue_reference_type(lhs_type)
                     || is_const_qualified_type(reference_type_get_referenced_type(lhs_type)))
                 return NULL;
         }
@@ -3005,7 +3005,7 @@ static type_t* compute_bin_operator_assig_arithmetic_or_pointer_type(AST expr, A
 static char operator_bin_assign_only_arithmetic_pred(type_t* lhs, type_t* rhs, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
-    return (is_reference_type(lhs)
+    return (is_lvalue_reference_type(lhs)
             && is_arithmetic_type(reference_type_get_referenced_type(lhs))
             && !is_const_qualified_type(reference_type_get_referenced_type(lhs))
             && is_arithmetic_type(rhs));
@@ -3046,7 +3046,7 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
 
         CXX_LANGUAGE()
         {
-            if (!is_reference_type(lhs_type)
+            if (!is_lvalue_reference_type(lhs_type)
                     || is_const_qualified_type(no_ref(lhs_type)))
                 return NULL;
 
@@ -3071,11 +3071,11 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
                 if (!solved_function->entity_specs.is_member
                         || solved_function->entity_specs.is_static)
                 {
-                    rhs_type = get_reference_type(get_pointer_type(solved_function->type_information));
+                    rhs_type = get_lvalue_reference_type(get_pointer_type(solved_function->type_information));
                 }
                 else
                 {
-                    rhs_type = get_reference_type(get_pointer_to_member_type(
+                    rhs_type = get_lvalue_reference_type(get_pointer_to_member_type(
                                 solved_function->type_information,
                                 named_type_get_symbol(solved_function->entity_specs.class_type)));
                 }
@@ -3134,7 +3134,7 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
 
         CXX_LANGUAGE()
         {
-            if (!is_reference_type(lhs_type)
+            if (!is_lvalue_reference_type(lhs_type)
                     || is_const_qualified_type(no_ref(lhs_type)))
                 return NULL;
 
@@ -3159,11 +3159,11 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
                 if (!solved_function->entity_specs.is_member
                         || solved_function->entity_specs.is_static)
                 {
-                    rhs_type = get_reference_type(get_pointer_type(solved_function->type_information));
+                    rhs_type = get_lvalue_reference_type(get_pointer_type(solved_function->type_information));
                 }
                 else
                 {
-                    rhs_type = get_reference_type(get_pointer_to_member_type(
+                    rhs_type = get_lvalue_reference_type(get_pointer_to_member_type(
                                 solved_function->type_information,
                                 named_type_get_symbol(solved_function->entity_specs.class_type)));
                 }
@@ -3366,7 +3366,7 @@ type_t* operator_unary_derref_result(type_t** op_type,
 {
     if (is_pointer_type(*op_type))
     {
-        return get_reference_type(pointer_type_get_pointee_type(*op_type));
+        return get_lvalue_reference_type(pointer_type_get_pointee_type(*op_type));
     }
     return NULL;
 }
@@ -4273,7 +4273,7 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
                 return 0;
 
             ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
-            ast_set_expression_is_lvalue(expr, is_reference_type(ASTExprType(expr)));
+            ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
             return 1;
         }
     }
@@ -4328,7 +4328,7 @@ static char check_for_conversion_function_id_expression(AST expression, decl_con
     }
 
     ast_set_expression_type(expression, entry_list->entry->type_information);
-    ast_set_expression_is_lvalue(expression, is_reference_type(entry_list->entry->type_information));
+    ast_set_expression_is_lvalue(expression, is_lvalue_reference_type(entry_list->entry->type_information));
     return 1;
 }
 
@@ -4338,7 +4338,7 @@ static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
 {
     *is_ambiguous_conversion = 0;
 
-    if (is_reference_type(to_t2))
+    if (is_lvalue_reference_type(to_t2))
     {
     /*
      * If E2 is a lvalue, E1 can be converted to match E2 if E1 can be implicitly
@@ -4801,7 +4801,7 @@ static char check_for_conditional_expression(AST expression, decl_context_t decl
         // or the whole expression was already a lvalue. 
         // Keep in synch lvalueness with reference types
         if (ASTExprLvalue(expression) ||
-                is_reference_type(final_type))
+                is_lvalue_reference_type(final_type))
         {
             final_type = lvalue_ref(final_type);
             ast_set_expression_is_lvalue(expression, 1);
@@ -5769,7 +5769,7 @@ static char check_for_function_call(AST expr, decl_context_t decl_context)
     ast_set_expression_is_lvalue(expr, 0);
     CXX_LANGUAGE()
     {
-        ast_set_expression_is_lvalue(expr, is_reference_type(ASTExprType(expr)));
+        ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
     }
 
     return 1;
@@ -6229,7 +6229,7 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
             if (overloaded_call != NULL)
             {
                 ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
-                ast_set_expression_is_lvalue(expr, is_reference_type(ASTExprType(expr)));
+                ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
                 return 1;
             }
         }
@@ -6259,7 +6259,7 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
     if (overloaded_call != NULL)
     {
         ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
-        ast_set_expression_is_lvalue(expr, is_reference_type(ASTExprType(expr)));
+        ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
         return 1;
     }
 
@@ -6292,7 +6292,7 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
             if (overloaded_call != NULL)
             {
                 ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
-                ast_set_expression_is_lvalue(expr, is_reference_type(ASTExprType(expr)));
+                ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
                 return 1;
             }
         }
@@ -6323,7 +6323,7 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
     if (overloaded_call != NULL)
     {
         ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
-        ast_set_expression_is_lvalue(expr, is_reference_type(ASTExprType(expr)));
+        ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
         return 1;
     }
 
@@ -6333,7 +6333,7 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
 static char postoperator_incr_pred(type_t* lhs, type_t* rhs, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
-    return (is_reference_type(lhs)
+    return (is_lvalue_reference_type(lhs)
             && (is_arithmetic_type(reference_type_get_referenced_type(lhs))
                 || is_pointer_type(reference_type_get_referenced_type(lhs)))
             && !is_const_qualified_type(reference_type_get_referenced_type(lhs))
@@ -6343,7 +6343,7 @@ static char postoperator_incr_pred(type_t* lhs, type_t* rhs,
 static char postoperator_decr_pred(type_t* lhs, type_t* rhs, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
-    return (is_reference_type(lhs)
+    return (is_lvalue_reference_type(lhs)
             && (is_arithmetic_type(reference_type_get_referenced_type(lhs))
                 || is_pointer_type(reference_type_get_referenced_type(lhs)))
             && !is_bool_type(reference_type_get_referenced_type(lhs))
@@ -6396,7 +6396,7 @@ static char check_for_postoperator(AST expr, AST operator, AST postoperated_expr
             }
             CXX_LANGUAGE()
             {
-                if (!is_reference_type(operated_type))
+                if (!is_lvalue_reference_type(operated_type))
                     return 0;
 
                 operated_type = reference_type_get_referenced_type(operated_type);
@@ -6443,7 +6443,7 @@ static char check_for_postoperator(AST expr, AST operator, AST postoperated_expr
 static char preoperator_incr_pred(type_t* lhs, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
-    return (is_reference_type(lhs)
+    return (is_lvalue_reference_type(lhs)
             && (is_arithmetic_type(reference_type_get_referenced_type(lhs))
                 || is_pointer_type(reference_type_get_referenced_type(lhs)))
             && !is_const_qualified_type(reference_type_get_referenced_type(lhs)));
@@ -6452,7 +6452,7 @@ static char preoperator_incr_pred(type_t* lhs,
 static char preoperator_decr_pred(type_t* lhs, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
-    return (is_reference_type(lhs)
+    return (is_lvalue_reference_type(lhs)
             && (is_arithmetic_type(reference_type_get_referenced_type(lhs))
                 || is_pointer_type(reference_type_get_referenced_type(lhs)))
             && !is_bool_type(reference_type_get_referenced_type(lhs))
@@ -6493,7 +6493,7 @@ static char check_for_preoperator(AST expr, AST operator,
 
         CXX_LANGUAGE()
         {
-            if (!is_reference_type(operated_type))
+            if (!is_lvalue_reference_type(operated_type))
                 return 0;
         }
 
@@ -6789,7 +6789,7 @@ static type_t* operator_bin_pointer_to_pm_result(type_t** lhs, type_t** rhs,
     // Union of both CV qualifiers
     cv_qualifier_t result_cv = (get_cv_qualifier(c1) | get_cv_qualifier(t));
 
-    return get_reference_type(get_cv_qualified_type(t, result_cv));
+    return get_lvalue_reference_type(get_cv_qualified_type(t, result_cv));
 }
 
 static char check_for_pointer_to_pointer_to_member(AST expression, decl_context_t decl_context)
@@ -7022,7 +7022,7 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
 
     (*num_types) = 0;
 
-    ERROR_CONDITION(is_reference_type(t), "Reference types should have been removed here", 0);
+    ERROR_CONDITION(is_lvalue_reference_type(t), "Reference types should have been removed here", 0);
 
 
     if (is_enumerated_type(t))
@@ -7052,10 +7052,10 @@ static void accessible_types_through_conversion(type_t* t, type_t ***result, int
             {
                 implicit_parameter = get_cv_qualified_type(implicit_parameter, CV_CONST);
             }
-            implicit_parameter = get_reference_type(implicit_parameter);
+            implicit_parameter = get_lvalue_reference_type(implicit_parameter);
 
             standard_conversion_t first_sc;
-            if (standard_conversion_between_types(&first_sc, get_reference_type(t), 
+            if (standard_conversion_between_types(&first_sc, get_lvalue_reference_type(t), 
                         implicit_parameter, decl_context))
             {
                 P_LIST_ADD_ONCE(*result, *num_types, destination_type);

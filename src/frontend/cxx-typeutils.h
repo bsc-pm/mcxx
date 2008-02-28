@@ -117,7 +117,7 @@ struct type_tag* get_pointer_type(struct type_tag*);
 
 struct type_tag* get_pointer_to_member_type(struct type_tag*, struct scope_entry_tag* class_entry);
 
-struct type_tag* get_reference_type(struct type_tag* t);
+struct type_tag* get_lvalue_reference_type(struct type_tag* t);
 
 struct type_tag* get_array_type(struct type_tag*, struct AST_tag* expression, decl_context_t decl_context);
 
@@ -211,7 +211,7 @@ char is_array_type(struct type_tag* t1);
 
 char is_function_type(struct type_tag* t);
 
-char is_reference_type(struct type_tag* t1);
+char is_lvalue_reference_type(struct type_tag* t1);
 
 char is_vector_type(struct type_tag* t);
 
@@ -392,7 +392,7 @@ char is_dependent_expression(struct AST_tag* expr, decl_context_t decl_context);
 char is_pointer_to_member_type(struct type_tag* t);
 
 char is_pointer_to_class_type(struct type_tag* t1);
-char is_reference_to_class_type(struct type_tag* t1);
+char is_lvalue_reference_to_class_type(struct type_tag* t1);
 char is_typedef_type(struct type_tag* t1);
 
 struct type_tag* typedef_type_get_aliased_type(struct type_tag* t);

@@ -593,7 +593,7 @@ char deduce_arguments_of_conversion(
     (*argument_types) = no_ref((*argument_types));
 
     // If P is not a reference type
-    if (!is_reference_type((*parameter_types)))
+    if (!is_lvalue_reference_type((*parameter_types)))
     {
         // if A is an array type the pointer type produced by the array to pointer conversion
         // is used in place of A
@@ -614,7 +614,7 @@ char deduce_arguments_of_conversion(
         }
     }
 
-    if (is_reference_type((*parameter_types)))
+    if (is_lvalue_reference_type((*parameter_types)))
     {
         (*parameter_types) = reference_type_get_referenced_type((*parameter_types));
     }
@@ -648,7 +648,7 @@ char deduce_arguments_of_conversion(
         type_t* original_parameter = function_type_get_return_type(specialized_type);
 
         char ok = 0;
-        if (is_reference_type(original_parameter)
+        if (is_lvalue_reference_type(original_parameter)
                 && is_more_or_equal_cv_qualified_type(reference_type_get_referenced_type(updated_type),
                     (*argument_types)))
         {
@@ -708,7 +708,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         current_argument_type = no_ref(current_argument_type);
 
         // If P is not a reference type
-        if (!is_reference_type(current_parameter_type))
+        if (!is_lvalue_reference_type(current_parameter_type))
         {
             // if A is an array type the pointer type produced by the array to pointer conversion
             // is used in place of A
@@ -770,7 +770,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
         }
 
         current_parameter_type = get_unqualified_type(current_parameter_type);
-        if (is_reference_type(current_parameter_type))
+        if (is_lvalue_reference_type(current_parameter_type))
         {
             current_parameter_type = reference_type_get_referenced_type(current_parameter_type);
         }
@@ -838,7 +838,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 type_t* original_parameter = 
                     function_type_get_parameter_type_num(specialized_type, i);
 
-                if (!is_reference_type(original_parameter))
+                if (!is_lvalue_reference_type(original_parameter))
                 {
                     // If it is not a reference convert from function to pointer
                     if (!solved_function->entity_specs.is_member
@@ -884,7 +884,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             // }
             //
             char ok = 0;
-            if (is_reference_type(original_parameter)
+            if (is_lvalue_reference_type(original_parameter)
                     && is_more_or_equal_cv_qualified_type(updated_type,
                         argument_types[i]))
             {

@@ -2247,7 +2247,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
             return orig_type;
         }
     }
-    else if (is_reference_type(orig_type))
+    else if (is_lvalue_reference_type(orig_type))
     {
         type_t* referenced = reference_type_get_referenced_type(orig_type);
 
@@ -2256,7 +2256,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
         if (updated_referenced == NULL)
             return NULL;
 
-        type_t* result_type = get_reference_type(updated_referenced);
+        type_t* result_type = get_lvalue_reference_type(updated_referenced);
 
         return result_type;
     }

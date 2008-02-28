@@ -353,8 +353,8 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                 decl_context, filename, line);
         return;
     }
-    else if (is_reference_type(t1)
-            && is_reference_type(t2))
+    else if (is_lvalue_reference_type(t1)
+            && is_lvalue_reference_type(t2))
     {
         unificate_two_types(reference_type_get_referenced_type(t1), reference_type_get_referenced_type(t2), deduction_set,
                 decl_context, filename, line);

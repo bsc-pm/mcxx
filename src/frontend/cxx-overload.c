@@ -287,11 +287,11 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             if (!solved_function->entity_specs.is_member
                     || solved_function->entity_specs.is_static)
             {
-                orig = get_reference_type(solved_function->type_information);
+                orig = get_lvalue_reference_type(solved_function->type_information);
             }
             else
             {
-                orig = get_reference_type(get_pointer_to_member_type(
+                orig = get_lvalue_reference_type(get_pointer_to_member_type(
                             solved_function->type_information,
                             named_type_get_symbol(solved_function->entity_specs.class_type)));
             }
@@ -468,7 +468,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             {
                 implicit_parameter = get_cv_qualified_type(implicit_parameter, CV_CONST);
             }
-            implicit_parameter = get_reference_type(implicit_parameter);
+            implicit_parameter = get_lvalue_reference_type(implicit_parameter);
 
             standard_conversion_t first_sc;
             standard_conversion_t second_sc;
@@ -880,12 +880,12 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
             // Both SCSs have same source type
         {
             // Fix redundant reference to class pointer
-            if (is_reference_type(scs1.orig)
+            if (is_lvalue_reference_type(scs1.orig)
                     && is_pointer_to_class_type(reference_type_get_referenced_type(scs1.orig)))
             {
                 scs1.orig = reference_type_get_referenced_type(scs1.orig);
             }
-            if (is_reference_type(scs2.orig)
+            if (is_lvalue_reference_type(scs2.orig)
                     && is_pointer_to_class_type(reference_type_get_referenced_type(scs2.orig)))
             {
                 scs2.orig = reference_type_get_referenced_type(scs2.orig);
@@ -956,11 +956,11 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
             }
 
             if (is_class_type(scs1.orig) // C ->
-                    && is_reference_to_class_type(scs1.dest) // B&
+                    && is_lvalue_reference_to_class_type(scs1.dest) // B&
                     && class_type_is_derived(scs1.orig, 
                         reference_type_get_referenced_type(scs1.dest)) // C derives from B
 
-                    && is_reference_to_class_type(scs2.dest) // A&
+                    && is_lvalue_reference_to_class_type(scs2.dest) // A&
                     && class_type_is_derived(reference_type_get_referenced_type(scs1.dest),
                         reference_type_get_referenced_type(scs2.dest)) // B derives from A
                )
@@ -1022,7 +1022,7 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
             }
 
             if (is_class_type(scs1.orig) // B
-                    && is_reference_to_class_type(scs1.dest) // A
+                    && is_lvalue_reference_to_class_type(scs1.dest) // A
                     && class_type_is_derived(scs1.orig, 
                         reference_type_get_referenced_type(scs1.dest)) // B is derived from A
 
@@ -1069,8 +1069,8 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
             && (scs1.conv[2] == scs2.conv[2]))
     {
         // If both are reference bindings, and scs2 leads to a type more qualified
-        if (is_reference_type(scs1.dest)
-                && is_reference_type(scs2.dest))
+        if (is_lvalue_reference_type(scs1.dest)
+                && is_lvalue_reference_type(scs2.dest))
         {
             type_t* dest1 = get_unqualified_type(reference_type_get_referenced_type(scs1.dest));
             type_t* dest2 = get_unqualified_type(reference_type_get_referenced_type(scs2.dest));
@@ -1214,7 +1214,7 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
                     type_t* member_object_type = candidate->entity_specs.class_type;
                     member_object_type = get_cv_qualified_type(member_object_type, 
                             get_cv_qualifier(candidate->type_information));
-                    member_object_type = get_reference_type(member_object_type);
+                    member_object_type = get_lvalue_reference_type(member_object_type);
 
                     compute_ics(argument_types[i], 
                             member_object_type,
@@ -1324,7 +1324,7 @@ char is_better_function_flags(scope_entry_t* f,
             member_object_type = f->entity_specs.class_type;
             member_object_type = get_cv_qualified_type(member_object_type, 
                     get_cv_qualifier(f->type_information));
-            member_object_type = get_reference_type(member_object_type);
+            member_object_type = get_lvalue_reference_type(member_object_type);
 
             compute_ics_flags(argument_types[i], member_object_type, decl_context, 
                     &ics_to_f, no_user_defined_conversions, filename, line);
@@ -1333,7 +1333,7 @@ char is_better_function_flags(scope_entry_t* f,
             member_object_type = g->entity_specs.class_type;
             member_object_type = get_cv_qualified_type(member_object_type, 
                     get_cv_qualifier(g->type_information));
-            member_object_type = get_reference_type(member_object_type);
+            member_object_type = get_lvalue_reference_type(member_object_type);
 
             compute_ics_flags(argument_types[i], member_object_type, decl_context, 
                     &ics_to_g, no_user_defined_conversions, filename, line);
@@ -1723,7 +1723,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     // Check sanity of the target type
     if (!is_pointer_type(target_type)
             && !is_pointer_to_member_type(target_type)
-            && !is_reference_type(target_type)
+            && !is_lvalue_reference_type(target_type)
             && !is_function_type(target_type))
     {
         return NULL;
@@ -1741,7 +1741,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
         functional_type = pointer_type_get_pointee_type(target_type);
         class_type = pointer_to_member_type_get_class(target_type);
     }
-    else if (is_reference_type(target_type))
+    else if (is_lvalue_reference_type(target_type))
     {
         functional_type = reference_type_get_referenced_type(target_type);
     }

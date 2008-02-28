@@ -33,7 +33,7 @@ char is_sound_type(type_t* t, decl_context_t decl_context)
     {
         type_t* element_type = array_type_get_element_type(t);
         if (is_void_type(element_type)
-                || is_reference_type(element_type)
+                || is_lvalue_reference_type(element_type)
                 || is_function_type(element_type))
         {
             DEBUG_CODE()
@@ -61,7 +61,7 @@ char is_sound_type(type_t* t, decl_context_t decl_context)
     else if (is_pointer_type(t))
     {
         // A pointer to a reference is not valid (int*& is valid but int&* not)
-        if (is_reference_type(pointer_type_get_pointee_type(t)))
+        if (is_lvalue_reference_type(pointer_type_get_pointee_type(t)))
         {
             DEBUG_CODE()
             {
@@ -72,11 +72,11 @@ char is_sound_type(type_t* t, decl_context_t decl_context)
 
         return is_sound_type(pointer_type_get_pointee_type(t), decl_context);
     }
-    else if (is_reference_type(t))
+    else if (is_lvalue_reference_type(t))
     {
         // A reference to a reference is not valid (int&& is not valid)
         // (Note: in newer versions of C++ int&& is a rvalue-reference we do not support that)
-        if( (is_reference_type(reference_type_get_referenced_type(t))
+        if( (is_lvalue_reference_type(reference_type_get_referenced_type(t))
                     || is_void_type(reference_type_get_referenced_type(t))))
         {
             DEBUG_CODE()

@@ -1921,7 +1921,7 @@ static char class_has_const_copy_assignment_operator(type_t* t)
 
         //    operator=(const T&)
         //    operator=(const volatile T&)
-        if (is_reference_to_class_type(first_param_type)
+        if (is_lvalue_reference_to_class_type(first_param_type)
                 && is_const_qualified_type(first_param_type))
         {
                 return 1;
@@ -1953,7 +1953,7 @@ static char class_has_const_copy_constructor(type_t* t)
         //  A(const volatile A&)
         type_t* first_param_type = function_type_get_parameter_type_num(copy_assig_op->type_information, 0);
 
-        if (is_reference_to_class_type(first_param_type)
+        if (is_lvalue_reference_to_class_type(first_param_type)
                 && is_const_qualified_type(first_param_type))
         {
                 return 1;
@@ -2028,11 +2028,11 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             if (const_parameter)
             {
                 parameter_info[0].type_info = 
-                    get_reference_type(get_const_qualified_type(type_info));
+                    get_lvalue_reference_type(get_const_qualified_type(type_info));
             }
             else
             {
-                parameter_info[0].type_info = get_reference_type(type_info);
+                parameter_info[0].type_info = get_lvalue_reference_type(type_info);
             }
 
             type_t* copy_constructor_type = get_new_function_type(
@@ -2113,15 +2113,15 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             if (const_parameter)
             {
                 parameter_info[0].type_info = 
-                    get_reference_type(get_const_qualified_type(type_info));
+                    get_lvalue_reference_type(get_const_qualified_type(type_info));
             }
             else
             {
-                parameter_info[0].type_info = get_reference_type(type_info);
+                parameter_info[0].type_info = get_lvalue_reference_type(type_info);
             }
 
             type_t* copy_assignment_type = get_new_function_type(
-                    /* returns T& */ get_reference_type(type_info), 
+                    /* returns T& */ get_lvalue_reference_type(type_info), 
                     parameter_info,
                     1);
 
@@ -2961,10 +2961,10 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                     compute_cv_qualifier(ASTSon2(pointer_tree)));
             break;
         case AST_REFERENCE_SPEC :
-            *declarator_type = get_reference_type(pointee_type);
+            *declarator_type = get_lvalue_reference_type(pointee_type);
             break;
         case AST_GCC_REFERENCE_SPEC :
-            *declarator_type = get_reference_type(pointee_type);
+            *declarator_type = get_lvalue_reference_type(pointee_type);
             *declarator_type = get_cv_qualified_type(*declarator_type, 
                     compute_cv_qualifier(ASTSon0(pointer_tree)));
             break;
@@ -5840,7 +5840,7 @@ static char is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type
         //
         //  operator=(cv T&)
         //  operator=(T)
-        if ((is_reference_to_class_type(first_parameter)
+        if ((is_lvalue_reference_to_class_type(first_parameter)
                     && equivalent_types(get_actual_class_type(class_type),
                         get_actual_class_type(get_unqualified_type(reference_type_get_referenced_type(first_parameter))),
                         decl_context))
@@ -5869,7 +5869,7 @@ static char is_copy_constructor(scope_entry_t* entry, type_t* class_type, decl_c
         // A(const A&, X = x);
         // A(A&, X = x);
 
-        if (is_reference_to_class_type(first_parameter)
+        if (is_lvalue_reference_to_class_type(first_parameter)
                     && equivalent_types(get_actual_class_type(class_type),
                         get_actual_class_type(get_unqualified_type(reference_type_get_referenced_type(first_parameter))),
                         decl_context))
