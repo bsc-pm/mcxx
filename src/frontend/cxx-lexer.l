@@ -982,6 +982,7 @@ runtime {
 "asm"           { parse_token_text(); return ASM; } 
 
  /*!if CPLUSPLUS*/
+"decltype"      { parse_token_text(); return DECLTYPE; }
 "explicit"      { parse_token_text(); return EXPLICIT; } 
 "private"       { parse_token_text(); return PRIVATE; } 
 "protected"     { parse_token_text(); return PROTECTED; } 

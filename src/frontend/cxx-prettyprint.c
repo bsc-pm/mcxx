@@ -156,6 +156,8 @@ HANDLER_PROTOTYPE(designation_handler);
 HANDLER_PROTOTYPE(index_designator_handler);
 HANDLER_PROTOTYPE(field_designator_handler);
 
+HANDLER_PROTOTYPE(decltype_handler);
+
 HANDLER_PROTOTYPE(pp_comment_handler);
 HANDLER_PROTOTYPE(pp_prepro_token_handler);
 
@@ -283,6 +285,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_INT_TYPE, simple_parameter_handler, "int"),
     NODE_HANDLER(AST_FLOAT_TYPE, simple_parameter_handler, "float"),
     NODE_HANDLER(AST_DOUBLE_TYPE, simple_parameter_handler, "double"),
+    NODE_HANDLER(AST_DECLTYPE, decltype_handler, NULL),
     NODE_HANDLER(AST_INLINE_SPEC, simple_text_handler, NULL),
     NODE_HANDLER(AST_VIRTUAL_SPEC, simple_parameter_handler, "virtual"),
     NODE_HANDLER(AST_EXPLICIT_SPEC, simple_parameter_handler, "explicit"),
@@ -2345,6 +2348,12 @@ static void field_designator_handler(FILE* f, AST a, int level)
     prettyprint_level(f, ASTSon0(a), level);
 }
 
+static void decltype_handler(FILE* f, AST a, int level UNUSED_PARAMETER)
+{
+    token_fprintf(f, a, "decltype(");
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, ")");
+}
 
 static void unknown_pragma_handler(FILE* f, AST a, int level UNUSED_PARAMETER)
 {

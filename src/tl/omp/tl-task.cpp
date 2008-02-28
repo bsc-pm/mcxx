@@ -724,12 +724,13 @@ namespace TL
                     <<                file_line << "," << mangled_function_name << ", EVENT_TASK_ENQUEUE);"
                     << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
                     << "}"
-                    << "mintaka_event(EVENT_TASK_ENQUEUE, _user_function_event);"
-                    // << "if (nth != NTH_CANNOT_ALLOCATE_TASK)"
                     << "{"
-                    << "     nth_desc* nth2 = (nth == NTH_CANNOT_ALLOCATE_TASK) ? nthf_self_() : nth;"
-                    << "     intptr_t id_nth = (intptr_t)nth2;"
-                    << "     mintaka_send_and_state(id_nth, 1, MINTAKA_STATE_RUN);"
+                    <<    "uint64_t _timestamp = mintaka_get_ts();"
+                    <<    "nth_desc* nth2 = (nth == NTH_CANNOT_ALLOCATE_TASK) ? nthf_self_() : nth;"
+                    <<    "intptr_t id_nth = (intptr_t)nth2;"
+                    <<    "mintaka_send_at(id_nth, 1, _timestamp);"
+                    <<    "mintaka_set_state_at(MINTAKA_STATE_RUN, _timestamp);"
+                    <<    "mintaka_event_at(EVENT_TASK_ENQUEUE, _user_function_event, _timestamp);"
                     << "}"
                     ;
 
@@ -880,28 +881,51 @@ namespace TL
 
             Source instrumentation_code_before, instrumentation_code_after;
 
-            instrumentation_outline(instrumentation_code_before,
-                    instrumentation_code_after, 
-                    function_definition,
-                    construct_body);
-
+            // We can't use the common 'instrument_outline' one because of
+            // timestamps required here, so we replicate part of its code 
+            // below
             Source instrumentation_start_task;
             if (instrumentation_requested())
             {
-                instrumentation_start_task
+                std::string file_name = "\"" + function_definition.get_ast().get_file() + "\"";
+
+                int file_line = construct_body.get_ast().get_line();
+
+                std::string mangled_function_name = 
+                    "\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
+
+                instrumentation_code_before
+                    << "const int EVENT_CALL_USER_FUNCTION = 60000018;"
+                    << "int _user_function_event = mintaka_index_get(" << file_name << "," << file_line << ");"
+                    << "if (_user_function_event == -1)"
                     << "{"
-                    << "   nth_desc * nth;"
-                    << "   nth = nthf_self_();"
-                    << "   intptr_t id_nth = (intptr_t)nth;"
-                    << "   mintaka_receive_and_state(id_nth, 1, MINTAKA_STATE_RUN);"
+                    << "     nthf_spin_lock_((nth_word_t*)&_nthf_unspecified_critical);"
+                    << "     _user_function_event = mintaka_index_allocate2(" << file_name << "," 
+                    <<                file_line << "," << mangled_function_name << ", EVENT_CALL_USER_FUNCTION);"
+                    << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
                     << "}"
+                    << "int __previous_state = mintaka_get_state();"
+                    << "nth_desc * nth;"
+                    << "nth = nthf_self_();"
+                    << "intptr_t id_nth = (intptr_t)nth;"
+                    << "uint64_t _timestamp = mintaka_get_ts();"
+                    << "mintaka_receive_at(id_nth, 1, _timestamp);"
+                    << "mintaka_set_state_at(MINTAKA_STATE_RUN, _timestamp);"
+                    << "mintaka_event_at(EVENT_CALL_USER_FUNCTION, _user_function_event, _timestamp);"
                     ;
+
+                instrumentation_code_after
+                    << "mintaka_state_and_event(__previous_state, EVENT_CALL_USER_FUNCTION, 0);"
+                    ;
+
+                // Ensure it is defined
+                define_global_mutex("_nthf_unspecified_critical", function_definition.get_ast(),
+                        function_definition.get_scope_link());
             }
 
             parallel_body 
                 << private_declarations
                 << instrumentation_code_before
-                << instrumentation_start_task
                 << modified_parallel_body_stmt.prettyprint()
                 << instrumentation_code_after
                 ;

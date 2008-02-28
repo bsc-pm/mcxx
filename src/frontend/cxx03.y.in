@@ -95,6 +95,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> ELSE
 %token<token_atrib> ENUM
 %token<token_atrib> EQUAL
+%token<token_atrib> DECLTYPE
 %token<token_atrib> EXPLICIT
 %token<token_atrib> EXPORT
 %token<token_atrib> EXTERN
@@ -1200,6 +1201,11 @@ simple_type_specifier : type_name
 | builtin_types
 {
 	$$ = $1;
+}
+// c++0x
+| DECLTYPE '(' expression ')'
+{
+    $$ = ASTMake1(AST_DECLTYPE, $3, $1.token_line, $1.token_text);
 }
 // GNU Extension
 | TYPEOF unary_expression

@@ -1055,6 +1055,66 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             // Restart function
             gather_type_spec_information(a, simple_type_info, gather_info, decl_context);
             break;
+            // C++0x
+        case AST_DECLTYPE :
+            {
+                AST expression = ASTSon0(a);
+                // Compute the expression type and use it for the whole type
+                if (check_for_expression(expression, decl_context)
+                        && (ASTExprType(expression) != NULL))
+                {
+                    type_t* computed_type = ASTExprType(expression);
+
+                    if (is_unresolved_overloaded_type(computed_type))
+                    {
+                        running_error("%s:%d:error: unresolved overloaded type '%s'",
+                                ASTFileName(a), 
+                                ASTLine(a),
+                                prettyprint_in_buffer(a));
+                    }
+
+                    switch (ASTType(expression))
+                    {
+                        // id-expressions
+                        case AST_SYMBOL :
+                        case AST_TEMPLATE_ID :
+                        case AST_DESTRUCTOR_ID :
+                        case AST_DESTRUCTOR_TEMPLATE_ID :
+                        case AST_CONVERSION_FUNCTION_ID :
+                        case AST_OPERATOR_FUNCTION_ID :
+                        case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
+                        case AST_QUALIFIED_ID :
+                        case AST_QUALIFIED_TEMPLATE :
+                        // class member accesses
+                        case AST_CLASS_MEMBER_ACCESS :
+                        case AST_CLASS_TEMPLATE_MEMBER_ACCESS :
+                        case AST_POINTER_CLASS_MEMBER_ACCESS :
+                        case AST_POINTER_CLASS_TEMPLATE_MEMBER_ACCESS :
+                            {
+                                // If the 'e' expression is an id-expression or class member
+                                // access, 'decltype(e)' is defined as the type of the entity
+                                // named by 'e'. We remove the reference type.
+                                *simple_type_info = no_ref(computed_type);
+                                break;
+                            }
+                        default:
+                            {
+                                // Function calls or other expressions will
+                                // return 'lvalues' with form of 'reference to
+                                // type'. So, we do not need to update the type
+                                *simple_type_info = computed_type;
+                            }
+                    }
+                }
+                else
+                {
+                    running_error("%s:%d:error: could not solve type '%s'\n",
+                            ASTFileName(a),
+                            ASTLine(a),
+                            prettyprint_in_buffer(a));
+                }
+                break;
+            }
             // GCC Extensions
         case AST_GCC_TYPEOF :
             {

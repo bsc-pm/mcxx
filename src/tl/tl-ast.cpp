@@ -152,9 +152,9 @@ namespace TL
                 else 
                 {
                     // Maybe we should yield a message here
-                    std::cerr << "Warning: Replacing a non-list tree at '" 
-                        << this->get_locus() 
-                        << "' with a list tree of more than one element" << std::endl;
+                    // std::cerr << "Warning: Replacing a non-list tree at '" 
+                    //     << this->get_locus() 
+                    //     << "' with a list tree of more than one element" << std::endl;
                     replace_in_list(ast);
                 }
             }
