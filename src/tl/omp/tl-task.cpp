@@ -654,6 +654,23 @@ namespace TL
 
             Source increment_task_level;
             Source decrement_task_level;
+	    Source file_params;
+
+	    std::string file_name;
+	    int file_line;
+            std::string mangled_function_name;
+            if (Nanos4::Version::is_family("aduran") &&
+		Nanos4::Version::version >= 403) {
+
+	        file_name = "\"task enqueue: " + function_definition.get_ast().get_file() + "\"";
+
+                file_line = construct_body.get_ast().get_line();
+
+                mangled_function_name =
+                    "\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
+		file_params <<  file_name << "," << file_line << ","
+			    << mangled_function_name << ",";
+	    }
 
             if (Nanos4::Version::is_family("trunk") &&
 		Nanos4::Version::version >= 400)
@@ -664,7 +681,8 @@ namespace TL
                     ;
             }
             if (Nanos4::Version::is_family("aduran") &&
-		Nanos4::Version::version >= 401)
+		Nanos4::Version::version >= 401 &&
+		Nanos4::Version::version <= 402)
             {
 		increment_task_level <<  "nth_task_ctx_t nth_ctx;"
 		    ;
@@ -673,6 +691,18 @@ namespace TL
                 decrement_task_level <<  "nth_dec_task_level();"
                     ;
             }
+            if (Nanos4::Version::is_family("aduran") &&
+		Nanos4::Version::version >= 403) {
+		increment_task_level <<  "nth_task_ctx_t nth_ctx;";
+                increment_task_level <<  "nth_inc_task_level(&nth_ctx,"
+				<< file_name << ","
+				<< file_line << ","
+				<< mangled_function_name << ");"
+			;
+                decrement_task_level <<  "nth_dec_task_level();"
+			;
+	    }
+
 
             task_queueing
                 << "{"
@@ -689,7 +719,8 @@ namespace TL
                 <<    size_vector
 
                 <<    "nth = nth_create((void*)(" << outlined_function_reference << "), "
-                <<             "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, &nth_arg_addr_ptr, "
+                <<             "&nth_type, &nth_ndeps, &nth_vp, &nth_succ,"
+		<<    file_params << " &nth_arg_addr_ptr, "
                 <<             "&nth_nargs_ref, &nth_nargs_val" << task_parameters << ");"
                 <<    instrument_code_task_creation
                 <<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
