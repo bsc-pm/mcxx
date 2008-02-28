@@ -124,7 +124,7 @@ namespace TL
 
     bool Type::is_reference() const
     {
-        return (is_reference_type(_type_info));
+        return (is_lvalue_reference_type(_type_info));
     }
 
     bool Type::is_function() const
@@ -386,7 +386,7 @@ namespace TL
 
     Type Type::get_reference_to()
     {
-        return get_reference_type(this->_type_info);
+        return get_lvalue_reference_type(this->_type_info);
     }
 
     Type Type::get_unqualified_type()
