@@ -149,155 +149,118 @@ namespace TL
 				throw FatalException();
 			}
 			
-			Type basic_type = TypeUtils::get_basic_type(parameter_type);
+			
+			bool is_lvalue;
+			Type argument_type = argument.get_type(is_lvalue);
 			
 			if (parameter_type.is_array())
 			{
 				scalar_source << "0";
-				address_source << argument.prettyprint();
-				bounds_source << "(void *)0";
 				
 				// Size
 				ObjectList<Expression> dimensions = TypeUtils::get_array_dimensions(parameter_type, ctx.scope_link);
+				dimensions_source << dimensions.size();
 				for (ObjectList<Expression>::const_iterator dimension_it = dimensions.begin(); dimension_it != dimensions.end(); dimension_it++)
 				{
 					Expression const &dimension = *dimension_it;
 					size_source 
 						<< "(" << argument_mapper.replace(dimension).prettyprint() << ") *";
 				}
-				dimensions_source << dimensions.size();
+				size_source
+					<< "sizeof("
+						<< TypeUtils::get_array_element_type(parameter_type, ctx.scope_link)
+							.get_declaration(ctx.scope_link.get_scope(argument.get_ast()), std::string(""))
+					<< ")";
+				address_source << argument.prettyprint();
+				bounds_source << "(void *)0";
 			}
-			else if (TypeUtils::get_basic_type(parameter_type).is_non_derived_type())
+			else if (parameter_type.is_pointer())
 			{
+				if (!argument_type.is_pointer() && !argument_type.is_array())
+				{
+					std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << parameter_index+1 << " in call to task '" << function_info._name << "' must be a pointer or an array." << std::endl;
+					CodeConversion::fail();
+					return;
+				}
+				
+				Type base_type = parameter_type.points_to();
+				if (base_type.is_void())
+				{
+					// An opaque parameter, we should pass a pointer to it, since it is treated as a scalar
+					scalar_source << "1";
+					dimensions_source << "0";
+					size_source
+						<< "sizeof(void *)";
+					std::ostringstream temporary_name;
+					temporary_name << "__css_parameter_" << parameter_index;
+					constant_redirection_source
+						<< "void *" << temporary_name.str() << " = " << argument.prettyprint() << ";";
+					address_source << "&" << temporary_name.str();
+					bounds_source << "(void *)0";
+				} else {
+					scalar_source << "0";
+					dimensions_source << "0";
+					size_source
+						<< "sizeof("
+							<< base_type.get_declaration(ctx.scope_link.get_scope(argument.get_ast()), std::string(""))
+						<< ")";
+					address_source << argument.prettyprint();
+					bounds_source << "(void *)0";
+				}
+			}
+			else if (parameter_type.is_non_derived_type())
+			{
+				// A scalar
+				if (parameter_info._direction != INPUT_DIR) {
+					std::cerr << "Internal compiler error at " << __FILE__ << ":" << __LINE__ << std::endl;
+					throw FatalException();
+				}
+				
+				// Must not be a pointer but we have to pass its address anyway
+				if (argument_type.is_pointer() || argument_type.is_array())
+				{
+					std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << parameter_index+1 << " in call to task '" << function_info._name << "' cannot be a pointer or an array." << std::endl;
+					CodeConversion::fail();
+					return;
+				}
+				
 				scalar_source << "1";
 				dimensions_source << "0";
-				bounds_source << "(void *)0";
+				size_source
+					<< "sizeof("
+						<< parameter_type.get_declaration(ctx.scope_link.get_scope(argument.get_ast()), std::string(""))
+					<< ")";
 				
-				bool is_lvalue;
-				Type argument_type = argument.get_type(is_lvalue);
-				
-				// Address and size
-				if (parameter_type.is_pointer())
+				if (is_lvalue)
 				{
-					// Must be a pointer already
-					if (!argument_type.is_pointer() && !argument_type.is_array())
-					{
-						std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << parameter_index+1 << " in call to task '" << function_info._name << "' must be a pointer or an array." << std::endl;
-						CodeConversion::fail();
-						return;
-					}
-					address_source << argument.prettyprint();
+					address_source
+						<< "&(" << argument.prettyprint() << ")";
 				}
 				else
 				{
-					// Must not be a pointer but we have to pass its address anyway
-					if (argument_type.is_pointer() || argument_type.is_array())
-					{
-						std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << parameter_index+1 << " in call to task '" << function_info._name << "' must not be a pointer or an array." << std::endl;
-						CodeConversion::fail();
-						return;
-					}
-					
-					if (parameter_info._symbol.is_invalid())
-					{
-						std::cerr << "Internal compiler error at " << __FILE__ << ":" << __LINE__ << std::endl;
-						throw FatalException();
-					}
-					
-					argument_mapper.add_replacement(parameter_info._symbol, argument.get_ast());
-					
-					if (is_lvalue)
-					{
-						address_source << "&(" << argument.prettyprint() << ")";
-					}
-					else
-					{
-						if (parameter_info._direction != INPUT_DIR)
-						{
-							std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << parameter_index+1 << " in call to task '" << function_info._name << "' must be an lvalue." << std::endl;
-							CodeConversion::fail();
-							return;
-						}
-						
-						std::ostringstream temporary_name;
-						temporary_name << "__css_parameter_" << parameter_index;
-						constant_redirection_source
-							<< parameter_type.get_declaration_with_initializer(
-								ctx.scope_link.get_scope(argument.get_ast()),
-								temporary_name.str(),
-								argument.prettyprint()
-							)
-							<< ";";
-						address_source << "&" << temporary_name.str();
-					} // scalar lvalue
-				} // non pointer scalar
+					std::ostringstream temporary_name;
+					temporary_name << "__css_parameter_" << parameter_index;
+					constant_redirection_source
+						<< parameter_type.get_declaration_with_initializer(
+							ctx.scope_link.get_scope(argument.get_ast()),
+							temporary_name.str(),
+							argument.prettyprint()
+						)
+						<< ";";
+					address_source
+						<< "&" << temporary_name.str();
+				}
+				
+				bounds_source << "(void *)0";
+				
+				argument_mapper.add_replacement(parameter_info._symbol, argument.get_ast());
 			}
 			else
 			{
-				// A struct a typedef or something that can be treated similarly
-				scalar_source << "0";
-				dimensions_source << "0";
-				bounds_source << "(void *)0";
-				
-				bool is_lvalue;
-				Type argument_type = argument.get_type(is_lvalue);
-				
-				// Address
-				if (parameter_type.is_pointer())
-				{
-					// Must be a pointer already
-					if (!argument_type.is_pointer() && !argument_type.is_array())
-					{
-						std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << parameter_index+1 << "' in call to task '" << function_info._name << "' must be a pointer." << std::endl;
-						CodeConversion::fail();
-						return;
-					}
-					address_source << argument.prettyprint();
-				}
-				else
-				{
-					// Must not be a pointer but we have to pass its address anyway
-					if (argument_type.is_pointer() || argument_type.is_array())
-					{
-						std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << parameter_index+1 << " in call to task '" << function_info._name << "' cannot be a pointer or an array." << std::endl;
-						CodeConversion::fail();
-						return;
-					}
-					
-					if (is_lvalue)
-					{
-						address_source
-							<< "&(" << argument.prettyprint() << ")";
-					}
-					else
-					{
-						if (parameter_info._direction != INPUT_DIR)
-						{
-							std::cerr << argument.get_ast().get_locus() << " Error: expression '" << argument.prettyprint() << "' passed as parameter number " << parameter_index+1 << " in call to task '" << function_info._name << "' must be an lvalue." << std::endl;
-							CodeConversion::fail();
-							return;
-						}
-						
-						std::ostringstream temporary_name;
-						temporary_name << "__css_parameter_" << parameter_index;
-						constant_redirection_source
-							<< basic_type.get_declaration_with_initializer(
-								ctx.scope_link.get_scope(argument.get_ast()),
-								temporary_name.str(),
-								argument.prettyprint()
-							)
-							<< ";";
-						address_source
-							<< "&" << temporary_name.str();
-					} // struct lvalue
-				} // non pointer struct
-				
-			} // By type
-			
-			size_source
-				<< "sizeof("
-					<< basic_type.get_declaration(ctx.scope_link.get_scope(argument.get_ast()), std::string(""))
-				<< ")";
+				// A derived type passed by value
+				std::cerr << "Internal compiler error at " << __FILE__ << ":" << __LINE__ << std::endl;
+				throw FatalException();
+			}
 			
 			parameter_index++;
 			it++;
@@ -405,7 +368,7 @@ namespace TL
 				adapter_parameters
 					<< ",";
 			}
-			if (parameter_type.is_pointer() || parameter_type.is_array())
+			if ((parameter_type.is_pointer() && !parameter_type.points_to().is_void()) || parameter_type.is_array())
 			{
 				adapter_parameters
 					<< "parameter_data[" << parameter_index << "]";
@@ -488,7 +451,7 @@ namespace TL
 					adapter_parameters
 						<< ",";
 				}
-				if (parameter_type.is_pointer() || parameter_type.is_array())
+				if ((parameter_type.is_pointer() && !parameter_type.points_to().is_void()) || parameter_type.is_array())
 				{
 					adapter_parameters
 						<< "parameter_data[" << parameter_index << "]";

@@ -119,6 +119,20 @@ namespace TL
 			parameter_info._augmented_definition_locus = construct.get_ast().get_locus();
 			parameter_info._direction = direction;
 			
+			if (parameter_type.is_pointer() && parameter_type.points_to().is_void() && direction != INPUT_DIR)
+			{
+				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is an opaque pointer and can only appear in the input clause" << std::endl;
+				function_info._has_errors = true;
+				TaskAnalysis::fail();
+			}
+			
+			if (!parameter_type.is_non_derived_type() && !parameter_type.is_array() && !parameter_type.is_pointer())
+			{
+				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is a derived type and cannot be passed by value" << std::endl;
+				function_info._has_errors = true;
+				TaskAnalysis::fail();
+			}
+			
 			if (parameter_info._augmented_declaration_type.is_valid())
 			{
 				if (!TypeUtils::parameter_types_match(parameter_type, parameter_info._augmented_declaration_type, construct.get_scope_link()))
@@ -202,6 +216,20 @@ namespace TL
 			parameter_info._augmented_declaration_type = parameter_type;
 			parameter_info._augmented_declaration_locus = construct.get_ast().get_locus();
 			parameter_info._direction = direction;
+			
+			if (parameter_type.is_pointer() && parameter_type.points_to().is_void() && direction != INPUT_DIR)
+			{
+				std::cerr << parameter_info._augmented_declaration_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is an opaque pointer and can only appear in the input clause" << std::endl;
+				function_info._has_errors = true;
+				TaskAnalysis::fail();
+			}
+			
+			if (!parameter_type.is_non_derived_type() && !parameter_type.is_array() && !parameter_type.is_pointer())
+			{
+				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is a derived type and cannot be passed by value" << std::endl;
+				function_info._has_errors = true;
+				TaskAnalysis::fail();
+			}
 			
 			if (parameter_info._augmented_definition_type.is_valid())
 			{

@@ -228,6 +228,18 @@ namespace TL
 				return result;
 			}
 			
+			static Type get_array_element_type(Type type, ScopeLink scope_link)
+			{
+				if (type.is_array())
+				{
+					return get_array_element_type(type.array_element(), scope_link);
+				}
+				else
+				{
+					return type;
+				}
+			}
+			
 			static Type remove_inner_pointer(Type type, ScopeLink scope_link)
 			{
 				bool filter = false;
