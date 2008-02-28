@@ -789,7 +789,7 @@ Is the kind of the type. Below are the values it can have
 Direct types.
 @item TK_POINTER
 Pointer types.
-@item TK_REFERENCE
+@item TK_LVALUE_REFERENCE
 Reference types.
 @item TK_POINTER_TO_MEMBER
 Pointer to member types.
@@ -810,7 +810,7 @@ Computed builtin function types.
 
 A field to a @code{pointer_info_t}, described in @ref{Pointer types}. This field
 is non-null only when kind is @code{TK_POINTER}, @code{TK_POINTER_TO_MEMBER} or
-@code{TK_REFERENCE}.
+@code{TK_LVALUE_REFERENCE}.
 
 @item array
 
@@ -1582,7 +1582,7 @@ Consider the following examples
 
 In this cathegory we group proper pointer types (@code{TK_POINTER}), pointer to
 member types (@code{TK_POINTER_TO_MEMBER}) and reference types
-(@code{TK_REFERENCE}). @xref{Type definition}. 
+(@code{TK_LVALUE_REFERENCE}). @xref{Type definition}. 
 
 Their information is represented in @code{pointer_info_t}.
 
