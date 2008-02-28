@@ -495,6 +495,22 @@ threadprivate {
     return PRAGMA_CLAUSE_ARG_TEXT;
 }
 
+\n {
+   // We found a newline
+	if (pragma_custom_var_list_parentheses != 0)
+   {
+      // Well, we found the newline but parentheses were not 
+      // properly nested
+      fprintf(stderr, "Warning, unended custom clause at '%s:%d'. Skipping.\n",
+            scanning_now.current_filename,
+            scanning_now.line_number);
+   }
+   // Head back to initial state and finish this pragma
+   scanning_now.line_number++;
+	BEGIN(INITIAL);
+	return PRAGMA_CUSTOM_NEWLINE;
+}
+
 }
 
 <openmp_clause>{

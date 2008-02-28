@@ -7734,7 +7734,10 @@ static void build_scope_pragma_custom_clause_argument(AST a,
 
 static void build_scope_pragma_custom_clause(AST a, decl_context_t decl_context)
 {
-    build_scope_pragma_custom_clause_argument(ASTSon0(a), decl_context);
+    if (ASTSon0(a) != NULL)
+    {
+        build_scope_pragma_custom_clause_argument(ASTSon0(a), decl_context);
+    }
 
     ASTAttrSetValueType(a, LANG_IS_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_PRAGMA_CUSTOM_CLAUSE, tl_type_t, tl_string(ASTText(a)));
