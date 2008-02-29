@@ -1050,12 +1050,14 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
             && (scs1.conv[2] == scs2.conv[2])
             && (scs1.conv[2] == SCI_POINTER_CONVERSION))
     {
+        // FIXME - What about the deprecated literal string conversion?
         cv_qualifier_t cv_qualif_1 = CV_NONE;
         /* type_t* type_1 = */ advance_over_typedefs_with_cv_qualif(scs1.dest, &cv_qualif_1);
 
         cv_qualifier_t cv_qualif_2 = CV_NONE;
         /* type_t* type_2 = */ advance_over_typedefs_with_cv_qualif(scs2.dest, &cv_qualif_2);
 
+        // Check that they yield similar types and scs2 is more qualified
         if (((cv_qualif_1 | cv_qualif_2) == cv_qualif_1) 
                 && equivalent_types(get_unqualified_type(scs1.dest), 
                     get_unqualified_type(scs2.dest), 
@@ -1068,9 +1070,32 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
             && (scs1.conv[1] == scs2.conv[1])
             && (scs1.conv[2] == scs2.conv[2]))
     {
-        // If both are reference bindings, and scs2 leads to a type more qualified
-        if (is_lvalue_reference_type(scs1.dest)
-                && is_lvalue_reference_type(scs2.dest))
+        // If both are reference bindings, and scs2 binds a lvalue to a rvalue-reference
+        // while scs1 binds a lvalue to a lvalue-reference, scs1 is better
+        //
+        // scs1: int& -> int&
+        // scs2: int& -> int&&
+        //
+        // scs1 is better
+        if (is_lvalue_reference_type(scs1.orig)        // binds a lvalue
+                && is_lvalue_reference_type(scs1.dest) // to a lvalue-reference
+
+                && is_lvalue_reference_type(scs2.orig) // binds a lvalue
+                && is_rvalue_reference_type(scs2.dest)) // to a rvalue-reference
+        {
+            return 1;
+        }
+    }
+    else if ((scs1.conv[0] == scs2.conv[0])
+            && (scs1.conv[1] == scs2.conv[1])
+            && (scs1.conv[2] == scs2.conv[2]))
+    {
+        // If both are reference bindings, and scs2 leads to the same type more qualified,
+        // then scs1 is better than scs1
+        if ((is_lvalue_reference_type(scs1.dest) 
+                    || is_rvalue_reference_type(scs1.dest))
+                && (is_lvalue_reference_type(scs2.dest) 
+                    || is_rvalue_reference_type(scs2.dest)))
         {
             type_t* dest1 = get_unqualified_type(reference_type_get_referenced_type(scs1.dest));
             type_t* dest2 = get_unqualified_type(reference_type_get_referenced_type(scs2.dest));

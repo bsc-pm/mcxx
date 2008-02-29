@@ -769,10 +769,21 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             }
         }
 
+        // If P is a qualified type the top level cv-qualifiers of P are ignored for type deduction
         current_parameter_type = get_unqualified_type(current_parameter_type);
         if (is_lvalue_reference_type(current_parameter_type))
         {
+            // If P is a reference type the type referred to by P is used for type deducton
             current_parameter_type = reference_type_get_referenced_type(current_parameter_type);
+        }
+        else if (is_rvalue_reference_type(current_parameter_type)
+                && is_lvalue_reference_type(call_argument_types[i]))
+        {
+            // If P is a rvalue-reference type and the argument is a
+            // lvalue (so, a lvalue reference for us), the type A& is used in
+            // place of A for type deduction. We removed the reference at the
+            // beginning, so we want it back
+            current_argument_type = get_lvalue_reference_type(current_argument_type);
         }
 
         parameter_types[i] = current_parameter_type;

@@ -3618,7 +3618,8 @@ type_t* no_ref(type_t* t)
 {
     CXX_LANGUAGE()
     {
-        if (is_lvalue_reference_type(t))
+        if (is_lvalue_reference_type(t)
+                || is_rvalue_reference_type(t))
             return reference_type_get_referenced_type(t);
     }
     return t;
@@ -5753,8 +5754,10 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
 
     // Special cases of identity due to how references can be initialized
     // cv1 T -> const cv2 T&
-    if (is_lvalue_reference_type(dest)
+    // cv1 T -> cv2 T&&
+    if ((is_lvalue_reference_type(dest)
             && is_const_qualified_type(reference_type_get_referenced_type(dest)))
+            || is_rvalue_reference_type(dest))
     {
         type_t* unqualif_orig = get_unqualified_type(orig);
         type_t* unqualif_dest = get_unqualified_type(
@@ -5769,7 +5772,14 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             (*result) = identity_scs(t_orig, t_dest);
             DEBUG_CODE()
             {
-                fprintf(stderr, "SCS: This is a binding to reference by means of an rvalue\n");
+                if (is_rvalue_reference_type(dest))
+                {
+                    fprintf(stderr, "SCS: This is a binding to a rvalue-reference by means of an rvalue\n");
+                }
+                else
+                {
+                    fprintf(stderr, "SCS: This is a binding to a const lvalue-reference by means of an rvalue\n");
+                }
             }
             return 1;
         }
@@ -5798,7 +5808,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             return 1;
         }
     }
-
 
     // First kind of conversion
     //
