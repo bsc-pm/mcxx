@@ -496,19 +496,19 @@ threadprivate {
 }
 
 \n {
-   // We found a newline
-	if (pragma_custom_var_list_parentheses != 0)
-   {
-      // Well, we found the newline but parentheses were not 
-      // properly nested
-      fprintf(stderr, "Warning, unended custom clause at '%s:%d'. Skipping.\n",
-            scanning_now.current_filename,
-            scanning_now.line_number);
-   }
-   // Head back to initial state and finish this pragma
-   scanning_now.line_number++;
-	BEGIN(INITIAL);
-	return PRAGMA_CUSTOM_NEWLINE;
+    // We found a newline
+    if (pragma_custom_var_list_parentheses != 0)
+    {
+        // Well, we found the newline but parentheses were not 
+        // properly nested
+        fprintf(stderr, "Warning, unended custom clause at '%s:%d'. Skipping.\n",
+                scanning_now.current_filename,
+                scanning_now.line_number);
+    }
+    // Head back to initial state and finish this pragma
+    scanning_now.line_number++;
+    BEGIN(INITIAL);
+    return PRAGMA_CUSTOM_NEWLINE;
 }
 
 }
@@ -1104,11 +1104,6 @@ runtime {
 "__asm" { parse_token_text(); return ASM; }
 "__asm__" { parse_token_text(); return ASM; }
 
-"<?" { parse_token_text(); return MIN_OPERATOR; }
-">?" { parse_token_text(); return MAX_OPERATOR; }
-"<?=" { parse_token_text(); return MIN_OPERATOR_ASSIGN; }
-">?=" { parse_token_text(); return MAX_OPERATOR_ASSIGN; }
-
  /* mcxx extensions */
 "__construct__" { parse_token_text(); return CONSTRUCT; }
 
@@ -1177,9 +1172,15 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 "/"         { parse_token_text(); return '/'; }
 "%"         { parse_token_text(); return '%'; }
 "<<"        { parse_token_text(); return LEFT; }
+ /* There is no '>>' token in C++ but AB1 followed by '>', see below */
+ /*!if C99*/
 ">>"        { parse_token_text(); return RIGHT; }
+ /*!endif*/
 "<="        { parse_token_text(); return LESS_OR_EQUAL; }
+ /* There is no '>=' token in C++ but AB2 followed by '=', see below */
+ /*!if C99*/
 ">="        { parse_token_text(); return GREATER_OR_EQUAL; }
+ /*!endif*/
 "=="        { parse_token_text(); return EQUAL; }
 "!="        { parse_token_text(); return NOT_EQUAL; }
 "^"         { parse_token_text(); return '^'; }
@@ -1193,7 +1194,10 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 "+="        { parse_token_text(); return ADD_ASSIGN; }
 "-="        { parse_token_text(); return SUB_ASSIGN; }
 "<<="       { parse_token_text(); return LEFT_ASSIGN; }
+ /* There is no '>>=' in C++ but AB1 followed by 'AB2' and '=', see below */
+ /*!if C99*/
 ">>="       { parse_token_text(); return RIGHT_ASSIGN; }
+ /*!endif*/
 "&="        { parse_token_text(); return AND_ASSIGN; }
 "^="        { parse_token_text(); return XOR_ASSIGN; }
 "|="        { parse_token_text(); return OR_ASSIGN; }
@@ -1208,7 +1212,14 @@ L?\"{schar}*\"      { parse_token_text(); return STRING_LITERAL; }
 "{"         { parse_token_text(); return '{'; }
 "}"         { parse_token_text(); return '}'; } 
 "<"         { parse_token_text(); return '<'; }
+ /*!if CPLUSPLUS*/
+>/>         { parse_token_text(); return AB1; }
+>/=         { parse_token_text(); return AB2; }
+>/[^>=]     { parse_token_text(); return '>'; }
+ /*!endif*/
+ /*!if C99*/
 ">"         { parse_token_text(); return '>'; } 
+ /*!endif*/
 "&"         { parse_token_text(); return '&'; }
 "*"         { parse_token_text(); return '*'; }
 "\""        { parse_token_text(); return '"'; }

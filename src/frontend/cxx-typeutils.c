@@ -1621,43 +1621,71 @@ type_t* get_pointer_type(type_t* t)
     return pointed_type;
 }
 
-type_t* get_lvalue_reference_type(type_t* t)
+static Hash *_lvalue_reference_types = NULL;
+static Hash *_rvalue_reference_types = NULL;
+
+static type_t* get_internal_reference_type(type_t* t, char is_rvalue_ref)
 {
     C_LANGUAGE()
     {
         internal_error("No referenced types should be created in C", 0);
     }
 
-    if (is_lvalue_reference_type(t))
+    if (is_lvalue_reference_type(t)
+            || is_rvalue_reference_type(t))
     {
-        internal_error("Trying to create a reference to reference type.\n"
-                "(C++0x rvalue references not yet supported)\n", 0);
+        internal_error("Trying to create a reference to reference type." , 0);
     }
 
     ERROR_CONDITION(t == NULL,
             "Trying to create a reference of a null type", 0);
 
-    static Hash *_reference_types = NULL;
-
-    if (_reference_types == NULL)
+    Hash **_reference_types = NULL;
+    if (is_rvalue_ref)
     {
-        _reference_types = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+        _reference_types = &_lvalue_reference_types;
+    }
+    else
+    {
+        _reference_types = &_rvalue_reference_types;
     }
 
-    type_t* referenced_type = hash_get(_reference_types, t);
+    if ((*_reference_types) == NULL)
+    {
+        (*_reference_types) = hash_create(HASH_SIZE, HASHFUNC(pointer_hash), KEYCMPFUNC(integer_comp));
+    }
+
+    type_t* referenced_type = hash_get((*_reference_types), t);
 
     if (referenced_type == NULL)
     {
         referenced_type = counted_calloc(1, sizeof(*referenced_type), &_bytes_due_to_type_system);
-        referenced_type->kind = TK_LVALUE_REFERENCE;
+        if (!is_rvalue_ref)
+        {
+            referenced_type->kind = TK_LVALUE_REFERENCE;
+        }
+        else
+        {
+            referenced_type->kind = TK_RVALUE_REFERENCE;
+        }
         referenced_type->unqualified_type = referenced_type;
         referenced_type->pointer = counted_calloc(1, sizeof(*referenced_type->pointer), &_bytes_due_to_type_system);
         referenced_type->pointer->pointee = t;
 
-        hash_put(_reference_types, t, referenced_type);
+        hash_put((*_reference_types), t, referenced_type);
     }
 
     return referenced_type;
+}
+
+type_t* get_lvalue_reference_type(type_t* t)
+{
+    return get_internal_reference_type(t, /* is_rvalue_ref */ 0);
+}
+
+type_t* get_rvalue_reference_type(type_t* t)
+{
+    return get_internal_reference_type(t, /* is_rvalue_ref */ 1);
 }
 
 type_t* get_pointer_to_member_type(type_t* t, scope_entry_t* class_entry)
@@ -2470,6 +2498,9 @@ char equivalent_types(type_t* t1, type_t* t2, decl_context_t decl_context)
         case TK_LVALUE_REFERENCE :
             result = equivalent_pointer_type(t1->pointer, t2->pointer, decl_context);
             break;
+        case TK_RVALUE_REFERENCE :
+            result = equivalent_pointer_type(t1->pointer, t2->pointer, decl_context);
+            break;
         case TK_POINTER_TO_MEMBER :
             result = equivalent_pointer_to_member_type(t1, t2, decl_context);
             break;
@@ -2717,6 +2748,7 @@ cv_qualifier_t* get_innermost_cv_qualifier(type_t* t)
         case TK_POINTER :
         case TK_POINTER_TO_MEMBER :
         case TK_LVALUE_REFERENCE :
+        case TK_RVALUE_REFERENCE :
             {
                 return get_innermost_cv_qualifier(t->pointer->pointee);
             }
@@ -3572,7 +3604,9 @@ char is_complex_type(type_t* t)
 
 type_t* reference_type_get_referenced_type(type_t* t1)
 {
-    ERROR_CONDITION(!is_lvalue_reference_type(t1), "This is not a reference type", 0);
+    ERROR_CONDITION(!is_lvalue_reference_type(t1)
+            && !is_rvalue_reference_type(t1), 
+            "This is not a reference type", 0);
     t1 = advance_over_typedefs(t1);
 
     return t1->pointer->pointee;
@@ -3596,6 +3630,14 @@ char is_lvalue_reference_type(type_t* t1)
 
     return (t1 != NULL
             && t1->kind == TK_LVALUE_REFERENCE);
+}
+
+char is_rvalue_reference_type(type_t* t1)
+{
+    t1 = advance_over_typedefs(t1);
+
+    return (t1 != NULL
+            && t1->kind == TK_RVALUE_REFERENCE);
 }
 
 decl_context_t enum_type_get_context(type_t* t)
@@ -4355,7 +4397,8 @@ char is_dependent_type(type_t* type, decl_context_t decl_context)
     {
         return is_dependent_type(pointer_type_get_pointee_type(type), decl_context);
     }
-    else if (is_lvalue_reference_type(type))
+    else if (is_lvalue_reference_type(type) 
+            || is_rvalue_reference_type(type))
     {
         return is_dependent_type(reference_type_get_referenced_type(type), decl_context);
     }
@@ -4450,12 +4493,14 @@ static char declarator_needs_parentheses(type_t* type_info)
     char result = 0;
     if (type_info->kind == TK_POINTER_TO_MEMBER
             || type_info->kind == TK_POINTER
-            || type_info->kind == TK_LVALUE_REFERENCE)
+            || type_info->kind == TK_LVALUE_REFERENCE
+            || type_info->kind == TK_RVALUE_REFERENCE)
     {
         type_t* pointee = type_info->pointer->pointee;
         result = (pointee->kind != TK_POINTER_TO_MEMBER
                 && pointee->kind != TK_POINTER
                 && pointee->kind != TK_LVALUE_REFERENCE
+                && pointee->kind != TK_RVALUE_REFERENCE
                 && pointee->kind != TK_DIRECT);
     }
 
@@ -4611,6 +4656,7 @@ const char* get_simple_type_name_string(decl_context_t decl_context, type_t* typ
             }
         case TK_POINTER :
         case TK_LVALUE_REFERENCE :
+        case TK_RVALUE_REFERENCE :
         case TK_POINTER_TO_MEMBER :
             {
                 result = get_simple_type_name_string(decl_context, type_info->pointer->pointee);
@@ -4898,6 +4944,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                 }
                 break;
             }
+        case TK_RVALUE_REFERENCE :
         case TK_LVALUE_REFERENCE :
             {
                 get_type_name_str_internal(decl_context, type_info->pointer->pointee, left, right, 
@@ -4908,7 +4955,14 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                     (*left) = strappend((*left), "(");
                 }
 
-                (*left) = strappend((*left), "&");
+                if (type_info->kind == TK_LVALUE_REFERENCE)
+                {
+                    (*left) = strappend((*left), "&");
+                }
+                else
+                {
+                    (*left) = strappend((*left), "&&");
+                }
 
                 if (declarator_needs_parentheses(type_info))
                 {
@@ -5335,7 +5389,11 @@ const char* print_declarator(type_t* printed_declarator, decl_context_t decl_con
                 printed_declarator = printed_declarator->pointer->pointee;
                 break;
             case TK_LVALUE_REFERENCE :
-                tmp_result = strappend(tmp_result, "lvalue reference to ");
+                tmp_result = strappend(tmp_result, "(lvalue) reference to ");
+                printed_declarator = printed_declarator->pointer->pointee;
+                break;
+            case TK_RVALUE_REFERENCE :
+                tmp_result = strappend(tmp_result, "rvalue reference to ");
                 printed_declarator = printed_declarator->pointer->pointee;
                 break;
             case TK_POINTER_TO_MEMBER :

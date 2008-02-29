@@ -2921,53 +2921,93 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
     switch (ASTType(pointer_tree))
     {
         case AST_POINTER_SPEC :
-            if (ASTSon0(pointer_tree) == NULL
-                    && ASTSon1(pointer_tree) == NULL)
             {
-                *declarator_type = get_pointer_type(pointee_type);
-            }
-            else
-            {
-                DEBUG_CODE()
+                if (ASTSon0(pointer_tree) == NULL
+                        && ASTSon1(pointer_tree) == NULL)
                 {
-                    fprintf(stderr, "---> POINTER TO MEMBER <---\n");
-                }
-
-                scope_entry_list_t* entry_list = NULL;
-
-                AST global_op = ASTSon0(pointer_tree);
-                AST nested_name_spec = NULL;
-                AST unqualified_id = NULL;
-                convert_tree_from_nested_name_to_qualified_id(ASTSon1(pointer_tree), &nested_name_spec, &unqualified_id);
-
-                entry_list = query_nested_name(decl_context, 
-                        global_op, 
-                        nested_name_spec,
-                        unqualified_id);
-
-                if (entry_list != NULL)
-                {
-                    *declarator_type = get_pointer_to_member_type(pointee_type, entry_list->entry);
+                    *declarator_type = get_pointer_type(pointee_type);
                 }
                 else
                 {
-                    running_error("Class name '%s%s%s' not found\n", 
-                            prettyprint_in_buffer(global_op), 
-                            prettyprint_in_buffer(nested_name_spec),
-                            prettyprint_in_buffer(unqualified_id));
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "---> POINTER TO MEMBER <---\n");
+                    }
+
+                    scope_entry_list_t* entry_list = NULL;
+
+                    AST global_op = ASTSon0(pointer_tree);
+                    AST nested_name_spec = NULL;
+                    AST unqualified_id = NULL;
+                    convert_tree_from_nested_name_to_qualified_id(ASTSon1(pointer_tree), 
+                            &nested_name_spec, &unqualified_id);
+
+                    entry_list = query_nested_name(decl_context, 
+                            global_op, 
+                            nested_name_spec,
+                            unqualified_id);
+
+                    if (entry_list != NULL)
+                    {
+                        *declarator_type = get_pointer_to_member_type(pointee_type, entry_list->entry);
+                    }
+                    else
+                    {
+                        running_error("Class name '%s%s%s' not found\n", 
+                                prettyprint_in_buffer(global_op), 
+                                prettyprint_in_buffer(nested_name_spec),
+                                prettyprint_in_buffer(unqualified_id));
+                    }
                 }
+                *declarator_type = get_cv_qualified_type(*declarator_type, 
+                        compute_cv_qualifier(ASTSon2(pointer_tree)));
+                break;
             }
-            *declarator_type = get_cv_qualified_type(*declarator_type, 
-                    compute_cv_qualifier(ASTSon2(pointer_tree)));
-            break;
         case AST_REFERENCE_SPEC :
-            *declarator_type = get_lvalue_reference_type(pointee_type);
-            break;
+            {
+                if (!is_lvalue_reference_type(pointee_type)
+                        && !is_rvalue_reference_type(pointee_type))
+                {
+                    *declarator_type = get_lvalue_reference_type(pointee_type);
+                }
+                else
+                {
+                    /* 
+                     * FIXME: It is unclear what happens with qualifiers here
+                     */
+                    /* 
+                     * Something that was a reference (either lvalue or rvalue)
+                     * and is lvalue-referenced turns into rvalue referenced
+                     */
+                    *declarator_type = get_lvalue_reference_type(
+                            reference_type_get_referenced_type(pointee_type)
+                            );
+                }
+                break;
+            }
+        case AST_RVALUE_REFERENCE_SPEC :
+            {
+                if (!is_lvalue_reference_type(pointee_type)
+                        && !is_rvalue_reference_type(pointee_type))
+                {
+                    *declarator_type = get_rvalue_reference_type(pointee_type);
+                }
+                else
+                {
+                    /* 
+                     * FIXME: It is unclear what happens with qualifiers here
+                     */
+                    *declarator_type = pointee_type;
+                }
+                break;
+            }
         case AST_GCC_REFERENCE_SPEC :
-            *declarator_type = get_lvalue_reference_type(pointee_type);
-            *declarator_type = get_cv_qualified_type(*declarator_type, 
-                    compute_cv_qualifier(ASTSon0(pointer_tree)));
-            break;
+            {
+                *declarator_type = get_lvalue_reference_type(pointee_type);
+                *declarator_type = get_cv_qualified_type(*declarator_type, 
+                        compute_cv_qualifier(ASTSon0(pointer_tree)));
+                break;
+            }
         default :
             internal_error("Unhandled node type '%s'\n", ast_print_node_type(ASTType(pointer_tree)));
             break;
