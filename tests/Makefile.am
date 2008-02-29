@@ -11,6 +11,7 @@ DEJATOOL = \
   mcc.typecalc \
   mcxx.typecalc \
   mcxx.torture \
+  mcxx.cxx0x \
   $(ADDITIONAL_TESTS) \
   $(NULL)
 
