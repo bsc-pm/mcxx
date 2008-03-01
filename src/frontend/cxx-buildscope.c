@@ -2779,8 +2779,15 @@ static void build_scope_declarator_with_parameter_context(AST a,
         }
         else
         {
-            *declarator_type = get_vector_type(type_info,
-                    gather_info->vector_size);
+            // We do not want a 'vector 16 to volatile float' but a 
+            // 'volatile vector to 16 float'
+            cv_qualifier_t cv_qualif = get_cv_qualifier(type_info);
+            type_t* base_vector_type = get_unqualified_type(type_info);
+
+            *declarator_type = get_cv_qualified_type(
+                    get_vector_type(base_vector_type,
+                        gather_info->vector_size), 
+                    cv_qualif);
         }
     }
 
