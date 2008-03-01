@@ -110,6 +110,23 @@ static type_t* lvalue_ref(type_t* t)
     return t;
 }
 
+static type_t* lvalue_ref_for_implicit_arg(type_t* t)
+{
+    CXX_LANGUAGE()
+    {
+        // If it is not a reference at all return a lvalue-reference
+        if (!is_lvalue_reference_type(t)
+                && !is_rvalue_reference_type(t))
+            return get_lvalue_reference_type(t);
+        // If it is a rvalue-reference, get a lvalue-reference for it
+        else if (is_rvalue_reference_type(t))
+            return get_lvalue_reference_type(
+                    reference_type_get_referenced_type(t));
+        // Otherwise it is already a lvalue-reference
+    }
+    return t;
+}
+
 static
 scope_entry_t* expand_template_given_arguments(scope_entry_t* entry,
         type_t** argument_types, int num_arguments, decl_context_t decl_context,
@@ -5433,7 +5450,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             }
             else
             {
-                argument_types[0] = lvalue_ref(class_type);
+                argument_types[0] = lvalue_ref_for_implicit_arg(class_type);
             }
         }
         else if (ASTType(called_expression) == AST_POINTER_CLASS_MEMBER_ACCESS)
@@ -5462,7 +5479,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             }
             else
             {
-                argument_types[0] = lvalue_ref(class_type);
+                argument_types[0] = lvalue_ref_for_implicit_arg(class_type);
             }
         }
         else if (any_is_member_function(candidates)
@@ -5491,7 +5508,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 {
                     type_t* class_type = this_symbol->type_information;
                     class_type = pointer_type_get_pointee_type(class_type);
-                    argument_types[0] = lvalue_ref(class_type);
+                    argument_types[0] = lvalue_ref_for_implicit_arg(class_type);
                 }
             }
             else
@@ -5510,7 +5527,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         }
         type_t* class_type = no_ref(ASTExprType(called_expression));
         // This is a call to a nonstatic member function
-        argument_types[0] = lvalue_ref(ASTExprType(called_expression));
+        argument_types[0] = lvalue_ref_for_implicit_arg(ASTExprType(called_expression));
 
         static AST operator = NULL;
         if (operator == NULL)
@@ -6998,6 +7015,11 @@ char check_for_initialization(AST initializer, decl_context_t decl_context)
 
 AST advance_expression_nest(AST expr)
 {
+    return advance_expression_nest_flags(expr, 1);
+}
+
+AST advance_expression_nest_flags(AST expr, char advance_parentheses)
+{
     AST result = expr;
 
     for ( ; ; )
@@ -7006,9 +7028,22 @@ AST advance_expression_nest(AST expr)
         {
             case AST_EXPRESSION : 
             case AST_CONSTANT_EXPRESSION : 
+                {
+                    result = ASTSon0(result);
+                    break;
+                }
             case AST_PARENTHESIZED_EXPRESSION :
-                result = ASTSon0(result);
-                break;
+                {
+                    if (advance_parentheses)
+                    {
+                        result = ASTSon0(result);
+                    }
+                    else
+                    {
+                        return result;
+                    }
+                    break;
+                }
             default:
                 return result;
         }

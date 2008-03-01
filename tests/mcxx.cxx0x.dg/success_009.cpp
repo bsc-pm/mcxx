@@ -1,3 +1,4 @@
 typedef int& A;
 typedef int&& B;
-typedef A& B;
+typedef B& A;
+typedef A& A;

@@ -1,10 +1,10 @@
 struct A
 {
-    int i;
+    int a;
 } *pA;
 
 typedef decltype(pA->a) T;
 typedef int T;
 
-typedef decltype((pA->)) Q;
+typedef decltype((pA->a)) Q;
 typedef int &Q;

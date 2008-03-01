@@ -1058,7 +1058,10 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
             // C++0x
         case AST_DECLTYPE :
             {
-                AST expression = ASTSon0(a);
+                // Advance just before parentheses 
+                // (a normal call to 'advance_expression_nest' would advance after them)
+                AST expression = advance_expression_nest_flags(ASTSon0(a), /* advance_parentheses */ 0);
+
                 // Compute the expression type and use it for the whole type
                 if (check_for_expression(expression, decl_context)
                         && (ASTExprType(expression) != NULL))
@@ -1103,6 +1106,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                                 // return 'lvalues' with form of 'reference to
                                 // type'. So, we do not need to update the type
                                 *simple_type_info = computed_type;
+                                break;
                             }
                     }
                 }
