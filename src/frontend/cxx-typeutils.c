@@ -5784,6 +5784,21 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             return 1;
         }
     }
+    // cv1 T1& -> cv2 T&&
+    if (is_lvalue_reference_type(orig)
+            && is_rvalue_reference_type(dest)
+            && equivalent_types(get_unqualified_type(reference_type_get_referenced_type(orig)),
+                get_unqualified_type(reference_type_get_referenced_type(dest)), decl_context)
+            && is_more_or_equal_cv_qualified_type(reference_type_get_referenced_type(dest),
+                reference_type_get_referenced_type(orig)))
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "SCS: Thi is a binding to a rvalue-reference by means of a lvalue\n");
+        }
+        (*result) = identity_scs(t_orig, t_dest);
+        return 1;
+    }
     // cv1 T1& -> cv2 T2&
     if (is_lvalue_reference_type(orig)
             && is_lvalue_reference_type(dest))
