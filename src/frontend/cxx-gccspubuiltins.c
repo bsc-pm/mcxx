@@ -327,7 +327,7 @@ static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* 
             //     all_arguments_matched = 0;
             // }
             all_arguments_matched = all_arguments_matched 
-                && equivalent_types(argument_type,
+                && equivalent_types(get_unqualified_type(argument_type),
                         parameter_type,
                         overloaded_function->decl_context);
         }
