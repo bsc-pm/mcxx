@@ -146,10 +146,10 @@ binary_exponent_part ([pP]([+-])?{digit}+)
 %x pragma_custom_directive
 %x pragma_custom_clause
 %x pragma_custom_clause_first
+%x pragma_custom_var_list
 
 %s openmp_var_list
 %s openmp_schedule
-%s pragma_custom_var_list
 
 %%
  /* preprocess */
