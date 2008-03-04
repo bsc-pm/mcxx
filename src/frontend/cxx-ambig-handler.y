@@ -6,7 +6,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 
 	if (son0 == son1) 
 	{
-		fprintf(stderr, "Ambiguity function received two trees that are the same!");
+		fprintf(stderr, "Ambiguity function received two trees that are the same!\n");
 		exit(EXIT_FAILURE);
 	}
 
