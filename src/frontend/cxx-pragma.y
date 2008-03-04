@@ -160,23 +160,23 @@ pragma_clause_arg_item : pragma_clause_arg_text
 }
 | '(' pragma_clause_arg_item_nested ')'
 {
-    int len = strlen($2);
-    char *c = calloc(1, len + 2 + 1 + sizeof(c));
-    sprintf(c, "(%s)", $2);
-    $$ = c;
+    char c[256];
+    snprintf(c, 255, "(%s)", $2);
+    c[255] = '\0';
+    $$ = uniquestr(c);
 }
 | '[' pragma_clause_arg_item_nested ']'
 {
-    int len = strlen($2);
-    char *c = calloc(1, len + 2 + 1 + sizeof(c));
-    sprintf(c, "[%s]", $2);
+    char c[256];
+    snprintf(c, 255, "[%s]", $2);
+    c[255] = '\0';
     $$ = c;
 }
 | '{' pragma_clause_arg_item_nested '}'
 {
-    int len = strlen($2);
-    char *c = calloc(1, len + 2 + 1 + sizeof(c));
-    sprintf(c, "{%s}", $2);
+    char c[256];
+    snprintf(c, 255, "{%s}", $2);
+    c[255] = '\0';
     $$ = c;
 }
 | '(' ')'
