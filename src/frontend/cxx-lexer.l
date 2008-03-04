@@ -480,7 +480,24 @@ threadprivate {
     }
 }
 
-[^,({[\]})\n]+ {
+{idnondigit}({idnondigit}|{digit})* {
+    if (pragma_custom_var_list_parentheses > 0)
+    {
+        parse_token_text();
+        return PRAGMA_CLAUSE_ARG_TEXT;
+    }
+    else
+    {
+        // We are in (*)
+        // #pragma foo bar (*) doe
+        // and 'doe' must be lexed as another custom clause
+        BEGIN(pragma_custom_var_list);
+        parse_token_text(); 
+        return PRAGMA_CUSTOM_CLAUSE; 
+    }
+}
+
+. {
     parse_token_text();
     return PRAGMA_CLAUSE_ARG_TEXT;
 }
