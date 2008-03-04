@@ -1588,7 +1588,21 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
 {
     int num_arguments = count_null_ended_array((void**)CURRENT_CONFIGURATION(preprocessor_options));
 
-    const char** preprocessor_options = calloc(num_arguments + 3 + 1, sizeof(char*));
+    char uses_stdout = CURRENT_CONFIGURATION(preprocessor_uses_stdout);
+
+    int num_parameters;
+
+    if (!uses_stdout)
+    {
+        num_parameters = num_arguments + 3 + 1;
+    }
+    else
+    {
+        // '-o' 'file' are not passed
+        num_parameters = num_arguments + 1 + 1;
+    }
+
+    const char** preprocessor_options = calloc(num_parameters, sizeof(char*));
 
     int i;
     for (i = 0; i < num_arguments; i++)
@@ -1618,14 +1632,27 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
         }
     }
 
-    preprocessor_options[i] = uniquestr("-o"); 
-    i++;
-    preprocessor_options[i] = preprocessed_filename;
-    i++;
-    preprocessor_options[i] = input_filename;
+    const char *stdout_file = NULL;
 
-    int result_preprocess = execute_program(CURRENT_CONFIGURATION(preprocessor_name),
-            preprocessor_options);
+    if (!uses_stdout)
+    {
+        preprocessor_options[i] = uniquestr("-o"); 
+        i++;
+        preprocessor_options[i] = preprocessed_filename;
+        i++;
+        preprocessor_options[i] = input_filename;
+        i++;
+    }
+    else
+    {
+        stdout_file = preprocessed_filename;
+
+        preprocessor_options[i] = input_filename;
+        i++;
+    }
+
+    int result_preprocess = execute_program_flags(CURRENT_CONFIGURATION(preprocessor_name),
+            preprocessor_options, stdout_file, /* stderr_f */ NULL);
 
     if (result_preprocess == 0)
     {

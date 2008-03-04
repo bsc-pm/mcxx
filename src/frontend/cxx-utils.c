@@ -252,6 +252,11 @@ const char* get_extension_filename(const char* filename)
 
 int execute_program(const char* program_name, const char** arguments)
 {
+    return execute_program_flags(program_name, arguments, /* stdout_f */ NULL, /* stderr_f */ NULL);
+}
+
+int execute_program_flags(const char* program_name, const char** arguments, const char* stdout_f, const char* stderr_f)
+{
     int num = count_null_ended_array((void**)arguments);
 
     const char** execvp_arguments = calloc(num + 1 + 1, sizeof(char*));
@@ -274,6 +279,16 @@ int execute_program(const char* program_name, const char** arguments)
             fprintf(stderr, "%s ", execvp_arguments[j]);
             j++;
         }
+
+        if (stdout_f != NULL)
+        {
+            fprintf(stderr, "1> %s ", stdout_f);
+        }
+        if (stderr_f != NULL)
+        {
+            fprintf(stderr, "2> %s ", stderr_f);
+        }
+
         fprintf(stderr, "\n");
     }
 
@@ -286,6 +301,36 @@ int execute_program(const char* program_name, const char** arguments)
     }
     else if (spawned_process == 0) // I'm the spawned process
     {
+        // Redirect output files as needed
+        if (stdout_f != NULL)
+        {
+            FILE *new_stdout = fopen(stdout_f, "w");
+            if (new_stdout == NULL)
+            {
+                running_error("Could not redirect standard output to '%s' (%s)",
+                        stdout_f,
+                        strerror(errno));
+            }
+
+            int fd = fileno(new_stdout);
+            close(1);
+            dup(fd);
+        }
+        if (stderr_f != NULL)
+        {
+            FILE *new_stderr = fopen(stderr_f, "w");
+            if (new_stderr == NULL)
+            {
+                running_error("Could not redirect standard error to '%s' (%s)",
+                        stderr_f,
+                        strerror(errno));
+            }
+
+            int fd = fileno(new_stderr);
+            close(2);
+            dup(fd);
+        }
+        
         // The cast is here because execvp prototype does not get 
         // 'const char* const*' but 'char *const*'
         execvp(program_name, (char**)execvp_arguments);

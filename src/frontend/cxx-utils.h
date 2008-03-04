@@ -160,6 +160,8 @@ void temporal_files_cleanup(void);
 const char* get_extension_filename(const char* filename);
 
 int execute_program(const char* program_name, const char** arguments);
+int execute_program_flags(const char* program_name, const char** arguments, 
+        const char *stdout_f, const char *stderr_f);
 
 // char** routines
 const char** comma_separate_values(const char* value, int* num_elems);

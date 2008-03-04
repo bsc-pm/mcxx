@@ -228,6 +228,7 @@ typedef struct compilation_configuration_tag
     // Toolchain information
     const char* preprocessor_name;
     const char** preprocessor_options;
+    char preprocessor_uses_stdout;
 
     const char* native_compiler_name;
     const char** native_compiler_options;

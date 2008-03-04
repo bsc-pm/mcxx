@@ -25,6 +25,39 @@
 #include <stdio.h>
 #include <string.h>
 
+// Returns 0, 1 or -1 if an error
+static void parse_boolean(const char *c, int *value)
+{
+    char * valid_trues[] = { "1", "yes", "true", NULL };
+    char * valid_falses[] = { "0", "no", "false", NULL };
+
+    *value = -1;
+
+    // Maybe is true
+    int i = 0;
+    while (valid_trues[i] != NULL)
+    {
+        if (strcasecmp(c, valid_trues[i]) == 0)
+        {
+            *value = 1;
+            return;
+        }
+        i++;
+    }
+    
+    // Maybe is false
+    i = 0;
+    while (valid_falses[i] != NULL)
+    {
+        if (strcasecmp(c, valid_falses[i]) == 0)
+        {
+            *value = 0;
+            return;
+        }
+        i++;
+    }
+}
+
 // Set source language
 int config_set_language(struct compilation_configuration_tag* config, const char* value)
 {
@@ -97,6 +130,24 @@ int config_set_preprocessor_options(struct compilation_configuration_tag* config
     const char** blank_separated_options = blank_separate_values(value, &num);
 
     add_to_parameter_list(&config->preprocessor_options, blank_separated_options, num);
+
+    return 0;
+}
+
+int config_set_preprocessor_uses_stdout(struct compilation_configuration_tag * config, const char *value)
+{
+    int bool_value = -1;
+
+    parse_boolean(value, &bool_value);
+
+    if (bool_value == -1)
+    {
+        fprintf(stderr, "Warning: value given for 'preprocessor_uses_stdout' is not a valid boolean value. Skipping\n");
+    }
+    else
+    {
+        config->preprocessor_uses_stdout = bool_value;
+    }
 
     return 0;
 }
