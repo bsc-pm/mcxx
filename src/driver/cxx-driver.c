@@ -86,6 +86,7 @@ compilation_process_t compilation_process;
 "                           compilation\n" \
 "  --cc=<name>              Another name for --cxx=<name>\n" \
 "  --ld=<name>              Linker <name> will be used for linking\n" \
+"  --pp-stdout              Preprocessor uses stdout for output\n" \
 "  --Wp,<options>           Pass comma-separated <options> on to\n" \
 "                           the preprocessor\n" \
 "  --Wn,<options>           Pass comma-separated <options> on to\n" \
@@ -156,6 +157,7 @@ struct command_line_long_options command_line_long_options[] =
     {"no-openmp", CLP_NO_ARGUMENT, OPTION_NO_OPENMP},
     {"variable", CLP_REQUIRED_ARGUMENT, OPTION_EXTERNAL_VAR},
     {"typecheck", CLP_NO_ARGUMENT, OPTION_TYPECHECK},
+    {"pp-stdout", CLP_NO_ARGUMENT, OPTION_PREPROCESSOR_USES_STDOUT},
     // sentinel
     {NULL, 0, 0}
 };
@@ -612,7 +614,11 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                 case OPTION_TYPECHECK :
                     {
                         CURRENT_CONFIGURATION(strict_typecheck) = 1;
-
+                        break;
+                    }
+                case OPTION_PREPROCESSOR_USES_STDOUT :
+                    {
+                        CURRENT_CONFIGURATION(preprocessor_uses_stdout) = 1;
                         break;
                     }
                 case 'h' :
