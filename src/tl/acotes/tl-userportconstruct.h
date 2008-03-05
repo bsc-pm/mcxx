@@ -53,6 +53,7 @@ namespace TL { namespace Acotes {
         void onPost();
     private:
         void onPreInputPort(UserPort* userPort);
+        void onPreInputReplicatePort(UserPort* userPort);
         void onPreOutputPort(UserPort* userPort);
     };
     

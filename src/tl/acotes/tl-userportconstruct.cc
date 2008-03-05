@@ -60,6 +60,7 @@ namespace TL { namespace Acotes {
         UserPort* userPort= UserPort::create(construct, task);
 
         onPreInputPort(userPort);
+        onPreInputReplicatePort(userPort);
         onPreOutputPort(userPort);
     }
 
@@ -74,6 +75,25 @@ namespace TL { namespace Acotes {
             Port* port= Port::createInputPort(variable);
             if (stateClause.hasLabel(i)) {
                 port->setName(stateClause.getLabel(i));
+                userPort->addInputPort(port);
+            } else {
+                AcotesLogger::error(this)
+                        << "input variable '" << variable->getName() << "'"
+                        << "has no label"
+                        << std::endl;
+            }
+        }
+    }
+    
+    void UserPortConstruct::onPreInputReplicatePort(UserPort* userPort) {
+        VariableClause stateClause(get_clause("inputreplicate"), userPort->getTask());
+        
+        for (unsigned i= 0; i < stateClause.getVariableCount(); i++) {
+            Variable* variable= stateClause.getVariable(i);
+            Port* port= Port::createInputPort(variable);
+            if (stateClause.hasLabel(i)) {
+                port->setName(stateClause.getLabel(i));
+                port->setReplicate(true);
                 userPort->addInputPort(port);
             } else {
                 AcotesLogger::error(this)
