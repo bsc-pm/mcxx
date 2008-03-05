@@ -1,6 +1,6 @@
-void f(int&);
+void f(int&&);
 
-void g(int &&a)
+void g(int &a)
 {
     f(a);
 }
