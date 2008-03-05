@@ -5794,7 +5794,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     {
         DEBUG_CODE()
         {
-            fprintf(stderr, "SCS: Thi is a binding to a rvalue-reference by means of a lvalue\n");
+            fprintf(stderr, "SCS: This is a binding to a rvalue-reference by means of a lvalue\n");
         }
         (*result) = identity_scs(t_orig, t_dest);
         return 1;

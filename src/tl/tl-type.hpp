@@ -300,6 +300,14 @@ namespace TL
             //! For a template-specialized type return the list of template-parameters
             ObjectList<Symbol> get_template_parameters() const;
 
+            //! States whether two types represent the same type
+            /*!
+            * Note that this function will return true whenever 'operator==' returns
+            * true, but this function might return true even if 'operator==' returned false.
+            * So do not use 'operator==' to check type system equality.
+            */
+            bool is_same_type(Type t, Scope sc);
+
             /* We should consider to remove this one day */
             friend class Symbol;
             friend class Source;

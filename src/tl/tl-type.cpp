@@ -509,4 +509,9 @@ namespace TL
 
         return result;
     }
+
+    bool Type::is_same_type(Type t, Scope sc)
+    {
+        return equivalent_types(this->_type_info, t._type_info, sc._decl_context);
+    }
 }
