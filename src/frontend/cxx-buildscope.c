@@ -1926,7 +1926,7 @@ static char class_has_const_copy_assignment_operator(type_t* t)
         //    operator=(const T&)
         //    operator=(const volatile T&)
         if (is_lvalue_reference_to_class_type(first_param_type)
-                && is_const_qualified_type(first_param_type))
+                && is_const_qualified_type(reference_type_get_referenced_type(first_param_type)))
         {
                 return 1;
         }
@@ -1958,7 +1958,7 @@ static char class_has_const_copy_constructor(type_t* t)
         type_t* first_param_type = function_type_get_parameter_type_num(copy_assig_op->type_information, 0);
 
         if (is_lvalue_reference_to_class_type(first_param_type)
-                && is_const_qualified_type(first_param_type))
+                && is_const_qualified_type(reference_type_get_referenced_type(first_param_type)))
         {
                 return 1;
         }
