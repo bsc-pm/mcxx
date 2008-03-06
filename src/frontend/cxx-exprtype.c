@@ -6684,13 +6684,16 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
             {
                 // This is never ambiguous
                 AST expression_list = ASTSon0(initializer);
-                AST iter;
-                for_each_element(expression_list, iter)
+                if (expression_list != NULL)
                 {
-                    AST initializer_clause = ASTSon1(iter);
+                    AST iter;
+                    for_each_element(expression_list, iter)
+                    {
+                        AST initializer_clause = ASTSon1(iter);
 
-                    if (!check_for_initializer_clause(initializer_clause, decl_context))
-                        return 0;
+                        if (!check_for_initializer_clause(initializer_clause, decl_context))
+                            return 0;
+                    }
                 }
                 return 1;
             }
@@ -6737,13 +6740,17 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
 
 static char check_for_initializer_list(AST initializer_list, decl_context_t decl_context)
 {
-    AST iter;
-    for_each_element(initializer_list, iter)
+    if (initializer_list != NULL)
     {
-        AST initializer_clause = ASTSon1(iter);
+        AST iter;
 
-        if (!check_for_initializer_clause(initializer_clause, decl_context))
-            return 0;
+        for_each_element(initializer_list, iter)
+        {
+            AST initializer_clause = ASTSon1(iter);
+
+            if (!check_for_initializer_clause(initializer_clause, decl_context))
+                return 0;
+        }
     }
 
     return 1;
