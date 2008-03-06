@@ -51,45 +51,7 @@ namespace TL
 		// Check if the function was already declared or even defined
 		// If already declared, then check that the parameters are equivalent
 		//
-		if (existed)
-		{
-			if (function_info._definition_count != 0)
-			{
-				std::cerr << function_definition.get_ast().get_locus() << " Error: redefinition of function '" << function_name << "'." << std::endl;
-				std::cerr << function_info._definition_locus << " previously defined here." << std::endl;
-				function_info._has_errors = true;
-				PreAnalysis::fail();
-				return;
-			}
-			
-			// Check parameter compatibility with previous declaration
-			if (has_ellipsis != function_info._has_ellipsis || parameters.size() != function_info._parameters.size())
-			{
-				std::cerr << function_definition.get_ast().get_locus() << " Error: definition of function '" << function_name << "' with different number of parameters than previous declaration." << std::endl;
-				function_info._has_errors = true;
-				PreAnalysis::fail();
-			}
-			
-			ObjectList<ParameterDeclaration>::iterator declarations_it = parameters.begin();
-			ObjectList<ParameterInfo>::iterator parameter_info_it = function_info._parameters.begin();
-			for (; declarations_it != parameters.end(); declarations_it++, parameter_info_it++)
-			{
-				ParameterDeclaration parameter_declaration = *declarations_it;
-				ParameterInfo &parameter_info = *parameter_info_it;
-				
-				if (!TypeUtils::parameter_types_match(parameter_declaration.get_type().original_type(), parameter_info._declaration_type, ctx.scope_link))
-				{
-					std::cerr << function_definition.get_ast().get_locus() << " Error: definition of function '" << function_name << "' with parameter '"
-					<< parameter_declaration.get_type().original_type().get_simple_declaration(function_definition.get_scope(), parameter_declaration.get_name().mangle_id_expression())
-					<< "' differs from type '"
-					<< parameter_info._declaration_type.get_simple_declaration(function_info._declaration_scope, "")
-					<< "'." << std::endl;
-					std::cerr << function_info._declaration_locus << " previously declared here." << std::endl;
-					function_info._has_errors = true;
-					PreAnalysis::fail();
-				}
-			}
-		}
+		// This is already done by the semantic check
 		
 		//
 		// Handle the function definition itself
@@ -105,14 +67,6 @@ namespace TL
 		{
 			ParameterDeclaration parameter_declaration = *it;
 			Type type = parameter_declaration.get_type();
-			
-			if (!parameter_declaration.is_named())
-			{
-				std::cerr << function_definition.get_ast().get_locus() << " Error: definition of function '" << function_name << "' with unnamed parameter.";
-				function_info._has_errors = true;
-				PreAnalysis::fail();
-				return;
-			}
 			
 			std::string parameter_name = parameter_declaration.get_name().mangle_id_expression();
 			
@@ -170,91 +124,7 @@ namespace TL
 		// Check if the function was already declared or even defined
 		// If already declared, then check that the parameters are equivalent
 		//
-		if (existed)
-		{
-			// Redeclaration
-			if (function_info._declaration_count != 0)
-			{
-				// std::cerr << function_declaration.get_ast().get_locus() << " Warning: redeclaration of function '" << function_name << "'." << std::endl;
-				
-				// Check parameter compatibility with previous declaration
-				if (has_ellipsis != function_info._has_ellipsis || parameters.size() != function_info._parameters.size())
-				{
-					std::cerr << function_declaration.get_ast().get_locus() << " Error: redeclaration of function '" << function_name << "' with different number of parameters than previous declaration." << std::endl;
-					std::cerr << function_info._declaration_locus << " Previous declaration." << std::endl;
-					function_info._has_errors = true;
-					PreAnalysis::fail();
-				}
-				
-				unsigned int parameter_index = 0;
-				ObjectList<ParameterDeclaration>::iterator declarations_it = parameters.begin();
-				ObjectList<ParameterInfo>::iterator parameter_info_it = function_info._parameters.begin();
-				for (; declarations_it != parameters.end(); declarations_it++, parameter_info_it++)
-				{
-					ParameterDeclaration parameter_declaration = *declarations_it;
-					ParameterInfo &parameter_info = *parameter_info_it;
-					
-					if (!TypeUtils::parameter_types_match(parameter_declaration.get_type().original_type(), parameter_info._declaration_type, ctx.scope_link))
-					{
-						if (parameter_declaration.is_named())
-						{
-							std::cerr << function_declaration.get_ast().get_locus() << " Error: redeclaration of function '" << function_name << "' with parameter '"
-							<< parameter_declaration.get_type().original_type().get_simple_declaration(function_declaration.get_scope(), parameter_declaration.get_name().mangle_id_expression())
-							<< "' differs from previous declaration with type '"
-							<< parameter_info._declaration_type.get_simple_declaration(function_info._declaration_scope, "")
-							<< "'." << std::endl;
-							std::cerr << function_info._declaration_locus << " Previous declaration." << std::endl;
-						}
-						else
-						{
-							std::cerr << function_declaration.get_ast().get_locus() << " Error: redeclaration of function '" << function_name
-							<< "' with parameter number " << parameter_index
-							<< " differs from previous declaration with type '"
-							<< parameter_info._declaration_type.get_simple_declaration(function_info._declaration_scope, "")
-							<< "'." << std::endl;
-							std::cerr << function_info._declaration_locus << " Previous declaration." << std::endl;
-						}
-						function_info._has_errors = true;
-						PreAnalysis::fail();
-					}
-				}
-				parameter_index++;
-			} // Redeclaration
-			
-			// Declaration after definition
-			if (function_info._definition_count != 0)
-			{
-				// Check parameter compatibility with previous definition
-				if (has_ellipsis != function_info._has_ellipsis || parameters.size() != function_info._parameters.size())
-				{
-					std::cerr << function_declaration.get_ast().get_locus() << " Error: declaration of function '" << function_name << "' with different number of parameters than previous definition." << std::endl;
-					std::cerr << function_info._definition_locus << " previously defined here." << std::endl;
-					function_info._has_errors = true;
-					PreAnalysis::fail();
-				}
-				
-				ObjectList<ParameterDeclaration>::iterator declarations_it = parameters.begin();
-				ObjectList<ParameterInfo>::iterator parameter_info_it = function_info._parameters.begin();
-				for (; declarations_it != parameters.end(); declarations_it++, parameter_info_it++)
-				{
-					ParameterDeclaration parameter_declaration = *declarations_it;
-					ParameterInfo &parameter_info = *parameter_info_it;
-					
-					if (!TypeUtils::parameter_types_match(parameter_declaration.get_type().original_type(), parameter_info._declaration_type, ctx.scope_link))
-					{
-						std::cerr << function_declaration.get_ast().get_locus() << " Error: declaration of function '" << function_name << "' with parameter '"
-						<< parameter_declaration.get_type().original_type().get_simple_declaration(function_declaration.get_scope(), parameter_declaration.get_name().mangle_id_expression())
-						<< "' differs from previous definition with type '"
-						<< parameter_info._declaration_type.get_simple_declaration(function_info._definition_scope, "")
-						<< "'." << std::endl;
-						std::cerr << function_info._definition_locus << " previously defined here." << std::endl;
-						function_info._has_errors = true;
-						PreAnalysis::fail();
-					}
-				}
-			} // Declaration after definition
-			
-		}
+		// This is already done by the semantic check
 		
 		//
 		// Handle the function declaration itself
