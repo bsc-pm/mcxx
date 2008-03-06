@@ -403,6 +403,12 @@ namespace TL
 			return;
 		}
 		
+		function_info._task_declarations_processed++;
+		if (function_info._task_declarations_processed != function_info._task_declaration_count)
+		{
+			// Skip adaptor generation until the last declaration
+			return;
+		}
 		
 		if (_generate_non_task_side)
 		{

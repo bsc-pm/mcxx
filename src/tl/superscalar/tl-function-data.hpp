@@ -84,6 +84,7 @@ namespace TL
 			unsigned int _declaration_count;
 			unsigned int _task_definition_count;
 			unsigned int _task_declaration_count;
+			unsigned int _task_declarations_processed;
 			std::string _definition_locus;
 			std::string _declaration_locus;
 			std::string _task_definition_locus;
@@ -95,6 +96,7 @@ namespace TL
 				_is_on_task_side(false), _is_on_non_task_side(false), _parameters(), _has_ellipsis(false),
 				_definition_scope(), _declaration_scope(),
 				_definition_count(0), _declaration_count(0), _task_definition_count(0), _task_declaration_count(0),
+				_task_declarations_processed(0),
 				_has_errors(false)
 				{
 				}
