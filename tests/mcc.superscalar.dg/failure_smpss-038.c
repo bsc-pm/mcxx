@@ -1,4 +1,4 @@
-#pragma css target fake
+#pragma css target ppu fake
 void f(); 
 
 
