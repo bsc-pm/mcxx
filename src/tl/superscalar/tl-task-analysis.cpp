@@ -117,7 +117,6 @@ namespace TL
 			parameter_info._symbol = parameter_symbol;
 			parameter_info._augmented_definition_type = parameter_type;
 			parameter_info._augmented_definition_locus = construct.get_ast().get_locus();
-			parameter_info._direction = direction;
 			parameter_info._directionality_definition_count++;
 			
 			if (parameter_info._directionality_definition_count != function_info._task_definition_count)
@@ -160,6 +159,7 @@ namespace TL
 					TaskAnalysis::fail();
 				}
 			}
+			parameter_info._direction = direction;
 		}
 		catch (SyntaxErrorException ex)
 		{
@@ -223,7 +223,6 @@ namespace TL
 			parameter_info._symbol = parameter_symbol;
 			parameter_info._augmented_declaration_type = parameter_type;
 			parameter_info._augmented_declaration_locus = construct.get_ast().get_locus();
-			parameter_info._direction = direction;
 			parameter_info._directionality_declaration_count++;
 			
 			if (parameter_info._directionality_declaration_count != function_info._task_declaration_count)
@@ -266,6 +265,7 @@ namespace TL
 					TaskAnalysis::fail();
 				}
 			}
+			parameter_info._direction = direction;
 		}
 		catch (SyntaxErrorException ex)
 		{
