@@ -76,8 +76,6 @@ namespace TL
 		// Get the original type
 		scope_entry_t* entry = entry_list->entry;
 		original_symbol = Symbol(entry);
-		//name = original_symbol.get_name();
-		Type old_type = original_symbol.get_type().original_type();
 		
 		// Create a new variable inside the "virtual" scope, with both, the old type and the declarator part
 		gather_decl_spec_t gather_info;
