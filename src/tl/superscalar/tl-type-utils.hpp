@@ -165,7 +165,7 @@ namespace TL
 					// void f(type *a)
 					return remove_inner_pointer(augmented_type, scope_link);
 				}
-				else if (original_type.is_pointer() == augmented_type.is_pointer())
+				else if ( original_type.is_pointer() == (augmented_type.is_pointer() || augmented_type.is_array()) )
 				{
 					// #pragma css task direction(a)
 					// void f(type *a)
