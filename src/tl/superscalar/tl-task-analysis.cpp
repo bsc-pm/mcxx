@@ -587,6 +587,14 @@ namespace TL
 			TaskAnalysis::fail();
 		}
 		
+		if (!target_ppu.is_defined() && !target_spu.is_defined())
+		{
+			std::cerr << construct.get_ast().get_locus () << " Error: 'target' construct without any architecture." << std::endl;
+			function_info._has_errors = true;
+			TaskAnalysis::fail();
+			return;
+		}
+		
 		function_info._is_on_task_side = target_spu.is_defined();
 		function_info._is_on_non_task_side = target_ppu.is_defined();
 	}
@@ -626,6 +634,27 @@ namespace TL
 		// FIXME: These names are too Cell specific
 		PragmaCustomClause target_spu = construct.get_clause("spu");
 		PragmaCustomClause target_ppu = construct.get_clause("ppu");
+		
+		if (target_spu.is_defined() && !target_spu.get_arguments().empty())
+		{
+			std::cerr << construct.get_ast().get_locus() << " Error: the 'spu' clause does not accept any parameter." << std::endl;
+			function_info._has_errors = true;
+			TaskAnalysis::fail();
+		}
+		if (target_ppu.is_defined() && !target_ppu.get_arguments().empty())
+		{
+			std::cerr << construct.get_ast().get_locus () << " Error: the 'ppu' clause does not accept any parameter." << std::endl;
+			function_info._has_errors = true;
+			TaskAnalysis::fail();
+		}
+		
+		if (!target_ppu.is_defined() && !target_spu.is_defined())
+		{
+			std::cerr << construct.get_ast().get_locus () << " Error: 'target' construct without any architecture." << std::endl;
+			function_info._has_errors = true;
+			TaskAnalysis::fail();
+			return;
+		}
 		
 		function_info._is_on_task_side = target_spu.is_defined();
 		function_info._is_on_non_task_side = target_ppu.is_defined();
