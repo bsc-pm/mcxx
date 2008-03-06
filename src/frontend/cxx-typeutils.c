@@ -319,7 +319,8 @@ struct simple_type_tag {
     // Template dependent types (STK_TEMPLATE_DEPENDENT_TYPE)
     scope_entry_t* dependent_entry;
     AST dependent_nested_name;
-    AST dependent_unqualifed_part;
+    AST dependent_unqualified_part;
+
 } simple_type_t;
 
 
@@ -547,18 +548,13 @@ type_environment_t* type_environment_linux_ia32 = &type_environment_linux_ia32_;
  * types, comparing function declarations and definitions, etc.
  */
 static type_t* get_aliased_type(type_t* t);
-static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2, 
-        decl_context_t decl_context);
-static char equivalent_array_type(array_info_t* t1, array_info_t* t2, 
-        decl_context_t decl_context);
-static char equivalent_function_type(type_t* t1, type_t* t2, decl_context_t decl_context);
-static char equivalent_vector_type(type_t* t1, type_t* t2, decl_context_t decl_context);
-static char compatible_parameters(function_info_t* t1, function_info_t* t2,
-        decl_context_t decl_context);
-static char compare_template_dependent_typename_types(type_t* t1, type_t* t2,
-        decl_context_t decl_context);
-static char equivalent_pointer_to_member_type(type_t* t1, type_t* t2,
-        decl_context_t decl_context);
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2);
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2);
+static char equivalent_function_type(type_t* t1, type_t* t2);
+static char equivalent_vector_type(type_t* t1, type_t* t2);
+static char compatible_parameters(function_info_t* t1, function_info_t* t2);
+static char compare_template_dependent_typename_types(type_t* t1, type_t* t2);
+static char equivalent_pointer_to_member_type(type_t* t1, type_t* t2);
 
 static long long unsigned int _bytes_due_to_type_system = 0;
 
@@ -920,26 +916,31 @@ type_t* get_user_defined_type(scope_entry_t* entry)
 }
 
 type_t* get_dependent_typename_type(scope_entry_t* dependent_entity, 
-        AST nested_name, AST unqualified_part)
+        decl_context_t decl_context,
+        AST nested_name, 
+        AST unqualified_part)
 {
     type_t* type_info = get_simple_type();
 
     type_info->type->kind = STK_TEMPLATE_DEPENDENT_TYPE;
     type_info->type->dependent_entry = dependent_entity;
+    type_info->type->typeof_decl_context = decl_context;
     type_info->type->dependent_nested_name = nested_name;
-    type_info->type->dependent_unqualifed_part = unqualified_part;
+    type_info->type->dependent_unqualified_part = unqualified_part;
 
     return type_info;
 }
 
 void dependent_typename_get_components(type_t* t, scope_entry_t** dependent_entry, 
+        decl_context_t* decl_context,
         AST *nested_name, AST *unqualified_part)
 {
     ERROR_CONDITION(!is_dependent_typename_type(t), "This is not a dependent typename", 0);
 
     *dependent_entry = t->type->dependent_entry;
+    *decl_context = t->type->typeof_decl_context;
     *nested_name = t->type->dependent_nested_name;
-    *unqualified_part = t->type->dependent_unqualifed_part;
+    *unqualified_part = t->type->dependent_unqualified_part;
 }
 
 type_t* get_new_enum_type(decl_context_t decl_context)
@@ -1144,8 +1145,7 @@ type_t* template_type_get_primary_type(type_t* t)
 
 static char same_template_argument_list(
         template_argument_list_t* template_argument_list_1,
-        template_argument_list_t* template_argument_list_2,
-        decl_context_t decl_context)
+        template_argument_list_t* template_argument_list_2)
 {
     ERROR_CONDITION (
             (template_argument_list_1->num_arguments !=
@@ -1170,7 +1170,7 @@ static char same_template_argument_list(
             case TAK_TYPE:
                 {
                     if (!equivalent_types(targ_1->type,
-                                targ_2->type, decl_context))
+                                targ_2->type))
                     {
                         return 0;
                     }
@@ -1192,7 +1192,7 @@ static char same_template_argument_list(
                     type_t* type_1 = targ_1->type;
                     type_t* type_2 = targ_2->type;
 
-                    if (!equivalent_types(type_1, type_2, decl_context))
+                    if (!equivalent_types(type_1, type_2))
                     {
                         return 0;
                     }
@@ -1269,7 +1269,7 @@ type_t* template_type_get_specialized_type(type_t* t,
                     entry->line);
         }
 
-        if (same_template_argument_list(template_argument_list, arguments, decl_context))
+        if (same_template_argument_list(template_argument_list, arguments))
         {
             DEBUG_CODE()
             {
@@ -2324,7 +2324,7 @@ scope_entry_list_t* class_type_get_all_conversions(type_t* class_type, decl_cont
         {
             scope_entry_t* current = it->entry;
 
-            if (equivalent_types(current->type_information, entry->type_information, decl_context))
+            if (equivalent_types(current->type_information, entry->type_information))
             {
                 // Remove 'it' from the list
                 if (prev_it == NULL)
@@ -2386,8 +2386,7 @@ type_t* advance_over_typedefs(type_t* t1)
  * (ignoring typedefs). Just plain comparison, no standard conversion is
  * performed. cv-qualifiers are relevant for comparison
  */
-static char equivalent_simple_types(type_t *t1, type_t *t2, 
-        decl_context_t decl_context);
+static char equivalent_simple_types(type_t *t1, type_t *t2);
 
 static type_t* advance_dependent_typename(type_t* t)
 {
@@ -2395,12 +2394,13 @@ static type_t* advance_dependent_typename(type_t* t)
 
     cv_qualifier_t cv_qualif = t->cv_qualifier;
 
+    decl_context_t dependent_decl_context;
     scope_entry_t* dependent_entry = NULL;
     AST nested_name = NULL;
     AST unqualified_part = NULL;
 
     dependent_typename_get_components(t, &dependent_entry, 
-            &nested_name, &unqualified_part);
+            &dependent_decl_context, &nested_name, &unqualified_part);
 
     if (dependent_entry->kind == SK_TEMPLATE_TYPE_PARAMETER)
         return t;
@@ -2431,8 +2431,7 @@ static type_t* advance_dependent_typename(type_t* t)
     return t;
 }
 
-
-char equivalent_types(type_t* t1, type_t* t2, decl_context_t decl_context)
+char equivalent_types(type_t* t1, type_t* t2)
 {
 
     ERROR_CONDITION( (t1 == NULL || t2 == NULL), "No type can be null here", 0);
@@ -2490,28 +2489,28 @@ char equivalent_types(type_t* t1, type_t* t2, decl_context_t decl_context)
     switch (t1->kind)
     {
         case TK_DIRECT :
-            result = equivalent_simple_types(t1, t2, decl_context);
+            result = equivalent_simple_types(t1, t2);
             break;
         case TK_POINTER :
-            result = equivalent_pointer_type(t1->pointer, t2->pointer, decl_context);
+            result = equivalent_pointer_type(t1->pointer, t2->pointer);
             break;
         case TK_LVALUE_REFERENCE :
-            result = equivalent_pointer_type(t1->pointer, t2->pointer, decl_context);
+            result = equivalent_pointer_type(t1->pointer, t2->pointer);
             break;
         case TK_RVALUE_REFERENCE :
-            result = equivalent_pointer_type(t1->pointer, t2->pointer, decl_context);
+            result = equivalent_pointer_type(t1->pointer, t2->pointer);
             break;
         case TK_POINTER_TO_MEMBER :
-            result = equivalent_pointer_to_member_type(t1, t2, decl_context);
+            result = equivalent_pointer_to_member_type(t1, t2);
             break;
         case TK_ARRAY :
-            result = equivalent_array_type(t1->array, t2->array, decl_context);
+            result = equivalent_array_type(t1->array, t2->array);
             break;
         case TK_FUNCTION :
-            result = equivalent_function_type(t1, t2, decl_context);
+            result = equivalent_function_type(t1, t2);
             break;
         case TK_VECTOR :
-            result = equivalent_vector_type(t1, t2, decl_context);
+            result = equivalent_vector_type(t1, t2);
             break;
         default :
             internal_error("Unknown type kind (%d)\n", t1->kind);
@@ -2525,7 +2524,7 @@ char equivalent_types(type_t* t1, type_t* t2, decl_context_t decl_context)
 static
 char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2);
 
-static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2, decl_context_t decl_context)
+static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2)
 {
     if (s1->entity_specs.is_template_parameter
             || s2->entity_specs.is_template_parameter)
@@ -2544,12 +2543,11 @@ static char equivalent_named_types(scope_entry_t* s1, scope_entry_t* s2, decl_co
     }
     else
     {
-        return equivalent_types(s1->type_information, s2->type_information, decl_context);
+        return equivalent_types(s1->type_information, s2->type_information);
     }
 }
 
-char equivalent_simple_types(type_t *p_t1, type_t *p_t2, 
-        decl_context_t decl_context)
+char equivalent_simple_types(type_t *p_t1, type_t *p_t2)
 {
     simple_type_t* t1 = p_t1->type;
     simple_type_t* t2 = p_t2->type;
@@ -2576,10 +2574,10 @@ char equivalent_simple_types(type_t *p_t1, type_t *p_t2,
             break;
         case STK_USER_DEFINED :
             result = equivalent_named_types(t1->user_defined_type, 
-                    t2->user_defined_type, decl_context);
+                    t2->user_defined_type);
             break;
         case STK_TEMPLATE_DEPENDENT_TYPE :
-            result = compare_template_dependent_typename_types(p_t1, p_t2, decl_context);
+            result = compare_template_dependent_typename_types(p_t1, p_t2);
             break;
         case STK_TYPEOF :
             internal_error("__typeof__ comparison still not implemented", 0);
@@ -2647,21 +2645,17 @@ char equivalent_builtin_type(simple_type_t* t1, simple_type_t *t2)
     return 1;
 }
 
-static char equivalent_pointer_to_member_type(type_t* t1, type_t* t2,
-        decl_context_t decl_context)
+static char equivalent_pointer_to_member_type(type_t* t1, type_t* t2)
 {
     return equivalent_pointer_type(t1->pointer, 
-            t2->pointer, 
-            decl_context)
+            t2->pointer)
         && equivalent_types(get_user_defined_type(t1->pointer->pointee_class), 
-                get_user_defined_type(t2->pointer->pointee_class), 
-                decl_context);
+                get_user_defined_type(t2->pointer->pointee_class));
 }
 
-static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2,
-        decl_context_t decl_context)
+static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2)
 {
-    if (!equivalent_types(t1->pointee, t2->pointee, decl_context))
+    if (!equivalent_types(t1->pointee, t2->pointee))
     {
         return 0;
     }
@@ -2669,10 +2663,9 @@ static char equivalent_pointer_type(pointer_info_t* t1, pointer_info_t* t2,
     return 1;
 }
 
-static char equivalent_array_type(array_info_t* t1, array_info_t* t2,
-        decl_context_t decl_context)
+static char equivalent_array_type(array_info_t* t1, array_info_t* t2)
 {
-    if (!equivalent_types(t1->element_type, t2->element_type, decl_context))
+    if (!equivalent_types(t1->element_type, t2->element_type))
         return 0;
 
     if (t1->array_expr != NULL
@@ -2695,7 +2688,7 @@ static char equivalent_array_type(array_info_t* t1, array_info_t* t2,
                     && literal_1.kind != LVK_INVALID
                     && literal_2.kind != LVK_DEPENDENT_EXPR
                     && literal_2.kind != LVK_INVALID
-                    && !equal_literal_values(literal_1, literal_2, decl_context))
+                    && !equal_literal_values(literal_1, literal_2))
             {
                 return 0;
             }
@@ -2803,16 +2796,14 @@ char overloaded_function(type_t* ft1, type_t* ft2, decl_context_t decl_context)
 }
 #endif
 
-static char equivalent_vector_type(type_t* t1, type_t* t2, decl_context_t decl_context)
+static char equivalent_vector_type(type_t* t1, type_t* t2)
 {
     // This mimics gcc behaviour
-    return ((equivalent_types(t1->vector->element_type, t2->vector->element_type, 
-                    decl_context)))
+    return ((equivalent_types(t1->vector->element_type, t2->vector->element_type)))
         && (t1->vector->vector_size == t2->vector->vector_size);
 }
 
-static char equivalent_function_type(type_t* ft1, type_t* ft2, 
-        decl_context_t decl_context)
+static char equivalent_function_type(type_t* ft1, type_t* ft2)
 {
     function_info_t* t1 = ft1->function;
     function_info_t* t2 = ft2->function;
@@ -2828,12 +2819,12 @@ static char equivalent_function_type(type_t* ft1, type_t* ft2,
         // This path reveals some error but let ignore it
         return 0;
     }
-    else if (!equivalent_types(t1->return_type, t2->return_type, decl_context))
+    else if (!equivalent_types(t1->return_type, t2->return_type))
     {
         return 0;
     }
 
-    if (!compatible_parameters(t1, t2, decl_context))
+    if (!compatible_parameters(t1, t2))
         return 0;
 
     if (!equivalent_cv_qualification(ft1->cv_qualifier, ft2->cv_qualifier))
@@ -2848,8 +2839,7 @@ char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2)
     return (cv1 == cv2);
 }
 
-static char compatible_parameters(function_info_t* t1, function_info_t* t2,
-        decl_context_t decl_context)
+static char compatible_parameters(function_info_t* t1, function_info_t* t2)
 {
     if (t1->num_parameters != t2->num_parameters)
         return 0;
@@ -2869,7 +2859,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2,
         type_t* par1 = t1->parameter_list[i]->type_info;
         type_t* par2 = t2->parameter_list[i]->type_info;
 
-        if (!equivalent_types(get_unqualified_type(par1), get_unqualified_type(par2), decl_context))
+        if (!equivalent_types(get_unqualified_type(par1), get_unqualified_type(par2)))
         {
             // They are not equivalent types.
             //
@@ -2891,8 +2881,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2,
                 type_t* array_type = (par1->kind == TK_ARRAY) ? par1 : par2;
                 type_t* pointer_type = (par1->kind == TK_POINTER) ? par1 : par2;
 
-                if (!equivalent_types(array_type->array->element_type, pointer_type->pointer->pointee, 
-                            decl_context))
+                if (!equivalent_types(array_type->array->element_type, pointer_type->pointer->pointee))
                 {
                     still_compatible = 0;
                 }
@@ -2918,7 +2907,7 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2,
                 }
                 else
                 {
-                    if (!equivalent_types(pointer_type->pointer->pointee, function_type, decl_context))
+                    if (!equivalent_types(pointer_type->pointer->pointee, function_type))
                     {
                         still_compatible = 0;
                     }
@@ -2934,8 +2923,8 @@ static char compatible_parameters(function_info_t* t1, function_info_t* t2,
     return still_compatible;
 }
 
-static char syntactic_comparison_of_template_id(AST template_id_1, AST template_id_2, 
-        decl_context_t decl_context, int nesting_level)
+static char syntactic_comparison_of_template_id(AST template_id_1, decl_context_t decl_context_1,
+        AST template_id_2, decl_context_t decl_context_2, int nesting_level)
 {
     ERROR_CONDITION((ASTType(template_id_1) != AST_TEMPLATE_ID
                 || ASTType(template_id_2) != AST_TEMPLATE_ID), 
@@ -2952,11 +2941,11 @@ static char syntactic_comparison_of_template_id(AST template_id_1, AST template_
     AST template_arguments_2 = ASTSon1(template_id_2);
 
     template_argument_list_t* t_arg_list_1 = get_template_arguments_from_syntax(template_arguments_1, 
-            decl_context, nesting_level);
+            decl_context_1, nesting_level);
     template_argument_list_t* t_arg_list_2 = get_template_arguments_from_syntax(template_arguments_2, 
-            decl_context, nesting_level);
+            decl_context_2, nesting_level);
 
-    return same_template_argument_list(t_arg_list_1, t_arg_list_2, decl_context);
+    return same_template_argument_list(t_arg_list_1, t_arg_list_2);
 }
 
 static char syntactic_comparison_of_symbol(AST symbol_1, AST symbol_2)
@@ -2967,8 +2956,9 @@ static char syntactic_comparison_of_symbol(AST symbol_1, AST symbol_2)
     return (strcmp(ASTText(symbol_1), ASTText(symbol_2)) == 0);
 }
 
-char syntactic_comparison_of_nested_names(AST nested_name_1, AST nested_name_2, 
-        AST unqualified_part_1, AST unqualified_part_2, decl_context_t decl_context)
+char syntactic_comparison_of_nested_names(
+        AST nested_name_1, AST nested_name_2, decl_context_t decl_context_1,
+        AST unqualified_part_1, AST unqualified_part_2, decl_context_t decl_context_2)
 {
     DEBUG_CODE()
     {
@@ -3013,8 +3003,8 @@ char syntactic_comparison_of_nested_names(AST nested_name_1, AST nested_name_2,
         }
         else if (ASTType(current_name_1) == AST_TEMPLATE_ID)
         {
-            if (!syntactic_comparison_of_template_id(current_name_1, current_name_2, 
-                        decl_context, nesting_level))
+            if (!syntactic_comparison_of_template_id(current_name_1, decl_context_1,
+                        current_name_2, decl_context_2, nesting_level))
             {
                 DEBUG_CODE()
                 {
@@ -3079,7 +3069,8 @@ char syntactic_comparison_of_nested_names(AST nested_name_1, AST nested_name_2,
                     prettyprint_in_buffer(unqualified_part_2));
         }
         if (!syntactic_comparison_of_template_id(unqualified_part_1, 
-                    unqualified_part_2, decl_context, nesting_level))
+                    decl_context_1,
+                    unqualified_part_2, decl_context_2, nesting_level))
             return 0;
         nesting_level++;
     }
@@ -3087,14 +3078,13 @@ char syntactic_comparison_of_nested_names(AST nested_name_1, AST nested_name_2,
     return 1;
 }
 
-static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2,
-        decl_context_t decl_context)
+static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2)
 {
     DEBUG_CODE()
     {
         fprintf(stderr , "Comparing template dependent typenames '%s' and '%s'\n",
-                print_declarator(p_t1, decl_context),
-                print_declarator(p_t2, decl_context));
+                print_declarator(p_t1),
+                print_declarator(p_t2));
     }
     // It is likely that in these contrived cases the user will use a typedef
     // to help himself so most of the time this fast path will be fired
@@ -3102,16 +3092,18 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
         return 1;
 
     // This should be easier now, no context needed!
+    decl_context_t decl_context_1;
     scope_entry_t* dependent_entry_1 = NULL;
     AST nested_name_1 = NULL;
     AST unqualified_part_1 = NULL;
 
+    decl_context_t decl_context_2;
     scope_entry_t* dependent_entry_2;
     AST nested_name_2;
     AST unqualified_part_2;
 
     dependent_typename_get_components(p_t1, &dependent_entry_1, 
-            &nested_name_1, &unqualified_part_1);
+            &decl_context_1, &nested_name_1, &unqualified_part_1);
     type_t* type_to_compare_1 = NULL;
     if (dependent_entry_1->kind == SK_TEMPLATE_TYPE_PARAMETER)
     {
@@ -3123,7 +3115,7 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
     }
 
     dependent_typename_get_components(p_t2, &dependent_entry_2, 
-            &nested_name_2, &unqualified_part_2);
+            &decl_context_2, &nested_name_2, &unqualified_part_2);
     type_t* type_to_compare_2 = NULL;
     if (dependent_entry_2->kind == SK_TEMPLATE_TYPE_PARAMETER)
     {
@@ -3135,10 +3127,11 @@ static char compare_template_dependent_typename_types(type_t* p_t1, type_t* p_t2
     }
 
     if (equivalent_types(type_to_compare_1,
-                type_to_compare_2, decl_context))
+                type_to_compare_2))
     {
-        return syntactic_comparison_of_nested_names(nested_name_1, nested_name_2,
-                unqualified_part_1, unqualified_part_2, decl_context);
+        return syntactic_comparison_of_nested_names(
+                nested_name_1, nested_name_2, decl_context_1,
+                unqualified_part_1, unqualified_part_2, decl_context_2);
     }
     else
     {
@@ -5080,7 +5073,6 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
     ERROR_CONDITION(user_defined_type == NULL, "This cannot be null", 0);
 
     const char* result = uniquestr("");
-    decl_context_t decl_context = user_defined_type->decl_context;
 
     const int MAX_LENGTH = 1023;
     char* user_defined_str = counted_calloc(MAX_LENGTH + 1, sizeof(char), &_bytes_due_to_type_system);
@@ -5115,7 +5107,7 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
                 type_t* aliased_type = advance_over_typedefs(user_defined_type->type_information);
 
                 snprintf(user_defined_str, MAX_LENGTH, "%s", 
-                        print_declarator(aliased_type, decl_context));
+                        print_declarator(aliased_type));
             }
             break;
         case SK_TEMPLATE_TYPE_PARAMETER :
@@ -5162,7 +5154,7 @@ const char* get_named_type_name(scope_entry_t* entry)
 }
 
 // Gives the name of a builtin type. This routine is for debugging
-static const char* get_builtin_type_name(type_t* type_info, decl_context_t decl_context)
+static const char* get_builtin_type_name(type_t* type_info)
 {
     simple_type_t* simple_type_info = type_info->type;
     ERROR_CONDITION(simple_type_info == NULL, "This cannot be null", 0);
@@ -5253,7 +5245,7 @@ static const char* get_builtin_type_name(type_t* type_info, decl_context_t decl_
                                 case TAK_TEMPLATE:
                                     {
                                         template_arguments = strappend(template_arguments, 
-                                                print_declarator(template_argument->type, decl_context));
+                                                print_declarator(template_argument->type));
                                         break;
                                     }
                                 case TAK_NONTYPE:
@@ -5295,7 +5287,7 @@ static const char* get_builtin_type_name(type_t* type_info, decl_context_t decl_
                 snprintf(c, 255, "<template dependent type [%s]::%s%s>", 
                         get_named_simple_type_name(simple_type_info->dependent_entry),
                         prettyprint_in_buffer(simple_type_info->dependent_nested_name),
-                        prettyprint_in_buffer(simple_type_info->dependent_unqualifed_part));
+                        prettyprint_in_buffer(simple_type_info->dependent_unqualified_part));
                 result = strappend(result, c);
             }
             break;
@@ -5309,7 +5301,7 @@ static const char* get_builtin_type_name(type_t* type_info, decl_context_t decl_
                 break;
             }
         case STK_TYPEDEF :
-            result = strappend(result, print_declarator(advance_over_typedefs(simple_type_info->aliased_type), decl_context));
+            result = strappend(result, print_declarator(advance_over_typedefs(simple_type_info->aliased_type)));
             break;
         default :
             {
@@ -5324,7 +5316,7 @@ static const char* get_builtin_type_name(type_t* type_info, decl_context_t decl_
 }
 
 // This prints a declarator in English. It is intended for debugging purposes
-const char* print_declarator(type_t* printed_declarator, decl_context_t decl_context)
+const char* print_declarator(type_t* printed_declarator)
 {
     ERROR_CONDITION(printed_declarator == NULL, "This cannot be null", 0);
     const char* tmp_result = "";
@@ -5371,7 +5363,7 @@ const char* print_declarator(type_t* printed_declarator, decl_context_t decl_con
             case TK_DIRECT :
                 if (printed_declarator->type != NULL)
                 {
-                    tmp_result = strappend(tmp_result, get_builtin_type_name(printed_declarator, decl_context));
+                    tmp_result = strappend(tmp_result, get_builtin_type_name(printed_declarator));
                 }
                 else
                 {
@@ -5443,7 +5435,7 @@ const char* print_declarator(type_t* printed_declarator, decl_context_t decl_con
                                 case TAK_TEMPLATE:
                                     {
                                         tmp_result = strappend(tmp_result, 
-                                                print_declarator(template_argument->type, decl_context));
+                                                print_declarator(template_argument->type));
                                         break;
                                     }
                                 case TAK_NONTYPE:
@@ -5473,7 +5465,7 @@ const char* print_declarator(type_t* printed_declarator, decl_context_t decl_con
                         if (!printed_declarator->function->parameter_list[i]->is_ellipsis)
                         {
                             tmp_result = strappend(tmp_result, 
-                                    print_declarator(printed_declarator->function->parameter_list[i]->type_info, decl_context)
+                                    print_declarator(printed_declarator->function->parameter_list[i]->type_info)
                                   );
                         }
                         else
@@ -5551,7 +5543,7 @@ type_t* standard_conversion_get_dest_type(standard_conversion_t scs)
     return scs.dest;
 }
 
-char pointer_types_are_similar(type_t* t_orig, type_t* t_dest, decl_context_t decl_context)
+char pointer_types_are_similar(type_t* t_orig, type_t* t_dest)
 {
     type_t* orig = t_orig;
     type_t* dest = t_dest;
@@ -5618,11 +5610,11 @@ char pointer_types_are_similar(type_t* t_orig, type_t* t_dest, decl_context_t de
         return 1;
     }
 
-    return equivalent_types(get_unqualified_type(orig), get_unqualified_type(dest), decl_context);
+    return equivalent_types(get_unqualified_type(orig), get_unqualified_type(dest));
 }
 
 // This function checks at the same time similarity and convertibility
-char pointer_types_can_be_converted(type_t* orig, type_t* dest, decl_context_t decl_context)
+char pointer_types_can_be_converted(type_t* orig, type_t* dest)
 {
 #define MAX_QUALIFS (256)
     ERROR_CONDITION(
@@ -5655,7 +5647,7 @@ char pointer_types_can_be_converted(type_t* orig, type_t* dest, decl_context_t d
                 && is_pointer_to_member_type(t2))
         {
             if (!equivalent_types(pointer_to_member_type_get_class_type(t1),
-                        pointer_to_member_type_get_class_type(t2), decl_context))
+                        pointer_to_member_type_get_class_type(t2)))
             {
                 return 0;
             }
@@ -5671,7 +5663,7 @@ char pointer_types_can_be_converted(type_t* orig, type_t* dest, decl_context_t d
     qualifs2[num_qualifs] = get_cv_qualifier(t2);
     num_qualifs++;
 
-    if (!equivalent_types(get_unqualified_type(t1), get_unqualified_type(t2), decl_context))
+    if (!equivalent_types(get_unqualified_type(t1), get_unqualified_type(t2)))
         return 0;
 
     DEBUG_CODE()
@@ -5725,13 +5717,13 @@ char pointer_types_can_be_converted(type_t* orig, type_t* dest, decl_context_t d
     return 1;
 }
 
-char standard_conversion_between_types(standard_conversion_t *result, type_t* t_orig, type_t* t_dest, decl_context_t decl_context)
+char standard_conversion_between_types(standard_conversion_t *result, type_t* t_orig, type_t* t_dest)
 {
     DEBUG_CODE()
     {
         fprintf(stderr, "SCS: Trying to find a standard conversion from '%s' to '%s'\n",
-                print_declarator(t_orig, decl_context),
-                print_declarator(t_dest, decl_context));
+                print_declarator(t_orig),
+                print_declarator(t_dest));
     }
 
     (*result) = no_scs_conversion;
@@ -5742,7 +5734,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     type_t* dest = t_dest;
 
     // Identity check
-    if (equivalent_types(orig, dest, decl_context))
+    if (equivalent_types(orig, dest))
     {
         (*result) = identity_scs(t_orig, t_dest);
         DEBUG_CODE()
@@ -5764,7 +5756,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 reference_type_get_referenced_type(dest)
                 );
 
-        if (equivalent_types(unqualif_orig, unqualif_dest, decl_context)
+        if (equivalent_types(unqualif_orig, unqualif_dest)
                 || (is_class_type(unqualif_dest) 
                     && is_class_type(unqualif_orig)
                     && class_type_is_base(unqualif_dest, unqualif_orig)))
@@ -5788,7 +5780,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     if (is_lvalue_reference_type(orig)
             && is_rvalue_reference_type(dest)
             && equivalent_types(get_unqualified_type(reference_type_get_referenced_type(orig)),
-                get_unqualified_type(reference_type_get_referenced_type(dest)), decl_context)
+                get_unqualified_type(reference_type_get_referenced_type(dest)))
             && is_more_or_equal_cv_qualified_type(reference_type_get_referenced_type(dest),
                 reference_type_get_referenced_type(orig)))
     {
@@ -5809,7 +5801,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         type_t* unqualif_ref_orig = get_unqualified_type(ref_orig);
         type_t* unqualif_ref_dest = get_unqualified_type(ref_dest);
 
-        if ((equivalent_types(unqualif_ref_orig, unqualif_ref_dest, decl_context)
+        if ((equivalent_types(unqualif_ref_orig, unqualif_ref_dest)
                     || (is_class_type(unqualif_ref_dest)
                         && is_class_type(unqualif_ref_orig)
                         && class_type_is_base(unqualif_ref_dest, unqualif_ref_orig)))
@@ -5876,7 +5868,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
      * FIXME, enums can be promoted to different underlying types
      * Now assuming that all are int
      */
-    if (!equivalent_types(dest, orig, decl_context))
+    if (!equivalent_types(dest, orig))
     {
         if (is_signed_int_type(dest)
                 && (is_char_type(orig)
@@ -5899,9 +5891,9 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         /* vector type - this is to make overload mechanism happy */
         else if (is_vector_type(dest)
                 && is_vector_type(orig)
-                && vector_types_can_be_converted(dest, orig, decl_context)
+                && vector_types_can_be_converted(dest, orig)
                 && !equivalent_types(vector_type_get_element_type(dest),
-                    vector_type_get_element_type(orig), decl_context))
+                    vector_type_get_element_type(orig)))
         {
             DEBUG_CODE()
             {
@@ -5929,7 +5921,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                     || is_enumerated_type(orig))
                 && !is_bool_type(dest)
                 && !is_bool_type(orig)
-                && !equivalent_types(dest, orig, decl_context))
+                && !equivalent_types(dest, orig))
         {
             DEBUG_CODE()
             {
@@ -6127,13 +6119,13 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     //
     //  qualification-conversion
     //
-    if (!equivalent_types(orig, dest, decl_context) 
+    if (!equivalent_types(orig, dest) 
             && ((is_pointer_type(orig) 
                     && is_pointer_type(dest))
                 || (is_pointer_to_member_type(orig) 
                     && is_pointer_to_member_type(dest))))
     {
-        if (pointer_types_can_be_converted(orig, dest, decl_context))
+        if (pointer_types_can_be_converted(orig, dest))
         {
             DEBUG_CODE()
             {
@@ -6214,18 +6206,18 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
     DEBUG_CODE()
     {
         fprintf(stderr, "SCS: Checking types converted so far '%s' and '%s' are equivalent\n",
-                print_declarator(orig, decl_context),
-                print_declarator(dest, decl_context));
+                print_declarator(orig),
+                print_declarator(dest));
     }
-    char valid_conversion = equivalent_types(orig, dest, decl_context);
+    char valid_conversion = equivalent_types(orig, dest);
 
     if (!valid_conversion)
     {
         DEBUG_CODE()
         {
             fprintf(stderr, "SCS: No conversion is possible from '%s' to '%s'\n",
-                    print_declarator(t_orig, decl_context),
-                    print_declarator(t_dest, decl_context));
+                    print_declarator(t_orig),
+                    print_declarator(t_dest));
         }
         (*result) = no_scs_conversion;
     }
@@ -6234,8 +6226,8 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
         DEBUG_CODE()
         {
             fprintf(stderr, "SCS: There is a standard conversion from '%s' to '%s'\n",
-                    print_declarator(t_orig, decl_context),
-                    print_declarator(t_dest, decl_context));
+                    print_declarator(t_orig),
+                    print_declarator(t_dest));
         }
     }
 
@@ -6463,7 +6455,7 @@ int get_sizeof_type(type_t* t)
 }
 
 // This states if vector type t1 can be assigned/initialized using a vector type t2
-char vector_types_can_be_converted(type_t* t1, type_t* t2, decl_context_t decl_context)
+char vector_types_can_be_converted(type_t* t1, type_t* t2)
 {
     ERROR_CONDITION(!is_vector_type(t1)
             || !is_vector_type(t2), 
@@ -6473,7 +6465,7 @@ char vector_types_can_be_converted(type_t* t1, type_t* t2, decl_context_t decl_c
         is_integral_type(vector_type_get_element_type(t1))
         && is_integral_type(vector_type_get_element_type(t2));
 
-    char equal_types = equivalent_types(t1, t2, decl_context);
+    char equal_types = equivalent_types(t1, t2);
 
     char both_have_same_vector_size =
         vector_type_get_vector_size(t1) == vector_type_get_vector_size(t2);

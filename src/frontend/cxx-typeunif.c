@@ -61,8 +61,8 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
     DEBUG_CODE()
     {
         fprintf(stderr, "TYPEUNIF: Trying to unificate type '%s' <- '%s'\n",
-                print_declarator(t1, decl_context),
-                print_declarator(t2, decl_context));
+                print_declarator(t1),
+                print_declarator(t2));
     }
 
     if (is_unresolved_overloaded_type(t2))
@@ -98,8 +98,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
             type_t* previous_deduced_type = previous_deduced_parameter->type;
 
             if (equivalent_types(previous_deduced_type, 
-                        current_deduced_parameter.type, 
-                        decl_context))
+                        current_deduced_parameter.type))
             {
                 found = 1;
                 break;
@@ -114,7 +113,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                         s1->symbol_name,
                         s1->entity_specs.template_parameter_nesting,
                         s1->entity_specs.template_parameter_position,
-                        print_declarator(current_deduced_parameter.type, decl_context));
+                        print_declarator(current_deduced_parameter.type));
             }
 
             deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
@@ -158,8 +157,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
             type_t* previous_deduced_type = previous_deduced_parameter->type;
 
             if (equivalent_types(previous_deduced_type, 
-                        current_deduced_parameter.type,
-                        decl_context))
+                        current_deduced_parameter.type))
             {
                 found = 1;
                 break;
@@ -174,7 +172,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                         s1->symbol_name,
                         s1->entity_specs.template_parameter_nesting,
                         s1->entity_specs.template_parameter_position,
-                        print_declarator(current_deduced_parameter.type, decl_context));
+                        print_declarator(current_deduced_parameter.type));
             }
 
             deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
@@ -259,8 +257,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                     type_t* previous_deduced_type = previous_deduced_parameter->type;
 
                     if (equivalent_types(previous_deduced_type, 
-                                current_deduced_parameter.type,
-                                decl_context))
+                                current_deduced_parameter.type))
                     {
                         found = 1;
                         break;
@@ -275,7 +272,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                                 t1_related_symbol->symbol_name,
                                 t1_related_symbol->entity_specs.template_parameter_nesting,
                                 t1_related_symbol->entity_specs.template_parameter_position,
-                                print_declarator(current_deduced_parameter.type, decl_context));
+                                print_declarator(current_deduced_parameter.type));
                     }
 
                     deduced_parameter_t* new_deduced_parameter = counted_calloc(1, sizeof(*new_deduced_parameter), &_bytes_typeunif);
@@ -762,8 +759,8 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
 
                 // Doing a syntactic comparison since anything else can be compared here
                 // as an expression ...
-                return syntactic_comparison_of_nested_names(nested_name_1, nested_name_2, 
-                        unqualified_part_1, unqualified_part_2, left_decl_context);
+                return syntactic_comparison_of_nested_names(nested_name_1, nested_name_2, left_decl_context,
+                        unqualified_part_1, unqualified_part_2, right_decl_context);
                 break;
             }
         case AST_LOGICAL_OR :
@@ -934,7 +931,7 @@ static char equivalent_expression_trees(AST left_tree, decl_context_t left_decl_
     literal_value_t literal1 = evaluate_constant_expression(left_tree, left_decl_context);
     literal_value_t literal2 = evaluate_constant_expression(right_tree, right_decl_context);
 
-    return equal_literal_values(literal1, literal2, right_decl_context);
+    return equal_literal_values(literal1, literal2);
 }
 
 char same_functional_expression(AST left_tree, decl_context_t left_decl_context, AST right_tree, 
@@ -973,7 +970,7 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
                         entry->symbol_name,
                         entry->file,
                         entry->line,
-                        print_declarator(entry->type_information, decl_context));
+                        print_declarator(entry->type_information));
             }
             function_type = entry->type_information;
         }
@@ -1012,7 +1009,7 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
                             entry->symbol_name,
                             entry->file,
                             entry->line,
-                            print_declarator(entry->type_information, decl_context));
+                            print_declarator(entry->type_information));
                 }
             }
             else

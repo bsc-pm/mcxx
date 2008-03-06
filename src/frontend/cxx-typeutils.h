@@ -36,8 +36,7 @@ struct type_tag* standard_conversion_get_orig_type(standard_conversion_t scs);
 struct type_tag* standard_conversion_get_dest_type(standard_conversion_t scs);
 
 char standard_conversion_between_types(standard_conversion_t *result, 
-        struct type_tag* orig, struct type_tag* dest, 
-        decl_context_t decl_context);
+        struct type_tag* orig, struct type_tag* dest);
 
 typedef type_t* (*computed_function_type_t)(scope_entry_t* symbol, AST* argument, int num_arguments);
 
@@ -77,6 +76,7 @@ struct type_tag* get_gcc_builtin_va_list_type(void);
 struct type_tag* get_user_defined_type(struct scope_entry_tag* entry);
 
 struct type_tag* get_dependent_typename_type(struct scope_entry_tag* dependent_entity, 
+        decl_context_t decl_context,
         struct AST_tag* nested_name, struct AST_tag* unqualified_part);
 
 struct type_tag* get_new_enum_type(decl_context_t decl_context);
@@ -130,7 +130,7 @@ struct type_tag* get_vector_type(struct type_tag* element_type, unsigned int vec
 struct type_tag* get_computed_function_type(computed_function_type_t compute_type_function);
 
 /* Type comparison functions */
-char equivalent_types(struct type_tag* t1, struct type_tag* t2, decl_context_t decl_context);
+char equivalent_types(struct type_tag* t1, struct type_tag* t2);
 char equivalent_cv_qualification(cv_qualifier_t cv1, cv_qualifier_t cv2);
 
 /* Modifiers used when the type is still being built */
@@ -335,7 +335,7 @@ decl_context_t enum_type_get_context(struct type_tag* t);
 
 struct scope_entry_tag* named_type_get_symbol(struct type_tag* t);
 
-char pointer_types_are_similar(struct type_tag* t_orig, struct type_tag* t_dest, decl_context_t decl_context);
+char pointer_types_are_similar(struct type_tag* t_orig, struct type_tag* t_dest);
 
 struct type_tag* template_type_get_primary_type(struct type_tag* t);
 struct type_tag* template_type_get_specialized_type(struct type_tag* t, 
@@ -362,7 +362,7 @@ template_parameter_list_t* template_specialized_type_get_template_parameters(str
 void template_specialized_type_update_template_parameters(struct type_tag* t, template_parameter_list_t* template_parameters);
 
 void dependent_typename_get_components(struct type_tag* t, struct scope_entry_tag** dependent_entry, 
-        struct AST_tag* *nested_name, struct AST_tag* *unqualified_part);
+        decl_context_t* decl_context, struct AST_tag* *nested_name, struct AST_tag* *unqualified_part);
 
 int vector_type_get_vector_size(struct type_tag*);
 struct type_tag* vector_type_get_element_type(struct type_tag*);
@@ -408,9 +408,9 @@ char class_type_is_complete_dependent(struct type_tag* t);
 char class_type_is_incomplete_independent(struct type_tag* t);
 char class_type_is_complete_independent(struct type_tag* t);
 
-char pointer_types_can_be_converted(struct type_tag* orig, struct type_tag* dest, decl_context_t decl_context);
+char pointer_types_can_be_converted(struct type_tag* orig, struct type_tag* dest);
 
-char vector_types_can_be_converted(struct type_tag* t1, struct type_tag* t2, decl_context_t decl_context);
+char vector_types_can_be_converted(struct type_tag* t1, struct type_tag* t2);
 
 void set_as_template_specialized_type(struct type_tag* type_to_specialize, 
         template_argument_list_t * template_arguments, 
@@ -435,11 +435,12 @@ char is_ellipsis_type(struct type_tag* t);
 char has_dependent_template_arguments(template_argument_list_t* template_arguments,
         decl_context_t decl_context);
 
-char syntactic_comparison_of_nested_names(struct AST_tag* nested_name_1, struct AST_tag* nested_name_2, 
-        struct AST_tag* unqualified_part_1, struct AST_tag* unqualified_part_2, decl_context_t decl_context);
+char syntactic_comparison_of_nested_names(
+        struct AST_tag* nested_name_1, struct AST_tag* nested_name_2, decl_context_t decl_context_1,
+        struct AST_tag* unqualified_part_1, struct AST_tag* unqualified_part_2, decl_context_t decl_context_2);
 
 /* Debug purpose functions */
-const char* print_declarator(struct type_tag* printed_declarator, decl_context_t decl_context);
+const char* print_declarator(struct type_tag* printed_declarator);
 long long unsigned int type_system_used_memory(void);
 
 MCXX_END_DECLS

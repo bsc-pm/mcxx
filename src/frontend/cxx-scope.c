@@ -1198,7 +1198,7 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
             {
                 // This is dependent
                 *dependent_type = get_dependent_typename_type(class_name, 
-                        nested_name_spec, unqualified_part);
+                        nested_name_context, nested_name_spec, unqualified_part);
                 return NULL;
             }
 
@@ -1250,7 +1250,7 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
                 // We cannot do anything else here but returning NULL
                 // and stating that it is dependent
                 *dependent_type = get_dependent_typename_type(class_name, 
-                        nested_name_spec, unqualified_part);
+                        nested_name_context, nested_name_spec, unqualified_part);
                 return NULL;
             }
         }
@@ -1271,7 +1271,7 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
         // We cannot do anything else here but returning NULL
         // and stating that it is dependent
         *dependent_type = get_dependent_typename_type(class_name, 
-                nested_name_spec, unqualified_part);
+                nested_name_context, nested_name_spec, unqualified_part);
         return NULL;
     }
     else
@@ -1991,7 +1991,7 @@ static decl_context_t replace_template_parameters_with_values(
             {
                 fprintf(stderr, "SCOPE:     Making type template parameter '%s' of type '%s'\n", 
                         new_entry->symbol_name,
-                        print_declarator(new_entry->type_information, new_entry->decl_context));
+                        print_declarator(new_entry->type_information));
             }
         }
         // non-type template parameter
@@ -2046,7 +2046,7 @@ static decl_context_t replace_template_parameters_with_values(
             {
                 fprintf(stderr, "SCOPE:     Making template template parameter '%s' to be '%s'\n", 
                         new_entry->symbol_name,
-                        print_declarator(new_entry->type_information, new_entry->decl_context));
+                        print_declarator(new_entry->type_information));
             }
             internal_error("Not yet implemented", 0);
         }
@@ -2117,7 +2117,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
                 {
                     fprintf(stderr, "SCOPE: No update performed for template parameter '%s'"
                             " since a template argument for it was not found\n",
-                            print_declarator(orig_type, template_arguments_context));
+                            print_declarator(orig_type));
                 }
                 return orig_type;
             }
@@ -2188,7 +2188,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
             DEBUG_CODE()
             {
                 fprintf(stderr, "SCOPE: Have to update template specialized type '%s'\n",
-                        print_declarator(orig_type, template_arguments_context));
+                        print_declarator(orig_type));
             }
 
             template_argument_list_t* updated_template_arguments = 
@@ -2233,7 +2233,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
             {
                 scope_entry_t* specialization = named_type_get_symbol(updated_specialized);
                 fprintf(stderr, "SCOPE: Specialized type found in template argument updated to '%s' (%p)\n", 
-                        print_declarator(updated_specialized, template_arguments_context),
+                        print_declarator(updated_specialized),
                         specialization->type_information);
             }
 
@@ -2409,12 +2409,14 @@ type_t* update_type(template_argument_list_t* given_template_args,
     }
     else if (is_dependent_typename_type(orig_type))
     {
+        decl_context_t dependent_decl_context;
         scope_entry_t* dependent_entry = NULL;
         AST nested_name = NULL;
         AST unqualified_part = NULL;
 
         dependent_typename_get_components(orig_type, 
-                &dependent_entry, &nested_name, &unqualified_part);
+                &dependent_entry, &dependent_decl_context, 
+                &nested_name, &unqualified_part);
 
         type_t* fixed_type = NULL;
         fixed_type = update_type(given_template_args, get_user_defined_type(dependent_entry),
@@ -2466,7 +2468,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
         DEBUG_CODE()
         {
             fprintf(stderr, "SCOPE: No update performed for type '%s'\n",
-                    print_declarator(orig_type, template_arguments_context));
+                    print_declarator(orig_type));
         }
         return orig_type;
     }
@@ -2759,7 +2761,7 @@ template_argument_list_t *get_template_arguments_of_template_id(
                     DEBUG_CODE()
                     {
                         fprintf(stderr, "SCOPE: Type of nontype template parameter updated to '%s'\n",
-                                print_declarator(current_arg->type, template_arguments_context));
+                                print_declarator(current_arg->type));
                     }
 
                     /*

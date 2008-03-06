@@ -209,12 +209,12 @@ char deduce_template_arguments_common(
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "TYPEDEDUC: Update of parameter [%d] (with original type '%s') with explicitly given template arguments failed.",
-                            j, print_declarator(parameters[j], decl_context));
+                            j, print_declarator(parameters[j]));
 
                     if (updated_parameter != NULL)
                     {
                         fprintf(stderr, " Type '%s' is not sound\n",
-                                print_declarator(updated_parameter, decl_context));
+                                print_declarator(updated_parameter));
                     }
                     else
                     {
@@ -241,8 +241,8 @@ char deduce_template_arguments_common(
         DEBUG_CODE()
         {
             fprintf(stderr, "TYPEDEDUC: Computing deduction for argument %d\n", i);
-            fprintf(stderr, "TYPEDEDUC:   Argument type  : %s\n", print_declarator(argument_type, decl_context));
-            fprintf(stderr, "TYPEDEDUC:   Parameter type : %s\n", print_declarator(parameter_type, decl_context));
+            fprintf(stderr, "TYPEDEDUC:   Argument type  : %s\n", print_declarator(argument_type));
+            fprintf(stderr, "TYPEDEDUC:   Parameter type : %s\n", print_declarator(parameter_type));
         }
 
         deduction_set_t *current_deduction = counted_calloc(1, sizeof(*current_deduction), &_bytes_typededuc);
@@ -411,14 +411,14 @@ char deduce_template_arguments_common(
                     case TPK_TYPE:
                         {
                             if (!equivalent_types(result_deduced_parameter->type, 
-                                        current_deduced_parameter->type, decl_context))
+                                        current_deduced_parameter->type))
                             {
                                 DEBUG_CODE()
                                 {
                                     fprintf(stderr, "TYPEDEDUC: Type deduction fails because previous deduction (%s) "
                                             "for type template argument does not match current one (%s)\n",
-                                            print_declarator(result_deduced_parameter->type, decl_context),
-                                            print_declarator(current_deduced_parameter->type, decl_context));
+                                            print_declarator(result_deduced_parameter->type),
+                                            print_declarator(current_deduced_parameter->type));
                                 }
                                 return 0;
                             }
@@ -532,13 +532,13 @@ char deduce_template_arguments_common(
                     case TPK_TYPE:
                         {
                             fprintf(stderr, "TYPEDEDUC:    [%d] Deduced type: %s\n", j,
-                                    print_declarator(current_deduction->deduced_parameters[j]->type, decl_context));
+                                    print_declarator(current_deduction->deduced_parameters[j]->type));
                             break;
                         }
                     case TPK_TEMPLATE:
                         {
                             fprintf(stderr, "TYPEDEDUC:    [%d] Deduced type: %s\n", j,
-                                    print_declarator(current_deduction->deduced_parameters[j]->type, decl_context));
+                                    print_declarator(current_deduction->deduced_parameters[j]->type));
                             break;
                         }
                     case TPK_NONTYPE:
@@ -546,7 +546,7 @@ char deduce_template_arguments_common(
                             fprintf(stderr, "TYPEDEDUC:    [%d] Deduced expression: %s\n", j,
                                     prettyprint_in_buffer(current_deduction->deduced_parameters[j]->expression));
                             fprintf(stderr, "TYPEDEDUC:    [%d] (Deduced) Type: %s\n", j,
-                                    print_declarator(current_deduction->deduced_parameters[j]->type, decl_context));
+                                    print_declarator(current_deduction->deduced_parameters[j]->type));
                             break;
                         }
                     default:
@@ -642,7 +642,7 @@ char deduce_arguments_of_conversion(
                 original_parameter_type, 
                 decl_context, filename, line);
 
-    if (!equivalent_types((*argument_types), updated_type, decl_context))
+    if (!equivalent_types((*argument_types), updated_type))
     {
         // We have to check several things
         type_t* original_parameter = function_type_get_return_type(specialized_type);
@@ -656,7 +656,7 @@ char deduce_arguments_of_conversion(
         }
         else if (is_pointer_type((*argument_types))
                 && is_pointer_type(updated_type)
-                && !pointer_types_can_be_converted((*argument_types), updated_type, decl_context))
+                && !pointer_types_can_be_converted((*argument_types), updated_type))
         {
             ok = 1;
         }
@@ -871,13 +871,13 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             }
         }
 
-        if (!equivalent_types(argument_types[i], updated_type, decl_context))
+        if (!equivalent_types(argument_types[i], updated_type))
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "TYPEDEDUC: Deduced parameter type '%s' and argument type '%s' are not exactly the same\n",
-                        print_declarator(updated_type, decl_context),
-                        print_declarator(argument_types[i], decl_context));
+                        print_declarator(updated_type),
+                        print_declarator(argument_types[i]));
             }
             // We have to check several things
             type_t* original_parameter = 
@@ -903,8 +903,8 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 {
                     fprintf(stderr, "TYPEDEDUC: But original parameter type is reference and"
                             " deduced parameter type '%s' is more qualified than argument type '%s'\n",
-                            print_declarator(updated_type, decl_context),
-                            print_declarator(argument_types[i], decl_context));
+                            print_declarator(updated_type),
+                            print_declarator(argument_types[i]));
                 }
                 ok = 1;
             }
@@ -932,14 +932,14 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
              */
             else if (is_pointer_type(argument_types[i])
                     && is_pointer_type(updated_type)
-                    && !pointer_types_can_be_converted(argument_types[i], updated_type, decl_context))
+                    && !pointer_types_can_be_converted(argument_types[i], updated_type))
             {
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "TYPEDEDUC: But argument type '%s' is a convertible pointer "
                             "to deduced parameter type '%s'\n",
-                            print_declarator(argument_types[i], decl_context),
-                            print_declarator(updated_type, decl_context));
+                            print_declarator(argument_types[i]),
+                            print_declarator(updated_type));
                 }
                 ok = 1;
             }
@@ -1003,8 +1003,8 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                 {
                     fprintf(stderr, "TYPEDEDUC: But argument type '%s' is a derived class type of "
                             "the deduced parameter type '%s'\n",
-                            print_declarator(argument_types[i], decl_context),
-                            print_declarator(updated_type, decl_context));
+                            print_declarator(argument_types[i]),
+                            print_declarator(updated_type));
                 }
                 ok = 1;
             }

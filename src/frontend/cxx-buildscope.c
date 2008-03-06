@@ -2891,7 +2891,7 @@ static void build_scope_declarator_with_parameter_context(AST a,
         {
             fprintf(stderr, "Computed type of '%s' is  '%s'\n", 
                     prettyprint_in_buffer(a),
-                    print_declarator(*declarator_type, decl_context));
+                    print_declarator(*declarator_type));
         }
     }
 
@@ -3976,8 +3976,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         if (!is_named_type(declarator_type)
                 || named_type_get_symbol(declarator_type) != entry)
         {
-            ERROR_CONDITION((!equivalent_types(entry->type_information, declarator_type,
-                            decl_context)), 
+            ERROR_CONDITION((!equivalent_types(entry->type_information, declarator_type)), 
                     "Symbol '%s' in line %s has been redeclared as a different symbol kind (look at %s:%d).", 
                     ASTText(declarator_id), 
                     ast_location(declarator_id), 
@@ -4466,7 +4465,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
 
         type_t* considered_type = advance_over_typedefs(considered_symbol->type_information);
 
-        found_equal = equivalent_types(function_type_being_declared, considered_type, decl_context);
+        found_equal = equivalent_types(function_type_being_declared, considered_type);
         if (found_equal)
         {
             equal_entry = considered_symbol;
@@ -5879,7 +5878,7 @@ static void build_scope_member_template_simple_declaration(decl_context_t decl_c
     build_scope_member_simple_declaration(new_decl_context, a, current_access, class_info);
 }
 
-static char is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type, decl_context_t decl_context)
+static char is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type)
 {
     // Remember copy assignment operators
     if ((strcmp(entry->symbol_name, STR_OPERATOR_ASSIGNMENT) == 0)
@@ -5893,10 +5892,9 @@ static char is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type
         //  operator=(T)
         if ((is_lvalue_reference_to_class_type(first_parameter)
                     && equivalent_types(get_actual_class_type(class_type),
-                        get_actual_class_type(get_unqualified_type(reference_type_get_referenced_type(first_parameter))),
-                        decl_context))
+                        get_actual_class_type(get_unqualified_type(reference_type_get_referenced_type(first_parameter)))))
                 || (is_class_type(first_parameter) 
-                    && equivalent_types(get_actual_class_type(class_type), get_actual_class_type(first_parameter), decl_context)))
+                    && equivalent_types(get_actual_class_type(class_type), get_actual_class_type(first_parameter))))
         {
             return 1;
         }
@@ -5904,7 +5902,7 @@ static char is_copy_assignment_operator(scope_entry_t* entry, type_t* class_type
     return 0;
 }
 
-static char is_copy_constructor(scope_entry_t* entry, type_t* class_type, decl_context_t decl_context)
+static char is_copy_constructor(scope_entry_t* entry, type_t* class_type)
 {
     if (entry->entity_specs.is_constructor
             && !entry->entity_specs.is_explicit
@@ -5922,8 +5920,7 @@ static char is_copy_constructor(scope_entry_t* entry, type_t* class_type, decl_c
 
         if (is_lvalue_reference_to_class_type(first_parameter)
                     && equivalent_types(get_actual_class_type(class_type),
-                        get_actual_class_type(get_unqualified_type(reference_type_get_referenced_type(first_parameter))),
-                        decl_context))
+                        get_actual_class_type(get_unqualified_type(reference_type_get_referenced_type(first_parameter)))))
         {
             return 1;
         }
@@ -6021,7 +6018,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                         entry->entity_specs.is_conversor_constructor = 1;
                     }
 
-                    if (is_copy_constructor(entry, class_type, decl_context))
+                    if (is_copy_constructor(entry, class_type))
                     {
                         class_type_add_copy_constructor(class_type, entry);
                     }
@@ -6039,7 +6036,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
         case AST_OPERATOR_FUNCTION_ID :
         case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
             {
-                if (is_copy_assignment_operator(entry, class_type, decl_context))
+                if (is_copy_assignment_operator(entry, class_type))
                 {
                     class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
                 }
@@ -6381,7 +6378,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                                 entry->entity_specs.is_conversor_constructor = 1;
                                             }
 
-                                            if (is_copy_constructor(entry, class_type, decl_context))
+                                            if (is_copy_constructor(entry, class_type))
                                             {
                                                 class_type_add_copy_constructor(class_type, entry);
                                             }
@@ -6399,7 +6396,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 case AST_OPERATOR_FUNCTION_ID :
                                 case AST_OPERATOR_FUNCTION_ID_TEMPLATE :
                                     {
-                                        if (is_copy_assignment_operator(entry, class_type, decl_context))
+                                        if (is_copy_assignment_operator(entry, class_type))
                                         {
                                             class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
                                         }
@@ -6662,7 +6659,7 @@ decl_context_t replace_template_parameters_with_template_arguments(
             {
                 fprintf(stderr, "Making type template parameter '%s' of type '%s'\n", 
                         new_entry->symbol_name,
-                        print_declarator(new_entry->type_information, new_entry->decl_context));
+                        print_declarator(new_entry->type_information));
             }
         }
         // non-type template parameter

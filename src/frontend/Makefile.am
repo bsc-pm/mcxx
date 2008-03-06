@@ -84,6 +84,7 @@ libmcxx_la_LIBADD = \
 
 libmcxx_la_CFLAGS = -Wall \
 					-Wshadow \
+					-Wextra \
 				  -I$(top_srcdir)/lib \
 				  -I$(top_srcdir)/src/driver \
                    -fexceptions \

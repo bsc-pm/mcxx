@@ -263,7 +263,7 @@ static char is_less_or_equal_specialized_template_conversion_function(
                 }
                 else
                 {
-                    fprintf(stderr, "TYPEORDER: The deduced type '%s' is not sound\n", print_declarator(updated_type, decl_context));
+                    fprintf(stderr, "TYPEORDER: The deduced type '%s' is not sound\n", print_declarator(updated_type));
                 }
 
                 fprintf(stderr, "TYPEORDER: It is not less or equal specialized template function because type deduction failed\n");
@@ -273,14 +273,14 @@ static char is_less_or_equal_specialized_template_conversion_function(
 
         type_t* argument_type = function_type_get_return_type(f2);
 
-        if (!equivalent_types(updated_type, argument_type, decl_context))
+        if (!equivalent_types(updated_type, argument_type))
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "TYPEORDER: It is not less or equal specialized template function "
                         "because type of parameter (%s) and type of argument (%s) do not match\n",
-                        print_declarator(updated_type, decl_context),
-                        print_declarator(argument_type, decl_context));
+                        print_declarator(updated_type),
+                        print_declarator(argument_type));
             }
             return 0;
         }
@@ -396,7 +396,7 @@ char is_less_or_equal_specialized_template_function(type_t* f1, type_t* f2,
                 }
                 else
                 {
-                    fprintf(stderr, "TYPEORDER: The deduced type '%s' is not sound\n", print_declarator(updated_type, decl_context));
+                    fprintf(stderr, "TYPEORDER: The deduced type '%s' is not sound\n", print_declarator(updated_type));
                 }
 
                 fprintf(stderr, "TYPEORDER: It is not less or equal specialized template function because type deduction failed\n");
@@ -406,14 +406,14 @@ char is_less_or_equal_specialized_template_function(type_t* f1, type_t* f2,
 
         type_t* argument_type = function_type_get_parameter_type_num(f2, i);
 
-        if (!equivalent_types(updated_type, argument_type, decl_context))
+        if (!equivalent_types(updated_type, argument_type))
         {
             DEBUG_CODE()
             {
                 fprintf(stderr, "TYPEORDER: It is not less or equal specialized template function "
                         "because type of parameter (%s) and type of argument (%s) do not match\n",
-                        print_declarator(updated_type, decl_context),
-                        print_declarator(argument_type, decl_context));
+                        print_declarator(updated_type),
+                        print_declarator(argument_type));
             }
             return 0;
         }

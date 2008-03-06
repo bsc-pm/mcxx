@@ -73,12 +73,10 @@ struct overload_entry_list_tag
 } overload_entry_list_t;
 
 static char better_ics(implicit_conversion_sequence_t ics1,
-        implicit_conversion_sequence_t ics2,
-        decl_context_t decl_context);
+        implicit_conversion_sequence_t ics2);
 static
 char standard_conversion_is_better(standard_conversion_t scs1, 
-        standard_conversion_t scs2,
-        decl_context_t decl_context);
+        standard_conversion_t scs2);
 
 static
 char is_better_function_flags(scope_entry_t* f,
@@ -89,11 +87,6 @@ char is_better_function_flags(scope_entry_t* f,
         char no_standard_conversions,
         const char *filename,
         int line);
-
-static
-char standard_conversion_is_better(standard_conversion_t scs1, 
-        standard_conversion_t scs2,
-        decl_context_t decl_context);
 
 static type_t* result_type_after_conversion(scope_entry_t* conversor)
 {
@@ -199,17 +192,17 @@ static char is_better_initialization_ics(
         type_t* converted_type_2 = result_type_after_conversion(ics_2.conversor);
 
         standard_conversion_t scs_1;
-        if (!standard_conversion_between_types(&scs_1, converted_type_1, dest, decl_context))
+        if (!standard_conversion_between_types(&scs_1, converted_type_1, dest))
         {
             internal_error("A SCS should exist!", 0);
         }
         standard_conversion_t scs_2;
-        if (!standard_conversion_between_types(&scs_2, converted_type_2, dest, decl_context))
+        if (!standard_conversion_between_types(&scs_2, converted_type_2, dest))
         {
             internal_error("A SCS should exist!", 0);
         }
 
-        if (standard_conversion_is_better(scs_1, scs_2, decl_context))
+        if (standard_conversion_is_better(scs_1, scs_2))
         {
             DEBUG_CODE()
             {
@@ -247,8 +240,8 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     DEBUG_CODE()
     {
         fprintf(stderr, "ICS: Computing ICS from '%s' -> '%s'\n", 
-                print_declarator(orig, decl_context),
-                print_declarator(dest, decl_context));
+                print_declarator(orig),
+                print_declarator(dest));
     }
 
     *result = invalid_ics;
@@ -328,13 +321,13 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
     }
 
     standard_conversion_t standard_conv;
-    if (standard_conversion_between_types(&standard_conv, orig, dest, decl_context))
+    if (standard_conversion_between_types(&standard_conv, orig, dest))
     {
         DEBUG_CODE()
         {
             fprintf(stderr, "ICS: There is a standard conversion from '%s' -> '%s'\n", 
-                    print_declarator(standard_conv.orig, decl_context),
-                    print_declarator(standard_conv.dest, decl_context));
+                    print_declarator(standard_conv.orig),
+                    print_declarator(standard_conv.dest));
         }
 
         result->kind = ICSK_STANDARD;
@@ -369,8 +362,8 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         DEBUG_CODE()
         {
             fprintf(stderr, "ICS: Looking for user defined conversions from '%s' to '%s'\n",
-                    print_declarator(orig, decl_context),
-                    print_declarator(dest, decl_context));
+                    print_declarator(orig),
+                    print_declarator(dest));
         }
 
         // Maybe there is a conversion function from class_type to something standard
@@ -447,7 +440,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 {
                     fprintf(stderr, "ICS: Specialized conversion function '%s' is '%s'\n",
                             conv_funct->symbol_name,
-                            print_declarator(conv_funct->type_information, decl_context));
+                            print_declarator(conv_funct->type_information));
                 }
             }
 
@@ -456,8 +449,8 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             DEBUG_CODE()
             {
                 fprintf(stderr, "ICS: Checking conversion function of '%s' to '%s'\n",
-                        print_declarator(orig, decl_context),
-                        print_declarator(converted_type, decl_context));
+                        print_declarator(orig),
+                        print_declarator(converted_type));
             }
 
             // The implicit parameter of this operator function is a reference
@@ -473,9 +466,9 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             standard_conversion_t first_sc;
             standard_conversion_t second_sc;
             if (standard_conversion_between_types(&first_sc, orig, 
-                        implicit_parameter, decl_context)
+                        implicit_parameter)
                     && standard_conversion_between_types(&second_sc, converted_type, 
-                        dest, decl_context))
+                        dest))
             {
                 implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
                 num_user_defined_conversions++;
@@ -491,13 +484,13 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                             "ICS:     SCS1: %s -> %s\n"
                             "ICS:     Conversion function: %s (%s:%d)\n"
                             "ICS:     SCS2: %s -> %s\n",
-                            print_declarator(current->first_sc.orig, decl_context),
-                            print_declarator(current->first_sc.dest, decl_context),
+                            print_declarator(current->first_sc.orig),
+                            print_declarator(current->first_sc.dest),
                             current->conversor->symbol_name,
                             current->conversor->file,
                             current->conversor->line,
-                            print_declarator(current->second_sc.orig, decl_context),
-                            print_declarator(current->second_sc.dest, decl_context));
+                            print_declarator(current->second_sc.orig),
+                            print_declarator(current->second_sc.dest));
                 }
             }
 
@@ -603,24 +596,24 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 {
                     fprintf(stderr, "ICS: Specialized conversor constructor '%s' is '%s'\n",
                             constructor->symbol_name,
-                            print_declarator(constructor->type_information, decl_context));
+                            print_declarator(constructor->type_information));
                 }
             }
 
             type_t* conversion_source_type = function_type_get_parameter_type_num(constructor->type_information, 0);
 
             standard_conversion_t first_sc;
-            if (standard_conversion_between_types(&first_sc, orig, conversion_source_type, decl_context))
+            if (standard_conversion_between_types(&first_sc, orig, conversion_source_type))
             {
                 DEBUG_CODE()
                 {
                     fprintf(stderr, "ICS: First conversion from the original type '%s' "
                             "to the parameter type '%s' of the constructor suceeded\n",
-                            print_declarator(orig, decl_context),
-                            print_declarator(conversion_source_type, decl_context));
+                            print_declarator(orig),
+                            print_declarator(conversion_source_type));
                 }
                 standard_conversion_t second_sc;
-                if (standard_conversion_between_types(&second_sc, class_type, dest, decl_context))
+                if (standard_conversion_between_types(&second_sc, class_type, dest))
                 {
                     implicit_conversion_sequence_t *current = &(user_defined_conversions[num_user_defined_conversions]);
                     num_user_defined_conversions++;
@@ -636,13 +629,13 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                                 "ICS:     SCS1: %s -> %s\n"
                                 "ICS:     Conversion function: %s (%s:%d)\n"
                                 "ICS:     SCS2: %s -> %s\n",
-                                print_declarator(current->first_sc.orig, decl_context),
-                                print_declarator(current->first_sc.dest, decl_context),
+                                print_declarator(current->first_sc.orig),
+                                print_declarator(current->first_sc.dest),
                                 current->conversor->symbol_name,
                                 current->conversor->file,
                                 current->conversor->line,
-                                print_declarator(current->second_sc.orig, decl_context),
-                                print_declarator(current->second_sc.dest, decl_context));
+                                print_declarator(current->second_sc.orig),
+                                print_declarator(current->second_sc.dest));
                     }
                 }
             }
@@ -702,8 +695,8 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             {
                 fprintf(stderr,
                         "ICS: Conversion from '%s' -> '%s' requires an AMBIGUOUS user defined sequence\n",
-                        print_declarator(orig, decl_context),
-                        print_declarator(dest, decl_context));
+                        print_declarator(orig),
+                        print_declarator(dest));
             }
         }
         else
@@ -711,19 +704,19 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             DEBUG_CODE()
             {
                 fprintf(stderr, "ICS: Conversion from '%s' -> '%s' requires a user defined sequence\n",
-                        print_declarator(orig, decl_context),
-                        print_declarator(dest, decl_context));
+                        print_declarator(orig),
+                        print_declarator(dest));
                 fprintf(stderr, "ICS: Details of this user defined conversion\n"
                         "ICS:     SCS1: %s -> %s\n"
                         "ICS:     Conversion function: %s (%s:%d)\n"
                         "ICS:     SCS2: %s -> %s\n",
-                        print_declarator(result->first_sc.orig, decl_context),
-                        print_declarator(result->first_sc.dest, decl_context),
+                        print_declarator(result->first_sc.orig),
+                        print_declarator(result->first_sc.dest),
                         result->conversor->symbol_name,
                         result->conversor->file,
                         result->conversor->line,
-                        print_declarator(result->second_sc.orig, decl_context),
-                        print_declarator(result->second_sc.dest, decl_context));
+                        print_declarator(result->second_sc.orig),
+                        print_declarator(result->second_sc.dest));
             }
         }
     }
@@ -848,7 +841,7 @@ static char standard_conversion_is_pointer_to_bool(standard_conversion_t scs)
 }
 
 static char standard_conversion_has_better_rank(standard_conversion_t scs1, 
-        standard_conversion_t scs2, decl_context_t decl_context)
+        standard_conversion_t scs2)
 {
     standard_conversion_rank_t rank1 = standard_conversion_get_rank(scs1);
     standard_conversion_rank_t rank2 = standard_conversion_get_rank(scs2);
@@ -876,7 +869,7 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
          * Some checks on "derivedness" and type kind are probably
          * rendundant below, but it is ok
          */
-        if (equivalent_types(scs1.orig, scs2.orig, decl_context))
+        if (equivalent_types(scs1.orig, scs2.orig))
             // Both SCSs have same source type
         {
             // Fix redundant reference to class pointer
@@ -973,7 +966,7 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
         }
 
         // Both SCS have same dest
-        if (equivalent_types(scs1.dest, scs2.dest, decl_context))
+        if (equivalent_types(scs1.dest, scs2.dest))
         {
             if (is_pointer_to_class_type(scs1.orig) // A* ->
                     && is_pointer_to_void_type(scs1.dest) // void*
@@ -1043,7 +1036,7 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
 }
 
 static char standard_conversion_differs_qualification(standard_conversion_t scs1,
-        standard_conversion_t scs2, decl_context_t decl_context)
+        standard_conversion_t scs2)
 {
     if ((scs1.conv[0] == scs2.conv[0])
             && (scs1.conv[1] == scs2.conv[1])
@@ -1060,8 +1053,8 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
         // Check that they yield similar types and scs2 is more qualified
         if (((cv_qualif_1 | cv_qualif_2) == cv_qualif_1) 
                 && equivalent_types(get_unqualified_type(scs1.dest), 
-                    get_unqualified_type(scs2.dest), 
-                    decl_context))
+                    get_unqualified_type(scs2.dest)
+                    ))
         {
             return 1;
         }
@@ -1096,7 +1089,7 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
             type_t* dest1 = get_unqualified_type(reference_type_get_referenced_type(scs1.dest));
             type_t* dest2 = get_unqualified_type(reference_type_get_referenced_type(scs2.dest));
 
-            if (equivalent_types(dest1, dest2, decl_context)
+            if (equivalent_types(dest1, dest2)
                     && is_more_cv_qualified_type(reference_type_get_referenced_type(scs2.dest),
                         reference_type_get_referenced_type(scs1.dest)))
             {
@@ -1110,8 +1103,7 @@ static char standard_conversion_differs_qualification(standard_conversion_t scs1
 
 static
 char standard_conversion_is_better(standard_conversion_t scs1, 
-        standard_conversion_t scs2,
-        decl_context_t decl_context)
+        standard_conversion_t scs2)
 {
     if (standard_conversion_is_subsequence(scs1, scs2))
     {
@@ -1122,7 +1114,7 @@ char standard_conversion_is_better(standard_conversion_t scs1,
         }
         return 1;
     }
-    else if (standard_conversion_has_better_rank(scs1, scs2, decl_context))
+    else if (standard_conversion_has_better_rank(scs1, scs2))
     {
         DEBUG_CODE()
         {
@@ -1131,7 +1123,7 @@ char standard_conversion_is_better(standard_conversion_t scs1,
         }
         return 1;
     }
-    else if (standard_conversion_differs_qualification(scs1, scs2, decl_context))
+    else if (standard_conversion_differs_qualification(scs1, scs2))
     {
         DEBUG_CODE()
         {
@@ -1152,8 +1144,7 @@ char standard_conversion_is_better(standard_conversion_t scs1,
  * Returns true if ics1 is known to be better than ics2
  */
 static char better_ics(implicit_conversion_sequence_t ics1,
-        implicit_conversion_sequence_t ics2,
-        decl_context_t decl_context)
+        implicit_conversion_sequence_t ics2)
 {
     if (ics1.kind == ICSK_STANDARD
             && (ics2.kind == ICSK_USER_DEFINED
@@ -1174,14 +1165,14 @@ static char better_ics(implicit_conversion_sequence_t ics1,
         {
             fprintf(stderr, "ICS: ICS1 and ICS2 are both standard conversions\n");
         }
-        if (standard_conversion_is_better(ics1.first_sc, ics2.first_sc, decl_context))
+        if (standard_conversion_is_better(ics1.first_sc, ics2.first_sc))
             return 1;
     }
     else if (ics1.kind == ICSK_USER_DEFINED 
             && ics2.kind == ICSK_USER_DEFINED)
     {
         if (ics1.conversor == ics2.conversor
-                && standard_conversion_is_better(ics1.second_sc, ics2.second_sc, decl_context))
+                && standard_conversion_is_better(ics1.second_sc, ics2.second_sc))
             return 1;
     }
     
@@ -1311,11 +1302,11 @@ char is_better_function_flags(scope_entry_t* f,
                 f->symbol_name,
                 f->file,
                 f->line,
-                print_declarator(f->type_information, decl_context),
+                print_declarator(f->type_information),
                 g->symbol_name,
                 g->file,
                 g->line,
-                print_declarator(g->type_information, decl_context));
+                print_declarator(g->type_information));
     }
 
     int first_type = 0;
@@ -1407,14 +1398,14 @@ char is_better_function_flags(scope_entry_t* f,
             }
         }
 
-        if (better_ics(ics_to_f, ics_to_g, decl_context))
+        if (better_ics(ics_to_f, ics_to_g))
         {
             some_is_better = 1;
             continue;
         }
 
         // It is not better, maybe it is just as good
-        if (better_ics(ics_to_g, ics_to_f, decl_context))
+        if (better_ics(ics_to_g, ics_to_f))
         {
             // It turned out that this one is actualy worse, so 'f' is not better than 'g'
             return 0;
@@ -1432,11 +1423,11 @@ char is_better_function_flags(scope_entry_t* f,
                     f->symbol_name,
                     f->file,
                     f->line,
-                    print_declarator(f->type_information, decl_context),
+                    print_declarator(f->type_information),
                     g->symbol_name,
                     g->file,
                     g->line,
-                    print_declarator(g->type_information, decl_context));
+                    print_declarator(g->type_information));
         }
         return 1;
     }
@@ -1453,11 +1444,11 @@ char is_better_function_flags(scope_entry_t* f,
                     f->symbol_name,
                     f->file,
                     f->line,
-                    print_declarator(f->type_information, decl_context),
+                    print_declarator(f->type_information),
                     g->symbol_name,
                     g->file,
                     g->line,
-                    print_declarator(g->type_information, decl_context));
+                    print_declarator(g->type_information));
         }
         return 1;
     }
@@ -1472,11 +1463,11 @@ char is_better_function_flags(scope_entry_t* f,
                     f->symbol_name,
                     f->file,
                     f->line,
-                    print_declarator(f->type_information, decl_context),
+                    print_declarator(f->type_information),
                     g->symbol_name,
                     g->file,
                     g->line,
-                    print_declarator(g->type_information, decl_context));
+                    print_declarator(g->type_information));
         }
         // if ¬(g <= f) then f < g
         deduction_set_t* deduction_set = NULL;
@@ -1492,11 +1483,11 @@ char is_better_function_flags(scope_entry_t* f,
                         f->symbol_name,
                         f->file,
                         f->line,
-                        print_declarator(f->type_information, decl_context),
+                        print_declarator(f->type_information),
                         g->symbol_name,
                         g->file,
                         g->line,
-                        print_declarator(g->type_information, decl_context));
+                        print_declarator(g->type_information));
             }
             return 1;
         }
@@ -1509,11 +1500,11 @@ char is_better_function_flags(scope_entry_t* f,
                 f->symbol_name,
                 f->file,
                 f->line,
-                print_declarator(f->type_information, decl_context),
+                print_declarator(f->type_information),
                 g->symbol_name,
                 g->file,
                 g->line,
-                print_declarator(g->type_information, decl_context));
+                print_declarator(g->type_information));
     }
     return 0;
 }
@@ -1557,7 +1548,7 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
                 }
                 else
                 {
-                    fprintf(stderr, "OVERLOAD:    [%d] %s", i, print_declarator(argument_types[i], decl_context));
+                    fprintf(stderr, "OVERLOAD:    [%d] %s", i, print_declarator(argument_types[i]));
                     if (i == 0)
                     {
                         fprintf(stderr, " <implicit argument type>");
@@ -1580,7 +1571,7 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
                         it->entry->symbol_name,
                         it->entry->file,
                         it->entry->line,
-                        print_declarator(it->entry->type_information, decl_context),
+                        print_declarator(it->entry->type_information),
                         (it->entry->entity_specs.is_builtin ? "<builtin function>" : ""));
 
                 it = it->next;
@@ -1616,7 +1607,7 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
                         it->entry->symbol_name,
                         it->entry->file,
                         it->entry->line,
-                        print_declarator(it->entry->type_information, decl_context));
+                        print_declarator(it->entry->type_information));
 
                 it = it->next;
             }
@@ -1722,7 +1713,7 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
     {
         fprintf(stderr, "OVERLOAD: Best viable function is [%s, %s]\n", 
                 best_viable->entry->symbol_name,
-                print_declarator(best_viable->entry->type_information, decl_context));
+                print_declarator(best_viable->entry->type_information));
     }
     return best_viable->entry;
 }
@@ -1794,8 +1785,8 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
             {
                 fprintf(stderr, "OVERLOAD: When solving address of overload: checking '%s' "
                         "against overload '%s' ('%s' at '%s:%d')\n",
-                        print_declarator(current_fun->type_information, decl_context),
-                        print_declarator(target_type, decl_context),
+                        print_declarator(current_fun->type_information),
+                        print_declarator(target_type),
                         current_fun->symbol_name,
                         current_fun->file,
                         current_fun->line);
@@ -1806,7 +1797,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                     && !current_fun->entity_specs.is_static
                     && is_pointer_to_member_type(target_type)
                     && equivalent_types(get_actual_class_type(current_fun->entity_specs.class_type),
-                        get_actual_class_type(class_type->type_information), decl_context))
+                        get_actual_class_type(class_type->type_information)))
             {
                 can_match = 1;
             }
@@ -1820,7 +1811,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
 
             if (can_match
                     && equivalent_types(current_fun->type_information, 
-                        functional_type, decl_context))
+                        functional_type))
             {
                 DEBUG_CODE()
                 {
@@ -1875,7 +1866,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                     && !primary_symbol->entity_specs.is_static
                     && is_pointer_to_member_type(target_type)
                     && equivalent_types(get_actual_class_type(primary_symbol->entity_specs.class_type),
-                        get_actual_class_type(class_type->type_information), decl_context))
+                        get_actual_class_type(class_type->type_information)))
             {
                 can_match = 1;
             }
@@ -1925,7 +1916,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                                 named_symbol->symbol_name,
                                 named_symbol->file,
                                 named_symbol->line,
-                                print_declarator(named_symbol->type_information, decl_context));
+                                print_declarator(named_symbol->type_information));
                     }
 
                     scope_entry_list_t* new_viable_fun 
@@ -2041,7 +2032,7 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
                     most_specialized->symbol_name,
                     most_specialized->file,
                     most_specialized->line,
-                    print_declarator(most_specialized->type_information, decl_context));
+                    print_declarator(most_specialized->type_information));
         }
 
         return most_specialized;

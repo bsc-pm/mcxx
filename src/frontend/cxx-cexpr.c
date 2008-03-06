@@ -902,7 +902,7 @@ static literal_value_t cast_expression(AST type_spec, AST expression,
         }
         else
         {
-            internal_error("Cannot cast constant expression to type '%s'", print_declarator(type_info, decl_context));
+            internal_error("Cannot cast constant expression to type '%s'", print_declarator(type_info));
         }
 
         return after_cast;
@@ -1135,8 +1135,7 @@ AST tree_from_literal_value(literal_value_t e)
 }
 
 char equal_literal_values(literal_value_t v1, 
-        literal_value_t v2, 
-        decl_context_t decl_context UNUSED_PARAMETER)
+        literal_value_t v2)
 {
     if (v1.kind == LVK_INVALID
             || v2.kind == LVK_INVALID)
@@ -2430,7 +2429,7 @@ static literal_value_t literal_value_gcc_builtin_types_compatible(AST expression
         second_type = get_unqualified_type(second_type);
     }
 
-    if (equivalent_types(first_type, second_type, decl_context))
+    if (equivalent_types(first_type, second_type))
     {
         return literal_value_one();
     }

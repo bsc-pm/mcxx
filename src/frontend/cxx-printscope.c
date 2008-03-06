@@ -163,7 +163,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
     if (entry->kind == SK_VARIABLE)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n", 
-                print_declarator(entry->type_information, entry->decl_context));
+                print_declarator(entry->type_information));
     }
     if (entry->kind == SK_TEMPLATE_PARAMETER
             || entry->kind == SK_TEMPLATE_TYPE_PARAMETER
@@ -230,7 +230,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
             if (current_argument->kind == TAK_TYPE
                     || current_argument->kind == TAK_TEMPLATE)
             {
-                template_arg_info = print_declarator(current_argument->type, entry->decl_context);
+                template_arg_info = print_declarator(current_argument->type);
             }
             else if (current_argument->kind == TAK_NONTYPE)
             {
@@ -272,7 +272,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
     if (entry->kind == SK_TYPEDEF)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1,  "Aliased type: %s\n",
-                print_declarator(typedef_type_get_aliased_type(entry->type_information), entry->decl_context));
+                print_declarator(typedef_type_get_aliased_type(entry->type_information)));
     }
 
     if (entry->kind == SK_GCC_BUILTIN_TYPE)
@@ -283,7 +283,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
     if (entry->kind == SK_ENUMERATOR)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Type: %s\n",
-                print_declarator(entry->type_information, entry->decl_context));
+                print_declarator(entry->type_information));
     }
 
     if ((entry->kind == SK_VARIABLE || entry->kind == SK_ENUMERATOR)
@@ -298,7 +298,7 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
         if (!is_computed_function_type(entry->type_information))
         {
             PRINT_INDENTED_LINE(stderr, global_indent+1, "Prototype: %s\n",
-                    print_declarator(entry->type_information, entry->decl_context));
+                    print_declarator(entry->type_information));
             // print_scope_full(entry->related_decl_context.current_scope, global_indent+1);
             C_LANGUAGE()
             {

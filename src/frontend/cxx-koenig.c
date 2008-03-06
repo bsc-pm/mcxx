@@ -53,7 +53,7 @@ scope_entry_list_t* koenig_lookup(
             int i = 0;
             for (i = 0; i < num_arguments; i++)
             {
-                fprintf(stderr, "KOENIG:    [%d] %s\n", i, print_declarator(argument_type_list[i], normal_decl_context));
+                fprintf(stderr, "KOENIG:    [%d] %s\n", i, print_declarator(argument_type_list[i]));
             }
         }
         else

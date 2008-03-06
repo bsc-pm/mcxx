@@ -252,8 +252,7 @@ static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* 
         for (j = 0; j < num_arguments; j++)
         {
             fprintf(stderr, "SPU-BUILTIN:     [%d] %s\n", j,
-                    print_declarator(ASTExprType(arguments[j]), 
-                        overloaded_function->decl_context));
+                    print_declarator(ASTExprType(arguments[j])));
         }
     }
 
@@ -278,7 +277,7 @@ static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* 
         {
             fprintf(stderr, "SPU-BUILTIN: Checking with builtin '%s' of type '%s'\n",
                     current_entry->symbol_name,
-                    print_declarator(current_function_type, overloaded_function->decl_context));
+                    print_declarator(current_function_type));
         }
 
         if (!is_function_type(current_function_type))
@@ -328,8 +327,7 @@ static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* 
             // }
             all_arguments_matched = all_arguments_matched 
                 && equivalent_types(get_unqualified_type(argument_type),
-                        parameter_type,
-                        overloaded_function->decl_context);
+                        parameter_type);
         }
 
         if (all_arguments_matched)
@@ -338,7 +336,7 @@ static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* 
             {
                 fprintf(stderr, "SPU-BUILTIN: Builtin '%s' of type '%s' matched!\n",
                         current_entry->symbol_name,
-                        print_declarator(current_function_type, overloaded_function->decl_context));
+                        print_declarator(current_function_type));
             }
             result = current_function_type;
             found_match = 1;
