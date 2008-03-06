@@ -1,0 +1,17 @@
+[lt-mcxx]
+language = C
+options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=align-memory:no
+preprocessor_name = c99
+preprocessor_options = -E @SUPERSCALAR_INCLUDES@
+compiler_name = c99
+compiler_options = 
+linker_name = c99
+linker_options = 
+compiler_phase = libtlsuperscalar-configurator.so
+compiler_phase = libtlsuperscalar-preanalysis.so
+compiler_phase = libtlsuperscalar-task-analysis.so
+compiler_phase = libtlsuperscalar-function-router.so
+compiler_phase = libtlsuperscalar-transform-directives.so
+compiler_phase = libtlsuperscalar-code-conversion.so
+compiler_phase = libtlsuperscalar-task-manifest.so
+pragma_prefix = css

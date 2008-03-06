@@ -332,6 +332,11 @@ AC_SUBST([NEBELUNG_LIBS])
 dnl --------------------- End Support for Mintaka ---------------------
 
 dnl --------------------- Superscalar support ---------------------
+ 
+superscalar_include="${prefix}/include"
+superscalar_lib="${prefix}/lib"
+SUPERSCALAR_INCLUDES="-I ${superscalar_include} -include CellSS.h"
+SUPERSCALAR_LIBS=""
 
 is_enabled_tl_superscalar="no"
 AC_MSG_CHECKING([if Cell/SMP superscalar TL support is enabled])
@@ -382,19 +387,45 @@ AC_ARG_WITH([superscalar-runtime-api-version],
 		fi
 	]
 )
+ 
+if test x$is_enabled_tl_superscalar = xyes;
+then
+   AC_ARG_WITH([superscalar],
+           AS_HELP_STRING([--with-superscalar=dir], [Directory of Cell/SMP superscalar installation]),
+           [
+            superscalar_include="${withval}/include"
+            superscalar_lib="${withval}/lib"
+           ]
+   )
+
+   AC_ARG_WITH([superscalar-include],
+           AS_HELP_STRING([--with-superscalar-include=dir], [Directory of Cell/SMP superscalar headers]),
+           [
+            superscalar_include="${withval}"
+           ]
+   )
+
+   AC_ARG_WITH([superscalar-lib],
+           AS_HELP_STRING([--with-superscalar-lib=dir], [Directory of Cell/SMP superscalar libraries]),
+           [
+            superscalar_lib="${withval}"
+           ]
+   )
+ 
+   TLEXTENSIONS="${TLEXTENSIONS} superscalar"
+   ENABLED_PROFILES="${ENABLED_PROFILES} SUPERSCALAR"
+	ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.superscalar"
+fi
+	 
+SUPERSCALAR_INCLUDES="-I ${superscalar_include} -include CellSS.h"
+ 
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V1, test x"$use_tl_superscalar_version" = x"1")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V2, test x"$use_tl_superscalar_version" = x"2")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V3, test x"$use_tl_superscalar_version" = x"3")
 AC_MSG_RESULT([$use_tl_superscalar_version])
-
-
-if test x$is_enabled_tl_superscalar = xyes;
-then
-   TLEXTENSIONS="${TLEXTENSIONS} superscalar"
-   ENABLED_PROFILES="${ENABLED_PROFILES} SUPERSCALAR"
-# Ask JM about this
-# COMPILER_NAMES="${COMPILER_NAMES} "
-fi
+ 
+AC_SUBST([SUPERSCALAR_INCLUDES])
+AC_SUBST([SUPERSCALAR_LIBS])
 
 dnl --------------------- End of superscalar support ---------------------
 
@@ -677,6 +708,7 @@ AC_CONFIG_FILES([Makefile
            tests/mcc.instr.openmp.dg/config.mcxx
            tests/mcxx.instr.openmp.dg/config.mcxx
            tests/mcxx.stm.dg/config.mcxx
+           tests/mcc.superscalar.dg/config.mcxx
            doc/Makefile
            doc/doxygen_tl
            scripts/Makefile
@@ -713,7 +745,9 @@ echo ""
 echo " * Superscalar :" $is_enabled_tl_superscalar
 if test x$is_enabled_tl_superscalar = xyes;
 then
-  echo "   Supercalar version :" $use_tl_superscalar_version
+  echo "   CELL/SMP superscalar version :" $use_tl_superscalar_version
+  echo "   CELL/SMP superscalar includes :" $superscalar_include
+  echo "   CELL/SMP superscalar libraries:" $superscalar_lib
 fi
 echo ""
 
