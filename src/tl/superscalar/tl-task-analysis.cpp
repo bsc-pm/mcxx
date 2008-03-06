@@ -265,6 +265,14 @@ namespace TL
 					TaskAnalysis::fail();
 				}
 			}
+			else if (parameter_info._direction != UNKNOWN_DIR)
+			{
+				std::cerr << parameter_info._augmented_declaration_locus << " Error: Inconsistent directionality for parameter '" << parameter_name <<"', declared as " << direction_name << std::endl;
+				std::cerr << parameter_info._augmented_definition_locus << " previously declared as " << direction_to_name(parameter_info._direction) << "." << std::endl;
+				function_info._has_errors = true;
+				TaskAnalysis::fail();
+			}
+			
 			parameter_info._direction = direction;
 		}
 		catch (SyntaxErrorException ex)
