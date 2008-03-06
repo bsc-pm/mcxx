@@ -316,8 +316,17 @@ namespace TL
 		
 		bool has_high_priority = construct.get_clause("highpriority").is_defined();
 		
-		if (function_info._task_declaration_count != 0) {
-			if (function_info._has_high_priority != has_high_priority) {
+		if (has_high_priority && !construct.get_clause("highpriority").get_arguments().empty())
+		{
+			std::cerr << task_definition.get_ast().get_locus() << " Error: the 'highpriority' clause does not accept any parameter." << std::endl;
+			function_info._has_errors = true;
+			TaskAnalysis::fail();
+		}
+		
+		if (function_info._task_declaration_count != 0)
+		{
+			if (function_info._has_high_priority != has_high_priority)
+			{
 				std::cerr << task_definition.get_ast().get_locus() << " Error: definition of task '" << function_name << "' has different priority that previous declaration." << std::endl;
 				std::cerr << function_info._task_declaration_locus << " previously declared here." << std::endl;
 				function_info._has_errors = true;
@@ -440,6 +449,13 @@ namespace TL
 		
 		bool has_high_priority = construct.get_clause("highpriority").is_defined();
 		
+		if (has_high_priority && !construct.get_clause("highpriority").get_arguments().empty())
+		{
+			std::cerr << declared_entity.get_ast().get_locus() << " Error: the 'highpriority' clause does not accept any parameter." << std::endl;
+			function_info._has_errors = true;
+			TaskAnalysis::fail();
+		}
+		
 		if (function_info._task_definition_count != 0) {
 			if (function_info._has_high_priority != has_high_priority) {
 				std::cerr << declared_entity.get_ast().get_locus() << " Error: declaration of task '" << function_name << "' has different priority that previous definition." << std::endl;
@@ -557,6 +573,19 @@ namespace TL
 		// FIXME: These names are too Cell specific
 		PragmaCustomClause target_spu = construct.get_clause("spu");
 		PragmaCustomClause target_ppu = construct.get_clause("ppu");
+		
+		if (target_spu.is_defined() && !target_spu.get_arguments().empty())
+		{
+			std::cerr << construct.get_ast().get_locus() << " Error: the 'spu' clause does not accept any parameter." << std::endl;
+			function_info._has_errors = true;
+			TaskAnalysis::fail();
+		}
+		if (target_ppu.is_defined() && !target_ppu.get_arguments().empty())
+		{
+			std::cerr << construct.get_ast().get_locus () << " Error: the 'ppu' clause does not accept any parameter." << std::endl;
+			function_info._has_errors = true;
+			TaskAnalysis::fail();
+		}
 		
 		function_info._is_on_task_side = target_spu.is_defined();
 		function_info._is_on_non_task_side = target_ppu.is_defined();
