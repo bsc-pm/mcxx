@@ -306,7 +306,13 @@ namespace TL
             * true, but this function might return true even if 'operator==' returned false.
             * So do not use 'operator==' to check type system equality.
             */
-            bool is_same_type(Type t, Scope sc);
+            bool is_same_type(Type t);
+
+            //! States whether two types represent the same type
+            /*!
+             * \deprecated Do not use this one instead use is_same_type(Type)
+             */
+            bool is_same_type(Type t, Scope sc) DEPRECATED;
 
             /* We should consider to remove this one day */
             friend class Symbol;

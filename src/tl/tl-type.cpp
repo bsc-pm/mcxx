@@ -510,8 +510,13 @@ namespace TL
         return result;
     }
 
-    bool Type::is_same_type(Type t, Scope sc)
+    bool Type::is_same_type(Type t)
     {
-        return equivalent_types(this->_type_info, t._type_info, sc._decl_context);
+        return equivalent_types(this->_type_info, t._type_info);
+    }
+
+    bool Type::is_same_type(Type t, Scope)
+    {
+        return is_same_type(t);
     }
 }
