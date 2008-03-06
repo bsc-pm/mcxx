@@ -52,11 +52,14 @@ namespace TL
 			std::string _declaration_locus;
 			std::string _augmented_definition_locus;
 			std::string _augmented_declaration_locus;
+			unsigned int _directionality_declaration_count;
+			unsigned int _directionality_definition_count;
 			ParameterDirection _direction;
 			
 			ParameterInfo()
 				: _symbol(Symbol::invalid())
 				, _definition_type(NULL), _declaration_type(NULL), _augmented_definition_type(NULL), _augmented_declaration_type(NULL)
+				, _directionality_declaration_count(0), _directionality_definition_count(0)
 				, _direction(UNKNOWN_DIR)
 				{
 				}

@@ -118,17 +118,25 @@ namespace TL
 			parameter_info._augmented_definition_type = parameter_type;
 			parameter_info._augmented_definition_locus = construct.get_ast().get_locus();
 			parameter_info._direction = direction;
+			parameter_info._directionality_definition_count++;
+			
+			if (parameter_info._directionality_definition_count != function_info._task_definition_count)
+			{
+				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause appears more than once in the directionality clauses." << std::endl;
+				function_info._has_errors = true;
+				TaskAnalysis::fail();
+			}
 			
 			if (parameter_type.is_pointer() && parameter_type.points_to().is_void() && direction != INPUT_DIR)
 			{
-				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is an opaque pointer and can only appear in the input clause" << std::endl;
+				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is an opaque pointer and can only appear in the input clause." << std::endl;
 				function_info._has_errors = true;
 				TaskAnalysis::fail();
 			}
 			
 			if (!parameter_type.is_non_derived_type() && !parameter_type.is_array() && !parameter_type.is_pointer())
 			{
-				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is a derived type and cannot be passed by value" << std::endl;
+				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is a derived type and cannot be passed by value." << std::endl;
 				function_info._has_errors = true;
 				TaskAnalysis::fail();
 			}
@@ -137,17 +145,17 @@ namespace TL
 			{
 				if (!TypeUtils::parameter_types_match(parameter_type, parameter_info._augmented_declaration_type, construct.get_scope_link()))
 				{
-					std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause as '" << parameter_type.get_simple_declaration(task_definition.get_scope(), parameter_name) << "' conflicts with previous declaration" << std::endl;
+					std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause as '" << parameter_type.get_simple_declaration(task_definition.get_scope(), parameter_name) << "' conflicts with previous declaration." << std::endl;
 					std::cerr << parameter_info._augmented_declaration_locus << " previously declared as '"
 						<< parameter_info._augmented_declaration_type.get_simple_declaration(function_info._declaration_scope, parameter_name)
-						<< "'" << std::endl;
+						<< "'." << std::endl;
 					function_info._has_errors = true;
 					TaskAnalysis::fail();
 				}
 				if (parameter_info._direction != direction)
 				{
 					std::cerr << parameter_info._augmented_definition_locus << " Error: Inconsistent directionality for parameter '" << parameter_name <<"', declared as " << direction_name << std::endl;
-					std::cerr << parameter_info._augmented_declaration_locus << " previously declared as " << direction_to_name(parameter_info._direction) << std::endl;
+					std::cerr << parameter_info._augmented_declaration_locus << " previously declared as " << direction_to_name(parameter_info._direction) << "." << std::endl;
 					function_info._has_errors = true;
 					TaskAnalysis::fail();
 				}
@@ -216,17 +224,25 @@ namespace TL
 			parameter_info._augmented_declaration_type = parameter_type;
 			parameter_info._augmented_declaration_locus = construct.get_ast().get_locus();
 			parameter_info._direction = direction;
+			parameter_info._directionality_declaration_count++;
+			
+			if (parameter_info._directionality_declaration_count != function_info._task_declaration_count)
+			{
+				std::cerr << parameter_info._augmented_declaration_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause appears more than once in the directionality clauses." << std::endl;
+				function_info._has_errors = true;
+				TaskAnalysis::fail();
+			}
 			
 			if (parameter_type.is_pointer() && parameter_type.points_to().is_void() && direction != INPUT_DIR)
 			{
-				std::cerr << parameter_info._augmented_declaration_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is an opaque pointer and can only appear in the input clause" << std::endl;
+				std::cerr << parameter_info._augmented_declaration_locus << " Error: parameter '" << parameter_name << "' declared in " << direction_name << "' clause is an opaque pointer and can only appear in the input clause." << std::endl;
 				function_info._has_errors = true;
 				TaskAnalysis::fail();
 			}
 			
 			if (!parameter_type.is_non_derived_type() && !parameter_type.is_array() && !parameter_type.is_pointer())
 			{
-				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is a derived type and cannot be passed by value" << std::endl;
+				std::cerr << parameter_info._augmented_definition_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause is a derived type and cannot be passed by value." << std::endl;
 				function_info._has_errors = true;
 				TaskAnalysis::fail();
 			}
@@ -238,14 +254,14 @@ namespace TL
 					std::cerr << parameter_info._augmented_declaration_locus << " Error: parameter '" << parameter_name <<"' declared in " << direction_name << "' clause as '" << parameter_type.get_simple_declaration(task_declaration.get_scope(), parameter_name) << "' conflicts with previous declaration" << std::endl;
 					std::cerr << parameter_info._augmented_definition_locus << " previously declared as '"
 						<< parameter_info._augmented_definition_type.get_simple_declaration(function_info._definition_scope, parameter_name)
-						<< "'" << std::endl;
+						<< "'." << std::endl;
 					function_info._has_errors = true;
 					TaskAnalysis::fail();
 				}
 				if (parameter_info._direction != direction)
 				{
 					std::cerr << parameter_info._augmented_declaration_locus << " Error: Inconsistent directionality for parameter '" << parameter_name <<"', declared as " << direction_name << std::endl;
-					std::cerr << parameter_info._augmented_definition_locus << " previously declared as " << direction_to_name(parameter_info._direction) << std::endl;
+					std::cerr << parameter_info._augmented_definition_locus << " previously declared as " << direction_to_name(parameter_info._direction) << "." << std::endl;
 					function_info._has_errors = true;
 					TaskAnalysis::fail();
 				}
