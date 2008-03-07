@@ -497,7 +497,7 @@ threadprivate {
     }
 }
 
-. {
+[^,] {
     parse_token_text();
     return PRAGMA_CLAUSE_ARG_TEXT;
 }
