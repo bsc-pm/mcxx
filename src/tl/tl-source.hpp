@@ -309,6 +309,15 @@ namespace TL
      */
     std::string preprocessor_line(const std::string& str);
 
+    //! Creates a placeholder for the given AST_t
+    /*!
+     * This function creates a placeholder for statements. Once parsed, \a
+     * placeholder can be used as a reference tree for further parsings and can
+     * be replaced. If it is not replaced it will default to an empty
+     * statement.
+     */
+    std::string placeholder_statement(AST_t& placeholder);
+
     //! Convenience function to convert a list into a string
     /*!
      * \param t List of elements of type T

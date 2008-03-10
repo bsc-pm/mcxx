@@ -1135,6 +1135,8 @@ runtime {
  /* Special tokens for prettyprinted comments and preprocessor elements */
 @-C-@[^@]*@-CC-@ { parse_token_text(); return PP_COMMENT; }
 @-P-@[^@]*@-PP-@ { parse_token_text(); return PP_TOKEN; }
+ /* Special tokens for placeholders */
+@STATEMENT-PH::0[xX]{hexdigit}+@ { parse_token_text(); return STATEMENT_PLACEHOLDER; }
  /* Special tokens for parsing superscalar related things */
 @SUPERSCALAR_DECLARATOR@ { parse_token_text(); return SUBPARSE_SUPERSCALAR_DECLARATOR; }
 

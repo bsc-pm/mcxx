@@ -1,3 +1,4 @@
+/*!if GRAMMAR_CODE*/
 static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 {
 	// return ASTMake2(AST_AMBIGUITY, x0.ast, x1.ast, 0, NULL);
@@ -12,3 +13,4 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1)
 
     return ast_make_ambiguous(son0, son1);
 }
+/*!endif*/

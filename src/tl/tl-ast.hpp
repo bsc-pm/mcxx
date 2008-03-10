@@ -374,6 +374,13 @@ namespace TL
                 return _ast;
             }
 
+            //! Debug function - Do not use
+            /*! Returns the address of the tree field */
+            AST* get_internal_ast_field_ptr()
+            {
+                return &(this->_ast);
+            }
+
             /* End debug functions */
 
             //! States that this is an AST_t

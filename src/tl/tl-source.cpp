@@ -724,6 +724,18 @@ namespace TL
         return result;
     }
 
+    std::string placeholder_statement(AST_t& placeholder)
+    {
+        // This code violates all aliasing assumptions since we are codifying
+        // an address into a string and using it later to get the original
+        // address. This is kind of a hack.
+        AST* ast_field_ptr = placeholder.get_internal_ast_field_ptr();
+        char c[256];
+        snprintf(c, 255, "@STATEMENT-PH::%p@", (void*)ast_field_ptr);
+        c[255] = '\0';
+        return std::string(c);
+    }
+
     std::string to_string(const ObjectList<std::string>& t, const std::string& separator)
     {
         std::string result;

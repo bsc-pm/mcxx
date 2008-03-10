@@ -31,6 +31,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
 #include "cxx-lexer.h"
 #include "cxx-ast.h"
 #include "cxx-utils.h"
@@ -314,6 +315,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<node_type> assignment_operator
 
 /*!define GRAMMAR_PROLOGUE*/
+/*!include cxx-placeholders.y*/
 /*!include cxx-omp.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/
@@ -2458,6 +2460,7 @@ string_literal : STRING_LITERAL
 ;
 
 /*!define GRAMMAR_RULES*/
+/*!include cxx-placeholders.y*/
 /*!include cxx-omp.y*/
 /*!include cxx-pragma.y*/
 /*!include cxx-construct.y*/
@@ -2466,7 +2469,10 @@ string_literal : STRING_LITERAL
 
 %%
 
+/*!define GRAMMAR_CODE*/
+/*!include cxx-placeholders.y */
 /*!include cxx-ambig-handler.y */
+/*!undefine GRAMMAR_CODE*/
 
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
