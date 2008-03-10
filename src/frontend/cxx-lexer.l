@@ -497,11 +497,6 @@ threadprivate {
     }
 }
 
-[^,] {
-    parse_token_text();
-    return PRAGMA_CLAUSE_ARG_TEXT;
-}
-
 [,][ \t]* {
     parse_token_text();
     return ',';
@@ -526,6 +521,11 @@ threadprivate {
     scanning_now.line_number++;
     BEGIN(INITIAL);
     return PRAGMA_CUSTOM_NEWLINE;
+}
+
+[^,] {
+    parse_token_text();
+    return PRAGMA_CLAUSE_ARG_TEXT;
 }
 
 }
