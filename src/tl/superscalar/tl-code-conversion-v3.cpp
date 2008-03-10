@@ -90,11 +90,44 @@ namespace TL
 				<< function_info._parameters.size() << ", "
 				<< "__css_parameters" << ");";
 		
-		ReplaceIdExpression argument_mapper;
 		
-		unsigned int parameter_index = 0;
+		// Fill in the argumet mapper
+		ReplaceIdExpression argument_mapper;
 		ObjectList<ParameterInfo>::const_iterator it = function_info._parameters.begin();
 		ObjectList<Expression>::iterator it2 = arguments.begin();
+		while (it != function_info._parameters.end())
+		{
+			ParameterInfo const &parameter_info = *it;
+			Expression &argument = *it2;
+			Type parameter_type(NULL);
+			
+			if (parameter_info._augmented_definition_type.is_valid())
+			{
+				parameter_type = parameter_info._augmented_definition_type;
+			}
+			else if (parameter_info._augmented_declaration_type.is_valid())
+			{
+				parameter_type = parameter_info._augmented_declaration_type;
+			}
+			else
+			{
+				std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
+				throw FatalException();
+			}
+			
+			if (!parameter_type.is_array() && !parameter_type.is_pointer() && parameter_type.is_non_derived_type())
+			{
+				// A scalar
+				argument_mapper.add_replacement(parameter_info._symbol, argument.get_ast());
+			}
+			it++;
+			it2++;
+		}
+		
+		
+		unsigned int parameter_index = 0;
+		it = function_info._parameters.begin();
+		it2 = arguments.begin();
 		while (it != function_info._parameters.end())
 		{
 			ParameterInfo const &parameter_info = *it;
@@ -252,8 +285,6 @@ namespace TL
 				}
 				
 				bounds_source << "(void *)0";
-				
-				argument_mapper.add_replacement(parameter_info._symbol, argument.get_ast());
 			}
 			else
 			{
