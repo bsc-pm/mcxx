@@ -60,32 +60,6 @@ namespace TL
                 }
         };
 
-        static AST_t get_proper_reference_tree(AST_t tree, ScopeLink scope_link)
-        {
-            Source fake_compound_source;
-
-            fake_compound_source
-                << "{"
-                <<    "Transaction *__t;"
-                << "   uint64_t _tx_commit_start, _tx_commit_end;"
-                << "}"
-                ;
-
-            AST_t fake_compound_tree = fake_compound_source.parse_statement(tree,
-                    scope_link);
-
-            Statement fake_compound_statement(
-                    fake_compound_tree.depth_subtrees(PredicateAST<LANG_IS_COMPOUND_STATEMENT>())[0], 
-                    scope_link);
-
-            ObjectList<Statement> fake_compound_inner_statements = fake_compound_statement.get_inner_statements();
-
-            // Get the inner tree as a reference
-            Statement statement = fake_compound_inner_statements[0];
-            AST_t result = statement.get_ast();
-            return result;
-        }
-
         class OpenMPTransform::STMExpressionReplacement 
         {
             private:
@@ -94,9 +68,12 @@ namespace TL
                 STMFunctionFiltering _stm_function_filtering;
                 std::fstream &_log_file;
 
+                AST_t _ref_tree;
+
                 static bool _dummy;
             public:
                 STMExpressionReplacement(
+                        AST_t ref_tree,
                         ObjectList<Symbol>& unmanaged_symbols,
                         ObjectList<Symbol>& local_symbols,
                         const std::string& replace_filename, const std::string& replace_filter_mode,
@@ -106,7 +83,7 @@ namespace TL
                     _local_symbols(local_symbols),
                     _stm_function_filtering(replace_filename, replace_filter_mode,
                             wrap_filename, wrap_filter_mode),
-                    _log_file(log_file)
+                    _log_file(log_file), _ref_tree(ref_tree)
             {
             }
 
@@ -267,8 +244,7 @@ namespace TL
                     }
 
                     AST_t address_expression_tree = address_expression.parse_expression(
-                            get_proper_reference_tree(expression.get_ast(), 
-                                expression.get_scope_link()), 
+                            _ref_tree, 
                             expression.get_scope_link(), Source::DO_NOT_CHECK_EXPRESSION);
 
                     expression.get_ast().replace(address_expression_tree);
@@ -590,7 +566,7 @@ namespace TL
                                 << increment_code;
 
                             AST_t flat_code_tree = flat_code.parse_expression(
-                                    get_proper_reference_tree(expression.get_ast(), expression.get_scope_link()),
+                                    _ref_tree,
                                     expression.get_scope_link(),
                                     Source::DO_NOT_CHECK_EXPRESSION);
                             Expression flat_code_expr(flat_code_tree, expression.get_scope_link());
@@ -600,7 +576,7 @@ namespace TL
                             derref_write << "(" << flat_code_expr.prettyprint() << ")";
 
                             AST_t derref_write_tree = derref_write.parse_expression(
-                                    get_proper_reference_tree(expression.get_ast(), expression.get_scope_link()),
+                                    _ref_tree,
                                     expression.get_scope_link(),
                                     Source::DO_NOT_CHECK_EXPRESSION);
 
@@ -619,7 +595,7 @@ namespace TL
 
                             AST_t read_operand_tree = 
                                 read_operand_src.parse_expression(
-                                        get_proper_reference_tree(expression.get_ast(), expression.get_scope_link()),
+                                        _ref_tree,
                                         expression.get_scope_link(),
                                         Source::DO_NOT_CHECK_EXPRESSION);
 
@@ -676,7 +652,7 @@ namespace TL
 
                             AST_t increment_tree =
                                 increment_source.parse_expression(
-                                        get_proper_reference_tree(expression.get_ast(), expression.get_scope_link()),
+                                        _ref_tree,
                                         expression.get_scope_link(), 
                                         Source::DO_NOT_CHECK_EXPRESSION);
                             Expression increment_expr(increment_tree, expression.get_scope_link());
@@ -686,7 +662,7 @@ namespace TL
                                 ;
 
                             AST_t post_tree = post_source.parse_expression(
-                                    get_proper_reference_tree(expression.get_ast(), expression.get_scope_link()),
+                                    _ref_tree,
                                     expression.get_scope_link(),
                                     Source::DO_NOT_CHECK_EXPRESSION);
 
@@ -835,7 +811,7 @@ namespace TL
 
                             // Now parse the function call
                             AST_t replace_call_tree = replace_call.parse_expression(
-                                    get_proper_reference_tree(called_expression.get_ast(), called_expression.get_scope_link()),
+                                    _ref_tree,
                                     called_expression.get_scope_link(),
                                     Source::DO_NOT_CHECK_EXPRESSION);
 
@@ -887,7 +863,7 @@ namespace TL
                     // Replace the expression, it might temporarily be invalid
                     // because of local variables that will be actually declared later
                     AST_t read_expression_tree = read_expression.parse_expression(
-                            get_proper_reference_tree(expression.get_ast(), expression.get_scope_link()),
+                            _ref_tree,
                             expression.get_scope_link(), Source::DO_NOT_CHECK_EXPRESSION);
 
                     expression.get_ast().replace(read_expression_tree);
@@ -961,19 +937,20 @@ namespace TL
             }
         }
 
-        void OpenMPTransform::stm_replace_init_declarators(Statement& transaction_statement, 
-                STMExpressionReplacement &expression_replacement)
+        void OpenMPTransform::stm_replace_init_declarators(AST_t transaction_tree,
+                STMExpressionReplacement &expression_replacement,
+                ScopeLink scope_link)
         {
             PredicateAST<LANG_IS_DECLARATION> is_declaration_pred_;
             IgnorePreserveFunctor is_declaration_pred(is_declaration_pred_);
 
-            ObjectList<AST_t> found_declarations = transaction_statement.get_ast().depth_subtrees(is_declaration_pred);
+            ObjectList<AST_t> found_declarations = transaction_tree.depth_subtrees(is_declaration_pred);
 
             for (ObjectList<AST_t>::iterator it = found_declarations.begin();
                     it != found_declarations.end();
                     it++)
             {
-                Declaration declaration(*it, transaction_statement.get_scope_link());
+                Declaration declaration(*it, scope_link);
 
                 ObjectList<DeclaredEntity> declared_entities = declaration.get_declared_entities();
                 for (ObjectList<DeclaredEntity>::iterator p_decl = declared_entities.begin();
@@ -999,8 +976,7 @@ namespace TL
 
                         // FIXME
                         AST_t expr = repl_init_source.parse_expression(
-                                get_proper_reference_tree(p_decl->get_initializer().get_ast(), 
-                                    p_decl->get_initializer().get_scope_link()),
+                                transaction_tree,
                                 p_decl->get_initializer().get_scope_link(),
                                 Source::DO_NOT_CHECK_EXPRESSION);
                         p_decl->get_initializer().get_ast().replace(expr);
@@ -1009,39 +985,41 @@ namespace TL
             }
         }
 
-        void OpenMPTransform::stm_replace_expressions(Statement &transaction_statement,
-                STMExpressionReplacement &expression_replacement)
+        void OpenMPTransform::stm_replace_expressions(AST_t transaction_tree,
+                STMExpressionReplacement &expression_replacement,
+                ScopeLink scope_link)
         {
             // For every expression, replace it properly with read and write
             PredicateAST<LANG_IS_EXPRESSION_NEST> expression_pred_;
 
             IgnorePreserveFunctor expression_pred(expression_pred_);
-            ObjectList<AST_t> expressions = transaction_statement.get_ast().depth_subtrees(expression_pred);
+            ObjectList<AST_t> expressions = transaction_tree.depth_subtrees(expression_pred);
             for (ObjectList<AST_t>::iterator it = expressions.begin();
                     it != expressions.end();
                     it++)
             {
-                Expression expression(*it, transaction_statement.get_scope_link());
+                Expression expression(*it, scope_link);
 
                 expression_replacement.replace_expression(expression);
             }
         }
 
-        void OpenMPTransform::stm_replace_returns(Statement transaction_statement, bool from_wrapped_function)
+        void OpenMPTransform::stm_replace_returns(AST_t transaction_tree, 
+                bool from_wrapped_function, ScopeLink scope_link)
         {
             // We have to invalidate every parameter of the function
             // just before the return
             PredicateAST<LANG_IS_RETURN_STATEMENT> return_pred_;
 
             IgnorePreserveFunctor return_pred(return_pred_);
-            ObjectList<AST_t> returns = transaction_statement.get_ast().depth_subtrees(return_pred);
+            ObjectList<AST_t> returns = transaction_tree.depth_subtrees(return_pred);
             for (ObjectList<AST_t>::iterator it = returns.begin();
                     it != returns.end();
                     it++)
             {
                 Source return_replace_code;
 
-                Statement return_statement(*it, transaction_statement.get_scope_link());
+                Statement return_statement(*it, scope_link);
 
                 FunctionDefinition enclosing_function_def = return_statement.get_enclosing_function();
 
@@ -1159,8 +1137,7 @@ namespace TL
                 }
 
                 AST_t return_tree = return_replace_code.parse_statement(
-                        get_proper_reference_tree(return_statement.get_ast(), 
-                            return_statement.get_scope_link()),
+                        transaction_tree,
                         return_statement.get_scope_link());
 
                 it->replace(return_tree);
@@ -1169,11 +1146,12 @@ namespace TL
 
         void OpenMPTransform::stm_replace_code(
                 OpenMP::CustomConstruct transaction_construct,
-                Source &replaced_code, 
-                Statement &transaction_statement, 
+                AST_t&replaced_tree, 
+                AST_t& inner_tree,
                 ObjectList<Symbol> &local_symbols,
                 bool from_wrapped_function)
         {
+            Source replaced_code;
             // Create code for handling local symbols
             Source local_declarations;
             Source local_rollback;
@@ -1201,14 +1179,6 @@ namespace TL
                     <<          ", &__local_" << sym.get_name() 
                     <<          ", sizeof(" << sym.get_name() << "));"
                     ;
-
-                // local_rollback
-                //     << "__local_" + sym.get_name() << " = " << sym.get_name() << ";"
-                //     ;
-
-                // local_commit
-                //     << sym.get_name() << " = " << "__local_" + sym.get_name() << ";"
-                //     ;
             }
 
             // Replace code
@@ -1221,7 +1191,7 @@ namespace TL
                     << "{"
                     <<      local_declarations
                     <<      local_rollback
-                    <<      transaction_statement.prettyprint()
+                    <<      statement_placeholder(inner_tree)
                     <<      local_commit
                     <<      return_from_function
                     << "}"
@@ -1282,7 +1252,7 @@ namespace TL
 
                     <<         local_rollback
                     <<         comment("Transaction code")
-                    <<         transaction_statement.prettyprint()
+                    <<         statement_placeholder(inner_tree)
                     <<         comment("End of transaction code")
 
                     << "       if (__t->nestingLevel == 0){"
@@ -1340,6 +1310,9 @@ namespace TL
                     << "}"
                     ;
             }
+
+            replaced_tree = replaced_code.parse_statement(transaction_construct.get_ast(),
+                    transaction_construct.get_scope_link());
         }
 
         void OpenMPTransform::stm_transaction_full_stm(OpenMP::CustomConstruct transaction_construct)
@@ -1358,9 +1331,9 @@ namespace TL
             bool from_wrapped_function = converted_function.is_defined();
 
             // Expect the transformation to be done when transaction_nesting == 1
-            // Here we only remove the pragma itself
             if (transaction_nesting > 1)
             {
+                // Here we only remove the pragma itself
                 Source replaced_code;
                 replaced_code << transaction_statement.prettyprint();
 
@@ -1371,6 +1344,7 @@ namespace TL
                 return;
             }
 
+            // Gather symbols in 'unmanaged' clause
             ObjectList<Symbol> unmanaged_symbols;
             OpenMP::CustomClause unmanaged_clause = transaction_directive.custom_clause("unmanaged");
             if (unmanaged_clause.is_defined())
@@ -1379,6 +1353,7 @@ namespace TL
                     unmanaged_clause.id_expressions().map(functor(&IdExpression::get_symbol));
             }
 
+            // Gather symbols in 'local' clause
             ObjectList<Symbol> local_symbols;
             OpenMP::CustomClause local_clause = transaction_directive.custom_clause("local");
             if (local_clause.is_defined())
@@ -1398,32 +1373,42 @@ namespace TL
                 stm_log_file_opened = true;
             }
 
+            AST_t transaction_tree;
+
+            AST_t replaced_code;
+            stm_replace_code(transaction_construct, replaced_code, 
+                    transaction_tree, local_symbols, from_wrapped_function);
+            
+            {
+                // Replace the inner transaction tree with the transaction
+                // statement itself.
+                //
+                // This is sort of a duplicated to avoid improperly nested
+                // scope link information
+                Source transaction_source = transaction_statement.prettyprint();
+                AST_t new_tree = transaction_source.parse_statement(transaction_tree, 
+                        transaction_construct.get_scope_link());
+                transaction_tree.replace(new_tree);
+            }
+
             STMExpressionReplacement expression_replacement(
+                    transaction_tree,
                     unmanaged_symbols, local_symbols, 
                     stm_replace_functions_file, stm_replace_functions_mode,
                     stm_wrap_functions_file, stm_wrap_functions_mode,
                     stm_log_file);
 
             // Update all init-declarators
-            stm_replace_init_declarators(transaction_statement, expression_replacement);
+            stm_replace_init_declarators(transaction_tree, expression_replacement, transaction_construct.get_scope_link());
 
             // First convert all expressions
-            stm_replace_expressions(transaction_statement, expression_replacement);
-
-            // Now replace all local symbols
+            stm_replace_expressions(transaction_tree, expression_replacement, transaction_construct.get_scope_link());
 
             // And now find every 'return' statement and convert it
             // into something suitable for STM
-            stm_replace_returns(transaction_statement, from_wrapped_function);
+            stm_replace_returns(transaction_tree, from_wrapped_function, transaction_construct.get_scope_link());
 
-            Source replaced_code;
-            stm_replace_code(transaction_construct, replaced_code, 
-                    transaction_statement, local_symbols, from_wrapped_function);
-
-            AST_t replaced_tree = replaced_code.parse_statement(transaction_construct.get_ast(),
-                    transaction_construct.get_scope_link());
-
-            transaction_construct.get_ast().replace(replaced_tree);
+            transaction_construct.get_ast().replace(replaced_code);
         }
 
         void OpenMPTransform::stm_transaction_global_lock(OpenMP::CustomConstruct transaction_construct)
