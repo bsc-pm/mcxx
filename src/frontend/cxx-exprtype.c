@@ -5688,21 +5688,24 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
             fprintf(stderr, "%s: warning: overload call to '%s' failed\n",
                     ast_location(whole_function_call), argument_call);
-            fprintf(stderr, "%s: note: candidates are\n", ast_location(whole_function_call));
-
-            scope_entry_list_t* it = candidates;
-
-            while (it != NULL)
+            if (candidates != NULL)
             {
-                int max_level = 0;
-                char is_dependent = 0;
-                
-                scope_entry_t* entry = it->entry;
-                fprintf(stderr, "%s: note:    %s\n",
-                        ast_location(whole_function_call),
-                        print_decl_type_str(entry->type_information, decl_context, 
-                            get_fully_qualified_symbol_name(entry, decl_context, &is_dependent, &max_level)));
-                it = it->next;
+                fprintf(stderr, "%s: note: candidates are\n", ast_location(whole_function_call));
+
+                scope_entry_list_t* it = candidates;
+
+                while (it != NULL)
+                {
+                    int max_level = 0;
+                    char is_dependent = 0;
+
+                    scope_entry_t* entry = it->entry;
+                    fprintf(stderr, "%s: note:    %s\n",
+                            ast_location(whole_function_call),
+                            print_decl_type_str(entry->type_information, decl_context, 
+                                get_fully_qualified_symbol_name(entry, decl_context, &is_dependent, &max_level)));
+                    it = it->next;
+                }
             }
         }
 
