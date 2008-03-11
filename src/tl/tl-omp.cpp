@@ -105,8 +105,15 @@ namespace TL
 
        Directive Construct::directive()
        {
-           AST_t ast = _ref.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
-           return Directive(ast, _scope_link);
+           if (_ref.get_attribute(OMP_IS_OMP_CONSTRUCT))
+           {
+               return Directive(_ref, _scope_link);
+           }
+           else
+           {
+               AST_t ast = _ref.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
+               return Directive(ast, _scope_link);
+           }
        }
 
        Statement Construct::body()

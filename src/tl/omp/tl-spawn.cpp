@@ -87,7 +87,7 @@ namespace TL
             ObjectList<OpenMP::ReductionSymbol> merged_reduction_references;
 
             merged_reduction_references.append(reduction_references);
-            merged_reduction_references.append(inner_reductions_stack.top());
+            merged_reduction_references.insert(inner_reductions_stack.top(), functor(&OpenMP::ReductionSymbol::get_symbol));
 
             for (ObjectList<OpenMP::ReductionSymbol>::iterator it = merged_reduction_references.begin();
                     it != merged_reduction_references.end();
@@ -113,7 +113,8 @@ namespace TL
 
                 // now get the code that declares this reduction vector
                 reduction_vectors
-                    << comment("Reduction vector for '" + it->get_symbol().get_qualified_name() + "'")
+                    << comment("Reduction vector for '" + it->get_symbol().get_qualified_name() 
+                            + "' at " + it->get_symbol().get_point_of_declaration().get_locus() )
                     << reduction_vector_type.get_declaration(scope, 
                             reduction_vector_name) << ";";
             }
