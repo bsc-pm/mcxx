@@ -79,16 +79,16 @@ namespace TL
 		source
 			<< "{"
 				<< constant_redirection_source
-				<< "css_parameter_t __css_parameters[] = {" << parameter_initializers_source << "};"
+				<< "css_parameter_t __cssgenerated_parameters[] = {" << parameter_initializers_source << "};"
 				<< add_task_code
 			<< "}";
 		
 		add_task_code
 			<< "css_addTask("
-				<< "css_" << function_name << "_task_id" << ", "
+				<< "__cssgenerated_" << function_name << "_task_id" << ", "
 				<< (function_info._has_high_priority ? "1" : "0") << ", "
 				<< function_info._parameters.size() << ", "
-				<< "__css_parameters" << ");";
+				<< "__cssgenerated_parameters" << ");";
 		
 		
 		// Fill in the argumet mapper
@@ -225,7 +225,7 @@ namespace TL
 					size_source
 						<< "sizeof(void *)";
 					std::ostringstream temporary_name;
-					temporary_name << "__css_parameter_" << parameter_index;
+					temporary_name << "__cssgenerated_parameter_" << parameter_index;
 					constant_redirection_source
 						<< "void *" << temporary_name.str() << " = " << argument.prettyprint() << ";";
 					address_source << "&" << temporary_name.str();
@@ -272,7 +272,7 @@ namespace TL
 				else
 				{
 					std::ostringstream temporary_name;
-					temporary_name << "__css_parameter_" << parameter_index;
+					temporary_name << "__cssgenerated_parameter_" << parameter_index;
 					constant_redirection_source
 						<< parameter_type.get_declaration_with_initializer(
 							ctx.scope_link.get_scope(argument.get_ast()),
@@ -323,7 +323,7 @@ namespace TL
 		
 		std::string function_name = function_definition.get_function_name().mangle_id_expression();
 		
-		if (function_name.find("css_") == 0) {
+		if (function_name.find("__cssgenerated_") == 0) {
 			// An adapter or similar generated code
 			return;
 		}
@@ -352,7 +352,7 @@ namespace TL
 		{
 			Source id_declaration_source;
 			id_declaration_source
-				<< "extern int const " << "css_" << function_name << "_task_id" << ";";
+				<< "extern int const " << "__cssgenerated_" << function_name << "_task_id" << ";";
 			AST_t id_declaration_ast = id_declaration_source.parse_declaration(node, ctx.scope_link);
 			node.prepend_to_translation_unit(id_declaration_ast);
 		}
@@ -369,7 +369,7 @@ namespace TL
 		Source adapter_parameters;
 		
 		source
-			<< "void __attribute__((weak)) " << "css_" << function_name << "_adapter" << "(void **parameter_data)"
+			<< "void __attribute__((weak)) " << "__cssgenerated_" << function_name << "_adapter" << "(void **parameter_data)"
 			<< "{"
 				<< function_name << "(" << adapter_parameters << ");"
 			<< "}";
@@ -446,7 +446,7 @@ namespace TL
 			// Generate the task identifier but only once
 			Source id_declaration_source;
 			id_declaration_source
-				<< "extern int const " << "css_" << function_info._name << "_task_id" << ";";
+				<< "extern int const " << "__cssgenerated_" << function_info._name << "_task_id" << ";";
 			AST_t id_declaration_ast = id_declaration_source.parse_declaration(node, ctx.scope_link);
 			node.prepend_to_translation_unit(id_declaration_ast);
 		}
@@ -458,7 +458,7 @@ namespace TL
 			Source adapter_parameters;
 			
 			source
-				<< "void __attribute__((weak)) " << "css_" << function_info._name << "_adapter" << "(void **parameter_data)"
+				<< "void __attribute__((weak)) " << "__cssgenerated_" << function_info._name << "_adapter" << "(void **parameter_data)"
 				<< "{"
 					<< function_info._name << "(" << adapter_parameters << ");"
 				<< "}";
@@ -655,7 +655,7 @@ namespace TL
 		
 		source
 			<< "({"
-				<< "void *_aligned_mem = ";
+				<< "void *__cssgenerated_aligned_mem = ";
 		ObjectList<Expression>::iterator it = arguments.begin();
 		source
 					<< "memalign" << "("
@@ -669,7 +669,7 @@ namespace TL
 		// FIXME: must include strings.h
 		it = arguments.begin();
 		source
-				<< "bzero(_aligned_mem, "
+				<< "bzero(__cssgenerated_aligned_mem, "
 					<< "(" << it->prettyprint() << ")";
 		it++;
 		source
@@ -677,7 +677,7 @@ namespace TL
 					<< ")" << ";";
 		
 		source
-				<< "_aligned_mem;"
+				<< "__cssgenerated_aligned_mem;"
 			<< "})";
 		
 		AST_t tree = source.parse_statement(node, ctx.scope_link);

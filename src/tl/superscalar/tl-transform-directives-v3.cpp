@@ -104,8 +104,8 @@ namespace TL
 		Source source;
 		source
 			<< "{"
-				<< "void *__css_addresses[] = {" << addressListSource << "};"
-				<< "css_waitOn(" << on_list.size() << ", __css_addresses);"
+				<< "void *__cssgenerated_addresses[] = {" << addressListSource << "};"
+				<< "css_waitOn(" << on_list.size() << ", __cssgenerated_addresses);"
 			<< "}";
 		
 		for (ObjectList<Expression>::iterator it = on_list.begin(); it != on_list.end(); it++) {
