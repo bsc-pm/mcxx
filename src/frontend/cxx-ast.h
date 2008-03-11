@@ -249,6 +249,7 @@ AST ast_copy_with_scope_link(AST a, scope_link_t* orig, scope_link_t* new_sl);
 #define STR_OPERATOR_EQUAL "operator =="
 #define STR_OPERATOR_DIFFERENT "operator !="
 #define STR_OPERATOR_BIT_AND "operator &"
+#define STR_OPERATOR_REFERENCE "operator &"
 #define STR_OPERATOR_BIT_OR "operator |"
 #define STR_OPERATOR_BIT_XOR "operator ^"
 #define STR_OPERATOR_LOGIC_AND "operator &&"

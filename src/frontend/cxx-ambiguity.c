@@ -527,7 +527,9 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
                 }
             case AST_EXPRESSION_STATEMENT :
                 {
+                    enter_test_expression();
                     current_check = check_for_expression_statement(ast_get_ambiguity(a, i), decl_context);
+                    leave_test_expression();
                     break;
                 }
             default :
@@ -576,8 +578,27 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
 
     if (correct_choice < 0)
     {
-        internal_error("Could not solve ambiguity of '%s' at '%s'\n", 
-                prettyprint_in_buffer(a), ast_location(a));
+        // Recheck the expression again
+        for (i = 0; i < ast_get_num_ambiguities(a); i++)
+        {
+            switch (ASTType(ast_get_ambiguity(a, i)))
+            {
+                case AST_EXPRESSION_STATEMENT :
+                    {
+                        // This will output some informational messages that might
+                        // help solving this ambiguity
+                        check_for_expression_statement(ast_get_ambiguity(a, i), decl_context);
+                        break;
+                    }
+                default:
+                    {
+                        break;
+                    }
+            }
+        }
+
+        running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
+                ast_location(a), prettyprint_in_buffer(a));
     }
     else
     {
@@ -1096,10 +1117,8 @@ static char check_for_expression_statement(AST a, decl_context_t decl_context)
 {
     AST expression = ASTSon0(a);
 
-    enter_test_expression();
     char result = 
         check_for_expression(expression, decl_context );
-    leave_test_expression();
 
     return result;
 }
@@ -2288,7 +2307,23 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
 
     if (correct_choice < 0)
     {
-        // No ambiguity is valid
+        if (!checking_ambiguity())
+        {
+            // No ambiguity is valid
+            // Print some messages for the function calls being the first cause
+            // of problems
+            for (i = 0; i < ast_get_num_ambiguities(ambig_expression); i++)
+            {
+                if (ASTType(ast_get_ambiguity(ambig_expression, i)) == AST_FUNCTION_CALL)
+                {
+                    check_for_expression(ast_get_ambiguity(ambig_expression, i), decl_context);
+                }
+
+                // Choose this one just to avoid spurious errors later
+                choose_option(ambig_expression, i);
+                break;
+            }
+        }
         result = 0;
     }
     else

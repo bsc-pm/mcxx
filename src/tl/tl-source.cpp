@@ -724,7 +724,7 @@ namespace TL
         return result;
     }
 
-    std::string placeholder_statement(AST_t& placeholder)
+    std::string statement_placeholder(AST_t& placeholder)
     {
         // This code violates all aliasing assumptions since we are codifying
         // an address into a string and using it later to get the original

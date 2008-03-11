@@ -344,11 +344,11 @@ threadprivate {
             }
         case PDK_NONE :
             {
-                running_error("Unknown OpenMP directive '%s'"
-                        " at %s:%d. Maybe you forgot to register it?", 
-                        yytext,
+                running_error("%s:%d: error: unknown OpenMP directive '%s'."
+                        " Maybe you forgot to register it?", 
                         scanning_now.current_filename, 
-                        scanning_now.line_number);
+                        scanning_now.line_number,
+                        yytext);
             }
         default:
             internal_error("Invalid pragma directive kind kind=%d", directive_kind);
@@ -383,12 +383,12 @@ threadprivate {
             }
         case PDK_NONE :
             {
-                running_error("Unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?"
+                running_error("%s:%d: error: unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?"
                         " at %s:%d.", 
-                        yytext,
-                        current_pragma_prefix,
                         scanning_now.current_filename, 
-                        scanning_now.line_number);
+                        scanning_now.line_number,
+                        yytext,
+                        current_pragma_prefix);
             }
         default:
             internal_error("Invalid pragma directive kind kind=%d", directive_kind);
@@ -1334,7 +1334,7 @@ int OPEN_FILE_FOR_SCANNING(const char* scanned_filename, const char* input_filen
 
 	if (file == NULL)
 	{
-		running_error("Cannot open file '%s' (%s)", scanned_filename, strerror(errno));
+		running_error("error: cannot open file '%s' (%s)", scanned_filename, strerror(errno));
 	}
 
 	memset(&scanning_now, 0, sizeof(scanning_now));

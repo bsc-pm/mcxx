@@ -48,6 +48,44 @@ unsigned long long exprtype_used_memory(void)
     return _bytes_used_expr_check;
 }
 
+static const char* print_type_str(type_t* t, decl_context_t decl_context)
+{
+    if (t == NULL)
+    {
+        return uniquestr("< unknown type >");
+    }
+    else
+    {
+        return get_declaration_string_internal(t, 
+                decl_context, /* symbol_name */"", 
+                /* initializer */ "", 
+                /* semicolon */ 0,
+                /* num_parameter_names */ NULL,
+                /* parameter_names */ NULL,
+                /* is_parameter */ 0);
+    }
+}
+
+static const char* print_decl_type_str(type_t* t, decl_context_t decl_context, const char* name)
+{
+    if (t == NULL)
+    {
+        char c[256];
+        snprintf(c, 255, "< unknown type > %s\n", name);
+        return uniquestr(c);
+    }
+    else
+    {
+        return get_declaration_string_internal(t, 
+                decl_context, /* symbol_name */ name, 
+                /* initializer */ "", 
+                /* semicolon */ 0,
+                /* num_parameter_names */ NULL,
+                /* parameter_names */ NULL,
+                /* is_parameter */ 0);
+    }
+}
+
 #define MAX_BUILTINS (256)
 typedef
 struct builtin_operators_set_tag
@@ -1193,53 +1231,27 @@ char check_for_expression(AST expression, decl_context_t decl_context)
             }
     }
 
-    if (!checking_ambiguity())
+    if (!result 
+            || (ASTExprType(expression) == NULL))
     {
-        if (result)
+        if (!checking_ambiguity() 
+                && CURRENT_CONFIGURATION(strict_typecheck))
         {
-            if (ASTExprType(expression) == NULL)
-            {
-                if (!CURRENT_CONFIGURATION(strict_typecheck))
-                {
-                    fprintf(stderr, "Expression '%s' at '%s' does not have a valid computed type\n",
-                            prettyprint_in_buffer(expression),
-                            ast_location(expression));
-                }
-                else
-                {
-                    internal_error("Expression '%s' at '%s' does not have a valid computed type\n",
-                            prettyprint_in_buffer(expression),
-                            ast_location(expression));
-                }
-            }
-            else
-            {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "EXPRTYPE: Expression '%s' at '%s' has as computed type '%s' and it is a '%s'\n",
-                            prettyprint_in_buffer(expression),
-                            ast_location(expression),
-                            print_declarator(ASTExprType(expression)),
-                            ASTExprLvalue(expression) ? "lvalue" : "rvalue");
-                }
-            }
+            internal_error("Expression '%s' at '%s' does not have a valid computed type\n",
+                    prettyprint_in_buffer(expression),
+                    ast_location(expression));
         }
-        else
+    }
+
+    DEBUG_CODE()
+    {
+        if (ASTExprType(expression) != NULL)
         {
-            if (!CURRENT_CONFIGURATION(strict_typecheck))
-            {
-                fprintf(stderr, "%s:%d: warning: expression '%s' could not be checked\n",
-                        ASTFileName(expression),
-                        ASTLine(expression),
-                        prettyprint_in_buffer(expression));
-            }
-            else 
-            {
-                running_error("%s:%d: warning: expression '%s' could not be checked\n",
-                        ASTFileName(expression),
-                        ASTLine(expression),
-                        prettyprint_in_buffer(expression));
-            }
+            fprintf(stderr, "EXPRTYPE: Expression '%s' at '%s' has as computed type '%s' and it is a '%s'\n",
+                    prettyprint_in_buffer(expression),
+                    ast_location(expression),
+                    print_declarator(ASTExprType(expression)),
+                    ASTExprLvalue(expression) ? "lvalue" : "rvalue");
         }
     }
 
@@ -1542,9 +1554,9 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                         {
                                             char ill_literal[11];
                                             strncpy(ill_literal, beginning_of_escape, /* hexa */ 8 + /* escape */ 1 + /* null*/ 1 );
-                                            running_error("Invalid universal literal name '%s' at  '%s:%d", 
-                                                    ill_literal, ast_get_filename(expr),
-                                                    ast_get_line(expr));
+                                            running_error("%s: error: invalid universal literal name '%s'", 
+                                                    ast_location(expr),
+                                                    ill_literal);
                                         }
 
                                         literal++;
@@ -1559,10 +1571,9 @@ static void compute_length_of_literal_string(AST expr, int* length, char *is_wch
                                     char c[3];
 
                                     strncpy(c, beginning_of_escape, 3);
-                                    running_error("Invalid escape sequence '%s' at '%s:%d'\n",
-                                            c,
-                                            ast_get_filename(expr),
-                                            ast_get_line(expr));
+                                    running_error("%s: error: invalid escape sequence '%s'\n",
+                                            ast_location(expr),
+                                            c);
                                 }
                         }
                         break;
@@ -3925,10 +3936,24 @@ static char check_for_binary_expression(AST expression, decl_context_t decl_cont
     AST lhs = ASTSon0(expression);
     AST rhs = ASTSon1(expression);
 
-    if (check_for_expression(lhs, decl_context)
-            && check_for_expression(rhs, decl_context))
+    char lhs_check = check_for_expression(lhs, decl_context);
+    char rhs_check = check_for_expression(rhs, decl_context);
+
+    if (lhs_check
+            && rhs_check)
     {
         type_t* bin_type = get_binary_op_type(expression, decl_context);
+
+        if (bin_type == NULL
+                && !checking_ambiguity())
+        {
+            fprintf(stderr, "%s: Binary %s cannot be applied to operands '%s' (of type '%s') and '%s' (of type '%s')\n",
+                    ast_location(expression),
+                    get_operation_function_name(expression), 
+                    prettyprint_in_buffer(lhs), print_type_str(ASTExprType(lhs), decl_context),
+                    prettyprint_in_buffer(rhs), print_type_str(ASTExprType(rhs), decl_context));
+        }
+
         return (bin_type != NULL);
     }
 
@@ -3942,6 +3967,16 @@ static char check_for_unary_expression(AST expression, decl_context_t decl_conte
     if (check_for_expression(op, decl_context))
     {
         type_t* unary_type = get_unary_op_type(expression, decl_context);
+
+        if (unary_type == NULL
+                && !checking_ambiguity())
+        {
+            fprintf(stderr, "%s: Unary %s cannot be applied to operand '%s' (of type '%s')\n",
+                    ast_location(expression),
+                    get_operation_function_name(expression), 
+                    prettyprint_in_buffer(op), print_type_str(ASTExprType(op), decl_context));
+        }
+
         return (unary_type != NULL);
     }
 
@@ -4069,7 +4104,16 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
 
 static char check_for_symbol(AST expr, decl_context_t decl_context, decl_context_t* symbol_scope)
 {
-    return compute_symbol_type(expr, decl_context, symbol_scope);
+    char result = compute_symbol_type(expr, decl_context, symbol_scope);
+
+    if (!result 
+            && !checking_ambiguity())
+    {
+        fprintf(stderr, "%s: warning: symbol '%s' not found in current scope\n",
+                ast_location(expr), ASTText(expr));
+    }
+
+    return result;
 }
 
 
@@ -4503,7 +4547,7 @@ static type_t* composite_pointer(type_t* p1, type_t* p2)
     return result;
 }
 
-static char check_for_conditional_expression(AST expression, decl_context_t decl_context)
+static char check_for_conditional_expression_impl(AST expression, decl_context_t decl_context)
 {
     /*
      * This is more complex that it might seem at first ...
@@ -4802,6 +4846,29 @@ static char check_for_conditional_expression(AST expression, decl_context_t decl
     return 1;
 }
 
+
+static char check_for_conditional_expression(AST expression, decl_context_t decl_context)
+{
+    char result = check_for_conditional_expression_impl(expression, decl_context);
+
+    AST first_op = ASTSon0(expression);
+    AST second_op = ASTSon1(expression);
+    AST third_op = ASTSon2(expression);
+
+    if (!result
+            && !checking_ambiguity())
+    {
+        fprintf(stderr, "%s: warning: ternary operand '?' cannot be applied to first operand '%s' (of type '%s'), "
+                 "second operand '%s' (of type '%s') and third operand '%s' (of type '%s')\n",
+                 ast_location(expression),
+                 prettyprint_in_buffer(first_op), print_type_str(ASTExprType(first_op), decl_context),
+                 prettyprint_in_buffer(second_op), print_type_str(ASTExprType(second_op), decl_context),
+                 prettyprint_in_buffer(third_op), print_type_str(ASTExprType(third_op), decl_context));
+    }
+
+    return result;
+}
+
 static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
 {
     // AST global_op = ASTSon0(new_expr);
@@ -4977,8 +5044,9 @@ static char check_for_explicit_type_conversion(AST expr, decl_context_t decl_con
     }
 }
 
-static char check_for_function_arguments(AST arguments, decl_context_t decl_context)
+static char check_for_function_arguments(AST arguments, decl_context_t decl_context, int *num_arguments)
 {
+    *num_arguments = 0;
     if (arguments != NULL)
     {
         if (ASTType(arguments) == AST_AMBIGUITY)
@@ -4996,6 +5064,7 @@ static char check_for_function_arguments(AST arguments, decl_context_t decl_cont
             {
                 return 0;
             }
+            (*num_arguments)++;
         }
     }
 
@@ -5192,7 +5261,8 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         AST arguments, decl_context_t decl_context, char might_require_koenig)
 {
     // 1. If function arguments did not yield a valid expression ignore them
-    if (!check_for_function_arguments(arguments, decl_context))
+    int num_explicit_arguments = 0;
+    if (!check_for_function_arguments(arguments, decl_context, &num_explicit_arguments))
         return 0;
 
     // 2. Ignore all redundant parentheses, this will simplify the left part of
@@ -5227,14 +5297,17 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 // Maybe it named a type
                 if (entry_list == NULL)
                 {
-                    if (!names_a_builtin)
-                    {
-                        fprintf(stderr, "Warning: function '%s' called at %s has not been declared\n", 
-                                prettyprint_in_buffer(called_expression),
-                                ast_location(called_expression));
-                    }
                     ast_set_expression_type(called_expression, get_nonproto_function_type(get_signed_int_type(),
-                            /* FIXME - This should be the real number of parameters! */ 0));
+                            num_explicit_arguments));
+
+                    if (!names_a_builtin
+                            && !checking_ambiguity())
+                    {
+                        fprintf(stderr, "%s: warning: function '%s' has not been declared, assuming it to be like '%s'\n", 
+                                ast_location(called_expression),
+                                prettyprint_in_buffer(called_expression),
+                                print_decl_type_str(ASTExprType(called_expression), decl_context, name));
+                    }
                 }
                 else
                 {
@@ -5258,17 +5331,17 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             scope_entry_t *entry = entry_list->entry;
 
             AST* argument_list = NULL;
-            int num_arguments = 0;
+            int num_arguments_tmp = 0;
 
             // Create the argument array
             AST iter;
             for_each_element(arguments, iter)
             {
                 AST current_arg = ASTSon1(iter);
-                P_LIST_ADD(argument_list, num_arguments, current_arg);
+                P_LIST_ADD(argument_list, num_arguments_tmp, current_arg);
             }
 
-            type_t* t = compute_type_function(entry, argument_list, num_arguments);
+            type_t* t = compute_type_function(entry, argument_list, num_arguments_tmp);
 
             if (t != NULL)
             {
@@ -5276,7 +5349,9 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             }
             else
             {
-                fprintf(stderr, "Warning: match not found for computed function type\n");
+                fprintf(stderr, "%s: match not found for computed function type '%s\n",
+                        ast_location(called_expression), 
+                        prettyprint_in_buffer(advanced_called_expression));
             }
         }
 
@@ -5321,6 +5396,12 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             fprintf(stderr, "EXPRTYPE: Called expression '%s' at '%s' could not be checked\n",
                     prettyprint_in_buffer(called_expression),
                     ast_location(called_expression));
+        }
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning: Called entity '%s' is not valid\n", 
+                    ast_location(called_expression), 
+                    prettyprint_in_buffer(called_expression));
         }
         return 0;
     }
@@ -5567,6 +5648,64 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         {
             fprintf(stderr, "EXPRTYPE: Overload resolution failed\n");
         }
+
+        if (!checking_ambiguity())
+        {
+            // Build an informational message
+            const char *argument_call = "";
+
+            // Implicit type
+            if (argument_types[0] != NULL)
+            {
+                argument_call = strappend(argument_call, print_type_str(no_ref(argument_types[0]), decl_context));
+                argument_call = strappend(argument_call, "::");
+            }
+
+            const char* called_entity_name = "";
+            if (ASTType(called_expression) == AST_POINTER_CLASS_MEMBER_ACCESS
+                    || ASTType(called_expression) == AST_CLASS_MEMBER_ACCESS)
+            {
+                called_entity_name = prettyprint_in_buffer(ASTSon1(called_expression));
+            }
+            else
+            {
+                called_entity_name = prettyprint_in_buffer(called_expression);
+            }
+
+            argument_call = strappend(argument_call, called_entity_name);
+            argument_call = strappend(argument_call, "(");
+            int i;
+
+            for (i = 1; i < num_arguments; i++)
+            {
+                argument_call = strappend(argument_call, print_type_str(argument_types[i], decl_context));
+                if ((i + 1) < num_arguments)
+                {
+                    argument_call = strappend(argument_call, ", ");
+                }
+            }
+            argument_call = strappend(argument_call, ")");
+
+            fprintf(stderr, "%s: warning: overload call to '%s' failed\n",
+                    ast_location(whole_function_call), argument_call);
+            fprintf(stderr, "%s: note: candidates are\n", ast_location(whole_function_call));
+
+            scope_entry_list_t* it = candidates;
+
+            while (it != NULL)
+            {
+                int max_level = 0;
+                char is_dependent = 0;
+                
+                scope_entry_t* entry = it->entry;
+                fprintf(stderr, "%s: note:    %s\n",
+                        ast_location(whole_function_call),
+                        print_decl_type_str(entry->type_information, decl_context, 
+                            get_fully_qualified_symbol_name(entry, decl_context, &is_dependent, &max_level)));
+                it = it->next;
+            }
+        }
+
         return 0;
     }
 
@@ -5889,6 +6028,13 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         }
         else
         {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning, '->' cannot be applied to '%s' (of type '%s')\n",
+                        ast_location(class_expr),
+                        prettyprint_in_buffer(class_expr),
+                        print_type_str(no_ref(accessed_type), decl_context));
+            }
             return 0;
         }
     }
@@ -5942,7 +6088,16 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     }
 
     if (!is_class_type(no_ref(accessed_type)))
+    {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning, '.' cannot be applied to '%s' (of type '%s')\n",
+                    ast_location(class_expr),
+                    prettyprint_in_buffer(class_expr),
+                    print_type_str(no_ref(accessed_type), decl_context));
+        }
         return 0;
+    }
     
     // Advance over all typedefs keeping the underlying cv-qualification
     cv_qualifier_t cv_qualif = CV_NONE;
@@ -5972,6 +6127,13 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
 
     if (entry_list == NULL)
     {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning, '%s' is not a member/field of type '%s'\n",
+                    ast_location(id_expression),
+                    prettyprint_in_buffer(id_expression),
+                    print_type_str(no_ref(accessed_type), decl_context));
+        }
         return 0;
     }
 
@@ -6010,6 +6172,13 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
 
             if (!found)
             {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: '%s' is not a member of type '%s'\n",
+                            ast_location(id_expression),
+                            prettyprint_in_buffer(id_expression),
+                            print_type_str(no_ref(accessed_type), decl_context));
+                }
                 return 0;
             }
         }
@@ -6080,7 +6249,17 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
 
 static char check_for_qualified_id(AST expr, decl_context_t decl_context, decl_context_t* symbol_scope)
 {
-    return compute_qualified_id_type(expr, decl_context, symbol_scope);
+    char result = compute_qualified_id_type(expr, decl_context, symbol_scope);
+
+    if (!result
+            && !checking_ambiguity())
+    {
+        fprintf(stderr, "%s: warning: symbol '%s' not found in current scope\n",
+                ast_location(expr), prettyprint_in_buffer(expr));
+    }
+
+
+    return result;
 }
 
 static type_t* check_template_function(scope_entry_list_t* entry_list,
@@ -6606,11 +6785,10 @@ static type_t* get_typeid_type(decl_context_t decl_context, AST expr)
     if (entry_list == NULL 
             || entry_list->entry->kind != SK_NAMESPACE)
     {
-        running_error("Namespace 'std' not found when looking up 'std::type_info' (because of '%s' in '%s:%d'). \n"
+        running_error("%s: error: namespace 'std' not found when looking up 'std::type_info' (because of '%s'). \n"
                 "Maybe you need '#include <typeinfo>'",
-                prettyprint_in_buffer(expr),
-                ASTFileName(expr),
-                ASTLine(expr));
+                ast_location(expr),
+                prettyprint_in_buffer(expr));
     }
 
     decl_context_t std_context = entry_list->entry->namespace_decl_context;
@@ -6620,11 +6798,10 @@ static type_t* get_typeid_type(decl_context_t decl_context, AST expr)
             && entry_list->entry->kind != SK_CLASS
             && entry_list->entry->kind != SK_TYPEDEF)
     {
-        running_error("Typename 'type_info' not found when looking up 'std::type_info' (because of '%s' in '%s:%d')\n"
+        running_error("%s: error: typename 'type_info' not found when looking up 'std::type_info' (because of '%s')\n"
                 "Maybe you need '#include <typeinfo>'",
-                prettyprint_in_buffer(expr),
-                ASTFileName(expr),
-                ASTLine(expr));
+                ast_location(expr),
+                prettyprint_in_buffer(expr));
     }
 
     return get_user_defined_type(entry_list->entry);

@@ -688,7 +688,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
             if (initializer != NULL
                     && current_gather_info.is_extern)
             {
-                running_error("Cannot initialize an 'extern' declaration %s\n", ast_location(a));
+                running_error("%s: error: cannot initialize an 'extern' declaration %s\n", ast_location(a));
             }
 
             if (initializer != NULL)
@@ -1070,9 +1070,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
 
                     if (is_unresolved_overloaded_type(computed_type))
                     {
-                        running_error("%s:%d:error: unresolved overloaded type '%s'",
-                                ASTFileName(a), 
-                                ASTLine(a),
+                        running_error("%s: error: unresolved overloaded type '%s'",
+                                ast_location(a), 
                                 prettyprint_in_buffer(a));
                     }
 
@@ -1112,9 +1111,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 }
                 else
                 {
-                    running_error("%s:%d:error: could not solve type '%s'\n",
-                            ASTFileName(a),
-                            ASTLine(a),
+                    running_error("%s: error: could not solve type '%s'\n",
+                            ast_location(a),
                             prettyprint_in_buffer(a));
                 }
                 break;
@@ -1177,9 +1175,8 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 }
                 else
                 {
-                    running_error("%s:%d:error: could not solve type '%s'\n",
-                            ASTFileName(a),
-                            ASTLine(a),
+                    running_error("%s: error: could not solve type '%s'\n",
+                            ast_location(a),
                             prettyprint_in_buffer(a));
                 }
                 break;
@@ -1365,15 +1362,15 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                 }
                 else 
                 {
-                    running_error("Invalid template-name '%s' in '%s'\n", 
-                            ASTText(class_symbol),
-                            ast_location(class_symbol));
+                    running_error("%s: error: invalid template-name '%s'\n", 
+                            ast_location(class_symbol),
+                            ASTText(class_symbol));
                 }
             }
         }
         else
         {
-            running_error("Class name '%s' at '%s' not found", prettyprint_in_buffer(a), ast_location(a));
+            running_error("%s: error: class name '%s' not found", ast_location(a), prettyprint_in_buffer(a));
         }
     }
     else
@@ -1436,7 +1433,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
         scope_entry_t *current_entry = result_list->entry;
         if (current_entry->kind != SK_ENUM)
         {
-            running_error("Type found at %s:%d is not an enum\n", entry->file, entry->line);
+            running_error("%s:%d: error: '%s' is not an enum-name\n", entry->file, entry->line, entry->symbol_name);
         }
         else
         {
@@ -1484,7 +1481,7 @@ static void gather_type_spec_from_elaborated_enum_specifier(AST a, type_t** type
         }
         else
         {
-            running_error("Enum type '%s' in %s not found\n", prettyprint_in_buffer(a), ast_location(a));
+            running_error("%s: error: enum type '%s' not found\n", ast_location(a), prettyprint_in_buffer(a));
         }
     }
     else
@@ -1621,8 +1618,8 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
 
     if (entry_list == NULL)
     {
-        running_error("The type name '%s' has not been found in the scope of '%s'. Did you forget to declare it ?\n",
-                prettyprint_in_buffer(a), ast_location(a));
+        running_error("%s: error: type name '%s' has not been found in the current scope. Did you forget to declare it ?\n",
+                ast_location(a), prettyprint_in_buffer(a));
     }
 
     {
@@ -1638,8 +1635,9 @@ void gather_type_spec_from_simple_type_specifier(AST a, type_t** type_info,
                     && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
                     && entry->kind != SK_GCC_BUILTIN_TYPE)
             {
-                running_error("Identifier '%s' in %s does not name a type", 
-                        prettyprint_in_buffer(a), ast_location(a));
+                running_error("%s: error: identifier '%s' does not name a type", 
+                        ast_location(a),
+                        prettyprint_in_buffer(a));
             }
 
             it = it->next;
@@ -2363,7 +2361,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
 
                     if (class_entry->kind == SK_FUNCTION)
                     {
-                        running_error("Invalid template-name redeclaration at '%s'\n", 
+                        running_error("%s: error: invalid template-name redeclaration\n", 
                                 ast_location(class_head_identifier));
                     }
                     
@@ -2463,9 +2461,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     }
                     else
                     {
-                        running_error("Invalid template-name '%s' at '%s'\n", 
-                                prettyprint_in_buffer(ASTSon0(class_head_identifier)),
-                                ast_location(ASTSon0(class_head_identifier)));
+                        running_error("%s: error: invalid template-name '%s'\n", 
+                                ast_location(ASTSon0(class_head_identifier)),
+                                prettyprint_in_buffer(ASTSon0(class_head_identifier)));
                     }
                 }
 
@@ -2964,7 +2962,8 @@ static void set_pointer_type(type_t** declarator_type, AST pointer_tree,
                     }
                     else
                     {
-                        running_error("Class name '%s%s%s' not found\n", 
+                        running_error("%s: error: class-name '%s%s%s' not found\n", 
+                                ast_location(unqualified_id),
                                 prettyprint_in_buffer(global_op), 
                                 prettyprint_in_buffer(nested_name_spec),
                                 prettyprint_in_buffer(unqualified_id));
@@ -3119,9 +3118,9 @@ static void set_function_parameter_clause(type_t** function_type,
     {
         if (num_parameters > MAX_PARAMETERS)
         {
-            running_error("Too much parameters (more than %d) in function declaration at %s", 
-                    num_parameters,
-                    ast_location(parameters));
+            running_error("%s: error: too many parameters (more than %d) in function declaration", 
+                    ast_location(parameters),
+                    num_parameters);
         }
 
         // Clear this parameter_info 
@@ -4487,8 +4486,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
                         && !function_type_get_lacking_prototype(considered_type))
                 {
                     running_error("%s:%d: error: function '%s' has been declared with different prototype (see '%s:%d')", 
-                            ASTFileName(declarator_id),
-                            ASTLine(declarator_id),
+                            ast_location(declarator_id),
                             ASTText(declarator_id),
                             entry->file,
                             entry->line
@@ -6308,9 +6306,9 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 // Fix this :)
                                 // *fixed_declarator_name = *fixed_unqualified_id;
 
-                                running_error("Extra qualification of member declaration is not allowed: '%s' in '%s'. Did you mean '%s'?", 
-                                        prettyprint_in_buffer(declarator),
+                                running_error("%s: error: extra qualification of member declaration is not allowed: '%s'. Did you mean '%s'?", 
                                         ast_location(too_much_qualified_declarator_name),
+                                        prettyprint_in_buffer(declarator),
                                         prettyprint_in_buffer(fixed_declarator_name)
                                         );
                             }
@@ -6492,10 +6490,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
 
                                 if (wrong_initializer)
                                 {
-                                    running_error("Function declaration '%s' at '%s' has an invalid initializer '%s'"
+                                    running_error("%s: error: function declaration '%s' has an invalid initializer '%s'"
                                             " or has not been declared as a virtual function\n", 
-                                            prettyprint_in_buffer(declarator),
                                             ast_location(declarator),
+                                            prettyprint_in_buffer(declarator),
                                             prettyprint_in_buffer(initializer));
                                 }
                             }
@@ -6701,7 +6699,7 @@ decl_context_t replace_template_parameters_with_template_arguments(
 
 // Gives a name to an operation node
 // 'a + b' will return 'operator+'
-char *get_operation_function_name(AST operation_tree)
+const char *get_operation_function_name(AST operation_tree)
 {
     switch (ASTType(operation_tree))
     {
@@ -6743,6 +6741,8 @@ char *get_operation_function_name(AST operation_tree)
             return STR_OPERATOR_LOGIC_OR;
         case AST_DERREFERENCE :
             return STR_OPERATOR_DERREF;
+        case AST_REFERENCE : 
+            return STR_OPERATOR_REFERENCE;
         case AST_PLUS_OP :
             return STR_OPERATOR_UNARY_PLUS;
         case AST_NEG_OP :
@@ -7042,16 +7042,7 @@ static void build_scope_expression_statement(AST a,
                 ast_location(ASTSon0(a)));
     }
 
-    if (ASTExprType(expr) == NULL)
-    {
-        if (!checking_ambiguity())
-        {
-            WARNING_MESSAGE("Expression '%s' at '%s' does not have any computed type\n",
-                    prettyprint_in_buffer(expr),
-                    ast_location(expr));
-        }
-    }
-    else
+    if (ASTExprType(expr) != NULL)
     {
         ast_set_expression_type(a, ASTExprType(expr));
         ast_set_expression_is_lvalue(a, ASTExprLvalue(a));

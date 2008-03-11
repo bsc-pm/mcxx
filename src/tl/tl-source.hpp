@@ -316,7 +316,7 @@ namespace TL
      * be replaced. If it is not replaced it will default to an empty
      * statement.
      */
-    std::string placeholder_statement(AST_t& placeholder);
+    std::string statement_placeholder(AST_t& placeholder);
 
     //! Convenience function to convert a list into a string
     /*!

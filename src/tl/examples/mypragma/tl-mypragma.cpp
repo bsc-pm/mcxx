@@ -47,7 +47,7 @@ namespace TL
                 src 
                     << "{" 
                     <<    "int __my_var;"
-                    <<    placeholder_statement(inner_tree)
+                    <<    statement_placeholder(inner_tree)
                     << "}"
                     ;
 

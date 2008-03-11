@@ -52,6 +52,7 @@ struct AST_tag* get_leftmost_declarator_name(struct AST_tag* a, decl_context_t d
 
 char* get_conversion_function_name(decl_context_t decl_context, struct AST_tag* conversion_function_id, 
         struct type_tag** result_conversion_type);
+const char *get_operation_function_name(AST operation_tree);
 
 void build_scope_member_specification_first_step(decl_context_t inner_decl_context,
         struct AST_tag* member_specification_tree,

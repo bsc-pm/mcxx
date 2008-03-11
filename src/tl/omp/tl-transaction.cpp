@@ -68,12 +68,9 @@ namespace TL
                 STMFunctionFiltering _stm_function_filtering;
                 std::fstream &_log_file;
 
-                AST_t _ref_tree;
-
                 static bool _dummy;
             public:
                 STMExpressionReplacement(
-                        AST_t ref_tree,
                         ObjectList<Symbol>& unmanaged_symbols,
                         ObjectList<Symbol>& local_symbols,
                         const std::string& replace_filename, const std::string& replace_filter_mode,
@@ -83,7 +80,7 @@ namespace TL
                     _local_symbols(local_symbols),
                     _stm_function_filtering(replace_filename, replace_filter_mode,
                             wrap_filename, wrap_filter_mode),
-                    _log_file(log_file), _ref_tree(ref_tree)
+                    _log_file(log_file)
             {
             }
 
@@ -244,7 +241,7 @@ namespace TL
                     }
 
                     AST_t address_expression_tree = address_expression.parse_expression(
-                            _ref_tree, 
+                            expression.get_ast(), 
                             expression.get_scope_link(), Source::DO_NOT_CHECK_EXPRESSION);
 
                     expression.get_ast().replace(address_expression_tree);
@@ -566,7 +563,7 @@ namespace TL
                                 << increment_code;
 
                             AST_t flat_code_tree = flat_code.parse_expression(
-                                    _ref_tree,
+                                    expression.get_ast(),
                                     expression.get_scope_link(),
                                     Source::DO_NOT_CHECK_EXPRESSION);
                             Expression flat_code_expr(flat_code_tree, expression.get_scope_link());
@@ -576,7 +573,7 @@ namespace TL
                             derref_write << "(" << flat_code_expr.prettyprint() << ")";
 
                             AST_t derref_write_tree = derref_write.parse_expression(
-                                    _ref_tree,
+                                    expression.get_ast(),
                                     expression.get_scope_link(),
                                     Source::DO_NOT_CHECK_EXPRESSION);
 
@@ -595,7 +592,7 @@ namespace TL
 
                             AST_t read_operand_tree = 
                                 read_operand_src.parse_expression(
-                                        _ref_tree,
+                                        expression.get_ast(),
                                         expression.get_scope_link(),
                                         Source::DO_NOT_CHECK_EXPRESSION);
 
@@ -652,7 +649,7 @@ namespace TL
 
                             AST_t increment_tree =
                                 increment_source.parse_expression(
-                                        _ref_tree,
+                                        expression.get_ast(),
                                         expression.get_scope_link(), 
                                         Source::DO_NOT_CHECK_EXPRESSION);
                             Expression increment_expr(increment_tree, expression.get_scope_link());
@@ -662,7 +659,7 @@ namespace TL
                                 ;
 
                             AST_t post_tree = post_source.parse_expression(
-                                    _ref_tree,
+                                    expression.get_ast(),
                                     expression.get_scope_link(),
                                     Source::DO_NOT_CHECK_EXPRESSION);
 
@@ -811,7 +808,7 @@ namespace TL
 
                             // Now parse the function call
                             AST_t replace_call_tree = replace_call.parse_expression(
-                                    _ref_tree,
+                                    called_expression.get_ast(),
                                     called_expression.get_scope_link(),
                                     Source::DO_NOT_CHECK_EXPRESSION);
 
@@ -863,7 +860,7 @@ namespace TL
                     // Replace the expression, it might temporarily be invalid
                     // because of local variables that will be actually declared later
                     AST_t read_expression_tree = read_expression.parse_expression(
-                            _ref_tree,
+                            expression.get_ast(),
                             expression.get_scope_link(), Source::DO_NOT_CHECK_EXPRESSION);
 
                     expression.get_ast().replace(read_expression_tree);
@@ -1392,7 +1389,6 @@ namespace TL
             }
 
             STMExpressionReplacement expression_replacement(
-                    transaction_tree,
                     unmanaged_symbols, local_symbols, 
                     stm_replace_functions_file, stm_replace_functions_mode,
                     stm_wrap_functions_file, stm_wrap_functions_mode,

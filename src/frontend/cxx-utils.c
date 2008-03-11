@@ -64,7 +64,6 @@ void running_error(const char* message, ...)
 {
     va_list ap;
     
-    fprintf(stderr, "Error: ");
     va_start(ap, message);
     vfprintf(stderr, message, ap);
     va_end(ap);
@@ -208,7 +207,7 @@ temporal_file_t new_temporal_file()
     result->file = fdopen(file_descriptor, "w+");
     if (result->file == NULL)
     {
-        running_error("Cannot create temporary file (%s)", strerror(errno));
+        running_error("error: cannot create temporary file (%s)", strerror(errno));
     }
 
     // Link to the temporal_file_list
@@ -297,7 +296,7 @@ int execute_program_flags(const char* program_name, const char** arguments, cons
     spawned_process = fork();
     if (spawned_process < 0) 
     {
-        running_error("Could not fork to execute subprocess '%s' (%s)", program_name, strerror(errno));
+        running_error("error: could not fork to execute subprocess '%s' (%s)", program_name, strerror(errno));
     }
     else if (spawned_process == 0) // I'm the spawned process
     {
@@ -307,7 +306,7 @@ int execute_program_flags(const char* program_name, const char** arguments, cons
             FILE *new_stdout = fopen(stdout_f, "w");
             if (new_stdout == NULL)
             {
-                running_error("Could not redirect standard output to '%s' (%s)",
+                running_error("error: could not redirect standard output to '%s' (%s)",
                         stdout_f,
                         strerror(errno));
             }
@@ -321,7 +320,7 @@ int execute_program_flags(const char* program_name, const char** arguments, cons
             FILE *new_stderr = fopen(stderr_f, "w");
             if (new_stderr == NULL)
             {
-                running_error("Could not redirect standard error to '%s' (%s)",
+                running_error("error: could not redirect standard error to '%s' (%s)",
                         stderr_f,
                         strerror(errno));
             }
@@ -336,7 +335,7 @@ int execute_program_flags(const char* program_name, const char** arguments, cons
         execvp(program_name, (char**)execvp_arguments);
 
         // Execvp should not return
-        running_error("Execution of subprocess '%s' failed (%s)", program_name, strerror(errno));
+        running_error("error: execution of subprocess '%s' failed (%s)", program_name, strerror(errno));
     }
     else // I'm the parent
     {
