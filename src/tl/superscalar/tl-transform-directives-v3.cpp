@@ -36,7 +36,7 @@ namespace TL
 		Source source;
 		source
 			<< "css_preInit();"
-			<< "css_task_registration();"
+			<< "__cssgenerated_task_registration();"
 			<< "css_init();" ;
 		
 		AST_t tree = source.parse_statement(directive.get_ast(), directive.get_scope_link());
