@@ -3947,7 +3947,7 @@ static char check_for_binary_expression(AST expression, decl_context_t decl_cont
         if (bin_type == NULL
                 && !checking_ambiguity())
         {
-            fprintf(stderr, "%s: Binary %s cannot be applied to operands '%s' (of type '%s') and '%s' (of type '%s')\n",
+            fprintf(stderr, "%s: warning: binary %s cannot be applied to operands '%s' (of type '%s') and '%s' (of type '%s')\n",
                     ast_location(expression),
                     get_operation_function_name(expression), 
                     prettyprint_in_buffer(lhs), print_type_str(ASTExprType(lhs), decl_context),
@@ -3971,7 +3971,7 @@ static char check_for_unary_expression(AST expression, decl_context_t decl_conte
         if (unary_type == NULL
                 && !checking_ambiguity())
         {
-            fprintf(stderr, "%s: Unary %s cannot be applied to operand '%s' (of type '%s')\n",
+            fprintf(stderr, "%s: warning: unary %s cannot be applied to operand '%s' (of type '%s')\n",
                     ast_location(expression),
                     get_operation_function_name(expression), 
                     prettyprint_in_buffer(op), print_type_str(ASTExprType(op), decl_context));
