@@ -63,14 +63,29 @@ void debug_message(const char* message, const char* kind, const char* source_fil
 void running_error(const char* message, ...)
 {
     va_list ap;
+
+    char* sanitized_message = strdup(message);
+
+    // Remove annoying \n at the end. This will make this function
+    // interchangeable with fprintf(stderr, 
+    int length = strlen(sanitized_message);
+
+    length--;
+    while (length > 0 && sanitized_message[length] == '\n')
+    {
+        sanitized_message[length] = '\0';
+        length--;
+    }
     
     va_start(ap, message);
-    vfprintf(stderr, message, ap);
+    vfprintf(stderr, sanitized_message, ap);
     va_end(ap);
     fprintf(stderr, "\n");
 
     if (CURRENT_CONFIGURATION(debug_options.abort_on_ice))
         raise(SIGABRT);
+
+    free(sanitized_message);
 
     exit(EXIT_FAILURE);
 }
