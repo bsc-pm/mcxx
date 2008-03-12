@@ -596,8 +596,6 @@ char check_for_expression(AST expression, decl_context_t decl_context)
 
                 if (result)
                 {
-                    scope_link_set(CURRENT_COMPILED_FILE(scope_link), expression, symbol_decl_context);
-
                     AST global_qualif = ASTSon0(expression);
                     AST nested_name_spec = ASTSon1(expression);
                     AST unqualified_id = ASTSon2(expression);
@@ -645,8 +643,6 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 result = check_for_qualified_id(expression, decl_context, &symbol_decl_context);
                 if (result)
                 {
-                    scope_link_set(CURRENT_COMPILED_FILE(scope_link), expression, symbol_decl_context);
-
                     AST global_qualif = ASTSon0(expression);
                     AST nested_name_spec = ASTSon1(expression);
                     AST unqualified_id = ASTSon2(expression);
@@ -676,11 +672,6 @@ char check_for_expression(AST expression, decl_context_t decl_context)
 
                 if (result)
                 {
-                    if (CURRENT_COMPILED_FILE(scope_link) != NULL)
-                    {
-                        scope_link_set(CURRENT_COMPILED_FILE(scope_link), expression, symbol_decl_context);
-                    }
-
                     ASTAttrSetValueType(expression, LANG_IS_ID_EXPRESSION, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_IS_UNQUALIFIED_ID, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(expression, LANG_UNQUALIFIED_ID, tl_type_t, tl_ast(expression));
