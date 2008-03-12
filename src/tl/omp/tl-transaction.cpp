@@ -242,7 +242,7 @@ namespace TL
 
                     AST_t address_expression_tree = address_expression.parse_expression(
                             expression.get_ast(), 
-                            expression.get_scope_link(), Source::DO_NOT_CHECK_EXPRESSION);
+                            expression.get_scope_link());
 
                     expression.get_ast().replace(address_expression_tree);
                 }
@@ -564,8 +564,7 @@ namespace TL
 
                             AST_t flat_code_tree = flat_code.parse_expression(
                                     expression.get_ast(),
-                                    expression.get_scope_link(),
-                                    Source::DO_NOT_CHECK_EXPRESSION);
+                                    expression.get_scope_link());
                             Expression flat_code_expr(flat_code_tree, expression.get_scope_link());
                             replace_expression(flat_code_expr);
 
@@ -574,8 +573,7 @@ namespace TL
 
                             AST_t derref_write_tree = derref_write.parse_expression(
                                     expression.get_ast(),
-                                    expression.get_scope_link(),
-                                    Source::DO_NOT_CHECK_EXPRESSION);
+                                    expression.get_scope_link());
 
                             expression.get_ast().replace_with(derref_write_tree);
                         }
@@ -593,8 +591,7 @@ namespace TL
                             AST_t read_operand_tree = 
                                 read_operand_src.parse_expression(
                                         expression.get_ast(),
-                                        expression.get_scope_link(),
-                                        Source::DO_NOT_CHECK_EXPRESSION);
+                                        expression.get_scope_link());
 
                             Expression read_operand_expr(read_operand_tree, expression.get_scope_link());
                             replace_expression(read_operand_expr);
@@ -650,8 +647,7 @@ namespace TL
                             AST_t increment_tree =
                                 increment_source.parse_expression(
                                         expression.get_ast(),
-                                        expression.get_scope_link(), 
-                                        Source::DO_NOT_CHECK_EXPRESSION);
+                                        expression.get_scope_link());
                             Expression increment_expr(increment_tree, expression.get_scope_link());
                             replace_expression(increment_expr);
 
@@ -660,8 +656,7 @@ namespace TL
 
                             AST_t post_tree = post_source.parse_expression(
                                     expression.get_ast(),
-                                    expression.get_scope_link(),
-                                    Source::DO_NOT_CHECK_EXPRESSION);
+                                    expression.get_scope_link());
 
                             expression.get_ast().replace_with(post_tree);
                         }
@@ -809,8 +804,7 @@ namespace TL
                             // Now parse the function call
                             AST_t replace_call_tree = replace_call.parse_expression(
                                     called_expression.get_ast(),
-                                    called_expression.get_scope_link(),
-                                    Source::DO_NOT_CHECK_EXPRESSION);
+                                    called_expression.get_scope_link());
 
                             expression.get_ast().replace_with(replace_call_tree);
 
@@ -857,11 +851,9 @@ namespace TL
                         return;
                     }
 
-                    // Replace the expression, it might temporarily be invalid
-                    // because of local variables that will be actually declared later
                     AST_t read_expression_tree = read_expression.parse_expression(
                             expression.get_ast(),
-                            expression.get_scope_link(), Source::DO_NOT_CHECK_EXPRESSION);
+                            expression.get_scope_link());
 
                     expression.get_ast().replace(read_expression_tree);
                 }
@@ -973,9 +965,8 @@ namespace TL
 
                         // FIXME
                         AST_t expr = repl_init_source.parse_expression(
-                                transaction_tree,
-                                p_decl->get_initializer().get_scope_link(),
-                                Source::DO_NOT_CHECK_EXPRESSION);
+                                p_decl->get_initializer().get_ast(),
+                                p_decl->get_initializer().get_scope_link());
                         p_decl->get_initializer().get_ast().replace(expr);
                     }
                 }
@@ -1136,7 +1127,7 @@ namespace TL
 
         void OpenMPTransform::stm_replace_code(
                 OpenMP::CustomConstruct transaction_construct,
-                AST_t&replaced_tree, 
+                AST_t& replaced_tree, 
                 AST_t& inner_tree,
                 ObjectList<Symbol> &local_symbols,
                 bool from_wrapped_function)
