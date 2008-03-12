@@ -6963,8 +6963,12 @@ static void build_scope_condition(AST a, decl_context_t decl_context)
 
         if (!check_for_expression(ASTSon2(a), decl_context))
         {
-            internal_error("Could not check expression '%s'\n", 
-                    prettyprint_in_buffer(ASTSon2(a)));
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: initializer '%s' could not be checked\n",
+                        ast_location(ASTSon2(a)),
+                        prettyprint_in_buffer(ASTSon2(a)));
+            }
         }
 
         entry->expression_value = ASTSon2(a);
@@ -6979,7 +6983,8 @@ static void build_scope_condition(AST a, decl_context_t decl_context)
     {
         if (!check_for_expression(ASTSon2(a), decl_context))
         {
-            internal_error("Could not check expression '%s'\n",
+            fprintf(stderr, "%s: warning: condition '%s' could not be checked\n",
+                    ast_location(ASTSon2(a)),
                     prettyprint_in_buffer(ASTSon2(a)));
         }
 
