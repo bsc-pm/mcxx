@@ -122,6 +122,7 @@ compilation_process_t compilation_process;
 "  -rdynamic\n" \
 "  -export-dynamic\n" \
 "  -W<option>\n" \
+"  -pthread\n" \
 "\n" \
 "These gcc flags are passed verbatim to preprocessor, compiler and\n" \
 "linker.\n" \
@@ -898,6 +899,23 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
         case 'e' :
             {
                 if (strcmp(argument, "-export-dynamic") == 0)
+                {
+                }
+                else
+                {
+                    failure = 1;
+                }
+
+                if (!failure)
+                {
+                    add_parameter_all_toolchain(argument);
+                    (*should_advance)++;
+                }
+                break;
+            }
+        case 'p':
+            {
+                if (strcmp(argument, "-pthread") == 0)
                 {
                 }
                 else
