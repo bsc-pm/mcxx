@@ -1348,6 +1348,10 @@ namespace TL
             AST_t replaced_code;
             stm_replace_code(transaction_construct, replaced_code, 
                     transaction_tree, local_symbols, from_wrapped_function);
+
+            // Replace it here since we want the new code already be in its
+            // final place from now
+            transaction_construct.get_ast().replace(replaced_code);
             
             {
                 // Replace the inner transaction tree with the transaction
@@ -1377,7 +1381,6 @@ namespace TL
             // into something suitable for STM
             stm_replace_returns(transaction_tree, from_wrapped_function, transaction_construct.get_scope_link());
 
-            transaction_construct.get_ast().replace(replaced_code);
         }
 
         void OpenMPTransform::stm_transaction_global_lock(OpenMP::CustomConstruct transaction_construct)
