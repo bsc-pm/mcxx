@@ -1108,19 +1108,12 @@ namespace TL
                         << "  }"
                         // Assumption: transaction is completely inside the function.
                         // FIXME: Think about it
-                        << "  else" 
+/*                        << "  else" 
                         << "  {"
-/*                      << "     __t->endEfectiveTime = rdtscf();"
-                        << "     __t->efectiveExecutionTime = (__t->endEfectiveTime - __t->startEfectiveTime);"
-                        << "     __t->totalExecutionTime += __t->efectiveExecutionTime;"
-
-                        << "     pthread_mutex_lock(&_l_abort_count);"
-                        << "     _tx_abort_count++;"
-                        << "     pthread_mutex_unlock(&_l_abort_count);" */
                         << "     aborttx(__t);"
                         // TODO : This will break when the return is contained in another loop (while, for, do..while)
 //                        << "     continue;"
-                        << "  }"
+                        << "  }" */
                         << "}"
                         ;
                 }
@@ -1267,34 +1260,14 @@ namespace TL
                     <<           local_commit
                     << "         break;"
                     << "       }"
-                    << "       else"
+/*                    << "       else"
                     << "       {"
                     << "          if (__t->status == 10) {" // Check this!
                     << "            break;"
                     << "          }"
-                                  // Commit failed in this moment, so we added the effective execution already!
-/*                    << "         __t->endEfectiveTime = rdtscf();"
-                    << "         __t->efectiveExecutionTime = (__t->endEfectiveTime - __t->startEfectiveTime);"
-                    << "         __t->totalExecutionTime += __t->efectiveExecutionTime;"
-                    << "          pthread_mutex_lock(&_l_abort_count);"
-                    << "          _tx_abort_count++;"
-                    << "          pthread_mutex_unlock(&_l_abort_count);" */
                     << "          aborttx(__t);"
-                    << "       }"
+                    << "       }" */
                     << "     }"
-/*                    << "     else"
-                    << "     {"
-                    << "        if (__t->status == 10){"
-                    << "            break;"
-                    << "        }"
-                    << "         __t->endEfectiveTime = rdtscf();"
-                    << "         __t->efectiveExecutionTime = (__t->endEfectiveTime - __t->startEfectiveTime);"
-                    << "         __t->totalExecutionTime += __t->efectiveExecutionTime;"
-                    << "        pthread_mutex_lock(&_l_abort_count);"
-                    << "        _tx_abort_count++;"
-                    << "        pthread_mutex_unlock(&_l_abort_count);"
-                    << "        aborttx(__t);"
-                    << "     }" */
                     << "   }"
                     << "   __t->endResponseTime = rdtscf();"
                     << "   pthread_mutex_lock(&_l_total_time);"
