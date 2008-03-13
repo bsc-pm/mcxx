@@ -60,22 +60,23 @@ namespace TL
                 <<   "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
                 <<   "while (in__tone_next_iters_ (&nth_dummy1, &nth_dummy2, &nth_dummy3) != 0)"
                 <<   "{"
-                <<       instrumentation_code_after
-                <<       body_construct.prettyprint()
                 <<       instrumentation_code_before
+                <<       body_construct.prettyprint()
+                <<       instrumentation_code_after
                 <<   "}"
                 <<   barrier_code
-                <<   instrumentation_code_after
                 << "}"
                 ;
 
             if (instrumentation_requested())
             {
                 instrumentation_code_before
-                    << "mintaka_state_synch();"
-                    ;
-                instrumentation_code_after
+                    << "int __previous_state = mintaka_get_state();"
                     << "mintaka_state_run();"
+                    ;
+
+                instrumentation_code_after
+                    << "mintaka_set_state(__previous_state);"
                     ;
             }
 
