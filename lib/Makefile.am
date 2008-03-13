@@ -6,10 +6,10 @@ CC_FOR_BUILD=@CC_FOR_BUILD@
 tpp_SOURCES = tpp.c
 
 tpp$(EXEEXT): tpp.o
-	$(CC_FOR_BUILD) -o $@ $+ $(LDFLAGS)
+	$(CC_FOR_BUILD) -o $@ $+ 
 
 tpp.o : tpp.c
-	$(CC_FOR_BUILD) -c -o $@ $(srcdir)/tpp.c $(CFLAGS) $(DEFAULT_INCLUDES) \
+	$(CC_FOR_BUILD) -c -o $@ $(srcdir)/tpp.c $(DEFAULT_INCLUDES) \
 	         -DPACKAGE=\"$(PACKAGE)\" -DVERSION=\"$(PACKAGE_VERSION)\"
 #end of tpp
 
