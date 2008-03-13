@@ -36,7 +36,7 @@ namespace TL
 		Source source;
 		source
 			<< "css_preInit();"
-			<< "__cssgenerated_task_registration();"
+			<< "task_registration__cssgenerated();"
 			<< "css_init();" ;
 		
 		AST_t tree = source.parse_statement(directive.get_ast(), directive.get_scope_link());
@@ -104,8 +104,8 @@ namespace TL
 		Source source;
 		source
 			<< "{"
-				<< "void *__cssgenerated_addresses[] = {" << addressListSource << "};"
-				<< "css_waitOn(" << on_list.size() << ", __cssgenerated_addresses);"
+				<< "void *addresses__cssgenerated[] = {" << addressListSource << "};"
+				<< "css_waitOn(" << on_list.size() << ", addresses__cssgenerated);"
 			<< "}";
 		
 		for (ObjectList<Expression>::iterator it = on_list.begin(); it != on_list.end(); it++) {
