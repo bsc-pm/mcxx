@@ -2,7 +2,7 @@
 language = C
 options = --variable=generate-non-task-side:yes --variable=generate-task-side:no --variable=align-memory:yes
 preprocessor_name = ppu-c99
-preprocessor_options = -E -m32 -I@prefix@/include -include CellSS.h -DPPU_CODE -maltivec -include malloc.h
+preprocessor_options = -E -m32 -I@prefix@/include -include CellSS.h -DPPU_CODE -maltivec -include malloc.h -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_CELL=1
 compiler_name = ppu-c99
 compiler_options = -g3 -m32 -maltivec
 linker_name = ppu-g++
@@ -20,7 +20,8 @@ pragma_prefix = css
 language = C
 options = --variable=generate-non-task-side:no --variable=generate-task-side:yes --variable=align-memory:yes
 preprocessor_name = spu-c99
-preprocessor_options = -E -I@prefix@/include -include CellSS.h -DSPU_CODE
+preprocessor_options = -E -I@prefix@/include -include CellSS.h -DSPU_CODE -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_CELL=1
+
 compiler_name = spu-c99
 compiler_options = -g3
 linker_name = spu-c99
@@ -38,7 +39,8 @@ pragma_prefix = css
 language = C
 options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=align-memory:no
 preprocessor_name = c99
-preprocessor_options = -E -I@prefix@/include -include CellSS.h 
+preprocessor_options = -E -I@prefix@/include -include CellSS.h -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_SMP=1
+
 compiler_name = c99
 compiler_options = -g3
 linker_name = g++

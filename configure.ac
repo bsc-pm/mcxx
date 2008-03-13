@@ -423,7 +423,10 @@ AM_CONDITIONAL(USE_TL_SUPERSCALAR_V1, test x"$use_tl_superscalar_version" = x"1"
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V2, test x"$use_tl_superscalar_version" = x"2")
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V3, test x"$use_tl_superscalar_version" = x"3")
 AC_MSG_RESULT([$use_tl_superscalar_version])
- 
+
+superscalar_version=$use_tl_superscalar_version
+AC_SUBST([superscalar_version])
+
 AC_SUBST([SUPERSCALAR_INCLUDES])
 AC_SUBST([SUPERSCALAR_LIBS])
 
