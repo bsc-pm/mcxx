@@ -165,6 +165,8 @@ namespace TL
 
             // Loop distribution
             Source modified_loop_body;
+            Source instrument_code_before,
+                   instrument_code_after;
             distributed_loop_body
                 //                    << "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
                 //                    << "extern int in__tone_next_iters_(int*, int*, int*);"
@@ -182,25 +184,24 @@ namespace TL
                 << "while (in__tone_next_iters_(&intone_start, &intone_end, &intone_last) != 0)"
                 << "{"
                 // And do something with it
+                << instrument_code_before
                 << "   for (" << induction_var_name << " = nth_low+intone_start; "
                 << "        nth_step >= 1 ? " << induction_var_name << " <= nth_low+intone_end : " << induction_var_name << ">= nth_low+intone_end;"
                 << "        " << induction_var_name << " += nth_step)"
                 << "   {"
                 <<        modified_loop_body
                 << "   }"
+                << instrument_code_after
                 << "}"
                 ;
 
             // Replace references using set "replace_references" over loop body
             Statement modified_loop_body_stmt = replace_references.replace(loop_body);
             // and get the source of the modified tree
-            Source instrument_code_before,
-                   instrument_code_after;
 
             modified_loop_body 
-                << instrument_code_before
                 << modified_loop_body_stmt.prettyprint()
-                << instrument_code_after;
+                ;
 
             if (instrumentation_requested())
             {
