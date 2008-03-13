@@ -167,44 +167,69 @@ cxx-attrnames.c : $(srcdir)/cxx-attrnames.def cxx-attrnames.h
 
 if FLEX_BUILDING
 CLEANFILES += cxx-scanner.c
-cxx-scanner.c : cxx03.l $(srcdir)/cxx-ast.h cxx-parser.h
-	flex -Pmcxx -d -ocxx-scanner.c -8 cxx03.l
-
 CLEANFILES += cxx03.l
+endif
+
+cxx-scanner.c : cxx03.l $(srcdir)/cxx-ast.h cxx-parser.h
+if FLEX_BUILDING
+	flex -Pmcxx -d -ocxx-scanner.c -8 cxx03.l
+else
+	@echo "*** ERROR: file cxx03.l was modified but no suitable flex was found during configure ***"
+	@exit 1
+endif
+
 cxx03.l : $(TPP) $(srcdir)/cxx-lexer.l 
 	$(TPP) -o cxx03.l -D CPLUSPLUS $(srcdir)/cxx-lexer.l
-endif
 
 if BISON_BUILDING
 CLEANFILES += cxx-parser.c
 CLEANFILES += cxx-parser.h
 CLEANFILES += cxx-parser.output
-cxx-parser.c cxx-parser.h cxx-parser.output : cxx03.y
-	bison -pmcxx --debug --defines --report=all --output=cxx-parser.c cxx03.y
-
 CLEANFILES += cxx03.y
+endif
+
 cxx03.y : $(srcdir)/cxx03.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y
 	$(TPP) -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in
+
+cxx-parser.c cxx-parser.h cxx-parser.output : cxx03.y
+if BISON_BUILDING
+	bison -pmcxx --debug --defines --report=all --output=cxx-parser.c cxx03.y
+else
+	@echo "*** ERROR: file cxx03.y was modified but no suitable bison-rofi was found during configure ***"
+	@exit 1
 endif
 
 if FLEX_BUILDING
 CLEANFILES += c99-scanner.c
-c99-scanner.c : c99.l $(srcdir)/cxx-ast.h c99-parser.h
-	flex -Pmc99 -d -oc99-scanner.c -8 c99.l
-
 CLEANFILES += c99.l
+endif
+
+c99-scanner.c : c99.l $(srcdir)/cxx-ast.h c99-parser.h
+if FLEX_BUILDING
+	flex -Pmc99 -d -oc99-scanner.c -8 c99.l
+else
+	@echo "*** ERROR: file c99.l was modified but no suitable flex was found during configure ***"
+	@exit 1
+endif
+
 c99.l : $(srcdir)/cxx-lexer.l
 	$(TPP) -o c99.l -D C99 $(srcdir)/cxx-lexer.l
-endif
 
 if BISON_BUILDING
 CLEANFILES += c99-parser.c
 CLEANFILES += c99-parser.h
 CLEANFILES += c99-parser.output
-c99-parser.c c99-parser.h c99-parser.output : c99.y
-	bison -pmc99 --debug --defines --report=all --output=c99-parser.c c99.y
-
 CLEANFILES += c99.y
+endif
+
 c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y
 	$(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
+
+c99-parser.c c99-parser.h c99-parser.output : c99.y
+if BISON_BUILDING
+	bison -pmc99 --debug --defines --report=all --output=c99-parser.c c99.y
+else
+	@echo "*** ERROR: file c99.y was modified but no suitable bison-rofi was found during configure ***"
+	@exit 1
 endif
+
