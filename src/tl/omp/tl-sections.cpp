@@ -24,24 +24,46 @@ namespace TL
 {
     namespace Nanos4
     {
-        void OpenMPTransform::sections_preorder(OpenMP::SectionsConstruct /* sections_construct */)
+        void OpenMPTransform::sections_preorder(OpenMP::SectionsConstruct sections_construct)
         {
+            OpenMP::Directive directive = sections_construct.directive();
+            Statement construct_body = sections_construct.body();
+
             // We push a new level of sections with zero "section" counted
             // so far
             num_sections_stack.push(0);
+            //
+            // They will hold the entities as they appear in the clauses
+            ObjectList<Symbol>& shared_references = 
+                sections_construct.get_data<ObjectList<Symbol> >("shared_references");
+            ObjectList<Symbol>& private_references = 
+                sections_construct.get_data<ObjectList<Symbol> >("private_references");
+            ObjectList<Symbol>& firstprivate_references = 
+                sections_construct.get_data<ObjectList<Symbol> >("firstprivate_references");
+            ObjectList<Symbol>& lastprivate_references = 
+                sections_construct.get_data<ObjectList<Symbol> >("lastprivate_references");
+            ObjectList<OpenMP::ReductionSymbol>& reduction_references =
+                sections_construct.get_data<ObjectList<OpenMP::ReductionSymbol> >("reduction_references");
+            ObjectList<Symbol>& copyin_references = 
+                sections_construct.get_data<ObjectList<Symbol> >("copyin_references");
+            ObjectList<Symbol>& copyprivate_references = 
+                sections_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
+            
+            // Get the data attributes for every entity
+            get_data_explicit_attributes(
+                    sections_construct,
+                    directive,
+                    shared_references,
+                    private_references,
+                    firstprivate_references,
+                    lastprivate_references,
+                    reduction_references,
+                    copyin_references,
+                    copyprivate_references);
         }
 
         void OpenMPTransform::sections_postorder(OpenMP::SectionsConstruct sections_construct)
         {
-            // They will hold the entities as they appear in the clauses
-            ObjectList<Symbol> shared_references;
-            ObjectList<Symbol> private_references;
-            ObjectList<Symbol> firstprivate_references;
-            ObjectList<Symbol> lastprivate_references;
-            ObjectList<OpenMP::ReductionSymbol> reduction_references;
-            ObjectList<Symbol> copyin_references;
-            ObjectList<Symbol> copyprivate_references;
-
             // Get the construct_body of the statement
             OpenMP::Directive directive = sections_construct.directive();
             Statement construct_body = sections_construct.body();
@@ -51,17 +73,20 @@ namespace TL
             // its scope
             Scope function_scope = function_definition.get_scope();
 
-            // Get the data attributes for every entity
-            get_data_attributes(sections_construct,
-                    directive,
-                    construct_body,
-                    shared_references,
-                    private_references,
-                    firstprivate_references,
-                    lastprivate_references,
-                    reduction_references,
-                    copyin_references,
-                    copyprivate_references);
+            ObjectList<Symbol>& shared_references = 
+                sections_construct.get_data<ObjectList<Symbol> >("shared_references");
+            ObjectList<Symbol>& private_references = 
+                sections_construct.get_data<ObjectList<Symbol> >("private_references");
+            ObjectList<Symbol>& firstprivate_references = 
+                sections_construct.get_data<ObjectList<Symbol> >("firstprivate_references");
+            ObjectList<Symbol>& lastprivate_references = 
+                sections_construct.get_data<ObjectList<Symbol> >("lastprivate_references");
+            ObjectList<OpenMP::ReductionSymbol>& reduction_references =
+                sections_construct.get_data<ObjectList<OpenMP::ReductionSymbol> >("reduction_references");
+            ObjectList<Symbol>& copyin_references = 
+                sections_construct.get_data<ObjectList<Symbol> >("copyin_references");
+            ObjectList<Symbol>& copyprivate_references = 
+                sections_construct.get_data<ObjectList<Symbol> >("copyprivate_references");
 
             ObjectList<ParameterInfo> parameter_info_list;
 
