@@ -1218,9 +1218,9 @@ namespace TL
                     << "   Transaction* __t = createtx(\"" << transaction_construct.get_ast().get_file() 
                     << "\"," << transaction_construct.get_ast().get_line() <<");"
                     << "   uint64_t _tx_commit_start, _tx_commit_end;"
-                    << "   pthread_mutex_lock(&_l_total_count);"
-                    << "   _tx_total_count++;"
-                    << "   pthread_mutex_unlock(&_l_total_count);"
+                   // << "   pthread_mutex_lock(&_l_total_count);"
+                   // << "   _tx_total_count++;"
+                   // << "   pthread_mutex_unlock(&_l_total_count);"
                     << "   __t->startResponseTime = rdtscf();"
                     << "   while(1)"
                     << "   {"
