@@ -72,7 +72,9 @@ namespace TL
             return loop_distribution;
         }
 
-        Source OpenMPTransform::get_loop_distribution_code(ForStatement for_statement,
+        Source OpenMPTransform::get_loop_distribution_code(
+                ForStatement for_statement,
+                OpenMP::Construct &for_construct,
                 ReplaceIdExpression replace_references,
                 FunctionDefinition function_definition,
                 OpenMP::Directive directive)
@@ -99,7 +101,14 @@ namespace TL
             IdExpression induction_var = for_statement.get_induction_variable();
             Source induction_var_name;
             // Induction var name is handled specially
-            induction_var_name << "p_" << induction_var.mangle_id_expression();
+            if ((for_construct.get_data_attribute(induction_var.get_symbol()) & OpenMP::DA_PRIVATE) == OpenMP::DA_PRIVATE)
+            {
+                induction_var_name << "p_" << induction_var.mangle_id_expression();
+            }
+            else
+            {
+                induction_var_name << induction_var.mangle_id_expression();
+            }
 
             Expression lower_bound = for_statement.get_lower_bound();
             Expression upper_bound = for_statement.get_upper_bound();

@@ -220,8 +220,12 @@ namespace TL
                     parameter_info_list
                     ); 
 
-            Source loop_distribution = get_loop_distribution_code(for_statement, 
-                    replace_references, function_definition, directive);
+            Source loop_distribution = get_loop_distribution_code(
+                    for_statement, 
+                    construct,
+                    replace_references, 
+                    function_definition, 
+                    directive);
 
             Source lastprivate_code;
 

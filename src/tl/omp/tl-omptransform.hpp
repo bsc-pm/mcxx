@@ -320,6 +320,7 @@ namespace TL
                         ReplaceIdExpression replace_references);
 
                 Source get_loop_distribution_code(ForStatement for_statement,
+                        OpenMP::Construct &construct,
                         ReplaceIdExpression replace_references,
                         FunctionDefinition function_definition,
                         OpenMP::Directive directive);

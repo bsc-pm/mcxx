@@ -143,7 +143,9 @@ namespace TL
                     parameter_info_list
                     ); 
 
-            Source loop_distribution_code = get_loop_distribution_code(for_statement,
+            Source loop_distribution_code = get_loop_distribution_code(
+                    for_statement,
+                    for_construct,
                     replace_references, function_definition, directive);
 
             Source lastprivate_code;
