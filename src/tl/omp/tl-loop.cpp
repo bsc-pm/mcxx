@@ -101,7 +101,7 @@ namespace TL
             IdExpression induction_var = for_statement.get_induction_variable();
             Source induction_var_name;
             // Induction var name is handled specially
-            if ((for_construct.get_data_attribute(induction_var.get_symbol()) & OpenMP::DA_PRIVATE) == OpenMP::DA_PRIVATE)
+            if ((for_construct.get_data_sharing().get(induction_var.get_symbol()) & OpenMP::DA_PRIVATE) == OpenMP::DA_PRIVATE)
             {
                 induction_var_name << "p_" << induction_var.mangle_id_expression();
             }
