@@ -78,6 +78,7 @@ namespace TL
                 std::string nanos_new_interface_str;
                 std::string enable_mintaka_instr_str;
                 std::string disable_restrict_str;
+                std::string use_memcpy_always_str;
 
                 std::string stm_replace_functions_file;
                 std::string stm_replace_functions_mode;
@@ -90,6 +91,7 @@ namespace TL
                 void set_parallel_interface(const std::string& str);
                 void set_stm_global_lock(const std::string& str);
                 void set_disable_restrict_pointers(const std::string& str);
+                void set_use_memcpy_always(const std::string& str);
 
                 /*
                  * Logical values of parameters computed by the set_XXX functions
@@ -97,6 +99,7 @@ namespace TL
                 bool enable_mintaka_instr;
                 bool enable_nth_create;
                 bool disable_restrict_pointers;
+                bool use_memcpy_always;
 
                 bool stm_global_lock_enabled;
             public:

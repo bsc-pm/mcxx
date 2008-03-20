@@ -5053,6 +5053,11 @@ static char check_for_function_arguments(AST arguments, decl_context_t decl_cont
             AST parameter_expr = ASTSon1(iter);
             if (!check_for_expression(parameter_expr, decl_context))
             {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "[EXPRTYPE] When checking function call, argument %d '%s' could not be checked\n",
+                            (*num_arguments), prettyprint_in_buffer(parameter_expr));
+                }
                 return 0;
             }
             (*num_arguments)++;
@@ -5254,7 +5259,9 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
     // 1. If function arguments did not yield a valid expression ignore them
     int num_explicit_arguments = 0;
     if (!check_for_function_arguments(arguments, decl_context, &num_explicit_arguments))
+    {
         return 0;
+    }
 
     // 2. Ignore all redundant parentheses, this will simplify the left part of
     //    the call

@@ -46,6 +46,18 @@ namespace TL
                     disable_restrict_str,
                     "0").connect(functor(&OpenMPTransform::set_disable_restrict_pointers, *this));
 
+            C_LANGUAGE()
+            {
+                use_memcpy_always = true;
+            }
+            CXX_LANGUAGE()
+            {
+                register_parameter("use_memcpy_always",
+                        "In C++, always use 'memcpy' when copying arrays if set to '1'. In C, 'memcpy' is always used.",
+                        use_memcpy_always_str,
+                        "0").connect(functor(&OpenMPTransform::set_use_memcpy_always, *this));
+            }
+
             // STM options
             register_parameter("STM_global_lock",
                     "Enables global lock interface for '#pragma omp transaction' regions. Disables STM memory tracking.",
@@ -191,6 +203,15 @@ namespace TL
                     /* Given value */ str, 
                     /* Computed bool */ stm_global_lock_enabled, 
                     /* Error message */  "STM global lock disabled");
+        }
+
+        void OpenMPTransform::set_use_memcpy_always(const std::string& str)
+        {
+            use_memcpy_always = false;
+            parse_boolean_option(/* Parameter name */ "use_memcpy_always",
+                    /* Given value */ str,
+                    /* Compiler bool */ use_memcpy_always,
+                    /* Error message */ "Will use plain assignment when copying arrays");
         }
 
         bool OpenMPTransform::instrumentation_requested()

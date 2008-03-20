@@ -439,39 +439,48 @@ namespace TL
         {
             Source result;
 
-            std::stringstream subscript;
-
-            for (int i = 0; i < level; i++)
+            if (use_memcpy_always)
             {
-                subscript << "[_i_" << i << "]";
-            }
-
-            if (!t.is_array())
-            {
-                result 
-                    << dest << subscript.str() << "=" << orig << subscript.str() << ";"
+                result
+                    << "__builtin_memcpy(" << dest << ", " << orig << ", sizeof(" << dest << "));"
                     ;
             }
             else
             {
-                std::stringstream index_var;
-                index_var << "_i_" << level;
+                std::stringstream subscript;
 
-                Source next_dim_array_copy = array_copy(t.array_element(), dest, orig, level+1);
+                for (int i = 0; i < level; i++)
+                {
+                    subscript << "[_i_" << i << "]";
+                }
 
-                result 
-                    << "{"
-                    << "  int " << index_var.str() << ";"
-                    << "  for (" << index_var.str() << " = 0;" 
-                    <<              index_var.str() 
-                    <<                 " < (sizeof(" << dest 
-                    <<                 subscript.str() << ")/sizeof(" << dest << subscript.str() << "[0]));"
-                    <<              index_var.str() << "++" << ")"
-                    << "  {"
-                    <<       next_dim_array_copy
-                    << "  }"
-                    << "}"
-                    ;
+                if (!t.is_array())
+                {
+                    result 
+                        << dest << subscript.str() << "=" << orig << subscript.str() << ";"
+                        ;
+                }
+                else
+                {
+                    std::stringstream index_var;
+                    index_var << "_i_" << level;
+
+                    Source next_dim_array_copy = array_copy(t.array_element(), dest, orig, level+1);
+
+                    result 
+                        << "{"
+                        << "  int " << index_var.str() << ";"
+                        << "  for (" << index_var.str() << " = 0;" 
+                        <<              index_var.str() 
+                        <<                 " < (sizeof(" << dest 
+                        <<                 subscript.str() << ")/sizeof(" << dest << subscript.str() << "[0]));"
+                        <<              index_var.str() << "++" << ")"
+                        << "  {"
+                        <<       next_dim_array_copy
+                        << "  }"
+                        << "}"
+                        ;
+                }
             }
 
             return result;
