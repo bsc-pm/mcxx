@@ -5850,7 +5850,7 @@ static char check_for_function_call(AST expr, decl_context_t decl_context)
         }
     }
 
-    // 2. Now perform the actual check. If this function suceeds
+    // 2. Now perform the actual check. If this function succeeds
     //    'called_expression' node will have a functional type
     //    a pointer to function or a dependent type
     if (!check_for_functional_expression(expr, called_expression, arguments, 
