@@ -66,11 +66,22 @@ namespace TL
             // Typedefs, class-names and enum-names will get here
             Symbol named_type = t.get_symbol();
 
-            _dependencies.add_symbol(named_type);
+            // std::cerr << "Considering named type '" << named_type.get_name() << "'" << std::endl;
+
             if (depending_symbol.is_valid())
             {
+                // std::cerr << "Symbol '" << depending_symbol.get_name() << "' depends on '" << named_type.get_name() << "'" << std::endl;
                 _dependencies.add_symbol_depending_on(depending_symbol, named_type);
+
+                std::set<Symbol> seen_symbols = _dependencies.items();
+                if (seen_symbols.find(named_type) != seen_symbols.end())
+                {
+                    // Do nothing else
+                    // std::cerr << "Do nothing else for '" << named_type.get_name() << "'" << std::endl;
+                    return;
+                }
             }
+            _dependencies.add_symbol(named_type);
 
             if (!t.is_typedef())
             {
@@ -81,20 +92,14 @@ namespace TL
                     // Fix this for C++ one day
                     ObjectList<Symbol> fields = class_type.get_fields();
 
+
                     for(ObjectList<Symbol>::iterator it = fields.begin();
                             it != fields.end();
                             it++)
                     {
+                        // std::cerr << "Considering field '" <<  it->get_name() << "' of '" << named_type.get_name() << "'" << std::endl;
                         Type field_type = it->get_type();
-
-                        if (!depending_symbol.is_valid())
-                        {
-                            add_type_rec(field_type, named_type);
-                        }
-                        else
-                        {
-                            add_type_rec(field_type, depending_symbol);
-                        }
+                        add_type_rec(field_type, named_type);
                     }
                 }
                 else if (t.is_named_enum())
@@ -159,15 +164,10 @@ namespace TL
         add_type_rec(t, invalid);
     }
 
-    static void remove_symbol(
-            Symbol sym, 
-            std::set<Symbol> &items, 
+    static void remove_dependencies(
+            Symbol sym,
             std::set<DependencyItem> &graph)
     {
-        // Any symbol that depends on this one must be removed too
-        // because now is not dependent because of it
-        //
-        // Get the working set
         std::set<DependencyItem> current_graph = graph;
         for (std::set<DependencyItem>::iterator deps = current_graph.begin();
                 deps != current_graph.end();
@@ -178,8 +178,107 @@ namespace TL
                 graph.erase(*deps);
             }
         }
+    }
 
+    static void remove_symbol(
+            Symbol sym, 
+            std::set<Symbol> &items, 
+            std::set<DependencyItem> &graph)
+    {
+        // Any symbol that depends on this one must be removed too
+        // because now is not dependent because of it
+        remove_dependencies(sym, graph);
+
+        // Remove from items as well
         items.erase(sym);
+    }
+
+    void DeclarationClosure::declare_entity(Source &source_result,
+            Symbol declared_symbol,
+            std::set<Symbol> &items,
+            std::set<DependencyItem> &graph)
+    {
+        // Get the declaration of this symbol
+        // and prepend it to the source
+        Source current_decl;
+
+        Declaration decl_tree(declared_symbol.get_point_of_declaration(), _scope_link);
+        ObjectList<DeclaredEntity> declared_entities = decl_tree.get_declared_entities();
+
+        if (declared_symbol.is_variable()
+                || declared_symbol.is_typedef()
+                || (!declared_entities.empty()
+                    && declared_entities[0].get_declared_symbol().is_typedef())
+                || declared_symbol.is_created_after_typedef())
+        {
+            // Print everything, both the decl-spec and the
+            // declarators only when the current entity is a
+            // variable or typedef or it is not a typedef not a
+            // variable but it is involved in a typedef declaration
+            current_decl 
+                << decl_tree.prettyprint() 
+                << "\n"
+                ; 
+
+            // Now remove the items that got declared in this
+            // declaration along the one we are declarating
+            bool check = false;
+            for (ObjectList<DeclaredEntity>::iterator it2 = declared_entities.begin();
+                    it2 != declared_entities.end();
+                    it2++)
+            {
+                Symbol sym = it2->get_declared_symbol();
+                remove_symbol(sym, items, graph);
+
+                if (sym == declared_symbol)
+                {
+                    check = true;
+                }
+            }
+
+            DeclarationSpec decl_specs = decl_tree.get_declaration_specifiers();
+            TypeSpec type_spec = decl_specs.get_type_spec();
+
+            if (type_spec.is_class_specifier())
+            {
+                Symbol sym = type_spec.get_class_symbol();
+                remove_symbol(sym, items, graph);
+
+                if (sym == declared_symbol)
+                {
+                    check = true;
+                }
+            }
+            else if (type_spec.is_enum_specifier())
+            {
+                Symbol sym = type_spec.get_enum_symbol();
+                remove_symbol(sym, items, graph);
+
+                if (sym == declared_symbol)
+                {
+                    check = true;
+                }
+            }
+
+            ERROR_CONDITION(!check, 
+                    "Error, symbol '%s' was not actually declarated in the declaration! %s", 
+                    declared_symbol.get_name().c_str(),
+                    decl_tree.prettyprint().c_str());
+        }
+        else
+        {
+            // Only print the declarator specifiers, they will
+            // contain the type specifier
+            current_decl 
+                << decl_tree.get_declaration_specifiers().prettyprint() << ";"
+                << "\n"
+                ;
+
+            // Just remove the current symbol
+            remove_symbol(declared_symbol, items, graph);
+        }
+
+        source_result << current_decl;
     }
 
     Source DeclarationClosure::closure()
@@ -227,88 +326,8 @@ namespace TL
                 if (!is_dependent)
                 {
                     some_is_nondependent = true;
-                    // Get the declaration of this symbol
-                    // and prepend it to the source
-                    Source current_decl;
 
-                    Declaration decl_tree(it->get_point_of_declaration(), _scope_link);
-                    ObjectList<DeclaredEntity> declared_entities = decl_tree.get_declared_entities();
-
-                    if (it->is_variable()
-                            || it->is_typedef()
-                            || (!declared_entities.empty()
-                                && declared_entities[0].get_declared_symbol().is_typedef())
-                            || it->is_created_after_typedef())
-                    {
-                        // Print everything, both the decl-spec and the
-                        // declarators only when the current entity is a
-                        // variable or typedef or it is not a typedef not a
-                        // variable but it is involved in a typedef declaration
-                        current_decl 
-                            << decl_tree.prettyprint() 
-                            << "\n"
-                            ; 
-                        
-                        // Now remove the items that got declared in this
-                        // declaration along the one we are declarating
-                        bool check = false;
-                        for (ObjectList<DeclaredEntity>::iterator it2 = declared_entities.begin();
-                                it2 != declared_entities.end();
-                                it2++)
-                        {
-                            Symbol sym = it2->get_declared_symbol();
-
-                            if (sym == *it)
-                            {
-                                check = true;
-                            }
-
-                            remove_symbol(sym, items, graph);
-                        }
-
-                        DeclarationSpec decl_specs = decl_tree.get_declaration_specifiers();
-                        TypeSpec type_spec = decl_specs.get_type_spec();
-
-                        if (type_spec.is_class_specifier())
-                        {
-                            Symbol sym = type_spec.get_class_symbol();
-                            remove_symbol(sym, items, graph);
-
-                            if (sym == *it)
-                            {
-                                check = true;
-                            }
-                        }
-                        else if (type_spec.is_enum_specifier())
-                        {
-                            Symbol sym = type_spec.get_enum_symbol();
-                            remove_symbol(sym, items, graph);
-
-                            if (sym == *it)
-                            {
-                                check = true;
-                            }
-                        }
-
-                        ERROR_CONDITION(!check, 
-                                "Error, symbol '%s' was not actually declarated in the declaration! %s", 
-                                it->get_name().c_str(),
-                                decl_tree.prettyprint().c_str());
-                    }
-                    else
-                    {
-                        // Only print the declarator specifiers, they will
-                        // contain the type specifier
-                        current_decl 
-                            << decl_tree.get_declaration_specifiers().prettyprint() << ";"
-                            << "\n"
-                            ;
-
-                        // Just remove the current symbol
-                        remove_symbol(*it, items, graph);
-                    }
-
-                    source_result << current_decl;
+                    declare_entity(source_result, *it, items, graph);
 
                     // Update the iterator at the beginning again
                     // because we have removed items
@@ -327,7 +346,30 @@ namespace TL
             // then the whole algorithm started again
             if (!some_is_nondependent)
             {
-                internal_error("Cycles in type declarations not yet supported", 0);
+                std::cerr << "CYCLE FOUND" << std::endl;
+                // Break the cycle, pick the first and introduce a fake
+                // declaration of it
+                it = items.begin();
+                for (std::set<DependencyItem>::iterator deps = graph.begin();
+                        deps != graph.end();
+                        deps++)
+                {
+                     if (deps->first == *it)
+                     {
+                         std::cerr << "BREAKING CYCLE -> Introducing '" << deps->second.get_name() 
+                             << "' required by '" << deps->first.get_name() << "'" << std::endl;
+                         // Introduce the declaration
+                         source_result 
+                             // This in C++ will require the proper class-key!
+                             << deps->second.get_name() << ";"
+                             << "\n"
+                             ;
+
+                         // Now this symbol is not dependent anymore of anybody
+                         remove_dependencies(deps->second, graph);
+                         break;
+                     }
+                }
             }
         }
 

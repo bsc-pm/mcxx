@@ -92,6 +92,11 @@ namespace TL
             //! Recursively add a symbol depending on another
             void add_dependent_symbol(Symbol sym, Symbol depending_symbol);
 
+            //! Declares an entity
+            void declare_entity(Source &source_result,
+                    Symbol declared_symbol,
+                    std::set<Symbol> &items,
+                    std::set<DependencyItem> &graph);
         public:
             //! Add a symbol that will be in the declaration closure
             void add(Symbol s);
