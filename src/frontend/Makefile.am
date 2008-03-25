@@ -93,8 +93,17 @@ libmcxx_la_CFLAGS = -Wall \
 EXTRA_DIST += cxx-lexer.l
 EXTRA_DIST += cxx-asttype.def
 EXTRA_DIST += cxx-attrnames.def
+
+EXTRA_DIST += c99.l
+EXTRA_DIST += c99.y
 EXTRA_DIST += c99.y.in
+EXTRA_DIST += c99-scanner.c
+
+EXTRA_DIST += cxx03.l
+EXTRA_DIST += cxx03.y
 EXTRA_DIST += cxx03.y.in
+EXTRA_DIST += cxx-scanner.c
+
 EXTRA_DIST += cxx-omp.y
 EXTRA_DIST += cxx-pragma.y
 EXTRA_DIST += cxx-construct.y
@@ -170,7 +179,7 @@ CLEANFILES += cxx-scanner.c
 CLEANFILES += cxx03.l
 endif
 
-cxx-scanner.c : cxx03.l $(srcdir)/cxx-ast.h cxx-parser.h
+cxx-scanner.c : cxx03.l 
 if FLEX_BUILDING
 	flex -Pmcxx -d -ocxx-scanner.c -8 cxx03.l
 else
@@ -178,7 +187,7 @@ else
 	@exit 1
 endif
 
-cxx03.l : $(TPP) $(srcdir)/cxx-lexer.l 
+cxx03.l : $(srcdir)/cxx-lexer.l 
 	$(TPP) -o cxx03.l -D CPLUSPLUS $(srcdir)/cxx-lexer.l
 
 if BISON_BUILDING
@@ -204,7 +213,7 @@ CLEANFILES += c99-scanner.c
 CLEANFILES += c99.l
 endif
 
-c99-scanner.c : c99.l $(srcdir)/cxx-ast.h c99-parser.h
+c99-scanner.c : c99.l 
 if FLEX_BUILDING
 	flex -Pmc99 -d -oc99-scanner.c -8 c99.l
 else
