@@ -2387,6 +2387,9 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 class_entry->decl_context.template_scope = decl_context.template_scope;
                 class_entry->decl_context.template_nesting = decl_context.template_nesting;
 
+                // Update point of declaration
+                class_entry->point_of_declaration = get_enclosing_declaration(class_head_identifier);
+
                 inner_decl_context = new_class_context(class_entry->decl_context,
                         qualification_name, 
                         class_type);
