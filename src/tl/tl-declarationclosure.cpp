@@ -7,14 +7,19 @@
 
 namespace TL
 {
+    // Adds a symbol without stating any dependence (this is adding a node in
+    // the dependence graph)
     void DeclarationDependency::add_symbol(Symbol sym)
     {
         _items.insert(sym);
     }
 
+    // Adds a dependency in the graph, symbol 'sym' depends on symbol 'depends'
+    // (this adds an edge in the dependen graph)
     void DeclarationDependency::add_symbol_depending_on(Symbol sym, Symbol depends)
     {
         _items.insert(sym);
+        _items.insert(depends);
 
         DependencyItem depend_item(sym, depends);
         _graph.insert(depend_item);
@@ -23,13 +28,22 @@ namespace TL
     void DeclarationClosure::add(Symbol s)
     {
         Symbol invalid(NULL);
-
-        add_type_rec(s.get_type(), invalid);
+        add_type_rec(s.get_type(), invalid, std::set<Symbol>());
     }
 
-    void DeclarationClosure::add_dependent_symbol(Symbol sym, Symbol depending_symbol)
+    void DeclarationClosure::add_dependent_symbol(Symbol sym, Symbol depending_symbol, std::set<Symbol> symbols_seen)
     {
-        add_type_rec(sym.get_type(), depending_symbol);
+        // Avoid infinite recursion because of cycles
+        if (symbols_seen.find(sym) != symbols_seen.end())
+        {
+            return;
+        }
+        else
+        {
+            symbols_seen.insert(sym);
+        }
+
+        add_type_rec(sym.get_type(), depending_symbol, symbols_seen);
 
         _dependencies.add_symbol(sym);
 
@@ -49,39 +63,39 @@ namespace TL
             {
                 if (depending_symbol.is_valid())
                 {
-                    add_dependent_symbol(it->get_symbol(), depending_symbol);
+                    add_dependent_symbol(it->get_symbol(), depending_symbol, symbols_seen);
                 }
                 else
                 {
-                    add_dependent_symbol(it->get_symbol(), sym);
+                    add_dependent_symbol(it->get_symbol(), sym, symbols_seen);
                 }
             }
         }
     }
 
-    void DeclarationClosure::add_type_rec(Type t, Symbol depending_symbol)
+    void DeclarationClosure::add_type_rec(Type t, Symbol depending_symbol, std::set<Symbol> symbols_seen)
     {
         if (t.is_named())
         {
             // Typedefs, class-names and enum-names will get here
             Symbol named_type = t.get_symbol();
 
-            // std::cerr << "Considering named type '" << named_type.get_name() << "'" << std::endl;
 
             if (depending_symbol.is_valid())
             {
-                // std::cerr << "Symbol '" << depending_symbol.get_name() << "' depends on '" << named_type.get_name() << "'" << std::endl;
                 _dependencies.add_symbol_depending_on(depending_symbol, named_type);
 
                 std::set<Symbol> seen_symbols = _dependencies.items();
-                if (seen_symbols.find(named_type) != seen_symbols.end())
-                {
-                    // Do nothing else
-                    // std::cerr << "Do nothing else for '" << named_type.get_name() << "'" << std::endl;
-                    return;
-                }
             }
-            _dependencies.add_symbol(named_type);
+            // Avoid infinite recursion because of cycles
+            if (symbols_seen.find(named_type) != symbols_seen.end())
+            {
+                return;
+            }
+            else
+            {
+                symbols_seen.insert(named_type);
+            }
 
             if (!t.is_typedef())
             {
@@ -92,14 +106,12 @@ namespace TL
                     // Fix this for C++ one day
                     ObjectList<Symbol> fields = class_type.get_fields();
 
-
                     for(ObjectList<Symbol>::iterator it = fields.begin();
                             it != fields.end();
                             it++)
                     {
-                        // std::cerr << "Considering field '" <<  it->get_name() << "' of '" << named_type.get_name() << "'" << std::endl;
                         Type field_type = it->get_type();
-                        add_type_rec(field_type, named_type);
+                        add_type_rec(field_type, named_type, symbols_seen);
                     }
                 }
                 else if (t.is_named_enum())
@@ -109,21 +121,27 @@ namespace TL
             }
             else
             {
-                add_type_rec(t.aliased_type(), depending_symbol);
+                add_type_rec(t.aliased_type(), named_type, symbols_seen);
             }
         }
         else if (t.is_pointer())
         {
-            add_type_rec(t.points_to(), depending_symbol);
+            // The type is not actually required!
+            add_type_rec(t.points_to(), depending_symbol, symbols_seen);
+        }
+        else if (t.is_reference())
+        {
+            add_type_rec(t.references_to(), depending_symbol, symbols_seen);
         }
         else if (t.is_pointer_to_member())
         {
-            add_type_rec(t.points_to(), depending_symbol);
-            add_type_rec(t.pointed_class(), depending_symbol);
+            // These types are not actually required
+            add_type_rec(t.points_to(), depending_symbol, symbols_seen);
+            add_type_rec(t.pointed_class(), depending_symbol, symbols_seen);
         }
         else if (t.is_array())
         {
-            add_type_rec(t.array_element(), depending_symbol);
+            add_type_rec(t.array_element(), depending_symbol, symbols_seen);
 
             // Get the symbols of the expression
             if (t.explicit_array_dimension())
@@ -135,21 +153,21 @@ namespace TL
                         it != symbols.end();
                         it++)
                 {
-                    add_dependent_symbol(it->get_symbol(), depending_symbol);
+                    add_dependent_symbol(it->get_symbol(), depending_symbol, symbols_seen);
                 }
             }
 
         }
         else if (t.is_function())
         {
-            add_type_rec(t.returns(), depending_symbol);
+            add_type_rec(t.returns(), depending_symbol, symbols_seen);
 
             ObjectList<Type> params = t.parameters();
             for (ObjectList<Type>::iterator it = params.begin();
                     it != params.end();
                     it++)
             {
-                add_type_rec(*it, depending_symbol);
+                add_type_rec(*it, depending_symbol, symbols_seen);
             }
         }
         else
@@ -161,7 +179,7 @@ namespace TL
     void DeclarationClosure::add(Type t)
     {
         Symbol invalid(NULL);
-        add_type_rec(t, invalid);
+        add_type_rec(t, invalid, std::set<Symbol>());
     }
 
     static void remove_dependencies(
@@ -346,7 +364,6 @@ namespace TL
             // then the whole algorithm started again
             if (!some_is_nondependent)
             {
-                std::cerr << "CYCLE FOUND" << std::endl;
                 // Break the cycle, pick the first and introduce a fake
                 // declaration of it
                 it = items.begin();
@@ -356,8 +373,6 @@ namespace TL
                 {
                      if (deps->first == *it)
                      {
-                         std::cerr << "BREAKING CYCLE -> Introducing '" << deps->second.get_name() 
-                             << "' required by '" << deps->first.get_name() << "'" << std::endl;
                          // Introduce the declaration
                          source_result 
                              // This in C++ will require the proper class-key!
