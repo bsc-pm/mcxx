@@ -88,7 +88,7 @@ char deduce_template_arguments_common(
         return 1;
     }
 
-    int current_deduction_slot = 0;
+    int num_deduction_slots = 0;
     if (explicit_template_arguments != NULL)
     {
         DEBUG_CODE()
@@ -173,7 +173,7 @@ char deduce_template_arguments_common(
             fprintf(stderr, "TYPEDEDUC: Updating parameter types with explicit template arguments\n");
         }
         deductions[0] = explicit_deductions;
-        current_deduction_slot++;
+        num_deduction_slots++;
         // Update parameters with the explicit given template arguments
         // deduction machinery would try to match them deducing template
         // parameters explicitly given (yielding to potential different values)
@@ -233,7 +233,7 @@ char deduce_template_arguments_common(
     int i;
     for (i = 0; i < num_arguments; i++)
     {
-        ERROR_CONDITION(current_deduction_slot >= MAX_ARGUMENTS, "Too many arguments\n", 0);
+        ERROR_CONDITION(num_deduction_slots >= MAX_ARGUMENTS, "Too many arguments\n", 0);
 
         type_t* argument_type = arguments[i];
         type_t* parameter_type = parameters[i];
@@ -247,12 +247,9 @@ char deduce_template_arguments_common(
 
         deduction_set_t *current_deduction = counted_calloc(1, sizeof(*current_deduction), &_bytes_typededuc);
         unificate_two_types(parameter_type, argument_type, &current_deduction, decl_context, filename, line);
-        deductions[current_deduction_slot] = current_deduction;
-        current_deduction_slot++;
+        deductions[num_deduction_slots] = current_deduction;
+        num_deduction_slots++;
     }
-
-    // Convenience name
-    int num_deduction_slots = current_deduction_slot;
 
     // Several checks must be performed here when deducing P/A
     // 1. Something must have been deduced
@@ -333,11 +330,50 @@ char deduce_template_arguments_common(
         {
             if (!c[i])
             {
-                DEBUG_CODE()
+                if (!template_parameters->template_parameters[i]->has_default_argument)
                 {
-                    fprintf(stderr, "TYPEDEDUC: Some template parameter was not deduced a type\n");
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEDEDUC: Some template parameter was not deduced a type\n");
+                    }
+                    return 0;
                 }
-                return 0;
+                else
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "TYPEDEDUC: Nondeduced template parameter has a default template argument\n");
+                    }
+                    // C++0x
+                    // FIXME: Allocate a deduction for it
+                    template_argument_t* default_template_argument 
+                        = template_parameters->template_parameters[i]->default_template_argument;
+
+                    deduced_parameter_t *default_deduced_parameter = counted_calloc(1, sizeof(*default_deduced_parameter), &_bytes_typededuc);
+                    default_deduced_parameter->type = default_template_argument->type;
+                    default_deduced_parameter->expression = default_template_argument->expression;
+                    default_deduced_parameter->decl_context = default_template_argument->expression_context;
+
+                    deduction_t* default_deduction = counted_calloc(1, sizeof(*default_deduction), &_bytes_typededuc);
+                    default_deduction->kind = template_parameters->template_parameters[i]->kind;
+                    default_deduction->parameter_position = 
+                        template_parameters->template_parameters[i]->entry->entity_specs.template_parameter_position;
+                    default_deduction->parameter_nesting = 
+                        template_parameters->template_parameters[i]->entry->entity_specs.template_parameter_nesting;
+                    default_deduction->parameter_name = 
+                        template_parameters->template_parameters[i]->entry->symbol_name;
+
+                    P_LIST_ADD(default_deduction->deduced_parameters, 
+                            default_deduction->num_deduced_parameters, default_deduced_parameter);
+
+                    deduction_set_t *current_default_deduction = counted_calloc(1, sizeof(*current_default_deduction), &_bytes_typededuc);
+                    deductions[num_deduction_slots] = current_default_deduction;
+                    num_deduction_slots++;
+
+                    P_LIST_ADD(current_default_deduction->deduction_list, current_default_deduction->num_deductions,
+                            default_deduction);
+                }
             }
         }
     }
@@ -458,8 +494,8 @@ char deduce_template_arguments_common(
         }
     }
 
-    // We still have to update the types of the deduction for
-    // nontype template parameters
+    // We still have to update the types of the deduction lest any of them
+    // came from a template default argument
     {
         template_argument_list_t* template_arguments 
             = build_template_argument_list_from_deduction_set(*deduced_arguments);
@@ -472,7 +508,9 @@ char deduce_template_arguments_common(
             {
                 switch (current_deduction->kind)
                 {
+                    case TPK_TEMPLATE:
                     case TPK_NONTYPE:
+                    case TPK_TYPE:
                         {
                             current_deduction->deduced_parameters[j]->type = 
                                 update_type(
