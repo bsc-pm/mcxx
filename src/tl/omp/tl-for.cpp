@@ -68,6 +68,7 @@ namespace TL
             // Set it private if it was not
             if ((for_construct.get_data_attribute(induction_var.get_symbol()) & OpenMP::DA_PRIVATE) != OpenMP::DA_PRIVATE)
             {
+                std::cerr << "--> Not found to be private '" << induction_var.get_symbol().get_name() << "'" << std::endl;
                 ObjectList<Symbol>& private_references = 
                     for_construct.get_data<ObjectList<Symbol> >("private_references");
 

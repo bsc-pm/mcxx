@@ -105,7 +105,7 @@ namespace TL
                 //! Gets the data sharing attribute of a symbol
                 /*!
                  * \param sym The symbol requested its data sharing attribute
-                 * \return The data sharing attribute or DA_UNDEFINED if no data sharing was set for it
+                 * \return The data sharing attribute or DA_UNDEFINED if no data sharing was set for it in this, and only this, DataSharing
                  */
                 DataAttribute get(Symbol sym);
         };
@@ -172,7 +172,8 @@ namespace TL
                 //! Gets the data attribute for given symbol
                 /*!
                  * \return The data attribute or DA_UNDEFINED if none was set
-                 * in the current DataSharing environment
+                 * in the current DataSharing environment (the environment includes
+                 * the enclosing DataSharing, if any)
                  */
                 DataAttribute get_data_attribute(Symbol sym) const;
 

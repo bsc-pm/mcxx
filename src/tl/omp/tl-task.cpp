@@ -66,7 +66,7 @@ namespace TL
 
                 if (legacy_captureaddress_clause.is_defined())
                 {
-                    std::cerr << "Warning: Clauses 'capturevalue' and 'capture_value' "
+                    std::cerr << "Warning: Clauses 'captureaddress' and 'capture_address' "
                         << "(found in " << legacy_captureaddress_clause.get_ast().get_locus() << " ) are deprecated. "
                         << "Instead use 'shared'." << std::endl;
                     // Now get the id-expressions for backward compatibility

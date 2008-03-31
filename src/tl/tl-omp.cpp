@@ -71,6 +71,60 @@ namespace TL
 
        void DataSharing::set(Symbol sym, DataAttribute data_attr)
        {
+#if 0
+           std::string attr_name = "";
+           switch (data_attr)
+           {
+               case DA_SHARED : 
+                   { 
+                       attr_name= "DA_SHARED"; 
+                       break; 
+                   }
+               case DA_PRIVATE : 
+                   { 
+                       attr_name= "DA_PRIVATE"; 
+                       break; 
+                   }
+               case DA_FIRSTPRIVATE : 
+                   { 
+                       attr_name= "DA_FIRSTPRIVATE"; 
+                       break; 
+                   }
+               case DA_LASTPRIVATE : 
+                   { 
+                       attr_name= "DA_LASTPRIVATE"; 
+                       break; 
+                   }
+               case DA_FIRSTLASTPRIVATE : 
+                   { 
+                       attr_name= "DA_FIRSTLASTPRIVATE"; 
+                       break; 
+                   }
+               case DA_REDUCTION : 
+                   { 
+                       attr_name= "DA_REDUCTION"; 
+                       break; 
+                   }
+               case DA_THREADPRIVATE : 
+                   { 
+                       attr_name= "DA_THREADPRIVATE"; 
+                       break; 
+                   }
+               case DA_COPYIN : 
+                   { 
+                       attr_name= "DA_COPYIN"; 
+                       break; 
+                   }
+               case DA_COPYPRIVATE : 
+                   { 
+                       attr_name= "DA_COPYPRIVATE"; 
+                       break; 
+                   }
+               default:
+                   attr_name = "DA_UNDEFINED";
+           }
+           std::cerr << "Setting attribute " << attr_name << " to symbol '" << sym.get_name() << "' in " << this << std::endl;
+#endif
            (_map->operator[](sym)) = data_attr;
        }
 
@@ -89,17 +143,8 @@ namespace TL
 
        DataAttribute DataSharing::get(Symbol sym)
        {
-           DataSharing *current = this;
-
-           DataAttribute result = OpenMP::DA_UNDEFINED;
-
-           while (current != NULL
-                   && result == OpenMP::DA_UNDEFINED)
-           {
-               result = get_internal(sym);
-               current = current->_enclosing;
-           }
-
+           DataAttribute result;
+           result = get_internal(sym);
            return result;
        }
 
@@ -107,12 +152,12 @@ namespace TL
        {
            if (_ref.get_attribute(OMP_IS_OMP_CONSTRUCT))
            {
-               return Directive(_ref, _scope_link);
+               AST_t ast = _ref.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
+               return Directive(ast, _scope_link);
            }
            else
            {
-               AST_t ast = _ref.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
-               return Directive(ast, _scope_link);
+               return Directive(_ref, _scope_link);
            }
        }
 
@@ -164,9 +209,7 @@ namespace TL
                    && current_construct != NULL)
            {
                DataSharing *current_data_sharing = current_construct->_data_sharing;
-
                result = current_data_sharing->get(sym);
-
                current_construct = current_construct->_enclosing_construct;
            }
 

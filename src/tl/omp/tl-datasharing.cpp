@@ -456,32 +456,29 @@ namespace TL
             }
 
             // Inner REDUCTION references (those coming from lexical enclosed DO's inner to this PARALLEL)
-            // for (ObjectList<OpenMP::ReductionSymbol>::iterator it = inner_reduction_references.begin();
-            //         it != inner_reduction_references.end();
-            //         it++)
-            // {
-            //     Symbol symbol(it->get_symbol());
-            //     Type type = symbol.get_type();
+            for (ObjectList<OpenMP::ReductionSymbol>::iterator it = inner_reduction_references.begin();
+                    it != inner_reduction_references.end();
+                    it++)
+            {
+                Symbol symbol(it->get_symbol());
+                Type type = symbol.get_type();
 
-            //     Type pointer_type = type.get_pointer_to();
-            //     if (!disable_restrict_pointers)
-            //     {
-            //         pointer_type = pointer_type.get_restrict_type();
-            //     }
+                Type pointer_type = type.get_pointer_to();
+                if (!disable_restrict_pointers)
+                {
+                    pointer_type = pointer_type.get_restrict_type();
+                }
 
-            //     ParameterInfo reduction_vector_parameter("rdv_" + symbol.get_name(), 
-            //             "rdv_" + symbol.get_name(),
-            //             symbol, pointer_type, ParameterInfo::BY_POINTER);
+                ParameterInfo reduction_vector_parameter("rdv_" + symbol.get_name(), 
+                        "rdv_" + symbol.get_name(),
+                        symbol, pointer_type, ParameterInfo::BY_POINTER);
 
-            //     parameter_info.append(reduction_vector_parameter);
+                parameter_info.append(reduction_vector_parameter);
 
-            //     ParameterInfo parameter(symbol.get_name(), 
-            //             "&" + symbol.get_name(),
-            //             symbol, pointer_type, ParameterInfo::BY_POINTER);
-
-            //     result.add_replacement(symbol, "(*" + symbol.get_name() + ")",
-            //             construct_body.get_ast(), construct_body.get_scope_link());
-            // }
+                ParameterInfo parameter(symbol.get_name(), 
+                        "&" + symbol.get_name(),
+                        symbol, pointer_type, ParameterInfo::BY_POINTER);
+            }
 
             // COPYIN references
             for (ObjectList<Symbol>::iterator it = copyin_references.begin();
