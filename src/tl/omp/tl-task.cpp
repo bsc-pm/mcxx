@@ -686,7 +686,7 @@ namespace TL
             }
 
             if (Nanos4::Version::is_family("trunk") &&
-                    Nanos4::Version::version >= 400)
+                    Nanos4::Version::version == 400)
             {
                 increment_task_level <<  "nth_inc_task_level();"
                     ;
