@@ -197,7 +197,6 @@ namespace TL
                         continue;
                     }
 
-                    Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
 
                     // If this symbol appears in any data-sharing clause,
                     // ignore it since it already has an explicit data
@@ -212,17 +211,19 @@ namespace TL
                             || local_references_in_clause.contains(*it, functor(&IdExpression::get_symbol)))
                         continue;
 
+                    Symbol global_sym = function_scope.get_symbol_from_id_expr(it->get_ast());
 
                     bool will_be_visible_from_outline = false;
                     bool is_unqualified_member = false;
                     if (global_sym.is_valid()
                             && (global_sym == it->get_symbol()))
                     {
-                        // If the function-scope accessible symbol is the same found
-                        // then it must be implicitly captureaddress, instead of capturevalue
-                        // but since it is accessible it does not have to be passed
+                        // If the function-scope accessible symbol is the same
+                        // found then it must be implicitly captureaddress,
+                        // instead of capturevalue but since it is accessible
+                        // it does not have to be passed
                         //
-                        // As an exception member symbols must be passed as
+                        // As an exception, member symbols must be passed as
                         // captureaddress and they will be converted to
                         // "_this->member"
                         will_be_visible_from_outline = true;
@@ -262,9 +263,11 @@ namespace TL
 
                                 if (data_attrib != OpenMP::DA_UNDEFINED)
                                 {
+                                    // Some enclosing construct defined a data sharing for this attribute
                                     if ((data_attrib & OpenMP::DA_PRIVATE) == OpenMP::DA_PRIVATE)
                                     {
-                                        // (2) and (3)
+                                        // (2) if an enclosing construct defined private for it (e.g. a 'parallel')
+                                        // (3) if an enclosing non-parallel construct defined private for it (e.g. a 'for')
                                         captureprivate_references.insert(sym);
                                         task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
                                     }
@@ -277,47 +280,56 @@ namespace TL
                                         }
                                         else 
                                         {
-                                            // (4)
+                                            // (4) An enclosing construct (e.g. a 'parallel') defined it shared
                                             captureaddress_references.insert(sym);
                                             task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
                                         }
                                     }
                                     else
                                     {
-                                        // (4)
+                                        // (4) If not shared or private in an
+                                        // enclosing scope (but somebody
+                                        // defined some data sharing for it) it
+                                        // is shared in this task
                                         captureaddress_references.insert(sym);
                                         task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
                                     }
                                 }
                                 else
                                 {
-                                    // It is undefined, thus if the variable is visible from the outline
-                                    // or it is a static
+                                    // No data sharing was set by any enclosing construct
                                     if (will_be_visible_from_outline)
                                     {
-                                        // (4)
-                                        // Do nothing, will be shared by scope
+                                        // (4) It is shared because it is a global symbol
                                     }
                                     else if (sym.is_static())
                                     {
-                                        // (4)
+                                        // (4) It is shared because it is a
+                                        // static variable.  Note that this
+                                        // static is for local variables, since
+                                        // global variables should have
+                                        // 'will_be_visible_from_outline' set
+                                        // to true
                                         captureaddress_references.insert(sym);
                                         task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
                                     }
                                     else
                                     {
-                                        // (3)
                                         Type t = sym.get_type();
 
                                         if (t.is_const()
                                                 && (!t.is_class()
                                                     || !t.some_member_is_mutable()))
                                         {
+                                            // (3) If it is shared in the enclosing scope (so,
+                                            // it is a const variable of a class/struct without
+                                            // any mutable member) then it is shared.
                                             captureaddress_references.insert(sym);
                                             task_construct.add_data_attribute(sym, OpenMP::DA_SHARED);
                                         }
                                         else
                                         {
+                                            // Otherwise, this includes (1) the symbol is firstprivate
                                             captureprivate_references.insert(sym);
                                             task_construct.add_data_attribute(sym, OpenMP::DA_FIRSTPRIVATE);
                                         }
