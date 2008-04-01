@@ -300,14 +300,14 @@ static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* 
 
             //  We try to mimic this
             //
-            //    if ((!SCALAR_TYPE_P (param_type)
-            //         || !SCALAR_TYPE_P (arg_type)
-            //         || ((fcode == SPU_SPLATS || fcode == SPU_PROMOTE
-            //          || fcode == SPU_HCMPEQ || fcode == SPU_HCMPGT
-            //          || fcode == SPU_MASKB || fcode == SPU_MASKH
-            //          || fcode == SPU_MASKW) && p == 0))
-            //        && !comptypes (TYPE_MAIN_VARIANT (param_type),
-            //               TYPE_MAIN_VARIANT (arg_type)))
+            // if ((!SCALAR_TYPE_P (param_type)
+            //             || !SCALAR_TYPE_P (arg_type)
+            //             || ((fcode == SPU_SPLATS || fcode == SPU_PROMOTE
+            //                     || fcode == SPU_HCMPEQ || fcode == SPU_HCMPGT
+            //                     || fcode == SPU_MASKB || fcode == SPU_MASKH
+            //                     || fcode == SPU_MASKW) && p == 0))
+            //         && !comptypes (TYPE_MAIN_VARIANT (param_type),
+            //             TYPE_MAIN_VARIANT (arg_type)))
             //
             // standard_conversion_t scs;
             // if ((!is_scalar_type (parameter_type)
