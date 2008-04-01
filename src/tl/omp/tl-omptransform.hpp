@@ -374,6 +374,33 @@ namespace TL
                         ObjectList<Symbol> list_id_expressions,
                         OpenMP::DataAttribute data_attrib);
 
+                // #pragma omp task special support
+                void task_compute_explicit_data_sharing(
+                        OpenMP::Directive &directive,
+                        ObjectList<Symbol> &captureaddress_references,
+                        ObjectList<Symbol> &local_references,
+                        ObjectList<Symbol> &captureprivate_references,
+                        Scope &function_scope,
+                        FunctionDefinition &function_definition,
+                        OpenMP::Construct &task_construct);
+
+                void task_compute_implicit_data_sharing(
+                        OpenMP::Directive &directive,
+                        ObjectList<Symbol> &captureaddress_references,
+                        ObjectList<Symbol> &local_references,
+                        ObjectList<Symbol> &captureprivate_references,
+                        Scope &function_scope,
+                        FunctionDefinition &function_definition,
+                        Statement &construct_body,
+                        OpenMP::Construct &construct);
+
+                Source task_get_spawn_code(
+                        ObjectList<ParameterInfo> &parameter_info_list,
+                        FunctionDefinition &function_definition,
+                        OpenMP::Construct &task_construct,
+                        OpenMP::Directive &directive,
+                        Statement& construct_body);
+
                 // Debug purposes
                 IdExpression print_id_expression(IdExpression id_expression);
 
