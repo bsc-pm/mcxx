@@ -486,10 +486,7 @@ namespace TL
             else
             {
                 increment_task_level <<  "nth_task_ctx_t nth_ctx;";
-                increment_task_level <<  "nth_push_task_ctx(&nth_ctx,"
-                    << file_name << ","
-                    << file_line << ","
-                    << mangled_function_name << ");"
+                increment_task_level <<  "nth_push_task_ctx(&nth_ctx);"
                     ;
                 decrement_task_level <<  "nth_pop_task_ctx();"
                     ;
