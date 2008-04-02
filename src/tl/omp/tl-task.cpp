@@ -381,21 +381,110 @@ namespace TL
             int file_line;
             std::string mangled_function_name;
 
-            if ((Nanos4::Version::is_family("trunk") 
-                        || Nanos4::Version::is_family("aduran")) 
-                    && Nanos4::Version::version >= 403) 
+            if (Nanos4::Version::version < 4200)
             {
+                // Legacy stuff here
+                if ((Nanos4::Version::is_family("trunk") 
+                            || Nanos4::Version::is_family("aduran")) 
+                        && Nanos4::Version::version >= 403) 
+                {
 
-                file_name = "\"task enqueue: " + function_definition.get_ast().get_file() + "\"";
+                    file_name = "\"task enqueue: " + function_definition.get_ast().get_file() + "\"";
 
-                file_line = construct_body.get_ast().get_line();
+                    file_line = construct_body.get_ast().get_line();
 
-                mangled_function_name =
-                    "\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
-                file_params <<  file_name << "," << file_line << ","
-                    << mangled_function_name << ",";
+                    mangled_function_name =
+                        "\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
+                    file_params <<  file_name << "," << file_line << ","
+                        << mangled_function_name << ",";
 
-                // code for increment and decrement of task level
+                    // code for increment and decrement of task level
+                    increment_task_level <<  "nth_task_ctx_t nth_ctx;";
+                    increment_task_level <<  "nth_inc_task_level(&nth_ctx,"
+                        << file_name << ","
+                        << file_line << ","
+                        << mangled_function_name << ");"
+                        ;
+                    decrement_task_level <<  "nth_dec_task_level();"
+                        ;
+                }
+
+                if (Nanos4::Version::is_family("trunk") &&
+                        Nanos4::Version::version == 400)
+                {
+                    increment_task_level <<  "nth_inc_task_level();"
+                        ;
+                    decrement_task_level <<  "nth_dec_task_level();"
+                        ;
+                }
+
+                task_queueing
+                    << "{"
+                    <<    "nth_desc * nth;"
+                    <<    "int nth_type = " << task_type << ";"
+                    <<    "int nth_ndeps = " << task_dependency << ";"
+                    <<    "int nth_vp = 0;"
+                    <<    "nth_desc_t* nth_succ = (nth_desc_t*)0;"
+                    <<    "int nth_nargs_ref = " << num_reference_args << ";"
+                    <<    "int nth_nargs_val = " << num_value_args << ";"
+                    <<    "void* nth_arg_addr[" << num_value_args << " + 1];"
+                    <<    "void** nth_arg_addr_ptr = &nth_arg_addr[1];"
+
+                    <<    size_vector
+
+                    <<    "nth = nth_create((void*)(" << outlined_function_reference << "), "
+                    <<             "&nth_type, &nth_ndeps, &nth_vp, &nth_succ,"
+                    <<    file_params << " &nth_arg_addr_ptr, "
+                    <<             "&nth_nargs_ref, &nth_nargs_val" << task_parameters << ");"
+                    <<    instrument_code_task_creation
+                    <<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
+                    <<    "{"
+                    // <<       "fprintf(stderr, \"Cannot allocate task at '%s'\\n\", \"" << task_construct.get_ast().get_locus() << "\");"
+                    <<       fallback_capture_values
+                    <<       increment_task_level
+                    <<       outlined_function_reference << "(" << fallback_arguments << ");"
+                    <<       decrement_task_level
+                    <<    "}"
+                    <<    copy_construction_part
+                    << "}"
+                    ;
+
+                if (instrumentation_requested())
+                {
+                    std::string file_name = "\"task enqueue: " + function_definition.get_ast().get_file() + "\"";
+
+                    int file_line = construct_body.get_ast().get_line();
+
+                    std::string mangled_function_name = 
+                        "\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
+
+                    instrument_code_task_creation
+                        // TODO we want to know if threadswitch was enabled
+                        << "const int EVENT_TASK_ENQUEUE = 60000010;"
+                        << "int _user_function_event = mintaka_index_get(" << file_name << "," << file_line << ");"
+                        << "if (_user_function_event == -1)"
+                        << "{"
+                        << "     nthf_spin_lock_((nth_word_t*)&_nthf_unspecified_critical);"
+                        << "     _user_function_event = mintaka_index_allocate2(" << file_name << "," 
+                        <<                file_line << "," << mangled_function_name << ", EVENT_TASK_ENQUEUE);"
+                        << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
+                        << "}"
+                        << "{"
+                        <<    "uint64_t _timestamp = mintaka_get_ts();"
+                        <<    "nth_desc* nth2 = (nth == NTH_CANNOT_ALLOCATE_TASK) ? nthf_self_() : nth;"
+                        <<    "intptr_t id_nth = (intptr_t)nth2;"
+                        <<    "mintaka_send_at(id_nth, 1, _timestamp);"
+                        <<    "mintaka_set_state_at(MINTAKA_STATE_RUN, _timestamp);"
+                        <<    "mintaka_event_at(EVENT_TASK_ENQUEUE, _user_function_event, _timestamp);"
+                        << "}"
+                        ;
+
+                    define_global_mutex("_nthf_unspecified_critical", function_definition.get_ast(),
+                            function_definition.get_scope_link());
+                }
+            }
+            else
+            {
                 increment_task_level <<  "nth_task_ctx_t nth_ctx;";
                 increment_task_level <<  "nth_inc_task_level(&nth_ctx,"
                     << file_name << ","
@@ -403,81 +492,49 @@ namespace TL
                     << mangled_function_name << ");"
                     ;
                 decrement_task_level <<  "nth_dec_task_level();"
-                    ;
-            }
-
-            if (Nanos4::Version::is_family("trunk") &&
-                    Nanos4::Version::version == 400)
-            {
-                increment_task_level <<  "nth_inc_task_level();"
-                    ;
-                decrement_task_level <<  "nth_dec_task_level();"
-                    ;
-            }
-
-            task_queueing
-                << "{"
-                <<    "nth_desc * nth;"
-                <<    "int nth_type = " << task_type << ";"
-                <<    "int nth_ndeps = " << task_dependency << ";"
-                <<    "int nth_vp = 0;"
-                <<    "nth_desc_t* nth_succ = (nth_desc_t*)0;"
-                <<    "int nth_nargs_ref = " << num_reference_args << ";"
-                <<    "int nth_nargs_val = " << num_value_args << ";"
-                <<    "void* nth_arg_addr[" << num_value_args << " + 1];"
-                <<    "void** nth_arg_addr_ptr = &nth_arg_addr[1];"
-
-                <<    size_vector
-
-                <<    "nth = nth_create((void*)(" << outlined_function_reference << "), "
-                <<             "&nth_type, &nth_ndeps, &nth_vp, &nth_succ,"
-                <<    file_params << " &nth_arg_addr_ptr, "
-                <<             "&nth_nargs_ref, &nth_nargs_val" << task_parameters << ");"
-                <<    instrument_code_task_creation
-                <<    "if (nth == NTH_CANNOT_ALLOCATE_TASK)"
-                <<    "{"
-                // <<       "fprintf(stderr, \"Cannot allocate task at '%s'\\n\", \"" << task_construct.get_ast().get_locus() << "\");"
-                <<       fallback_capture_values
-                <<       increment_task_level
-                <<       outlined_function_reference << "(" << fallback_arguments << ");"
-                <<       decrement_task_level
-                <<    "}"
-                <<    copy_construction_part
-                << "}"
-                ;
-
-            if (instrumentation_requested())
-            {
-                std::string file_name = "\"task enqueue: " + function_definition.get_ast().get_file() + "\"";
-
-                int file_line = construct_body.get_ast().get_line();
-
-                std::string mangled_function_name = 
-                    "\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
-
-                instrument_code_task_creation
-                    // TODO we want to know if threadswitch was enabled
-                    << "const int EVENT_TASK_ENQUEUE = 60000010;"
-                    << "int _user_function_event = mintaka_index_get(" << file_name << "," << file_line << ");"
-                    << "if (_user_function_event == -1)"
+                        ;
+                // FIXME: Instrumentation is still missing!!!
+                task_queueing
                     << "{"
-                    << "     nthf_spin_lock_((nth_word_t*)&_nthf_unspecified_critical);"
-                    << "     _user_function_event = mintaka_index_allocate2(" << file_name << "," 
-                    <<                file_line << "," << mangled_function_name << ", EVENT_TASK_ENQUEUE);"
-                    << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
-                    << "}"
-                    << "{"
-                    <<    "uint64_t _timestamp = mintaka_get_ts();"
-                    <<    "nth_desc* nth2 = (nth == NTH_CANNOT_ALLOCATE_TASK) ? nthf_self_() : nth;"
-                    <<    "intptr_t id_nth = (intptr_t)nth2;"
-                    <<    "mintaka_send_at(id_nth, 1, _timestamp);"
-                    <<    "mintaka_set_state_at(MINTAKA_STATE_RUN, _timestamp);"
-                    <<    "mintaka_event_at(EVENT_TASK_ENQUEUE, _user_function_event, _timestamp);"
+
+                    <<    "nth_cutoff_res_t nth_cutoff = nth_cutoff_create();"
+                    <<    "switch (nth_cutoff)"
+                    <<    "{"
+                    <<      "case NTH_CUTOFF_IMMEDIATE:"
+                    <<      "case NTH_CUTOFF_SERIALIZE:"
+                    <<      "{"
+                    <<          comment("Run the task inline")
+                    <<          fallback_capture_values
+                    <<          increment_task_level
+                    <<          outlined_function_reference << "(" << fallback_arguments << ");"
+                    <<          decrement_task_level
+                    <<          "break;"
+                    <<      "}"
+                    <<      "case NTH_CUTOFF_CREATE:"
+                    <<      "{"
+                    <<          comment("Create the task")
+                    <<          "nth_desc * nth;"
+                    <<          "int nth_type = " << task_type << ";"
+                    <<          "int nth_ndeps = " << task_dependency << ";"
+                    <<          "int nth_vp = 0;"
+                    <<          "nth_desc_t* nth_succ = (nth_desc_t*)0;"
+                    <<          "int nth_nargs_ref = " << num_reference_args << ";"
+                    <<          "int nth_nargs_val = " << num_value_args << ";"
+                    <<          "void* nth_arg_addr[" << num_value_args << " + 1];"
+                    <<          "void** nth_arg_addr_ptr = &nth_arg_addr[1];"
+                    <<          size_vector
+                    <<          "nth = nth_create_task((void*)(" << outlined_function_reference << "), "
+                    <<                 "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, &nth_arg_addr_ptr, "
+                    <<                 "&nth_nargs_ref, &nth_nargs_val" << task_parameters << ");"
+                    <<          copy_construction_part
+                    <<          "nth_submit(nth);"
+                    <<          "break;" 
+                    <<      "}"
+                    <<      "default: { " << comment("Invalid cutoff") << "abort(); break; }"
+                    <<    "}"
+
                     << "}"
                     ;
-
-                define_global_mutex("_nthf_unspecified_critical", function_definition.get_ast(),
-                        function_definition.get_scope_link());
             }
 
             return task_queueing;
