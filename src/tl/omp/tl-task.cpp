@@ -486,13 +486,13 @@ namespace TL
             else
             {
                 increment_task_level <<  "nth_task_ctx_t nth_ctx;";
-                increment_task_level <<  "nth_inc_task_level(&nth_ctx,"
+                increment_task_level <<  "nth_push_task_ctx(&nth_ctx,"
                     << file_name << ","
                     << file_line << ","
                     << mangled_function_name << ");"
                     ;
-                decrement_task_level <<  "nth_dec_task_level();"
-                        ;
+                decrement_task_level <<  "nth_pop_task_ctx();"
+                    ;
                 // FIXME: Instrumentation is still missing!!!
                 task_queueing
                     << "{"
