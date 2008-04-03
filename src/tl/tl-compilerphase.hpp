@@ -88,7 +88,7 @@ namespace TL
     };
 
     //! Base class for any compiler phase
-    class CompilerPhase : Object
+    class CompilerPhase : public Object
     {
         public:
             //! Resulting status value of the phase
