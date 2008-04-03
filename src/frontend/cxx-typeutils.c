@@ -5035,6 +5035,15 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                         }
                     }
                 }
+                // For C we might need to explicitly add 'void'
+                C_LANGUAGE()
+                {
+                    if (type_info->function->num_parameters == 0
+                            && !type_info->function->lacks_prototype)
+                    {
+                        prototype = strappend(prototype, "void");
+                    }
+                }
                 prototype = strappend(prototype, ") ");
                 prototype = strappend(prototype, get_cv_qualifier_string(type_info));
 

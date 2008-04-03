@@ -193,6 +193,7 @@ OMP_IS_MASTER_CONSTRUCT omp.is_master_construct
 OMP_IS_NOWAIT_CLAUSE omp.is_nowait_clause
 OMP_IS_NUM_THREADS_CLAUSE omp.is_num_threads_clause
 OMP_IS_OMP_CONSTRUCT omp.is_omp_construct
+OMP_IS_OMP_DIRECTIVE omp.is_omp_directive
 OMP_IS_ORDERED_CLAUSE omp.is_ordered_clause
 OMP_IS_ORDERED_CONTRUCT omp.is_ordered_contruct
 OMP_IS_PARALLEL_CONSTRUCT omp.is_parallel_construct
