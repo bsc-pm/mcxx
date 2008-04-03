@@ -24,6 +24,26 @@ namespace TL
                 }
         };
 
+        class TaskConstructPred : public Predicate<AST_t>
+        {
+            public:
+                virtual bool operator()(AST_t& a) const
+                {
+                    TL::Bool is_custom_omp_construct = a.get_attribute(OMP_IS_CUSTOM_CONSTRUCT);
+
+                    if (is_custom_omp_construct)
+                    {
+                        AST_t directive = a.get_attribute(OMP_CONSTRUCT_DIRECTIVE);
+                        TL::String directive_name = directive.get_attribute(OMP_CUSTOM_DIRECTIVE_NAME);
+
+                        if (directive_name == "task")
+                            return true;
+                    }
+
+                    return false;
+                }
+        };
+
         class SpecificFunctionDef : public Predicate<AST_t>
         {
             private:

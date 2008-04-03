@@ -48,13 +48,10 @@ namespace TL
                 void compute_set_of_serializable(AST_t tree, ScopeLink scope_link,
                         ObjectList<Symbol> &functions_to_serialize)
                 {
-                    ObjectList<Symbol> functions_defined;
-                    // The initial set of this computation contains all the
-                    // function definitions containing any openmp construct
-
+                    // First compute all functions defined
                     ObjectList<AST_t> function_definition_list 
                         = tree.depth_subtrees(FunctionDefinition::predicate);
-
+                    ObjectList<Symbol> functions_defined;
                     for (ObjectList<AST_t>::iterator it = function_definition_list.begin();
                             it != function_definition_list.end();
                             it++)
@@ -63,15 +60,44 @@ namespace TL
                         // FIXME - Fix this some day
                         Symbol function_symbol 
                             = function_def.get_ast().get_attribute(LANG_FUNCTION_SYMBOL);
-
                         functions_defined.append(function_symbol);
+                    }
 
-                        ObjectList<AST_t> omp_constructs = 
-                            function_def.get_function_body().get_ast().depth_subtrees(AnyOpenMPConstruct());
+                    // Now for every task construct get the called functions for which we have
+                    // their definition
+                    ObjectList<AST_t> task_construct_list = tree.depth_subtrees(TaskConstructPred());
+                    for (ObjectList<AST_t>::iterator it = task_construct_list.begin();
+                            it != task_construct_list.end();
+                            it++)
+                    {
+                        // FIXME - This is pathetic :)
+                        OpenMP::CustomConstruct task_construct(*it, scope_link, NULL, NULL);
+                        Statement stmt = task_construct.body();
 
-                        if (!omp_constructs.empty())
+                        // Now find all function calls 
+                        // FIXME - We should factorize this
+                        ObjectList<AST_t> function_calls = stmt.get_ast().depth_subtrees(PredicateAST<LANG_IS_FUNCTION_CALL>());
+                        for (ObjectList<AST_t>::iterator funct_call_tree = function_calls.begin();
+                                funct_call_tree != function_calls.end();
+                                funct_call_tree++)
                         {
-                            functions_to_serialize.append(function_symbol);
+                            Expression funct_call(*funct_call_tree, scope_link);
+                            Expression called_entity = funct_call.get_called_expression();
+                            if (called_entity.is_id_expression())
+                            {
+                                // Ignore functions called by indirection
+                                IdExpression id_expression = called_entity.get_id_expression();
+                                Symbol sym = id_expression.get_symbol();
+
+                                if (functions_defined.contains(sym))
+                                {
+                                    std::cerr << "INFO: Adding '" << sym.get_name() << "' to the list of OpenMP serializable" << std::endl;
+
+                                    // And insert it to the list of functions to serialize (this makes most of the magic
+                                    // of this closure)
+                                    functions_to_serialize.insert(sym);
+                                }
+                            }
                         }
                     }
 
@@ -100,6 +126,7 @@ namespace TL
                         Statement stmt = function_def.get_function_body();
 
                         // Now find all function calls 
+                        // FIXME - We should factorize this
                         ObjectList<AST_t> function_calls = stmt.get_ast().depth_subtrees(PredicateAST<LANG_IS_FUNCTION_CALL>());
                         for (ObjectList<AST_t>::iterator funct_call_tree = function_calls.begin();
                                 funct_call_tree != function_calls.end();
