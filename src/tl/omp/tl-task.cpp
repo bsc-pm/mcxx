@@ -19,6 +19,7 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 #include "tl-omptransform.hpp"
+#include "tl-taskserialize.hpp"
 
 namespace TL
 {
@@ -46,6 +47,10 @@ namespace TL
             ObjectList<Symbol> & captureprivate_references = 
                 task_construct.get_data<ObjectList<Symbol> >("captureprivate_references");
 
+            // Keep this, we might need it later
+            AST_t& original_code =
+                task_construct.get_data<AST_t>("original_code");
+            original_code = construct_body.get_ast();
 
             task_compute_explicit_data_sharing(directive, captureaddress_references,
                     local_references,
@@ -90,6 +95,8 @@ namespace TL
                 task_construct.get_data<ObjectList<Symbol> >("local_references");
             ObjectList<Symbol> & captureprivate_references = 
                 task_construct.get_data<ObjectList<Symbol> >("captureprivate_references");
+            AST_t& original_code =
+                task_construct.get_data<AST_t>("original_code");
 
             ObjectList<Symbol> empty;
             ObjectList<OpenMP::ReductionSymbol> reduction_empty;
@@ -149,7 +156,8 @@ namespace TL
                     function_definition, 
                     task_construct,
                     directive,
-                    construct_body);
+                    construct_body,
+                    original_code);
 
             // Parse the code
             AST_t task_code = task_queueing.parse_statement(task_construct.get_ast(),
@@ -164,7 +172,8 @@ namespace TL
                 FunctionDefinition &function_definition,
                 OpenMP::Construct &task_construct,
                 OpenMP::Directive &directive,
-                Statement &construct_body)
+                Statement &construct_body,
+                AST_t &original_code)
         {
             // Here the spawning code will be created
             Source task_queueing;
@@ -485,6 +494,42 @@ namespace TL
             }
             else
             {
+                Source serialized_code;
+
+                // If we have such information fill serialized branch, otherwise don't do anything
+                // and exploit the fall-through of the switch
+                if (serialized_functions_info)
+                {
+                    Source duplicated_code_src;
+                    duplicated_code_src
+                        << "{"
+                        << original_code.prettyprint()
+                        << "break;"
+                        << "}"
+                        ;
+
+                    AST_t duplicated_code_tree = duplicated_code_src.parse_statement(original_code,
+                            construct_body.get_scope_link());
+                    
+                    // Traversal
+                    DepthTraverse depth_traverse;
+
+                    // Remove any OpenMP vestige in the original code
+                    AnyOpenMPConstruct any_openmp_construct_pred;
+                    RemoveOpenMP remove_openmp_traverse_functor;
+                    depth_traverse.add_predicate(any_openmp_construct_pred, remove_openmp_traverse_functor);
+
+                    // And fix function calls
+                    PredicateAST<LANG_IS_FUNCTION_CALL> function_call_pred;
+                    FixFunctionCalls fix_function_calls(serialized_functions_info->serialized_functions);
+                    depth_traverse.add_predicate(function_call_pred, fix_function_calls);
+
+                    depth_traverse.traverse(duplicated_code_tree, construct_body.get_scope_link());
+
+                    serialized_code
+                        << duplicated_code_tree.prettyprint();
+                }
+
                 increment_task_level <<  "nth_task_ctx_t nth_ctx;";
                 increment_task_level <<  "nth_push_task_ctx(&nth_ctx);"
                     ;
@@ -497,16 +542,6 @@ namespace TL
                     <<    "nth_cutoff_res_t nth_cutoff = nth_cutoff_create();"
                     <<    "switch (nth_cutoff)"
                     <<    "{"
-                    <<      "case NTH_CUTOFF_IMMEDIATE:"
-                    <<      "case NTH_CUTOFF_SERIALIZE:"
-                    <<      "{"
-                    <<          comment("Run the task inline")
-                    <<          fallback_capture_values
-                    <<          increment_task_level
-                    <<          outlined_function_reference << "(" << fallback_arguments << ");"
-                    <<          decrement_task_level
-                    <<          "break;"
-                    <<      "}"
                     <<      "case NTH_CUTOFF_CREATE:"
                     <<      "{"
                     <<          comment("Create the task")
@@ -526,6 +561,17 @@ namespace TL
                     <<          copy_construction_part
                     <<          "nth_submit(nth);"
                     <<          "break;" 
+                    <<      "}"
+                    <<      "case NTH_CUTOFF_SERIALIZE:"
+                    <<      serialized_code
+                    <<      "case NTH_CUTOFF_IMMEDIATE:"
+                    <<      "{"
+                    <<          comment("Run the task inline")
+                    <<          fallback_capture_values
+                    <<          increment_task_level
+                    <<          outlined_function_reference << "(" << fallback_arguments << ");"
+                    <<          decrement_task_level
+                    <<          "break;"
                     <<      "}"
                     <<      "default: { " << comment("Invalid cutoff") << "abort(); break; }"
                     <<    "}"

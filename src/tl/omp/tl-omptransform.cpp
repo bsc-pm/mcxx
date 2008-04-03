@@ -224,9 +224,16 @@ namespace TL
             // This is needed since "init" is a virtual method
         }
 
-        void OpenMPTransform::init()
+        void OpenMPTransform::init(DTO& dto)
         {
             // This function is called in OpenMPPhase::run
+            ObjectList<std::string> keys = dto.get_keys();
+
+            if (keys.contains(SERIALIZED_FUNCTIONS_INFO))
+            {
+                RefPtr<Object> obj = dto[SERIALIZED_FUNCTIONS_INFO];
+                serialized_functions_info = RefPtr<SerializedFunctionsInfo>::cast_dynamic(obj);
+            }
         }
     }
 }

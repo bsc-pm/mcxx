@@ -23,6 +23,7 @@
 
 #include "cxx-utils.h"
 #include "tl-omp.hpp"
+#include "tl-ompserialize.hpp"
 #include "tl-predicateutils.hpp"
 #include "tl-source.hpp"
 #include "tl-functionfilter.hpp"
@@ -64,6 +65,9 @@ namespace TL
                 // A set to save what critical names have been defined in
                 // translation unit level
                 std::set<std::string> criticals_defined;
+
+                // Serialized functions info
+                RefPtr<SerializedFunctionsInfo> serialized_functions_info;
 
                 // -- Transactional world
                 int transaction_nesting;
@@ -110,7 +114,7 @@ namespace TL
                 virtual ~OpenMPTransform();
 
                 // Initialization function called from OpenMP::OpenMPPhase
-                virtual void init();
+                virtual void init(DTO& dto);
 
                 void parallel_preorder(OpenMP::ParallelConstruct parallel_construct);
                 void parallel_postorder(OpenMP::ParallelConstruct parallel_construct);
@@ -399,7 +403,8 @@ namespace TL
                         FunctionDefinition &function_definition,
                         OpenMP::Construct &task_construct,
                         OpenMP::Directive &directive,
-                        Statement& construct_body);
+                        Statement& construct_body,
+                        AST_t& original_code);
 
                 // Debug purposes
                 IdExpression print_id_expression(IdExpression id_expression);

@@ -1,4 +1,4 @@
-lib_LTLIBRARIES = libtlomp.la
+lib_LTLIBRARIES = libtlomp.la libtlomp_serialize.la
 
 tl_omp_flags = -Wall \
     -I $(top_srcdir)/src/tl \
@@ -14,6 +14,8 @@ tl_omp_flags = -Wall \
 
 libtlomp_la_CFLAGS = $(tl_omp_flags)
 libtlomp_la_CXXFLAGS = $(tl_omp_flags)
+
+END=
 
 libtlomp_la_SOURCES = \
    tl-omptransform.cpp \
@@ -48,4 +50,15 @@ libtlomp_la_SOURCES = \
    tl-taskwait.cpp \
    tl-taskyield.cpp \
    tl-taskgroup.cpp \
-   tl-threadprivate.cpp
+   tl-threadprivate.cpp \
+   tl-taskserialize.hpp \
+   $(END)
+
+libtlomp_serialize_la_CFLAGS = $(tl_omp_flags)
+libtlomp_serialize_la_CXXFLAGS = $(tl_omp_flags)
+
+libtlomp_serialize_la_SOURCES = \
+   tl-ompserialize.hpp \
+   tl-ompserialize.cpp \
+   tl-taskserialize.hpp \
+   $(END)
