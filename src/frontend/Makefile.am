@@ -179,7 +179,7 @@ CLEANFILES += cxx-scanner.c
 CLEANFILES += cxx03.l
 endif
 
-cxx-scanner.c : cxx03.l 
+cxx-scanner.c : cxx03.l cxx-parser.h
 if FLEX_BUILDING
 	flex -Pmcxx -d -ocxx-scanner.c -8 cxx03.l
 else
@@ -213,7 +213,7 @@ CLEANFILES += c99-scanner.c
 CLEANFILES += c99.l
 endif
 
-c99-scanner.c : c99.l 
+c99-scanner.c : c99.l c99-parser.h
 if FLEX_BUILDING
 	flex -Pmc99 -d -oc99-scanner.c -8 c99.l
 else
