@@ -107,6 +107,10 @@ namespace TL
             int num_params = 0;
             Source formal_parameters;
 
+            // Add mandatory team parameter
+            formal_parameters.append_with_separator(
+                    "nth_team_t* nth_current_team", ","); 
+
             // Add _this if needed
             if (is_nonstatic_member_function(function_definition))
             {
@@ -204,92 +208,97 @@ namespace TL
             }
 
             // FIRSTPRIVATE
-            for (ObjectList<Symbol>::iterator it = firstprivate_references.begin();
-                    it != firstprivate_references.end();
-                    it++)
+            if (Nanos4::Version::version < 4200)
             {
-                Symbol &sym(*it);
-                Type type = sym.get_type();
-
-                Source initializer_value;
-
-                if (parameter_info_list.contains(functor(&ParameterInfo::symbol), sym))
+                // This has to be done only for old versions, new versions will
+                // have this done by the runtime
+                for (ObjectList<Symbol>::iterator it = firstprivate_references.begin();
+                        it != firstprivate_references.end();
+                        it++)
                 {
-                    Type t = sym.get_type();
-                    if (t.is_array())
+                    Symbol &sym(*it);
+                    Type type = sym.get_type();
+
+                    Source initializer_value;
+
+                    if (parameter_info_list.contains(functor(&ParameterInfo::symbol), sym))
                     {
-                        initializer_value << "flp_" + sym.get_name();
+                        Type t = sym.get_type();
+                        if (t.is_array())
+                        {
+                            initializer_value << "flp_" + sym.get_name();
+                        }
+                        else
+                        {
+                            initializer_value << "(*flp_" + sym.get_name() + ")";
+                        }
                     }
                     else
                     {
-                        initializer_value << "(*flp_" + sym.get_name() + ")";
+                        initializer_value << sym.get_qualified_name(construct.get_scope());
                     }
-                }
-                else
-                {
-                    initializer_value << sym.get_qualified_name(construct.get_scope());
-                }
 
-                private_declarations << 
-                    comment("Firstprivate entity : 'p_" + sym.get_name() + "'");
+                    private_declarations << 
+                        comment("Firstprivate entity : 'p_" + sym.get_name() + "'");
 
-                if (type.is_array())
-                {
-                    // Both in C and C++ the firstprivatized array must be properly copied
-                    private_declarations 
-                        << type.get_declaration(
-                                construct.get_scope(),
-                                "p_" + sym.get_name())
-                        << ";"
-                        ;
-
-                    private_declarations 
-                        << comment("This firstprivate entity is an array and must be initialized element-wise");
-
-                    Source array_assignment = array_copy(type, "p_" + sym.get_name(),
-                            initializer_value.get_source(), 0);
-
-                    private_declarations << array_assignment;
-                }
-                else
-                {
-                    C_LANGUAGE()
+                    if (type.is_array())
                     {
-                        // If it is not an array just assign
+                        // Both in C and C++ the firstprivatized array must be properly copied
                         private_declarations 
                             << type.get_declaration(
                                     construct.get_scope(),
                                     "p_" + sym.get_name())
                             << ";"
-                            << comment("Using plain assignment to initialize firstprivate entity")
-                            << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
                             ;
+
+                        private_declarations 
+                            << comment("This firstprivate entity is an array and must be initialized element-wise");
+
+                        Source array_assignment = array_copy(type, "p_" + sym.get_name(),
+                                initializer_value.get_source(), 0);
+
+                        private_declarations << array_assignment;
                     }
-                    CXX_LANGUAGE()
+                    else
                     {
-                        // In C++ if this is a class we invoke the copy-constructor
-                        if (type.is_class())
+                        C_LANGUAGE()
                         {
-                            private_declarations 
-                                << comment("Using copy constructor to initialize firstprivate entity")
-                                << type.get_declaration(
-                                        construct.get_scope(),
-                                        "p_" + sym.get_name())
-                                << "(" << initializer_value.get_source() << ")"
-                                << ";"
-                                ;
-                        }
-                        else
-                        {
-                            // Otherwise simply assign
+                            // If it is not an array just assign
                             private_declarations 
                                 << type.get_declaration(
                                         construct.get_scope(),
                                         "p_" + sym.get_name())
                                 << ";"
-                                << comment("Using assignment operator to initialize firstprivate entity")
+                                << comment("Using plain assignment to initialize firstprivate entity")
                                 << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
                                 ;
+                        }
+                        CXX_LANGUAGE()
+                        {
+                            // In C++ if this is a class we invoke the copy-constructor
+                            if (type.is_class())
+                            {
+                                private_declarations 
+                                    << comment("Using copy constructor to initialize firstprivate entity")
+                                    << type.get_declaration(
+                                            construct.get_scope(),
+                                            "p_" + sym.get_name())
+                                    << "(" << initializer_value.get_source() << ")"
+                                    << ";"
+                                    ;
+                            }
+                            else
+                            {
+                                // Otherwise simply assign
+                                private_declarations 
+                                    << type.get_declaration(
+                                            construct.get_scope(),
+                                            "p_" + sym.get_name())
+                                    << ";"
+                                    << comment("Using assignment operator to initialize firstprivate entity")
+                                    << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
+                                    ;
+                            }
                         }
                     }
                 }
@@ -365,13 +374,21 @@ namespace TL
                 {
                     Type t = symbol.get_type();
 
+                    std::string variable_prefix = "lp_";
+
+                    if (Nanos4::Version::version < 4200)
+                    {
+                        variable_prefix = "flp_";
+                    }
+
+
                     if (t.is_array())
                     {
-                        output_object = "flp_" + symbol.get_name();
+                        output_object = variable_prefix + symbol.get_name();
                     }
                     else
                     {
-                        output_object = "(*flp_" + symbol.get_name() + ")";
+                        output_object = "(*" + variable_prefix + symbol.get_name() + ")";
                     }
                 }
                 else

@@ -255,22 +255,48 @@ namespace TL
             }
 
             // Debug information
-            Source comment = debug_parameter_info(
+            Source debug_comment = debug_parameter_info(
                     parameter_info_list);
 
-            Source task_block_code;
+            // These are unused at the moment
+            // but might be required in the future
+            Source code_before_entering_team,
+                   code_after_leaving_team;
 
-            parallel_body 
-                << comment
-                << private_declarations
-                << instrumentation_code_before
-                << modified_parallel_body_stmt.prettyprint()
-                << reduction_update
-                << instrumentation_code_after
-                << task_block_code
+            Source enter_team,
+                   leave_team;
+
+            code_before_entering_team
+                << "nth_player_t nth_player;"
+                << "nth_init_player(&nth_player);"
+                ;
+            enter_team
+                << "nth_enter_team(nth_current_team, &nth_player, 0);"
+                ;
+            leave_team
+                << "nth_leave_team(1);"
+                ;
+            code_after_leaving_team
+                << "nth_end_player(&nth_player);"
                 ;
 
-            task_block_code = get_task_block_code();
+            parallel_body 
+                << debug_comment
+                << private_declarations
+                << instrumentation_code_before
+                << comment("Entering team")
+                << code_before_entering_team
+                << enter_team
+
+                << comment("Construct code")
+                << modified_parallel_body_stmt.prettyprint()
+
+                << reduction_update
+                << instrumentation_code_after
+                << comment("Leaving team")
+                << leave_team
+                << code_after_leaving_team
+                ;
 
             return finish_outline(function_definition, outline_parallel, parameter_info_list);
         }

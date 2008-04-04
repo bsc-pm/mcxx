@@ -178,6 +178,30 @@ namespace TL
                         Source& instrument_code_before,
                         Source& instrument_code_after);
 
+                // Actual implementations of 'get_parallel_spawn_code'
+                AST_t get_parallel_spawn_code_without_team(
+                        AST_t ref_tree, 
+                        FunctionDefinition function_definition,
+                        Scope scope,
+                        ScopeLink scope_link,
+                        ObjectList<ParameterInfo> parameter_info_list,
+                        ObjectList<OpenMP::ReductionSymbol> reduction_references,
+                        OpenMP::Clause num_threads_clause,
+                        OpenMP::CustomClause groups_clause,
+                        Source& instrument_code_before,
+                        Source& instrument_code_after);
+                AST_t get_parallel_spawn_code_with_team(
+                        AST_t ref_tree, 
+                        FunctionDefinition function_definition,
+                        Scope scope,
+                        ScopeLink scope_link,
+                        ObjectList<ParameterInfo> parameter_info_list,
+                        ObjectList<OpenMP::ReductionSymbol> reduction_references,
+                        OpenMP::Clause num_threads_clause,
+                        OpenMP::CustomClause groups_clause,
+                        Source& instrument_code_before,
+                        Source& instrument_code_after);
+
                 std::string get_outline_function_reference(FunctionDefinition function_definition,
                         ObjectList<ParameterInfo>& parameter_info_list);
 

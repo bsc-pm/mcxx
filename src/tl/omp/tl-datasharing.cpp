@@ -353,6 +353,13 @@ namespace TL
                 Symbol &symbol(*it);
                 Type type = symbol.get_type();
 
+                // Old versions pass firstprivate in a different way
+                ParameterInfo::parameter_kind_t param_kind = ParameterInfo::BY_VALUE;
+                if (Nanos4::Version::version < 4200)
+                {
+                    param_kind = ParameterInfo::BY_POINTER;
+                }
+
                 if (type.is_array())
                 {
                     Type pointer_type = type.array_element().get_pointer_to();
@@ -363,7 +370,7 @@ namespace TL
 
                     ParameterInfo parameter("flp_" + symbol.get_name(), 
                             symbol.get_qualified_name(construct_body.get_scope()),
-                            symbol, pointer_type, ParameterInfo::BY_POINTER);
+                            symbol, pointer_type, param_kind);
                     parameter_info.append(parameter);
                 }
                 else
@@ -376,21 +383,31 @@ namespace TL
 
                     ParameterInfo parameter("flp_" + symbol.get_name(), 
                             "&" + symbol.get_qualified_name(construct_body.get_scope()),
-                            symbol, pointer_type, ParameterInfo::BY_POINTER);
+                            symbol, pointer_type, param_kind);
                     parameter_info.append(parameter);
                 }
 
-                result.add_replacement(symbol, "p_" + symbol.get_name(),
+                result.add_replacement(symbol, "(*flp_" + symbol.get_name() + ")",
                         construct_body.get_ast(), construct_body.get_scope_link());
             }
 
-            // LASTPRIVATE references
-            // that do not already appear in FIRSTPRIVATE
             {
                 ObjectList<Symbol> pruned_lastprivate_references;
-                pruned_lastprivate_references
-                    .append(lastprivate_references.filter(
-                                not_in_set(firstprivate_references)));
+                if (Nanos4::Version::version < 4200)
+                {
+                    // Old versions required special handling for LASTPRIVATE
+                    // variables appearing in FIRSTPRIVATE
+                    //
+                    // LASTPRIVATE references that do not already appear in
+                    // FIRSTPRIVATE
+                    pruned_lastprivate_references
+                        .append(lastprivate_references.filter(
+                                    not_in_set(firstprivate_references)));
+                }
+                else
+                {
+                    pruned_lastprivate_references = lastprivate_references;
+                }
 
                 for (ObjectList<Symbol>::iterator it = pruned_lastprivate_references.begin();
                         it != pruned_lastprivate_references.end();
@@ -398,6 +415,16 @@ namespace TL
                 {
                     Symbol &symbol(*it);
                     Type type = symbol.get_type();
+
+                    std::string symbol_name = symbol.get_name();
+                    if (Nanos4::Version::version < 4200)
+                    {
+                        symbol_name = "flp_" + symbol.get_name();
+                    }
+                    else
+                    {
+                        symbol_name = "lp_" + symbol.get_name();
+                    }
 
                     if (type.is_array())
                     {
@@ -407,7 +434,7 @@ namespace TL
                             pointer_type = pointer_type.get_restrict_type();
                         }
 
-                        ParameterInfo parameter("flp_" + symbol.get_name(), 
+                        ParameterInfo parameter(symbol_name, 
                                 symbol.get_qualified_name(construct_body.get_scope()), 
                                 symbol, pointer_type, ParameterInfo::BY_POINTER);
                         parameter_info.append(parameter);
@@ -420,7 +447,7 @@ namespace TL
                             pointer_type = pointer_type.get_restrict_type();
                         }
 
-                        ParameterInfo parameter("flp_" + symbol.get_name(), 
+                        ParameterInfo parameter(symbol_name, 
                                 "&" + symbol.get_qualified_name(construct_body.get_scope()), 
                                 *it, pointer_type, ParameterInfo::BY_POINTER);
                         parameter_info.append(parameter);

@@ -24,52 +24,7 @@ namespace TL
 {
     namespace Nanos4
     {
-        AST_t OpenMPTransform::get_parallel_spawn_code(
-                AST_t ref_tree, // Reference tree, needed for correct parsing
-                FunctionDefinition function_definition,
-                Scope scope,
-                ScopeLink scope_link,
-                ObjectList<ParameterInfo> parameter_info_list,
-                ObjectList<OpenMP::ReductionSymbol> reduction_references,
-                OpenMP::Clause num_threads_clause,
-                OpenMP::CustomClause groups_clause,
-                Source &instrument_code_before,
-                Source &instrument_code_after)
-        {
-            if (Nanos4::Version::version < 4200)
-            {
-                // Old versions worked without creating a team
-                // It is located in 'tl-spawn-old.cpp'
-                return get_parallel_spawn_code_without_team(
-                        ref_tree, // Reference tree, needed for correct parsing
-                        function_definition,
-                        scope,
-                        scope_link,
-                        parameter_info_list,
-                        reduction_references,
-                        num_threads_clause,
-                        groups_clause,
-                        instrument_code_before,
-                        instrument_code_after);
-            }
-            else
-            {
-                // New versions know the concept of team
-                return get_parallel_spawn_code_with_team(
-                        ref_tree, // Reference tree, needed for correct parsing
-                        function_definition,
-                        scope,
-                        scope_link,
-                        parameter_info_list,
-                        reduction_references,
-                        num_threads_clause,
-                        groups_clause,
-                        instrument_code_before,
-                        instrument_code_after);
-            }
-        }
-
-        AST_t OpenMPTransform::get_parallel_spawn_code_with_team(
+        AST_t OpenMPTransform::get_parallel_spawn_code_without_team(
                 AST_t ref_tree, // Reference tree, needed for correct parsing
                 FunctionDefinition function_definition,
                 Scope scope,
@@ -83,11 +38,8 @@ namespace TL
         {
             Source spawn_code;
             Source reduction_vectors;
-
-            // referenced parameters go to nth_create_new
+            Source groups_definition;
             Source referenced_parameters;
-            // outline_arguments go directly to the outline function
-            Source outline_arguments;
 
             Source reduction_code;
 
@@ -104,36 +56,29 @@ namespace TL
             // Calculate the proper expression referring this function
             outlined_function_name_decl << get_outline_function_reference(function_definition, parameter_info_list);
 
-            Source team_size;
-
-            Source master_outline_invocation;
-
             // The skeleton of the spawn code will be this one
             spawn_code
                 << "{"
-                <<    "nth_team_t nth_current_team;"
-                <<    "int nth_team_size = " << team_size << ";"
-                <<    "void* nth_team_data = (void*)0;"
-                <<    "nth_desc *nth_selfv = nth_self();"
-                <<    "int nth_num_deps;"
-                <<    "int nth_nargs_ref = " << src_num_args_ref << ";"
+                << "  int nth_nprocs;"
+                << "  nth_desc *nth_selfv;"
+                << "  int nth_num_deps;"
+                << "  int nth_p;"
                 <<    reduction_vectors
                 <<    instrument_code_before
+                <<    groups_definition
                 <<    size_vector 
+                << "  int nth_nargs_ref = " << src_num_args_ref << ";"
                 <<    additional_declarations
-                <<    comment("Creating team")
-                <<    "nth_init_team(&nth_current_team, nth_team_size, nth_selfv, nth_team_data);"
-                <<    "nth_num_deps = 0;"
-                <<    "int nth_p;"
-                <<    "for (nth_p = 1; nth_p < nth_team_size; nth_p++) "
-                <<    "{"
-                <<        nth_creation_function
-                <<    "}"
-                <<    master_outline_invocation
+                << "  nth_selfv = nthf_self_();"
+                << "  nthf_team_set_nplayers_ (&nth_nprocs);"
+                << "  nth_num_deps = 0;"
+                << "  for (nth_p = nth_nprocs-1; nth_p >= 0 ; nth_p-- ) "
+                << "  {"
+                <<       nth_creation_function
+                << "  }"
+                << "  nthf_block_();"
                 <<    reduction_code
                 <<    instrument_code_after
-                <<    comment("Ending team")
-                <<    "nth_end_team(&nth_current_team);"
                 << "}"
                 ;
 
@@ -175,20 +120,12 @@ namespace TL
             }
 
             // Referenced parameters
-            // Team is always passed
-            referenced_parameters << "&nth_current_team" 
-                ;
-            outline_arguments << "&nth_current_team"
-                ;
-
             //
             // "this" might be needed
-            // Note, 'num_args_ref' is 1 or greater because of current team
-            int num_args_ref = 1;
+            int num_args_ref = 0;
             if (is_nonstatic_member_function(function_definition))
             {
                 referenced_parameters << ", this";
-                outline_arguments << ", this";
                 num_args_ref++;
             }
             // First the pointer ones
@@ -201,13 +138,10 @@ namespace TL
 
                 // Simply pass its reference (its address)
                 referenced_parameters << ", " << it->argument_name;
-                outline_arguments << "," << it->argument_name;
 
                 num_args_ref++;
             }
             src_num_args_ref << num_args_ref;
-
-            Source firstprivatized_data;
 
             // Now the value ones. We fill the nth_sizes vector here
             size_vector << "size_t nth_sizes[] = {0";
@@ -225,60 +159,46 @@ namespace TL
                 referenced_parameters << ", &nth_sizes[" << (num_args_val + 1) << "], &" 
                     << it->symbol.get_qualified_name(scope);
 
-                // FIXME - This might clash in C++
-                outline_arguments << ", &cv_" << it->symbol.get_name();
-
-                Type type = it->symbol.get_type();
-                // Save the firstprivatized data
-                // FIXME - Fix this for C++
-                // Shamelessly copied from tl-task.cpp
-                if (!type.is_array())
-                {
-                    firstprivatized_data
-                        << type.get_declaration_with_initializer(
-                                scope,
-                                "cv_" + it->symbol.get_name(),
-                                it->symbol.get_qualified_name(scope)) 
-                        << ";"
-                        ;
-                }
-                else
-                {
-                    Source src_array_copy = array_copy(type, "cv_" + it->symbol.get_name(),
-                            it->symbol.get_qualified_name(scope), 0);
-
-                    firstprivatized_data
-                        << type.get_declaration(scope,
-                                "cv_" + it->symbol.get_name())
-                        << ";"
-                        << src_array_copy
-                        ;
-                }
-
                 num_args_val++;
             }
             size_vector << "};";
 
 
-            additional_declarations
-                << "  int nth_task_type = 0x4;"
-                << "  int nth_nargs_val = " << src_num_args_val << ";"
-                << "  void *nth_arg_addr[" << src_num_args_val << " + 1];"
-                << "  void **nth_arg_addr_ptr = nth_arg_addr;"
-                ;
-            nth_creation_function 
-                << "     nth_create_new((void*)(" << outlined_function_name_decl << "), "
-                << "            &nth_task_type, &nth_num_deps, &nth_p, &nth_selfv, "
-                << "            &nth_arg_addr_ptr, &nth_nargs_ref, &nth_nargs_val," << referenced_parameters << ");"
-                ;
+            if ((num_args_val == 0)
+                    && (!enable_nth_create))
+            {
+                nth_creation_function
+                    << "     nthf_create_1s_vp_((void*)(" << outlined_function_name_decl << "), &nth_num_deps, &nth_p, &nth_selfv, 0, "
+                    << "        &nth_nargs_ref " << referenced_parameters << ");"
+                    ;
+            }
+            else // (num_args_val != 0 || enable_nth_create)
+            {
+                if (!enable_nth_create)
+                {
+                    // FIXME. We are giving an approximate locus but this
+                    // should not be very important since in some near 
+                    // future we will remove the old interface :)
+                    std::cerr << get_phase_name() << ": Warning, OpenMP construct in function '" 
+                        << function_definition.get_function_name().prettyprint() 
+                        << "' at " 
+                        << function_definition.get_ast().get_locus() 
+                        << " requires using the new interface since something must be passed by value."
+                        << std::endl;
+                }
 
-            master_outline_invocation
-                << "{"
-                <<    comment ("Master invokes outline")
-                <<    firstprivatized_data
-                <<    outlined_function_name_decl << "(" << outline_arguments << ");"
-                << "}"
-                ;
+                additional_declarations
+                    << "  int nth_task_type = 0x4;"
+                    << "  int nth_nargs_val = " << src_num_args_val << ";"
+                    << "  void *nth_arg_addr[" << src_num_args_val << " + 1];"
+                    << "  void **nth_arg_addr_ptr = nth_arg_addr;"
+                    ;
+                nth_creation_function 
+                    << "     nth_create((void*)(" << outlined_function_name_decl << "), "
+                    << "            &nth_task_type, &nth_num_deps, &nth_p, &nth_selfv, "
+                    << "            &nth_arg_addr_ptr, &nth_nargs_ref, &nth_nargs_val" << referenced_parameters << ");"
+                    ;
+            }
 
             if (num_args_val == 0)
             {
@@ -291,18 +211,70 @@ namespace TL
             // Groups definition
             if (!groups_clause.is_defined() && !num_threads_clause.is_defined())
             {
-                team_size << " nth_get_num_team_players()";
+                groups_definition 
+                    << "nth_nprocs =  nthf_cpus_actual_();"
+                    ;
             }
             else if (num_threads_clause.is_defined())
             {
                 ObjectList<Expression> clause_exprs = num_threads_clause.get_expression_list();
 
                 std::string num_threads_value = clause_exprs[0].prettyprint();
-                team_size << num_threads_value ;
+                groups_definition 
+                    << "nth_nprocs =" << num_threads_value << ";"
+                    ;
             }
             else /* groups is defined */
             {
-                std::cerr << groups_clause.get_ast().get_locus() << ": GROUPS not supported yet" << std::endl;
+                groups_definition << "int nth_groups_num;"
+                    ;
+
+                ObjectList<Expression> groups_expressions = groups_clause.get_expression_list();
+
+                switch (groups_expressions.size())
+                {
+                    case 1 :
+                        {
+                            std::string num_groups = groups_expressions[0].prettyprint();
+
+                            groups_definition 
+                                << "nth_groups_num = " << num_groups << ";"
+                                << "nthf_compute_uniform_groups_(&nthf_groups_num);"
+                                ;
+                            break;
+                        }
+                    case 2 :
+                        {
+                            std::string num_groups = groups_expressions[0].prettyprint();
+                            std::string howmany_groups = groups_expressions[1].prettyprint();
+
+                            groups_definition
+                                << "nth_groups_num = " << num_groups << ";"
+                                << "nthf_compute_groups_vec_(&nthf_groups_num, " << howmany_groups << ");"
+                                ;
+
+                            break;
+                        }
+                    case 3 :
+                        {
+                            std::string num_groups = groups_expressions[0].prettyprint();
+                            std::string who_groups = groups_expressions[1].prettyprint();
+                            std::string howmany_groups = groups_expressions[2].prettyprint();
+
+                            groups_definition
+                                << "nth_groups_num = " << num_groups << ";"
+                                << "nthf_define_groups_(&nthf_groups_num, " << who_groups << ", " << howmany_groups << ");"
+                                ;
+
+                            break;
+                        }
+                    default:
+                        break;
+                }
+
+                groups_definition
+                    << "nth_nprocs = nth_groups_num;"
+                    ;
             }
 
             // Reduction code
