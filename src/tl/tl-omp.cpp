@@ -433,13 +433,13 @@ namespace TL
            depth_traverse.add_predicate(custom_directive, custom_construct_functor);
 
            // Let the user register its slots
-           this->init();
+           this->init(data_flow);
 
            // Traverse in a depth-first fashion the AST
            depth_traverse.traverse(translation_unit, scope_link);
        }
 
-       void OpenMPPhase::init()
+       void OpenMPPhase::init(DTO& dto)
        {
        }
 

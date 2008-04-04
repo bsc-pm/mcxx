@@ -519,4 +519,9 @@ namespace TL
     {
         return is_same_type(t);
     }
+
+    bool Type::lacks_prototype() const
+    {
+        return function_type_get_lacking_prototype(this->_type_info);
+    }
 }

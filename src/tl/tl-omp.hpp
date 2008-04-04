@@ -735,7 +735,7 @@ namespace TL
                 //traversing the tree looking for OpenMP constructs
                 virtual void run(DTO& data_flow);
                 //! User definable function called in run
-                virtual void init();
+                virtual void init(DTO& data_flow);
 
                 OpenMPPhase() 
                     : global_data_sharing(NULL) 

@@ -222,6 +222,11 @@ namespace TL
              * \return A list of types of the parameters
              */
             ObjectList<Type> parameters(bool& has_ellipsis) const;
+            //! For a function type it states whether it has been declared with prototype
+            /*! 
+             * This is only meaningful in C because in C++ all functions have prototype 
+             */
+            bool lacks_prototype() const;
 
             //! States whether current type is a pointer type
             bool is_pointer() const;
