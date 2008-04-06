@@ -208,7 +208,8 @@ namespace TL
                     function_definition,
                     parallel_for_body,
                     outlined_function_name,
-                    parameter_info_list);
+                    parameter_info_list,
+                    /* team_parameter */ true);
 
             Source private_declarations = get_privatized_declarations(
                     construct,
@@ -249,18 +250,39 @@ namespace TL
 
             Source reduction_update = get_reduction_update(reduction_references);
 
-            Source task_block_code;
+            Source code_before_entering_team,
+                   code_after_leaving_team;
+            Source enter_team,
+                   leave_team;
+            code_before_entering_team
+                << "nth_player_t nth_player;"
+                << "nth_init_player(&nth_player);"
+                ;
+            enter_team
+                << "nth_enter_team(nth_current_team, &nth_player, 0);"
+                ;
+            leave_team
+                << "nth_leave_team(1);"
+                ;
+            code_after_leaving_team
+                << "nth_end_player(&nth_player);"
+                ;
 
             parallel_for_body 
                 << private_declarations
+
+                << code_before_entering_team
+                << enter_team
+
                 << loop_distribution
+
+                << leave_team
+                << code_after_leaving_team
+
                 << lastprivate_code
                 << reduction_update
                 << loop_finalization
-                << task_block_code
                 ;
-
-            task_block_code = get_task_block_code();
 
             return finish_outline(function_definition, outline_parallel_for, parameter_info_list);
         }

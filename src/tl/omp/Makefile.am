@@ -39,7 +39,6 @@ libtlomp_la_SOURCES = \
    tl-parallel.cpp \
    tl-parallel_for.cpp \
    tl-parallel_sections.cpp \
-   tl-parallel_single.cpp \
    tl-parameterinfo.hpp \
    tl-reduction.cpp \
    tl-section.cpp \

@@ -144,9 +144,6 @@ namespace TL
 
                 void single_postorder(OpenMP::SingleConstruct single_construct);
 
-                void parallel_single_preorder(OpenMP::ParallelSingleConstruct parallel_single_construct);
-                void parallel_single_postorder(OpenMP::ParallelSingleConstruct parallel_single_construct);
-
                 void critical_postorder(OpenMP::CriticalConstruct critical_construct);
 
                 void define_global_mutex(std::string mutex_variable, AST_t ref_tree, ScopeLink sl);
@@ -274,23 +271,6 @@ namespace TL
                         ObjectList<OpenMP::ReductionSymbol> reduction_references,
                         ObjectList<Symbol> copyin_references,
                         ObjectList<Symbol> copyprivate_references);
-
-                AST_t get_outline_parallel_single(
-                        OpenMP::Construct &construct,
-                        FunctionDefinition function_definition,
-                        Source outlined_function_name,
-                        Statement construct_body,
-                        ReplaceIdExpression replace_references,
-                        ObjectList<ParameterInfo> parameter_info,
-                        ObjectList<Symbol> private_references,
-                        ObjectList<Symbol> firstprivate_references,
-                        ObjectList<Symbol> lastprivate_references,
-                        ObjectList<OpenMP::ReductionSymbol> reduction_references,
-                        ObjectList<Symbol> copyin_references,
-                        ObjectList<Symbol> copyprivate_references
-                        );
-
-                Source get_task_block_code();
 
                 // Create outline for parallel for
                 AST_t get_outline_parallel_for(

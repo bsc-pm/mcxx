@@ -589,19 +589,6 @@ namespace TL
             return task_queueing;
         }
 
-
-
-        Source OpenMPTransform::get_task_block_code()
-        {
-            Source task_block_code;
-
-            task_block_code
-                << "nthf_task_block_();"
-                ;
-
-            return task_block_code;
-        }
-
         AST_t OpenMPTransform::get_outline_task(
                 OpenMP::Construct &construct,
                 FunctionDefinition function_definition,

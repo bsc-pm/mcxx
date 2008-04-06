@@ -49,7 +49,6 @@
 %type<ast> single_construct
 %type<ast> parallel_for_construct
 %type<ast> parallel_sections_construct
-%type<ast> parallel_single_construct
 %type<ast> master_construct
 %type<ast> critical_construct
 %type<ast> atomic_construct
@@ -93,11 +92,6 @@
 %type<ast> parallel_sections_clause_opt_seq
 %type<ast> parallel_sections_clause_seq
 %type<ast> parallel_sections_clause
-
-%type<ast> parallel_single_directive
-%type<ast> parallel_single_clause_opt_seq
-%type<ast> parallel_single_clause_seq
-%type<ast> parallel_single_clause
 
 %type<ast> atomic_directive
 
@@ -183,10 +177,6 @@ openmp_construct : parallel_construct
 	$$ = $1;
 }
 | single_construct
-{
-	$$ = $1;
-}
-| parallel_single_construct
 {
 	$$ = $1;
 }
@@ -549,56 +539,6 @@ section_sequence : section_directive structured_block
 section_directive : OMP_PRAGMA OMP_SECTION OMP_NEWLINE
 {
 	$$ = ASTLeaf(AST_OMP_SECTION_DIRECTIVE, $1.token_line, NULL);
-}
-;
-
-parallel_single_construct : parallel_single_directive structured_block
-{
-	$$ = ASTMake2(AST_OMP_PARALLEL_SINGLE_CONSTRUCT, $1, $2, ASTLine($1), NULL);
-}
-;
-
-parallel_single_directive : OMP_PRAGMA OMP_PARALLEL_SINGLE parallel_single_clause_opt_seq OMP_NEWLINE
-{
-	$$ = ASTMake1(AST_OMP_PARALLEL_SINGLE_DIRECTIVE, $3, $1.token_line, NULL);
-}
-;
-
-parallel_single_clause_opt_seq : /* empty */
-{
-	$$ = NULL;
-}
-| parallel_single_clause_seq
-{
-	$$ = $1;
-}
-;
-
-parallel_single_clause_seq : parallel_single_clause
-{
-	$$ = ASTListLeaf($1);
-}
-| parallel_single_clause_seq ',' parallel_single_clause
-{
-	$$ = ASTList($1, $3);
-}
-| parallel_single_clause_seq parallel_single_clause
-{
-	$$ = ASTList($1, $2);
-}
-;
-
-parallel_single_clause : data_clause
-{
-	$$ = $1;
-}
-| unique_parallel_clause
-{
-	$$ = $1;
-}
-| omp_custom_clause
-{
-	$$ = $1;
 }
 ;
 

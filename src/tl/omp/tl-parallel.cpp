@@ -244,29 +244,14 @@ namespace TL
 
             Source reduction_update = get_reduction_update(reduction_references);
 
-            Source instrumentation_code_before;
-            Source instrumentation_code_after;
-
-            if (!never_instrument)
-            {
-                instrumentation_outline(instrumentation_code_before,
-                        instrumentation_code_after, 
-                        function_definition,
-                        construct_body);
-            }
-
             // Debug information
             Source debug_comment = debug_parameter_info(
                     parameter_info_list);
 
-            // These are unused at the moment
-            // but might be required in the future
             Source code_before_entering_team,
                    code_after_leaving_team;
-
             Source enter_team,
                    leave_team;
-
             code_before_entering_team
                 << "nth_player_t nth_player;"
                 << "nth_init_player(&nth_player);"
@@ -284,7 +269,6 @@ namespace TL
             parallel_body 
                 << debug_comment
                 << private_declarations
-                << instrumentation_code_before
                 << comment("Entering team")
                 << code_before_entering_team
                 << enter_team
@@ -293,7 +277,6 @@ namespace TL
                 << modified_parallel_body_stmt.prettyprint()
 
                 << reduction_update
-                << instrumentation_code_after
                 << comment("Leaving team")
                 << leave_team
                 << code_after_leaving_team

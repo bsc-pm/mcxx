@@ -122,10 +122,6 @@ namespace TL
             // #pragma omp single
             on_single_post.connect(functor(&OpenMPTransform::single_postorder, *this));
 
-            // #pragma omp parallel single
-            on_parallel_single_pre.connect(functor(&OpenMPTransform::parallel_single_preorder, *this));
-            on_parallel_single_post.connect(functor(&OpenMPTransform::parallel_single_postorder, *this));
-
             // #pragma omp critical
             on_critical_post.connect(functor(&OpenMPTransform::critical_postorder, *this));
 
