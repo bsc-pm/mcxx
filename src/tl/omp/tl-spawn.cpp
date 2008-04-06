@@ -267,9 +267,11 @@ namespace TL
                 << "  void **nth_arg_addr_ptr = nth_arg_addr;"
                 ;
             nth_creation_function 
-                << "     nth_create_new((void*)(" << outlined_function_name_decl << "), "
+                << comment("Master creates team members")
+                << "     nth_desc_t* nth = nth_create_new((void*)(" << outlined_function_name_decl << "), "
                 << "            &nth_task_type, &nth_num_deps, &nth_p, &nth_selfv, "
                 << "            &nth_arg_addr_ptr, &nth_nargs_ref, &nth_nargs_val," << referenced_parameters << ");"
+                << "     nth_submit(nth);"
                 ;
 
             master_outline_invocation

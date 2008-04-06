@@ -28,7 +28,8 @@ namespace TL
                 FunctionDefinition function_definition,
                 Source& specific_body,
                 Source outlined_function_name,
-                ObjectList<ParameterInfo> parameter_info_list
+                ObjectList<ParameterInfo> parameter_info_list,
+                bool team_parameter
                 )
         {
             Source formal_parameters;
@@ -78,7 +79,8 @@ namespace TL
             formal_parameters = get_formal_parameters(
                     function_definition, 
                     parameter_info_list,
-                    function_definition.get_function_body().get_scope());
+                    function_definition.get_function_body().get_scope(),
+                    team_parameter);
 
             if (!function_symbol.is_member())
             {
@@ -102,14 +104,19 @@ namespace TL
         Source OpenMPTransform::get_formal_parameters(
                 FunctionDefinition function_definition,
                 ObjectList<ParameterInfo> parameter_info_list,
-                Scope decl_scope)
+                Scope decl_scope,
+                bool team_parameter)
         {
             int num_params = 0;
             Source formal_parameters;
 
-            // Add mandatory team parameter
-            formal_parameters.append_with_separator(
-                    "nth_team_t* nth_current_team", ","); 
+            if (team_parameter)
+            {
+                // A team parameter is required
+                formal_parameters
+                    .append_with_separator("nth_team_t* nth_current_team", ",");
+                num_params++;
+            }
 
             // Add _this if needed
             if (is_nonstatic_member_function(function_definition))

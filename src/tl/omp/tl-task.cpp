@@ -247,6 +247,12 @@ namespace TL
                 ;
             num_value_args = vector_index - 1;
 
+            if (num_value_args == 0)
+            {
+                // If no value args are passed do not declare the size vector
+                size_vector = TL::Source("");
+            }
+
             // A comma is only needed when the parameter list is non empty
             if (!task_parameter_list.empty())
             {
@@ -573,7 +579,7 @@ namespace TL
                     <<          decrement_task_level
                     <<          "break;"
                     <<      "}"
-                    <<      "default: { " << comment("Invalid cutoff") << "abort(); break; }"
+                    <<      "default: { " << comment("Invalid cutoff") << "__builtin_abort(); break; }"
                     <<    "}"
 
                     << "}"

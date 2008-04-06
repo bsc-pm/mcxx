@@ -224,13 +224,15 @@ namespace TL
                         FunctionDefinition function_definition,
                         Source& specific_body,
                         Source outlined_function_name,
-                        ObjectList<ParameterInfo> parameter_info_list
+                        ObjectList<ParameterInfo> parameter_info_list,
+                        bool team_parameter = false
                         );
 
                 Source get_formal_parameters(
                         FunctionDefinition function_definition,
                         ObjectList<ParameterInfo> parameter_info_list,
-                        Scope decl_scope);
+                        Scope decl_scope,
+                        bool team_parameter = false);
 
                 AST_t get_outline_parallel(
                         OpenMP::Construct &construct,
