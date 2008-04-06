@@ -261,7 +261,7 @@ namespace TL
 
 
             additional_declarations
-                << "  int nth_task_type = 0x4;"
+                << "  int nth_task_type = NTH_DTYPE_LOCAL;"
                 << "  int nth_nargs_val = " << src_num_args_val << ";"
                 << "  void *nth_arg_addr[" << src_num_args_val << " + 1];"
                 << "  void **nth_arg_addr_ptr = nth_arg_addr;"

@@ -264,11 +264,11 @@ namespace TL
             Source task_type;
             if (directive.custom_clause("untied").is_defined())
             {
-                task_type << "0xa";
+                task_type << "NTH_DTYPE_TEAM";
             }
             else
             {
-                task_type << "0xe";
+                task_type << "NTH_DTYPE_TEAM_DO_LOCAL";
             }
 
             // This is the code that will be executed if the task cannot be created
