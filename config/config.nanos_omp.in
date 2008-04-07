@@ -5,7 +5,7 @@ options =
 {debug} options = -g
 # {instrument,!debug} options = --variable=instrument:1
 preprocessor_name = gcc
-preprocessor_options = -E -I@NANOS_INCLUDES@ -D_OPENMP=200505 -include nthreads.h -include omp.h -include intone.h 
+preprocessor_options = -E -I@NANOS_INCLUDES@ -D_OPENMP=200505 -include omp.h -include nth_mcc.h
 {instrument,!debug} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
 compiler_name = gcc
 compiler_options = 
@@ -26,7 +26,7 @@ options =
 {debug} options = -g
 # {instrument,!debug} options = --variable=instrument:1
 preprocessor_name = g++
-preprocessor_options = -E -include new -I@NANOS_INCLUDES@ -D_OPENMP=200505 -include nthreads.h -include omp.h -include intone.h 
+preprocessor_options = -E -include new -I@NANOS_INCLUDES@ -D_OPENMP=200505 -include omp.h -include nth_mcc.h
 {instrument,!debug} preprocessor_options = -I@MINTAKA_INCLUDES@ -include mintaka.h
 compiler_name = g++
 compiler_options = 

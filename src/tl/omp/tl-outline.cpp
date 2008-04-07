@@ -215,97 +215,245 @@ namespace TL
             }
 
             // FIRSTPRIVATE
-            if (Nanos4::Version::version < 4200)
+            for (ObjectList<Symbol>::iterator it = firstprivate_references.begin();
+                    it != firstprivate_references.end();
+                    it++)
             {
-                // This has to be done only for old versions, new versions will
-                // have this done by the runtime
-                for (ObjectList<Symbol>::iterator it = firstprivate_references.begin();
-                        it != firstprivate_references.end();
-                        it++)
+                Symbol &sym(*it);
+                Type type = sym.get_type();
+
+                Source initializer_value;
+
+                if (parameter_info_list.contains(functor(&ParameterInfo::symbol), sym))
                 {
-                    Symbol &sym(*it);
-                    Type type = sym.get_type();
+                    // If passed by parameter do nothing
+                    continue;
+                }
+                else
+                {
+                    initializer_value << sym.get_qualified_name(construct.get_scope());
+                }
 
-                    Source initializer_value;
+                private_declarations << 
+                    comment("Firstprivate entity : 'p_" + sym.get_name() + "'");
 
-                    if (parameter_info_list.contains(functor(&ParameterInfo::symbol), sym))
+                if (type.is_array())
+                {
+                    // Both in C and C++ the firstprivatized array must be properly copied
+                    private_declarations 
+                        << type.get_declaration(
+                                construct.get_scope(),
+                                "p_" + sym.get_name())
+                        << ";"
+                        ;
+
+                    private_declarations 
+                        << comment("This firstprivate entity is an array and must be initialized element-wise");
+
+                    Source array_assignment = array_copy(type, "p_" + sym.get_name(),
+                            initializer_value.get_source(), 0);
+
+                    private_declarations << array_assignment;
+                }
+                else
+                {
+                    C_LANGUAGE()
                     {
-                        Type t = sym.get_type();
-                        if (t.is_array())
-                        {
-                            initializer_value << "flp_" + sym.get_name();
-                        }
-                        else
-                        {
-                            initializer_value << "(*flp_" + sym.get_name() + ")";
-                        }
-                    }
-                    else
-                    {
-                        initializer_value << sym.get_qualified_name(construct.get_scope());
-                    }
-
-                    private_declarations << 
-                        comment("Firstprivate entity : 'p_" + sym.get_name() + "'");
-
-                    if (type.is_array())
-                    {
-                        // Both in C and C++ the firstprivatized array must be properly copied
+                        // If it is not an array just assign
                         private_declarations 
                             << type.get_declaration(
                                     construct.get_scope(),
                                     "p_" + sym.get_name())
                             << ";"
+                            << comment("Using plain assignment to initialize firstprivate entity")
+                            << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
                             ;
-
-                        private_declarations 
-                            << comment("This firstprivate entity is an array and must be initialized element-wise");
-
-                        Source array_assignment = array_copy(type, "p_" + sym.get_name(),
-                                initializer_value.get_source(), 0);
-
-                        private_declarations << array_assignment;
                     }
-                    else
+                    CXX_LANGUAGE()
                     {
-                        C_LANGUAGE()
+                        // In C++ if this is a class we invoke the copy-constructor
+                        if (type.is_class())
                         {
-                            // If it is not an array just assign
+                            private_declarations 
+                                << comment("Using copy constructor to initialize firstprivate entity")
+                                << type.get_declaration(
+                                        construct.get_scope(),
+                                        "p_" + sym.get_name())
+                                << "(" << initializer_value.get_source() << ")"
+                                << ";"
+                                ;
+                        }
+                        else
+                        {
+                            // Otherwise simply assign
                             private_declarations 
                                 << type.get_declaration(
                                         construct.get_scope(),
                                         "p_" + sym.get_name())
                                 << ";"
-                                << comment("Using plain assignment to initialize firstprivate entity")
+                                << comment("Using assignment operator to initialize firstprivate entity")
                                 << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
                                 ;
                         }
-                        CXX_LANGUAGE()
+                    }
+                }
+            }
+
+            // LASTPRIVATE
+            for (ObjectList<Symbol>::iterator it = pruned_lastprivate_references.begin();
+                    it != pruned_lastprivate_references.end();
+                    it++)
+            {
+                Symbol &sym(*it);
+                Type type = sym.get_type();
+
+                private_declarations
+                    << comment("Lastprivate entity : 'p_" + sym.get_name() + "'")
+                    << type.get_declaration(
+                            construct.get_scope(),
+                            "p_" + sym.get_name())
+                    << ";"
+                    ;
+            }
+
+            // REDUCTION
+            for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_references.begin();
+                    it != reduction_references.end();
+                    it++)
+            {
+                Symbol sym = it->get_symbol();
+                Type type = sym.get_type();
+
+                private_declarations
+                    << comment("Reduction private entity : 'rdp_" + sym.get_name() + "'")
+                    << type.get_declaration_with_initializer(
+                            construct.get_scope(),
+                            "rdp_" + sym.get_name(),
+                            it->get_neuter().prettyprint())
+                    << ";"
+                    ;
+            }
+
+            // COPYIN
+            for (ObjectList<Symbol>::iterator it = copyin_references.begin();
+                    it != copyin_references.end();
+                    it++)
+            {
+                Symbol &sym (*it);
+                private_declarations
+                    << comment("Initializing copyin entity '" + sym.get_name() + "'")
+                    << sym.get_qualified_name(construct.get_scope()) << " = " << "(*cin_" + sym.get_name() << ");"
+                    ;
+            }
+
+            return private_declarations;
+        }
+
+        Source OpenMPTransform::get_privatized_declarations_inline(
+                OpenMP::Construct &construct,
+                ObjectList<Symbol> private_references,
+                ObjectList<Symbol> firstprivate_references,
+                ObjectList<Symbol> lastprivate_references,
+                ObjectList<OpenMP::ReductionSymbol> reduction_references,
+                ObjectList<Symbol> copyin_references
+                )
+        {
+            Source private_declarations;
+
+            ObjectList<Symbol> pruned_lastprivate_references;
+            pruned_lastprivate_references
+                .append(lastprivate_references.filter(
+                            not_in_set(firstprivate_references)));
+
+            // PRIVATE
+            for (ObjectList<Symbol>::iterator it = private_references.begin();
+                    it != private_references.end();
+                    it++)
+            {
+                Symbol &sym(*it);
+                Type type = sym.get_type();
+
+                private_declarations << 
+                    comment("Private entity : '" + sym.get_qualified_name() + "'");
+                private_declarations
+                    << type.get_declaration(
+                            construct.get_scope(),
+                            "p_" + sym.get_name())
+                    << ";"
+                    ;
+            }
+
+            // FIRSTPRIVATE
+            for (ObjectList<Symbol>::iterator it = firstprivate_references.begin();
+                    it != firstprivate_references.end();
+                    it++)
+            {
+                Symbol &sym(*it);
+                Type type = sym.get_type();
+
+                Source initializer_value;
+                initializer_value << sym.get_qualified_name(construct.get_scope());
+
+                private_declarations << 
+                    comment("Firstprivate entity : 'p_" + sym.get_name() + "'");
+
+                if (type.is_array())
+                {
+                    // Both in C and C++ the firstprivatized array must be properly copied
+                    private_declarations 
+                        << type.get_declaration(
+                                construct.get_scope(),
+                                "p_" + sym.get_name())
+                        << ";"
+                        ;
+
+                    private_declarations 
+                        << comment("This firstprivate entity is an array and must be initialized element-wise");
+
+                    Source array_assignment = array_copy(type, "p_" + sym.get_name(),
+                            initializer_value.get_source(), 0);
+
+                    private_declarations << array_assignment;
+                }
+                else
+                {
+                    C_LANGUAGE()
+                    {
+                        // If it is not an array just assign
+                        private_declarations 
+                            << type.get_declaration(
+                                    construct.get_scope(),
+                                    "p_" + sym.get_name())
+                            << ";"
+                            << comment("Using plain assignment to initialize firstprivate entity")
+                            << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
+                            ;
+                    }
+                    CXX_LANGUAGE()
+                    {
+                        // In C++ if this is a class we invoke the copy-constructor
+                        if (type.is_class())
                         {
-                            // In C++ if this is a class we invoke the copy-constructor
-                            if (type.is_class())
-                            {
-                                private_declarations 
-                                    << comment("Using copy constructor to initialize firstprivate entity")
-                                    << type.get_declaration(
-                                            construct.get_scope(),
-                                            "p_" + sym.get_name())
-                                    << "(" << initializer_value.get_source() << ")"
-                                    << ";"
-                                    ;
-                            }
-                            else
-                            {
-                                // Otherwise simply assign
-                                private_declarations 
-                                    << type.get_declaration(
-                                            construct.get_scope(),
-                                            "p_" + sym.get_name())
-                                    << ";"
-                                    << comment("Using assignment operator to initialize firstprivate entity")
-                                    << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
-                                    ;
-                            }
+                            private_declarations 
+                                << comment("Using copy constructor to initialize firstprivate entity")
+                                << type.get_declaration(
+                                        construct.get_scope(),
+                                        "p_" + sym.get_name())
+                                << "(" << initializer_value.get_source() << ")"
+                                << ";"
+                                ;
+                        }
+                        else
+                        {
+                            // Otherwise simply assign
+                            private_declarations 
+                                << type.get_declaration(
+                                        construct.get_scope(),
+                                        "p_" + sym.get_name())
+                                << ";"
+                                << comment("Using assignment operator to initialize firstprivate entity")
+                                << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
+                                ;
                         }
                     }
                 }
@@ -362,6 +510,7 @@ namespace TL
         }
 
         Source OpenMPTransform::get_lastprivate_assignments(
+                ObjectList<Symbol> firstprivate_references,
                 ObjectList<Symbol> lastprivate_references,
                 ObjectList<Symbol> copyprivate_references,
                 ObjectList<ParameterInfo> parameter_info_list)
@@ -381,27 +530,79 @@ namespace TL
                 {
                     Type t = symbol.get_type();
 
-                    std::string variable_prefix = "lp_";
-
-                    if (Nanos4::Version::version < 4200)
-                    {
-                        variable_prefix = "flp_";
-                    }
-
-
                     if (t.is_array())
                     {
-                        output_object = variable_prefix + symbol.get_name();
+                        output_object = symbol.get_name();
                     }
                     else
                     {
-                        output_object = "(*" + variable_prefix + symbol.get_name() + ")";
+                        output_object = "(*" + symbol.get_name() + ")";
                     }
                 }
                 else
                 {
                     output_object = symbol.get_name();
                 }
+
+                lastprivate_assignments
+                    << comment("Assignment of lastprivate entity: '" + output_object + "'");
+
+                std::string input_object = "p_" + symbol.get_name();
+
+                if (firstprivate_references.contains(symbol))
+                {
+                    input_object = "(*flp_" + symbol.get_name() + ")";
+                }
+
+                if (type.is_array())
+                {
+                    Source array_assignment = array_copy(type, output_object,
+                            input_object, 0);
+
+                    lastprivate_assignments 
+                        << comment("Entity is an array and must be assigned element-wise")
+                        << array_assignment;
+                }
+                else
+                {
+                    lastprivate_assignments
+                        << output_object << " = " << input_object << ";"
+                        ;
+                }
+            }
+
+            // COPYPRIVATE
+            for (ObjectList<Symbol>::iterator it = copyprivate_references.begin();
+                    it != copyprivate_references.end();
+                    it++)
+            {
+                Symbol &symbol(*it);
+                lastprivate_assignments
+                    << comment("Assignment of copyprivate entity 'cout_" + symbol.get_name() + "'")
+                    << "(*cout_" << symbol.get_name() << ")" << " = p_" << symbol.get_name() << ";"
+                    ;
+            }
+
+            return lastprivate_assignments;
+        }
+
+        Source OpenMPTransform::get_lastprivate_assignments_inline(
+                ObjectList<Symbol> lastprivate_references,
+                ObjectList<Symbol> copyprivate_references)
+        {
+            Source lastprivate_assignments;
+            // LASTPRIVATE
+            for (ObjectList<Symbol>::iterator it = lastprivate_references.begin();
+                    it != lastprivate_references.end();
+                    it++)
+            {
+                Symbol &symbol(*it);
+                Type type = symbol.get_type();
+
+                std::string output_object;
+
+                // FIXME - This must be the fully qualified name
+                output_object = symbol.get_name();
 
                 lastprivate_assignments
                     << comment("Assignment of lastprivate entity: '" + output_object + "'");
@@ -553,7 +754,8 @@ namespace TL
                 FunctionDefinition function_definition,
                 Declaration function_declaration,
                 Source outlined_function_name,
-                ObjectList<ParameterInfo> parameter_info_list
+                ObjectList<ParameterInfo> parameter_info_list,
+                bool team_parameter
                 )
         {
             Source result;
@@ -580,7 +782,7 @@ namespace TL
 
             formal_parameters = get_formal_parameters(function_definition, 
                     parameter_info_list,
-                    decl_scope);
+                    decl_scope, team_parameter);
 
             return result;
         }
@@ -697,7 +899,8 @@ namespace TL
         void OpenMPTransform::declare_member_if_needed(Symbol function_symbol,
                 FunctionDefinition function_definition,
                 IdExpression function_name,
-                ObjectList<ParameterInfo> parameter_info_list)
+                ObjectList<ParameterInfo> parameter_info_list,
+                bool team_parameter)
         {
             // If the function is a member and is qualified (therefore the
             // function definition is outside the class) we have to create
@@ -715,7 +918,8 @@ namespace TL
                         function_definition,
                         decl,
                         outline_function_decl,
-                        parameter_info_list);
+                        parameter_info_list,
+                        team_parameter);
 
                 AST_t member_decl_tree = member_declaration.parse_member(decl.get_point_of_declaration(), 
                         decl.get_scope_link(), class_type);
@@ -726,11 +930,16 @@ namespace TL
 
         AST_t OpenMPTransform::finish_outline(FunctionDefinition function_definition, 
                 Source outline_parallel,
-                ObjectList<ParameterInfo> parameter_info_list)
+                ObjectList<ParameterInfo> parameter_info_list,
+                bool team_parameter)
         {
             IdExpression function_name = function_definition.get_function_name();
             Symbol function_symbol = function_definition.get_ast().get_attribute(LANG_FUNCTION_SYMBOL);
-            declare_member_if_needed(function_symbol, function_definition, function_name, parameter_info_list);
+            declare_member_if_needed(function_symbol, 
+                    function_definition, 
+                    function_name, 
+                    parameter_info_list,
+                    team_parameter);
 
             AST_t result;
 

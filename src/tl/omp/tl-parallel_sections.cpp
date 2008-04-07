@@ -214,6 +214,7 @@ namespace TL
             if (!lastprivate_references.empty())
             {
                 Source lastprivate_assignments = get_lastprivate_assignments(
+                        firstprivate_references,
                         lastprivate_references, 
                         copyprivate_references,
                         ObjectList<ParameterInfo>()
@@ -267,7 +268,10 @@ namespace TL
                 ;
 
 
-            return finish_outline(function_definition, outline_parallel_sections, parameter_info_list);
+            return finish_outline(function_definition, 
+                    outline_parallel_sections, 
+                    parameter_info_list,
+                    /* team_parameter */ true);
         }
     }
 }

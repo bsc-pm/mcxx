@@ -84,7 +84,7 @@ namespace TL
             reduction_code
                 << comment("Reduction code noncritical performed after the join")
                 << "int rdv_i;"
-                << "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
+                << "for (rdv_i = 0; rdv_i < nth_team_size; rdv_i++)"
                 << "{"
                 <<    reduction_gathering
                 << "}"
@@ -161,10 +161,8 @@ namespace TL
                 << "if (in__tone_is_master_())"
                 << "{"
                 <<    "int rdv_i;"
-                //                    <<    "extern int nthf_cpus_actual_();"
-
-                <<    "int nth_nprocs = nthf_cpus_actual_();"
-                <<    "for (rdv_i = 0; rdv_i < nth_nprocs; rdv_i++)"
+                <<    "int nth_team_size = nth_get_num_team_players();"
+                <<    "for (rdv_i = 0; rdv_i < nth_team_size; rdv_i++)"
                 <<    "{"
                 <<       reduction_gathering
                 <<    "}"

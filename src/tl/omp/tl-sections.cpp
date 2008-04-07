@@ -118,24 +118,22 @@ namespace TL
             // there is no outline here
             parameter_info_list.clear();
 
-            Source private_declarations = get_privatized_declarations(
+            Source private_declarations = get_privatized_declarations_inline(
                     sections_construct,
                     private_references,
                     firstprivate_references,
                     lastprivate_references,
                     reduction_references,
-                    copyin_references,
-                    parameter_info_list
+                    copyin_references
                     ); 
 
             Source lastprivate_code;
 
             if (!lastprivate_references.empty())
             {
-                Source lastprivate_assignments = get_lastprivate_assignments(
+                Source lastprivate_assignments = get_lastprivate_assignments_inline(
                         lastprivate_references,
-                        copyprivate_references,
-                        parameter_info_list);
+                        copyprivate_references);
 
                 lastprivate_code 
                     << "if (intone_last != 0)"

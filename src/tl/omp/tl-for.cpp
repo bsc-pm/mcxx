@@ -68,7 +68,6 @@ namespace TL
             // Set it private if it was not
             if ((for_construct.get_data_attribute(induction_var.get_symbol()) & OpenMP::DA_PRIVATE) != OpenMP::DA_PRIVATE)
             {
-                std::cerr << "--> Not found to be private '" << induction_var.get_symbol().get_name() << "'" << std::endl;
                 ObjectList<Symbol>& private_references = 
                     for_construct.get_data<ObjectList<Symbol> >("private_references");
 
@@ -114,10 +113,9 @@ namespace TL
 
             // The lists of entities passed by pointer and entities
             // privatized in the outline
-            ObjectList<ParameterInfo> parameter_info_list;
-            // Create the replacement map and the pass_by_pointer set
+            
             ReplaceIdExpression replace_references  = 
-                set_replacements(function_definition,
+                set_replacements_inline(function_definition,
                         directive,
                         loop_body,
                         shared_references,
@@ -127,21 +125,17 @@ namespace TL
                         reduction_references,
                         reduction_empty,
                         copyin_references,
-                        copyprivate_references,
-                        parameter_info_list);
+                        copyprivate_references);
 
             Source parallel_for_body;
 
-            parameter_info_list.clear();
-
-            Source private_declarations = get_privatized_declarations(
+            Source private_declarations = get_privatized_declarations_inline(
                     for_construct,
                     private_references,
                     firstprivate_references,
                     lastprivate_references,
                     reduction_references,
-                    copyin_references,
-                    parameter_info_list
+                    copyin_references
                     ); 
 
             Source loop_distribution_code = get_loop_distribution_code(
@@ -153,10 +147,9 @@ namespace TL
 
             if (!lastprivate_references.empty())
             {
-                Source lastprivate_assignments = get_lastprivate_assignments(
+                Source lastprivate_assignments = get_lastprivate_assignments_inline(
                         lastprivate_references, 
-                        copyprivate_references,
-                        parameter_info_list);
+                        copyprivate_references);
 
                 lastprivate_code
                     << "if (intone_last != 0)"
@@ -177,8 +170,8 @@ namespace TL
                 <<    private_declarations
                 <<    loop_distribution_code
                 <<    lastprivate_code
-                <<    reduction_code
                 <<    loop_finalization
+                <<    reduction_code
                 << "}"
                 ;
 

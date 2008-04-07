@@ -175,22 +175,20 @@ namespace TL
             }
 
             // Referenced parameters
-            // Team is always passed
+            // Team is always passed so 'num_args_ref' is at least 1
+            int num_args_ref = 1;
             referenced_parameters << "&nth_current_team" 
                 ;
             outline_arguments << "&nth_current_team"
                 ;
 
-            //
-            // "this" might be needed
-            // Note, 'num_args_ref' is 1 or greater because of current team
-            int num_args_ref = 1;
             if (is_nonstatic_member_function(function_definition))
             {
                 referenced_parameters << ", this";
                 outline_arguments << ", this";
                 num_args_ref++;
             }
+
             // First the pointer ones
             for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
                     it != parameter_info_list.end();

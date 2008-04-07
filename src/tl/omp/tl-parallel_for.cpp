@@ -233,6 +233,7 @@ namespace TL
             if (!lastprivate_references.empty())
             {
                 Source lastprivate_assignments = get_lastprivate_assignments(
+                        firstprivate_references,
                         lastprivate_references, 
                         copyprivate_references,
                         parameter_info_list);
@@ -275,16 +276,19 @@ namespace TL
                 << enter_team
 
                 << loop_distribution
+                << loop_finalization
 
                 << leave_team
                 << code_after_leaving_team
 
                 << lastprivate_code
                 << reduction_update
-                << loop_finalization
                 ;
 
-            return finish_outline(function_definition, outline_parallel_for, parameter_info_list);
+            return finish_outline(function_definition, 
+                    outline_parallel_for, 
+                    parameter_info_list,
+                    /* team_parameter */ true);
         }
     }
 }

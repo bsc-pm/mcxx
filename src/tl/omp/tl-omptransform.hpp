@@ -214,7 +214,8 @@ namespace TL
                         FunctionDefinition function_definition,
                         Declaration function_declaration,
                         Source outlined_function_name,
-                        ObjectList<ParameterInfo> parameter_info_list
+                        ObjectList<ParameterInfo> parameter_info_list,
+                        bool team_parameter
                         );
 
                 Source get_outline_common(
@@ -327,6 +328,18 @@ namespace TL
                         ObjectList<ParameterInfo>& parameter_info,
                         bool share_always = false);
 
+                ReplaceIdExpression set_replacements_inline(FunctionDefinition function_definition,
+                        OpenMP::Directive,
+                        Statement construct_body,
+                        ObjectList<Symbol>& shared_references,
+                        ObjectList<Symbol>& private_references,
+                        ObjectList<Symbol>& firstprivate_references,
+                        ObjectList<Symbol>& lastprivate_references,
+                        ObjectList<OpenMP::ReductionSymbol>& reduction_references,
+                        ObjectList<OpenMP::ReductionSymbol>& inner_reduction_references,
+                        ObjectList<Symbol>& copyin_references,
+                        ObjectList<Symbol>& copyprivate_references);
+
                 Source get_loop_distribution_in_sections(
                         int num_sections,
                         Statement construct_body,
@@ -350,10 +363,24 @@ namespace TL
                         ObjectList<ParameterInfo> parameter_info_list
                         );
 
+                Source get_privatized_declarations_inline(
+                        OpenMP::Construct &construct,
+                        ObjectList<Symbol> private_references,
+                        ObjectList<Symbol> firstprivate_references,
+                        ObjectList<Symbol> lastprivate_references,
+                        ObjectList<OpenMP::ReductionSymbol> reduction_references,
+                        ObjectList<Symbol> copyin_references
+                        );
+
                 Source get_lastprivate_assignments(
+                        ObjectList<Symbol> firstprivate_references,
                         ObjectList<Symbol> lastprivate_references,
                         ObjectList<Symbol> copyprivate_references,
                         ObjectList<ParameterInfo> parameter_info_list);
+
+                Source get_lastprivate_assignments_inline(
+                        ObjectList<Symbol> lastprivate_references,
+                        ObjectList<Symbol> copyprivate_references);
 
                 Source get_outlined_function_name(IdExpression function_name, 
                         bool want_fully_qualified = true, 
@@ -447,9 +474,11 @@ namespace TL
                 void declare_member_if_needed(Symbol function_symbol,
                         FunctionDefinition function_definition,
                         IdExpression function_name,
-                        ObjectList<ParameterInfo> parameter_info_list);
+                        ObjectList<ParameterInfo> parameter_info_list,
+                        bool team_parameter);
                 AST_t finish_outline(FunctionDefinition function_definition, Source outline_parallel,
-                        ObjectList<ParameterInfo> parameter_info_list);
+                        ObjectList<ParameterInfo> parameter_info_list,
+                        bool team_parameter);
         };
 
     } // Nanos4

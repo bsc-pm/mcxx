@@ -3,7 +3,7 @@
 language = C++
 options =
 preprocessor_name = g++
-preprocessor_options = -E -include new -I@NANOS_INCLUDES@ -D_OPENMP=200505 -include nthreads.h -include omp.h -include intone.h 
+preprocessor_options = -E -include new -I@NANOS_INCLUDES@ -D_OPENMP=200505 -include omp.h -include nth_mcc.h
 compiler_name = g++
 compiler_options = 
 linker_name = g++

@@ -1519,6 +1519,9 @@ namespace TL
             << instrumentation_code_after
             ;
 
-        return finish_outline(function_definition, outline_parallel, parameter_info_list);
+        return finish_outline(function_definition, 
+                outline_parallel, 
+                parameter_info_list,
+                /* team_parameter */ false);
     }
 }

@@ -267,9 +267,13 @@ namespace TL
             Scope function_scope = function_definition.get_scope();
             ReplaceIdExpression result;
 
+            ObjectList<Symbol> actually_shared = shared_references;
+            // lastprivate references require sharing the target variable
+            actually_shared.insert(lastprivate_references);
+
             // SHARED references
-            for (ObjectList<Symbol>::iterator it = shared_references.begin();
-                    it != shared_references.end();
+            for (ObjectList<Symbol>::iterator it = actually_shared.begin();
+                    it != actually_shared.end();
                     it++)
             {
                 // We ignore unqualified/qualified references that are function accessible
@@ -372,6 +376,9 @@ namespace TL
                             symbol.get_qualified_name(construct_body.get_scope()),
                             symbol, pointer_type, param_kind);
                     parameter_info.append(parameter);
+
+                    result.add_replacement(symbol, "flp_" + symbol.get_name(),
+                            construct_body.get_ast(), construct_body.get_scope_link());
                 }
                 else
                 {
@@ -385,77 +392,11 @@ namespace TL
                             "&" + symbol.get_qualified_name(construct_body.get_scope()),
                             symbol, pointer_type, param_kind);
                     parameter_info.append(parameter);
-                }
 
-                result.add_replacement(symbol, "(*flp_" + symbol.get_name() + ")",
-                        construct_body.get_ast(), construct_body.get_scope_link());
-            }
-
-            {
-                ObjectList<Symbol> pruned_lastprivate_references;
-                if (Nanos4::Version::version < 4200)
-                {
-                    // Old versions required special handling for LASTPRIVATE
-                    // variables appearing in FIRSTPRIVATE
-                    //
-                    // LASTPRIVATE references that do not already appear in
-                    // FIRSTPRIVATE
-                    pruned_lastprivate_references
-                        .append(lastprivate_references.filter(
-                                    not_in_set(firstprivate_references)));
-                }
-                else
-                {
-                    pruned_lastprivate_references = lastprivate_references;
-                }
-
-                for (ObjectList<Symbol>::iterator it = pruned_lastprivate_references.begin();
-                        it != pruned_lastprivate_references.end();
-                        it++)
-                {
-                    Symbol &symbol(*it);
-                    Type type = symbol.get_type();
-
-                    std::string symbol_name = symbol.get_name();
-                    if (Nanos4::Version::version < 4200)
-                    {
-                        symbol_name = "flp_" + symbol.get_name();
-                    }
-                    else
-                    {
-                        symbol_name = "lp_" + symbol.get_name();
-                    }
-
-                    if (type.is_array())
-                    {
-                        Type pointer_type = type.array_element().get_pointer_to();
-                        if (!disable_restrict_pointers)
-                        {
-                            pointer_type = pointer_type.get_restrict_type();
-                        }
-
-                        ParameterInfo parameter(symbol_name, 
-                                symbol.get_qualified_name(construct_body.get_scope()), 
-                                symbol, pointer_type, ParameterInfo::BY_POINTER);
-                        parameter_info.append(parameter);
-                    }
-                    else
-                    {
-                        Type pointer_type = type.get_pointer_to();
-                        if (!disable_restrict_pointers)
-                        {
-                            pointer_type = pointer_type.get_restrict_type();
-                        }
-
-                        ParameterInfo parameter(symbol_name, 
-                                "&" + symbol.get_qualified_name(construct_body.get_scope()), 
-                                *it, pointer_type, ParameterInfo::BY_POINTER);
-                        parameter_info.append(parameter);
-                    }
-
-                    result.add_replacement(symbol, "p_" + symbol.get_name(),
+                    result.add_replacement(symbol, "(*flp_" + symbol.get_name() + ")",
                             construct_body.get_ast(), construct_body.get_scope_link());
                 }
+
             }
 
             // REDUCTION references
@@ -565,6 +506,81 @@ namespace TL
                                 construct_body.get_ast(), construct_body.get_scope_link());
                     }
                 }
+            }
+
+            return result;
+        }
+
+        ReplaceIdExpression OpenMPTransform::set_replacements_inline(FunctionDefinition function_definition,
+                OpenMP::Directive,
+                Statement construct_body,
+                ObjectList<Symbol>& shared_references,
+                ObjectList<Symbol>& private_references,
+                ObjectList<Symbol>& firstprivate_references,
+                ObjectList<Symbol>& lastprivate_references,
+                ObjectList<OpenMP::ReductionSymbol>& reduction_references,
+                ObjectList<OpenMP::ReductionSymbol>& inner_reduction_references,
+                ObjectList<Symbol>& copyin_references,
+                ObjectList<Symbol>& copyprivate_references)
+        {
+            Symbol function_symbol = function_definition.get_function_name().get_symbol();
+            Scope function_scope = function_definition.get_scope();
+            ReplaceIdExpression result;
+
+            // Nothing to do for SHARED references
+
+            // PRIVATE references
+            for (ObjectList<Symbol>::iterator it = private_references.begin();
+                    it != private_references.end();
+                    it++)
+            {
+                Symbol &symbol(*it);
+
+                result.add_replacement(symbol, "p_" + symbol.get_name(),
+                        construct_body.get_ast(), construct_body.get_scope_link());
+            }
+
+            // FIRSTPRIVATE references
+            // Likewise PRIVATE
+            for (ObjectList<Symbol>::iterator it = firstprivate_references.begin();
+                    it != firstprivate_references.end();
+                    it++)
+            {
+                Symbol &symbol(*it);
+
+                result.add_replacement(symbol, "p_" + symbol.get_name(),
+                        construct_body.get_ast(), construct_body.get_scope_link());
+            }
+
+            // LASTPRIVATE
+            {
+                // Prune all lastprivate that are also firstprivate
+                ObjectList<Symbol> pruned_lastprivate_references;
+                pruned_lastprivate_references
+                    .append(lastprivate_references.filter(
+                                not_in_set(firstprivate_references)));
+
+                for (ObjectList<Symbol>::iterator it = pruned_lastprivate_references.begin();
+                        it != pruned_lastprivate_references.end();
+                        it++)
+                {
+                    Symbol &symbol(*it);
+
+                    result.add_replacement(symbol, "p_" + symbol.get_name(),
+                            construct_body.get_ast(), construct_body.get_scope_link());
+                }
+            }
+
+            // REDUCTION references
+            for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_references.begin();
+                    it != reduction_references.end();
+                    it++)
+            {
+                OpenMP::ReductionSymbol &reduction_symbol(*it);
+                Symbol symbol = reduction_symbol.get_symbol();
+
+                result.add_replacement(symbol, "rdp_" + symbol.get_name(),
+                        construct_body.get_ast(), construct_body.get_scope_link());
             }
 
             return result;
