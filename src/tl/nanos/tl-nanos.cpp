@@ -40,6 +40,7 @@ namespace TL
 
             register_directive("interface");
             on_directive_pre["interface"].connect(functor(&Interface::interface_preorder, *this));
+            on_directive_post["interface"].connect(functor(&Interface::interface_postorder, *this));
         }
 
         void Interface::run(TL::DTO& dto)
@@ -100,6 +101,11 @@ namespace TL
             {
                 Version::family = family_clause.get_arguments()[0];
             }
+        }
+
+        void Interface::interface_postorder(PragmaCustomConstruct construct)
+        {
+            construct.get_ast().remove_in_list();
         }
     }
 }

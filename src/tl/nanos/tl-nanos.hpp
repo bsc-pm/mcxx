@@ -28,6 +28,7 @@ namespace TL
             public:
                 Interface();
                 void interface_preorder(PragmaCustomConstruct);
+                void interface_postorder(PragmaCustomConstruct);
 
                 virtual void run(TL::DTO& dto);
 
