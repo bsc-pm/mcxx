@@ -1118,7 +1118,7 @@ namespace TL
                 }
 
                 AST_t return_tree = return_replace_code.parse_statement(
-                        transaction_tree,
+                        *it,
                         return_statement.get_scope_link());
 
                 it->replace(return_tree);
