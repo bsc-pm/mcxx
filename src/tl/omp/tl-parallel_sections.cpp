@@ -258,13 +258,13 @@ namespace TL
                 << enter_team
 
                 << loop_distribution
+                << loop_finalization
 
                 << leave_team
                 << code_after_leaving_team
 
                 << lastprivate_code
                 << reduction_update
-                << loop_finalization
                 ;
 
 

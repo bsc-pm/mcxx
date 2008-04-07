@@ -359,10 +359,6 @@ namespace TL
 
                 // Old versions pass firstprivate in a different way
                 ParameterInfo::parameter_kind_t param_kind = ParameterInfo::BY_VALUE;
-                if (Nanos4::Version::version < 4200)
-                {
-                    param_kind = ParameterInfo::BY_POINTER;
-                }
 
                 if (type.is_array())
                 {

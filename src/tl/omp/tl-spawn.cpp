@@ -36,37 +36,17 @@ namespace TL
                 Source &instrument_code_before,
                 Source &instrument_code_after)
         {
-            if (Nanos4::Version::version < 4200)
-            {
-                // Old versions worked without creating a team
-                // It is located in 'tl-spawn-old.cpp'
-                return get_parallel_spawn_code_without_team(
-                        ref_tree, // Reference tree, needed for correct parsing
-                        function_definition,
-                        scope,
-                        scope_link,
-                        parameter_info_list,
-                        reduction_references,
-                        num_threads_clause,
-                        groups_clause,
-                        instrument_code_before,
-                        instrument_code_after);
-            }
-            else
-            {
-                // New versions know the concept of team
-                return get_parallel_spawn_code_with_team(
-                        ref_tree, // Reference tree, needed for correct parsing
-                        function_definition,
-                        scope,
-                        scope_link,
-                        parameter_info_list,
-                        reduction_references,
-                        num_threads_clause,
-                        groups_clause,
-                        instrument_code_before,
-                        instrument_code_after);
-            }
+            return get_parallel_spawn_code_with_team(
+                    ref_tree, // Reference tree, needed for correct parsing
+                    function_definition,
+                    scope,
+                    scope_link,
+                    parameter_info_list,
+                    reduction_references,
+                    num_threads_clause,
+                    groups_clause,
+                    instrument_code_before,
+                    instrument_code_after);
         }
 
         AST_t OpenMPTransform::get_parallel_spawn_code_with_team(
