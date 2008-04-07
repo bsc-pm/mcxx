@@ -365,7 +365,8 @@ namespace TL
         class ScheduleClause : public LangConstruct
         {
             public:
-                int internal_code();
+                //! \deprecated Do not use it
+                int internal_code() DEPRECATED;
 
                 //! States that clause is 'schedule(dynamic)'
                 bool is_dynamic();

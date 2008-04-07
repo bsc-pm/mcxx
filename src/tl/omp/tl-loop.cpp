@@ -23,6 +23,8 @@ namespace TL
 {
     namespace Nanos4
     {
+        static std::string schedule_constant_name(OpenMP::ScheduleClause schedule_clause);
+
         Source OpenMPTransform::get_loop_distribution_in_sections(
                 int num_sections,
                 Statement construct_body,
@@ -48,7 +50,7 @@ namespace TL
                 << "nth_low = 0;"
                 << "nth_upper = " << num_sections << ";"
                 << "nth_step = 1;"
-                << "nth_schedule = 2;" // Dynamic
+                << "nth_schedule = INTONE_SCH_DYNAMIC;" // Dynamic
                 << "nth_chunk = 1;"
 
                 //                    << "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
@@ -149,7 +151,7 @@ namespace TL
             OpenMP::ScheduleClause schedule_clause = directive.schedule_clause();
             if (schedule_clause.is_defined())
             {
-                schedule_const << schedule_clause.internal_code();
+                schedule_const << schedule_constant_name(schedule_clause);
 
                 AST_t schedule_chunk_tree = schedule_clause.get_chunk();
 
@@ -164,7 +166,7 @@ namespace TL
             }
             else
             {
-                schedule_const << "0";
+                schedule_const << "INTONE_SCH_DEFAULT";
                 schedule_chunk << "0";
             }
 
@@ -236,6 +238,35 @@ namespace TL
                 << "in__tone_end_for_(&nth_barrier);"
                 ;
             return loop_finalization;
+        }
+
+        static std::string schedule_constant_name(OpenMP::ScheduleClause schedule_clause)
+        {
+            if (!schedule_clause.is_defined())
+            {
+                return "INTONE_SCH_DEFAULT";
+            }
+            else if (schedule_clause.is_static())
+            {
+                return "INTONE_SCH_STATIC";
+            }
+            else if (schedule_clause.is_dynamic())
+            {
+                return "INTONE_SCH_DYNAMIC";
+            }
+            else if (schedule_clause.is_guided())
+            {
+                return "INTONE_SCH_GUIDED";
+            }
+            else if (schedule_clause.is_runtime())
+            {
+                return "INTONE_SCH_RUNTIME";
+            }
+            else 
+            {
+                // Quite stupid
+                return "<not valid schedule clause>";
+            }
         }
     }
 }
