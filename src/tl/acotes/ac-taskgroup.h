@@ -85,7 +85,7 @@ namespace TL { namespace Acotes {
         void addCopyState(State* state);
         const std::vector<State*> &getCopyStateVector() const { return copyStateVector; }
     private:
-        bool checkCopyOutSymbol(TL::Symbol symbol) const;
+        bool checkCopyOutSymbol(TL::Symbol symbol, Task* task) const;
         std::vector<State*> copyStateVector;
         
     // -- Shared state relationship

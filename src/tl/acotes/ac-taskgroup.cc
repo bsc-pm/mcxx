@@ -172,18 +172,20 @@ namespace TL { namespace Acotes {
         assert(state->getTask()->getTaskgroup() == this);
         assert(state->isCopyIn() || state->isCopyOut());
         
-        if (!state->isCopyOut() || checkCopyOutSymbol(state->getVariable()->getSymbol())) {
+        if (!state->isCopyOut() 
+        || checkCopyOutSymbol(state->getVariable()->getSymbol(), state->getTask())) {
             copyStateVector.push_back(state);        
         }
     }
     
-    bool Taskgroup::checkCopyOutSymbol(TL::Symbol symbol) const
+    bool Taskgroup::checkCopyOutSymbol(TL::Symbol symbol, Task* task) const
     {
         bool result= true;
         
         for (unsigned i= 0; i < copyStateVector.size() && result; i++) {
             State* state= copyStateVector.at(i);
-            if (state->isCopyOut() && state->getVariable()->getSymbol() == symbol) {
+            if (state->isCopyOut() && state->getVariable()->getSymbol() == symbol
+                    && state->getTask() != task) {
                 AcotesLogger::error(NULL) 
                         << "symbol " << symbol.get_point_of_declaration()
                         .get_locus() << " defined twice as copyout." << std::endl;
