@@ -278,11 +278,11 @@ namespace TL
                 << loop_distribution
                 << loop_finalization
 
+                << reduction_update
+                << lastprivate_code
+
                 << leave_team
                 << code_after_leaving_team
-
-                << lastprivate_code
-                << reduction_update
                 ;
 
             return finish_outline(function_definition, 

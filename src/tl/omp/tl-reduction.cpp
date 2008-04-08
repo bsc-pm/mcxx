@@ -195,8 +195,7 @@ namespace TL
 
             reduction_update 
                 << "{"
-                //                        <<    "extern int in__tone_thread_id_ ();"
-                <<    "int nth_thread_id = in__tone_thread_id_();"
+                <<    "int nth_thread_id = nth_get_player_id();"
                 ;
 
             for (ObjectList<OpenMP::ReductionSymbol>::iterator it = reduction_references.begin();

@@ -170,8 +170,8 @@ namespace TL
                 <<    private_declarations
                 <<    loop_distribution_code
                 <<    lastprivate_code
-                <<    loop_finalization
                 <<    reduction_code
+                <<    loop_finalization
                 << "}"
                 ;
 
