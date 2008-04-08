@@ -53,10 +53,6 @@ namespace TL
                 << "nth_schedule = INTONE_SCH_DYNAMIC;" // Dynamic
                 << "nth_chunk = 1;"
 
-                //                    << "extern void in__tone_begin_for_(int*, int*, int*, int*, int*);"
-                //                    << "extern int in__tone_next_iters_(int*, int*, int*);"
-                //                    << "extern void in__tone_end_for_(int*);"
-
                 << "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
                 << "while (in__tone_next_iters_ (&intone_start, &intone_end, &intone_last) != 0)"
                 << "{"

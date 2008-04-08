@@ -174,10 +174,15 @@ namespace TL
                             << type.get_declaration(sym.get_scope(), 
                                     "__serial_" + sym.get_name() + "_") << ";";
                         // Parse just to update symbolic information
-                        function_declaration.parse_declaration(sym.get_point_of_declaration(),
-                                scope_link);
-                    }
+                        AST_t function_declaration_tree = 
+                            function_declaration.parse_declaration(
+                                    sym.get_point_of_declaration(),
+                                    scope_link);
 
+                        AST_t declaration_point = sym.get_point_of_declaration();
+
+                        declaration_point.prepend(function_declaration_tree);
+                    }
 
                     // Now create the definition
                     for (ObjectList<Symbol>::iterator it = functions_to_serialize.begin();
