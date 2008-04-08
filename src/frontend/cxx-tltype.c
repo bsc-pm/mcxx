@@ -81,3 +81,13 @@ tl_type_t tl_symbol(scope_entry_t* entry)
 
     return result;
 }
+
+tl_type_t tl_object(void *data)
+{
+    tl_type_t result;
+    
+    result.kind = TL_OTHER;
+    result.data._data = data;
+
+    return result;
+}

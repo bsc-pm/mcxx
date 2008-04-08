@@ -48,6 +48,11 @@ namespace TL
                 return NULL;
             }
 
+            virtual bool set_extended_attribute(const std::string&, const tl_type_t &data)
+            {
+                // Do nothing
+                return false;
+            }
         public:
             //! Returns a reference to an Object representing the attribute name.
             /*!
@@ -55,6 +60,13 @@ namespace TL
              * \return A reference to an Object representing the requested attribute
              */
             RefPtr<Object> get_attribute(const std::string& name) const;
+
+            //! Sets attribute name with the value of a referenced object
+            /*!
+             * \param name The name of the defined extended struct field.
+             * \param obj A reference to the value meant to be stored in the extended struct
+             */
+            void set_attribute(const std::string &name, RefPtr<Object> obj);
 
             //! Default constructor for Object
             Object()

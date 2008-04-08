@@ -23,6 +23,8 @@
 #include "tl-ast.hpp"
 #include "tl-symbol.hpp"
 
+#include <cstdlib>
+
 namespace TL
 {
 
@@ -70,12 +72,17 @@ RefPtr<Object> Object::get_attribute(const std::string& name) const
                 result = RefPtr<Symbol>(new Symbol(tl_value->data._entry));
                 return result;
             }
-        case TL_ARRAY :
-            {
-                std::cerr << "Unimplemented TL Array" << std::endl;
-                break;
-            }
         case TL_TYPE:
+            {
+                result = RefPtr<Type>(new Type(tl_value->data._type));
+                return result;
+            }
+        case TL_OTHER :
+            {
+                // Generic case
+                result = RefPtr<Object>(reinterpret_cast<Object*>(tl_value->data._data));
+                return result;
+            }
         case TL_UNDEFINED :
             {
                 break;
@@ -85,6 +92,23 @@ RefPtr<Object> Object::get_attribute(const std::string& name) const
     // If we reach here simply return an undefined type
     result = RefPtr<Undefined>(new Undefined());
     return result;
+}
+
+void Object::set_attribute(const std::string &name, RefPtr<Object> obj)
+{
+    tl_type_t value;
+    memset(&value, 0, sizeof(value));
+
+    value.kind = TL_OTHER;
+    value.data._data = obj.get_pointer();
+
+    // Manually increase the reference counter of this object
+    if (this->set_extended_attribute(name, value))
+    {
+        // Increase the reference counter cause now it is being referenced
+        // from the guts of the extended structure
+        obj->obj_reference();
+    }
 }
 
 }
