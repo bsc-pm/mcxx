@@ -234,7 +234,7 @@ int main(int argc, char* argv[])
 
     if (parse_arguments_error)
     {
-        help_message();
+        // help_message();
         exit(EXIT_FAILURE);
     }
 
@@ -319,7 +319,7 @@ static void options_error(char* message)
 {
     fprintf(stderr, "Error : %s\n", message);
     fprintf(stderr, "\n");
-    help_message();
+    // help_message();
     exit(EXIT_FAILURE);
 }
 
