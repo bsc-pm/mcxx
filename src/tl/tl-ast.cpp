@@ -81,6 +81,26 @@ namespace TL
         }
     }
 
+    bool AST_t::set_extended_attribute(const std::string &str, const tl_type_t &data)
+    {
+        extensible_schema_add_field_if_needed(&ast_extensible_schema,
+                str.c_str(), sizeof(data));
+
+        void *p = extensible_struct_get_field_pointer(&ast_extensible_schema,
+                ast_get_extensible_struct(this->_ast),
+                str.c_str());
+
+        // Something happened
+        if (p == NULL)
+            return false;
+
+        // Write
+        *(reinterpret_cast<tl_type_t*>(p)) = data;
+
+        // Data was written
+        return true;
+    }
+
     std::string AST_t::prettyprint(bool with_commas) const
     {
         if (with_commas && ASTType(this->_ast) == AST_NODE_LIST)
@@ -995,4 +1015,5 @@ namespace TL
     {
         return ASTParent(this->_ast);
     }
+
 }

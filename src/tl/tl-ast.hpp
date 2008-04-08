@@ -193,6 +193,8 @@ namespace TL
 
             //! Implements the access to extended attributes
             tl_type_t* get_extended_attribute(const std::string& name) const;
+            //! Implements the access to extended attributes
+            virtual bool set_extended_attribute(const std::string&, const tl_type_t &data);
 
             //! Given a tree it moves towards the root until it reached the translation unit node
             static AST get_translation_unit(AST node);

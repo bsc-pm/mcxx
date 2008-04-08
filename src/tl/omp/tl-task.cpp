@@ -393,7 +393,7 @@ namespace TL
             Source file_params;
 
             std::string file_name;
-            int file_line;
+            // int file_line;
             std::string mangled_function_name;
 
             Source serialized_code;
