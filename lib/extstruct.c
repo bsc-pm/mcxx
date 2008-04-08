@@ -57,6 +57,33 @@ int extensible_schema_add_field(extensible_schema_t* schema,
     return schema->num_fields;
 }
 
+// Adds a new field if it did not exist already
+int extensible_schema_add_field_if_needed(extensible_schema_t* schema,
+        const char *field_name,
+        size_t field_size)
+{
+    extensible_schema_item_t* schema_item = 
+        (extensible_schema_item_t*)hash_get(schema->hash, field_name);
+
+    int result = schema->num_fields;
+    if (schema_item == NULL)
+    {
+        result = extensible_schema_add_field(schema, field_name, field_size);
+    }
+    else
+    {
+        if (schema_item->size != field_size)
+        {
+            fprintf(stderr, "Warning: Field '%s', size of existing field %d does not match the requested one %d. Ignoring new size.\n",
+                    field_name,
+                    schema_item->size, 
+                    field_size);
+        }
+    }
+
+    return result;
+}
+
 static
 extensible_schema_item_t* extensible_schema_get_field_order(extensible_schema_t* schema,
         const char* field_name)
