@@ -237,10 +237,17 @@ static void gather_one_gcc_attribute(const char* attribute_name,
                     ast_location(expression_list));
         }
     }
-    else 
+
+    // Save it in the gather_info structure
+    if (gather_info->num_gcc_attributes == MAX_GCC_ATTRIBUTES_PER_SYMBOL)
     {
-        // Do nothing
+        running_error("Too many gcc attributes, maximum supported is %d\n", MAX_GCC_ATTRIBUTES_PER_SYMBOL);
     }
+    gather_gcc_attribute_t* current_gcc_attribute = &(gather_info->gcc_attributes[gather_info->num_gcc_attributes]);
+    gather_info->num_gcc_attributes++;
+
+    current_gcc_attribute->attribute_name = uniquestr(attribute_name);
+    current_gcc_attribute->expression_list = expression_list;
 }
 
 void gather_gcc_attribute(AST attribute, 

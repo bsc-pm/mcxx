@@ -23,11 +23,10 @@
 
 #include "cxx-macros.h"
 #include "cxx-scope-decls.h"
+#include "cxx-gccsupport-decls.h"
 
 MCXX_BEGIN_DECLS
 
-// These are the unique types needed from the cxx-scope-decls.h
-// but we do not need them completely defined here since we only hold pointers
 
 // This structure gather things of a declaration in one place so we can use
 // along a whole declaration. Parts of a declaration belong just to type while
@@ -66,6 +65,10 @@ struct gather_decl_spec_tag {
     char is_vector;
     int num_parameters;
     struct default_argument_info_tag **default_argument_info;
+
+    // Attribute info
+    int num_gcc_attributes;
+    gather_gcc_attribute_t gcc_attributes[MAX_GCC_ATTRIBUTES_PER_SYMBOL];
 } gather_decl_spec_t;
 
 MCXX_END_DECLS

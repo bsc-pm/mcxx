@@ -287,4 +287,32 @@ namespace TL
     {
         return _symbol->entity_specs.after_typedef;
     }
+    
+    bool Symbol::has_gcc_attribute(const std::string &str) const
+    {
+        for (int i = 0; i < _symbol->entity_specs.num_gcc_attributes; i++)
+        {
+            std::string current_gcc_attr(_symbol->entity_specs.gcc_attributes[i].attribute_name);
+
+            if (current_gcc_attr == str)
+                return true;
+        }
+
+        return false;
+    }
+
+    AST_t Symbol::get_argument_of_gcc_attribute(const std::string &str) const
+    {
+        for (int i = 0; i < _symbol->entity_specs.num_gcc_attributes; i++)
+        {
+            std::string current_gcc_attr(_symbol->entity_specs.gcc_attributes[i].attribute_name);
+
+            if (current_gcc_attr == str)
+            {
+                return _symbol->entity_specs.gcc_attributes[i].expression_list;
+            }
+        }
+
+        return AST_t(NULL);
+    }
 }

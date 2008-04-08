@@ -245,6 +245,7 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
     builtin_va_list->defined = 1;
     builtin_va_list->type_information = get_new_typedef(get_gcc_builtin_va_list_type());
     builtin_va_list->do_not_print = 1;
+    builtin_va_list->entity_specs.is_builtin = 1;
 
     CXX_LANGUAGE()
     {
@@ -4204,6 +4205,11 @@ static scope_entry_t* register_new_variable_name(AST declarator_id, type_t* decl
             entry->defined = 1;
         }
 
+        // Copy gcc attributes
+        entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
+        memcpy(entry->entity_specs.gcc_attributes, 
+                gather_info->gcc_attributes, sizeof(gather_info->gcc_attributes));
+
         return entry;
     }
     else
@@ -4216,7 +4222,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         gather_decl_spec_t* gather_info, decl_context_t decl_context)
 {
     scope_entry_t* entry = NULL;
-
     entry = find_function_declaration(declarator_id, declarator_type, decl_context);
 
     if (entry == NULL)
@@ -4350,6 +4355,11 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry->entity_specs.num_exceptions = named_function_type->entity_specs.num_exceptions;
             new_entry->entity_specs.exceptions = named_function_type->entity_specs.exceptions;
         }
+
+        // Copy gcc attributes
+        new_entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
+        memcpy(new_entry->entity_specs.gcc_attributes, 
+                gather_info->gcc_attributes, sizeof(gather_info->gcc_attributes));
         
         return new_entry;
     }

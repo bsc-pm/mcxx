@@ -64,6 +64,7 @@ libmcxx_la_SOURCES = \
   cxx-exprtype.c \
   cxx-koenig.h \
   cxx-koenig.c \
+  cxx-gccsupport-decls.h \
   cxx-gccsupport.h \
   cxx-gccsupport.c \
   cxx-gccbuiltins.h \

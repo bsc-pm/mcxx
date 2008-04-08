@@ -683,21 +683,6 @@ namespace TL
                             // A simple function call of the form "f(...)"
                             Source replace_call, replace_args;
 
-                            bool must_replace_function_call = 
-                                _stm_function_filtering.wrapped(called_function_name)
-                                || _stm_function_filtering.replaced(called_function_name)
-                                || called_function_name == "malloc"
-                                || called_function_name == "realloc"
-                                || called_function_name == "calloc"
-                                || called_function_name == "free";
-
-
-                            if (!must_replace_function_call)
-                            {
-                                _log_file << "'" << called_function_name << "' at " << 
-                                    called_expression.get_ast().get_locus() << std::endl;
-                            }
-
                             Symbol function_symbol = called_expression.
                                 get_id_expression().get_symbol();
 
@@ -708,9 +693,19 @@ namespace TL
                                 return;
                             }
 
+                            bool must_replace_function_call = 
+                                _stm_function_filtering.wrapped(called_function_name)
+                                || _stm_function_filtering.replaced(called_function_name)
+                                || called_function_name == "malloc"
+                                || called_function_name == "realloc"
+                                || called_function_name == "calloc"
+                                || called_function_name == "free"
+                                || function_symbol.has_gcc_attribute("tm_callable");
+
                             Type function_type = function_symbol.get_type();
 
-                            if (must_replace_function_call && function_type.is_function())
+                            if (must_replace_function_call 
+                                    && function_type.is_function())
                             {
                                 Source stm_called_function_name;
 
@@ -824,6 +819,12 @@ namespace TL
                                         continue;
                                 }
                                 replace_expression(*it);
+                            }
+
+                            if (!must_replace_function_call)
+                            {
+                                _log_file << "'" << called_function_name << "' at " << 
+                                    called_expression.get_ast().get_locus() << std::endl;
                             }
                         }
 

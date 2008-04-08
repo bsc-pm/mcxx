@@ -223,6 +223,12 @@ namespace TL
              * typedef-name) because of typedef against the unnamed struct
              */
             bool is_created_after_typedef() const;
+
+            //! States whether the symbol has a given gcc attribute
+            bool has_gcc_attribute(const std::string &str) const;
+            
+            //! Returns the associated argument of a gcc attribute
+            AST_t get_argument_of_gcc_attribute(const std::string &str) const;
     };
     
     //! @}

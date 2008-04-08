@@ -47,31 +47,7 @@ namespace TL
                 Source stm_function_body;
                 Statement function_tree = function_def.get_function_body();
 
-                // Look for gcc attributes with 'tm_callable' in it
-                ObjectList<AST_t> gcc_attributes = function_def.get_ast().depth_subtrees(
-                        GCCAttributeSpecifier::predicate);
-
-                bool tm_callable = false;
-
-                for (ObjectList<AST_t>::iterator it = gcc_attributes.begin();
-                        it != gcc_attributes.end();
-                        it++)
-                {
-                    GCCAttributeSpecifier gcc_attribute_spec(*it, ctx.scope_link);
-                    ObjectList<GCCAttribute> attribute_list = gcc_attribute_spec.get_gcc_attribute_list();
-
-                    for (ObjectList<GCCAttribute>::iterator it = attribute_list.begin();
-                            it != attribute_list.end();
-                            it++)
-                    {
-                        if (it->get_name() == "tm_callable")
-                        {
-                            tm_callable = true;
-                            // Remove this attribute since it is alien to gcc
-                            it->get_ast().remove_in_list();
-                        }
-                    }
-                }
+                bool tm_callable = function_symbol.has_gcc_attribute("tm_callable");
 
                 if (tm_callable
                         || (function_filter.match(function_name.prettyprint())

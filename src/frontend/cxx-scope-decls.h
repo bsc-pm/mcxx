@@ -25,6 +25,10 @@
 #include "cxx-macros.h"
 #include "cxx-ast-decls.h"
 #include "cxx-buildscope-decls.h"
+#include "cxx-gccsupport-decls.h"
+
+// Extensible schema
+#include "extstruct.h"
 
 MCXX_BEGIN_DECLS
 
@@ -258,12 +262,15 @@ enum dependency_info_tag
 
 struct scope_entry_tag;
 
+
 typedef
 struct default_argument_info_tag
 {
     struct AST_tag* argument;
     decl_context_t context;
 } default_argument_info_t;
+
+extern extensible_schema_t scope_entry_extensible_schema;
 
 typedef struct entity_specifiers_tag
 {
@@ -364,6 +371,10 @@ typedef struct entity_specifiers_tag
     // And sometimes we need to distinguish whether is
     // 'struct A { }' or 'typedef struct { } A';
     char after_typedef;
+
+    // GCC attributes synthesized for this symbol coming from the syntax
+    int num_gcc_attributes;
+    gather_gcc_attribute_t gcc_attributes[MAX_GCC_ATTRIBUTES_PER_SYMBOL];
 } entity_specifiers_t;
 
 // This is an entry in the scope

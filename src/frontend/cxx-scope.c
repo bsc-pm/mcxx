@@ -37,7 +37,10 @@
 #include "hash.h"
 #include "hash_iterator.h"
 
+
 static unsigned long long _bytes_used_scopes = 0;
+
+extensible_schema_t scope_entry_extensible_schema;
 
 unsigned long long scope_used_memory(void)
 {
