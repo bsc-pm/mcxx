@@ -264,7 +264,7 @@ namespace TL
 						<< parameter_type.get_declaration(ctx.scope_link.get_scope(argument.get_ast()), std::string(""))
 					<< ")";
 				
-				if (is_lvalue)
+				if (is_lvalue && argument_type.is_same_type(parameter_type))
 				{
 					address_source
 						<< "&(" << argument.prettyprint() << ")";
