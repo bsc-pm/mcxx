@@ -45,9 +45,9 @@ namespace TL
             Instrumentation()
             {
                 // Phase description"
-                set_phase_name("Mintaka instrumentation");
+                set_phase_name("Nanos 4 OpenMP Instrumentation");
                 set_phase_description("This phase adds instrumentation to either "
-                        "function calls or function definitions using the mintaka runtime");
+                        "function calls or function definitions using Nanos4 instrumentation interface");
 
                 // Phase parameters
                 register_parameter("instrument", 
@@ -59,11 +59,6 @@ namespace TL
                         "It sets the kind of instrumentation done. Valid values are 'calls' or 'functions'. Currently only 'calls' is valid",
                         instrument_mode,
                         "calls");
-
-                register_parameter("instrument_main",
-                        "It enables mintaka initialization in the main. Valid values are '0' or '1'.",
-                        instrument_main,
-                        "1");
 
                 register_parameter("instrument_file_name", 
                         "Sets the filtering file for instrumentation. This file contains a of functions to "
@@ -86,8 +81,7 @@ namespace TL
 
                 if (instrument_mode == "calls")
                 {
-                    instrument_phase = new InstrumentCalls(instrument_file_name, instrument_filter_mode,
-                            instrument_main != "0");
+                    instrument_phase = new InstrumentCalls(instrument_file_name, instrument_filter_mode);
                 }
                 else if (instrument_mode == "functions")
                 {

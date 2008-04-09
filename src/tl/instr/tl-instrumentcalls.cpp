@@ -204,24 +204,16 @@ namespace TL
                 ;
         }
 
+        // This mangling is annoying
         std::string mangled_function_name = "\"" + function_name.mangle_id_expression() + "\"";
 
         before_code
-            << "const int EVENT_CALL_USER_FUNCTION = 60000018;"
-            << "int _user_function_event = mintaka_index_get(__file, __line);"
-            << "if (_user_function_event == -1)"
-            << "{"
-            << "   #pragma omp critical\n"
-            << "   {"
-            << "        _user_function_event = mintaka_index_allocate2(__file, __line, "
-            << mangled_function_name << ", EVENT_CALL_USER_FUNCTION);"
-            << "   }"
-            << "}"
-            << "mintaka_event(EVENT_CALL_USER_FUNCTION, _user_function_event);"
+            << "nth_instrumentation_ctx ctx;"
+            << "nth_instrument_push_ctx(&ctx, __file, __line, " << mangled_function_name << ");"
             ;
 
         after_code
-            << "mintaka_event(EVENT_CALL_USER_FUNCTION, 0);"
+            << "nth_instrumentation_pop_ctx();"
             ;
 
         AST_t shadow_function_def_tree = 
@@ -231,115 +223,6 @@ namespace TL
         function_definition.get_ast().prepend_sibling_function(shadow_function_def_tree);
 
         return true;
-    }
-
-    InstrumentCalls::MainWrapper::MainWrapper(ScopeLink sl)
-        : _sl(sl)
-    {
-    }
-
-    void InstrumentCalls::MainWrapper::preorder(Context, AST_t)
-    {
-        // Do nothing
-    }
-
-    void InstrumentCalls::MainWrapper::postorder(Context, AST_t node)
-    {
-        FunctionDefinition function_def(node, _sl);
-        IdExpression function_name = function_def.get_function_name();
-
-        Symbol function_symbol = function_name.get_symbol();
-        Type function_type = function_symbol.get_type();
-
-        ObjectList<std::string> parameters;
-
-        Source main_declaration = function_type.get_declaration_with_parameters(function_symbol.get_scope(),
-                "main", parameters);
-
-        // "main" is always an unqualified name so this transformation is safe
-        function_name.get_ast().replace_text("__instrumented_main");
-
-        Source instrumented_main_declaration = function_type.get_declaration(function_symbol.get_scope(),
-                "__instrumented_main");
-
-        Source new_main;
-        new_main
-            << "static void __begin_mintaka(char* exec_basename)"
-            << "{"
-            << "  mintaka_app_begin();"
-            << "  mintaka_set_filebase(exec_basename);"
-            // Register events
-            // TODO - OpenMP events descriptions
-            << "  static const char* EVENT_CALL_USER_FUNCTION_DESCR = \"User function call\";"
-            << "  const int EVENT_CALL_USER_FUNCTION = 60000018;"
-            << "  static const char* EVENT_TASK_ENQUEUE_DESCR = \"Task enqueue\";"
-            << "  const int EVENT_TASK_ENQUEUE = 60000010;"
-            << "  mintaka_index_event(EVENT_CALL_USER_FUNCTION, EVENT_CALL_USER_FUNCTION_DESCR);"
-            << "  mintaka_index_event(EVENT_TASK_ENQUEUE, EVENT_TASK_ENQUEUE_DESCR);"
-            // Initialize every thread
-            <<    "#pragma omp parallel noinstr\n"
-            <<    "{"
-            <<    "   mintaka_thread_begin(1, omp_get_thread_num() + 1);"
-            <<    "   if (omp_get_thread_num() != 0)"
-            <<    "        mintaka_state_idle();"
-            <<    "   else"
-            <<    "        mintaka_state_run();"
-            <<    "}"
-            << "}"
-
-            << "static void __end_mintaka(void)"
-            << "{"
-            << "  #pragma omp parallel noinstr\n"
-            << "  {"
-            << "     mintaka_thread_end();"
-            << "  }"
-            << "  mintaka_app_end();"
-            << "  mintaka_merge();"
-            << "  mintaka_index_generate();"
-            << "}"
-
-            << instrumented_main_declaration << ";"
-            << main_declaration
-            << "{"
-            << "  __begin_mintaka(_p_1[0]);"
-            << "  int __result = __instrumented_main(_p_0, _p_1);"
-            << "  __end_mintaka();"
-            << "  return __result;"
-            << "}"
-            << node.prettyprint()
-            ;
-
-        AST_t new_main_tree = new_main.parse_global(function_def.get_ast(),
-                function_def.get_scope_link());
-
-        node.replace(new_main_tree);
-    }
-
-    InstrumentCalls::MainPredicate::MainPredicate(ScopeLink& sl)
-        : _sl(sl)
-    {
-    }
-
-    bool InstrumentCalls::MainPredicate::operator()(AST_t& t) const
-    {
-        if (is_function_def(t))
-        {
-            FunctionDefinition function_def(t, _sl);
-
-            IdExpression function_name = function_def.get_function_name();
-
-            if (function_name.mangle_id_expression() == "main")
-            {
-                Symbol function_symbol = function_name.get_symbol();
-
-                if (!function_symbol.is_member())
-                {
-                    return true;
-                }
-            }
-
-        }
-        return false;
     }
 
     void InstrumentCalls::run(DTO& data_flow)
@@ -353,16 +236,7 @@ namespace TL
         PredicateAST<LANG_IS_FUNCTION_CALL> function_call_pred;
         InstrumentCallsFunctor instrumentation_functor(_instrument_filter);
 
-
         depth_traverse.add_predicate(function_call_pred, instrumentation_functor);
-
-        MainWrapper mainwrapper_functor(scope_link);
-        MainPredicate main_function_def(scope_link);
-        if (_instrument_main)
-        {
-            depth_traverse.add_predicate(main_function_def, mainwrapper_functor);
-        }
-
         depth_traverse.traverse(root_node, scope_link);
     }
 
@@ -370,10 +244,8 @@ namespace TL
     {
     }
 
-    InstrumentCalls::InstrumentCalls(const std::string& instrument_file_name, const std::string& instrument_filter_mode,
-            bool instrument_main)
-        : _instrument_filter(instrument_file_name, instrument_filter_mode),
-        _instrument_main(instrument_main)
+    InstrumentCalls::InstrumentCalls(const std::string& instrument_file_name, const std::string& instrument_filter_mode)
+        : _instrument_filter(instrument_file_name, instrument_filter_mode)
     {
         std::cerr << "Instrumentation of calls support loaded" << std::endl;
     }

@@ -32,7 +32,6 @@ namespace TL
     {
         private:
             InstrumentFilterFile _instrument_filter;
-            bool _instrument_main;
             class InstrumentCallsFunctor : public TraverseFunctor
             {
                 private:
@@ -49,38 +48,12 @@ namespace TL
                     bool define_shadow(IdExpression function_name, std::string shadow_function_name);
             };
 
-            class MainWrapper : public TraverseFunctor
-            {
-                private:
-                    ScopeLink _sl;
-                public:
-                    MainWrapper(ScopeLink sl);
-
-                    virtual void preorder(Context ctx, AST_t node);
-                    virtual void postorder(Context ctx, AST_t node);
-
-                    virtual ~MainWrapper() { }
-            };
-
-            class MainPredicate : public Predicate<AST_t>
-            {
-                private:
-                    ScopeLink _sl;
-                    PredicateAST<LANG_IS_FUNCTION_DEFINITION> is_function_def;
-                public:
-                    MainPredicate(ScopeLink& sl);
-
-                    virtual bool operator()(AST_t& t) const;
-                    virtual ~MainPredicate() { }
-            };
-
         public:
             virtual void run(DTO& data_flow);
 
             virtual ~InstrumentCalls();
             InstrumentCalls(const std::string& instrument_file_name, 
-                    const std::string& instrument_filter_mode,
-                    bool instrument_main);
+                    const std::string& instrument_filter_mode);
     };
 }
 
