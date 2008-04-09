@@ -205,10 +205,10 @@ namespace TL
 
             // This vector will hold the sizeof's of entities passed as
             // private references
-            bool copy_construction_needed = false;
             size_vector << "size_t nth_size[] = {0";
-            int vector_index = 1;
             int num_value_args = 0;
+
+            Source copy_construction_part;
 
             for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
                     it != parameter_info_list.end();
@@ -223,7 +223,7 @@ namespace TL
 
                 // A reference to the vector
                 Source vector_ref;
-                vector_ref << "&nth_size[" << vector_index << "]"
+                vector_ref << "&nth_size[" << (num_value_args + 1) << "]"
                     ;
 
                 // First an address with the size must be passed
@@ -237,15 +237,18 @@ namespace TL
 
                     if (type.is_class())
                     {
-                        copy_construction_needed = true;
+                        copy_construction_part
+                            << "new (nth_arg_addr[" << (num_value_args + 1) << "])" 
+                            << type.get_declaration(task_construct.get_scope(), "")
+                            << "(" << sym.get_qualified_name(task_construct.get_scope()) << ");"
+                            ;
                     }
                 }
 
-                vector_index++;
+                num_value_args++;
             }
             size_vector << "};"
                 ;
-            num_value_args = vector_index - 1;
 
             if (num_value_args == 0)
             {
@@ -330,57 +333,6 @@ namespace TL
                 }
             }
 
-            Source task_dependency;
-
-            // For C++ only
-            Source copy_construction_part;
-            if (copy_construction_needed)
-            {
-                // The task cannot start immediately because first we have
-                // to copy-construct capture valued entities
-                task_dependency << "1";
-
-                Source copy_sequence;
-
-                copy_construction_part 
-                    << "else"
-                    << "{"
-                    <<   "int nth_one_dep = 1;"
-                    <<   copy_sequence
-                    <<   "nth_depsub(&nth, &nth_one_dep);"
-                    << "}"
-                    ;
-
-                int vector_index = 1;
-                for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
-                        it != parameter_info_list.end();
-                        it++)
-                {
-                    if (it->kind != ParameterInfo::BY_VALUE)
-                        continue;
-
-                    Symbol sym = it->symbol;
-                    Type type = sym.get_type();
-
-                    if (type.is_class())
-                    {
-                        copy_sequence
-                            << "new (nth_arg_addr[" << vector_index << "])" 
-                            << type.get_declaration(task_construct.get_scope(), "")
-                            << "(" << sym.get_qualified_name(task_construct.get_scope()) << ");"
-                            ;
-                    }
-
-                    vector_index++;
-                }
-            }
-            else
-            {
-                // No dependencies if no construction has to be performed,
-                // i.e. the task can start immediately
-                task_dependency << "0";
-            }
-
             Source outlined_function_reference;
             Source selector_cast;
 
@@ -449,7 +401,7 @@ namespace TL
                 <<          comment("Create the task")
                 <<          "nth_desc * nth;"
                 <<          "int nth_type = " << task_type << ";"
-                <<          "int nth_ndeps = " << task_dependency << ";"
+                <<          "int nth_ndeps = 0;"
                 <<          "int nth_vp = 0;"
                 <<          "nth_desc_t* nth_succ = (nth_desc_t*)0;"
                 <<          "int nth_nargs_ref = " << num_reference_args << ";"

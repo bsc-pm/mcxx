@@ -186,6 +186,7 @@ namespace TL
             src_num_args_ref << num_args_ref;
 
             Source firstprivatized_data;
+            Source copy_construction_part;
 
             // Now the value ones. We fill the nth_sizes vector here
             size_vector << "size_t nth_sizes[] = {0";
@@ -233,6 +234,18 @@ namespace TL
                         ;
                 }
 
+                CXX_LANGUAGE()
+                {
+                    if (type.is_class())
+                    {
+                        copy_construction_part
+                            << "new (nth_arg_addr[" << (num_args_val + 1) << "])" 
+                            << type.get_declaration(scope, "")
+                            << "(" << it->symbol.get_qualified_name(scope) << ");"
+                            ;
+                    }
+                }
+
                 num_args_val++;
             }
             size_vector << "};";
@@ -242,13 +255,14 @@ namespace TL
                 << "  int nth_task_type = NTH_DTYPE_LOCAL;"
                 << "  int nth_nargs_val = " << src_num_args_val << ";"
                 << "  void *nth_arg_addr[" << src_num_args_val << " + 1];"
-                << "  void **nth_arg_addr_ptr = nth_arg_addr;"
+                << "  void **nth_arg_addr_ptr = &(nth_arg_addr[1]);"
                 ;
             nth_creation_function 
                 << comment("Master creates team members")
                 << "     nth_desc_t* nth = nth_create_new((void*)(" << outlined_function_name_decl << "), "
                 << "            &nth_task_type, &nth_num_deps, &nth_p, &nth_selfv, "
                 << "            &nth_arg_addr_ptr, &nth_nargs_ref, &nth_nargs_val," << referenced_parameters << ");"
+                << copy_construction_part
                 << "     nth_submit(nth);"
                 ;
 
