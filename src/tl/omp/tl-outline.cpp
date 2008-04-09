@@ -723,30 +723,18 @@ namespace TL
 
                 int file_line = construct_body.get_ast().get_line();
 
+                // This mangling could be avoided
                 std::string mangled_function_name = 
                     "\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
 
                 instrumentation_code_before
-                    << "const int EVENT_CALL_USER_FUNCTION = 60000018;"
-                    << "int _user_function_event = mintaka_index_get(" << file_name << "," << file_line << ");"
-                    << "if (_user_function_event == -1)"
-                    << "{"
-                    << "     nthf_spin_lock_((nth_word_t*)&_nthf_unspecified_critical);"
-                    << "     _user_function_event = mintaka_index_allocate2(" << file_name << "," 
-                    <<                file_line << "," << mangled_function_name << ", EVENT_CALL_USER_FUNCTION);"
-                    << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
-                    << "}"
-                    << "int __previous_state = mintaka_get_state();"
-                    << "mintaka_state_and_event(MINTAKA_STATE_RUN, EVENT_CALL_USER_FUNCTION, _user_function_event);"
+                    << "nth_instrumentation_ctx ctx;"
+                    << "nth_instrument_push_ctx(&ctx, " << file_name << ", " << file_line << "," << mangled_function_name << ");"
                     ;
 
                 instrumentation_code_after
-                    << "mintaka_state_and_event(__previous_state, EVENT_CALL_USER_FUNCTION, 0);"
+                    << "nth_instrument_pop_ctx();"
                     ;
-
-                // Ensure that it has been defined
-                define_global_mutex("_nthf_unspecified_critical", function_definition.get_ast(),
-                        function_definition.get_scope_link());
             }
         }
 

@@ -635,38 +635,6 @@ namespace TL
             << "}"
             ;
 
-        if (instrumentation_requested())
-        {
-            std::string file_name = "\"task enqueue: " + function_definition.get_ast().get_file() + "\"";
-
-            int file_line = construct_body.get_ast().get_line();
-
-            std::string mangled_function_name = 
-                "\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
-
-            instrument_code_task_creation
-                // TODO we want to know if threadswitch was enabled
-                << "const int EVENT_TASK_ENQUEUE = 60000010;"
-                << "int _user_function_event = mintaka_index_get(" << file_name << "," << file_line << ");"
-                << "if (_user_function_event == -1)"
-                << "{"
-                << "     nthf_spin_lock_((nth_word_t*)&_nthf_unspecified_critical);"
-                << "     _user_function_event = mintaka_index_allocate2(" << file_name << "," 
-                <<                file_line << "," << mangled_function_name << ", EVENT_TASK_ENQUEUE);"
-                << "     nthf_spin_unlock_((nth_word_t*)&_nthf_unspecified_critical);"
-                << "}"
-                << "mintaka_event(EVENT_TASK_ENQUEUE, _user_function_event);"
-                << "{"
-                <<       "nth_desc* nth2 = (" << task_id << " == NTH_CANNOT_ALLOCATE_TASK) ? nthf_self_() : " << task_id << ";"
-                <<       "inptr_t id_nth = (intptr_t)nth2;"
-                <<       "mintaka_send_and_state(id_nth, 1, MINTAKA_STATE_RUN);"
-                << "}"
-                ;
-
-            define_global_mutex("_nthf_unspecified_critical", function_definition.get_ast(),
-                    function_definition.get_scope_link());
-        }
-
         // Parse the code
         AST_t task_code = task_queueing.parse_statement(task_construct.get_ast(),
                 task_construct.get_scope_link());

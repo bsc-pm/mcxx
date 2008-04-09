@@ -211,18 +211,6 @@ namespace TL
                 << modified_loop_body_stmt.prettyprint()
                 ;
 
-            if (instrumentation_requested())
-            {
-                instrument_code_before
-                    << "int __previous_state = mintaka_get_state();"
-                    << "mintaka_state_run();"
-                    ;
-
-                instrument_code_after 
-                    << "mintaka_set_state(__previous_state);"
-                    ;
-            }
-
             return parallel_for_body;
         }
 

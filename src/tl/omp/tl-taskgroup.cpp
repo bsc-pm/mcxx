@@ -28,27 +28,12 @@ namespace TL
             Source taskgroup_source;
             Statement taskgroup_body = taskgroup_construct.body();
 
-            Source instrumentation_code_before, instrumentation_code_after;
-
-            if (instrumentation_requested())
-            {
-                instrumentation_code_before
-                    << "int __previous_state = mintaka_get_state();"
-                    << "mintaka_state_synch();"
-                    ;
-
-                instrumentation_code_after
-                    << "mintaka_set_state(__previous_state);"
-                    ;
-            }
 
             taskgroup_source
                 << "{"
                 <<    "nthf_push_taskgroup_scope_();"
                 <<    taskgroup_body.prettyprint()
-                <<    instrumentation_code_before
                 <<    "nthf_task_block_();"
-                <<    instrumentation_code_after
                 <<    "nthf_pop_taskgroup_scope_();"
                 << "}"
                 ;

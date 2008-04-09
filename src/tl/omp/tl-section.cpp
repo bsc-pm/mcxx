@@ -41,17 +41,6 @@ namespace TL
                 << "}"
                 ;
 
-            if (instrumentation_requested())
-            {
-                instrumentation_before
-                    << "mintaka_state_run();"
-                    ;
-
-                instrumentation_before
-                    << "mintaka_state_synch();"
-                    ;
-            }
-
             AST_t section_tree = section_source.parse_statement(section_construct.get_ast(),
                     section_construct.get_scope_link());
 

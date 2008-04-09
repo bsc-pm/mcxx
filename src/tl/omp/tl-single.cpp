@@ -32,11 +32,8 @@ namespace TL
             Statement body_construct = single_construct.body();
             OpenMP::Directive directive = single_construct.directive();
 
-            Source instrumentation_code_before, instrumentation_code_after;
-
             single_source
                 << "{"
-                <<   instrumentation_code_before
                 <<   "int nth_low;"
                 <<   "int nth_upper;"
                 <<   "int nth_step;"
@@ -60,25 +57,11 @@ namespace TL
                 <<   "in__tone_begin_for_ (&nth_low, &nth_upper, &nth_step, &nth_chunk, &nth_schedule);"
                 <<   "while (in__tone_next_iters_ (&nth_dummy1, &nth_dummy2, &nth_dummy3) != 0)"
                 <<   "{"
-                <<       instrumentation_code_before
                 <<       body_construct.prettyprint()
-                <<       instrumentation_code_after
                 <<   "}"
                 <<   barrier_code
                 << "}"
                 ;
-
-            if (instrumentation_requested())
-            {
-                instrumentation_code_before
-                    << "int __previous_state = mintaka_get_state();"
-                    << "mintaka_state_run();"
-                    ;
-
-                instrumentation_code_after
-                    << "mintaka_set_state(__previous_state);"
-                    ;
-            }
 
             OpenMP::Clause nowait_clause = directive.nowait_clause();
             barrier_code = get_loop_finalization(!(nowait_clause.is_defined()));

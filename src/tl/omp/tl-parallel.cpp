@@ -166,19 +166,6 @@ namespace TL
 
             Source instrument_code_before;
             Source instrument_code_after;
-            if (instrumentation_requested()
-                    && !noinstr_clause.is_defined())
-            {
-                instrument_code_before
-                    << "const int EVENT_PARALLEL = 60000001;"
-                    << "const int VALUE_PARALLEL_REGION = 3;"
-                    << "mintaka_state_and_event(MINTAKA_STATE_SCHEDULE, EVENT_PARALLEL, VALUE_PARALLEL_REGION);"
-                    ;
-                instrument_code_after
-                    << "const int VALUE_PARALLEL_CLOSE = 0;"
-                    << "mintaka_state_and_event(MINTAKA_STATE_RUN, EVENT_PARALLEL, VALUE_PARALLEL_CLOSE);"
-                    ;
-            }
 
             AST_t spawn_code = get_parallel_spawn_code(
                     parallel_construct.get_ast(),
