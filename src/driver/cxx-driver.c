@@ -205,6 +205,8 @@ static void print_memory_report(void);
 static int parse_special_parameters(int *should_advance, int argc, const char* argv[]);
 static int parse_parameter_flag(int *should_advance, const char *special_parameter);
 
+static char show_help_message = 0;
+
 int main(int argc, char* argv[])
 {
     timing_t timing_global;
@@ -234,7 +236,10 @@ int main(int argc, char* argv[])
 
     if (parse_arguments_error)
     {
-        // help_message();
+        if (show_help_message)
+        {
+            help_message();
+        }
         exit(EXIT_FAILURE);
     }
 
@@ -319,7 +324,6 @@ static void options_error(char* message)
 {
     fprintf(stderr, "Error : %s\n", message);
     fprintf(stderr, "\n");
-    // help_message();
     exit(EXIT_FAILURE);
 }
 
@@ -624,6 +628,7 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                     }
                 case 'h' :
                     {
+                        show_help_message = 1;
                         return 1;
                     }
                 default:
