@@ -43,6 +43,12 @@ namespace TL
 
             IdExpression function_name = function_definition.get_function_name();
 
+            Source instrumentation_code_before, instrumentation_code_after;
+            instrumentation_outline(instrumentation_code_before, 
+                    instrumentation_code_after, 
+                    function_definition, 
+                    outlined_function_name);
+
             Source result;
             result
                 << forward_declaration
@@ -50,7 +56,9 @@ namespace TL
                 << static_qualifier
                 << "void " << outlined_function_name << "(" << formal_parameters << ")"
                 << "{"
+                <<    instrumentation_code_before
                 <<    specific_body
+                <<    instrumentation_code_after
                 << "}"
                 ;
 
@@ -215,89 +223,89 @@ namespace TL
             }
 
             // FIRSTPRIVATE
-            for (ObjectList<Symbol>::iterator it = firstprivate_references.begin();
-                    it != firstprivate_references.end();
-                    it++)
-            {
-                Symbol &sym(*it);
-                Type type = sym.get_type();
+            // for (ObjectList<Symbol>::iterator it = firstprivate_references.begin();
+            //         it != firstprivate_references.end();
+            //         it++)
+            // {
+            //     Symbol &sym(*it);
+            //     Type type = sym.get_type();
 
-                Source initializer_value;
+            //     Source initializer_value;
 
-                if (parameter_info_list.contains(functor(&ParameterInfo::symbol), sym))
-                {
-                    // If passed by parameter do nothing
-                    continue;
-                }
-                else
-                {
-                    initializer_value << sym.get_qualified_name(construct.get_scope());
-                }
+            //     if (parameter_info_list.contains(functor(&ParameterInfo::symbol), sym))
+            //     {
+            //         // If passed by parameter do nothing
+            //         continue;
+            //     }
+            //     else
+            //     {
+            //         initializer_value << sym.get_qualified_name(construct.get_scope());
+            //     }
 
-                private_declarations << 
-                    comment("Firstprivate entity : 'p_" + sym.get_name() + "'");
+            //     private_declarations << 
+            //         comment("Firstprivate entity : 'p_" + sym.get_name() + "'");
 
-                if (type.is_array())
-                {
-                    // Both in C and C++ the firstprivatized array must be properly copied
-                    private_declarations 
-                        << type.get_declaration(
-                                construct.get_scope(),
-                                "p_" + sym.get_name())
-                        << ";"
-                        ;
+            //     if (type.is_array())
+            //     {
+            //         // Both in C and C++ the firstprivatized array must be properly copied
+            //         private_declarations 
+            //             << type.get_declaration(
+            //                     construct.get_scope(),
+            //                     "p_" + sym.get_name())
+            //             << ";"
+            //             ;
 
-                    private_declarations 
-                        << comment("This firstprivate entity is an array and must be initialized element-wise");
+            //         private_declarations 
+            //             << comment("This firstprivate entity is an array and must be initialized element-wise");
 
-                    Source array_assignment = array_copy(type, "p_" + sym.get_name(),
-                            initializer_value.get_source(), 0);
+            //         Source array_assignment = array_copy(type, "p_" + sym.get_name(),
+            //                 initializer_value.get_source(), 0);
 
-                    private_declarations << array_assignment;
-                }
-                else
-                {
-                    C_LANGUAGE()
-                    {
-                        // If it is not an array just assign
-                        private_declarations 
-                            << type.get_declaration(
-                                    construct.get_scope(),
-                                    "p_" + sym.get_name())
-                            << ";"
-                            << comment("Using plain assignment to initialize firstprivate entity")
-                            << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
-                            ;
-                    }
-                    CXX_LANGUAGE()
-                    {
-                        // In C++ if this is a class we invoke the copy-constructor
-                        if (type.is_class())
-                        {
-                            private_declarations 
-                                << comment("Using copy constructor to initialize firstprivate entity")
-                                << type.get_declaration(
-                                        construct.get_scope(),
-                                        "p_" + sym.get_name())
-                                << "(" << initializer_value.get_source() << ")"
-                                << ";"
-                                ;
-                        }
-                        else
-                        {
-                            // Otherwise simply assign
-                            private_declarations 
-                                << type.get_declaration(
-                                        construct.get_scope(),
-                                        "p_" + sym.get_name())
-                                << ";"
-                                << comment("Using assignment operator to initialize firstprivate entity")
-                                << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
-                                ;
-                        }
-                    }
-                }
-            }
+            //         private_declarations << array_assignment;
+            //     }
+            //     else
+            //     {
+            //         C_LANGUAGE()
+            //         {
+            //             // If it is not an array just assign
+            //             private_declarations 
+            //                 << type.get_declaration(
+            //                         construct.get_scope(),
+            //                         "p_" + sym.get_name())
+            //                 << ";"
+            //                 << comment("Using plain assignment to initialize firstprivate entity")
+            //                 << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
+            //                 ;
+            //         }
+            //         CXX_LANGUAGE()
+            //         {
+            //             // In C++ if this is a class we invoke the copy-constructor
+            //             if (type.is_class())
+            //             {
+            //                 private_declarations 
+            //                     << comment("Using copy constructor to initialize firstprivate entity")
+            //                     << type.get_declaration(
+            //                             construct.get_scope(),
+            //                             "p_" + sym.get_name())
+            //                     << "(" << initializer_value.get_source() << ")"
+            //                     << ";"
+            //                     ;
+            //             }
+            //             else
+            //             {
+            //                 // Otherwise simply assign
+            //                 private_declarations 
+            //                     << type.get_declaration(
+            //                             construct.get_scope(),
+            //                             "p_" + sym.get_name())
+            //                     << ";"
+            //                     << comment("Using assignment operator to initialize firstprivate entity")
+            //                     << "p_" + sym.get_name() << "=" << initializer_value.get_source() << ";"
+            //                     ;
+            //             }
+            //         }
+            //     }
+            // }
 
             // LASTPRIVATE
             for (ObjectList<Symbol>::iterator it = pruned_lastprivate_references.begin();
@@ -715,21 +723,17 @@ namespace TL
         void OpenMPTransform::instrumentation_outline(Source& instrumentation_code_before,
                 Source& instrumentation_code_after,
                 FunctionDefinition function_definition,
-                Statement construct_body)
+                Source outlined_function_name)
         {
             if (instrumentation_requested())
             {
                 std::string file_name = "\"" + function_definition.get_ast().get_file() + "\"";
 
-                int file_line = construct_body.get_ast().get_line();
-
-                // This mangling could be avoided
-                std::string mangled_function_name = 
-                    "\"" + function_definition.get_function_name().mangle_id_expression() + "\"";
+                int file_line = function_definition.get_ast().get_line();
 
                 instrumentation_code_before
                     << "nth_instrumentation_ctx ctx;"
-                    << "nth_instrument_push_ctx(&ctx, " << file_name << ", " << file_line << "," << mangled_function_name << ");"
+                    << "nth_instrument_push_ctx(&ctx, " << file_name << ", " << file_line << ", \"" << outlined_function_name << "\");"
                     ;
 
                 instrumentation_code_after

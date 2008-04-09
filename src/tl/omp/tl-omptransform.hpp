@@ -397,7 +397,7 @@ namespace TL
                 void instrumentation_outline(Source& instrumentation_code_before,
                         Source& instrumentation_code_after,
                         FunctionDefinition function_definition,
-                        Statement construct_body);
+                        Source outlined_function_name);
 
                 Symbol warn_unreferenced_data(Symbol sym);
 
