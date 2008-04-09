@@ -1546,15 +1546,22 @@ static const char* prettyprint_translation_unit(translation_unit_t* translation_
         return NULL;
     }
 
-    FILE* prettyprint_file;
+    FILE* prettyprint_file = NULL;
     const char* output_filename = NULL;
 
     if (CURRENT_CONFIGURATION(do_not_compile)
-            && CURRENT_CONFIGURATION(do_not_link)
-            && strcmp(translation_unit->output_filename, "-") == 0)
+            && CURRENT_CONFIGURATION(do_not_link))
     {
-        prettyprint_file = stdout;
-        output_filename = "(stdout)";
+        if (strcmp(translation_unit->output_filename, "-") == 0)
+        {
+            prettyprint_file = stdout;
+            output_filename = "(stdout)";
+        }
+        else
+        {
+            output_filename = translation_unit->output_filename;
+            prettyprint_file = fopen(output_filename, "w");
+        }
     }
     else
     {
