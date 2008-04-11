@@ -4548,6 +4548,11 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                     result = "signed ";
                 }
 
+                if (simple_type->is_complex)
+                {
+                    result = strappend(result, "_Complex ");
+                }
+
                 if (simple_type->is_long == 1)
                 {
                     result = strappend(result, "long ");
@@ -5187,6 +5192,11 @@ static const char* get_builtin_type_name(type_t* type_info)
     if (simple_type_info->is_unsigned)
     {
         result = strappend(result, "unsigned ");
+    }
+
+    if (simple_type_info->is_complex)
+    {
+        result = strappend(result, "_Complex ");
     }
 
     switch (simple_type_info->kind)

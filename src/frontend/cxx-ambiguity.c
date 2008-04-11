@@ -1168,7 +1168,8 @@ char solve_ambiguous_template_argument(AST ambig_template_argument, decl_context
                     break;
                 }
             default :
-                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(current_template_argument)));
+                internal_error("Unknown node '%s' at '%s'\n", ast_print_node_type(ASTType(current_template_argument)), 
+                        ast_location(current_template_argument));
                 break;
         }
         
@@ -1903,6 +1904,7 @@ void solve_ambiguous_decl_specifier_seq(AST type_spec_seq,
 
     int i;
     char integral_ambiguity = 1;
+    char complex_ambiguity = 1;
 
     for (i = 0; i < ast_get_num_ambiguities(type_spec_seq); i++)
     {
@@ -1926,12 +1928,19 @@ void solve_ambiguous_decl_specifier_seq(AST type_spec_seq,
                 integral_ambiguity = 0;
                 break;
             }
+            if (ASTType(type_specifier) != AST_GCC_COMPLEX_TYPE
+                    && ASTType(type_specifier) != AST_GCC_IMAGINARY_TYPE)
+            {
+                complex_ambiguity = 0;
+                break;
+            }
         }
     }
 
-    if (!integral_ambiguity)
+    if (!integral_ambiguity
+            && !complex_ambiguity)
     {
-        internal_error("Unknown ambiguity\n", 0);
+        internal_error("Unknown ambiguity at '%s'\n", ast_location(type_spec_seq));
     }
     else
     {
@@ -1978,7 +1987,9 @@ void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
                 }
                 break;
             default :
-                internal_error("Unknown node '%s'\n", ast_print_node_type(ASTType(for_init_statement)));
+                internal_error("Unknown node '%s' at '%s'\n", 
+                        ast_print_node_type(ASTType(for_init_statement)),
+                        ast_location(for_init_statement));
         }
 
         if (current)
@@ -2027,7 +2038,8 @@ void solve_ambiguous_type_specifier(AST ambig_type, decl_context_t decl_context)
 
     if (!is_typeof_ambiguity)
     {
-        internal_error("Unknown ambiguity!\n", 0);
+        internal_error("Unknown ambiguity at '%s'!\n", 
+                ast_location(ambig_type));
     }
 
     // Solve typeof ambiguity
@@ -2393,7 +2405,7 @@ char check_for_parenthesized_initializer(AST initializer_list, decl_context_t de
     }
     else
     {
-        internal_error("Unknown node '%s' %s", 
+        internal_error("Unknown node '%s' at '%s'", 
                 ast_print_node_type(ASTType(initializer_list)), ast_location(initializer_list));
 
         return 0;

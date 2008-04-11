@@ -1051,6 +1051,12 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
         case AST_VOID_TYPE :
             *simple_type_info = get_void_type();
             break;
+            // This is a GCC extension since in C99
+            // _Complex can't be used alone meaning '_Complex double'
+        case AST_GCC_COMPLEX_TYPE :
+            *simple_type_info = get_double_type();
+            gather_info->is_complex = 1;
+            break;
         case AST_AMBIGUITY :
             solve_ambiguous_type_specifier(a, decl_context);
             // Restart function
@@ -4498,7 +4504,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
                 if (!function_type_get_lacking_prototype(function_type_being_declared)
                         && !function_type_get_lacking_prototype(considered_type))
                 {
-                    running_error("%s:%d: error: function '%s' has been declared with different prototype (see '%s:%d')", 
+                    running_error("%s: error: function '%s' has been declared with different prototype (see '%s:%d')", 
                             ast_location(declarator_id),
                             ASTText(declarator_id),
                             entry->file,
