@@ -282,7 +282,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_VOID_TYPE, simple_parameter_handler, "void"),
     NODE_HANDLER(AST_CHAR_TYPE, simple_parameter_handler, "char"),
     NODE_HANDLER(AST_WCHAR_TYPE, simple_parameter_handler, "wchar_t"),
-    NODE_HANDLER(AST_BOOL_TYPE, simple_parameter_handler, "bool"),
+    NODE_HANDLER(AST_BOOL_TYPE, simple_text_handler, NULL),
     NODE_HANDLER(AST_INT_TYPE, simple_parameter_handler, "int"),
     NODE_HANDLER(AST_FLOAT_TYPE, simple_parameter_handler, "float"),
     NODE_HANDLER(AST_DOUBLE_TYPE, simple_parameter_handler, "double"),

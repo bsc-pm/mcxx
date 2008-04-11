@@ -4595,7 +4595,14 @@ static const char* get_simple_type_name_string_internal(decl_context_t decl_cont
                         }
                     case BT_BOOL :
                         {
-                            result = strappend(result, "bool");
+                            CXX_LANGUAGE()
+                            {
+                                result = strappend(result, "bool");
+                            }
+                            C_LANGUAGE()
+                            {
+                                result = strappend(result, "_Bool");
+                            }
                             break;
                         }
                     case BT_VOID :
