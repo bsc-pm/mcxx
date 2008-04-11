@@ -1455,6 +1455,8 @@ static char check_for_type_specifier(AST type_id, decl_context_t decl_context)
         case AST_DOUBLE_TYPE :
         case AST_FLOAT_TYPE :
         case AST_VOID_TYPE :
+        case AST_GCC_COMPLEX_TYPE: 
+        case AST_GCC_IMAGINARY_TYPE: 
             {
                 return 1;
             }
