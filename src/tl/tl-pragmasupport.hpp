@@ -90,6 +90,7 @@ namespace TL
             ObjectList<Expression> get_parameter_expressions();
             ObjectList<std::string> get_parameter_arguments();
 
+            ObjectList<std::string> get_clause_names();
             PragmaCustomClause get_clause(const std::string& name);
     };
 

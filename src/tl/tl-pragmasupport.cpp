@@ -128,6 +128,24 @@ namespace TL
         return result;
     }
 
+    ObjectList<std::string> PragmaCustomConstruct::get_clause_names()
+    {
+        ObjectList<std::string> result;
+        AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
+
+        ObjectList<AST_t> clause_list = pragma_line.depth_subtrees(PredicateAST<LANG_IS_PRAGMA_CUSTOM_CLAUSE>());
+
+        for (ObjectList<AST_t>::iterator it = clause_list.begin();
+                it != clause_list.end();
+                it++)
+        {
+            TL::String clause_name_attr = it->get_attribute(LANG_PRAGMA_CUSTOM_CLAUSE);
+            result.insert(clause_name_attr);
+        }
+
+        return result;
+    }
+
     PragmaCustomClause PragmaCustomConstruct::get_clause(const std::string& name)
     {
         AST_t pragma_line = _ref.get_attribute(LANG_PRAGMA_CUSTOM_LINE);
