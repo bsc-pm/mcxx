@@ -235,9 +235,22 @@ namespace TL
              *   }
              *
              * Both id-expression of 'a' would solve to the innermost 'float a'
-             * Maybe in the future a more exact approach will be used.
+             * Maybe in the future a more exact approach will be used. You can use
+             * get_computed_symbol to use the symbol deduced by the compiler.
              */
             Symbol get_symbol() const;
+
+            //! Gets the computed symbol by the frontend.
+            /*! 
+             * This function is more exact than get_symbol but only works on
+             * real expressions (not on id-expressions coming from declarators
+             * or other non-expression contexts). It does not perform
+             * a search in the scope like get_symbol.
+             *
+             * \bug Please, do not use unless told to do so. This function
+             * is fully untested.
+             */
+            Symbol get_computed_symbol() const;
 
             //! Returns the AST of this id-expression
             AST_t get_ast() const;

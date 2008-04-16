@@ -339,6 +339,12 @@ namespace TL
         return result;
     }
 
+    Symbol IdExpression::get_computed_symbol() const
+    {
+        TL::Symbol result = _ref.get_attribute(LANG_COMPUTED_SYMBOL);
+        return result;
+    }
+
     AST_t IdExpression::get_ast() const
     {
         return _ref;

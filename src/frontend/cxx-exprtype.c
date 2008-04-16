@@ -3998,6 +3998,8 @@ static char compute_symbol_type(AST expr, decl_context_t decl_context, decl_cont
     {
         scope_entry_t* entry = result->entry;
 
+        ASTAttrSetValueType(expr, LANG_COMPUTED_SYMBOL, tl_type_t, tl_symbol(entry));
+
         if (entry->kind == SK_TEMPLATE)
         {
             type_t* primary_type = template_type_get_primary_type(entry->type_information);
@@ -4153,7 +4155,6 @@ char compute_qualified_id_type(AST expr, decl_context_t decl_context, decl_conte
             }
             else
             {
-                // solved == NULL && !dependent_template_arguments && !template_function_name
                 return 0;
             }
             return 1;
@@ -4171,8 +4172,8 @@ char compute_qualified_id_type(AST expr, decl_context_t decl_context, decl_conte
             scope_entry_t* entry = result_list->entry;
             *symbol_scope = entry->decl_context;
 
-            // Functions are not tagged because we will not know who is being
-            // called till the overload resolution moment
+            ASTAttrSetValueType(expr, LANG_COMPUTED_SYMBOL, tl_type_t, tl_symbol(entry));
+
             if (entry->kind == SK_VARIABLE)
             {
                 if (!is_dependent_type(entry->type_information, decl_context))
