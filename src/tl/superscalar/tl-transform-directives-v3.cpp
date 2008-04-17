@@ -16,12 +16,50 @@
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
 */
 
-#include "tl-transform-directives.hpp"
+#include "tl-transform-directives-v3.hpp"
 #include "tl-langconstruct.hpp"
 
 
 namespace TL
 {
+	template<typename V, typename E>
+	static bool inline value_in_list(V value, E elem)
+	{
+		return value == elem;
+	}
+	
+	template<typename V, typename E>
+	static bool inline value_in_list(V value, E elem1, E elem2)
+	{
+		return value_in_list(value, elem1) || value == elem2;
+	}
+	
+	template<typename V, typename E>
+	static bool inline value_in_list(V value, E elem1, E elem2, E elem3)
+	{
+		return value_in_list(value, elem1, elem2) || value == elem3;
+	}
+	
+	template<typename V, typename E>
+	static bool inline value_in_list(V value, E elem1, E elem2, E elem3, E elem4)
+	{
+		return value_in_list(value, elem1, elem2) || value_in_list(value, elem3, elem4);
+	}
+	
+	template<typename V, typename E>
+	static bool inline value_in_list(V value, E elem1, E elem2, E elem3, E elem4, E elem5)
+	{
+		return value_in_list(value, elem1, elem2, elem3, elem4) || value == elem5;
+	}
+	
+	template<typename V, typename E>
+	static bool inline value_in_list(V value, E elem1, E elem2, E elem3, E elem4, E elem5, E elem6)
+	{
+		return value_in_list(value, elem1, elem2, elem3) || value_in_list(value, elem4, elem5, elem6);
+	}
+	
+	
+	
 	CompilerPhase::PhaseStatus TransformDirectives::_status;
 	
 	void TL::TransformDirectives::process_start(PragmaCustomConstruct directive)
@@ -29,6 +67,13 @@ namespace TL
 		if (directive.is_construct())
 		{
 			std::cerr << directive.get_ast().get_locus() << " Error: 'start' directive used as a construct." << std::endl;
+			TransformDirectives::fail();
+			return;
+		}
+		
+		if (!directive.get_clause_names().empty())
+		{
+			std::cerr << directive.get_ast().get_locus() << " Error: the 'start' directive does not accept any clauses." << std::endl;
 			TransformDirectives::fail();
 			return;
 		}
@@ -52,6 +97,13 @@ namespace TL
 			return;
 		}
 		
+		if (!directive.get_clause_names().empty())
+		{
+			std::cerr << directive.get_ast().get_locus() << " Error: the 'finish' directive does not accept any clauses." << std::endl;
+			TransformDirectives::fail();
+			return;
+		}
+		
 		Source source;
 		source << "css_finish();";
 		
@@ -64,6 +116,13 @@ namespace TL
 		if (directive.is_construct())
 		{
 			std::cerr << directive.get_ast().get_locus() << " Error: 'barrier' directive used as a construct." << std::endl;
+			TransformDirectives::fail();
+			return;
+		}
+		
+		if (!directive.get_clause_names().empty())
+		{
+			std::cerr << directive.get_ast().get_locus() << " Error: the 'barrier' directive does not accept any clauses." << std::endl;
 			TransformDirectives::fail();
 			return;
 		}
@@ -89,13 +148,26 @@ namespace TL
 		if (!directive.is_directive())
 		{
 			std::cerr << directive.get_ast().get_locus() << " Error: 'wait' directive used as a construct." << std::endl;
+			TransformDirectives::fail();
 			return;
 		}
 		
 		if (!on_clause.is_defined())
 		{
 			std::cerr << directive.get_ast().get_locus() << " Error: 'wait' directive without 'on' clause." << std::endl;
+			TransformDirectives::fail();
 			return;
+		}
+		
+		ObjectList<std::string> clauses = directive.get_clause_names();
+		for (ObjectList<std::string>::const_iterator it = clauses.begin(); it != clauses.end(); it++)
+		{
+			std::string const &clause = *it;
+			if (!value_in_list(clause, "on"))
+			{
+				std::cerr << directive.get_ast().get_locus() << " Error: invalid clause '" << clause << "' used in 'wait' directive." << std::endl;
+				TransformDirectives::fail();
+			}
 		}
 		
 		ObjectList<Expression> on_list = on_clause.get_expression_list();
@@ -144,6 +216,14 @@ namespace TL
 		if (!directive.is_directive())
 		{
 			std::cerr << directive.get_ast().get_locus() << " Error: 'restart' directive used as a construct." << std::endl;
+			TransformDirectives::fail();
+			return;
+		}
+		
+		if (!directive.get_clause_names().empty())
+		{
+			std::cerr << directive.get_ast().get_locus() << " Error: the 'restart' directive does not accept any clauses." << std::endl;
+			TransformDirectives::fail();
 			return;
 		}
 		
@@ -162,6 +242,17 @@ namespace TL
 			std::cerr << construct.get_ast().get_locus() << " Error: 'task' construct used as a directive." << std::endl;
 			TransformDirectives::fail();
 			return;
+		}
+		
+		ObjectList<std::string> clauses = construct.get_clause_names();
+		for (ObjectList<std::string>::const_iterator it = clauses.begin(); it != clauses.end(); it++)
+		{
+			std::string const &clause = *it;
+			if (!value_in_list(clause, "input", "output", "inout", "highpriority"))
+			{
+				std::cerr << construct.get_ast().get_locus() << " Error: invalid clause '" << clause << "' used in 'task' construct." << std::endl;
+				TransformDirectives::fail();
+			}
 		}
 		
 		if (construct.is_function_definition())
@@ -212,6 +303,17 @@ namespace TL
 			std::cerr << construct.get_ast().get_locus() << " Error: 'target' construct used as a directive." << std::endl;
 			TransformDirectives::fail();
 			return;
+		}
+		
+		ObjectList<std::string> clauses = construct.get_clause_names();
+		for (ObjectList<std::string>::const_iterator it = clauses.begin(); it != clauses.end(); it++)
+		{
+			std::string const &clause = *it;
+			if (!value_in_list(clause, "spu", "ppu"))
+			{
+				std::cerr << construct.get_ast().get_locus() << " Error: invalid clause '" << clause << "' used in 'target' construct." << std::endl;
+				TransformDirectives::fail();
+			}
 		}
 		
 		if (construct.is_function_definition())
