@@ -796,6 +796,30 @@ namespace TL
         Type result(expression_type);
         return result;
     }
+    
+    bool Expression::is_array_section()
+    {
+        TL::Bool result = _ref.get_attribute(LANG_IS_ARRAY_SECTION);
+        return result;
+    }
+
+    Expression Expression::array_section_item()
+    {
+        AST_t array_section_item = _ref.get_attribute(LANG_ARRAY_SECTION_ITEM);
+        return Expression(array_section_item, _scope_link);
+    }
+
+    Expression Expression::array_section_lower()
+    {
+        AST_t array_section_lower = _ref.get_attribute(LANG_ARRAY_SECTION_LOWER);
+        return Expression(array_section_lower, _scope_link);
+    }
+
+    Expression Expression::array_section_upper()
+    {
+        AST_t array_section_upper = _ref.get_attribute(LANG_ARRAY_SECTION_UPPER);
+        return Expression(array_section_upper, _scope_link);
+    }
 
     // Do not use this one, instead use get_declared_symbol
     // since this one will not work for type-names

@@ -503,6 +503,15 @@ namespace TL
              */
             std::string get_operator_str();
 
+            //!States whether the expression is an array section
+            bool is_array_section();
+            //! Returns the sectioned expression in the array section
+            Expression array_section_item();
+            //! Returns the lower bound of the array section
+            Expression array_section_lower();
+            //! Returns the upper bound of the array section
+            Expression array_section_upper();
+
             static const PredicateAST<LANG_IS_EXPRESSION_NEST> predicate;
     };
 

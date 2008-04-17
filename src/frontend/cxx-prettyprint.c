@@ -233,6 +233,9 @@ HANDLER_PROTOTYPE(gcc_namespace_definition_handler);
 HANDLER_PROTOTYPE(gcc_functional_declarator_handler);
 HANDLER_PROTOTYPE(gcc_offsetof_member_designator_handler);
 
+// Mercurium extensions
+HANDLER_PROTOTYPE(array_section_handler);
+
 prettyprint_entry_t handlers_list[] =
 {
     NODE_HANDLER(AST_TRANSLATION_UNIT, unary_container_handler, NULL),
@@ -636,6 +639,8 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_GCC_USING_DIRECTIVE, gcc_using_directive_handler, NULL),
     NODE_HANDLER(AST_GCC_NAMESPACE_DEFINITION, gcc_namespace_definition_handler, NULL),
     NODE_HANDLER(AST_GCC_FUNCTIONAL_DECLARATOR, gcc_functional_declarator_handler, NULL), 
+    // Mercurium extension
+    NODE_HANDLER(AST_ARRAY_SECTION, array_section_handler, NULL),
 };
 
 typedef
@@ -3246,4 +3251,14 @@ static void omp_threadprivate_directive_handler(FILE* f, AST a, int level)
 static void omp_default_custom_clause_handler(FILE* f, AST a, int level UNUSED_PARAMETER)
 {
     token_fprintf(f, a, "default(%s)", ASTText(a));
+}
+
+static void array_section_handler(FILE* f, AST a, int level)
+{
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, "[");
+    prettyprint_level(f, ASTSon1(a), level);
+    token_fprintf(f, a, ":");
+    prettyprint_level(f, ASTSon2(a), level);
+    token_fprintf(f, a, "]");
 }

@@ -417,6 +417,8 @@ static char check_for_pointer_to_member(AST expression, decl_context_t decl_cont
 static char check_for_pointer_to_pointer_to_member(AST expression, decl_context_t decl_context);
 static char check_for_conversion_function_id_expression(AST expression, decl_context_t decl_context);
 
+static char check_for_array_section_expression(AST expression, decl_context_t decl_context);
+
 static char check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_context);
 static char check_for_gcc_builtin_choose_expr(AST expression, decl_context_t decl_context);
 static char check_for_gcc_builtin_types_compatible_p(AST expression, decl_context_t decl_context);
@@ -1200,6 +1202,21 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     }
                 }
 
+                break;
+            }
+            // This is a mcxx extension
+            // that brings the power of Fortran 90 array-sections into C/C++ :-)
+        case AST_ARRAY_SECTION :
+            {
+                if (check_for_array_section_expression(expression, decl_context))
+                {
+                    result = 1;
+
+                    ASTAttrSetValueType(expression, LANG_IS_ARRAY_SECTION, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_ITEM, tl_type_t, tl_ast(ASTSon0(expression)));
+                    ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_LOWER, tl_type_t, tl_ast(ASTSon1(expression)));
+                    ASTAttrSetValueType(expression, LANG_ARRAY_SECTION_UPPER, tl_type_t, tl_ast(ASTSon2(expression)));
+                }
                 break;
             }
         case AST_AMBIGUITY :
@@ -7676,5 +7693,73 @@ static char check_for_gcc_builtin_types_compatible_p(AST expression, decl_contex
 
     ast_set_expression_type(expression, get_signed_int_type());
     ast_set_expression_is_lvalue(expression, 0);
+    return 1;
+}
+
+static char check_for_array_section_expression(AST expression, decl_context_t decl_context)
+{
+    // At the moment there is not a specific type backing sections
+    // up. So what we do is just check that the indexed entity is
+    // an array check the two bound expressions and then bypass the
+    // computed entity type as if it was a normal array
+    //
+    // int *b, a[10];
+    //
+    // a[1:10] = 3;
+    // b[1:10] = 4;
+    //
+    // a[1:10] will have int type
+    // b[1:10] will have int type too
+    // 
+    // (so, they do not have a special 'array section type of int' or something)
+    //
+    // For C++, no overloading is considered here.
+    //
+    // Note: 
+    // A proper check of 
+    //
+    //    a[1:2] = b[2:3]
+    //
+    // would require having a section type
+    
+    AST postfix_expression = ASTSon0(expression);
+    AST lower_bound = ASTSon1(expression);
+    AST upper_bound = ASTSon2(expression);
+
+    char postfix_check = check_for_expression(postfix_expression, decl_context);
+    char lower_bound_check = check_for_expression(lower_bound, decl_context);
+    char upper_bound_check = check_for_expression(upper_bound, decl_context);
+
+    if (!postfix_check
+            || !lower_bound_check
+            || !upper_bound_check)
+        return 0;
+    
+    type_t* indexed_type = no_ref(ASTExprType(postfix_expression));
+
+    type_t* result_type = NULL;
+
+    if (is_array_type(indexed_type))
+    {
+        result_type = lvalue_ref(array_type_get_element_type(indexed_type));
+    }
+    else if (is_pointer_type(indexed_type))
+    {
+        result_type = lvalue_ref(pointer_type_get_pointee_type(indexed_type));
+    }
+    else
+    {
+        fprintf(stderr, "%s: warning, array section '%s' is invalid since '%s' has type '%s'\n",
+                ast_location(expression),
+                prettyprint_in_buffer(expression),
+                prettyprint_in_buffer(postfix_expression),
+                print_type_str(indexed_type, decl_context));
+        return 0;
+    }
+
+    // This should be deemed always as a lvalue
+    ast_set_expression_is_lvalue(expression, 1);
+    ast_set_expression_type(expression, result_type);
+
     return 1;
 }

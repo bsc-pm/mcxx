@@ -217,3 +217,7 @@ OMP_REDUCTION_VARIABLES omp.reduction_variables
 OMP_SCHEDULE_CHUNK omp.schedule_chunk
 OMP_SCHEDULE_CUSTOM_NAME omp.schedule_custom_name
 OMP_SCHEDULE_KIND omp.schedule_kind
+LANG_IS_ARRAY_SECTION lang.is_array_section
+LANG_ARRAY_SECTION_ITEM lang.array_section_item
+LANG_ARRAY_SECTION_LOWER lang.array_section_lower
+LANG_ARRAY_SECTION_UPPER lang.array_section_upper
