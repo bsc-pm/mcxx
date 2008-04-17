@@ -7,7 +7,10 @@ set testcases [lsort [find $srcdir/$subdir/../mcc.openmp.dg *.c]]
 send_user "\n"
 
 # Mandatory for OpenMP tests
+set wrapper_tool "../libtool"
 source "${srcdir}/openmp_libs.conf"
+append wrapper_options "--mode=execute "
+set full_path_tool "../src/driver/mcxx"
 
 foreach test $testcases {
     set basename_test [file tail $test]
@@ -28,7 +31,8 @@ foreach test $testcases {
     set output_execution ""
     if {
         [catch { 
-            set output_execution [exec "$full_path_tool" "--typecheck" "--variable=instrument:1" \
+            set output_execution [eval exec $wrapper_tool $wrapper_options $full_path_tool \
+                "--typecheck" "--variable=instrument:1" \
                 "--config-file=./$subdir/config.mcxx" "--verbose" "--output-dir=." "-c" \
                 "-o" "${rootname_test}.o" "$test" "|&" "cat"] 
         } output_execution ]

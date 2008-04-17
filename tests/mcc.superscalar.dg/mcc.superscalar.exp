@@ -6,7 +6,10 @@ set testcases [lsort [find $srcdir/$subdir *.c]]
 send_user "\n"
 
 # Mandatory for superscalar tests
+set wrapper_tool "../libtool"
 source "${srcdir}/superscalar_libs.conf"
+append wrapper_options "--mode=execute "
+set full_path_tool "../src/driver/mcxx"
 
 foreach test $testcases {
     set basename_test [file tail $test]
@@ -27,8 +30,8 @@ foreach test $testcases {
     set output_execution ""
     if {
         [catch { 
-            set output_execution [exec "$full_path_tool" "--config-file=./$subdir/config.mcxx" \
-				"--verbose" "--output-dir=." "-c" \
+            set output_execution [eval exec $wrapper_tool $wrapper_options $full_path_tool \
+                "--config-file=./$subdir/config.mcxx" "--verbose" "--output-dir=." "-c" \
                 "-o" "${rootname_test}.o" "$test" "|&" "cat"] 
         } output_execution ]
     } {
