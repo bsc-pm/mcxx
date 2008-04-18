@@ -1000,6 +1000,7 @@ static template_argument_list_t* compute_arguments_primary(template_parameter_li
 
                     // Fake an expression
                     new_template_argument->expression = ASTLeaf(AST_SYMBOL, 
+                            template_parameter->entry->file,
                             template_parameter->entry->line,
                             template_parameter->entry->symbol_name);
                     new_template_argument->expression_context = template_parameter->entry->decl_context;
@@ -4091,7 +4092,8 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
 
                 // Create a full-fledged type_specifier_seq
                 AST type_specifier_seq = ASTMake3(AST_TYPE_SPECIFIER_SEQ, NULL, 
-                        type_specifier, NULL, ASTLine(type_specifier), NULL);
+                        type_specifier, NULL, 
+                        ASTFileName(type_specifier), ASTLine(type_specifier), NULL);
 
                 gather_decl_spec_t gather_info;
                 memset(&gather_info, 0, sizeof(gather_info));
@@ -6376,7 +6378,7 @@ type_t* get_literal_string_type(int length, char is_wchar)
         /* Create an array type */
         char c[256];
         snprintf(c, 255, "%d", length); c[255] = '\0';
-        AST integer_literal = ASTLeaf(AST_DECIMAL_LITERAL, 0, c);
+        AST integer_literal = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, c);
 
         type_t* char_type = NULL;
 

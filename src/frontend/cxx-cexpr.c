@@ -1089,19 +1089,19 @@ AST tree_from_literal_value(literal_value_t e)
     {
         case LVK_SIGNED_INT :
             snprintf(buffer, 99, "%d", e.value.signed_int);
-            result = ASTLeaf(AST_DECIMAL_LITERAL, 0, buffer);
+            result = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, buffer);
             break;
         case LVK_SIGNED_LONG :
             snprintf(buffer, 99, "%ldL", e.value.signed_long);
-            result = ASTLeaf(AST_DECIMAL_LITERAL, 0, buffer);
+            result = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, buffer);
             break;
         case LVK_UNSIGNED_INT :
             snprintf(buffer, 99, "%uU", e.value.unsigned_int);
-            result = ASTLeaf(AST_DECIMAL_LITERAL, 0, buffer);
+            result = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, buffer);
             break;
         case LVK_UNSIGNED_LONG :
             snprintf(buffer, 99, "%luLU", e.value.unsigned_long);
-            result = ASTLeaf(AST_DECIMAL_LITERAL, 0, buffer);
+            result = ASTLeaf(AST_DECIMAL_LITERAL, NULL, 0, buffer);
             break;
         case LVK_UNSIGNED_CHAR :
         case LVK_SIGNED_CHAR :
@@ -1113,17 +1113,17 @@ AST tree_from_literal_value(literal_value_t e)
                     num = e.value.unsigned_char;
 
                 snprintf(buffer, 99, "'\\%u'", num);
-                result = ASTLeaf(AST_CHARACTER_LITERAL, 0, buffer);
+                result = ASTLeaf(AST_CHARACTER_LITERAL, NULL, 0, buffer);
             }
             break;
         case LVK_BOOL :
             if (e.value.boolean_value == 0)
             {
-                result = ASTLeaf(AST_BOOLEAN_LITERAL, 0, "false");
+                result = ASTLeaf(AST_BOOLEAN_LITERAL, NULL, 0, "false");
             }
             else
             {
-                result = ASTLeaf(AST_BOOLEAN_LITERAL, 0, "true");
+                result = ASTLeaf(AST_BOOLEAN_LITERAL, NULL, 0, "true");
             }
             break;
         default:

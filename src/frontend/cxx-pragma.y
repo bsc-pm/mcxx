@@ -56,39 +56,39 @@ declaration : pragma_custom_construct_declaration
 
 pragma_custom_directive : PRAGMA_CUSTOM pragma_custom_line_directive
 {
-	$$ = ASTMake2(AST_PRAGMA_CUSTOM_DIRECTIVE, $2, NULL, $1.token_line, $1.token_text);
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_DIRECTIVE, $2, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
 pragma_custom_construct_declaration : PRAGMA_CUSTOM pragma_custom_line_construct declaration
 {
-	$$ = ASTMake2(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, $1.token_line, $1.token_text);
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
 pragma_custom_construct_statement : PRAGMA_CUSTOM pragma_custom_line_construct statement
 {
-	$$ = ASTMake2(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, $1.token_line, $1.token_text);
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_CONSTRUCT, $2, $3, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
 pragma_custom_line_directive : PRAGMA_CUSTOM_DIRECTIVE pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
 {
-	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $2, NULL, $1.token_line, $1.token_text);
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $2, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 | PRAGMA_CUSTOM_DIRECTIVE '(' pragma_clause_arg_list ')' pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
 {
-	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $5, $3, $1.token_line, $1.token_text);
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $5, $3, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
 pragma_custom_line_construct : PRAGMA_CUSTOM_CONSTRUCT pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
 {
-	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $2, NULL, $1.token_line, $1.token_text);
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $2, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 | PRAGMA_CUSTOM_CONSTRUCT '(' pragma_clause_arg_list ')' pragma_custom_clause_opt_seq PRAGMA_CUSTOM_NEWLINE
 {
-	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $5, $3, $1.token_line, $1.token_text);
+	$$ = ASTMake2(AST_PRAGMA_CUSTOM_LINE, $5, $3, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
@@ -118,27 +118,27 @@ pragma_custom_clause_seq : pragma_custom_clause
 
 pragma_custom_clause : PRAGMA_CUSTOM_CLAUSE '(' pragma_clause_arg_list ')'
 {
-	$$ = ASTMake1(AST_PRAGMA_CUSTOM_CLAUSE, $3, $1.token_line, $1.token_text);
+	$$ = ASTMake1(AST_PRAGMA_CUSTOM_CLAUSE, $3, $1.token_file, $1.token_line, $1.token_text);
 }
 | PRAGMA_CUSTOM_CLAUSE '(' ')'
 {
-	$$ = ASTMake1(AST_PRAGMA_CUSTOM_CLAUSE, NULL, $1.token_line, $1.token_text);
+	$$ = ASTMake1(AST_PRAGMA_CUSTOM_CLAUSE, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 | PRAGMA_CUSTOM_CLAUSE 
 {
-	$$ = ASTMake1(AST_PRAGMA_CUSTOM_CLAUSE, NULL, $1.token_line, $1.token_text);
+	$$ = ASTMake1(AST_PRAGMA_CUSTOM_CLAUSE, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
 pragma_clause_arg_list : pragma_clause_arg
 {
-    AST node = ASTLeaf(AST_PRAGMA_CLAUSE_ARG, 0, $1);
+    AST node = ASTLeaf(AST_PRAGMA_CLAUSE_ARG, NULL, 0, $1);
 
     $$ = ASTListLeaf(node);
 }
 | pragma_clause_arg_list ',' pragma_clause_arg
 {
-    AST node = ASTLeaf(AST_PRAGMA_CLAUSE_ARG, 0, $3);
+    AST node = ASTLeaf(AST_PRAGMA_CLAUSE_ARG, NULL, 0, $3);
 
     $$ = ASTList($1, node);
 }

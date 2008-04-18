@@ -1276,6 +1276,7 @@ static int yywrap(void)
 static void parse_token_text(void)
 {
     FLEX_LVAL.token_atrib.token_line = scanning_now.line_number;
+    FLEX_LVAL.token_atrib.token_file = uniquestr(scanning_now.current_filename);
     FLEX_LVAL.token_atrib.token_text = uniquestr(yytext);
 }
 

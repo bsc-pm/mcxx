@@ -255,7 +255,7 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
         null_keyword = new_symbol(decl_context, decl_context.global_scope, "__null");
         null_keyword->kind = SK_VARIABLE;
         null_keyword->type_information = get_zero_type();
-        null_keyword->expression_value = ASTLeaf(AST_OCTAL_LITERAL, 0, "0");
+        null_keyword->expression_value = ASTLeaf(AST_OCTAL_LITERAL, NULL, 0, "0");
         null_keyword->defined = 1;
         null_keyword->do_not_print = 1;
         // This should be renamed one day into 'builtin_symbol'
@@ -1771,7 +1771,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
 
                 AST duplicate_expr = ast_copy(enumeration_expr);
 
-                AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, duplicate_expr, ASTLine(duplicate_expr), NULL);
+                AST fake_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, duplicate_expr, 
+                        ASTFileName(duplicate_expr), ASTLine(duplicate_expr), NULL);
                 enumeration_item->expression_value = fake_initializer;
 
             }
@@ -3857,7 +3858,9 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
             {
                 // An unqualified operator_function_id "operator +"
                 const char* operator_function_name = get_operator_function_name(declarator_id);
-                AST operator_id = ASTLeaf(AST_SYMBOL, ASTLine(declarator_id), operator_function_name);
+                AST operator_id = ASTLeaf(AST_SYMBOL, 
+                        ASTFileName(declarator_id), ASTLine(declarator_id), 
+                        operator_function_name);
                 // Keep the parent of the original declarator
                 ast_set_parent(operator_id, ast_get_parent(declarator_id)); 
 
@@ -3887,7 +3890,10 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 // Get the type and its name
                 char* conversion_function_name = get_conversion_function_name(decl_context, declarator_id, 
                         &conversion_type_info);
-                AST conversion_id = ASTLeaf(AST_SYMBOL, ASTLine(declarator_id), conversion_function_name);
+                AST conversion_id = ASTLeaf(AST_SYMBOL, 
+                        ASTFileName(declarator_id),
+                        ASTLine(declarator_id), 
+                        conversion_function_name);
                 // Keep the parent of the original declarator
                 ast_set_parent(conversion_id, ast_get_parent(declarator_id));
                 return register_new_variable_name(conversion_id, declarator_type, gather_info, decl_context);
@@ -4297,6 +4303,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry = named_type_get_symbol(
                     template_type_get_primary_type(template_type));
         }
+
 
         DEBUG_CODE()
         {
@@ -5670,7 +5677,7 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
         char c[256] = { 0 };
         snprintf(c, 255, "%s", entry->symbol_name);
         c[255] = '\0';
-        AST function_name_tree = ASTLeaf(AST_STRING_LITERAL, 0, c);
+        AST function_name_tree = ASTLeaf(AST_STRING_LITERAL, NULL, 0, c);
 
         const char* func_names[] = 
         {
@@ -6686,8 +6693,8 @@ decl_context_t replace_template_parameters_with_template_arguments(
             new_entry->kind = SK_VARIABLE;
             AST expression = ast_copy(
                     template_arguments->argument_list[entry->entity_specs.template_parameter_position]->expression);
-            AST constant_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, expression, ASTLine(expression), 
-                    NULL);
+            AST constant_initializer = ASTMake1(AST_CONSTANT_INITIALIZER, expression, 
+                    ASTFileName(expression), ASTLine(expression), NULL);
 
             new_entry->expression_value = constant_initializer;
 
@@ -7526,25 +7533,25 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                             case AST_LOGICAL_OR_OPERATOR :
                                 {
                                     neuter = ASTMake1(AST_EXPRESSION, 
-                                            ASTLeaf(AST_OCTAL_LITERAL, ASTLine(clause), "0"),
-                                            ASTLine(clause), NULL);
+                                            ASTLeaf(AST_OCTAL_LITERAL, ASTFileName(clause), ASTLine(clause), "0"),
+                                            ASTFileName(clause), ASTLine(clause), NULL);
                                     break;
                                 }
                             case AST_MULT_OPERATOR :
                             case AST_LOGICAL_AND_OPERATOR :
                                 {
                                     neuter = ASTMake1(AST_EXPRESSION, 
-                                            ASTLeaf(AST_DECIMAL_LITERAL, ASTLine(clause), "1"),
-                                            ASTLine(clause), NULL);
+                                            ASTLeaf(AST_DECIMAL_LITERAL, ASTFileName(clause), ASTLine(clause), "1"),
+                                            ASTFileName(clause), ASTLine(clause), NULL);
                                     break;
                                 }
                             case AST_BITWISE_AND_OPERATOR :
                                 {
-                                    AST zero = ASTLeaf(AST_OCTAL_LITERAL, ASTLine(clause), "0");
+                                    AST zero = ASTLeaf(AST_OCTAL_LITERAL, ASTFileName(clause), ASTLine(clause), "0");
 
                                     neuter = ASTMake1(AST_EXPRESSION,
-                                            ASTMake1(AST_COMPLEMENT_OP, zero, ASTLine(clause), NULL),
-                                            ASTLine(clause), NULL);
+                                            ASTMake1(AST_COMPLEMENT_OP, zero, ASTFileName(clause), ASTLine(clause), NULL),
+                                            ASTFileName(clause), ASTLine(clause), NULL);
 
                                     break;
                                 }

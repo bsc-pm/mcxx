@@ -20,7 +20,7 @@ superscalar_declarator : declarator_id
 }
 | superscalar_declarator '[' assignment_expression ']'
 {
-	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $3, NULL, NULL,  ASTLine($1), NULL);
+	$$ = ASTMake4(AST_DECLARATOR_ARRAY, $1, $3, NULL, NULL, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 

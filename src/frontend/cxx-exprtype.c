@@ -2143,7 +2143,7 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
     if (operation_add_tree == NULL)
     {
         operation_add_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_ADD_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_ADD_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set; 
@@ -2236,7 +2236,7 @@ type_t* compute_bin_operator_mul_type(AST expr, AST lhs, AST rhs, decl_context_t
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MULT_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_MULT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context);
@@ -2249,7 +2249,7 @@ type_t* compute_bin_operator_div_type(AST expr, AST lhs, AST rhs, decl_context_t
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_DIV_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_DIV_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_only_arithmetic_types(expr, lhs, rhs, operation_tree, decl_context);
@@ -2325,7 +2325,7 @@ type_t* compute_bin_operator_mod_type(AST expr, AST lhs, AST rhs, decl_context_t
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MOD_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_MOD_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
@@ -2419,7 +2419,7 @@ static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_co
     if (operator == NULL)
     {
         operator = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MINUS_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_MINUS_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set;
@@ -2508,7 +2508,7 @@ static type_t* compute_bin_operator_shl_type(AST expr, AST lhs, AST rhs, decl_co
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_LEFT_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_LEFT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_only_integral_lhs_type(expr, lhs, rhs, operation_tree, decl_context);
@@ -2520,7 +2520,7 @@ static type_t* compute_bin_operator_shr_type(AST expr, AST lhs, AST rhs, decl_co
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_RIGHT_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_RIGHT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_only_integral_lhs_type(expr, lhs, rhs, operation_tree, decl_context);
@@ -2642,7 +2642,7 @@ static type_t* compute_bin_operator_lower_equal_type(AST expr, AST lhs, AST rhs,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_LESS_OR_EQUAL_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_LESS_OR_EQUAL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
@@ -2654,7 +2654,7 @@ static type_t* compute_bin_operator_lower_than_type(AST expr, AST lhs, AST rhs, 
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_LOWER_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_LOWER_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
@@ -2666,7 +2666,7 @@ static type_t* compute_bin_operator_greater_equal_type(AST expr, AST lhs, AST rh
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_GREATER_OR_EQUAL_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_GREATER_OR_EQUAL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
@@ -2678,7 +2678,7 @@ static type_t* compute_bin_operator_greater_than_type(AST expr, AST lhs, AST rhs
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_GREATER_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_GREATER_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
@@ -2690,7 +2690,7 @@ static type_t* compute_bin_operator_different_type(AST expr, AST lhs, AST rhs, d
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_DIFFERENT_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_DIFFERENT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
@@ -2702,7 +2702,7 @@ static type_t* compute_bin_operator_equal_type(AST expr, AST lhs, AST rhs, decl_
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_EQUAL_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_EQUAL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_relational(expr, lhs, rhs, operation_tree, decl_context);
@@ -2794,7 +2794,7 @@ static type_t* compute_bin_operator_logical_or_type(AST expr, AST lhs, AST rhs, 
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_LOGICAL_OR_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_LOGICAL_OR_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_logical_op_type(expr, lhs, rhs, operation_tree, decl_context);
@@ -2806,7 +2806,7 @@ static type_t* compute_bin_operator_logical_and_type(AST expr, AST lhs, AST rhs,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_LOGICAL_AND_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_LOGICAL_AND_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_logical_op_type(expr, lhs, rhs, operation_tree, decl_context);
@@ -2819,7 +2819,7 @@ static type_t* compute_bin_operator_bitwise_and_type(AST expr, AST lhs, AST rhs,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_BITWISE_AND_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_BITWISE_AND_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
@@ -2832,7 +2832,7 @@ static type_t* compute_bin_operator_bitwise_or_type(AST expr, AST lhs, AST rhs,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_BITWISE_OR_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_BITWISE_OR_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
@@ -2845,7 +2845,7 @@ static type_t* compute_bin_operator_bitwise_xor_type(AST expr, AST lhs, AST rhs,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_BITWISE_XOR_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_BITWISE_XOR_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_only_integer_types(expr, lhs, rhs, operation_tree, decl_context);
@@ -3222,7 +3222,7 @@ static type_t* compute_bin_operator_mod_assig_type(AST expr, AST lhs, AST rhs,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MOD_ASSIGN_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_MOD_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
@@ -3236,7 +3236,7 @@ static type_t* compute_bin_operator_shl_assig_type(AST expr, AST lhs, AST rhs,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_LEFT_ASSIGN_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_LEFT_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
@@ -3250,7 +3250,7 @@ static type_t* compute_bin_operator_shr_assig_type(AST expr, AST lhs, AST rhs,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_RIGHT_ASSIGN_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_RIGHT_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
@@ -3264,7 +3264,7 @@ static type_t* compute_bin_operator_bitwise_and_assig_type(AST expr, AST lhs, AS
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_AND_ASSIGN_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_AND_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
@@ -3278,7 +3278,7 @@ static type_t* compute_bin_operator_bitwise_or_assig_type(AST expr, AST lhs, AST
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_OR_ASSIGN_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_OR_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
@@ -3292,7 +3292,7 @@ static type_t* compute_bin_operator_bitwise_xor_assig_type(AST expr, AST lhs, AS
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_XOR_ASSIGN_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_XOR_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_assig_only_integral_type(expr, lhs, rhs, 
@@ -3306,7 +3306,7 @@ static type_t* compute_bin_operator_mul_assig_type(AST expr, AST lhs, AST rhs,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MUL_ASSIGN_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_MUL_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_assig_only_arithmetic_type(expr, lhs, rhs, 
@@ -3320,7 +3320,7 @@ static type_t* compute_bin_operator_assig_type(AST expr, AST lhs, AST rhs,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_ASSIGNMENT_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_ASSIGNMENT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_nonoperator_assig_only_arithmetic_type(expr, lhs, rhs, 
@@ -3334,7 +3334,7 @@ static type_t* compute_bin_operator_div_assig_type(AST expr, AST lhs, AST rhs,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_DIV_ASSIGN_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_DIV_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_assig_only_arithmetic_type(expr, lhs, rhs, 
@@ -3348,7 +3348,7 @@ static type_t* compute_bin_operator_add_assig_type(AST expr, AST lhs, AST rhs,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_ADD_ASSIGN_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_ADD_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_assig_arithmetic_or_pointer_type(expr, lhs, rhs, 
@@ -3362,7 +3362,7 @@ static type_t* compute_bin_operator_sub_assig_type(AST expr, AST lhs, AST rhs,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_SUB_ASSIGN_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_SUB_ASSIGN_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return compute_bin_operator_assig_arithmetic_or_pointer_type(expr, lhs, rhs, 
@@ -3438,7 +3438,7 @@ static type_t* compute_operator_derreference_type(AST expression,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MULT_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_MULT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set;
@@ -3529,7 +3529,7 @@ static type_t* compute_operator_plus_type(AST expression,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_ADD_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_ADD_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set;
@@ -3606,7 +3606,7 @@ static type_t* compute_operator_minus_type(AST expression,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_MINUS_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_MINUS_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set;
@@ -3683,7 +3683,7 @@ static type_t* compute_operator_complement_type(AST expression,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_BITWISE_NEG_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_BITWISE_NEG_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set;
@@ -3763,7 +3763,7 @@ static type_t* compute_operator_not_type(AST expression,
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_LOGICAL_NOT_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_LOGICAL_NOT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set;
@@ -4293,7 +4293,7 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
         if (operator_subscript_tree == NULL)
         {
             operator_subscript_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                    ASTLeaf(AST_SUBSCRIPT_OPERATOR, 0, NULL), 0, NULL);
+                    ASTLeaf(AST_SUBSCRIPT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
         }
 
         scope_entry_list_t* operator_subscript_list = get_member_function_of_class_type(
@@ -5612,7 +5612,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         if (operator == NULL)
         {
             operator = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                    ASTLeaf(AST_FUNCTION_CALL_OPERATOR, 0, NULL), 0, NULL);
+                    ASTLeaf(AST_FUNCTION_CALL_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
         }
 
         candidates = get_member_function_of_class_type(class_type, operator, decl_context);
@@ -6078,7 +6078,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         if (arrow_operator_tree == NULL)
         {
             arrow_operator_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                    ASTLeaf(AST_POINTER_OPERATOR, 0, NULL), 0, NULL);
+                    ASTLeaf(AST_POINTER_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
         }
 
         // First normalize the type keeping the cv-qualifiers
@@ -6740,7 +6740,7 @@ static char check_for_postincrement(AST expr, decl_context_t decl_context)
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_INCREMENT_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_INCREMENT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return check_for_postoperator(expr, operation_tree, 
@@ -6759,7 +6759,7 @@ static char check_for_postdecrement(AST expr, decl_context_t decl_context)
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_DECREMENT_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_DECREMENT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return check_for_postoperator(expr, operation_tree, 
@@ -6778,7 +6778,7 @@ static char check_for_preincrement(AST expr, decl_context_t decl_context)
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_INCREMENT_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_INCREMENT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return check_for_preoperator(expr, operation_tree, preincremented_expr, 
@@ -6797,7 +6797,7 @@ static char check_for_predecrement(AST expr, decl_context_t decl_context)
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_DECREMENT_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_DECREMENT_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     return check_for_preoperator(expr, operation_tree, predecremented_expr, 
@@ -7072,7 +7072,7 @@ static char check_for_pointer_to_pointer_to_member(AST expression, decl_context_
     if (operation_tree == NULL)
     {
         operation_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
-                ASTLeaf(AST_POINTER_DERREF_OPERATOR, 0, NULL), 0, NULL);
+                ASTLeaf(AST_POINTER_DERREF_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
     }
 
     builtin_operators_set_t builtin_set; 

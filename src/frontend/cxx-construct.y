@@ -18,16 +18,16 @@ statement : custom_construct_statement
 
 custom_construct_statement : custom_construct_header statement
 {
-    $$ = ASTMake2(AST_CUSTOM_CONSTRUCT_STATEMENT, $1, $2, ASTLine($1), NULL);
+    $$ = ASTMake2(AST_CUSTOM_CONSTRUCT_STATEMENT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 };
 
 custom_construct_header : CONSTRUCT IDENTIFIER custom_construct_parameters_seq
 {
-    $$ = ASTMake1(AST_CUSTOM_CONSTRUCT_HEADER, $3, $1.token_line, $2.token_text);
+    $$ = ASTMake1(AST_CUSTOM_CONSTRUCT_HEADER, $3, $1.token_file, $1.token_line, $2.token_text);
 }
 | CONSTRUCT IDENTIFIER 
 {
-    $$ = ASTMake1(AST_CUSTOM_CONSTRUCT_HEADER, NULL, $1.token_line, $2.token_text);
+    $$ = ASTMake1(AST_CUSTOM_CONSTRUCT_HEADER, NULL, $1.token_file, $1.token_line, $2.token_text);
 }
 ;
 
@@ -44,9 +44,9 @@ custom_construct_parameters_seq : custom_construct_parameter
 custom_construct_parameter : IDENTIFIER ':' expression
 {
     $$ = ASTMake2(AST_CUSTOM_CONSTRUCT_PARAMETER,
-            ASTLeaf(AST_SYMBOL, $1.token_line, $1.token_text), 
+            ASTLeaf(AST_SYMBOL, $1.token_file, $1.token_line, $1.token_text), 
             $3, 
-            $1.token_line, NULL);
+            $1.token_file, $1.token_line, NULL);
 }
 ;
 

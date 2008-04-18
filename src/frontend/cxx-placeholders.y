@@ -18,8 +18,8 @@ statement : STATEMENT_PLACEHOLDER
 
     // This is an empty statement
     $$ = *tree = ASTMake1(AST_DECLARATION_STATEMENT,
-            ASTLeaf(AST_EMPTY_DECL, $1.token_line, $1.token_text), 
-            $1.token_line, NULL);
+            ASTLeaf(AST_EMPTY_DECL, $1.token_file, $1.token_line, $1.token_text), 
+            $1.token_file, $1.token_line, NULL);
 };
 
 /*!endif*/

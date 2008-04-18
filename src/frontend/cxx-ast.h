@@ -72,6 +72,7 @@ AST ast_make(node_t type, int num_children,
         AST son1, 
         AST son2, 
         AST son3, 
+        const char* file,
         int line, 
         const char *text);
 
@@ -181,11 +182,11 @@ AST ast_copy_with_scope_link(AST a, scope_link_t* orig, scope_link_t* new_sl);
 #define ASTSon2(a) (ast_get_child(a, 2))
 #define ASTSon3(a) (ast_get_child(a, 3))
 
-#define ASTLeaf(node, line, text) ast_make(node, 0,  NULL, NULL, NULL, NULL, line, text)
-#define ASTMake1(node, son0, line, text) ast_make(node, 1, son0, NULL, NULL, NULL, line, text)
-#define ASTMake2(node, son0, son1, line, text) ast_make(node, 2, son0, son1, NULL, NULL, line, text)
-#define ASTMake3(node, son0, son1, son2, line, text) ast_make(node, 3, son0, son1, son2, NULL, line, text)
-#define ASTMake4(node, son0, son1, son2, son3, line, text) ast_make(node, 4, son0, son1, son2, son3, line, text)
+#define ASTLeaf(node, file, line, text) ast_make(node, 0,  NULL, NULL, NULL, NULL, file, line, text)
+#define ASTMake1(node, son0, file, line, text) ast_make(node, 1, son0, NULL, NULL, NULL, file, line, text)
+#define ASTMake2(node, son0, son1, file, line, text) ast_make(node, 2, son0, son1, NULL, NULL, file, line, text)
+#define ASTMake3(node, son0, son1, son2, file, line, text) ast_make(node, 3, son0, son1, son2, NULL, file, line, text)
+#define ASTMake4(node, son0, son1, son2, son3, file, line, text) ast_make(node, 4, son0, son1, son2, son3, file, line, text)
 
 // Convenience macros
 #define ASTChild0(a) ASTChild(a, 0)
@@ -199,7 +200,7 @@ AST ast_copy_with_scope_link(AST a, scope_link_t* orig, scope_link_t* new_sl);
 #define ASTFileName(a) (ast_get_filename(a))
 
 #define ASTListLeaf(a) ast_list_leaf(a)
-#define ASTList(list,element) ast_list(list,element)
+#define ASTList(list, element) ast_list(list,element)
 
 // Expression type
 #define ASTExprType(a) (ast_get_expression_type(a))

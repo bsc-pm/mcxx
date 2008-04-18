@@ -30,6 +30,7 @@ typedef
 struct token_atrib_tag 
 {
     const char* token_text;
+    const char* token_file;
     int token_line;
 } token_atrib_t;
 

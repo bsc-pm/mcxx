@@ -233,25 +233,25 @@ openmp_directive : barrier_directive
 // Custom OpenMP support
 omp_custom_directive : OMP_PRAGMA OMP_CUSTOM_DIRECTIVE omp_custom_clause_opt_seq OMP_NEWLINE
 {
- 	$$ = ASTMake1(AST_OMP_CUSTOM_DIRECTIVE, $3, $1.token_line, $2.token_text);
+ 	$$ = ASTMake1(AST_OMP_CUSTOM_DIRECTIVE, $3, $1.token_file, $1.token_line, $2.token_text);
 }
 ;
 
 omp_custom_construct_line : OMP_PRAGMA OMP_CUSTOM_CONSTRUCT omp_custom_clause_opt_seq OMP_NEWLINE
 {
- 	$$ = ASTMake1(AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE, $3, $1.token_line, $2.token_text);
+ 	$$ = ASTMake1(AST_OMP_CUSTOM_CONSTRUCT_DIRECTIVE, $3, $1.token_file, $1.token_line, $2.token_text);
 }
 ;
 
 omp_custom_construct_statement : omp_custom_construct_line structured_block
 {
-    $$ = ASTMake2(AST_OMP_CUSTOM_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+    $$ = ASTMake2(AST_OMP_CUSTOM_CONSTRUCT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
 omp_custom_construct_declaration : omp_custom_construct_line declaration
 {
-    $$ = ASTMake2(AST_OMP_CUSTOM_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+    $$ = ASTMake2(AST_OMP_CUSTOM_CONSTRUCT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
@@ -282,21 +282,21 @@ omp_custom_clause_seq : parallel_for_clause
 
 omp_custom_parameter_clause : '(' expression_list ')'
 {
-	$$ = ASTMake1(AST_OMP_CUSTOM_PARAMETER_CLAUSE, $2, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_CUSTOM_PARAMETER_CLAUSE, $2, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 omp_custom_clause : OMP_CUSTOM_CLAUSE '(' expression_list ')'
 {
-	$$ = ASTMake1(AST_OMP_CUSTOM_CLAUSE, $3, $1.token_line, $1.token_text);
+	$$ = ASTMake1(AST_OMP_CUSTOM_CLAUSE, $3, $1.token_file, $1.token_line, $1.token_text);
 }
 | OMP_CUSTOM_CLAUSE '(' ')'
 {
-	$$ = ASTMake1(AST_OMP_CUSTOM_CLAUSE, NULL, $1.token_line, $1.token_text);
+	$$ = ASTMake1(AST_OMP_CUSTOM_CLAUSE, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 | OMP_CUSTOM_CLAUSE
 {
-	$$ = ASTMake1(AST_OMP_CUSTOM_CLAUSE, NULL, $1.token_line, $1.token_text);
+	$$ = ASTMake1(AST_OMP_CUSTOM_CLAUSE, NULL, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
@@ -310,13 +310,13 @@ structured_block : statement
 
 parallel_construct : parallel_directive structured_block
 {
-	$$ = ASTMake2(AST_OMP_PARALLEL_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_OMP_PARALLEL_CONSTRUCT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
 parallel_directive : OMP_PRAGMA OMP_PARALLEL parallel_clause_seq_opt OMP_NEWLINE
 {
-	$$ = ASTMake1(AST_OMP_PARALLEL_DIRECTIVE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_PARALLEL_DIRECTIVE, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -360,23 +360,23 @@ parallel_clause : unique_parallel_clause
 
 unique_parallel_clause : OMP_IF '(' expression ')' 
 {
-	$$ = ASTMake1(AST_OMP_IF_CLAUSE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_IF_CLAUSE, $3, $1.token_file, $1.token_line, NULL);
 }
 | OMP_NUM_THREADS '(' expression ')'
 {
-	$$ = ASTMake1(AST_OMP_NUM_THREADS_CLAUSE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_NUM_THREADS_CLAUSE, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 for_construct : for_directive iteration_statement
 {
-	$$ = ASTMake2(AST_OMP_FOR_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_OMP_FOR_CONSTRUCT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
 for_directive : OMP_PRAGMA OMP_FOR for_clause_opt_seq OMP_NEWLINE
 {
-	$$ = ASTMake1(AST_OMP_FOR_DIRECTIVE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_FOR_DIRECTIVE, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -424,49 +424,49 @@ for_clause : unique_for_clause
 
 unique_for_clause : OMP_ORDERED
 {
-	$$ = ASTLeaf(AST_OMP_ORDERED_CLAUSE, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OMP_ORDERED_CLAUSE, $1.token_file, $1.token_line, NULL);
 }
 | OMP_SCHEDULE '(' schedule_kind ')'
 {
-	$$ = ASTMake2(AST_OMP_SCHEDULE_CLAUSE, $3, NULL, $1.token_line, NULL);
+	$$ = ASTMake2(AST_OMP_SCHEDULE_CLAUSE, $3, NULL, $1.token_file, $1.token_line, NULL);
 }
 | OMP_SCHEDULE '(' schedule_kind ',' expression ')'
 {
-	$$ = ASTMake2(AST_OMP_SCHEDULE_CLAUSE, $3, $5, $1.token_line, NULL);
+	$$ = ASTMake2(AST_OMP_SCHEDULE_CLAUSE, $3, $5, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 schedule_kind : OMP_STATIC
 {
-	$$ = ASTLeaf(AST_OMP_STATIC_SCHEDULE, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OMP_STATIC_SCHEDULE, $1.token_file, $1.token_line, NULL);
 }
 | OMP_DYNAMIC
 {
-	$$ = ASTLeaf(AST_OMP_DYNAMIC_SCHEDULE, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OMP_DYNAMIC_SCHEDULE, $1.token_file, $1.token_line, NULL);
 }
 | OMP_GUIDED
 {
-	$$ = ASTLeaf(AST_OMP_GUIDED_SCHEDULE, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OMP_GUIDED_SCHEDULE, $1.token_file, $1.token_line, NULL);
 }
 | OMP_RUNTIME
 {
-	$$ = ASTLeaf(AST_OMP_RUNTIME_SCHEDULE, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OMP_RUNTIME_SCHEDULE, $1.token_file, $1.token_line, NULL);
 }
 | OMP_SCHEDULE_CUSTOM
 {
-    $$ = ASTLeaf(AST_OMP_CUSTOM_SCHEDULE, $1.token_line, $1.token_text);
+    $$ = ASTLeaf(AST_OMP_CUSTOM_SCHEDULE, $1.token_file, $1.token_line, $1.token_text);
 }
 ;
 
 sections_construct : sections_directive section_scope
 {
-	$$ = ASTMake2(AST_OMP_SECTIONS_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_OMP_SECTIONS_CONSTRUCT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
 sections_directive : OMP_PRAGMA OMP_SECTIONS sections_clause_opt_seq OMP_NEWLINE
 {
-	$$ = ASTMake1(AST_OMP_SECTIONS_DIRECTIVE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_SECTIONS_DIRECTIVE, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -509,7 +509,7 @@ sections_clause : data_clause
 
 nowait_clause :  OMP_NOWAIT
 {
-	$$ = ASTLeaf(AST_OMP_NOWAIT_CLAUSE, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OMP_NOWAIT_CLAUSE, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -521,36 +521,36 @@ section_scope : '{' section_sequence '}'
 
 section_sequence : section_directive structured_block
 {
-    AST section_holder = ASTMake2(AST_OMP_SECTION, $1, $2, ASTLine($1), NULL);
+    AST section_holder = ASTMake2(AST_OMP_SECTION, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 	$$ = ASTListLeaf(section_holder);
 }
 | structured_block
 {
-    AST section_holder = ASTMake2(AST_OMP_SECTION, NULL, $1, ASTLine($1), NULL);
+    AST section_holder = ASTMake2(AST_OMP_SECTION, NULL, $1, ASTFileName($1), ASTLine($1), NULL);
 	$$ = ASTListLeaf(section_holder);
 }
 | section_sequence section_directive structured_block
 {
-    AST section_holder = ASTMake2(AST_OMP_SECTION, $2, $3, ASTLine($2), NULL);
+    AST section_holder = ASTMake2(AST_OMP_SECTION, $2, $3, ASTFileName($2), ASTLine($2), NULL);
 	$$ = ASTList($1, section_holder);
 }
 ;
 
 section_directive : OMP_PRAGMA OMP_SECTION OMP_NEWLINE
 {
-	$$ = ASTLeaf(AST_OMP_SECTION_DIRECTIVE, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OMP_SECTION_DIRECTIVE, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 single_construct : single_directive structured_block
 {
-	$$ = ASTMake2(AST_OMP_SINGLE_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_OMP_SINGLE_CONSTRUCT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
 single_directive : OMP_PRAGMA OMP_SINGLE single_clause_opt_seq OMP_NEWLINE
 {
-	$$ = ASTMake1(AST_OMP_SINGLE_DIRECTIVE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_SINGLE_DIRECTIVE, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -594,13 +594,13 @@ single_clause : data_clause
 
 parallel_for_construct : parallel_for_directive iteration_statement
 {
-	$$ = ASTMake2(AST_OMP_PARALLEL_FOR_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_OMP_PARALLEL_FOR_CONSTRUCT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
 parallel_for_directive : OMP_PRAGMA OMP_PARALLEL_FOR parallel_for_clause_opt_seq OMP_NEWLINE
 {
-	$$ = ASTMake1(AST_OMP_PARALLEL_FOR_DIRECTIVE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_PARALLEL_FOR_DIRECTIVE, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -648,13 +648,13 @@ parallel_for_clause : unique_parallel_clause
 
 parallel_sections_construct : parallel_sections_directive section_scope
 {
-	$$ = ASTMake2(AST_OMP_PARALLEL_SECTIONS_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_OMP_PARALLEL_SECTIONS_CONSTRUCT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
 parallel_sections_directive : OMP_PRAGMA OMP_PARALLEL_SECTIONS parallel_sections_clause_opt_seq OMP_NEWLINE
 {
-	$$ = ASTMake1(AST_OMP_PARALLEL_SECTIONS_DIRECTIVE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_PARALLEL_SECTIONS_DIRECTIVE, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -698,25 +698,25 @@ parallel_sections_clause : unique_parallel_clause
 
 master_construct : master_directive structured_block
 {
-	$$ = ASTMake2(AST_OMP_MASTER_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_OMP_MASTER_CONSTRUCT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
 master_directive : OMP_PRAGMA OMP_MASTER OMP_NEWLINE
 {
-	$$ = ASTLeaf(AST_OMP_MASTER_DIRECTIVE, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OMP_MASTER_DIRECTIVE, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 critical_construct : critical_directive structured_block
 {
-	$$ = ASTMake2(AST_OMP_CRITICAL_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_OMP_CRITICAL_CONSTRUCT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
 critical_directive : OMP_PRAGMA OMP_CRITICAL region_phrase_opt OMP_NEWLINE
 {
-	$$ = ASTMake1(AST_OMP_CRITICAL_DIRECTIVE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_CRITICAL_DIRECTIVE, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -733,33 +733,33 @@ region_phrase_opt : /* empty */
 region_phrase : '(' IDENTIFIER ')'
 {
 	// Cast it into an expression, makes things a lot easier
-	AST critical_region_phrase = ASTLeaf(AST_SYMBOL, $2.token_line, $2.token_text);
+	AST critical_region_phrase = ASTLeaf(AST_SYMBOL, $2.token_file, $2.token_line, $2.token_text);
 
-	$$ = ASTMake1(AST_EXPRESSION, critical_region_phrase, $1.token_line, NULL);
+	$$ = ASTMake1(AST_EXPRESSION, critical_region_phrase, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 barrier_directive : OMP_PRAGMA OMP_BARRIER OMP_NEWLINE
 {
-	$$ = ASTLeaf(AST_OMP_BARRIER_DIRECTIVE, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OMP_BARRIER_DIRECTIVE, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 atomic_construct : atomic_directive expression_statement
 {
-	$$ = ASTMake2(AST_OMP_ATOMIC_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_OMP_ATOMIC_CONSTRUCT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
 atomic_directive : OMP_PRAGMA OMP_ATOMIC OMP_NEWLINE
 {
-	$$ = ASTLeaf(AST_OMP_ATOMIC_DIRECTIVE, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OMP_ATOMIC_DIRECTIVE, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 flush_directive : OMP_PRAGMA OMP_FLUSH flush_vars_opt OMP_NEWLINE
 {
-	$$ = ASTMake1(AST_OMP_FLUSH_DIRECTIVE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_FLUSH_DIRECTIVE, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -781,58 +781,58 @@ flush_vars : '(' variable_list ')'
 
 ordered_construct : ordered_directive structured_block
 {
-	$$ = ASTMake2(AST_OMP_ORDERED_CONSTRUCT, $1, $2, ASTLine($1), NULL);
+	$$ = ASTMake2(AST_OMP_ORDERED_CONSTRUCT, $1, $2, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 
 ordered_directive : OMP_PRAGMA OMP_ORDERED OMP_NEWLINE
 {
-	$$ = ASTLeaf(AST_OMP_ORDERED_DIRECTIVE, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OMP_ORDERED_DIRECTIVE, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 threadprivate_directive : OMP_PRAGMA OMP_THREADPRIVATE '(' variable_list ')' OMP_NEWLINE
 {
-	$$ = ASTMake1(AST_OMP_THREADPRIVATE_DIRECTIVE, $4, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_THREADPRIVATE_DIRECTIVE, $4, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 data_clause : OMP_PRIVATE '(' variable_list ')'
 {
-	$$ = ASTMake1(AST_OMP_PRIVATE_CLAUSE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_PRIVATE_CLAUSE, $3, $1.token_file, $1.token_line, NULL);
 }
 | OMP_COPYPRIVATE '(' variable_list ')'
 {
-	$$ = ASTMake1(AST_OMP_COPYPRIVATE_CLAUSE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_COPYPRIVATE_CLAUSE, $3, $1.token_file, $1.token_line, NULL);
 }
 | OMP_FIRSTPRIVATE '(' variable_list ')'
 {
-	$$ = ASTMake1(AST_OMP_FIRSTPRIVATE_CLAUSE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_FIRSTPRIVATE_CLAUSE, $3, $1.token_file, $1.token_line, NULL);
 }
 | OMP_LASTPRIVATE '(' variable_list ')'
 {
-	$$ = ASTMake1(AST_OMP_LASTPRIVATE_CLAUSE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_LASTPRIVATE_CLAUSE, $3, $1.token_file, $1.token_line, NULL);
 }
 | OMP_SHARED '(' variable_list ')'
 {
-	$$ = ASTMake1(AST_OMP_SHARED_CLAUSE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_SHARED_CLAUSE, $3, $1.token_file, $1.token_line, NULL);
 }
 | OMP_DEFAULT '(' OMP_SHARED ')'
 {
-	$$ = ASTLeaf(AST_OMP_DEFAULT_SHARED_CLAUSE, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OMP_DEFAULT_SHARED_CLAUSE, $1.token_file, $1.token_line, NULL);
 }
 | OMP_DEFAULT '(' OMP_NONE ')'
 {
-	$$ = ASTLeaf(AST_OMP_DEFAULT_NONE_CLAUSE, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_OMP_DEFAULT_NONE_CLAUSE, $1.token_file, $1.token_line, NULL);
 }
 | OMP_DEFAULT '(' OMP_DEFAULT_CUSTOM ')'
 {
-    $$ = ASTLeaf(AST_OMP_DEFAULT_CUSTOM_CLAUSE, $1.token_line, $3.token_text);
+    $$ = ASTLeaf(AST_OMP_DEFAULT_CUSTOM_CLAUSE, $1.token_file, $1.token_line, $3.token_text);
 }
 | OMP_REDUCTION '(' reduction_operator ':' variable_list ')'
 {
 	$$ = ASTMake2(AST_OMP_REDUCTION_CLAUSE, 
-			$3, $5, $1.token_line, NULL);
+			$3, $5, $1.token_file, $1.token_line, NULL);
 }
 | user_defined_reduction
 {
@@ -840,41 +840,41 @@ data_clause : OMP_PRIVATE '(' variable_list ')'
 }
 | OMP_COPYIN '(' variable_list ')'
 {
-	$$ = ASTMake1(AST_OMP_COPYIN_CLAUSE, $3, $1.token_line, NULL);
+	$$ = ASTMake1(AST_OMP_COPYIN_CLAUSE, $3, $1.token_file, $1.token_line, NULL);
 }
 ;
 
 reduction_operator : '+' 
 {
-	$$ = ASTLeaf(AST_ADD_OPERATOR, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_ADD_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '*'
 {
-	$$ = ASTLeaf(AST_MULT_OPERATOR, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_MULT_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '-'
 {
-	$$ = ASTLeaf(AST_MINUS_OPERATOR, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_MINUS_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '&'
 {
-	$$ = ASTLeaf(AST_BITWISE_AND_OPERATOR, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_BITWISE_AND_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '^'
 {
-	$$ = ASTLeaf(AST_BITWISE_XOR_OPERATOR, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_BITWISE_XOR_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | '|'
 {
-	$$ = ASTLeaf(AST_BITWISE_OR_OPERATOR, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_BITWISE_OR_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | ANDAND
 {
-	$$ = ASTLeaf(AST_LOGICAL_AND_OPERATOR, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_LOGICAL_AND_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 | OROR
 {
-	$$ = ASTLeaf(AST_LOGICAL_OR_OPERATOR, $1.token_line, NULL);
+	$$ = ASTLeaf(AST_LOGICAL_OR_OPERATOR, $1.token_file, $1.token_line, NULL);
 }
 ;
 
@@ -891,12 +891,12 @@ variable_list : id_expression
 user_defined_reduction : OMP_REDUCTION '(' id_expression ',' constant_expression ':' variable_list ')'
 {
 	$$ = ASTMake3(AST_OMP_USER_DEFINED_REDUCTION_CLAUSE, 
-			$3, $5, $7, $1.token_line, NULL);
+			$3, $5, $7, $1.token_file, $1.token_line, NULL);
 }
 | OMP_REDUCTION '(' reduction_operator ',' constant_expression ':' variable_list ')'
 {
 	$$ = ASTMake3(AST_OMP_USER_DEFINED_REDUCTION_CLAUSE, 
-			$3, $5, $7, $1.token_line, NULL);
+			$3, $5, $7, $1.token_file, $1.token_line, NULL);
 }
 ;
 

@@ -82,7 +82,7 @@ long long unsigned int ast_used_memory(void)
 
 AST ast_make(node_t type, int num_children, 
         AST child0, AST child1, AST child2, AST child3, 
-        int line, const char *text)
+        const char* file, int line, const char *text)
 {
     AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_ast);
 
@@ -92,7 +92,7 @@ AST ast_make(node_t type, int num_children,
     result->num_children = num_children;
 
     result->line = line;
-    result->filename = scanning_now.current_filename;
+    result->filename = file;
 
     result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_ast);
 
@@ -314,7 +314,7 @@ AST ast_copy_for_instantiation(const_AST a)
 AST ast_list_leaf(AST a)
 {
     AST result = ast_make(AST_NODE_LIST, 2, NULL, a, NULL, NULL, 
-            ast_get_line(a), ast_get_text(a));
+            NULL, ast_get_line(a), ast_get_text(a));
 
     return result;
 }
@@ -322,7 +322,7 @@ AST ast_list_leaf(AST a)
 AST ast_list(AST list, AST last_elem)
 {
     AST a = ast_make(AST_NODE_LIST, 2, list, last_elem, NULL, NULL, 
-            ast_get_line(last_elem), ast_get_text(last_elem));
+            NULL, ast_get_line(last_elem), ast_get_text(last_elem));
 
     return a;
 }
@@ -445,7 +445,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
     }
     else
     {
-        AST result = ASTLeaf(AST_AMBIGUITY, 0, NULL);
+        AST result = ASTLeaf(AST_AMBIGUITY, NULL, 0, NULL);
 
         result->num_ambig = 2;
         result->ambig = counted_calloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_ast);
