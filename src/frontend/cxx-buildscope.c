@@ -4307,10 +4307,11 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
         DEBUG_CODE()
         {
-            fprintf(stderr, "Registering new function '%s' %p in (%s)\n", 
+            fprintf(stderr, "Registering new function '%s' at %s. symbol=%p scope=%p\n", 
                     function_name, 
+                    ast_location(declarator_id),
                     new_entry,
-                    ast_location(declarator_id)
+                    new_entry->decl_context.current_scope
                    );
         }
 
