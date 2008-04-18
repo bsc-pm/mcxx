@@ -917,9 +917,37 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
                         print_declarator(updated_type),
                         print_declarator(argument_types[i]));
             }
-            // We have to check several things
+            // We have to check several things before giving up so early
             type_t* original_parameter = 
                 function_type_get_parameter_type_num(specialized_type, i);
+            char ok = 0;
+
+            // This case must be valid and overload will stop if not
+            //
+            // template <typename _T>
+            // void f(_T a, int b);
+            //
+            // void g()
+            // {
+            //    int a = 0;
+            //    unsigned int b = 1;
+            //
+            //    f(a, b);
+            // }
+            //
+            // Here we would see that 'unsigned int' (argument type) is not exactly 'int' (parameter type)
+            // and fail. So if the parameter type (original_parameter) is not dependent, allow this case
+
+            if (!is_dependent_type(original_parameter, decl_context))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEDEDUC: But the original parameter type '%s' was not dependent so "
+                            "it did not play any role in the overall deduction\n",
+                            print_declarator(original_parameter));
+                }
+                ok = 1;
+            }
 
             // So, this case is not valid (obviously)
             //
@@ -932,7 +960,6 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             //   f(a); <-- won't match the template since the deduced 'A' is (int&) and we are passing (const int&)
             // }
             //
-            char ok = 0;
             if (is_lvalue_reference_type(original_parameter)
                     && is_more_or_equal_cv_qualified_type(updated_type,
                         argument_types[i]))
