@@ -2964,7 +2964,7 @@ static scope_entry_list_t* query_template_id(AST template_id,
     return NULL;
 }
 
-static scope_entry_list_t *copy_entry_list(scope_entry_list_t* orig)
+scope_entry_list_t *copy_entry_list(scope_entry_list_t* orig)
 {
     scope_entry_list_t* result = NULL;
     if (orig == NULL)

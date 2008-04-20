@@ -90,6 +90,7 @@ struct scope_entry_list_tag* query_id_expression_flags(decl_context_t decl_conte
 
 // Manipulators
 struct scope_entry_list_tag* create_list_from_entry(struct scope_entry_tag* entry);
+struct scope_entry_list_tag *copy_entry_list(scope_entry_list_t* orig);
 
 // Get the fully qualified symbol name in the scope of the ocurrence
 const char* get_fully_qualified_symbol_name(struct scope_entry_tag* entry, decl_context_t decl_context, char* is_dependent, int* max_qualif_level);
