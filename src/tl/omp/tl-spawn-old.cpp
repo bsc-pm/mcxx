@@ -54,7 +54,9 @@ namespace TL
             Source outlined_function_name_decl;
 
             // Calculate the proper expression referring this function
-            outlined_function_name_decl << get_outline_function_reference(function_definition, parameter_info_list);
+            outlined_function_name_decl 
+                << get_outline_function_reference(function_definition, 
+                        parameter_info_list, /* team_parameter */ false);
 
             // The skeleton of the spawn code will be this one
             spawn_code

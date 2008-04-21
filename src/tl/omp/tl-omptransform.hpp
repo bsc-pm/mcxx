@@ -200,7 +200,8 @@ namespace TL
                         Source& instrument_code_after);
 
                 std::string get_outline_function_reference(FunctionDefinition function_definition,
-                        ObjectList<ParameterInfo>& parameter_info_list);
+                        ObjectList<ParameterInfo>& parameter_info_list,
+                        bool team_parameter);
 
                 Source get_critical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references);
                 Source get_noncritical_reduction_code(ObjectList<OpenMP::ReductionSymbol> reduction_references);

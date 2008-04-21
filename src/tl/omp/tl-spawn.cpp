@@ -82,7 +82,9 @@ namespace TL
             Source outlined_function_name_decl;
 
             // Calculate the proper expression referring this function
-            outlined_function_name_decl << get_outline_function_reference(function_definition, parameter_info_list);
+            outlined_function_name_decl 
+                << get_outline_function_reference(function_definition, parameter_info_list, 
+                        /* team_parameter */ true);
 
             Source team_size;
 
@@ -270,7 +272,7 @@ namespace TL
                 << "{"
                 <<    comment ("Master invokes outline")
                 <<    firstprivatized_data
-                <<    outlined_function_name_decl << "(" << outline_arguments << ");"
+                <<    "(" << outlined_function_name_decl << ")" << "(" << outline_arguments << ");"
                 << "}"
                 ;
 

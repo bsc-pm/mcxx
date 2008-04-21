@@ -336,7 +336,8 @@ namespace TL
             Source outlined_function_reference;
             Source selector_cast;
 
-            outlined_function_reference << get_outline_function_reference(function_definition, parameter_info_list);
+            outlined_function_reference 
+                << get_outline_function_reference(function_definition, parameter_info_list, /* team_parameter */ false);
 
             Source instrument_code_task_creation;
 

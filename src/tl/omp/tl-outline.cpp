@@ -781,14 +781,13 @@ namespace TL
 
         // This function computes a proper reference to the function
         std::string OpenMPTransform::get_outline_function_reference(FunctionDefinition function_definition,
-                ObjectList<ParameterInfo>& parameter_info_list)
+                ObjectList<ParameterInfo>& parameter_info_list,
+                bool team_parameter)
         {
             IdExpression function_name = function_definition.get_function_name();
             Symbol function_symbol = function_definition.get_ast().get_attribute(LANG_FUNCTION_SYMBOL);
 
             Source outlined_function_name_decl;
-
-            bool additional_parentheses = false;
 
             // We have to ensure that this qualification refers to the proper function
             // in C++ this is achieved via a casting. A cast of an overload function name
@@ -796,13 +795,15 @@ namespace TL
             // function (if any, otherwise the program is ill-formed)
             if (function_symbol.is_template_function())
             {
-                Source overload_selector_cast;
+                Source overload_selector_cast_parameters;
 
-                overload_selector_cast << "(";
-                additional_parentheses = true;
-                overload_selector_cast << "(void (*) (";
+                // A team parameter is required
+                if (team_parameter)
+                {
+                    overload_selector_cast_parameters.append_with_separator(
+                            "nth_team_t* nth_current_team", ",");
+                }
 
-                bool first = true;
                 if (is_nonstatic_member_function(function_definition))
                 {
                     // Do not forget the "this" type
@@ -814,31 +815,21 @@ namespace TL
                     // decl_scope.printscope();
                     Type class_type = this_symbol.get_type();
 
-                    overload_selector_cast << class_type.get_declaration(function_body_scope, "");
-
-                    // There is already a first parameter
-                    first = false;
+                    overload_selector_cast_parameters.append_with_separator(
+                            class_type.get_declaration(function_body_scope, ""),
+                            ",");
                 }
 
                 for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
                         it != parameter_info_list.end();
                         it++)
                 {
-                    if (!first)
-                    {
-                        overload_selector_cast << ", ";
-                    }
-                    else
-                    {
-                        first = false;
-                    }
-
-                    overload_selector_cast << it->type.get_declaration(function_definition.get_scope(), "");
+                    overload_selector_cast_parameters.append_with_separator(
+                            it->type.get_declaration(function_definition.get_scope(), ""),
+                            ",");
                 }
 
-                overload_selector_cast << "))";
-
-                outlined_function_name_decl << overload_selector_cast;
+                outlined_function_name_decl << "(void(*)(" << overload_selector_cast_parameters << "))";
             }
 
 
@@ -878,11 +869,6 @@ namespace TL
             {
                 Source outlined_function_name = get_outlined_function_name(function_name);
                 outlined_function_name_decl << outlined_function_name;
-            }
-
-            if (additional_parentheses)
-            {
-                outlined_function_name_decl << ")";
             }
 
             return outlined_function_name_decl.get_source();
