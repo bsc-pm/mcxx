@@ -37,7 +37,7 @@ pragma_prefix = css
 
 [smpss-cc]
 language = C
-options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=align-memory:no
+options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=align-memory:yes
 preprocessor_name = c99
 preprocessor_options = -E -I@prefix@/include -include CellSS.h -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_SMP=1
 

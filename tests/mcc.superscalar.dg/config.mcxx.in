@@ -1,6 +1,6 @@
 [lt-mcxx]
 language = C
-options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=align-memory:no
+options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=align-memory:yes
 preprocessor_name = c99
 preprocessor_options = -E @SUPERSCALAR_INCLUDES@
 compiler_name = c99
