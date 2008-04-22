@@ -94,6 +94,11 @@ namespace TL
             PragmaCustomClause get_clause(const std::string& name);
     };
 
+    bool is_pragma_custom_directive(const std::string& pragma_preffix, 
+            const std::string& pragma_directive, 
+            AST_t ast,
+            ScopeLink scope_link);
+
     typedef std::map<std::string, Signal1<PragmaCustomConstruct> > CustomFunctorMap;
 
     class PragmaCustomDispatcher : public TraverseFunctor
