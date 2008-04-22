@@ -1620,7 +1620,7 @@ type_t *string_literal_type(AST expr)
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "[EXPRTYPE] String literal %s type is '%s[%d]'\n",
+        fprintf(stderr, "EXPRTYPE: String literal %s type is '%s[%d]'\n",
                 ASTText(expr),
                 !is_wchar ? "char" : "wchar_t",
                 length);
@@ -5084,7 +5084,7 @@ static char check_for_function_arguments(AST arguments, decl_context_t decl_cont
             {
                 DEBUG_CODE()
                 {
-                    fprintf(stderr, "[EXPRTYPE] When checking function call, argument %d '%s' could not be checked\n",
+                    fprintf(stderr, "EXPRTYPE: When checking function call, argument %d '%s' could not be checked\n",
                             (*num_arguments), prettyprint_in_buffer(parameter_expr));
                 }
                 return 0;

@@ -62,7 +62,7 @@ namespace TL
             if (!exit_condition_clause.is_defined())
             {
                 std::cerr << adf_construct.get_ast().get_locus() 
-                    << ":error: 'exit_condition' clause not specified" << std::endl;
+                    << ": error: 'exit_condition' clause not specified" << std::endl;
                 set_phase_status(PHASE_STATUS_ERROR);
                 return;
             }
@@ -74,7 +74,7 @@ namespace TL
             if (!trigger_set.is_defined())
             {
                 std::cerr << adf_construct.get_ast().get_locus() 
-                    << ":error: 'trigger_set' clause not specified" << std::endl;
+                    << ": error: 'trigger_set' clause not specified" << std::endl;
                 set_phase_status(PHASE_STATUS_ERROR);
                 return;
             }
