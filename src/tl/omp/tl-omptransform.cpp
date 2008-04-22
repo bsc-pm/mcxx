@@ -162,6 +162,11 @@ namespace TL
             // #pragma omp preserve
             register_construct("preserve");
             on_custom_construct_post["preserve"].connect(functor(&OpenMPTransform::stm_preserve_postorder, *this));
+
+            // #pragma omp adf
+            register_construct("adf");
+            on_custom_construct_pre["adf"].connect(functor(&OpenMPTransform::adf_task_preorder, *this));
+            on_custom_construct_post["adf"].connect(functor(&OpenMPTransform::adf_task_postorder, *this));
             // --- End of transactional world --
         }
 

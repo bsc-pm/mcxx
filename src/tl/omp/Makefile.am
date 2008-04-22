@@ -32,7 +32,6 @@ libtlomp_la_SOURCES = \
    tl-datasharing.cpp \
    tl-debug.cpp \
    tl-symbols.cpp \
-   tl-transaction.cpp \
    tl-warning.cpp \
    tl-ordered.cpp \
    tl-outline.cpp \
@@ -52,6 +51,10 @@ libtlomp_la_SOURCES = \
    tl-taskgroup.cpp \
    tl-threadprivate.cpp \
    tl-taskserialize.hpp \
+   tl-transaction.cpp \
+   tl-adf.cpp \
+   tl-transaction-expression.hpp \
+   tl-transaction-expression.cpp \
    $(END)
 
 libtlomp_serialize_la_CFLAGS = $(tl_omp_flags)

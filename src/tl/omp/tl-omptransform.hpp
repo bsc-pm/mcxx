@@ -471,7 +471,12 @@ namespace TL
                         ObjectList<Symbol> &local_symbols,
                         bool from_wrapped_function);
 
+                // ADF part of STM
+                void adf_task_preorder(OpenMP::CustomConstruct adf_construct);
+                void adf_task_postorder(OpenMP::CustomConstruct adf_construct);
+
                 // --- End of transactional world --
+                
                 void declare_member_if_needed(Symbol function_symbol,
                         FunctionDefinition function_definition,
                         IdExpression function_name,

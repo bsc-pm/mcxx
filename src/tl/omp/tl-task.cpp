@@ -424,7 +424,7 @@ namespace TL
                 <<          comment("Run the task inline")
                 <<          fallback_capture_values
                 <<          increment_task_level
-                <<          outlined_function_reference << "(" << fallback_arguments << ");"
+                <<          "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
                 <<          decrement_task_level
                 <<          "break;"
                 <<      "}"
