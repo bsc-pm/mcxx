@@ -94,6 +94,14 @@ RefPtr<Object> Object::get_attribute(const std::string& name) const
     return result;
 }
 
+void Object::set_attribute(const std::string &name, bool b)
+{
+    tl_type_t value = tl_bool(b);
+
+    // Manually increase the reference counter of this object
+    this->set_extended_attribute(name, value);
+}
+
 void Object::set_attribute(const std::string &name, RefPtr<Object> obj)
 {
     tl_type_t value;

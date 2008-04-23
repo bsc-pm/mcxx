@@ -68,6 +68,13 @@ namespace TL
              */
             void set_attribute(const std::string &name, RefPtr<Object> obj);
 
+            //! Sets attribute name with a boolean value
+            /*!
+             * \param name The name of the defined extended struct field.
+             * \param b Boolean value to be stored
+             */
+            void set_attribute(const std::string &name, bool b);
+
             //! Default constructor for Object
             Object()
                 : _refcount(1)
