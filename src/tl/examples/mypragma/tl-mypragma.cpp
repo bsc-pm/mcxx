@@ -40,34 +40,30 @@ namespace TL
 
             void construct_post(PragmaCustomConstruct pragma_custom_construct)
             {
-                Source src;
-
-                AST_t inner_tree;
-
-                src 
-                    << "{" 
-                    <<    "int __my_var;"
-                    <<    statement_placeholder(inner_tree)
-                    << "}"
-                    ;
-
-                AST_t parsed_tree = src.parse_statement(pragma_custom_construct.get_ast(),
-                        pragma_custom_construct.get_scope_link());
 
                 {
-                    // Parsing this now is valid thanks to the strategically placed 'inner_tree' :)
-                    Source src2;
-                    src2
-                        << "__my_var = __my_var + 1;"
-                        ;
+                    PragmaCustomClause clause = pragma_custom_construct.get_clause("clause_test");
+                    ObjectList<Expression> expression = clause.get_expression_list();
 
-                    AST_t parsed_tree_2 = src2.parse_statement(inner_tree, 
-                            pragma_custom_construct.get_scope_link());
-
-                    inner_tree.replace(parsed_tree_2);
+                    for (ObjectList<Expression>::iterator it = expression.begin();
+                            it != expression.end();
+                            it++)
+                    {
+                        std::cerr << "-> " << it->prettyprint() << std::endl;
+                    }
                 }
+                std::cerr << "---" << std::endl;
+                {
+                    PragmaCustomClause clause = pragma_custom_construct.get_clause("clause_test");
+                    ObjectList<Expression> expression = clause.get_expression_list();
 
-                pragma_custom_construct.get_ast().replace(parsed_tree);
+                    for (ObjectList<Expression>::iterator it = expression.begin();
+                            it != expression.end();
+                            it++)
+                    {
+                        std::cerr << "-> " << it->prettyprint() << std::endl;
+                    }
+                }
             }
     };
 }
