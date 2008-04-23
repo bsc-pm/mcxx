@@ -37,14 +37,27 @@ namespace TL
                     it2 != argument_list.end();
                     it2++)
             {
-                Source src;
-                src << it2->prettyprint();
+                TL::Bool is_expression = it2->get_attribute(LANG_IS_EXPRESSION_NEST);
 
-                AST_t parsed_expr = src.parse_expression(ref_tree, scope_link);
+                if (!is_expression)
+                {
+                    Source src;
+                    src << it2->prettyprint();
 
-                Expression expr(parsed_expr, scope_link);
+                    AST_t parsed_expr = src.parse_expression(ref_tree, scope_link);
 
-                result.push_back(expr);
+                    Expression expr(parsed_expr, scope_link);
+                    it2->replace(expr.get_ast());
+
+                    it2->set_attribute(LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT, true);
+
+                    result.push_back(expr);
+                }
+                else
+                {
+                    Expression expr(*it2, scope_link);
+                    result.push_back(expr);
+                }
             }
         }
 
