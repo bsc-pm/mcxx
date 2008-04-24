@@ -51,7 +51,8 @@ namespace TL
 
                     it2->set_attribute(LANG_IS_PRAGMA_CUSTOM_CLAUSE_ARGUMENT, true);
 
-                    result.push_back(expr);
+                    Expression expr2(*it2, scope_link);
+                    result.push_back(expr2);
                 }
                 else
                 {
