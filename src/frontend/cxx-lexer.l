@@ -378,8 +378,7 @@ threadprivate {
             }
         case PDK_NONE :
             {
-                running_error("%s:%d: error: unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?"
-                        " at %s:%d.", 
+                running_error("%s:%d: error: unknown directive '%s' for pragma '%s'. Maybe you forgot to register it?",
                         scanning_now.current_filename, 
                         scanning_now.line_number,
                         yytext,
