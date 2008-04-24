@@ -38,12 +38,9 @@ namespace TL
 
             ObjectList<AST_t> filter_pragma_clause();
 
-            bool _parsed_expressions;
-            ObjectList<Expression> _expressions;
-
         public:
             PragmaCustomClause(const std::string& src, AST_t ref, ScopeLink scope_link)
-                : LangConstruct(ref, scope_link), _clause_name(src), _parsed_expressions(false)
+                : LangConstruct(ref, scope_link), _clause_name(src) 
             {
             }
 

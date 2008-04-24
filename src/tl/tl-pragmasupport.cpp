@@ -258,14 +258,7 @@ namespace TL
    
     ObjectList<Expression> PragmaCustomClause::get_expression_list()
     {
-        if (!_parsed_expressions)
-        {
-            _expressions.clear();
-            _expressions = parse_as_expressions(filter_pragma_clause(), this->_ref, this->_scope_link);
-            _parsed_expressions = true;
-        }
-
-        return _expressions;
+        return parse_as_expressions(filter_pragma_clause(), this->_ref, this->_scope_link);
     }
 
 
