@@ -59,8 +59,6 @@ namespace TL
             OpenMP::Directive directive = adf_construct.directive();
             OpenMP::CustomClause exit_condition_clause = directive.custom_clause("exit_condition");
 
-            Expression exit_condition = exit_condition_clause.get_expression_list()[0];
-
             OpenMP::CustomClause trigger_set = directive.custom_clause("trigger_set");
 
             OpenMP::CustomClause group_name_clause = directive.custom_clause("name");
@@ -122,6 +120,7 @@ namespace TL
             // STMize exit condition
             if (exit_condition_clause.is_defined())
             {
+                Expression exit_condition = exit_condition_clause.get_expression_list()[0];
                 // Duplicate but by means of parsing (this updates the semantic information)
                 Source src = exit_condition.prettyprint();
                 AST_t tree = src.parse_expression(inner_tree, adf_construct.get_scope_link());
@@ -165,6 +164,7 @@ namespace TL
 
             // Trigger set registration due to 'exit_condition'
             Source trigger_set_registration;
+            bool have_some_trigger_set = false;
             if (exit_condition_clause.is_defined())
             {
                 ObjectList<IdExpression> id_expression_list = exit_condition_clause.id_expressions();
@@ -193,6 +193,7 @@ namespace TL
                             << "' involves an array. This is not yet supported" 
                             << std::endl;
                     }
+                    have_some_trigger_set = true;
                 }
 
                 // Trigger set registration due to 'trigger_set'
@@ -291,17 +292,23 @@ namespace TL
                                 << ");"
                                 ;
                         }
+
+                        have_some_trigger_set = true;
                     }
-
-                    AST_t trigger_registration_tree = trigger_set_registration.parse_statement(trigger_set_placeholder,
-                            adf_construct.get_scope_link());
-
-                    trigger_set_placeholder.replace(trigger_registration_tree);
                 }
 
-                // Replace it all
-                adf_construct.get_ast().replace(code_layout_tree);
+
             }
+
+            if (have_some_trigger_set)
+            {
+                AST_t trigger_registration_tree = trigger_set_registration.parse_statement(trigger_set_placeholder,
+                        adf_construct.get_scope_link());
+                trigger_set_placeholder.replace(trigger_registration_tree);
+            }
+
+            // Replace it all
+            adf_construct.get_ast().replace(code_layout_tree);
         }
     }
 }
