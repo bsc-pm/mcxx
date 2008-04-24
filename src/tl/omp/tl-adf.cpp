@@ -59,30 +59,14 @@ namespace TL
             OpenMP::Directive directive = adf_construct.directive();
             OpenMP::CustomClause exit_condition_clause = directive.custom_clause("exit_condition");
 
-            if (!exit_condition_clause.is_defined())
-            {
-                std::cerr << adf_construct.get_ast().get_locus() 
-                    << ": error: 'exit_condition' clause not specified" << std::endl;
-                set_phase_status(PHASE_STATUS_ERROR);
-                return;
-            }
-
             Expression exit_condition = exit_condition_clause.get_expression_list()[0];
 
             OpenMP::CustomClause trigger_set = directive.custom_clause("trigger_set");
 
-            if (!trigger_set.is_defined())
-            {
-                std::cerr << adf_construct.get_ast().get_locus() 
-                    << ": error: 'trigger_set' clause not specified" << std::endl;
-                set_phase_status(PHASE_STATUS_ERROR);
-                return;
-            }
-
             OpenMP::CustomClause group_name_clause = directive.custom_clause("name");
 
             bool group_name_given = group_name_clause.is_defined();
-            std::string group_name;
+            std::string group_name = "default";
             if (group_name_given)
             {
                 group_name = group_name_clause.get_expression_list()[0].prettyprint();
@@ -94,17 +78,27 @@ namespace TL
 
             main_code_layout
                 << "{"
-                <<    "Transaction * __t = createtx(\"a\", 10);"
+                <<    "Transaction * __t = createtx(\"" << adf_construct.get_ast().get_file() 
+                <<             "\"," << adf_construct.get_ast().get_line() <<");"
+                <<    "addTransactionToADFGroup(\"" << group_name << "\", __t);"
                 <<    statement_placeholder(trigger_set_placeholder)
                 <<    "while(1)"
                 <<    "{"
+                <<       "starttx(__t);"
+                <<       "if (__t->status == 18 /*TS_ADF_FINISH*/) "
+                <<       "  break; "
                 <<       statement_placeholder(exit_condition_placeholder)
-                <<       statement_placeholder(inner_tree)
-                <<       "if (committx(__t) == 0)"
+                <<       "if((__t->nestingLevel > 0) || (0 == setjmp(__t->context)))"
                 <<       "{"
-                <<          "retrytx(__t);"
+                <<          statement_placeholder(inner_tree)
+                <<          "if (committx(__t) == 0)"
+                <<          "{"
+                <<             "retrytx(__t);"
+                <<             "break;" 
+                <<          "}"
                 <<       "}"
                 <<    "}"
+                <<    "destroytx(__t);"
                 << "}"
                 ;
 
@@ -126,6 +120,7 @@ namespace TL
                     stm_log_file);
 
             // STMize exit condition
+            if (exit_condition_clause.is_defined())
             {
                 // Duplicate but by means of parsing (this updates the semantic information)
                 Source src = exit_condition.prettyprint();
@@ -168,112 +163,145 @@ namespace TL
                 inner_tree.replace(task_tree);
             }
 
-            // Trigger set registration
+            // Trigger set registration due to 'exit_condition'
+            Source trigger_set_registration;
+            if (exit_condition_clause.is_defined())
             {
-                Source trigger_set_registration;
-                ObjectList<Expression> trigger_set_expr = trigger_set.get_expression_list();
+                ObjectList<IdExpression> id_expression_list = exit_condition_clause.id_expressions();
 
-                for (ObjectList<Expression>::iterator it = trigger_set_expr.begin();
-                        it != trigger_set_expr.end();
+                for (ObjectList<IdExpression>::iterator it = id_expression_list.begin();
+                        it != id_expression_list.end();
                         it++)
                 {
-                    Expression &trigger_expr(*it);
+                    Symbol sym = it->get_symbol();
+                    Type type = sym.get_type();
 
-                    // This should be improved to handle cases like 'a[2]'
-                    if (trigger_expr.is_id_expression())
+                    if (!type.is_array())
                     {
                         trigger_set_registration
                             << "add_scalar_to_trigger_set(__t, "
-                            <<    "&" << trigger_expr.prettyprint() << ", "
-                            <<    "sizeof(" << trigger_expr.prettyprint() << ")"
+                            <<    "&" << it->prettyprint() << ", "
+                            <<    "sizeof(" << it->prettyprint() << ")"
                             << ");"
                             ;
                     }
-                    else if (trigger_expr.is_array_section())
+                    else
                     {
-                        ObjectList<Expression> lower_bounds;
-                        ObjectList<Expression> upper_bounds;
-
-                        Expression basic_expr = compute_bounds_of_sectioned_expression(trigger_expr, lower_bounds, upper_bounds);
-
-                        // FIXME - Do not be so restrictive, pointers to arrays are useful as well :)
-                        if (!basic_expr.is_id_expression())
-                        {
-                            std::cerr << basic_expr.get_ast().get_locus() 
-                                << ": error: invalid trigger set specification '" << trigger_expr.prettyprint()
-                                << "' since the basic expression '" << basic_expr.prettyprint() << "' is not an id-expression" 
-                                << std::endl;
-                            set_phase_status(PHASE_STATUS_ERROR);
-                            return;
-                        }
-
-                        IdExpression id_expression = basic_expr.get_id_expression();
-                        Symbol sym = id_expression.get_symbol();
-                        if (!sym.is_valid())
-                        {
-                            std::cerr << id_expression.get_ast().get_locus() 
-                                << ": error: unknown entity '" << id_expression.prettyprint() << "'" << std::endl;
-                            set_phase_status(PHASE_STATUS_ERROR);
-                            return;
-                        }
-
-                        Type type = sym.get_type();
-                        ObjectList<AST_t> array_dimensions = compute_array_dimensions_of_type(type);
-
-                        if (array_dimensions.size() != lower_bounds.size()
-                                || lower_bounds.size() != upper_bounds.size())
-                        {
-                            std::cerr << id_expression.get_ast().get_locus() 
-                                << ": error: mismatch between array type and array section" << std::endl;
-                            set_phase_status(PHASE_STATUS_ERROR);
-                            return;
-                        }
-
-                        trigger_set_registration
-                            << "add_range_to_trigger_set(__t, " << basic_expr.prettyprint() << "," 
-                            <<     array_dimensions.size() << ","
-                            <<     "sizeof(" << get_basic_type(type).get_declaration(sym.get_scope(), "") << ")"
-                            ;
-
-                        // First add dimensions 
-                        for (ObjectList<AST_t>::iterator it = array_dimensions.begin();
-                                it != array_dimensions.end();
-                                it++)
-                        {
-                            trigger_set_registration << "," << it->prettyprint();
-                        }
-
-                        // Now lower and upper bounds
-                        {
-                            ObjectList<Expression>::iterator it_l = lower_bounds.begin();
-                            ObjectList<Expression>::iterator it_u = upper_bounds.begin();
-
-                            while (it_l != lower_bounds.end())
-                            {
-                                trigger_set_registration << "," << it_l->prettyprint();
-                                trigger_set_registration << "," << it_u->prettyprint();
-
-                                it_u++;
-                                it_l++;
-                            }
-
-                        }
-
-                        // Final parenthesis and semicolon
-                        trigger_set_registration
-                            << ");"
-                            ;
+                        std::cerr 
+                            << it->get_ast().get_locus() << ": error: exit condition expression '" 
+                            << it->prettyprint()
+                            << "' involves an array. This is not yet supported" 
+                            << std::endl;
                     }
                 }
 
-                AST_t trigger_registration_tree = trigger_set_registration.parse_statement(trigger_set_placeholder,
-                        adf_construct.get_scope_link());
+                // Trigger set registration due to 'trigger_set'
+                if (trigger_set.is_defined())
+                {
+                    ObjectList<Expression> trigger_set_expr = trigger_set.get_expression_list();
 
-                trigger_set_placeholder.replace(trigger_registration_tree);
+                    for (ObjectList<Expression>::iterator it = trigger_set_expr.begin();
+                            it != trigger_set_expr.end();
+                            it++)
+                    {
+                        Expression &trigger_expr(*it);
+
+                        // This should be improved to handle cases like 'a[2]'
+                        if (trigger_expr.is_id_expression())
+                        {
+                            trigger_set_registration
+                                << "add_scalar_to_trigger_set(__t, "
+                                <<    "&" << trigger_expr.prettyprint() << ", "
+                                <<    "sizeof(" << trigger_expr.prettyprint() << ")"
+                                << ");"
+                                ;
+                        }
+                        else if (trigger_expr.is_array_section())
+                        {
+                            ObjectList<Expression> lower_bounds;
+                            ObjectList<Expression> upper_bounds;
+
+                            Expression basic_expr = compute_bounds_of_sectioned_expression(trigger_expr, lower_bounds, upper_bounds);
+
+                            // FIXME - Do not be so restrictive, pointers to arrays are useful as well :)
+                            if (!basic_expr.is_id_expression())
+                            {
+                                std::cerr << basic_expr.get_ast().get_locus() 
+                                    << ": error: invalid trigger set specification '" << trigger_expr.prettyprint()
+                                    << "' since the basic expression '" << basic_expr.prettyprint() << "' is not an id-expression" 
+                                    << std::endl;
+                                set_phase_status(PHASE_STATUS_ERROR);
+                                return;
+                            }
+
+                            IdExpression id_expression = basic_expr.get_id_expression();
+                            Symbol sym = id_expression.get_symbol();
+                            if (!sym.is_valid())
+                            {
+                                std::cerr << id_expression.get_ast().get_locus() 
+                                    << ": error: unknown entity '" << id_expression.prettyprint() << "'" << std::endl;
+                                set_phase_status(PHASE_STATUS_ERROR);
+                                return;
+                            }
+
+                            Type type = sym.get_type();
+                            ObjectList<AST_t> array_dimensions = compute_array_dimensions_of_type(type);
+
+                            if (array_dimensions.size() != lower_bounds.size()
+                                    || lower_bounds.size() != upper_bounds.size())
+                            {
+                                std::cerr << id_expression.get_ast().get_locus() 
+                                    << ": error: mismatch between array type and array section" << std::endl;
+                                set_phase_status(PHASE_STATUS_ERROR);
+                                return;
+                            }
+
+                            trigger_set_registration
+                                << "add_range_to_trigger_set(__t, " << basic_expr.prettyprint() << "," 
+                                <<     array_dimensions.size() << ","
+                                <<     "sizeof(" << get_basic_type(type).get_declaration(sym.get_scope(), "") << ")"
+                                ;
+
+                            // First add dimensions 
+                            for (ObjectList<AST_t>::iterator it = array_dimensions.begin();
+                                    it != array_dimensions.end();
+                                    it++)
+                            {
+                                trigger_set_registration << "," << it->prettyprint();
+                            }
+
+                            // Now lower and upper bounds
+                            {
+                                ObjectList<Expression>::iterator it_l = lower_bounds.begin();
+                                ObjectList<Expression>::iterator it_u = upper_bounds.begin();
+
+                                while (it_l != lower_bounds.end())
+                                {
+                                    trigger_set_registration << "," << it_l->prettyprint();
+                                    trigger_set_registration << "," << it_u->prettyprint();
+
+                                    it_u++;
+                                    it_l++;
+                                }
+
+                            }
+
+                            // Final parenthesis and semicolon
+                            trigger_set_registration
+                                << ");"
+                                ;
+                        }
+                    }
+
+                    AST_t trigger_registration_tree = trigger_set_registration.parse_statement(trigger_set_placeholder,
+                            adf_construct.get_scope_link());
+
+                    trigger_set_placeholder.replace(trigger_registration_tree);
+                }
+
+                // Replace it all
+                adf_construct.get_ast().replace(code_layout_tree);
             }
-
-            // Replace it all
-            adf_construct.get_ast().replace(code_layout_tree);
         }
     }
 }
