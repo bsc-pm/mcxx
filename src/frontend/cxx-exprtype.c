@@ -5625,7 +5625,9 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         // FIXME - Implement surrogate calls. They are so odd that they require their own
         // machinery in the overload code
         // Append if needed all conversions leading to pointers to functions
-#if 0
+#define MAX_SURROGATE_FUNCTIONS (64)
+        int num_surrogate_functions = 0;
+
         type_t* actual_class_type = get_actual_class_type(class_type);
 
         scope_entry_list_t* conversion_list = class_type_get_all_conversions(actual_class_type, decl_context);
@@ -5635,17 +5637,100 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         {
             scope_entry_t* conversion = it->entry;
 
-            // The first parameter of any conversion is the destination type of the conversion
-            type_t* destination_type = function_type_get_parameter_type_num(conversion->type_information,
-                    0);
+            type_t* destination_type = function_type_get_return_type(conversion->type_information);
 
             if (is_pointer_to_function_type(no_ref(destination_type)))
             {
-                internal_error("Surrogate calls not implemented yet\n");
+                ERROR_CONDITION(num_surrogate_functions == MAX_SURROGATE_FUNCTIONS,
+                        "Too many surrogate functions to be considered in '%s'\n", 
+                        prettyprint_in_buffer(whole_function_call));
+
+                // Create a faked surrogate function with the type described below
+                scope_entry_t* surrogate_symbol =
+                    counted_calloc(1, sizeof(*surrogate_symbol), &_bytes_used_expr_check);
+
+                scope_entry_list_t* surrogate_symbol_list 
+                    = counted_calloc(1, sizeof(*surrogate_symbol_list), &_bytes_used_expr_check);
+
+                // Add to candidates
+                surrogate_symbol_list->entry = surrogate_symbol;
+                surrogate_symbol_list->next = candidates;
+
+                candidates = surrogate_symbol_list;
+
+                surrogate_symbol->kind = SK_FUNCTION;
+                {
+                    char c[256];
+                    snprintf(c, 255, "<surrogate-function-%d>", num_surrogate_functions);
+                    c[256] = '\0';
+
+                    surrogate_symbol->symbol_name = uniquestr(c);
+                }
+
+                // Check this to be the proper context required
+                surrogate_symbol->decl_context = decl_context;
+
+                surrogate_symbol->line = ast_get_line(whole_function_call);
+                surrogate_symbol->file = ast_get_filename(whole_function_call);
+
+                // This is a surrogate function created here
+                surrogate_symbol->entity_specs.is_surrogate_function = 1;
+                surrogate_symbol->entity_specs.is_builtin = 1;
+
+                // Given
+                //
+                // struct A
+                // {
+                //   operator R (*)(P1, .., Pn)();
+                // };
+                //
+                // Create a type
+                //
+                //  R () (R (*) (P1, .., Pn), P1, .., Pn)
+                type_t* conversion_functional_type = pointer_type_get_pointee_type(no_ref(destination_type));
+                type_t* conversion_functional_return_type = function_type_get_return_type(conversion_functional_type);
+                int conversion_functional_num_parameters = function_type_get_num_parameters(conversion_functional_type);
+
+                // We add one for the first parameter type
+                int surrogate_num_parameters = conversion_functional_num_parameters + 1;
+                if (function_type_get_has_ellipsis(conversion_functional_type))
+                {
+                    // Add another for the ellipsis if needed
+                    surrogate_num_parameters++;
+                }
+
+#define SURROGATE_MAX_PARAMETERS (32)
+                parameter_info_t parameter_info[SURROGATE_MAX_PARAMETERS];
+                memset(parameter_info, 0, sizeof(parameter_info));
+
+                ERROR_CONDITION(SURROGATE_MAX_PARAMETERS <= surrogate_num_parameters, 
+                        "Too many surrogate parameters %d", surrogate_num_parameters);
+
+                // First parameter is the type itself
+                parameter_info[0].type_info = destination_type;
+
+                int k;
+                for (k = 0; k < conversion_functional_num_parameters; k++)
+                {
+                    parameter_info[k + 1].type_info = function_type_get_parameter_type_num(conversion_functional_type, k);
+                }
+
+                if (function_type_get_has_ellipsis(conversion_functional_type))
+                {
+                    parameter_info[k + 1].is_ellipsis = 1;
+                }
+
+                // Get the type
+                type_t* surrogate_function_type = get_new_function_type(conversion_functional_return_type, 
+                        parameter_info, surrogate_num_parameters);
+
+                // Set it as the type of function
+                surrogate_symbol->type_information = surrogate_function_type;
+
+                num_surrogate_functions++;
             }
             it = it->next;
         }
-#endif
     }
 
     DEBUG_CODE()
@@ -5753,6 +5838,25 @@ char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_argume
     // but only in the type system
     if (function_type_get_has_ellipsis(function_type))
         num_parameters--;
+
+    if (entry->entity_specs.is_surrogate_function)
+    {
+        // This is something of the form
+        //
+        // struct A
+        // {
+        //   operator float (*)(int)();
+        // };
+        //
+        // A a;
+        // float *pf;
+        //
+        // pf = a(3);
+        //
+        // The surrogated generated function has prototype 'float ()(float(*)(int), int)', so it has
+        // one more parameter than arguments, simply fake the call having this additional argument
+        num_arguments++;
+    }
 
     // Simple case everybody considers
     if (num_parameters == num_arguments)

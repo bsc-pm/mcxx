@@ -355,6 +355,9 @@ typedef struct entity_specifiers_tag
     struct AST_tag* bitfield_expr;
     decl_context_t bitfield_expr_context;
 
+    // Is a surrogate fake symbol
+    char is_surrogate_function;
+
     // This symbol has been created because of a typedef
     // of an unnamed struct/class/enum/union type
     //

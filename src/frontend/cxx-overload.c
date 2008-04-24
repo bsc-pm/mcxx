@@ -1200,8 +1200,9 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
         {
             // We have to check every argument type
             int first_type = 0;
-            if (candidate->entity_specs.is_static 
-                    || !candidate->entity_specs.is_member)
+            if ((!candidate->entity_specs.is_member
+                    || candidate->entity_specs.is_static)
+                    && !candidate->entity_specs.is_surrogate_function)
             {
                 first_type = 1;
             }
@@ -1216,9 +1217,67 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
             char requires_ambiguous_conversion = 0;
             for (i = first_type; (i < num_types) && still_viable; i++)
             {
-                int argument_number = i - 1;
+                int argument_number = i;
+                // For normal calls it holds the following map
+                //
+                //   argument0, argument1,  ..., argumentN
+                //                 ^                ^
+                //              parameter0, ..., parameterM
+                //
+                // since argument0 is the implicit argument type for member function calls
+                // and its corresponding 'parameter type' is obtained from the member function itself.
+                //
+                // This does not apply to surrogate function calls, where the following schema applies
+
+                //   argument0,  argument1,  ..., argumentN
+                //     ^             ^               ^
+                //   parameter0, parameter1, ..., parameterM
+                //
+                // since argument0 is still the implicit object argument but parameter0 is a faked
+                // type required by the standard: the destination type of the conversion. The remaining
+                // parameters match with that of the actuall object call.
+                //
+                // To put this in an example
+                //
+                //     struct A
+                //     {
+                //       void f(char);
+                //       operator float (*)(int)();
+                //     };
+                //
+                //     A a;
+                //
+                //     a.f('a'); // (1)
+                //
+                // has as arguments and parameters
+                //
+                //   argument0: 'A&' (note: this is a special 'A&')
+                //   argument1: char
+                //
+                //   parameter0: char
+                //
+                //     a(3); // (2)
+                //
+                // has as arguments
+                //
+                //   argument0: 'A&' (note: this is a special 'A&')
+                //   argument1: 'int'
+                //
+                //   parameter0: float (*)(int)
+                //   parameter1: int
+                //
+                // Thus, only skew the argument number on non surrogate functions
+                if (!candidate->entity_specs.is_surrogate_function)
+                {
+                    argument_number = i - 1;
+                }
+
                 implicit_conversion_sequence_t ics_to_candidate;
-                if (i == 0)
+                if (i == 0 
+                        // Surrogate functions have a first parameter that must
+                        // be checked against the implicit argument normally,
+                        // see the long comment above
+                        && !candidate->entity_specs.is_surrogate_function)
                 {
                     ERROR_CONDITION(!candidate->entity_specs.is_member, "Should be member!", 0);
                     ERROR_CONDITION(argument_types[0] == NULL, "No implicit object given and this is a nonstatic member function", 0);
@@ -1311,10 +1370,12 @@ char is_better_function_flags(scope_entry_t* f,
 
     int first_type = 0;
 
-    if (f->entity_specs.is_static
-            || !f->entity_specs.is_member
-            || g->entity_specs.is_static
-            || !g->entity_specs.is_member)
+    if ((f->entity_specs.is_static
+                || !f->entity_specs.is_member
+                || g->entity_specs.is_static
+                || !g->entity_specs.is_member)
+            && (!f->entity_specs.is_surrogate_function
+                || !g->entity_specs.is_surrogate_function))
     {
         first_type = 1;
     }
@@ -1326,9 +1387,19 @@ char is_better_function_flags(scope_entry_t* f,
         implicit_conversion_sequence_t ics_to_f;
         implicit_conversion_sequence_t ics_to_g;
 
-        int argument_number = i - 1;
+        int argument_number = i;
 
-        if (i == 0)
+        // Do not skew argument number if both are surrogate
+        if (!f->entity_specs.is_surrogate_function
+                || !g->entity_specs.is_surrogate_function)
+        {
+            argument_number = i - 1;
+        }
+
+        if (i == 0
+                // If both are surrogate this check is performed normally
+                && (!f->entity_specs.is_surrogate_function
+                    || !g->entity_specs.is_surrogate_function))
         {
             type_t* member_object_type = NULL;
 
