@@ -8,7 +8,7 @@ send_user "\n"
 
 # Mandatory for OpenMP tests
 set wrapper_tool "../libtool"
-source "${srcdir}/openmp_libs.conf"
+source "${srcdir}/openmp_libs_instr.conf"
 append wrapper_options "--mode=execute "
 set full_path_tool "../src/driver/mcxx"
 
