@@ -789,9 +789,13 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
                 first_declarator = ASTSon0(first_init_declarator);
             }
 
-            if (!check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, first_declarator, decl_context))
+            if (ASTType(first_init_declarator) != AST_BITFIELD_DECLARATOR
+                    || first_declarator != NULL)
             {
-                return 0;
+                if (!check_for_decl_spec_seq_followed_by_declarator(decl_specifier_seq, first_declarator, decl_context))
+                {
+                    return 0;
+                }
             }
         }
 
@@ -805,15 +809,22 @@ static char check_for_simple_declaration(AST a, decl_context_t decl_context)
             }
         }
 
-        AST init_declarator_list = ASTSon1(a);
-
-        if (init_declarator_list != NULL)
+        if (first_init_declarator != NULL
+                && ASTType(first_init_declarator) == AST_AMBIGUITY)
         {
-            if (!check_for_init_declarator_list(init_declarator_list, decl_context))
-            {
-                return 0;
-            }
+            solve_ambiguous_init_declarator(first_init_declarator, decl_context);
         }
+
+        // AST init_declarator_list = ASTSon1(a);
+        // if (init_declarator_list != NULL)
+        // {
+        //     if (!check_for_init_declarator_list(init_declarator_list, decl_context))
+        //     {
+        //         return 0;
+        //     }
+        // }
+        //
+        
 
         // Additional check for this special case
         // typedef int T;

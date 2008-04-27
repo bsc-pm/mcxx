@@ -3244,12 +3244,7 @@ static void set_function_parameter_clause(type_t** function_type,
         // Array to pointer standard conversion
         else if (is_array_type(type_info))
         {
-            cv_qualifier_t cv_qualif = get_cv_qualifier(original_type);
-
             type_info = array_type_get_element_type(type_info);
-            /* C99 - cv-qualification is retained in this conversion */
-            type_info = get_cv_qualified_type(type_info, cv_qualif);
-
             type_info = get_pointer_type(type_info);
         }
 

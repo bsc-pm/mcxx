@@ -6050,7 +6050,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             }
 
             (*result).conv[1] = SCI_POINTER_CONVERSION;
-            dest = orig;
+            dest = get_unqualified_type(orig);
         }
         else if (IS_C_LANGUAGE
                 && is_integral_type(orig)
@@ -6069,7 +6069,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             }
 
             (*result).conv[1] = SCI_POINTER_CONVERSION;
-            dest = orig;
+            dest = get_unqualified_type(orig);
         }
         else if (IS_C_LANGUAGE
                 && is_integral_type(dest)
@@ -6089,7 +6089,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             }
 
             (*result).conv[1] = SCI_POINTER_CONVERSION;
-            dest = orig;
+            dest = get_unqualified_type(orig);
         }
         else if (is_pointer_to_class_type(orig)
                 && is_pointer_to_class_type(dest)
