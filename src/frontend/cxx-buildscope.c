@@ -2149,6 +2149,32 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
 
             class_type_add_copy_assignment_operator(class_type, implicit_copy_assignment_function);
         }
+
+        // Implicit destructor
+        if (class_type_get_destructor(class_type) == NULL
+                && is_named_class_type(type_info))
+        {
+            char destructor_name[256] = { 0 };
+            snprintf(destructor_name, 255, "~%s", named_type_get_symbol(type_info)->symbol_name);
+            destructor_name[255] = '\0';
+
+            scope_t* sc = class_type_get_inner_context(class_type).current_scope;
+
+            scope_entry_t* implicit_destructor = new_symbol(class_type_get_inner_context(class_type), sc,
+                    destructor_name);
+
+            type_t* destructor_type = get_new_function_type(
+                    /* returns void */ get_void_type(), 
+                    NULL, 0);
+
+            implicit_destructor->kind = SK_FUNCTION;
+            implicit_destructor->type_information = destructor_type;
+            implicit_destructor->entity_specs.is_member = 1;
+            implicit_destructor->entity_specs.class_type = type_info;
+            implicit_destructor->defined = 1;
+
+            class_type_set_destructor(class_type, implicit_destructor);
+        }
     }
 }
 
@@ -6051,6 +6077,10 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
             // case AST_DESTRUCTOR_TEMPLATE_ID : 
         case AST_DESTRUCTOR_ID :
             {
+                // Adjust the type to return void
+                entry->type_information = get_new_function_type(
+                        /* returns void */ get_void_type(), 
+                        NULL, 0);
                 class_type_set_destructor(get_actual_class_type(class_type), entry);
                 break;
             }
@@ -6411,6 +6441,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 case AST_DESTRUCTOR_ID :
                                     {
                                         // This is the destructor
+                                        // Adjust the type to return void
+                                        entry->type_information = get_new_function_type(
+                                                /* returns void */ get_void_type(), 
+                                                NULL, 0);
                                         class_type_set_destructor(get_actual_class_type(class_type), entry);
                                         break;
                                     }

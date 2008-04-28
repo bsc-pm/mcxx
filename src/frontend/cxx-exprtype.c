@@ -6135,13 +6135,6 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
     // invocations
     //
 
-    // Remove any ambiguity in form of template-id
-    if (ASTType(id_expression) == AST_DESTRUCTOR_ID
-            || ASTType(id_expression) == AST_DESTRUCTOR_TEMPLATE_ID)
-    {
-        return 0;
-    }
-
     if (ASTType(id_expression) == AST_TEMPLATE_ID
             || ASTType(id_expression) == AST_OPERATOR_FUNCTION_ID_TEMPLATE)
     {
@@ -7743,12 +7736,23 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
 
 static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl_context)
 {
+    char is_arrow = 0;
+    if (ASTType(expression) == AST_POINTER_PSEUDO_DESTRUCTOR_CALL)
+    {
+        is_arrow = 1;
+    }
+
     AST postfix_expression = ASTSon0(expression);
     
     char postfix_check = check_for_expression(postfix_expression, decl_context);
     if (!postfix_check
             || ast_get_expression_type(postfix_expression) == NULL)
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "EXPRTYPE: postfix expression '%s' of pseudo-destructor call does not seem valid\n",
+                    prettyprint_in_buffer(postfix_expression));
+        }
         return 0;
     }
 
