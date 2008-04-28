@@ -3842,6 +3842,8 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 // An unqualified destructor name "~name"
                 // 'name' should be a class in this scope
                 AST destructor_id = ASTSon0(declarator_id);
+                // Adjust to 'function () returning void'
+                declarator_type = get_new_function_type(get_void_type(), NULL, 0);
                 return register_new_variable_name(destructor_id, declarator_type, gather_info, decl_context);
                 break;
             }
@@ -3941,6 +3943,14 @@ static scope_entry_t* build_scope_declarator_id_expr(AST declarator_name, type_t
                 else
                 {
                     scope_entry_t *entry = NULL;
+
+                    if (ASTType(ASTSon2(declarator_id)) == AST_DESTRUCTOR_ID
+                            || ASTType(ASTSon2(declarator_id)) == AST_DESTRUCTOR_TEMPLATE_ID)
+                    {
+                        // Adjust the type to 'function () returning void'
+                        declarator_type = get_new_function_type(get_void_type(), NULL, 0);
+                    }
+
                     entry = find_function_declaration(declarator_id, declarator_type, decl_context);
 
                     CXX_LANGUAGE()
@@ -6077,10 +6087,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
             // case AST_DESTRUCTOR_TEMPLATE_ID : 
         case AST_DESTRUCTOR_ID :
             {
-                // Adjust the type to return void
-                entry->type_information = get_new_function_type(
-                        /* returns void */ get_void_type(), 
-                        NULL, 0);
+                // This is the destructor
                 class_type_set_destructor(get_actual_class_type(class_type), entry);
                 break;
             }
@@ -6441,10 +6448,6 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 case AST_DESTRUCTOR_ID :
                                     {
                                         // This is the destructor
-                                        // Adjust the type to return void
-                                        entry->type_information = get_new_function_type(
-                                                /* returns void */ get_void_type(), 
-                                                NULL, 0);
                                         class_type_set_destructor(get_actual_class_type(class_type), entry);
                                         break;
                                     }
