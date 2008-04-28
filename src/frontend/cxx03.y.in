@@ -374,6 +374,8 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> template_exclusive_or_expression
 %type<ast> template_expression
 %type<ast> template_id
+%type<ast> destructor_id
+%type<ast> destructor_template_id
 %type<ast> template_inclusive_or_expression
 %type<ast> template_logical_and_expression
 %type<ast> template_logical_or_expression
@@ -3227,30 +3229,42 @@ unqualified_id : IDENTIFIER
 {
 	$$ = $1;
 }
-| '~' IDENTIFIER
+| destructor_id
 {
-	// Construct an artificial name for it
-	char* c = calloc(sizeof(char), strlen($2.token_text) + 2);
-	strcat(c, "~");
-	strcat(c, $2.token_text);
-
-	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_file, $2.token_line, c);
-
-	$$ = ASTMake1(AST_DESTRUCTOR_ID, identifier, $1.token_file, $1.token_line, NULL);
-}
-| '~' template_id
-{
-	AST symbol = ASTSon0($2);
-
-	char* c = calloc(sizeof(char), strlen(ASTText(symbol)) + 2);
-	strcat(c, "~");
-	strcat(c, ASTText(symbol));
-
-	$$ = ASTMake1(AST_DESTRUCTOR_TEMPLATE_ID, $2, $1.token_file, $1.token_line, c);
+    $$ = $1;
 }
 | template_id
 {
 	$$ = $1;
+}
+;
+
+destructor_id : '~' IDENTIFIER
+{
+	// Construct an artificial name for it
+    char c[256];
+    snprintf(c, 255, "~%s", $2.token_text);
+
+	AST identifier = ASTLeaf(AST_SYMBOL, $2.token_file, $2.token_line, uniquestr(c));
+
+	$$ = ASTMake1(AST_DESTRUCTOR_ID, identifier, $1.token_file, $1.token_line, NULL);
+}
+| destructor_template_id
+{
+    $$ = $1;
+}
+;
+
+
+destructor_template_id : '~' template_id
+{
+	AST symbol = ASTSon0($2);
+
+	// Construct an artificial name for it
+    char c[256];
+    snprintf(c, 255, "~%s", ASTText(symbol));
+
+	$$ = ASTMake1(AST_DESTRUCTOR_TEMPLATE_ID, $2, $1.token_file, $1.token_line, uniquestr(c));
 }
 ;
 
@@ -3429,49 +3443,13 @@ expression_list : assignment_expression
 }
 ;
 
-pseudo_destructor_name : type_name TWO_COLONS '~' type_name
+pseudo_destructor_name : id_expression TWO_COLONS destructor_id
 {
-	$$ = ASTMake4(AST_PSEUDO_DESTRUCTOR_QUALIF, NULL, NULL, $1, $4, ASTFileName($1), ASTLine($1), NULL);
+	$$ = ASTMake2(AST_PSEUDO_DESTRUCTOR_NAME, $1, $3, ASTFileName($1), ASTLine($1), NULL);
 }
-| nested_name_specifier type_name TWO_COLONS '~' type_name
+| id_expression TWO_COLONS TEMPLATE destructor_template_id
 {
-	$$ = ASTMake4(AST_PSEUDO_DESTRUCTOR_QUALIF, NULL, $1, $2, $5, ASTFileName($1), ASTLine($1), NULL);
-}
-| TWO_COLONS type_name TWO_COLONS '~' type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
-
-	$$ = ASTMake4(AST_PSEUDO_DESTRUCTOR_QUALIF, global_op, NULL, $2, $5, $1.token_file, $1.token_line, NULL);
-}
-| TWO_COLONS nested_name_specifier type_name TWO_COLONS '~' type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
-
-	$$ = ASTMake4(AST_PSEUDO_DESTRUCTOR_QUALIF, global_op, $2, $3, $6, $1.token_file, $1.token_line, NULL);
-}
-| nested_name_specifier TEMPLATE template_id TWO_COLONS '~' type_name
-{
-	$$ = ASTMake4(AST_PSEUDO_DESTRUCTOR_TEMPLATE, NULL, $1, $3, $6, ASTFileName($1), ASTLine($1), NULL);
-}
-| TWO_COLONS nested_name_specifier TEMPLATE template_id TWO_COLONS '~' type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
-
-	$$ = ASTMake4(AST_PSEUDO_DESTRUCTOR_TEMPLATE, global_op, $2, $4, $7, $1.token_file, $1.token_line, NULL);
-}
-| '~' type_name
-{
-	$$ = ASTMake3(AST_PSEUDO_DESTRUCTOR_NAME, NULL, NULL, $2, $1.token_file, $1.token_line, NULL);
-}
-| nested_name_specifier '~' type_name
-{
-	$$ = ASTMake3(AST_PSEUDO_DESTRUCTOR_NAME, NULL, $1, $3, ASTFileName($1), ASTLine($1), NULL);
-}
-| TWO_COLONS nested_name_specifier '~' type_name
-{
-	AST global_op = ASTLeaf(AST_GLOBAL_SCOPE, $1.token_file, $1.token_line, NULL);
-
-	$$ = ASTMake3(AST_PSEUDO_DESTRUCTOR_NAME, global_op, $2, $4, $1.token_file, $1.token_line, NULL);
+	$$ = ASTMake2(AST_PSEUDO_DESTRUCTOR_NAME_TEMPLATE, $1, $4, ASTFileName($1), ASTLine($1), NULL);
 }
 ;
 

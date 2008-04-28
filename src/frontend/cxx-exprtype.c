@@ -369,6 +369,21 @@ scope_entry_list_t* get_member_function_of_class_type(type_t* class_type,
                 name = get_operator_function_name(id_expression);
             }
             break;
+        case AST_QUALIFIED_ID:
+        case AST_QUALIFIED_TEMPLATE:
+            {
+                decl_context_t class_context = class_type_get_inner_context(class_type);
+
+                if (class_context.class_scope != NULL)
+                {
+                    return query_id_expression(decl_context, id_expression);
+                }
+                else
+                {
+                    return NULL;
+                }
+            }
+            break;
         default:
             internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(id_expression)));
     }
@@ -416,6 +431,7 @@ static char check_for_comma_operand(AST expression, decl_context_t decl_context)
 static char check_for_pointer_to_member(AST expression, decl_context_t decl_context);
 static char check_for_pointer_to_pointer_to_member(AST expression, decl_context_t decl_context);
 static char check_for_conversion_function_id_expression(AST expression, decl_context_t decl_context);
+static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl_context);
 
 static char check_for_array_section_expression(AST expression, decl_context_t decl_context);
 
@@ -1100,9 +1116,12 @@ char check_for_expression(AST expression, decl_context_t decl_context)
         case AST_PSEUDO_DESTRUCTOR_CALL :
         case AST_POINTER_PSEUDO_DESTRUCTOR_CALL :
             {
-                ast_set_expression_type(expression, get_pseudo_destructor_call_type());
-                ast_set_expression_is_lvalue(expression, 0);
-                result = 1;
+                result = check_for_pseudo_destructor_call(expression, decl_context);
+                if (result)
+                {
+                    ast_set_expression_type(expression, get_pseudo_destructor_call_type());
+                    ast_set_expression_is_lvalue(expression, 0);
+                }
                 break;
             }
         case AST_GCC_POSTFIX_EXPRESSION :
@@ -7720,6 +7739,113 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context)
         return 1;
     }
     return 0;
+}
+
+static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl_context)
+{
+    AST postfix_expression = ASTSon0(expression);
+    
+    char postfix_check = check_for_expression(postfix_expression, decl_context);
+    if (!postfix_check
+            || ast_get_expression_type(postfix_expression) == NULL)
+    {
+        return 0;
+    }
+
+    AST pseudo_destructor_name = ASTSon1(expression);
+
+    AST pseudo_destructor_id_expression = ASTSon0(pseudo_destructor_name);
+    AST destructor_id = ASTSon1(pseudo_destructor_name);
+
+    scope_entry_list_t* entry_list = query_id_expression(decl_context, pseudo_destructor_id_expression);
+
+    if (entry_list == NULL)
+    {
+        running_error("%s: error: pseudo-destructor '%s' not found", 
+                ast_location(pseudo_destructor_name),
+                prettyprint_in_buffer(pseudo_destructor_name));
+    }
+
+    scope_entry_list_t* it = entry_list;
+    while (it != NULL)
+    {
+        scope_entry_t* entry = it->entry;
+        if (entry->kind != SK_ENUM 
+                && entry->kind != SK_CLASS 
+                && entry->kind != SK_TYPEDEF 
+                && entry->kind != SK_TEMPLATE
+                && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
+                && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER
+                && entry->kind != SK_GCC_BUILTIN_TYPE)
+        {
+            running_error("%s: error: pseudo-destructor '%s' does not name a type", 
+                    ast_location(pseudo_destructor_name),
+                    prettyprint_in_buffer(pseudo_destructor_name));
+        }
+
+        it = it->next;
+    }
+
+    scope_entry_t * entry = entry_list->entry;
+
+    // FIXME - Check that the 'id-expression' is right
+    // Checking that both T's are the same entity in '{[nested-name-specifier] T}::~T'
+    // it is a bit problematic.
+
+    decl_context_t destructor_lookup = decl_context;
+    // If the name is qualified the lookup is performed within the scope of the
+    // qualified type-name
+    if (ASTSon0(pseudo_destructor_id_expression) != NULL
+            || ASTSon1(pseudo_destructor_id_expression) != NULL)
+    {
+        destructor_lookup = entry->decl_context;
+    }
+
+    if (ASTType(destructor_id) == AST_DESTRUCTOR_ID)
+    {
+        const char * type_name = ASTText(ASTSon0(destructor_id));
+        type_name++; // Ignore '~'
+
+        scope_entry_list_t *new_name = query_unqualified_name_str(destructor_lookup,
+                type_name);
+
+        if (new_name == NULL
+                || new_name->entry->type_information == NULL
+                || !equivalent_types(new_name->entry->type_information, entry->type_information))
+        {
+            running_error("%s: error: pseudo-destructor '%s' does not match the type-name",
+                    ast_location(pseudo_destructor_name),
+                    prettyprint_in_buffer(pseudo_destructor_name));
+        }
+    }
+    else if (ASTType(destructor_id) == AST_DESTRUCTOR_TEMPLATE_ID)
+    {
+        // This must be a class
+        if (entry->kind != SK_CLASS)
+        {
+            running_error("%s: error: pseudo-destructor '%s' does not refer to a class",
+                    ast_location(pseudo_destructor_name),
+                    prettyprint_in_buffer(pseudo_destructor_name));
+        }
+
+        AST template_id = ASTSon0(destructor_id);
+
+        scope_entry_list_t *new_name = query_id_expression(destructor_lookup,
+                template_id);
+
+        if (new_name == NULL
+                || new_name->entry->type_information == NULL
+                || equivalent_types(new_name->entry->type_information, entry->type_information))
+        {
+            running_error("%s: error: pseudo-destructor template-id '%s' does not match the type-name",
+                    ast_location(pseudo_destructor_name),
+                    prettyprint_in_buffer(pseudo_destructor_name));
+        }
+    }
+
+    // Everything seems right
+    ast_set_expression_type(expression, get_pseudo_destructor_call_type());
+    return 1;
 }
 
 static char check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_context)

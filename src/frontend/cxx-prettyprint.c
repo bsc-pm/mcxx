@@ -146,8 +146,7 @@ HANDLER_PROTOTYPE(qualified_namespace_spec_handler);
 HANDLER_PROTOTYPE(using_directive_handler);
 HANDLER_PROTOTYPE(namespace_definition_handler);
 HANDLER_PROTOTYPE(pseudo_destructor_name_handler);
-HANDLER_PROTOTYPE(pseudo_destructor_template_handler);
-HANDLER_PROTOTYPE(pseudo_destructor_qualified_handler);
+HANDLER_PROTOTYPE(pseudo_destructor_template_name_handler);
 HANDLER_PROTOTYPE(parenthesized_initializer_handler);
 HANDLER_PROTOTYPE(unknown_pragma_handler);
 HANDLER_PROTOTYPE(kr_parameter_list_handler);
@@ -514,8 +513,7 @@ prettyprint_entry_t handlers_list[] =
     NODE_HANDLER(AST_NAMESPACE_DEFINITION, namespace_definition_handler, NULL),
     NODE_HANDLER(AST_NEW_PLACEMENT, parenthesized_son_handler, NULL),
     NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_NAME, pseudo_destructor_name_handler, NULL),
-    NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_QUALIF, pseudo_destructor_qualified_handler, NULL),
-    NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_TEMPLATE, pseudo_destructor_template_handler, NULL),
+    NODE_HANDLER(AST_PSEUDO_DESTRUCTOR_NAME_TEMPLATE, pseudo_destructor_template_name_handler, NULL),
     NODE_HANDLER(AST_KR_PARAMETER_LIST, kr_parameter_list_handler, NULL),
     NODE_HANDLER(AST_DESIGNATED_INITIALIZER, designated_initializer_handler, NULL),
     NODE_HANDLER(AST_DESIGNATION, designation_handler, NULL),
@@ -2254,18 +2252,17 @@ static void namespace_definition_handler(FILE* f, AST a, int level)
 
 static void pseudo_destructor_name_handler(FILE* f, AST a, int level)
 {
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), level);
-    }
-    
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), level);
-    }
-    
-    token_fprintf(f, a, "~");
-    prettyprint_level(f, ASTSon2(a), level);
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, "::");
+    prettyprint_level(f, ASTSon1(a), level);
+}
+
+static void pseudo_destructor_template_name_handler(FILE* f, AST a, int level)
+{
+    prettyprint_level(f, ASTSon0(a), level);
+    token_fprintf(f, a, "::");
+    token_fprintf(f, a, "template ");
+    prettyprint_level(f, ASTSon1(a), level);
 }
 
 static void pseudo_destructor_qualified_handler(FILE* f, AST a, int level)

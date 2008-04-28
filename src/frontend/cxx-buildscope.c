@@ -2632,10 +2632,6 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     }
     
     class_type_set_instantiation_trees(class_type, member_specification, base_clause);
-    
-    // DO NOT run this before setting the nature of the class or we will try
-    // to instantiate independent complete classes within member functions!
-    leave_class_specifier();
 
     CXX_LANGUAGE()
     {
@@ -2644,6 +2640,11 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             finish_class_type(class_type, *type_info, decl_context, ASTFileName(a), ASTLine(a));
         }
     }
+    
+    // DO NOT run this before setting the nature of the class or we will try
+    // to instantiate independent complete classes within member functions!
+    leave_class_specifier();
+
     
     // Function definitions are built their scope delayed, once after all
     // the class scope has been seen. This is because inline function
