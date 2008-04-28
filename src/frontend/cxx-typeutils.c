@@ -6529,3 +6529,12 @@ computed_function_type_t computed_function_type_get_computing_function(type_t* t
             "This is not a computed function type!", 0);
     return t->compute_type_function;
 }
+
+char is_scalar_type(type_t* t)
+{
+    return (!is_pointer_type(t)
+            && !is_array_type(t)
+            && !is_lvalue_reference_type(t)
+            && !is_rvalue_reference_type(t)
+            && !is_function_type(t));
+}

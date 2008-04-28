@@ -2265,49 +2265,6 @@ static void pseudo_destructor_template_name_handler(FILE* f, AST a, int level)
     prettyprint_level(f, ASTSon1(a), level);
 }
 
-static void pseudo_destructor_qualified_handler(FILE* f, AST a, int level)
-{
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), level);
-    }
-
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), level);
-    }
-
-    prettyprint_level(f, ASTSon2(a), level);
-    token_fprintf(f, a, "::~");
-    prettyprint_level(f, ASTSon3(a), level);
-}
-
-static void pseudo_destructor_template_handler(FILE* f, AST a, int level)
-{
-    if (ASTSon0(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon0(a), level);
-    }
-    if (ASTSon1(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon1(a), level);
-    }
-
-    token_fprintf(f, a, " template");
-
-    if (ASTSon2(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon2(a), level);
-    }
-
-    token_fprintf(f, a, "::~");
-
-    if (ASTSon3(a) != NULL)
-    {
-        prettyprint_level(f, ASTSon3(a), level);
-    }
-}
-
 static void parenthesized_initializer_handler(FILE* f, AST a, int level)
 {
     token_fprintf(f, a, "(");

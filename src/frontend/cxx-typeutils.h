@@ -251,6 +251,8 @@ char is_literal_string_type(struct type_tag* t);
 
 char is_template_type(struct type_tag* t);
 
+char is_scalar_type(type_t* t);
+
 // A type returned by template_type_get_primary_type or template_type_get_specialized_type
 char is_template_specialized_type(struct type_tag* t);
 

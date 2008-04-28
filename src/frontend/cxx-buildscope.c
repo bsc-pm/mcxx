@@ -3742,6 +3742,7 @@ static char is_constructor_declarator_rec(AST a, char seen_decl_func)
                 return 0;
             }
         case AST_DECLARATOR_FUNC :
+        case AST_GCC_FUNCTIONAL_DECLARATOR :
             {
                 if (!seen_decl_func)
                 {
@@ -8096,6 +8097,7 @@ AST get_function_declarator_parameter_list(AST funct_declarator, decl_context_t 
                 break;
             }
         case AST_DECLARATOR_FUNC :
+        case AST_GCC_FUNCTIONAL_DECLARATOR :
             {
                 return ASTSon1(funct_declarator);
                 break;

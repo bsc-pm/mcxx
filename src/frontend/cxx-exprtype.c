@@ -7756,6 +7756,12 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
         return 0;
     }
 
+    if (!is_dependent_expr_type(postfix_expression)
+            && !is_scalar_type(postfix_expression))
+    {
+        return 0;
+    }
+
     AST pseudo_destructor_name = ASTSon1(expression);
 
     AST pseudo_destructor_id_expression = ASTSon0(pseudo_destructor_name);
@@ -7792,9 +7798,7 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
 
     scope_entry_t * entry = entry_list->entry;
 
-    // FIXME - Check that the 'id-expression' is right
     // Checking that both T's are the same entity in '{[nested-name-specifier] T}::~T'
-    // it is a bit problematic.
 
     decl_context_t destructor_lookup = decl_context;
     // If the name is qualified the lookup is performed within the scope of the
@@ -7813,9 +7817,15 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
         scope_entry_list_t *new_name = query_unqualified_name_str(destructor_lookup,
                 type_name);
 
-        if (new_name == NULL
-                || new_name->entry->type_information == NULL
-                || !equivalent_types(new_name->entry->type_information, entry->type_information))
+        if (new_name == NULL)
+        {
+            running_error("%s: error: pseudo-destructor '%s' does not refer to any type-name",
+                    ast_location(pseudo_destructor_name),
+                    prettyprint_in_buffer(pseudo_destructor_name));
+        }
+
+        if (!equivalent_types(get_user_defined_type(new_name->entry), 
+                    get_user_defined_type(entry)))
         {
             running_error("%s: error: pseudo-destructor '%s' does not match the type-name",
                     ast_location(pseudo_destructor_name),
@@ -7837,9 +7847,15 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
         scope_entry_list_t *new_name = query_id_expression(destructor_lookup,
                 template_id);
 
-        if (new_name == NULL
-                || new_name->entry->type_information == NULL
-                || equivalent_types(new_name->entry->type_information, entry->type_information))
+        if (new_name == NULL)
+        {
+            running_error("%s: error: pseudo-destructor template-id '%s' does not refer to any type-name",
+                    ast_location(pseudo_destructor_name),
+                    prettyprint_in_buffer(pseudo_destructor_name));
+        }
+
+        if (!equivalent_types(get_user_defined_type(new_name->entry), 
+                    get_user_defined_type(entry)))
         {
             running_error("%s: error: pseudo-destructor template-id '%s' does not match the type-name",
                     ast_location(pseudo_destructor_name),

@@ -2308,6 +2308,18 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
                 AST previous_choice = ast_get_ambiguity(ambig_expression, correct_choice);
                 AST current_choice = ast_get_ambiguity(ambig_expression, i);
 
+                // How to read this checks
+                //  either(a, b, T1, T2) will return 1 if a == T1 and b == T2
+                //  and -1 if a == T2 and b == T2 so if it returns -1 it means
+                //  that the previous choice is the second kind and the current is
+                //  the first kind, so we will favor the the first one if we say that
+                //  the correct choice is 'i', the current.
+                //
+                //  Example:
+                //
+                //   sizeof(T()) could be either a type or an expression but we
+                //   favor the type 'function () returning T' instead of 'call
+                //   T with zero arguments'
                 int either;
                 if ((either = either_type(previous_choice, current_choice,
                                 AST_SIZEOF_TYPEID, AST_SIZEOF)))
@@ -2317,10 +2329,26 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
                         correct_choice = i;
                     }
                 }
-                // This case must be considered because the
-                // AST_FUNCTION_CALL might return a valid dependent
-                // ambig_expression instead of saying that this is not a
-                // valid function call
+                // This one covers cases like this one
+                //
+                // template <typename _T>
+                // void f(_T *t)
+                // {
+                //    _T::f(t);
+                // }
+                //
+                // here '_T::f' must be a function call and not an explicit type
+                // conversion. If you meant an explicit type conversion '_T::f'
+                // must be seen as a type, so 'typename' is mandatory
+                //
+                // template <typename _T>
+                // void f(_T *t)
+                // {
+                //    typename _T::f(t);
+                // }
+                //
+                // But this last case is not ambiguous so it will never go
+                // through this desambiguation code
                 else if ((either = either_type(previous_choice, current_choice, 
                                 AST_EXPLICIT_TYPE_CONVERSION, AST_FUNCTION_CALL)))
                 {
@@ -2329,8 +2357,43 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
                         correct_choice = i;
                     }
                 }
+                // If we see this is a valid function call forget anything about
+                // strange greater than operations (this happens because of
+                // template functions)
+                //
+                // template <int _N>
+                // void f(int k);
+                //
+                // template <int _N>
+                // void g()
+                // {
+                //   f<_N>(3);
+                // }
+                //
+                // is obviously a call not the expression 'f < (_N > (3))'
+                //
                 else if ((either = either_type(previous_choice, current_choice,
                                 AST_FUNCTION_CALL, AST_GREATER_THAN)))
+                {
+                    if (either < 0)
+                    {
+                        correct_choice = i;
+                    }
+                }
+                // This one covers the following case
+                //
+                // template <typename _T>
+                // void f(_T* a)
+                // {
+                //   a->_T::~T();
+                // }
+                //
+                // could be regarded as either a member access (like a.B::f
+                // provided B is a base class of the type of 'a') or like a
+                // pseudo destructor call, but the latter wins
+                else if ((either = either_type(previous_choice, current_choice,
+                                AST_POINTER_PSEUDO_DESTRUCTOR_CALL,
+                                AST_POINTER_CLASS_MEMBER_ACCESS)))
                 {
                     if (either < 0)
                     {

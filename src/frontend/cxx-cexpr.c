@@ -953,7 +953,9 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
     }
 
     if (result->entry->kind != SK_FUNCTION
-            && result->entry->kind != SK_TEMPLATE)
+            && result->entry->kind != SK_TEMPLATE
+            && (result->entry->kind != SK_VARIABLE
+                || !is_array_type(result->entry->type_information)))
     {
         if (result->entry->expression_value == NULL)
         {
@@ -974,7 +976,9 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
     else
     {
         if (result->next == NULL
-                && result->entry->kind == SK_FUNCTION)
+                && ((result->entry->kind == SK_FUNCTION)
+                    || (result->entry->kind == SK_VARIABLE
+                        && is_array_type(result->entry->type_information))))
         {
             // FIXME: Assuming that unsigned long is enough to hold a
             // pointer
