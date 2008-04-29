@@ -1381,6 +1381,7 @@ char is_better_function_flags(scope_entry_t* f,
     }
 
     char some_is_better = 0;
+    char some_is_worse = 0;
     int i;
     for (i = first_type; i < num_types; i++)
     {
@@ -1472,19 +1473,17 @@ char is_better_function_flags(scope_entry_t* f,
         if (better_ics(ics_to_f, ics_to_g))
         {
             some_is_better = 1;
-            continue;
         }
-
-        // It is not better, maybe it is just as good
-        if (better_ics(ics_to_g, ics_to_f))
+        else if (better_ics(ics_to_g, ics_to_f))
         {
             // It turned out that this one is actualy worse, so 'f' is not better than 'g'
-            return 0;
+            some_is_worse = 1;
         }
     }
 
     // If we saw that some argument ICS was really better, then it is better
-    if (some_is_better)
+    if (some_is_better
+            && !some_is_worse)
     {
         DEBUG_CODE()
         {

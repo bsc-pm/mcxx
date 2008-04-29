@@ -6064,7 +6064,7 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                     entry->entity_specs.is_constructor = 1;
 
                     if (!entry->entity_specs.is_explicit
-                            && (function_type_get_num_parameters(entry->type_information) == 1))
+                            && can_be_called_with_number_of_arguments(entry, 1))
                     {
                         DEBUG_CODE()
                         {
@@ -6425,7 +6425,7 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                             entry->entity_specs.is_constructor = 1;
 
                                             if (!entry->entity_specs.is_explicit
-                                                    && (function_type_get_num_parameters(entry->type_information) == 1))
+                                                    && can_be_called_with_number_of_arguments(entry, 1))
                                             {
                                                 DEBUG_CODE()
                                                 {
