@@ -185,7 +185,12 @@ namespace TL
 
     bool Type::is_non_derived_type() const
     {
-        return ::is_non_derived_type(_type_info);
+        return this->is_scalar_type();
+    }
+
+    bool Type::is_scalar_type() const
+    {
+        return ::is_scalar_type(_type_info);
     }
 
     bool Type::is_direct_type() const

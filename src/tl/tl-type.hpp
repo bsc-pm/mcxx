@@ -176,7 +176,7 @@ namespace TL
             
             //! States wheter this is a direct type
             /*!
-             * \deprecated Use instead is_non_derived_type
+             * \deprecated Use instead is_scalar_type
              */
             bool is_direct_type() const DEPRECATED;
             //! States that this type is not structurally derived
@@ -185,6 +185,11 @@ namespace TL
              * pointer-to-member, arrays or functions types
              */
             bool is_non_derived_type() const;
+            //! States that this type is a scalar
+            /*!
+             * This is the same as is_non_derived_type
+             */
+            bool is_scalar_type() const;
             //! States that this type is a class-type (either named or unnamed)
             bool is_class() const;
             //! States that this type is an unnamed class-type

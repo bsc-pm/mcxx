@@ -3165,11 +3165,7 @@ char is_fundamental_type(type_t* t)
 
 char is_non_derived_type(type_t* t)
 {
-    // Advance over typedefs
-    t = advance_over_typedefs(t);
-
-    return (t != NULL
-            && t->kind == TK_DIRECT);
+    return is_scalar_type(t);
 }
 
 char is_integer_type(type_t* t)
@@ -6533,6 +6529,7 @@ computed_function_type_t computed_function_type_get_computing_function(type_t* t
 char is_scalar_type(type_t* t)
 {
     return (!is_pointer_type(t)
+            && !is_pointer_to_member_type(t)
             && !is_array_type(t)
             && !is_lvalue_reference_type(t)
             && !is_rvalue_reference_type(t)
