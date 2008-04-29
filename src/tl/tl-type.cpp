@@ -529,4 +529,29 @@ namespace TL
     {
         return function_type_get_lacking_prototype(this->_type_info);
     }
+
+    Type Type::basic_type() const
+    {
+        if (this->is_array())
+        {
+            return this->array_element().basic_type();
+        }
+        else if (this->is_pointer()
+                || this->is_pointer_to_member())
+        {
+            return this->points_to().basic_type();
+        }
+        else if (this->is_function())
+        {
+            return this->returns().basic_type();
+        }
+        else if (this->is_reference())
+        {
+            return this->references_to().basic_type();
+        }
+        else
+        {
+            return *this;
+        }
+    }
 }

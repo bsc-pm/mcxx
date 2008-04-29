@@ -109,6 +109,13 @@ namespace TL
                     const std::string& symbol_name, ObjectList<std::string>& parameters,
                     TypeDeclFlags flags = NORMAL_DECLARATION) const;
 
+            //! Basic type
+            /*! Returns the basic type on which this type is built 
+             * Note that if the type is originally a scalar it will
+             * return the same type.
+             */
+            Type basic_type() const;
+
             //! Returns a pointer to the current type
             Type get_pointer_to();
             //! Returns an array to the current type
