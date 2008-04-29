@@ -303,6 +303,7 @@ decl_context_t array_type_get_array_size_expr_context(struct type_tag* t);
 
 int class_type_get_num_bases(struct type_tag* class_type);
 struct scope_entry_tag* class_type_get_base_num(struct type_tag* class_type, int num, char *is_virtual);
+scope_entry_list_t* class_type_get_all_bases(type_t *t);
 int class_type_get_num_constructors(struct type_tag* t);
 struct scope_entry_tag* class_type_get_constructors_num(struct type_tag* t, int num);
 

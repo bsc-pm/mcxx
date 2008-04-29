@@ -3165,7 +3165,8 @@ char is_fundamental_type(type_t* t)
 
 char is_non_derived_type(type_t* t)
 {
-    return is_scalar_type(t);
+    return t != NULL 
+        && t->kind == TK_DIRECT;
 }
 
 char is_integer_type(type_t* t)
@@ -6534,4 +6535,106 @@ char is_scalar_type(type_t* t)
             && !is_lvalue_reference_type(t)
             && !is_rvalue_reference_type(t)
             && !is_function_type(t));
+}
+
+scope_entry_list_t* class_type_get_all_bases(type_t *t)
+{
+    ERROR_CONDITION(!is_class_type(t), "This is not a class type", 0);
+
+    scope_entry_list_t *result = NULL;
+
+    int i; 
+    int num_bases = class_type_get_num_bases(t);
+    for (i = 0; i < num_bases; i++)
+    {
+        char is_virtual = 0;
+        scope_entry_t* base_class = class_type_get_base_num(t, i, &is_virtual);
+
+        // Add the current class if it is not already in the result
+        scope_entry_list_t* it_result = result;
+
+        char found = 0;
+
+        while (it_result != NULL)
+        {
+            if (equivalent_types(base_class->type_information, 
+                        it_result->entry->type_information))
+            {
+                found = 1;
+                break;
+            }
+            it_result = it_result->next;
+        }
+
+        if (!found)
+        {
+            scope_entry_list_t* new_entry 
+                = counted_calloc(1, sizeof(*new_entry), &_bytes_due_to_type_system);
+            new_entry->entry = base_class;
+            new_entry->next = NULL;
+
+            if (result == NULL)
+            {
+                result = new_entry;
+            }
+            else
+            {
+                it_result = result;
+                while (it_result->next != NULL)
+                {
+                    it_result = it_result->next;
+                }
+
+                it_result->next = new_entry;
+            }
+        }
+
+        // Now recursively get all the bases of this base
+        scope_entry_list_t* base_list = class_type_get_all_bases(base_class->type_information);
+
+        // Append those that are not already in the result
+        scope_entry_list_t* it_base = base_list;
+        while (it_base != NULL)
+        {
+            found = 0;
+            it_result = result;
+            while (it_result != NULL)
+            {
+                if (equivalent_types(it_base->entry->type_information, 
+                            it_result->entry->type_information))
+                {
+                    found = 1;
+                    break;
+                }
+                it_result = it_result->next;
+            }
+
+            if (!found)
+            {
+                scope_entry_list_t* new_entry 
+                    = counted_calloc(1, sizeof(*new_entry), &_bytes_due_to_type_system);
+                new_entry->entry = it_base->entry;
+                new_entry->next = NULL;
+
+                if (result == NULL)
+                {
+                    result = new_entry;
+                }
+                else
+                {
+                    it_result = result;
+                    while (it_result->next != NULL)
+                    {
+                        it_result = it_result->next;
+                    }
+
+                    it_result->next = new_entry;
+                }
+            }
+
+            it_base = it_base->next;
+        }
+    }
+
+    return result;
 }

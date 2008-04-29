@@ -340,6 +340,36 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
             return;
         }
 
+        // Special case where we unificate with all the bases of a given class
+        if (is_named_class_type(t1)
+                // t1 is a template-id
+                && is_template_specialized_type(get_actual_class_type(t1))
+                && is_named_class_type(t2)
+                && !is_dependent_type(t2, decl_context))
+        {
+            scope_entry_list_t* all_bases = class_type_get_all_bases(get_actual_class_type(t2));
+            scope_entry_list_t* it = all_bases;
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUNIF: Unificating against base\n");
+            }
+
+            while (it != NULL)
+            {
+                scope_entry_t* entry = it->entry;
+
+                unificate_two_types(t1, get_user_defined_type(entry), deduction_set, decl_context, filename, line);
+
+                it = it->next;
+            }
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "TYPEUNIF: Bases unificated\n");
+            }
+        }
+
         // Nothing else to do
         return;
     }

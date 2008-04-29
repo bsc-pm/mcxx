@@ -960,7 +960,7 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
             //   f(a); <-- won't match the template since the deduced 'A' is (int&) and we are passing (const int&)
             // }
             //
-            if (is_lvalue_reference_type(original_parameter)
+            else if (is_lvalue_reference_type(original_parameter)
                     && is_more_or_equal_cv_qualified_type(updated_type,
                         argument_types[i]))
             {
@@ -1059,10 +1059,10 @@ char deduce_arguments_from_call_to_specific_template_function(type_t** call_argu
              * For the case of a pointer it was already checked in the previous
              * case.
              */
-            else if (is_template_specialized_type(updated_type)
-                    && is_class_type(updated_type)
-                    && is_class_type(argument_types[i])
-                    && !class_type_is_derived(updated_type, argument_types[i]))
+            else if (is_named_class_type(updated_type)
+                    && is_template_specialized_type(get_actual_class_type(updated_type))
+                    && is_named_class_type(argument_types[i])
+                    && class_type_is_base(updated_type, argument_types[i]))
             {
                 DEBUG_CODE()
                 {
