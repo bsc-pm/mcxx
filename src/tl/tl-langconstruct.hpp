@@ -734,7 +734,7 @@ namespace TL
      * by just registering that Symbol 'a' has to be replaced with expression '(*p_a)' and Symbol
      * 'b' with expression 'p_b[0]'
      */
-    class ReplaceIdExpression : public ObjectList<std::pair<Symbol, AST_t> >
+    class ReplaceIdExpression
     {
         private:
             std::map<Symbol, AST_t> _repl_map;
