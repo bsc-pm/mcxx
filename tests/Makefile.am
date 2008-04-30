@@ -17,7 +17,9 @@ DEJATOOL = \
   $(ADDITIONAL_TESTS) \
   $(NULL)
 
+
 dist-hook:
+	cp -vf $(srcdir)/*.conf $(distdir)
 	for i in $(srcdir)/*.dg; \
 	do  \
 	    DIR=$$(basename $$i); \
@@ -33,3 +35,4 @@ distclean-local:
 	rm -vf lt-mcxx_failure*.c
 	rm -vf lt-mcxx_success*.cpp
 	rm -vf lt-mcxx_failure*.cpp
+	rm -vf stm_unhandled_functions*.log
