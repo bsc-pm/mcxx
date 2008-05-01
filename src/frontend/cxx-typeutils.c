@@ -6638,3 +6638,20 @@ scope_entry_list_t* class_type_get_all_bases(type_t *t)
 
     return result;
 }
+
+type_t* lvalue_ref_for_implicit_arg(type_t* t)
+{
+    CXX_LANGUAGE()
+    {
+        // If it is not a reference at all return a lvalue-reference
+        if (!is_lvalue_reference_type(t)
+                && !is_rvalue_reference_type(t))
+            return get_lvalue_reference_type(t);
+        // If it is a rvalue-reference, get a lvalue-reference for it
+        else if (is_rvalue_reference_type(t))
+            return get_lvalue_reference_type(
+                    reference_type_get_referenced_type(t));
+        // Otherwise it is already a lvalue-reference
+    }
+    return t;
+}

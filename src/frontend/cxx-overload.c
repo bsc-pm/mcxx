@@ -465,7 +465,11 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
 
             standard_conversion_t first_sc;
             standard_conversion_t second_sc;
-            if (standard_conversion_between_types(&first_sc, orig, 
+            if (standard_conversion_between_types(&first_sc, 
+                        // Note that this is like calling a function so we have to give a special
+                        // lvalue reference for the implicit argument like we normally do in 
+                        // overloads
+                        lvalue_ref_for_implicit_arg(orig), 
                         implicit_parameter)
                     && standard_conversion_between_types(&second_sc, converted_type, 
                         dest))

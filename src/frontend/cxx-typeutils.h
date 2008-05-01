@@ -120,6 +120,8 @@ struct type_tag* get_pointer_to_member_type(struct type_tag*, struct scope_entry
 struct type_tag* get_lvalue_reference_type(struct type_tag* t);
 struct type_tag* get_rvalue_reference_type(struct type_tag* t);
 
+struct type_tag* lvalue_ref_for_implicit_arg(struct type_tag* t);
+
 struct type_tag* get_array_type(struct type_tag*, struct AST_tag* expression, decl_context_t decl_context);
 
 struct type_tag* get_new_function_type(struct type_tag* t, parameter_info_t* parameter_info, int num_parameters);
