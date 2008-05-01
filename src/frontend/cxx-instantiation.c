@@ -82,7 +82,7 @@ static void instantiate_specialized_template(type_t* selected_template,
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Injecting template parameters\n");
+        fprintf(stderr, "INSTANTIATION: Injecting template parameters\n");
     }
 
     int i;
@@ -152,13 +152,14 @@ static void instantiate_specialized_template(type_t* selected_template,
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "Template parameters injected\n");
+        fprintf(stderr, "INSTANTIATION: Template parameters injected\n");
     }
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "--------> Injected context <----\n");
+        fprintf(stderr, "INSTANTIATION: Injected context\n");
         print_scope(inner_decl_context);
+        fprintf(stderr, "INSTANTIATION: End of injected context \n");
     }
 
     enter_class_specifier();
@@ -238,7 +239,7 @@ static void instantiate_specialized_template(type_t* selected_template,
 
     DEBUG_CODE()
     {
-        fprintf(stderr, "--------> Instantiation ended\n");
+        fprintf(stderr, "INSTANTIATION: Instantiation ended\n");
     }
 }
 

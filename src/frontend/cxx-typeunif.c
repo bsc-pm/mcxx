@@ -30,6 +30,7 @@
 #include "cxx-driver.h"
 #include "cxx-solvetemplate.h"
 #include "cxx-prettyprint.h"
+#include "cxx-instantiation.h"
 
 unsigned long long int _bytes_typeunif = 0;
 
@@ -347,13 +348,74 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                 && is_named_class_type(t2)
                 && !is_dependent_type(t2, decl_context))
         {
-            scope_entry_list_t* all_bases = class_type_get_all_bases(get_actual_class_type(t2));
-            scope_entry_list_t* it = all_bases;
-
             DEBUG_CODE()
             {
-                fprintf(stderr, "TYPEUNIF: Unificating against base\n");
+                fprintf(stderr, "TYPEUNIF: Unificating against bases\n");
             }
+
+            /*
+             * Here we have to instantiate t2 but only if it is an incomplete independent class.
+             *
+             * Note that this code is invalid (obviously)
+             *
+             *    template <typename _T>
+             *    struct A 
+             *    { 
+             *    };
+             *    
+             *    template <typename _T>
+             *    struct B;
+             *    
+             *    template <typename _T>
+             *    void f(A<_T>*);
+             *    
+             *    void g(void)
+             *    {
+             *        B<float> *b;
+             *    
+             *        f(b);
+             *    }
+             *
+             * while the following is valid
+             *
+             *    template <typename _T>
+             *    struct A 
+             *    { 
+             *    };
+             *    
+             *    template <typename _T>
+             *    struct B : A<_T> { };
+             *    
+             *    template <typename _T>
+             *    void f(A<_T>*);
+             *    
+             *    void g(void)
+             *    {
+             *        B<float> *b;
+             *    
+             *        f(b);  // will call f(A<int>*)
+             *    }
+             */
+
+            if (class_type_is_incomplete_independent(get_actual_class_type(t2)))
+            {
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUNIF: Instantiating class '%s' since we will try to unificate against bases\n",
+                            print_declarator(t2));
+                }
+
+                instantiate_template(named_type_get_symbol(t2), decl_context, filename, line);
+
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "TYPEUNIF: Class '%s' instantiated, now we can proceed to check bases\n",
+                            print_declarator(t2));
+                }
+            }
+
+            scope_entry_list_t* all_bases = class_type_get_all_bases(get_actual_class_type(t2));
+            scope_entry_list_t* it = all_bases;
 
             while (it != NULL)
             {
