@@ -257,7 +257,7 @@ static char is_less_or_equal_specialized_template_conversion_function(
         {
             DEBUG_CODE()
             {
-                if (update_type == NULL)
+                if (updated_type == NULL)
                 {
                     fprintf(stderr, "TYPEORDER: The deduced type was not constructible\n");
                 }
@@ -390,7 +390,7 @@ char is_less_or_equal_specialized_template_function(type_t* f1, type_t* f2,
         {
             DEBUG_CODE()
             {
-                if (update_type == NULL)
+                if (updated_type == NULL)
                 {
                     fprintf(stderr, "TYPEORDER: The deduced type was not constructible\n");
                 }
