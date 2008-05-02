@@ -736,7 +736,7 @@ namespace TL
      */
     class ReplaceIdExpression
     {
-        private:
+        protected:
             std::map<Symbol, AST_t> _repl_map;
         public:
             ReplaceIdExpression()
