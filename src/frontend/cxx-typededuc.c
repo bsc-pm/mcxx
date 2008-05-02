@@ -494,8 +494,8 @@ char deduce_template_arguments_common(
         }
     }
 
-    // We still have to update the types of the deduction lest any of them
-    // came from a template default argument
+    // For nontype template parameters its type could have to be updated
+    // since unification has not done it
     {
         template_argument_list_t* template_arguments 
             = build_template_argument_list_from_deduction_set(*deduced_arguments);
@@ -508,9 +508,7 @@ char deduce_template_arguments_common(
             {
                 switch (current_deduction->kind)
                 {
-                    case TPK_TEMPLATE:
                     case TPK_NONTYPE:
-                    case TPK_TYPE:
                         {
                             current_deduction->deduced_parameters[j]->type = 
                                 update_type(

@@ -262,7 +262,7 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
 
                             if (solved_function != NULL)
                             {
-                                value.value.unsigned_long = (unsigned long)(result->entry);
+                                value.value.unsigned_long = (unsigned long)(solved_function);
                             }
                         }
                     }
@@ -1009,7 +1009,7 @@ static literal_value_t evaluate_symbol(AST symbol, decl_context_t decl_context)
             {
                 literal_value_t value;
                 value.kind = LVK_UNSIGNED_LONG;
-                value.value.unsigned_long = (unsigned long)(result->entry);
+                value.value.unsigned_long = (unsigned long)(solved_function);
 
                 return value;
             }
