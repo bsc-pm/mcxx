@@ -252,7 +252,7 @@ static char is_less_or_equal_specialized_template_conversion_function(
                 filename, line);
 
         // Check the soundness of the updated type
-        if (update_type == NULL
+        if (updated_type == NULL
                 || !is_sound_type(updated_type, decl_context))
         {
             DEBUG_CODE()
@@ -385,7 +385,7 @@ char is_less_or_equal_specialized_template_function(type_t* f1, type_t* f2,
                 filename, line);
 
         // Check the soundness of the updated type
-        if (update_type == NULL
+        if (updated_type == NULL
                 || !is_sound_type(updated_type, decl_context))
         {
             DEBUG_CODE()
