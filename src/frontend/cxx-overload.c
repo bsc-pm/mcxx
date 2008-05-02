@@ -1543,14 +1543,14 @@ char is_better_function_flags(scope_entry_t* f,
                     g->line,
                     print_declarator(g->type_information));
         }
-        // if ¬(g <= f) then f < g
+        // if ¬(f <= g) then f > g
         deduction_set_t* deduction_set = NULL;
         if (!is_less_or_equal_specialized_template_function(
                     // Why is it so convoluted to get the type of the primary specialization ?
                     named_type_get_symbol(template_type_get_primary_type(
-                        template_specialized_type_get_related_template_type(g->type_information)))->type_information,
+                        template_specialized_type_get_related_template_type(f->type_information)))->type_information,
                     named_type_get_symbol(template_type_get_primary_type(
-                            template_specialized_type_get_related_template_type(f->type_information)))->type_information, 
+                            template_specialized_type_get_related_template_type(g->type_information)))->type_information, 
                     decl_context, &deduction_set, 
                     /* explicit_template_arguments */ NULL,
                     filename, line, /* is_conversion */ 0))
