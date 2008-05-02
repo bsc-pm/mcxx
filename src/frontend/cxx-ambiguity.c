@@ -627,6 +627,7 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
 }
 
 
+#if 0
 static char check_for_init_declarator_list(AST init_declarator_list, decl_context_t decl_context)
 {
     AST list = init_declarator_list;
@@ -682,6 +683,7 @@ static char check_for_init_declarator_list(AST init_declarator_list, decl_contex
 
     return 1;
 }
+#endif
 
 static char check_for_decl_spec_seq_followed_by_declarator(AST decl_specifier_seq, AST declarator, decl_context_t decl_context)
 {
