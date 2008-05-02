@@ -7740,8 +7740,20 @@ static char check_for_pseudo_destructor_call(AST expression, decl_context_t decl
         return 0;
     }
 
-    if (!is_dependent_expr_type(ASTExprType(postfix_expression))
-            && !is_scalar_type(ASTExprType(postfix_expression)))
+    type_t* considered_type = ASTExprType(postfix_expression);
+
+    if (is_arrow)
+    {
+        if (!is_pointer_type(no_ref(ASTExprType(postfix_expression))))
+        {
+            return 0;
+        }
+
+        considered_type = pointer_type_get_pointee_type(no_ref(ASTExprType(postfix_expression)));
+    }
+
+    if (!is_dependent_expr_type(no_ref(considered_type))
+            && !is_scalar_type(no_ref(considered_type)))
     {
         return 0;
     }
