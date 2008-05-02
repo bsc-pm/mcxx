@@ -3741,8 +3741,11 @@ static char is_constructor_declarator_rec(AST a, char seen_decl_func)
             {
                 return 0;
             }
-        case AST_DECLARATOR_FUNC :
         case AST_GCC_FUNCTIONAL_DECLARATOR :
+            {
+                return is_constructor_declarator_rec(ASTSon0(a), seen_decl_func);
+            }
+        case AST_DECLARATOR_FUNC :
             {
                 if (!seen_decl_func)
                 {
