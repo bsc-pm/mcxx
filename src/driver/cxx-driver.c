@@ -68,8 +68,8 @@ compilation_process_t compilation_process;
 "  -D<macro>                Passes <macro> to the preprocessor\n" \
 "  -O -O0 -O1 -O2 -O3       Sets optimization level to the\n" \
 "                           preprocessor and native compiler\n" \
-"  -y                       Only parsing will be performed\n" \
-"                           No file will be generated\n" \
+"  -y                       File will be parsed but it will not be\n" \
+"                           compiled not linked.\n" \
 "  -x lang                  Override language detection to <lang>\n" \
 "  -k, --keep-files         Do not remove intermediate temporary\n" \
 "                           files\n" \
@@ -343,6 +343,7 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
     static char c_specified = 0;
     static char E_specified = 0;
     static char y_specified = 0;
+    static char v_specified = 0;
 
     const char **input_files = NULL;
     int num_input_files = 0;
@@ -416,6 +417,7 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                     }
                 case 'v' : // --verbose || -v
                     {
+                        v_specified = 1;
                         CURRENT_CONFIGURATION(verbose) = 1;
                         break;
                     }
@@ -449,6 +451,7 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
 
                         CURRENT_CONFIGURATION(do_not_compile) = 1;
                         CURRENT_CONFIGURATION(do_not_link) = 1;
+                        CURRENT_CONFIGURATION(do_not_parse) = 1;
                         break;
                     }
                 case 'y' : // -y
@@ -463,7 +466,6 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
 
                         CURRENT_CONFIGURATION(do_not_compile) = 1;
                         CURRENT_CONFIGURATION(do_not_link) = 1;
-                        CURRENT_CONFIGURATION(do_not_prettyprint) = 1;
                         break;
                     }
                 case 'a' : // --check-dates || -a
@@ -644,25 +646,39 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
         return 0;
     }
 
-
-    // Create translation units
-    
-    if (num_input_files == 0)
+    if (num_input_files == 0
+            && !v_specified
+            && !CURRENT_CONFIGURATION(do_not_process_files))
     {
         fprintf(stderr, "You must specify an input file\n");
         return 1;
     }
+
+    if (num_input_files == 0
+            && v_specified)
+    {
+        // -v has been given with nothing else
+        print_version();
+        exit(EXIT_SUCCESS);
+    }
+
     // "-o -" is not valid when compilation or linking will be done
     if (output_file != NULL
             && (strcmp(output_file, "-") == 0)
-            && !E_specified)
+            && !E_specified
+            && !y_specified
+            && !v_specified
+            && !CURRENT_CONFIGURATION(do_not_process_files))
     {
         fprintf(stderr, "You must specify an output file.\n");
         return 1;
     }
+
     // If -E has been specified and no output file has been, assume it is "-"
     if (output_file == NULL
-            && E_specified)
+            && (E_specified || y_specified)
+            && !CURRENT_CONFIGURATION(do_not_process_files))
+                        // Do not process anything
     {
         fprintf(stderr, "Assuming stdout as default output since -E has been specified\n");
         output_file = uniquestr("-");
@@ -678,6 +694,19 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
         return 1;
     }
 
+    if (CURRENT_CONFIGURATION(do_not_process_files))
+    {
+        // Neither do preprocessign nor compilation, just linking process without any files
+        CURRENT_CONFIGURATION(do_not_parse) = 1;
+        CURRENT_CONFIGURATION(do_not_compile) = 1;
+        CURRENT_CONFIGURATION(do_not_prettyprint) = 1;
+        CURRENT_CONFIGURATION(do_not_prettyprint) = 1;
+
+        CURRENT_CONFIGURATION(do_not_link) = 0;
+        num_input_files = 0;
+        output_file = NULL;
+    }
+
     // This is the right place to sign in input files, never before of complete
     // command parsing
     int i;
@@ -687,7 +716,7 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                 output_file, compilation_process.current_compilation_configuration);
     }
 
-    // If some output was given by means of -o and we are linking (so no -c neither -E)
+    // If some output was given by means of -o and we are linking (so no -c neither -E nor -y)
     // then, this output is the overall compilation process output
     if (output_file != NULL)
     {
@@ -782,6 +811,13 @@ static int parse_parameter_flag(int * should_advance, const char *parameter_flag
     return failure;
 }
 
+static char strprefix(const char* str, const char *prefix)
+{
+    if (strlen(prefix) > strlen(str))
+        return 0;
+    return (strncmp(str, prefix, strlen(prefix)) == 0);
+}
+
 static int parse_special_parameters(int *should_advance, int parameter_index,
         const char* argv[])
 {
@@ -795,6 +831,25 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
     switch (argument[1])
     {
         // GCC parameters
+        case 'n' :
+            {
+                if (strcmp(argument, "-nostdlib") == 0
+                        || strcmp(argument, "-nostdinc") == 0
+                        || strcmp(argument, "-nostdinc++") == 0)
+                {
+                }
+                else
+                {
+                    failure = 1;
+                }
+
+                if (!failure)
+                {
+                    add_parameter_all_toolchain(argument);
+                    (*should_advance)++;
+                }
+                break;
+            }
         case 'f':
         case 'm':
             {
@@ -922,6 +977,26 @@ static int parse_special_parameters(int *should_advance, int parameter_index,
             {
                 if (strcmp(argument, "-pthread") == 0)
                 {
+                }
+                else if (strcmp(argument, "-print-search-dirs") == 0)
+                {
+                    // Do not process anything
+                    CURRENT_CONFIGURATION(do_not_process_files) = 1;
+                }
+                else if (strprefix(argument, "-print-prog-name"))
+                {
+                    const char *p = argument + strlen("-print-prog-name");
+
+                    if (*p == '=' 
+                            && *(p+1) != '\0')
+                    {
+                        // Do not process anything
+                        CURRENT_CONFIGURATION(do_not_process_files) = 1;
+                    }
+                    else
+                    {
+                        failure = 1;
+                    }
                 }
                 else
                 {
@@ -1092,7 +1167,7 @@ static void register_default_initializers(void)
 
 static void print_version(void)
 {
-    fprintf(stderr, PACKAGE " - " VERSION " " MCXX_BUILD_VERSION "\n");
+    fprintf(stderr, PACKAGE " " VERSION " (" MCXX_BUILD_VERSION ")\n");
 }
 
 // Callback called for every [section] in the config file

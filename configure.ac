@@ -25,10 +25,12 @@ dnl Check install
 AC_PROG_INSTALL
 
 dnl Workaround to avoid Libtool checking for FORTRAN
-F77=no
+define([AC_LIBTOOL_LANG_F77_CONFIG], [:])dnl 
+
 dnl Check libtool
 AC_DISABLE_STATIC
 AC_PROG_LIBTOOL
+
 
 dnl Check cc
 AC_PROG_CC
@@ -664,12 +666,12 @@ then
     then
        echo "$svnversionpath" "$srcdir" >&5
        run_svnversion=`env LC_ALL=C "$svnversionpath" "$srcdir" 2>&5`
-       build_version="\"$run_svnversion (developer version)\""
+       build_version="\"$run_svnversion developer version\""
     fi
 
     if test x"$svnversionpath" = x -o x"$run_svnversion" = x;
     then
-       build_version="\"unknown svn revision (developer version)\""
+       build_version="\"unknown svn revision developer version\""
     fi
     AC_MSG_RESULT($build_version)
 fi
