@@ -1884,7 +1884,7 @@ static type_t* compute_member_user_defined_bin_operator_type(AST operator_name,
     }
 
     // Now create the argument list for the overloading
-    lhs_type = lvalue_ref(lhs_type);
+    lhs_type = lvalue_ref_for_implicit_arg(lhs_type);
 
     type_t* argument_types[2] = { lhs_type, rhs_type };
     int num_arguments = 2;
@@ -1977,7 +1977,7 @@ static type_t* compute_member_user_defined_unary_operator_type(AST operator_name
     op = lvalue_ref(op);
     
     // Now create the argument list for the overloading
-    type_t* argument_types[1] = { op };
+    type_t* argument_types[1] = { lvalue_ref_for_implicit_arg(op) };
     int num_arguments = 1;
     
     scope_entry_list_t* overload_set = unfold_and_mix_candidate_functions(operator_entry_list,
@@ -4314,7 +4314,7 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
             // Solve operator[]. It is always a member operator, so no strange
             // juggling must be done
             int num_arguments = 2;
-            type_t* argument_types[2] = { subscripted_type, subscript_type };
+            type_t* argument_types[2] = { lvalue_ref_for_implicit_arg(subscripted_type), subscript_type };
 
             scope_entry_t *overloaded_call = solve_overload(operator_subscript_list,
                     argument_types, num_arguments, decl_context,
@@ -6193,7 +6193,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
             return 0;
 
         type_t* argument_types[1] = { 
-            /* Note that we want the real original type since it might be a referenced type */
+            /* Note that we want the real original type since it might be a referenced type (¿?¿??) */
             ASTExprType(class_expr) 
         };
 
@@ -6515,7 +6515,7 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
         if (entry_list != NULL)
         {
             type_t* argument_types[2] = {
-                lvalue_ref(incremented_type), // Member argument (always a lvalue)
+                lvalue_ref_for_implicit_arg(incremented_type), // Member argument (always a lvalue)
                 get_zero_type() // Postoperation
             };
             int num_arguments = 2;
@@ -6579,7 +6579,7 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
         if (entry_list != NULL)
         {
             type_t* argument_types[1] = {
-                lvalue_ref(incremented_type), // Member argument (always a lvalue)
+                lvalue_ref_for_implicit_arg(incremented_type), // Member argument (always a lvalue)
             };
             int num_arguments = 1;
 

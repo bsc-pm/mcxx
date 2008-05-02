@@ -5801,7 +5801,7 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             return 1;
         }
     }
-    // cv1 T1& -> cv2 T&&
+    // cv1 T1& -> cv2 T1&&
     if (is_lvalue_reference_type(orig)
             && is_rvalue_reference_type(dest)
             && equivalent_types(get_unqualified_type(reference_type_get_referenced_type(orig)),
