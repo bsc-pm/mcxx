@@ -1048,6 +1048,8 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
     template_argument_list_t* explicit_template_arguments 
         = unresolved_overloaded_type_get_explicit_template_arguments(t2);
 
+    char is_template = 0;
+
     while (it != NULL)
     {
         scope_entry_t* entry = it->entry;
@@ -1056,14 +1058,6 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
 
         if (entry->kind == SK_FUNCTION)
         {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "TYPEUNIF: Trying unification with '%s' at '%s:%d' of type '%s'\n",
-                        entry->symbol_name,
-                        entry->file,
-                        entry->line,
-                        print_declarator(entry->type_information));
-            }
             function_type = entry->type_information;
         }
         else if (entry->kind == SK_TEMPLATE)
@@ -1095,14 +1089,7 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
                 entry = named_type_get_symbol(named_specialization_type);
                 function_type = entry->type_information;
 
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "TYPEUNIF: Trying unification with [template] '%s' at '%s:%d' of type '%s'\n",
-                            entry->symbol_name,
-                            entry->file,
-                            entry->line,
-                            print_declarator(entry->type_information));
-                }
+                is_template = 1;
             }
             else
             {
@@ -1121,6 +1108,16 @@ static void unificate_unresolved_overloaded(type_t* t1, type_t* t2,
         {
             function_type = get_pointer_to_member_type(function_type,
                     named_type_get_symbol(entry->entity_specs.class_type));
+        }
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "TYPEUNIF: Trying unification with %s '%s' at '%s:%d' of type '%s'\n",
+                    is_template ? "[template]" : "",
+                    entry->symbol_name,
+                    entry->file,
+                    entry->line,
+                    print_declarator(function_type));
         }
 
         // Now perform deduction
