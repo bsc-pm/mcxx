@@ -2293,8 +2293,12 @@ type_t* update_type(template_argument_list_t* given_template_args,
         type_t* pointee_class = pointer_to_member_type_get_class_type(orig_type);
         pointee_class = update_type(given_template_args, pointee_class, template_arguments_context, filename, line);
 
+        // If it is not a named class type _and_ it is not a template type
+        // parameter, then this is not a valid pointer to member type
         if (!is_named_class_type(pointee_class)
-                && (named_type_get_symbol(pointee_class)->kind != SK_TEMPLATE_TYPE_PARAMETER))
+                && (!is_named_type(pointee_class)
+                    // if it is a named type it must be a template type parameter
+                    || named_type_get_symbol(pointee_class)->kind != SK_TEMPLATE_TYPE_PARAMETER) )
         {
             return NULL;
         }
