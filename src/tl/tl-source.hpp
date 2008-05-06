@@ -126,7 +126,7 @@ namespace TL
                 //! Allows symbols be redefined, thus overwriting previous definitions
                 ALLOW_REDECLARATION = 1 << 1,
                 //! Does not check an expression
-                DO_NOT_CHECK_EXPRESSION = 2 << 1,
+                DO_NOT_CHECK_EXPRESSION = 1 << 2,
             };
         private:
             chunk_list_ref_t _chunk_list;
