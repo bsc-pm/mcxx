@@ -178,7 +178,7 @@ namespace TL
 				Symbol symbol = function_info._definition_scope.get_symbol_from_name(function_name);
 				if (!symbol.is_static())
 				{
-					function_info._is_on_non_task_side = true;
+					mark_non_task_side_recursively(function_map, function_name);
 				}
 			}
 		}
