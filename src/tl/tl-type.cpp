@@ -403,19 +403,22 @@ namespace TL
     Type Type::get_const_type()
     {
         // Might return itself if already const qualified
-        return get_cv_qualified_type(this->_type_info, CV_CONST);
+        return get_cv_qualified_type(this->_type_info, 
+                (cv_qualifier_t)(get_cv_qualifier(this->_type_info) | CV_CONST));
     }
 
     Type Type::get_volatile_type()
     {
         // Might return itself if already volatile qualified
-        return get_cv_qualified_type(_type_info, CV_VOLATILE);
+        return get_cv_qualified_type(this->_type_info, 
+                (cv_qualifier_t)(get_cv_qualifier(this->_type_info) | CV_VOLATILE));
     }
 
     Type Type::get_restrict_type()
     {
         // Might return itself if already restrict qualified
-        return get_cv_qualified_type(_type_info, CV_RESTRICT);
+        return get_cv_qualified_type(this->_type_info, 
+                (cv_qualifier_t)(get_cv_qualifier(this->_type_info) | CV_RESTRICT));
     }
 
     bool Type::is_const() const
