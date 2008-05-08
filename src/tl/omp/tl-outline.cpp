@@ -926,5 +926,30 @@ namespace TL
 
             return result;
         }
+
+        void OpenMPTransform::invoke_destructors(ObjectList<ParameterInfo> parameter_info_list, Source &destructor_calls)
+        {
+            for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                    it != parameter_info_list.end();
+                    it++)
+            {
+                if (it->kind == ParameterInfo::BY_VALUE)
+                {
+                    Type type = it->symbol.get_type();
+                    if (type.is_reference())
+                    {
+                        type = type.references_to();
+                    }
+
+                    if (type.is_named_class())
+                    {
+                        Symbol class_name = type.get_symbol();
+
+                        destructor_calls
+                            << "(*" << it->parameter_name << ").~" << class_name.get_name() << "();";
+                    }
+                }
+            }
+        }
     }
 }

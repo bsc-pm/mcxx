@@ -482,6 +482,8 @@ namespace TL
                         IdExpression function_name,
                         ObjectList<ParameterInfo> parameter_info_list,
                         bool team_parameter);
+                void invoke_destructors(ObjectList<ParameterInfo> parameter_info_list, 
+                        Source &destructor_calls);
                 AST_t finish_outline(FunctionDefinition function_definition, Source outline_parallel,
                         ObjectList<ParameterInfo> parameter_info_list,
                         bool team_parameter);

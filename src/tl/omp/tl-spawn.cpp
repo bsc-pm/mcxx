@@ -210,6 +210,13 @@ namespace TL
                 outline_arguments << ", &cv_" << it->symbol.get_name();
 
                 Type type = it->symbol.get_type();
+
+                // Advance over references in C++
+                if (type.is_reference())
+                {
+                    type = type.references_to();
+                }
+
                 // Save the firstprivatized data
                 // FIXME - Fix this for C++
                 // Shamelessly copied from tl-task.cpp
