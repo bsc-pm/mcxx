@@ -228,13 +228,6 @@ namespace TL
         Declaration decl_tree(declared_symbol.get_point_of_declaration(), _scope_link);
         ObjectList<DeclaredEntity> declared_entities = decl_tree.get_declared_entities();
 
-        for (ObjectList<DeclaredEntity>::iterator it = declared_entities.begin();
-                it != declared_entities.end();
-                it++)
-        {
-            std::cerr << " DeclaredEntity -> '" << it->prettyprint() << "'" << std::endl;
-        }
-
         if (declared_symbol.is_variable()
                 || declared_symbol.is_typedef()
                 || (!declared_entities.empty()
