@@ -3187,6 +3187,10 @@ static void set_function_parameter_clause(type_t** function_type,
                 "Invalid node", 0);
 
         ASTAttrSetValueType(parameter_declaration, LANG_IS_PARAMETER_DECLARATION, tl_type_t, tl_bool(1));
+
+        ASTAttrSetValueType(parameter_declaration, LANG_DECLARATION_SPECIFIERS, tl_type_t, tl_ast(ASTSon0(parameter_declaration)));
+        ASTAttrSetValueType(parameter_declaration, LANG_DECLARATION_DECLARATORS, tl_type_t, tl_ast(ASTSon1(parameter_declaration)));
+
         // This is never null
         AST parameter_decl_spec_seq = ASTSon0(parameter_declaration);
         // Declarator can be null
