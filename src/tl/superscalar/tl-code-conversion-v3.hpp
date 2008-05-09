@@ -163,6 +163,10 @@ namespace TL
 			
 			static PhaseStatus _status;
 			
+			
+			void generate_task_id_declarations(FunctionMap function_map, AST_t translation_unit, ScopeLink scope_link);
+			
+			
 		public:
 			virtual void run(DTO &dto);
 			

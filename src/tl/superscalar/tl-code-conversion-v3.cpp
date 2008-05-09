@@ -18,7 +18,7 @@
 
 #include <sstream>
 
-#include "tl-code-conversion-v2.hpp"
+#include "tl-code-conversion-v3.hpp"
 #include "tl-type-utils.hpp"
 
 
@@ -347,16 +347,6 @@ namespace TL
 			return;
 		}
 		
-		// Generate the task identifier if generating non task side
-		if (_generate_non_task_side)
-		{
-			Source id_declaration_source;
-			id_declaration_source
-				<< "extern int const " << function_name << "_task_id__cssgenerated" << ";";
-			AST_t id_declaration_ast = id_declaration_source.parse_declaration(node, ctx.scope_link);
-			node.prepend_to_translation_unit(id_declaration_ast);
-		}
-		
 		// Erase the task if not generating task code
 		if (!_generate_task_side)
 		{
@@ -439,16 +429,6 @@ namespace TL
 		{
 			// Skip adaptor generation until the last declaration
 			return;
-		}
-		
-		if (_generate_non_task_side)
-		{
-			// Generate the task identifier but only once
-			Source id_declaration_source;
-			id_declaration_source
-				<< "extern int const " << function_info._name << "_task_id__cssgenerated" << ";";
-			AST_t id_declaration_ast = id_declaration_source.parse_declaration(node, ctx.scope_link);
-			node.prepend_to_translation_unit(id_declaration_ast);
 		}
 		
 		if (_generate_task_side)
@@ -685,6 +665,24 @@ namespace TL
 	}
 	
 	
+	void CodeConversion::generate_task_id_declarations(FunctionMap function_map, AST_t translation_unit, ScopeLink scope_link)
+	{
+		for (FunctionMap::iterator it = function_map.begin(); it != function_map.end(); it++)
+		{
+			FunctionInfo &function_info = it->second;
+			
+			if (function_info._is_task)
+			{
+				Source id_declaration_source;
+				id_declaration_source
+					<< "extern int const " << function_info._name << "_task_id__cssgenerated" << ";";
+				AST_t id_declaration_ast = id_declaration_source.parse_declaration(translation_unit, scope_link);
+				translation_unit.prepend_to_translation_unit(id_declaration_ast);
+			}
+		}
+	}
+	
+	
 	void CodeConversion::run(DTO &dto)
 	{
 		_status = PHASE_STATUS_OK;
@@ -701,6 +699,12 @@ namespace TL
 			ScopeLink scope_link = dto["scope_link"];
 			
 			ObjectList<AST_t> kill_list;
+			
+			
+			if (generate_non_task_side)
+			{
+				generate_task_id_declarations(function_map, translation_unit, scope_link);
+			}
 			
 			
 			DepthTraverse depth_traverse;
