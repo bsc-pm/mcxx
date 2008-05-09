@@ -706,6 +706,15 @@ namespace TL
 				generate_task_id_declarations(function_map, translation_unit, scope_link);
 			}
 			
+			if ((bool)align_memory && function_map.find("memalign") == function_map.end())
+			{
+				Source memalign_declaration_source;
+				// Since we do not know (because we are too lazy) if size_t is defined, we use unsigned long instead
+				memalign_declaration_source << "void *memalign(unsigned long, unsigned long);";
+				AST_t memalign_declaration_ast = memalign_declaration_source.parse_declaration(translation_unit, scope_link);
+				translation_unit.prepend_to_translation_unit(memalign_declaration_ast);
+			}
+			
 			
 			DepthTraverse depth_traverse;
 			
