@@ -1,5 +1,8 @@
 LANG_ACCESSED_ENTITY lang.accessed_entity
 LANG_ACCESSED_MEMBER lang.accessed_member
+LANG_ARRAY_SECTION_ITEM lang.array_section_item
+LANG_ARRAY_SECTION_LOWER lang.array_section_lower
+LANG_ARRAY_SECTION_UPPER lang.array_section_upper
 LANG_CALLED_EXPRESSION lang.called_expression
 LANG_CASE_EXPRESSION lang.case_expression
 LANG_CASE_STATEMENT_BODY lang.case_statement_body
@@ -42,6 +45,7 @@ LANG_IS_ACCESSED_MEMBER lang.is_accessed_member
 LANG_IS_ADD_ASSIGNMENT lang.is_add_assignment
 LANG_IS_ADDITION_OP lang.is_addition_op
 LANG_IS_AND_ASSIGNMENT lang.is_and_assignment
+LANG_IS_ARRAY_SECTION lang.is_array_section
 LANG_IS_ARRAY_SUBSCRIPT lang.is_array_subscript
 LANG_IS_ASSIGNMENT lang.is_assignment
 LANG_IS_BINARY_OPERATION lang.is_binary_operation
@@ -74,6 +78,7 @@ LANG_IS_DO_STATEMENT lang.is_do_statement
 LANG_IS_EMPTY_STATEMENT lang.is_empty_statement
 LANG_IS_ENUM_SPECIFIER lang.is_enum_specifier
 LANG_IS_EQUAL_OP lang.is_equal_op
+LANG_IS_EXPRESSION_COMPONENT lang.is_expression_component
 LANG_IS_EXPRESSION_NEST lang.is_expression_nest
 LANG_IS_EXPRESSION_STATEMENT lang.is_expression_statement
 LANG_IS_FLOATING_LITERAL lang.is_floating_literal
@@ -217,7 +222,3 @@ OMP_REDUCTION_VARIABLES omp.reduction_variables
 OMP_SCHEDULE_CHUNK omp.schedule_chunk
 OMP_SCHEDULE_CUSTOM_NAME omp.schedule_custom_name
 OMP_SCHEDULE_KIND omp.schedule_kind
-LANG_IS_ARRAY_SECTION lang.is_array_section
-LANG_ARRAY_SECTION_ITEM lang.array_section_item
-LANG_ARRAY_SECTION_LOWER lang.array_section_lower
-LANG_ARRAY_SECTION_UPPER lang.array_section_upper

@@ -34,35 +34,27 @@ namespace TL
             MyPragmaPhase()
                 : PragmaCustomCompilerPhase("mypragma")
             {
-                register_directive("test");
+                register_construct("test");
                 on_directive_post["test"].connect(functor(&MyPragmaPhase::construct_post, *this));
             }
 
             void construct_post(PragmaCustomConstruct pragma_custom_construct)
             {
+                Statement stmt = pragma_custom_construct.get_statement();
 
+                PredicateAST<LANG_IS_FUNCTION_CALL> is_function_call;
+
+                ObjectList<AST_t> stmt_list = stmt.get_ast().depth_subtrees(is_function_call);
+
+                for (ObjectList<AST_t>::iterator it = stmt_list.begin();
+                        it != stmt_list.end();
+                        it++)
                 {
-                    PragmaCustomClause clause = pragma_custom_construct.get_clause("clause_test");
-                    ObjectList<Expression> expression = clause.get_expression_list();
+                    std::cerr << "'" << it->prettyprint() << "'" << std::endl;
+                    Expression expr(*it, pragma_custom_construct.get_scope_link());
+                    Expression top_level = expr.get_top_enclosing_expression();
 
-                    for (ObjectList<Expression>::iterator it = expression.begin();
-                            it != expression.end();
-                            it++)
-                    {
-                        std::cerr << "-> " << it->prettyprint() << std::endl;
-                    }
-                }
-                std::cerr << "---" << std::endl;
-                {
-                    PragmaCustomClause clause = pragma_custom_construct.get_clause("clause_test");
-                    ObjectList<Expression> expression = clause.get_expression_list();
-
-                    for (ObjectList<Expression>::iterator it = expression.begin();
-                            it != expression.end();
-                            it++)
-                    {
-                        std::cerr << "-> " << it->prettyprint() << std::endl;
-                    }
+                    std::cerr << "enclosed by '" << top_level.prettyprint() << "' " << top_level.original_tree().internal_ast_type() << std::endl;
                 }
             }
     };

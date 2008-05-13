@@ -7121,7 +7121,8 @@ static void build_scope_expression_statement(AST a,
         ast_set_expression_is_lvalue(a, ASTExprLvalue(a));
     }
 
-
+    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_STATEMENT, tl_type_t, tl_bool(1));
+    ASTAttrSetValueType(a, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
     ASTAttrSetValueType(a, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expr));
 }
@@ -7175,7 +7176,7 @@ static void build_scope_for_statement(AST a,
     }
     else if (ASTType(for_init_statement) == AST_EXPRESSION_STATEMENT)
     {
-        build_scope_expression_statement(for_init_statement, block_context, LANG_IS_EXPRESSION_STATEMENT);
+        build_scope_expression_statement(for_init_statement, block_context, NULL);
     }
     scope_link_set(CURRENT_COMPILED_FILE(scope_link), for_init_statement, block_context);
 

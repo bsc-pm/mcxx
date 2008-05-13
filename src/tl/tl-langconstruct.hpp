@@ -317,6 +317,7 @@ namespace TL
     class Expression : public LangConstruct
     {
         private:
+            AST_t _orig;
             //! Advances over expression nests
             static AST_t advance_over_nests(AST_t);
         public :
@@ -395,6 +396,7 @@ namespace TL
             Expression(AST_t ref, ScopeLink scope_link)
                 : LangConstruct(ref, scope_link)
             {
+                this->_orig = this->_ref;
                 this->_ref = advance_over_nests(this->_ref);
             }
 
@@ -513,6 +515,21 @@ namespace TL
             Expression array_section_upper();
 
             static const PredicateAST<LANG_IS_EXPRESSION_NEST> predicate;
+
+            /*! Returns the enclosing expression that is meaningful */
+            Expression get_enclosing_expression();
+
+            /*! Returns the top enclosing expression */
+            Expression get_top_enclosing_expression();
+
+            /*! Returns the original tree which was used to wrap this expression */
+            AST_t original_tree()
+            {
+                return _orig;
+            }
+
+            /*! States whether this expression is a top level one */
+            bool is_top_level_expression();
     };
 
     //! This LangConstruct wraps a parameter declaration in a function declarator

@@ -821,6 +821,54 @@ namespace TL
         return Expression(array_section_upper, _scope_link);
     }
 
+    Expression Expression::get_enclosing_expression()
+    {
+        AST_t parent = _orig.get_parent();
+
+        TL::Bool is_expr(false);
+
+        is_expr = parent.get_attribute(LANG_IS_EXPRESSION_COMPONENT);
+
+        if (!is_expr)
+        {
+            return *this;
+        }
+        else
+        {
+            return Expression(parent, this->_scope_link);
+        }
+    }
+
+
+    bool Expression::is_top_level_expression()
+    {
+        AST_t parent = _orig.get_parent();
+
+        TL::Bool is_expr(false);
+
+        is_expr = parent.get_attribute(LANG_IS_EXPRESSION_COMPONENT);
+
+        if (!is_expr)
+        {
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
+    Expression Expression::get_top_enclosing_expression()
+    {
+        Expression result (*this);
+        while (!result.is_top_level_expression())
+        {
+            result = result.get_enclosing_expression();
+        }
+
+        return result;
+    }
+
     // Do not use this one, instead use get_declared_symbol
     // since this one will not work for type-names
     IdExpression DeclaredEntity::get_declared_entity()

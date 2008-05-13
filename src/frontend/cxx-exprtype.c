@@ -1169,17 +1169,17 @@ char check_for_expression(AST expression, decl_context_t decl_context)
             }
         case AST_GCC_BUILTIN_OFFSETOF :
             {
-                return check_for_gcc_builtin_offsetof(expression, decl_context);
+                result = check_for_gcc_builtin_offsetof(expression, decl_context);
                 break;
             }
         case AST_GCC_BUILTIN_CHOOSE_EXPR :
             {
-                return check_for_gcc_builtin_choose_expr(expression, decl_context);
+                result = check_for_gcc_builtin_choose_expr(expression, decl_context);
                 break;
             }
         case AST_GCC_BUILTIN_TYPES_COMPATIBLE_P :
             {
-                return check_for_gcc_builtin_types_compatible_p(expression, decl_context);
+                result = check_for_gcc_builtin_types_compatible_p(expression, decl_context);
                 break;
             }
         case AST_GCC_PARENTHESIZED_EXPRESSION :
@@ -1241,6 +1241,9 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                 break;
             }
     }
+
+    // This is used when moving within an expression tree
+    ASTAttrSetValueType(expression, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
 
     if (!result 
             || (ASTExprType(expression) == NULL))
@@ -5083,6 +5086,9 @@ static char check_for_function_arguments(AST arguments, decl_context_t decl_cont
         for_each_element(list, iter)
         {
             AST parameter_expr = ASTSon1(iter);
+
+            ASTAttrSetValueType(parameter_expr, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
+
             if (!check_for_expression(parameter_expr, decl_context))
             {
                 DEBUG_CODE()
@@ -5094,6 +5100,8 @@ static char check_for_function_arguments(AST arguments, decl_context_t decl_cont
             }
             (*num_arguments)++;
         }
+
+        ASTAttrSetValueType(arguments, LANG_IS_EXPRESSION_COMPONENT, tl_type_t, tl_bool(1));
     }
 
     return 1;
