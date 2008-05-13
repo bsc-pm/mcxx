@@ -71,6 +71,18 @@ namespace TL
 			return;
 		}
 		
+		// Get and check its corresponding statement expression
+		Expression top_expression = function_call.get_top_enclosing_expression();
+		AST_t statement_expression_ast = top_expression.original_tree();
+		PredicateBool<LANG_IS_EXPRESSION_STATEMENT> expression_statement_predicate;
+		if (!expression_statement_predicate(statement_expression_ast))
+		{
+			std::cerr << function_call.get_ast().get_locus() << " Error: Call to task '" << function_name << "' cannot return a value." << std::endl;
+			CodeConversion::fail();
+			return;
+		}
+		
+		
 		Source source;
 		Source parameter_initializers_source;
 		Source constant_redirection_source;
@@ -299,7 +311,8 @@ namespace TL
 		}
 		
 		AST_t tree = source.parse_statement(node, ctx.scope_link);
-		node.replace(tree);
+		// The replacement must be performed on the statement expression, since the replacement is a statement
+		statement_expression_ast.replace(tree);
 	}
 	
 	
