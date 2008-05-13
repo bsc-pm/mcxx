@@ -706,13 +706,28 @@ namespace TL
 				generate_task_id_declarations(function_map, translation_unit, scope_link);
 			}
 			
-			if ((bool)align_memory && function_map.find("memalign") == function_map.end())
+			if (align_memory)
 			{
-				Source memalign_declaration_source;
-				// Since we do not know (because we are too lazy) if size_t is defined, we use unsigned long instead
-				memalign_declaration_source << "void *memalign(unsigned long, unsigned long);";
-				AST_t memalign_declaration_ast = memalign_declaration_source.parse_declaration(translation_unit, scope_link);
-				translation_unit.prepend_to_translation_unit(memalign_declaration_ast);
+				if (function_map.find("memalign") == function_map.end())
+				{
+					Source memalign_declaration_source;
+					// Since we do not know (because we are too lazy) if size_t is defined, we use unsigned long instead
+					memalign_declaration_source << "void *memalign(unsigned long, unsigned long);";
+					AST_t memalign_declaration_ast = memalign_declaration_source.parse_declaration(translation_unit, scope_link);
+					translation_unit.prepend_to_translation_unit(memalign_declaration_ast);
+					
+					// Add a fake "meminfo" function to the function map so that it does not get deleted
+					FunctionInfo memalign_funtion_info = function_map["malloc"];
+					memalign_funtion_info._name = std::string("memalign");
+					function_map["memalign"] = memalign_funtion_info;
+				}
+				else
+				{
+					FunctionInfo &memalign_funtion_info = memalign_funtion_info;
+					FunctionInfo const &malloc_function_info = function_map["malloc"];
+					memalign_funtion_info._is_on_task_side |= malloc_function_info._is_on_task_side;
+					memalign_funtion_info._is_on_non_task_side |= malloc_function_info._is_on_non_task_side;
+				}
 			}
 			
 			
