@@ -340,7 +340,9 @@ namespace TL
 		}
 		
 		DeclaredEntity declared_entity = *(declared_entities.begin());
-		if (!declared_entity.is_functional_declaration())
+		Symbol function_symbol = declared_entity.get_declared_symbol();
+		
+		if (!function_symbol.is_function())
 		{
 			std::cerr << declared_entity.get_ast().get_locus() << " Error: the target construct can only be applied to functions."  << std::endl;
 			return;

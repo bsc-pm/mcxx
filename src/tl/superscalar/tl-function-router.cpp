@@ -36,8 +36,8 @@ namespace TL
 		}
 		else
 		{
-			function_info._is_on_task_side = is_on_task_side;
-			function_info._is_on_non_task_side = is_on_non_task_side;
+			function_info._is_on_task_side |= is_on_task_side;
+			function_info._is_on_non_task_side |= is_on_non_task_side;
 			for (std::set<std::string>::iterator it = function_info._called_functions.begin(); it != function_info._called_functions.end(); it++)
 			{
 				std::string const &called_function = *it;
@@ -173,7 +173,7 @@ namespace TL
 			std::string const &function_name = *it;
 			FunctionInfo &function_info = (*function_map.get_pointer())[function_name];
 			
-			if (function_info._definition_count != 0)
+			if (function_info._definition_count != 0 && !function_info._has_coherced_sides)
 			{
 				Symbol symbol = function_info._definition_scope.get_symbol_from_name(function_name);
 				if (!symbol.is_static())
@@ -187,7 +187,7 @@ namespace TL
 		for (FunctionMap::iterator it = function_map->begin(); it != function_map->end(); it++)
 		{
 			FunctionInfo &function_info = it->second;
-			if (!function_info._is_on_task_side && !function_info._is_on_non_task_side)
+			if (!function_info._is_on_task_side && !function_info._is_on_non_task_side && !function_info._has_coherced_sides)
 			{
 				function_info._is_on_non_task_side = true;
 			}

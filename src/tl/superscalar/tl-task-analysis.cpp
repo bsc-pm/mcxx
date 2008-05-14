@@ -563,17 +563,13 @@ namespace TL
 	
 	void TL::TaskAnalysis::process_target(PragmaCustomConstruct construct)
 	{
-		if (construct.is_construct())
-		{
-			process_target_on_declaration(construct);
-		}
-		else if (construct.is_function_definition())
+		if (construct.is_function_definition())
 		{
 			process_target_on_definition(construct);
 		}
 		else
 		{
-			std::cerr << construct.get_ast().get_locus() << " Invalid target construct." << std::endl;
+			process_target_on_declaration(construct);
 		}
 		
 	}
@@ -637,14 +633,16 @@ namespace TL
 		}
 		
 		DeclaredEntity declared_entity = *(declared_entities.begin());
-		if (!declared_entity.is_functional_declaration())
+		Symbol function_symbol = declared_entity.get_declared_symbol();
+		
+		if (!function_symbol.is_function())
 		{
 			std::cerr << declared_entity.get_ast().get_locus() << " Error: the target construct can only be applied to functions."  << std::endl;
 			TaskAnalysis::fail();
 			return;
 		}
 		
-		std::string function_name = declared_entity.get_declared_entity().mangle_id_expression();
+		std::string function_name = function_symbol.get_name();
 		if (!_function_map.contains(function_name))
 		{
 			std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;
