@@ -85,12 +85,9 @@ namespace TL
             // Typedefs, class-names and enum-names will get here
             Symbol named_type = t.get_symbol();
 
-
             if (depending_symbol.is_valid())
             {
                 _dependencies.add_symbol_depending_on(depending_symbol, named_type);
-
-                std::set<Symbol> seen_symbols = _dependencies.items();
             }
             // Avoid infinite recursion because of cycles
             if (symbols_seen.find(named_type) != symbols_seen.end())
@@ -127,6 +124,8 @@ namespace TL
             else
             {
                 add_type_rec(t.aliased_type(), named_type, symbols_seen);
+                // Add as a dependency since this typedef will be actually used
+                _dependencies.add_symbol(named_type);
             }
         }
         else if (t.is_pointer())
