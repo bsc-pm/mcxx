@@ -47,6 +47,31 @@ namespace TL
 	}
 	
 	
+	void TL::FunctionRouter::propagate_side_cohercion_backwards(RefPtr<FunctionMap> function_map, bool is_on_task_side, bool is_on_non_task_side, std::string const &task_side_function_name)
+	{
+		FunctionInfo &function_info = (*function_map.get_pointer())[task_side_function_name];
+		
+		if (function_info._has_coherced_sides || function_info._is_task)
+		{
+			// End of recursion
+			return;
+		}
+		else
+		{
+			function_info._is_on_task_side |= is_on_task_side;
+			function_info._is_on_non_task_side |= is_on_non_task_side;
+			if (is_on_task_side && !is_on_non_task_side) {
+				function_info._calls_to_taskside_coherced_function = true;
+			}
+			for (std::set<std::string>::iterator it = function_info._caller_functions.begin(); it != function_info._caller_functions.end(); it++)
+			{
+				std::string const &caller_function = *it;
+				propagate_side_cohercion_backwards(function_map, is_on_task_side, is_on_non_task_side, caller_function);
+			}
+		}
+	}
+	
+	
 	void TL::FunctionRouter::mark_task_side_recursively(RefPtr<FunctionMap> function_map, std::string const &task_side_function_name, bool is_task)
 	{
 		FunctionInfo &function_info = (*function_map.get_pointer())[task_side_function_name];
@@ -150,10 +175,17 @@ namespace TL
 		{
 			std::string const &function_name = *it;
 			FunctionInfo &function_info = (*function_map.get_pointer())[function_name];
+			// Forward pass
 			for (std::set<std::string>::iterator it2 = function_info._called_functions.begin(); it2 != function_info._called_functions.end(); it2++)
 			{
 				std::string const &called_function_name = *it2;
 				propagate_side_cohercion(function_map, function_info._is_on_task_side, function_info._is_on_non_task_side, called_function_name);
+			}
+			// Backwards pass
+			for (std::set<std::string>::iterator it2 = function_info._caller_functions.begin(); it2 != function_info._caller_functions.end(); it2++)
+			{
+				std::string const &caller_function_name = *it2;
+				propagate_side_cohercion_backwards(function_map, function_info._is_on_task_side, function_info._is_on_non_task_side, caller_function_name);
 			}
 		}
 		
@@ -173,7 +205,7 @@ namespace TL
 			std::string const &function_name = *it;
 			FunctionInfo &function_info = (*function_map.get_pointer())[function_name];
 			
-			if (function_info._definition_count != 0 && !function_info._has_coherced_sides)
+			if (function_info._definition_count != 0 && !function_info._has_coherced_sides && !function_info._calls_to_taskside_coherced_function)
 			{
 				Symbol symbol = function_info._definition_scope.get_symbol_from_name(function_name);
 				if (!symbol.is_static())

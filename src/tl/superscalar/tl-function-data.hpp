@@ -74,6 +74,7 @@ namespace TL
 			bool _is_task;
 			bool _has_high_priority;
 			bool _has_coherced_sides;
+			bool _calls_to_taskside_coherced_function;
 			bool _is_on_task_side;
 			bool _is_on_non_task_side;
 			ObjectList<ParameterInfo> _parameters;
@@ -92,7 +93,8 @@ namespace TL
 			bool _has_errors;
 		
 			FunctionInfo()
-				: _name(), _caller_functions(), _called_functions(), _is_task(false), _has_high_priority(false), _has_coherced_sides(false),
+				: _name(), _caller_functions(), _called_functions(), _is_task(false), _has_high_priority(false), 
+				_has_coherced_sides(false), _calls_to_taskside_coherced_function(false),
 				_is_on_task_side(false), _is_on_non_task_side(false), _parameters(), _has_ellipsis(false),
 				_definition_scope(), _declaration_scope(),
 				_definition_count(0), _declaration_count(0), _task_definition_count(0), _task_declaration_count(0),
