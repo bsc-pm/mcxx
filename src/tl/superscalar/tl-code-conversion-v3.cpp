@@ -673,7 +673,7 @@ namespace TL
 				<< "aligned_mem__cssgenerated;"
 			<< "})";
 		
-		AST_t tree = source.parse_statement(node, ctx.scope_link);
+		AST_t tree = source.parse_expression(node, ctx.scope_link);
 		node.replace_with(tree);
 	}
 	
