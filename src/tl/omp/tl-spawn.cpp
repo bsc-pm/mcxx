@@ -31,6 +31,7 @@ namespace TL
                 ScopeLink scope_link,
                 ObjectList<ParameterInfo> parameter_info_list,
                 ObjectList<OpenMP::ReductionSymbol> reduction_references,
+                OpenMP::Clause if_clause,
                 OpenMP::Clause num_threads_clause,
                 OpenMP::CustomClause groups_clause,
                 Source &instrument_code_before,
@@ -43,6 +44,7 @@ namespace TL
                     scope_link,
                     parameter_info_list,
                     reduction_references,
+                    if_clause,
                     num_threads_clause,
                     groups_clause,
                     instrument_code_before,
@@ -56,6 +58,7 @@ namespace TL
                 ScopeLink scope_link,
                 ObjectList<ParameterInfo> parameter_info_list,
                 ObjectList<OpenMP::ReductionSymbol> reduction_references,
+                OpenMP::Clause if_clause,
                 OpenMP::Clause num_threads_clause,
                 OpenMP::CustomClause groups_clause,
                 Source &instrument_code_before,
@@ -86,7 +89,7 @@ namespace TL
                 << get_outline_function_reference(function_definition, parameter_info_list, 
                         /* team_parameter */ true);
 
-            Source team_size;
+            Source team_size_definition;
 
             Source master_outline_invocation;
 
@@ -94,7 +97,7 @@ namespace TL
             spawn_code
                 << "{"
                 <<    "nth_team_t nth_current_team;"
-                <<    "int nth_team_size = " << team_size << ";"
+                <<    team_size_definition
                 <<    "void* nth_team_data = (void*)0;"
                 <<    "nth_desc *nth_selfv = nth_self();"
                 <<    "int nth_num_deps;"
@@ -290,6 +293,26 @@ namespace TL
             }
 
             src_num_args_val << num_args_val;
+
+            // IF clause
+            Source team_size;
+            if (if_clause.is_defined())
+            {
+                team_size_definition
+                    << "int nth_team_size = 1;"
+                    << "if (" << if_clause.get_expression_list()[0].prettyprint() << ")"
+                    << "{"
+                    <<    "nth_team_size = " << team_size << ";"
+                    << "}"
+                    ;
+            }
+            else
+            {
+                // Nothing fancy has to be done here, just like we did before
+                team_size_definition
+                    << "int nth_team_size = " << team_size << ";"
+                    ;
+            }
 
             // Groups definition
             if (!groups_clause.is_defined() && !num_threads_clause.is_defined())

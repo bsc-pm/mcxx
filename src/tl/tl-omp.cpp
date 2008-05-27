@@ -454,6 +454,12 @@ namespace TL
            return result;
        }
 
+       Clause Directive::if_clause()
+       {
+           Clause result(_ref, _scope_link, OMP_IS_IF_CLAUSE);
+           return result;
+       }
+
        bool Clause::is_defined()
        {
            PredicateAttr predicate_clause(_clause_filter_name);

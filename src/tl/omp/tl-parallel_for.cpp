@@ -140,6 +140,7 @@ namespace TL
             // Now prepend the outline
             function_definition.get_ast().prepend_sibling_function(outline_code);
 
+            OpenMP::Clause if_clause = directive.if_clause();
             OpenMP::Clause num_threads = directive.num_threads_clause();
             OpenMP::CustomClause groups_clause = directive.custom_clause("groups");
 
@@ -153,6 +154,7 @@ namespace TL
                     parallel_for_construct.get_scope_link(),
                     parameter_info_list,
                     reduction_references,
+                    if_clause,
                     num_threads,
                     groups_clause,
                     instrument_code_before,

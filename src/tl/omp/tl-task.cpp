@@ -391,21 +391,51 @@ namespace TL
             decrement_task_level <<  "nth_pop_task_ctx();"
                 ;
 
-	   Source cutoff_call;
-	   if ( Nanos4::Version::is_family("trunk") &&
-	        Nanos4::Version::version >= 4201 ) 
+            Source cutoff_call;
+            if ( Nanos4::Version::is_family("trunk") &&
+                    Nanos4::Version::version >= 4201 ) 
+            {
                 cutoff_call 
-			<<    comment("_cf_n is a return value")
-			<<    "int _cf_n;"
-			<<    "nth_cutoff_res_t nth_cutoff = nth_cutoff_create(&_cf_n);";
-	   else
-                cutoff_call <<    "nth_cutoff_res_t nth_cutoff = nth_cutoff_create();";
+                    <<    comment("_cf_n is a return value")
+                    <<    "int _cf_n;"
+                    <<    "nth_cutoff = nth_cutoff_create(&_cf_n);";
+            }
+            else
+            {
+                cutoff_call << "nth_cutoff = nth_cutoff_create();"
+                    ;
+            }
+
+            Source cutoff_code;
+            cutoff_code
+                <<    "nth_cutoff_res_t nth_cutoff = NTH_CUTOFF_IMMEDIATE;"
+                ;
+
+            OpenMP::Clause if_clause = directive.if_clause();
+            Source if_clause_check;
+
+            if (if_clause.is_defined())
+            {
+                cutoff_code
+                    << comment("Check whether we have to create a task or just run it immediately")
+                    << "if (" << if_clause.get_expression_list()[0].prettyprint() << ")"
+                    << "{"
+                    <<    cutoff_call
+                    << "}"
+                    ;
+            }
+            else
+            {
+                cutoff_code
+                    << cutoff_call;
+            }
 
             // FIXME: Instrumentation is still missing!!!
             task_queueing
                 << "{"
-
-		<<    cutoff_call	
+                // FIXME - I'd like there was a NTH_CUTOFF_INVALID (with zero
+                // value but this would break current interface)
+                <<    cutoff_code
                 <<    "switch (nth_cutoff)"
                 <<    "{"
                 <<      "case NTH_CUTOFF_CREATE:"
