@@ -38,7 +38,7 @@ struct type_tag* standard_conversion_get_dest_type(standard_conversion_t scs);
 char standard_conversion_between_types(standard_conversion_t *result, 
         struct type_tag* orig, struct type_tag* dest);
 
-typedef type_t* (*computed_function_type_t)(scope_entry_t* symbol, AST* argument, int num_arguments);
+typedef scope_entry_t* (*computed_function_type_t)(scope_entry_t* symbol, type_t** arguments, int num_arguments);
 
 // Type environment 
 // - This is yet very EXPERIMENTAL. Ignore it for now -

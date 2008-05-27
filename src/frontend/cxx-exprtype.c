@@ -5368,7 +5368,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
             scope_entry_t *entry = entry_list->entry;
 
-            AST* argument_list = NULL;
+            type_t** argument_list = NULL;
             int num_arguments_tmp = 0;
 
             // Create the argument array
@@ -5376,14 +5376,14 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             for_each_element(arguments, iter)
             {
                 AST current_arg = ASTSon1(iter);
-                P_LIST_ADD(argument_list, num_arguments_tmp, current_arg);
+                P_LIST_ADD(argument_list, num_arguments_tmp, ASTExprType(current_arg));
             }
 
-            type_t* t = compute_type_function(entry, argument_list, num_arguments_tmp);
+            scope_entry_t* solved_function = compute_type_function(entry, argument_list, num_arguments_tmp);
 
-            if (t != NULL)
+            if (solved_function != NULL)
             {
-                ast_set_expression_type(called_expression, t);
+                ast_set_expression_type(called_expression, solved_function->type_information);
             }
             else
             {

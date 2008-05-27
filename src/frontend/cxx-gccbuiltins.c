@@ -87,6 +87,22 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
         return result; \
     }
 
+#define DEF_POINTER_VOLATILE_TYPE(NAME, TYPE_T_VALUE) \
+    static type_t* __mcxx_builtin_type__##NAME(void) \
+    { \
+        static type_t* result = NULL; \
+        if(result == NULL) \
+        { \
+           result = get_pointer_type(get_volatile_qualified_type((__mcxx_builtin_type__##TYPE_T_VALUE)())); \
+        } \
+        return result; \
+    }
+
+// This is required for the sync overloaded functions
+static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, type_t** arguments, int num_arguments);
+DEF_PRIMITIVE_TYPE(BT_FN_SYNC_OVERLOAD, get_computed_function_type(solve_gcc_sync_builtins_overload_name))
+
+// Basic types
 DEF_PRIMITIVE_TYPE(BT_VOID, get_void_type())
 DEF_PRIMITIVE_TYPE(BT_BOOL, get_bool_type())
 DEF_PRIMITIVE_TYPE(BT_INT, get_signed_int_type())
@@ -113,7 +129,7 @@ DEF_PRIMITIVE_TYPE(BT_PTR, get_pointer_type(get_void_type()))
 // How to define this nicely ?
 DEF_PRIMITIVE_TYPE(BT_FILEPTR, get_pointer_type(get_void_type()))
 DEF_PRIMITIVE_TYPE(BT_CONST_PTR, get_pointer_type(get_const_qualified_type(get_void_type())))
-DEF_PRIMITIVE_TYPE(BT_VOLATILE_PTR, get_pointer_type(get_volatile_qualified_type(get_void_type())))
+// DEF_PRIMITIVE_TYPE(BT_VOLATILE_PTR, get_pointer_type(get_volatile_qualified_type(get_void_type())))
 
 // What is this ? :)
 // DEF_PRIMITIVE_TYPE(BT_PTRMODE,(*lang_hooks.types.type_for_mode)(ptr_mode, 0))
@@ -142,6 +158,12 @@ DEF_PRIMITIVE_TYPE(BT_I1, get_signed_char_type())
 DEF_PRIMITIVE_TYPE(BT_I2, get_signed_short_int_type())
 DEF_PRIMITIVE_TYPE(BT_I4, get_signed_int_type())
 DEF_PRIMITIVE_TYPE(BT_I8, get_signed_long_long_int_type())
+
+// Volatile pointers to basic integers (used in sync functions)
+DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I1, BT_I1)
+DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I2, BT_I2)
+DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I4, BT_I4)
+DEF_POINTER_VOLATILE_TYPE(BT_VPTR_I8, BT_I8)
 
 DEF_POINTER_TYPE(BT_PTR_CONST_STRING, BT_CONST_STRING)
 
@@ -532,7 +554,12 @@ DEF_FUNCTION_TYPE_1(BT_FN_STRING_CONST_STRING, BT_STRING, BT_CONST_STRING)
 DEF_FUNCTION_TYPE_1(BT_FN_WORD_PTR, BT_WORD, BT_PTR)
 DEF_FUNCTION_TYPE_1(BT_FN_INT_WINT, BT_INT, BT_WINT)
 DEF_FUNCTION_TYPE_1(BT_FN_WINT_WINT, BT_WINT, BT_WINT)
-DEF_FUNCTION_TYPE_1(BT_FN_VOID_VPTR, BT_VOID, BT_VOLATILE_PTR)
+
+
+DEF_FUNCTION_TYPE_1(BT_FN_VOID_VPTR_I1, BT_VOID, BT_VPTR_I1)
+DEF_FUNCTION_TYPE_1(BT_FN_VOID_VPTR_I2, BT_VOID, BT_VPTR_I2)
+DEF_FUNCTION_TYPE_1(BT_FN_VOID_VPTR_I4, BT_VOID, BT_VPTR_I4)
+DEF_FUNCTION_TYPE_1(BT_FN_VOID_VPTR_I8, BT_VOID, BT_VPTR_I8)
 
 DEF_FUNCTION_TYPE_2(BT_FN_VOID_PTR_INT, BT_VOID, BT_PTR, BT_INT)
 DEF_FUNCTION_TYPE_2(BT_FN_STRING_STRING_CONST_STRING, 
@@ -557,8 +584,8 @@ DEF_FUNCTION_TYPE_2(BT_FN_VOID_VALIST_REF_VALIST_ARG,
              BT_VOID, BT_VALIST_REF, BT_VALIST_ARG)
 DEF_FUNCTION_TYPE_2(BT_FN_LONG_LONG_LONG,
              BT_LONG, BT_LONG, BT_LONG)
-DEF_FUNCTION_TYPE_2(BT_FN_INT_PTR_CONST_STRING,
-             BT_INT, BT_PTR, BT_CONST_STRING)
+// DEF_FUNCTION_TYPE_2(BT_FN_INT_PTR_CONST_STRING,
+//              BT_INT, BT_PTR, BT_CONST_STRING)
 DEF_FUNCTION_TYPE_2(BT_FN_VOID_PTR_SIZE,
              BT_VOID, BT_PTR, BT_SIZE)
 DEF_FUNCTION_TYPE_2(BT_FN_FLOAT_FLOAT_FLOAT,
@@ -611,14 +638,16 @@ DEF_FUNCTION_TYPE_2(BT_FN_COMPLEX_DOUBLE_COMPLEX_DOUBLE_COMPLEX_DOUBLE,
              BT_COMPLEX_DOUBLE, BT_COMPLEX_DOUBLE, BT_COMPLEX_DOUBLE)
 DEF_FUNCTION_TYPE_2(BT_FN_COMPLEX_LONGDOUBLE_COMPLEX_LONGDOUBLE_COMPLEX_LONGDOUBLE, 
                  BT_COMPLEX_LONGDOUBLE, BT_COMPLEX_LONGDOUBLE, BT_COMPLEX_LONGDOUBLE)
-DEF_FUNCTION_TYPE_2(BT_FN_VOID_PTR_PTR, BT_VOID, BT_PTR, BT_PTR)
+// DEF_FUNCTION_TYPE_2(BT_FN_VOID_PTR_PTR, BT_VOID, BT_PTR, BT_PTR)
 DEF_FUNCTION_TYPE_2(BT_FN_INT_CONST_STRING_PTR_CONST_STRING,
              BT_INT, BT_CONST_STRING, BT_PTR_CONST_STRING)
 DEF_FUNCTION_TYPE_2(BT_FN_SIZE_CONST_PTR_INT, BT_SIZE, BT_CONST_PTR, BT_INT)
-DEF_FUNCTION_TYPE_2(BT_FN_I1_VPTR_I1, BT_I1, BT_VOLATILE_PTR, BT_I1)
-DEF_FUNCTION_TYPE_2(BT_FN_I2_VPTR_I2, BT_I2, BT_VOLATILE_PTR, BT_I2)
-DEF_FUNCTION_TYPE_2(BT_FN_I4_VPTR_I4, BT_I4, BT_VOLATILE_PTR, BT_I4)
-DEF_FUNCTION_TYPE_2(BT_FN_I8_VPTR_I8, BT_I8, BT_VOLATILE_PTR, BT_I8)
+
+
+DEF_FUNCTION_TYPE_2(BT_FN_I1_VPTR_I1, BT_I1, BT_VPTR_I1, BT_I1)
+DEF_FUNCTION_TYPE_2(BT_FN_I2_VPTR_I2, BT_I2, BT_VPTR_I2, BT_I2)
+DEF_FUNCTION_TYPE_2(BT_FN_I4_VPTR_I4, BT_I4, BT_VPTR_I4, BT_I4)
+DEF_FUNCTION_TYPE_2(BT_FN_I8_VPTR_I8, BT_I8, BT_VPTR_I8, BT_I8)
 
 DEF_FUNCTION_TYPE_3(BT_FN_STRING_STRING_CONST_STRING_SIZE,
              BT_STRING, BT_STRING, BT_CONST_STRING, BT_SIZE)
@@ -630,8 +659,8 @@ DEF_FUNCTION_TYPE_3(BT_FN_INT_CONST_PTR_CONST_PTR_SIZE,
                  BT_INT, BT_CONST_PTR, BT_CONST_PTR, BT_SIZE)
 DEF_FUNCTION_TYPE_3(BT_FN_PTR_PTR_INT_SIZE,
                  BT_PTR, BT_PTR, BT_INT, BT_SIZE)
-DEF_FUNCTION_TYPE_3(BT_FN_VOID_PTR_INT_INT,
-             BT_VOID, BT_PTR, BT_INT, BT_INT)
+// DEF_FUNCTION_TYPE_3(BT_FN_VOID_PTR_INT_INT,
+//              BT_VOID, BT_PTR, BT_INT, BT_INT)
 DEF_FUNCTION_TYPE_3(BT_FN_VOID_CONST_PTR_PTR_SIZE,
              BT_VOID, BT_CONST_PTR, BT_PTR, BT_SIZE)
 DEF_FUNCTION_TYPE_3(BT_FN_INT_STRING_CONST_STRING_VALIST_ARG,
@@ -660,23 +689,23 @@ DEF_FUNCTION_TYPE_3(BT_FN_VOID_DOUBLE_DOUBLEPTR_DOUBLEPTR,
              BT_VOID, BT_DOUBLE, BT_DOUBLE_PTR, BT_DOUBLE_PTR)
 DEF_FUNCTION_TYPE_3(BT_FN_VOID_LONGDOUBLE_LONGDOUBLEPTR_LONGDOUBLEPTR,
              BT_VOID, BT_LONGDOUBLE, BT_LONGDOUBLE_PTR, BT_LONGDOUBLE_PTR)
-DEF_FUNCTION_TYPE_3(BT_FN_VOID_PTR_PTR_PTR, BT_VOID, BT_PTR, BT_PTR, BT_PTR)
+// DEF_FUNCTION_TYPE_3(BT_FN_VOID_PTR_PTR_PTR, BT_VOID, BT_PTR, BT_PTR, BT_PTR)
 DEF_FUNCTION_TYPE_3(BT_FN_INT_CONST_STRING_PTR_CONST_STRING_PTR_CONST_STRING,
              BT_INT, BT_CONST_STRING, BT_PTR_CONST_STRING, BT_PTR_CONST_STRING)
 DEF_FUNCTION_TYPE_3(BT_FN_INT_INT_CONST_STRING_VALIST_ARG,
              BT_INT, BT_INT, BT_CONST_STRING, BT_VALIST_ARG)
-DEF_FUNCTION_TYPE_3(BT_FN_BOOL_VPTR_I1_I1, BT_BOOL, BT_VOLATILE_PTR,
+DEF_FUNCTION_TYPE_3(BT_FN_BOOL_VPTR_I1_I1, BT_BOOL, BT_VPTR_I1,
              BT_I1, BT_I1)
-DEF_FUNCTION_TYPE_3(BT_FN_BOOL_VPTR_I2_I2, BT_BOOL, BT_VOLATILE_PTR,
+DEF_FUNCTION_TYPE_3(BT_FN_BOOL_VPTR_I2_I2, BT_BOOL, BT_VPTR_I2,
              BT_I2, BT_I2)
-DEF_FUNCTION_TYPE_3(BT_FN_BOOL_VPTR_I4_I4, BT_BOOL, BT_VOLATILE_PTR,
+DEF_FUNCTION_TYPE_3(BT_FN_BOOL_VPTR_I4_I4, BT_BOOL, BT_VPTR_I4,
              BT_I4, BT_I4)
-DEF_FUNCTION_TYPE_3(BT_FN_BOOL_VPTR_I8_I8, BT_BOOL, BT_VOLATILE_PTR,
+DEF_FUNCTION_TYPE_3(BT_FN_BOOL_VPTR_I8_I8, BT_BOOL, BT_VPTR_I8,
              BT_I8, BT_I8)
-DEF_FUNCTION_TYPE_3(BT_FN_I1_VPTR_I1_I1, BT_I1, BT_VOLATILE_PTR, BT_I1, BT_I1)
-DEF_FUNCTION_TYPE_3(BT_FN_I2_VPTR_I2_I2, BT_I2, BT_VOLATILE_PTR, BT_I2, BT_I2)
-DEF_FUNCTION_TYPE_3(BT_FN_I4_VPTR_I4_I4, BT_I4, BT_VOLATILE_PTR, BT_I4, BT_I4)
-DEF_FUNCTION_TYPE_3(BT_FN_I8_VPTR_I8_I8, BT_I8, BT_VOLATILE_PTR, BT_I8, BT_I8)
+DEF_FUNCTION_TYPE_3(BT_FN_I1_VPTR_I1_I1, BT_I1, BT_VPTR_I1, BT_I1, BT_I1)
+DEF_FUNCTION_TYPE_3(BT_FN_I2_VPTR_I2_I2, BT_I2, BT_VPTR_I2, BT_I2, BT_I2)
+DEF_FUNCTION_TYPE_3(BT_FN_I4_VPTR_I4_I4, BT_I4, BT_VPTR_I4, BT_I4, BT_I4)
+DEF_FUNCTION_TYPE_3(BT_FN_I8_VPTR_I8_I8, BT_I8, BT_VPTR_I8, BT_I8, BT_I8)
 
 DEF_FUNCTION_TYPE_4(BT_FN_SIZE_CONST_PTR_SIZE_SIZE_FILEPTR,
              BT_SIZE, BT_CONST_PTR, BT_SIZE, BT_SIZE, BT_FILEPTR)
@@ -790,7 +819,7 @@ DEF_FUNCTION_TYPE_3(BT_FN_PTR_PTR_FN_VOID_VAR_PTR_SIZE,
    simplifying floor((double)float) since the runtime need not implement
    it.  */
 
-DEF_PRIMITIVE_TYPE(BT_LAST, get_void_type())
+// DEF_PRIMITIVE_TYPE(BT_LAST, get_void_type())
 DEF_FUNCTION_TYPE_0(0, BT_VOID)
 
 #define  DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, \
@@ -1446,7 +1475,7 @@ DEF_BUILTIN_STUB(BUILT_IN_PROFILE_FUNC_EXIT, "profile_func_exit")
    "_1" through "_8" versions, plus some extra casts.  */
 
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_ADD_N, "__sync_fetch_and_add",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_ADD_1, "__sync_fetch_and_add_1",
           BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_ADD_2, "__sync_fetch_and_add_2",
@@ -1457,7 +1486,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_ADD_8, "__sync_fetch_and_add_8",
           BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_SUB_N, "__sync_fetch_and_sub",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_SUB_1, "__sync_fetch_and_sub_1",
           BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_SUB_2, "__sync_fetch_and_sub_2",
@@ -1468,7 +1497,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_SUB_8, "__sync_fetch_and_sub_8",
           BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_OR_N, "__sync_fetch_and_or",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_OR_1, "__sync_fetch_and_or_1",
           BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_OR_2, "__sync_fetch_and_or_2",
@@ -1479,7 +1508,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_OR_8, "__sync_fetch_and_or_8",
           BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_AND_N, "__sync_fetch_and_and",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_AND_1, "__sync_fetch_and_and_1",
           BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_AND_2, "__sync_fetch_and_and_2",
@@ -1490,7 +1519,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_AND_8, "__sync_fetch_and_and_8",
           BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_XOR_N, "__sync_fetch_and_xor",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_XOR_1, "__sync_fetch_and_xor_1",
           BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_XOR_2, "__sync_fetch_and_xor_2",
@@ -1501,7 +1530,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_XOR_8, "__sync_fetch_and_xor_8",
           BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_NAND_N, "__sync_fetch_and_nand",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_NAND_1, "__sync_fetch_and_nand_1",
           BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_NAND_2, "__sync_fetch_and_nand_2",
@@ -1512,7 +1541,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_FETCH_AND_NAND_8, "__sync_fetch_and_nand_8",
           BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_ADD_AND_FETCH_N, "__sync_add_and_fetch",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_ADD_AND_FETCH_1, "__sync_add_and_fetch_1",
           BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_ADD_AND_FETCH_2, "__sync_add_and_fetch_2",
@@ -1523,7 +1552,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_ADD_AND_FETCH_8, "__sync_add_and_fetch_8",
           BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_SUB_AND_FETCH_N, "__sync_sub_and_fetch",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_SUB_AND_FETCH_1, "__sync_sub_and_fetch_1",
           BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_SUB_AND_FETCH_2, "__sync_sub_and_fetch_2",
@@ -1534,7 +1563,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_SUB_AND_FETCH_8, "__sync_sub_and_fetch_8",
           BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_OR_AND_FETCH_N, "__sync_or_and_fetch",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_OR_AND_FETCH_1, "__sync_or_and_fetch_1",
           BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_OR_AND_FETCH_2, "__sync_or_and_fetch_2",
@@ -1545,7 +1574,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_OR_AND_FETCH_8, "__sync_or_and_fetch_8",
           BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_AND_AND_FETCH_N, "__sync_and_and_fetch",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_AND_AND_FETCH_1, "__sync_and_and_fetch_1",
           BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_AND_AND_FETCH_2, "__sync_and_and_fetch_2",
@@ -1556,7 +1585,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_AND_AND_FETCH_8, "__sync_and_and_fetch_8",
           BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_XOR_AND_FETCH_N, "__sync_xor_and_fetch",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_XOR_AND_FETCH_1, "__sync_xor_and_fetch_1",
           BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_XOR_AND_FETCH_2, "__sync_xor_and_fetch_2",
@@ -1567,7 +1596,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_XOR_AND_FETCH_8, "__sync_xor_and_fetch_8",
           BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_NAND_AND_FETCH_N, "__sync_nand_and_fetch",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_NAND_AND_FETCH_1, "__sync_nand_and_fetch_1",
           BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_NAND_AND_FETCH_2, "__sync_nand_and_fetch_2",
@@ -1579,7 +1608,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_NAND_AND_FETCH_8, "__sync_nand_and_fetch_8",
 
 DEF_SYNC_BUILTIN(BUILT_IN_BOOL_COMPARE_AND_SWAP_N,
           "__sync_bool_compare_and_swap",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_BOOL_COMPARE_AND_SWAP_1,
           "__sync_bool_compare_and_swap_1",
           BT_FN_BOOL_VPTR_I1_I1, ATTR_NOTHROW_LIST)
@@ -1595,7 +1624,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_BOOL_COMPARE_AND_SWAP_8,
 
 DEF_SYNC_BUILTIN(BUILT_IN_VAL_COMPARE_AND_SWAP_N,
           "__sync_val_compare_and_swap",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_VAL_COMPARE_AND_SWAP_1,
           "__sync_val_compare_and_swap_1",
           BT_FN_I1_VPTR_I1_I1, ATTR_NOTHROW_LIST)
@@ -1610,7 +1639,7 @@ DEF_SYNC_BUILTIN(BUILT_IN_VAL_COMPARE_AND_SWAP_8,
           BT_FN_I8_VPTR_I8_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_LOCK_TEST_AND_SET_N, "__sync_lock_test_and_set",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_LOCK_TEST_AND_SET_1, "__sync_lock_test_and_set_1",
           BT_FN_I1_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_LOCK_TEST_AND_SET_2, "__sync_lock_test_and_set_2",
@@ -1621,17 +1650,127 @@ DEF_SYNC_BUILTIN(BUILT_IN_LOCK_TEST_AND_SET_8, "__sync_lock_test_and_set_8",
           BT_FN_I8_VPTR_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_LOCK_RELEASE_N, "__sync_lock_release",
-          BT_FN_VOID_VAR, ATTR_NOTHROW_LIST)
+          BT_FN_SYNC_OVERLOAD, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_LOCK_RELEASE_1, "__sync_lock_release_1",
-          BT_FN_VOID_VPTR, ATTR_NOTHROW_LIST)
+          BT_FN_VOID_VPTR_I1, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_LOCK_RELEASE_2, "__sync_lock_release_2",
-          BT_FN_VOID_VPTR, ATTR_NOTHROW_LIST)
+          BT_FN_VOID_VPTR_I2, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_LOCK_RELEASE_4, "__sync_lock_release_4",
-          BT_FN_VOID_VPTR, ATTR_NOTHROW_LIST)
+          BT_FN_VOID_VPTR_I4, ATTR_NOTHROW_LIST)
 DEF_SYNC_BUILTIN(BUILT_IN_LOCK_RELEASE_8, "__sync_lock_release_8",
-          BT_FN_VOID_VPTR, ATTR_NOTHROW_LIST)
+          BT_FN_VOID_VPTR_I8, ATTR_NOTHROW_LIST)
 
 DEF_SYNC_BUILTIN(BUILT_IN_SYNCHRONIZE, "__sync_synchronize",
           BT_FN_VOID, ATTR_NOTHROW_LIST)
 
+}
+
+static scope_entry_t* solve_gcc_sync_builtins_overload_name(scope_entry_t* overloaded_function, type_t** arguments, int num_arguments)
+{
+    // Why people insists on having overload in C?
+    char name[256];
+
+    // We will iterate from 1 to 32
+    const int max_valid_overloads = 5;
+
+    char found_match = 0;
+    scope_entry_t* result = NULL;
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "GCC-BUILTIN: Trying to figure out the exact version of '%s' given the following %d arguments\n",
+                overloaded_function->symbol_name,
+                num_arguments);
+        int j;
+        for (j = 0; j < num_arguments; j++)
+        {
+            if (arguments[j] != NULL)
+            {
+                fprintf(stderr, "GCC-BUILTIN:     [%d] %s\n", j,
+                        print_declarator(arguments[j]));
+            }
+            else
+            {
+                fprintf(stderr, "GCC-BUILTIN:     [%d] <<NULL>>\n", j);
+            }
+        }
+    }
+
+    int i;
+    int current_bit_size = 1;
+    for (i = 0; (i < max_valid_overloads) && !found_match; i++)
+    {
+        snprintf(name, 255, "%s_%d", overloaded_function->symbol_name, current_bit_size);
+        name[255] = '\0';
+        scope_entry_list_t *entry_list = query_unqualified_name_str(overloaded_function->decl_context, name);
+
+        // Let's assume no more overloads have been defined
+        if (entry_list == NULL)
+        {
+            break;
+        }
+
+        scope_entry_t* current_entry = entry_list->entry;
+
+        type_t* current_function_type = current_entry->type_information;
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "GCC-BUILTIN: Checking with builtin '%s' of type '%s'\n",
+                    current_entry->symbol_name,
+                    print_declarator(current_function_type));
+        }
+
+        if (!is_function_type(current_function_type))
+        {
+            internal_error("gcc builtin '%s' without function type\n", current_entry);
+        }
+
+        if (num_arguments != function_type_get_num_parameters(current_function_type))
+        {
+            // Ignore this case
+            continue;
+        }
+
+        int j;
+        char all_arguments_matched = 1;
+        for (j = 0; (j < num_arguments) && all_arguments_matched; j++)
+        {
+            type_t* argument_type = arguments[j];
+            type_t* parameter_type = function_type_get_parameter_type_num(current_function_type, j);
+
+            standard_conversion_t scs;
+
+            if (all_arguments_matched)
+            {
+                if (is_pointer_type(argument_type)
+                        && is_pointer_type(parameter_type))
+                {
+                    // Do not rely on standard conversion between types because
+                    // it allows too many conversions in C
+                    all_arguments_matched = pointer_types_can_be_converted(argument_type, parameter_type);
+                }
+                else
+                {
+                    all_arguments_matched = standard_conversion_between_types(&scs, argument_type, parameter_type);
+                }
+            }
+        }
+
+        if (all_arguments_matched)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "GCC-BUILTIN: Builtin '%s' of type '%s' matched!\n",
+                        current_entry->symbol_name,
+                        print_declarator(current_function_type));
+            }
+            result = current_entry;
+            found_match = 1;
+        }
+
+        current_bit_size = 2*current_bit_size;
+    }
+
+    return result;
 }

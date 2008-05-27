@@ -1661,6 +1661,43 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
             fprintf(stderr, "OVERLOAD:    No candidate functions given!\n");
         }
     }
+
+    // Special case for overloaded builtins of gcc
+    if (candidate_functions != NULL
+            && candidate_functions->next == NULL
+            && is_computed_function_type(candidate_functions->entry->type_information))
+    {
+        // Use this function removing all lvalues that might have arosen
+        int i;
+        for (i = 1; i < num_arguments; i++)
+        {
+            argument_types[i] = no_ref(argument_types[i]);
+        }
+
+        computed_function_type_t compute_type_function = 
+            computed_function_type_get_computing_function(candidate_functions->entry->type_information);
+
+        scope_entry_t* solved_function = compute_type_function(candidate_functions->entry, 
+                &argument_types[1], num_arguments - 1);
+
+        return solved_function;
+    }
+
+    // Additional safety check to avoid mixing computed function types with
+    // normal (overloaded) C++ functions
+    {
+        scope_entry_list_t *it = candidate_functions;
+        while (it != NULL)
+        {
+            scope_entry_t* entry = it->entry;
+
+            if (is_computed_function_type(entry->type_information))
+            {
+                internal_error("Normal overloaded functions got somehow mixed with computed function types", 0);
+            }
+            it = it->next;
+        }
+    }
     
     // First get the viable functions
     overload_entry_list_t *viable_functions = compute_viable_functions(candidate_functions, 

@@ -5343,7 +5343,16 @@ static const char* get_builtin_type_name(type_t* type_info)
 // This prints a declarator in English. It is intended for debugging purposes
 const char* print_declarator(type_t* printed_declarator)
 {
+    DEBUG_CODE()
+    {
+        if (printed_declarator == NULL)
+        {
+            return "<<NULL>>";
+        }
+    }
+
     ERROR_CONDITION(printed_declarator == NULL, "This cannot be null", 0);
+
     const char* tmp_result = "";
 
     if (is_ellipsis_type(printed_declarator))

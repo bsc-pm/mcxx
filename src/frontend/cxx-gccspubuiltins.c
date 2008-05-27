@@ -232,7 +232,7 @@ static type_t* main_variant(type_t* t)
 }
 #endif
 
-static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* arguments, int num_arguments)
+static scope_entry_t* solve_spu_overload_name(scope_entry_t* overloaded_function, type_t** arguments, int num_arguments)
 {
     // Why people insists on having overload in C?
     char name[256];
@@ -241,7 +241,7 @@ static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* 
     const int max_valid_overloads = 24;
 
     char found_match = 0;
-    type_t* result = NULL;
+    scope_entry_t* result = NULL;
 
     DEBUG_CODE()
     {
@@ -252,7 +252,7 @@ static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* 
         for (j = 0; j < num_arguments; j++)
         {
             fprintf(stderr, "SPU-BUILTIN:     [%d] %s\n", j,
-                    print_declarator(ASTExprType(arguments[j])));
+                    print_declarator(arguments[j]));
         }
     }
 
@@ -295,8 +295,10 @@ static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* 
         char all_arguments_matched = 1;
         for (j = 0; (j < num_arguments) && all_arguments_matched; j++)
         {
-            type_t* argument_type = ASTExprType(arguments[j]);
+            type_t* argument_type = arguments[j];
             type_t* parameter_type = function_type_get_parameter_type_num(current_function_type, j);
+
+            // Fix the parameter
 
             //  We try to mimic this
             //
@@ -326,8 +328,12 @@ static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* 
             //     all_arguments_matched = 0;
             // }
             all_arguments_matched = all_arguments_matched 
-                && equivalent_types(get_unqualified_type(argument_type),
-                        parameter_type);
+                // We want vector types to be identic
+                && (equivalent_types(get_unqualified_type(argument_type),
+                            parameter_type)
+                        // But integers do not need be exactly the same
+                        || (is_integer_type(argument_type)
+                            && is_integer_type(parameter_type)));
         }
 
         if (all_arguments_matched)
@@ -338,7 +344,7 @@ static type_t* solve_spu_overload_name(scope_entry_t* overloaded_function, AST* 
                         current_entry->symbol_name,
                         print_declarator(current_function_type));
             }
-            result = current_function_type;
+            result = current_entry;
             found_match = 1;
         }
     }
