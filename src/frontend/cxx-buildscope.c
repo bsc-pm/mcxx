@@ -825,6 +825,10 @@ void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info,
             {
                 *type_info = get_unsigned_char_type();
             }
+            else if (*type_info == get_signed_short_int_type())
+            {
+                *type_info = get_unsigned_short_int_type();
+            }
             else if (*type_info == get_signed_int_type())
             {
                 *type_info = get_unsigned_int_type();
