@@ -5387,9 +5387,12 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
             }
             else
             {
-                fprintf(stderr, "%s: match not found for computed function type '%s\n",
-                        ast_location(called_expression), 
-                        prettyprint_in_buffer(advanced_called_expression));
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: no match found for computed function type '%s'\n",
+                            ast_location(called_expression), 
+                            prettyprint_in_buffer(advanced_called_expression));
+                }
             }
         }
 

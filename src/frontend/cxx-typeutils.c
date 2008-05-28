@@ -4672,6 +4672,11 @@ const char* get_simple_type_name_string(decl_context_t decl_context, type_t* typ
                 result = get_simple_type_name_string(decl_context, type_info->array->element_type);
                 break;
             }
+        case TK_VECTOR:
+            {
+                result = get_simple_type_name_string(decl_context, type_info->vector->element_type);
+                break;
+            }
         default:
             break;
     }
@@ -5072,7 +5077,7 @@ static void get_type_name_str_internal(decl_context_t decl_context,
                         type_info->vector->vector_size);
                 c[255] = '\0';
 
-                (*right) = strappend((*right), c);
+                (*left) = strappend((*left), c);
                 break;
             }
         default:
