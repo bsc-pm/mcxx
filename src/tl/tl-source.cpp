@@ -24,6 +24,7 @@
 #include <iostream>
 #include <sstream>
 #include <iomanip>
+#include <cstring>
 #include "cxx-printscope.h"
 #include "cxx-utils.h"
 

@@ -5676,7 +5676,7 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 {
                     char c[256];
                     snprintf(c, 255, "<surrogate-function-%d>", num_surrogate_functions);
-                    c[256] = '\0';
+                    c[255] = '\0';
 
                     surrogate_symbol->symbol_name = uniquestr(c);
                 }

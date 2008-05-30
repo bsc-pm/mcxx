@@ -24,6 +24,7 @@
 #include "tl-symbol.hpp"
 
 #include <cstdlib>
+#include <cstring>
 
 namespace TL
 {

@@ -27,6 +27,7 @@
 #include <sstream>
 #include <cstdio>
 #include <cerrno>
+#include <cstring>
 
 namespace TL
 {

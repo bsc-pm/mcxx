@@ -23,6 +23,7 @@
 
 #include <vector>
 #include <utility>
+#include <algorithm>
 #include "tl-functor.hpp"
 #include "tl-predicate.hpp"
 #include <signal.h>
