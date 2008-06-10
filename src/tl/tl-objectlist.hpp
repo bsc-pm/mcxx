@@ -21,6 +21,7 @@
 #ifndef TL_OBJECTLIST_HPP
 #define TL_OBJECTLIST_HPP
 
+#include <algorithm>
 #include <vector>
 #include <utility>
 #include <algorithm>
