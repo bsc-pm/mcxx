@@ -26,7 +26,6 @@
 #include "cxx-utils.h"
 #include <sstream>
 #include <cstdio>
-#include <cstring>
 #include <cerrno>
 #include <cstring>
 

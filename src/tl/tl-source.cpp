@@ -21,7 +21,6 @@
 #include "tl-source.hpp"
 #include "cxx-exprtype.h"
 #include "cxx-ambiguity.h"
-#include <cstring>
 #include <iostream>
 #include <sstream>
 #include <iomanip>
