@@ -600,7 +600,6 @@ namespace TL
 		Expression function_call(node, ctx.scope_link);
 		
 		Expression called_expresion = function_call.get_called_expression();
-		std::string function_name = called_expresion.get_id_expression().mangle_id_expression();
 		ObjectList<Expression> arguments = function_call.get_argument_list();
 		
 		Source source;
@@ -614,12 +613,11 @@ namespace TL
 		
 		ObjectList<Expression>::iterator it = arguments.begin();
 		source
-			<< "memalign" << "("
-				<< 128
-				<< ", " << it->prettyprint()
-			<< ")" << ";";
+			<< "css_aligned_malloc" << "("
+				<< it->prettyprint()
+			<< ")";
 		
-		AST_t tree = source.parse_statement(node, ctx.scope_link);
+		AST_t tree = source.parse_expression(node, ctx.scope_link);
 		node.replace_with(tree);
 	}
 	
@@ -634,7 +632,6 @@ namespace TL
 		Expression function_call(node, ctx.scope_link);
 		
 		Expression called_expresion = function_call.get_called_expression();
-		std::string function_name = called_expresion.get_id_expression().mangle_id_expression();
 		ObjectList<Expression> arguments = function_call.get_argument_list();
 		
 		Source source;
@@ -646,32 +643,14 @@ namespace TL
 			return;
 		}
 		
-		source
-			<< "({"
-				<< "void *aligned_mem__cssgenerated = ";
 		ObjectList<Expression>::iterator it = arguments.begin();
 		source
-					<< "memalign" << "("
-						<< 128
-						<< ", " << "(" << it->prettyprint() << ")";
+			<< "css_aligned_calloc" << "("
+				<< it->prettyprint();
 		it++;
 		source
-						<< "*" << "(" << it->prettyprint() << ")"
-					<< ")" << ";";
-		
-		// FIXME: must include strings.h
-		it = arguments.begin();
-		source
-				<< "bzero(aligned_mem__cssgenerated, "
-					<< "(" << it->prettyprint() << ")";
-		it++;
-		source
-					<< "*" << "(" << it->prettyprint() << ")"
-					<< ")" << ";";
-		
-		source
-				<< "aligned_mem__cssgenerated;"
-			<< "})";
+				<< ", " << it->prettyprint()
+			<< ")";
 		
 		AST_t tree = source.parse_expression(node, ctx.scope_link);
 		node.replace_with(tree);
@@ -719,6 +698,7 @@ namespace TL
 				generate_task_id_declarations(function_map, translation_unit, scope_link);
 			}
 			
+#if 0
 			if (align_memory)
 			{
 				if (function_map.find("memalign") == function_map.end())
@@ -742,6 +722,7 @@ namespace TL
 					memalign_funtion_info._is_on_non_task_side |= malloc_function_info._is_on_non_task_side;
 				}
 			}
+#endif
 			
 			
 			DepthTraverse depth_traverse;
