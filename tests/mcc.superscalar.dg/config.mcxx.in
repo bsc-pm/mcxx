@@ -2,7 +2,7 @@
 language = C
 options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=align-memory:yes
 preprocessor_name = c99
-preprocessor_options = -E -I@srcdir@/../../../../master @SUPERSCALAR_INCLUDES@ 
+preprocessor_options = -E -I@abs_top_srcdir@/../../master @SUPERSCALAR_INCLUDES@ 
 compiler_name = c99
 compiler_options = 
 linker_name = c99
