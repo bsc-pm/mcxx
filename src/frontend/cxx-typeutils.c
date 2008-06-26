@@ -5927,20 +5927,6 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
             // Direct conversion, no cv-qualifiers can be involved here
             orig = dest;
         }
-        /* vector type - this is to make overload mechanism happy */
-        else if (is_vector_type(dest)
-                && is_vector_type(orig)
-                && vector_types_can_be_converted(dest, orig)
-                && !equivalent_types(vector_type_get_element_type(dest),
-                    vector_type_get_element_type(orig)))
-        {
-            DEBUG_CODE()
-            {
-                fprintf(stderr, "SCS: Applying vectorial integral promotion\n");
-            }
-            (*result).conv[1] = SCI_VECTOR_INTEGRAL_PROMOTION;
-            orig = dest;
-        }
         else if ((is_double_type(dest)
                     && is_float_type(orig))
                 || (is_long_double_type(dest)
@@ -6491,30 +6477,6 @@ char is_pseudo_destructor_call_type(type_t *t)
 int get_sizeof_type(type_t* t)
 {
     return t->size;
-}
-
-// This states if vector type t1 can be assigned/initialized using a vector type t2
-char vector_types_can_be_converted(type_t* t1, type_t* t2)
-{
-    ERROR_CONDITION(!is_vector_type(t1)
-            || !is_vector_type(t2), 
-            "This is not a vector type", 0);
-
-    char both_are_integral = 
-        is_integral_type(vector_type_get_element_type(t1))
-        && is_integral_type(vector_type_get_element_type(t2));
-
-    char equal_types = equivalent_types(t1, t2);
-
-    char both_have_same_vector_size =
-        vector_type_get_vector_size(t1) == vector_type_get_vector_size(t2);
-
-    if ((!both_are_integral || !both_have_same_vector_size)
-            && !equal_types)
-    {
-        return 0;
-    }
-    return 1;
 }
 
 struct type_tag* get_computed_function_type(computed_function_type_t compute_type_function)

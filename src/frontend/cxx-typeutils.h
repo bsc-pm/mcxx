@@ -415,8 +415,6 @@ char class_type_is_complete_independent(struct type_tag* t);
 
 char pointer_types_can_be_converted(struct type_tag* orig, struct type_tag* dest);
 
-char vector_types_can_be_converted(struct type_tag* t1, struct type_tag* t2);
-
 void set_as_template_specialized_type(struct type_tag* type_to_specialize, 
         template_argument_list_t * template_arguments, 
         template_parameter_list_t* template_parameters,
