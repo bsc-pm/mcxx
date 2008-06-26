@@ -480,8 +480,9 @@ static void build_scope_gcc_asm_definition(AST a, decl_context_t decl_context)
                     AST expression = ASTSon2(asm_operand);
                     if (!check_for_expression(expression, decl_context))
                     {
-                        internal_error("Could not check expression '%s'\n",
-                                prettyprint_in_buffer(expression), decl_context);
+                        fprintf(stderr, "%s: warning: assembler operand '%s' could not be checked\n",
+                                ast_location(expression),
+                                prettyprint_in_buffer(expression));
                     }
                 }
             }
@@ -629,7 +630,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
     {
         C_LANGUAGE()
         {
-            fprintf(stderr, "Warning: Declaration at '%s' does not have decl-specifier, assuming 'int'\n",
+            fprintf(stderr, "%s: warning: declaration does not have decl-specifier, assuming 'int'\n",
                     ast_location(a));
 
             simple_type_info = get_signed_int_type();
@@ -881,7 +882,7 @@ void build_scope_decl_specifier_seq(AST a, gather_decl_spec_t* gather_info,
     {
         C_LANGUAGE()
         {
-            fprintf(stderr, "Warning: Declaration at '%s' does not have a type-specifier, assuming 'int'\n",
+            fprintf(stderr, "%s: warning: declaration does not have a type-specifier, assuming 'int'\n",
                     ast_location(a));
 
             *type_info = get_signed_int_type();
@@ -1769,7 +1770,8 @@ void gather_type_spec_from_enum_specifier(AST a, type_t** type_info,
             {
                 if (!check_for_expression(enumeration_expr, enumerators_context))
                 {
-                    internal_error("Could not check expression '%s'\n",
+                    fprintf(stderr, "%s: warning: could not check enumerator initializer '%s'\n",
+                            ast_location(enumeration_expr),
                             prettyprint_in_buffer(enumeration_expr));
                 }
 
@@ -2861,9 +2863,10 @@ static void build_scope_declarator_with_parameter_context(AST a,
 
                 if (symbols == NULL)
                 {
-                    fprintf(stderr, "Warning, context of the qualified declarator '%s' in %s not found,"
-                            " falling back to the current one\n", prettyprint_in_buffer(declarator_name),
-                            ast_location(declarator_name));
+                    fprintf(stderr, "%s: warning: context of the qualified declarator '%s' not found,"
+                            " falling back to the current one\n", 
+                            ast_location(declarator_name),
+                            prettyprint_in_buffer(declarator_name));
                 }
                 else
                 {
@@ -3080,7 +3083,8 @@ static void set_array_type(type_t** declarator_type,
     {
         if (!check_for_expression(constant_expr, decl_context))
         {
-            internal_error("Could not check expression '%s'\n", 
+            fprintf(stderr, "%s: warning: could not check array size expression '%s'\n",
+                    ast_location(constant_expr),
                     prettyprint_in_buffer(constant_expr));
         }
     }
@@ -3210,7 +3214,9 @@ static void set_function_parameter_clause(type_t** function_type,
         {
             if (!check_for_expression(default_argument, decl_context))
             {
-                internal_error("Could not check expression '%s'\n", prettyprint_in_buffer(default_argument));
+                fprintf(stderr, "%s: warning: could not check default argument expression '%s'\n",
+                        ast_location(default_argument),
+                        prettyprint_in_buffer(default_argument));
             }
         }
 
@@ -3624,24 +3630,6 @@ static void build_scope_declarator_rec(AST a, type_t** declarator_type,
                 ASTAttrSetValueType(a, LANG_IS_FUNCTIONAL_DECLARATOR, tl_type_t, tl_bool(1));
                 set_function_type(declarator_type, gather_info, ASTSon1(a), 
                         ASTSon2(a), ASTSon3(a), entity_context, prototype_context);
-
-// Too pedantic sometimes
-#if 0
-                C_LANGUAGE()
-                {
-                    if (function_type_get_lacking_prototype(*declarator_type))
-                    {
-                        if (ASTSon1(a) == NULL
-                                || ASTType(ASTSon1(a)) == AST_EMPTY_PARAMETER_DECLARATION_CLAUSE)
-                        {
-                            char *funct_decl_name = prettyprint_in_buffer(ASTSon0(a));
-                            fprintf(stderr, "Warning: Function '%s' in '%s' lacks a prototype. "
-                                    "Did you mean '%s(void)' instead of '%s()'?\n",
-                                    prettyprint_in_buffer(a), ast_location(a), funct_decl_name, funct_decl_name);
-                        }
-                    }
-                }
-#endif
 
                 build_scope_declarator_rec(ASTSon0(a), declarator_type, 
                         gather_info, declarator_context, entity_context, prototype_context);
@@ -5301,7 +5289,8 @@ static void build_scope_nontype_template_parameter(AST a,
     {
         if (!check_for_expression(default_expression, template_context))
         {
-            internal_error("Could not check default argument of template parameter '%s'\n",
+            fprintf(stderr, "%s: warning: could not check default argument of template parameter '%s'\n",
+                    ast_location(default_expression),
                     prettyprint_in_buffer(default_expression));
         }
 
@@ -5457,7 +5446,8 @@ static void build_scope_ctor_initializer(AST ctor_initializer,
 
                             if (!check_for_expression(expression, block_context))
                             {
-                                internal_error("Could not check expression '%s'\n",
+                                fprintf(stderr, "%s: warning: could not check expression for constructor '%s'\n",
+                                        ast_location(expression),
                                         prettyprint_in_buffer(expression));
                             }
                         }
@@ -5550,12 +5540,12 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
             {
                 if (decl_spec_seq == NULL)
                 {
-                    fprintf(stderr, "Warning: Function definition at '%s' does not have decl-specifier, assuming 'int'\n",
+                    fprintf(stderr, "%s: warning: function definition does not have decl-specifier, assuming 'int'\n",
                             ast_location(a));
                 }
                 else
                 {
-                    fprintf(stderr, "Warning: Function definition at '%s' does not have type-specifier, assuming 'int'\n",
+                    fprintf(stderr, "%s: warning: function definition does not have type-specifier, assuming 'int'\n",
                             ast_location(a));
                 }
 
@@ -6300,7 +6290,8 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         AST expression = ASTSon1(declarator);
                         if (!check_for_expression(expression, decl_context))
                         {
-                            internal_error("Could not check expression '%s'\n", 
+                            fprintf(stderr, "%s: warning: could not check bitfield size expression '%s'\n",
+                                    ast_location(expression),
                                     prettyprint_in_buffer(expression));
                         }
 
@@ -7194,7 +7185,8 @@ static void build_scope_for_statement(AST a,
     {
         if (!check_for_expression(expression, block_context))
         {
-            internal_error("Could not check expression '%s'\n", 
+            fprintf(stderr, "%s: warning: could not check iterating expression '%s'\n",
+                    ast_location(expression),
                     prettyprint_in_buffer(expression));
         }
         scope_link_set(CURRENT_COMPILED_FILE(scope_link), expression, block_context);
@@ -7290,7 +7282,9 @@ static void build_scope_case_statement(AST a,
     AST statement = ASTSon1(a);
     if (!check_for_expression(constant_expression, decl_context))
     {
-        internal_error("Could not check expression '%s'\n", prettyprint_in_buffer(constant_expression));
+        fprintf(stderr, "%s: could not check case expression '%s'\n",
+                ast_location(constant_expression),
+                prettyprint_in_buffer(constant_expression));
     }
 
     build_scope_statement(statement, decl_context);
@@ -7309,7 +7303,9 @@ static void build_scope_return_statement(AST a,
     {
         if (!check_for_expression(expression, decl_context))
         {
-            internal_error("Could not check expression '%s'\n", prettyprint_in_buffer(expression));
+            fprintf(stderr, "%s: could not check return expression '%s'\n",
+                    ast_location(expression),
+                    prettyprint_in_buffer(expression));
         }
     }
 
@@ -7379,7 +7375,9 @@ static void build_scope_do_statement(AST a,
     build_scope_statement(statement, decl_context);
     if (!check_for_expression(expression, decl_context))
     {
-        internal_error("Could not solve expression '%s'\n", prettyprint_in_buffer(expression));
+        fprintf(stderr, "%s: warning: could not check do expression '%s'\n",
+                ast_location(expression),
+                prettyprint_in_buffer(expression));
     }
 
     ASTAttrSetValueType(a, LANG_IS_DO_STATEMENT, tl_type_t, tl_bool(1));
@@ -7408,7 +7406,8 @@ static void build_scope_omp_data_clause(AST a, decl_context_t decl_context)
         // but this is a strict subset of expressions, so we use the same code
         if (!check_for_expression(variable, decl_context))
         {
-            internal_error("Could not check expression '%s'\n", 
+            fprintf(stderr, "%s: warning: could not check OpenMP variable-name '%s'\n",
+                    ast_location(variable),
                     prettyprint_in_buffer(variable));
         }
     }
@@ -7438,7 +7437,9 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                         AST expression = ASTSon0(clause);
                         if (!check_for_expression(expression, decl_context))
                         {
-                            internal_error("Could not check expression '%s'\n", prettyprint_in_buffer(expression));
+                            fprintf(stderr, "%s: warning: OpenMP 'if' clause expression '%s' could not be checked\n",
+                                    ast_location(expression),
+                                    prettyprint_in_buffer(expression));
                         }
                         ASTAttrSetValueType(clause, OMP_IS_IF_CLAUSE, tl_type_t, tl_bool(1));
                         break;
@@ -7448,7 +7449,9 @@ static void build_scope_omp_directive(AST a, decl_context_t decl_context, char* 
                         AST expression = ASTSon0(clause);
                         if (!check_for_expression(expression, decl_context))
                         {
-                            internal_error("Could not check expression '%s'\n", prettyprint_in_buffer(expression));
+                            fprintf(stderr, "%s: warning: OpenMP 'num_threads' clause expression '%s' could not be checked\n",
+                                    ast_location(expression),
+                                    prettyprint_in_buffer(expression));
                         }
                         ASTAttrSetValueType(clause, OMP_IS_NUM_THREADS_CLAUSE, tl_type_t, tl_bool(1));
                         break;
@@ -7842,6 +7845,7 @@ static void build_scope_omp_critical_construct(AST a,
     AST region_phrase = ASTSon0(critical_directive);
     if (region_phrase != NULL)
     {
+        // This should be fixed
         check_for_expression(region_phrase, decl_context);
 
         ASTAttrSetValueType(region_phrase, OMP_IS_PARAMETER_CLAUSE, tl_type_t, tl_bool(1));

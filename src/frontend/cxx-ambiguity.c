@@ -2043,9 +2043,29 @@ void solve_ambiguous_for_init_statement(AST a, decl_context_t decl_context)
 
     if (correct_choice < 0)
     {
-        fprintf(stderr, "This init statement cannot be disambiguated:\n");
-        prettyprint(stderr, a);
-        internal_error("Ambiguity not solved !", 0);
+        // Recheck the expression again
+        for (i = 0; i < ast_get_num_ambiguities(a); i++)
+        {
+            switch (ASTType(ast_get_ambiguity(a, i)))
+            {
+                case AST_EXPRESSION_STATEMENT :
+                    {
+                        AST ambiguous_tree_as_expr = ast_get_ambiguity(a, i);
+                        // This will output some informational messages that might
+                        // help solving this ambiguity
+                        remove_computed_types(ambiguous_tree_as_expr);
+                        check_for_expression_statement(ambiguous_tree_as_expr, decl_context);
+                        break;
+                    }
+                default:
+                    {
+                        break;
+                    }
+            }
+        }
+
+        running_error("%s: error: cannot continue due to serious semantic problems in '%s'",
+                ast_location(a), prettyprint_in_buffer(a));
     }
     else
     {
