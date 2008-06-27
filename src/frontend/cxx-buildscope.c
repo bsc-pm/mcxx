@@ -7828,10 +7828,21 @@ static void build_scope_omp_sections_construct(AST a,
     ASTAttrSetValueType(a, attr_name, tl_type_t, tl_bool(1));
 }
 
+
 static void build_scope_omp_critical_construct(AST a, 
         decl_context_t decl_context, 
         char* attr_name UNUSED_PARAMETER)
 {
+    static char critical_context_created = 0;
+    static decl_context_t critical_context;
+
+    // Create the critical context if needed
+    if (!critical_context_created)
+    {
+        critical_context = new_global_context();
+        critical_context_created = 1;
+    }
+
     AST critical_directive = ASTSon0(a);
     ASTAttrSetValueType(a, OMP_CONSTRUCT_DIRECTIVE, tl_type_t, tl_ast(critical_directive));
 
@@ -7845,8 +7856,28 @@ static void build_scope_omp_critical_construct(AST a,
     AST region_phrase = ASTSon0(critical_directive);
     if (region_phrase != NULL)
     {
-        // This should be fixed
-        check_for_expression(region_phrase, decl_context);
+        // Ok, #pragma critical is such a stupid thing living in its own namespace
+
+        AST expression = region_phrase;
+        AST region_name_tree = ASTSon0(expression);
+
+        ERROR_CONDITION(ASTType(region_name_tree) != AST_SYMBOL, "Invalid tree", 0);
+
+        const char *region_name_str = ASTText(region_name_tree);
+
+        // Create only if it does not exist already
+        if (!query_in_scope_str(critical_context, region_name_str))
+        {
+            scope_entry_t *region_name_symbol = 
+                new_symbol(critical_context, critical_context.current_scope, region_name_str);
+
+            region_name_symbol->kind = SK_VARIABLE;
+            region_name_symbol->type_information = get_void_type();
+            region_name_symbol->line = ASTLine(a);
+            region_name_symbol->file = ASTFileName(a);
+        }
+
+        check_for_expression(region_phrase, critical_context);
 
         ASTAttrSetValueType(region_phrase, OMP_IS_PARAMETER_CLAUSE, tl_type_t, tl_bool(1));
     }
