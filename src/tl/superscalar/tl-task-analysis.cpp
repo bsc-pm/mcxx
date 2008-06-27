@@ -449,6 +449,14 @@ namespace TL
 		}
 		
 		std::string function_name = declared_entity.get_declared_entity().mangle_id_expression();
+		
+		if (declared_entity.functional_declaration_lacks_prototype())
+		{
+			std::cerr << declared_entity.get_ast().get_locus() << " Error: task '" << function_name << "' declared without parameters. If there is none, please specify void." << std::endl;
+			TaskAnalysis::fail();
+			return;
+		}
+		
 		if (!_function_map.contains(function_name))
 		{
 			std::cerr << __FILE__ << ":" << __LINE__ << ": Internal compiler error" << std::endl;

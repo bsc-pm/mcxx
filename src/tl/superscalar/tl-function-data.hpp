@@ -79,6 +79,7 @@ namespace TL
 			bool _is_on_non_task_side;
 			ObjectList<ParameterInfo> _parameters;
 			bool _has_ellipsis;
+			bool _has_incomplete_prototype;
 			Scope _definition_scope;
 			Scope _declaration_scope;
 			unsigned int _definition_count;
@@ -96,6 +97,7 @@ namespace TL
 				: _name(), _caller_functions(), _called_functions(), _is_task(false), _has_high_priority(false), 
 				_has_coherced_sides(false), _calls_to_taskside_coherced_function(false),
 				_is_on_task_side(false), _is_on_non_task_side(false), _parameters(), _has_ellipsis(false),
+				_has_incomplete_prototype(false),
 				_definition_scope(), _declaration_scope(),
 				_definition_count(0), _declaration_count(0), _task_definition_count(0), _task_declaration_count(0),
 				_task_declarations_processed(0),

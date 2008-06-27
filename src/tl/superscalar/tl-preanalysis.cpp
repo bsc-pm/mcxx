@@ -71,7 +71,7 @@ namespace TL
 			std::string parameter_name = parameter_declaration.get_name().mangle_id_expression();
 			
 			ParameterInfo parameter_info;
-			if (existed)
+			if (existed && !function_info._has_incomplete_prototype)
 			{
 				parameter_info = function_info._parameters[parameter_index];
 			}
@@ -80,7 +80,7 @@ namespace TL
 			parameter_info._definition_locus = parameter_declaration.get_ast().get_locus();
 			parameter_info._direction = UNKNOWN_DIR;
 			
-			if (existed)
+			if (existed && !function_info._has_incomplete_prototype)
 			{
 				function_info._parameters[parameter_index] = parameter_info;
 			}
@@ -112,7 +112,8 @@ namespace TL
 	void TL::PreAnalysis::FunctionDeclarationHandler::postorder(Context ctx, AST_t node)
 	{
 		DeclaredEntity function_declaration(node, ctx.scope_link);
-		std::string function_name = function_declaration.get_declared_entity().mangle_id_expression();
+		Symbol symbol = function_declaration.get_declared_symbol();
+		std::string function_name = symbol.get_name();
 		
 		bool has_ellipsis;
 		ObjectList<ParameterDeclaration> parameters = function_declaration.get_parameter_declarations(has_ellipsis);
@@ -135,32 +136,36 @@ namespace TL
 		function_info._declaration_count++;
 		function_info._declaration_locus = function_declaration.get_ast().get_locus();
 		
-		unsigned int parameter_index = 0;
-		for (ObjectList<ParameterDeclaration>::iterator it = parameters.begin(); it != parameters.end(); it++)
-		{
-			ParameterDeclaration parameter_declaration = *it;
-			Type type = parameter_declaration.get_type();
-			
-			ParameterInfo parameter_info;
-			
-			if (existed)
+		if (function_declaration.functional_declaration_lacks_prototype()) {
+			function_info._has_incomplete_prototype = true;
+		} else {
+			unsigned int parameter_index = 0;
+			for (ObjectList<ParameterDeclaration>::iterator it = parameters.begin(); it != parameters.end(); it++)
 			{
-				parameter_info = function_info._parameters[parameter_index];
+				ParameterDeclaration parameter_declaration = *it;
+				Type type = parameter_declaration.get_type();
+				
+				ParameterInfo parameter_info;
+				
+				if (existed)
+				{
+					parameter_info = function_info._parameters[parameter_index];
+				}
+				
+				parameter_info._declaration_type = type.original_type();
+				parameter_info._declaration_locus = parameter_declaration.get_ast().get_locus();
+				parameter_info._direction = UNKNOWN_DIR;
+				
+				if (existed)
+				{
+					function_info._parameters[parameter_index] = parameter_info;
+				}
+				else
+				{
+					function_info._parameters.push_back(parameter_info);
+				}
+				parameter_index++;
 			}
-			
-			parameter_info._declaration_type = type.original_type();
-			parameter_info._declaration_locus = parameter_declaration.get_ast().get_locus();
-			parameter_info._direction = UNKNOWN_DIR;
-			
-			if (existed)
-			{
-				function_info._parameters[parameter_index] = parameter_info;
-			}
-			else
-			{
-				function_info._parameters.push_back(parameter_info);
-			}
-			parameter_index++;
 		}
 		
 		function_info._declaration_scope = function_declaration.get_scope();

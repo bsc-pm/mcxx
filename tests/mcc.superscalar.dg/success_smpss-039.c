@@ -1,5 +1,5 @@
 #pragma css task
-void f();
+void f(void);
 
 void g() {
 	if (1) f();
