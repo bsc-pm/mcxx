@@ -597,6 +597,10 @@ namespace TL
              */
             ObjectList<ParameterDeclaration> get_parameter_declarations(bool &has_ellipsis);
 
+            //! States whether the functional declaration does not have
+            // a prototype
+            bool functional_declaration_lacks_prototype();
+
             static const PredicateAST<LANG_IS_DECLARED_NAME> predicate;
     };
 

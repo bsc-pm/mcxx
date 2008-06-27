@@ -21,6 +21,7 @@
 #include "tl-langconstruct.hpp"
 #include "tl-predicateutils.hpp"
 #include "tl-source.hpp"
+#include "cxx-utils.h"
 #include "cxx-attrnames.h"
 #include "cxx-exprtype.h"
 
@@ -999,6 +1000,22 @@ namespace TL
                 return ast_traversal_result_helper(match, recurse);
             }
     };
+
+    bool DeclaredEntity::functional_declaration_lacks_prototype()
+    {
+        C_LANGUAGE()
+        {
+            TraverseParameters traverse_parameter_declarations;
+            ObjectList<AST_t> parameter_declarations = _ref.depth_subtrees(traverse_parameter_declarations);
+
+            return parameter_declarations.empty();
+        }
+
+        CXX_LANGUAGE()
+        {
+            return false;
+        }
+    }
 
     ObjectList<ParameterDeclaration> DeclaredEntity::get_parameter_declarations()
     {
