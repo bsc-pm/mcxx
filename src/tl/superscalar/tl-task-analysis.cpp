@@ -18,6 +18,7 @@
 
 
 #include <iostream>
+#include <sstream>
 
 #include "tl-langconstruct.hpp"
 
@@ -368,6 +369,11 @@ namespace TL
 		// Check parameters
 		//
 		
+		std::string construct_line;
+		std::ostringstream oss;
+		oss << "# " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"" << std::endl;
+		construct_line = oss.str();
+		
 		// Check that all parameters in the input clause exist.
 		// Check and compute parameter types
 		// Complete ParameterInfo data
@@ -375,7 +381,7 @@ namespace TL
 		ObjectList<std::string> input_parameters = construct.get_clause("input").get_arguments();
 		for (ObjectList<std::string>::iterator it = input_parameters.begin(); it != input_parameters.end(); it++)
 		{
-			std::string const &parameter_specification = *it;
+			std::string const &parameter_specification = construct_line + *it;
 			handle_definition_parameter(construct, task_definition, function_info, parameter_specification, INPUT_DIR);
 		}
 		
@@ -386,7 +392,7 @@ namespace TL
 		ObjectList<std::string> output_parameters = construct.get_clause("output").get_arguments();
 		for (ObjectList<std::string>::iterator it = output_parameters.begin(); it != output_parameters.end(); it++)
 		{
-			std::string const &parameter_specification = *it;
+			std::string const &parameter_specification = construct_line + *it;
 			handle_definition_parameter(construct, task_definition, function_info, parameter_specification, OUTPUT_DIR);
 		}
 		
@@ -397,7 +403,7 @@ namespace TL
 		ObjectList<std::string> inout_parameters = construct.get_clause("inout").get_arguments();
 		for (ObjectList<std::string>::iterator it = inout_parameters.begin(); it != inout_parameters.end(); it++)
 		{
-			std::string const &parameter_specification = *it;
+			std::string const &parameter_specification = construct_line + *it;
 			handle_definition_parameter(construct, task_definition, function_info, parameter_specification, INOUT_DIR);
 		}
 		
@@ -508,6 +514,11 @@ namespace TL
 		// Check parameters
 		//
 		
+		std::string construct_line;
+		std::ostringstream oss;
+		oss << "# " << construct.get_ast().get_line() << " \"" << construct.get_ast().get_file() << "\"" << std::endl;
+		construct_line = oss.str();
+		
 		// Check that all parameters in the input clause exist.
 		// Check and compute parameter types
 		// Complete ParameterInfo data
@@ -515,7 +526,7 @@ namespace TL
 		ObjectList<std::string> input_parameters = construct.get_clause("input").get_arguments();
 		for (ObjectList<std::string>::iterator it = input_parameters.begin(); it != input_parameters.end(); it++)
 		{
-			std::string const &parameter_specification = *it;
+			std::string const &parameter_specification = construct_line + *it;
 			handle_declaration_parameter(construct, declared_entity, function_info, parameter_specification, INPUT_DIR);
 		}
 		
@@ -526,7 +537,7 @@ namespace TL
 		ObjectList<std::string> output_parameters = construct.get_clause("output").get_arguments();
 		for (ObjectList<std::string>::iterator it = output_parameters.begin(); it != output_parameters.end(); it++)
 		{
-			std::string const &parameter_specification = *it;
+			std::string const &parameter_specification = construct_line + *it;
 			handle_declaration_parameter(construct, declared_entity, function_info, parameter_specification, OUTPUT_DIR);
 		}
 		
@@ -537,7 +548,7 @@ namespace TL
 		ObjectList<std::string> inout_parameters = construct.get_clause("inout").get_arguments();
 		for (ObjectList<std::string>::iterator it = inout_parameters.begin(); it != inout_parameters.end(); it++)
 		{
-			std::string const &parameter_specification = *it;
+			std::string const &parameter_specification = construct_line + *it;
 			handle_declaration_parameter(construct, declared_entity, function_info, parameter_specification, INOUT_DIR);
 		}
 		
