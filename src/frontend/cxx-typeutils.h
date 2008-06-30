@@ -165,6 +165,9 @@ void template_type_set_related_symbol(struct type_tag* t, struct scope_entry_tag
 char is_builtin_type(struct type_tag* t);
 char is_fundamental_type(struct type_tag* t);
 
+// States whether a type is faulty
+char is_faulty_type(type_t*);
+
 // Any type of 'int' nature regardless of being signed or not 
 // (int, short, long, long long)
 char is_any_int_type(struct type_tag* t);
@@ -445,6 +448,7 @@ char syntactic_comparison_of_nested_names(
 /* Debug purpose functions */
 const char* print_declarator(struct type_tag* printed_declarator);
 long long unsigned int type_system_used_memory(void);
+
 
 MCXX_END_DECLS
 
