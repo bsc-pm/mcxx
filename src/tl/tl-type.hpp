@@ -79,6 +79,11 @@ namespace TL
                 return (_type_info != NULL);
             }
 
+            bool is_faulty() const
+            {
+                return is_faulty_type(_type_info);
+            }
+
             virtual ~Type()
             {
             }
