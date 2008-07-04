@@ -309,8 +309,13 @@ typedef struct entity_specifiers_tag
     // Is a conversion function
     char is_conversion;
 
+    // Is trivial special member
+    // Qualifies several special members trivializing it
+    char is_trivial;
+
     // Is a constructor
     char is_constructor;
+    char is_default_constructor;
     // Is a conversor one
     char is_conversor_constructor;
 
@@ -343,6 +348,7 @@ typedef struct entity_specifiers_tag
     const char* linkage_spec;
     
     // Exception specifier for functions
+    char any_exception; // States that any exception can be thrown
     int num_exceptions;
     struct type_tag** exceptions;
 

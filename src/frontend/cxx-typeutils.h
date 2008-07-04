@@ -154,6 +154,8 @@ void class_type_set_instantiation_trees(struct type_tag* t, struct AST_tag* body
 void class_type_add_constructor(struct type_tag* t, struct scope_entry_tag* entry);
 void class_type_set_destructor(struct type_tag* t, struct scope_entry_tag* entry);
 void class_type_set_is_dependent(struct type_tag* t, char is_dependent);
+void class_type_set_default_constructor(struct type_tag* t, struct scope_entry_tag* entry);
+void class_type_add_member_function(struct type_tag* t, struct scope_entry_tag* entry);
 
 void enum_type_add_enumerator(struct type_tag* t, struct scope_entry_tag* entry);
 
@@ -225,6 +227,8 @@ char is_vector_type(struct type_tag* t);
 char is_class_type(struct type_tag* possible_class);
 char is_unnamed_class_type(struct type_tag* possible_class);
 char is_named_class_type(struct type_tag* possible_class);
+
+char is_union_type(struct type_tag* possible_union);
 
 char is_named_type(struct type_tag* t);
 
@@ -318,6 +322,9 @@ struct scope_entry_tag* class_type_get_nonstatic_data_member_num(struct type_tag
 int class_type_get_num_static_data_members(struct type_tag* class_type);
 struct scope_entry_tag* class_type_get_static_data_member_num(struct type_tag* class_type, int i);
 
+int class_type_get_num_member_functions(struct type_tag* class_type);
+struct scope_entry_tag* class_type_get_member_function_num(struct type_tag* class_type, int i);
+
 int class_type_get_num_conversions(struct type_tag* t);
 struct scope_entry_tag* class_type_get_conversion_num(struct type_tag* t, int num);
 
@@ -333,6 +340,7 @@ int class_type_get_num_copy_assignment_operators(struct type_tag* t);
 struct scope_entry_tag* class_type_get_copy_assignment_operator_num(struct type_tag* t, int num);
 int class_type_get_num_copy_constructors(struct type_tag* t);
 struct scope_entry_tag* class_type_get_copy_constructor_num(struct type_tag* t, int num);
+struct scope_entry_tag* class_type_get_default_constructor(struct type_tag* t);
 
 struct scope_entry_tag* class_type_get_destructor(struct type_tag* t);
 decl_context_t class_type_get_context(struct type_tag* t);

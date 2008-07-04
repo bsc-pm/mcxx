@@ -59,7 +59,7 @@ linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@
 {debug} linker_options = -g -lnthreads-dbg
 pragma_prefix = nanos
 compiler_phase = libtlnanos.so
-{instrument,!debug} @INSTRUMENTATION_PHASE@
+# {instrument,!debug} @INSTRUMENTATION_PHASE@
 compiler_phase = libtlomp.so
 
 [imcxx]
@@ -80,5 +80,5 @@ linker_options = -L@NANOS_LIBS@ -Wl,-rpath,@NANOS_LIBS@
 {debug} linker_options = -g -lnthreads-dbg
 pragma_prefix = nanos
 compiler_phase = libtlnanos.so
-{instrument,!debug} @INSTRUMENTATION_PHASE@
+# {instrument,!debug} @INSTRUMENTATION_PHASE@
 compiler_phase = libtlomp.so

@@ -60,6 +60,8 @@ static literal_value_t convert_to_unsigned_char(literal_value_t e1);
 static literal_value_t literal_value_gcc_builtin_types_compatible(AST expression, 
         decl_context_t decl_context);
 
+static literal_value_t evaluate_gxx_type_traits(AST expression, decl_context_t decl_context);
+
 typedef literal_value_t (*binary_op_fun)(literal_value_t e1, literal_value_t e2);
 typedef struct 
 {
@@ -288,17 +290,7 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
             }
         case AST_GXX_TYPE_TRAITS :
             {
-                // FIXME: Implement these for C++
-                fprintf(stderr, "%s: warning: (still) unsupported type traits evaluation '%s'\n",
-                        ast_location(a),
-                        prettyprint_in_buffer(a));
-                //
-                // At the moment just say we don't know anything
-                literal_value_t dependent_entity;
-                memset(&dependent_entity, 0, sizeof(dependent_entity));
-                dependent_entity.kind = LVK_DEPENDENT_EXPR;
-                return dependent_entity;
-
+                return evaluate_gxx_type_traits(a, decl_context);
                 break;
             }
         case AST_AMBIGUITY :
@@ -1062,6 +1054,26 @@ literal_value_t literal_value_minus_one(void)
 
     result.kind = LVK_SIGNED_INT;
     result.value.signed_int = -1;
+
+    return result;
+}
+
+literal_value_t literal_value_false(void)
+{
+    literal_value_t result;
+
+    result.kind = LVK_BOOL;
+    result.value.boolean_value = 0;
+
+    return result;
+}
+
+literal_value_t literal_value_true(void)
+{
+    literal_value_t result;
+
+    result.kind = LVK_BOOL;
+    result.value.boolean_value = 1;
 
     return result;
 }
@@ -2457,3 +2469,544 @@ static literal_value_t literal_value_gcc_builtin_types_compatible(AST expression
         return literal_value_zero();
     }
 }
+
+/*
+ * Type traits of g++
+ */
+
+static char eval_type_trait__has_nothrow_assign(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__has_nothrow_constructor(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__has_nothrow_copy(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__has_trivial_assign(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__has_trivial_constructor(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__has_trivial_copy(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__has_trivial_destructor(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__has_virtual_destructor(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_abstract(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_base_of(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_class(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_convertible_to(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_empty(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_enum(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_pod(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_polymorphic(type_t*, type_t*, decl_context_t);
+static char eval_type_trait__is_union(type_t*, type_t*, decl_context_t);
+
+/*
+   __has_nothrow_assign (type)
+
+   If type is const qualified or is a reference type then the trait is false.
+   Otherwise if __has_trivial_assign (type) is true then the trait is true,
+   else if type is a cv class or union type with copy assignment operators
+   that are known not to throw an exception then the trait is true, else it is
+   false. Requires: type shall be a complete type, an array type of unknown
+   bound, or is a void type. 
+
+    */
+static char eval_type_trait__has_nothrow_assign(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+{
+    if (is_const_qualified_type(first_type)
+            || is_lvalue_reference_type(first_type)
+            || is_rvalue_reference_type(first_type))
+        return 0;
+
+    if (eval_type_trait__has_trivial_assign(first_type, second_type, decl_context))
+        return 1;
+
+    if (is_class_type(first_type))
+    {
+        int i;
+        for (i = 0; i < class_type_get_num_copy_assignment_operators(first_type); i++)
+        {
+            scope_entry_t* entry = class_type_get_copy_assignment_operator_num(first_type, i);
+            if (entry->entity_specs.any_exception
+                    || entry->entity_specs.num_exceptions != 0)
+                return 0;
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+
+/*
+   __has_nothrow_constructor (type)
+
+   If __has_trivial_constructor (type) is true then the trait is true, else if
+   type is a cv class or union type (or array thereof) with a default
+   constructor that is known not to throw an exception then the trait is true,
+   else it is false. Requires: type shall be a complete type, an array type of
+   unknown bound, or is a void type. 
+
+*/
+static char eval_type_trait__has_nothrow_constructor(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+{
+    if (eval_type_trait__has_trivial_constructor(first_type, second_type, decl_context))
+        return 1;
+
+    if (is_class_type(first_type))
+    {
+        scope_entry_t* default_constructor  = class_type_get_default_constructor(first_type);
+        if (default_constructor == NULL)
+        {
+            return 0;
+        }
+
+        if (default_constructor->entity_specs.any_exception
+                || default_constructor->entity_specs.num_exceptions != 0)
+            return 0;
+
+        return 1;
+    }
+
+    return 0;
+}
+
+/*
+   __has_nothrow_copy (type)
+
+   If __has_trivial_copy (type) is true then the trait is true, else if type
+   is a cv class or union type with copy constructors that are known not to
+   throw an exception then the trait is true, else it is false. Requires: type
+   shall be a complete type, an array type of unknown bound, or is a void
+   type. 
+
+*/
+static char eval_type_trait__has_nothrow_copy(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+{
+    if (eval_type_trait__has_trivial_copy(first_type, second_type, decl_context))
+        return 1;
+
+    if (is_class_type(first_type))
+    {
+        int i;
+        for (i = 0; i < class_type_get_num_copy_constructors(first_type); i++)
+        {
+            scope_entry_t* entry = class_type_get_copy_constructor_num(first_type, i);
+            if (entry->entity_specs.any_exception
+                    || entry->entity_specs.num_exceptions != 0)
+                return 0;
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+
+/*
+   __has_trivial_assign (type)
+
+   If type is const qualified or is a reference type then the trait is false.
+   Otherwise if __is_pod (type) is true then the trait is true, else if type is a
+   cv class or union type with a trivial copy assignment ([class.copy]) then the
+   trait is true, else it is false. Requires: type shall be a complete type, an
+   array type of unknown bound, or is a void type. 
+
+*/
+static char eval_type_trait__has_trivial_assign(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+{
+    if (is_const_qualified_type(first_type)
+            || is_lvalue_reference_type(first_type)
+            || is_rvalue_reference_type(first_type))
+        return 0;
+
+    if (eval_type_trait__is_pod(first_type, second_type, decl_context))
+        return 1;
+
+    if (is_class_type(first_type))
+    {
+        int i;
+        for (i = 0; i < class_type_get_num_copy_assignment_operators(first_type); i++)
+        {
+            scope_entry_t* entry = class_type_get_copy_assignment_operator_num(first_type, i);
+            if (!entry->entity_specs.is_trivial)
+                return 0;
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+
+/*
+   __has_trivial_constructor (type)
+
+    If __is_pod (type) is true then the trait is true, else if type is a cv
+    class or union type (or array thereof) with a trivial default constructor
+    ([class.ctor]) then the trait is true, else it is false. Requires: type
+    shall be a complete type, an array type of unknown bound, or is a void
+    type. 
+*/
+static char eval_type_trait__has_trivial_constructor(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+{
+    if (eval_type_trait__is_pod(first_type, second_type, decl_context))
+        return 1;
+
+    if (is_class_type(first_type))
+    {
+        scope_entry_t* default_constructor = class_type_get_default_constructor(first_type);
+
+        if (default_constructor == NULL)
+            return 0;
+
+        return default_constructor->entity_specs.is_trivial;
+    }
+
+    return 0;
+}
+
+/*
+   __has_trivial_copy (type)
+
+   If __is_pod (type) is true or type is a reference type then the trait is
+   true, else if type is a cv class or union type with a trivial copy
+   constructor ([class.copy]) then the trait is true, else it is false.
+   Requires: type shall be a complete type, an array type of unknown bound, or is
+   a void type. 
+
+*/
+static char eval_type_trait__has_trivial_copy(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+{
+    if (eval_type_trait__is_pod(first_type, second_type, decl_context)
+            || is_rvalue_reference_type(first_type)
+            || is_lvalue_reference_type(first_type))
+        return 1;
+
+    if (is_class_type(first_type))
+    {
+        int i;
+        for (i = 0; i < class_type_get_num_copy_constructors(first_type); i++)
+        {
+            scope_entry_t* entry = class_type_get_copy_constructor_num(first_type, i);
+            if (!entry->entity_specs.is_trivial)
+                return 0;
+        }
+
+        return 1;
+    }
+
+    return 0;
+}
+/*
+   __has_trivial_destructor (type)
+
+   If __is_pod (type) is true or type is a reference type then the trait is
+   true, else if type is a cv class or union type (or array thereof) with a
+   trivial destructor ([class.dtor]) then the trait is true, else it is false.
+   Requires: type shall be a complete type, an array type of unknown bound, or is
+   a void type. 
+
+*/
+
+static char eval_type_trait__has_trivial_destructor(type_t* first_type, type_t* second_type, decl_context_t decl_context)
+{
+    if (eval_type_trait__is_pod(first_type, second_type, decl_context))
+        return 1;
+
+    if (is_class_type(first_type))
+    {
+        scope_entry_t* destructor = class_type_get_destructor(first_type);
+
+        return destructor->entity_specs.is_trivial;
+    }
+
+    return 0;
+}
+
+/*
+    __has_virtual_destructor (type)
+
+    If type is a class type with a virtual destructor ([class.dtor]) then the
+    trait is true, else it is false. Requires: type shall be a complete type,
+    an array type of unknown bound, or is a void type. 
+*/
+static char eval_type_trait__has_virtual_destructor(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    if (is_class_type(first_type))
+    {
+        scope_entry_t* destructor = class_type_get_destructor(first_type);
+
+        return destructor->entity_specs.is_virtual;
+    }
+
+    return 0;
+}
+
+/*
+    __is_abstract (type)
+
+    If type is an abstract class ([class.abstract]) then the trait is true,
+    else it is false. Requires: type shall be a complete type, an array type of
+    unknown bound, or is a void type. 
+*/
+static char eval_type_trait__is_abstract(type_t* first_type UNUSED_PARAMETER, 
+        type_t* second_type UNUSED_PARAMETER, 
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // FIXME - Is abstract
+    return 0;
+}
+
+/*
+   __is_base_of (base_type, derived_type)
+
+   If base_type is a base class of derived_type ([class.derived]) then the
+   trait is true, otherwise it is false. Top-level cv qualifications of
+   base_type and derived_type are ignored. For the purposes of this trait, a
+   class type is considered is own base. Requires: if __is_class (base_type)
+   and __is_class (derived_type) are true and base_type and derived_type are
+   not the same type (disregarding cv-qualifiers), derived_type shall be a
+   complete type. Diagnostic is produced if this requirement is not met. 
+*/
+
+static char eval_type_trait__is_base_of(type_t* base_type, type_t* derived_type, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    if (is_class_type(base_type)
+            && is_class_type(derived_type))
+    {
+        return class_type_is_base(base_type, derived_type);
+    }
+    return 0;
+}
+
+/*
+   __is_class (type)
+
+   If type is a cv class type, and not a union type ([basic.compound]) the the trait is true, else it is false. 
+*/
+static char eval_type_trait__is_class(type_t* first_type, type_t* second_type UNUSED_PARAMETER, 
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    return is_class_type(first_type)
+        && !is_union_type(first_type);
+    return 0;
+}
+
+/*
+ * UNDOCUMENTED !!!
+ */
+static char eval_type_trait__is_convertible_to(type_t* first_type UNUSED_PARAMETER, 
+        type_t* second_type UNUSED_PARAMETER, 
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    WARNING_MESSAGE("Undocumented type trait '__is_convertible' used", 0);
+    return 0;
+}
+
+/*
+   __is_empty (type)
+
+   If __is_class (type) is false then the trait is false. Otherwise type is
+   considered empty if and only if: type has no non-static data members, or
+   all non-static data members, if any, are bit-fields of lenght 0, and type
+   has no virtual members, and type has no virtual base classes, and type has
+   no base classes base_type for which __is_empty (base_type) is false.
+   Requires: type shall be a complete type, an array type of unknown bound, or is
+   a void type. 
+*/
+static char eval_type_trait__is_empty(type_t* first_type, 
+        type_t* second_type, 
+        decl_context_t decl_context)
+{
+    if (!eval_type_trait__is_class(first_type, second_type, decl_context))
+        return 0;
+
+    if (is_class_type(first_type))
+    {
+        int num_of_non_empty_nonstatics_data_members = 0;
+
+        int i;
+        for (i = 0; i < class_type_get_num_nonstatic_data_members(first_type); i++)
+        {
+            scope_entry_t* entry = class_type_get_nonstatic_data_member_num(first_type, i);
+
+            if (!entry->entity_specs.is_bitfield
+                    || !literal_value_is_zero(evaluate_constant_expression(entry->entity_specs.bitfield_expr, 
+                            entry->entity_specs.bitfield_expr_context)))
+            {
+                num_of_non_empty_nonstatics_data_members++;
+            }
+        }
+
+        char has_virtual_bases = 0;
+
+        char has_nonempty_bases = 0;
+
+        for (i = 0; i < class_type_get_num_bases(first_type); i++)
+        {
+            char is_virtual = 0;
+            scope_entry_t* base_class = class_type_get_base_num(first_type, i, &is_virtual);
+
+            has_virtual_bases |= is_virtual;
+
+            has_nonempty_bases |= eval_type_trait__is_empty(base_class->type_information, NULL, decl_context);
+        }
+
+        if (num_of_non_empty_nonstatics_data_members == 0
+                && !has_virtual_bases
+                && !has_nonempty_bases)
+            return 1;
+    }
+
+    return 0;
+}
+
+/*
+   __is_enum (type)
+
+   If type is a cv enumeration type ([basic.compound]) the the trait is true,
+   else it is false. 
+*/
+static char eval_type_trait__is_enum(type_t* first_type, type_t* second_type UNUSED_PARAMETER, decl_context_t decl_context UNUSED_PARAMETER)
+{
+    return (is_enumerated_type(first_type));
+}
+
+/*
+   __is_pod (type)
+
+   If type is a cv POD type ([basic.types]) then the trait is true, else it is
+   false. Requires: type shall be a complete type, an array type of unknown
+   bound, or is a void type. 
+*/
+static char eval_type_trait__is_pod(type_t* first_type UNUSED_PARAMETER, 
+        type_t* second_type UNUSED_PARAMETER, 
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // FIXME
+    return 0;
+}
+
+/*
+   __is_polymorphic (type)
+
+   If type is a polymorphic class ([class.virtual]) then the trait is true,
+   else it is false. Requires: type shall be a complete type, an array type of
+   unknown bound, or is a void type
+
+*/
+static char eval_type_trait__is_polymorphic(type_t* first_type UNUSED_PARAMETER, 
+        type_t* second_type UNUSED_PARAMETER, 
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    // FIXME
+    return 0;
+}
+
+
+/*
+   __is_union (type)
+
+   If type is a cv union type ([basic.compound]) the the trait is true, else it is false. 
+*/
+static char eval_type_trait__is_union(type_t* first_type, 
+        type_t* second_type UNUSED_PARAMETER, 
+        decl_context_t decl_context UNUSED_PARAMETER)
+{
+    return is_union_type(first_type);
+}
+
+typedef
+struct gxx_type_traits_fun_type_tag
+{
+    const char* trait_name;
+
+    char (*trait_calculus)(type_t* first_type, type_t* second_type, decl_context_t decl_context);
+} gxx_type_traits_fun_type_t;
+
+gxx_type_traits_fun_type_t type_traits_fun_list[] =
+{
+    { "__has_nothrow_assign", eval_type_trait__has_nothrow_assign },
+    { "__has_nothrow_constructor", eval_type_trait__has_nothrow_constructor },
+    { "__has_nothrow_copy", eval_type_trait__has_nothrow_copy },
+    { "__has_trivial_assign", eval_type_trait__has_trivial_assign },
+    { "__has_trivial_constructor", eval_type_trait__has_trivial_constructor },
+    { "__has_trivial_copy", eval_type_trait__has_trivial_copy },
+    { "__has_trivial_destructor", eval_type_trait__has_trivial_destructor },
+    { "__has_virtual_destructor", eval_type_trait__has_virtual_destructor },
+    { "__is_abstract", eval_type_trait__is_abstract },
+    { "__is_base_of", eval_type_trait__is_base_of },
+    { "__is_class", eval_type_trait__is_class },
+    { "__is_convertible_to", eval_type_trait__is_convertible_to },
+    { "__is_empty", eval_type_trait__is_empty },
+    { "__is_enum", eval_type_trait__is_enum },
+    { "__is_pod", eval_type_trait__is_pod },
+    { "__is_polymorphic", eval_type_trait__is_polymorphic },
+    { "__is_union", eval_type_trait__is_union },
+    // Sentinel
+    {NULL, NULL},
+};
+
+static type_t* compute_type_of_typeid(AST type_id, decl_context_t decl_context)
+{
+    AST type_specifier = ASTSon0(type_id);
+    AST abstract_declarator = ASTSon1(type_id);
+
+    gather_decl_spec_t gather_info;
+    memset(&gather_info, 0, sizeof(gather_info));
+
+    type_t* simple_type_info = NULL;
+
+    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
+            decl_context);
+
+    type_t* declarator_type = NULL;
+    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+            &declarator_type, decl_context);
+
+    return declarator_type;
+}
+
+
+static literal_value_t evaluate_gxx_type_traits(AST expression, decl_context_t decl_context)
+{
+    const char* trait_name = ASTText(expression);
+
+    int i = 0;
+    char found = 0;
+    while (type_traits_fun_list[i].trait_name != NULL
+            && !found)
+    {
+        found = (strcmp(type_traits_fun_list[i].trait_name, trait_name) == 0);
+        i++;
+    }
+
+    if (!found)
+    {
+        internal_error("Unknown type traits '%s' at '%s'\n", prettyprint_in_buffer(expression), ast_location(expression));
+    }
+
+    // We are one ahead
+    i--;
+
+    if (type_traits_fun_list[i].trait_calculus == NULL)
+    {
+        internal_error("Unimplemented type traits '%s' at '%s'\n", prettyprint_in_buffer(expression), ast_location(expression));
+    }
+    else
+    {
+        type_t* first_type = NULL;
+        type_t* second_type = NULL;
+
+        first_type = compute_type_of_typeid(ASTSon0(expression), decl_context);
+
+        if (ASTSon1(expression) != NULL)
+        {
+            second_type = compute_type_of_typeid(ASTSon1(expression), decl_context);
+        }
+
+        if ((type_traits_fun_list[i].trait_calculus)(first_type, second_type, decl_context))
+        {
+            return literal_value_true();
+        }
+        else
+        {
+            return literal_value_false();
+        }
+    }
+}
+
+

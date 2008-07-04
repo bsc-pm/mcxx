@@ -56,6 +56,7 @@ struct gather_decl_spec_tag {
     char is_complex;
 
     // exception-specifiers
+    char any_exception; // Set to 1 if no exception specifier was seen
     int num_exceptions;
     struct type_tag** exceptions;
 

@@ -258,6 +258,9 @@ typedef struct compilation_configuration_tag
     // Enable strict typecheck (will fail if something can't be verified or fails)
     char strict_typecheck;
 
+    // Disable g++ 4.3 type traits
+    char disable_gxx_type_traits;
+
     // Type environment
     struct type_environment_tag* type_environment;
 } compilation_configuration_t;

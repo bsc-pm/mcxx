@@ -67,6 +67,8 @@ typedef struct
 
 literal_value_t evaluate_constant_expression(AST a, 
         decl_context_t decl_context);
+literal_value_t literal_value_false(void);
+literal_value_t literal_value_true(void);
 literal_value_t literal_value_zero(void);
 literal_value_t literal_value_one(void);
 literal_value_t literal_value_minus_one(void);

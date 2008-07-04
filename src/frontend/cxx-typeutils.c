@@ -143,6 +143,10 @@ struct class_information_tag {
     // Destructor
     struct scope_entry_tag* destructor;
 
+    // Member functions
+    int num_member_functions;
+    struct scope_entry_tag** member_functions;
+
     // Conversion functions info
     int num_conversion_functions;
     struct scope_entry_tag** conversion_functions;
@@ -154,6 +158,9 @@ struct class_information_tag {
     // Class constructors info
     int num_constructors;
     struct scope_entry_tag** constructor_list;
+
+    // Default constructor
+    struct scope_entry_tag* default_constructor;
 
     // Copy constructors
     int num_copy_constructors;
@@ -1974,6 +1981,18 @@ scope_entry_t* class_type_get_destructor(type_t* class_type)
     return class_type->type->class_info->destructor;
 }
 
+void class_type_set_default_constructor(struct type_tag* class_type, struct scope_entry_tag* entry)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    class_type->type->class_info->default_constructor = entry;
+}
+
+scope_entry_t* class_type_get_default_constructor(type_t* class_type)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    return class_type->type->class_info->default_constructor;
+}
+
 int class_type_get_num_copy_assignment_operators(type_t* class_type)
 {
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
@@ -2037,6 +2056,13 @@ void class_type_add_static_data_member(type_t* class_type, scope_entry_t* entry)
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
     P_LIST_ADD(class_type->type->class_info->static_data_members, 
             class_type->type->class_info->num_static_data_members, entry);
+}
+
+void class_type_add_member_function(type_t* class_type, scope_entry_t* entry)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    P_LIST_ADD(class_type->type->class_info->member_functions, 
+            class_type->type->class_info->num_member_functions, entry);
 }
 
 void class_type_set_complete_dependent(type_t* t)
@@ -2264,6 +2290,19 @@ scope_entry_t* class_type_get_static_data_member_num(type_t* class_type, int i)
     class_info_t* class_info = class_type->type->class_info;
 
     return class_info->static_data_members[i];
+}
+
+int class_type_get_num_member_functions(type_t* class_type)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+    return class_type->type->class_info->num_member_functions;
+}
+
+struct scope_entry_tag* class_type_get_member_function_num(struct type_tag* class_type, int i)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
+
+    return class_type->type->class_info->member_functions[i];
 }
 
 scope_entry_t* class_type_get_base_num(type_t* class_type, int num, char *is_virtual)
@@ -3708,6 +3747,16 @@ type_t* get_actual_class_type(type_t* class_type)
 char is_class_type(type_t* possible_class)
 {
     return (is_named_class_type(possible_class) || is_unnamed_class_type(possible_class));
+}
+
+char is_union_type(struct type_tag* possible_union)
+{
+    if (!is_class_type(possible_union))
+        return 0;
+
+    type_t* actual_class = get_actual_class_type(possible_union);
+
+    return (actual_class->type->class_info->class_kind == CK_UNION);
 }
 
 char is_unnamed_class_type(type_t* possible_class)

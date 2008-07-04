@@ -1990,6 +1990,100 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
     // Only for non-dependent classes
     if (!is_dependent_type(class_type, decl_context))
     {
+        // Implicit default constructor
+        if (class_type_get_num_constructors(class_type) == 0
+                && is_named_class_type(class_type))
+        {
+            type_t* default_constructor_type = get_new_function_type(
+                    NULL, // Constructors do not return anything
+                    NULL, // Default constructor does not receive anything
+                    0);
+
+            scope_t* sc = class_type_get_inner_context(class_type).current_scope;
+
+            char constructor_name[256] = { 0 };
+            snprintf(constructor_name, 256, "constructor %s", named_type_get_symbol(type_info)->symbol_name);
+
+            scope_entry_t* implicit_default_constructor = new_symbol(class_type_get_inner_context(class_type), sc,
+                    constructor_name);
+
+            implicit_default_constructor->kind = SK_FUNCTION;
+            implicit_default_constructor->entity_specs.is_member = 1;
+            implicit_default_constructor->entity_specs.class_type = type_info;
+            implicit_default_constructor->entity_specs.is_constructor = 1;
+            implicit_default_constructor->entity_specs.is_conversor_constructor = 1;
+
+            implicit_default_constructor->type_information = default_constructor_type;
+
+            implicit_default_constructor->defined = 1;
+
+            class_type_add_constructor(class_type, implicit_default_constructor);
+            class_type_set_default_constructor(class_type, implicit_default_constructor);
+
+            char has_virtual_bases = 0;
+
+            // Now figure out if it is trivial
+            int i;
+            for (i = 0; (i < class_type_get_num_bases(class_type)) && !has_virtual_bases; i++)
+            {
+                char is_virtual = 0;
+                class_type_get_base_num(class_type, i, &is_virtual);
+                has_virtual_bases |= is_virtual;
+            }
+
+            char has_virtual_functions = 0;
+
+            for (i = 0; (i < class_type_get_num_member_functions(class_type)) && !has_virtual_functions; i++)
+            {
+                scope_entry_t* entry = class_type_get_member_function_num(class_type, i);
+
+                has_virtual_functions |= entry->entity_specs.is_virtual;
+            }
+
+            char has_nonstatic_data_member_with_no_trivial_constructor = 0;
+
+            for (i = 0; (i < class_type_get_num_nonstatic_data_members(class_type)) 
+                    && !has_nonstatic_data_member_with_no_trivial_constructor; i++)
+            {
+                scope_entry_t *data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+                if (is_class_type(data_member->type_information)
+                        || (is_array_type(data_member->type_information)
+                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                {
+                    type_t* member_class_type = data_member->type_information;
+                    if (is_array_type(data_member->type_information))
+                    {
+                        member_class_type = array_type_get_element_type(member_class_type);
+                    }
+
+                    type_t* member_actual_class_type = get_actual_class_type(member_class_type);
+
+                    if (class_type_is_incomplete_independent(member_actual_class_type))
+                    {
+                        // If this class is incomplete independent we have to complete it
+                        scope_entry_t* entry = named_type_get_symbol(member_class_type);
+                        instantiate_template(entry, decl_context, filename, line);
+                    }
+
+                    scope_entry_t* default_constructor 
+                        = class_type_get_default_constructor(
+                                get_actual_class_type(member_actual_class_type));
+
+                    has_nonstatic_data_member_with_no_trivial_constructor 
+                        |= !default_constructor->entity_specs.is_trivial;
+                }
+            }
+
+            // After all these tests we can state that this constructor is
+            // trivial
+            if (!has_virtual_bases
+                    && !has_virtual_functions
+                    && !has_nonstatic_data_member_with_no_trivial_constructor)
+            {
+                implicit_default_constructor->entity_specs.is_trivial = 1;
+            }
+        }
+
         // Copy constructors (only for named classes)
         if (class_type_get_num_copy_constructors(class_type) == 0
                 && is_named_class_type(type_info))
@@ -2076,6 +2170,88 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
 
             class_type_add_constructor(class_type, implicit_copy_constructor);
             class_type_add_copy_constructor(class_type, implicit_copy_constructor);
+
+            // We have to see whether this copy constructor is trivial
+            char has_virtual_bases = 0;
+
+            char has_bases_with_no_trivial_copy_constructor = 0;
+
+            // Now figure out if it is trivial
+            for (i = 0; (i < class_type_get_num_bases(class_type)) && !has_virtual_bases; i++)
+            {
+                char is_virtual = 0;
+                scope_entry_t *base_class = class_type_get_base_num(class_type, i, &is_virtual);
+                has_virtual_bases |= is_virtual;
+
+                type_t* base_class_type = get_actual_class_type(base_class->type_information);
+
+                int j;
+                for (j = 0; j < class_type_get_num_copy_constructors(base_class_type); j++)
+                {
+                    scope_entry_t* copy_constructor 
+                        = class_type_get_copy_constructor_num(
+                                base_class_type, j);
+
+                    has_bases_with_no_trivial_copy_constructor
+                        |= !copy_constructor->entity_specs.is_trivial;
+                }
+            }
+
+            char has_virtual_functions = 0;
+
+            for (i = 0; (i < class_type_get_num_member_functions(class_type)) && !has_virtual_functions; i++)
+            {
+                scope_entry_t* entry = class_type_get_member_function_num(class_type, i);
+
+                has_virtual_functions |= entry->entity_specs.is_virtual;
+            }
+
+            char has_nonstatic_data_member_with_no_trivial_copy_constructor = 0;
+
+            for (i = 0; (i < class_type_get_num_nonstatic_data_members(class_type)) 
+                    && !has_nonstatic_data_member_with_no_trivial_copy_constructor; i++)
+            {
+                scope_entry_t *data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+                if (is_class_type(data_member->type_information)
+                        || (is_array_type(data_member->type_information)
+                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                {
+                    type_t* member_class_type = data_member->type_information;
+                    if (is_array_type(data_member->type_information))
+                    {
+                        member_class_type = array_type_get_element_type(member_class_type);
+                    }
+
+                    type_t* member_actual_class_type = get_actual_class_type(member_class_type);
+
+                    if (class_type_is_incomplete_independent(member_actual_class_type))
+                    {
+                        // If this class is incomplete independent we have to complete it
+                        scope_entry_t* entry = named_type_get_symbol(member_class_type);
+                        instantiate_template(entry, decl_context, filename, line);
+                    }
+
+                    int j;
+                    for (j = 0; j < class_type_get_num_copy_constructors(member_actual_class_type); j++)
+                    {
+                        scope_entry_t* copy_constructor 
+                            = class_type_get_copy_constructor_num(
+                                    member_actual_class_type, j);
+
+                        has_nonstatic_data_member_with_no_trivial_copy_constructor 
+                            |= !copy_constructor->entity_specs.is_trivial;
+                    }
+                }
+            }
+
+            // It is trivial
+            if (!has_virtual_bases
+                    && !has_bases_with_no_trivial_copy_constructor
+                    && !has_virtual_functions
+                    && !has_nonstatic_data_member_with_no_trivial_copy_constructor)
+            {
+                implicit_copy_constructor->entity_specs.is_trivial = 1;
+            }
         }
 
         // Copy assignment operators
@@ -2154,6 +2330,87 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             implicit_copy_assignment_function->defined = 1;
 
             class_type_add_copy_assignment_operator(class_type, implicit_copy_assignment_function);
+
+            // Now check whether it is trivial
+            char has_virtual_bases = 0;
+
+            char has_base_classes_with_no_trivial_copy_assignment = 0;
+
+            for (i = 0; (i < class_type_get_num_bases(class_type)) && !has_virtual_bases; i++)
+            {
+                char is_virtual = 0;
+                scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+
+                has_virtual_bases |= is_virtual;
+
+                type_t* base_class_type = get_actual_class_type(base_class->type_information);
+
+                int j;
+                for (j = 0; j < class_type_get_num_copy_assignment_operators(base_class_type); j++)
+                {
+                    scope_entry_t* copy_assignment_op 
+                        = class_type_get_copy_assignment_operator_num(base_class_type, j);
+
+                    has_base_classes_with_no_trivial_copy_assignment |= 
+                        !copy_assignment_op->entity_specs.is_trivial;
+                }
+            }
+
+            char has_virtual_functions = 0;
+
+            for (i = 0; (i < class_type_get_num_member_functions(class_type)) && !has_virtual_functions; i++)
+            {
+                scope_entry_t* entry = class_type_get_member_function_num(class_type, i);
+
+                has_virtual_functions |= entry->entity_specs.is_virtual;
+            }
+
+            char has_nonstatic_data_member_with_no_trivial_copy_assignment = 0;
+
+            for (i = 0; (i < class_type_get_num_nonstatic_data_members(class_type)) 
+                    && !has_nonstatic_data_member_with_no_trivial_copy_assignment; i++)
+            {
+                scope_entry_t *data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+                if (is_class_type(data_member->type_information)
+                        || (is_array_type(data_member->type_information)
+                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                {
+                    type_t* member_class_type = data_member->type_information;
+                    if (is_array_type(data_member->type_information))
+                    {
+                        member_class_type = array_type_get_element_type(member_class_type);
+                    }
+
+                    type_t* member_actual_class_type = get_actual_class_type(member_class_type);
+
+                    if (class_type_is_incomplete_independent(member_actual_class_type))
+                    {
+                        // If this class is incomplete independent we have to complete it
+                        scope_entry_t* entry = named_type_get_symbol(member_class_type);
+                        instantiate_template(entry, decl_context, filename, line);
+                    }
+
+                    int j;
+                    for (j = 0; j < class_type_get_num_copy_assignment_operators(member_actual_class_type); j++)
+                    {
+                        scope_entry_t* copy_assignment 
+                            = class_type_get_copy_assignment_operator_num(
+                                    member_actual_class_type, j);
+
+                        has_nonstatic_data_member_with_no_trivial_copy_assignment 
+                            |= !copy_assignment->entity_specs.is_trivial;
+                    }
+                }
+            }
+
+            // It is trivial
+            if (!has_virtual_bases
+                    && !has_base_classes_with_no_trivial_copy_assignment
+                    && !has_virtual_functions
+                    && !has_nonstatic_data_member_with_no_trivial_copy_assignment)
+            {
+                implicit_copy_assignment_function->entity_specs.is_trivial = 1;
+            }
         }
 
         // Implicit destructor
@@ -2180,6 +2437,61 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             implicit_destructor->defined = 1;
 
             class_type_set_destructor(class_type, implicit_destructor);
+
+            // Let's see whether it is trivial
+            char base_has_nontrivial_destructor = 0;
+            int i;
+            for (i = 0; (i < class_type_get_num_bases(class_type)) && !base_has_nontrivial_destructor; i++)
+            {
+                char is_virtual = 0;
+                scope_entry_t *base_class = class_type_get_base_num(class_type, i, &is_virtual);
+
+                scope_entry_t* destructor 
+                    = class_type_get_default_constructor(get_actual_class_type(base_class->type_information));
+
+                base_has_nontrivial_destructor |= !destructor->entity_specs.is_trivial;
+            }
+
+            char has_nonstatic_data_member_with_no_trivial_destructor = 0;
+
+            for (i = 0; (i < class_type_get_num_nonstatic_data_members(class_type)) 
+                    && !has_nonstatic_data_member_with_no_trivial_destructor; i++)
+            {
+                scope_entry_t *data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+                if (is_class_type(data_member->type_information)
+                        || (is_array_type(data_member->type_information)
+                            && is_class_type(array_type_get_element_type(data_member->type_information))))
+                {
+                    type_t* member_class_type = data_member->type_information;
+                    if (is_array_type(data_member->type_information))
+                    {
+                        member_class_type = array_type_get_element_type(member_class_type);
+                    }
+
+                    type_t* member_actual_class_type = get_actual_class_type(member_class_type);
+
+                    if (class_type_is_incomplete_independent(member_actual_class_type))
+                    {
+                        // If this class is incomplete independent we have to complete it
+                        scope_entry_t* entry = named_type_get_symbol(member_class_type);
+                        instantiate_template(entry, decl_context, filename, line);
+                    }
+
+                    scope_entry_t* destructor
+                        = class_type_get_destructor(
+                                get_actual_class_type(member_actual_class_type));
+
+                    has_nonstatic_data_member_with_no_trivial_destructor
+                        |= !destructor->entity_specs.is_trivial;
+                }
+            }
+
+            // It is a trivial destructor
+            if (!base_has_nontrivial_destructor
+                    && !has_nonstatic_data_member_with_no_trivial_destructor)
+            {
+                implicit_destructor->entity_specs.is_trivial = 1;
+            }
         }
     }
 }
@@ -4096,6 +4408,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
         }
         
         // Copy exception info as well
+        entry->entity_specs.any_exception = gather_info->any_exception;
         entry->entity_specs.num_exceptions = gather_info->num_exceptions;
         entry->entity_specs.exceptions = gather_info->exceptions;
     }
@@ -4132,6 +4445,7 @@ static scope_entry_t* register_new_typedef_name(AST declarator_id, type_t* decla
             }
             
             // Copy exception info as well
+            entry->entity_specs.any_exception = gather_info->any_exception;
             entry->entity_specs.num_exceptions = named_type->entity_specs.num_exceptions;
             entry->entity_specs.exceptions = named_type->entity_specs.exceptions;
         }
@@ -4354,6 +4668,7 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         
         // "is_pure" of a function is computed in "build_scope_member_simple_declaration"
 
+        new_entry->entity_specs.any_exception = gather_info->any_exception;
         new_entry->entity_specs.num_exceptions = gather_info->num_exceptions;
         new_entry->entity_specs.exceptions = gather_info->exceptions;
 
@@ -6077,10 +6392,21 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                         entry->entity_specs.is_conversor_constructor = 1;
                     }
 
+                    if (!entry->entity_specs.is_explicit
+                            && can_be_called_with_number_of_arguments(entry, 0))
+                    {
+                        entry->entity_specs.is_default_constructor = 1;
+                        class_type_set_default_constructor(class_type, entry);
+                    }
+
                     if (is_copy_constructor(entry, class_type))
                     {
                         class_type_add_copy_constructor(class_type, entry);
                     }
+                }
+                else
+                {
+                    class_type_add_member_function(class_type, entry);
                 }
 
                 break;
@@ -6439,10 +6765,21 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                                 entry->entity_specs.is_conversor_constructor = 1;
                                             }
 
+                                            if (!entry->entity_specs.is_explicit
+                                                    && can_be_called_with_number_of_arguments(entry, 0))
+                                            {
+                                                entry->entity_specs.is_default_constructor = 1;
+                                                class_type_set_default_constructor(class_type, entry);
+                                            }
+
                                             if (is_copy_constructor(entry, class_type))
                                             {
                                                 class_type_add_copy_constructor(class_type, entry);
                                             }
+                                        }
+                                        else
+                                        {
+                                            class_type_add_member_function(class_type, entry);
                                         }
                                         break;
                                     }
@@ -6625,7 +6962,10 @@ static void build_exception_spec(type_t* function_type UNUSED_PARAMETER,
 {
     // No exception specifier at all
     if (a == NULL)
+    {
+        gather_info->any_exception = 1;
         return;
+    }
 
     // function_type_set_exception_spec(function_type);
 
