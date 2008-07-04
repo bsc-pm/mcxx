@@ -423,6 +423,8 @@ static char check_for_gcc_builtin_offsetof(AST expression, decl_context_t decl_c
 static char check_for_gcc_builtin_choose_expr(AST expression, decl_context_t decl_context);
 static char check_for_gcc_builtin_types_compatible_p(AST expression, decl_context_t decl_context);
 
+static char check_for_gxx_type_traits(AST expression, decl_context_t decl_context);
+
 static char* assig_op_attr[] =
 {
     [AST_ASSIGNMENT]     = LANG_IS_ASSIGNMENT,
@@ -1205,6 +1207,11 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     }
                 }
 
+                break;
+            }
+        case AST_GXX_TYPE_TRAITS :
+            {
+                result = check_for_gxx_type_traits(expression, decl_context);
                 break;
             }
             // This is a mcxx extension
@@ -8028,6 +8035,29 @@ static char check_for_array_section_expression(AST expression, decl_context_t de
     // This should be deemed always as a lvalue
     ast_set_expression_is_lvalue(expression, 1);
     ast_set_expression_type(expression, result_type);
+
+    return 1;
+}
+
+static char check_for_gxx_type_traits(AST expression, decl_context_t decl_context)
+{
+    AST first_type_id = ASTSon0(expression);
+
+    if (!check_for_type_id_tree(first_type_id, decl_context))
+    {
+        return 0;
+    }
+
+    AST second_type_id = ASTSon0(expression);
+
+    if (second_type_id != NULL
+            && !check_for_type_id_tree(second_type_id, decl_context))
+    {
+        return 0;
+    }
+
+    ast_set_expression_type(expression, get_bool_type());
+    ast_set_expression_is_lvalue(expression, 0);
 
     return 1;
 }

@@ -1114,6 +1114,195 @@ runtime {
 "__volatile__"        { parse_token_text(); return VOLATILE; } 
 "__asm" { parse_token_text(); return ASM; }
 "__asm__" { parse_token_text(); return ASM; }
+ /*!if CPLUSPLUS*/
+ /* g++ 4.3 extensions */
+"__has_nothrow_assign" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_HAS_NOTHROW_ASSIGN; 
+    }
+}
+
+"__has_nothrow_constructor" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_HAS_NOTHROW_CONSTRUCTOR; 
+    }
+}
+
+"__has_nothrow_copy" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_HAS_NOTHROW_COPY; 
+    }
+}
+
+"__has_trivial_assign" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_HAS_TRIVIAL_ASSIGN; 
+    }
+}
+   
+"__has_trivial_constructor" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_HAS_TRIVIAL_CONSTRUCTOR; 
+    }
+}
+
+"__has_trivial_copy" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_HAS_TRIVIAL_COPY; 
+    }
+}
+
+"__has_trivial_destructor" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_HAS_TRIVIAL_DESTRUCTOR; 
+    }
+}
+
+"__has_virtual_destructor" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_HAS_VIRTUAL_DESTRUCTOR; 
+    }
+}
+     
+"__is_abstract" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_IS_ABSTRACT; 
+    }
+}
+
+"__is_base_of" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_IS_BASE_OF; 
+    }
+}
+ 
+"__is_class" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_IS_CLASS; 
+    }
+}
+
+"__is_convertible_to" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_IS_CONVERTIBLE_TO; 
+    }
+}
+ 
+"__is_empty" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_IS_EMPTY; 
+    }
+}
+
+"__is_enum" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_IS_ENUM; 
+    }
+}
+
+"__is_pod" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_IS_POD; 
+    }
+}
+
+"__is_polymorphic" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_IS_POLYMORPHIC; 
+    }
+}
+
+"__is_union" {
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
+    {
+        REJECT; 
+    }
+    else 
+    { 
+        parse_token_text(); return GXX_IS_UNION; 
+    }
+}
+ /*!endif*/
 
  /* mcxx extensions */
 "__construct__" { parse_token_text(); return CONSTRUCT; }

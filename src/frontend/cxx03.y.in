@@ -166,6 +166,25 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> PP_COMMENT
 %token<token_atrib> PP_TOKEN
 
+// g++ type traits
+%token<token_atrib> GXX_HAS_NOTHROW_ASSIGN
+%token<token_atrib> GXX_HAS_NOTHROW_CONSTRUCTOR
+%token<token_atrib> GXX_HAS_NOTHROW_COPY
+%token<token_atrib> GXX_HAS_TRIVIAL_ASSIGN
+%token<token_atrib> GXX_HAS_TRIVIAL_CONSTRUCTOR
+%token<token_atrib> GXX_HAS_TRIVIAL_COPY
+%token<token_atrib> GXX_HAS_TRIVIAL_DESTRUCTOR
+%token<token_atrib> GXX_HAS_VIRTUAL_DESTRUCTOR
+%token<token_atrib> GXX_IS_ABSTRACT
+%token<token_atrib> GXX_IS_BASE_OF
+%token<token_atrib> GXX_IS_CLASS
+%token<token_atrib> GXX_IS_CONVERTIBLE_TO
+%token<token_atrib> GXX_IS_EMPTY
+%token<token_atrib> GXX_IS_ENUM
+%token<token_atrib> GXX_IS_POD
+%token<token_atrib> GXX_IS_POLYMORPHIC
+%token<token_atrib> GXX_IS_UNION
+
 // Lexical symbols
 %token<token_atrib> '!'
 %token<token_atrib> '%'
@@ -400,6 +419,7 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %type<ast> using_declaration
 %type<ast> using_directive
 %type<ast> volatile_optional
+%type<ast> gnu_type_traits
 
 %type<node_type> unary_operator
 %type<node_type> assignment_operator
@@ -3119,7 +3139,102 @@ primary_expression : literal
 {
     $$ = ASTMake2(AST_GCC_BUILTIN_OFFSETOF, $3, $5, $1.token_file, $1.token_line, NULL);
 }
+| gnu_type_traits
+{
+    $$ = $1;
+}
 ;
+
+/* GNU extension */
+/*
+     __has_nothrow_assign ( type-id )   
+     __has_nothrow_constructor ( type-id )
+     __has_nothrow_copy ( type-id )
+     __has_trivial_assign ( type-id )   
+     __has_trivial_constructor ( type-id )
+     __has_trivial_copy ( type-id )
+     __has_trivial_destructor ( type-id )
+     __has_virtual_destructor ( type-id )     
+     __is_abstract ( type-id )
+     __is_base_of ( type-id , type-id )
+     __is_class ( type-id )
+     __is_convertible_to ( type-id , type-id )     
+     __is_empty ( type-id )
+     __is_enum ( type-id )
+     __is_pod ( type-id )
+     __is_polymorphic ( type-id )
+     __is_union ( type-id )
+*/
+gnu_type_traits : GXX_HAS_NOTHROW_ASSIGN '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_HAS_NOTHROW_CONSTRUCTOR '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_HAS_NOTHROW_COPY '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_HAS_TRIVIAL_ASSIGN '(' type_id ')'   
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_HAS_TRIVIAL_CONSTRUCTOR '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_HAS_TRIVIAL_COPY '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_HAS_TRIVIAL_DESTRUCTOR '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_HAS_VIRTUAL_DESTRUCTOR '(' type_id ')'     
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_ABSTRACT '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_BASE_OF '(' type_id ',' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, $5, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_CLASS '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_CONVERTIBLE_TO '(' type_id ',' type_id ')'     
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, $5, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_EMPTY '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_ENUM '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_POD '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_POLYMORPHIC '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+| GXX_IS_UNION '(' type_id ')'
+{
+    $$ = ASTMake2(AST_GXX_TYPE_TRAITS, $3, NULL, $1.token_file, $1.token_line, $1.token_text);
+}
+;
+
 
 /* GNU extension */
 /*

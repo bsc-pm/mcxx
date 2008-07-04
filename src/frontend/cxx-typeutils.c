@@ -3871,6 +3871,26 @@ static char template_id_is_dependent(AST expression, AST template_id, decl_conte
     return 0;
 }
 
+static char is_dependent_type_id(AST type_id, decl_context_t decl_context)
+{
+    AST type_specifier = ASTSon0(type_id);
+    AST abstract_declarator = ASTSon1(type_id);
+
+    gather_decl_spec_t gather_info;
+    memset(&gather_info, 0, sizeof(gather_info));
+
+    type_t* simple_type_info = NULL;
+
+    build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
+            decl_context);
+
+    type_t* declarator_type = NULL;
+    compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 
+            &declarator_type, decl_context);
+
+    return (is_dependent_type(simple_type_info, decl_context));
+}
+
 char is_dependent_expression(AST expression, decl_context_t decl_context)
 {
     ERROR_CONDITION(expression == NULL, "This cannot be null", 0);
@@ -4254,6 +4274,12 @@ char is_dependent_expression(AST expression, decl_context_t decl_context)
                 return is_dependent_expression(ASTSon0(expression), decl_context)
                     || is_dependent_expression(ASTSon1(expression), decl_context)
                     || is_dependent_expression(ASTSon2(expression), decl_context);
+            }
+        case AST_GXX_TYPE_TRAITS :
+            {
+                return (is_dependent_type_id(ASTSon0(expression), decl_context)
+                        || (ASTSon1(expression) != NULL 
+                            && is_dependent_type_id(ASTSon1(expression), decl_context)));
             }
         default :
             {

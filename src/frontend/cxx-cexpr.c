@@ -286,6 +286,21 @@ literal_value_t evaluate_constant_expression(AST a, decl_context_t decl_context)
                 return literal_value_gcc_builtin_types_compatible(a, decl_context);
                 break;
             }
+        case AST_GXX_TYPE_TRAITS :
+            {
+                // FIXME: Implement these for C++
+                fprintf(stderr, "%s: warning: (still) unsupported type traits evaluation '%s'\n",
+                        ast_location(a),
+                        prettyprint_in_buffer(a));
+                //
+                // At the moment just say we don't know anything
+                literal_value_t dependent_entity;
+                memset(&dependent_entity, 0, sizeof(dependent_entity));
+                dependent_entity.kind = LVK_DEPENDENT_EXPR;
+                return dependent_entity;
+
+                break;
+            }
         case AST_AMBIGUITY :
         default :
             internal_error("Unsupported node '%s' when evaluating constant expression (%s)", 

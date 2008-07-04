@@ -1009,6 +1009,14 @@ char equivalent_dependent_expressions(AST left_tree, decl_context_t left_decl_co
                     return (left_result_list->entry == right_result_list->entry);
                 }
             }
+        case AST_GXX_TYPE_TRAITS:
+            {
+                // fprintf(stderr, "%s: warning: (still) unsupported type traits '%s' and '%s' comparison. Assuming equals\n",
+                //         prettyprint_in_buffer(right_tree),
+                //         prettyprint_in_buffer(left_tree));
+                // FIXME
+                return 1;
+            }
         default:
             internal_error("Unknown node type '%s' in %s\n", ast_print_node_type(ASTType(right_tree)), 
                     ast_location(right_tree));
