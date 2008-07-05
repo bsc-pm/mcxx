@@ -3031,14 +3031,25 @@ static literal_value_t evaluate_gxx_type_traits(AST expression, decl_context_t d
     }
     else
     {
+        literal_value_t dependent_entity;
+        memset(&dependent_entity, 0, sizeof(dependent_entity));
+
+        dependent_entity.kind = LVK_DEPENDENT_EXPR;
+
         type_t* first_type = NULL;
         type_t* second_type = NULL;
 
         first_type = compute_type_of_typeid(ASTSon0(expression), decl_context);
 
+        if (is_dependent_type(first_type, decl_context))
+            return dependent_entity;
+
         if (ASTSon1(expression) != NULL)
         {
             second_type = compute_type_of_typeid(ASTSon1(expression), decl_context);
+
+            if (is_dependent_type(second_type, decl_context))
+                return dependent_entity;
         }
 
         if ((type_traits_fun_list[i].trait_calculus)(first_type, second_type, decl_context))
