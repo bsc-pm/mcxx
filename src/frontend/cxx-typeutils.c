@@ -3528,6 +3528,18 @@ char is_lvalue_reference_to_class_type(type_t* t1)
             && is_class_type(reference_type_get_referenced_type(t1)));
 }
 
+char is_rvalue_reference_to_class_type(type_t* t1)
+{
+    return (is_rvalue_reference_type(t1) 
+            && is_class_type(reference_type_get_referenced_type(t1)));
+}
+
+char is_reference_to_class_type(type_t* t1)
+{
+    return is_lvalue_reference_to_class_type(t1)
+        || is_rvalue_reference_to_class_type(t1);
+}
+
 char is_void_pointer_type(type_t* t)
 {
     // Advance over typedefs
@@ -6711,6 +6723,121 @@ scope_entry_list_t* class_type_get_all_bases(type_t *t)
     return result;
 }
 
+static char covariant_return(type_t* overrided_type, type_t* virtual_type)
+{
+    if (equivalent_types(overrided_type, virtual_type))
+        return 1;
+
+    if ((is_pointer_to_class_type(overrided_type)
+            && is_pointer_to_class_type(virtual_type))
+            || (is_reference_to_class_type(overrided_type)
+                && is_reference_to_class_type(virtual_type)))
+    {
+        if (is_pointer_to_class_type(overrided_type)
+                && is_pointer_to_class_type(virtual_type))
+        {
+            overrided_type = pointer_type_get_pointee_type(overrided_type);
+            virtual_type = pointer_type_get_pointee_type(virtual_type);
+        }
+        else
+        {
+            overrided_type = reference_type_get_referenced_type(overrided_type);
+            virtual_type = reference_type_get_referenced_type(virtual_type);
+        }
+
+        if (class_type_is_base(virtual_type, overrided_type))
+            return 1;
+    }
+    return 0;
+}
+
+char function_type_can_override(type_t* potential_overrider, type_t* function_type)
+{
+    return compatible_parameters(potential_overrider->function, function_type->function)
+        && covariant_return(potential_overrider, function_type);
+}
+
+static char has_overrider(scope_entry_t* entry, scope_entry_list_t* list)
+{
+    char result = 0;
+
+    while (list != NULL && !result)
+    {
+        // 'current_entry' comes from a list built from a derived class, so it 
+        // has to be considered always a potential final overrider of 'entry'
+        scope_entry_t* current_entry = list->entry;
+
+        result = (strcmp(current_entry->symbol_name, entry->symbol_name) == 0
+            && function_type_can_override(current_entry->type_information, entry->type_information));
+
+        list = list->next;
+    }
+
+    return result;
+}
+
+static void class_type_get_all_virtual_functions_rec(type_t* class_type, 
+        scope_entry_list_t** current_overriders)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), 
+            "This is not a class type", 0);
+    // Starting from the most derived class one we gather all member functions
+    // that we know they are virtual. 
+    //
+    // Note: when signing in member functions we have ensured that they are
+    // marked virtual (even if not done explicitly in the declaration).
+    //
+    // Note: This algorithm does not take into account more than one overrider
+    // (that would be ill-formed).
+    //
+    int i;
+    for (i = 0; i < class_type_get_num_member_functions(class_type); i++)
+    {
+        scope_entry_t* entry = class_type_get_member_function_num(class_type, i);
+
+        if (!entry->entity_specs.is_static
+                && entry->entity_specs.is_virtual)
+        {
+            // Check that it has not been overrided
+            if (!has_overrider(entry, *current_overriders))
+            {
+                // This means that this function is a final overrider
+                // Add to the list
+
+                scope_entry_list_t* new_overrider = counted_calloc(1, sizeof(*new_overrider), &_bytes_due_to_type_system);
+
+                new_overrider->entry = entry;
+                new_overrider->next = *current_overriders;
+
+                *current_overriders = new_overrider;
+            }
+        }
+    }
+
+    // Now for every base gather the list of virtuals
+    for (i = 0; i < class_type_get_num_bases(class_type); i++)
+    {
+        char is_virtual = 0;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+
+        type_t* base_class_type = get_actual_class_type(base_class->type_information);
+
+        class_type_get_all_virtual_functions_rec(base_class_type, current_overriders);
+    }
+}
+
+scope_entry_list_t* class_type_get_all_virtual_functions(type_t* class_type)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(class_type), 
+            "This is not a class type", 0);
+    
+    scope_entry_list_t* result = NULL;
+
+    class_type_get_all_virtual_functions_rec(class_type, &result);
+
+    return result;
+}
+
 type_t* lvalue_ref_for_implicit_arg(type_t* t)
 {
     CXX_LANGUAGE()
@@ -6732,4 +6859,78 @@ char is_faulty_type(type_t* t)
 {
     return (t == NULL 
             || t->is_faulty);
+}
+
+char is_pod_type(type_t* t)
+{
+    if (is_integral_type(t)
+            || is_enumerated_type(t)
+            || is_floating_type(t))
+        return 1;
+
+    if (is_pointer_type(t))
+        return 1;
+
+    if (is_lvalue_reference_type(t)
+            || is_rvalue_reference_type(t))
+        return 0;
+
+    if (is_array_type(t))
+        return is_pod_type(array_type_get_element_type(t));
+
+    if (is_class_type(t))
+    {
+        // All nonstatic member functions must be POD
+        type_t* class_type = get_actual_class_type(t);
+        int i;
+        for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
+        {
+            scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(class_type, i);
+
+            if (!is_pod_type(data_member->type_information))
+                return 0;
+        }
+
+        // Default constructor, copy-constructor, copy-assignment and destructors must be trivial
+        scope_entry_t* default_constructor = class_type_get_default_constructor(class_type);
+
+        if (default_constructor != NULL
+                && !default_constructor->entity_specs.is_trivial)
+            return 0;
+
+        // It could happen that there is not any default constructor
+        // So we have to check whether there are any user defined constructors
+        if (default_constructor == NULL
+                && class_type_get_num_constructors(class_type) != 0)
+            return 0;
+
+        // Copy constructors (if any) must be trivial
+        for (i = 0; i < class_type_get_num_copy_constructors(class_type); i++)
+        {
+            scope_entry_t* copy_constructor = class_type_get_copy_constructor_num(class_type, i);
+
+            if (!copy_constructor->entity_specs.is_trivial)
+                return 0;
+        }
+        
+        // Copy assignments (if any) must be trivial
+        for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
+        {
+            scope_entry_t* copy_assignment = class_type_get_copy_assignment_operator_num(class_type, i);
+
+            if (!copy_assignment->entity_specs.is_trivial)
+                return 0;
+        }
+
+        // Destructor, if any, must be trivial
+        scope_entry_t* destructor = class_type_get_destructor(class_type);
+
+        if (destructor != NULL
+                && !destructor->entity_specs.is_trivial)
+            return 0;
+
+        return 1;
+    }
+
+    internal_error("Unhandled type", 0);
 }

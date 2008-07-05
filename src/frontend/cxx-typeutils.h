@@ -167,6 +167,8 @@ void template_type_set_related_symbol(struct type_tag* t, struct scope_entry_tag
 char is_builtin_type(struct type_tag* t);
 char is_fundamental_type(struct type_tag* t);
 
+char is_pod_type(type_t* t);
+
 // States whether a type is faulty
 char is_faulty_type(type_t*);
 
@@ -300,6 +302,8 @@ char function_type_get_lacking_prototype(struct type_tag* function_type);
 char function_type_get_has_ellipsis(struct type_tag* function_type);
 struct type_tag* function_type_get_return_type(struct type_tag* t);
 
+char function_type_can_override(type_t* potential_overrider, type_t* function_type);
+
 struct type_tag* pointer_type_get_pointee_type(type_t *t);
 struct scope_entry_tag* pointer_to_member_type_get_class(type_t *t);
 struct type_tag* pointer_to_member_type_get_class_type(type_t *t);
@@ -329,6 +333,8 @@ int class_type_get_num_conversions(struct type_tag* t);
 struct scope_entry_tag* class_type_get_conversion_num(struct type_tag* t, int num);
 
 char class_type_get_is_dependent(struct type_tag* t);
+
+scope_entry_list_t* class_type_get_all_virtual_functions(type_t* class_type);
 
 computed_function_type_t computed_function_type_get_computing_function(type_t* t);
 
@@ -411,6 +417,8 @@ char is_pointer_to_member_type(struct type_tag* t);
 
 char is_pointer_to_class_type(struct type_tag* t1);
 char is_lvalue_reference_to_class_type(struct type_tag* t1);
+char is_rvalue_reference_to_class_type(struct type_tag* t1);
+char is_reference_to_class_type(struct type_tag* t1);
 char is_typedef_type(struct type_tag* t1);
 
 struct type_tag* typedef_type_get_aliased_type(struct type_tag* t);

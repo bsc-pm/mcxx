@@ -2515,10 +2515,11 @@ static char eval_type_trait__has_nothrow_assign(type_t* first_type, type_t* seco
 
     if (is_class_type(first_type))
     {
+        type_t* class_type = get_actual_class_type(first_type);
         int i;
-        for (i = 0; i < class_type_get_num_copy_assignment_operators(first_type); i++)
+        for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
         {
-            scope_entry_t* entry = class_type_get_copy_assignment_operator_num(first_type, i);
+            scope_entry_t* entry = class_type_get_copy_assignment_operator_num(class_type, i);
             if (entry->entity_specs.any_exception
                     || entry->entity_specs.num_exceptions != 0)
                 return 0;
@@ -2547,7 +2548,9 @@ static char eval_type_trait__has_nothrow_constructor(type_t* first_type, type_t*
 
     if (is_class_type(first_type))
     {
-        scope_entry_t* default_constructor  = class_type_get_default_constructor(first_type);
+        type_t* class_type = get_actual_class_type(first_type);
+
+        scope_entry_t* default_constructor  = class_type_get_default_constructor(class_type);
         if (default_constructor == NULL)
         {
             return 0;
@@ -2580,10 +2583,12 @@ static char eval_type_trait__has_nothrow_copy(type_t* first_type, type_t* second
 
     if (is_class_type(first_type))
     {
+        type_t* class_type = get_actual_class_type(first_type);
+
         int i;
-        for (i = 0; i < class_type_get_num_copy_constructors(first_type); i++)
+        for (i = 0; i < class_type_get_num_copy_constructors(class_type); i++)
         {
-            scope_entry_t* entry = class_type_get_copy_constructor_num(first_type, i);
+            scope_entry_t* entry = class_type_get_copy_constructor_num(class_type, i);
             if (entry->entity_specs.any_exception
                     || entry->entity_specs.num_exceptions != 0)
                 return 0;
@@ -2617,10 +2622,12 @@ static char eval_type_trait__has_trivial_assign(type_t* first_type, type_t* seco
 
     if (is_class_type(first_type))
     {
+        type_t* class_type = get_actual_class_type(first_type);
+
         int i;
-        for (i = 0; i < class_type_get_num_copy_assignment_operators(first_type); i++)
+        for (i = 0; i < class_type_get_num_copy_assignment_operators(class_type); i++)
         {
-            scope_entry_t* entry = class_type_get_copy_assignment_operator_num(first_type, i);
+            scope_entry_t* entry = class_type_get_copy_assignment_operator_num(class_type, i);
             if (!entry->entity_specs.is_trivial)
                 return 0;
         }
@@ -2647,7 +2654,9 @@ static char eval_type_trait__has_trivial_constructor(type_t* first_type, type_t*
 
     if (is_class_type(first_type))
     {
-        scope_entry_t* default_constructor = class_type_get_default_constructor(first_type);
+        type_t* class_type = get_actual_class_type(first_type);
+
+        scope_entry_t* default_constructor = class_type_get_default_constructor(class_type);
 
         if (default_constructor == NULL)
             return 0;
@@ -2677,10 +2686,12 @@ static char eval_type_trait__has_trivial_copy(type_t* first_type, type_t* second
 
     if (is_class_type(first_type))
     {
+        type_t* class_type = get_actual_class_type(first_type);
+
         int i;
-        for (i = 0; i < class_type_get_num_copy_constructors(first_type); i++)
+        for (i = 0; i < class_type_get_num_copy_constructors(class_type); i++)
         {
-            scope_entry_t* entry = class_type_get_copy_constructor_num(first_type, i);
+            scope_entry_t* entry = class_type_get_copy_constructor_num(class_type, i);
             if (!entry->entity_specs.is_trivial)
                 return 0;
         }
@@ -2708,7 +2719,9 @@ static char eval_type_trait__has_trivial_destructor(type_t* first_type, type_t* 
 
     if (is_class_type(first_type))
     {
-        scope_entry_t* destructor = class_type_get_destructor(first_type);
+        type_t* class_type = get_actual_class_type(first_type);
+
+        scope_entry_t* destructor = class_type_get_destructor(class_type);
 
         return destructor->entity_specs.is_trivial;
     }
@@ -2727,7 +2740,9 @@ static char eval_type_trait__has_virtual_destructor(type_t* first_type, type_t* 
 {
     if (is_class_type(first_type))
     {
-        scope_entry_t* destructor = class_type_get_destructor(first_type);
+        type_t* class_type = get_actual_class_type(first_type);
+
+        scope_entry_t* destructor = class_type_get_destructor(class_type);
 
         return destructor->entity_specs.is_virtual;
     }
@@ -2746,7 +2761,23 @@ static char eval_type_trait__is_abstract(type_t* first_type UNUSED_PARAMETER,
         type_t* second_type UNUSED_PARAMETER, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
-    // FIXME - Is abstract
+    if (is_class_type(first_type))
+    {
+        type_t* class_type = get_actual_class_type(first_type);
+
+        scope_entry_list_t* virtual_functions = class_type_get_all_virtual_functions(class_type);
+
+        while (virtual_functions != NULL)
+        {
+            scope_entry_t* current_virtual = virtual_functions->entry;
+
+            if (current_virtual->entity_specs.is_pure)
+                return 1;
+
+            virtual_functions = virtual_functions->next;
+        }
+    }
+
     return 0;
 }
 
@@ -2767,7 +2798,10 @@ static char eval_type_trait__is_base_of(type_t* base_type, type_t* derived_type,
     if (is_class_type(base_type)
             && is_class_type(derived_type))
     {
-        return class_type_is_base(base_type, derived_type);
+        type_t* base_class_type = get_actual_class_type(base_type);
+        type_t* derived_class_type = get_actual_class_type(derived_type);
+
+        return class_type_is_base(base_class_type, derived_class_type);
     }
     return 0;
 }
@@ -2816,12 +2850,14 @@ static char eval_type_trait__is_empty(type_t* first_type,
 
     if (is_class_type(first_type))
     {
+        type_t* class_type = get_actual_class_type(first_type);
+
         int num_of_non_empty_nonstatics_data_members = 0;
 
         int i;
-        for (i = 0; i < class_type_get_num_nonstatic_data_members(first_type); i++)
+        for (i = 0; i < class_type_get_num_nonstatic_data_members(class_type); i++)
         {
-            scope_entry_t* entry = class_type_get_nonstatic_data_member_num(first_type, i);
+            scope_entry_t* entry = class_type_get_nonstatic_data_member_num(class_type, i);
 
             if (!entry->entity_specs.is_bitfield
                     || !literal_value_is_zero(evaluate_constant_expression(entry->entity_specs.bitfield_expr, 
@@ -2835,10 +2871,10 @@ static char eval_type_trait__is_empty(type_t* first_type,
 
         char has_nonempty_bases = 0;
 
-        for (i = 0; i < class_type_get_num_bases(first_type); i++)
+        for (i = 0; i < class_type_get_num_bases(class_type); i++)
         {
             char is_virtual = 0;
-            scope_entry_t* base_class = class_type_get_base_num(first_type, i, &is_virtual);
+            scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
 
             has_virtual_bases |= is_virtual;
 
@@ -2872,12 +2908,11 @@ static char eval_type_trait__is_enum(type_t* first_type, type_t* second_type UNU
    false. Requires: type shall be a complete type, an array type of unknown
    bound, or is a void type. 
 */
-static char eval_type_trait__is_pod(type_t* first_type UNUSED_PARAMETER, 
+static char eval_type_trait__is_pod(type_t* first_type, 
         type_t* second_type UNUSED_PARAMETER, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
-    // FIXME
-    return 0;
+    return is_pod_type(first_type);
 }
 
 /*
@@ -2888,11 +2923,19 @@ static char eval_type_trait__is_pod(type_t* first_type UNUSED_PARAMETER,
    unknown bound, or is a void type
 
 */
-static char eval_type_trait__is_polymorphic(type_t* first_type UNUSED_PARAMETER, 
+static char eval_type_trait__is_polymorphic(type_t* first_type, 
         type_t* second_type UNUSED_PARAMETER, 
         decl_context_t decl_context UNUSED_PARAMETER)
 {
-    // FIXME
+    if (is_class_type(first_type))
+    {
+        type_t* class_type = get_actual_class_type(first_type);
+
+        scope_entry_list_t* virtual_functions = class_type_get_all_virtual_functions(class_type);
+
+        return (virtual_functions != NULL);
+    }
+
     return 0;
 }
 
@@ -2900,7 +2943,7 @@ static char eval_type_trait__is_polymorphic(type_t* first_type UNUSED_PARAMETER,
 /*
    __is_union (type)
 
-   If type is a cv union type ([basic.compound]) the the trait is true, else it is false. 
+   If type is a cv union type ([basic.compound]) then the trait is true, else it is false. 
 */
 static char eval_type_trait__is_union(type_t* first_type, 
         type_t* second_type UNUSED_PARAMETER, 

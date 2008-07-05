@@ -6302,6 +6302,49 @@ static char is_copy_constructor(scope_entry_t* entry, type_t* class_type)
     return 0;
 }
 
+static char is_virtual_inherited(type_t* class_type, scope_entry_t* entry)
+{
+    // Before adding it as a member function, check whether this function
+    // is "inheritedly" virtual
+    scope_entry_list_t* virtual_functions = class_type_get_all_virtual_functions(class_type);
+
+    while (virtual_functions != NULL)
+    {
+        scope_entry_t* current_virtual = virtual_functions->entry;
+
+        if (strcmp(current_virtual->symbol_name, entry->symbol_name) == 0
+                && function_type_can_override(entry->type_information, 
+                    current_virtual->type_information))
+        {
+            // We found it, mark it as virtual if it was not
+            return 1;
+            break;
+        }
+        virtual_functions = virtual_functions->next;
+    }
+    return 0;
+}
+
+static char is_virtual_destructor(type_t* class_type)
+{
+    // If any base has virtual destructor, so it is current one
+    int i;
+    for (i = 0; i < class_type_get_num_bases(class_type); i++)
+    {
+        char is_virtual = 0;
+        scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+
+        type_t* base_class_type = get_actual_class_type(base_class->type_information);
+
+        scope_entry_t* destructor = class_type_get_destructor(base_class_type);
+
+        if (destructor->entity_specs.is_virtual)
+            return 1;
+    }
+
+    return 0;
+}
+
 /*
  * This is a function definition inlined in a class
  */
@@ -6406,6 +6449,11 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                 }
                 else
                 {
+                    if (!entry->entity_specs.is_virtual
+                            && is_virtual_inherited(class_type, entry))
+                    {
+                        entry->entity_specs.is_virtual = 1;
+                    }
                     class_type_add_member_function(class_type, entry);
                 }
 
@@ -6416,6 +6464,11 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
         case AST_DESTRUCTOR_ID :
             {
                 // This is the destructor
+                if (!entry->entity_specs.is_virtual
+                        && is_virtual_destructor(class_type))
+                {
+                    entry->entity_specs.is_virtual = 1;
+                }
                 class_type_set_destructor(get_actual_class_type(class_type), entry);
                 break;
             }
@@ -6779,6 +6832,11 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         }
                                         else
                                         {
+                                            if (!entry->entity_specs.is_virtual
+                                                    && is_virtual_inherited(class_type, entry))
+                                            {
+                                                entry->entity_specs.is_virtual = 1;
+                                            }
                                             class_type_add_member_function(class_type, entry);
                                         }
                                         break;
