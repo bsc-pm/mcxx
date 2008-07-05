@@ -332,6 +332,11 @@ static void print_scope_entry(scope_entry_t* entry, int global_indent)
         }
     }
 
+    if (entry->entity_specs.is_trivial)
+    {
+        PRINT_INDENTED_LINE(stderr, global_indent+1, "Is trivial\n");
+    }
+
     if (entry->entity_specs.is_member)
     {
         PRINT_INDENTED_LINE(stderr, global_indent+1, "Is member\n");

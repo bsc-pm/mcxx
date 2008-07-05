@@ -6894,12 +6894,13 @@ char is_pod_type(type_t* t)
         // Default constructor, copy-constructor, copy-assignment and destructors must be trivial
         scope_entry_t* default_constructor = class_type_get_default_constructor(class_type);
 
+        // Default constructor, if any, should be trivial
         if (default_constructor != NULL
                 && !default_constructor->entity_specs.is_trivial)
             return 0;
 
         // It could happen that there is not any default constructor
-        // So we have to check whether there are any user defined constructors
+        // So we have to check whether there are not any user defined constructors
         if (default_constructor == NULL
                 && class_type_get_num_constructors(class_type) != 0)
             return 0;

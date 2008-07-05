@@ -1990,9 +1990,14 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
     // Only for non-dependent classes
     if (!is_dependent_type(class_type, decl_context))
     {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Finishing class\n");
+        }
+
         // Implicit default constructor
         if (class_type_get_num_constructors(class_type) == 0
-                && is_named_class_type(class_type))
+                && is_named_class_type(type_info))
         {
             type_t* default_constructor_type = get_new_function_type(
                     NULL, // Constructors do not return anything
@@ -2022,13 +2027,34 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
 
             char has_virtual_bases = 0;
 
+            char has_bases_with_non_trivial_constructors = 0;
+
             // Now figure out if it is trivial
             int i;
-            for (i = 0; (i < class_type_get_num_bases(class_type)) && !has_virtual_bases; i++)
+            for (i = 0; (i < class_type_get_num_bases(class_type)) 
+                    && !has_virtual_bases
+                    && !has_bases_with_non_trivial_constructors; 
+                    i++)
             {
                 char is_virtual = 0;
-                class_type_get_base_num(class_type, i, &is_virtual);
+                scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
+
+                type_t* base_class_type = get_actual_class_type(base_class->type_information);
+
                 has_virtual_bases |= is_virtual;
+
+                int j;
+                for (j = 0; (j < class_type_get_num_constructors(base_class_type))
+                        && !has_virtual_bases
+                        && !has_bases_with_non_trivial_constructors; 
+                        j++)
+                {
+                    scope_entry_t* current_constructor 
+                        = class_type_get_constructors_num(base_class_type, j);
+
+                    has_bases_with_non_trivial_constructors
+                        |= !current_constructor->entity_specs.is_trivial;
+                }
             }
 
             char has_virtual_functions = 0;
@@ -2077,6 +2103,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             // After all these tests we can state that this constructor is
             // trivial
             if (!has_virtual_bases
+                    && !has_bases_with_non_trivial_constructors
                     && !has_virtual_functions
                     && !has_nonstatic_data_member_with_no_trivial_constructor)
             {
@@ -2177,7 +2204,10 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             char has_bases_with_no_trivial_copy_constructor = 0;
 
             // Now figure out if it is trivial
-            for (i = 0; (i < class_type_get_num_bases(class_type)) && !has_virtual_bases; i++)
+            for (i = 0; (i < class_type_get_num_bases(class_type)) 
+                    && !has_virtual_bases
+                    && !has_bases_with_no_trivial_copy_constructor; 
+                    i++)
             {
                 char is_virtual = 0;
                 scope_entry_t *base_class = class_type_get_base_num(class_type, i, &is_virtual);
@@ -2186,7 +2216,10 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                 type_t* base_class_type = get_actual_class_type(base_class->type_information);
 
                 int j;
-                for (j = 0; j < class_type_get_num_copy_constructors(base_class_type); j++)
+                for (j = 0; (j < class_type_get_num_copy_constructors(base_class_type))
+                        && !has_virtual_bases
+                        && !has_bases_with_no_trivial_copy_constructor; 
+                        j++)
                 {
                     scope_entry_t* copy_constructor 
                         = class_type_get_copy_constructor_num(
@@ -2209,7 +2242,8 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             char has_nonstatic_data_member_with_no_trivial_copy_constructor = 0;
 
             for (i = 0; (i < class_type_get_num_nonstatic_data_members(class_type)) 
-                    && !has_nonstatic_data_member_with_no_trivial_copy_constructor; i++)
+                    && !has_nonstatic_data_member_with_no_trivial_copy_constructor;
+                    i++)
             {
                 scope_entry_t *data_member = class_type_get_nonstatic_data_member_num(class_type, i);
                 if (is_class_type(data_member->type_information)
@@ -2232,7 +2266,9 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                     }
 
                     int j;
-                    for (j = 0; j < class_type_get_num_copy_constructors(member_actual_class_type); j++)
+                    for (j = 0; (j < class_type_get_num_copy_constructors(member_actual_class_type))
+                            && !has_nonstatic_data_member_with_no_trivial_copy_constructor;
+                            j++)
                     {
                         scope_entry_t* copy_constructor 
                             = class_type_get_copy_constructor_num(
@@ -2336,7 +2372,10 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
 
             char has_base_classes_with_no_trivial_copy_assignment = 0;
 
-            for (i = 0; (i < class_type_get_num_bases(class_type)) && !has_virtual_bases; i++)
+            for (i = 0; (i < class_type_get_num_bases(class_type)) 
+                    && !has_virtual_bases
+                    && !has_base_classes_with_no_trivial_copy_assignment; 
+                    i++)
             {
                 char is_virtual = 0;
                 scope_entry_t* base_class = class_type_get_base_num(class_type, i, &is_virtual);
@@ -2346,7 +2385,10 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                 type_t* base_class_type = get_actual_class_type(base_class->type_information);
 
                 int j;
-                for (j = 0; j < class_type_get_num_copy_assignment_operators(base_class_type); j++)
+                for (j = 0; j < class_type_get_num_copy_assignment_operators(base_class_type)
+                        && !has_virtual_bases
+                        && !has_base_classes_with_no_trivial_copy_assignment;  
+                        j++)
                 {
                     scope_entry_t* copy_assignment_op 
                         = class_type_get_copy_assignment_operator_num(base_class_type, j);
@@ -2368,7 +2410,8 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             char has_nonstatic_data_member_with_no_trivial_copy_assignment = 0;
 
             for (i = 0; (i < class_type_get_num_nonstatic_data_members(class_type)) 
-                    && !has_nonstatic_data_member_with_no_trivial_copy_assignment; i++)
+                    && !has_nonstatic_data_member_with_no_trivial_copy_assignment; 
+                    i++)
             {
                 scope_entry_t *data_member = class_type_get_nonstatic_data_member_num(class_type, i);
                 if (is_class_type(data_member->type_information)
@@ -2391,7 +2434,9 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                     }
 
                     int j;
-                    for (j = 0; j < class_type_get_num_copy_assignment_operators(member_actual_class_type); j++)
+                    for (j = 0; j < class_type_get_num_copy_assignment_operators(member_actual_class_type)
+                            && !has_nonstatic_data_member_with_no_trivial_copy_assignment; 
+                            j++)
                     {
                         scope_entry_t* copy_assignment 
                             = class_type_get_copy_assignment_operator_num(
@@ -2447,7 +2492,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                 scope_entry_t *base_class = class_type_get_base_num(class_type, i, &is_virtual);
 
                 scope_entry_t* destructor 
-                    = class_type_get_default_constructor(get_actual_class_type(base_class->type_information));
+                    = class_type_get_destructor(get_actual_class_type(base_class->type_information));
 
                 base_has_nontrivial_destructor |= !destructor->entity_specs.is_trivial;
             }
@@ -2492,6 +2537,11 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             {
                 implicit_destructor->entity_specs.is_trivial = 1;
             }
+        }
+
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "BUILDSCOPE: Ended class finalization\n");
         }
     }
 }
@@ -6422,6 +6472,14 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                     class_type_add_constructor(class_type, entry);
                     entry->entity_specs.is_constructor = 1;
 
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s:%d' is a constructor\n", 
+                                entry->symbol_name,
+                                entry->file,
+                                entry->line);
+                    }
+
                     if (!entry->entity_specs.is_explicit
                             && can_be_called_with_number_of_arguments(entry, 1))
                     {
@@ -6804,6 +6862,14 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                             // This is a constructor
                                             class_type_add_constructor(class_type, entry);
                                             entry->entity_specs.is_constructor = 1;
+
+                                            DEBUG_CODE()
+                                            {
+                                                fprintf(stderr, "BUILDSCOPE: Symbol '%s' at '%s:%d' is a constructor\n", 
+                                                        entry->symbol_name,
+                                                        entry->file,
+                                                        entry->line);
+                                            }
 
                                             if (!entry->entity_specs.is_explicit
                                                     && can_be_called_with_number_of_arguments(entry, 1))
