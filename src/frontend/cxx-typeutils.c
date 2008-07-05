@@ -1417,6 +1417,11 @@ void template_type_update_template_parameters(type_t* t, template_parameter_list
             != new_template_parameters->num_template_parameters,
             "Template parameters should be of the same length", 0);
 
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "TYPEUTILS: Updating template parameters\n");
+    }
+
     int i;
 
     for (i = 0; i < template_parameters->num_template_parameters; i++)
@@ -5249,22 +5254,30 @@ const char *get_named_simple_type_name(scope_entry_t* user_defined_type)
             }
             break;
         case SK_TEMPLATE_TYPE_PARAMETER :
-            snprintf(user_defined_str, MAX_LENGTH, "<type-template parameter '%s' (%d,%d)>",
+            snprintf(user_defined_str, MAX_LENGTH, "<type-template parameter '%s' (%d,%d) %s:%d>",
                     user_defined_type->symbol_name,
                     user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position);
+                    user_defined_type->entity_specs.template_parameter_position,
+                    user_defined_type->file,
+                    user_defined_type->line
+                    );
             break;
         case SK_TEMPLATE_TEMPLATE_PARAMETER :
-            snprintf(user_defined_str, MAX_LENGTH, "<template-template parameter '%s' (%d,%d)>",
+            snprintf(user_defined_str, MAX_LENGTH, "<template-template parameter '%s' (%d,%d) %s:%d>",
                     user_defined_type->symbol_name,
                     user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position);
+                    user_defined_type->entity_specs.template_parameter_position,
+                    user_defined_type->file,
+                    user_defined_type->line
+                    );
             break;
         case SK_TEMPLATE_PARAMETER :
-            snprintf(user_defined_str, MAX_LENGTH, "<nontype-template parameter '%s' (%d,%d)>", 
+            snprintf(user_defined_str, MAX_LENGTH, "<nontype-template parameter '%s' (%d,%d) %s:%d>", 
                     user_defined_type->symbol_name,
                     user_defined_type->entity_specs.template_parameter_nesting,
-                    user_defined_type->entity_specs.template_parameter_position);
+                    user_defined_type->entity_specs.template_parameter_position,
+                    user_defined_type->file,
+                    user_defined_type->line);
             break;
         case SK_TEMPLATE :
             snprintf(user_defined_str, MAX_LENGTH, "<template-name '%s'>", 
