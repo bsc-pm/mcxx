@@ -14,6 +14,7 @@ DEJATOOL = \
   mcxx.cxx0x \
   mcc.extensions \
   mcxx.extensions \
+  mcxx.gxx_type_traits \
   $(ADDITIONAL_TESTS) \
   $(NULL)
 
