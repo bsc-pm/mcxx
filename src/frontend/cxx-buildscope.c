@@ -1216,6 +1216,31 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     type_t* class_type = NULL;
     /* --- */
 
+    AST class_key = ASTSon0(a);
+
+    enum class_kind_t class_kind = CK_INVALID;
+
+    switch (ASTType(class_key))
+    {
+        case AST_CLASS_KEY_CLASS:
+            {
+                class_kind = CK_CLASS;
+                break;
+            }
+        case AST_CLASS_KEY_STRUCT:
+            {
+                class_kind = CK_STRUCT;
+                break;
+            }
+        case AST_CLASS_KEY_UNION:
+            {
+                class_kind = CK_UNION;
+                break;
+            }
+        default:
+            internal_error("Code unreachable", 0);
+    }
+
     AST global_scope = ASTSon1(a);
     AST nested_name_specifier = ASTSon2(a);
     AST class_symbol = ASTSon3(a);
@@ -1345,7 +1370,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                             new_class);
                 }
 
-                new_class->type_information = get_new_class_type(decl_context);
+                new_class->type_information = get_new_class_type(decl_context, class_kind);
                 new_class->kind = SK_CLASS;
 
                 class_entry = new_class;
@@ -1357,7 +1382,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
                 {
                     new_class->kind = SK_TEMPLATE;
                     new_class->type_information = get_new_template_type(decl_context.template_parameters, 
-                            get_new_class_type(decl_context),
+                            get_new_class_type(decl_context, class_kind),
                             ASTText(class_symbol), decl_context,
                             ASTLine(class_symbol),
                             ASTFileName(class_symbol));
@@ -1979,8 +2004,12 @@ static char class_has_const_copy_constructor(type_t* t)
     return 0;
 }
 
+static char is_virtual_destructor(type_t* class_type);
+
 // See gather_type_spec_from_class_specifier to know what are class_type and type_info
 // This function is only for C++
+//
+// FIXME - This function is HUGE
 void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t decl_context,
         const char *filename, int line)
 {
@@ -2016,7 +2045,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             implicit_default_constructor->entity_specs.is_member = 1;
             implicit_default_constructor->entity_specs.class_type = type_info;
             implicit_default_constructor->entity_specs.is_constructor = 1;
-            implicit_default_constructor->entity_specs.is_conversor_constructor = 1;
+            implicit_default_constructor->entity_specs.is_default_constructor = 1;
 
             implicit_default_constructor->type_information = default_constructor_type;
 
@@ -2481,6 +2510,11 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             implicit_destructor->entity_specs.class_type = type_info;
             implicit_destructor->defined = 1;
 
+            if (is_virtual_destructor(class_type))
+            {
+                implicit_destructor->entity_specs.is_virtual = 1;
+            }
+
             class_type_set_destructor(class_type, implicit_destructor);
 
             // Let's see whether it is trivial
@@ -2680,6 +2714,29 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     AST class_head_nested_name = ASTSon1(class_head);
     AST class_head_identifier = ASTSon2(class_head);
 
+    enum class_kind_t class_kind = CK_INVALID;
+
+    switch (ASTType(class_key))
+    {
+        case AST_CLASS_KEY_CLASS:
+            {
+                class_kind = CK_CLASS;
+                break;
+            }
+        case AST_CLASS_KEY_STRUCT:
+            {
+                class_kind = CK_STRUCT;
+                break;
+            }
+        case AST_CLASS_KEY_UNION:
+            {
+                class_kind = CK_UNION;
+                break;
+            }
+        default:
+            internal_error("Code unreachable", 0);
+    }
+
     char* qualification_name = NULL;
     if (class_head_identifier != NULL)
     {
@@ -2842,7 +2899,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                 {
                     // Normal, non-template class
                     class_entry->kind = SK_CLASS;
-                    class_entry->type_information = get_new_class_type(decl_context);
+                    class_entry->type_information = get_new_class_type(decl_context, class_kind);
                     class_type = class_entry->type_information;
                 }
                 else 
@@ -2851,7 +2908,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     {
                         class_entry->kind = SK_TEMPLATE;
                         class_entry->type_information = get_new_template_type(decl_context.template_parameters, 
-                                get_new_class_type(decl_context),
+                                get_new_class_type(decl_context, class_kind),
                                 ASTText(class_head_identifier), decl_context,
                                 ASTLine(class_head_identifier), 
                                 ASTFileName(class_head_identifier));
@@ -2896,7 +2953,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     else
     {
         // Unnamed class
-        class_type = get_new_class_type(decl_context);
+        class_type = get_new_class_type(decl_context, class_kind);
         inner_decl_context = new_class_context(decl_context,
                 qualification_name,
                 class_type);
@@ -5455,7 +5512,7 @@ static void build_scope_template_template_parameter(AST a,
     new_entry->entity_specs.template_parameter_position = num_parameter;
 
     // This is a faked class type
-    type_t* primary_type = get_new_class_type(template_context);
+    type_t* primary_type = get_new_class_type(template_context, CK_CLASS);
 
     new_entry->type_information = get_new_template_type(template_params_context.template_parameters, 
             /* primary_type = */ primary_type, template_parameter_name, template_context,
@@ -6912,6 +6969,11 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                 case AST_DESTRUCTOR_ID :
                                     {
                                         // This is the destructor
+                                        if (!entry->entity_specs.is_virtual
+                                                && is_virtual_destructor(class_type))
+                                        {
+                                            entry->entity_specs.is_virtual = 1;
+                                        }
                                         class_type_set_destructor(get_actual_class_type(class_type), entry);
                                         break;
                                     }

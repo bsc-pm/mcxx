@@ -64,6 +64,13 @@ enum standard_conversion_item_tag
     SCI_QUALIFICATION_CONVERSION,
 } standard_conversion_item_t;
 
+enum class_kind_t {
+    CK_INVALID = 0,
+    CK_STRUCT, // struct
+    CK_CLASS, // class
+    CK_UNION // union 
+};
+
 typedef
 struct standard_conversion_tag
 {

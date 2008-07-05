@@ -101,11 +101,6 @@ struct enum_information_tag {
 
 struct simple_type_tag;
 
-enum class_kind_t {
-    CK_STRUCT, // struct
-    CK_CLASS, // class
-    CK_UNION // union 
-};
 
 // Base class info (parent classes of a given class)
 typedef 
@@ -966,15 +961,23 @@ type_t* get_new_enum_type(decl_context_t decl_context)
     return type_info;
 }
 
-type_t* get_new_class_type(decl_context_t decl_context)
+type_t* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_kind)
 {
     type_t* type_info = get_simple_type();
 
     type_info->type->class_info = counted_calloc(1, sizeof(*type_info->type->class_info), &_bytes_due_to_type_system);
+    type_info->type->class_info->class_kind = class_kind;
     type_info->type->kind = STK_CLASS;
     type_info->type->type_decl_context = decl_context;
 
     return type_info;
+}
+
+enum class_kind_t class_type_get_class_kind(type_t* t)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
+
+    return t->type->class_info->class_kind;
 }
 
 static template_argument_list_t* compute_arguments_primary(template_parameter_list_t* template_parameter_list)
@@ -1309,7 +1312,9 @@ type_t* template_type_get_specialized_type(type_t* t,
     if (primary_symbol->kind == SK_CLASS
             || primary_symbol->kind == SK_TEMPLATE_TEMPLATE_PARAMETER)
     {
-        specialized_type = get_new_class_type(primary_symbol->decl_context);
+        specialized_type = get_new_class_type(primary_symbol->decl_context,
+                class_type_get_class_kind(
+                    get_actual_class_type(primary_symbol->type_information)));
     }
     else if (primary_symbol->kind == SK_FUNCTION)
     {

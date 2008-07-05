@@ -2835,7 +2835,7 @@ static char eval_type_trait__is_convertible_to(type_t* first_type UNUSED_PARAMET
 
    If __is_class (type) is false then the trait is false. Otherwise type is
    considered empty if and only if: type has no non-static data members, or
-   all non-static data members, if any, are bit-fields of lenght 0, and type
+   all non-static data members, if any, are bit-fields of length 0, and type
    has no virtual members, and type has no virtual base classes, and type has
    no base classes base_type for which __is_empty (base_type) is false.
    Requires: type shall be a complete type, an array type of unknown bound, or is
@@ -2878,7 +2878,7 @@ static char eval_type_trait__is_empty(type_t* first_type,
 
             has_virtual_bases |= is_virtual;
 
-            has_nonempty_bases |= eval_type_trait__is_empty(base_class->type_information, NULL, decl_context);
+            has_nonempty_bases |= !eval_type_trait__is_empty(base_class->type_information, NULL, decl_context);
         }
 
         if (num_of_non_empty_nonstatics_data_members == 0

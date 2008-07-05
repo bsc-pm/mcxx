@@ -80,7 +80,7 @@ struct type_tag* get_dependent_typename_type(struct scope_entry_tag* dependent_e
         struct AST_tag* nested_name, struct AST_tag* unqualified_part);
 
 struct type_tag* get_new_enum_type(decl_context_t decl_context);
-struct type_tag* get_new_class_type(decl_context_t decl_context);
+struct type_tag* get_new_class_type(decl_context_t decl_context, enum class_kind_t class_kind);
 
 struct type_tag* get_new_template_type(template_parameter_list_t* template_parameter_list, struct type_tag* primary_type,
         const char* template_name, decl_context_t decl_context, int line, const char* filename);
@@ -314,6 +314,7 @@ struct type_tag* array_type_get_element_type(struct type_tag* t);
 struct AST_tag* array_type_get_array_size_expr(struct type_tag* t);
 decl_context_t array_type_get_array_size_expr_context(struct type_tag* t);
 
+enum class_kind_t class_type_get_class_kind(type_t* t);
 int class_type_get_num_bases(struct type_tag* class_type);
 struct scope_entry_tag* class_type_get_base_num(struct type_tag* class_type, int num, char *is_virtual);
 scope_entry_list_t* class_type_get_all_bases(type_t *t);
