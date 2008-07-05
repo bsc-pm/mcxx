@@ -103,6 +103,8 @@ compilation_process_t compilation_process;
 "                           phases pipeline\n" \
 "  --typecheck              Strict typechecking. If an expression\n" \
 "                           cannot be checked compilation fails.\n" \
+"  --disable-gxx-traits     Disables g++ 4.3 type traits. Required\n" \
+"                           if you use g++ 4.2 or previous.\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -159,6 +161,7 @@ struct command_line_long_options command_line_long_options[] =
     {"variable", CLP_REQUIRED_ARGUMENT, OPTION_EXTERNAL_VAR},
     {"typecheck", CLP_NO_ARGUMENT, OPTION_TYPECHECK},
     {"pp-stdout", CLP_NO_ARGUMENT, OPTION_PREPROCESSOR_USES_STDOUT},
+    {"disable-gxx-traits", CLP_NO_ARGUMENT, OPTION_DISABLE_GXX_TRAITS},
     // sentinel
     {NULL, 0, 0}
 };
@@ -626,6 +629,11 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                 case OPTION_PREPROCESSOR_USES_STDOUT :
                     {
                         CURRENT_CONFIGURATION(preprocessor_uses_stdout) = 1;
+                        break;
+                    }
+                case OPTION_DISABLE_GXX_TRAITS:
+                    {
+                        CURRENT_CONFIGURATION(disable_gxx_type_traits) = 1;
                         break;
                     }
                 case 'h' :

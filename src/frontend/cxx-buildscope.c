@@ -1219,22 +1219,26 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     AST class_key = ASTSon0(a);
 
     enum class_kind_t class_kind = CK_INVALID;
+    const char *class_kind_name = NULL;
 
     switch (ASTType(class_key))
     {
         case AST_CLASS_KEY_CLASS:
             {
                 class_kind = CK_CLASS;
+                class_kind_name = "class ";
                 break;
             }
         case AST_CLASS_KEY_STRUCT:
             {
                 class_kind = CK_STRUCT;
+                class_kind_name = "struct ";
                 break;
             }
         case AST_CLASS_KEY_UNION:
             {
                 class_kind = CK_UNION;
+                class_kind_name = "union ";
                 break;
             }
         default:
@@ -1264,7 +1268,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     C_LANGUAGE()
     {
         const char* class_name = ASTText(class_symbol);
-        class_name = strappend("struct ", class_name);
+        class_name = strappend(class_kind_name, class_name);
 
         result_list = query_unqualified_name_str(decl_context, class_name);
     }
@@ -1348,7 +1352,7 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
 
             C_LANGUAGE()
             {
-                class_name = strappend("struct ", class_name);
+                class_name = strappend(class_kind_name, class_name);
             }
 
             scope_entry_t* new_class = NULL;
@@ -2124,8 +2128,11 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                         = class_type_get_default_constructor(
                                 get_actual_class_type(member_actual_class_type));
 
-                    has_nonstatic_data_member_with_no_trivial_constructor 
-                        |= !default_constructor->entity_specs.is_trivial;
+                    if (default_constructor != NULL)
+                    {
+                        has_nonstatic_data_member_with_no_trivial_constructor 
+                            |= !default_constructor->entity_specs.is_trivial;
+                    }
                 }
             }
 
@@ -2560,8 +2567,11 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                         = class_type_get_destructor(
                                 get_actual_class_type(member_actual_class_type));
 
-                    has_nonstatic_data_member_with_no_trivial_destructor
-                        |= !destructor->entity_specs.is_trivial;
+                    if (destructor != NULL)
+                    {
+                        has_nonstatic_data_member_with_no_trivial_destructor
+                            |= !destructor->entity_specs.is_trivial;
+                    }
                 }
             }
 
@@ -2715,22 +2725,26 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
     AST class_head_identifier = ASTSon2(class_head);
 
     enum class_kind_t class_kind = CK_INVALID;
+    const char *class_kind_name = NULL;
 
     switch (ASTType(class_key))
     {
         case AST_CLASS_KEY_CLASS:
             {
                 class_kind = CK_CLASS;
+                class_kind_name = "class ";
                 break;
             }
         case AST_CLASS_KEY_STRUCT:
             {
                 class_kind = CK_STRUCT;
+                class_kind_name = "struct ";
                 break;
             }
         case AST_CLASS_KEY_UNION:
             {
                 class_kind = CK_UNION;
+                class_kind_name = "union ";
                 break;
             }
         default:
@@ -2780,7 +2794,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
             {
                 // This can only be an AST_SYMBOL in C
                 const char* class_name = ASTText(class_head_identifier);
-                class_name = strappend("struct ", class_name);
+                class_name = strappend(class_kind_name, class_name);
 
                 class_entry_list = query_unqualified_name_str(decl_context, class_name);
             }
@@ -2864,7 +2878,7 @@ void gather_type_spec_from_class_specifier(AST a, type_t** type_info,
                     C_LANGUAGE()
                     {
                         const char* class_name = ASTText(class_head_identifier);
-                        class_name = strappend("struct ", class_name);
+                        class_name = strappend(class_kind_name, class_name);
 
                         class_entry = new_symbol(decl_context, 
                                 decl_context.current_scope, class_name);
