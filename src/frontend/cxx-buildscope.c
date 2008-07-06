@@ -1429,8 +1429,10 @@ static void gather_type_spec_from_elaborated_class_specifier(AST a, type_t** typ
     ERROR_CONDITION(class_entry == NULL,
             "Invalid class entry", 0);
 
-    if (is_template_specialized_type(class_type))
+    if (is_template_specialized_type(class_type) 
+            && !class_entry->defined)
     {
+        // Only update this when the class has not already been defined
         template_specialized_type_update_template_parameters(class_type, decl_context.template_parameters);
     }
 

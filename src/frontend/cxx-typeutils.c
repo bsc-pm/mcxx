@@ -1433,7 +1433,7 @@ void template_type_update_template_parameters(type_t* t, template_parameter_list
                         "Template parameter kinds do not match", 0);
 
         // Always update the entry (because the name might have changed)
-        template_parameter->entry = new_template_parameter->entry;
+        // template_parameter->entry = new_template_parameter->entry;
 
         if (new_template_parameter->has_default_argument
                 && !template_parameter->has_default_argument)
@@ -1444,10 +1444,10 @@ void template_type_update_template_parameters(type_t* t, template_parameter_list
         }
     }
 
-    // Now reupdate the faked arguments for the primary template
-    scope_entry_t* primary_symbol = named_type_get_symbol(t->type->primary_specialization);
-    primary_symbol->type_information->template_arguments = compute_arguments_primary(template_parameters);
-    primary_symbol->type_information->template_parameters = template_parameters;
+    // Now reupdate the faked arguments for the primary template if not already defined
+    // scope_entry_t* primary_symbol = named_type_get_symbol(t->type->primary_specialization);
+    // primary_symbol->type_information->template_arguments = compute_arguments_primary(template_parameters);
+    // primary_symbol->type_information->template_parameters = template_parameters;
 }
 
 char is_template_specialized_type(type_t* t)
