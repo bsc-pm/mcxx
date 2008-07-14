@@ -93,6 +93,13 @@ namespace TL
              */
             void set_attribute(const std::string &name, bool b);
 
+            //! Sets attribute name with an integer value
+            /*!
+             * \param name The name of the defined extended struct field.
+             * \param i Integer value to be stored
+             */
+            void set_attribute(const std::string &name, int i);
+
             //! Default constructor for Object
             Object()
                 : _refcount(1)

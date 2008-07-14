@@ -103,6 +103,14 @@ void Object::set_attribute(const std::string &name, bool b)
     this->set_extended_attribute(name, value);
 }
 
+void Object::set_attribute(const std::string &name, int i)
+{
+    tl_type_t value = tl_integer(i);
+
+    // Manually increase the reference counter of this object
+    this->set_extended_attribute(name, value);
+}
+
 void Object::set_attribute(const std::string &name, RefPtr<Object> obj)
 {
     tl_type_t value;
@@ -111,68 +119,81 @@ void Object::set_attribute(const std::string &name, RefPtr<Object> obj)
     value.kind = TL_OTHER;
     value.data._data = obj.get_pointer();
 
-    // Manually increase the reference counter of this object
-    if (this->set_extended_attribute(name, value))
+    // This will increase the counter if needed
+    this->set_extended_attribute(name, value);
+}
+
+static tl_type_t found_but_not_set;
+tl_type_t* default_get_extended_attribute(
+        extensible_schema_t* extensible_schema, 
+        extensible_struct_t* extensible_struct, 
+        const std::string& name)
+{
+    //  First get the extended attribute
+    char found = 0;
+    void* p = extensible_struct_get_field_pointer_lazy(extensible_schema,
+            extensible_struct,
+            name.c_str(),
+            &found);
+
+    if (found)
     {
-        // Increase the reference counter cause now it is being referenced
-        // from the guts of the extended structure
-        obj->obj_reference();
+        if (p == NULL)
+        {
+            // It was found but nobody wrote on this attribute
+            // Clear the static return type
+            memset(&found_but_not_set, 0, sizeof(found_but_not_set));
+            return &found_but_not_set;
+        }
+        else
+        {
+            return (tl_type_t*)p;
+        }
+    }
+    else 
+    {
+        return NULL;
     }
 }
 
-    static tl_type_t found_but_not_set;
-    tl_type_t* default_get_extended_attribute(
-            extensible_schema_t* extensible_schema, 
-            extensible_struct_t* extensible_struct, 
-            const std::string& name)
-    {
-        //  First get the extended attribute
-        char found = 0;
-        void* p = extensible_struct_get_field_pointer_lazy(extensible_schema,
-                extensible_struct,
-                name.c_str(),
-                &found);
+bool default_set_extended_attribute(
+        extensible_schema_t* extensible_schema, 
+        extensible_struct_t* extensible_struct, 
+        const std::string &str, const tl_type_t &data)
+{
+    extensible_schema_add_field_if_needed(extensible_schema,
+            str.c_str(), sizeof(data));
 
-        if (found)
-        {
-            if (p == NULL)
-            {
-                // It was found but nobody wrote on this attribute
-                // Clear the static return type
-                memset(&found_but_not_set, 0, sizeof(found_but_not_set));
-                return &found_but_not_set;
-            }
-            else
-            {
-                return (tl_type_t*)p;
-            }
-        }
-        else 
-        {
-            return NULL;
-        }
+    void *p = extensible_struct_get_field_pointer(extensible_schema,
+            extensible_struct,
+            str.c_str());
+    
+    // Something happened
+    if (p == NULL)
+        return false;
+
+    tl_type_t* tl_value = reinterpret_cast<tl_type_t*>(p);
+    
+    if (tl_value->kind == TL_OTHER
+            && tl_value->data._data != NULL)
+    {
+        // Decrease the reference if there was an Object
+        reinterpret_cast<Object*>(tl_value->data._data)->obj_unreference();
     }
 
-    bool default_set_extended_attribute(
-            extensible_schema_t* extensible_schema, 
-            extensible_struct_t* extensible_struct, 
-            const std::string &str, const tl_type_t &data)
+    // Write
+    *tl_value = data;
+
+    if (data.kind == TL_OTHER
+            // What an unfortunate name
+            && data.data._data != NULL)
     {
-        extensible_schema_add_field_if_needed(extensible_schema,
-                str.c_str(), sizeof(data));
-
-        void *p = extensible_struct_get_field_pointer(extensible_schema,
-                extensible_struct,
-                str.c_str());
-
-        // Something happened
-        if (p == NULL)
-            return false;
-
-        // Write
-        *(reinterpret_cast<tl_type_t*>(p)) = data;
-
-        // Data was written
-        return true;
+        // Increase the reference if it is an Object
+        reinterpret_cast<Object*>(data.data._data)->obj_reference();
     }
+
+    // Data was written
+    return true;
+}
+
 }
