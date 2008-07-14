@@ -31,6 +31,9 @@
 
 namespace TL
 {
+    // Definition of static member TL::AST_t::schema
+    Schema AST_t::schema(&ast_extensible_schema);
+
     bool AST_t::operator<(AST_t n) const
     {
         return this->_ast < n._ast;

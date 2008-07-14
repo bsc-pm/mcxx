@@ -226,6 +226,8 @@ namespace TL
             {
             }
 
+            static Schema schema;
+
             //! Constructor to wrap AST trees
             AST_t(AST _wrapped_tree) 
                 : _ast(_wrapped_tree)
