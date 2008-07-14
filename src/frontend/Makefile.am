@@ -92,7 +92,18 @@ libmcxx_la_CFLAGS = -Wall \
 				  -DPKGDATADIR=\"$(pkgdatadir)\"
 
 EXTRA_DIST += cxx-lexer.l
-EXTRA_DIST += cxx-asttype.def
+
+# AST node types
+AST_NODE_TYPE_FILES =
+AST_NODE_TYPE_FILES += cxx-asttype-all.def
+AST_NODE_TYPE_FILES += cxx-asttype-base.def
+AST_NODE_TYPE_FILES += cxx-asttype-gcc.def
+AST_NODE_TYPE_FILES += cxx-asttype-omp.def
+AST_NODE_TYPE_FILES += cxx-asttype-pragma.def
+AST_NODE_TYPE_FILES += cxx-asttype-superscalar.def
+
+EXTRA_DIST += $(AST_NODE_TYPE_FILES)
+
 EXTRA_DIST += cxx-attrnames.def
 
 EXTRA_DIST += c99.l
@@ -123,7 +134,7 @@ cxx-ast.h : cxx-asttype.h
 TPP=$(top_builddir)/lib/tpp
 
 CLEANFILES += cxx-asttype.h
-cxx-asttype.h : $(srcdir)/cxx-asttype.def
+cxx-asttype.h : cxx-asttype.def
 	echo "#ifndef CXX_ASTTYPE_H" > cxx-asttype.h
 	echo "#define CXX_ASTTYPE_H" >> cxx-asttype.h
 	echo "#include \"cxx-macros.h\"" >> cxx-asttype.h
@@ -131,7 +142,7 @@ cxx-asttype.h : $(srcdir)/cxx-asttype.def
 	echo "/* This file has been generated. Every time you change $< it will be regenerated */" >> cxx-asttype.h
 	echo "enum node_type {" >> cxx-asttype.h
 	echo "AST_INVALID_NODE = 0,"  >> cxx-asttype.h
-	sed -e "s/$$/,/" < $(srcdir)/cxx-asttype.def >> cxx-asttype.h
+	sed -e "s/$$/,/" < cxx-asttype.def >> cxx-asttype.h
 	echo "AST_LAST_NODE" >> cxx-asttype.h
 	echo "};" >> cxx-asttype.h
 	echo "extern char* ast_node_names[];" >> cxx-asttype.h
@@ -140,14 +151,17 @@ cxx-asttype.h : $(srcdir)/cxx-asttype.def
 	echo "#endif // CXX_ASTTYPE_H" >> cxx-asttype.h
 
 CLEANFILES += cxx-asttype.c
-cxx-asttype.c : $(srcdir)/cxx-asttype.def cxx-asttype.h
+cxx-asttype.c : cxx-asttype.def cxx-asttype.h
 	echo "/* This file has been generated. Every time you change $< it will be regenerated */" > cxx-asttype.c
 	echo "#include \"cxx-asttype.h\"" >> cxx-asttype.c
 	echo "char* ast_node_names[] = {" >> cxx-asttype.c
 	echo "[AST_INVALID_NODE] = \"AST_INVALID_NODE\", " >> cxx-asttype.c
-	sed -e "s/^.*$$/[&] = \"&\",/" < $(srcdir)/cxx-asttype.def >> cxx-asttype.c
+	sed -e "s/^.*$$/[&] = \"&\",/" < cxx-asttype.def >> cxx-asttype.c
 	echo "[AST_LAST_NODE] = \"AST_LAST_NODE\", " >> cxx-asttype.c
 	echo "};" >> cxx-asttype.c
+
+cxx-asttype.def : $(addprefix $(srcdir), $(AST_NODE_TYPE_FILES))
+	$(TPP) -o cxx-asttype.def cxx-asttype-all.def
 
 CLEANFILES += cxx-attrnames.h
 cxx-attrnames.h : $(srcdir)/cxx-attrnames.def
