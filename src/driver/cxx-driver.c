@@ -33,6 +33,7 @@
 #include "cxx-ast.h"
 #include "cxx-graphviz.h"
 #include "cxx-prettyprint.h"
+#include "cxx-scope.h"
 #include "cxx-buildscope.h"
 #include "cxx-typeutils.h"
 #include "cxx-lexer.h"
@@ -1171,6 +1172,7 @@ static void initialize_default_values(void)
 static void register_default_initializers(void)
 {
     register_dynamic_initializer(build_scope_dynamic_initializer);
+    register_dynamic_initializer(scope_entry_dynamic_initializer);
 }
 
 static void print_version(void)

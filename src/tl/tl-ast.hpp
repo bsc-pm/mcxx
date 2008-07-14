@@ -191,9 +191,9 @@ namespace TL
             static void tree_iterator(AST_t& a, const TraverseASTFunctor& functor, 
                     ObjectList<AST_t>& result);
 
-            //! Implements the access to extended attributes
+            //! Implements the access to extended attributes of an AST_t
             tl_type_t* get_extended_attribute(const std::string& name) const;
-            //! Implements the access to extended attributes
+            //! Implements the access to extended attributes of an AST_t
             virtual bool set_extended_attribute(const std::string&, const tl_type_t &data);
 
             //! Given a tree it moves towards the root until it reached the translation unit node
@@ -226,6 +226,7 @@ namespace TL
             {
             }
 
+            //! Schema of this extensible object
             static Schema schema;
 
             //! Constructor to wrap AST trees

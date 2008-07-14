@@ -1011,10 +1011,7 @@ namespace TL
             return parameter_declarations.empty();
         }
 
-        CXX_LANGUAGE()
-        {
-            return false;
-        }
+        return false;
     }
 
     ObjectList<ParameterDeclaration> DeclaredEntity::get_parameter_declarations()

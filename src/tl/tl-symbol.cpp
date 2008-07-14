@@ -23,6 +23,25 @@
 
 namespace TL
 {
+    Schema Symbol::schema(&::scope_entry_extensible_schema);
+
+    tl_type_t* Symbol::get_extended_attribute(const std::string& name) const
+    {
+        return default_get_extended_attribute(
+                &scope_entry_extensible_schema,
+                this->_symbol->extended_data,
+                name);
+    }
+
+    bool Symbol::set_extended_attribute(const std::string &str, const tl_type_t &data)
+    {
+        return default_set_extended_attribute(
+                &scope_entry_extensible_schema,
+                this->_symbol->extended_data,
+                str,
+                data);
+    }
+
     Type Symbol::get_type() const
     {
         Type result(_symbol->type_information);

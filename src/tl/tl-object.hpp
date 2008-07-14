@@ -185,6 +185,18 @@ namespace TL
         public :
             virtual ~Undefined() { }
     };
+
+    //! Function used by TL::Objects that have an extensible struct
+    tl_type_t* default_get_extended_attribute(
+            extensible_schema_t* extensible_schema, 
+            extensible_struct_t* extensible_struct, 
+            const std::string& name);
+    
+    //! Function used by TL::Objects that have an extensible struct
+    bool default_set_extended_attribute(
+            extensible_schema_t* extensible_schema, 
+            extensible_struct_t* extensible_struct, 
+            const std::string &str, const tl_type_t &data);
 }
 
 #endif // TL_OBJECT_HPP

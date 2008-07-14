@@ -120,4 +120,59 @@ void Object::set_attribute(const std::string &name, RefPtr<Object> obj)
     }
 }
 
+    static tl_type_t found_but_not_set;
+    tl_type_t* default_get_extended_attribute(
+            extensible_schema_t* extensible_schema, 
+            extensible_struct_t* extensible_struct, 
+            const std::string& name)
+    {
+        //  First get the extended attribute
+        char found = 0;
+        void* p = extensible_struct_get_field_pointer_lazy(extensible_schema,
+                extensible_struct,
+                name.c_str(),
+                &found);
+
+        if (found)
+        {
+            if (p == NULL)
+            {
+                // It was found but nobody wrote on this attribute
+                // Clear the static return type
+                memset(&found_but_not_set, 0, sizeof(found_but_not_set));
+                return &found_but_not_set;
+            }
+            else
+            {
+                return (tl_type_t*)p;
+            }
+        }
+        else 
+        {
+            return NULL;
+        }
+    }
+
+    bool default_set_extended_attribute(
+            extensible_schema_t* extensible_schema, 
+            extensible_struct_t* extensible_struct, 
+            const std::string &str, const tl_type_t &data)
+    {
+        extensible_schema_add_field_if_needed(extensible_schema,
+                str.c_str(), sizeof(data));
+
+        void *p = extensible_struct_get_field_pointer(extensible_schema,
+                extensible_struct,
+                str.c_str());
+
+        // Something happened
+        if (p == NULL)
+            return false;
+
+        // Write
+        *(reinterpret_cast<tl_type_t*>(p)) = data;
+
+        // Data was written
+        return true;
+    }
 }

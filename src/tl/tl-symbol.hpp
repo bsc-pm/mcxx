@@ -43,12 +43,6 @@ namespace TL
         public:
             scope_entry_t* _symbol;
 
-        private:
-            virtual tl_type_t* get_extended_attribute(const std::string&) const
-            {
-                return NULL;
-            }
-
         public:
             //! Returns an invalid symbol
             static const Symbol invalid();
@@ -59,10 +53,18 @@ namespace TL
             //! States whether this is a valid symbol
             bool is_valid() const;
 
+            //! Schema of this extensible object
+            static Schema schema;
+
             Symbol(scope_entry_t* symbol)
                 : _symbol(symbol)
             {
             }
+
+            //! Implements the access to extended attributes of a Symbol
+            virtual tl_type_t* get_extended_attribute(const std::string& name) const;
+            //! Implements the access to extended attributes of a Symbol
+            virtual bool set_extended_attribute(const std::string&, const tl_type_t &data);
 
             //! Constructs a Symbol after a reference to Object
             Symbol(RefPtr<Object> obj)

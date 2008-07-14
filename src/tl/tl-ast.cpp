@@ -32,7 +32,7 @@
 namespace TL
 {
     // Definition of static member TL::AST_t::schema
-    Schema AST_t::schema(&ast_extensible_schema);
+    Schema AST_t::schema(&::ast_extensible_schema);
 
     bool AST_t::operator<(AST_t n) const
     {
@@ -55,54 +55,21 @@ namespace TL
         return (*this);
     }
 
-    static tl_type_t found_but_not_set;
     tl_type_t* AST_t::get_extended_attribute(const std::string& name) const
     {
-        //  First get the extended attribute
-        char found = 0;
-        void* p = extensible_struct_get_field_pointer_lazy(&ast_extensible_schema,
+        return default_get_extended_attribute(
+                &ast_extensible_schema,
                 ast_get_extensible_struct(this->_ast),
-                name.c_str(),
-                &found);
-
-        if (found)
-        {
-            if (p == NULL)
-            {
-                // It was found but nobody wrote on this attribute
-                // Clear the static return type
-                memset(&found_but_not_set, 0, sizeof(found_but_not_set));
-                return &found_but_not_set;
-            }
-            else
-            {
-                return (tl_type_t*)p;
-            }
-        }
-        else 
-        {
-            return NULL;
-        }
+                name);
     }
 
     bool AST_t::set_extended_attribute(const std::string &str, const tl_type_t &data)
     {
-        extensible_schema_add_field_if_needed(&ast_extensible_schema,
-                str.c_str(), sizeof(data));
-
-        void *p = extensible_struct_get_field_pointer(&ast_extensible_schema,
+        return default_set_extended_attribute(
+                &ast_extensible_schema,
                 ast_get_extensible_struct(this->_ast),
-                str.c_str());
-
-        // Something happened
-        if (p == NULL)
-            return false;
-
-        // Write
-        *(reinterpret_cast<tl_type_t*>(p)) = data;
-
-        // Data was written
-        return true;
+                str,
+                data);
     }
 
     std::string AST_t::prettyprint(bool with_commas) const

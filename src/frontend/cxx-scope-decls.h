@@ -440,6 +440,9 @@ struct scope_entry_tag
     // or enumerator is dependent.  An enum will check every of its
     // enumerators, and an enumerator will check its enum type
     dependency_info_t dependency_info;
+
+    // Extensible information of a symbol
+    extensible_struct_t* extended_data;
 } scope_entry_t;
 
 // This is what the scope returns a list of symbols due to function overloading

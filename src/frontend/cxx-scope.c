@@ -390,6 +390,9 @@ scope_entry_t* new_symbol(decl_context_t decl_context, scope_t* sc, const char* 
     // its declaration scope but will be in .template_scope
     result->decl_context = decl_context;
 
+    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_used_symbols);
+    extensible_struct_init(result->extended_data, &scope_entry_extensible_schema);
+
     if (result_set != NULL)
     {
         scope_entry_list_t* new_set = (scope_entry_list_t*) counted_calloc(1, sizeof(*new_set), &_bytes_used_symbols);
@@ -3195,5 +3198,11 @@ const char* get_fully_qualified_symbol_name(scope_entry_t* entry,
     }
 
     return result;
+}
+
+void scope_entry_dynamic_initializer(void)
+{
+    // Initialize the schema of scope entries
+    extensible_schema_init(&scope_entry_extensible_schema);
 }
 

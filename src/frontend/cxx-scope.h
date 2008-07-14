@@ -121,6 +121,10 @@ struct type_tag* update_type(template_argument_list_t* given_template_args,
 unsigned long long scope_used_memory(void);
 unsigned long long symbols_used_memory(void);
 
+void scope_entry_dynamic_initializer(void);
+
+extern extensible_schema_t scope_entry_extensible_schema;
+
 MCXX_END_DECLS
 
 #endif // CXX_SCOPE_H
