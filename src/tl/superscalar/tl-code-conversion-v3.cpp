@@ -243,7 +243,7 @@ namespace TL
 					address_source << "&" << temporary_name.str();
 					bounds_source << "(void *)0";
 				} else {
-					scalar_source << "0";
+					scalar_source << "1";
 					dimensions_source << "0";
 					size_source
 						<< "sizeof("
