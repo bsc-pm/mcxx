@@ -2153,6 +2153,33 @@ static void print_human(char *dest, unsigned long long num_bytes_)
     }
 }
 
+static void compute_tree_breakdown(AST a, int breakdown[MAX_AST_CHILDREN + 1], int breakdown_real[MAX_AST_CHILDREN + 1], int *num_nodes)
+{
+    if (a == NULL)
+        return;
+
+    int num_real = 0;
+    int num_intent = ASTNumChildren(a);
+
+    (*num_nodes)++;
+
+    int i;
+    for (i = 0; i < MAX_AST_CHILDREN; i++)
+    {
+        if (ASTChild(a, i) != NULL)
+        {
+            num_real++;
+        }
+        compute_tree_breakdown(ASTChild(a, i), breakdown, breakdown_real, num_nodes);
+    }
+
+    if (num_intent <= (MAX_AST_CHILDREN + 1))
+        breakdown[num_intent]++;
+
+    if (num_real <= (MAX_AST_CHILDREN + 1))
+        breakdown_real[num_real]++;
+}
+
 static void print_memory_report(void)
 {
     char c[256];
@@ -2192,10 +2219,30 @@ static void print_memory_report(void)
     fprintf(stderr, "\n");
 
     unsigned long long accounted_memory = 0;
+    //
+    // -- AST
 
-    accounted_memory += ast_used_memory();
-    print_human(c, ast_used_memory());
-    fprintf(stderr, " - Memory usage due to AST nodes: %s\n", c);
+    accounted_memory += ast_astmake_used_memory();
+    print_human(c, ast_astmake_used_memory());
+    fprintf(stderr, " - Memory used to create AST nodes: %s\n", c);
+
+    accounted_memory += ast_ambiguities_used_memory();
+    print_human(c, ast_ambiguities_used_memory());
+    fprintf(stderr, " - Memory used to create AST ambiguous nodes: %s\n", c);
+
+    accounted_memory += ast_copies_used_memory();
+    print_human(c, ast_copies_used_memory());
+    fprintf(stderr, " - Memory used to copy AST nodes: %s\n", c);
+
+    accounted_memory += ast_instantiation_used_memory();
+    print_human(c, ast_instantiation_used_memory());
+    fprintf(stderr, " - Memory used to copy AST nodes when instantiating: %s\n", c);
+
+    print_human(c, ast_bytes_freed());
+    accounted_memory -= ast_bytes_freed();
+    fprintf(stderr, " - Memory freed of unused AST nodes: %s\n", c);
+
+    // -- AST
 
     accounted_memory += type_system_used_memory();
     print_human(c, type_system_used_memory());
@@ -2249,6 +2296,44 @@ static void print_memory_report(void)
 
     print_human(c, accounted_memory);
     fprintf(stderr, " - Total accounted memory: %s\n", c);
+
+    fprintf(stderr, "\n");
+    fprintf(stderr, "Abstract Syntax Tree(s) breakdown\n");
+    fprintf(stderr, "---------------------------------\n");
+    fprintf(stderr, "\n");
+
+    int children_count[MAX_AST_CHILDREN + 1];
+    int children_real_count[MAX_AST_CHILDREN + 1];
+
+    int num_nodes = 0;
+
+    int i;
+    for (i = 0; i < MAX_AST_CHILDREN + 1; i++)
+    {
+        children_count[i] = 0;
+        children_real_count[i] = 0;
+    }
+
+    // Per every translation unit
+    for (i = 0; i < compilation_process.num_translation_units; i++)
+    {
+        compilation_file_process_t* file_process = compilation_process.translation_units[i];
+        translation_unit_t* translation_unit = file_process->translation_unit;
+
+        compute_tree_breakdown(translation_unit->parsed_tree, children_count, children_real_count, &num_nodes);
+    }
+
+    fprintf(stderr, " - AST node size (bytes): %d\n", ast_node_size());
+    fprintf(stderr, " - Total number of AST nodes: %d\n", num_nodes);
+
+    for (i = 0; i < MAX_AST_CHILDREN + 1; i++)
+    {
+        fprintf(stderr, " - Nodes with %d children: %d\n", i, children_count[i]);
+    }
+    for (i = 0; i < MAX_AST_CHILDREN + 1; i++)
+    {
+        fprintf(stderr, " - Nodes with %d real children: %d\n", i, children_real_count[i]);
+    }
 
     fprintf(stderr, "\n");
 }

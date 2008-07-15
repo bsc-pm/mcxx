@@ -151,7 +151,12 @@ AST ast_make_ambiguous(AST son0, AST son1);
 int ast_get_num_ambiguities(const_AST a);
 
 // Memory used by trees
-long long unsigned int ast_used_memory(void);
+long long unsigned int ast_astmake_used_memory(void);
+long long unsigned int ast_instantiation_used_memory(void);
+long long unsigned int ast_copies_used_memory(void);
+long long unsigned int ast_ambiguities_used_memory(void);
+long long unsigned int ast_bytes_freed(void);
+int ast_node_size(void);
 
 // Returns the ambiguity 'num'
 AST ast_get_ambiguity(const_AST a, int num);

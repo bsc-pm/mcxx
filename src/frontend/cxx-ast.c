@@ -73,18 +73,47 @@ struct AST_tag
 // Define the extensible schema of AST's
 extensible_schema_t ast_extensible_schema;
 
-static long long unsigned int _bytes_due_to_ast = 0;
+static long long unsigned int _bytes_due_to_astmake = 0;
+static long long unsigned int _bytes_due_to_ambiguities = 0;
+static long long unsigned int _bytes_due_to_copies = 0;
+static long long unsigned int _bytes_due_to_instantiation = 0;
+static long long unsigned int _bytes_ast_freed = 0;
 
-long long unsigned int ast_used_memory(void)
+long long unsigned int ast_astmake_used_memory(void)
 {
-    return _bytes_due_to_ast;
+    return _bytes_due_to_astmake;
+}
+
+long long unsigned int ast_instantiation_used_memory(void)
+{
+    return _bytes_due_to_instantiation;
+}
+
+long long unsigned int ast_copies_used_memory(void)
+{
+    return _bytes_due_to_copies;
+}
+
+long long unsigned int ast_ambiguities_used_memory(void)
+{
+    return _bytes_due_to_ambiguities;
+}
+
+long long unsigned int ast_bytes_freed(void)
+{
+    return _bytes_ast_freed;
 }
 
 AST ast_make(node_t type, int num_children, 
         AST child0, AST child1, AST child2, AST child3, 
         const char* file, int line, const char *text)
 {
-    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_ast);
+    long long unsigned int* account = &_bytes_due_to_astmake;
+
+    if (type == AST_AMBIGUITY)
+        account = &_bytes_due_to_ambiguities;
+
+    AST result = counted_calloc(1, sizeof(*result), account);
 
     result->parent = NULL;
 
@@ -94,7 +123,7 @@ AST ast_make(node_t type, int num_children,
     result->line = line;
     result->filename = file;
 
-    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_ast);
+    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), account);
 
     extensible_struct_init(result->extended_data, &ast_extensible_schema);
 
@@ -223,14 +252,14 @@ AST ast_copy(const_AST a)
     if (a == NULL)
         return NULL;
 
-    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_ast);
+    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_copies);
 
     // extensible_struct_t orig_extended_data = result->extended_data;
 
     // Copy everything by value
     *result = *a;
 
-    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_ast);
+    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_copies);
 
     extensible_struct_init(result->extended_data, &ast_extensible_schema);
 
@@ -245,7 +274,7 @@ AST ast_copy(const_AST a)
             (a->num_ambig > 0))
     {
         result->num_ambig = a->num_ambig;
-        result->ambig = counted_calloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_ast);
+        result->ambig = counted_calloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_copies);
         for (i = 0; i < a->num_ambig; i++)
         {
             result->ambig[i] = ast_copy(a->ambig[i]);
@@ -267,7 +296,7 @@ AST ast_copy_for_instantiation(const_AST a)
     if (a == NULL)
         return NULL;
 
-    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_ast);
+    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_instantiation);
 
     // Copy everything by value
     *result = *a;
@@ -280,7 +309,7 @@ AST ast_copy_for_instantiation(const_AST a)
         result->expr_is_lvalue = 0;
     }
 
-    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_ast);
+    result->extended_data = counted_calloc(1, sizeof(*(result->extended_data)), &_bytes_due_to_instantiation);
     extensible_struct_init(result->extended_data, &ast_extensible_schema);
 
     int i;
@@ -294,7 +323,7 @@ AST ast_copy_for_instantiation(const_AST a)
             (a->num_ambig > 0))
     {
         result->num_ambig = a->num_ambig;
-        result->ambig = counted_calloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_ast);
+        result->ambig = counted_calloc(a->num_ambig, sizeof(*(result->ambig)), &_bytes_due_to_instantiation);
         for (i = 0; i < a->num_ambig; i++)
         {
             result->ambig[i] = ast_copy_for_instantiation(a->ambig[i]);
@@ -448,7 +477,7 @@ AST ast_make_ambiguous(AST son0, AST son1)
         AST result = ASTLeaf(AST_AMBIGUITY, NULL, 0, NULL);
 
         result->num_ambig = 2;
-        result->ambig = counted_calloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_ast);
+        result->ambig = counted_calloc(sizeof(*(result->ambig)), result->num_ambig, &_bytes_due_to_ambiguities);
         result->ambig[0] = ast_copy(son0);
         result->ambig[1] = ast_copy(son1);
         result->line = son0->line;
@@ -498,7 +527,7 @@ static void ast_free(AST a)
         memset(a, 0, sizeof(*a));
         free(a);
 
-        _bytes_due_to_ast -= sizeof(*a);
+        _bytes_ast_freed += sizeof(*a);
     }
 }
 
@@ -620,7 +649,7 @@ static AST ast_copy_with_scope_link_rec(AST a, scope_link_t* orig, scope_link_t*
     if (a == NULL)
         return NULL;
 
-    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_ast);
+    AST result = counted_calloc(1, sizeof(*result), &_bytes_due_to_copies);
 
     // extensible_struct_t orig_extended_data = result->extended_data;
 
@@ -659,4 +688,9 @@ AST ast_copy_with_scope_link(AST a, scope_link_t* orig, scope_link_t* new_sl)
     scope_link_set(new_sl, result, decl_context);
 
     return result;
+}
+
+int ast_node_size(void)
+{
+    return sizeof(struct AST_tag);
 }
