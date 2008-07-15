@@ -63,11 +63,15 @@ struct implicit_conversion_sequence_tag
 static
 implicit_conversion_sequence_t invalid_ics = { .kind = ICSK_INVALID, .is_ambiguous_ics = 0 };
 
+#define MAX_ARGUMENTS (256)
+
 typedef
 struct overload_entry_list_tag
 {
     scope_entry_t* entry;
     struct overload_entry_list_tag* next;
+
+    implicit_conversion_sequence_t ics_arguments[MAX_ARGUMENTS];
 
     char requires_ambiguous_ics;
 } overload_entry_list_t;
@@ -1202,6 +1206,15 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
 
         if (can_be_called_with_number_of_arguments(candidate, num_arguments))
         {
+            implicit_conversion_sequence_t ics_arguments[MAX_ARGUMENTS];
+            {
+                int j;
+                for (j = 0; j < MAX_ARGUMENTS; j++)
+                {
+                    ics_arguments[j] = invalid_ics;
+                }
+            }
+
             // We have to check every argument type
             int first_type = 0;
             if ((!candidate->entity_specs.is_member
@@ -1224,6 +1237,7 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
                 int argument_number = i;
                 // For normal calls it holds the following map
                 //
+                //   implicit
                 //   argument0, argument1,  ..., argumentN
                 //                 ^                ^
                 //              parameter0, ..., parameterM
@@ -1258,6 +1272,7 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
                 //   argument0: 'A&' (note: this is a special 'A&')
                 //   argument1: char
                 //
+                //   <implicit parameter>: A&
                 //   parameter0: char
                 //
                 //     a(3); // (2)
@@ -1326,6 +1341,8 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
                     {
                         requires_ambiguous_conversion |= ics_to_candidate.is_ambiguous_ics;
                     }
+
+                    ics_arguments[i] = ics_to_candidate;
                 }
             }
 
@@ -1336,6 +1353,13 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
                 new_result->next = result;
                 new_result->requires_ambiguous_ics = requires_ambiguous_conversion;
                 result = new_result;
+
+                int j;
+                for (j = 0; j < MAX_ARGUMENTS; j++)
+                {
+                    // Copy all ICS of this overloaded function entry
+                    result->ics_arguments[j] = ics_arguments[j];
+                }
             }
         }
 
@@ -1608,11 +1632,11 @@ char is_better_function(scope_entry_t* f,
 scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions, 
         type_t **argument_types, int num_arguments,
         decl_context_t decl_context,
-        const char *filename, int line)
+        const char *filename, int line,
+        scope_entry_t** conversors)
 {
     DEBUG_CODE()
     {
-
         fprintf(stderr, "OVERLOAD: Have to solve overload of an invocation with types\n");
 
         if (num_arguments > 0)
@@ -1830,6 +1854,44 @@ scope_entry_t* solve_overload(scope_entry_list_t* candidate_functions,
         fprintf(stderr, "OVERLOAD: Best viable function is [%s, %s]\n", 
                 best_viable->entry->symbol_name,
                 print_declarator(best_viable->entry->type_information));
+
+        if (conversors != NULL)
+        {
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: List of called conversors\n");
+            }
+            int i;
+            for (i = 0; i < num_arguments; i++)
+            {
+                if (best_viable->ics_arguments[i].kind == ICSK_USER_DEFINED)
+                {
+                    conversors[i] = best_viable->ics_arguments[i].conversor;
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "OVERLOAD:    Argument %d: '%s' at %s:%d\n",
+                                i,
+                                conversors[i]->symbol_name,
+                                conversors[i]->file,
+                                conversors[i]->line);
+                    }
+                }
+                else
+                {
+                    conversors[i] = NULL;
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "OVERLOAD:    Argument %d: <no conversor called>\n",
+                                i);
+                    }
+                }
+            }
+
+            DEBUG_CODE()
+            {
+                fprintf(stderr, "OVERLOAD: End of list of called conversors\n");
+            }
+        }
     }
     return best_viable->entry;
 }

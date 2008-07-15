@@ -28,7 +28,8 @@
 struct scope_entry_tag* solve_overload(struct scope_entry_list_tag* candidate_functions, 
         struct type_tag **argument_types, int num_arguments,
         decl_context_t decl_context,
-        const char* filename, int line);
+        const char* filename, int line,
+        scope_entry_t** conversor_per_argument);
 
 char type_can_be_implicitly_converted_to(struct type_tag* orig, struct type_tag* dest, decl_context_t decl_context, 
         char *ambiguous_conversion);

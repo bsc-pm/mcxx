@@ -1880,8 +1880,10 @@ static type_t* compute_pointer_arithmetic_type(type_t* lhs_type, type_t* rhs_typ
 }
 
 static type_t* compute_member_user_defined_bin_operator_type(AST operator_name, 
+        AST lhs, AST rhs,
         type_t* lhs_type, type_t* rhs_type, decl_context_t decl_context,
-        const char* filename, int line)
+        const char* filename, int line,
+        scope_entry_t** selected_operator)
 {
     ERROR_CONDITION(!is_class_type(no_ref(lhs_type)) , "This must be a class type", 0);
 
@@ -1904,14 +1906,18 @@ static type_t* compute_member_user_defined_bin_operator_type(AST operator_name,
             decl_context,
             filename, line, /* explicit template arguments */ NULL);
 
+    scope_entry_t* conversors[2] = { NULL, NULL };
+
     scope_entry_t *overloaded_call = solve_overload(overload_set,
-            argument_types, num_arguments, decl_context, filename, line);
+            argument_types, num_arguments, decl_context, filename, line,
+            conversors);
 
     type_t* overloaded_type = NULL;
 
     if (overloaded_call != NULL)
     {
         overloaded_type = overloaded_call->type_information;
+        *selected_operator = overloaded_call;
     }
 
     return overloaded_type;
@@ -1921,7 +1927,8 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
         AST expr,
         AST lhs, AST rhs, 
         scope_entry_list_t* builtins,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        scope_entry_t** selected_operator)
 {
     type_t* lhs_type = ASTExprType(lhs);
     type_t* rhs_type = ASTExprType(rhs);
@@ -1929,8 +1936,10 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     if (is_class_type(no_ref(lhs_type)))
     {
         // Try to make a member operator lookup
-        type_t* overloaded_member_op_type = compute_member_user_defined_bin_operator_type(operator_name,
-                lhs_type, rhs_type, decl_context, ASTFileName(expr), ASTLine(expr));
+        type_t* overloaded_member_op_type =
+            compute_member_user_defined_bin_operator_type(operator_name, 
+                    lhs, rhs, lhs_type, rhs_type, decl_context, ASTFileName(expr),
+                    ASTLine(expr), selected_operator);
 
         if (overloaded_member_op_type != NULL)
         {
@@ -1953,13 +1962,20 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
             ASTFileName(expr), ASTLine(expr),
             /* explicit template arguments */ NULL);
 
+    scope_entry_t* conversors[3] = { NULL, NULL, NULL };
+
     scope_entry_t *overloaded_call = solve_overload(overload_set,
             argument_types, num_arguments, decl_context,
-            ASTFileName(expr), ASTLine(expr));
+            ASTFileName(expr), ASTLine(expr), conversors);
 
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
+        if (!overloaded_call->entity_specs.is_builtin)
+        {
+            *selected_operator = overloaded_call;
+        }
+
         overloaded_type = overloaded_call->type_information;
 
         ast_set_expression_type(expr, function_type_get_return_type(overloaded_type));
@@ -1970,8 +1986,10 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
 
 static type_t* compute_member_user_defined_unary_operator_type(AST operator_name, 
+        AST operand,
         type_t* op, decl_context_t decl_context,
-        const char* filename, int line)
+        const char* filename, int line,
+        scope_entry_t** selected_operator)
 {
     ERROR_CONDITION(!is_class_type(no_ref(op)), "This must be a class type", 0);
 
@@ -1996,14 +2014,18 @@ static type_t* compute_member_user_defined_unary_operator_type(AST operator_name
             filename, line,
             /* explicit_template_arguments */ NULL);
 
+    scope_entry_t *conversors[1] = { NULL };
+
     scope_entry_t *overloaded_call = solve_overload(overload_set,
             argument_types, num_arguments, decl_context,
-            filename, line);
+            filename, line, conversors);
 
     type_t* overloaded_type = NULL;
 
     if (overloaded_call != NULL)
     {
+        *selected_operator = overloaded_call;
+
         overloaded_type = overloaded_call->type_information;
     }
 
@@ -2014,7 +2036,8 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
         AST expr,
         AST op,
         scope_entry_list_t* builtins,
-        decl_context_t decl_context)
+        decl_context_t decl_context,
+        scope_entry_t** selected_operator)
 {
     type_t* op_type = ASTExprType(op);
 
@@ -2022,9 +2045,9 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             || is_lvalue_reference_to_class_type(op_type))
     {
         // Try to make a member operator lookup
-        type_t* overloaded_member_op_type = compute_member_user_defined_unary_operator_type(operator_name,
-                op_type, decl_context,
-                ASTFileName(expr), ASTLine(expr));
+        type_t* overloaded_member_op_type = compute_member_user_defined_unary_operator_type(
+                operator_name, op, op_type, decl_context,
+                ASTFileName(expr), ASTLine(expr), selected_operator);
 
         if (overloaded_member_op_type != NULL)
         {
@@ -2047,14 +2070,20 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
             decl_context,
             ASTFileName(expr), ASTLine(expr),
             /* explicit_template_arguments */ NULL);
+
+    scope_entry_t* conversors[2] = { NULL, NULL };
     
     scope_entry_t *overloaded_call = solve_overload(overload_set,
             argument_types, num_arguments, decl_context,
-            ASTFileName(expr), ASTLine(expr));
+            ASTFileName(expr), ASTLine(expr), conversors);
 
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
+        if (!overloaded_call->entity_specs.is_builtin)
+        {
+            *selected_operator = overloaded_call;
+        }
         overloaded_type = overloaded_call->type_information;
 
         ast_set_expression_type(expr, function_type_get_return_type(overloaded_type));
@@ -2169,8 +2198,10 @@ type_t* compute_bin_operator_add_type(AST expr, AST lhs, AST rhs, decl_context_t
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     return compute_user_defined_bin_operator_type(operation_add_tree, 
-            expr, lhs, rhs, builtins, decl_context);
+            expr, lhs, rhs, builtins, decl_context, &selected_operator);
 }
 
 static char operator_bin_only_arithmetic_pred(type_t* lhs, type_t* rhs)
@@ -2237,9 +2268,11 @@ type_t* compute_bin_operator_only_arithmetic_types(AST expr, AST lhs, AST rhs, A
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     // Now in C++ we have to rely on overloading for operators
     return compute_user_defined_bin_operator_type(operator, 
-            expr, lhs, rhs, builtins, decl_context);
+            expr, lhs, rhs, builtins, decl_context, &selected_operator);
 }
 
 static
@@ -2326,9 +2359,11 @@ type_t* compute_bin_operator_only_integer_types(AST expr, AST lhs, AST rhs, AST 
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     // Now in C++ we have to rely on overloading for operators
     return compute_user_defined_bin_operator_type(operator, 
-            expr, lhs, rhs, builtins, decl_context);
+            expr, lhs, rhs, builtins, decl_context, &selected_operator);
 }
 
 static
@@ -2445,8 +2480,10 @@ static type_t* compute_bin_operator_sub_type(AST expr, AST lhs, AST rhs, decl_co
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     return compute_user_defined_bin_operator_type(operator, 
-            expr, lhs, rhs, builtins, decl_context);
+            expr, lhs, rhs, builtins, decl_context, &selected_operator);
 }
 
 static char operator_bin_left_integral_right_integral_pred(type_t* lhs, type_t* rhs)
@@ -2511,8 +2548,10 @@ static type_t* compute_bin_operator_only_integral_lhs_type(AST expr, AST lhs, AS
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     return compute_user_defined_bin_operator_type(operator, 
-            expr, lhs, rhs, builtins, decl_context);
+            expr, lhs, rhs, builtins, decl_context, &selected_operator);
 }
 
 static type_t* compute_bin_operator_shl_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
@@ -2645,8 +2684,10 @@ static type_t* compute_bin_operator_relational(AST expr, AST lhs, AST rhs, AST o
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     return compute_user_defined_bin_operator_type(operator, 
-            expr, lhs, rhs, builtins, decl_context);
+            expr, lhs, rhs, builtins, decl_context, &selected_operator);
 }
 
 static type_t* compute_bin_operator_lower_equal_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
@@ -2797,8 +2838,10 @@ static type_t* compute_bin_logical_op_type(AST expr, AST lhs, AST rhs, AST opera
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     return compute_user_defined_bin_operator_type(operator, 
-            expr, lhs, rhs, builtins, decl_context);
+            expr, lhs, rhs, builtins, decl_context, &selected_operator);
 }
 
 static type_t* compute_bin_operator_logical_or_type(AST expr, AST lhs, AST rhs, decl_context_t decl_context)
@@ -2938,9 +2981,11 @@ static type_t* compute_bin_operator_assig_only_integral_type(AST expr, AST lhs, 
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     // We need to do overload
     return compute_user_defined_bin_operator_type(operator, 
-            expr, lhs, rhs, builtins, decl_context);
+            expr, lhs, rhs, builtins, decl_context, &selected_operator);
 
     return NULL;
 }
@@ -3028,9 +3073,11 @@ static type_t* compute_bin_operator_assig_arithmetic_or_pointer_type(AST expr, A
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     // We need to do overload
     return compute_user_defined_bin_operator_type(operator, 
-            expr, lhs, rhs, builtins, decl_context);
+            expr, lhs, rhs, builtins, decl_context, &selected_operator);
 
     return NULL;
 }
@@ -3136,9 +3183,11 @@ static type_t* compute_bin_nonoperator_assig_only_arithmetic_type(AST expr, AST 
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     // We need to do overload
     return compute_user_defined_bin_operator_type(operator, 
-            expr, lhs, rhs, builtins, decl_context);
+            expr, lhs, rhs, builtins, decl_context, &selected_operator);
 }
 
 static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs, AST rhs, AST operator,
@@ -3223,9 +3272,11 @@ static type_t* compute_bin_operator_assig_only_arithmetic_type(AST expr, AST lhs
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     // We need to do overload
     return compute_user_defined_bin_operator_type(operator, 
-            expr, lhs, rhs, builtins, decl_context);
+            expr, lhs, rhs, builtins, decl_context, &selected_operator);
 }
 
 static type_t* compute_bin_operator_mod_assig_type(AST expr, AST lhs, AST rhs,
@@ -3464,8 +3515,10 @@ static type_t* compute_operator_derreference_type(AST expression,
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     return compute_user_defined_unary_operator_type(operation_tree,
-            expression, op, builtins, decl_context);
+            expression, op, builtins, decl_context, &selected_operator);
 }
 
 char operator_unary_plus_pred(type_t* op_type)
@@ -3555,8 +3608,10 @@ static type_t* compute_operator_plus_type(AST expression,
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator;
+
     return compute_user_defined_unary_operator_type(operation_tree,
-            expression, op, builtins, decl_context);
+            expression, op, builtins, decl_context, &selected_operator);
 }
 
 char operator_unary_minus_pred(type_t* op_type)
@@ -3632,8 +3687,10 @@ static type_t* compute_operator_minus_type(AST expression,
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     return compute_user_defined_unary_operator_type(operation_tree,
-            expression, op, builtins, decl_context);
+            expression, op, builtins, decl_context, &selected_operator);
 }
 
 char operator_unary_complement_pred(type_t* op_type)
@@ -3709,8 +3766,10 @@ static type_t* compute_operator_complement_type(AST expression,
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     return compute_user_defined_unary_operator_type(operation_tree,
-            expression, op, builtins, decl_context);
+            expression, op, builtins, decl_context, &selected_operator);
 }
 
 char operator_unary_not_pred(type_t* op_type)
@@ -3789,8 +3848,10 @@ static type_t* compute_operator_not_type(AST expression,
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     return compute_user_defined_unary_operator_type(operation_tree,
-            expression, op, builtins, decl_context);
+            expression, op, builtins, decl_context, &selected_operator);
 }
 
 static type_t* compute_operator_reference_type(AST expression, 
@@ -4326,9 +4387,11 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
             int num_arguments = 2;
             type_t* argument_types[2] = { lvalue_ref_for_implicit_arg(subscripted_type), subscript_type };
 
+            scope_entry_t* conversors[2] = {NULL, NULL};
+
             scope_entry_t *overloaded_call = solve_overload(operator_subscript_list,
                     argument_types, num_arguments, decl_context,
-                    ASTFileName(expr), ASTLine(expr));
+                    ASTFileName(expr), ASTLine(expr), conversors);
 
             if (overloaded_call == NULL)
                 return 0;
@@ -4775,9 +4838,12 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
                 third_type,
             };
 
+            scope_entry_t* conversors[3] = { NULL, NULL, NULL };
+
             scope_entry_t *overloaded_call = solve_overload(builtins,
                     argument_types, num_arguments, decl_context,
-                    ASTFileName(expression), ASTLine(expression));
+                    ASTFileName(expression), ASTLine(expression), 
+                    conversors);
 
             if (overloaded_call == NULL)
             {
@@ -5758,10 +5824,21 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
     {
         fprintf(stderr, "EXPRTYPE: Calling overload resolution machinery\n");
     }
+
+    scope_entry_t* conversors[num_arguments];
+    {
+        int i;
+        for (i = 0; i < num_arguments; i++)
+        {
+            conversors[i] = NULL;
+        }
+    }
+
     scope_entry_t* overloaded_call = solve_overload(candidates,
             argument_types, num_arguments, decl_context,
             ASTFileName(whole_function_call),
-            ASTLine(whole_function_call));
+            ASTLine(whole_function_call),
+            conversors);
 
     if (overloaded_call != NULL)
     {
@@ -6215,9 +6292,12 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
             ASTExprType(class_expr) 
         };
 
+        scope_entry_t* conversors[1] = { NULL };
+
         scope_entry_t* selected_operator_arrow = solve_overload(operator_arrow_list,
-                argument_types, 1, decl_context, 
-                ASTFileName(member_access), ASTLine(member_access));
+                argument_types, /* num_arguments = */ 1, decl_context, 
+                ASTFileName(member_access), ASTLine(member_access),
+                conversors);
 
         if (selected_operator_arrow == NULL)
             return 0;
@@ -6538,9 +6618,11 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
             };
             int num_arguments = 2;
 
+            scope_entry_t* conversors[2] = { NULL, NULL };
+
             scope_entry_t* overloaded_call = solve_overload(entry_list,
                     argument_types, num_arguments, decl_context,
-                    ASTFileName(expr), ASTLine(expr));
+                    ASTFileName(expr), ASTLine(expr), conversors);
 
             if (overloaded_call != NULL)
             {
@@ -6568,9 +6650,11 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
             decl_context,
             ASTFileName(expr), ASTLine(expr), /* explicit_template_arguments */ NULL);
 
+    scope_entry_t* conversors[3] = { NULL, NULL, NULL };
+
     scope_entry_t* overloaded_call = solve_overload(overload_set,
             argument_types, num_arguments, decl_context,
-            ASTFileName(expr), ASTLine(expr));
+            ASTFileName(expr), ASTLine(expr), conversors);
 
     if (overloaded_call != NULL)
     {
@@ -6601,9 +6685,11 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
             };
             int num_arguments = 1;
 
+            scope_entry_t* conversors[1] = { NULL };
+
             scope_entry_t* overloaded_call = solve_overload(entry_list,
                     argument_types, num_arguments, decl_context,
-                    ASTFileName(expr), ASTLine(expr));
+                    ASTFileName(expr), ASTLine(expr), conversors);
 
             if (overloaded_call != NULL)
             {
@@ -6632,9 +6718,11 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
             decl_context,
             ASTFileName(expr), ASTLine(expr), /* explicit_template_arguments */ NULL);
 
+    scope_entry_t* conversors[2] = { NULL, NULL };
+
     scope_entry_t* overloaded_call = solve_overload(overloaded_set,
             argument_types, num_arguments, decl_context,
-            ASTFileName(expr), ASTLine(expr));
+            ASTFileName(expr), ASTLine(expr), conversors);
 
     if (overloaded_call != NULL)
     {
@@ -7203,8 +7291,10 @@ static char check_for_pointer_to_pointer_to_member(AST expression, decl_context_
 
     scope_entry_list_t* builtins = get_entry_list_from_builtin_operator_set(&builtin_set);
 
+    scope_entry_t* selected_operator = NULL;
+
     type_t* computed_type = compute_user_defined_bin_operator_type(operation_tree, 
-            expression, lhs, rhs, builtins, decl_context);
+            expression, lhs, rhs, builtins, decl_context, &selected_operator);
 
     if (computed_type != NULL)
         return 1;
