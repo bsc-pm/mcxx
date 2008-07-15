@@ -168,9 +168,6 @@ const char** comma_separate_values(const char* value, int* num_elems);
 const char** blank_separate_values(const char* value, int *num_elems);
 int count_null_ended_array(void** v);
 
-// Table of seen filenames
-const char* reference_to_seen_filename(const char* filename);
-
 typedef struct
 {
   struct timeval start;

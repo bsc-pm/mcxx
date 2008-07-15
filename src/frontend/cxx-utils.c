@@ -393,12 +393,6 @@ int count_null_ended_array(void** v)
     return result;
 }
 
-// Deprecated function that should be removed soon
-const char* reference_to_seen_filename(const char* filename)
-{
-    return uniquestr(filename);
-}
-
 void timing_start(timing_t* t)
 {
     memset(t, 0, sizeof(*t));

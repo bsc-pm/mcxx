@@ -158,9 +158,11 @@ binary_exponent_part ([pP]([+-])?{digit}+)
     BEGIN(preprocess); 
 }
 
+
 <preprocess>[ ]*pragma[ ]+ {
 	BEGIN(pragma_line);
 }
+
 
 <pragma_line>{idnondigit}({idnondigit}|{digit})* {
 	// Unknown pragmas
@@ -801,6 +803,68 @@ runtime {
 
 }
 
+<preprocess>[ ]*line[ ]+[[:digit:]]+([ ]+\"{schar}*\")?[^\n]* {
+ const char *p = yytext;
+
+ // Jump initial blanks (if any)
+ while (*p == ' ')
+    p++;
+
+ // Jump "line" string
+ p += strlen("line");
+
+ // Jump blanks
+ while (*p == ' ')
+   p++;
+
+ // Compute line
+ int line_num = 0;
+ while (*p != ' ')
+ {
+     if (isdigit(*p))
+     {
+         line_num = line_num*10 + ((*p) - '0');
+     }
+     else
+     {
+         internal_error("Digit expected here but '%c' found", *p);
+     }
+     p++;
+ }
+
+ // Jump blanks
+ while (*p == ' ')
+   p++;
+ 
+   // Update the line number, note that it is line_num - 1 
+   // because \n is not handled here, but in another rule
+ scanning_now.line_number = (line_num - 1);
+
+ if (*p == '"')
+ {
+     // Now we are on the quote "
+     p++;
+ 
+     char filename[256];
+     memset(filename, 0, 256);
+ 
+     char *f = filename;
+ 
+     while (*p != '"')
+     {
+         if (f < &(filename[255]))
+         {
+             (*f) = *p;
+             f++;
+         }
+         p++;
+     }
+
+     // Update the file 
+	scanning_now.current_filename = uniquestr(filename);
+ }
+}
+
 <preprocess>[ ]{digit}+[ ]+["][^"]+["][^\n]* {
 	char* directive = yytext;
 
@@ -834,8 +898,11 @@ runtime {
 
 	while (*directive != '"')
 	{
-		*p = *directive;
-		p++;
+        if (p < &(filename[255]))
+        {
+            *p = *directive;
+            p++;
+        }
 		directive++;
 	}
 
@@ -916,7 +983,7 @@ runtime {
         {
             top_level_include_t *new_top_level_include = calloc(1, sizeof(*new_top_level_include));
 
-            new_top_level_include->included_file = reference_to_seen_filename(filename);
+            new_top_level_include->included_file = uniquestr(filename);
 
             if (system_header_file)
             {
@@ -939,9 +1006,11 @@ runtime {
         include_counter = (include_counter > 0) ? (include_counter - 1) : 0;
     }
 
-	// One less line because of the \n
+    // Update the line number, note that it is line_num - 1 
+    // because \n is not handled here, but in another rule
 	scanning_now.line_number = (line_num - 1);
-	scanning_now.current_filename = reference_to_seen_filename(filename);
+    // Update file
+	scanning_now.current_filename = uniquestr(filename);
 }
 
 <preprocess>.       { /* ignore line */  }
@@ -1526,7 +1595,7 @@ int OPEN_FILE_FOR_SCANNING(const char* scanned_filename, const char* input_filen
 	scanning_now.file_descriptor = file;
 	scanning_now.line_number = 1;
 
-	main_input_filename = reference_to_seen_filename(input_filename);
+	main_input_filename = uniquestr(input_filename);
     scanning_now.current_filename = main_input_filename;
 
 	scanning_now.scanning_buffer = yy_create_buffer(file, YY_BUF_SIZE);
