@@ -947,6 +947,7 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
                 return 1;
             }
 
+
             if (is_class_type(scs1.orig) // C ->
                     && is_class_type(scs1.dest) // B
                     && class_type_is_derived(scs1.orig, scs1.dest) // C derives from B
@@ -962,18 +963,18 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
                 return 1;
             }
 
-            if (is_class_type(scs1.orig) // C ->
+            if (is_lvalue_reference_to_class_type(scs1.orig) // C& ->
                     && is_lvalue_reference_to_class_type(scs1.dest) // B&
-                    && class_type_is_derived(scs1.orig, 
-                        reference_type_get_referenced_type(scs1.dest)) // C derives from B
+                    && class_type_is_derived(reference_type_get_referenced_type(scs1.orig),
+                        reference_type_get_referenced_type(scs1.dest)) // C& derives from B&
 
                     && is_lvalue_reference_to_class_type(scs2.dest) // A&
                     && class_type_is_derived(reference_type_get_referenced_type(scs1.dest),
-                        reference_type_get_referenced_type(scs2.dest)) // B derives from A
+                        reference_type_get_referenced_type(scs2.dest)) // B& derives from A&
                )
             {
-                // If class C derives from B and B from A, a conversion C -> B&
-                // is better than C -> A&
+                // If class C& derives from B and B from A, a conversion C& -> B&
+                // is better than C& -> A&
                 return 1;
             }
 
@@ -1407,8 +1408,10 @@ char is_better_function_flags(scope_entry_t* f,
 
     if ((f->entity_specs.is_static
                 || !f->entity_specs.is_member
+                || f->entity_specs.is_constructor
                 || g->entity_specs.is_static
-                || !g->entity_specs.is_member)
+                || !g->entity_specs.is_member
+                || g->entity_specs.is_constructor)
             && (!f->entity_specs.is_surrogate_function
                 || !g->entity_specs.is_surrogate_function))
     {
@@ -2238,7 +2241,7 @@ scope_entry_t* solve_constructor(type_t* class_type,
     ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
     scope_entry_list_t* constructor_list = NULL;
 
-    type_t** augmented_argument_types[MAX_ARGUMENTS];
+    type_t* augmented_argument_types[MAX_ARGUMENTS];
     memset(augmented_argument_types, 0, sizeof(augmented_argument_types));
 
     int i;

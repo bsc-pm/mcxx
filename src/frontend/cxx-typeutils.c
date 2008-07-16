@@ -3796,12 +3796,15 @@ char is_named_class_type(type_t* possible_class)
 
 char class_type_is_base(type_t* possible_base, type_t* possible_derived)
 {
-    possible_base = advance_over_typedefs(possible_base);
-    possible_derived = advance_over_typedefs(possible_derived);
+    possible_base = get_unqualified_type(advance_over_typedefs(possible_base));
+    possible_derived = get_unqualified_type(advance_over_typedefs(possible_derived));
 
     ERROR_CONDITION(!is_class_type(possible_base)
             || !is_class_type(possible_derived), 
             "This function expects class types", 0);
+
+    if (equivalent_types(possible_base, possible_derived))
+        return 1;
 
     if (is_named_class_type(possible_base))
     {

@@ -5103,8 +5103,13 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
     scope_entry_t* conversors[MAX_ARGUMENTS];
     memset(conversors, 0, sizeof(conversors));
 
+    char has_dependent_arguments = 0;
+
     if (expression_list != NULL)
     {
+        if (!check_for_expression_list(expression_list, decl_context))
+            return 0;
+
         AST iter;
         for_each_element(expression_list, iter)
         {
@@ -5113,6 +5118,11 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
             if (check_for_expression(current_expression, decl_context))
             {
                 argument_types[num_arguments] = ast_get_expression_type(current_expression);
+
+                if (is_dependent_expr_type(argument_types[num_arguments]))
+                {
+                    has_dependent_arguments = 1;
+                }
             }
             else
             {
@@ -5123,7 +5133,8 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
         }
     }
 
-    if (is_dependent_type(type_info, decl_context))
+    if (is_dependent_type(type_info, decl_context)
+            || has_dependent_arguments)
     {
         ast_set_expression_type(expr, get_dependent_expr_type());
     }
@@ -5143,10 +5154,10 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
             if (constructor == NULL)
             {
                 // FIXME - improve the message
-                fprintf(stderr, "%s: warning: cannot cast to type '%s'\n",
+                fprintf(stderr, "%s: warning: cannot cast to type '%s' in '%s'\n",
                         ast_location(expr),
-                        print_decl_type_str(type_info, decl_context, ""));
-
+                        print_decl_type_str(type_info, decl_context, ""),
+                        prettyprint_in_buffer(expr));
                 return 0;
             }
 
@@ -5199,6 +5210,7 @@ static char check_for_explicit_typename_type_conversion(AST expr, decl_context_t
             && entry->kind != SK_ENUM
             && entry->kind != SK_CLASS
             // We allow this because templates are like types
+            && entry->kind != SK_DEPENDENT_ENTITY
             && entry->kind != SK_TEMPLATE
             && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
             && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
@@ -7238,7 +7250,8 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                     // Now we have to check whether this can be converted to the declared entity
                     char ambiguous_conversion = 0;
                     scope_entry_t* conversor = NULL;
-                    if (!is_dependent_expr_type(declared_type)
+                    if (!is_dependent_type(declared_type, decl_context)
+                            && !is_dependent_expr_type(initializer_expr_type)
                             && !type_can_be_implicitly_converted_to(initializer_expr_type, declared_type, decl_context, 
                                 &ambiguous_conversion, &conversor))
                     {
@@ -7505,7 +7518,7 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
         solve_ambiguous_expression_list(initializer_list, decl_context);
     }
 
-    ERROR_CONDITION(ASTType(initializer_list) == AST_NODE_LIST,
+    ERROR_CONDITION(ASTType(initializer_list) != AST_NODE_LIST,
             "Unknown node '%s' at '%s'\n",
             ast_print_node_type(ASTType(initializer_list)), ast_location(initializer_list));
 
@@ -7517,12 +7530,16 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
 
     type_t* argument_types[MAX_ARGUMENTS];
 
+    char has_dependent_arguments = 0;
+
     AST iterator;
     for_each_element(initializer_list, iterator)
     {
         ERROR_CONDITION(initializer_num >= 256, "Too many arguments\n", 0);
 
-        if (!is_class && (initializer_num > 0))
+        if (!is_class 
+                && !is_dependent_type(declared_type, decl_context) 
+                && (initializer_num > 0))
         {
             fprintf(stderr, "%s: warning: too many initializers in parenthesized initializer of non class type\n",
                     ast_location(initializer_list));
@@ -7537,7 +7554,17 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
 
         argument_types[initializer_num] = ASTExprType(initializer);
 
+        if (is_dependent_expr_type(argument_types[initializer_num]))
+        {
+            has_dependent_arguments = 1;
+        }
+
         initializer_num++;
+    }
+
+    if (has_dependent_arguments)
+    {
+        return 1;
     }
 
     if (!is_class)
@@ -7546,13 +7573,14 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
         char ambiguous_conversion = 0;
         scope_entry_t* conversor = NULL;
         if (!is_dependent_type(declared_type, decl_context)
-                && !type_can_be_implicitly_converted_to(argument_types[1], declared_type, decl_context, 
+                && !is_dependent_expr_type(argument_types[0])
+                && !type_can_be_implicitly_converted_to(argument_types[0], declared_type, decl_context, 
                     &ambiguous_conversion, &conversor))
         {
-            fprintf(stderr, "%s: warning: initializer '%s' has type '%s' not convertible to '%s'\n",
+            fprintf(stderr, "%s: warning: parenthesized initializer '%s' has type '%s' not convertible to '%s'\n",
                     ast_location(single_initializer_expr),
                     prettyprint_in_buffer(single_initializer_expr),
-                    print_decl_type_str(argument_types[1], decl_context, ""),
+                    print_decl_type_str(argument_types[0], decl_context, ""),
                     print_decl_type_str(declared_type, decl_context, ""));
             return 0;
         }
@@ -8472,6 +8500,11 @@ char check_for_expression_list(AST expression_list, decl_context_t decl_context)
                             ast_print_node_type(ASTType(current_choice)));
                 }
             }
+        }
+
+        if (!(correct_choice < 0))
+        {
+            ast_replace_with_ambiguity(expression_list, correct_choice);
         }
 
         return !(correct_choice < 0);
