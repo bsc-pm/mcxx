@@ -32,7 +32,7 @@ struct scope_entry_tag* solve_overload(struct scope_entry_list_tag* candidate_fu
         scope_entry_t** conversor_per_argument);
 
 char type_can_be_implicitly_converted_to(struct type_tag* orig, struct type_tag* dest, decl_context_t decl_context, 
-        char *ambiguous_conversion);
+        char *ambiguous_conversion, scope_entry_t** conversor);
 
 struct scope_entry_tag* address_of_overloaded_function(struct scope_entry_list_tag* overload_set, 
         template_argument_list_t* explicit_template_arguments,
@@ -40,6 +40,14 @@ struct scope_entry_tag* address_of_overloaded_function(struct scope_entry_list_t
         decl_context_t decl_context,
         const char *filename,
         int line);
+
+scope_entry_t* solve_constructor(type_t* class_type, 
+        type_t** arguments, 
+        int num_arguments,
+        char is_explicit, 
+        decl_context_t decl_context,
+        const char* filename, int line,
+        scope_entry_t** conversors);
 
 unsigned long long overload_used_memory(void);
 

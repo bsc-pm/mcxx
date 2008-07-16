@@ -701,7 +701,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                 }
 
                 // This will yield a warning if needed but do not make it an error
-                check_for_initialization(initializer, entry->decl_context);
+                check_for_initialization(initializer, entry->decl_context, 
+                        get_unqualified_type(declarator_type));
 
                 entry->expression_value = initializer;
 
@@ -5390,11 +5391,8 @@ static void build_scope_template_simple_declaration(AST a, decl_context_t decl_c
         {
             if (initializer != NULL)
             {
-                ERROR_CONDITION(!check_for_initialization(initializer,
-                            entry->decl_context),
-                        "Initializer '%s' in %s could not be disambiguated!\n",
-                        prettyprint_in_buffer(initializer),
-                        ast_location(initializer));
+                check_for_initialization(initializer, 
+                        entry->decl_context, get_unqualified_type(declarator_type));
                 entry->expression_value = initializer;
             }
         }
@@ -7057,11 +7055,10 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                         }
                         if (initializer != NULL)
                         {
-                            ERROR_CONDITION(!check_for_initialization(initializer,
-                                        entry->decl_context),
-                                    "Initializer '%s' in %s could not be disambiguated!\n",
-                                    prettyprint_in_buffer(initializer),
-                                    ast_location(initializer));
+                            check_for_initialization(initializer,
+                                    entry->decl_context,
+                                    get_unqualified_type(entry->type_information));
+
                             entry->expression_value = initializer;
 
                             // Special initializer for functions

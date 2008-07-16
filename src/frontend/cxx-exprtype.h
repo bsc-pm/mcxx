@@ -24,6 +24,7 @@
 #include "cxx-ast-decls.h"
 #include "cxx-scope-decls.h"
 #include "cxx-buildscope-decls.h"
+#include "cxx-typeutils.h"
 
 MCXX_BEGIN_DECLS
 
@@ -41,14 +42,16 @@ struct type_tag* string_literal_type(AST expr);
 struct type_tag *compute_expression_type(AST expr, decl_context_t decl_context, 
         char *is_lvalue) __attribute__((deprecated));
 
-char check_for_initialization(AST initializer, decl_context_t decl_context);
-
 AST advance_expression_nest(AST expr);
 AST advance_expression_nest_flags(AST expr, char advance_parentheses);
 
 char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_arguments);
 
 char check_for_expression(AST a, decl_context_t decl_context);
+
+char check_for_expression_list(AST expression_list, decl_context_t decl_context);
+
+char check_for_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type);
 
 unsigned long long exprtype_used_memory(void);
 

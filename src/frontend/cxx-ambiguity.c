@@ -627,64 +627,6 @@ void solve_ambiguous_statement(AST a, decl_context_t decl_context)
 }
 
 
-#if 0
-static char check_for_init_declarator_list(AST init_declarator_list, decl_context_t decl_context)
-{
-    AST list = init_declarator_list;
-    AST iter;
-
-    for_each_element(list, iter)
-    {
-        AST init_declarator = ASTSon1(iter);
-
-        if (ASTType(init_declarator) == AST_AMBIGUITY)
-        {
-            int current_choice = -1;
-            int i;
-            for (i = 0; i < ast_get_num_ambiguities(init_declarator); i++)
-            {
-                AST one_init_decl = ast_get_ambiguity(init_declarator, i);
-
-                if (check_for_init_declarator(one_init_decl, decl_context))
-                {
-                    if (current_choice < 0)
-                    {
-                        current_choice = i;
-                    }
-                    else
-                    {
-                        AST current_option = ast_get_ambiguity(init_declarator, i);
-                        AST previous_option = ast_get_ambiguity(init_declarator, current_choice);
-
-                        internal_error("More than one valid option '%s' vs '%s'", 
-                                ast_print_node_type(ASTType(current_option)),
-                                ast_print_node_type(ASTType(previous_option)));
-                    }
-                }
-            }
-
-            if (current_choice < 0)
-            {
-                return 0;
-            }
-            else
-            {
-                choose_option(init_declarator, current_choice);
-            }
-        }
-        else
-        {
-            if (!check_for_init_declarator(init_declarator, decl_context))
-            {
-                return 0;
-            }
-        }
-    }
-
-    return 1;
-}
-#endif
-
 static char check_for_decl_spec_seq_followed_by_declarator(AST decl_specifier_seq, AST declarator, decl_context_t decl_context)
 {
     // A::f(c) has to be interpreted as A::f(c) and never as A   ::f(c)
@@ -1608,13 +1550,62 @@ static char check_for_init_declarator(AST init_declarator, decl_context_t decl_c
     if (!check_for_declarator(declarator, decl_context ))
         return 0;
 
+    char result = 1;
+
     if (initializer != NULL)
     {
-        if (!check_for_initialization(initializer, decl_context))
-            return 0;
+        // This code is similar to 'check_for_initialization' in cxx-exprtype.c but
+        // here types are not used
+        //
+        // Ambiguous cases are '= e' and '(e1, e2, .., e3)'
+        switch (ASTType(initializer))
+        {
+            case AST_CONSTANT_INITIALIZER :
+                {
+                    // This one might slip as well for members
+                    // ' = e'
+                    enter_test_expression();
+                    result = check_for_expression(ASTSon0(initializer), decl_context);
+                    leave_test_expression();
+                    break;
+                }
+            case AST_INITIALIZER :
+                {
+                    AST initializer_clause = ASTSon0(initializer);
+
+                    switch (ASTType(initializer_clause))
+                    {
+                        // ' = e'
+                        case AST_INITIALIZER_EXPR:
+                            {
+                                enter_test_expression();
+                                result = check_for_expression(ASTSon0(initializer_clause), decl_context);
+                                leave_test_expression();
+                            }
+                        default:
+                            {
+                                internal_error("Unexpected node '%s'\n", 
+                                        ast_print_node_type(ASTType(initializer_clause)));
+                            }
+                    }
+                    break;
+                }
+            case AST_PARENTHESIZED_INITIALIZER:
+                {
+                    // '(e1, e2, .., eN)'
+                    AST initializer_list = ASTSon0(initializer);
+
+                    enter_test_expression();
+                    result = check_for_expression_list(initializer_list, decl_context);
+                    leave_test_expression();
+                    break;
+                }
+            default:
+                internal_error("Unexpected node '%s'\n", ast_print_node_type(ASTType(initializer)));
+        }
     }
 
-    return 1;
+    return result;
 }
 
 static char check_for_declarator(AST declarator, decl_context_t decl_context)
@@ -2464,69 +2455,4 @@ char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_contex
     }
     
     return result;
-}
-
-char check_for_parenthesized_initializer(AST initializer_list, decl_context_t decl_context)
-{
-    if (ASTType(initializer_list) == AST_AMBIGUITY)
-    {
-        int current_choice = -1;
-        int i;
-
-        for (i = 0; i < ast_get_num_ambiguities(initializer_list); i++)
-        {
-            if (check_for_parenthesized_initializer(ast_get_ambiguity(initializer_list, i), decl_context))
-            {
-                if (current_choice < 0)
-                {
-                    current_choice = i;
-                }
-                else
-                {
-                    internal_error("More than one valid alternative", 0);
-                }
-            }
-        }
-
-        if (current_choice < 0)
-        {
-            return 0;
-        }
-        else
-        {
-            choose_option(initializer_list, current_choice);
-            return 1;
-        }
-    }
-    else if (ASTType(initializer_list) == AST_NODE_LIST)
-    {
-        AST expression = ASTSon1(initializer_list);
-
-        enter_test_expression();
-        char result = check_for_expression(expression, decl_context);
-        leave_test_expression();
-
-        if (!result)
-        {
-            return 0;
-        }
-
-        // Recurse, because there may be additional ambiguities lying around here
-        if (ASTSon0(initializer_list) != NULL)
-        {
-            return check_for_parenthesized_initializer(ASTSon0(initializer_list), decl_context);
-        }
-        else
-        {
-            return 1;
-        }
-    }
-    else
-    {
-        internal_error("Unknown node '%s' at '%s'", 
-                ast_print_node_type(ASTType(initializer_list)), ast_location(initializer_list));
-
-        return 0;
-    }
-    return 0;
 }

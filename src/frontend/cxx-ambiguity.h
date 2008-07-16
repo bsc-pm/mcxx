@@ -51,7 +51,6 @@ char solve_possibly_ambiguous_template_id(AST type_name, decl_context_t decl_con
 char check_nested_name_spec(AST nested_name_spec, decl_context_t decl_context);
 char check_for_type_id_tree(AST type_id, decl_context_t decl_context);
 char check_for_simple_type_spec(AST type_spec, decl_context_t decl_context, struct type_tag** computed_type);
-char check_for_parenthesized_initializer(AST initializer_list, decl_context_t decl_context);
 
 void solve_ambiguous_expression_list(AST expression_list, decl_context_t decl_context);
 char solve_ambiguous_expression(AST ambig_expression, decl_context_t decl_context);

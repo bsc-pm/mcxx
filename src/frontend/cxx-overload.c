@@ -740,13 +740,19 @@ static void compute_ics(type_t* orig, type_t* dest, decl_context_t decl_context,
 }
 
 char type_can_be_implicitly_converted_to(type_t* orig, type_t* dest, decl_context_t decl_context, 
-        char *ambiguous_conversion)
+        char *ambiguous_conversion, scope_entry_t** conversor)
 {
     implicit_conversion_sequence_t result;
     compute_ics(orig, dest, decl_context, &result, 
             /* filename = */ NULL, /* line = */ 0);
 
     *ambiguous_conversion = result.is_ambiguous_ics;
+
+    if (conversor != NULL 
+            && result.kind == ICSK_USER_DEFINED)
+    {
+        *conversor = result.conversor;
+    }
 
     return (result.kind != ICSK_INVALID);
 }
@@ -1218,7 +1224,8 @@ static overload_entry_list_t* compute_viable_functions(scope_entry_list_t* candi
             // We have to check every argument type
             int first_type = 0;
             if ((!candidate->entity_specs.is_member
-                    || candidate->entity_specs.is_static)
+                    || candidate->entity_specs.is_static
+                    || candidate->entity_specs.is_constructor)
                     && !candidate->entity_specs.is_surrogate_function)
             {
                 first_type = 1;
@@ -2217,4 +2224,64 @@ scope_entry_t* address_of_overloaded_function(scope_entry_list_t* overload_set,
     }
 
     return NULL;
+}
+
+scope_entry_t* solve_constructor(type_t* class_type, 
+        type_t** argument_types, 
+        int num_arguments,
+        char is_explicit, 
+        decl_context_t decl_context,
+        const char* filename, int line,
+        scope_entry_t** conversors)
+{
+    class_type = get_actual_class_type(class_type);
+    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    scope_entry_list_t* constructor_list = NULL;
+
+    type_t** augmented_argument_types[MAX_ARGUMENTS];
+    memset(augmented_argument_types, 0, sizeof(augmented_argument_types));
+
+    int i;
+
+    // solve-overload always expects an implicit argument type
+    for (i = 0; i < num_arguments; i++)
+    {
+        augmented_argument_types[i+1] = argument_types[i];
+    }
+
+    for (i = 0; i < class_type_get_num_constructors(class_type); i++)
+    {
+        scope_entry_t* constructor = class_type_get_constructors_num(class_type, i);
+
+        // If the context is not explicit ignore all constructors defined as explicit
+        if (!is_explicit
+                && constructor->entity_specs.is_explicit)
+        {
+            continue;
+        }
+
+        scope_entry_list_t* new_entry_list = counted_calloc(1, sizeof(*new_entry_list), &_bytes_overload);
+
+        new_entry_list->entry = constructor;
+        new_entry_list->next = constructor_list;
+        constructor_list = new_entry_list;
+    }
+
+    scope_entry_t* augmented_conversors[MAX_ARGUMENTS];
+    memset(augmented_conversors, 0, sizeof(augmented_conversors));
+
+    // Now we have all the constructors, perform an overload resolution on them
+    scope_entry_t* overload_resolution = solve_overload(constructor_list, 
+            augmented_argument_types, 
+            /* solve_overload expects an implicit argument type */ num_arguments + 1, 
+            decl_context, 
+            filename, line, 
+            augmented_conversors);
+
+    for (i = 0; i < num_arguments; i++)
+    {
+        conversors[i] = augmented_conversors[i+1];
+    }
+
+    return overload_resolution;
 }

@@ -36,6 +36,8 @@
 #include <ctype.h>
 #include <string.h>
 
+#define MAX_ARGUMENTS (256)
+
 // The policy in this file is avoiding (except for queries) to dynamically allocate things.
 // If needed raise the defined limits.
 
@@ -401,7 +403,7 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context);
 static char check_for_cast_expr(AST expression, AST type_id, AST casted_expression, decl_context_t decl_context);
 static char check_for_new_expression(AST new_expr, decl_context_t decl_context);
 static char check_for_new_type_id_expr(AST new_expr, decl_context_t decl_context);
-static char check_for_initializer_list(AST initializer_list, decl_context_t decl_context);
+static char check_for_initializer_list(AST initializer_list, decl_context_t decl_context, type_t* declared_type);
 static char check_for_binary_expression(AST expression, decl_context_t decl_context);
 static char check_for_unary_expression(AST expression, decl_context_t decl_context);
 static char check_for_template_id_expr(AST expr, decl_context_t decl_context);
@@ -1112,8 +1114,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
             }
         case AST_GCC_POSTFIX_EXPRESSION :
             {
-                result = (check_for_type_id_tree(ASTSon0(expression), decl_context ) 
-                        && check_for_initializer_list(ASTSon1(expression), decl_context ));
+                result = check_for_type_id_tree(ASTSon0(expression), decl_context);
 
                 if (result)
                 {
@@ -1134,7 +1135,15 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                             &gather_info, type_info, &declarator_type,
                             decl_context);
 
-                    ast_set_expression_type(expression, declarator_type);
+                     if (!check_for_initializer_list(ASTSon1(expression), decl_context, declarator_type))
+                     {
+                         result = 0;
+                     }
+                     else
+                     {
+                         ast_set_expression_type(expression, declarator_type);
+                         ast_set_expression_is_lvalue(expression, 0);
+                     }
                 }
                 break;
             }
@@ -1880,7 +1889,7 @@ static type_t* compute_pointer_arithmetic_type(type_t* lhs_type, type_t* rhs_typ
 }
 
 static type_t* compute_member_user_defined_bin_operator_type(AST operator_name, 
-        AST lhs, AST rhs,
+        AST lhs UNUSED_PARAMETER, AST rhs,
         type_t* lhs_type, type_t* rhs_type, decl_context_t decl_context,
         const char* filename, int line,
         scope_entry_t** selected_operator)
@@ -1918,6 +1927,12 @@ static type_t* compute_member_user_defined_bin_operator_type(AST operator_name,
     {
         overloaded_type = overloaded_call->type_information;
         *selected_operator = overloaded_call;
+
+        if (conversors[1] != NULL)
+        {
+            ASTAttrSetValueType(rhs, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(rhs, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[1]));
+        }
     }
 
     return overloaded_type;
@@ -1971,6 +1986,17 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     type_t* overloaded_type = NULL;
     if (overloaded_call != NULL)
     {
+        if (conversors[1] != NULL)
+        {
+            ASTAttrSetValueType(lhs, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(lhs, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[1]));
+        }
+        if (conversors[2] != NULL)
+        {
+            ASTAttrSetValueType(rhs, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(rhs, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[2]));
+        }
+
         if (!overloaded_call->entity_specs.is_builtin)
         {
             *selected_operator = overloaded_call;
@@ -1986,7 +2012,7 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
 
 
 static type_t* compute_member_user_defined_unary_operator_type(AST operator_name, 
-        AST operand,
+        AST operand UNUSED_PARAMETER,
         type_t* op, decl_context_t decl_context,
         const char* filename, int line,
         scope_entry_t** selected_operator)
@@ -2084,6 +2110,13 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
         {
             *selected_operator = overloaded_call;
         }
+
+        if (conversors[1] != NULL)
+        {
+            ASTAttrSetValueType(op, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(op, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[1]));
+        }
+
         overloaded_type = overloaded_call->type_information;
 
         ast_set_expression_type(expr, function_type_get_return_type(overloaded_type));
@@ -4396,6 +4429,12 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
             if (overloaded_call == NULL)
                 return 0;
 
+            if (conversors[1] != NULL)
+            {
+                ASTAttrSetValueType(subscript_expr, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(subscript_expr, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[1]));
+            }
+
             ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
             ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
             return 1;
@@ -4501,7 +4540,7 @@ static char convert_in_conditional_expr(type_t* from_t1, type_t* to_t2,
             return type_can_be_implicitly_converted_to(from_t1, 
                     to_t2, 
                     decl_context,
-                    is_ambiguous_conversion);
+                    is_ambiguous_conversion, /* conversor */ NULL);
         }
         else
         {
@@ -4850,6 +4889,18 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
                 return 0;
             }
 
+            int k;
+            for (k = 0; k < 3; k++)
+            {
+                if (conversors[k] != NULL)
+                {
+                    ASTAttrSetValueType(ASTChild(expression, k), 
+                            LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(ASTChild(expression, k), 
+                            LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[k]));
+                }
+            }
+
             // Get the converted types and use them instead of the originals
             second_type = function_type_get_parameter_type_num(overloaded_call->type_information, 1);
             third_type = function_type_get_parameter_type_num(overloaded_call->type_information, 2);
@@ -5042,6 +5093,94 @@ static char check_for_new_type_id_expr(AST new_expr, decl_context_t decl_context
     return check_for_new_expression(new_expr, decl_context );
 }
 
+static char check_for_explicit_type_conversion_common(type_t* type_info, 
+        AST expr, AST expression_list, decl_context_t decl_context)
+{
+    type_t* argument_types[MAX_ARGUMENTS];
+    memset(argument_types, 0, sizeof(argument_types));
+    int num_arguments = 0;
+
+    scope_entry_t* conversors[MAX_ARGUMENTS];
+    memset(conversors, 0, sizeof(conversors));
+
+    if (expression_list != NULL)
+    {
+        AST iter;
+        for_each_element(expression_list, iter)
+        {
+            AST current_expression = ASTSon1(iter);
+
+            if (check_for_expression(current_expression, decl_context))
+            {
+                argument_types[num_arguments] = ast_get_expression_type(current_expression);
+            }
+            else
+            {
+                return 0;
+            }
+
+            num_arguments++;
+        }
+    }
+
+    if (is_dependent_type(type_info, decl_context))
+    {
+        ast_set_expression_type(expr, get_dependent_expr_type());
+    }
+    else
+    {
+        if (is_class_type(type_info))
+        {
+            scope_entry_t* constructor = 
+                solve_constructor(type_info,
+                        argument_types,
+                        num_arguments,
+                        /* is_explicit */ 1,
+                        decl_context,
+                        ASTFileName(expr), ASTLine(expr),
+                        conversors);
+
+            if (constructor == NULL)
+            {
+                // FIXME - improve the message
+                fprintf(stderr, "%s: warning: cannot cast to type '%s'\n",
+                        ast_location(expr),
+                        print_decl_type_str(type_info, decl_context, ""));
+
+                return 0;
+            }
+
+
+            int k = 0;
+
+            if (expression_list != NULL)
+            {
+                AST iter;
+                for_each_element(expression_list, iter)
+                {
+                    AST expression = ASTSon1(expression_list);
+
+                    if (conversors[k] != NULL)
+                    {
+                        ASTAttrSetValueType(expression, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+                        ASTAttrSetValueType(expression, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[k]));
+                    }
+
+                    k++;
+                }
+            }
+
+            ASTAttrSetValueType(expr, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(expr, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(constructor));
+        }
+
+        ast_set_expression_type(expr, type_info);
+        ast_set_expression_is_lvalue(expr, 0);
+    }
+
+    return 1;
+}
+
 static char check_for_explicit_typename_type_conversion(AST expr, decl_context_t decl_context)
 {
     AST global_op = ASTSon0(expr);
@@ -5052,44 +5191,24 @@ static char check_for_explicit_typename_type_conversion(AST expr, decl_context_t
         query_nested_name(decl_context, global_op, nested_name_spec, symbol);
 
     if (entry_list == NULL)
+        return 0;
+
+    scope_entry_t* entry = entry_list->entry;
+
+    if (entry->kind != SK_TYPEDEF
+            && entry->kind != SK_ENUM
+            && entry->kind != SK_CLASS
+            // We allow this because templates are like types
+            && entry->kind != SK_TEMPLATE
+            && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
+            && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
     {
         return 0;
     }
 
-    AST list = ASTSon3(expr);
-    if (list != NULL)
-    {
-        AST iter;
+    AST expr_list = ASTSon3(expr);
 
-        if (ASTType(list) == AST_AMBIGUITY)
-        {
-            solve_ambiguous_expression_list(list, decl_context );
-        }
-
-        for_each_element(list, iter)
-        {
-            AST expression = ASTSon1(iter);
-
-            if (!check_for_expression(expression, decl_context))
-            {
-                return 0;
-            }
-        }
-    }
-
-    scope_entry_t* entry = entry_list->entry;
-
-    if (!is_dependent_type(entry->type_information, decl_context))
-    {
-        ast_set_expression_type(expr, entry->type_information);
-        ast_set_expression_is_lvalue(expr, 0);
-    }
-    else
-    {
-        ast_set_expression_type(expr, get_dependent_expr_type());
-    }
-
-    return 1;
+    return check_for_explicit_type_conversion_common(get_user_defined_type(entry), expr, expr_list, decl_context);
 }
 
 static char check_for_explicit_type_conversion(AST expr, decl_context_t decl_context)
@@ -5111,35 +5230,7 @@ static char check_for_explicit_type_conversion(AST expr, decl_context_t decl_con
     else
     {
         AST expression_list = ASTSon1(expr);
-
-        if (expression_list != NULL)
-        {
-            AST iter;
-            for_each_element(expression_list, iter)
-            {
-                AST current_expression = ASTSon1(iter);
-
-                if (check_for_expression(current_expression, decl_context))
-                {
-                }
-                else
-                {
-                    return 0;
-                }
-            }
-        }
-
-        if (is_dependent_type(type_info, decl_context))
-        {
-            ast_set_expression_type(expr, get_dependent_expr_type());
-        }
-        else
-        {
-            ast_set_expression_type(expr, type_info);
-            ast_set_expression_is_lvalue(expr, 0);
-        }
-
-        return 1;
+        return check_for_explicit_type_conversion_common(type_info, expr, expression_list, decl_context);
     }
 }
 
@@ -5179,8 +5270,6 @@ static char check_for_function_arguments(AST arguments, decl_context_t decl_cont
 
     return 1;
 }
-
-#define MAX_ARGUMENTS (256)
 
 static char check_for_koenig_expression(AST called_expression, AST arguments, decl_context_t decl_context)
 {
@@ -5825,14 +5914,8 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         fprintf(stderr, "EXPRTYPE: Calling overload resolution machinery\n");
     }
 
-    scope_entry_t* conversors[num_arguments];
-    {
-        int i;
-        for (i = 0; i < num_arguments; i++)
-        {
-            conversors[i] = NULL;
-        }
-    }
+    scope_entry_t* conversors[MAX_ARGUMENTS];
+    memset(conversors, 0, sizeof(conversors));
 
     scope_entry_t* overloaded_call = solve_overload(candidates,
             argument_types, num_arguments, decl_context,
@@ -5850,6 +5933,25 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
         ast_set_expression_type(called_expression, overloaded_call->type_information);
         // Tag the node with symbol information (this is useful to know who are you calling)
         ASTAttrSetValueType(called_expression, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(overloaded_call));
+
+        if (arguments != NULL)
+        {
+            // Set conversors of arguments if needed
+            AST iter;
+            int arg_i = 1;
+            for_each_element(arguments, iter)
+            {
+                AST argument = ASTSon1(iter);
+
+                if (conversors[arg_i] != NULL)
+                {
+                    ASTAttrSetValueType(argument, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(argument, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[arg_i]));
+                }
+
+                arg_i++;
+            }
+        }
         return 1;
     }
     else
@@ -6004,7 +6106,8 @@ char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_argume
     else if (num_arguments < num_parameters)
     {
         // We have to check that parameter num_arguments has default argument
-        if (entry->entity_specs.default_argument_info[num_arguments] != NULL)
+        if (entry->entity_specs.default_argument_info != NULL 
+                && entry->entity_specs.default_argument_info[num_arguments] != NULL)
         {
             // Sanity check
             int i;
@@ -6306,7 +6409,7 @@ static char check_for_member_access(AST member_access, decl_context_t decl_conte
         {
             return 0;
         }
-        
+
         // Now we update the class_expr with the resulting type, this is used later when solving
         // overload in calls made using this syntax.
         ast_set_expression_type(class_expr, function_type_get_return_type(selected_operator_arrow->type_information));
@@ -6660,6 +6763,13 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
     {
         ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
         ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
+
+        if (conversors[1] != NULL)
+        {
+            ASTAttrSetValueType(postoperated_expr, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(postoperated_expr, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[1]));
+        }
+
         return 1;
     }
 
@@ -6728,6 +6838,13 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
     {
         ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
         ast_set_expression_is_lvalue(expr, is_lvalue_reference_type(ASTExprType(expr)));
+
+        if (conversors[1] != NULL)
+        {
+            ASTAttrSetValueType(preoperated_expr, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(preoperated_expr, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[1]));
+        }
+
         return 1;
     }
 
@@ -7089,7 +7206,7 @@ static char check_for_designation(AST designation, decl_context_t decl_context)
     return 1;
 }
 
-static char check_for_initializer_clause(AST initializer, decl_context_t decl_context)
+static char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type)
 {
     switch (ASTType(initializer))
     {
@@ -7104,7 +7221,7 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                     {
                         AST initializer_clause = ASTSon1(iter);
 
-                        if (!check_for_initializer_clause(initializer_clause, decl_context))
+                        if (!check_for_initializer_clause(initializer_clause, decl_context, declared_type))
                             return 0;
                     }
                 }
@@ -7117,6 +7234,28 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
 
                 if (result)
                 {
+                    type_t* initializer_expr_type = ASTExprType(expression);
+                    // Now we have to check whether this can be converted to the declared entity
+                    char ambiguous_conversion = 0;
+                    scope_entry_t* conversor = NULL;
+                    if (!is_dependent_expr_type(declared_type)
+                            && !type_can_be_implicitly_converted_to(initializer_expr_type, declared_type, decl_context, 
+                                &ambiguous_conversion, &conversor))
+                    {
+                        fprintf(stderr, "%s: warning: initializer '%s' has type '%s' not convertible to '%s'\n",
+                                ast_location(expression),
+                                prettyprint_in_buffer(expression),
+                                print_decl_type_str(initializer_expr_type, decl_context, ""),
+                                print_decl_type_str(declared_type, decl_context, ""));
+                        return 0;
+                    }
+
+                    if (conversor != NULL)
+                    {
+                        ASTAttrSetValueType(expression, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+                        ASTAttrSetValueType(expression, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversor));
+                    }
+
                     ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(expression));
                 }
@@ -7132,13 +7271,13 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
 
                 AST initializer_clause = ASTSon1(initializer);
 
-                return check_for_initializer_clause(initializer_clause, decl_context);
+                return check_for_initializer_clause(initializer_clause, decl_context, declared_type);
                 break;
             }
         case AST_GCC_INITIALIZER_CLAUSE :
             {
                 AST initializer_clause = ASTSon1(initializer);
-                return check_for_initializer_clause(initializer_clause, decl_context);
+                return check_for_initializer_clause(initializer_clause, decl_context, declared_type);
                 break;
             }
         default :
@@ -7151,7 +7290,7 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
     return 0;
 }
 
-static char check_for_initializer_list(AST initializer_list, decl_context_t decl_context)
+static char check_for_initializer_list(AST initializer_list, decl_context_t decl_context, type_t* declared_type)
 {
     if (initializer_list != NULL)
     {
@@ -7161,7 +7300,7 @@ static char check_for_initializer_list(AST initializer_list, decl_context_t decl
         {
             AST initializer_clause = ASTSon1(iter);
 
-            if (!check_for_initializer_clause(initializer_clause, decl_context))
+            if (!check_for_initializer_clause(initializer_clause, decl_context, declared_type))
                 return 0;
         }
     }
@@ -7359,35 +7498,163 @@ static char check_for_pointer_to_member(AST expression, decl_context_t decl_cont
     return 1;
 }
 
-char check_for_initialization(AST initializer, decl_context_t decl_context)
+static char check_for_parenthesized_initializer(AST initializer_list, decl_context_t decl_context, type_t* declared_type)
 {
+    if (ASTType(initializer_list) == AST_AMBIGUITY)
+    {
+        solve_ambiguous_expression_list(initializer_list, decl_context);
+    }
+
+    ERROR_CONDITION(ASTType(initializer_list) == AST_NODE_LIST,
+            "Unknown node '%s' at '%s'\n",
+            ast_print_node_type(ASTType(initializer_list)), ast_location(initializer_list));
+
+    char is_class = is_class_type(declared_type);
+    int initializer_num = 0;
+
+    // Single initializer, used later for non-class cases
+    AST single_initializer_expr = ASTSon1(initializer_list);
+
+    type_t* argument_types[MAX_ARGUMENTS];
+
+    AST iterator;
+    for_each_element(initializer_list, iterator)
+    {
+        ERROR_CONDITION(initializer_num >= 256, "Too many arguments\n", 0);
+
+        if (!is_class && (initializer_num > 0))
+        {
+            fprintf(stderr, "%s: warning: too many initializers in parenthesized initializer of non class type\n",
+                    ast_location(initializer_list));
+        }
+
+        AST initializer = ASTSon1(iterator);
+
+        if (!check_for_expression(initializer, decl_context))
+        {
+            return 0;
+        }
+
+        argument_types[initializer_num] = ASTExprType(initializer);
+
+        initializer_num++;
+    }
+
+    if (!is_class)
+    {
+        // This is 'int a(10);' to be considered like 'int a = 10;'
+        char ambiguous_conversion = 0;
+        scope_entry_t* conversor = NULL;
+        if (!is_dependent_type(declared_type, decl_context)
+                && !type_can_be_implicitly_converted_to(argument_types[1], declared_type, decl_context, 
+                    &ambiguous_conversion, &conversor))
+        {
+            fprintf(stderr, "%s: warning: initializer '%s' has type '%s' not convertible to '%s'\n",
+                    ast_location(single_initializer_expr),
+                    prettyprint_in_buffer(single_initializer_expr),
+                    print_decl_type_str(argument_types[1], decl_context, ""),
+                    print_decl_type_str(declared_type, decl_context, ""));
+            return 0;
+        }
+
+        if (conversor != NULL)
+        {
+            ASTAttrSetValueType(single_initializer_expr, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(single_initializer_expr, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversor));
+        }
+    }
+    else if (is_class && !is_dependent_type(declared_type, decl_context))
+    {
+        scope_entry_t* conversors[MAX_ARGUMENTS];
+        memset(conversors, 0, sizeof(conversors));
+
+        scope_entry_t* constructor = solve_constructor(declared_type,
+                argument_types,
+                initializer_num,
+                /* is_explicit */ 1,
+                decl_context,
+                ASTFileName(initializer_list), ASTLine(initializer_list),
+                conversors);
+
+        if (constructor == NULL)
+        {
+            // FIXME - Improve the message with form "<class-name>(type, type, ...)"
+            fprintf(stderr, "%s: warning: no suitable constructor for type '%s'\n",
+                    ast_location(initializer_list),
+                    print_decl_type_str(declared_type, decl_context, ""));
+            return 0;
+        }
+
+        int k = 1;
+        for_each_element(initializer_list, iterator)
+        {
+            AST initializer = ASTSon1(iterator);
+
+            if (conversors[k] != NULL)
+            {
+                ASTAttrSetValueType(initializer, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(initializer, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[k]));
+            }
+            k++;
+        }
+    }
+
+    return 1;
+}
+
+char check_for_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type)
+{
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "EXPRTYPE: Checking initializer '%s'\n",
+                prettyprint_in_buffer(initializer));
+    }
+
+    char result = 0;
+
     switch (ASTType(initializer))
     {
         case AST_CONSTANT_INITIALIZER :
             {
                 AST expression = ASTSon0(initializer);
-                char result = check_for_expression(expression, decl_context);
-                return result;
+                result = check_for_expression(expression, decl_context);
+
+                if (result)
+                {
+                    ast_set_expression_type(initializer, declared_type);
+                    ast_set_expression_is_lvalue(initializer, 0);
+                }
                 break;
             }
         case AST_INITIALIZER :
             {
                 AST initializer_clause = ASTSon0(initializer);
-                char result = check_for_initializer_clause(initializer_clause, decl_context);
+                result = check_for_initializer_clause(initializer_clause, decl_context, declared_type);
 
-                if (result
+                if (result)
+                {
+                    ast_set_expression_type(initializer, declared_type);
+                    ast_set_expression_is_lvalue(initializer, 0);
+                }
+
+                if (result 
                         && ASTType(ASTSon0(initializer)) == AST_INITIALIZER_EXPR)
                 { 
                     ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(initializer, LANG_EXPRESSION_NESTED, tl_type_t, tl_ast(ASTSon0(initializer)));
                 }
-
-                return result;
                 break;
             }
         case AST_PARENTHESIZED_INITIALIZER :
             {
-                return check_for_parenthesized_initializer(ASTSon0(initializer), decl_context);
+                AST parenthesized_initializer = ASTSon0(initializer);
+                result = check_for_parenthesized_initializer(parenthesized_initializer, decl_context, declared_type);
+
+                if (result)
+                {
+                    ast_set_expression_type(initializer, declared_type);
+                    ast_set_expression_is_lvalue(initializer, 0);
+                }
                 break;
             }
         default :
@@ -7395,7 +7662,25 @@ char check_for_initialization(AST initializer, decl_context_t decl_context)
                 internal_error("Unexpected node type '%s'\n", ast_print_node_type(ASTType(initializer)));
             }
     }
-    return 0;
+
+    DEBUG_CODE()
+    {
+        if (result)
+        {
+            fprintf(stderr, "EXPRTYPE: Initializer '%s' has type '%s'\n",
+                    prettyprint_in_buffer(initializer),
+                    ast_get_expression_type(initializer) == NULL 
+                    ? "<< no type >>" 
+                    : print_declarator(ast_get_expression_type(initializer)));
+        }
+        else
+        {
+            fprintf(stderr, "EXPRTYPE: Initializer '%s' does not any computed type\n",
+                    prettyprint_in_buffer(initializer));
+        }
+    }
+
+    return result;
 }
 
 AST advance_expression_nest(AST expr)
@@ -8150,4 +8435,50 @@ static char check_for_gxx_type_traits(AST expression, decl_context_t decl_contex
     ast_set_expression_is_lvalue(expression, 0);
 
     return 1;
+}
+
+char check_for_expression_list(AST expression_list, decl_context_t decl_context)
+{
+    if (expression_list == NULL)
+    {
+        // An empty list is right
+        return 1;
+    }
+    else if (ASTType(expression_list) == AST_AMBIGUITY)
+    {
+        int correct_choice = -1;
+        int i;
+        char result = 1;
+        for (i = 0; i < ast_get_num_ambiguities(expression_list); i++)
+        {
+            AST current_expression_list = ast_get_ambiguity(expression_list, i);
+
+            enter_test_expression();
+            result &= check_for_expression_list(current_expression_list, decl_context);
+            leave_test_expression();
+
+            if (result)
+            {
+                if (correct_choice < 0)
+                {
+                    correct_choice = i;
+                }
+                else
+                {
+                    AST previous_choice = ast_get_ambiguity(expression_list, correct_choice);
+                    AST current_choice = ast_get_ambiguity(expression_list, i);
+                    internal_error("More than one valid alternative '%s' vs '%s'", 
+                            ast_print_node_type(ASTType(previous_choice)),
+                            ast_print_node_type(ASTType(current_choice)));
+                }
+            }
+        }
+
+        return !(correct_choice < 0);
+    }
+    else
+    {
+        return check_for_expression_list(ASTSon0(expression_list), decl_context)
+            && check_for_expression(ASTSon1(expression_list), decl_context);
+    }
 }
