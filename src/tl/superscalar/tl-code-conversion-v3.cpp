@@ -91,7 +91,7 @@ namespace TL
 		source
 			<< "{"
 				<< constant_redirection_source
-				<< "css_parameter_t parameters__cssgenerated[] = {" << parameter_initializers_source << "};"
+				<< "css_parameter_t const parameters__cssgenerated[] = {" << parameter_initializers_source << "};"
 				<< add_task_code
 			<< "}";
 		
@@ -146,20 +146,14 @@ namespace TL
 			Expression &argument = *it2;
 			
 			Source direction_source;
-			Source scalar_source;
-			Source dimensions_source;
 			Source size_source;
 			Source address_source;
-			Source bounds_source;
 			
 			parameter_initializers_source
 				<< "{"
 					<< direction_source
-					<< ", " << scalar_source
-					<< ", " << dimensions_source
 					<< ", " << size_source
 					<< ", " << address_source
-					<< ", " << bounds_source
 				<< "}, ";
 			
 			switch (parameter_info._direction)
@@ -200,11 +194,8 @@ namespace TL
 			
 			if (parameter_type.is_array())
 			{
-				scalar_source << "0";
-				
 				// Size
 				ObjectList<Expression> dimensions = TypeUtils::get_array_dimensions(parameter_type, ctx.scope_link);
-				dimensions_source << dimensions.size();
 				for (ObjectList<Expression>::const_iterator dimension_it = dimensions.begin(); dimension_it != dimensions.end(); dimension_it++)
 				{
 					Expression const &dimension = *dimension_it;
@@ -217,7 +208,6 @@ namespace TL
 							.get_declaration(ctx.scope_link.get_scope(argument.get_ast()), std::string(""))
 					<< ")";
 				address_source << argument.prettyprint();
-				bounds_source << "(void *)0";
 			}
 			else if (parameter_type.is_pointer())
 			{
@@ -232,8 +222,10 @@ namespace TL
 				if (base_type.is_void())
 				{
 					// An opaque parameter, we should pass a pointer to it, since it is treated as a scalar
-					scalar_source << "1";
-					dimensions_source << "0";
+					if (parameter_info._direction == INPUT_DIR)
+					{
+						direction_source = Source("CSS_IN_SCALAR_DIR");
+					}
 					size_source
 						<< "sizeof(void *)";
 					std::ostringstream temporary_name;
@@ -241,16 +233,14 @@ namespace TL
 					constant_redirection_source
 						<< "void *" << temporary_name.str() << " = " << argument.prettyprint() << ";";
 					address_source << "&" << temporary_name.str();
-					bounds_source << "(void *)0";
-				} else {
-					scalar_source << "1";
-					dimensions_source << "0";
+				}
+				else
+				{
 					size_source
 						<< "sizeof("
 							<< base_type.get_declaration(ctx.scope_link.get_scope(argument.get_ast()), std::string(""))
 						<< ")";
 					address_source << argument.prettyprint();
-					bounds_source << "(void *)0";
 				}
 			}
 			else if (parameter_type.is_non_derived_type())
@@ -269,8 +259,10 @@ namespace TL
 					return;
 				}
 				
-				scalar_source << "1";
-				dimensions_source << "0";
+				if (parameter_info._direction == INPUT_DIR)
+				{
+					direction_source = Source("CSS_IN_SCALAR_DIR");
+				}
 				size_source
 					<< "sizeof("
 						<< parameter_type.get_declaration(ctx.scope_link.get_scope(argument.get_ast()), std::string(""))
@@ -295,8 +287,6 @@ namespace TL
 					address_source
 						<< "&" << temporary_name.str();
 				}
-				
-				bounds_source << "(void *)0";
 			}
 			else
 			{
