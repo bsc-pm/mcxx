@@ -878,7 +878,7 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
         {
             return 1;
         }
-
+        
         /*
          * Some checks on "derivedness" and type kind are probably
          * rendundant below, but it is ok
@@ -886,6 +886,17 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
         if (equivalent_types(scs1.orig, scs2.orig))
             // Both SCSs have same source type
         {
+            // If both target types are the same, regardless the qualification,
+            // this rank won't be better
+            if (equivalent_types(get_unqualified_type(no_ref(scs1.dest)), get_unqualified_type(no_ref(scs2.dest)))
+                    || (is_pointer_to_class_type(scs1.dest)
+                        && is_pointer_to_class_type(scs2.dest)
+                        && equivalent_types(get_unqualified_type(pointer_type_get_pointee_type(scs1.dest)),
+                            get_unqualified_type(pointer_type_get_pointee_type(scs2.dest)))))
+            {
+                return 0;
+            }
+
             // Fix redundant reference to class pointer
             if (is_lvalue_reference_type(scs1.orig)
                     && is_pointer_to_class_type(reference_type_get_referenced_type(scs1.orig)))
@@ -963,18 +974,18 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
                 return 1;
             }
 
-            if (is_lvalue_reference_to_class_type(scs1.orig) // C& ->
+            if (is_class_type(no_ref(scs1.orig)) // C ->
                     && is_lvalue_reference_to_class_type(scs1.dest) // B&
-                    && class_type_is_derived(reference_type_get_referenced_type(scs1.orig),
-                        reference_type_get_referenced_type(scs1.dest)) // C& derives from B&
+                    && class_type_is_derived(no_ref(scs1.orig),
+                        reference_type_get_referenced_type(scs1.dest)) // C derives from B&
 
                     && is_lvalue_reference_to_class_type(scs2.dest) // A&
                     && class_type_is_derived(reference_type_get_referenced_type(scs1.dest),
                         reference_type_get_referenced_type(scs2.dest)) // B& derives from A&
                )
             {
-                // If class C& derives from B and B from A, a conversion C& -> B&
-                // is better than C& -> A&
+                // binding of an expression of type C to a reference of type B& is better
+                // than binding an expression of type C to a reference of type A&
                 return 1;
             }
 
@@ -1029,17 +1040,19 @@ static char standard_conversion_has_better_rank(standard_conversion_t scs1,
                 return 1;
             }
 
-            if (is_class_type(scs1.orig) // B
-                    && is_lvalue_reference_to_class_type(scs1.dest) // A
-                    && class_type_is_derived(scs1.orig, 
-                        reference_type_get_referenced_type(scs1.dest)) // B is derived from A
+            if (is_class_type(no_ref(scs1.orig)) // B
+                    && is_lvalue_reference_to_class_type(scs1.dest) // A&
+                    && class_type_is_derived(no_ref(scs1.orig), 
+                        reference_type_get_referenced_type(scs1.dest)) // B& is derived from A&
 
-                    && is_class_type(scs2.orig) // C
-                    /* && is_reference_to_class_type(scs2.dest) */ // A
+                    && is_class_type(scs2.orig) // C&
+                    /* && is_reference_to_class_type(scs2.dest) */ // A&
                     && class_type_is_derived(scs2.orig, 
-                        scs1.orig) // C is derived from B
+                        no_ref(scs1.orig)) // C& is derived from B&
                ) 
             {
+                // Binding of an expression type B to a reference of type A& is better than binding
+                // an expression of type C to a reference of type A&
                 return 1;
             }
         }
@@ -2237,8 +2250,13 @@ scope_entry_t* solve_constructor(type_t* class_type,
         const char* filename, int line,
         scope_entry_t** conversors)
 {
-    class_type = get_actual_class_type(class_type);
-    ERROR_CONDITION(!is_class_type(class_type), "This is not a class type", 0);
+    ERROR_CONDITION(!is_named_class_type(class_type), "This is not a named class type", 0);
+
+    if (class_type_is_incomplete_independent(get_actual_class_type(class_type)))
+    {
+        instantiate_template(named_type_get_symbol(class_type), decl_context, filename, line);
+    }
+
     scope_entry_list_t* constructor_list = NULL;
 
     type_t* augmented_argument_types[MAX_ARGUMENTS];
@@ -2252,9 +2270,10 @@ scope_entry_t* solve_constructor(type_t* class_type,
         augmented_argument_types[i+1] = argument_types[i];
     }
 
-    for (i = 0; i < class_type_get_num_constructors(class_type); i++)
+    for (i = 0; i < class_type_get_num_constructors(get_actual_class_type(class_type)); i++)
     {
-        scope_entry_t* constructor = class_type_get_constructors_num(class_type, i);
+        scope_entry_t* constructor 
+            = class_type_get_constructors_num(get_actual_class_type(class_type), i);
 
         // If the context is not explicit ignore all constructors defined as explicit
         if (!is_explicit

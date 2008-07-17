@@ -316,6 +316,45 @@ static scope_entry_list_t* unfold_and_mix_candidate_functions(
 }
 
 static
+scope_entry_list_t* get_member_of_class_type(type_t* class_type,
+        AST id_expression, decl_context_t decl_context)
+{
+    if (is_named_class_type(class_type)
+            && class_type_is_incomplete_independent(get_actual_class_type(class_type)))
+    {
+        scope_entry_t* symbol = named_type_get_symbol(class_type);
+
+        instantiate_template(symbol, decl_context, ASTFileName(id_expression), ASTLine(id_expression));
+    }
+
+    class_type = get_actual_class_type(class_type);
+
+    const char *name = NULL;
+    switch (ASTType(id_expression))
+    {
+        case AST_SYMBOL :
+            {
+                name = ASTText(id_expression);
+            }
+            break;
+        default:
+            internal_error("Invalid node type '%s'\n", ast_print_node_type(ASTType(id_expression)));
+    }
+
+    ERROR_CONDITION(name == NULL, "Name not properly computed", 0);
+
+    decl_context_t class_context = class_type_get_inner_context(class_type);
+    if (class_context.class_scope != NULL)
+    {
+        return class_context_lookup(class_context, name);
+    }
+    else
+    {
+        return NULL;
+    }
+}
+
+static
 scope_entry_list_t* get_member_function_of_class_type(type_t* class_type,
         AST id_expression, decl_context_t decl_context)
 {
@@ -7218,6 +7257,66 @@ static char check_for_designation(AST designation, decl_context_t decl_context)
     return 1;
 }
 
+type_t* get_designated_type(AST designation, decl_context_t decl_context, type_t* designated_type)
+{
+    // This is currently for C99 only, so no need to check too many things on the C++ part
+    
+    AST designator_list = ASTSon0(designation);
+    AST iterator;
+
+    for_each_element(designator_list, iterator)
+    {
+        AST current_designator = ASTSon1(iterator);
+
+        switch (ASTType(current_designator))
+        {
+            case AST_FIELD_DESIGNATOR:
+                {
+                    AST symbol = ASTSon0(current_designator);
+                    if (is_class_type(designated_type))
+                    {
+                        scope_entry_list_t* member = get_member_of_class_type(designated_type, symbol, decl_context);
+
+                        if (member != NULL
+                                && member->entry->kind == SK_VARIABLE)
+                        {
+                            designated_type = member->entry->type_information;
+                        }
+                        else
+                        {
+                            fprintf(stderr, "%s: warning: designator '%s' of type '%s' is not valid\n",
+                                ast_location(current_designator),
+                                prettyprint_in_buffer(current_designator),
+                                print_decl_type_str(designated_type, decl_context, ""));
+                            return get_signed_int_type();
+                        }
+                    }
+                    break;
+                }
+            case AST_INDEX_DESIGNATOR:
+                {
+                    if (is_array_type(designated_type))
+                    {
+                        designated_type = array_type_get_element_type(designated_type);
+                    }
+                    else
+                    {
+                        fprintf(stderr, "%s: warning: designator '%s' of type '%s' is not valid\n",
+                                ast_location(current_designator),
+                                prettyprint_in_buffer(current_designator),
+                                print_decl_type_str(designated_type, decl_context, ""));
+                        return get_signed_int_type();
+                    }
+                    break;
+                }
+             default:
+                internal_error("Invalid AST '%s'\n", ast_print_node_type(ASTType(current_designator)));
+        }
+    }
+
+    return designated_type;
+}
+
 static char check_for_initializer_clause(AST initializer, decl_context_t decl_context, type_t* declared_type)
 {
     switch (ASTType(initializer))
@@ -7228,13 +7327,52 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                 AST expression_list = ASTSon0(initializer);
                 if (expression_list != NULL)
                 {
+                    if (!is_array_type(declared_type)
+                            && !is_class_type(declared_type)
+                            && !is_dependent_type(declared_type, decl_context))
+                    {
+                        fprintf(stderr, "%s: warning: initialization using braces but the declared type is not an array or struct/class\n",
+                                ast_location(initializer));
+                    }
+
+                    int initializer_num = 0;
                     AST iter;
                     for_each_element(expression_list, iter)
                     {
                         AST initializer_clause = ASTSon1(iter);
 
-                        if (!check_for_initializer_clause(initializer_clause, decl_context, declared_type))
+                        type_t* type_in_context = declared_type;
+
+                        // If the initializer is not a designated one, the type in context
+                        // is the subtype of the aggregated one
+                        if (ASTType(initializer_clause) != AST_DESIGNATED_INITIALIZER)
+                        {
+                            if (is_class_type(declared_type))
+                            {
+                                if (initializer_num >= class_type_get_num_nonstatic_data_members(declared_type))
+                                {
+                                    fprintf(stderr, "%s: warning: too many initializers for aggregated data type\n",
+                                            ast_location(initializer_clause));
+
+                                    type_in_context = get_signed_int_type();
+                                }
+                                else
+                                {
+                                    scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(declared_type, initializer_num);
+                                    type_in_context = data_member->type_information;
+                                }
+                            }
+                            else if (is_array_type(declared_type))
+                            {
+                                type_in_context = array_type_get_element_type(declared_type);
+                            }
+                        }
+
+
+                        if (!check_for_initializer_clause(initializer_clause, decl_context, type_in_context))
                             return 0;
+
+                        initializer_num++;
                     }
                 }
                 return 1;
@@ -7255,7 +7393,7 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                             && !type_can_be_implicitly_converted_to(initializer_expr_type, declared_type, decl_context, 
                                 &ambiguous_conversion, &conversor))
                     {
-                        fprintf(stderr, "%s: warning: initializer '%s' has type '%s' not convertible to '%s'\n",
+                        fprintf(stderr, "%s: warning: initializer expression '%s' has type '%s' not convertible to '%s'\n",
                                 ast_location(expression),
                                 prettyprint_in_buffer(expression),
                                 print_decl_type_str(initializer_expr_type, decl_context, ""),
@@ -7284,7 +7422,9 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
 
                 AST initializer_clause = ASTSon1(initializer);
 
-                return check_for_initializer_clause(initializer_clause, decl_context, declared_type);
+                type_t* designated_type = get_designated_type(designation, decl_context, declared_type);
+
+                return check_for_initializer_clause(initializer_clause, decl_context, designated_type);
                 break;
             }
         case AST_GCC_INITIALIZER_CLAUSE :

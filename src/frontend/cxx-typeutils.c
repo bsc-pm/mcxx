@@ -4769,7 +4769,10 @@ const char* get_simple_type_name_string(decl_context_t decl_context, type_t* typ
             }
         case TK_FUNCTION :
             {
-                result = get_simple_type_name_string(decl_context, type_info->function->return_type);
+                if (type_info->function->return_type != NULL)
+                {
+                    result = get_simple_type_name_string(decl_context, type_info->function->return_type);
+                }
                 break;
             }
         case TK_POINTER :
@@ -5123,8 +5126,11 @@ static void get_type_name_str_internal(decl_context_t decl_context,
             }
         case TK_FUNCTION :
             {
-                get_type_name_str_internal(decl_context, type_info->function->return_type, left, right, 
-                        num_parameter_names, parameter_names, is_parameter);
+                if (type_info->function->return_type != NULL)
+                {
+                    get_type_name_str_internal(decl_context, type_info->function->return_type, left, right, 
+                            num_parameter_names, parameter_names, is_parameter);
+                }
 
                 const char* prototype;
                 prototype = "(";
