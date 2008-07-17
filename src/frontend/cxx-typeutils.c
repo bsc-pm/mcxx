@@ -5644,7 +5644,10 @@ const char* print_declarator(type_t* printed_declarator)
                         }
                     }
                     tmp_result = strappend(tmp_result, ")");
-                    tmp_result = strappend(tmp_result, " returning ");
+                    if (printed_declarator->function->return_type != NULL)
+                    {
+                        tmp_result = strappend(tmp_result, " returning ");
+                    }
                     printed_declarator = printed_declarator->function->return_type;
                     break;
                 }

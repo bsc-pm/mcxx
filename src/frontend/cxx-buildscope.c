@@ -249,17 +249,65 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
 
     CXX_LANGUAGE()
     {
-        // __null is a magic NULL in g++
-        scope_entry_t* null_keyword;
+        {
+            // __null is a magic NULL in g++
+            scope_entry_t* null_keyword;
 
-        null_keyword = new_symbol(decl_context, decl_context.global_scope, "__null");
-        null_keyword->kind = SK_VARIABLE;
-        null_keyword->type_information = get_zero_type();
-        null_keyword->expression_value = ASTLeaf(AST_OCTAL_LITERAL, NULL, 0, "0");
-        null_keyword->defined = 1;
-        null_keyword->do_not_print = 1;
-        // This should be renamed one day into 'builtin_symbol'
-        null_keyword->entity_specs.is_builtin = 1;
+            null_keyword = new_symbol(decl_context, decl_context.global_scope, "__null");
+            null_keyword->kind = SK_VARIABLE;
+            null_keyword->type_information = get_zero_type();
+            null_keyword->expression_value = ASTLeaf(AST_OCTAL_LITERAL, NULL, 0, "0");
+            null_keyword->defined = 1;
+            null_keyword->do_not_print = 1;
+            // This should be renamed one day into 'builtin_symbol'
+            null_keyword->entity_specs.is_builtin = 1;
+        }
+
+        // There are two 'operator new' and one 'operator delete' at global scope
+        {
+            scope_entry_t* global_operator_new;
+            global_operator_new = new_symbol(decl_context, decl_context.global_scope, "operator new");
+            global_operator_new->kind = SK_FUNCTION;
+            global_operator_new->do_not_print = 1;
+
+            type_t* return_type = get_pointer_type(get_void_type());
+
+            parameter_info_t parameter_info[1] = { 
+                { .is_ellipsis = 0, .type_info = get_size_t_type() } 
+            };
+            
+            global_operator_new->type_information = get_new_function_type(return_type, parameter_info, 1);
+        }
+        // Version for arrays
+        {
+            scope_entry_t* global_operator_new;
+            global_operator_new = new_symbol(decl_context, decl_context.global_scope, "operator new[]");
+            global_operator_new->kind = SK_FUNCTION;
+            global_operator_new->do_not_print = 1;
+
+            type_t* return_type = get_pointer_type(get_void_type());
+
+            parameter_info_t parameter_info[1] = { 
+                { .is_ellipsis = 0, .type_info = get_size_t_type() } 
+            };
+            
+            global_operator_new->type_information = get_new_function_type(return_type, parameter_info, 1);
+        }
+
+        {
+            scope_entry_t* global_operator_delete;
+            global_operator_delete = new_symbol(decl_context, decl_context.global_scope, "operator delete");
+            global_operator_delete->kind = SK_FUNCTION;
+            global_operator_delete->do_not_print = 1;
+
+            type_t* return_type = get_void_type();
+
+            parameter_info_t parameter_info[1] = { 
+                { .is_ellipsis = 0, .type_info = get_pointer_type(get_void_type()) } 
+            };
+            
+            global_operator_delete->type_information = get_new_function_type(return_type, parameter_info, 1);
+        }
     }
 
     gcc_sign_in_builtins(decl_context);
@@ -6608,6 +6656,13 @@ static scope_entry_t* build_scope_member_function_definition(decl_context_t decl
                 {
                     class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
                 }
+
+                // These are always static
+                if (ASTType(ASTSon0(declarator_name)) == AST_NEW_OPERATOR
+                        || ASTType(ASTSon0(declarator_name)) == AST_DELETE_OPERATOR)
+                {
+                    entry->entity_specs.is_static = 1;
+                }
                 break;
             }
         case AST_CONVERSION_FUNCTION_ID :
@@ -6997,6 +7052,13 @@ static void build_scope_member_simple_declaration(decl_context_t decl_context, A
                                         if (is_copy_assignment_operator(entry, class_type))
                                         {
                                             class_type_add_copy_assignment_operator(get_actual_class_type(class_type), entry);
+                                        }
+
+                                        // These are always static
+                                        if (ASTType(ASTSon0(declarator_name)) == AST_NEW_OPERATOR
+                                                || ASTType(ASTSon0(declarator_name)) == AST_DELETE_OPERATOR)
+                                        {
+                                            entry->entity_specs.is_static = 1;
                                         }
                                         break;
                                     }

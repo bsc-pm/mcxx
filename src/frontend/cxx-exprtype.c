@@ -442,6 +442,7 @@ static char check_for_sizeof_typeid(AST expr, decl_context_t decl_context);
 static char check_for_cast_expr(AST expression, AST type_id, AST casted_expression, decl_context_t decl_context);
 static char check_for_new_expression(AST new_expr, decl_context_t decl_context);
 static char check_for_new_type_id_expr(AST new_expr, decl_context_t decl_context);
+static char check_for_delete_expression(AST expression, decl_context_t decl_context);
 static char check_for_initializer_list(AST initializer_list, decl_context_t decl_context, type_t* declared_type);
 static char check_for_binary_expression(AST expression, decl_context_t decl_context);
 static char check_for_unary_expression(AST expression, decl_context_t decl_context);
@@ -1131,13 +1132,7 @@ char check_for_expression(AST expression, decl_context_t decl_context)
         case AST_DELETE_EXPR :
         case AST_DELETE_ARRAY_EXPR :
             {
-                // This is always a value, never a type
-                result = check_for_expression(ASTSon1(expression), decl_context );
-                if (result)
-                {
-                    ast_set_expression_type(expression, get_void_type());
-                    ast_set_expression_is_lvalue(expression, 0);
-                }
+                result = check_for_delete_expression(expression, decl_context);
                 break;
             }
         case AST_PSEUDO_DESTRUCTOR_CALL :
@@ -1969,8 +1964,8 @@ static type_t* compute_member_user_defined_bin_operator_type(AST operator_name,
 
         if (conversors[1] != NULL)
         {
-            ASTAttrSetValueType(rhs, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(rhs, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[1]));
+            ASTAttrSetValueType(rhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(rhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
         }
     }
 
@@ -2027,13 +2022,13 @@ static type_t* compute_user_defined_bin_operator_type(AST operator_name,
     {
         if (conversors[1] != NULL)
         {
-            ASTAttrSetValueType(lhs, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(lhs, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[1]));
+            ASTAttrSetValueType(lhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(lhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
         }
         if (conversors[2] != NULL)
         {
-            ASTAttrSetValueType(rhs, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(rhs, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[2]));
+            ASTAttrSetValueType(rhs, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(rhs, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[2]));
         }
 
         if (!overloaded_call->entity_specs.is_builtin)
@@ -2152,8 +2147,8 @@ static type_t* compute_user_defined_unary_operator_type(AST operator_name,
 
         if (conversors[1] != NULL)
         {
-            ASTAttrSetValueType(op, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(op, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[1]));
+            ASTAttrSetValueType(op, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(op, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
         }
 
         overloaded_type = overloaded_call->type_information;
@@ -4470,8 +4465,8 @@ static char check_for_array_subscript_expr(AST expr, decl_context_t decl_context
 
             if (conversors[1] != NULL)
             {
-                ASTAttrSetValueType(subscript_expr, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(subscript_expr, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[1]));
+                ASTAttrSetValueType(subscript_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(subscript_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
             }
 
             ast_set_expression_type(expr, function_type_get_return_type(overloaded_call->type_information));
@@ -4934,9 +4929,9 @@ static char check_for_conditional_expression_impl(AST expression, decl_context_t
                 if (conversors[k] != NULL)
                 {
                     ASTAttrSetValueType(ASTChild(expression, k), 
-                            LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
+                            LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
                     ASTAttrSetValueType(ASTChild(expression, k), 
-                            LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[k]));
+                            LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
                 }
             }
 
@@ -5068,17 +5063,9 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
     if (new_placement != NULL)
     {
         AST expression_list = ASTSon0(new_placement);
-        AST iter;
 
-        for_each_element(expression_list, iter)
-        {
-            AST expression = ASTSon1(iter);
-
-            if (!check_for_expression(expression, decl_context))
-            {
-                return 0;
-            }
-        }
+        if (!check_for_expression_list(expression_list, decl_context))
+            return 0;
     }
 
     AST type_specifier_seq = ASTSon0(new_type_id);
@@ -5096,30 +5083,261 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
     if (new_initializer != NULL)
     {
         AST expression_list = ASTSon0(new_initializer);
-        
+
         if (expression_list != NULL)
         {
-            AST iter;
-
-            for_each_element(expression_list, iter)
+            if (!check_for_expression_list(expression_list, decl_context))
             {
-                AST expression = ASTSon1(iter);
-
-                if (!check_for_expression(expression, decl_context))
-                {
-                    return 0;
-                }
+                return 0;
             }
         }
     }
 
+    char new_array = 0;
+
     if (is_array_type(declarator_type))
     {
+        new_array = 1;
         declarator_type = get_pointer_type(array_type_get_element_type(declarator_type));
     }
     else
     {
         declarator_type = get_pointer_type(declarator_type);
+    }
+
+    // Solve 'operator new' being invoked
+    if (!is_dependent_type(declarator_type, decl_context))
+    {
+        scope_entry_t* conversors[MAX_ARGUMENTS];
+        memset(conversors, 0, sizeof(conversors));
+
+        type_t* arguments[MAX_ARGUMENTS];
+        memset(arguments, 0, sizeof(arguments));
+
+        // At least the size_t parameter (+1 because of ubiquitous implicit)
+        int num_arguments = 2;
+
+        // 'operator new' is always static if it is a member function
+        arguments[1] = get_size_t_type();
+
+        char has_dependent_placement_args = 0;
+
+        int i = 2; 
+        if (new_placement != NULL)
+        {
+            AST expression_list = ASTSon0(new_placement);
+            AST iter;
+
+            for_each_element(expression_list, iter)
+            {
+                AST expr = ASTSon1(iter);
+
+                arguments[i] = ast_get_expression_type(expr);
+
+                if (is_dependent_expr_type(arguments[i]))
+                {
+                    has_dependent_placement_args = 1;
+                }
+
+                i++;
+                num_arguments++;
+            }
+        }
+
+        if (!has_dependent_placement_args)
+        {
+            decl_context_t op_new_context = decl_context;
+
+            if (is_pointer_to_class_type(declarator_type))
+            {
+                op_new_context = class_type_get_inner_context(
+                        get_actual_class_type(pointer_type_get_pointee_type(declarator_type)));
+            }
+
+            static AST operation_new_tree = NULL;
+            if (operation_new_tree == NULL)
+            {
+                operation_new_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                        ASTLeaf(AST_NEW_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+            }
+
+            static AST operation_new_array_tree = NULL;
+            if (operation_new_array_tree == NULL)
+            {
+                operation_new_array_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                        ASTLeaf(AST_NEW_ARRAY_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+            }
+
+            AST called_operation_new_tree = operation_new_tree;
+
+            if (new_array)
+            {
+                called_operation_new_tree = operation_new_array_tree;
+            }
+
+            scope_entry_list_t *operator_new_list = query_id_expression(op_new_context, called_operation_new_tree);
+
+            ERROR_CONDITION(operator_new_list == NULL, "This cannot be empty, at least there should be the global scope one\n", 0);
+
+            scope_entry_t* chosen_operator_new = solve_overload(operator_new_list, 
+                    arguments, num_arguments, 
+                    decl_context,
+                    ASTFileName(new_expr), ASTLine(new_expr), 
+                    conversors);
+
+            if (chosen_operator_new == NULL)
+            {
+                const char* argument_call = uniquestr("");
+
+                argument_call = strappend(argument_call, "operator new");
+                if (new_array)
+                {
+                    argument_call = strappend(argument_call, "[]");
+                }
+                argument_call = strappend(argument_call, "(");
+
+                for (i = 1; i < num_arguments; i++)
+                {
+                    argument_call = strappend(argument_call, print_type_str(arguments[i], decl_context));
+                    if ((i + 1) < num_arguments)
+                    {
+                        argument_call = strappend(argument_call, ", ");
+                    }
+                }
+                argument_call = strappend(argument_call, ")");
+
+                fprintf(stderr, "%s: warning: no suitable '%s' found for new-expression '%s'\n",
+                        ast_location(new_expr),
+                        argument_call,
+                        prettyprint_in_buffer(new_expr));
+                fprintf(stderr, "%s: note: candidates are:\n", ast_location(new_expr));
+                scope_entry_list_t* it = operator_new_list;
+                while (it != NULL)
+                {
+                    int max_level = 0;
+                    char is_dependent = 0;
+
+                    scope_entry_t* candidate_op = it->entry;
+                    fprintf(stderr, "%s: note:    %s\n", ast_location(new_expr),
+                            print_decl_type_str(candidate_op->type_information, decl_context, 
+                                get_fully_qualified_symbol_name(candidate_op, decl_context, &is_dependent, &max_level)));
+                    it = it->next;
+                }
+
+                return 0;
+            }
+
+            // Store conversions
+            if (new_placement != NULL)
+            {
+                AST expression_list = ASTSon0(new_placement);
+                AST iter;
+
+                // Ignore the size_t (and the implicit too)
+                i = 2;
+                if (expression_list != NULL)
+                {
+                    for_each_element(expression_list, iter)
+                    {
+                        AST current_expr = ASTSon1(iter);
+
+                        if (conversors[i] != NULL)
+                        {
+                            ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                            ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
+                        }
+
+                        i++;
+                    }
+                }
+            }
+        }
+    }
+
+    // Solve constructor being invoked
+    if (is_pointer_to_class_type(declarator_type))
+    {
+        type_t* class_type = pointer_type_get_pointee_type(declarator_type);
+
+        scope_entry_t* conversors[MAX_ARGUMENTS];
+        memset(conversors, 0, sizeof(conversors));
+
+        type_t* arguments[MAX_ARGUMENTS];
+        memset(arguments, 0, sizeof(arguments));
+
+        int num_arguments = 0;
+        char has_constructor_dep_args = 0;
+        
+        if (new_initializer != NULL)
+        {
+            AST expression_list = ASTSon0(new_initializer);
+
+            if (expression_list != NULL)
+            {
+                AST iter;
+                for_each_element(expression_list, iter)
+                {
+                    AST expr = ASTSon1(iter);
+
+                    arguments[num_arguments] = ast_get_expression_type(expr);
+
+                    if (is_dependent_expr_type(arguments[num_arguments]))
+                    {
+                        has_constructor_dep_args = 1;
+                    }
+
+                    num_arguments++;
+                }
+            }
+        }
+
+        if (!has_constructor_dep_args)
+        {
+            scope_entry_t* chosen_constructor = solve_constructor(class_type,
+                    arguments, num_arguments,
+                    /* is_explicit */ 1,
+                    decl_context,
+                    ASTFileName(new_expr), ASTLine(new_expr),
+                    conversors);
+
+            if (chosen_constructor == NULL)
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: no suitable constructor of type '%s' "
+                            "found for new-initializer '%s'\n",
+                            ast_location(new_expr),
+                            print_decl_type_str(class_type, decl_context, ""),
+                            prettyprint_in_buffer(new_initializer));
+                }
+
+                return 0;
+            }
+            
+            // Store conversions
+            if (new_initializer != NULL)
+            {
+                AST expression_list = ASTSon0(new_initializer);
+                AST iter;
+
+                int i = 0;
+                if (expression_list != NULL)
+                {
+                    for_each_element(expression_list, iter)
+                    {
+                        AST current_expr = ASTSon1(iter);
+
+                        if (conversors[i] != NULL)
+                        {
+                            ASTAttrSetValueType(current_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                            ASTAttrSetValueType(current_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[i]));
+                        }
+
+                        i++;
+                    }
+                }
+            }
+        }
     }
 
     ast_set_expression_type(new_expr, declarator_type);
@@ -5130,6 +5348,39 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
 static char check_for_new_type_id_expr(AST new_expr, decl_context_t decl_context)
 {
     return check_for_new_expression(new_expr, decl_context );
+}
+
+static char check_for_delete_expression(AST expression, decl_context_t decl_context)
+{
+    // This is always a value, never a type
+    AST deleted_expression = ASTSon1(expression);
+
+    char result = check_for_expression(deleted_expression, decl_context );
+
+    if (!result)
+        return 0;
+
+    type_t* deleted_expr_type = ast_get_expression_type(deleted_expression);
+
+    if (!is_dependent_expr_type(deleted_expr_type)
+            && (!is_pointer_type(deleted_expr_type)
+                || is_pointer_to_function_type(deleted_expr_type)))
+    {
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: expression '%s' of type '%s' cannot be deleted\n",
+                    ast_location(deleted_expression),
+                    prettyprint_in_buffer(deleted_expression),
+                    print_decl_type_str(deleted_expr_type, decl_context, ""));
+        }
+        return 0;
+    }
+
+    // Now check which one is being called
+
+    ast_set_expression_type(expression, get_void_type());
+    ast_set_expression_is_lvalue(expression, 0);
+    return 1;
 }
 
 static char check_for_explicit_type_conversion_common(type_t* type_info, 
@@ -5192,11 +5443,13 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
 
             if (constructor == NULL)
             {
-                // FIXME - improve the message
-                fprintf(stderr, "%s: warning: cannot cast to type '%s' in '%s'\n",
-                        ast_location(expr),
-                        print_decl_type_str(type_info, decl_context, ""),
-                        prettyprint_in_buffer(expr));
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "%s: warning: cannot cast to type '%s' in '%s'\n",
+                            ast_location(expr),
+                            print_decl_type_str(type_info, decl_context, ""),
+                            prettyprint_in_buffer(expr));
+                }
                 return 0;
             }
 
@@ -5212,16 +5465,16 @@ static char check_for_explicit_type_conversion_common(type_t* type_info,
 
                     if (conversors[k] != NULL)
                     {
-                        ASTAttrSetValueType(expression, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
-                        ASTAttrSetValueType(expression, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[k]));
+                        ASTAttrSetValueType(expression, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                        ASTAttrSetValueType(expression, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
                     }
 
                     k++;
                 }
             }
 
-            ASTAttrSetValueType(expr, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(expr, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(constructor));
+            ASTAttrSetValueType(expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(constructor));
         }
 
         ast_set_expression_type(expr, type_info);
@@ -5996,8 +6249,8 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
 
                 if (conversors[arg_i] != NULL)
                 {
-                    ASTAttrSetValueType(argument, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
-                    ASTAttrSetValueType(argument, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[arg_i]));
+                    ASTAttrSetValueType(argument, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                    ASTAttrSetValueType(argument, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[arg_i]));
                 }
 
                 arg_i++;
@@ -6817,8 +7070,8 @@ static char check_for_postoperator_user_defined(AST expr, AST operator,
 
         if (conversors[1] != NULL)
         {
-            ASTAttrSetValueType(postoperated_expr, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(postoperated_expr, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[1]));
+            ASTAttrSetValueType(postoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(postoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
         }
 
         return 1;
@@ -6892,8 +7145,8 @@ static char check_for_preoperator_user_defined(AST expr, AST operator,
 
         if (conversors[1] != NULL)
         {
-            ASTAttrSetValueType(preoperated_expr, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(preoperated_expr, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[1]));
+            ASTAttrSetValueType(preoperated_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(preoperated_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[1]));
         }
 
         return 1;
@@ -7403,8 +7656,8 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
 
                     if (conversor != NULL)
                     {
-                        ASTAttrSetValueType(expression, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
-                        ASTAttrSetValueType(expression, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversor));
+                        ASTAttrSetValueType(expression, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                        ASTAttrSetValueType(expression, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversor));
                     }
 
                     ASTAttrSetValueType(initializer, LANG_IS_EXPRESSION_NEST, tl_type_t, tl_bool(1));
@@ -7727,8 +7980,8 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
 
         if (conversor != NULL)
         {
-            ASTAttrSetValueType(single_initializer_expr, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
-            ASTAttrSetValueType(single_initializer_expr, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversor));
+            ASTAttrSetValueType(single_initializer_expr, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(single_initializer_expr, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversor));
         }
     }
     else if (is_class && !is_dependent_type(declared_type, decl_context))
@@ -7746,10 +7999,12 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
 
         if (constructor == NULL)
         {
-            // FIXME - Improve the message with form "<class-name>(type, type, ...)"
-            fprintf(stderr, "%s: warning: no suitable constructor for type '%s'\n",
-                    ast_location(initializer_list),
-                    print_decl_type_str(declared_type, decl_context, ""));
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: no suitable constructor for type '%s'\n",
+                        ast_location(initializer_list),
+                        print_decl_type_str(declared_type, decl_context, ""));
+            }
             return 0;
         }
 
@@ -7760,8 +8015,8 @@ static char check_for_parenthesized_initializer(AST initializer_list, decl_conte
 
             if (conversors[k] != NULL)
             {
-                ASTAttrSetValueType(initializer, LANG_IS_CALLED_CONVERSOR, tl_type_t, tl_bool(1));
-                ASTAttrSetValueType(initializer, LANG_CALLED_CONVERSOR, tl_type_t, tl_symbol(conversors[k]));
+                ASTAttrSetValueType(initializer, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(initializer, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(conversors[k]));
             }
             k++;
         }
@@ -8567,11 +8822,14 @@ static char check_for_array_section_expression(AST expression, decl_context_t de
     }
     else
     {
-        fprintf(stderr, "%s: warning, array section '%s' is invalid since '%s' has type '%s'\n",
-                ast_location(expression),
-                prettyprint_in_buffer(expression),
-                prettyprint_in_buffer(postfix_expression),
-                print_type_str(indexed_type, decl_context));
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning, array section '%s' is invalid since '%s' has type '%s'\n",
+                    ast_location(expression),
+                    prettyprint_in_buffer(expression),
+                    prettyprint_in_buffer(postfix_expression),
+                    print_type_str(indexed_type, decl_context));
+        }
         return 0;
     }
 

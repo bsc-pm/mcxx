@@ -3,7 +3,7 @@ LANG_ACCESSED_MEMBER lang.accessed_member
 LANG_ARRAY_SECTION_ITEM lang.array_section_item
 LANG_ARRAY_SECTION_LOWER lang.array_section_lower
 LANG_ARRAY_SECTION_UPPER lang.array_section_upper
-LANG_CALLED_CONVERSOR lang.called_conversor
+LANG_IMPLICIT_CALL lang.implicit_call
 LANG_CALLED_EXPRESSION lang.called_expression
 LANG_CASE_EXPRESSION lang.case_expression
 LANG_CASE_STATEMENT_BODY lang.case_statement_body
@@ -55,7 +55,7 @@ LANG_IS_BITWISE_OR_OP lang.is_bitwise_or_op
 LANG_IS_BITWISE_XOR_OP lang.is_bitwise_xor_op
 LANG_IS_BOOLEAN_LITERAL lang.is_boolean_literal
 LANG_IS_BREAK_STATEMENT lang.is_break_statement
-LANG_IS_CALLED_CONVERSOR lang.is_called_conversor
+LANG_IS_IMPLICIT_CALL lang.is_implicit_call
 LANG_IS_CASE_STATEMENT lang.is_case_statement
 LANG_IS_CAST lang.is_cast
 LANG_IS_CHARACTER_LITERAL lang.is_character_literal
