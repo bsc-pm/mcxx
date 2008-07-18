@@ -181,12 +181,14 @@ namespace TL
 				std::string const &called_function_name = *it2;
 				propagate_side_cohercion(function_map, function_info._is_on_task_side, function_info._is_on_non_task_side, called_function_name);
 			}
+#if 0
 			// Backwards pass
 			for (std::set<std::string>::iterator it2 = function_info._caller_functions.begin(); it2 != function_info._caller_functions.end(); it2++)
 			{
 				std::string const &caller_function_name = *it2;
 				propagate_side_cohercion_backwards(function_map, function_info._is_on_task_side, function_info._is_on_non_task_side, caller_function_name);
 			}
+#endif
 		}
 		
 		// Mark task side
