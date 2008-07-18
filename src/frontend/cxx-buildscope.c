@@ -233,6 +233,11 @@ void build_scope_translation_unit_tree_with_global_scope(AST tree,
     build_scope_declaration_sequence(list, decl_context);
 }
 
+static default_argument_info_t** empty_default_argument_info(int num_parameters)
+{
+    return counted_calloc(sizeof(default_argument_info_t*), num_parameters, &_bytes_used_buildscope);
+}
+
 // This function initialize global symbols that exist in every translation unit
 // prior to its translation
 static void initialize_builtin_symbols(decl_context_t decl_context)
@@ -245,6 +250,7 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
     builtin_va_list->defined = 1;
     builtin_va_list->type_information = get_new_typedef(get_gcc_builtin_va_list_type());
     builtin_va_list->do_not_print = 1;
+    builtin_va_list->file = "(global scope)";
     builtin_va_list->entity_specs.is_builtin = 1;
 
     CXX_LANGUAGE()
@@ -259,6 +265,7 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
             null_keyword->expression_value = ASTLeaf(AST_OCTAL_LITERAL, NULL, 0, "0");
             null_keyword->defined = 1;
             null_keyword->do_not_print = 1;
+            null_keyword->file = "(global scope)";
             // This should be renamed one day into 'builtin_symbol'
             null_keyword->entity_specs.is_builtin = 1;
         }
@@ -277,6 +284,11 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
             };
             
             global_operator_new->type_information = get_new_function_type(return_type, parameter_info, 1);
+            global_operator_new->entity_specs.num_parameters = 1;
+            global_operator_new->entity_specs.default_argument_info 
+                = empty_default_argument_info( /* num_parameters */ 1);
+
+            global_operator_new->file = "(global scope)";
         }
         // Version for arrays
         {
@@ -292,6 +304,11 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
             };
             
             global_operator_new->type_information = get_new_function_type(return_type, parameter_info, 1);
+            global_operator_new->entity_specs.num_parameters = 1;
+            global_operator_new->entity_specs.default_argument_info 
+                = empty_default_argument_info(/* num_parameters */ 1);
+
+            global_operator_new->file = "(global scope)";
         }
 
         {
@@ -307,6 +324,11 @@ static void initialize_builtin_symbols(decl_context_t decl_context)
             };
             
             global_operator_delete->type_information = get_new_function_type(return_type, parameter_info, 1);
+            global_operator_delete->entity_specs.num_parameters = 1;
+            global_operator_delete->entity_specs.default_argument_info
+                = empty_default_argument_info(/* num_parameters */ 1);
+
+            global_operator_delete->file = "(global scope)";
         }
     }
 
@@ -2106,6 +2128,8 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
 
             implicit_default_constructor->defined = 1;
 
+            implicit_default_constructor->entity_specs.num_parameters = 0;
+
             class_type_add_constructor(class_type, implicit_default_constructor);
             class_type_set_default_constructor(class_type, implicit_default_constructor);
 
@@ -2282,6 +2306,9 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
 
             implicit_copy_constructor->defined = 1;
 
+            implicit_copy_constructor->entity_specs.num_parameters = 1;
+            implicit_copy_constructor->entity_specs.default_argument_info = empty_default_argument_info(1);
+
             class_type_add_constructor(class_type, implicit_copy_constructor);
             class_type_add_copy_constructor(class_type, implicit_copy_constructor);
 
@@ -2452,6 +2479,9 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
 
             implicit_copy_assignment_function->defined = 1;
 
+            implicit_copy_assignment_function->entity_specs.num_parameters = 1;
+            implicit_copy_assignment_function->entity_specs.default_argument_info = empty_default_argument_info(1);
+
             class_type_add_copy_assignment_operator(class_type, implicit_copy_assignment_function);
 
             // Now check whether it is trivial
@@ -2567,6 +2597,8 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
             implicit_destructor->entity_specs.is_member = 1;
             implicit_destructor->entity_specs.class_type = type_info;
             implicit_destructor->defined = 1;
+
+            implicit_destructor->entity_specs.num_parameters = 0;
 
             if (is_virtual_destructor(class_type))
             {

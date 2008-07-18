@@ -5071,11 +5071,18 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
     AST type_specifier_seq = ASTSon0(new_type_id);
     AST new_declarator = ASTSon1(new_type_id);
 
-    type_t* dummy_type;
+    type_t* dummy_type = NULL;
     gather_decl_spec_t gather_info;
     memset(&gather_info, 0, sizeof(gather_info));
 
     build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &dummy_type, decl_context);
+
+    // template-names are not allowed here since they do not name a type
+    if (is_named_type(dummy_type)
+            && named_type_get_symbol(dummy_type)->kind == SK_TEMPLATE)
+    {
+        return 0;
+    }
 
     type_t* declarator_type = NULL;
     compute_declarator_type(new_declarator, &gather_info, dummy_type, &declarator_type, decl_context);
@@ -5255,7 +5262,8 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
     }
 
     // Solve constructor being invoked
-    if (is_pointer_to_class_type(declarator_type))
+    if (!is_dependent_type(declarator_type, decl_context)
+            && is_pointer_to_class_type(declarator_type))
     {
         type_t* class_type = pointer_type_get_pointee_type(declarator_type);
 
@@ -5360,7 +5368,7 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
     if (!result)
         return 0;
 
-    type_t* deleted_expr_type = ast_get_expression_type(deleted_expression);
+    type_t* deleted_expr_type = no_ref(ast_get_expression_type(deleted_expression));
 
     if (!is_dependent_expr_type(deleted_expr_type)
             && (!is_pointer_type(deleted_expr_type)
@@ -5501,11 +5509,8 @@ static char check_for_explicit_typename_type_conversion(AST expr, decl_context_t
     if (entry->kind != SK_TYPEDEF
             && entry->kind != SK_ENUM
             && entry->kind != SK_CLASS
-            // We allow this because templates are like types
             && entry->kind != SK_DEPENDENT_ENTITY
-            && entry->kind != SK_TEMPLATE
-            && entry->kind != SK_TEMPLATE_TYPE_PARAMETER
-            && entry->kind != SK_TEMPLATE_TEMPLATE_PARAMETER)
+            && entry->kind != SK_TEMPLATE_TYPE_PARAMETER)
     {
         return 0;
     }
@@ -6410,8 +6415,7 @@ char can_be_called_with_number_of_arguments(scope_entry_t *entry, int num_argume
     else if (num_arguments < num_parameters)
     {
         // We have to check that parameter num_arguments has default argument
-        if (entry->entity_specs.default_argument_info != NULL 
-                && entry->entity_specs.default_argument_info[num_arguments] != NULL)
+        if (entry->entity_specs.default_argument_info[num_arguments] != NULL)
         {
             // Sanity check
             int i;

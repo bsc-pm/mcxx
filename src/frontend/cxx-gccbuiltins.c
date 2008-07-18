@@ -977,6 +977,12 @@ DEF_FUNCTION_TYPE_3 (BT_FN_PTR_PTR_FN_VOID_VAR_PTR_SIZE,
 // DEF_PRIMITIVE_TYPE(BT_LAST, get_void_type())
 DEF_FUNCTION_TYPE_0(0, BT_VOID)
 
+static default_argument_info_t** empty_default_argument_info(int num_parameters)
+{
+    // FIXME - Not counted!
+    return calloc(sizeof(default_argument_info_t*), num_parameters);
+}
+
 #define  DEF_BUILTIN(ENUM, NAME, CLASS, TYPE, LIBTYPE, BOTH_P, \
                    FALLBACK_P, NONANSI_P, ATTRS, IMPLICIT, _X) \
   { \
@@ -987,6 +993,8 @@ DEF_FUNCTION_TYPE_0(0, BT_VOID)
       new_builtin->do_not_print = 1; \
       new_builtin->file = "(builtin-function)"; \
       new_builtin->line = 0; \
+      new_builtin->entity_specs.num_parameters = function_type_get_num_parameters(new_builtin->type_information); \
+      new_builtin->entity_specs.default_argument_info = empty_default_argument_info(new_builtin->entity_specs.num_parameters); \
       /* DEBUG_CODE() */ \
       /* { */ \
       /*     fprintf(stderr, "GCC-BUILTIN: Registered gcc-builtin '%s' with type '%s'\n", NAME, */ \
