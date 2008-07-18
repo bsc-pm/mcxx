@@ -7651,20 +7651,22 @@ static char check_for_initializer_clause(AST initializer, decl_context_t decl_co
                         if (ASTType(initializer_clause) != AST_DESIGNATED_INITIALIZER)
                         {
                             if (is_class_type(declared_type))
-                            {
-                                if (initializer_num >= class_type_get_num_nonstatic_data_members(declared_type))
-                                {
-                                    fprintf(stderr, "%s: warning: too many initializers for aggregated data type\n",
-                                            ast_location(initializer_clause));
+									 {
+										 type_t* actual_class_type = get_actual_class_type(declared_type);
 
-                                    type_in_context = get_signed_int_type();
-                                }
-                                else
-                                {
-                                    scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(declared_type, initializer_num);
-                                    type_in_context = data_member->type_information;
-                                }
-                            }
+										 if (initializer_num >= class_type_get_num_nonstatic_data_members(actual_class_type))
+										 {
+											 fprintf(stderr, "%s: warning: too many initializers for aggregated data type\n",
+													 ast_location(initializer_clause));
+
+											 type_in_context = get_signed_int_type();
+										 }
+										 else
+										 {
+											 scope_entry_t* data_member = class_type_get_nonstatic_data_member_num(actual_class_type, initializer_num);
+											 type_in_context = data_member->type_information;
+										 }
+									 }
                             else if (is_array_type(declared_type))
                             {
                                 type_in_context = array_type_get_element_type(declared_type);
