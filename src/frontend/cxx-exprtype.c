@@ -5081,7 +5081,7 @@ static char check_for_conditional_expression(AST expression, decl_context_t decl
 
 static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
 {
-    // AST global_op = ASTSon0(new_expr);
+    AST global_op = ASTSon0(new_expr);
     AST new_placement = ASTSon1(new_expr);
     AST new_type_id = ASTSon2(new_expr);
     AST new_initializer = ASTSon3(new_expr);
@@ -5188,10 +5188,16 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
         {
             decl_context_t op_new_context = decl_context;
 
-            if (is_pointer_to_class_type(declarator_type))
+            if (is_pointer_to_class_type(declarator_type)
+                    && global_op == NULL)
             {
                 op_new_context = class_type_get_inner_context(
                         get_actual_class_type(pointer_type_get_pointee_type(declarator_type)));
+            }
+            else 
+            {
+                // Use the global scope
+                op_new_context.current_scope = op_new_context.global_scope;
             }
 
             static AST operation_new_tree = NULL;
@@ -5217,7 +5223,18 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
 
             scope_entry_list_t *operator_new_list = query_id_expression(op_new_context, called_operation_new_tree);
 
-            ERROR_CONDITION(operator_new_list == NULL, "This cannot be empty, at least there should be the global scope one\n", 0);
+            // ERROR_CONDITION(operator_new_list == NULL, "This cannot be empty, at least there should be the global scope one\n", 0);
+
+            if (operator_new_list == NULL)
+            {
+                if (!checking_ambiguity())
+                {
+                    fprintf(stderr, "warning: %s: no suitable '%s' has been found in the scope\n",
+                            ast_location(new_expr),
+                            prettyprint_in_buffer(called_operation_new_tree));
+                }
+                return 0;
+            }
 
             scope_entry_t* chosen_operator_new = solve_overload(operator_new_list, 
                     arguments, num_arguments, 
@@ -5391,9 +5408,50 @@ static char check_for_new_type_id_expr(AST new_expr, decl_context_t decl_context
     return check_for_new_expression(new_expr, decl_context );
 }
 
+static char is_deallocation_function(scope_entry_t* entry)
+{
+    if (entry->kind != SK_FUNCTION)
+        return 0;
+
+    type_t* function_type = entry->type_information;
+
+    if (function_type_get_num_parameters(function_type) == 0
+             || function_type_get_num_parameters(function_type) > 2)
+        return 0;
+
+    // Only deallocation for classes may have 2 parameters
+    if (function_type_get_num_parameters(function_type) == 2
+            && !entry->entity_specs.is_member)
+        return 0;
+
+    type_t* void_pointer = function_type_get_parameter_type_num(function_type, 0);
+
+    if (!equivalent_types(void_pointer, get_pointer_type(get_void_type())))
+        return 0;
+
+    if (function_type_get_num_parameters(function_type) == 2)
+    {
+        type_t* size_t_type = function_type_get_parameter_type_num(function_type, 1);
+        if (!equivalent_types(size_t_type, get_size_t_type()))
+            return 0;
+    }
+
+    if (is_template_specialized_type(function_type))
+        return 0;
+
+    return 1;
+}
+
 static char check_for_delete_expression(AST expression, decl_context_t decl_context)
 {
+    char is_array_delete = 0;
+    if (ASTType(expression) == AST_DELETE_ARRAY_EXPR)
+    {
+        is_array_delete = 1;
+    }
+
     // This is always a value, never a type
+    AST global_op = ASTSon0(expression);
     AST deleted_expression = ASTSon1(expression);
 
     char result = check_for_expression(deleted_expression, decl_context );
@@ -5417,7 +5475,129 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
         return 0;
     }
 
-    // Now check which one is being called
+    if (!is_dependent_expr_type(deleted_expr_type))
+    {
+        // Lookup the destructor if this is a class
+        if (is_pointer_to_class_type(deleted_expr_type))
+        {
+            type_t* class_type 
+                = get_actual_class_type(pointer_type_get_pointee_type(deleted_expr_type));
+
+            scope_entry_t* destructor = class_type_get_destructor(class_type);
+
+            // PODs may not have any destructor or have it trivial
+            if (destructor != NULL
+                    && !destructor->entity_specs.is_trivial)
+            {
+                ASTAttrSetValueType(deleted_expression, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+                ASTAttrSetValueType(deleted_expression, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(destructor));
+            }
+        }
+        
+        // Now lookup the deallocation function
+        static AST operation_delete_tree = NULL;
+        if (operation_delete_tree == NULL)
+        {
+            operation_delete_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                    ASTLeaf(AST_DELETE_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+        }
+
+        static AST operation_delete_array_tree = NULL;
+        if (operation_delete_array_tree == NULL)
+        {
+            operation_delete_array_tree = ASTMake1(AST_OPERATOR_FUNCTION_ID,
+                    ASTLeaf(AST_DELETE_ARRAY_OPERATOR, NULL, 0, NULL), NULL, 0, NULL);
+        }
+
+        AST operation_delete_name = operation_delete_tree;
+        if (is_array_delete)
+        {
+            operation_delete_name = operation_delete_array_tree;
+        }
+
+        decl_context_t op_delete_context = decl_context;
+
+        if (is_pointer_to_class_type(deleted_expr_type)
+                && global_op == NULL)
+        {
+            op_delete_context = class_type_get_inner_context(
+                    get_actual_class_type(pointer_type_get_pointee_type(deleted_expr_type)));
+        }
+        else
+        {
+            // Use the global scope
+            op_delete_context.current_scope 
+                = op_delete_context.global_scope;
+        }
+
+        scope_entry_list_t *operator_delete_list = query_id_expression(op_delete_context, operation_delete_name);
+
+        if (operator_delete_list == NULL)
+        {
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "warning: %s: no suitable '%s' has been found in the scope\n",
+                        ast_location(operation_delete_name),
+                        prettyprint_in_buffer(operation_delete_name));
+            }
+            return 0;
+        }
+
+        // If more than one, select the one with only one parameter
+        scope_entry_list_t *it = operator_delete_list;
+
+        scope_entry_t* chosen = NULL;
+
+        while (it != NULL)
+        {
+            scope_entry_t* operator_delete = it->entry;
+
+            if (is_deallocation_function(operator_delete))
+            {
+                if (chosen == NULL
+                        || (function_type_get_num_parameters(chosen->type_information) > 
+                            function_type_get_num_parameters(operator_delete->type_information)))
+                {
+                    chosen = operator_delete;
+                }
+            }
+
+            it = it->next;
+        }
+
+        if (chosen == NULL)
+        {
+            fprintf(stderr, "warning: %s: no suitable '%s' valid for deallocation of '%s' has been found in the scope\n",
+                    ast_location(expression),
+                    prettyprint_in_buffer(operation_delete_name),
+                    print_decl_type_str(pointer_type_get_pointee_type(deleted_expr_type), 
+                        decl_context, ""));
+
+#if 0
+            it = operator_delete_list;
+            fprintf(stderr, "note: %s: all '%s' found were\n", 
+                    ast_location(expression),
+                    prettyprint_in_buffer(operation_delete_name));
+
+            while (it != NULL)
+            {
+                scope_entry_t* operator_delete = it->entry;
+
+                fprintf(stderr, "note: %s:    %s\n",
+                        ast_location(expression),
+                        print_decl_type_str(operator_delete->type_information, 
+                            decl_context, operator_delete->symbol_name));
+
+                it = it->next;
+            }
+#endif 
+        }
+        else
+        {
+            ASTAttrSetValueType(expression, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+            ASTAttrSetValueType(expression, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen));
+        }
+    }
 
     ast_set_expression_type(expression, get_void_type());
     ast_set_expression_is_lvalue(expression, 0);
