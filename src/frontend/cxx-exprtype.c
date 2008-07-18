@@ -1164,6 +1164,19 @@ char check_for_expression(AST expression, decl_context_t decl_context)
 
                     build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, decl_context);
 
+                    if (is_named_type(type_info)
+                            && named_type_get_symbol(type_info)->kind == SK_TEMPLATE)
+                    {
+                        // This is not valid here
+                        if (!checking_ambiguity())
+                        {
+                            fprintf(stderr, "%s: warning: invalid '%s' type, it names a template-name\n",
+                                    ast_location(type_specifier_seq),
+                                    prettyprint_in_buffer(type_specifier_seq));
+                        }
+                        return 0;
+                    }
+
                     type_t* declarator_type = type_info;
                     compute_declarator_type(abstract_decl, 
                             &gather_info, type_info, &declarator_type,
@@ -1202,6 +1215,19 @@ char check_for_expression(AST expression, decl_context_t decl_context)
                     memset(&gather_info, 0, sizeof(gather_info));
 
                     build_scope_decl_specifier_seq(type_specifier_seq, &gather_info, &type_info, decl_context);
+
+                    if (is_named_type(type_info)
+                            && named_type_get_symbol(type_info)->kind == SK_TEMPLATE)
+                    {
+                        // This is not valid here
+                        if (!checking_ambiguity())
+                        {
+                            fprintf(stderr, "%s: warning: invalid '%s' type-name, it names a template-name\n",
+                                    ast_location(type_specifier_seq),
+                                    prettyprint_in_buffer(type_specifier_seq));
+                        }
+                        return 0;
+                    }
 
                     type_t* declarator_type = type_info;
                     compute_declarator_type(abstract_decl, 
@@ -5081,6 +5107,13 @@ static char check_for_new_expression(AST new_expr, decl_context_t decl_context)
     if (is_named_type(dummy_type)
             && named_type_get_symbol(dummy_type)->kind == SK_TEMPLATE)
     {
+        // This is not valid here
+        if (!checking_ambiguity())
+        {
+            fprintf(stderr, "%s: warning: invalid '%s' type-name, it names a template-name\n",
+                    ast_location(type_specifier_seq),
+                    prettyprint_in_buffer(type_specifier_seq));
+        }
         return 0;
     }
 
@@ -6560,6 +6593,19 @@ static char check_for_cast_expr(AST expr, AST type_id, AST casted_expression, de
         type_t* simple_type_info = NULL;
         build_scope_decl_specifier_seq(type_specifier, &gather_info, &simple_type_info, 
                 decl_context);
+
+        if (is_named_type(simple_type_info)
+                && named_type_get_symbol(simple_type_info)->kind == SK_TEMPLATE)
+        {
+            // This is not valid here
+            if (!checking_ambiguity())
+            {
+                fprintf(stderr, "%s: warning: invalid '%s' type-name, it names a template-name\n",
+                        ast_location(type_specifier),
+                        prettyprint_in_buffer(type_specifier));
+            }
+            return 0;
+        }
 
         type_t* declarator_type = simple_type_info;
         compute_declarator_type(abstract_declarator, &gather_info, simple_type_info, 

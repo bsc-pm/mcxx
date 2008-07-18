@@ -1220,6 +1220,14 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
 
                 build_scope_decl_specifier_seq(type_specifier_seq, &typeof_gather_info, &type_info, decl_context);
 
+                if (is_named_type(type_info)
+                        && named_type_get_symbol(type_info)->kind == SK_TEMPLATE)
+                {
+                    running_error(stderr, "%s: error: invalid '%s' type-name, it names a template-name\n",
+                            ast_location(type_specifier_seq),
+                            prettyprint_in_buffer(type_specifier_seq));
+                }
+
                 type_t* declarator_type = type_info;
                 compute_declarator_type(abstract_decl, 
                         &typeof_gather_info, type_info, &declarator_type,
