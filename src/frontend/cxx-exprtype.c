@@ -9146,3 +9146,31 @@ char check_for_expression_list(AST expression_list, decl_context_t decl_context)
             && check_for_expression(ASTSon1(expression_list), decl_context);
     }
 }
+
+char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context, AST declarator)
+{
+    int num_arguments = 0;
+    type_t* arguments = NULL;
+
+    scope_entry_t* chosen_constructor = solve_constructor(class_type,
+            arguments, num_arguments,
+            /* is_explicit */ 1,
+            decl_context,
+            ASTFileName(declarator), ASTLine(declarator),
+            /* conversors */ NULL);
+
+    if (chosen_constructor == NULL)
+    {
+        fprintf(stderr, "%s: warning: no default constructor for '%s' type\n",
+                ast_location(declarator),
+                print_decl_type_str(class_type, decl_context, ""));
+        return 0;
+    }
+    else
+    {
+        ASTAttrSetValueType(declarator, LANG_IS_IMPLICIT_CALL, tl_type_t, tl_bool(1));
+        ASTAttrSetValueType(declarator, LANG_IMPLICIT_CALL, tl_type_t, tl_symbol(chosen_constructor));
+    }
+
+    return 1;
+}

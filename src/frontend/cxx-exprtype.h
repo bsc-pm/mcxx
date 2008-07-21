@@ -53,6 +53,8 @@ char check_for_expression_list(AST expression_list, decl_context_t decl_context)
 
 char check_for_initialization(AST initializer, decl_context_t decl_context, type_t* declared_type);
 
+char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context, AST declarator);
+
 unsigned long long exprtype_used_memory(void);
 
 MCXX_END_DECLS

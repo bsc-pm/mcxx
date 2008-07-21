@@ -760,7 +760,8 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
             if (initializer != NULL
                     && current_gather_info.is_extern)
             {
-                running_error("%s: error: cannot initialize an 'extern' declaration %s\n", ast_location(a));
+                running_error("%s: error: cannot initialize an 'extern' declaration '%s'\n", ast_location(a),
+                        init_declarator);
             }
 
             if (initializer != NULL)
@@ -779,6 +780,17 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                 {
                     AST non_nested_declarator = advance_over_declarator_nests(declarator, decl_context);
                     ASTAttrSetValueType(non_nested_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                }
+            }
+            else
+            {
+                CXX_LANGUAGE()
+                {
+                    if (is_named_class_type(declarator_type)
+                            && !is_dependent_type(declarator_type, decl_context))
+                    {
+                        check_zero_args_constructor(declarator_type, decl_context, declarator);
+                    }
                 }
             }
         }
