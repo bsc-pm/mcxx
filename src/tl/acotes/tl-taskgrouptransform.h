@@ -37,28 +37,31 @@ namespace TL { namespace Acotes {
     class Taskgroup;
     
     class TaskgroupTransform {
-    // -- Transform
+    // -- Constructor
     public:
-        static void transform(Taskgroup* taskgroup);
+        TaskgroupTransform(const std::string& driver);
+    protected:
+        const std::string driver;
+
+        // -- Transform
+    public:
+        virtual void transform(Taskgroup* taskgroup);
     private:
-        static void transformReplaceConstruct(Taskgroup* taskgroup);
+        virtual void transformReplaceConstruct(Taskgroup* taskgroup);
         
     // -- Replacement generation
     private:
-        static std::string generateReplacement(Taskgroup* taskgroup);
-        static std::string generateTasksInit(Taskgroup* taskgroup);
-        static std::string generateTasksPorts(Taskgroup* taskgroup);
-        static std::string generateTasksShareds(Taskgroup* taskgroup);
-        static std::string generatePortConnections(Taskgroup* taskgroup);
-        static std::string generateCopyState(Taskgroup* taskgroup);
-        static std::string generateSharedConnections(Taskgroup* taskgroup);
-        static std::string generateTasksStart(Taskgroup* taskgroup);
-        static std::string generateTasksWait(Taskgroup* taskgroup);
-        static std::string generateBody(Taskgroup* taskgroup);
+        virtual std::string generateReplacement(Taskgroup* taskgroup);
+        virtual std::string generateTasksInit(Taskgroup* taskgroup);
+        virtual std::string generateTasksPorts(Taskgroup* taskgroup);
+        virtual std::string generateTasksShareds(Taskgroup* taskgroup);
+        virtual std::string generatePortConnections(Taskgroup* taskgroup);
+        virtual std::string generateCopyState(Taskgroup* taskgroup);
+        virtual std::string generateSharedConnections(Taskgroup* taskgroup);
+        virtual std::string generateTasksStart(Taskgroup* taskgroup);
+        virtual std::string generateTasksWait(Taskgroup* taskgroup);
+        virtual std::string generateBody(Taskgroup* taskgroup);
 
-    // -- No Constructor
-    private:
-        TaskgroupTransform();
     };
     
     

@@ -38,19 +38,21 @@ namespace TL { namespace Acotes {
     
     class StateTransform {
         
+    // -- Constructor
+    public:
+        StateTransform(const std::string &driver);
+    protected:
+       const std::string driver;
+
     // -- Generation
     public:
-        static std::string generateCopy(State* state);
-        static std::string generateCopyInAcquire(State* state);
-        static std::string generateCopyOutAcquire(State* state);
+        virtual std::string generateCopy(State* state);
+        virtual std::string generateCopyInAcquire(State* state);
+        virtual std::string generateCopyOutAcquire(State* state);
     private:
-        static std::string generateCopyIn(State* state);
-        static std::string generateCopyOut(State* state);
+        virtual std::string generateCopyIn(State* state);
+        virtual std::string generateCopyOut(State* state);
     
-    // -- No Constructor
-    private:
-        StateTransform();
-
     };
 
 } /* end namespace Acotes */ } /* end namespace TL */

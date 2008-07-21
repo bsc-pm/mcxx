@@ -39,22 +39,24 @@ namespace TL { namespace Acotes {
     
     class PortTransform {
     
+    // -- Constructor    
+    public:
+        PortTransform(const std::string& driver);
+    protected:
+        const std::string driver;
+        
     // -- Auxiliary generators
     public:
-        static std::string generatePort(Port* port);
-        static std::string generateAcquire(Port* port);
-        static std::string generateInputPeek(Port* port);
-        static std::string generateOutputPeek(Port* port);
-        static std::string generatePop(Port* port);
-        static std::string generatePush(Port* port);
+        virtual std::string generatePort(Port* port);
+        virtual std::string generateAcquire(Port* port);
+        virtual std::string generateInputPeek(Port* port);
+        virtual std::string generateOutputPeek(Port* port);
+        virtual std::string generatePop(Port* port);
+        virtual std::string generatePush(Port* port);
     private:
-        static std::string generateInputPort(Port* port);
-        static std::string generateOutputPort(Port* port);
+        virtual std::string generateInputPort(Port* port);
+        virtual std::string generateOutputPort(Port* port);
                 
-    // -- No constructor    
-    private:
-        PortTransform();
-        
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */

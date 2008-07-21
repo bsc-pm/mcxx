@@ -37,10 +37,23 @@
 #include "tl-sharedtransform.h"
 #include "tl-statetransform.h"
 #include "tl-teamreplicatetransform.h"
+#include "tl-transform.h"
 #include "tl-userporttransform.h"
 #include "tl-variabletransform.h"
 
 namespace TL { namespace Acotes {
+    
+    
+    
+            
+    /* ****************************************************************
+     * * No Constructor
+     * ****************************************************************/
+     
+    TaskTransform::TaskTransform(const std::string& d) : driver(d) {
+    }
+
+    
     
     /* ****************************************************************
      * * Transform.
@@ -102,7 +115,7 @@ namespace TL { namespace Acotes {
         const std::vector<Peek*> &peeks= task->getPeekVector();
         for (unsigned i= 0; i < peeks.size(); i++) {
             Peek* peek= peeks.at(i);
-            PeekTransform::transform(peek);
+            Transform::I(driver)->peek()->transform(peek);
         }
     }
     
@@ -112,7 +125,7 @@ namespace TL { namespace Acotes {
         const std::vector<Variable*> &variables= task->getVariableVector();
         for (unsigned i= 0; i < variables.size(); i++) {
             Variable* variable= variables.at(i);
-            VariableTransform::transformReplacement(variable);
+            Transform::I(driver)->variable()->transformReplacement(variable);
         }
     }
     
@@ -122,7 +135,7 @@ namespace TL { namespace Acotes {
         const std::vector<UserPort*> &uports= task->getUserPortVector();
         for (unsigned i= 0; i < uports.size(); i++) {
             UserPort* userPort= uports.at(i);
-            UserPortTransform::transform(userPort);
+            Transform::I(driver)->userPort()->transform(userPort);
         }
     }
     
@@ -132,7 +145,7 @@ namespace TL { namespace Acotes {
         const std::vector<SharedCheck*> &shareds= task->getSharedCheckVector();
         for (unsigned i= 0; i < shareds.size(); i++) {
             SharedCheck* sharedCheck= shareds.at(i);
-            SharedTransform::transform(sharedCheck);
+            Transform::I(driver)->shared()->transform(sharedCheck);
         }
     }
     
@@ -142,7 +155,7 @@ namespace TL { namespace Acotes {
         const std::vector<SharedUpdate*> &shareds= task->getSharedUpdateVector();
         for (unsigned i= 0; i < shareds.size(); i++) {
             SharedUpdate* sharedUpdate= shareds.at(i);
-            SharedTransform::transform(sharedUpdate);
+            Transform::I(driver)->shared()->transform(sharedUpdate);
         }
     }
 
@@ -152,7 +165,7 @@ namespace TL { namespace Acotes {
         const std::vector<TeamReplicate*> &replicates= task->getTeamReplicateVector();
         for (unsigned i= 0; i < replicates.size(); i++) {
             TeamReplicate* replicate= replicates.at(i);
-            TeamReplicateTransform::transform(replicate);
+            Transform::I(driver)->teamReplicate()->transform(replicate);
         }
     }
 
@@ -236,7 +249,7 @@ namespace TL { namespace Acotes {
         const std::vector<ForReplicate*> &replicates= task->getForReplicateVector();
         for (unsigned i= 0; i < replicates.size(); i++) {
             ForReplicate* forReplicate= replicates.at(i);
-            ss << ForReplicateTransform::generateFor(forReplicate);
+            ss << Transform::I(driver)->forReplicate()->generateFor(forReplicate);
         }
         
         return ss.str();
@@ -253,18 +266,18 @@ namespace TL { namespace Acotes {
         const std::vector<Variable*> &variables= task->getVariableVector();
         for (unsigned i= 0; i < variables.size(); i++) {
             Variable* variable= variables.at(i);
-            ss << VariableTransform::generateVariable(variable);
+            ss << Transform::I(driver)->variable()->generateVariable(variable);
         }
         
         return ss.str();
     }
     
     std::string TaskTransform::generateInitializer(Task* task) {
-        return InitializerTransform::generate(task);
+        return Transform::I(driver)->initializer()->generate(task);
     }
     
     std::string TaskTransform::generateFinalizer(Task* task) {
-        return FinalizerTransform::generate(task);
+        return Transform::I(driver)->finalizer()->generate(task);
     }
     
     /**
@@ -279,7 +292,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < states.size(); i++) {
             State* state= states.at(i);
             if (state->isCopyIn()) {
-                ss << StateTransform::generateCopyInAcquire(state);
+                ss << Transform::I(driver)->state()->generateCopyInAcquire(state);
             }
         }
         
@@ -298,7 +311,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < states.size(); i++) {
             State* state= states.at(i);
             if (state->isCopyOut()) {
-                ss << StateTransform::generateCopyOutAcquire(state);
+                ss << Transform::I(driver)->state()->generateCopyOutAcquire(state);
             }
         }
         
@@ -317,7 +330,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < states.size(); i++) {
             State* state= states.at(i);
             if (state->isShared() || state->isUpdateShared()) {
-                ss << SharedTransform::generateAcquire(state);
+                ss << Transform::I(driver)->shared()->generateAcquire(state);
             }
         }
         
@@ -349,7 +362,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
             if (port->isControl()) {
-                ss << PortTransform::generateAcquire(port);
+                ss << Transform::I(driver)->port()->generateAcquire(port);
             }
         }
         
@@ -365,7 +378,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < states.size(); i++) {
             State* state= states.at(i);
             if (state->isShared() || state->isUpdateShared()) {
-                ss << SharedTransform::generateCheck(state);
+                ss << Transform::I(driver)->shared()->generateCheck(state);
             }
         }
         
@@ -381,7 +394,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
             if (port->isControl() && port->isInput()) {
-                ss << PortTransform::generateInputPeek(port);
+                ss << Transform::I(driver)->port()->generateInputPeek(port);
             }
         }
         
@@ -397,7 +410,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
             if (port->isControl() && port->isOutput()) {
-                ss << PortTransform::generateOutputPeek(port);
+                ss << Transform::I(driver)->port()->generateOutputPeek(port);
             }
         }
         
@@ -413,7 +426,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
             if (port->isControl() && port->isInput() && !port->hasPeek()) {
-                ss << PortTransform::generatePop(port);
+                ss << Transform::I(driver)->port()->generatePop(port);
             }
         }
         
@@ -429,7 +442,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
             if (port->isControl() && port->isOutput()) {
-                ss << PortTransform::generatePush(port);
+                ss << Transform::I(driver)->port()->generatePush(port);
             }
         }
         
@@ -445,7 +458,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
             if (port->isControl() && port->isInput() && port->isReplicate()) {
-                ss << PortTransform::generateInputPeek(port);
+                ss << Transform::I(driver)->port()->generateInputPeek(port);
             }
         }
         
@@ -461,7 +474,7 @@ namespace TL { namespace Acotes {
         const std::vector<TeamReplicate*> &replicates= task->getTeamReplicateVector();
         for (unsigned i= 0; i < replicates.size(); i++) {
             TeamReplicate* teamReplicate= replicates.at(i);
-            ss << TeamReplicateTransform::generateReplicate(teamReplicate);
+            ss << Transform::I(driver)->teamReplicate()->generateReplicate(teamReplicate);
         }
         ss << "trace_teamreplicate_end();";
         
@@ -477,7 +490,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
             if (port->isControl() && port->isInput() && port->isReplicate()) {
-                ss << PortTransform::generatePop(port);
+                ss << Transform::I(driver)->port()->generatePop(port);
             }
         }
         
@@ -494,7 +507,7 @@ namespace TL { namespace Acotes {
             Port* port= ports.at(i);
             if (port->isControl() && port->isReplicate()) {
                 assert(port->isInput());
-                ss << PortTransform::generateAcquire(port);
+                ss << Transform::I(driver)->port()->generateAcquire(port);
             }
         }
         
@@ -531,9 +544,9 @@ namespace TL { namespace Acotes {
             Port* port= ports.at(i);
             Port* artificialCounterpart= port->getArtificialCounterpart();
             if (artificialCounterpart && artificialCounterpart->isOutput()) {
-                ss << PortTransform::generateAcquire(artificialCounterpart);
-                ss << PortTransform::generateOutputPeek(artificialCounterpart);
-                ss << PortTransform::generatePush(artificialCounterpart);
+                ss << Transform::I(driver)->port()->generateAcquire(artificialCounterpart);
+                ss << Transform::I(driver)->port()->generateOutputPeek(artificialCounterpart);
+                ss << Transform::I(driver)->port()->generatePush(artificialCounterpart);
             }
         }
         
@@ -550,9 +563,9 @@ namespace TL { namespace Acotes {
             Port* port= ports.at(i);
             Port* artificialCounterpart= port->getArtificialCounterpart();
             if (artificialCounterpart && artificialCounterpart->isInput()) {
-                ss << PortTransform::generateAcquire(artificialCounterpart);
-                ss << PortTransform::generateInputPeek(artificialCounterpart);
-                ss << PortTransform::generatePop(artificialCounterpart);
+                ss << Transform::I(driver)->port()->generateAcquire(artificialCounterpart);
+                ss << Transform::I(driver)->port()->generateInputPeek(artificialCounterpart);
+                ss << Transform::I(driver)->port()->generatePop(artificialCounterpart);
             }
         }
         
@@ -599,7 +612,7 @@ namespace TL { namespace Acotes {
         const std::vector<Port*> &ports= task->getPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
-            ss << PortTransform::generatePort(port);
+            ss << Transform::I(driver)->port()->generatePort(port);
         }
         
         return ss.str();
@@ -617,7 +630,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < states.size(); i++) {
             State* state= states.at(i);
             if (state->isShared() || state->isUpdateShared()) {
-                ss << SharedTransform::generateShared(state);
+                ss << Transform::I(driver)->shared()->generateShared(state);
             }            
         }
         
@@ -648,16 +661,6 @@ namespace TL { namespace Acotes {
         ss << "task_wait(" << task->getName() << ");";
         
         return ss.str();
-    }
-    
-    
-            
-    /* ****************************************************************
-     * * No Constructor
-     * ****************************************************************/
-     
-    TaskTransform::TaskTransform() {
-        assert(0);
     }
      
     

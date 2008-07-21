@@ -103,6 +103,8 @@ libtlacotes_la_SOURCES = \
     tl-teamreplicateconstruct.h \
     tl-teamreplicatetransform.cc \
     tl-teamreplicatetransform.h \
+    tl-transform.cc \
+    tl-transform.h \
     tl-userportconstruct.cc \
     tl-userportconstruct.h \
     tl-userporttransform.cc \

@@ -39,18 +39,24 @@ namespace TL { namespace Acotes {
     
     class FinalizerTransform {
         
+    // -- Constructor
+    public:
+        FinalizerTransform(const std::string& driver);
+    protected:
+        const std::string driver;
+        
     // -- Transform
     public:
-        static void transform(Finalizer* finalizer);
+        void virtual transform(Finalizer* finalizer);
     private:
-        static void transformReplaceConstruct(Finalizer* finalizer);
-        static std::string generateReplacement(Finalizer* finalizer);
+        void virtual transformReplaceConstruct(Finalizer* finalizer);
+        std::string virtual generateReplacement(Finalizer* finalizer);
 
     // -- Generators
     public:
-        static std::string generate(Task* task);
+        std::string virtual generate(Task* task);
     private:
-        static std::string generate(Finalizer* finalizer);
+        std::string virtual generate(Finalizer* finalizer);
         
     // -- No Constructor
     private:

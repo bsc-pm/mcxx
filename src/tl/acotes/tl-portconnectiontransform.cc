@@ -31,6 +31,16 @@
 
 namespace TL { namespace Acotes {
     
+        
+    /* ******************************************************
+     * * No constructor
+     * ******************************************************/
+    
+    PortConnectionTransform::PortConnectionTransform(const std::string &d)
+            : driver(d)
+    {
+    }
+    
     
     /* ******************************************************
      * * Auxiliary generators
@@ -50,17 +60,6 @@ namespace TL { namespace Acotes {
                 << ");";
         
         return ss.str();
-    }
-        
-    
-    
-    /* ******************************************************
-     * * No constructor
-     * ******************************************************/
-    
-    PortConnectionTransform::PortConnectionTransform()
-    {
-        assert(0);
     }
     
     

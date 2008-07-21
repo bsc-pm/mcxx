@@ -30,6 +30,14 @@
 namespace TL { namespace Acotes {
     
     /* ****************************************************************
+     * * No Constructor
+     * ****************************************************************/
+    
+    InitializerTransform::InitializerTransform(const std::string& d):driver(d) {
+    }
+
+        
+    /* ****************************************************************
      * * Transform
      * ****************************************************************/
     
@@ -97,13 +105,6 @@ namespace TL { namespace Acotes {
         return ss.str();
     }
         
-    /* ****************************************************************
-     * * No Constructor
-     * ****************************************************************/
-    
-        InitializerTransform::InitializerTransform() {
-            assert(0);
-        }
 
     
 } /* end namespace TL */ } /* end namespace Acotes */ 

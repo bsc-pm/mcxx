@@ -32,10 +32,21 @@
 #include "ac-task.h"
 #include "ac-variable.h"
 #include "tl-variabletransform.h"
+#include "tl-transform.h"
 
 namespace TL { namespace Acotes {
     
+    
+    
+    /* ******************************************************
+     * * Constructor
+     * ******************************************************/
+    
+    PortTransform::PortTransform(const std::string& d) : driver(d) {
+    }
 
+    
+    
     /* ******************************************************
      * * Auxiliary generators
      * ******************************************************/
@@ -77,7 +88,7 @@ namespace TL { namespace Acotes {
             
             ss  << "acquire"
                 << "(" << port->getNumber() 
-                << ", " << VariableTransform::generateElementCount(variable)
+                << ", " << Transform::I(driver)->variable()->generateElementCount(variable)
                 << ");";
         }
         
@@ -96,19 +107,19 @@ namespace TL { namespace Acotes {
             ss  << "{"
                 << "  int acotescc__for_peek_index;"
                 << "  for (acotescc__for_peek_index= 0"
-                << "      ; acotescc__for_peek_index < " << VariableTransform::generateElementCount(variable)
+                << "      ; acotescc__for_peek_index < " << Transform::I(driver)->variable()->generateElementCount(variable)
                 << "      ; acotescc__for_peek_index++"
                 << "      ) {"
                 // for each element copies the value
                 << "      memcpy"
-                << "          ( &((" << VariableTransform::generateReference(variable) << ")[acotescc__for_peek_index])"
+                << "          ( &((" << Transform::I(driver)->variable()->generateReference(variable) << ")[acotescc__for_peek_index])"
                 << "          , iport_peek"
                 << "               (" << port->getNumber() 
                 // if we have peek we need to read from the beggining
                 << "               , " << port->getPeekWindow() << " + acotescc__for_peek_index"
                 << "               )"
                 // peeks the size of one element
-                << "          , " << VariableTransform::generateSizeof(variable)
+                << "          , " << Transform::I(driver)->variable()->generateSizeof(variable)
                 << "      );"
                 << "  }"
                 << "}";
@@ -129,7 +140,7 @@ namespace TL { namespace Acotes {
             ss  << "{"
                 << "  int acotescc__for_peek_index;"
                 << "  for (acotescc__for_peek_index= 0"
-                << "      ; acotescc__for_peek_index < " << VariableTransform::generateElementCount(variable)
+                << "      ; acotescc__for_peek_index < " << Transform::I(driver)->variable()->generateElementCount(variable)
                 << "      ; acotescc__for_peek_index++"
                 << "      ) {"
                 // for each element copies the value
@@ -138,9 +149,9 @@ namespace TL { namespace Acotes {
                 << "               (" << port->getNumber() 
                 << "               , acotescc__for_peek_index"
                 << "               )"
-                << "          , &((" << VariableTransform::generateReference(variable) << ")[acotescc__for_peek_index])"
+                << "          , &((" << Transform::I(driver)->variable()->generateReference(variable) << ")[acotescc__for_peek_index])"
                 // peeks the size of one element
-                << "          , " << VariableTransform::generateSizeof(variable)
+                << "          , " << Transform::I(driver)->variable()->generateSizeof(variable)
                 << "      );"
                 << "  }"
                 << "}";
@@ -169,7 +180,7 @@ namespace TL { namespace Acotes {
             else { assert(0); }
             ss  << "pop"
                 << "(" << port->getNumber() 
-                << ", " << VariableTransform::generateElementCount(variable)
+                << ", " << Transform::I(driver)->variable()->generateElementCount(variable)
                 << ");";
         }
         
@@ -196,7 +207,7 @@ namespace TL { namespace Acotes {
             else { assert(0); }
             ss  << "push"
                 << "(" << port->getNumber() 
-                << ", " << VariableTransform::generateElementCount(variable)
+                << ", " << Transform::I(driver)->variable()->generateElementCount(variable)
                 << ");";
         }
         
@@ -216,9 +227,9 @@ namespace TL { namespace Acotes {
                 << ", " << port->getNumber()
                 ;
         if (port->hasVariable()) {
-            ss  << ", " << VariableTransform::generateSizeof(variable)
-                << ", " << VariableTransform::generateElementCount(variable)
-                << ", " << port->getPeekWindow() << "+" << VariableTransform::generateElementCount(variable)
+            ss  << ", " << Transform::I(driver)->variable()->generateSizeof(variable)
+                << ", " << Transform::I(driver)->variable()->generateElementCount(variable)
+                << ", " << port->getPeekWindow() << "+" << Transform::I(driver)->variable()->generateElementCount(variable)
                 ;
         } else {
             ss  << ", 0, 1, 0";
@@ -226,7 +237,7 @@ namespace TL { namespace Acotes {
         
         if (port->hasPeek()) {
             Peek* peek= port->getPeek();
-            ss  << ", " << VariableTransform::generateReference(peek->getHistory()->getVariable())
+            ss  << ", " << Transform::I(driver)->variable()->generateReference(peek->getHistory()->getVariable())
                 << ", " << port->getPeekWindow()
                 ;
         } else {
@@ -256,9 +267,9 @@ namespace TL { namespace Acotes {
                 << ", " << port->getNumber()
                 ;
         if (variable) {
-            ss  << ", " << VariableTransform::generateSizeof(variable)
-                << ", " << VariableTransform::generateElementCount(variable)
-                << ", " << VariableTransform::generateElementCount(variable)
+            ss  << ", " << Transform::I(driver)->variable()->generateSizeof(variable)
+                << ", " << Transform::I(driver)->variable()->generateElementCount(variable)
+                << ", " << Transform::I(driver)->variable()->generateElementCount(variable)
                 ;
         } else {
             ss  << ", 0, 1, 0";
@@ -269,15 +280,6 @@ namespace TL { namespace Acotes {
         return ss.str();
     }
     
-    
-    
-    /* ******************************************************
-     * * No constructor
-     * ******************************************************/
-    
-    PortTransform::PortTransform() {
-        assert(0);
-    }
     
 } /* end namespace Acotes */ } /* end namespace TL */
     

@@ -27,6 +27,17 @@
 #include "ac-teamreplicate.h"
 
 namespace TL { namespace Acotes {
+
+    
+    /* ****************************************************************
+     * * Constructor
+     * ****************************************************************/
+    
+    TeamReplicateTransform::TeamReplicateTransform(const std::string& d)
+            : driver(d)
+    {
+    }
+    
     
     /* ****************************************************************
      * * Transform
@@ -77,17 +88,6 @@ namespace TL { namespace Acotes {
         return ss.str();
     }
         
-
-    
-    /* ****************************************************************
-     * * No Constructor
-     * ****************************************************************/
-    
-    TeamReplicateTransform::TeamReplicateTransform()
-    {
-        assert(0);
-    }
-    
     
 } /* end namespace Acotes */ } /* end namespace TL */
 

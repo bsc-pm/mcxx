@@ -30,8 +30,19 @@
 #include "ac-state.h"
 #include "ac-task.h"
 #include "tl-variabletransform.h"
+#include "tl-transform.h"
 
 namespace TL { namespace Acotes {
+    
+    
+    /* ****************************************************************
+     * * Constructor
+     * ****************************************************************/
+        
+    SharedTransform::SharedTransform(const std::string &d) : driver(d)
+    {
+    }
+    
 
 
     /* ****************************************************************
@@ -151,8 +162,8 @@ namespace TL { namespace Acotes {
         ss << "task_shared"
                 << "( " << task->getName()
                 << ", " << state->getNumber()
-                << ", " << VariableTransform::generateReference(variable)
-                << ", " << VariableTransform::generateSizeof(variable)
+                << ", " << Transform::I(driver)->variable()->generateReference(variable)
+                << ", " << Transform::I(driver)->variable()->generateSizeof(variable)
                 << ");";
         
         return ss.str();
@@ -197,9 +208,9 @@ namespace TL { namespace Acotes {
         
         Variable* variable= state->getVariable();
         ss << "memcpy"
-                << "( " << VariableTransform::generateReference(variable)
+                << "( " << Transform::I(driver)->variable()->generateReference(variable)
                 << ", shared_acquire(" << state->getNumber() << ")"
-                << ", " << VariableTransform::generateSizeof(variable)
+                << ", " << Transform::I(driver)->variable()->generateSizeof(variable)
                 << ");";
         
         return ss.str();
@@ -233,25 +244,14 @@ namespace TL { namespace Acotes {
         Variable* variable= state->getVariable();
         ss << "memcpy"
                 << "( shared_acquire(" << state->getNumber() << ")"
-                << ", " << VariableTransform::generateReference(variable)
-                << ", " << VariableTransform::generateSizeof(variable)
+                << ", " << Transform::I(driver)->variable()->generateReference(variable)
+                << ", " << Transform::I(driver)->variable()->generateSizeof(variable)
                 << ");"
            << "shared_update(" << state->getNumber() << ");"
            ;
         
         return ss.str();
 
-    }
-    
-    
-    
-    /* ****************************************************************
-     * * No Constructor
-     * ****************************************************************/
-        
-    SharedTransform::SharedTransform()
-    {
-        assert(0);
     }
     
     

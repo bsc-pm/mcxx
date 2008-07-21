@@ -29,6 +29,13 @@
 
 namespace TL { namespace Acotes {
     
+    /* ****************************************************************
+     * * Constructor
+     * ****************************************************************/
+    
+    ForReplicateTransform::ForReplicateTransform(const std::string& d):driver(d)
+    {
+    }
         
     /* ****************************************************************
      * * Generate

@@ -30,8 +30,21 @@
 #include "ac-task.h"
 #include "ac-variable.h"
 #include "tl-porttransform.h"
+#include "tl-transform.h"
 
 namespace TL { namespace Acotes {
+    
+    
+    
+    
+    /* ****************************************************************
+     * * Constructor
+     * ****************************************************************/
+   
+    PeekTransform::PeekTransform(const std::string& d) : driver(d)
+    {
+    }
+
     
     
     /* ****************************************************************
@@ -58,7 +71,7 @@ namespace TL { namespace Acotes {
         ScopeLink scopeLink= construct->get_scope_link();
     
         // Replace taskgroup construct
-        Source replaceSource= PortTransform::generatePop(peek->getPort());
+        Source replaceSource= Transform::I(driver)->port()->generatePop(peek->getPort());
         AST_t replaceTree= replaceSource.parse_statement(ast, scopeLink);
         ast.replace(replaceTree);
 
@@ -134,16 +147,6 @@ namespace TL { namespace Acotes {
      * * Generation
      * ****************************************************************/
 
-    
-    
-    /* ****************************************************************
-     * * No Constructor
-     * ****************************************************************/
-   
-    PeekTransform::PeekTransform()
-    {
-        assert(0);
-    }
     
     
 } /* end namespace Acotes */ } /* end namespace TL */

@@ -26,8 +26,18 @@
 #include <sstream>
 #include "ac-userport.h"
 #include "tl-porttransform.h"
+#include "tl-transform.h"
 
 namespace TL { namespace Acotes {
+
+    /* ****************************************************************
+     * * Constructor
+     * ****************************************************************/
+    
+    UserPortTransform::UserPortTransform(const std::string &d)
+            : driver(d)
+    {
+    }
 
     /* ****************************************************************
      * * Transform
@@ -79,9 +89,9 @@ namespace TL { namespace Acotes {
         const std::vector<Port*> &ports= userPort->getInputPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
-            ss << PortTransform::generateAcquire(port);
-            ss << PortTransform::generateInputPeek(port);
-            ss << PortTransform::generatePop(port);
+            ss << Transform::I(driver)->port()->generateAcquire(port);
+            ss << Transform::I(driver)->port()->generateInputPeek(port);
+            ss << Transform::I(driver)->port()->generatePop(port);
         }
         
         return ss.str();
@@ -94,21 +104,13 @@ namespace TL { namespace Acotes {
         const std::vector<Port*> &ports= userPort->getOutputPortVector();
         for (unsigned i= 0; i < ports.size(); i++) {
             Port* port= ports.at(i);
-            ss << PortTransform::generateAcquire(port);
-            ss << PortTransform::generateOutputPeek(port);
-            ss << PortTransform::generatePush(port);
+            ss << Transform::I(driver)->port()->generateAcquire(port);
+            ss << Transform::I(driver)->port()->generateOutputPeek(port);
+            ss << Transform::I(driver)->port()->generatePush(port);
         }
         
         return ss.str();
     }
         
-    /* ****************************************************************
-     * * No Constructor
-     * ****************************************************************/
-    
-    UserPortTransform::UserPortTransform()
-    {
-        assert(0);
-    }
     
 } /* end namespace Acotes */ } /* end namespace TL */

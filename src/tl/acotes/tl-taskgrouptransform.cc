@@ -30,8 +30,18 @@
 #include "tl-sharedtransform.h"
 #include "tl-statetransform.h"
 #include "tl-tasktransform.h"
+#include "tl-transform.h"
 
 namespace TL { namespace Acotes {
+    
+    /* ****************************************************************
+     * * Constructor
+     * ****************************************************************/
+     
+    TaskgroupTransform::TaskgroupTransform(const std::string& d) : driver(d) {
+    }
+
+    
     
     /* ****************************************************************
      * * Transform.
@@ -46,7 +56,7 @@ namespace TL { namespace Acotes {
     void TaskgroupTransform::transform(Taskgroup* taskgroup) {
         assert(taskgroup);
         
-        TaskTransform::transform(taskgroup->getImplicitTask());
+        Transform::I(driver)->task()->transform(taskgroup->getImplicitTask());
         transformReplaceConstruct(taskgroup);
     }
     
@@ -105,7 +115,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < tasks.size(); i++)
         {
             Task* task= tasks.at(i);
-            ss << TaskTransform::generateInit(task);
+            ss << Transform::I(driver)->task()->generateInit(task);
         }
                         
         return ss.str();
@@ -124,7 +134,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < tasks.size(); i++)
         {
             Task* task= tasks.at(i);
-            ss << TaskTransform::generatePorts(task);
+            ss << Transform::I(driver)->task()->generatePorts(task);
         }
                         
         return ss.str();
@@ -143,7 +153,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < tasks.size(); i++)
         {
             Task* task= tasks.at(i);
-            ss << TaskTransform::generateShareds(task);
+            ss << Transform::I(driver)->task()->generateShareds(task);
         }
                         
         return ss.str();
@@ -162,7 +172,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < connections.size(); i++)
         {
             PortConnection* portConnection= connections.at(i);
-            ss << PortConnectionTransform::generatePortConnection(portConnection);
+            ss << Transform::I(driver)->portConnection()->generatePortConnection(portConnection);
         }
                         
         return ss.str();
@@ -181,7 +191,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < states.size(); i++)
         {
             State* state= states.at(i);
-            ss << StateTransform::generateCopy(state);
+            ss << Transform::I(driver)->state()->generateCopy(state);
         }
                         
         return ss.str();
@@ -200,7 +210,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < connections.size(); i++)
         {
             SharedConnection* sharedConnection= connections.at(i);
-            ss << SharedTransform::generateSharedConnection(sharedConnection);
+            ss << Transform::I(driver)->shared()->generateSharedConnection(sharedConnection);
         }
                         
         return ss.str();
@@ -219,7 +229,7 @@ namespace TL { namespace Acotes {
         for (unsigned i= 0; i < tasks.size(); i++)
         {
             Task* task= tasks.at(i);
-            ss << TaskTransform::generateStart(task);
+            ss << Transform::I(driver)->task()->generateStart(task);
         }
                         
         return ss.str();
@@ -238,7 +248,7 @@ namespace TL { namespace Acotes {
         for (int i= tasks.size() - 1; i >= 0; i--)
         {
             Task* task= tasks.at(i);
-            ss << TaskTransform::generateWait(task);
+            ss << Transform::I(driver)->task()->generateWait(task);
         }
                         
         return ss.str();
@@ -258,16 +268,6 @@ namespace TL { namespace Acotes {
        ss << "trace_iteration_end();" << std::endl;
        
        return ss.str();
-    }
-
-    
-    
-    /* ****************************************************************
-     * * No Constructor
-     * ****************************************************************/
-     
-    TaskgroupTransform::TaskgroupTransform() {
-        assert(0);
     }
      
     

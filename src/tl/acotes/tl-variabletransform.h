@@ -38,20 +38,23 @@ namespace TL { namespace Acotes {
     class Variable;
     
     class VariableTransform {
+    // -- Constructor
+    public:
+        VariableTransform(const std::string &driver);
+    protected:
+        const std::string driver;
+
     // -- Transform
     public:
-        static void transformReplacement(Variable* variable);
+        virtual void transformReplacement(Variable* variable);
         
     // -- Generation
     public:
-        static std::string generateVariable(Variable* variable);
-        static std::string generateReference(Variable* variable);
-        static std::string generateSizeof(Variable* variable);
-        static std::string generateElementCount(Variable* variable);
+        virtual std::string generateVariable(Variable* variable);
+        virtual std::string generateReference(Variable* variable);
+        virtual std::string generateSizeof(Variable* variable);
+        virtual std::string generateElementCount(Variable* variable);
         
-    // -- No Constructor
-    private:
-        VariableTransform();
     };
     
     

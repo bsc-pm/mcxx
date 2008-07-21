@@ -30,6 +30,16 @@
 namespace TL { namespace Acotes {
     
     /* ****************************************************************
+     * * Constructor
+     * ****************************************************************/
+    
+    FinalizerTransform::FinalizerTransform(const std::string& d) : driver(d)
+    {
+    }
+    
+    
+        
+    /* ****************************************************************
      * * Transform
      * ****************************************************************/
     
@@ -97,13 +107,5 @@ namespace TL { namespace Acotes {
         return ss.str();
     }
         
-    /* ****************************************************************
-     * * No Constructor
-     * ****************************************************************/
-    
-        FinalizerTransform::FinalizerTransform() {
-            assert(0);
-        }
-
     
 } /* end namespace TL */ } /* end namespace Acotes */ 

@@ -39,22 +39,25 @@ namespace TL { namespace Acotes {
     
     class InitializerTransform {
         
+    // -- Constructor
+    public:
+        InitializerTransform(const std::string& d);
+    protected:
+        const std::string driver;
+        
     // -- Transform
     public:
-        static void transform(Initializer* initializer);
+        virtual void transform(Initializer* initializer);
     private:
-        static void transformReplaceConstruct(Initializer* initializer);
-        static std::string generateReplacement(Initializer* initializer);
+        virtual void transformReplaceConstruct(Initializer* initializer);
+        virtual std::string generateReplacement(Initializer* initializer);
 
     // -- Generators
     public:
-        static std::string generate(Task* task);
+        virtual std::string generate(Task* task);
     private:
-        static std::string generate(Initializer* initializer);
+        virtual std::string generate(Initializer* initializer);
         
-    // -- No Constructor
-    private:
-        InitializerTransform();
     };
     
 } /* end namespace TL */ } /* end namespace Acotes */ 

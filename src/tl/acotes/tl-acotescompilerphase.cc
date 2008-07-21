@@ -35,6 +35,7 @@
 #include "tl-taskconstruct.h"
 #include "tl-taskgroupconstruct.h"
 #include "tl-teamreplicateconstruct.h"
+#include "tl-transform.h"
 #include "tl-userportconstruct.h"
 
 namespace TL { namespace Acotes {
@@ -158,7 +159,7 @@ namespace TL { namespace Acotes {
         depth_traverse.traverse(translation_unit, scope_link);
         
         // Transform parsed source
-        AcotesTransform::transform();
+        Transform::I("default")->acotes()->transform();
         
         if (AcotesLogger::wasAnyError()) {
             TL::LangConstruct file(translation_unit, scope_link);

@@ -30,14 +30,18 @@
 #ifndef _TL_ACOTESTRANSFORM_H
 #define	_TL_ACOTESTRANSFORM_H
 
+#include <string>
+
 namespace TL { namespace Acotes {
     
     class AcotesTransform {
     public:
-        static void transform();
-        
-    private:
-        AcotesTransform();
+        AcotesTransform(const std::string& driver);
+    protected:
+        const std::string driver;
+
+    public:
+        virtual void transform();    
     };
     
     

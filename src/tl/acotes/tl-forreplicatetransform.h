@@ -38,9 +38,15 @@ namespace TL { namespace Acotes {
     
     class ForReplicateTransform {
         
+    // -- Constructor
+    public:
+        ForReplicateTransform(const std::string& driver);
+    protected:
+        const std::string driver;
+        
     // -- Generate
     public:
-        static std::string generateFor(ForReplicate* forReplicate);
+        virtual std::string generateFor(ForReplicate* forReplicate);
         
     };
     

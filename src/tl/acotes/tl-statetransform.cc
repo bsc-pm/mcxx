@@ -27,9 +27,22 @@
 #include "ac-state.h"
 #include "ac-task.h"
 #include "ac-variable.h"
+#include "tl-transform.h"
 #include "tl-variabletransform.h"
 
 namespace TL { namespace Acotes {
+    
+    
+    /* ****************************************************************
+     * * Constructor
+     * ****************************************************************/
+    
+    /**
+     * No constructor.
+     */
+    StateTransform::StateTransform(const std::string& d) : driver(d) {
+    }
+
     
     /* ****************************************************************
      * * Generator.
@@ -66,10 +79,10 @@ namespace TL { namespace Acotes {
         
         Variable* variable= state->getVariable();
         ss << "memcpy"
-                << "( " << VariableTransform::generateReference(variable)
+                << "( " << Transform::I(driver)->variable()->generateReference(variable)
                 << ", copyin_acquire(" << state->getNumber() << ")"
-                << ", " << VariableTransform::generateSizeof(variable)
-                << "   * " << VariableTransform::generateElementCount(variable)
+                << ", " << Transform::I(driver)->variable()->generateSizeof(variable)
+                << "   * " << Transform::I(driver)->variable()->generateElementCount(variable)
                 << ");";
         
         return ss.str();
@@ -89,9 +102,9 @@ namespace TL { namespace Acotes {
         Variable* variable= state->getVariable();
         ss << "memcpy"
                 << "( copyout_acquire(" << state->getNumber() << ")"
-                << ", " << VariableTransform::generateReference(variable)
-                << ", " << VariableTransform::generateSizeof(variable)
-                << "   * " << VariableTransform::generateElementCount(variable)
+                << ", " << Transform::I(driver)->variable()->generateReference(variable)
+                << ", " << Transform::I(driver)->variable()->generateSizeof(variable)
+                << "   * " << Transform::I(driver)->variable()->generateElementCount(variable)
                 << ");";
         
         return ss.str();
@@ -113,9 +126,9 @@ namespace TL { namespace Acotes {
         ss << "task_copyin"
                 << "( " << task->getName()
                 << ", " << state->getNumber()
-                << ", " << VariableTransform::generateReference(variable)
-                << ", " << VariableTransform::generateSizeof(variable)
-                << "   * " << VariableTransform::generateElementCount(variable)
+                << ", " << Transform::I(driver)->variable()->generateReference(variable)
+                << ", " << Transform::I(driver)->variable()->generateSizeof(variable)
+                << "   * " << Transform::I(driver)->variable()->generateElementCount(variable)
                 << ");";
         
         return ss.str();
@@ -137,25 +150,14 @@ namespace TL { namespace Acotes {
         ss << "task_copyout"
                 << "( " << task->getName()
                 << ", " << state->getNumber()
-                << ", " << VariableTransform::generateReference(variable)
-                << ", " << VariableTransform::generateSizeof(variable)
-                << "   * " << VariableTransform::generateElementCount(variable)
+                << ", " << Transform::I(driver)->variable()->generateReference(variable)
+                << ", " << Transform::I(driver)->variable()->generateSizeof(variable)
+                << "   * " << Transform::I(driver)->variable()->generateElementCount(variable)
                 << ");";
         
         return ss.str();
     }
             
 
-    
-    /* ****************************************************************
-     * * No Constructor
-     * ****************************************************************/
-    
-    /**
-     * No constructor.
-     */
-    StateTransform::StateTransform() {
-        assert(0);
-    }
     
 } /* end namespace Acotes */ } /* end namespace TL */

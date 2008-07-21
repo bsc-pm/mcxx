@@ -29,8 +29,17 @@
 #include "tl-finalizertransform.h"
 #include "tl-initializertransform.h"
 #include "tl-taskgrouptransform.h"
+#include "tl-transform.h"
 
 namespace TL { namespace Acotes {
+    
+    /* ****************************************************************
+     * * Constructor.
+     * ****************************************************************/
+
+    AcotesTransform::AcotesTransform(const std::string& n) : driver(n) {
+    }
+    
     
     /* ****************************************************************
      * * Transforms everything.
@@ -43,27 +52,18 @@ namespace TL { namespace Acotes {
         
         for (int i= taskgroups.size() - 1; i >= 0; i--) {
             Taskgroup* taskgroup= taskgroups.at(i);
-            TaskgroupTransform::transform(taskgroup);
+            Transform::I(driver)->taskgroup()->transform(taskgroup);
         }
 
         for (unsigned i= 0; i < initializers.size(); i++) {
             Initializer* initializer= initializers.at(i);
-            InitializerTransform::transform(initializer);
+            Transform::I(driver)->initializer()->transform(initializer);
         }
 
         for (unsigned i= 0; i < finalizers.size(); i++) {
             Finalizer* finalizer= finalizers.at(i);
-            FinalizerTransform::transform(finalizer);
+            Transform::I(driver)->finalizer()->transform(finalizer);
         }
     }
         
-    /* ****************************************************************
-     * * Construct.
-     * ****************************************************************/
-
-    AcotesTransform::AcotesTransform() {
-        assert(0);
-    }
-    
-    
 } /* end namespace Acotes */ } /* end namespace TL */

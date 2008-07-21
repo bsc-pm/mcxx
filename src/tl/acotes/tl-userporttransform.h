@@ -37,21 +37,24 @@ namespace TL { namespace Acotes {
     class UserPort;
     
     class UserPortTransform {
+        
+    // -- Constructor
+    public:
+        UserPortTransform(const std::string& driver);
+    protected:
+        const std::string driver;
+
     // -- Transform
     public:
-        static void transform(UserPort* userPort);
+        virtual void transform(UserPort* userPort);
     private:
-        static void transformReplacement(UserPort* userPort);
+        virtual void transformReplacement(UserPort* userPort);
         
     // -- Generator
     private:
-        static std::string generateReplacement(UserPort* userPort);
-        static std::string generateInputPort(UserPort* userPort);
-        static std::string generateOutputPort(UserPort* userPort);
-        
-    // -- No Constructor
-    private:
-        UserPortTransform();
+        virtual std::string generateReplacement(UserPort* userPort);
+        virtual std::string generateInputPort(UserPort* userPort);
+        virtual std::string generateOutputPort(UserPort* userPort);
     };
 
 } /* end namespace Acotes */ } /* end namespace TL */

@@ -38,21 +38,25 @@ namespace TL { namespace Acotes {
     
     class PeekTransform
     {
+
+    // -- Constructor
+    public:
+        PeekTransform(const std::string& driver);
+    protected:
+        const std::string driver;
+        
+        
     // -- Transform 
     public:
-        static void transform(Peek* peek);
+        virtual void transform(Peek* peek);
     private:
-        static void transformConstruct(Peek* peek);
-        static void transformHistory(Peek* peek);
-        static void transformIndex(Peek* peek);
+        virtual void transformConstruct(Peek* peek);
+        virtual void transformHistory(Peek* peek);
+        virtual void transformIndex(Peek* peek);
 
     // -- Generation
     public:
     private:
-
-    // -- No Constructor
-    private:
-        PeekTransform();
     };
     
 } /* end namespace Acotes */ } /* end namespace TL */

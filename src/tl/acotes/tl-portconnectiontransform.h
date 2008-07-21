@@ -38,13 +38,16 @@ namespace TL { namespace Acotes {
     class PortConnection;
     
     class PortConnectionTransform {
+        
+    // -- constructor
+    public:
+        PortConnectionTransform(const std::string& driver);
+    protected:
+        const std::string driver;
+        
     // -- Auxiliary generators
     public:
-        static std::string generatePortConnection(PortConnection* portConnection);
-        
-    // -- No constructor
-    private:
-        PortConnectionTransform();
+        virtual std::string generatePortConnection(PortConnection* portConnection);
     };
     
     

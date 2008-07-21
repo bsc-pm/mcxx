@@ -30,7 +30,21 @@
 #include <ac-variable.h>
 
 namespace TL { namespace Acotes {
+    
+    /* ****************************************************************
+     * * No Constructor
+     * ****************************************************************/
+    
+    /** 
+     * No constructor use allowed.
+     */
+    VariableTransform::VariableTransform(const std::string &d) 
+            : driver(d)
+    {
+    }
 
+    
+    
     /* ****************************************************************
      * * Transform
      * ****************************************************************/
@@ -137,17 +151,5 @@ namespace TL { namespace Acotes {
     }
 
     
-    
-    /* ****************************************************************
-     * * No Constructor
-     * ****************************************************************/
-    
-    /** 
-     * No constructor use allowed.
-     */
-    VariableTransform::VariableTransform() 
-    {
-        assert(0);
-    }
     
 } /* end namespace Acotes */ } /* end namespace TL */

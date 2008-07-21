@@ -37,59 +37,62 @@ namespace TL { namespace Acotes {
     class Task;
     
     class TaskTransform {
+    // -- Constructor
+    public:
+        TaskTransform(const std::string& driver);
+    protected:
+        const std::string driver;
+        
     // -- Transform
     public:
-        static void transform(Task* task);
+        virtual void transform(Task* task);
     private:
-        static void transformChildren(Task* task);
-        static void transformAddOutline(Task* task);
-        static void transformReplacePeek(Task* task);
-        static void transformReplaceVariable(Task* task);
-        static void transformReplaceUserPort(Task* task);
-        static void transformReplaceSharedCheck(Task* task);
-        static void transformReplaceSharedUpdate(Task* task);
-        static void transformReplaceTeamReplicate(Task* task);
-        static void transformReplaceConstruct(Task* task);
+        virtual void transformChildren(Task* task);
+        virtual void transformAddOutline(Task* task);
+        virtual void transformReplacePeek(Task* task);
+        virtual void transformReplaceVariable(Task* task);
+        virtual void transformReplaceUserPort(Task* task);
+        virtual void transformReplaceSharedCheck(Task* task);
+        virtual void transformReplaceSharedUpdate(Task* task);
+        virtual void transformReplaceTeamReplicate(Task* task);
+        virtual void transformReplaceConstruct(Task* task);
         
     // -- Outline generation
     private:
-        static std::string generateOutline(Task* task);
-        static std::string generateForReplicate(Task* task);
-        static std::string generateVariable(Task* task);
-        static std::string generateInitializer(Task* task);
-        static std::string generateFinalizer(Task* task);
-        static std::string generateCopyInAcquire(Task* task);
-        static std::string generateCopyOutAcquire(Task* task);
-        static std::string generateSharedAcquire(Task* task);
-        static std::string generateBody(Task* task);
-        static std::string generateControlAcquire(Task* task);
-        static std::string generateControlSharedCheck(Task* task);
-        static std::string generateControlInputPeek(Task* task);
-        static std::string generateControlOutputPeek(Task* task);
-        static std::string generateControlPop(Task* task);
-        static std::string generateControlPush(Task* task);
-        static std::string generateReplicatePeek(Task* task);
-        static std::string generateReplicateBody(Task* task);
-        static std::string generateReplicatePop(Task* task);
-        static std::string generateReplicateAcquire(Task* task);
+        virtual std::string generateOutline(Task* task);
+        virtual std::string generateForReplicate(Task* task);
+        virtual std::string generateVariable(Task* task);
+        virtual std::string generateInitializer(Task* task);
+        virtual std::string generateFinalizer(Task* task);
+        virtual std::string generateCopyInAcquire(Task* task);
+        virtual std::string generateCopyOutAcquire(Task* task);
+        virtual std::string generateSharedAcquire(Task* task);
+        virtual std::string generateBody(Task* task);
+        virtual std::string generateControlAcquire(Task* task);
+        virtual std::string generateControlSharedCheck(Task* task);
+        virtual std::string generateControlInputPeek(Task* task);
+        virtual std::string generateControlOutputPeek(Task* task);
+        virtual std::string generateControlPop(Task* task);
+        virtual std::string generateControlPush(Task* task);
+        virtual std::string generateReplicatePeek(Task* task);
+        virtual std::string generateReplicateBody(Task* task);
+        virtual std::string generateReplicatePop(Task* task);
+        virtual std::string generateReplicateAcquire(Task* task);
     
     // -- Replacement generation
     private:
-        static std::string generateReplacement(Task* task);
-        static std::string generateArtificialPush(Task* task);
-        static std::string generateArtificialPop(Task* task);
+        virtual std::string generateReplacement(Task* task);
+        virtual std::string generateArtificialPush(Task* task);
+        virtual std::string generateArtificialPop(Task* task);
         
     // -- Taskgroup replacement generation support
     public:
-        static std::string generateInit(Task* task);
-        static std::string generatePorts(Task* task);
-        static std::string generateShareds(Task* task);
-        static std::string generateStart(Task* task);
-        static std::string generateWait(Task* task);
+        virtual std::string generateInit(Task* task);
+        virtual std::string generatePorts(Task* task);
+        virtual std::string generateShareds(Task* task);
+        virtual std::string generateStart(Task* task);
+        virtual std::string generateWait(Task* task);
         
-    // -- No Constructor
-    private:
-        TaskTransform();
     };
     
     

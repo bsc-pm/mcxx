@@ -40,32 +40,36 @@ namespace TL { namespace Acotes {
     class State;
     
     class SharedTransform {
+        
+    // -- Constructor
+    public:
+        SharedTransform(const std::string& driver);
+    private:
+        const std::string& driver;
+        
+        
     // -- Transform
     public:
-        static void transform(SharedCheck* sharedCheck);
-        static void transform(SharedUpdate* sharedUpdate);
+        virtual void transform(SharedCheck* sharedCheck);
+        virtual void transform(SharedUpdate* sharedUpdate);
     private:
-        static void transformReplacement(SharedCheck* sharedCheck);
-        static std::string generateReplacement(SharedCheck* sharedCheck);
-        static std::string generateCheck(SharedCheck* sharedCheck);
-        static void transformReplacement(SharedUpdate* sharedUpdate);
-        static std::string generateReplacement(SharedUpdate* sharedUpdate);
-        static std::string generateUpdate(SharedUpdate* sharedUpdate);
+        virtual void transformReplacement(SharedCheck* sharedCheck);
+        virtual std::string generateReplacement(SharedCheck* sharedCheck);
+        virtual std::string generateCheck(SharedCheck* sharedCheck);
+        virtual void transformReplacement(SharedUpdate* sharedUpdate);
+        virtual std::string generateReplacement(SharedUpdate* sharedUpdate);
+        virtual std::string generateUpdate(SharedUpdate* sharedUpdate);
         
         
         
     // -- Generator
     public:
-        static std::string generateShared(State* state);
-        static std::string generateSharedConnection(SharedConnection* sharedConnection);
-        static std::string generateAcquire(State* state);
-        static std::string generateCheck(State* state);
-        static std::string generateUpdate(State* state);
+        virtual std::string generateShared(State* state);
+        virtual std::string generateSharedConnection(SharedConnection* sharedConnection);
+        virtual std::string generateAcquire(State* state);
+        virtual std::string generateCheck(State* state);
+        virtual std::string generateUpdate(State* state);
     private:
-        
-    // -- No Constructor
-    private:
-        SharedTransform();
     };
 
 } /* end namespace Acotes */ } /* end namespace TL */

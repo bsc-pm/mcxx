@@ -37,21 +37,24 @@ namespace TL { namespace Acotes {
     class TeamReplicate;
     
     class TeamReplicateTransform {
+    // -- Constructor
+    public:
+        TeamReplicateTransform(const std::string& driver);
+    protected:
+        const std::string driver;
+
     // -- Transform
     public:
-        static void transform(TeamReplicate* teamReplicate);
+        virtual void transform(TeamReplicate* teamReplicate);
     private:
-        static void transformReplacement(TeamReplicate* teamReplicate);
+        virtual void transformReplacement(TeamReplicate* teamReplicate);
         
     // -- Generation
     public:
-        static std::string generateReplicate(TeamReplicate* teamReplicate);
+        virtual std::string generateReplicate(TeamReplicate* teamReplicate);
     private:
-        static std::string generateReplacement(TeamReplicate* teamReplicate);
+        virtual std::string generateReplacement(TeamReplicate* teamReplicate);
 
-    // -- No Constructor
-    private:
-        TeamReplicateTransform();
     };
     
     
