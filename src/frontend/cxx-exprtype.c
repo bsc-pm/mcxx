@@ -5591,6 +5591,7 @@ static char check_for_delete_expression(AST expression, decl_context_t decl_cont
                 it = it->next;
             }
 #endif 
+            return 0;
         }
         else
         {
