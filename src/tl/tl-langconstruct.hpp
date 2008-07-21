@@ -270,7 +270,7 @@ namespace TL
     class Statement;
 
     class DeclaredEntity;
-    //! This function wraps a whol function definition
+    //! This function wraps a whole function definition
     class FunctionDefinition : public LangConstruct
     {
         private:
