@@ -947,6 +947,21 @@ namespace TL
         return (_current == NULL);
     }
 
+    AST_t ASTIterator::get_parent_of_list()
+    {
+        // This is similar to a rewind, actually, but without modifying
+        // _current
+        AST it = _ast;
+
+        while (it != NULL
+                && ASTType(it) == AST_NODE_LIST)
+        {
+            it = ASTParent(it);
+        }
+
+        return AST_t(it);
+    }
+
     ASTTraversalResult ast_traversal_result_helper(bool matches, bool recurse)
     {
         if (matches && recurse)
@@ -971,7 +986,7 @@ namespace TL
         }
 
     }
-    
+
     bool AST_t::has_text() const
     {
         return ASTText(_ast) != NULL;
@@ -985,6 +1000,19 @@ namespace TL
     AST_t AST_t::get_parent() const
     {
         return ASTParent(this->_ast);
+    }
+
+    bool AST_t::is_in_a_list()
+    {
+        AST_t parent = get_parent();
+
+        return (parent.is_list());
+    }
+
+    ASTIterator AST_t::get_enclosing_list()
+    {
+        ASTIterator ast_iterator(get_parent()._ast);
+        return ast_iterator;
     }
 
 }

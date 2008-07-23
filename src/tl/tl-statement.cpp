@@ -353,6 +353,58 @@ namespace TL
         return result;
     }
 
+    bool Statement::is_in_compound_statement()
+    {
+        if (_ref.is_in_a_list())
+        {
+            ASTIterator list = _ref.get_enclosing_list();
+
+            AST_t parent = list.get_parent_of_list();
+
+            return PredicateAST<LANG_IS_COMPOUND_STATEMENT>()(parent);
+        }
+
+        return false;
+    }
+
+    bool Statement::is_first()
+    {
+        if (!is_in_compound_statement())
+            return true;
+
+        ASTIterator list = _ref.get_enclosing_list();
+        return list.is_first();
+    }
+
+    bool Statement::is_last()
+    {
+        if (!is_in_compound_statement())
+            return true;
+
+        ASTIterator list = _ref.get_enclosing_list();
+        return list.is_last();
+    }
+
+    Statement Statement::next()
+    {
+        ASTIterator list = _ref.get_enclosing_list();
+        list.next();
+
+        AST_t item = list.item();
+
+        return Statement(item, _scope_link);
+    }
+
+    Statement Statement::previous()
+    {
+        ASTIterator list = _ref.get_enclosing_list();
+        list.previous();
+
+        AST_t item = list.item();
+
+        return Statement(item, _scope_link);
+    }
+
     Statement WhileStatement::get_body()
     {
         TL::AST_t body_tree = _ref.get_attribute(LANG_WHILE_STATEMENT_BODY);

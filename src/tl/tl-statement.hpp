@@ -62,6 +62,33 @@ namespace TL
              */
             ObjectList<Statement> get_inner_statements();
 
+            //! States whether this Statement is enclosed in a compound statement
+            bool is_in_compound_statement();
+
+            /*!
+             * If is_last returns false, this function returns the statement
+             * following the current one.
+             */
+            Statement next();
+
+            /*!
+             * If is_first returns false, this function returns the statement
+             * following the current one.
+             */
+            Statement previous();
+
+            /*! 
+             * States whether this is the first statement of a compound statement.
+             * If no compound statement is enclosing this statement it returns true.
+             */
+            bool is_first();
+
+            /*! 
+             * States whether this is the last statement of a compound statement.
+             * If no compound statement is enclosing this statement it returns true.
+             */
+            bool is_last();
+
             const static PredicateAST<LANG_IS_STATEMENT> predicate;
     };
     

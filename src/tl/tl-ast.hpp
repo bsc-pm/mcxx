@@ -45,6 +45,8 @@ namespace TL
     //! \addtogroup Wrap Wrapping classes
     //! @{
 
+    class AST_t;
+
     //! Class that wraps an AST node of type AST_NODE_LIST
     class ASTIterator
     {
@@ -77,6 +79,9 @@ namespace TL
              * Use this function before traversing a list
              */
             void rewind();
+
+            //! Returns the tree that holds all the list
+            AST_t get_parent_of_list();
 
             //! States whether this is the first element in the list
             bool is_first();
@@ -279,6 +284,11 @@ namespace TL
             bool is_list() const;
             //! Returns an ASTIterator of this list
             ASTIterator get_list_iterator();
+
+            //! States whether the node is in a list
+            bool is_in_a_list();
+            //! Returns an iterator to the enclosing list
+            ASTIterator get_enclosing_list();
 
             bool operator<(AST_t n) const;
             bool operator==(AST_t n) const;
