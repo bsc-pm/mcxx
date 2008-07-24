@@ -76,8 +76,8 @@ libtl_la_SOURCES = \
 	tl-compilerpipeline.hpp \
 	tl-declarationclosure.hpp \
 	tl-declarationclosure.cpp \
-	tl-static-cfg.hpp \
-	tl-static-cfg.cpp \
+	tl-static-callgraph.hpp \
+	tl-static-callgraph.cpp \
 	$(END)
 
 libtl_la_LIBADD = \
