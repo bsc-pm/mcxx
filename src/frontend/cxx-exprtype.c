@@ -9150,7 +9150,7 @@ char check_for_expression_list(AST expression_list, decl_context_t decl_context)
 char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context, AST declarator)
 {
     int num_arguments = 0;
-    type_t* arguments = NULL;
+    type_t** arguments = NULL;
 
     scope_entry_t* chosen_constructor = solve_constructor(class_type,
             arguments, num_arguments,
@@ -9161,9 +9161,14 @@ char check_zero_args_constructor(type_t* class_type, decl_context_t decl_context
 
     if (chosen_constructor == NULL)
     {
-        fprintf(stderr, "%s: warning: no default constructor for '%s' type\n",
-                ast_location(declarator),
-                print_decl_type_str(class_type, decl_context, ""));
+        // FIXME - There are classes with no constructors, they should have one
+        // otherwise some problems will arise with C++
+        if (class_type_get_num_constructors(class_type) != 0)
+        {
+            fprintf(stderr, "%s: warning: no default constructor for '%s' type\n",
+                    ast_location(declarator),
+                    print_decl_type_str(class_type, decl_context, ""));
+        }
         return 0;
     }
     else

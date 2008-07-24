@@ -757,39 +757,50 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context)
                     prettyprint_in_buffer(a),
                     ast_location(a));
 
-            if (initializer != NULL
-                    && current_gather_info.is_extern)
-            {
-                running_error("%s: error: cannot initialize an 'extern' declaration '%s'\n", ast_location(a),
-                        init_declarator);
-            }
-
             if (initializer != NULL)
             {
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "Initializer: '%s'\n", ast_print_node_type(ASTType(initializer)));
-                }
+                if (current_gather_info.is_extern)
+                    running_error("%s: error: cannot initialize an 'extern' declaration '%s'\n", ast_location(a),
+                            init_declarator);
 
-                // This will yield a warning if needed but do not make it an error
-                check_for_initialization(initializer, entry->decl_context, 
-                        get_unqualified_type(declarator_type));
-
-                entry->expression_value = initializer;
-
-                {
-                    AST non_nested_declarator = advance_over_declarator_nests(declarator, decl_context);
-                    ASTAttrSetValueType(non_nested_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
-                }
+                if (entry->kind == SK_TYPEDEF)
+                    running_error("%s: error: cannot initialize an typedef '%s'\n", ast_location(a),
+                            init_declarator);
             }
-            else
+
+            // Only variables can be initialized
+            if (entry->kind == SK_VARIABLE)
             {
-                CXX_LANGUAGE()
+                if (initializer != NULL)
                 {
-                    if (is_named_class_type(declarator_type)
-                            && !is_dependent_type(declarator_type, decl_context))
+                    DEBUG_CODE()
                     {
-                        check_zero_args_constructor(declarator_type, decl_context, declarator);
+                        fprintf(stderr, "Initializer: '%s'\n", ast_print_node_type(ASTType(initializer)));
+                    }
+
+                    // This will yield a warning if needed but do not make it an error
+                    check_for_initialization(initializer, entry->decl_context, 
+                            get_unqualified_type(declarator_type));
+
+                    entry->expression_value = initializer;
+
+                    {
+                        AST non_nested_declarator = advance_over_declarator_nests(declarator, decl_context);
+                        ASTAttrSetValueType(non_nested_declarator, LANG_INITIALIZER, tl_type_t, tl_ast(initializer));
+                    }
+                }
+                // If it does not have initializer and it is not an extern entity
+                // check a zero args constructor
+                else if (!entry->entity_specs.is_extern)
+                {
+                    CXX_LANGUAGE()
+                    {
+                        if (is_named_class_type(declarator_type)
+                                && !is_dependent_type(declarator_type, decl_context)
+                                && !named_type_get_symbol(declarator_type)->entity_specs.after_typedef)
+                        {
+                            check_zero_args_constructor(declarator_type, decl_context, declarator);
+                        }
                     }
                 }
             }
@@ -1235,7 +1246,7 @@ void gather_type_spec_information(AST a, type_t** simple_type_info,
                 if (is_named_type(type_info)
                         && named_type_get_symbol(type_info)->kind == SK_TEMPLATE)
                 {
-                    running_error(stderr, "%s: error: invalid '%s' type-name, it names a template-name\n",
+                    running_error("%s: error: invalid '%s' type-name, it names a template-name\n",
                             ast_location(type_specifier_seq),
                             prettyprint_in_buffer(type_specifier_seq));
                 }

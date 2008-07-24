@@ -5925,7 +5925,9 @@ char standard_conversion_between_types(standard_conversion_t *result, type_t* t_
                 reference_type_get_referenced_type(dest)
                 );
 
-        if (equivalent_types(unqualif_orig, unqualif_dest)
+        standard_conversion_t conversion_among_lvalues = no_scs_conversion;
+
+        if (standard_conversion_between_types(&conversion_among_lvalues, unqualif_orig, unqualif_dest)
                 || (is_class_type(unqualif_dest) 
                     && is_class_type(unqualif_orig)
                     && class_type_is_base(unqualif_dest, unqualif_orig)))
