@@ -302,12 +302,12 @@ static void driver_initialization(int argc, const char* argv[])
 
 static void help_message(void)
 {
-    fprintf(stderr, "Usage: %s options file [file..]\n", compilation_process.argv[0]);
-    fprintf(stderr, HELP_STRING);
+    fprintf(stdout, "Usage: %s options file [file..]\n", compilation_process.argv[0]);
+    fprintf(stdout, HELP_STRING);
 
     phases_help();
 
-    fprintf(stderr, "\n");
+    fprintf(stdout, "\n");
 }
 
 static void print_debug_flags_list(void)
@@ -1177,7 +1177,7 @@ static void register_default_initializers(void)
 
 static void print_version(void)
 {
-    fprintf(stderr, PACKAGE " " VERSION " (" MCXX_BUILD_VERSION ")\n");
+    fprintf(stdout, PACKAGE " " VERSION " (" MCXX_BUILD_VERSION ")\n");
 }
 
 // Callback called for every [section] in the config file
