@@ -472,6 +472,29 @@ namespace TL
         return Statement(case_statement_body, _scope_link);
     }
 
+    void Statement::prepend(Statement st)
+    {
+        this->_ref.prepend(st._ref);
+    }
+
+    void Statement::append(Statement st)
+    {
+        this->_ref.append(st._ref);
+
+        {
+            // If parent has a scope link, discard it
+            AST_t parent = this->_ref.get_parent().get_parent();
+            scope_link_unset(get_scope_link().get_internal_scope_link(), parent.get_internal_ast());
+        }
+
+        {
+            // Update grandparent scope link 
+            AST_t grandparent = this->_ref.get_parent().get_parent();
+            scope_link_set(get_scope_link().get_internal_scope_link(), grandparent.get_internal_ast(),
+                    get_scope().get_decl_context());
+        }
+    }
+
     ObjectList<CaseStatement> SwitchStatement::get_cases()
     {
         TL::AST_t case_statement_body = _ref.get_attribute(LANG_CASE_STATEMENT_BODY);

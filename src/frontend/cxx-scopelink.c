@@ -78,6 +78,13 @@ void scope_link_set(scope_link_t* sl, AST a, decl_context_t decl_context)
     hash_put(sl->h, a, new_entry);
 }
 
+void scope_link_unset(scope_link_t* sl, AST a)
+{
+    scope_link_entry_t* result = (scope_link_entry_t*)hash_get(sl->h, a);
+    if (result != NULL)
+        hash_delete(sl->h, a);
+}
+
 static scope_link_entry_t* scope_link_get(scope_link_t* sl, AST a)
 {
     scope_link_entry_t* result = NULL;

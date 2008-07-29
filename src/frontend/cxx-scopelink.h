@@ -33,6 +33,8 @@ scope_link_t* scope_link_new(decl_context_t global_decl_context);
 
 void scope_link_set(scope_link_t* sl, AST a, decl_context_t decl_context);
 
+void scope_link_unset(scope_link_t* sl, AST a);
+
 decl_context_t scope_link_get_global_decl_context(scope_link_t* sl);
 
 decl_context_t scope_link_get_decl_context(scope_link_t* sl, AST a);

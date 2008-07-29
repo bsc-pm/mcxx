@@ -90,6 +90,11 @@ namespace TL
             bool is_last();
 
             const static PredicateAST<LANG_IS_STATEMENT> predicate;
+
+			//! Prepends a Statement
+			void prepend(Statement st);
+			//! Appends a Statement
+			void append(Statement st);
     };
     
     //! This LangConstruct wraps a for-statement in the code

@@ -68,6 +68,12 @@ namespace TL
             {
             }
 
+			//! Do not use this one unless directed to do so
+			decl_context_t get_decl_context()
+			{
+				return _decl_context;
+			}
+
             //! States whether the scope is valid
             bool is_valid() const
             {
