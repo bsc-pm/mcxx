@@ -67,76 +67,77 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %}
 
 // C++ tokens
-%token<token_atrib> ADD_ASSIGN
-%token<token_atrib> ANDAND
-%token<token_atrib> AND_ASSIGN
-%token<token_atrib> ASM
-%token<token_atrib> AUTO
-%token<token_atrib> BOOL
-%token<token_atrib> BOOLEAN_LITERAL
-%token<token_atrib> BREAK
-%token<token_atrib> CASE
-%token<token_atrib> CHAR
-%token<token_atrib> CHARACTER_LITERAL
-%token<token_atrib> CONST
-%token<token_atrib> CONTINUE
-%token<token_atrib> DECIMAL_LITERAL
-%token<token_atrib> DEFAULT
-%token<token_atrib> DIV_ASSIGN
-%token<token_atrib> DO
-%token<token_atrib> DOUBLE
-%token<token_atrib> ELSE
-%token<token_atrib> ENUM
-%token<token_atrib> EQUAL
-%token<token_atrib> EXTERN
-%token<token_atrib> FLOAT
-%token<token_atrib> FLOATING_LITERAL
-%token<token_atrib> HEXADECIMAL_FLOAT
-%token<token_atrib> FOR
-%token<token_atrib> GOTO
-%token<token_atrib> GREATER_OR_EQUAL
-%token<token_atrib> HEXADECIMAL_LITERAL
-%token<token_atrib> IDENTIFIER
-%token<token_atrib> IF
-%token<token_atrib> INLINE
-%token<token_atrib> INT
-%token<token_atrib> LEFT
-%token<token_atrib> LEFT_ASSIGN
-%token<token_atrib> LESS_OR_EQUAL
-%token<token_atrib> LONG
-%token<token_atrib> MINUSMINUS
-%token<token_atrib> MOD_ASSIGN
-%token<token_atrib> MUL_ASSIGN
-%token<token_atrib> NOT_EQUAL
-%token<token_atrib> OCTAL_LITERAL
-%token<token_atrib> OR_ASSIGN
-%token<token_atrib> OROR
-%token<token_atrib> PLUSPLUS
-%token<token_atrib> PTR_OP
-%token<token_atrib> REGISTER
-%token<token_atrib> RETURN
-%token<token_atrib> RIGHT
-%token<token_atrib> RIGHT_ASSIGN
-%token<token_atrib> SHORT
-%token<token_atrib> SIGNED
-%token<token_atrib> SIZEOF
-%token<token_atrib> STATIC
-%token<token_atrib> STRING_LITERAL
-%token<token_atrib> STRUCT
-%token<token_atrib> SUB_ASSIGN
-%token<token_atrib> SWITCH
-%token<token_atrib> ELLIPSIS
-%token<token_atrib> TYPEDEF
-%token<token_atrib> UNION
-%token<token_atrib> UNSIGNED
-%token<token_atrib> VOID
-%token<token_atrib> VOLATILE
-%token<token_atrib> WHILE
-%token<token_atrib> XOR_ASSIGN
-%token<token_atrib> UNKNOWN_PRAGMA
+%token<token_atrib> ADD_ASSIGN "+="
+%token<token_atrib> ANDAND "&&"
+%token<token_atrib> AND_ASSIGN "&="
+%token<token_atrib> ASM "__asm__"
+%token<token_atrib> AUTO "auto"
+%token<token_atrib> BOOL "_Bool"
+%token<token_atrib> BOOLEAN_LITERAL "boolean-literal"
+%token<token_atrib> BREAK "break"
+%token<token_atrib> CASE "case"
+%token<token_atrib> CHAR "char"
+%token<token_atrib> CHARACTER_LITERAL "character-literal"
+%token<token_atrib> CONST "const"
+%token<token_atrib> CONTINUE "continue"
+%token<token_atrib> DECIMAL_LITERAL "decimal-literal"
+%token<token_atrib> DEFAULT "default"
+%token<token_atrib> DIV_ASSIGN "/="
+%token<token_atrib> DO "do"
+%token<token_atrib> DOUBLE "double"
+%token<token_atrib> ELSE "else"
+%token<token_atrib> ENUM "enum"
+%token<token_atrib> EQUAL "=="
+%token<token_atrib> EXTERN "extern"
+%token<token_atrib> FLOAT "float"
+%token<token_atrib> FLOATING_LITERAL "floating-literal"
+%token<token_atrib> HEXADECIMAL_FLOAT "hexadecimal-floating-literal"
+%token<token_atrib> FOR "for"
+%token<token_atrib> GOTO "goto"
+%token<token_atrib> GREATER_OR_EQUAL ">="
+%token<token_atrib> HEXADECIMAL_LITERAL "hexadecimal-integer-literal"
+%token<token_atrib> IDENTIFIER "identifier"
+%token<token_atrib> IF "if"
+%token<token_atrib> INLINE "inline"
+%token<token_atrib> INT "int"
+%token<token_atrib> LEFT "<<"
+%token<token_atrib> LEFT_ASSIGN "<<="
+%token<token_atrib> LESS_OR_EQUAL "<="
+%token<token_atrib> LONG "long"
+%token<token_atrib> MINUSMINUS "--"
+%token<token_atrib> MOD_ASSIGN "%="
+%token<token_atrib> MUL_ASSIGN "*="
+%token<token_atrib> NOT_EQUAL "!="
+%token<token_atrib> OCTAL_LITERAL "octal-integer-literal"
+%token<token_atrib> OR_ASSIGN "|="
+%token<token_atrib> OROR "||"
+%token<token_atrib> PLUSPLUS "++"
+%token<token_atrib> PTR_OP "->"
+%token<token_atrib> REGISTER "register"
+%token<token_atrib> RETURN "return"
+%token<token_atrib> RIGHT ">>"
+%token<token_atrib> RIGHT_ASSIGN ">>="
+%token<token_atrib> SHORT "short"
+%token<token_atrib> SIGNED "signed"
+%token<token_atrib> SIZEOF "sizeof"
+%token<token_atrib> STATIC "static"
+%token<token_atrib> STRING_LITERAL "string-literal"
+%token<token_atrib> STRUCT "struct"
+%token<token_atrib> SUB_ASSIGN "-="
+%token<token_atrib> SWITCH "switch"
+%token<token_atrib> ELLIPSIS "..."
+%token<token_atrib> TYPEDEF "typedef"
+%token<token_atrib> UNION "union"
+%token<token_atrib> UNSIGNED "unsigned"
+%token<token_atrib> VOID "void"
+%token<token_atrib> VOLATILE "volatile"
+%token<token_atrib> WHILE "while"
+%token<token_atrib> XOR_ASSIGN "^="
 
-%token<token_atrib> PP_COMMENT
-%token<token_atrib> PP_TOKEN
+%token<token_atrib> UNKNOWN_PRAGMA "<unknown-pragma>"
+
+%token<token_atrib> PP_COMMENT "<preprocessor-comment>"
+%token<token_atrib> PP_TOKEN "<preprocessor-token>"
 
 // Lexical symbols
 %token<token_atrib> '!'
@@ -165,27 +166,28 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 %token<token_atrib> '~'
 
 // GNU Extensions
-%token<token_atrib> BUILTIN_VA_ARG
-%token<token_atrib> BUILTIN_OFFSETOF
-%token<token_atrib> BUILTIN_CHOOSE_EXPR
-%token<token_atrib> BUILTIN_TYPES_COMPATIBLE_P
-%token<token_atrib> ALIGNOF
-%token<token_atrib> EXTENSION
-%token<token_atrib> REAL
-%token<token_atrib> IMAG
-%token<token_atrib> LABEL
-%token<token_atrib> COMPLEX
-%token<token_atrib> IMAGINARY
-%token<token_atrib> TYPEOF
-%token<token_atrib> RESTRICT
-%token<token_atrib> ATTRIBUTE
-%token<token_atrib> THREAD
+%token<token_atrib> BUILTIN_VA_ARG "__builtin_va_arg"
+%token<token_atrib> BUILTIN_OFFSETOF "__builtin_offsetof"
+%token<token_atrib> BUILTIN_CHOOSE_EXPR "__builtin_choose_expr"
+%token<token_atrib> BUILTIN_TYPES_COMPATIBLE_P "__builtin_types_compatible_p"
+%token<token_atrib> ALIGNOF "__alignof__"
+%token<token_atrib> EXTENSION "__extension__"
+%token<token_atrib> REAL "__real__"
+%token<token_atrib> IMAG "__imag__"
+%token<token_atrib> LABEL "__label__"
+%token<token_atrib> COMPLEX "__complex__"
+%token<token_atrib> IMAGINARY "__imaginary__"
+%token<token_atrib> TYPEOF "__typeof__"
+// This is not a GNU extension, though
+%token<token_atrib> RESTRICT "restrict"
+%token<token_atrib> ATTRIBUTE "__attribute__"
+%token<token_atrib> THREAD "__thread"
 
 // Subparsing
-%token<token_atrib> SUBPARSE_EXPRESSION
-%token<token_atrib> SUBPARSE_STATEMENT
-%token<token_atrib> SUBPARSE_DECLARATION
-%token<token_atrib> SUBPARSE_TYPE
+%token<token_atrib> SUBPARSE_EXPRESSION "<subparse-expression>"
+%token<token_atrib> SUBPARSE_STATEMENT "<subparse-statement>"
+%token<token_atrib> SUBPARSE_DECLARATION "<subparse-declaration>"
+%token<token_atrib> SUBPARSE_TYPE "<subparse-type>"
 
 // Nonterminals
 %type<ast> abstract_declarator
@@ -2471,9 +2473,5 @@ string_literal : STRING_LITERAL
 
 void yyerror(AST* parsed_tree UNUSED_PARAMETER, const char* c)
 {
-	// Current token
-	extern char* mc99text;
-	fprintf(stderr, "%s:%d error : '%s'\n", scanning_now.current_filename, scanning_now.line_number, c);
-    fprintf(stderr, "Error near token '%s'\n", mc99text);
-	// exit(EXIT_FAILURE);
+	fprintf(stderr, "%s:%d: error: %s\n", scanning_now.current_filename, scanning_now.line_number, c);
 }

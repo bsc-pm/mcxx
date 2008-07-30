@@ -1,6 +1,6 @@
 /*!if GRAMMAR_PROLOGUE*/
 
-%token<token_atrib> SUBPARSE_SUPERSCALAR_DECLARATOR
+%token<token_atrib> SUBPARSE_SUPERSCALAR_DECLARATOR "<subparse-superscalar-declarator>"
 
 %type<ast> superscalar_declarator
 

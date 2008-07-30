@@ -3,7 +3,7 @@
 %type<ast> custom_construct_header
 %type<ast> custom_construct_parameters_seq
 %type<ast> custom_construct_parameter
-%token<token_atrib> CONSTRUCT
+%token<token_atrib> CONSTRUCT "__construct__"
 /*!endif*/
 /*!if GRAMMAR_RULES*/
 

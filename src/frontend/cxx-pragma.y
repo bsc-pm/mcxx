@@ -1,12 +1,12 @@
 /*!if GRAMMAR_PROLOGUE*/
 
-%token<token_atrib> PRAGMA_CUSTOM
-%token<token_atrib> PRAGMA_CUSTOM_NEWLINE
-%token<token_atrib> PRAGMA_CUSTOM_DIRECTIVE
-%token<token_atrib> PRAGMA_CUSTOM_CONSTRUCT
-%token<token_atrib> PRAGMA_CUSTOM_CLAUSE
+%token<token_atrib> PRAGMA_CUSTOM "<pragma-custom>"
+%token<token_atrib> PRAGMA_CUSTOM_NEWLINE "<pragma-custom-newline>"
+%token<token_atrib> PRAGMA_CUSTOM_DIRECTIVE "<pragma-custom-directive>"
+%token<token_atrib> PRAGMA_CUSTOM_CONSTRUCT "<pragma-custom-construct>"
+%token<token_atrib> PRAGMA_CUSTOM_CLAUSE "<pragma-custom-clause>"
 
-%token<token_atrib> PRAGMA_CLAUSE_ARG_TEXT
+%token<token_atrib> PRAGMA_CLAUSE_ARG_TEXT "<pragma-clause-argument-text>"
 
 %type<ast> pragma_custom_directive
 %type<ast> pragma_custom_line_directive

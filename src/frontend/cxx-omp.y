@@ -1,44 +1,44 @@
 /*!if GRAMMAR_PROLOGUE*/
 // OpenMP 2.5 tokens
-%token<token_atrib> OMP_ATOMIC
-%token<token_atrib> OMP_BARRIER
-%token<token_atrib> OMP_COPYIN
-%token<token_atrib> OMP_COPYPRIVATE
-%token<token_atrib> OMP_CRITICAL
-%token<token_atrib> OMP_DEFAULT
-%token<token_atrib> OMP_DEFAULT_CUSTOM
-%token<token_atrib> OMP_DYNAMIC
-%token<token_atrib> OMP_FIRSTPRIVATE
-%token<token_atrib> OMP_FLUSH
-%token<token_atrib> OMP_FOR
-%token<token_atrib> OMP_GUIDED
-%token<token_atrib> OMP_IF
-%token<token_atrib> OMP_LASTPRIVATE
-%token<token_atrib> OMP_MASTER
-%token<token_atrib> OMP_NEWLINE
-%token<token_atrib> OMP_NONE
-%token<token_atrib> OMP_NOWAIT
-%token<token_atrib> OMP_NUM_THREADS
-%token<token_atrib> OMP_ORDERED
-%token<token_atrib> OMP_PARALLEL
-%token<token_atrib> OMP_PARALLEL_FOR
-%token<token_atrib> OMP_PARALLEL_SECTIONS
-%token<token_atrib> OMP_PARALLEL_SINGLE
-%token<token_atrib> OMP_PRAGMA
-%token<token_atrib> OMP_PRIVATE
-%token<token_atrib> OMP_REDUCTION
-%token<token_atrib> OMP_RUNTIME
-%token<token_atrib> OMP_SCHEDULE
-%token<token_atrib> OMP_SCHEDULE_CUSTOM
-%token<token_atrib> OMP_SECTION
-%token<token_atrib> OMP_SECTIONS
-%token<token_atrib> OMP_SHARED
-%token<token_atrib> OMP_SINGLE
-%token<token_atrib> OMP_STATIC
-%token<token_atrib> OMP_THREADPRIVATE
-%token<token_atrib> OMP_CUSTOM_CLAUSE
-%token<token_atrib> OMP_CUSTOM_DIRECTIVE
-%token<token_atrib> OMP_CUSTOM_CONSTRUCT
+%token<token_atrib> OMP_ATOMIC "atomic (OpenMP)"
+%token<token_atrib> OMP_BARRIER "barrier (OpenMP)"
+%token<token_atrib> OMP_COPYIN "copyin (OpenMP)"
+%token<token_atrib> OMP_COPYPRIVATE "copyprivate (OpenMP)"
+%token<token_atrib> OMP_CRITICAL "critical (OpenMP)"
+%token<token_atrib> OMP_DEFAULT "default (OpenMP)"
+%token<token_atrib> OMP_DEFAULT_CUSTOM "default_custom (OpenMP)"
+%token<token_atrib> OMP_DYNAMIC "dynamic (OpenMP)"
+%token<token_atrib> OMP_FIRSTPRIVATE "firstprivate (OpenMP)"
+%token<token_atrib> OMP_FLUSH "flush (OpenMP)"
+%token<token_atrib> OMP_FOR "for (OpenMP)"
+%token<token_atrib> OMP_GUIDED "guided (OpenMP)"
+%token<token_atrib> OMP_IF "if (OpenMP)"
+%token<token_atrib> OMP_LASTPRIVATE "lastprivate (OpenMP)"
+%token<token_atrib> OMP_MASTER "master (OpenMP)"
+%token<token_atrib> OMP_NEWLINE "newline (OpenMP)"
+%token<token_atrib> OMP_NONE "none (OpenMP)"
+%token<token_atrib> OMP_NOWAIT "nowait (OpenMP)"
+%token<token_atrib> OMP_NUM_THREADS "num_threads (OpenMP)"
+%token<token_atrib> OMP_ORDERED "ordered (OpenMP)"
+%token<token_atrib> OMP_PARALLEL "parallel (OpenMP)"
+%token<token_atrib> OMP_PARALLEL_FOR "parallel_for (OpenMP)"
+%token<token_atrib> OMP_PARALLEL_SECTIONS "parallel_sections (OpenMP)"
+%token<token_atrib> OMP_PARALLEL_SINGLE "parallel_single (OpenMP)"
+%token<token_atrib> OMP_PRAGMA "pragma (OpenMP)"
+%token<token_atrib> OMP_PRIVATE "private (OpenMP)"
+%token<token_atrib> OMP_REDUCTION "reduction (OpenMP)"
+%token<token_atrib> OMP_RUNTIME "runtime (OpenMP)"
+%token<token_atrib> OMP_SCHEDULE "schedule (OpenMP)"
+%token<token_atrib> OMP_SCHEDULE_CUSTOM "schedule_custom (OpenMP)"
+%token<token_atrib> OMP_SECTION "section (OpenMP)"
+%token<token_atrib> OMP_SECTIONS "sections (OpenMP)"
+%token<token_atrib> OMP_SHARED "shared (OpenMP)"
+%token<token_atrib> OMP_SINGLE "single (OpenMP)"
+%token<token_atrib> OMP_STATIC "static (OpenMP)"
+%token<token_atrib> OMP_THREADPRIVATE "threadprivate (OpenMP)"
+%token<token_atrib> OMP_CUSTOM_CLAUSE "<custom-clause> (OpenMP)"
+%token<token_atrib> OMP_CUSTOM_DIRECTIVE "<custom-directive> (OpenMP)"
+%token<token_atrib> OMP_CUSTOM_CONSTRUCT "<custom-construct> (OpenMP)"
 
 // OpenMP 2.5 semantic values
 %type<ast> openmp_construct

@@ -1,6 +1,6 @@
 /*!if GRAMMAR_PROLOGUE*/
 
-%token<token_atrib> STATEMENT_PLACEHOLDER
+%token<token_atrib> STATEMENT_PLACEHOLDER "<statement-placeholder>"
 
 %{
     static AST* decode_placeholder(const char *);
