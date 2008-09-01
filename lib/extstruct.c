@@ -57,6 +57,15 @@ int extensible_schema_add_field(extensible_schema_t* schema,
     return schema->num_fields;
 }
 
+char extensible_schema_extended_field_exists(extensible_schema_t *schema,
+        const char *field_name)
+{
+    extensible_schema_item_t* schema_item = 
+        (extensible_schema_item_t*)hash_get(schema->hash, field_name);
+
+    return (schema_item != NULL);
+}
+
 // Adds a new field if it did not exist already
 int extensible_schema_add_field_if_needed(extensible_schema_t* schema,
         const char *field_name,
@@ -122,7 +131,6 @@ void *extensible_struct_get_field_pointer_lazy(extensible_schema_t* schema,
 
     if (schema_item == NULL)
     {
-        warning_message("Field '%s' not found in the schema", field_name);
         return NULL;
     }
 

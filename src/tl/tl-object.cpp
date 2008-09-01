@@ -41,7 +41,6 @@ RefPtr<Object> Object::get_attribute(const std::string& name) const
 
     if (tl_value == NULL)
     {
-        std::cerr << "Attribute '" << name << "' not found" << std::endl;
         result = RefPtr<Undefined>(new Undefined());
         return result;
     }

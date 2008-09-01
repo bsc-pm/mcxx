@@ -83,6 +83,8 @@ int extensible_schema_add_field(extensible_schema_t* schema,
 int extensible_schema_add_field_if_needed(extensible_schema_t* schema,
         const char *field_name,
         size_t field_size);
+char extensible_schema_extended_field_exists(extensible_schema_t *schema,
+        const char *field_name);
 
 // Extensible struct operations
 void extensible_struct_init(extensible_struct_t* extensible_struct, extensible_schema_t* schema);
