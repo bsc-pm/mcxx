@@ -77,8 +77,6 @@ libmcxx_la_SOURCES = \
   cxx-overload.h \
   $(END)
 
-# libmcxx_la_LDFLAGS = -Wl,-rpath,$(libdir)
-
 libmcxx_la_LIBADD = \
 					$(top_builddir)/lib/libmcxx-utils.la \
 					$(END)
@@ -216,13 +214,18 @@ endif
 cxx03.y : $(srcdir)/cxx03.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y
 	$(TPP) -o cxx03.y -D CPLUSPLUS -I$(srcdir) $(srcdir)/cxx03.y.in
 
-cxx-parser.c cxx-parser.h cxx-parser.output : cxx03.y
+cxx-parser.c : cxx03.y
 if BISON_BUILDING
 	bison -pmcxx --debug --defines --report=all --output=cxx-parser.c cxx03.y
 else
 	@echo "*** ERROR: file cxx03.y was modified but no suitable bison-rofi was found during configure ***"
 	@exit 1
 endif
+
+# These are obtained when invoking bison, if we write a rule like 'a b : d' it
+# breaks parallel compilations since bison gets invoked twice.
+cxx-parser.h : cxx-parser.c
+cxx-parser.output : cxx-parser.c
 
 if FLEX_BUILDING
 CLEANFILES += c99-scanner.c
@@ -250,7 +253,7 @@ endif
 c99.y : $(srcdir)/c99.y.in $(srcdir)/cxx-placeholders.y $(srcdir)/cxx-omp.y $(srcdir)/cxx-pragma.y $(srcdir)/cxx-construct.y $(srcdir)/cxx-superscalar.y $(srcdir)/cxx-ambig-handler.y
 	$(TPP) -o c99.y -D C99 -I$(srcdir) $(srcdir)/c99.y.in
 
-c99-parser.c c99-parser.h c99-parser.output : c99.y
+c99-parser.c : c99.y
 if BISON_BUILDING
 	bison -pmc99 --debug --defines --report=all --output=c99-parser.c c99.y
 else
@@ -258,3 +261,7 @@ else
 	@exit 1
 endif
 
+# These are obtained when invoking bison, if we write a rule like 'a b : d' it
+# breaks parallel compilations since bison gets invoked twice.
+c99-parser.h : c99-parser.c
+c99-parser.output : c99-parser.c
