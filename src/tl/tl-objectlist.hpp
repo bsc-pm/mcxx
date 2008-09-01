@@ -60,6 +60,9 @@ class ObjectList : public std::vector<T>
             }
         }
 
+        /*! Internal reference counter. Right after the creation
+         * of the object it will be set to 1
+         */
         int _refcount;
     public:
         //! Mandatory function so it can be used with RefPtr

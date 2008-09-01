@@ -80,8 +80,19 @@ RefPtr<Object> Object::get_attribute(const std::string& name) const
             }
         case TL_OTHER :
             {
-                // Generic case
-                result = RefPtr<Object>(reinterpret_cast<Object*>(tl_value->data._data));
+                // When nobody else holds a reference to obj_data it will have
+                // a reference of one.
+                Object* obj_data = reinterpret_cast<Object*>(tl_value->data._data);
+
+                // But we need to return a RefPtr<Object>
+                // Constructing 'ref_obj_data' does not change the reference count
+                // of 'obj_data'.
+                RefPtr<Object> ref_obj_data(obj_data);
+                // so we do it now
+                obj_data->obj_reference();
+
+                // Now we can safely copy this new reference to obj_data
+                result = ref_obj_data;
                 return result;
             }
         case TL_UNDEFINED :

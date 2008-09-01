@@ -57,7 +57,10 @@ namespace TL
     class Object 
     { 
         private:
-            //! Internal reference counter when a RefPtr<Object> is used.
+            /*! Internal reference counter when a RefPtr<Object> is used.
+             * Right after the creation of an instance of Object, it will
+             * be 1.
+             */
             int _refcount;
         protected:
             //! Returns a pointer to an internal extended attribute type.
