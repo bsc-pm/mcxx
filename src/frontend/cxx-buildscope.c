@@ -198,10 +198,6 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
 {
     AST a = translation_unit->parsed_tree;
 
-    AST list = ASTSon0(a);
-
-    if (list == NULL)
-        return;
 
     decl_context_t decl_context = new_global_context();
 
@@ -214,8 +210,12 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
 
     initialize_builtin_symbols(decl_context);
 
-    // Refactor this and "build_scope_translation_unit_tree_with_global_scope" one day
-    build_scope_declaration_sequence(list, decl_context);
+    AST list = ASTSon0(a);
+    if (list != NULL)
+    {
+        // Refactor this and "build_scope_translation_unit_tree_with_global_scope" one day
+        build_scope_declaration_sequence(list, decl_context);
+    }
 }
 
 void build_scope_translation_unit_tree_with_global_scope(AST tree, 
@@ -229,8 +229,11 @@ void build_scope_translation_unit_tree_with_global_scope(AST tree,
     }
 
     AST list = ASTSon0(tree);
-    // The scope will have been already populated with basic things
-    build_scope_declaration_sequence(list, decl_context);
+    if (list != NULL)
+    {
+        // The scope will have been already populated with basic things
+        build_scope_declaration_sequence(list, decl_context);
+    }
 }
 
 static default_argument_info_t** empty_default_argument_info(int num_parameters)
