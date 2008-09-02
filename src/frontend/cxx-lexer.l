@@ -1236,21 +1236,27 @@ runtime {
 "__is_pod" |
 "__is_polymorphic" |
 "__is_union" {
-   int i = 0;
-   while (gxx_43_keywords[i].keyword != NULL)
-   {
-       if (strcmp(gxx_43_keywords[i].keyword, yytext) == 0)
-       {
-           parse_token_text();
-           return gxx_43_keywords[i].token;
-       }
-       i++;
-   }
+    if (CURRENT_CONFIGURATION(disable_gxx_type_traits))
+    {
+        parse_token_text();
+        return IDENTIFIER;
+    }
 
-   internal_error("%s:%d: Unhandled g++ specific token '%s'", 
-           scanning_now.filename,
-           scanning_now.line_number,
-           yytext);
+    int i = 0;
+    while (gxx_43_keywords[i].keyword != NULL)
+    {
+        if (strcmp(gxx_43_keywords[i].keyword, yytext) == 0)
+        {
+            parse_token_text();
+            return gxx_43_keywords[i].token;
+        }
+        i++;
+    }
+
+    internal_error("%s:%d: Unhandled g++ specific token '%s'", 
+            scanning_now.filename,
+            scanning_now.line_number,
+            yytext);
 }
  /*!endif*/
 
