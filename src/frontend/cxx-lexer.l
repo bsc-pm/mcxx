@@ -50,7 +50,38 @@
 #include "cxx-parser.h"
 /*!endif*/
 
-// For Garbage collection support
+/*!if CPLUSPLUS*/
+/* g++ 4.3 extensions */
+typedef
+struct gxx_43_keywords_tag
+{
+    const char * keyword;
+    int token;
+} gxx_43_keywords_t;
+
+gxx_43_keywords_t gxx_43_keywords[] =
+{
+    { "__has_nothrow_assign", GXX_HAS_NOTHROW_ASSIGN },
+    { "__has_nothrow_constructor", GXX_HAS_NOTHROW_CONSTRUCTOR },
+    { "__has_nothrow_copy", GXX_HAS_NOTHROW_COPY },
+    { "__has_trivial_assign", GXX_HAS_TRIVIAL_ASSIGN },
+    { "__has_trivial_constructor", GXX_HAS_TRIVIAL_CONSTRUCTOR },
+    { "__has_trivial_copy", GXX_HAS_TRIVIAL_COPY },
+    { "__has_trivial_destructor", GXX_HAS_TRIVIAL_DESTRUCTOR },
+    { "__has_virtual_destructor", GXX_HAS_VIRTUAL_DESTRUCTOR },
+    { "__is_abstract", GXX_IS_ABSTRACT },
+    { "__is_base_of", GXX_IS_BASE_OF },
+    { "__is_class", GXX_IS_CLASS },
+    { "__is_convertible_to", GXX_IS_CONVERTIBLE_TO },
+    { "__is_empty", GXX_IS_EMPTY },
+    { "__is_enum", GXX_IS_ENUM },
+    { "__is_pod", GXX_IS_POD },
+    { "__is_polymorphic", GXX_IS_POLYMORPHIC },
+    { "__is_union", GXX_IS_UNION },
+    // Sentinel
+    { NULL, 0 },
+};
+/*!endif*/
 
 static int yywrap(void);
 
@@ -911,8 +942,8 @@ runtime {
 
 	// Now we have the new number line and the new file name
 
-    // Check include flags from GNU cpp and other preprocessors directive is on
-    // the doublequote
+    // Check include flags from GNU cpp and other preprocessors.
+    // We are on the the doublequote, jump it.
     directive++;
 
     // Advance the directive till the next nonblank
@@ -1188,191 +1219,38 @@ runtime {
 "__asm__" { parse_token_text(); return ASM; }
  /*!if CPLUSPLUS*/
  /* g++ 4.3 extensions */
-"__has_nothrow_assign" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_HAS_NOTHROW_ASSIGN; 
-    }
-}
-
-"__has_nothrow_constructor" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_HAS_NOTHROW_CONSTRUCTOR; 
-    }
-}
-
-"__has_nothrow_copy" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_HAS_NOTHROW_COPY; 
-    }
-}
-
-"__has_trivial_assign" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_HAS_TRIVIAL_ASSIGN; 
-    }
-}
-   
-"__has_trivial_constructor" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_HAS_TRIVIAL_CONSTRUCTOR; 
-    }
-}
-
-"__has_trivial_copy" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_HAS_TRIVIAL_COPY; 
-    }
-}
-
-"__has_trivial_destructor" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_HAS_TRIVIAL_DESTRUCTOR; 
-    }
-}
-
-"__has_virtual_destructor" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_HAS_VIRTUAL_DESTRUCTOR; 
-    }
-}
-     
-"__is_abstract" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_IS_ABSTRACT; 
-    }
-}
-
-"__is_base_of" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_IS_BASE_OF; 
-    }
-}
- 
-"__is_class" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_IS_CLASS; 
-    }
-}
-
-"__is_convertible_to" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_IS_CONVERTIBLE_TO; 
-    }
-}
- 
-"__is_empty" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_IS_EMPTY; 
-    }
-}
-
-"__is_enum" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_IS_ENUM; 
-    }
-}
-
-"__is_pod" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_IS_POD; 
-    }
-}
-
-"__is_polymorphic" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_IS_POLYMORPHIC; 
-    }
-}
-
+"__has_nothrow_assign" |
+"__has_nothrow_constructor" |
+"__has_nothrow_copy" |
+"__has_trivial_assign" |
+"__has_trivial_constructor" |
+"__has_trivial_copy" |
+"__has_trivial_destructor" |
+"__has_virtual_destructor" |
+"__is_abstract" |
+"__is_base_of" |
+"__is_class" |
+"__is_convertible_to" |
+"__is_empty" |
+"__is_enum" |
+"__is_pod" |
+"__is_polymorphic" |
 "__is_union" {
-    if (CURRENT_CONFIGURATION(disable_gxx_type_traits)) 
-    {
-        REJECT; 
-    }
-    else 
-    { 
-        parse_token_text(); return GXX_IS_UNION; 
-    }
+   int i = 0;
+   while (gxx_43_keywords[i].keyword != NULL)
+   {
+       if (strcmp(gxx_43_keywords[i].keyword, yytext) == 0)
+       {
+           parse_token_text();
+           return gxx_43_keywords[i].token;
+       }
+       i++;
+   }
+
+   internal_error("%s:%d: Unhandled g++ specific token '%s'", 
+           scanning_now.filename,
+           scanning_now.line_number,
+           yytext);
 }
  /*!endif*/
 
