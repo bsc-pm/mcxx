@@ -834,14 +834,15 @@ runtime {
      p++;
  }
 
- // Jump blanks
- while (*p == ' ')
-   p++;
- 
    // Update the line number, note that it is line_num - 1 
    // because \n is not handled here, but in another rule
  scanning_now.line_number = (line_num - 1);
 
+ // Jump blanks (if any)
+ while (*p == ' ')
+   p++;
+
+ // If there is a filename, parse it
  if (*p == '"')
  {
      // Now we are on the quote "
