@@ -2,9 +2,15 @@
 language = C
 options = --variable=generate-non-task-side:yes --variable=generate-task-side:no --variable=align-memory:yes
 preprocessor_name = ppu-c99
-preprocessor_options = -E -m32 -I@prefix@/include -include CellSS.h -DPPU_CODE -maltivec -include malloc.h -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_CELL=1
+preprocessor_options = -E
+{gcc} preprocessor_options =  -m32 -I@prefix@/include -include CellSS.h
+{xlc} preprocessor_options =  -q32 -I@prefix@/include -qinclude=CellSS.h
+{gcc} preprocessor_options = -DPPU_CODE -maltivec -include malloc.h
+{xlc} preprocessor_options = -DPPU_CODE -maltivec -qinclude=malloc.h
+preprocessor_options = -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_CELL=1
 compiler_name = ppu-c99
-compiler_options = -g3 -m32 -maltivec
+{gcc} compiler_options = -g3 -m32 -maltivec
+{xlc} compiler_options = -g -q32 -qaltivec
 linker_name = ppu-g++
 linker_options = -g3 -m32 -L@prefix@/lib -lCellSS -lspe2 -lpthread
 compiler_phase = libtlsuperscalar-configurator.so
@@ -20,7 +26,10 @@ pragma_prefix = css
 language = C
 options = --variable=generate-non-task-side:no --variable=generate-task-side:yes --variable=align-memory:yes
 preprocessor_name = spu-c99
-preprocessor_options = -E -I@prefix@/include -include CellSS.h -DSPU_CODE -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_CELL=1
+preprocessor_options = -E -I@prefix@/include
+{gcc} preprocessor_options = -include CellSS.h
+{xlc} preprocessor_options = -qinclude=CellSS.h
+preprocessor_options = -DSPU_CODE -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_CELL=1
 
 compiler_name = spu-c99
 compiler_options = -g3
@@ -39,10 +48,14 @@ pragma_prefix = css
 language = C
 options = --variable=generate-non-task-side:yes --variable=generate-task-side:yes --variable=align-memory:yes
 preprocessor_name = c99
-preprocessor_options = -E -I@prefix@/include -include CellSS.h -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_SMP=1
+preprocessor_options = -E -I@prefix@/include 
+{gcc} preprocessor_options = -include CellSS.h 
+{xlc} preprocessor_options = -qinclude=CellSS.h 
+preprocessor_options = -D__STARSS=1 -D__STARSS_ABI_VERSION=@superscalar_version@ -D__STARSS_SMP=1
 
 compiler_name = c99
-compiler_options = -g3
+{gcc} compiler_options = -g3
+{xlc} compiler_options = -g
 linker_name = g++
 linker_options = -g3 -L@prefix@/lib -lSMPSS -lpthread
 compiler_phase = libtlsuperscalar-configurator.so
