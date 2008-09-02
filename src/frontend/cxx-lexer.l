@@ -819,7 +819,9 @@ runtime {
 
  // Compute line
  int line_num = 0;
- while (*p != ' ')
+ while (*p != ' ' 
+         && *p != '\0' // The filename location is optional
+         )
  {
      if (isdigit(*p))
      {
@@ -827,7 +829,7 @@ runtime {
      }
      else
      {
-         internal_error("Digit expected here but '%c' found", *p);
+         internal_error("Digit expected here but '%c' (%x) found", *p, *p);
      }
      p++;
  }
