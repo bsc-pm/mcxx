@@ -20,6 +20,7 @@
 */
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "cxx-graphviz.h"
 
@@ -31,6 +32,41 @@
    ****************************************************
    http://www.graphviz.org/
  */
+
+static char* quote_protect(const char *c)
+{
+    char *result = calloc(2*strlen(c), sizeof(char));
+
+    const char *p = c;
+    char *q = result;
+    char *end = result + 2*strlen(c) - 1;
+
+    while (*p != '\0'
+            && (q < end))
+    {
+        char ignore = 0;
+        if (*p == '\\'
+                || *p == '"')
+        {
+            *(q++) = '\\';
+        }
+        else if (*p == '\n' 
+                || *p == '\r')
+        {
+            *(q++) = '\\';
+            *(q++) = 'n';
+            ignore = 1;
+        }
+
+        if (!ignore)
+        {
+            *(q++) = *p;
+        }
+        p++;
+    }
+
+    return result;
+}
 
 static int nodes_counter = 1000;
 static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
@@ -56,8 +92,12 @@ static void ast_dump_graphviz_rec(AST a, FILE* f, int parent_node, int position)
 
         if (ASTText(a))
         {
+            char *quoted = quote_protect(ASTText(a));
+
             fprintf(f, "n%d[shape=%s,label=\"%s\\nNode=%p\\nParent=%p\\n%s\\nText: -%s-\"]\n", 
-                    node_actual, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a), ASTText(a));
+                    node_actual, shape, ast_print_node_type(ASTType(a)), a, ASTParent(a), ast_location(a), quoted);
+
+            free(quoted);
         }
         else
         {
