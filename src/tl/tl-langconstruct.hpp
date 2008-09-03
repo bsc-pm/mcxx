@@ -837,7 +837,8 @@ namespace TL
 
                     if (_repl_map.find(sym) != _repl_map.end())
                     {
-                        AST_t repl_ast = _repl_map[sym];
+                        // We need to duplicate it, or bad things happen(TM)
+                        AST_t repl_ast = _repl_map[sym].duplicate();
                         AST_t orig_ast = it->get_ast();
 
                         orig_ast.replace_with(repl_ast);
