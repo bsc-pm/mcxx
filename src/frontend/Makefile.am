@@ -129,7 +129,7 @@ EXTRA_DIST += cxx-gccspubuiltins.def
 # Manual targets
 cxx-ast.h : cxx-asttype.h
 
-TPP=$(top_builddir)/lib/tpp
+TPP=$(top_builddir)/lib/tpp$(EXEEXT)
 
 CLEANFILES += cxx-asttype.h
 cxx-asttype.h : cxx-asttype.def
