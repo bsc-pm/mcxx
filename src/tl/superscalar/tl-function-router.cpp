@@ -41,7 +41,8 @@ namespace TL
 			for (std::set<std::string>::iterator it = function_info._called_functions.begin(); it != function_info._called_functions.end(); it++)
 			{
 				std::string const &called_function = *it;
-				propagate_side_cohercion(function_map, is_on_task_side, is_on_non_task_side, called_function);
+				if (called_function != task_side_function_name)
+					propagate_side_cohercion(function_map, is_on_task_side, is_on_non_task_side, called_function);
 			}
 		}
 	}
