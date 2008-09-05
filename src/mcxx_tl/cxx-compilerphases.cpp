@@ -101,6 +101,29 @@ namespace TL
                     {
                         fprintf(stderr, "[PHASE] Phase '%s' has been run\n", phase->get_phase_name().c_str());
                     }
+                    
+                    // For consistency, check the tree
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "[PHASE] Checking tree after execution of phase '%s'\n",
+                                phase->get_phase_name().c_str());
+
+                    }
+
+                    if (!ast_check(translation_unit->parsed_tree))
+                    {
+                        internal_error("Phase '%s' rendered the AST invalid. Ending compilation\n",
+                                phase->get_phase_name().c_str());
+                    }
+                    else
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "[PHASE] Tree seems fine after execution of phase '%s'\n",
+                                    phase->get_phase_name().c_str());
+
+                        }
+                    }
                 }
             }
 
