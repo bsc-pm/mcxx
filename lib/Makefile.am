@@ -48,3 +48,4 @@ libmcxx_extstruct_la_SOURCES = \
                               extstruct.h \
                               extstruct.c 
 
+dist-hook: tpp$(EXEEXT)
