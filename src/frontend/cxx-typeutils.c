@@ -347,6 +347,9 @@ struct function_tag
     
     // For instantiation purposes
     template_nature_t template_nature;
+
+    // Is dependent
+    char is_dependent;
 } function_info_t;
 
 // Pointers, references and pointers to members
@@ -1088,6 +1091,11 @@ type_t* get_new_template_type(template_parameter_list_t* template_parameter_list
         class_type_set_incomplete_dependent(primary_type);
         class_type_set_is_dependent(primary_type, 1);
     }
+    else if (is_function_type(primary_type))
+    {
+        function_type_set_incomplete_dependent(primary_type);
+        function_type_set_is_dependent(primary_type, 1);
+    }
 
     type_info->type->primary_specialization = get_user_defined_type(primary_symbol);
 
@@ -1341,7 +1349,7 @@ type_t* template_type_get_specialized_type(type_t* t,
     specialized_type->related_template_type = t;
 
     // State the class type nature
-    if (specialized_type->kind == SK_CLASS)
+    if (primary_symbol->kind == SK_CLASS)
     {
         if (has_dependent_template_arguments(template_argument_list, decl_context)
                 || primary_symbol->entity_specs.is_template_parameter)
@@ -1354,6 +1362,13 @@ type_t* template_type_get_specialized_type(type_t* t,
             class_type_set_incomplete_independent(specialized_type);
             class_type_set_is_dependent(specialized_type, 0);
         }
+    }
+    else if (primary_symbol->kind == SK_FUNCTION)
+    {
+        // A specialization of a function will be always an independent
+        // specialization
+        function_type_set_incomplete_independent(specialized_type);
+        function_type_set_is_dependent(specialized_type, 0);
     }
 
     // Create a fake symbol with the just created specialized type
@@ -2231,6 +2246,18 @@ char function_type_get_has_ellipsis(type_t* function_type)
         ->function
         ->parameter_list[function_type->function->num_parameters - 1]
         ->is_ellipsis;
+}
+
+void function_type_set_is_dependent(type_t* t, char is_dependent)
+{
+    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
+    t->function->is_dependent = is_dependent;
+}
+
+char function_type_get_is_dependent(type_t* t)
+{
+    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
+    return t->function->is_dependent;
 }
 
 char function_type_is_incomplete_dependent(type_t* t)
@@ -4540,6 +4567,21 @@ char is_dependent_type(type_t* type, decl_context_t decl_context)
     }
     else if (is_function_type(type))
     {
+        // A function of the style
+        //
+        // template <typename _T>
+        // void f(int)
+        // {
+        // }
+        //
+        // There is a dependent 'f', the one
+        // of the primary type f<_T> even if this
+        // is not obvious from the signature only
+        if (function_type_get_is_dependent(type))
+        {
+            return 1;
+        }
+
         type_t* return_type = function_type_get_return_type(type);
 
         if (return_type != NULL

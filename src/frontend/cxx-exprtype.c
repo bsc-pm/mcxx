@@ -6475,6 +6475,16 @@ static char check_for_functional_expression(AST whole_function_call, AST called_
                 arg_i++;
             }
         }
+
+        // Instantiate if needed the overloaded call
+#if 0
+        if (function_type_is_incomplete_independent(overloaded_call->type_information))
+        {
+            instantiate_template_function(overloaded_call, decl_context,
+                    ASTFileName(whole_function_call),
+                    ASTLine(whole_function_call));
+        }
+#endif
         return 1;
     }
     else

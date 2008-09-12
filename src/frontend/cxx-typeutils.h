@@ -305,6 +305,9 @@ struct type_tag* function_type_get_return_type(struct type_tag* t);
 AST function_type_get_function_definition_tree(struct type_tag* t);
 void function_type_set_function_definition_tree(struct type_tag* t, AST);
 
+void function_type_set_is_dependent(type_t* t, char is_dependent);
+char function_type_get_is_dependent(type_t* t);
+
 void function_type_set_incomplete_dependent(type_t* t);
 void function_type_set_complete_dependent(type_t* t);
 void function_type_set_incomplete_independent(type_t* t);

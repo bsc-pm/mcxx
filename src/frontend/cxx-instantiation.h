@@ -28,6 +28,8 @@ MCXX_BEGIN_DECLS
 
 void instantiate_template_class(struct scope_entry_tag* entry, decl_context_t decl_context, 
         const char *filename, int line);
+void instantiate_template_function(scope_entry_t* entry, 
+        decl_context_t decl_context, const char* filename, int line);
 
 MCXX_END_DECLS
 

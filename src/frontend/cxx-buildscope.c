@@ -4822,6 +4822,8 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
 
     if (entry == NULL)
     {
+        // No existing function was found
+        
         const char* function_name = ASTText(declarator_id);
 
         if (BITMAP_TEST(decl_context.decl_flags, DF_CONSTRUCTOR))
@@ -4887,7 +4889,6 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
             new_entry = named_type_get_symbol(
                     template_type_get_primary_type(template_type));
         }
-
 
         DEBUG_CODE()
         {
@@ -4959,11 +4960,14 @@ static scope_entry_t* register_function(AST declarator_id, type_t* declarator_ty
         new_entry->entity_specs.num_gcc_attributes = gather_info->num_gcc_attributes;
         memcpy(new_entry->entity_specs.gcc_attributes, 
                 gather_info->gcc_attributes, sizeof(gather_info->gcc_attributes));
+
+        // Set the 'template' nature of the class
         
         return new_entry;
     }
     else
     {
+        // An existing function was found
         CXX_LANGUAGE()
         {
             update_function_default_arguments(entry, declarator_type, gather_info);
