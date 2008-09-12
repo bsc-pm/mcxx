@@ -302,6 +302,19 @@ char function_type_get_lacking_prototype(struct type_tag* function_type);
 char function_type_get_has_ellipsis(struct type_tag* function_type);
 struct type_tag* function_type_get_return_type(struct type_tag* t);
 
+AST function_type_get_function_definition_tree(struct type_tag* t);
+void function_type_set_function_definition_tree(struct type_tag* t, AST);
+
+void function_type_set_incomplete_dependent(type_t* t);
+void function_type_set_complete_dependent(type_t* t);
+void function_type_set_incomplete_independent(type_t* t);
+void function_type_set_complete_independent(type_t* t);
+
+char function_type_is_incomplete_dependent(type_t* t);
+char function_type_is_complete_dependent(type_t* t);
+char function_type_is_incomplete_independent(type_t* t);
+char function_type_is_complete_independent(type_t* t);
+
 char function_type_can_override(type_t* potential_overrider, type_t* function_type);
 
 struct type_tag* pointer_type_get_pointee_type(type_t *t);

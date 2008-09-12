@@ -309,7 +309,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
             && class_type_is_incomplete_independent(get_actual_class_type(no_ref(orig))))
     {
         scope_entry_t* symbol = named_type_get_symbol(no_ref(orig));
-        instantiate_template(symbol, decl_context, filename, line);
+        instantiate_template_class(symbol, decl_context, filename, line);
     }
     // Given a class 'A' base of a class 'B'
     //
@@ -320,7 +320,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
         scope_entry_t* class_symbol = pointer_to_member_type_get_class(no_ref(dest));
         if (class_type_is_incomplete_independent(class_symbol->type_information))
         {
-            instantiate_template(class_symbol, decl_context, filename, line);
+            instantiate_template_class(class_symbol, decl_context, filename, line);
         }
     }
 
@@ -521,7 +521,7 @@ static void compute_ics_flags(type_t* orig, type_t* dest, decl_context_t decl_co
                 && class_type_is_incomplete_independent(get_actual_class_type(class_type)))
         {
             scope_entry_t* symbol = named_type_get_symbol(class_type);
-            instantiate_template(symbol, decl_context, filename, line);
+            instantiate_template_class(symbol, decl_context, filename, line);
         }
 
         int i;
@@ -2254,7 +2254,7 @@ scope_entry_t* solve_constructor(type_t* class_type,
 
     if (class_type_is_incomplete_independent(get_actual_class_type(class_type)))
     {
-        instantiate_template(named_type_get_symbol(class_type), decl_context, filename, line);
+        instantiate_template_class(named_type_get_symbol(class_type), decl_context, filename, line);
     }
 
     scope_entry_list_t* constructor_list = NULL;

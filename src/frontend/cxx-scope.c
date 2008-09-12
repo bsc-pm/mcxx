@@ -1245,7 +1245,7 @@ static scope_t* lookup_qualification_scope_in_class(decl_context_t nested_name_c
             {
                 // Bogus context
                 // FIXME - It is useful to know where a template was instantiated
-                instantiate_template(class_name, nested_name_context,
+                instantiate_template_class(class_name, nested_name_context,
                         ASTFileName(unqualified_part), ASTLine(unqualified_part));
             }
             else if (class_type_is_incomplete_dependent(class_type)
@@ -2447,7 +2447,7 @@ type_t* update_type(template_argument_list_t* given_template_args,
 
         if (class_type_is_incomplete_independent(class_type))
         {
-            instantiate_template(named_type_get_symbol(fixed_type),
+            instantiate_template_class(named_type_get_symbol(fixed_type),
                     template_arguments_context, filename, line);
         }
         else if (class_type_is_incomplete_dependent(class_type)

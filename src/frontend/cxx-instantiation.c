@@ -52,7 +52,7 @@ static const char* get_name_of_template_parameter(
             nesting, position);
 }
 
-static void instantiate_specialized_template(type_t* selected_template,
+static void instantiate_specialized_template_class(type_t* selected_template,
         type_t* being_instantiated,
         deduction_set_t* unification_set,
         const char *filename, int line)
@@ -133,7 +133,7 @@ static void instantiate_specialized_template(type_t* selected_template,
                         injected_nontype->kind = SK_VARIABLE;
                         injected_nontype->type_information = current_deduction->deduced_parameters[0]->type;
 
-                        // Fold it, as makes thing easier
+                        // Fold it, as makes things easier
                         literal_value_t literal_value = evaluate_constant_expression(current_deduction->deduced_parameters[0]->expression,
                                 current_deduction->deduced_parameters[0]->decl_context);
                         AST evaluated_tree = tree_from_literal_value(literal_value);
@@ -243,7 +243,7 @@ static void instantiate_specialized_template(type_t* selected_template,
     }
 }
 
-void instantiate_template(scope_entry_t* entry, decl_context_t decl_context, const char *filename, int line)
+void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_context, const char *filename, int line)
 {
     if (entry->kind != SK_CLASS
             && entry->kind != SK_TYPEDEF)
@@ -286,7 +286,7 @@ void instantiate_template(scope_entry_t* entry, decl_context_t decl_context, con
 
     if (selected_template != NULL)
     {
-        instantiate_specialized_template(selected_template, 
+        instantiate_specialized_template_class(selected_template, 
                 get_user_defined_type(entry),
                 unification_set, filename, line);
     }
@@ -296,5 +296,130 @@ void instantiate_template(scope_entry_t* entry, decl_context_t decl_context, con
                 entry->symbol_name,
                 entry->file,
                 entry->line);
+    }
+}
+ 
+void instantiate_template_function(scope_entry_t* entry, decl_context_t decl_context, const char* filename, int line)
+{
+    if (entry->kind != SK_FUNCTION)
+    {
+        internal_error("Invalid symbol\n", 0);
+    }
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: Instantiating function '%s' at '%s:%d\n",
+                print_declarator(entry->type_information),
+                entry->file,
+                entry->line);
+    }
+
+    type_t* template_specialized_type = entry->type_information;
+
+    if (!is_template_specialized_type(template_specialized_type)
+            || !is_function_type(template_specialized_type))
+    {
+        internal_error("Symbol '%s' is not a template function eligible for instantiation", entry->symbol_name);
+    }
+
+    // Do nothing
+    if (entry->defined)
+        return;
+
+    // Do it now to avoid infinite recursion when two template functions call each other
+    entry->defined = 1;
+
+    // Functions are easy. Since they cannot be partially specialized, like
+    // classes do, their template parameters always match the computed template
+    // arguments. In fact, overload machinery did this part for us
+
+    // Get a new template context where we will sign in the template arguments
+    decl_context_t template_parameters_context = new_template_context(entry->decl_context);
+
+    template_parameter_list_t *template_parameters 
+        = template_specialized_type_get_template_parameters(template_specialized_type);
+
+    template_argument_list_t *template_arguments
+        = template_specialized_type_get_template_arguments(template_specialized_type);
+
+    // FIXME: Does this hold when in C++0x we allow default template parameters in functions?
+    ERROR_CONDITION(template_arguments->num_arguments != template_parameters->num_template_parameters,
+            "Mismatch between template arguments and parameters! %d != %d\n", 
+            template_arguments->num_arguments,
+            template_parameters->num_template_parameters);
+
+    // Inject template arguments
+    int i;
+    for (i = 0; i < template_parameters->num_template_parameters; i++)
+    {
+        template_parameter_t* template_param = template_parameters->template_parameters[i];
+        template_argument_t* template_argument = template_arguments->argument_list[i];
+
+        switch (template_param->kind)
+        {
+            case TPK_TYPE:
+                {
+                    ERROR_CONDITION(template_argument->kind != TAK_TYPE,
+                            "Mismatch between template argument kind and template parameter kind", 0);
+
+                    scope_entry_t* injected_type = new_symbol(template_parameters_context,
+                            template_parameters_context.template_scope, template_param->entry->symbol_name);
+
+                    injected_type->kind = SK_TYPEDEF;
+                    injected_type->type_information = get_new_typedef(template_argument->type);
+                    break;
+                }
+            case TPK_TEMPLATE:
+                {
+                    ERROR_CONDITION(template_argument->kind != TAK_TEMPLATE,
+                            "Mismatch between template argument kind and template parameter kind", 0);
+
+                    scope_entry_t* injected_type = new_symbol(template_parameters_context, 
+                            template_parameters_context.template_scope, template_param->entry->symbol_name);
+
+                    injected_type->kind = SK_TEMPLATE;
+                    injected_type->type_information = 
+                        named_type_get_symbol(template_argument->type)->type_information;
+                    break;
+                }
+            case TPK_NONTYPE:
+                {
+                    ERROR_CONDITION(template_argument->kind != TAK_NONTYPE,
+                            "Mismatch between template argument kind and template parameter kind", 0);
+
+                    scope_entry_t* injected_nontype = new_symbol(template_parameters_context, 
+                            template_parameters_context.template_scope, template_param->entry->symbol_name);
+
+                    injected_nontype->kind = SK_VARIABLE;
+                    injected_nontype->type_information = template_argument->type;
+
+                    // Fold it, as makes things easier
+                    literal_value_t literal_value = evaluate_constant_expression(template_argument->expression,
+                            template_argument->expression_context);
+                    AST evaluated_tree = tree_from_literal_value(literal_value);
+                    AST fake_initializer = evaluated_tree;
+                    injected_nontype->expression_value = fake_initializer;
+                    break;
+                }
+            default:
+                internal_error("Invalid template parameter kind %d\n", template_param->kind);
+        }
+    }
+
+    AST orig_function_definition = function_type_get_function_definition_tree(entry->type_information);
+
+    ERROR_CONDITION(orig_function_definition == NULL,
+            "Invalid function definition tree!", 0);
+
+    // Remove dependent types
+    AST dupl_function_definition = ast_copy_for_instantiation(orig_function_definition);
+
+    build_scope_function_definition(dupl_function_definition,
+            template_parameters_context);
+
+    DEBUG_CODE()
+    {
+        fprintf(stderr, "INSTANTIATION: ended instantation of function template '%s'\n",
+                print_declarator(template_specialized_type));
     }
 }

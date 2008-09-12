@@ -324,7 +324,7 @@ scope_entry_list_t* get_member_of_class_type(type_t* class_type,
     {
         scope_entry_t* symbol = named_type_get_symbol(class_type);
 
-        instantiate_template(symbol, decl_context, ASTFileName(id_expression), ASTLine(id_expression));
+        instantiate_template_class(symbol, decl_context, ASTFileName(id_expression), ASTLine(id_expression));
     }
 
     class_type = get_actual_class_type(class_type);
@@ -363,7 +363,7 @@ scope_entry_list_t* get_member_function_of_class_type(type_t* class_type,
     {
         scope_entry_t* symbol = named_type_get_symbol(class_type);
 
-        instantiate_template(symbol, decl_context, ASTFileName(id_expression), ASTLine(id_expression));
+        instantiate_template_class(symbol, decl_context, ASTFileName(id_expression), ASTLine(id_expression));
     }
 
     class_type = get_actual_class_type(class_type);

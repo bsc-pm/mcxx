@@ -405,7 +405,7 @@ void unificate_two_types(type_t* t1, type_t* t2, deduction_set_t** deduction_set
                             print_declarator(t2));
                 }
 
-                instantiate_template(named_type_get_symbol(t2), decl_context, filename, line);
+                instantiate_template_class(named_type_get_symbol(t2), decl_context, filename, line);
 
                 DEBUG_CODE()
                 {

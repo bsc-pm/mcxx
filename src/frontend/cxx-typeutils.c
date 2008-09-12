@@ -341,6 +341,12 @@ struct function_tag
     // This is only meaningful in C but not in C++ where all functions do have
     // prototype
     int lacks_prototype;
+
+    // Contains the function definition tree (if the function has been defined)
+    AST definition_tree;
+    
+    // For instantiation purposes
+    template_nature_t template_nature;
 } function_info_t;
 
 // Pointers, references and pointers to members
@@ -1947,6 +1953,7 @@ char class_type_is_complete_independent(type_t* t)
     return t->type->template_nature == TPN_COMPLETE_INDEPENDENT;
 }
 
+
 char class_type_get_is_dependent(type_t* t)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
@@ -1957,12 +1964,6 @@ void class_type_set_is_dependent(type_t* t, char is_dependent)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
     t->type->class_info->is_dependent = is_dependent;
-}
-
-void class_type_set_incomplete_dependent(type_t* t)
-{
-    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
-    t->type->template_nature = TPN_INCOMPLETE_DEPENDENT;
 }
 
 void class_type_add_constructor(type_t* class_type, scope_entry_t* entry)
@@ -2065,6 +2066,12 @@ void class_type_add_member_function(type_t* class_type, scope_entry_t* entry)
     ERROR_CONDITION(!is_unnamed_class_type(class_type), "This is not a class type", 0);
     P_LIST_ADD(class_type->type->class_info->member_functions, 
             class_type->type->class_info->num_member_functions, entry);
+}
+
+void class_type_set_incomplete_dependent(type_t* t)
+{
+    ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);
+    t->type->template_nature = TPN_INCOMPLETE_DEPENDENT;
 }
 
 void class_type_set_complete_dependent(type_t* t)
@@ -2224,6 +2231,30 @@ char function_type_get_has_ellipsis(type_t* function_type)
         ->function
         ->parameter_list[function_type->function->num_parameters - 1]
         ->is_ellipsis;
+}
+
+char function_type_is_incomplete_dependent(type_t* t)
+{
+    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
+    return t->function->template_nature == TPN_INCOMPLETE_DEPENDENT;
+}
+
+char function_type_is_complete_dependent(type_t* t)
+{
+    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
+    return t->function->template_nature == TPN_COMPLETE_DEPENDENT;
+}
+
+char function_type_is_incomplete_independent(type_t* t)
+{
+    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
+    return t->function->template_nature == TPN_INCOMPLETE_INDEPENDENT;
+}
+
+char function_type_is_complete_independent(type_t* t)
+{
+    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
+    return t->function->template_nature == TPN_COMPLETE_INDEPENDENT;
 }
 
 void class_type_add_base_class(type_t* class_type, scope_entry_t* base_class, char is_virtual)
@@ -3452,6 +3483,45 @@ type_t* function_type_get_return_type(type_t* t)
     t = advance_over_typedefs(t);
 
     return t->function->return_type;
+}
+
+AST function_type_get_function_definition_tree(struct type_tag* t)
+{
+    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
+    t = advance_over_typedefs(t);
+
+    return t->function->definition_tree;
+}
+
+void function_type_set_function_definition_tree(struct type_tag* t, AST tree)
+{
+    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
+    t = advance_over_typedefs(t);
+    t->function->definition_tree = tree;
+}
+
+void function_type_set_incomplete_dependent(type_t* t)
+{
+    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
+    t->function->template_nature = TPN_INCOMPLETE_DEPENDENT;
+}
+
+void function_type_set_complete_dependent(type_t* t)
+{
+    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
+    t->function->template_nature = TPN_COMPLETE_DEPENDENT;
+}
+
+void function_type_set_incomplete_independent(type_t* t)
+{
+    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
+    t->function->template_nature = TPN_INCOMPLETE_INDEPENDENT;
+}
+
+void function_type_set_complete_independent(type_t* t)
+{
+    ERROR_CONDITION(!is_function_type(t), "This is not a function type", 0);
+    t->function->template_nature = TPN_COMPLETE_INDEPENDENT;
 }
 
 // Can be used both for pointers and pointers to members

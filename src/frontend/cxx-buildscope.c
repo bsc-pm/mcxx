@@ -60,7 +60,7 @@ static void build_scope_simple_declaration(AST a, decl_context_t decl_context);
 
 static void build_scope_namespace_alias(AST a, decl_context_t decl_context);
 static void build_scope_namespace_definition(AST a, decl_context_t decl_context);
-static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context);
+// scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context);
 static void build_scope_declarator_with_parameter_context(AST a, 
         gather_decl_spec_t* gather_info, type_t* simple_type_info, type_t** declarator_type,
         decl_context_t decl_context, decl_context_t *prototype_context);
@@ -2032,7 +2032,7 @@ void build_scope_base_clause(AST base_clause, type_t* class_type, decl_context_t
             // If the entity (being an independent one) has not been completed, then instantiate it
             if (class_type_is_incomplete_independent(get_actual_class_type(base_class_type)))
             {
-                instantiate_template(base_class_symbol, decl_context, ASTFileName(base_specifier), ASTLine(base_specifier));
+                instantiate_template_class(base_class_symbol, decl_context, ASTFileName(base_specifier), ASTLine(base_specifier));
             }
 
             // Add the base to the class type
@@ -2230,7 +2230,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                     {
                         // If this class is incomplete independent we have to complete it
                         scope_entry_t* entry = named_type_get_symbol(member_class_type);
-                        instantiate_template(entry, decl_context, filename, line);
+                        instantiate_template_class(entry, decl_context, filename, line);
                     }
 
                     scope_entry_t* default_constructor 
@@ -2293,7 +2293,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                     {
                         // If this class is incomplete independent we have to complete it
                         scope_entry_t* entry = named_type_get_symbol(member_class_type);
-                        instantiate_template(entry, decl_context, filename, line);
+                        instantiate_template_class(entry, decl_context, filename, line);
                     }
 
                     if (is_named_class_type(member_actual_class_type))
@@ -2410,7 +2410,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                     {
                         // If this class is incomplete independent we have to complete it
                         scope_entry_t* entry = named_type_get_symbol(member_class_type);
-                        instantiate_template(entry, decl_context, filename, line);
+                        instantiate_template_class(entry, decl_context, filename, line);
                     }
 
                     int j;
@@ -2475,7 +2475,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                     {
                         // If this class is incomplete independent we have to complete it
                         scope_entry_t* entry = named_type_get_symbol(member_class_type);
-                        instantiate_template(entry, decl_context, filename, line);
+                        instantiate_template_class(entry, decl_context, filename, line);
                     }
 
                     const_parameter = const_parameter &&
@@ -2581,7 +2581,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                     {
                         // If this class is incomplete independent we have to complete it
                         scope_entry_t* entry = named_type_get_symbol(member_class_type);
-                        instantiate_template(entry, decl_context, filename, line);
+                        instantiate_template_class(entry, decl_context, filename, line);
                     }
 
                     int j;
@@ -2677,7 +2677,7 @@ void finish_class_type(type_t* class_type, type_t* type_info, decl_context_t dec
                     {
                         // If this class is incomplete independent we have to complete it
                         scope_entry_t* entry = named_type_get_symbol(member_class_type);
-                        instantiate_template(entry, decl_context, filename, line);
+                        instantiate_template_class(entry, decl_context, filename, line);
                     }
 
                     scope_entry_t* destructor
@@ -6049,7 +6049,7 @@ void build_scope_kr_parameter_declaration(scope_entry_t* function_entry UNUSED_P
 /*
  * This function builds symbol table information for a function definition
  */
-static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context)
+scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl_context)
 {
     DEBUG_CODE()
     {
@@ -6192,6 +6192,12 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
     ASTAttrSetValueType(a, LANG_DECLARATION_DECLARATORS, tl_type_t, tl_ast(ASTSon1(a)));
     ASTAttrSetValueType(a, LANG_FUNCTION_SYMBOL, tl_type_t, tl_symbol(entry));
 
+    // This is used later for instantiation if this type is dependent
+    if (is_template_specialized_type(entry->type_information))
+    {
+        function_type_set_function_definition_tree(entry->type_information, a);
+    }
+
     // Function_body
     AST function_body = ASTSon3(a);
     AST statement = ASTSon0(function_body);
@@ -6320,7 +6326,14 @@ static scope_entry_t* build_scope_function_definition(AST a, decl_context_t decl
 
     if (BITMAP_TEST(decl_context.decl_flags, DF_TEMPLATE))
     {
-        entry->defined = 1;
+        if (BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
+        {
+            function_type_set_complete_independent(entry->type_information);
+        }
+        else
+        {
+            function_type_set_complete_dependent(entry->type_information);
+        }
     }
 
     return entry;
