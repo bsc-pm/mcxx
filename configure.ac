@@ -220,6 +220,11 @@ dnl --------------------- Acotes support ---------------------
 
 is_enabled_tl_acotes="no"
 
+acolib_include=""
+acolib_lib=""
+ACOLIB_INCLUDES=""
+ACOLIB_LIBS=""
+
 AC_MSG_CHECKING([if enabled ACOTES TL support])
 AC_ARG_ENABLE([tl-acotes],
   AS_HELP_STRING([--enable-tl-acotes], [Enables generation of ACOTES TL Support]),
@@ -249,7 +254,45 @@ then
    COMPILER_NAMES="${COMPILER_NAMES} acotescc"
 
    TLEXTENSIONS="${TLEXTENSIONS} acotes"
+
+   AC_ARG_WITH([acolib],
+           AS_HELP_STRING([--with-acolib=dir], [Directory of Acolib installation]),
+           [
+            acolib_include="${withval}/include"
+            acolib_lib="${withval}/lib"
+           ]
+   )
+
+   AC_ARG_WITH([acolib-include],
+           AS_HELP_STRING([--with-acolib-include=dir], [Directory of Acolib headers]),
+           [
+            acolib_include="${withval}"
+           ]
+   )
+
+   AC_ARG_WITH([acolib-lib],
+           AS_HELP_STRING([--with-acolib-lib=dir], [Directory of Acolib libraries]),
+           [
+            acolib_lib="${withval}"
+           ]
+   )
+
+   if test x$mintaka_include = x -o x$mintaka_lib = x;
+   then
+      AC_MSG_ERROR([Acolib support requires '--with-mintaka=dir'. See --help.])
+   fi
+
+   if test x$acolib_include = x -o x$acolib_lib = x;
+   then
+      AC_MSG_ERROR([Acolib support requires '--with-acolib=dir'. See --help.])
+   fi
+
+   ACOLIB_INCLUDES="${acolib_include}"
+   ACOLIB_LIBS="${acolib_lib}"
 fi
+
+AC_SUBST([ACOLIB_INCLUDES])
+AC_SUBST([ACOLIB_LIBS])
 
 dnl --------------------- End of Acotes support ---------------------
 
@@ -739,6 +782,11 @@ then
 fi
 echo ""
 echo " * ACOTES :" $is_enabled_tl_acotes
+if test x$is_enabled_tl_acotes = xyes;
+then
+  echo "   Acolib includes :" $acolib_include
+  echo "   Acolib libraries:" $acolib_lib
+fi
 echo ""
 echo " * Nebelung :" $is_enabled_tl_nebelung
 if test x$is_enabled_tl_nebelung = xyes;
