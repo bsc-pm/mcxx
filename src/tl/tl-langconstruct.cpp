@@ -1069,6 +1069,11 @@ namespace TL
         return IdExpression(declaration, _scope_link);
     }
 
+    Expression IdExpression::get_expression()
+    {
+        return Expression(get_ast(), get_scope_link());
+    }
+
     ObjectList<GCCAttribute> GCCAttributeSpecifier::get_gcc_attribute_list()
     {
         ObjectList<GCCAttribute> result;

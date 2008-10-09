@@ -143,6 +143,9 @@ namespace TL
         ALL_FOUND_SYMBOLS
     };
 
+    class Expression;
+    class Statement;
+
     //! Wraps an id-expression in C++ or a symbol name in C
     /*!
      * This is an "all-pervasive" class throughout all the TL namespace.  It
@@ -260,11 +263,10 @@ namespace TL
 
             //! Predicate for an IdExpression
             static const PredicateAST<LANG_IS_ID_EXPRESSION> predicate;
+
+            //! Returns a full fledged Expression after this IdExpression
+            Expression get_expression();
     };
-
-
-    class Expression;
-    class Statement;
 
     class DeclaredEntity;
     //! This function wraps a whole function definition
