@@ -82,7 +82,7 @@ namespace TL
             std::string prettyprint();
 
             //! Returns the wrapped tree of this LangConstruct
-            AST_t get_ast()
+            AST_t get_ast() const
             {
                 return _ref;
             }
@@ -251,9 +251,6 @@ namespace TL
              * is fully untested.
              */
             Symbol get_computed_symbol() const;
-
-            //! Returns the AST of this id-expression
-            AST_t get_ast() const;
 
             //! Returns a declaration of the symbol
             /*!

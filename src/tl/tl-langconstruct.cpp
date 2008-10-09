@@ -346,11 +346,6 @@ namespace TL
         return result;
     }
 
-    AST_t IdExpression::get_ast() const
-    {
-        return _ref;
-    }
-
     /** Beginning of deprecated functions **/
     void ReplaceIdExpression::add_replacement(Symbol sym, std::string str)
     {
