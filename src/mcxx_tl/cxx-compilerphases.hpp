@@ -27,6 +27,7 @@ extern "C"
 #endif
 
 void load_compiler_phases_cxx(void);
+void start_compiler_phase_pre_execution(translation_unit_t* translation_unit);
 void start_compiler_phase_execution(translation_unit_t* translation_unit);
 void phases_help(void);
 

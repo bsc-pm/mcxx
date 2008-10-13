@@ -75,6 +75,10 @@ namespace TL
                         "normal");
             }
 
+            void virtual pre_run(DTO& dto)
+            {
+            }
+
             void virtual run(DTO& dto)
             {
                 CompilerPhase* instrument_phase = NULL;

@@ -341,7 +341,8 @@ static AST ambiguityHandler (YYSTYPE x0, YYSTYPE x1);
 
 translation_unit : declaration_sequence
 {
-	*parsed_tree = ASTMake1(AST_TRANSLATION_UNIT, $1, NULL, 0, NULL);
+	// *parsed_tree = ASTMake1(AST_TRANSLATION_UNIT, $1, NULL, 0, NULL);
+	*parsed_tree = $1;
 }
 // This is used for subparsing
 | subparsing
@@ -350,7 +351,8 @@ translation_unit : declaration_sequence
 }
 | /* empty */
 {
-	*parsed_tree = ASTMake1(AST_TRANSLATION_UNIT, NULL, NULL, 0, NULL);
+	// *parsed_tree = ASTMake1(AST_TRANSLATION_UNIT, NULL, NULL, 0, NULL);
+	*parsed_tree = NULL;
 }
 ;
 

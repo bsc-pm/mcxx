@@ -95,6 +95,12 @@ AST ast_list_leaf(AST elem);
 // Creates a tree where last_element has been appended onto previous_list
 AST ast_list(AST previous_list, AST last_element);
 
+// Returns the head of a list
+AST ast_list_head(AST list);
+
+// Concatenates two lists
+AST ast_list_concat(AST before, AST after);
+
 // Returns the type we tagged this tree, NULL if the
 // tree was not tagged
 struct type_tag* ast_get_expression_type(const_AST a);

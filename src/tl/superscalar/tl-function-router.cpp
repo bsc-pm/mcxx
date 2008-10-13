@@ -165,6 +165,9 @@ namespace TL
 		return result;
 	}
 	
+    void TL::FunctionRouter::pre_run(DTO& dto)
+    {
+    }
 	
 	void TL::FunctionRouter::run(DTO &dto)
 	{

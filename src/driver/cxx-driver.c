@@ -182,8 +182,11 @@ static void commit_configuration(void);
 static void compile_every_translation_unit(void);
 
 static void compiler_phases_execution(translation_unit_t* translation_unit, const char* parsed_filename);
+static void compiler_phases_pre_execution(translation_unit_t* translation_unit, const char* parsed_filename);
 static const char* preprocess_file(translation_unit_t* translation_unit, const char* input_filename);
 static void parse_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
+static void initialize_semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename);
+static void semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename);
 static const char* prettyprint_translation_unit(translation_unit_t* translation_unit, const char* parsed_filename);
 static void native_compilation(translation_unit_t* translation_unit, const char* prettyprinted_filename);
 
@@ -1528,7 +1531,13 @@ static void compile_every_translation_unit(void)
                 }
             }
 
+            initialize_semantic_analysis(translation_unit, parsed_filename);
+
             parse_translation_unit(translation_unit, parsed_filename);
+
+            compiler_phases_pre_execution(translation_unit, parsed_filename);
+
+            semantic_analysis(translation_unit, parsed_filename);
 
             compiler_phases_execution(translation_unit, parsed_filename);
 
@@ -1551,6 +1560,22 @@ static void compile_every_translation_unit(void)
         }
 
         file_process->already_compiled = 1;
+    }
+}
+
+static void compiler_phases_pre_execution(translation_unit_t* translation_unit,
+        const char* parsed_filename UNUSED_PARAMETER)
+{
+    timing_t time_phases;
+    timing_start(&time_phases);
+
+    start_compiler_phase_pre_execution(translation_unit);
+
+    timing_end(&time_phases);
+
+    if (CURRENT_CONFIGURATION(verbose))
+    {
+        fprintf(stderr, "Early compiler phases pipeline executed in %.2f seconds\n", timing_elapsed(&time_phases));
     }
 }
 
@@ -1579,21 +1604,30 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
 
     timing_start(&timing_parsing);
 
+    AST parsed_tree = NULL;
+
     int parse_result = 0;
     CXX_LANGUAGE()
     {
-        parse_result = mcxxparse(&(translation_unit->parsed_tree));
+        parse_result = mcxxparse(&parsed_tree);
     }
 
     C_LANGUAGE()
     {
-        parse_result = mc99parse(&(translation_unit->parsed_tree));
+        parse_result = mc99parse(&parsed_tree);
     }
 
     if (parse_result != 0)
     {
         running_error("Compilation failed for file '%s'\n", translation_unit->input_filename);
     }
+
+    // --
+    // Concatenate trees
+    AST existing_list_of_decls = ASTSon0(translation_unit->parsed_tree);
+    AST concatenated = ast_list_concat(existing_list_of_decls, parsed_tree);
+    ast_set_child(translation_unit->parsed_tree, 0, concatenated);
+    // --
 
     timing_end(&timing_parsing);
 
@@ -1605,6 +1639,23 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
                 timing_elapsed(&timing_parsing));
     }
 
+}
+
+static AST get_translation_unit_node(void)
+{
+	return ASTMake1(AST_TRANSLATION_UNIT, NULL, NULL, 0, NULL);
+}
+
+static void initialize_semantic_analysis(translation_unit_t* translation_unit, 
+        const char* parsed_filename UNUSED_PARAMETER)
+{
+    // This one is implemented in cxx-buildscope.c
+    translation_unit->parsed_tree = get_translation_unit_node();
+    initialize_translation_unit_scope(translation_unit);
+}
+
+static void semantic_analysis(translation_unit_t* translation_unit, const char* parsed_filename)
+{
     timing_t timing_semantic;
 
     timing_start(&timing_semantic);
@@ -1618,7 +1669,6 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
                 parsed_filename,
                 timing_elapsed(&timing_semantic));
     }
-
 
     check_tree(translation_unit->parsed_tree);
 }
@@ -2001,10 +2051,12 @@ static void load_compiler_phases(void)
     }
 }
 
+
 void add_new_file_to_compilation_process(const char* file_path, const char* output_file, 
         compilation_configuration_t* configuration)
 {
     translation_unit_t* translation_unit = (translation_unit_t*)calloc(1, sizeof(*translation_unit));
+    // Initialize with the translation unit root tree
     translation_unit->input_filename = uniquestr(file_path);
 
     compilation_file_process_t *new_compiled_file = (compilation_file_process_t*) calloc(1, sizeof(*new_compiled_file));

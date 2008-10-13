@@ -48,6 +48,7 @@ namespace TL
 					"");
 			}
 			
+            virtual void pre_run(DTO &dto);
 			virtual void run(DTO &dto);
 	};
 	

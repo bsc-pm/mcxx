@@ -664,6 +664,9 @@ namespace TL
 		}
 	}
 	
+    void CodeConversion::pre_run(DTO &dto)
+    {
+    }
 	
 	void CodeConversion::run(DTO &dto)
 	{

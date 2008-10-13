@@ -124,6 +124,11 @@ namespace TL { namespace Acotes {
     AcotesCompilerPhase::~AcotesCompilerPhase() {
         
     }
+
+    void 
+    AcotesCompilerPhase::pre_run(DTO& data_flow)
+    {
+    }
     
     /**
      * AcotesCompilerPhase implementation.

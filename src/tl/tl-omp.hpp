@@ -732,6 +732,9 @@ namespace TL
                  */
                 void register_construct(const std::string& str);
 
+                //! Pre entry
+                virtual void pre_run(DTO& data_flow);
+
                 //! Virtual function that registers all predicates when
                 //traversing the tree looking for OpenMP constructs
                 virtual void run(DTO& data_flow);

@@ -738,6 +738,9 @@ namespace TL
 		node.replace_with(tree);
 	}
 	
+	void CodeConversion::pre_run(DTO &dto)
+    {
+    }
 	
 	void CodeConversion::run(DTO &dto)
 	{

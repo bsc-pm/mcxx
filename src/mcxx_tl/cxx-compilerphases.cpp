@@ -48,21 +48,90 @@ namespace TL
             typedef std::vector<TL::CompilerPhase*> compiler_phases_t;
             static compiler_phases_t compiler_phases;
         public :
-            static void start_compiler_phase_execution(translation_unit_t* translation_unit)
+            static void start_compiler_phase_pre_execution(translation_unit_t* translation_unit)
             {
-                // Create the DTO
-                TL::DTO dto;
-
-                DEBUG_CODE()
-                {
-                    fprintf(stderr, "[DTO] Created\n");
-                }
+                // Create the DTO stored in the translation unit
+                TL::DTO &dto = *(new TL::DTO());
+                translation_unit->dto = &dto;
 
                 RefPtr<TL::AST_t> ast(new TL::AST_t(translation_unit->parsed_tree));
                 dto.set_object("translation_unit", ast);
 
                 RefPtr<TL::ScopeLink> scope(new TL::ScopeLink(translation_unit->scope_link));
                 dto.set_object("scope_link", scope);
+
+                DEBUG_CODE()
+                {
+                    fprintf(stderr, "[DTO] Initialized\n");
+                }
+
+                for (compiler_phases_t::iterator it = compiler_phases.begin();
+                        it != compiler_phases.end();
+                        it++)
+                {
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "[DTO] Contains following keys at pre_run time: \n");
+                        ObjectList<std::string> _keys = dto.get_keys();
+                        for (ObjectList<std::string>::iterator it2 = _keys.begin();
+                                it2 != _keys.end();
+                                it2++)
+                        {
+                            fprintf(stderr, "[DTO]    '%s'\n", it2->c_str());
+                        }
+                        fprintf(stderr, "[DTO] - No more keys\n");
+                    }
+
+                    TL::CompilerPhase* phase = (*it);
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "[PHASE] Execution of pre_run of phase '%s'\n", phase->get_phase_name().c_str());
+                    }
+
+                    phase->pre_run(dto);
+
+                    if (phase->get_phase_status() != CompilerPhase::PHASE_STATUS_OK)
+                    {
+                        // Ideas to improve this are welcome :)
+                        running_error("Phase '%s' pre_run did not end successfully. Ending compilation", 
+                                phase->get_phase_name().c_str());
+                    }
+
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "[PHASE] Phase '%s' has been pre_run\n", phase->get_phase_name().c_str());
+                    }
+                    
+                    // For consistency, check the tree
+                    DEBUG_CODE()
+                    {
+                        fprintf(stderr, "[PHASE] Checking tree after pre_run of phase '%s'\n",
+                                phase->get_phase_name().c_str());
+
+                    }
+
+                    if (!ast_check(translation_unit->parsed_tree))
+                    {
+                        internal_error("Phase '%s' rendered the AST invalid. Ending compilation\n",
+                                phase->get_phase_name().c_str());
+                    }
+                    else
+                    {
+                        DEBUG_CODE()
+                        {
+                            fprintf(stderr, "[PHASE] Tree seems fine after pre_run of phase '%s'\n",
+                                    phase->get_phase_name().c_str());
+
+                        }
+                    }
+                }
+            }
+
+            static void start_compiler_phase_execution(translation_unit_t* translation_unit)
+            {
+                TL::DTO* _dto = reinterpret_cast<TL::DTO*>(translation_unit->dto);
+                TL::DTO& dto = *_dto;
 
                 for (compiler_phases_t::iterator it = compiler_phases.begin();
                         it != compiler_phases.end();
@@ -307,8 +376,18 @@ extern "C"
         {
             fprintf(stderr, "Starting the compiler phase pipeline\n");
         }
-        TL::CompilerPhaseRunner::phases_update_parameters();
+        // TL::CompilerPhaseRunner::phases_update_parameters();
         TL::CompilerPhaseRunner::start_compiler_phase_execution(translation_unit);
+    }
+
+    void start_compiler_phase_pre_execution(translation_unit_t* translation_unit)
+    {
+        DEBUG_CODE()
+        {
+            fprintf(stderr, "Starting the compiler pre-phase pipeline\n");
+        }
+        TL::CompilerPhaseRunner::phases_update_parameters();
+        TL::CompilerPhaseRunner::start_compiler_phase_pre_execution(translation_unit);
     }
 
     void phases_help(void)

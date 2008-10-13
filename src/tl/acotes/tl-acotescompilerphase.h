@@ -43,6 +43,7 @@ namespace TL { namespace Acotes {
     public:
         AcotesCompilerPhase();
         virtual ~AcotesCompilerPhase();
+       	virtual void pre_run(DTO& data_flow);
        	virtual void run(DTO& data_flow);
     private:
         PragmaCustomDispatcher pragmaDispatcher;

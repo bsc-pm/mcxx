@@ -356,6 +356,40 @@ AST ast_list(AST list, AST last_elem)
     return a;
 }
 
+AST ast_list_head(AST list)
+{
+    if (list == NULL)
+        return NULL;
+
+    if (ASTType(list) != AST_NODE_LIST)
+        return NULL;
+
+    AST iter;
+    for_each_element(list, iter)
+    {
+        return iter;
+    }
+
+    return NULL;
+}
+
+AST ast_list_concat(AST before, AST after)
+{
+    if (before == NULL)
+        return after;
+    if (after == NULL)
+        return before;
+
+    if (ASTType(before) != AST_NODE_LIST
+            || ASTType(after) != AST_NODE_LIST)
+        return NULL;
+
+    AST head_after = ast_list_head(after);
+
+    ast_set_child(head_after, 0, before);
+    return after;
+}
+
 const char* ast_node_type_name(node_t n)
 {
     return ast_node_names[n];
@@ -694,3 +728,4 @@ int ast_node_size(void)
 {
     return sizeof(struct AST_tag);
 }
+

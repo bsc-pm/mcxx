@@ -43,6 +43,7 @@ namespace TL
 			ObjectList<std::string> get_non_called_functions(RefPtr<FunctionMap> function_map) const;
 			
 		public:
+			virtual void pre_run(DTO &dto);
 			virtual void run(DTO &dto);
 	};
 	

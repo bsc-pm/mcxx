@@ -1,5 +1,5 @@
 dnl Package definition: name, version, mail
-AC_INIT([mcxx],[1.2.1.1],[rferrer@ac.upc.edu])
+AC_INIT([mcxx],[1.2.2],[rferrer@ac.upc.edu])
 
 dnl Where are we ?
 AC_CANONICAL_BUILD
@@ -409,28 +409,28 @@ AC_ARG_ENABLE([tl-superscalar],
 
 AC_MSG_CHECKING([which Cell/SMP superscalar runtime API version to use])
 AC_ARG_WITH([superscalar-runtime-api-version],
-	AS_HELP_STRING([--with-superscalar-runtime-api-version=VERSION], [Selects the version number of the Cell/SMP superscalar internal runtime API]),
-	[
-		if test $is_enabled_tl_superscalar = "yes" ; then
-			case $withval in
-			1|2|3)
-				use_tl_superscalar_version=$withval
-				;;
-			*)
-				AC_MSG_ERROR([Invalid Cell/SMP superscalar version specified. Available versions are 1, 2 and 3.])
-				;;
-			esac
-		else
-			use_tl_superscalar_version=none
-		fi
-	],
-	[
-		if test $is_enabled_tl_superscalar = "yes" ; then
-			use_tl_superscalar_version=3
-		else
-			use_tl_superscalar_version=none
-		fi
-	]
+    AS_HELP_STRING([--with-superscalar-runtime-api-version=VERSION], [Selects the version number of the Cell/SMP superscalar internal runtime API]),
+    [
+        if test $is_enabled_tl_superscalar = "yes" ; then
+            case $withval in
+            1|2|3)
+                use_tl_superscalar_version=$withval
+                ;;
+            *)
+                AC_MSG_ERROR([Invalid Cell/SMP superscalar version specified. Available versions are 1, 2 and 3.])
+                ;;
+            esac
+        else
+            use_tl_superscalar_version=none
+        fi
+    ],
+    [
+        if test $is_enabled_tl_superscalar = "yes" ; then
+            use_tl_superscalar_version=3
+        else
+            use_tl_superscalar_version=none
+        fi
+    ]
 )
  
 if test x$is_enabled_tl_superscalar = xyes;
@@ -459,9 +459,9 @@ then
  
    TLEXTENSIONS="${TLEXTENSIONS} superscalar"
    ENABLED_PROFILES="${ENABLED_PROFILES} SUPERSCALAR"
-	ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.superscalar"
+   ADDITIONAL_TESTSUITES="${ADDITIONAL_TESTSUITES} mcc.superscalar"
 fi
-	 
+     
 SUPERSCALAR_INCLUDES="-I ${superscalar_include} -include CellSS.h"
  
 AM_CONDITIONAL(USE_TL_SUPERSCALAR_V1, test x"$use_tl_superscalar_version" = x"1")
@@ -507,7 +507,34 @@ AM_CONDITIONAL(ENABLE_PKGLIB_INSTALL, test x"$is_enabled_pkgdir_install" = x"yes
 
 dnl --------------------- End of Installation of binaries in pkgdir ---------------------
 
+dnl ---------------------- TL examples ----------------------------
+is_enabled_tl_examples="no"
 
+AC_ARG_ENABLE([tl-examples],
+  AS_HELP_STRING([--enable-tl-examples], [Build and install TL example phases]),
+  [
+    if test x$enableval = xyes -o x$enableval = x;
+    then
+        is_enabled_tl_examples="yes"
+    else if test x$enableval = xno;
+         then
+            is_enabled_tl_examples="no"
+         else
+            AC_MSG_ERROR([This option can only be given 'yes' or 'no' values])
+         fi
+    fi
+  ],
+  [
+      is_enabled_tl_examples="no"
+  ]
+)
+
+if test x$is_enabled_tl_examples = xyes;
+then
+   TLEXTENSIONS="${TLEXTENSIONS} examples"
+fi
+
+dnl ------------------------------------
 
 dnl --------------------- Regeneration files ---------------------
 
@@ -740,6 +767,7 @@ AC_CONFIG_FILES([Makefile
            src/tl/acotes/Makefile
            src/tl/stm_func/Makefile
            src/tl/examples/Makefile
+           src/tl/examples/basic_test/Makefile
            src/tl/examples/mypragma/Makefile
            src/tl/examples/declarations/Makefile
            src/tl/examples/decl_closure/Makefile
@@ -766,6 +794,8 @@ AC_OUTPUT
 echo ""
 echo "Mercurium configuration summary"
 echo "==============================="
+echo ""
+echo " * TL Examples will be built :" $is_enabled_tl_examples
 echo ""
 echo " * OpenMP :" $is_enabled_tl_omp
 if test x$is_enabled_tl_omp = xyes;

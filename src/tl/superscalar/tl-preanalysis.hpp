@@ -83,6 +83,7 @@ namespace TL
 			static PhaseStatus _status;
 			
 		public:
+			virtual void pre_run(DTO &dto);
 			virtual void run(DTO &dto);
 			
 			static void fail()

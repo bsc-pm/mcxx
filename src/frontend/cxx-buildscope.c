@@ -193,12 +193,8 @@ void build_scope_dynamic_initializer(void)
     register_ast_extended_attributes();
 }
 
-// Builds scope for the translation unit
-void build_scope_translation_unit(translation_unit_t* translation_unit)
+void initialize_translation_unit_scope(translation_unit_t* translation_unit)
 {
-    AST a = translation_unit->parsed_tree;
-
-
     decl_context_t decl_context = new_global_context();
 
     // The global scope is created here
@@ -206,9 +202,18 @@ void build_scope_translation_unit(translation_unit_t* translation_unit)
     translation_unit->scope_link = scope_link_new(decl_context);
 
     // Link the AST root node with the global scope
+    AST a = translation_unit->parsed_tree;
     scope_link_set(translation_unit->scope_link, a, decl_context);
 
     initialize_builtin_symbols(decl_context);
+}
+
+// Builds scope for the translation unit
+void build_scope_translation_unit(translation_unit_t* translation_unit)
+{
+    AST a = translation_unit->parsed_tree;
+    decl_context_t decl_context 
+        = scope_link_get_global_decl_context(translation_unit->scope_link);
 
     AST list = ASTSon0(a);
     if (list != NULL)

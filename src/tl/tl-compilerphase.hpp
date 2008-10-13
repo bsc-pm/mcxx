@@ -117,7 +117,15 @@ namespace TL
             CompilerPhase();
             virtual ~CompilerPhase();
 
-            //! Entry point of the phase
+            //! Entry point of the phase before parsing and typechecking
+            /*!
+             * This is the entry point of any phase before the actual parsing and typechecking
+             * of a translation unit.
+             * \param data_flow The data transfer object along the compiler phase pipeline
+             */
+            virtual void pre_run(DTO& data_flow) = 0;
+
+            //! Entry point of the phase after parsing and typechecking
             /*!
              * \param data_flow The data transfer object along the compiler phase pipeline
              */

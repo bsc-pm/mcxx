@@ -49,6 +49,7 @@ namespace TL
             };
 
         public:
+            virtual void pre_run(DTO& data_flow);
             virtual void run(DTO& data_flow);
 
             virtual ~InstrumentCalls();

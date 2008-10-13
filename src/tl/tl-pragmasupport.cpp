@@ -225,6 +225,11 @@ namespace TL
     {
     }
 
+    void PragmaCustomCompilerPhase::pre_run(DTO& data_flow)
+    {
+        // Do nothing
+    }
+
     void PragmaCustomCompilerPhase::run(DTO& data_flow)
     {
         // get the translation_unit tree

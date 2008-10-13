@@ -114,6 +114,8 @@ namespace TL
             {
             }
 
+            void pre_run(DTO& dto) { }
+
             void run(DTO& dto)
             {
                 AST_t ast = dto["translation_unit"];

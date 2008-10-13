@@ -22,6 +22,10 @@ namespace TL
                     set_phase_description("This phase duplicates functions removing their OpenMP constructs");
                 }
 
+                virtual void pre_run(DTO& dto)
+                {
+                }
+
                 virtual void run(DTO& dto)
                 {
                     AST_t translation_unit = dto["translation_unit"];

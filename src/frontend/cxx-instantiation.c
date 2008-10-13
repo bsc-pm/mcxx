@@ -299,7 +299,10 @@ void instantiate_template_class(scope_entry_t* entry, decl_context_t decl_contex
     }
 }
  
-void instantiate_template_function(scope_entry_t* entry, decl_context_t decl_context, const char* filename, int line)
+void instantiate_template_function(scope_entry_t* entry, 
+        decl_context_t decl_context UNUSED_PARAMETER, 
+        const char* filename UNUSED_PARAMETER, 
+        int line UNUSED_PARAMETER)
 {
     if (entry->kind != SK_FUNCTION)
     {

@@ -28,6 +28,10 @@
 
 namespace TL
 {
+	void TaskManifest::pre_run(DTO &dto)
+    {
+    }
+
 	void TaskManifest::run(DTO &dto)
 	{
 		FunctionMap function_map = dto["superscalar_function_table"];

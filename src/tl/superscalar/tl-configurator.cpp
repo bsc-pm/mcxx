@@ -20,6 +20,9 @@
 
 #include "tl-configurator.hpp"
 
+void TL::Configurator::pre_run(DTO &dto)
+{
+}
 
 void TL::Configurator::run(DTO &dto)
 {

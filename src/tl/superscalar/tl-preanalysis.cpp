@@ -214,6 +214,9 @@ namespace TL
 		_function_info._called_functions.insert(function_name);
 	}
 	
+    void TL::PreAnalysis::pre_run(DTO& dto)
+    {
+    }
 	
 	void TL::PreAnalysis::run(DTO &dto)
 	{

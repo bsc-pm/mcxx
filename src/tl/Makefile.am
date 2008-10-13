@@ -1,4 +1,4 @@
-SUBDIRS = . examples @TLEXTENSIONS@
+SUBDIRS = . @TLEXTENSIONS@
 
 END=
 

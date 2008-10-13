@@ -330,6 +330,7 @@ namespace TL
         }
     }
 
+    // XXX - Fixme, implement it using ast_list_concat
     void AST_t::prepend_list(AST orig_list, AST prepended_list)
     {
         if (ASTType(orig_list) != AST_NODE_LIST
@@ -370,6 +371,7 @@ namespace TL
         ast_set_child(iter, 0, original_previous);
     }
 
+    // XXX - Fixme, implement it using ast_list_concat
     void AST_t::append_list(AST orig_list, AST appended_list)
     {
         if (ASTType(orig_list) != AST_NODE_LIST

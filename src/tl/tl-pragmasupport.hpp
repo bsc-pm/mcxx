@@ -134,6 +134,9 @@ namespace TL
              * \param pragma_handled The pragma prefix actually handled in this phase.
              */
             PragmaCustomCompilerPhase(const std::string& pragma_handled);
+
+            virtual void pre_run(DTO& data_flow);
+
             //! Entry point of the phase
             /*!
              * This function registers traverse functors to perform

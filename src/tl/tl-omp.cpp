@@ -438,6 +438,10 @@ namespace TL
        {
        }
 
+       void OpenMPPhase::pre_run(DTO& dto)
+       {
+       }
+
        void OpenMPPhase::register_directive(const std::string& str)
        {
            register_new_directive("omp", str.c_str(), false);

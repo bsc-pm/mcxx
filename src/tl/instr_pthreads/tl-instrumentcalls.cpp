@@ -442,6 +442,10 @@ namespace TL
         return false;
     }
 
+    void InstrumentCalls::pre_run(DTO& data_flow)
+    {
+    }
+
     void InstrumentCalls::run(DTO& data_flow)
     {
         AST_t root_node = data_flow["translation_unit"];
