@@ -73,6 +73,7 @@ namespace TL
 			std::set<std::string> _called_functions;
 			bool _is_task;
 			bool _has_high_priority;
+			bool _is_blocking;
 			bool _has_coherced_sides;
 			bool _calls_to_taskside_coherced_function;
 			bool _is_on_task_side;
@@ -94,7 +95,8 @@ namespace TL
 			bool _has_errors;
 		
 			FunctionInfo()
-				: _name(), _caller_functions(), _called_functions(), _is_task(false), _has_high_priority(false), 
+				: _name(), _caller_functions(), _called_functions(), _is_task(false),
+				_has_high_priority(false), _is_blocking(false),
 				_has_coherced_sides(false), _calls_to_taskside_coherced_function(false),
 				_is_on_task_side(false), _is_on_non_task_side(false), _parameters(), _has_ellipsis(false),
 				_has_incomplete_prototype(false),

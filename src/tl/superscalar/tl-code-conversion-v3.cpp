@@ -95,10 +95,25 @@ namespace TL
 				<< add_task_code
 			<< "}";
 		
+		std::string flag_code;
+		
+		if (function_info._has_high_priority)
+		{
+			flag_code = "CSS_HIGH_PRIORITY_FLAG";
+		}
+		else if (function_info._is_blocking)
+		{
+			flag_code = "CSS_BLOCKING_FLAG";
+		}
+		else
+		{
+			flag_code = "CSS_NO_FLAG";
+		}
+		
 		add_task_code
 			<< "css_addTask("
 				<< function_name << "_task_id__cssgenerated" << ", "
-				<< (function_info._has_high_priority ? "1" : "0") << ", "
+				<< flag_code << ", "
 				<< function_info._parameters.size() << ", "
 				<< "parameters__cssgenerated" << ");";
 		

@@ -348,6 +348,20 @@ namespace TL
 			TaskAnalysis::fail();
 		}
 		
+		bool is_blocking = construct.get_clause("blocking").is_defined();
+		
+		if (is_blocking && !construct.get_clause("blocking").get_arguments().empty())
+		{
+			std::cerr << task_definition.get_ast().get_locus() << " Error: the 'blocking' clause does not accept any parameter." << std::endl;
+			function_info._has_errors = true;
+			TaskAnalysis::fail();
+		}
+		
+		if (has_high_priority && is_blocking)
+		{
+			std::cerr << task_definition.get_ast().get_locus() << " Warning: ignoring 'highpriority' clause in blocking task." << std::endl;
+		}
+		
 		if (function_info._task_declaration_count != 0)
 		{
 			if (function_info._has_high_priority != has_high_priority)
@@ -358,10 +372,19 @@ namespace TL
 				TaskAnalysis::fail();
 				return;
 			}
+			if (function_info._is_blocking != is_blocking)
+			{
+				std::cerr << task_definition.get_ast().get_locus() << " Error: definition of task '" << function_name << "' has different blocking behaviour that previous declaration." << std::endl;
+				std::cerr << function_info._task_declaration_locus << " previously declared here." << std::endl;
+				function_info._has_errors = true;
+				TaskAnalysis::fail();
+				return;
+			}
 		}
 		
 		function_info._is_task = true;
 		function_info._has_high_priority = has_high_priority;
+		function_info._is_blocking = is_blocking;
 		function_info._task_definition_count++;
 		function_info._task_definition_locus = task_definition.get_ast().get_locus();
 		
@@ -494,9 +517,31 @@ namespace TL
 			TaskAnalysis::fail();
 		}
 		
+		bool is_blocking = construct.get_clause("blocking").is_defined();
+		
+		if (is_blocking && !construct.get_clause("blocking").get_arguments().empty())
+		{
+			std::cerr << declared_entity.get_ast().get_locus() << " Error: the 'blocking' clause does not accept any parameter." << std::endl;
+			function_info._has_errors = true;
+			TaskAnalysis::fail();
+		}
+		
+		if (has_high_priority && is_blocking)
+		{
+			std::cerr << declared_entity.get_ast().get_locus() << " Warning: ignoring 'highpriority' clause in blocking task." << std::endl;
+		}
+		
 		if (function_info._task_definition_count != 0) {
 			if (function_info._has_high_priority != has_high_priority) {
 				std::cerr << declared_entity.get_ast().get_locus() << " Error: declaration of task '" << function_name << "' has different priority that previous definition." << std::endl;
+				std::cerr << function_info._task_definition_locus << " previously defined here." << std::endl;
+				function_info._has_errors = true;
+				TaskAnalysis::fail();
+				return;
+			}
+			if (function_info._is_blocking != is_blocking)
+			{
+				std::cerr << declared_entity.get_ast().get_locus() << " Error: definition of task '" << function_name << "' has different blocking behaviour that previous declaration." << std::endl;
 				std::cerr << function_info._task_definition_locus << " previously defined here." << std::endl;
 				function_info._has_errors = true;
 				TaskAnalysis::fail();
@@ -506,6 +551,7 @@ namespace TL
 		
 		function_info._is_task = true;
 		function_info._has_high_priority = has_high_priority;
+		function_info._is_blocking = is_blocking;
 		function_info._task_declaration_count++;
 		function_info._task_declaration_locus = declared_entity.get_ast().get_locus();
 		
