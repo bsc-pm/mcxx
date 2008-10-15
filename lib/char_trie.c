@@ -173,6 +173,7 @@ struct stack_tag
     char elem;
 } stack_t;
 
+#if 0
 static void print_trie_rec(const char_trie_t* char_trie, int level, stack_t* stack)
 {
     int i;
@@ -203,6 +204,7 @@ static void print_trie(const char_trie_t* char_trie)
     stack_t stack[256];
     print_trie_rec(char_trie, 0, stack);
 }
+#endif
 
 // -- Public interface for uniqstr
 static char_trie_t _global_char_trie =
