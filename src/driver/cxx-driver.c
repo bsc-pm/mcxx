@@ -106,6 +106,9 @@ compilation_process_t compilation_process;
 "                           cannot be checked compilation fails.\n" \
 "  --disable-gxx-traits     Disables g++ 4.3 type traits. Required\n" \
 "                           if you use g++ 4.2 or previous.\n" \
+"  --pass-through           Disables preprocessing and parsing but\n" \
+"                           invokes remaining steps. A previous\n" \
+"                           invocation with --keep is required\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -163,6 +166,7 @@ struct command_line_long_options command_line_long_options[] =
     {"typecheck", CLP_NO_ARGUMENT, OPTION_TYPECHECK},
     {"pp-stdout", CLP_NO_ARGUMENT, OPTION_PREPROCESSOR_USES_STDOUT},
     {"disable-gxx-traits", CLP_NO_ARGUMENT, OPTION_DISABLE_GXX_TRAITS},
+    {"pass-through", CLP_NO_ARGUMENT, OPTION_PASS_THROUGH}, 
     // sentinel
     {NULL, 0, 0}
 };
@@ -638,6 +642,11 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                 case OPTION_DISABLE_GXX_TRAITS:
                     {
                         CURRENT_CONFIGURATION(disable_gxx_type_traits) = 1;
+                        break;
+                    }
+                case OPTION_PASS_THROUGH:
+                    {
+                        CURRENT_CONFIGURATION(pass_through) = 1;
                         break;
                     }
                 case 'h' :
@@ -1491,7 +1500,8 @@ static void compile_every_translation_unit(void)
         }
 
         const char* parsed_filename = translation_unit->input_filename;
-        if (current_extension->source_kind == SOURCE_KIND_NOT_PREPROCESSED)
+        if (current_extension->source_kind == SOURCE_KIND_NOT_PREPROCESSED
+                && !CURRENT_CONFIGURATION(pass_through))
         {
             timing_t timing_preprocessing;
 
@@ -1515,44 +1525,47 @@ static void compile_every_translation_unit(void)
 
         if (!CURRENT_CONFIGURATION(do_not_parse))
         {
-            CXX_LANGUAGE()
+            if (!CURRENT_CONFIGURATION(pass_through))
             {
-                if (mcxx_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+                CXX_LANGUAGE()
                 {
-                    running_error("Could not open file '%s'", parsed_filename);
+                    if (mcxx_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+                    {
+                        running_error("Could not open file '%s'", parsed_filename);
+                    }
                 }
-            }
 
-            C_LANGUAGE()
-            {
-                if (mc99_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+                C_LANGUAGE()
                 {
-                    running_error("Could not open file '%s'", parsed_filename);
+                    if (mc99_open_file_for_scanning(parsed_filename, translation_unit->input_filename) != 0)
+                    {
+                        running_error("Could not open file '%s'", parsed_filename);
+                    }
                 }
-            }
 
-            initialize_semantic_analysis(translation_unit, parsed_filename);
+                initialize_semantic_analysis(translation_unit, parsed_filename);
 
-            parse_translation_unit(translation_unit, parsed_filename);
+                parse_translation_unit(translation_unit, parsed_filename);
 
-            compiler_phases_pre_execution(translation_unit, parsed_filename);
+                compiler_phases_pre_execution(translation_unit, parsed_filename);
 
-            semantic_analysis(translation_unit, parsed_filename);
+                semantic_analysis(translation_unit, parsed_filename);
 
-            compiler_phases_execution(translation_unit, parsed_filename);
+                compiler_phases_execution(translation_unit, parsed_filename);
 
-            if (CURRENT_CONFIGURATION(debug_options.print_ast))
-            {
-                fprintf(stderr, "Printing AST in graphviz format\n");
+                if (CURRENT_CONFIGURATION(debug_options.print_ast))
+                {
+                    fprintf(stderr, "Printing AST in graphviz format\n");
 
-                ast_dump_graphviz(translation_unit->parsed_tree, stdout);
-            }
+                    ast_dump_graphviz(translation_unit->parsed_tree, stdout);
+                }
 
-            if (CURRENT_CONFIGURATION(debug_options.print_scope))
-            {
-                fprintf(stderr, "============ SYMBOL TABLE ===============\n");
-                print_scope(translation_unit->global_decl_context);
-                fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
+                if (CURRENT_CONFIGURATION(debug_options.print_scope))
+                {
+                    fprintf(stderr, "============ SYMBOL TABLE ===============\n");
+                    print_scope(translation_unit->global_decl_context);
+                    fprintf(stderr, "========= End of SYMBOL TABLE ===========\n");
+                }
             }
 
             const char* prettyprinted_filename = prettyprint_translation_unit(translation_unit, parsed_filename);
@@ -1601,6 +1614,12 @@ static void parse_translation_unit(translation_unit_t* translation_unit, const c
     mcxxdebug = mc99debug = CURRENT_CONFIGURATION(debug_options.debug_parser);
 
     timing_t timing_parsing;
+
+    if (CURRENT_CONFIGURATION(verbose))
+    {
+        fprintf(stderr, "Parsing file '%s' ('%s')\n", 
+                translation_unit->input_filename, parsed_filename);
+    }
 
     timing_start(&timing_parsing);
 
@@ -1695,7 +1714,6 @@ static const char* prettyprint_translation_unit(translation_unit_t* translation_
         else
         {
             output_filename = translation_unit->output_filename;
-            prettyprint_file = fopen(output_filename, "w");
         }
     }
     else
@@ -1722,16 +1740,20 @@ static const char* prettyprint_translation_unit(translation_unit_t* translation_
             output_filename = strappend(CURRENT_CONFIGURATION(output_directory), "/");
             output_filename = strappend(output_filename, output_filename_basename);
         }
-        prettyprint_file = fopen(output_filename, "w");
     }
 
+    if (CURRENT_CONFIGURATION(pass_through))
+        return output_filename;
+
+    // Open it, unless was an already opened descriptor
+    if (prettyprint_file == NULL)
+        prettyprint_file = fopen(output_filename, "w");
 
     if (prettyprint_file == NULL)
     {
         running_error("Cannot create output file '%s' (%s)", output_filename,
                 strerror(errno));
     }
-    
 
     timing_t time_print;
     timing_start(&time_print);
@@ -1820,6 +1842,11 @@ static const char* preprocess_file(translation_unit_t* translation_unit,
 
         preprocessor_options[i] = input_filename;
         i++;
+    }
+
+    if (CURRENT_CONFIGURATION(pass_through))
+    {
+        return preprocessed_filename;
     }
 
     int result_preprocess = execute_program_flags(CURRENT_CONFIGURATION(preprocessor_name),

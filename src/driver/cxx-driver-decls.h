@@ -47,6 +47,7 @@ typedef enum
     OPTION_TYPECHECK,
     OPTION_PREPROCESSOR_USES_STDOUT,
     OPTION_DISABLE_GXX_TRAITS,
+    OPTION_PASS_THROUGH,
 } COMMAND_LINE_OPTIONS;
 
 // Kind of source 
@@ -264,6 +265,9 @@ typedef struct compilation_configuration_tag
 
     // Disable g++ 4.3 type traits
     char disable_gxx_type_traits;
+
+    // Mimic all the process but preprocess and parsing
+    char pass_through;
 
     // Type environment
     struct type_environment_tag* type_environment;
