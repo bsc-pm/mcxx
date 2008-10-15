@@ -298,8 +298,8 @@ namespace TL
                {
                    if (_custom_functor_post.find(directive_name) == _custom_functor_post.end())
                    {
-                       std::cerr << "Custom OpenMP construct '" << directive_name << "' in " 
-                           << node.get_locus() << " is not currently handled" << std::endl;
+                       std::cerr << node.get_locus() 
+                           << ": warning: custom OpenMP construct '" << directive_name << "'";
                    }
                }
            }
@@ -313,7 +313,8 @@ namespace TL
                        it != current_construct_info.clause_list.end();
                        it++)
                {
-                   std::cerr << "Warning: Clause '" << it->first << "' unused in OpenMP directive at " << it->second << std::endl;
+                   std::cerr << it->second 
+                       << ": warning: clause '" << it->first << "' unused in OpenMP directive";
                }
 
                construct_stack.pop();
