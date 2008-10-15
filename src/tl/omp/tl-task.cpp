@@ -1,23 +1,23 @@
 /*
-    Mercurium C/C++ Compiler
-    Copyright (C) 2006-2008 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
-    Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
-    Universitat Politecnica de Catalunya
+   Mercurium C/C++ Compiler
+   Copyright (C) 2006-2008 - Roger Ferrer Ibanez <roger.ferrer@bsc.es>
+   Barcelona Supercomputing Center - Centro Nacional de Supercomputacion
+   Universitat Politecnica de Catalunya
 
-    This program is free software; you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation; either version 2 of the License, or
-    (at your option) any later version.
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2 of the License, or
+   (at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program; if not, write to the Free Software
-    Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
-*/
+   You should have received a copy of the GNU General Public License
+   along with this program; if not, write to the Free Software
+   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+   */
 #include "tl-omptransform.hpp"
 #include "tl-taskserialize.hpp"
 
@@ -66,6 +66,87 @@ namespace TL
                     function_definition,
                     construct_body,
                     task_construct);
+            
+            // Task dependence information
+            ObjectList<Symbol> & input_dependences =
+                task_construct.get_data<ObjectList<Symbol> >("input_dependences");
+            ObjectList<Symbol> & output_dependences =
+                task_construct.get_data<ObjectList<Symbol> >("output_dependences");
+
+            if ( Nanos4::Version::is_family("trunk") &&
+                    Nanos4::Version::version >= 4202 ) 
+            {
+                // input(x) clause support
+                // input variables must be shared or firstprivate
+                OpenMP::CustomClause input = directive.custom_clause("input");
+                if (input.is_defined()) 
+                {
+                    ObjectList<IdExpression> dep_list = input.id_expressions();
+
+                    if (dep_list.empty()) 
+                    {
+                        std::cerr << input.get_ast().get_locus() <<
+                            ": warning: empty input clause" << std::endl;
+                    }
+
+                    for (ObjectList<IdExpression>::iterator it = dep_list.begin();
+                            it != dep_list.end();
+                            it++)
+                    {
+                        IdExpression& id_expr = *it;
+
+                        OpenMP::DataAttribute data_attr 
+                            = task_construct.get_data_attribute(id_expr.get_symbol());
+
+                        if (((data_attr & OpenMP::DA_SHARED) != OpenMP::DA_SHARED)
+                                && ((data_attr & OpenMP::DA_FIRSTPRIVATE) != OpenMP::DA_FIRSTPRIVATE))
+                        {
+                            std::cerr << id_expr.get_ast().get_locus() << 
+                                ": warning: data reference '" << id_expr.prettyprint() << "' is not shared nor firstprivate. Ignoring"
+                                << std::endl;
+                        }
+                        else
+                        {
+                            input_dependences.append(id_expr.get_symbol());
+                        }
+                    }
+                }
+
+                // output(x) clause support
+                // output variables must be shared
+                OpenMP::CustomClause output = directive.custom_clause("output");
+                if (output.is_defined()) 
+                {
+                    ObjectList<IdExpression> dep_list = output.id_expressions();
+
+                    if (dep_list.empty())
+                    {
+                        std::cerr << output.get_ast().get_locus() <<
+                            ": warning: empty input clause" << std::endl;
+                    }
+
+                    for (ObjectList<IdExpression>::iterator it = dep_list.begin();
+                            it != dep_list.end();
+                            it++)
+                    {
+                        IdExpression& id_expr = *it;
+
+                        OpenMP::DataAttribute data_attr 
+                            = task_construct.get_data_attribute(id_expr.get_symbol());
+
+                        if ((data_attr & OpenMP::DA_SHARED) != OpenMP::DA_SHARED)
+                        {
+                            std::cerr << id_expr.get_ast().get_locus() << 
+                                ": warning: data reference '" << id_expr.prettyprint() << "' is not shared. Ignoring"
+                                << std::endl;
+                        }
+                        else
+                        {
+                            output_dependences.append(id_expr.get_symbol());
+                        }
+                    }
+                }
+            }
         }
 
         void OpenMPTransform::task_postorder(OpenMP::CustomConstruct task_construct)
@@ -177,8 +258,8 @@ namespace TL
         {
             // Here the spawning code will be created
             Source task_queueing;
-            Source task_parameters;
-            Source task_parameter_list;
+            Source task_arguments;
+            Source task_argument_list;
 
             Source size_vector;
 
@@ -188,18 +269,47 @@ namespace TL
             // This might be needed for nonstatic member functions
             if (is_nonstatic_member_function(function_definition))
             {
-                task_parameter_list.append_with_separator("this", ",");
+                task_argument_list.append_with_separator("this", ",");
                 num_reference_args++;
             }
+
+
+            // for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+            //         it != parameter_info_list.end();
+            //         it++)
+            // {
+            // }
+            ObjectList<Symbol> & input_dependences =
+                task_construct.get_data<ObjectList<Symbol> >("input_dependences");
+            ObjectList<Symbol> & output_dependences =
+                task_construct.get_data<ObjectList<Symbol> >("output_dependences");
 
             for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
                     it != parameter_info_list.end();
                     it++)
             {
+                // Only those that are passed by pointer to a shared (non-local) value
                 if (it->kind != ParameterInfo::BY_POINTER)
                     continue;
 
-                task_parameter_list.append_with_separator(it->argument_name, ",");
+                std::string argument_name = it->argument_name;
+                if (input_dependences.contains(it->symbol))
+                {
+                    // '&x' will be changed into 'nth_x' (which is already a
+                    // pointer so no & actually is required)
+                    argument_name = "nth_" + it->symbol.get_name();
+                }
+                else if (output_dependences.contains(it->symbol))
+                {
+                    // '&x' will be changed into 'nth_x_outdep + 1' (which is
+                    // already a pointer so no & actually is required) +1 is
+                    // required because of the layout used by the runtime,
+                    // where the storage is located immediately after the
+                    // structure representing the dependency itself
+                    argument_name = "nth_" + it->symbol.get_name() + "_outdep + 1";
+                }
+
+                task_argument_list.append_with_separator(argument_name, ",");
                 num_reference_args++;
             }
 
@@ -214,6 +324,7 @@ namespace TL
                     it != parameter_info_list.end();
                     it++)
             {
+                // Only those that are passed by pointer to a local value
                 if (it->kind != ParameterInfo::BY_VALUE)
                     continue;
 
@@ -226,9 +337,26 @@ namespace TL
                 vector_ref << "&nth_size[" << (num_value_args + 1) << "]"
                     ;
 
+                std::string argument_name = it->argument_name;
+                if (input_dependences.contains(it->symbol))
+                {
+                    // '&x' will be changed into 'nth_x' (which is already a
+                    // pointer so no & actually is required)
+                    argument_name = "nth_" + it->symbol.get_name();
+                }
+                else if (output_dependences.contains(it->symbol))
+                {
+                    // '&x' will be changed into 'nth_x_outdep + 1' (which is
+                    // already a pointer so no & actually is required) +1 is
+                    // required because of the layout used by the runtime,
+                    // where the storage is located immediately after the
+                    // structure representing the dependency itself
+                    argument_name = "nth_" + it->symbol.get_name() + "_outdep + 1";
+                }
+
                 // First an address with the size must be passed
-                task_parameter_list.append_with_separator(vector_ref.get_source(), ",");
-                task_parameter_list.append_with_separator(it->argument_name, ",");
+                task_argument_list.append_with_separator(vector_ref.get_source(), ",");
+                task_argument_list.append_with_separator(argument_name, ",");
 
                 CXX_LANGUAGE()
                 {
@@ -257,13 +385,12 @@ namespace TL
             }
 
             // A comma is only needed when the parameter list is non empty
-            if (!task_parameter_list.empty())
+            if (!task_argument_list.empty())
             {
-                task_parameters << ", " << task_parameter_list;
+                task_arguments << ", " << task_argument_list;
             }
 
             // 'switch' clause support
-            // FIXME: We could use an enum here instead of these two literals
             Source task_type;
             if (directive.custom_clause("untied").is_defined())
             {
@@ -357,6 +484,7 @@ namespace TL
             {
                 Source duplicated_code_src;
                 duplicated_code_src
+                    << comment("Fall-through serial!")
                     << "{"
                     << original_code.prettyprint()
                     << "break;"
@@ -430,6 +558,62 @@ namespace TL
                     << cutoff_call;
             }
 
+            // input dependences 
+            // Task dependence information from task_preorder
+
+            Source inputs_prologue, inputs_epilogue;
+            Source outputs_prologue, outputs_epilogue;
+
+            if (!input_dependences.empty())
+            {
+                ObjectList<Symbol>::iterator it_begin = input_dependences.begin();
+                ObjectList<Symbol>::iterator it_end = input_dependences.end();
+                ObjectList<Symbol>::iterator it;
+
+                for ( it = it_begin; it != it_end; it++ ) {
+                    Symbol &sym = *it;
+                    Type pointer_type = sym.get_type().get_pointer_to();
+
+                    inputs_prologue 
+                        << comment("Lookup a previous output dependency, so we can link input of '" + sym.get_name() + "'")
+                        << "nth_outdep_t *nth_" << sym.get_name() << "_outdep = nth_find_output_dep((void *)&" << sym.get_name() << ");"
+                        << pointer_type.get_declaration(task_construct.get_scope(), "nth_" + sym.get_name()) << ";"
+                        << comment("Should this output dependency exist, we will use it, otherwise ignore it")
+                        << "if (nth_" << sym.get_name() << "_outdep)"
+                        << "  nth_" << sym.get_name() 
+                        <<          " = (" << pointer_type.get_declaration(task_construct.get_scope(),"") << ")"
+                        <<                "(nth_" << sym.get_name() << "_outdep + 1);"
+                        << "else "
+                        << "  nth_" << sym.get_name() << " = &" << sym.get_qualified_name(task_construct.get_scope()) << ";"
+                        ;
+
+                    inputs_epilogue
+                        << comment("Register input dependency of symbol '" + sym.get_name() + "'")
+                        << "if (nth_" << sym.get_name() << "_outdep) "
+                        << "    nth_add_input_dep(nth,nth_" << sym.get_name() << "_outdep);"
+                        ;
+                }
+
+            }
+
+            // output dependences 
+            if (!output_dependences.empty())
+            {
+                ObjectList<Symbol>::iterator it_begin = output_dependences.begin();
+                ObjectList<Symbol>::iterator it_end = output_dependences.end();
+                ObjectList<Symbol>::iterator it;
+
+                for ( it = it_begin; it != it_end; it++ ) {
+                    Symbol &sym = *it;
+
+                    outputs_prologue << "nth_outdep_t *nth_" << sym.get_name() << "_outdep = "
+                        << "nth_create_output_dep((void *)&" << sym.get_name() << ",sizeof(" << sym.get_name() << "));";
+                    outputs_epilogue 
+                        << comment("Register output dependency of symbol '" + sym.get_name() + "'")
+                        << "nth_add_output_dep(nth,nth_" << sym.get_name() << "_outdep);" ;
+                }
+            }
+
             // FIXME: Instrumentation is still missing!!!
             task_queueing
                 << "{"
@@ -450,10 +634,14 @@ namespace TL
                 <<          "int nth_nargs_val = " << num_value_args << ";"
                 <<          "void* nth_arg_addr[" << num_value_args << " + 1];"
                 <<          "void** nth_arg_addr_ptr = &nth_arg_addr[1];"
+                <<	        inputs_prologue
+                << 	        outputs_prologue
                 <<          size_vector
                 <<          "nth = nth_create_task((void*)(" << outlined_function_reference << "), "
                 <<                 "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, &nth_arg_addr_ptr, "
-                <<                 "&nth_nargs_ref, &nth_nargs_val" << task_parameters << ");"
+                <<                 "&nth_nargs_ref, &nth_nargs_val" << task_arguments << ");"
+                <<	        inputs_epilogue
+                <<	        outputs_epilogue
                 <<          copy_construction_part
                 <<          "nth_submit(nth);"
                 <<          "break;" 
@@ -512,9 +700,14 @@ namespace TL
                     reduction_empty,
                     empty,
                     parameter_info_list
-                    ); 
+                    );
 
-            parallel_body 
+            Source dependences_block;
+            if ( construct.get_data<ObjectList<IdExpression> >("input_dependences").size() > 0)
+                dependences_block << "nth_block();" ;
+
+            parallel_body
+                << dependences_block
                 << private_declarations
                 << modified_parallel_body_stmt.prettyprint()
                 ;
@@ -560,9 +753,9 @@ namespace TL
 
                 if (legacy_captureaddress_clause.is_defined())
                 {
-                    std::cerr << "Warning: Clauses 'captureaddress' and 'capture_address' "
-                        << "(found in " << legacy_captureaddress_clause.get_ast().get_locus() << " ) are deprecated. "
-                        << "Instead use 'shared'." << std::endl;
+                    std::cerr << legacy_captureaddress_clause.get_ast().get_locus() 
+                        << ": warning: clauses 'captureaddress' and 'capture_address' are deprecated, instead use 'shared'"
+                        << std::endl;
                     // Now get the id-expressions for backward compatibility
                     captureaddress_references_in_clause.append(legacy_captureaddress_clause.id_expressions());
                 }
@@ -612,9 +805,10 @@ namespace TL
 
                 if (legacy_captureprivate_clause.is_defined())
                 {
-                    std::cerr << "Warning: Clauses 'captureprivate', 'capturevalue', 'capture_private' and 'capture_value'"
-                        << "(found in '" << legacy_captureprivate_clause.get_ast().get_locus() << "')" 
-                        << " are deprecated. Instead use 'firstprivate'." << std::endl;
+                    std::cerr << legacy_captureprivate_clause.get_ast().get_locus() << ": warning: clauses 'captureprivate',"
+                        << "'capture_private', 'capturevalue' and 'capture_value' are deprecated. Instead use 'firstprivate'."
+                        << std::endl;
+
                     // Now append the found things for joy of the user (does not check for repeated things!)
                     captureprivate_references_in_clause.append(legacy_captureprivate_clause.id_expressions());
                 }
@@ -685,9 +879,8 @@ namespace TL
             }
             else
             {
-                std::cerr << "Warning: Unknown default clause '" 
-                    << default_clause.prettyprint() << "' at " << default_clause.get_ast().get_locus() << ". "
-                    << "Assuming 'default(firstprivate)'."
+                std::cerr << default_clause.get_ast().get_locus() << ": warning: unknown default clause '" 
+                    << default_clause.prettyprint() << "'. Assuming 'default(firstprivate)'."
                     << std::endl;
                 default_task_data_sharing = DK_TASK_FIRSTPRIVATE;
             }
@@ -853,9 +1046,10 @@ namespace TL
                             }
                         case DK_TASK_NONE :
                             {
-                                std::cerr << "Warning: '" << it->prettyprint() << "' in " << it->get_ast().get_locus() 
-                                    << " does not have a data sharing attribute and 'default(none)' was specified. "
-                                    << "It will be considered capturevalue." << std::endl;
+                                std::cerr << it->get_ast().get_locus() << ": warning: '" 
+                                    << it->prettyprint() << "' does not have a data sharing attribute "
+                                    << "and 'default(none)' was specified. " 
+                                    << "It will be considered firstprivate." << std::endl;
                                 /* Fall through captureprivate */
                             }
                         case DK_TASK_FIRSTPRIVATE :
