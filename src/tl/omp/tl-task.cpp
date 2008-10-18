@@ -362,6 +362,8 @@ namespace TL
                 {
                     Symbol sym = it->symbol;
                     Type type = sym.get_type();
+                    if (type.is_reference())
+                        type = type.references_to();
 
                     if (type.is_class())
                     {
