@@ -929,24 +929,27 @@ namespace TL
 
         void OpenMPTransform::invoke_destructors(ObjectList<ParameterInfo> parameter_info_list, Source &destructor_calls)
         {
-            for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
-                    it != parameter_info_list.end();
-                    it++)
+            CXX_LANGUAGE()
             {
-                if (it->kind == ParameterInfo::BY_VALUE)
+                for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
+                        it != parameter_info_list.end();
+                        it++)
                 {
-                    Type type = it->symbol.get_type();
-                    if (type.is_reference())
+                    if (it->kind == ParameterInfo::BY_VALUE)
                     {
-                        type = type.references_to();
-                    }
+                        Type type = it->symbol.get_type();
+                        if (type.is_reference())
+                        {
+                            type = type.references_to();
+                        }
 
-                    if (type.is_named_class())
-                    {
-                        Symbol class_name = type.get_symbol();
+                        if (type.is_named_class())
+                        {
+                            Symbol class_name = type.get_symbol();
 
-                        destructor_calls
-                            << "(*" << it->parameter_name << ").~" << class_name.get_name() << "();";
+                            destructor_calls
+                                << "(*" << it->parameter_name << ").~" << class_name.get_name() << "();";
+                        }
                     }
                 }
             }

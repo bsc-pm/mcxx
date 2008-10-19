@@ -708,12 +708,17 @@ namespace TL
             if ( construct.get_data<ObjectList<IdExpression> >("input_dependences").size() > 0)
                 dependences_block << "nth_block();" ;
 
+            // Source destructor_calls;
+
             parallel_body
                 << dependences_block
                 << private_declarations
                 << modified_parallel_body_stmt.prettyprint()
+                // << destructor_calls
                 ;
 
+            // invoke_destructors(parameter_info_list, destructor_calls);
+            
             return finish_outline(function_definition, 
                     outline_parallel, 
                     parameter_info_list, 
