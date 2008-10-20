@@ -35,6 +35,7 @@ namespace TL
             // Replace references using set "replace_references" over construct body
             Statement modified_parallel_body_stmt = replace_references.replace(construct_body);
 
+            // FIXME - 'int' might no be enough for some loops!
             loop_distribution 
                 << "int nth_low;"
                 << "int nth_upper;"

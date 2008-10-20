@@ -259,18 +259,25 @@ namespace TL
                 << "nth_end_player(&nth_player);"
                 ;
 
+            Source destructor_calls;
+            invoke_destructors(parameter_info_list, destructor_calls);
+
             parallel_for_body 
                 << private_declarations
 
+                << comment("Entering team")
                 << code_before_entering_team
                 << enter_team
 
+                << comment("Construct code")
                 << loop_distribution
                 << loop_finalization
 
                 << reduction_update
                 << lastprivate_code
 
+                << destructor_calls
+                << comment("Leaving team")
                 << leave_team
                 << code_after_leaving_team
                 ;

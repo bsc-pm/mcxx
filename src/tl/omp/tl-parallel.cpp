@@ -255,7 +255,8 @@ namespace TL
                 << "nth_end_player(&nth_player);"
                 ;
 
-            // Source destructor_calls;
+            Source destructor_calls;
+            invoke_destructors(parameter_info_list, destructor_calls);
 
             parallel_body 
                 << debug_comment
@@ -268,13 +269,11 @@ namespace TL
                 << modified_parallel_body_stmt.prettyprint()
 
                 << reduction_update
-                // << destructor_calls
+                << destructor_calls
                 << comment("Leaving team")
                 << leave_team
                 << code_after_leaving_team
                 ;
-
-            // invoke_destructors(parameter_info_list, destructor_calls);
 
             return finish_outline(function_definition, 
                     outline_parallel, 
