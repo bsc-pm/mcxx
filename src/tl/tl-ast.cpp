@@ -1017,4 +1017,15 @@ namespace TL
         return ast_iterator;
     }
 
+    ObjectList<AST_t> AST_t::children()
+    {
+        ObjectList<AST_t> result;
+
+        result.append(AST_t(ASTSon0(_ast)));
+        result.append(AST_t(ASTSon1(_ast)));
+        result.append(AST_t(ASTSon2(_ast)));
+        result.append(AST_t(ASTSon3(_ast)));
+
+        return result;
+    }
 }

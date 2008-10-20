@@ -375,6 +375,14 @@ namespace TL
              */
             ObjectList<AST_t> depth_subtrees(const TraverseASTFunctor& functor);
 
+            //! Returns a list of children
+            /*!
+             * \return A list containing the children of this node. A children
+             * in the list might be invalid if the tree does not have such
+             * children.
+             */
+            ObjectList<AST_t> children();
+
             //! Debug function - Do not use 
             /*! Returns a string with the name of the internal ast kind */
             std::string internal_ast_type() const;
