@@ -3206,3 +3206,9 @@ void scope_entry_dynamic_initializer(void)
     extensible_schema_init(&scope_entry_extensible_schema);
 }
 
+decl_context_t decl_context_empty()
+{
+    decl_context_t result;
+    memset(&result, 0, sizeof(result));
+    return result;
+}

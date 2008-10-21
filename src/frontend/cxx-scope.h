@@ -39,6 +39,9 @@ decl_context_t new_class_context(decl_context_t enclosing_decl_context,
         const char* qualification_name, struct type_tag* class_type);
 decl_context_t new_template_context(decl_context_t enclosing_decl_context);
 
+// Used only in TL
+decl_context_t decl_context_empty();
+
 // Functions to handle scopes
 struct scope_entry_tag* new_symbol(decl_context_t decl_context, 
         struct scope_tag* st, const char* name);

@@ -22,6 +22,7 @@
 #define TL_SCOPE_HPP
 
 #include <string>
+#include <cstring>
 #include <vector>
 #include <map>
 #include "cxx-scope.h"
@@ -54,7 +55,7 @@ namespace TL
             virtual tl_type_t* get_extended_attribute(const std::string& str) const;
         public:
             Scope()
-                : _valid(0)
+                : _valid(0), _decl_context(decl_context_empty())
             {
             }
 
