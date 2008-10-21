@@ -513,7 +513,7 @@ namespace TL
             //! Returns the upper bound of the array section
             Expression array_section_upper();
 
-            static const PredicateAST<LANG_IS_EXPRESSION_NEST> predicate;
+            static const PredicateAST<LANG_IS_EXPRESSION_COMPONENT> predicate;
 
             /*! Returns the enclosing expression that is meaningful */
             Expression get_enclosing_expression();

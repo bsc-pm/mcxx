@@ -33,7 +33,7 @@ namespace TL
     // Static predicates for LangConstructs
     const PredicateAST<LANG_IS_ID_EXPRESSION> IdExpression::predicate;
     const PredicateAST<LANG_IS_FUNCTION_DEFINITION> FunctionDefinition::predicate;
-    const PredicateAST<LANG_IS_EXPRESSION_NEST> Expression::predicate;
+    const PredicateAST<LANG_IS_EXPRESSION_COMPONENT> Expression::predicate;
     const PredicateAST<LANG_IS_PARAMETER_DECLARATION> ParameterDeclaration::predicate;
     const PredicateAST<LANG_IS_DECLARED_NAME> DeclaredEntity::predicate;
     const PredicateAST<LANG_IS_DECLARATION> Declaration::predicate;
