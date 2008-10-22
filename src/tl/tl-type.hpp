@@ -312,11 +312,6 @@ namespace TL
             //! Returns a restrict qualified type of current type
             Type get_restrict_type();
 
-            /*!
-             * \bug What does this function do?
-             */
-            Type original_type(void) const;
-
             //! States whether the type is a template specialized one
             bool is_template_specialized_type() const;
             //! For a template-specialized type return the list of template-parameters

@@ -74,7 +74,7 @@ namespace TL
 		// Get and check its corresponding statement expression
 		Expression top_expression = function_call.get_top_enclosing_expression();
 		AST_t statement_expression_ast = top_expression.original_tree();
-		PredicateBool<LANG_IS_EXPRESSION_STATEMENT> expression_statement_predicate;
+		PredicateAST<LANG_IS_EXPRESSION_STATEMENT> expression_statement_predicate;
 		if (!expression_statement_predicate(statement_expression_ast))
 		{
 			std::cerr << function_call.get_ast().get_locus() << " Error: Call to task '" << function_name << "' cannot return a value." << std::endl;

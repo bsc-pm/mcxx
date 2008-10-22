@@ -76,7 +76,7 @@ namespace TL
 				parameter_info = function_info._parameters[parameter_index];
 			}
 			
-			parameter_info._definition_type = type.original_type();
+			parameter_info._definition_type = type;
 			parameter_info._definition_locus = parameter_declaration.get_ast().get_locus();
 			parameter_info._direction = UNKNOWN_DIR;
 			
@@ -152,7 +152,7 @@ namespace TL
 					parameter_info = function_info._parameters[parameter_index];
 				}
 				
-				parameter_info._declaration_type = type.original_type();
+				parameter_info._declaration_type = type;
 				parameter_info._declaration_locus = parameter_declaration.get_ast().get_locus();
 				parameter_info._direction = UNKNOWN_DIR;
 				

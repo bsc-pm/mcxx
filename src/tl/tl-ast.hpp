@@ -566,20 +566,6 @@ namespace TL
             virtual ~PredicateAST() { }
     };
 
-    /*! \deprecated Do not use it instead use PredicateAST
-     */
-    template<const char* _ATTR>
-    class PredicateBool : public PredicateAST<_ATTR>
-    {
-        public:
-            PredicateBool() DEPRECATED
-                : PredicateAST<_ATTR>()
-            {
-            }
-
-            virtual ~PredicateBool() { }
-    };
-
     //! Convenience class for matching nodes after an attribute.
     /*!
      * This class is similar to PredicateAST but here the
