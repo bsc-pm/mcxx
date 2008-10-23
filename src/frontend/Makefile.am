@@ -4,7 +4,7 @@ END=
 
 EXTRA_DIST =
 CLEANFILES =
-# BUILT_SOURCES = 
+BUILT_SOURCES = 
 
 # Mercurium C/C++ compiler runtime library
 libmcxx_la_SOURCES = \
@@ -123,8 +123,24 @@ EXTRA_DIST += cxx-placeholders.y
 
 EXTRA_DIST += cxx-gccspubuiltins.def
 
-# BUILT_SOURCES += cxx-attrnames.h
-# BUILT_SOURCES += cxx-asttype.h
+# Built sources, they are built the first
+# otherwise parallel compilation is likely to fail
+BUILT_SOURCES += cxx-attrnames.h
+BUILT_SOURCES += cxx-attrnames.c
+
+BUILT_SOURCES += cxx-asttype.def
+BUILT_SOURCES += cxx-asttype.c
+BUILT_SOURCES += cxx-asttype.h
+
+if FLEX_BUILDING
+BUILT_SOURCES += c99.l
+BUILT_SOURCES += cxx03.l
+endif
+
+if BISON_BUILDING
+BUILT_SOURCES += c99.y
+BUILT_SOURCES += cxx03.y
+endif
 
 # Manual targets
 cxx-ast.h : cxx-asttype.h

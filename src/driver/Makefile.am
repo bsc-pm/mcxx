@@ -2,6 +2,7 @@
 # work)
 mcxxexec_PROGRAMS = mcxx
 
+
 if ENABLE_PKGLIB_INSTALL
 mcxxexecdir = $(pkglibdir)
 else
@@ -10,6 +11,7 @@ endif
 
 EXTRA_DIST =
 CLEANFILES = 
+BUILT_SOURCES =
 
 mcxx_CFLAGS=-fexceptions \
 			-I$(top_srcdir)/lib \
@@ -59,15 +61,22 @@ EXTRA_DIST += cxx-debugflags.gperf
 
 if GPERF_BUILDING
 CLEANFILES += cxx-configoptions.c
+BUILT_SOURCES += cxx-configoptions.c
 endif
 
 cxx-configoptions.c : $(srcdir)/cxx-configoptions.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/cxx-configfile.h
+if GPERF_BUILDING
 	gperf --language=ANSI-C --hash-function-name=configoptions_hash --struct-type \
       --lookup-function-name=configoptions_lookup --output=cxx-configoptions.c \
       --initializer-suffix=,NULL $(srcdir)/cxx-configoptions.gperf
+else
+	@echo "*** ERROR: file cxx-configoptions.gperf was modified but no suitable gperf was found during configure ***"
+	@exit 1
+endif
 
 if GPERF_BUILDING
 CLEANFILES += cxx-fileextensions.c
+BUILT_SOURCES += cxx-fileextensions.c
 endif
 cxx-fileextensions.c : $(srcdir)/cxx-fileextensions.gperf $(top_srcdir)/src/driver/cxx-driver.h
 if GPERF_BUILDING
@@ -81,6 +90,7 @@ endif
 
 if GPERF_BUILDING
 CLEANFILES += cxx-debugflags.c
+BUILT_SOURCES += cxx-debugflags.c
 endif
 cxx-debugflags.c : $(srcdir)/cxx-debugflags.gperf $(top_srcdir)/src/driver/cxx-driver.h $(top_srcdir)/src/frontend/cxx-utils.h
 if GPERF_BUILDING
