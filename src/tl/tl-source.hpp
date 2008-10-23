@@ -164,6 +164,25 @@ namespace TL
                 _chunk_list->push_back(SourceChunkRef(new SourceText(str)));
             }
 
+            Source(RefPtr<Object> obj)
+                : _chunk_list(0)
+            {
+                RefPtr<Source> cast = RefPtr<Source>::cast_dynamic(obj);
+
+                if (cast.get_pointer() == NULL)
+                {
+                    if (typeid(*obj.get_pointer()) != typeid(Undefined))
+                    {
+                        std::cerr << "Bad initialization of Source" << std::endl;
+                    }
+                }
+                else
+                {
+                    // Share the list
+                    _chunk_list = cast->_chunk_list;
+                }
+            }
+
             //! Copy-constructor
             Source(const Source& src)
                 // This is fine, we want to share the same source list for both
