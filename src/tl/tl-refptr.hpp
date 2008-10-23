@@ -126,6 +126,8 @@ public:
   inline T_CppObject* operator->() const;
   inline T_CppObject* get_pointer() const;
 
+  inline T_CppObject &operator*() const;
+
   /** Test whether the RefPtr<> points to any underlying instance.
    *
    * Mimics usage of ordinary pointers:
@@ -190,6 +192,12 @@ template <class T_CppObject> inline
 T_CppObject* RefPtr<T_CppObject>::get_pointer() const
 {
   return this->operator->();
+}
+
+template <class T_CppObject> inline
+T_CppObject& RefPtr<T_CppObject>::operator*() const
+{
+  return *(this->operator->());
 }
 
 template <class T_CppObject> inline
