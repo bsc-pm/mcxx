@@ -365,7 +365,7 @@ class ObjectList : public std::vector<T>
         /*!
          * \param f A functor of elements of type T and returning elements of type S
          * \param s A value of type S
-         * \return All elements of the list that, when applied \a yield a value of type S
+         * \return All elements of the list that, when applied \f yield a value of type S
          * that is different (according to 'operator==' of S) the value of \a s
          *
          * This function requires type S to be comparable with 'operator=='
@@ -392,7 +392,7 @@ class ObjectList : public std::vector<T>
         /*!
          * \param f A functor of elements of type T and returning elements of type S
          * \param s A value of type S
-         * \return All elements of the list that, when applied \a yield a value of type S
+         * \return All elements of the list that, when applied \f yield a value of type S
          * that is equals (according to 'operator==' of S) the value of \a s
          *
          * This function requires type S to be comparable with 'operator=='
@@ -407,6 +407,62 @@ class ObjectList : public std::vector<T>
                     it++)
             {
                 if (f(*it) == s)
+                {
+                    result.append(*it);
+                }
+            }
+
+            return result;
+        }
+        
+        //! Returns a list of elements that do not match a comparable value
+        /*!
+         * \param t A value of type T
+         * \param f A functor of elements of type T and returning elements of type S
+         * \return All elements of the list that, when applied \f yield a value of type S
+         * that is different (according to 'operator==' of S) the value that results of
+         * applying \a f to \a t
+         *
+         * This function requires type S to be comparable with 'operator=='
+         */
+        template <class S>
+        ObjectList<T> not_find(const T& t, const Functor<S, T>& f)
+        {
+            ObjectList<T> result;
+
+            for (typename ObjectList<T>::iterator it = this->begin();
+                    it != this->end();
+                    it++)
+            {
+                if (!(f(*it) == f(t)))
+                {
+                    result.append(*it);
+                }
+            }
+
+            return result;
+        }
+
+        //! Returns a list of elements that match a comparable value
+        /*!
+         * \param t A value of type T
+         * \param f A functor of elements of type T and returning elements of type S
+         * \return All elements of the list that, when applied \f yield a value of type S
+         * that is equals (according to 'operator==' of S) the value that results 
+         * of applying \a f to \a t
+         *
+         * This function requires type S to be comparable with 'operator=='
+         */
+        template <class S>
+        ObjectList<T> find(const T& t, const Functor<S, T>& f)
+        {
+            ObjectList<T> result;
+
+            for (typename ObjectList<T>::iterator it = this->begin();
+                    it != this->end();
+                    it++)
+            {
+                if (f(*it) == f(t))
                 {
                     result.append(*it);
                 }
