@@ -59,9 +59,14 @@ EXTRA_DIST += cxx-configoptions.gperf
 EXTRA_DIST += cxx-fileextensions.gperf
 EXTRA_DIST += cxx-debugflags.gperf
 
+BUILT_SOURCES += cxx-configoptions.c
+BUILT_SOURCES += cxx-fileextensions.c
+BUILT_SOURCES += cxx-debugflags.c
+
 if GPERF_BUILDING
 CLEANFILES += cxx-configoptions.c
-BUILT_SOURCES += cxx-configoptions.c
+CLEANFILES += cxx-debugflags.c
+CLEANFILES += cxx-fileextensions.c
 endif
 
 cxx-configoptions.c : $(srcdir)/cxx-configoptions.gperf $(top_srcdir)/src/driver/cxx-driver.h $(srcdir)/cxx-configfile.h
@@ -74,10 +79,6 @@ else
 	@exit 1
 endif
 
-if GPERF_BUILDING
-CLEANFILES += cxx-fileextensions.c
-BUILT_SOURCES += cxx-fileextensions.c
-endif
 cxx-fileextensions.c : $(srcdir)/cxx-fileextensions.gperf $(top_srcdir)/src/driver/cxx-driver.h
 if GPERF_BUILDING
 	gperf --language=ANSI-C --hash-function-name=fileextensions_hash --struct-type \
@@ -88,10 +89,6 @@ else
 	@exit 1
 endif
 
-if GPERF_BUILDING
-CLEANFILES += cxx-debugflags.c
-BUILT_SOURCES += cxx-debugflags.c
-endif
 cxx-debugflags.c : $(srcdir)/cxx-debugflags.gperf $(top_srcdir)/src/driver/cxx-driver.h $(top_srcdir)/src/frontend/cxx-utils.h
 if GPERF_BUILDING
 	gperf --language=ANSI-C --hash-function-name=debugflags_hash --struct-type \

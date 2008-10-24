@@ -132,15 +132,11 @@ BUILT_SOURCES += cxx-asttype.def
 BUILT_SOURCES += cxx-asttype.c
 BUILT_SOURCES += cxx-asttype.h
 
-if FLEX_BUILDING
 BUILT_SOURCES += c99.l
 BUILT_SOURCES += cxx03.l
-endif
 
-if BISON_BUILDING
 BUILT_SOURCES += c99.y
 BUILT_SOURCES += cxx03.y
-endif
 
 # Manual targets
 cxx-ast.h : cxx-asttype.h
