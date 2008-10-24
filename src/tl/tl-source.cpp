@@ -86,6 +86,14 @@ namespace TL
         return *this;
     }
 
+    Source& Source::operator<<(RefPtr<Source> src)
+    {
+        SourceChunkRef new_src = SourceChunkRef(new SourceRef(src));
+
+        append_source_ref(new_src);
+        return *this;
+    }
+
     std::string Source::get_source(bool with_newlines) const
     {
         std::string temp_result;

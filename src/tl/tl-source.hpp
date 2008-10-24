@@ -175,12 +175,18 @@ namespace TL
                     {
                         std::cerr << "Bad initialization of Source" << std::endl;
                     }
+                    else
+                    {
+                        _chunk_list = chunk_list_ref_t(new ObjectList<SourceChunkRef>());
+                    }
                 }
                 else
                 {
                     // Share the list
                     _chunk_list = cast->_chunk_list;
                 }
+
+                // ---
             }
 
             //! Copy-constructor
@@ -226,6 +232,9 @@ namespace TL
              * \param n This integer is: converted into decimal base and appended as a string
              */
             Source& operator<<(int n);
+
+            //! Appends a reference to Source
+            Source& operator<<(RefPtr<Source>);
 
             // -- deprecated family of parse_XXX
             //! Parses a top-level declaration in context of global scope
