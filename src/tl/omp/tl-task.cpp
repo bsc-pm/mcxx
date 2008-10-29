@@ -592,7 +592,7 @@ namespace TL
                     inputs_epilogue
                         << comment("Register input dependency of symbol '" + sym.get_name() + "'")
                         << "if (nth_" << sym.get_name() << "_outdep) "
-                        << "    nth_add_input_dep(nth,nth_" << sym.get_name() << "_outdep);"
+                        << "    nth_add_input_dep(nth->task_ctx,nth_" << sym.get_name() << "_outdep);"
                         ;
                 }
 
@@ -612,7 +612,7 @@ namespace TL
                         << "nth_create_output_dep((void *)&" << sym.get_name() << ",sizeof(" << sym.get_name() << "));";
                     outputs_epilogue 
                         << comment("Register output dependency of symbol '" + sym.get_name() + "'")
-                        << "nth_add_output_dep(nth,nth_" << sym.get_name() << "_outdep);" ;
+                        << "nth_add_output_dep(nth->task_ctx,nth_" << sym.get_name() << "_outdep);" ;
                 }
             }
 
