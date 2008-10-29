@@ -108,7 +108,8 @@ compilation_process_t compilation_process;
 "                           if you use g++ 4.2 or previous.\n" \
 "  --pass-through           Disables preprocessing and parsing but\n" \
 "                           invokes remaining steps. A previous\n" \
-"                           invocation with --keep is required\n" \
+"                           invocation with --keep is required.\n" \
+"                           This flag also implies --keep.\n" \
 "\n" \
 "gcc compatibility flags:\n" \
 "\n" \
@@ -647,6 +648,8 @@ int parse_arguments(int argc, const char* argv[], char from_command_line)
                 case OPTION_PASS_THROUGH:
                     {
                         CURRENT_CONFIGURATION(pass_through) = 1;
+                        // Otherwise we will wipe files that might be being modified
+                        CURRENT_CONFIGURATION(keep_files) = 1;
                         break;
                     }
                 case 'h' :
