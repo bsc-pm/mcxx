@@ -563,8 +563,8 @@ namespace TL
             // input dependences 
             // Task dependence information from task_preorder
 
-            Source inputs_prologue, inputs_epilogue;
-            Source outputs_prologue, outputs_epilogue;
+            Source inputs_prologue, inputs_epilogue, inputs_immediate;
+            Source outputs_prologue, outputs_epilogue, outputs_immediate;
 
             if (!input_dependences.empty())
             {
@@ -575,11 +575,14 @@ namespace TL
                 for ( it = it_begin; it != it_end; it++ ) {
                     Symbol &sym = *it;
                     Type pointer_type = sym.get_type().get_pointer_to();
+		    Source find_dep;
 
-                    inputs_prologue 
+                    find_dep
                         << comment("Lookup a previous output dependency, so we can link input of '" + sym.get_name() + "'")
                         << "nth_outdep_t *nth_" << sym.get_name() << "_outdep = nth_find_output_dep((void *)&" << sym.get_name() << ");"
-                        << pointer_type.get_declaration(task_construct.get_scope(), "nth_" + sym.get_name()) << ";"
+                        << pointer_type.get_declaration(task_construct.get_scope(), "nth_" + sym.get_name()) << ";";
+		    inputs_prologue
+			<< find_dep
                         << comment("Should this output dependency exist, we will use it, otherwise ignore it")
                         << "if (nth_" << sym.get_name() << "_outdep)"
                         << "  nth_" << sym.get_name() 
@@ -593,6 +596,18 @@ namespace TL
                         << comment("Register input dependency of symbol '" + sym.get_name() + "'")
                         << "if (nth_" << sym.get_name() << "_outdep) "
                         << "    nth_add_input_dep(nth->task_ctx,nth_" << sym.get_name() << "_outdep);"
+                        ;
+
+		    /* combination of previous ones */
+		    inputs_immediate
+			<< find_dep
+			<< "if (nth_" << sym.get_name() << "_outdep) {"
+                        << "  nth_" << sym.get_name() 
+                        <<          " = (" << pointer_type.get_declaration(task_construct.get_scope(),"") << ")"
+                        <<                "(nth_" << sym.get_name() << "_outdep + 1);"
+                        << "    nth_add_input_dep(&nth_ctx,nth_" << sym.get_name() << "_outdep);"
+                        << "} else "
+                        << "  nth_" << sym.get_name() << " = &" << sym.get_qualified_name(task_construct.get_scope()) << ";"
                         ;
                 }
 
@@ -613,6 +628,8 @@ namespace TL
                     outputs_epilogue 
                         << comment("Register output dependency of symbol '" + sym.get_name() + "'")
                         << "nth_add_output_dep(nth->task_ctx,nth_" << sym.get_name() << "_outdep);" ;
+		    outputs_immediate
+			<< "nth_shadow_output_dep(&" << sym.get_name() << ");";
                 }
             }
 
@@ -655,6 +672,8 @@ namespace TL
                 <<          comment("Run the task inline")
                 <<          fallback_capture_values
                 <<          increment_task_level
+		<<		inputs_immediate
+		<<		outputs_immediate
                 <<          "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
                 <<          decrement_task_level
                 <<          "break;"
