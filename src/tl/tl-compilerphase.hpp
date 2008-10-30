@@ -123,7 +123,7 @@ namespace TL
              * of a translation unit.
              * \param data_flow The data transfer object along the compiler phase pipeline
              */
-            virtual void pre_run(DTO& data_flow) = 0;
+            virtual void pre_run(DTO& data_flow) { }
 
             //! Entry point of the phase after parsing and typechecking
             /*!
