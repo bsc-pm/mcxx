@@ -74,16 +74,34 @@ namespace TL
 
     std::string AST_t::prettyprint(bool with_commas) const
     {
+        // This is always internal
+        prettyprint_set_internal_output();
+        char *c = NULL;
         if (with_commas && ASTType(this->_ast) == AST_NODE_LIST)
         {
-            return list_handler_in_buffer(this->_ast);
+            c = list_handler_in_buffer(this->_ast);
         }
         else
         {
-            char* c = prettyprint_in_buffer(this->_ast);
-            std::string result(c);
-            return result;
+            c = prettyprint_in_buffer(this->_ast);
         }
+
+        std::string result(c == NULL ? "" : c);
+        if (c != NULL)
+            free(c);
+        return result;
+    }
+
+    std::string AST_t::prettyprint_external() const
+    {
+        // This is always external
+        prettyprint_set_not_internal_output();
+
+        char* c = prettyprint_in_buffer(this->_ast);
+        std::string result(c == NULL ? "" : c);
+        if (c != NULL)
+            free(c);
+        return result;
     }
 
     void AST_t::prettyprint_in_file(const CompiledFile& compiled_file, bool internal) const

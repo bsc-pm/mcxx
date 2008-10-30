@@ -299,8 +299,18 @@ namespace TL
             /*! 
              * \param with_commas Means that this list should be printed with commas, 
              * otherwise it will be printed as a sequence with only interspersing blanks
+             * 
+             * Note that this function can print internal marks not recognized by any
+             * other compiler, so if you want to feed an external tool use prettyprint_external
              */
             std::string prettyprint(bool with_commas = false) const;
+
+            //! Prettyprints the tree for an external tool 
+            /*!
+              * In contrast to what prettyprint does, this function disables internal
+              * prettyprinting, so special marks used to express special nodes are disabled
+              */
+            std::string prettyprint_external() const;
 
             //! Prettyprints a tree in a given CompiledFile. 
             /*!
