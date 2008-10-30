@@ -100,6 +100,7 @@ namespace TL
                 <<    team_size_definition
                 <<    "void* nth_team_data = (void*)0;"
                 <<    "nth_desc *nth_selfv = nth_self();"
+                <<    "nth_desc *nth_nosucc = (nth_desc*)0;"
                 <<    "int nth_num_deps;"
                 <<    "int nth_nargs_ref = " << src_num_args_ref << ";"
                 <<    reduction_vectors
@@ -272,7 +273,7 @@ namespace TL
             nth_creation_function 
                 << comment("Master creates team members")
                 << "     nth_desc_t* nth = nth_create_new((void*)(" << outlined_function_name_decl << "), "
-                << "            &nth_task_type, &nth_num_deps, &nth_p, &nth_selfv, "
+                << "            &nth_task_type, &nth_num_deps, &nth_p, &nth_nosucc, "
                 << "            &nth_arg_addr_ptr, &nth_nargs_ref, &nth_nargs_val," << referenced_parameters << ");"
                 << copy_construction_part
                 << "     nth_submit(nth);"
