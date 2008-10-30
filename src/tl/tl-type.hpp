@@ -231,14 +231,35 @@ namespace TL
             //! For a function type, it gives a list of parameter types
             /*!
              * \return A list of types of the parameters
+             * Note that these types are adjusted so function and array types
+             * are adjusted to their pointer type. Top level const is also
+             * dropped.
              */
             ObjectList<Type> parameters() const;
+
+
             //! For a function type, it gives a list of parameter types
             /*!
              * \param has_ellipsis Will be set to true if the function type has ellipsis
              * \return A list of types of the parameters
              */
             ObjectList<Type> parameters(bool& has_ellipsis) const;
+
+            //! For a function type, it returns a list of parameter types
+            /*
+             * \return A list of types of the parameters
+             * Note that these types are the originals of the first 
+             * declaration of the function. They may or may not be what you expect.
+             */
+            ObjectList<Type> nonadjusted_parameters() const;
+
+            //! For a function type, it gives a list of parameter types
+            /*!
+             * \param has_ellipsis Will be set to true if the function type has ellipsis
+             * \return A list of types of the parameters not adjusted.
+             */
+            ObjectList<Type> nonadjusted_parameters(bool &b) const;
+
             //! For a function type it states whether it has been declared with prototype
             /*! 
              * This is only meaningful in C because in C++ all functions have prototype 

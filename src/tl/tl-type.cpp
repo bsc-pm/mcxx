@@ -168,6 +168,32 @@ namespace TL
         return result;
     }
 
+    ObjectList<Type> Type::nonadjusted_parameters() const
+    {
+        bool b;
+        return nonadjusted_parameters(b);
+    }
+
+    ObjectList<Type> Type::nonadjusted_parameters(bool& has_ellipsis) const
+    {
+        has_ellipsis = function_type_get_has_ellipsis(_type_info);
+
+        ObjectList<Type> result;
+        for (int i = 0; i < function_type_get_num_parameters(_type_info); i++)
+        {
+            // The last one is the ellipsis and lacks type
+            if (has_ellipsis
+                    && ((i + 1) == function_type_get_num_parameters(_type_info)))
+            {
+                break;
+            }
+            Type t(function_type_get_nonadjusted_parameter_type_num(_type_info, i));
+            result.push_back(t);
+        }
+
+        return result;
+    }
+
     Type Type::points_to() const
     {
         return pointer_type_get_pointee_type(_type_info);
