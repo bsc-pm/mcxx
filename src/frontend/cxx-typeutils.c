@@ -1944,6 +1944,28 @@ type_t* function_type_get_parameter_type_num(type_t* function_type, int num_para
     return function_type->function->parameter_list[num_param]->type_info;
 }
 
+type_t* function_type_get_nonadjusted_parameter_type_num(type_t* function_type, int num_param)
+{
+    ERROR_CONDITION(!is_function_type(function_type), "This is not a function type", 0);
+
+    function_type = advance_over_typedefs(function_type);
+
+    ERROR_CONDITION(num_param >= function_type->function->num_parameters, 
+            "Requested parameter %d out of bounds (number of parameters is %d)", 
+            num_param, function_type->function->num_parameters);
+
+    type_t* result = function_type->function->parameter_list[num_param]->nonadjusted_type_info;
+
+    // Should the user not have provided an original type (since it is not
+    // required to build a function type) return the adjusted one
+    if (result == NULL)
+    {
+        result = function_type->function->parameter_list[num_param]->type_info;
+    }
+
+    return result;
+}
+
 char class_type_is_incomplete_dependent(type_t* t)
 {
     ERROR_CONDITION(!is_unnamed_class_type(t), "This is not a class type", 0);

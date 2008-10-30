@@ -3857,6 +3857,7 @@ static void set_function_parameter_clause(type_t** function_type,
 
         parameter_info[num_parameters].is_ellipsis = 0;
         parameter_info[num_parameters].type_info = type_info;
+        parameter_info[num_parameters].nonadjusted_type_info = original_type;
 
         {
             /* 
@@ -5121,7 +5122,7 @@ static scope_entry_t* find_function_declaration(AST declarator_id, type_t* decla
         it = it->next;
     }
 
-    // Second attempt, match an specialization of a template function
+    // Second attempt, match a specialization of a template function
     if (templates_available
             && BITMAP_TEST(decl_context.decl_flags, DF_EXPLICIT_SPECIALIZATION))
     {

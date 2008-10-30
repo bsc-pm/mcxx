@@ -298,6 +298,7 @@ int get_sizeof_type(struct type_tag* t);
 /* Query functions: specific ones */
 int function_type_get_num_parameters(struct type_tag* function_type);
 struct type_tag* function_type_get_parameter_type_num(struct type_tag* function_type, int num_param);
+struct type_tag* function_type_get_nonadjusted_parameter_type_num(struct type_tag* function_type, int num_param);
 char function_type_get_lacking_prototype(struct type_tag* function_type);
 char function_type_get_has_ellipsis(struct type_tag* function_type);
 struct type_tag* function_type_get_return_type(struct type_tag* t);

@@ -36,6 +36,8 @@ struct parameter_info_tag
     char is_ellipsis;
     // Otherwise it has the type here
     struct type_tag* type_info;
+    // Nonadjusted type
+    struct type_tag* nonadjusted_type_info;
 } parameter_info_t;
 
 // Standard conversions info

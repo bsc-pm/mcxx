@@ -686,7 +686,6 @@ char* prettyprint_in_buffer(AST a)
 {
     FILE* temporal_file = tmpfile();
 
-    prettyprint_set_internal_output();
     prettyprint(temporal_file, a);
 
     int bytes_file = ftell(temporal_file) + 20;
