@@ -26,6 +26,26 @@ namespace TL
     namespace Nanos4
     {
 
+        static Symbol dependence_expr_to_sym(Expression expr)
+        {
+            Symbol invalid(NULL);
+            if (expr.is_id_expression())
+            {
+                return expr.get_id_expression().get_symbol();
+            }
+            else if (expr.is_array_section())
+            {
+                Expression sectioned_entity = expr.array_section_item();
+
+                if (!sectioned_entity.is_id_expression())
+                {
+                    return invalid;
+                }
+                return sectioned_entity.get_id_expression().get_symbol();
+            }
+            return invalid;
+        }
+
         void OpenMPTransform::task_preorder(OpenMP::CustomConstruct task_construct)
         {
             // Get the directive of the task construct
@@ -68,84 +88,17 @@ namespace TL
                     task_construct);
             
             // Task dependence information
-            ObjectList<Symbol> & input_dependences =
-                task_construct.get_data<ObjectList<Symbol> >("input_dependences");
-            ObjectList<Symbol> & output_dependences =
-                task_construct.get_data<ObjectList<Symbol> >("output_dependences");
+            ObjectList<Expression> & input_dependences =
+                task_construct.get_data<ObjectList<Expression> >("input_dependences");
+            ObjectList<Expression> & output_dependences =
+                task_construct.get_data<ObjectList<Expression> >("output_dependences");
 
             if ( Nanos4::Version::is_family("trunk") &&
                     Nanos4::Version::version >= 4202 ) 
             {
-                // input(x) clause support
-                // input variables must be shared or firstprivate
-                OpenMP::CustomClause input = directive.custom_clause("input");
-                if (input.is_defined()) 
-                {
-                    ObjectList<IdExpression> dep_list = input.id_expressions();
-
-                    if (dep_list.empty()) 
-                    {
-                        std::cerr << input.get_ast().get_locus() <<
-                            ": warning: empty input clause" << std::endl;
-                    }
-
-                    for (ObjectList<IdExpression>::iterator it = dep_list.begin();
-                            it != dep_list.end();
-                            it++)
-                    {
-                        IdExpression& id_expr = *it;
-
-                        OpenMP::DataAttribute data_attr 
-                            = task_construct.get_data_attribute(id_expr.get_symbol());
-
-                        if (((data_attr & OpenMP::DA_SHARED) != OpenMP::DA_SHARED)
-                                && ((data_attr & OpenMP::DA_FIRSTPRIVATE) != OpenMP::DA_FIRSTPRIVATE))
-                        {
-                            std::cerr << id_expr.get_ast().get_locus() << 
-                                ": warning: data reference '" << id_expr.prettyprint() << "' is not shared nor firstprivate. Ignoring"
-                                << std::endl;
-                        }
-                        else
-                        {
-                            input_dependences.append(id_expr.get_symbol());
-                        }
-                    }
-                }
-
-                // output(x) clause support
-                // output variables must be shared
-                OpenMP::CustomClause output = directive.custom_clause("output");
-                if (output.is_defined()) 
-                {
-                    ObjectList<IdExpression> dep_list = output.id_expressions();
-
-                    if (dep_list.empty())
-                    {
-                        std::cerr << output.get_ast().get_locus() <<
-                            ": warning: empty input clause" << std::endl;
-                    }
-
-                    for (ObjectList<IdExpression>::iterator it = dep_list.begin();
-                            it != dep_list.end();
-                            it++)
-                    {
-                        IdExpression& id_expr = *it;
-
-                        OpenMP::DataAttribute data_attr 
-                            = task_construct.get_data_attribute(id_expr.get_symbol());
-
-                        if ((data_attr & OpenMP::DA_SHARED) != OpenMP::DA_SHARED)
-                        {
-                            std::cerr << id_expr.get_ast().get_locus() << 
-                                ": warning: data reference '" << id_expr.prettyprint() << "' is not shared. Ignoring"
-                                << std::endl;
-                        }
-                        else
-                        {
-                            output_dependences.append(id_expr.get_symbol());
-                        }
-                    }
-                }
+                handle_dependences(directive, 
+                        input_dependences, output_dependences, 
+                        task_construct);
             }
         }
 
@@ -274,15 +227,13 @@ namespace TL
             }
 
 
-            // for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
-            //         it != parameter_info_list.end();
-            //         it++)
-            // {
-            // }
-            ObjectList<Symbol> & input_dependences =
-                task_construct.get_data<ObjectList<Symbol> >("input_dependences");
-            ObjectList<Symbol> & output_dependences =
-                task_construct.get_data<ObjectList<Symbol> >("output_dependences");
+            ObjectList<Expression> & input_dependences =
+                task_construct.get_data<ObjectList<Expression> >("input_dependences");
+            ObjectList<Expression> & output_dependences =
+                task_construct.get_data<ObjectList<Expression> >("output_dependences");
+
+            ObjectList<Symbol> input_dependences_symbols = input_dependences.map(functor(dependence_expr_to_sym));
+            ObjectList<Symbol> output_dependences_symbols = output_dependences.map(functor(dependence_expr_to_sym));
 
             for (ObjectList<ParameterInfo>::iterator it = parameter_info_list.begin();
                     it != parameter_info_list.end();
@@ -293,13 +244,14 @@ namespace TL
                     continue;
 
                 std::string argument_name = it->argument_name;
-                if (input_dependences.contains(it->symbol))
+
+                if (input_dependences_symbols.contains(it->symbol))
                 {
                     // '&x' will be changed into 'nth_x' (which is already a
                     // pointer so no & actually is required)
                     argument_name = "nth_" + it->symbol.get_name();
                 }
-                else if (output_dependences.contains(it->symbol))
+                else if (output_dependences_symbols.contains(it->symbol))
                 {
                     // '&x' will be changed into 'nth_x_outdep + 1' (which is
                     // already a pointer so no & actually is required) +1 is
@@ -338,13 +290,13 @@ namespace TL
                     ;
 
                 std::string argument_name = it->argument_name;
-                if (input_dependences.contains(it->symbol))
+                if (input_dependences_symbols.contains(it->symbol))
                 {
                     // '&x' will be changed into 'nth_x' (which is already a
                     // pointer so no & actually is required)
                     argument_name = "nth_" + it->symbol.get_name();
                 }
-                else if (output_dependences.contains(it->symbol))
+                else if (output_dependences_symbols.contains(it->symbol))
                 {
                     // '&x' will be changed into 'nth_x_outdep + 1' (which is
                     // already a pointer so no & actually is required) +1 is
@@ -568,21 +520,23 @@ namespace TL
 
             if (!input_dependences.empty())
             {
-                ObjectList<Symbol>::iterator it_begin = input_dependences.begin();
-                ObjectList<Symbol>::iterator it_end = input_dependences.end();
+                ObjectList<Symbol>::iterator it_begin = input_dependences_symbols.begin();
+                ObjectList<Symbol>::iterator it_end = input_dependences_symbols.end();
                 ObjectList<Symbol>::iterator it;
 
-                for ( it = it_begin; it != it_end; it++ ) {
+                for ( it = it_begin; it != it_end; it++ ) 
+                {
                     Symbol &sym = *it;
                     Type pointer_type = sym.get_type().get_pointer_to();
-		    Source find_dep;
+                    Source find_dep;
 
                     find_dep
                         << comment("Lookup a previous output dependency, so we can link input of '" + sym.get_name() + "'")
                         << "nth_outdep_t *nth_" << sym.get_name() << "_outdepi = nth_find_output_dep((void *)&" << sym.get_name() << ");"
-                        << pointer_type.get_declaration(task_construct.get_scope(), "nth_" + sym.get_name()) << ";";
-		    inputs_prologue
-			<< find_dep
+                        << pointer_type.get_declaration(task_construct.get_scope(), "nth_" + sym.get_name()) << ";"
+                        ;
+                    inputs_prologue
+                        << find_dep
                         << comment("Should this output dependency exist, we will use it, otherwise ignore it")
                         << "if (nth_" << sym.get_name() << "_outdepi)"
                         << "  nth_" << sym.get_name() 
@@ -598,32 +552,34 @@ namespace TL
                         << "    nth_add_input_dep(nth->task_ctx,nth_" << sym.get_name() << "_outdepi,0);"
                         ;
 
-		    /* combination of previous ones */
-		    inputs_immediate_p
-			<< find_dep
-			;
-
-		    inputs_immediate_e
-			<< "if (nth_" << sym.get_name() << "_outdepi) {"
-                        << "  nth_" << sym.get_name() 
+                    /* combination of previous ones */
+                    // FIXME - I didn't know what this was at time of commit
+#if 0
+                    inputs_immediate
+                        << find_dep
+                        << "if (nth_" << sym.get_name() << "_outdep) "
+                        << "{"
+                        << "   nth_" << sym.get_name() 
                         <<          " = (" << pointer_type.get_declaration(task_construct.get_scope(),"") << ")"
-                        <<                "(nth_" << sym.get_name() << "_outdepi + 1);"
-                        << "    nth_add_input_dep(&nth_ctx,nth_" << sym.get_name() << "_outdepi,0);"
-                        << "} else "
+                        <<                "(nth_" << sym.get_name() << "_outdep + 1);"
+                        << "   nth_add_input_dep(&nth_ctx,nth_" << sym.get_name() << "_outdep);"
+                        << "}" 
+                        << "else "
                         << "  nth_" << sym.get_name() << " = &" << sym.get_qualified_name(task_construct.get_scope()) << ";"
                         ;
+#endif
                 }
-
             }
 
             // output dependences 
             if (!output_dependences.empty())
             {
-                ObjectList<Symbol>::iterator it_begin = output_dependences.begin();
-                ObjectList<Symbol>::iterator it_end = output_dependences.end();
+                ObjectList<Symbol>::iterator it_begin = output_dependences_symbols.begin();
+                ObjectList<Symbol>::iterator it_end = output_dependences_symbols.end();
                 ObjectList<Symbol>::iterator it;
 
-                for ( it = it_begin; it != it_end; it++ ) {
+                for ( it = it_begin; it != it_end; it++ ) 
+                {
                     Symbol &sym = *it;
 
                     outputs_prologue << "nth_outdep_t *nth_" << sym.get_name() << "_outdep = "
@@ -631,8 +587,8 @@ namespace TL
                     outputs_epilogue 
                         << comment("Register output dependency of symbol '" + sym.get_name() + "'")
                         << "nth_add_output_dep(nth->task_ctx,nth_" << sym.get_name() << "_outdep);" ;
-		    outputs_immediate
-			<< "nth_shadow_output_dep(&" << sym.get_name() << ");";
+                    outputs_immediate
+                        << "nth_shadow_output_dep(&" << sym.get_name() << ");";
                 }
             }
 
@@ -656,14 +612,14 @@ namespace TL
                 <<          "int nth_nargs_val = " << num_value_args << ";"
                 <<          "void* nth_arg_addr[" << num_value_args << " + 1];"
                 <<          "void** nth_arg_addr_ptr = &nth_arg_addr[1];"
-                <<	        inputs_prologue
-                << 	        outputs_prologue
+                <<          inputs_prologue
+                <<          outputs_prologue
                 <<          size_vector
                 <<          "nth = nth_create_task((void*)(" << outlined_function_reference << "), "
                 <<                 "&nth_type, &nth_ndeps, &nth_vp, &nth_succ, &nth_arg_addr_ptr, "
                 <<                 "&nth_nargs_ref, &nth_nargs_val" << task_arguments << ");"
-                <<	        inputs_epilogue
-                <<	        outputs_epilogue
+                <<          outputs_epilogue
+                <<          inputs_epilogue
                 <<          copy_construction_part
                 <<          "nth_submit(nth);"
                 <<          "break;" 
@@ -674,10 +630,12 @@ namespace TL
                 <<      "{"
                 <<          comment("Run the task inline")
                 <<          fallback_capture_values
-		<<		inputs_immediate_p
-		<<		outputs_immediate
+                <<		    inputs_immediate_p
+                <<		    outputs_immediate
                 <<          increment_task_level
-		<<		inputs_immediate_e
+                // FIXME - I didn't know what this was at time of commit
+                // <<          inputs_immediate
+                <<          outputs_immediate
                 <<          "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
                 <<          decrement_task_level
                 <<          "break;"
@@ -1113,5 +1071,135 @@ namespace TL
             }
         }
 
+        void OpenMPTransform::handle_dependences(OpenMP::Directive directive,
+                ObjectList<Expression> &input_dependences,
+                ObjectList<Expression> &output_dependences,
+                OpenMP::Construct &task_construct)
+        {
+            // input(x) clause support
+            // input variables must be shared or firstprivate
+            OpenMP::CustomClause input = directive.custom_clause("input");
+            if (input.is_defined()) 
+            {
+                ObjectList<Expression> dep_list = input.get_expression_list();
+
+                if (dep_list.empty()) 
+                {
+                    std::cerr << input.get_ast().get_locus() <<
+                        ": warning: empty input clause" << std::endl;
+                }
+
+                for (ObjectList<Expression>::iterator it = dep_list.begin();
+                        it != dep_list.end();
+                        it++)
+                {
+                    Expression &expr = *it;
+                    Symbol sym(NULL);
+                    if (expr.is_id_expression())
+                    {
+                        IdExpression id_expr = expr.get_id_expression();
+                        sym = id_expr.get_symbol();
+                    }
+                    else if (expr.is_array_section())
+                    {
+                        Expression sectioned_entity = expr.array_section_item();
+
+                        if (!sectioned_entity.is_id_expression())
+                        {
+                            std::cerr << expr.get_ast().get_locus() << ": warning: invalid array-section expression "
+                                << "'" << expr.prettyprint() << "'"
+                                << "specification in input clause. Ignoring" << std::endl;
+                            continue;
+                        }
+
+                        IdExpression id_expr = sectioned_entity.get_id_expression();
+                        sym = id_expr.get_symbol();
+                    }
+                    else
+                    {
+                        std::cerr << expr.get_ast().get_locus() << ": warning: invalid expression "
+                            << "'" << expr.prettyprint() << "'"
+                            << "specification in input clause. Ignoring" << std::endl;
+                        continue;
+                    }
+
+                    OpenMP::DataAttribute data_attr 
+                        = task_construct.get_data_attribute(sym);
+
+                    if (((data_attr & OpenMP::DA_SHARED) != OpenMP::DA_SHARED)
+                            && ((data_attr & OpenMP::DA_FIRSTPRIVATE) != OpenMP::DA_FIRSTPRIVATE))
+                    {
+                        std::cerr << expr.get_ast().get_locus() << 
+                            ": warning: data reference '" << expr.prettyprint() << "' does not refer to a shared or firstprivate entity. Ignoring"
+                            << std::endl;
+                        continue;
+                    }
+
+                    input_dependences.append(expr);
+                }
+            }
+
+            // output(x) clause support
+            // output variables must be shared
+            OpenMP::CustomClause output = directive.custom_clause("output");
+            if (output.is_defined()) 
+            {
+                ObjectList<Expression> dep_list = input.get_expression_list();
+
+                if (dep_list.empty()) 
+                {
+                    std::cerr << input.get_ast().get_locus() <<
+                        ": warning: empty output clause" << std::endl;
+                }
+
+                for (ObjectList<Expression>::iterator it = dep_list.begin();
+                        it != dep_list.end();
+                        it++)
+                {
+                    Expression &expr = *it;
+                    Symbol sym(NULL);
+                    if (expr.is_id_expression())
+                    {
+                        IdExpression id_expr = expr.get_id_expression();
+                        sym = id_expr.get_symbol();
+                    }
+                    else if (expr.is_array_section())
+                    {
+                        Expression sectioned_entity = expr.array_section_item();
+
+                        if (!sectioned_entity.is_id_expression())
+                        {
+                            std::cerr << expr.get_ast().get_locus() << ": warning: invalid array-section expression "
+                                << "'" << expr.prettyprint() << "'"
+                                << "specification in output clause. Ignoring" << std::endl;
+                            continue;
+                        }
+
+                        IdExpression id_expr = sectioned_entity.get_id_expression();
+                        sym = id_expr.get_symbol();
+                    }
+                    else
+                    {
+                        std::cerr << expr.get_ast().get_locus() << ": warning: invalid expression "
+                            << "'" << expr.prettyprint() << "'"
+                            << "specification in output clause. Ignoring" << std::endl;
+                        continue;
+                    }
+
+                    OpenMP::DataAttribute data_attr 
+                        = task_construct.get_data_attribute(sym);
+
+                    if ((data_attr & OpenMP::DA_SHARED) != OpenMP::DA_SHARED)
+                    {
+                        std::cerr << expr.get_ast().get_locus() << 
+                            ": warning: data reference '" << expr.prettyprint() << "' does not refer to a shared. Ignoring"
+                            << std::endl;
+                        continue;
+                    }
+
+                    output_dependences.append(expr);
+                }
+            }
+        }
     }
 }

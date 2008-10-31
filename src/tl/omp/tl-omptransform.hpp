@@ -406,6 +406,11 @@ namespace TL
 
                 Symbol warn_no_data_sharing(Symbol sym);
 
+                void handle_dependences(OpenMP::Directive directive,
+                        ObjectList<Expression> &input_dependences,
+                        ObjectList<Expression> &output_dependences,
+                        OpenMP::Construct &task_construct);
+
                 Source debug_parameter_info(
                         ObjectList<ParameterInfo> parameter_info_list);
 
