@@ -563,7 +563,7 @@ namespace TL
             // input dependences 
             // Task dependence information from task_preorder
 
-            Source inputs_prologue, inputs_epilogue, inputs_immediate;
+            Source inputs_prologue, inputs_epilogue, inputs_immediate_p, inputs_immediate_e;
             Source outputs_prologue, outputs_epilogue, outputs_immediate;
 
             if (!input_dependences.empty())
@@ -579,33 +579,36 @@ namespace TL
 
                     find_dep
                         << comment("Lookup a previous output dependency, so we can link input of '" + sym.get_name() + "'")
-                        << "nth_outdep_t *nth_" << sym.get_name() << "_outdep = nth_find_output_dep((void *)&" << sym.get_name() << ");"
+                        << "nth_outdep_t *nth_" << sym.get_name() << "_outdepi = nth_find_output_dep((void *)&" << sym.get_name() << ");"
                         << pointer_type.get_declaration(task_construct.get_scope(), "nth_" + sym.get_name()) << ";";
 		    inputs_prologue
 			<< find_dep
                         << comment("Should this output dependency exist, we will use it, otherwise ignore it")
-                        << "if (nth_" << sym.get_name() << "_outdep)"
+                        << "if (nth_" << sym.get_name() << "_outdepi)"
                         << "  nth_" << sym.get_name() 
                         <<          " = (" << pointer_type.get_declaration(task_construct.get_scope(),"") << ")"
-                        <<                "(nth_" << sym.get_name() << "_outdep + 1);"
+                        <<                "(nth_" << sym.get_name() << "_outdepi + 1);"
                         << "else "
                         << "  nth_" << sym.get_name() << " = &" << sym.get_qualified_name(task_construct.get_scope()) << ";"
                         ;
 
                     inputs_epilogue
                         << comment("Register input dependency of symbol '" + sym.get_name() + "'")
-                        << "if (nth_" << sym.get_name() << "_outdep) "
-                        << "    nth_add_input_dep(nth->task_ctx,nth_" << sym.get_name() << "_outdep);"
+                        << "if (nth_" << sym.get_name() << "_outdepi) "
+                        << "    nth_add_input_dep(nth->task_ctx,nth_" << sym.get_name() << "_outdepi,0);"
                         ;
 
 		    /* combination of previous ones */
-		    inputs_immediate
+		    inputs_immediate_p
 			<< find_dep
-			<< "if (nth_" << sym.get_name() << "_outdep) {"
+			;
+
+		    inputs_immediate_e
+			<< "if (nth_" << sym.get_name() << "_outdepi) {"
                         << "  nth_" << sym.get_name() 
                         <<          " = (" << pointer_type.get_declaration(task_construct.get_scope(),"") << ")"
-                        <<                "(nth_" << sym.get_name() << "_outdep + 1);"
-                        << "    nth_add_input_dep(&nth_ctx,nth_" << sym.get_name() << "_outdep);"
+                        <<                "(nth_" << sym.get_name() << "_outdepi + 1);"
+                        << "    nth_add_input_dep(&nth_ctx,nth_" << sym.get_name() << "_outdepi,0);"
                         << "} else "
                         << "  nth_" << sym.get_name() << " = &" << sym.get_qualified_name(task_construct.get_scope()) << ";"
                         ;
@@ -671,9 +674,10 @@ namespace TL
                 <<      "{"
                 <<          comment("Run the task inline")
                 <<          fallback_capture_values
-                <<          increment_task_level
-		<<		inputs_immediate
+		<<		inputs_immediate_p
 		<<		outputs_immediate
+                <<          increment_task_level
+		<<		inputs_immediate_e
                 <<          "(" << outlined_function_reference << ")" << "(" << fallback_arguments << ");"
                 <<          decrement_task_level
                 <<          "break;"
