@@ -526,7 +526,7 @@ namespace TL
                         if (it2->kind != ParameterInfo::BY_POINTER)
                             continue;
 
-                        if (it2->symbol != sym)
+                        if (it2->symbol == sym)
                         {
                             found = true;
                             break;
@@ -579,7 +579,7 @@ namespace TL
                         if (it2->kind != ParameterInfo::BY_POINTER)
                             continue;
 
-                        if (it2->symbol != sym)
+                        if (it2->symbol == sym)
                         {
                             found = true;
                             break;
@@ -702,15 +702,10 @@ namespace TL
                     parameter_info_list
                     );
 
-            Source dependences_block;
-            if ( construct.get_data<ObjectList<IdExpression> >("input_dependences").size() > 0)
-                dependences_block << "nth_block();" ;
-
             Source destructor_calls;
             invoke_destructors(parameter_info_list, destructor_calls);
 
             parallel_body
-                << dependences_block
                 << private_declarations
                 << modified_parallel_body_stmt.prettyprint()
                 << destructor_calls
